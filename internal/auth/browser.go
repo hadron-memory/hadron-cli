@@ -43,6 +43,10 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 	if err != nil {
 		return nil, err
 	}
+	resource, err := DiscoverResource(ctx, opts.ServerURL, httpClient)
+	if err != nil {
+		return nil, err
+	}
 
 	pk, err := newPKCE()
 	if err != nil {
@@ -67,6 +71,8 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 		"state":                 {pk.State},
 		"code_challenge":        {pk.Challenge},
 		"code_challenge_method": {"S256"},
+		"resource":              {resource},
+		"scope":                 {"mcp"},
 	}.Encode()
 
 	fmt.Fprintln(opts.IO.ErrOut, "Opening your browser to sign in to Hadron...")
@@ -80,16 +86,17 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 		return nil, err
 	}
 
-	return exchangeCode(ctx, httpClient, meta.TokenEndpoint, clientID, code, pk.Verifier, loopback.RedirectURI())
+	return exchangeCode(ctx, httpClient, meta.TokenEndpoint, clientID, code, pk.Verifier, loopback.RedirectURI(), resource)
 }
 
-func exchangeCode(ctx context.Context, httpClient *http.Client, tokenEndpoint, clientID, code, verifier, redirectURI string) (*Token, error) {
+func exchangeCode(ctx context.Context, httpClient *http.Client, tokenEndpoint, clientID, code, verifier, redirectURI, resource string) (*Token, error) {
 	form := url.Values{
 		"grant_type":    {"authorization_code"},
 		"code":          {code},
 		"redirect_uri":  {redirectURI},
 		"client_id":     {clientID},
 		"code_verifier": {verifier},
+		"resource":      {resource},
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenEndpoint, strings.NewReader(form.Encode()))
 	if err != nil {
