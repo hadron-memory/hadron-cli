@@ -18,6 +18,37 @@ type Metadata struct {
 	RegistrationEndpoint  string `json:"registration_endpoint"`
 }
 
+// DiscoverResource fetches the RFC 9728 protected-resource metadata
+// and returns its canonical resource indicator. The server requires
+// a `resource` parameter (RFC 8707) on /oauth/authorize and binds
+// the authorization code to it at /oauth/token. A server without
+// RFC 9728 (404) yields "", and the flow omits the parameter.
+func DiscoverResource(ctx context.Context, serverURL string, httpClient *http.Client) (string, error) {
+	url := strings.TrimRight(serverURL, "/") + "/.well-known/oauth-protected-resource"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", exitcode.Newf(exitcode.Error, "protected-resource discovery failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return "", nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", exitcode.Newf(exitcode.Error, "protected-resource discovery at %s returned HTTP %d", url, resp.StatusCode)
+	}
+	var meta struct {
+		Resource string `json:"resource"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&meta); err != nil {
+		return "", fmt.Errorf("parsing protected-resource metadata: %w", err)
+	}
+	return meta.Resource, nil
+}
+
 // Discover fetches /.well-known/oauth-authorization-server.
 func Discover(ctx context.Context, serverURL string, httpClient *http.Client) (*Metadata, error) {
 	url := strings.TrimRight(serverURL, "/") + "/.well-known/oauth-authorization-server"

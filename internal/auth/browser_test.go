@@ -25,6 +25,7 @@ type fakeAS struct {
 	authCode           string
 	registeredRedirect string
 	seenVerifier       string
+	seenResource       string
 }
 
 func newFakeAS(t *testing.T) *fakeAS {
@@ -36,6 +37,12 @@ func newFakeAS(t *testing.T) *fakeAS {
 			"authorization_endpoint": as.server.URL + "/oauth/authorize",
 			"token_endpoint":         as.server.URL + "/oauth/token",
 			"registration_endpoint":  as.server.URL + "/oauth/register",
+		})
+	})
+	mux.HandleFunc("/.well-known/oauth-protected-resource", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"resource":              as.server.URL + "/mcp",
+			"authorization_servers": []string{as.server.URL},
 		})
 	})
 	mux.HandleFunc("/oauth/register", func(w http.ResponseWriter, r *http.Request) {
@@ -52,6 +59,14 @@ func newFakeAS(t *testing.T) *fakeAS {
 	mux.HandleFunc("/oauth/token", func(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
 		as.seenVerifier = r.Form.Get("code_verifier")
+		as.seenResource = r.Form.Get("resource")
+		// The real server requires a resource indicator (RFC 8707)
+		// bound from /authorize through /token.
+		if as.seenResource != as.server.URL+"/mcp" {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid_request", "error_description": "resource missing or mismatched"})
+			return
+		}
 		if r.Form.Get("code") != as.authCode || r.Form.Get("client_id") != as.clientID {
 			w.WriteHeader(http.StatusBadRequest)
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid_grant"})
@@ -82,6 +97,12 @@ func TestBrowserLoginHappyPath(t *testing.T) {
 		redirect := q.Get("redirect_uri")
 		if redirect != as.registeredRedirect {
 			return fmt.Errorf("authorize redirect_uri %q != registered %q", redirect, as.registeredRedirect)
+		}
+		if got := q.Get("resource"); got != as.server.URL+"/mcp" {
+			return fmt.Errorf("authorize resource %q, want %q", got, as.server.URL+"/mcp")
+		}
+		if got := q.Get("scope"); got != "mcp" {
+			return fmt.Errorf("authorize scope %q, want %q", got, "mcp")
 		}
 		// Simulate the consent redirect back to the loopback server.
 		go func() {
