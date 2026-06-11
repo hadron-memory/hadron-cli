@@ -1,5 +1,5 @@
 query Nodes(
-  $memory: String
+  $memory: ID
   $prefix: String
   $nodeType: String
   $tags: [String!]

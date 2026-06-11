@@ -1467,7 +1467,7 @@ func MyMemories(
 
 // The query executed by Nodes.
 const Nodes_Operation = `
-query Nodes ($memory: String, $prefix: String, $nodeType: String, $tags: [String!], $search: String, $limit: Int, $offset: Int) {
+query Nodes ($memory: ID, $prefix: String, $nodeType: String, $tags: [String!], $search: String, $limit: Int, $offset: Int) {
 	nodes(memory: $memory, prefix: $prefix, nodeType: $nodeType, tags: $tags, search: $search, limit: $limit, offset: $offset) {
 		id
 		memoryId

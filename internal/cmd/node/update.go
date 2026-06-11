@@ -27,14 +27,16 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		Use:   "update <loc>",
 		Short: "Update a node",
 		Long: `Update an existing node by its loc. Only the fields you pass
-change; everything else is preserved. Without -m/--memory the loc is
-resolved across every memory you can read; pass it to be precise.`,
+change; everything else is preserved (pass an explicit empty string,
+e.g. --description "", to clear a field). Without -m/--memory the loc
+is resolved across every memory you can read; pass it to be precise.`,
 		Example: `  hadron node update findings:flaky-ci -m acme.com:kb --name "Flaky CI (resolved)"
   cat updated.md | hadron node update findings:flaky-ci -m acme.com:kb --content -`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if name == "" && content == "" && contentFile == "" && nodeType == "" &&
-				description == "" && abstract == "" && len(tags) == 0 {
+			changed := cmd.Flags().Changed
+			if !changed("name") && !changed("content") && !changed("content-file") &&
+				!changed("type") && !changed("description") && !changed("abstract") && !changed("tag") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
 
@@ -56,26 +58,26 @@ resolved across every memory you can read; pass it to be precise.`,
 				Loc:      existing.Loc,
 				Name:     existing.Name,
 			}
-			if name != "" {
+			if changed("name") {
 				input.Name = name
 			}
-			body, err := resolveContent(content, contentFile, f.IOStreams.In)
-			if err != nil {
-				return err
-			}
-			if body != "" {
+			if changed("content") || changed("content-file") {
+				body, err := resolveContent(content, contentFile, f.IOStreams.In)
+				if err != nil {
+					return err
+				}
 				input.Content = &body
 			}
-			if nodeType != "" {
+			if changed("type") {
 				input.NodeType = &nodeType
 			}
-			if description != "" {
+			if changed("description") {
 				input.Description = &description
 			}
-			if abstract != "" {
+			if changed("abstract") {
 				input.Abstract = &abstract
 			}
-			if len(tags) > 0 {
+			if changed("tag") {
 				input.Tags = tags
 			}
 

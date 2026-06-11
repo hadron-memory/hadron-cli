@@ -18,7 +18,7 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 		Use:     "rm <memory-id-or-urn>",
 		Aliases: []string{"delete"},
 		Short:   "Delete a memory and all its nodes",
-		Example: `  hadron memory rm acme.com::scratch --yes`,
+		Example: `  hadron memory rm acme.com:scratch --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

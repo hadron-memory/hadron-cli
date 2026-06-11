@@ -96,7 +96,7 @@ func TestNodeAddSendsCreateOnly(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "add", "-m", "acme.com::kb", "--loc", "findings:flaky-ci",
+	root.SetArgs([]string{"node", "add", "-m", "acme.com:kb", "--loc", "findings:flaky-ci",
 		"--name", "Flaky CI", "--content", "body", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -140,6 +140,29 @@ func TestNodeUpdatePreservesUnsetFields(t *testing.T) {
 		if _, present := vars.Input[key]; present {
 			t.Errorf("unset field %q must be omitted from upsert input, got %v", key, vars.Input[key])
 		}
+	}
+}
+
+func TestNodeUpdateClearsFieldWithEmptyString(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"UpsertNode": `{"data":{"upsertNode":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "update", "findings:flaky-ci",
+		"--description", "", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input map[string]any `json:"input"`
+	}
+	_ = json.Unmarshal(captured["UpsertNode"], &vars)
+	// An explicitly-passed empty string must be SENT (the server
+	// normalizes it to null and clears the field), not omitted.
+	if v, present := vars.Input["description"]; !present || v != "" {
+		t.Errorf("explicit --description \"\" must send an empty string, got %v (present=%v)", v, present)
 	}
 }
 
@@ -233,13 +256,13 @@ func TestMemoryRm(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "rm", "acme.com::scratch", "--yes", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "rm", "acme.com:scratch", "--yes", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["DeleteMemory"], &vars)
-	if vars["id"] != "acme.com::scratch" {
+	if vars["id"] != "acme.com:scratch" {
 		t.Errorf("unexpected delete vars: %v", vars)
 	}
 }
