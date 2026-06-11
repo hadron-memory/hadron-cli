@@ -6,11 +6,11 @@ shelling out to it.
 
 ## Status
 
-v1 skeleton. Implemented: `auth login|logout|whoami|status`,
-`memory ls|get`, `app use`, `config get|set|list`, `api` (raw GraphQL
-escape hatch), `version`, `completion`, `agentic-usage`. The rest of
-the v1 surface (`memory set|rm`, `node *`, `app ls|install|uninstall`)
-is registered but not yet implemented (exits 2).
+Full v1 command surface implemented: `auth login|logout|whoami|status`,
+`memory ls|get|set|rm`, `node ls|get|add|update|rm`,
+`app ls|install|uninstall|use`, `config get|set|list`, `api` (raw
+GraphQL escape hatch), `version`, `completion`, `agentic-usage`.
+Not yet released — build from source.
 
 ## Install
 

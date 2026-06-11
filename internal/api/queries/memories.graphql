@@ -12,6 +12,68 @@ query MyMemories($includeAgentSystem: Boolean) {
   }
 }
 
+mutation CreateMemory(
+  $orgId: ID!
+  $name: String!
+  $memoryClass: MemoryClass
+  $shortDescription: String
+  $description: String
+  $tags: [String!]
+  $visibility: MemoryVisibility
+) {
+  createMemory(
+    orgId: $orgId
+    name: $name
+    memoryClass: $memoryClass
+    shortDescription: $shortDescription
+    description: $description
+    tags: $tags
+    visibility: $visibility
+  ) {
+    id
+    urn
+    name
+    shortDescription
+    class
+    visibility
+    organizationId
+    isEncrypted
+    updatedAt
+  }
+}
+
+mutation UpdateMemory(
+  $id: ID!
+  $name: String
+  $shortDescription: String
+  $description: String
+  $tags: [String!]
+  $visibility: MemoryVisibility
+) {
+  updateMemory(
+    id: $id
+    name: $name
+    shortDescription: $shortDescription
+    description: $description
+    tags: $tags
+    visibility: $visibility
+  ) {
+    id
+    urn
+    name
+    shortDescription
+    class
+    visibility
+    organizationId
+    isEncrypted
+    updatedAt
+  }
+}
+
+mutation DeleteMemory($id: ID!) {
+  deleteMemory(id: $id)
+}
+
 query GetMemory($id: ID!) {
   memory(id: $id) {
     id

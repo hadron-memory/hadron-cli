@@ -34,7 +34,7 @@ the Hadron portal or by the OAuth flow. The server defaults to
 |------|---------|
 | 0    | success |
 | 1    | generic failure |
-| 2    | usage error (bad flags/arguments, not-yet-implemented command) |
+| 2    | usage error (bad flags/arguments, missing --yes) |
 | 3    | authentication required or rejected |
 | 4    | not found (or not visible to this principal) |
 | 5    | conflict (e.g. duplicate install) |
@@ -44,9 +44,9 @@ the Hadron portal or by the OAuth flow. The server defaults to
 
 ```
 hadron auth login | logout | whoami | status
-hadron memory ls | get <id-or-urn> | set | rm        # set/rm pending
-hadron node ls | get | add | update | rm             # pending
-hadron app ls | install | uninstall | use <urn>      # use available
+hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn>
+hadron node ls [-m <memory>] | get <loc> | add | update <loc> | rm <loc>
+hadron app ls --org <org> | install | uninstall <id> | use <urn>
 hadron config get | set | list
 hadron api <query-or-mutation>                       # raw GraphQL
 hadron version
@@ -54,9 +54,23 @@ hadron completion <shell>
 hadron agentic-usage                                 # prints this doc
 ```
 
-Commands marked pending are registered and documented but exit 2
-with "not implemented yet" — check `hadron <group> --help` before
-relying on one.
+Conventions:
+
+- Memory URNs are `org:memory` (e.g. `hadronmemory.com:dev`). Where a
+  command takes an ID it also accepts the URN.
+- Node commands address nodes by their loc within a memory (e.g.
+  `findings:flaky-ci`). Without `-m/--memory` the loc resolves across
+  every memory you can read (the server picks one on collision);
+  always pass `-m <memory>` when you know the memory.
+- Destructive commands (`memory rm`, `node rm`, `app uninstall`)
+  prompt on a terminal and REQUIRE `--yes` when run non-interactively
+  (agents must always pass `--yes`). Without it they exit 2.
+- `memory set` creates when called without a positional argument
+  (requires `--org` and `--name`) and updates when given one. Only
+  fields passed as flags change.
+- `node add` fails if the loc already exists; `node update` modifies
+  an existing node and preserves unset fields. Content comes from
+  `--content "<text>"`, `--content -` (stdin), or `--content-file`.
 
 ## The escape hatch: hadron api
 
@@ -90,7 +104,23 @@ hadron auth whoami --json
 hadron memory ls --json
 
 # Inspect one memory by URN
-hadron memory get acme.com::project-memory --json
+hadron memory get acme.com:project-memory --json
+
+# List nodes in a memory
+hadron node ls --memory acme.com:kb --json
+
+# Read one node's content (scoped to a memory)
+hadron node get findings:flaky-ci -m acme.com:kb --json
+
+# Create a node from stdin
+cat finding.md | hadron node add -m acme.com:kb --loc findings:flaky-ci \
+  --name "Flaky CI" --content -
+
+# Update just the name (other fields preserved)
+hadron node update findings:flaky-ci -m acme.com:kb --name "Flaky CI (resolved)"
+
+# Delete (agents must pass --yes)
+hadron node rm findings:flaky-ci -m acme.com:kb --yes
 
 # Arbitrary query with a variable
 hadron api 'query($q: String!) { nodeSearch(query: $q) { nodes { loc name } } }' -F q="auth flow"
