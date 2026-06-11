@@ -1,0 +1,2010 @@
+type AddMemoryMemberPayload {
+  memoryMember: MemoryMember!
+}
+
+type Agent {
+  aiApiKeyPreview: String
+  aiModel: String
+  aiProvider: String
+
+  """
+  023-app-shape: the AppAgent join rows where this Agent is installed.
+  Use App.appAgents to get the join rows from the App side. Resolvable
+  to ADMIN/OWNER of the Agent's owning org.
+  """
+  appAgents: [AppAgent!]!
+  appCount: Int!
+
+  """
+  Apps that have this Agent installed (via the AppAgent join). After
+  spec 023-app-shape, an App can install multiple Agents; this list
+  contains every App where THIS Agent is one of the installed ones.
+  Resolvable to ADMIN/OWNER of the Agent's owning org; non-admins
+  see an empty list.
+  """
+  apps: [App!]!
+  createdAt: String!
+  description: String
+  hasAiApiKey: Boolean!
+  id: ID!
+  importedBy: [AgentImport!]!
+  imports: [AgentImport!]!
+  installationPolicy: InstallationPolicy!
+  memoryItems: [AgentMemoryItem!]!
+  memoryProvisioning: MemoryProvisioning!
+  name: String!
+
+  """
+  Org grants for this Agent. Resolvable to ADMIN/OWNER of the Agent's
+  owning org only.
+  """
+  orgGrants: [AgentOrgGrant!]!
+  organizationId: String!
+  properties: JSON
+  surfaces: [String!]!
+  systemMemoryId: String
+  systemPrompt: String
+  type: AgentType!
+  urn: String!
+  visibility: AgentVisibility!
+}
+
+type AgentAIConfig {
+  apiKey: String!
+  model: String!
+  provider: String!
+}
+
+type AgentImport {
+  createdAt: String!
+  importedAgent: Agent!
+  importedAgentId: ID!
+  parentAgent: Agent!
+  parentAgentId: ID!
+  position: Int!
+  required: Boolean!
+}
+
+type AgentMemoryItem {
+  createdAt: String!
+  id: ID!
+  memory: Memory!
+  role: String!
+}
+
+type AgentOrgGrant {
+  activatedAt: String
+  agent: Agent!
+  agentId: ID!
+  createdAt: String!
+  expiresAt: String
+  isActive: Boolean!
+  orgId: ID!
+  organization: Organization!
+  revokedAt: String
+  revokedBy: ID
+}
+
+type AgentSubscription {
+  activatedAt: String
+  agent: Agent
+  agentId: ID!
+  createdAt: String!
+  expiresAt: String
+  isActive: Boolean!
+  revokedAt: String
+  revokedBy: ID
+  user: User
+  userId: ID!
+}
+
+enum AgentType {
+  ASSISTANT
+  CHATBOT
+}
+
+"""
+035-visibility-enum-cleanup: agents have their own visibility enum,
+decoupled from MemoryVisibility. PERSONAL is the creator-only draft state.
+"""
+enum AgentVisibility {
+  ORGANIZATION
+  PERSONAL
+  PUBLIC
+}
+
+type App {
+  agent: Agent
+  agentId: ID
+  agentTools: [String!]!
+
+  """
+  023-app-shape: convenience that returns every installed Agent
+  (equivalent to App.appAgents.map(aa => aa.agent)). Previously was
+  a soft-deprecated single-element synthesis; now returns the FULL
+  multi-Agent set per spec 023 US1.
+  """
+  agents: [Agent!]!
+  aiModel: String
+  aiProvider: String
+  anonymousTtlDays: Int!
+
+  """
+  023-app-shape US1: Agents installed in this App, via the AppAgent
+  N:M join. Multiple Agents can be installed; one App credential
+  routes to all of them via the URN supplied in the request.
+  """
+  appAgents: [AppAgent!]!
+  appType: AppType!
+  createUserPermission: CreateUserPermission!
+  createdAt: String!
+  description: String
+  expiresAt: String
+  hasAiApiKey: Boolean!
+  id: ID!
+  identifyUserMethod: IdentifyUserMethod!
+
+  """
+  Spec 021 US1: the R2 canonical install URN combining the App's
+  identity with its installed Agent's author-org and slug. Format is
+  urn:agent:<installing-org>::<app-slug>::<author-org>:<agent-slug>.
+  Two orgs installing same-slug agents from different authors produce
+  distinct URNs that differ at the author-org segment, enabling
+  audit-log entries to identify each install unambiguously without a
+  PK disambiguator. Returns null when the App has no agent attached
+  (orphan apps from the 008 cutover; new apps require an agentId per
+  009).
+  """
+  installedAgentUrn: String
+  keys: [AppKey!]!
+  memberCount: Int!
+  members: [AppMember!]!
+  name: String!
+  organization: Organization
+  organizationId: String!
+  role: AppMembershipRole!
+  sessionTimeoutSeconds: Int!
+  surfaces: [String!]!
+  systemPrompt: String
+  trainingMode: Boolean!
+  updatedAt: String
+  urn: String!
+}
+
+type AppAIConfig {
+  apiKey: String!
+  model: String!
+  provider: String!
+}
+
+"""
+023-app-shape US1: the App↔Agent N:M join. Reintroduced after spec 008
+collapsed it; per FR-003 it carries NO role column (system memory is
+read-only to every App) and per FR-001 it carries NO trainingMode
+column (training mode is per-App, on App.trainingMode).
+"""
+type AppAgent {
+  agent: Agent!
+  app: App!
+  createdAt: String!
+  createdBy: String
+  updatedAt: String
+  updatedBy: String
+}
+
+type AppCreated {
+  app: App!
+  rawKey: String!
+}
+
+type AppKey {
+  appId: String!
+  createdAt: String!
+  id: ID!
+  keyPreview: String!
+  label: String
+  lastUsedAt: String
+  revokedAt: String
+}
+
+type AppKeyCreated {
+  key: AppKey!
+  rawKey: String!
+}
+
+type AppMember {
+  app: App!
+  appId: ID!
+  createdAt: String!
+
+  """
+  023-app-shape US2: true when this User is an AppMember of the App
+  but NOT an OrgMember of the App's owning Organization. Derived at
+  query time from the absence of an OrgMember row (per spec 023
+  FR-011 — no appOnly column is added to the AppMember table).
+  Unlocks the B2C / therapy / consumer use cases where end-users
+  use an App without joining the operator's org.
+  """
+  isOrgExternal: Boolean!
+  role: String!
+  updatedAt: String
+  user: User!
+  userId: ID!
+}
+
+enum AppMembershipRole {
+  ADMIN
+  CONTRIBUTOR
+  OWNER
+  READER
+}
+
+enum AppMemoryKind {
+  none
+  shared
+  user
+}
+
+enum AppType {
+  AGENT
+  AUTOMATION
+  CHATBOT
+  CLOUD
+  IOT
+  WORKSTATION
+}
+
+type Asset {
+  deletedAt: String
+  description: String
+  filename: String!
+  id: ID!
+  memoryId: ID!
+  mimeType: String!
+  scanStatus: AssetScanStatus!
+  sizeBytes: Int!
+  uploadedAt: String!
+  uploadedBy: ID!
+
+  """The asset's URN: <memory.urn>:assets:<asset.id>."""
+  urn: String!
+}
+
+type AssetDownloadUrl {
+  expiresAt: String!
+  filename: String!
+  mimeType: String!
+  sizeBytes: Int!
+  url: String!
+}
+
+type AssetListResult {
+  assets: [Asset!]!
+  hasMore: Boolean!
+  total: Int!
+}
+
+type AssetPutHeader {
+  name: String!
+  value: String!
+}
+
+enum AssetScanStatus {
+  BLOCKED
+  CLEAN
+  PENDING
+}
+
+input BeginAssetUploadInput {
+  """Accepts the entity's ID or URN."""
+  agentUrn: String!
+  description: String
+  filename: String!
+  mimeType: String!
+  sizeBytes: Int!
+  uploadIntent: UploadIntent!
+  uploadRequestId: String
+}
+
+type BeginAssetUploadResult {
+  allowedMimeType: String!
+  expiresAt: String!
+  maxSizeBytes: Int!
+  putHeaders: [AssetPutHeader!]!
+  putUrl: String!
+  storageKey: String!
+  uploadId: ID!
+}
+
+input BeginAssetUploadV2Input {
+  description: String
+  filename: String!
+
+  """
+  Memory reference. Accepts the entity's ID (CUID / 32-char hex) or its
+  URN (per spec 007 ID-or-URN dispatch). URN inputs MUST be fully
+  qualified (org:memory) per spec 022 — relative-form URNs are
+  rejected as GraphQL errors with extensions.code "URN_NOT_QUALIFIED".
+  """
+  memoryId: ID!
+  mimeType: String!
+  sizeBytes: Int!
+  uploadIntent: UploadIntent!
+  uploadRequestId: String
+}
+
+type Chat {
+  conversationName: String
+  createdAt: String!
+  createdBy: ID
+  id: ID!
+  lastMessageAt: String
+  loc: String!
+  messageCount: Int!
+  scope: ChatScope!
+  stageName: String
+  title: String!
+}
+
+type ChatMessage {
+  content: String!
+  createdAt: String!
+  role: String!
+  seq: Int
+}
+
+type ChatPromptResult {
+  messageHistory: JSON!
+  summarizationNeeded: SummarizationRequest
+  systemMessage: String!
+  tools: JSON
+}
+
+type ChatResponseResult {
+  chatEnded: Boolean!
+  conversationHandoff: String
+  displayMessage: String!
+  newStageName: String
+  offTrackReason: String
+  onTrack: Boolean!
+  stageTransitioned: Boolean!
+}
+
+enum ChatScope {
+  private
+  shared
+}
+
+type ChatStartResult {
+  chatId: String!
+  conversationName: String
+  stageName: String
+  systemMessage: String!
+  tools: JSON
+}
+
+input CompleteAssetUploadInput {
+  uploadId: ID!
+}
+
+type CreateMemorySharePayload {
+  memoryShare: MemoryShare!
+}
+
+enum CreateUserPermission {
+  DENY
+  EXPLICIT
+  IMPLICIT
+}
+
+type Edge {
+  condition: JSON
+  data: JSON
+  id: ID!
+  label: String!
+  priority: Int!
+  source: Node!
+  target: Node!
+}
+
+input EdgeInput {
+  label: String!
+  sourceLoc: String!
+  targetLoc: String!
+}
+
+type EditorLockResult {
+  expiresAt: String
+  locked: Boolean!
+  lockedBy: String
+}
+
+enum EmbeddingSource {
+  abstract
+  both
+  contentChunks
+}
+
+type ExchangeConnection {
+  createdAt: String!
+  displayName: String
+  id: ID!
+  lastError: String
+  lastSyncAt: String
+  mailboxEmail: String!
+  organizationId: String!
+  syncEnabled: Boolean!
+  syncStatus: SyncStatus!
+  updatedAt: String!
+  userId: String!
+}
+
+type ExchangeFolder {
+  displayName: String!
+  id: ID!
+  totalItemCount: Int
+  unreadItemCount: Int
+}
+
+type ExchangeMessage {
+  body: String
+  bodyPreview: String
+  from: String
+  hasAttachments: Boolean
+  id: ID!
+  isRead: Boolean
+  receivedDateTime: String
+  subject: String
+}
+
+enum IdentifyUserMethod {
+  SECRET
+  USER_ID
+}
+
+"""
+Return shape for the installAgentIntoApp mutation. Wraps the new
+AppAgent row so callers can read its audit fields without re-querying.
+"""
+type InstallAgentIntoAppPayload {
+  appAgent: AppAgent!
+}
+
+type InstallationPolicy {
+  """
+  Integer-as-string OR the sentinel 'unlimited'. GraphQL does not have an
+  Int|String union; clients parse: parseInt(maxMembers) succeeds for
+  integer values; 'unlimited' is the sentinel.
+  """
+  maxMembers: String!
+  memberRoles: [String!]!
+}
+
+scalar JSON
+
+"""
+Return shape for the joinApp mutation (023-app-shape US2). The
+AppMember row is included so callers can read its derived
+isOrgExternal flag without a re-query.
+"""
+type JoinAppPayload {
+  appMember: AppMember!
+}
+
+"""
+Return shape for the leaveApp mutation (023-app-shape US2). The
+user's personal-class Memory at (appId, userId) is NOT
+cascade-deleted (spec 008 FR-015 orphan retention); it re-attaches
+if the user later re-joins the same App.
+"""
+type LeaveAppPayload {
+  appId: ID!
+  userId: ID!
+}
+
+type Memory {
+  acceptsUploads: Boolean!
+  agent: Agent
+  anonymousExpiresAt: String
+  app: App
+  appId: ID
+  category0: String
+  category1: String
+  category2: String
+
+  """
+  Spec 033 US2 — overlap between consecutive chunks in tokens. Null = platform default (64).
+  Must be < chunkTokens.
+  """
+  chunkOverlap: Int
+
+  """
+  Spec 033 US2 — chunk-window size in tokens (~4 chars/token). Null = platform default (512).
+  Applies when embeddingSource includes content chunks.
+  """
+  chunkTokens: Int
+  class: MemoryClass!
+  createdAt: String!
+  description: String
+  embeddingSource: EmbeddingSource!
+
+  """
+  Spec 033 US2 — force the fixed-size chunking strategy, bypassing the
+  structure-aware default. Useful when the content's heading structure
+  is unreliable (e.g. transcripts, machine-generated reports).
+  """
+  forceFixedSize: Boolean!
+  heroUrl: String
+  homeUrl: String
+  iconUrl: String
+  id: ID!
+  isEncrypted: Boolean!
+  lastSyncedAt: String
+  license: String
+
+  """
+  023-app-shape US4: team membership rows on this memory. Non-empty
+  only when class = group (FR-027). Visible to any current member
+  (any role) and to ADMIN/OWNER of the memory's owning org.
+  """
+  members: [MemoryMember!]!
+  name: String!
+  organization: Organization
+  organizationId: String!
+  pendingEdgeCount: Int!
+  readBranch: String
+
+  """
+  023-app-shape US3: cross-user grants on this memory. Non-empty
+  only when class = personal (FR-018). Includes grantee + role for
+  each row. Visible only to the principal (memory.userId) and to
+  ADMIN/OWNER of the memory's owning org.
+  """
+  shares: [MemoryShare!]!
+  shortDescription: String
+  source: String
+  subscriptions: [MemorySubscription!]!
+  syncError: String
+  syncStatus: SyncStatus!
+  tags: [String!]!
+  updatedAt: String!
+  urn: String!
+  userId: ID
+  userMemoryOfAgentId: String
+  vectorIndexEnabled: Boolean!
+
+  """
+  Spec 033 FR-026 — timestamp at which the memory owner accepted the
+  encrypted-memory vector-inversion disclosure. Set when the caller
+  passes acknowledgeVectorInversionRisk: true on updateMemory for an
+  isEncrypted: true memory enabling vectorIndexEnabled for the first
+  time. The portal surfaces this readback so the user can confirm
+  when they accepted the tradeoff (the disclosure text is the
+  FR_026_DISCLOSURE constant in src/lib/entityRef/errors.ts).
+  Survives a revoke + re-enable cycle (never cleared). Null for
+  unencrypted memories and for encrypted memories where the index
+  was never enabled.
+  """
+  vectorIndexEncryptedAckAt: String
+  visibility: MemoryVisibility
+  writeBranch: String
+}
+
+enum MemoryClass {
+  app
+
+  """
+  023-app-shape US4: team-shared memory with symmetric membership.
+  Governed by a list of MemoryMember rows (each with reader/writer/
+  owner role) — no single owner field on Memory. Closes the
+  Company Brain gap that wasn't covered by the four legacy classes.
+  """
+  group
+  knowledge
+  personal
+
+  """
+  Single-owner, owner-only memory — no MemoryShare path (not
+  shareable), no ADMIN/OWNER bypass. Spec 034 (hadron-server #242)
+  made it user-creatable via createMemory: free-standing (no
+  app/agent) or app-scoped. May opt into encrypt-at-rest
+  (the private CLASS marks it; visibility is NULL), but the encryption
+  implementation itself is a deferred follow-up — do NOT rely on
+  at-rest encryption for secret material yet.
+  """
+  private
+  system
+}
+
+"""
+023-app-shape US4: symmetric team-membership row for group-class
+memory. The "Company Brain" model — multiple users collaboratively
+read/write a shared memory, governance by role, no single owner
+on the Memory itself.
+"""
+type MemoryMember {
+  createdAt: String!
+  createdBy: String
+  memory: Memory!
+  role: MemoryMemberRole!
+  updatedAt: String
+  updatedBy: String
+  user: User!
+}
+
+"""
+023-app-shape US4: role on a MemoryMember row. Symmetric team
+membership for group-class memory.
+- reader: read access.
+- writer: read + write (the member can add/edit/delete nodes
+  within the memory).
+- owner: read + write + management — add/remove other members,
+  change roles, delete the Memory itself. Subject to the
+  last-owner protection rule (FR-038): the platform refuses
+  to remove or demote the sole remaining owner; the path to
+  fully empty a group memory is to delete it.
+"""
+enum MemoryMemberRole {
+  owner
+  reader
+  writer
+}
+
+type MemoryProvisioning {
+  appMemory: AppMemoryKind!
+}
+
+"""
+023-app-shape US3: asymmetric cross-user grant on a personal-class
+Memory. The principal (memory.userId) grants a grantee read/write
+access. Used for per-pairing isolation patterns (e.g., Alice's
+personal Memory paired-with-Mentor-A is distinct from her
+paired-with-Mentor-B Memory, each with its own MemoryShare).
+"""
+type MemoryShare {
+  createdAt: String!
+
+  """
+  The API actor who created the row. Distinct from grantor when an
+  App backend creates the share on the principal's behalf.
+  """
+  createdBy: String
+
+  """The User who was granted access."""
+  grantee: User!
+
+  """
+  The principal of the Memory (Memory.userId). Per spec 023 FR-019
+  this is always the principal, even when an App backend made the
+  API call on the principal's behalf — that actor is recorded in
+  createdBy instead.
+  """
+  grantor: User!
+  memory: Memory!
+  role: MemoryShareRole!
+  updatedAt: String
+  updatedBy: String
+}
+
+"""
+023-app-shape US3: role on a MemoryShare row. Asymmetric grant
+for personal-class memory.
+- reader: read access only.
+- writer: read + write (the grantee can add/edit/delete nodes
+  within the memory).
+"""
+enum MemoryShareRole {
+  reader
+  writer
+}
+
+type MemorySubscription {
+  activated: Boolean!
+  createdAt: String!
+  id: ID!
+  memory: Memory!
+  organization: Organization!
+  role: Role!
+}
+
+"""
+035-visibility-enum-cleanup: meaningful only for knowledge
+(PUBLIC/ORGANIZATION) and group (GROUP); null otherwise. PERSONAL/PRIVATE
+were dropped — privacy is the personal/private memory CLASS now.
+"""
+enum MemoryVisibility {
+  """
+  023-app-shape US4: team-shared visibility. Bound bidirectionally
+  to MemoryClass.group by the chk_memory_group_visibility CHECK
+  constraint — a memory has class=group iff visibility=GROUP.
+  """
+  GROUP
+  ORGANIZATION
+  PUBLIC
+}
+
+type Mutation {
+  acceptInvitation(slug: String!): Boolean!
+
+  """
+  Acquire (or renew) the editor lock for an Agent's system memory.
+  
+  Accepts the entity's ID or URN.
+  """
+  acquireEditorLock(agentId: ID!): EditorLockResult!
+
+  """
+  DEPRECATED: use installAgentIntoApp. Carried for source-compat with
+  pre-023 portal callers.
+  
+  Accepts the entity's ID or URN.
+  """
+  addAgentToApp(agentId: ID!, appId: ID!, trainingMode: Boolean): App! @deprecated(reason: "Use installAgentIntoApp (spec 023-app-shape US1). Returns Payload type with the AppAgent row.")
+
+  """
+  023-app-shape US4 — add a team member to a group-class Memory.
+  Idempotent on the (memoryId, userId) PK: re-calling with a
+  different role upserts the role.
+  
+  The caller MUST be an owner of the Memory (role = owner). The
+  bootstrap case is handled by createMemory itself, which adds the
+  creator as the first owner of a newly-created group memory.
+  
+  Error codes (extensions.code, Error.name style):
+    - UNAUTHENTICATED — no logged-in user in context.
+    - FORBIDDEN — caller is not an owner of the memory. (Uniform
+      for missing-memory / wrong-class / not-an-owner cases, by
+      the same don't-leak-metadata rule as MemoryShare mutations.)
+    - InvalidMemoryClassForMemberError — memory is not group-class
+      (only reachable from non-GraphQL callers in v1 — the
+      caller-authority guard short-circuits to FORBIDDEN first).
+    - MemoryMemberUserMissingError — the userId doesn't resolve.
+    - LastOwnerProtectedError (FR-038) — reachable via the
+      idempotent upsert path when the call would demote an
+      existing sole owner to reader/writer.
+  """
+  addMemoryMember(memoryId: ID!, role: MemoryMemberRole!, userId: ID!): AddMemoryMemberPayload!
+
+  """
+  Attach a Memory to an Agent.
+  
+  Accepts the entity's ID or URN.
+  """
+  addMemoryToAgent(agentId: ID!, memoryId: ID!, role: String): Agent!
+
+  """Accepts the entity's ID or URN (orgId)."""
+  addOrgMember(orgId: ID!, role: Role!, userId: ID!): OrgMember!
+
+  """
+  Add a public memory to the current user's personal workspace.
+  
+  Accepts the entity's ID or URN.
+  """
+  addToMyMemories(memoryId: ID!): Boolean!
+  beginAssetUpload(input: BeginAssetUploadInput!): BeginAssetUploadResult!
+  beginAssetUploadV2(input: BeginAssetUploadV2Input!): BeginAssetUploadResult!
+
+  """
+  Clear an Agent's AI provider config.
+  
+  Accepts the entity's ID or URN.
+  """
+  clearAgentAIConfig(agentId: ID!): Agent!
+  completeAssetUpload(input: CompleteAssetUploadInput!): Asset!
+
+  """
+  Create an Agent in an organization.
+  
+  Accepts the entity's ID or URN.
+  """
+  createAgent(description: String, name: String!, orgId: ID!, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, visibility: AgentVisibility): Agent!
+
+  """
+  Install an Agent into an organization, creating an App that deploys it.
+  
+  Auto-provisions an AgentOrgGrant for (orgId, agentId) on first install,
+  and adds the caller as an AppMember with role 'owner'. Required
+  AgentImports cascade automatically; optional imports cascade only when
+  their id appears in installOptional.
+  
+  009-install-agent-flow: the cross-org install restriction (FR-009) is
+  enforced at the portal — the Install affordance is hidden for Agents
+  not owned by the calling org. The server still auto-provisions grants
+  on first install (preserved from 008); a hard server-side cross-org
+  gate is reserved for the marketplace spec.
+  
+  Accepts the entity's ID or URN.
+  """
+  createApp(
+    """
+    The Agent this App deploys. Required as of 009-install-agent-flow:
+    every App must reference an Agent. The server itself accepts any
+    Agent the caller can resolve and auto-provisions an AgentOrgGrant
+    (008 behavior preserved); the portal's install flow restricts the
+    affordance to Agents owned by the caller org. A hard server-side
+    cross-org gate is reserved for the marketplace spec.
+    """
+    agentId: ID!
+    agentTools: [String!]
+    aiApiKey: String
+    aiModel: String
+    aiProvider: String
+    anonymousTtlDays: Int
+    appType: AppType
+    createUserPermission: CreateUserPermission
+    description: String
+    expiresAt: String
+    identifyUserMethod: IdentifyUserMethod
+
+    """
+    008-agent-installation: optional dep Agent ids to cascade-install.
+    Required imports of the parent Agent always cascade; optional imports
+    install only when their id appears here. Pass [] (or omit) to skip
+    all optional deps. v1 accepts ID or URN.
+    """
+    installOptional: [ID!]
+    name: String!
+    orgId: ID!
+    role: AppMembershipRole
+    sessionTimeoutSeconds: Int
+    surfaces: [String!]
+    systemPrompt: String
+    trainingMode: Boolean
+    urn: String
+  ): App!
+
+  """
+  Mint a new AppKey for an App.
+  
+  Accepts the entity's ID or URN.
+  """
+  createAppKey(appId: ID!, label: String): AppKeyCreated!
+  createAppUser(email: String, externalId: String!, handle: String, name: String): User!
+  createEdge(condition: JSON, data: JSON, label: String!, priority: Int, sourceNodeId: ID!, targetNodeId: ID!): Edge!
+
+  """
+  Create a memory in an organization. Accepts the entity's ID or URN
+  for orgId.
+  
+  Defaults to knowledge-class with ORGANIZATION visibility. Pass
+  memoryClass: group + visibility: GROUP for a group-class memory
+  (023-app-shape US4; the caller is auto-added as the first owner),
+  or memoryClass: personal | private for an owner-only memory the
+  caller owns (spec 034 — free-standing, no app/agent; the caller
+  must be a member of the org container). system- and app-class
+  memories are NOT created here — they auto-provision via
+  Agent.systemMemoryId / the App install path.
+  """
+  createMemory(
+    category0: String
+    category1: String
+    category2: String
+    description: String
+    heroUrl: String
+    homeUrl: String
+    iconUrl: String
+    license: String
+
+    """
+    'knowledge' (default), 'group', or the owner-only 'personal' /
+    'private' (spec 034). 'system' and 'app' are rejected — they
+    auto-provision via different code paths.
+    """
+    memoryClass: MemoryClass
+    name: String!
+    orgId: ID!
+    readBranch: String
+    shortDescription: String
+    source: String
+    tags: [String!]
+    visibility: MemoryVisibility
+    writeBranch: String
+  ): Memory!
+
+  """
+  023-app-shape US3 — asymmetric cross-user grant on a personal-class
+  Memory. The principal (memory.userId) grants a grantee read or
+  write access. Used for the per-pairing pattern (Alice's
+  paired-with-Mentor-A memory is distinct from her
+  paired-with-Mentor-B memory; each gets its own MemoryShare).
+  
+  Upsert semantics: re-calling with a different role on an existing
+  (memoryId, granteeId) pair updates the role rather than throwing.
+  
+  For v1 the caller MUST be the principal themselves (memory.userId
+  === ctx.userId). The Agent-mediated path (App backend acting on
+  the principal's behalf via MCP) is supported by the access-control
+  predicate but not by this GraphQL surface — see the deferred
+  policy discussion linked from joinApp.ts.
+  
+  Error codes (extensions.code, Error.name style):
+    - UNAUTHENTICATED — no logged-in user in context.
+    - FORBIDDEN — caller is not the Memory's principal. The
+      caller-authority guard runs first and deliberately does not
+      differentiate between "memory doesn't exist", "memory is not
+      personal-class", and "caller isn't the principal" — all three
+      return FORBIDDEN so memory metadata isn't leaked to
+      non-principals.
+    - MemoryShareGranteeMissingError — granteeId doesn't resolve to
+      an existing User. Only reachable when the caller passes the
+      principal guard.
+    - InvalidMemoryClassForShareError / MemoryNotFoundForShareError —
+      defined on the controller for completeness; functionally
+      unreachable via this GraphQL mutation in v1 because the
+      caller-authority guard short-circuits to FORBIDDEN first.
+  """
+  createMemoryShare(granteeId: ID!, memoryId: ID!, role: MemoryShareRole!): CreateMemorySharePayload!
+
+  """
+  Create a cross-org Memory subscription.
+  
+  Accepts the entity's ID or URN.
+  """
+  createMemorySubscription(memoryId: ID!, orgId: ID!, role: Role!): MemorySubscription!
+  createOrganization(name: String!, urn: String!): Organization!
+
+  """
+  Snapshot an Agent's system memory as a new revision.
+  
+  Accepts the entity's ID or URN.
+  """
+  createRevision(agentId: ID!, description: String): RevisionResult!
+
+  """
+  025-oauth-for-mcp FR-004: mint a new user-scoped API key for the
+  calling User. Returns the raw key exactly once (the server stores
+  only the SHA-256 hash). Rejected with UNAUTHENTICATED for AppKey-
+  resolved callers (no user in context). Per Clarifications, label
+  is optional (portal defaults to a placeholder when omitted).
+  """
+  createUserApiKey(label: String): UserApiKeyCreateResult!
+
+  """
+  User invitations (org ADMIN or platform ADMIN).
+  
+  Accepts the entity's ID or URN.
+  """
+  createUserInvitation(email: String, expiresInDays: Int, githubUsername: String, maxActivations: Int, memberRole: Role!, name: String, orgId: ID!): UserInvitation!
+
+  """
+  Soft-delete an Agent.
+  
+  Accepts the entity's ID or URN.
+  """
+  deleteAgent(id: ID!): Boolean!
+
+  """
+  Soft-delete an App.
+  
+  Accepts the entity's ID or URN.
+  """
+  deleteApp(id: ID!): Boolean!
+  deleteChat(chatId: String!): Boolean!
+  deleteEdge(edgeId: ID!): Boolean!
+  deleteExchangeConnection(id: ID!): Boolean!
+
+  """
+  Soft-delete a Memory.
+  
+  Accepts the entity's ID or URN.
+  """
+  deleteMemory(id: ID!): Boolean!
+
+  """
+  Delete a cross-org Memory subscription.
+  
+  Accepts the entity's ID or URN.
+  """
+  deleteMemorySubscription(memoryId: ID!, orgId: ID!): Boolean!
+  deleteNode(loc: String!, memoryId: String!): Boolean!
+
+  """
+  Soft-delete an Organization.
+  
+  Accepts the entity's ID or URN.
+  """
+  deleteOrganization(id: ID!): Boolean!
+
+  """
+  Convert an existing plaintext memory to an encrypted one. The caller
+  provides the data key; all existing node content/data is re-written
+  as ciphertext in a single transaction.
+  
+  Accepts the entity's ID or URN.
+  """
+  encryptMemory(dataKey: String!, memoryId: ID!): Memory!
+  endAgentSession(sessionId: ID!): Boolean!
+  endSession(errorCount: Int, id: ID!, inputTokens: Int, outputTokens: Int, summary: String, turnCount: Int): Session!
+
+  """
+  Idempotent UPSERT of an AppMember row. Per spec 008-agent-installation
+  FR-004 / FR-016. The role MUST be a value present in the parent
+  Agent's installationPolicy.memberRoles. Creating a new member is
+  rejected if the App's current member count meets or exceeds the
+  Agent's installationPolicy.maxMembers. Updating an existing member's
+  role does NOT trigger the maxMembers check.
+  
+  Accepts the entity's ID or URN.
+  """
+  ensureAppMember(appId: ID!, role: String!, userId: ID!): AppMember!
+  exchangeMoveMessage(connectionId: ID!, folderId: String!, messageId: ID!): Boolean!
+  exchangeReply(body: String!, connectionId: ID!, messageId: ID!): Boolean!
+
+  """
+  Install an Agent into an App (023-app-shape US1). Creates an AppAgent
+  row joining the two. An App can have multiple Agents installed; one
+  credential addresses all of them.
+  
+  Rejects with code DUPLICATE_APP_AGENT when the Agent is already
+  installed in the App.
+  
+  Accepts the entity's ID or URN for both appId and agentId. Optional
+  trainingMode flag updates the per-App training flag (applies to
+  every installed Agent — training mode is per-App, not per-Agent,
+  per spec 023 FR-001).
+  """
+  installAgentIntoApp(agentId: ID!, appId: ID!, trainingMode: Boolean): InstallAgentIntoAppPayload!
+  inviteUser(email: String, expiresInDays: Int, githubUsername: String, maxActivations: Int, name: String): UserInvitation!
+
+  """
+  023-app-shape US2 — user-level install. The currently-logged-in user
+  joins the App as an AppMember. NO OrgMember check (spec 023 FR-009)
+  so this works for B2C / consumer / therapy use cases where the
+  end-user is not in the App's operator org.
+  
+  Role defaults to the first value in the Agent's
+  installationPolicy.memberRoles (the conventional "guest" or "owner"
+  slot). Idempotent — if the user is already an AppMember of the App,
+  the existing row is returned.
+  
+  Error codes (GraphQLError extensions.code, Error.name style):
+    - UNAUTHENTICATED — no logged-in user in context.
+    - AppNotFoundError — the App does not exist or is soft-deleted.
+    - AppUninstalledError — the App is in the spec-021 soft-uninstall
+      lifecycle phase.
+    - OrphanAppError — the App has no installed Agents (so there's
+      no Agent.installationPolicy to consult).
+    - NoMemberRolesError — the primary Agent's
+      installation_policy.memberRoles is empty, so joinApp can't
+      pick a default role.
+    - MaxMembersExceededError — the Agent's maxMembers limit is hit.
+    - InvalidRoleError — the picked default role isn't accepted by
+      the Agent's policy (rare; would indicate a policy update
+      race).
+  
+  Accepts the entity's ID or URN.
+  """
+  joinApp(appId: ID!): JoinAppPayload!
+  joinWaitingList(email: String!, requestedFeatures: String): Boolean!
+
+  """
+  023-app-shape US2 — user-level uninstall. The currently-logged-in user
+  leaves an App. Idempotent (no-op when not a member). The user's
+  personal-class Memory at (appId, userId) is NOT cascade-deleted
+  per spec 008 FR-015 — it re-attaches if the user later re-joins.
+  
+  Accepts the entity's ID or URN.
+  """
+  leaveApp(appId: ID!): LeaveAppPayload!
+
+  """
+  Link a GitHub App installation to an organization (org ADMIN or platform ADMIN).
+  
+  Accepts the entity's ID or URN.
+  """
+  linkGithubApp(installationId: Int!, orgId: ID!): Organization!
+
+  """
+  Link an anonymous memory to a real user (converts session memory
+  ownership). Providing dataKey encrypts the memory in place atomically
+  with the link.
+  
+  Accepts the entity's ID or URN.
+  """
+  linkMemoryToUser(dataKey: String, externalUserId: String!, memoryId: ID!): Memory!
+  moveNode(from: String!, memoryId: String!, targetMemoryId: String, to: String!): Node!
+  processChatResponse(chatId: String!, toolResponse: JSON!): ChatResponseResult!
+
+  """
+  Publish a dependency edge from a parent Agent to an imported Agent
+  (008-agent-installation FR-005). v1 supports 1-level imports only:
+  the imported Agent must not itself be a parent of any other import.
+  
+  Authorization: ADMIN/OWNER of the parent Agent's owning org. The
+  parent's owning org MUST hold an active AgentOrgGrant for the
+  imported Agent — bundling requires the same kind of license that
+  installation does.
+  
+  Accepts the entity's ID or URN for both Agent ids.
+  """
+  publishAgentImport(importedAgentId: ID!, parentAgentId: ID!, position: Int!, required: Boolean = true): AgentImport!
+
+  """
+  Publish a revision and pin the Agent to it.
+  
+  Accepts the entity's ID or URN.
+  """
+  publishRevision(agentId: ID!, revisionLoc: String!, versionLabel: String): RevisionResult!
+
+  """
+  Push all nodes in a memory to its configured git repo.
+  
+  Accepts the entity's ID or URN.
+  """
+  pushMemoryToGit(id: ID!): Boolean!
+  recordUsage(event: UsageEventInput!): Boolean!
+
+  """
+  App key management — revoke all active keys for an App and mint a
+  fresh one. (See createAppKey / revokeAppKey / deleteApp below.)
+  
+  Accepts the entity's ID or URN.
+  """
+  regenerateAppKey(id: ID!): AppCreated!
+
+  """
+  Release the editor lock for an Agent's system memory.
+  
+  Accepts the entity's ID or URN.
+  """
+  releaseEditorLock(agentId: ID!): Boolean!
+
+  """
+  DEPRECATED: use uninstallAgentFromApp. Carried for source-compat
+  with pre-023 portal callers.
+  
+  Accepts the entity's ID or URN.
+  """
+  removeAgentFromApp(agentId: ID!, appId: ID!): App! @deprecated(reason: "Use uninstallAgentFromApp (spec 023-app-shape US1).")
+
+  """
+  Delete a dependency edge between two Agents. Idempotent (no-op when
+  the row doesn't exist). Apps that already installed the imported
+  Agent are unaffected; removing the import only stops *future*
+  parent installs from cascading the dep.
+  
+  Accepts the entity's ID or URN.
+  """
+  removeAgentImport(importedAgentId: ID!, parentAgentId: ID!): Boolean!
+
+  """
+  Delete an AppMember row. Idempotent (no-op when the row doesn't exist).
+  Personal-class memory at (appId, userId) is retained as an orphan per
+  FR-015 — re-attaches automatically if the user later rejoins the same
+  App.
+  
+  Accepts the entity's ID or URN.
+  """
+  removeAppMember(appId: ID!, userId: ID!): Boolean!
+
+  """
+  Detach a Memory from an Agent.
+  
+  Accepts the entity's ID or URN.
+  """
+  removeMemoryFromAgent(agentId: ID!, memoryId: ID!): Agent!
+
+  """
+  023-app-shape US4 — remove a team member. Idempotent. Removing
+  the LAST owner is rejected with LastOwnerProtectedError (FR-038)
+  — group memories must always have ≥1 owner; the path to fully
+  empty one is to delete the Memory.
+  
+  Removing the last non-owner does NOT delete the Memory (FR-031);
+  the row persists with its remaining owner(s).
+  
+  Caller-authority: either an owner of the Memory, or the member
+  being removed (self-removal).
+  """
+  removeMemoryMember(memoryId: ID!, userId: ID!): RemoveMemoryMemberPayload!
+
+  """Accepts the entity's ID or URN (orgId)."""
+  removeOrgMember(orgId: ID!, userId: ID!): Boolean!
+  replaceSubtree(edges: [EdgeInput!]!, memoryId: String!, nodes: [NodeInput!]!, ownerRepo: String!): Int!
+  restoreAsset(assetId: ID!): Asset!
+  restoreNodeVersion(versionId: ID!): Node!
+
+  """
+  Restore an Agent's system memory from a revision (auto-saves first).
+  
+  Accepts the entity's ID or URN.
+  """
+  restoreRevision(agentId: ID!, revisionLoc: String!): RevisionResult!
+
+  """
+  005-agent-subscription FR-023 + FR-028 + FR-029: revoke a user's
+  AgentSubscription. Authorized for ADMIN/OWNER of the Agent's owning
+  org. Side effect: empty personal Memory of (user, agent) is hard-
+  deleted; non-empty is retained with userMemoryOfAgentId preserved.
+  
+  Accepts the entity's ID or URN (agentId).
+  """
+  revokeAgentSubscription(agentId: ID!, userId: ID!): AgentSubscription!
+  revokeAppKey(id: ID!): Boolean!
+
+  """
+  023-app-shape US3 — revoke a MemoryShare. Per FR-022, revocation
+  takes effect on the next read (there's no "deactivated" state;
+  just a row delete). Idempotent.
+  
+  Caller-authority rule matches createMemoryShare.
+  """
+  revokeMemoryShare(granteeId: ID!, memoryId: ID!): RevokeMemorySharePayload!
+
+  """
+  025-oauth-for-mcp FR-004: revoke a user-scoped API key owned by
+  the calling User. Returns the updated UserApiKey so the portal
+  can render the new revokedAt without a refetch (PR-137 review
+  delta D3 — was Boolean). Idempotent for already-revoked keys;
+  rejected with FORBIDDEN if the key belongs to another user;
+  NOT_FOUND if id does not exist; UNAUTHENTICATED for AppKey-
+  resolved callers.
+  """
+  revokeUserApiKey(id: ID!): UserApiKey!
+  saveChatSummary(chatId: String!, summary: String!): Boolean!
+  sendChatMessage(chatId: String!, userMessage: String!): ChatPromptResult!
+  sendContactMessage(email: String!, message: String!, name: String!): Boolean!
+  setAgentAssetUploadEnabled(input: SetAgentAssetUploadEnabledInput!): App!
+
+  """
+  Set encrypted source token for non-GitHub-App repos.
+  
+  Accepts the entity's ID or URN.
+  """
+  setMemorySourceToken(expiresAt: String, id: ID!, token: String!): Memory!
+  softDeleteAsset(assetId: ID!): Asset!
+  startAgentSession(agentId: ID!, dataKey: String, externalUserId: String, sessionTimeoutSeconds: Int): Session!
+
+  """
+  Start a chat session (creates chat nodes, loads conversation, returns
+  compiled prompt). When called by a JWT user, the chat is created in
+  that user's personal memory for the agent (provisioned lazily if
+  needed).
+  
+  Accepts the entity's ID or URN.
+  """
+  startChat(agentId: ID!, conversationName: String, isTestRun: Boolean = false, scope: ChatScope = private, userId: String): ChatStartResult!
+  startSession(input: SessionInput!): Session!
+
+  """
+  Trigger an on-demand sync for one memory (org ADMIN or CONTRIBUTOR).
+  
+  Accepts the entity's ID or URN.
+  """
+  syncMemory(id: ID!): Memory!
+  testExchangeConnection(id: ID!): Boolean!
+
+  """
+  Uninstall an Agent from an App. Deletes the AppAgent row. The Agent's
+  per-(App, Agent, *) memories are NOT cascade-deleted (spec 023 FR-005);
+  they persist as orphans and become reachable again if the same Agent
+  is later reinstalled.
+  
+  Idempotent — succeeds whether or not the AppAgent row exists.
+  
+  Accepts the entity's ID or URN.
+  """
+  uninstallAgentFromApp(agentId: ID!, appId: ID!): UninstallAgentFromAppPayload!
+
+  """
+  Remove all GitHub App config from an organization.
+  
+  Accepts the entity's ID or URN.
+  """
+  unlinkGithubApp(orgId: ID!): Organization!
+
+  """
+  Update an Agent.
+  
+  Accepts the entity's ID or URN.
+  """
+  updateAgent(description: String, id: ID!, name: String, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, urn: String, visibility: AgentVisibility): Agent!
+
+  """
+  Update an Agent's AI provider config. Key is encrypted at rest.
+  
+  Accepts the entity's ID or URN.
+  """
+  updateAgentAIConfig(agentId: ID!, apiKey: String, model: String!, provider: String!): Agent!
+
+  """
+  Update an Agent's role on an attached Memory.
+  
+  Accepts the entity's ID or URN.
+  """
+  updateAgentMemoryRole(agentId: ID!, memoryId: ID!, role: String!): Agent!
+
+  """
+  Update an App.
+  
+  Accepts the entity's ID or URN.
+  """
+  updateApp(agentTools: [String!], aiApiKey: String, aiModel: String, aiProvider: String, anonymousTtlDays: Int, appType: AppType, createUserPermission: CreateUserPermission, description: String, expiresAt: String, id: ID!, identifyUserMethod: IdentifyUserMethod, name: String, role: AppMembershipRole, sessionTimeoutSeconds: Int, surfaces: [String!], systemPrompt: String, trainingMode: Boolean, urn: String): App!
+  updateChatTitle(chatId: String!, title: String!): Boolean!
+  updateEdge(condition: JSON, data: JSON, edgeId: ID!, label: String, priority: Int): Edge!
+
+  """
+  Update a Memory.
+  
+  Accepts the entity's ID or URN.
+  
+  Spec 033 FR-026: enabling `vectorIndexEnabled` on an `isEncrypted` memory
+  requires `acknowledgeVectorInversionRisk: true` in the same call. Without
+  the flag, an `EncryptedVectorIndexNotAcknowledgedError` is thrown carrying
+  the full four-point disclosure on `error.disclosure` (single source of
+  truth in `FR_026_DISCLOSURE` — see `src/lib/entityRef/errors.ts`). On a
+  non-encrypted memory the flag is a no-op.
+  """
+  updateMemory(acknowledgeVectorInversionRisk: Boolean, category0: String, category1: String, category2: String, chunkOverlap: Int, chunkTokens: Int, description: String, embeddingSource: EmbeddingSource, forceFixedSize: Boolean, heroUrl: String, homeUrl: String, iconUrl: String, id: ID!, license: String, name: String, organizationId: ID, readBranch: String, shortDescription: String, source: String, tags: [String!], urn: String, vectorIndexEnabled: Boolean, visibility: MemoryVisibility, writeBranch: String): Memory!
+
+  """
+  023-app-shape US4 — change the role on an existing team member.
+  Throws MemoryMemberNotFoundError when the row doesn't exist;
+  use addMemoryMember to upsert. Throws LastOwnerProtectedError
+  (FR-038) when demoting the sole remaining owner.
+  
+  Caller-authority rule matches addMemoryMember.
+  
+  Error codes (extensions.code, Error.name style):
+    - UNAUTHENTICATED — no logged-in user in context.
+    - FORBIDDEN — caller is not an owner of a live group memory.
+    - MemoryNotFoundForMemberError — memory absent or soft-deleted
+      (only reachable from non-GraphQL callers in v1 — the guard
+      short-circuits to FORBIDDEN first).
+    - InvalidMemoryClassForMemberError — memory is not group-class
+      (same; guard short-circuits to FORBIDDEN first).
+    - MemoryMemberNotFoundError — no row at (memoryId, userId).
+    - LastOwnerProtectedError (FR-038) — would demote the sole owner.
+  """
+  updateMemoryMemberRole(memoryId: ID!, role: MemoryMemberRole!, userId: ID!): UpdateMemoryMemberRolePayload!
+
+  """
+  023-app-shape US3 — change the role on an existing MemoryShare.
+  Throws MemoryShareNotFoundError if the (memoryId, granteeId) row
+  doesn't exist — use createMemoryShare to upsert.
+  
+  Caller-authority rule matches createMemoryShare.
+  """
+  updateMemoryShareRole(granteeId: ID!, memoryId: ID!, role: MemoryShareRole!): UpdateMemoryShareRolePayload!
+
+  """
+  Update a cross-org Memory subscription.
+  
+  Accepts the entity's ID or URN.
+  """
+  updateMemorySubscription(memoryId: ID!, orgId: ID!, role: Role!): MemorySubscription!
+  updateMyProfile(email: String, handle: String, name: String): User!
+
+  """
+  Set GitHub App credentials for an organization (encrypted at rest).
+  
+  Accepts the entity's ID or URN.
+  """
+  updateOrgGithubApp(appId: String!, orgId: ID!, privateKey: String!): Organization!
+
+  """Accepts the entity's ID or URN (orgId)."""
+  updateOrgMember(orgId: ID!, role: Role!, userId: ID!): OrgMember!
+
+  """
+  Update an Organization.
+  
+  Accepts the entity's ID or URN.
+  """
+  updateOrganization(id: ID!, isVisible: Boolean, name: String, urn: String): Organization!
+  updateUserRoles(roles: [Role!]!, userId: ID!): User!
+  upsertNode(input: NodeInput!): Node!
+}
+
+type Node {
+  """
+  Paragraph-length summary of this node. Opt-in on h-read-node via the contentScope parameter. h-find-nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in h-list-nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
+  """
+  abstract: String
+
+  """
+  Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness; when the two values differ AND abstractOriginHash is non-null, the abstract may not reflect current content. System-managed; never settable via NodeInput.
+  """
+  abstractOriginHash: String
+  aiAgent: String
+  alias: String
+  content: String
+  createdAt: String!
+  data: JSON
+  description: String
+
+  """
+  Spec 033 — attempt counter for backoff / give-up. Resets to 0 on
+  success or revoke. Surfaced for ops diagnostics (a node stuck at a
+  high attempt count likely needs operator attention). System-managed.
+  """
+  embeddingAttempts: Int!
+
+  """
+  Spec 033 — last embed error message (diagnosability; also surfaced
+  by h-validate). Common values: encrypted-no-plaintext (#206),
+  embedding-endpoint-unreachable, dimension-mismatch. Null when no
+  failure has been recorded since the most recent success or revoke.
+  System-managed.
+  """
+  embeddingError: String
+
+  """
+  Spec 033 FR-009 — set when an embed attempt failed (record, not a
+  work signal). Transient failures keep embeddingPendingAt set for
+  retry; permanent failures clear it. The portal renders this as a
+  red badge with the embeddingError message inline so users with an
+  empty index can distinguish "nothing matched" from "every embed
+  failed". System-managed.
+  """
+  embeddingFailedAt: String
+
+  """
+  Spec 033 FR-006/FR-007 — set when this node needs (re-)embedding;
+  cleared on success. The single work signal the embedding worker
+  drains. Operational state (never versioned on NodeVersion). The
+  portal renders this as a subtle "embedding…" badge so a user who
+  just edited isn't confused that their change "didn't take" in
+  search yet. System-managed.
+  """
+  embeddingPendingAt: String
+  id: ID!
+  incomingEdges: [Edge!]!
+  isLink: Boolean!
+  isRunnable: Boolean
+  llmModel: String
+  loc: String!
+  memory: Memory
+  memoryId: String!
+  name: String!
+  nodeType: String!
+  outgoingEdges: [Edge!]!
+  ownerRepo: String
+  properties: JSON
+  seq: Int
+  tags: [String!]!
+  tokens: Int
+  updatedAt: String!
+}
+
+input NodeEdgeInput {
+  label: String
+
+  """
+  Reference to the target node. Accepts a node ID, a full URN
+  (urn:node:<memory-urn>:<loc>), a memory-prefixed loc
+  (<memory-urn>:<loc>), or a short loc resolved within the source
+  node's memory.
+  """
+  targetId: String!
+}
+
+input NodeInput {
+  """
+  Paragraph-length summary of this node — see Node.abstract for the surfacing contract (h-read-node opt-in via contentScope; h-find-nodes preview ships in US2). Optional. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
+  """
+  abstract: String
+  aiAgent: String
+  alias: String
+  content: String
+  createOnly: Boolean
+  data: JSON
+  description: String
+  edges: [NodeEdgeInput!]
+  id: String
+  llmModel: String
+  loc: String!
+
+  """
+  Memory reference. Accepts the entity's ID (CUID / 32-char hex) or its
+  URN (per spec 007 ID-or-URN dispatch). URN inputs MUST be fully
+  qualified (org:memory) per spec 022 — relative-form URNs are
+  rejected as GraphQL errors with extensions.code "URN_NOT_QUALIFIED".
+  """
+  memoryId: String!
+  name: String!
+  nodeType: String
+  ownerRepo: String
+  properties: JSON
+  seq: Int
+  tags: [String!]
+}
+
+"""
+Envelope for nodeSearch — carries the ranked nodes plus structured
+flags surfacing degraded / no-index outcomes that the MCP path emits
+inline. Spec 033.
+
+reason: set when the query could not run as requested (e.g.
+  'no_vector_index' on a non-indexed memory with mode:vector); nodes
+  is empty in that case.
+degraded: set when the query ran but at reduced fidelity (e.g.
+  'no_vector_index' on a hybrid query that fell back to keyword-only);
+  nodes still carries usable hits.
+"""
+type NodeSearchResult {
+  degraded: String
+  nodes: [Node!]!
+
+  """
+  Spec 033 US2 — populated when the query specified granularity:chunk on a
+  content-chunk-bearing memory. Each entry is a passage (chunk text +
+  character offsets + chunk index + parent node URN), ranked by best
+  similarity. Empty list when granularity:node (default) — the ranked
+  nodes are in `nodes`.
+  """
+  passages: [Passage!]!
+  reason: String
+}
+
+type NodeVersion {
+  alias: String
+  content: String
+  createdAt: String!
+  description: String
+  editedBy: String
+  id: ID!
+  loc: String!
+  name: String!
+  nodeId: String!
+  tags: [String!]!
+}
+
+type OrgMember {
+  canInvite: Boolean!
+  createdAt: String!
+  id: ID!
+  role: Role!
+  user: User!
+}
+
+type Organization {
+  agentOrgGrants: [AgentOrgGrant!]!
+  agents: [Agent!]!
+  apps: [App!]!
+  createdAt: String!
+  exchangeConnections: [ExchangeConnection!]!
+  githubAppId: String
+  githubInstallationId: Int
+  hasGithubAppPrivateKey: Boolean!
+  id: ID!
+  isVisible: Boolean
+  members: [OrgMember!]!
+  memories: [Memory!]!
+  name: String!
+  subscriptions: [MemorySubscription!]!
+  updatedAt: String!
+  urn: String!
+}
+
+"""
+Spec 033 US2 — one matching chunk from a content-chunk vector index.
+Carries the locator metadata a RAG consumer needs for context-stuffing:
+span text, character offset within the parent node, chunk index, and
+the parent node's URN.
+"""
+type Passage {
+  charEnd: Int!
+  charStart: Int!
+  chunkIndex: Int!
+  parentNodeId: ID!
+  parentNodeUrn: String!
+  score: Float!
+  text: String!
+}
+
+type Query {
+  """
+  Agent AI config (org ADMIN) — returns the decrypted API key so the
+  portal backend can make LLM calls on behalf of the user.
+  
+  Accepts the entity's ID or URN.
+  """
+  agentAIConfig(agentId: ID!): AgentAIConfig
+  agentAssets(agentUrn: String!, count: Int = 20, includeDeleted: Boolean = false, mimeType: String, skip: Int = 0): AssetListResult!
+
+  """
+  005-agent-subscription FR-022: list all AgentSubscriptions for an
+  Agent. Authorized for ADMIN/OWNER of the Agent's owning org.
+  
+  Accepts the entity's ID or URN.
+  """
+  agentSubscriptions(agentId: ID!): [AgentSubscription!]!
+
+  """
+  Fetch an App.
+  
+  Accepts the entity's ID or URN.
+  """
+  app(id: ID!): App
+
+  """
+  Decrypted AI config for an App (org ADMIN of the App's org).
+  
+  Accepts the entity's ID or URN.
+  """
+  appAIConfig(appId: ID!): AppAIConfig
+
+  """
+  List keys for an App (org ADMIN of the App's org).
+  
+  Accepts the entity's ID or URN.
+  """
+  appKeys(appId: ID!): [AppKey!]!
+
+  """
+  All nodes accessible by an App (across all subscribed memories).
+  
+  Accepts the entity's ID or URN.
+  """
+  appNodes(appId: ID!, limit: Int): [Node!]!
+
+  """
+  Apps in an organization (org ADMIN).
+  
+  Accepts the entity's ID or URN.
+  """
+  apps(orgId: ID!): [App!]!
+  assetDownloadUrl(assetId: ID!, ttlSeconds: Int = 300): AssetDownloadUrl!
+  chatHistory(chatId: String!, limit: Int): [ChatMessage!]!
+
+  """
+  Exchange connections for an org.
+  
+  Accepts the entity's ID or URN.
+  """
+  exchangeConnections(orgId: ID!): [ExchangeConnection!]!
+  exchangeFolders(connectionId: ID!): [ExchangeFolder!]!
+  exchangeMessages(connectionId: ID!, filter: String, top: Int): [ExchangeMessage!]!
+  invitation(slug: String!): UserInvitation
+  me: User
+
+  """
+  Fetch a single Memory (org member or platform ADMIN).
+  
+  Accepts the entity's ID or URN.
+  """
+  memory(id: ID!): Memory
+
+  """
+  v2 (spec 006) — memory-addressed listing. Returns assets for a
+  specific memory; caller must have read access. The replacement
+  for agentAssets in the v2 surface.
+  
+  Accepts the entity's ID or URN.
+  """
+  memoryAssets(count: Int = 20, includeDeleted: Boolean = false, memoryId: ID!, mimeType: String, skip: Int = 0): AssetListResult!
+
+  """
+  Aggregated usage counts per node and type for a memory.
+  
+  Accepts the entity's ID or URN.
+  """
+  memoryUsageSummary(memoryId: ID!): [UsageSummaryEntry!]!
+  myAgentSubscriptions: [AgentSubscription!]!
+  myApp: App
+  myApps: [App!]!
+
+  """
+  Saved chats for the current user in their personal memory for an
+  agent. Newest first.
+  
+  Accepts the entity's ID or URN.
+  """
+  myChats(agentId: ID!, limit: Int, offset: Int): [Chat!]!
+  myMemories(includeAgentSystem: Boolean): [Memory!]!
+  myOrganizations: [Organization!]!
+
+  """
+  025-oauth-for-mcp FR-004: list the calling User's API keys (active
+  + revoked, createdAt DESC). Powers Phase 3's portal revocation UI
+  (SC-006). Rejected with UNAUTHENTICATED for AppKey-resolved
+  callers (no user in context). PR-137 review delta D5 — Query
+  not present in PR 137.
+  """
+  myUserApiKeys: [UserApiKey!]!
+  node(loc: String!, raw: Boolean): Node
+  nodeById(id: ID!, raw: Boolean): Node
+
+  """
+  Vector/hybrid-aware search over a memory. Keyword-only callers should
+  keep using the legacy 'nodes' query — nodeSearch is the
+  vector-aware entrypoint per spec 033 contract.
+  
+  mode defaults to vector (the vector-aware entrypoint design — the
+  MCP h-find-nodes tool defaults to keyword for backward-compat,
+  a deliberate divergence between the two surfaces). expand (graph
+  neighbor depth 0..3, default 0) and granularity:chunk (passage
+  retrieval, vector-mode only) are both fully live.
+  
+  Access control: same memory-read gate as the keyword nodes query —
+  the raw-SQL similarity query is scoped to memories the caller can
+  read, never cross-memory.
+  """
+  nodeSearch(expand: Int, granularity: SearchGranularity, limit: Int, memoryUrn: String, mode: SearchMode, query: String!): NodeSearchResult!
+  nodeUsage(limit: Int, loc: String!): [UsageEvent!]!
+  nodeVersions(limit: Int, nodeId: ID!): [NodeVersion!]!
+  nodes(limit: Int, nodeType: String, offset: Int, prefix: String, search: String, tags: [String!]): [Node!]!
+
+  """
+  System memories belonging to an org (org member or platform ADMIN).
+  
+  Accepts the entity's ID or URN.
+  """
+  orgSystemMemories(orgId: ID!): [Memory!]!
+
+  """
+  Fetch an Organization by id (org member or platform ADMIN).
+  
+  Accepts the entity's ID or URN.
+  """
+  organization(id: ID!): Organization
+  organizations: [Organization!]!
+  publicMemories: [Memory!]!
+
+  """
+  Resolve a fully-qualified, `urn:<type>:`-prefixed Hadron URN to the ids
+  needed to reach its canonical page. Returns null when the URN is
+  unresolvable (not found) OR the caller lacks access. Unlike the dedicated
+  per-kind queries — which throw `Forbidden` on no-access — this query
+  deliberately collapses both not-found and no-access to null, so a
+  redirect resolver can 404 uniformly without disclosing which case it was.
+  
+  Per-kind access uses the SAME authorization rules as the dedicated
+  queries (memory/org/agent: org membership; app: org ADMIN; node:
+  memoryAccessFilter), only with the throw replaced by a null return.
+  
+  The `urn:<type>:` prefix is the dispatch key — bare URNs without a type
+  prefix are ambiguous across kinds (`org::slug` could be a memory or an
+  agent) and resolve to null.
+  """
+  resolveUrn(urn: String!): UrnResolution
+  searchUsers(query: String!): [User!]!
+  session(id: ID!): Session
+  sessions(customerId: String, limit: Int, offset: Int, repo: String, type: String): [Session!]!
+  subtree(prefix: String!): [Node!]!
+  usageEvents(limit: Int, memoryId: ID, nodeId: ID, offset: Int, type: String): [UsageEvent!]!
+  users: [User!]!
+}
+
+type RemoveMemoryMemberPayload {
+  memoryId: ID!
+  userId: ID!
+}
+
+type RevisionResult {
+  createdAt: String!
+  label: String!
+  published: Boolean!
+  revisionLoc: String!
+}
+
+type RevokeMemorySharePayload {
+  granteeId: ID!
+  memoryId: ID!
+}
+
+enum Role {
+  ADMIN
+  CONTRIBUTOR
+  OWNER
+  READER
+}
+
+"""
+Result granularity for nodeSearch. Spec 033.
+
+- node: one entry per matching node (US1 default).
+- chunk: passage-level entries with offsets into the parent node's
+  content (US2; chunk hits collapse to node-level when granularity is
+  node).
+"""
+enum SearchGranularity {
+  chunk
+  node
+}
+
+"""
+Search dispatch for nodeSearch. Spec 033.
+
+- keyword: substring match across name/loc/description/tags (the legacy
+  nodes-query semantic, exposed as a nodeSearch mode for parity).
+- vector: semantic search via the memory's vector index. Requires
+  vectorIndexEnabled on the memory.
+- hybrid: reciprocal-rank fusion of keyword + vector (k=60).
+"""
+enum SearchMode {
+  hybrid
+  keyword
+  vector
+}
+
+type Session {
+  agentId: String
+  appId: String
+  autoExpiredAt: String
+  branch: String
+  customerId: String
+  endedAt: String
+  errorCount: Int
+  events: [UsageEvent!]!
+  expiresAt: String
+  id: ID!
+  inputTokens: Int
+  language: String
+  llmModel: String
+  memoryId: String
+  outcome: Float
+  outcomeMeta: JSON
+  outcomeRef: String
+  outputTokens: Int
+  parentSessionId: String
+  plan: String
+  prNumber: Int
+  prevSessionId: String
+  repo: String
+  startedAt: String!
+  summary: String
+  turnCount: Int
+  type: String!
+  userId: String
+}
+
+input SessionInput {
+  branch: String
+  customerId: String
+  id: String!
+  language: String
+  llmModel: String
+  parentSessionId: String
+  prNumber: Int
+  prevSessionId: String
+  repo: String
+  type: String
+}
+
+input SetAgentAssetUploadEnabledInput {
+  """
+  Agent reference. Accepts the entity's ID (CUID / 32-char hex) or its
+  URN (per spec 007 ID-or-URN dispatch). URN inputs MUST be fully
+  qualified (org:agent) per spec 022 — relative-form URNs are rejected
+  as GraphQL errors with extensions.code "URN_NOT_QUALIFIED".
+  """
+  agentUrn: String!
+  enabled: Boolean!
+}
+
+enum SubscriptionType {
+  READ_ONLY
+  READ_WRITE
+}
+
+type SummarizationRequest {
+  messageCount: Int!
+  prompt: String!
+}
+
+enum SyncStatus {
+  ERROR
+  OK
+  PENDING
+  SYNCING
+}
+
+"""
+Return shape for the uninstallAgentFromApp mutation. The Agent's
+per-(App, Agent, *) memories are NOT cascade-deleted (spec 023 FR-005);
+they persist as orphans on the now-removed AppAgent edge.
+"""
+type UninstallAgentFromAppPayload {
+  agentId: ID!
+  appId: ID!
+}
+
+type UpdateMemoryMemberRolePayload {
+  memoryMember: MemoryMember!
+}
+
+type UpdateMemoryShareRolePayload {
+  memoryShare: MemoryShare!
+}
+
+enum UploadIntent {
+  AGENT_REQUEST
+  USER
+}
+
+"""
+Result of resolving a Hadron URN to the ids a client needs to navigate to
+the resource's canonical page. Powers the portal's /app/u/<urn> redirect
+route (hadron-portal#262).
+
+`kind` is the URN's type segment: memory | node | agent | org | app.
+`id` is the resolved entity's primary id. `memoryId` is set only for
+nodes (their owning memory), `organizationId` only for apps (their owning
+org) — both are the extra ids those resources' canonical routes require.
+"""
+type UrnResolution {
+  id: ID!
+  kind: String!
+  memoryId: ID
+  organizationId: ID
+}
+
+type UsageEvent {
+  actionArgs: JSON
+  appId: String
+  createdAt: String!
+  id: ID!
+  model: String
+  nodeLoc: String
+  sessionId: String
+  tokensIn: Int
+  tokensOut: Int
+  type: String!
+}
+
+input UsageEventInput {
+  actionArgs: JSON
+  model: String
+  nodeLoc: String
+  sessionId: String
+  tokensIn: Int
+  tokensOut: Int
+  type: String!
+}
+
+type UsageSummaryEntry {
+  count: Int!
+  nodeLoc: String!
+  type: String!
+}
+
+type User {
+  appMemberships: [AppMember!]!
+  avatarUrl: String
+  email: String
+  externalAppId: String
+  externalId: String
+  githubId: Int
+  githubUsername: String
+  handle: String
+  id: ID!
+  identityProvider: String
+  linkedAt: String
+  maxReferrals: Int
+  name: String
+  roles: [Role!]!
+}
+
+type UserApiKey {
+  createdAt: String!
+  id: ID!
+  issuedVia: String
+  keyPreview: String!
+  label: String
+  lastUsedAt: String
+  revokedAt: String
+}
+
+type UserApiKeyCreateResult {
+  rawKey: String!
+  userApiKey: UserApiKey!
+}
+
+type UserInvitation {
+  acceptedAt: String
+  activationCount: Int!
+  createdAt: String!
+  email: String
+  expiresAt: String
+  githubUsername: String
+  id: ID!
+  maxActivations: Int
+  memberRole: Role!
+  name: String
+  organization: Organization
+  organizationId: String
+  sender: User
+  senderUserId: String
+  slug: String!
+}

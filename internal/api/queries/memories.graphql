@@ -1,0 +1,33 @@
+query MyMemories($includeAgentSystem: Boolean) {
+  myMemories(includeAgentSystem: $includeAgentSystem) {
+    id
+    urn
+    name
+    shortDescription
+    class
+    visibility
+    organizationId
+    isEncrypted
+    updatedAt
+  }
+}
+
+query GetMemory($id: ID!) {
+  memory(id: $id) {
+    id
+    urn
+    name
+    shortDescription
+    description
+    class
+    visibility
+    organizationId
+    isEncrypted
+    tags
+    source
+    syncStatus
+    vectorIndexEnabled
+    createdAt
+    updatedAt
+  }
+}

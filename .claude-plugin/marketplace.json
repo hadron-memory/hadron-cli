@@ -1,0 +1,12 @@
+{
+  "name": "hadron",
+  "owner": {
+    "name": "Hadron",
+    "url": "https://hadronmemory.com"
+  },
+  "metadata": {
+    "description": "Skills for working with the Hadron AI-memory platform via the hadron CLI",
+    "version": "0.1.0"
+  },
+  "plugins": []
+}
