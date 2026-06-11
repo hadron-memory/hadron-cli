@@ -1723,7 +1723,24 @@ type Query {
   nodeSearch(expand: Int, granularity: SearchGranularity, limit: Int, memoryUrn: String, mode: SearchMode, query: String!): NodeSearchResult!
   nodeUsage(limit: Int, loc: String!): [UsageEvent!]!
   nodeVersions(limit: Int, nodeId: ID!): [NodeVersion!]!
-  nodes(limit: Int, nodeType: String, offset: Int, prefix: String, search: String, tags: [String!]): [Node!]!
+  nodes(
+    limit: Int
+
+    """
+    Scope to a single memory, addressed by ID or fully-qualified URN
+    (007-entity-id-or-urn dispatch via resolveMemoryRef). Intersected
+    with the caller's access filter — scoping to an inaccessible
+    memory yields [], and an unknown ref throws NOT_FOUND. Added for
+    the hadron-cli `node ls --memory` surface; mirrors the
+    usageEvents(memoryId:) filter (#249).
+    """
+    memory: String
+    nodeType: String
+    offset: Int
+    prefix: String
+    search: String
+    tags: [String!]
+  ): [Node!]!
 
   """
   System memories belonging to an org (org member or platform ADMIN).

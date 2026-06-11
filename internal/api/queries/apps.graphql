@@ -1,0 +1,41 @@
+query Apps($orgId: ID!) {
+  apps(orgId: $orgId) {
+    id
+    urn
+    name
+    appType
+    agentId
+    memberCount
+    createdAt
+  }
+}
+
+mutation CreateApp(
+  $orgId: ID!
+  $agentId: ID!
+  $name: String!
+  $urn: String
+  $appType: AppType
+  $description: String
+) {
+  createApp(
+    orgId: $orgId
+    agentId: $agentId
+    name: $name
+    urn: $urn
+    appType: $appType
+    description: $description
+  ) {
+    id
+    urn
+    name
+    appType
+    agentId
+    memberCount
+    createdAt
+  }
+}
+
+mutation DeleteApp($id: ID!) {
+  deleteApp(id: $id)
+}

@@ -2,9 +2,15 @@
 package memory
 
 import (
+	"strings"
+
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // memoryDTO is the stable --json shape for a memory. Field changes
@@ -29,7 +35,28 @@ func NewCmdMemory(f *cmdutil.Factory) *cobra.Command {
 	}
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdGet(f))
-	cmd.AddCommand(cmdutil.NewStubCommand("set", "Create or update a memory"))
-	cmd.AddCommand(cmdutil.NewStubCommand("rm <memory>", "Delete a memory"))
+	cmd.AddCommand(newCmdSet(f))
+	cmd.AddCommand(newCmdRm(f))
 	return cmd
+}
+
+// resolveMemoryID maps a memory URN to its ID via myMemories.
+// Query.memory and updateMemory only accept PK ids today (unlike
+// deleteMemory, which dispatches URNs server-side) — remove this once
+// the server grows 007-style dispatch on those resolvers.
+func resolveMemoryID(cmd *cobra.Command, client graphql.Client, ref string) (string, error) {
+	if !strings.Contains(ref, ":") {
+		return ref, nil
+	}
+	includeAgentSystem := true
+	resp, err := gen.MyMemories(cmd.Context(), client, &includeAgentSystem)
+	if err != nil {
+		return "", api.MapError(err)
+	}
+	for _, m := range resp.MyMemories {
+		if m.Urn == ref {
+			return m.Id, nil
+		}
+	}
+	return "", exitcode.Newf(exitcode.NotFound, "memory %q not found", ref)
 }

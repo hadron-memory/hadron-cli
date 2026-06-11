@@ -4,9 +4,216 @@ package gen
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/Khan/genqlient/graphql"
 )
+
+type AppType string
+
+const (
+	AppTypeAgent       AppType = "AGENT"
+	AppTypeAutomation  AppType = "AUTOMATION"
+	AppTypeChatbot     AppType = "CHATBOT"
+	AppTypeCloud       AppType = "CLOUD"
+	AppTypeIot         AppType = "IOT"
+	AppTypeWorkstation AppType = "WORKSTATION"
+)
+
+var AllAppType = []AppType{
+	AppTypeAgent,
+	AppTypeAutomation,
+	AppTypeChatbot,
+	AppTypeCloud,
+	AppTypeIot,
+	AppTypeWorkstation,
+}
+
+// AppsAppsApp includes the requested fields of the GraphQL type App.
+type AppsAppsApp struct {
+	Id          string  `json:"id"`
+	Urn         string  `json:"urn"`
+	Name        string  `json:"name"`
+	AppType     AppType `json:"appType"`
+	AgentId     *string `json:"agentId"`
+	MemberCount int     `json:"memberCount"`
+	CreatedAt   string  `json:"createdAt"`
+}
+
+// GetId returns AppsAppsApp.Id, and is useful for accessing the field via an interface.
+func (v *AppsAppsApp) GetId() string { return v.Id }
+
+// GetUrn returns AppsAppsApp.Urn, and is useful for accessing the field via an interface.
+func (v *AppsAppsApp) GetUrn() string { return v.Urn }
+
+// GetName returns AppsAppsApp.Name, and is useful for accessing the field via an interface.
+func (v *AppsAppsApp) GetName() string { return v.Name }
+
+// GetAppType returns AppsAppsApp.AppType, and is useful for accessing the field via an interface.
+func (v *AppsAppsApp) GetAppType() AppType { return v.AppType }
+
+// GetAgentId returns AppsAppsApp.AgentId, and is useful for accessing the field via an interface.
+func (v *AppsAppsApp) GetAgentId() *string { return v.AgentId }
+
+// GetMemberCount returns AppsAppsApp.MemberCount, and is useful for accessing the field via an interface.
+func (v *AppsAppsApp) GetMemberCount() int { return v.MemberCount }
+
+// GetCreatedAt returns AppsAppsApp.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AppsAppsApp) GetCreatedAt() string { return v.CreatedAt }
+
+// AppsResponse is returned by Apps on success.
+type AppsResponse struct {
+	// Apps in an organization (org ADMIN).
+	//
+	// Accepts the entity's ID or URN.
+	Apps []*AppsAppsApp `json:"apps"`
+}
+
+// GetApps returns AppsResponse.Apps, and is useful for accessing the field via an interface.
+func (v *AppsResponse) GetApps() []*AppsAppsApp { return v.Apps }
+
+// CreateAppCreateApp includes the requested fields of the GraphQL type App.
+type CreateAppCreateApp struct {
+	Id          string  `json:"id"`
+	Urn         string  `json:"urn"`
+	Name        string  `json:"name"`
+	AppType     AppType `json:"appType"`
+	AgentId     *string `json:"agentId"`
+	MemberCount int     `json:"memberCount"`
+	CreatedAt   string  `json:"createdAt"`
+}
+
+// GetId returns CreateAppCreateApp.Id, and is useful for accessing the field via an interface.
+func (v *CreateAppCreateApp) GetId() string { return v.Id }
+
+// GetUrn returns CreateAppCreateApp.Urn, and is useful for accessing the field via an interface.
+func (v *CreateAppCreateApp) GetUrn() string { return v.Urn }
+
+// GetName returns CreateAppCreateApp.Name, and is useful for accessing the field via an interface.
+func (v *CreateAppCreateApp) GetName() string { return v.Name }
+
+// GetAppType returns CreateAppCreateApp.AppType, and is useful for accessing the field via an interface.
+func (v *CreateAppCreateApp) GetAppType() AppType { return v.AppType }
+
+// GetAgentId returns CreateAppCreateApp.AgentId, and is useful for accessing the field via an interface.
+func (v *CreateAppCreateApp) GetAgentId() *string { return v.AgentId }
+
+// GetMemberCount returns CreateAppCreateApp.MemberCount, and is useful for accessing the field via an interface.
+func (v *CreateAppCreateApp) GetMemberCount() int { return v.MemberCount }
+
+// GetCreatedAt returns CreateAppCreateApp.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAppCreateApp) GetCreatedAt() string { return v.CreatedAt }
+
+// CreateAppResponse is returned by CreateApp on success.
+type CreateAppResponse struct {
+	// Install an Agent into an organization, creating an App that deploys it.
+	//
+	// Auto-provisions an AgentOrgGrant for (orgId, agentId) on first install,
+	// and adds the caller as an AppMember with role 'owner'. Required
+	// AgentImports cascade automatically; optional imports cascade only when
+	// their id appears in installOptional.
+	//
+	// 009-install-agent-flow: the cross-org install restriction (FR-009) is
+	// enforced at the portal — the Install affordance is hidden for Agents
+	// not owned by the calling org. The server still auto-provisions grants
+	// on first install (preserved from 008); a hard server-side cross-org
+	// gate is reserved for the marketplace spec.
+	//
+	// Accepts the entity's ID or URN.
+	CreateApp *CreateAppCreateApp `json:"createApp"`
+}
+
+// GetCreateApp returns CreateAppResponse.CreateApp, and is useful for accessing the field via an interface.
+func (v *CreateAppResponse) GetCreateApp() *CreateAppCreateApp { return v.CreateApp }
+
+// CreateMemoryCreateMemory includes the requested fields of the GraphQL type Memory.
+type CreateMemoryCreateMemory struct {
+	Id               string            `json:"id"`
+	Urn              string            `json:"urn"`
+	Name             string            `json:"name"`
+	ShortDescription *string           `json:"shortDescription"`
+	Class            MemoryClass       `json:"class"`
+	Visibility       *MemoryVisibility `json:"visibility"`
+	OrganizationId   string            `json:"organizationId"`
+	IsEncrypted      bool              `json:"isEncrypted"`
+	UpdatedAt        string            `json:"updatedAt"`
+}
+
+// GetId returns CreateMemoryCreateMemory.Id, and is useful for accessing the field via an interface.
+func (v *CreateMemoryCreateMemory) GetId() string { return v.Id }
+
+// GetUrn returns CreateMemoryCreateMemory.Urn, and is useful for accessing the field via an interface.
+func (v *CreateMemoryCreateMemory) GetUrn() string { return v.Urn }
+
+// GetName returns CreateMemoryCreateMemory.Name, and is useful for accessing the field via an interface.
+func (v *CreateMemoryCreateMemory) GetName() string { return v.Name }
+
+// GetShortDescription returns CreateMemoryCreateMemory.ShortDescription, and is useful for accessing the field via an interface.
+func (v *CreateMemoryCreateMemory) GetShortDescription() *string { return v.ShortDescription }
+
+// GetClass returns CreateMemoryCreateMemory.Class, and is useful for accessing the field via an interface.
+func (v *CreateMemoryCreateMemory) GetClass() MemoryClass { return v.Class }
+
+// GetVisibility returns CreateMemoryCreateMemory.Visibility, and is useful for accessing the field via an interface.
+func (v *CreateMemoryCreateMemory) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// GetOrganizationId returns CreateMemoryCreateMemory.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateMemoryCreateMemory) GetOrganizationId() string { return v.OrganizationId }
+
+// GetIsEncrypted returns CreateMemoryCreateMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *CreateMemoryCreateMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetUpdatedAt returns CreateMemoryCreateMemory.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateMemoryCreateMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// CreateMemoryResponse is returned by CreateMemory on success.
+type CreateMemoryResponse struct {
+	// Create a memory in an organization. Accepts the entity's ID or URN
+	// for orgId.
+	//
+	// Defaults to knowledge-class with ORGANIZATION visibility. Pass
+	// memoryClass: group + visibility: GROUP for a group-class memory
+	// (023-app-shape US4; the caller is auto-added as the first owner),
+	// or memoryClass: personal | private for an owner-only memory the
+	// caller owns (spec 034 — free-standing, no app/agent; the caller
+	// must be a member of the org container). system- and app-class
+	// memories are NOT created here — they auto-provision via
+	// Agent.systemMemoryId / the App install path.
+	CreateMemory *CreateMemoryCreateMemory `json:"createMemory"`
+}
+
+// GetCreateMemory returns CreateMemoryResponse.CreateMemory, and is useful for accessing the field via an interface.
+func (v *CreateMemoryResponse) GetCreateMemory() *CreateMemoryCreateMemory { return v.CreateMemory }
+
+// DeleteAppResponse is returned by DeleteApp on success.
+type DeleteAppResponse struct {
+	// Soft-delete an App.
+	//
+	// Accepts the entity's ID or URN.
+	DeleteApp bool `json:"deleteApp"`
+}
+
+// GetDeleteApp returns DeleteAppResponse.DeleteApp, and is useful for accessing the field via an interface.
+func (v *DeleteAppResponse) GetDeleteApp() bool { return v.DeleteApp }
+
+// DeleteMemoryResponse is returned by DeleteMemory on success.
+type DeleteMemoryResponse struct {
+	// Soft-delete a Memory.
+	//
+	// Accepts the entity's ID or URN.
+	DeleteMemory bool `json:"deleteMemory"`
+}
+
+// GetDeleteMemory returns DeleteMemoryResponse.DeleteMemory, and is useful for accessing the field via an interface.
+func (v *DeleteMemoryResponse) GetDeleteMemory() bool { return v.DeleteMemory }
+
+// DeleteNodeResponse is returned by DeleteNode on success.
+type DeleteNodeResponse struct {
+	DeleteNode bool `json:"deleteNode"`
+}
+
+// GetDeleteNode returns DeleteNodeResponse.DeleteNode, and is useful for accessing the field via an interface.
+func (v *DeleteNodeResponse) GetDeleteNode() bool { return v.DeleteNode }
 
 // GetMemoryMemory includes the requested fields of the GraphQL type Memory.
 type GetMemoryMemory struct {
@@ -82,6 +289,128 @@ type GetMemoryResponse struct {
 
 // GetMemory returns GetMemoryResponse.Memory, and is useful for accessing the field via an interface.
 func (v *GetMemoryResponse) GetMemory() *GetMemoryMemory { return v.Memory }
+
+// GetNodeByIdNodeByIdNode includes the requested fields of the GraphQL type Node.
+type GetNodeByIdNodeByIdNode struct {
+	Id          string  `json:"id"`
+	MemoryId    string  `json:"memoryId"`
+	Loc         string  `json:"loc"`
+	Name        string  `json:"name"`
+	Description *string `json:"description"`
+	// Paragraph-length summary of this node. Opt-in on h-read-node via the contentScope parameter. h-find-nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in h-list-nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
+	Abstract  *string  `json:"abstract"`
+	NodeType  string   `json:"nodeType"`
+	Tags      []string `json:"tags"`
+	Content   *string  `json:"content"`
+	Seq       *int     `json:"seq"`
+	CreatedAt string   `json:"createdAt"`
+	UpdatedAt string   `json:"updatedAt"`
+}
+
+// GetId returns GetNodeByIdNodeByIdNode.Id, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNode) GetId() string { return v.Id }
+
+// GetMemoryId returns GetNodeByIdNodeByIdNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns GetNodeByIdNodeByIdNode.Loc, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNode) GetLoc() string { return v.Loc }
+
+// GetName returns GetNodeByIdNodeByIdNode.Name, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNode) GetName() string { return v.Name }
+
+// GetDescription returns GetNodeByIdNodeByIdNode.Description, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNode) GetDescription() *string { return v.Description }
+
+// GetAbstract returns GetNodeByIdNodeByIdNode.Abstract, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNode) GetAbstract() *string { return v.Abstract }
+
+// GetNodeType returns GetNodeByIdNodeByIdNode.NodeType, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns GetNodeByIdNodeByIdNode.Tags, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNode) GetTags() []string { return v.Tags }
+
+// GetContent returns GetNodeByIdNodeByIdNode.Content, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNode) GetContent() *string { return v.Content }
+
+// GetSeq returns GetNodeByIdNodeByIdNode.Seq, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNode) GetSeq() *int { return v.Seq }
+
+// GetCreatedAt returns GetNodeByIdNodeByIdNode.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNode) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns GetNodeByIdNodeByIdNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// GetNodeByIdResponse is returned by GetNodeById on success.
+type GetNodeByIdResponse struct {
+	NodeById *GetNodeByIdNodeByIdNode `json:"nodeById"`
+}
+
+// GetNodeById returns GetNodeByIdResponse.NodeById, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdResponse) GetNodeById() *GetNodeByIdNodeByIdNode { return v.NodeById }
+
+// GetNodeNode includes the requested fields of the GraphQL type Node.
+type GetNodeNode struct {
+	Id          string  `json:"id"`
+	MemoryId    string  `json:"memoryId"`
+	Loc         string  `json:"loc"`
+	Name        string  `json:"name"`
+	Description *string `json:"description"`
+	// Paragraph-length summary of this node. Opt-in on h-read-node via the contentScope parameter. h-find-nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in h-list-nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
+	Abstract  *string  `json:"abstract"`
+	NodeType  string   `json:"nodeType"`
+	Tags      []string `json:"tags"`
+	Content   *string  `json:"content"`
+	Seq       *int     `json:"seq"`
+	CreatedAt string   `json:"createdAt"`
+	UpdatedAt string   `json:"updatedAt"`
+}
+
+// GetId returns GetNodeNode.Id, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetId() string { return v.Id }
+
+// GetMemoryId returns GetNodeNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns GetNodeNode.Loc, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetLoc() string { return v.Loc }
+
+// GetName returns GetNodeNode.Name, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetName() string { return v.Name }
+
+// GetDescription returns GetNodeNode.Description, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetDescription() *string { return v.Description }
+
+// GetAbstract returns GetNodeNode.Abstract, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetAbstract() *string { return v.Abstract }
+
+// GetNodeType returns GetNodeNode.NodeType, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns GetNodeNode.Tags, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetTags() []string { return v.Tags }
+
+// GetContent returns GetNodeNode.Content, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetContent() *string { return v.Content }
+
+// GetSeq returns GetNodeNode.Seq, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetSeq() *int { return v.Seq }
+
+// GetCreatedAt returns GetNodeNode.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns GetNodeNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// GetNodeResponse is returned by GetNode on success.
+type GetNodeResponse struct {
+	Node *GetNodeNode `json:"node"`
+}
+
+// GetNode returns GetNodeResponse.Node, and is useful for accessing the field via an interface.
+func (v *GetNodeResponse) GetNode() *GetNodeNode { return v.Node }
 
 // MeMeUser includes the requested fields of the GraphQL type User.
 type MeMeUser struct {
@@ -218,6 +547,141 @@ type MyMemoriesResponse struct {
 // GetMyMemories returns MyMemoriesResponse.MyMemories, and is useful for accessing the field via an interface.
 func (v *MyMemoriesResponse) GetMyMemories() []*MyMemoriesMyMemoriesMemory { return v.MyMemories }
 
+type NodeEdgeInput struct {
+	Label *string `json:"label"`
+	// Reference to the target node. Accepts a node ID, a full URN
+	// (urn:node:<memory-urn>:<loc>), a memory-prefixed loc
+	// (<memory-urn>:<loc>), or a short loc resolved within the source
+	// node's memory.
+	TargetId string `json:"targetId"`
+}
+
+// GetLabel returns NodeEdgeInput.Label, and is useful for accessing the field via an interface.
+func (v *NodeEdgeInput) GetLabel() *string { return v.Label }
+
+// GetTargetId returns NodeEdgeInput.TargetId, and is useful for accessing the field via an interface.
+func (v *NodeEdgeInput) GetTargetId() string { return v.TargetId }
+
+type NodeInput struct {
+	// Paragraph-length summary of this node — see Node.abstract for the surfacing contract (h-read-node opt-in via contentScope; h-find-nodes preview ships in US2). Optional. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
+	Abstract    *string          `json:"abstract,omitempty"`
+	AiAgent     *string          `json:"aiAgent,omitempty"`
+	Alias       *string          `json:"alias,omitempty"`
+	Content     *string          `json:"content,omitempty"`
+	CreateOnly  *bool            `json:"createOnly,omitempty"`
+	Data        *json.RawMessage `json:"data,omitempty"`
+	Description *string          `json:"description,omitempty"`
+	Edges       []*NodeEdgeInput `json:"edges,omitempty"`
+	Id          *string          `json:"id,omitempty"`
+	LlmModel    *string          `json:"llmModel,omitempty"`
+	Loc         string           `json:"loc"`
+	// Memory reference. Accepts the entity's ID (CUID / 32-char hex) or its
+	// URN (per spec 007 ID-or-URN dispatch). URN inputs MUST be fully
+	// qualified (org:memory) per spec 022 — relative-form URNs are
+	// rejected as GraphQL errors with extensions.code "URN_NOT_QUALIFIED".
+	MemoryId   string           `json:"memoryId"`
+	Name       string           `json:"name"`
+	NodeType   *string          `json:"nodeType,omitempty"`
+	OwnerRepo  *string          `json:"ownerRepo,omitempty"`
+	Properties *json.RawMessage `json:"properties,omitempty"`
+	Seq        *int             `json:"seq,omitempty"`
+	Tags       []string         `json:"tags,omitempty"`
+}
+
+// GetAbstract returns NodeInput.Abstract, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetAbstract() *string { return v.Abstract }
+
+// GetAiAgent returns NodeInput.AiAgent, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetAiAgent() *string { return v.AiAgent }
+
+// GetAlias returns NodeInput.Alias, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetAlias() *string { return v.Alias }
+
+// GetContent returns NodeInput.Content, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetContent() *string { return v.Content }
+
+// GetCreateOnly returns NodeInput.CreateOnly, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetCreateOnly() *bool { return v.CreateOnly }
+
+// GetData returns NodeInput.Data, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetData() *json.RawMessage { return v.Data }
+
+// GetDescription returns NodeInput.Description, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetDescription() *string { return v.Description }
+
+// GetEdges returns NodeInput.Edges, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetEdges() []*NodeEdgeInput { return v.Edges }
+
+// GetId returns NodeInput.Id, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetId() *string { return v.Id }
+
+// GetLlmModel returns NodeInput.LlmModel, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetLlmModel() *string { return v.LlmModel }
+
+// GetLoc returns NodeInput.Loc, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetLoc() string { return v.Loc }
+
+// GetMemoryId returns NodeInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetMemoryId() string { return v.MemoryId }
+
+// GetName returns NodeInput.Name, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetName() string { return v.Name }
+
+// GetNodeType returns NodeInput.NodeType, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetNodeType() *string { return v.NodeType }
+
+// GetOwnerRepo returns NodeInput.OwnerRepo, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetOwnerRepo() *string { return v.OwnerRepo }
+
+// GetProperties returns NodeInput.Properties, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetProperties() *json.RawMessage { return v.Properties }
+
+// GetSeq returns NodeInput.Seq, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetSeq() *int { return v.Seq }
+
+// GetTags returns NodeInput.Tags, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetTags() []string { return v.Tags }
+
+// NodesNodesNode includes the requested fields of the GraphQL type Node.
+type NodesNodesNode struct {
+	Id        string   `json:"id"`
+	MemoryId  string   `json:"memoryId"`
+	Loc       string   `json:"loc"`
+	Name      string   `json:"name"`
+	NodeType  string   `json:"nodeType"`
+	Tags      []string `json:"tags"`
+	UpdatedAt string   `json:"updatedAt"`
+}
+
+// GetId returns NodesNodesNode.Id, and is useful for accessing the field via an interface.
+func (v *NodesNodesNode) GetId() string { return v.Id }
+
+// GetMemoryId returns NodesNodesNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *NodesNodesNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns NodesNodesNode.Loc, and is useful for accessing the field via an interface.
+func (v *NodesNodesNode) GetLoc() string { return v.Loc }
+
+// GetName returns NodesNodesNode.Name, and is useful for accessing the field via an interface.
+func (v *NodesNodesNode) GetName() string { return v.Name }
+
+// GetNodeType returns NodesNodesNode.NodeType, and is useful for accessing the field via an interface.
+func (v *NodesNodesNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns NodesNodesNode.Tags, and is useful for accessing the field via an interface.
+func (v *NodesNodesNode) GetTags() []string { return v.Tags }
+
+// GetUpdatedAt returns NodesNodesNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *NodesNodesNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// NodesResponse is returned by Nodes on success.
+type NodesResponse struct {
+	Nodes []*NodesNodesNode `json:"nodes"`
+}
+
+// GetNodes returns NodesResponse.Nodes, and is useful for accessing the field via an interface.
+func (v *NodesResponse) GetNodes() []*NodesNodesNode { return v.Nodes }
+
 type Role string
 
 const (
@@ -250,6 +714,200 @@ var AllSyncStatus = []SyncStatus{
 	SyncStatusSyncing,
 }
 
+// UpdateMemoryResponse is returned by UpdateMemory on success.
+type UpdateMemoryResponse struct {
+	// Update a Memory.
+	//
+	// Accepts the entity's ID or URN.
+	//
+	// Spec 033 FR-026: enabling `vectorIndexEnabled` on an `isEncrypted` memory
+	// requires `acknowledgeVectorInversionRisk: true` in the same call. Without
+	// the flag, an `EncryptedVectorIndexNotAcknowledgedError` is thrown carrying
+	// the full four-point disclosure on `error.disclosure` (single source of
+	// truth in `FR_026_DISCLOSURE` — see `src/lib/entityRef/errors.ts`). On a
+	// non-encrypted memory the flag is a no-op.
+	UpdateMemory *UpdateMemoryUpdateMemory `json:"updateMemory"`
+}
+
+// GetUpdateMemory returns UpdateMemoryResponse.UpdateMemory, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryResponse) GetUpdateMemory() *UpdateMemoryUpdateMemory { return v.UpdateMemory }
+
+// UpdateMemoryUpdateMemory includes the requested fields of the GraphQL type Memory.
+type UpdateMemoryUpdateMemory struct {
+	Id               string            `json:"id"`
+	Urn              string            `json:"urn"`
+	Name             string            `json:"name"`
+	ShortDescription *string           `json:"shortDescription"`
+	Class            MemoryClass       `json:"class"`
+	Visibility       *MemoryVisibility `json:"visibility"`
+	OrganizationId   string            `json:"organizationId"`
+	IsEncrypted      bool              `json:"isEncrypted"`
+	UpdatedAt        string            `json:"updatedAt"`
+}
+
+// GetId returns UpdateMemoryUpdateMemory.Id, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryUpdateMemory) GetId() string { return v.Id }
+
+// GetUrn returns UpdateMemoryUpdateMemory.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryUpdateMemory) GetUrn() string { return v.Urn }
+
+// GetName returns UpdateMemoryUpdateMemory.Name, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryUpdateMemory) GetName() string { return v.Name }
+
+// GetShortDescription returns UpdateMemoryUpdateMemory.ShortDescription, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryUpdateMemory) GetShortDescription() *string { return v.ShortDescription }
+
+// GetClass returns UpdateMemoryUpdateMemory.Class, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryUpdateMemory) GetClass() MemoryClass { return v.Class }
+
+// GetVisibility returns UpdateMemoryUpdateMemory.Visibility, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryUpdateMemory) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// GetOrganizationId returns UpdateMemoryUpdateMemory.OrganizationId, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryUpdateMemory) GetOrganizationId() string { return v.OrganizationId }
+
+// GetIsEncrypted returns UpdateMemoryUpdateMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryUpdateMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetUpdatedAt returns UpdateMemoryUpdateMemory.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryUpdateMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// UpsertNodeResponse is returned by UpsertNode on success.
+type UpsertNodeResponse struct {
+	UpsertNode *UpsertNodeUpsertNode `json:"upsertNode"`
+}
+
+// GetUpsertNode returns UpsertNodeResponse.UpsertNode, and is useful for accessing the field via an interface.
+func (v *UpsertNodeResponse) GetUpsertNode() *UpsertNodeUpsertNode { return v.UpsertNode }
+
+// UpsertNodeUpsertNode includes the requested fields of the GraphQL type Node.
+type UpsertNodeUpsertNode struct {
+	Id        string   `json:"id"`
+	MemoryId  string   `json:"memoryId"`
+	Loc       string   `json:"loc"`
+	Name      string   `json:"name"`
+	NodeType  string   `json:"nodeType"`
+	Tags      []string `json:"tags"`
+	UpdatedAt string   `json:"updatedAt"`
+}
+
+// GetId returns UpsertNodeUpsertNode.Id, and is useful for accessing the field via an interface.
+func (v *UpsertNodeUpsertNode) GetId() string { return v.Id }
+
+// GetMemoryId returns UpsertNodeUpsertNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *UpsertNodeUpsertNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns UpsertNodeUpsertNode.Loc, and is useful for accessing the field via an interface.
+func (v *UpsertNodeUpsertNode) GetLoc() string { return v.Loc }
+
+// GetName returns UpsertNodeUpsertNode.Name, and is useful for accessing the field via an interface.
+func (v *UpsertNodeUpsertNode) GetName() string { return v.Name }
+
+// GetNodeType returns UpsertNodeUpsertNode.NodeType, and is useful for accessing the field via an interface.
+func (v *UpsertNodeUpsertNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns UpsertNodeUpsertNode.Tags, and is useful for accessing the field via an interface.
+func (v *UpsertNodeUpsertNode) GetTags() []string { return v.Tags }
+
+// GetUpdatedAt returns UpsertNodeUpsertNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpsertNodeUpsertNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// __AppsInput is used internally by genqlient
+type __AppsInput struct {
+	OrgId string `json:"orgId"`
+}
+
+// GetOrgId returns __AppsInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__AppsInput) GetOrgId() string { return v.OrgId }
+
+// __CreateAppInput is used internally by genqlient
+type __CreateAppInput struct {
+	OrgId       string   `json:"orgId"`
+	AgentId     string   `json:"agentId"`
+	Name        string   `json:"name"`
+	Urn         *string  `json:"urn"`
+	AppType     *AppType `json:"appType"`
+	Description *string  `json:"description"`
+}
+
+// GetOrgId returns __CreateAppInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__CreateAppInput) GetOrgId() string { return v.OrgId }
+
+// GetAgentId returns __CreateAppInput.AgentId, and is useful for accessing the field via an interface.
+func (v *__CreateAppInput) GetAgentId() string { return v.AgentId }
+
+// GetName returns __CreateAppInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateAppInput) GetName() string { return v.Name }
+
+// GetUrn returns __CreateAppInput.Urn, and is useful for accessing the field via an interface.
+func (v *__CreateAppInput) GetUrn() *string { return v.Urn }
+
+// GetAppType returns __CreateAppInput.AppType, and is useful for accessing the field via an interface.
+func (v *__CreateAppInput) GetAppType() *AppType { return v.AppType }
+
+// GetDescription returns __CreateAppInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateAppInput) GetDescription() *string { return v.Description }
+
+// __CreateMemoryInput is used internally by genqlient
+type __CreateMemoryInput struct {
+	OrgId            string            `json:"orgId"`
+	Name             string            `json:"name"`
+	MemoryClass      *MemoryClass      `json:"memoryClass"`
+	ShortDescription *string           `json:"shortDescription"`
+	Description      *string           `json:"description"`
+	Tags             []string          `json:"tags"`
+	Visibility       *MemoryVisibility `json:"visibility"`
+}
+
+// GetOrgId returns __CreateMemoryInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetOrgId() string { return v.OrgId }
+
+// GetName returns __CreateMemoryInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetName() string { return v.Name }
+
+// GetMemoryClass returns __CreateMemoryInput.MemoryClass, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetMemoryClass() *MemoryClass { return v.MemoryClass }
+
+// GetShortDescription returns __CreateMemoryInput.ShortDescription, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetShortDescription() *string { return v.ShortDescription }
+
+// GetDescription returns __CreateMemoryInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetDescription() *string { return v.Description }
+
+// GetTags returns __CreateMemoryInput.Tags, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetTags() []string { return v.Tags }
+
+// GetVisibility returns __CreateMemoryInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// __DeleteAppInput is used internally by genqlient
+type __DeleteAppInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __DeleteAppInput.Id, and is useful for accessing the field via an interface.
+func (v *__DeleteAppInput) GetId() string { return v.Id }
+
+// __DeleteMemoryInput is used internally by genqlient
+type __DeleteMemoryInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __DeleteMemoryInput.Id, and is useful for accessing the field via an interface.
+func (v *__DeleteMemoryInput) GetId() string { return v.Id }
+
+// __DeleteNodeInput is used internally by genqlient
+type __DeleteNodeInput struct {
+	Loc      string `json:"loc"`
+	MemoryId string `json:"memoryId"`
+}
+
+// GetLoc returns __DeleteNodeInput.Loc, and is useful for accessing the field via an interface.
+func (v *__DeleteNodeInput) GetLoc() string { return v.Loc }
+
+// GetMemoryId returns __DeleteNodeInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__DeleteNodeInput) GetMemoryId() string { return v.MemoryId }
+
 // __GetMemoryInput is used internally by genqlient
 type __GetMemoryInput struct {
 	Id string `json:"id"`
@@ -258,6 +916,22 @@ type __GetMemoryInput struct {
 // GetId returns __GetMemoryInput.Id, and is useful for accessing the field via an interface.
 func (v *__GetMemoryInput) GetId() string { return v.Id }
 
+// __GetNodeByIdInput is used internally by genqlient
+type __GetNodeByIdInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __GetNodeByIdInput.Id, and is useful for accessing the field via an interface.
+func (v *__GetNodeByIdInput) GetId() string { return v.Id }
+
+// __GetNodeInput is used internally by genqlient
+type __GetNodeInput struct {
+	Loc string `json:"loc"`
+}
+
+// GetLoc returns __GetNodeInput.Loc, and is useful for accessing the field via an interface.
+func (v *__GetNodeInput) GetLoc() string { return v.Loc }
+
 // __MyMemoriesInput is used internally by genqlient
 type __MyMemoriesInput struct {
 	IncludeAgentSystem *bool `json:"includeAgentSystem"`
@@ -265,6 +939,316 @@ type __MyMemoriesInput struct {
 
 // GetIncludeAgentSystem returns __MyMemoriesInput.IncludeAgentSystem, and is useful for accessing the field via an interface.
 func (v *__MyMemoriesInput) GetIncludeAgentSystem() *bool { return v.IncludeAgentSystem }
+
+// __NodesInput is used internally by genqlient
+type __NodesInput struct {
+	Memory   *string  `json:"memory"`
+	Prefix   *string  `json:"prefix"`
+	NodeType *string  `json:"nodeType"`
+	Tags     []string `json:"tags"`
+	Search   *string  `json:"search"`
+	Limit    *int     `json:"limit"`
+	Offset   *int     `json:"offset"`
+}
+
+// GetMemory returns __NodesInput.Memory, and is useful for accessing the field via an interface.
+func (v *__NodesInput) GetMemory() *string { return v.Memory }
+
+// GetPrefix returns __NodesInput.Prefix, and is useful for accessing the field via an interface.
+func (v *__NodesInput) GetPrefix() *string { return v.Prefix }
+
+// GetNodeType returns __NodesInput.NodeType, and is useful for accessing the field via an interface.
+func (v *__NodesInput) GetNodeType() *string { return v.NodeType }
+
+// GetTags returns __NodesInput.Tags, and is useful for accessing the field via an interface.
+func (v *__NodesInput) GetTags() []string { return v.Tags }
+
+// GetSearch returns __NodesInput.Search, and is useful for accessing the field via an interface.
+func (v *__NodesInput) GetSearch() *string { return v.Search }
+
+// GetLimit returns __NodesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__NodesInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __NodesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__NodesInput) GetOffset() *int { return v.Offset }
+
+// __UpdateMemoryInput is used internally by genqlient
+type __UpdateMemoryInput struct {
+	Id               string            `json:"id"`
+	Name             *string           `json:"name"`
+	ShortDescription *string           `json:"shortDescription"`
+	Description      *string           `json:"description"`
+	Tags             []string          `json:"tags"`
+	Visibility       *MemoryVisibility `json:"visibility"`
+}
+
+// GetId returns __UpdateMemoryInput.Id, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetId() string { return v.Id }
+
+// GetName returns __UpdateMemoryInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetName() *string { return v.Name }
+
+// GetShortDescription returns __UpdateMemoryInput.ShortDescription, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetShortDescription() *string { return v.ShortDescription }
+
+// GetDescription returns __UpdateMemoryInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetDescription() *string { return v.Description }
+
+// GetTags returns __UpdateMemoryInput.Tags, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetTags() []string { return v.Tags }
+
+// GetVisibility returns __UpdateMemoryInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// __UpsertNodeInput is used internally by genqlient
+type __UpsertNodeInput struct {
+	Input *NodeInput `json:"input,omitempty"`
+}
+
+// GetInput returns __UpsertNodeInput.Input, and is useful for accessing the field via an interface.
+func (v *__UpsertNodeInput) GetInput() *NodeInput { return v.Input }
+
+// The query executed by Apps.
+const Apps_Operation = `
+query Apps ($orgId: ID!) {
+	apps(orgId: $orgId) {
+		id
+		urn
+		name
+		appType
+		agentId
+		memberCount
+		createdAt
+	}
+}
+`
+
+func Apps(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId string,
+) (data_ *AppsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "Apps",
+		Query:  Apps_Operation,
+		Variables: &__AppsInput{
+			OrgId: orgId,
+		},
+	}
+
+	data_ = &AppsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateApp.
+const CreateApp_Operation = `
+mutation CreateApp ($orgId: ID!, $agentId: ID!, $name: String!, $urn: String, $appType: AppType, $description: String) {
+	createApp(orgId: $orgId, agentId: $agentId, name: $name, urn: $urn, appType: $appType, description: $description) {
+		id
+		urn
+		name
+		appType
+		agentId
+		memberCount
+		createdAt
+	}
+}
+`
+
+func CreateApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId string,
+	agentId string,
+	name string,
+	urn *string,
+	appType *AppType,
+	description *string,
+) (data_ *CreateAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateApp",
+		Query:  CreateApp_Operation,
+		Variables: &__CreateAppInput{
+			OrgId:       orgId,
+			AgentId:     agentId,
+			Name:        name,
+			Urn:         urn,
+			AppType:     appType,
+			Description: description,
+		},
+	}
+
+	data_ = &CreateAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateMemory.
+const CreateMemory_Operation = `
+mutation CreateMemory ($orgId: ID!, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility) {
+	createMemory(orgId: $orgId, name: $name, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility) {
+		id
+		urn
+		name
+		shortDescription
+		class
+		visibility
+		organizationId
+		isEncrypted
+		updatedAt
+	}
+}
+`
+
+func CreateMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId string,
+	name string,
+	memoryClass *MemoryClass,
+	shortDescription *string,
+	description *string,
+	tags []string,
+	visibility *MemoryVisibility,
+) (data_ *CreateMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateMemory",
+		Query:  CreateMemory_Operation,
+		Variables: &__CreateMemoryInput{
+			OrgId:            orgId,
+			Name:             name,
+			MemoryClass:      memoryClass,
+			ShortDescription: shortDescription,
+			Description:      description,
+			Tags:             tags,
+			Visibility:       visibility,
+		},
+	}
+
+	data_ = &CreateMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteApp.
+const DeleteApp_Operation = `
+mutation DeleteApp ($id: ID!) {
+	deleteApp(id: $id)
+}
+`
+
+func DeleteApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *DeleteAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteApp",
+		Query:  DeleteApp_Operation,
+		Variables: &__DeleteAppInput{
+			Id: id,
+		},
+	}
+
+	data_ = &DeleteAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteMemory.
+const DeleteMemory_Operation = `
+mutation DeleteMemory ($id: ID!) {
+	deleteMemory(id: $id)
+}
+`
+
+func DeleteMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *DeleteMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteMemory",
+		Query:  DeleteMemory_Operation,
+		Variables: &__DeleteMemoryInput{
+			Id: id,
+		},
+	}
+
+	data_ = &DeleteMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteNode.
+const DeleteNode_Operation = `
+mutation DeleteNode ($loc: String!, $memoryId: String!) {
+	deleteNode(loc: $loc, memoryId: $memoryId)
+}
+`
+
+func DeleteNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	loc string,
+	memoryId string,
+) (data_ *DeleteNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteNode",
+		Query:  DeleteNode_Operation,
+		Variables: &__DeleteNodeInput{
+			Loc:      loc,
+			MemoryId: memoryId,
+		},
+	}
+
+	data_ = &DeleteNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
 
 // The query executed by GetMemory.
 const GetMemory_Operation = `
@@ -303,6 +1287,96 @@ func GetMemory(
 	}
 
 	data_ = &GetMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetNode.
+const GetNode_Operation = `
+query GetNode ($loc: String!) {
+	node(loc: $loc) {
+		id
+		memoryId
+		loc
+		name
+		description
+		abstract
+		nodeType
+		tags
+		content
+		seq
+		createdAt
+		updatedAt
+	}
+}
+`
+
+func GetNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	loc string,
+) (data_ *GetNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetNode",
+		Query:  GetNode_Operation,
+		Variables: &__GetNodeInput{
+			Loc: loc,
+		},
+	}
+
+	data_ = &GetNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetNodeById.
+const GetNodeById_Operation = `
+query GetNodeById ($id: ID!) {
+	nodeById(id: $id) {
+		id
+		memoryId
+		loc
+		name
+		description
+		abstract
+		nodeType
+		tags
+		content
+		seq
+		createdAt
+		updatedAt
+	}
+}
+`
+
+func GetNodeById(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *GetNodeByIdResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetNodeById",
+		Query:  GetNodeById_Operation,
+		Variables: &__GetNodeByIdInput{
+			Id: id,
+		},
+	}
+
+	data_ = &GetNodeByIdResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -380,6 +1454,153 @@ func MyMemories(
 	}
 
 	data_ = &MyMemoriesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by Nodes.
+const Nodes_Operation = `
+query Nodes ($memory: String, $prefix: String, $nodeType: String, $tags: [String!], $search: String, $limit: Int, $offset: Int) {
+	nodes(memory: $memory, prefix: $prefix, nodeType: $nodeType, tags: $tags, search: $search, limit: $limit, offset: $offset) {
+		id
+		memoryId
+		loc
+		name
+		nodeType
+		tags
+		updatedAt
+	}
+}
+`
+
+func Nodes(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memory *string,
+	prefix *string,
+	nodeType *string,
+	tags []string,
+	search *string,
+	limit *int,
+	offset *int,
+) (data_ *NodesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "Nodes",
+		Query:  Nodes_Operation,
+		Variables: &__NodesInput{
+			Memory:   memory,
+			Prefix:   prefix,
+			NodeType: nodeType,
+			Tags:     tags,
+			Search:   search,
+			Limit:    limit,
+			Offset:   offset,
+		},
+	}
+
+	data_ = &NodesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateMemory.
+const UpdateMemory_Operation = `
+mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility) {
+	updateMemory(id: $id, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility) {
+		id
+		urn
+		name
+		shortDescription
+		class
+		visibility
+		organizationId
+		isEncrypted
+		updatedAt
+	}
+}
+`
+
+func UpdateMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	name *string,
+	shortDescription *string,
+	description *string,
+	tags []string,
+	visibility *MemoryVisibility,
+) (data_ *UpdateMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateMemory",
+		Query:  UpdateMemory_Operation,
+		Variables: &__UpdateMemoryInput{
+			Id:               id,
+			Name:             name,
+			ShortDescription: shortDescription,
+			Description:      description,
+			Tags:             tags,
+			Visibility:       visibility,
+		},
+	}
+
+	data_ = &UpdateMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpsertNode.
+const UpsertNode_Operation = `
+mutation UpsertNode ($input: NodeInput!) {
+	upsertNode(input: $input) {
+		id
+		memoryId
+		loc
+		name
+		nodeType
+		tags
+		updatedAt
+	}
+}
+`
+
+// The server treats omitted NodeInput fields as "preserve" and explicit
+// nulls as "clear" — nil pointers must therefore be omitted from the
+// request, not serialized as null.
+func UpsertNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *NodeInput,
+) (data_ *UpsertNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpsertNode",
+		Query:  UpsertNode_Operation,
+		Variables: &__UpsertNodeInput{
+			Input: input,
+		},
+	}
+
+	data_ = &UpsertNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

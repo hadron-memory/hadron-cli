@@ -131,16 +131,6 @@ func TestWhoami(t *testing.T) {
 	}
 }
 
-func TestStubExitsUsage(t *testing.T) {
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "ls"})
-	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "not implemented") {
-		t.Fatalf("expected not-implemented error, got %v", err)
-	}
-}
-
 func TestAgenticUsagePrintsDoc(t *testing.T) {
 	f, out := testFactory(t)
 	root := NewRootCmd(f)

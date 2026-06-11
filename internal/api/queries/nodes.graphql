@@ -1,0 +1,97 @@
+query Nodes(
+  $memory: String
+  $prefix: String
+  $nodeType: String
+  $tags: [String!]
+  $search: String
+  $limit: Int
+  $offset: Int
+) {
+  nodes(
+    memory: $memory
+    prefix: $prefix
+    nodeType: $nodeType
+    tags: $tags
+    search: $search
+    limit: $limit
+    offset: $offset
+  ) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    tags
+    updatedAt
+  }
+}
+
+query GetNodeById($id: ID!) {
+  nodeById(id: $id) {
+    id
+    memoryId
+    loc
+    name
+    description
+    abstract
+    nodeType
+    tags
+    content
+    seq
+    createdAt
+    updatedAt
+  }
+}
+
+query GetNode($loc: String!) {
+  node(loc: $loc) {
+    id
+    memoryId
+    loc
+    name
+    description
+    abstract
+    nodeType
+    tags
+    content
+    seq
+    createdAt
+    updatedAt
+  }
+}
+
+# The server treats omitted NodeInput fields as "preserve" and explicit
+# nulls as "clear" — nil pointers must therefore be omitted from the
+# request, not serialized as null.
+# @genqlient(for: "NodeInput.abstract", omitempty: true)
+# @genqlient(for: "NodeInput.aiAgent", omitempty: true)
+# @genqlient(for: "NodeInput.alias", omitempty: true)
+# @genqlient(for: "NodeInput.content", omitempty: true)
+# @genqlient(for: "NodeInput.createOnly", omitempty: true)
+# @genqlient(for: "NodeInput.data", omitempty: true)
+# @genqlient(for: "NodeInput.description", omitempty: true)
+# @genqlient(for: "NodeInput.edges", omitempty: true)
+# @genqlient(for: "NodeInput.id", omitempty: true)
+# @genqlient(for: "NodeInput.llmModel", omitempty: true)
+# @genqlient(for: "NodeInput.nodeType", omitempty: true)
+# @genqlient(for: "NodeInput.ownerRepo", omitempty: true)
+# @genqlient(for: "NodeInput.properties", omitempty: true)
+# @genqlient(for: "NodeInput.seq", omitempty: true)
+# @genqlient(for: "NodeInput.tags", omitempty: true)
+mutation UpsertNode(
+  $input: NodeInput!
+) {
+  upsertNode(input: $input) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    tags
+    updatedAt
+  }
+}
+
+mutation DeleteNode($loc: String!, $memoryId: String!) {
+  deleteNode(loc: $loc, memoryId: $memoryId)
+}

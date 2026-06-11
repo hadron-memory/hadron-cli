@@ -34,7 +34,11 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := gen.GetMemory(cmd.Context(), client, args[0])
+			memID, err := resolveMemoryID(cmd, client, args[0])
+			if err != nil {
+				return err
+			}
+			resp, err := gen.GetMemory(cmd.Context(), client, memID)
 			if err != nil {
 				return api.MapError(err)
 			}

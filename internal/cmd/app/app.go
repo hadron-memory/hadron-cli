@@ -1,5 +1,4 @@
-// Package app implements `hadron app ...`. Only `app use` is real in
-// the v1 skeleton; ls/install/uninstall land later.
+// Package app implements `hadron app ...`.
 package app
 
 import (
@@ -19,9 +18,9 @@ func NewCmdApp(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Work with Hadron Apps",
 	}
 	cmd.AddCommand(newCmdUse(f))
-	cmd.AddCommand(cmdutil.NewStubCommand("ls", "List Apps in an organization"))
-	cmd.AddCommand(cmdutil.NewStubCommand("install", "Install an Agent as an App"))
-	cmd.AddCommand(cmdutil.NewStubCommand("uninstall <app>", "Uninstall an App"))
+	cmd.AddCommand(newCmdLs(f))
+	cmd.AddCommand(newCmdInstall(f))
+	cmd.AddCommand(newCmdUninstall(f))
 	return cmd
 }
 

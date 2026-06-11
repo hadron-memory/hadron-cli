@@ -1,0 +1,68 @@
+package app
+
+import (
+	"io"
+
+	"github.com/spf13/cobra"
+
+	"github.com/hadron-memory/hadron-cli/internal/api"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/output"
+)
+
+// appDTO is the stable --json shape for an App.
+type appDTO struct {
+	ID          string  `json:"id"`
+	URN         string  `json:"urn"`
+	Name        string  `json:"name"`
+	AppType     string  `json:"appType"`
+	AgentID     *string `json:"agentId"`
+	MemberCount int     `json:"memberCount"`
+	CreatedAt   string  `json:"createdAt"`
+}
+
+func newCmdLs(f *cmdutil.Factory) *cobra.Command {
+	var org string
+	cmd := &cobra.Command{
+		Use:     "ls",
+		Aliases: []string{"list"},
+		Short:   "List Apps in an organization (requires org ADMIN)",
+		Example: `  hadron app ls --org acme.com`,
+		Args:    cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.Apps(cmd.Context(), client, org)
+			if err != nil {
+				return api.MapError(err)
+			}
+
+			apps := make([]appDTO, 0, len(resp.Apps))
+			for _, a := range resp.Apps {
+				apps = append(apps, appDTO{
+					ID:          a.Id,
+					URN:         a.Urn,
+					Name:        a.Name,
+					AppType:     string(a.AppType),
+					AgentID:     a.AgentId,
+					MemberCount: a.MemberCount,
+					CreatedAt:   a.CreatedAt,
+				})
+			}
+
+			return output.Write(f.IOStreams, f.JSON, apps, func(w io.Writer) error {
+				t := output.NewTable(w, "ID", "NAME", "TYPE", "URN")
+				for _, a := range apps {
+					t.Row(a.ID, a.Name, a.AppType, a.URN)
+				}
+				return t.Flush()
+			})
+		},
+	}
+	cmd.Flags().StringVar(&org, "org", "", "organization ID or URN (required)")
+	_ = cmd.MarkFlagRequired("org")
+	return cmd
+}
