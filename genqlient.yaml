@@ -1,0 +1,11 @@
+schema: schema/schema.graphql
+operations:
+  - internal/api/queries/*.graphql
+generated: internal/api/gen/generated.go
+package: gen
+context_type: context.Context
+use_struct_references: true
+optional: pointer
+bindings:
+  JSON:
+    type: encoding/json.RawMessage

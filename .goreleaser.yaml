@@ -1,0 +1,42 @@
+# goreleaser config (D6). Releases are not published yet — CI only
+# runs `goreleaser check`. The brews stanza targets the (future)
+# hadron-memory/homebrew-tap repository.
+version: 2
+
+project_name: hadron
+
+builds:
+  - main: ./cmd/hadron
+    binary: hadron
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X github.com/hadron-memory/hadron-cli/internal/build.Version={{.Version}}
+      - -X github.com/hadron-memory/hadron-cli/internal/build.Commit={{.ShortCommit}}
+      - -X github.com/hadron-memory/hadron-cli/internal/build.Date={{.Date}}
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+
+homebrew_casks:
+  - repository:
+      owner: hadron-memory
+      name: homebrew-tap
+    homepage: https://hadronmemory.com
+    description: CLI for the Hadron AI-memory platform
+    skip_upload: true # flip when the tap repo exists
+
+changelog:
+  use: github-native

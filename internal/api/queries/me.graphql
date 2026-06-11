@@ -1,0 +1,10 @@
+query Me {
+  me {
+    id
+    name
+    email
+    handle
+    githubUsername
+    roles
+  }
+}
