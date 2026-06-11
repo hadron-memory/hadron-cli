@@ -1762,7 +1762,7 @@ type Query {
   session(id: ID!): Session
   sessions(customerId: String, limit: Int, offset: Int, repo: String, type: String): [Session!]!
   subtree(prefix: String!): [Node!]!
-  usageEvents(limit: Int, memoryId: ID, nodeId: ID, offset: Int, type: String): [UsageEvent!]!
+  usageEvents(limit: Int, memoryId: ID, nodeId: ID, nodeLoc: String, offset: Int, type: String): [UsageEvent!]!
   users: [User!]!
 }
 
