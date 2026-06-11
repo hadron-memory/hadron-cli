@@ -101,6 +101,9 @@ func TestBrowserLoginHappyPath(t *testing.T) {
 		if got := q.Get("resource"); got != as.server.URL+"/mcp" {
 			return fmt.Errorf("authorize resource %q, want %q", got, as.server.URL+"/mcp")
 		}
+		if got := q.Get("scope"); got != "mcp" {
+			return fmt.Errorf("authorize scope %q, want %q", got, "mcp")
+		}
 		// Simulate the consent redirect back to the loopback server.
 		go func() {
 			resp, err := http.Get(redirect + "?" + url.Values{

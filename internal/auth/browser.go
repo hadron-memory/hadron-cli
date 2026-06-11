@@ -64,16 +64,19 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 		return nil, err
 	}
 
-	authorizeURL := meta.AuthorizationEndpoint + "?" + url.Values{
+	authorizeParams := url.Values{
 		"response_type":         {"code"},
 		"client_id":             {clientID},
 		"redirect_uri":          {loopback.RedirectURI()},
 		"state":                 {pk.State},
 		"code_challenge":        {pk.Challenge},
 		"code_challenge_method": {"S256"},
-		"resource":              {resource},
 		"scope":                 {"mcp"},
-	}.Encode()
+	}
+	if resource != "" {
+		authorizeParams.Set("resource", resource)
+	}
+	authorizeURL := meta.AuthorizationEndpoint + "?" + authorizeParams.Encode()
 
 	fmt.Fprintln(opts.IO.ErrOut, "Opening your browser to sign in to Hadron...")
 	fmt.Fprintf(opts.IO.ErrOut, "If the browser doesn't open, visit:\n  %s\n", authorizeURL)
@@ -96,7 +99,9 @@ func exchangeCode(ctx context.Context, httpClient *http.Client, tokenEndpoint, c
 		"redirect_uri":  {redirectURI},
 		"client_id":     {clientID},
 		"code_verifier": {verifier},
-		"resource":      {resource},
+	}
+	if resource != "" {
+		form.Set("resource", resource)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenEndpoint, strings.NewReader(form.Encode()))
 	if err != nil {
