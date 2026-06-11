@@ -2,6 +2,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -38,10 +39,11 @@ func Load() (*Config, error) {
 	v.SetConfigType("toml")
 	v.SetDefault("server", DefaultServer)
 	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(*os.PathError); !ok {
-			if _, notFound := err.(viper.ConfigFileNotFoundError); !notFound && !os.IsNotExist(err) {
-				return nil, fmt.Errorf("reading %s: %w", path, err)
-			}
+		// A missing config file means all-defaults; anything else
+		// (permissions, parse errors) is a real failure.
+		var notFound viper.ConfigFileNotFoundError
+		if !os.IsNotExist(err) && !errors.As(err, &notFound) {
+			return nil, fmt.Errorf("reading %s: %w", path, err)
 		}
 	}
 	return &Config{v: v, path: path}, nil

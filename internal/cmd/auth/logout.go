@@ -25,8 +25,11 @@ func newCmdLogout(f *cmdutil.Factory) *cobra.Command {
 			}
 			err = f.TokenStore().Delete(auth.Host(server))
 			if errors.Is(err, store.ErrNotFound) {
-				fmt.Fprintf(f.IOStreams.ErrOut, "no stored credential for %s\n", server)
-				return nil
+				dto := map[string]string{"server": server, "status": "no_stored_credential"}
+				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+					_, err := fmt.Fprintf(w, "no stored credential for %s\n", server)
+					return err
+				})
 			}
 			if err != nil {
 				return err

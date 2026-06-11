@@ -1,17 +1,22 @@
 package store
 
-import "github.com/zalando/go-keyring"
+import (
+	"errors"
+
+	"github.com/zalando/go-keyring"
+)
 
 const probeAccount = "hadron-cli-keyring-probe"
 
 // Resolve picks the keychain backend when one is usable, otherwise
-// the 0600-file fallback. The probe writes and deletes a throwaway
-// entry once per invocation.
+// the 0600-file fallback. The probe is a read-only Get: a usable
+// keyring answers ErrNotFound for the nonexistent probe account,
+// while an unavailable one (headless box, no dbus) errors otherwise.
 func Resolve() Store {
-	if err := keyring.Set(keyringService, probeAccount, "probe"); err != nil {
+	_, err := keyring.Get(keyringService, probeAccount)
+	if err != nil && !errors.Is(err, keyring.ErrNotFound) {
 		return File{}
 	}
-	_ = keyring.Delete(keyringService, probeAccount)
 	return Keyring{}
 }
 

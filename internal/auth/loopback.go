@@ -3,8 +3,10 @@ package auth
 import (
 	"context"
 	"fmt"
+	"html"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
@@ -45,7 +47,13 @@ func startLoopback(state string) (*loopbackServer, error) {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/callback", ls.handle)
-	ls.server = &http.Server{Handler: mux}
+	ls.server = &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       15 * time.Second,
+	}
 	go func() { _ = ls.server.Serve(listener) }()
 	return ls, nil
 }
@@ -64,7 +72,7 @@ func (ls *loopbackServer) handle(w http.ResponseWriter, r *http.Request) {
 		if desc == "" {
 			desc = q.Get("error")
 		}
-		fmt.Fprintf(w, errorHTML, desc)
+		fmt.Fprintf(w, errorHTML, html.EscapeString(desc))
 		ls.deliver(callbackResult{err: exitcode.Newf(exitcode.Cancelled, "authorization denied: %s", desc)})
 	case q.Get("state") != ls.state:
 		fmt.Fprintf(w, errorHTML, "state mismatch")

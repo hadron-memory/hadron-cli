@@ -65,7 +65,11 @@ func newCmdWhoami(f *cmdutil.Factory) *cobra.Command {
 				if label == "" {
 					label = dto.ID
 				}
-				_, err := fmt.Fprintf(w, "%s (%s)\n", label, dto.Email)
+				if dto.Email != "" {
+					_, err := fmt.Fprintf(w, "%s (%s)\n", label, dto.Email)
+					return err
+				}
+				_, err := fmt.Fprintln(w, label)
 				return err
 			})
 		},

@@ -5,6 +5,7 @@ package cmdutil
 
 import (
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/Khan/genqlient/graphql"
@@ -88,8 +89,12 @@ func (f *Factory) TokenStore() store.Store {
 }
 
 // Token returns the active token and its source for the resolved
-// server ("" source when unauthenticated).
+// server ("" source when unauthenticated). HADRON_TOKEN is checked
+// before the token store so CI never triggers a keyring probe.
 func (f *Factory) Token() (string, auth.TokenSource, error) {
+	if env := os.Getenv(store.EnvToken); env != "" {
+		return env, auth.SourceEnv, nil
+	}
 	server, err := f.Server()
 	if err != nil {
 		return "", auth.SourceNone, err
