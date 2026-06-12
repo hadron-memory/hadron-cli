@@ -1,4 +1,7 @@
-query MyMemories($includeAgentSystem: Boolean) {
+query MyMemories(
+  # @genqlient(omitempty: true)
+  $includeAgentSystem: Boolean
+) {
   myMemories(includeAgentSystem: $includeAgentSystem) {
     id
     urn
@@ -15,10 +18,15 @@ query MyMemories($includeAgentSystem: Boolean) {
 mutation CreateMemory(
   $orgId: ID!
   $name: String!
+  # @genqlient(omitempty: true)
   $memoryClass: MemoryClass
+  # @genqlient(omitempty: true)
   $shortDescription: String
+  # @genqlient(omitempty: true)
   $description: String
+  # @genqlient(omitempty: true)
   $tags: [String!]
+  # @genqlient(omitempty: true)
   $visibility: MemoryVisibility
 ) {
   createMemory(
@@ -42,12 +50,18 @@ mutation CreateMemory(
   }
 }
 
+# Omitted = preserve; flags the user didn't pass must not reach the wire.
 mutation UpdateMemory(
   $id: ID!
+  # @genqlient(omitempty: true)
   $name: String
+  # @genqlient(omitempty: true)
   $shortDescription: String
+  # @genqlient(omitempty: true)
   $description: String
+  # @genqlient(omitempty: true)
   $tags: [String!]
+  # @genqlient(omitempty: true)
   $visibility: MemoryVisibility
 ) {
   updateMemory(

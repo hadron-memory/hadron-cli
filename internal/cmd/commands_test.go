@@ -245,6 +245,75 @@ func TestNodeRmWithYes(t *testing.T) {
 	}
 }
 
+func TestEdgeAddOmitsUnsetOptionals(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"CreateEdge": `{"data":{"createEdge":` + edgeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"edge", "add", "--from", nodeURN, "--to", nodeURN,
+		"--label", "routes-to", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateEdge"], &vars)
+	if vars["label"] != "routes-to" {
+		t.Errorf("label not sent: %v", vars)
+	}
+	// Unset optionals must be OMITTED, not sent as explicit nulls — the
+	// server rejects priority: null (hadron-server#263).
+	for _, key := range []string{"priority", "condition", "data"} {
+		if v, present := vars[key]; present {
+			t.Errorf("unset %q must be omitted from createEdge variables, got %v", key, v)
+		}
+	}
+}
+
+func TestEdgeUpdateLabelOnlyPreservesCondition(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateEdge": `{"data":{"updateEdge":` + edgeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"edge", "update", "e1", "--label", "complements", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateEdge"], &vars)
+	if vars["edgeId"] != "e1" || vars["label"] != "complements" {
+		t.Errorf("unexpected update vars: %v", vars)
+	}
+	// An explicit null clears condition/data server-side, so a
+	// label-only update must omit them entirely.
+	for _, key := range []string{"priority", "condition", "data"} {
+		if v, present := vars[key]; present {
+			t.Errorf("unset %q must be omitted from updateEdge variables, got %v", key, v)
+		}
+	}
+}
+
+func TestEdgeUpdateExplicitNullClearsCondition(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateEdge": `{"data":{"updateEdge":` + edgeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"edge", "update", "e1", "--condition", "null", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateEdge"], &vars)
+	// --condition null is the explicit clear: it must be SENT as a
+	// JSON null, not dropped by omitempty.
+	if v, present := vars["condition"]; !present || v != nil {
+		t.Errorf("explicit --condition null must send null, got %v (present=%v)", v, present)
+	}
+}
+
 const memoryJSON = `{"id":"m1","urn":"acme.com:kb","name":"KB","shortDescription":null,
 	"class":"knowledge","visibility":"ORGANIZATION","organizationId":"o1",
 	"isEncrypted":false,"updatedAt":"2026-06-11T00:00:00Z"}`
