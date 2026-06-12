@@ -1,4 +1,4 @@
-package node
+package edge
 
 import (
 	"fmt"
@@ -15,29 +15,25 @@ import (
 func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:     "rm <node-urn>",
+		Use:     "rm <edge-id>",
 		Aliases: []string{"delete"},
-		Short:   "Delete a node",
-		Example: `  hadron node rm acme.com:kb:findings:flaky-ci --yes`,
+		Short:   "Delete an edge",
+		Example: `  hadron edge rm edg_123 --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			node, err := fetchNode(cmd, client, args[0])
-			if err != nil {
+			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "edge "+args[0]); err != nil {
 				return err
 			}
-			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "node "+args[0]); err != nil {
-				return err
-			}
-			if _, err := gen.DeleteNode(cmd.Context(), client, node.Loc, node.MemoryId); err != nil {
+			if _, err := gen.DeleteEdge(cmd.Context(), client, args[0]); err != nil {
 				return api.MapError(err)
 			}
-			dto := map[string]string{"loc": node.Loc, "memoryId": node.MemoryId, "status": "deleted"}
+			dto := map[string]string{"edge": args[0], "status": "deleted"}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ Deleted node %s\n", args[0])
+				_, err := fmt.Fprintf(w, "✓ Deleted edge %s\n", args[0])
 				return err
 			})
 		},

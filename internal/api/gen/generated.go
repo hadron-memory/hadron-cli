@@ -126,6 +126,62 @@ type CreateAppResponse struct {
 // GetCreateApp returns CreateAppResponse.CreateApp, and is useful for accessing the field via an interface.
 func (v *CreateAppResponse) GetCreateApp() *CreateAppCreateApp { return v.CreateApp }
 
+// CreateEdgeCreateEdge includes the requested fields of the GraphQL type Edge.
+type CreateEdgeCreateEdge struct {
+	Id       string                          `json:"id"`
+	Label    string                          `json:"label"`
+	Priority int                             `json:"priority"`
+	Source   *CreateEdgeCreateEdgeSourceNode `json:"source"`
+	Target   *CreateEdgeCreateEdgeTargetNode `json:"target"`
+}
+
+// GetId returns CreateEdgeCreateEdge.Id, and is useful for accessing the field via an interface.
+func (v *CreateEdgeCreateEdge) GetId() string { return v.Id }
+
+// GetLabel returns CreateEdgeCreateEdge.Label, and is useful for accessing the field via an interface.
+func (v *CreateEdgeCreateEdge) GetLabel() string { return v.Label }
+
+// GetPriority returns CreateEdgeCreateEdge.Priority, and is useful for accessing the field via an interface.
+func (v *CreateEdgeCreateEdge) GetPriority() int { return v.Priority }
+
+// GetSource returns CreateEdgeCreateEdge.Source, and is useful for accessing the field via an interface.
+func (v *CreateEdgeCreateEdge) GetSource() *CreateEdgeCreateEdgeSourceNode { return v.Source }
+
+// GetTarget returns CreateEdgeCreateEdge.Target, and is useful for accessing the field via an interface.
+func (v *CreateEdgeCreateEdge) GetTarget() *CreateEdgeCreateEdgeTargetNode { return v.Target }
+
+// CreateEdgeCreateEdgeSourceNode includes the requested fields of the GraphQL type Node.
+type CreateEdgeCreateEdgeSourceNode struct {
+	Id  string `json:"id"`
+	Loc string `json:"loc"`
+}
+
+// GetId returns CreateEdgeCreateEdgeSourceNode.Id, and is useful for accessing the field via an interface.
+func (v *CreateEdgeCreateEdgeSourceNode) GetId() string { return v.Id }
+
+// GetLoc returns CreateEdgeCreateEdgeSourceNode.Loc, and is useful for accessing the field via an interface.
+func (v *CreateEdgeCreateEdgeSourceNode) GetLoc() string { return v.Loc }
+
+// CreateEdgeCreateEdgeTargetNode includes the requested fields of the GraphQL type Node.
+type CreateEdgeCreateEdgeTargetNode struct {
+	Id  string `json:"id"`
+	Loc string `json:"loc"`
+}
+
+// GetId returns CreateEdgeCreateEdgeTargetNode.Id, and is useful for accessing the field via an interface.
+func (v *CreateEdgeCreateEdgeTargetNode) GetId() string { return v.Id }
+
+// GetLoc returns CreateEdgeCreateEdgeTargetNode.Loc, and is useful for accessing the field via an interface.
+func (v *CreateEdgeCreateEdgeTargetNode) GetLoc() string { return v.Loc }
+
+// CreateEdgeResponse is returned by CreateEdge on success.
+type CreateEdgeResponse struct {
+	CreateEdge *CreateEdgeCreateEdge `json:"createEdge"`
+}
+
+// GetCreateEdge returns CreateEdgeResponse.CreateEdge, and is useful for accessing the field via an interface.
+func (v *CreateEdgeResponse) GetCreateEdge() *CreateEdgeCreateEdge { return v.CreateEdge }
+
 // CreateMemoryCreateMemory includes the requested fields of the GraphQL type Memory.
 type CreateMemoryCreateMemory struct {
 	Id               string            `json:"id"`
@@ -195,6 +251,14 @@ type DeleteAppResponse struct {
 
 // GetDeleteApp returns DeleteAppResponse.DeleteApp, and is useful for accessing the field via an interface.
 func (v *DeleteAppResponse) GetDeleteApp() bool { return v.DeleteApp }
+
+// DeleteEdgeResponse is returned by DeleteEdge on success.
+type DeleteEdgeResponse struct {
+	DeleteEdge bool `json:"deleteEdge"`
+}
+
+// GetDeleteEdge returns DeleteEdgeResponse.DeleteEdge, and is useful for accessing the field via an interface.
+func (v *DeleteEdgeResponse) GetDeleteEdge() bool { return v.DeleteEdge }
 
 // DeleteMemoryResponse is returned by DeleteMemory on success.
 type DeleteMemoryResponse struct {
@@ -298,13 +362,15 @@ type GetNodeByIdNodeByIdNode struct {
 	Name        string  `json:"name"`
 	Description *string `json:"description"`
 	// Paragraph-length summary of this node. Opt-in on h-read-node via the contentScope parameter. h-find-nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in h-list-nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
-	Abstract  *string  `json:"abstract"`
-	NodeType  string   `json:"nodeType"`
-	Tags      []string `json:"tags"`
-	Content   *string  `json:"content"`
-	Seq       *int     `json:"seq"`
-	CreatedAt string   `json:"createdAt"`
-	UpdatedAt string   `json:"updatedAt"`
+	Abstract      *string                                     `json:"abstract"`
+	NodeType      string                                      `json:"nodeType"`
+	Tags          []string                                    `json:"tags"`
+	Content       *string                                     `json:"content"`
+	Seq           *int                                        `json:"seq"`
+	CreatedAt     string                                      `json:"createdAt"`
+	UpdatedAt     string                                      `json:"updatedAt"`
+	OutgoingEdges []*GetNodeByIdNodeByIdNodeOutgoingEdgesEdge `json:"outgoingEdges"`
+	IncomingEdges []*GetNodeByIdNodeByIdNodeIncomingEdgesEdge `json:"incomingEdges"`
 }
 
 // GetId returns GetNodeByIdNodeByIdNode.Id, and is useful for accessing the field via an interface.
@@ -343,6 +409,92 @@ func (v *GetNodeByIdNodeByIdNode) GetCreatedAt() string { return v.CreatedAt }
 // GetUpdatedAt returns GetNodeByIdNodeByIdNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *GetNodeByIdNodeByIdNode) GetUpdatedAt() string { return v.UpdatedAt }
 
+// GetOutgoingEdges returns GetNodeByIdNodeByIdNode.OutgoingEdges, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNode) GetOutgoingEdges() []*GetNodeByIdNodeByIdNodeOutgoingEdgesEdge {
+	return v.OutgoingEdges
+}
+
+// GetIncomingEdges returns GetNodeByIdNodeByIdNode.IncomingEdges, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNode) GetIncomingEdges() []*GetNodeByIdNodeByIdNodeIncomingEdgesEdge {
+	return v.IncomingEdges
+}
+
+// GetNodeByIdNodeByIdNodeIncomingEdgesEdge includes the requested fields of the GraphQL type Edge.
+type GetNodeByIdNodeByIdNodeIncomingEdgesEdge struct {
+	Id       string                                              `json:"id"`
+	Label    string                                              `json:"label"`
+	Priority int                                                 `json:"priority"`
+	Source   *GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode `json:"source"`
+}
+
+// GetId returns GetNodeByIdNodeByIdNodeIncomingEdgesEdge.Id, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdge) GetId() string { return v.Id }
+
+// GetLabel returns GetNodeByIdNodeByIdNodeIncomingEdgesEdge.Label, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdge) GetLabel() string { return v.Label }
+
+// GetPriority returns GetNodeByIdNodeByIdNodeIncomingEdgesEdge.Priority, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdge) GetPriority() int { return v.Priority }
+
+// GetSource returns GetNodeByIdNodeByIdNodeIncomingEdgesEdge.Source, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdge) GetSource() *GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode {
+	return v.Source
+}
+
+// GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode includes the requested fields of the GraphQL type Node.
+type GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode struct {
+	Id       string `json:"id"`
+	Loc      string `json:"loc"`
+	MemoryId string `json:"memoryId"`
+}
+
+// GetId returns GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode.Id, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode) GetId() string { return v.Id }
+
+// GetLoc returns GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode.Loc, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode) GetLoc() string { return v.Loc }
+
+// GetMemoryId returns GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode) GetMemoryId() string { return v.MemoryId }
+
+// GetNodeByIdNodeByIdNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
+type GetNodeByIdNodeByIdNodeOutgoingEdgesEdge struct {
+	Id       string                                              `json:"id"`
+	Label    string                                              `json:"label"`
+	Priority int                                                 `json:"priority"`
+	Target   *GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode `json:"target"`
+}
+
+// GetId returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdge.Id, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdge) GetId() string { return v.Id }
+
+// GetLabel returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdge.Label, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdge) GetLabel() string { return v.Label }
+
+// GetPriority returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdge.Priority, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdge) GetPriority() int { return v.Priority }
+
+// GetTarget returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdge.Target, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdge) GetTarget() *GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode {
+	return v.Target
+}
+
+// GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode includes the requested fields of the GraphQL type Node.
+type GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode struct {
+	Id       string `json:"id"`
+	Loc      string `json:"loc"`
+	MemoryId string `json:"memoryId"`
+}
+
+// GetId returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode.Id, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode) GetId() string { return v.Id }
+
+// GetLoc returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode.Loc, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode) GetLoc() string { return v.Loc }
+
+// GetMemoryId returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode) GetMemoryId() string { return v.MemoryId }
+
 // GetNodeByIdResponse is returned by GetNodeById on success.
 type GetNodeByIdResponse struct {
 	NodeById *GetNodeByIdNodeByIdNode `json:"nodeById"`
@@ -350,67 +502,6 @@ type GetNodeByIdResponse struct {
 
 // GetNodeById returns GetNodeByIdResponse.NodeById, and is useful for accessing the field via an interface.
 func (v *GetNodeByIdResponse) GetNodeById() *GetNodeByIdNodeByIdNode { return v.NodeById }
-
-// GetNodeNode includes the requested fields of the GraphQL type Node.
-type GetNodeNode struct {
-	Id          string  `json:"id"`
-	MemoryId    string  `json:"memoryId"`
-	Loc         string  `json:"loc"`
-	Name        string  `json:"name"`
-	Description *string `json:"description"`
-	// Paragraph-length summary of this node. Opt-in on h-read-node via the contentScope parameter. h-find-nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in h-list-nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
-	Abstract  *string  `json:"abstract"`
-	NodeType  string   `json:"nodeType"`
-	Tags      []string `json:"tags"`
-	Content   *string  `json:"content"`
-	Seq       *int     `json:"seq"`
-	CreatedAt string   `json:"createdAt"`
-	UpdatedAt string   `json:"updatedAt"`
-}
-
-// GetId returns GetNodeNode.Id, and is useful for accessing the field via an interface.
-func (v *GetNodeNode) GetId() string { return v.Id }
-
-// GetMemoryId returns GetNodeNode.MemoryId, and is useful for accessing the field via an interface.
-func (v *GetNodeNode) GetMemoryId() string { return v.MemoryId }
-
-// GetLoc returns GetNodeNode.Loc, and is useful for accessing the field via an interface.
-func (v *GetNodeNode) GetLoc() string { return v.Loc }
-
-// GetName returns GetNodeNode.Name, and is useful for accessing the field via an interface.
-func (v *GetNodeNode) GetName() string { return v.Name }
-
-// GetDescription returns GetNodeNode.Description, and is useful for accessing the field via an interface.
-func (v *GetNodeNode) GetDescription() *string { return v.Description }
-
-// GetAbstract returns GetNodeNode.Abstract, and is useful for accessing the field via an interface.
-func (v *GetNodeNode) GetAbstract() *string { return v.Abstract }
-
-// GetNodeType returns GetNodeNode.NodeType, and is useful for accessing the field via an interface.
-func (v *GetNodeNode) GetNodeType() string { return v.NodeType }
-
-// GetTags returns GetNodeNode.Tags, and is useful for accessing the field via an interface.
-func (v *GetNodeNode) GetTags() []string { return v.Tags }
-
-// GetContent returns GetNodeNode.Content, and is useful for accessing the field via an interface.
-func (v *GetNodeNode) GetContent() *string { return v.Content }
-
-// GetSeq returns GetNodeNode.Seq, and is useful for accessing the field via an interface.
-func (v *GetNodeNode) GetSeq() *int { return v.Seq }
-
-// GetCreatedAt returns GetNodeNode.CreatedAt, and is useful for accessing the field via an interface.
-func (v *GetNodeNode) GetCreatedAt() string { return v.CreatedAt }
-
-// GetUpdatedAt returns GetNodeNode.UpdatedAt, and is useful for accessing the field via an interface.
-func (v *GetNodeNode) GetUpdatedAt() string { return v.UpdatedAt }
-
-// GetNodeResponse is returned by GetNode on success.
-type GetNodeResponse struct {
-	Node *GetNodeNode `json:"node"`
-}
-
-// GetNode returns GetNodeResponse.Node, and is useful for accessing the field via an interface.
-func (v *GetNodeResponse) GetNode() *GetNodeNode { return v.Node }
 
 // MeMeUser includes the requested fields of the GraphQL type User.
 type MeMeUser struct {
@@ -682,6 +773,54 @@ type NodesResponse struct {
 // GetNodes returns NodesResponse.Nodes, and is useful for accessing the field via an interface.
 func (v *NodesResponse) GetNodes() []*NodesNodesNode { return v.Nodes }
 
+// ResolveUrnResolveUrnUrnResolution includes the requested fields of the GraphQL type UrnResolution.
+// The GraphQL type's documentation follows.
+//
+// Result of resolving a Hadron URN to the ids a client needs to navigate to
+// the resource's canonical page. Powers the portal's /app/u/<urn> redirect
+// route (hadron-portal#262).
+//
+// `kind` is the URN's type segment: memory | node | agent | org | app.
+// `id` is the resolved entity's primary id. `memoryId` is set only for
+// nodes (their owning memory), `organizationId` only for apps (their owning
+// org) — both are the extra ids those resources' canonical routes require.
+type ResolveUrnResolveUrnUrnResolution struct {
+	Id       string  `json:"id"`
+	Kind     string  `json:"kind"`
+	MemoryId *string `json:"memoryId"`
+}
+
+// GetId returns ResolveUrnResolveUrnUrnResolution.Id, and is useful for accessing the field via an interface.
+func (v *ResolveUrnResolveUrnUrnResolution) GetId() string { return v.Id }
+
+// GetKind returns ResolveUrnResolveUrnUrnResolution.Kind, and is useful for accessing the field via an interface.
+func (v *ResolveUrnResolveUrnUrnResolution) GetKind() string { return v.Kind }
+
+// GetMemoryId returns ResolveUrnResolveUrnUrnResolution.MemoryId, and is useful for accessing the field via an interface.
+func (v *ResolveUrnResolveUrnUrnResolution) GetMemoryId() *string { return v.MemoryId }
+
+// ResolveUrnResponse is returned by ResolveUrn on success.
+type ResolveUrnResponse struct {
+	// Resolve a fully-qualified, `urn:<type>:`-prefixed Hadron URN to the ids
+	// needed to reach its canonical page. Returns null when the URN is
+	// unresolvable (not found) OR the caller lacks access. Unlike the dedicated
+	// per-kind queries — which throw `Forbidden` on no-access — this query
+	// deliberately collapses both not-found and no-access to null, so a
+	// redirect resolver can 404 uniformly without disclosing which case it was.
+	//
+	// Per-kind access uses the SAME authorization rules as the dedicated
+	// queries (memory/org/agent: org membership; app: org ADMIN; node:
+	// memoryAccessFilter), only with the throw replaced by a null return.
+	//
+	// The `urn:<type>:` prefix is the dispatch key — bare URNs without a type
+	// prefix are ambiguous across kinds (`org::slug` could be a memory or an
+	// agent) and resolve to null.
+	ResolveUrn *ResolveUrnResolveUrnUrnResolution `json:"resolveUrn"`
+}
+
+// GetResolveUrn returns ResolveUrnResponse.ResolveUrn, and is useful for accessing the field via an interface.
+func (v *ResolveUrnResponse) GetResolveUrn() *ResolveUrnResolveUrnUrnResolution { return v.ResolveUrn }
+
 type Role string
 
 const (
@@ -713,6 +852,62 @@ var AllSyncStatus = []SyncStatus{
 	SyncStatusPending,
 	SyncStatusSyncing,
 }
+
+// UpdateEdgeResponse is returned by UpdateEdge on success.
+type UpdateEdgeResponse struct {
+	UpdateEdge *UpdateEdgeUpdateEdge `json:"updateEdge"`
+}
+
+// GetUpdateEdge returns UpdateEdgeResponse.UpdateEdge, and is useful for accessing the field via an interface.
+func (v *UpdateEdgeResponse) GetUpdateEdge() *UpdateEdgeUpdateEdge { return v.UpdateEdge }
+
+// UpdateEdgeUpdateEdge includes the requested fields of the GraphQL type Edge.
+type UpdateEdgeUpdateEdge struct {
+	Id       string                          `json:"id"`
+	Label    string                          `json:"label"`
+	Priority int                             `json:"priority"`
+	Source   *UpdateEdgeUpdateEdgeSourceNode `json:"source"`
+	Target   *UpdateEdgeUpdateEdgeTargetNode `json:"target"`
+}
+
+// GetId returns UpdateEdgeUpdateEdge.Id, and is useful for accessing the field via an interface.
+func (v *UpdateEdgeUpdateEdge) GetId() string { return v.Id }
+
+// GetLabel returns UpdateEdgeUpdateEdge.Label, and is useful for accessing the field via an interface.
+func (v *UpdateEdgeUpdateEdge) GetLabel() string { return v.Label }
+
+// GetPriority returns UpdateEdgeUpdateEdge.Priority, and is useful for accessing the field via an interface.
+func (v *UpdateEdgeUpdateEdge) GetPriority() int { return v.Priority }
+
+// GetSource returns UpdateEdgeUpdateEdge.Source, and is useful for accessing the field via an interface.
+func (v *UpdateEdgeUpdateEdge) GetSource() *UpdateEdgeUpdateEdgeSourceNode { return v.Source }
+
+// GetTarget returns UpdateEdgeUpdateEdge.Target, and is useful for accessing the field via an interface.
+func (v *UpdateEdgeUpdateEdge) GetTarget() *UpdateEdgeUpdateEdgeTargetNode { return v.Target }
+
+// UpdateEdgeUpdateEdgeSourceNode includes the requested fields of the GraphQL type Node.
+type UpdateEdgeUpdateEdgeSourceNode struct {
+	Id  string `json:"id"`
+	Loc string `json:"loc"`
+}
+
+// GetId returns UpdateEdgeUpdateEdgeSourceNode.Id, and is useful for accessing the field via an interface.
+func (v *UpdateEdgeUpdateEdgeSourceNode) GetId() string { return v.Id }
+
+// GetLoc returns UpdateEdgeUpdateEdgeSourceNode.Loc, and is useful for accessing the field via an interface.
+func (v *UpdateEdgeUpdateEdgeSourceNode) GetLoc() string { return v.Loc }
+
+// UpdateEdgeUpdateEdgeTargetNode includes the requested fields of the GraphQL type Node.
+type UpdateEdgeUpdateEdgeTargetNode struct {
+	Id  string `json:"id"`
+	Loc string `json:"loc"`
+}
+
+// GetId returns UpdateEdgeUpdateEdgeTargetNode.Id, and is useful for accessing the field via an interface.
+func (v *UpdateEdgeUpdateEdgeTargetNode) GetId() string { return v.Id }
+
+// GetLoc returns UpdateEdgeUpdateEdgeTargetNode.Loc, and is useful for accessing the field via an interface.
+func (v *UpdateEdgeUpdateEdgeTargetNode) GetLoc() string { return v.Loc }
 
 // UpdateMemoryResponse is returned by UpdateMemory on success.
 type UpdateMemoryResponse struct {
@@ -848,6 +1043,34 @@ func (v *__CreateAppInput) GetAppType() *AppType { return v.AppType }
 // GetDescription returns __CreateAppInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateAppInput) GetDescription() *string { return v.Description }
 
+// __CreateEdgeInput is used internally by genqlient
+type __CreateEdgeInput struct {
+	SourceNodeId string           `json:"sourceNodeId"`
+	TargetNodeId string           `json:"targetNodeId"`
+	Label        string           `json:"label"`
+	Priority     *int             `json:"priority"`
+	Condition    *json.RawMessage `json:"condition"`
+	Data         *json.RawMessage `json:"data"`
+}
+
+// GetSourceNodeId returns __CreateEdgeInput.SourceNodeId, and is useful for accessing the field via an interface.
+func (v *__CreateEdgeInput) GetSourceNodeId() string { return v.SourceNodeId }
+
+// GetTargetNodeId returns __CreateEdgeInput.TargetNodeId, and is useful for accessing the field via an interface.
+func (v *__CreateEdgeInput) GetTargetNodeId() string { return v.TargetNodeId }
+
+// GetLabel returns __CreateEdgeInput.Label, and is useful for accessing the field via an interface.
+func (v *__CreateEdgeInput) GetLabel() string { return v.Label }
+
+// GetPriority returns __CreateEdgeInput.Priority, and is useful for accessing the field via an interface.
+func (v *__CreateEdgeInput) GetPriority() *int { return v.Priority }
+
+// GetCondition returns __CreateEdgeInput.Condition, and is useful for accessing the field via an interface.
+func (v *__CreateEdgeInput) GetCondition() *json.RawMessage { return v.Condition }
+
+// GetData returns __CreateEdgeInput.Data, and is useful for accessing the field via an interface.
+func (v *__CreateEdgeInput) GetData() *json.RawMessage { return v.Data }
+
 // __CreateMemoryInput is used internally by genqlient
 type __CreateMemoryInput struct {
 	OrgId            string            `json:"orgId"`
@@ -888,6 +1111,14 @@ type __DeleteAppInput struct {
 // GetId returns __DeleteAppInput.Id, and is useful for accessing the field via an interface.
 func (v *__DeleteAppInput) GetId() string { return v.Id }
 
+// __DeleteEdgeInput is used internally by genqlient
+type __DeleteEdgeInput struct {
+	EdgeId string `json:"edgeId"`
+}
+
+// GetEdgeId returns __DeleteEdgeInput.EdgeId, and is useful for accessing the field via an interface.
+func (v *__DeleteEdgeInput) GetEdgeId() string { return v.EdgeId }
+
 // __DeleteMemoryInput is used internally by genqlient
 type __DeleteMemoryInput struct {
 	Id string `json:"id"`
@@ -923,14 +1154,6 @@ type __GetNodeByIdInput struct {
 
 // GetId returns __GetNodeByIdInput.Id, and is useful for accessing the field via an interface.
 func (v *__GetNodeByIdInput) GetId() string { return v.Id }
-
-// __GetNodeInput is used internally by genqlient
-type __GetNodeInput struct {
-	Loc string `json:"loc"`
-}
-
-// GetLoc returns __GetNodeInput.Loc, and is useful for accessing the field via an interface.
-func (v *__GetNodeInput) GetLoc() string { return v.Loc }
 
 // __MyMemoriesInput is used internally by genqlient
 type __MyMemoriesInput struct {
@@ -971,6 +1194,38 @@ func (v *__NodesInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __NodesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__NodesInput) GetOffset() *int { return v.Offset }
+
+// __ResolveUrnInput is used internally by genqlient
+type __ResolveUrnInput struct {
+	Urn string `json:"urn"`
+}
+
+// GetUrn returns __ResolveUrnInput.Urn, and is useful for accessing the field via an interface.
+func (v *__ResolveUrnInput) GetUrn() string { return v.Urn }
+
+// __UpdateEdgeInput is used internally by genqlient
+type __UpdateEdgeInput struct {
+	EdgeId    string           `json:"edgeId"`
+	Label     *string          `json:"label"`
+	Priority  *int             `json:"priority"`
+	Condition *json.RawMessage `json:"condition"`
+	Data      *json.RawMessage `json:"data"`
+}
+
+// GetEdgeId returns __UpdateEdgeInput.EdgeId, and is useful for accessing the field via an interface.
+func (v *__UpdateEdgeInput) GetEdgeId() string { return v.EdgeId }
+
+// GetLabel returns __UpdateEdgeInput.Label, and is useful for accessing the field via an interface.
+func (v *__UpdateEdgeInput) GetLabel() *string { return v.Label }
+
+// GetPriority returns __UpdateEdgeInput.Priority, and is useful for accessing the field via an interface.
+func (v *__UpdateEdgeInput) GetPriority() *int { return v.Priority }
+
+// GetCondition returns __UpdateEdgeInput.Condition, and is useful for accessing the field via an interface.
+func (v *__UpdateEdgeInput) GetCondition() *json.RawMessage { return v.Condition }
+
+// GetData returns __UpdateEdgeInput.Data, and is useful for accessing the field via an interface.
+func (v *__UpdateEdgeInput) GetData() *json.RawMessage { return v.Data }
 
 // __UpdateMemoryInput is used internally by genqlient
 type __UpdateMemoryInput struct {
@@ -1098,6 +1353,60 @@ func CreateApp(
 	return data_, err_
 }
 
+// The mutation executed by CreateEdge.
+const CreateEdge_Operation = `
+mutation CreateEdge ($sourceNodeId: ID!, $targetNodeId: ID!, $label: String!, $priority: Int, $condition: JSON, $data: JSON) {
+	createEdge(sourceNodeId: $sourceNodeId, targetNodeId: $targetNodeId, label: $label, priority: $priority, condition: $condition, data: $data) {
+		id
+		label
+		priority
+		source {
+			id
+			loc
+		}
+		target {
+			id
+			loc
+		}
+	}
+}
+`
+
+func CreateEdge(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	sourceNodeId string,
+	targetNodeId string,
+	label string,
+	priority *int,
+	condition *json.RawMessage,
+	data *json.RawMessage,
+) (data_ *CreateEdgeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateEdge",
+		Query:  CreateEdge_Operation,
+		Variables: &__CreateEdgeInput{
+			SourceNodeId: sourceNodeId,
+			TargetNodeId: targetNodeId,
+			Label:        label,
+			Priority:     priority,
+			Condition:    condition,
+			Data:         data,
+		},
+	}
+
+	data_ = &CreateEdgeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateMemory.
 const CreateMemory_Operation = `
 mutation CreateMemory ($orgId: ID!, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility) {
@@ -1173,6 +1482,38 @@ func DeleteApp(
 	}
 
 	data_ = &DeleteAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteEdge.
+const DeleteEdge_Operation = `
+mutation DeleteEdge ($edgeId: ID!) {
+	deleteEdge(edgeId: $edgeId)
+}
+`
+
+func DeleteEdge(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	edgeId string,
+) (data_ *DeleteEdgeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteEdge",
+		Query:  DeleteEdge_Operation,
+		Variables: &__DeleteEdgeInput{
+			EdgeId: edgeId,
+		},
+	}
+
+	data_ = &DeleteEdgeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -1298,51 +1639,6 @@ func GetMemory(
 	return data_, err_
 }
 
-// The query executed by GetNode.
-const GetNode_Operation = `
-query GetNode ($loc: String!) {
-	node(loc: $loc) {
-		id
-		memoryId
-		loc
-		name
-		description
-		abstract
-		nodeType
-		tags
-		content
-		seq
-		createdAt
-		updatedAt
-	}
-}
-`
-
-func GetNode(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	loc string,
-) (data_ *GetNodeResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "GetNode",
-		Query:  GetNode_Operation,
-		Variables: &__GetNodeInput{
-			Loc: loc,
-		},
-	}
-
-	data_ = &GetNodeResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
 // The query executed by GetNodeById.
 const GetNodeById_Operation = `
 query GetNodeById ($id: ID!) {
@@ -1359,6 +1655,26 @@ query GetNodeById ($id: ID!) {
 		seq
 		createdAt
 		updatedAt
+		outgoingEdges {
+			id
+			label
+			priority
+			target {
+				id
+				loc
+				memoryId
+			}
+		}
+		incomingEdges {
+			id
+			label
+			priority
+			source {
+				id
+				loc
+				memoryId
+			}
+		}
 	}
 }
 `
@@ -1506,6 +1822,94 @@ func Nodes(
 	}
 
 	data_ = &NodesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ResolveUrn.
+const ResolveUrn_Operation = `
+query ResolveUrn ($urn: String!) {
+	resolveUrn(urn: $urn) {
+		id
+		kind
+		memoryId
+	}
+}
+`
+
+func ResolveUrn(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	urn string,
+) (data_ *ResolveUrnResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ResolveUrn",
+		Query:  ResolveUrn_Operation,
+		Variables: &__ResolveUrnInput{
+			Urn: urn,
+		},
+	}
+
+	data_ = &ResolveUrnResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateEdge.
+const UpdateEdge_Operation = `
+mutation UpdateEdge ($edgeId: ID!, $label: String, $priority: Int, $condition: JSON, $data: JSON) {
+	updateEdge(edgeId: $edgeId, label: $label, priority: $priority, condition: $condition, data: $data) {
+		id
+		label
+		priority
+		source {
+			id
+			loc
+		}
+		target {
+			id
+			loc
+		}
+	}
+}
+`
+
+func UpdateEdge(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	edgeId string,
+	label *string,
+	priority *int,
+	condition *json.RawMessage,
+	data *json.RawMessage,
+) (data_ *UpdateEdgeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateEdge",
+		Query:  UpdateEdge_Operation,
+		Variables: &__UpdateEdgeInput{
+			EdgeId:    edgeId,
+			Label:     label,
+			Priority:  priority,
+			Condition: condition,
+			Data:      data,
+		},
+	}
+
+	data_ = &UpdateEdgeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
