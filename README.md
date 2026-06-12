@@ -10,14 +10,34 @@ Full v1 command surface implemented: `auth login|logout|whoami|status`,
 `memory ls|get|set|rm`, `node ls|get|add|update|rm`,
 `app ls|install|uninstall|use`, `config get|set|list`, `api` (raw
 GraphQL escape hatch), `version`, `completion`, `agentic-usage`.
-Not yet released — build from source.
 
 ## Install
 
-Until releases are published, build from source:
+### Homebrew (macOS)
 
 ```sh
-make build        # produces bin/hadron
+brew tap hadron-memory/tap
+brew install --cask hadron
+```
+
+### Release archives (macOS, Linux, Windows)
+
+Download the archive for your platform from the
+[latest release](https://github.com/hadron-memory/hadron-cli/releases/latest),
+verify against `checksums.txt`, and put `hadron` on your PATH.
+
+### Go
+
+```sh
+go install github.com/hadron-memory/hadron-cli/cmd/hadron@latest
+```
+
+(`go install` builds without the version stamp — `hadron version` reports `dev`.)
+
+### From source
+
+```sh
+make build        # produces bin/hadron, version-stamped
 ```
 
 Requires Go (see `go.mod` for the version).
