@@ -408,6 +408,42 @@ func TestMemoryRm(t *testing.T) {
 	}
 }
 
+func TestMemoryClone(t *testing.T) {
+	cloneJSON := `{"id":"m2","urn":"acme.com:kb-fork","name":"kb-fork","shortDescription":null,
+		"class":"knowledge","visibility":"ORGANIZATION","organizationId":"org1",
+		"isEncrypted":false,"updatedAt":"2026-06-12T00:00:00Z"}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CloneMemory": `{"data":{"cloneMemory":` + cloneJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "clone", "acme.com:kb", "--name", "kb-fork", "--server", gql.URL, "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CloneMemory"], &vars)
+	if vars["id"] != "acme.com:kb" || vars["name"] != "kb-fork" {
+		t.Errorf("unexpected clone vars: %v", vars)
+	}
+	var dto map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	if dto["urn"] != "acme.com:kb-fork" {
+		t.Errorf("unexpected output dto: %v", dto)
+	}
+}
+
+func TestMemoryCloneRequiresName(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "clone", "acme.com:kb"})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected an error when --name is missing")
+	}
+}
+
 const appJSON = `{"id":"app1","urn":"urn:agent:acme.com::bot::acme.com:helper","name":"Bot",
 	"appType":"CHATBOT","agentId":"agent1","memberCount":2,"createdAt":"2026-06-11T00:00:00Z"}`
 

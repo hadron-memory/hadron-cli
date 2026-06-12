@@ -44,7 +44,7 @@ the Hadron portal or by the OAuth flow. The server defaults to
 
 ```
 hadron auth login | logout | whoami | status
-hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn>
+hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name>
 hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn>
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
@@ -76,6 +76,11 @@ Conventions:
 - `node add` fails if the loc already exists; `node update` modifies
   an existing node and preserves unset fields. Content comes from
   `--content "<text>"`, `--content -` (stdin), or `--content-file`.
+- `memory clone` deep-copies a memory (nodes + edges) into a new
+  same-org memory and rewrites references to the source memory's URN
+  inside node content. Version history, shares/subscriptions, assets,
+  and git-sync config are NOT copied. Encrypted memories and agent
+  system / app memories cannot be cloned.
 
 ## The escape hatch: hadron api
 

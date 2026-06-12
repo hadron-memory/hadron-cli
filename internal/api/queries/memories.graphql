@@ -111,3 +111,17 @@ query GetMemory($id: ID!) {
     updatedAt
   }
 }
+
+mutation CloneMemory($id: ID!, $name: String!) {
+  cloneMemory(id: $id, name: $name) {
+    id
+    urn
+    name
+    shortDescription
+    class
+    visibility
+    organizationId
+    isEncrypted
+    updatedAt
+  }
+}
