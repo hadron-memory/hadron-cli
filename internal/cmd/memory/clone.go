@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"errors"
 	"io"
 
 	"github.com/spf13/cobra"
@@ -19,10 +20,11 @@ func newCmdClone(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Clone a memory into a new memory in the same org",
 		Long: `Clone a memory into a new memory in the same org.
 
-Copies the memory plus all live nodes and edges; references to the
-source memory's URN inside node content are rewritten to the clone's
-URN. Version history, subscriptions, shares, assets, and git-sync
-config are not copied — the clone starts DB-only.
+Copies the memory plus all live nodes, edges, and pending edges;
+references to the source memory's URN inside node content and
+abstracts are rewritten to the clone's URN. Version history,
+subscriptions, shares, assets, and git-sync config are not copied —
+the clone starts DB-only.
 
 Encrypted memories and agent system / app memories cannot be cloned.`,
 		Example: `  hadron memory clone acme.com:project-kb --name project-kb-fork`,
@@ -37,6 +39,9 @@ Encrypted memories and agent system / app memories cannot be cloned.`,
 				return api.MapError(err)
 			}
 			cloned := resp.CloneMemory
+			if cloned == nil {
+				return errors.New("server returned an empty cloneMemory response")
+			}
 			m := memoryDTO{
 				ID: cloned.Id, URN: cloned.Urn, Name: cloned.Name,
 				ShortDescription: cloned.ShortDescription, Class: string(cloned.Class),

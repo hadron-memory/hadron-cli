@@ -76,11 +76,11 @@ Conventions:
 - `node add` fails if the loc already exists; `node update` modifies
   an existing node and preserves unset fields. Content comes from
   `--content "<text>"`, `--content -` (stdin), or `--content-file`.
-- `memory clone` deep-copies a memory (nodes + edges) into a new
-  same-org memory and rewrites references to the source memory's URN
-  inside node content. Version history, shares/subscriptions, assets,
-  and git-sync config are NOT copied. Encrypted memories and agent
-  system / app memories cannot be cloned.
+- `memory clone` deep-copies a memory (nodes, edges, pending edges)
+  into a new same-org memory and rewrites references to the source
+  memory's URN inside node content and abstracts. Version history,
+  shares/subscriptions, assets, and git-sync config are NOT copied.
+  Encrypted memories and agent system / app memories cannot be cloned.
 
 ## The escape hatch: hadron api
 
