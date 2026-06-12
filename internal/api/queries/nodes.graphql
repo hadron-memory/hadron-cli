@@ -1,10 +1,17 @@
 query Nodes(
+  # @genqlient(omitempty: true)
   $memory: ID
+  # @genqlient(omitempty: true)
   $prefix: String
+  # @genqlient(omitempty: true)
   $nodeType: String
+  # @genqlient(omitempty: true)
   $tags: [String!]
+  # @genqlient(omitempty: true)
   $search: String
+  # @genqlient(omitempty: true)
   $limit: Int
+  # @genqlient(omitempty: true)
   $offset: Int
 ) {
   nodes(
@@ -107,12 +114,18 @@ mutation DeleteNode($loc: String!, $memoryId: String!) {
   deleteNode(loc: $loc, memoryId: $memoryId)
 }
 
+# Unset optional variables must be omitted from the wire, not sent as
+# explicit nulls — the server rejects priority: null (hadron-server#263)
+# and treats condition/data: null as "clear".
 mutation CreateEdge(
   $sourceNodeId: ID!
   $targetNodeId: ID!
   $label: String!
+  # @genqlient(omitempty: true)
   $priority: Int
+  # @genqlient(omitempty: true)
   $condition: JSON
+  # @genqlient(omitempty: true)
   $data: JSON
 ) {
   createEdge(
@@ -137,11 +150,17 @@ mutation CreateEdge(
   }
 }
 
+# Omitted = preserve, explicit null = clear (condition/data) or unset
+# (priority). Flags the user didn't pass must not reach the wire.
 mutation UpdateEdge(
   $edgeId: ID!
+  # @genqlient(omitempty: true)
   $label: String
+  # @genqlient(omitempty: true)
   $priority: Int
+  # @genqlient(omitempty: true)
   $condition: JSON
+  # @genqlient(omitempty: true)
   $data: JSON
 ) {
   updateEdge(

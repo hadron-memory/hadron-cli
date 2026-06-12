@@ -14,8 +14,11 @@ mutation CreateApp(
   $orgId: ID!
   $agentId: ID!
   $name: String!
+  # @genqlient(omitempty: true)
   $urn: String
+  # @genqlient(omitempty: true)
   $appType: AppType
+  # @genqlient(omitempty: true)
   $description: String
 ) {
   createApp(

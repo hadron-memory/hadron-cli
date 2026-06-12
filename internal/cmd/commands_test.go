@@ -245,6 +245,75 @@ func TestNodeRmWithYes(t *testing.T) {
 	}
 }
 
+func TestEdgeAddOmitsUnsetOptionals(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"CreateEdge": `{"data":{"createEdge":` + edgeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"edge", "add", "--from", nodeURN, "--to", nodeURN,
+		"--label", "routes-to", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateEdge"], &vars)
+	if vars["label"] != "routes-to" {
+		t.Errorf("label not sent: %v", vars)
+	}
+	// Unset optionals must be OMITTED, not sent as explicit nulls — the
+	// server rejects priority: null (hadron-server#263).
+	for _, key := range []string{"priority", "condition", "data"} {
+		if v, present := vars[key]; present {
+			t.Errorf("unset %q must be omitted from createEdge variables, got %v", key, v)
+		}
+	}
+}
+
+func TestEdgeUpdateLabelOnlyPreservesCondition(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateEdge": `{"data":{"updateEdge":` + edgeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"edge", "update", "e1", "--label", "complements", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateEdge"], &vars)
+	if vars["edgeId"] != "e1" || vars["label"] != "complements" {
+		t.Errorf("unexpected update vars: %v", vars)
+	}
+	// An explicit null clears condition/data server-side, so a
+	// label-only update must omit them entirely.
+	for _, key := range []string{"priority", "condition", "data"} {
+		if v, present := vars[key]; present {
+			t.Errorf("unset %q must be omitted from updateEdge variables, got %v", key, v)
+		}
+	}
+}
+
+func TestEdgeUpdateExplicitNullClearsCondition(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateEdge": `{"data":{"updateEdge":` + edgeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"edge", "update", "e1", "--condition", "null", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateEdge"], &vars)
+	// --condition null is the explicit clear: it must be SENT as a
+	// JSON null, not dropped by omitempty.
+	if v, present := vars["condition"]; !present || v != nil {
+		t.Errorf("explicit --condition null must send null, got %v (present=%v)", v, present)
+	}
+}
+
 const memoryJSON = `{"id":"m1","urn":"acme.com:kb","name":"KB","shortDescription":null,
 	"class":"knowledge","visibility":"ORGANIZATION","organizationId":"o1",
 	"isEncrypted":false,"updatedAt":"2026-06-11T00:00:00Z"}`
@@ -282,6 +351,33 @@ func TestMemorySetUpdate(t *testing.T) {
 	// The URN is resolved to the PK via myMemories before updateMemory.
 	if vars["id"] != "m1" || vars["shortDescription"] != "Project knowledge" {
 		t.Errorf("unexpected update vars: %v", vars)
+	}
+	// Unset optionals must be OMITTED, not sent as explicit nulls —
+	// the server treats omitted as "preserve".
+	for _, key := range []string{"name", "description", "tags", "visibility"} {
+		if v, present := vars[key]; present {
+			t.Errorf("unset %q must be omitted from updateMemory variables, got %v", key, v)
+		}
+	}
+}
+
+func TestMemorySetUpdateSendsTags(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"MyMemories":   `{"data":{"myMemories":[` + memoryJSON + `]}}`,
+		"UpdateMemory": `{"data":{"updateMemory":` + memoryJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "set", "acme.com:kb", "--tag", "go", "--tag", "cli", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Tags []string `json:"tags"`
+	}
+	_ = json.Unmarshal(captured["UpdateMemory"], &vars)
+	if len(vars.Tags) != 2 || vars.Tags[0] != "go" || vars.Tags[1] != "cli" {
+		t.Errorf("tags not sent: %s", captured["UpdateMemory"])
 	}
 }
 
@@ -350,6 +446,12 @@ func TestAppInstall(t *testing.T) {
 	_ = json.Unmarshal(captured["CreateApp"], &vars)
 	if vars["orgId"] != "acme.com" || vars["agentId"] != "agent1" || vars["appType"] != "CHATBOT" {
 		t.Errorf("unexpected vars: %v", vars)
+	}
+	// Unset optionals must be OMITTED, not sent as explicit nulls.
+	for _, key := range []string{"urn", "description"} {
+		if v, present := vars[key]; present {
+			t.Errorf("unset %q must be omitted from createApp variables, got %v", key, v)
+		}
 	}
 }
 

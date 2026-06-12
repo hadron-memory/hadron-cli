@@ -1020,9 +1020,9 @@ type __CreateAppInput struct {
 	OrgId       string   `json:"orgId"`
 	AgentId     string   `json:"agentId"`
 	Name        string   `json:"name"`
-	Urn         *string  `json:"urn"`
-	AppType     *AppType `json:"appType"`
-	Description *string  `json:"description"`
+	Urn         *string  `json:"urn,omitempty"`
+	AppType     *AppType `json:"appType,omitempty"`
+	Description *string  `json:"description,omitempty"`
 }
 
 // GetOrgId returns __CreateAppInput.OrgId, and is useful for accessing the field via an interface.
@@ -1048,9 +1048,9 @@ type __CreateEdgeInput struct {
 	SourceNodeId string           `json:"sourceNodeId"`
 	TargetNodeId string           `json:"targetNodeId"`
 	Label        string           `json:"label"`
-	Priority     *int             `json:"priority"`
-	Condition    *json.RawMessage `json:"condition"`
-	Data         *json.RawMessage `json:"data"`
+	Priority     *int             `json:"priority,omitempty"`
+	Condition    *json.RawMessage `json:"condition,omitempty"`
+	Data         *json.RawMessage `json:"data,omitempty"`
 }
 
 // GetSourceNodeId returns __CreateEdgeInput.SourceNodeId, and is useful for accessing the field via an interface.
@@ -1075,11 +1075,11 @@ func (v *__CreateEdgeInput) GetData() *json.RawMessage { return v.Data }
 type __CreateMemoryInput struct {
 	OrgId            string            `json:"orgId"`
 	Name             string            `json:"name"`
-	MemoryClass      *MemoryClass      `json:"memoryClass"`
-	ShortDescription *string           `json:"shortDescription"`
-	Description      *string           `json:"description"`
-	Tags             []string          `json:"tags"`
-	Visibility       *MemoryVisibility `json:"visibility"`
+	MemoryClass      *MemoryClass      `json:"memoryClass,omitempty"`
+	ShortDescription *string           `json:"shortDescription,omitempty"`
+	Description      *string           `json:"description,omitempty"`
+	Tags             *[]string         `json:"tags,omitempty"`
+	Visibility       *MemoryVisibility `json:"visibility,omitempty"`
 }
 
 // GetOrgId returns __CreateMemoryInput.OrgId, and is useful for accessing the field via an interface.
@@ -1098,7 +1098,7 @@ func (v *__CreateMemoryInput) GetShortDescription() *string { return v.ShortDesc
 func (v *__CreateMemoryInput) GetDescription() *string { return v.Description }
 
 // GetTags returns __CreateMemoryInput.Tags, and is useful for accessing the field via an interface.
-func (v *__CreateMemoryInput) GetTags() []string { return v.Tags }
+func (v *__CreateMemoryInput) GetTags() *[]string { return v.Tags }
 
 // GetVisibility returns __CreateMemoryInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryInput) GetVisibility() *MemoryVisibility { return v.Visibility }
@@ -1157,7 +1157,7 @@ func (v *__GetNodeByIdInput) GetId() string { return v.Id }
 
 // __MyMemoriesInput is used internally by genqlient
 type __MyMemoriesInput struct {
-	IncludeAgentSystem *bool `json:"includeAgentSystem"`
+	IncludeAgentSystem *bool `json:"includeAgentSystem,omitempty"`
 }
 
 // GetIncludeAgentSystem returns __MyMemoriesInput.IncludeAgentSystem, and is useful for accessing the field via an interface.
@@ -1165,13 +1165,13 @@ func (v *__MyMemoriesInput) GetIncludeAgentSystem() *bool { return v.IncludeAgen
 
 // __NodesInput is used internally by genqlient
 type __NodesInput struct {
-	Memory   *string  `json:"memory"`
-	Prefix   *string  `json:"prefix"`
-	NodeType *string  `json:"nodeType"`
-	Tags     []string `json:"tags"`
-	Search   *string  `json:"search"`
-	Limit    *int     `json:"limit"`
-	Offset   *int     `json:"offset"`
+	Memory   *string  `json:"memory,omitempty"`
+	Prefix   *string  `json:"prefix,omitempty"`
+	NodeType *string  `json:"nodeType,omitempty"`
+	Tags     []string `json:"tags,omitempty"`
+	Search   *string  `json:"search,omitempty"`
+	Limit    *int     `json:"limit,omitempty"`
+	Offset   *int     `json:"offset,omitempty"`
 }
 
 // GetMemory returns __NodesInput.Memory, and is useful for accessing the field via an interface.
@@ -1206,10 +1206,10 @@ func (v *__ResolveUrnInput) GetUrn() string { return v.Urn }
 // __UpdateEdgeInput is used internally by genqlient
 type __UpdateEdgeInput struct {
 	EdgeId    string           `json:"edgeId"`
-	Label     *string          `json:"label"`
-	Priority  *int             `json:"priority"`
-	Condition *json.RawMessage `json:"condition"`
-	Data      *json.RawMessage `json:"data"`
+	Label     *string          `json:"label,omitempty"`
+	Priority  *int             `json:"priority,omitempty"`
+	Condition *json.RawMessage `json:"condition,omitempty"`
+	Data      *json.RawMessage `json:"data,omitempty"`
 }
 
 // GetEdgeId returns __UpdateEdgeInput.EdgeId, and is useful for accessing the field via an interface.
@@ -1230,11 +1230,11 @@ func (v *__UpdateEdgeInput) GetData() *json.RawMessage { return v.Data }
 // __UpdateMemoryInput is used internally by genqlient
 type __UpdateMemoryInput struct {
 	Id               string            `json:"id"`
-	Name             *string           `json:"name"`
-	ShortDescription *string           `json:"shortDescription"`
-	Description      *string           `json:"description"`
-	Tags             []string          `json:"tags"`
-	Visibility       *MemoryVisibility `json:"visibility"`
+	Name             *string           `json:"name,omitempty"`
+	ShortDescription *string           `json:"shortDescription,omitempty"`
+	Description      *string           `json:"description,omitempty"`
+	Tags             *[]string         `json:"tags,omitempty"`
+	Visibility       *MemoryVisibility `json:"visibility,omitempty"`
 }
 
 // GetId returns __UpdateMemoryInput.Id, and is useful for accessing the field via an interface.
@@ -1250,7 +1250,7 @@ func (v *__UpdateMemoryInput) GetShortDescription() *string { return v.ShortDesc
 func (v *__UpdateMemoryInput) GetDescription() *string { return v.Description }
 
 // GetTags returns __UpdateMemoryInput.Tags, and is useful for accessing the field via an interface.
-func (v *__UpdateMemoryInput) GetTags() []string { return v.Tags }
+func (v *__UpdateMemoryInput) GetTags() *[]string { return v.Tags }
 
 // GetVisibility returns __UpdateMemoryInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryInput) GetVisibility() *MemoryVisibility { return v.Visibility }
@@ -1372,6 +1372,9 @@ mutation CreateEdge ($sourceNodeId: ID!, $targetNodeId: ID!, $label: String!, $p
 }
 `
 
+// Unset optional variables must be omitted from the wire, not sent as
+// explicit nulls — the server rejects priority: null (hadron-server#263)
+// and treats condition/data: null as "clear".
 func CreateEdge(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -1432,7 +1435,7 @@ func CreateMemory(
 	memoryClass *MemoryClass,
 	shortDescription *string,
 	description *string,
-	tags []string,
+	tags *[]string,
 	visibility *MemoryVisibility,
 ) (data_ *CreateMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
@@ -1888,6 +1891,8 @@ mutation UpdateEdge ($edgeId: ID!, $label: String, $priority: Int, $condition: J
 }
 `
 
+// Omitted = preserve, explicit null = clear (condition/data) or unset
+// (priority). Flags the user didn't pass must not reach the wire.
 func UpdateEdge(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -1938,6 +1943,7 @@ mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $desc
 }
 `
 
+// Omitted = preserve; flags the user didn't pass must not reach the wire.
 func UpdateMemory(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -1945,7 +1951,7 @@ func UpdateMemory(
 	name *string,
 	shortDescription *string,
 	description *string,
-	tags []string,
+	tags *[]string,
 	visibility *MemoryVisibility,
 ) (data_ *UpdateMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
