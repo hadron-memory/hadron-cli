@@ -4,13 +4,9 @@ package edge
 
 import (
 	"encoding/json"
-	"strings"
 
-	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
-	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
@@ -39,32 +35,10 @@ func NewCmdEdge(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
-// resolveNodeURN mirrors the node package's resolver: a node ref is
-// always a fully-qualified URN.
-func resolveNodeURN(cmd *cobra.Command, client graphql.Client, ref string) (string, error) {
-	urn := ref
-	if !strings.HasPrefix(urn, "urn:") {
-		if strings.Count(urn, ":") < 2 {
-			return "", exitcode.Newf(exitcode.Usage,
-				"%q is not a fully-qualified node URN — expected <org>:<memory>:<loc>", ref)
-		}
-		urn = "urn:node:" + urn
-	}
-	resp, err := gen.ResolveUrn(cmd.Context(), client, urn)
-	if err != nil {
-		return "", api.MapError(err)
-	}
-	if resp.ResolveUrn == nil || resp.ResolveUrn.Kind != "node" {
-		return "", exitcode.Newf(exitcode.NotFound, "node %q not found", ref)
-	}
-	return resp.ResolveUrn.Id, nil
-}
-
-// parseJSONFlag parses an optional JSON-valued flag.
+// parseJSONFlag parses an explicitly-set JSON-valued flag. Callers
+// only invoke it when the flag was passed, so an empty value is a
+// usage error rather than a silent no-op.
 func parseJSONFlag(name, value string) (*json.RawMessage, error) {
-	if value == "" {
-		return nil, nil
-	}
 	if !json.Valid([]byte(value)) {
 		return nil, exitcode.Newf(exitcode.Usage, "--%s must be valid JSON", name)
 	}

@@ -105,6 +105,19 @@ func TestNodeGetRejectsBareLoc(t *testing.T) {
 	}
 }
 
+func TestNodeGetWrongKindIsUsageError(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": `{"data":{"resolveUrn":{"id":"m1","kind":"memory","memoryId":null}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", "acme.com:kb:whatever", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "not a node") {
+		t.Fatalf("expected wrong-kind usage error, got %v", err)
+	}
+}
+
 func TestNodeGetNotFound(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": `{"data":{"resolveUrn":null}}`,

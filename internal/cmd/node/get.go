@@ -3,7 +3,6 @@ package node
 import (
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -110,33 +109,9 @@ func detailDTO(n *gen.GetNodeByIdNodeByIdNode) nodeDetailDTO {
 	return dto
 }
 
-// resolveNodeURN turns a fully-qualified node URN into a node ID via
-// Query.resolveUrn. Bare locs are rejected client-side with a usage
-// error: node references always name the memory (same-loc collisions
-// across memories made anything less ambiguous).
-func resolveNodeURN(cmd *cobra.Command, client graphql.Client, ref string) (string, error) {
-	urn := ref
-	if !strings.HasPrefix(urn, "urn:") {
-		// A full node URN has at least org:memory:loc.
-		if strings.Count(urn, ":") < 2 {
-			return "", exitcode.Newf(exitcode.Usage,
-				"%q is not a fully-qualified node URN — expected <org>:<memory>:<loc> (e.g. hadronmemory.com:dev:start-here)", ref)
-		}
-		urn = "urn:node:" + urn
-	}
-	resp, err := gen.ResolveUrn(cmd.Context(), client, urn)
-	if err != nil {
-		return "", api.MapError(err)
-	}
-	if resp.ResolveUrn == nil || resp.ResolveUrn.Kind != "node" {
-		return "", exitcode.Newf(exitcode.NotFound, "node %q not found", ref)
-	}
-	return resp.ResolveUrn.Id, nil
-}
-
 // fetchNode resolves a node URN and returns the full node.
 func fetchNode(cmd *cobra.Command, client graphql.Client, ref string) (*gen.GetNodeByIdNodeByIdNode, error) {
-	id, err := resolveNodeURN(cmd, client, ref)
+	id, err := cmdutil.ResolveNodeURN(cmd, client, ref)
 	if err != nil {
 		return nil, err
 	}

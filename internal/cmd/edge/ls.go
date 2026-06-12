@@ -34,7 +34,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			id, err := resolveNodeURN(cmd, client, args[0])
+			id, err := cmdutil.ResolveNodeURN(cmd, client, args[0])
 			if err != nil {
 				return err
 			}

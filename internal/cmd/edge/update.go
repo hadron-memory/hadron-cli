@@ -1,6 +1,7 @@
 package edge
 
 import (
+	"encoding/json"
 	"io"
 
 	"github.com/spf13/cobra"
@@ -46,18 +47,24 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 			if changed("priority") {
 				priorityArg = &priority
 			}
-			conditionArg, err := parseJSONFlag("condition", condition)
-			if err != nil {
-				return err
+			var conditionArg, dataArg *json.RawMessage
+			if changed("condition") {
+				if conditionArg, err = parseJSONFlag("condition", condition); err != nil {
+					return err
+				}
 			}
-			dataArg, err := parseJSONFlag("data", data)
-			if err != nil {
-				return err
+			if changed("data") {
+				if dataArg, err = parseJSONFlag("data", data); err != nil {
+					return err
+				}
 			}
 
 			resp, err := gen.UpdateEdge(cmd.Context(), client, args[0], labelArg, priorityArg, conditionArg, dataArg)
 			if err != nil {
 				return api.MapError(err)
+			}
+			if resp.UpdateEdge == nil {
+				return exitcode.Newf(exitcode.Error, "updateEdge returned no edge")
 			}
 
 			e := resp.UpdateEdge

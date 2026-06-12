@@ -71,6 +71,16 @@ func TestEdgeAdd(t *testing.T) {
 	}
 }
 
+func TestEdgeUpdateRejectsEmptyConditionFlag(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"edge", "update", "e1", "--condition", "", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "valid JSON") {
+		t.Fatalf("expected JSON validation error for explicit empty --condition, got %v", err)
+	}
+}
+
 func TestEdgeAddRejectsBadJSONCondition(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)

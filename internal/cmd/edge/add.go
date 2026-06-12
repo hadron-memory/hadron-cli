@@ -1,6 +1,7 @@
 package edge
 
 import (
+	"encoding/json"
 	"io"
 
 	"github.com/spf13/cobra"
@@ -8,6 +9,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -31,24 +33,28 @@ cross-memory edges are allowed.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Validate local input before any network round-trip.
-			conditionArg, err := parseJSONFlag("condition", condition)
-			if err != nil {
-				return err
+			var conditionArg, dataArg *json.RawMessage
+			var err error
+			if cmd.Flags().Changed("condition") {
+				if conditionArg, err = parseJSONFlag("condition", condition); err != nil {
+					return err
+				}
 			}
-			dataArg, err := parseJSONFlag("data", data)
-			if err != nil {
-				return err
+			if cmd.Flags().Changed("data") {
+				if dataArg, err = parseJSONFlag("data", data); err != nil {
+					return err
+				}
 			}
 
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			sourceID, err := resolveNodeURN(cmd, client, from)
+			sourceID, err := cmdutil.ResolveNodeURN(cmd, client, from)
 			if err != nil {
 				return err
 			}
-			targetID, err := resolveNodeURN(cmd, client, to)
+			targetID, err := cmdutil.ResolveNodeURN(cmd, client, to)
 			if err != nil {
 				return err
 			}
@@ -60,6 +66,9 @@ cross-memory edges are allowed.`,
 			resp, err := gen.CreateEdge(cmd.Context(), client, sourceID, targetID, label, priorityArg, conditionArg, dataArg)
 			if err != nil {
 				return api.MapError(err)
+			}
+			if resp.CreateEdge == nil {
+				return exitcode.Newf(exitcode.Error, "createEdge returned no edge")
 			}
 
 			e := resp.CreateEdge
