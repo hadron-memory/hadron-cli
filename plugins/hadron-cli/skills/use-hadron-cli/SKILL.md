@@ -14,13 +14,13 @@ orientation layer.
 ## Check before you act
 
 ```sh
-hadron auth status          # exit 0 = signed in, 3 = not signed in
+hadron auth status --json   # exit 0 = signed in, 3 = not signed in
 hadron auth whoami --json   # who am I?
 ```
 
 If not signed in, do NOT run `hadron auth login` (interactive browser flow —
 humans only). Ask the user to log in, or use a token:
-`HADRON_TOKEN=hdr_user_...` env var, or `echo $TOKEN | hadron auth login --with-token`.
+`HADRON_TOKEN=hdr_user_...` env var, or `printf '%s\n' "$TOKEN" | hadron auth login --with-token`.
 
 ## Non-negotiable rules for agents
 
@@ -43,11 +43,13 @@ humans only). Ask the user to log in, or use a token:
 hadron memory ls --json                       # list memories
 hadron node ls -m acme.com:kb --json          # list nodes in a memory
 hadron node get acme.com:kb:start-here --json # content + edges
-cat note.md | hadron node add -m acme.com:kb --loc findings:x --name "X" --content -
-hadron node update acme.com:kb:findings:x --name "X (resolved)"   # unset fields preserved
-hadron edge add --from acme.com:kb:a --to acme.com:kb:b --label routes-to
+hadron node add -m acme.com:kb --loc findings:x --name "X" --content-file note.md --json
+hadron node update acme.com:kb:findings:x --name "X (resolved)" --json  # unset fields preserved
+hadron edge add --from acme.com:kb:a --to acme.com:kb:b --label routes-to --json
 hadron edge ls acme.com:kb:a --json
 ```
+
+Inline or piped content also works: `--content "<text>"` or `--content -` (stdin).
 
 `node add` fails if the loc exists (use `node update`); `node update` only
 changes fields you pass. Edges are directed + labeled; cross-memory edges are
