@@ -1,0 +1,9 @@
+{
+  "name": "hadron-cli",
+  "description": "Work with Hadron AI-memory (memories, nodes, edges, apps) from the shell via the hadron CLI",
+  "version": "0.1.0",
+  "author": {
+    "name": "Hadron",
+    "url": "https://hadronmemory.com"
+  }
+}

@@ -8,5 +8,11 @@
     "description": "Skills for working with the Hadron AI-memory platform via the hadron CLI",
     "version": "0.1.0"
   },
-  "plugins": []
+  "plugins": [
+    {
+      "name": "hadron-cli",
+      "source": "./plugins/hadron-cli",
+      "description": "Work with Hadron AI-memory (memories, nodes, edges, Apps) from the shell via the hadron CLI"
+    }
+  ]
 }

@@ -60,6 +60,20 @@ Run `hadron agentic-usage` — it prints the full output contract,
 stable exit codes, and recipes in one document. Every command
 supports `--json` with stable field names.
 
+### Claude Code plugin
+
+This repo is also a Claude Code plugin marketplace. In Claude Code:
+
+```
+/plugin marketplace add hadron-memory/hadron-cli
+/plugin install hadron-cli@hadron
+```
+
+The `hadron-cli` plugin ships a `use-hadron-cli` skill that teaches
+the agent the CLI contract (auth checks, `--json`, `--yes` on
+destructive commands, fully-qualified node URNs) and defers to
+`hadron agentic-usage` as the runtime source of truth.
+
 ## Development
 
 ```sh
