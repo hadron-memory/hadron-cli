@@ -1,6 +1,5 @@
-# goreleaser config (D6). Releases are not published yet — CI only
-# runs `goreleaser check`. The brews stanza targets the (future)
-# hadron-memory/homebrew-tap repository.
+# goreleaser config (D6). Releases are cut by
+# .github/workflows/release.yml on every v* tag push.
 version: 2
 
 project_name: hadron
@@ -34,9 +33,15 @@ homebrew_casks:
   - repository:
       owner: hadron-memory
       name: homebrew-tap
+      token: '{{ .Env.HOMEBREW_TAP_TOKEN }}'
     homepage: https://hadronmemory.com
     description: CLI for the Hadron AI-memory platform
-    skip_upload: true # flip when the tap repo exists
+    # Cross-repo pushes need the HOMEBREW_TAP_TOKEN repo secret (a PAT
+    # with write access to hadron-memory/homebrew-tap; the workflow's
+    # GITHUB_TOKEN cannot push to a sibling repo). Until that secret is
+    # configured, leave skip_upload: true and bump the cask in the tap
+    # manually from the release's checksums.txt.
+    skip_upload: true
 
 changelog:
   use: github-native
