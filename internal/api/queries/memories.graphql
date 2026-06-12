@@ -24,7 +24,9 @@ mutation CreateMemory(
   $shortDescription: String
   # @genqlient(omitempty: true)
   $description: String
-  # @genqlient(omitempty: true)
+  # bound to *[]string so an explicitly-passed empty list still
+  # serializes as [] (clear) — omitempty on a plain slice would drop it.
+  # @genqlient(omitempty: true, bind: "*[]string")
   $tags: [String!]
   # @genqlient(omitempty: true)
   $visibility: MemoryVisibility
@@ -59,7 +61,9 @@ mutation UpdateMemory(
   $shortDescription: String
   # @genqlient(omitempty: true)
   $description: String
-  # @genqlient(omitempty: true)
+  # bound to *[]string so an explicitly-passed empty list still
+  # serializes as [] (clear) — omitempty on a plain slice would drop it.
+  # @genqlient(omitempty: true, bind: "*[]string")
   $tags: [String!]
   # @genqlient(omitempty: true)
   $visibility: MemoryVisibility

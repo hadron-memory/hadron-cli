@@ -51,6 +51,10 @@ and --name are then required.`,
 				}
 				return &s
 			}
+			var tagsArg *[]string
+			if cmd.Flags().Changed("tag") {
+				tagsArg = &tags
+			}
 
 			var m memoryDTO
 			var verb string
@@ -63,7 +67,7 @@ and --name are then required.`,
 					c := gen.MemoryClass(class)
 					classArg = &c
 				}
-				resp, err := gen.CreateMemory(cmd.Context(), client, org, name, classArg, optional(short), optional(description), tags, visArg)
+				resp, err := gen.CreateMemory(cmd.Context(), client, org, name, classArg, optional(short), optional(description), tagsArg, visArg)
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -83,14 +87,14 @@ and --name are then required.`,
 				if org != "" || class != "" {
 					return exitcode.Newf(exitcode.Usage, "--org and --class only apply when creating (no positional argument)")
 				}
-				if name == "" && short == "" && description == "" && visibility == "" && len(tags) == 0 {
+				if name == "" && short == "" && description == "" && visibility == "" && tagsArg == nil {
 					return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 				}
 				memID, err := resolveMemoryID(cmd, client, args[0])
 				if err != nil {
 					return err
 				}
-				resp, err := gen.UpdateMemory(cmd.Context(), client, memID, optional(name), optional(short), optional(description), tags, visArg)
+				resp, err := gen.UpdateMemory(cmd.Context(), client, memID, optional(name), optional(short), optional(description), tagsArg, visArg)
 				if err != nil {
 					return api.MapError(err)
 				}

@@ -1078,7 +1078,7 @@ type __CreateMemoryInput struct {
 	MemoryClass      *MemoryClass      `json:"memoryClass,omitempty"`
 	ShortDescription *string           `json:"shortDescription,omitempty"`
 	Description      *string           `json:"description,omitempty"`
-	Tags             []string          `json:"tags,omitempty"`
+	Tags             *[]string         `json:"tags,omitempty"`
 	Visibility       *MemoryVisibility `json:"visibility,omitempty"`
 }
 
@@ -1098,7 +1098,7 @@ func (v *__CreateMemoryInput) GetShortDescription() *string { return v.ShortDesc
 func (v *__CreateMemoryInput) GetDescription() *string { return v.Description }
 
 // GetTags returns __CreateMemoryInput.Tags, and is useful for accessing the field via an interface.
-func (v *__CreateMemoryInput) GetTags() []string { return v.Tags }
+func (v *__CreateMemoryInput) GetTags() *[]string { return v.Tags }
 
 // GetVisibility returns __CreateMemoryInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryInput) GetVisibility() *MemoryVisibility { return v.Visibility }
@@ -1233,7 +1233,7 @@ type __UpdateMemoryInput struct {
 	Name             *string           `json:"name,omitempty"`
 	ShortDescription *string           `json:"shortDescription,omitempty"`
 	Description      *string           `json:"description,omitempty"`
-	Tags             []string          `json:"tags,omitempty"`
+	Tags             *[]string         `json:"tags,omitempty"`
 	Visibility       *MemoryVisibility `json:"visibility,omitempty"`
 }
 
@@ -1250,7 +1250,7 @@ func (v *__UpdateMemoryInput) GetShortDescription() *string { return v.ShortDesc
 func (v *__UpdateMemoryInput) GetDescription() *string { return v.Description }
 
 // GetTags returns __UpdateMemoryInput.Tags, and is useful for accessing the field via an interface.
-func (v *__UpdateMemoryInput) GetTags() []string { return v.Tags }
+func (v *__UpdateMemoryInput) GetTags() *[]string { return v.Tags }
 
 // GetVisibility returns __UpdateMemoryInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryInput) GetVisibility() *MemoryVisibility { return v.Visibility }
@@ -1435,7 +1435,7 @@ func CreateMemory(
 	memoryClass *MemoryClass,
 	shortDescription *string,
 	description *string,
-	tags []string,
+	tags *[]string,
 	visibility *MemoryVisibility,
 ) (data_ *CreateMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
@@ -1951,7 +1951,7 @@ func UpdateMemory(
 	name *string,
 	shortDescription *string,
 	description *string,
-	tags []string,
+	tags *[]string,
 	visibility *MemoryVisibility,
 ) (data_ *UpdateMemoryResponse, err_ error) {
 	req_ := &graphql.Request{

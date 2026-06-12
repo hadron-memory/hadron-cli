@@ -352,6 +352,33 @@ func TestMemorySetUpdate(t *testing.T) {
 	if vars["id"] != "m1" || vars["shortDescription"] != "Project knowledge" {
 		t.Errorf("unexpected update vars: %v", vars)
 	}
+	// Unset optionals must be OMITTED, not sent as explicit nulls —
+	// the server treats omitted as "preserve".
+	for _, key := range []string{"name", "description", "tags", "visibility"} {
+		if v, present := vars[key]; present {
+			t.Errorf("unset %q must be omitted from updateMemory variables, got %v", key, v)
+		}
+	}
+}
+
+func TestMemorySetUpdateSendsTags(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"MyMemories":   `{"data":{"myMemories":[` + memoryJSON + `]}}`,
+		"UpdateMemory": `{"data":{"updateMemory":` + memoryJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "set", "acme.com:kb", "--tag", "go", "--tag", "cli", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Tags []string `json:"tags"`
+	}
+	_ = json.Unmarshal(captured["UpdateMemory"], &vars)
+	if len(vars.Tags) != 2 || vars.Tags[0] != "go" || vars.Tags[1] != "cli" {
+		t.Errorf("tags not sent: %s", captured["UpdateMemory"])
+	}
 }
 
 func TestMemorySetCreateRequiresOrgAndName(t *testing.T) {
@@ -419,6 +446,12 @@ func TestAppInstall(t *testing.T) {
 	_ = json.Unmarshal(captured["CreateApp"], &vars)
 	if vars["orgId"] != "acme.com" || vars["agentId"] != "agent1" || vars["appType"] != "CHATBOT" {
 		t.Errorf("unexpected vars: %v", vars)
+	}
+	// Unset optionals must be OMITTED, not sent as explicit nulls.
+	for _, key := range []string{"urn", "description"} {
+		if v, present := vars[key]; present {
+			t.Errorf("unset %q must be omitted from createApp variables, got %v", key, v)
+		}
 	}
 }
 
