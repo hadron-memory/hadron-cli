@@ -113,6 +113,56 @@ enum AgentVisibility {
   PUBLIC
 }
 
+"""
+036-ai-service-config: which entity owns an AiServiceConfig. Exactly one
+owner per config (DB-enforced).
+"""
+enum AiConfigOwnerType {
+  AGENT
+  APP
+  HADRON_SERVER
+  ORGANIZATION
+}
+
+"""
+036-ai-service-config: a named AI service configuration (masked
+management view — never carries key material beyond the preview).
+Owned by exactly one of HadronServer / Organization / App / Agent.
+Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+returns the first ENABLED config with the requested name. Well-known
+fallback name: 'default' (conventional extras: 'fast', 'frontier').
+Name is unique per owner.
+"""
+type AiServiceConfig {
+  """Ellipsis + last 4 characters of the stored key; null when no key."""
+  apiKeyPreview: String
+  createdAt: String!
+
+  """
+  Disabled configs are skipped by resolution (the walk continues outward).
+  """
+  enabled: Boolean!
+  hasApiKey: Boolean!
+  id: ID!
+
+  """Model identifier, passed verbatim to the provider."""
+  model: String!
+  name: String!
+
+  """ID of the owning HadronServer / Organization / App / Agent."""
+  ownerId: ID!
+  ownerType: AiConfigOwnerType!
+
+  """Provider-specific knobs (maxTokens, thinking, effort, baseUrl, ...)."""
+  params: JSON
+
+  """
+  Provider identifier; v1 known: 'anthropic' | 'openai' | 'glm' | 'bedrock'.
+  """
+  provider: String!
+  updatedAt: String
+}
+
 type App {
   agent: Agent
   agentId: ID
@@ -787,9 +837,32 @@ type Mutation {
   """
   Clear an Agent's AI provider config.
   
+  036-ai-service-config: deletes the Agent's registry config named
+  'default'.
+  
   Accepts the entity's ID or URN.
   """
   clearAgentAIConfig(agentId: ID!): Agent!
+
+  """
+  Clone a Memory into a new Memory (same org) named `name`.
+  
+  Accepts the source's ID or URN. Copies the Memory row plus all live
+  Nodes, Edges, and PendingEdges; references to the source memory's URN
+  inside node content/abstract (canonical and legacy spellings) are
+  rewritten to the clone's URN. Vector-index config carries over and the
+  clone's nodes are stamped for re-embedding.
+  
+  NOT copied: version history, subscriptions, shares, group members
+  (the caller is bootstrapped as a group clone's first owner), sessions,
+  licenses, log entries, assets, and git-sync config (the clone starts
+  DB-only).
+  
+  Authorization mirrors deleteMemory: personal/private → owner only;
+  knowledge/group → org ADMIN. system/app-class sources and encrypted
+  memories are rejected.
+  """
+  cloneMemory(id: ID!, name: String!): Memory!
   completeAssetUpload(input: CompleteAssetUploadInput!): Asset!
 
   """
@@ -798,6 +871,20 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   createAgent(description: String, name: String!, orgId: ID!, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, visibility: AgentVisibility): Agent!
+
+  """
+  036-ai-service-config: create a named AI config on an owner entity.
+  
+  apiKey semantics: omitted = stored without a key (unusable for
+  execution until one is set); non-empty = encrypted at rest with a
+  masked preview. Name must be 1-64 lower-case [a-z0-9_-], unique per
+  owner. provider must be a known provider; params are validated per
+  provider.
+  
+  Auth: as aiServiceConfigs. ownerId accepts ID or URN
+  (HADRON_SERVER: ID only).
+  """
+  createAiServiceConfig(apiKey: String, enabled: Boolean, model: String!, name: String!, ownerId: ID!, ownerType: AiConfigOwnerType!, params: JSON, provider: String!): AiServiceConfig!
 
   """
   Install an Agent into an organization, creating an App that deploys it.
@@ -972,6 +1059,14 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   deleteAgent(id: ID!): Boolean!
+
+  """
+  036-ai-service-config: delete a named AI config (hard delete; the
+  resolution walk simply no longer finds it).
+  
+  Auth: admin rights on the owning entity (as aiServiceConfigs).
+  """
+  deleteAiServiceConfig(id: ID!): Boolean!
 
   """
   Soft-delete an App.
@@ -1303,6 +1398,10 @@ type Mutation {
   """
   Update an Agent's AI provider config. Key is encrypted at rest.
   
+  036-ai-service-config: upserts the Agent's registry config named
+  'default'. Prefer createAiServiceConfig/updateAiServiceConfig for
+  new callers.
+  
   Accepts the entity's ID or URN.
   """
   updateAgentAIConfig(agentId: ID!, apiKey: String, model: String!, provider: String!): Agent!
@@ -1313,6 +1412,16 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   updateAgentMemoryRole(agentId: ID!, memoryId: ID!, role: String!): Agent!
+
+  """
+  036-ai-service-config: update a named AI config. All fields optional.
+  
+  apiKey semantics: omitted = keep the stored key; empty string =
+  clear it; non-empty = replace (encrypted, preview recomputed).
+  
+  Auth: admin rights on the owning entity (as aiServiceConfigs).
+  """
+  updateAiServiceConfig(apiKey: String, enabled: Boolean, id: ID!, model: String, name: String, params: JSON, provider: String): AiServiceConfig!
 
   """
   Update an App.
@@ -1597,6 +1706,9 @@ type Query {
   Agent AI config (org ADMIN) — returns the decrypted API key so the
   portal backend can make LLM calls on behalf of the user.
   
+  036-ai-service-config: registry-backed (the Agent's config named
+  'default'). Prefer resolveAIConfig for new callers.
+  
   Accepts the entity's ID or URN.
   """
   agentAIConfig(agentId: ID!): AgentAIConfig
@@ -1609,6 +1721,17 @@ type Query {
   Accepts the entity's ID or URN.
   """
   agentSubscriptions(agentId: ID!): [AgentSubscription!]!
+
+  """
+  036-ai-service-config: masked list of the AI configs owned by one
+  entity. Never returns key material — only hasApiKey + apiKeyPreview.
+  
+  Auth: platform ADMIN/OWNER for HADRON_SERVER owners; org ADMIN of
+  the owning org for ORGANIZATION / APP / AGENT owners.
+  
+  ownerId accepts the entity's ID or URN (HADRON_SERVER: ID only).
+  """
+  aiServiceConfigs(ownerId: ID!, ownerType: AiConfigOwnerType!): [AiServiceConfig!]!
 
   """
   Fetch an App.
@@ -1759,6 +1882,26 @@ type Query {
   publicMemories: [Memory!]!
 
   """
+  036-ai-service-config: resolve a config name for an execution context
+  and return the DECRYPTED credentials (privileged; successor to
+  agentAIConfig/appAIConfig).
+  
+  Walk: App -> Agent -> Org (of the App, else of the Agent) ->
+  HadronServer; disabled configs are skipped. When name is omitted,
+  'default' is resolved. When an explicit name misses, resolution falls
+  back to 'default'; if that also misses, errors with
+  NoAiConfigAvailableError. Consumers (webhooks, scheduled tasks, the
+  portal chatbot) reference configs by name only — pass the name plus
+  the execution context, never credentials.
+  
+  Auth: org ADMIN of the effective context org, or platform
+  ADMIN/OWNER (required when no app/agent context is given).
+  
+  appId/agentId accept the entity's ID or URN.
+  """
+  resolveAIConfig(agentId: ID, appId: ID, name: String): ResolvedAiConfig!
+
+  """
   Resolve a fully-qualified, `urn:<type>:`-prefixed Hadron URN to the ids
   needed to reach its canonical page. Returns null when the URN is
   unresolvable (not found) OR the caller lacks access. Unlike the dedicated
@@ -1786,6 +1929,28 @@ type Query {
 type RemoveMemoryMemberPayload {
   memoryId: ID!
   userId: ID!
+}
+
+"""
+036-ai-service-config: privileged resolution result. Carries the
+DECRYPTED key — only returned by resolveAIConfig (org ADMIN of the
+effective context org, or platform ADMIN/OWNER); successor to
+agentAIConfig / appAIConfig.
+"""
+type ResolvedAiConfig {
+  """
+  Decrypted key. For provider 'bedrock' this is the JSON-encoded
+  accessKeyId/secretAccessKey/region triple the portal stores.
+  """
+  apiKey: String!
+  configId: ID!
+  model: String!
+  name: String!
+
+  """Which level matched: APP | AGENT | ORGANIZATION | HADRON_SERVER."""
+  ownerType: AiConfigOwnerType!
+  params: JSON
+  provider: String!
 }
 
 type RevisionResult {

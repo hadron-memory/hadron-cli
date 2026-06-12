@@ -72,6 +72,70 @@ type AppsResponse struct {
 // GetApps returns AppsResponse.Apps, and is useful for accessing the field via an interface.
 func (v *AppsResponse) GetApps() []*AppsAppsApp { return v.Apps }
 
+// CloneMemoryCloneMemory includes the requested fields of the GraphQL type Memory.
+type CloneMemoryCloneMemory struct {
+	Id               string            `json:"id"`
+	Urn              string            `json:"urn"`
+	Name             string            `json:"name"`
+	ShortDescription *string           `json:"shortDescription"`
+	Class            MemoryClass       `json:"class"`
+	Visibility       *MemoryVisibility `json:"visibility"`
+	OrganizationId   string            `json:"organizationId"`
+	IsEncrypted      bool              `json:"isEncrypted"`
+	UpdatedAt        string            `json:"updatedAt"`
+}
+
+// GetId returns CloneMemoryCloneMemory.Id, and is useful for accessing the field via an interface.
+func (v *CloneMemoryCloneMemory) GetId() string { return v.Id }
+
+// GetUrn returns CloneMemoryCloneMemory.Urn, and is useful for accessing the field via an interface.
+func (v *CloneMemoryCloneMemory) GetUrn() string { return v.Urn }
+
+// GetName returns CloneMemoryCloneMemory.Name, and is useful for accessing the field via an interface.
+func (v *CloneMemoryCloneMemory) GetName() string { return v.Name }
+
+// GetShortDescription returns CloneMemoryCloneMemory.ShortDescription, and is useful for accessing the field via an interface.
+func (v *CloneMemoryCloneMemory) GetShortDescription() *string { return v.ShortDescription }
+
+// GetClass returns CloneMemoryCloneMemory.Class, and is useful for accessing the field via an interface.
+func (v *CloneMemoryCloneMemory) GetClass() MemoryClass { return v.Class }
+
+// GetVisibility returns CloneMemoryCloneMemory.Visibility, and is useful for accessing the field via an interface.
+func (v *CloneMemoryCloneMemory) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// GetOrganizationId returns CloneMemoryCloneMemory.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CloneMemoryCloneMemory) GetOrganizationId() string { return v.OrganizationId }
+
+// GetIsEncrypted returns CloneMemoryCloneMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *CloneMemoryCloneMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetUpdatedAt returns CloneMemoryCloneMemory.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CloneMemoryCloneMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// CloneMemoryResponse is returned by CloneMemory on success.
+type CloneMemoryResponse struct {
+	// Clone a Memory into a new Memory (same org) named `name`.
+	//
+	// Accepts the source's ID or URN. Copies the Memory row plus all live
+	// Nodes, Edges, and PendingEdges; references to the source memory's URN
+	// inside node content/abstract (canonical and legacy spellings) are
+	// rewritten to the clone's URN. Vector-index config carries over and the
+	// clone's nodes are stamped for re-embedding.
+	//
+	// NOT copied: version history, subscriptions, shares, group members
+	// (the caller is bootstrapped as a group clone's first owner), sessions,
+	// licenses, log entries, assets, and git-sync config (the clone starts
+	// DB-only).
+	//
+	// Authorization mirrors deleteMemory: personal/private → owner only;
+	// knowledge/group → org ADMIN. system/app-class sources and encrypted
+	// memories are rejected.
+	CloneMemory *CloneMemoryCloneMemory `json:"cloneMemory"`
+}
+
+// GetCloneMemory returns CloneMemoryResponse.CloneMemory, and is useful for accessing the field via an interface.
+func (v *CloneMemoryResponse) GetCloneMemory() *CloneMemoryCloneMemory { return v.CloneMemory }
+
 // CreateAppCreateApp includes the requested fields of the GraphQL type App.
 type CreateAppCreateApp struct {
 	Id          string  `json:"id"`
@@ -1015,6 +1079,18 @@ type __AppsInput struct {
 // GetOrgId returns __AppsInput.OrgId, and is useful for accessing the field via an interface.
 func (v *__AppsInput) GetOrgId() string { return v.OrgId }
 
+// __CloneMemoryInput is used internally by genqlient
+type __CloneMemoryInput struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns __CloneMemoryInput.Id, and is useful for accessing the field via an interface.
+func (v *__CloneMemoryInput) GetId() string { return v.Id }
+
+// GetName returns __CloneMemoryInput.Name, and is useful for accessing the field via an interface.
+func (v *__CloneMemoryInput) GetName() string { return v.Name }
+
 // __CreateAppInput is used internally by genqlient
 type __CreateAppInput struct {
 	OrgId       string   `json:"orgId"`
@@ -1292,6 +1368,50 @@ func Apps(
 	}
 
 	data_ = &AppsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CloneMemory.
+const CloneMemory_Operation = `
+mutation CloneMemory ($id: ID!, $name: String!) {
+	cloneMemory(id: $id, name: $name) {
+		id
+		urn
+		name
+		shortDescription
+		class
+		visibility
+		organizationId
+		isEncrypted
+		updatedAt
+	}
+}
+`
+
+func CloneMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	name string,
+) (data_ *CloneMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CloneMemory",
+		Query:  CloneMemory_Operation,
+		Variables: &__CloneMemoryInput{
+			Id:   id,
+			Name: name,
+		},
+	}
+
+	data_ = &CloneMemoryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
