@@ -22,11 +22,13 @@ type nodeDTO struct {
 // nodeDetailDTO extends the list shape for single-node output.
 type nodeDetailDTO struct {
 	nodeDTO
-	Description *string `json:"description"`
-	Abstract    *string `json:"abstract"`
-	Content     *string `json:"content"`
-	Seq         *int    `json:"seq"`
-	CreatedAt   string  `json:"createdAt"`
+	Description   *string      `json:"description"`
+	Abstract      *string      `json:"abstract"`
+	Content       *string      `json:"content"`
+	Seq           *int         `json:"seq"`
+	CreatedAt     string       `json:"createdAt"`
+	OutgoingEdges []edgeRefDTO `json:"outgoingEdges"`
+	IncomingEdges []edgeRefDTO `json:"incomingEdges"`
 }
 
 func NewCmdNode(f *cmdutil.Factory) *cobra.Command {

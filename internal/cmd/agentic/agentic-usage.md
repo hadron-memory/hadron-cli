@@ -45,7 +45,8 @@ the Hadron portal or by the OAuth flow. The server defaults to
 ```
 hadron auth login | logout | whoami | status
 hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn>
-hadron node ls [-m <memory>] | get <loc> | add | update <loc> | rm <loc>
+hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn>
+hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
 hadron config get | set | list
 hadron api <query-or-mutation>                       # raw GraphQL
@@ -58,13 +59,17 @@ Conventions:
 
 - Memory URNs are `org:memory` (e.g. `hadronmemory.com:dev`). Where a
   command takes an ID it also accepts the URN.
-- Node commands address nodes by their loc within a memory (e.g.
-  `findings:flaky-ci`). Without `-m/--memory` the loc resolves across
-  every memory you can read (the server picks one on collision);
-  always pass `-m <memory>` when you know the memory.
-- Destructive commands (`memory rm`, `node rm`, `app uninstall`)
-  prompt on a terminal and REQUIRE `--yes` when run non-interactively
-  (agents must always pass `--yes`). Without it they exit 2.
+- Node references are ALWAYS fully-qualified URNs:
+  `<org>:<memory>:<loc>` (e.g. `hadronmemory.com:dev:start-here`),
+  optionally `urn:node:`-prefixed. Bare locs are rejected (exit 2) —
+  the same loc can exist in several memories.
+- Edges are directed and labeled. Endpoints are node URNs; edges are
+  addressed by their edge ID afterwards (shown by `edge ls` and in
+  `node get --json`). Cross-memory edges are allowed.
+- Destructive commands (`memory rm`, `node rm`, `edge rm`,
+  `app uninstall`) prompt on a terminal and REQUIRE `--yes` when run
+  non-interactively (agents must always pass `--yes`). Without it
+  they exit 2.
 - `memory set` creates when called without a positional argument
   (requires `--org` and `--name`) and updates when given one. Only
   fields passed as flags change.
@@ -109,18 +114,26 @@ hadron memory get acme.com:project-memory --json
 # List nodes in a memory
 hadron node ls --memory acme.com:kb --json
 
-# Read one node's content (scoped to a memory)
-hadron node get findings:flaky-ci -m acme.com:kb --json
+# Read one node's content and edges
+hadron node get acme.com:kb:findings:flaky-ci --json
 
 # Create a node from stdin
 cat finding.md | hadron node add -m acme.com:kb --loc findings:flaky-ci \
   --name "Flaky CI" --content -
 
 # Update just the name (other fields preserved)
-hadron node update findings:flaky-ci -m acme.com:kb --name "Flaky CI (resolved)"
+hadron node update acme.com:kb:findings:flaky-ci --name "Flaky CI (resolved)"
 
-# Delete (agents must pass --yes)
-hadron node rm findings:flaky-ci -m acme.com:kb --yes
+# Connect two nodes
+hadron edge add --from acme.com:kb:findings:flaky-ci \
+  --to acme.com:kb:start-here --label routes-to
+
+# List a node's edges, delete one (agents must pass --yes)
+hadron edge ls acme.com:kb:findings:flaky-ci --json
+hadron edge rm <edge-id> --yes
+
+# Delete a node (agents must pass --yes)
+hadron node rm acme.com:kb:findings:flaky-ci --yes
 
 # Arbitrary query with a variable
 hadron api 'query($q: String!) { nodeSearch(query: $q) { nodes { loc name } } }' -F q="auth flow"

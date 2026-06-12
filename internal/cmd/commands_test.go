@@ -38,7 +38,14 @@ const nodeJSON = `{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":
 const nodeDetailJSON = `{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
 	"description":null,"abstract":null,"nodeType":"finding","tags":["ci"],
 	"content":"The CI is flaky because...","seq":null,
-	"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z"}`
+	"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
+	"outgoingEdges":[{"id":"e1","label":"routes-to","priority":0,
+		"target":{"id":"n2","loc":"start-here","memoryId":"mem1"}}],
+	"incomingEdges":[]}`
+
+const resolveNodeJSON = `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`
+
+const nodeURN = "acme.com:kb:findings:flaky-ci"
 
 func TestNodeLs(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
@@ -63,27 +70,61 @@ func TestNodeLs(t *testing.T) {
 }
 
 func TestNodeGet(t *testing.T) {
-	gql, _ := captureGraphQL(t, map[string]string{
-		"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveNodeJSON,
+		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "get", "findings:flaky-ci", "--server", gql.URL})
+	root.SetArgs([]string{"node", "get", nodeURN, "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	if !strings.Contains(out.String(), "The CI is flaky") {
 		t.Errorf("content missing from output: %s", out.String())
 	}
+	if !strings.Contains(out.String(), "routes-to") {
+		t.Errorf("edges missing from output: %s", out.String())
+	}
+	var vars struct {
+		Urn string `json:"urn"`
+	}
+	_ = json.Unmarshal(captured["ResolveUrn"], &vars)
+	if vars.Urn != "urn:node:"+nodeURN {
+		t.Errorf("resolveUrn must receive the urn:node:-prefixed URN, got %q", vars.Urn)
+	}
+}
+
+func TestNodeGetRejectsBareLoc(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", "findings:flaky-ci", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "fully-qualified") {
+		t.Fatalf("expected fully-qualified URN usage error, got %v", err)
+	}
+}
+
+func TestNodeGetWrongKindIsUsageError(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": `{"data":{"resolveUrn":{"id":"m1","kind":"memory","memoryId":null}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", "acme.com:kb:whatever", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "not a node") {
+		t.Fatalf("expected wrong-kind usage error, got %v", err)
+	}
 }
 
 func TestNodeGetNotFound(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetNode": `{"data":{"node":null}}`,
+		"ResolveUrn": `{"data":{"resolveUrn":null}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "get", "nope", "--server", gql.URL})
+	root.SetArgs([]string{"node", "get", "acme.com:kb:nope", "--server", gql.URL})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "not found") {
 		t.Fatalf("expected not-found error, got %v", err)
@@ -115,12 +156,13 @@ func TestNodeAddSendsCreateOnly(t *testing.T) {
 
 func TestNodeUpdatePreservesUnsetFields(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
-		"UpsertNode": `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		"ResolveUrn":  resolveNodeJSON,
+		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+		"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "update", "findings:flaky-ci",
+	root.SetArgs([]string{"node", "update", nodeURN,
 		"--name", "Flaky CI (resolved)", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -145,12 +187,13 @@ func TestNodeUpdatePreservesUnsetFields(t *testing.T) {
 
 func TestNodeUpdateClearsFieldWithEmptyString(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
-		"UpsertNode": `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		"ResolveUrn":  resolveNodeJSON,
+		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+		"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "update", "findings:flaky-ci",
+	root.SetArgs([]string{"node", "update", nodeURN,
 		"--description", "", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -168,11 +211,12 @@ func TestNodeUpdateClearsFieldWithEmptyString(t *testing.T) {
 
 func TestNodeRmRequiresYesNonInteractive(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"ResolveUrn":  resolveNodeJSON,
+		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "rm", "findings:flaky-ci", "--server", gql.URL})
+	root.SetArgs([]string{"node", "rm", nodeURN, "--server", gql.URL})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "--yes") {
 		t.Fatalf("expected --yes refusal, got %v", err)
@@ -181,12 +225,13 @@ func TestNodeRmRequiresYesNonInteractive(t *testing.T) {
 
 func TestNodeRmWithYes(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
-		"DeleteNode": `{"data":{"deleteNode":true}}`,
+		"ResolveUrn":  resolveNodeJSON,
+		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+		"DeleteNode":  `{"data":{"deleteNode":true}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "rm", "findings:flaky-ci", "--yes", "--server", gql.URL})
+	root.SetArgs([]string{"node", "rm", nodeURN, "--yes", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}

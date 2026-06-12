@@ -26,6 +26,14 @@ query Nodes(
   }
 }
 
+query ResolveUrn($urn: String!) {
+  resolveUrn(urn: $urn) {
+    id
+    kind
+    memoryId
+  }
+}
+
 query GetNodeById($id: ID!) {
   nodeById(id: $id) {
     id
@@ -40,23 +48,26 @@ query GetNodeById($id: ID!) {
     seq
     createdAt
     updatedAt
-  }
-}
-
-query GetNode($loc: String!) {
-  node(loc: $loc) {
-    id
-    memoryId
-    loc
-    name
-    description
-    abstract
-    nodeType
-    tags
-    content
-    seq
-    createdAt
-    updatedAt
+    outgoingEdges {
+      id
+      label
+      priority
+      target {
+        id
+        loc
+        memoryId
+      }
+    }
+    incomingEdges {
+      id
+      label
+      priority
+      source {
+        id
+        loc
+        memoryId
+      }
+    }
   }
 }
 
@@ -94,4 +105,66 @@ mutation UpsertNode(
 
 mutation DeleteNode($loc: String!, $memoryId: String!) {
   deleteNode(loc: $loc, memoryId: $memoryId)
+}
+
+mutation CreateEdge(
+  $sourceNodeId: ID!
+  $targetNodeId: ID!
+  $label: String!
+  $priority: Int
+  $condition: JSON
+  $data: JSON
+) {
+  createEdge(
+    sourceNodeId: $sourceNodeId
+    targetNodeId: $targetNodeId
+    label: $label
+    priority: $priority
+    condition: $condition
+    data: $data
+  ) {
+    id
+    label
+    priority
+    source {
+      id
+      loc
+    }
+    target {
+      id
+      loc
+    }
+  }
+}
+
+mutation UpdateEdge(
+  $edgeId: ID!
+  $label: String
+  $priority: Int
+  $condition: JSON
+  $data: JSON
+) {
+  updateEdge(
+    edgeId: $edgeId
+    label: $label
+    priority: $priority
+    condition: $condition
+    data: $data
+  ) {
+    id
+    label
+    priority
+    source {
+      id
+      loc
+    }
+    target {
+      id
+      loc
+    }
+  }
+}
+
+mutation DeleteEdge($edgeId: ID!) {
+  deleteEdge(edgeId: $edgeId)
 }
