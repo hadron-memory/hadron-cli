@@ -19,11 +19,12 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 		Use:   "get <node-urn>",
 		Short: "Show a node, including its content and edges",
 		Long: `Show a node by its fully-qualified URN: <org>:<memory>:<loc>
-(e.g. hadronmemory.com:dev:start-here). The urn:node: prefix is
-optional. Bare locs are not accepted — the same loc can exist in
-several memories, so node references must always name the memory.`,
+(e.g. hadronmemory.com:dev:start-here). The hrn:node: prefix is
+optional (legacy urn:node: also accepted). Bare locs are not accepted —
+the same loc can exist in several memories, so node references must
+always name the memory.`,
 		Example: `  hadron node get hadronmemory.com:dev:start-here
-  hadron node get urn:node:hadronmemory.com:dev:start-here --json`,
+  hadron node get hrn:node:hadronmemory.com:dev:start-here --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

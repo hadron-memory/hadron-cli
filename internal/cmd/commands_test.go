@@ -90,8 +90,8 @@ func TestNodeGet(t *testing.T) {
 		Urn string `json:"urn"`
 	}
 	_ = json.Unmarshal(captured["ResolveUrn"], &vars)
-	if vars.Urn != "urn:node:"+nodeURN {
-		t.Errorf("resolveUrn must receive the urn:node:-prefixed URN, got %q", vars.Urn)
+	if vars.Urn != "hrn:node:"+nodeURN {
+		t.Errorf("resolveUrn must receive the hrn:node:-prefixed URN, got %q", vars.Urn)
 	}
 }
 
