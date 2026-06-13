@@ -31,7 +31,8 @@ humans only). Ask the user to log in, or use a token:
    `edge rm`, `app uninstall`). Without it they exit 2 when non-interactive.
    Confirm with the user before deleting anything you did not create.
 3. **Node references are always fully-qualified URNs**: `<org>:<memory>:<loc>`
-   (e.g. `acme.com:kb:findings:flaky-ci`), optionally `urn:node:`-prefixed.
+   (e.g. `acme.com:kb:findings:flaky-ci`), optionally `hrn:node:`-prefixed
+   (legacy `urn:node:` also accepted).
    Bare locs are rejected (exit 2) — the same loc can exist in many memories.
 4. **Exit codes are contract**: 0 success, 1 failure, 2 usage error,
    3 auth required, 4 not found, 5 conflict, 6 cancelled/timeout. Branch on
