@@ -95,6 +95,37 @@ func TestNodeGet(t *testing.T) {
 	}
 }
 
+// A node ref that already carries a scheme prefix passes through to
+// resolveUrn verbatim — hrn: is canonical, but legacy urn: is accepted
+// forever (issue #239). Only a bare ref gets the canonical hrn:node:
+// prefix prepended (covered by TestNodeGet above).
+func TestNodeGetPrefixPassthrough(t *testing.T) {
+	for _, prefixed := range []string{
+		"hrn:node:" + nodeURN,
+		"urn:node:" + nodeURN,
+	} {
+		t.Run(prefixed, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"ResolveUrn":  resolveNodeJSON,
+				"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"node", "get", prefixed, "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var vars struct {
+				Urn string `json:"urn"`
+			}
+			_ = json.Unmarshal(captured["ResolveUrn"], &vars)
+			if vars.Urn != prefixed {
+				t.Errorf("a scheme-prefixed ref must reach resolveUrn verbatim, got %q want %q", vars.Urn, prefixed)
+			}
+		})
+	}
+}
+
 func TestNodeGetRejectsBareLoc(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
