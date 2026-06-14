@@ -61,7 +61,7 @@ Results are filtered to spec nodes.`,
 					return api.MapError(err)
 				}
 				for _, n := range resp.Nodes {
-					if !isSpecNode(n.Tags, n.Loc) {
+					if n == nil || !isSpecNode(n.Tags, n.Loc) {
 						continue
 					}
 					specs = append(specs, specDTO{Citation: n.Loc, MemoryID: n.MemoryId, Name: n.Name, NodeType: n.NodeType, Tags: n.Tags, UpdatedAt: n.UpdatedAt})

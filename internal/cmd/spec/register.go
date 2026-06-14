@@ -48,6 +48,9 @@ hand-written ledger and any drift is reported (exit 5 if drift is found).`,
 			}
 			var locs []string
 			for _, n := range resp.Nodes {
+				if n == nil {
+					continue
+				}
 				if _, err := ParseCitation(n.Loc); err == nil {
 					locs = append(locs, n.Loc)
 				}

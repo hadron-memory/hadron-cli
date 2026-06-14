@@ -57,6 +57,9 @@ module, --prefix msg:010 one feature and its rules/flows.`,
 
 			specs := make([]specDTO, 0, len(resp.Nodes))
 			for _, n := range resp.Nodes {
+				if n == nil {
+					continue
+				}
 				if _, err := ParseCitation(n.Loc); err != nil {
 					continue // only citation-shaped nodes are specs
 				}

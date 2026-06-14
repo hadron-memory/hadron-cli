@@ -95,6 +95,9 @@ without writing.`,
 			locs := map[string]bool{}
 			var allLocs []string
 			for _, n := range resp.Nodes {
+				if n == nil {
+					continue
+				}
 				if c, perr := ParseCitation(n.Loc); perr == nil && c.Module == module {
 					locs[n.Loc] = true
 					allLocs = append(allLocs, n.Loc)
@@ -336,6 +339,9 @@ func resolveBody(content, contentFile string, stdin io.Reader, c Citation, title
 		return string(data), nil
 	}
 	if content == "-" {
+		if stdin == nil {
+			return "", exitcode.Newf(exitcode.Usage, "stdin is not available")
+		}
 		data, err := io.ReadAll(stdin)
 		if err != nil {
 			return "", err

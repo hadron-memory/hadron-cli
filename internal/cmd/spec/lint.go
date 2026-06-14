@@ -274,6 +274,9 @@ func scanModuleDetail(cmd *cobra.Command, client graphql.Client, memURN, module 
 	}
 	var nodes []*gen.NodesNodesNode
 	for _, n := range resp.Nodes {
+		if n == nil {
+			continue
+		}
 		if c, err := ParseCitation(n.Loc); err == nil && c.Module == module {
 			nodes = append(nodes, n)
 		}
@@ -290,6 +293,9 @@ func scanAllSpecsDetail(cmd *cobra.Command, client graphql.Client, memURN string
 	}
 	var nodes []*gen.NodesNodesNode
 	for _, n := range resp.Nodes {
+		if n == nil {
+			continue
+		}
 		if _, err := ParseCitation(n.Loc); err == nil {
 			nodes = append(nodes, n)
 		}
@@ -300,6 +306,9 @@ func scanAllSpecsDetail(cmd *cobra.Command, client graphql.Client, memURN string
 func fetchDetails(cmd *cobra.Command, client graphql.Client, list []*gen.NodesNodesNode) ([]specNode, error) {
 	out := make([]specNode, 0, len(list))
 	for _, n := range list {
+		if n == nil {
+			continue
+		}
 		resp, err := gen.GetNodeById(cmd.Context(), client, n.Id)
 		if err != nil {
 			return nil, api.MapError(err)

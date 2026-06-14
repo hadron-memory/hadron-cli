@@ -80,6 +80,9 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			locs := map[string]bool{}
 			var allLocs []string
 			for _, n := range resp.Nodes {
+				if n == nil {
+					continue
+				}
 				if c, perr := ParseCitation(n.Loc); perr == nil && c.Module == oldCit.Module {
 					locs[n.Loc] = true
 					allLocs = append(allLocs, n.Loc)
