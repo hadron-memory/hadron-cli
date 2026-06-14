@@ -1,0 +1,114 @@
+package spec
+
+import "testing"
+
+// cleanSpec builds a fully rubric-compliant spec node at loc, with a ToC
+// edge to its parent.
+func cleanSpec(t *testing.T, loc, title string) specNode {
+	t.Helper()
+	c := mustCit(t, loc)
+	abs := "Abstract describing " + loc + " for semantic search."
+	content := rubricBody(c, title)
+	sn := specNode{
+		Loc:         loc,
+		Name:        specName(c, title),
+		NodeType:    "info",
+		Tags:        []string{"spec", "p1", "topic"},
+		Abstract:    &abs,
+		Content:     &content,
+		DataVersion: "0.0.1",
+	}
+	if p, ok := c.Parent(); ok {
+		sn.OutEdges = append(sn.OutEdges, specEdge{Label: "toc", Loc: p.Format()})
+	}
+	return sn
+}
+
+func hasRule(fs []lintFindingDTO, rule string) bool {
+	for _, f := range fs {
+		if f.Rule == rule {
+			return true
+		}
+	}
+	return false
+}
+
+func hasRuleFor(fs []lintFindingDTO, citation, rule string) bool {
+	for _, f := range fs {
+		if f.Citation == citation && f.Rule == rule {
+			return true
+		}
+	}
+	return false
+}
+
+func TestLintNodeClean(t *testing.T) {
+	if fs := lintNode(cleanSpec(t, "msg:010:02", "W2")); len(fs) != 0 {
+		t.Errorf("clean spec should have no findings, got %v", fs)
+	}
+}
+
+func TestLintNodeProblems(t *testing.T) {
+	bad := cleanSpec(t, "msg:010:02", "W2")
+	bad.Name = "wrong name"
+	bad.Abstract = nil
+	empty := ""
+	bad.Content = &empty
+	bad.NodeType = "finding"
+	fs := lintNode(bad)
+	for _, want := range []string{"name-prefix", "nodetype-info", "abstract", "invalidates"} {
+		if !hasRule(fs, want) {
+			t.Errorf("expected %q finding; got %v", want, fs)
+		}
+	}
+}
+
+func TestLintNodePlaceholderAbstract(t *testing.T) {
+	n := cleanSpec(t, "msg:010:02", "W2")
+	ph := placeholderAbstract(mustCit(t, "msg:010:02"), "W2")
+	n.Abstract = &ph
+	if !hasRule(lintNode(n), "abstract") {
+		t.Error("placeholder abstract should trip the abstract rule")
+	}
+}
+
+func TestLintNodeHeaderLight(t *testing.T) {
+	// A module/feature header (level < 3) only gets the universal checks,
+	// not the spec rubric (no abstract/invalidates requirement).
+	header := specNode{Loc: "msg:010", Name: "msg:010 — W-series", NodeType: "info", Tags: []string{"spec", "p1"}}
+	if fs := lintNode(header); len(fs) != 0 {
+		t.Errorf("header node should pass the light checks, got %v", fs)
+	}
+}
+
+func TestLintCorpusInheritanceAndParent(t *testing.T) {
+	nodes := []specNode{
+		{Loc: "msg", Name: "msg — Messaging", NodeType: "info", Tags: []string{"spec", "p1"}},
+		{Loc: "msg:010", Name: "msg:010 — W-series", NodeType: "info", Tags: []string{"spec", "p1"}},
+		cleanSpec(t, "msg:010:00", "Shared contract"),
+		cleanSpec(t, "msg:010:02", "W2"), // has ToC edge, but no inheritance edge to :00
+	}
+	fs := lintCorpus(nodes)
+	if !hasRuleFor(fs, "msg:010:02", "inheritance-edge") {
+		t.Errorf("expected inheritance-edge warning on msg:010:02; got %v", fs)
+	}
+	if hasRule(fs, "parent-exists") {
+		t.Errorf("no parent should be missing; got %v", fs)
+	}
+}
+
+func TestLintCorpusOrphanParent(t *testing.T) {
+	fs := lintCorpus([]specNode{cleanSpec(t, "msg:010:02", "W2")})
+	if !hasRuleFor(fs, "msg:010:02", "parent-exists") {
+		t.Errorf("expected parent-exists error for orphan; got %v", fs)
+	}
+}
+
+func TestLintCorpusDuplicate(t *testing.T) {
+	a := cleanSpec(t, "msg:010:02", "W2")
+	b := cleanSpec(t, "msg:010:02", "W2 dup")
+	fs := lintCorpus([]specNode{a, b})
+	if !hasRule(fs, "duplicate-loc") {
+		t.Errorf("expected duplicate-loc error; got %v", fs)
+	}
+}

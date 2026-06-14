@@ -49,9 +49,11 @@ query GetNodeById($id: ID!) {
     name
     description
     abstract
+    abstractOriginHash
     nodeType
     tags
     content
+    data
     seq
     createdAt
     updatedAt
@@ -74,6 +76,33 @@ query GetNodeById($id: ID!) {
         loc
         memoryId
       }
+    }
+  }
+}
+
+# Semantic + keyword search (spec 033). hybrid mode degrades to keyword
+# (with a `degraded`/`reason` note) on memories without a vector index,
+# so `spec find` is never silently empty. Backs `hadron spec find`.
+query NodeSearch(
+  $query: String!
+  # @genqlient(omitempty: true)
+  $mode: SearchMode
+  # @genqlient(omitempty: true)
+  $memoryUrn: String
+  # @genqlient(omitempty: true)
+  $limit: Int
+) {
+  nodeSearch(query: $query, mode: $mode, memoryUrn: $memoryUrn, limit: $limit) {
+    degraded
+    reason
+    nodes {
+      id
+      memoryId
+      loc
+      name
+      nodeType
+      tags
+      updatedAt
     }
   }
 }
