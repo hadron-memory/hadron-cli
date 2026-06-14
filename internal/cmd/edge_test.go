@@ -47,8 +47,8 @@ func resolveByURN(t *testing.T, ids map[string]string, responses map[string]stri
 func TestEdgeAdd(t *testing.T) {
 	gql := resolveByURN(t,
 		map[string]string{
-			"urn:node:acme.com:kb:findings:flaky-ci": "n1",
-			"urn:node:acme.com:kb:start-here":        "n2",
+			"hrn:node:acme.com:kb:findings:flaky-ci": "n1",
+			"hrn:node:acme.com:kb:start-here":        "n2",
 		},
 		map[string]string{
 			"CreateEdge": `{"data":{"createEdge":` + edgeJSON + `}}`,
@@ -95,7 +95,7 @@ func TestEdgeAddRejectsBadJSONCondition(t *testing.T) {
 
 func TestEdgeLs(t *testing.T) {
 	gql := resolveByURN(t,
-		map[string]string{"urn:node:acme.com:kb:findings:flaky-ci": "n1"},
+		map[string]string{"hrn:node:acme.com:kb:findings:flaky-ci": "n1"},
 		map[string]string{
 			"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
 		})

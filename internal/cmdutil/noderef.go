@@ -18,13 +18,16 @@ import (
 // to a different entity kind is a usage error too.
 func ResolveNodeURN(cmd *cobra.Command, client graphql.Client, ref string) (string, error) {
 	urn := ref
-	if !strings.HasPrefix(urn, "urn:") {
+	// Accept either scheme prefix: hrn: is canonical (issue #239), urn: is
+	// legacy-but-accepted-forever. A prefixed URN passes through verbatim
+	// (the server accepts both); a bare ref gets the canonical hrn:node:.
+	if !strings.HasPrefix(urn, "hrn:") && !strings.HasPrefix(urn, "urn:") {
 		// A full node URN has at least org:memory:loc.
 		if strings.Count(urn, ":") < 2 {
 			return "", exitcode.Newf(exitcode.Usage,
 				"%q is not a fully-qualified node URN — expected <org>:<memory>:<loc> (e.g. hadronmemory.com:dev:start-here)", ref)
 		}
-		urn = "urn:node:" + urn
+		urn = "hrn:node:" + urn
 	}
 	resp, err := gen.ResolveUrn(cmd.Context(), client, urn)
 	if err != nil {
