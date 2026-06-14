@@ -38,3 +38,31 @@ func ConfirmDeletion(io *output.IOStreams, yes bool, what string) error {
 	}
 	return nil
 }
+
+// Confirm gates a significant but non-deletion action behind the same
+// rule as ConfirmDeletion: --yes skips the prompt, an interactive terminal
+// is asked y/N, and a non-interactive caller without --yes is refused with
+// a Usage error so the action is always explicit. `prompt` is the full
+// question, without the trailing " (y/N)".
+func Confirm(io *output.IOStreams, yes bool, prompt string) error {
+	if yes {
+		return nil
+	}
+	if !io.IsInputTerminal() {
+		return exitcode.Newf(exitcode.Usage, "refusing to proceed without --yes in non-interactive mode")
+	}
+	fmt.Fprintf(io.ErrOut, "%s (y/N) ", prompt)
+	scanner := bufio.NewScanner(io.In)
+	if !scanner.Scan() {
+		if err := scanner.Err(); err != nil {
+			return fmt.Errorf("reading confirmation: %w", err)
+		}
+		return exitcode.Silent(exitcode.Cancelled)
+	}
+	answer := strings.ToLower(strings.TrimSpace(scanner.Text()))
+	if answer != "y" && answer != "yes" {
+		fmt.Fprintln(io.ErrOut, "Aborted.")
+		return exitcode.Silent(exitcode.Cancelled)
+	}
+	return nil
+}

@@ -8,6 +8,7 @@ shelling out to it.
 
 Full v1 command surface implemented: `auth login|logout|whoami|status`,
 `memory ls|get|set|rm|clone`, `node ls|get|add|update|rm`,
+`spec ls|get|register|find|new|lint|supersede|import`,
 `app ls|install|uninstall|use`, `config get|set|list`, `api` (raw
 GraphQL escape hatch), `version`, `completion`, `agentic-usage`.
 

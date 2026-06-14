@@ -1,0 +1,365 @@
+package spec
+
+import (
+	"fmt"
+	"io"
+	"os"
+	"strconv"
+
+	"github.com/spf13/cobra"
+
+	"github.com/hadron-memory/hadron-cli/internal/api"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
+)
+
+type plannedEdgeDTO struct {
+	Label  string `json:"label"`
+	Target string `json:"target"`
+}
+
+type newResultDTO struct {
+	Citation string           `json:"citation"`
+	MemoryID string           `json:"memoryId"`
+	Name     string           `json:"name"`
+	Tags     []string         `json:"tags"`
+	Abstract string           `json:"abstract"`
+	Edges    []plannedEdgeDTO `json:"edges"`
+	DryRun   bool             `json:"dryRun"`
+	Content  string           `json:"content,omitempty"`
+}
+
+func newCmdNew(f *cmdutil.Factory) *cobra.Command {
+	var (
+		memory, module, title          string
+		feature, rule, ruleAfter, flow string
+		inherit, abstract              string
+		content, contentFile           string
+		plevel                         int
+		tags                           []string
+		newFeature, newModule          bool
+		noEdges, dryRun                bool
+	)
+	cmd := &cobra.Command{
+		Use:     "new",
+		Aliases: []string{"scaffold"},
+		Short:   "Allocate the next citation and scaffold a spec node",
+		Long: `Allocate the next free citation number and create a spec node
+pre-filled with the rubric (abstract + the four mandatory sections) and
+wired with table-of-contents and inheritance edges.
+
+Target level (deepest wins):
+  --new-module                       create a module root
+  --new-feature                      allocate a new feature under --module
+  --feature <fff>                    allocate the next rule under that feature
+  --feature <fff> --rule <rr>        create that exact rule (e.g. --rule 00, the contract)
+  --feature <fff> --rule <rr> --flow <uu>   create that exact flow
+
+Features are numbered in tens (010, 020, …); rules and flows by one; rule
+00 is the feature's general-provisions contract. Use --dry-run to preview
+without writing.`,
+		Example: `  hadron spec new -m micromentor.org::platform-specs --module msg --feature 010 --title "W4 — 7d check-in"
+  hadron spec new -m micromentor.org::platform-specs --module msg --new-feature --title "Digest emails" --dry-run`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			memURN, err := memoryURNFromFlag(memory)
+			if err != nil {
+				return err
+			}
+			if _, err := ParseCitation(module); err != nil {
+				return err
+			}
+			if title == "" {
+				return exitcode.Newf(exitcode.Usage, "--title is required")
+			}
+			if newFeature && feature != "" {
+				return exitcode.Newf(exitcode.Usage, "--new-feature and --feature are mutually exclusive")
+			}
+			if rule != "" && ruleAfter != "" {
+				return exitcode.Newf(exitcode.Usage, "--rule and --rule-after are mutually exclusive")
+			}
+
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+
+			// One scan of the whole module subtree: existence + allocation.
+			prefix := module
+			resp, err := gen.Nodes(cmd.Context(), client, &memURN, &prefix, nil, nil, nil, nil, nil)
+			if err != nil {
+				return api.MapError(err)
+			}
+			locs := map[string]bool{}
+			var allLocs []string
+			for _, n := range resp.Nodes {
+				if c, perr := ParseCitation(n.Loc); perr == nil && c.Module == module {
+					locs[n.Loc] = true
+					allLocs = append(allLocs, n.Loc)
+				}
+			}
+
+			target, parentLoc, inheritLoc, err := planTarget(planInput{
+				module: module, feature: feature, rule: rule, ruleAfter: ruleAfter, flow: flow,
+				inherit: inherit, newFeature: newFeature, newModule: newModule, locs: locs, allLocs: allLocs,
+			})
+			if err != nil {
+				return err
+			}
+
+			if plevel < 0 {
+				plevel = defaultPLevel(target)
+			}
+			if plevel < 0 || plevel > 3 {
+				return exitcode.Newf(exitcode.Usage, "--plevel must be 0..3")
+			}
+
+			body, err := resolveBody(content, contentFile, f.IOStreams.In, target, title)
+			if err != nil {
+				return err
+			}
+			abs := abstract
+			if abs == "" {
+				abs = placeholderAbstract(target, title)
+			}
+			name := specName(target, title)
+			tagSet := specTags(plevel, tags)
+
+			result := newResultDTO{
+				Citation: target.Format(),
+				MemoryID: memURN,
+				Name:     name,
+				Tags:     tagSet,
+				Abstract: abs,
+				DryRun:   dryRun,
+			}
+			if !noEdges {
+				if parentLoc != "" {
+					result.Edges = append(result.Edges, plannedEdgeDTO{Label: tocEdgeLabel(plevel, title), Target: parentLoc})
+				}
+				if inheritLoc != "" {
+					result.Edges = append(result.Edges, plannedEdgeDTO{Label: inheritEdgeLabel, Target: inheritLoc})
+				}
+			}
+
+			if dryRun {
+				result.Content = body
+				return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
+					return renderNewResult(w, result)
+				})
+			}
+
+			createOnly := true
+			nodeType := "info"
+			input := gen.NodeInput{
+				MemoryId:   memURN,
+				Loc:        target.Format(),
+				Name:       name,
+				CreateOnly: &createOnly,
+				Tags:       tagSet,
+				NodeType:   &nodeType,
+				Abstract:   &abs,
+				Content:    &body,
+				Data:       specDataRaw(),
+			}
+			up, err := gen.UpsertNode(cmd.Context(), client, &input)
+			if err != nil {
+				return api.MapError(err)
+			}
+			newID := up.UpsertNode.Id
+
+			if !noEdges {
+				for _, e := range result.Edges {
+					targetID, rerr := resolveSpecNode(cmd, client, memURN, e.Target)
+					if rerr != nil {
+						fmt.Fprintf(f.IOStreams.ErrOut, "warning: skipped edge %q → %s: %v\n", e.Label, e.Target, rerr)
+						continue
+					}
+					if _, cerr := gen.CreateEdge(cmd.Context(), client, newID, targetID, e.Label, nil, nil, nil); cerr != nil {
+						fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", e.Label, e.Target, api.MapError(cerr))
+					}
+				}
+			}
+
+			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
+				return renderNewResult(w, result)
+			})
+		},
+	}
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
+	cmd.Flags().StringVar(&module, "module", "", "3-letter module code (required)")
+	cmd.Flags().StringVar(&title, "title", "", "human title for the spec (required)")
+	cmd.Flags().StringVar(&feature, "feature", "", "existing feature to create a rule under (3 digits)")
+	cmd.Flags().BoolVar(&newFeature, "new-feature", false, "allocate a new feature under the module")
+	cmd.Flags().StringVar(&rule, "rule", "", "create this exact rule number (2 digits, e.g. 00 for the contract)")
+	cmd.Flags().StringVar(&ruleAfter, "rule-after", "", "allocate the next rule strictly after this number")
+	cmd.Flags().StringVar(&flow, "flow", "", "create this exact flow number (2 digits)")
+	cmd.Flags().BoolVar(&newModule, "new-module", false, "create a new (frozen) module root")
+	cmd.Flags().IntVar(&plevel, "plevel", -1, "read-priority level 0..3 (default: from citation level)")
+	cmd.Flags().StringArrayVar(&tags, "tag", nil, "extra semantic tag (repeatable)")
+	cmd.Flags().StringVar(&abstract, "abstract", "", "the spec's abstract (default: a placeholder lint flags)")
+	cmd.Flags().StringVarP(&content, "content", "c", "", `body content ("-" reads stdin; default: the rubric template)`)
+	cmd.Flags().StringVar(&contentFile, "content-file", "", "read body content from a file")
+	cmd.Flags().StringVar(&inherit, "inherit", "", "inheritance-edge target citation (default: the feature's :00 contract)")
+	cmd.Flags().BoolVar(&noEdges, "no-edges", false, "do not create table-of-contents / inheritance edges")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the planned spec without writing anything")
+	_ = cmd.MarkFlagRequired("memory")
+	_ = cmd.MarkFlagRequired("module")
+	_ = cmd.MarkFlagRequired("title")
+	return cmd
+}
+
+const inheritEdgeLabel = "inherits the shared contract (general provisions)"
+
+func tocEdgeLabel(plevel int, title string) string {
+	return fmt.Sprintf("p%d: %s", plevel, title)
+}
+
+type planInput struct {
+	module, feature, rule, ruleAfter, flow, inherit string
+	newFeature, newModule                           bool
+	locs                                            map[string]bool
+	allLocs                                         []string
+}
+
+// planTarget resolves the target citation plus the ToC parent and the
+// inheritance target, enforcing the frozen-code / parent-exists rules.
+func planTarget(in planInput) (target Citation, parentLoc, inheritLoc string, err error) {
+	moduleExists := in.locs[in.module]
+
+	switch {
+	case in.newModule:
+		if in.feature != "" || in.newFeature || in.rule != "" || in.flow != "" {
+			return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--new-module cannot be combined with feature/rule/flow flags")
+		}
+		if moduleExists {
+			return Citation{}, "", "", exitcode.Newf(exitcode.Conflict, "module %q already exists (module codes are frozen)", in.module)
+		}
+		return Citation{Module: in.module}, "", "", nil
+
+	case in.newFeature:
+		if !moduleExists {
+			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "module %q does not exist — create it first with --new-module", in.module)
+		}
+		if in.rule != "" || in.flow != "" {
+			return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--new-feature cannot be combined with --rule/--flow")
+		}
+		parent := Citation{Module: in.module}
+		t, aerr := allocateChild(parent, childNumbersAt(parent, in.allLocs), nil, 0)
+		if aerr != nil {
+			return Citation{}, "", "", aerr
+		}
+		return t, in.module, "", nil
+	}
+
+	// Creating a rule or flow under an existing feature.
+	if !moduleExists {
+		return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "module %q does not exist — create it first with --new-module", in.module)
+	}
+	if in.feature == "" {
+		return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "pass --feature <fff> (or --new-feature / --new-module)")
+	}
+	featureCit := Citation{Module: in.module, Feature: in.feature}
+	if _, perr := ParseCitation(featureCit.Format()); perr != nil {
+		return Citation{}, "", "", perr
+	}
+	if !in.locs[featureCit.Format()] {
+		return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "feature %q does not exist — create it with --new-feature", featureCit.Format())
+	}
+
+	// Explicit flow.
+	if in.flow != "" {
+		if in.rule == "" {
+			return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--flow requires --rule")
+		}
+		ruleCit := Citation{Module: in.module, Feature: in.feature, Rule: in.rule}
+		if !in.locs[ruleCit.Format()] {
+			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "rule %q does not exist", ruleCit.Format())
+		}
+		t := Citation{Module: in.module, Feature: in.feature, Rule: in.rule, Flow: in.flow}
+		if _, perr := ParseCitation(t.Format()); perr != nil {
+			return Citation{}, "", "", perr
+		}
+		return t, ruleCit.Format(), "", nil
+	}
+
+	// Explicit rule number (e.g. 00 contract), else allocate the next rule.
+	var t Citation
+	if in.rule != "" {
+		t = Citation{Module: in.module, Feature: in.feature, Rule: in.rule}
+		if _, perr := ParseCitation(t.Format()); perr != nil {
+			return Citation{}, "", "", perr
+		}
+	} else {
+		after := 0
+		if in.ruleAfter != "" {
+			n, cerr := strconv.Atoi(in.ruleAfter)
+			if cerr != nil {
+				return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--rule-after must be a number")
+			}
+			after = n
+		}
+		alloc, aerr := allocateChild(featureCit, childNumbersAt(featureCit, in.allLocs), nil, after)
+		if aerr != nil {
+			return Citation{}, "", "", aerr
+		}
+		t = alloc
+	}
+
+	// Inheritance: a non-contract rule inherits its feature's :00 contract.
+	inheritLoc = ""
+	if !t.IsContract() {
+		if in.inherit != "" {
+			ic, perr := ParseCitation(in.inherit)
+			if perr != nil {
+				return Citation{}, "", "", perr
+			}
+			inheritLoc = ic.Format()
+		} else if cl, ok := t.ContractLoc(); ok && in.locs[cl.Format()] {
+			inheritLoc = cl.Format()
+		}
+	}
+	return t, featureCit.Format(), inheritLoc, nil
+}
+
+func resolveBody(content, contentFile string, stdin io.Reader, c Citation, title string) (string, error) {
+	if content != "" && contentFile != "" {
+		return "", exitcode.Newf(exitcode.Usage, "--content and --content-file are mutually exclusive")
+	}
+	if contentFile != "" {
+		data, err := os.ReadFile(contentFile)
+		if err != nil {
+			return "", exitcode.Newf(exitcode.Usage, "reading --content-file: %v", err)
+		}
+		return string(data), nil
+	}
+	if content == "-" {
+		data, err := io.ReadAll(stdin)
+		if err != nil {
+			return "", err
+		}
+		return string(data), nil
+	}
+	if content != "" {
+		return content, nil
+	}
+	return rubricBody(c, title), nil
+}
+
+func renderNewResult(w io.Writer, r newResultDTO) error {
+	verb := "✓ created"
+	if r.DryRun {
+		verb = "would create"
+	}
+	fmt.Fprintf(w, "%s %s — %s\n", verb, r.Citation, r.Name)
+	fmt.Fprintf(w, "  tags: %v\n", r.Tags)
+	for _, e := range r.Edges {
+		fmt.Fprintf(w, "  edge: %s → %s\n", e.Label, e.Target)
+	}
+	if r.DryRun && r.Content != "" {
+		fmt.Fprintf(w, "\n%s\n", r.Content)
+	}
+	return nil
+}

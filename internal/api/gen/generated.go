@@ -426,15 +426,18 @@ type GetNodeByIdNodeByIdNode struct {
 	Name        string  `json:"name"`
 	Description *string `json:"description"`
 	// Paragraph-length summary of this node. Opt-in on h-read-node via the contentScope parameter. h-find-nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in h-list-nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
-	Abstract      *string                                     `json:"abstract"`
-	NodeType      string                                      `json:"nodeType"`
-	Tags          []string                                    `json:"tags"`
-	Content       *string                                     `json:"content"`
-	Seq           *int                                        `json:"seq"`
-	CreatedAt     string                                      `json:"createdAt"`
-	UpdatedAt     string                                      `json:"updatedAt"`
-	OutgoingEdges []*GetNodeByIdNodeByIdNodeOutgoingEdgesEdge `json:"outgoingEdges"`
-	IncomingEdges []*GetNodeByIdNodeByIdNodeIncomingEdgesEdge `json:"incomingEdges"`
+	Abstract *string `json:"abstract"`
+	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness; when the two values differ AND abstractOriginHash is non-null, the abstract may not reflect current content. System-managed; never settable via NodeInput.
+	AbstractOriginHash *string                                     `json:"abstractOriginHash"`
+	NodeType           string                                      `json:"nodeType"`
+	Tags               []string                                    `json:"tags"`
+	Content            *string                                     `json:"content"`
+	Data               *json.RawMessage                            `json:"data"`
+	Seq                *int                                        `json:"seq"`
+	CreatedAt          string                                      `json:"createdAt"`
+	UpdatedAt          string                                      `json:"updatedAt"`
+	OutgoingEdges      []*GetNodeByIdNodeByIdNodeOutgoingEdgesEdge `json:"outgoingEdges"`
+	IncomingEdges      []*GetNodeByIdNodeByIdNodeIncomingEdgesEdge `json:"incomingEdges"`
 }
 
 // GetId returns GetNodeByIdNodeByIdNode.Id, and is useful for accessing the field via an interface.
@@ -455,6 +458,9 @@ func (v *GetNodeByIdNodeByIdNode) GetDescription() *string { return v.Descriptio
 // GetAbstract returns GetNodeByIdNodeByIdNode.Abstract, and is useful for accessing the field via an interface.
 func (v *GetNodeByIdNodeByIdNode) GetAbstract() *string { return v.Abstract }
 
+// GetAbstractOriginHash returns GetNodeByIdNodeByIdNode.AbstractOriginHash, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNode) GetAbstractOriginHash() *string { return v.AbstractOriginHash }
+
 // GetNodeType returns GetNodeByIdNodeByIdNode.NodeType, and is useful for accessing the field via an interface.
 func (v *GetNodeByIdNodeByIdNode) GetNodeType() string { return v.NodeType }
 
@@ -463,6 +469,9 @@ func (v *GetNodeByIdNodeByIdNode) GetTags() []string { return v.Tags }
 
 // GetContent returns GetNodeByIdNodeByIdNode.Content, and is useful for accessing the field via an interface.
 func (v *GetNodeByIdNodeByIdNode) GetContent() *string { return v.Content }
+
+// GetData returns GetNodeByIdNodeByIdNode.Data, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNode) GetData() *json.RawMessage { return v.Data }
 
 // GetSeq returns GetNodeByIdNodeByIdNode.Seq, and is useful for accessing the field via an interface.
 func (v *GetNodeByIdNodeByIdNode) GetSeq() *int { return v.Seq }
@@ -797,6 +806,91 @@ func (v *NodeInput) GetSeq() *int { return v.Seq }
 // GetTags returns NodeInput.Tags, and is useful for accessing the field via an interface.
 func (v *NodeInput) GetTags() []string { return v.Tags }
 
+// NodeSearchNodeSearchNodeSearchResult includes the requested fields of the GraphQL type NodeSearchResult.
+// The GraphQL type's documentation follows.
+//
+// Envelope for nodeSearch — carries the ranked nodes plus structured
+// flags surfacing degraded / no-index outcomes that the MCP path emits
+// inline. Spec 033.
+//
+// reason: set when the query could not run as requested (e.g.
+// 'no_vector_index' on a non-indexed memory with mode:vector); nodes
+// is empty in that case.
+// degraded: set when the query ran but at reduced fidelity (e.g.
+// 'no_vector_index' on a hybrid query that fell back to keyword-only);
+// nodes still carries usable hits.
+type NodeSearchNodeSearchNodeSearchResult struct {
+	Degraded *string                                          `json:"degraded"`
+	Reason   *string                                          `json:"reason"`
+	Nodes    []*NodeSearchNodeSearchNodeSearchResultNodesNode `json:"nodes"`
+}
+
+// GetDegraded returns NodeSearchNodeSearchNodeSearchResult.Degraded, and is useful for accessing the field via an interface.
+func (v *NodeSearchNodeSearchNodeSearchResult) GetDegraded() *string { return v.Degraded }
+
+// GetReason returns NodeSearchNodeSearchNodeSearchResult.Reason, and is useful for accessing the field via an interface.
+func (v *NodeSearchNodeSearchNodeSearchResult) GetReason() *string { return v.Reason }
+
+// GetNodes returns NodeSearchNodeSearchNodeSearchResult.Nodes, and is useful for accessing the field via an interface.
+func (v *NodeSearchNodeSearchNodeSearchResult) GetNodes() []*NodeSearchNodeSearchNodeSearchResultNodesNode {
+	return v.Nodes
+}
+
+// NodeSearchNodeSearchNodeSearchResultNodesNode includes the requested fields of the GraphQL type Node.
+type NodeSearchNodeSearchNodeSearchResultNodesNode struct {
+	Id        string   `json:"id"`
+	MemoryId  string   `json:"memoryId"`
+	Loc       string   `json:"loc"`
+	Name      string   `json:"name"`
+	NodeType  string   `json:"nodeType"`
+	Tags      []string `json:"tags"`
+	UpdatedAt string   `json:"updatedAt"`
+}
+
+// GetId returns NodeSearchNodeSearchNodeSearchResultNodesNode.Id, and is useful for accessing the field via an interface.
+func (v *NodeSearchNodeSearchNodeSearchResultNodesNode) GetId() string { return v.Id }
+
+// GetMemoryId returns NodeSearchNodeSearchNodeSearchResultNodesNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *NodeSearchNodeSearchNodeSearchResultNodesNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns NodeSearchNodeSearchNodeSearchResultNodesNode.Loc, and is useful for accessing the field via an interface.
+func (v *NodeSearchNodeSearchNodeSearchResultNodesNode) GetLoc() string { return v.Loc }
+
+// GetName returns NodeSearchNodeSearchNodeSearchResultNodesNode.Name, and is useful for accessing the field via an interface.
+func (v *NodeSearchNodeSearchNodeSearchResultNodesNode) GetName() string { return v.Name }
+
+// GetNodeType returns NodeSearchNodeSearchNodeSearchResultNodesNode.NodeType, and is useful for accessing the field via an interface.
+func (v *NodeSearchNodeSearchNodeSearchResultNodesNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns NodeSearchNodeSearchNodeSearchResultNodesNode.Tags, and is useful for accessing the field via an interface.
+func (v *NodeSearchNodeSearchNodeSearchResultNodesNode) GetTags() []string { return v.Tags }
+
+// GetUpdatedAt returns NodeSearchNodeSearchNodeSearchResultNodesNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *NodeSearchNodeSearchNodeSearchResultNodesNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// NodeSearchResponse is returned by NodeSearch on success.
+type NodeSearchResponse struct {
+	// Vector/hybrid-aware search over a memory. Keyword-only callers should
+	// keep using the legacy 'nodes' query — nodeSearch is the
+	// vector-aware entrypoint per spec 033 contract.
+	//
+	// mode defaults to vector (the vector-aware entrypoint design — the
+	// MCP h-find-nodes tool defaults to keyword for backward-compat,
+	// a deliberate divergence between the two surfaces). expand (graph
+	// neighbor depth 0..3, default 0) and granularity:chunk (passage
+	// retrieval, vector-mode only) are both fully live.
+	//
+	// Access control: same memory-read gate as the keyword nodes query —
+	// the raw-SQL similarity query is scoped to memories the caller can
+	// read, never cross-memory.
+	NodeSearch *NodeSearchNodeSearchNodeSearchResult `json:"nodeSearch"`
+}
+
+// GetNodeSearch returns NodeSearchResponse.NodeSearch, and is useful for accessing the field via an interface.
+func (v *NodeSearchResponse) GetNodeSearch() *NodeSearchNodeSearchNodeSearchResult {
+	return v.NodeSearch
+}
+
 // NodesNodesNode includes the requested fields of the GraphQL type Node.
 type NodesNodesNode struct {
 	Id        string   `json:"id"`
@@ -899,6 +993,27 @@ var AllRole = []Role{
 	RoleContributor,
 	RoleOwner,
 	RoleReader,
+}
+
+// Search dispatch for nodeSearch. Spec 033.
+//
+// - keyword: substring match across name/loc/description/tags (the legacy
+// nodes-query semantic, exposed as a nodeSearch mode for parity).
+// - vector: semantic search via the memory's vector index. Requires
+// vectorIndexEnabled on the memory.
+// - hybrid: reciprocal-rank fusion of keyword + vector (k=60).
+type SearchMode string
+
+const (
+	SearchModeHybrid  SearchMode = "hybrid"
+	SearchModeKeyword SearchMode = "keyword"
+	SearchModeVector  SearchMode = "vector"
+)
+
+var AllSearchMode = []SearchMode{
+	SearchModeHybrid,
+	SearchModeKeyword,
+	SearchModeVector,
 }
 
 type SyncStatus string
@@ -1238,6 +1353,26 @@ type __MyMemoriesInput struct {
 
 // GetIncludeAgentSystem returns __MyMemoriesInput.IncludeAgentSystem, and is useful for accessing the field via an interface.
 func (v *__MyMemoriesInput) GetIncludeAgentSystem() *bool { return v.IncludeAgentSystem }
+
+// __NodeSearchInput is used internally by genqlient
+type __NodeSearchInput struct {
+	Query     string      `json:"query"`
+	Mode      *SearchMode `json:"mode,omitempty"`
+	MemoryUrn *string     `json:"memoryUrn,omitempty"`
+	Limit     *int        `json:"limit,omitempty"`
+}
+
+// GetQuery returns __NodeSearchInput.Query, and is useful for accessing the field via an interface.
+func (v *__NodeSearchInput) GetQuery() string { return v.Query }
+
+// GetMode returns __NodeSearchInput.Mode, and is useful for accessing the field via an interface.
+func (v *__NodeSearchInput) GetMode() *SearchMode { return v.Mode }
+
+// GetMemoryUrn returns __NodeSearchInput.MemoryUrn, and is useful for accessing the field via an interface.
+func (v *__NodeSearchInput) GetMemoryUrn() *string { return v.MemoryUrn }
+
+// GetLimit returns __NodeSearchInput.Limit, and is useful for accessing the field via an interface.
+func (v *__NodeSearchInput) GetLimit() *int { return v.Limit }
 
 // __NodesInput is used internally by genqlient
 type __NodesInput struct {
@@ -1772,9 +1907,11 @@ query GetNodeById ($id: ID!) {
 		name
 		description
 		abstract
+		abstractOriginHash
 		nodeType
 		tags
 		content
+		data
 		seq
 		createdAt
 		updatedAt
@@ -1893,6 +2030,59 @@ func MyMemories(
 	}
 
 	data_ = &MyMemoriesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NodeSearch.
+const NodeSearch_Operation = `
+query NodeSearch ($query: String!, $mode: SearchMode, $memoryUrn: String, $limit: Int) {
+	nodeSearch(query: $query, mode: $mode, memoryUrn: $memoryUrn, limit: $limit) {
+		degraded
+		reason
+		nodes {
+			id
+			memoryId
+			loc
+			name
+			nodeType
+			tags
+			updatedAt
+		}
+	}
+}
+`
+
+// Semantic + keyword search (spec 033). hybrid mode degrades to keyword
+// (with a `degraded`/`reason` note) on memories without a vector index,
+// so `spec find` is never silently empty. Backs `hadron spec find`.
+func NodeSearch(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	query string,
+	mode *SearchMode,
+	memoryUrn *string,
+	limit *int,
+) (data_ *NodeSearchResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeSearch",
+		Query:  NodeSearch_Operation,
+		Variables: &__NodeSearchInput{
+			Query:     query,
+			Mode:      mode,
+			MemoryUrn: memoryUrn,
+			Limit:     limit,
+		},
+	}
+
+	data_ = &NodeSearchResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
