@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmd/agentic"
+	aiconfigcmd "github.com/hadron-memory/hadron-cli/internal/cmd/aiconfig"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/apicmd"
 	appcmd "github.com/hadron-memory/hadron-cli/internal/cmd/app"
 	authcmd "github.com/hadron-memory/hadron-cli/internal/cmd/auth"
@@ -47,6 +48,7 @@ func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	root.AddCommand(edgecmd.NewCmdEdge(f))
 	root.AddCommand(speccmd.NewCmdSpec(f))
 	root.AddCommand(appcmd.NewCmdApp(f))
+	root.AddCommand(aiconfigcmd.NewCmdAiConfig(f))
 	root.AddCommand(configcmd.NewCmdConfig(f))
 	root.AddCommand(apicmd.NewCmdAPI(f))
 	root.AddCommand(versioncmd.NewCmdVersion(f))

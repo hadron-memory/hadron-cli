@@ -1,0 +1,21 @@
+query ResolveAiServiceConfigs(
+  # @genqlient(omitempty: true)
+  $appId: ID
+  # @genqlient(omitempty: true)
+  $agentId: ID
+) {
+  resolveAiServiceConfigs(appId: $appId, agentId: $agentId) {
+    id
+    name
+    ownerType
+    ownerId
+    provider
+    model
+    hasApiKey
+    apiKeyPreview
+    params
+    enabled
+    createdAt
+    updatedAt
+  }
+}
