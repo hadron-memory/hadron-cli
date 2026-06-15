@@ -9,6 +9,24 @@ import (
 	"github.com/Khan/genqlient/graphql"
 )
 
+// 036-ai-service-config: which entity owns an AiServiceConfig. Exactly one
+// owner per config (DB-enforced).
+type AiConfigOwnerType string
+
+const (
+	AiConfigOwnerTypeAgent        AiConfigOwnerType = "AGENT"
+	AiConfigOwnerTypeApp          AiConfigOwnerType = "APP"
+	AiConfigOwnerTypeHadronServer AiConfigOwnerType = "HADRON_SERVER"
+	AiConfigOwnerTypeOrganization AiConfigOwnerType = "ORGANIZATION"
+)
+
+var AllAiConfigOwnerType = []AiConfigOwnerType{
+	AiConfigOwnerTypeAgent,
+	AiConfigOwnerTypeApp,
+	AiConfigOwnerTypeHadronServer,
+	AiConfigOwnerTypeOrganization,
+}
+
 type AppType string
 
 const (
@@ -931,6 +949,125 @@ type NodesResponse struct {
 // GetNodes returns NodesResponse.Nodes, and is useful for accessing the field via an interface.
 func (v *NodesResponse) GetNodes() []*NodesNodesNode { return v.Nodes }
 
+// ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig includes the requested fields of the GraphQL type AiServiceConfig.
+// The GraphQL type's documentation follows.
+//
+// 036-ai-service-config: a named AI service configuration (masked
+// management view — never carries key material beyond the preview).
+// Owned by exactly one of HadronServer / Organization / App / Agent.
+// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// returns the first ENABLED config with the requested name. Well-known
+// fallback name: 'default' (conventional extras: 'fast', 'frontier').
+// Name is unique per owner.
+type ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig struct {
+	Id        string            `json:"id"`
+	Name      string            `json:"name"`
+	OwnerType AiConfigOwnerType `json:"ownerType"`
+	// ID of the owning HadronServer / Organization / App / Agent.
+	OwnerId string `json:"ownerId"`
+	// Provider identifier; v1 known: 'anthropic' | 'openai' | 'glm' | 'bedrock'.
+	Provider string `json:"provider"`
+	// Model identifier, passed verbatim to the provider.
+	Model     string `json:"model"`
+	HasApiKey bool   `json:"hasApiKey"`
+	// Ellipsis + last 4 characters of the stored key; null when no key.
+	ApiKeyPreview *string `json:"apiKeyPreview"`
+	// Provider-specific knobs (maxTokens, thinking, effort, baseUrl, ...).
+	Params *json.RawMessage `json:"params"`
+	// Disabled configs are skipped by resolution (the walk continues outward).
+	Enabled   bool    `json:"enabled"`
+	CreatedAt string  `json:"createdAt"`
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+// GetId returns ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig.Id, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig) GetId() string { return v.Id }
+
+// GetName returns ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig.Name, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig) GetName() string {
+	return v.Name
+}
+
+// GetOwnerType returns ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig.OwnerType, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig) GetOwnerType() AiConfigOwnerType {
+	return v.OwnerType
+}
+
+// GetOwnerId returns ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig.OwnerId, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig) GetOwnerId() string {
+	return v.OwnerId
+}
+
+// GetProvider returns ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig.Provider, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig) GetProvider() string {
+	return v.Provider
+}
+
+// GetModel returns ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig.Model, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig) GetModel() string {
+	return v.Model
+}
+
+// GetHasApiKey returns ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig.HasApiKey, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig) GetHasApiKey() bool {
+	return v.HasApiKey
+}
+
+// GetApiKeyPreview returns ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig.ApiKeyPreview, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig) GetApiKeyPreview() *string {
+	return v.ApiKeyPreview
+}
+
+// GetParams returns ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig.Params, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig) GetParams() *json.RawMessage {
+	return v.Params
+}
+
+// GetEnabled returns ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig.Enabled, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig) GetEnabled() bool {
+	return v.Enabled
+}
+
+// GetCreatedAt returns ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetUpdatedAt returns ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig) GetUpdatedAt() *string {
+	return v.UpdatedAt
+}
+
+// ResolveAiServiceConfigsResponse is returned by ResolveAiServiceConfigs on success.
+type ResolveAiServiceConfigsResponse struct {
+	// 036-ai-service-config: the MASKED set of configs RESOLVABLE in an
+	// execution context — every distinct config name a chat in this context
+	// could select. Populates a config picker in the chatbot UI.
+	//
+	// Same walk as resolveAIConfig (App -> Agent -> Org (of the App, else of
+	// the Agent) -> HadronServer), but returns ALL names instead of resolving
+	// one: configs are deduped by name with the innermost owner winning, so
+	// each entry is the row resolveAIConfig would return for that name. Only
+	// the Agent named here contributes — sibling Agents installed in the same
+	// App are not consulted. Disabled configs are skipped. Never returns key
+	// material (hasApiKey + apiKeyPreview only).
+	//
+	// Auth: scoped to one App's chat context. A non-admin caller MUST pass an
+	// appId, be a member of that App, and (when an agentId is given) the Agent
+	// must be installed in that App. Because the result is masked (no key
+	// material), App membership — not org admin — is the bar, unlike
+	// resolveAIConfig and the aiServiceConfigs management list. Platform
+	// ADMIN/OWNER are always allowed and may omit appId.
+	//
+	// appId/agentId accept the entity's ID or URN.
+	ResolveAiServiceConfigs []*ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig `json:"resolveAiServiceConfigs"`
+}
+
+// GetResolveAiServiceConfigs returns ResolveAiServiceConfigsResponse.ResolveAiServiceConfigs, and is useful for accessing the field via an interface.
+func (v *ResolveAiServiceConfigsResponse) GetResolveAiServiceConfigs() []*ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig {
+	return v.ResolveAiServiceConfigs
+}
+
 // ResolveUrnResolveUrnUrnResolution includes the requested fields of the GraphQL type UrnResolution.
 // The GraphQL type's documentation follows.
 //
@@ -1405,6 +1542,18 @@ func (v *__NodesInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __NodesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__NodesInput) GetOffset() *int { return v.Offset }
+
+// __ResolveAiServiceConfigsInput is used internally by genqlient
+type __ResolveAiServiceConfigsInput struct {
+	AppId   *string `json:"appId,omitempty"`
+	AgentId *string `json:"agentId,omitempty"`
+}
+
+// GetAppId returns __ResolveAiServiceConfigsInput.AppId, and is useful for accessing the field via an interface.
+func (v *__ResolveAiServiceConfigsInput) GetAppId() *string { return v.AppId }
+
+// GetAgentId returns __ResolveAiServiceConfigsInput.AgentId, and is useful for accessing the field via an interface.
+func (v *__ResolveAiServiceConfigsInput) GetAgentId() *string { return v.AgentId }
 
 // __ResolveUrnInput is used internally by genqlient
 type __ResolveUrnInput struct {
@@ -2135,6 +2284,53 @@ func Nodes(
 	}
 
 	data_ = &NodesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ResolveAiServiceConfigs.
+const ResolveAiServiceConfigs_Operation = `
+query ResolveAiServiceConfigs ($appId: ID, $agentId: ID) {
+	resolveAiServiceConfigs(appId: $appId, agentId: $agentId) {
+		id
+		name
+		ownerType
+		ownerId
+		provider
+		model
+		hasApiKey
+		apiKeyPreview
+		params
+		enabled
+		createdAt
+		updatedAt
+	}
+}
+`
+
+func ResolveAiServiceConfigs(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appId *string,
+	agentId *string,
+) (data_ *ResolveAiServiceConfigsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ResolveAiServiceConfigs",
+		Query:  ResolveAiServiceConfigs_Operation,
+		Variables: &__ResolveAiServiceConfigsInput{
+			AppId:   appId,
+			AgentId: agentId,
+		},
+	}
+
+	data_ = &ResolveAiServiceConfigsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

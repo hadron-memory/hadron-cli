@@ -538,3 +538,86 @@ func TestAppUninstall(t *testing.T) {
 		t.Errorf("unexpected vars: %v", vars)
 	}
 }
+
+// aiConfigsJSON is a masked two-config picker result: one App-owned config
+// with a key preview, one Org-owned config without a key.
+const aiConfigsJSON = `{"data":{"resolveAiServiceConfigs":[
+	{"id":"cfg1","name":"default","ownerType":"APP","ownerId":"app1",
+	 "provider":"anthropic","model":"claude-opus-4-8","hasApiKey":true,
+	 "apiKeyPreview":"…7f3a","params":{"maxTokens":4096},"enabled":true,
+	 "createdAt":"2026-06-11T00:00:00Z","updatedAt":null},
+	{"id":"cfg2","name":"fast","ownerType":"ORGANIZATION","ownerId":"org1",
+	 "provider":"openai","model":"gpt-4o-mini","hasApiKey":false,
+	 "apiKeyPreview":null,"params":null,"enabled":true,
+	 "createdAt":"2026-06-11T00:00:00Z","updatedAt":null}
+]}}`
+
+func TestAiConfigLs(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveAiServiceConfigs": aiConfigsJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"ai-config", "ls", "--app", "acme.com:juno-app",
+		"--agent", "acme.com:juno", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	got := out.String()
+	// Table carries name, owner (ownerType), provider, model, and the key preview.
+	for _, want := range []string{"default", "APP", "anthropic", "claude-opus-4-8", "7f3a",
+		"fast", "ORGANIZATION", "openai", "—"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("table output missing %q:\n%s", want, got)
+		}
+	}
+
+	// --app and --agent map to the appId/agentId variables (ID or URN, verbatim).
+	var vars map[string]any
+	_ = json.Unmarshal(captured["ResolveAiServiceConfigs"], &vars)
+	if vars["appId"] != "acme.com:juno-app" || vars["agentId"] != "acme.com:juno" {
+		t.Errorf("unexpected vars: %v", vars)
+	}
+}
+
+func TestAiConfigLsJSONOmitsUnsetAgent(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveAiServiceConfigs": aiConfigsJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	// No --agent: it must be omitted from the variables, not sent as null.
+	root.SetArgs([]string{"ai-config", "ls", "--app", "acme.com:juno-app", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	got := out.String()
+	// Never any key material beyond the preview — no raw apiKey field.
+	if strings.Contains(got, `"apiKey":`) {
+		t.Errorf("--json output leaked a raw apiKey field:\n%s", got)
+	}
+	// Stable masked DTO shape.
+	var dtos []map[string]any
+	if err := json.Unmarshal([]byte(got), &dtos); err != nil {
+		t.Fatalf("--json is not a valid array: %v\n%s", err, got)
+	}
+	if len(dtos) != 2 {
+		t.Fatalf("expected 2 configs, got %d", len(dtos))
+	}
+	for _, key := range []string{"hasApiKey", "apiKeyPreview", "ownerType", "ownerId", "params"} {
+		if _, ok := dtos[0][key]; !ok {
+			t.Errorf("masked DTO missing %q field: %v", key, dtos[0])
+		}
+	}
+
+	var vars map[string]any
+	_ = json.Unmarshal(captured["ResolveAiServiceConfigs"], &vars)
+	if vars["appId"] != "acme.com:juno-app" {
+		t.Errorf("appId should map from --app, got %v", vars["appId"])
+	}
+	if v, present := vars["agentId"]; present {
+		t.Errorf("unset --agent must be omitted from variables, got %v", v)
+	}
+}

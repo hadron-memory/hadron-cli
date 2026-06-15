@@ -1902,6 +1902,30 @@ type Query {
   resolveAIConfig(agentId: ID, appId: ID, name: String): ResolvedAiConfig!
 
   """
+  036-ai-service-config: the MASKED set of configs RESOLVABLE in an
+  execution context — every distinct config name a chat in this context
+  could select. Populates a config picker in the chatbot UI.
+  
+  Same walk as resolveAIConfig (App -> Agent -> Org (of the App, else of
+  the Agent) -> HadronServer), but returns ALL names instead of resolving
+  one: configs are deduped by name with the innermost owner winning, so
+  each entry is the row resolveAIConfig would return for that name. Only
+  the Agent named here contributes — sibling Agents installed in the same
+  App are not consulted. Disabled configs are skipped. Never returns key
+  material (hasApiKey + apiKeyPreview only).
+  
+  Auth: scoped to one App's chat context. A non-admin caller MUST pass an
+  appId, be a member of that App, and (when an agentId is given) the Agent
+  must be installed in that App. Because the result is masked (no key
+  material), App membership — not org admin — is the bar, unlike
+  resolveAIConfig and the aiServiceConfigs management list. Platform
+  ADMIN/OWNER are always allowed and may omit appId.
+  
+  appId/agentId accept the entity's ID or URN.
+  """
+  resolveAiServiceConfigs(agentId: ID, appId: ID): [AiServiceConfig!]!
+
+  """
   Resolve a fully-qualified, `hrn:<type>:`-prefixed Hadron URN (legacy `urn:` scheme also accepted) to the ids
   needed to reach its canonical page. Returns null when the URN is
   unresolvable (not found) OR the caller lacks access. Unlike the dedicated
