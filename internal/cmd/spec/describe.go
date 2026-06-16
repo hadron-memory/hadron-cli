@@ -105,12 +105,12 @@ writes that declaration.`,
 			}
 			declared := schemeFromData(curData)
 
-			resp, err := gen.Nodes(cmd.Context(), client, &memURN, nil, nil, []string{"spec"}, nil, nil, nil)
+			all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, []string{"spec"})
 			if err != nil {
-				return api.MapError(err)
+				return err
 			}
 			var locs []string
-			for _, n := range resp.Nodes {
+			for _, n := range all {
 				if n == nil {
 					continue
 				}

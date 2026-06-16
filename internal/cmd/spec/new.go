@@ -103,6 +103,8 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 			}
 
 			// One scan of the whole product/module subtree: existence + allocation.
+			// Paged to exhaustion — a truncated scan here would make the
+			// allocator reuse a live number on a subtree past one page (#23).
 			prefix := module
 			if product != "" {
 				prefix = product
@@ -110,13 +112,13 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 			if prefix == "" {
 				return exitcode.Newf(exitcode.Usage, "pass --product and/or --module")
 			}
-			resp, err := gen.Nodes(cmd.Context(), client, &memURN, &prefix, nil, nil, nil, nil, nil)
+			all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil)
 			if err != nil {
-				return api.MapError(err)
+				return err
 			}
 			locs := map[string]bool{}
 			var allLocs []string
-			for _, n := range resp.Nodes {
+			for _, n := range all {
 				if n == nil {
 					continue
 				}
