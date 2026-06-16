@@ -88,7 +88,7 @@ func TestLintCorpusInheritanceAndParent(t *testing.T) {
 		cleanSpec(t, "msg:010:00", "Shared contract"),
 		cleanSpec(t, "msg:010:02", "W2"), // has ToC edge, but no inheritance edge to :00
 	}
-	fs := lintCorpus(nodes)
+	fs := lintCorpus(nodes, "")
 	if !hasRuleFor(fs, "msg:010:02", "inheritance-edge") {
 		t.Errorf("expected inheritance-edge warning on msg:010:02; got %v", fs)
 	}
@@ -98,16 +98,48 @@ func TestLintCorpusInheritanceAndParent(t *testing.T) {
 }
 
 func TestLintCorpusOrphanParent(t *testing.T) {
-	fs := lintCorpus([]specNode{cleanSpec(t, "msg:010:02", "W2")})
+	fs := lintCorpus([]specNode{cleanSpec(t, "msg:010:02", "W2")}, "")
 	if !hasRuleFor(fs, "msg:010:02", "parent-exists") {
 		t.Errorf("expected parent-exists error for orphan; got %v", fs)
+	}
+}
+
+func TestLintCorpusScopedRootParentAboveScope(t *testing.T) {
+	// Regression for #21: a --product/--module scoped lint (scopeRoot
+	// "cor:acl") must not flag the scope's own root for its parent (cor, the
+	// product root) living above the scanned subtree.
+	nodes := []specNode{
+		{Loc: "cor:acl", Name: "cor:acl — Access control", NodeType: "info", Tags: []string{"spec", "p0"}},
+		{Loc: "cor:acl:010", Name: "cor:acl:010 — Roles", NodeType: "info", Tags: []string{"spec", "p1"}},
+		cleanSpec(t, "cor:acl:010:02", "Role check"),
+	}
+	if fs := lintCorpus(nodes, "cor:acl"); hasRule(fs, "parent-exists") {
+		t.Errorf("scoped lint must not flag the scope root's above-scope parent; got %v", fs)
+	}
+	// Whole-corpus semantics (scopeRoot "") still treat the same set as an
+	// orphan: cor:acl's parent cor is genuinely absent.
+	if fs := lintCorpus(nodes, ""); !hasRuleFor(fs, "cor:acl", "parent-exists") {
+		t.Errorf("unscoped lint should flag cor:acl's missing parent; got %v", fs)
+	}
+}
+
+func TestLintCorpusScopedMissingIntermediate(t *testing.T) {
+	// A genuinely dangling intermediate inside the scope (cor:acl:010 missing
+	// under scope root cor:acl) must still be reported — only the scope
+	// boundary's parent is exempt.
+	nodes := []specNode{
+		{Loc: "cor:acl", Name: "cor:acl — Access control", NodeType: "info", Tags: []string{"spec", "p0"}},
+		cleanSpec(t, "cor:acl:010:02", "Role check"), // parent cor:acl:010 is absent
+	}
+	if fs := lintCorpus(nodes, "cor:acl"); !hasRuleFor(fs, "cor:acl:010:02", "parent-exists") {
+		t.Errorf("a missing intermediate inside the scope must still be flagged; got %v", fs)
 	}
 }
 
 func TestLintCorpusDuplicate(t *testing.T) {
 	a := cleanSpec(t, "msg:010:02", "W2")
 	b := cleanSpec(t, "msg:010:02", "W2 dup")
-	fs := lintCorpus([]specNode{a, b})
+	fs := lintCorpus([]specNode{a, b}, "")
 	if !hasRule(fs, "duplicate-loc") {
 		t.Errorf("expected duplicate-loc error; got %v", fs)
 	}
@@ -120,7 +152,7 @@ func TestLintCorpusProductInheritance(t *testing.T) {
 		{Loc: "cli:gen", Name: "cli:gen — general provisions", NodeType: "info", Tags: []string{"spec", "p0"}},
 		{Loc: "cli:cha", Name: "cli:cha — chat", NodeType: "info", Tags: []string{"spec", "p1"}},
 	}
-	fs := lintCorpus(nodes)
+	fs := lintCorpus(nodes, "")
 	if !hasRuleFor(fs, "cli:cha", "inheritance-edge") {
 		t.Errorf("expected inheritance-edge warning cli:cha → cli:gen; got %v", fs)
 	}
@@ -140,7 +172,7 @@ func TestLintCorpusMixedArity(t *testing.T) {
 		{Loc: "cli", Name: "cli — CLI", NodeType: "info", Tags: []string{"spec", "p0"}},
 		{Loc: "cli:cha", Name: "cli:cha — chat", NodeType: "info", Tags: []string{"spec", "p1"}},
 	}
-	if !hasRule(lintCorpus(nodes), "mixed-arity") {
-		t.Errorf("expected mixed-arity warning; got %v", lintCorpus(nodes))
+	if !hasRule(lintCorpus(nodes, ""), "mixed-arity") {
+		t.Errorf("expected mixed-arity warning; got %v", lintCorpus(nodes, ""))
 	}
 }
