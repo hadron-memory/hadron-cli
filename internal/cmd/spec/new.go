@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -33,13 +34,14 @@ type newResultDTO struct {
 
 func newCmdNew(f *cmdutil.Factory) *cobra.Command {
 	var (
-		memory, module, title          string
+		memory, product, module, title string
 		feature, rule, ruleAfter, flow string
 		inherit, abstract              string
 		content, contentFile           string
 		plevel                         int
 		tags                           []string
 		newFeature, newModule          bool
+		newProduct, contract           bool
 		noEdges, dryRun                bool
 	)
 	cmd := &cobra.Command{
@@ -50,26 +52,40 @@ func newCmdNew(f *cmdutil.Factory) *cobra.Command {
 pre-filled with the rubric (abstract + the four mandatory sections) and
 wired with table-of-contents and inheritance edges.
 
-Target level (deepest wins):
-  --new-module                       create a module root
-  --new-feature                      allocate a new feature under --module
-  --feature <fff>                    allocate the next rule under that feature
-  --feature <fff> --rule <rr>        create that exact rule (e.g. --rule 00, the contract)
-  --feature <fff> --rule <rr> --flow <uu>   create that exact flow
+In a product-rooted corpus, pass --product <ppp> to qualify the module;
+omit it for a flat corpus.
 
-Features are numbered in tens (010, 020, …); rules and flows by one; rule
-00 is the feature's general-provisions contract. Use --dry-run to preview
-without writing.`,
+Target (deepest wins):
+  --new-product                      create a product root (needs --product)
+  --new-module                       create a module root (under --product, if given)
+  --new-feature                      allocate a new feature under the module
+  --feature <fff>                    allocate the next rule under that feature
+  --feature <fff> --rule <rr>        create that exact rule
+  --feature <fff> --rule <rr> --flow <uu>   create that exact flow
+  --contract                         the reserved general-provisions contract at
+                                     the deepest specified tier (product :gen,
+                                     module :000, feature :00)
+
+Features are numbered in tens (010, 020, …); rules and flows by one. Use
+--dry-run to preview without writing.`,
 		Example: `  hadron spec new -m micromentor.org::platform-specs --module msg --feature 010 --title "W4 — 7d check-in"
-  hadron spec new -m micromentor.org::platform-specs --module msg --new-feature --title "Digest emails" --dry-run`,
+  hadron spec new -m hadronmemory.com::platform-specs --new-product --product cli --title "Hadron CLI"
+  hadron spec new -m hadronmemory.com::platform-specs --product cli --new-module --module cha --title "chat command group"
+  hadron spec new -m hadronmemory.com::platform-specs --product cli --module cha --contract --title "chat general provisions" --dry-run`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			memURN, err := memoryURNFromFlag(memory)
 			if err != nil {
 				return err
 			}
-			if _, err := ParseCitation(module); err != nil {
-				return err
+			if product != "" && !reModule.MatchString(product) {
+				return exitcode.Newf(exitcode.Usage, "--product %q must be 3 lowercase letters", product)
+			}
+			if module != "" && !reModule.MatchString(module) {
+				return exitcode.Newf(exitcode.Usage, "--module %q must be 3 lowercase letters", module)
+			}
+			if product != "" && module == productContractCode {
+				return exitcode.Newf(exitcode.Usage, "module %q is reserved for the product contract — use --contract", productContractCode)
 			}
 			if title == "" {
 				return exitcode.Newf(exitcode.Usage, "--title is required")
@@ -86,8 +102,14 @@ without writing.`,
 				return err
 			}
 
-			// One scan of the whole module subtree: existence + allocation.
+			// One scan of the whole product/module subtree: existence + allocation.
 			prefix := module
+			if product != "" {
+				prefix = product
+			}
+			if prefix == "" {
+				return exitcode.Newf(exitcode.Usage, "pass --product and/or --module")
+			}
 			resp, err := gen.Nodes(cmd.Context(), client, &memURN, &prefix, nil, nil, nil, nil, nil)
 			if err != nil {
 				return api.MapError(err)
@@ -98,15 +120,20 @@ without writing.`,
 				if n == nil {
 					continue
 				}
-				if c, perr := ParseCitation(n.Loc); perr == nil && c.Module == module {
-					locs[n.Loc] = true
-					allLocs = append(allLocs, n.Loc)
+				if n.Loc != prefix && !strings.HasPrefix(n.Loc, prefix+":") {
+					continue // keep the scan scoped to the requested subtree
 				}
+				if _, perr := ParseCitation(n.Loc); perr != nil {
+					continue
+				}
+				locs[n.Loc] = true
+				allLocs = append(allLocs, n.Loc)
 			}
 
 			target, parentLoc, inheritLoc, err := planTarget(planInput{
-				module: module, feature: feature, rule: rule, ruleAfter: ruleAfter, flow: flow,
-				inherit: inherit, newFeature: newFeature, newModule: newModule, locs: locs, allLocs: allLocs,
+				product: product, module: module, feature: feature, rule: rule, ruleAfter: ruleAfter, flow: flow,
+				inherit: inherit, newFeature: newFeature, newModule: newModule, newProduct: newProduct,
+				contract: contract, locs: locs, allLocs: allLocs,
 			})
 			if err != nil {
 				return err
@@ -192,24 +219,26 @@ without writing.`,
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
-	cmd.Flags().StringVar(&module, "module", "", "3-letter module code (required)")
+	cmd.Flags().StringVar(&product, "product", "", "3-letter product code (product-rooted corpora)")
+	cmd.Flags().StringVar(&module, "module", "", "3-letter module code")
 	cmd.Flags().StringVar(&title, "title", "", "human title for the spec (required)")
 	cmd.Flags().StringVar(&feature, "feature", "", "existing feature to create a rule under (3 digits)")
 	cmd.Flags().BoolVar(&newFeature, "new-feature", false, "allocate a new feature under the module")
-	cmd.Flags().StringVar(&rule, "rule", "", "create this exact rule number (2 digits, e.g. 00 for the contract)")
+	cmd.Flags().StringVar(&rule, "rule", "", "create this exact rule number (2 digits)")
 	cmd.Flags().StringVar(&ruleAfter, "rule-after", "", "allocate the next rule strictly after this number")
 	cmd.Flags().StringVar(&flow, "flow", "", "create this exact flow number (2 digits)")
 	cmd.Flags().BoolVar(&newModule, "new-module", false, "create a new (frozen) module root")
+	cmd.Flags().BoolVar(&newProduct, "new-product", false, "create a new (frozen) product root (needs --product)")
+	cmd.Flags().BoolVar(&contract, "contract", false, "scaffold the general-provisions contract at the deepest specified tier")
 	cmd.Flags().IntVar(&plevel, "plevel", -1, "read-priority level 0..3 (default: from citation level)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "extra semantic tag (repeatable)")
 	cmd.Flags().StringVar(&abstract, "abstract", "", "the spec's abstract (default: a placeholder lint flags)")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `body content ("-" reads stdin; default: the rubric template)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read body content from a file")
-	cmd.Flags().StringVar(&inherit, "inherit", "", "inheritance-edge target citation (default: the feature's :00 contract)")
+	cmd.Flags().StringVar(&inherit, "inherit", "", "inheritance-edge target citation (default: the tier's contract)")
 	cmd.Flags().BoolVar(&noEdges, "no-edges", false, "do not create table-of-contents / inheritance edges")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the planned spec without writing anything")
 	_ = cmd.MarkFlagRequired("memory")
-	_ = cmd.MarkFlagRequired("module")
 	_ = cmd.MarkFlagRequired("title")
 	return cmd
 }
@@ -221,50 +250,100 @@ func tocEdgeLabel(plevel int, title string) string {
 }
 
 type planInput struct {
-	module, feature, rule, ruleAfter, flow, inherit string
-	newFeature, newModule                           bool
-	locs                                            map[string]bool
-	allLocs                                         []string
+	product, module                             string
+	feature, rule, ruleAfter, flow, inherit     string
+	newFeature, newModule, newProduct, contract bool
+	locs                                        map[string]bool
+	allLocs                                     []string
 }
 
 // planTarget resolves the target citation plus the ToC parent and the
 // inheritance target, enforcing the frozen-code / parent-exists rules.
 func planTarget(in planInput) (target Citation, parentLoc, inheritLoc string, err error) {
-	moduleExists := in.locs[in.module]
+	productRoot := Citation{Product: in.product}
+	productExists := in.product != "" && in.locs[productRoot.Format()]
+	moduleCit := Citation{Product: in.product, Module: in.module}
+	moduleExists := in.module != "" && in.locs[moduleCit.Format()]
 
 	switch {
+	case in.newProduct:
+		if in.module != "" || in.newModule || in.newFeature || in.contract || in.feature != "" || in.rule != "" || in.flow != "" {
+			return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--new-product takes only --product <ppp> (no module/feature/rule/flow)")
+		}
+		if in.product == "" {
+			return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--new-product requires --product <ppp>")
+		}
+		if productExists {
+			return Citation{}, "", "", exitcode.Newf(exitcode.Conflict, "product %q already exists (product codes are frozen)", in.product)
+		}
+		return productRoot, "", "", nil
+
 	case in.newModule:
-		if in.feature != "" || in.newFeature || in.rule != "" || in.flow != "" {
-			return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--new-module cannot be combined with feature/rule/flow flags")
+		if in.module == "" {
+			return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--new-module requires --module <mmm>")
+		}
+		if in.newFeature || in.contract || in.feature != "" || in.rule != "" || in.flow != "" {
+			return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--new-module cannot be combined with feature/rule/flow/contract flags")
+		}
+		if in.product != "" && !productExists {
+			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "product %q does not exist — create it first with --new-product", in.product)
 		}
 		if moduleExists {
-			return Citation{}, "", "", exitcode.Newf(exitcode.Conflict, "module %q already exists (module codes are frozen)", in.module)
+			return Citation{}, "", "", exitcode.Newf(exitcode.Conflict, "module %q already exists (module codes are frozen)", moduleCit.Format())
 		}
-		return Citation{Module: in.module}, "", "", nil
+		// Parent is the product root (product mode) or none (flat); a module
+		// under a product inherits the product's :gen contract.
+		parent := ""
+		if in.product != "" {
+			parent = productRoot.Format()
+		}
+		inh := ""
+		if cl, ok := moduleCit.InheritedContractLoc(); ok && in.locs[cl.Format()] {
+			inh = cl.Format()
+		}
+		return moduleCit, parent, inh, nil
 
-	case in.newFeature:
-		if !moduleExists {
-			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "module %q does not exist — create it first with --new-module", in.module)
+	case in.contract:
+		if in.newFeature || in.rule != "" || in.flow != "" {
+			return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--contract cannot be combined with --rule/--flow/--new-feature")
 		}
+		if in.product != "" && !productExists {
+			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "product %q does not exist — create it first with --new-product", in.product)
+		}
+		return planContract(in, productRoot, moduleCit)
+	}
+
+	// Creating a feature, rule, or flow under an existing module.
+	if in.module == "" {
+		return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "pass --module <mmm> (or --new-product/--new-module/--contract)")
+	}
+	if in.product != "" && !productExists {
+		return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "product %q does not exist — create it first with --new-product", in.product)
+	}
+	if !moduleExists {
+		return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "module %q does not exist — create it first with --new-module", moduleCit.Format())
+	}
+
+	if in.newFeature {
 		if in.rule != "" || in.flow != "" {
 			return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--new-feature cannot be combined with --rule/--flow")
 		}
-		parent := Citation{Module: in.module}
-		t, aerr := allocateChild(parent, childNumbersAt(parent, in.allLocs), nil, 0)
+		t, aerr := allocateChild(moduleCit, childNumbersAt(moduleCit, in.allLocs), nil, 0)
 		if aerr != nil {
 			return Citation{}, "", "", aerr
 		}
-		return t, in.module, "", nil
+		// A new feature inherits the module's :000 contract.
+		inh := ""
+		if cl, ok := t.InheritedContractLoc(); ok && in.locs[cl.Format()] {
+			inh = cl.Format()
+		}
+		return t, moduleCit.Format(), inh, nil
 	}
 
-	// Creating a rule or flow under an existing feature.
-	if !moduleExists {
-		return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "module %q does not exist — create it first with --new-module", in.module)
-	}
 	if in.feature == "" {
-		return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "pass --feature <fff> (or --new-feature / --new-module)")
+		return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "pass --feature <fff> (or --new-feature / --new-module / --contract)")
 	}
-	featureCit := Citation{Module: in.module, Feature: in.feature}
+	featureCit := Citation{Product: in.product, Module: in.module, Feature: in.feature}
 	if _, perr := ParseCitation(featureCit.Format()); perr != nil {
 		return Citation{}, "", "", perr
 	}
@@ -277,11 +356,11 @@ func planTarget(in planInput) (target Citation, parentLoc, inheritLoc string, er
 		if in.rule == "" {
 			return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--flow requires --rule")
 		}
-		ruleCit := Citation{Module: in.module, Feature: in.feature, Rule: in.rule}
+		ruleCit := Citation{Product: in.product, Module: in.module, Feature: in.feature, Rule: in.rule}
 		if !in.locs[ruleCit.Format()] {
 			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "rule %q does not exist", ruleCit.Format())
 		}
-		t := Citation{Module: in.module, Feature: in.feature, Rule: in.rule, Flow: in.flow}
+		t := Citation{Product: in.product, Module: in.module, Feature: in.feature, Rule: in.rule, Flow: in.flow}
 		if _, perr := ParseCitation(t.Format()); perr != nil {
 			return Citation{}, "", "", perr
 		}
@@ -291,7 +370,7 @@ func planTarget(in planInput) (target Citation, parentLoc, inheritLoc string, er
 	// Explicit rule number (e.g. 00 contract), else allocate the next rule.
 	var t Citation
 	if in.rule != "" {
-		t = Citation{Module: in.module, Feature: in.feature, Rule: in.rule}
+		t = Citation{Product: in.product, Module: in.module, Feature: in.feature, Rule: in.rule}
 		if _, perr := ParseCitation(t.Format()); perr != nil {
 			return Citation{}, "", "", perr
 		}
@@ -320,11 +399,45 @@ func planTarget(in planInput) (target Citation, parentLoc, inheritLoc string, er
 				return Citation{}, "", "", perr
 			}
 			inheritLoc = ic.Format()
-		} else if cl, ok := t.ContractLoc(); ok && in.locs[cl.Format()] {
+		} else if cl, ok := t.InheritedContractLoc(); ok && in.locs[cl.Format()] {
 			inheritLoc = cl.Format()
 		}
 	}
 	return t, featureCit.Format(), inheritLoc, nil
+}
+
+// planContract resolves the reserved general-provisions contract at the
+// deepest specified tier: --feature → the feature's :00, --module → the
+// module's :000, --product (no module) → the product's :gen. Contracts get a
+// ToC edge to their parent but no inheritance edge (they are inheritance
+// sources, not sinks).
+func planContract(in planInput, productRoot, moduleCit Citation) (Citation, string, string, error) {
+	switch {
+	case in.feature != "":
+		featureCit := Citation{Product: in.product, Module: in.module, Feature: in.feature}
+		if _, perr := ParseCitation(featureCit.Format()); perr != nil {
+			return Citation{}, "", "", perr
+		}
+		if !in.locs[featureCit.Format()] {
+			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "feature %q does not exist", featureCit.Format())
+		}
+		t := Citation{Product: in.product, Module: in.module, Feature: in.feature, Rule: "00"}
+		return t, featureCit.Format(), "", nil
+	case in.module != "":
+		if !in.locs[moduleCit.Format()] {
+			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "module %q does not exist — create it first with --new-module", moduleCit.Format())
+		}
+		t := Citation{Product: in.product, Module: in.module, Feature: moduleContractFeature}
+		return t, moduleCit.Format(), "", nil
+	case in.product != "":
+		if !in.locs[productRoot.Format()] {
+			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "product %q does not exist — create it first with --new-product", in.product)
+		}
+		t := Citation{Product: in.product, Module: productContractCode}
+		return t, productRoot.Format(), "", nil
+	default:
+		return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--contract needs --product, --module, or --feature to choose the tier")
+	}
 }
 
 func resolveBody(content, contentFile string, stdin io.Reader, c Citation, title string) (string, error) {

@@ -112,3 +112,35 @@ func TestLintCorpusDuplicate(t *testing.T) {
 		t.Errorf("expected duplicate-loc error; got %v", fs)
 	}
 }
+
+func TestLintCorpusProductInheritance(t *testing.T) {
+	// A product's module root should inherit the product's :gen contract.
+	nodes := []specNode{
+		{Loc: "cli", Name: "cli — CLI", NodeType: "info", Tags: []string{"spec", "p0"}},
+		{Loc: "cli:gen", Name: "cli:gen — general provisions", NodeType: "info", Tags: []string{"spec", "p0"}},
+		{Loc: "cli:cha", Name: "cli:cha — chat", NodeType: "info", Tags: []string{"spec", "p1"}},
+	}
+	fs := lintCorpus(nodes)
+	if !hasRuleFor(fs, "cli:cha", "inheritance-edge") {
+		t.Errorf("expected inheritance-edge warning cli:cha → cli:gen; got %v", fs)
+	}
+	if hasRule(fs, "parent-exists") {
+		t.Errorf("no parent should be missing; got %v", fs)
+	}
+	if hasRule(fs, "mixed-arity") {
+		t.Errorf("a pure product corpus is not mixed; got %v", fs)
+	}
+}
+
+func TestLintCorpusMixedArity(t *testing.T) {
+	nodes := []specNode{
+		{Loc: "msg", Name: "msg — Messaging", NodeType: "info", Tags: []string{"spec", "p0"}},
+		{Loc: "msg:010", Name: "msg:010 — F", NodeType: "info", Tags: []string{"spec", "p1"}},
+		cleanSpec(t, "msg:010:02", "W2"),
+		{Loc: "cli", Name: "cli — CLI", NodeType: "info", Tags: []string{"spec", "p0"}},
+		{Loc: "cli:cha", Name: "cli:cha — chat", NodeType: "info", Tags: []string{"spec", "p1"}},
+	}
+	if !hasRule(lintCorpus(nodes), "mixed-arity") {
+		t.Errorf("expected mixed-arity warning; got %v", lintCorpus(nodes))
+	}
+}

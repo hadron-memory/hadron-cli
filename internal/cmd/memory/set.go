@@ -94,7 +94,7 @@ and --name are then required.`,
 				if err != nil {
 					return err
 				}
-				resp, err := gen.UpdateMemory(cmd.Context(), client, memID, optional(name), optional(short), optional(description), tagsArg, visArg)
+				resp, err := gen.UpdateMemory(cmd.Context(), client, memID, optional(name), optional(short), optional(description), tagsArg, visArg, nil)
 				if err != nil {
 					return api.MapError(err)
 				}

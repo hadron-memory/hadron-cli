@@ -43,6 +43,7 @@ generic node/edge primitives. Every subcommand takes -m/--memory.`,
 	}
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdGet(f))
+	cmd.AddCommand(newCmdDescribe(f))
 	cmd.AddCommand(newCmdRegister(f))
 	cmd.AddCommand(newCmdFind(f))
 	cmd.AddCommand(newCmdNew(f))
@@ -122,50 +123,74 @@ var (
 	re2digit  = regexp.MustCompile(`^[0-9]{2}$`)
 )
 
-// Citation is a parsed loc grammar <module>[:<feature>[:<rule>[:<flow>]]].
+const (
+	// productContractCode is the reserved module-position code holding a
+	// product's general-provisions contract (<product>:gen), inherited by
+	// every module in the product. Alpha so the grammar stays self-describing.
+	productContractCode = "gen"
+	// moduleContractFeature is the reserved feature-position number holding a
+	// module's general-provisions contract (<module>:000), inherited by every
+	// feature in the module. Naturally free — features allocate from 010 up.
+	moduleContractFeature = "000"
+)
+
+// Citation is a parsed loc grammar. Flat (legacy):
+// <module>[:<feature>[:<rule>[:<flow>]]] (e.g. msg:010:02). Product-rooted:
+// <product>:<module>[:<feature>[:<rule>[:<flow>]]] (e.g. cli:cha:010:01).
 type Citation struct {
-	Module  string // 3 lowercase letters
+	Product string // 3 lowercase letters, "" in a flat corpus
+	Module  string // 3 lowercase letters, "" for a bare product root
 	Feature string // 3 digits, "" if absent
 	Rule    string // 2 digits, "" if absent
 	Flow    string // 2 digits, "" if absent
 }
 
-// ParseCitation parses and validates a citation, returning a Usage error
-// for any malformed segment.
+// ParseCitation parses and validates a citation, returning a Usage error for
+// any malformed segment. The rooting is inferred from segment 2's character
+// class: a second alpha code ⇒ product-rooted (<product>:<module>:…); a 3-digit
+// feature ⇒ flat (<module>:…). A lone alpha code parses as a flat module —
+// callers that need a bare product root build the Citation directly.
 func ParseCitation(s string) (Citation, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return Citation{}, exitcode.Newf(exitcode.Usage, "empty citation")
 	}
 	parts := strings.Split(s, ":")
-	if len(parts) > 4 {
-		return Citation{}, exitcode.Newf(exitcode.Usage,
-			"citation %q has too many segments — want <module>[:<feature>[:<rule>[:<flow>]]]", s)
+	if !reModule.MatchString(parts[0]) {
+		return Citation{}, exitcode.Newf(exitcode.Usage, "%q must be 3 lowercase letters", parts[0])
 	}
 	var c Citation
-	c.Module = parts[0]
-	if !reModule.MatchString(c.Module) {
-		return Citation{}, exitcode.Newf(exitcode.Usage, "module %q must be 3 lowercase letters", parts[0])
+	rest := parts // module-rooted segments: [module, feature?, rule?, flow?]
+	if len(parts) > 1 && reModule.MatchString(parts[1]) {
+		c.Product = parts[0] // product-rooted: parts[1] is the module
+		rest = parts[1:]
 	}
-	if len(parts) > 1 {
-		if c.Feature = parts[1]; !reFeature.MatchString(c.Feature) {
-			return Citation{}, exitcode.Newf(exitcode.Usage, "feature %q must be 3 digits", parts[1])
+	if len(rest) > 4 {
+		return Citation{}, exitcode.Newf(exitcode.Usage,
+			"citation %q has too many segments — want [<product>:]<module>[:<feature>[:<rule>[:<flow>]]]", s)
+	}
+	c.Module = rest[0] // alpha, already validated
+	if len(rest) > 1 {
+		if c.Feature = rest[1]; !reFeature.MatchString(c.Feature) {
+			return Citation{}, exitcode.Newf(exitcode.Usage, "feature %q must be 3 digits", rest[1])
 		}
 	}
-	if len(parts) > 2 {
-		if c.Rule = parts[2]; !re2digit.MatchString(c.Rule) {
-			return Citation{}, exitcode.Newf(exitcode.Usage, "rule %q must be 2 digits", parts[2])
+	if len(rest) > 2 {
+		if c.Rule = rest[2]; !re2digit.MatchString(c.Rule) {
+			return Citation{}, exitcode.Newf(exitcode.Usage, "rule %q must be 2 digits", rest[2])
 		}
 	}
-	if len(parts) > 3 {
-		if c.Flow = parts[3]; !re2digit.MatchString(c.Flow) {
-			return Citation{}, exitcode.Newf(exitcode.Usage, "flow %q must be 2 digits", parts[3])
+	if len(rest) > 3 {
+		if c.Flow = rest[3]; !re2digit.MatchString(c.Flow) {
+			return Citation{}, exitcode.Newf(exitcode.Usage, "flow %q must be 2 digits", rest[3])
 		}
 	}
 	return c, nil
 }
 
-// Level is 1 (module) .. 4 (flow).
+// Level is 0 (bare product root) .. 4 (flow); module is 1, feature 2, rule 3.
+// The product field does not shift levels — a product's module root is still
+// level 1 — so existing level-keyed logic is unchanged.
 func (c Citation) Level() int {
 	switch {
 	case c.Flow != "":
@@ -174,14 +199,22 @@ func (c Citation) Level() int {
 		return 3
 	case c.Feature != "":
 		return 2
-	default:
+	case c.Module != "":
 		return 1
+	default:
+		return 0 // bare product root
 	}
 }
 
-// Format re-emits the colon form.
+// Format re-emits the colon form, including the product when present.
 func (c Citation) Format() string {
-	parts := []string{c.Module}
+	var parts []string
+	if c.Product != "" {
+		parts = append(parts, c.Product)
+	}
+	if c.Module != "" {
+		parts = append(parts, c.Module)
+	}
 	for _, s := range []string{c.Feature, c.Rule, c.Flow} {
 		if s == "" {
 			break
@@ -193,7 +226,9 @@ func (c Citation) Format() string {
 
 func (c Citation) String() string { return c.Format() }
 
-// Parent returns the citation one level up, or false at module level.
+// Parent returns the citation one level up: flow→rule→feature→module, and a
+// product-rooted module→its product root. A flat module root and a bare
+// product root have no parent.
 func (c Citation) Parent() (Citation, bool) {
 	p := c
 	switch c.Level() {
@@ -203,31 +238,67 @@ func (c Citation) Parent() (Citation, bool) {
 		p.Rule = ""
 	case 2:
 		p.Feature = ""
+	case 1:
+		if c.Product == "" {
+			return Citation{}, false // flat module root
+		}
+		p.Module = "" // module root → product root
 	default:
-		return Citation{}, false
+		return Citation{}, false // bare product root
 	}
 	return p, true
 }
 
-// IsContract reports whether this is a feature's `:00` general-provisions
-// node (the shared contract its sibling rules inherit).
-func (c Citation) IsContract() bool { return c.Level() == 3 && c.Rule == "00" }
+// IsContract reports whether this citation is a reserved general-provisions
+// contract — a feature's rule `00`, a module's feature `000`, or a product's
+// module `gen`. Its siblings at the same tier inherit it.
+func (c Citation) IsContract() bool {
+	switch c.Level() {
+	case 3:
+		return c.Rule == "00"
+	case 2:
+		return c.Feature == moduleContractFeature
+	case 1:
+		return c.Product != "" && c.Module == productContractCode
+	default:
+		return false
+	}
+}
 
-// ContractLoc returns the `:00` general-provisions citation for this
-// citation's feature; ok is false when there is no feature.
-func (c Citation) ContractLoc() (Citation, bool) {
-	if c.Feature == "" {
+// InheritedContractLoc returns the general-provisions contract this citation
+// inherits — the reserved "zero" sibling at its own tier: a rule inherits its
+// feature's :00, a feature inherits its module's :000, and a product-rooted
+// module inherits its product's :gen. ok is false for a flow, a flat module
+// root, a bare product root, or a contract itself (contracts are inheritance
+// sources, not sinks).
+func (c Citation) InheritedContractLoc() (Citation, bool) {
+	if c.IsContract() {
 		return Citation{}, false
 	}
-	return Citation{Module: c.Module, Feature: c.Feature, Rule: "00"}, true
+	ic := c
+	switch c.Level() {
+	case 3:
+		ic.Rule = "00"
+		return ic, true
+	case 2:
+		ic.Feature = moduleContractFeature
+		return ic, true
+	case 1:
+		if c.Product == "" {
+			return Citation{}, false
+		}
+		return Citation{Product: c.Product, Module: productContractCode}, true
+	default:
+		return Citation{}, false
+	}
 }
 
 // defaultPLevel is the read-priority level a freshly scaffolded spec gets
-// from its citation level: module roots p0, features/rules/contracts p1,
-// flows p2.
+// from its citation level: product/module roots p0, features/rules/contracts
+// p1, flows p2.
 func defaultPLevel(c Citation) int {
 	switch c.Level() {
-	case 1:
+	case 0, 1:
 		return 0
 	case 4:
 		return 2

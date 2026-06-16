@@ -268,6 +268,235 @@ func TestSpecNewMissingParent(t *testing.T) {
 	}
 }
 
+const specProductMem = "hadronmemory.com::platform-specs"
+
+// memListJSON is a MyMemories response whose urn matches specProductMem
+// normalized to a single-colon memory urn.
+const memListJSON = `{"data":{"myMemories":[{"id":"mem1","urn":"hadronmemory.com:platform-specs","name":"Platform Specs","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"updatedAt":"2026-06-14T00:00:00Z"}]}}`
+
+// memGetJSON is a GetMemory response with the given data bag (raw JSON, e.g.
+// `null` or `{"spec":{"scheme":"product"}}`).
+func memGetJSON(data string) string {
+	return `{"data":{"memory":{"id":"mem1","urn":"hadronmemory.com:platform-specs","name":"Platform Specs","shortDescription":null,"description":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"tags":[],"source":null,"syncStatus":"OK","vectorIndexEnabled":false,"data":` + data + `,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z"}}}`
+}
+
+func TestSpecDescribeProduct(t *testing.T) {
+	nodes := strings.Join([]string{
+		specNodeList("cli", `["spec","p0"]`),
+		specNodeList("cli:gen", `["spec","p0"]`),
+		specNodeList("cli:cha", `["spec","p1"]`),
+		specNodeList("cli:cha:010", `["spec","p1"]`),
+		specNodeList("cli:cha:010:01", `["spec","p1"]`),
+	}, ",")
+	gql, _ := captureGraphQL(t, map[string]string{
+		"MyMemories": memListJSON,
+		"GetMemory":  memGetJSON(`null`),
+		"Nodes":      `{"data":{"nodes":[` + nodes + `]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "describe", "-m", specProductMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Scheme   string   `json:"scheme"`
+		Source   string   `json:"source"`
+		Products []string `json:"products"`
+		Modules  []string `json:"modules"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	if dto.Scheme != "product" {
+		t.Errorf("scheme = %q, want product", dto.Scheme)
+	}
+	if dto.Source != "derived" {
+		t.Errorf("source = %q, want derived (memory data was null)", dto.Source)
+	}
+	if len(dto.Products) != 1 || dto.Products[0] != "cli" {
+		t.Errorf("products = %v, want [cli]", dto.Products)
+	}
+	if len(dto.Modules) != 1 || dto.Modules[0] != "cli:cha" {
+		t.Errorf("modules = %v, want [cli:cha]", dto.Modules)
+	}
+}
+
+func TestSpecDescribeDeclare(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"MyMemories":   memListJSON,
+		"GetMemory":    memGetJSON(`null`),
+		"UpdateMemory": `{"data":{"updateMemory":{"id":"mem1","urn":"hadronmemory.com:platform-specs","name":"P","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"data":{"spec":{"scheme":"product"}},"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"Nodes":        `{"data":{"nodes":[]}}`, // empty corpus: the declared scheme is all there is
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "describe", "-m", specProductMem, "--declare", "product", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// UpdateMemory was called with a data bag declaring the scheme.
+	var vars struct {
+		Data json.RawMessage `json:"data"`
+	}
+	_ = json.Unmarshal(captured["UpdateMemory"], &vars)
+	if !strings.Contains(string(vars.Data), `"scheme":"product"`) {
+		t.Errorf("UpdateMemory data must declare scheme product, got %s", vars.Data)
+	}
+	// Output reflects the declaration even though the corpus is empty.
+	var dto struct {
+		Scheme   string `json:"scheme"`
+		Source   string `json:"source"`
+		Declared string `json:"declared"`
+		Derived  string `json:"derived"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	if dto.Scheme != "product" || dto.Source != "declared" || dto.Declared != "product" || dto.Derived != "empty" {
+		t.Errorf("declared describe = %+v", dto)
+	}
+}
+
+func TestSpecNewProduct(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"Nodes":      `{"data":{"nodes":[]}}`,
+		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"cli","name":"cli — Hadron CLI","nodeType":"info","tags":["spec","p0"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "-m", specProductMem, "--new-product", "--product", "cli", "--title", "Hadron CLI", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var up struct {
+		Input struct {
+			Loc string `json:"loc"`
+		} `json:"input"`
+	}
+	_ = json.Unmarshal(captured["UpsertNode"], &up)
+	if up.Input.Loc != "cli" {
+		t.Errorf("product root loc = %q, want cli", up.Input.Loc)
+	}
+	var dto struct {
+		Citation string           `json:"citation"`
+		Edges    []map[string]any `json:"edges"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	if dto.Citation != "cli" {
+		t.Errorf("citation = %q, want cli", dto.Citation)
+	}
+	if len(dto.Edges) != 0 {
+		t.Errorf("a product root has no ToC/inherit edges, got %v", dto.Edges)
+	}
+}
+
+func TestSpecNewProductModule(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("cli", `["spec","p0"]`) + `,` + specNodeList("cli:gen", `["spec","p0"]`) + `]}}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"Nodes":      scan,
+		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"cli:cha","name":"cli:cha — chat","nodeType":"info","tags":["spec","p0"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"cli:cha"},"target":{"id":"t1","loc":"cli"}}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "-m", specProductMem, "--product", "cli", "--new-module", "--module", "cha", "--title", "chat command group", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var up struct {
+		Input struct {
+			Loc string `json:"loc"`
+		} `json:"input"`
+	}
+	_ = json.Unmarshal(captured["UpsertNode"], &up)
+	if up.Input.Loc != "cli:cha" {
+		t.Errorf("module loc = %q, want cli:cha", up.Input.Loc)
+	}
+	var dto struct {
+		Edges []struct {
+			Label  string `json:"label"`
+			Target string `json:"target"`
+		} `json:"edges"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	var sawToC, sawInherit bool
+	for _, e := range dto.Edges {
+		if e.Target == "cli" {
+			sawToC = true
+		}
+		if strings.Contains(e.Label, "inherits") && e.Target == "cli:gen" {
+			sawInherit = true
+		}
+	}
+	if !sawToC {
+		t.Errorf("expected ToC edge to product root cli, got %v", dto.Edges)
+	}
+	if !sawInherit {
+		t.Errorf("expected inherit edge to product contract cli:gen, got %v", dto.Edges)
+	}
+}
+
+func TestSpecNewProductContract(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("cli", `["spec","p0"]`) + `]}}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"Nodes":      scan,
+		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"cli:gen","name":"cli:gen — provisions","nodeType":"info","tags":["spec","p0"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"cli:gen"},"target":{"id":"t1","loc":"cli"}}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "-m", specProductMem, "--product", "cli", "--contract", "--title", "general provisions", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var up struct {
+		Input struct {
+			Loc string `json:"loc"`
+		} `json:"input"`
+	}
+	_ = json.Unmarshal(captured["UpsertNode"], &up)
+	if up.Input.Loc != "cli:gen" {
+		t.Errorf("product contract loc = %q, want cli:gen", up.Input.Loc)
+	}
+}
+
+func TestSpecNewReservedGenModule(t *testing.T) {
+	// "gen" is reserved for the product contract — it can't be a module in a
+	// product corpus. The guard fires before any GraphQL call.
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "-m", specProductMem, "--product", "cli", "--new-module", "--module", "gen", "--title", "nope"})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("--module gen in a product corpus should be Usage, got %d", got)
+	}
+}
+
+func TestSpecNewModuleContract(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p0"]`) + `]}}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"Nodes":      scan,
+		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"msg:000","name":"msg:000 — provisions","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:000"},"target":{"id":"t1","loc":"msg"}}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "-m", specMem, "--module", "msg", "--contract", "--title", "messaging provisions", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var up struct {
+		Input struct {
+			Loc string `json:"loc"`
+		} `json:"input"`
+	}
+	_ = json.Unmarshal(captured["UpsertNode"], &up)
+	if up.Input.Loc != "msg:000" {
+		t.Errorf("module contract loc = %q, want msg:000", up.Input.Loc)
+	}
+}
+
 func TestSpecLintErrorsExitConflict(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn":  resolveSpecJSON,

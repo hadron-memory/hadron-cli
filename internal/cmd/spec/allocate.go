@@ -37,7 +37,7 @@ func childNumbersAt(parent Citation, locs []string) []int {
 		if err != nil || c.Level() != pl+1 {
 			continue
 		}
-		if c.Module != parent.Module {
+		if c.Product != parent.Product || c.Module != parent.Module {
 			continue
 		}
 		if pl >= 2 && c.Feature != parent.Feature {

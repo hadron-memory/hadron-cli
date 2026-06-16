@@ -51,6 +51,28 @@ func TestAllocateChild(t *testing.T) {
 	}
 }
 
+func TestChildNumbersAtProduct(t *testing.T) {
+	locs := []string{"cli", "cli:cha", "cli:cha:010", "cli:cha:020", "cli:web:010", "msg:010"}
+	if got := childNumbersAt(Citation{Product: "cli", Module: "cha"}, locs); !equalIntsUnordered(got, []int{10, 20}) {
+		t.Errorf("features under cli:cha = %v, want [10 20]", got)
+	}
+	if got := childNumbersAt(Citation{Product: "cli", Module: "web"}, locs); !equalIntsUnordered(got, []int{10}) {
+		t.Errorf("features under cli:web = %v, want [10] (flat msg / sibling product module must not leak)", got)
+	}
+}
+
+func TestAllocateProductFeatureSkipsModuleContract(t *testing.T) {
+	// The module contract :000 (number 0) is present; real features still
+	// start at 010, and the product is preserved in the result.
+	got, err := allocateChild(Citation{Product: "cli", Module: "cha"}, []int{0}, nil, 0)
+	if err != nil {
+		t.Fatalf("allocateChild: %v", err)
+	}
+	if got.Format() != "cli:cha:010" {
+		t.Errorf("got %q, want cli:cha:010", got.Format())
+	}
+}
+
 func TestAllocateChildExhausted(t *testing.T) {
 	// Fill every rule slot 1..99 so allocation has nowhere to go.
 	used := make([]int, 0, 100)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
@@ -31,20 +32,21 @@ var (
 )
 
 func newCmdLint(f *cmdutil.Factory) *cobra.Command {
-	var memory, module string
+	var memory, product, module string
 	var all, strict bool
 	cmd := &cobra.Command{
 		Use:     "lint [<citation>]",
 		Aliases: []string{"check", "validate"},
 		Short:   "Validate specs against the rubric and stability rules",
-		Long: `Validate one spec, a module, or the whole corpus against the
-loc-as-citation rubric and stability rules.
+		Long: `Validate one spec, a product, a module, or the whole corpus
+against the loc-as-citation rubric and stability rules.
 
-Scope is one of: a single <citation> argument, --module <mmm>, or --all.
-Errors (rubric/stability violations) exit with code 5; --strict promotes
-warnings to errors too.`,
+Scope is one of: a single <citation> argument, --product <ppp>, --module
+<mmm> (optionally within --product), or --all. Errors (rubric/stability
+violations) exit with code 5; --strict promotes warnings to errors too.`,
 		Example: `  hadron spec lint msg:010:02 -m micromentor.org::platform-specs
   hadron spec lint --module msg -m micromentor.org::platform-specs
+  hadron spec lint --product cli -m hadronmemory.com::platform-specs
   hadron spec lint --all -m micromentor.org::platform-specs --strict`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -66,11 +68,18 @@ warnings to errors too.`,
 					return err
 				}
 				nodes = []specNode{nodeFromGQL(n)}
-			case module != "":
-				if _, err := ParseCitation(module); err != nil {
-					return err
+			case product != "" || module != "":
+				if product != "" && !reModule.MatchString(product) {
+					return exitcode.Newf(exitcode.Usage, "--product %q must be 3 lowercase letters", product)
 				}
-				nodes, err = scanModuleDetail(cmd, client, memURN, module)
+				if module != "" && !reModule.MatchString(module) {
+					return exitcode.Newf(exitcode.Usage, "--module %q must be 3 lowercase letters", module)
+				}
+				prefix := module
+				if product != "" {
+					prefix = Citation{Product: product, Module: module}.Format()
+				}
+				nodes, err = scanPrefixDetail(cmd, client, memURN, prefix)
 				if err != nil {
 					return err
 				}
@@ -82,7 +91,7 @@ warnings to errors too.`,
 				}
 				corpus = true
 			default:
-				return exitcode.Newf(exitcode.Usage, "specify a <citation>, --module <mmm>, or --all")
+				return exitcode.Newf(exitcode.Usage, "specify a <citation>, --product <ppp>, --module <mmm>, or --all")
 			}
 
 			var findings []lintFindingDTO
@@ -129,7 +138,8 @@ warnings to errors too.`,
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
-	cmd.Flags().StringVar(&module, "module", "", "lint every spec under this module")
+	cmd.Flags().StringVar(&product, "product", "", "lint every spec under this product")
+	cmd.Flags().StringVar(&module, "module", "", "lint every spec under this module (optionally within --product)")
 	cmd.Flags().BoolVar(&all, "all", false, "lint every spec in the memory")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
 	_ = cmd.MarkFlagRequired("memory")
@@ -194,11 +204,23 @@ func lintCorpus(nodes []specNode) []lintFindingDTO {
 	var fs []lintFindingDTO
 	locCount := map[string]int{}
 	contracts := map[string]bool{}
+	productCodes := map[string]bool{}
+	flatCodes := map[string]bool{}
 	for _, n := range nodes {
 		fs = append(fs, lintNode(n)...)
 		locCount[n.Loc]++
-		if c, err := ParseCitation(n.Loc); err == nil && c.IsContract() {
+		c, err := ParseCitation(n.Loc)
+		if err != nil {
+			continue
+		}
+		if c.IsContract() {
 			contracts[c.Format()] = true
+		}
+		switch {
+		case c.Product != "":
+			productCodes[c.Product] = true
+		case c.Feature != "": // a flat module with a numeric child
+			flatCodes[c.Module] = true
 		}
 	}
 
@@ -215,13 +237,32 @@ func lintCorpus(nodes []specNode) []lintFindingDTO {
 		if p, ok := c.Parent(); ok && locCount[p.Format()] == 0 {
 			fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "parent-exists", Severity: sevError, Message: "parent " + p.Format() + " does not exist"})
 		}
-		if c.Level() == 3 && !c.IsContract() {
-			if cl, ok := c.ContractLoc(); ok && contracts[cl.Format()] && !hasOutEdgeTo(n, cl.Format()) {
+		// Any non-contract node inherits the reserved contract at its tier
+		// (rule→feature:00, feature→module:000, product-rooted module→product:gen).
+		if !c.IsContract() {
+			if cl, ok := c.InheritedContractLoc(); ok && contracts[cl.Format()] && !hasOutEdgeTo(n, cl.Format()) {
 				fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "inheritance-edge", Severity: sevWarning, Message: "no inheritance edge to general-provisions contract " + cl.Format()})
 			}
 		}
 	}
+
+	// Hygiene: a memory should be all-flat or all-product, never both.
+	if len(productCodes) > 0 && len(flatCodes) > 0 {
+		fs = append(fs, lintFindingDTO{
+			Citation: "(memory)", Rule: "mixed-arity", Severity: sevWarning,
+			Message: "memory mixes flat (" + strings.Join(sortedStringKeys(flatCodes), ", ") + ") and product-rooted (" + strings.Join(sortedStringKeys(productCodes), ", ") + ") citations — keep one arity per memory",
+		})
+	}
 	return fs
+}
+
+func sortedStringKeys(m map[string]bool) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // ---- small predicates ----
@@ -264,10 +305,10 @@ func hasOutEdgeTo(n specNode, targetLoc string) bool {
 
 // ---- corpus scans (one Nodes query + per-node detail reads) ----
 
-// scanModuleDetail reads every node under a module (headers + specs) with
-// full detail for linting.
-func scanModuleDetail(cmd *cobra.Command, client graphql.Client, memURN, module string) ([]specNode, error) {
-	prefix := module
+// scanPrefixDetail reads every node under a loc prefix (headers + specs) with
+// full detail for linting. The prefix is a product, a module, or a
+// product-qualified module (e.g. "cli", "msg", or "cli:cha").
+func scanPrefixDetail(cmd *cobra.Command, client graphql.Client, memURN, prefix string) ([]specNode, error) {
 	resp, err := gen.Nodes(cmd.Context(), client, &memURN, &prefix, nil, nil, nil, nil, nil)
 	if err != nil {
 		return nil, api.MapError(err)
@@ -277,7 +318,10 @@ func scanModuleDetail(cmd *cobra.Command, client graphql.Client, memURN, module 
 		if n == nil {
 			continue
 		}
-		if c, err := ParseCitation(n.Loc); err == nil && c.Module == module {
+		if n.Loc != prefix && !strings.HasPrefix(n.Loc, prefix+":") {
+			continue // keep the scan scoped to the requested subtree
+		}
+		if _, err := ParseCitation(n.Loc); err == nil {
 			nodes = append(nodes, n)
 		}
 	}

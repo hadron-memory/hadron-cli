@@ -105,26 +105,46 @@ hand-written ledger and any drift is reported (exit 5 if drift is found).`,
 }
 
 // buildLedgerDTO groups the live citation locs into modules → features →
-// rules and computes the next-free number at each level.
+// rules and computes the next-free number at each level. Modules are keyed by
+// their full root loc, so a product corpus keys "cli:cha" (not "cha") and two
+// products can reuse a module code without colliding. A bare product root has
+// no numeric ledger of its own and is skipped.
 func buildLedgerDTO(memURN string, locs []string, ledger registerLedger) ledgerDTO {
 	type modAgg struct {
+		cit      Citation // the module-root citation (carries the product)
 		features map[int]bool
 		rules    map[int]map[int]bool // feature number -> rule numbers
 	}
-	mods := map[string]*modAgg{}
-	ensure := func(m string) *modAgg {
-		if mods[m] == nil {
-			mods[m] = &modAgg{features: map[int]bool{}, rules: map[int]map[int]bool{}}
+	mods := map[string]*modAgg{} // key: module-root loc ("msg" or "cli:cha")
+	ensure := func(c Citation) *modAgg {
+		key := c.Format()
+		if mods[key] == nil {
+			mods[key] = &modAgg{cit: c, features: map[int]bool{}, rules: map[int]map[int]bool{}}
 		}
-		return mods[m]
+		return mods[key]
+	}
+
+	// A top-level code is a product if any loc roots under it (code:<alpha>…);
+	// such a bare code is a product root, not a flat module.
+	productCodes := map[string]bool{}
+	for _, loc := range locs {
+		if c, err := ParseCitation(loc); err == nil && c.Product != "" {
+			productCodes[c.Product] = true
+		}
 	}
 
 	for _, loc := range locs {
 		c, err := ParseCitation(loc)
-		if err != nil {
+		if err != nil || c.Module == "" {
 			continue
 		}
-		ma := ensure(c.Module)
+		if c.Product == "" && productCodes[c.Module] {
+			continue // a bare product root parsed as a flat module — skip
+		}
+		if c.Product != "" && c.Module == productContractCode {
+			continue // the product contract (<product>:gen) is not a module
+		}
+		ma := ensure(Citation{Product: c.Product, Module: c.Module})
 		if c.Feature == "" {
 			continue
 		}
@@ -139,21 +159,23 @@ func buildLedgerDTO(memURN string, locs []string, ledger registerLedger) ledgerD
 		}
 	}
 	for m := range ledger.modules {
-		ensure(m)
+		if c, err := ParseCitation(m); err == nil {
+			ensure(Citation{Product: c.Product, Module: c.Module})
+		}
 	}
 
-	var modNames []string
-	for m := range mods {
-		modNames = append(modNames, m)
+	var modKeys []string
+	for k := range mods {
+		modKeys = append(modKeys, k)
 	}
-	sort.Strings(modNames)
+	sort.Strings(modKeys)
 
 	dto := ledgerDTO{Memory: memURN}
-	for _, m := range modNames {
-		ma := mods[m]
+	for _, key := range modKeys {
+		ma := mods[key]
 		featNums := sortedKeys(ma.features)
-		nextFeat, _ := allocateChild(Citation{Module: m}, featNums, ledger.retired[m], 0)
-		md := ledgerModuleDTO{Module: m, NextFeature: nextFeat.Feature}
+		nextFeat, _ := allocateChild(ma.cit, featNums, ledger.retired[key], 0)
+		md := ledgerModuleDTO{Module: key, NextFeature: nextFeat.Feature}
 		for _, fn := range featNums {
 			feat := fmt.Sprintf("%03d", fn)
 			ruleNums := sortedKeys(ma.rules[fn])
@@ -161,7 +183,9 @@ func buildLedgerDTO(memURN string, locs []string, ledger registerLedger) ledgerD
 			for _, rn := range ruleNums {
 				ruleStrs = append(ruleStrs, fmt.Sprintf("%02d", rn))
 			}
-			nextRule, _ := allocateChild(Citation{Module: m, Feature: feat}, ruleNums, ledger.retired[m+":"+feat], 0)
+			featCit := ma.cit
+			featCit.Feature = feat
+			nextRule, _ := allocateChild(featCit, ruleNums, ledger.retired[key+":"+feat], 0)
 			md.Features = append(md.Features, ledgerFeatureDTO{Feature: feat, Rules: ruleStrs, NextRule: nextRule.Rule})
 		}
 		dto.Modules = append(dto.Modules, md)
@@ -194,13 +218,14 @@ func computeDrift(locs []string, ledger registerLedger) []string {
 		}
 	}
 	for key, nums := range ledger.retired {
+		// The retired child's width follows the key's tier: a module key's
+		// children are features (3 digits); a feature key's are rules (2).
+		width := 3
+		if c, err := ParseCitation(key); err == nil && c.Level() >= 2 {
+			width = 2
+		}
 		for _, n := range nums {
-			var loc string
-			if strings.Contains(key, ":") {
-				loc = fmt.Sprintf("%s:%02d", key, n)
-			} else {
-				loc = fmt.Sprintf("%s:%03d", key, n)
-			}
+			loc := fmt.Sprintf("%s:%0*d", key, width, n)
 			if live[loc] {
 				drift = append(drift, fmt.Sprintf("ledger marks %s retired but it is still live", loc))
 			}
