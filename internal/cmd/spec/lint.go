@@ -65,6 +65,10 @@ violations) exit with code 5; --strict promotes warnings to errors too.`,
 
 			var nodes []specNode
 			var corpus bool
+			// scopeRoot is the loc at the top of a --product/--module scope; it
+			// bounds the cross-node parent-exists check (see lintCorpus). "" means
+			// the whole corpus (--all), where every parent must be present.
+			var scopeRoot string
 			switch {
 			case len(args) == 1:
 				n, err := fetchSpecNode(cmd, client, memURN, args[0])
@@ -83,6 +87,7 @@ violations) exit with code 5; --strict promotes warnings to errors too.`,
 				if product != "" {
 					prefix = Citation{Product: product, Module: module}.Format()
 				}
+				scopeRoot = prefix
 				nodes, err = scanPrefixDetail(cmd, client, memURN, prefix)
 				if err != nil {
 					return err
@@ -107,7 +112,7 @@ violations) exit with code 5; --strict promotes warnings to errors too.`,
 
 			var findings []lintFindingDTO
 			if corpus {
-				findings = lintCorpus(nodes)
+				findings = lintCorpus(nodes, scopeRoot)
 			} else {
 				for _, n := range nodes {
 					findings = append(findings, lintNode(n)...)
@@ -210,8 +215,12 @@ func lintNode(n specNode) []lintFindingDTO {
 }
 
 // lintCorpus runs the per-node rules on every node plus the cross-node
-// checks (collisions, parent existence, inheritance edges).
-func lintCorpus(nodes []specNode) []lintFindingDTO {
+// checks (collisions, parent existence, inheritance edges). scopeRoot is the
+// loc at the top of a --product/--module scope (e.g. "cor:acl"); the
+// parent-exists check is suppressed for a parent that lives above it, since a
+// scoped scan deliberately omits the subtree's attach point. An empty
+// scopeRoot lints the whole corpus (--all), where every parent must exist.
+func lintCorpus(nodes []specNode, scopeRoot string) []lintFindingDTO {
 	var fs []lintFindingDTO
 	locCount := map[string]int{}
 	contracts := map[string]bool{}
@@ -245,7 +254,7 @@ func lintCorpus(nodes []specNode) []lintFindingDTO {
 			dupReported[n.Loc] = true
 			fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "duplicate-loc", Severity: sevError, Message: "duplicate citation — two nodes share this loc"})
 		}
-		if p, ok := c.Parent(); ok && locCount[p.Format()] == 0 {
+		if p, ok := c.Parent(); ok && locCount[p.Format()] == 0 && parentInScope(p.Format(), scopeRoot) {
 			fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "parent-exists", Severity: sevError, Message: "parent " + p.Format() + " does not exist"})
 		}
 		// Any non-contract node inherits the reserved contract at its tier
@@ -312,6 +321,17 @@ func hasOutEdgeTo(n specNode, targetLoc string) bool {
 		}
 	}
 	return false
+}
+
+// parentInScope reports whether a node's parent loc falls within the linted
+// scope. With no scope (scopeRoot == "") the whole corpus is in scope, so
+// every parent must exist. Otherwise only the scope root and its descendants
+// are in scope: a parent above the scope root is the subtree's attach point,
+// intentionally absent from a scoped scan, so flagging it missing would be a
+// false positive (issue #21). A missing parent at or below the scope root —
+// a genuinely dangling intermediate — is still reported.
+func parentInScope(parentLoc, scopeRoot string) bool {
+	return scopeRoot == "" || parentLoc == scopeRoot || strings.HasPrefix(parentLoc, scopeRoot+":")
 }
 
 // ---- corpus scans (one Nodes query + per-node detail reads) ----

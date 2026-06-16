@@ -33,6 +33,14 @@ const badSpecDetail = `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"
 
 const resolveSpecJSON = `{"data":{"resolveUrn":{"id":"sp1","kind":"node","memoryId":"mem1"}}}`
 
+// A clean product-rooted module header (cor:acl). Its parent (cor, the
+// product root) lives above a --product/--module scope, so a scoped lint
+// must not raise parent-exists for it (issue #21).
+const corAclModuleDetail = `{"id":"id-cor:acl","memoryId":"mem1","loc":"cor:acl","name":"cor:acl — Access control",` +
+	`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p0"],` +
+	`"content":"# cor:acl — Access control\n","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+	`"outgoingEdges":[],"incomingEdges":[]}`
+
 func TestSpecLs(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"Nodes": `{"data":{"nodes":[` + specNodeList("msg:010:01", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
@@ -520,6 +528,26 @@ func TestSpecLintScopeNoMatch(t *testing.T) {
 	root.SetArgs([]string{"spec", "lint", "--module", "cha", "-m", specProductMem, "--server", gql.URL})
 	if got := exitcode.FromError(root.Execute()); got != exitcode.NotFound {
 		t.Fatalf("a --module scope matching nothing should be NotFound, got %d", got)
+	}
+}
+
+func TestSpecLintScopedRootParentAboveScope(t *testing.T) {
+	// Regression for #21: a --product/--module scoped lint must not raise a
+	// false parent-exists error for the scope root (cor:acl) whose parent (cor)
+	// lives above the scoped scan. --strict makes any finding fatal, so a clean
+	// run proves the false positive is gone.
+	gql, _ := captureGraphQL(t, map[string]string{
+		"Nodes":       `{"data":{"nodes":[` + specNodeList("cor:acl", `["spec","p0"]`) + `]}}`,
+		"GetNodeById": `{"data":{"nodeById":` + corAclModuleDetail + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "--product", "cor", "--module", "acl", "-m", specProductMem, "--strict", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("scoped lint should pass, got err=%v code=%d\n%s", err, exitcode.FromError(err), out.String())
+	}
+	if strings.Contains(out.String(), "parent-exists") {
+		t.Errorf("must not emit a parent-exists finding for the scope root; got:\n%s", out.String())
 	}
 }
 
