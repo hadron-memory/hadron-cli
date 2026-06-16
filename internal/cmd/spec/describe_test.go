@@ -1,6 +1,10 @@
 package spec
 
-import "testing"
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
 
 func TestDescribeSchemeFlat(t *testing.T) {
 	locs := []string{"msg", "msg:010", "msg:010:00", "msg:010:01", "mat", "mat:010", "mat:010:01"}
@@ -39,6 +43,58 @@ func TestDescribeSchemeProduct(t *testing.T) {
 	}
 	if d.Counts.Contracts != 2 { // cli:gen (product) + cli:cha:000 (module)
 		t.Errorf("contracts count = %d, want 2", d.Counts.Contracts)
+	}
+}
+
+func TestApplyDeclared(t *testing.T) {
+	// An empty corpus + a declaration: the declaration wins, no drift, and the
+	// product contract code is surfaced.
+	d := describeScheme("m", nil)
+	applyDeclared(&d, "product")
+	if d.Scheme != "product" || d.Source != "declared" || d.Declared != "product" {
+		t.Errorf("declared overlay = %+v", d)
+	}
+	if d.Contracts.Product != "gen" {
+		t.Errorf("declared product should surface the product contract code, got %q", d.Contracts.Product)
+	}
+	if len(d.Warnings) != 0 {
+		t.Errorf("empty corpus + declaration = no drift, got %v", d.Warnings)
+	}
+	// Declared product but the live nodes look flat → drift warning.
+	flat := describeScheme("m", []string{"msg:010", "msg:010:01"})
+	applyDeclared(&flat, "product")
+	if flat.Scheme != "product" {
+		t.Errorf("declaration should win, got %q", flat.Scheme)
+	}
+	var drift bool
+	for _, w := range flat.Warnings {
+		if strings.Contains(w, "declared") {
+			drift = true
+		}
+	}
+	if !drift {
+		t.Errorf("expected a drift warning, got %v", flat.Warnings)
+	}
+}
+
+func TestSchemeData(t *testing.T) {
+	if s := schemeFromData(nil); s != "" {
+		t.Errorf("nil data scheme = %q", s)
+	}
+	raw := json.RawMessage(`{"spec":{"scheme":"product"},"other":1}`)
+	if s := schemeFromData(&raw); s != "product" {
+		t.Errorf("scheme = %q, want product", s)
+	}
+	// Merging a new scheme updates it but preserves other keys.
+	merged, err := withScheme(&raw, "flat")
+	if err != nil {
+		t.Fatalf("withScheme: %v", err)
+	}
+	if schemeFromData(&merged) != "flat" {
+		t.Errorf("merged scheme not updated: %s", merged)
+	}
+	if !strings.Contains(string(merged), `"other"`) {
+		t.Errorf("merge dropped sibling keys: %s", merged)
 	}
 }
 

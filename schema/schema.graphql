@@ -575,6 +575,12 @@ type Memory {
   chunkTokens: Int
   class: MemoryClass!
   createdAt: String!
+
+  """
+  Free-form structured metadata bag (client-defined JSON, no server-side
+  semantics). Null when unset. Settable via createMemory / updateMemory.
+  """
+  data: JSON
   description: String
   embeddingSource: EmbeddingSource!
 
@@ -966,6 +972,9 @@ type Mutation {
     category0: String
     category1: String
     category2: String
+
+    """Free-form structured metadata bag (client-defined JSON). Null = unset."""
+    data: JSON
     description: String
     heroUrl: String
     homeUrl: String
@@ -1444,7 +1453,7 @@ type Mutation {
   truth in `FR_026_DISCLOSURE` — see `src/lib/entityRef/errors.ts`). On a
   non-encrypted memory the flag is a no-op.
   """
-  updateMemory(acknowledgeVectorInversionRisk: Boolean, category0: String, category1: String, category2: String, chunkOverlap: Int, chunkTokens: Int, description: String, embeddingSource: EmbeddingSource, forceFixedSize: Boolean, heroUrl: String, homeUrl: String, iconUrl: String, id: ID!, license: String, name: String, organizationId: ID, readBranch: String, shortDescription: String, source: String, tags: [String!], urn: String, vectorIndexEnabled: Boolean, visibility: MemoryVisibility, writeBranch: String): Memory!
+  updateMemory(acknowledgeVectorInversionRisk: Boolean, category0: String, category1: String, category2: String, chunkOverlap: Int, chunkTokens: Int, data: JSON, description: String, embeddingSource: EmbeddingSource, forceFixedSize: Boolean, heroUrl: String, homeUrl: String, iconUrl: String, id: ID!, license: String, name: String, organizationId: ID, readBranch: String, shortDescription: String, source: String, tags: [String!], urn: String, vectorIndexEnabled: Boolean, visibility: MemoryVisibility, writeBranch: String): Memory!
 
   """
   023-app-shape US4 — change the role on an existing team member.

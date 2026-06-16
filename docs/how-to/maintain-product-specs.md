@@ -33,19 +33,29 @@ Use a flat memory for a single product (e.g. one team's `platform-specs`); use
 a product-rooted memory when one corpus spans several products (e.g. Hadron's
 own `cli` / `srv` / `por`).
 
-### See what scheme a memory uses
+### See (or declare) what scheme a memory uses
 
 ```sh
 hadron spec describe -m hadronmemory.com::platform-specs
 ```
 
 ```
-Spec scheme — hadronmemory.com::platform-specs (derived from live nodes)
-  scheme:    product
+Spec scheme — hadronmemory.com::platform-specs
+  scheme:    product  (declared)
   products:  cli, srv
   modules:   cli:cha, srv:gql
   counts:    2 products, 2 modules, 12 features, 40 rules, 8 flows, 5 contracts
   contracts: product <p>:gen · module <m>:000 · feature <m>:<f>:00
+```
+
+The scheme is **derived** from the live nodes, and can also be **declared** in
+the memory's data (`{"spec":{"scheme":"product"}}`) so an empty memory can
+announce its arity before it has any specs. A declaration is authoritative;
+`describe` flags any drift from what the nodes actually look like. Declare it
+once, up front:
+
+```sh
+hadron spec describe -m hadronmemory.com::platform-specs --declare product
 ```
 
 ## General-provisions contracts
@@ -125,7 +135,9 @@ hadron spec supersede cli:cha:010:01 -m $M --title "backpressure v2" --yes
 
 ## Notes
 
-- The scheme reported by `describe` is **derived from live nodes** today. A
-  declared scheme in the memory's data (so an *empty* memory can announce its
-  intended arity) is a planned follow-up — see
+- A memory's declared scheme lives in its `data` bag under `spec.scheme`
+  (`hadron spec describe --declare …` writes it; `describe` reads it). It is
+  optional — `describe` derives the scheme from the live nodes for any
+  non-empty memory — but declaring it up front lets an empty memory state its
+  intended arity and lets `describe` flag drift. See
   [docs/plans/spec-product-level.md](../plans/spec-product-level.md).

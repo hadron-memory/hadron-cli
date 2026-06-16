@@ -1,15 +1,18 @@
 package spec
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -34,8 +37,10 @@ type describeContracts struct {
 // describeDTO is the stable --json shape for `spec describe`.
 type describeDTO struct {
 	Memory    string            `json:"memory"`
-	Scheme    string            `json:"scheme"` // flat | product | mixed | empty
-	Source    string            `json:"source"` // derived (later: declared)
+	Scheme    string            `json:"scheme"` // effective: declared if set, else derived
+	Source    string            `json:"source"` // "declared" | "derived"
+	Declared  string            `json:"declared,omitempty"`
+	Derived   string            `json:"derived"` // flat | product | mixed | empty
 	Products  []string          `json:"products"`
 	Modules   []string          `json:"modules"`
 	Counts    describeCounts    `json:"counts"`
@@ -44,19 +49,22 @@ type describeDTO struct {
 }
 
 func newCmdDescribe(f *cmdutil.Factory) *cobra.Command {
-	var memory string
+	var memory, declare string
 	cmd := &cobra.Command{
 		Use:     "describe",
 		Aliases: []string{"desc"},
-		Short:   "Report a memory's spec scheme (flat or product-rooted)",
+		Short:   "Report (or declare) a memory's spec scheme",
 		Long: `Report the spec scheme a memory uses — whether citations are flat
 (<module>:<feature>:…) or product-rooted (<product>:<module>:…) — plus the
 products/modules present, per-tier counts, and the general-provisions
 contract code at each tier.
 
-The scheme is derived from the live spec nodes. (Once memories carry a
-declared scheme in their data, describe will report that and flag drift.)`,
+The scheme can be declared in the memory's data (so an empty memory can
+announce its intended arity); when declared it is authoritative and any
+disagreement with the live nodes is flagged. --declare flat|product
+writes that declaration.`,
 		Example: `  hadron spec describe -m hadronmemory.com::platform-specs
+  hadron spec describe -m hadronmemory.com::platform-specs --declare product
   hadron spec describe -m micromentor.org::platform-specs --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -64,10 +72,39 @@ declared scheme in their data, describe will report that and flag drift.)`,
 			if err != nil {
 				return err
 			}
+			if declare != "" && declare != "flat" && declare != "product" {
+				return exitcode.Newf(exitcode.Usage, "--declare must be \"flat\" or \"product\"")
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
+
+			memID, err := resolveSpecMemoryID(cmd, client, memURN)
+			if err != nil {
+				return err
+			}
+			memResp, err := gen.GetMemory(cmd.Context(), client, memID)
+			if err != nil {
+				return api.MapError(err)
+			}
+			var curData *json.RawMessage
+			if memResp.Memory != nil {
+				curData = memResp.Memory.Data
+			}
+
+			if declare != "" {
+				merged, merr := withScheme(curData, declare)
+				if merr != nil {
+					return merr
+				}
+				if _, uerr := gen.UpdateMemory(cmd.Context(), client, memID, nil, nil, nil, nil, nil, &merged); uerr != nil {
+					return api.MapError(uerr)
+				}
+				curData = &merged
+			}
+			declared := schemeFromData(curData)
+
 			resp, err := gen.Nodes(cmd.Context(), client, &memURN, nil, nil, []string{"spec"}, nil, nil, nil)
 			if err != nil {
 				return api.MapError(err)
@@ -82,6 +119,7 @@ declared scheme in their data, describe will report that and flag drift.)`,
 				}
 			}
 			dto := describeScheme(memURN, locs)
+			applyDeclared(&dto, declared)
 
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				return renderDescribe(w, dto)
@@ -89,8 +127,67 @@ declared scheme in their data, describe will report that and flag drift.)`,
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
+	cmd.Flags().StringVar(&declare, "declare", "", "declare the scheme in the memory's data: flat | product")
 	_ = cmd.MarkFlagRequired("memory")
 	return cmd
+}
+
+// resolveSpecMemoryID maps a spec memory ref to its ID. A memory's own URN
+// uses a single colon between org and memory; the spec memURN uses the
+// node-ref double colon — normalize, then match myMemories (Query.memory /
+// updateMemory accept PK ids only today).
+func resolveSpecMemoryID(cmd *cobra.Command, client graphql.Client, memURN string) (string, error) {
+	want := strings.Replace(memURN, "::", ":", 1)
+	includeAgentSystem := true
+	resp, err := gen.MyMemories(cmd.Context(), client, &includeAgentSystem)
+	if err != nil {
+		return "", api.MapError(err)
+	}
+	for _, m := range resp.MyMemories {
+		if m.Urn == want {
+			return m.Id, nil
+		}
+	}
+	return "", exitcode.Newf(exitcode.NotFound, "memory %q not found", memURN)
+}
+
+// schemeFromData extracts data.spec.scheme; "" if absent or unparseable.
+func schemeFromData(data *json.RawMessage) string {
+	if data == nil || len(*data) == 0 {
+		return ""
+	}
+	var d struct {
+		Spec struct {
+			Scheme string `json:"scheme"`
+		} `json:"spec"`
+	}
+	if err := json.Unmarshal(*data, &d); err != nil {
+		return ""
+	}
+	return d.Spec.Scheme
+}
+
+// withScheme merges spec.scheme=scheme into the memory's data bag, preserving
+// every other key.
+func withScheme(data *json.RawMessage, scheme string) (json.RawMessage, error) {
+	bag := map[string]json.RawMessage{}
+	if data != nil && len(*data) > 0 {
+		if err := json.Unmarshal(*data, &bag); err != nil {
+			return nil, exitcode.Newf(exitcode.Usage, "memory data is not a JSON object: %v", err)
+		}
+	}
+	spec := map[string]json.RawMessage{}
+	if raw, ok := bag["spec"]; ok {
+		_ = json.Unmarshal(raw, &spec) // best-effort; the scheme key is overwritten
+	}
+	schemeRaw, _ := json.Marshal(scheme)
+	spec["scheme"] = schemeRaw
+	specRaw, err := json.Marshal(spec)
+	if err != nil {
+		return nil, err
+	}
+	bag["spec"] = specRaw
+	return json.Marshal(bag)
 }
 
 // describeScheme derives the spec scheme and inventory from a memory's live
@@ -157,6 +254,7 @@ func describeScheme(memURN string, locs []string) describeDTO {
 		Memory:    memURN,
 		Scheme:    scheme,
 		Source:    "derived",
+		Derived:   scheme,
 		Products:  sortedStringKeys(products),
 		Modules:   sortedStringKeys(modules),
 		Counts:    counts,
@@ -172,9 +270,31 @@ func describeScheme(memURN string, locs []string) describeDTO {
 	return dto
 }
 
+// applyDeclared overlays a declared scheme (from the memory's data) onto a
+// derived DTO: the declaration wins, and any disagreement with the live nodes
+// is flagged.
+func applyDeclared(d *describeDTO, declared string) {
+	if declared == "" {
+		return
+	}
+	d.Declared = declared
+	d.Scheme = declared
+	d.Source = "declared"
+	if declared == "product" || declared == "mixed" {
+		d.Contracts.Product = productContractCode
+	}
+	if d.Derived != "empty" && d.Derived != declared {
+		d.Warnings = append(d.Warnings,
+			fmt.Sprintf("declared scheme %q but live nodes look %q", declared, d.Derived))
+	}
+}
+
 func renderDescribe(w io.Writer, d describeDTO) error {
-	fmt.Fprintf(w, "Spec scheme — %s (derived from live nodes)\n", d.Memory)
-	fmt.Fprintf(w, "  scheme:    %s\n", d.Scheme)
+	fmt.Fprintf(w, "Spec scheme — %s\n", d.Memory)
+	fmt.Fprintf(w, "  scheme:    %s  (%s)\n", d.Scheme, d.Source)
+	if d.Declared != "" && d.Declared != d.Derived {
+		fmt.Fprintf(w, "  derived:   %s  (from live nodes)\n", d.Derived)
+	}
 	if len(d.Products) > 0 {
 		fmt.Fprintf(w, "  products:  %s\n", strings.Join(d.Products, ", "))
 	}
@@ -184,7 +304,7 @@ func renderDescribe(w io.Writer, d describeDTO) error {
 	fmt.Fprintf(w, "  counts:    %s\n", describeCountsLine(d.Counts))
 	fmt.Fprintf(w, "  contracts: %s\n", describeContractsLine(d.Contracts))
 	if d.Scheme == "empty" {
-		fmt.Fprintln(w, "  (no spec nodes yet — scaffold a product root with `spec new --new-product`, or a module with `spec new --new-module`)")
+		fmt.Fprintln(w, "  (no spec nodes yet — declare with --declare, or scaffold a root with `spec new --new-product`/`--new-module`)")
 	}
 	for _, warn := range d.Warnings {
 		fmt.Fprintf(w, "  ⚠ %s\n", warn)

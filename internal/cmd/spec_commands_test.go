@@ -270,6 +270,16 @@ func TestSpecNewMissingParent(t *testing.T) {
 
 const specProductMem = "hadronmemory.com::platform-specs"
 
+// memListJSON is a MyMemories response whose urn matches specProductMem
+// normalized to a single-colon memory urn.
+const memListJSON = `{"data":{"myMemories":[{"id":"mem1","urn":"hadronmemory.com:platform-specs","name":"Platform Specs","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"updatedAt":"2026-06-14T00:00:00Z"}]}}`
+
+// memGetJSON is a GetMemory response with the given data bag (raw JSON, e.g.
+// `null` or `{"spec":{"scheme":"product"}}`).
+func memGetJSON(data string) string {
+	return `{"data":{"memory":{"id":"mem1","urn":"hadronmemory.com:platform-specs","name":"Platform Specs","shortDescription":null,"description":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"tags":[],"source":null,"syncStatus":"OK","vectorIndexEnabled":false,"data":` + data + `,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z"}}}`
+}
+
 func TestSpecDescribeProduct(t *testing.T) {
 	nodes := strings.Join([]string{
 		specNodeList("cli", `["spec","p0"]`),
@@ -279,7 +289,9 @@ func TestSpecDescribeProduct(t *testing.T) {
 		specNodeList("cli:cha:010:01", `["spec","p1"]`),
 	}, ",")
 	gql, _ := captureGraphQL(t, map[string]string{
-		"Nodes": `{"data":{"nodes":[` + nodes + `]}}`,
+		"MyMemories": memListJSON,
+		"GetMemory":  memGetJSON(`null`),
+		"Nodes":      `{"data":{"nodes":[` + nodes + `]}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -289,6 +301,7 @@ func TestSpecDescribeProduct(t *testing.T) {
 	}
 	var dto struct {
 		Scheme   string   `json:"scheme"`
+		Source   string   `json:"source"`
 		Products []string `json:"products"`
 		Modules  []string `json:"modules"`
 	}
@@ -298,11 +311,48 @@ func TestSpecDescribeProduct(t *testing.T) {
 	if dto.Scheme != "product" {
 		t.Errorf("scheme = %q, want product", dto.Scheme)
 	}
+	if dto.Source != "derived" {
+		t.Errorf("source = %q, want derived (memory data was null)", dto.Source)
+	}
 	if len(dto.Products) != 1 || dto.Products[0] != "cli" {
 		t.Errorf("products = %v, want [cli]", dto.Products)
 	}
 	if len(dto.Modules) != 1 || dto.Modules[0] != "cli:cha" {
 		t.Errorf("modules = %v, want [cli:cha]", dto.Modules)
+	}
+}
+
+func TestSpecDescribeDeclare(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"MyMemories":   memListJSON,
+		"GetMemory":    memGetJSON(`null`),
+		"UpdateMemory": `{"data":{"updateMemory":{"id":"mem1","urn":"hadronmemory.com:platform-specs","name":"P","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"data":{"spec":{"scheme":"product"}},"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"Nodes":        `{"data":{"nodes":[]}}`, // empty corpus: the declared scheme is all there is
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "describe", "-m", specProductMem, "--declare", "product", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// UpdateMemory was called with a data bag declaring the scheme.
+	var vars struct {
+		Data json.RawMessage `json:"data"`
+	}
+	_ = json.Unmarshal(captured["UpdateMemory"], &vars)
+	if !strings.Contains(string(vars.Data), `"scheme":"product"`) {
+		t.Errorf("UpdateMemory data must declare scheme product, got %s", vars.Data)
+	}
+	// Output reflects the declaration even though the corpus is empty.
+	var dto struct {
+		Scheme   string `json:"scheme"`
+		Source   string `json:"source"`
+		Declared string `json:"declared"`
+		Derived  string `json:"derived"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	if dto.Scheme != "product" || dto.Source != "declared" || dto.Declared != "product" || dto.Derived != "empty" {
+		t.Errorf("declared describe = %+v", dto)
 	}
 }
 

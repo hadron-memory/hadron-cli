@@ -90,7 +90,9 @@ Conventions:
   contract its siblings inherit: feature `:00`, module `:000`, product `:gen`.
   It takes `-m/--memory` and addresses specs by bare citation, not a full URN.
   `spec describe` reports a memory's scheme (flat/product), products, modules,
-  and counts; `spec new` allocates the next number and scaffolds the rubric
+  and counts, reading any scheme declared in the memory's data
+  (`--declare flat|product` writes it); `spec new` allocates the next number
+  and scaffolds the rubric
   (`--new-product`/`--new-module`/`--new-feature` create roots; `--contract`
   scaffolds the contract at the deepest tier named; `--dry-run` previews
   without writing); `spec find` is semantic by default (`--match-exactly`

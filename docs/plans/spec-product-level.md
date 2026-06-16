@@ -46,12 +46,13 @@ Two coupled changes fix it:
    commands disambiguate with explicit `--product`/`--new-product` intent and
    which is benign for read commands (top nodes have no parent, and ToC matching
    is by loc string). So **no stored mode is required for the tool to function.**
-3. **Scheme is *declared* in `Memory.data`** (a JSON field the server is adding
-   in parallel) under a `spec` namespace: `{"spec":{"scheme":"product"}}`. The
-   CLI surfaces it via a new **`spec describe`** command. Until that field lands,
-   `spec describe` **derives** the scheme from live nodes (the same
-   derive-from-live philosophy the rest of `spec` already uses); once it lands,
-   `describe` reads the declared value and flags drift. See *Scheme storage*.
+3. **Scheme is *declared* in `Memory.data`** (a `JSON` field on `Memory`, added
+   to hadron-server alongside this work) under a `spec` namespace:
+   `{"spec":{"scheme":"product"}}`. The new **`spec describe`** command reads it
+   and reports it as authoritative; `spec describe --declare flat|product`
+   writes it; and the scheme is always cross-checked against what the live nodes
+   look like (derive-from-live), with any drift flagged. An empty memory can
+   declare its arity before it has nodes. See *Scheme storage*.
 4. **Product-level contract = a reserved alpha module code, `gen`.** Keeps the
    grammar self-describing (segment 2 stays alpha ⇒ product-rooted). The feature
    and module contracts keep their numeric spellings (`:00`, `:000`) — they are
@@ -144,27 +145,30 @@ spec register / find / get / supersede          # product-aware via the shared g
 - **`spec register`** — the derived ledger groups by product → module → feature
   → rule for product corpora and stays flat for flat corpora.
 
-## Scheme storage (`Memory.data`) — parallel track
+## Scheme storage (`Memory.data`)
 
-`Memory` has no `data` field today; a hadron-server change (being done in
-parallel) adds `data: JSON` and exposes it on `memory` / `createMemory` /
-`updateMemory`. CLI convention (namespaced so `data` stays general):
+`Memory` gained a `data: JSON` "client-defined bag" field in hadron-server,
+exposed on `memory` / `createMemory` / `updateMemory`. CLI convention
+(namespaced so `data` stays general):
 
 ```json
 { "spec": { "scheme": "flat" | "product" } }
 ```
 
-This plan ships **without** depending on that field — `spec describe` derives the
-scheme from live nodes. The follow-up commit, once the server field lands:
-1. refresh the vendored `schema/schema.graphql` from the server SDL;
-2. add `data` to the `GetMemory` selection and to `UpdateMemory`/`CreateMemory`
-   in `internal/api/queries/memories.graphql`; `make generate`;
-3. `spec describe` reads the declared scheme; add a way to declare it (likely
-   `hadron memory set --data` once generic, or a focused `spec` flag).
+Wiring:
+1. the vendored `schema/schema.graphql` is refreshed from the server SDL;
+2. `data` is selected in `GetMemory` and accepted by `UpdateMemory`
+   (`internal/api/queries/memories.graphql`, regenerated);
+3. `spec describe` reads the declared scheme (resolving the memory id by
+   normalizing the `::` separator and matching `myMemories`), reports it as
+   authoritative, and flags drift vs. the derived view;
+   `spec describe --declare flat|product` merges the scheme into `Memory.data`,
+   preserving any other keys.
 
-An *empty* memory is the only case derivation can't cover — exactly what the
-declared mode is for; until then `describe` reports `empty` and `new --new-product`
-still works (it self-bootstraps the product shape).
+Derivation still covers every non-empty memory, so the declaration is optional;
+it exists so an *empty* memory can announce its arity before it has nodes
+(`new --new-product`/`--new-module` also work from empty and self-bootstrap the
+shape).
 
 ## Code changes by file (`internal/cmd/spec/`)
 
@@ -200,8 +204,6 @@ still works (it self-bootstraps the product shape).
 
 ## Out of scope / follow-ups
 
-- The `Memory.data` server change + CLI wiring of the **declared** scheme (the
-  parallel track above).
 - `docs/reference/hadron-cli.md` (#product-specs) and
   `docs/how-to/maintain-product-specs.md` — referenced by #17; started here,
   fleshed out as the corpus grows.

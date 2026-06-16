@@ -141,6 +141,9 @@ func buildLedgerDTO(memURN string, locs []string, ledger registerLedger) ledgerD
 		if c.Product == "" && productCodes[c.Module] {
 			continue // a bare product root parsed as a flat module — skip
 		}
+		if c.Product != "" && c.Module == productContractCode {
+			continue // the product contract (<product>:gen) is not a module
+		}
 		ma := ensure(Citation{Product: c.Product, Module: c.Module})
 		if c.Feature == "" {
 			continue

@@ -376,8 +376,11 @@ type GetMemoryMemory struct {
 	Source             *string           `json:"source"`
 	SyncStatus         SyncStatus        `json:"syncStatus"`
 	VectorIndexEnabled bool              `json:"vectorIndexEnabled"`
-	CreatedAt          string            `json:"createdAt"`
-	UpdatedAt          string            `json:"updatedAt"`
+	// Free-form structured metadata bag (client-defined JSON, no server-side
+	// semantics). Null when unset. Settable via createMemory / updateMemory.
+	Data      *json.RawMessage `json:"data"`
+	CreatedAt string           `json:"createdAt"`
+	UpdatedAt string           `json:"updatedAt"`
 }
 
 // GetId returns GetMemoryMemory.Id, and is useful for accessing the field via an interface.
@@ -418,6 +421,9 @@ func (v *GetMemoryMemory) GetSyncStatus() SyncStatus { return v.SyncStatus }
 
 // GetVectorIndexEnabled returns GetMemoryMemory.VectorIndexEnabled, and is useful for accessing the field via an interface.
 func (v *GetMemoryMemory) GetVectorIndexEnabled() bool { return v.VectorIndexEnabled }
+
+// GetData returns GetMemoryMemory.Data, and is useful for accessing the field via an interface.
+func (v *GetMemoryMemory) GetData() *json.RawMessage { return v.Data }
 
 // GetCreatedAt returns GetMemoryMemory.CreatedAt, and is useful for accessing the field via an interface.
 func (v *GetMemoryMemory) GetCreatedAt() string { return v.CreatedAt }
@@ -1253,7 +1259,10 @@ type UpdateMemoryUpdateMemory struct {
 	Visibility       *MemoryVisibility `json:"visibility"`
 	OrganizationId   string            `json:"organizationId"`
 	IsEncrypted      bool              `json:"isEncrypted"`
-	UpdatedAt        string            `json:"updatedAt"`
+	// Free-form structured metadata bag (client-defined JSON, no server-side
+	// semantics). Null when unset. Settable via createMemory / updateMemory.
+	Data      *json.RawMessage `json:"data"`
+	UpdatedAt string           `json:"updatedAt"`
 }
 
 // GetId returns UpdateMemoryUpdateMemory.Id, and is useful for accessing the field via an interface.
@@ -1279,6 +1288,9 @@ func (v *UpdateMemoryUpdateMemory) GetOrganizationId() string { return v.Organiz
 
 // GetIsEncrypted returns UpdateMemoryUpdateMemory.IsEncrypted, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryUpdateMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetData returns UpdateMemoryUpdateMemory.Data, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryUpdateMemory) GetData() *json.RawMessage { return v.Data }
 
 // GetUpdatedAt returns UpdateMemoryUpdateMemory.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryUpdateMemory) GetUpdatedAt() string { return v.UpdatedAt }
@@ -1595,6 +1607,7 @@ type __UpdateMemoryInput struct {
 	Description      *string           `json:"description,omitempty"`
 	Tags             *[]string         `json:"tags,omitempty"`
 	Visibility       *MemoryVisibility `json:"visibility,omitempty"`
+	Data             *json.RawMessage  `json:"data,omitempty"`
 }
 
 // GetId returns __UpdateMemoryInput.Id, and is useful for accessing the field via an interface.
@@ -1614,6 +1627,9 @@ func (v *__UpdateMemoryInput) GetTags() *[]string { return v.Tags }
 
 // GetVisibility returns __UpdateMemoryInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryInput) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// GetData returns __UpdateMemoryInput.Data, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetData() *json.RawMessage { return v.Data }
 
 // __UpsertNodeInput is used internally by genqlient
 type __UpsertNodeInput struct {
@@ -2015,6 +2031,7 @@ query GetMemory ($id: ID!) {
 		source
 		syncStatus
 		vectorIndexEnabled
+		data
 		createdAt
 		updatedAt
 	}
@@ -2434,8 +2451,8 @@ func UpdateEdge(
 
 // The mutation executed by UpdateMemory.
 const UpdateMemory_Operation = `
-mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility) {
-	updateMemory(id: $id, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility) {
+mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $data: JSON) {
+	updateMemory(id: $id, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, data: $data) {
 		id
 		urn
 		name
@@ -2444,6 +2461,7 @@ mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $desc
 		visibility
 		organizationId
 		isEncrypted
+		data
 		updatedAt
 	}
 }
@@ -2459,6 +2477,7 @@ func UpdateMemory(
 	description *string,
 	tags *[]string,
 	visibility *MemoryVisibility,
+	data *json.RawMessage,
 ) (data_ *UpdateMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateMemory",
@@ -2470,6 +2489,7 @@ func UpdateMemory(
 			Description:      description,
 			Tags:             tags,
 			Visibility:       visibility,
+			Data:             data,
 		},
 	}
 
