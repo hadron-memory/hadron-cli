@@ -461,6 +461,17 @@ func TestSpecNewProductContract(t *testing.T) {
 	}
 }
 
+func TestSpecNewReservedGenModule(t *testing.T) {
+	// "gen" is reserved for the product contract — it can't be a module in a
+	// product corpus. The guard fires before any GraphQL call.
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "-m", specProductMem, "--product", "cli", "--new-module", "--module", "gen", "--title", "nope"})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("--module gen in a product corpus should be Usage, got %d", got)
+	}
+}
+
 func TestSpecNewModuleContract(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p0"]`) + `]}}`
 	gql, captured := captureGraphQL(t, map[string]string{

@@ -84,6 +84,9 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 			if module != "" && !reModule.MatchString(module) {
 				return exitcode.Newf(exitcode.Usage, "--module %q must be 3 lowercase letters", module)
 			}
+			if product != "" && module == productContractCode {
+				return exitcode.Newf(exitcode.Usage, "module %q is reserved for the product contract — use --contract", productContractCode)
+			}
 			if title == "" {
 				return exitcode.Newf(exitcode.Usage, "--title is required")
 			}

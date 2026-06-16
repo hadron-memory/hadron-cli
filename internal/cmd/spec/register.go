@@ -159,7 +159,9 @@ func buildLedgerDTO(memURN string, locs []string, ledger registerLedger) ledgerD
 		}
 	}
 	for m := range ledger.modules {
-		ensure(Citation{Module: m})
+		if c, err := ParseCitation(m); err == nil {
+			ensure(Citation{Product: c.Product, Module: c.Module})
+		}
 	}
 
 	var modKeys []string
@@ -216,13 +218,14 @@ func computeDrift(locs []string, ledger registerLedger) []string {
 		}
 	}
 	for key, nums := range ledger.retired {
+		// The retired child's width follows the key's tier: a module key's
+		// children are features (3 digits); a feature key's are rules (2).
+		width := 3
+		if c, err := ParseCitation(key); err == nil && c.Level() >= 2 {
+			width = 2
+		}
 		for _, n := range nums {
-			var loc string
-			if strings.Contains(key, ":") {
-				loc = fmt.Sprintf("%s:%02d", key, n)
-			} else {
-				loc = fmt.Sprintf("%s:%03d", key, n)
-			}
+			loc := fmt.Sprintf("%s:%0*d", key, width, n)
 			if live[loc] {
 				drift = append(drift, fmt.Sprintf("ledger marks %s retired but it is still live", loc))
 			}

@@ -96,6 +96,15 @@ func TestSchemeData(t *testing.T) {
 	if !strings.Contains(string(merged), `"other"`) {
 		t.Errorf("merge dropped sibling keys: %s", merged)
 	}
+	// A literal JSON null data bag must not panic the nil-map write.
+	null := json.RawMessage("null")
+	got, err := withScheme(&null, "product")
+	if err != nil {
+		t.Fatalf("withScheme(null): %v", err)
+	}
+	if schemeFromData(&got) != "product" {
+		t.Errorf("withScheme(null) did not set the scheme: %s", got)
+	}
 }
 
 func TestDescribeSchemeMixedAndEmpty(t *testing.T) {

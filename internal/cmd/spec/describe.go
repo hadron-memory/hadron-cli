@@ -175,6 +175,9 @@ func withScheme(data *json.RawMessage, scheme string) (json.RawMessage, error) {
 		if err := json.Unmarshal(*data, &bag); err != nil {
 			return nil, exitcode.Newf(exitcode.Usage, "memory data is not a JSON object: %v", err)
 		}
+		if bag == nil { // a literal JSON null unmarshals into a nil map
+			bag = map[string]json.RawMessage{}
+		}
 	}
 	spec := map[string]json.RawMessage{}
 	if raw, ok := bag["spec"]; ok {
