@@ -344,7 +344,7 @@ func parentInScope(parentLoc, scopeRoot string) bool {
 // product-qualified module (e.g. "cli", "msg", or "cli:cha"). The scan pages
 // to exhaustion so a subtree larger than one server page is linted whole (#23).
 func scanPrefixDetail(cmd *cobra.Command, client graphql.Client, memURN, prefix string) ([]specNode, error) {
-	all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil, nil)
+	all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +367,7 @@ func scanPrefixDetail(cmd *cobra.Command, client graphql.Client, memURN, prefix 
 // detail; non-citation nodes (e.g. the register) are skipped. The scan pages
 // to exhaustion so a corpus larger than one server page is linted whole (#23).
 func scanAllSpecsDetail(cmd *cobra.Command, client graphql.Client, memURN string) ([]specNode, error) {
-	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, nil, []string{"spec"})
+	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, []string{"spec"})
 	if err != nil {
 		return nil, err
 	}

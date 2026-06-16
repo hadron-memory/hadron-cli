@@ -372,17 +372,18 @@ func fetchRegister(cmd *cobra.Command, client graphql.Client, memoryURN string) 
 const nodesPageSize = 500
 
 // scanAllNodes pages the nodes query to exhaustion and returns every node
-// matching (memory, prefix, nodeType, tags). Any command whose contract is
-// "the whole memory/scope" — spec lint --all and prefix-scoped lint, register,
-// describe, bare spec ls, and the new/supersede allocation scans — must use
-// this rather than a single unbounded gen.Nodes call, which the server
-// truncates to one default page (issue #23). For an allocation scan that
-// truncation is not just under-reporting: a missed tail makes the allocator
-// reuse a live number.
-func scanAllNodes(ctx context.Context, client graphql.Client, memory, prefix, nodeType *string, tags []string) ([]*gen.NodesNodesNode, error) {
+// matching (memory, prefix, tags). Any command whose contract is "the whole
+// memory/scope" — spec lint --all and prefix-scoped lint, register, describe,
+// bare spec ls, and the new/supersede allocation scans — must use this rather
+// than a single unbounded gen.Nodes call, which the server truncates to one
+// default page (issue #23). For an allocation scan that truncation is not just
+// under-reporting: a missed tail makes the allocator reuse a live number.
+// Spec nodes are addressed by tag/prefix, never nodeType, so nodeType is left
+// unset; add it back here if a caller ever needs it.
+func scanAllNodes(ctx context.Context, client graphql.Client, memory, prefix *string, tags []string) ([]*gen.NodesNodesNode, error) {
 	return paginateNodes(func(limit, offset int) ([]*gen.NodesNodesNode, error) {
 		l, o := limit, offset
-		resp, err := gen.Nodes(ctx, client, memory, prefix, nodeType, tags, nil, &l, &o)
+		resp, err := gen.Nodes(ctx, client, memory, prefix, nil, tags, nil, &l, &o)
 		if err != nil {
 			return nil, api.MapError(err)
 		}

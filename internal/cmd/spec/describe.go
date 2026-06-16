@@ -105,7 +105,7 @@ writes that declaration.`,
 			}
 			declared := schemeFromData(curData)
 
-			all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, nil, []string{"spec"})
+			all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, []string{"spec"})
 			if err != nil {
 				return err
 			}

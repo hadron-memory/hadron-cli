@@ -112,7 +112,7 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 			if prefix == "" {
 				return exitcode.Newf(exitcode.Usage, "pass --product and/or --module")
 			}
-			all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil, nil)
+			all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil)
 			if err != nil {
 				return err
 			}

@@ -64,7 +64,7 @@ explicit page instead.`,
 				}
 				rawNodes = resp.Nodes
 			} else {
-				rawNodes, err = scanAllNodes(cmd.Context(), client, memoryArg, prefixArg, nil, []string{"spec"})
+				rawNodes, err = scanAllNodes(cmd.Context(), client, memoryArg, prefixArg, []string{"spec"})
 				if err != nil {
 					return err
 				}

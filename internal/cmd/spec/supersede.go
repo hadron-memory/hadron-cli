@@ -76,7 +76,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			// exhaustion — a truncated scan here would make the replacement
 			// allocator reuse a live number on a subtree past one page (#23).
 			prefix := Citation{Product: oldCit.Product, Module: oldCit.Module}.Format()
-			all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil, nil)
+			all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil)
 			if err != nil {
 				return err
 			}

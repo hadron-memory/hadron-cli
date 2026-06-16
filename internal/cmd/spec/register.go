@@ -40,7 +40,7 @@ hand-written ledger and any drift is reported (exit 5 if drift is found).`,
 				return err
 			}
 
-			all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, nil, []string{"spec"})
+			all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, []string{"spec"})
 			if err != nil {
 				return err
 			}
