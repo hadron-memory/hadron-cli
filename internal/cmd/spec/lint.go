@@ -59,6 +59,10 @@ violations) exit with code 5; --strict promotes warnings to errors too.`,
 				return err
 			}
 
+			if len(args) == 1 && (product != "" || module != "" || all) {
+				return exitcode.Newf(exitcode.Usage, "a <citation> argument cannot be combined with --product/--module/--all")
+			}
+
 			var nodes []specNode
 			var corpus bool
 			switch {
@@ -82,6 +86,13 @@ violations) exit with code 5; --strict promotes warnings to errors too.`,
 				nodes, err = scanPrefixDetail(cmd, client, memURN, prefix)
 				if err != nil {
 					return err
+				}
+				if len(nodes) == 0 {
+					hint := ""
+					if product == "" {
+						hint = " — in a product-rooted memory, scope with --product <ppp> [--module <mmm>]"
+					}
+					return exitcode.Newf(exitcode.Usage, "no specs found under %q%s", prefix, hint)
 				}
 				corpus = true
 			case all:

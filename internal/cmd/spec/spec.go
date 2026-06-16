@@ -76,12 +76,14 @@ type specEdgeDTO struct {
 
 // specDetailDTO is the --json shape for `spec get`.
 type specDetailDTO struct {
-	Citation  string           `json:"citation"`
-	MemoryID  string           `json:"memoryId"`
-	Name      string           `json:"name"`
-	NodeType  string           `json:"nodeType"`
-	Tags      []string         `json:"tags"`
-	Abstract  *string          `json:"abstract"`
+	Citation string   `json:"citation"`
+	MemoryID string   `json:"memoryId"`
+	Name     string   `json:"name"`
+	NodeType string   `json:"nodeType"`
+	Tags     []string `json:"tags"`
+	Abstract *string  `json:"abstract"`
+	// Content is omitempty by design: --abstract-only drops the body, so the
+	// field's absence means "body not included" rather than "empty body".
 	Content   *string          `json:"content,omitempty"`
 	Edges     []specEdgeDTO    `json:"edges"`
 	Lint      []lintFindingDTO `json:"lint"`
