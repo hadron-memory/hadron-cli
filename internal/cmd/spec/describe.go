@@ -135,7 +135,9 @@ writes that declaration.`,
 // resolveSpecMemoryID maps a spec memory ref to its ID. A memory's own URN
 // uses a single colon between org and memory; the spec memURN uses the
 // node-ref double colon — normalize, then match myMemories (Query.memory /
-// updateMemory accept PK ids only today).
+// updateMemory accept PK ids only today). This adds a round-trip to describe
+// (myMemories → memory → nodes); collapse it once the server dispatches memory
+// URNs on those resolvers (same TODO as the memory package's resolveMemoryID).
 func resolveSpecMemoryID(cmd *cobra.Command, client graphql.Client, memURN string) (string, error) {
 	want := strings.Replace(memURN, "::", ":", 1)
 	includeAgentSystem := true
@@ -151,7 +153,9 @@ func resolveSpecMemoryID(cmd *cobra.Command, client graphql.Client, memURN strin
 	return "", exitcode.Newf(exitcode.NotFound, "memory %q not found", memURN)
 }
 
-// schemeFromData extracts data.spec.scheme; "" if absent or unparseable.
+// schemeFromData extracts data.spec.scheme; "" if absent or unparseable. It is
+// deliberately lenient on read (unlike withScheme, which rejects a malformed
+// bag on write): a foreign or empty data bag degrades to "no declaration".
 func schemeFromData(data *json.RawMessage) string {
 	if data == nil || len(*data) == 0 {
 		return ""

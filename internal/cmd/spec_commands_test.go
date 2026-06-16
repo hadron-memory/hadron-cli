@@ -497,6 +497,32 @@ func TestSpecNewModuleContract(t *testing.T) {
 	}
 }
 
+func TestSpecLintCitationAndFlags(t *testing.T) {
+	// A <citation> argument and a scope flag are mutually exclusive (the guard
+	// fires before any GraphQL call).
+	gql, _ := captureGraphQL(t, map[string]string{})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "msg:010:02", "--all", "-m", specMem, "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("citation + --all should be Usage, got %d", got)
+	}
+}
+
+func TestSpecLintScopeNoMatch(t *testing.T) {
+	// --module cha matches nothing in a product corpus (modules are cli:cha):
+	// fail loudly instead of a misleading "0 OK".
+	gql, _ := captureGraphQL(t, map[string]string{
+		"Nodes": `{"data":{"nodes":[` + specNodeList("cli:cha", `["spec","p1"]`) + `]}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "--module", "cha", "-m", specProductMem, "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.NotFound {
+		t.Fatalf("a --module scope matching nothing should be NotFound, got %d", got)
+	}
+}
+
 func TestSpecLintErrorsExitConflict(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn":  resolveSpecJSON,
