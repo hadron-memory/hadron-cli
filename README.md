@@ -8,9 +8,15 @@ shelling out to it.
 
 Full v1 command surface implemented: `auth login|logout|whoami|status`,
 `memory ls|get|set|rm|clone`, `node ls|get|add|update|rm`,
-`spec ls|get|register|find|new|lint|supersede|import`,
+`spec ls|get|describe|register|find|new|lint|supersede|import`,
 `app ls|install|uninstall|use`, `config get|set|list`, `api` (raw
 GraphQL escape hatch), `version`, `completion`, `agentic-usage`.
+
+Specs follow a legal-code citation scheme — flat (`<module>:<feature>:<rule>`)
+or product-rooted (`<product>:<module>:<feature>:<rule>`) for a multi-product
+corpus — with a general-provisions contract at every tier (feature `:00`,
+module `:000`, product `:gen`). See
+[docs/how-to/maintain-product-specs.md](docs/how-to/maintain-product-specs.md).
 
 ## Install
 

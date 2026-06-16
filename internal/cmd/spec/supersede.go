@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -72,7 +73,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			}
 
 			// Scan the module subtree for allocation + parent checks.
-			prefix := oldCit.Module
+			prefix := Citation{Product: oldCit.Product, Module: oldCit.Module}.Format()
 			resp, err := gen.Nodes(cmd.Context(), client, &memURN, &prefix, nil, nil, nil, nil, nil)
 			if err != nil {
 				return api.MapError(err)
@@ -83,10 +84,14 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				if n == nil {
 					continue
 				}
-				if c, perr := ParseCitation(n.Loc); perr == nil && c.Module == oldCit.Module {
-					locs[n.Loc] = true
-					allLocs = append(allLocs, n.Loc)
+				if n.Loc != prefix && !strings.HasPrefix(n.Loc, prefix+":") {
+					continue
 				}
+				if _, perr := ParseCitation(n.Loc); perr != nil {
+					continue
+				}
+				locs[n.Loc] = true
+				allLocs = append(allLocs, n.Loc)
 			}
 
 			newTarget, parentLoc, inheritLoc, err := planReplacement(oldCit, feature, ruleAfter, locs, allLocs)
@@ -202,7 +207,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 func planReplacement(old Citation, feature, ruleAfter string, locs map[string]bool, allLocs []string) (newTarget Citation, parentLoc, inheritLoc string, err error) {
 	switch old.Level() {
 	case 4: // flow → next flow under the same rule
-		parent := Citation{Module: old.Module, Feature: old.Feature, Rule: old.Rule}
+		parent := Citation{Product: old.Product, Module: old.Module, Feature: old.Feature, Rule: old.Rule}
 		t, aerr := allocateChild(parent, childNumbersAt(parent, allLocs), nil, 0)
 		if aerr != nil {
 			return Citation{}, "", "", aerr
@@ -213,7 +218,7 @@ func planReplacement(old Citation, feature, ruleAfter string, locs map[string]bo
 		if feature != "" {
 			feat = feature
 		}
-		parent := Citation{Module: old.Module, Feature: feat}
+		parent := Citation{Product: old.Product, Module: old.Module, Feature: feat}
 		if _, perr := ParseCitation(parent.Format()); perr != nil {
 			return Citation{}, "", "", perr
 		}
@@ -233,7 +238,7 @@ func planReplacement(old Citation, feature, ruleAfter string, locs map[string]bo
 			return Citation{}, "", "", aerr
 		}
 		inherit := ""
-		if cl, ok := t.ContractLoc(); ok && locs[cl.Format()] {
+		if cl, ok := t.InheritedContractLoc(); ok && locs[cl.Format()] {
 			inherit = cl.Format()
 		}
 		return t, parent.Format(), inherit, nil

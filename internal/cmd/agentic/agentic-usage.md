@@ -47,7 +47,7 @@ hadron auth login | logout | whoami | status
 hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name>
 hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn>
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
-hadron spec ls [-m <memory>] | get <citation> | register [--check] | find <query> [--match-exactly] | new ... | lint [<citation>] | supersede <citation> | import spec-kit|code
+hadron spec ls [-m <memory>] | get <citation> | describe | register [--check] | find <query> [--match-exactly] | new ... | lint [<citation>] | supersede <citation> | import spec-kit|code
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
 hadron config get | set | list
 hadron api <query-or-mutation>                       # raw GraphQL
@@ -83,15 +83,21 @@ Conventions:
   memory's URN inside node content and abstracts. Version history,
   shares/subscriptions, assets, and git-sync config are NOT copied.
   Encrypted memories and agent system / app memories cannot be cloned.
-- `spec` manages product-spec nodes whose loc IS a citation number
-  (`<module>:<feature>:<rule>:<flow>`, e.g. `msg:010:02`). It takes
-  `-m/--memory` and addresses specs by bare citation, not a full URN.
-  `spec new` allocates the next number and scaffolds the rubric (`--dry-run`
-  previews without writing); `spec find` is semantic by default
-  (`--match-exactly` forces keyword); `spec register` is advisory/read-only
-  (`--check` reports ledger drift, exit 5); `spec supersede` retires a spec
-  (never renumbers) and REQUIRES `--yes`; `spec import` is not yet
-  implemented (exit 2).
+- `spec` manages product-spec nodes whose loc IS a citation number. A memory
+  is either flat (`<module>:<feature>:<rule>[:<flow>]`, e.g. `msg:010:02`) or
+  product-rooted (`<product>:<module>:<feature>:<rule>[:<flow>]`, e.g.
+  `cli:cha:010:01`) — never both. Each tier has a reserved general-provisions
+  contract its siblings inherit: feature `:00`, module `:000`, product `:gen`.
+  It takes `-m/--memory` and addresses specs by bare citation, not a full URN.
+  `spec describe` reports a memory's scheme (flat/product), products, modules,
+  and counts; `spec new` allocates the next number and scaffolds the rubric
+  (`--new-product`/`--new-module`/`--new-feature` create roots; `--contract`
+  scaffolds the contract at the deepest tier named; `--dry-run` previews
+  without writing); `spec find` is semantic by default (`--match-exactly`
+  forces keyword); `spec register` is advisory/read-only (`--check` reports
+  ledger drift, exit 5); `spec lint` takes `--product`/`--module`/`--all` and
+  flags mixed-arity corpora; `spec supersede` retires a spec (never renumbers)
+  and REQUIRES `--yes`; `spec import` is not yet implemented (exit 2).
 
 ## The escape hatch: hadron api
 

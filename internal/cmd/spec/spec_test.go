@@ -52,6 +52,11 @@ func TestParseCitationValid(t *testing.T) {
 		{"msg:010", 2},
 		{"msg:010:02", 3},
 		{"msg:010:02:03", 4},
+		// product-rooted: the product does not shift the module..flow levels.
+		{"cli:cha", 1},
+		{"cli:cha:010", 2},
+		{"cli:cha:010:02", 3},
+		{"cli:cha:010:02:03", 4},
 	}
 	for _, c := range cases {
 		got, err := ParseCitation(c.in)
@@ -81,17 +86,75 @@ func TestCitationParentContract(t *testing.T) {
 		t.Errorf("Parent()=%q,%v", p.Format(), ok)
 	}
 	if _, ok := mustCit(t, "msg").Parent(); ok {
-		t.Errorf("module must have no parent")
+		t.Errorf("flat module must have no parent")
 	}
 	rule := mustCit(t, "msg:010:02")
-	if cl, ok := rule.ContractLoc(); !ok || cl.Format() != "msg:010:00" {
-		t.Errorf("ContractLoc()=%q,%v", cl.Format(), ok)
+	if cl, ok := rule.InheritedContractLoc(); !ok || cl.Format() != "msg:010:00" {
+		t.Errorf("InheritedContractLoc()=%q,%v", cl.Format(), ok)
 	}
 	if !mustCit(t, "msg:010:00").IsContract() {
 		t.Error("msg:010:00 should be a contract")
 	}
 	if rule.IsContract() {
 		t.Error("msg:010:02 is not a contract")
+	}
+}
+
+func TestCitationProduct(t *testing.T) {
+	c := mustCit(t, "cli:cha:010:02")
+	if c.Product != "cli" || c.Module != "cha" || c.Feature != "010" || c.Rule != "02" {
+		t.Fatalf("parsed = %+v", c)
+	}
+	// A bare product root is built directly (a lone code parses as a flat module).
+	pr := Citation{Product: "cli"}
+	if pr.Level() != 0 || pr.Format() != "cli" {
+		t.Errorf("product root level=%d format=%q", pr.Level(), pr.Format())
+	}
+	if _, ok := pr.Parent(); ok {
+		t.Error("product root has no parent")
+	}
+	if defaultPLevel(pr) != 0 {
+		t.Errorf("product root plevel = %d, want 0", defaultPLevel(pr))
+	}
+	// A product's module root → parent is the product root.
+	if p, ok := mustCit(t, "cli:cha").Parent(); !ok || p.Format() != "cli" {
+		t.Errorf("module parent = %q, %v", p.Format(), ok)
+	}
+}
+
+func TestCitationContracts(t *testing.T) {
+	for _, loc := range []string{"msg:010:00", "msg:000", "cli:cha:000", "cli:gen"} {
+		if !mustCit(t, loc).IsContract() {
+			t.Errorf("%q should be a contract", loc)
+		}
+	}
+	for _, loc := range []string{"msg:010:02", "msg:010", "cli:cha", "cli:web", "msg"} {
+		if mustCit(t, loc).IsContract() {
+			t.Errorf("%q should not be a contract", loc)
+		}
+	}
+}
+
+func TestInheritedContractLoc(t *testing.T) {
+	cases := []struct {
+		loc, want string
+		ok        bool
+	}{
+		{"msg:010:02", "msg:010:00", true},         // rule → feature contract
+		{"msg:020", "msg:000", true},               // feature → module contract
+		{"cli:cha:010:02", "cli:cha:010:00", true}, // rule → feature contract (product)
+		{"cli:cha:020", "cli:cha:000", true},       // feature → module contract (product)
+		{"cli:cha", "cli:gen", true},               // module → product contract
+		{"msg", "", false},                         // flat module root: no tier above
+		{"msg:010:02:03", "", false},               // flow: no contract tier
+		{"msg:010:00", "", false},                  // a contract inherits nothing
+		{"cli:gen", "", false},                     // product contract inherits nothing
+	}
+	for _, tc := range cases {
+		cl, ok := mustCit(t, tc.loc).InheritedContractLoc()
+		if ok != tc.ok || (ok && cl.Format() != tc.want) {
+			t.Errorf("%q InheritedContractLoc()=%q,%v want %q,%v", tc.loc, cl.Format(), ok, tc.want, tc.ok)
+		}
 	}
 }
 
