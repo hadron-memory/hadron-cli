@@ -518,8 +518,8 @@ func TestSpecLintScopeNoMatch(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "lint", "--module", "cha", "-m", specProductMem, "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
-		t.Fatalf("a --module scope matching nothing should be Usage, got %d", got)
+	if got := exitcode.FromError(root.Execute()); got != exitcode.NotFound {
+		t.Fatalf("a --module scope matching nothing should be NotFound, got %d", got)
 	}
 }
 

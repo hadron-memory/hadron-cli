@@ -92,7 +92,7 @@ violations) exit with code 5; --strict promotes warnings to errors too.`,
 					if product == "" {
 						hint = " — in a product-rooted memory, scope with --product <ppp> [--module <mmm>]"
 					}
-					return exitcode.Newf(exitcode.Usage, "no specs found under %q%s", prefix, hint)
+					return exitcode.Newf(exitcode.NotFound, "no specs found under %q%s", prefix, hint)
 				}
 				corpus = true
 			case all:
