@@ -254,8 +254,11 @@ func lintCorpus(nodes []specNode, scopeRoot string) []lintFindingDTO {
 			dupReported[n.Loc] = true
 			fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "duplicate-loc", Severity: sevError, Message: "duplicate citation — two nodes share this loc"})
 		}
-		if p, ok := c.Parent(); ok && locCount[p.Format()] == 0 && parentInScope(p.Format(), scopeRoot) {
-			fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "parent-exists", Severity: sevError, Message: "parent " + p.Format() + " does not exist"})
+		if p, ok := c.Parent(); ok {
+			pLoc := p.Format()
+			if locCount[pLoc] == 0 && parentInScope(pLoc, scopeRoot) {
+				fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "parent-exists", Severity: sevError, Message: "parent " + pLoc + " does not exist"})
+			}
 		}
 		// Any non-contract node inherits the reserved contract at its tier
 		// (rule→feature:00, feature→module:000, product-rooted module→product:gen).
