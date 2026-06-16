@@ -9,8 +9,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
-	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -42,12 +40,12 @@ hand-written ledger and any drift is reported (exit 5 if drift is found).`,
 				return err
 			}
 
-			resp, err := gen.Nodes(cmd.Context(), client, &memURN, nil, nil, []string{"spec"}, nil, nil, nil)
+			all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, nil, []string{"spec"})
 			if err != nil {
-				return api.MapError(err)
+				return err
 			}
 			var locs []string
-			for _, n := range resp.Nodes {
+			for _, n := range all {
 				if n == nil {
 					continue
 				}

@@ -9,6 +9,7 @@
 package spec
 
 import (
+	"context"
 	"encoding/json"
 	"regexp"
 	"strconv"
@@ -358,6 +359,54 @@ func fetchSpecNode(cmd *cobra.Command, client graphql.Client, memoryURN, loc str
 // fetchRegister reads the memory's `register` node (advisory; not a spec).
 func fetchRegister(cmd *cobra.Command, client graphql.Client, memoryURN string) (*gen.GetNodeByIdNodeByIdNode, error) {
 	return fetchSpecNode(cmd, client, memoryURN, "register")
+}
+
+// ---- exhaustive node scan (issue #23) ----
+
+// nodesPageSize bounds one page of the paginated nodes scan. The server caps
+// an unspecified limit at its default page (100) and silently drops the rest
+// (issue #23), so every "whole memory/scope" command must page explicitly to
+// exhaustion. 500 matches the server's largest built-in default and keeps a
+// typical spec corpus to a single round-trip; the server materializes the full
+// result set before slicing regardless of limit, so a larger page is cheap.
+const nodesPageSize = 500
+
+// scanAllNodes pages the nodes query to exhaustion and returns every node
+// matching (memory, prefix, nodeType, tags). Any command whose contract is
+// "the whole memory/scope" — spec lint --all and prefix-scoped lint, register,
+// describe, bare spec ls, and the new/supersede allocation scans — must use
+// this rather than a single unbounded gen.Nodes call, which the server
+// truncates to one default page (issue #23). For an allocation scan that
+// truncation is not just under-reporting: a missed tail makes the allocator
+// reuse a live number.
+func scanAllNodes(ctx context.Context, client graphql.Client, memory, prefix, nodeType *string, tags []string) ([]*gen.NodesNodesNode, error) {
+	return paginateNodes(func(limit, offset int) ([]*gen.NodesNodesNode, error) {
+		l, o := limit, offset
+		resp, err := gen.Nodes(ctx, client, memory, prefix, nodeType, tags, nil, &l, &o)
+		if err != nil {
+			return nil, api.MapError(err)
+		}
+		return resp.Nodes, nil
+	})
+}
+
+// paginateNodes drives the offset loop independently of the GraphQL layer so
+// the termination logic is unit-testable. It requests fixed-size pages until a
+// short (or empty) page signals the tail — a full page means there may be more,
+// so it never stops early on a default-capped response. fetch is called with
+// (limit, offset).
+func paginateNodes(fetch func(limit, offset int) ([]*gen.NodesNodesNode, error)) ([]*gen.NodesNodesNode, error) {
+	var all []*gen.NodesNodesNode
+	for offset := 0; ; offset += nodesPageSize {
+		page, err := fetch(nodesPageSize, offset)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if len(page) < nodesPageSize {
+			return all, nil
+		}
+	}
 }
 
 // ---- the in-memory model the lint engine and renderers operate on ----

@@ -72,15 +72,17 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				return exitcode.Newf(exitcode.Usage, "%q is already superseded", oldNode.Loc)
 			}
 
-			// Scan the module subtree for allocation + parent checks.
+			// Scan the module subtree for allocation + parent checks. Paged to
+			// exhaustion — a truncated scan here would make the replacement
+			// allocator reuse a live number on a subtree past one page (#23).
 			prefix := Citation{Product: oldCit.Product, Module: oldCit.Module}.Format()
-			resp, err := gen.Nodes(cmd.Context(), client, &memURN, &prefix, nil, nil, nil, nil, nil)
+			all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil, nil)
 			if err != nil {
-				return api.MapError(err)
+				return err
 			}
 			locs := map[string]bool{}
 			var allLocs []string
-			for _, n := range resp.Nodes {
+			for _, n := range all {
 				if n == nil {
 					continue
 				}

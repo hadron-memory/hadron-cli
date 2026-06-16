@@ -341,14 +341,15 @@ func parentInScope(parentLoc, scopeRoot string) bool {
 
 // scanPrefixDetail reads every node under a loc prefix (headers + specs) with
 // full detail for linting. The prefix is a product, a module, or a
-// product-qualified module (e.g. "cli", "msg", or "cli:cha").
+// product-qualified module (e.g. "cli", "msg", or "cli:cha"). The scan pages
+// to exhaustion so a subtree larger than one server page is linted whole (#23).
 func scanPrefixDetail(cmd *cobra.Command, client graphql.Client, memURN, prefix string) ([]specNode, error) {
-	resp, err := gen.Nodes(cmd.Context(), client, &memURN, &prefix, nil, nil, nil, nil, nil)
+	all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil, nil)
 	if err != nil {
-		return nil, api.MapError(err)
+		return nil, err
 	}
 	var nodes []*gen.NodesNodesNode
-	for _, n := range resp.Nodes {
+	for _, n := range all {
 		if n == nil {
 			continue
 		}
@@ -363,14 +364,15 @@ func scanPrefixDetail(cmd *cobra.Command, client graphql.Client, memURN, prefix 
 }
 
 // scanAllSpecsDetail reads every spec-tagged node in the memory with full
-// detail; non-citation nodes (e.g. the register) are skipped.
+// detail; non-citation nodes (e.g. the register) are skipped. The scan pages
+// to exhaustion so a corpus larger than one server page is linted whole (#23).
 func scanAllSpecsDetail(cmd *cobra.Command, client graphql.Client, memURN string) ([]specNode, error) {
-	resp, err := gen.Nodes(cmd.Context(), client, &memURN, nil, nil, []string{"spec"}, nil, nil, nil)
+	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, nil, []string{"spec"})
 	if err != nil {
-		return nil, api.MapError(err)
+		return nil, err
 	}
 	var nodes []*gen.NodesNodesNode
-	for _, n := range resp.Nodes {
+	for _, n := range all {
 		if n == nil {
 			continue
 		}
