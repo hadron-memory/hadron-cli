@@ -41,6 +41,47 @@ query ResolveUrn($urn: String!) {
   }
 }
 
+# Batch read of full nodes by id (cor:api:040). Server caps a call at 200
+# nodes / 1 MB: an over-cap window comes back with truncated=true and the
+# spillover ids in `omitted`, so callers must re-request those; `unavailable`
+# lists ids the server could not return (deleted/inaccessible). Selects every
+# field the markdown exporter serializes — edges (with target loc, condition,
+# priority) included — so `hadron memory export` fans out the whole memory in
+# ceil(N/200) round-trips instead of one nodeById per node.
+# @genqlient(omitempty: true)
+query NodeBatch($ids: [ID!]) {
+  nodeBatch(ids: $ids) {
+    truncated
+    omitted
+    unavailable
+    nodes {
+      id
+      memoryId
+      loc
+      name
+      alias
+      nodeType
+      description
+      abstract
+      abstractOriginHash
+      tags
+      seq
+      data
+      properties
+      content
+      outgoingEdges {
+        label
+        priority
+        condition
+        target {
+          id
+          loc
+        }
+      }
+    }
+  }
+}
+
 query GetNodeById($id: ID!) {
   nodeById(id: $id) {
     id
