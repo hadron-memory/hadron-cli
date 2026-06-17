@@ -44,7 +44,7 @@ the Hadron portal or by the OAuth flow. The server defaults to
 
 ```
 hadron auth login | logout | whoami | status
-hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name>
+hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> --out <dir>
 hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn>
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
 hadron spec ls [-m <memory>] | get <citation> | describe | register [--check] | find <query> [--match-exactly] | new ... | lint [<citation>] | supersede <citation> | import spec-kit|code
@@ -83,6 +83,16 @@ Conventions:
   memory's URN inside node content and abstracts. Version history,
   shares/subscriptions, assets, and git-sync config are NOT copied.
   Encrypted memories and agent system / app memories cannot be cloned.
+- `memory export <id-or-urn> --out <dir>` writes every node to a local
+  directory as frontmatter markdown (`<out>/<loc>.md`, one self-contained
+  file per node, colons in the loc become path segments) — the same layout
+  the server's git sync produces, but on disk and without a remote. Nodes
+  are pulled in bulk; `data`-type nodes are skipped; nodes the read API
+  cannot return come back under `unavailable` in the `--json` summary
+  (a client-side export is bounded by per-node read access, unlike the
+  server's full-DB git push). Existing files are overwritten but files for
+  removed nodes are never deleted. `--format markdown` is the default and
+  only target today.
 - `spec` manages product-spec nodes whose loc IS a citation number. A memory
   is either flat (`<module>:<feature>:<rule>[:<flow>]`, e.g. `msg:010:02`) or
   product-rooted (`<product>:<module>:<feature>:<rule>[:<flow>]`, e.g.
@@ -134,6 +144,9 @@ hadron memory ls --json
 
 # Inspect one memory by URN
 hadron memory get acme.com:project-memory --json
+
+# Export a whole memory to local markdown files (one .md per node)
+hadron memory export acme.com:project-memory --out ./kb --json
 
 # List nodes in a memory
 hadron node ls --memory acme.com:kb --json
