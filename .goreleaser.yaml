@@ -32,16 +32,23 @@ checksum:
 homebrew_casks:
   - repository:
       owner: hadron-memory
-      name: homebrew-tap
+      name: homebrew-hadron-cli
       token: '{{ .Env.HOMEBREW_TAP_TOKEN }}'
     homepage: https://hadronmemory.com
     description: CLI for the Hadron AI-memory platform
-    # Cross-repo pushes need the HOMEBREW_TAP_TOKEN repo secret (a PAT
-    # with write access to hadron-memory/homebrew-tap; the workflow's
-    # GITHUB_TOKEN cannot push to a sibling repo). Until that secret is
-    # configured, leave skip_upload: true and bump the cask in the tap
-    # manually from the release's checksums.txt.
-    skip_upload: true
+    # The cask is pushed to hadron-memory/homebrew-hadron-cli on every release
+    # via the HOMEBREW_TAP_TOKEN repo secret (a token with write access to that
+    # repo;
+    # the workflow's GITHUB_TOKEN can't push to a sibling repo). That secret
+    # MUST exist — the workflow falls back to GITHUB_TOKEN, which would fail the
+    # cask upload and the release.
+    # The release binaries are unsigned, so strip the Gatekeeper quarantine
+    # flag on install; without it the first run is blocked with "hadron cannot
+    # be opened". Reproduces the postflight the hand-bumped cask carried.
+    hooks:
+      post:
+        install: |
+          system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/hadron"], must_succeed: false
 
 changelog:
   use: github-native
