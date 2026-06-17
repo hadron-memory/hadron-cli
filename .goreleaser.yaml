@@ -32,12 +32,13 @@ checksum:
 homebrew_casks:
   - repository:
       owner: hadron-memory
-      name: homebrew-tap
+      name: homebrew-hadron-cli
       token: '{{ .Env.HOMEBREW_TAP_TOKEN }}'
     homepage: https://hadronmemory.com
     description: CLI for the Hadron AI-memory platform
-    # The cask is pushed to hadron-memory/homebrew-tap on every release via the
-    # HOMEBREW_TAP_TOKEN repo secret (a token with write access to that repo;
+    # The cask is pushed to hadron-memory/homebrew-hadron-cli on every release
+    # via the HOMEBREW_TAP_TOKEN repo secret (a token with write access to that
+    # repo;
     # the workflow's GITHUB_TOKEN can't push to a sibling repo). That secret
     # MUST exist — the workflow falls back to GITHUB_TOKEN, which would fail the
     # cask upload and the release.

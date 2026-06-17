@@ -23,7 +23,7 @@ module `:000`, product `:gen`). See
 ### Homebrew (macOS)
 
 ```sh
-brew tap hadron-memory/tap
+brew tap hadron-memory/hadron-cli
 brew install --cask hadron
 ```
 
