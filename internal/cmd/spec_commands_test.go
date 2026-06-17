@@ -91,6 +91,80 @@ func TestSpecGet(t *testing.T) {
 	}
 }
 
+func TestSpecGetPrefix(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"Nodes":       `{"data":{"nodes":[` + specNodeList("msg:010:01", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"GetNodeById": `{"data":{"nodeById":` + cleanSpecDetail + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "get", "--prefix", "msg:010", "-m", specMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	text := out.String()
+	if !strings.Contains(text, "2 spec(s) under msg:010") {
+		t.Errorf("missing prefix count header:\n%s", text)
+	}
+	if !strings.Contains(text, "Win back users") || !strings.Contains(text, "Lint: ✓ ok") {
+		t.Errorf("prefix dump should render each node's detail:\n%s", text)
+	}
+	// Default prefix mode must page to exhaustion (#23) via scanAllNodes — a
+	// 500-wide page, not the old single capped Nodes call.
+	var vars struct {
+		Prefix string   `json:"prefix"`
+		Tags   []string `json:"tags"`
+		Limit  int      `json:"limit"`
+	}
+	_ = json.Unmarshal(captured["Nodes"], &vars)
+	if vars.Prefix != "msg:010" || len(vars.Tags) != 1 || vars.Tags[0] != "spec" {
+		t.Errorf("prefix/tags wrong: %+v", vars)
+	}
+	if vars.Limit != 500 {
+		t.Errorf("default prefix mode should page by 500 (exhaustive), got limit=%d", vars.Limit)
+	}
+}
+
+func TestSpecGetPrefixExplicitPage(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"Nodes":       `{"data":{"nodes":[` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"GetNodeById": `{"data":{"nodeById":` + cleanSpecDetail + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "get", "--prefix", "msg:010", "--limit", "1", "-m", specMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "1 spec(s) under msg:010") {
+		t.Errorf("unexpected output:\n%s", out.String())
+	}
+	// An explicit --limit is honored verbatim as a single page, not the
+	// 500-wide exhaustive scan.
+	var vars struct {
+		Limit int `json:"limit"`
+	}
+	_ = json.Unmarshal(captured["Nodes"], &vars)
+	if vars.Limit != 1 {
+		t.Errorf("explicit --limit should pass through verbatim, got %d", vars.Limit)
+	}
+}
+
+func TestSpecGetCitationXorPrefix(t *testing.T) {
+	// Exactly one of <citation> / --prefix is required: neither and both error.
+	for _, args := range [][]string{
+		{"spec", "get", "-m", specMem},
+		{"spec", "get", "msg:010:02", "--prefix", "msg:010", "-m", specMem},
+	} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(args)
+		if err := root.Execute(); err == nil {
+			t.Errorf("args %v: expected a usage error (need exactly one of <citation>/--prefix)", args)
+		}
+	}
+}
+
 func TestSpecFindSemanticDefault(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"NodeSearch": `{"data":{"nodeSearch":{"degraded":null,"reason":null,"nodes":[` +

@@ -47,7 +47,7 @@ hadron auth login | logout | whoami | status
 hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> --out <dir>
 hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn>
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
-hadron spec ls [-m <memory>] | get <citation> | describe | register [--check] | find <query> [--match-exactly] | new ... | lint [<citation>] | supersede <citation> | import spec-kit|code
+hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | register [--check] | find <query> [--match-exactly] | new ... | lint [<citation>] | supersede <citation> | import spec-kit|code
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
 hadron config get | set | list
 hadron api <query-or-mutation>                       # raw GraphQL
@@ -99,6 +99,9 @@ Conventions:
   `cli:cha:010:01`) — never both. Each tier has a reserved general-provisions
   contract its siblings inherit: feature `:00`, module `:000`, product `:gen`.
   It takes `-m/--memory` and addresses specs by bare citation, not a full URN.
+  `spec get` shows one citation, or `--prefix <prefix>` dumps every spec under
+  a branch (feature/module/product) with the same per-node detail, paged to
+  exhaustion (`--limit`/`--offset` fetch a single page); `--json` emits an array.
   `spec describe` reports a memory's scheme (flat/product), products, modules,
   and counts, reading any scheme declared in the memory's data
   (`--declare flat|product` writes it); `spec new` allocates the next number
