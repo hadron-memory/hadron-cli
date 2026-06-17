@@ -90,7 +90,7 @@ object for a single citation, an array for --prefix.`,
 				}
 			}
 
-			var hits []*gen.NodesNodesNode
+			ids := make([]string, 0, len(listed))
 			for _, n := range listed {
 				if n == nil {
 					continue
@@ -98,21 +98,35 @@ object for a single citation, an array for --prefix.`,
 				if _, perr := ParseCitation(n.Loc); perr != nil {
 					continue // only citation-shaped nodes are specs
 				}
-				hits = append(hits, n)
+				ids = append(ids, n.Id)
 			}
-			sort.Slice(hits, func(i, j int) bool { return hits[i].Loc < hits[j].Loc })
 
-			details := make([]specDetailDTO, 0, len(hits))
-			for _, h := range hits {
-				gr, gerr := gen.GetNodeById(cmd.Context(), client, h.Id)
-				if gerr != nil {
-					return api.MapError(gerr)
+			// Bulk-read the full nodes (cor:api:040) rather than one GetNodeById
+			// per spec — ceil(N/200) round-trips instead of N.
+			batched, unavailable, berr := api.CollectNodeBatch(ids, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
+				resp, ferr := gen.NodeBatch(cmd.Context(), client, chunk)
+				if ferr != nil {
+					return nil, api.MapError(ferr)
 				}
-				if gr.NodeById == nil {
+				return resp.NodeBatch, nil
+			})
+			if berr != nil {
+				return berr
+			}
+			if len(unavailable) > 0 {
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: %d spec(s) listed but could not be read\n", len(unavailable))
+			}
+
+			details := make([]specDetailDTO, 0, len(batched))
+			for _, bn := range batched {
+				if bn == nil {
 					continue
 				}
-				details = append(details, specDetailFromNode(gr.NodeById, !abstractOnly))
+				details = append(details, specDetailFromNode(nodeByIDFromBatch(bn), !abstractOnly))
 			}
+			// Bulk reads don't preserve order across chunks — sort for a
+			// deterministic dump.
+			sort.Slice(details, func(i, j int) bool { return details[i].Citation < details[j].Citation })
 
 			return output.Write(f.IOStreams, f.JSON, details, func(w io.Writer) error {
 				fmt.Fprintf(w, "%d spec(s) under %s\n", len(details), prefix)
@@ -162,6 +176,46 @@ func specDetailFromNode(n *gen.GetNodeByIdNodeByIdNode, includeContent bool) spe
 		}
 	}
 	return dto
+}
+
+// nodeByIDFromBatch adapts a bulk NodeBatch node into the GetNodeById shape, so
+// the detail/lint builders (specDetailFromNode, nodeFromGQL) run unchanged on
+// either fetch path. Only the fields those builders read are carried over —
+// scalars, data (for data.version), and both edge directions with target/source
+// loc + memoryId; everything else stays zero.
+func nodeByIDFromBatch(b *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) *gen.GetNodeByIdNodeByIdNode {
+	n := &gen.GetNodeByIdNodeByIdNode{
+		Id:                 b.Id,
+		MemoryId:           b.MemoryId,
+		Loc:                b.Loc,
+		Name:               b.Name,
+		NodeType:           b.NodeType,
+		Tags:               b.Tags,
+		Abstract:           b.Abstract,
+		AbstractOriginHash: b.AbstractOriginHash,
+		Content:            b.Content,
+		Data:               b.Data,
+		UpdatedAt:          b.UpdatedAt,
+	}
+	for _, e := range b.OutgoingEdges {
+		if e == nil || e.Target == nil {
+			continue
+		}
+		n.OutgoingEdges = append(n.OutgoingEdges, &gen.GetNodeByIdNodeByIdNodeOutgoingEdgesEdge{
+			Label:  e.Label,
+			Target: &gen.GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode{Id: e.Target.Id, Loc: e.Target.Loc, MemoryId: e.Target.MemoryId},
+		})
+	}
+	for _, e := range b.IncomingEdges {
+		if e == nil || e.Source == nil {
+			continue
+		}
+		n.IncomingEdges = append(n.IncomingEdges, &gen.GetNodeByIdNodeByIdNodeIncomingEdgesEdge{
+			Label:  e.Label,
+			Source: &gen.GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode{Id: e.Source.Id, Loc: e.Source.Loc, MemoryId: e.Source.MemoryId},
+		})
+	}
+	return n
 }
 
 // renderSpecDetail writes the human-readable single-spec view. Shared by the

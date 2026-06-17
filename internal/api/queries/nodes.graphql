@@ -41,13 +41,15 @@ query ResolveUrn($urn: String!) {
   }
 }
 
-# Batch read of full nodes by id (cor:api:040). Server caps a call at 200
+# Bulk read of full nodes by id (cor:api:040). Server caps a call at 200
 # nodes / 1 MB: an over-cap window comes back with truncated=true and the
 # spillover ids in `omitted`, so callers must re-request those; `unavailable`
-# lists ids the server could not return (deleted/inaccessible). Selects every
-# field the markdown exporter serializes — edges (with target loc, condition,
-# priority) included — so `hadron memory export` fans out the whole memory in
-# ceil(N/200) round-trips instead of one nodeById per node.
+# lists ids the server could not return (deleted/inaccessible). Selects a full
+# node projection — both edge directions (with target/source loc + memoryId),
+# everything the markdown exporter serializes, and the fields the spec detail/
+# lint builders read — so the whole-corpus fan-outs (`memory export`,
+# `spec get --prefix`) read in ceil(N/200) round-trips instead of one nodeById
+# per node. Driven through api.CollectNodeBatch.
 # @genqlient(omitempty: true)
 query NodeBatch($ids: [ID!]) {
   nodeBatch(ids: $ids) {
@@ -69,6 +71,7 @@ query NodeBatch($ids: [ID!]) {
       data
       properties
       content
+      updatedAt
       outgoingEdges {
         label
         priority
@@ -76,6 +79,15 @@ query NodeBatch($ids: [ID!]) {
         target {
           id
           loc
+          memoryId
+        }
+      }
+      incomingEdges {
+        label
+        source {
+          id
+          loc
+          memoryId
         }
       }
     }

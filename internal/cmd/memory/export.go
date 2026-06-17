@@ -24,13 +24,6 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-// nodeBatchCap mirrors hadron-server's BATCH_READ_MAX_NODES (cor:api:040): a
-// single nodeBatch call accepts at most 200 ids and fails loud above that, so
-// the export fans out in fixed-size chunks. The server also enforces a ~1 MB
-// response cap that can return a partial page (truncated=true) with the
-// spillover ids in `omitted`; collectNodeBatch re-requests those.
-const nodeBatchCap = 200
-
 // nodesPageSize bounds one page of the shallow id-listing scan. Like the spec
 // whole-corpus commands, the listing is paged to exhaustion — the server caps
 // an unbounded nodes query at its default page and silently drops the tail.
@@ -112,7 +105,7 @@ left in place — export never deletes.`,
 			}
 
 			// 2. Bulk-fetch the full nodes (content + edges) for those ids.
-			nodes, unavailable, err := collectNodeBatch(ids, func(chunk []string) (*batchResult, error) {
+			nodes, unavailable, err := api.CollectNodeBatch(ids, func(chunk []string) (*batchResult, error) {
 				resp, ferr := gen.NodeBatch(cmd.Context(), client, chunk)
 				if ferr != nil {
 					return nil, api.MapError(ferr)
@@ -189,45 +182,6 @@ func listAllNodeRefs(ctx context.Context, client graphql.Client, memID string) (
 			return all, nil
 		}
 	}
-}
-
-// collectNodeBatch fetches full nodes for ids in cap-sized chunks, re-queuing
-// the spillover the server drops under its response-size cap. fetch is
-// injected so the chunking/truncation loop is unit-testable without a server.
-// Returned: the nodes (input order is not guaranteed across chunks),
-// the union of ids the server reported unavailable, and the first error.
-func collectNodeBatch(ids []string, fetch func([]string) (*batchResult, error)) ([]*batchNode, []string, error) {
-	var nodes []*batchNode
-	var unavailable []string
-	queue := append([]string(nil), ids...)
-	for len(queue) > 0 {
-		n := nodeBatchCap
-		if n > len(queue) {
-			n = len(queue)
-		}
-		chunk := queue[:n]
-		queue = queue[n:]
-
-		res, err := fetch(chunk)
-		if err != nil {
-			return nil, nil, err
-		}
-		if res == nil {
-			return nil, nil, fmt.Errorf("nodeBatch returned no result for %d id(s)", len(chunk))
-		}
-		nodes = append(nodes, res.Nodes...)
-		unavailable = append(unavailable, res.Unavailable...)
-		if res.Truncated {
-			// Byte-cap spillover. The server always returns at least one node
-			// per call, so re-queuing strictly shrinks the backlog; guard the
-			// contract anyway so a server bug surfaces as an error, not a hang.
-			if len(res.Nodes) == 0 {
-				return nil, nil, fmt.Errorf("nodeBatch truncated without returning any node (%d omitted)", len(res.Omitted))
-			}
-			queue = append(queue, res.Omitted...)
-		}
-	}
-	return nodes, unavailable, nil
 }
 
 // writeNodeMarkdown renders one node and writes it to <root>/<loc>.md,
