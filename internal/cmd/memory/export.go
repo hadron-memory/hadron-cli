@@ -388,15 +388,19 @@ func decodeJSON(raw *json.RawMessage) any {
 }
 
 // locToSegments splits a loc into filesystem path segments, rejecting empty,
-// `.`, and `..` segments. Those feed directory creation and file writes, so a
-// malformed loc (e.g. `a::b`, a trailing `:`, or a `..`) is a real hazard —
-// fail loud rather than write outside the output tree. Mirrors the server's
-// locToSegments guard.
+// `.`, `..`, and any segment carrying a path separator. Those feed directory
+// creation and file writes, so a malformed loc is a real hazard — a segment
+// like `../escape` or `a/b` contains no `:` and isn't equal to `..`, so it
+// would slip past the exact-match checks and let filepath.Join walk outside
+// the output tree (`<root>/../escape.md`). Valid locs (URN grammar) never
+// contain `/`, `\`, or `..` segments, so this only ever rejects hostile input;
+// fail loud rather than write to the wrong path. Hardens the server's
+// locToSegments guard, which checks only empty/`.`/`..`.
 func locToSegments(loc string) ([]string, error) {
 	parts := strings.Split(loc, ":")
 	for _, p := range parts {
-		if p == "" || p == "." || p == ".." {
-			return nil, fmt.Errorf("unsafe loc %q: empty, '.', or '..' path segments are not allowed", loc)
+		if p == "" || p == "." || p == ".." || strings.ContainsAny(p, `/\`) {
+			return nil, fmt.Errorf("unsafe loc %q: empty, '.', '..', or path-separator segments are not allowed", loc)
 		}
 	}
 	return parts, nil

@@ -158,9 +158,13 @@ func TestNodeFilePath(t *testing.T) {
 		}
 	}
 
-	for _, bad := range []string{"a::b", "a:", ":b", "a:..:b", "a:.:b"} {
-		if _, err := nodeFilePath(root, bad); err == nil {
-			t.Errorf("nodeFilePath(%q): expected error for unsafe loc", bad)
+	// Malformed locs and path-traversal attempts must be rejected — a segment
+	// like "../escape" or "a/b" would otherwise let filepath.Join walk outside
+	// the output tree.
+	for _, bad := range []string{"a::b", "a:", ":b", "a:..:b", "a:.:b", "../escape", "a/../b", `a\b`, "/abs", "a:../b"} {
+		got, err := nodeFilePath(root, bad)
+		if err == nil {
+			t.Errorf("nodeFilePath(%q) = %q: expected error for unsafe loc", bad, got)
 		}
 	}
 }
