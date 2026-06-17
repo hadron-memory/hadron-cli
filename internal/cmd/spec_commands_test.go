@@ -16,6 +16,30 @@ func specNodeList(loc, tags string) string {
 		loc, loc, loc+" — T", tags)
 }
 
+// specBatchNode is one node in a nodeBatch response — the projection the
+// --prefix path reads. Rubric-clean (passes lintNode with no findings) for a
+// level-3 loc under msg:010: name prefix, spec+p1 tags, abstract, an
+// invalidates section, data.version, and a toc edge to the parent msg:010.
+func specBatchNode(loc string) string {
+	return fmt.Sprintf(`{"id":"id-%s","memoryId":"mem1","loc":%q,"name":%q,"alias":null,"nodeType":"info",`+
+		`"description":null,"abstract":"Win back users who never engaged after signup.","abstractOriginHash":null,`+
+		`"tags":["spec","p1"],"seq":null,"data":{"version":"0.0.1"},"properties":null,`+
+		`"content":"# spec\n\n## Definition\nx\n\n## Rule\nx\n\n## Durable vs tunable\nx\n\n## What invalidates this spec\nChanges.\n",`+
+		`"updatedAt":"2026-06-14T00:00:00Z",`+
+		`"outgoingEdges":[{"label":"p1: W2","priority":0,"condition":null,"target":{"id":"f1","loc":"msg:010","memoryId":"mem1"}}],`+
+		`"incomingEdges":[]}`,
+		loc, loc, loc+" — W2")
+}
+
+func specBatchResp(locs ...string) string {
+	nodes := make([]string, len(locs))
+	for i, loc := range locs {
+		nodes[i] = specBatchNode(loc)
+	}
+	return `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` +
+		strings.Join(nodes, ",") + `]}}}`
+}
+
 // A rubric-clean spec detail (msg:010:02) — passes lintNode with no findings.
 const cleanSpecDetail = `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
 	`"description":null,"abstract":"Win back users who never engaged after signup.","abstractOriginHash":null,` +
@@ -88,6 +112,88 @@ func TestSpecGet(t *testing.T) {
 	_ = json.Unmarshal(captured["ResolveUrn"], &vars)
 	if vars.Urn != "hrn:node:"+specMem+"::msg:010:02" {
 		t.Errorf("resolveUrn got %q", vars.Urn)
+	}
+}
+
+func TestSpecGetPrefix(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"Nodes":     `{"data":{"nodes":[` + specNodeList("msg:010:01", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"NodeBatch": specBatchResp("msg:010:01", "msg:010:02"),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "get", "--prefix", "msg:010", "-m", specMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	text := out.String()
+	if !strings.Contains(text, "2 spec(s) under msg:010") {
+		t.Errorf("missing prefix count header:\n%s", text)
+	}
+	if !strings.Contains(text, "Win back users") || !strings.Contains(text, "Lint: ✓ ok") {
+		t.Errorf("prefix dump should render each node's detail:\n%s", text)
+	}
+	// Default prefix mode pages the listing to exhaustion (#23) via scanAllNodes
+	// — a 500-wide page, not the old single capped Nodes call.
+	var nodesVars struct {
+		Prefix string   `json:"prefix"`
+		Tags   []string `json:"tags"`
+		Limit  int      `json:"limit"`
+	}
+	_ = json.Unmarshal(captured["Nodes"], &nodesVars)
+	if nodesVars.Prefix != "msg:010" || len(nodesVars.Tags) != 1 || nodesVars.Tags[0] != "spec" {
+		t.Errorf("prefix/tags wrong: %+v", nodesVars)
+	}
+	if nodesVars.Limit != 500 {
+		t.Errorf("default prefix mode should page by 500 (exhaustive), got limit=%d", nodesVars.Limit)
+	}
+	// Details come from one bulk nodeBatch call, not a GetNodeById per spec.
+	var batchVars struct {
+		Ids []string `json:"ids"`
+	}
+	_ = json.Unmarshal(captured["NodeBatch"], &batchVars)
+	if len(batchVars.Ids) != 2 {
+		t.Errorf("expected 2 ids in the bulk read, got %v", batchVars.Ids)
+	}
+}
+
+func TestSpecGetPrefixExplicitPage(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"Nodes":     `{"data":{"nodes":[` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"NodeBatch": specBatchResp("msg:010:02"),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "get", "--prefix", "msg:010", "--limit", "1", "-m", specMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "1 spec(s) under msg:010") {
+		t.Errorf("unexpected output:\n%s", out.String())
+	}
+	// An explicit --limit is honored verbatim as a single page, not the
+	// 500-wide exhaustive scan.
+	var vars struct {
+		Limit int `json:"limit"`
+	}
+	_ = json.Unmarshal(captured["Nodes"], &vars)
+	if vars.Limit != 1 {
+		t.Errorf("explicit --limit should pass through verbatim, got %d", vars.Limit)
+	}
+}
+
+func TestSpecGetCitationXorPrefix(t *testing.T) {
+	// Exactly one of <citation> / --prefix is required: neither and both error.
+	for _, args := range [][]string{
+		{"spec", "get", "-m", specMem},
+		{"spec", "get", "msg:010:02", "--prefix", "msg:010", "-m", specMem},
+	} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(args)
+		if err := root.Execute(); err == nil {
+			t.Errorf("args %v: expected a usage error (need exactly one of <citation>/--prefix)", args)
+		}
 	}
 }
 

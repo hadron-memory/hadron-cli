@@ -784,7 +784,9 @@ type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
 	Data               *json.RawMessage                                               `json:"data"`
 	Properties         *json.RawMessage                                               `json:"properties"`
 	Content            *string                                                        `json:"content"`
+	UpdatedAt          string                                                         `json:"updatedAt"`
 	OutgoingEdges      []*NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge `json:"outgoingEdges"`
+	IncomingEdges      []*NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge `json:"incomingEdges"`
 }
 
 // GetId returns NodeBatchNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
@@ -833,9 +835,55 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetProperties() *json.RawMe
 // GetContent returns NodeBatchNodeBatchNodeBatchResultNodesNode.Content, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetContent() *string { return v.Content }
 
+// GetUpdatedAt returns NodeBatchNodeBatchNodeBatchResultNodesNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetUpdatedAt() string { return v.UpdatedAt }
+
 // GetOutgoingEdges returns NodeBatchNodeBatchNodeBatchResultNodesNode.OutgoingEdges, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetOutgoingEdges() []*NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge {
 	return v.OutgoingEdges
+}
+
+// GetIncomingEdges returns NodeBatchNodeBatchNodeBatchResultNodesNode.IncomingEdges, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetIncomingEdges() []*NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge {
+	return v.IncomingEdges
+}
+
+// NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge includes the requested fields of the GraphQL type Edge.
+type NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge struct {
+	Label  string                                                                 `json:"label"`
+	Source *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode `json:"source"`
+}
+
+// GetLabel returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.Label, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge) GetLabel() string {
+	return v.Label
+}
+
+// GetSource returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.Source, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge) GetSource() *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode {
+	return v.Source
+}
+
+// NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode includes the requested fields of the GraphQL type Node.
+type NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode struct {
+	Id       string `json:"id"`
+	Loc      string `json:"loc"`
+	MemoryId string `json:"memoryId"`
+}
+
+// GetId returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode.Id, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode) GetId() string {
+	return v.Id
+}
+
+// GetLoc returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode.Loc, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode) GetLoc() string {
+	return v.Loc
+}
+
+// GetMemoryId returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode) GetMemoryId() string {
+	return v.MemoryId
 }
 
 // NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
@@ -868,8 +916,9 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) GetTarget(
 
 // NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode includes the requested fields of the GraphQL type Node.
 type NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode struct {
-	Id  string `json:"id"`
-	Loc string `json:"loc"`
+	Id       string `json:"id"`
+	Loc      string `json:"loc"`
+	MemoryId string `json:"memoryId"`
 }
 
 // GetId returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode.Id, and is useful for accessing the field via an interface.
@@ -880,6 +929,11 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode) 
 // GetLoc returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode.Loc, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode) GetLoc() string {
 	return v.Loc
+}
+
+// GetMemoryId returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode) GetMemoryId() string {
+	return v.MemoryId
 }
 
 // NodeBatchResponse is returned by NodeBatch on success.
@@ -2404,6 +2458,7 @@ query NodeBatch ($ids: [ID!]) {
 			data
 			properties
 			content
+			updatedAt
 			outgoingEdges {
 				label
 				priority
@@ -2411,6 +2466,15 @@ query NodeBatch ($ids: [ID!]) {
 				target {
 					id
 					loc
+					memoryId
+				}
+			}
+			incomingEdges {
+				label
+				source {
+					id
+					loc
+					memoryId
 				}
 			}
 		}
@@ -2418,13 +2482,15 @@ query NodeBatch ($ids: [ID!]) {
 }
 `
 
-// Batch read of full nodes by id (cor:api:040). Server caps a call at 200
+// Bulk read of full nodes by id (cor:api:040). Server caps a call at 200
 // nodes / 1 MB: an over-cap window comes back with truncated=true and the
 // spillover ids in `omitted`, so callers must re-request those; `unavailable`
-// lists ids the server could not return (deleted/inaccessible). Selects every
-// field the markdown exporter serializes — edges (with target loc, condition,
-// priority) included — so `hadron memory export` fans out the whole memory in
-// ceil(N/200) round-trips instead of one nodeById per node.
+// lists ids the server could not return (deleted/inaccessible). Selects a full
+// node projection — both edge directions (with target/source loc + memoryId),
+// everything the markdown exporter serializes, and the fields the spec detail/
+// lint builders read — so the whole-corpus fan-outs (`memory export`,
+// `spec get --prefix`) read in ceil(N/200) round-trips instead of one nodeById
+// per node. Driven through api.CollectNodeBatch.
 func NodeBatch(
 	ctx_ context.Context,
 	client_ graphql.Client,
