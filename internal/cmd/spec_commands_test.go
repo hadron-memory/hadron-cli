@@ -322,6 +322,9 @@ func TestSpecNew(t *testing.T) {
 	if up.Input.Abstract == nil || *up.Input.Abstract == "" {
 		t.Error("abstract must be set")
 	}
+	if len(up.Input.Tags) != 1 || up.Input.Tags[0] != "spec" {
+		t.Errorf("new spec tags = %v, want [spec] (no read-priority p-level)", up.Input.Tags)
+	}
 
 	var dto struct {
 		Citation string `json:"citation"`
@@ -338,7 +341,7 @@ func TestSpecNew(t *testing.T) {
 	}
 	var sawToC, sawInherit bool
 	for _, e := range dto.Edges {
-		if strings.HasPrefix(e.Label, "p1:") && e.Target == "msg:010" {
+		if e.Label == "Test" && e.Target == "msg:010" {
 			sawToC = true
 		}
 		if strings.Contains(e.Label, "inherits") && e.Target == "msg:010:00" {

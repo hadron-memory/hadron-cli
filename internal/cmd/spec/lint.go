@@ -196,9 +196,6 @@ func lintNode(n specNode) []lintFindingDTO {
 	if !hasTag(n.Tags, "spec") {
 		add("tag-spec", sevError, `missing "spec" tag`)
 	}
-	if countMatching(n.Tags, rePLevel) != 1 {
-		add("one-plevel", sevError, "must carry exactly one read-priority tag (p0..p3)")
-	}
 	if !abstractPresent(n.Abstract) {
 		add("abstract", rubricSev, "missing abstract — the vector-search retrieval surface (or still a placeholder)")
 	}
@@ -297,16 +294,6 @@ func hasTag(tags []string, want string) bool {
 		}
 	}
 	return false
-}
-
-func countMatching(tags []string, re *regexp.Regexp) int {
-	n := 0
-	for _, t := range tags {
-		if re.MatchString(t) {
-			n++
-		}
-	}
-	return n
 }
 
 func abstractPresent(a *string) bool {

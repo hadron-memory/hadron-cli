@@ -101,8 +101,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				return err
 			}
 
-			plevel := defaultPLevel(newTarget)
-			newTags := specTags(plevel, semanticTags(oldNode.Tags))
+			newTags := specTags(semanticTags(oldNode.Tags))
 			name := specName(newTarget, title)
 
 			result := supersedeResultDTO{
@@ -110,7 +109,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				Name: name, Tags: newTags, DryRun: dryRun,
 			}
 			if parentLoc != "" {
-				result.Edges = append(result.Edges, plannedEdgeDTO{Label: tocEdgeLabel(plevel, title), Target: parentLoc})
+				result.Edges = append(result.Edges, plannedEdgeDTO{Label: title, Target: parentLoc})
 			}
 			if inheritLoc != "" {
 				result.Edges = append(result.Edges, plannedEdgeDTO{Label: inheritEdgeLabel, Target: inheritLoc})

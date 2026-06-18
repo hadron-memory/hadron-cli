@@ -38,7 +38,6 @@ func newCmdNew(f *cmdutil.Factory) *cobra.Command {
 		feature, rule, ruleAfter, flow string
 		inherit, abstract              string
 		content, contentFile           string
-		plevel                         int
 		tags                           []string
 		newFeature, newModule          bool
 		newProduct, contract           bool
@@ -141,13 +140,6 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 				return err
 			}
 
-			if plevel < 0 {
-				plevel = defaultPLevel(target)
-			}
-			if plevel < 0 || plevel > 3 {
-				return exitcode.Newf(exitcode.Usage, "--plevel must be 0..3")
-			}
-
 			body, err := resolveBody(content, contentFile, f.IOStreams.In, target, title)
 			if err != nil {
 				return err
@@ -157,7 +149,7 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 				abs = placeholderAbstract(target, title)
 			}
 			name := specName(target, title)
-			tagSet := specTags(plevel, tags)
+			tagSet := specTags(tags)
 
 			result := newResultDTO{
 				Citation: target.Format(),
@@ -169,7 +161,7 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 			}
 			if !noEdges {
 				if parentLoc != "" {
-					result.Edges = append(result.Edges, plannedEdgeDTO{Label: tocEdgeLabel(plevel, title), Target: parentLoc})
+					result.Edges = append(result.Edges, plannedEdgeDTO{Label: title, Target: parentLoc})
 				}
 				if inheritLoc != "" {
 					result.Edges = append(result.Edges, plannedEdgeDTO{Label: inheritEdgeLabel, Target: inheritLoc})
@@ -232,7 +224,6 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 	cmd.Flags().BoolVar(&newModule, "new-module", false, "create a new (frozen) module root")
 	cmd.Flags().BoolVar(&newProduct, "new-product", false, "create a new (frozen) product root (needs --product)")
 	cmd.Flags().BoolVar(&contract, "contract", false, "scaffold the general-provisions contract at the deepest specified tier")
-	cmd.Flags().IntVar(&plevel, "plevel", -1, "read-priority level 0..3 (default: from citation level)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "extra semantic tag (repeatable)")
 	cmd.Flags().StringVar(&abstract, "abstract", "", "the spec's abstract (default: a placeholder lint flags)")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `body content ("-" reads stdin; default: the rubric template)`)
@@ -246,10 +237,6 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 }
 
 const inheritEdgeLabel = "inherits the shared contract (general provisions)"
-
-func tocEdgeLabel(plevel int, title string) string {
-	return fmt.Sprintf("p%d: %s", plevel, title)
-}
 
 type planInput struct {
 	product, module                             string

@@ -296,20 +296,6 @@ func (c Citation) InheritedContractLoc() (Citation, bool) {
 	}
 }
 
-// defaultPLevel is the read-priority level a freshly scaffolded spec gets
-// from its citation level: product/module roots p0, features/rules/contracts
-// p1, flows p2.
-func defaultPLevel(c Citation) int {
-	switch c.Level() {
-	case 0, 1:
-		return 0
-	case 4:
-		return 2
-	default:
-		return 1
-	}
-}
-
 // ---- memory / node-reference helpers ----
 
 // memoryURNFromFlag normalizes the -m/--memory value to the canonical

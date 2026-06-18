@@ -46,12 +46,11 @@ func specName(c Citation, title string) string {
 	return c.Format() + " — " + title
 }
 
-// specTags returns the tag set for a spec: "spec", the p-level, then any
-// extra semantic tags (deduped, order-preserving).
-func specTags(plevel int, extra []string) []string {
-	plevelTag := fmt.Sprintf("p%d", plevel)
-	tags := []string{"spec", plevelTag}
-	seen := map[string]bool{"spec": true, plevelTag: true}
+// specTags returns the tag set for a spec: "spec" then any extra semantic
+// tags (deduped, order-preserving).
+func specTags(extra []string) []string {
+	tags := []string{"spec"}
+	seen := map[string]bool{"spec": true}
 	for _, t := range extra {
 		t = strings.TrimSpace(t)
 		if t == "" || seen[t] {
