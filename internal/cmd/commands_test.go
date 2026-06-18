@@ -241,7 +241,9 @@ func TestNodeUpdateContentOnlyOmitsTags(t *testing.T) {
 	var vars struct {
 		Input map[string]any `json:"input"`
 	}
-	_ = json.Unmarshal(captured["UpsertNode"], &vars)
+	if err := json.Unmarshal(captured["UpsertNode"], &vars); err != nil {
+		t.Fatalf("unmarshal UpsertNode variables: %v", err)
+	}
 	if vars.Input["content"] != "revised body" {
 		t.Errorf("content not sent: %v", vars.Input)
 	}
