@@ -60,11 +60,14 @@ Bundled here as one "spec DX + lint" theme; each is severable into its own PR.
   that `--content` already used, so every text flag behaves identically and the
   error messages name the right flag.
 - **`internal/cmd/node/update.go`** — adds `--abstract-file`; `--abstract`/`-`
-  and `--abstract-file` now route through `ResolveTextInput`. A guard rejects
-  `--content -` together with `--abstract -` (stdin is consumable once).
+  and `--abstract-file` now route through `ResolveTextInput`. Guards reject
+  `--content -` together with `--abstract -` (stdin is consumable once) and
+  `--abstract` together with `--abstract-file`. The latter is on `Changed()`,
+  not the resolved value, so an explicit `--abstract ""` (clear) is caught
+  rather than silently overridden by the file.
 - **`internal/cmd/spec/new.go`** — same `--abstract-file` / `--abstract -`
   support for the scaffolded abstract (falls back to the placeholder when
-  empty), with the same dual-stdin guard.
+  empty), with the same dual-stdin and `--abstract`/`--abstract-file` guards.
 - **`internal/cmd/spec/get.go`** — adds `--body-only`: for a single citation it
   prints only the raw markdown body (no metadata/edges/lint). Mutually exclusive
   with `--abstract-only` and with `--prefix` (single-citation only). New stable

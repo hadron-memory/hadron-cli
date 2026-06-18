@@ -319,6 +319,22 @@ func TestNodeUpdateRejectsDualStdin(t *testing.T) {
 	}
 }
 
+// #45 review: an explicit --abstract "" (clear) together with --abstract-file
+// must error, not silently let the file win. The guard is on Changed(), so it
+// catches the empty-value case the resolver's value check would miss — and
+// fires before any network round-trip.
+func TestNodeUpdateRejectsAbstractAndAbstractFile(t *testing.T) {
+	for _, abstract := range []string{"", "inline text"} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"node", "update", nodeURN, "--abstract", abstract, "--abstract-file", "/tmp/x.md", "--server", "http://127.0.0.1:1"})
+		err := root.Execute()
+		if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+			t.Fatalf("--abstract %q + --abstract-file should be a mutual-exclusion error, got %v", abstract, err)
+		}
+	}
+}
+
 func TestNodeRmRequiresYesNonInteractive(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn":  resolveNodeJSON,

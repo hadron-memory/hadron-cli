@@ -45,6 +45,13 @@ else is preserved (pass an explicit empty string, e.g.
 			if changed("content") && content == "-" && changed("abstract") && abstract == "-" {
 				return exitcode.Newf(exitcode.Usage, "--content - and --abstract - cannot both read stdin")
 			}
+			// --abstract and --abstract-file are mutually exclusive. Guard on
+			// Changed() (not the resolved value): an explicit --abstract "" to
+			// clear would otherwise slip past ResolveTextInput's value check and
+			// let the file silently win.
+			if changed("abstract") && changed("abstract-file") {
+				return exitcode.Newf(exitcode.Usage, "--abstract and --abstract-file are mutually exclusive")
+			}
 
 			client, err := f.GraphQLClient()
 			if err != nil {

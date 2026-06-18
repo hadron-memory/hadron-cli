@@ -100,6 +100,12 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 			if content == "-" && abstract == "-" {
 				return exitcode.Newf(exitcode.Usage, "--content - and --abstract - cannot both read stdin")
 			}
+			// --abstract and --abstract-file are mutually exclusive — guard on
+			// Changed() so an explicit empty --abstract is caught too, not just
+			// the value-based check inside ResolveTextInput.
+			if cmd.Flags().Changed("abstract") && cmd.Flags().Changed("abstract-file") {
+				return exitcode.Newf(exitcode.Usage, "--abstract and --abstract-file are mutually exclusive")
+			}
 
 			client, err := f.GraphQLClient()
 			if err != nil {

@@ -353,6 +353,21 @@ func TestSpecNew(t *testing.T) {
 	}
 }
 
+// #45 review: --abstract and --abstract-file are mutually exclusive, guarded
+// on Changed() (so an explicit empty --abstract is caught too); fires before
+// any GraphQL call.
+func TestSpecNewRejectsAbstractAndAbstractFile(t *testing.T) {
+	for _, abstract := range []string{"", "inline"} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"spec", "new", "-m", specMem, "--module", "msg", "--feature", "010", "--title", "T",
+			"--abstract", abstract, "--abstract-file", "/tmp/x.md", "--server", "http://127.0.0.1:1"})
+		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+			t.Fatalf("--abstract %q + --abstract-file should be Usage, got %d", abstract, got)
+		}
+	}
+}
+
 func TestSpecNewDryRun(t *testing.T) {
 	// Only the scan is mocked: any mutation would be an unexpected op and fail.
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `]}}`
