@@ -124,6 +124,10 @@ var (
 	reModule  = regexp.MustCompile(`^[a-z]{3}$`)
 	reFeature = regexp.MustCompile(`^[0-9]{3}$`)
 	re2digit  = regexp.MustCompile(`^[0-9]{2}$`)
+	// rePLevel matches a legacy read-priority tag (p0..p3); used by
+	// supersede's semanticTags to drop it when carrying tags over from a
+	// pre-migration node.
+	rePLevel = regexp.MustCompile(`^p[0-3]$`)
 )
 
 const (

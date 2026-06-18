@@ -24,7 +24,6 @@ const (
 )
 
 var (
-	rePLevel = regexp.MustCompile(`^p[0-3]$`)
 	// Matches the "what invalidates" statement whether it's a heading
 	// (## What invalidates …) or inline bold (**What invalidates:** …),
 	// both of which the platform-specs corpus uses.
