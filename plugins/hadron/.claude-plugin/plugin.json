@@ -1,0 +1,17 @@
+{
+  "name": "hadron",
+  "description": "Hadron slash commands — run tasks, search the graph, and open nodes in the portal. Wraps the Hadron MCP tools (h-run-task, h-search) for deterministic, explicitly-typed invocation.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Hadron",
+    "url": "https://hadronmemory.com"
+  },
+  "homepage": "https://hadronmemory.com",
+  "license": "MIT",
+  "keywords": [
+    "hadron",
+    "memory",
+    "knowledge-graph",
+    "mcp"
+  ]
+}
