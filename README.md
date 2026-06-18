@@ -97,6 +97,36 @@ typed operations live in `internal/api/queries/*.graphql` and are
 compiled by [genqlient](https://github.com/Khan/genqlient). CI fails
 if generated code drifts from the committed schema.
 
+## Releasing
+
+Releases are cut by pushing a semver tag — no manual build, upload, or
+cask edit:
+
+```sh
+git checkout main && git pull        # release from a green main
+git tag -a v0.3.0 -m "v0.3.0"        # bump per semver
+git push origin v0.3.0
+```
+
+The tag triggers [`.github/workflows/release.yml`](.github/workflows/release.yml),
+which runs [goreleaser](https://goreleaser.com) ([`.goreleaser.yaml`](.goreleaser.yaml)) to:
+
+- cross-compile darwin/linux/windows (amd64/arm64) binaries — version-stamped
+  from the tag — into archives + `checksums.txt`;
+- publish a GitHub Release with those assets and an auto-generated changelog;
+- push the Homebrew cask bump to
+  [homebrew-hadron-cli](https://github.com/hadron-memory/homebrew-hadron-cli),
+  so `brew upgrade --cask hadron` picks it up.
+
+The cask push uses the `HOMEBREW_TAP_TOKEN` repo secret (a token with write
+access to the tap). If a release fails at the cask step, that token has expired
+or lost access — rotate it; nothing else needs a secret beyond the workflow's
+`GITHUB_TOKEN`.
+
+Verify from the Actions run, the new
+[release](https://github.com/hadron-memory/hadron-cli/releases/latest), and the
+`goreleaserbot` cask commit in the tap.
+
 ## Architecture notes
 
 - **Auth (v1):** OAuth authorization-code + PKCE with a loopback
