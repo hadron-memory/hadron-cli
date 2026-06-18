@@ -77,7 +77,9 @@ Conventions:
   fields passed as flags change.
 - `node add` fails if the loc already exists; `node update` modifies
   an existing node and preserves unset fields. Content comes from
-  `--content "<text>"`, `--content -` (stdin), or `--content-file`.
+  `--content "<text>"`, `--content -` (stdin), or `--content-file`;
+  the abstract likewise from `--abstract`, `--abstract -`, or
+  `--abstract-file` (paragraph abstracts dodge shell quoting this way).
 - `memory clone` deep-copies a memory (nodes, edges, pending edges)
   into a new same-org memory and rewrites references to the source
   memory's URN inside node content and abstracts. Version history,
@@ -102,17 +104,24 @@ Conventions:
   `spec get` shows one citation, or `--prefix <prefix>` dumps every spec under
   a branch (feature/module/product) with the same per-node detail, paged to
   exhaustion (`--limit`/`--offset` fetch a single page); `--json` emits an array.
+  `--body-only` prints just one spec's raw markdown body for a clean
+  `… | node update --content -` edit round-trip.
   `spec describe` reports a memory's scheme (flat/product), products, modules,
   and counts, reading any scheme declared in the memory's data
   (`--declare flat|product` writes it); `spec new` allocates the next number
   and scaffolds the rubric
   (`--new-product`/`--new-module`/`--new-feature` create roots; `--contract`
-  scaffolds the contract at the deepest tier named; `--dry-run` previews
+  scaffolds the contract at the deepest tier named; the abstract can come from
+  `--abstract-file`/`--abstract -`; `--dry-run` previews
   without writing); `spec find` is semantic by default (`--match-exactly`
   forces keyword); `spec register` is advisory/read-only (`--check` reports
-  ledger drift, exit 5); `spec lint` takes `--product`/`--module`/`--all` and
-  flags mixed-arity corpora; `spec supersede` retires a spec (never renumbers)
-  and REQUIRES `--yes`; `spec import` is not yet implemented (exit 2).
+  ledger drift, exit 5); `spec lint` takes `--product`/`--module`/`--all`,
+  flags mixed-arity corpora, names the exact `edge add` remedy for a missing
+  inheritance edge, and warns (rule `vector-index`) when the memory has no
+  vector index so spec abstracts aren't embedded for semantic `find`
+  (`--strict` promotes warnings to errors, exit 5); `spec supersede` retires a
+  spec (never renumbers) and REQUIRES `--yes`; `spec import` is not yet
+  implemented (exit 2).
 
 ## The escape hatch: hadron api
 

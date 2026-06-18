@@ -1,6 +1,13 @@
 package spec
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+// lintMem is a stand-in memory URN for the corpus-lint tests; it qualifies the
+// node refs in the inheritance-edge remedy message.
+const lintMem = "acme.com::specs"
 
 // cleanSpec builds a fully rubric-compliant spec node at loc, with a ToC
 // edge to its parent.
@@ -88,17 +95,40 @@ func TestLintCorpusInheritanceAndParent(t *testing.T) {
 		cleanSpec(t, "msg:010:00", "Shared contract"),
 		cleanSpec(t, "msg:010:02", "W2"), // has ToC edge, but no inheritance edge to :00
 	}
-	fs := lintCorpus(nodes, "")
+	fs := lintCorpus(nodes, "", lintMem)
 	if !hasRuleFor(fs, "msg:010:02", "inheritance-edge") {
 		t.Errorf("expected inheritance-edge warning on msg:010:02; got %v", fs)
 	}
 	if hasRule(fs, "parent-exists") {
 		t.Errorf("no parent should be missing; got %v", fs)
 	}
+	// #35: the message must name the exact, copy-pasteable remedy with
+	// fully-qualified node refs (the manual back-wire an author would run).
+	msg := messageFor(fs, "msg:010:02", "inheritance-edge")
+	for _, want := range []string{
+		"hadron edge add",
+		"--from acme.com::specs::msg:010:02",
+		"--to acme.com::specs::msg:010:00",
+		inheritEdgeLabel,
+	} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("inheritance-edge message must contain %q; got %q", want, msg)
+		}
+	}
+}
+
+// messageFor returns the message of the first finding matching (citation, rule).
+func messageFor(fs []lintFindingDTO, citation, rule string) string {
+	for _, f := range fs {
+		if f.Citation == citation && f.Rule == rule {
+			return f.Message
+		}
+	}
+	return ""
 }
 
 func TestLintCorpusOrphanParent(t *testing.T) {
-	fs := lintCorpus([]specNode{cleanSpec(t, "msg:010:02", "W2")}, "")
+	fs := lintCorpus([]specNode{cleanSpec(t, "msg:010:02", "W2")}, "", lintMem)
 	if !hasRuleFor(fs, "msg:010:02", "parent-exists") {
 		t.Errorf("expected parent-exists error for orphan; got %v", fs)
 	}
@@ -113,12 +143,12 @@ func TestLintCorpusScopedRootParentAboveScope(t *testing.T) {
 		{Loc: "cor:acl:010", Name: "cor:acl:010 — Roles", NodeType: "info", Tags: []string{"spec", "p1"}},
 		cleanSpec(t, "cor:acl:010:02", "Role check"),
 	}
-	if fs := lintCorpus(nodes, "cor:acl"); hasRule(fs, "parent-exists") {
+	if fs := lintCorpus(nodes, "cor:acl", lintMem); hasRule(fs, "parent-exists") {
 		t.Errorf("scoped lint must not flag the scope root's above-scope parent; got %v", fs)
 	}
 	// Whole-corpus semantics (scopeRoot "") still treat the same set as an
 	// orphan: cor:acl's parent cor is genuinely absent.
-	if fs := lintCorpus(nodes, ""); !hasRuleFor(fs, "cor:acl", "parent-exists") {
+	if fs := lintCorpus(nodes, "", lintMem); !hasRuleFor(fs, "cor:acl", "parent-exists") {
 		t.Errorf("unscoped lint should flag cor:acl's missing parent; got %v", fs)
 	}
 }
@@ -131,7 +161,7 @@ func TestLintCorpusScopedMissingIntermediate(t *testing.T) {
 		{Loc: "cor:acl", Name: "cor:acl — Access control", NodeType: "info", Tags: []string{"spec", "p0"}},
 		cleanSpec(t, "cor:acl:010:02", "Role check"), // parent cor:acl:010 is absent
 	}
-	if fs := lintCorpus(nodes, "cor:acl"); !hasRuleFor(fs, "cor:acl:010:02", "parent-exists") {
+	if fs := lintCorpus(nodes, "cor:acl", lintMem); !hasRuleFor(fs, "cor:acl:010:02", "parent-exists") {
 		t.Errorf("a missing intermediate inside the scope must still be flagged; got %v", fs)
 	}
 }
@@ -139,7 +169,7 @@ func TestLintCorpusScopedMissingIntermediate(t *testing.T) {
 func TestLintCorpusDuplicate(t *testing.T) {
 	a := cleanSpec(t, "msg:010:02", "W2")
 	b := cleanSpec(t, "msg:010:02", "W2 dup")
-	fs := lintCorpus([]specNode{a, b}, "")
+	fs := lintCorpus([]specNode{a, b}, "", lintMem)
 	if !hasRule(fs, "duplicate-loc") {
 		t.Errorf("expected duplicate-loc error; got %v", fs)
 	}
@@ -152,7 +182,7 @@ func TestLintCorpusProductInheritance(t *testing.T) {
 		{Loc: "cli:gen", Name: "cli:gen — general provisions", NodeType: "info", Tags: []string{"spec", "p0"}},
 		{Loc: "cli:cha", Name: "cli:cha — chat", NodeType: "info", Tags: []string{"spec", "p1"}},
 	}
-	fs := lintCorpus(nodes, "")
+	fs := lintCorpus(nodes, "", lintMem)
 	if !hasRuleFor(fs, "cli:cha", "inheritance-edge") {
 		t.Errorf("expected inheritance-edge warning cli:cha → cli:gen; got %v", fs)
 	}
@@ -172,7 +202,7 @@ func TestLintCorpusMixedArity(t *testing.T) {
 		{Loc: "cli", Name: "cli — CLI", NodeType: "info", Tags: []string{"spec", "p0"}},
 		{Loc: "cli:cha", Name: "cli:cha — chat", NodeType: "info", Tags: []string{"spec", "p1"}},
 	}
-	if !hasRule(lintCorpus(nodes, ""), "mixed-arity") {
-		t.Errorf("expected mixed-arity warning; got %v", lintCorpus(nodes, ""))
+	if !hasRule(lintCorpus(nodes, "", lintMem), "mixed-arity") {
+		t.Errorf("expected mixed-arity warning; got %v", lintCorpus(nodes, "", lintMem))
 	}
 }

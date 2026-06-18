@@ -392,10 +392,23 @@ const specProductMem = "hadronmemory.com::platform-specs"
 const memListJSON = `{"data":{"myMemories":[{"id":"mem1","urn":"hadronmemory.com:platform-specs","name":"Platform Specs","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"updatedAt":"2026-06-14T00:00:00Z"}]}}`
 
 // memGetJSON is a GetMemory response with the given data bag (raw JSON, e.g.
-// `null` or `{"spec":{"scheme":"product"}}`).
+// `null` or `{"spec":{"scheme":"product"}}`). vectorIndexEnabled is false, so it
+// also exercises the spec-lint no-vector-index warning (#42).
 func memGetJSON(data string) string {
 	return `{"data":{"memory":{"id":"mem1","urn":"hadronmemory.com:platform-specs","name":"Platform Specs","shortDescription":null,"description":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"tags":[],"source":null,"syncStatus":"OK","vectorIndexEnabled":false,"data":` + data + `,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z"}}}`
 }
+
+// memGetVectorEnabledJSON / memGetNoVectorJSON are GetMemory responses that
+// vary vectorIndexEnabled for the spec-lint vector-index probe (#42). The urn
+// is irrelevant (GetMemory is looked up by id); resolveSpecMemoryID does the
+// urn match against MyMemories.
+const memGetVectorEnabledJSON = `{"data":{"memory":{"id":"mem1","urn":"x:y","name":"P","shortDescription":null,"description":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"tags":[],"source":null,"syncStatus":"OK","vectorIndexEnabled":true,"data":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z"}}}`
+
+const memGetNoVectorJSON = `{"data":{"memory":{"id":"mem1","urn":"x:y","name":"P","shortDescription":null,"description":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"tags":[],"source":null,"syncStatus":"OK","vectorIndexEnabled":false,"data":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z"}}}`
+
+// memListMicromentorJSON is a MyMemories response whose urn matches specMem
+// (micromentor.org::platform-specs) normalized to a single-colon memory urn.
+const memListMicromentorJSON = `{"data":{"myMemories":[{"id":"mem1","urn":"micromentor.org:platform-specs","name":"Platform Specs","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"updatedAt":"2026-06-14T00:00:00Z"}]}}`
 
 func TestSpecDescribeProduct(t *testing.T) {
 	nodes := strings.Join([]string{
@@ -648,6 +661,10 @@ func TestSpecLintScopedRootParentAboveScope(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"Nodes":       `{"data":{"nodes":[` + specNodeList("cor:acl", `["spec","p0"]`) + `]}}`,
 		"GetNodeById": `{"data":{"nodeById":` + corAclModuleDetail + `}}`,
+		// lint now also probes the memory's vector index (#42); an indexed
+		// memory keeps this --strict run clean.
+		"MyMemories": memListJSON,
+		"GetMemory":  memGetVectorEnabledJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -664,6 +681,10 @@ func TestSpecLintErrorsExitConflict(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn":  resolveSpecJSON,
 		"GetNodeById": `{"data":{"nodeById":` + badSpecDetail + `}}`,
+		// lint also probes the vector index (#42); an indexed memory keeps the
+		// failing findings here about the rubric, not the index.
+		"MyMemories": memListMicromentorJSON,
+		"GetMemory":  memGetVectorEnabledJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -674,6 +695,126 @@ func TestSpecLintErrorsExitConflict(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "invalidates") {
 		t.Errorf("expected the invalidates finding in output:\n%s", out.String())
+	}
+}
+
+// #42: a memory with no vector index gets a warning (not an error) — an
+// otherwise-clean spec still lints OK (exit 0) but surfaces the index gap.
+func TestSpecLintWarnsNoVectorIndex(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveSpecJSON,
+		"GetNodeById": `{"data":{"nodeById":` + cleanSpecDetail + `}}`,
+		"MyMemories":  memListJSON,
+		"GetMemory":   memGetNoVectorJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "msg:010:02", "-m", specProductMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a no-vector-index warning must not fail lint: %v\n%s", err, out.String())
+	}
+	if !strings.Contains(out.String(), "vector-index") || !strings.Contains(out.String(), "no vector index") {
+		t.Errorf("expected a vector-index warning:\n%s", out.String())
+	}
+}
+
+// #42: --strict promotes the vector-index warning to an error (exit Conflict).
+func TestSpecLintNoVectorIndexStrictFails(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveSpecJSON,
+		"GetNodeById": `{"data":{"nodeById":` + cleanSpecDetail + `}}`,
+		"MyMemories":  memListJSON,
+		"GetMemory":   memGetNoVectorJSON,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "msg:010:02", "-m", specProductMem, "--strict", "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Conflict {
+		t.Fatalf("--strict should promote the vector-index warning to an error, got %d", got)
+	}
+}
+
+// #42: an indexed memory stays silent — the clean spec lints OK with no
+// vector-index finding.
+func TestSpecLintVectorIndexEnabledNoWarning(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveSpecJSON,
+		"GetNodeById": `{"data":{"nodeById":` + cleanSpecDetail + `}}`,
+		"MyMemories":  memListJSON,
+		"GetMemory":   memGetVectorEnabledJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "msg:010:02", "-m", specProductMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Contains(out.String(), "vector-index") {
+		t.Errorf("an indexed memory must not warn:\n%s", out.String())
+	}
+	if !strings.Contains(out.String(), "OK") {
+		t.Errorf("expected a clean OK result:\n%s", out.String())
+	}
+}
+
+// #41: --body-only prints just the raw markdown body — no metadata, edges, or
+// lint — so it pipes cleanly into `node update --content -`.
+func TestSpecGetBodyOnly(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveSpecJSON,
+		"GetNodeById": `{"data":{"nodeById":` + cleanSpecDetail + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "get", "msg:010:02", "-m", specMem, "--body-only", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	text := out.String()
+	if !strings.Contains(text, "## Definition") || !strings.Contains(text, "The nudge.") {
+		t.Errorf("body-only output should be the raw markdown body:\n%s", text)
+	}
+	for _, metadata := range []string{"Lint:", "Edges:", "Abstract:", "Tags:"} {
+		if strings.Contains(text, metadata) {
+			t.Errorf("body-only output must omit %q metadata:\n%s", metadata, text)
+		}
+	}
+}
+
+func TestSpecGetBodyOnlyJSON(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveSpecJSON,
+		"GetNodeById": `{"data":{"nodeById":` + cleanSpecDetail + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "get", "msg:010:02", "-m", specMem, "--body-only", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Citation string `json:"citation"`
+		Content  string `json:"content"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	if dto.Citation != "msg:010:02" || !strings.Contains(dto.Content, "## Definition") {
+		t.Errorf("unexpected body-only JSON: %+v", dto)
+	}
+}
+
+func TestSpecGetBodyOnlyRejectsPrefixAndAbstractOnly(t *testing.T) {
+	for _, args := range [][]string{
+		{"spec", "get", "--prefix", "msg:010", "-m", specMem, "--body-only"},
+		{"spec", "get", "msg:010:02", "-m", specMem, "--body-only", "--abstract-only"},
+	} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(args, "--server", "http://127.0.0.1:1"))
+		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+			t.Errorf("args %v: expected a Usage error, got %d", args, got)
+		}
 	}
 }
 

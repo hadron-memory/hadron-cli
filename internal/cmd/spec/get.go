@@ -17,7 +17,7 @@ import (
 
 func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 	var memory, prefix string
-	var abstractOnly bool
+	var abstractOnly, bodyOnly bool
 	var limit, offset int
 	cmd := &cobra.Command{
 		Use:   "get [<citation>]",
@@ -31,9 +31,12 @@ for reviewing or context-stuffing a whole branch in one call. By default every
 spec under the prefix is fetched (the listing is paged to exhaustion); pass
 --limit (with optional --offset) to fetch a single explicit page instead.
 
---abstract-only prints metadata + abstract without the body. --json emits one
-object for a single citation, an array for --prefix.`,
+--abstract-only prints metadata + abstract without the body. --body-only prints
+just the raw markdown body of a single spec (no metadata) — pipe it into
+` + "`hadron node update --content -`" + ` for a clean edit round-trip. --json emits
+one object for a single citation, an array for --prefix.`,
 		Example: `  hadron spec get msg:010:02 -m micromentor.org::platform-specs
+  hadron spec get cor:dmo:060:02 -m hadronmemory.com::platform-specs --body-only
   hadron spec get --prefix cor:cht -m hadronmemory.com::platform-specs
   hadron spec get --prefix cor:dmo -m hadronmemory.com::platform-specs --abstract-only --json`,
 		Args: cobra.MaximumNArgs(1),
@@ -46,6 +49,12 @@ object for a single citation, an array for --prefix.`,
 			if (len(args) == 0) == (prefix == "") {
 				return exitcode.Newf(exitcode.Usage, "provide a <citation> or --prefix <prefix> (exactly one)")
 			}
+			if bodyOnly && abstractOnly {
+				return exitcode.Newf(exitcode.Usage, "--body-only and --abstract-only are mutually exclusive")
+			}
+			if bodyOnly && prefix != "" {
+				return exitcode.Newf(exitcode.Usage, "--body-only takes a single <citation>, not --prefix")
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -56,6 +65,19 @@ object for a single citation, an array for --prefix.`,
 				n, err := fetchSpecNode(cmd, client, memURN, args[0])
 				if err != nil {
 					return err
+				}
+				if bodyOnly {
+					body := ""
+					if n.Content != nil {
+						body = *n.Content
+					}
+					return output.Write(f.IOStreams, f.JSON, specBodyDTO{Citation: n.Loc, Content: body}, func(w io.Writer) error {
+						fmt.Fprint(w, body)
+						if !strings.HasSuffix(body, "\n") {
+							fmt.Fprintln(w)
+						}
+						return nil
+					})
 				}
 				dto := specDetailFromNode(n, !abstractOnly)
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -141,6 +163,7 @@ object for a single citation, an array for --prefix.`,
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "dump every spec under this citation prefix (e.g. cor:cht)")
 	cmd.Flags().BoolVar(&abstractOnly, "abstract-only", false, "print metadata + abstract, omit the body")
+	cmd.Flags().BoolVar(&bodyOnly, "body-only", false, "print only the raw markdown body of a single spec (for a clean edit round-trip)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "max specs to fetch as one page in --prefix mode (default: all)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset for --prefix mode (implies a single page)")
 	_ = cmd.MarkFlagRequired("memory")

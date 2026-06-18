@@ -111,11 +111,16 @@ violations) exit with code 5; --strict promotes warnings to errors too.`,
 
 			var findings []lintFindingDTO
 			if corpus {
-				findings = lintCorpus(nodes, scopeRoot)
+				findings = lintCorpus(nodes, scopeRoot, memURN)
 			} else {
 				for _, n := range nodes {
 					findings = append(findings, lintNode(n)...)
 				}
+			}
+			// A spec corpus leans on the abstract being embedded for semantic
+			// `spec find`; warn once if the memory has no vector index (#42).
+			if vw := vectorIndexWarning(cmd, client, memURN); vw != nil {
+				findings = append(findings, *vw)
 			}
 			if strict {
 				for i := range findings {
@@ -216,7 +221,9 @@ func lintNode(n specNode) []lintFindingDTO {
 // parent-exists check is suppressed for a parent that lives above it, since a
 // scoped scan deliberately omits the subtree's attach point. An empty
 // scopeRoot lints the whole corpus (--all), where every parent must exist.
-func lintCorpus(nodes []specNode, scopeRoot string) []lintFindingDTO {
+// memURN qualifies the node refs in the inheritance-edge remedy message so the
+// suggested `hadron edge add` command is copy-pasteable.
+func lintCorpus(nodes []specNode, scopeRoot, memURN string) []lintFindingDTO {
 	var fs []lintFindingDTO
 	locCount := map[string]int{}
 	contracts := map[string]bool{}
@@ -260,7 +267,11 @@ func lintCorpus(nodes []specNode, scopeRoot string) []lintFindingDTO {
 		// (rule→feature:00, feature→module:000, product-rooted module→product:gen).
 		if !c.IsContract() {
 			if cl, ok := c.InheritedContractLoc(); ok && contracts[cl.Format()] && !hasOutEdgeTo(n, cl.Format()) {
-				fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "inheritance-edge", Severity: sevWarning, Message: "no inheritance edge to general-provisions contract " + cl.Format()})
+				fs = append(fs, lintFindingDTO{
+					Citation: n.Loc, Rule: "inheritance-edge", Severity: sevWarning,
+					Message: fmt.Sprintf("no inheritance edge to general-provisions contract %s — add it: hadron edge add --from %s --to %s --label %q",
+						cl.Format(), specNodeRef(memURN, n.Loc), specNodeRef(memURN, cl.Format()), inheritEdgeLabel),
+				})
 			}
 		}
 	}
@@ -273,6 +284,29 @@ func lintCorpus(nodes []specNode, scopeRoot string) []lintFindingDTO {
 		})
 	}
 	return fs
+}
+
+// vectorIndexWarning returns a memory-level warning when the target memory has
+// no vector index: its spec abstracts are not embedded, so semantic `spec find`
+// silently degrades to keyword search and the abstract — the documented RAG
+// retrieval surface every spec must carry — isn't actually serving retrieval
+// (issue #42). Best-effort: the node scan already proved the memory reachable,
+// so a failed lookup skips the check rather than failing the lint.
+func vectorIndexWarning(cmd *cobra.Command, client graphql.Client, memURN string) *lintFindingDTO {
+	memID, err := resolveSpecMemoryID(cmd, client, memURN)
+	if err != nil {
+		return nil
+	}
+	resp, err := gen.GetMemory(cmd.Context(), client, memID)
+	if err != nil || resp.Memory == nil || resp.Memory.VectorIndexEnabled {
+		return nil
+	}
+	return &lintFindingDTO{
+		Citation: "(memory)",
+		Rule:     "vector-index",
+		Severity: sevWarning,
+		Message:  "memory has no vector index — spec abstracts are not embedded and semantic `spec find` degrades to keyword search",
+	}
 }
 
 func sortedStringKeys(m map[string]bool) []string {

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -273,6 +275,47 @@ func TestNodeUpdateClearsFieldWithEmptyString(t *testing.T) {
 	// normalizes it to null and clears the field), not omitted.
 	if v, present := vars.Input["description"]; !present || v != "" {
 		t.Errorf("explicit --description \"\" must send an empty string, got %v (present=%v)", v, present)
+	}
+}
+
+// #38/#41: a paragraph abstract (backticks, newlines) is hostile to inline
+// shell quoting, so --abstract-file reads it from a file.
+func TestNodeUpdateAbstractFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "abstract.md")
+	const abstract = "A new abstract mentioning `info` nodes.\n"
+	if err := os.WriteFile(path, []byte(abstract), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveNodeJSON,
+		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+		"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "update", nodeURN, "--abstract-file", path, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input map[string]any `json:"input"`
+	}
+	_ = json.Unmarshal(captured["UpsertNode"], &vars)
+	if vars.Input["abstract"] != abstract {
+		t.Errorf("abstract should come from --abstract-file, got %v", vars.Input["abstract"])
+	}
+}
+
+// Content and abstract can't both read stdin — the guard fires before any
+// network round-trip.
+func TestNodeUpdateRejectsDualStdin(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "update", nodeURN, "--content", "-", "--abstract", "-", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "stdin") {
+		t.Fatalf("expected a dual-stdin usage error, got %v", err)
 	}
 }
 
