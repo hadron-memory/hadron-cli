@@ -208,11 +208,47 @@ func TestNodeUpdatePreservesUnsetFields(t *testing.T) {
 	if vars.Input["memoryId"] != "mem1" || vars.Input["loc"] != "findings:flaky-ci" {
 		t.Errorf("memoryId/loc must come from the fetched node: %v", vars.Input)
 	}
-	// Unset optional fields must be OMITTED (server: null clears).
-	for _, key := range []string{"content", "description", "abstract", "nodeType"} {
+	// Unset optional fields must be OMITTED (server: null/[] clears).
+	// `tags` is in this list deliberately: a defaulted-empty --tag
+	// serialized as tags:[] clears the node's tags server-side (#37).
+	for _, key := range []string{"content", "description", "abstract", "nodeType", "tags"} {
 		if _, present := vars.Input[key]; present {
 			t.Errorf("unset field %q must be omitted from upsert input, got %v", key, vars.Input[key])
 		}
+	}
+}
+
+// hadron-cli#37 regression: a content-only update must NOT send `tags` on
+// the wire. The server reads an omitted `tags` as "preserve" but an
+// explicit `tags: []` as "clear" — so a defaulted-empty --tag would
+// silently strip a node's tags, knocking spec nodes out of the corpus.
+// The changed("tag") gate in `node update` keeps the field off the wire;
+// this locks that gate (the matching server-side preserve fix lives in
+// hadron-server's upsertNode resolver).
+func TestNodeUpdateContentOnlyOmitsTags(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveNodeJSON,
+		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+		"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "update", nodeURN,
+		"--content", "revised body", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input map[string]any `json:"input"`
+	}
+	if err := json.Unmarshal(captured["UpsertNode"], &vars); err != nil {
+		t.Fatalf("unmarshal UpsertNode variables: %v", err)
+	}
+	if vars.Input["content"] != "revised body" {
+		t.Errorf("content not sent: %v", vars.Input)
+	}
+	if v, present := vars.Input["tags"]; present {
+		t.Errorf("unset --tag must be omitted from upsert input, got tags=%v", v)
 	}
 }
 
