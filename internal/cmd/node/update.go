@@ -14,13 +14,14 @@ import (
 
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var (
-		name        string
-		content     string
-		contentFile string
-		nodeType    string
-		description string
-		abstract    string
-		tags        []string
+		name         string
+		content      string
+		contentFile  string
+		nodeType     string
+		description  string
+		abstract     string
+		abstractFile string
+		tags         []string
 	)
 	cmd := &cobra.Command{
 		Use:   "update <node-urn>",
@@ -35,8 +36,21 @@ else is preserved (pass an explicit empty string, e.g.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
 			if !changed("name") && !changed("content") && !changed("content-file") &&
-				!changed("type") && !changed("description") && !changed("abstract") && !changed("tag") {
+				!changed("type") && !changed("description") &&
+				!changed("abstract") && !changed("abstract-file") && !changed("tag") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
+			}
+			// Content and abstract can each read stdin via "-", but stdin can
+			// only be consumed once.
+			if changed("content") && content == "-" && changed("abstract") && abstract == "-" {
+				return exitcode.Newf(exitcode.Usage, "--content - and --abstract - cannot both read stdin")
+			}
+			// --abstract and --abstract-file are mutually exclusive. Guard on
+			// Changed() (not the resolved value): an explicit --abstract "" to
+			// clear would otherwise slip past ResolveTextInput's value check and
+			// let the file silently win.
+			if changed("abstract") && changed("abstract-file") {
+				return exitcode.Newf(exitcode.Usage, "--abstract and --abstract-file are mutually exclusive")
 			}
 
 			client, err := f.GraphQLClient()
@@ -73,8 +87,12 @@ else is preserved (pass an explicit empty string, e.g.
 			if changed("description") {
 				input.Description = &description
 			}
-			if changed("abstract") {
-				input.Abstract = &abstract
+			if changed("abstract") || changed("abstract-file") {
+				abs, err := cmdutil.ResolveTextInput("abstract", abstract, abstractFile, f.IOStreams.In)
+				if err != nil {
+					return err
+				}
+				input.Abstract = &abs
 			}
 			if changed("tag") {
 				input.Tags = tags
@@ -98,7 +116,8 @@ else is preserved (pass an explicit empty string, e.g.
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read new content from a file")
 	cmd.Flags().StringVar(&nodeType, "type", "", "new node type")
 	cmd.Flags().StringVar(&description, "description", "", "new one-line description")
-	cmd.Flags().StringVar(&abstract, "abstract", "", "new paragraph-length summary")
+	cmd.Flags().StringVar(&abstract, "abstract", "", `new paragraph-length summary ("-" reads stdin)`)
+	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "read the new abstract from a file")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "replace tags (repeatable)")
 	return cmd
 }

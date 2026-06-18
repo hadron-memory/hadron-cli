@@ -34,14 +34,14 @@ type newResultDTO struct {
 
 func newCmdNew(f *cmdutil.Factory) *cobra.Command {
 	var (
-		memory, product, module, title string
-		feature, rule, ruleAfter, flow string
-		inherit, abstract              string
-		content, contentFile           string
-		tags                           []string
-		newFeature, newModule          bool
-		newProduct, contract           bool
-		noEdges, dryRun                bool
+		memory, product, module, title  string
+		feature, rule, ruleAfter, flow  string
+		inherit, abstract, abstractFile string
+		content, contentFile            string
+		tags                            []string
+		newFeature, newModule           bool
+		newProduct, contract            bool
+		noEdges, dryRun                 bool
 	)
 	cmd := &cobra.Command{
 		Use:     "new",
@@ -95,6 +95,17 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 			if rule != "" && ruleAfter != "" {
 				return exitcode.Newf(exitcode.Usage, "--rule and --rule-after are mutually exclusive")
 			}
+			// Body and abstract can each read stdin via "-", but stdin is
+			// consumable only once.
+			if content == "-" && abstract == "-" {
+				return exitcode.Newf(exitcode.Usage, "--content - and --abstract - cannot both read stdin")
+			}
+			// --abstract and --abstract-file are mutually exclusive — guard on
+			// Changed() so an explicit empty --abstract is caught too, not just
+			// the value-based check inside ResolveTextInput.
+			if cmd.Flags().Changed("abstract") && cmd.Flags().Changed("abstract-file") {
+				return exitcode.Newf(exitcode.Usage, "--abstract and --abstract-file are mutually exclusive")
+			}
 
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -144,7 +155,10 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 			if err != nil {
 				return err
 			}
-			abs := abstract
+			abs, err := cmdutil.ResolveTextInput("abstract", abstract, abstractFile, f.IOStreams.In)
+			if err != nil {
+				return err
+			}
 			if abs == "" {
 				abs = placeholderAbstract(target, title)
 			}
@@ -225,7 +239,8 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 	cmd.Flags().BoolVar(&newProduct, "new-product", false, "create a new (frozen) product root (needs --product)")
 	cmd.Flags().BoolVar(&contract, "contract", false, "scaffold the general-provisions contract at the deepest specified tier")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "extra semantic tag (repeatable)")
-	cmd.Flags().StringVar(&abstract, "abstract", "", "the spec's abstract (default: a placeholder lint flags)")
+	cmd.Flags().StringVar(&abstract, "abstract", "", `the spec's abstract ("-" reads stdin; default: a placeholder lint flags)`)
+	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "read the abstract from a file")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `body content ("-" reads stdin; default: the rubric template)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read body content from a file")
 	cmd.Flags().StringVar(&inherit, "inherit", "", "inheritance-edge target citation (default: the tier's contract)")

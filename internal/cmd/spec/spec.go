@@ -91,6 +91,14 @@ type specDetailDTO struct {
 	UpdatedAt string           `json:"updatedAt"`
 }
 
+// specBodyDTO is the --json shape for `spec get --body-only`: just the
+// citation and the raw markdown body, for a clean
+// `… | hadron node update --content -` round-trip.
+type specBodyDTO struct {
+	Citation string `json:"citation"`
+	Content  string `json:"content"`
+}
+
 // lintFindingDTO is one lint result.
 type lintFindingDTO struct {
 	Citation string `json:"citation"`
