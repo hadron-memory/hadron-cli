@@ -13,7 +13,7 @@ func cleanSpec(t *testing.T, loc, title string) specNode {
 		Loc:         loc,
 		Name:        specName(c, title),
 		NodeType:    "info",
-		Tags:        []string{"spec", "p1", "topic"},
+		Tags:        []string{"spec", "topic"},
 		Abstract:    &abs,
 		Content:     &content,
 		DataVersion: "0.0.1",

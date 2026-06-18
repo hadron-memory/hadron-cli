@@ -124,6 +124,10 @@ var (
 	reModule  = regexp.MustCompile(`^[a-z]{3}$`)
 	reFeature = regexp.MustCompile(`^[0-9]{3}$`)
 	re2digit  = regexp.MustCompile(`^[0-9]{2}$`)
+	// rePLevel matches a legacy read-priority tag (p0..p3); used by
+	// supersede's semanticTags to drop it when carrying tags over from a
+	// pre-migration node.
+	rePLevel = regexp.MustCompile(`^p[0-3]$`)
 )
 
 const (
@@ -293,20 +297,6 @@ func (c Citation) InheritedContractLoc() (Citation, bool) {
 		return Citation{Product: c.Product, Module: productContractCode}, true
 	default:
 		return Citation{}, false
-	}
-}
-
-// defaultPLevel is the read-priority level a freshly scaffolded spec gets
-// from its citation level: product/module roots p0, features/rules/contracts
-// p1, flows p2.
-func defaultPLevel(c Citation) int {
-	switch c.Level() {
-	case 0, 1:
-		return 0
-	case 4:
-		return 2
-	default:
-		return 1
 	}
 }
 

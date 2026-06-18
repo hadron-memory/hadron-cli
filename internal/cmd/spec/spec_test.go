@@ -113,9 +113,6 @@ func TestCitationProduct(t *testing.T) {
 	if _, ok := pr.Parent(); ok {
 		t.Error("product root has no parent")
 	}
-	if defaultPLevel(pr) != 0 {
-		t.Errorf("product root plevel = %d, want 0", defaultPLevel(pr))
-	}
 	// A product's module root → parent is the product root.
 	if p, ok := mustCit(t, "cli:cha").Parent(); !ok || p.Format() != "cli" {
 		t.Errorf("module parent = %q, %v", p.Format(), ok)
@@ -158,15 +155,6 @@ func TestInheritedContractLoc(t *testing.T) {
 	}
 }
 
-func TestDefaultPLevel(t *testing.T) {
-	cases := map[string]int{"msg": 0, "msg:010": 1, "msg:010:00": 1, "msg:010:02": 1, "msg:010:02:03": 2}
-	for loc, want := range cases {
-		if got := defaultPLevel(mustCit(t, loc)); got != want {
-			t.Errorf("defaultPLevel(%q)=%d, want %d", loc, got, want)
-		}
-	}
-}
-
 func TestMemoryURNFromFlag(t *testing.T) {
 	for _, in := range []string{"micromentor.org::platform-specs", "hrn:memory:micromentor.org::platform-specs", "urn:memory:micromentor.org::platform-specs"} {
 		got, err := memoryURNFromFlag(in)
@@ -201,8 +189,8 @@ func TestRubricBody(t *testing.T) {
 }
 
 func TestSpecTagsDedup(t *testing.T) {
-	got := specTags(1, []string{"messaging", "spec", "messaging", "nudge", "p1"})
-	if !equalStrings(got, []string{"spec", "p1", "messaging", "nudge"}) {
+	got := specTags([]string{"messaging", "spec", "messaging", "nudge"})
+	if !equalStrings(got, []string{"spec", "messaging", "nudge"}) {
 		t.Errorf("specTags=%v", got)
 	}
 }
