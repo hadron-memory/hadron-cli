@@ -131,8 +131,8 @@ never makes surprising edge mutations).`,
 			}, false, withEdges, len(doc.Edges))
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "target memory ID or URN (overrides the file's `memory:` key)")
-	cmd.Flags().StringVar(&loc, "loc", "", "target loc (overrides the file's `loc:` key)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "target memory ID or URN (overrides the file's memory key)")
+	cmd.Flags().StringVar(&loc, "loc", "", "target loc (overrides the file's loc key)")
 	cmd.Flags().StringVar(&format, "format", "md", "input format: md or json (inferred from the file extension when unset)")
 	cmd.Flags().BoolVar(&withEdges, "with-edges", false, "also wire the file's outgoing edges (best-effort)")
 	cmd.Flags().BoolVar(&createOnly, "create-only", false, "fail if the loc already exists (no update)")
