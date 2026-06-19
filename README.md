@@ -73,7 +73,7 @@ This repo is also a Claude Code plugin marketplace. In Claude Code:
 
 ```
 /plugin marketplace add hadron-memory/hadron-cli
-/plugin install hadron-cli@hadron
+/plugin install hadron-cli@hadron-cli
 ```
 
 The `hadron-cli` plugin ships a `use-hadron-cli` skill that teaches
@@ -143,3 +143,15 @@ Verify from the Actions run, the new
   regenerations.
 - **Exit codes** are documented contract — see
   `hadron agentic-usage`.
+
+## Hadron slash commands (separate plugin)
+
+The Hadron Claude Code slash commands — `/hadron:h-task`, `/hadron:h-search`,
+`/hadron:h-open-node` — live in their own marketplace,
+[`hadron-memory/hadron-plugins`](https://github.com/hadron-memory/hadron-plugins),
+so they're available without the CLI:
+
+```
+/plugin marketplace add hadron-memory/hadron-plugins
+/plugin install hadron@hadron
+```
