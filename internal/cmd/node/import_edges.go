@@ -118,16 +118,16 @@ func edgeLabel(e nodedoc.Edge) string {
 func edgeKey(targetID, label string) string { return targetID + "\x00" + label }
 
 // edgeRejectReason renders a createEdge failure as a short, single-line reason:
-// the first line, with genqlient's "input:<n>: " location prefix trimmed.
+// the first line, with genqlient's "input:<line>[:<col>]: " location prefix
+// trimmed. It strips only the leading digit/colon location token, so colons
+// inside the server's own message (e.g. "field 'x': required") are preserved.
 func edgeRejectReason(err error) string {
 	msg := err.Error()
 	if nl := strings.IndexByte(msg, '\n'); nl >= 0 {
 		msg = msg[:nl]
 	}
-	if strings.HasPrefix(msg, "input:") {
-		if i := strings.Index(msg, ": "); i >= 0 {
-			msg = msg[i+2:]
-		}
+	if rest, ok := strings.CutPrefix(msg, "input:"); ok {
+		msg = strings.TrimSpace(strings.TrimLeft(rest, "0123456789:"))
 	}
 	return msg
 }
