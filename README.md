@@ -151,5 +151,7 @@ The Hadron Claude Code slash commands — `/hadron:h-task`, `/hadron:h-search`,
 [`hadron-memory/hadron-plugins`](https://github.com/hadron-memory/hadron-plugins),
 so they're available without the CLI:
 
-    /plugin marketplace add hadron-memory/hadron-plugins
-    /plugin install hadron@hadron
+```
+/plugin marketplace add hadron-memory/hadron-plugins
+/plugin install hadron@hadron
+```
