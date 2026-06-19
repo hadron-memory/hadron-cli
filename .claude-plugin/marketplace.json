@@ -1,11 +1,11 @@
 {
-  "name": "hadron",
+  "name": "hadron-cli",
   "owner": {
     "name": "Hadron",
     "url": "https://hadronmemory.com"
   },
   "metadata": {
-    "description": "Skills for working with the Hadron AI-memory platform via the hadron CLI",
+    "description": "The hadron CLI as a Claude Code plugin — work with Hadron AI-memory from the shell",
     "version": "0.1.0"
   },
   "plugins": [
@@ -13,11 +13,6 @@
       "name": "hadron-cli",
       "source": "./plugins/hadron-cli",
       "description": "Work with Hadron AI-memory (memories, nodes, edges, Apps) from the shell via the hadron CLI"
-    },
-    {
-      "name": "hadron",
-      "source": "./plugins/hadron",
-      "description": "Hadron slash commands — /hadron:h-task (run a task), /hadron:h-search (search the graph), /hadron:h-open-node (open a node in the portal)"
     }
   ]
 }
