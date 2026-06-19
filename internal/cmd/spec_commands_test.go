@@ -914,3 +914,255 @@ func contains(xs []string, want string) bool {
 	}
 	return false
 }
+
+// ---- spec extract (#41 item 2) ----
+
+// The source entity GetNodeById returns: a body with a clearly delimited
+// "Node type" chunk to extract, the Node name (for the default ref-label), and
+// a tail section so a strip leaves something behind.
+const extractSrcDetail = `{"data":{"nodeById":{"id":"src1","memoryId":"mem1","loc":"cor:dmo:060:02","name":"cor:dmo:060:02 — Node",` +
+	`"description":null,"abstract":"The Node entity.","abstractOriginHash":null,"nodeType":"info","tags":["spec"],` +
+	`"content":"# cor:dmo:060:02 — Node\n\nIntro para.\n\n## Node type\n\nThe nodeType chunk.\n\n## Tail\n\nend.\n",` +
+	`"data":{"version":"0.0.1"},"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+	`"outgoingEdges":[],"incomingEdges":[]}}}`
+
+// extractChunk is the moved chunk — present verbatim in extractSrcDetail.
+const extractChunk = "## Node type\n\nThe nodeType chunk.\n"
+
+// extractScan is the product/module subtree: feature 020 holds rules 00..03, so
+// the next allocated rule is 04.
+func extractScan() string {
+	return `{"data":{"nodes":[` +
+		specNodeList("cor", `["spec"]`) + `,` +
+		specNodeList("cor:dmo", `["spec"]`) + `,` +
+		specNodeList("cor:dmo:020", `["spec"]`) + `,` +
+		specNodeList("cor:dmo:020:00", `["spec"]`) + `,` +
+		specNodeList("cor:dmo:020:01", `["spec"]`) + `,` +
+		specNodeList("cor:dmo:020:02", `["spec"]`) + `,` +
+		specNodeList("cor:dmo:020:03", `["spec"]`) + `,` +
+		specNodeList("cor:dmo:060", `["spec"]`) + `,` +
+		specNodeList("cor:dmo:060:02", `["spec"]`) +
+		`]}}`
+}
+
+func extractMocks() map[string]string {
+	return map[string]string{
+		"Nodes":       extractScan(),
+		"GetNodeById": extractSrcDetail,
+		"ResolveUrn":  `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+		"UpsertNode":  `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"cor:dmo:020:04","name":"cor:dmo:020:04 — Node type","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge":  `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"cor:dmo:020:04"},"target":{"id":"t1","loc":"cor:dmo:020"}}}}`,
+	}
+}
+
+type extractInput struct {
+	Input struct {
+		Loc        string          `json:"loc"`
+		Name       string          `json:"name"`
+		Tags       []string        `json:"tags"`
+		NodeType   *string         `json:"nodeType"`
+		CreateOnly *bool           `json:"createOnly"`
+		Abstract   *string         `json:"abstract"`
+		Content    *string         `json:"content"`
+		Data       json.RawMessage `json:"data"`
+	} `json:"input"`
+}
+
+type extractDTO struct {
+	Citation     string `json:"citation"`
+	Source       string `json:"source"`
+	StripSource  bool   `json:"stripSource"`
+	StripMatched bool   `json:"stripMatched"`
+	Edges        []struct {
+		Label  string `json:"label"`
+		Target string `json:"target"`
+	} `json:"edges"`
+}
+
+func (d extractDTO) edgeTo(target string) (string, bool) {
+	for _, e := range d.Edges {
+		if e.Target == target {
+			return e.Label, true
+		}
+	}
+	return "", false
+}
+
+func TestSpecExtract(t *testing.T) {
+	gql, captured := captureGraphQL(t, extractMocks())
+	f, out := testFactory(t)
+	f.IOStreams.In = strings.NewReader(extractChunk)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "extract", "cor:dmo:060:02", "-m", specMem,
+		"--to-feature", "020", "--title", "Node type", "--content", "-", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	// Only one UpsertNode (no --strip-source) — the new node.
+	var up extractInput
+	if err := json.Unmarshal(captured["UpsertNode"], &up); err != nil {
+		t.Fatalf("UpsertNode vars: %v", err)
+	}
+	if up.Input.Loc != "cor:dmo:020:04" {
+		t.Errorf("new loc = %q, want cor:dmo:020:04", up.Input.Loc)
+	}
+	if up.Input.Name != "cor:dmo:020:04 — Node type" {
+		t.Errorf("new name = %q", up.Input.Name)
+	}
+	if up.Input.CreateOnly == nil || !*up.Input.CreateOnly {
+		t.Error("createOnly must be true")
+	}
+	if up.Input.NodeType == nil || *up.Input.NodeType != "info" {
+		t.Errorf("nodeType = %v", up.Input.NodeType)
+	}
+	if up.Input.Content == nil || !strings.Contains(*up.Input.Content, "nodeType chunk") {
+		t.Errorf("new body should be the moved chunk, got %v", up.Input.Content)
+	}
+	if !strings.Contains(string(up.Input.Data), "version") {
+		t.Errorf("data must carry a version, got %s", up.Input.Data)
+	}
+
+	var dto extractDTO
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	if dto.Citation != "cor:dmo:020:04" || dto.Source != "cor:dmo:060:02" {
+		t.Errorf("dto citation/source = %q/%q", dto.Citation, dto.Source)
+	}
+	if dto.StripSource {
+		t.Error("stripSource should be false without --strip-source")
+	}
+	if lbl, ok := dto.edgeTo("cor:dmo:020"); !ok || lbl != "Node type" {
+		t.Errorf("ToC edge = %q/%v", lbl, ok)
+	}
+	if _, ok := dto.edgeTo("cor:dmo:020:00"); !ok {
+		t.Errorf("missing inheritance edge, edges=%v", dto.Edges)
+	}
+	if lbl, ok := dto.edgeTo("cor:dmo:060:02"); !ok || lbl != "documents Node type on the Node entity" {
+		t.Errorf("cross-ref edge = %q/%v", lbl, ok)
+	}
+}
+
+func TestSpecExtractStripSourceHit(t *testing.T) {
+	gql, captured := captureGraphQL(t, extractMocks())
+	f, out := testFactory(t)
+	f.IOStreams.In = strings.NewReader(extractChunk)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "extract", "cor:dmo:060:02", "-m", specMem,
+		"--to-feature", "020", "--title", "Node type", "--content", "-", "--strip-source", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	// The LAST UpsertNode is the source trim (create new → edges → strip source).
+	var up extractInput
+	if err := json.Unmarshal(captured["UpsertNode"], &up); err != nil {
+		t.Fatalf("UpsertNode vars: %v", err)
+	}
+	if up.Input.Loc != "cor:dmo:060:02" {
+		t.Fatalf("last UpsertNode loc = %q, want the source cor:dmo:060:02", up.Input.Loc)
+	}
+	if up.Input.Content == nil {
+		t.Fatal("source trim must send content")
+	}
+	if strings.Contains(*up.Input.Content, "nodeType chunk") {
+		t.Errorf("trimmed source still contains the chunk:\n%s", *up.Input.Content)
+	}
+	if !strings.Contains(*up.Input.Content, "## Tail") || !strings.Contains(*up.Input.Content, "Intro para.") {
+		t.Errorf("trimmed source lost surrounding content:\n%s", *up.Input.Content)
+	}
+
+	var dto extractDTO
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	if !dto.StripSource || !dto.StripMatched {
+		t.Errorf("expected stripSource+stripMatched true, got %+v", dto)
+	}
+}
+
+func TestSpecExtractStripSourceMiss(t *testing.T) {
+	gql, captured := captureGraphQL(t, extractMocks())
+	f, out := testFactory(t)
+	f.IOStreams.In = strings.NewReader("## Absent\n\nnot in the source body.\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "extract", "cor:dmo:060:02", "-m", specMem,
+		"--to-feature", "020", "--title", "Ghost", "--content", "-", "--strip-source", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	// A miss leaves the source untouched: the only UpsertNode is the new node.
+	var up extractInput
+	if err := json.Unmarshal(captured["UpsertNode"], &up); err != nil {
+		t.Fatalf("UpsertNode vars: %v", err)
+	}
+	if up.Input.Loc != "cor:dmo:020:04" {
+		t.Errorf("source must not be updated on a miss; last UpsertNode loc = %q", up.Input.Loc)
+	}
+	var dto extractDTO
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	if !dto.StripSource || dto.StripMatched {
+		t.Errorf("expected stripSource true, stripMatched false, got %+v", dto)
+	}
+}
+
+func TestSpecExtractDryRun(t *testing.T) {
+	// No mutation ops mocked — any UpsertNode/CreateEdge would be an unexpected op.
+	gql, captured := captureGraphQL(t, map[string]string{
+		"Nodes":       extractScan(),
+		"GetNodeById": extractSrcDetail,
+		"ResolveUrn":  `{"data":{"resolveUrn":{"id":"src1","kind":"node","memoryId":"mem1"}}}`,
+	})
+	f, out := testFactory(t)
+	f.IOStreams.In = strings.NewReader(extractChunk)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "extract", "cor:dmo:060:02", "-m", specMem,
+		"--to-feature", "020", "--title", "Node type", "--content", "-", "--strip-source", "--dry-run", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, ok := captured["UpsertNode"]; ok {
+		t.Error("dry-run must not call UpsertNode")
+	}
+	if _, ok := captured["CreateEdge"]; ok {
+		t.Error("dry-run must not call CreateEdge")
+	}
+	if !strings.Contains(out.String(), "would extract") || !strings.Contains(out.String(), "would trim") {
+		t.Errorf("unexpected dry-run output:\n%s", out.String())
+	}
+}
+
+func TestSpecExtractStripNeedsChunk(t *testing.T) {
+	// --strip-source with no chunk supplied is rejected before any network call.
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "extract", "cor:dmo:060:02", "-m", specMem,
+		"--to-feature", "020", "--title", "T", "--strip-source", "--server", "http://127.0.0.1:1"})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("--strip-source without a chunk should be Usage, got %d", got)
+	}
+}
+
+func TestSpecExtractSourceNotFound(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  `{"data":{"resolveUrn":{"id":"src1","kind":"node","memoryId":"mem1"}}}`,
+		"GetNodeById": `{"data":{"nodeById":null}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "extract", "cor:dmo:060:99", "-m", specMem,
+		"--to-feature", "020", "--title", "T", "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.NotFound {
+		t.Fatalf("missing source should be NotFound, got %d", got)
+	}
+}
+
+func TestSpecExtractRejectsAbstractAndAbstractFile(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "extract", "cor:dmo:060:02", "-m", specMem, "--to-feature", "020", "--title", "T",
+		"--abstract", "x", "--abstract-file", "/tmp/x.md", "--server", "http://127.0.0.1:1"})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("--abstract + --abstract-file should be Usage, got %d", got)
+	}
+}
