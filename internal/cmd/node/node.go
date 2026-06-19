@@ -42,6 +42,8 @@ func NewCmdNode(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdAdd(f))
 	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdRm(f))
+	cmd.AddCommand(newCmdExport(f))
+	cmd.AddCommand(newCmdImport(f))
 	return cmd
 }
 
