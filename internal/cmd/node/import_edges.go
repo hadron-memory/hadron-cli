@@ -36,7 +36,13 @@ func wireEdges(cmd *cobra.Command, client graphql.Client, memoryRef, sourceID st
 		if existing[edgeKey(targetID, e.Label)] {
 			continue // idempotent: already wired
 		}
-		priority, condition := edgeArgs(e)
+		priority, condition, err := edgeArgs(e)
+		if err != nil {
+			// An un-encodable condition (e.g. a NaN from the file) can't be
+			// wired; report it rather than dropping it silently.
+			unwired = append(unwired, edgeLabel(e))
+			continue
+		}
 		if _, err := gen.CreateEdge(cmd.Context(), client, sourceID, targetID, e.Label, priority, condition, nil); err != nil {
 			// Best-effort: a missing target or edge constraint downgrades to an
 			// unwired report rather than aborting the whole import.
@@ -81,14 +87,17 @@ func resolveEdgeTarget(cmd *cobra.Command, client graphql.Client, memoryRef stri
 
 // edgeArgs builds the optional createEdge arguments: priority only when
 // non-zero (the server rejects priority: null), condition as a JSON scalar.
-func edgeArgs(e nodedoc.Edge) (*int, *json.RawMessage) {
+func edgeArgs(e nodedoc.Edge) (*int, *json.RawMessage, error) {
 	var priority *int
 	if e.Priority != 0 {
 		p := e.Priority
 		priority = &p
 	}
-	condition, _ := nodedoc.EncodeJSON(e.Condition)
-	return priority, condition
+	condition, err := nodedoc.EncodeJSON(e.Condition)
+	if err != nil {
+		return nil, nil, err
+	}
+	return priority, condition, nil
 }
 
 // edgeLabel is a human handle for an unwired edge in the report: prefer the

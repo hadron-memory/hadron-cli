@@ -110,7 +110,10 @@ never makes surprising edge mutations).`,
 				}, true, withEdges, len(doc.Edges))
 			}
 
-			input := buildNodeInput(doc, memoryRef, targetLoc, createOnly)
+			input, err := buildNodeInput(doc, memoryRef, targetLoc, createOnly)
+			if err != nil {
+				return err
+			}
 			resp, err := gen.UpsertNode(cmd.Context(), client, input)
 			if err != nil {
 				return api.MapError(err)
@@ -160,7 +163,7 @@ func readImportSource(path string, stdin io.Reader) ([]byte, error) {
 // are omitted (preserve-on-update) rather than sent as a clear; the id and the
 // recompute-only hashes (contentHash, abstractOriginHash) are intentionally not
 // sent — the upsert keys on (memory, loc) and the server owns the hashes.
-func buildNodeInput(doc *nodedoc.Document, memoryRef, targetLoc string, createOnly bool) *gen.NodeInput {
+func buildNodeInput(doc *nodedoc.Document, memoryRef, targetLoc string, createOnly bool) (*gen.NodeInput, error) {
 	input := &gen.NodeInput{
 		MemoryId: memoryRef,
 		Loc:      targetLoc,
@@ -187,16 +190,24 @@ func buildNodeInput(doc *nodedoc.Document, memoryRef, targetLoc string, createOn
 	if doc.Seq != nil {
 		input.Seq = doc.Seq
 	}
-	if data, _ := nodedoc.EncodeJSON(doc.Data); data != nil {
+	if doc.Data != nil {
+		data, err := nodedoc.EncodeJSON(doc.Data)
+		if err != nil {
+			return nil, exitcode.Newf(exitcode.Usage, "encoding data: %v", err)
+		}
 		input.Data = data
 	}
-	if props, _ := nodedoc.EncodeJSON(doc.Properties); props != nil {
+	if doc.Properties != nil {
+		props, err := nodedoc.EncodeJSON(doc.Properties)
+		if err != nil {
+			return nil, exitcode.Newf(exitcode.Usage, "encoding properties: %v", err)
+		}
 		input.Properties = props
 	}
 	if createOnly {
 		input.CreateOnly = &createOnly
 	}
-	return input
+	return input, nil
 }
 
 // nodeExists best-effort probes whether a node already lives at (memory, loc),

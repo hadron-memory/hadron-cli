@@ -16,6 +16,9 @@ import (
 // — whose ContentHash the GraphQL projection never carries — still serializes a
 // correct hash without mutating the caller's value.
 func RenderJSON(doc *Document) (string, error) {
+	if doc == nil {
+		return "", fmt.Errorf("nil document")
+	}
 	out := *doc
 	out.ContentHash = ContentHash(out.Content)
 	var buf bytes.Buffer

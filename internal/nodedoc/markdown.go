@@ -58,6 +58,9 @@ var frontmatterRE = regexp.MustCompile(`(?s)\A---\n(.*?)\n---\n?(.*)\z`)
 // flags; a tree export passes false (loc lives in the path, memory in the sync
 // target).
 func RenderMarkdown(doc *Document, standalone bool) (string, error) {
+	if doc == nil {
+		return "", fmt.Errorf("nil document")
+	}
 	fmYAML, err := MarshalYAML(buildFrontmatter(doc, standalone))
 	if err != nil {
 		return "", err
@@ -71,6 +74,10 @@ func RenderMarkdown(doc *Document, standalone bool) (string, error) {
 // (with loc/memory keys) and a tree-export file (without). A file with no `---`
 // frontmatter is rejected.
 func ParseMarkdown(data []byte) (*Document, error) {
+	// Normalize CRLF→LF so a file edited or checked out on Windows still splits
+	// on the LF-based framing and round-trips (the server stores LF; same
+	// posture as `spec edit`).
+	data = bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n"))
 	m := frontmatterRE.FindSubmatch(data)
 	if m == nil {
 		return nil, fmt.Errorf("not a node file: missing `---` frontmatter")

@@ -189,3 +189,30 @@ func TestParseMarkdownNoFrontmatter(t *testing.T) {
 		t.Error("expected error for missing frontmatter")
 	}
 }
+
+// A file with Windows CRLF line endings must still split and parse (the codec
+// normalizes CRLF→LF up front).
+func TestParseMarkdownCRLF(t *testing.T) {
+	src := "---\r\nname: X\r\nid: x\r\nloc: a\r\nmemory: acme.com:kb\r\n---\r\n\r\nBody line.\r\n"
+	doc, err := ParseMarkdown([]byte(src))
+	if err != nil {
+		t.Fatalf("ParseMarkdown(CRLF): %v", err)
+	}
+	if doc.Name != "X" || doc.Loc != "a" || doc.MemoryURN != "acme.com:kb" {
+		t.Errorf("CRLF header not parsed: %+v", doc)
+	}
+	if doc.Content != "Body line." {
+		t.Errorf("CRLF body = %q, want %q", doc.Content, "Body line.")
+	}
+}
+
+// A nil Document is a programmer error, but the codec returns an error rather
+// than panicking.
+func TestRenderNilDocument(t *testing.T) {
+	if _, err := RenderMarkdown(nil, true); err == nil {
+		t.Error("RenderMarkdown(nil) must error, not panic")
+	}
+	if _, err := RenderJSON(nil); err == nil {
+		t.Error("RenderJSON(nil) must error, not panic")
+	}
+}
