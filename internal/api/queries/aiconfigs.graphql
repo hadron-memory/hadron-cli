@@ -19,3 +19,86 @@ query ResolveAiServiceConfigs(
     updatedAt
   }
 }
+
+# 036-ai-service-config CRUD. The mutations return a masked AiServiceConfig
+# (never key material — only hasApiKey + apiKeyPreview).
+fragment AiServiceConfigFields on AiServiceConfig {
+  id
+  name
+  ownerType
+  ownerId
+  provider
+  model
+  hasApiKey
+  apiKeyPreview
+  params
+  enabled
+  createdAt
+  updatedAt
+}
+
+# apiKey: omitted (nil) = stored without a key; non-empty = encrypted at rest.
+# omitempty here is nil-based, so a non-nil &false is still sent — only a nil
+# pointer is dropped.
+mutation CreateAiServiceConfig(
+  $name: String!
+  $provider: String!
+  $model: String!
+  $ownerId: ID!
+  $ownerType: AiConfigOwnerType!
+  # @genqlient(omitempty: true)
+  $apiKey: String
+  # @genqlient(omitempty: true)
+  $enabled: Boolean
+  # @genqlient(omitempty: true)
+  $params: JSON
+) {
+  createAiServiceConfig(
+    name: $name
+    provider: $provider
+    model: $model
+    ownerId: $ownerId
+    ownerType: $ownerType
+    apiKey: $apiKey
+    enabled: $enabled
+    params: $params
+  ) {
+    ...AiServiceConfigFields
+  }
+}
+
+# All fields optional. apiKey: omitted (nil) = keep the stored key; "" = clear
+# it; non-empty = replace. nil-based omitempty makes a non-nil &"" send the
+# empty string (the clear signal), while an absent flag stays nil and is
+# omitted (preserve).
+mutation UpdateAiServiceConfig(
+  $id: ID!
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $provider: String
+  # @genqlient(omitempty: true)
+  $model: String
+  # @genqlient(omitempty: true)
+  $apiKey: String
+  # @genqlient(omitempty: true)
+  $enabled: Boolean
+  # @genqlient(omitempty: true)
+  $params: JSON
+) {
+  updateAiServiceConfig(
+    id: $id
+    name: $name
+    provider: $provider
+    model: $model
+    apiKey: $apiKey
+    enabled: $enabled
+    params: $params
+  ) {
+    ...AiServiceConfigFields
+  }
+}
+
+mutation DeleteAiServiceConfig($id: ID!) {
+  deleteAiServiceConfig(id: $id)
+}

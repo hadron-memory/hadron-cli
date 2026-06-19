@@ -16,5 +16,8 @@ func NewCmdAiConfig(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Work with Hadron AI service configs",
 	}
 	cmd.AddCommand(newCmdLs(f))
+	cmd.AddCommand(newCmdCreate(f))
+	cmd.AddCommand(newCmdUpdate(f))
+	cmd.AddCommand(newCmdRm(f))
 	return cmd
 }
