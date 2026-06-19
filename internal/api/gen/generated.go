@@ -323,6 +323,137 @@ type CreateMemoryResponse struct {
 // GetCreateMemory returns CreateMemoryResponse.CreateMemory, and is useful for accessing the field via an interface.
 func (v *CreateMemoryResponse) GetCreateMemory() *CreateMemoryCreateMemory { return v.CreateMemory }
 
+// CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult includes the requested fields of the GraphQL type UserApiKeyCreateResult.
+type CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult struct {
+	RawKey     string                                                            `json:"rawKey"`
+	UserApiKey *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey `json:"userApiKey"`
+}
+
+// GetRawKey returns CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult.RawKey, and is useful for accessing the field via an interface.
+func (v *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult) GetRawKey() string { return v.RawKey }
+
+// GetUserApiKey returns CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult.UserApiKey, and is useful for accessing the field via an interface.
+func (v *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult) GetUserApiKey() *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey {
+	return v.UserApiKey
+}
+
+// CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey includes the requested fields of the GraphQL type UserApiKey.
+type CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey struct {
+	UserApiKeyFields `json:"-"`
+}
+
+// GetId returns CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey.Id, and is useful for accessing the field via an interface.
+func (v *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey) GetId() string {
+	return v.UserApiKeyFields.Id
+}
+
+// GetLabel returns CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey.Label, and is useful for accessing the field via an interface.
+func (v *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey) GetLabel() *string {
+	return v.UserApiKeyFields.Label
+}
+
+// GetKeyPreview returns CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey.KeyPreview, and is useful for accessing the field via an interface.
+func (v *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey) GetKeyPreview() string {
+	return v.UserApiKeyFields.KeyPreview
+}
+
+// GetIssuedVia returns CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey.IssuedVia, and is useful for accessing the field via an interface.
+func (v *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey) GetIssuedVia() *string {
+	return v.UserApiKeyFields.IssuedVia
+}
+
+// GetCreatedAt returns CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey) GetCreatedAt() string {
+	return v.UserApiKeyFields.CreatedAt
+}
+
+// GetLastUsedAt returns CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey.LastUsedAt, and is useful for accessing the field via an interface.
+func (v *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey) GetLastUsedAt() *string {
+	return v.UserApiKeyFields.LastUsedAt
+}
+
+// GetRevokedAt returns CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey.RevokedAt, and is useful for accessing the field via an interface.
+func (v *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey) GetRevokedAt() *string {
+	return v.UserApiKeyFields.RevokedAt
+}
+
+func (v *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UserApiKeyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey struct {
+	Id string `json:"id"`
+
+	Label *string `json:"label"`
+
+	KeyPreview string `json:"keyPreview"`
+
+	IssuedVia *string `json:"issuedVia"`
+
+	CreatedAt string `json:"createdAt"`
+
+	LastUsedAt *string `json:"lastUsedAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+}
+
+func (v *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey) __premarshalJSON() (*__premarshalCreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey, error) {
+	var retval __premarshalCreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey
+
+	retval.Id = v.UserApiKeyFields.Id
+	retval.Label = v.UserApiKeyFields.Label
+	retval.KeyPreview = v.UserApiKeyFields.KeyPreview
+	retval.IssuedVia = v.UserApiKeyFields.IssuedVia
+	retval.CreatedAt = v.UserApiKeyFields.CreatedAt
+	retval.LastUsedAt = v.UserApiKeyFields.LastUsedAt
+	retval.RevokedAt = v.UserApiKeyFields.RevokedAt
+	return &retval, nil
+}
+
+// CreateUserApiKeyResponse is returned by CreateUserApiKey on success.
+type CreateUserApiKeyResponse struct {
+	// 025-oauth-for-mcp FR-004: mint a new user-scoped API key for the
+	// calling User. Returns the raw key exactly once (the server stores
+	// only the SHA-256 hash). Rejected with UNAUTHENTICATED for AppKey-
+	// resolved callers (no user in context). Per Clarifications, label
+	// is optional (portal defaults to a placeholder when omitted).
+	CreateUserApiKey *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult `json:"createUserApiKey"`
+}
+
+// GetCreateUserApiKey returns CreateUserApiKeyResponse.CreateUserApiKey, and is useful for accessing the field via an interface.
+func (v *CreateUserApiKeyResponse) GetCreateUserApiKey() *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult {
+	return v.CreateUserApiKey
+}
+
 // DeleteAppResponse is returned by DeleteApp on success.
 type DeleteAppResponse struct {
 	// Soft-delete an App.
@@ -734,6 +865,119 @@ type MyMemoriesResponse struct {
 
 // GetMyMemories returns MyMemoriesResponse.MyMemories, and is useful for accessing the field via an interface.
 func (v *MyMemoriesResponse) GetMyMemories() []*MyMemoriesMyMemoriesMemory { return v.MyMemories }
+
+// MyUserApiKeysMyUserApiKeysUserApiKey includes the requested fields of the GraphQL type UserApiKey.
+type MyUserApiKeysMyUserApiKeysUserApiKey struct {
+	UserApiKeyFields `json:"-"`
+}
+
+// GetId returns MyUserApiKeysMyUserApiKeysUserApiKey.Id, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysUserApiKey) GetId() string { return v.UserApiKeyFields.Id }
+
+// GetLabel returns MyUserApiKeysMyUserApiKeysUserApiKey.Label, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysUserApiKey) GetLabel() *string { return v.UserApiKeyFields.Label }
+
+// GetKeyPreview returns MyUserApiKeysMyUserApiKeysUserApiKey.KeyPreview, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysUserApiKey) GetKeyPreview() string {
+	return v.UserApiKeyFields.KeyPreview
+}
+
+// GetIssuedVia returns MyUserApiKeysMyUserApiKeysUserApiKey.IssuedVia, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysUserApiKey) GetIssuedVia() *string {
+	return v.UserApiKeyFields.IssuedVia
+}
+
+// GetCreatedAt returns MyUserApiKeysMyUserApiKeysUserApiKey.CreatedAt, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysUserApiKey) GetCreatedAt() string {
+	return v.UserApiKeyFields.CreatedAt
+}
+
+// GetLastUsedAt returns MyUserApiKeysMyUserApiKeysUserApiKey.LastUsedAt, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysUserApiKey) GetLastUsedAt() *string {
+	return v.UserApiKeyFields.LastUsedAt
+}
+
+// GetRevokedAt returns MyUserApiKeysMyUserApiKeysUserApiKey.RevokedAt, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysUserApiKey) GetRevokedAt() *string {
+	return v.UserApiKeyFields.RevokedAt
+}
+
+func (v *MyUserApiKeysMyUserApiKeysUserApiKey) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*MyUserApiKeysMyUserApiKeysUserApiKey
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.MyUserApiKeysMyUserApiKeysUserApiKey = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UserApiKeyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalMyUserApiKeysMyUserApiKeysUserApiKey struct {
+	Id string `json:"id"`
+
+	Label *string `json:"label"`
+
+	KeyPreview string `json:"keyPreview"`
+
+	IssuedVia *string `json:"issuedVia"`
+
+	CreatedAt string `json:"createdAt"`
+
+	LastUsedAt *string `json:"lastUsedAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+}
+
+func (v *MyUserApiKeysMyUserApiKeysUserApiKey) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *MyUserApiKeysMyUserApiKeysUserApiKey) __premarshalJSON() (*__premarshalMyUserApiKeysMyUserApiKeysUserApiKey, error) {
+	var retval __premarshalMyUserApiKeysMyUserApiKeysUserApiKey
+
+	retval.Id = v.UserApiKeyFields.Id
+	retval.Label = v.UserApiKeyFields.Label
+	retval.KeyPreview = v.UserApiKeyFields.KeyPreview
+	retval.IssuedVia = v.UserApiKeyFields.IssuedVia
+	retval.CreatedAt = v.UserApiKeyFields.CreatedAt
+	retval.LastUsedAt = v.UserApiKeyFields.LastUsedAt
+	retval.RevokedAt = v.UserApiKeyFields.RevokedAt
+	return &retval, nil
+}
+
+// MyUserApiKeysResponse is returned by MyUserApiKeys on success.
+type MyUserApiKeysResponse struct {
+	// 025-oauth-for-mcp FR-004: list the calling User's API keys (active
+	// + revoked, createdAt DESC). Powers Phase 3's portal revocation UI
+	// (SC-006). Rejected with UNAUTHENTICATED for AppKey-resolved
+	// callers (no user in context). PR-137 review delta D5 — Query
+	// not present in PR 137.
+	MyUserApiKeys []*MyUserApiKeysMyUserApiKeysUserApiKey `json:"myUserApiKeys"`
+}
+
+// GetMyUserApiKeys returns MyUserApiKeysResponse.MyUserApiKeys, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysResponse) GetMyUserApiKeys() []*MyUserApiKeysMyUserApiKeysUserApiKey {
+	return v.MyUserApiKeys
+}
 
 // NodeBatchNodeBatchNodeBatchResult includes the requested fields of the GraphQL type NodeBatchResult.
 // The GraphQL type's documentation follows.
@@ -1343,6 +1587,119 @@ type ResolveUrnResponse struct {
 // GetResolveUrn returns ResolveUrnResponse.ResolveUrn, and is useful for accessing the field via an interface.
 func (v *ResolveUrnResponse) GetResolveUrn() *ResolveUrnResolveUrnUrnResolution { return v.ResolveUrn }
 
+// RevokeUserApiKeyResponse is returned by RevokeUserApiKey on success.
+type RevokeUserApiKeyResponse struct {
+	// 025-oauth-for-mcp FR-004: revoke a user-scoped API key owned by
+	// the calling User. Returns the updated UserApiKey so the portal
+	// can render the new revokedAt without a refetch (PR-137 review
+	// delta D3 — was Boolean). Idempotent for already-revoked keys;
+	// rejected with FORBIDDEN if the key belongs to another user;
+	// NOT_FOUND if id does not exist; UNAUTHENTICATED for AppKey-
+	// resolved callers.
+	RevokeUserApiKey *RevokeUserApiKeyRevokeUserApiKey `json:"revokeUserApiKey"`
+}
+
+// GetRevokeUserApiKey returns RevokeUserApiKeyResponse.RevokeUserApiKey, and is useful for accessing the field via an interface.
+func (v *RevokeUserApiKeyResponse) GetRevokeUserApiKey() *RevokeUserApiKeyRevokeUserApiKey {
+	return v.RevokeUserApiKey
+}
+
+// RevokeUserApiKeyRevokeUserApiKey includes the requested fields of the GraphQL type UserApiKey.
+type RevokeUserApiKeyRevokeUserApiKey struct {
+	UserApiKeyFields `json:"-"`
+}
+
+// GetId returns RevokeUserApiKeyRevokeUserApiKey.Id, and is useful for accessing the field via an interface.
+func (v *RevokeUserApiKeyRevokeUserApiKey) GetId() string { return v.UserApiKeyFields.Id }
+
+// GetLabel returns RevokeUserApiKeyRevokeUserApiKey.Label, and is useful for accessing the field via an interface.
+func (v *RevokeUserApiKeyRevokeUserApiKey) GetLabel() *string { return v.UserApiKeyFields.Label }
+
+// GetKeyPreview returns RevokeUserApiKeyRevokeUserApiKey.KeyPreview, and is useful for accessing the field via an interface.
+func (v *RevokeUserApiKeyRevokeUserApiKey) GetKeyPreview() string {
+	return v.UserApiKeyFields.KeyPreview
+}
+
+// GetIssuedVia returns RevokeUserApiKeyRevokeUserApiKey.IssuedVia, and is useful for accessing the field via an interface.
+func (v *RevokeUserApiKeyRevokeUserApiKey) GetIssuedVia() *string {
+	return v.UserApiKeyFields.IssuedVia
+}
+
+// GetCreatedAt returns RevokeUserApiKeyRevokeUserApiKey.CreatedAt, and is useful for accessing the field via an interface.
+func (v *RevokeUserApiKeyRevokeUserApiKey) GetCreatedAt() string { return v.UserApiKeyFields.CreatedAt }
+
+// GetLastUsedAt returns RevokeUserApiKeyRevokeUserApiKey.LastUsedAt, and is useful for accessing the field via an interface.
+func (v *RevokeUserApiKeyRevokeUserApiKey) GetLastUsedAt() *string {
+	return v.UserApiKeyFields.LastUsedAt
+}
+
+// GetRevokedAt returns RevokeUserApiKeyRevokeUserApiKey.RevokedAt, and is useful for accessing the field via an interface.
+func (v *RevokeUserApiKeyRevokeUserApiKey) GetRevokedAt() *string {
+	return v.UserApiKeyFields.RevokedAt
+}
+
+func (v *RevokeUserApiKeyRevokeUserApiKey) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RevokeUserApiKeyRevokeUserApiKey
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RevokeUserApiKeyRevokeUserApiKey = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UserApiKeyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRevokeUserApiKeyRevokeUserApiKey struct {
+	Id string `json:"id"`
+
+	Label *string `json:"label"`
+
+	KeyPreview string `json:"keyPreview"`
+
+	IssuedVia *string `json:"issuedVia"`
+
+	CreatedAt string `json:"createdAt"`
+
+	LastUsedAt *string `json:"lastUsedAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+}
+
+func (v *RevokeUserApiKeyRevokeUserApiKey) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RevokeUserApiKeyRevokeUserApiKey) __premarshalJSON() (*__premarshalRevokeUserApiKeyRevokeUserApiKey, error) {
+	var retval __premarshalRevokeUserApiKeyRevokeUserApiKey
+
+	retval.Id = v.UserApiKeyFields.Id
+	retval.Label = v.UserApiKeyFields.Label
+	retval.KeyPreview = v.UserApiKeyFields.KeyPreview
+	retval.IssuedVia = v.UserApiKeyFields.IssuedVia
+	retval.CreatedAt = v.UserApiKeyFields.CreatedAt
+	retval.LastUsedAt = v.UserApiKeyFields.LastUsedAt
+	retval.RevokedAt = v.UserApiKeyFields.RevokedAt
+	return &retval, nil
+}
+
 type Role string
 
 const (
@@ -1556,6 +1913,38 @@ func (v *UpsertNodeUpsertNode) GetTags() []string { return v.Tags }
 // GetUpdatedAt returns UpsertNodeUpsertNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *UpsertNodeUpsertNode) GetUpdatedAt() string { return v.UpdatedAt }
 
+// UserApiKeyFields includes the GraphQL fields of UserApiKey requested by the fragment UserApiKeyFields.
+type UserApiKeyFields struct {
+	Id         string  `json:"id"`
+	Label      *string `json:"label"`
+	KeyPreview string  `json:"keyPreview"`
+	IssuedVia  *string `json:"issuedVia"`
+	CreatedAt  string  `json:"createdAt"`
+	LastUsedAt *string `json:"lastUsedAt"`
+	RevokedAt  *string `json:"revokedAt"`
+}
+
+// GetId returns UserApiKeyFields.Id, and is useful for accessing the field via an interface.
+func (v *UserApiKeyFields) GetId() string { return v.Id }
+
+// GetLabel returns UserApiKeyFields.Label, and is useful for accessing the field via an interface.
+func (v *UserApiKeyFields) GetLabel() *string { return v.Label }
+
+// GetKeyPreview returns UserApiKeyFields.KeyPreview, and is useful for accessing the field via an interface.
+func (v *UserApiKeyFields) GetKeyPreview() string { return v.KeyPreview }
+
+// GetIssuedVia returns UserApiKeyFields.IssuedVia, and is useful for accessing the field via an interface.
+func (v *UserApiKeyFields) GetIssuedVia() *string { return v.IssuedVia }
+
+// GetCreatedAt returns UserApiKeyFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UserApiKeyFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetLastUsedAt returns UserApiKeyFields.LastUsedAt, and is useful for accessing the field via an interface.
+func (v *UserApiKeyFields) GetLastUsedAt() *string { return v.LastUsedAt }
+
+// GetRevokedAt returns UserApiKeyFields.RevokedAt, and is useful for accessing the field via an interface.
+func (v *UserApiKeyFields) GetRevokedAt() *string { return v.RevokedAt }
+
 // __AppsInput is used internally by genqlient
 type __AppsInput struct {
 	OrgId string `json:"orgId"`
@@ -1663,6 +2052,14 @@ func (v *__CreateMemoryInput) GetTags() *[]string { return v.Tags }
 
 // GetVisibility returns __CreateMemoryInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryInput) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// __CreateUserApiKeyInput is used internally by genqlient
+type __CreateUserApiKeyInput struct {
+	Label *string `json:"label,omitempty"`
+}
+
+// GetLabel returns __CreateUserApiKeyInput.Label, and is useful for accessing the field via an interface.
+func (v *__CreateUserApiKeyInput) GetLabel() *string { return v.Label }
 
 // __DeleteAppInput is used internally by genqlient
 type __DeleteAppInput struct {
@@ -1803,6 +2200,14 @@ type __ResolveUrnInput struct {
 
 // GetUrn returns __ResolveUrnInput.Urn, and is useful for accessing the field via an interface.
 func (v *__ResolveUrnInput) GetUrn() string { return v.Urn }
+
+// __RevokeUserApiKeyInput is used internally by genqlient
+type __RevokeUserApiKeyInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __RevokeUserApiKeyInput.Id, and is useful for accessing the field via an interface.
+func (v *__RevokeUserApiKeyInput) GetId() string { return v.Id }
 
 // __UpdateEdgeInput is used internally by genqlient
 type __UpdateEdgeInput struct {
@@ -2102,6 +2507,54 @@ func CreateMemory(
 	}
 
 	data_ = &CreateMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateUserApiKey.
+const CreateUserApiKey_Operation = `
+mutation CreateUserApiKey ($label: String) {
+	createUserApiKey(label: $label) {
+		rawKey
+		userApiKey {
+			... UserApiKeyFields
+		}
+	}
+}
+fragment UserApiKeyFields on UserApiKey {
+	id
+	label
+	keyPreview
+	issuedVia
+	createdAt
+	lastUsedAt
+	revokedAt
+}
+`
+
+// Returns the raw key EXACTLY ONCE (the server stores only its hash). label is
+// optional — omitted lets the server apply its placeholder default.
+func CreateUserApiKey(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	label *string,
+) (data_ *CreateUserApiKeyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateUserApiKey",
+		Query:  CreateUserApiKey_Operation,
+		Variables: &__CreateUserApiKeyInput{
+			Label: label,
+		},
+	}
+
+	data_ = &CreateUserApiKeyResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -2436,6 +2889,45 @@ func MyMemories(
 	return data_, err_
 }
 
+// The query executed by MyUserApiKeys.
+const MyUserApiKeys_Operation = `
+query MyUserApiKeys {
+	myUserApiKeys {
+		... UserApiKeyFields
+	}
+}
+fragment UserApiKeyFields on UserApiKey {
+	id
+	label
+	keyPreview
+	issuedVia
+	createdAt
+	lastUsedAt
+	revokedAt
+}
+`
+
+func MyUserApiKeys(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *MyUserApiKeysResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MyUserApiKeys",
+		Query:  MyUserApiKeys_Operation,
+	}
+
+	data_ = &MyUserApiKeysResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by NodeBatch.
 const NodeBatch_Operation = `
 query NodeBatch ($ids: [ID!]) {
@@ -2693,6 +3185,50 @@ func ResolveUrn(
 	}
 
 	data_ = &ResolveUrnResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RevokeUserApiKey.
+const RevokeUserApiKey_Operation = `
+mutation RevokeUserApiKey ($id: ID!) {
+	revokeUserApiKey(id: $id) {
+		... UserApiKeyFields
+	}
+}
+fragment UserApiKeyFields on UserApiKey {
+	id
+	label
+	keyPreview
+	issuedVia
+	createdAt
+	lastUsedAt
+	revokedAt
+}
+`
+
+// Idempotent for an already-revoked key; returns the updated key.
+func RevokeUserApiKey(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *RevokeUserApiKeyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokeUserApiKey",
+		Query:  RevokeUserApiKey_Operation,
+		Variables: &__RevokeUserApiKeyInput{
+			Id: id,
+		},
+	}
+
+	data_ = &RevokeUserApiKeyResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

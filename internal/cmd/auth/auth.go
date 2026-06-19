@@ -16,5 +16,6 @@ func NewCmdAuth(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdLogout(f))
 	cmd.AddCommand(newCmdWhoami(f))
 	cmd.AddCommand(newCmdStatus(f))
+	cmd.AddCommand(newCmdToken(f))
 	return cmd
 }
