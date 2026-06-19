@@ -1,0 +1,40 @@
+# User-scoped API key (PAT) management — server feature 025-oauth-for-mcp
+# FR-004. These require a user-resolved caller (a browser-login token); an
+# AppKey-resolved caller is rejected UNAUTHENTICATED.
+
+fragment UserApiKeyFields on UserApiKey {
+  id
+  label
+  keyPreview
+  issuedVia
+  createdAt
+  lastUsedAt
+  revokedAt
+}
+
+query MyUserApiKeys {
+  myUserApiKeys {
+    ...UserApiKeyFields
+  }
+}
+
+# Returns the raw key EXACTLY ONCE (the server stores only its hash). label is
+# optional — omitted lets the server apply its placeholder default.
+mutation CreateUserApiKey(
+  # @genqlient(omitempty: true)
+  $label: String
+) {
+  createUserApiKey(label: $label) {
+    rawKey
+    userApiKey {
+      ...UserApiKeyFields
+    }
+  }
+}
+
+# Idempotent for an already-revoked key; returns the updated key.
+mutation RevokeUserApiKey($id: ID!) {
+  revokeUserApiKey(id: $id) {
+    ...UserApiKeyFields
+  }
+}

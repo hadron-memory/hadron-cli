@@ -12,10 +12,14 @@ hadron auth status            # am I signed in? exit 0 yes / 3 no
 hadron auth login             # interactive browser OAuth (human only)
 echo $TOKEN | hadron auth login --with-token   # store a PAT
 HADRON_TOKEN=hdr_user_...     # env var, overrides stored tokens (CI)
+hadron auth token create      # mint a PAT (after login); ls | revoke <id> to manage
 ```
 
-Tokens are long-lived `hdr_user_*` personal access tokens, minted in
-the Hadron portal or by the OAuth flow. The server defaults to
+Tokens are long-lived `hdr_user_*` personal access tokens, minted with
+`hadron auth token create` (after an interactive `auth login`) or in the
+Hadron portal. `auth token` requires a user login — an app/agent key can't
+manage user tokens; the raw key is shown once, so store it on creation. The
+server defaults to
 `https://srv.hadronmemory.com`; override per-invocation with `--server
 <url>` or persistently with `hadron config set server <url>`.
 
@@ -43,7 +47,7 @@ the Hadron portal or by the OAuth flow. The server defaults to
 ## Command surface (v1)
 
 ```
-hadron auth login | logout | whoami | status
+hadron auth login | logout | whoami | status | token create|ls|revoke <id>
 hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>]
 hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn> | export <urn> [-o <file>] [--format md|json] | import <file|-> [-m <memory>] [--with-edges]
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
