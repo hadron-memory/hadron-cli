@@ -180,12 +180,12 @@ func TestNodeImportCreate(t *testing.T) {
 	}
 
 	var summary struct {
-		Action       string   `json:"action"`
-		NodeID       string   `json:"nodeId"`
-		Memory       string   `json:"memory"`
-		Loc          string   `json:"loc"`
-		EdgesWired   int      `json:"edgesWired"`
-		UnwiredEdges []string `json:"unwiredEdges"`
+		Action       string           `json:"action"`
+		NodeID       string           `json:"nodeId"`
+		Memory       string           `json:"memory"`
+		Loc          string           `json:"loc"`
+		EdgesWired   int              `json:"edgesWired"`
+		UnwiredEdges []map[string]any `json:"unwiredEdges"`
 	}
 	if err := json.Unmarshal([]byte(out.String()), &summary); err != nil {
 		t.Fatalf("summary not JSON: %v\n%s", err, out.String())
@@ -407,8 +407,8 @@ func TestNodeImportWithEdgesIdempotent(t *testing.T) {
 	}
 
 	var summary struct {
-		EdgesWired   int      `json:"edgesWired"`
-		UnwiredEdges []string `json:"unwiredEdges"`
+		EdgesWired   int              `json:"edgesWired"`
+		UnwiredEdges []map[string]any `json:"unwiredEdges"`
 	}
 	_ = json.Unmarshal([]byte(out.String()), &summary)
 	if summary.EdgesWired != 1 {
@@ -460,11 +460,61 @@ func TestNodeImportWithEdgesUnwiredTarget(t *testing.T) {
 		t.Error("no edge should be created for an unresolvable target")
 	}
 	var summary struct {
-		EdgesWired   int      `json:"edgesWired"`
-		UnwiredEdges []string `json:"unwiredEdges"`
+		EdgesWired   int `json:"edgesWired"`
+		UnwiredEdges []struct {
+			Target string `json:"target"`
+			Reason string `json:"reason"`
+		} `json:"unwiredEdges"`
 	}
 	_ = json.Unmarshal([]byte(out.String()), &summary)
-	if summary.EdgesWired != 0 || len(summary.UnwiredEdges) != 1 || summary.UnwiredEdges[0] != "ghost" {
-		t.Errorf("expected one unwired edge 'ghost', got wired=%d unwired=%v", summary.EdgesWired, summary.UnwiredEdges)
+	if summary.EdgesWired != 0 || len(summary.UnwiredEdges) != 1 || summary.UnwiredEdges[0].Target != "ghost" {
+		t.Errorf("expected one unwired edge 'ghost', got wired=%d unwired=%+v", summary.EdgesWired, summary.UnwiredEdges)
+	}
+	if !strings.Contains(summary.UnwiredEdges[0].Reason, "unresolved") {
+		t.Errorf("unwired reason should explain the unresolved target, got %q", summary.UnwiredEdges[0].Reason)
+	}
+}
+
+// An edge the server rejects (e.g. a condition operator outside the v1
+// allowlist) is reported with the reason, and the import still succeeds.
+func TestNodeImportWithEdgesRejectedReason(t *testing.T) {
+	const noEdges = `{"data":{"nodeById":{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
+		"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"task","tags":[],
+		"content":"x","data":null,"seq":null,"createdAt":"2026-06-11T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
+		"outgoingEdges":[],"incomingEdges":[]}}}`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  `{"data":{"resolveUrn":{"id":"n2","kind":"node","memoryId":"mem1"}}}`,
+		"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		"GetNodeById": noEdges,
+		"CreateEdge":  `{"errors":[{"message":"createEdge operator 'flag' is not in the v1 allowlist"}]}`,
+	})
+	f, out := testFactory(t)
+	file := filepath.Join(t.TempDir(), "edge.md")
+	oneEdgeMd := "---\nname: X\nid: n1\nloc: findings:flaky-ci\nmemory: acme.com:kb\nnodes:\n  - id: ne\n    loc: other\n    rel: routes-to\n    condition:\n      flag: x\n---\n\nbody\n"
+	if err := os.WriteFile(file, []byte(oneEdgeMd), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "import", file, "--with-edges", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute should succeed (best-effort edges): %v", err)
+	}
+	var summary struct {
+		EdgesWired   int `json:"edgesWired"`
+		UnwiredEdges []struct {
+			Target string `json:"target"`
+			Reason string `json:"reason"`
+		} `json:"unwiredEdges"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &summary)
+	if summary.EdgesWired != 0 || len(summary.UnwiredEdges) != 1 {
+		t.Fatalf("expected 1 unwired edge, got wired=%d unwired=%+v", summary.EdgesWired, summary.UnwiredEdges)
+	}
+	u := summary.UnwiredEdges[0]
+	if u.Target != "other" {
+		t.Errorf("unwired target = %q, want other", u.Target)
+	}
+	if !strings.Contains(u.Reason, "rejected") || !strings.Contains(u.Reason, "allowlist") {
+		t.Errorf("reason should surface the server rejection, got %q", u.Reason)
 	}
 }

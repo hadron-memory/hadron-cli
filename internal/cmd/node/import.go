@@ -19,12 +19,20 @@ import (
 
 // importNodeSummaryDTO is the stable --json shape for an import run.
 type importNodeSummaryDTO struct {
-	Memory       string   `json:"memory"`
-	Loc          string   `json:"loc"`
-	Action       string   `json:"action"`
-	NodeID       string   `json:"nodeId"`
-	EdgesWired   int      `json:"edgesWired"`
-	UnwiredEdges []string `json:"unwiredEdges"`
+	Memory       string           `json:"memory"`
+	Loc          string           `json:"loc"`
+	Action       string           `json:"action"`
+	NodeID       string           `json:"nodeId"`
+	EdgesWired   int              `json:"edgesWired"`
+	UnwiredEdges []unwiredEdgeDTO `json:"unwiredEdges"`
+}
+
+// unwiredEdgeDTO is one outgoing edge --with-edges could not wire, with why —
+// so a caller can tell a not-yet-resolvable target (transient; retry) from an
+// invalid condition or a server rejection (fix the file) without guessing.
+type unwiredEdgeDTO struct {
+	Target string `json:"target"`
+	Reason string `json:"reason"`
 }
 
 func newCmdImport(f *cmdutil.Factory) *cobra.Command {
@@ -106,7 +114,7 @@ never makes surprising edge mutations).`,
 			if dryRun {
 				return emitImportSummary(f, importNodeSummaryDTO{
 					Memory: memoryRef, Loc: targetLoc, Action: action,
-					EdgesWired: 0, UnwiredEdges: []string{},
+					EdgesWired: 0, UnwiredEdges: []unwiredEdgeDTO{},
 				}, true, withEdges, len(doc.Edges))
 			}
 
@@ -120,7 +128,7 @@ never makes surprising edge mutations).`,
 			}
 			node := resp.UpsertNode
 
-			edgesWired, unwired := 0, []string{}
+			edgesWired, unwired := 0, []unwiredEdgeDTO{}
 			if withEdges && len(doc.Edges) > 0 {
 				edgesWired, unwired, err = wireEdges(cmd, client, memoryRef, node.Id, doc.Edges)
 				if err != nil {
@@ -257,7 +265,10 @@ func emitImportSummary(f *cmdutil.Factory, s importNodeSummaryDTO, dryRun, withE
 		case withEdges:
 			fmt.Fprintf(w, "  wired %d edge(s)\n", s.EdgesWired)
 			if len(s.UnwiredEdges) > 0 {
-				fmt.Fprintf(w, "  %d edge(s) had unresolved targets: %s\n", len(s.UnwiredEdges), strings.Join(s.UnwiredEdges, ", "))
+				fmt.Fprintf(w, "  %d edge(s) not wired:\n", len(s.UnwiredEdges))
+				for _, u := range s.UnwiredEdges {
+					fmt.Fprintf(w, "    - %s: %s\n", u.Target, u.Reason)
+				}
 			}
 		case fileEdges > 0:
 			fmt.Fprintf(w, "  %d edge(s) in file — re-run with --with-edges to wire them\n", fileEdges)
