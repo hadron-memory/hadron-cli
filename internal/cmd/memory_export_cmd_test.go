@@ -94,6 +94,49 @@ func TestMemoryExport(t *testing.T) {
 	}
 }
 
+// TestMemoryExportDefaultsOutToCwd pins issue #31: --out is optional and
+// defaults to "." (the current directory). With no --out, files land in cwd
+// and the summary reports outDir ".".
+func TestMemoryExportDefaultsOutToCwd(t *testing.T) {
+	const nodesResp = `{"data":{"nodes":[
+		{"id":"n-root","memoryId":"mem1","loc":"root","name":"Root","nodeType":"info","tags":[],"updatedAt":"2026-06-11T00:00:00Z"}
+	]}}`
+	const batchResp = `{"data":{"nodeBatch":{
+		"truncated":false,"omitted":[],"unavailable":[],
+		"nodes":[
+			{"id":"n-root","memoryId":"mem1","loc":"root","name":"Root","alias":null,"nodeType":"info","description":null,"abstract":null,"abstractOriginHash":null,"tags":[],"seq":null,"data":null,"properties":null,"content":"Root body.","outgoingEdges":[]}
+		]
+	}}}`
+
+	gql, _ := captureGraphQL(t, map[string]string{
+		"Nodes":     nodesResp,
+		"NodeBatch": batchResp,
+	})
+	f, out := testFactory(t)
+	dir := t.TempDir()
+	t.Chdir(dir) // export should write here when --out is omitted
+
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "export", "mem1", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	var summary struct {
+		OutDir string `json:"outDir"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &summary); err != nil {
+		t.Fatalf("summary not JSON: %v\n%s", err, out.String())
+	}
+	if summary.OutDir != "." {
+		t.Errorf("outDir = %q, want %q (default)", summary.OutDir, ".")
+	}
+	// The file lands in cwd (the temp dir we chdir'd into).
+	if got := mustRead(t, filepath.Join(dir, "root.md")); !strings.Contains(got, "name: Root") {
+		t.Errorf("root.md not written to cwd:\n%s", got)
+	}
+}
+
 func mustRead(t *testing.T, path string) string {
 	t.Helper()
 	b, err := os.ReadFile(path)
