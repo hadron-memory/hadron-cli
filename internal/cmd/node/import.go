@@ -234,7 +234,11 @@ func nodeExists(cmd *cobra.Command, client graphql.Client, memoryRef, loc string
 func emitImportSummary(f *cmdutil.Factory, s importNodeSummaryDTO, dryRun, withEdges bool, fileEdges int) error {
 	return output.Write(f.IOStreams, f.JSON, s, func(w io.Writer) error {
 		if dryRun {
-			fmt.Fprintf(w, "[dry-run] would %s %s:%s\n", s.Action, s.Memory, s.Loc)
+			verb := "create"
+			if s.Action == "updated" {
+				verb = "update"
+			}
+			fmt.Fprintf(w, "[dry-run] would %s %s:%s\n", verb, s.Memory, s.Loc)
 		} else {
 			fmt.Fprintf(w, "✓ %s %s:%s\n", s.Action, s.Memory, s.Loc)
 		}

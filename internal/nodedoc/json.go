@@ -10,12 +10,19 @@ import (
 // canonical shape ParseJSON reads, so json↔json is trivially lossless and
 // md↔json share the in-memory Document. HTML escaping is off so content with
 // <, >, & stays literal. The output ends in a newline (json.Encoder framing).
+//
+// contentHash is a derived field, recomputed from content (same as the markdown
+// codec) on a copy so both formats agree and a hand-built or batch-read Document
+// — whose ContentHash the GraphQL projection never carries — still serializes a
+// correct hash without mutating the caller's value.
 func RenderJSON(doc *Document) (string, error) {
+	out := *doc
+	out.ContentHash = ContentHash(out.Content)
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetIndent("", "  ")
 	enc.SetEscapeHTML(false)
-	if err := enc.Encode(doc); err != nil {
+	if err := enc.Encode(&out); err != nil {
 		return "", err
 	}
 	return buf.String(), nil

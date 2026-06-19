@@ -113,6 +113,11 @@ func TestNodeExportJSONFormat(t *testing.T) {
 	if doc["memory"] != "acme.com:kb" || doc["type"] != "task" || doc["loc"] != "findings:flaky-ci" {
 		t.Errorf("unexpected JSON doc: %v", doc)
 	}
+	// contentHash is derived (the projection doesn't carry it) and must be
+	// present in JSON just as in markdown.
+	if doc["contentHash"] == "" || doc["contentHash"] == nil {
+		t.Errorf("json export must carry a recomputed contentHash: %v", doc["contentHash"])
+	}
 }
 
 // An id that lists but can't be read (the visibility gap) → NotFound, never a
