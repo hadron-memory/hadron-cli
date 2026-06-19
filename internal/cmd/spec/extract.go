@@ -119,8 +119,8 @@ chunk leaves the source alone with a warning.`,
 			if err != nil {
 				return err
 			}
-			locs := map[string]bool{}
-			var allLocs []string
+			locs := make(map[string]bool, len(all))
+			allLocs := make([]string, 0, len(all)) // len(all) is the upper bound after filtering
 			for _, n := range all {
 				if n == nil {
 					continue
