@@ -102,20 +102,18 @@ convention ("documents <from> on the <to> entity"); refine it with
 				MemoryID: memURN,
 				DryRun:   dryRun,
 			}
-			if dryRun {
-				return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
-					return renderLinkResult(w, result)
-				})
+			// dry-run and the executed path render the same result; only the
+			// write differs, so the create is gated and the output is unified.
+			if !dryRun {
+				resp, err := gen.CreateEdge(cmd.Context(), client, fromNode.Id, toNode.Id, label, nil, nil, nil)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp.CreateEdge == nil {
+					return exitcode.Newf(exitcode.Error, "createEdge returned no edge")
+				}
+				result.EdgeID = resp.CreateEdge.Id
 			}
-
-			resp, err := gen.CreateEdge(cmd.Context(), client, fromNode.Id, toNode.Id, label, nil, nil, nil)
-			if err != nil {
-				return api.MapError(err)
-			}
-			if resp.CreateEdge == nil {
-				return exitcode.Newf(exitcode.Error, "createEdge returned no edge")
-			}
-			result.EdgeID = resp.CreateEdge.Id
 
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				return renderLinkResult(w, result)
