@@ -36,14 +36,20 @@ func resolveOwner(app, agent, org string) (gen.AiConfigOwnerType, string, error)
 }
 
 // resolveSecret reads a secret value: "-" pulls it from stdin (trimmed), so a
-// key never has to appear in argv or shell history.
+// key never has to appear in argv or shell history. An empty stdin is rejected:
+// otherwise an unset `$KEY` piped in would silently send "" — which on `update`
+// *clears* the stored key. To clear deliberately, use --api-key "".
 func resolveSecret(v string, stdin io.Reader) (string, error) {
 	if v == "-" {
 		data, err := io.ReadAll(stdin)
 		if err != nil {
 			return "", err
 		}
-		return strings.TrimSpace(string(data)), nil
+		key := strings.TrimSpace(string(data))
+		if key == "" {
+			return "", exitcode.Newf(exitcode.Usage, `no API key on stdin (--api-key -); to clear the key use --api-key ""`)
+		}
+		return key, nil
 	}
 	return v, nil
 }

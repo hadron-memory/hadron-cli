@@ -69,6 +69,20 @@ func TestAiConfigCreateOmitsEmptyApiKey(t *testing.T) {
 	}
 }
 
+// --api-key - with an empty pipe must error, not silently send "" (which would
+// clear the key on update). Deliberate clearing uses --api-key "".
+func TestAiConfigRejectsEmptyStdinKey(t *testing.T) {
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader("   \n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"ai-config", "create", "--org", "acme.com", "--name", "x",
+		"--provider", "p", "--model", "m", "--api-key", "-", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "no API key on stdin") {
+		t.Fatalf("expected empty-stdin-key error, got %v", err)
+	}
+}
+
 func TestAiConfigCreateRequiresOwner(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
