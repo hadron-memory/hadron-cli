@@ -118,7 +118,11 @@ Conventions:
   feature, piping the moved chunk in via `--content -`/`--content-file`,
   auto-wiring the cross-ref edge new→source (`--ref-label`), and reminding you
   to refresh both abstracts (`--strip-source` also trims the chunk out of the
-  source body when it matches verbatim); `spec find` is semantic by default (`--match-exactly`
+  source body when it matches verbatim); `spec link <from> <to>`
+  cross-references one spec from another by their bare citations — a
+  convention-aware `edge add` that validates both endpoints are specs in the
+  same corpus and synthesizes the field→entity label when `--label` is omitted
+  (`--dry-run` previews); `spec find` is semantic by default (`--match-exactly`
   forces keyword); `spec register` is advisory/read-only (`--check` reports
   ledger drift, exit 5); `spec lint` takes `--product`/`--module`/`--all`,
   flags mixed-arity corpora, names the exact `edge add` remedy for a missing

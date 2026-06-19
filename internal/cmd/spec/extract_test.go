@@ -124,6 +124,15 @@ func TestStripChunk(t *testing.T) {
 	})
 }
 
+func TestTitleFromName(t *testing.T) {
+	if got := titleFromName("cor:dmo:060:02 — Node"); got != "Node" {
+		t.Errorf("got %q, want Node", got)
+	}
+	if got := titleFromName("  PlainName  "); got != "PlainName" {
+		t.Errorf("no-separator fallback got %q, want PlainName", got)
+	}
+}
+
 func TestDefaultRefLabel(t *testing.T) {
 	if got := defaultRefLabel("Node type", "cor:dmo:060:02 — Node"); got != "documents Node type on the Node entity" {
 		t.Errorf("got %q", got)

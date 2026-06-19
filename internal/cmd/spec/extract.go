@@ -295,17 +295,22 @@ func planExtract(source Citation, toFeature, rule string, locs map[string]bool, 
 	})
 }
 
+// titleFromName returns the human title portion of a spec node name
+// ("<citation> — <title>" → "<title>"), or the whole trimmed name when there is
+// no citation separator.
+func titleFromName(name string) string {
+	if i := strings.Index(name, "— "); i >= 0 {
+		return strings.TrimSpace(name[i+len("— "):])
+	}
+	return strings.TrimSpace(name)
+}
+
 // defaultRefLabel synthesizes a sentence-style cross-ref label in the corpus
 // convention ("documents <title> on the <entity> entity"); the author refines
 // it with `edge update`. sourceName is the source node's full name
-// ("<citation> — <entity title>"), so the entity title is the part after the
-// citation separator.
+// ("<citation> — <entity title>"), so the entity is its title portion.
 func defaultRefLabel(title, sourceName string) string {
-	entity := strings.TrimSpace(sourceName)
-	if i := strings.Index(sourceName, "— "); i >= 0 {
-		entity = strings.TrimSpace(sourceName[i+len("— "):])
-	}
-	return fmt.Sprintf("documents %s on the %s entity", strings.TrimSpace(title), entity)
+	return fmt.Sprintf("documents %s on the %s entity", strings.TrimSpace(title), titleFromName(sourceName))
 }
 
 // stripChunk removes the moved chunk from a source body for --strip-source. It
