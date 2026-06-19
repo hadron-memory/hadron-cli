@@ -1166,3 +1166,149 @@ func TestSpecExtractRejectsAbstractAndAbstractFile(t *testing.T) {
 		t.Fatalf("--abstract + --abstract-file should be Usage, got %d", got)
 	}
 }
+
+// ---- spec link (#41 item 4) ----
+
+// linkSpecDetail is a spec-tagged node returned for both endpoints of a
+// `spec link` (the fake GraphQL keys on operation name, so both fetches get the
+// same node — the citations in the DTO are what distinguish from/to).
+const linkSpecDetail = `{"data":{"nodeById":{"id":"sp1","memoryId":"mem1","loc":"cor:dmo:060:02","name":"cor:dmo:060:02 — Node",` +
+	`"description":null,"abstract":"The Node entity.","abstractOriginHash":null,"nodeType":"info","tags":["spec"],` +
+	`"content":"# cor:dmo:060:02 — Node\n","data":{"version":"0.0.1"},"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+	`"outgoingEdges":[],"incomingEdges":[]}}}`
+
+// linkNonSpecDetail is a node WITHOUT the "spec" tag — `spec link` must refuse it.
+const linkNonSpecDetail = `{"data":{"nodeById":{"id":"x1","memoryId":"mem1","loc":"register","name":"register — R",` +
+	`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["index"],` +
+	`"content":"# register\n","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+	`"outgoingEdges":[],"incomingEdges":[]}}}`
+
+const linkEdgeResp = `{"data":{"createEdge":{"id":"le1","label":"x","priority":0,"source":{"id":"sp1","loc":"cor:dmo:020:04"},"target":{"id":"sp1","loc":"cor:dmo:060:02"}}}}`
+
+type linkDTO struct {
+	From   string `json:"from"`
+	To     string `json:"to"`
+	Label  string `json:"label"`
+	EdgeID string `json:"edgeId"`
+	DryRun bool   `json:"dryRun"`
+}
+
+func TestSpecLink(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveSpecJSON,
+		"GetNodeById": linkSpecDetail,
+		"CreateEdge":  linkEdgeResp,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "link", "cor:dmo:020:04", "cor:dmo:060:02", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto linkDTO
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	if dto.From != "cor:dmo:020:04" || dto.To != "cor:dmo:060:02" {
+		t.Errorf("from/to = %q/%q", dto.From, dto.To)
+	}
+	// No --label: synthesized in the corpus convention from the two titles
+	// (both fetch the "— Node" node).
+	if dto.Label != "documents Node on the Node entity" {
+		t.Errorf("default label = %q", dto.Label)
+	}
+	if dto.EdgeID != "le1" {
+		t.Errorf("edgeId = %q", dto.EdgeID)
+	}
+	// CreateEdge was called with the synthesized label.
+	var edge struct {
+		Label string `json:"label"`
+	}
+	_ = json.Unmarshal(captured["CreateEdge"], &edge)
+	if edge.Label != "documents Node on the Node entity" {
+		t.Errorf("CreateEdge label = %q", edge.Label)
+	}
+}
+
+func TestSpecLinkExplicitLabel(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveSpecJSON,
+		"GetNodeById": linkSpecDetail,
+		"CreateEdge":  linkEdgeResp,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "link", "cor:dmo:020:04", "cor:dmo:060:02", "-m", specMem,
+		"--label", "documents the nodeType field of Node", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto linkDTO
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	if dto.Label != "documents the nodeType field of Node" {
+		t.Errorf("explicit label = %q", dto.Label)
+	}
+	var edge struct {
+		Label string `json:"label"`
+	}
+	_ = json.Unmarshal(captured["CreateEdge"], &edge)
+	if edge.Label != "documents the nodeType field of Node" {
+		t.Errorf("CreateEdge label = %q (explicit --label must pass through)", edge.Label)
+	}
+}
+
+func TestSpecLinkDryRun(t *testing.T) {
+	// CreateEdge is not mocked — a dry-run that called it would be an unexpected op.
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveSpecJSON,
+		"GetNodeById": linkSpecDetail,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "link", "cor:dmo:020:04", "cor:dmo:060:02", "-m", specMem, "--dry-run", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, ok := captured["CreateEdge"]; ok {
+		t.Error("dry-run must not call CreateEdge")
+	}
+	if !strings.Contains(out.String(), "would link") {
+		t.Errorf("unexpected dry-run output:\n%s", out.String())
+	}
+}
+
+func TestSpecLinkNonSpecEndpoint(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveSpecJSON,
+		"GetNodeById": linkNonSpecDetail,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "link", "cor:dmo:020:04", "cor:dmo:060:02", "-m", specMem, "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("a non-spec endpoint should be Usage, got %d", got)
+	}
+}
+
+func TestSpecLinkSelf(t *testing.T) {
+	// Linking a citation to itself is rejected before any network round-trip.
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "link", "cor:dmo:060:02", "cor:dmo:060:02", "-m", specMem, "--server", "http://127.0.0.1:1"})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("self-link should be Usage, got %d", got)
+	}
+}
+
+func TestSpecLinkEndpointNotFound(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveSpecJSON,
+		"GetNodeById": `{"data":{"nodeById":null}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "link", "cor:dmo:020:04", "cor:dmo:060:02", "-m", specMem, "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.NotFound {
+		t.Fatalf("missing endpoint should be NotFound, got %d", got)
+	}
+}
