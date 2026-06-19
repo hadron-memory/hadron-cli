@@ -20,17 +20,20 @@ import (
 // server-side constraint) is collected into unwired and reported — never fatal.
 // An existing (target, label) edge is skipped, so a re-import converges instead
 // of stacking duplicates.
-func wireEdges(cmd *cobra.Command, client graphql.Client, memoryRef, sourceID string, edges []nodedoc.Edge) (int, []string, error) {
+func wireEdges(cmd *cobra.Command, client graphql.Client, memoryRef, sourceID string, edges []nodedoc.Edge) (int, []unwiredEdgeDTO, error) {
 	existing, err := existingEdgeKeys(cmd, client, sourceID)
 	if err != nil {
 		return 0, nil, err
 	}
 	wired := 0
-	unwired := []string{}
+	unwired := []unwiredEdgeDTO{}
 	for _, e := range edges {
 		targetID := resolveEdgeTarget(cmd, client, memoryRef, e)
 		if targetID == "" {
-			unwired = append(unwired, edgeLabel(e))
+			// Unresolvable now — but a just-created target may simply not be
+			// resolveUrn-indexed yet (eventually consistent), so the reason
+			// doesn't claim it's gone for good.
+			unwired = append(unwired, unwiredEdgeDTO{Target: edgeLabel(e), Reason: "target unresolved (not found, or not yet indexed)"})
 			continue
 		}
 		if existing[edgeKey(targetID, e.Label)] {
@@ -38,15 +41,14 @@ func wireEdges(cmd *cobra.Command, client graphql.Client, memoryRef, sourceID st
 		}
 		priority, condition, err := edgeArgs(e)
 		if err != nil {
-			// An un-encodable condition (e.g. a NaN from the file) can't be
-			// wired; report it rather than dropping it silently.
-			unwired = append(unwired, edgeLabel(e))
+			// An un-encodable condition (e.g. a NaN from the file).
+			unwired = append(unwired, unwiredEdgeDTO{Target: edgeLabel(e), Reason: "invalid condition: " + err.Error()})
 			continue
 		}
 		if _, err := gen.CreateEdge(cmd.Context(), client, sourceID, targetID, e.Label, priority, condition, nil); err != nil {
-			// Best-effort: a missing target or edge constraint downgrades to an
-			// unwired report rather than aborting the whole import.
-			unwired = append(unwired, edgeLabel(e))
+			// Best-effort: a server-side rejection (e.g. a condition operator
+			// outside the v1 allowlist) downgrades to a report, never fatal.
+			unwired = append(unwired, unwiredEdgeDTO{Target: edgeLabel(e), Reason: "rejected: " + edgeRejectReason(err)})
 			continue
 		}
 		existing[edgeKey(targetID, e.Label)] = true
@@ -114,3 +116,18 @@ func edgeLabel(e nodedoc.Edge) string {
 }
 
 func edgeKey(targetID, label string) string { return targetID + "\x00" + label }
+
+// edgeRejectReason renders a createEdge failure as a short, single-line reason:
+// the first line, with genqlient's "input:<line>[:<col>]: " location prefix
+// trimmed. It strips only the leading digit/colon location token, so colons
+// inside the server's own message (e.g. "field 'x': required") are preserved.
+func edgeRejectReason(err error) string {
+	msg := err.Error()
+	if nl := strings.IndexByte(msg, '\n'); nl >= 0 {
+		msg = msg[:nl]
+	}
+	if rest, ok := strings.CutPrefix(msg, "input:"); ok {
+		msg = strings.TrimSpace(strings.TrimLeft(rest, "0123456789:"))
+	}
+	return msg
+}

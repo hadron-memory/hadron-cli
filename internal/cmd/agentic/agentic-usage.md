@@ -86,8 +86,9 @@ Conventions:
   node already at the target loc is updated, else created. The target memory and
   loc come from the file's `memory:`/`loc:` keys; `-m`/`--loc` override them
   (re-homing a node into another memory). Outgoing edges are imported only with
-  `--with-edges` (best-effort: targets resolve by loc then id, an unresolvable
-  target is reported in `unwiredEdges` not fatal, and re-import is idempotent);
+  `--with-edges` (best-effort: targets resolve by loc then id, an edge that
+  can't be wired is reported in `unwiredEdges` with a `reason`, never fatal, and
+  re-import is idempotent);
   `--create-only` refuses to update; `--dry-run` classifies without mutating.
   The server recomputes `contentHash`/`abstractOriginHash`, so a clean
   export→import round-trips losslessly.

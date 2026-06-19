@@ -63,7 +63,9 @@ hadron node import <file-path|-> [-m <memory>] [--loc <loc>]
   plan; **no mutation**. Cheap safety valve for delegated/bulk work.
 - `--json` — `importNodeSummaryDTO`
   `{ memory, loc, action: "created"|"updated", nodeId, edgesWired,
-  unwiredEdges[] }`.
+  unwiredEdges: [{ target, reason }] }` — each unwired edge carries why it was
+  skipped (unresolved target / invalid condition / server rejection), so a
+  caller can tell a retry-able lag from a fix-the-file error.
 
 ```
 hadron node import flaky.md                       # self-describing file
