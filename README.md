@@ -58,8 +58,10 @@ hadron memory ls --json
 hadron api 'query { me { id email } }'
 ```
 
-For CI/scripting, set `HADRON_TOKEN` or pipe a personal access token
-to `hadron auth login --with-token`.
+For CI/scripting, mint a token with `hadron auth token create`, then set
+`HADRON_TOKEN` or pipe it to `hadron auth login --with-token`. None of the
+ways to authenticate require the web portal — a self-hosted `hadron-server`
+is enough; see [Authentication](docs/how-to/authentication.md).
 
 ## For AI agents
 

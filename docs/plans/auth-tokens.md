@@ -1,9 +1,10 @@
 # Implementation Plan: `hadron auth token` — mint & manage personal API tokens
 
-> **Status: implemented and verified** on branch `feat/auth-tokens` (not yet
-> merged); this reflects the design as built. GH issue
-> [#54](https://github.com/hadron-memory/hadron-cli/issues/54), Tier 1 / linchpin
-> of the CLI⟷portal parity epic [#67](https://github.com/hadron-memory/hadron-cli/issues/67).
+> **Status: implemented and verified**, merged in
+> [#68](https://github.com/hadron-memory/hadron-cli/pull/68); this reflects the
+> design as built. GH issue
+> [#54](https://github.com/hadron-memory/hadron-cli/issues/54), Tier 1 of the
+> CLI⟷portal parity epic [#67](https://github.com/hadron-memory/hadron-cli/issues/67).
 
 ## Context
 
@@ -51,16 +52,30 @@ hadron auth token revoke <id> [--yes] [--json]
   `@genqlient(omitempty: true)` so an unset label is omitted, not sent as null.
 - No `make schema` needed — the ops were already in the committed snapshot.
 
-## Scope boundary (the part NOT in this PR)
+## Where this fits (correction)
 
-This makes the portal a **one-time** dependency: you still need the portal (or a
-browser) for the *first* interactive `auth login`, because the OAuth **consent
-screen lives in the portal, not `hadron-server`**. After that one login you mint
-all headless/CI tokens from the CLI.
+> An earlier draft of this plan claimed the OAuth consent screen lived in the
+> portal, so the *first* login still needed it. **That was wrong.** Spec
+> `025-oauth-for-mcp` put the entire OAuth server — consent screen, login, DCR,
+> `hdr_user_*` minting — **server-side**, and the CLI already drives it.
 
-A *fully* portal-free first login (a device-code flow, or shipping the consent
-screen in the open-sourced server) is a **`hadron-server` change** and is tracked
-separately under #54 — it can't be solved from the CLI alone.
+Authentication is already portal-free; this command adds the token-management
+layer on top of paths that exist:
+
+1. `hadron auth login` — full server-side OAuth (discovery → DCR → `127.0.0.1`
+   loopback → PKCE → token exchange) against the configured server, no portal
+   (`internal/auth/`, exercised by `browser_test.go`).
+2. `pnpm admin:mint-token` on the server host — a no-browser bootstrap for the
+   first credential
+   ([hadron-server#303](https://github.com/hadron-memory/hadron-server/pull/303)),
+   consumed via `auth login --with-token`.
+3. **this PR** — `auth token create` mints further PATs once you have one.
+
+The only residual is server-side (de-hardcode the `/oauth/authorize` IdP bounce
+for arbitrary self-host configs), tracked in
+[hadron-server#300](https://github.com/hadron-memory/hadron-server/issues/300).
+The operator-facing version of this is
+[docs/how-to/authentication.md](../how-to/authentication.md).
 
 ## Tests / verification
 
