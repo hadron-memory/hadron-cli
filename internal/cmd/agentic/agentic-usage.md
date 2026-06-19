@@ -113,7 +113,10 @@ Conventions:
   (`--new-product`/`--new-module`/`--new-feature` create roots; `--contract`
   scaffolds the contract at the deepest tier named; the abstract can come from
   `--abstract-file`/`--abstract -`; `--dry-run` previews
-  without writing); `spec extract <source> --to-feature <fff> [--rule <rr>]`
+  without writing); `spec edit <citation>` opens the spec's body in $EDITOR
+  pre-loaded — or replaces it non-interactively from `--content -`/`--content-file`
+  — writing a content-only update (the abstract is preserved) only when the body
+  actually changed (`--dry-run` previews); `spec extract <source> --to-feature <fff> [--rule <rr>]`
   splits a sub-rule out of a fat parent into its own citation under another
   feature, piping the moved chunk in via `--content -`/`--content-file`,
   auto-wiring the cross-ref edge new→source (`--ref-label`), and reminding you

@@ -6,7 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmd/spec"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 const specMem = "micromentor.org::platform-specs"
@@ -1310,5 +1312,156 @@ func TestSpecLinkEndpointNotFound(t *testing.T) {
 	root.SetArgs([]string{"spec", "link", "cor:dmo:020:04", "cor:dmo:060:02", "-m", specMem, "--server", gql.URL})
 	if got := exitcode.FromError(root.Execute()); got != exitcode.NotFound {
 		t.Fatalf("missing endpoint should be NotFound, got %d", got)
+	}
+}
+
+// ---- spec edit (#41 item 1) ----
+
+// editNonSpecDetail is a node WITHOUT the "spec" tag — `spec edit` must refuse it.
+const editNonSpecDetail = `{"data":{"nodeById":{"id":"x1","memoryId":"mem1","loc":"register","name":"register — R",` +
+	`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["index"],` +
+	`"content":"# register\n","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+	`"outgoingEdges":[],"incomingEdges":[]}}}`
+
+func editMocks() map[string]string {
+	return map[string]string{
+		"ResolveUrn":  resolveSpecJSON,
+		"GetNodeById": `{"data":{"nodeById":` + cleanSpecDetail + `}}`,
+		"UpsertNode":  `{"data":{"upsertNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","messaging"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+	}
+}
+
+type editUpsertInput struct {
+	Input struct {
+		Loc      string  `json:"loc"`
+		Name     string  `json:"name"`
+		Content  *string `json:"content"`
+		Abstract *string `json:"abstract"`
+	} `json:"input"`
+}
+
+// TestSpecEditInteractive drives the default (editor) path with the seam faked:
+// a changed body is written as a content-only update, preserving the abstract.
+func TestSpecEditInteractive(t *testing.T) {
+	restore := spec.SetEditorFuncForTest(func(_ *output.IOStreams, current string) (string, error) {
+		return current + "\n## New\n\nAdded.\n", nil
+	})
+	defer restore()
+
+	gql, captured := captureGraphQL(t, editMocks())
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	var up editUpsertInput
+	if err := json.Unmarshal(captured["UpsertNode"], &up); err != nil {
+		t.Fatalf("UpsertNode vars: %v", err)
+	}
+	if up.Input.Loc != "msg:010:02" {
+		t.Errorf("loc = %q, want msg:010:02 (no renumber)", up.Input.Loc)
+	}
+	if up.Input.Content == nil || !strings.Contains(*up.Input.Content, "## New") {
+		t.Errorf("edited body not sent: %v", up.Input.Content)
+	}
+	if up.Input.Abstract != nil {
+		t.Errorf("content-only update must not send an abstract (preserve it), got %q", *up.Input.Abstract)
+	}
+
+	var dto struct {
+		Changed bool `json:"changed"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	if !dto.Changed {
+		t.Error("expected changed=true")
+	}
+}
+
+// TestSpecEditNoOp: an editor that saves without changes writes nothing.
+func TestSpecEditNoOp(t *testing.T) {
+	restore := spec.SetEditorFuncForTest(func(_ *output.IOStreams, current string) (string, error) {
+		return current, nil
+	})
+	defer restore()
+
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveSpecJSON,
+		"GetNodeById": `{"data":{"nodeById":` + cleanSpecDetail + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, ok := captured["UpsertNode"]; ok {
+		t.Error("an unchanged body must not call UpsertNode")
+	}
+	if !strings.Contains(out.String(), "no changes") {
+		t.Errorf("unexpected output:\n%s", out.String())
+	}
+}
+
+// TestSpecEditContentStdin: --content - replaces the body non-interactively.
+func TestSpecEditContentStdin(t *testing.T) {
+	gql, captured := captureGraphQL(t, editMocks())
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader("# replaced body\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem, "--content", "-", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var up editUpsertInput
+	_ = json.Unmarshal(captured["UpsertNode"], &up)
+	if up.Input.Content == nil || *up.Input.Content != "# replaced body\n" {
+		t.Errorf("stdin body not sent verbatim: %v", up.Input.Content)
+	}
+}
+
+// TestSpecEditDryRun: --dry-run previews without writing.
+func TestSpecEditDryRun(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveSpecJSON,
+		"GetNodeById": `{"data":{"nodeById":` + cleanSpecDetail + `}}`,
+	})
+	f, out := testFactory(t)
+	f.IOStreams.In = strings.NewReader("# replaced body\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem, "--content", "-", "--dry-run", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, ok := captured["UpsertNode"]; ok {
+		t.Error("dry-run must not call UpsertNode")
+	}
+	if !strings.Contains(out.String(), "would update") {
+		t.Errorf("unexpected dry-run output:\n%s", out.String())
+	}
+}
+
+func TestSpecEditContentAndFileExclusive(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem,
+		"--content", "x", "--content-file", "/tmp/x.md", "--server", "http://127.0.0.1:1"})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("--content + --content-file should be Usage, got %d", got)
+	}
+}
+
+func TestSpecEditNonSpec(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveSpecJSON,
+		"GetNodeById": editNonSpecDetail,
+	})
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader("anything\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem, "--content", "-", "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("editing a non-spec node should be Usage, got %d", got)
 	}
 }
