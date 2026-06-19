@@ -42,7 +42,7 @@ echo "$TOKEN" | hadron auth login --with-token     # store in the keychain
 HADRON_TOKEN=hdr_user_… hadron memory ls
 ```
 
-(See hadron-server#303.)
+(See [hadron-server#303](https://github.com/hadron-memory/hadron-server/pull/303).)
 
 ## 3. Mint more tokens from the CLI
 
