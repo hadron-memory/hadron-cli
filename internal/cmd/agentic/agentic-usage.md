@@ -47,7 +47,7 @@ hadron auth login | logout | whoami | status
 hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> --out <dir>
 hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn>
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
-hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | register [--check] | find <query> [--match-exactly] | new ... | lint [<citation>] | supersede <citation> | import spec-kit|code
+hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | register [--check] | find <query> [--match-exactly] | new ... | extract <citation> --to-feature <fff> | lint [<citation>] | supersede <citation> | import spec-kit|code
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
 hadron config get | set | list
 hadron api <query-or-mutation>                       # raw GraphQL
@@ -113,7 +113,12 @@ Conventions:
   (`--new-product`/`--new-module`/`--new-feature` create roots; `--contract`
   scaffolds the contract at the deepest tier named; the abstract can come from
   `--abstract-file`/`--abstract -`; `--dry-run` previews
-  without writing); `spec find` is semantic by default (`--match-exactly`
+  without writing); `spec extract <source> --to-feature <fff> [--rule <rr>]`
+  splits a sub-rule out of a fat parent into its own citation under another
+  feature, piping the moved chunk in via `--content -`/`--content-file`,
+  auto-wiring the cross-ref edge new→source (`--ref-label`), and reminding you
+  to refresh both abstracts (`--strip-source` also trims the chunk out of the
+  source body when it matches verbatim); `spec find` is semantic by default (`--match-exactly`
   forces keyword); `spec register` is advisory/read-only (`--check` reports
   ledger drift, exit 5); `spec lint` takes `--product`/`--module`/`--all`,
   flags mixed-arity corpora, names the exact `edge add` remedy for a missing
