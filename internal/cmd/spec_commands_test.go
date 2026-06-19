@@ -1404,6 +1404,32 @@ func TestSpecEditNoOp(t *testing.T) {
 	}
 }
 
+// TestSpecEditCRLFNoOp: an editor that rewrites LF to CRLF without changing the
+// text is still a no-op (CRLF is normalized to LF before the change check).
+func TestSpecEditCRLFNoOp(t *testing.T) {
+	restore := spec.SetEditorFuncForTest(func(_ *output.IOStreams, current string) (string, error) {
+		return strings.ReplaceAll(current, "\n", "\r\n"), nil
+	})
+	defer restore()
+
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveSpecJSON,
+		"GetNodeById": `{"data":{"nodeById":` + cleanSpecDetail + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, ok := captured["UpsertNode"]; ok {
+		t.Error("a CRLF-only rewrite must not call UpsertNode")
+	}
+	if !strings.Contains(out.String(), "no changes") {
+		t.Errorf("unexpected output:\n%s", out.String())
+	}
+}
+
 // TestSpecEditContentStdin: --content - replaces the body non-interactively.
 func TestSpecEditContentStdin(t *testing.T) {
 	gql, captured := captureGraphQL(t, editMocks())

@@ -110,6 +110,10 @@ the rule's meaning changed.`,
 			if err != nil {
 				return err
 			}
+			// Normalize CRLF to LF: an editor that saves \r\n (common on Windows)
+			// would otherwise read as a change against the corpus's LF body,
+			// defeating the no-op guard with a spurious write + updatedAt bump.
+			edited = strings.ReplaceAll(edited, "\r\n", "\n")
 
 			result := editResultDTO{
 				Citation: node.Loc,
