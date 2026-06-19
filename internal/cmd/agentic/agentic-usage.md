@@ -45,7 +45,7 @@ the Hadron portal or by the OAuth flow. The server defaults to
 ```
 hadron auth login | logout | whoami | status
 hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>]
-hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn>
+hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn> | export <urn> [-o <file>] [--format md|json] | import <file|-> [-m <memory>] [--with-edges]
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
 hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | register [--check] | find <query> [--match-exactly] | new ... | extract <citation> --to-feature <fff> | lint [<citation>] | supersede <citation> | import spec-kit|code
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
@@ -80,6 +80,17 @@ Conventions:
   `--content "<text>"`, `--content -` (stdin), or `--content-file`;
   the abstract likewise from `--abstract`, `--abstract -`, or
   `--abstract-file` (paragraph abstracts dodge shell quoting this way).
+- `node export <urn>` writes one node to a portable, self-describing file
+  (frontmatter markdown, or `--format json`) — to stdout by default so it pipes
+  into `node import`, or `-o <file>`. `node import <file|->` recreates it: a
+  node already at the target loc is updated, else created. The target memory and
+  loc come from the file's `memory:`/`loc:` keys; `-m`/`--loc` override them
+  (re-homing a node into another memory). Outgoing edges are imported only with
+  `--with-edges` (best-effort: targets resolve by loc then id, an unresolvable
+  target is reported in `unwiredEdges` not fatal, and re-import is idempotent);
+  `--create-only` refuses to update; `--dry-run` classifies without mutating.
+  The server recomputes `contentHash`/`abstractOriginHash`, so a clean
+  export→import round-trips losslessly.
 - `memory clone` deep-copies a memory (nodes, edges, pending edges)
   into a new same-org memory and rewrites references to the source
   memory's URN inside node content and abstracts. Version history,

@@ -1,11 +1,7 @@
 package memory
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -15,12 +11,12 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
-	yaml "go.yaml.in/yaml/v3"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/nodedoc"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -34,7 +30,6 @@ const nodesPageSize = 500
 type (
 	batchResult = gen.NodeBatchNodeBatchNodeBatchResult
 	batchNode   = gen.NodeBatchNodeBatchNodeBatchResultNodesNode
-	batchEdge   = gen.NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge
 )
 
 // exportSummaryDTO is the stable --json shape for an export run.
@@ -186,17 +181,19 @@ func listAllNodeRefs(ctx context.Context, client graphql.Client, memID string) (
 	}
 }
 
-// writeNodeMarkdown renders one node and writes it to <root>/<loc>.md,
-// creating parent directories as needed.
+// writeNodeMarkdown renders one node through the shared codec and writes it to
+// <root>/<loc>.md, creating parent directories as needed. standalone is false:
+// a tree export encodes loc in the path, so the file omits the self-describing
+// loc/memory keys (matching the server's git export byte-for-byte).
 func writeNodeMarkdown(root string, n *batchNode) error {
 	if n == nil {
 		return nil
 	}
-	path, err := nodeFilePath(root, n.Loc)
+	path, err := nodedoc.NodeFilePath(root, n.Loc)
 	if err != nil {
 		return err
 	}
-	doc, err := renderNodeMarkdown(n)
+	doc, err := nodedoc.RenderMarkdown(api.DocumentFromBatchNode(n), false)
 	if err != nil {
 		return err
 	}
@@ -204,177 +201,6 @@ func writeNodeMarkdown(root string, n *batchNode) error {
 		return err
 	}
 	return os.WriteFile(path, []byte(doc), 0o644)
-}
-
-// renderNodeMarkdown produces the full file: YAML frontmatter, then the node
-// content as the body. Mirrors hadron-server's pushMemoryToGit file shape
-// (`---\n<fm>\n---\n\n<body>\n`).
-func renderNodeMarkdown(n *batchNode) (string, error) {
-	fmYAML, err := marshalYAML(buildNodeFrontmatter(n))
-	if err != nil {
-		return "", err
-	}
-	body := ""
-	if n.Content != nil {
-		body = *n.Content
-	}
-	return fmt.Sprintf("---\n%s\n---\n\n%s\n", fmYAML, body), nil
-}
-
-// nodeFrontmatter is the YAML header for an exported node. Field order matches
-// hadron-server's buildNodeFrontmatter so the diff against a server push stays
-// readable; omitempty encodes its omit-on-default rules (see buildNodeFrontmatter).
-type nodeFrontmatter struct {
-	Name               string      `yaml:"name"`
-	ID                 string      `yaml:"id"`
-	Alias              string      `yaml:"alias,omitempty"`
-	Type               string      `yaml:"type,omitempty"`
-	Description        string      `yaml:"description,omitempty"`
-	Abstract           string      `yaml:"abstract,omitempty"`
-	AbstractOriginHash string      `yaml:"abstractOriginHash,omitempty"`
-	ContentHash        string      `yaml:"contentHash,omitempty"`
-	Tags               []string    `yaml:"tags,omitempty"`
-	Seq                *int        `yaml:"seq,omitempty"`
-	Data               any         `yaml:"data,omitempty"`
-	Properties         any         `yaml:"properties,omitempty"`
-	Nodes              []edgeEntry `yaml:"nodes,omitempty"`
-}
-
-// edgeEntry is one outgoing edge inside the frontmatter `nodes:` array. The
-// importer keys off `id` and reads `rel` as the label; `loc` is carried for
-// readability. condition/priority round-trip the edge's gating and order.
-type edgeEntry struct {
-	ID        string `yaml:"id"`
-	Loc       string `yaml:"loc,omitempty"`
-	Rel       string `yaml:"rel"`
-	Condition any    `yaml:"condition,omitempty"`
-	Priority  int    `yaml:"priority,omitempty"`
-}
-
-// buildNodeFrontmatter mirrors hadron-server's buildNodeFrontmatter
-// (src/integrations/github/nodeFrontmatter.ts) field-for-field so a local
-// export round-trips through the same importer. The importer upserts the
-// importer-consumed fields (type→isLink, alias, description, abstract,
-// abstractOriginHash, contentHash, tags, nodes) as `value ?? null`, so an
-// omitted field is actively nulled on re-import — the omit rules here match
-// the server's exactly. contentHash is recomputed from content (it is a DB
-// column the GraphQL API doesn't expose) using the same sha256[:8] the server
-// uses, so the value is identical. seq/data/properties aren't importer-consumed
-// but are emitted for a faithful mirror; an empty {}/[] data or properties is
-// dropped (omitempty), which is harmless since the importer ignores them.
-func buildNodeFrontmatter(n *batchNode) nodeFrontmatter {
-	fm := nodeFrontmatter{Name: n.Name, ID: n.Id}
-	if n.Alias != nil {
-		fm.Alias = *n.Alias
-	}
-	if n.NodeType != "" && n.NodeType != "info" {
-		fm.Type = n.NodeType
-	}
-	if n.Description != nil {
-		fm.Description = *n.Description
-	}
-	if n.Abstract != nil {
-		fm.Abstract = *n.Abstract
-	}
-	if n.AbstractOriginHash != nil {
-		fm.AbstractOriginHash = *n.AbstractOriginHash
-	}
-	if n.Content != nil {
-		fm.ContentHash = contentHash(*n.Content)
-	}
-	fm.Tags = n.Tags
-	fm.Seq = n.Seq
-	fm.Data = decodeJSON(n.Data)
-	fm.Properties = decodeJSON(n.Properties)
-	fm.Nodes = buildEdgeEntries(n.OutgoingEdges)
-	return fm
-}
-
-// buildEdgeEntries projects outgoing edges into the inline `nodes:` array,
-// matching the server's buildEdgeFrontmatter: id always, loc when set, rel
-// (the label, empty string when blank), condition when present, priority when
-// non-zero. An edge with no target can't be addressed and is skipped. Returns
-// nil when there are no edges so the `nodes:` key is omitted entirely.
-func buildEdgeEntries(edges []*batchEdge) []edgeEntry {
-	out := make([]edgeEntry, 0, len(edges))
-	for _, e := range edges {
-		if e == nil || e.Target == nil {
-			continue
-		}
-		entry := edgeEntry{ID: e.Target.Id, Loc: e.Target.Loc, Rel: e.Label, Condition: decodeJSON(e.Condition)}
-		if e.Priority != 0 {
-			entry.Priority = e.Priority
-		}
-		out = append(out, entry)
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-// contentHash recomputes the server's content fingerprint: sha256 of the
-// content, hex, first 8 chars; empty content has no hash. Matches
-// hadron-server's computeContentHash (src/lib/contentHash.ts) so the exported
-// contentHash equals the value the server would have written.
-func contentHash(content string) string {
-	if content == "" {
-		return ""
-	}
-	sum := sha256.Sum256([]byte(content))
-	return hex.EncodeToString(sum[:])[:8]
-}
-
-// decodeJSON turns a GraphQL JSON scalar into a value yaml can render as
-// proper YAML (not a quoted JSON string). A nil pointer, empty bytes, or a
-// literal `null` decode to nil so the caller's omitempty drops the key.
-func decodeJSON(raw *json.RawMessage) any {
-	if raw == nil {
-		return nil
-	}
-	trimmed := bytes.TrimSpace(*raw)
-	if len(trimmed) == 0 || string(trimmed) == "null" {
-		return nil
-	}
-	var v any
-	if err := json.Unmarshal(trimmed, &v); err != nil {
-		return nil
-	}
-	return v
-}
-
-// locToSegments splits a loc into filesystem path segments, rejecting empty,
-// `.`, `..`, and any segment carrying a path separator. Those feed directory
-// creation and file writes, so a malformed loc is a real hazard — a segment
-// like `../escape` or `a/b` contains no `:` and isn't equal to `..`, so it
-// would slip past the exact-match checks and let filepath.Join walk outside
-// the output tree (`<root>/../escape.md`). Valid locs (URN grammar) never
-// contain `/`, `\`, or `..` segments, so this only ever rejects hostile input;
-// fail loud rather than write to the wrong path. Hardens the server's
-// locToSegments guard, which checks only empty/`.`/`..`.
-func locToSegments(loc string) ([]string, error) {
-	parts := strings.Split(loc, ":")
-	for _, p := range parts {
-		if p == "" || p == "." || p == ".." || strings.ContainsAny(p, `/\`) {
-			return nil, fmt.Errorf("unsafe loc %q: empty, '.', '..', or path-separator segments are not allowed", loc)
-		}
-	}
-	return parts, nil
-}
-
-// nodeFilePath maps a loc to its on-disk markdown path under root. The
-// empty-loc root node is README.md; every other node is <seg>/<seg>.md, so a
-// node's path is stable whether or not it has children (children land in the
-// sibling <seg>/ folder). Mirrors the server's nodeFilePath.
-func nodeFilePath(root, loc string) (string, error) {
-	if loc == "" {
-		return filepath.Join(root, "README.md"), nil
-	}
-	segs, err := locToSegments(loc)
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(append([]string{root}, segs...)...) + ".md", nil
 }
 
 // rootManifest is the frontmatter for a synthesized root README.md.
@@ -422,7 +248,7 @@ func maybeWriteManifest(ctx context.Context, client graphql.Client, root, memID 
 	if m.Description != nil {
 		body = *m.Description
 	}
-	fmYAML, err := marshalYAML(rootManifest{URN: m.Urn, Name: m.Name, Description: desc, Tags: m.Tags})
+	fmYAML, err := nodedoc.MarshalYAML(rootManifest{URN: m.Urn, Name: m.Name, Description: desc, Tags: m.Tags})
 	if err != nil {
 		return false, err
 	}
@@ -434,20 +260,4 @@ func maybeWriteManifest(ctx context.Context, client graphql.Client, root, memID 
 		return false, err
 	}
 	return true, nil
-}
-
-// marshalYAML encodes v as YAML with 2-space indents (matching the server's
-// yaml writer) and trims the trailing newline so the caller controls the
-// document framing.
-func marshalYAML(v any) (string, error) {
-	var buf bytes.Buffer
-	enc := yaml.NewEncoder(&buf)
-	enc.SetIndent(2)
-	if err := enc.Encode(v); err != nil {
-		return "", err
-	}
-	if err := enc.Close(); err != nil {
-		return "", err
-	}
-	return strings.TrimRight(buf.String(), "\n"), nil
 }

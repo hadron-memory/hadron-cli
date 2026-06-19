@@ -8,10 +8,9 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
-type (
-	batchResult = gen.NodeBatchNodeBatchNodeBatchResult
-	batchNode   = gen.NodeBatchNodeBatchNodeBatchResultNodesNode
-)
+// batchNode is declared in nodedoc.go (non-test); only batchResult is needed
+// just for these tests.
+type batchResult = gen.NodeBatchNodeBatchNodeBatchResult
 
 func nodesWithIDs(ids ...string) []*batchNode {
 	out := make([]*batchNode, len(ids))

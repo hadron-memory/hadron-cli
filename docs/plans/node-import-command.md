@@ -1,11 +1,11 @@
 # Implementation Plan: `hadron node import` — single-node import (md + json)
 
-> **Status: planned.** GH issue
+> **Status: implemented and verified** on branch `feat/node-export-import`
+> (not yet merged); this reflects the design as built. GH issue
 > [#33](https://github.com/hadron-memory/hadron-cli/issues/33). Paired with
 > [`hadron node export`](node-export-command.md) (issue #34) — one feature: an
-> export must re-import without loss. **Build export first** — it defines the
-> format and extracts the shared `internal/nodedoc` codec this command parses
-> with.
+> export must re-import without loss. The shared `internal/nodedoc` codec this
+> command parses with is defined alongside the exporter.
 
 ## Context
 
