@@ -50,7 +50,7 @@ type exportSummaryDTO struct {
 func newCmdExport(f *cmdutil.Factory) *cobra.Command {
 	var outDir, format string
 	cmd := &cobra.Command{
-		Use:   "export <memory-id-or-urn> --out <dir>",
+		Use:   "export <memory-id-or-urn> [--out <dir>]",
 		Short: "Export a memory's nodes to local markdown files",
 		Long: `Export every node in a memory to a local directory as frontmatter
 markdown — the same one-file-per-node layout hadron-server writes to a git
@@ -66,15 +66,18 @@ Nodes are pulled in bulk (up to 200 per request). data-type nodes are
 skipped (they carry no markdown body), matching the server's git export.
 Existing files are overwritten; files for nodes that no longer exist are
 left in place — export never deletes.`,
-		Example: `  hadron memory export acme.com:project-kb --out ./kb
+		Example: `  hadron memory export acme.com:project-kb            # to the current directory
+  hadron memory export acme.com:project-kb --out ./kb
   hadron memory export acme.com:project-kb -o ./kb --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if format != "markdown" && format != "md" {
 				return exitcode.Newf(exitcode.Usage, "unsupported --format %q (only markdown is supported)", format)
 			}
+			// --out is optional and defaults to "." (current directory); an
+			// explicit empty value falls back to "." rather than a bare path.
 			if strings.TrimSpace(outDir) == "" {
-				return exitcode.Newf(exitcode.Usage, "--out <dir> is required")
+				outDir = "."
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -158,9 +161,8 @@ left in place — export never deletes.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&outDir, "out", "o", "", "output directory (required)")
+	cmd.Flags().StringVarP(&outDir, "out", "o", ".", "output directory")
 	cmd.Flags().StringVar(&format, "format", "markdown", "output format (currently: markdown)")
-	_ = cmd.MarkFlagRequired("out")
 	return cmd
 }
 

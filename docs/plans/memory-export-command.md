@@ -33,11 +33,11 @@ endpoint exists — export is a client-side fan-out either way):
 ## Command surface (as built)
 
 ```
-hadron memory export <memory-id-or-urn> --out <dir> [--format markdown] [--json]
+hadron memory export <memory-id-or-urn> [--out <dir>] [--format markdown] [--json]
 ```
 
 - Positional memory ref (id or URN), matching `memory clone|get|rm`.
-- `-o/--out <dir>` is **required**.
+- `-o/--out <dir>` defaults to `.` (the current directory).
 - `--format` defaults to `markdown` and only accepts `markdown`/`md` today; it
   exists so a future JSON/NDJSON target slots in without a breaking change.
 - `--json` emits a stable `exportSummaryDTO`:

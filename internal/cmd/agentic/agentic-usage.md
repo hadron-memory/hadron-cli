@@ -44,7 +44,7 @@ the Hadron portal or by the OAuth flow. The server defaults to
 
 ```
 hadron auth login | logout | whoami | status
-hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> --out <dir>
+hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>]
 hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn>
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
 hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | register [--check] | find <query> [--match-exactly] | new ... | extract <citation> --to-feature <fff> | lint [<citation>] | supersede <citation> | import spec-kit|code
@@ -85,10 +85,11 @@ Conventions:
   memory's URN inside node content and abstracts. Version history,
   shares/subscriptions, assets, and git-sync config are NOT copied.
   Encrypted memories and agent system / app memories cannot be cloned.
-- `memory export <id-or-urn> --out <dir>` writes every node to a local
-  directory as frontmatter markdown (`<out>/<loc>.md`, one self-contained
-  file per node, colons in the loc become path segments) — the same layout
-  the server's git sync produces, but on disk and without a remote. Nodes
+- `memory export <id-or-urn> [--out <dir>]` writes every node to a local
+  directory (`--out` defaults to `.`, the current directory) as frontmatter
+  markdown (`<out>/<loc>.md`, one self-contained file per node, colons in the
+  loc become path segments) — the same layout the server's git sync produces,
+  but on disk and without a remote. Nodes
   are pulled in bulk; `data`-type nodes are skipped; nodes the read API
   cannot return come back under `unavailable` in the `--json` summary
   (a client-side export is bounded by per-node read access, unlike the
