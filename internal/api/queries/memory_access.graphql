@@ -1,0 +1,95 @@
+# Memory access control (#57): members (team rows) and shares (per-user grants).
+# Role enums are lower-case (owner/reader/writer; reader/writer). A distinct
+# user fragment name avoids colliding with org.graphql's UserFields.
+
+fragment MemUserFields on User {
+  id
+  name
+  email
+  handle
+}
+
+# memory(id) is the path to a memory's member/share rows.
+query MemoryMembers($id: ID!) {
+  memory(id: $id) {
+    id
+    members {
+      role
+      createdAt
+      user {
+        ...MemUserFields
+      }
+    }
+  }
+}
+
+query MemoryShares($id: ID!) {
+  memory(id: $id) {
+    id
+    shares {
+      role
+      createdAt
+      grantee {
+        ...MemUserFields
+      }
+    }
+  }
+}
+
+mutation AddMemoryMember($memoryId: ID!, $userId: ID!, $role: MemoryMemberRole!) {
+  addMemoryMember(memoryId: $memoryId, userId: $userId, role: $role) {
+    memoryMember {
+      role
+      user {
+        ...MemUserFields
+      }
+    }
+  }
+}
+
+mutation UpdateMemoryMemberRole($memoryId: ID!, $userId: ID!, $role: MemoryMemberRole!) {
+  updateMemoryMemberRole(memoryId: $memoryId, userId: $userId, role: $role) {
+    memoryMember {
+      role
+      user {
+        ...MemUserFields
+      }
+    }
+  }
+}
+
+mutation RemoveMemoryMember($memoryId: ID!, $userId: ID!) {
+  removeMemoryMember(memoryId: $memoryId, userId: $userId) {
+    memoryId
+    userId
+  }
+}
+
+mutation CreateMemoryShare($memoryId: ID!, $granteeId: ID!, $role: MemoryShareRole!) {
+  createMemoryShare(memoryId: $memoryId, granteeId: $granteeId, role: $role) {
+    memoryShare {
+      role
+      grantee {
+        ...MemUserFields
+      }
+    }
+  }
+}
+
+mutation UpdateMemoryShareRole($memoryId: ID!, $granteeId: ID!, $role: MemoryShareRole!) {
+  updateMemoryShareRole(memoryId: $memoryId, granteeId: $granteeId, role: $role) {
+    memoryShare {
+      role
+      grantee {
+        ...MemUserFields
+      }
+    }
+  }
+}
+
+mutation RevokeMemoryShare($memoryId: ID!, $granteeId: ID!) {
+  revokeMemoryShare(memoryId: $memoryId, granteeId: $granteeId) {
+    granteeId
+    memoryId
+  }
+}

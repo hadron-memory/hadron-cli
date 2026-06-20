@@ -9,6 +9,146 @@ import (
 	"github.com/Khan/genqlient/graphql"
 )
 
+// AddMemoryMemberAddMemoryMemberAddMemoryMemberPayload includes the requested fields of the GraphQL type AddMemoryMemberPayload.
+type AddMemoryMemberAddMemoryMemberAddMemoryMemberPayload struct {
+	MemoryMember *AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMember `json:"memoryMember"`
+}
+
+// GetMemoryMember returns AddMemoryMemberAddMemoryMemberAddMemoryMemberPayload.MemoryMember, and is useful for accessing the field via an interface.
+func (v *AddMemoryMemberAddMemoryMemberAddMemoryMemberPayload) GetMemoryMember() *AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMember {
+	return v.MemoryMember
+}
+
+// AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMember includes the requested fields of the GraphQL type MemoryMember.
+// The GraphQL type's documentation follows.
+//
+// 023-app-shape US4: symmetric team-membership row for group-class
+// memory. The "Company Brain" model — multiple users collaboratively
+// read/write a shared memory, governance by role, no single owner
+// on the Memory itself.
+type AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMember struct {
+	Role MemoryMemberRole                                                      `json:"role"`
+	User *AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser `json:"user"`
+}
+
+// GetRole returns AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMember.Role, and is useful for accessing the field via an interface.
+func (v *AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMember) GetRole() MemoryMemberRole {
+	return v.Role
+}
+
+// GetUser returns AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMember.User, and is useful for accessing the field via an interface.
+func (v *AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMember) GetUser() *AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser {
+	return v.User
+}
+
+// AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser includes the requested fields of the GraphQL type User.
+type AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser struct {
+	MemUserFields `json:"-"`
+}
+
+// GetId returns AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser.Id, and is useful for accessing the field via an interface.
+func (v *AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser) GetId() string {
+	return v.MemUserFields.Id
+}
+
+// GetName returns AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser.Name, and is useful for accessing the field via an interface.
+func (v *AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser) GetName() *string {
+	return v.MemUserFields.Name
+}
+
+// GetEmail returns AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser.Email, and is useful for accessing the field via an interface.
+func (v *AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser) GetEmail() *string {
+	return v.MemUserFields.Email
+}
+
+// GetHandle returns AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser.Handle, and is useful for accessing the field via an interface.
+func (v *AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser) GetHandle() *string {
+	return v.MemUserFields.Handle
+}
+
+func (v *AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemUserFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Email *string `json:"email"`
+
+	Handle *string `json:"handle"`
+}
+
+func (v *AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser) __premarshalJSON() (*__premarshalAddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser, error) {
+	var retval __premarshalAddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMemberUser
+
+	retval.Id = v.MemUserFields.Id
+	retval.Name = v.MemUserFields.Name
+	retval.Email = v.MemUserFields.Email
+	retval.Handle = v.MemUserFields.Handle
+	return &retval, nil
+}
+
+// AddMemoryMemberResponse is returned by AddMemoryMember on success.
+type AddMemoryMemberResponse struct {
+	// 023-app-shape US4 — add a team member to a group-class Memory.
+	// Idempotent on the (memoryId, userId) PK: re-calling with a
+	// different role upserts the role.
+	//
+	// The caller MUST be an owner of the Memory (role = owner). The
+	// bootstrap case is handled by createMemory itself, which adds the
+	// creator as the first owner of a newly-created group memory.
+	//
+	// Error codes (extensions.code, Error.name style):
+	// - UNAUTHENTICATED — no logged-in user in context.
+	// - FORBIDDEN — caller is not an owner of the memory. (Uniform
+	// for missing-memory / wrong-class / not-an-owner cases, by
+	// the same don't-leak-metadata rule as MemoryShare mutations.)
+	// - InvalidMemoryClassForMemberError — memory is not group-class
+	// (only reachable from non-GraphQL callers in v1 — the
+	// caller-authority guard short-circuits to FORBIDDEN first).
+	// - MemoryMemberUserMissingError — the userId doesn't resolve.
+	// - LastOwnerProtectedError (FR-038) — reachable via the
+	// idempotent upsert path when the call would demote an
+	// existing sole owner to reader/writer.
+	AddMemoryMember *AddMemoryMemberAddMemoryMemberAddMemoryMemberPayload `json:"addMemoryMember"`
+}
+
+// GetAddMemoryMember returns AddMemoryMemberResponse.AddMemoryMember, and is useful for accessing the field via an interface.
+func (v *AddMemoryMemberResponse) GetAddMemoryMember() *AddMemoryMemberAddMemoryMemberAddMemoryMemberPayload {
+	return v.AddMemoryMember
+}
+
 // AddOrgMemberAddOrgMember includes the requested fields of the GraphQL type OrgMember.
 type AddOrgMemberAddOrgMember struct {
 	Id   string                        `json:"id"`
@@ -661,6 +801,158 @@ type CreateMemoryResponse struct {
 
 // GetCreateMemory returns CreateMemoryResponse.CreateMemory, and is useful for accessing the field via an interface.
 func (v *CreateMemoryResponse) GetCreateMemory() *CreateMemoryCreateMemory { return v.CreateMemory }
+
+// CreateMemoryShareCreateMemoryShareCreateMemorySharePayload includes the requested fields of the GraphQL type CreateMemorySharePayload.
+type CreateMemoryShareCreateMemoryShareCreateMemorySharePayload struct {
+	MemoryShare *CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShare `json:"memoryShare"`
+}
+
+// GetMemoryShare returns CreateMemoryShareCreateMemoryShareCreateMemorySharePayload.MemoryShare, and is useful for accessing the field via an interface.
+func (v *CreateMemoryShareCreateMemoryShareCreateMemorySharePayload) GetMemoryShare() *CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShare {
+	return v.MemoryShare
+}
+
+// CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShare includes the requested fields of the GraphQL type MemoryShare.
+// The GraphQL type's documentation follows.
+//
+// 023-app-shape US3: asymmetric cross-user grant on a personal-class
+// Memory. The principal (memory.userId) grants a grantee read/write
+// access. Used for per-pairing isolation patterns (e.g., Alice's
+// personal Memory paired-with-Mentor-A is distinct from her
+// paired-with-Mentor-B Memory, each with its own MemoryShare).
+type CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShare struct {
+	Role MemoryShareRole `json:"role"`
+	// The User who was granted access.
+	Grantee *CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser `json:"grantee"`
+}
+
+// GetRole returns CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShare.Role, and is useful for accessing the field via an interface.
+func (v *CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShare) GetRole() MemoryShareRole {
+	return v.Role
+}
+
+// GetGrantee returns CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShare.Grantee, and is useful for accessing the field via an interface.
+func (v *CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShare) GetGrantee() *CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser {
+	return v.Grantee
+}
+
+// CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser includes the requested fields of the GraphQL type User.
+type CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser struct {
+	MemUserFields `json:"-"`
+}
+
+// GetId returns CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser.Id, and is useful for accessing the field via an interface.
+func (v *CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser) GetId() string {
+	return v.MemUserFields.Id
+}
+
+// GetName returns CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser.Name, and is useful for accessing the field via an interface.
+func (v *CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser) GetName() *string {
+	return v.MemUserFields.Name
+}
+
+// GetEmail returns CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser.Email, and is useful for accessing the field via an interface.
+func (v *CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser) GetEmail() *string {
+	return v.MemUserFields.Email
+}
+
+// GetHandle returns CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser.Handle, and is useful for accessing the field via an interface.
+func (v *CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser) GetHandle() *string {
+	return v.MemUserFields.Handle
+}
+
+func (v *CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemUserFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Email *string `json:"email"`
+
+	Handle *string `json:"handle"`
+}
+
+func (v *CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser) __premarshalJSON() (*__premarshalCreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser, error) {
+	var retval __premarshalCreateMemoryShareCreateMemoryShareCreateMemorySharePayloadMemoryShareGranteeUser
+
+	retval.Id = v.MemUserFields.Id
+	retval.Name = v.MemUserFields.Name
+	retval.Email = v.MemUserFields.Email
+	retval.Handle = v.MemUserFields.Handle
+	return &retval, nil
+}
+
+// CreateMemoryShareResponse is returned by CreateMemoryShare on success.
+type CreateMemoryShareResponse struct {
+	// 023-app-shape US3 — asymmetric cross-user grant on a personal-class
+	// Memory. The principal (memory.userId) grants a grantee read or
+	// write access. Used for the per-pairing pattern (Alice's
+	// paired-with-Mentor-A memory is distinct from her
+	// paired-with-Mentor-B memory; each gets its own MemoryShare).
+	//
+	// Upsert semantics: re-calling with a different role on an existing
+	// (memoryId, granteeId) pair updates the role rather than throwing.
+	//
+	// For v1 the caller MUST be the principal themselves (memory.userId
+	// === ctx.userId). The Agent-mediated path (App backend acting on
+	// the principal's behalf via MCP) is supported by the access-control
+	// predicate but not by this GraphQL surface — see the deferred
+	// policy discussion linked from joinApp.ts.
+	//
+	// Error codes (extensions.code, Error.name style):
+	// - UNAUTHENTICATED — no logged-in user in context.
+	// - FORBIDDEN — caller is not the Memory's principal. The
+	// caller-authority guard runs first and deliberately does not
+	// differentiate between "memory doesn't exist", "memory is not
+	// personal-class", and "caller isn't the principal" — all three
+	// return FORBIDDEN so memory metadata isn't leaked to
+	// non-principals.
+	// - MemoryShareGranteeMissingError — granteeId doesn't resolve to
+	// an existing User. Only reachable when the caller passes the
+	// principal guard.
+	// - InvalidMemoryClassForShareError / MemoryNotFoundForShareError —
+	// defined on the controller for completeness; functionally
+	// unreachable via this GraphQL mutation in v1 because the
+	// caller-authority guard short-circuits to FORBIDDEN first.
+	CreateMemoryShare *CreateMemoryShareCreateMemoryShareCreateMemorySharePayload `json:"createMemoryShare"`
+}
+
+// GetCreateMemoryShare returns CreateMemoryShareResponse.CreateMemoryShare, and is useful for accessing the field via an interface.
+func (v *CreateMemoryShareResponse) GetCreateMemoryShare() *CreateMemoryShareCreateMemoryShareCreateMemorySharePayload {
+	return v.CreateMemoryShare
+}
 
 // CreateOrganizationCreateOrganization includes the requested fields of the GraphQL type Organization.
 type CreateOrganizationCreateOrganization struct {
@@ -1318,6 +1610,26 @@ type MeResponse struct {
 // GetMe returns MeResponse.Me, and is useful for accessing the field via an interface.
 func (v *MeResponse) GetMe() *MeMeUser { return v.Me }
 
+// MemUserFields includes the GraphQL fields of User requested by the fragment MemUserFields.
+type MemUserFields struct {
+	Id     string  `json:"id"`
+	Name   *string `json:"name"`
+	Email  *string `json:"email"`
+	Handle *string `json:"handle"`
+}
+
+// GetId returns MemUserFields.Id, and is useful for accessing the field via an interface.
+func (v *MemUserFields) GetId() string { return v.Id }
+
+// GetName returns MemUserFields.Name, and is useful for accessing the field via an interface.
+func (v *MemUserFields) GetName() *string { return v.Name }
+
+// GetEmail returns MemUserFields.Email, and is useful for accessing the field via an interface.
+func (v *MemUserFields) GetEmail() *string { return v.Email }
+
+// GetHandle returns MemUserFields.Handle, and is useful for accessing the field via an interface.
+func (v *MemUserFields) GetHandle() *string { return v.Handle }
+
 type MemoryClass string
 
 const (
@@ -1348,6 +1660,300 @@ var AllMemoryClass = []MemoryClass{
 	MemoryClassPrivate,
 	MemoryClassSystem,
 }
+
+// 023-app-shape US4: role on a MemoryMember row. Symmetric team
+// membership for group-class memory.
+// - reader: read access.
+// - writer: read + write (the member can add/edit/delete nodes
+// within the memory).
+// - owner: read + write + management — add/remove other members,
+// change roles, delete the Memory itself. Subject to the
+// last-owner protection rule (FR-038): the platform refuses
+// to remove or demote the sole remaining owner; the path to
+// fully empty a group memory is to delete it.
+type MemoryMemberRole string
+
+const (
+	MemoryMemberRoleOwner  MemoryMemberRole = "owner"
+	MemoryMemberRoleReader MemoryMemberRole = "reader"
+	MemoryMemberRoleWriter MemoryMemberRole = "writer"
+)
+
+var AllMemoryMemberRole = []MemoryMemberRole{
+	MemoryMemberRoleOwner,
+	MemoryMemberRoleReader,
+	MemoryMemberRoleWriter,
+}
+
+// MemoryMembersMemory includes the requested fields of the GraphQL type Memory.
+type MemoryMembersMemory struct {
+	Id string `json:"id"`
+	// 023-app-shape US4: team membership rows on this memory. Non-empty
+	// only when class = group (FR-027). Visible to any current member
+	// (any role) and to ADMIN/OWNER of the memory's owning org.
+	Members []*MemoryMembersMemoryMembersMemoryMember `json:"members"`
+}
+
+// GetId returns MemoryMembersMemory.Id, and is useful for accessing the field via an interface.
+func (v *MemoryMembersMemory) GetId() string { return v.Id }
+
+// GetMembers returns MemoryMembersMemory.Members, and is useful for accessing the field via an interface.
+func (v *MemoryMembersMemory) GetMembers() []*MemoryMembersMemoryMembersMemoryMember {
+	return v.Members
+}
+
+// MemoryMembersMemoryMembersMemoryMember includes the requested fields of the GraphQL type MemoryMember.
+// The GraphQL type's documentation follows.
+//
+// 023-app-shape US4: symmetric team-membership row for group-class
+// memory. The "Company Brain" model — multiple users collaboratively
+// read/write a shared memory, governance by role, no single owner
+// on the Memory itself.
+type MemoryMembersMemoryMembersMemoryMember struct {
+	Role      MemoryMemberRole                            `json:"role"`
+	CreatedAt string                                      `json:"createdAt"`
+	User      *MemoryMembersMemoryMembersMemoryMemberUser `json:"user"`
+}
+
+// GetRole returns MemoryMembersMemoryMembersMemoryMember.Role, and is useful for accessing the field via an interface.
+func (v *MemoryMembersMemoryMembersMemoryMember) GetRole() MemoryMemberRole { return v.Role }
+
+// GetCreatedAt returns MemoryMembersMemoryMembersMemoryMember.CreatedAt, and is useful for accessing the field via an interface.
+func (v *MemoryMembersMemoryMembersMemoryMember) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUser returns MemoryMembersMemoryMembersMemoryMember.User, and is useful for accessing the field via an interface.
+func (v *MemoryMembersMemoryMembersMemoryMember) GetUser() *MemoryMembersMemoryMembersMemoryMemberUser {
+	return v.User
+}
+
+// MemoryMembersMemoryMembersMemoryMemberUser includes the requested fields of the GraphQL type User.
+type MemoryMembersMemoryMembersMemoryMemberUser struct {
+	MemUserFields `json:"-"`
+}
+
+// GetId returns MemoryMembersMemoryMembersMemoryMemberUser.Id, and is useful for accessing the field via an interface.
+func (v *MemoryMembersMemoryMembersMemoryMemberUser) GetId() string { return v.MemUserFields.Id }
+
+// GetName returns MemoryMembersMemoryMembersMemoryMemberUser.Name, and is useful for accessing the field via an interface.
+func (v *MemoryMembersMemoryMembersMemoryMemberUser) GetName() *string { return v.MemUserFields.Name }
+
+// GetEmail returns MemoryMembersMemoryMembersMemoryMemberUser.Email, and is useful for accessing the field via an interface.
+func (v *MemoryMembersMemoryMembersMemoryMemberUser) GetEmail() *string { return v.MemUserFields.Email }
+
+// GetHandle returns MemoryMembersMemoryMembersMemoryMemberUser.Handle, and is useful for accessing the field via an interface.
+func (v *MemoryMembersMemoryMembersMemoryMemberUser) GetHandle() *string {
+	return v.MemUserFields.Handle
+}
+
+func (v *MemoryMembersMemoryMembersMemoryMemberUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*MemoryMembersMemoryMembersMemoryMemberUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.MemoryMembersMemoryMembersMemoryMemberUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemUserFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalMemoryMembersMemoryMembersMemoryMemberUser struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Email *string `json:"email"`
+
+	Handle *string `json:"handle"`
+}
+
+func (v *MemoryMembersMemoryMembersMemoryMemberUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *MemoryMembersMemoryMembersMemoryMemberUser) __premarshalJSON() (*__premarshalMemoryMembersMemoryMembersMemoryMemberUser, error) {
+	var retval __premarshalMemoryMembersMemoryMembersMemoryMemberUser
+
+	retval.Id = v.MemUserFields.Id
+	retval.Name = v.MemUserFields.Name
+	retval.Email = v.MemUserFields.Email
+	retval.Handle = v.MemUserFields.Handle
+	return &retval, nil
+}
+
+// MemoryMembersResponse is returned by MemoryMembers on success.
+type MemoryMembersResponse struct {
+	// Fetch a single Memory (org member or platform ADMIN).
+	//
+	// Accepts the entity's ID or URN.
+	Memory *MemoryMembersMemory `json:"memory"`
+}
+
+// GetMemory returns MemoryMembersResponse.Memory, and is useful for accessing the field via an interface.
+func (v *MemoryMembersResponse) GetMemory() *MemoryMembersMemory { return v.Memory }
+
+// 023-app-shape US3: role on a MemoryShare row. Asymmetric grant
+// for personal-class memory.
+// - reader: read access only.
+// - writer: read + write (the grantee can add/edit/delete nodes
+// within the memory).
+type MemoryShareRole string
+
+const (
+	MemoryShareRoleReader MemoryShareRole = "reader"
+	MemoryShareRoleWriter MemoryShareRole = "writer"
+)
+
+var AllMemoryShareRole = []MemoryShareRole{
+	MemoryShareRoleReader,
+	MemoryShareRoleWriter,
+}
+
+// MemorySharesMemory includes the requested fields of the GraphQL type Memory.
+type MemorySharesMemory struct {
+	Id string `json:"id"`
+	// 023-app-shape US3: cross-user grants on this memory. Non-empty
+	// only when class = personal (FR-018). Includes grantee + role for
+	// each row. Visible only to the principal (memory.userId) and to
+	// ADMIN/OWNER of the memory's owning org.
+	Shares []*MemorySharesMemorySharesMemoryShare `json:"shares"`
+}
+
+// GetId returns MemorySharesMemory.Id, and is useful for accessing the field via an interface.
+func (v *MemorySharesMemory) GetId() string { return v.Id }
+
+// GetShares returns MemorySharesMemory.Shares, and is useful for accessing the field via an interface.
+func (v *MemorySharesMemory) GetShares() []*MemorySharesMemorySharesMemoryShare { return v.Shares }
+
+// MemorySharesMemorySharesMemoryShare includes the requested fields of the GraphQL type MemoryShare.
+// The GraphQL type's documentation follows.
+//
+// 023-app-shape US3: asymmetric cross-user grant on a personal-class
+// Memory. The principal (memory.userId) grants a grantee read/write
+// access. Used for per-pairing isolation patterns (e.g., Alice's
+// personal Memory paired-with-Mentor-A is distinct from her
+// paired-with-Mentor-B Memory, each with its own MemoryShare).
+type MemorySharesMemorySharesMemoryShare struct {
+	Role      MemoryShareRole `json:"role"`
+	CreatedAt string          `json:"createdAt"`
+	// The User who was granted access.
+	Grantee *MemorySharesMemorySharesMemoryShareGranteeUser `json:"grantee"`
+}
+
+// GetRole returns MemorySharesMemorySharesMemoryShare.Role, and is useful for accessing the field via an interface.
+func (v *MemorySharesMemorySharesMemoryShare) GetRole() MemoryShareRole { return v.Role }
+
+// GetCreatedAt returns MemorySharesMemorySharesMemoryShare.CreatedAt, and is useful for accessing the field via an interface.
+func (v *MemorySharesMemorySharesMemoryShare) GetCreatedAt() string { return v.CreatedAt }
+
+// GetGrantee returns MemorySharesMemorySharesMemoryShare.Grantee, and is useful for accessing the field via an interface.
+func (v *MemorySharesMemorySharesMemoryShare) GetGrantee() *MemorySharesMemorySharesMemoryShareGranteeUser {
+	return v.Grantee
+}
+
+// MemorySharesMemorySharesMemoryShareGranteeUser includes the requested fields of the GraphQL type User.
+type MemorySharesMemorySharesMemoryShareGranteeUser struct {
+	MemUserFields `json:"-"`
+}
+
+// GetId returns MemorySharesMemorySharesMemoryShareGranteeUser.Id, and is useful for accessing the field via an interface.
+func (v *MemorySharesMemorySharesMemoryShareGranteeUser) GetId() string { return v.MemUserFields.Id }
+
+// GetName returns MemorySharesMemorySharesMemoryShareGranteeUser.Name, and is useful for accessing the field via an interface.
+func (v *MemorySharesMemorySharesMemoryShareGranteeUser) GetName() *string {
+	return v.MemUserFields.Name
+}
+
+// GetEmail returns MemorySharesMemorySharesMemoryShareGranteeUser.Email, and is useful for accessing the field via an interface.
+func (v *MemorySharesMemorySharesMemoryShareGranteeUser) GetEmail() *string {
+	return v.MemUserFields.Email
+}
+
+// GetHandle returns MemorySharesMemorySharesMemoryShareGranteeUser.Handle, and is useful for accessing the field via an interface.
+func (v *MemorySharesMemorySharesMemoryShareGranteeUser) GetHandle() *string {
+	return v.MemUserFields.Handle
+}
+
+func (v *MemorySharesMemorySharesMemoryShareGranteeUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*MemorySharesMemorySharesMemoryShareGranteeUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.MemorySharesMemorySharesMemoryShareGranteeUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemUserFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalMemorySharesMemorySharesMemoryShareGranteeUser struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Email *string `json:"email"`
+
+	Handle *string `json:"handle"`
+}
+
+func (v *MemorySharesMemorySharesMemoryShareGranteeUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *MemorySharesMemorySharesMemoryShareGranteeUser) __premarshalJSON() (*__premarshalMemorySharesMemorySharesMemoryShareGranteeUser, error) {
+	var retval __premarshalMemorySharesMemorySharesMemoryShareGranteeUser
+
+	retval.Id = v.MemUserFields.Id
+	retval.Name = v.MemUserFields.Name
+	retval.Email = v.MemUserFields.Email
+	retval.Handle = v.MemUserFields.Handle
+	return &retval, nil
+}
+
+// MemorySharesResponse is returned by MemoryShares on success.
+type MemorySharesResponse struct {
+	// Fetch a single Memory (org member or platform ADMIN).
+	//
+	// Accepts the entity's ID or URN.
+	Memory *MemorySharesMemory `json:"memory"`
+}
+
+// GetMemory returns MemorySharesResponse.Memory, and is useful for accessing the field via an interface.
+func (v *MemorySharesResponse) GetMemory() *MemorySharesMemory { return v.Memory }
 
 // 035-visibility-enum-cleanup: meaningful only for knowledge
 // (PUBLIC/ORGANIZATION) and group (GROUP); null otherwise. PERSONAL/PRIVATE
@@ -2130,6 +2736,42 @@ type OrgMembersResponse struct {
 // GetOrganization returns OrgMembersResponse.Organization, and is useful for accessing the field via an interface.
 func (v *OrgMembersResponse) GetOrganization() *OrgMembersOrganization { return v.Organization }
 
+// RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload includes the requested fields of the GraphQL type RemoveMemoryMemberPayload.
+type RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload struct {
+	MemoryId string `json:"memoryId"`
+	UserId   string `json:"userId"`
+}
+
+// GetMemoryId returns RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload.MemoryId, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload) GetMemoryId() string {
+	return v.MemoryId
+}
+
+// GetUserId returns RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload.UserId, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload) GetUserId() string {
+	return v.UserId
+}
+
+// RemoveMemoryMemberResponse is returned by RemoveMemoryMember on success.
+type RemoveMemoryMemberResponse struct {
+	// 023-app-shape US4 — remove a team member. Idempotent. Removing
+	// the LAST owner is rejected with LastOwnerProtectedError (FR-038)
+	// — group memories must always have ≥1 owner; the path to fully
+	// empty one is to delete the Memory.
+	//
+	// Removing the last non-owner does NOT delete the Memory (FR-031);
+	// the row persists with its remaining owner(s).
+	//
+	// Caller-authority: either an owner of the Memory, or the member
+	// being removed (self-removal).
+	RemoveMemoryMember *RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload `json:"removeMemoryMember"`
+}
+
+// GetRemoveMemoryMember returns RemoveMemoryMemberResponse.RemoveMemoryMember, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryMemberResponse) GetRemoveMemoryMember() *RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload {
+	return v.RemoveMemoryMember
+}
+
 // RemoveOrgMemberResponse is returned by RemoveOrgMember on success.
 type RemoveOrgMemberResponse struct {
 	// Accepts the entity's ID or URN (orgId).
@@ -2305,6 +2947,37 @@ type ResolveUrnResponse struct {
 
 // GetResolveUrn returns ResolveUrnResponse.ResolveUrn, and is useful for accessing the field via an interface.
 func (v *ResolveUrnResponse) GetResolveUrn() *ResolveUrnResolveUrnUrnResolution { return v.ResolveUrn }
+
+// RevokeMemoryShareResponse is returned by RevokeMemoryShare on success.
+type RevokeMemoryShareResponse struct {
+	// 023-app-shape US3 — revoke a MemoryShare. Per FR-022, revocation
+	// takes effect on the next read (there's no "deactivated" state;
+	// just a row delete). Idempotent.
+	//
+	// Caller-authority rule matches createMemoryShare.
+	RevokeMemoryShare *RevokeMemoryShareRevokeMemoryShareRevokeMemorySharePayload `json:"revokeMemoryShare"`
+}
+
+// GetRevokeMemoryShare returns RevokeMemoryShareResponse.RevokeMemoryShare, and is useful for accessing the field via an interface.
+func (v *RevokeMemoryShareResponse) GetRevokeMemoryShare() *RevokeMemoryShareRevokeMemoryShareRevokeMemorySharePayload {
+	return v.RevokeMemoryShare
+}
+
+// RevokeMemoryShareRevokeMemoryShareRevokeMemorySharePayload includes the requested fields of the GraphQL type RevokeMemorySharePayload.
+type RevokeMemoryShareRevokeMemoryShareRevokeMemorySharePayload struct {
+	GranteeId string `json:"granteeId"`
+	MemoryId  string `json:"memoryId"`
+}
+
+// GetGranteeId returns RevokeMemoryShareRevokeMemoryShareRevokeMemorySharePayload.GranteeId, and is useful for accessing the field via an interface.
+func (v *RevokeMemoryShareRevokeMemoryShareRevokeMemorySharePayload) GetGranteeId() string {
+	return v.GranteeId
+}
+
+// GetMemoryId returns RevokeMemoryShareRevokeMemoryShareRevokeMemorySharePayload.MemoryId, and is useful for accessing the field via an interface.
+func (v *RevokeMemoryShareRevokeMemoryShareRevokeMemorySharePayload) GetMemoryId() string {
+	return v.MemoryId
+}
 
 // RevokeUserApiKeyResponse is returned by RevokeUserApiKey on success.
 type RevokeUserApiKeyResponse struct {
@@ -2785,6 +3458,143 @@ func (v *UpdateEdgeUpdateEdgeTargetNode) GetId() string { return v.Id }
 // GetLoc returns UpdateEdgeUpdateEdgeTargetNode.Loc, and is useful for accessing the field via an interface.
 func (v *UpdateEdgeUpdateEdgeTargetNode) GetLoc() string { return v.Loc }
 
+// UpdateMemoryMemberRoleResponse is returned by UpdateMemoryMemberRole on success.
+type UpdateMemoryMemberRoleResponse struct {
+	// 023-app-shape US4 — change the role on an existing team member.
+	// Throws MemoryMemberNotFoundError when the row doesn't exist;
+	// use addMemoryMember to upsert. Throws LastOwnerProtectedError
+	// (FR-038) when demoting the sole remaining owner.
+	//
+	// Caller-authority rule matches addMemoryMember.
+	//
+	// Error codes (extensions.code, Error.name style):
+	// - UNAUTHENTICATED — no logged-in user in context.
+	// - FORBIDDEN — caller is not an owner of a live group memory.
+	// - MemoryNotFoundForMemberError — memory absent or soft-deleted
+	// (only reachable from non-GraphQL callers in v1 — the guard
+	// short-circuits to FORBIDDEN first).
+	// - InvalidMemoryClassForMemberError — memory is not group-class
+	// (same; guard short-circuits to FORBIDDEN first).
+	// - MemoryMemberNotFoundError — no row at (memoryId, userId).
+	// - LastOwnerProtectedError (FR-038) — would demote the sole owner.
+	UpdateMemoryMemberRole *UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayload `json:"updateMemoryMemberRole"`
+}
+
+// GetUpdateMemoryMemberRole returns UpdateMemoryMemberRoleResponse.UpdateMemoryMemberRole, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryMemberRoleResponse) GetUpdateMemoryMemberRole() *UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayload {
+	return v.UpdateMemoryMemberRole
+}
+
+// UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayload includes the requested fields of the GraphQL type UpdateMemoryMemberRolePayload.
+type UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayload struct {
+	MemoryMember *UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMember `json:"memoryMember"`
+}
+
+// GetMemoryMember returns UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayload.MemoryMember, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayload) GetMemoryMember() *UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMember {
+	return v.MemoryMember
+}
+
+// UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMember includes the requested fields of the GraphQL type MemoryMember.
+// The GraphQL type's documentation follows.
+//
+// 023-app-shape US4: symmetric team-membership row for group-class
+// memory. The "Company Brain" model — multiple users collaboratively
+// read/write a shared memory, governance by role, no single owner
+// on the Memory itself.
+type UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMember struct {
+	Role MemoryMemberRole                                                                           `json:"role"`
+	User *UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser `json:"user"`
+}
+
+// GetRole returns UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMember.Role, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMember) GetRole() MemoryMemberRole {
+	return v.Role
+}
+
+// GetUser returns UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMember.User, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMember) GetUser() *UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser {
+	return v.User
+}
+
+// UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser includes the requested fields of the GraphQL type User.
+type UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser struct {
+	MemUserFields `json:"-"`
+}
+
+// GetId returns UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser.Id, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser) GetId() string {
+	return v.MemUserFields.Id
+}
+
+// GetName returns UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser.Name, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser) GetName() *string {
+	return v.MemUserFields.Name
+}
+
+// GetEmail returns UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser.Email, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser) GetEmail() *string {
+	return v.MemUserFields.Email
+}
+
+// GetHandle returns UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser.Handle, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser) GetHandle() *string {
+	return v.MemUserFields.Handle
+}
+
+func (v *UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemUserFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Email *string `json:"email"`
+
+	Handle *string `json:"handle"`
+}
+
+func (v *UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser) __premarshalJSON() (*__premarshalUpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser, error) {
+	var retval __premarshalUpdateMemoryMemberRoleUpdateMemoryMemberRoleUpdateMemoryMemberRolePayloadMemoryMemberUser
+
+	retval.Id = v.MemUserFields.Id
+	retval.Name = v.MemUserFields.Name
+	retval.Email = v.MemUserFields.Email
+	retval.Handle = v.MemUserFields.Handle
+	return &retval, nil
+}
+
 // UpdateMemoryResponse is returned by UpdateMemory on success.
 type UpdateMemoryResponse struct {
 	// Update a Memory.
@@ -2802,6 +3612,133 @@ type UpdateMemoryResponse struct {
 
 // GetUpdateMemory returns UpdateMemoryResponse.UpdateMemory, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryResponse) GetUpdateMemory() *UpdateMemoryUpdateMemory { return v.UpdateMemory }
+
+// UpdateMemoryShareRoleResponse is returned by UpdateMemoryShareRole on success.
+type UpdateMemoryShareRoleResponse struct {
+	// 023-app-shape US3 — change the role on an existing MemoryShare.
+	// Throws MemoryShareNotFoundError if the (memoryId, granteeId) row
+	// doesn't exist — use createMemoryShare to upsert.
+	//
+	// Caller-authority rule matches createMemoryShare.
+	UpdateMemoryShareRole *UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayload `json:"updateMemoryShareRole"`
+}
+
+// GetUpdateMemoryShareRole returns UpdateMemoryShareRoleResponse.UpdateMemoryShareRole, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryShareRoleResponse) GetUpdateMemoryShareRole() *UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayload {
+	return v.UpdateMemoryShareRole
+}
+
+// UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayload includes the requested fields of the GraphQL type UpdateMemoryShareRolePayload.
+type UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayload struct {
+	MemoryShare *UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShare `json:"memoryShare"`
+}
+
+// GetMemoryShare returns UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayload.MemoryShare, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayload) GetMemoryShare() *UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShare {
+	return v.MemoryShare
+}
+
+// UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShare includes the requested fields of the GraphQL type MemoryShare.
+// The GraphQL type's documentation follows.
+//
+// 023-app-shape US3: asymmetric cross-user grant on a personal-class
+// Memory. The principal (memory.userId) grants a grantee read/write
+// access. Used for per-pairing isolation patterns (e.g., Alice's
+// personal Memory paired-with-Mentor-A is distinct from her
+// paired-with-Mentor-B Memory, each with its own MemoryShare).
+type UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShare struct {
+	Role MemoryShareRole `json:"role"`
+	// The User who was granted access.
+	Grantee *UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser `json:"grantee"`
+}
+
+// GetRole returns UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShare.Role, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShare) GetRole() MemoryShareRole {
+	return v.Role
+}
+
+// GetGrantee returns UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShare.Grantee, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShare) GetGrantee() *UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser {
+	return v.Grantee
+}
+
+// UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser includes the requested fields of the GraphQL type User.
+type UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser struct {
+	MemUserFields `json:"-"`
+}
+
+// GetId returns UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser.Id, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser) GetId() string {
+	return v.MemUserFields.Id
+}
+
+// GetName returns UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser.Name, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser) GetName() *string {
+	return v.MemUserFields.Name
+}
+
+// GetEmail returns UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser.Email, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser) GetEmail() *string {
+	return v.MemUserFields.Email
+}
+
+// GetHandle returns UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser.Handle, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser) GetHandle() *string {
+	return v.MemUserFields.Handle
+}
+
+func (v *UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemUserFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Email *string `json:"email"`
+
+	Handle *string `json:"handle"`
+}
+
+func (v *UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser) __premarshalJSON() (*__premarshalUpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser, error) {
+	var retval __premarshalUpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadMemoryShareGranteeUser
+
+	retval.Id = v.MemUserFields.Id
+	retval.Name = v.MemUserFields.Name
+	retval.Email = v.MemUserFields.Email
+	retval.Handle = v.MemUserFields.Handle
+	return &retval, nil
+}
 
 // UpdateMemoryUpdateMemory includes the requested fields of the GraphQL type Memory.
 type UpdateMemoryUpdateMemory struct {
@@ -3155,6 +4092,22 @@ func (v *UserFields) GetGithubUsername() *string { return v.GithubUsername }
 // GetRoles returns UserFields.Roles, and is useful for accessing the field via an interface.
 func (v *UserFields) GetRoles() []Role { return v.Roles }
 
+// __AddMemoryMemberInput is used internally by genqlient
+type __AddMemoryMemberInput struct {
+	MemoryId string           `json:"memoryId"`
+	UserId   string           `json:"userId"`
+	Role     MemoryMemberRole `json:"role"`
+}
+
+// GetMemoryId returns __AddMemoryMemberInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__AddMemoryMemberInput) GetMemoryId() string { return v.MemoryId }
+
+// GetUserId returns __AddMemoryMemberInput.UserId, and is useful for accessing the field via an interface.
+func (v *__AddMemoryMemberInput) GetUserId() string { return v.UserId }
+
+// GetRole returns __AddMemoryMemberInput.Role, and is useful for accessing the field via an interface.
+func (v *__AddMemoryMemberInput) GetRole() MemoryMemberRole { return v.Role }
+
 // __AddOrgMemberInput is used internally by genqlient
 type __AddOrgMemberInput struct {
 	OrgId  string `json:"orgId"`
@@ -3315,6 +4268,22 @@ func (v *__CreateMemoryInput) GetTags() *[]string { return v.Tags }
 // GetVisibility returns __CreateMemoryInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryInput) GetVisibility() *MemoryVisibility { return v.Visibility }
 
+// __CreateMemoryShareInput is used internally by genqlient
+type __CreateMemoryShareInput struct {
+	MemoryId  string          `json:"memoryId"`
+	GranteeId string          `json:"granteeId"`
+	Role      MemoryShareRole `json:"role"`
+}
+
+// GetMemoryId returns __CreateMemoryShareInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryShareInput) GetMemoryId() string { return v.MemoryId }
+
+// GetGranteeId returns __CreateMemoryShareInput.GranteeId, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryShareInput) GetGranteeId() string { return v.GranteeId }
+
+// GetRole returns __CreateMemoryShareInput.Role, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryShareInput) GetRole() MemoryShareRole { return v.Role }
+
 // __CreateOrganizationInput is used internally by genqlient
 type __CreateOrganizationInput struct {
 	Name string `json:"name"`
@@ -3411,6 +4380,22 @@ type __GetOrganizationInput struct {
 // GetId returns __GetOrganizationInput.Id, and is useful for accessing the field via an interface.
 func (v *__GetOrganizationInput) GetId() string { return v.Id }
 
+// __MemoryMembersInput is used internally by genqlient
+type __MemoryMembersInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __MemoryMembersInput.Id, and is useful for accessing the field via an interface.
+func (v *__MemoryMembersInput) GetId() string { return v.Id }
+
+// __MemorySharesInput is used internally by genqlient
+type __MemorySharesInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __MemorySharesInput.Id, and is useful for accessing the field via an interface.
+func (v *__MemorySharesInput) GetId() string { return v.Id }
+
 // __MyMemoriesInput is used internally by genqlient
 type __MyMemoriesInput struct {
 	IncludeAgentSystem *bool `json:"includeAgentSystem,omitempty"`
@@ -3487,6 +4472,18 @@ type __OrgMembersInput struct {
 // GetId returns __OrgMembersInput.Id, and is useful for accessing the field via an interface.
 func (v *__OrgMembersInput) GetId() string { return v.Id }
 
+// __RemoveMemoryMemberInput is used internally by genqlient
+type __RemoveMemoryMemberInput struct {
+	MemoryId string `json:"memoryId"`
+	UserId   string `json:"userId"`
+}
+
+// GetMemoryId returns __RemoveMemoryMemberInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__RemoveMemoryMemberInput) GetMemoryId() string { return v.MemoryId }
+
+// GetUserId returns __RemoveMemoryMemberInput.UserId, and is useful for accessing the field via an interface.
+func (v *__RemoveMemoryMemberInput) GetUserId() string { return v.UserId }
+
 // __RemoveOrgMemberInput is used internally by genqlient
 type __RemoveOrgMemberInput struct {
 	OrgId  string `json:"orgId"`
@@ -3518,6 +4515,18 @@ type __ResolveUrnInput struct {
 
 // GetUrn returns __ResolveUrnInput.Urn, and is useful for accessing the field via an interface.
 func (v *__ResolveUrnInput) GetUrn() string { return v.Urn }
+
+// __RevokeMemoryShareInput is used internally by genqlient
+type __RevokeMemoryShareInput struct {
+	MemoryId  string `json:"memoryId"`
+	GranteeId string `json:"granteeId"`
+}
+
+// GetMemoryId returns __RevokeMemoryShareInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__RevokeMemoryShareInput) GetMemoryId() string { return v.MemoryId }
+
+// GetGranteeId returns __RevokeMemoryShareInput.GranteeId, and is useful for accessing the field via an interface.
+func (v *__RevokeMemoryShareInput) GetGranteeId() string { return v.GranteeId }
 
 // __RevokeUserApiKeyInput is used internally by genqlient
 type __RevokeUserApiKeyInput struct {
@@ -3623,6 +4632,38 @@ func (v *__UpdateMemoryInput) GetVisibility() *MemoryVisibility { return v.Visib
 // GetData returns __UpdateMemoryInput.Data, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryInput) GetData() *json.RawMessage { return v.Data }
 
+// __UpdateMemoryMemberRoleInput is used internally by genqlient
+type __UpdateMemoryMemberRoleInput struct {
+	MemoryId string           `json:"memoryId"`
+	UserId   string           `json:"userId"`
+	Role     MemoryMemberRole `json:"role"`
+}
+
+// GetMemoryId returns __UpdateMemoryMemberRoleInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryMemberRoleInput) GetMemoryId() string { return v.MemoryId }
+
+// GetUserId returns __UpdateMemoryMemberRoleInput.UserId, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryMemberRoleInput) GetUserId() string { return v.UserId }
+
+// GetRole returns __UpdateMemoryMemberRoleInput.Role, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryMemberRoleInput) GetRole() MemoryMemberRole { return v.Role }
+
+// __UpdateMemoryShareRoleInput is used internally by genqlient
+type __UpdateMemoryShareRoleInput struct {
+	MemoryId  string          `json:"memoryId"`
+	GranteeId string          `json:"granteeId"`
+	Role      MemoryShareRole `json:"role"`
+}
+
+// GetMemoryId returns __UpdateMemoryShareRoleInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryShareRoleInput) GetMemoryId() string { return v.MemoryId }
+
+// GetGranteeId returns __UpdateMemoryShareRoleInput.GranteeId, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryShareRoleInput) GetGranteeId() string { return v.GranteeId }
+
+// GetRole returns __UpdateMemoryShareRoleInput.Role, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryShareRoleInput) GetRole() MemoryShareRole { return v.Role }
+
 // __UpdateOrgMemberInput is used internally by genqlient
 type __UpdateOrgMemberInput struct {
 	OrgId  string `json:"orgId"`
@@ -3666,6 +4707,55 @@ type __UpsertNodeInput struct {
 
 // GetInput returns __UpsertNodeInput.Input, and is useful for accessing the field via an interface.
 func (v *__UpsertNodeInput) GetInput() *NodeInput { return v.Input }
+
+// The mutation executed by AddMemoryMember.
+const AddMemoryMember_Operation = `
+mutation AddMemoryMember ($memoryId: ID!, $userId: ID!, $role: MemoryMemberRole!) {
+	addMemoryMember(memoryId: $memoryId, userId: $userId, role: $role) {
+		memoryMember {
+			role
+			user {
+				... MemUserFields
+			}
+		}
+	}
+}
+fragment MemUserFields on User {
+	id
+	name
+	email
+	handle
+}
+`
+
+func AddMemoryMember(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId string,
+	userId string,
+	role MemoryMemberRole,
+) (data_ *AddMemoryMemberResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AddMemoryMember",
+		Query:  AddMemoryMember_Operation,
+		Variables: &__AddMemoryMemberInput{
+			MemoryId: memoryId,
+			UserId:   userId,
+			Role:     role,
+		},
+	}
+
+	data_ = &AddMemoryMemberResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
 
 // The mutation executed by AddOrgMember.
 const AddOrgMember_Operation = `
@@ -4016,6 +5106,55 @@ func CreateMemory(
 	}
 
 	data_ = &CreateMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateMemoryShare.
+const CreateMemoryShare_Operation = `
+mutation CreateMemoryShare ($memoryId: ID!, $granteeId: ID!, $role: MemoryShareRole!) {
+	createMemoryShare(memoryId: $memoryId, granteeId: $granteeId, role: $role) {
+		memoryShare {
+			role
+			grantee {
+				... MemUserFields
+			}
+		}
+	}
+}
+fragment MemUserFields on User {
+	id
+	name
+	email
+	handle
+}
+`
+
+func CreateMemoryShare(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId string,
+	granteeId string,
+	role MemoryShareRole,
+) (data_ *CreateMemoryShareResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateMemoryShare",
+		Query:  CreateMemoryShare_Operation,
+		Variables: &__CreateMemoryShareInput{
+			MemoryId:  memoryId,
+			GranteeId: granteeId,
+			Role:      role,
+		},
+	}
+
+	data_ = &CreateMemoryShareResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -4506,6 +5645,101 @@ func Me(
 	return data_, err_
 }
 
+// The query executed by MemoryMembers.
+const MemoryMembers_Operation = `
+query MemoryMembers ($id: ID!) {
+	memory(id: $id) {
+		id
+		members {
+			role
+			createdAt
+			user {
+				... MemUserFields
+			}
+		}
+	}
+}
+fragment MemUserFields on User {
+	id
+	name
+	email
+	handle
+}
+`
+
+// memory(id) is the path to a memory's member/share rows.
+func MemoryMembers(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *MemoryMembersResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MemoryMembers",
+		Query:  MemoryMembers_Operation,
+		Variables: &__MemoryMembersInput{
+			Id: id,
+		},
+	}
+
+	data_ = &MemoryMembersResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MemoryShares.
+const MemoryShares_Operation = `
+query MemoryShares ($id: ID!) {
+	memory(id: $id) {
+		id
+		shares {
+			role
+			createdAt
+			grantee {
+				... MemUserFields
+			}
+		}
+	}
+}
+fragment MemUserFields on User {
+	id
+	name
+	email
+	handle
+}
+`
+
+func MemoryShares(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *MemorySharesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MemoryShares",
+		Query:  MemoryShares_Operation,
+		Variables: &__MemorySharesInput{
+			Id: id,
+		},
+	}
+
+	data_ = &MemorySharesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by MyMemories.
 const MyMemories_Operation = `
 query MyMemories ($includeAgentSystem: Boolean) {
@@ -4823,6 +6057,43 @@ func OrgMembers(
 	return data_, err_
 }
 
+// The mutation executed by RemoveMemoryMember.
+const RemoveMemoryMember_Operation = `
+mutation RemoveMemoryMember ($memoryId: ID!, $userId: ID!) {
+	removeMemoryMember(memoryId: $memoryId, userId: $userId) {
+		memoryId
+		userId
+	}
+}
+`
+
+func RemoveMemoryMember(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId string,
+	userId string,
+) (data_ *RemoveMemoryMemberResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RemoveMemoryMember",
+		Query:  RemoveMemoryMember_Operation,
+		Variables: &__RemoveMemoryMemberInput{
+			MemoryId: memoryId,
+			UserId:   userId,
+		},
+	}
+
+	data_ = &RemoveMemoryMemberResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RemoveOrgMember.
 const RemoveOrgMember_Operation = `
 mutation RemoveOrgMember ($orgId: ID!, $userId: ID!) {
@@ -4929,6 +6200,43 @@ func ResolveUrn(
 	}
 
 	data_ = &ResolveUrnResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RevokeMemoryShare.
+const RevokeMemoryShare_Operation = `
+mutation RevokeMemoryShare ($memoryId: ID!, $granteeId: ID!) {
+	revokeMemoryShare(memoryId: $memoryId, granteeId: $granteeId) {
+		granteeId
+		memoryId
+	}
+}
+`
+
+func RevokeMemoryShare(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId string,
+	granteeId string,
+) (data_ *RevokeMemoryShareResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokeMemoryShare",
+		Query:  RevokeMemoryShare_Operation,
+		Variables: &__RevokeMemoryShareInput{
+			MemoryId:  memoryId,
+			GranteeId: granteeId,
+		},
+	}
+
+	data_ = &RevokeMemoryShareResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -5189,6 +6497,104 @@ func UpdateMemory(
 	}
 
 	data_ = &UpdateMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateMemoryMemberRole.
+const UpdateMemoryMemberRole_Operation = `
+mutation UpdateMemoryMemberRole ($memoryId: ID!, $userId: ID!, $role: MemoryMemberRole!) {
+	updateMemoryMemberRole(memoryId: $memoryId, userId: $userId, role: $role) {
+		memoryMember {
+			role
+			user {
+				... MemUserFields
+			}
+		}
+	}
+}
+fragment MemUserFields on User {
+	id
+	name
+	email
+	handle
+}
+`
+
+func UpdateMemoryMemberRole(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId string,
+	userId string,
+	role MemoryMemberRole,
+) (data_ *UpdateMemoryMemberRoleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateMemoryMemberRole",
+		Query:  UpdateMemoryMemberRole_Operation,
+		Variables: &__UpdateMemoryMemberRoleInput{
+			MemoryId: memoryId,
+			UserId:   userId,
+			Role:     role,
+		},
+	}
+
+	data_ = &UpdateMemoryMemberRoleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateMemoryShareRole.
+const UpdateMemoryShareRole_Operation = `
+mutation UpdateMemoryShareRole ($memoryId: ID!, $granteeId: ID!, $role: MemoryShareRole!) {
+	updateMemoryShareRole(memoryId: $memoryId, granteeId: $granteeId, role: $role) {
+		memoryShare {
+			role
+			grantee {
+				... MemUserFields
+			}
+		}
+	}
+}
+fragment MemUserFields on User {
+	id
+	name
+	email
+	handle
+}
+`
+
+func UpdateMemoryShareRole(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId string,
+	granteeId string,
+	role MemoryShareRole,
+) (data_ *UpdateMemoryShareRoleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateMemoryShareRole",
+		Query:  UpdateMemoryShareRole_Operation,
+		Variables: &__UpdateMemoryShareRoleInput{
+			MemoryId:  memoryId,
+			GranteeId: granteeId,
+			Role:      role,
+		},
+	}
+
+	data_ = &UpdateMemoryShareRoleResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
