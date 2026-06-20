@@ -15,23 +15,24 @@ import (
 )
 
 func newCmdGet(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{
-		Use:   "get <node-urn>",
+	var memory string
+	cmd := &cobra.Command{
+		Use:   "get <node-urn> | <loc> -m <memory>",
 		Short: "Show a node, including its content and edges",
 		Long: `Show a node by its fully-qualified URN: <org>:<memory>:<loc>
 (e.g. hadronmemory.com:dev:start-here). The hrn:node: prefix is
-optional (legacy urn:node: also accepted). Bare locs are not accepted —
-the same loc can exist in several memories, so node references must
-always name the memory.`,
+optional (legacy urn:node: also accepted). Pass -m/--memory to name a
+node by a bare <loc> within that memory instead; without -m a bare loc
+is rejected, since the same loc can exist in several memories.`,
 		Example: `  hadron node get hadronmemory.com:dev:start-here
-  hadron node get hrn:node:hadronmemory.com:dev:start-here --json`,
+  hadron node get start-here -m hadronmemory.com:dev --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			node, err := fetchNode(cmd, client, args[0])
+			node, err := fetchNode(cmd, client, memory, args[0])
 			if err != nil {
 				return err
 			}
@@ -69,6 +70,8 @@ always name the memory.`,
 			})
 		},
 	}
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org:memory) to resolve a bare <loc> against")
+	return cmd
 }
 
 // edgeRefDTO is one edge endpoint in node output.
@@ -116,9 +119,10 @@ func detailDTO(n *gen.GetNodeByIdNodeByIdNode) nodeDetailDTO {
 	return dto
 }
 
-// fetchNode resolves a node URN and returns the full node.
-func fetchNode(cmd *cobra.Command, client graphql.Client, ref string) (*gen.GetNodeByIdNodeByIdNode, error) {
-	id, err := cmdutil.ResolveNodeURN(cmd, client, ref)
+// fetchNode resolves a node reference (a full URN, or a bare loc within
+// memory) and returns the full node.
+func fetchNode(cmd *cobra.Command, client graphql.Client, memory, ref string) (*gen.GetNodeByIdNodeByIdNode, error) {
+	id, err := cmdutil.ResolveNodeRef(cmd, client, memory, ref)
 	if err != nil {
 		return nil, err
 	}

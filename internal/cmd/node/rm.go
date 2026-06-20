@@ -14,18 +14,20 @@ import (
 
 func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
+	var memory string
 	cmd := &cobra.Command{
-		Use:     "rm <node-urn>",
+		Use:     "rm <node-urn> | <loc> -m <memory>",
 		Aliases: []string{"delete"},
 		Short:   "Delete a node",
-		Example: `  hadron node rm acme.com:kb:findings:flaky-ci --yes`,
-		Args:    cobra.ExactArgs(1),
+		Example: `  hadron node rm acme.com:kb:findings:flaky-ci --yes
+  hadron node rm findings:flaky-ci -m acme.com:kb --yes`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			node, err := fetchNode(cmd, client, args[0])
+			node, err := fetchNode(cmd, client, memory, args[0])
 			if err != nil {
 				return err
 			}
@@ -42,6 +44,7 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 			})
 		},
 	}
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org:memory) to resolve a bare <loc> against")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	return cmd
 }

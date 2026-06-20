@@ -11,6 +11,22 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
+// ResolveNodeRef resolves a node reference into a node ID. With an empty
+// memory it requires a fully-qualified URN (ResolveNodeURN). With a memory
+// (the `org:memory` form, optionally hrn:/urn:-prefixed) the ref is a bare loc
+// within that memory: a node URN is just <org>:<memory>:<loc>, so the two are
+// joined and resolved. The memory form is the additive convenience; without it
+// the strict-URN behavior is unchanged.
+func ResolveNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref string) (string, error) {
+	if memory = strings.TrimSpace(memory); memory != "" {
+		for _, p := range []string{"hrn:memory:", "urn:memory:"} {
+			memory = strings.TrimPrefix(memory, p)
+		}
+		ref = memory + ":" + strings.TrimSpace(ref)
+	}
+	return ResolveNodeURN(cmd, client, ref)
+}
+
 // ResolveNodeURN turns a fully-qualified node URN into a node ID via
 // Query.resolveUrn. Bare locs are rejected client-side with a usage
 // error: node references always name the memory (same-loc collisions

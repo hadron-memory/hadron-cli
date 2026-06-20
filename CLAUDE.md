@@ -41,7 +41,7 @@ Every command supports `--json`, and those shapes are a stable public contract t
 - Each group is `internal/cmd/<group>/` with a `New<Group>Cmd(*cmdutil.Factory)` constructor, wired in `internal/cmd/root.go`.
 - `cmdutil.Factory` is the DI seam: lazily resolves config, the token store, and the GraphQL client (`f.GraphQLClient()`), and carries the persistent `--json/--server/--app` flags plus `f.IOStreams`. Commands take the Factory; tests inject a fake one.
 - Destructive commands (`memory rm`, `node rm`, `edge rm`, `app uninstall`) prompt on a TTY and require `--yes` non-interactively (`cmdutil.ConfirmDeletion`).
-- Node references are always fully-qualified URNs `<org>:<memory>:<loc>` (resolved via `cmdutil.ResolveNodeURN`); bare locs are rejected. `spec` commands instead take `-m/--memory` + a bare citation (the loc *is* a legal-code citation — see `docs/how-to/maintain-product-specs.md`).
+- Node references are fully-qualified URNs `<org>:<memory>:<loc>`; a bare loc is rejected *unless* `-m/--memory <org:memory>` is given, which `node get|update|rm|export` and `edge add|ls` accept to name a bare `<loc>` (resolved via `cmdutil.ResolveNodeRef`, which joins memory+loc then defers to `ResolveNodeURN`). `spec` commands likewise take `-m/--memory` + a bare citation (the loc *is* a legal-code citation — see `docs/how-to/maintain-product-specs.md`).
 
 ## Whole-corpus reads — paginate, don't truncate
 
