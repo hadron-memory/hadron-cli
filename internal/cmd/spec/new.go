@@ -30,6 +30,9 @@ type newResultDTO struct {
 	Edges    []plannedEdgeDTO `json:"edges"`
 	DryRun   bool             `json:"dryRun"`
 	Content  string           `json:"content,omitempty"`
+	// Also carries nodes scaffolded alongside the primary in the same call —
+	// today, the tier's general-provisions contract co-created with a root.
+	Also []newResultDTO `json:"also,omitempty"`
 }
 
 func newCmdNew(f *cmdutil.Factory) *cobra.Command {
@@ -41,7 +44,7 @@ func newCmdNew(f *cmdutil.Factory) *cobra.Command {
 		tags                            []string
 		newFeature, newModule           bool
 		newProduct, contract            bool
-		noEdges, dryRun                 bool
+		noEdges, noContract, dryRun     bool
 	)
 	cmd := &cobra.Command{
 		Use:     "new",
@@ -165,6 +168,25 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 			name := specName(target, title)
 			tagSet := specTags(tags)
 
+			// Co-scaffold the tier's general-provisions contract when creating a
+			// root (unless --no-contract): a product's :gen, a module's :000, or a
+			// feature's :00 is what the root's children inherit, so creating it up
+			// front removes the separate --contract step and the missing-
+			// inheritance-target gap (#69).
+			var coContract *plannedContract
+			if !noContract && (newProduct || newModule || newFeature) {
+				if cc, ok := target.ChildContract(); ok && !locs[cc.Format()] {
+					ctitle := title + " general provisions"
+					coContract = &plannedContract{
+						cit:      cc,
+						title:    ctitle,
+						name:     specName(cc, ctitle),
+						abstract: tierAbstract(cc, ctitle),
+						body:     tierBody(cc, ctitle),
+					}
+				}
+			}
+
 			result := newResultDTO{
 				Citation: target.Format(),
 				MemoryID: memURN,
@@ -180,6 +202,23 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 				if inheritLoc != "" {
 					result.Edges = append(result.Edges, plannedEdgeDTO{Label: inheritEdgeLabel, Target: inheritLoc})
 				}
+			}
+			if coContract != nil {
+				cr := newResultDTO{
+					Citation: coContract.cit.Format(),
+					MemoryID: memURN,
+					Name:     coContract.name,
+					Tags:     tagSet,
+					Abstract: coContract.abstract,
+					DryRun:   dryRun,
+				}
+				if dryRun {
+					cr.Content = coContract.body
+				}
+				if !noEdges {
+					cr.Edges = append(cr.Edges, plannedEdgeDTO{Label: coContract.title, Target: target.Format()})
+				}
+				result.Also = append(result.Also, cr)
 			}
 
 			if dryRun {
@@ -221,6 +260,32 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 				}
 			}
 
+			// Co-created contract: body/abstract come from the tier templates, and
+			// its sole ToC edge points at the root we just made — wired by id,
+			// since resolveUrn can lag a fresh node by ~a minute.
+			if coContract != nil {
+				cInput := gen.NodeInput{
+					MemoryId:   memURN,
+					Loc:        coContract.cit.Format(),
+					Name:       coContract.name,
+					CreateOnly: &createOnly,
+					Tags:       tagSet,
+					NodeType:   &nodeType,
+					Abstract:   &coContract.abstract,
+					Content:    &coContract.body,
+					Data:       specDataRaw(),
+				}
+				cUp, cErr := gen.UpsertNode(cmd.Context(), client, &cInput)
+				if cErr != nil {
+					return fmt.Errorf("created %s but its contract %s failed: %w", target.Format(), coContract.cit.Format(), api.MapError(cErr))
+				}
+				if !noEdges {
+					if _, eErr := gen.CreateEdge(cmd.Context(), client, cUp.UpsertNode.Id, newID, coContract.title, nil, nil, nil); eErr != nil {
+						fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", coContract.title, target.Format(), api.MapError(eErr))
+					}
+				}
+			}
+
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				return renderNewResult(w, result)
 			})
@@ -245,6 +310,7 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read body content from a file")
 	cmd.Flags().StringVar(&inherit, "inherit", "", "inheritance-edge target citation (default: the tier's contract)")
 	cmd.Flags().BoolVar(&noEdges, "no-edges", false, "do not create table-of-contents / inheritance edges")
+	cmd.Flags().BoolVar(&noContract, "no-contract", false, "when creating a root, do not also scaffold its general-provisions contract")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the planned spec without writing anything")
 	_ = cmd.MarkFlagRequired("memory")
 	_ = cmd.MarkFlagRequired("title")
@@ -252,6 +318,15 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 }
 
 const inheritEdgeLabel = "inherits the shared contract (general provisions)"
+
+// plannedContract is a general-provisions contract co-scaffolded with a root.
+type plannedContract struct {
+	cit      Citation
+	title    string // contract title, also the ToC edge label to the root
+	name     string
+	abstract string
+	body     string
+}
 
 type planInput struct {
 	product, module                             string
@@ -483,6 +558,12 @@ func renderNewResult(w io.Writer, r newResultDTO) error {
 	}
 	if r.DryRun && r.Content != "" {
 		fmt.Fprintf(w, "\n%s\n", r.Content)
+	}
+	for _, also := range r.Also {
+		fmt.Fprintln(w)
+		if err := renderNewResult(w, also); err != nil {
+			return err
+		}
 	}
 	return nil
 }

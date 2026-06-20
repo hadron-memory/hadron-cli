@@ -144,9 +144,13 @@ Conventions:
   index for a product/module root, a load-bearing-point + rule list for a
   feature root, a general-provisions skeleton for a contract, or the
   four-section rubric for a rule/flow
-  (`--new-product`/`--new-module`/`--new-feature` create roots; `--contract`
-  scaffolds the contract at the deepest tier named; the abstract can come from
-  `--abstract-file`/`--abstract -`; `--dry-run` previews
+  (`--new-product`/`--new-module`/`--new-feature` create roots and, by
+  default, **also scaffold that tier's general-provisions contract** — a
+  product's `:gen`, a module's `:000`, a feature's `:00` — so children have an
+  inheritance target immediately; `--no-contract` opts out, and the co-created
+  node is reported under `also` in `--json`. `--contract`
+  scaffolds the contract at the deepest tier named on its own; the abstract can
+  come from `--abstract-file`/`--abstract -`; `--dry-run` previews
   without writing); `spec edit <citation>` opens the spec's body in $EDITOR
   pre-loaded — or replaces it non-interactively from `--content -`/`--content-file`
   — writing a content-only update (the abstract is preserved) only when the body

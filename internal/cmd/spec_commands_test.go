@@ -564,7 +564,7 @@ func TestSpecNewProduct(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"spec", "new", "-m", specProductMem, "--new-product", "--product", "cli", "--title", "Hadron CLI", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"spec", "new", "-m", specProductMem, "--new-product", "--product", "cli", "--title", "Hadron CLI", "--no-contract", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -600,7 +600,7 @@ func TestSpecNewProductModule(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"spec", "new", "-m", specProductMem, "--product", "cli", "--new-module", "--module", "cha", "--title", "chat command group", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"spec", "new", "-m", specProductMem, "--product", "cli", "--new-module", "--module", "cha", "--title", "chat command group", "--no-contract", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -634,6 +634,107 @@ func TestSpecNewProductModule(t *testing.T) {
 	}
 	if !sawInherit {
 		t.Errorf("expected inherit edge to product contract cli:gen, got %v", dto.Edges)
+	}
+}
+
+// #69 item 1: --new-module also scaffolds the module's :000 contract (so
+// features can inherit it) and wires its ToC edge to the new root.
+func TestSpecNewModuleAutoContract(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"Nodes":      `{"data":{"nodes":[]}}`,
+		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"brd","name":"brd — Brand","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"c1","loc":"brd:000"},"target":{"id":"new1","loc":"brd"}}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "--new-module", "--module", "brd", "--title", "Brand", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Citation string `json:"citation"`
+		Also     []struct {
+			Citation string `json:"citation"`
+			Edges    []struct {
+				Target string `json:"target"`
+			} `json:"edges"`
+		} `json:"also"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	if dto.Citation != "brd" {
+		t.Errorf("primary citation = %q, want brd", dto.Citation)
+	}
+	if len(dto.Also) != 1 || dto.Also[0].Citation != "brd:000" {
+		t.Fatalf("expected co-created contract brd:000 in .also, got %+v", dto.Also)
+	}
+	if len(dto.Also[0].Edges) != 1 || dto.Also[0].Edges[0].Target != "brd" {
+		t.Errorf("contract should carry a ToC edge to brd, got %v", dto.Also[0].Edges)
+	}
+	// The contract's ToC edge is wired by id (no ResolveUrn for the fresh root).
+	if _, ok := captured["ResolveUrn"]; ok {
+		t.Error("the contract→root edge must be wired by id, not via resolveUrn")
+	}
+	var up struct {
+		Input struct {
+			Loc string `json:"loc"`
+		} `json:"input"`
+	}
+	_ = json.Unmarshal(captured["UpsertNode"], &up)
+	if up.Input.Loc != "brd:000" {
+		t.Errorf("the last upsert should be the contract brd:000, got %q", up.Input.Loc)
+	}
+}
+
+func TestSpecNewNoContract(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"Nodes":      `{"data":{"nodes":[]}}`,
+		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"brd","name":"brd — Brand","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "--new-module", "--module", "brd", "--title", "Brand", "--no-contract", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Also []json.RawMessage `json:"also"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	if len(dto.Also) != 0 {
+		t.Errorf("--no-contract should not co-create a contract, got %d", len(dto.Also))
+	}
+}
+
+// --new-feature scaffolds the feature root and its :00 contract; the feature
+// itself still inherits the module's :000.
+func TestSpecNewFeatureAutoContract(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:000", `["spec"]`) + `]}}`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"Nodes":      scan,
+		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"msg:010","name":"msg:010 — Palette","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:010"},"target":{"id":"t1","loc":"msg"}}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "--new-feature", "--module", "msg", "--title", "Palette", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Citation string `json:"citation"`
+		Also     []struct {
+			Citation string `json:"citation"`
+		} `json:"also"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	if dto.Citation != "msg:010" {
+		t.Errorf("primary citation = %q, want msg:010", dto.Citation)
+	}
+	if len(dto.Also) != 1 || dto.Also[0].Citation != "msg:010:00" {
+		t.Errorf("expected co-created feature contract msg:010:00, got %+v", dto.Also)
 	}
 }
 
