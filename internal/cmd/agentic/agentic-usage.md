@@ -53,6 +53,7 @@ hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn> | expor
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
 hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | register [--check] | find <query> [--match-exactly] | new ... | extract <citation> --to-feature <fff> | lint [<citation>] | supersede <citation> | import spec-kit|code
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
+hadron ai-config ls [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] | update <id> ... | rm <id>
 hadron config get | set | list
 hadron api <query-or-mutation>                       # raw GraphQL
 hadron version
@@ -151,6 +152,15 @@ Conventions:
   (`--strict` promotes warnings to errors, exit 5); `spec supersede` retires a
   spec (never renumbers) and REQUIRES `--yes`; `spec import` is not yet
   implemented (exit 2).
+- `ai-config ls` lists the masked AI configs *resolvable* in an App's chat
+  context (App→Agent→Org→HadronServer, innermost wins, enabled-only) — never
+  key material, only a preview. `ai-config create|update|rm` manage the
+  underlying provider configs: `create` needs an owner (exactly one of
+  `--app`/`--agent`/`--org`, ID or URN) plus `--name`/`--provider`/`--model`;
+  the API key is a secret read via `--api-key -` (stdin) and never echoed back.
+  `update <id>` changes only the fields you pass — `--api-key ""` clears the
+  key, omitting it keeps it; `--param k=v` (repeatable) replaces the params
+  object. `rm <id>` requires `--yes` non-interactively.
 
 ## The escape hatch: hadron api
 
