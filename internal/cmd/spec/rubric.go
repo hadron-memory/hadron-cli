@@ -23,14 +23,67 @@ const abstractPlaceholder = "TODO(abstract):"
 const specDataVersion = "0.0.1"
 
 // placeholderAbstract is the stand-in abstract a scaffolded spec carries
-// until the author writes a real one.
+// until the author writes a real one. The marker keeps lint reminding the
+// author to replace it at the rule tier, where the abstract is the
+// load-bearing vector-search retrieval surface.
 func placeholderAbstract(c Citation, title string) string {
 	return fmt.Sprintf("%s one paragraph stating what %s — %s governs and the durable contract a reader searches for; this is the vector-search retrieval surface. Replace before publishing.",
 		abstractPlaceholder, c.Format(), title)
 }
 
+// tierAbstract returns a tier-worded placeholder abstract: an orientation
+// stub for product/module roots, the feature's load-bearing point, the shared
+// provisions for a contract, and the rule rubric's retrieval-surface stub for
+// a rule or flow.
+func tierAbstract(c Citation, title string) string {
+	switch {
+	case c.IsContract():
+		parent := ""
+		if p, ok := c.Parent(); ok {
+			parent = p.Format()
+		}
+		return fmt.Sprintf("%s one paragraph stating the general provisions %s sets for every %s in %s — the shared definitions and defaults a reader searches for. Replace before publishing.",
+			abstractPlaceholder, c.Format(), tierChildWord(c), parent)
+	case c.Level() == 0:
+		return fmt.Sprintf("%s one paragraph orienting a reader to the %s product — the modules it spans and what to look for here. Replace before publishing.",
+			abstractPlaceholder, c.Format())
+	case c.Level() == 1:
+		return fmt.Sprintf("%s one paragraph orienting a reader to the %s module — what it covers and where its features live. Replace before publishing.",
+			abstractPlaceholder, c.Format())
+	case c.Level() == 2:
+		return fmt.Sprintf("%s one paragraph stating what feature %s — %s governs and its load-bearing point; this is the vector-search retrieval surface. Replace before publishing.",
+			abstractPlaceholder, c.Format(), title)
+	default: // rule / flow
+		return placeholderAbstract(c, title)
+	}
+}
+
+// tierBody returns the scaffolded body whose shape matches the citation's
+// tier: an index for product/module roots, a child-list for a feature root, a
+// general-provisions skeleton for a contract, and the full rubric for a rule
+// or flow. Header tiers (level < 3) are exempt from the rubric in lint, so
+// their skeletons are free-form; the feature `:00` contract is a rule-tier
+// node and so keeps the mandatory "what invalidates" statement.
+func tierBody(c Citation, title string) string {
+	switch {
+	case c.IsContract():
+		return contractBody(c, title)
+	case c.Level() == 0:
+		return indexBody(c, title, "Modules",
+			"One entry per module in this product; keep this index in sync as modules are added. Module codes are 3 lowercase letters, frozen once created.")
+	case c.Level() == 1:
+		return indexBody(c, title, "Features",
+			"One entry per feature in this module; keep this index in sync. Features are numbered in tens (`010`, `020`, …), each a child node under this root.")
+	case c.Level() == 2:
+		return featureRootBody(c, title)
+	default: // rule (3) / flow (4)
+		return rubricBody(c, title)
+	}
+}
+
 // rubricBody returns the scaffolded spec body: the title H1 plus the four
-// mandatory sections, ready for the author to fill in.
+// mandatory sections, ready for the author to fill in. Used for rules and
+// flows — the compliance-loadable tiers.
 func rubricBody(c Citation, title string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s — %s\n\n", c.Format(), title)
@@ -39,6 +92,56 @@ func rubricBody(c Citation, title string) string {
 	fmt.Fprintf(&b, "## %s\n\n**Durable:** the parts that, if changed, mean a different spec.\n**Tunable:** the parts that can change without invalidating this spec.\n\n", headingDurable)
 	fmt.Fprintf(&b, "## %s\n\nThe specific changes that repeal or supersede this spec. (Mandatory.)\n", headingInvalidates)
 	return b.String()
+}
+
+// indexBody is the skeleton for a product or module root — a header H1 plus a
+// table-of-contents section the author keeps in sync as children are added.
+func indexBody(c Citation, title, heading, blurb string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# %s — %s\n\n", c.Format(), title)
+	fmt.Fprintf(&b, "## %s\n\n%s\n", heading, blurb)
+	return b.String()
+}
+
+// featureRootBody is the skeleton for a feature root: a one-line "load-bearing
+// point" the rest of the feature turns on, plus a child-rule list.
+func featureRootBody(c Citation, title string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# %s — %s\n\n", c.Format(), title)
+	fmt.Fprintf(&b, "The load-bearing point of this feature in one or two sentences — what it governs and why it matters.\n\n")
+	fmt.Fprintf(&b, "## Rules\n\nOne entry per rule (`:01`, `:02`, …) under this feature; keep this list in sync.\n")
+	return b.String()
+}
+
+// contractBody is the skeleton for a reserved general-provisions contract
+// (product `:gen`, module `:000`, feature `:00`). It names the tier whose
+// siblings inherit it and keeps the "what invalidates" statement so the
+// feature-`:00` contract — a rule-tier node — passes its own lint.
+func contractBody(c Citation, title string) string {
+	parent := ""
+	if p, ok := c.Parent(); ok {
+		parent = p.Format()
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "# %s — %s\n\n", c.Format(), title)
+	fmt.Fprintf(&b, "General provisions inherited by every %s in `%s`. State the shared definitions, defaults, and rules here; a sibling overrides one only by saying so explicitly.\n\n", tierChildWord(c), parent)
+	fmt.Fprintf(&b, "## Provisions\n\nState the shared rules and defaults.\n\n")
+	fmt.Fprintf(&b, "## %s\n\nThe changes that repeal or supersede these general provisions. (Mandatory.)\n", headingInvalidates)
+	return b.String()
+}
+
+// tierChildWord names the children that inherit a contract at this tier: a
+// product `:gen` is inherited by modules, a module `:000` by features, a
+// feature `:00` by rules.
+func tierChildWord(c Citation) string {
+	switch c.Level() {
+	case 1:
+		return "module"
+	case 2:
+		return "feature"
+	default:
+		return "rule"
+	}
 }
 
 // specName builds the canonical node name "<citation> — <title>".

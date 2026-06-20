@@ -406,6 +406,42 @@ func TestSpecNewDryRun(t *testing.T) {
 	}
 }
 
+// #69 item 2: a scaffolded module root is a Features index, not the rule rubric.
+func TestSpecNewModuleScaffoldsFeaturesIndex(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{"Nodes": `{"data":{"nodes":[]}}`})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "--new-module", "--module", "brd",
+		"--title", "Brand", "-m", specMem, "--dry-run", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "## Features") {
+		t.Errorf("module-root scaffold should be a Features index:\n%s", got)
+	}
+	if strings.Contains(got, "## Definition") {
+		t.Errorf("module root should not get the rule rubric:\n%s", got)
+	}
+}
+
+// A scaffolded feature root leads with its load-bearing point + a rule list.
+func TestSpecNewFeatureScaffoldsRuleList(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `]}}`
+	gql, _ := captureGraphQL(t, map[string]string{"Nodes": scan})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "--new-feature", "--module", "msg",
+		"--title", "Color palette", "-m", specMem, "--dry-run", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "load-bearing point") || !strings.Contains(got, "## Rules") {
+		t.Errorf("feature-root scaffold should lead with the load-bearing point + a Rules list:\n%s", got)
+	}
+}
+
 func TestSpecNewMissingParent(t *testing.T) {
 	// Module exists but the feature does not.
 	gql, _ := captureGraphQL(t, map[string]string{
