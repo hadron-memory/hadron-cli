@@ -312,6 +312,31 @@ func (c Citation) InheritedContractLoc() (Citation, bool) {
 	}
 }
 
+// ChildContract returns the reserved general-provisions contract one tier
+// below this root — the "zero" sibling its children inherit: a product root's
+// modules inherit <product>:gen, a module root's features inherit <module>:000,
+// and a feature root's rules inherit <feature>:00. ok is false for a rule, a
+// flow, or a citation that is itself a contract (those have no root children to
+// provision). It is the dual of InheritedContractLoc, walked downward.
+func (c Citation) ChildContract() (Citation, bool) {
+	if c.IsContract() {
+		return Citation{}, false
+	}
+	switch c.Level() {
+	case 0:
+		if c.Product == "" {
+			return Citation{}, false
+		}
+		return Citation{Product: c.Product, Module: productContractCode}, true
+	case 1:
+		return Citation{Product: c.Product, Module: c.Module, Feature: moduleContractFeature}, true
+	case 2:
+		return Citation{Product: c.Product, Module: c.Module, Feature: c.Feature, Rule: "00"}, true
+	default:
+		return Citation{}, false
+	}
+}
+
 // ---- memory / node-reference helpers ----
 
 // memoryURNFromFlag normalizes the -m/--memory value to the canonical

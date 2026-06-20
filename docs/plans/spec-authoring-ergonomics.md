@@ -39,20 +39,23 @@ integration `spec new … --new-module --dry-run` asserts the Features index, an
 a feature-`:00` `--contract --dry-run` asserts the invalidates section is
 present (so the scaffold passes its own lint).
 
-## Item 1 — fewer calls to stand up a module (next PR)
+## Item 1 — fewer calls to stand up a module (this PR)
 
 **Problem.** A fresh `module → :000 → feature → :00 → rule` tree is ~4 `spec
-new` calls, and `--new-module` does **not** create the module's `:000`
-general-provisions contract — yet features inherit it, so you need a separate
-`--contract` call before `--new-feature` or the inheritance target is missing.
+new` calls, and `--new-module` did **not** create the module's `:000`
+general-provisions contract — yet features inherit it, so you needed a separate
+`--contract` call before `--new-feature` or the inheritance target was missing.
 
-**Design (sketch).** `--new-product` / `--new-module` / `--new-feature` also
-scaffold their tier's general-provisions contract (`<p>:gen` / `<m>:000` /
-`<f>:00`) by default — `--no-contract` opts out. This needs `spec new` to
-create more than one node per call: the result DTO grows an `also
-[]newResultDTO` (omitempty) carrying the co-created contract, and the contract
-is wired with a ToC edge to the new root. Each co-created node gets its
-tier-aware template (item 2), so item 2 lands first.
+**Design.** `--new-product` / `--new-module` / `--new-feature` now also scaffold
+their tier's general-provisions contract (`<p>:gen` / `<m>:000` / `<f>:00`) by
+default — `--no-contract` opts out, and the co-created node is reported under
+`also []newResultDTO` (omitempty) in `--json`. `Citation.ChildContract()`
+computes the contract loc (the dual of `InheritedContractLoc`, walked down).
+The contract takes its tier-aware template (item 2) and a single ToC edge to
+the new root — wired **by id**, since `resolveUrn` can lag a just-created node
+by ~a minute. A contract that somehow already exists is skipped. Cuts a
+module's setup from ~4 calls to ~3 and removes the missing-inheritance-target
+gap.
 
 **Deferred.** The full one-shot chain (`spec new cor:brd:010:01 --new-path`,
 allocating/creating every missing ancestor in one call) is a further
