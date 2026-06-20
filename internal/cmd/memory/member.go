@@ -50,7 +50,7 @@ func newCmdMemberLs(f *cmdutil.Factory) *cobra.Command {
 			}
 			members := make([]memberDTO, 0, len(resp.Memory.Members))
 			for _, m := range resp.Memory.Members {
-				if m == nil {
+				if m == nil || m.User == nil {
 					continue
 				}
 				members = append(members, memberDTO{Role: string(m.Role), User: userFromMemFields(m.User.MemUserFields)})
@@ -90,6 +90,9 @@ func newCmdMemberAdd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return api.MapError(err)
 			}
+			if resp.AddMemoryMember == nil || resp.AddMemoryMember.MemoryMember == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no member")
+			}
 			m := resp.AddMemoryMember.MemoryMember
 			return emitMember(f, "✓ added", memberDTO{Role: string(m.Role), User: userFromMemFields(m.User.MemUserFields)})
 		},
@@ -124,6 +127,9 @@ func newCmdMemberSetRole(f *cmdutil.Factory) *cobra.Command {
 			resp, err := gen.UpdateMemoryMemberRole(cmd.Context(), client, memID, user, r)
 			if err != nil {
 				return api.MapError(err)
+			}
+			if resp.UpdateMemoryMemberRole == nil || resp.UpdateMemoryMemberRole.MemoryMember == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no member")
 			}
 			m := resp.UpdateMemoryMemberRole.MemoryMember
 			return emitMember(f, "✓ set", memberDTO{Role: string(m.Role), User: userFromMemFields(m.User.MemUserFields)})

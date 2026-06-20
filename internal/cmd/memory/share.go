@@ -50,7 +50,7 @@ func newCmdShareLs(f *cmdutil.Factory) *cobra.Command {
 			}
 			shares := make([]shareDTO, 0, len(resp.Memory.Shares))
 			for _, s := range resp.Memory.Shares {
-				if s == nil {
+				if s == nil || s.Grantee == nil {
 					continue
 				}
 				shares = append(shares, shareDTO{Role: string(s.Role), Grantee: userFromMemFields(s.Grantee.MemUserFields)})
@@ -90,6 +90,9 @@ func newCmdShareCreate(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return api.MapError(err)
 			}
+			if resp.CreateMemoryShare == nil || resp.CreateMemoryShare.MemoryShare == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no share")
+			}
 			s := resp.CreateMemoryShare.MemoryShare
 			return emitShare(f, "✓ shared with", shareDTO{Role: string(s.Role), Grantee: userFromMemFields(s.Grantee.MemUserFields)})
 		},
@@ -124,6 +127,9 @@ func newCmdShareSetRole(f *cmdutil.Factory) *cobra.Command {
 			resp, err := gen.UpdateMemoryShareRole(cmd.Context(), client, memID, grantee, r)
 			if err != nil {
 				return api.MapError(err)
+			}
+			if resp.UpdateMemoryShareRole == nil || resp.UpdateMemoryShareRole.MemoryShare == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no share")
 			}
 			s := resp.UpdateMemoryShareRole.MemoryShare
 			return emitShare(f, "✓ set", shareDTO{Role: string(s.Role), Grantee: userFromMemFields(s.Grantee.MemUserFields)})
