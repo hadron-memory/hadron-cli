@@ -149,7 +149,11 @@ func resolveData(data, dataFile string) (*json.RawMessage, error) {
 		raw = strings.TrimSpace(string(b))
 	}
 	if !json.Valid([]byte(raw)) {
-		return nil, exitcode.Newf(exitcode.Usage, "--data must be valid JSON (use `null` to clear)")
+		flag := "--data"
+		if dataFile != "" {
+			flag = "--data-file"
+		}
+		return nil, exitcode.Newf(exitcode.Usage, "%s must contain valid JSON (use `null` to clear)", flag)
 	}
 	msg := json.RawMessage(raw)
 	return &msg, nil

@@ -253,8 +253,10 @@ func renderSpecDetail(w io.Writer, memURN string, d specDetailDTO) {
 	if d.Abstract != nil && strings.TrimSpace(*d.Abstract) != "" {
 		fmt.Fprintf(w, "\nAbstract:\n%s\n", strings.TrimSpace(*d.Abstract))
 	}
-	if d.Data != nil && len(*d.Data) > 0 && strings.TrimSpace(string(*d.Data)) != "null" {
-		fmt.Fprintf(w, "\nData:\n%s\n", strings.TrimSpace(string(*d.Data)))
+	if d.Data != nil && len(*d.Data) > 0 {
+		if dataStr := strings.TrimSpace(string(*d.Data)); dataStr != "null" {
+			fmt.Fprintf(w, "\nData:\n%s\n", dataStr)
+		}
 	}
 	if len(d.Edges) > 0 {
 		fmt.Fprintln(w, "\nEdges:")

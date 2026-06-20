@@ -46,8 +46,10 @@ always name the memory.`,
 					fmt.Fprintf(w, "  tags: %v\n", dto.Tags)
 				}
 				fmt.Fprintf(w, "  updated: %s\n", dto.UpdatedAt)
-				if dto.Data != nil && len(*dto.Data) > 0 && string(*dto.Data) != "null" {
-					fmt.Fprintf(w, "  data: %s\n", string(*dto.Data))
+				if dto.Data != nil && len(*dto.Data) > 0 {
+					if dataStr := string(*dto.Data); dataStr != "null" {
+						fmt.Fprintf(w, "  data: %s\n", dataStr)
+					}
 				}
 				if len(dto.OutgoingEdges) > 0 || len(dto.IncomingEdges) > 0 {
 					fmt.Fprintln(w, "  edges:")
