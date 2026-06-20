@@ -1,0 +1,95 @@
+# Organization & membership management (#56). Roles are the shared Role enum
+# (OWNER/ADMIN/CONTRIBUTOR/READER).
+
+fragment OrgFields on Organization {
+  id
+  urn
+  name
+  isVisible
+  createdAt
+  updatedAt
+}
+
+fragment UserFields on User {
+  id
+  name
+  email
+  handle
+  githubUsername
+  roles
+}
+
+query GetOrganization($id: ID!) {
+  organization(id: $id) {
+    ...OrgFields
+  }
+}
+
+# organization(id) is the only path to an org's members (no plural query).
+query OrgMembers($id: ID!) {
+  organization(id: $id) {
+    id
+    members {
+      id
+      role
+      canInvite
+      user {
+        ...UserFields
+      }
+    }
+  }
+}
+
+query SearchUsers($query: String!) {
+  searchUsers(query: $query) {
+    ...UserFields
+  }
+}
+
+mutation CreateOrganization($name: String!, $urn: String!) {
+  createOrganization(name: $name, urn: $urn) {
+    ...OrgFields
+  }
+}
+
+mutation UpdateOrganization(
+  $id: ID!
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $urn: String
+  # @genqlient(omitempty: true)
+  $isVisible: Boolean
+) {
+  updateOrganization(id: $id, name: $name, urn: $urn, isVisible: $isVisible) {
+    ...OrgFields
+  }
+}
+
+mutation DeleteOrganization($id: ID!) {
+  deleteOrganization(id: $id)
+}
+
+mutation AddOrgMember($orgId: ID!, $userId: ID!, $role: Role!) {
+  addOrgMember(orgId: $orgId, userId: $userId, role: $role) {
+    id
+    role
+    user {
+      ...UserFields
+    }
+  }
+}
+
+mutation UpdateOrgMember($orgId: ID!, $userId: ID!, $role: Role!) {
+  updateOrgMember(orgId: $orgId, userId: $userId, role: $role) {
+    id
+    role
+    user {
+      ...UserFields
+    }
+  }
+}
+
+mutation RemoveOrgMember($orgId: ID!, $userId: ID!) {
+  removeOrgMember(orgId: $orgId, userId: $userId)
+}
