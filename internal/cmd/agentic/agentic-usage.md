@@ -48,7 +48,7 @@ server defaults to
 
 ```
 hadron auth login | logout | whoami | status | token create|ls|revoke <id>
-hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>]
+hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>]
 hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn> | export <urn> [-o <file>] [--format md|json] | import <file|-> [-m <memory>] [--with-edges]
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
 hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | register [--check] | find <query> [--match-exactly] | new ... | extract <citation> --to-feature <fff> | lint [<citation>] | supersede <citation> | import spec-kit|code
@@ -113,6 +113,13 @@ Conventions:
   server's full-DB git push). Existing files are overwritten but files for
   removed nodes are never deleted. `--format markdown` is the default and
   only target today.
+- `memory member` and `memory share` control who can access a memory.
+  `member ls|add|set-role|rm <memory> --user <id> --role <owner|writer|reader>`
+  manages team membership (rows exist only on group-class memories);
+  `share ls|create|set-role|revoke <memory> --grantee <id> --role <writer|reader>`
+  grants individual users access. The memory ref is an id or URN; `add`/`create`
+  upsert; `member rm` / `share revoke` require `--yes` non-interactively. Find
+  user IDs via `org member ls` or `auth whoami`.
 - `spec` manages product-spec nodes whose loc IS a citation number. A memory
   is either flat (`<module>:<feature>:<rule>[:<flow>]`, e.g. `msg:010:02`) or
   product-rooted (`<product>:<module>:<feature>:<rule>[:<flow>]`, e.g.
