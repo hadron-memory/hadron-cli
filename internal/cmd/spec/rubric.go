@@ -38,12 +38,12 @@ func placeholderAbstract(c Citation, title string) string {
 func tierAbstract(c Citation, title string) string {
 	switch {
 	case c.IsContract():
-		parent := ""
+		parentStr := ""
 		if p, ok := c.Parent(); ok {
-			parent = p.Format()
+			parentStr = " in " + p.Format()
 		}
-		return fmt.Sprintf("%s one paragraph stating the general provisions %s sets for every %s in %s — the shared definitions and defaults a reader searches for. Replace before publishing.",
-			abstractPlaceholder, c.Format(), tierChildWord(c), parent)
+		return fmt.Sprintf("%s one paragraph stating the general provisions %s sets for every %s%s — the shared definitions and defaults a reader searches for. Replace before publishing.",
+			abstractPlaceholder, c.Format(), tierChildWord(c), parentStr)
 	case c.Level() == 0:
 		return fmt.Sprintf("%s one paragraph orienting a reader to the %s product — the modules it spans and what to look for here. Replace before publishing.",
 			abstractPlaceholder, c.Format())
@@ -118,13 +118,13 @@ func featureRootBody(c Citation, title string) string {
 // siblings inherit it and keeps the "what invalidates" statement so the
 // feature-`:00` contract — a rule-tier node — passes its own lint.
 func contractBody(c Citation, title string) string {
-	parent := ""
+	parentStr := ""
 	if p, ok := c.Parent(); ok {
-		parent = p.Format()
+		parentStr = fmt.Sprintf(" in `%s`", p.Format())
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s — %s\n\n", c.Format(), title)
-	fmt.Fprintf(&b, "General provisions inherited by every %s in `%s`. State the shared definitions, defaults, and rules here; a sibling overrides one only by saying so explicitly.\n\n", tierChildWord(c), parent)
+	fmt.Fprintf(&b, "General provisions inherited by every %s%s. State the shared definitions, defaults, and rules here; a sibling overrides one only by saying so explicitly.\n\n", tierChildWord(c), parentStr)
 	fmt.Fprintf(&b, "## Provisions\n\nState the shared rules and defaults.\n\n")
 	fmt.Fprintf(&b, "## %s\n\nThe changes that repeal or supersede these general provisions. (Mandatory.)\n", headingInvalidates)
 	return b.String()
