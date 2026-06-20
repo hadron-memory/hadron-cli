@@ -213,7 +213,7 @@ func TestNodeUpdatePreservesUnsetFields(t *testing.T) {
 	// Unset optional fields must be OMITTED (server: null/[] clears).
 	// `tags` is in this list deliberately: a defaulted-empty --tag
 	// serialized as tags:[] clears the node's tags server-side (#37).
-	for _, key := range []string{"content", "description", "abstract", "nodeType", "tags"} {
+	for _, key := range []string{"content", "description", "abstract", "data", "nodeType", "tags"} {
 		if _, present := vars.Input[key]; present {
 			t.Errorf("unset field %q must be omitted from upsert input, got %v", key, vars.Input[key])
 		}
@@ -331,6 +331,111 @@ func TestNodeUpdateRejectsAbstractAndAbstractFile(t *testing.T) {
 		err := root.Execute()
 		if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
 			t.Fatalf("--abstract %q + --abstract-file should be a mutual-exclusion error, got %v", abstract, err)
+		}
+	}
+}
+
+// #69 item 4: --data forwards a parsed JSON object on the upsert input.
+func TestNodeAddSendsData(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpsertNode": `{"data":{"upsertNode":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "add", "-m", "acme.com:kb", "--loc", "palette:brand",
+		"--name", "Brand palette", "--data", `{"primary":"#0a0"}`, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input map[string]any `json:"input"`
+	}
+	_ = json.Unmarshal(captured["UpsertNode"], &vars)
+	data, ok := vars.Input["data"].(map[string]any)
+	if !ok || data["primary"] != "#0a0" {
+		t.Errorf("--data must forward a parsed JSON object, got %v", vars.Input["data"])
+	}
+}
+
+// --data-file reads the JSON from a file (structured data dodges shell quoting).
+func TestNodeUpdateDataFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "data.json")
+	if err := os.WriteFile(path, []byte("{\n  \"swatches\": 3\n}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveNodeJSON,
+		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+		"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "update", nodeURN, "--data-file", path, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input map[string]any `json:"input"`
+	}
+	_ = json.Unmarshal(captured["UpsertNode"], &vars)
+	data, ok := vars.Input["data"].(map[string]any)
+	if !ok || data["swatches"] != float64(3) {
+		t.Errorf("--data-file must forward parsed JSON, got %v", vars.Input["data"])
+	}
+}
+
+// Invalid JSON is rejected before any mutation (exit 2). `node add` reaches
+// resolveData without a network round-trip, so no server is needed.
+func TestNodeAddRejectsInvalidData(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "add", "-m", "acme.com:kb", "--loc", "x", "--name", "X",
+		"--data", "{not json}", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "valid JSON") {
+		t.Fatalf("expected invalid-JSON usage error, got %v", err)
+	}
+}
+
+func TestNodeAddRejectsDataAndDataFile(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "add", "-m", "acme.com:kb", "--loc", "x", "--name", "X",
+		"--data", "{}", "--data-file", "/tmp/x.json", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("expected mutual-exclusion error, got %v", err)
+	}
+}
+
+// #69 item 5: node get surfaces `data` in both the text view and --json.
+func TestNodeGetSurfacesData(t *testing.T) {
+	const detailWithData = `{"id":"n1","memoryId":"mem1","loc":"palette:brand","name":"Brand",
+		"description":null,"abstract":null,"nodeType":"data","tags":[],
+		"content":null,"data":{"primary":"#0a0"},"seq":null,
+		"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
+		"outgoingEdges":[],"incomingEdges":[]}`
+	for _, jsonMode := range []bool{false, true} {
+		gql, _ := captureGraphQL(t, map[string]string{
+			"ResolveUrn":  resolveNodeJSON,
+			"GetNodeById": `{"data":{"nodeById":` + detailWithData + `}}`,
+		})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		args := []string{"node", "get", "acme.com:kb:palette:brand", "--server", gql.URL}
+		if jsonMode {
+			args = append(args, "--json")
+		}
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute (json=%v): %v", jsonMode, err)
+		}
+		if !strings.Contains(out.String(), "#0a0") {
+			t.Errorf("data not surfaced (json=%v): %s", jsonMode, out.String())
+		}
+		if !jsonMode && !strings.Contains(out.String(), "data:") {
+			t.Errorf("text view missing the data line: %s", out.String())
 		}
 	}
 }

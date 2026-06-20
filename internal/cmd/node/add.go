@@ -1,8 +1,10 @@
 package node
 
 import (
+	"encoding/json"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -23,6 +25,8 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 		nodeType    string
 		description string
 		abstract    string
+		data        string
+		dataFile    string
 		tags        []string
 	)
 	cmd := &cobra.Command{
@@ -67,6 +71,13 @@ input; --content-file reads it from a file.`,
 			if abstract != "" {
 				input.Abstract = &abstract
 			}
+			if data != "" || dataFile != "" {
+				raw, err := resolveData(data, dataFile)
+				if err != nil {
+					return err
+				}
+				input.Data = raw
+			}
 
 			resp, err := gen.UpsertNode(cmd.Context(), client, &input)
 			if err != nil {
@@ -89,6 +100,8 @@ input; --content-file reads it from a file.`,
 	cmd.Flags().StringVar(&nodeType, "type", "", "node type (defaults to the server default)")
 	cmd.Flags().StringVar(&description, "description", "", "one-line description")
 	cmd.Flags().StringVar(&abstract, "abstract", "", "paragraph-length summary")
+	cmd.Flags().StringVar(&data, "data", "", "machine-readable JSON data object")
+	cmd.Flags().StringVar(&dataFile, "data-file", "", "read the JSON data object from a file")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "tag (repeatable)")
 	_ = cmd.MarkFlagRequired("memory")
 	_ = cmd.MarkFlagRequired("loc")
@@ -115,4 +128,33 @@ func resolveContent(content, contentFile string, stdin io.Reader) (string, error
 		return string(data), nil
 	}
 	return content, nil
+}
+
+// resolveData reads the node `data` JSON from --data (inline) or --data-file,
+// validates it, and returns it as a raw message ready for NodeInput.Data.
+// The value replaces the node's whole data object on write (the server's
+// upsert preserves an omitted field and overwrites a supplied one); pass
+// `--data null` to clear it. Callers gate the call so an unset flag stays
+// omitted from the wire.
+func resolveData(data, dataFile string) (*json.RawMessage, error) {
+	if data != "" && dataFile != "" {
+		return nil, exitcode.Newf(exitcode.Usage, "--data and --data-file are mutually exclusive")
+	}
+	raw := strings.TrimSpace(data)
+	if dataFile != "" {
+		b, err := os.ReadFile(dataFile)
+		if err != nil {
+			return nil, exitcode.Newf(exitcode.Usage, "reading --data-file: %v", err)
+		}
+		raw = strings.TrimSpace(string(b))
+	}
+	if !json.Valid([]byte(raw)) {
+		flag := "--data"
+		if dataFile != "" {
+			flag = "--data-file"
+		}
+		return nil, exitcode.Newf(exitcode.Usage, "%s must contain valid JSON (use `null` to clear)", flag)
+	}
+	msg := json.RawMessage(raw)
+	return &msg, nil
 }

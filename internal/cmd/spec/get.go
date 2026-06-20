@@ -182,6 +182,7 @@ func specDetailFromNode(n *gen.GetNodeByIdNodeByIdNode, includeContent bool) spe
 		NodeType:  n.NodeType,
 		Tags:      n.Tags,
 		Abstract:  n.Abstract,
+		Data:      n.Data,
 		Lint:      findings,
 		UpdatedAt: n.UpdatedAt,
 	}
@@ -251,6 +252,11 @@ func renderSpecDetail(w io.Writer, memURN string, d specDetailDTO) {
 	}
 	if d.Abstract != nil && strings.TrimSpace(*d.Abstract) != "" {
 		fmt.Fprintf(w, "\nAbstract:\n%s\n", strings.TrimSpace(*d.Abstract))
+	}
+	if d.Data != nil && len(*d.Data) > 0 {
+		if dataStr := strings.TrimSpace(string(*d.Data)); dataStr != "null" {
+			fmt.Fprintf(w, "\nData:\n%s\n", dataStr)
+		}
 	}
 	if len(d.Edges) > 0 {
 		fmt.Fprintln(w, "\nEdges:")

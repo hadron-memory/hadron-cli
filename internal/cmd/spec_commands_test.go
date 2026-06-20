@@ -117,6 +117,24 @@ func TestSpecGet(t *testing.T) {
 	}
 }
 
+// #69 item 5: spec get surfaces the node's `data` block in the text view.
+func TestSpecGetSurfacesData(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveSpecJSON,
+		"GetNodeById": `{"data":{"nodeById":` + cleanSpecDetail + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "get", "msg:010:02", "-m", specMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	text := out.String()
+	if !strings.Contains(text, "Data:") || !strings.Contains(text, "0.0.1") {
+		t.Errorf("spec get should surface the data block:\n%s", text)
+	}
+}
+
 func TestSpecGetPrefix(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"Nodes":     `{"data":{"nodes":[` + specNodeList("msg:010:01", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
