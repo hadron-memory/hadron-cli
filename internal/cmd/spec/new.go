@@ -160,7 +160,7 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 				return err
 			}
 			if abs == "" {
-				abs = placeholderAbstract(target, title)
+				abs = tierAbstract(target, title)
 			}
 			name := specName(target, title)
 			tagSet := specTags(tags)
@@ -468,7 +468,7 @@ func resolveBody(content, contentFile string, stdin io.Reader, c Citation, title
 	if content != "" {
 		return content, nil
 	}
-	return rubricBody(c, title), nil
+	return tierBody(c, title), nil
 }
 
 func renderNewResult(w io.Writer, r newResultDTO) error {

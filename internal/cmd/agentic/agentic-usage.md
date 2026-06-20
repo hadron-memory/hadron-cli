@@ -140,7 +140,10 @@ Conventions:
   `spec describe` reports a memory's scheme (flat/product), products, modules,
   and counts, reading any scheme declared in the memory's data
   (`--declare flat|product` writes it); `spec new` allocates the next number
-  and scaffolds the rubric
+  and scaffolds a **tier-appropriate** skeleton — a `## Modules`/`## Features`
+  index for a product/module root, a load-bearing-point + rule list for a
+  feature root, a general-provisions skeleton for a contract, or the
+  four-section rubric for a rule/flow
   (`--new-product`/`--new-module`/`--new-feature` create roots; `--contract`
   scaffolds the contract at the deepest tier named; the abstract can come from
   `--abstract-file`/`--abstract -`; `--dry-run` previews
