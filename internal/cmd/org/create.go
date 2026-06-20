@@ -9,6 +9,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -27,6 +28,9 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 			resp, err := gen.CreateOrganization(cmd.Context(), client, name, urn)
 			if err != nil {
 				return api.MapError(err)
+			}
+			if resp.CreateOrganization == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no organization")
 			}
 			dto := orgDTOFromFields(resp.CreateOrganization.OrgFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

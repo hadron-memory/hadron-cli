@@ -46,7 +46,7 @@ func newCmdMemberLs(f *cmdutil.Factory) *cobra.Command {
 			}
 			members := make([]memberDTO, 0, len(resp.Organization.Members))
 			for _, m := range resp.Organization.Members {
-				if m == nil {
+				if m == nil || m.User == nil {
 					continue
 				}
 				ci := m.CanInvite
@@ -88,6 +88,9 @@ func newCmdMemberAdd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return api.MapError(err)
 			}
+			if resp.AddOrgMember == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no member")
+			}
 			return emitMember(f, "✓ added", resp.AddOrgMember.Id, string(resp.AddOrgMember.Role), resp.AddOrgMember.User.UserFields)
 		},
 	}
@@ -117,6 +120,9 @@ func newCmdMemberSetRole(f *cmdutil.Factory) *cobra.Command {
 			resp, err := gen.UpdateOrgMember(cmd.Context(), client, args[0], user, r)
 			if err != nil {
 				return api.MapError(err)
+			}
+			if resp.UpdateOrgMember == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no member")
 			}
 			return emitMember(f, "✓ set", resp.UpdateOrgMember.Id, string(resp.UpdateOrgMember.Role), resp.UpdateOrgMember.User.UserFields)
 		},

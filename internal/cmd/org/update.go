@@ -48,6 +48,9 @@ Use --visible=false to hide it from listings.`,
 			if err != nil {
 				return api.MapError(err)
 			}
+			if resp.UpdateOrganization == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no organization")
+			}
 			dto := orgDTOFromFields(resp.UpdateOrganization.OrgFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ updated org %s (%s)\n", dto.URN, dto.ID)
