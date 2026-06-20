@@ -149,6 +149,115 @@ func (v *AddMemoryMemberResponse) GetAddMemoryMember() *AddMemoryMemberAddMemory
 	return v.AddMemoryMember
 }
 
+// AddOrgMemberAddOrgMember includes the requested fields of the GraphQL type OrgMember.
+type AddOrgMemberAddOrgMember struct {
+	Id   string                        `json:"id"`
+	Role Role                          `json:"role"`
+	User *AddOrgMemberAddOrgMemberUser `json:"user"`
+}
+
+// GetId returns AddOrgMemberAddOrgMember.Id, and is useful for accessing the field via an interface.
+func (v *AddOrgMemberAddOrgMember) GetId() string { return v.Id }
+
+// GetRole returns AddOrgMemberAddOrgMember.Role, and is useful for accessing the field via an interface.
+func (v *AddOrgMemberAddOrgMember) GetRole() Role { return v.Role }
+
+// GetUser returns AddOrgMemberAddOrgMember.User, and is useful for accessing the field via an interface.
+func (v *AddOrgMemberAddOrgMember) GetUser() *AddOrgMemberAddOrgMemberUser { return v.User }
+
+// AddOrgMemberAddOrgMemberUser includes the requested fields of the GraphQL type User.
+type AddOrgMemberAddOrgMemberUser struct {
+	UserFields `json:"-"`
+}
+
+// GetId returns AddOrgMemberAddOrgMemberUser.Id, and is useful for accessing the field via an interface.
+func (v *AddOrgMemberAddOrgMemberUser) GetId() string { return v.UserFields.Id }
+
+// GetName returns AddOrgMemberAddOrgMemberUser.Name, and is useful for accessing the field via an interface.
+func (v *AddOrgMemberAddOrgMemberUser) GetName() *string { return v.UserFields.Name }
+
+// GetEmail returns AddOrgMemberAddOrgMemberUser.Email, and is useful for accessing the field via an interface.
+func (v *AddOrgMemberAddOrgMemberUser) GetEmail() *string { return v.UserFields.Email }
+
+// GetHandle returns AddOrgMemberAddOrgMemberUser.Handle, and is useful for accessing the field via an interface.
+func (v *AddOrgMemberAddOrgMemberUser) GetHandle() *string { return v.UserFields.Handle }
+
+// GetGithubUsername returns AddOrgMemberAddOrgMemberUser.GithubUsername, and is useful for accessing the field via an interface.
+func (v *AddOrgMemberAddOrgMemberUser) GetGithubUsername() *string {
+	return v.UserFields.GithubUsername
+}
+
+// GetRoles returns AddOrgMemberAddOrgMemberUser.Roles, and is useful for accessing the field via an interface.
+func (v *AddOrgMemberAddOrgMemberUser) GetRoles() []Role { return v.UserFields.Roles }
+
+func (v *AddOrgMemberAddOrgMemberUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AddOrgMemberAddOrgMemberUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AddOrgMemberAddOrgMemberUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UserFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAddOrgMemberAddOrgMemberUser struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Email *string `json:"email"`
+
+	Handle *string `json:"handle"`
+
+	GithubUsername *string `json:"githubUsername"`
+
+	Roles []Role `json:"roles"`
+}
+
+func (v *AddOrgMemberAddOrgMemberUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AddOrgMemberAddOrgMemberUser) __premarshalJSON() (*__premarshalAddOrgMemberAddOrgMemberUser, error) {
+	var retval __premarshalAddOrgMemberAddOrgMemberUser
+
+	retval.Id = v.UserFields.Id
+	retval.Name = v.UserFields.Name
+	retval.Email = v.UserFields.Email
+	retval.Handle = v.UserFields.Handle
+	retval.GithubUsername = v.UserFields.GithubUsername
+	retval.Roles = v.UserFields.Roles
+	return &retval, nil
+}
+
+// AddOrgMemberResponse is returned by AddOrgMember on success.
+type AddOrgMemberResponse struct {
+	// Accepts the entity's ID or URN (orgId).
+	AddOrgMember *AddOrgMemberAddOrgMember `json:"addOrgMember"`
+}
+
+// GetAddOrgMember returns AddOrgMemberResponse.AddOrgMember, and is useful for accessing the field via an interface.
+func (v *AddOrgMemberResponse) GetAddOrgMember() *AddOrgMemberAddOrgMember { return v.AddOrgMember }
+
 // 036-ai-service-config: which entity owns an AiServiceConfig. Exactly one
 // owner per config (DB-enforced).
 type AiConfigOwnerType string
@@ -845,6 +954,98 @@ func (v *CreateMemoryShareResponse) GetCreateMemoryShare() *CreateMemoryShareCre
 	return v.CreateMemoryShare
 }
 
+// CreateOrganizationCreateOrganization includes the requested fields of the GraphQL type Organization.
+type CreateOrganizationCreateOrganization struct {
+	OrgFields `json:"-"`
+}
+
+// GetId returns CreateOrganizationCreateOrganization.Id, and is useful for accessing the field via an interface.
+func (v *CreateOrganizationCreateOrganization) GetId() string { return v.OrgFields.Id }
+
+// GetUrn returns CreateOrganizationCreateOrganization.Urn, and is useful for accessing the field via an interface.
+func (v *CreateOrganizationCreateOrganization) GetUrn() string { return v.OrgFields.Urn }
+
+// GetName returns CreateOrganizationCreateOrganization.Name, and is useful for accessing the field via an interface.
+func (v *CreateOrganizationCreateOrganization) GetName() string { return v.OrgFields.Name }
+
+// GetIsVisible returns CreateOrganizationCreateOrganization.IsVisible, and is useful for accessing the field via an interface.
+func (v *CreateOrganizationCreateOrganization) GetIsVisible() *bool { return v.OrgFields.IsVisible }
+
+// GetCreatedAt returns CreateOrganizationCreateOrganization.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateOrganizationCreateOrganization) GetCreatedAt() string { return v.OrgFields.CreatedAt }
+
+// GetUpdatedAt returns CreateOrganizationCreateOrganization.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateOrganizationCreateOrganization) GetUpdatedAt() string { return v.OrgFields.UpdatedAt }
+
+func (v *CreateOrganizationCreateOrganization) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateOrganizationCreateOrganization
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateOrganizationCreateOrganization = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.OrgFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateOrganizationCreateOrganization struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	IsVisible *bool `json:"isVisible"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *CreateOrganizationCreateOrganization) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateOrganizationCreateOrganization) __premarshalJSON() (*__premarshalCreateOrganizationCreateOrganization, error) {
+	var retval __premarshalCreateOrganizationCreateOrganization
+
+	retval.Id = v.OrgFields.Id
+	retval.Urn = v.OrgFields.Urn
+	retval.Name = v.OrgFields.Name
+	retval.IsVisible = v.OrgFields.IsVisible
+	retval.CreatedAt = v.OrgFields.CreatedAt
+	retval.UpdatedAt = v.OrgFields.UpdatedAt
+	return &retval, nil
+}
+
+// CreateOrganizationResponse is returned by CreateOrganization on success.
+type CreateOrganizationResponse struct {
+	CreateOrganization *CreateOrganizationCreateOrganization `json:"createOrganization"`
+}
+
+// GetCreateOrganization returns CreateOrganizationResponse.CreateOrganization, and is useful for accessing the field via an interface.
+func (v *CreateOrganizationResponse) GetCreateOrganization() *CreateOrganizationCreateOrganization {
+	return v.CreateOrganization
+}
+
 // CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult includes the requested fields of the GraphQL type UserApiKeyCreateResult.
 type CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult struct {
 	RawKey     string                                                            `json:"rawKey"`
@@ -1027,6 +1228,17 @@ type DeleteNodeResponse struct {
 
 // GetDeleteNode returns DeleteNodeResponse.DeleteNode, and is useful for accessing the field via an interface.
 func (v *DeleteNodeResponse) GetDeleteNode() bool { return v.DeleteNode }
+
+// DeleteOrganizationResponse is returned by DeleteOrganization on success.
+type DeleteOrganizationResponse struct {
+	// Soft-delete an Organization.
+	//
+	// Accepts the entity's ID or URN.
+	DeleteOrganization bool `json:"deleteOrganization"`
+}
+
+// GetDeleteOrganization returns DeleteOrganizationResponse.DeleteOrganization, and is useful for accessing the field via an interface.
+func (v *DeleteOrganizationResponse) GetDeleteOrganization() bool { return v.DeleteOrganization }
 
 // GetMemoryMemory includes the requested fields of the GraphQL type Memory.
 type GetMemoryMemory struct {
@@ -1266,6 +1478,101 @@ type GetNodeByIdResponse struct {
 
 // GetNodeById returns GetNodeByIdResponse.NodeById, and is useful for accessing the field via an interface.
 func (v *GetNodeByIdResponse) GetNodeById() *GetNodeByIdNodeByIdNode { return v.NodeById }
+
+// GetOrganizationOrganization includes the requested fields of the GraphQL type Organization.
+type GetOrganizationOrganization struct {
+	OrgFields `json:"-"`
+}
+
+// GetId returns GetOrganizationOrganization.Id, and is useful for accessing the field via an interface.
+func (v *GetOrganizationOrganization) GetId() string { return v.OrgFields.Id }
+
+// GetUrn returns GetOrganizationOrganization.Urn, and is useful for accessing the field via an interface.
+func (v *GetOrganizationOrganization) GetUrn() string { return v.OrgFields.Urn }
+
+// GetName returns GetOrganizationOrganization.Name, and is useful for accessing the field via an interface.
+func (v *GetOrganizationOrganization) GetName() string { return v.OrgFields.Name }
+
+// GetIsVisible returns GetOrganizationOrganization.IsVisible, and is useful for accessing the field via an interface.
+func (v *GetOrganizationOrganization) GetIsVisible() *bool { return v.OrgFields.IsVisible }
+
+// GetCreatedAt returns GetOrganizationOrganization.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetOrganizationOrganization) GetCreatedAt() string { return v.OrgFields.CreatedAt }
+
+// GetUpdatedAt returns GetOrganizationOrganization.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *GetOrganizationOrganization) GetUpdatedAt() string { return v.OrgFields.UpdatedAt }
+
+func (v *GetOrganizationOrganization) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetOrganizationOrganization
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetOrganizationOrganization = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.OrgFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetOrganizationOrganization struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	IsVisible *bool `json:"isVisible"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *GetOrganizationOrganization) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetOrganizationOrganization) __premarshalJSON() (*__premarshalGetOrganizationOrganization, error) {
+	var retval __premarshalGetOrganizationOrganization
+
+	retval.Id = v.OrgFields.Id
+	retval.Urn = v.OrgFields.Urn
+	retval.Name = v.OrgFields.Name
+	retval.IsVisible = v.OrgFields.IsVisible
+	retval.CreatedAt = v.OrgFields.CreatedAt
+	retval.UpdatedAt = v.OrgFields.UpdatedAt
+	return &retval, nil
+}
+
+// GetOrganizationResponse is returned by GetOrganization on success.
+type GetOrganizationResponse struct {
+	// Fetch an Organization by id (org member or platform ADMIN).
+	//
+	// Accepts the entity's ID or URN.
+	Organization *GetOrganizationOrganization `json:"organization"`
+}
+
+// GetOrganization returns GetOrganizationResponse.Organization, and is useful for accessing the field via an interface.
+func (v *GetOrganizationResponse) GetOrganization() *GetOrganizationOrganization {
+	return v.Organization
+}
 
 // MeMeUser includes the requested fields of the GraphQL type User.
 type MeMeUser struct {
@@ -2270,6 +2577,165 @@ type NodesResponse struct {
 // GetNodes returns NodesResponse.Nodes, and is useful for accessing the field via an interface.
 func (v *NodesResponse) GetNodes() []*NodesNodesNode { return v.Nodes }
 
+// OrgFields includes the GraphQL fields of Organization requested by the fragment OrgFields.
+type OrgFields struct {
+	Id        string `json:"id"`
+	Urn       string `json:"urn"`
+	Name      string `json:"name"`
+	IsVisible *bool  `json:"isVisible"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+// GetId returns OrgFields.Id, and is useful for accessing the field via an interface.
+func (v *OrgFields) GetId() string { return v.Id }
+
+// GetUrn returns OrgFields.Urn, and is useful for accessing the field via an interface.
+func (v *OrgFields) GetUrn() string { return v.Urn }
+
+// GetName returns OrgFields.Name, and is useful for accessing the field via an interface.
+func (v *OrgFields) GetName() string { return v.Name }
+
+// GetIsVisible returns OrgFields.IsVisible, and is useful for accessing the field via an interface.
+func (v *OrgFields) GetIsVisible() *bool { return v.IsVisible }
+
+// GetCreatedAt returns OrgFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *OrgFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns OrgFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *OrgFields) GetUpdatedAt() string { return v.UpdatedAt }
+
+// OrgMembersOrganization includes the requested fields of the GraphQL type Organization.
+type OrgMembersOrganization struct {
+	Id      string                                    `json:"id"`
+	Members []*OrgMembersOrganizationMembersOrgMember `json:"members"`
+}
+
+// GetId returns OrgMembersOrganization.Id, and is useful for accessing the field via an interface.
+func (v *OrgMembersOrganization) GetId() string { return v.Id }
+
+// GetMembers returns OrgMembersOrganization.Members, and is useful for accessing the field via an interface.
+func (v *OrgMembersOrganization) GetMembers() []*OrgMembersOrganizationMembersOrgMember {
+	return v.Members
+}
+
+// OrgMembersOrganizationMembersOrgMember includes the requested fields of the GraphQL type OrgMember.
+type OrgMembersOrganizationMembersOrgMember struct {
+	Id        string                                      `json:"id"`
+	Role      Role                                        `json:"role"`
+	CanInvite bool                                        `json:"canInvite"`
+	User      *OrgMembersOrganizationMembersOrgMemberUser `json:"user"`
+}
+
+// GetId returns OrgMembersOrganizationMembersOrgMember.Id, and is useful for accessing the field via an interface.
+func (v *OrgMembersOrganizationMembersOrgMember) GetId() string { return v.Id }
+
+// GetRole returns OrgMembersOrganizationMembersOrgMember.Role, and is useful for accessing the field via an interface.
+func (v *OrgMembersOrganizationMembersOrgMember) GetRole() Role { return v.Role }
+
+// GetCanInvite returns OrgMembersOrganizationMembersOrgMember.CanInvite, and is useful for accessing the field via an interface.
+func (v *OrgMembersOrganizationMembersOrgMember) GetCanInvite() bool { return v.CanInvite }
+
+// GetUser returns OrgMembersOrganizationMembersOrgMember.User, and is useful for accessing the field via an interface.
+func (v *OrgMembersOrganizationMembersOrgMember) GetUser() *OrgMembersOrganizationMembersOrgMemberUser {
+	return v.User
+}
+
+// OrgMembersOrganizationMembersOrgMemberUser includes the requested fields of the GraphQL type User.
+type OrgMembersOrganizationMembersOrgMemberUser struct {
+	UserFields `json:"-"`
+}
+
+// GetId returns OrgMembersOrganizationMembersOrgMemberUser.Id, and is useful for accessing the field via an interface.
+func (v *OrgMembersOrganizationMembersOrgMemberUser) GetId() string { return v.UserFields.Id }
+
+// GetName returns OrgMembersOrganizationMembersOrgMemberUser.Name, and is useful for accessing the field via an interface.
+func (v *OrgMembersOrganizationMembersOrgMemberUser) GetName() *string { return v.UserFields.Name }
+
+// GetEmail returns OrgMembersOrganizationMembersOrgMemberUser.Email, and is useful for accessing the field via an interface.
+func (v *OrgMembersOrganizationMembersOrgMemberUser) GetEmail() *string { return v.UserFields.Email }
+
+// GetHandle returns OrgMembersOrganizationMembersOrgMemberUser.Handle, and is useful for accessing the field via an interface.
+func (v *OrgMembersOrganizationMembersOrgMemberUser) GetHandle() *string { return v.UserFields.Handle }
+
+// GetGithubUsername returns OrgMembersOrganizationMembersOrgMemberUser.GithubUsername, and is useful for accessing the field via an interface.
+func (v *OrgMembersOrganizationMembersOrgMemberUser) GetGithubUsername() *string {
+	return v.UserFields.GithubUsername
+}
+
+// GetRoles returns OrgMembersOrganizationMembersOrgMemberUser.Roles, and is useful for accessing the field via an interface.
+func (v *OrgMembersOrganizationMembersOrgMemberUser) GetRoles() []Role { return v.UserFields.Roles }
+
+func (v *OrgMembersOrganizationMembersOrgMemberUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*OrgMembersOrganizationMembersOrgMemberUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.OrgMembersOrganizationMembersOrgMemberUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UserFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalOrgMembersOrganizationMembersOrgMemberUser struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Email *string `json:"email"`
+
+	Handle *string `json:"handle"`
+
+	GithubUsername *string `json:"githubUsername"`
+
+	Roles []Role `json:"roles"`
+}
+
+func (v *OrgMembersOrganizationMembersOrgMemberUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *OrgMembersOrganizationMembersOrgMemberUser) __premarshalJSON() (*__premarshalOrgMembersOrganizationMembersOrgMemberUser, error) {
+	var retval __premarshalOrgMembersOrganizationMembersOrgMemberUser
+
+	retval.Id = v.UserFields.Id
+	retval.Name = v.UserFields.Name
+	retval.Email = v.UserFields.Email
+	retval.Handle = v.UserFields.Handle
+	retval.GithubUsername = v.UserFields.GithubUsername
+	retval.Roles = v.UserFields.Roles
+	return &retval, nil
+}
+
+// OrgMembersResponse is returned by OrgMembers on success.
+type OrgMembersResponse struct {
+	// Fetch an Organization by id (org member or platform ADMIN).
+	//
+	// Accepts the entity's ID or URN.
+	Organization *OrgMembersOrganization `json:"organization"`
+}
+
+// GetOrganization returns OrgMembersResponse.Organization, and is useful for accessing the field via an interface.
+func (v *OrgMembersResponse) GetOrganization() *OrgMembersOrganization { return v.Organization }
+
 // RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload includes the requested fields of the GraphQL type RemoveMemoryMemberPayload.
 type RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload struct {
 	MemoryId string `json:"memoryId"`
@@ -2305,6 +2771,15 @@ type RemoveMemoryMemberResponse struct {
 func (v *RemoveMemoryMemberResponse) GetRemoveMemoryMember() *RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload {
 	return v.RemoveMemoryMember
 }
+
+// RemoveOrgMemberResponse is returned by RemoveOrgMember on success.
+type RemoveOrgMemberResponse struct {
+	// Accepts the entity's ID or URN (orgId).
+	RemoveOrgMember bool `json:"removeOrgMember"`
+}
+
+// GetRemoveOrgMember returns RemoveOrgMemberResponse.RemoveOrgMember, and is useful for accessing the field via an interface.
+func (v *RemoveOrgMemberResponse) GetRemoveOrgMember() bool { return v.RemoveOrgMember }
 
 // ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig includes the requested fields of the GraphQL type AiServiceConfig.
 // The GraphQL type's documentation follows.
@@ -2652,6 +3127,96 @@ var AllSearchMode = []SearchMode{
 	SearchModeHybrid,
 	SearchModeKeyword,
 	SearchModeVector,
+}
+
+// SearchUsersResponse is returned by SearchUsers on success.
+type SearchUsersResponse struct {
+	SearchUsers []*SearchUsersSearchUsersUser `json:"searchUsers"`
+}
+
+// GetSearchUsers returns SearchUsersResponse.SearchUsers, and is useful for accessing the field via an interface.
+func (v *SearchUsersResponse) GetSearchUsers() []*SearchUsersSearchUsersUser { return v.SearchUsers }
+
+// SearchUsersSearchUsersUser includes the requested fields of the GraphQL type User.
+type SearchUsersSearchUsersUser struct {
+	UserFields `json:"-"`
+}
+
+// GetId returns SearchUsersSearchUsersUser.Id, and is useful for accessing the field via an interface.
+func (v *SearchUsersSearchUsersUser) GetId() string { return v.UserFields.Id }
+
+// GetName returns SearchUsersSearchUsersUser.Name, and is useful for accessing the field via an interface.
+func (v *SearchUsersSearchUsersUser) GetName() *string { return v.UserFields.Name }
+
+// GetEmail returns SearchUsersSearchUsersUser.Email, and is useful for accessing the field via an interface.
+func (v *SearchUsersSearchUsersUser) GetEmail() *string { return v.UserFields.Email }
+
+// GetHandle returns SearchUsersSearchUsersUser.Handle, and is useful for accessing the field via an interface.
+func (v *SearchUsersSearchUsersUser) GetHandle() *string { return v.UserFields.Handle }
+
+// GetGithubUsername returns SearchUsersSearchUsersUser.GithubUsername, and is useful for accessing the field via an interface.
+func (v *SearchUsersSearchUsersUser) GetGithubUsername() *string { return v.UserFields.GithubUsername }
+
+// GetRoles returns SearchUsersSearchUsersUser.Roles, and is useful for accessing the field via an interface.
+func (v *SearchUsersSearchUsersUser) GetRoles() []Role { return v.UserFields.Roles }
+
+func (v *SearchUsersSearchUsersUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SearchUsersSearchUsersUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SearchUsersSearchUsersUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UserFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSearchUsersSearchUsersUser struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Email *string `json:"email"`
+
+	Handle *string `json:"handle"`
+
+	GithubUsername *string `json:"githubUsername"`
+
+	Roles []Role `json:"roles"`
+}
+
+func (v *SearchUsersSearchUsersUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SearchUsersSearchUsersUser) __premarshalJSON() (*__premarshalSearchUsersSearchUsersUser, error) {
+	var retval __premarshalSearchUsersSearchUsersUser
+
+	retval.Id = v.UserFields.Id
+	retval.Name = v.UserFields.Name
+	retval.Email = v.UserFields.Email
+	retval.Handle = v.UserFields.Handle
+	retval.GithubUsername = v.UserFields.GithubUsername
+	retval.Roles = v.UserFields.Roles
+	return &retval, nil
 }
 
 type SyncStatus string
@@ -3221,6 +3786,212 @@ func (v *UpdateMemoryUpdateMemory) GetData() *json.RawMessage { return v.Data }
 // GetUpdatedAt returns UpdateMemoryUpdateMemory.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryUpdateMemory) GetUpdatedAt() string { return v.UpdatedAt }
 
+// UpdateOrgMemberResponse is returned by UpdateOrgMember on success.
+type UpdateOrgMemberResponse struct {
+	// Accepts the entity's ID or URN (orgId).
+	UpdateOrgMember *UpdateOrgMemberUpdateOrgMember `json:"updateOrgMember"`
+}
+
+// GetUpdateOrgMember returns UpdateOrgMemberResponse.UpdateOrgMember, and is useful for accessing the field via an interface.
+func (v *UpdateOrgMemberResponse) GetUpdateOrgMember() *UpdateOrgMemberUpdateOrgMember {
+	return v.UpdateOrgMember
+}
+
+// UpdateOrgMemberUpdateOrgMember includes the requested fields of the GraphQL type OrgMember.
+type UpdateOrgMemberUpdateOrgMember struct {
+	Id   string                              `json:"id"`
+	Role Role                                `json:"role"`
+	User *UpdateOrgMemberUpdateOrgMemberUser `json:"user"`
+}
+
+// GetId returns UpdateOrgMemberUpdateOrgMember.Id, and is useful for accessing the field via an interface.
+func (v *UpdateOrgMemberUpdateOrgMember) GetId() string { return v.Id }
+
+// GetRole returns UpdateOrgMemberUpdateOrgMember.Role, and is useful for accessing the field via an interface.
+func (v *UpdateOrgMemberUpdateOrgMember) GetRole() Role { return v.Role }
+
+// GetUser returns UpdateOrgMemberUpdateOrgMember.User, and is useful for accessing the field via an interface.
+func (v *UpdateOrgMemberUpdateOrgMember) GetUser() *UpdateOrgMemberUpdateOrgMemberUser { return v.User }
+
+// UpdateOrgMemberUpdateOrgMemberUser includes the requested fields of the GraphQL type User.
+type UpdateOrgMemberUpdateOrgMemberUser struct {
+	UserFields `json:"-"`
+}
+
+// GetId returns UpdateOrgMemberUpdateOrgMemberUser.Id, and is useful for accessing the field via an interface.
+func (v *UpdateOrgMemberUpdateOrgMemberUser) GetId() string { return v.UserFields.Id }
+
+// GetName returns UpdateOrgMemberUpdateOrgMemberUser.Name, and is useful for accessing the field via an interface.
+func (v *UpdateOrgMemberUpdateOrgMemberUser) GetName() *string { return v.UserFields.Name }
+
+// GetEmail returns UpdateOrgMemberUpdateOrgMemberUser.Email, and is useful for accessing the field via an interface.
+func (v *UpdateOrgMemberUpdateOrgMemberUser) GetEmail() *string { return v.UserFields.Email }
+
+// GetHandle returns UpdateOrgMemberUpdateOrgMemberUser.Handle, and is useful for accessing the field via an interface.
+func (v *UpdateOrgMemberUpdateOrgMemberUser) GetHandle() *string { return v.UserFields.Handle }
+
+// GetGithubUsername returns UpdateOrgMemberUpdateOrgMemberUser.GithubUsername, and is useful for accessing the field via an interface.
+func (v *UpdateOrgMemberUpdateOrgMemberUser) GetGithubUsername() *string {
+	return v.UserFields.GithubUsername
+}
+
+// GetRoles returns UpdateOrgMemberUpdateOrgMemberUser.Roles, and is useful for accessing the field via an interface.
+func (v *UpdateOrgMemberUpdateOrgMemberUser) GetRoles() []Role { return v.UserFields.Roles }
+
+func (v *UpdateOrgMemberUpdateOrgMemberUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateOrgMemberUpdateOrgMemberUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateOrgMemberUpdateOrgMemberUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UserFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateOrgMemberUpdateOrgMemberUser struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Email *string `json:"email"`
+
+	Handle *string `json:"handle"`
+
+	GithubUsername *string `json:"githubUsername"`
+
+	Roles []Role `json:"roles"`
+}
+
+func (v *UpdateOrgMemberUpdateOrgMemberUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateOrgMemberUpdateOrgMemberUser) __premarshalJSON() (*__premarshalUpdateOrgMemberUpdateOrgMemberUser, error) {
+	var retval __premarshalUpdateOrgMemberUpdateOrgMemberUser
+
+	retval.Id = v.UserFields.Id
+	retval.Name = v.UserFields.Name
+	retval.Email = v.UserFields.Email
+	retval.Handle = v.UserFields.Handle
+	retval.GithubUsername = v.UserFields.GithubUsername
+	retval.Roles = v.UserFields.Roles
+	return &retval, nil
+}
+
+// UpdateOrganizationResponse is returned by UpdateOrganization on success.
+type UpdateOrganizationResponse struct {
+	// Update an Organization.
+	//
+	// Accepts the entity's ID or URN.
+	UpdateOrganization *UpdateOrganizationUpdateOrganization `json:"updateOrganization"`
+}
+
+// GetUpdateOrganization returns UpdateOrganizationResponse.UpdateOrganization, and is useful for accessing the field via an interface.
+func (v *UpdateOrganizationResponse) GetUpdateOrganization() *UpdateOrganizationUpdateOrganization {
+	return v.UpdateOrganization
+}
+
+// UpdateOrganizationUpdateOrganization includes the requested fields of the GraphQL type Organization.
+type UpdateOrganizationUpdateOrganization struct {
+	OrgFields `json:"-"`
+}
+
+// GetId returns UpdateOrganizationUpdateOrganization.Id, and is useful for accessing the field via an interface.
+func (v *UpdateOrganizationUpdateOrganization) GetId() string { return v.OrgFields.Id }
+
+// GetUrn returns UpdateOrganizationUpdateOrganization.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateOrganizationUpdateOrganization) GetUrn() string { return v.OrgFields.Urn }
+
+// GetName returns UpdateOrganizationUpdateOrganization.Name, and is useful for accessing the field via an interface.
+func (v *UpdateOrganizationUpdateOrganization) GetName() string { return v.OrgFields.Name }
+
+// GetIsVisible returns UpdateOrganizationUpdateOrganization.IsVisible, and is useful for accessing the field via an interface.
+func (v *UpdateOrganizationUpdateOrganization) GetIsVisible() *bool { return v.OrgFields.IsVisible }
+
+// GetCreatedAt returns UpdateOrganizationUpdateOrganization.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateOrganizationUpdateOrganization) GetCreatedAt() string { return v.OrgFields.CreatedAt }
+
+// GetUpdatedAt returns UpdateOrganizationUpdateOrganization.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateOrganizationUpdateOrganization) GetUpdatedAt() string { return v.OrgFields.UpdatedAt }
+
+func (v *UpdateOrganizationUpdateOrganization) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateOrganizationUpdateOrganization
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateOrganizationUpdateOrganization = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.OrgFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateOrganizationUpdateOrganization struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	IsVisible *bool `json:"isVisible"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *UpdateOrganizationUpdateOrganization) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateOrganizationUpdateOrganization) __premarshalJSON() (*__premarshalUpdateOrganizationUpdateOrganization, error) {
+	var retval __premarshalUpdateOrganizationUpdateOrganization
+
+	retval.Id = v.OrgFields.Id
+	retval.Urn = v.OrgFields.Urn
+	retval.Name = v.OrgFields.Name
+	retval.IsVisible = v.OrgFields.IsVisible
+	retval.CreatedAt = v.OrgFields.CreatedAt
+	retval.UpdatedAt = v.OrgFields.UpdatedAt
+	return &retval, nil
+}
+
 // UpsertNodeResponse is returned by UpsertNode on success.
 type UpsertNodeResponse struct {
 	UpsertNode *UpsertNodeUpsertNode `json:"upsertNode"`
@@ -3293,6 +4064,34 @@ func (v *UserApiKeyFields) GetLastUsedAt() *string { return v.LastUsedAt }
 // GetRevokedAt returns UserApiKeyFields.RevokedAt, and is useful for accessing the field via an interface.
 func (v *UserApiKeyFields) GetRevokedAt() *string { return v.RevokedAt }
 
+// UserFields includes the GraphQL fields of User requested by the fragment UserFields.
+type UserFields struct {
+	Id             string  `json:"id"`
+	Name           *string `json:"name"`
+	Email          *string `json:"email"`
+	Handle         *string `json:"handle"`
+	GithubUsername *string `json:"githubUsername"`
+	Roles          []Role  `json:"roles"`
+}
+
+// GetId returns UserFields.Id, and is useful for accessing the field via an interface.
+func (v *UserFields) GetId() string { return v.Id }
+
+// GetName returns UserFields.Name, and is useful for accessing the field via an interface.
+func (v *UserFields) GetName() *string { return v.Name }
+
+// GetEmail returns UserFields.Email, and is useful for accessing the field via an interface.
+func (v *UserFields) GetEmail() *string { return v.Email }
+
+// GetHandle returns UserFields.Handle, and is useful for accessing the field via an interface.
+func (v *UserFields) GetHandle() *string { return v.Handle }
+
+// GetGithubUsername returns UserFields.GithubUsername, and is useful for accessing the field via an interface.
+func (v *UserFields) GetGithubUsername() *string { return v.GithubUsername }
+
+// GetRoles returns UserFields.Roles, and is useful for accessing the field via an interface.
+func (v *UserFields) GetRoles() []Role { return v.Roles }
+
 // __AddMemoryMemberInput is used internally by genqlient
 type __AddMemoryMemberInput struct {
 	MemoryId string           `json:"memoryId"`
@@ -3308,6 +4107,22 @@ func (v *__AddMemoryMemberInput) GetUserId() string { return v.UserId }
 
 // GetRole returns __AddMemoryMemberInput.Role, and is useful for accessing the field via an interface.
 func (v *__AddMemoryMemberInput) GetRole() MemoryMemberRole { return v.Role }
+
+// __AddOrgMemberInput is used internally by genqlient
+type __AddOrgMemberInput struct {
+	OrgId  string `json:"orgId"`
+	UserId string `json:"userId"`
+	Role   Role   `json:"role"`
+}
+
+// GetOrgId returns __AddOrgMemberInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__AddOrgMemberInput) GetOrgId() string { return v.OrgId }
+
+// GetUserId returns __AddOrgMemberInput.UserId, and is useful for accessing the field via an interface.
+func (v *__AddOrgMemberInput) GetUserId() string { return v.UserId }
+
+// GetRole returns __AddOrgMemberInput.Role, and is useful for accessing the field via an interface.
+func (v *__AddOrgMemberInput) GetRole() Role { return v.Role }
 
 // __AppsInput is used internally by genqlient
 type __AppsInput struct {
@@ -3469,6 +4284,18 @@ func (v *__CreateMemoryShareInput) GetGranteeId() string { return v.GranteeId }
 // GetRole returns __CreateMemoryShareInput.Role, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryShareInput) GetRole() MemoryShareRole { return v.Role }
 
+// __CreateOrganizationInput is used internally by genqlient
+type __CreateOrganizationInput struct {
+	Name string `json:"name"`
+	Urn  string `json:"urn"`
+}
+
+// GetName returns __CreateOrganizationInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateOrganizationInput) GetName() string { return v.Name }
+
+// GetUrn returns __CreateOrganizationInput.Urn, and is useful for accessing the field via an interface.
+func (v *__CreateOrganizationInput) GetUrn() string { return v.Urn }
+
 // __CreateUserApiKeyInput is used internally by genqlient
 type __CreateUserApiKeyInput struct {
 	Label *string `json:"label,omitempty"`
@@ -3521,6 +4348,14 @@ func (v *__DeleteNodeInput) GetLoc() string { return v.Loc }
 // GetMemoryId returns __DeleteNodeInput.MemoryId, and is useful for accessing the field via an interface.
 func (v *__DeleteNodeInput) GetMemoryId() string { return v.MemoryId }
 
+// __DeleteOrganizationInput is used internally by genqlient
+type __DeleteOrganizationInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __DeleteOrganizationInput.Id, and is useful for accessing the field via an interface.
+func (v *__DeleteOrganizationInput) GetId() string { return v.Id }
+
 // __GetMemoryInput is used internally by genqlient
 type __GetMemoryInput struct {
 	Id string `json:"id"`
@@ -3536,6 +4371,14 @@ type __GetNodeByIdInput struct {
 
 // GetId returns __GetNodeByIdInput.Id, and is useful for accessing the field via an interface.
 func (v *__GetNodeByIdInput) GetId() string { return v.Id }
+
+// __GetOrganizationInput is used internally by genqlient
+type __GetOrganizationInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __GetOrganizationInput.Id, and is useful for accessing the field via an interface.
+func (v *__GetOrganizationInput) GetId() string { return v.Id }
 
 // __MemoryMembersInput is used internally by genqlient
 type __MemoryMembersInput struct {
@@ -3621,6 +4464,14 @@ func (v *__NodesInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __NodesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__NodesInput) GetOffset() *int { return v.Offset }
 
+// __OrgMembersInput is used internally by genqlient
+type __OrgMembersInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __OrgMembersInput.Id, and is useful for accessing the field via an interface.
+func (v *__OrgMembersInput) GetId() string { return v.Id }
+
 // __RemoveMemoryMemberInput is used internally by genqlient
 type __RemoveMemoryMemberInput struct {
 	MemoryId string `json:"memoryId"`
@@ -3632,6 +4483,18 @@ func (v *__RemoveMemoryMemberInput) GetMemoryId() string { return v.MemoryId }
 
 // GetUserId returns __RemoveMemoryMemberInput.UserId, and is useful for accessing the field via an interface.
 func (v *__RemoveMemoryMemberInput) GetUserId() string { return v.UserId }
+
+// __RemoveOrgMemberInput is used internally by genqlient
+type __RemoveOrgMemberInput struct {
+	OrgId  string `json:"orgId"`
+	UserId string `json:"userId"`
+}
+
+// GetOrgId returns __RemoveOrgMemberInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__RemoveOrgMemberInput) GetOrgId() string { return v.OrgId }
+
+// GetUserId returns __RemoveOrgMemberInput.UserId, and is useful for accessing the field via an interface.
+func (v *__RemoveOrgMemberInput) GetUserId() string { return v.UserId }
 
 // __ResolveAiServiceConfigsInput is used internally by genqlient
 type __ResolveAiServiceConfigsInput struct {
@@ -3672,6 +4535,14 @@ type __RevokeUserApiKeyInput struct {
 
 // GetId returns __RevokeUserApiKeyInput.Id, and is useful for accessing the field via an interface.
 func (v *__RevokeUserApiKeyInput) GetId() string { return v.Id }
+
+// __SearchUsersInput is used internally by genqlient
+type __SearchUsersInput struct {
+	Query string `json:"query"`
+}
+
+// GetQuery returns __SearchUsersInput.Query, and is useful for accessing the field via an interface.
+func (v *__SearchUsersInput) GetQuery() string { return v.Query }
 
 // __UpdateAiServiceConfigInput is used internally by genqlient
 type __UpdateAiServiceConfigInput struct {
@@ -3793,6 +4664,42 @@ func (v *__UpdateMemoryShareRoleInput) GetGranteeId() string { return v.GranteeI
 // GetRole returns __UpdateMemoryShareRoleInput.Role, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryShareRoleInput) GetRole() MemoryShareRole { return v.Role }
 
+// __UpdateOrgMemberInput is used internally by genqlient
+type __UpdateOrgMemberInput struct {
+	OrgId  string `json:"orgId"`
+	UserId string `json:"userId"`
+	Role   Role   `json:"role"`
+}
+
+// GetOrgId returns __UpdateOrgMemberInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__UpdateOrgMemberInput) GetOrgId() string { return v.OrgId }
+
+// GetUserId returns __UpdateOrgMemberInput.UserId, and is useful for accessing the field via an interface.
+func (v *__UpdateOrgMemberInput) GetUserId() string { return v.UserId }
+
+// GetRole returns __UpdateOrgMemberInput.Role, and is useful for accessing the field via an interface.
+func (v *__UpdateOrgMemberInput) GetRole() Role { return v.Role }
+
+// __UpdateOrganizationInput is used internally by genqlient
+type __UpdateOrganizationInput struct {
+	Id        string  `json:"id"`
+	Name      *string `json:"name,omitempty"`
+	Urn       *string `json:"urn,omitempty"`
+	IsVisible *bool   `json:"isVisible,omitempty"`
+}
+
+// GetId returns __UpdateOrganizationInput.Id, and is useful for accessing the field via an interface.
+func (v *__UpdateOrganizationInput) GetId() string { return v.Id }
+
+// GetName returns __UpdateOrganizationInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateOrganizationInput) GetName() *string { return v.Name }
+
+// GetUrn returns __UpdateOrganizationInput.Urn, and is useful for accessing the field via an interface.
+func (v *__UpdateOrganizationInput) GetUrn() *string { return v.Urn }
+
+// GetIsVisible returns __UpdateOrganizationInput.IsVisible, and is useful for accessing the field via an interface.
+func (v *__UpdateOrganizationInput) GetIsVisible() *bool { return v.IsVisible }
+
 // __UpsertNodeInput is used internally by genqlient
 type __UpsertNodeInput struct {
 	Input *NodeInput `json:"input,omitempty"`
@@ -3839,6 +4746,56 @@ func AddMemoryMember(
 	}
 
 	data_ = &AddMemoryMemberResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AddOrgMember.
+const AddOrgMember_Operation = `
+mutation AddOrgMember ($orgId: ID!, $userId: ID!, $role: Role!) {
+	addOrgMember(orgId: $orgId, userId: $userId, role: $role) {
+		id
+		role
+		user {
+			... UserFields
+		}
+	}
+}
+fragment UserFields on User {
+	id
+	name
+	email
+	handle
+	githubUsername
+	roles
+}
+`
+
+func AddOrgMember(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId string,
+	userId string,
+	role Role,
+) (data_ *AddOrgMemberResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AddOrgMember",
+		Query:  AddOrgMember_Operation,
+		Variables: &__AddOrgMemberInput{
+			OrgId:  orgId,
+			UserId: userId,
+			Role:   role,
+		},
+	}
+
+	data_ = &AddOrgMemberResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -4209,6 +5166,50 @@ func CreateMemoryShare(
 	return data_, err_
 }
 
+// The mutation executed by CreateOrganization.
+const CreateOrganization_Operation = `
+mutation CreateOrganization ($name: String!, $urn: String!) {
+	createOrganization(name: $name, urn: $urn) {
+		... OrgFields
+	}
+}
+fragment OrgFields on Organization {
+	id
+	urn
+	name
+	isVisible
+	createdAt
+	updatedAt
+}
+`
+
+func CreateOrganization(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	name string,
+	urn string,
+) (data_ *CreateOrganizationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateOrganization",
+		Query:  CreateOrganization_Operation,
+		Variables: &__CreateOrganizationInput{
+			Name: name,
+			Urn:  urn,
+		},
+	}
+
+	data_ = &CreateOrganizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateUserApiKey.
 const CreateUserApiKey_Operation = `
 mutation CreateUserApiKey ($label: String) {
@@ -4419,6 +5420,38 @@ func DeleteNode(
 	return data_, err_
 }
 
+// The mutation executed by DeleteOrganization.
+const DeleteOrganization_Operation = `
+mutation DeleteOrganization ($id: ID!) {
+	deleteOrganization(id: $id)
+}
+`
+
+func DeleteOrganization(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *DeleteOrganizationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteOrganization",
+		Query:  DeleteOrganization_Operation,
+		Variables: &__DeleteOrganizationInput{
+			Id: id,
+		},
+	}
+
+	data_ = &DeleteOrganizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by GetMemory.
 const GetMemory_Operation = `
 query GetMemory ($id: ID!) {
@@ -4524,6 +5557,48 @@ func GetNodeById(
 	}
 
 	data_ = &GetNodeByIdResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetOrganization.
+const GetOrganization_Operation = `
+query GetOrganization ($id: ID!) {
+	organization(id: $id) {
+		... OrgFields
+	}
+}
+fragment OrgFields on Organization {
+	id
+	urn
+	name
+	isVisible
+	createdAt
+	updatedAt
+}
+`
+
+func GetOrganization(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *GetOrganizationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetOrganization",
+		Query:  GetOrganization_Operation,
+		Variables: &__GetOrganizationInput{
+			Id: id,
+		},
+	}
+
+	data_ = &GetOrganizationResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -4931,6 +6006,57 @@ func Nodes(
 	return data_, err_
 }
 
+// The query executed by OrgMembers.
+const OrgMembers_Operation = `
+query OrgMembers ($id: ID!) {
+	organization(id: $id) {
+		id
+		members {
+			id
+			role
+			canInvite
+			user {
+				... UserFields
+			}
+		}
+	}
+}
+fragment UserFields on User {
+	id
+	name
+	email
+	handle
+	githubUsername
+	roles
+}
+`
+
+// organization(id) is the only path to an org's members (no plural query).
+func OrgMembers(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *OrgMembersResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "OrgMembers",
+		Query:  OrgMembers_Operation,
+		Variables: &__OrgMembersInput{
+			Id: id,
+		},
+	}
+
+	data_ = &OrgMembersResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RemoveMemoryMember.
 const RemoveMemoryMember_Operation = `
 mutation RemoveMemoryMember ($memoryId: ID!, $userId: ID!) {
@@ -4957,6 +6083,40 @@ func RemoveMemoryMember(
 	}
 
 	data_ = &RemoveMemoryMemberResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RemoveOrgMember.
+const RemoveOrgMember_Operation = `
+mutation RemoveOrgMember ($orgId: ID!, $userId: ID!) {
+	removeOrgMember(orgId: $orgId, userId: $userId)
+}
+`
+
+func RemoveOrgMember(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId string,
+	userId string,
+) (data_ *RemoveOrgMemberResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RemoveOrgMember",
+		Query:  RemoveOrgMember_Operation,
+		Variables: &__RemoveOrgMemberInput{
+			OrgId:  orgId,
+			UserId: userId,
+		},
+	}
+
+	data_ = &RemoveOrgMemberResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -5121,6 +6281,48 @@ func RevokeUserApiKey(
 	}
 
 	data_ = &RevokeUserApiKeyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SearchUsers.
+const SearchUsers_Operation = `
+query SearchUsers ($query: String!) {
+	searchUsers(query: $query) {
+		... UserFields
+	}
+}
+fragment UserFields on User {
+	id
+	name
+	email
+	handle
+	githubUsername
+	roles
+}
+`
+
+func SearchUsers(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	query string,
+) (data_ *SearchUsersResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SearchUsers",
+		Query:  SearchUsers_Operation,
+		Variables: &__SearchUsersInput{
+			Query: query,
+		},
+	}
+
+	data_ = &SearchUsersResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -5393,6 +6595,104 @@ func UpdateMemoryShareRole(
 	}
 
 	data_ = &UpdateMemoryShareRoleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateOrgMember.
+const UpdateOrgMember_Operation = `
+mutation UpdateOrgMember ($orgId: ID!, $userId: ID!, $role: Role!) {
+	updateOrgMember(orgId: $orgId, userId: $userId, role: $role) {
+		id
+		role
+		user {
+			... UserFields
+		}
+	}
+}
+fragment UserFields on User {
+	id
+	name
+	email
+	handle
+	githubUsername
+	roles
+}
+`
+
+func UpdateOrgMember(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId string,
+	userId string,
+	role Role,
+) (data_ *UpdateOrgMemberResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateOrgMember",
+		Query:  UpdateOrgMember_Operation,
+		Variables: &__UpdateOrgMemberInput{
+			OrgId:  orgId,
+			UserId: userId,
+			Role:   role,
+		},
+	}
+
+	data_ = &UpdateOrgMemberResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateOrganization.
+const UpdateOrganization_Operation = `
+mutation UpdateOrganization ($id: ID!, $name: String, $urn: String, $isVisible: Boolean) {
+	updateOrganization(id: $id, name: $name, urn: $urn, isVisible: $isVisible) {
+		... OrgFields
+	}
+}
+fragment OrgFields on Organization {
+	id
+	urn
+	name
+	isVisible
+	createdAt
+	updatedAt
+}
+`
+
+func UpdateOrganization(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	name *string,
+	urn *string,
+	isVisible *bool,
+) (data_ *UpdateOrganizationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateOrganization",
+		Query:  UpdateOrganization_Operation,
+		Variables: &__UpdateOrganizationInput{
+			Id:        id,
+			Name:      name,
+			Urn:       urn,
+			IsVisible: isVisible,
+		},
+	}
+
+	data_ = &UpdateOrganizationResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
