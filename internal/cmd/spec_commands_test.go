@@ -557,6 +557,93 @@ func TestSpecDescribeDeclare(t *testing.T) {
 	}
 }
 
+// #69 item 1 (tail): --new-path scaffolds the whole chain in one call. No
+// ResolveUrn is mocked — every fresh node's edges must wire by id.
+func TestSpecNewPath(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"Nodes":      `{"data":{"nodes":[]}}`,
+		"UpsertNode": `{"data":{"upsertNode":{"id":"n1","memoryId":"mem1","loc":"x","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"n1","loc":"x"},"target":{"id":"n1","loc":"y"}}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "msg:010:01", "--new-path", "--title", "Send", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Citation string `json:"citation"`
+		Also     []struct {
+			Citation string `json:"citation"`
+		} `json:"also"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	if dto.Citation != "msg:010:01" {
+		t.Errorf("primary should be the target, got %q", dto.Citation)
+	}
+	got := map[string]bool{}
+	for _, a := range dto.Also {
+		got[a.Citation] = true
+	}
+	for _, want := range []string{"msg", "msg:000", "msg:010", "msg:010:00"} {
+		if !got[want] {
+			t.Errorf("--new-path should also create %s; also=%v", want, dto.Also)
+		}
+	}
+}
+
+func TestSpecNewPathNoContract(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"Nodes":      `{"data":{"nodes":[]}}`,
+		"UpsertNode": `{"data":{"upsertNode":{"id":"n1","memoryId":"mem1","loc":"x","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"n1","loc":"x"},"target":{"id":"n1","loc":"y"}}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "msg:010:01", "--new-path", "--no-contract", "--title", "Send", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Also []struct {
+			Citation string `json:"citation"`
+		} `json:"also"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	got := map[string]bool{}
+	for _, a := range dto.Also {
+		if strings.HasSuffix(a.Citation, ":000") || strings.HasSuffix(a.Citation, ":00") {
+			t.Errorf("--no-contract should not create contract %s", a.Citation)
+		}
+		got[a.Citation] = true
+	}
+	if !got["msg"] || !got["msg:010"] {
+		t.Errorf("expected roots msg + msg:010, got %v", dto.Also)
+	}
+}
+
+func TestSpecNewPathRejectsTierFlags(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "msg:010:01", "--new-path", "--module", "msg", "--title", "x", "-m", specMem, "--server", "http://127.0.0.1:1"})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("--new-path + a tier flag should be Usage, got %d", got)
+	}
+}
+
+func TestSpecNewPathTargetExists(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("msg:010:01", `["spec"]`) + `]}}`
+	gql, _ := captureGraphQL(t, map[string]string{"Nodes": scan})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "msg:010:01", "--new-path", "--title", "x", "-m", specMem, "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Conflict {
+		t.Fatalf("an existing target should be Conflict, got %d", got)
+	}
+}
+
 func TestSpecNewProduct(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"Nodes":      `{"data":{"nodes":[]}}`,
