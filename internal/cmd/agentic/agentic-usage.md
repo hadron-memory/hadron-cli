@@ -66,11 +66,15 @@ Conventions:
 
 - Memory URNs are `org:memory` (e.g. `hadronmemory.com:dev`). Where a
   command takes an ID it also accepts the URN.
-- Node references are ALWAYS fully-qualified URNs:
+- Node references are fully-qualified URNs:
   `<org>:<memory>:<loc>` (e.g. `hadronmemory.com:dev:start-here`),
-  optionally `hrn:node:`-prefixed (legacy `urn:node:` also accepted). Bare
-  locs are rejected (exit 2) —
-  the same loc can exist in several memories.
+  optionally `hrn:node:`-prefixed (legacy `urn:node:` also accepted). A bare
+  loc is rejected (exit 2) *unless* you pass `-m/--memory <org:memory>` to
+  name the memory — then `node get|update|rm|export` and `edge add|ls` take a
+  bare `<loc>` (e.g. `node get start-here -m hadronmemory.com:dev`;
+  `edge add -m a:m --from x --to y …` applies the memory to both endpoints).
+  Without `-m`, the URN must name the memory — the same loc can exist in
+  several memories.
 - Edges are directed and labeled. Endpoints are node URNs; edges are
   addressed by their edge ID afterwards (shown by `edge ls` and in
   `node get --json`). Cross-memory edges are allowed.

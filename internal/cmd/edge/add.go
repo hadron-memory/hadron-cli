@@ -15,6 +15,7 @@ import (
 
 func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 	var (
+		memory    string
 		from      string
 		to        string
 		label     string
@@ -26,10 +27,11 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 		Use:   "add",
 		Short: "Create an edge between two nodes",
 		Long: `Create a directed, labeled edge from one node to another. Both
-endpoints are fully-qualified node URNs (<org>:<memory>:<loc>);
-cross-memory edges are allowed.`,
+endpoints are fully-qualified node URNs (<org>:<memory>:<loc>); pass
+-m/--memory to give --from/--to as bare locs in that one memory instead.
+Cross-memory edges are allowed — use full URNs (omit -m) for those.`,
 		Example: `  hadron edge add --from acme.com:kb:findings:flaky-ci --to acme.com:kb:start-here --label routes-to
-  hadron edge add --from a.com:m:x --to a.com:m:y --label triggers --condition '{"==":[{"var":"lang"},"go"]}'`,
+  hadron edge add -m acme.com:kb --from findings:flaky-ci --to start-here --label routes-to`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Validate local input before any network round-trip.
@@ -50,11 +52,11 @@ cross-memory edges are allowed.`,
 			if err != nil {
 				return err
 			}
-			sourceID, err := cmdutil.ResolveNodeURN(cmd, client, from)
+			sourceID, err := cmdutil.ResolveNodeRef(cmd, client, memory, from)
 			if err != nil {
 				return err
 			}
-			targetID, err := cmdutil.ResolveNodeURN(cmd, client, to)
+			targetID, err := cmdutil.ResolveNodeRef(cmd, client, memory, to)
 			if err != nil {
 				return err
 			}
@@ -84,6 +86,7 @@ cross-memory edges are allowed.`,
 			})
 		},
 	}
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org:memory) to resolve bare --from/--to locs against")
 	cmd.Flags().StringVar(&from, "from", "", "source node URN (required)")
 	cmd.Flags().StringVar(&to, "to", "", "target node URN (required)")
 	cmd.Flags().StringVar(&label, "label", "", "edge label (required)")

@@ -502,6 +502,51 @@ func TestEdgeAddOmitsUnsetOptionals(t *testing.T) {
 	}
 }
 
+// #69 item 3: `node get <loc> -m <memory>` resolves the same URN the
+// fully-qualified form does (cf. TestNodeGet).
+func TestNodeGetMemoryFlag(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveNodeJSON,
+		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", "findings:flaky-ci", "-m", "acme.com:kb", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Urn string `json:"urn"`
+	}
+	_ = json.Unmarshal(captured["ResolveUrn"], &vars)
+	if vars.Urn != "hrn:node:acme.com:kb:findings:flaky-ci" {
+		t.Errorf("-m <memory> + bare loc should resolve the full URN, got %q", vars.Urn)
+	}
+}
+
+// edge add -m resolves both endpoints as bare locs in that one memory.
+func TestEdgeAddMemoryFlag(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"CreateEdge": `{"data":{"createEdge":` + edgeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"edge", "add", "-m", "acme.com:kb",
+		"--from", "findings:flaky-ci", "--to", "start-here", "--label", "routes-to", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// The capture keeps the last ResolveUrn — the --to endpoint, joined onto -m.
+	var vars struct {
+		Urn string `json:"urn"`
+	}
+	_ = json.Unmarshal(captured["ResolveUrn"], &vars)
+	if vars.Urn != "hrn:node:acme.com:kb:start-here" {
+		t.Errorf("edge add -m should resolve --to as a bare loc in the memory, got %q", vars.Urn)
+	}
+}
+
 func TestEdgeUpdateLabelOnlyPreservesCondition(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"UpdateEdge": `{"data":{"updateEdge":` + edgeJSON + `}}`,

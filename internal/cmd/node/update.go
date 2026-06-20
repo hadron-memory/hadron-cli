@@ -14,6 +14,7 @@ import (
 
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var (
+		memory       string
 		name         string
 		content      string
 		contentFile  string
@@ -26,14 +27,14 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		tags         []string
 	)
 	cmd := &cobra.Command{
-		Use:   "update <node-urn>",
+		Use:   "update <node-urn> | <loc> -m <memory>",
 		Short: "Update a node",
 		Long: `Update an existing node by its fully-qualified URN
-(<org>:<memory>:<loc>). Only the fields you pass change; everything
-else is preserved (pass an explicit empty string, e.g.
---description "", to clear a field).`,
+(<org>:<memory>:<loc>), or by a bare <loc> with -m/--memory. Only the
+fields you pass change; everything else is preserved (pass an explicit
+empty string, e.g. --description "", to clear a field).`,
 		Example: `  hadron node update acme.com:kb:findings:flaky-ci --name "Flaky CI (resolved)"
-  cat updated.md | hadron node update acme.com:kb:findings:flaky-ci --content -`,
+  cat updated.md | hadron node update findings:flaky-ci -m acme.com:kb --content -`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
@@ -64,7 +65,7 @@ else is preserved (pass an explicit empty string, e.g.
 			// Resolve the node first: the upsert needs memoryId + loc
 			// (and name is required), and this avoids splitting the
 			// URN client-side.
-			existing, err := fetchNode(cmd, client, args[0])
+			existing, err := fetchNode(cmd, client, memory, args[0])
 			if err != nil {
 				return err
 			}
@@ -121,6 +122,7 @@ else is preserved (pass an explicit empty string, e.g.
 			})
 		},
 	}
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org:memory) to resolve a bare <loc> against")
 	cmd.Flags().StringVar(&name, "name", "", "new node name")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `new content ("-" reads stdin)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read new content from a file")
