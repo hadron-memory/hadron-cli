@@ -625,11 +625,14 @@ func TestSpecNewPathNoContract(t *testing.T) {
 }
 
 func TestSpecNewPathRejectsTierFlags(t *testing.T) {
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"spec", "new", "msg:010:01", "--new-path", "--module", "msg", "--title", "x", "-m", specMem, "--server", "http://127.0.0.1:1"})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
-		t.Fatalf("--new-path + a tier flag should be Usage, got %d", got)
+	for _, extra := range [][]string{{"--module", "msg"}, {"--inherit", "msg:010:00"}, {"--new-module"}, {"--contract"}} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		args := append([]string{"spec", "new", "msg:010:01", "--new-path", "--title", "x", "-m", specMem, "--server", "http://127.0.0.1:1"}, extra...)
+		root.SetArgs(args)
+		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+			t.Errorf("--new-path + %v should be Usage, got %d", extra, got)
+		}
 	}
 }
 

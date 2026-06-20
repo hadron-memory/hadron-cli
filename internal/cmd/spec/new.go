@@ -127,8 +127,8 @@ is one call instead of four.`,
 					return exitcode.Newf(exitcode.Usage, "--new-path needs a <citation> argument (e.g. cli:cha:010:01)")
 				}
 				if product != "" || module != "" || feature != "" || rule != "" || ruleAfter != "" ||
-					flow != "" || newFeature || newModule || newProduct || contract {
-					return exitcode.Newf(exitcode.Usage, "--new-path takes a <citation> argument — don't combine it with --product/--module/--feature/--rule/--flow/--new-*/--contract")
+					flow != "" || inherit != "" || newFeature || newModule || newProduct || contract {
+					return exitcode.Newf(exitcode.Usage, "--new-path takes a <citation> argument — don't combine it with --product/--module/--feature/--rule/--flow/--inherit/--new-*/--contract")
 				}
 				target, perr := ParseCitation(args[0])
 				if perr != nil {
