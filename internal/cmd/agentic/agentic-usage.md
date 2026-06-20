@@ -86,6 +86,11 @@ Conventions:
   `--content "<text>"`, `--content -` (stdin), or `--content-file`;
   the abstract likewise from `--abstract`, `--abstract -`, or
   `--abstract-file` (paragraph abstracts dodge shell quoting this way).
+  Machine-readable JSON `data` comes from `--data '<json>'` or
+  `--data-file <path>` (validated client-side); it **replaces** the
+  node's whole data object, so omit it to preserve and pass `--data null`
+  to clear. `node get`/`spec get` show `data` in the text view (and the
+  `data` field in `--json`).
 - `node export <urn>` writes one node to a portable, self-describing file
   (frontmatter markdown, or `--format json`) — to stdout by default so it pipes
   into `node import`, or `-o <file>`. `node import <file|->` recreates it: a

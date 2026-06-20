@@ -21,6 +21,8 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		description  string
 		abstract     string
 		abstractFile string
+		data         string
+		dataFile     string
 		tags         []string
 	)
 	cmd := &cobra.Command{
@@ -37,7 +39,8 @@ else is preserved (pass an explicit empty string, e.g.
 			changed := cmd.Flags().Changed
 			if !changed("name") && !changed("content") && !changed("content-file") &&
 				!changed("type") && !changed("description") &&
-				!changed("abstract") && !changed("abstract-file") && !changed("tag") {
+				!changed("abstract") && !changed("abstract-file") &&
+				!changed("data") && !changed("data-file") && !changed("tag") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
 			// Content and abstract can each read stdin via "-", but stdin can
@@ -94,6 +97,13 @@ else is preserved (pass an explicit empty string, e.g.
 				}
 				input.Abstract = &abs
 			}
+			if changed("data") || changed("data-file") {
+				raw, err := resolveData(data, dataFile)
+				if err != nil {
+					return err
+				}
+				input.Data = raw
+			}
 			if changed("tag") {
 				input.Tags = tags
 			}
@@ -118,6 +128,8 @@ else is preserved (pass an explicit empty string, e.g.
 	cmd.Flags().StringVar(&description, "description", "", "new one-line description")
 	cmd.Flags().StringVar(&abstract, "abstract", "", `new paragraph-length summary ("-" reads stdin)`)
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "read the new abstract from a file")
+	cmd.Flags().StringVar(&data, "data", "", `new JSON data object (replaces it; "null" clears)`)
+	cmd.Flags().StringVar(&dataFile, "data-file", "", "read the new JSON data object from a file")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "replace tags (repeatable)")
 	return cmd
 }

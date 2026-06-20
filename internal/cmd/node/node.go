@@ -2,6 +2,8 @@
 package node
 
 import (
+	"encoding/json"
+
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -22,13 +24,14 @@ type nodeDTO struct {
 // nodeDetailDTO extends the list shape for single-node output.
 type nodeDetailDTO struct {
 	nodeDTO
-	Description   *string      `json:"description"`
-	Abstract      *string      `json:"abstract"`
-	Content       *string      `json:"content"`
-	Seq           *int         `json:"seq"`
-	CreatedAt     string       `json:"createdAt"`
-	OutgoingEdges []edgeRefDTO `json:"outgoingEdges"`
-	IncomingEdges []edgeRefDTO `json:"incomingEdges"`
+	Description   *string          `json:"description"`
+	Abstract      *string          `json:"abstract"`
+	Content       *string          `json:"content"`
+	Data          *json.RawMessage `json:"data,omitempty"`
+	Seq           *int             `json:"seq"`
+	CreatedAt     string           `json:"createdAt"`
+	OutgoingEdges []edgeRefDTO     `json:"outgoingEdges"`
+	IncomingEdges []edgeRefDTO     `json:"incomingEdges"`
 }
 
 func NewCmdNode(f *cmdutil.Factory) *cobra.Command {

@@ -89,6 +89,7 @@ type specDetailDTO struct {
 	// Content is omitempty by design: --abstract-only drops the body, so the
 	// field's absence means "body not included" rather than "empty body".
 	Content   *string          `json:"content,omitempty"`
+	Data      *json.RawMessage `json:"data,omitempty"`
 	Edges     []specEdgeDTO    `json:"edges"`
 	Lint      []lintFindingDTO `json:"lint"`
 	UpdatedAt string           `json:"updatedAt"`
