@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -44,6 +45,7 @@ func newCmdNew(f *cmdutil.Factory) *cobra.Command {
 		tags                            []string
 		newFeature, newModule           bool
 		newProduct, contract            bool
+		newPath                         bool
 		noEdges, noContract, dryRun     bool
 	)
 	cmd := &cobra.Command{
@@ -69,12 +71,17 @@ Target (deepest wins):
                                      module :000, feature :00)
 
 Features are numbered in tens (010, 020, …); rules and flows by one. Use
---dry-run to preview without writing.`,
+--dry-run to preview without writing.
+
+--new-path <citation> scaffolds a whole chain at once: it creates the given
+citation and every missing ancestor (each with its tier template and, for the
+roots, their general-provisions contract), so a fresh module + feature + rule
+is one call instead of four.`,
 		Example: `  hadron spec new -m micromentor.org::platform-specs --module msg --feature 010 --title "W4 — 7d check-in"
   hadron spec new -m hadronmemory.com::platform-specs --new-product --product cli --title "Hadron CLI"
   hadron spec new -m hadronmemory.com::platform-specs --product cli --new-module --module cha --title "chat command group"
-  hadron spec new -m hadronmemory.com::platform-specs --product cli --module cha --contract --title "chat general provisions" --dry-run`,
-		Args: cobra.NoArgs,
+  hadron spec new -m hadronmemory.com::platform-specs cli:cha:010:01 --new-path --title "send a message"`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			memURN, err := memoryURNFromFlag(memory)
 			if err != nil {
@@ -113,6 +120,35 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+
+			if newPath {
+				if len(args) != 1 {
+					return exitcode.Newf(exitcode.Usage, "--new-path needs a <citation> argument (e.g. cli:cha:010:01)")
+				}
+				if product != "" || module != "" || feature != "" || rule != "" || ruleAfter != "" ||
+					flow != "" || inherit != "" || newFeature || newModule || newProduct || contract {
+					return exitcode.Newf(exitcode.Usage, "--new-path takes a <citation> argument — don't combine it with --product/--module/--feature/--rule/--flow/--inherit/--new-*/--contract")
+				}
+				target, perr := ParseCitation(args[0])
+				if perr != nil {
+					return perr
+				}
+				body, berr := resolveBody(content, contentFile, f.IOStreams.In, target, title)
+				if berr != nil {
+					return berr
+				}
+				abs, aerr := cmdutil.ResolveTextInput("abstract", abstract, abstractFile, f.IOStreams.In)
+				if aerr != nil {
+					return aerr
+				}
+				if abs == "" {
+					abs = tierAbstract(target, title)
+				}
+				return runNewPath(cmd, f, client, memURN, target, title, body, abs, specTags(tags), noContract, noEdges, dryRun)
+			}
+			if len(args) != 0 {
+				return exitcode.Newf(exitcode.Usage, "a positional <citation> is only for --new-path; otherwise select the tier with flags")
 			}
 
 			// One scan of the whole product/module subtree: existence + allocation.
@@ -303,6 +339,7 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 	cmd.Flags().BoolVar(&newModule, "new-module", false, "create a new (frozen) module root")
 	cmd.Flags().BoolVar(&newProduct, "new-product", false, "create a new (frozen) product root (needs --product)")
 	cmd.Flags().BoolVar(&contract, "contract", false, "scaffold the general-provisions contract at the deepest specified tier")
+	cmd.Flags().BoolVar(&newPath, "new-path", false, "create the positional <citation> and every missing ancestor in one call")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "extra semantic tag (repeatable)")
 	cmd.Flags().StringVar(&abstract, "abstract", "", `the spec's abstract ("-" reads stdin; default: a placeholder lint flags)`)
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "read the abstract from a file")
@@ -566,4 +603,181 @@ func renderNewResult(w io.Writer, r newResultDTO) error {
 		}
 	}
 	return nil
+}
+
+// planChain returns the citations from the top tier down to target that need
+// creating — the target (which must not already exist) plus any missing
+// ancestor — in top-down order.
+func planChain(target Citation, existing map[string]bool) ([]Citation, error) {
+	if existing[target.Format()] {
+		return nil, exitcode.Newf(exitcode.Conflict, "%s already exists", target.Format())
+	}
+	var chain []Citation
+	for c := target; ; {
+		chain = append(chain, c)
+		p, ok := c.Parent()
+		if !ok {
+			break
+		}
+		c = p
+	}
+	todo := make([]Citation, 0, len(chain))
+	for i := len(chain) - 1; i >= 0; i-- { // deepest-first → top-down
+		if !existing[chain[i].Format()] {
+			todo = append(todo, chain[i])
+		}
+	}
+	return todo, nil
+}
+
+// pathNode is one node scaffolded by runNewPath: the root tier or its
+// co-created contract, with the edges it should carry.
+type pathNode struct {
+	cit      Citation
+	name     string
+	abstract string
+	body     string
+	edges    []plannedEdgeDTO
+}
+
+// runNewPath scaffolds target and every missing ancestor in one call. Each node
+// gets its tier template (the target uses the caller's body/abstract); each
+// created root also gets its general-provisions contract unless noContract.
+// Edges resolve by id for nodes made this run (resolveUrn lags a fresh node ~a
+// minute) and by loc for pre-existing ancestors; an unresolvable target warns,
+// never aborts.
+func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, memURN string, target Citation, title, body, abs string, tagSet []string, noContract, noEdges, dryRun bool) error {
+	prefix := target.Module
+	if target.Product != "" {
+		prefix = target.Product
+	}
+	all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil)
+	if err != nil {
+		return err
+	}
+	existing := map[string]bool{}
+	for _, n := range all {
+		if n != nil {
+			if _, perr := ParseCitation(n.Loc); perr == nil {
+				existing[n.Loc] = true
+			}
+		}
+	}
+
+	todo, err := planChain(target, existing)
+	if err != nil {
+		return err
+	}
+
+	// Locs present after the run, so an edge is only planned to a target that
+	// will exist (pre-existing, or about to be created).
+	willExist := map[string]bool{}
+	for loc := range existing {
+		willExist[loc] = true
+	}
+	for _, cit := range todo {
+		willExist[cit.Format()] = true
+		if !noContract {
+			if con, ok := cit.ChildContract(); ok {
+				willExist[con.Format()] = true
+			}
+		}
+	}
+
+	// Ordered plan: each root, immediately followed by its contract, so every
+	// edge target precedes the node that references it.
+	var plan []pathNode
+	for _, cit := range todo {
+		t := cit.Leaf()
+		nb, na := tierBody(cit, t), tierAbstract(cit, t)
+		if cit == target {
+			t, nb, na = title, body, abs
+		}
+		pn := pathNode{cit: cit, name: specName(cit, t), abstract: na, body: nb}
+		if !noEdges {
+			if p, ok := cit.Parent(); ok && willExist[p.Format()] {
+				pn.edges = append(pn.edges, plannedEdgeDTO{Label: t, Target: p.Format()})
+			}
+			if ic, ok := cit.InheritedContractLoc(); ok && willExist[ic.Format()] {
+				pn.edges = append(pn.edges, plannedEdgeDTO{Label: inheritEdgeLabel, Target: ic.Format()})
+			}
+		}
+		plan = append(plan, pn)
+
+		if !noContract {
+			if con, ok := cit.ChildContract(); ok && !existing[con.Format()] {
+				ct := t + " general provisions"
+				cn := pathNode{cit: con, name: specName(con, ct), abstract: tierAbstract(con, ct), body: tierBody(con, ct)}
+				if !noEdges {
+					cn.edges = append(cn.edges, plannedEdgeDTO{Label: ct, Target: cit.Format()})
+				}
+				plan = append(plan, cn)
+			}
+		}
+	}
+
+	// The target is the primary result; the ancestors and contracts hang off it
+	// under `also`, in creation order.
+	var result newResultDTO
+	var also []newResultDTO
+	for _, pn := range plan {
+		dto := newResultDTO{
+			Citation: pn.cit.Format(), MemoryID: memURN, Name: pn.name,
+			Tags: tagSet, Abstract: pn.abstract, Edges: pn.edges, DryRun: dryRun,
+		}
+		if dryRun {
+			dto.Content = pn.body
+		}
+		if pn.cit == target {
+			result = dto
+		} else {
+			also = append(also, dto)
+		}
+	}
+	result.Also = also
+
+	render := func() error {
+		return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
+			return renderNewResult(w, result)
+		})
+	}
+	if dryRun {
+		return render()
+	}
+
+	createOnly := true
+	nodeType := "info"
+	created := map[string]string{}
+	for _, pn := range plan {
+		ab, bd := pn.abstract, pn.body
+		input := gen.NodeInput{
+			MemoryId: memURN, Loc: pn.cit.Format(), Name: pn.name,
+			CreateOnly: &createOnly, Tags: tagSet, NodeType: &nodeType,
+			Abstract: &ab, Content: &bd, Data: specDataRaw(),
+		}
+		up, uerr := gen.UpsertNode(cmd.Context(), client, &input)
+		if uerr != nil {
+			return fmt.Errorf("scaffolding %s: %w", pn.cit.Format(), api.MapError(uerr))
+		}
+		srcID := up.UpsertNode.Id
+		created[pn.cit.Format()] = srcID
+		if noEdges {
+			continue
+		}
+		for _, e := range pn.edges {
+			tid, ok := created[e.Target]
+			if !ok {
+				rid, rerr := resolveSpecNode(cmd, client, memURN, e.Target)
+				if rerr != nil {
+					fmt.Fprintf(f.IOStreams.ErrOut, "warning: skipped edge %q → %s: %v\n", e.Label, e.Target, rerr)
+					continue
+				}
+				tid = rid
+			}
+			if _, cerr := gen.CreateEdge(cmd.Context(), client, srcID, tid, e.Label, nil, nil, nil); cerr != nil {
+				fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", e.Label, e.Target, api.MapError(cerr))
+			}
+		}
+	}
+	return render()
 }

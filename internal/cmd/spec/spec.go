@@ -312,6 +312,24 @@ func (c Citation) InheritedContractLoc() (Citation, bool) {
 	}
 }
 
+// Leaf returns the deepest non-empty segment of the citation (the flow, rule,
+// feature, module, or product). Used as a placeholder title for an ancestor
+// node scaffolded by --new-path, until the author renames it.
+func (c Citation) Leaf() string {
+	switch {
+	case c.Flow != "":
+		return c.Flow
+	case c.Rule != "":
+		return c.Rule
+	case c.Feature != "":
+		return c.Feature
+	case c.Module != "":
+		return c.Module
+	default:
+		return c.Product
+	}
+}
+
 // ChildContract returns the reserved general-provisions contract one tier
 // below this root — the "zero" sibling its children inherit: a product root's
 // modules inherit <product>:gen, a module root's features inherit <module>:000,

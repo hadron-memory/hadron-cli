@@ -153,7 +153,10 @@ Conventions:
   product's `:gen`, a module's `:000`, a feature's `:00` — so children have an
   inheritance target immediately; `--no-contract` opts out, and the co-created
   node is reported under `also` in `--json`. `--contract`
-  scaffolds the contract at the deepest tier named on its own; the abstract can
+  scaffolds the contract at the deepest tier named on its own;
+  `<citation> --new-path` scaffolds a whole chain at once — it creates the given
+  citation and **every missing ancestor** (each with its tier template and
+  contract), so a fresh module+feature+rule is one call; the abstract can
   come from `--abstract-file`/`--abstract -`; `--dry-run` previews
   without writing); `spec edit <citation>` opens the spec's body in $EDITOR
   pre-loaded — or replaces it non-interactively from `--content -`/`--content-file`
