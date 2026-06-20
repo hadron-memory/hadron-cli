@@ -212,6 +212,9 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 					Abstract: coContract.abstract,
 					DryRun:   dryRun,
 				}
+				if dryRun {
+					cr.Content = coContract.body
+				}
 				if !noEdges {
 					cr.Edges = append(cr.Edges, plannedEdgeDTO{Label: coContract.title, Target: target.Format()})
 				}
@@ -220,9 +223,6 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 
 			if dryRun {
 				result.Content = body
-				if coContract != nil {
-					result.Also[0].Content = coContract.body
-				}
 				return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 					return renderNewResult(w, result)
 				})
