@@ -55,10 +55,10 @@ is rejected, since the same loc can exist in several memories.`,
 				if len(dto.OutgoingEdges) > 0 || len(dto.IncomingEdges) > 0 {
 					fmt.Fprintln(w, "  edges:")
 					for _, e := range dto.OutgoingEdges {
-						fmt.Fprintf(w, "    → %s (%s)\n", e.Loc, e.Label)
+						fmt.Fprintf(w, "    → %s (%s)\n", e.Loc, edgeRel(e))
 					}
 					for _, e := range dto.IncomingEdges {
-						fmt.Fprintf(w, "    ← %s (%s)\n", e.Loc, e.Label)
+						fmt.Fprintf(w, "    ← %s (%s)\n", e.Loc, edgeRel(e))
 					}
 				}
 				if dto.Content != nil && *dto.Content != "" {
@@ -76,12 +76,38 @@ is rejected, since the same loc can exist in several memories.`,
 
 // edgeRefDTO is one edge endpoint in node output.
 type edgeRefDTO struct {
-	EdgeID   string `json:"edgeId"`
-	Label    string `json:"label"`
-	Priority int    `json:"priority"`
-	NodeID   string `json:"nodeId"`
-	Loc      string `json:"loc"`
-	MemoryID string `json:"memoryId"`
+	EdgeID     string `json:"edgeId"`
+	Name       string `json:"name"`
+	EdgeLoc    string `json:"edgeLoc"`
+	IsRunnable bool   `json:"isRunnable"`
+	Priority   int    `json:"priority"`
+	NodeID     string `json:"nodeId"`
+	Loc        string `json:"loc"`
+	MemoryID   string `json:"memoryId"`
+}
+
+// edgeRel is the relationship shown for an edge: its name, or its loc when the
+// name is empty (spec 037).
+func edgeRel(e edgeRefDTO) string {
+	if e.Name != "" {
+		return e.Name
+	}
+	return e.EdgeLoc
+}
+
+func edgeRefOf(edgeID string, name *string, edgeLoc string, isRunnable *bool, priority int, nodeID, loc, memoryID string) edgeRefDTO {
+	n := ""
+	if name != nil {
+		n = *name
+	}
+	run := false
+	if isRunnable != nil {
+		run = *isRunnable
+	}
+	return edgeRefDTO{
+		EdgeID: edgeID, Name: n, EdgeLoc: edgeLoc, IsRunnable: run, Priority: priority,
+		NodeID: nodeID, Loc: loc, MemoryID: memoryID,
+	}
 }
 
 func detailDTO(n *gen.GetNodeByIdNodeByIdNode) nodeDetailDTO {
@@ -105,16 +131,12 @@ func detailDTO(n *gen.GetNodeByIdNodeByIdNode) nodeDetailDTO {
 		IncomingEdges: []edgeRefDTO{},
 	}
 	for _, e := range n.OutgoingEdges {
-		dto.OutgoingEdges = append(dto.OutgoingEdges, edgeRefDTO{
-			EdgeID: e.Id, Label: e.Label, Priority: e.Priority,
-			NodeID: e.Target.Id, Loc: e.Target.Loc, MemoryID: e.Target.MemoryId,
-		})
+		dto.OutgoingEdges = append(dto.OutgoingEdges,
+			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, e.Target.Id, e.Target.Loc, e.Target.MemoryId))
 	}
 	for _, e := range n.IncomingEdges {
-		dto.IncomingEdges = append(dto.IncomingEdges, edgeRefDTO{
-			EdgeID: e.Id, Label: e.Label, Priority: e.Priority,
-			NodeID: e.Source.Id, Loc: e.Source.Loc, MemoryID: e.Source.MemoryId,
-		})
+		dto.IncomingEdges = append(dto.IncomingEdges,
+			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, e.Source.Id, e.Source.Loc, e.Source.MemoryId))
 	}
 	return dto
 }

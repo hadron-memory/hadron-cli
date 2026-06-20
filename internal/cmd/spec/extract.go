@@ -224,7 +224,7 @@ chunk leaves the source alone with a warning.`,
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: skipped edge %q → %s: %v\n", e.Label, e.Target, rerr)
 						continue
 					}
-					if _, cerr := gen.CreateEdge(cmd.Context(), client, newID, targetID, e.Label, nil, nil, nil); cerr != nil {
+					if _, cerr := gen.CreateEdge(cmd.Context(), client, newID, targetID, e.Label, nil, nil, nil, nil, nil, nil); cerr != nil {
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", e.Label, e.Target, api.MapError(cerr))
 					}
 				}

@@ -41,7 +41,7 @@ type Document struct {
 type Edge struct {
 	TargetID  string `json:"targetId"`
 	TargetLoc string `json:"targetLoc"`
-	Label     string `json:"label"`
+	Name      string `json:"name"`
 	Condition any    `json:"condition"`
 	Priority  int    `json:"priority"`
 }

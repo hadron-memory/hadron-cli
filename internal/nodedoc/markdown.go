@@ -148,7 +148,7 @@ func buildEdgeEntries(edges []Edge) []edgeEntry {
 		if e.TargetID == "" {
 			continue
 		}
-		entry := edgeEntry{ID: e.TargetID, Loc: e.TargetLoc, Rel: e.Label, Condition: e.Condition}
+		entry := edgeEntry{ID: e.TargetID, Loc: e.TargetLoc, Rel: e.Name, Condition: e.Condition}
 		if e.Priority != 0 {
 			entry.Priority = e.Priority
 		}
@@ -169,7 +169,7 @@ func edgesFromEntries(entries []edgeEntry) []Edge {
 		out = append(out, Edge{
 			TargetID:  e.ID,
 			TargetLoc: e.Loc,
-			Label:     e.Rel,
+			Name:      e.Rel,
 			Condition: e.Condition,
 			Priority:  e.Priority,
 		})

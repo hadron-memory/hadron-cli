@@ -105,7 +105,7 @@ convention ("documents <from> on the <to> entity"); refine it with
 			// dry-run and the executed path render the same result; only the
 			// write differs, so the create is gated and the output is unified.
 			if !dryRun {
-				resp, err := gen.CreateEdge(cmd.Context(), client, fromNode.Id, toNode.Id, label, nil, nil, nil)
+				resp, err := gen.CreateEdge(cmd.Context(), client, fromNode.Id, toNode.Id, label, nil, nil, nil, nil, nil, nil)
 				if err != nil {
 					return api.MapError(err)
 				}

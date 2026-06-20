@@ -60,10 +60,14 @@ func edgesFromBatch(edges []*batchEdge) []nodedoc.Edge {
 		if e == nil || e.Target == nil {
 			continue
 		}
+		name := ""
+		if e.Name != nil {
+			name = *e.Name
+		}
 		out = append(out, nodedoc.Edge{
 			TargetID:  e.Target.Id,
 			TargetLoc: e.Target.Loc,
-			Label:     e.Label,
+			Name:      name,
 			Condition: nodedoc.DecodeJSON(e.Condition),
 			Priority:  e.Priority,
 		})

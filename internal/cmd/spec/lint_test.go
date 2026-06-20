@@ -26,7 +26,7 @@ func cleanSpec(t *testing.T, loc, title string) specNode {
 		DataVersion: "0.0.1",
 	}
 	if p, ok := c.Parent(); ok {
-		sn.OutEdges = append(sn.OutEdges, specEdge{Label: "toc", Loc: p.Format()})
+		sn.OutEdges = append(sn.OutEdges, specEdge{Name: "toc", Loc: p.Format()})
 	}
 	return sn
 }

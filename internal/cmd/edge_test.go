@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-const edgeJSON = `{"id":"e1","label":"routes-to","priority":0,
+const edgeJSON = `{"id":"e1","name":"routes-to","loc":"findings:flaky-ci:routes-to:start-here","isRunnable":false,"priority":0,
 	"source":{"id":"n1","loc":"findings:flaky-ci"},
 	"target":{"id":"n2","loc":"start-here"}}`
 
@@ -58,7 +58,7 @@ func TestEdgeAdd(t *testing.T) {
 	root.SetArgs([]string{"edge", "add",
 		"--from", "acme.com:kb:findings:flaky-ci",
 		"--to", "acme.com:kb:start-here",
-		"--label", "routes-to", "--json", "--server", gql.URL})
+		"--name", "routes-to", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -66,8 +66,51 @@ func TestEdgeAdd(t *testing.T) {
 	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
 		t.Fatalf("output not JSON: %v\n%s", err, out.String())
 	}
-	if dto["sourceId"] != "n1" || dto["targetId"] != "n2" || dto["label"] != "routes-to" {
+	if dto["sourceId"] != "n1" || dto["targetId"] != "n2" || dto["name"] != "routes-to" {
 		t.Errorf("unexpected edge DTO: %v", dto)
+	}
+}
+
+// spec 037: --loc/--description/--runnable thread onto createEdge.
+func TestEdgeAddThreadsNewFields(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`,
+		"CreateEdge": `{"data":{"createEdge":` + edgeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"edge", "add", "--from", "a.com:m:x", "--to", "a.com:m:y",
+		"--name", "routes-to", "--loc", "x:routes-to:y", "--description", "d", "--runnable",
+		"--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateEdge"], &vars)
+	if vars["name"] != "routes-to" || vars["loc"] != "x:routes-to:y" || vars["description"] != "d" || vars["isRunnable"] != true {
+		t.Errorf("new edge fields not threaded: %v", vars)
+	}
+}
+
+// Unset optional edge args must be OMITTED, not serialized as explicit null
+// (hadron-server#263 redux — the server reads omitted as "preserve").
+func TestEdgeAddOmitsUnsetNewFields(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`,
+		"CreateEdge": `{"data":{"createEdge":` + edgeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"edge", "add", "--from", "a.com:m:x", "--to", "a.com:m:y", "--name", "routes-to", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateEdge"], &vars)
+	for _, k := range []string{"loc", "description", "isRunnable", "priority", "condition", "data"} {
+		if v, present := vars[k]; present {
+			t.Errorf("unset %q must be omitted from createEdge variables, got %v", k, v)
+		}
 	}
 }
 
@@ -85,7 +128,7 @@ func TestEdgeAddRejectsBadJSONCondition(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"edge", "add",
-		"--from", "a.com:m:x", "--to", "a.com:m:y", "--label", "l",
+		"--from", "a.com:m:x", "--to", "a.com:m:y", "--name", "l",
 		"--condition", "{not json", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "valid JSON") {

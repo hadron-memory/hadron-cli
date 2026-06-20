@@ -56,7 +56,7 @@ func TestRenderJSONShapeAndStability(t *testing.T) {
 		Name: "Flaky CI", Type: "task", Description: "One liner",
 		Abstract: "A summary.", AbstractOriginHash: "a1b2c3d4", ContentHash: "a1b2c3d4",
 		Tags: []string{"ci"}, Content: "Body.",
-		Edges: []Edge{{TargetID: "n-2", TargetLoc: "start", Label: "routes-to", Priority: 10}},
+		Edges: []Edge{{TargetID: "n-2", TargetLoc: "start", Name: "routes-to", Priority: 10}},
 	}
 	got, err := RenderJSON(doc)
 	if err != nil {

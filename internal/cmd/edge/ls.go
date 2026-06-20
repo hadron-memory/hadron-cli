@@ -14,12 +14,29 @@ import (
 
 // edgeListDTO is one row in `edge ls` output.
 type edgeListDTO struct {
-	ID        string `json:"id"`
-	Direction string `json:"direction"` // outgoing | incoming
-	Label     string `json:"label"`
-	Priority  int    `json:"priority"`
-	OtherID   string `json:"otherNodeId"`
-	OtherLoc  string `json:"otherNodeLoc"`
+	ID         string `json:"id"`
+	Direction  string `json:"direction"` // outgoing | incoming
+	Name       string `json:"name"`
+	Loc        string `json:"loc"`
+	IsRunnable bool   `json:"isRunnable"`
+	Priority   int    `json:"priority"`
+	OtherID    string `json:"otherNodeId"`
+	OtherLoc   string `json:"otherNodeLoc"`
+}
+
+func edgeListRow(id, dir string, name *string, loc string, isRunnable *bool, priority int, otherID, otherLoc string) edgeListDTO {
+	n := ""
+	if name != nil {
+		n = *name
+	}
+	run := false
+	if isRunnable != nil {
+		run = *isRunnable
+	}
+	return edgeListDTO{
+		ID: id, Direction: dir, Name: n, Loc: loc, IsRunnable: run, Priority: priority,
+		OtherID: otherID, OtherLoc: otherLoc,
+	}
 }
 
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
@@ -50,26 +67,24 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 
 			edges := []edgeListDTO{}
 			for _, e := range resp.NodeById.OutgoingEdges {
-				edges = append(edges, edgeListDTO{
-					ID: e.Id, Direction: "outgoing", Label: e.Label, Priority: e.Priority,
-					OtherID: e.Target.Id, OtherLoc: e.Target.Loc,
-				})
+				edges = append(edges, edgeListRow(e.Id, "outgoing", e.Name, e.Loc, e.IsRunnable, e.Priority, e.Target.Id, e.Target.Loc))
 			}
 			for _, e := range resp.NodeById.IncomingEdges {
-				edges = append(edges, edgeListDTO{
-					ID: e.Id, Direction: "incoming", Label: e.Label, Priority: e.Priority,
-					OtherID: e.Source.Id, OtherLoc: e.Source.Loc,
-				})
+				edges = append(edges, edgeListRow(e.Id, "incoming", e.Name, e.Loc, e.IsRunnable, e.Priority, e.Source.Id, e.Source.Loc))
 			}
 
 			return output.Write(f.IOStreams, f.JSON, edges, func(w io.Writer) error {
-				t := output.NewTable(w, "DIR", "LABEL", "NODE", "EDGE-ID")
+				t := output.NewTable(w, "DIR", "REL", "NODE", "EDGE-ID")
 				for _, e := range edges {
 					arrow := "→"
 					if e.Direction == "incoming" {
 						arrow = "←"
 					}
-					t.Row(arrow, e.Label, e.OtherLoc, e.ID)
+					rel := e.Name
+					if rel == "" {
+						rel = e.Loc
+					}
+					t.Row(arrow, rel, e.OtherLoc, e.ID)
 				}
 				return t.Flush()
 			})
