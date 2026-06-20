@@ -524,6 +524,29 @@ func TestNodeGetMemoryFlag(t *testing.T) {
 	}
 }
 
+// A loc can itself contain colons; with -m the whole positional is the bare
+// loc and the memory is prepended verbatim. (A heuristic that skipped the join
+// for refs with ">=2 colons" would misparse this as a full URN and drop -m.)
+func TestNodeGetMemoryFlagMultiColonLoc(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveNodeJSON,
+		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", "cor:acl:010:01", "-m", "hadronmemory.com:specs", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Urn string `json:"urn"`
+	}
+	_ = json.Unmarshal(captured["ResolveUrn"], &vars)
+	if vars.Urn != "hrn:node:hadronmemory.com:specs:cor:acl:010:01" {
+		t.Errorf("a multi-colon loc with -m must join verbatim, got %q", vars.Urn)
+	}
+}
+
 // edge add -m resolves both endpoints as bare locs in that one memory.
 func TestEdgeAddMemoryFlag(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{

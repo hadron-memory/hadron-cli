@@ -87,8 +87,8 @@ Cross-memory edges are allowed — use full URNs (omit -m) for those.`,
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org:memory) to resolve bare --from/--to locs against")
-	cmd.Flags().StringVar(&from, "from", "", "source node URN (required)")
-	cmd.Flags().StringVar(&to, "to", "", "target node URN (required)")
+	cmd.Flags().StringVar(&from, "from", "", "source node URN, or bare loc with -m (required)")
+	cmd.Flags().StringVar(&to, "to", "", "target node URN, or bare loc with -m (required)")
 	cmd.Flags().StringVar(&label, "label", "", "edge label (required)")
 	cmd.Flags().IntVar(&priority, "priority", 0, "edge priority")
 	cmd.Flags().StringVar(&condition, "condition", "", "JSONLogic gate condition (JSON)")
