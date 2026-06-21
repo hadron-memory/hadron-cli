@@ -2323,12 +2323,13 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode) 
 
 // NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
 type NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge struct {
-	Name       *string                                                                `json:"name"`
-	Loc        string                                                                 `json:"loc"`
-	IsRunnable *bool                                                                  `json:"isRunnable"`
-	Priority   int                                                                    `json:"priority"`
-	Condition  *json.RawMessage                                                       `json:"condition"`
-	Target     *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode `json:"target"`
+	Name        *string                                                                `json:"name"`
+	Loc         string                                                                 `json:"loc"`
+	Description *string                                                                `json:"description"`
+	IsRunnable  *bool                                                                  `json:"isRunnable"`
+	Priority    int                                                                    `json:"priority"`
+	Condition   *json.RawMessage                                                       `json:"condition"`
+	Target      *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode `json:"target"`
 }
 
 // GetName returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.Name, and is useful for accessing the field via an interface.
@@ -2338,6 +2339,11 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) GetName() 
 
 // GetLoc returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.Loc, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) GetLoc() string { return v.Loc }
+
+// GetDescription returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.Description, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) GetDescription() *string {
+	return v.Description
+}
 
 // GetIsRunnable returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.IsRunnable, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) GetIsRunnable() *bool {
@@ -5947,6 +5953,7 @@ query NodeBatch ($ids: [ID!]) {
 			outgoingEdges {
 				name
 				loc
+				description
 				isRunnable
 				priority
 				condition

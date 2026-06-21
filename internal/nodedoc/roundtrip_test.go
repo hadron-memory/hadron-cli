@@ -20,7 +20,7 @@ func TestRoundTrip(t *testing.T) {
 			Properties:         map[string]any{"p": "q"},
 			Content:            "The node body.\n\nSecond paragraph.",
 			Edges: []Edge{
-				{TargetID: "n-2", TargetLoc: "start", Name: "routes-to", Priority: 10, Condition: map[string]any{"flag": "x"}},
+				{TargetID: "n-2", TargetLoc: "start", Name: "routes-to", Loc: "flaky-ci:routes-to:start", Description: "why it routes", IsRunnable: true, Priority: 10, Condition: map[string]any{"flag": "x"}},
 				{TargetID: "n-3", TargetLoc: "end", Name: "next"},
 			},
 		},

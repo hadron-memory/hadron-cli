@@ -45,7 +45,20 @@ func wireEdges(cmd *cobra.Command, client graphql.Client, memoryRef, sourceID st
 			unwired = append(unwired, unwiredEdgeDTO{Target: edgeLabel(e), Reason: "invalid condition: " + err.Error()})
 			continue
 		}
-		if _, err := gen.CreateEdge(cmd.Context(), client, sourceID, targetID, e.Name, nil, nil, nil, priority, condition, nil); err != nil {
+		loc, desc := e.Loc, e.Description
+		var locArg, descArg *string
+		if loc != "" {
+			locArg = &loc
+		}
+		if desc != "" {
+			descArg = &desc
+		}
+		var runArg *bool
+		if e.IsRunnable {
+			run := true
+			runArg = &run
+		}
+		if _, err := gen.CreateEdge(cmd.Context(), client, sourceID, targetID, e.Name, locArg, descArg, runArg, priority, condition, nil); err != nil {
 			// Best-effort: a server-side rejection (e.g. a condition operator
 			// outside the v1 allowlist) downgrades to a report, never fatal.
 			unwired = append(unwired, unwiredEdgeDTO{Target: edgeLabel(e), Reason: "rejected: " + edgeRejectReason(err)})

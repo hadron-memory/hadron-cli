@@ -75,6 +75,7 @@ query NodeBatch($ids: [ID!]) {
       outgoingEdges {
         name
         loc
+        description
         isRunnable
         priority
         condition
