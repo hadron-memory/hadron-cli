@@ -36,12 +36,16 @@ type Document struct {
 // Edge is one outgoing edge carried in a node's file. TargetLoc travels
 // alongside TargetID for readability and as the portable key when re-homing a
 // node into another memory, where the source TargetID no longer resolves.
-// Condition and Priority round-trip the edge's gating and routing order, which
-// the upsert's NodeInput.edges can't carry (it is only {label, targetId}).
+// Name/Loc/Description/IsRunnable are the spec-037 first-class edge fields
+// (Loc is the edge's own identity, distinct from TargetLoc). Condition and
+// Priority round-trip the edge's gating and routing order.
 type Edge struct {
-	TargetID  string `json:"targetId"`
-	TargetLoc string `json:"targetLoc"`
-	Label     string `json:"label"`
-	Condition any    `json:"condition"`
-	Priority  int    `json:"priority"`
+	TargetID    string `json:"targetId"`
+	TargetLoc   string `json:"targetLoc"`
+	Name        string `json:"name"`
+	Loc         string `json:"loc,omitempty"`
+	Description string `json:"description,omitempty"`
+	IsRunnable  bool   `json:"isRunnable,omitempty"`
+	Condition   any    `json:"condition"`
+	Priority    int    `json:"priority"`
 }

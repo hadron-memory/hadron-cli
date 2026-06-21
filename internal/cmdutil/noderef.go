@@ -11,6 +11,16 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
+// EdgeDisplay is the human handle for an edge: its name, or its loc when the
+// name is empty (spec 037 — an edge's name is optional, its loc is the
+// identity, so a nameless edge still prints something addressable).
+func EdgeDisplay(name *string, loc string) string {
+	if name != nil && *name != "" {
+		return *name
+	}
+	return loc
+}
+
 // ResolveNodeRef resolves a node reference into a node ID. With an empty
 // memory it requires a fully-qualified URN (ResolveNodeURN). With a memory
 // (the `org:memory` form, optionally hrn:/urn:-prefixed) the ref is a bare loc

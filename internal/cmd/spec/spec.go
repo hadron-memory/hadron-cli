@@ -73,7 +73,7 @@ type specDTO struct {
 // other endpoint (cross-memory edges carry a different memoryId).
 type specEdgeDTO struct {
 	Direction string `json:"direction"` // "out" | "in"
-	Label     string `json:"label"`
+	Name      string `json:"name"`
 	Loc       string `json:"loc"`
 	MemoryID  string `json:"memoryId"`
 }
@@ -458,7 +458,7 @@ func paginateNodes(fetch func(limit, offset int) ([]*gen.NodesNodesNode, error))
 // ---- the in-memory model the lint engine and renderers operate on ----
 
 type specEdge struct {
-	Label string
+	Name  string
 	Loc   string // the target's loc
 }
 
@@ -498,7 +498,7 @@ func nodeFromGQL(n *gen.GetNodeByIdNodeByIdNode) specNode {
 		if e == nil || e.Target == nil {
 			continue
 		}
-		sn.OutEdges = append(sn.OutEdges, specEdge{Label: e.Label, Loc: e.Target.Loc})
+		sn.OutEdges = append(sn.OutEdges, specEdge{Name: edgeNameStr(e.Name), Loc: e.Target.Loc})
 	}
 	return sn
 }

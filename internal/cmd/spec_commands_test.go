@@ -1112,11 +1112,11 @@ func TestSpecSupersede(t *testing.T) {
 
 	// Last CreateEdge is the superseded-by link old -> new.
 	var edge struct {
-		Label string `json:"label"`
+		Name string `json:"name"`
 	}
 	_ = json.Unmarshal(captured["CreateEdge"], &edge)
-	if edge.Label != "superseded-by" {
-		t.Errorf("final edge label = %q, want superseded-by", edge.Label)
+	if edge.Name != "superseded-by" {
+		t.Errorf("final edge label = %q, want superseded-by", edge.Name)
 	}
 	// Last UpsertNode is the retire of the old spec (same loc + superseded tag).
 	var retire struct {
@@ -1469,11 +1469,11 @@ func TestSpecLink(t *testing.T) {
 	}
 	// CreateEdge was called with the synthesized label.
 	var edge struct {
-		Label string `json:"label"`
+		Name string `json:"name"`
 	}
 	_ = json.Unmarshal(captured["CreateEdge"], &edge)
-	if edge.Label != "documents Node on the Node entity" {
-		t.Errorf("CreateEdge label = %q", edge.Label)
+	if edge.Name != "documents Node on the Node entity" {
+		t.Errorf("CreateEdge label = %q", edge.Name)
 	}
 }
 
@@ -1496,11 +1496,11 @@ func TestSpecLinkExplicitLabel(t *testing.T) {
 		t.Errorf("explicit label = %q", dto.Label)
 	}
 	var edge struct {
-		Label string `json:"label"`
+		Name string `json:"name"`
 	}
 	_ = json.Unmarshal(captured["CreateEdge"], &edge)
-	if edge.Label != "documents the nodeType field of Node" {
-		t.Errorf("CreateEdge label = %q (explicit --label must pass through)", edge.Label)
+	if edge.Name != "documents the nodeType field of Node" {
+		t.Errorf("CreateEdge label = %q (explicit --label must pass through)", edge.Name)
 	}
 }
 

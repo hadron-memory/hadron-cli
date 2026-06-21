@@ -38,11 +38,14 @@ type frontmatter struct {
 // importer keys off `id` and reads `rel` as the label; `loc` is carried for
 // readability. condition/priority round-trip the edge's gating and order.
 type edgeEntry struct {
-	ID        string `yaml:"id"`
-	Loc       string `yaml:"loc,omitempty"`
-	Rel       string `yaml:"rel"`
-	Condition any    `yaml:"condition,omitempty"`
-	Priority  int    `yaml:"priority,omitempty"`
+	ID          string `yaml:"id"`
+	Loc         string `yaml:"loc,omitempty"`
+	Rel         string `yaml:"rel"`
+	EdgeLoc     string `yaml:"edgeLoc,omitempty"`
+	Description string `yaml:"description,omitempty"`
+	Runnable    bool   `yaml:"runnable,omitempty"`
+	Condition   any    `yaml:"condition,omitempty"`
+	Priority    int    `yaml:"priority,omitempty"`
 }
 
 // frontmatterRE splits a node file into its YAML header and body, mirroring
@@ -148,7 +151,11 @@ func buildEdgeEntries(edges []Edge) []edgeEntry {
 		if e.TargetID == "" {
 			continue
 		}
-		entry := edgeEntry{ID: e.TargetID, Loc: e.TargetLoc, Rel: e.Label, Condition: e.Condition}
+		entry := edgeEntry{
+			ID: e.TargetID, Loc: e.TargetLoc, Rel: e.Name,
+			EdgeLoc: e.Loc, Description: e.Description, Runnable: e.IsRunnable,
+			Condition: e.Condition,
+		}
 		if e.Priority != 0 {
 			entry.Priority = e.Priority
 		}
@@ -167,11 +174,14 @@ func edgesFromEntries(entries []edgeEntry) []Edge {
 	out := make([]Edge, 0, len(entries))
 	for _, e := range entries {
 		out = append(out, Edge{
-			TargetID:  e.ID,
-			TargetLoc: e.Loc,
-			Label:     e.Rel,
-			Condition: e.Condition,
-			Priority:  e.Priority,
+			TargetID:    e.ID,
+			TargetLoc:   e.Loc,
+			Name:        e.Rel,
+			Loc:         e.EdgeLoc,
+			Description: e.Description,
+			IsRunnable:  e.Runnable,
+			Condition:   e.Condition,
+			Priority:    e.Priority,
 		})
 	}
 	return out

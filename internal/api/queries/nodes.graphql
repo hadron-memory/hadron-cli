@@ -73,7 +73,10 @@ query NodeBatch($ids: [ID!]) {
       content
       updatedAt
       outgoingEdges {
-        label
+        name
+        loc
+        description
+        isRunnable
         priority
         condition
         target {
@@ -83,7 +86,9 @@ query NodeBatch($ids: [ID!]) {
         }
       }
       incomingEdges {
-        label
+        name
+        loc
+        isRunnable
         source {
           id
           loc
@@ -112,7 +117,9 @@ query GetNodeById($id: ID!) {
     updatedAt
     outgoingEdges {
       id
-      label
+      name
+      loc
+      isRunnable
       priority
       target {
         id
@@ -122,7 +129,9 @@ query GetNodeById($id: ID!) {
     }
     incomingEdges {
       id
-      label
+      name
+      loc
+      isRunnable
       priority
       source {
         id
@@ -202,7 +211,13 @@ mutation DeleteNode($loc: String!, $memoryId: String!) {
 mutation CreateEdge(
   $sourceNodeId: ID!
   $targetNodeId: ID!
-  $label: String!
+  $name: String!
+  # @genqlient(omitempty: true)
+  $loc: String
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true)
+  $isRunnable: Boolean
   # @genqlient(omitempty: true)
   $priority: Int
   # @genqlient(omitempty: true)
@@ -213,13 +228,18 @@ mutation CreateEdge(
   createEdge(
     sourceNodeId: $sourceNodeId
     targetNodeId: $targetNodeId
-    label: $label
+    name: $name
+    loc: $loc
+    description: $description
+    isRunnable: $isRunnable
     priority: $priority
     condition: $condition
     data: $data
   ) {
     id
-    label
+    name
+    loc
+    isRunnable
     priority
     source {
       id
@@ -237,7 +257,13 @@ mutation CreateEdge(
 mutation UpdateEdge(
   $edgeId: ID!
   # @genqlient(omitempty: true)
-  $label: String
+  $name: String
+  # @genqlient(omitempty: true)
+  $loc: String
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true)
+  $isRunnable: Boolean
   # @genqlient(omitempty: true)
   $priority: Int
   # @genqlient(omitempty: true)
@@ -247,13 +273,18 @@ mutation UpdateEdge(
 ) {
   updateEdge(
     edgeId: $edgeId
-    label: $label
+    name: $name
+    loc: $loc
+    description: $description
+    isRunnable: $isRunnable
     priority: $priority
     condition: $condition
     data: $data
   ) {
     id
-    label
+    name
+    loc
+    isRunnable
     priority
     source {
       id

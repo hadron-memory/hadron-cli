@@ -450,15 +450,21 @@ enum CreateUserPermission {
 type Edge {
   condition: JSON
   data: JSON
+  description: String
   id: ID!
-  label: String!
+  isRunnable: Boolean
+  loc: String!
+  name: String
   priority: Int!
   source: Node!
   target: Node!
 }
 
 input EdgeInput {
-  label: String!
+  description: String
+  isRunnable: Boolean
+  loc: String
+  name: String
   sourceLoc: String!
   targetLoc: String!
 }
@@ -953,7 +959,7 @@ type Mutation {
   """
   createAppKey(appId: ID!, label: String): AppKeyCreated!
   createAppUser(email: String, externalId: String!, handle: String, name: String): User!
-  createEdge(condition: JSON, data: JSON, label: String!, priority: Int, sourceNodeId: ID!, targetNodeId: ID!): Edge!
+  createEdge(condition: JSON, data: JSON, description: String, isRunnable: Boolean, loc: String, name: String, priority: Int, sourceNodeId: ID!, targetNodeId: ID!): Edge!
 
   """
   Create a memory in an organization. Accepts the entity's ID or URN
@@ -1439,7 +1445,7 @@ type Mutation {
   """
   updateApp(agentTools: [String!], aiApiKey: String, aiModel: String, aiProvider: String, anonymousTtlDays: Int, appType: AppType, createUserPermission: CreateUserPermission, description: String, expiresAt: String, id: ID!, identifyUserMethod: IdentifyUserMethod, name: String, role: AppMembershipRole, sessionTimeoutSeconds: Int, surfaces: [String!], systemPrompt: String, trainingMode: Boolean, urn: String): App!
   updateChatTitle(chatId: String!, title: String!): Boolean!
-  updateEdge(condition: JSON, data: JSON, edgeId: ID!, label: String, priority: Int): Edge!
+  updateEdge(condition: JSON, data: JSON, description: String, edgeId: ID!, isRunnable: Boolean, loc: String, name: String, priority: Int): Edge!
 
   """
   Update a Memory.
@@ -1601,7 +1607,10 @@ type NodeBatchResult {
 }
 
 input NodeEdgeInput {
-  label: String
+  description: String
+  isRunnable: Boolean
+  loc: String
+  name: String
 
   """
   Reference to the target node. Accepts a node ID, a full URN

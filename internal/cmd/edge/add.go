@@ -15,13 +15,16 @@ import (
 
 func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 	var (
-		memory    string
-		from      string
-		to        string
-		label     string
-		priority  int
-		condition string
-		data      string
+		memory      string
+		from        string
+		to          string
+		name        string
+		loc         string
+		description string
+		runnable    bool
+		priority    int
+		condition   string
+		data        string
 	)
 	cmd := &cobra.Command{
 		Use:   "add",
@@ -31,7 +34,7 @@ endpoints are fully-qualified node URNs (<org>:<memory>:<loc>); pass
 -m/--memory to give --from/--to as bare locs in that one memory instead.
 Cross-memory edges are allowed — use full URNs (omit -m) for those.`,
 		Example: `  hadron edge add --from acme.com:kb:findings:flaky-ci --to acme.com:kb:start-here --label routes-to
-  hadron edge add -m acme.com:kb --from findings:flaky-ci --to start-here --label routes-to`,
+  hadron edge add -m acme.com:kb --from findings:flaky-ci --to start-here --name routes-to`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Validate local input before any network round-trip.
@@ -64,8 +67,19 @@ Cross-memory edges are allowed — use full URNs (omit -m) for those.`,
 			if cmd.Flags().Changed("priority") {
 				priorityArg = &priority
 			}
+			var locArg, descArg *string
+			if cmd.Flags().Changed("loc") {
+				locArg = &loc
+			}
+			if cmd.Flags().Changed("description") {
+				descArg = &description
+			}
+			var runnableArg *bool
+			if cmd.Flags().Changed("runnable") {
+				runnableArg = &runnable
+			}
 
-			resp, err := gen.CreateEdge(cmd.Context(), client, sourceID, targetID, label, priorityArg, conditionArg, dataArg)
+			resp, err := gen.CreateEdge(cmd.Context(), client, sourceID, targetID, name, locArg, descArg, runnableArg, priorityArg, conditionArg, dataArg)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -74,14 +88,11 @@ Cross-memory edges are allowed — use full URNs (omit -m) for those.`,
 			}
 
 			e := resp.CreateEdge
-			dto := edgeDTO{
-				ID: e.Id, Label: e.Label, Priority: e.Priority,
-				SourceID: e.Source.Id, SourceLoc: e.Source.Loc,
-				TargetID: e.Target.Id, TargetLoc: e.Target.Loc,
-			}
+			dto := edgeDTOFrom(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority,
+				e.Source.Id, e.Source.Loc, e.Target.Id, e.Target.Loc)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ created", dto.SourceLoc+" → "+dto.TargetLoc, "("+dto.Label+")", dto.ID)
+				t.Row("✓ created", dto.SourceLoc+" → "+dto.TargetLoc, "("+cmdutil.EdgeDisplay(e.Name, e.Loc)+")", dto.ID)
 				return t.Flush()
 			})
 		},
@@ -89,12 +100,15 @@ Cross-memory edges are allowed — use full URNs (omit -m) for those.`,
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org:memory) to resolve bare --from/--to locs against")
 	cmd.Flags().StringVar(&from, "from", "", "source node URN, or bare loc with -m (required)")
 	cmd.Flags().StringVar(&to, "to", "", "target node URN, or bare loc with -m (required)")
-	cmd.Flags().StringVar(&label, "label", "", "edge label (required)")
+	cmd.Flags().StringVar(&name, "name", "", "relationship name (required)")
+	cmd.Flags().StringVar(&loc, "loc", "", "explicit edge loc (default: derived <sourceLoc>:<name>:<targetLoc>)")
+	cmd.Flags().StringVar(&description, "description", "", "edge description")
+	cmd.Flags().BoolVar(&runnable, "runnable", false, "mark the edge runnable")
 	cmd.Flags().IntVar(&priority, "priority", 0, "edge priority")
 	cmd.Flags().StringVar(&condition, "condition", "", "JSONLogic gate condition (JSON)")
 	cmd.Flags().StringVar(&data, "data", "", "arbitrary edge data (JSON)")
 	_ = cmd.MarkFlagRequired("from")
 	_ = cmd.MarkFlagRequired("to")
-	_ = cmd.MarkFlagRequired("label")
+	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }

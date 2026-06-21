@@ -36,7 +36,7 @@ func wireEdges(cmd *cobra.Command, client graphql.Client, memoryRef, sourceID st
 			unwired = append(unwired, unwiredEdgeDTO{Target: edgeLabel(e), Reason: "target unresolved (not found, or not yet indexed)"})
 			continue
 		}
-		if existing[edgeKey(targetID, e.Label)] {
+		if existing[edgeKey(targetID, e.Name)] {
 			continue // idempotent: already wired
 		}
 		priority, condition, err := edgeArgs(e)
@@ -45,13 +45,26 @@ func wireEdges(cmd *cobra.Command, client graphql.Client, memoryRef, sourceID st
 			unwired = append(unwired, unwiredEdgeDTO{Target: edgeLabel(e), Reason: "invalid condition: " + err.Error()})
 			continue
 		}
-		if _, err := gen.CreateEdge(cmd.Context(), client, sourceID, targetID, e.Label, priority, condition, nil); err != nil {
+		loc, desc := e.Loc, e.Description
+		var locArg, descArg *string
+		if loc != "" {
+			locArg = &loc
+		}
+		if desc != "" {
+			descArg = &desc
+		}
+		var runArg *bool
+		if e.IsRunnable {
+			run := true
+			runArg = &run
+		}
+		if _, err := gen.CreateEdge(cmd.Context(), client, sourceID, targetID, e.Name, locArg, descArg, runArg, priority, condition, nil); err != nil {
 			// Best-effort: a server-side rejection (e.g. a condition operator
 			// outside the v1 allowlist) downgrades to a report, never fatal.
 			unwired = append(unwired, unwiredEdgeDTO{Target: edgeLabel(e), Reason: "rejected: " + edgeRejectReason(err)})
 			continue
 		}
-		existing[edgeKey(targetID, e.Label)] = true
+		existing[edgeKey(targetID, e.Name)] = true
 		wired++
 	}
 	return wired, unwired, nil
@@ -68,7 +81,11 @@ func existingEdgeKeys(cmd *cobra.Command, client graphql.Client, nodeID string) 
 	if resp.NodeById != nil {
 		for _, e := range resp.NodeById.OutgoingEdges {
 			if e != nil && e.Target != nil {
-				keys[edgeKey(e.Target.Id, e.Label)] = true
+				name := ""
+				if e.Name != nil {
+					name = *e.Name
+				}
+				keys[edgeKey(e.Target.Id, name)] = true
 			}
 		}
 	}
@@ -111,7 +128,7 @@ func edgeLabel(e nodedoc.Edge) string {
 	case e.TargetID != "":
 		return e.TargetID
 	default:
-		return e.Label
+		return e.Name
 	}
 }
 

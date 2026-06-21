@@ -26,7 +26,7 @@ func TestRenderMarkdownGoldenTree(t *testing.T) {
 		Tags:               []string{"guide", "intro"},
 		Seq:                intptr(0),
 		Data:               map[string]any{"k": "v"},
-		Edges:              []Edge{{TargetID: "n-2", TargetLoc: "guide:more", Label: "next", Priority: 5}},
+		Edges:              []Edge{{TargetID: "n-2", TargetLoc: "guide:more", Name: "next", Priority: 5}},
 	}
 
 	want := fmt.Sprintf(`---
@@ -107,10 +107,10 @@ func TestRenderMarkdownMinimal(t *testing.T) {
 // TestBuildEdgeEntries covers the per-edge omit rules and the target guard.
 func TestBuildEdgeEntries(t *testing.T) {
 	edges := []Edge{
-		{Label: "a", Priority: 0, TargetID: "t1", TargetLoc: "loc1"},       // priority 0 omitted
-		{Label: "", Priority: 3, TargetID: "t2", TargetLoc: ""},            // empty rel kept, loc omitted
-		{Label: "c", Condition: map[string]any{"==": "x"}, TargetID: "t3"}, // condition kept
-		{Label: "orphan"},                                                  // no target id → skipped
+		{Name: "a", Priority: 0, TargetID: "t1", TargetLoc: "loc1"},       // priority 0 omitted
+		{Name: "", Priority: 3, TargetID: "t2", TargetLoc: ""},            // empty rel kept, loc omitted
+		{Name: "c", Condition: map[string]any{"==": "x"}, TargetID: "t3"}, // condition kept
+		{Name: "orphan"},                                                  // no target id → skipped
 	}
 	got := buildEdgeEntries(edges)
 	if len(got) != 3 {
@@ -169,7 +169,7 @@ The body.
 		t.Fatalf("edges = %+v, want 1", doc.Edges)
 	}
 	e := doc.Edges[0]
-	if e.TargetID != "n-2" || e.TargetLoc != "start" || e.Label != "routes-to" || e.Priority != 10 {
+	if e.TargetID != "n-2" || e.TargetLoc != "start" || e.Name != "routes-to" || e.Priority != 10 {
 		t.Errorf("edge = %+v", e)
 	}
 }

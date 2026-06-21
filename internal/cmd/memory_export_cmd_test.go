@@ -22,7 +22,7 @@ func TestMemoryExport(t *testing.T) {
 		"truncated":false,"omitted":[],"unavailable":[],
 		"nodes":[
 			{"id":"n-root","memoryId":"mem1","loc":"root","name":"Root","alias":null,"nodeType":"info","description":null,"abstract":null,"abstractOriginHash":null,"tags":[],"seq":null,"data":null,"properties":null,"content":"Root body.","outgoingEdges":[]},
-			{"id":"n-intro","memoryId":"mem1","loc":"guide:intro","name":"Intro","alias":null,"nodeType":"task","description":"One liner","abstract":null,"abstractOriginHash":null,"tags":["g"],"seq":null,"data":null,"properties":null,"content":"Intro body.","outgoingEdges":[{"label":"next","priority":0,"condition":null,"target":{"id":"n-root","loc":"root"}}]}
+			{"id":"n-intro","memoryId":"mem1","loc":"guide:intro","name":"Intro","alias":null,"nodeType":"task","description":"One liner","abstract":null,"abstractOriginHash":null,"tags":["g"],"seq":null,"data":null,"properties":null,"content":"Intro body.","outgoingEdges":[{"name":"next","priority":0,"condition":null,"target":{"id":"n-root","loc":"root"}}]}
 		]
 	}}}`
 

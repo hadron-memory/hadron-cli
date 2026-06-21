@@ -41,7 +41,7 @@ const nodeDetailJSON = `{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","
 	"description":null,"abstract":null,"nodeType":"finding","tags":["ci"],
 	"content":"The CI is flaky because...","seq":null,
 	"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
-	"outgoingEdges":[{"id":"e1","label":"routes-to","priority":0,
+	"outgoingEdges":[{"id":"e1","name":"routes-to","loc":"findings:flaky-ci:routes-to:start-here","isRunnable":false,"priority":0,
 		"target":{"id":"n2","loc":"start-here","memoryId":"mem1"}}],
 	"incomingEdges":[]}`
 
@@ -484,14 +484,14 @@ func TestEdgeAddOmitsUnsetOptionals(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"edge", "add", "--from", nodeURN, "--to", nodeURN,
-		"--label", "routes-to", "--server", gql.URL})
+		"--name", "routes-to", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateEdge"], &vars)
-	if vars["label"] != "routes-to" {
-		t.Errorf("label not sent: %v", vars)
+	if vars["name"] != "routes-to" {
+		t.Errorf("name not sent: %v", vars)
 	}
 	// Unset optionals must be OMITTED, not sent as explicit nulls — the
 	// server rejects priority: null (hadron-server#263).
@@ -556,7 +556,7 @@ func TestEdgeAddMemoryFlag(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"edge", "add", "-m", "acme.com:kb",
-		"--from", "findings:flaky-ci", "--to", "start-here", "--label", "routes-to", "--server", gql.URL})
+		"--from", "findings:flaky-ci", "--to", "start-here", "--name", "routes-to", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -576,13 +576,13 @@ func TestEdgeUpdateLabelOnlyPreservesCondition(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"edge", "update", "e1", "--label", "complements", "--server", gql.URL})
+	root.SetArgs([]string{"edge", "update", "e1", "--name", "complements", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["UpdateEdge"], &vars)
-	if vars["edgeId"] != "e1" || vars["label"] != "complements" {
+	if vars["edgeId"] != "e1" || vars["name"] != "complements" {
 		t.Errorf("unexpected update vars: %v", vars)
 	}
 	// An explicit null clears condition/data server-side, so a

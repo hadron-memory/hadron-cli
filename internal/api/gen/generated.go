@@ -689,18 +689,26 @@ func (v *CreateAppResponse) GetCreateApp() *CreateAppCreateApp { return v.Create
 
 // CreateEdgeCreateEdge includes the requested fields of the GraphQL type Edge.
 type CreateEdgeCreateEdge struct {
-	Id       string                          `json:"id"`
-	Label    string                          `json:"label"`
-	Priority int                             `json:"priority"`
-	Source   *CreateEdgeCreateEdgeSourceNode `json:"source"`
-	Target   *CreateEdgeCreateEdgeTargetNode `json:"target"`
+	Id         string                          `json:"id"`
+	Name       *string                         `json:"name"`
+	Loc        string                          `json:"loc"`
+	IsRunnable *bool                           `json:"isRunnable"`
+	Priority   int                             `json:"priority"`
+	Source     *CreateEdgeCreateEdgeSourceNode `json:"source"`
+	Target     *CreateEdgeCreateEdgeTargetNode `json:"target"`
 }
 
 // GetId returns CreateEdgeCreateEdge.Id, and is useful for accessing the field via an interface.
 func (v *CreateEdgeCreateEdge) GetId() string { return v.Id }
 
-// GetLabel returns CreateEdgeCreateEdge.Label, and is useful for accessing the field via an interface.
-func (v *CreateEdgeCreateEdge) GetLabel() string { return v.Label }
+// GetName returns CreateEdgeCreateEdge.Name, and is useful for accessing the field via an interface.
+func (v *CreateEdgeCreateEdge) GetName() *string { return v.Name }
+
+// GetLoc returns CreateEdgeCreateEdge.Loc, and is useful for accessing the field via an interface.
+func (v *CreateEdgeCreateEdge) GetLoc() string { return v.Loc }
+
+// GetIsRunnable returns CreateEdgeCreateEdge.IsRunnable, and is useful for accessing the field via an interface.
+func (v *CreateEdgeCreateEdge) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetPriority returns CreateEdgeCreateEdge.Priority, and is useful for accessing the field via an interface.
 func (v *CreateEdgeCreateEdge) GetPriority() int { return v.Priority }
@@ -1397,17 +1405,25 @@ func (v *GetNodeByIdNodeByIdNode) GetIncomingEdges() []*GetNodeByIdNodeByIdNodeI
 
 // GetNodeByIdNodeByIdNodeIncomingEdgesEdge includes the requested fields of the GraphQL type Edge.
 type GetNodeByIdNodeByIdNodeIncomingEdgesEdge struct {
-	Id       string                                              `json:"id"`
-	Label    string                                              `json:"label"`
-	Priority int                                                 `json:"priority"`
-	Source   *GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode `json:"source"`
+	Id         string                                              `json:"id"`
+	Name       *string                                             `json:"name"`
+	Loc        string                                              `json:"loc"`
+	IsRunnable *bool                                               `json:"isRunnable"`
+	Priority   int                                                 `json:"priority"`
+	Source     *GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode `json:"source"`
 }
 
 // GetId returns GetNodeByIdNodeByIdNodeIncomingEdgesEdge.Id, and is useful for accessing the field via an interface.
 func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdge) GetId() string { return v.Id }
 
-// GetLabel returns GetNodeByIdNodeByIdNodeIncomingEdgesEdge.Label, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdge) GetLabel() string { return v.Label }
+// GetName returns GetNodeByIdNodeByIdNodeIncomingEdgesEdge.Name, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdge) GetName() *string { return v.Name }
+
+// GetLoc returns GetNodeByIdNodeByIdNodeIncomingEdgesEdge.Loc, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdge) GetLoc() string { return v.Loc }
+
+// GetIsRunnable returns GetNodeByIdNodeByIdNodeIncomingEdgesEdge.IsRunnable, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdge) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetPriority returns GetNodeByIdNodeByIdNodeIncomingEdgesEdge.Priority, and is useful for accessing the field via an interface.
 func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdge) GetPriority() int { return v.Priority }
@@ -1435,17 +1451,25 @@ func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode) GetMemoryId() strin
 
 // GetNodeByIdNodeByIdNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
 type GetNodeByIdNodeByIdNodeOutgoingEdgesEdge struct {
-	Id       string                                              `json:"id"`
-	Label    string                                              `json:"label"`
-	Priority int                                                 `json:"priority"`
-	Target   *GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode `json:"target"`
+	Id         string                                              `json:"id"`
+	Name       *string                                             `json:"name"`
+	Loc        string                                              `json:"loc"`
+	IsRunnable *bool                                               `json:"isRunnable"`
+	Priority   int                                                 `json:"priority"`
+	Target     *GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode `json:"target"`
 }
 
 // GetId returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdge.Id, and is useful for accessing the field via an interface.
 func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdge) GetId() string { return v.Id }
 
-// GetLabel returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdge.Label, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdge) GetLabel() string { return v.Label }
+// GetName returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdge.Name, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdge) GetName() *string { return v.Name }
+
+// GetLoc returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdge.Loc, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdge) GetLoc() string { return v.Loc }
+
+// GetIsRunnable returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdge.IsRunnable, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdge) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetPriority returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdge.Priority, and is useful for accessing the field via an interface.
 func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdge) GetPriority() int { return v.Priority }
@@ -2251,13 +2275,23 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetIncomingEdges() []*NodeB
 
 // NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge includes the requested fields of the GraphQL type Edge.
 type NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge struct {
-	Label  string                                                                 `json:"label"`
-	Source *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode `json:"source"`
+	Name       *string                                                                `json:"name"`
+	Loc        string                                                                 `json:"loc"`
+	IsRunnable *bool                                                                  `json:"isRunnable"`
+	Source     *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode `json:"source"`
 }
 
-// GetLabel returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.Label, and is useful for accessing the field via an interface.
-func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge) GetLabel() string {
-	return v.Label
+// GetName returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.Name, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge) GetName() *string {
+	return v.Name
+}
+
+// GetLoc returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.Loc, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge) GetLoc() string { return v.Loc }
+
+// GetIsRunnable returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.IsRunnable, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge) GetIsRunnable() *bool {
+	return v.IsRunnable
 }
 
 // GetSource returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.Source, and is useful for accessing the field via an interface.
@@ -2289,15 +2323,31 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode) 
 
 // NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
 type NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge struct {
-	Label     string                                                                 `json:"label"`
-	Priority  int                                                                    `json:"priority"`
-	Condition *json.RawMessage                                                       `json:"condition"`
-	Target    *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode `json:"target"`
+	Name        *string                                                                `json:"name"`
+	Loc         string                                                                 `json:"loc"`
+	Description *string                                                                `json:"description"`
+	IsRunnable  *bool                                                                  `json:"isRunnable"`
+	Priority    int                                                                    `json:"priority"`
+	Condition   *json.RawMessage                                                       `json:"condition"`
+	Target      *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode `json:"target"`
 }
 
-// GetLabel returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.Label, and is useful for accessing the field via an interface.
-func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) GetLabel() string {
-	return v.Label
+// GetName returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.Name, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) GetName() *string {
+	return v.Name
+}
+
+// GetLoc returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.Loc, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) GetLoc() string { return v.Loc }
+
+// GetDescription returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.Description, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) GetDescription() *string {
+	return v.Description
+}
+
+// GetIsRunnable returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.IsRunnable, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) GetIsRunnable() *bool {
+	return v.IsRunnable
 }
 
 // GetPriority returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.Priority, and is useful for accessing the field via an interface.
@@ -2358,7 +2408,10 @@ type NodeBatchResponse struct {
 func (v *NodeBatchResponse) GetNodeBatch() *NodeBatchNodeBatchNodeBatchResult { return v.NodeBatch }
 
 type NodeEdgeInput struct {
-	Label *string `json:"label"`
+	Description *string `json:"description"`
+	IsRunnable  *bool   `json:"isRunnable"`
+	Loc         *string `json:"loc"`
+	Name        *string `json:"name"`
 	// Reference to the target node. Accepts a node ID, a full URN
 	// (hrn:node:<memory-urn>::<loc>), a memory-prefixed loc
 	// (<memory-urn>:<loc>), or a short loc resolved within the source
@@ -2366,8 +2419,17 @@ type NodeEdgeInput struct {
 	TargetId string `json:"targetId"`
 }
 
-// GetLabel returns NodeEdgeInput.Label, and is useful for accessing the field via an interface.
-func (v *NodeEdgeInput) GetLabel() *string { return v.Label }
+// GetDescription returns NodeEdgeInput.Description, and is useful for accessing the field via an interface.
+func (v *NodeEdgeInput) GetDescription() *string { return v.Description }
+
+// GetIsRunnable returns NodeEdgeInput.IsRunnable, and is useful for accessing the field via an interface.
+func (v *NodeEdgeInput) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetLoc returns NodeEdgeInput.Loc, and is useful for accessing the field via an interface.
+func (v *NodeEdgeInput) GetLoc() *string { return v.Loc }
+
+// GetName returns NodeEdgeInput.Name, and is useful for accessing the field via an interface.
+func (v *NodeEdgeInput) GetName() *string { return v.Name }
 
 // GetTargetId returns NodeEdgeInput.TargetId, and is useful for accessing the field via an interface.
 func (v *NodeEdgeInput) GetTargetId() string { return v.TargetId }
@@ -3412,18 +3474,26 @@ func (v *UpdateEdgeResponse) GetUpdateEdge() *UpdateEdgeUpdateEdge { return v.Up
 
 // UpdateEdgeUpdateEdge includes the requested fields of the GraphQL type Edge.
 type UpdateEdgeUpdateEdge struct {
-	Id       string                          `json:"id"`
-	Label    string                          `json:"label"`
-	Priority int                             `json:"priority"`
-	Source   *UpdateEdgeUpdateEdgeSourceNode `json:"source"`
-	Target   *UpdateEdgeUpdateEdgeTargetNode `json:"target"`
+	Id         string                          `json:"id"`
+	Name       *string                         `json:"name"`
+	Loc        string                          `json:"loc"`
+	IsRunnable *bool                           `json:"isRunnable"`
+	Priority   int                             `json:"priority"`
+	Source     *UpdateEdgeUpdateEdgeSourceNode `json:"source"`
+	Target     *UpdateEdgeUpdateEdgeTargetNode `json:"target"`
 }
 
 // GetId returns UpdateEdgeUpdateEdge.Id, and is useful for accessing the field via an interface.
 func (v *UpdateEdgeUpdateEdge) GetId() string { return v.Id }
 
-// GetLabel returns UpdateEdgeUpdateEdge.Label, and is useful for accessing the field via an interface.
-func (v *UpdateEdgeUpdateEdge) GetLabel() string { return v.Label }
+// GetName returns UpdateEdgeUpdateEdge.Name, and is useful for accessing the field via an interface.
+func (v *UpdateEdgeUpdateEdge) GetName() *string { return v.Name }
+
+// GetLoc returns UpdateEdgeUpdateEdge.Loc, and is useful for accessing the field via an interface.
+func (v *UpdateEdgeUpdateEdge) GetLoc() string { return v.Loc }
+
+// GetIsRunnable returns UpdateEdgeUpdateEdge.IsRunnable, and is useful for accessing the field via an interface.
+func (v *UpdateEdgeUpdateEdge) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetPriority returns UpdateEdgeUpdateEdge.Priority, and is useful for accessing the field via an interface.
 func (v *UpdateEdgeUpdateEdge) GetPriority() int { return v.Priority }
@@ -4212,7 +4282,10 @@ func (v *__CreateAppInput) GetDescription() *string { return v.Description }
 type __CreateEdgeInput struct {
 	SourceNodeId string           `json:"sourceNodeId"`
 	TargetNodeId string           `json:"targetNodeId"`
-	Label        string           `json:"label"`
+	Name         string           `json:"name"`
+	Loc          *string          `json:"loc,omitempty"`
+	Description  *string          `json:"description,omitempty"`
+	IsRunnable   *bool            `json:"isRunnable,omitempty"`
 	Priority     *int             `json:"priority,omitempty"`
 	Condition    *json.RawMessage `json:"condition,omitempty"`
 	Data         *json.RawMessage `json:"data,omitempty"`
@@ -4224,8 +4297,17 @@ func (v *__CreateEdgeInput) GetSourceNodeId() string { return v.SourceNodeId }
 // GetTargetNodeId returns __CreateEdgeInput.TargetNodeId, and is useful for accessing the field via an interface.
 func (v *__CreateEdgeInput) GetTargetNodeId() string { return v.TargetNodeId }
 
-// GetLabel returns __CreateEdgeInput.Label, and is useful for accessing the field via an interface.
-func (v *__CreateEdgeInput) GetLabel() string { return v.Label }
+// GetName returns __CreateEdgeInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateEdgeInput) GetName() string { return v.Name }
+
+// GetLoc returns __CreateEdgeInput.Loc, and is useful for accessing the field via an interface.
+func (v *__CreateEdgeInput) GetLoc() *string { return v.Loc }
+
+// GetDescription returns __CreateEdgeInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateEdgeInput) GetDescription() *string { return v.Description }
+
+// GetIsRunnable returns __CreateEdgeInput.IsRunnable, and is useful for accessing the field via an interface.
+func (v *__CreateEdgeInput) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetPriority returns __CreateEdgeInput.Priority, and is useful for accessing the field via an interface.
 func (v *__CreateEdgeInput) GetPriority() *int { return v.Priority }
@@ -4578,18 +4660,30 @@ func (v *__UpdateAiServiceConfigInput) GetParams() *json.RawMessage { return v.P
 
 // __UpdateEdgeInput is used internally by genqlient
 type __UpdateEdgeInput struct {
-	EdgeId    string           `json:"edgeId"`
-	Label     *string          `json:"label,omitempty"`
-	Priority  *int             `json:"priority,omitempty"`
-	Condition *json.RawMessage `json:"condition,omitempty"`
-	Data      *json.RawMessage `json:"data,omitempty"`
+	EdgeId      string           `json:"edgeId"`
+	Name        *string          `json:"name,omitempty"`
+	Loc         *string          `json:"loc,omitempty"`
+	Description *string          `json:"description,omitempty"`
+	IsRunnable  *bool            `json:"isRunnable,omitempty"`
+	Priority    *int             `json:"priority,omitempty"`
+	Condition   *json.RawMessage `json:"condition,omitempty"`
+	Data        *json.RawMessage `json:"data,omitempty"`
 }
 
 // GetEdgeId returns __UpdateEdgeInput.EdgeId, and is useful for accessing the field via an interface.
 func (v *__UpdateEdgeInput) GetEdgeId() string { return v.EdgeId }
 
-// GetLabel returns __UpdateEdgeInput.Label, and is useful for accessing the field via an interface.
-func (v *__UpdateEdgeInput) GetLabel() *string { return v.Label }
+// GetName returns __UpdateEdgeInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateEdgeInput) GetName() *string { return v.Name }
+
+// GetLoc returns __UpdateEdgeInput.Loc, and is useful for accessing the field via an interface.
+func (v *__UpdateEdgeInput) GetLoc() *string { return v.Loc }
+
+// GetDescription returns __UpdateEdgeInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateEdgeInput) GetDescription() *string { return v.Description }
+
+// GetIsRunnable returns __UpdateEdgeInput.IsRunnable, and is useful for accessing the field via an interface.
+func (v *__UpdateEdgeInput) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetPriority returns __UpdateEdgeInput.Priority, and is useful for accessing the field via an interface.
 func (v *__UpdateEdgeInput) GetPriority() *int { return v.Priority }
@@ -5008,10 +5102,12 @@ func CreateApp(
 
 // The mutation executed by CreateEdge.
 const CreateEdge_Operation = `
-mutation CreateEdge ($sourceNodeId: ID!, $targetNodeId: ID!, $label: String!, $priority: Int, $condition: JSON, $data: JSON) {
-	createEdge(sourceNodeId: $sourceNodeId, targetNodeId: $targetNodeId, label: $label, priority: $priority, condition: $condition, data: $data) {
+mutation CreateEdge ($sourceNodeId: ID!, $targetNodeId: ID!, $name: String!, $loc: String, $description: String, $isRunnable: Boolean, $priority: Int, $condition: JSON, $data: JSON) {
+	createEdge(sourceNodeId: $sourceNodeId, targetNodeId: $targetNodeId, name: $name, loc: $loc, description: $description, isRunnable: $isRunnable, priority: $priority, condition: $condition, data: $data) {
 		id
-		label
+		name
+		loc
+		isRunnable
 		priority
 		source {
 			id
@@ -5033,7 +5129,10 @@ func CreateEdge(
 	client_ graphql.Client,
 	sourceNodeId string,
 	targetNodeId string,
-	label string,
+	name string,
+	loc *string,
+	description *string,
+	isRunnable *bool,
 	priority *int,
 	condition *json.RawMessage,
 	data *json.RawMessage,
@@ -5044,7 +5143,10 @@ func CreateEdge(
 		Variables: &__CreateEdgeInput{
 			SourceNodeId: sourceNodeId,
 			TargetNodeId: targetNodeId,
-			Label:        label,
+			Name:         name,
+			Loc:          loc,
+			Description:  description,
+			IsRunnable:   isRunnable,
 			Priority:     priority,
 			Condition:    condition,
 			Data:         data,
@@ -5521,7 +5623,9 @@ query GetNodeById ($id: ID!) {
 		updatedAt
 		outgoingEdges {
 			id
-			label
+			name
+			loc
+			isRunnable
 			priority
 			target {
 				id
@@ -5531,7 +5635,9 @@ query GetNodeById ($id: ID!) {
 		}
 		incomingEdges {
 			id
-			label
+			name
+			loc
+			isRunnable
 			priority
 			source {
 				id
@@ -5845,7 +5951,10 @@ query NodeBatch ($ids: [ID!]) {
 			content
 			updatedAt
 			outgoingEdges {
-				label
+				name
+				loc
+				description
+				isRunnable
 				priority
 				condition
 				target {
@@ -5855,7 +5964,9 @@ query NodeBatch ($ids: [ID!]) {
 				}
 			}
 			incomingEdges {
-				label
+				name
+				loc
+				isRunnable
 				source {
 					id
 					loc
@@ -6400,10 +6511,12 @@ func UpdateAiServiceConfig(
 
 // The mutation executed by UpdateEdge.
 const UpdateEdge_Operation = `
-mutation UpdateEdge ($edgeId: ID!, $label: String, $priority: Int, $condition: JSON, $data: JSON) {
-	updateEdge(edgeId: $edgeId, label: $label, priority: $priority, condition: $condition, data: $data) {
+mutation UpdateEdge ($edgeId: ID!, $name: String, $loc: String, $description: String, $isRunnable: Boolean, $priority: Int, $condition: JSON, $data: JSON) {
+	updateEdge(edgeId: $edgeId, name: $name, loc: $loc, description: $description, isRunnable: $isRunnable, priority: $priority, condition: $condition, data: $data) {
 		id
-		label
+		name
+		loc
+		isRunnable
 		priority
 		source {
 			id
@@ -6423,7 +6536,10 @@ func UpdateEdge(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	edgeId string,
-	label *string,
+	name *string,
+	loc *string,
+	description *string,
+	isRunnable *bool,
 	priority *int,
 	condition *json.RawMessage,
 	data *json.RawMessage,
@@ -6432,11 +6548,14 @@ func UpdateEdge(
 		OpName: "UpdateEdge",
 		Query:  UpdateEdge_Operation,
 		Variables: &__UpdateEdgeInput{
-			EdgeId:    edgeId,
-			Label:     label,
-			Priority:  priority,
-			Condition: condition,
-			Data:      data,
+			EdgeId:      edgeId,
+			Name:        name,
+			Loc:         loc,
+			Description: description,
+			IsRunnable:  isRunnable,
+			Priority:    priority,
+			Condition:   condition,
+			Data:        data,
 		},
 	}
 

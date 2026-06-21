@@ -156,14 +156,14 @@ afterward (the tool prints a reminder; it never edits the register).`,
 					continue
 				}
 				if tid, rerr := resolveSpecNode(cmd, client, memURN, e.Target); rerr == nil {
-					if _, cerr := gen.CreateEdge(cmd.Context(), client, newID, tid, e.Label, nil, nil, nil); cerr != nil {
+					if _, cerr := gen.CreateEdge(cmd.Context(), client, newID, tid, e.Label, nil, nil, nil, nil, nil, nil); cerr != nil {
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q failed: %v\n", e.Label, api.MapError(cerr))
 					}
 				}
 			}
 
 			// 3. superseded-by edge old → new.
-			if _, cerr := gen.CreateEdge(cmd.Context(), client, oldNode.Id, newID, supersededByLabel, nil, nil, nil); cerr != nil {
+			if _, cerr := gen.CreateEdge(cmd.Context(), client, oldNode.Id, newID, supersededByLabel, nil, nil, nil, nil, nil, nil); cerr != nil {
 				return api.MapError(cerr)
 			}
 

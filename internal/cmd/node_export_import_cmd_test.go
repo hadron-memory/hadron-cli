@@ -17,7 +17,7 @@ const exportBatchJSON = `{"data":{"nodeBatch":{
 		"alias":"flaky","nodeType":"task","description":"One liner","abstract":"A summary.",
 		"abstractOriginHash":"deadbeef","tags":["ci"],"seq":3,"data":{"k":"v"},"properties":{"p":"q"},
 		"content":"The body.","updatedAt":"2026-06-11T00:00:00Z",
-		"outgoingEdges":[{"label":"routes-to","priority":10,"condition":null,"target":{"id":"n2","loc":"start","memoryId":"mem1"}}],
+		"outgoingEdges":[{"name":"routes-to","priority":10,"condition":null,"target":{"id":"n2","loc":"start","memoryId":"mem1"}}],
 		"incomingEdges":[]
 	}]
 }}}`
@@ -387,7 +387,7 @@ func TestNodeImportWithEdgesIdempotent(t *testing.T) {
 	const existingEdges = `{"data":{"nodeById":{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
 		"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"task","tags":[],
 		"content":"x","data":null,"seq":null,"createdAt":"2026-06-11T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
-		"outgoingEdges":[{"id":"e0","label":"existing-label","priority":0,"target":{"id":"n2","loc":"start","memoryId":"mem1"}}],
+		"outgoingEdges":[{"id":"e0","name":"existing-label","priority":0,"target":{"id":"n2","loc":"start","memoryId":"mem1"}}],
 		"incomingEdges":[]}}}`
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn":  `{"data":{"resolveUrn":{"id":"n2","kind":"node","memoryId":"mem1"}}}`,
@@ -418,7 +418,7 @@ func TestNodeImportWithEdgesIdempotent(t *testing.T) {
 	// The single createEdge is the NEW edge, with its condition + priority.
 	var ce map[string]any
 	_ = json.Unmarshal(captured["CreateEdge"], &ce)
-	if ce["label"] != "new-label" {
+	if ce["name"] != "new-label" {
 		t.Errorf("wired the wrong edge: %v", ce)
 	}
 	if ce["sourceNodeId"] != "n1" || ce["targetNodeId"] != "n2" {

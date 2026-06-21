@@ -290,7 +290,7 @@ is one call instead of four.`,
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: skipped edge %q → %s: %v\n", e.Label, e.Target, rerr)
 						continue
 					}
-					if _, cerr := gen.CreateEdge(cmd.Context(), client, newID, targetID, e.Label, nil, nil, nil); cerr != nil {
+					if _, cerr := gen.CreateEdge(cmd.Context(), client, newID, targetID, e.Label, nil, nil, nil, nil, nil, nil); cerr != nil {
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", e.Label, e.Target, api.MapError(cerr))
 					}
 				}
@@ -316,7 +316,7 @@ is one call instead of four.`,
 					return fmt.Errorf("created %s but its contract %s failed: %w", target.Format(), coContract.cit.Format(), api.MapError(cErr))
 				}
 				if !noEdges {
-					if _, eErr := gen.CreateEdge(cmd.Context(), client, cUp.UpsertNode.Id, newID, coContract.title, nil, nil, nil); eErr != nil {
+					if _, eErr := gen.CreateEdge(cmd.Context(), client, cUp.UpsertNode.Id, newID, coContract.title, nil, nil, nil, nil, nil, nil); eErr != nil {
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", coContract.title, target.Format(), api.MapError(eErr))
 					}
 				}
@@ -774,7 +774,7 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 				}
 				tid = rid
 			}
-			if _, cerr := gen.CreateEdge(cmd.Context(), client, srcID, tid, e.Label, nil, nil, nil); cerr != nil {
+			if _, cerr := gen.CreateEdge(cmd.Context(), client, srcID, tid, e.Label, nil, nil, nil, nil, nil, nil); cerr != nil {
 				fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", e.Label, e.Target, api.MapError(cerr))
 			}
 		}

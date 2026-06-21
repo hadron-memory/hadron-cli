@@ -170,6 +170,14 @@ one object for a single citation, an array for --prefix.`,
 	return cmd
 }
 
+// edgeNameStr derefs an edge's optional name to a plain string.
+func edgeNameStr(s *string) string {
+	if s != nil {
+		return *s
+	}
+	return ""
+}
+
 // specDetailFromNode projects a fetched node into the stable detail DTO and
 // computes its per-node lint findings. includeContent gates the body (false
 // for --abstract-only).
@@ -191,12 +199,12 @@ func specDetailFromNode(n *gen.GetNodeByIdNodeByIdNode, includeContent bool) spe
 	}
 	for _, e := range n.OutgoingEdges {
 		if e != nil && e.Target != nil {
-			dto.Edges = append(dto.Edges, specEdgeDTO{Direction: "out", Label: e.Label, Loc: e.Target.Loc, MemoryID: e.Target.MemoryId})
+			dto.Edges = append(dto.Edges, specEdgeDTO{Direction: "out", Name: edgeNameStr(e.Name), Loc: e.Target.Loc, MemoryID: e.Target.MemoryId})
 		}
 	}
 	for _, e := range n.IncomingEdges {
 		if e != nil && e.Source != nil {
-			dto.Edges = append(dto.Edges, specEdgeDTO{Direction: "in", Label: e.Label, Loc: e.Source.Loc, MemoryID: e.Source.MemoryId})
+			dto.Edges = append(dto.Edges, specEdgeDTO{Direction: "in", Name: edgeNameStr(e.Name), Loc: e.Source.Loc, MemoryID: e.Source.MemoryId})
 		}
 	}
 	return dto
@@ -226,7 +234,9 @@ func nodeByIDFromBatch(b *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) *gen.G
 			continue
 		}
 		n.OutgoingEdges = append(n.OutgoingEdges, &gen.GetNodeByIdNodeByIdNodeOutgoingEdgesEdge{
-			Label:  e.Label,
+			Name:       e.Name,
+			Loc:        e.Loc,
+			IsRunnable: e.IsRunnable,
 			Target: &gen.GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode{Id: e.Target.Id, Loc: e.Target.Loc, MemoryId: e.Target.MemoryId},
 		})
 	}
@@ -235,7 +245,9 @@ func nodeByIDFromBatch(b *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) *gen.G
 			continue
 		}
 		n.IncomingEdges = append(n.IncomingEdges, &gen.GetNodeByIdNodeByIdNodeIncomingEdgesEdge{
-			Label:  e.Label,
+			Name:       e.Name,
+			Loc:        e.Loc,
+			IsRunnable: e.IsRunnable,
 			Source: &gen.GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode{Id: e.Source.Id, Loc: e.Source.Loc, MemoryId: e.Source.MemoryId},
 		})
 	}
@@ -265,7 +277,7 @@ func renderSpecDetail(w io.Writer, memURN string, d specDetailDTO) {
 			if e.Direction == "in" {
 				arrow = "←"
 			}
-			fmt.Fprintf(w, "  %s %s  %s\n", arrow, e.Loc, e.Label)
+			fmt.Fprintf(w, "  %s %s  %s\n", arrow, e.Loc, e.Name)
 		}
 	}
 	if len(d.Lint) == 0 {
