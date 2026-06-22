@@ -24,7 +24,7 @@ func TestReplaceDryRun(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{
 		"replace", "text", "cat", "dog",
-		"-m", "acme.com:kb", "--field", "content", "--field", "tags",
+		"-m", "acme.com::kb", "--field", "content", "--field", "tags",
 		"--dry-run", "--server", gql.URL,
 	})
 	if err := root.Execute(); err != nil {
@@ -57,7 +57,7 @@ func TestReplaceDryRun(t *testing.T) {
 	if len(vars.Input.Fields) != 2 || vars.Input.Fields[0] != "content" || vars.Input.Fields[1] != "tags" {
 		t.Errorf("--field should map to fields enum: %v", vars.Input.Fields)
 	}
-	if len(vars.Input.MemoryIds) != 1 || vars.Input.MemoryIds[0] != "acme.com:kb" {
+	if len(vars.Input.MemoryIds) != 1 || vars.Input.MemoryIds[0] != "acme.com::kb" {
 		t.Errorf("-m should map to memoryIds: %v", vars.Input.MemoryIds)
 	}
 	if vars.Input.DryRun == nil || !*vars.Input.DryRun {
@@ -74,7 +74,7 @@ func TestReplaceWithYesWrites(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{
 		"replace", "text", "cat", "dog",
-		"-m", "acme.com:kb", "--field", "content", "--yes", "--server", gql.URL,
+		"-m", "acme.com::kb", "--field", "content", "--yes", "--server", gql.URL,
 	})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -100,7 +100,7 @@ func TestReplaceRefusesWriteWithoutYesNonInteractive(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{
 		"replace", "text", "cat", "dog",
-		"-m", "acme.com:kb", "--field", "content", "--server", "http://127.0.0.1:1",
+		"-m", "acme.com::kb", "--field", "content", "--server", "http://127.0.0.1:1",
 	})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "--yes") {
@@ -113,7 +113,7 @@ func TestReplacePrefixRequiresMemory(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{
 		"replace", "text", "x", "y",
-		"--node", "acme.com:kb:findings:flaky-ci", "--prefix", "findings:",
+		"--node", "acme.com::kb:findings:flaky-ci", "--prefix", "findings:",
 		"--field", "content", "--server", "http://127.0.0.1:1",
 	})
 	err := root.Execute()
@@ -138,7 +138,7 @@ func TestReplaceRejectsUnknownField(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{
-		"replace", "text", "x", "y", "-m", "acme.com:kb", "--field", "bogus", "--server", "http://127.0.0.1:1",
+		"replace", "text", "x", "y", "-m", "acme.com::kb", "--field", "bogus", "--server", "http://127.0.0.1:1",
 	})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "unknown --field") {
