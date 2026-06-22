@@ -6,19 +6,24 @@ import (
 	"testing"
 )
 
-const searchReplaceJSON = `{"data":{"searchReplaceInNodes":{
+const searchReplaceDryJSON = `{"data":{"searchReplaceInNodes":{
 	"nodesScanned":2,"nodesChanged":1,"totalReplacements":3,"dryRun":true,
 	"results":[{"nodeId":"n1","loc":"findings:flaky-ci","memoryId":"mem1","replacements":3,
 		"fields":[{"field":"content","matches":2},{"field":"tags","matches":1}]}]}}}`
 
-func TestNodeReplaceDryRun(t *testing.T) {
+const searchReplaceRealJSON = `{"data":{"searchReplaceInNodes":{
+	"nodesScanned":2,"nodesChanged":1,"totalReplacements":3,"dryRun":false,
+	"results":[{"nodeId":"n1","loc":"findings:flaky-ci","memoryId":"mem1","replacements":3,
+		"fields":[{"field":"content","matches":2},{"field":"tags","matches":1}]}]}}}`
+
+func TestReplaceDryRun(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"SearchReplaceInNodes": searchReplaceJSON,
+		"SearchReplaceInNodes": searchReplaceDryJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{
-		"node", "replace", "--old", "cat", "--new", "dog",
+		"replace", "cat", "dog",
 		"-m", "acme.com:kb", "--field", "content", "--field", "tags",
 		"--dry-run", "--server", gql.URL,
 	})
@@ -47,7 +52,7 @@ func TestNodeReplaceDryRun(t *testing.T) {
 		t.Fatalf("unmarshal vars: %v", err)
 	}
 	if vars.Input.OldText != "cat" || vars.Input.NewText != "dog" {
-		t.Errorf("old/new not forwarded: %+v", vars.Input)
+		t.Errorf("positional old/new not forwarded: %+v", vars.Input)
 	}
 	if len(vars.Input.Fields) != 2 || vars.Input.Fields[0] != "content" || vars.Input.Fields[1] != "tags" {
 		t.Errorf("--field should map to fields enum: %v", vars.Input.Fields)
@@ -60,11 +65,54 @@ func TestNodeReplaceDryRun(t *testing.T) {
 	}
 }
 
-func TestNodeReplacePrefixRequiresMemory(t *testing.T) {
+// A real write with --yes skips the preview/confirm and sends dryRun=false.
+func TestReplaceWithYesWrites(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"SearchReplaceInNodes": searchReplaceRealJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{
+		"replace", "cat", "dog",
+		"-m", "acme.com:kb", "--field", "content", "--yes", "--server", gql.URL,
+	})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.HasPrefix(out.String(), "Replaced 3 occurrence(s)") {
+		t.Errorf("expected a real-write header, got: %s", out.String())
+	}
+	var vars struct {
+		Input struct {
+			DryRun *bool `json:"dryRun"`
+		} `json:"input"`
+	}
+	_ = json.Unmarshal(captured["SearchReplaceInNodes"], &vars)
+	if vars.Input.DryRun == nil || *vars.Input.DryRun {
+		t.Errorf("--yes write should send dryRun=false: %v", vars.Input.DryRun)
+	}
+}
+
+// A real write without --yes in non-interactive mode is refused before any
+// GraphQL call (agents must pass --yes or --dry-run).
+func TestReplaceRefusesWriteWithoutYesNonInteractive(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{
-		"node", "replace", "--old", "x", "--new", "y",
+		"replace", "cat", "dog",
+		"-m", "acme.com:kb", "--field", "content", "--server", "http://127.0.0.1:1",
+	})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "--yes") {
+		t.Errorf("expected a non-interactive --yes refusal, got: %v", err)
+	}
+}
+
+func TestReplacePrefixRequiresMemory(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{
+		"replace", "x", "y",
 		"--node", "acme.com:kb:findings:flaky-ci", "--prefix", "findings:",
 		"--field", "content", "--server", "http://127.0.0.1:1",
 	})
@@ -74,12 +122,11 @@ func TestNodeReplacePrefixRequiresMemory(t *testing.T) {
 	}
 }
 
-func TestNodeReplaceNeedsSelection(t *testing.T) {
+func TestReplaceNeedsSelection(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{
-		"node", "replace", "--old", "x", "--new", "y",
-		"--field", "content", "--server", "http://127.0.0.1:1",
+		"replace", "x", "y", "--field", "content", "--server", "http://127.0.0.1:1",
 	})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "--node or --memory") {
@@ -87,12 +134,11 @@ func TestNodeReplaceNeedsSelection(t *testing.T) {
 	}
 }
 
-func TestNodeReplaceRejectsUnknownField(t *testing.T) {
+func TestReplaceRejectsUnknownField(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{
-		"node", "replace", "--old", "x", "--new", "y",
-		"-m", "acme.com:kb", "--field", "bogus", "--server", "http://127.0.0.1:1",
+		"replace", "x", "y", "-m", "acme.com:kb", "--field", "bogus", "--server", "http://127.0.0.1:1",
 	})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "unknown --field") {

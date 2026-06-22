@@ -49,7 +49,8 @@ server defaults to
 ```
 hadron auth login | logout | whoami | status | token create|ls|revoke <id>
 hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>]
-hadron node ls [-m <memory>] | get <urn> | add | update <urn> | replace --old <text> --new <text> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [--ignore-case] [--dry-run] | rm <urn> | export <urn> [-o <file>] [--format md|json] | import <file|-> [-m <memory>] [--with-edges]
+hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn> | export <urn> [-o <file>] [--format md|json] | import <file|-> [-m <memory>] [--with-edges]
+hadron replace <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes]
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
 hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | register [--check] | find <query> [--match-exactly] | new ... | extract <citation> --to-feature <fff> | lint [<citation>] | supersede <citation> | import spec-kit|code
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
@@ -82,10 +83,10 @@ Conventions:
   `--runnable`); `edge update`/`edge rm` address it by its edge ID (shown by
   `edge ls` and in `node get --json`). A nameless edge prints its loc instead.
   Cross-memory edges are allowed.
-- Destructive commands (`memory rm`, `node rm`, `edge rm`,
-  `app uninstall`) prompt on a terminal and REQUIRE `--yes` when run
-  non-interactively (agents must always pass `--yes`). Without it
-  they exit 2.
+- Destructive / bulk-write commands (`memory rm`, `node rm`, `edge rm`,
+  `app uninstall`, and a real `replace`) prompt on a terminal and REQUIRE
+  `--yes` when run non-interactively (agents must always pass `--yes`, or
+  `--dry-run` to preview `replace`). Without it they exit 2.
 - `memory set` creates when called without a positional argument
   (requires `--org` and `--name`) and updates when given one. Only
   fields passed as flags change.
@@ -249,8 +250,9 @@ cat finding.md | hadron node add -m acme.com:kb --loc findings:flaky-ci \
 # Update just the name (other fields preserved)
 hadron node update acme.com:kb:findings:flaky-ci --name "Flaky CI (resolved)"
 
-# Bulk search-and-replace across a memory (preview first with --dry-run)
-hadron node replace --old "old-url.com" --new "new-url.com" \
+# Bulk search-and-replace across a memory. A real run previews + prompts;
+# agents pass --dry-run to preview or --yes to apply non-interactively.
+hadron replace "old-url.com" "new-url.com" \
   -m acme.com:kb --field content --field description --dry-run
 
 # Connect two nodes
