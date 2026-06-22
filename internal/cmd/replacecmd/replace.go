@@ -55,12 +55,12 @@ func NewCmdReplace(f *cmdutil.Factory) *cobra.Command {
 		Use:   "replace",
 		Short: "Search and replace text in nodes",
 	}
-	cmd.AddCommand(NewCmdReplaceText(f))
+	cmd.AddCommand(newCmdReplaceText(f))
 	return cmd
 }
 
-// NewCmdReplaceText builds the `hadron replace text` subcommand.
-func NewCmdReplaceText(f *cmdutil.Factory) *cobra.Command {
+// newCmdReplaceText builds the `hadron replace text` subcommand.
+func newCmdReplaceText(f *cmdutil.Factory) *cobra.Command {
 	var (
 		nodes      []string
 		memories   []string
