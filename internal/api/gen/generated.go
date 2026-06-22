@@ -2599,6 +2599,28 @@ func (v *NodeSearchResponse) GetNodeSearch() *NodeSearchNodeSearchNodeSearchResu
 	return v.NodeSearch
 }
 
+// Text-bearing Node fields that searchReplaceInNodes may rewrite. JSON fields
+// (data, properties) and the structural 'loc' are intentionally excluded in v1.
+type NodeTextField string
+
+const (
+	NodeTextFieldAbstract    NodeTextField = "abstract"
+	NodeTextFieldAlias       NodeTextField = "alias"
+	NodeTextFieldContent     NodeTextField = "content"
+	NodeTextFieldDescription NodeTextField = "description"
+	NodeTextFieldName        NodeTextField = "name"
+	NodeTextFieldTags        NodeTextField = "tags"
+)
+
+var AllNodeTextField = []NodeTextField{
+	NodeTextFieldAbstract,
+	NodeTextFieldAlias,
+	NodeTextFieldContent,
+	NodeTextFieldDescription,
+	NodeTextFieldName,
+	NodeTextFieldTags,
+}
+
 // NodesNodesNode includes the requested fields of the GraphQL type Node.
 type NodesNodesNode struct {
 	Id        string   `json:"id"`
@@ -3193,6 +3215,169 @@ var AllSearchMode = []SearchMode{
 	SearchModeHybrid,
 	SearchModeKeyword,
 	SearchModeVector,
+}
+
+// Bulk literal/regex search-and-replace across selected nodes.
+//
+// Selection is a union — at least one of 'nodeIds' or 'memoryIds' is required:
+// - nodeIds:   explicit nodes (IDs or fully-qualified URNs).
+// - memoryIds: every live node in those memories (IDs or URNs).
+// - prefix:    further restrict the memoryIds set to the node at 'prefix'
+// plus its descendants, matched on colon loc-path boundaries
+// (so 'auth' matches 'auth' and 'auth:tokens' but not
+// 'authoring'). Requires 'memoryIds' — loc is only unique
+// within a memory.
+//
+// Matching is literal substring by default; set 'regex: true' to treat
+// 'oldText' as a RegExp source (and 'newText' as a replacement pattern with
+// dollar-sign backrefs). 'caseInsensitive' toggles case folding. Matching is
+// always global.
+//
+// Set 'dryRun: true' to get per-node/per-field match counts WITHOUT writing.
+type SearchReplaceInNodesInput struct {
+	CaseInsensitive *bool `json:"caseInsensitive"`
+	// When true, report matches without writing anything.
+	DryRun *bool `json:"dryRun"`
+	// Which text fields to search. At least one required.
+	Fields []NodeTextField `json:"fields"`
+	// Memory IDs or URNs — selects every live node in each.
+	MemoryIds []string `json:"memoryIds"`
+	// Replacement. May be empty (deletes the matched text). Regex mode honors dollar-sign backrefs.
+	NewText string `json:"newText"`
+	// Explicit node IDs or fully-qualified URNs.
+	NodeIds []string `json:"nodeIds"`
+	// Text (literal) or RegExp source (regex mode) to find. Must be non-empty.
+	OldText string `json:"oldText"`
+	// Loc-prefix filter applied within 'memoryIds' (parent loc + descendants).
+	Prefix *string `json:"prefix"`
+	// Treat oldText as a RegExp source and newText as a replacement pattern.
+	Regex *bool `json:"regex"`
+}
+
+// GetCaseInsensitive returns SearchReplaceInNodesInput.CaseInsensitive, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesInput) GetCaseInsensitive() *bool { return v.CaseInsensitive }
+
+// GetDryRun returns SearchReplaceInNodesInput.DryRun, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesInput) GetDryRun() *bool { return v.DryRun }
+
+// GetFields returns SearchReplaceInNodesInput.Fields, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesInput) GetFields() []NodeTextField { return v.Fields }
+
+// GetMemoryIds returns SearchReplaceInNodesInput.MemoryIds, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesInput) GetMemoryIds() []string { return v.MemoryIds }
+
+// GetNewText returns SearchReplaceInNodesInput.NewText, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesInput) GetNewText() string { return v.NewText }
+
+// GetNodeIds returns SearchReplaceInNodesInput.NodeIds, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesInput) GetNodeIds() []string { return v.NodeIds }
+
+// GetOldText returns SearchReplaceInNodesInput.OldText, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesInput) GetOldText() string { return v.OldText }
+
+// GetPrefix returns SearchReplaceInNodesInput.Prefix, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesInput) GetPrefix() *string { return v.Prefix }
+
+// GetRegex returns SearchReplaceInNodesInput.Regex, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesInput) GetRegex() *bool { return v.Regex }
+
+// SearchReplaceInNodesResponse is returned by SearchReplaceInNodes on success.
+type SearchReplaceInNodesResponse struct {
+	SearchReplaceInNodes *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult `json:"searchReplaceInNodes"`
+}
+
+// GetSearchReplaceInNodes returns SearchReplaceInNodesResponse.SearchReplaceInNodes, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesResponse) GetSearchReplaceInNodes() *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult {
+	return v.SearchReplaceInNodes
+}
+
+// SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult includes the requested fields of the GraphQL type SearchReplaceResult.
+type SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult struct {
+	// Nodes the selection resolved to (after auth + prefix filtering).
+	NodesScanned int `json:"nodesScanned"`
+	// Nodes with at least one replacement.
+	NodesChanged      int `json:"nodesChanged"`
+	TotalReplacements int `json:"totalReplacements"`
+	// Echoes the request — true means nothing was written.
+	DryRun bool `json:"dryRun"`
+	// Per-node breakdown; only nodes with at least one match are listed.
+	Results []*SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResult `json:"results"`
+}
+
+// GetNodesScanned returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult.NodesScanned, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult) GetNodesScanned() int {
+	return v.NodesScanned
+}
+
+// GetNodesChanged returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult.NodesChanged, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult) GetNodesChanged() int {
+	return v.NodesChanged
+}
+
+// GetTotalReplacements returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult.TotalReplacements, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult) GetTotalReplacements() int {
+	return v.TotalReplacements
+}
+
+// GetDryRun returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult.DryRun, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult) GetDryRun() bool {
+	return v.DryRun
+}
+
+// GetResults returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult.Results, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult) GetResults() []*SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResult {
+	return v.Results
+}
+
+// SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResult includes the requested fields of the GraphQL type SearchReplaceNodeResult.
+type SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResult struct {
+	NodeId   string `json:"nodeId"`
+	Loc      string `json:"loc"`
+	MemoryId string `json:"memoryId"`
+	// Total replacements across all searched fields on this node.
+	Replacements int                                                                                                                        `json:"replacements"`
+	Fields       []*SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult `json:"fields"`
+}
+
+// GetNodeId returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResult.NodeId, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResult) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetLoc returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResult.Loc, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResult) GetLoc() string {
+	return v.Loc
+}
+
+// GetMemoryId returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResult.MemoryId, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResult) GetMemoryId() string {
+	return v.MemoryId
+}
+
+// GetReplacements returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResult.Replacements, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResult) GetReplacements() int {
+	return v.Replacements
+}
+
+// GetFields returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResult.Fields, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResult) GetFields() []*SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult {
+	return v.Fields
+}
+
+// SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult includes the requested fields of the GraphQL type SearchReplaceFieldResult.
+type SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult struct {
+	Field   NodeTextField `json:"field"`
+	Matches int           `json:"matches"`
+}
+
+// GetField returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult.Field, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult) GetField() NodeTextField {
+	return v.Field
+}
+
+// GetMatches returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult.Matches, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearchReplaceNodeResultFieldsSearchReplaceFieldResult) GetMatches() int {
+	return v.Matches
 }
 
 // SearchUsersResponse is returned by SearchUsers on success.
@@ -4621,6 +4806,14 @@ type __RevokeUserApiKeyInput struct {
 
 // GetId returns __RevokeUserApiKeyInput.Id, and is useful for accessing the field via an interface.
 func (v *__RevokeUserApiKeyInput) GetId() string { return v.Id }
+
+// __SearchReplaceInNodesInput is used internally by genqlient
+type __SearchReplaceInNodesInput struct {
+	Input *SearchReplaceInNodesInput `json:"input,omitempty"`
+}
+
+// GetInput returns __SearchReplaceInNodesInput.Input, and is useful for accessing the field via an interface.
+func (v *__SearchReplaceInNodesInput) GetInput() *SearchReplaceInNodesInput { return v.Input }
 
 // __SearchUsersInput is used internally by genqlient
 type __SearchUsersInput struct {
@@ -6397,6 +6590,57 @@ func RevokeUserApiKey(
 	}
 
 	data_ = &RevokeUserApiKeyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SearchReplaceInNodes.
+const SearchReplaceInNodes_Operation = `
+mutation SearchReplaceInNodes ($input: SearchReplaceInNodesInput!) {
+	searchReplaceInNodes(input: $input) {
+		nodesScanned
+		nodesChanged
+		totalReplacements
+		dryRun
+		results {
+			nodeId
+			loc
+			memoryId
+			replacements
+			fields {
+				field
+				matches
+			}
+		}
+	}
+}
+`
+
+// Bulk literal/regex search-and-replace across selected nodes (hadron-server#312).
+// Unset optional selectors/flags serialize as null, which the server treats the
+// same as absent (it checks `Array.isArray(nodeIds)` and null-vs-truthy on the
+// flags), so no per-field omitempty is needed here.
+func SearchReplaceInNodes(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SearchReplaceInNodesInput,
+) (data_ *SearchReplaceInNodesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SearchReplaceInNodes",
+		Query:  SearchReplaceInNodes_Operation,
+		Variables: &__SearchReplaceInNodesInput{
+			Input: input,
+		},
+	}
+
+	data_ = &SearchReplaceInNodesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

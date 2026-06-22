@@ -301,3 +301,26 @@ mutation UpdateEdge(
 mutation DeleteEdge($edgeId: ID!) {
   deleteEdge(edgeId: $edgeId)
 }
+
+# Bulk literal/regex search-and-replace across selected nodes (hadron-server#312).
+# Unset optional selectors/flags serialize as null, which the server treats the
+# same as absent (it checks `Array.isArray(nodeIds)` and null-vs-truthy on the
+# flags), so no per-field omitempty is needed here.
+mutation SearchReplaceInNodes($input: SearchReplaceInNodesInput!) {
+  searchReplaceInNodes(input: $input) {
+    nodesScanned
+    nodesChanged
+    totalReplacements
+    dryRun
+    results {
+      nodeId
+      loc
+      memoryId
+      replacements
+      fields {
+        field
+        matches
+      }
+    }
+  }
+}
