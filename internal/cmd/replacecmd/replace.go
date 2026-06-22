@@ -93,7 +93,7 @@ before writing; pass --yes to skip the prompt (required in non-interactive
 use), or --dry-run to preview without writing. Every change is saved to
 version history, so replacements are undoable.`,
 		Example: `  # Preview only
-  hadron replace text teh the -m acme.com:kb --field content --dry-run
+  hadron replace text oldtext newtext -m acme.com:kb --field content --dry-run
 
   # Apply across a subtree, two fields (prompts before writing)
   hadron replace text foo bar -m acme.com:kb --prefix services: --field content --field description
