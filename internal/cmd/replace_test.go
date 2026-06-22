@@ -23,7 +23,7 @@ func TestReplaceDryRun(t *testing.T) {
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{
-		"replace", "cat", "dog",
+		"replace", "text", "cat", "dog",
 		"-m", "acme.com:kb", "--field", "content", "--field", "tags",
 		"--dry-run", "--server", gql.URL,
 	})
@@ -73,7 +73,7 @@ func TestReplaceWithYesWrites(t *testing.T) {
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{
-		"replace", "cat", "dog",
+		"replace", "text", "cat", "dog",
 		"-m", "acme.com:kb", "--field", "content", "--yes", "--server", gql.URL,
 	})
 	if err := root.Execute(); err != nil {
@@ -99,7 +99,7 @@ func TestReplaceRefusesWriteWithoutYesNonInteractive(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{
-		"replace", "cat", "dog",
+		"replace", "text", "cat", "dog",
 		"-m", "acme.com:kb", "--field", "content", "--server", "http://127.0.0.1:1",
 	})
 	err := root.Execute()
@@ -112,7 +112,7 @@ func TestReplacePrefixRequiresMemory(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{
-		"replace", "x", "y",
+		"replace", "text", "x", "y",
 		"--node", "acme.com:kb:findings:flaky-ci", "--prefix", "findings:",
 		"--field", "content", "--server", "http://127.0.0.1:1",
 	})
@@ -126,7 +126,7 @@ func TestReplaceNeedsSelection(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{
-		"replace", "x", "y", "--field", "content", "--server", "http://127.0.0.1:1",
+		"replace", "text", "x", "y", "--field", "content", "--server", "http://127.0.0.1:1",
 	})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "--node or --memory") {
@@ -138,7 +138,7 @@ func TestReplaceRejectsUnknownField(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{
-		"replace", "x", "y", "-m", "acme.com:kb", "--field", "bogus", "--server", "http://127.0.0.1:1",
+		"replace", "text", "x", "y", "-m", "acme.com:kb", "--field", "bogus", "--server", "http://127.0.0.1:1",
 	})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "unknown --field") {
