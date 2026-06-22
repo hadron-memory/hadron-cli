@@ -18,6 +18,7 @@ type nodeDTO struct {
 	Name      string   `json:"name"`
 	NodeType  string   `json:"nodeType"`
 	Tags      []string `json:"tags"`
+	Seq       *int     `json:"seq"`
 	UpdatedAt string   `json:"updatedAt"`
 }
 
@@ -58,6 +59,7 @@ func upsertDTO(n *gen.UpsertNodeUpsertNode) nodeDTO {
 		Name:      n.Name,
 		NodeType:  n.NodeType,
 		Tags:      n.Tags,
+		Seq:       nil,
 		UpdatedAt: n.UpdatedAt,
 	}
 }

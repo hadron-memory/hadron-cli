@@ -27,8 +27,9 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 		data        string
 	)
 	cmd := &cobra.Command{
-		Use:   "add",
-		Short: "Create an edge between two nodes",
+		Use:     "create",
+		Aliases: []string{"add"},
+		Short:   "Create an edge between two nodes",
 		Long: `Create a directed, labeled edge from one node to another. Both
 endpoints are fully-qualified node URNs (<org>:<memory>:<loc>); pass
 -m/--memory to give --from/--to as bare locs in that one memory instead.

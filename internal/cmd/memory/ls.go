@@ -14,8 +14,8 @@ import (
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var includeAgentSystem bool
 	cmd := &cobra.Command{
-		Use:     "ls",
-		Aliases: []string{"list"},
+		Use:     "list",
+		Aliases: []string{"ls"},
 		Short:   "List memories you can access",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

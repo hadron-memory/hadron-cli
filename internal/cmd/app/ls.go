@@ -25,8 +25,8 @@ type appDTO struct {
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var org string
 	cmd := &cobra.Command{
-		Use:     "ls",
-		Aliases: []string{"list"},
+		Use:     "list",
+		Aliases: []string{"ls"},
 		Short:   "List Apps in an organization (requires org ADMIN)",
 		Example: `  hadron app ls --org acme.com`,
 		Args:    cobra.NoArgs,

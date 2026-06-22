@@ -26,8 +26,9 @@ func NewCmdApp(f *cmdutil.Factory) *cobra.Command {
 
 func newCmdUse(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:   "use <app-urn>",
-		Short: "Set the default App context for future invocations",
+		Use:     "set-active <app-urn>",
+		Aliases: []string{"use"},
+		Short:   "Set the default App context for future invocations",
 		Long: `Set the default App URN stored in ~/.config/hadron/config.toml.
 Pass an empty string ("") to clear it. A single invocation can
 override the default with the global --app flag.`,

@@ -29,6 +29,7 @@ query Nodes(
     name
     nodeType
     tags
+    seq
     updatedAt
   }
 }

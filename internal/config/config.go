@@ -20,6 +20,7 @@ const DefaultServer = "https://srv.hadronmemory.com"
 var Keys = map[string]string{
 	"server": "Hadron server base URL",
 	"app":    "default App URN sent with requests (set via hadron app use)",
+	"memory": "default memory URN or ID (set via hadron memory set-active)",
 }
 
 type Config struct {
@@ -60,6 +61,9 @@ func (c *Config) Server() string {
 
 // App returns the default App URN, or "" for no App context.
 func (c *Config) App() string { return c.v.GetString("app") }
+
+// Memory returns the default memory URN or ID, or "" for no memory context.
+func (c *Config) Memory() string { return c.v.GetString("memory") }
 
 // Get returns a known key's value.
 func (c *Config) Get(key string) (string, error) {

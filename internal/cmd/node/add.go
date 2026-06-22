@@ -30,8 +30,9 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 		tags        []string
 	)
 	cmd := &cobra.Command{
-		Use:   "add",
-		Short: "Create a node",
+		Use:     "create",
+		Aliases: []string{"add"},
+		Short:   "Create a node",
 		Long: `Create a node in a memory. Fails if a node already exists at the
 loc (use ` + "`hadron node update`" + ` to modify an existing node).
 

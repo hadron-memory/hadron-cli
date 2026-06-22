@@ -16,8 +16,8 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	var memory string
 	cmd := &cobra.Command{
-		Use:     "rm <node-urn> | <loc> -m <memory>",
-		Aliases: []string{"delete"},
+		Use:     "delete <node-urn> | <loc> -m <memory>",
+		Aliases: []string{"rm"},
 		Short:   "Delete a node",
 		Example: `  hadron node rm acme.com:kb:findings:flaky-ci --yes
   hadron node rm findings:flaky-ci -m acme.com:kb --yes`,

@@ -2607,6 +2607,7 @@ type NodesNodesNode struct {
 	Name      string   `json:"name"`
 	NodeType  string   `json:"nodeType"`
 	Tags      []string `json:"tags"`
+	Seq       *int     `json:"seq"`
 	UpdatedAt string   `json:"updatedAt"`
 }
 
@@ -2627,6 +2628,9 @@ func (v *NodesNodesNode) GetNodeType() string { return v.NodeType }
 
 // GetTags returns NodesNodesNode.Tags, and is useful for accessing the field via an interface.
 func (v *NodesNodesNode) GetTags() []string { return v.Tags }
+
+// GetSeq returns NodesNodesNode.Seq, and is useful for accessing the field via an interface.
+func (v *NodesNodesNode) GetSeq() *int { return v.Seq }
 
 // GetUpdatedAt returns NodesNodesNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *NodesNodesNode) GetUpdatedAt() string { return v.UpdatedAt }
@@ -6075,6 +6079,7 @@ query Nodes ($memory: ID, $prefix: String, $nodeType: String, $tags: [String!], 
 		name
 		nodeType
 		tags
+		seq
 		updatedAt
 	}
 }
