@@ -19,12 +19,12 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <node-urn> | <loc> -m <memory>",
 		Short: "Show a node, including its content and edges",
-		Long: `Show a node by its fully-qualified URN: <org>:<memory>:<loc>
-(e.g. hadronmemory.com:dev:start-here). The hrn:node: prefix is
+		Long: `Show a node by its fully-qualified URN: <org>::<memory>::<loc>
+(e.g. hadronmemory.com::dev::start-here). The hrn:node: prefix is
 optional (legacy urn:node: also accepted). Pass -m/--memory to name a
 node by a bare <loc> within that memory instead; without -m a bare loc
 is rejected, since the same loc can exist in several memories.`,
-		Example: `  hadron node get hadronmemory.com:dev:start-here
+		Example: `  hadron node get hadronmemory.com::dev::start-here
   hadron node get start-here -m hadronmemory.com:dev --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -70,7 +70,7 @@ is rejected, since the same loc can exist in several memories.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org:memory) to resolve a bare <loc> against")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org::memory) to resolve a bare <loc> against")
 	return cmd
 }
 

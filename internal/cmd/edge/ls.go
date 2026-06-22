@@ -45,8 +45,8 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Use:     "ls <node-urn> | <loc> -m <memory>",
 		Aliases: []string{"list"},
 		Short:   "List a node's edges (both directions)",
-		Example: `  hadron edge ls hadronmemory.com:dev:start-here
-  hadron edge ls start-here -m hadronmemory.com:dev`,
+		Example: `  hadron edge ls hadronmemory.com::dev::start-here
+  hadron edge ls start-here -m hadronmemory.com::dev`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
@@ -90,6 +90,6 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org:memory) to resolve a bare <loc> against")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org::memory) to resolve a bare <loc> against")
 	return cmd
 }

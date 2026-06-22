@@ -47,8 +47,8 @@ func resolveByURN(t *testing.T, ids map[string]string, responses map[string]stri
 func TestEdgeAdd(t *testing.T) {
 	gql := resolveByURN(t,
 		map[string]string{
-			"hrn:node:acme.com:kb:findings:flaky-ci": "n1",
-			"hrn:node:acme.com:kb:start-here":        "n2",
+			"hrn:node:acme.com::kb::findings:flaky-ci": "n1",
+			"hrn:node:acme.com::kb::start-here":        "n2",
 		},
 		map[string]string{
 			"CreateEdge": `{"data":{"createEdge":` + edgeJSON + `}}`,
@@ -56,8 +56,8 @@ func TestEdgeAdd(t *testing.T) {
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"edge", "add",
-		"--from", "acme.com:kb:findings:flaky-ci",
-		"--to", "acme.com:kb:start-here",
+		"--from", "acme.com::kb::findings:flaky-ci",
+		"--to", "acme.com::kb::start-here",
 		"--name", "routes-to", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -79,7 +79,7 @@ func TestEdgeAddThreadsNewFields(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"edge", "add", "--from", "a.com:m:x", "--to", "a.com:m:y",
+	root.SetArgs([]string{"edge", "add", "--from", "a.com::m::x", "--to", "a.com::m::y",
 		"--name", "routes-to", "--loc", "x:routes-to:y", "--description", "d", "--runnable",
 		"--server", gql.URL})
 	if err := root.Execute(); err != nil {
@@ -101,7 +101,7 @@ func TestEdgeAddOmitsUnsetNewFields(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"edge", "add", "--from", "a.com:m:x", "--to", "a.com:m:y", "--name", "routes-to", "--server", gql.URL})
+	root.SetArgs([]string{"edge", "add", "--from", "a.com::m::x", "--to", "a.com::m::y", "--name", "routes-to", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestEdgeAddRejectsBadJSONCondition(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"edge", "add",
-		"--from", "a.com:m:x", "--to", "a.com:m:y", "--name", "l",
+		"--from", "a.com::m::x", "--to", "a.com::m::y", "--name", "l",
 		"--condition", "{not json", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "valid JSON") {
@@ -138,13 +138,13 @@ func TestEdgeAddRejectsBadJSONCondition(t *testing.T) {
 
 func TestEdgeLs(t *testing.T) {
 	gql := resolveByURN(t,
-		map[string]string{"hrn:node:acme.com:kb:findings:flaky-ci": "n1"},
+		map[string]string{"hrn:node:acme.com::kb::findings:flaky-ci": "n1"},
 		map[string]string{
 			"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
 		})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"edge", "ls", "acme.com:kb:findings:flaky-ci", "--server", gql.URL})
+	root.SetArgs([]string{"edge", "ls", "acme.com::kb::findings:flaky-ci", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}

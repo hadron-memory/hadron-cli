@@ -31,7 +31,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Short:   "List nodes",
 		Long: `List nodes you can access, optionally scoped to a memory.
 
--m/--memory takes a memory ID or fully-qualified URN (org:memory) and
+-m/--memory takes a memory ID or fully-qualified URN (org::memory) and
 scopes the listing to that memory. --prefix filters on the node loc
 (e.g. --prefix findings: lists one branch).
 

@@ -34,7 +34,7 @@ func newCmdExport(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "export <node-urn> | <loc> -m <memory>",
 		Short: "Export a single node to a portable file (markdown or JSON)",
-		Long: `Export one node by its fully-qualified URN (<org>:<memory>:<loc>) to a
+		Long: `Export one node by its fully-qualified URN (<org>::<memory>::<loc>) to a
 self-contained file you can review, edit, move, and import back with
 ` + "`hadron node import`" + ` — into the same memory, a different memory, or a
 fresh server.
@@ -130,7 +130,7 @@ is unset, the format is inferred from the extension.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org:memory) to resolve a bare <loc> against")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org::memory) to resolve a bare <loc> against")
 	cmd.Flags().StringVarP(&outFile, "out", "o", "", `output file ("-" or unset writes to stdout)`)
 	cmd.Flags().StringVar(&format, "format", "md", "output format: md or json")
 	return cmd
