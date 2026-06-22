@@ -10,7 +10,7 @@ Full v1 command surface implemented: `auth login|logout|whoami|status`,
 `memory ls|get|set|rm|clone|export`, `node ls|get|add|update|rm`,
 `spec ls|get|describe|register|find|new|lint|supersede|import`,
 `app ls|install|uninstall|use`, `config get|set|list`, `api` (raw
-GraphQL escape hatch), `version`, `completion`, `agentic-usage`.
+GraphQL escape hatch), `replace`, `version`, `completion`, `agentic-usage`.
 
 Specs follow a legal-code citation scheme — flat (`<module>:<feature>:<rule>`)
 or product-rooted (`<product>:<module>:<feature>:<rule>`) for a multi-product
@@ -101,11 +101,12 @@ if generated code drifts from the committed schema.
 
 ## Releasing
 
-Releases are cut by pushing a semver tag — no manual build, upload, or
-cask edit:
+Build and test locally first, then cut the release by pushing a semver tag:
 
 ```sh
 git checkout main && git pull        # release from a green main
+make build && make test              # verify the build works
+./bin/hadron --help                  # sanity check
 git tag -a v0.3.0 -m "v0.3.0"        # bump per semver
 git push origin v0.3.0
 ```
