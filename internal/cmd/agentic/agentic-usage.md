@@ -49,7 +49,7 @@ server defaults to
 ```
 hadron auth login | logout | whoami | status | token create|ls|revoke <id>
 hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>]
-hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn> | export <urn> [-o <file>] [--format md|json] | import <file|-> [-m <memory>] [--with-edges]
+hadron node ls [-m <memory>] | get <urn> | add | update <urn> | replace --old <text> --new <text> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [--ignore-case] [--dry-run] | rm <urn> | export <urn> [-o <file>] [--format md|json] | import <file|-> [-m <memory>] [--with-edges]
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
 hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | register [--check] | find <query> [--match-exactly] | new ... | extract <citation> --to-feature <fff> | lint [<citation>] | supersede <citation> | import spec-kit|code
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
@@ -248,6 +248,10 @@ cat finding.md | hadron node add -m acme.com:kb --loc findings:flaky-ci \
 
 # Update just the name (other fields preserved)
 hadron node update acme.com:kb:findings:flaky-ci --name "Flaky CI (resolved)"
+
+# Bulk search-and-replace across a memory (preview first with --dry-run)
+hadron node replace --old "old-url.com" --new "new-url.com" \
+  -m acme.com:kb --field content --field description --dry-run
 
 # Connect two nodes
 hadron edge add --from acme.com:kb:findings:flaky-ci \
