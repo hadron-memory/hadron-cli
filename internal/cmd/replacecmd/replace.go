@@ -49,8 +49,18 @@ var textFields = map[string]gen.NodeTextField{
 	"tags":        gen.NodeTextFieldTags,
 }
 
-// NewCmdReplace builds the top-level `hadron replace` command.
+// NewCmdReplace builds the top-level `hadron replace` command group.
 func NewCmdReplace(f *cmdutil.Factory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "replace",
+		Short: "Search and replace text in nodes",
+	}
+	cmd.AddCommand(newCmdReplaceText(f))
+	return cmd
+}
+
+// newCmdReplaceText builds the `hadron replace text` subcommand.
+func newCmdReplaceText(f *cmdutil.Factory) *cobra.Command {
 	var (
 		nodes      []string
 		memories   []string
@@ -62,7 +72,7 @@ func NewCmdReplace(f *cmdutil.Factory) *cobra.Command {
 		yes        bool
 	)
 	cmd := &cobra.Command{
-		Use:   "replace <old> <new> --field <field> (--node <urn> | -m <memory>)",
+		Use:   "text <old> <new> --field <field> (--node <urn> | -m <memory>)",
 		Short: "Search and replace text across many nodes",
 		Long: `Search-and-replace a piece of text across many nodes in one call
 (the CLI mirror of the MCP tool hadron_replace_globally).
@@ -83,13 +93,13 @@ before writing; pass --yes to skip the prompt (required in non-interactive
 use), or --dry-run to preview without writing. Every change is saved to
 version history, so replacements are undoable.`,
 		Example: `  # Preview only
-  hadron replace teh the -m acme.com:kb --field content --dry-run
+  hadron replace text oldtext newtext -m acme.com:kb --field content --dry-run
 
   # Apply across a subtree, two fields (prompts before writing)
-  hadron replace foo bar -m acme.com:kb --prefix services: --field content --field description
+  hadron replace text foo bar -m acme.com:kb --prefix services: --field content --field description
 
   # Regex with a backreference on specific nodes, no prompt
-  hadron replace '(\w+)@old\.com' '$1@new.com' --node acme.com:kb:contacts:bob --field content --regex --yes`,
+  hadron replace text '(\w+)@old\.com' '$1@new.com' --node acme.com:kb:contacts:bob --field content --regex --yes`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			oldText, newText := args[0], args[1]
