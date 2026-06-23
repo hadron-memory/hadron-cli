@@ -1336,7 +1336,7 @@ type GetNodeByIdNodeByIdNode struct {
 	Loc         string  `json:"loc"`
 	Name        string  `json:"name"`
 	Description *string `json:"description"`
-	// Paragraph-length summary of this node. Opt-in on h-read-node via the contentScope parameter. h-find-nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in h-list-nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
+	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
 	Abstract *string `json:"abstract"`
 	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness; when the two values differ AND abstractOriginHash is non-null, the abstract may not reflect current content. System-managed; never settable via NodeInput.
 	AbstractOriginHash *string                                     `json:"abstractOriginHash"`
@@ -2200,7 +2200,7 @@ type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
 	Alias       *string `json:"alias"`
 	NodeType    string  `json:"nodeType"`
 	Description *string `json:"description"`
-	// Paragraph-length summary of this node. Opt-in on h-read-node via the contentScope parameter. h-find-nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in h-list-nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
+	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
 	Abstract *string `json:"abstract"`
 	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness; when the two values differ AND abstractOriginHash is non-null, the abstract may not reflect current content. System-managed; never settable via NodeInput.
 	AbstractOriginHash *string                                                        `json:"abstractOriginHash"`
@@ -2410,8 +2410,10 @@ func (v *NodeBatchResponse) GetNodeBatch() *NodeBatchNodeBatchNodeBatchResult { 
 type NodeEdgeInput struct {
 	Description *string `json:"description"`
 	IsRunnable  *bool   `json:"isRunnable"`
-	Loc         *string `json:"loc"`
-	Name        *string `json:"name"`
+	// Explicit edge loc. Omit to derive <sourceLoc>:<name>:<targetLoc>.
+	Loc *string `json:"loc"`
+	// Relationship name (was 'label'). Optional — loc is the identity.
+	Name *string `json:"name"`
 	// Reference to the target node. Accepts a node ID, a full URN
 	// (hrn:node:<memory-urn>::<loc>), a memory-prefixed loc
 	// (<memory-urn>:<loc>), or a short loc resolved within the source
@@ -2435,7 +2437,7 @@ func (v *NodeEdgeInput) GetName() *string { return v.Name }
 func (v *NodeEdgeInput) GetTargetId() string { return v.TargetId }
 
 type NodeInput struct {
-	// Paragraph-length summary of this node — see Node.abstract for the surfacing contract (h-read-node opt-in via contentScope; h-find-nodes preview ships in US2). Optional. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
+	// Paragraph-length summary of this node — see Node.abstract for the surfacing contract (hadron_get_node opt-in via contentScope; hadron_find_nodes preview ships in US2). Optional. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
 	Abstract    *string          `json:"abstract,omitempty"`
 	AiAgent     *string          `json:"aiAgent,omitempty"`
 	Alias       *string          `json:"alias,omitempty"`
@@ -2445,8 +2447,10 @@ type NodeInput struct {
 	Description *string          `json:"description,omitempty"`
 	Edges       []*NodeEdgeInput `json:"edges,omitempty"`
 	Id          *string          `json:"id,omitempty"`
-	LlmModel    *string          `json:"llmModel,omitempty"`
-	Loc         string           `json:"loc"`
+	// Whether this node can be run as a task by hadron_run_task (cor:api:060). Omit to preserve on update.
+	IsRunnable *bool   `json:"isRunnable"`
+	LlmModel   *string `json:"llmModel,omitempty"`
+	Loc        string  `json:"loc"`
 	// Memory reference. Accepts the entity's ID (CUID / 32-char hex) or its
 	// URN (per spec 007 ID-or-URN dispatch). URN inputs MUST be fully
 	// qualified (org:memory) per spec 022 — relative-form URNs are
@@ -2486,6 +2490,9 @@ func (v *NodeInput) GetEdges() []*NodeEdgeInput { return v.Edges }
 
 // GetId returns NodeInput.Id, and is useful for accessing the field via an interface.
 func (v *NodeInput) GetId() *string { return v.Id }
+
+// GetIsRunnable returns NodeInput.IsRunnable, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetLlmModel returns NodeInput.LlmModel, and is useful for accessing the field via an interface.
 func (v *NodeInput) GetLlmModel() *string { return v.LlmModel }
@@ -2583,7 +2590,7 @@ type NodeSearchResponse struct {
 	// vector-aware entrypoint per spec 033 contract.
 	//
 	// mode defaults to vector (the vector-aware entrypoint design — the
-	// MCP h-find-nodes tool defaults to keyword for backward-compat,
+	// MCP hadron_find_nodes tool defaults to keyword for backward-compat,
 	// a deliberate divergence between the two surfaces). expand (graph
 	// neighbor depth 0..3, default 0) and granularity:chunk (passage
 	// retrieval, vector-mode only) are both fully live.
@@ -3195,6 +3202,14 @@ var AllRole = []Role{
 	RoleOwner,
 	RoleReader,
 }
+
+// RunTaskResponse is returned by RunTask on success.
+type RunTaskResponse struct {
+	RunTask string `json:"runTask"`
+}
+
+// GetRunTask returns RunTaskResponse.RunTask, and is useful for accessing the field via an interface.
+func (v *RunTaskResponse) GetRunTask() string { return v.RunTask }
 
 // Search dispatch for nodeSearch. Spec 033.
 //
@@ -4806,6 +4821,26 @@ type __RevokeUserApiKeyInput struct {
 
 // GetId returns __RevokeUserApiKeyInput.Id, and is useful for accessing the field via an interface.
 func (v *__RevokeUserApiKeyInput) GetId() string { return v.Id }
+
+// __RunTaskInput is used internally by genqlient
+type __RunTaskInput struct {
+	Urn    *string          `json:"urn"`
+	Memory *string          `json:"memory"`
+	Task   *string          `json:"task"`
+	Args   *json.RawMessage `json:"args"`
+}
+
+// GetUrn returns __RunTaskInput.Urn, and is useful for accessing the field via an interface.
+func (v *__RunTaskInput) GetUrn() *string { return v.Urn }
+
+// GetMemory returns __RunTaskInput.Memory, and is useful for accessing the field via an interface.
+func (v *__RunTaskInput) GetMemory() *string { return v.Memory }
+
+// GetTask returns __RunTaskInput.Task, and is useful for accessing the field via an interface.
+func (v *__RunTaskInput) GetTask() *string { return v.Task }
+
+// GetArgs returns __RunTaskInput.Args, and is useful for accessing the field via an interface.
+func (v *__RunTaskInput) GetArgs() *json.RawMessage { return v.Args }
 
 // __SearchReplaceInNodesInput is used internally by genqlient
 type __SearchReplaceInNodesInput struct {
@@ -6590,6 +6625,44 @@ func RevokeUserApiKey(
 	}
 
 	data_ = &RevokeUserApiKeyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RunTask.
+const RunTask_Operation = `
+mutation RunTask ($urn: String, $memory: String, $task: String, $args: JSON) {
+	runTask(urn: $urn, memory: $memory, task: $task, args: $args)
+}
+`
+
+func RunTask(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	urn *string,
+	memory *string,
+	task *string,
+	args *json.RawMessage,
+) (data_ *RunTaskResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RunTask",
+		Query:  RunTask_Operation,
+		Variables: &__RunTaskInput{
+			Urn:    urn,
+			Memory: memory,
+			Task:   task,
+			Args:   args,
+		},
+	}
+
+	data_ = &RunTaskResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
