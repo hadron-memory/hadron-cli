@@ -23,8 +23,8 @@ func EdgeDisplay(name *string, loc string) string {
 
 // ResolveNodeRef resolves a node reference into a node ID. With an empty
 // memory it requires a fully-qualified URN (ResolveNodeURN). With a memory
-// (the `org:memory` form, optionally hrn:/urn:-prefixed) the ref is a bare loc
-// within that memory: a node URN is just <org>:<memory>:<loc>, so the two are
+// (the `org::memory` form, optionally hrn:/urn:-prefixed) the ref is a bare loc
+// within that memory: a node URN is just <org>::<memory>::<loc>, so the two are
 // joined and resolved. The memory form is the additive convenience; without it
 // the strict-URN behavior is unchanged.
 func ResolveNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref string) (string, error) {
@@ -32,7 +32,7 @@ func ResolveNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref strin
 		for _, p := range []string{"hrn:memory:", "urn:memory:"} {
 			memory = strings.TrimPrefix(memory, p)
 		}
-		ref = memory + ":" + strings.TrimSpace(ref)
+		ref = memory + "::" + strings.TrimSpace(ref)
 	}
 	return ResolveNodeURN(cmd, client, ref)
 }
@@ -48,10 +48,10 @@ func ResolveNodeURN(cmd *cobra.Command, client graphql.Client, ref string) (stri
 	// legacy-but-accepted-forever. A prefixed URN passes through verbatim
 	// (the server accepts both); a bare ref gets the canonical hrn:node:.
 	if !strings.HasPrefix(urn, "hrn:") && !strings.HasPrefix(urn, "urn:") {
-		// A full node URN has at least org:memory:loc.
-		if strings.Count(urn, ":") < 2 {
+		// A full node URN has at least org::memory::loc.
+		if strings.Count(urn, ":") < 4 {
 			return "", exitcode.Newf(exitcode.Usage,
-				"%q is not a fully-qualified node URN — expected <org>:<memory>:<loc> (e.g. hadronmemory.com:dev:start-here)", ref)
+				"%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (e.g. hadronmemory.com::dev::start-here)", ref)
 		}
 		urn = "hrn:node:" + urn
 	}

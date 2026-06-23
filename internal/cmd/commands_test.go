@@ -47,7 +47,7 @@ const nodeDetailJSON = `{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","
 
 const resolveNodeJSON = `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`
 
-const nodeURN = "acme.com:kb:findings:flaky-ci"
+const nodeURN = "acme.com::kb::findings:flaky-ci"
 
 func TestNodeLs(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
@@ -55,7 +55,7 @@ func TestNodeLs(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "ls", "--memory", "acme.com:kb", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"node", "ls", "--memory", "acme.com::kb", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestNodeLs(t *testing.T) {
 		Memory string `json:"memory"`
 	}
 	_ = json.Unmarshal(captured["Nodes"], &vars)
-	if vars.Memory != "acme.com:kb" {
+	if vars.Memory != "acme.com::kb" {
 		t.Errorf("--memory should map to the memory arg, got %q", vars.Memory)
 	}
 }
@@ -144,7 +144,7 @@ func TestNodeGetWrongKindIsUsageError(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "get", "acme.com:kb:whatever", "--server", gql.URL})
+	root.SetArgs([]string{"node", "get", "acme.com::kb::whatever", "--server", gql.URL})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "not a node") {
 		t.Fatalf("expected wrong-kind usage error, got %v", err)
@@ -157,7 +157,7 @@ func TestNodeGetNotFound(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "get", "acme.com:kb:nope", "--server", gql.URL})
+	root.SetArgs([]string{"node", "get", "acme.com::kb::nope", "--server", gql.URL})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "not found") {
 		t.Fatalf("expected not-found error, got %v", err)
@@ -170,7 +170,7 @@ func TestNodeAddSendsCreateOnly(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "add", "-m", "acme.com:kb", "--loc", "findings:flaky-ci",
+	root.SetArgs([]string{"node", "add", "-m", "acme.com::kb", "--loc", "findings:flaky-ci",
 		"--name", "Flaky CI", "--content", "body", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -342,7 +342,7 @@ func TestNodeAddSendsData(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "add", "-m", "acme.com:kb", "--loc", "palette:brand",
+	root.SetArgs([]string{"node", "add", "-m", "acme.com::kb", "--loc", "palette:brand",
 		"--name", "Brand palette", "--data", `{"primary":"#0a0"}`, "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -390,7 +390,7 @@ func TestNodeUpdateDataFile(t *testing.T) {
 func TestNodeAddRejectsInvalidData(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "add", "-m", "acme.com:kb", "--loc", "x", "--name", "X",
+	root.SetArgs([]string{"node", "add", "-m", "acme.com::kb", "--loc", "x", "--name", "X",
 		"--data", "{not json}", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "valid JSON") {
@@ -401,7 +401,7 @@ func TestNodeAddRejectsInvalidData(t *testing.T) {
 func TestNodeAddRejectsDataAndDataFile(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "add", "-m", "acme.com:kb", "--loc", "x", "--name", "X",
+	root.SetArgs([]string{"node", "add", "-m", "acme.com::kb", "--loc", "x", "--name", "X",
 		"--data", "{}", "--data-file", "/tmp/x.json", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
@@ -423,7 +423,7 @@ func TestNodeGetSurfacesData(t *testing.T) {
 		})
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
-		args := []string{"node", "get", "acme.com:kb:palette:brand", "--server", gql.URL}
+		args := []string{"node", "get", "acme.com::kb::palette:brand", "--server", gql.URL}
 		if jsonMode {
 			args = append(args, "--json")
 		}
@@ -511,7 +511,7 @@ func TestNodeGetMemoryFlag(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "get", "findings:flaky-ci", "-m", "acme.com:kb", "--server", gql.URL})
+	root.SetArgs([]string{"node", "get", "findings:flaky-ci", "-m", "acme.com::kb", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -519,7 +519,7 @@ func TestNodeGetMemoryFlag(t *testing.T) {
 		Urn string `json:"urn"`
 	}
 	_ = json.Unmarshal(captured["ResolveUrn"], &vars)
-	if vars.Urn != "hrn:node:acme.com:kb:findings:flaky-ci" {
+	if vars.Urn != "hrn:node:acme.com::kb::findings:flaky-ci" {
 		t.Errorf("-m <memory> + bare loc should resolve the full URN, got %q", vars.Urn)
 	}
 }
@@ -534,7 +534,7 @@ func TestNodeGetMemoryFlagMultiColonLoc(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "get", "cor:acl:010:01", "-m", "hadronmemory.com:specs", "--server", gql.URL})
+	root.SetArgs([]string{"node", "get", "cor:acl:010:01", "-m", "hadronmemory.com::specs", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -542,7 +542,7 @@ func TestNodeGetMemoryFlagMultiColonLoc(t *testing.T) {
 		Urn string `json:"urn"`
 	}
 	_ = json.Unmarshal(captured["ResolveUrn"], &vars)
-	if vars.Urn != "hrn:node:hadronmemory.com:specs:cor:acl:010:01" {
+	if vars.Urn != "hrn:node:hadronmemory.com::specs::cor:acl:010:01" {
 		t.Errorf("a multi-colon loc with -m must join verbatim, got %q", vars.Urn)
 	}
 }
@@ -555,7 +555,7 @@ func TestEdgeAddMemoryFlag(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"edge", "add", "-m", "acme.com:kb",
+	root.SetArgs([]string{"edge", "add", "-m", "acme.com::kb",
 		"--from", "findings:flaky-ci", "--to", "start-here", "--name", "routes-to", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -565,7 +565,7 @@ func TestEdgeAddMemoryFlag(t *testing.T) {
 		Urn string `json:"urn"`
 	}
 	_ = json.Unmarshal(captured["ResolveUrn"], &vars)
-	if vars.Urn != "hrn:node:acme.com:kb:start-here" {
+	if vars.Urn != "hrn:node:acme.com::kb::start-here" {
 		t.Errorf("edge add -m should resolve --to as a bare loc in the memory, got %q", vars.Urn)
 	}
 }
@@ -613,7 +613,7 @@ func TestEdgeUpdateExplicitNullClearsCondition(t *testing.T) {
 	}
 }
 
-const memoryJSON = `{"id":"m1","urn":"acme.com:kb","name":"KB","shortDescription":null,
+const memoryJSON = `{"id":"m1","urn":"acme.com::kb","name":"KB","shortDescription":null,
 	"class":"knowledge","visibility":"ORGANIZATION","organizationId":"o1",
 	"isEncrypted":false,"updatedAt":"2026-06-11T00:00:00Z"}`
 
@@ -641,7 +641,7 @@ func TestMemorySetUpdate(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "set", "acme.com:kb", "--short", "Project knowledge", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "set", "acme.com::kb", "--short", "Project knowledge", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -667,7 +667,7 @@ func TestMemorySetUpdateSendsTags(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "set", "acme.com:kb", "--tag", "go", "--tag", "cli", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "set", "acme.com::kb", "--tag", "go", "--tag", "cli", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -716,13 +716,13 @@ func TestMemoryClone(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "clone", "acme.com:kb", "--name", "kb-fork", "--server", gql.URL, "--json"})
+	root.SetArgs([]string{"memory", "clone", "acme.com::kb", "--name", "kb-fork", "--server", gql.URL, "--json"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CloneMemory"], &vars)
-	if vars["id"] != "acme.com:kb" || vars["name"] != "kb-fork" {
+	if vars["id"] != "acme.com::kb" || vars["name"] != "kb-fork" {
 		t.Errorf("unexpected clone vars: %v", vars)
 	}
 	var dto map[string]any
@@ -737,7 +737,7 @@ func TestMemoryClone(t *testing.T) {
 func TestMemoryCloneRequiresName(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "clone", "acme.com:kb"})
+	root.SetArgs([]string{"memory", "clone", "acme.com::kb"})
 	if err := root.Execute(); err == nil {
 		t.Fatal("expected an error when --name is missing")
 	}

@@ -93,13 +93,13 @@ before writing; pass --yes to skip the prompt (required in non-interactive
 use), or --dry-run to preview without writing. Every change is saved to
 version history, so replacements are undoable.`,
 		Example: `  # Preview only
-  hadron replace text oldtext newtext -m acme.com:kb --field content --dry-run
+  hadron replace text oldtext newtext -m acme.com::kb --field content --dry-run
 
   # Apply across a subtree, two fields (prompts before writing)
-  hadron replace text foo bar -m acme.com:kb --prefix services: --field content --field description
+  hadron replace text foo bar -m acme.com::kb --prefix services: --field content --field description
 
   # Regex with a backreference on specific nodes, no prompt
-  hadron replace text '(\w+)@old\.com' '$1@new.com' --node acme.com:kb:contacts:bob --field content --regex --yes`,
+  hadron replace text '(\w+)@old\.com' '$1@new.com' --node acme.com::kb::contacts:bob --field content --regex --yes`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			oldText, newText := args[0], args[1]
