@@ -1,0 +1,27 @@
+# Effective access (hadron-server #323): the authoritative answer to
+# "what access does this user have to this resource?" — capabilities plus
+# the grants that confer them. Backs `hadron access check`.
+# User resolution (id/email/handle) reuses SearchUsers in org.graphql.
+
+query EffectiveAccess($user: ID!, $resource: ID!) {
+  effectiveAccess(user: $user, resource: $resource) {
+    user {
+      id
+      name
+      email
+      handle
+    }
+    resourceUrn
+    resourceKind
+    canRead
+    canWrite
+    canManage
+    canDelete
+    role
+    grants {
+      source
+      role
+      via
+    }
+  }
+}

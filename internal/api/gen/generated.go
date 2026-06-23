@@ -9,6 +9,45 @@ import (
 	"github.com/Khan/genqlient/graphql"
 )
 
+// issue #323: where a single grant in an EffectiveAccess result comes from.
+type AccessSource string
+
+const (
+	// active AgentSubscription, or an org-level AgentOrgGrant the user inherits.
+	AccessSourceAgentSubscription AccessSource = "AGENT_SUBSCRIPTION"
+	// admin of the AI config's owning entity.
+	AccessSourceAiconfigOwner AccessSource = "AICONFIG_OWNER"
+	// AppMember row.
+	AccessSourceAppMember AccessSource = "APP_MEMBER"
+	// group-class team membership row (MemoryMember).
+	AccessSourceMemoryMember AccessSource = "MEMORY_MEMBER"
+	// personal/private memory owner (Memory.userId).
+	AccessSourceMemoryPrincipal AccessSource = "MEMORY_PRINCIPAL"
+	// personal-class cross-user grant (MemoryShare).
+	AccessSourceMemoryShare AccessSource = "MEMORY_SHARE"
+	// node inherits its memory's access.
+	AccessSourceNodeInherited AccessSource = "NODE_INHERITED"
+	// ADMIN/OWNER (or, for org-readable knowledge, any Role) of the owning org.
+	AccessSourceOrgRole AccessSource = "ORG_ROLE"
+	// Platform ADMIN/OWNER.
+	AccessSourcePlatformRole AccessSource = "PLATFORM_ROLE"
+	// resource is publicly / universally visible.
+	AccessSourcePublicVisibility AccessSource = "PUBLIC_VISIBILITY"
+)
+
+var AllAccessSource = []AccessSource{
+	AccessSourceAgentSubscription,
+	AccessSourceAiconfigOwner,
+	AccessSourceAppMember,
+	AccessSourceMemoryMember,
+	AccessSourceMemoryPrincipal,
+	AccessSourceMemoryShare,
+	AccessSourceNodeInherited,
+	AccessSourceOrgRole,
+	AccessSourcePlatformRole,
+	AccessSourcePublicVisibility,
+}
+
 // AddMemoryMemberAddMemoryMemberAddMemoryMemberPayload includes the requested fields of the GraphQL type AddMemoryMemberPayload.
 type AddMemoryMemberAddMemoryMemberAddMemoryMemberPayload struct {
 	MemoryMember *AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMember `json:"memoryMember"`
@@ -1247,6 +1286,130 @@ type DeleteOrganizationResponse struct {
 
 // GetDeleteOrganization returns DeleteOrganizationResponse.DeleteOrganization, and is useful for accessing the field via an interface.
 func (v *DeleteOrganizationResponse) GetDeleteOrganization() bool { return v.DeleteOrganization }
+
+// EffectiveAccessEffectiveAccess includes the requested fields of the GraphQL type EffectiveAccess.
+// The GraphQL type's documentation follows.
+//
+// issue #323: the effective access a single user has to a single resource,
+// with the grants that confer it. An empty grants list (with all capabilities
+// false and role null) is a first-class 'no access' answer, NOT an error.
+type EffectiveAccessEffectiveAccess struct {
+	User *EffectiveAccessEffectiveAccessUser `json:"user"`
+	// Canonical URN of the resolved resource (the AiServiceConfig id when the resource is a config, which has no URN).
+	ResourceUrn string `json:"resourceUrn"`
+	// memory | node | app | agent | aiServiceConfig.
+	ResourceKind string `json:"resourceKind"`
+	CanRead      bool   `json:"canRead"`
+	CanWrite     bool   `json:"canWrite"`
+	// Manage grants / settings (admin/owner-equivalent).
+	CanManage bool `json:"canManage"`
+	CanDelete bool `json:"canDelete"`
+	// Highest single clean role label (e.g. owner, writer, ADMIN); null when access is purely capability-based or absent.
+	Role *string `json:"role"`
+	// The reasons access is granted. Empty means no access. Ordered strongest-first.
+	Grants []*EffectiveAccessEffectiveAccessGrantsAccessGrant `json:"grants"`
+}
+
+// GetUser returns EffectiveAccessEffectiveAccess.User, and is useful for accessing the field via an interface.
+func (v *EffectiveAccessEffectiveAccess) GetUser() *EffectiveAccessEffectiveAccessUser { return v.User }
+
+// GetResourceUrn returns EffectiveAccessEffectiveAccess.ResourceUrn, and is useful for accessing the field via an interface.
+func (v *EffectiveAccessEffectiveAccess) GetResourceUrn() string { return v.ResourceUrn }
+
+// GetResourceKind returns EffectiveAccessEffectiveAccess.ResourceKind, and is useful for accessing the field via an interface.
+func (v *EffectiveAccessEffectiveAccess) GetResourceKind() string { return v.ResourceKind }
+
+// GetCanRead returns EffectiveAccessEffectiveAccess.CanRead, and is useful for accessing the field via an interface.
+func (v *EffectiveAccessEffectiveAccess) GetCanRead() bool { return v.CanRead }
+
+// GetCanWrite returns EffectiveAccessEffectiveAccess.CanWrite, and is useful for accessing the field via an interface.
+func (v *EffectiveAccessEffectiveAccess) GetCanWrite() bool { return v.CanWrite }
+
+// GetCanManage returns EffectiveAccessEffectiveAccess.CanManage, and is useful for accessing the field via an interface.
+func (v *EffectiveAccessEffectiveAccess) GetCanManage() bool { return v.CanManage }
+
+// GetCanDelete returns EffectiveAccessEffectiveAccess.CanDelete, and is useful for accessing the field via an interface.
+func (v *EffectiveAccessEffectiveAccess) GetCanDelete() bool { return v.CanDelete }
+
+// GetRole returns EffectiveAccessEffectiveAccess.Role, and is useful for accessing the field via an interface.
+func (v *EffectiveAccessEffectiveAccess) GetRole() *string { return v.Role }
+
+// GetGrants returns EffectiveAccessEffectiveAccess.Grants, and is useful for accessing the field via an interface.
+func (v *EffectiveAccessEffectiveAccess) GetGrants() []*EffectiveAccessEffectiveAccessGrantsAccessGrant {
+	return v.Grants
+}
+
+// EffectiveAccessEffectiveAccessGrantsAccessGrant includes the requested fields of the GraphQL type AccessGrant.
+// The GraphQL type's documentation follows.
+//
+// issue #323: one reason a subject has (or would have) access to a resource.
+type EffectiveAccessEffectiveAccessGrantsAccessGrant struct {
+	Source AccessSource `json:"source"`
+	// The role/level this particular grant confers.
+	Role string `json:"role"`
+	// Human label for the grant's origin (owning org URN, the inherited memory URN, the app URN, etc.); null when the grant has no distinct origin.
+	Via *string `json:"via"`
+}
+
+// GetSource returns EffectiveAccessEffectiveAccessGrantsAccessGrant.Source, and is useful for accessing the field via an interface.
+func (v *EffectiveAccessEffectiveAccessGrantsAccessGrant) GetSource() AccessSource { return v.Source }
+
+// GetRole returns EffectiveAccessEffectiveAccessGrantsAccessGrant.Role, and is useful for accessing the field via an interface.
+func (v *EffectiveAccessEffectiveAccessGrantsAccessGrant) GetRole() string { return v.Role }
+
+// GetVia returns EffectiveAccessEffectiveAccessGrantsAccessGrant.Via, and is useful for accessing the field via an interface.
+func (v *EffectiveAccessEffectiveAccessGrantsAccessGrant) GetVia() *string { return v.Via }
+
+// EffectiveAccessEffectiveAccessUser includes the requested fields of the GraphQL type User.
+type EffectiveAccessEffectiveAccessUser struct {
+	Id     string  `json:"id"`
+	Name   *string `json:"name"`
+	Email  *string `json:"email"`
+	Handle *string `json:"handle"`
+}
+
+// GetId returns EffectiveAccessEffectiveAccessUser.Id, and is useful for accessing the field via an interface.
+func (v *EffectiveAccessEffectiveAccessUser) GetId() string { return v.Id }
+
+// GetName returns EffectiveAccessEffectiveAccessUser.Name, and is useful for accessing the field via an interface.
+func (v *EffectiveAccessEffectiveAccessUser) GetName() *string { return v.Name }
+
+// GetEmail returns EffectiveAccessEffectiveAccessUser.Email, and is useful for accessing the field via an interface.
+func (v *EffectiveAccessEffectiveAccessUser) GetEmail() *string { return v.Email }
+
+// GetHandle returns EffectiveAccessEffectiveAccessUser.Handle, and is useful for accessing the field via an interface.
+func (v *EffectiveAccessEffectiveAccessUser) GetHandle() *string { return v.Handle }
+
+// EffectiveAccessResponse is returned by EffectiveAccess on success.
+type EffectiveAccessResponse struct {
+	// issue #323: resolve the effective access a single user has to a single
+	// resource, with the grants that confer it. The authoritative backing for
+	// the 'hadron access check <user> <resource>' audit command — one resolver
+	// that reuses the server's authorization rules instead of re-deriving them
+	// client-side.
+	//
+	// 'user' accepts a User ID (Users have no URN today). 'resource' is
+	// dispatched on URN type the same way resolveUrn dispatches: a memory, node,
+	// app, or agent MUST be a fully-qualified hrn:<type>: URN (a bare id is
+	// ambiguous across those kinds). A bare id with no scheme prefix is treated
+	// as an AiServiceConfig id — the only URN-less resource kind.
+	//
+	// Authorization (who may CALL this): the same visibility bar already
+	// enforced on the underlying grant tables — a platform ADMIN/OWNER, an
+	// ADMIN/OWNER of the resource's owning org, or (for a strict-owner memory)
+	// the memory's principal. Everyone else gets FORBIDDEN, NOT a silent empty
+	// result, so the command can't probe access it isn't allowed to audit.
+	//
+	// A subject with no access is a SUCCESS with an empty grants list (all
+	// capabilities false, role null) — not NOT_FOUND. An unresolvable or
+	// unknown resource ref is NOT_FOUND.
+	EffectiveAccess *EffectiveAccessEffectiveAccess `json:"effectiveAccess"`
+}
+
+// GetEffectiveAccess returns EffectiveAccessResponse.EffectiveAccess, and is useful for accessing the field via an interface.
+func (v *EffectiveAccessResponse) GetEffectiveAccess() *EffectiveAccessEffectiveAccess {
+	return v.EffectiveAccess
+}
 
 // GetMemoryMemory includes the requested fields of the GraphQL type Memory.
 type GetMemoryMemory struct {
@@ -4642,6 +4805,18 @@ type __DeleteOrganizationInput struct {
 // GetId returns __DeleteOrganizationInput.Id, and is useful for accessing the field via an interface.
 func (v *__DeleteOrganizationInput) GetId() string { return v.Id }
 
+// __EffectiveAccessInput is used internally by genqlient
+type __EffectiveAccessInput struct {
+	User     string `json:"user"`
+	Resource string `json:"resource"`
+}
+
+// GetUser returns __EffectiveAccessInput.User, and is useful for accessing the field via an interface.
+func (v *__EffectiveAccessInput) GetUser() string { return v.User }
+
+// GetResource returns __EffectiveAccessInput.Resource, and is useful for accessing the field via an interface.
+func (v *__EffectiveAccessInput) GetResource() string { return v.Resource }
+
 // __GetMemoryInput is used internally by genqlient
 type __GetMemoryInput struct {
 	Id string `json:"id"`
@@ -5775,6 +5950,59 @@ func DeleteOrganization(
 	}
 
 	data_ = &DeleteOrganizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by EffectiveAccess.
+const EffectiveAccess_Operation = `
+query EffectiveAccess ($user: ID!, $resource: ID!) {
+	effectiveAccess(user: $user, resource: $resource) {
+		user {
+			id
+			name
+			email
+			handle
+		}
+		resourceUrn
+		resourceKind
+		canRead
+		canWrite
+		canManage
+		canDelete
+		role
+		grants {
+			source
+			role
+			via
+		}
+	}
+}
+`
+
+func EffectiveAccess(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	user string,
+	resource string,
+) (data_ *EffectiveAccessResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EffectiveAccess",
+		Query:  EffectiveAccess_Operation,
+		Variables: &__EffectiveAccessInput{
+			User:     user,
+			Resource: resource,
+		},
+	}
+
+	data_ = &EffectiveAccessResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
