@@ -42,6 +42,10 @@ func resolveUserID(cmd *cobra.Command, client graphql.Client, ref string) (strin
 			break
 		}
 	}
+	// A leading "@" is a handle sigil, not part of the handle — strip it so it
+	// matches both the searchUsers query and the stored handle/githubUsername.
+	// (An email never leads with "@", so this is a no-op for emails.)
+	token = strings.TrimPrefix(token, "@")
 	if token == "" {
 		return "", exitcode.Newf(exitcode.Usage, "empty user reference")
 	}
@@ -120,9 +124,9 @@ func normalizeResourceRef(ref string) (string, error) {
 	}
 	if strings.Contains(r, ":") {
 		return "", exitcode.Newf(exitcode.Usage,
-			"%q is not a fully-qualified resource URN — prefix it with its kind, "+
-				"e.g. hrn:memory:%[1]s, hrn:node:%[1]s::<loc>, or hrn:app:/hrn:agent:… "+
-				"(a bare, colon-free id is read as an AiServiceConfig id)", r)
+			"%q is not a fully-qualified resource URN — prefix it with its kind "+
+				"(hrn:memory:, hrn:node:, hrn:app:, or hrn:agent:), e.g. hrn:memory:%[1]s; "+
+				"a bare, colon-free id is read as an AiServiceConfig id", r)
 	}
 	return r, nil
 }

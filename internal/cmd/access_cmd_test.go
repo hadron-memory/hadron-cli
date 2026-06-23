@@ -97,6 +97,36 @@ func TestAccessCheckUnderQualifiedResource(t *testing.T) {
 	}
 }
 
+// A leading "@" is a handle sigil: it must be stripped so the exact handle
+// match wins over an unrelated fuzzy hit (rather than erroring as ambiguous).
+func TestAccessCheckHandleSigil(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"SearchUsers": `{"data":{"searchUsers":[` +
+			searchUserJSON("u1", "Alice", "alice@acme.com", "alice") + `,` +
+			searchUserJSON("u2", "Alice Smith", "asmith@acme.com", "alicesmith") + `]}}`,
+		"EffectiveAccess": `{"data":{"effectiveAccess":{
+			"user":{"id":"u1","name":"Alice","email":"alice@acme.com","handle":"alice"},
+			"resourceUrn":"hrn:memory:acme.com::kb","resourceKind":"memory",
+			"canRead":true,"canWrite":false,"canManage":false,"canDelete":false,
+			"role":"reader","grants":[{"source":"MEMORY_MEMBER","role":"reader","via":null}]}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"access", "check", "@alice", "hrn:memory:acme.com::kb", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		User string `json:"user"`
+	}
+	if err := json.Unmarshal(captured["EffectiveAccess"], &vars); err != nil {
+		t.Fatalf("decode vars: %v", err)
+	}
+	if vars.User != "u1" {
+		t.Errorf("@alice should resolve to the exact-handle match u1, got %q", vars.User)
+	}
+}
+
 // Multiple non-exact user matches are ambiguous rather than an arbitrary pick.
 func TestAccessCheckAmbiguousUser(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
