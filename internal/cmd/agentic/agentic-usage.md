@@ -199,6 +199,18 @@ Conventions:
   add|set-role <org-id> --user <id> --role <OWNER|ADMIN|CONTRIBUTOR|READER>` and
   `member rm <org-id> --user <id>` manage them. There's no org-list query —
   address an org by id (the org behind a memory URN).
+- `access check <user> <resource>` answers "what access does this user have to
+  this resource?" — the authoritative, server-computed effective access plus the
+  grants that confer it (no client-side re-derivation). `<user>` is an id, email,
+  or handle (resolved via `searchUsers`); `<resource>` is a fully-qualified URN
+  — `hrn:memory:…`, `hrn:node:…`, `hrn:app:…`, `hrn:agent:…` — or a bare
+  AiServiceConfig id. Output carries `canRead/canWrite/canManage/canDelete`, a
+  `role` label, and a `grants[]` array (each `{source, role, via}`); an empty
+  `grants[]` is the first-class "no access" answer. Reading it requires audit
+  rights on the resource (platform admin, the owning org's ADMIN/OWNER, or a
+  strict-owner memory's principal) — otherwise the server's `FORBIDDEN` surfaces
+  as exit 1. An unresolvable resource is exit 4; an under-qualified resource ref
+  (e.g. `acme.com::kb` with no `hrn:` prefix) is a usage error (exit 2).
 
 ## The escape hatch: hadron api
 

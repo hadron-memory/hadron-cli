@@ -77,8 +77,8 @@ with -m/--memory to name a single memory instead.`,
 
 			dto := runTaskDTO{Result: resp.RunTask}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				io.WriteString(w, resp.RunTask+"\n")
-				return nil
+				_, err := io.WriteString(w, resp.RunTask+"\n")
+				return err
 			})
 		},
 	}
