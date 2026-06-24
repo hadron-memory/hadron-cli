@@ -1388,11 +1388,12 @@ type EffectiveAccessResponse struct {
 	// that reuses the server's authorization rules instead of re-deriving them
 	// client-side.
 	//
-	// 'user' accepts a User ID (Users have no URN today). 'resource' is
-	// dispatched on URN type the same way resolveUrn dispatches: a memory, node,
-	// app, or agent MUST be a fully-qualified hrn:<type>: URN (a bare id is
-	// ambiguous across those kinds). A bare id with no scheme prefix is treated
-	// as an AiServiceConfig id — the only URN-less resource kind.
+	// 'user' (the subject) accepts a User ID or a hrn:user:<handle> URN (spec
+	// cor:urn:010:01). 'resource' is dispatched on URN type the same way
+	// resolveUrn dispatches: a memory, node, app, agent, org, or user MUST be a
+	// fully-qualified hrn:<type>: URN (a bare id is ambiguous across those kinds).
+	// A bare id with no scheme prefix is treated as an AiServiceConfig id — the
+	// only URN-less resource kind.
 	//
 	// Authorization (who may CALL this): the same visibility bar already
 	// enforced on the underlying grant tables — a platform ADMIN/OWNER, an
@@ -3165,7 +3166,7 @@ func (v *ResolveAiServiceConfigsResponse) GetResolveAiServiceConfigs() []*Resolv
 // the resource's canonical page. Powers the portal's /app/u/<urn> redirect
 // route (hadron-portal#262).
 //
-// `kind` is the URN's type segment: memory | node | agent | org | app.
+// `kind` is the URN's type segment: memory | node | agent | org | app | user.
 // `id` is the resolved entity's primary id. `memoryId` is set only for
 // nodes (their owning memory), `organizationId` only for apps (their owning
 // org) — both are the extra ids those resources' canonical routes require.
@@ -4223,6 +4224,48 @@ func (v *UpdateMemoryUpdateMemory) GetData() *json.RawMessage { return v.Data }
 // GetUpdatedAt returns UpdateMemoryUpdateMemory.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryUpdateMemory) GetUpdatedAt() string { return v.UpdatedAt }
 
+// UpdateNodeDataResponse is returned by UpdateNodeData on success.
+type UpdateNodeDataResponse struct {
+	UpdateNodeData *UpdateNodeDataUpdateNodeDataNode `json:"updateNodeData"`
+}
+
+// GetUpdateNodeData returns UpdateNodeDataResponse.UpdateNodeData, and is useful for accessing the field via an interface.
+func (v *UpdateNodeDataResponse) GetUpdateNodeData() *UpdateNodeDataUpdateNodeDataNode {
+	return v.UpdateNodeData
+}
+
+// UpdateNodeDataUpdateNodeDataNode includes the requested fields of the GraphQL type Node.
+type UpdateNodeDataUpdateNodeDataNode struct {
+	Id        string   `json:"id"`
+	MemoryId  string   `json:"memoryId"`
+	Loc       string   `json:"loc"`
+	Name      string   `json:"name"`
+	NodeType  string   `json:"nodeType"`
+	Tags      []string `json:"tags"`
+	UpdatedAt string   `json:"updatedAt"`
+}
+
+// GetId returns UpdateNodeDataUpdateNodeDataNode.Id, and is useful for accessing the field via an interface.
+func (v *UpdateNodeDataUpdateNodeDataNode) GetId() string { return v.Id }
+
+// GetMemoryId returns UpdateNodeDataUpdateNodeDataNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateNodeDataUpdateNodeDataNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns UpdateNodeDataUpdateNodeDataNode.Loc, and is useful for accessing the field via an interface.
+func (v *UpdateNodeDataUpdateNodeDataNode) GetLoc() string { return v.Loc }
+
+// GetName returns UpdateNodeDataUpdateNodeDataNode.Name, and is useful for accessing the field via an interface.
+func (v *UpdateNodeDataUpdateNodeDataNode) GetName() string { return v.Name }
+
+// GetNodeType returns UpdateNodeDataUpdateNodeDataNode.NodeType, and is useful for accessing the field via an interface.
+func (v *UpdateNodeDataUpdateNodeDataNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns UpdateNodeDataUpdateNodeDataNode.Tags, and is useful for accessing the field via an interface.
+func (v *UpdateNodeDataUpdateNodeDataNode) GetTags() []string { return v.Tags }
+
+// GetUpdatedAt returns UpdateNodeDataUpdateNodeDataNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateNodeDataUpdateNodeDataNode) GetUpdatedAt() string { return v.UpdatedAt }
+
 // UpdateOrgMemberResponse is returned by UpdateOrgMember on success.
 type UpdateOrgMemberResponse struct {
 	// Accepts the entity's ID or URN (orgId).
@@ -5164,6 +5207,18 @@ func (v *__UpdateMemoryShareRoleInput) GetGranteeId() string { return v.GranteeI
 
 // GetRole returns __UpdateMemoryShareRoleInput.Role, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryShareRoleInput) GetRole() MemoryShareRole { return v.Role }
+
+// __UpdateNodeDataInput is used internally by genqlient
+type __UpdateNodeDataInput struct {
+	NodeId string          `json:"nodeId"`
+	Data   json.RawMessage `json:"data"`
+}
+
+// GetNodeId returns __UpdateNodeDataInput.NodeId, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeDataInput) GetNodeId() string { return v.NodeId }
+
+// GetData returns __UpdateNodeDataInput.Data, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeDataInput) GetData() json.RawMessage { return v.Data }
 
 // __UpdateOrgMemberInput is used internally by genqlient
 type __UpdateOrgMemberInput struct {
@@ -7264,6 +7319,53 @@ func UpdateMemoryShareRole(
 	}
 
 	data_ = &UpdateMemoryShareRoleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateNodeData.
+const UpdateNodeData_Operation = `
+mutation UpdateNodeData ($nodeId: ID!, $data: JSON!) {
+	updateNodeData(nodeId: $nodeId, data: $data) {
+		id
+		memoryId
+		loc
+		name
+		nodeType
+		tags
+		updatedAt
+	}
+}
+`
+
+// Shallow-merge a JSON patch into a node's `data` bag (the supplied object's
+// top-level keys overwrite existing ones; absent keys are preserved). Unlike
+// UpsertNode's `data`, which replaces the whole bag, this is a merge — the
+// server rejects a non-object patch with BAD_USER_INPUT. Backs the
+// `--data-merge`/`--data-merge-file` flags on `hadron node update`.
+func UpdateNodeData(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeId string,
+	data json.RawMessage,
+) (data_ *UpdateNodeDataResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateNodeData",
+		Query:  UpdateNodeData_Operation,
+		Variables: &__UpdateNodeDataInput{
+			NodeId: nodeId,
+			Data:   data,
+		},
+	}
+
+	data_ = &UpdateNodeDataResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
