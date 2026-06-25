@@ -2604,6 +2604,57 @@ func (v *NodeEdgeInput) GetName() *string { return v.Name }
 // GetTargetId returns NodeEdgeInput.TargetId, and is useful for accessing the field via an interface.
 func (v *NodeEdgeInput) GetTargetId() string { return v.TargetId }
 
+type NodeExportFormat string
+
+const (
+	NodeExportFormatJson NodeExportFormat = "JSON"
+	NodeExportFormatMd   NodeExportFormat = "MD"
+)
+
+var AllNodeExportFormat = []NodeExportFormat{
+	NodeExportFormatJson,
+	NodeExportFormatMd,
+}
+
+// NodeExportNodeExportNodeExportResult includes the requested fields of the GraphQL type NodeExportResult.
+type NodeExportNodeExportNodeExportResult struct {
+	Format NodeExportFormat `json:"format"`
+	// MIME type, e.g. text/markdown or application/json.
+	MimeType string `json:"mimeType"`
+	// Suggested download filename, e.g. <loc-leaf>.md.
+	Filename string `json:"filename"`
+	// The rendered file contents (TEXT).
+	Data string `json:"data"`
+	// Byte length of the rendered payload (UTF-8).
+	Bytes int `json:"bytes"`
+}
+
+// GetFormat returns NodeExportNodeExportNodeExportResult.Format, and is useful for accessing the field via an interface.
+func (v *NodeExportNodeExportNodeExportResult) GetFormat() NodeExportFormat { return v.Format }
+
+// GetMimeType returns NodeExportNodeExportNodeExportResult.MimeType, and is useful for accessing the field via an interface.
+func (v *NodeExportNodeExportNodeExportResult) GetMimeType() string { return v.MimeType }
+
+// GetFilename returns NodeExportNodeExportNodeExportResult.Filename, and is useful for accessing the field via an interface.
+func (v *NodeExportNodeExportNodeExportResult) GetFilename() string { return v.Filename }
+
+// GetData returns NodeExportNodeExportNodeExportResult.Data, and is useful for accessing the field via an interface.
+func (v *NodeExportNodeExportNodeExportResult) GetData() string { return v.Data }
+
+// GetBytes returns NodeExportNodeExportNodeExportResult.Bytes, and is useful for accessing the field via an interface.
+func (v *NodeExportNodeExportNodeExportResult) GetBytes() int { return v.Bytes }
+
+// NodeExportResponse is returned by NodeExport on success.
+type NodeExportResponse struct {
+	// Render one node to a portable, self-contained file (#386, spec cor:api).
+	NodeExport *NodeExportNodeExportNodeExportResult `json:"nodeExport"`
+}
+
+// GetNodeExport returns NodeExportResponse.NodeExport, and is useful for accessing the field via an interface.
+func (v *NodeExportResponse) GetNodeExport() *NodeExportNodeExportNodeExportResult {
+	return v.NodeExport
+}
+
 type NodeInput struct {
 	// Paragraph-length summary of this node — see Node.abstract for the surfacing contract (hadron_get_node opt-in via contentScope; hadron_find_nodes preview ships in US2). Optional. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
 	Abstract    *string          `json:"abstract,omitempty"`
@@ -4946,6 +4997,18 @@ type __NodeBatchInput struct {
 // GetIds returns __NodeBatchInput.Ids, and is useful for accessing the field via an interface.
 func (v *__NodeBatchInput) GetIds() []string { return v.Ids }
 
+// __NodeExportInput is used internally by genqlient
+type __NodeExportInput struct {
+	Id     string           `json:"id"`
+	Format NodeExportFormat `json:"format"`
+}
+
+// GetId returns __NodeExportInput.Id, and is useful for accessing the field via an interface.
+func (v *__NodeExportInput) GetId() string { return v.Id }
+
+// GetFormat returns __NodeExportInput.Format, and is useful for accessing the field via an interface.
+func (v *__NodeExportInput) GetFormat() NodeExportFormat { return v.Format }
+
 // __NodeSearchInput is used internally by genqlient
 type __NodeSearchInput struct {
 	Query     string      `json:"query"`
@@ -6555,6 +6618,50 @@ func NodeBatch(
 	}
 
 	data_ = &NodeBatchResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NodeExport.
+const NodeExport_Operation = `
+query NodeExport ($id: ID!, $format: NodeExportFormat!) {
+	nodeExport(id: $id, format: $format, full: true) {
+		format
+		mimeType
+		filename
+		data
+		bytes
+	}
+}
+`
+
+// Render one node to its canonical, round-trippable file via the SERVER's
+// renderer (#106) — so `hadron node export` emits byte-for-byte what the portal
+// and every other API client get from the one shared renderer. full: true is the
+// canonical form (all sections, importable); format selects MD or JSON.
+func NodeExport(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	format NodeExportFormat,
+) (data_ *NodeExportResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeExport",
+		Query:  NodeExport_Operation,
+		Variables: &__NodeExportInput{
+			Id:     id,
+			Format: format,
+		},
+	}
+
+	data_ = &NodeExportResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

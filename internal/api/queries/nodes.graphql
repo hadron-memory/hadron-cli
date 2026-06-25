@@ -355,3 +355,17 @@ mutation SearchReplaceInNodes($input: SearchReplaceInNodesInput!) {
     }
   }
 }
+
+# Render one node to its canonical, round-trippable file via the SERVER's
+# renderer (#106) — so `hadron node export` emits byte-for-byte what the portal
+# and every other API client get from the one shared renderer. full: true is the
+# canonical form (all sections, importable); format selects MD or JSON.
+query NodeExport($id: ID!, $format: NodeExportFormat!) {
+  nodeExport(id: $id, format: $format, full: true) {
+    format
+    mimeType
+    filename
+    data
+    bytes
+  }
+}

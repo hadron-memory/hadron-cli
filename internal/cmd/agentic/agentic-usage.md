@@ -121,7 +121,9 @@ Conventions:
   `--reason` on `node create`.
 - `node export <urn>` writes one node to a portable, self-describing file
   (frontmatter markdown, or `--format json`) — to stdout by default so it pipes
-  into `node import`, or `-o <file>`. `node import <file|->` recreates it: a
+  into `node import`, or `-o <file>`. Rendered by the server (the one renderer
+  shared with the portal and every other client, so the bytes are identical
+  everywhere); needs a server with `nodeExport` (hadron-server #386). `node import <file|->` recreates it: a
   node already at the target loc is updated, else created. The target memory and
   loc come from the file's `memory:`/`loc:` keys; `-m`/`--loc` override them
   (re-homing a node into another memory). Outgoing edges are imported only with

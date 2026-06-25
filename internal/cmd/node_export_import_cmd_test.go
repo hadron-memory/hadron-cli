@@ -2,35 +2,42 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
-// A full bulk-read node for export: alias + properties + data + an edge, the
-// fields only the NodeBatch projection carries.
-const exportBatchJSON = `{"data":{"nodeBatch":{
-	"truncated":false,"omitted":[],"unavailable":[],
-	"nodes":[{
-		"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
-		"alias":"flaky","nodeType":"task","description":"One liner","abstract":"A summary.",
-		"abstractOriginHash":"deadbeef","tags":["ci"],"seq":3,"data":{"k":"v"},"properties":{"p":"q"},
-		"content":"The body.","updatedAt":"2026-06-11T00:00:00Z",
-		"outgoingEdges":[{"name":"routes-to","priority":10,"condition":null,"target":{"id":"n2","loc":"start","memoryId":"mem1"}}],
-		"incomingEdges":[]
-	}]
-}}}`
-
 const myMemoriesJSON = `{"data":{"myMemories":[{"id":"mem1","urn":"acme.com:kb","name":"KB",
 	"shortDescription":null,"class":"knowledge","visibility":"ORGANIZATION","organizationId":"o1",
 	"isEncrypted":false,"updatedAt":"2026-06-11T00:00:00Z"}]}}`
 
+// nodeExportResp builds a NodeExport GraphQL response wrapping data, the way the
+// server's single-node renderer returns it (#106).
+func nodeExportResp(format, mime, fname, data string) string {
+	d, _ := json.Marshal(data)
+	return fmt.Sprintf(`{"data":{"nodeExport":{"format":%q,"mimeType":%q,"filename":%q,"data":%s,"bytes":%d}}}`,
+		format, mime, fname, d, len(data))
+}
+
+// A minimal node read for the file-write summary (loc/name/memory) — the
+// render itself returns no identifying metadata.
+const exportMetaJSON = `{"data":{"nodeById":{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
+	"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"task","tags":[],
+	"content":"x","data":null,"seq":null,"createdAt":"2026-06-11T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
+	"outgoingEdges":[],"incomingEdges":[]}}}`
+
+// node export routes through the SERVER renderer (#106): the CLI writes exactly
+// the bytes nodeExport returns, so its output is identical to the portal and
+// every other API client.
 func TestNodeExportToFile(t *testing.T) {
-	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveNodeJSON,
-		"NodeBatch":  exportBatchJSON,
-		"MyMemories": myMemoriesJSON,
+	const exportedMD = "---\nname: Flaky CI\nloc: findings:flaky-ci\nmemory: acme.com:kb\ntype: task\n---\n\nThe body.\n"
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveNodeJSON,
+		"NodeExport":  nodeExportResp("MD", "text/markdown", "flaky-ci.md", exportedMD),
+		"GetNodeById": exportMetaJSON,
+		"MyMemories":  myMemoriesJSON,
 	})
 	f, out := testFactory(t)
 	file := filepath.Join(t.TempDir(), "flaky.md")
@@ -51,30 +58,31 @@ func TestNodeExportToFile(t *testing.T) {
 	if err := json.Unmarshal([]byte(out.String()), &summary); err != nil {
 		t.Fatalf("summary not JSON: %v\n%s", err, out.String())
 	}
-	if summary.Memory != "acme.com:kb" || summary.Loc != "findings:flaky-ci" || summary.Format != "md" || summary.Bytes == 0 {
+	if summary.Memory != "acme.com:kb" || summary.Loc != "findings:flaky-ci" || summary.Format != "md" || summary.Bytes != len(exportedMD) {
 		t.Errorf("summary = %+v", summary)
 	}
-
-	// The file is self-describing (loc + memory keys) and carries the full node.
-	md := mustRead(t, file)
-	for _, want := range []string{
-		"name: Flaky CI", "loc: findings:flaky-ci", "memory: acme.com:kb",
-		"type: task", "alias: flaky", "abstractOriginHash: deadbeef", "contentHash:",
-		"nodes:", "rel: routes-to", "priority: 10", "The body.",
-	} {
-		if !strings.Contains(md, want) {
-			t.Errorf("exported md missing %q:\n%s", want, md)
-		}
+	// The file is byte-for-byte what the server returned.
+	if md := mustRead(t, file); md != exportedMD {
+		t.Errorf("file must equal the server render verbatim:\ngot:  %q\nwant: %q", md, exportedMD)
+	}
+	// The MD format is the one requested of the server.
+	var vars struct {
+		Format string `json:"format"`
+	}
+	_ = json.Unmarshal(captured["NodeExport"], &vars)
+	if vars.Format != "MD" {
+		t.Errorf("server asked for format %q, want MD", vars.Format)
 	}
 }
 
-// Exporting to stdout streams the document itself — never the summary wrapper,
-// even with --json, so a piped md/json stream isn't corrupted.
+// Exporting to stdout streams the server-rendered document itself — never the
+// summary wrapper, even with --json, so a piped md/json stream isn't corrupted.
+// The stdout path makes no extra metadata reads.
 func TestNodeExportStdoutIsRawDocument(t *testing.T) {
+	const md = "---\nname: Flaky CI\nloc: findings:flaky-ci\n---\n\nThe body.\n"
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,
-		"NodeBatch":  exportBatchJSON,
-		"MyMemories": myMemoriesJSON,
+		"NodeExport": nodeExportResp("MD", "text/markdown", "flaky-ci.md", md),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -82,23 +90,19 @@ func TestNodeExportStdoutIsRawDocument(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	got := out.String()
-	if !strings.HasPrefix(got, "---\n") {
-		t.Errorf("stdout must be the raw markdown document, got:\n%s", got)
+	if got := out.String(); got != md {
+		t.Errorf("stdout must be the raw server-rendered document verbatim, got:\n%q", got)
 	}
-	if strings.Contains(got, `"outFile"`) {
-		t.Errorf("stdout must not be a summary wrapper:\n%s", got)
-	}
-	if !strings.Contains(got, "loc: findings:flaky-ci") {
-		t.Errorf("self-describing loc key missing:\n%s", got)
+	if strings.Contains(out.String(), `"outFile"`) {
+		t.Errorf("stdout must not be a summary wrapper:\n%s", out.String())
 	}
 }
 
 func TestNodeExportJSONFormat(t *testing.T) {
-	gql, _ := captureGraphQL(t, map[string]string{
+	const body = `{"loc":"findings:flaky-ci","memory":"acme.com:kb","type":"task"}`
+	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,
-		"NodeBatch":  exportBatchJSON,
-		"MyMemories": myMemoriesJSON,
+		"NodeExport": nodeExportResp("JSON", "application/json", "flaky-ci.json", body),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -106,33 +110,46 @@ func TestNodeExportJSONFormat(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var doc map[string]any
-	if err := json.Unmarshal([]byte(out.String()), &doc); err != nil {
-		t.Fatalf("--format json output is not a JSON object: %v\n%s", err, out.String())
+	if out.String() != body {
+		t.Errorf("stdout must be the server JSON verbatim:\n%s", out.String())
 	}
-	if doc["memory"] != "acme.com:kb" || doc["type"] != "task" || doc["loc"] != "findings:flaky-ci" {
-		t.Errorf("unexpected JSON doc: %v", doc)
+	var vars struct {
+		Format string `json:"format"`
 	}
-	// contentHash is derived (the projection doesn't carry it) and must be
-	// present in JSON just as in markdown.
-	if doc["contentHash"] == "" || doc["contentHash"] == nil {
-		t.Errorf("json export must carry a recomputed contentHash: %v", doc["contentHash"])
+	_ = json.Unmarshal(captured["NodeExport"], &vars)
+	if vars.Format != "JSON" {
+		t.Errorf("--format json must ask the server for JSON, got %q", vars.Format)
 	}
 }
 
-// An id that lists but can't be read (the visibility gap) → NotFound, never a
-// silent empty file.
-func TestNodeExportNotReadable(t *testing.T) {
+// A server that can't render the node (not found / no access) surfaces the
+// error rather than writing a silent empty file.
+func TestNodeExportServerErrorPropagates(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,
-		"NodeBatch":  `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":["n1"],"nodes":[]}}}`,
+		"NodeExport": `{"errors":[{"message":"node not found","extensions":{"code":"NOT_FOUND"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "export", nodeURN, "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected an error when the server render fails")
+	}
+}
+
+// Against a server too old to have the nodeExport field, the schema-validation
+// error becomes a clear "upgrade the server" message, not a raw GraphQL dump.
+func TestNodeExportOldServerUnknownField(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"NodeExport": `{"errors":[{"message":"Cannot query field \"nodeExport\" on type \"Query\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"node", "export", nodeURN, "--server", gql.URL})
 	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "not readable") {
-		t.Fatalf("expected a not-readable NotFound error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "too old") {
+		t.Fatalf("expected a clear old-server error, got %v", err)
 	}
 }
 
