@@ -66,10 +66,6 @@ the rule's meaning changed.`,
   cat rewrite.md | hadron spec edit msg:010:02 -m micromentor.org::platform-specs --content -`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			memURN, err := memoryURNFromFlag(memory)
-			if err != nil {
-				return err
-			}
 			if _, err := ParseCitation(args[0]); err != nil {
 				return err
 			}
@@ -83,6 +79,10 @@ the rule's meaning changed.`,
 			nonInteractive := changed("content") || changed("content-file")
 
 			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			memURN, err := resolveSpecMemoryURN(cmd, client, memory)
 			if err != nil {
 				return err
 			}

@@ -83,10 +83,6 @@ is one call instead of four.`,
   hadron spec new -m hadronmemory.com::platform-specs cli:cha:010:01 --new-path --title "send a message"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			memURN, err := memoryURNFromFlag(memory)
-			if err != nil {
-				return err
-			}
 			if product != "" && !reModule.MatchString(product) {
 				return exitcode.Newf(exitcode.Usage, "--product %q must be 3 lowercase letters", product)
 			}
@@ -118,6 +114,12 @@ is one call instead of four.`,
 			}
 
 			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			// Resolve to the canonical <org>::<memory> so a PK-supplied memory
+			// still builds valid edge-target FQNs (issue #91 Bug 2).
+			memURN, err := resolveSpecMemoryURN(cmd, client, memory)
 			if err != nil {
 				return err
 			}
@@ -283,15 +285,18 @@ is one call instead of four.`,
 			}
 			newID := up.UpsertNode.Id
 
+			var edgeFailures []string
 			if !noEdges {
 				for _, e := range result.Edges {
 					targetID, rerr := resolveSpecNode(cmd, client, memURN, e.Target)
 					if rerr != nil {
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: skipped edge %q → %s: %v\n", e.Label, e.Target, rerr)
+						edgeFailures = append(edgeFailures, e.Target)
 						continue
 					}
 					if _, cerr := gen.CreateEdge(cmd.Context(), client, newID, targetID, e.Label, nil, nil, nil, nil, nil, nil); cerr != nil {
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", e.Label, e.Target, api.MapError(cerr))
+						edgeFailures = append(edgeFailures, e.Target)
 					}
 				}
 			}
@@ -318,8 +323,19 @@ is one call instead of four.`,
 				if !noEdges {
 					if _, eErr := gen.CreateEdge(cmd.Context(), client, cUp.UpsertNode.Id, newID, coContract.title, nil, nil, nil, nil, nil, nil); eErr != nil {
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", coContract.title, target.Format(), api.MapError(eErr))
+						edgeFailures = append(edgeFailures, target.Format())
 					}
 				}
+			}
+
+			// A spec node without its table-of-contents / inheritance edges is
+			// silently orphaned, so a skipped required edge is a hard failure —
+			// the node was created, but the command exits non-zero so the gap
+			// isn't mistaken for success (issue #91 Bug 2).
+			if len(edgeFailures) > 0 {
+				return exitcode.Newf(exitcode.Error,
+					"created %s but failed to wire %d required edge(s) to %s — the node is orphaned; fix the target(s) and re-run, or wire the edge(s) with `hadron edge add`",
+					target.Format(), len(edgeFailures), strings.Join(edgeFailures, ", "))
 			}
 
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
@@ -748,6 +764,7 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 	createOnly := true
 	nodeType := "info"
 	created := map[string]string{}
+	var edgeFailures []string
 	for _, pn := range plan {
 		ab, bd := pn.abstract, pn.body
 		input := gen.NodeInput{
@@ -770,14 +787,21 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 				rid, rerr := resolveSpecNode(cmd, client, memURN, e.Target)
 				if rerr != nil {
 					fmt.Fprintf(f.IOStreams.ErrOut, "warning: skipped edge %q → %s: %v\n", e.Label, e.Target, rerr)
+					edgeFailures = append(edgeFailures, e.Target)
 					continue
 				}
 				tid = rid
 			}
 			if _, cerr := gen.CreateEdge(cmd.Context(), client, srcID, tid, e.Label, nil, nil, nil, nil, nil, nil); cerr != nil {
 				fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", e.Label, e.Target, api.MapError(cerr))
+				edgeFailures = append(edgeFailures, e.Target)
 			}
 		}
+	}
+	if len(edgeFailures) > 0 {
+		return exitcode.Newf(exitcode.Error,
+			"scaffolded %s but failed to wire %d required edge(s) to %s — node(s) orphaned; fix the target(s) and re-run, or wire the edge(s) with `hadron edge add`",
+			target.Format(), len(edgeFailures), strings.Join(edgeFailures, ", "))
 	}
 	return render()
 }

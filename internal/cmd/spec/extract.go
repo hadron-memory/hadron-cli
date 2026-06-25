@@ -69,10 +69,6 @@ chunk leaves the source alone with a warning.`,
   hadron spec extract cor:dmo:060:02 -m hadronmemory.com::specs --to-feature 020 --rule 04 --title "Node type" --dry-run`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			memURN, err := memoryURNFromFlag(memory)
-			if err != nil {
-				return err
-			}
 			source, err := ParseCitation(args[0])
 			if err != nil {
 				return err
@@ -98,6 +94,10 @@ chunk leaves the source alone with a warning.`,
 			}
 
 			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			memURN, err := resolveSpecMemoryURN(cmd, client, memory)
 			if err != nil {
 				return err
 			}

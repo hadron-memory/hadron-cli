@@ -41,10 +41,6 @@ one object for a single citation, an array for --prefix.`,
   hadron spec get --prefix cor:dmo -m hadronmemory.com::platform-specs --abstract-only --json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			memURN, err := memoryURNFromFlag(memory)
-			if err != nil {
-				return err
-			}
 			// Exactly one of <citation> or --prefix.
 			if (len(args) == 0) == (prefix == "") {
 				return exitcode.Newf(exitcode.Usage, "provide a <citation> or --prefix <prefix> (exactly one)")
@@ -56,6 +52,10 @@ one object for a single citation, an array for --prefix.`,
 				return exitcode.Newf(exitcode.Usage, "--body-only takes a single <citation>, not --prefix")
 			}
 			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			memURN, err := resolveSpecMemoryURN(cmd, client, memory)
 			if err != nil {
 				return err
 			}

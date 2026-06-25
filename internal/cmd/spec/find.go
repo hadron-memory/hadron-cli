@@ -39,7 +39,7 @@ Results are filtered to spec nodes.`,
 
 			var memURN string
 			if memory != "" {
-				memURN, err = memoryURNFromFlag(memory)
+				memURN, err = resolveSpecMemoryURN(cmd, client, memory)
 				if err != nil {
 					return err
 				}

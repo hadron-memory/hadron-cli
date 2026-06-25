@@ -31,11 +31,11 @@ hand-written ledger and any drift is reported (exit 5 if drift is found).`,
   hadron spec register -m micromentor.org::platform-specs --check`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			memURN, err := memoryURNFromFlag(memory)
+			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			client, err := f.GraphQLClient()
+			memURN, err := resolveSpecMemoryURN(cmd, client, memory)
 			if err != nil {
 				return err
 			}
