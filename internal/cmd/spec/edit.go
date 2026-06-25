@@ -116,17 +116,27 @@ nothing.`,
 			}
 			curBody, curAbstract := derefStr(node.Content), derefStr(node.Abstract)
 
+			// A field defaults to its stored value (preserved); only a field the
+			// caller actually supplies is replaced. CRLF→LF normalization is
+			// applied solely to caller-supplied text — never to a preserved field,
+			// or an abstract-only edit could flip a CRLF body to LF and write it,
+			// breaking omit-to-preserve. (parseEditBuffer normalizes the editor
+			// buffer itself, so both interactive fields arrive LF.)
 			newBody, newAbstract := curBody, curAbstract
 			if nonInteractive {
 				if contentProvided {
-					if newBody, err = cmdutil.ResolveTextInput("content", content, contentFile, f.IOStreams.In); err != nil {
-						return err
+					b, rerr := cmdutil.ResolveTextInput("content", content, contentFile, f.IOStreams.In)
+					if rerr != nil {
+						return rerr
 					}
+					newBody = strings.ReplaceAll(b, "\r\n", "\n")
 				}
 				if abstractProvided {
-					if newAbstract, err = cmdutil.ResolveTextInput("abstract", abstract, abstractFile, f.IOStreams.In); err != nil {
-						return err
+					a, rerr := cmdutil.ResolveTextInput("abstract", abstract, abstractFile, f.IOStreams.In)
+					if rerr != nil {
+						return rerr
 					}
+					newAbstract = strings.ReplaceAll(a, "\r\n", "\n")
 				}
 			} else {
 				// The default seam (launchEditor) enforces the TTY requirement, so
@@ -140,11 +150,6 @@ nothing.`,
 					return err
 				}
 			}
-			// Normalize CRLF to LF: an editor that saves \r\n (common on Windows)
-			// would otherwise read as a change against the corpus's LF text,
-			// defeating the no-op guard with a spurious write + updatedAt bump.
-			newBody = strings.ReplaceAll(newBody, "\r\n", "\n")
-			newAbstract = strings.ReplaceAll(newAbstract, "\r\n", "\n")
 
 			result := editResultDTO{
 				Citation:        node.Loc,
@@ -218,36 +223,34 @@ func assembleEditBuffer(abstract, body string) string {
 }
 
 // parseEditBuffer splits an edited buffer back into (abstract, body). The body
-// divider marks where the body starts; everything above it (minus the abstract
-// divider) is the abstract, trimmed. A missing body divider is a hard error —
-// we refuse to guess where the body begins rather than silently truncate.
+// divider is the only load-bearing split: everything below it is the body
+// (verbatim), everything above it — minus the abstract-divider label line — is
+// the abstract (trimmed), so any stray text the author leaves above the label
+// is kept rather than silently dropped. A missing body divider is a hard error:
+// we refuse to guess where the body begins rather than truncate. CRLF is
+// normalized up front so the matched fields are LF and divider detection is an
+// exact line equality — an indented marker-like line inside the prose is real
+// content, not a divider.
 func parseEditBuffer(s string) (abstract, body string, err error) {
-	lines := strings.Split(s, "\n")
-	absIdx, bodyIdx := -1, -1
-	// Match the divider lines exactly (trimmed) rather than by substring, so an
-	// abstract or body that itself contains the marker text can't be mistaken
-	// for a divider.
+	lines := strings.Split(strings.ReplaceAll(s, "\r\n", "\n"), "\n")
+	bodyIdx := -1
 	for i, ln := range lines {
-		switch strings.TrimSpace(ln) {
-		case bodyDivider:
-			if bodyIdx == -1 {
-				bodyIdx = i
-			}
-		case abstractDivider:
-			if absIdx == -1 {
-				absIdx = i
-			}
+		if ln == bodyDivider {
+			bodyIdx = i
+			break
 		}
 	}
 	if bodyIdx == -1 {
 		return "", "", exitcode.Newf(exitcode.Usage,
 			"the body divider was removed from the buffer — aborting without writing; keep the %q line so the abstract and body can be split apart", bodyDivider)
 	}
-	start := 0
-	if absIdx != -1 && absIdx < bodyIdx {
-		start = absIdx + 1
+	var absLines []string
+	for _, ln := range lines[:bodyIdx] {
+		if ln != abstractDivider {
+			absLines = append(absLines, ln)
+		}
 	}
-	abstract = strings.TrimSpace(strings.Join(lines[start:bodyIdx], "\n"))
+	abstract = strings.TrimSpace(strings.Join(absLines, "\n"))
 	body = strings.Join(lines[bodyIdx+1:], "\n")
 	return abstract, body, nil
 }

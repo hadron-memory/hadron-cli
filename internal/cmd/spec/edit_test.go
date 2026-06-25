@@ -72,6 +72,39 @@ func TestParseEditBufferMissingDivider(t *testing.T) {
 	}
 }
 
+// TestParseEditBufferPreservesStrayText: text the author leaves above the
+// abstract-divider label is folded into the abstract, not silently dropped.
+func TestParseEditBufferPreservesStrayText(t *testing.T) {
+	buf := "I typed this above the label.\n" + abstractDivider + "\nthe real abstract\n" + bodyDivider + "\nbody\n"
+	abs, body, err := parseEditBuffer(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if abs != "I typed this above the label.\nthe real abstract" {
+		t.Errorf("stray text dropped: %q", abs)
+	}
+	if body != "body\n" {
+		t.Errorf("body = %q", body)
+	}
+}
+
+// TestParseEditBufferIndentedMarkerIsContent: a divider-looking line that's
+// indented (so not exactly the divider) is content, not a split point — the
+// real divider still governs.
+func TestParseEditBufferIndentedMarkerIsContent(t *testing.T) {
+	buf := assembleEditBuffer("abs", "    "+bodyDivider+"\nreal body\n")
+	abs, body, err := parseEditBuffer(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if abs != "abs" {
+		t.Errorf("abstract = %q", abs)
+	}
+	if body != "    "+bodyDivider+"\nreal body\n" {
+		t.Errorf("indented marker should stay in the body, got %q", body)
+	}
+}
+
 func TestCountLines(t *testing.T) {
 	cases := []struct {
 		in   string
