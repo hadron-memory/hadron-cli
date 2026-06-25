@@ -6,7 +6,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -68,10 +67,6 @@ writes that declaration.`,
   hadron spec describe -m micromentor.org::platform-specs --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			memURN, err := memoryURNFromFlag(memory)
-			if err != nil {
-				return err
-			}
 			if declare != "" && declare != "flat" && declare != "product" {
 				return exitcode.Newf(exitcode.Usage, "--declare must be \"flat\" or \"product\"")
 			}
@@ -80,7 +75,7 @@ writes that declaration.`,
 				return err
 			}
 
-			memID, err := resolveSpecMemoryID(cmd, client, memURN)
+			memID, memURN, err := resolveSpecMemoryID(cmd, client, memory)
 			if err != nil {
 				return err
 			}
@@ -130,27 +125,6 @@ writes that declaration.`,
 	cmd.Flags().StringVar(&declare, "declare", "", "declare the scheme in the memory's data: flat | product")
 	_ = cmd.MarkFlagRequired("memory")
 	return cmd
-}
-
-// resolveSpecMemoryID maps a spec memory ref to its ID. A memory's own URN
-// uses a single colon between org and memory; the spec memURN uses the
-// node-ref double colon — normalize, then match myMemories (Query.memory /
-// updateMemory accept PK ids only today). This adds a round-trip to describe
-// (myMemories → memory → nodes); collapse it once the server dispatches memory
-// URNs on those resolvers (same TODO as the memory package's resolveMemoryID).
-func resolveSpecMemoryID(cmd *cobra.Command, client graphql.Client, memURN string) (string, error) {
-	want := strings.Replace(memURN, "::", ":", 1)
-	includeAgentSystem := true
-	resp, err := gen.MyMemories(cmd.Context(), client, &includeAgentSystem)
-	if err != nil {
-		return "", api.MapError(err)
-	}
-	for _, m := range resp.MyMemories {
-		if m.Urn == want {
-			return m.Id, nil
-		}
-	}
-	return "", exitcode.Newf(exitcode.NotFound, "memory %q not found", memURN)
 }
 
 // schemeFromData extracts data.spec.scheme; "" if absent or unparseable. It is

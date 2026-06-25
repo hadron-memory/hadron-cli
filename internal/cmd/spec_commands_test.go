@@ -373,6 +373,78 @@ func TestSpecNew(t *testing.T) {
 	}
 }
 
+// #91 Bug 2: spec new with the memory given by PK must resolve it to the
+// canonical <org>::<memory> so edge targets are valid FQNs. Previously it built
+// "<pk>::<loc>", which failed FQN validation and left the node orphaned.
+func TestSpecNewResolvesPKForEdgeTargets(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:010", `["spec"]`) + `,` + specNodeList("msg:010:00", `["spec"]`) + `]}}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"MyMemories": memListMicromentorJSON,
+		"Nodes":      scan,
+		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:010:01"},"target":{"id":"t1","loc":"msg:010"}}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	// -m mem1 is the memory PK (matches memListMicromentorJSON's id).
+	root.SetArgs([]string{"spec", "new", "-m", "mem1", "--module", "msg", "--feature", "010", "--title", "Test", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Urn string `json:"urn"`
+	}
+	if err := json.Unmarshal(captured["ResolveUrn"], &vars); err != nil {
+		t.Fatalf("ResolveUrn vars: %v", err)
+	}
+	if strings.Contains(vars.Urn, "mem1::") {
+		t.Errorf("edge target built from the raw PK, not the resolved memory: %q", vars.Urn)
+	}
+	if !strings.HasPrefix(vars.Urn, "hrn:node:micromentor.org::platform-specs::") {
+		t.Errorf("edge target urn = %q, want the resolved <org>::<memory> FQN", vars.Urn)
+	}
+}
+
+// #91 ask 3: a required ToC/inheritance edge that can't be wired makes spec new
+// fail loudly (non-zero exit) instead of reporting success on a node it left
+// silently orphaned.
+func TestSpecNewFailsLoudOnSkippedEdge(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:010", `["spec"]`) + `,` + specNodeList("msg:010:00", `["spec"]`) + `]}}`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"Nodes":      scan,
+		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn": `{"data":{"resolveUrn":null}}`, // edge target won't resolve
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "-m", specMem, "--module", "msg", "--feature", "010", "--title", "Test", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "orphaned") {
+		t.Fatalf("a skipped required edge must fail loudly, got %v", err)
+	}
+}
+
+// #91 Bug 1: spec describe resolves a memory given by PK. Previously describe
+// matched only a hand-normalized urn and reported "not found" for every form
+// (URN, bare, PK, name).
+func TestSpecDescribeResolvesByPK(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"MyMemories": memListJSON,
+		"GetMemory":  memGetJSON(`null`),
+		"Nodes":      `{"data":{"nodes":[` + specNodeList("cli", `["spec"]`) + `]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "describe", "-m", "mem1", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("describe by PK should resolve, got %v", err)
+	}
+	if !strings.Contains(out.String(), "scheme") {
+		t.Errorf("expected a scheme report, got %s", out.String())
+	}
+}
+
 // #45 review: --abstract and --abstract-file are mutually exclusive, guarded
 // on Changed() (so an explicit empty --abstract is caught too); fires before
 // any GraphQL call.
@@ -458,9 +530,10 @@ func TestSpecNewMissingParent(t *testing.T) {
 
 const specProductMem = "hadronmemory.com::platform-specs"
 
-// memListJSON is a MyMemories response whose urn matches specProductMem
-// normalized to a single-colon memory urn.
-const memListJSON = `{"data":{"myMemories":[{"id":"mem1","urn":"hadronmemory.com:platform-specs","name":"Platform Specs","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"updatedAt":"2026-06-14T00:00:00Z"}]}}`
+// memListJSON is a MyMemories response whose urn matches specProductMem. The
+// urn is the server's real fully-qualified hrn:memory: form (issue #91: the
+// resolver must match against this, not a hand-normalized single-colon urn).
+const memListJSON = `{"data":{"myMemories":[{"id":"mem1","urn":"hrn:memory:hadronmemory.com::platform-specs","name":"Platform Specs","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"updatedAt":"2026-06-14T00:00:00Z"}]}}`
 
 // memGetJSON is a GetMemory response with the given data bag (raw JSON, e.g.
 // `null` or `{"spec":{"scheme":"product"}}`). vectorIndexEnabled is false, so it
@@ -478,8 +551,8 @@ const memGetVectorEnabledJSON = `{"data":{"memory":{"id":"mem1","urn":"x:y","nam
 const memGetNoVectorJSON = `{"data":{"memory":{"id":"mem1","urn":"x:y","name":"P","shortDescription":null,"description":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"tags":[],"source":null,"syncStatus":"OK","vectorIndexEnabled":false,"data":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z"}}}`
 
 // memListMicromentorJSON is a MyMemories response whose urn matches specMem
-// (micromentor.org::platform-specs) normalized to a single-colon memory urn.
-const memListMicromentorJSON = `{"data":{"myMemories":[{"id":"mem1","urn":"micromentor.org:platform-specs","name":"Platform Specs","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"updatedAt":"2026-06-14T00:00:00Z"}]}}`
+// (micromentor.org::platform-specs), in the server's real hrn:memory: form.
+const memListMicromentorJSON = `{"data":{"myMemories":[{"id":"mem1","urn":"hrn:memory:micromentor.org::platform-specs","name":"Platform Specs","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"updatedAt":"2026-06-14T00:00:00Z"}]}}`
 
 func TestSpecDescribeProduct(t *testing.T) {
 	nodes := strings.Join([]string{

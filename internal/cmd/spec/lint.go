@@ -49,11 +49,11 @@ violations) exit with code 5; --strict promotes warnings to errors too.`,
   hadron spec lint --all -m micromentor.org::platform-specs --strict`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			memURN, err := memoryURNFromFlag(memory)
+			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			client, err := f.GraphQLClient()
+			memURN, err := resolveSpecMemoryURN(cmd, client, memory)
 			if err != nil {
 				return err
 			}
@@ -293,7 +293,7 @@ func lintCorpus(nodes []specNode, scopeRoot, memURN string) []lintFindingDTO {
 // (issue #42). Best-effort: the node scan already proved the memory reachable,
 // so a failed lookup skips the check rather than failing the lint.
 func vectorIndexWarning(cmd *cobra.Command, client graphql.Client, memURN string) *lintFindingDTO {
-	memID, err := resolveSpecMemoryID(cmd, client, memURN)
+	memID, _, err := resolveSpecMemoryID(cmd, client, memURN)
 	if err != nil {
 		return nil
 	}

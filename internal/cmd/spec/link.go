@@ -52,10 +52,6 @@ convention ("documents <from> on the <to> entity"); refine it with
   hadron spec link cor:dmo:020:04 cor:dmo:060:02 -m hadronmemory.com::specs --dry-run`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			memURN, err := memoryURNFromFlag(memory)
-			if err != nil {
-				return err
-			}
 			from, err := ParseCitation(args[0])
 			if err != nil {
 				return err
@@ -69,6 +65,10 @@ convention ("documents <from> on the <to> entity"); refine it with
 			}
 
 			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			memURN, err := resolveSpecMemoryURN(cmd, client, memory)
 			if err != nil {
 				return err
 			}

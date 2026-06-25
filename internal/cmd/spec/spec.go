@@ -357,21 +357,99 @@ func (c Citation) ChildContract() (Citation, bool) {
 
 // ---- memory / node-reference helpers ----
 
-// memoryURNFromFlag normalizes the -m/--memory value to the canonical
-// fully-qualified <org>::<memory> form (stripping an hrn:/urn: memory
-// scheme prefix). The server requires this fully-qualified form.
-func memoryURNFromFlag(m string) (string, error) {
-	m = strings.TrimSpace(m)
-	if m == "" {
-		return "", exitcode.Newf(exitcode.Usage, "a memory is required: pass -m/--memory <org::memory>")
-	}
+// stripMemoryScheme trims an hrn:/urn: memory scheme prefix; the rest is
+// untouched.
+func stripMemoryScheme(s string) string {
+	s = strings.TrimSpace(s)
 	for _, p := range []string{"hrn:memory:", "urn:memory:"} {
-		if strings.HasPrefix(m, p) {
-			m = strings.TrimPrefix(m, p)
-			break
+		if strings.HasPrefix(s, p) {
+			return strings.TrimPrefix(s, p)
 		}
 	}
-	return m, nil
+	return s
+}
+
+// canonicalMemoryURN returns the canonical fully-qualified <org>::<memory>
+// form: scheme stripped and the org/memory separator normalized to "::"
+// (myMemories may report a memory's own urn with a single colon). A bare PK
+// (no colon) is returned unchanged.
+func canonicalMemoryURN(s string) string {
+	s = stripMemoryScheme(s)
+	if !strings.Contains(s, "::") {
+		s = strings.Replace(s, ":", "::", 1)
+	}
+	return s
+}
+
+// memoryURNFromFlag normalizes the -m/--memory value to the canonical
+// fully-qualified <org>::<memory> form. It does NOT resolve a PK or a memory
+// name to its org::memory — use resolveSpecMemoryURN for that. The server
+// requires the fully-qualified form for node-ref FQNs and the nodes filter.
+func memoryURNFromFlag(m string) (string, error) {
+	if strings.TrimSpace(m) == "" {
+		return "", exitcode.Newf(exitcode.Usage, "a memory is required: pass -m/--memory <org::memory>")
+	}
+	return canonicalMemoryURN(m), nil
+}
+
+// resolveSpecMemoryURN resolves the -m/--memory value to the canonical
+// <org>::<memory> form that node-ref FQNs and the nodes filter require. A ref
+// already in <org>::<memory> (or an hrn:/urn: URN) shape is normalized without
+// a round-trip; a PK or a memory name is resolved via myMemories. This is the
+// one resolver every spec subcommand shares, so a PK no longer leaks into edge
+// targets as "<pk>::<loc>" (issue #91).
+func resolveSpecMemoryURN(cmd *cobra.Command, client graphql.Client, ref string) (string, error) {
+	norm := stripMemoryScheme(ref)
+	if norm == "" {
+		return "", exitcode.Newf(exitcode.Usage, "a memory is required: pass -m/--memory <org::memory>")
+	}
+	if strings.Contains(norm, "::") {
+		return norm, nil // already fully-qualified — no lookup needed
+	}
+	_, memURN, err := lookupSpecMemory(cmd, client, ref)
+	return memURN, err
+}
+
+// resolveSpecMemoryID resolves the -m/--memory value to the memory's PK id and
+// its canonical <org>::<memory> urn. Query.memory / updateMemory take a PK, so
+// this always consults myMemories. Accepts a PK, an hrn:/urn: URN, a bare
+// <org>::<memory>, or a memory name (issue #91 — describe previously accepted
+// none of these).
+func resolveSpecMemoryID(cmd *cobra.Command, client graphql.Client, ref string) (id, memURN string, err error) {
+	return lookupSpecMemory(cmd, client, ref)
+}
+
+// lookupSpecMemory matches a memory ref against myMemories by PK, urn (in any
+// scheme/colon form), or name, returning the memory's id and canonical
+// <org>::<memory> urn. A ref reachable as a node filter without an id lookup is
+// served by resolveSpecMemoryURN's fast path before this is ever called.
+func lookupSpecMemory(cmd *cobra.Command, client graphql.Client, ref string) (id, memURN string, err error) {
+	ref = strings.TrimSpace(ref)
+	norm := stripMemoryScheme(ref)
+	if norm == "" {
+		// Empty, or a bare scheme prefix like "hrn:memory:" — nothing to match
+		// (and an empty want must not collide with an empty-urn memory).
+		return "", "", exitcode.Newf(exitcode.Usage, "a memory is required: pass -m/--memory <org::memory>")
+	}
+	want := collapseColons(norm)
+	includeAgentSystem := true
+	resp, err := gen.MyMemories(cmd.Context(), client, &includeAgentSystem)
+	if err != nil {
+		return "", "", api.MapError(err)
+	}
+	for _, m := range resp.MyMemories {
+		canon := canonicalMemoryURN(m.Urn)
+		if ref == m.Id || ref == m.Name || want == collapseColons(canon) {
+			return m.Id, canon, nil
+		}
+	}
+	return "", "", exitcode.Newf(exitcode.NotFound, "memory %q not found", ref)
+}
+
+// collapseColons folds the "::" org/memory separator to ":" so urns written
+// either way compare equal.
+func collapseColons(s string) string {
+	return strings.ReplaceAll(s, "::", ":")
 }
 
 // specNodeRef builds a fully-qualified node reference (<org>::<memory>::<loc>)

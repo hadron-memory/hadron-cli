@@ -170,6 +170,40 @@ func TestMemoryURNFromFlag(t *testing.T) {
 	}
 }
 
+// canonicalMemoryURN must fold every memory-ref form to the same
+// <org>::<memory> so resolution is consistent (issue #91): scheme-prefixed,
+// single-colon (the form myMemories reports a memory's own urn in), and
+// double-colon all canonicalize, while a bare PK passes through untouched.
+func TestCanonicalMemoryURN(t *testing.T) {
+	cases := map[string]string{
+		"hadronmemory.com::specs":            "hadronmemory.com::specs",
+		"hadronmemory.com:specs":             "hadronmemory.com::specs",
+		"hrn:memory:hadronmemory.com::specs": "hadronmemory.com::specs",
+		"urn:memory:hadronmemory.com::specs": "hadronmemory.com::specs",
+		"019e60180d4d788f831b4dca603a88f1":   "019e60180d4d788f831b4dca603a88f1",
+	}
+	for in, want := range cases {
+		if got := canonicalMemoryURN(in); got != want {
+			t.Errorf("canonicalMemoryURN(%q)=%q, want %q", in, got, want)
+		}
+	}
+}
+
+// A blank ref or a bare scheme prefix (which strips to "") must error before any
+// myMemories lookup — an empty `want` must never collide with an empty-urn
+// memory. The empty-norm guard short-circuits before touching cmd/client, so a
+// nil client is safe here.
+func TestResolveSpecMemoryRejectsEmptyRef(t *testing.T) {
+	for _, ref := range []string{"", "   ", "hrn:memory:", "urn:memory:"} {
+		if _, err := resolveSpecMemoryURN(nil, nil, ref); err == nil {
+			t.Errorf("resolveSpecMemoryURN(%q) should error", ref)
+		}
+		if _, _, err := resolveSpecMemoryID(nil, nil, ref); err == nil {
+			t.Errorf("resolveSpecMemoryID(%q) should error", ref)
+		}
+	}
+}
+
 func TestSpecNodeRef(t *testing.T) {
 	if got := specNodeRef("micromentor.org::platform-specs", "msg:010:02"); got != "micromentor.org::platform-specs::msg:010:02" {
 		t.Errorf("specNodeRef=%q", got)

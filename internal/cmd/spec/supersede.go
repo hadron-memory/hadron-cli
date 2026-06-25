@@ -45,14 +45,14 @@ afterward (the tool prints a reminder; it never edits the register).`,
   hadron spec supersede msg:010:02 -m micromentor.org::platform-specs --title "W2 v2" --copy-body --dry-run`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			memURN, err := memoryURNFromFlag(memory)
-			if err != nil {
-				return err
-			}
 			if title == "" {
 				return exitcode.Newf(exitcode.Usage, "--title is required")
 			}
 			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			memURN, err := resolveSpecMemoryURN(cmd, client, memory)
 			if err != nil {
 				return err
 			}
