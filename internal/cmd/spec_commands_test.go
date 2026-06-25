@@ -3,6 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -1793,6 +1795,146 @@ func TestSpecEditContentAndFileExclusive(t *testing.T) {
 		"--content", "x", "--content-file", "/tmp/x.md", "--server", "http://127.0.0.1:1"})
 	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
 		t.Fatalf("--content + --content-file should be Usage, got %d", got)
+	}
+}
+
+// TestSpecEditAbstractFile: --abstract-file updates the abstract and preserves
+// the body (no content sent).
+func TestSpecEditAbstractFile(t *testing.T) {
+	dir := t.TempDir()
+	absPath := filepath.Join(dir, "abstract.md")
+	if err := os.WriteFile(absPath, []byte("A sharper retrieval surface.\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, editMocks())
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem, "--abstract-file", absPath, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var up editUpsertInput
+	if err := json.Unmarshal(captured["UpsertNode"], &up); err != nil {
+		t.Fatalf("UpsertNode vars: %v", err)
+	}
+	if up.Input.Abstract == nil || *up.Input.Abstract != "A sharper retrieval surface.\n" {
+		t.Errorf("abstract not sent verbatim: %v", up.Input.Abstract)
+	}
+	if up.Input.Content != nil {
+		t.Errorf("abstract-only update must not send the body (preserve it), got %q", *up.Input.Content)
+	}
+}
+
+// TestSpecEditBodyAndAbstract: body (stdin) and abstract (file) update together
+// in one call.
+func TestSpecEditBodyAndAbstract(t *testing.T) {
+	dir := t.TempDir()
+	absPath := filepath.Join(dir, "abstract.md")
+	if err := os.WriteFile(absPath, []byte("New abstract.\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, editMocks())
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader("# new body\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem,
+		"--content", "-", "--abstract-file", absPath, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var up editUpsertInput
+	_ = json.Unmarshal(captured["UpsertNode"], &up)
+	if up.Input.Content == nil || *up.Input.Content != "# new body\n" {
+		t.Errorf("body not sent: %v", up.Input.Content)
+	}
+	if up.Input.Abstract == nil || *up.Input.Abstract != "New abstract.\n" {
+		t.Errorf("abstract not sent: %v", up.Input.Abstract)
+	}
+}
+
+// TestSpecEditAbstractNoOp: passing the current abstract back changes nothing.
+func TestSpecEditAbstractNoOp(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveSpecJSON,
+		"GetNodeById": `{"data":{"nodeById":` + cleanSpecDetail + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem,
+		"--abstract", "Win back users who never engaged after signup.", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, ok := captured["UpsertNode"]; ok {
+		t.Error("an unchanged abstract must not call UpsertNode")
+	}
+	if !strings.Contains(out.String(), "no changes") {
+		t.Errorf("unexpected output:\n%s", out.String())
+	}
+}
+
+// TestSpecEditInteractiveAbstract: editing the abstract region of the combined
+// buffer sends the abstract and preserves the body.
+func TestSpecEditInteractiveAbstract(t *testing.T) {
+	restore := spec.SetEditorFuncForTest(func(_ *output.IOStreams, current string) (string, error) {
+		return strings.Replace(current, "Win back users who never engaged after signup.", "Reworded abstract.", 1), nil
+	})
+	defer restore()
+
+	gql, captured := captureGraphQL(t, editMocks())
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var up editUpsertInput
+	_ = json.Unmarshal(captured["UpsertNode"], &up)
+	if up.Input.Abstract == nil || *up.Input.Abstract != "Reworded abstract." {
+		t.Errorf("edited abstract not sent: %v", up.Input.Abstract)
+	}
+	if up.Input.Content != nil {
+		t.Errorf("body unchanged must not be sent, got %q", *up.Input.Content)
+	}
+}
+
+// TestSpecEditInteractiveDividerRemoved: deleting the body divider aborts
+// without writing.
+func TestSpecEditInteractiveDividerRemoved(t *testing.T) {
+	restore := spec.SetEditorFuncForTest(func(_ *output.IOStreams, _ string) (string, error) {
+		return "I deleted the dividers and just typed this.\n", nil
+	})
+	defer restore()
+
+	gql, captured := captureGraphQL(t, editMocks())
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem, "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("a removed body divider should be Usage, got %d", got)
+	}
+	if _, ok := captured["UpsertNode"]; ok {
+		t.Error("a removed divider must not call UpsertNode")
+	}
+}
+
+func TestSpecEditAbstractAndFileExclusive(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem,
+		"--abstract", "x", "--abstract-file", "/tmp/x.md", "--server", "http://127.0.0.1:1"})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("--abstract + --abstract-file should be Usage, got %d", got)
+	}
+}
+
+func TestSpecEditDualStdin(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem,
+		"--content", "-", "--abstract", "-", "--server", "http://127.0.0.1:1"})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("--content - with --abstract - should be Usage, got %d", got)
 	}
 }
 

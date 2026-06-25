@@ -36,6 +36,75 @@ func TestLaunchEditorNonTerminal(t *testing.T) {
 	}
 }
 
+// TestEditBufferRoundTrip: assembling then parsing returns the abstract
+// (trimmed) and the body verbatim, so an untouched interactive edit is a no-op.
+func TestEditBufferRoundTrip(t *testing.T) {
+	cases := []struct {
+		abstract, body string
+	}{
+		{"Win back users who never engaged.", "# Title\n\n## X\nbody\n"},
+		{"", "# Title\n"},                         // empty abstract
+		{"multi\nline abstract", "body\nlines\n"}, // multi-line abstract
+		{"a", ""}, // empty body
+		{"trailing-divider-ish === BODY ===", "b\n"}, // marker-looking text in abstract
+	}
+	for _, c := range cases {
+		buf := assembleEditBuffer(c.abstract, c.body)
+		gotAbs, gotBody, err := parseEditBuffer(buf)
+		if err != nil {
+			t.Errorf("parse(%q,%q): %v", c.abstract, c.body, err)
+			continue
+		}
+		if gotAbs != c.abstract {
+			t.Errorf("abstract round-trip = %q, want %q", gotAbs, c.abstract)
+		}
+		if gotBody != c.body {
+			t.Errorf("body round-trip = %q, want %q", gotBody, c.body)
+		}
+	}
+}
+
+// TestParseEditBufferMissingDivider: a buffer with the body divider deleted is
+// a hard error — we refuse to guess where the body starts.
+func TestParseEditBufferMissingDivider(t *testing.T) {
+	if _, _, err := parseEditBuffer("just some text\nwith no divider\n"); exitcode.FromError(err) != exitcode.Usage {
+		t.Fatalf("missing body divider should be Usage, got %v", err)
+	}
+}
+
+// TestParseEditBufferPreservesStrayText: text the author leaves above the
+// abstract-divider label is folded into the abstract, not silently dropped.
+func TestParseEditBufferPreservesStrayText(t *testing.T) {
+	buf := "I typed this above the label.\n" + abstractDivider + "\nthe real abstract\n" + bodyDivider + "\nbody\n"
+	abs, body, err := parseEditBuffer(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if abs != "I typed this above the label.\nthe real abstract" {
+		t.Errorf("stray text dropped: %q", abs)
+	}
+	if body != "body\n" {
+		t.Errorf("body = %q", body)
+	}
+}
+
+// TestParseEditBufferIndentedMarkerIsContent: a divider-looking line that's
+// indented (so not exactly the divider) is content, not a split point — the
+// real divider still governs.
+func TestParseEditBufferIndentedMarkerIsContent(t *testing.T) {
+	buf := assembleEditBuffer("abs", "    "+bodyDivider+"\nreal body\n")
+	abs, body, err := parseEditBuffer(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if abs != "abs" {
+		t.Errorf("abstract = %q", abs)
+	}
+	if body != "    "+bodyDivider+"\nreal body\n" {
+		t.Errorf("indented marker should stay in the body, got %q", body)
+	}
+}
+
 func TestCountLines(t *testing.T) {
 	cases := []struct {
 		in   string

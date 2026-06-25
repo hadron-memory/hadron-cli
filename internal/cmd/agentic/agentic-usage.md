@@ -182,10 +182,11 @@ Conventions:
   citation and **every missing ancestor** (each with its tier template and
   contract), so a fresh module+feature+rule is one call; the abstract can
   come from `--abstract-file`/`--abstract -`; `--dry-run` previews
-  without writing); `spec edit <citation>` opens the spec's body in $EDITOR
-  pre-loaded — or replaces it non-interactively from `--content -`/`--content-file`
-  — writing a content-only update (the abstract is preserved) only when the body
-  actually changed (`--dry-run` previews); `spec extract <source> --to-feature <fff> [--rule <rr>]`
+  without writing); `spec edit <citation>` opens the spec's abstract **and** body
+  together in $EDITOR pre-loaded (divided by sentinel lines) — or replaces either
+  non-interactively from `--content -`/`--content-file` and/or
+  `--abstract -`/`--abstract-file` — writing only the field(s) that actually
+  changed and preserving the rest (`--dry-run` previews); `spec extract <source> --to-feature <fff> [--rule <rr>]`
   splits a sub-rule out of a fat parent into its own citation under another
   feature, piping the moved chunk in via `--content -`/`--content-file`,
   auto-wiring the cross-ref edge new→source (`--ref-label`), and reminding you
