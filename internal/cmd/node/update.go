@@ -71,6 +71,13 @@ mutually exclusive.`,
 			if replaceData && mergeData {
 				return exitcode.Newf(exitcode.Usage, "--data (replace) and --data-merge (merge) are mutually exclusive")
 			}
+			// --data-merge and --data-merge-file are mutually exclusive. Guard
+			// on Changed() (not the resolved value): an explicit --data-merge ""
+			// would otherwise slip past resolveMergeData's value check and let
+			// the file silently win.
+			if changed("data-merge") && changed("data-merge-file") {
+				return exitcode.Newf(exitcode.Usage, "--data-merge and --data-merge-file are mutually exclusive")
+			}
 			// content, abstract, and the merge patch can each read stdin via
 			// "-", but stdin can only be consumed once.
 			stdinReaders := 0
@@ -99,17 +106,20 @@ mutually exclusive.`,
 				return err
 			}
 
-			// Resolve the node first: the upsert needs memoryId + loc (and name
-			// is required), the merge needs the id, and this avoids splitting
-			// the URN client-side.
-			existing, err := fetchNode(cmd, client, memory, args[0])
-			if err != nil {
-				return err
-			}
-
 			var dto nodeDTO
-			// Field updates (including a --data replace) go through the upsert.
+			// Field updates (including a --data replace) go through the upsert,
+			// which needs memoryId + loc (and name is required) — so fetch the
+			// full node. A merge-only update needs just the id, so it resolves
+			// the ref without the extra GetNodeById round-trip (the merge
+			// mutation returns loc/name for output).
+			nodeID := ""
 			if anyField {
+				existing, err := fetchNode(cmd, client, memory, args[0])
+				if err != nil {
+					return err
+				}
+				nodeID = existing.Id
+
 				input := gen.NodeInput{
 					MemoryId: existing.MemoryId,
 					Loc:      existing.Loc,
@@ -163,7 +173,13 @@ mutually exclusive.`,
 				if err != nil {
 					return err
 				}
-				resp, err := gen.UpdateNodeData(cmd.Context(), client, existing.Id, patch)
+				if nodeID == "" {
+					nodeID, err = cmdutil.ResolveNodeRef(cmd, client, memory, args[0])
+					if err != nil {
+						return err
+					}
+				}
+				resp, err := gen.UpdateNodeData(cmd.Context(), client, nodeID, patch)
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -194,22 +210,21 @@ mutually exclusive.`,
 }
 
 // resolveMergeData reads the JSON patch for a --data-merge from inline text
-// ("-" reads stdin) or --data-merge-file and validates it is JSON. The server
-// shallow-merges this patch into the node's existing data (patch wins on
-// top-level key collisions) and rejects a non-object patch with BAD_USER_INPUT.
-func resolveMergeData(data, dataFile string, stdin io.Reader) (json.RawMessage, error) {
-	if data != "" && dataFile != "" {
-		return nil, exitcode.Newf(exitcode.Usage, "--data-merge and --data-merge-file are mutually exclusive")
-	}
-	raw := strings.TrimSpace(data)
+// ("-" reads stdin) or --data-merge-file and validates it is JSON. Object-only
+// enforcement is left to the server (a non-object patch is rejected with
+// BAD_USER_INPUT); it shallow-merges this patch into the node's existing data,
+// patch winning on top-level key collisions. The caller has already enforced
+// that the two flags are mutually exclusive.
+func resolveMergeData(dataMerge, dataMergeFile string, stdin io.Reader) (json.RawMessage, error) {
+	raw := strings.TrimSpace(dataMerge)
 	switch {
-	case dataFile != "":
-		b, err := os.ReadFile(dataFile)
+	case dataMergeFile != "":
+		b, err := os.ReadFile(dataMergeFile)
 		if err != nil {
 			return nil, exitcode.Newf(exitcode.Usage, "reading --data-merge-file: %v", err)
 		}
 		raw = strings.TrimSpace(string(b))
-	case data == "-":
+	case dataMerge == "-":
 		b, err := io.ReadAll(stdin)
 		if err != nil {
 			return nil, err
@@ -218,10 +233,10 @@ func resolveMergeData(data, dataFile string, stdin io.Reader) (json.RawMessage, 
 	}
 	if !json.Valid([]byte(raw)) {
 		flag := "--data-merge"
-		if dataFile != "" {
+		if dataMergeFile != "" {
 			flag = "--data-merge-file"
 		}
-		return nil, exitcode.Newf(exitcode.Usage, "%s must contain a valid JSON object", flag)
+		return nil, exitcode.Newf(exitcode.Usage, "%s must contain valid JSON", flag)
 	}
 	return json.RawMessage(raw), nil
 }

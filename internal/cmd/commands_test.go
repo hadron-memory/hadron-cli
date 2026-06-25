@@ -414,7 +414,6 @@ func TestNodeAddRejectsDataAndDataFile(t *testing.T) {
 func TestNodeUpdateDataMerge(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn":     resolveNodeJSON,
-		"GetNodeById":    `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
 		"UpdateNodeData": `{"data":{"updateNodeData":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
@@ -426,6 +425,11 @@ func TestNodeUpdateDataMerge(t *testing.T) {
 	}
 	if _, upserted := captured["UpsertNode"]; upserted {
 		t.Errorf("a merge-only update must not call UpsertNode")
+	}
+	// A merge-only update needs just the id, so it resolves the ref without
+	// the extra GetNodeById round-trip (captureGraphQL flags unexpected ops).
+	if _, fetched := captured["GetNodeById"]; fetched {
+		t.Errorf("a merge-only update must not call GetNodeById")
 	}
 	var vars struct {
 		NodeId string         `json:"nodeId"`
@@ -479,6 +483,23 @@ func TestNodeUpdateRejectsDataAndDataMerge(t *testing.T) {
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
 		t.Fatalf("--data + --data-merge should be a mutual-exclusion error, got %v", err)
+	}
+}
+
+// --data-merge and --data-merge-file are mutually exclusive. The guard is on
+// Changed(), so an explicit --data-merge "" (which the value check would miss)
+// still errors instead of letting the file silently win — and fires before any
+// network round-trip.
+func TestNodeUpdateRejectsDataMergeAndDataMergeFile(t *testing.T) {
+	for _, patch := range []string{"", `{"a":1}`} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"node", "update", nodeURN,
+			"--data-merge", patch, "--data-merge-file", "/tmp/x.json", "--server", "http://127.0.0.1:1"})
+		err := root.Execute()
+		if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+			t.Fatalf("--data-merge %q + --data-merge-file should be a mutual-exclusion error, got %v", patch, err)
+		}
 	}
 }
 
