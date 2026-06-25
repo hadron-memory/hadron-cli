@@ -1336,11 +1336,12 @@ type GetNodeByIdNodeByIdNode struct {
 	Loc         string  `json:"loc"`
 	Name        string  `json:"name"`
 	Description *string `json:"description"`
-	// Paragraph-length summary of this node. Opt-in on h-read-node via the contentScope parameter. h-find-nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in h-list-nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
+	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
 	Abstract *string `json:"abstract"`
 	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness; when the two values differ AND abstractOriginHash is non-null, the abstract may not reflect current content. System-managed; never settable via NodeInput.
 	AbstractOriginHash *string                                     `json:"abstractOriginHash"`
 	NodeType           string                                      `json:"nodeType"`
+	IsRunnable         *bool                                       `json:"isRunnable"`
 	Tags               []string                                    `json:"tags"`
 	Content            *string                                     `json:"content"`
 	Data               *json.RawMessage                            `json:"data"`
@@ -1374,6 +1375,9 @@ func (v *GetNodeByIdNodeByIdNode) GetAbstractOriginHash() *string { return v.Abs
 
 // GetNodeType returns GetNodeByIdNodeByIdNode.NodeType, and is useful for accessing the field via an interface.
 func (v *GetNodeByIdNodeByIdNode) GetNodeType() string { return v.NodeType }
+
+// GetIsRunnable returns GetNodeByIdNodeByIdNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNode) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetTags returns GetNodeByIdNodeByIdNode.Tags, and is useful for accessing the field via an interface.
 func (v *GetNodeByIdNodeByIdNode) GetTags() []string { return v.Tags }
@@ -2200,7 +2204,7 @@ type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
 	Alias       *string `json:"alias"`
 	NodeType    string  `json:"nodeType"`
 	Description *string `json:"description"`
-	// Paragraph-length summary of this node. Opt-in on h-read-node via the contentScope parameter. h-find-nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in h-list-nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
+	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
 	Abstract *string `json:"abstract"`
 	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness; when the two values differ AND abstractOriginHash is non-null, the abstract may not reflect current content. System-managed; never settable via NodeInput.
 	AbstractOriginHash *string                                                        `json:"abstractOriginHash"`
@@ -2410,8 +2414,10 @@ func (v *NodeBatchResponse) GetNodeBatch() *NodeBatchNodeBatchNodeBatchResult { 
 type NodeEdgeInput struct {
 	Description *string `json:"description"`
 	IsRunnable  *bool   `json:"isRunnable"`
-	Loc         *string `json:"loc"`
-	Name        *string `json:"name"`
+	// Explicit edge loc. Omit to derive <sourceLoc>:<name>:<targetLoc>.
+	Loc *string `json:"loc"`
+	// Relationship name (was 'label'). Optional — loc is the identity.
+	Name *string `json:"name"`
 	// Reference to the target node. Accepts a node ID, a full URN
 	// (hrn:node:<memory-urn>::<loc>), a memory-prefixed loc
 	// (<memory-urn>:<loc>), or a short loc resolved within the source
@@ -2435,7 +2441,7 @@ func (v *NodeEdgeInput) GetName() *string { return v.Name }
 func (v *NodeEdgeInput) GetTargetId() string { return v.TargetId }
 
 type NodeInput struct {
-	// Paragraph-length summary of this node — see Node.abstract for the surfacing contract (h-read-node opt-in via contentScope; h-find-nodes preview ships in US2). Optional. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
+	// Paragraph-length summary of this node — see Node.abstract for the surfacing contract (hadron_get_node opt-in via contentScope; hadron_find_nodes preview ships in US2). Optional. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
 	Abstract    *string          `json:"abstract,omitempty"`
 	AiAgent     *string          `json:"aiAgent,omitempty"`
 	Alias       *string          `json:"alias,omitempty"`
@@ -2445,8 +2451,10 @@ type NodeInput struct {
 	Description *string          `json:"description,omitempty"`
 	Edges       []*NodeEdgeInput `json:"edges,omitempty"`
 	Id          *string          `json:"id,omitempty"`
-	LlmModel    *string          `json:"llmModel,omitempty"`
-	Loc         string           `json:"loc"`
+	// Whether this node can be run as a task by hadron_run_task (cor:api:060). Omit to preserve on update.
+	IsRunnable *bool   `json:"isRunnable,omitempty"`
+	LlmModel   *string `json:"llmModel,omitempty"`
+	Loc        string  `json:"loc"`
 	// Memory reference. Accepts the entity's ID (CUID / 32-char hex) or its
 	// URN (per spec 007 ID-or-URN dispatch). URN inputs MUST be fully
 	// qualified (org:memory) per spec 022 — relative-form URNs are
@@ -2486,6 +2494,9 @@ func (v *NodeInput) GetEdges() []*NodeEdgeInput { return v.Edges }
 
 // GetId returns NodeInput.Id, and is useful for accessing the field via an interface.
 func (v *NodeInput) GetId() *string { return v.Id }
+
+// GetIsRunnable returns NodeInput.IsRunnable, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetLlmModel returns NodeInput.LlmModel, and is useful for accessing the field via an interface.
 func (v *NodeInput) GetLlmModel() *string { return v.LlmModel }
@@ -2583,7 +2594,7 @@ type NodeSearchResponse struct {
 	// vector-aware entrypoint per spec 033 contract.
 	//
 	// mode defaults to vector (the vector-aware entrypoint design — the
-	// MCP h-find-nodes tool defaults to keyword for backward-compat,
+	// MCP hadron_find_nodes tool defaults to keyword for backward-compat,
 	// a deliberate divergence between the two surfaces). expand (graph
 	// neighbor depth 0..3, default 0) and granularity:chunk (passage
 	// retrieval, vector-mode only) are both fully live.
@@ -2623,14 +2634,15 @@ var AllNodeTextField = []NodeTextField{
 
 // NodesNodesNode includes the requested fields of the GraphQL type Node.
 type NodesNodesNode struct {
-	Id        string   `json:"id"`
-	MemoryId  string   `json:"memoryId"`
-	Loc       string   `json:"loc"`
-	Name      string   `json:"name"`
-	NodeType  string   `json:"nodeType"`
-	Tags      []string `json:"tags"`
-	Seq       *int     `json:"seq"`
-	UpdatedAt string   `json:"updatedAt"`
+	Id         string   `json:"id"`
+	MemoryId   string   `json:"memoryId"`
+	Loc        string   `json:"loc"`
+	Name       string   `json:"name"`
+	NodeType   string   `json:"nodeType"`
+	IsRunnable *bool    `json:"isRunnable"`
+	Tags       []string `json:"tags"`
+	Seq        *int     `json:"seq"`
+	UpdatedAt  string   `json:"updatedAt"`
 }
 
 // GetId returns NodesNodesNode.Id, and is useful for accessing the field via an interface.
@@ -2647,6 +2659,9 @@ func (v *NodesNodesNode) GetName() string { return v.Name }
 
 // GetNodeType returns NodesNodesNode.NodeType, and is useful for accessing the field via an interface.
 func (v *NodesNodesNode) GetNodeType() string { return v.NodeType }
+
+// GetIsRunnable returns NodesNodesNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *NodesNodesNode) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetTags returns NodesNodesNode.Tags, and is useful for accessing the field via an interface.
 func (v *NodesNodesNode) GetTags() []string { return v.Tags }
@@ -2995,7 +3010,7 @@ func (v *ResolveAiServiceConfigsResponse) GetResolveAiServiceConfigs() []*Resolv
 // the resource's canonical page. Powers the portal's /app/u/<urn> redirect
 // route (hadron-portal#262).
 //
-// `kind` is the URN's type segment: memory | node | agent | org | app.
+// `kind` is the URN's type segment: memory | node | agent | org | app | user.
 // `id` is the resolved entity's primary id. `memoryId` is set only for
 // nodes (their owning memory), `organizationId` only for apps (their owning
 // org) — both are the extra ids those resources' canonical routes require.
@@ -4261,13 +4276,14 @@ func (v *UpsertNodeResponse) GetUpsertNode() *UpsertNodeUpsertNode { return v.Up
 
 // UpsertNodeUpsertNode includes the requested fields of the GraphQL type Node.
 type UpsertNodeUpsertNode struct {
-	Id        string   `json:"id"`
-	MemoryId  string   `json:"memoryId"`
-	Loc       string   `json:"loc"`
-	Name      string   `json:"name"`
-	NodeType  string   `json:"nodeType"`
-	Tags      []string `json:"tags"`
-	UpdatedAt string   `json:"updatedAt"`
+	Id         string   `json:"id"`
+	MemoryId   string   `json:"memoryId"`
+	Loc        string   `json:"loc"`
+	Name       string   `json:"name"`
+	NodeType   string   `json:"nodeType"`
+	IsRunnable *bool    `json:"isRunnable"`
+	Tags       []string `json:"tags"`
+	UpdatedAt  string   `json:"updatedAt"`
 }
 
 // GetId returns UpsertNodeUpsertNode.Id, and is useful for accessing the field via an interface.
@@ -4284,6 +4300,9 @@ func (v *UpsertNodeUpsertNode) GetName() string { return v.Name }
 
 // GetNodeType returns UpsertNodeUpsertNode.NodeType, and is useful for accessing the field via an interface.
 func (v *UpsertNodeUpsertNode) GetNodeType() string { return v.NodeType }
+
+// GetIsRunnable returns UpsertNodeUpsertNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *UpsertNodeUpsertNode) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetTags returns UpsertNodeUpsertNode.Tags, and is useful for accessing the field via an interface.
 func (v *UpsertNodeUpsertNode) GetTags() []string { return v.Tags }
@@ -4705,13 +4724,14 @@ func (v *__NodeSearchInput) GetLimit() *int { return v.Limit }
 
 // __NodesInput is used internally by genqlient
 type __NodesInput struct {
-	Memory   *string  `json:"memory,omitempty"`
-	Prefix   *string  `json:"prefix,omitempty"`
-	NodeType *string  `json:"nodeType,omitempty"`
-	Tags     []string `json:"tags,omitempty"`
-	Search   *string  `json:"search,omitempty"`
-	Limit    *int     `json:"limit,omitempty"`
-	Offset   *int     `json:"offset,omitempty"`
+	Memory     *string  `json:"memory,omitempty"`
+	Prefix     *string  `json:"prefix,omitempty"`
+	NodeType   *string  `json:"nodeType,omitempty"`
+	IsRunnable *bool    `json:"isRunnable,omitempty"`
+	Tags       []string `json:"tags,omitempty"`
+	Search     *string  `json:"search,omitempty"`
+	Limit      *int     `json:"limit,omitempty"`
+	Offset     *int     `json:"offset,omitempty"`
 }
 
 // GetMemory returns __NodesInput.Memory, and is useful for accessing the field via an interface.
@@ -4722,6 +4742,9 @@ func (v *__NodesInput) GetPrefix() *string { return v.Prefix }
 
 // GetNodeType returns __NodesInput.NodeType, and is useful for accessing the field via an interface.
 func (v *__NodesInput) GetNodeType() *string { return v.NodeType }
+
+// GetIsRunnable returns __NodesInput.IsRunnable, and is useful for accessing the field via an interface.
+func (v *__NodesInput) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetTags returns __NodesInput.Tags, and is useful for accessing the field via an interface.
 func (v *__NodesInput) GetTags() []string { return v.Tags }
@@ -5812,6 +5835,7 @@ query GetNodeById ($id: ID!) {
 		abstract
 		abstractOriginHash
 		nodeType
+		isRunnable
 		tags
 		content
 		data
@@ -6264,13 +6288,14 @@ func NodeSearch(
 
 // The query executed by Nodes.
 const Nodes_Operation = `
-query Nodes ($memory: ID, $prefix: String, $nodeType: String, $tags: [String!], $search: String, $limit: Int, $offset: Int) {
-	nodes(memory: $memory, prefix: $prefix, nodeType: $nodeType, tags: $tags, search: $search, limit: $limit, offset: $offset) {
+query Nodes ($memory: ID, $prefix: String, $nodeType: String, $isRunnable: Boolean, $tags: [String!], $search: String, $limit: Int, $offset: Int) {
+	nodes(memory: $memory, prefix: $prefix, nodeType: $nodeType, isRunnable: $isRunnable, tags: $tags, search: $search, limit: $limit, offset: $offset) {
 		id
 		memoryId
 		loc
 		name
 		nodeType
+		isRunnable
 		tags
 		seq
 		updatedAt
@@ -6284,6 +6309,7 @@ func Nodes(
 	memory *string,
 	prefix *string,
 	nodeType *string,
+	isRunnable *bool,
 	tags []string,
 	search *string,
 	limit *int,
@@ -6293,13 +6319,14 @@ func Nodes(
 		OpName: "Nodes",
 		Query:  Nodes_Operation,
 		Variables: &__NodesInput{
-			Memory:   memory,
-			Prefix:   prefix,
-			NodeType: nodeType,
-			Tags:     tags,
-			Search:   search,
-			Limit:    limit,
-			Offset:   offset,
+			Memory:     memory,
+			Prefix:     prefix,
+			NodeType:   nodeType,
+			IsRunnable: isRunnable,
+			Tags:       tags,
+			Search:     search,
+			Limit:      limit,
+			Offset:     offset,
 		},
 	}
 
@@ -7081,6 +7108,7 @@ mutation UpsertNode ($input: NodeInput!) {
 		loc
 		name
 		nodeType
+		isRunnable
 		tags
 		updatedAt
 	}

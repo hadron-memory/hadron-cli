@@ -6,6 +6,8 @@ query Nodes(
   # @genqlient(omitempty: true)
   $nodeType: String
   # @genqlient(omitempty: true)
+  $isRunnable: Boolean
+  # @genqlient(omitempty: true)
   $tags: [String!]
   # @genqlient(omitempty: true)
   $search: String
@@ -18,6 +20,7 @@ query Nodes(
     memory: $memory
     prefix: $prefix
     nodeType: $nodeType
+    isRunnable: $isRunnable
     tags: $tags
     search: $search
     limit: $limit
@@ -28,6 +31,7 @@ query Nodes(
     loc
     name
     nodeType
+    isRunnable
     tags
     seq
     updatedAt
@@ -110,6 +114,7 @@ query GetNodeById($id: ID!) {
     abstract
     abstractOriginHash
     nodeType
+    isRunnable
     tags
     content
     data
@@ -182,6 +187,7 @@ query NodeSearch(
 # @genqlient(for: "NodeInput.description", omitempty: true)
 # @genqlient(for: "NodeInput.edges", omitempty: true)
 # @genqlient(for: "NodeInput.id", omitempty: true)
+# @genqlient(for: "NodeInput.isRunnable", omitempty: true)
 # @genqlient(for: "NodeInput.llmModel", omitempty: true)
 # @genqlient(for: "NodeInput.nodeType", omitempty: true)
 # @genqlient(for: "NodeInput.ownerRepo", omitempty: true)
@@ -197,6 +203,7 @@ mutation UpsertNode(
     loc
     name
     nodeType
+    isRunnable
     tags
     updatedAt
   }

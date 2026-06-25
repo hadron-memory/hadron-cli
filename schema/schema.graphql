@@ -1,3 +1,56 @@
+"""
+issue #323: one reason a subject has (or would have) access to a resource.
+"""
+type AccessGrant {
+  """The role/level this particular grant confers."""
+  role: String!
+  source: AccessSource!
+
+  """
+  Human label for the grant's origin (owning org URN, the inherited memory URN, the app URN, etc.); null when the grant has no distinct origin.
+  """
+  via: String
+}
+
+"""
+issue #323: where a single grant in an EffectiveAccess result comes from.
+"""
+enum AccessSource {
+  """
+  active AgentSubscription, or an org-level AgentOrgGrant the user inherits.
+  """
+  AGENT_SUBSCRIPTION
+
+  """admin of the AI config's owning entity."""
+  AICONFIG_OWNER
+
+  """AppMember row."""
+  APP_MEMBER
+
+  """group-class team membership row (MemoryMember)."""
+  MEMORY_MEMBER
+
+  """personal/private memory owner (Memory.userId)."""
+  MEMORY_PRINCIPAL
+
+  """personal-class cross-user grant (MemoryShare)."""
+  MEMORY_SHARE
+
+  """node inherits its memory's access."""
+  NODE_INHERITED
+
+  """
+  ADMIN/OWNER (or, for org-readable knowledge, any Role) of the owning org.
+  """
+  ORG_ROLE
+
+  """Platform ADMIN/OWNER."""
+  PLATFORM_ROLE
+
+  """resource is publicly / universally visible."""
+  PUBLIC_VISIBILITY
+}
+
 type AddMemoryMemberPayload {
   memoryMember: MemoryMember!
 }
@@ -463,7 +516,11 @@ type Edge {
 input EdgeInput {
   description: String
   isRunnable: Boolean
+
+  """Explicit edge loc. Omit to derive <sourceLoc>:<name>:<targetLoc>."""
   loc: String
+
+  """Relationship name (was 'label'). Optional — loc is the identity."""
   name: String
   sourceLoc: String!
   targetLoc: String!
@@ -473,6 +530,39 @@ type EditorLockResult {
   expiresAt: String
   locked: Boolean!
   lockedBy: String
+}
+
+"""
+issue #323: the effective access a single user has to a single resource,
+with the grants that confer it. An empty grants list (with all capabilities
+false and role null) is a first-class 'no access' answer, NOT an error.
+"""
+type EffectiveAccess {
+  canDelete: Boolean!
+
+  """Manage grants / settings (admin/owner-equivalent)."""
+  canManage: Boolean!
+  canRead: Boolean!
+  canWrite: Boolean!
+
+  """
+  The reasons access is granted. Empty means no access. Ordered strongest-first.
+  """
+  grants: [AccessGrant!]!
+
+  """memory | node | app | agent | aiServiceConfig."""
+  resourceKind: String!
+
+  """
+  Canonical URN of the resolved resource (the AiServiceConfig id when the resource is a config, which has no URN).
+  """
+  resourceUrn: String!
+
+  """
+  Highest single clean role label (e.g. owner, writer, ADMIN); null when access is purely capability-based or absent.
+  """
+  role: String
+  user: User!
 }
 
 enum EmbeddingSource {
@@ -511,6 +601,34 @@ type ExchangeMessage {
   isRead: Boolean
   receivedDateTime: String
   subject: String
+}
+
+"""
+One unified, flat globalSearch result — common fields across every entity
+type so a single ranked list renders uniformly. `urn` is null for an
+aiServiceConfig (no URN) and for a user with no handle or a not-URN-legal
+handle (a user's URN is hrn:user:<handle>); `memoryId` / `organizationId`
+are convenience handles for building canonical navigation paths.
+"""
+type GlobalSearchHit {
+  description: String
+  entityType: SearchEntityType!
+  id: ID!
+  matchedField: SearchField!
+  memoryId: ID
+  name: String
+  organizationId: ID
+  score: Float!
+  urn: String
+}
+
+type GlobalSearchResult {
+  """
+  Notes when the search ran at reduced fidelity (e.g. content search skipped
+  on encrypted memories).
+  """
+  degraded: [String!]!
+  hits: [GlobalSearchHit!]!
 }
 
 enum IdentifyUserMethod {
@@ -785,6 +903,36 @@ enum MemoryVisibility {
   PUBLIC
 }
 
+input MergeMemoriesInput {
+  """Delete the (now-empty) source memory after a successful merge."""
+  deleteSourceMem: Boolean = false
+
+  """
+  Field strategy for source nodes whose loc collides with an existing target node (folded via the mergeNodes rules). Omit (or null) = every mergeable field. Nodes with no target counterpart move over unchanged (loc preserved).
+  """
+  include: [NodeMergeField!]
+
+  """Source memory — ID or fully-qualified URN. Emptied into 'target'."""
+  source: String!
+
+  """Target memory — ID or fully-qualified URN. The surviving memory."""
+  target: String!
+}
+
+input MergeNodesInput {
+  """Hard-delete the source node after a successful merge."""
+  deleteSource: Boolean = false
+
+  """Fields to merge. Omit (or null) to merge every mergeable field."""
+  include: [NodeMergeField!]
+
+  """Source node — ID or fully-qualified URN. Folded into 'target'."""
+  source: String!
+
+  """Target node — ID or fully-qualified URN. The surviving node."""
+  target: String!
+}
+
 type Mutation {
   acceptInvitation(slug: String!): Boolean!
 
@@ -982,6 +1130,7 @@ type Mutation {
     """Free-form structured metadata bag (client-defined JSON). Null = unset."""
     data: JSON
     description: String
+    embeddingSource: EmbeddingSource
     heroUrl: String
     homeUrl: String
     iconUrl: String
@@ -999,6 +1148,15 @@ type Mutation {
     shortDescription: String
     source: String
     tags: [String!]
+
+    """
+    Override the vector-index defaults. A 'knowledge'-class memory defaults
+    to vectorIndexEnabled=true with embeddingSource=contentChunks (so any
+    node with content is retrievable immediately, no abstract authoring
+    needed — #281); every other class keeps the column defaults
+    (false / abstract). An explicit value here wins for any class.
+    """
+    vectorIndexEnabled: Boolean
     visibility: MemoryVisibility
     writeBranch: String
   ): Memory!
@@ -1212,6 +1370,8 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   linkMemoryToUser(dataKey: String, externalUserId: String!, memoryId: ID!): Memory!
+  mergeMemories(input: MergeMemoriesInput!): Memory!
+  mergeNodes(input: MergeNodesInput!): Node!
   moveNode(from: String!, memoryId: String!, targetMemoryId: String, to: String!): Node!
   processChatResponse(chatId: String!, toolResponse: JSON!): ChatResponseResult!
 
@@ -1351,7 +1511,9 @@ type Mutation {
   resolved callers.
   """
   revokeUserApiKey(id: ID!): UserApiKey!
+  runTask(args: JSON, memory: String, task: String, urn: String): String!
   saveChatSummary(chatId: String!, summary: String!): Boolean!
+  searchReplaceInNodes(input: SearchReplaceInNodesInput!): SearchReplaceResult!
   sendChatMessage(chatId: String!, userMessage: String!): ChatPromptResult!
   sendContactMessage(email: String!, message: String!, name: String!): Boolean!
   setAgentAssetUploadEnabled(input: SetAgentAssetUploadEnabledInput!): App!
@@ -1498,6 +1660,7 @@ type Mutation {
   """
   updateMemorySubscription(memoryId: ID!, orgId: ID!, role: Role!): MemorySubscription!
   updateMyProfile(email: String, handle: String, name: String): User!
+  updateNodeData(data: JSON!, nodeId: ID!): Node!
 
   """
   Set GitHub App credentials for an organization (encrypted at rest).
@@ -1516,109 +1679,12 @@ type Mutation {
   """
   updateOrganization(id: ID!, isVisible: Boolean, name: String, urn: String): Organization!
   updateUserRoles(roles: [Role!]!, userId: ID!): User!
-  searchReplaceInNodes(input: SearchReplaceInNodesInput!): SearchReplaceResult!
   upsertNode(input: NodeInput!): Node!
-}
-
-"""
-Text-bearing Node fields that searchReplaceInNodes may rewrite. JSON fields
-(data, properties) and the structural 'loc' are intentionally excluded in v1.
-"""
-enum NodeTextField {
-  abstract
-  alias
-  content
-  description
-  name
-  tags
-}
-
-type SearchReplaceFieldResult {
-  field: NodeTextField!
-  matches: Int!
-}
-
-"""
-Bulk literal/regex search-and-replace across selected nodes.
-
-Selection is a union — at least one of 'nodeIds' or 'memoryIds' is required:
-  - nodeIds:   explicit nodes (IDs or fully-qualified URNs).
-  - memoryIds: every live node in those memories (IDs or URNs).
-  - prefix:    further restrict the memoryIds set to the node at 'prefix'
-               plus its descendants, matched on colon loc-path boundaries
-               (so 'auth' matches 'auth' and 'auth:tokens' but not
-               'authoring'). Requires 'memoryIds' — loc is only unique
-               within a memory.
-
-Matching is literal substring by default; set 'regex: true' to treat
-'oldText' as a RegExp source (and 'newText' as a replacement pattern with
-dollar-sign backrefs). 'caseInsensitive' toggles case folding. Matching is
-always global.
-
-Set 'dryRun: true' to get per-node/per-field match counts WITHOUT writing.
-"""
-input SearchReplaceInNodesInput {
-  caseInsensitive: Boolean = false
-
-  """When true, report matches without writing anything."""
-  dryRun: Boolean = false
-
-  """Which text fields to search. At least one required."""
-  fields: [NodeTextField!]!
-
-  """Memory IDs or URNs — selects every live node in each."""
-  memoryIds: [ID!]
-
-  """
-  Replacement. May be empty (deletes the matched text). Regex mode honors dollar-sign backrefs.
-  """
-  newText: String!
-
-  """Explicit node IDs or fully-qualified URNs."""
-  nodeIds: [ID!]
-
-  """
-  Text (literal) or RegExp source (regex mode) to find. Must be non-empty.
-  """
-  oldText: String!
-
-  """
-  Loc-prefix filter applied within 'memoryIds' (parent loc + descendants).
-  """
-  prefix: String
-
-  """Treat oldText as a RegExp source and newText as a replacement pattern."""
-  regex: Boolean = false
-}
-
-type SearchReplaceNodeResult {
-  fields: [SearchReplaceFieldResult!]!
-  loc: String!
-  memoryId: ID!
-  nodeId: ID!
-
-  """Total replacements across all searched fields on this node."""
-  replacements: Int!
-}
-
-type SearchReplaceResult {
-  """Echoes the request — true means nothing was written."""
-  dryRun: Boolean!
-
-  """Nodes with at least one replacement."""
-  nodesChanged: Int!
-
-  """Nodes the selection resolved to (after auth + prefix filtering)."""
-  nodesScanned: Int!
-
-  """Per-node breakdown; only nodes with at least one match are listed."""
-  results: [SearchReplaceNodeResult!]!
-  totalReplacements: Int!
 }
 
 type Node {
   """
-  Paragraph-length summary of this node. Opt-in on h-read-node via the contentScope parameter. h-find-nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in h-list-nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
+  Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
   """
   abstract: String
 
@@ -1642,7 +1708,7 @@ type Node {
 
   """
   Spec 033 — last embed error message (diagnosability; also surfaced
-  by h-validate). Common values: encrypted-no-plaintext (#206),
+  by hadron_validate). Common values: encrypted-no-plaintext (#206),
   embedding-endpoint-unreachable, dimension-mismatch. Null when no
   failure has been recorded since the most recent success or revoke.
   System-managed.
@@ -1706,7 +1772,11 @@ type NodeBatchResult {
 input NodeEdgeInput {
   description: String
   isRunnable: Boolean
+
+  """Explicit edge loc. Omit to derive <sourceLoc>:<name>:<targetLoc>."""
   loc: String
+
+  """Relationship name (was 'label'). Optional — loc is the identity."""
   name: String
 
   """
@@ -1720,7 +1790,7 @@ input NodeEdgeInput {
 
 input NodeInput {
   """
-  Paragraph-length summary of this node — see Node.abstract for the surfacing contract (h-read-node opt-in via contentScope; h-find-nodes preview ships in US2). Optional. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
+  Paragraph-length summary of this node — see Node.abstract for the surfacing contract (hadron_get_node opt-in via contentScope; hadron_find_nodes preview ships in US2). Optional. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
   """
   abstract: String
   aiAgent: String
@@ -1731,6 +1801,11 @@ input NodeInput {
   description: String
   edges: [NodeEdgeInput!]
   id: String
+
+  """
+  Whether this node can be run as a task by hadron_run_task (cor:api:060). Omit to preserve on update.
+  """
+  isRunnable: Boolean
   llmModel: String
   loc: String!
 
@@ -1747,6 +1822,36 @@ input NodeInput {
   properties: JSON
   seq: Int
   tags: [String!]
+}
+
+"""A node field that mergeNodes can fold from the source into the target."""
+enum NodeMergeField {
+  """
+  Concatenate source abstract after target abstract (2000-char cap enforced).
+  """
+  ABSTRACT
+
+  """
+  Concatenate source content after target content (blank-line separated).
+  """
+  CONTENT
+
+  """
+  Shallow-merge the encrypted 'data' JSON; target wins on key collisions.
+  """
+  DATA
+
+  """Concatenate source description after target description."""
+  DESCRIPTION
+
+  """Re-point the source's incoming and outgoing edges onto the target."""
+  EDGES
+
+  """Shallow-merge the 'properties' JSON; target wins on key collisions."""
+  PROPERTIES
+
+  """Union the tag sets (target order first, then new source tags)."""
+  TAGS
 }
 
 """
@@ -1774,6 +1879,19 @@ type NodeSearchResult {
   """
   passages: [Passage!]!
   reason: String
+}
+
+"""
+Text-bearing Node fields that searchReplaceInNodes may rewrite. JSON fields
+(data, properties) and the structural 'loc' are intentionally excluded in v1.
+"""
+enum NodeTextField {
+  abstract
+  alias
+  content
+  description
+  name
+  tags
 }
 
 type NodeVersion {
@@ -1902,6 +2020,32 @@ type Query {
   chatHistory(chatId: String!, limit: Int): [ChatMessage!]!
 
   """
+  issue #323: resolve the effective access a single user has to a single
+  resource, with the grants that confer it. The authoritative backing for
+  the 'hadron access check <user> <resource>' audit command — one resolver
+  that reuses the server's authorization rules instead of re-deriving them
+  client-side.
+  
+  'user' (the subject) accepts a User ID or a hrn:user:<handle> URN (spec
+  cor:urn:010:01). 'resource' is dispatched on URN type the same way
+  resolveUrn dispatches: a memory, node, app, agent, org, or user MUST be a
+  fully-qualified hrn:<type>: URN (a bare id is ambiguous across those kinds).
+  A bare id with no scheme prefix is treated as an AiServiceConfig id — the
+  only URN-less resource kind.
+  
+  Authorization (who may CALL this): the same visibility bar already
+  enforced on the underlying grant tables — a platform ADMIN/OWNER, an
+  ADMIN/OWNER of the resource's owning org, or (for a strict-owner memory)
+  the memory's principal. Everyone else gets FORBIDDEN, NOT a silent empty
+  result, so the command can't probe access it isn't allowed to audit.
+  
+  A subject with no access is a SUCCESS with an empty grants list (all
+  capabilities false, role null) — not NOT_FOUND. An unresolvable or
+  unknown resource ref is NOT_FOUND.
+  """
+  effectiveAccess(resource: ID!, user: ID!): EffectiveAccess!
+
+  """
   Exchange connections for an org.
   
   Accepts the entity's ID or URN.
@@ -1909,6 +2053,19 @@ type Query {
   exchangeConnections(orgId: ID!): [ExchangeConnection!]!
   exchangeFolders(connectionId: ID!): [ExchangeFolder!]!
   exchangeMessages(connectionId: ID!, filter: String, top: Int): [ExchangeMessage!]!
+
+  """
+  Cross-entity global search across organizations, memories, nodes, agents,
+  apps, AiServiceConfigs, and users — one ranked, flat list of hits.
+  
+  By default the query shape is smart-sniffed: a PK-shaped input does an exact
+  id lookup, a URN-shaped input matches URNs, anything else matches name + URN.
+  Pass `fields` to force specific fields (overrides the sniff) and
+  `entityTypes` to restrict the kinds searched. Every hit is access-scoped to
+  the caller exactly as the per-kind queries are. Distinct from `nodeSearch`,
+  which is the node-only, vector-aware surface.
+  """
+  globalSearch(entityTypes: [SearchEntityType!], fields: [SearchField!], limit: Int, query: String!): GlobalSearchResult!
   invitation(slug: String!): UserInvitation
   me: User
 
@@ -1956,7 +2113,7 @@ type Query {
   not present in PR 137.
   """
   myUserApiKeys: [UserApiKey!]!
-  node(loc: String!, raw: Boolean): Node
+  node(loc: String!, memory: ID, raw: Boolean): Node
 
   """
   Batch read (spec cor:api:040) — the full node projection (select any Node
@@ -1981,7 +2138,7 @@ type Query {
   vector-aware entrypoint per spec 033 contract.
   
   mode defaults to vector (the vector-aware entrypoint design — the
-  MCP h-find-nodes tool defaults to keyword for backward-compat,
+  MCP hadron_find_nodes tool defaults to keyword for backward-compat,
   a deliberate divergence between the two surfaces). expand (graph
   neighbor depth 0..3, default 0) and granularity:chunk (passage
   retrieval, vector-mode only) are both fully live.
@@ -1990,10 +2147,34 @@ type Query {
   the raw-SQL similarity query is scoped to memories the caller can
   read, never cross-memory.
   """
-  nodeSearch(expand: Int, granularity: SearchGranularity, limit: Int, memoryUrn: String, mode: SearchMode, query: String!): NodeSearchResult!
+  nodeSearch(
+    expand: Int
+    granularity: SearchGranularity
+    limit: Int
+
+    """
+    Scope to a SET of memories by ID (issue #355). Intersected with the
+    caller's access filter; inaccessible ids are silently dropped — unlike
+    the singular `memoryUrn`, which throws FORBIDDEN. Takes precedence over
+    `memoryUrn`; omit both to search every accessible memory.
+    """
+    memoryIds: [ID!]
+    memoryUrn: String
+    mode: SearchMode
+    query: String!
+  ): NodeSearchResult!
   nodeUsage(limit: Int, loc: String!): [UsageEvent!]!
   nodeVersions(limit: Int, nodeId: ID!): [NodeVersion!]!
   nodes(
+    """
+    Filter by runnable status. `true` returns only task nodes
+    (Node.isRunnable = true) — the canonical "tasks I can run" predicate
+    that hadron_run_task gates on. `false` returns only nodes explicitly
+    marked non-runnable; note most nodes leave isRunnable NULL, so
+    `false` does NOT include them. Omit to return nodes regardless of
+    runnable status.
+    """
+    isRunnable: Boolean
     limit: Int
 
     """
@@ -2005,6 +2186,18 @@ type Query {
     usageEvents(memoryId:) filter (#249).
     """
     memory: ID
+
+    """
+    Scope to a SET of memories (issue #355 — node content search
+    across an agent's / app's memories in one round-trip). Each entry
+    is a memory ID or a fully-qualified URN (007-entity-id-or-urn dispatch
+    via resolveMemoryRef), resolved then intersected with the caller's
+    access filter; unresolvable refs and inaccessible ids are silently
+    dropped (a multi-select UI shouldn't fail the whole search because one
+    ref isn't readable). Takes precedence over `memory` when both are
+    supplied; omit both to search every accessible memory.
+    """
+    memoryIds: [ID!]
     nodeType: String
     offset: Int
     prefix: String
@@ -2144,6 +2337,34 @@ enum Role {
 }
 
 """
+Entity types the cross-entity global search (globalSearch) can return.
+Mirrors the SearchEntityType union in src/lib/global-search.
+"""
+enum SearchEntityType {
+  agent
+  aiServiceConfig
+  app
+  memory
+  node
+  organization
+  user
+}
+
+"""
+Fields globalSearch can match against. Omit `fields` to let the server
+smart-sniff the query shape (PK → URN → name); explicit fields override the
+sniff. `pk` is exact-match; the rest are case-insensitive substring.
+`content` (node bodies) is opt-in and skips encrypted memories.
+"""
+enum SearchField {
+  content
+  description
+  name
+  pk
+  urn
+}
+
+"""
 Result granularity for nodeSearch. Spec 033.
 
 - node: one entry per matching node (US1 default).
@@ -2169,6 +2390,89 @@ enum SearchMode {
   hybrid
   keyword
   vector
+}
+
+type SearchReplaceFieldResult {
+  field: NodeTextField!
+  matches: Int!
+}
+
+"""
+Bulk literal/regex search-and-replace across selected nodes.
+
+Selection is a union — at least one of 'nodeIds' or 'memoryIds' is required:
+  - nodeIds:   explicit nodes (IDs or fully-qualified URNs).
+  - memoryIds: every live node in those memories (IDs or URNs).
+  - prefix:    further restrict the memoryIds set to the node at 'prefix'
+               plus its descendants, matched on colon loc-path boundaries
+               (so 'auth' matches 'auth' and 'auth:tokens' but not
+               'authoring'). Requires 'memoryIds' — loc is only unique
+               within a memory.
+
+Matching is literal substring by default; set 'regex: true' to treat
+'oldText' as a RegExp source (and 'newText' as a replacement pattern with
+dollar-sign backrefs). 'caseInsensitive' toggles case folding. Matching is
+always global.
+
+Set 'dryRun: true' to get per-node/per-field match counts WITHOUT writing.
+"""
+input SearchReplaceInNodesInput {
+  caseInsensitive: Boolean = false
+
+  """When true, report matches without writing anything."""
+  dryRun: Boolean = false
+
+  """Which text fields to search. At least one required."""
+  fields: [NodeTextField!]!
+
+  """Memory IDs or URNs — selects every live node in each."""
+  memoryIds: [ID!]
+
+  """
+  Replacement. May be empty (deletes the matched text). Regex mode honors dollar-sign backrefs.
+  """
+  newText: String!
+
+  """Explicit node IDs or fully-qualified URNs."""
+  nodeIds: [ID!]
+
+  """
+  Text (literal) or RegExp source (regex mode) to find. Must be non-empty.
+  """
+  oldText: String!
+
+  """
+  Loc-prefix filter applied within 'memoryIds' (parent loc + descendants).
+  """
+  prefix: String
+
+  """Treat oldText as a RegExp source and newText as a replacement pattern."""
+  regex: Boolean = false
+}
+
+type SearchReplaceNodeResult {
+  fields: [SearchReplaceFieldResult!]!
+  loc: String!
+  memoryId: ID!
+  nodeId: ID!
+
+  """Total replacements across all searched fields on this node."""
+  replacements: Int!
+}
+
+type SearchReplaceResult {
+  """Echoes the request — true means nothing was written."""
+  dryRun: Boolean!
+
+  """Nodes with at least one replacement."""
+  nodesChanged: Int!
+
+  """Nodes the selection resolved to (after auth + prefix filtering)."""
+  nodesScanned: Int!
+
+  """Per-node breakdown; only nodes with at least one match are listed."""
+  results: [SearchReplaceNodeResult!]!
+  totalReplacements: Int!
 }
 
 type Session {
@@ -2271,7 +2575,7 @@ Result of resolving a Hadron URN to the ids a client needs to navigate to
 the resource's canonical page. Powers the portal's /app/u/<urn> redirect
 route (hadron-portal#262).
 
-`kind` is the URN's type segment: memory | node | agent | org | app.
+`kind` is the URN's type segment: memory | node | agent | org | app | user.
 `id` is the resolved entity's primary id. `memoryId` is set only for
 nodes (their owning memory), `organizationId` only for apps (their owning
 org) — both are the extra ids those resources' canonical routes require.
@@ -2327,6 +2631,7 @@ type User {
   maxReferrals: Int
   name: String
   roles: [Role!]!
+  urn: String
 }
 
 type UserApiKey {

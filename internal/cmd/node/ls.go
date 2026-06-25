@@ -18,6 +18,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		memory   string
 		prefix   string
 		nodeType string
+		runnable bool
 		tags     []string
 		search   string
 		limit    int
@@ -50,6 +51,10 @@ after a known seq number).`,
 
 			var memoryArg, prefixArg, typeArg, searchArg *string
 			var limitArg, offsetArg *int
+			var runnableArg *bool
+			if cmd.Flags().Changed("runnable") {
+				runnableArg = &runnable
+			}
 			if memory != "" {
 				memoryArg = &memory
 			}
@@ -69,7 +74,7 @@ after a known seq number).`,
 				offsetArg = &offset
 			}
 
-			resp, err := gen.Nodes(cmd.Context(), client, memoryArg, prefixArg, typeArg, tags, searchArg, limitArg, offsetArg)
+			resp, err := gen.Nodes(cmd.Context(), client, memoryArg, prefixArg, typeArg, runnableArg, tags, searchArg, limitArg, offsetArg)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -77,14 +82,15 @@ after a known seq number).`,
 			nodes := make([]nodeDTO, 0, len(resp.Nodes))
 			for _, n := range resp.Nodes {
 				nodes = append(nodes, nodeDTO{
-					ID:        n.Id,
-					MemoryID:  n.MemoryId,
-					Loc:       n.Loc,
-					Name:      n.Name,
-					NodeType:  n.NodeType,
-					Tags:      n.Tags,
-					Seq:       n.Seq,
-					UpdatedAt: n.UpdatedAt,
+					ID:         n.Id,
+					MemoryID:   n.MemoryId,
+					Loc:        n.Loc,
+					Name:       n.Name,
+					NodeType:   n.NodeType,
+					IsRunnable: n.IsRunnable,
+					Tags:       n.Tags,
+					Seq:        n.Seq,
+					UpdatedAt:  n.UpdatedAt,
 				})
 			}
 
@@ -149,6 +155,8 @@ after a known seq number).`,
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "scope to a memory (ID or URN)")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "filter by node loc prefix")
 	cmd.Flags().StringVar(&nodeType, "type", "", "filter by node type")
+	cmd.Flags().BoolVar(&runnable, "runnable", false, "filter by runnable status (--runnable / --runnable=false); omit for all")
+	cmd.Flags().Lookup("runnable").NoOptDefVal = "true"
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "filter by tag (repeatable)")
 	cmd.Flags().StringVar(&search, "search", "", "keyword filter on name/description")
 	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of nodes")

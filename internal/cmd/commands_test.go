@@ -278,6 +278,152 @@ func TestNodeUpdateClearsFieldWithEmptyString(t *testing.T) {
 	}
 }
 
+// issue #89: --runnable is tri-state. Unset must be omitted (server reads
+// an omitted isRunnable as "preserve"); --runnable / --runnable=false send
+// the explicit boolean to the same field MCP update_node's isRunnable sets.
+func TestNodeUpdateRunnableTriState(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		want any // nil = must be omitted from the wire
+	}{
+		{"omitted", []string{"--name", "x"}, nil},
+		{"true", []string{"--runnable"}, true},
+		{"explicit-true", []string{"--runnable=true"}, true},
+		{"false", []string{"--runnable=false"}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"ResolveUrn":  resolveNodeJSON,
+				"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+				"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append([]string{"node", "update", nodeURN, "--server", gql.URL}, tc.args...))
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var vars struct {
+				Input map[string]any `json:"input"`
+			}
+			_ = json.Unmarshal(captured["UpsertNode"], &vars)
+			got, present := vars.Input["isRunnable"]
+			if tc.want == nil {
+				if present {
+					t.Errorf("unset --runnable must be omitted, got isRunnable=%v", got)
+				}
+				return
+			}
+			if !present || got != tc.want {
+				t.Errorf("isRunnable=%v (present=%v), want %v", got, present, tc.want)
+			}
+		})
+	}
+}
+
+// issue #89: `node create --runnable` carries the boolean to upsert so an
+// agent can author a working runnable task in one shot.
+func TestNodeAddSendsRunnable(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpsertNode": `{"data":{"upsertNode":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "add", "-m", "acme.com:kb", "--loc", "tasks:post-comment",
+		"--name", "Post comment", "--runnable", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input map[string]any `json:"input"`
+	}
+	_ = json.Unmarshal(captured["UpsertNode"], &vars)
+	if vars.Input["isRunnable"] != true {
+		t.Errorf("add --runnable must send isRunnable=true, got %v", vars.Input["isRunnable"])
+	}
+}
+
+// issue #89: `node ls --runnable` filters by the same predicate `hadron
+// task` gates on; unset must not constrain the listing.
+func TestNodeLsRunnableFilter(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		args    []string
+		want    any
+		present bool
+	}{
+		{"omitted", nil, nil, false},
+		{"true", []string{"--runnable"}, true, true},
+		{"false", []string{"--runnable=false"}, false, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"Nodes": `{"data":{"nodes":[` + nodeJSON + `]}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append([]string{"node", "ls", "-m", "acme.com:kb", "--server", gql.URL}, tc.args...))
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var vars map[string]any
+			_ = json.Unmarshal(captured["Nodes"], &vars)
+			got, present := vars["isRunnable"]
+			if present != tc.present || (tc.present && got != tc.want) {
+				t.Errorf("isRunnable=%v (present=%v), want %v (present=%v)", got, present, tc.want, tc.present)
+			}
+		})
+	}
+}
+
+// issue #89: isRunnable must be visible from `node get` — in --json (always,
+// as a tri-state) and in the text view when set.
+func TestNodeGetSurfacesRunnable(t *testing.T) {
+	const runnableDetail = `{"id":"n1","memoryId":"mem1","loc":"tasks:post-comment","name":"Post comment",
+		"description":null,"abstract":null,"nodeType":"task","isRunnable":true,"tags":[],
+		"content":null,"seq":null,
+		"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
+		"outgoingEdges":[],"incomingEdges":[]}`
+	t.Run("json", func(t *testing.T) {
+		gql, _ := captureGraphQL(t, map[string]string{
+			"ResolveUrn":  resolveNodeJSON,
+			"GetNodeById": `{"data":{"nodeById":` + runnableDetail + `}}`,
+		})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"node", "get", "acme.com:kb:tasks:post-comment", "--json", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		var dto struct {
+			IsRunnable *bool `json:"isRunnable"`
+		}
+		if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+			t.Fatalf("unmarshal --json: %v", err)
+		}
+		if dto.IsRunnable == nil || !*dto.IsRunnable {
+			t.Errorf("--json must surface isRunnable=true, got %v", dto.IsRunnable)
+		}
+	})
+	t.Run("text", func(t *testing.T) {
+		gql, _ := captureGraphQL(t, map[string]string{
+			"ResolveUrn":  resolveNodeJSON,
+			"GetNodeById": `{"data":{"nodeById":` + runnableDetail + `}}`,
+		})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"node", "get", "acme.com:kb:tasks:post-comment", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if !strings.Contains(out.String(), "runnable: true") {
+			t.Errorf("text view must show the runnable line: %s", out.String())
+		}
+	})
+}
+
 // #38/#41: a paragraph abstract (backticks, newlines) is hostile to inline
 // shell quoting, so --abstract-file reads it from a file.
 func TestNodeUpdateAbstractFile(t *testing.T) {

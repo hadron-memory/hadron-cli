@@ -25,6 +25,7 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		data         string
 		dataFile     string
 		tags         []string
+		runnable     bool
 	)
 	cmd := &cobra.Command{
 		Use:   "update <node-urn> | <loc> -m <memory>",
@@ -41,7 +42,8 @@ empty string, e.g. --description "", to clear a field).`,
 			if !changed("name") && !changed("content") && !changed("content-file") &&
 				!changed("type") && !changed("description") &&
 				!changed("abstract") && !changed("abstract-file") &&
-				!changed("data") && !changed("data-file") && !changed("tag") {
+				!changed("data") && !changed("data-file") && !changed("tag") &&
+				!changed("runnable") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
 			// Content and abstract can each read stdin via "-", but stdin can
@@ -108,6 +110,9 @@ empty string, e.g. --description "", to clear a field).`,
 			if changed("tag") {
 				input.Tags = tags
 			}
+			if changed("runnable") {
+				input.IsRunnable = &runnable
+			}
 
 			resp, err := gen.UpsertNode(cmd.Context(), client, &input)
 			if err != nil {
@@ -133,5 +138,7 @@ empty string, e.g. --description "", to clear a field).`,
 	cmd.Flags().StringVar(&data, "data", "", `new JSON data object (replaces it; "null" clears)`)
 	cmd.Flags().StringVar(&dataFile, "data-file", "", "read the new JSON data object from a file")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "replace tags (repeatable)")
+	cmd.Flags().BoolVar(&runnable, "runnable", false, "mark node runnable by 'hadron task' (--runnable / --runnable=false); omit to preserve")
+	cmd.Flags().Lookup("runnable").NoOptDefVal = "true"
 	return cmd
 }

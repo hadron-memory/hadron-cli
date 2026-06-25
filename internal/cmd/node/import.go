@@ -232,7 +232,7 @@ func nodeExists(cmd *cobra.Command, client graphql.Client, memoryRef, loc string
 	mem, prefix, limit := memoryRef, loc, 200
 	for offset := 0; ; offset += limit {
 		off := offset
-		resp, err := gen.Nodes(cmd.Context(), client, &mem, &prefix, nil, nil, nil, &limit, &off)
+		resp, err := gen.Nodes(cmd.Context(), client, &mem, &prefix, nil, nil, nil, nil, &limit, &off)
 		if err != nil {
 			return false
 		}

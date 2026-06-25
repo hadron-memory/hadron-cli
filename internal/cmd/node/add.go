@@ -28,6 +28,7 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 		data        string
 		dataFile    string
 		tags        []string
+		runnable    bool
 	)
 	cmd := &cobra.Command{
 		Use:     "create",
@@ -79,6 +80,9 @@ input; --content-file reads it from a file.`,
 				}
 				input.Data = raw
 			}
+			if cmd.Flags().Changed("runnable") {
+				input.IsRunnable = &runnable
+			}
 
 			resp, err := gen.UpsertNode(cmd.Context(), client, &input)
 			if err != nil {
@@ -104,6 +108,8 @@ input; --content-file reads it from a file.`,
 	cmd.Flags().StringVar(&data, "data", "", "machine-readable JSON data object")
 	cmd.Flags().StringVar(&dataFile, "data-file", "", "read the JSON data object from a file")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "tag (repeatable)")
+	cmd.Flags().BoolVar(&runnable, "runnable", false, "mark node runnable by 'hadron task' (--runnable / --runnable=false)")
+	cmd.Flags().Lookup("runnable").NoOptDefVal = "true"
 	_ = cmd.MarkFlagRequired("memory")
 	_ = cmd.MarkFlagRequired("loc")
 	_ = cmd.MarkFlagRequired("name")
