@@ -12,14 +12,15 @@ import (
 
 // nodeDTO is the stable --json shape for a node in list output.
 type nodeDTO struct {
-	ID        string   `json:"id"`
-	MemoryID  string   `json:"memoryId"`
-	Loc       string   `json:"loc"`
-	Name      string   `json:"name"`
-	NodeType  string   `json:"nodeType"`
-	Tags      []string `json:"tags"`
-	Seq       *int     `json:"seq"`
-	UpdatedAt string   `json:"updatedAt"`
+	ID         string   `json:"id"`
+	MemoryID   string   `json:"memoryId"`
+	Loc        string   `json:"loc"`
+	Name       string   `json:"name"`
+	NodeType   string   `json:"nodeType"`
+	Tags       []string `json:"tags"`
+	Seq        *int     `json:"seq"`
+	IsRunnable bool     `json:"isRunnable"`
+	UpdatedAt  string   `json:"updatedAt"`
 }
 
 // nodeDetailDTO extends the list shape for single-node output.
@@ -53,26 +54,34 @@ func NewCmdNode(f *cmdutil.Factory) *cobra.Command {
 
 func upsertDTO(n *gen.UpsertNodeUpsertNode) nodeDTO {
 	return nodeDTO{
-		ID:        n.Id,
-		MemoryID:  n.MemoryId,
-		Loc:       n.Loc,
-		Name:      n.Name,
-		NodeType:  n.NodeType,
-		Tags:      n.Tags,
-		Seq:       nil,
-		UpdatedAt: n.UpdatedAt,
+		ID:         n.Id,
+		MemoryID:   n.MemoryId,
+		Loc:        n.Loc,
+		Name:       n.Name,
+		NodeType:   n.NodeType,
+		Tags:       n.Tags,
+		Seq:        nil,
+		IsRunnable: boolVal(n.IsRunnable),
+		UpdatedAt:  n.UpdatedAt,
 	}
 }
 
 func mergeDTO(n *gen.UpdateNodeDataUpdateNodeDataNode) nodeDTO {
 	return nodeDTO{
-		ID:        n.Id,
-		MemoryID:  n.MemoryId,
-		Loc:       n.Loc,
-		Name:      n.Name,
-		NodeType:  n.NodeType,
-		Tags:      n.Tags,
-		Seq:       nil,
-		UpdatedAt: n.UpdatedAt,
+		ID:         n.Id,
+		MemoryID:   n.MemoryId,
+		Loc:        n.Loc,
+		Name:       n.Name,
+		NodeType:   n.NodeType,
+		Tags:       n.Tags,
+		Seq:        nil,
+		IsRunnable: boolVal(n.IsRunnable),
+		UpdatedAt:  n.UpdatedAt,
 	}
+}
+
+// boolVal dereferences a nullable Boolean, treating an absent value as false
+// (the server treats a null isRunnable as "not runnable").
+func boolVal(b *bool) bool {
+	return b != nil && *b
 }

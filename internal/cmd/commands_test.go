@@ -473,6 +473,133 @@ func TestNodeUpdateDataMergeFile(t *testing.T) {
 	}
 }
 
+// #89: node get surfaces isRunnable in the text view and --json.
+func TestNodeGetSurfacesRunnable(t *testing.T) {
+	const detailRunnable = `{"id":"n1","memoryId":"mem1","loc":"tasks:brief","name":"Brief",
+		"description":null,"abstract":null,"nodeType":"task","tags":[],
+		"content":null,"data":null,"seq":null,"isRunnable":true,
+		"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
+		"outgoingEdges":[],"incomingEdges":[]}`
+	for _, jsonMode := range []bool{false, true} {
+		gql, _ := captureGraphQL(t, map[string]string{
+			"ResolveUrn":  resolveNodeJSON,
+			"GetNodeById": `{"data":{"nodeById":` + detailRunnable + `}}`,
+		})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		args := []string{"node", "get", nodeURN, "--server", gql.URL}
+		if jsonMode {
+			args = append(args, "--json")
+		}
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute (json=%v): %v", jsonMode, err)
+		}
+		if jsonMode {
+			var got struct {
+				IsRunnable bool `json:"isRunnable"`
+			}
+			if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+				t.Fatalf("unmarshal node get --json: %v", err)
+			}
+			if !got.IsRunnable {
+				t.Errorf("--json must surface isRunnable:true, got %s", out.String())
+			}
+		} else if !strings.Contains(out.String(), "runnable: true") {
+			t.Errorf("text view must surface runnable, got %s", out.String())
+		}
+	}
+}
+
+// #89: node list --json surfaces isRunnable per node.
+func TestNodeLsSurfacesRunnable(t *testing.T) {
+	const runnableJSON = `{"id":"n2","memoryId":"mem1","loc":"tasks:brief","name":"Brief",
+		"nodeType":"task","tags":[],"seq":null,"isRunnable":true,"updatedAt":"2026-06-11T00:00:00Z"}`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"Nodes": `{"data":{"nodes":[` + runnableJSON + `]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "ls", "--memory", "acme.com::kb", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var got []struct {
+		IsRunnable bool `json:"isRunnable"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+		t.Fatalf("unmarshal node ls --json: %v", err)
+	}
+	if len(got) != 1 || !got[0].IsRunnable {
+		t.Errorf("node ls --json must surface isRunnable, got %s", out.String())
+	}
+}
+
+// #89: --runnable is a tri-state — set true, set false, or (omitted) preserve.
+// When omitted, isRunnable must NOT reach the wire (server reads absent as
+// "preserve"); when passed, the chosen value is sent.
+func TestNodeUpdateRunnable(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		want any // nil = field must be absent
+	}{
+		{"omitted preserves", []string{"--name", "X"}, nil},
+		{"set true", []string{"--runnable"}, true},
+		{"set false", []string{"--runnable=false"}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"ResolveUrn":  resolveNodeJSON,
+				"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+				"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append([]string{"node", "update", nodeURN, "--server", gql.URL}, tc.args...))
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var vars struct {
+				Input map[string]any `json:"input"`
+			}
+			_ = json.Unmarshal(captured["UpsertNode"], &vars)
+			got, present := vars.Input["isRunnable"]
+			if tc.want == nil {
+				if present {
+					t.Errorf("omitted --runnable must not send isRunnable, got %v", got)
+				}
+				return
+			}
+			if got != tc.want {
+				t.Errorf("isRunnable = %v (present=%v), want %v", got, present, tc.want)
+			}
+		})
+	}
+}
+
+// #89: node create --runnable forwards isRunnable on the upsert input.
+func TestNodeAddRunnable(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpsertNode": `{"data":{"upsertNode":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "add", "-m", "acme.com::kb", "--loc", "tasks:brief",
+		"--name", "Brief", "--type", "task", "--runnable", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input map[string]any `json:"input"`
+	}
+	_ = json.Unmarshal(captured["UpsertNode"], &vars)
+	if vars.Input["isRunnable"] != true {
+		t.Errorf("--runnable must forward isRunnable:true, got %v", vars.Input["isRunnable"])
+	}
+}
+
 // Replace and merge are different mutations; passing both is a usage error
 // that fires before any network round-trip.
 func TestNodeUpdateRejectsDataAndDataMerge(t *testing.T) {

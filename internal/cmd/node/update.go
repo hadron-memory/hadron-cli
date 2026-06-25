@@ -29,6 +29,7 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		dataFile      string
 		dataMerge     string
 		dataMergeFile string
+		runnable      bool
 		tags          []string
 	)
 	cmd := &cobra.Command{
@@ -63,7 +64,7 @@ mutually exclusive.`,
 			anyField := changed("name") || changed("content") || changed("content-file") ||
 				changed("type") || changed("description") ||
 				changed("abstract") || changed("abstract-file") ||
-				replaceData || changed("tag")
+				replaceData || changed("runnable") || changed("tag")
 			if !anyField && !mergeData {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
@@ -155,6 +156,9 @@ mutually exclusive.`,
 					}
 					input.Data = raw
 				}
+				if changed("runnable") {
+					input.IsRunnable = &runnable
+				}
 				if changed("tag") {
 					input.Tags = tags
 				}
@@ -205,6 +209,7 @@ mutually exclusive.`,
 	cmd.Flags().StringVar(&dataFile, "data-file", "", "read the replacement JSON data object from a file")
 	cmd.Flags().StringVar(&dataMerge, "data-merge", "", `merge a JSON object into data, preserving unmentioned keys ("-" reads stdin)`)
 	cmd.Flags().StringVar(&dataMergeFile, "data-merge-file", "", "read the JSON object to merge into data from a file")
+	cmd.Flags().BoolVar(&runnable, "runnable", false, "mark the node runnable by 'hadron task run' (--runnable=false clears it; omit to preserve)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "replace tags (repeatable)")
 	return cmd
 }

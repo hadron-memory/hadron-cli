@@ -104,6 +104,12 @@ Conventions:
   `--data-merge-file <path>`; the patch must be an object, and merge is
   mutually exclusive with the `--data` replace. `node get`/`spec get` show
   `data` in the text view (and the `data` field in `--json`).
+- `isRunnable` gates whether `hadron task run` will execute a node. Both
+  `node add` and `node update` take `--runnable` to set it; on `update` it's
+  tri-state — `--runnable` sets true, `--runnable=false` clears it, omitting it
+  preserves the current value. `node get` shows `runnable:` in the text view,
+  and both `node get` and `node ls` surface `isRunnable` in `--json` (`ls`
+  also shows a `RUN` column with a ✓ for runnable nodes).
 - `node export <urn>` writes one node to a portable, self-describing file
   (frontmatter markdown, or `--format json`) — to stdout by default so it pipes
   into `node import`, or `-o <file>`. `node import <file|->` recreates it: a
