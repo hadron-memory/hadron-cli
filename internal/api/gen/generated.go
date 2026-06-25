@@ -4968,13 +4968,14 @@ func (v *__NodeSearchInput) GetLimit() *int { return v.Limit }
 
 // __NodesInput is used internally by genqlient
 type __NodesInput struct {
-	Memory   *string  `json:"memory,omitempty"`
-	Prefix   *string  `json:"prefix,omitempty"`
-	NodeType *string  `json:"nodeType,omitempty"`
-	Tags     []string `json:"tags,omitempty"`
-	Search   *string  `json:"search,omitempty"`
-	Limit    *int     `json:"limit,omitempty"`
-	Offset   *int     `json:"offset,omitempty"`
+	Memory     *string  `json:"memory,omitempty"`
+	Prefix     *string  `json:"prefix,omitempty"`
+	NodeType   *string  `json:"nodeType,omitempty"`
+	IsRunnable *bool    `json:"isRunnable,omitempty"`
+	Tags       []string `json:"tags,omitempty"`
+	Search     *string  `json:"search,omitempty"`
+	Limit      *int     `json:"limit,omitempty"`
+	Offset     *int     `json:"offset,omitempty"`
 }
 
 // GetMemory returns __NodesInput.Memory, and is useful for accessing the field via an interface.
@@ -4985,6 +4986,9 @@ func (v *__NodesInput) GetPrefix() *string { return v.Prefix }
 
 // GetNodeType returns __NodesInput.NodeType, and is useful for accessing the field via an interface.
 func (v *__NodesInput) GetNodeType() *string { return v.NodeType }
+
+// GetIsRunnable returns __NodesInput.IsRunnable, and is useful for accessing the field via an interface.
+func (v *__NodesInput) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetTags returns __NodesInput.Tags, and is useful for accessing the field via an interface.
 func (v *__NodesInput) GetTags() []string { return v.Tags }
@@ -6617,8 +6621,8 @@ func NodeSearch(
 
 // The query executed by Nodes.
 const Nodes_Operation = `
-query Nodes ($memory: ID, $prefix: String, $nodeType: String, $tags: [String!], $search: String, $limit: Int, $offset: Int) {
-	nodes(memory: $memory, prefix: $prefix, nodeType: $nodeType, tags: $tags, search: $search, limit: $limit, offset: $offset) {
+query Nodes ($memory: ID, $prefix: String, $nodeType: String, $isRunnable: Boolean, $tags: [String!], $search: String, $limit: Int, $offset: Int) {
+	nodes(memory: $memory, prefix: $prefix, nodeType: $nodeType, isRunnable: $isRunnable, tags: $tags, search: $search, limit: $limit, offset: $offset) {
 		id
 		memoryId
 		loc
@@ -6638,6 +6642,7 @@ func Nodes(
 	memory *string,
 	prefix *string,
 	nodeType *string,
+	isRunnable *bool,
 	tags []string,
 	search *string,
 	limit *int,
@@ -6647,13 +6652,14 @@ func Nodes(
 		OpName: "Nodes",
 		Query:  Nodes_Operation,
 		Variables: &__NodesInput{
-			Memory:   memory,
-			Prefix:   prefix,
-			NodeType: nodeType,
-			Tags:     tags,
-			Search:   search,
-			Limit:    limit,
-			Offset:   offset,
+			Memory:     memory,
+			Prefix:     prefix,
+			NodeType:   nodeType,
+			IsRunnable: isRunnable,
+			Tags:       tags,
+			Search:     search,
+			Limit:      limit,
+			Offset:     offset,
 		},
 	}
 

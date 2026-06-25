@@ -100,7 +100,7 @@ one object for a single citation, an array for --prefix.`,
 				if offset > 0 {
 					offsetArg = &offset
 				}
-				resp, rerr := gen.Nodes(cmd.Context(), client, &memURN, &prefixArg, nil, []string{"spec"}, nil, limitArg, offsetArg)
+				resp, rerr := gen.Nodes(cmd.Context(), client, &memURN, &prefixArg, nil, nil, []string{"spec"}, nil, limitArg, offsetArg)
 				if rerr != nil {
 					return api.MapError(rerr)
 				}

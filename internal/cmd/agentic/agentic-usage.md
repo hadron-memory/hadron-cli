@@ -109,7 +109,10 @@ Conventions:
   tri-state — `--runnable` sets true, `--runnable=false` clears it, omitting it
   preserves the current value. `node get` shows `runnable:` in the text view,
   and both `node get` and `node ls` surface `isRunnable` in `--json` (`ls`
-  also shows a `RUN` column with a ✓ for runnable nodes).
+  also shows a `RUN` column with a ✓ for runnable nodes). `node ls --runnable`
+  filters server-side to runnable nodes (`--runnable=false` to the explicitly
+  non-runnable; omit for all) — the listing counterpart to `hadron task run`'s
+  gate.
 - `--reason "<text>"` on `node update` and `replace text` records *why* a change
   was made in the node's version history (the same field MCP `hadron_update_node`'s
   `reason` populates). Optional; omit it and history falls back to the caller
