@@ -3,7 +3,7 @@
 Two related `hadron spec` bugs, both rooted in how `-m/--memory` was turned into
 the values the server needs:
 
-- **Bug 1 — `spec describe` couldn't resolve a memory any form.** `describe`
+- **Bug 1 — `spec describe` couldn't resolve a memory by any form.** `describe`
   matched the `-m` value (scheme-stripped, `::`→`:`) against `myMemories[].urn`,
   but the server reports that urn as `hrn:memory:<org>::<memory>` — so URN, bare
   `org::memory`, PK, and name all missed and reported "not found". (The unit

@@ -189,6 +189,21 @@ func TestCanonicalMemoryURN(t *testing.T) {
 	}
 }
 
+// A blank ref or a bare scheme prefix (which strips to "") must error before any
+// myMemories lookup — an empty `want` must never collide with an empty-urn
+// memory. The empty-norm guard short-circuits before touching cmd/client, so a
+// nil client is safe here.
+func TestResolveSpecMemoryRejectsEmptyRef(t *testing.T) {
+	for _, ref := range []string{"", "   ", "hrn:memory:", "urn:memory:"} {
+		if _, err := resolveSpecMemoryURN(nil, nil, ref); err == nil {
+			t.Errorf("resolveSpecMemoryURN(%q) should error", ref)
+		}
+		if _, _, err := resolveSpecMemoryID(nil, nil, ref); err == nil {
+			t.Errorf("resolveSpecMemoryID(%q) should error", ref)
+		}
+	}
+}
+
 func TestSpecNodeRef(t *testing.T) {
 	if got := specNodeRef("micromentor.org::platform-specs", "msg:010:02"); got != "micromentor.org::platform-specs::msg:010:02" {
 		t.Errorf("specNodeRef=%q", got)

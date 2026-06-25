@@ -425,10 +425,13 @@ func resolveSpecMemoryID(cmd *cobra.Command, client graphql.Client, ref string) 
 // served by resolveSpecMemoryURN's fast path before this is ever called.
 func lookupSpecMemory(cmd *cobra.Command, client graphql.Client, ref string) (id, memURN string, err error) {
 	ref = strings.TrimSpace(ref)
-	if ref == "" {
+	norm := stripMemoryScheme(ref)
+	if norm == "" {
+		// Empty, or a bare scheme prefix like "hrn:memory:" — nothing to match
+		// (and an empty want must not collide with an empty-urn memory).
 		return "", "", exitcode.Newf(exitcode.Usage, "a memory is required: pass -m/--memory <org::memory>")
 	}
-	want := collapseColons(stripMemoryScheme(ref))
+	want := collapseColons(norm)
 	includeAgentSystem := true
 	resp, err := gen.MyMemories(cmd.Context(), client, &includeAgentSystem)
 	if err != nil {
