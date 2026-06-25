@@ -4,7 +4,38 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
+
+// withFlagAliases lets a command accept an alias spelling of a flag (#99 item
+// 5) — the alias resolves to the canonical flag, while unknown flags still
+// error.
+func TestWithFlagAliases(t *testing.T) {
+	newCmd := func() (*cobra.Command, *bool) {
+		var body bool
+		cmd := &cobra.Command{Use: "x", SilenceErrors: true, SilenceUsage: true,
+			RunE: func(*cobra.Command, []string) error { return nil }}
+		cmd.Flags().BoolVar(&body, "body-only", false, "")
+		withFlagAliases(cmd, map[string]string{"content-only": "body-only"})
+		return cmd, &body
+	}
+
+	cmd, body := newCmd()
+	cmd.SetArgs([]string{"--content-only"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("alias --content-only should parse: %v", err)
+	}
+	if !*body {
+		t.Error("alias --content-only did not set --body-only")
+	}
+
+	cmd2, _ := newCmd()
+	cmd2.SetArgs([]string{"--nope"})
+	if err := cmd2.Execute(); err == nil {
+		t.Error("unknown flag should still error")
+	}
+}
 
 func mustCit(t *testing.T, s string) Citation {
 	t.Helper()

@@ -99,9 +99,10 @@ Results are filtered to spec nodes.`,
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "scope to a memory (ID or fully-qualified URN)")
-	cmd.Flags().BoolVar(&matchExactly, "match-exactly", false, "literal keyword search instead of semantic")
+	cmd.Flags().BoolVar(&matchExactly, "match-exactly", false, "literal keyword search instead of semantic (alias: --exact)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of results")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "additional tag filter (repeatable; --match-exactly only)")
+	withFlagAliases(cmd, map[string]string{"exact": "match-exactly"})
 	return cmd
 }
 

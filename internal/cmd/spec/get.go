@@ -163,9 +163,12 @@ one object for a single citation, an array for --prefix.`,
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "dump every spec under this citation prefix (e.g. cor:cht)")
 	cmd.Flags().BoolVar(&abstractOnly, "abstract-only", false, "print metadata + abstract, omit the body")
-	cmd.Flags().BoolVar(&bodyOnly, "body-only", false, "print only the raw markdown body of a single spec (for a clean edit round-trip)")
+	cmd.Flags().BoolVar(&bodyOnly, "body-only", false, "print only the raw markdown body of a single spec (for a clean edit round-trip; alias: --content-only)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "max specs to fetch as one page in --prefix mode (default: all)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset for --prefix mode (implies a single page)")
+	// `edit`/`new` call the markdown body "content"; accept --content-only as
+	// an alias so that vocabulary carries over to `get` (#99 item 5).
+	withFlagAliases(cmd, map[string]string{"content-only": "body-only"})
 	_ = cmd.MarkFlagRequired("memory")
 	return cmd
 }
