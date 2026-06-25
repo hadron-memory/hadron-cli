@@ -63,3 +63,16 @@ func upsertDTO(n *gen.UpsertNodeUpsertNode) nodeDTO {
 		UpdatedAt: n.UpdatedAt,
 	}
 }
+
+func mergeDTO(n *gen.UpdateNodeDataUpdateNodeDataNode) nodeDTO {
+	return nodeDTO{
+		ID:        n.Id,
+		MemoryID:  n.MemoryId,
+		Loc:       n.Loc,
+		Name:      n.Name,
+		NodeType:  n.NodeType,
+		Tags:      n.Tags,
+		Seq:       nil,
+		UpdatedAt: n.UpdatedAt,
+	}
+}

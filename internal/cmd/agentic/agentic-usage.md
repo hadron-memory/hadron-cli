@@ -98,8 +98,12 @@ Conventions:
   Machine-readable JSON `data` comes from `--data '<json>'` or
   `--data-file <path>` (validated client-side); it **replaces** the
   node's whole data object, so omit it to preserve and pass `--data null`
-  to clear. `node get`/`spec get` show `data` in the text view (and the
-  `data` field in `--json`).
+  to clear. To **merge** instead — overwrite a few top-level keys while
+  preserving the rest (a shallow merge; nested object values are replaced
+  wholesale) — pass `--data-merge '<json>'` (`-` reads stdin) or
+  `--data-merge-file <path>`; the patch must be an object, and merge is
+  mutually exclusive with the `--data` replace. `node get`/`spec get` show
+  `data` in the text view (and the `data` field in `--json`).
 - `node export <urn>` writes one node to a portable, self-describing file
   (frontmatter markdown, or `--format json`) — to stdout by default so it pipes
   into `node import`, or `-o <file>`. `node import <file|->` recreates it: a

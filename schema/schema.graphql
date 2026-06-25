@@ -605,9 +605,10 @@ type ExchangeMessage {
 
 """
 One unified, flat globalSearch result — common fields across every entity
-type so a single ranked list renders uniformly. `urn` is null for entities
-without one (aiServiceConfig, user); `memoryId` / `organizationId` are
-convenience handles for building canonical navigation paths.
+type so a single ranked list renders uniformly. `urn` is null for an
+aiServiceConfig (no URN) and for a user with no handle or a not-URN-legal
+handle (a user's URN is hrn:user:<handle>); `memoryId` / `organizationId`
+are convenience handles for building canonical navigation paths.
 """
 type GlobalSearchHit {
   description: String
@@ -900,6 +901,36 @@ enum MemoryVisibility {
   GROUP
   ORGANIZATION
   PUBLIC
+}
+
+input MergeMemoriesInput {
+  """Delete the (now-empty) source memory after a successful merge."""
+  deleteSourceMem: Boolean = false
+
+  """
+  Field strategy for source nodes whose loc collides with an existing target node (folded via the mergeNodes rules). Omit (or null) = every mergeable field. Nodes with no target counterpart move over unchanged (loc preserved).
+  """
+  include: [NodeMergeField!]
+
+  """Source memory — ID or fully-qualified URN. Emptied into 'target'."""
+  source: String!
+
+  """Target memory — ID or fully-qualified URN. The surviving memory."""
+  target: String!
+}
+
+input MergeNodesInput {
+  """Hard-delete the source node after a successful merge."""
+  deleteSource: Boolean = false
+
+  """Fields to merge. Omit (or null) to merge every mergeable field."""
+  include: [NodeMergeField!]
+
+  """Source node — ID or fully-qualified URN. Folded into 'target'."""
+  source: String!
+
+  """Target node — ID or fully-qualified URN. The surviving node."""
+  target: String!
 }
 
 type Mutation {
@@ -1339,6 +1370,8 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   linkMemoryToUser(dataKey: String, externalUserId: String!, memoryId: ID!): Memory!
+  mergeMemories(input: MergeMemoriesInput!): Memory!
+  mergeNodes(input: MergeNodesInput!): Node!
   moveNode(from: String!, memoryId: String!, targetMemoryId: String, to: String!): Node!
   processChatResponse(chatId: String!, toolResponse: JSON!): ChatResponseResult!
 
@@ -1627,6 +1660,7 @@ type Mutation {
   """
   updateMemorySubscription(memoryId: ID!, orgId: ID!, role: Role!): MemorySubscription!
   updateMyProfile(email: String, handle: String, name: String): User!
+  updateNodeData(data: JSON!, nodeId: ID!): Node!
 
   """
   Set GitHub App credentials for an organization (encrypted at rest).
@@ -1788,6 +1822,36 @@ input NodeInput {
   properties: JSON
   seq: Int
   tags: [String!]
+}
+
+"""A node field that mergeNodes can fold from the source into the target."""
+enum NodeMergeField {
+  """
+  Concatenate source abstract after target abstract (2000-char cap enforced).
+  """
+  ABSTRACT
+
+  """
+  Concatenate source content after target content (blank-line separated).
+  """
+  CONTENT
+
+  """
+  Shallow-merge the encrypted 'data' JSON; target wins on key collisions.
+  """
+  DATA
+
+  """Concatenate source description after target description."""
+  DESCRIPTION
+
+  """Re-point the source's incoming and outgoing edges onto the target."""
+  EDGES
+
+  """Shallow-merge the 'properties' JSON; target wins on key collisions."""
+  PROPERTIES
+
+  """Union the tag sets (target order first, then new source tags)."""
+  TAGS
 }
 
 """
@@ -1962,11 +2026,12 @@ type Query {
   that reuses the server's authorization rules instead of re-deriving them
   client-side.
   
-  'user' accepts a User ID (Users have no URN today). 'resource' is
-  dispatched on URN type the same way resolveUrn dispatches: a memory, node,
-  app, or agent MUST be a fully-qualified hrn:<type>: URN (a bare id is
-  ambiguous across those kinds). A bare id with no scheme prefix is treated
-  as an AiServiceConfig id — the only URN-less resource kind.
+  'user' (the subject) accepts a User ID or a hrn:user:<handle> URN (spec
+  cor:urn:010:01). 'resource' is dispatched on URN type the same way
+  resolveUrn dispatches: a memory, node, app, agent, org, or user MUST be a
+  fully-qualified hrn:<type>: URN (a bare id is ambiguous across those kinds).
+  A bare id with no scheme prefix is treated as an AiServiceConfig id — the
+  only URN-less resource kind.
   
   Authorization (who may CALL this): the same visibility bar already
   enforced on the underlying grant tables — a platform ADMIN/OWNER, an
@@ -2048,7 +2113,7 @@ type Query {
   not present in PR 137.
   """
   myUserApiKeys: [UserApiKey!]!
-  node(loc: String!, raw: Boolean): Node
+  node(loc: String!, memory: ID, raw: Boolean): Node
 
   """
   Batch read (spec cor:api:040) — the full node projection (select any Node
@@ -2499,7 +2564,7 @@ Result of resolving a Hadron URN to the ids a client needs to navigate to
 the resource's canonical page. Powers the portal's /app/u/<urn> redirect
 route (hadron-portal#262).
 
-`kind` is the URN's type segment: memory | node | agent | org | app.
+`kind` is the URN's type segment: memory | node | agent | org | app | user.
 `id` is the resolved entity's primary id. `memoryId` is set only for
 nodes (their owning memory), `organizationId` only for apps (their owning
 org) — both are the extra ids those resources' canonical routes require.
@@ -2555,6 +2620,7 @@ type User {
   maxReferrals: Int
   name: String
   roles: [Role!]!
+  urn: String
 }
 
 type UserApiKey {

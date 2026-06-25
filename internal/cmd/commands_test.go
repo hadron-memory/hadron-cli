@@ -409,6 +409,116 @@ func TestNodeAddRejectsDataAndDataFile(t *testing.T) {
 	}
 }
 
+// #92: --data-merge calls the updateNodeData mutation (a shallow merge),
+// forwarding the resolved node id and the JSON patch — NOT an upsert.
+func TestNodeUpdateDataMerge(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":     resolveNodeJSON,
+		"UpdateNodeData": `{"data":{"updateNodeData":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "update", nodeURN,
+		"--data-merge", `{"status":"closed"}`, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, upserted := captured["UpsertNode"]; upserted {
+		t.Errorf("a merge-only update must not call UpsertNode")
+	}
+	// A merge-only update needs just the id, so it resolves the ref without
+	// the extra GetNodeById round-trip (captureGraphQL flags unexpected ops).
+	if _, fetched := captured["GetNodeById"]; fetched {
+		t.Errorf("a merge-only update must not call GetNodeById")
+	}
+	var vars struct {
+		NodeId string         `json:"nodeId"`
+		Data   map[string]any `json:"data"`
+	}
+	if err := json.Unmarshal(captured["UpdateNodeData"], &vars); err != nil {
+		t.Fatalf("unmarshal UpdateNodeData variables: %v", err)
+	}
+	if vars.NodeId != "n1" {
+		t.Errorf("nodeId must be the resolved id, got %q", vars.NodeId)
+	}
+	if vars.Data["status"] != "closed" {
+		t.Errorf("--data-merge must forward the parsed patch, got %v", vars.Data)
+	}
+}
+
+// --data-merge-file reads the JSON patch from a file ("-" reads stdin).
+func TestNodeUpdateDataMergeFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "patch.json")
+	if err := os.WriteFile(path, []byte("{\n  \"swatches\": 3\n}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":     resolveNodeJSON,
+		"GetNodeById":    `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+		"UpdateNodeData": `{"data":{"updateNodeData":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "update", nodeURN, "--data-merge-file", path, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Data map[string]any `json:"data"`
+	}
+	_ = json.Unmarshal(captured["UpdateNodeData"], &vars)
+	if vars.Data["swatches"] != float64(3) {
+		t.Errorf("--data-merge-file must forward parsed JSON, got %v", vars.Data)
+	}
+}
+
+// Replace and merge are different mutations; passing both is a usage error
+// that fires before any network round-trip.
+func TestNodeUpdateRejectsDataAndDataMerge(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "update", nodeURN,
+		"--data", "{}", "--data-merge", "{}", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("--data + --data-merge should be a mutual-exclusion error, got %v", err)
+	}
+}
+
+// --data-merge and --data-merge-file are mutually exclusive. The guard is on
+// Changed(), so an explicit --data-merge "" (which the value check would miss)
+// still errors instead of letting the file silently win — and fires before any
+// network round-trip.
+func TestNodeUpdateRejectsDataMergeAndDataMergeFile(t *testing.T) {
+	for _, patch := range []string{"", `{"a":1}`} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"node", "update", nodeURN,
+			"--data-merge", patch, "--data-merge-file", "/tmp/x.json", "--server", "http://127.0.0.1:1"})
+		err := root.Execute()
+		if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+			t.Fatalf("--data-merge %q + --data-merge-file should be a mutual-exclusion error, got %v", patch, err)
+		}
+	}
+}
+
+// An invalid --data-merge patch is rejected before the mutation. resolveMergeData
+// runs after the node fetch, so the resolve/fetch responses must be stubbed.
+func TestNodeUpdateRejectsInvalidDataMerge(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveNodeJSON,
+		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "update", nodeURN, "--data-merge", "{not json}", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "valid JSON") {
+		t.Fatalf("expected invalid-JSON usage error, got %v", err)
+	}
+}
+
 // #69 item 5: node get surfaces `data` in both the text view and --json.
 func TestNodeGetSurfacesData(t *testing.T) {
 	const detailWithData = `{"id":"n1","memoryId":"mem1","loc":"palette:brand","name":"Brand",

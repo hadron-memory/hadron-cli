@@ -206,6 +206,23 @@ mutation DeleteNode($loc: String!, $memoryId: String!) {
   deleteNode(loc: $loc, memoryId: $memoryId)
 }
 
+# Shallow-merge a JSON patch into a node's `data` bag (the supplied object's
+# top-level keys overwrite existing ones; absent keys are preserved). Unlike
+# UpsertNode's `data`, which replaces the whole bag, this is a merge — the
+# server rejects a non-object patch with BAD_USER_INPUT. Backs the
+# `--data-merge`/`--data-merge-file` flags on `hadron node update`.
+mutation UpdateNodeData($nodeId: ID!, $data: JSON!) {
+  updateNodeData(nodeId: $nodeId, data: $data) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    tags
+    updatedAt
+  }
+}
+
 # Unset optional variables must be omitted from the wire, not sent as
 # explicit nulls — the server rejects priority: null (hadron-server#263)
 # and treats condition/data: null as "clear".

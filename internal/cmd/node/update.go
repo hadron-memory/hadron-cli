@@ -1,7 +1,10 @@
 package node
 
 import (
+	"encoding/json"
 	"io"
+	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -14,17 +17,19 @@ import (
 
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var (
-		memory       string
-		name         string
-		content      string
-		contentFile  string
-		nodeType     string
-		description  string
-		abstract     string
-		abstractFile string
-		data         string
-		dataFile     string
-		tags         []string
+		memory        string
+		name          string
+		content       string
+		contentFile   string
+		nodeType      string
+		description   string
+		abstract      string
+		abstractFile  string
+		data          string
+		dataFile      string
+		dataMerge     string
+		dataMergeFile string
+		tags          []string
 	)
 	cmd := &cobra.Command{
 		Use:   "update <node-urn> | <loc> -m <memory>",
@@ -32,22 +37,61 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		Long: `Update an existing node by its fully-qualified URN
 (<org>::<memory>::<loc>), or by a bare <loc> with -m/--memory. Only the
 fields you pass change; everything else is preserved (pass an explicit
-empty string, e.g. --description "", to clear a field).`,
+empty string, e.g. --description "", to clear a field).
+
+The data bag can be written two ways:
+
+  --data / --data-file       REPLACE the whole data object (pass "null" to
+                             clear it).
+  --data-merge / --data-merge-file
+                             MERGE a JSON object into the existing data: its
+                             top-level keys overwrite, unmentioned keys are
+                             preserved (a shallow merge — nested object values
+                             are replaced wholesale, not deep-merged). The
+                             patch must be an object.
+
+Replace and merge are different operations, so --data and --data-merge are
+mutually exclusive.`,
 		Example: `  hadron node update acme.com:kb:findings:flaky-ci --name "Flaky CI (resolved)"
-  cat updated.md | hadron node update findings:flaky-ci -m acme.com:kb --content -`,
+  cat updated.md | hadron node update findings:flaky-ci -m acme.com:kb --content -
+  hadron node update acme.com:kb:findings:flaky-ci --data-merge '{"status":"closed"}'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
-			if !changed("name") && !changed("content") && !changed("content-file") &&
-				!changed("type") && !changed("description") &&
-				!changed("abstract") && !changed("abstract-file") &&
-				!changed("data") && !changed("data-file") && !changed("tag") {
+			replaceData := changed("data") || changed("data-file")
+			mergeData := changed("data-merge") || changed("data-merge-file")
+			anyField := changed("name") || changed("content") || changed("content-file") ||
+				changed("type") || changed("description") ||
+				changed("abstract") || changed("abstract-file") ||
+				replaceData || changed("tag")
+			if !anyField && !mergeData {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
-			// Content and abstract can each read stdin via "-", but stdin can
-			// only be consumed once.
-			if changed("content") && content == "-" && changed("abstract") && abstract == "-" {
-				return exitcode.Newf(exitcode.Usage, "--content - and --abstract - cannot both read stdin")
+			// Replace and merge are different operations (distinct mutations).
+			if replaceData && mergeData {
+				return exitcode.Newf(exitcode.Usage, "--data (replace) and --data-merge (merge) are mutually exclusive")
+			}
+			// --data-merge and --data-merge-file are mutually exclusive. Guard
+			// on Changed() (not the resolved value): an explicit --data-merge ""
+			// would otherwise slip past resolveMergeData's value check and let
+			// the file silently win.
+			if changed("data-merge") && changed("data-merge-file") {
+				return exitcode.Newf(exitcode.Usage, "--data-merge and --data-merge-file are mutually exclusive")
+			}
+			// content, abstract, and the merge patch can each read stdin via
+			// "-", but stdin can only be consumed once.
+			stdinReaders := 0
+			if changed("content") && content == "-" {
+				stdinReaders++
+			}
+			if changed("abstract") && abstract == "-" {
+				stdinReaders++
+			}
+			if changed("data-merge") && dataMerge == "-" {
+				stdinReaders++
+			}
+			if stdinReaders > 1 {
+				return exitcode.Newf(exitcode.Usage, "only one of --content -, --abstract -, --data-merge - may read stdin")
 			}
 			// --abstract and --abstract-file are mutually exclusive. Guard on
 			// Changed() (not the resolved value): an explicit --abstract "" to
@@ -62,59 +106,86 @@ empty string, e.g. --description "", to clear a field).`,
 				return err
 			}
 
-			// Resolve the node first: the upsert needs memoryId + loc
-			// (and name is required), and this avoids splitting the
-			// URN client-side.
-			existing, err := fetchNode(cmd, client, memory, args[0])
-			if err != nil {
-				return err
-			}
-
-			input := gen.NodeInput{
-				MemoryId: existing.MemoryId,
-				Loc:      existing.Loc,
-				Name:     existing.Name,
-			}
-			if changed("name") {
-				input.Name = name
-			}
-			if changed("content") || changed("content-file") {
-				body, err := resolveContent(content, contentFile, f.IOStreams.In)
+			var dto nodeDTO
+			// Field updates (including a --data replace) go through the upsert,
+			// which needs memoryId + loc (and name is required) — so fetch the
+			// full node. A merge-only update needs just the id, so it resolves
+			// the ref without the extra GetNodeById round-trip (the merge
+			// mutation returns loc/name for output).
+			nodeID := ""
+			if anyField {
+				existing, err := fetchNode(cmd, client, memory, args[0])
 				if err != nil {
 					return err
 				}
-				input.Content = &body
+				nodeID = existing.Id
+
+				input := gen.NodeInput{
+					MemoryId: existing.MemoryId,
+					Loc:      existing.Loc,
+					Name:     existing.Name,
+				}
+				if changed("name") {
+					input.Name = name
+				}
+				if changed("content") || changed("content-file") {
+					body, err := resolveContent(content, contentFile, f.IOStreams.In)
+					if err != nil {
+						return err
+					}
+					input.Content = &body
+				}
+				if changed("type") {
+					input.NodeType = &nodeType
+				}
+				if changed("description") {
+					input.Description = &description
+				}
+				if changed("abstract") || changed("abstract-file") {
+					abs, err := cmdutil.ResolveTextInput("abstract", abstract, abstractFile, f.IOStreams.In)
+					if err != nil {
+						return err
+					}
+					input.Abstract = &abs
+				}
+				if replaceData {
+					raw, err := resolveData(data, dataFile)
+					if err != nil {
+						return err
+					}
+					input.Data = raw
+				}
+				if changed("tag") {
+					input.Tags = tags
+				}
+
+				resp, err := gen.UpsertNode(cmd.Context(), client, &input)
+				if err != nil {
+					return api.MapError(err)
+				}
+				dto = upsertDTO(resp.UpsertNode)
 			}
-			if changed("type") {
-				input.NodeType = &nodeType
-			}
-			if changed("description") {
-				input.Description = &description
-			}
-			if changed("abstract") || changed("abstract-file") {
-				abs, err := cmdutil.ResolveTextInput("abstract", abstract, abstractFile, f.IOStreams.In)
+
+			// A --data-merge runs last (a separate mutation), so its result is
+			// the final state we render.
+			if mergeData {
+				patch, err := resolveMergeData(dataMerge, dataMergeFile, f.IOStreams.In)
 				if err != nil {
 					return err
 				}
-				input.Abstract = &abs
-			}
-			if changed("data") || changed("data-file") {
-				raw, err := resolveData(data, dataFile)
-				if err != nil {
-					return err
+				if nodeID == "" {
+					nodeID, err = cmdutil.ResolveNodeRef(cmd, client, memory, args[0])
+					if err != nil {
+						return err
+					}
 				}
-				input.Data = raw
-			}
-			if changed("tag") {
-				input.Tags = tags
-			}
-
-			resp, err := gen.UpsertNode(cmd.Context(), client, &input)
-			if err != nil {
-				return api.MapError(err)
+				resp, err := gen.UpdateNodeData(cmd.Context(), client, nodeID, patch)
+				if err != nil {
+					return api.MapError(err)
+				}
+				dto = mergeDTO(resp.UpdateNodeData)
 			}
 
-			dto := upsertDTO(resp.UpsertNode)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				t := output.NewTable(w)
 				t.Row("✓ updated", dto.Loc, dto.Name)
@@ -130,8 +201,42 @@ empty string, e.g. --description "", to clear a field).`,
 	cmd.Flags().StringVar(&description, "description", "", "new one-line description")
 	cmd.Flags().StringVar(&abstract, "abstract", "", `new paragraph-length summary ("-" reads stdin)`)
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "read the new abstract from a file")
-	cmd.Flags().StringVar(&data, "data", "", `new JSON data object (replaces it; "null" clears)`)
-	cmd.Flags().StringVar(&dataFile, "data-file", "", "read the new JSON data object from a file")
+	cmd.Flags().StringVar(&data, "data", "", `replace the JSON data object ("null" clears; merge with --data-merge)`)
+	cmd.Flags().StringVar(&dataFile, "data-file", "", "read the replacement JSON data object from a file")
+	cmd.Flags().StringVar(&dataMerge, "data-merge", "", `merge a JSON object into data, preserving unmentioned keys ("-" reads stdin)`)
+	cmd.Flags().StringVar(&dataMergeFile, "data-merge-file", "", "read the JSON object to merge into data from a file")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "replace tags (repeatable)")
 	return cmd
+}
+
+// resolveMergeData reads the JSON patch for a --data-merge from inline text
+// ("-" reads stdin) or --data-merge-file and validates it is JSON. Object-only
+// enforcement is left to the server (a non-object patch is rejected with
+// BAD_USER_INPUT); it shallow-merges this patch into the node's existing data,
+// patch winning on top-level key collisions. The caller has already enforced
+// that the two flags are mutually exclusive.
+func resolveMergeData(dataMerge, dataMergeFile string, stdin io.Reader) (json.RawMessage, error) {
+	raw := strings.TrimSpace(dataMerge)
+	switch {
+	case dataMergeFile != "":
+		b, err := os.ReadFile(dataMergeFile)
+		if err != nil {
+			return nil, exitcode.Newf(exitcode.Usage, "reading --data-merge-file: %v", err)
+		}
+		raw = strings.TrimSpace(string(b))
+	case dataMerge == "-":
+		b, err := io.ReadAll(stdin)
+		if err != nil {
+			return nil, err
+		}
+		raw = strings.TrimSpace(string(b))
+	}
+	if !json.Valid([]byte(raw)) {
+		flag := "--data-merge"
+		if dataMergeFile != "" {
+			flag = "--data-merge-file"
+		}
+		return nil, exitcode.Newf(exitcode.Usage, "%s must contain valid JSON", flag)
+	}
+	return json.RawMessage(raw), nil
 }
