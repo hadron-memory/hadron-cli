@@ -79,6 +79,83 @@ func TestLintNodePlaceholderAbstract(t *testing.T) {
 	}
 }
 
+func TestLintNodePlaceholderContractExempt(t *testing.T) {
+	// #99 item 1: a feature :00 contract is co-scaffolded automatically with a
+	// new feature. While it still carries its scaffold placeholder abstract the
+	// author hasn't engaged it, so it's exempt from the rubric errors instead
+	// of forcing a contract node nobody asked for.
+	c := mustCit(t, "msg:010:00")
+	if !c.IsContract() {
+		t.Fatalf("%s should be a contract", c.Format())
+	}
+	abs := tierAbstract(c, "W-series general provisions")
+	body := contractBody(c, "W-series general provisions")
+	n := specNode{
+		Loc:         c.Format(),
+		Name:        specName(c, "W-series general provisions"),
+		NodeType:    "info",
+		Tags:        []string{"spec"},
+		Abstract:    &abs,
+		Content:     &body,
+		DataVersion: "0.0.1",
+	}
+	fs := lintNode(n)
+	if hasRule(fs, "abstract") || hasRule(fs, "invalidates") {
+		t.Errorf("untouched placeholder contract must not trip rubric errors; got %v", fs)
+	}
+	if !hasRule(fs, "placeholder-contract") {
+		t.Errorf("expected placeholder-contract info finding; got %v", fs)
+	}
+	for _, f := range fs {
+		if f.Severity == sevError {
+			t.Errorf("placeholder contract must yield no errors; got %v", f)
+		}
+	}
+}
+
+func TestLintNodeEngagedContractFullRubric(t *testing.T) {
+	// Once the author replaces the placeholder abstract the contract is
+	// engaged, and the full rubric applies again — a missing "what invalidates"
+	// statement is flagged.
+	c := mustCit(t, "msg:010:00")
+	abs := "Shared definitions and defaults every W-series rule inherits."
+	body := "# msg:010:00 — provisions\n\n## Provisions\n\nShared rules.\n"
+	n := specNode{
+		Loc:      c.Format(),
+		Name:     specName(c, "provisions"),
+		NodeType: "info",
+		Tags:     []string{"spec"},
+		Abstract: &abs,
+		Content:  &body,
+	}
+	fs := lintNode(n)
+	if hasRule(fs, "placeholder-contract") {
+		t.Errorf("an engaged contract must not be treated as a placeholder; got %v", fs)
+	}
+	if !hasRule(fs, "invalidates") {
+		t.Errorf("engaged contract missing 'what invalidates' should be flagged; got %v", fs)
+	}
+}
+
+func TestLintNodeReportsAllRubricGapsAtOnce(t *testing.T) {
+	// #99 item 2: every rubric gap for a node is reported in one pass, not
+	// surfaced one-at-a-time across reruns.
+	c := mustCit(t, "msg:010:02")
+	body := "# msg:010:02 — W2\n\n## Definition\n\nx\n" // no "what invalidates"
+	n := specNode{
+		Loc:      "msg:010:02",
+		Name:     specName(c, "W2"),
+		NodeType: "info",
+		Tags:     []string{"spec"},
+		Abstract: nil, // missing abstract
+		Content:  &body,
+	}
+	fs := lintNode(n)
+	if !hasRule(fs, "abstract") || !hasRule(fs, "invalidates") {
+		t.Errorf("both abstract and invalidates gaps must be reported together; got %v", fs)
+	}
+}
+
 func TestLintNodeHeaderLight(t *testing.T) {
 	// A module/feature header (level < 3) only gets the universal checks,
 	// not the spec rubric (no abstract/invalidates requirement).

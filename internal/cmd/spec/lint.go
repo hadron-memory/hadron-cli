@@ -190,6 +190,17 @@ func lintNode(n specNode) []lintFindingDTO {
 		return fs
 	}
 
+	// A feature's :00 contract is co-scaffolded automatically with every new
+	// feature (#69) so the feature's rules have an inheritance target — but
+	// contracts are rare by convention, so creating a feature shouldn't force
+	// authoring one. While its abstract is still the scaffold placeholder the
+	// author hasn't engaged it, so it's exempt from the rubric errors (#99
+	// item 1); replacing the placeholder abstract restores the full rubric.
+	if c.IsContract() && isPlaceholderAbstract(n.Abstract) {
+		add("placeholder-contract", sevInfo, "untouched placeholder contract — exempt from the rubric until a rule needs its shared provisions and you author it")
+		return fs
+	}
+
 	// Rubric proper. Top-level specs (rules) are the compliance-loadable
 	// retrieval surface, so a missing abstract or invalidation is an error;
 	// flows are pulled on demand, so the same gaps are advisory there.
@@ -335,6 +346,14 @@ func abstractPresent(a *string) bool {
 	}
 	s := strings.TrimSpace(*a)
 	return s != "" && !strings.Contains(s, abstractPlaceholder)
+}
+
+// isPlaceholderAbstract reports whether an abstract still carries the scaffold
+// marker — the signal that the author hasn't engaged the node yet. Distinct
+// from !abstractPresent: an empty or absent abstract is a node whose abstract
+// was removed, not an untouched scaffold.
+func isPlaceholderAbstract(a *string) bool {
+	return a != nil && strings.Contains(*a, abstractPlaceholder)
 }
 
 func hasOutEdgeTo(n specNode, targetLoc string) bool {
