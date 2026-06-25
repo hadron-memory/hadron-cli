@@ -101,11 +101,13 @@ Conventions:
   to clear. `node get`/`spec get` show `data` in the text view (and the
   `data` field in `--json`).
 - `node add`/`node update` take `--runnable` (tri-state): pass `--runnable`
-  (or `--runnable=true`) to set, `--runnable=false` to unset, omit to
-  preserve. This is the field `hadron task` gates on (`Node.isRunnable`, not
-  `nodeType`), so a runnable task node needs it set. `node get --json` carries
-  `isRunnable` (true/false/null), the text view shows a `runnable:` line when
-  set, and `node ls --runnable[=false]` filters the listing by it.
+  (or `--runnable=true`) to set it `true`, `--runnable=false` to set it
+  `false`, omit to preserve. `false` is an explicit value distinct from the
+  NULL most nodes leave it at — there is no flag to clear it back to NULL.
+  This is the field `hadron task` gates on (`Node.isRunnable`, not
+  `nodeType`), so a runnable task node needs it set `true`. `node get --json`
+  carries `isRunnable` (true/false/null), the text view shows a `runnable:`
+  line when set, and `node ls --runnable[=false]` filters the listing by it.
 - `node export <urn>` writes one node to a portable, self-describing file
   (frontmatter markdown, or `--format json`) — to stdout by default so it pipes
   into `node import`, or `-o <file>`. `node import <file|->` recreates it: a
