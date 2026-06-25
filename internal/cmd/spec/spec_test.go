@@ -204,6 +204,30 @@ func TestResolveSpecMemoryRejectsEmptyRef(t *testing.T) {
 	}
 }
 
+// memorySuggestion turns a not-found ref into a "did you mean …?" / "available:
+// …" tail: same-org spec memories win, so a "platform-specs" typo lands on the
+// org's lone "specs" memory (#99 item 4).
+func TestMemorySuggestion(t *testing.T) {
+	avail := []string{
+		"hadronmemory.com::specs",
+		"hadronmemory.com::notes",
+		"acme.com::specs",
+	}
+	if got := memorySuggestion("hadronmemory.com:platform-specs", avail); !strings.Contains(got, `did you mean "hadronmemory.com::specs"?`) {
+		t.Errorf("expected single-spec-memory suggestion; got %q", got)
+	}
+	// Same org, multiple candidates, ref not spec-y → list the org's memories.
+	multi := []string{"hadronmemory.com::specs", "hadronmemory.com::notes"}
+	got := memorySuggestion("hadronmemory.com:archive", multi)
+	if !strings.Contains(got, "available:") || !strings.Contains(got, "hadronmemory.com::notes") {
+		t.Errorf("expected available-list suggestion; got %q", got)
+	}
+	// Nothing to suggest.
+	if got := memorySuggestion("x:y", nil); got != "" {
+		t.Errorf("empty availability should yield no suggestion; got %q", got)
+	}
+}
+
 func TestSpecNodeRef(t *testing.T) {
 	if got := specNodeRef("micromentor.org::platform-specs", "msg:010:02"); got != "micromentor.org::platform-specs::msg:010:02" {
 		t.Errorf("specNodeRef=%q", got)
