@@ -30,6 +30,7 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		dataMerge     string
 		dataMergeFile string
 		runnable      bool
+		reason        string
 		tags          []string
 	)
 	cmd := &cobra.Command{
@@ -107,6 +108,15 @@ mutually exclusive.`,
 				return err
 			}
 
+			// --reason rides along on whichever mutation runs; the server records
+			// it in version history (editedBy). A blank/whitespace-only reason is
+			// treated as unset — otherwise it would override the server's
+			// clientId/userId fallback with an empty editedBy. nil = omit/preserve.
+			var reasonPtr *string
+			if r := strings.TrimSpace(reason); r != "" {
+				reasonPtr = &r
+			}
+
 			var dto nodeDTO
 			// Field updates (including a --data replace) go through the upsert,
 			// which needs memoryId + loc (and name is required) — so fetch the
@@ -162,6 +172,7 @@ mutually exclusive.`,
 				if changed("tag") {
 					input.Tags = tags
 				}
+				input.Reason = reasonPtr
 
 				resp, err := gen.UpsertNode(cmd.Context(), client, &input)
 				if err != nil {
@@ -183,7 +194,7 @@ mutually exclusive.`,
 						return err
 					}
 				}
-				resp, err := gen.UpdateNodeData(cmd.Context(), client, nodeID, patch)
+				resp, err := gen.UpdateNodeData(cmd.Context(), client, nodeID, patch, reasonPtr)
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -210,6 +221,7 @@ mutually exclusive.`,
 	cmd.Flags().StringVar(&dataMerge, "data-merge", "", `merge a JSON object into data, preserving unmentioned keys ("-" reads stdin)`)
 	cmd.Flags().StringVar(&dataMergeFile, "data-merge-file", "", "read the JSON object to merge into data from a file")
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "mark the node runnable by 'hadron task run' (--runnable=false clears it; omit to preserve)")
+	cmd.Flags().StringVar(&reason, "reason", "", "why this change was made (recorded in version history)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "replace tags (repeatable)")
 	return cmd
 }

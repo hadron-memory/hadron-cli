@@ -70,6 +70,7 @@ func newCmdReplaceText(f *cmdutil.Factory) *cobra.Command {
 		ignoreCase bool
 		dryRun     bool
 		yes        bool
+		reason     string
 	)
 	cmd := &cobra.Command{
 		Use:   "text <old> <new> --field <field> (--node <urn> | -m <memory>)",
@@ -150,6 +151,11 @@ version history, so replacements are undoable.`,
 				if prefix != "" {
 					input.Prefix = &prefix
 				}
+				// A blank/whitespace-only reason is treated as unset, so it can't
+				// override the server's clientId/userId editedBy fallback.
+				if r := strings.TrimSpace(reason); r != "" {
+					input.Reason = &r
+				}
 				resp, err := gen.SearchReplaceInNodes(cmd.Context(), client, &input)
 				if err != nil {
 					return replaceResultDTO{}, api.MapError(err)
@@ -199,6 +205,7 @@ version history, so replacements are undoable.`,
 	cmd.Flags().BoolVarP(&ignoreCase, "ignore-case", "i", false, "match case-insensitively")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview match counts without writing anything")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt (required in non-interactive use)")
+	cmd.Flags().StringVar(&reason, "reason", "", "why this change was made (recorded in version history)")
 	return cmd
 }
 

@@ -2628,8 +2628,13 @@ type NodeInput struct {
 	NodeType   *string          `json:"nodeType,omitempty"`
 	OwnerRepo  *string          `json:"ownerRepo,omitempty"`
 	Properties *json.RawMessage `json:"properties,omitempty"`
-	Seq        *int             `json:"seq,omitempty"`
-	Tags       []string         `json:"tags,omitempty"`
+	// Why this change was made — recorded on the version-history snapshot
+	// (NodeVersion.editedBy), mirroring hadron_update_node's reason arg so CLI
+	// and MCP edits leave equally-traceable history. Only an update snapshots a
+	// prior version, so reason has no effect on a pure create.
+	Reason *string  `json:"reason,omitempty"`
+	Seq    *int     `json:"seq,omitempty"`
+	Tags   []string `json:"tags,omitempty"`
 }
 
 // GetAbstract returns NodeInput.Abstract, and is useful for accessing the field via an interface.
@@ -2682,6 +2687,9 @@ func (v *NodeInput) GetOwnerRepo() *string { return v.OwnerRepo }
 
 // GetProperties returns NodeInput.Properties, and is useful for accessing the field via an interface.
 func (v *NodeInput) GetProperties() *json.RawMessage { return v.Properties }
+
+// GetReason returns NodeInput.Reason, and is useful for accessing the field via an interface.
+func (v *NodeInput) GetReason() *string { return v.Reason }
 
 // GetSeq returns NodeInput.Seq, and is useful for accessing the field via an interface.
 func (v *NodeInput) GetSeq() *int { return v.Seq }
@@ -3437,6 +3445,9 @@ type SearchReplaceInNodesInput struct {
 	OldText string `json:"oldText"`
 	// Loc-prefix filter applied within 'memoryIds' (parent loc + descendants).
 	Prefix *string `json:"prefix"`
+	// Why this change was made — recorded on each changed node's version-history
+	// snapshot (NodeVersion.editedBy), mirroring hadron_update_node's reason arg.
+	Reason *string `json:"reason"`
 	// Treat oldText as a RegExp source and newText as a replacement pattern.
 	Regex *bool `json:"regex"`
 }
@@ -3464,6 +3475,9 @@ func (v *SearchReplaceInNodesInput) GetOldText() string { return v.OldText }
 
 // GetPrefix returns SearchReplaceInNodesInput.Prefix, and is useful for accessing the field via an interface.
 func (v *SearchReplaceInNodesInput) GetPrefix() *string { return v.Prefix }
+
+// GetReason returns SearchReplaceInNodesInput.Reason, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesInput) GetReason() *string { return v.Reason }
 
 // GetRegex returns SearchReplaceInNodesInput.Regex, and is useful for accessing the field via an interface.
 func (v *SearchReplaceInNodesInput) GetRegex() *bool { return v.Regex }
@@ -5228,6 +5242,7 @@ func (v *__UpdateMemoryShareRoleInput) GetRole() MemoryShareRole { return v.Role
 type __UpdateNodeDataInput struct {
 	NodeId string          `json:"nodeId"`
 	Data   json.RawMessage `json:"data"`
+	Reason *string         `json:"reason,omitempty"`
 }
 
 // GetNodeId returns __UpdateNodeDataInput.NodeId, and is useful for accessing the field via an interface.
@@ -5235,6 +5250,9 @@ func (v *__UpdateNodeDataInput) GetNodeId() string { return v.NodeId }
 
 // GetData returns __UpdateNodeDataInput.Data, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeDataInput) GetData() json.RawMessage { return v.Data }
+
+// GetReason returns __UpdateNodeDataInput.Reason, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeDataInput) GetReason() *string { return v.Reason }
 
 // __UpdateOrgMemberInput is used internally by genqlient
 type __UpdateOrgMemberInput struct {
@@ -7350,8 +7368,8 @@ func UpdateMemoryShareRole(
 
 // The mutation executed by UpdateNodeData.
 const UpdateNodeData_Operation = `
-mutation UpdateNodeData ($nodeId: ID!, $data: JSON!) {
-	updateNodeData(nodeId: $nodeId, data: $data) {
+mutation UpdateNodeData ($nodeId: ID!, $data: JSON!, $reason: String) {
+	updateNodeData(nodeId: $nodeId, data: $data, reason: $reason) {
 		id
 		memoryId
 		loc
@@ -7374,6 +7392,7 @@ func UpdateNodeData(
 	client_ graphql.Client,
 	nodeId string,
 	data json.RawMessage,
+	reason *string,
 ) (data_ *UpdateNodeDataResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateNodeData",
@@ -7381,6 +7400,7 @@ func UpdateNodeData(
 		Variables: &__UpdateNodeDataInput{
 			NodeId: nodeId,
 			Data:   data,
+			Reason: reason,
 		},
 	}
 
