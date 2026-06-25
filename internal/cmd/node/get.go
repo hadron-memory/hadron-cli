@@ -40,6 +40,7 @@ is rejected, since the same loc can exist in several memories.`,
 			dto := detailDTO(node)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				fmt.Fprintf(w, "%s\n  loc: %s\n  type: %s\n", dto.Name, dto.Loc, dto.NodeType)
+				fmt.Fprintf(w, "  runnable: %t\n", dto.IsRunnable)
 				if dto.Description != nil && *dto.Description != "" {
 					fmt.Fprintf(w, "  about: %s\n", *dto.Description)
 				}
@@ -113,13 +114,14 @@ func edgeRefOf(edgeID string, name *string, edgeLoc string, isRunnable *bool, pr
 func detailDTO(n *gen.GetNodeByIdNodeByIdNode) nodeDetailDTO {
 	dto := nodeDetailDTO{
 		nodeDTO: nodeDTO{
-			ID:        n.Id,
-			MemoryID:  n.MemoryId,
-			Loc:       n.Loc,
-			Name:      n.Name,
-			NodeType:  n.NodeType,
-			Tags:      n.Tags,
-			UpdatedAt: n.UpdatedAt,
+			ID:         n.Id,
+			MemoryID:   n.MemoryId,
+			Loc:        n.Loc,
+			Name:       n.Name,
+			NodeType:   n.NodeType,
+			Tags:       n.Tags,
+			IsRunnable: boolVal(n.IsRunnable),
+			UpdatedAt:  n.UpdatedAt,
 		},
 		Description:   n.Description,
 		Abstract:      n.Abstract,

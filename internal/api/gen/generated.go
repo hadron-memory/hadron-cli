@@ -1509,6 +1509,7 @@ type GetNodeByIdNodeByIdNode struct {
 	Content            *string                                     `json:"content"`
 	Data               *json.RawMessage                            `json:"data"`
 	Seq                *int                                        `json:"seq"`
+	IsRunnable         *bool                                       `json:"isRunnable"`
 	CreatedAt          string                                      `json:"createdAt"`
 	UpdatedAt          string                                      `json:"updatedAt"`
 	OutgoingEdges      []*GetNodeByIdNodeByIdNodeOutgoingEdgesEdge `json:"outgoingEdges"`
@@ -1550,6 +1551,9 @@ func (v *GetNodeByIdNodeByIdNode) GetData() *json.RawMessage { return v.Data }
 
 // GetSeq returns GetNodeByIdNodeByIdNode.Seq, and is useful for accessing the field via an interface.
 func (v *GetNodeByIdNodeByIdNode) GetSeq() *int { return v.Seq }
+
+// GetIsRunnable returns GetNodeByIdNodeByIdNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *GetNodeByIdNodeByIdNode) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetCreatedAt returns GetNodeByIdNodeByIdNode.CreatedAt, and is useful for accessing the field via an interface.
 func (v *GetNodeByIdNodeByIdNode) GetCreatedAt() string { return v.CreatedAt }
@@ -2612,7 +2616,7 @@ type NodeInput struct {
 	Edges       []*NodeEdgeInput `json:"edges,omitempty"`
 	Id          *string          `json:"id,omitempty"`
 	// Whether this node can be run as a task by hadron_run_task (cor:api:060). Omit to preserve on update.
-	IsRunnable *bool   `json:"isRunnable"`
+	IsRunnable *bool   `json:"isRunnable,omitempty"`
 	LlmModel   *string `json:"llmModel,omitempty"`
 	Loc        string  `json:"loc"`
 	// Memory reference. Accepts the entity's ID (CUID / 32-char hex) or its
@@ -2794,14 +2798,15 @@ var AllNodeTextField = []NodeTextField{
 
 // NodesNodesNode includes the requested fields of the GraphQL type Node.
 type NodesNodesNode struct {
-	Id        string   `json:"id"`
-	MemoryId  string   `json:"memoryId"`
-	Loc       string   `json:"loc"`
-	Name      string   `json:"name"`
-	NodeType  string   `json:"nodeType"`
-	Tags      []string `json:"tags"`
-	Seq       *int     `json:"seq"`
-	UpdatedAt string   `json:"updatedAt"`
+	Id         string   `json:"id"`
+	MemoryId   string   `json:"memoryId"`
+	Loc        string   `json:"loc"`
+	Name       string   `json:"name"`
+	NodeType   string   `json:"nodeType"`
+	Tags       []string `json:"tags"`
+	Seq        *int     `json:"seq"`
+	IsRunnable *bool    `json:"isRunnable"`
+	UpdatedAt  string   `json:"updatedAt"`
 }
 
 // GetId returns NodesNodesNode.Id, and is useful for accessing the field via an interface.
@@ -2824,6 +2829,9 @@ func (v *NodesNodesNode) GetTags() []string { return v.Tags }
 
 // GetSeq returns NodesNodesNode.Seq, and is useful for accessing the field via an interface.
 func (v *NodesNodesNode) GetSeq() *int { return v.Seq }
+
+// GetIsRunnable returns NodesNodesNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *NodesNodesNode) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetUpdatedAt returns NodesNodesNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *NodesNodesNode) GetUpdatedAt() string { return v.UpdatedAt }
@@ -4236,13 +4244,14 @@ func (v *UpdateNodeDataResponse) GetUpdateNodeData() *UpdateNodeDataUpdateNodeDa
 
 // UpdateNodeDataUpdateNodeDataNode includes the requested fields of the GraphQL type Node.
 type UpdateNodeDataUpdateNodeDataNode struct {
-	Id        string   `json:"id"`
-	MemoryId  string   `json:"memoryId"`
-	Loc       string   `json:"loc"`
-	Name      string   `json:"name"`
-	NodeType  string   `json:"nodeType"`
-	Tags      []string `json:"tags"`
-	UpdatedAt string   `json:"updatedAt"`
+	Id         string   `json:"id"`
+	MemoryId   string   `json:"memoryId"`
+	Loc        string   `json:"loc"`
+	Name       string   `json:"name"`
+	NodeType   string   `json:"nodeType"`
+	Tags       []string `json:"tags"`
+	IsRunnable *bool    `json:"isRunnable"`
+	UpdatedAt  string   `json:"updatedAt"`
 }
 
 // GetId returns UpdateNodeDataUpdateNodeDataNode.Id, and is useful for accessing the field via an interface.
@@ -4262,6 +4271,9 @@ func (v *UpdateNodeDataUpdateNodeDataNode) GetNodeType() string { return v.NodeT
 
 // GetTags returns UpdateNodeDataUpdateNodeDataNode.Tags, and is useful for accessing the field via an interface.
 func (v *UpdateNodeDataUpdateNodeDataNode) GetTags() []string { return v.Tags }
+
+// GetIsRunnable returns UpdateNodeDataUpdateNodeDataNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *UpdateNodeDataUpdateNodeDataNode) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetUpdatedAt returns UpdateNodeDataUpdateNodeDataNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateNodeDataUpdateNodeDataNode) GetUpdatedAt() string { return v.UpdatedAt }
@@ -4482,13 +4494,14 @@ func (v *UpsertNodeResponse) GetUpsertNode() *UpsertNodeUpsertNode { return v.Up
 
 // UpsertNodeUpsertNode includes the requested fields of the GraphQL type Node.
 type UpsertNodeUpsertNode struct {
-	Id        string   `json:"id"`
-	MemoryId  string   `json:"memoryId"`
-	Loc       string   `json:"loc"`
-	Name      string   `json:"name"`
-	NodeType  string   `json:"nodeType"`
-	Tags      []string `json:"tags"`
-	UpdatedAt string   `json:"updatedAt"`
+	Id         string   `json:"id"`
+	MemoryId   string   `json:"memoryId"`
+	Loc        string   `json:"loc"`
+	Name       string   `json:"name"`
+	NodeType   string   `json:"nodeType"`
+	Tags       []string `json:"tags"`
+	IsRunnable *bool    `json:"isRunnable"`
+	UpdatedAt  string   `json:"updatedAt"`
 }
 
 // GetId returns UpsertNodeUpsertNode.Id, and is useful for accessing the field via an interface.
@@ -4508,6 +4521,9 @@ func (v *UpsertNodeUpsertNode) GetNodeType() string { return v.NodeType }
 
 // GetTags returns UpsertNodeUpsertNode.Tags, and is useful for accessing the field via an interface.
 func (v *UpsertNodeUpsertNode) GetTags() []string { return v.Tags }
+
+// GetIsRunnable returns UpsertNodeUpsertNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *UpsertNodeUpsertNode) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetUpdatedAt returns UpsertNodeUpsertNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *UpsertNodeUpsertNode) GetUpdatedAt() string { return v.UpdatedAt }
@@ -6134,6 +6150,7 @@ query GetNodeById ($id: ID!) {
 		content
 		data
 		seq
+		isRunnable
 		createdAt
 		updatedAt
 		outgoingEdges {
@@ -6591,6 +6608,7 @@ query Nodes ($memory: ID, $prefix: String, $nodeType: String, $tags: [String!], 
 		nodeType
 		tags
 		seq
+		isRunnable
 		updatedAt
 	}
 }
@@ -7340,6 +7358,7 @@ mutation UpdateNodeData ($nodeId: ID!, $data: JSON!) {
 		name
 		nodeType
 		tags
+		isRunnable
 		updatedAt
 	}
 }
@@ -7485,6 +7504,7 @@ mutation UpsertNode ($input: NodeInput!) {
 		name
 		nodeType
 		tags
+		isRunnable
 		updatedAt
 	}
 }

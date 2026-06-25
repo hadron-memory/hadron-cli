@@ -77,14 +77,15 @@ after a known seq number).`,
 			nodes := make([]nodeDTO, 0, len(resp.Nodes))
 			for _, n := range resp.Nodes {
 				nodes = append(nodes, nodeDTO{
-					ID:        n.Id,
-					MemoryID:  n.MemoryId,
-					Loc:       n.Loc,
-					Name:      n.Name,
-					NodeType:  n.NodeType,
-					Tags:      n.Tags,
-					Seq:       n.Seq,
-					UpdatedAt: n.UpdatedAt,
+					ID:         n.Id,
+					MemoryID:   n.MemoryId,
+					Loc:        n.Loc,
+					Name:       n.Name,
+					NodeType:   n.NodeType,
+					Tags:       n.Tags,
+					Seq:        n.Seq,
+					IsRunnable: boolVal(n.IsRunnable),
+					UpdatedAt:  n.UpdatedAt,
 				})
 			}
 
@@ -134,13 +135,17 @@ after a known seq number).`,
 			}
 
 			return output.Write(f.IOStreams, f.JSON, nodes, func(w io.Writer) error {
-				t := output.NewTable(w, "LOC", "NAME", "TYPE", "SEQ")
+				t := output.NewTable(w, "LOC", "NAME", "TYPE", "SEQ", "RUN")
 				for _, n := range nodes {
 					seqStr := ""
 					if n.Seq != nil {
 						seqStr = fmt.Sprint(*n.Seq)
 					}
-					t.Row(n.Loc, n.Name, n.NodeType, seqStr)
+					runStr := ""
+					if n.IsRunnable {
+						runStr = "✓"
+					}
+					t.Row(n.Loc, n.Name, n.NodeType, seqStr, runStr)
 				}
 				return t.Flush()
 			})
