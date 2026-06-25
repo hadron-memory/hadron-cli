@@ -36,6 +36,42 @@ func TestLaunchEditorNonTerminal(t *testing.T) {
 	}
 }
 
+// TestEditBufferRoundTrip: assembling then parsing returns the abstract
+// (trimmed) and the body verbatim, so an untouched interactive edit is a no-op.
+func TestEditBufferRoundTrip(t *testing.T) {
+	cases := []struct {
+		abstract, body string
+	}{
+		{"Win back users who never engaged.", "# Title\n\n## X\nbody\n"},
+		{"", "# Title\n"},                         // empty abstract
+		{"multi\nline abstract", "body\nlines\n"}, // multi-line abstract
+		{"a", ""}, // empty body
+		{"trailing-divider-ish === BODY ===", "b\n"}, // marker-looking text in abstract
+	}
+	for _, c := range cases {
+		buf := assembleEditBuffer(c.abstract, c.body)
+		gotAbs, gotBody, err := parseEditBuffer(buf)
+		if err != nil {
+			t.Errorf("parse(%q,%q): %v", c.abstract, c.body, err)
+			continue
+		}
+		if gotAbs != c.abstract {
+			t.Errorf("abstract round-trip = %q, want %q", gotAbs, c.abstract)
+		}
+		if gotBody != c.body {
+			t.Errorf("body round-trip = %q, want %q", gotBody, c.body)
+		}
+	}
+}
+
+// TestParseEditBufferMissingDivider: a buffer with the body divider deleted is
+// a hard error — we refuse to guess where the body starts.
+func TestParseEditBufferMissingDivider(t *testing.T) {
+	if _, _, err := parseEditBuffer("just some text\nwith no divider\n"); exitcode.FromError(err) != exitcode.Usage {
+		t.Fatalf("missing body divider should be Usage, got %v", err)
+	}
+}
+
 func TestCountLines(t *testing.T) {
 	cases := []struct {
 		in   string

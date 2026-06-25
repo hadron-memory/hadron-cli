@@ -16,13 +16,18 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-// editResultDTO is the --json shape for `spec edit`.
+// editResultDTO is the --json shape for `spec edit`. Changed is the overall
+// "anything written" flag (body or abstract); BodyChanged/AbstractChanged break
+// it down. Changed could only mean "body changed" before the abstract became
+// editable here, so the broadening is backward-compatible.
 type editResultDTO struct {
-	Citation string `json:"citation"`
-	MemoryID string `json:"memoryId"`
-	Name     string `json:"name"`
-	Changed  bool   `json:"changed"`
-	DryRun   bool   `json:"dryRun"`
+	Citation        string `json:"citation"`
+	MemoryID        string `json:"memoryId"`
+	Name            string `json:"name"`
+	Changed         bool   `json:"changed"`
+	BodyChanged     bool   `json:"bodyChanged"`
+	AbstractChanged bool   `json:"abstractChanged"`
+	DryRun          bool   `json:"dryRun"`
 }
 
 // editorFunc is the editor-launch seam. Production uses launchEditor ($EDITOR on
@@ -42,41 +47,56 @@ func SetEditorFuncForTest(fn func(io *output.IOStreams, current string) (string,
 
 func newCmdEdit(f *cmdutil.Factory) *cobra.Command {
 	var (
-		memory      string
-		content     string
-		contentFile string
-		dryRun      bool
+		memory       string
+		content      string
+		contentFile  string
+		abstract     string
+		abstractFile string
+		dryRun       bool
 	)
 	cmd := &cobra.Command{
 		Use:   "edit <citation>",
-		Short: "Edit a spec's body in $EDITOR (or from --content/--content-file)",
-		Long: `Edit a spec's markdown body in place. By default it opens the
-current body in your $EDITOR (then $VISUAL, else vi) pre-loaded — so you change
-the few lines you mean to, instead of reconstructing the whole body in a temp
-file and risking a transcription slip on a full-body replace.
+		Short: "Edit a spec's body and abstract in $EDITOR (or from flags)",
+		Long: `Edit a spec's markdown body and its abstract in place — they are
+one logical unit, so this command maintains both. By default it opens the
+current abstract and body together in your $EDITOR (then $VISUAL, else vi)
+pre-loaded — so you change the few lines you mean to, instead of reconstructing
+them in a temp file and risking a transcription slip on a full replace. The two
+fields are divided by sentinel comment lines; keep the body divider in place
+(it's how the buffer is split back apart on save).
 
-Pass --content -/--content-file to replace the body non-interactively (the same
-path agents already use via ` + "`spec get --body-only | node update --content -`" + `,
-but spec-scoped: it validates the target is a spec and reminds you about the
-abstract). An unchanged body writes nothing. The abstract is a separate field
-and is preserved untouched — refresh it with ` + "`node update --abstract-file`" + ` if
-the rule's meaning changed.`,
+Pass any of --content -/--content-file/--abstract -/--abstract-file to replace a
+field non-interactively (and skip the editor); supply both kinds to update body
+and abstract in one call. A field whose flag is omitted is preserved untouched,
+and a field that didn't actually change is not rewritten. Nothing changed writes
+nothing.`,
 		Example: `  hadron spec edit cor:dmo:060:02 -m hadronmemory.com::specs
   hadron spec edit msg:010:02 -m micromentor.org::platform-specs --dry-run
-  cat rewrite.md | hadron spec edit msg:010:02 -m micromentor.org::platform-specs --content -`,
+  cat rewrite.md | hadron spec edit msg:010:02 -m micromentor.org::platform-specs --content -
+  hadron spec edit msg:010:02 -m micromentor.org::platform-specs --abstract-file abstract.md`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if _, err := ParseCitation(args[0]); err != nil {
 				return err
 			}
 			changed := cmd.Flags().Changed
-			// --content and --content-file are mutually exclusive. Guard on
-			// Changed() so an explicit empty --content (clear the body) is caught
-			// too, not just the value-based check inside ResolveTextInput.
+			// Each field's two input flags are mutually exclusive. Guard on
+			// Changed() so an explicit empty value (clear the field) is caught too,
+			// not just the value-based check inside ResolveTextInput.
 			if changed("content") && changed("content-file") {
 				return exitcode.Newf(exitcode.Usage, "--content and --content-file are mutually exclusive")
 			}
-			nonInteractive := changed("content") || changed("content-file")
+			if changed("abstract") && changed("abstract-file") {
+				return exitcode.Newf(exitcode.Usage, "--abstract and --abstract-file are mutually exclusive")
+			}
+			// Body and abstract can each read stdin via "-", but stdin is
+			// consumable only once.
+			if content == "-" && abstract == "-" {
+				return exitcode.Newf(exitcode.Usage, "--content - and --abstract - cannot both read stdin")
+			}
+			contentProvided := changed("content") || changed("content-file")
+			abstractProvided := changed("abstract") || changed("abstract-file")
+			nonInteractive := contentProvided || abstractProvided
 
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -94,34 +114,47 @@ the rule's meaning changed.`,
 				return exitcode.Newf(exitcode.Usage,
 					"%s is not a spec (no \"spec\" tag) — use `hadron node update` to edit arbitrary nodes", node.Loc)
 			}
-			current := ""
-			if node.Content != nil {
-				current = *node.Content
-			}
+			curBody, curAbstract := derefStr(node.Content), derefStr(node.Abstract)
 
-			var edited string
+			newBody, newAbstract := curBody, curAbstract
 			if nonInteractive {
-				edited, err = cmdutil.ResolveTextInput("content", content, contentFile, f.IOStreams.In)
+				if contentProvided {
+					if newBody, err = cmdutil.ResolveTextInput("content", content, contentFile, f.IOStreams.In); err != nil {
+						return err
+					}
+				}
+				if abstractProvided {
+					if newAbstract, err = cmdutil.ResolveTextInput("abstract", abstract, abstractFile, f.IOStreams.In); err != nil {
+						return err
+					}
+				}
 			} else {
 				// The default seam (launchEditor) enforces the TTY requirement, so
-				// overriding it in tests bypasses the terminal check cleanly.
-				edited, err = editorFunc(f.IOStreams, current)
-			}
-			if err != nil {
-				return err
+				// overriding it in tests bypasses the terminal check cleanly. The
+				// buffer carries both fields so body+abstract are one edit.
+				edited, eerr := editorFunc(f.IOStreams, assembleEditBuffer(curAbstract, curBody))
+				if eerr != nil {
+					return eerr
+				}
+				if newAbstract, newBody, err = parseEditBuffer(edited); err != nil {
+					return err
+				}
 			}
 			// Normalize CRLF to LF: an editor that saves \r\n (common on Windows)
-			// would otherwise read as a change against the corpus's LF body,
+			// would otherwise read as a change against the corpus's LF text,
 			// defeating the no-op guard with a spurious write + updatedAt bump.
-			edited = strings.ReplaceAll(edited, "\r\n", "\n")
+			newBody = strings.ReplaceAll(newBody, "\r\n", "\n")
+			newAbstract = strings.ReplaceAll(newAbstract, "\r\n", "\n")
 
 			result := editResultDTO{
-				Citation: node.Loc,
-				MemoryID: node.MemoryId,
-				Name:     node.Name,
-				Changed:  edited != current,
-				DryRun:   dryRun,
+				Citation:        node.Loc,
+				MemoryID:        node.MemoryId,
+				Name:            node.Name,
+				BodyChanged:     newBody != curBody,
+				AbstractChanged: newAbstract != curAbstract,
+				DryRun:          dryRun,
 			}
+			result.Changed = result.BodyChanged || result.AbstractChanged
 
 			if !result.Changed {
 				return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
@@ -129,33 +162,102 @@ the rule's meaning changed.`,
 					return nil
 				})
 			}
-			if dryRun {
+			render := func() error {
 				return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
-					return renderEditResult(w, result, current, edited)
+					return renderEditResult(w, result, curBody, newBody)
 				})
 			}
+			if dryRun {
+				return render()
+			}
 
-			// Content-only update: omitted fields (abstract, tags, …) are preserved.
+			// Omitted fields are preserved; we set only what changed. An abstract
+			// changed to empty sends "" — the server normalizes that to null
+			// (clear), which is the intended "I removed the abstract".
 			input := gen.NodeInput{
 				MemoryId: node.MemoryId,
 				Loc:      node.Loc,
 				Name:     node.Name,
-				Content:  &edited,
+			}
+			if result.BodyChanged {
+				input.Content = &newBody
+			}
+			if result.AbstractChanged {
+				input.Abstract = &newAbstract
 			}
 			if _, err := gen.UpsertNode(cmd.Context(), client, &input); err != nil {
 				return api.MapError(err)
 			}
-			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
-				return renderEditResult(w, result, current, edited)
-			})
+			return render()
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `replace the body with this value ("-" reads stdin) instead of opening $EDITOR`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "replace the body with a file's contents instead of opening $EDITOR")
+	cmd.Flags().StringVar(&abstract, "abstract", "", `replace the abstract with this value ("-" reads stdin) instead of opening $EDITOR`)
+	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "replace the abstract with a file's contents instead of opening $EDITOR")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would change without writing")
 	_ = cmd.MarkFlagRequired("memory")
 	return cmd
+}
+
+// edit-buffer sentinels. The interactive editor sees the abstract and body in
+// one buffer split by these comment lines; the body divider is load-bearing
+// (parseEditBuffer refuses to write if it's gone), the abstract divider just
+// labels the top region.
+const (
+	abstractDivider = "<!-- === ABSTRACT === one paragraph; the spec's RAG retrieval surface. Edit below this line. -->"
+	bodyDivider     = "<!-- === BODY === the spec markdown. Edit below this line. -->"
+)
+
+// assembleEditBuffer lays out the abstract above the body, divided by the
+// sentinels, for a single $EDITOR pass. The body is written verbatim and last
+// so an untouched buffer round-trips exactly (a no-op).
+func assembleEditBuffer(abstract, body string) string {
+	return abstractDivider + "\n" + abstract + "\n" + bodyDivider + "\n" + body
+}
+
+// parseEditBuffer splits an edited buffer back into (abstract, body). The body
+// divider marks where the body starts; everything above it (minus the abstract
+// divider) is the abstract, trimmed. A missing body divider is a hard error —
+// we refuse to guess where the body begins rather than silently truncate.
+func parseEditBuffer(s string) (abstract, body string, err error) {
+	lines := strings.Split(s, "\n")
+	absIdx, bodyIdx := -1, -1
+	// Match the divider lines exactly (trimmed) rather than by substring, so an
+	// abstract or body that itself contains the marker text can't be mistaken
+	// for a divider.
+	for i, ln := range lines {
+		switch strings.TrimSpace(ln) {
+		case bodyDivider:
+			if bodyIdx == -1 {
+				bodyIdx = i
+			}
+		case abstractDivider:
+			if absIdx == -1 {
+				absIdx = i
+			}
+		}
+	}
+	if bodyIdx == -1 {
+		return "", "", exitcode.Newf(exitcode.Usage,
+			"the body divider was removed from the buffer — aborting without writing; keep the %q line so the abstract and body can be split apart", bodyDivider)
+	}
+	start := 0
+	if absIdx != -1 && absIdx < bodyIdx {
+		start = absIdx + 1
+	}
+	abstract = strings.TrimSpace(strings.Join(lines[start:bodyIdx], "\n"))
+	body = strings.Join(lines[bodyIdx+1:], "\n")
+	return abstract, body, nil
+}
+
+// derefStr returns the string a *string points at, or "" if nil.
+func derefStr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 // editorArgv resolves the editor command: $VISUAL, then $EDITOR, else vi. The
@@ -219,14 +321,23 @@ func countLines(s string) int {
 	return n
 }
 
-func renderEditResult(w io.Writer, r editResultDTO, before, after string) error {
+func renderEditResult(w io.Writer, r editResultDTO, beforeBody, afterBody string) error {
 	verb := "✓ updated"
 	if r.DryRun {
 		verb = "would update"
 	}
-	fmt.Fprintf(w, "%s %s  (body: %d → %d lines)\n", verb, r.Name, countLines(before), countLines(after))
-	if !r.DryRun {
-		fmt.Fprintf(w, "  reminder: refresh the abstract on %s if the rule's meaning changed\n", r.Citation)
+	fmt.Fprintf(w, "%s %s\n", verb, r.Name)
+	if r.BodyChanged {
+		fmt.Fprintf(w, "  body: %d → %d lines\n", countLines(beforeBody), countLines(afterBody))
+	}
+	if r.AbstractChanged {
+		fmt.Fprintln(w, "  abstract: updated")
+	}
+	// Only nudge about the abstract when the body changed but the abstract
+	// didn't — now that the abstract is editable here, a meaning shift is easy
+	// to fold into the same command.
+	if !r.DryRun && r.BodyChanged && !r.AbstractChanged {
+		fmt.Fprintf(w, "  reminder: refresh the abstract on %s with --abstract/--abstract-file if the rule's meaning changed\n", r.Citation)
 	}
 	return nil
 }
