@@ -170,7 +170,7 @@ func listAllNodeRefs(ctx context.Context, client graphql.Client, memID string) (
 	var all []*gen.NodesNodesNode
 	for offset := 0; ; offset += nodesPageSize {
 		limit, off := nodesPageSize, offset
-		resp, err := gen.Nodes(ctx, client, &mem, nil, nil, nil, nil, &limit, &off)
+		resp, err := gen.Nodes(ctx, client, &mem, nil, nil, nil, nil, nil, &limit, &off)
 		if err != nil {
 			return nil, api.MapError(err)
 		}

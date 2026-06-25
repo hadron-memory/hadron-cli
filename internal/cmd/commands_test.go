@@ -535,6 +535,48 @@ func TestNodeLsSurfacesRunnable(t *testing.T) {
 	}
 }
 
+// #89 follow-up: `node ls --runnable[=false]` filters server-side via the
+// nodes(isRunnable:) arg. Omitting the flag must NOT reach the wire (server
+// reads absent as "any runnable status"), so a default-false bool doesn't
+// silently hide most nodes.
+func TestNodeLsRunnableFilter(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		want any // nil = must be omitted from the wire
+	}{
+		{"omitted", nil, nil},
+		{"true", []string{"--runnable"}, true},
+		{"explicit-true", []string{"--runnable=true"}, true},
+		{"false", []string{"--runnable=false"}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"Nodes": `{"data":{"nodes":[` + nodeJSON + `]}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append([]string{"node", "ls", "-m", "acme.com:kb", "--server", gql.URL}, tc.args...))
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var vars map[string]any
+			_ = json.Unmarshal(captured["Nodes"], &vars)
+			got, present := vars["isRunnable"]
+			if tc.want == nil {
+				if present {
+					t.Errorf("omitted --runnable must not send isRunnable, got %v", got)
+				}
+				return
+			}
+			if !present || got != tc.want {
+				t.Errorf("isRunnable = %v (present=%v), want %v", got, present, tc.want)
+			}
+		})
+	}
+}
+
 // #89: --runnable is a tri-state — set true, set false, or (omitted) preserve.
 // When omitted, isRunnable must NOT reach the wire (server reads absent as
 // "preserve"); when passed, the chosen value is sent.

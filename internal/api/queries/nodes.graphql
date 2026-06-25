@@ -6,6 +6,8 @@ query Nodes(
   # @genqlient(omitempty: true)
   $nodeType: String
   # @genqlient(omitempty: true)
+  $isRunnable: Boolean
+  # @genqlient(omitempty: true)
   $tags: [String!]
   # @genqlient(omitempty: true)
   $search: String
@@ -18,6 +20,7 @@ query Nodes(
     memory: $memory
     prefix: $prefix
     nodeType: $nodeType
+    isRunnable: $isRunnable
     tags: $tags
     search: $search
     limit: $limit

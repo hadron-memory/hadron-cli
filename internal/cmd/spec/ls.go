@@ -58,7 +58,7 @@ explicit page instead.`,
 				if offset > 0 {
 					offsetArg = &offset
 				}
-				resp, rerr := gen.Nodes(cmd.Context(), client, memoryArg, prefixArg, nil, []string{"spec"}, nil, limitArg, offsetArg)
+				resp, rerr := gen.Nodes(cmd.Context(), client, memoryArg, prefixArg, nil, nil, []string{"spec"}, nil, limitArg, offsetArg)
 				if rerr != nil {
 					return api.MapError(rerr)
 				}

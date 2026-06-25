@@ -56,7 +56,7 @@ Results are filtered to spec nodes.`,
 					memoryArg = &memURN
 				}
 				tagFilter := append([]string{"spec"}, tags...)
-				resp, err := gen.Nodes(cmd.Context(), client, memoryArg, nil, nil, tagFilter, &query, limitArg, nil)
+				resp, err := gen.Nodes(cmd.Context(), client, memoryArg, nil, nil, nil, tagFilter, &query, limitArg, nil)
 				if err != nil {
 					return api.MapError(err)
 				}

@@ -506,7 +506,7 @@ const nodesPageSize = 500
 func scanAllNodes(ctx context.Context, client graphql.Client, memory, prefix *string, tags []string) ([]*gen.NodesNodesNode, error) {
 	return paginateNodes(func(limit, offset int) ([]*gen.NodesNodesNode, error) {
 		l, o := limit, offset
-		resp, err := gen.Nodes(ctx, client, memory, prefix, nil, tags, nil, &l, &o)
+		resp, err := gen.Nodes(ctx, client, memory, prefix, nil, nil, tags, nil, &l, &o)
 		if err != nil {
 			return nil, api.MapError(err)
 		}

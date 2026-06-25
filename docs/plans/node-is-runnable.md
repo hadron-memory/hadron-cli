@@ -44,3 +44,16 @@ Command tests assert: `node get`/`node ls` surface `isRunnable` in text and
 `false`, and an omitted flag keeps `isRunnable` off the wire; `node create
 --runnable` forwards it. `agentic-usage` documents the read fields and the
 tri-state write flag.
+
+## Follow-up — `node ls --runnable` filter
+
+The original change surfaced `isRunnable` on the listing but couldn't filter on
+it. The server's `nodes(isRunnable:)` arg (added after the first schema refresh)
+lets us push the predicate down: `node ls --runnable` returns only runnable
+nodes, `--runnable=false` only the explicitly non-runnable, and omitting it
+constrains nothing. Same tri-state plumbing as the write flag — gated on
+`Changed("runnable")` with an `omitempty` query variable, so a default-false
+bool never silently hides the many NULL-`isRunnable` nodes. This is the listing
+counterpart to `hadron task run`'s gate (find the tasks you can run in one
+query). Required a `make schema` refresh to pull in the new `nodes(isRunnable:)`
+argument; a passthrough test locks the omitted/true/false wire behavior.
