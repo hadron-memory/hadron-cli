@@ -1660,7 +1660,7 @@ type Mutation {
   """
   updateMemorySubscription(memoryId: ID!, orgId: ID!, role: Role!): MemorySubscription!
   updateMyProfile(email: String, handle: String, name: String): User!
-  updateNodeData(data: JSON!, nodeId: ID!): Node!
+  updateNodeData(data: JSON!, nodeId: ID!, reason: String): Node!
 
   """
   Set GitHub App credentials for an organization (encrypted at rest).
@@ -1820,6 +1820,14 @@ input NodeInput {
   nodeType: String
   ownerRepo: String
   properties: JSON
+
+  """
+  Why this change was made — recorded on the version-history snapshot
+  (NodeVersion.editedBy), mirroring hadron_update_node's reason arg so CLI
+  and MCP edits leave equally-traceable history. Only an update snapshots a
+  prior version, so reason has no effect on a pure create.
+  """
+  reason: String
   seq: Int
   tags: [String!]
 }
@@ -2166,6 +2174,15 @@ type Query {
   nodeUsage(limit: Int, loc: String!): [UsageEvent!]!
   nodeVersions(limit: Int, nodeId: ID!): [NodeVersion!]!
   nodes(
+    """
+    Filter by runnable status. `true` returns only task nodes
+    (Node.isRunnable = true) — the canonical "tasks I can run" predicate
+    that hadron_run_task gates on. `false` returns only nodes explicitly
+    marked non-runnable; note most nodes leave isRunnable NULL, so
+    `false` does NOT include them. Omit to return nodes regardless of
+    runnable status.
+    """
+    isRunnable: Boolean
     limit: Int
 
     """
@@ -2179,12 +2196,14 @@ type Query {
     memory: ID
 
     """
-    Scope to a SET of memories by ID (issue #355 — node content search
-    across an agent's / app's memories in one round-trip). Each id is
-    intersected with the caller's access filter; inaccessible ids are
-    silently dropped (a multi-select UI shouldn't fail the whole search
-    because one id isn't readable). Takes precedence over `memory` when
-    both are supplied; omit both to search every accessible memory.
+    Scope to a SET of memories (issue #355 — node content search
+    across an agent's / app's memories in one round-trip). Each entry
+    is a memory ID or a fully-qualified URN (007-entity-id-or-urn dispatch
+    via resolveMemoryRef), resolved then intersected with the caller's
+    access filter; unresolvable refs and inaccessible ids are silently
+    dropped (a multi-select UI shouldn't fail the whole search because one
+    ref isn't readable). Takes precedence over `memory` when both are
+    supplied; omit both to search every accessible memory.
     """
     memoryIds: [ID!]
     nodeType: String
@@ -2434,6 +2453,12 @@ input SearchReplaceInNodesInput {
   Loc-prefix filter applied within 'memoryIds' (parent loc + descendants).
   """
   prefix: String
+
+  """
+  Why this change was made — recorded on each changed node's version-history
+  snapshot (NodeVersion.editedBy), mirroring hadron_update_node's reason arg.
+  """
+  reason: String
 
   """Treat oldText as a RegExp source and newText as a replacement pattern."""
   regex: Boolean = false

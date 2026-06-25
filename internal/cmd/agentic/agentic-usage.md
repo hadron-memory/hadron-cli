@@ -110,6 +110,12 @@ Conventions:
   preserves the current value. `node get` shows `runnable:` in the text view,
   and both `node get` and `node ls` surface `isRunnable` in `--json` (`ls`
   also shows a `RUN` column with a ✓ for runnable nodes).
+- `--reason "<text>"` on `node update` and `replace text` records *why* a change
+  was made in the node's version history (the same field MCP `hadron_update_node`'s
+  `reason` populates). Optional; omit it and history falls back to the caller
+  identity. It rides whichever mutation runs (replace, `--data` replace, or
+  `--data-merge`). Only updates snapshot a prior version, so there is no
+  `--reason` on `node create`.
 - `node export <urn>` writes one node to a portable, self-describing file
   (frontmatter markdown, or `--format json`) — to stdout by default so it pipes
   into `node import`, or `-o <file>`. `node import <file|->` recreates it: a

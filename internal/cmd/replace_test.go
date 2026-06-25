@@ -65,6 +65,36 @@ func TestReplaceDryRun(t *testing.T) {
 	}
 }
 
+// #88: --reason forwards to the input so the edit's rationale lands in version
+// history. Uses --dry-run to avoid the confirm prompt; reason is on the input
+// either way.
+func TestReplaceForwardsReason(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"SearchReplaceInNodes": searchReplaceDryJSON,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{
+		"replace", "text", "cat", "dog",
+		"-m", "acme.com::kb", "--field", "content",
+		"--reason", "rename per spec", "--dry-run", "--server", gql.URL,
+	})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input struct {
+			Reason string `json:"reason"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(captured["SearchReplaceInNodes"], &vars); err != nil {
+		t.Fatalf("unmarshal vars: %v", err)
+	}
+	if vars.Input.Reason != "rename per spec" {
+		t.Errorf("--reason should forward to input.reason, got %q", vars.Input.Reason)
+	}
+}
+
 // A real write with --yes skips the preview/confirm and sends dryRun=false.
 func TestReplaceWithYesWrites(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{

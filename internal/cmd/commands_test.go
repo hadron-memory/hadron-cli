@@ -600,6 +600,74 @@ func TestNodeAddRunnable(t *testing.T) {
 	}
 }
 
+// #88: --reason rides on the upsert and is recorded in version history.
+func TestNodeUpdateForwardsReason(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveNodeJSON,
+		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+		"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "update", nodeURN, "--type", "task",
+		"--reason", "restore task type", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input map[string]any `json:"input"`
+	}
+	_ = json.Unmarshal(captured["UpsertNode"], &vars)
+	if vars.Input["reason"] != "restore task type" {
+		t.Errorf("--reason must forward to upsert input.reason, got %v", vars.Input["reason"])
+	}
+}
+
+// #88: --reason also rides on the data-merge mutation (updateNodeData).
+func TestNodeUpdateDataMergeForwardsReason(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":     resolveNodeJSON,
+		"UpdateNodeData": `{"data":{"updateNodeData":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "update", nodeURN,
+		"--data-merge", `{"a":1}`, "--reason", "tweak", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Reason string `json:"reason"`
+	}
+	_ = json.Unmarshal(captured["UpdateNodeData"], &vars)
+	if vars.Reason != "tweak" {
+		t.Errorf("--reason must forward to updateNodeData reason, got %q", vars.Reason)
+	}
+}
+
+// #88: an omitted --reason must not reach the wire (server falls back to the
+// caller identity for editedBy).
+func TestNodeUpdateOmitsReasonWhenUnset(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":  resolveNodeJSON,
+		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+		"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "update", nodeURN, "--type", "task", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input map[string]any `json:"input"`
+	}
+	_ = json.Unmarshal(captured["UpsertNode"], &vars)
+	if v, present := vars.Input["reason"]; present {
+		t.Errorf("omitted --reason must be left off the wire, got %v", v)
+	}
+}
+
 // Replace and merge are different mutations; passing both is a usage error
 // that fires before any network round-trip.
 func TestNodeUpdateRejectsDataAndDataMerge(t *testing.T) {

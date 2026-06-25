@@ -188,6 +188,7 @@ query NodeSearch(
 # @genqlient(for: "NodeInput.llmModel", omitempty: true)
 # @genqlient(for: "NodeInput.nodeType", omitempty: true)
 # @genqlient(for: "NodeInput.ownerRepo", omitempty: true)
+# @genqlient(for: "NodeInput.reason", omitempty: true)
 # @genqlient(for: "NodeInput.properties", omitempty: true)
 # @genqlient(for: "NodeInput.seq", omitempty: true)
 # @genqlient(for: "NodeInput.tags", omitempty: true)
@@ -215,8 +216,13 @@ mutation DeleteNode($loc: String!, $memoryId: String!) {
 # UpsertNode's `data`, which replaces the whole bag, this is a merge — the
 # server rejects a non-object patch with BAD_USER_INPUT. Backs the
 # `--data-merge`/`--data-merge-file` flags on `hadron node update`.
-mutation UpdateNodeData($nodeId: ID!, $data: JSON!) {
-  updateNodeData(nodeId: $nodeId, data: $data) {
+mutation UpdateNodeData(
+  $nodeId: ID!
+  $data: JSON!
+  # @genqlient(omitempty: true)
+  $reason: String
+) {
+  updateNodeData(nodeId: $nodeId, data: $data, reason: $reason) {
     id
     memoryId
     loc
