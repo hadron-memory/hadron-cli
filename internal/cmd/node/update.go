@@ -109,10 +109,12 @@ mutually exclusive.`,
 			}
 
 			// --reason rides along on whichever mutation runs; the server records
-			// it in version history (editedBy). nil when unset (omitted/preserved).
+			// it in version history (editedBy). A blank/whitespace-only reason is
+			// treated as unset — otherwise it would override the server's
+			// clientId/userId fallback with an empty editedBy. nil = omit/preserve.
 			var reasonPtr *string
-			if changed("reason") {
-				reasonPtr = &reason
+			if r := strings.TrimSpace(reason); r != "" {
+				reasonPtr = &r
 			}
 
 			var dto nodeDTO

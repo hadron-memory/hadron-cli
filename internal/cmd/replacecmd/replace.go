@@ -151,8 +151,10 @@ version history, so replacements are undoable.`,
 				if prefix != "" {
 					input.Prefix = &prefix
 				}
-				if reason != "" {
-					input.Reason = &reason
+				// A blank/whitespace-only reason is treated as unset, so it can't
+				// override the server's clientId/userId editedBy fallback.
+				if r := strings.TrimSpace(reason); r != "" {
+					input.Reason = &r
 				}
 				resp, err := gen.SearchReplaceInNodes(cmd.Context(), client, &input)
 				if err != nil {

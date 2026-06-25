@@ -645,26 +645,38 @@ func TestNodeUpdateDataMergeForwardsReason(t *testing.T) {
 	}
 }
 
-// #88: an omitted --reason must not reach the wire (server falls back to the
-// caller identity for editedBy).
+// #88: an omitted — or blank/whitespace-only — --reason must not reach the
+// wire, else it would override the server's caller-identity editedBy fallback
+// with an empty rationale.
 func TestNodeUpdateOmitsReasonWhenUnset(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveNodeJSON,
-		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
-		"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
-	})
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "update", nodeURN, "--type", "task", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var vars struct {
-		Input map[string]any `json:"input"`
-	}
-	_ = json.Unmarshal(captured["UpsertNode"], &vars)
-	if v, present := vars.Input["reason"]; present {
-		t.Errorf("omitted --reason must be left off the wire, got %v", v)
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"omitted", []string{"node", "update", nodeURN, "--type", "task"}},
+		{"empty", []string{"node", "update", nodeURN, "--type", "task", "--reason", ""}},
+		{"whitespace", []string{"node", "update", nodeURN, "--type", "task", "--reason", "   "}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"ResolveUrn":  resolveNodeJSON,
+				"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+				"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(tc.args, "--server", gql.URL))
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var vars struct {
+				Input map[string]any `json:"input"`
+			}
+			_ = json.Unmarshal(captured["UpsertNode"], &vars)
+			if v, present := vars.Input["reason"]; present {
+				t.Errorf("a blank --reason must be left off the wire, got %v", v)
+			}
+		})
 	}
 }
 
