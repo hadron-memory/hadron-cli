@@ -11,7 +11,9 @@ package spec
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -437,13 +439,68 @@ func lookupSpecMemory(cmd *cobra.Command, client graphql.Client, ref string) (id
 	if err != nil {
 		return "", "", api.MapError(err)
 	}
+	var available []string
 	for _, m := range resp.MyMemories {
 		canon := canonicalMemoryURN(m.Urn)
 		if ref == m.Id || ref == m.Name || want == collapseColons(canon) {
 			return m.Id, canon, nil
 		}
+		available = append(available, canon)
 	}
-	return "", "", exitcode.Newf(exitcode.NotFound, "memory %q not found", ref)
+	// A bare "not found" is a dead end — the author has to guess the real urn.
+	// Point them at the closest match (same org, spec memories first) or list
+	// what's available (issue #99 item 4).
+	return "", "", exitcode.Newf(exitcode.NotFound, "memory %q not found%s", ref, memorySuggestion(norm, available))
+}
+
+// memorySuggestion turns a not-found memory ref into a "did you mean …?" /
+// "available: …" tail. It prefers memories in the same org as the failed ref,
+// and — when the ref names a specs memory — the spec memories within it, so a
+// typo like "::platform-specs" lands on "::specs". An empty tail means there's
+// nothing useful to suggest.
+func memorySuggestion(norm string, available []string) string {
+	if len(available) == 0 {
+		return ""
+	}
+	sort.Strings(available)
+	org := collapseColons(norm)
+	if i := strings.Index(org, ":"); i >= 0 {
+		org = org[:i]
+	}
+	pool := available
+	if org != "" {
+		var same []string
+		for _, u := range available {
+			if strings.HasPrefix(collapseColons(u), org+":") {
+				same = append(same, u)
+			}
+		}
+		if len(same) > 0 {
+			pool = same
+		}
+	}
+	if strings.Contains(strings.ToLower(norm), "spec") {
+		var specs []string
+		for _, u := range pool {
+			if strings.Contains(strings.ToLower(u), "spec") {
+				specs = append(specs, u)
+			}
+		}
+		if len(specs) > 0 {
+			pool = specs
+		}
+	}
+	if len(pool) == 1 {
+		return fmt.Sprintf(" — did you mean %q?", pool[0])
+	}
+	const cap = 8
+	shown := pool
+	suffix := ""
+	if len(shown) > cap {
+		shown = shown[:cap]
+		suffix = ", …"
+	}
+	return " — available: " + strings.Join(shown, ", ") + suffix
 }
 
 // collapseColons folds the "::" org/memory separator to ":" so urns written

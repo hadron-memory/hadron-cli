@@ -91,12 +91,40 @@ violations) exit with code 5; --strict promotes warnings to errors too.`,
 				if err != nil {
 					return err
 				}
-				if len(nodes) == 0 {
-					hint := ""
-					if product == "" {
-						hint = " — in a product-rooted memory, scope with --product <ppp> [--module <mmm>]"
+				// A bare --module finds nothing in a product-rooted corpus because
+				// the loc is <product>:<module>. Rather than dead-end, infer the
+				// product when the memory declares exactly one; list them when it's
+				// ambiguous (issue #99 item 4).
+				if len(nodes) == 0 && product == "" {
+					products, derr := discoverProducts(cmd, client, memURN)
+					if derr != nil {
+						return derr
 					}
-					return exitcode.Newf(exitcode.NotFound, "no specs found under %q%s", prefix, hint)
+					switch len(products) {
+					case 1:
+						product = products[0]
+						prefix = Citation{Product: product, Module: module}.Format()
+						scopeRoot = prefix
+						fmt.Fprintf(f.IOStreams.ErrOut, "note: inferred --product %s (the memory's only product)\n", product)
+						nodes, err = scanPrefixDetail(cmd, client, memURN, prefix)
+						if err != nil {
+							return err
+						}
+					case 0:
+						// A flat (or empty) corpus has no product to infer — the
+						// module simply isn't here. Fail loudly without the
+						// misleading "scope with --product" hint.
+						return exitcode.Newf(exitcode.NotFound, "no specs found under %q", prefix)
+					default:
+						return exitcode.Newf(exitcode.Usage,
+							"module %q is ambiguous — the memory declares multiple products (%s); scope with --product <ppp>",
+							module, strings.Join(products, ", "))
+					}
+				}
+				// Reachable only with product set (given, or inferred above), so
+				// no "scope with --product" hint is warranted here.
+				if len(nodes) == 0 {
+					return exitcode.Newf(exitcode.NotFound, "no specs found under %q", prefix)
 				}
 				corpus = true
 			case all:
@@ -420,6 +448,27 @@ func scanAllSpecsDetail(cmd *cobra.Command, client graphql.Client, memURN string
 		}
 	}
 	return fetchDetails(cmd, client, nodes)
+}
+
+// discoverProducts returns the distinct product codes present in the memory's
+// spec corpus, sorted. It pages to exhaustion and reads only the loc (no
+// per-node detail), so it's cheap enough to run on the --module dead-end path
+// to infer or disambiguate the product (#99 item 4).
+func discoverProducts(cmd *cobra.Command, client graphql.Client, memURN string) ([]string, error) {
+	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, []string{"spec"})
+	if err != nil {
+		return nil, err
+	}
+	set := map[string]bool{}
+	for _, n := range all {
+		if n == nil {
+			continue
+		}
+		if c, perr := ParseCitation(n.Loc); perr == nil && c.Product != "" {
+			set[c.Product] = true
+		}
+	}
+	return sortedStringKeys(set), nil
 }
 
 func fetchDetails(cmd *cobra.Command, client graphql.Client, list []*gen.NodesNodesNode) ([]specNode, error) {
