@@ -14,7 +14,6 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
-	"github.com/hadron-memory/hadron-cli/internal/nodedoc"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -39,9 +38,14 @@ self-contained file you can review, edit, move, and import back with
 ` + "`hadron node import`" + ` — into the same memory, a different memory, or a
 fresh server.
 
-The markdown form is identical to what ` + "`hadron memory export`" + ` writes,
-plus two self-describing keys (loc, memory) so a lone file knows where it came
-from. --format json emits the same node as one canonical JSON object.
+The markdown carries two self-describing keys (loc, memory) so a lone file
+knows where it came from. --format json emits the same node as one canonical
+JSON object.
+
+The file is rendered by the server (one renderer shared with the portal and
+every other API client), so the bytes are identical everywhere; it round-trips
+back through ` + "`hadron node import`" + `. Requires a server that supports
+server-side export (hadron-server #386).
 
 Writes to stdout by default (so it composes in a pipe with node import);
 -o <file> writes a file instead. When --out ends in .md or .json and --format
@@ -65,37 +69,25 @@ is unset, the format is inferred from the extension.`,
 				return err
 			}
 
-			// Read the full node via the bulk path (the only projection that
-			// carries alias + properties). A single id that lists but can't be
-			// read comes back empty (the nodes-list-vs-read visibility gap) — a
-			// clean NotFound, never a silent empty file.
-			nodes, _, err := api.CollectNodeBatch([]string{id}, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
-				resp, ferr := gen.NodeBatch(cmd.Context(), client, chunk)
-				if ferr != nil {
-					return nil, api.MapError(ferr)
-				}
-				return resp.NodeBatch, nil
-			})
-			if err != nil {
-				return err
+			// One renderer for every client: the SERVER renders the node, so the
+			// bytes are byte-for-byte what the portal and any other API client get
+			// (#106). full: true is the canonical, import-round-trippable form.
+			exportFmt := gen.NodeExportFormatMd
+			if fmtName == "json" {
+				exportFmt = gen.NodeExportFormatJson
 			}
-			if len(nodes) == 0 || nodes[0] == nil {
+			resp, err := gen.NodeExport(cmd.Context(), client, id, exportFmt)
+			if err != nil {
+				if isUnknownFieldErr(err, "nodeExport") {
+					return exitcode.Newf(exitcode.Usage,
+						"this hadron-server is too old to render exports server-side (no nodeExport field; needs hadron-server #386) — upgrade the server")
+				}
+				return api.MapError(err)
+			}
+			if resp == nil || resp.NodeExport == nil {
 				return exitcode.Newf(exitcode.NotFound, "node %q is not readable", args[0])
 			}
-
-			n := nodes[0]
-			doc := api.DocumentFromBatchNode(n)
-			doc.MemoryURN = resolveMemoryURN(cmd, client, n.MemoryId)
-
-			var rendered string
-			if fmtName == "json" {
-				rendered, err = nodedoc.RenderJSON(doc)
-			} else {
-				rendered, err = nodedoc.RenderMarkdown(doc, true)
-			}
-			if err != nil {
-				return err
-			}
+			rendered := resp.NodeExport.Data
 
 			// stdout: the document IS the output — no summary wrapper, even with
 			// --json (don't corrupt a piped md/json stream).
@@ -112,18 +104,28 @@ is unset, the format is inferred from the extension.`,
 			if err := os.WriteFile(outFile, []byte(rendered), 0o644); err != nil {
 				return err
 			}
+
+			// The render carries no identifying metadata, so read the node's
+			// loc/name/memory for the summary (file path only — stdout never
+			// emits it). Best-effort: a missing read just leaves the fields blank.
+			loc, name, memURN := exportSummaryMeta(cmd, client, id)
 			summary := exportNodeSummaryDTO{
-				Node:    doc.Name,
-				Loc:     doc.Loc,
-				Memory:  doc.MemoryURN,
+				Node:    name,
+				Loc:     loc,
+				Memory:  memURN,
 				OutFile: outFile,
 				Format:  fmtName,
-				Bytes:   len(rendered),
+				Bytes:   resp.NodeExport.Bytes,
 			}
 			return output.Write(f.IOStreams, f.JSON, summary, func(w io.Writer) error {
-				ref := doc.Loc
+				// Fall back through loc → name → the original ref so the message
+				// is never "✓ exported  to …" when the metadata read came up empty.
+				ref := loc
 				if ref == "" {
-					ref = doc.Name
+					ref = name
+				}
+				if ref == "" {
+					ref = args[0]
 				}
 				fmt.Fprintf(w, "✓ exported %s to %s (%d bytes)\n", ref, outFile, summary.Bytes)
 				return nil
@@ -158,20 +160,40 @@ func resolveDocFormat(format, outFile string, explicit bool) (string, error) {
 	}
 }
 
-// resolveMemoryURN maps a memory id to its URN via myMemories so a standalone
-// export is self-describing (memory: <org>:<memory>). Falls back to the id when
-// the memory isn't among the caller's memories — the file still imports, just
-// keyed by id rather than URN.
-func resolveMemoryURN(cmd *cobra.Command, client graphql.Client, memID string) string {
-	includeAgentSystem := true
-	resp, err := gen.MyMemories(cmd.Context(), client, &includeAgentSystem)
-	if err != nil {
-		return memID
+// exportSummaryMeta reads a node's loc, name, and memory URN for the file-write
+// summary — the server's render returns the bytes but no identifying metadata.
+// One query carries memory { urn }, so there's no second myMemories round-trip.
+// Best-effort: an unreadable node yields empty fields rather than failing an
+// export whose file is already written.
+func exportSummaryMeta(cmd *cobra.Command, client graphql.Client, id string) (loc, name, memURN string) {
+	resp, err := gen.NodeExportMeta(cmd.Context(), client, id)
+	if err != nil || resp == nil || resp.NodeById == nil {
+		return "", "", ""
 	}
-	for _, m := range resp.MyMemories {
-		if m.Id == memID {
-			return m.Urn
-		}
+	n := resp.NodeById
+	// memory is nullable on Node; fall back to the id so the summary still
+	// names the memory, just not by URN.
+	memURN = n.MemoryId
+	if n.Memory != nil && n.Memory.Urn != "" {
+		memURN = n.Memory.Urn
 	}
-	return memID
+	return n.Loc, n.Name, memURN
 }
+
+// isUnknownFieldErr reports whether err is a GraphQL schema-validation failure
+// for an unknown field — the signature of calling a newer field against an
+// older server. Matched on the field name plus the validation phrasing so a
+// node literally named in some other error doesn't trip it.
+func isUnknownFieldErr(err error, field string) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, field) {
+		return false
+	}
+	return strings.Contains(msg, "Cannot query field") ||
+		strings.Contains(msg, "Unknown field") ||
+		strings.Contains(msg, "GRAPHQL_VALIDATION_FAILED")
+}
+

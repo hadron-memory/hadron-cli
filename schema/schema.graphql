@@ -1958,6 +1958,42 @@ type Passage {
   text: String!
 }
 
+"""How the rendered payload is encoded. TEXT today; BASE64 arrives with PDF."""
+enum NodeExportEncoding {
+  TEXT
+}
+
+enum NodeExportFormat {
+  JSON
+  MD
+}
+
+"""Selectable sections for a presentation (full: false) export."""
+enum NodeExportSection {
+  ABSTRACT
+  CONTENT
+  DATA
+  EDGES
+  METADATA
+  PROPERTIES
+}
+
+type NodeExportResult {
+  """Byte length of the rendered payload (UTF-8)."""
+  bytes: Int!
+
+  """The rendered file contents (TEXT)."""
+  data: String!
+  encoding: NodeExportEncoding!
+
+  """Suggested download filename, e.g. <loc-leaf>.md."""
+  filename: String!
+  format: NodeExportFormat!
+
+  """MIME type, e.g. text/markdown or application/json."""
+  mimeType: String!
+}
+
 type Query {
   """
   Agent AI config (org ADMIN) — returns the decrypted API key so the
@@ -2139,6 +2175,9 @@ type Query {
   """
   nodeBatch(ids: [ID!], locPrefix: String, memory: ID): NodeBatchResult!
   nodeById(id: ID!, raw: Boolean): Node
+
+  """Render one node to a portable, self-contained file (#386, spec cor:api)."""
+  nodeExport(id: ID!, format: NodeExportFormat = MD, full: Boolean = true, sections: [NodeExportSection!]): NodeExportResult!
 
   """
   Vector/hybrid-aware search over a memory. Keyword-only callers should
