@@ -111,19 +111,20 @@ violations) exit with code 5; --strict promotes warnings to errors too.`,
 							return err
 						}
 					case 0:
-						// Flat corpus (or empty) — the not-found below is correct.
+						// A flat (or empty) corpus has no product to infer — the
+						// module simply isn't here. Fail loudly without the
+						// misleading "scope with --product" hint.
+						return exitcode.Newf(exitcode.NotFound, "no specs found under %q", prefix)
 					default:
 						return exitcode.Newf(exitcode.Usage,
 							"module %q is ambiguous — the memory declares multiple products (%s); scope with --product <ppp>",
 							module, strings.Join(products, ", "))
 					}
 				}
+				// Reachable only with product set (given, or inferred above), so
+				// no "scope with --product" hint is warranted here.
 				if len(nodes) == 0 {
-					hint := ""
-					if product == "" {
-						hint = " — in a product-rooted memory, scope with --product <ppp> [--module <mmm>]"
-					}
-					return exitcode.Newf(exitcode.NotFound, "no specs found under %q%s", prefix, hint)
+					return exitcode.Newf(exitcode.NotFound, "no specs found under %q", prefix)
 				}
 				corpus = true
 			case all:

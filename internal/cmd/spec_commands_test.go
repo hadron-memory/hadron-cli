@@ -69,6 +69,13 @@ const corAclModuleDetail = `{"id":"id-cor:acl","memoryId":"mem1","loc":"cor:acl"
 	`"content":"# cor:acl — Access control\n","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
 	`"outgoingEdges":[],"incomingEdges":[]}`
 
+// A clean product-rooted module header (cli:cha), used to prove --module product
+// inference lints the right node (#99 item 4).
+const cliChaModuleDetail = `{"id":"id-cli:cha","memoryId":"mem1","loc":"cli:cha","name":"cli:cha — Chat",` +
+	`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p0"],` +
+	`"content":"# cli:cha — Chat\n","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+	`"outgoingEdges":[],"incomingEdges":[]}`
+
 func TestSpecLs(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"Nodes": `{"data":{"nodes":[` + specNodeList("msg:010:01", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
@@ -977,16 +984,37 @@ func TestSpecLintCitationAndFlags(t *testing.T) {
 }
 
 func TestSpecLintScopeNoMatch(t *testing.T) {
-	// --module cha matches nothing in a product corpus (modules are cli:cha):
-	// fail loudly instead of a misleading "0 OK".
+	// --module zzz matches nothing even after the sole product (cli) is
+	// inferred: fail loudly (NotFound) instead of a misleading "0 OK".
 	gql, _ := captureGraphQL(t, map[string]string{
 		"Nodes": `{"data":{"nodes":[` + specNodeList("cli:cha", `["spec","p1"]`) + `]}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"spec", "lint", "--module", "cha", "-m", specProductMem, "--server", gql.URL})
+	root.SetArgs([]string{"spec", "lint", "--module", "zzz", "-m", specProductMem, "--server", gql.URL})
 	if got := exitcode.FromError(root.Execute()); got != exitcode.NotFound {
 		t.Fatalf("a --module scope matching nothing should be NotFound, got %d", got)
+	}
+}
+
+func TestSpecLintInfersSoleProduct(t *testing.T) {
+	// --module cha with no --product: in a corpus with exactly one product the
+	// product (cli) is inferred and cli:cha is linted, instead of dead-ending
+	// (#99 item 4).
+	gql, _ := captureGraphQL(t, map[string]string{
+		"Nodes":       `{"data":{"nodes":[` + specNodeList("cli:cha", `["spec","p0"]`) + `]}}`,
+		"GetNodeById": `{"data":{"nodeById":` + cliChaModuleDetail + `}}`,
+		"MyMemories":  memListJSON,
+		"GetMemory":   memGetVectorEnabledJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "--module", "cha", "-m", specProductMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("inferring the sole product should lint cli:cha cleanly, got err=%v\n%s", err, out.String())
+	}
+	if !strings.Contains(out.String(), "OK") {
+		t.Errorf("expected a clean lint after product inference; got:\n%s", out.String())
 	}
 }
 

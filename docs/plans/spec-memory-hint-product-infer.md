@@ -32,7 +32,8 @@ corpus because the loc is `<product>:<module>`. The error said "scope with
 
 - **exactly one product** ⇒ re-scope to `<product>:<module>`, emit
   `note: inferred --product <ppp>` to stderr, and lint;
-- **zero products** (flat corpus) ⇒ fall through to the existing not-found;
+- **zero products** (flat corpus) ⇒ a plain `no specs found under <module>`
+  (no misleading "scope with --product" hint — there are no products);
 - **several products** ⇒ usage error listing them: "module … is ambiguous …
   scope with --product".
 
