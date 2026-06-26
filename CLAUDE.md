@@ -4,6 +4,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `hadron` is a Go CLI (cobra) for the Hadron AI-memory platform, used both by humans and by AI agents shelling out to it. Module `github.com/hadron-memory/hadron-cli`, entrypoint `cmd/hadron/main.go`; it talks to hadron-server over GraphQL.
 
+## Use of Hadron
+
+Hadron is the platform's institutional memory — assume it covers things not obvious from
+code alone (past incidents, decisions, conventions baked into several places). Relevant
+memories:
+
+- `hrn:memory:hadronmemory.com::dev` — findings, conventions, ops, the `preflight` routing index
+- `hrn:memory:hadronmemory.com::hadron-server` — the GraphQL contract this CLI targets; server findings
+- `hrn:memory:hadronmemory.com::specs` — product specs (loc-as-citation); the `spec` command group is the citation-aware surface over this corpus
+
+(1) **Query Hadron before reading code.** For the topics/entities in a request, run
+`h-find-nodes` first, then `h-read-node` on promising hits; cite node `loc` values. (Note the
+CLI *is* a superset of the MCP tools — but for memory reads while developing it, the `h-*` MCP
+tools are simplest; don't rely on the dev binary you may be mid-change on.)
+
+(2) Read `h-read-node hrn:node:hadronmemory.com::dev::instructions` once per session (what
+Hadron is, URN grammar, the specs corpus), and `h-read-node hrn:node:hadronmemory.com::dev::preflight`
+before a change (the shared server/platform routing index).
+
+(3) Capture a non-obvious finding the moment it emerges (`h-add-node` / `h-update-node`) —
+don't batch to end-of-session.
+
 ## Commands
 
 ```sh
