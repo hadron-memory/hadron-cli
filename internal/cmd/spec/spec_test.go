@@ -4,7 +4,58 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
+
+// withFlagAliases lets a command accept an alias spelling of a flag (#99 item
+// 5) — the alias resolves to the canonical flag, while unknown flags still
+// error.
+func TestWithFlagAliases(t *testing.T) {
+	newCmd := func() (*cobra.Command, *bool) {
+		var body bool
+		cmd := &cobra.Command{Use: "x", SilenceErrors: true, SilenceUsage: true,
+			RunE: func(*cobra.Command, []string) error { return nil }}
+		cmd.Flags().BoolVar(&body, "body-only", false, "")
+		withFlagAliases(cmd, map[string]string{"content-only": "body-only"})
+		return cmd, &body
+	}
+
+	cmd, body := newCmd()
+	cmd.SetArgs([]string{"--content-only"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("alias --content-only should parse: %v", err)
+	}
+	if !*body {
+		t.Error("alias --content-only did not set --body-only")
+	}
+
+	cmd2, _ := newCmd()
+	cmd2.SetArgs([]string{"--nope"})
+	if err := cmd2.Execute(); err == nil {
+		t.Error("unknown flag should still error")
+	}
+
+	// A pre-existing normalizer must be chained, not clobbered: here an
+	// underscore→dash mapping set before withFlagAliases, so `--content_only`
+	// normalizes to `content-only` and then aliases to `body-only`.
+	var body3 bool
+	cmd3 := &cobra.Command{Use: "x", SilenceErrors: true, SilenceUsage: true,
+		RunE: func(*cobra.Command, []string) error { return nil }}
+	cmd3.Flags().BoolVar(&body3, "body-only", false, "")
+	cmd3.Flags().SetNormalizeFunc(func(_ *pflag.FlagSet, name string) pflag.NormalizedName {
+		return pflag.NormalizedName(strings.ReplaceAll(name, "_", "-"))
+	})
+	withFlagAliases(cmd3, map[string]string{"content-only": "body-only"})
+	cmd3.SetArgs([]string{"--content_only"})
+	if err := cmd3.Execute(); err != nil {
+		t.Fatalf("chained normalizer + alias should parse --content_only: %v", err)
+	}
+	if !body3 {
+		t.Error("chained normalizer dropped: --content_only did not reach --body-only")
+	}
+}
 
 func mustCit(t *testing.T, s string) Citation {
 	t.Helper()
