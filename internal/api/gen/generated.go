@@ -2616,6 +2616,42 @@ var AllNodeExportFormat = []NodeExportFormat{
 	NodeExportFormatMd,
 }
 
+// NodeExportMetaNodeByIdNode includes the requested fields of the GraphQL type Node.
+type NodeExportMetaNodeByIdNode struct {
+	Loc      string                            `json:"loc"`
+	Name     string                            `json:"name"`
+	MemoryId string                            `json:"memoryId"`
+	Memory   *NodeExportMetaNodeByIdNodeMemory `json:"memory"`
+}
+
+// GetLoc returns NodeExportMetaNodeByIdNode.Loc, and is useful for accessing the field via an interface.
+func (v *NodeExportMetaNodeByIdNode) GetLoc() string { return v.Loc }
+
+// GetName returns NodeExportMetaNodeByIdNode.Name, and is useful for accessing the field via an interface.
+func (v *NodeExportMetaNodeByIdNode) GetName() string { return v.Name }
+
+// GetMemoryId returns NodeExportMetaNodeByIdNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *NodeExportMetaNodeByIdNode) GetMemoryId() string { return v.MemoryId }
+
+// GetMemory returns NodeExportMetaNodeByIdNode.Memory, and is useful for accessing the field via an interface.
+func (v *NodeExportMetaNodeByIdNode) GetMemory() *NodeExportMetaNodeByIdNodeMemory { return v.Memory }
+
+// NodeExportMetaNodeByIdNodeMemory includes the requested fields of the GraphQL type Memory.
+type NodeExportMetaNodeByIdNodeMemory struct {
+	Urn string `json:"urn"`
+}
+
+// GetUrn returns NodeExportMetaNodeByIdNodeMemory.Urn, and is useful for accessing the field via an interface.
+func (v *NodeExportMetaNodeByIdNodeMemory) GetUrn() string { return v.Urn }
+
+// NodeExportMetaResponse is returned by NodeExportMeta on success.
+type NodeExportMetaResponse struct {
+	NodeById *NodeExportMetaNodeByIdNode `json:"nodeById"`
+}
+
+// GetNodeById returns NodeExportMetaResponse.NodeById, and is useful for accessing the field via an interface.
+func (v *NodeExportMetaResponse) GetNodeById() *NodeExportMetaNodeByIdNode { return v.NodeById }
+
 // NodeExportNodeExportNodeExportResult includes the requested fields of the GraphQL type NodeExportResult.
 type NodeExportNodeExportNodeExportResult struct {
 	Format NodeExportFormat `json:"format"`
@@ -5009,6 +5045,14 @@ func (v *__NodeExportInput) GetId() string { return v.Id }
 // GetFormat returns __NodeExportInput.Format, and is useful for accessing the field via an interface.
 func (v *__NodeExportInput) GetFormat() NodeExportFormat { return v.Format }
 
+// __NodeExportMetaInput is used internally by genqlient
+type __NodeExportMetaInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __NodeExportMetaInput.Id, and is useful for accessing the field via an interface.
+func (v *__NodeExportMetaInput) GetId() string { return v.Id }
+
 // __NodeSearchInput is used internally by genqlient
 type __NodeSearchInput struct {
 	Query     string      `json:"query"`
@@ -6662,6 +6706,48 @@ func NodeExport(
 	}
 
 	data_ = &NodeExportResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NodeExportMeta.
+const NodeExportMeta_Operation = `
+query NodeExportMeta ($id: ID!) {
+	nodeById(id: $id) {
+		loc
+		name
+		memoryId
+		memory {
+			urn
+		}
+	}
+}
+`
+
+// Minimal metadata for the `node export -o` summary (loc/name/memory): the
+// server's nodeExport render returns the bytes but no identifying fields, and
+// memory { urn } here avoids a second myMemories round-trip (#106 review).
+func NodeExportMeta(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *NodeExportMetaResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeExportMeta",
+		Query:  NodeExportMeta_Operation,
+		Variables: &__NodeExportMetaInput{
+			Id: id,
+		},
+	}
+
+	data_ = &NodeExportMetaResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

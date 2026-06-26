@@ -9,10 +9,6 @@ import (
 	"testing"
 )
 
-const myMemoriesJSON = `{"data":{"myMemories":[{"id":"mem1","urn":"acme.com:kb","name":"KB",
-	"shortDescription":null,"class":"knowledge","visibility":"ORGANIZATION","organizationId":"o1",
-	"isEncrypted":false,"updatedAt":"2026-06-11T00:00:00Z"}]}}`
-
 // nodeExportResp builds a NodeExport GraphQL response wrapping data, the way the
 // server's single-node renderer returns it (#106).
 func nodeExportResp(format, mime, fname, data string) string {
@@ -21,12 +17,11 @@ func nodeExportResp(format, mime, fname, data string) string {
 		format, mime, fname, d, len(data))
 }
 
-// A minimal node read for the file-write summary (loc/name/memory) — the
-// render itself returns no identifying metadata.
-const exportMetaJSON = `{"data":{"nodeById":{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
-	"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"task","tags":[],
-	"content":"x","data":null,"seq":null,"createdAt":"2026-06-11T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
-	"outgoingEdges":[],"incomingEdges":[]}}}`
+// The minimal NodeExportMeta read for the file-write summary (loc/name/memory)
+// — the render itself returns no identifying metadata. memory { urn } here means
+// no second myMemories round-trip.
+const exportMetaJSON = `{"data":{"nodeById":{"loc":"findings:flaky-ci","name":"Flaky CI",
+	"memoryId":"mem1","memory":{"urn":"acme.com:kb"}}}}`
 
 // node export routes through the SERVER renderer (#106): the CLI writes exactly
 // the bytes nodeExport returns, so its output is identical to the portal and
@@ -34,10 +29,9 @@ const exportMetaJSON = `{"data":{"nodeById":{"id":"n1","memoryId":"mem1","loc":"
 func TestNodeExportToFile(t *testing.T) {
 	const exportedMD = "---\nname: Flaky CI\nloc: findings:flaky-ci\nmemory: acme.com:kb\ntype: task\n---\n\nThe body.\n"
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveNodeJSON,
-		"NodeExport":  nodeExportResp("MD", "text/markdown", "flaky-ci.md", exportedMD),
-		"GetNodeById": exportMetaJSON,
-		"MyMemories":  myMemoriesJSON,
+		"ResolveUrn":     resolveNodeJSON,
+		"NodeExport":     nodeExportResp("MD", "text/markdown", "flaky-ci.md", exportedMD),
+		"NodeExportMeta": exportMetaJSON,
 	})
 	f, out := testFactory(t)
 	file := filepath.Join(t.TempDir(), "flaky.md")
@@ -72,6 +66,31 @@ func TestNodeExportToFile(t *testing.T) {
 	_ = json.Unmarshal(captured["NodeExport"], &vars)
 	if vars.Format != "MD" {
 		t.Errorf("server asked for format %q, want MD", vars.Format)
+	}
+}
+
+// When the best-effort metadata read comes up empty, the file is still written
+// verbatim and the summary falls back to the original ref — never "exported
+// to" with a blank name.
+func TestNodeExportFileSummaryFallback(t *testing.T) {
+	const md = "---\nloc: findings:flaky-ci\n---\n\nbody\n"
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn":     resolveNodeJSON,
+		"NodeExport":     nodeExportResp("MD", "text/markdown", "f.md", md),
+		"NodeExportMeta": `{"data":{"nodeById":null}}`, // metadata unreadable
+	})
+	f, out := testFactory(t)
+	file := filepath.Join(t.TempDir(), "f.md")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "export", nodeURN, "-o", file, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("export should still succeed when metadata is unreadable: %v", err)
+	}
+	if got := mustRead(t, file); got != md {
+		t.Errorf("file must be written verbatim even without metadata: %q", got)
+	}
+	if s := out.String(); !strings.Contains(s, nodeURN) || strings.Contains(s, "exported  to") {
+		t.Errorf("summary must name the node via the original ref, got:\n%s", s)
 	}
 }
 

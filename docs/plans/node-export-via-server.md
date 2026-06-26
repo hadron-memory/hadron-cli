@@ -30,9 +30,11 @@ Only the single-node render in `node export` moves to the server.
 2. **`node export`.** Resolve the node id, call `nodeExport(id, format, full:
    true)`, and write the returned `data`:
    - stdout (default): write `data` verbatim — single round-trip, nothing else.
-   - `-o <file>`: write `data`, then one light `nodeById` read for the
+   - `-o <file>`: write `data`, then one light `NodeExportMeta` read for the
      `--json` summary's loc/name/memory (the render carries no identifying
-     metadata). Best-effort: a failed metadata read just blanks those fields.
+     metadata). It selects `memory { urn }` so there's no second `myMemories`
+     round-trip. Best-effort: a failed read blanks those fields, and the human
+     summary falls back loc → name → the original ref (never "exported  to").
 3. **Old servers.** Hard-require the field (per decision). A server without
    `nodeExport` returns a schema-validation error; `isUnknownFieldErr` turns
    that into a clear "this hadron-server is too old … upgrade the server"

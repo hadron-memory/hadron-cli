@@ -369,3 +369,17 @@ query NodeExport($id: ID!, $format: NodeExportFormat!) {
     bytes
   }
 }
+
+# Minimal metadata for the `node export -o` summary (loc/name/memory): the
+# server's nodeExport render returns the bytes but no identifying fields, and
+# memory { urn } here avoids a second myMemories round-trip (#106 review).
+query NodeExportMeta($id: ID!) {
+  nodeById(id: $id) {
+    loc
+    name
+    memoryId
+    memory {
+      urn
+    }
+  }
+}

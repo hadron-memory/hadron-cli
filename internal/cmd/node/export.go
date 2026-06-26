@@ -84,6 +84,9 @@ is unset, the format is inferred from the extension.`,
 				}
 				return api.MapError(err)
 			}
+			if resp == nil || resp.NodeExport == nil {
+				return exitcode.Newf(exitcode.NotFound, "node %q is not readable", args[0])
+			}
 			rendered := resp.NodeExport.Data
 
 			// stdout: the document IS the output — no summary wrapper, even with
@@ -115,9 +118,14 @@ is unset, the format is inferred from the extension.`,
 				Bytes:   resp.NodeExport.Bytes,
 			}
 			return output.Write(f.IOStreams, f.JSON, summary, func(w io.Writer) error {
+				// Fall back through loc → name → the original ref so the message
+				// is never "✓ exported  to …" when the metadata read came up empty.
 				ref := loc
 				if ref == "" {
 					ref = name
+				}
+				if ref == "" {
+					ref = args[0]
 				}
 				fmt.Fprintf(w, "✓ exported %s to %s (%d bytes)\n", ref, outFile, summary.Bytes)
 				return nil
@@ -154,15 +162,22 @@ func resolveDocFormat(format, outFile string, explicit bool) (string, error) {
 
 // exportSummaryMeta reads a node's loc, name, and memory URN for the file-write
 // summary — the server's render returns the bytes but no identifying metadata.
+// One query carries memory { urn }, so there's no second myMemories round-trip.
 // Best-effort: an unreadable node yields empty fields rather than failing an
 // export whose file is already written.
 func exportSummaryMeta(cmd *cobra.Command, client graphql.Client, id string) (loc, name, memURN string) {
-	resp, err := gen.GetNodeById(cmd.Context(), client, id)
-	if err != nil || resp.NodeById == nil {
+	resp, err := gen.NodeExportMeta(cmd.Context(), client, id)
+	if err != nil || resp == nil || resp.NodeById == nil {
 		return "", "", ""
 	}
 	n := resp.NodeById
-	return n.Loc, n.Name, resolveMemoryURN(cmd, client, n.MemoryId)
+	// memory is nullable on Node; fall back to the id so the summary still
+	// names the memory, just not by URN.
+	memURN = n.MemoryId
+	if n.Memory != nil && n.Memory.Urn != "" {
+		memURN = n.Memory.Urn
+	}
+	return n.Loc, n.Name, memURN
 }
 
 // isUnknownFieldErr reports whether err is a GraphQL schema-validation failure
@@ -182,20 +197,3 @@ func isUnknownFieldErr(err error, field string) bool {
 		strings.Contains(msg, "GRAPHQL_VALIDATION_FAILED")
 }
 
-// resolveMemoryURN maps a memory id to its URN via myMemories so a standalone
-// export is self-describing (memory: <org>:<memory>). Falls back to the id when
-// the memory isn't among the caller's memories — the file still imports, just
-// keyed by id rather than URN.
-func resolveMemoryURN(cmd *cobra.Command, client graphql.Client, memID string) string {
-	includeAgentSystem := true
-	resp, err := gen.MyMemories(cmd.Context(), client, &includeAgentSystem)
-	if err != nil {
-		return memID
-	}
-	for _, m := range resp.MyMemories {
-		if m.Id == memID {
-			return m.Urn
-		}
-	}
-	return memID
-}
