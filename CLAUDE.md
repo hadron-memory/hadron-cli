@@ -16,15 +16,15 @@ memories:
 - `hrn:memory:hadronmemory.com::specs` — product specs (loc-as-citation); the `spec` command group is the citation-aware surface over this corpus
 
 (1) **Query Hadron before reading code.** For the topics/entities in a request, run
-`h-find-nodes` first, then `h-read-node` on promising hits; cite node `loc` values. (Note the
-CLI *is* a superset of the MCP tools — but for memory reads while developing it, the `h-*` MCP
+`hadron_find_nodes` first, then `hadron_get_node` on promising hits; cite node `loc` values. (Note the
+CLI *is* a superset of the MCP tools — but for memory reads while developing it, the `hadron_*` MCP
 tools are simplest; don't rely on the dev binary you may be mid-change on.)
 
-(2) Read `h-read-node hrn:node:hadronmemory.com::dev::instructions` once per session (what
-Hadron is, URN grammar, the specs corpus), and `h-read-node hrn:node:hadronmemory.com::dev::preflight`
+(2) Read `hadron_get_node hrn:node:hadronmemory.com::dev::instructions` once per session (what
+Hadron is, URN grammar, the specs corpus), and `hadron_get_node hrn:node:hadronmemory.com::dev::preflight`
 before a change (the shared server/platform routing index).
 
-(3) Capture a non-obvious finding the moment it emerges (`h-add-node` / `h-update-node`) —
+(3) Capture a non-obvious finding the moment it emerges (`hadron_create_node` / `hadron_update_node`) —
 don't batch to end-of-session.
 
 ## Commands
