@@ -10,7 +10,8 @@ Hadron is the platform's institutional memory — assume it covers things not ob
 code alone (past incidents, decisions, conventions baked into several places). Relevant
 memories:
 
-- `hrn:memory:hadronmemory.com::dev` — findings, conventions, ops, the `preflight` routing index
+- `hrn:memory:hadronmemory.com::hadron-cli` — this CLI's own findings/conventions
+- `hrn:memory:hadronmemory.com::dev` — shared findings, conventions, ops, the `preflight` routing index
 - `hrn:memory:hadronmemory.com::hadron-server` — the GraphQL contract this CLI targets; server findings
 - `hrn:memory:hadronmemory.com::specs` — product specs (loc-as-citation); the `spec` command group is the citation-aware surface over this corpus
 
