@@ -1415,8 +1415,8 @@ func (v *EffectiveAccessResponse) GetEffectiveAccess() *EffectiveAccessEffective
 // FindNodesFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
 // The GraphQL type's documentation follows.
 //
-// Envelope for findNodes (cor:api:090) — the unified node-search field that
-// supersedes nodes + nodeSearch. hits carry per-hit score + vector metadata;
+// Envelope for findNodes (cor:api:090) — the unified node list + search field
+// (it replaced the removed nodes + nodeSearch queries). hits carry per-hit score + vector metadata;
 // passages carry chunk-granularity results; reason/degraded surface no-index /
 // reduced-fidelity outcomes.
 type FindNodesFindNodesFindNodesResult struct {
@@ -1497,7 +1497,7 @@ func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetIsRunnable() *bool
 // GetUpdatedAt returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetUpdatedAt() string { return v.UpdatedAt }
 
-// Retrieval modes for findNodes (cor:api:090:01). Superset of SearchMode with regex; kept separate so nodeSearch's contract stays stable.
+// Retrieval modes for findNodes (cor:api:090:01). keyword is stemmed FTS; vector/hybrid need the memory's vector index; regex is a POSIX pattern match.
 type FindNodesMode string
 
 const (
@@ -1516,8 +1516,9 @@ var AllFindNodesMode = []FindNodesMode{
 
 // FindNodesResponse is returned by FindNodes on success.
 type FindNodesResponse struct {
-	// Unified node search (cor:api:090) — supersedes `nodes` (filter/list) and
-	// `nodeSearch` (rank). Omit `query` for a filtered list in deterministic
+	// Unified node search (cor:api:090) — the single node list + retrieval
+	// surface (it replaced the removed `nodes` filter/list and `nodeSearch`
+	// rank queries in PR3). Omit `query` for a filtered list in deterministic
 	// order (subsumes `nodes`); pass `query` to rank by `mode`
 	// (keyword | vector | hybrid | regex). Lexical modes honor boolean operators
 	// (`(a OR b) AND c`, quoted phrases, NOT/-) and `fields` as a ranking

@@ -604,7 +604,7 @@ type ExchangeMessage {
 }
 
 """
-Retrieval modes for findNodes (cor:api:090:01). Superset of SearchMode with regex; kept separate so nodeSearch's contract stays stable.
+Retrieval modes for findNodes (cor:api:090:01). keyword is stemmed FTS; vector/hybrid need the memory's vector index; regex is a POSIX pattern match.
 """
 enum FindNodesMode {
   hybrid
@@ -614,8 +614,8 @@ enum FindNodesMode {
 }
 
 """
-Envelope for findNodes (cor:api:090) — the unified node-search field that
-supersedes nodes + nodeSearch. hits carry per-hit score + vector metadata;
+Envelope for findNodes (cor:api:090) — the unified node list + search field
+(it replaced the removed nodes + nodeSearch queries). hits carry per-hit score + vector metadata;
 passages carry chunk-granularity results; reason/degraded surface no-index /
 reduced-fidelity outcomes.
 """
@@ -2171,8 +2171,9 @@ type Query {
   exchangeMessages(connectionId: ID!, filter: String, top: Int): [ExchangeMessage!]!
 
   """
-  Unified node search (cor:api:090) — supersedes `nodes` (filter/list) and
-  `nodeSearch` (rank). Omit `query` for a filtered list in deterministic
+  Unified node search (cor:api:090) — the single node list + retrieval
+  surface (it replaced the removed `nodes` filter/list and `nodeSearch`
+  rank queries in PR3). Omit `query` for a filtered list in deterministic
   order (subsumes `nodes`); pass `query` to rank by `mode`
   (keyword | vector | hybrid | regex). Lexical modes honor boolean operators
   (`(a OR b) AND c`, quoted phrases, NOT/-) and `fields` as a ranking
@@ -2190,8 +2191,8 @@ type Query {
   id lookup, a URN-shaped input matches URNs, anything else matches name + URN.
   Pass `fields` to force specific fields (overrides the sniff) and
   `entityTypes` to restrict the kinds searched. Every hit is access-scoped to
-  the caller exactly as the per-kind queries are. Distinct from `nodeSearch`,
-  which is the node-only, vector-aware surface.
+  the caller exactly as the per-kind queries are. Distinct from `findNodes`,
+  which is the node-only, vector-aware retrieval surface.
   """
   globalSearch(entityTypes: [SearchEntityType!], fields: [SearchField!], limit: Int, query: String!): GlobalSearchResult!
   invitation(slug: String!): UserInvitation
@@ -2426,12 +2427,12 @@ enum SearchField {
 }
 
 """
-Result granularity for nodeSearch. Spec 033.
+Result granularity for findNodes (cor:api:090). Spec 033.
 
-- node: one entry per matching node (US1 default).
+- node: one entry per matching node (default).
 - chunk: passage-level entries with offsets into the parent node's
-  content (US2; chunk hits collapse to node-level when granularity is
-  node).
+  content (vector mode only; chunk hits collapse to node-level when
+  granularity is node).
 """
 enum SearchGranularity {
   chunk
