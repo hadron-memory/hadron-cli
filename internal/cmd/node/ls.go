@@ -57,20 +57,33 @@ after a known seq number).`,
 			// constrains nothing. The server reads NULL isRunnable as neither,
 			// so --runnable=false excludes the many NULL nodes too.
 			var filter gen.NodeFilter
+			var filterSet bool
 			if cmd.Flags().Changed("runnable") {
 				filter.IsRunnable = &runnable
+				filterSet = true
 			}
 			if memory != "" {
 				filter.MemoryIds = []string{memory}
+				filterSet = true
 			}
 			if prefix != "" {
 				filter.LocPrefix = &prefix
+				filterSet = true
 			}
 			if nodeType != "" {
 				filter.NodeType = &nodeType
+				filterSet = true
 			}
 			if len(tags) > 0 {
 				filter.Tags = tags
+				filterSet = true
+			}
+			// Pass nil (not an empty &{}) when nothing is constrained, so a bare
+			// `node ls` sends no filter object at all — mirroring newNodeFilter
+			// in the spec package.
+			var filterArg *gen.NodeFilter
+			if filterSet {
+				filterArg = &filter
 			}
 			// A --search term ranks (keyword mode); without it the list is a
 			// deterministic loc-ordered browse.
@@ -91,7 +104,7 @@ after a known seq number).`,
 				offsetArg = &offset
 			}
 
-			page, err := api.FindNodes(cmd.Context(), client, searchArg, mode, &filter, sortArg, limitArg, offsetArg)
+			page, err := api.FindNodes(cmd.Context(), client, searchArg, mode, filterArg, sortArg, limitArg, offsetArg)
 			if err != nil {
 				return api.MapError(err)
 			}

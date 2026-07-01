@@ -45,11 +45,16 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 // findNodes shape, an error body, or any non-FindNodes op passes through
 // untouched.
 func translateFindNodes(op, resp string) string {
-	if op != "FindNodes" || strings.Contains(resp, `"findNodes"`) || strings.Contains(resp, `"errors"`) {
+	if op != "FindNodes" {
 		return resp
 	}
-	var legacy struct {
-		Data struct {
+	// Decide by JSON structure, not a substring probe: a node field could
+	// legitimately contain the text "findNodes", which would fool a naive
+	// contains-check into skipping translation.
+	var parsed struct {
+		Errors json.RawMessage `json:"errors"`
+		Data   struct {
+			FindNodes  json.RawMessage   `json:"findNodes"`
 			Nodes      []json.RawMessage `json:"nodes"`
 			NodeSearch *struct {
 				Degraded json.RawMessage   `json:"degraded"`
@@ -58,12 +63,16 @@ func translateFindNodes(op, resp string) string {
 			} `json:"nodeSearch"`
 		} `json:"data"`
 	}
-	if err := json.Unmarshal([]byte(resp), &legacy); err != nil {
+	if err := json.Unmarshal([]byte(resp), &parsed); err != nil {
 		return resp
 	}
-	nodes := legacy.Data.Nodes
+	// Already a findNodes envelope, or an error body — pass through untouched.
+	if len(parsed.Errors) > 0 || len(parsed.Data.FindNodes) > 0 {
+		return resp
+	}
+	nodes := parsed.Data.Nodes
 	degraded, reason := "null", "null"
-	if ns := legacy.Data.NodeSearch; ns != nil {
+	if ns := parsed.Data.NodeSearch; ns != nil {
 		nodes = ns.Nodes
 		if len(ns.Degraded) > 0 {
 			degraded = string(ns.Degraded)
