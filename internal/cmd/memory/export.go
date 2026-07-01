@@ -165,17 +165,18 @@ left in place — export never deletes.`,
 // ref (id, loc, nodeType) for every node in the memory. A short final page
 // signals the tail; a full page means there may be more (the server truncates
 // an unbounded query to one default page).
-func listAllNodeRefs(ctx context.Context, client graphql.Client, memID string) ([]*gen.NodesNodesNode, error) {
-	mem := memID
-	var all []*gen.NodesNodesNode
+func listAllNodeRefs(ctx context.Context, client graphql.Client, memID string) ([]*api.ListNode, error) {
+	filter := &gen.NodeFilter{MemoryIds: []string{memID}}
+	sort := gen.NodeSortLoc
+	var all []*api.ListNode
 	for offset := 0; ; offset += nodesPageSize {
 		limit, off := nodesPageSize, offset
-		resp, err := gen.Nodes(ctx, client, &mem, nil, nil, nil, nil, nil, &limit, &off)
+		page, err := api.FindNodes(ctx, client, nil, nil, filter, &sort, &limit, &off)
 		if err != nil {
 			return nil, api.MapError(err)
 		}
-		all = append(all, resp.Nodes...)
-		if len(resp.Nodes) < nodesPageSize {
+		all = append(all, page.Nodes...)
+		if len(page.Nodes) < nodesPageSize {
 			return all, nil
 		}
 	}

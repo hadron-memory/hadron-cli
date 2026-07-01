@@ -24,7 +24,9 @@ func newCmdFind(f *cmdutil.Factory) *cobra.Command {
 		Long: `Find specs by meaning. By default the query is matched semantically
 (hybrid keyword + vector search); on a memory without a vector index this
 degrades to keyword search with a note. --match-exactly forces literal
-keyword/substring matching over name/loc/description/tags.
+regex matching over name/loc/description/tags — use it for exact-fragment
+matches (e.g. a citation), since keyword search is now FTS-ranked/stemmed
+rather than substring.
 
 Results are filtered to spec nodes.`,
 		Example: `  hadron spec find "win back users who never engaged" -m micromentor.org::platform-specs
@@ -49,44 +51,40 @@ Results are filtered to spec nodes.`,
 				limitArg = &limit
 			}
 
-			specs := []specDTO{}
+			var memoryArg *string
+			if memURN != "" {
+				memoryArg = &memURN
+			}
+
+			// --match-exactly wants literal-fragment matching. Keyword mode is
+			// now FTS-ranked/stemmed (not substring), so exact matching runs as
+			// mode:regex; the default fuzzy path stays hybrid (semantic +
+			// keyword, degrading to keyword on a vector-less memory). Only the
+			// exact path pins a server-side tag filter (spec + any --tag), as
+			// the old `nodes`-backed path did — the fuzzy path scopes to specs
+			// client-side via isSpecNode so citation-shaped nodes without the
+			// `spec` tag aren't dropped.
+			mode := gen.FindNodesModeHybrid
+			var tagFilter []string
 			if matchExactly {
-				var memoryArg *string
-				if memURN != "" {
-					memoryArg = &memURN
+				mode = gen.FindNodesModeRegex
+				tagFilter = append([]string{"spec"}, tags...)
+			}
+			filter := newNodeFilter(memoryArg, nil, tagFilter)
+
+			page, err := api.FindNodes(cmd.Context(), client, &query, &mode, filter, nil, limitArg, nil)
+			if err != nil {
+				return api.MapError(err)
+			}
+			if note := degradedNote(page.Degraded, page.Reason); note != "" {
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: %s\n", note)
+			}
+			specs := []specDTO{}
+			for _, n := range page.Nodes {
+				if n == nil || !isSpecNode(n.Tags, n.Loc) {
+					continue
 				}
-				tagFilter := append([]string{"spec"}, tags...)
-				resp, err := gen.Nodes(cmd.Context(), client, memoryArg, nil, nil, nil, tagFilter, &query, limitArg, nil)
-				if err != nil {
-					return api.MapError(err)
-				}
-				for _, n := range resp.Nodes {
-					if n == nil || !isSpecNode(n.Tags, n.Loc) {
-						continue
-					}
-					specs = append(specs, specDTO{Citation: n.Loc, MemoryID: n.MemoryId, Name: n.Name, NodeType: n.NodeType, Tags: n.Tags, UpdatedAt: n.UpdatedAt})
-				}
-			} else {
-				mode := gen.SearchModeHybrid
-				var memoryArg *string
-				if memURN != "" {
-					memoryArg = &memURN
-				}
-				resp, err := gen.NodeSearch(cmd.Context(), client, query, &mode, memoryArg, limitArg)
-				if err != nil {
-					return api.MapError(err)
-				}
-				if r := resp.NodeSearch; r != nil {
-					if note := degradedNote(r.Degraded, r.Reason); note != "" {
-						fmt.Fprintf(f.IOStreams.ErrOut, "note: %s\n", note)
-					}
-					for _, n := range r.Nodes {
-						if n == nil || !isSpecNode(n.Tags, n.Loc) {
-							continue
-						}
-						specs = append(specs, specDTO{Citation: n.Loc, MemoryID: n.MemoryId, Name: n.Name, NodeType: n.NodeType, Tags: n.Tags, UpdatedAt: n.UpdatedAt})
-					}
-				}
+				specs = append(specs, specDTO{Citation: n.Loc, MemoryID: n.MemoryId, Name: n.Name, NodeType: n.NodeType, Tags: n.Tags, UpdatedAt: n.UpdatedAt})
 			}
 
 			return output.Write(f.IOStreams, f.JSON, specs, func(w io.Writer) error {

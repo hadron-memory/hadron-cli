@@ -5,21 +5,21 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/api"
 )
 
 // fakeServer holds n loc-shaped nodes and serves offset/limit windows the way
 // the GraphQL nodes resolver does (slice past the end → empty), so the
 // paginateNodes loop is exercised against realistic page boundaries.
-func fakeServer(n int) []*gen.NodesNodesNode {
-	out := make([]*gen.NodesNodesNode, n)
+func fakeServer(n int) []*api.ListNode {
+	out := make([]*api.ListNode, n)
 	for i := range out {
-		out[i] = &gen.NodesNodesNode{Loc: fmt.Sprintf("msg:%03d", i)}
+		out[i] = &api.ListNode{Loc: fmt.Sprintf("msg:%03d", i)}
 	}
 	return out
 }
 
-func pageOf(all []*gen.NodesNodesNode, offset, limit int) []*gen.NodesNodesNode {
+func pageOf(all []*api.ListNode, offset, limit int) []*api.ListNode {
 	if offset >= len(all) {
 		return nil
 	}
@@ -49,7 +49,7 @@ func TestPaginateNodesExhaustsAllPages(t *testing.T) {
 	total := nodesPageSize + 11 // a full page plus the truncated tail
 	server := fakeServer(total)
 	var offsets []int
-	got, err := paginateNodes(func(limit, offset int) ([]*gen.NodesNodesNode, error) {
+	got, err := paginateNodes(func(limit, offset int) ([]*api.ListNode, error) {
 		if limit != nodesPageSize {
 			t.Fatalf("page limit = %d, want %d", limit, nodesPageSize)
 		}
@@ -78,7 +78,7 @@ func TestPaginateNodesShortFirstPage(t *testing.T) {
 	// second round-trip when the first page already signals the tail.
 	server := fakeServer(12)
 	pages := 0
-	got, err := paginateNodes(func(limit, offset int) ([]*gen.NodesNodesNode, error) {
+	got, err := paginateNodes(func(limit, offset int) ([]*api.ListNode, error) {
 		pages++
 		return pageOf(server, offset, limit), nil
 	})
@@ -96,7 +96,7 @@ func TestPaginateNodesExactBoundary(t *testing.T) {
 	// full final page is not mistaken for the end.
 	server := fakeServer(2 * nodesPageSize)
 	pages := 0
-	got, err := paginateNodes(func(limit, offset int) ([]*gen.NodesNodesNode, error) {
+	got, err := paginateNodes(func(limit, offset int) ([]*api.ListNode, error) {
 		pages++
 		if pages > 4 {
 			t.Fatal("paginateNodes did not terminate")
@@ -116,7 +116,7 @@ func TestPaginateNodesExactBoundary(t *testing.T) {
 
 func TestPaginateNodesPropagatesError(t *testing.T) {
 	want := errors.New("boom")
-	_, err := paginateNodes(func(limit, offset int) ([]*gen.NodesNodesNode, error) {
+	_, err := paginateNodes(func(limit, offset int) ([]*api.ListNode, error) {
 		return nil, want
 	})
 	if !errors.Is(err, want) {

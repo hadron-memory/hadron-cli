@@ -198,7 +198,7 @@ Conventions:
   convention-aware `edge add` that validates both endpoints are specs in the
   same corpus and synthesizes the field→entity label when `--label` is omitted
   (`--dry-run` previews); `spec find` is semantic by default (`--match-exactly`
-  forces keyword); `spec register` is advisory/read-only (`--check` reports
+  forces literal regex matching); `spec register` is advisory/read-only (`--check` reports
   ledger drift, exit 5); `spec lint` takes `--product`/`--module`/`--all`,
   flags mixed-arity corpora, names the exact `edge add` remedy for a missing
   inheritance edge, and warns (rule `vector-index`) when the memory has no
@@ -301,5 +301,5 @@ hadron edge rm <edge-id> --yes
 hadron node rm acme.com:kb:findings:flaky-ci --yes
 
 # Arbitrary query with a variable
-hadron api 'query($q: String!) { nodeSearch(query: $q) { nodes { loc name } } }' -F q="auth flow"
+hadron api 'query($q: String!) { findNodes(query: $q) { hits { node { loc name } } } }' -F q="auth flow"
 ```

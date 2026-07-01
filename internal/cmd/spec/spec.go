@@ -577,20 +577,53 @@ const nodesPageSize = 500
 // matching (memory, prefix, tags). Any command whose contract is "the whole
 // memory/scope" — spec lint --all and prefix-scoped lint, register, describe,
 // bare spec ls, and the new/supersede allocation scans — must use this rather
-// than a single unbounded gen.Nodes call, which the server truncates to one
+// than a single unbounded findNodes call, which the server truncates to one
 // default page (issue #23). For an allocation scan that truncation is not just
 // under-reporting: a missed tail makes the allocator reuse a live number.
 // Spec nodes are addressed by tag/prefix, never nodeType, so nodeType is left
 // unset; add it back here if a caller ever needs it.
-func scanAllNodes(ctx context.Context, client graphql.Client, memory, prefix *string, tags []string) ([]*gen.NodesNodesNode, error) {
-	return paginateNodes(func(limit, offset int) ([]*gen.NodesNodesNode, error) {
+func scanAllNodes(ctx context.Context, client graphql.Client, memory, prefix *string, tags []string) ([]*api.ListNode, error) {
+	return paginateNodes(func(limit, offset int) ([]*api.ListNode, error) {
 		l, o := limit, offset
-		resp, err := gen.Nodes(ctx, client, memory, prefix, nil, nil, tags, nil, &l, &o)
+		page, err := api.FindNodes(ctx, client, nil, nil, newNodeFilter(memory, prefix, tags), sortLoc(), &l, &o)
 		if err != nil {
 			return nil, api.MapError(err)
 		}
-		return resp.Nodes, nil
+		return page.Nodes, nil
 	})
+}
+
+// newNodeFilter builds the structured findNodes filter from the (memory, prefix,
+// tags) selectors the old positional `nodes` query took: a single memory ref
+// (id or URN) becomes filter.memoryIds, prefix becomes filter.locPrefix. Returns
+// nil when nothing is constrained so the wire carries no empty filter object.
+func newNodeFilter(memory, prefix *string, tags []string) *gen.NodeFilter {
+	var f gen.NodeFilter
+	set := false
+	if memory != nil && *memory != "" {
+		f.MemoryIds = []string{*memory}
+		set = true
+	}
+	if prefix != nil && *prefix != "" {
+		f.LocPrefix = prefix
+		set = true
+	}
+	if len(tags) > 0 {
+		f.Tags = tags
+		set = true
+	}
+	if !set {
+		return nil
+	}
+	return &f
+}
+
+// sortLoc pins the deterministic loc ordering the corpus scans (and bare
+// `spec ls`) rely on — findNodes defaults to relevance, which is unscored (and
+// thus unordered) for a query-less filtered list.
+func sortLoc() *gen.NodeSort {
+	s := gen.NodeSortLoc
+	return &s
 }
 
 // paginateNodes drives the offset loop independently of the GraphQL layer so
@@ -598,8 +631,8 @@ func scanAllNodes(ctx context.Context, client graphql.Client, memory, prefix *st
 // short (or empty) page signals the tail — a full page means there may be more,
 // so it never stops early on a default-capped response. fetch is called with
 // (limit, offset).
-func paginateNodes(fetch func(limit, offset int) ([]*gen.NodesNodesNode, error)) ([]*gen.NodesNodesNode, error) {
-	var all []*gen.NodesNodesNode
+func paginateNodes(fetch func(limit, offset int) ([]*api.ListNode, error)) ([]*api.ListNode, error) {
+	var all []*api.ListNode
 	for offset := 0; ; offset += nodesPageSize {
 		page, err := fetch(nodesPageSize, offset)
 		if err != nil {

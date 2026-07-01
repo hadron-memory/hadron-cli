@@ -604,6 +604,30 @@ type ExchangeMessage {
 }
 
 """
+Retrieval modes for findNodes (cor:api:090:01). Superset of SearchMode with regex; kept separate so nodeSearch's contract stays stable.
+"""
+enum FindNodesMode {
+  hybrid
+  keyword
+  regex
+  vector
+}
+
+"""
+Envelope for findNodes (cor:api:090) — the unified node-search field that
+supersedes nodes + nodeSearch. hits carry per-hit score + vector metadata;
+passages carry chunk-granularity results; reason/degraded surface no-index /
+reduced-fidelity outcomes.
+"""
+type FindNodesResult {
+  degraded: String
+  hits: [NodeHit!]!
+  passages: [Passage!]!
+  reason: String
+  total: Int
+}
+
+"""
 One unified, flat globalSearch result — common fields across every entity
 type so a single ranked list renders uniformly. `urn` is null for an
 aiServiceConfig (no URN) and for a user with no handle or a not-URN-legal
@@ -1788,6 +1812,59 @@ input NodeEdgeInput {
   targetId: String!
 }
 
+"""
+Node fields a lexical (keyword/regex) query matches and weights. Weight-mask,
+NOT a hard filter: naming a subset zeroes the excluded fields in scoring but
+does not strictly exclude them from matching (cor:api:090:03). Ignored by
+mode:vector (the index source is a per-memory config, not a query param).
+"""
+enum NodeField {
+  abstract
+  alias
+  content
+  data
+  description
+  loc
+  name
+  properties
+  tags
+}
+
+"""
+Structured, unscored, AND-combined filter context for findNodes (cor:api:090:02).
+"""
+input NodeFilter {
+  createdBy: String
+
+  """Include soft-deleted nodes (default false)."""
+  includeDeleted: Boolean
+  isRunnable: Boolean
+  locPrefix: String
+
+  """
+  Restrict by memory class. SYSTEM is excluded by default; passing this (or naming a system memory in memoryIds) overrides that.
+  """
+  memoryClasses: [MemoryClass!]
+
+  """
+  Memory scope — a mix of memory IDs and fully-qualified URNs; intersected with the caller's access.
+  """
+  memoryIds: [ID!]
+  nodeType: String
+  tags: [String!]
+  updatedAfter: String
+  updatedBefore: String
+}
+
+"""
+A scored node hit (cor:api:090:04). score is null for an unscored filtered list (no query).
+"""
+type NodeHit {
+  node: Node!
+  score: Float
+  vector: NodeVectorMeta
+}
+
 input NodeInput {
   """
   Paragraph-length summary of this node — see Node.abstract for the surfacing contract (hadron_get_node opt-in via contentScope; hadron_find_nodes preview ships in US2). Optional. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
@@ -1890,6 +1967,16 @@ type NodeSearchResult {
 }
 
 """
+Result ordering for findNodes. Default relevance; the rest suppress scoring (browse order).
+"""
+enum NodeSort {
+  loc
+  relevance
+  seq
+  updatedAt
+}
+
+"""
 Text-bearing Node fields that searchReplaceInNodes may rewrite. JSON fields
 (data, properties) and the structural 'loc' are intentionally excluded in v1.
 """
@@ -1900,6 +1987,18 @@ enum NodeTextField {
   description
   name
   tags
+}
+
+"""
+Per-hit vector-retrieval lineage (cor:api:090:04), present when a hit came from the vector index.
+"""
+type NodeVectorMeta {
+  abstractStale: Boolean
+  chunkIndex: Int
+  model: String
+  offsets: [Int!]
+  similarity: Float
+  source: String
 }
 
 type NodeVersion {
@@ -2097,6 +2196,18 @@ type Query {
   exchangeConnections(orgId: ID!): [ExchangeConnection!]!
   exchangeFolders(connectionId: ID!): [ExchangeFolder!]!
   exchangeMessages(connectionId: ID!, filter: String, top: Int): [ExchangeMessage!]!
+
+  """
+  Unified node search (cor:api:090) — supersedes `nodes` (filter/list) and
+  `nodeSearch` (rank). Omit `query` for a filtered list in deterministic
+  order (subsumes `nodes`); pass `query` to rank by `mode`
+  (keyword | vector | hybrid | regex). Lexical modes honor boolean operators
+  (`(a OR b) AND c`, quoted phrases, NOT/-) and `fields` as a ranking
+  weight-mask. `filter` is the structured, AND-combined filter context
+  (SYSTEM memory class excluded by default; explicit wins). Returns a
+  scored-hit envelope. Access-scoped identically to the per-kind node queries.
+  """
+  findNodes(expand: Int, fields: [NodeField!], filter: NodeFilter, granularity: SearchGranularity, limit: Int, mode: FindNodesMode, offset: Int, query: String, sort: NodeSort): FindNodesResult!
 
   """
   Cross-entity global search across organizations, memories, nodes, agents,

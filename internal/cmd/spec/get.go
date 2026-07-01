@@ -91,7 +91,7 @@ one object for a single citation, an array for --prefix.`,
 			// --limit/--offset is honored verbatim as a single page, mirroring
 			// `spec ls`.
 			prefixArg := prefix
-			var listed []*gen.NodesNodesNode
+			var listed []*api.ListNode
 			if limit > 0 || offset > 0 {
 				var limitArg, offsetArg *int
 				if limit > 0 {
@@ -100,11 +100,11 @@ one object for a single citation, an array for --prefix.`,
 				if offset > 0 {
 					offsetArg = &offset
 				}
-				resp, rerr := gen.Nodes(cmd.Context(), client, &memURN, &prefixArg, nil, nil, []string{"spec"}, nil, limitArg, offsetArg)
+				page, rerr := api.FindNodes(cmd.Context(), client, nil, nil, newNodeFilter(&memURN, &prefixArg, []string{"spec"}), sortLoc(), limitArg, offsetArg)
 				if rerr != nil {
 					return api.MapError(rerr)
 				}
-				listed = resp.Nodes
+				listed = page.Nodes
 			} else {
 				listed, err = scanAllNodes(cmd.Context(), client, &memURN, &prefixArg, []string{"spec"})
 				if err != nil {

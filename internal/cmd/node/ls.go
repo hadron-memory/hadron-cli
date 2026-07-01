@@ -49,27 +49,53 @@ after a known seq number).`,
 				return err
 			}
 
-			var memoryArg, prefixArg, typeArg, searchArg *string
+			var searchArg *string
 			var limitArg, offsetArg *int
-			var runnableArg *bool
-			// Tri-state: --runnable filters to runnable nodes, --runnable=false
-			// to nodes explicitly marked non-runnable; omitting it (the common
-			// case) constrains nothing. The server reads NULL isRunnable as
-			// neither, so --runnable=false excludes the many NULL nodes too.
+			// Build the structured findNodes filter. Tri-state --runnable:
+			// --runnable filters to runnable nodes, --runnable=false to nodes
+			// explicitly marked non-runnable; omitting it (the common case)
+			// constrains nothing. The server reads NULL isRunnable as neither,
+			// so --runnable=false excludes the many NULL nodes too.
+			var filter gen.NodeFilter
+			var filterSet bool
 			if cmd.Flags().Changed("runnable") {
-				runnableArg = &runnable
+				filter.IsRunnable = &runnable
+				filterSet = true
 			}
 			if memory != "" {
-				memoryArg = &memory
+				filter.MemoryIds = []string{memory}
+				filterSet = true
 			}
 			if prefix != "" {
-				prefixArg = &prefix
+				filter.LocPrefix = &prefix
+				filterSet = true
 			}
 			if nodeType != "" {
-				typeArg = &nodeType
+				filter.NodeType = &nodeType
+				filterSet = true
 			}
+			if len(tags) > 0 {
+				filter.Tags = tags
+				filterSet = true
+			}
+			// Pass nil (not an empty &{}) when nothing is constrained, so a bare
+			// `node ls` sends no filter object at all — mirroring newNodeFilter
+			// in the spec package.
+			var filterArg *gen.NodeFilter
+			if filterSet {
+				filterArg = &filter
+			}
+			// A --search term ranks (keyword mode); without it the list is a
+			// deterministic loc-ordered browse.
+			var mode *gen.FindNodesMode
+			var sortArg *gen.NodeSort
 			if search != "" {
 				searchArg = &search
+				m := gen.FindNodesModeKeyword
+				mode = &m
+			} else {
+				s := gen.NodeSortLoc
+				sortArg = &s
 			}
 			if limit > 0 {
 				limitArg = &limit
@@ -78,13 +104,13 @@ after a known seq number).`,
 				offsetArg = &offset
 			}
 
-			resp, err := gen.Nodes(cmd.Context(), client, memoryArg, prefixArg, typeArg, runnableArg, tags, searchArg, limitArg, offsetArg)
+			page, err := api.FindNodes(cmd.Context(), client, searchArg, mode, filterArg, sortArg, limitArg, offsetArg)
 			if err != nil {
 				return api.MapError(err)
 			}
 
-			nodes := make([]nodeDTO, 0, len(resp.Nodes))
-			for _, n := range resp.Nodes {
+			nodes := make([]nodeDTO, 0, len(page.Nodes))
+			for _, n := range page.Nodes {
 				nodes = append(nodes, nodeDTO{
 					ID:         n.Id,
 					MemoryID:   n.MemoryId,

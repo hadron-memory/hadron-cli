@@ -28,7 +28,7 @@ func captureGraphQL(t *testing.T, responses map[string]string) (*httptest.Server
 			resp = `{"errors":[{"message":"unexpected operation"}]}`
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(resp))
+		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, resp)))
 	}))
 	t.Cleanup(server.Close)
 	return server, captured
@@ -36,6 +36,26 @@ func captureGraphQL(t *testing.T, responses map[string]string) (*httptest.Server
 
 const nodeJSON = `{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
 	"nodeType":"finding","tags":["ci"],"updatedAt":"2026-06-11T00:00:00Z"}`
+
+// findNodesVars is the decoded request-variable shape of a FindNodes call — the
+// unified field the CLI now sends in place of the old positional `nodes` args.
+// The old memory/prefix/nodeType/isRunnable/tags/search knobs now live under
+// `filter` (+ `query`/`mode` for a ranked search), so the fake-server variable
+// assertions decode into this.
+type findNodesVars struct {
+	Query  *string `json:"query"`
+	Mode   *string `json:"mode"`
+	Sort   *string `json:"sort"`
+	Limit  *int    `json:"limit"`
+	Offset *int    `json:"offset"`
+	Filter struct {
+		MemoryIds  []string `json:"memoryIds"`
+		LocPrefix  string   `json:"locPrefix"`
+		NodeType   string   `json:"nodeType"`
+		Tags       []string `json:"tags"`
+		IsRunnable *bool    `json:"isRunnable"`
+	} `json:"filter"`
+}
 
 const nodeDetailJSON = `{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
 	"description":null,"abstract":null,"nodeType":"finding","tags":["ci"],
@@ -51,7 +71,7 @@ const nodeURN = "acme.com::kb::findings:flaky-ci"
 
 func TestNodeLs(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"Nodes": `{"data":{"nodes":[` + nodeJSON + `]}}`,
+		"FindNodes": `{"data":{"nodes":[` + nodeJSON + `]}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -62,12 +82,10 @@ func TestNodeLs(t *testing.T) {
 	if !strings.Contains(out.String(), "findings:flaky-ci") {
 		t.Errorf("unexpected output: %s", out.String())
 	}
-	var vars struct {
-		Memory string `json:"memory"`
-	}
-	_ = json.Unmarshal(captured["Nodes"], &vars)
-	if vars.Memory != "acme.com::kb" {
-		t.Errorf("--memory should map to the memory arg, got %q", vars.Memory)
+	var vars findNodesVars
+	_ = json.Unmarshal(captured["FindNodes"], &vars)
+	if len(vars.Filter.MemoryIds) != 1 || vars.Filter.MemoryIds[0] != "acme.com::kb" {
+		t.Errorf("--memory should map to filter.memoryIds, got %v", vars.Filter.MemoryIds)
 	}
 }
 
@@ -516,7 +534,7 @@ func TestNodeLsSurfacesRunnable(t *testing.T) {
 	const runnableJSON = `{"id":"n2","memoryId":"mem1","loc":"tasks:brief","name":"Brief",
 		"nodeType":"task","tags":[],"seq":null,"isRunnable":true,"updatedAt":"2026-06-11T00:00:00Z"}`
 	gql, _ := captureGraphQL(t, map[string]string{
-		"Nodes": `{"data":{"nodes":[` + runnableJSON + `]}}`,
+		"FindNodes": `{"data":{"nodes":[` + runnableJSON + `]}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -535,10 +553,10 @@ func TestNodeLsSurfacesRunnable(t *testing.T) {
 	}
 }
 
-// #89 follow-up: `node ls --runnable[=false]` filters server-side via the
-// nodes(isRunnable:) arg. Omitting the flag must NOT reach the wire (server
-// reads absent as "any runnable status"), so a default-false bool doesn't
-// silently hide most nodes.
+// #89 follow-up: `node ls --runnable[=false]` filters server-side via
+// findNodes filter.isRunnable. Omitting the flag must NOT reach the wire
+// (server reads absent as "any runnable status"), so a default-false bool
+// doesn't silently hide most nodes.
 func TestNodeLsRunnableFilter(t *testing.T) {
 	cases := []struct {
 		name string
@@ -553,7 +571,7 @@ func TestNodeLsRunnableFilter(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{
-				"Nodes": `{"data":{"nodes":[` + nodeJSON + `]}}`,
+				"FindNodes": `{"data":{"nodes":[` + nodeJSON + `]}}`,
 			})
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
@@ -561,17 +579,19 @@ func TestNodeLsRunnableFilter(t *testing.T) {
 			if err := root.Execute(); err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			var vars map[string]any
-			_ = json.Unmarshal(captured["Nodes"], &vars)
-			got, present := vars["isRunnable"]
+			var vars struct {
+				Filter map[string]any `json:"filter"`
+			}
+			_ = json.Unmarshal(captured["FindNodes"], &vars)
+			got, present := vars.Filter["isRunnable"]
 			if tc.want == nil {
 				if present {
-					t.Errorf("omitted --runnable must not send isRunnable, got %v", got)
+					t.Errorf("omitted --runnable must not send filter.isRunnable, got %v", got)
 				}
 				return
 			}
 			if !present || got != tc.want {
-				t.Errorf("isRunnable = %v (present=%v), want %v", got, present, tc.want)
+				t.Errorf("filter.isRunnable = %v (present=%v), want %v", got, present, tc.want)
 			}
 		})
 	}

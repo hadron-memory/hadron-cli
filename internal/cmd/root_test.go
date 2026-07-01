@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -30,10 +31,62 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 			resp = `{"errors":[{"message":"unexpected operation"}]}`
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(resp))
+		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, resp)))
 	}))
 	t.Cleanup(server.Close)
 	return server
+}
+
+// translateFindNodes lets the many spec/node fakes keep their readable legacy
+// `{"data":{"nodes":[...]}}` (and `{"data":{"nodeSearch":{…}}}`) response
+// literals now that the CLI queries the unified `findNodes` field: it rewraps a
+// legacy body into the findNodes hit envelope (each node under `hits[].node`,
+// plus total/degraded/reason) that the client decodes. A body already in
+// findNodes shape, an error body, or any non-FindNodes op passes through
+// untouched.
+func translateFindNodes(op, resp string) string {
+	if op != "FindNodes" {
+		return resp
+	}
+	// Decide by JSON structure, not a substring probe: a node field could
+	// legitimately contain the text "findNodes", which would fool a naive
+	// contains-check into skipping translation.
+	var parsed struct {
+		Errors json.RawMessage `json:"errors"`
+		Data   struct {
+			FindNodes  json.RawMessage   `json:"findNodes"`
+			Nodes      []json.RawMessage `json:"nodes"`
+			NodeSearch *struct {
+				Degraded json.RawMessage   `json:"degraded"`
+				Reason   json.RawMessage   `json:"reason"`
+				Nodes    []json.RawMessage `json:"nodes"`
+			} `json:"nodeSearch"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(resp), &parsed); err != nil {
+		return resp
+	}
+	// Already a findNodes envelope, or an error body — pass through untouched.
+	if len(parsed.Errors) > 0 || len(parsed.Data.FindNodes) > 0 {
+		return resp
+	}
+	nodes := parsed.Data.Nodes
+	degraded, reason := "null", "null"
+	if ns := parsed.Data.NodeSearch; ns != nil {
+		nodes = ns.Nodes
+		if len(ns.Degraded) > 0 {
+			degraded = string(ns.Degraded)
+		}
+		if len(ns.Reason) > 0 {
+			reason = string(ns.Reason)
+		}
+	}
+	hits := make([]string, len(nodes))
+	for i, n := range nodes {
+		hits[i] = `{"score":null,"node":` + string(n) + `}`
+	}
+	return fmt.Sprintf(`{"data":{"findNodes":{"total":%d,"degraded":%s,"reason":%s,"hits":[%s]}}}`,
+		len(hits), degraded, reason, strings.Join(hits, ","))
 }
 
 type memStore map[string]string
