@@ -415,7 +415,7 @@ func scanPrefixDetail(cmd *cobra.Command, client graphql.Client, memURN, prefix 
 	if err != nil {
 		return nil, err
 	}
-	var nodes []*gen.NodesNodesNode
+	var nodes []*api.ListNode
 	for _, n := range all {
 		if n == nil {
 			continue
@@ -438,7 +438,7 @@ func scanAllSpecsDetail(cmd *cobra.Command, client graphql.Client, memURN string
 	if err != nil {
 		return nil, err
 	}
-	var nodes []*gen.NodesNodesNode
+	var nodes []*api.ListNode
 	for _, n := range all {
 		if n == nil {
 			continue
@@ -471,7 +471,7 @@ func discoverProducts(cmd *cobra.Command, client graphql.Client, memURN string) 
 	return sortedStringKeys(set), nil
 }
 
-func fetchDetails(cmd *cobra.Command, client graphql.Client, list []*gen.NodesNodesNode) ([]specNode, error) {
+func fetchDetails(cmd *cobra.Command, client graphql.Client, list []*api.ListNode) ([]specNode, error) {
 	out := make([]specNode, 0, len(list))
 	for _, n := range list {
 		if n == nil {

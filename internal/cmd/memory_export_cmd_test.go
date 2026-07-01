@@ -27,7 +27,7 @@ func TestMemoryExport(t *testing.T) {
 	}}}`
 
 	gql, captured := captureGraphQL(t, map[string]string{
-		"Nodes":     nodesResp,
+		"FindNodes": nodesResp,
 		"NodeBatch": batchResp,
 	})
 	f, out := testFactory(t)
@@ -109,7 +109,7 @@ func TestMemoryExportDefaultsOutToCwd(t *testing.T) {
 	}}}`
 
 	gql, _ := captureGraphQL(t, map[string]string{
-		"Nodes":     nodesResp,
+		"FindNodes": nodesResp,
 		"NodeBatch": batchResp,
 	})
 	f, out := testFactory(t)

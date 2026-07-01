@@ -1,40 +1,64 @@
-query Nodes(
+# Unified node list + search (cor:api:090) — the one field that supersedes the
+# old `nodes` list and `nodeSearch`. Omit $query for a filtered list in
+# deterministic order (subsumes `nodes`); pass $query to rank by $mode
+# (keyword | vector | hybrid | regex). $filter is the structured, AND-combined
+# selector context (memoryIds, locPrefix, nodeType, tags, isRunnable, …).
+# Results are under hits[].node — never a bare array. Backs `node ls`,
+# `node import`, `memory export`, and the `spec` reads; driven through
+# api.FindNodes, which flattens hits→nodes and surfaces degraded/reason.
+#
+# The server treats an omitted NodeFilter field as "no constraint"; nil
+# pointers must therefore be omitted, not sent as null — hence the per-field
+# omitempty annotations mirroring nodes.graphql's NodeInput contract.
+# @genqlient(for: "NodeFilter.memoryIds", omitempty: true)
+# @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
+# @genqlient(for: "NodeFilter.nodeType", omitempty: true)
+# @genqlient(for: "NodeFilter.tags", omitempty: true)
+# @genqlient(for: "NodeFilter.isRunnable", omitempty: true)
+# @genqlient(for: "NodeFilter.locPrefix", omitempty: true)
+# @genqlient(for: "NodeFilter.createdBy", omitempty: true)
+# @genqlient(for: "NodeFilter.updatedAfter", omitempty: true)
+# @genqlient(for: "NodeFilter.updatedBefore", omitempty: true)
+# @genqlient(for: "NodeFilter.includeDeleted", omitempty: true)
+query FindNodes(
   # @genqlient(omitempty: true)
-  $memory: ID
+  $query: String
   # @genqlient(omitempty: true)
-  $prefix: String
+  $mode: FindNodesMode
   # @genqlient(omitempty: true)
-  $nodeType: String
+  $filter: NodeFilter
   # @genqlient(omitempty: true)
-  $isRunnable: Boolean
-  # @genqlient(omitempty: true)
-  $tags: [String!]
-  # @genqlient(omitempty: true)
-  $search: String
+  $sort: NodeSort
   # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  nodes(
-    memory: $memory
-    prefix: $prefix
-    nodeType: $nodeType
-    isRunnable: $isRunnable
-    tags: $tags
-    search: $search
+  findNodes(
+    query: $query
+    mode: $mode
+    filter: $filter
+    sort: $sort
     limit: $limit
     offset: $offset
   ) {
-    id
-    memoryId
-    loc
-    name
-    nodeType
-    tags
-    seq
-    isRunnable
-    updatedAt
+    total
+    degraded
+    reason
+    hits {
+      score
+      node {
+        id
+        memoryId
+        loc
+        name
+        nodeType
+        tags
+        seq
+        isRunnable
+        updatedAt
+      }
+    }
   }
 }
 
@@ -144,33 +168,6 @@ query GetNodeById($id: ID!) {
         loc
         memoryId
       }
-    }
-  }
-}
-
-# Semantic + keyword search (spec 033). hybrid mode degrades to keyword
-# (with a `degraded`/`reason` note) on memories without a vector index,
-# so `spec find` is never silently empty. Backs `hadron spec find`.
-query NodeSearch(
-  $query: String!
-  # @genqlient(omitempty: true)
-  $mode: SearchMode
-  # @genqlient(omitempty: true)
-  $memoryUrn: String
-  # @genqlient(omitempty: true)
-  $limit: Int
-) {
-  nodeSearch(query: $query, mode: $mode, memoryUrn: $memoryUrn, limit: $limit) {
-    degraded
-    reason
-    nodes {
-      id
-      memoryId
-      loc
-      name
-      nodeType
-      tags
-      updatedAt
     }
   }
 }

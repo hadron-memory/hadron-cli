@@ -1412,6 +1412,124 @@ func (v *EffectiveAccessResponse) GetEffectiveAccess() *EffectiveAccessEffective
 	return v.EffectiveAccess
 }
 
+// FindNodesFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
+// The GraphQL type's documentation follows.
+//
+// Envelope for findNodes (cor:api:090) — the unified node-search field that
+// supersedes nodes + nodeSearch. hits carry per-hit score + vector metadata;
+// passages carry chunk-granularity results; reason/degraded surface no-index /
+// reduced-fidelity outcomes.
+type FindNodesFindNodesFindNodesResult struct {
+	Total    *int                                            `json:"total"`
+	Degraded *string                                         `json:"degraded"`
+	Reason   *string                                         `json:"reason"`
+	Hits     []*FindNodesFindNodesFindNodesResultHitsNodeHit `json:"hits"`
+}
+
+// GetTotal returns FindNodesFindNodesFindNodesResult.Total, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResult) GetTotal() *int { return v.Total }
+
+// GetDegraded returns FindNodesFindNodesFindNodesResult.Degraded, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResult) GetDegraded() *string { return v.Degraded }
+
+// GetReason returns FindNodesFindNodesFindNodesResult.Reason, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResult) GetReason() *string { return v.Reason }
+
+// GetHits returns FindNodesFindNodesFindNodesResult.Hits, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResult) GetHits() []*FindNodesFindNodesFindNodesResultHitsNodeHit {
+	return v.Hits
+}
+
+// FindNodesFindNodesFindNodesResultHitsNodeHit includes the requested fields of the GraphQL type NodeHit.
+// The GraphQL type's documentation follows.
+//
+// A scored node hit (cor:api:090:04). score is null for an unscored filtered list (no query).
+type FindNodesFindNodesFindNodesResultHitsNodeHit struct {
+	Score *float64                                          `json:"score"`
+	Node  *FindNodesFindNodesFindNodesResultHitsNodeHitNode `json:"node"`
+}
+
+// GetScore returns FindNodesFindNodesFindNodesResultHitsNodeHit.Score, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResultHitsNodeHit) GetScore() *float64 { return v.Score }
+
+// GetNode returns FindNodesFindNodesFindNodesResultHitsNodeHit.Node, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResultHitsNodeHit) GetNode() *FindNodesFindNodesFindNodesResultHitsNodeHitNode {
+	return v.Node
+}
+
+// FindNodesFindNodesFindNodesResultHitsNodeHitNode includes the requested fields of the GraphQL type Node.
+type FindNodesFindNodesFindNodesResultHitsNodeHitNode struct {
+	Id         string   `json:"id"`
+	MemoryId   string   `json:"memoryId"`
+	Loc        string   `json:"loc"`
+	Name       string   `json:"name"`
+	NodeType   string   `json:"nodeType"`
+	Tags       []string `json:"tags"`
+	Seq        *int     `json:"seq"`
+	IsRunnable *bool    `json:"isRunnable"`
+	UpdatedAt  string   `json:"updatedAt"`
+}
+
+// GetId returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.Id, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetId() string { return v.Id }
+
+// GetMemoryId returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.Loc, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetLoc() string { return v.Loc }
+
+// GetName returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.Name, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetName() string { return v.Name }
+
+// GetNodeType returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.NodeType, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.Tags, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetTags() []string { return v.Tags }
+
+// GetSeq returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.Seq, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetSeq() *int { return v.Seq }
+
+// GetIsRunnable returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetUpdatedAt returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// Retrieval modes for findNodes (cor:api:090:01). Superset of SearchMode with regex; kept separate so nodeSearch's contract stays stable.
+type FindNodesMode string
+
+const (
+	FindNodesModeHybrid  FindNodesMode = "hybrid"
+	FindNodesModeKeyword FindNodesMode = "keyword"
+	FindNodesModeRegex   FindNodesMode = "regex"
+	FindNodesModeVector  FindNodesMode = "vector"
+)
+
+var AllFindNodesMode = []FindNodesMode{
+	FindNodesModeHybrid,
+	FindNodesModeKeyword,
+	FindNodesModeRegex,
+	FindNodesModeVector,
+}
+
+// FindNodesResponse is returned by FindNodes on success.
+type FindNodesResponse struct {
+	// Unified node search (cor:api:090) — supersedes `nodes` (filter/list) and
+	// `nodeSearch` (rank). Omit `query` for a filtered list in deterministic
+	// order (subsumes `nodes`); pass `query` to rank by `mode`
+	// (keyword | vector | hybrid | regex). Lexical modes honor boolean operators
+	// (`(a OR b) AND c`, quoted phrases, NOT/-) and `fields` as a ranking
+	// weight-mask. `filter` is the structured, AND-combined filter context
+	// (SYSTEM memory class excluded by default; explicit wins). Returns a
+	// scored-hit envelope. Access-scoped identically to the per-kind node queries.
+	FindNodes *FindNodesFindNodesFindNodesResult `json:"findNodes"`
+}
+
+// GetFindNodes returns FindNodesResponse.FindNodes, and is useful for accessing the field via an interface.
+func (v *FindNodesResponse) GetFindNodes() *FindNodesFindNodesFindNodesResult { return v.FindNodes }
+
 // GetMemoryMemory includes the requested fields of the GraphQL type Memory.
 type GetMemoryMemory struct {
 	Id                 string            `json:"id"`
@@ -2691,6 +2809,53 @@ func (v *NodeExportResponse) GetNodeExport() *NodeExportNodeExportNodeExportResu
 	return v.NodeExport
 }
 
+// Structured, unscored, AND-combined filter context for findNodes (cor:api:090:02).
+type NodeFilter struct {
+	CreatedBy *string `json:"createdBy,omitempty"`
+	// Include soft-deleted nodes (default false).
+	IncludeDeleted *bool   `json:"includeDeleted,omitempty"`
+	IsRunnable     *bool   `json:"isRunnable,omitempty"`
+	LocPrefix      *string `json:"locPrefix,omitempty"`
+	// Restrict by memory class. SYSTEM is excluded by default; passing this (or naming a system memory in memoryIds) overrides that.
+	MemoryClasses []MemoryClass `json:"memoryClasses,omitempty"`
+	// Memory scope — a mix of memory IDs and fully-qualified URNs; intersected with the caller's access.
+	MemoryIds     []string `json:"memoryIds,omitempty"`
+	NodeType      *string  `json:"nodeType,omitempty"`
+	Tags          []string `json:"tags,omitempty"`
+	UpdatedAfter  *string  `json:"updatedAfter,omitempty"`
+	UpdatedBefore *string  `json:"updatedBefore,omitempty"`
+}
+
+// GetCreatedBy returns NodeFilter.CreatedBy, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetCreatedBy() *string { return v.CreatedBy }
+
+// GetIncludeDeleted returns NodeFilter.IncludeDeleted, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetIncludeDeleted() *bool { return v.IncludeDeleted }
+
+// GetIsRunnable returns NodeFilter.IsRunnable, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetLocPrefix returns NodeFilter.LocPrefix, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetLocPrefix() *string { return v.LocPrefix }
+
+// GetMemoryClasses returns NodeFilter.MemoryClasses, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetMemoryClasses() []MemoryClass { return v.MemoryClasses }
+
+// GetMemoryIds returns NodeFilter.MemoryIds, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetMemoryIds() []string { return v.MemoryIds }
+
+// GetNodeType returns NodeFilter.NodeType, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetNodeType() *string { return v.NodeType }
+
+// GetTags returns NodeFilter.Tags, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetTags() []string { return v.Tags }
+
+// GetUpdatedAfter returns NodeFilter.UpdatedAfter, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetUpdatedAfter() *string { return v.UpdatedAfter }
+
+// GetUpdatedBefore returns NodeFilter.UpdatedBefore, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetUpdatedBefore() *string { return v.UpdatedBefore }
+
 type NodeInput struct {
 	// Paragraph-length summary of this node — see Node.abstract for the surfacing contract (hadron_get_node opt-in via contentScope; hadron_find_nodes preview ships in US2). Optional. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
 	Abstract    *string          `json:"abstract,omitempty"`
@@ -2784,89 +2949,21 @@ func (v *NodeInput) GetSeq() *int { return v.Seq }
 // GetTags returns NodeInput.Tags, and is useful for accessing the field via an interface.
 func (v *NodeInput) GetTags() []string { return v.Tags }
 
-// NodeSearchNodeSearchNodeSearchResult includes the requested fields of the GraphQL type NodeSearchResult.
-// The GraphQL type's documentation follows.
-//
-// Envelope for nodeSearch — carries the ranked nodes plus structured
-// flags surfacing degraded / no-index outcomes that the MCP path emits
-// inline. Spec 033.
-//
-// reason: set when the query could not run as requested (e.g.
-// 'no_vector_index' on a non-indexed memory with mode:vector); nodes
-// is empty in that case.
-// degraded: set when the query ran but at reduced fidelity (e.g.
-// 'no_vector_index' on a hybrid query that fell back to keyword-only);
-// nodes still carries usable hits.
-type NodeSearchNodeSearchNodeSearchResult struct {
-	Degraded *string                                          `json:"degraded"`
-	Reason   *string                                          `json:"reason"`
-	Nodes    []*NodeSearchNodeSearchNodeSearchResultNodesNode `json:"nodes"`
-}
+// Result ordering for findNodes. Default relevance; the rest suppress scoring (browse order).
+type NodeSort string
 
-// GetDegraded returns NodeSearchNodeSearchNodeSearchResult.Degraded, and is useful for accessing the field via an interface.
-func (v *NodeSearchNodeSearchNodeSearchResult) GetDegraded() *string { return v.Degraded }
+const (
+	NodeSortLoc       NodeSort = "loc"
+	NodeSortRelevance NodeSort = "relevance"
+	NodeSortSeq       NodeSort = "seq"
+	NodeSortUpdatedat NodeSort = "updatedAt"
+)
 
-// GetReason returns NodeSearchNodeSearchNodeSearchResult.Reason, and is useful for accessing the field via an interface.
-func (v *NodeSearchNodeSearchNodeSearchResult) GetReason() *string { return v.Reason }
-
-// GetNodes returns NodeSearchNodeSearchNodeSearchResult.Nodes, and is useful for accessing the field via an interface.
-func (v *NodeSearchNodeSearchNodeSearchResult) GetNodes() []*NodeSearchNodeSearchNodeSearchResultNodesNode {
-	return v.Nodes
-}
-
-// NodeSearchNodeSearchNodeSearchResultNodesNode includes the requested fields of the GraphQL type Node.
-type NodeSearchNodeSearchNodeSearchResultNodesNode struct {
-	Id        string   `json:"id"`
-	MemoryId  string   `json:"memoryId"`
-	Loc       string   `json:"loc"`
-	Name      string   `json:"name"`
-	NodeType  string   `json:"nodeType"`
-	Tags      []string `json:"tags"`
-	UpdatedAt string   `json:"updatedAt"`
-}
-
-// GetId returns NodeSearchNodeSearchNodeSearchResultNodesNode.Id, and is useful for accessing the field via an interface.
-func (v *NodeSearchNodeSearchNodeSearchResultNodesNode) GetId() string { return v.Id }
-
-// GetMemoryId returns NodeSearchNodeSearchNodeSearchResultNodesNode.MemoryId, and is useful for accessing the field via an interface.
-func (v *NodeSearchNodeSearchNodeSearchResultNodesNode) GetMemoryId() string { return v.MemoryId }
-
-// GetLoc returns NodeSearchNodeSearchNodeSearchResultNodesNode.Loc, and is useful for accessing the field via an interface.
-func (v *NodeSearchNodeSearchNodeSearchResultNodesNode) GetLoc() string { return v.Loc }
-
-// GetName returns NodeSearchNodeSearchNodeSearchResultNodesNode.Name, and is useful for accessing the field via an interface.
-func (v *NodeSearchNodeSearchNodeSearchResultNodesNode) GetName() string { return v.Name }
-
-// GetNodeType returns NodeSearchNodeSearchNodeSearchResultNodesNode.NodeType, and is useful for accessing the field via an interface.
-func (v *NodeSearchNodeSearchNodeSearchResultNodesNode) GetNodeType() string { return v.NodeType }
-
-// GetTags returns NodeSearchNodeSearchNodeSearchResultNodesNode.Tags, and is useful for accessing the field via an interface.
-func (v *NodeSearchNodeSearchNodeSearchResultNodesNode) GetTags() []string { return v.Tags }
-
-// GetUpdatedAt returns NodeSearchNodeSearchNodeSearchResultNodesNode.UpdatedAt, and is useful for accessing the field via an interface.
-func (v *NodeSearchNodeSearchNodeSearchResultNodesNode) GetUpdatedAt() string { return v.UpdatedAt }
-
-// NodeSearchResponse is returned by NodeSearch on success.
-type NodeSearchResponse struct {
-	// Vector/hybrid-aware search over a memory. Keyword-only callers should
-	// keep using the legacy 'nodes' query — nodeSearch is the
-	// vector-aware entrypoint per spec 033 contract.
-	//
-	// mode defaults to vector (the vector-aware entrypoint design — the
-	// MCP hadron_find_nodes tool defaults to keyword for backward-compat,
-	// a deliberate divergence between the two surfaces). expand (graph
-	// neighbor depth 0..3, default 0) and granularity:chunk (passage
-	// retrieval, vector-mode only) are both fully live.
-	//
-	// Access control: same memory-read gate as the keyword nodes query —
-	// the raw-SQL similarity query is scoped to memories the caller can
-	// read, never cross-memory.
-	NodeSearch *NodeSearchNodeSearchNodeSearchResult `json:"nodeSearch"`
-}
-
-// GetNodeSearch returns NodeSearchResponse.NodeSearch, and is useful for accessing the field via an interface.
-func (v *NodeSearchResponse) GetNodeSearch() *NodeSearchNodeSearchNodeSearchResult {
-	return v.NodeSearch
+var AllNodeSort = []NodeSort{
+	NodeSortLoc,
+	NodeSortRelevance,
+	NodeSortSeq,
+	NodeSortUpdatedat,
 }
 
 // Text-bearing Node fields that searchReplaceInNodes may rewrite. JSON fields
@@ -2890,54 +2987,6 @@ var AllNodeTextField = []NodeTextField{
 	NodeTextFieldName,
 	NodeTextFieldTags,
 }
-
-// NodesNodesNode includes the requested fields of the GraphQL type Node.
-type NodesNodesNode struct {
-	Id         string   `json:"id"`
-	MemoryId   string   `json:"memoryId"`
-	Loc        string   `json:"loc"`
-	Name       string   `json:"name"`
-	NodeType   string   `json:"nodeType"`
-	Tags       []string `json:"tags"`
-	Seq        *int     `json:"seq"`
-	IsRunnable *bool    `json:"isRunnable"`
-	UpdatedAt  string   `json:"updatedAt"`
-}
-
-// GetId returns NodesNodesNode.Id, and is useful for accessing the field via an interface.
-func (v *NodesNodesNode) GetId() string { return v.Id }
-
-// GetMemoryId returns NodesNodesNode.MemoryId, and is useful for accessing the field via an interface.
-func (v *NodesNodesNode) GetMemoryId() string { return v.MemoryId }
-
-// GetLoc returns NodesNodesNode.Loc, and is useful for accessing the field via an interface.
-func (v *NodesNodesNode) GetLoc() string { return v.Loc }
-
-// GetName returns NodesNodesNode.Name, and is useful for accessing the field via an interface.
-func (v *NodesNodesNode) GetName() string { return v.Name }
-
-// GetNodeType returns NodesNodesNode.NodeType, and is useful for accessing the field via an interface.
-func (v *NodesNodesNode) GetNodeType() string { return v.NodeType }
-
-// GetTags returns NodesNodesNode.Tags, and is useful for accessing the field via an interface.
-func (v *NodesNodesNode) GetTags() []string { return v.Tags }
-
-// GetSeq returns NodesNodesNode.Seq, and is useful for accessing the field via an interface.
-func (v *NodesNodesNode) GetSeq() *int { return v.Seq }
-
-// GetIsRunnable returns NodesNodesNode.IsRunnable, and is useful for accessing the field via an interface.
-func (v *NodesNodesNode) GetIsRunnable() *bool { return v.IsRunnable }
-
-// GetUpdatedAt returns NodesNodesNode.UpdatedAt, and is useful for accessing the field via an interface.
-func (v *NodesNodesNode) GetUpdatedAt() string { return v.UpdatedAt }
-
-// NodesResponse is returned by Nodes on success.
-type NodesResponse struct {
-	Nodes []*NodesNodesNode `json:"nodes"`
-}
-
-// GetNodes returns NodesResponse.Nodes, and is useful for accessing the field via an interface.
-func (v *NodesResponse) GetNodes() []*NodesNodesNode { return v.Nodes }
 
 // OrgFields includes the GraphQL fields of Organization requested by the fragment OrgFields.
 type OrgFields struct {
@@ -3477,27 +3526,6 @@ type RunTaskResponse struct {
 
 // GetRunTask returns RunTaskResponse.RunTask, and is useful for accessing the field via an interface.
 func (v *RunTaskResponse) GetRunTask() string { return v.RunTask }
-
-// Search dispatch for nodeSearch. Spec 033.
-//
-// - keyword: substring match across name/loc/description/tags (the legacy
-// nodes-query semantic, exposed as a nodeSearch mode for parity).
-// - vector: semantic search via the memory's vector index. Requires
-// vectorIndexEnabled on the memory.
-// - hybrid: reciprocal-rank fusion of keyword + vector (k=60).
-type SearchMode string
-
-const (
-	SearchModeHybrid  SearchMode = "hybrid"
-	SearchModeKeyword SearchMode = "keyword"
-	SearchModeVector  SearchMode = "vector"
-)
-
-var AllSearchMode = []SearchMode{
-	SearchModeHybrid,
-	SearchModeKeyword,
-	SearchModeVector,
-}
 
 // Bulk literal/regex search-and-replace across selected nodes.
 //
@@ -4977,6 +5005,34 @@ func (v *__EffectiveAccessInput) GetUser() string { return v.User }
 // GetResource returns __EffectiveAccessInput.Resource, and is useful for accessing the field via an interface.
 func (v *__EffectiveAccessInput) GetResource() string { return v.Resource }
 
+// __FindNodesInput is used internally by genqlient
+type __FindNodesInput struct {
+	Query  *string        `json:"query,omitempty"`
+	Mode   *FindNodesMode `json:"mode,omitempty"`
+	Filter *NodeFilter    `json:"filter,omitempty"`
+	Sort   *NodeSort      `json:"sort,omitempty"`
+	Limit  *int           `json:"limit,omitempty"`
+	Offset *int           `json:"offset,omitempty"`
+}
+
+// GetQuery returns __FindNodesInput.Query, and is useful for accessing the field via an interface.
+func (v *__FindNodesInput) GetQuery() *string { return v.Query }
+
+// GetMode returns __FindNodesInput.Mode, and is useful for accessing the field via an interface.
+func (v *__FindNodesInput) GetMode() *FindNodesMode { return v.Mode }
+
+// GetFilter returns __FindNodesInput.Filter, and is useful for accessing the field via an interface.
+func (v *__FindNodesInput) GetFilter() *NodeFilter { return v.Filter }
+
+// GetSort returns __FindNodesInput.Sort, and is useful for accessing the field via an interface.
+func (v *__FindNodesInput) GetSort() *NodeSort { return v.Sort }
+
+// GetLimit returns __FindNodesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__FindNodesInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __FindNodesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__FindNodesInput) GetOffset() *int { return v.Offset }
+
 // __GetMemoryInput is used internally by genqlient
 type __GetMemoryInput struct {
 	Id string `json:"id"`
@@ -5052,62 +5108,6 @@ type __NodeExportMetaInput struct {
 
 // GetId returns __NodeExportMetaInput.Id, and is useful for accessing the field via an interface.
 func (v *__NodeExportMetaInput) GetId() string { return v.Id }
-
-// __NodeSearchInput is used internally by genqlient
-type __NodeSearchInput struct {
-	Query     string      `json:"query"`
-	Mode      *SearchMode `json:"mode,omitempty"`
-	MemoryUrn *string     `json:"memoryUrn,omitempty"`
-	Limit     *int        `json:"limit,omitempty"`
-}
-
-// GetQuery returns __NodeSearchInput.Query, and is useful for accessing the field via an interface.
-func (v *__NodeSearchInput) GetQuery() string { return v.Query }
-
-// GetMode returns __NodeSearchInput.Mode, and is useful for accessing the field via an interface.
-func (v *__NodeSearchInput) GetMode() *SearchMode { return v.Mode }
-
-// GetMemoryUrn returns __NodeSearchInput.MemoryUrn, and is useful for accessing the field via an interface.
-func (v *__NodeSearchInput) GetMemoryUrn() *string { return v.MemoryUrn }
-
-// GetLimit returns __NodeSearchInput.Limit, and is useful for accessing the field via an interface.
-func (v *__NodeSearchInput) GetLimit() *int { return v.Limit }
-
-// __NodesInput is used internally by genqlient
-type __NodesInput struct {
-	Memory     *string  `json:"memory,omitempty"`
-	Prefix     *string  `json:"prefix,omitempty"`
-	NodeType   *string  `json:"nodeType,omitempty"`
-	IsRunnable *bool    `json:"isRunnable,omitempty"`
-	Tags       []string `json:"tags,omitempty"`
-	Search     *string  `json:"search,omitempty"`
-	Limit      *int     `json:"limit,omitempty"`
-	Offset     *int     `json:"offset,omitempty"`
-}
-
-// GetMemory returns __NodesInput.Memory, and is useful for accessing the field via an interface.
-func (v *__NodesInput) GetMemory() *string { return v.Memory }
-
-// GetPrefix returns __NodesInput.Prefix, and is useful for accessing the field via an interface.
-func (v *__NodesInput) GetPrefix() *string { return v.Prefix }
-
-// GetNodeType returns __NodesInput.NodeType, and is useful for accessing the field via an interface.
-func (v *__NodesInput) GetNodeType() *string { return v.NodeType }
-
-// GetIsRunnable returns __NodesInput.IsRunnable, and is useful for accessing the field via an interface.
-func (v *__NodesInput) GetIsRunnable() *bool { return v.IsRunnable }
-
-// GetTags returns __NodesInput.Tags, and is useful for accessing the field via an interface.
-func (v *__NodesInput) GetTags() []string { return v.Tags }
-
-// GetSearch returns __NodesInput.Search, and is useful for accessing the field via an interface.
-func (v *__NodesInput) GetSearch() *string { return v.Search }
-
-// GetLimit returns __NodesInput.Limit, and is useful for accessing the field via an interface.
-func (v *__NodesInput) GetLimit() *int { return v.Limit }
-
-// GetOffset returns __NodesInput.Offset, and is useful for accessing the field via an interface.
-func (v *__NodesInput) GetOffset() *int { return v.Offset }
 
 // __OrgMembersInput is used internally by genqlient
 type __OrgMembersInput struct {
@@ -6214,6 +6214,78 @@ func EffectiveAccess(
 	return data_, err_
 }
 
+// The query executed by FindNodes.
+const FindNodes_Operation = `
+query FindNodes ($query: String, $mode: FindNodesMode, $filter: NodeFilter, $sort: NodeSort, $limit: Int, $offset: Int) {
+	findNodes(query: $query, mode: $mode, filter: $filter, sort: $sort, limit: $limit, offset: $offset) {
+		total
+		degraded
+		reason
+		hits {
+			score
+			node {
+				id
+				memoryId
+				loc
+				name
+				nodeType
+				tags
+				seq
+				isRunnable
+				updatedAt
+			}
+		}
+	}
+}
+`
+
+// Unified node list + search (cor:api:090) — the one field that supersedes the
+// old `nodes` list and `nodeSearch`. Omit $query for a filtered list in
+// deterministic order (subsumes `nodes`); pass $query to rank by $mode
+// (keyword | vector | hybrid | regex). $filter is the structured, AND-combined
+// selector context (memoryIds, locPrefix, nodeType, tags, isRunnable, …).
+// Results are under hits[].node — never a bare array. Backs `node ls`,
+// `node import`, `memory export`, and the `spec` reads; driven through
+// api.FindNodes, which flattens hits→nodes and surfaces degraded/reason.
+//
+// The server treats an omitted NodeFilter field as "no constraint"; nil
+// pointers must therefore be omitted, not sent as null — hence the per-field
+// omitempty annotations mirroring nodes.graphql's NodeInput contract.
+func FindNodes(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	query *string,
+	mode *FindNodesMode,
+	filter *NodeFilter,
+	sort *NodeSort,
+	limit *int,
+	offset *int,
+) (data_ *FindNodesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "FindNodes",
+		Query:  FindNodes_Operation,
+		Variables: &__FindNodesInput{
+			Query:  query,
+			Mode:   mode,
+			Filter: filter,
+			Sort:   sort,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &FindNodesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by GetMemory.
 const GetMemory_Operation = `
 query GetMemory ($id: ID!) {
@@ -6748,115 +6820,6 @@ func NodeExportMeta(
 	}
 
 	data_ = &NodeExportMetaResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
-// The query executed by NodeSearch.
-const NodeSearch_Operation = `
-query NodeSearch ($query: String!, $mode: SearchMode, $memoryUrn: String, $limit: Int) {
-	nodeSearch(query: $query, mode: $mode, memoryUrn: $memoryUrn, limit: $limit) {
-		degraded
-		reason
-		nodes {
-			id
-			memoryId
-			loc
-			name
-			nodeType
-			tags
-			updatedAt
-		}
-	}
-}
-`
-
-// Semantic + keyword search (spec 033). hybrid mode degrades to keyword
-// (with a `degraded`/`reason` note) on memories without a vector index,
-// so `spec find` is never silently empty. Backs `hadron spec find`.
-func NodeSearch(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	query string,
-	mode *SearchMode,
-	memoryUrn *string,
-	limit *int,
-) (data_ *NodeSearchResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "NodeSearch",
-		Query:  NodeSearch_Operation,
-		Variables: &__NodeSearchInput{
-			Query:     query,
-			Mode:      mode,
-			MemoryUrn: memoryUrn,
-			Limit:     limit,
-		},
-	}
-
-	data_ = &NodeSearchResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
-// The query executed by Nodes.
-const Nodes_Operation = `
-query Nodes ($memory: ID, $prefix: String, $nodeType: String, $isRunnable: Boolean, $tags: [String!], $search: String, $limit: Int, $offset: Int) {
-	nodes(memory: $memory, prefix: $prefix, nodeType: $nodeType, isRunnable: $isRunnable, tags: $tags, search: $search, limit: $limit, offset: $offset) {
-		id
-		memoryId
-		loc
-		name
-		nodeType
-		tags
-		seq
-		isRunnable
-		updatedAt
-	}
-}
-`
-
-func Nodes(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	memory *string,
-	prefix *string,
-	nodeType *string,
-	isRunnable *bool,
-	tags []string,
-	search *string,
-	limit *int,
-	offset *int,
-) (data_ *NodesResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "Nodes",
-		Query:  Nodes_Operation,
-		Variables: &__NodesInput{
-			Memory:     memory,
-			Prefix:     prefix,
-			NodeType:   nodeType,
-			IsRunnable: isRunnable,
-			Tags:       tags,
-			Search:     search,
-			Limit:      limit,
-			Offset:     offset,
-		},
-	}
-
-	data_ = &NodesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

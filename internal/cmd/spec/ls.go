@@ -6,7 +6,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
-	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
@@ -49,7 +48,7 @@ explicit page instead.`,
 			// Bare `ls` lists the whole memory, so page to exhaustion (#23).
 			// An explicit --limit/--offset is honored verbatim as a single
 			// page — deliberate user-driven pagination, not the default.
-			var rawNodes []*gen.NodesNodesNode
+			var rawNodes []*api.ListNode
 			if limit > 0 || offset > 0 {
 				var limitArg, offsetArg *int
 				if limit > 0 {
@@ -58,11 +57,11 @@ explicit page instead.`,
 				if offset > 0 {
 					offsetArg = &offset
 				}
-				resp, rerr := gen.Nodes(cmd.Context(), client, memoryArg, prefixArg, nil, nil, []string{"spec"}, nil, limitArg, offsetArg)
+				page, rerr := api.FindNodes(cmd.Context(), client, nil, nil, newNodeFilter(memoryArg, prefixArg, []string{"spec"}), sortLoc(), limitArg, offsetArg)
 				if rerr != nil {
 					return api.MapError(rerr)
 				}
-				rawNodes = resp.Nodes
+				rawNodes = page.Nodes
 			} else {
 				rawNodes, err = scanAllNodes(cmd.Context(), client, memoryArg, prefixArg, []string{"spec"})
 				if err != nil {

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -30,10 +31,53 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 			resp = `{"errors":[{"message":"unexpected operation"}]}`
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(resp))
+		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, resp)))
 	}))
 	t.Cleanup(server.Close)
 	return server
+}
+
+// translateFindNodes lets the many spec/node fakes keep their readable legacy
+// `{"data":{"nodes":[...]}}` (and `{"data":{"nodeSearch":{…}}}`) response
+// literals now that the CLI queries the unified `findNodes` field: it rewraps a
+// legacy body into the findNodes hit envelope (each node under `hits[].node`,
+// plus total/degraded/reason) that the client decodes. A body already in
+// findNodes shape, an error body, or any non-FindNodes op passes through
+// untouched.
+func translateFindNodes(op, resp string) string {
+	if op != "FindNodes" || strings.Contains(resp, `"findNodes"`) || strings.Contains(resp, `"errors"`) {
+		return resp
+	}
+	var legacy struct {
+		Data struct {
+			Nodes      []json.RawMessage `json:"nodes"`
+			NodeSearch *struct {
+				Degraded json.RawMessage   `json:"degraded"`
+				Reason   json.RawMessage   `json:"reason"`
+				Nodes    []json.RawMessage `json:"nodes"`
+			} `json:"nodeSearch"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(resp), &legacy); err != nil {
+		return resp
+	}
+	nodes := legacy.Data.Nodes
+	degraded, reason := "null", "null"
+	if ns := legacy.Data.NodeSearch; ns != nil {
+		nodes = ns.Nodes
+		if len(ns.Degraded) > 0 {
+			degraded = string(ns.Degraded)
+		}
+		if len(ns.Reason) > 0 {
+			reason = string(ns.Reason)
+		}
+	}
+	hits := make([]string, len(nodes))
+	for i, n := range nodes {
+		hits[i] = `{"score":null,"node":` + string(n) + `}`
+	}
+	return fmt.Sprintf(`{"data":{"findNodes":{"total":%d,"degraded":%s,"reason":%s,"hits":[%s]}}}`,
+		len(hits), degraded, reason, strings.Join(hits, ","))
 }
 
 type memStore map[string]string

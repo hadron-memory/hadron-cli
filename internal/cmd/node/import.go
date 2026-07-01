@@ -229,19 +229,21 @@ func nodeExists(cmd *cobra.Command, client graphql.Client, memoryRef, loc string
 		return err == nil && resp.ResolveUrn != nil && resp.ResolveUrn.Kind == "node"
 	}
 	// A raw memory id: list by loc prefix and match the exact loc.
-	mem, prefix, limit := memoryRef, loc, 200
+	limit := 200
+	filter := &gen.NodeFilter{MemoryIds: []string{memoryRef}, LocPrefix: &loc}
+	sort := gen.NodeSortLoc
 	for offset := 0; ; offset += limit {
 		off := offset
-		resp, err := gen.Nodes(cmd.Context(), client, &mem, &prefix, nil, nil, nil, nil, &limit, &off)
+		page, err := api.FindNodes(cmd.Context(), client, nil, nil, filter, &sort, &limit, &off)
 		if err != nil {
 			return false
 		}
-		for _, nd := range resp.Nodes {
+		for _, nd := range page.Nodes {
 			if nd != nil && nd.Loc == loc {
 				return true
 			}
 		}
-		if len(resp.Nodes) < limit {
+		if len(page.Nodes) < limit {
 			return false
 		}
 	}
