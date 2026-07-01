@@ -1940,33 +1940,6 @@ enum NodeMergeField {
 }
 
 """
-Envelope for nodeSearch — carries the ranked nodes plus structured
-flags surfacing degraded / no-index outcomes that the MCP path emits
-inline. Spec 033.
-
-reason: set when the query could not run as requested (e.g.
-  'no_vector_index' on a non-indexed memory with mode:vector); nodes
-  is empty in that case.
-degraded: set when the query ran but at reduced fidelity (e.g.
-  'no_vector_index' on a hybrid query that fell back to keyword-only);
-  nodes still carries usable hits.
-"""
-type NodeSearchResult {
-  degraded: String
-  nodes: [Node!]!
-
-  """
-  Spec 033 US2 — populated when the query specified granularity:chunk on a
-  content-chunk-bearing memory. Each entry is a passage (chunk text +
-  character offsets + chunk index + parent node URN), ranked by best
-  similarity. Empty list when granularity:node (default) — the ranked
-  nodes are in `nodes`.
-  """
-  passages: [Passage!]!
-  reason: String
-}
-
-"""
 Result ordering for findNodes. Default relevance; the rest suppress scoring (browse order).
 """
 enum NodeSort {
@@ -2290,78 +2263,8 @@ type Query {
   """Render one node to a portable, self-contained file (#386, spec cor:api)."""
   nodeExport(id: ID!, format: NodeExportFormat = MD, full: Boolean = true, sections: [NodeExportSection!]): NodeExportResult!
 
-  """
-  Vector/hybrid-aware search over a memory. Keyword-only callers should
-  keep using the legacy 'nodes' query — nodeSearch is the
-  vector-aware entrypoint per spec 033 contract.
-  
-  mode defaults to vector (the vector-aware entrypoint design — the
-  MCP hadron_find_nodes tool defaults to keyword for backward-compat,
-  a deliberate divergence between the two surfaces). expand (graph
-  neighbor depth 0..3, default 0) and granularity:chunk (passage
-  retrieval, vector-mode only) are both fully live.
-  
-  Access control: same memory-read gate as the keyword nodes query —
-  the raw-SQL similarity query is scoped to memories the caller can
-  read, never cross-memory.
-  """
-  nodeSearch(
-    expand: Int
-    granularity: SearchGranularity
-    limit: Int
-
-    """
-    Scope to a SET of memories by ID (issue #355). Intersected with the
-    caller's access filter; inaccessible ids are silently dropped — unlike
-    the singular `memoryUrn`, which throws FORBIDDEN. Takes precedence over
-    `memoryUrn`; omit both to search every accessible memory.
-    """
-    memoryIds: [ID!]
-    memoryUrn: String
-    mode: SearchMode
-    query: String!
-  ): NodeSearchResult!
   nodeUsage(limit: Int, loc: String!): [UsageEvent!]!
   nodeVersions(limit: Int, nodeId: ID!): [NodeVersion!]!
-  nodes(
-    """
-    Filter by runnable status. `true` returns only task nodes
-    (Node.isRunnable = true) — the canonical "tasks I can run" predicate
-    that hadron_run_task gates on. `false` returns only nodes explicitly
-    marked non-runnable; note most nodes leave isRunnable NULL, so
-    `false` does NOT include them. Omit to return nodes regardless of
-    runnable status.
-    """
-    isRunnable: Boolean
-    limit: Int
-
-    """
-    Scope to a single memory, addressed by ID or fully-qualified URN
-    (007-entity-id-or-urn dispatch via resolveMemoryRef). Intersected
-    with the caller's access filter — scoping to an inaccessible
-    memory yields [], and an unknown ref throws NOT_FOUND. Added for
-    the hadron-cli `node ls --memory` surface; mirrors the
-    usageEvents(memoryId:) filter (#249).
-    """
-    memory: ID
-
-    """
-    Scope to a SET of memories (issue #355 — node content search
-    across an agent's / app's memories in one round-trip). Each entry
-    is a memory ID or a fully-qualified URN (007-entity-id-or-urn dispatch
-    via resolveMemoryRef), resolved then intersected with the caller's
-    access filter; unresolvable refs and inaccessible ids are silently
-    dropped (a multi-select UI shouldn't fail the whole search because one
-    ref isn't readable). Takes precedence over `memory` when both are
-    supplied; omit both to search every accessible memory.
-    """
-    memoryIds: [ID!]
-    nodeType: String
-    offset: Int
-    prefix: String
-    search: String
-    tags: [String!]
-  ): [Node!]!
 
   """
   System memories belonging to an org (org member or platform ADMIN).
@@ -2533,21 +2436,6 @@ Result granularity for nodeSearch. Spec 033.
 enum SearchGranularity {
   chunk
   node
-}
-
-"""
-Search dispatch for nodeSearch. Spec 033.
-
-- keyword: substring match across name/loc/description/tags (the legacy
-  nodes-query semantic, exposed as a nodeSearch mode for parity).
-- vector: semantic search via the memory's vector index. Requires
-  vectorIndexEnabled on the memory.
-- hybrid: reciprocal-rank fusion of keyword + vector (k=60).
-"""
-enum SearchMode {
-  hybrid
-  keyword
-  vector
 }
 
 type SearchReplaceFieldResult {
