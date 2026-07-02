@@ -243,7 +243,14 @@ func buildCreateNodeInput(doc *nodedoc.Document, memoryRef, targetLoc string) (*
 // shape: the target is selected by (memoryId, loc), and every doc-supplied
 // field — the file's name included, since an import means "make the node
 // match the file" — is carried over verbatim. Fields the file omits stay
-// omitted, which updateNode reads as "preserve".
+// omitted (nil), which updateNode reads as "preserve".
+//
+// Every field the two input structs share is mapped, whether or not
+// buildCreateNodeInput populates it today, so a future doc field can't be
+// silently dropped on the update path (TestUpdateNodeInputFromMapsAllFields
+// enforces this). The one exclusion is Id: on CreateNodeInput it is a forced
+// create-PK, on UpdateNodeInput it is the target selector — carrying it over
+// would collide with the (memoryId, loc) selector pair (id XOR memoryId+loc).
 func updateNodeInputFrom(in *gen.CreateNodeInput) *gen.UpdateNodeInput {
 	name := in.Name
 	return &gen.UpdateNodeInput{
@@ -259,6 +266,12 @@ func updateNodeInputFrom(in *gen.CreateNodeInput) *gen.UpdateNodeInput {
 		Seq:         in.Seq,
 		Data:        in.Data,
 		Properties:  in.Properties,
+		Edges:       in.Edges,
+		IsRunnable:  in.IsRunnable,
+		AiAgent:     in.AiAgent,
+		LlmModel:    in.LlmModel,
+		OwnerRepo:   in.OwnerRepo,
+		Reason:      in.Reason,
 	}
 }
 
