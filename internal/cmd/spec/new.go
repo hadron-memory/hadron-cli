@@ -266,24 +266,22 @@ is one call instead of four.`,
 				})
 			}
 
-			createOnly := true
 			nodeType := "info"
-			input := gen.NodeInput{
-				MemoryId:   memURN,
-				Loc:        target.Format(),
-				Name:       name,
-				CreateOnly: &createOnly,
-				Tags:       tagSet,
-				NodeType:   &nodeType,
-				Abstract:   &abs,
-				Content:    &body,
-				Data:       specDataRaw(),
+			input := gen.CreateNodeInput{
+				MemoryId: memURN,
+				Loc:      target.Format(),
+				Name:     name,
+				Tags:     tagSet,
+				NodeType: &nodeType,
+				Abstract: &abs,
+				Content:  &body,
+				Data:     specDataRaw(),
 			}
-			up, err := gen.UpsertNode(cmd.Context(), client, &input)
+			up, err := gen.CreateNode(cmd.Context(), client, &input)
 			if err != nil {
 				return api.MapError(err)
 			}
-			newID := up.UpsertNode.Id
+			newID := up.CreateNode.Id
 
 			var edgeFailures []string
 			if !noEdges {
@@ -305,23 +303,22 @@ is one call instead of four.`,
 			// its sole ToC edge points at the root we just made — wired by id,
 			// since resolveUrn can lag a fresh node by ~a minute.
 			if coContract != nil {
-				cInput := gen.NodeInput{
-					MemoryId:   memURN,
-					Loc:        coContract.cit.Format(),
-					Name:       coContract.name,
-					CreateOnly: &createOnly,
-					Tags:       tagSet,
-					NodeType:   &nodeType,
-					Abstract:   &coContract.abstract,
-					Content:    &coContract.body,
-					Data:       specDataRaw(),
+				cInput := gen.CreateNodeInput{
+					MemoryId: memURN,
+					Loc:      coContract.cit.Format(),
+					Name:     coContract.name,
+					Tags:     tagSet,
+					NodeType: &nodeType,
+					Abstract: &coContract.abstract,
+					Content:  &coContract.body,
+					Data:     specDataRaw(),
 				}
-				cUp, cErr := gen.UpsertNode(cmd.Context(), client, &cInput)
+				cUp, cErr := gen.CreateNode(cmd.Context(), client, &cInput)
 				if cErr != nil {
 					return fmt.Errorf("created %s but its contract %s failed: %w", target.Format(), coContract.cit.Format(), api.MapError(cErr))
 				}
 				if !noEdges {
-					if _, eErr := gen.CreateEdge(cmd.Context(), client, cUp.UpsertNode.Id, newID, coContract.title, nil, nil, nil, nil, nil, nil); eErr != nil {
+					if _, eErr := gen.CreateEdge(cmd.Context(), client, cUp.CreateNode.Id, newID, coContract.title, nil, nil, nil, nil, nil, nil); eErr != nil {
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", coContract.title, target.Format(), api.MapError(eErr))
 						edgeFailures = append(edgeFailures, target.Format())
 					}
@@ -761,22 +758,21 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 		return render()
 	}
 
-	createOnly := true
 	nodeType := "info"
 	created := map[string]string{}
 	var edgeFailures []string
 	for _, pn := range plan {
 		ab, bd := pn.abstract, pn.body
-		input := gen.NodeInput{
+		input := gen.CreateNodeInput{
 			MemoryId: memURN, Loc: pn.cit.Format(), Name: pn.name,
-			CreateOnly: &createOnly, Tags: tagSet, NodeType: &nodeType,
+			Tags: tagSet, NodeType: &nodeType,
 			Abstract: &ab, Content: &bd, Data: specDataRaw(),
 		}
-		up, uerr := gen.UpsertNode(cmd.Context(), client, &input)
+		up, uerr := gen.CreateNode(cmd.Context(), client, &input)
 		if uerr != nil {
 			return fmt.Errorf("scaffolding %s: %w", pn.cit.Format(), api.MapError(uerr))
 		}
-		srcID := up.UpsertNode.Id
+		srcID := up.CreateNode.Id
 		created[pn.cit.Format()] = srcID
 		if noEdges {
 			continue

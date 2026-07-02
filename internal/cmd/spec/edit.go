@@ -178,11 +178,11 @@ nothing.`,
 
 			// Omitted fields are preserved; we set only what changed. An abstract
 			// changed to empty sends "" — the server normalizes that to null
-			// (clear), which is the intended "I removed the abstract".
-			input := gen.NodeInput{
-				MemoryId: node.MemoryId,
-				Loc:      node.Loc,
-				Name:     node.Name,
+			// (clear), which is the intended "I removed the abstract". The node
+			// is targeted by (memoryId, loc); updateNode never creates.
+			input := gen.UpdateNodeInput{
+				MemoryId: &node.MemoryId,
+				Loc:      &node.Loc,
 			}
 			if result.BodyChanged {
 				input.Content = &newBody
@@ -190,7 +190,7 @@ nothing.`,
 			if result.AbstractChanged {
 				input.Abstract = &newAbstract
 			}
-			if _, err := gen.UpsertNode(cmd.Context(), client, &input); err != nil {
+			if _, err := gen.UpdateNode(cmd.Context(), client, &input); err != nil {
 				return api.MapError(err)
 			}
 			return render()

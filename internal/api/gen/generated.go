@@ -190,8 +190,9 @@ func (v *AddMemoryMemberResponse) GetAddMemoryMember() *AddMemoryMemberAddMemory
 
 // AddOrgMemberAddOrgMember includes the requested fields of the GraphQL type OrgMember.
 type AddOrgMemberAddOrgMember struct {
-	Id   string                        `json:"id"`
-	Role Role                          `json:"role"`
+	Id string `json:"id"`
+	// Target member's role in this org. Null when the viewer isn't an ADMIN/OWNER of the org (#384 field-level visibility); always visible for one's own membership.
+	Role *Role                         `json:"role"`
 	User *AddOrgMemberAddOrgMemberUser `json:"user"`
 }
 
@@ -199,7 +200,7 @@ type AddOrgMemberAddOrgMember struct {
 func (v *AddOrgMemberAddOrgMember) GetId() string { return v.Id }
 
 // GetRole returns AddOrgMemberAddOrgMember.Role, and is useful for accessing the field via an interface.
-func (v *AddOrgMemberAddOrgMember) GetRole() Role { return v.Role }
+func (v *AddOrgMemberAddOrgMember) GetRole() *Role { return v.Role }
 
 // GetUser returns AddOrgMemberAddOrgMember.User, and is useful for accessing the field via an interface.
 func (v *AddOrgMemberAddOrgMember) GetUser() *AddOrgMemberAddOrgMemberUser { return v.User }
@@ -1000,6 +1001,145 @@ type CreateMemoryShareResponse struct {
 func (v *CreateMemoryShareResponse) GetCreateMemoryShare() *CreateMemoryShareCreateMemoryShareCreateMemorySharePayload {
 	return v.CreateMemoryShare
 }
+
+// CreateNodeCreateNode includes the requested fields of the GraphQL type Node.
+type CreateNodeCreateNode struct {
+	Id         string   `json:"id"`
+	MemoryId   string   `json:"memoryId"`
+	Loc        string   `json:"loc"`
+	Name       string   `json:"name"`
+	NodeType   string   `json:"nodeType"`
+	Tags       []string `json:"tags"`
+	IsRunnable *bool    `json:"isRunnable"`
+	UpdatedAt  string   `json:"updatedAt"`
+}
+
+// GetId returns CreateNodeCreateNode.Id, and is useful for accessing the field via an interface.
+func (v *CreateNodeCreateNode) GetId() string { return v.Id }
+
+// GetMemoryId returns CreateNodeCreateNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *CreateNodeCreateNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns CreateNodeCreateNode.Loc, and is useful for accessing the field via an interface.
+func (v *CreateNodeCreateNode) GetLoc() string { return v.Loc }
+
+// GetName returns CreateNodeCreateNode.Name, and is useful for accessing the field via an interface.
+func (v *CreateNodeCreateNode) GetName() string { return v.Name }
+
+// GetNodeType returns CreateNodeCreateNode.NodeType, and is useful for accessing the field via an interface.
+func (v *CreateNodeCreateNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns CreateNodeCreateNode.Tags, and is useful for accessing the field via an interface.
+func (v *CreateNodeCreateNode) GetTags() []string { return v.Tags }
+
+// GetIsRunnable returns CreateNodeCreateNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *CreateNodeCreateNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetUpdatedAt returns CreateNodeCreateNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateNodeCreateNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// Input for createNode. 'memoryId', 'loc', and 'name' are required; creating
+// is create-only — a live node at (memoryId, loc) rejects with
+// NodeLocConflictError (spec 039 Phase 0 D1/D4).
+type CreateNodeInput struct {
+	// Paragraph-length summary of this node — see Node.abstract for the surfacing contract. Optional. Empty + whitespace-only normalize to null. Cap is 2000 characters.
+	Abstract    *string          `json:"abstract,omitempty"`
+	AiAgent     *string          `json:"aiAgent,omitempty"`
+	Alias       *string          `json:"alias,omitempty"`
+	Content     *string          `json:"content,omitempty"`
+	Data        *json.RawMessage `json:"data,omitempty"`
+	Description *string          `json:"description,omitempty"`
+	// Outgoing edges to create with the node.
+	Edges []*NodeEdgeInput `json:"edges,omitempty"`
+	// Forced PK (importer/sync use case, e.g. a stable UUIDv7). Only ever a create-id here — never a selector (D2). Omit to mint.
+	Id *string `json:"id,omitempty"`
+	// Whether this node can be run as a task by hadron_run_task (cor:api:060).
+	IsRunnable *bool   `json:"isRunnable,omitempty"`
+	LlmModel   *string `json:"llmModel,omitempty"`
+	Loc        string  `json:"loc"`
+	// Memory reference. Accepts the entity's ID (CUID / 32-char hex) or its
+	// URN (per spec 007 ID-or-URN dispatch). URN inputs MUST be fully
+	// qualified (org:memory) per spec 022 — relative-form URNs are
+	// rejected as GraphQL errors with extensions.code "URN_NOT_QUALIFIED".
+	MemoryId   string           `json:"memoryId"`
+	Name       string           `json:"name"`
+	NodeType   *string          `json:"nodeType,omitempty"`
+	OwnerRepo  *string          `json:"ownerRepo,omitempty"`
+	Properties *json.RawMessage `json:"properties,omitempty"`
+	// Recorded on version history only when a soft-deleted node is resurrected (a pure create snapshots nothing).
+	Reason *string  `json:"reason,omitempty"`
+	Seq    *int     `json:"seq,omitempty"`
+	Tags   []string `json:"tags,omitempty"`
+}
+
+// GetAbstract returns CreateNodeInput.Abstract, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetAbstract() *string { return v.Abstract }
+
+// GetAiAgent returns CreateNodeInput.AiAgent, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetAiAgent() *string { return v.AiAgent }
+
+// GetAlias returns CreateNodeInput.Alias, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetAlias() *string { return v.Alias }
+
+// GetContent returns CreateNodeInput.Content, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetContent() *string { return v.Content }
+
+// GetData returns CreateNodeInput.Data, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetData() *json.RawMessage { return v.Data }
+
+// GetDescription returns CreateNodeInput.Description, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetDescription() *string { return v.Description }
+
+// GetEdges returns CreateNodeInput.Edges, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetEdges() []*NodeEdgeInput { return v.Edges }
+
+// GetId returns CreateNodeInput.Id, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetId() *string { return v.Id }
+
+// GetIsRunnable returns CreateNodeInput.IsRunnable, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetLlmModel returns CreateNodeInput.LlmModel, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetLlmModel() *string { return v.LlmModel }
+
+// GetLoc returns CreateNodeInput.Loc, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetLoc() string { return v.Loc }
+
+// GetMemoryId returns CreateNodeInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetMemoryId() string { return v.MemoryId }
+
+// GetName returns CreateNodeInput.Name, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetName() string { return v.Name }
+
+// GetNodeType returns CreateNodeInput.NodeType, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetNodeType() *string { return v.NodeType }
+
+// GetOwnerRepo returns CreateNodeInput.OwnerRepo, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetOwnerRepo() *string { return v.OwnerRepo }
+
+// GetProperties returns CreateNodeInput.Properties, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetProperties() *json.RawMessage { return v.Properties }
+
+// GetReason returns CreateNodeInput.Reason, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetReason() *string { return v.Reason }
+
+// GetSeq returns CreateNodeInput.Seq, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetSeq() *int { return v.Seq }
+
+// GetTags returns CreateNodeInput.Tags, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetTags() []string { return v.Tags }
+
+// CreateNodeResponse is returned by CreateNode on success.
+type CreateNodeResponse struct {
+	// Create a single node. Rejects with NodeLocConflictError when a live node
+	// already exists at (memoryId, loc) — creating is create-only (spec 039
+	// Phase 0 D1); a soft-deleted node at the target loc is resurrected.
+	// 'name' is required here and only here (D4).
+	CreateNode *CreateNodeCreateNode `json:"createNode"`
+}
+
+// GetCreateNode returns CreateNodeResponse.CreateNode, and is useful for accessing the field via an interface.
+func (v *CreateNodeResponse) GetCreateNode() *CreateNodeCreateNode { return v.CreateNode }
 
 // CreateOrganizationCreateOrganization includes the requested fields of the GraphQL type Organization.
 type CreateOrganizationCreateOrganization struct {
@@ -2728,11 +2868,13 @@ type NodeExportFormat string
 const (
 	NodeExportFormatJson NodeExportFormat = "JSON"
 	NodeExportFormatMd   NodeExportFormat = "MD"
+	NodeExportFormatPdf  NodeExportFormat = "PDF"
 )
 
 var AllNodeExportFormat = []NodeExportFormat{
 	NodeExportFormatJson,
 	NodeExportFormatMd,
+	NodeExportFormatPdf,
 }
 
 // NodeExportMetaNodeByIdNode includes the requested fields of the GraphQL type Node.
@@ -2801,7 +2943,6 @@ func (v *NodeExportNodeExportNodeExportResult) GetBytes() int { return v.Bytes }
 
 // NodeExportResponse is returned by NodeExport on success.
 type NodeExportResponse struct {
-	// Render one node to a portable, self-contained file (#386, spec cor:api).
 	NodeExport *NodeExportNodeExportNodeExportResult `json:"nodeExport"`
 }
 
@@ -2856,99 +2997,6 @@ func (v *NodeFilter) GetUpdatedAfter() *string { return v.UpdatedAfter }
 
 // GetUpdatedBefore returns NodeFilter.UpdatedBefore, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetUpdatedBefore() *string { return v.UpdatedBefore }
-
-type NodeInput struct {
-	// Paragraph-length summary of this node — see Node.abstract for the surfacing contract (hadron_get_node opt-in via contentScope; hadron_find_nodes preview ships in US2). Optional. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
-	Abstract    *string          `json:"abstract,omitempty"`
-	AiAgent     *string          `json:"aiAgent,omitempty"`
-	Alias       *string          `json:"alias,omitempty"`
-	Content     *string          `json:"content,omitempty"`
-	CreateOnly  *bool            `json:"createOnly,omitempty"`
-	Data        *json.RawMessage `json:"data,omitempty"`
-	Description *string          `json:"description,omitempty"`
-	Edges       []*NodeEdgeInput `json:"edges,omitempty"`
-	Id          *string          `json:"id,omitempty"`
-	// Whether this node can be run as a task by hadron_run_task (cor:api:060). Omit to preserve on update.
-	IsRunnable *bool   `json:"isRunnable,omitempty"`
-	LlmModel   *string `json:"llmModel,omitempty"`
-	Loc        string  `json:"loc"`
-	// Memory reference. Accepts the entity's ID (CUID / 32-char hex) or its
-	// URN (per spec 007 ID-or-URN dispatch). URN inputs MUST be fully
-	// qualified (org:memory) per spec 022 — relative-form URNs are
-	// rejected as GraphQL errors with extensions.code "URN_NOT_QUALIFIED".
-	MemoryId   string           `json:"memoryId"`
-	Name       string           `json:"name"`
-	NodeType   *string          `json:"nodeType,omitempty"`
-	OwnerRepo  *string          `json:"ownerRepo,omitempty"`
-	Properties *json.RawMessage `json:"properties,omitempty"`
-	// Why this change was made — recorded on the version-history snapshot
-	// (NodeVersion.editedBy), mirroring hadron_update_node's reason arg so CLI
-	// and MCP edits leave equally-traceable history. Only an update snapshots a
-	// prior version, so reason has no effect on a pure create.
-	Reason *string  `json:"reason,omitempty"`
-	Seq    *int     `json:"seq,omitempty"`
-	Tags   []string `json:"tags,omitempty"`
-}
-
-// GetAbstract returns NodeInput.Abstract, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetAbstract() *string { return v.Abstract }
-
-// GetAiAgent returns NodeInput.AiAgent, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetAiAgent() *string { return v.AiAgent }
-
-// GetAlias returns NodeInput.Alias, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetAlias() *string { return v.Alias }
-
-// GetContent returns NodeInput.Content, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetContent() *string { return v.Content }
-
-// GetCreateOnly returns NodeInput.CreateOnly, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetCreateOnly() *bool { return v.CreateOnly }
-
-// GetData returns NodeInput.Data, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetData() *json.RawMessage { return v.Data }
-
-// GetDescription returns NodeInput.Description, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetDescription() *string { return v.Description }
-
-// GetEdges returns NodeInput.Edges, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetEdges() []*NodeEdgeInput { return v.Edges }
-
-// GetId returns NodeInput.Id, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetId() *string { return v.Id }
-
-// GetIsRunnable returns NodeInput.IsRunnable, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetIsRunnable() *bool { return v.IsRunnable }
-
-// GetLlmModel returns NodeInput.LlmModel, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetLlmModel() *string { return v.LlmModel }
-
-// GetLoc returns NodeInput.Loc, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetLoc() string { return v.Loc }
-
-// GetMemoryId returns NodeInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetMemoryId() string { return v.MemoryId }
-
-// GetName returns NodeInput.Name, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetName() string { return v.Name }
-
-// GetNodeType returns NodeInput.NodeType, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetNodeType() *string { return v.NodeType }
-
-// GetOwnerRepo returns NodeInput.OwnerRepo, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetOwnerRepo() *string { return v.OwnerRepo }
-
-// GetProperties returns NodeInput.Properties, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetProperties() *json.RawMessage { return v.Properties }
-
-// GetReason returns NodeInput.Reason, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetReason() *string { return v.Reason }
-
-// GetSeq returns NodeInput.Seq, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetSeq() *int { return v.Seq }
-
-// GetTags returns NodeInput.Tags, and is useful for accessing the field via an interface.
-func (v *NodeInput) GetTags() []string { return v.Tags }
 
 // Result ordering for findNodes. Default relevance; the rest suppress scoring (browse order).
 type NodeSort string
@@ -3033,8 +3081,9 @@ func (v *OrgMembersOrganization) GetMembers() []*OrgMembersOrganizationMembersOr
 
 // OrgMembersOrganizationMembersOrgMember includes the requested fields of the GraphQL type OrgMember.
 type OrgMembersOrganizationMembersOrgMember struct {
-	Id        string                                      `json:"id"`
-	Role      Role                                        `json:"role"`
+	Id string `json:"id"`
+	// Target member's role in this org. Null when the viewer isn't an ADMIN/OWNER of the org (#384 field-level visibility); always visible for one's own membership.
+	Role      *Role                                       `json:"role"`
 	CanInvite bool                                        `json:"canInvite"`
 	User      *OrgMembersOrganizationMembersOrgMemberUser `json:"user"`
 }
@@ -3043,7 +3092,7 @@ type OrgMembersOrganizationMembersOrgMember struct {
 func (v *OrgMembersOrganizationMembersOrgMember) GetId() string { return v.Id }
 
 // GetRole returns OrgMembersOrganizationMembersOrgMember.Role, and is useful for accessing the field via an interface.
-func (v *OrgMembersOrganizationMembersOrgMember) GetRole() Role { return v.Role }
+func (v *OrgMembersOrganizationMembersOrgMember) GetRole() *Role { return v.Role }
 
 // GetCanInvite returns OrgMembersOrganizationMembersOrgMember.CanInvite, and is useful for accessing the field via an interface.
 func (v *OrgMembersOrganizationMembersOrgMember) GetCanInvite() bool { return v.CanInvite }
@@ -4408,6 +4457,150 @@ func (v *UpdateNodeDataUpdateNodeDataNode) GetIsRunnable() *bool { return v.IsRu
 // GetUpdatedAt returns UpdateNodeDataUpdateNodeDataNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateNodeDataUpdateNodeDataNode) GetUpdatedAt() string { return v.UpdatedAt }
 
+// Input for updateNode. Identify the target by 'id' (PK or fully-qualified
+// node URN) XOR ('memoryId' + 'loc') — both selectors, or neither, is an
+// error (spec 039 Phase 0 D2). updateNode never creates and never moves (D3).
+// Every content field is optional: omitted = preserved (D4).
+type UpdateNodeInput struct {
+	// Paragraph-length summary of this node — see Node.abstract for the surfacing contract. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
+	Abstract    *string          `json:"abstract,omitempty"`
+	AiAgent     *string          `json:"aiAgent,omitempty"`
+	Alias       *string          `json:"alias,omitempty"`
+	Content     *string          `json:"content,omitempty"`
+	Data        *json.RawMessage `json:"data,omitempty"`
+	Description *string          `json:"description,omitempty"`
+	Edges       []*NodeEdgeInput `json:"edges,omitempty"`
+	// The node to change: PK (CUID / 32-char hex) or fully-qualified node URN (org::memory::loc). XOR with memoryId+loc.
+	Id *string `json:"id,omitempty"`
+	// Whether this node can be run as a task by hadron_run_task (cor:api:060). Omit to preserve.
+	IsRunnable *bool   `json:"isRunnable,omitempty"`
+	LlmModel   *string `json:"llmModel,omitempty"`
+	// Selector, with 'memoryId': the target's current loc. Not writable here — moveNode relocates.
+	Loc *string `json:"loc,omitempty"`
+	// Selector, with 'loc': the target's memory (ID or fully-qualified URN). XOR with 'id'.
+	MemoryId *string `json:"memoryId,omitempty"`
+	// Omit to preserve (D4).
+	Name       *string          `json:"name,omitempty"`
+	NodeType   *string          `json:"nodeType,omitempty"`
+	OwnerRepo  *string          `json:"ownerRepo,omitempty"`
+	Properties *json.RawMessage `json:"properties,omitempty"`
+	// Why this change was made — recorded on the version-history snapshot
+	// (NodeVersion.editedBy), mirroring hadron_update_node's reason arg so CLI
+	// and MCP edits leave equally-traceable history.
+	Reason *string `json:"reason,omitempty"`
+	Seq    *int    `json:"seq,omitempty"`
+	// Omit to preserve existing tags (issue #235); supply to replace the set.
+	Tags []string `json:"tags,omitempty"`
+}
+
+// GetAbstract returns UpdateNodeInput.Abstract, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetAbstract() *string { return v.Abstract }
+
+// GetAiAgent returns UpdateNodeInput.AiAgent, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetAiAgent() *string { return v.AiAgent }
+
+// GetAlias returns UpdateNodeInput.Alias, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetAlias() *string { return v.Alias }
+
+// GetContent returns UpdateNodeInput.Content, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetContent() *string { return v.Content }
+
+// GetData returns UpdateNodeInput.Data, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetData() *json.RawMessage { return v.Data }
+
+// GetDescription returns UpdateNodeInput.Description, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetDescription() *string { return v.Description }
+
+// GetEdges returns UpdateNodeInput.Edges, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetEdges() []*NodeEdgeInput { return v.Edges }
+
+// GetId returns UpdateNodeInput.Id, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetId() *string { return v.Id }
+
+// GetIsRunnable returns UpdateNodeInput.IsRunnable, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetLlmModel returns UpdateNodeInput.LlmModel, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetLlmModel() *string { return v.LlmModel }
+
+// GetLoc returns UpdateNodeInput.Loc, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetLoc() *string { return v.Loc }
+
+// GetMemoryId returns UpdateNodeInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetMemoryId() *string { return v.MemoryId }
+
+// GetName returns UpdateNodeInput.Name, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetName() *string { return v.Name }
+
+// GetNodeType returns UpdateNodeInput.NodeType, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetNodeType() *string { return v.NodeType }
+
+// GetOwnerRepo returns UpdateNodeInput.OwnerRepo, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetOwnerRepo() *string { return v.OwnerRepo }
+
+// GetProperties returns UpdateNodeInput.Properties, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetProperties() *json.RawMessage { return v.Properties }
+
+// GetReason returns UpdateNodeInput.Reason, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetReason() *string { return v.Reason }
+
+// GetSeq returns UpdateNodeInput.Seq, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetSeq() *int { return v.Seq }
+
+// GetTags returns UpdateNodeInput.Tags, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetTags() []string { return v.Tags }
+
+// UpdateNodeResponse is returned by UpdateNode on success.
+type UpdateNodeResponse struct {
+	// Update an existing node. Identify it by 'id' (PK or fully-qualified node
+	// URN) XOR the ('memoryId', 'loc') combo — supplying both selectors, or
+	// neither, is an error (D2). Rejects with NODE_NOT_FOUND when the target
+	// does not exist; updateNode never creates and never moves (relocation is
+	// moveNode's job, D3). Every content field is optional — omitted fields are
+	// preserved ('name' included, D4; 'abstract' keeps its omit/null/string
+	// contract; omitted 'tags' are preserved, issue #235).
+	UpdateNode *UpdateNodeUpdateNode `json:"updateNode"`
+}
+
+// GetUpdateNode returns UpdateNodeResponse.UpdateNode, and is useful for accessing the field via an interface.
+func (v *UpdateNodeResponse) GetUpdateNode() *UpdateNodeUpdateNode { return v.UpdateNode }
+
+// UpdateNodeUpdateNode includes the requested fields of the GraphQL type Node.
+type UpdateNodeUpdateNode struct {
+	Id         string   `json:"id"`
+	MemoryId   string   `json:"memoryId"`
+	Loc        string   `json:"loc"`
+	Name       string   `json:"name"`
+	NodeType   string   `json:"nodeType"`
+	Tags       []string `json:"tags"`
+	IsRunnable *bool    `json:"isRunnable"`
+	UpdatedAt  string   `json:"updatedAt"`
+}
+
+// GetId returns UpdateNodeUpdateNode.Id, and is useful for accessing the field via an interface.
+func (v *UpdateNodeUpdateNode) GetId() string { return v.Id }
+
+// GetMemoryId returns UpdateNodeUpdateNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateNodeUpdateNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns UpdateNodeUpdateNode.Loc, and is useful for accessing the field via an interface.
+func (v *UpdateNodeUpdateNode) GetLoc() string { return v.Loc }
+
+// GetName returns UpdateNodeUpdateNode.Name, and is useful for accessing the field via an interface.
+func (v *UpdateNodeUpdateNode) GetName() string { return v.Name }
+
+// GetNodeType returns UpdateNodeUpdateNode.NodeType, and is useful for accessing the field via an interface.
+func (v *UpdateNodeUpdateNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns UpdateNodeUpdateNode.Tags, and is useful for accessing the field via an interface.
+func (v *UpdateNodeUpdateNode) GetTags() []string { return v.Tags }
+
+// GetIsRunnable returns UpdateNodeUpdateNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *UpdateNodeUpdateNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetUpdatedAt returns UpdateNodeUpdateNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateNodeUpdateNode) GetUpdatedAt() string { return v.UpdatedAt }
+
 // UpdateOrgMemberResponse is returned by UpdateOrgMember on success.
 type UpdateOrgMemberResponse struct {
 	// Accepts the entity's ID or URN (orgId).
@@ -4421,8 +4614,9 @@ func (v *UpdateOrgMemberResponse) GetUpdateOrgMember() *UpdateOrgMemberUpdateOrg
 
 // UpdateOrgMemberUpdateOrgMember includes the requested fields of the GraphQL type OrgMember.
 type UpdateOrgMemberUpdateOrgMember struct {
-	Id   string                              `json:"id"`
-	Role Role                                `json:"role"`
+	Id string `json:"id"`
+	// Target member's role in this org. Null when the viewer isn't an ADMIN/OWNER of the org (#384 field-level visibility); always visible for one's own membership.
+	Role *Role                               `json:"role"`
 	User *UpdateOrgMemberUpdateOrgMemberUser `json:"user"`
 }
 
@@ -4430,7 +4624,7 @@ type UpdateOrgMemberUpdateOrgMember struct {
 func (v *UpdateOrgMemberUpdateOrgMember) GetId() string { return v.Id }
 
 // GetRole returns UpdateOrgMemberUpdateOrgMember.Role, and is useful for accessing the field via an interface.
-func (v *UpdateOrgMemberUpdateOrgMember) GetRole() Role { return v.Role }
+func (v *UpdateOrgMemberUpdateOrgMember) GetRole() *Role { return v.Role }
 
 // GetUser returns UpdateOrgMemberUpdateOrgMember.User, and is useful for accessing the field via an interface.
 func (v *UpdateOrgMemberUpdateOrgMember) GetUser() *UpdateOrgMemberUpdateOrgMemberUser { return v.User }
@@ -4613,50 +4807,6 @@ func (v *UpdateOrganizationUpdateOrganization) __premarshalJSON() (*__premarshal
 	retval.UpdatedAt = v.OrgFields.UpdatedAt
 	return &retval, nil
 }
-
-// UpsertNodeResponse is returned by UpsertNode on success.
-type UpsertNodeResponse struct {
-	UpsertNode *UpsertNodeUpsertNode `json:"upsertNode"`
-}
-
-// GetUpsertNode returns UpsertNodeResponse.UpsertNode, and is useful for accessing the field via an interface.
-func (v *UpsertNodeResponse) GetUpsertNode() *UpsertNodeUpsertNode { return v.UpsertNode }
-
-// UpsertNodeUpsertNode includes the requested fields of the GraphQL type Node.
-type UpsertNodeUpsertNode struct {
-	Id         string   `json:"id"`
-	MemoryId   string   `json:"memoryId"`
-	Loc        string   `json:"loc"`
-	Name       string   `json:"name"`
-	NodeType   string   `json:"nodeType"`
-	Tags       []string `json:"tags"`
-	IsRunnable *bool    `json:"isRunnable"`
-	UpdatedAt  string   `json:"updatedAt"`
-}
-
-// GetId returns UpsertNodeUpsertNode.Id, and is useful for accessing the field via an interface.
-func (v *UpsertNodeUpsertNode) GetId() string { return v.Id }
-
-// GetMemoryId returns UpsertNodeUpsertNode.MemoryId, and is useful for accessing the field via an interface.
-func (v *UpsertNodeUpsertNode) GetMemoryId() string { return v.MemoryId }
-
-// GetLoc returns UpsertNodeUpsertNode.Loc, and is useful for accessing the field via an interface.
-func (v *UpsertNodeUpsertNode) GetLoc() string { return v.Loc }
-
-// GetName returns UpsertNodeUpsertNode.Name, and is useful for accessing the field via an interface.
-func (v *UpsertNodeUpsertNode) GetName() string { return v.Name }
-
-// GetNodeType returns UpsertNodeUpsertNode.NodeType, and is useful for accessing the field via an interface.
-func (v *UpsertNodeUpsertNode) GetNodeType() string { return v.NodeType }
-
-// GetTags returns UpsertNodeUpsertNode.Tags, and is useful for accessing the field via an interface.
-func (v *UpsertNodeUpsertNode) GetTags() []string { return v.Tags }
-
-// GetIsRunnable returns UpsertNodeUpsertNode.IsRunnable, and is useful for accessing the field via an interface.
-func (v *UpsertNodeUpsertNode) GetIsRunnable() *bool { return v.IsRunnable }
-
-// GetUpdatedAt returns UpsertNodeUpsertNode.UpdatedAt, and is useful for accessing the field via an interface.
-func (v *UpsertNodeUpsertNode) GetUpdatedAt() string { return v.UpdatedAt }
 
 // UserApiKeyFields includes the GraphQL fields of UserApiKey requested by the fragment UserApiKeyFields.
 type UserApiKeyFields struct {
@@ -4921,6 +5071,14 @@ func (v *__CreateMemoryShareInput) GetGranteeId() string { return v.GranteeId }
 
 // GetRole returns __CreateMemoryShareInput.Role, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryShareInput) GetRole() MemoryShareRole { return v.Role }
+
+// __CreateNodeInput is used internally by genqlient
+type __CreateNodeInput struct {
+	Input *CreateNodeInput `json:"input,omitempty"`
+}
+
+// GetInput returns __CreateNodeInput.Input, and is useful for accessing the field via an interface.
+func (v *__CreateNodeInput) GetInput() *CreateNodeInput { return v.Input }
 
 // __CreateOrganizationInput is used internally by genqlient
 type __CreateOrganizationInput struct {
@@ -5366,6 +5524,14 @@ func (v *__UpdateNodeDataInput) GetData() json.RawMessage { return v.Data }
 // GetReason returns __UpdateNodeDataInput.Reason, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeDataInput) GetReason() *string { return v.Reason }
 
+// __UpdateNodeInput is used internally by genqlient
+type __UpdateNodeInput struct {
+	Input *UpdateNodeInput `json:"input,omitempty"`
+}
+
+// GetInput returns __UpdateNodeInput.Input, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeInput) GetInput() *UpdateNodeInput { return v.Input }
+
 // __UpdateOrgMemberInput is used internally by genqlient
 type __UpdateOrgMemberInput struct {
 	OrgId  string `json:"orgId"`
@@ -5401,14 +5567,6 @@ func (v *__UpdateOrganizationInput) GetUrn() *string { return v.Urn }
 
 // GetIsVisible returns __UpdateOrganizationInput.IsVisible, and is useful for accessing the field via an interface.
 func (v *__UpdateOrganizationInput) GetIsVisible() *bool { return v.IsVisible }
-
-// __UpsertNodeInput is used internally by genqlient
-type __UpsertNodeInput struct {
-	Input *NodeInput `json:"input,omitempty"`
-}
-
-// GetInput returns __UpsertNodeInput.Input, and is useful for accessing the field via an interface.
-func (v *__UpsertNodeInput) GetInput() *NodeInput { return v.Input }
 
 // The mutation executed by AddMemoryMember.
 const AddMemoryMember_Operation = `
@@ -5865,6 +6023,51 @@ func CreateMemoryShare(
 	}
 
 	data_ = &CreateMemoryShareResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateNode.
+const CreateNode_Operation = `
+mutation CreateNode ($input: CreateNodeInput!) {
+	createNode(input: $input) {
+		id
+		memoryId
+		loc
+		name
+		nodeType
+		tags
+		isRunnable
+		updatedAt
+	}
+}
+`
+
+// Create-only node write (spec 039 Phase 0 — upsertNode is gone). A live node
+// already at (memoryId, loc) rejects with extensions.code NodeLocConflictError.
+// Optional fields the caller leaves unset must be omitted from the wire, not
+// serialized as null — hence the per-field omitempty annotations.
+func CreateNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *CreateNodeInput,
+) (data_ *CreateNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateNode",
+		Query:  CreateNode_Operation,
+		Variables: &__CreateNodeInput{
+			Input: input,
+		},
+	}
+
+	data_ = &CreateNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -7529,6 +7732,54 @@ func UpdateMemoryShareRole(
 	return data_, err_
 }
 
+// The mutation executed by UpdateNode.
+const UpdateNode_Operation = `
+mutation UpdateNode ($input: UpdateNodeInput!) {
+	updateNode(input: $input) {
+		id
+		memoryId
+		loc
+		name
+		nodeType
+		tags
+		isRunnable
+		updatedAt
+	}
+}
+`
+
+// Update-only node write (spec 039 Phase 0). Target by `id` (PK or
+// fully-qualified node URN) XOR (`memoryId` + `loc`) — both or neither is
+// BAD_USER_INPUT; a miss is extensions.code NODE_NOT_FOUND (updateNode never
+// creates). Every content field is optional: the server reads an *omitted*
+// field as "preserve" (name and tags included) and an explicit null as
+// "clear" — nil pointers must therefore be omitted from the wire, not
+// serialized as null.
+func UpdateNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *UpdateNodeInput,
+) (data_ *UpdateNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateNode",
+		Query:  UpdateNode_Operation,
+		Variables: &__UpdateNodeInput{
+			Input: input,
+		},
+	}
+
+	data_ = &UpdateNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by UpdateNodeData.
 const UpdateNodeData_Operation = `
 mutation UpdateNodeData ($nodeId: ID!, $data: JSON!, $reason: String) {
@@ -7547,7 +7798,7 @@ mutation UpdateNodeData ($nodeId: ID!, $data: JSON!, $reason: String) {
 
 // Shallow-merge a JSON patch into a node's `data` bag (the supplied object's
 // top-level keys overwrite existing ones; absent keys are preserved). Unlike
-// UpsertNode's `data`, which replaces the whole bag, this is a merge — the
+// UpdateNode's `data`, which replaces the whole bag, this is a merge — the
 // server rejects a non-object patch with BAD_USER_INPUT. Backs the
 // `--data-merge`/`--data-merge-file` flags on `hadron node update`.
 func UpdateNodeData(
@@ -7666,50 +7917,6 @@ func UpdateOrganization(
 	}
 
 	data_ = &UpdateOrganizationResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
-// The mutation executed by UpsertNode.
-const UpsertNode_Operation = `
-mutation UpsertNode ($input: NodeInput!) {
-	upsertNode(input: $input) {
-		id
-		memoryId
-		loc
-		name
-		nodeType
-		tags
-		isRunnable
-		updatedAt
-	}
-}
-`
-
-// The server treats omitted NodeInput fields as "preserve" and explicit
-// nulls as "clear" — nil pointers must therefore be omitted from the
-// request, not serialized as null.
-func UpsertNode(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	input *NodeInput,
-) (data_ *UpsertNodeResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "UpsertNode",
-		Query:  UpsertNode_Operation,
-		Variables: &__UpsertNodeInput{
-			Input: input,
-		},
-	}
-
-	data_ = &UpsertNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

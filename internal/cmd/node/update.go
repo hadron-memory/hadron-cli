@@ -117,27 +117,23 @@ mutually exclusive.`,
 				reasonPtr = &r
 			}
 
-			var dto nodeDTO
-			// Field updates (including a --data replace) go through the upsert,
-			// which needs memoryId + loc (and name is required) — so fetch the
-			// full node. A merge-only update needs just the id, so it resolves
-			// the ref without the extra GetNodeById round-trip (the merge
-			// mutation returns loc/name for output).
-			nodeID := ""
-			if anyField {
-				existing, err := fetchNode(cmd, client, memory, args[0])
-				if err != nil {
-					return err
-				}
-				nodeID = existing.Id
+			// Both the field update and the data merge address the node by id,
+			// so resolve the ref (full URN, or bare loc + -m) once up front.
+			// updateNode targets `id` XOR (memoryId, loc) and preserves every
+			// omitted field — name included — so no full-node pre-fetch is
+			// needed anymore.
+			nodeID, err := cmdutil.ResolveNodeRef(cmd, client, memory, args[0])
+			if err != nil {
+				return err
+			}
 
-				input := gen.NodeInput{
-					MemoryId: existing.MemoryId,
-					Loc:      existing.Loc,
-					Name:     existing.Name,
+			var dto nodeDTO
+			if anyField {
+				input := gen.UpdateNodeInput{
+					Id: &nodeID,
 				}
 				if changed("name") {
-					input.Name = name
+					input.Name = &name
 				}
 				if changed("content") || changed("content-file") {
 					body, err := resolveContent(content, contentFile, f.IOStreams.In)
@@ -174,11 +170,11 @@ mutually exclusive.`,
 				}
 				input.Reason = reasonPtr
 
-				resp, err := gen.UpsertNode(cmd.Context(), client, &input)
+				resp, err := gen.UpdateNode(cmd.Context(), client, &input)
 				if err != nil {
 					return api.MapError(err)
 				}
-				dto = upsertDTO(resp.UpsertNode)
+				dto = updateDTO(resp.UpdateNode)
 			}
 
 			// A --data-merge runs last (a separate mutation), so its result is
@@ -187,12 +183,6 @@ mutually exclusive.`,
 				patch, err := resolveMergeData(dataMerge, dataMergeFile, f.IOStreams.In)
 				if err != nil {
 					return err
-				}
-				if nodeID == "" {
-					nodeID, err = cmdutil.ResolveNodeRef(cmd, client, memory, args[0])
-					if err != nil {
-						return err
-					}
 				}
 				resp, err := gen.UpdateNodeData(cmd.Context(), client, nodeID, patch, reasonPtr)
 				if err != nil {

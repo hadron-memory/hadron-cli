@@ -198,24 +198,22 @@ chunk leaves the source alone with a warning.`,
 			}
 
 			// Create the new spec (identical to the `spec new` create path).
-			createOnly := true
 			nodeType := "info"
-			input := gen.NodeInput{
-				MemoryId:   memURN,
-				Loc:        target.Format(),
-				Name:       name,
-				CreateOnly: &createOnly,
-				Tags:       tagSet,
-				NodeType:   &nodeType,
-				Abstract:   &abs,
-				Content:    &body,
-				Data:       specDataRaw(),
+			input := gen.CreateNodeInput{
+				MemoryId: memURN,
+				Loc:      target.Format(),
+				Name:     name,
+				Tags:     tagSet,
+				NodeType: &nodeType,
+				Abstract: &abs,
+				Content:  &body,
+				Data:     specDataRaw(),
 			}
-			up, err := gen.UpsertNode(cmd.Context(), client, &input)
+			up, err := gen.CreateNode(cmd.Context(), client, &input)
 			if err != nil {
 				return api.MapError(err)
 			}
-			newID := up.UpsertNode.Id
+			newID := up.CreateNode.Id
 
 			if !noEdges {
 				for _, e := range result.Edges {
@@ -234,13 +232,12 @@ chunk leaves the source alone with a warning.`,
 			// failed update never costs the extraction.
 			if stripSource {
 				if result.StripMatched {
-					srcInput := gen.NodeInput{
-						MemoryId: srcNode.MemoryId,
-						Loc:      srcNode.Loc,
-						Name:     srcNode.Name,
+					srcInput := gen.UpdateNodeInput{
+						MemoryId: &srcNode.MemoryId,
+						Loc:      &srcNode.Loc,
 						Content:  &strippedBody, // content-only update; omitted fields preserved
 					}
-					if _, serr := gen.UpsertNode(cmd.Context(), client, &srcInput); serr != nil {
+					if _, serr := gen.UpdateNode(cmd.Context(), client, &srcInput); serr != nil {
 						result.StripMatched = false
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: --strip-source: trimming %s failed: %v\n", source.Format(), api.MapError(serr))
 					}

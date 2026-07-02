@@ -137,18 +137,17 @@ afterward (the tool prints a reminder; it never edits the register).`,
 					abs = *oldNode.Abstract
 				}
 			}
-			createOnly := true
 			nodeType := "info"
-			in := gen.NodeInput{
+			in := gen.CreateNodeInput{
 				MemoryId: memURN, Loc: newTarget.Format(), Name: name,
-				CreateOnly: &createOnly, Tags: newTags, NodeType: &nodeType,
+				Tags: newTags, NodeType: &nodeType,
 				Abstract: &abs, Content: &body, Data: specDataRaw(),
 			}
-			up, err := gen.UpsertNode(cmd.Context(), client, &in)
+			up, err := gen.CreateNode(cmd.Context(), client, &in)
 			if err != nil {
 				return api.MapError(err)
 			}
-			newID := up.UpsertNode.Id
+			newID := up.CreateNode.Id
 
 			// 2. New node's ToC + inheritance edges.
 			for _, e := range result.Edges {
@@ -178,11 +177,11 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			}
 			retired := oldContent + note
 			retireTags := append(append([]string{}, oldNode.Tags...), supersededTag)
-			retireIn := gen.NodeInput{
-				MemoryId: oldNode.MemoryId, Loc: oldNode.Loc, Name: oldNode.Name,
+			retireIn := gen.UpdateNodeInput{
+				MemoryId: &oldNode.MemoryId, Loc: &oldNode.Loc,
 				Tags: retireTags, Content: &retired,
 			}
-			if _, rerr := gen.UpsertNode(cmd.Context(), client, &retireIn); rerr != nil {
+			if _, rerr := gen.UpdateNode(cmd.Context(), client, &retireIn); rerr != nil {
 				return api.MapError(rerr)
 			}
 

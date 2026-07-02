@@ -52,7 +52,21 @@ func NewCmdNode(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
-func upsertDTO(n *gen.UpsertNodeUpsertNode) nodeDTO {
+func createDTO(n *gen.CreateNodeCreateNode) nodeDTO {
+	return nodeDTO{
+		ID:         n.Id,
+		MemoryID:   n.MemoryId,
+		Loc:        n.Loc,
+		Name:       n.Name,
+		NodeType:   n.NodeType,
+		Tags:       n.Tags,
+		Seq:        nil,
+		IsRunnable: boolVal(n.IsRunnable),
+		UpdatedAt:  n.UpdatedAt,
+	}
+}
+
+func updateDTO(n *gen.UpdateNodeUpdateNode) nodeDTO {
 	return nodeDTO{
 		ID:         n.Id,
 		MemoryID:   n.MemoryId,
