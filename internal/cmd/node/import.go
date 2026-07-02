@@ -104,40 +104,62 @@ never makes surprising edge mutations).`,
 				return err
 			}
 
-			// Classify create vs update by a best-effort existence probe before
-			// the upsert (the upsert response can't tell us which happened).
-			action := "created"
-			if nodeExists(cmd, client, memoryRef, targetLoc) {
-				action = "updated"
-			}
-
 			if dryRun {
+				// Classify create vs update by a best-effort existence probe
+				// (the executed path derives it from which mutation succeeds).
+				action := "created"
+				if nodeExists(cmd, client, memoryRef, targetLoc) {
+					action = "updated"
+				}
 				return emitImportSummary(f, importNodeSummaryDTO{
 					Memory: memoryRef, Loc: targetLoc, Action: action,
 					EdgesWired: 0, UnwiredEdges: []unwiredEdgeDTO{},
 				}, true, withEdges, len(doc.Edges))
 			}
 
-			input, err := buildNodeInput(doc, memoryRef, targetLoc, createOnly)
+			input, err := buildCreateNodeInput(doc, memoryRef, targetLoc)
 			if err != nil {
 				return err
 			}
-			resp, err := gen.UpsertNode(cmd.Context(), client, input)
-			if err != nil {
-				return api.MapError(err)
+
+			// The old upsert is now emulated (spec 039 Phase 0 split the write):
+			// without --create-only, try updateNode keyed on (memoryId, loc) and
+			// fall back to createNode when the server says NODE_NOT_FOUND; with
+			// --create-only, go straight to createNode (a live node at the loc
+			// rejects with NodeLocConflictError).
+			var nodeID, nodeLoc, action string
+			if createOnly {
+				resp, err := gen.CreateNode(cmd.Context(), client, input)
+				if err != nil {
+					return api.MapError(err)
+				}
+				nodeID, nodeLoc, action = resp.CreateNode.Id, resp.CreateNode.Loc, "created"
+			} else {
+				uResp, uErr := gen.UpdateNode(cmd.Context(), client, updateNodeInputFrom(input))
+				switch {
+				case uErr == nil:
+					nodeID, nodeLoc, action = uResp.UpdateNode.Id, uResp.UpdateNode.Loc, "updated"
+				case api.HasErrorCode(uErr, "NODE_NOT_FOUND"):
+					cResp, cErr := gen.CreateNode(cmd.Context(), client, input)
+					if cErr != nil {
+						return api.MapError(cErr)
+					}
+					nodeID, nodeLoc, action = cResp.CreateNode.Id, cResp.CreateNode.Loc, "created"
+				default:
+					return api.MapError(uErr)
+				}
 			}
-			node := resp.UpsertNode
 
 			edgesWired, unwired := 0, []unwiredEdgeDTO{}
 			if withEdges && len(doc.Edges) > 0 {
-				edgesWired, unwired, err = wireEdges(cmd, client, memoryRef, node.Id, doc.Edges)
+				edgesWired, unwired, err = wireEdges(cmd, client, memoryRef, nodeID, doc.Edges)
 				if err != nil {
 					return err
 				}
 			}
 
 			return emitImportSummary(f, importNodeSummaryDTO{
-				Memory: memoryRef, Loc: node.Loc, Action: action, NodeID: node.Id,
+				Memory: memoryRef, Loc: nodeLoc, Action: action, NodeID: nodeID,
 				EdgesWired: edgesWired, UnwiredEdges: unwired,
 			}, false, withEdges, len(doc.Edges))
 		},
@@ -167,12 +189,14 @@ func readImportSource(path string, stdin io.Reader) ([]byte, error) {
 	return data, nil
 }
 
-// buildNodeInput maps a Document onto the upsert input. Empty optional fields
-// are omitted (preserve-on-update) rather than sent as a clear; the id and the
-// recompute-only hashes (contentHash, abstractOriginHash) are intentionally not
-// sent — the upsert keys on (memory, loc) and the server owns the hashes.
-func buildNodeInput(doc *nodedoc.Document, memoryRef, targetLoc string, createOnly bool) (*gen.NodeInput, error) {
-	input := &gen.NodeInput{
+// buildCreateNodeInput maps a Document onto the create input (the canonical
+// field set; updateNodeInputFrom derives the update shape from it). Empty
+// optional fields are omitted (preserve-on-update) rather than sent as a
+// clear; the id and the recompute-only hashes (contentHash,
+// abstractOriginHash) are intentionally not sent — the write keys on
+// (memory, loc) and the server owns the hashes.
+func buildCreateNodeInput(doc *nodedoc.Document, memoryRef, targetLoc string) (*gen.CreateNodeInput, error) {
+	input := &gen.CreateNodeInput{
 		MemoryId: memoryRef,
 		Loc:      targetLoc,
 		Name:     doc.Name,
@@ -212,10 +236,43 @@ func buildNodeInput(doc *nodedoc.Document, memoryRef, targetLoc string, createOn
 		}
 		input.Properties = props
 	}
-	if createOnly {
-		input.CreateOnly = &createOnly
-	}
 	return input, nil
+}
+
+// updateNodeInputFrom derives the updateNode input from the assembled create
+// shape: the target is selected by (memoryId, loc), and every doc-supplied
+// field — the file's name included, since an import means "make the node
+// match the file" — is carried over verbatim. Fields the file omits stay
+// omitted (nil), which updateNode reads as "preserve".
+//
+// Every field the two input structs share is mapped, whether or not
+// buildCreateNodeInput populates it today, so a future doc field can't be
+// silently dropped on the update path (TestUpdateNodeInputFromMapsAllFields
+// enforces this). The one exclusion is Id: on CreateNodeInput it is a forced
+// create-PK, on UpdateNodeInput it is the target selector — carrying it over
+// would collide with the (memoryId, loc) selector pair (id XOR memoryId+loc).
+func updateNodeInputFrom(in *gen.CreateNodeInput) *gen.UpdateNodeInput {
+	name := in.Name
+	return &gen.UpdateNodeInput{
+		MemoryId:    &in.MemoryId,
+		Loc:         &in.Loc,
+		Name:        &name,
+		Content:     in.Content,
+		NodeType:    in.NodeType,
+		Alias:       in.Alias,
+		Description: in.Description,
+		Abstract:    in.Abstract,
+		Tags:        in.Tags,
+		Seq:         in.Seq,
+		Data:        in.Data,
+		Properties:  in.Properties,
+		Edges:       in.Edges,
+		IsRunnable:  in.IsRunnable,
+		AiAgent:     in.AiAgent,
+		LlmModel:    in.LlmModel,
+		OwnerRepo:   in.OwnerRepo,
+		Reason:      in.Reason,
+	}
 }
 
 // nodeExists best-effort probes whether a node already lives at (memory, loc),

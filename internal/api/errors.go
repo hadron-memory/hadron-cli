@@ -43,6 +43,28 @@ func MapError(err error) error {
 	return exitcode.New(exitcode.Error, err)
 }
 
+// HasErrorCode reports whether err carries a GraphQL error whose
+// extensions.code equals code. It inspects the raw genqlient error (call it
+// BEFORE MapError wraps the error into a CodedError) so callers can branch on
+// a specific server error — e.g. `node import` falling back from updateNode's
+// NODE_NOT_FOUND to createNode.
+func HasErrorCode(err error, code string) bool {
+	var list gqlerror.List
+	if errors.As(err, &list) {
+		for _, e := range list {
+			if extensionCode(e) == code {
+				return true
+			}
+		}
+		return false
+	}
+	var gqlErr *gqlerror.Error
+	if errors.As(err, &gqlErr) {
+		return extensionCode(gqlErr) == code
+	}
+	return false
+}
+
 func extensionCode(e *gqlerror.Error) string {
 	if e == nil || e.Extensions == nil {
 		return ""

@@ -182,9 +182,9 @@ func TestNodeGetNotFound(t *testing.T) {
 	}
 }
 
-func TestNodeAddSendsCreateOnly(t *testing.T) {
+func TestNodeAddUsesCreateNode(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"UpsertNode": `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -196,20 +196,21 @@ func TestNodeAddSendsCreateOnly(t *testing.T) {
 	var vars struct {
 		Input map[string]any `json:"input"`
 	}
-	_ = json.Unmarshal(captured["UpsertNode"], &vars)
-	if vars.Input["createOnly"] != true {
-		t.Errorf("add must set createOnly, got %v", vars.Input["createOnly"])
-	}
+	_ = json.Unmarshal(captured["CreateNode"], &vars)
 	if vars.Input["content"] != "body" {
 		t.Errorf("content not sent: %v", vars.Input)
+	}
+	// Create-only is intrinsic to the mutation now — the retired NodeInput
+	// createOnly flag must not linger on the wire.
+	if _, present := vars.Input["createOnly"]; present {
+		t.Errorf("createNode input must not carry createOnly, got %v", vars.Input)
 	}
 }
 
 func TestNodeUpdatePreservesUnsetFields(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveNodeJSON,
-		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
-		"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		"ResolveUrn": resolveNodeJSON,
+		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -221,19 +222,21 @@ func TestNodeUpdatePreservesUnsetFields(t *testing.T) {
 	var vars struct {
 		Input map[string]any `json:"input"`
 	}
-	_ = json.Unmarshal(captured["UpsertNode"], &vars)
+	_ = json.Unmarshal(captured["UpdateNode"], &vars)
 	if vars.Input["name"] != "Flaky CI (resolved)" {
 		t.Errorf("name not updated: %v", vars.Input)
 	}
-	if vars.Input["memoryId"] != "mem1" || vars.Input["loc"] != "findings:flaky-ci" {
-		t.Errorf("memoryId/loc must come from the fetched node: %v", vars.Input)
+	if vars.Input["id"] != "n1" {
+		t.Errorf("update must target the resolved node id: %v", vars.Input)
 	}
-	// Unset optional fields must be OMITTED (server: null/[] clears).
-	// `tags` is in this list deliberately: a defaulted-empty --tag
-	// serialized as tags:[] clears the node's tags server-side (#37).
-	for _, key := range []string{"content", "description", "abstract", "data", "nodeType", "tags"} {
+	// Unset optional fields must be OMITTED (server: omitted = preserve,
+	// null/[] clears). `tags` is in this list deliberately: a
+	// defaulted-empty --tag serialized as tags:[] clears the node's tags
+	// server-side (#37). memoryId/loc are the alternate selector — XOR
+	// with id — so they must stay off the wire too.
+	for _, key := range []string{"content", "description", "abstract", "data", "nodeType", "tags", "memoryId", "loc"} {
 		if _, present := vars.Input[key]; present {
-			t.Errorf("unset field %q must be omitted from upsert input, got %v", key, vars.Input[key])
+			t.Errorf("unset field %q must be omitted from update input, got %v", key, vars.Input[key])
 		}
 	}
 }
@@ -243,13 +246,12 @@ func TestNodeUpdatePreservesUnsetFields(t *testing.T) {
 // explicit `tags: []` as "clear" — so a defaulted-empty --tag would
 // silently strip a node's tags, knocking spec nodes out of the corpus.
 // The changed("tag") gate in `node update` keeps the field off the wire;
-// this locks that gate (the matching server-side preserve fix lives in
-// hadron-server's upsertNode resolver).
+// this locks that gate (the server-side preserve contract now lives in
+// hadron-server's updateNode resolver — omitted tags are preserved, #235).
 func TestNodeUpdateContentOnlyOmitsTags(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveNodeJSON,
-		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
-		"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		"ResolveUrn": resolveNodeJSON,
+		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -261,22 +263,21 @@ func TestNodeUpdateContentOnlyOmitsTags(t *testing.T) {
 	var vars struct {
 		Input map[string]any `json:"input"`
 	}
-	if err := json.Unmarshal(captured["UpsertNode"], &vars); err != nil {
-		t.Fatalf("unmarshal UpsertNode variables: %v", err)
+	if err := json.Unmarshal(captured["UpdateNode"], &vars); err != nil {
+		t.Fatalf("unmarshal UpdateNode variables: %v", err)
 	}
 	if vars.Input["content"] != "revised body" {
 		t.Errorf("content not sent: %v", vars.Input)
 	}
 	if v, present := vars.Input["tags"]; present {
-		t.Errorf("unset --tag must be omitted from upsert input, got tags=%v", v)
+		t.Errorf("unset --tag must be omitted from update input, got tags=%v", v)
 	}
 }
 
 func TestNodeUpdateClearsFieldWithEmptyString(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveNodeJSON,
-		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
-		"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		"ResolveUrn": resolveNodeJSON,
+		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -288,7 +289,7 @@ func TestNodeUpdateClearsFieldWithEmptyString(t *testing.T) {
 	var vars struct {
 		Input map[string]any `json:"input"`
 	}
-	_ = json.Unmarshal(captured["UpsertNode"], &vars)
+	_ = json.Unmarshal(captured["UpdateNode"], &vars)
 	// An explicitly-passed empty string must be SENT (the server
 	// normalizes it to null and clears the field), not omitted.
 	if v, present := vars.Input["description"]; !present || v != "" {
@@ -306,9 +307,8 @@ func TestNodeUpdateAbstractFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveNodeJSON,
-		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
-		"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		"ResolveUrn": resolveNodeJSON,
+		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -319,7 +319,7 @@ func TestNodeUpdateAbstractFile(t *testing.T) {
 	var vars struct {
 		Input map[string]any `json:"input"`
 	}
-	_ = json.Unmarshal(captured["UpsertNode"], &vars)
+	_ = json.Unmarshal(captured["UpdateNode"], &vars)
 	if vars.Input["abstract"] != abstract {
 		t.Errorf("abstract should come from --abstract-file, got %v", vars.Input["abstract"])
 	}
@@ -353,10 +353,10 @@ func TestNodeUpdateRejectsAbstractAndAbstractFile(t *testing.T) {
 	}
 }
 
-// #69 item 4: --data forwards a parsed JSON object on the upsert input.
+// #69 item 4: --data forwards a parsed JSON object on the create input.
 func TestNodeAddSendsData(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"UpsertNode": `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -368,7 +368,7 @@ func TestNodeAddSendsData(t *testing.T) {
 	var vars struct {
 		Input map[string]any `json:"input"`
 	}
-	_ = json.Unmarshal(captured["UpsertNode"], &vars)
+	_ = json.Unmarshal(captured["CreateNode"], &vars)
 	data, ok := vars.Input["data"].(map[string]any)
 	if !ok || data["primary"] != "#0a0" {
 		t.Errorf("--data must forward a parsed JSON object, got %v", vars.Input["data"])
@@ -383,9 +383,8 @@ func TestNodeUpdateDataFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveNodeJSON,
-		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
-		"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		"ResolveUrn": resolveNodeJSON,
+		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -396,7 +395,7 @@ func TestNodeUpdateDataFile(t *testing.T) {
 	var vars struct {
 		Input map[string]any `json:"input"`
 	}
-	_ = json.Unmarshal(captured["UpsertNode"], &vars)
+	_ = json.Unmarshal(captured["UpdateNode"], &vars)
 	data, ok := vars.Input["data"].(map[string]any)
 	if !ok || data["swatches"] != float64(3) {
 		t.Errorf("--data-file must forward parsed JSON, got %v", vars.Input["data"])
@@ -441,8 +440,8 @@ func TestNodeUpdateDataMerge(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if _, upserted := captured["UpsertNode"]; upserted {
-		t.Errorf("a merge-only update must not call UpsertNode")
+	if _, updated := captured["UpdateNode"]; updated {
+		t.Errorf("a merge-only update must not call UpdateNode")
 	}
 	// A merge-only update needs just the id, so it resolves the ref without
 	// the extra GetNodeById round-trip (captureGraphQL flags unexpected ops).
@@ -613,9 +612,8 @@ func TestNodeUpdateRunnable(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{
-				"ResolveUrn":  resolveNodeJSON,
-				"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
-				"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+				"ResolveUrn": resolveNodeJSON,
+				"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 			})
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
@@ -626,7 +624,7 @@ func TestNodeUpdateRunnable(t *testing.T) {
 			var vars struct {
 				Input map[string]any `json:"input"`
 			}
-			_ = json.Unmarshal(captured["UpsertNode"], &vars)
+			_ = json.Unmarshal(captured["UpdateNode"], &vars)
 			got, present := vars.Input["isRunnable"]
 			if tc.want == nil {
 				if present {
@@ -641,10 +639,10 @@ func TestNodeUpdateRunnable(t *testing.T) {
 	}
 }
 
-// #89: node create --runnable forwards isRunnable on the upsert input.
+// #89: node create --runnable forwards isRunnable on the create input.
 func TestNodeAddRunnable(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"UpsertNode": `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -656,18 +654,17 @@ func TestNodeAddRunnable(t *testing.T) {
 	var vars struct {
 		Input map[string]any `json:"input"`
 	}
-	_ = json.Unmarshal(captured["UpsertNode"], &vars)
+	_ = json.Unmarshal(captured["CreateNode"], &vars)
 	if vars.Input["isRunnable"] != true {
 		t.Errorf("--runnable must forward isRunnable:true, got %v", vars.Input["isRunnable"])
 	}
 }
 
-// #88: --reason rides on the upsert and is recorded in version history.
+// #88: --reason rides on the update and is recorded in version history.
 func TestNodeUpdateForwardsReason(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveNodeJSON,
-		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
-		"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		"ResolveUrn": resolveNodeJSON,
+		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -679,9 +676,9 @@ func TestNodeUpdateForwardsReason(t *testing.T) {
 	var vars struct {
 		Input map[string]any `json:"input"`
 	}
-	_ = json.Unmarshal(captured["UpsertNode"], &vars)
+	_ = json.Unmarshal(captured["UpdateNode"], &vars)
 	if vars.Input["reason"] != "restore task type" {
-		t.Errorf("--reason must forward to upsert input.reason, got %v", vars.Input["reason"])
+		t.Errorf("--reason must forward to update input.reason, got %v", vars.Input["reason"])
 	}
 }
 
@@ -721,9 +718,8 @@ func TestNodeUpdateOmitsReasonWhenUnset(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{
-				"ResolveUrn":  resolveNodeJSON,
-				"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
-				"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+				"ResolveUrn": resolveNodeJSON,
+				"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 			})
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
@@ -734,7 +730,7 @@ func TestNodeUpdateOmitsReasonWhenUnset(t *testing.T) {
 			var vars struct {
 				Input map[string]any `json:"input"`
 			}
-			_ = json.Unmarshal(captured["UpsertNode"], &vars)
+			_ = json.Unmarshal(captured["UpdateNode"], &vars)
 			if v, present := vars.Input["reason"]; present {
 				t.Errorf("a blank --reason must be left off the wire, got %v", v)
 			}

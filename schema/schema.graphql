@@ -494,6 +494,57 @@ type CreateMemorySharePayload {
   memoryShare: MemoryShare!
 }
 
+"""
+Input for createNode. 'memoryId', 'loc', and 'name' are required; creating
+is create-only — a live node at (memoryId, loc) rejects with
+NodeLocConflictError (spec 039 Phase 0 D1/D4).
+"""
+input CreateNodeInput {
+  """
+  Paragraph-length summary of this node — see Node.abstract for the surfacing contract. Optional. Empty + whitespace-only normalize to null. Cap is 2000 characters.
+  """
+  abstract: String
+  aiAgent: String
+  alias: String
+  content: String
+  data: JSON
+  description: String
+
+  """Outgoing edges to create with the node."""
+  edges: [NodeEdgeInput!]
+
+  """
+  Forced PK (importer/sync use case, e.g. a stable UUIDv7). Only ever a create-id here — never a selector (D2). Omit to mint.
+  """
+  id: String
+
+  """
+  Whether this node can be run as a task by hadron_run_task (cor:api:060).
+  """
+  isRunnable: Boolean
+  llmModel: String
+  loc: String!
+
+  """
+  Memory reference. Accepts the entity's ID (CUID / 32-char hex) or its
+  URN (per spec 007 ID-or-URN dispatch). URN inputs MUST be fully
+  qualified (org:memory) per spec 022 — relative-form URNs are
+  rejected as GraphQL errors with extensions.code "URN_NOT_QUALIFIED".
+  """
+  memoryId: String!
+  name: String!
+  nodeType: String
+  ownerRepo: String
+  properties: JSON
+
+  """
+  Recorded on version history only when a soft-deleted node is resurrected (a pure create snapshots nothing).
+  """
+  reason: String
+  seq: Int
+  tags: [String!]
+}
+
 enum CreateUserPermission {
   DENY
   EXPLICIT
@@ -1225,6 +1276,14 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   createMemorySubscription(memoryId: ID!, orgId: ID!, role: Role!): MemorySubscription!
+
+  """
+  Create a single node. Rejects with NodeLocConflictError when a live node
+  already exists at (memoryId, loc) — creating is create-only (spec 039
+  Phase 0 D1); a soft-deleted node at the target loc is resurrected.
+  'name' is required here and only here (D4).
+  """
+  createNode(input: CreateNodeInput!): Node!
   createOrganization(name: String!, urn: String!): Organization!
 
   """
@@ -1288,7 +1347,7 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   deleteMemorySubscription(memoryId: ID!, orgId: ID!): Boolean!
-  deleteNode(loc: String!, memoryId: String!): Boolean!
+  deleteNode(hard: Boolean, loc: String!, memoryId: String!): Boolean!
 
   """
   Soft-delete an Organization.
@@ -1684,6 +1743,17 @@ type Mutation {
   """
   updateMemorySubscription(memoryId: ID!, orgId: ID!, role: Role!): MemorySubscription!
   updateMyProfile(email: String, handle: String, name: String): User!
+
+  """
+  Update an existing node. Identify it by 'id' (PK or fully-qualified node
+  URN) XOR the ('memoryId', 'loc') combo — supplying both selectors, or
+  neither, is an error (D2). Rejects with NODE_NOT_FOUND when the target
+  does not exist; updateNode never creates and never moves (relocation is
+  moveNode's job, D3). Every content field is optional — omitted fields are
+  preserved ('name' included, D4; 'abstract' keeps its omit/null/string
+  contract; omitted 'tags' are preserved, issue #235).
+  """
+  updateNode(input: UpdateNodeInput!): Node!
   updateNodeData(data: JSON!, nodeId: ID!, reason: String): Node!
 
   """
@@ -1703,7 +1773,6 @@ type Mutation {
   """
   updateOrganization(id: ID!, isVisible: Boolean, name: String, urn: String): Organization!
   updateUserRoles(roles: [Role!]!, userId: ID!): User!
-  upsertNode(input: NodeInput!): Node!
 }
 
 type Node {
@@ -1812,6 +1881,44 @@ input NodeEdgeInput {
   targetId: String!
 }
 
+"""How the rendered payload is encoded. TEXT for MD/JSON; BASE64 for PDF."""
+enum NodeExportEncoding {
+  BASE64
+  TEXT
+}
+
+enum NodeExportFormat {
+  JSON
+  MD
+  PDF
+}
+
+type NodeExportResult {
+  """Byte length of the rendered payload (UTF-8)."""
+  bytes: Int!
+
+  """The rendered file contents (TEXT)."""
+  data: String!
+  encoding: NodeExportEncoding!
+
+  """Suggested download filename, e.g. <loc-leaf>.md."""
+  filename: String!
+  format: NodeExportFormat!
+
+  """MIME type, e.g. text/markdown or application/json."""
+  mimeType: String!
+}
+
+"""Selectable sections for a presentation (full: false) export."""
+enum NodeExportSection {
+  ABSTRACT
+  CONTENT
+  DATA
+  EDGES
+  METADATA
+  PROPERTIES
+}
+
 """
 Node fields a lexical (keyword/regex) query matches and weights. Weight-mask,
 NOT a hard filter: naming a subset zeroes the excluded fields in scoring but
@@ -1865,6 +1972,10 @@ type NodeHit {
   vector: NodeVectorMeta
 }
 
+"""
+Bulk-import node shape, used only by replaceSubtree (git-sync). Single-node
+writes use CreateNodeInput / UpdateNodeInput (spec 039 Phase 0 D1).
+"""
 input NodeInput {
   """
   Paragraph-length summary of this node — see Node.abstract for the surfacing contract (hadron_get_node opt-in via contentScope; hadron_find_nodes preview ships in US2). Optional. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
@@ -1873,14 +1984,17 @@ input NodeInput {
   aiAgent: String
   alias: String
   content: String
-  createOnly: Boolean
   data: JSON
   description: String
   edges: [NodeEdgeInput!]
+
+  """
+  Forced PK (importer-supplied UUIDv7 from node.yaml, stable across moves). Omit to mint.
+  """
   id: String
 
   """
-  Whether this node can be run as a task by hadron_run_task (cor:api:060). Omit to preserve on update.
+  Whether this node can be run as a task by hadron_run_task (cor:api:060).
   """
   isRunnable: Boolean
   llmModel: String
@@ -1991,7 +2105,11 @@ type OrgMember {
   canInvite: Boolean!
   createdAt: String!
   id: ID!
-  role: Role!
+
+  """
+  Target member's role in this org. Null when the viewer isn't an ADMIN/OWNER of the org (#384 field-level visibility); always visible for one's own membership.
+  """
+  role: Role
   user: User!
 }
 
@@ -2028,42 +2146,6 @@ type Passage {
   parentNodeUrn: String!
   score: Float!
   text: String!
-}
-
-"""How the rendered payload is encoded. TEXT today; BASE64 arrives with PDF."""
-enum NodeExportEncoding {
-  TEXT
-}
-
-enum NodeExportFormat {
-  JSON
-  MD
-}
-
-"""Selectable sections for a presentation (full: false) export."""
-enum NodeExportSection {
-  ABSTRACT
-  CONTENT
-  DATA
-  EDGES
-  METADATA
-  PROPERTIES
-}
-
-type NodeExportResult {
-  """Byte length of the rendered payload (UTF-8)."""
-  bytes: Int!
-
-  """The rendered file contents (TEXT)."""
-  data: String!
-  encoding: NodeExportEncoding!
-
-  """Suggested download filename, e.g. <loc-leaf>.md."""
-  filename: String!
-  format: NodeExportFormat!
-
-  """MIME type, e.g. text/markdown or application/json."""
-  mimeType: String!
 }
 
 type Query {
@@ -2260,10 +2342,7 @@ type Query {
   """
   nodeBatch(ids: [ID!], locPrefix: String, memory: ID): NodeBatchResult!
   nodeById(id: ID!, raw: Boolean): Node
-
-  """Render one node to a portable, self-contained file (#386, spec cor:api)."""
-  nodeExport(id: ID!, format: NodeExportFormat = MD, full: Boolean = true, sections: [NodeExportSection!]): NodeExportResult!
-
+  nodeExport(format: NodeExportFormat = MD, full: Boolean = true, id: ID!, sections: [NodeExportSection!]): NodeExportResult!
   nodeUsage(limit: Int, loc: String!): [UsageEvent!]!
   nodeVersions(limit: Int, nodeId: ID!): [NodeVersion!]!
 
@@ -2345,6 +2424,22 @@ type Query {
   """
   resolveUrn(urn: String!): UrnResolution
   searchUsers(query: String!): [User!]!
+
+  """
+  Identity of the hadron-server this GraphQL endpoint is bound to: the
+  server-identity version and the deployment's canonical base URL. The
+  GraphQL counterpart to the hadron_server_info MCP tool — both read the
+  same getDeploymentInfo() helper, so MCP and GraphQL callers get one
+  consistent answer to "which server/API am I talking to?".
+  
+  'version' is HADRON_SERVER_VERSION — the MCP/API-surface contract
+  version, bumped when the tool/query surface changes in a caller-visible
+  way. It is intentionally NOT the repo's package.json release version.
+  
+  Public — no authentication required. Does NOT expose the DATABASE_URL
+  (it may carry credentials).
+  """
+  serverInfo: ServerInfo!
   session(id: ID!): Session
   sessions(customerId: String, limit: Int, offset: Int, repo: String, type: String): [Session!]!
   subtree(prefix: String!): [Node!]!
@@ -2528,6 +2623,12 @@ type SearchReplaceResult {
   totalReplacements: Int!
 }
 
+"""Identity of the running hadron-server (see Query.serverInfo)."""
+type ServerInfo {
+  baseUrl: String!
+  version: String!
+}
+
 type Session {
   agentId: String
   appId: String
@@ -2616,6 +2717,65 @@ type UpdateMemoryMemberRolePayload {
 
 type UpdateMemoryShareRolePayload {
   memoryShare: MemoryShare!
+}
+
+"""
+Input for updateNode. Identify the target by 'id' (PK or fully-qualified
+node URN) XOR ('memoryId' + 'loc') — both selectors, or neither, is an
+error (spec 039 Phase 0 D2). updateNode never creates and never moves (D3).
+Every content field is optional: omitted = preserved (D4).
+"""
+input UpdateNodeInput {
+  """
+  Paragraph-length summary of this node — see Node.abstract for the surfacing contract. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
+  """
+  abstract: String
+  aiAgent: String
+  alias: String
+  content: String
+  data: JSON
+  description: String
+  edges: [NodeEdgeInput!]
+
+  """
+  The node to change: PK (CUID / 32-char hex) or fully-qualified node URN (org::memory::loc). XOR with memoryId+loc.
+  """
+  id: String
+
+  """
+  Whether this node can be run as a task by hadron_run_task (cor:api:060). Omit to preserve.
+  """
+  isRunnable: Boolean
+  llmModel: String
+
+  """
+  Selector, with 'memoryId': the target's current loc. Not writable here — moveNode relocates.
+  """
+  loc: String
+
+  """
+  Selector, with 'loc': the target's memory (ID or fully-qualified URN). XOR with 'id'.
+  """
+  memoryId: String
+
+  """Omit to preserve (D4)."""
+  name: String
+  nodeType: String
+  ownerRepo: String
+  properties: JSON
+
+  """
+  Why this change was made — recorded on the version-history snapshot
+  (NodeVersion.editedBy), mirroring hadron_update_node's reason arg so CLI
+  and MCP edits leave equally-traceable history.
+  """
+  reason: String
+  seq: Int
+
+  """
+  Omit to preserve existing tags (issue #235); supply to replace the set.
+  """
+  tags: [String!]
 }
 
 enum UploadIntent {

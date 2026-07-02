@@ -302,7 +302,7 @@ func TestSpecNew(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `]}}`
 	gql, captured := captureGraphQL(t, map[string]string{
 		"FindNodes":  scan,
-		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"msg:010:01 — Test","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"msg:010:01 — Test","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
 		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:010:01"},"target":{"id":"t1","loc":"msg:010"}}}}`,
 	})
@@ -315,23 +315,19 @@ func TestSpecNew(t *testing.T) {
 
 	var up struct {
 		Input struct {
-			Loc        string          `json:"loc"`
-			Name       string          `json:"name"`
-			Tags       []string        `json:"tags"`
-			NodeType   *string         `json:"nodeType"`
-			CreateOnly *bool           `json:"createOnly"`
-			Abstract   *string         `json:"abstract"`
-			Data       json.RawMessage `json:"data"`
+			Loc      string          `json:"loc"`
+			Name     string          `json:"name"`
+			Tags     []string        `json:"tags"`
+			NodeType *string         `json:"nodeType"`
+			Abstract *string         `json:"abstract"`
+			Data     json.RawMessage `json:"data"`
 		} `json:"input"`
 	}
-	if err := json.Unmarshal(captured["UpsertNode"], &up); err != nil {
-		t.Fatalf("UpsertNode vars: %v", err)
+	if err := json.Unmarshal(captured["CreateNode"], &up); err != nil {
+		t.Fatalf("CreateNode vars: %v", err)
 	}
 	if up.Input.Loc != "msg:010:01" {
 		t.Errorf("allocated loc = %q, want msg:010:01", up.Input.Loc)
-	}
-	if up.Input.CreateOnly == nil || !*up.Input.CreateOnly {
-		t.Error("createOnly must be true")
 	}
 	if up.Input.NodeType == nil || *up.Input.NodeType != "info" {
 		t.Errorf("nodeType = %v", up.Input.NodeType)
@@ -381,7 +377,7 @@ func TestSpecNewResolvesPKForEdgeTargets(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"MyMemories": memListMicromentorJSON,
 		"FindNodes":  scan,
-		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
 		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:010:01"},"target":{"id":"t1","loc":"msg:010"}}}}`,
 	})
@@ -413,7 +409,7 @@ func TestSpecNewFailsLoudOnSkippedEdge(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:010", `["spec"]`) + `,` + specNodeList("msg:010:00", `["spec"]`) + `]}}`
 	gql, _ := captureGraphQL(t, map[string]string{
 		"FindNodes":  scan,
-		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"ResolveUrn": `{"data":{"resolveUrn":null}}`, // edge target won't resolve
 	})
 	f, _ := testFactory(t)
@@ -470,8 +466,8 @@ func TestSpecNewDryRun(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if _, ok := captured["UpsertNode"]; ok {
-		t.Error("dry-run must not call UpsertNode")
+	if _, ok := captured["CreateNode"]; ok {
+		t.Error("dry-run must not call CreateNode")
 	}
 	if !strings.Contains(out.String(), "would create") {
 		t.Errorf("unexpected dry-run output:\n%s", out.String())
@@ -635,7 +631,7 @@ func TestSpecDescribeDeclare(t *testing.T) {
 func TestSpecNewPath(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"FindNodes":  `{"data":{"nodes":[]}}`,
-		"UpsertNode": `{"data":{"upsertNode":{"id":"n1","memoryId":"mem1","loc":"x","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateNode": `{"data":{"createNode":{"id":"n1","memoryId":"mem1","loc":"x","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"n1","loc":"x"},"target":{"id":"n1","loc":"y"}}}}`,
 	})
 	f, out := testFactory(t)
@@ -670,7 +666,7 @@ func TestSpecNewPath(t *testing.T) {
 func TestSpecNewPathNoContract(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"FindNodes":  `{"data":{"nodes":[]}}`,
-		"UpsertNode": `{"data":{"upsertNode":{"id":"n1","memoryId":"mem1","loc":"x","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateNode": `{"data":{"createNode":{"id":"n1","memoryId":"mem1","loc":"x","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"n1","loc":"x"},"target":{"id":"n1","loc":"y"}}}}`,
 	})
 	f, out := testFactory(t)
@@ -723,7 +719,7 @@ func TestSpecNewPathTargetExists(t *testing.T) {
 func TestSpecNewProduct(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"FindNodes":  `{"data":{"nodes":[]}}`,
-		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"cli","name":"cli — Hadron CLI","nodeType":"info","tags":["spec","p0"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"cli","name":"cli — Hadron CLI","nodeType":"info","tags":["spec","p0"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -736,7 +732,7 @@ func TestSpecNewProduct(t *testing.T) {
 			Loc string `json:"loc"`
 		} `json:"input"`
 	}
-	_ = json.Unmarshal(captured["UpsertNode"], &up)
+	_ = json.Unmarshal(captured["CreateNode"], &up)
 	if up.Input.Loc != "cli" {
 		t.Errorf("product root loc = %q, want cli", up.Input.Loc)
 	}
@@ -757,7 +753,7 @@ func TestSpecNewProductModule(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("cli", `["spec","p0"]`) + `,` + specNodeList("cli:gen", `["spec","p0"]`) + `]}}`
 	gql, captured := captureGraphQL(t, map[string]string{
 		"FindNodes":  scan,
-		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"cli:cha","name":"cli:cha — chat","nodeType":"info","tags":["spec","p0"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"cli:cha","name":"cli:cha — chat","nodeType":"info","tags":["spec","p0"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
 		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"cli:cha"},"target":{"id":"t1","loc":"cli"}}}}`,
 	})
@@ -772,7 +768,7 @@ func TestSpecNewProductModule(t *testing.T) {
 			Loc string `json:"loc"`
 		} `json:"input"`
 	}
-	_ = json.Unmarshal(captured["UpsertNode"], &up)
+	_ = json.Unmarshal(captured["CreateNode"], &up)
 	if up.Input.Loc != "cli:cha" {
 		t.Errorf("module loc = %q, want cli:cha", up.Input.Loc)
 	}
@@ -805,7 +801,7 @@ func TestSpecNewProductModule(t *testing.T) {
 func TestSpecNewModuleAutoContract(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"FindNodes":  `{"data":{"nodes":[]}}`,
-		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"brd","name":"brd — Brand","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"brd","name":"brd — Brand","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"c1","loc":"brd:000"},"target":{"id":"new1","loc":"brd"}}}}`,
 	})
 	f, out := testFactory(t)
@@ -844,16 +840,16 @@ func TestSpecNewModuleAutoContract(t *testing.T) {
 			Loc string `json:"loc"`
 		} `json:"input"`
 	}
-	_ = json.Unmarshal(captured["UpsertNode"], &up)
+	_ = json.Unmarshal(captured["CreateNode"], &up)
 	if up.Input.Loc != "brd:000" {
-		t.Errorf("the last upsert should be the contract brd:000, got %q", up.Input.Loc)
+		t.Errorf("the last create should be the contract brd:000, got %q", up.Input.Loc)
 	}
 }
 
 func TestSpecNewNoContract(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"FindNodes":  `{"data":{"nodes":[]}}`,
-		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"brd","name":"brd — Brand","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"brd","name":"brd — Brand","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -876,7 +872,7 @@ func TestSpecNewFeatureAutoContract(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:000", `["spec"]`) + `]}}`
 	gql, _ := captureGraphQL(t, map[string]string{
 		"FindNodes":  scan,
-		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"msg:010","name":"msg:010 — Palette","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010","name":"msg:010 — Palette","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
 		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:010"},"target":{"id":"t1","loc":"msg"}}}}`,
 	})
@@ -905,7 +901,7 @@ func TestSpecNewProductContract(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("cli", `["spec","p0"]`) + `]}}`
 	gql, captured := captureGraphQL(t, map[string]string{
 		"FindNodes":  scan,
-		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"cli:gen","name":"cli:gen — provisions","nodeType":"info","tags":["spec","p0"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"cli:gen","name":"cli:gen — provisions","nodeType":"info","tags":["spec","p0"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
 		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"cli:gen"},"target":{"id":"t1","loc":"cli"}}}}`,
 	})
@@ -920,7 +916,7 @@ func TestSpecNewProductContract(t *testing.T) {
 			Loc string `json:"loc"`
 		} `json:"input"`
 	}
-	_ = json.Unmarshal(captured["UpsertNode"], &up)
+	_ = json.Unmarshal(captured["CreateNode"], &up)
 	if up.Input.Loc != "cli:gen" {
 		t.Errorf("product contract loc = %q, want cli:gen", up.Input.Loc)
 	}
@@ -941,7 +937,7 @@ func TestSpecNewModuleContract(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p0"]`) + `]}}`
 	gql, captured := captureGraphQL(t, map[string]string{
 		"FindNodes":  scan,
-		"UpsertNode": `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"msg:000","name":"msg:000 — provisions","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:000","name":"msg:000 — provisions","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
 		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:000"},"target":{"id":"t1","loc":"msg"}}}}`,
 	})
@@ -956,7 +952,7 @@ func TestSpecNewModuleContract(t *testing.T) {
 			Loc string `json:"loc"`
 		} `json:"input"`
 	}
-	_ = json.Unmarshal(captured["UpsertNode"], &up)
+	_ = json.Unmarshal(captured["CreateNode"], &up)
 	if up.Input.Loc != "msg:000" {
 		t.Errorf("module contract loc = %q, want msg:000", up.Input.Loc)
 	}
@@ -1194,7 +1190,8 @@ func TestSpecSupersede(t *testing.T) {
 		"ResolveUrn":  resolveSpecJSON,
 		"GetNodeById": `{"data":{"nodeById":` + cleanSpecDetail + `}}`,
 		"FindNodes":   `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
-		"UpsertNode":  `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateNode":  `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"UpdateNode":  `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"CreateEdge":  `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
 	})
 	f, out := testFactory(t)
@@ -1212,14 +1209,14 @@ func TestSpecSupersede(t *testing.T) {
 	if edge.Name != "superseded-by" {
 		t.Errorf("final edge label = %q, want superseded-by", edge.Name)
 	}
-	// Last UpsertNode is the retire of the old spec (same loc + superseded tag).
+	// The UpdateNode is the retire of the old spec (same loc + superseded tag).
 	var retire struct {
 		Input struct {
 			Loc  string   `json:"loc"`
 			Tags []string `json:"tags"`
 		} `json:"input"`
 	}
-	_ = json.Unmarshal(captured["UpsertNode"], &retire)
+	_ = json.Unmarshal(captured["UpdateNode"], &retire)
 	if retire.Input.Loc != "msg:010:02" {
 		t.Errorf("retire loc = %q (must keep the old loc — no renumber)", retire.Input.Loc)
 	}
@@ -1291,21 +1288,21 @@ func extractMocks() map[string]string {
 		"FindNodes":   extractScan(),
 		"GetNodeById": extractSrcDetail,
 		"ResolveUrn":  `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
-		"UpsertNode":  `{"data":{"upsertNode":{"id":"new1","memoryId":"mem1","loc":"cor:dmo:020:04","name":"cor:dmo:020:04 — Node type","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateNode":  `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"cor:dmo:020:04","name":"cor:dmo:020:04 — Node type","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"UpdateNode":  `{"data":{"updateNode":{"id":"src1","memoryId":"mem1","loc":"cor:dmo:060:02","name":"cor:dmo:060:02 — Node","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"CreateEdge":  `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"cor:dmo:020:04"},"target":{"id":"t1","loc":"cor:dmo:020"}}}}`,
 	}
 }
 
 type extractInput struct {
 	Input struct {
-		Loc        string          `json:"loc"`
-		Name       string          `json:"name"`
-		Tags       []string        `json:"tags"`
-		NodeType   *string         `json:"nodeType"`
-		CreateOnly *bool           `json:"createOnly"`
-		Abstract   *string         `json:"abstract"`
-		Content    *string         `json:"content"`
-		Data       json.RawMessage `json:"data"`
+		Loc      string          `json:"loc"`
+		Name     string          `json:"name"`
+		Tags     []string        `json:"tags"`
+		NodeType *string         `json:"nodeType"`
+		Abstract *string         `json:"abstract"`
+		Content  *string         `json:"content"`
+		Data     json.RawMessage `json:"data"`
 	} `json:"input"`
 }
 
@@ -1340,10 +1337,10 @@ func TestSpecExtract(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 
-	// Only one UpsertNode (no --strip-source) — the new node.
+	// Only the create (no --strip-source) — no source update.
 	var up extractInput
-	if err := json.Unmarshal(captured["UpsertNode"], &up); err != nil {
-		t.Fatalf("UpsertNode vars: %v", err)
+	if err := json.Unmarshal(captured["CreateNode"], &up); err != nil {
+		t.Fatalf("CreateNode vars: %v", err)
 	}
 	if up.Input.Loc != "cor:dmo:020:04" {
 		t.Errorf("new loc = %q, want cor:dmo:020:04", up.Input.Loc)
@@ -1351,8 +1348,8 @@ func TestSpecExtract(t *testing.T) {
 	if up.Input.Name != "cor:dmo:020:04 — Node type" {
 		t.Errorf("new name = %q", up.Input.Name)
 	}
-	if up.Input.CreateOnly == nil || !*up.Input.CreateOnly {
-		t.Error("createOnly must be true")
+	if _, ok := captured["UpdateNode"]; ok {
+		t.Error("without --strip-source no UpdateNode must be sent")
 	}
 	if up.Input.NodeType == nil || *up.Input.NodeType != "info" {
 		t.Errorf("nodeType = %v", up.Input.NodeType)
@@ -1396,13 +1393,13 @@ func TestSpecExtractStripSourceHit(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 
-	// The LAST UpsertNode is the source trim (create new → edges → strip source).
+	// The UpdateNode is the source trim (create new → edges → strip source).
 	var up extractInput
-	if err := json.Unmarshal(captured["UpsertNode"], &up); err != nil {
-		t.Fatalf("UpsertNode vars: %v", err)
+	if err := json.Unmarshal(captured["UpdateNode"], &up); err != nil {
+		t.Fatalf("UpdateNode vars: %v", err)
 	}
 	if up.Input.Loc != "cor:dmo:060:02" {
-		t.Fatalf("last UpsertNode loc = %q, want the source cor:dmo:060:02", up.Input.Loc)
+		t.Fatalf("UpdateNode loc = %q, want the source cor:dmo:060:02", up.Input.Loc)
 	}
 	if up.Input.Content == nil {
 		t.Fatal("source trim must send content")
@@ -1432,13 +1429,16 @@ func TestSpecExtractStripSourceMiss(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 
-	// A miss leaves the source untouched: the only UpsertNode is the new node.
+	// A miss leaves the source untouched: the create happens, no UpdateNode.
 	var up extractInput
-	if err := json.Unmarshal(captured["UpsertNode"], &up); err != nil {
-		t.Fatalf("UpsertNode vars: %v", err)
+	if err := json.Unmarshal(captured["CreateNode"], &up); err != nil {
+		t.Fatalf("CreateNode vars: %v", err)
 	}
 	if up.Input.Loc != "cor:dmo:020:04" {
-		t.Errorf("source must not be updated on a miss; last UpsertNode loc = %q", up.Input.Loc)
+		t.Errorf("new loc = %q, want cor:dmo:020:04", up.Input.Loc)
+	}
+	if _, ok := captured["UpdateNode"]; ok {
+		t.Error("source must not be updated on a miss")
 	}
 	var dto extractDTO
 	_ = json.Unmarshal([]byte(out.String()), &dto)
@@ -1448,7 +1448,8 @@ func TestSpecExtractStripSourceMiss(t *testing.T) {
 }
 
 func TestSpecExtractDryRun(t *testing.T) {
-	// No mutation ops mocked — any UpsertNode/CreateEdge would be an unexpected op.
+	// No mutation ops mocked — any CreateNode/UpdateNode/CreateEdge would be an
+	// unexpected op.
 	gql, captured := captureGraphQL(t, map[string]string{
 		"FindNodes":   extractScan(),
 		"GetNodeById": extractSrcDetail,
@@ -1462,8 +1463,11 @@ func TestSpecExtractDryRun(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if _, ok := captured["UpsertNode"]; ok {
-		t.Error("dry-run must not call UpsertNode")
+	if _, ok := captured["CreateNode"]; ok {
+		t.Error("dry-run must not call CreateNode")
+	}
+	if _, ok := captured["UpdateNode"]; ok {
+		t.Error("dry-run must not call UpdateNode")
 	}
 	if _, ok := captured["CreateEdge"]; ok {
 		t.Error("dry-run must not call CreateEdge")
@@ -1666,11 +1670,11 @@ func editMocks() map[string]string {
 	return map[string]string{
 		"ResolveUrn":  resolveSpecJSON,
 		"GetNodeById": `{"data":{"nodeById":` + cleanSpecDetail + `}}`,
-		"UpsertNode":  `{"data":{"upsertNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","messaging"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"UpdateNode":  `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","messaging"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 	}
 }
 
-type editUpsertInput struct {
+type editUpdateInput struct {
 	Input struct {
 		Loc      string  `json:"loc"`
 		Name     string  `json:"name"`
@@ -1695,9 +1699,9 @@ func TestSpecEditInteractive(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 
-	var up editUpsertInput
-	if err := json.Unmarshal(captured["UpsertNode"], &up); err != nil {
-		t.Fatalf("UpsertNode vars: %v", err)
+	var up editUpdateInput
+	if err := json.Unmarshal(captured["UpdateNode"], &up); err != nil {
+		t.Fatalf("UpdateNode vars: %v", err)
 	}
 	if up.Input.Loc != "msg:010:02" {
 		t.Errorf("loc = %q, want msg:010:02 (no renumber)", up.Input.Loc)
@@ -1735,8 +1739,8 @@ func TestSpecEditNoOp(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if _, ok := captured["UpsertNode"]; ok {
-		t.Error("an unchanged body must not call UpsertNode")
+	if _, ok := captured["UpdateNode"]; ok {
+		t.Error("an unchanged body must not call UpdateNode")
 	}
 	if !strings.Contains(out.String(), "no changes") {
 		t.Errorf("unexpected output:\n%s", out.String())
@@ -1761,8 +1765,8 @@ func TestSpecEditCRLFNoOp(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if _, ok := captured["UpsertNode"]; ok {
-		t.Error("a CRLF-only rewrite must not call UpsertNode")
+	if _, ok := captured["UpdateNode"]; ok {
+		t.Error("a CRLF-only rewrite must not call UpdateNode")
 	}
 	if !strings.Contains(out.String(), "no changes") {
 		t.Errorf("unexpected output:\n%s", out.String())
@@ -1779,8 +1783,8 @@ func TestSpecEditContentStdin(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var up editUpsertInput
-	_ = json.Unmarshal(captured["UpsertNode"], &up)
+	var up editUpdateInput
+	_ = json.Unmarshal(captured["UpdateNode"], &up)
 	if up.Input.Content == nil || *up.Input.Content != "# replaced body\n" {
 		t.Errorf("stdin body not sent verbatim: %v", up.Input.Content)
 	}
@@ -1799,8 +1803,8 @@ func TestSpecEditDryRun(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if _, ok := captured["UpsertNode"]; ok {
-		t.Error("dry-run must not call UpsertNode")
+	if _, ok := captured["CreateNode"]; ok {
+		t.Error("dry-run must not call CreateNode")
 	}
 	if !strings.Contains(out.String(), "would update") {
 		t.Errorf("unexpected dry-run output:\n%s", out.String())
@@ -1832,9 +1836,9 @@ func TestSpecEditAbstractFile(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var up editUpsertInput
-	if err := json.Unmarshal(captured["UpsertNode"], &up); err != nil {
-		t.Fatalf("UpsertNode vars: %v", err)
+	var up editUpdateInput
+	if err := json.Unmarshal(captured["UpdateNode"], &up); err != nil {
+		t.Fatalf("UpdateNode vars: %v", err)
 	}
 	if up.Input.Abstract == nil || *up.Input.Abstract != "A sharper retrieval surface.\n" {
 		t.Errorf("abstract not sent verbatim: %v", up.Input.Abstract)
@@ -1861,8 +1865,8 @@ func TestSpecEditBodyAndAbstract(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var up editUpsertInput
-	_ = json.Unmarshal(captured["UpsertNode"], &up)
+	var up editUpdateInput
+	_ = json.Unmarshal(captured["UpdateNode"], &up)
 	if up.Input.Content == nil || *up.Input.Content != "# new body\n" {
 		t.Errorf("body not sent: %v", up.Input.Content)
 	}
@@ -1884,8 +1888,8 @@ func TestSpecEditAbstractNoOp(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if _, ok := captured["UpsertNode"]; ok {
-		t.Error("an unchanged abstract must not call UpsertNode")
+	if _, ok := captured["UpdateNode"]; ok {
+		t.Error("an unchanged abstract must not call UpdateNode")
 	}
 	if !strings.Contains(out.String(), "no changes") {
 		t.Errorf("unexpected output:\n%s", out.String())
@@ -1907,8 +1911,8 @@ func TestSpecEditInteractiveAbstract(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var up editUpsertInput
-	_ = json.Unmarshal(captured["UpsertNode"], &up)
+	var up editUpdateInput
+	_ = json.Unmarshal(captured["UpdateNode"], &up)
 	if up.Input.Abstract == nil || *up.Input.Abstract != "Reworded abstract." {
 		t.Errorf("edited abstract not sent: %v", up.Input.Abstract)
 	}
@@ -1932,8 +1936,8 @@ func TestSpecEditInteractiveDividerRemoved(t *testing.T) {
 	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
 		t.Fatalf("a removed body divider should be Usage, got %d", got)
 	}
-	if _, ok := captured["UpsertNode"]; ok {
-		t.Error("a removed divider must not call UpsertNode")
+	if _, ok := captured["UpdateNode"]; ok {
+		t.Error("a removed divider must not call UpdateNode")
 	}
 }
 

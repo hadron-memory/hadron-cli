@@ -172,30 +172,71 @@ query GetNodeById($id: ID!) {
   }
 }
 
-# The server treats omitted NodeInput fields as "preserve" and explicit
-# nulls as "clear" — nil pointers must therefore be omitted from the
-# request, not serialized as null.
-# @genqlient(for: "NodeInput.abstract", omitempty: true)
-# @genqlient(for: "NodeInput.aiAgent", omitempty: true)
-# @genqlient(for: "NodeInput.alias", omitempty: true)
-# @genqlient(for: "NodeInput.content", omitempty: true)
-# @genqlient(for: "NodeInput.createOnly", omitempty: true)
-# @genqlient(for: "NodeInput.data", omitempty: true)
-# @genqlient(for: "NodeInput.description", omitempty: true)
-# @genqlient(for: "NodeInput.edges", omitempty: true)
-# @genqlient(for: "NodeInput.id", omitempty: true)
-# @genqlient(for: "NodeInput.isRunnable", omitempty: true)
-# @genqlient(for: "NodeInput.llmModel", omitempty: true)
-# @genqlient(for: "NodeInput.nodeType", omitempty: true)
-# @genqlient(for: "NodeInput.ownerRepo", omitempty: true)
-# @genqlient(for: "NodeInput.reason", omitempty: true)
-# @genqlient(for: "NodeInput.properties", omitempty: true)
-# @genqlient(for: "NodeInput.seq", omitempty: true)
-# @genqlient(for: "NodeInput.tags", omitempty: true)
-mutation UpsertNode(
-  $input: NodeInput!
+# Create-only node write (spec 039 Phase 0 — upsertNode is gone). A live node
+# already at (memoryId, loc) rejects with extensions.code NodeLocConflictError.
+# Optional fields the caller leaves unset must be omitted from the wire, not
+# serialized as null — hence the per-field omitempty annotations.
+# @genqlient(for: "CreateNodeInput.abstract", omitempty: true)
+# @genqlient(for: "CreateNodeInput.aiAgent", omitempty: true)
+# @genqlient(for: "CreateNodeInput.alias", omitempty: true)
+# @genqlient(for: "CreateNodeInput.content", omitempty: true)
+# @genqlient(for: "CreateNodeInput.data", omitempty: true)
+# @genqlient(for: "CreateNodeInput.description", omitempty: true)
+# @genqlient(for: "CreateNodeInput.edges", omitempty: true)
+# @genqlient(for: "CreateNodeInput.id", omitempty: true)
+# @genqlient(for: "CreateNodeInput.isRunnable", omitempty: true)
+# @genqlient(for: "CreateNodeInput.llmModel", omitempty: true)
+# @genqlient(for: "CreateNodeInput.nodeType", omitempty: true)
+# @genqlient(for: "CreateNodeInput.ownerRepo", omitempty: true)
+# @genqlient(for: "CreateNodeInput.reason", omitempty: true)
+# @genqlient(for: "CreateNodeInput.properties", omitempty: true)
+# @genqlient(for: "CreateNodeInput.seq", omitempty: true)
+# @genqlient(for: "CreateNodeInput.tags", omitempty: true)
+mutation CreateNode(
+  $input: CreateNodeInput!
 ) {
-  upsertNode(input: $input) {
+  createNode(input: $input) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    tags
+    isRunnable
+    updatedAt
+  }
+}
+
+# Update-only node write (spec 039 Phase 0). Target by `id` (PK or
+# fully-qualified node URN) XOR (`memoryId` + `loc`) — both or neither is
+# BAD_USER_INPUT; a miss is extensions.code NODE_NOT_FOUND (updateNode never
+# creates). Every content field is optional: the server reads an *omitted*
+# field as "preserve" (name and tags included) and an explicit null as
+# "clear" — nil pointers must therefore be omitted from the wire, not
+# serialized as null.
+# @genqlient(for: "UpdateNodeInput.id", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.memoryId", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.loc", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.name", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.abstract", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.aiAgent", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.alias", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.content", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.data", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.description", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.edges", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.isRunnable", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.llmModel", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.nodeType", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.ownerRepo", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.reason", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.properties", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.seq", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.tags", omitempty: true)
+mutation UpdateNode(
+  $input: UpdateNodeInput!
+) {
+  updateNode(input: $input) {
     id
     memoryId
     loc
@@ -213,7 +254,7 @@ mutation DeleteNode($loc: String!, $memoryId: String!) {
 
 # Shallow-merge a JSON patch into a node's `data` bag (the supplied object's
 # top-level keys overwrite existing ones; absent keys are preserved). Unlike
-# UpsertNode's `data`, which replaces the whole bag, this is a merge — the
+# UpdateNode's `data`, which replaces the whole bag, this is a merge — the
 # server rejects a non-object patch with BAD_USER_INPUT. Backs the
 # `--data-merge`/`--data-merge-file` flags on `hadron node update`.
 mutation UpdateNodeData(

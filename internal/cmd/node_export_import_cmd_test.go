@@ -201,8 +201,10 @@ The body.
 
 func TestNodeImportCreate(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn": `{"data":{"resolveUrn":null}}`, // absent → created
-		"UpsertNode": `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		// Upsert emulation: the update-by-(memory,loc) attempt misses with
+		// NODE_NOT_FOUND, so the import falls back to createNode → "created".
+		"UpdateNode": `{"errors":[{"message":"node not found","extensions":{"code":"NODE_NOT_FOUND"}}]}`,
+		"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
 	})
 	f, out := testFactory(t)
 	file := filepath.Join(t.TempDir(), "flaky.md")
@@ -236,13 +238,13 @@ func TestNodeImportCreate(t *testing.T) {
 		t.Errorf("edges must not be wired without --with-edges, got %d", summary.EdgesWired)
 	}
 
-	// The upsert carries the full body, including the richer fields node
+	// The create carries the full body, including the richer fields node
 	// add/update never populated (alias, data, properties, seq).
 	var vars struct {
 		Input map[string]any `json:"input"`
 	}
-	if err := json.Unmarshal(captured["UpsertNode"], &vars); err != nil {
-		t.Fatalf("UpsertNode vars: %v", err)
+	if err := json.Unmarshal(captured["CreateNode"], &vars); err != nil {
+		t.Fatalf("CreateNode vars: %v", err)
 	}
 	in := vars.Input
 	checks := map[string]any{
@@ -264,23 +266,32 @@ func TestNodeImportCreate(t *testing.T) {
 	if tags, _ := in["tags"].([]any); len(tags) != 1 || tags[0] != "ci" {
 		t.Errorf("input.tags not mapped: %v", in["tags"])
 	}
-	// createOnly must be omitted on a plain import (upsert semantics give
-	// create-or-update for free).
-	if _, present := in["createOnly"]; present {
-		t.Errorf("createOnly must be omitted without --create-only, got %v", in["createOnly"])
-	}
-	// The recompute-only hashes must never be sent.
-	for _, k := range []string{"contentHash", "abstractOriginHash", "id"} {
+	// The retired NodeInput.createOnly flag and the recompute-only hashes
+	// must never be sent.
+	for _, k := range []string{"createOnly", "contentHash", "abstractOriginHash", "id"} {
 		if _, present := in[k]; present {
-			t.Errorf("%q must not be sent in the upsert input", k)
+			t.Errorf("%q must not be sent in the create input", k)
 		}
+	}
+	// The update attempt targeted the same (memory, loc) with the same name.
+	var upd struct {
+		Input map[string]any `json:"input"`
+	}
+	if err := json.Unmarshal(captured["UpdateNode"], &upd); err != nil {
+		t.Fatalf("UpdateNode vars: %v", err)
+	}
+	if upd.Input["memoryId"] != "acme.com:kb" || upd.Input["loc"] != "findings:flaky-ci" || upd.Input["name"] != "Flaky CI" {
+		t.Errorf("update attempt must select by (memoryId, loc) and carry the file's name: %v", upd.Input)
+	}
+	if _, present := upd.Input["id"]; present {
+		t.Errorf("update attempt must not send id, got %v", upd.Input["id"])
 	}
 }
 
 func TestNodeImportUpdate(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveNodeJSON, // present → updated
-		"UpsertNode": `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		// The update-by-(memory,loc) attempt succeeds → "updated".
+		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f, out := testFactory(t)
 	file := filepath.Join(t.TempDir(), "flaky.md")
@@ -303,8 +314,7 @@ func TestNodeImportUpdate(t *testing.T) {
 
 func TestNodeImportTargetPrecedenceAndCreateOnly(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn": `{"data":{"resolveUrn":null}}`,
-		"UpsertNode": `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	file := filepath.Join(t.TempDir(), "flaky.md")
@@ -319,12 +329,14 @@ func TestNodeImportTargetPrecedenceAndCreateOnly(t *testing.T) {
 	var vars struct {
 		Input map[string]any `json:"input"`
 	}
-	_ = json.Unmarshal(captured["UpsertNode"], &vars)
+	_ = json.Unmarshal(captured["CreateNode"], &vars)
 	if vars.Input["memoryId"] != "acme.com:other" || vars.Input["loc"] != "moved:here" {
 		t.Errorf("flags must override frontmatter target: %v", vars.Input)
 	}
-	if vars.Input["createOnly"] != true {
-		t.Errorf("--create-only must set createOnly, got %v", vars.Input["createOnly"])
+	// --create-only goes straight to createNode — no update attempt first
+	// (a live node at the loc must reject with NodeLocConflictError).
+	if _, updated := captured["UpdateNode"]; updated {
+		t.Error("--create-only must not attempt UpdateNode")
 	}
 }
 
@@ -344,8 +356,8 @@ func TestNodeImportMissingTargetIsUsageError(t *testing.T) {
 
 func TestNodeImportStdin(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn": `{"data":{"resolveUrn":null}}`,
-		"UpsertNode": `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		"UpdateNode": `{"errors":[{"message":"node not found","extensions":{"code":"NODE_NOT_FOUND"}}]}`,
+		"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	f.IOStreams.In = strings.NewReader(importMd)
@@ -357,7 +369,7 @@ func TestNodeImportStdin(t *testing.T) {
 	var vars struct {
 		Input map[string]any `json:"input"`
 	}
-	_ = json.Unmarshal(captured["UpsertNode"], &vars)
+	_ = json.Unmarshal(captured["CreateNode"], &vars)
 	if vars.Input["name"] != "Flaky CI" {
 		t.Errorf("stdin import did not parse the piped document: %v", vars.Input)
 	}
@@ -388,8 +400,8 @@ func TestNodeImportDryRunMutatesNothing(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if captured["UpsertNode"] != nil {
-		t.Error("--dry-run must not call UpsertNode")
+	if captured["CreateNode"] != nil || captured["UpdateNode"] != nil {
+		t.Error("--dry-run must not call CreateNode/UpdateNode")
 	}
 	if !strings.Contains(out.String(), "dry-run") {
 		t.Errorf("dry-run output should say so:\n%s", out.String())
@@ -427,7 +439,7 @@ func TestNodeImportWithEdgesIdempotent(t *testing.T) {
 		"incomingEdges":[]}}}`
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn":  `{"data":{"resolveUrn":{"id":"n2","kind":"node","memoryId":"mem1"}}}`,
-		"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		"UpdateNode":  `{"data":{"updateNode":` + nodeJSON + `}}`,
 		"GetNodeById": existingEdges,
 		"CreateEdge":  `{"data":{"createEdge":` + edgeJSON + `}}`,
 	})
@@ -476,8 +488,9 @@ func TestNodeImportWithEdgesUnwiredTarget(t *testing.T) {
 		"content":"x","data":null,"seq":null,"createdAt":"2026-06-11T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
 		"outgoingEdges":[],"incomingEdges":[]}}}`
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  `{"data":{"resolveUrn":null}}`, // node absent (created) + target unresolvable
-		"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		"ResolveUrn":  `{"data":{"resolveUrn":null}}`, // edge target unresolvable
+		"UpdateNode":  `{"errors":[{"message":"node not found","extensions":{"code":"NODE_NOT_FOUND"}}]}`, // node absent → created
+		"CreateNode":  `{"data":{"createNode":` + nodeJSON + `}}`,
 		"GetNodeById": noEdges,
 	})
 	f, out := testFactory(t)
@@ -520,7 +533,7 @@ func TestNodeImportWithEdgesRejectedReason(t *testing.T) {
 		"outgoingEdges":[],"incomingEdges":[]}}}`
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn":  `{"data":{"resolveUrn":{"id":"n2","kind":"node","memoryId":"mem1"}}}`,
-		"UpsertNode":  `{"data":{"upsertNode":` + nodeJSON + `}}`,
+		"UpdateNode":  `{"data":{"updateNode":` + nodeJSON + `}}`,
 		"GetNodeById": noEdges,
 		"CreateEdge":  `{"errors":[{"message":"createEdge operator 'flag' is not in the v1 allowlist"}]}`,
 	})

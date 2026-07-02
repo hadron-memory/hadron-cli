@@ -53,13 +53,11 @@ input; --content-file reads it from a file.`,
 				return err
 			}
 
-			createOnly := true
-			input := gen.NodeInput{
-				MemoryId:   memory,
-				Loc:        loc,
-				Name:       name,
-				CreateOnly: &createOnly,
-				Tags:       tags,
+			input := gen.CreateNodeInput{
+				MemoryId: memory,
+				Loc:      loc,
+				Name:     name,
+				Tags:     tags,
 			}
 			if body != "" {
 				input.Content = &body
@@ -84,12 +82,12 @@ input; --content-file reads it from a file.`,
 				input.IsRunnable = &runnable
 			}
 
-			resp, err := gen.UpsertNode(cmd.Context(), client, &input)
+			resp, err := gen.CreateNode(cmd.Context(), client, &input)
 			if err != nil {
 				return api.MapError(err)
 			}
 
-			dto := upsertDTO(resp.UpsertNode)
+			dto := createDTO(resp.CreateNode)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				t := output.NewTable(w)
 				t.Row("✓ created", dto.Loc, dto.Name)
@@ -137,11 +135,11 @@ func resolveContent(content, contentFile string, stdin io.Reader) (string, error
 }
 
 // resolveData reads the node `data` JSON from --data (inline) or --data-file,
-// validates it, and returns it as a raw message ready for NodeInput.Data.
-// The value replaces the node's whole data object on write (the server's
-// upsert preserves an omitted field and overwrites a supplied one); pass
-// `--data null` to clear it. Callers gate the call so an unset flag stays
-// omitted from the wire.
+// validates it, and returns it as a raw message ready for a create/update
+// input's Data. The value replaces the node's whole data object on write
+// (the server preserves an omitted field and overwrites a supplied one);
+// pass `--data null` to clear it. Callers gate the call so an unset flag
+// stays omitted from the wire.
 func resolveData(data, dataFile string) (*json.RawMessage, error) {
 	if data != "" && dataFile != "" {
 		return nil, exitcode.Newf(exitcode.Usage, "--data and --data-file are mutually exclusive")

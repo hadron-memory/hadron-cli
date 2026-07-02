@@ -52,7 +52,7 @@ func newCmdMemberLs(f *cmdutil.Factory) *cobra.Command {
 				ci := m.CanInvite
 				members = append(members, memberDTO{
 					ID:        m.Id,
-					Role:      string(m.Role),
+					Role:      roleString(m.Role),
 					CanInvite: &ci,
 					User:      userDTOFromFields(m.User.UserFields),
 				})
@@ -91,7 +91,7 @@ func newCmdMemberAdd(f *cmdutil.Factory) *cobra.Command {
 			if resp.AddOrgMember == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no member")
 			}
-			return emitMember(f, "✓ added", resp.AddOrgMember.Id, string(resp.AddOrgMember.Role), resp.AddOrgMember.User.UserFields)
+			return emitMember(f, "✓ added", resp.AddOrgMember.Id, roleString(resp.AddOrgMember.Role), resp.AddOrgMember.User.UserFields)
 		},
 	}
 	cmd.Flags().StringVar(&user, "user", "", "user ID to add")
@@ -124,7 +124,7 @@ func newCmdMemberSetRole(f *cmdutil.Factory) *cobra.Command {
 			if resp.UpdateOrgMember == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no member")
 			}
-			return emitMember(f, "✓ set", resp.UpdateOrgMember.Id, string(resp.UpdateOrgMember.Role), resp.UpdateOrgMember.User.UserFields)
+			return emitMember(f, "✓ set", resp.UpdateOrgMember.Id, roleString(resp.UpdateOrgMember.Role), resp.UpdateOrgMember.User.UserFields)
 		},
 	}
 	cmd.Flags().StringVar(&user, "user", "", "user ID")
@@ -165,6 +165,16 @@ func newCmdMemberRm(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	_ = cmd.MarkFlagRequired("user")
 	return cmd
+}
+
+// roleString renders a nullable OrgMember.role (#384 field-level visibility:
+// the server nulls it when the viewer isn't an org ADMIN/OWNER). An empty
+// string keeps the --json Role field's type stable.
+func roleString(r *gen.Role) string {
+	if r == nil {
+		return ""
+	}
+	return string(*r)
 }
 
 // emitMember renders an add/set-role result (the OrgMember projection lacks
