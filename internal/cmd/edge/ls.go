@@ -57,19 +57,19 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := gen.GetNodeById(cmd.Context(), client, id)
+			resp, err := gen.GetNode(cmd.Context(), client, id)
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.NodeById == nil {
+			if resp.Node == nil {
 				return exitcode.Newf(exitcode.NotFound, "node %q not found", args[0])
 			}
 
 			edges := []edgeListDTO{}
-			for _, e := range resp.NodeById.OutgoingEdges {
+			for _, e := range resp.Node.OutgoingEdges {
 				edges = append(edges, edgeListRow(e.Id, "outgoing", e.Name, e.Loc, e.IsRunnable, e.Priority, e.Target.Id, e.Target.Loc))
 			}
-			for _, e := range resp.NodeById.IncomingEdges {
+			for _, e := range resp.Node.IncomingEdges {
 				edges = append(edges, edgeListRow(e.Id, "incoming", e.Name, e.Loc, e.IsRunnable, e.Priority, e.Source.Id, e.Source.Loc))
 			}
 

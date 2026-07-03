@@ -477,12 +477,12 @@ func fetchDetails(cmd *cobra.Command, client graphql.Client, list []*api.ListNod
 		if n == nil {
 			continue
 		}
-		resp, err := gen.GetNodeById(cmd.Context(), client, n.Id)
+		resp, err := gen.GetNode(cmd.Context(), client, n.Id)
 		if err != nil {
 			return nil, api.MapError(err)
 		}
-		if resp.NodeById != nil {
-			out = append(out, nodeFromGQL(resp.NodeById))
+		if resp.Node != nil {
+			out = append(out, nodeFromGQL(resp.Node))
 		}
 	}
 	return out, nil

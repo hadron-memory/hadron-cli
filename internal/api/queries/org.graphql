@@ -19,15 +19,16 @@ fragment UserFields on User {
   roles
 }
 
-query GetOrganization($id: ID!) {
-  organization(id: $id) {
+# organization(ref:) accepts the org's PK id or URN (hadron-server#473).
+query GetOrganization($ref: ID!) {
+  organization(ref: $ref) {
     ...OrgFields
   }
 }
 
-# organization(id) is the only path to an org's members (no plural query).
-query OrgMembers($id: ID!) {
-  organization(id: $id) {
+# organization(ref) is the only path to an org's members.
+query OrgMembers($ref: ID!) {
+  organization(ref: $ref) {
     id
     members {
       id
@@ -40,9 +41,33 @@ query OrgMembers($id: ID!) {
   }
 }
 
-query SearchUsers($query: String!) {
-  searchUsers(query: $query) {
+# The uniform single-user read (hadron-server#473): ref accepts a PK or an
+# hrn:user:<handle> URN; denied and missing are both null (anti-enumeration).
+# The access-check user resolution tries this before falling back to the
+# paged search below.
+query GetUser($ref: ID!) {
+  user(ref: $ref) {
     ...UserFields
+  }
+}
+
+# Uniform paginated user list (hadron-server#473) — replaces searchUsers.
+# Non-admin callers must pass filter.query (enumeration-safe matching:
+# handle/githubUsername substring, email exact). Results are name-ascending,
+# so an EXACT identifier match can sit past the first 200-cap page — user-ref
+# resolution pages via api.CollectUntil with an exact-match short-circuit.
+query SearchUsers(
+  $query: String!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  users(filter: { query: $query }, limit: $limit, offset: $offset) {
+    total
+    items {
+      ...UserFields
+    }
   }
 }
 

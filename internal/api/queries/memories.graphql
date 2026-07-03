@@ -1,17 +1,30 @@
-query MyMemories(
+# Uniform paginated memory list (hadron-server#473) — replaces myMemories.
+# The noisy agent system class is hidden unless filter.memoryClasses names it
+# explicitly; limit is capped at 200 server-side, so whole-scope callers page
+# to exhaustion (api.CollectAll).
+# @genqlient(for: "MemoryFilter.memoryClasses", omitempty: true)
+# @genqlient(for: "MemoryFilter.visibility", omitempty: true)
+query Memories(
   # @genqlient(omitempty: true)
-  $includeAgentSystem: Boolean
+  $filter: MemoryFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
 ) {
-  myMemories(includeAgentSystem: $includeAgentSystem) {
-    id
-    urn
-    name
-    shortDescription
-    class
-    visibility
-    organizationId
-    isEncrypted
-    updatedAt
+  memories(filter: $filter, limit: $limit, offset: $offset) {
+    total
+    items {
+      id
+      urn
+      name
+      shortDescription
+      class
+      visibility
+      organizationId
+      isEncrypted
+      updatedAt
+    }
   }
 }
 
@@ -96,8 +109,9 @@ mutation DeleteMemory($id: ID!) {
   deleteMemory(id: $id)
 }
 
-query GetMemory($id: ID!) {
-  memory(id: $id) {
+# memory(ref:) accepts the memory's PK id or URN (hadron-server#473).
+query GetMemory($ref: ID!) {
+  memory(ref: $ref) {
     id
     urn
     name

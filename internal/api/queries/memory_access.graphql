@@ -9,9 +9,10 @@ fragment MemUserFields on User {
   handle
 }
 
-# memory(id) is the path to a memory's member/share rows.
-query MemoryMembers($id: ID!) {
-  memory(id: $id) {
+# memory(ref) — PK id or URN (hadron-server#473) — is the path to a memory's
+# member/share rows.
+query MemoryMembers($ref: ID!) {
+  memory(ref: $ref) {
     id
     members {
       role
@@ -23,8 +24,8 @@ query MemoryMembers($id: ID!) {
   }
 }
 
-query MemoryShares($id: ID!) {
-  memory(id: $id) {
+query MemoryShares($ref: ID!) {
+  memory(ref: $ref) {
     id
     shares {
       role

@@ -123,7 +123,7 @@ one object for a single citation, an array for --prefix.`,
 				ids = append(ids, n.Id)
 			}
 
-			// Bulk-read the full nodes (cor:api:040) rather than one GetNodeById
+			// Bulk-read the full nodes (cor:api:040) rather than one GetNode
 			// per spec — ceil(N/200) round-trips instead of N.
 			batched, unavailable, berr := api.CollectNodeBatch(ids, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
 				resp, ferr := gen.NodeBatch(cmd.Context(), client, chunk)
@@ -184,7 +184,7 @@ func edgeNameStr(s *string) string {
 // specDetailFromNode projects a fetched node into the stable detail DTO and
 // computes its per-node lint findings. includeContent gates the body (false
 // for --abstract-only).
-func specDetailFromNode(n *gen.GetNodeByIdNodeByIdNode, includeContent bool) specDetailDTO {
+func specDetailFromNode(n *gen.GetNodeNode, includeContent bool) specDetailDTO {
 	findings := lintNode(nodeFromGQL(n))
 	dto := specDetailDTO{
 		Citation:  n.Loc,
@@ -213,13 +213,13 @@ func specDetailFromNode(n *gen.GetNodeByIdNodeByIdNode, includeContent bool) spe
 	return dto
 }
 
-// nodeByIDFromBatch adapts a bulk NodeBatch node into the GetNodeById shape, so
+// nodeByIDFromBatch adapts a bulk NodeBatch node into the GetNode shape, so
 // the detail/lint builders (specDetailFromNode, nodeFromGQL) run unchanged on
 // either fetch path. Only the fields those builders read are carried over —
 // scalars, data (for data.version), and both edge directions with target/source
 // loc + memoryId; everything else stays zero.
-func nodeByIDFromBatch(b *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) *gen.GetNodeByIdNodeByIdNode {
-	n := &gen.GetNodeByIdNodeByIdNode{
+func nodeByIDFromBatch(b *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) *gen.GetNodeNode {
+	n := &gen.GetNodeNode{
 		Id:                 b.Id,
 		MemoryId:           b.MemoryId,
 		Loc:                b.Loc,
@@ -236,22 +236,22 @@ func nodeByIDFromBatch(b *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) *gen.G
 		if e == nil || e.Target == nil {
 			continue
 		}
-		n.OutgoingEdges = append(n.OutgoingEdges, &gen.GetNodeByIdNodeByIdNodeOutgoingEdgesEdge{
+		n.OutgoingEdges = append(n.OutgoingEdges, &gen.GetNodeNodeOutgoingEdgesEdge{
 			Name:       e.Name,
 			Loc:        e.Loc,
 			IsRunnable: e.IsRunnable,
-			Target: &gen.GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode{Id: e.Target.Id, Loc: e.Target.Loc, MemoryId: e.Target.MemoryId},
+			Target: &gen.GetNodeNodeOutgoingEdgesEdgeTargetNode{Id: e.Target.Id, Loc: e.Target.Loc, MemoryId: e.Target.MemoryId},
 		})
 	}
 	for _, e := range b.IncomingEdges {
 		if e == nil || e.Source == nil {
 			continue
 		}
-		n.IncomingEdges = append(n.IncomingEdges, &gen.GetNodeByIdNodeByIdNodeIncomingEdgesEdge{
+		n.IncomingEdges = append(n.IncomingEdges, &gen.GetNodeNodeIncomingEdgesEdge{
 			Name:       e.Name,
 			Loc:        e.Loc,
 			IsRunnable: e.IsRunnable,
-			Source: &gen.GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode{Id: e.Source.Id, Loc: e.Source.Loc, MemoryId: e.Source.MemoryId},
+			Source: &gen.GetNodeNodeIncomingEdgesEdgeSourceNode{Id: e.Source.Id, Loc: e.Source.Loc, MemoryId: e.Source.MemoryId},
 		})
 	}
 	return n

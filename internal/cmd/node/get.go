@@ -111,7 +111,7 @@ func edgeRefOf(edgeID string, name *string, edgeLoc string, isRunnable *bool, pr
 	}
 }
 
-func detailDTO(n *gen.GetNodeByIdNodeByIdNode) nodeDetailDTO {
+func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 	dto := nodeDetailDTO{
 		nodeDTO: nodeDTO{
 			ID:         n.Id,
@@ -145,17 +145,17 @@ func detailDTO(n *gen.GetNodeByIdNodeByIdNode) nodeDetailDTO {
 
 // fetchNode resolves a node reference (a full URN, or a bare loc within
 // memory) and returns the full node.
-func fetchNode(cmd *cobra.Command, client graphql.Client, memory, ref string) (*gen.GetNodeByIdNodeByIdNode, error) {
+func fetchNode(cmd *cobra.Command, client graphql.Client, memory, ref string) (*gen.GetNodeNode, error) {
 	id, err := cmdutil.ResolveNodeRef(cmd, client, memory, ref)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := gen.GetNodeById(cmd.Context(), client, id)
+	resp, err := gen.GetNode(cmd.Context(), client, id)
 	if err != nil {
 		return nil, api.MapError(err)
 	}
-	if resp.NodeById == nil {
+	if resp.Node == nil {
 		return nil, exitcode.Newf(exitcode.NotFound, "node %q not found", ref)
 	}
-	return resp.NodeById, nil
+	return resp.Node, nil
 }

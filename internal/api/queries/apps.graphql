@@ -1,12 +1,23 @@
-query Apps($orgId: ID!) {
-  apps(orgId: $orgId) {
-    id
-    urn
-    name
-    appType
-    agentId
-    memberCount
-    createdAt
+# Uniform paginated app list (hadron-server#473) — { items, total } envelope,
+# limit capped at 200 server-side; `app ls` pages to exhaustion.
+query Apps(
+  $orgId: ID!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  apps(orgId: $orgId, limit: $limit, offset: $offset) {
+    total
+    items {
+      id
+      urn
+      name
+      appType
+      agentId
+      memberCount
+      createdAt
+    }
   }
 }
 

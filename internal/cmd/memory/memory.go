@@ -45,23 +45,19 @@ func NewCmdMemory(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
-// resolveMemoryID maps a memory URN to its ID via myMemories.
-// Query.memory and updateMemory only accept PK ids today (unlike
-// deleteMemory, which dispatches URNs server-side) — remove this once
-// the server grows 007-style dispatch on those resolvers.
+// resolveMemoryID maps a memory URN to its ID via memory(ref:), which
+// dispatches PKs and URNs server-side (hadron-server#473). The mutations
+// this feeds (updateMemory, member/share writes) still accept PK ids only.
 func resolveMemoryID(cmd *cobra.Command, client graphql.Client, ref string) (string, error) {
 	if !strings.Contains(ref, ":") {
 		return ref, nil
 	}
-	includeAgentSystem := true
-	resp, err := gen.MyMemories(cmd.Context(), client, &includeAgentSystem)
+	resp, err := gen.GetMemory(cmd.Context(), client, ref)
 	if err != nil {
 		return "", api.MapError(err)
 	}
-	for _, m := range resp.MyMemories {
-		if m.Urn == ref {
-			return m.Id, nil
-		}
+	if resp.Memory == nil {
+		return "", exitcode.Newf(exitcode.NotFound, "memory %q not found", ref)
 	}
-	return "", exitcode.Newf(exitcode.NotFound, "memory %q not found", ref)
+	return resp.Memory.Id, nil
 }

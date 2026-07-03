@@ -140,7 +140,7 @@ func TestEdgeLs(t *testing.T) {
 	gql := resolveByURN(t,
 		map[string]string{"hrn:node:acme.com::kb::findings:flaky-ci": "n1"},
 		map[string]string{
-			"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+			"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
 		})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)

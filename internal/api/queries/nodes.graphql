@@ -77,7 +77,7 @@ query ResolveUrn($urn: String!) {
 # node projection — both edge directions (with target/source loc + memoryId),
 # everything the markdown exporter serializes, and the fields the spec detail/
 # lint builders read — so the whole-corpus fan-outs (`memory export`,
-# `spec get --prefix`) read in ceil(N/200) round-trips instead of one nodeById
+# `spec get --prefix`) read in ceil(N/200) round-trips instead of one node(ref)
 # per node. Driven through api.CollectNodeBatch.
 # @genqlient(omitempty: true)
 query NodeBatch($ids: [ID!]) {
@@ -128,8 +128,12 @@ query NodeBatch($ids: [ID!]) {
   }
 }
 
-query GetNodeById($id: ID!) {
-  nodeById(id: $id) {
+# The uniform single-node read (hadron-server#473) — node(ref:) subsumes the
+# former nodeById(id:); ref accepts a PK, a fully-qualified node URN, or a
+# bare loc (memory-scoped via the separate `memory` arg, unused here — the
+# CLI resolves refs to PKs first via resolveUrn).
+query GetNode($ref: ID!) {
+  node(ref: $ref) {
     id
     memoryId
     loc
@@ -410,9 +414,9 @@ query NodeExport($id: ID!, $format: NodeExportFormat!) {
 
 # Minimal metadata for the `node export -o` summary (loc/name/memory): the
 # server's nodeExport render returns the bytes but no identifying fields, and
-# memory { urn } here avoids a second myMemories round-trip (#106 review).
-query NodeExportMeta($id: ID!) {
-  nodeById(id: $id) {
+# memory { urn } here avoids a second memory-list round-trip (#106 review).
+query NodeExportMeta($ref: ID!) {
+  node(ref: $ref) {
     loc
     name
     memoryId
