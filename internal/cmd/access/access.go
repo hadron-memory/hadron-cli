@@ -51,19 +51,38 @@ func resolveUserID(cmd *cobra.Command, client graphql.Client, ref string) (strin
 		return "", exitcode.Newf(exitcode.Usage, "empty user reference")
 	}
 
-	// One max-size page is enough: past 200 matches, resolution is ambiguous
-	// long before paging would matter.
-	limit := api.PageLimit
-	resp, err := gen.SearchUsers(cmd.Context(), client, token, &limit, nil)
+	// users() is name-ascending and served in 200-cap pages, so with many
+	// substring matches the EXACT handle/githubUsername/email match can sit
+	// on a later page. Page until an exact stable-identifier match is in
+	// hand (then stop — later pages can't beat it) or the scope is
+	// exhausted; only a fully drained, exact-free set may be judged
+	// fuzzy-ambiguous.
+	items, err := api.CollectUntil(
+		func(limit, offset int) ([]*gen.SearchUsersUsersUsersPageItemsUser, int, error) {
+			resp, err := gen.SearchUsers(cmd.Context(), client, token, &limit, &offset)
+			if err != nil {
+				return nil, 0, api.MapError(err)
+			}
+			return resp.Users.Items, resp.Users.Total, nil
+		},
+		func(acc []*gen.SearchUsersUsersUsersPageItemsUser) bool {
+			for _, u := range acc {
+				if u != nil && userMatchesExactly(u.UserFields, token) {
+					return true
+				}
+			}
+			return false
+		},
+	)
 	if err != nil {
-		return "", api.MapError(err)
+		return "", err
 	}
 
 	// Prefer an exact match on a stable identifier; fall back to a sole fuzzy
 	// hit. Ambiguity (multiple non-exact matches) is a usage error rather than
 	// an arbitrary pick.
 	var exact, fuzzy []*gen.SearchUsersUsersUsersPageItemsUser
-	for _, u := range resp.Users.Items {
+	for _, u := range items {
 		if u == nil {
 			continue
 		}

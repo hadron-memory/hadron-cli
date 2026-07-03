@@ -2,6 +2,10 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -143,5 +147,82 @@ func TestAccessCheckAmbiguousUser(t *testing.T) {
 	}
 	if code := exitcode.FromError(err); code != exitcode.Usage {
 		t.Errorf("expected usage exit code, got %d (%v)", code, err)
+	}
+}
+
+// users() is name-ascending and served in 200-cap pages, so with >200
+// substring matches the EXACT handle match can sit on a later page. The
+// resolver must keep paging (short-circuiting once the exact match is in
+// hand) instead of judging page one alone ambiguous.
+func TestAccessCheckExactMatchBeyondFirstPage(t *testing.T) {
+	// Page 1: 200 fuzzy "alice…" matches, none exact. Page 2: the exact
+	// handle match, sorted last by name.
+	fuzzy := make([]string, 0, 200)
+	for i := 0; i < 200; i++ {
+		fuzzy = append(fuzzy, searchUserJSON(
+			fmt.Sprintf("u%03d", i),
+			fmt.Sprintf("Alice %03d", i),
+			fmt.Sprintf("alice%03d@acme.com", i),
+			fmt.Sprintf("alice-%03d", i)))
+	}
+	page1 := `{"data":{"users":{"total":201,"items":[` + strings.Join(fuzzy, ",") + `]}}}`
+	page2 := `{"data":{"users":{"total":201,"items":[` +
+		searchUserJSON("u-exact", "Zz Alice", "alice@acme.com", "alice") + `]}}}`
+
+	var searchCalls int
+	var effectiveVars json.RawMessage
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+			Variables     struct {
+				Offset *int `json:"offset"`
+			} `json:"variables"`
+		}
+		raw, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(raw, &body)
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "SearchUsers":
+			searchCalls++
+			if body.Variables.Offset != nil && *body.Variables.Offset >= 200 {
+				_, _ = w.Write([]byte(page2))
+				return
+			}
+			_, _ = w.Write([]byte(page1))
+		case "EffectiveAccess":
+			var envelope struct {
+				Variables json.RawMessage `json:"variables"`
+			}
+			_ = json.Unmarshal(raw, &envelope)
+			effectiveVars = envelope.Variables
+			_, _ = w.Write([]byte(`{"data":{"effectiveAccess":{
+				"user":{"id":"u-exact","name":"Zz Alice","email":"alice@acme.com","handle":"alice"},
+				"resourceUrn":"hrn:memory:acme.com::kb","resourceKind":"memory",
+				"canRead":true,"canWrite":false,"canManage":false,"canDelete":false,
+				"role":"reader","grants":[{"source":"MEMORY_MEMBER","role":"reader","via":null}]}}}`))
+		default:
+			t.Errorf("unexpected operation %q", body.OperationName)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected operation"}]}`))
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"access", "check", "@alice", "hrn:memory:acme.com::kb", "--json", "--server", server.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("expected the page-2 exact handle match to resolve, got: %v", err)
+	}
+	if searchCalls != 2 {
+		t.Errorf("expected 2 SearchUsers pages, got %d", searchCalls)
+	}
+	var vars struct {
+		User string `json:"user"`
+	}
+	if err := json.Unmarshal(effectiveVars, &vars); err != nil {
+		t.Fatalf("decode effectiveAccess vars: %v", err)
+	}
+	if vars.User != "u-exact" {
+		t.Errorf("@alice should resolve to the exact-handle match u-exact, got %q", vars.User)
 	}
 }

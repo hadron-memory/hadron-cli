@@ -43,8 +43,9 @@ query OrgMembers($ref: ID!) {
 
 # Uniform paginated user list (hadron-server#473) — replaces searchUsers.
 # Non-admin callers must pass filter.query (enumeration-safe matching:
-# handle/githubUsername substring, email exact). One 200-cap page is plenty
-# for user-ref resolution; ambiguity past that is an error anyway.
+# handle/githubUsername substring, email exact). Results are name-ascending,
+# so an EXACT identifier match can sit past the first 200-cap page — user-ref
+# resolution pages via api.CollectUntil with an exact-match short-circuit.
 query SearchUsers(
   $query: String!
   # @genqlient(omitempty: true)
