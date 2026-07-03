@@ -395,8 +395,20 @@ var AllAppType = []AppType{
 	AppTypeWorkstation,
 }
 
-// AppsAppsApp includes the requested fields of the GraphQL type App.
-type AppsAppsApp struct {
+// AppsAppsAppsPage includes the requested fields of the GraphQL type AppsPage.
+type AppsAppsAppsPage struct {
+	Total int                         `json:"total"`
+	Items []*AppsAppsAppsPageItemsApp `json:"items"`
+}
+
+// GetTotal returns AppsAppsAppsPage.Total, and is useful for accessing the field via an interface.
+func (v *AppsAppsAppsPage) GetTotal() int { return v.Total }
+
+// GetItems returns AppsAppsAppsPage.Items, and is useful for accessing the field via an interface.
+func (v *AppsAppsAppsPage) GetItems() []*AppsAppsAppsPageItemsApp { return v.Items }
+
+// AppsAppsAppsPageItemsApp includes the requested fields of the GraphQL type App.
+type AppsAppsAppsPageItemsApp struct {
 	Id          string  `json:"id"`
 	Urn         string  `json:"urn"`
 	Name        string  `json:"name"`
@@ -406,37 +418,41 @@ type AppsAppsApp struct {
 	CreatedAt   string  `json:"createdAt"`
 }
 
-// GetId returns AppsAppsApp.Id, and is useful for accessing the field via an interface.
-func (v *AppsAppsApp) GetId() string { return v.Id }
+// GetId returns AppsAppsAppsPageItemsApp.Id, and is useful for accessing the field via an interface.
+func (v *AppsAppsAppsPageItemsApp) GetId() string { return v.Id }
 
-// GetUrn returns AppsAppsApp.Urn, and is useful for accessing the field via an interface.
-func (v *AppsAppsApp) GetUrn() string { return v.Urn }
+// GetUrn returns AppsAppsAppsPageItemsApp.Urn, and is useful for accessing the field via an interface.
+func (v *AppsAppsAppsPageItemsApp) GetUrn() string { return v.Urn }
 
-// GetName returns AppsAppsApp.Name, and is useful for accessing the field via an interface.
-func (v *AppsAppsApp) GetName() string { return v.Name }
+// GetName returns AppsAppsAppsPageItemsApp.Name, and is useful for accessing the field via an interface.
+func (v *AppsAppsAppsPageItemsApp) GetName() string { return v.Name }
 
-// GetAppType returns AppsAppsApp.AppType, and is useful for accessing the field via an interface.
-func (v *AppsAppsApp) GetAppType() AppType { return v.AppType }
+// GetAppType returns AppsAppsAppsPageItemsApp.AppType, and is useful for accessing the field via an interface.
+func (v *AppsAppsAppsPageItemsApp) GetAppType() AppType { return v.AppType }
 
-// GetAgentId returns AppsAppsApp.AgentId, and is useful for accessing the field via an interface.
-func (v *AppsAppsApp) GetAgentId() *string { return v.AgentId }
+// GetAgentId returns AppsAppsAppsPageItemsApp.AgentId, and is useful for accessing the field via an interface.
+func (v *AppsAppsAppsPageItemsApp) GetAgentId() *string { return v.AgentId }
 
-// GetMemberCount returns AppsAppsApp.MemberCount, and is useful for accessing the field via an interface.
-func (v *AppsAppsApp) GetMemberCount() int { return v.MemberCount }
+// GetMemberCount returns AppsAppsAppsPageItemsApp.MemberCount, and is useful for accessing the field via an interface.
+func (v *AppsAppsAppsPageItemsApp) GetMemberCount() int { return v.MemberCount }
 
-// GetCreatedAt returns AppsAppsApp.CreatedAt, and is useful for accessing the field via an interface.
-func (v *AppsAppsApp) GetCreatedAt() string { return v.CreatedAt }
+// GetCreatedAt returns AppsAppsAppsPageItemsApp.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AppsAppsAppsPageItemsApp) GetCreatedAt() string { return v.CreatedAt }
 
 // AppsResponse is returned by Apps on success.
 type AppsResponse struct {
-	// Apps in an organization (org ADMIN).
-	//
-	// Accepts the entity's ID or URN.
-	Apps []*AppsAppsApp `json:"apps"`
+	// Uniform paginated app list (#473) — replaces the org-ADMIN apps(orgId!)
+	// and the member myApps. Scope: Apps in the caller's member orgs (App
+	// doesn't carry a userId, so org membership is the routing); platform
+	// ADMIN/OWNER unscoped get every live App. orgId follows cor:api:100:01
+	// (member -> scope, non-member -> empty page, no disclosure, no admin
+	// bypass). Name-ascending order (id tiebreak); limit default 50 / cap 200;
+	// limit: 0 -> count only.
+	Apps *AppsAppsAppsPage `json:"apps"`
 }
 
 // GetApps returns AppsResponse.Apps, and is useful for accessing the field via an interface.
-func (v *AppsResponse) GetApps() []*AppsAppsApp { return v.Apps }
+func (v *AppsResponse) GetApps() *AppsAppsAppsPage { return v.Apps }
 
 // CloneMemoryCloneMemory includes the requested fields of the GraphQL type Memory.
 type CloneMemoryCloneMemory struct {
@@ -1665,6 +1681,12 @@ type FindNodesResponse struct {
 	// weight-mask. `filter` is the structured, AND-combined filter context
 	// (SYSTEM memory class excluded by default; explicit wins). Returns a
 	// scored-hit envelope. Access-scoped identically to the per-kind node queries.
+	//
+	// orgId (optional) narrows the accessible scope to a single organization the
+	// caller is a member of; a non-member orgId returns an empty envelope
+	// (total 0, no existence disclosure). Combined with filter.isRunnable: true
+	// this is the canonical "the caller's runnable task nodes in one org" query
+	// (there is no separate myTasks surface — a task is simply an isRunnable node).
 	FindNodes *FindNodesFindNodesFindNodesResult `json:"findNodes"`
 }
 
@@ -1743,17 +1765,17 @@ func (v *GetMemoryMemory) GetUpdatedAt() string { return v.UpdatedAt }
 
 // GetMemoryResponse is returned by GetMemory on success.
 type GetMemoryResponse struct {
-	// Fetch a single Memory (org member or platform ADMIN).
+	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
 	//
-	// Accepts the entity's ID or URN.
+	// 'ref' accepts the entity's ID or URN.
 	Memory *GetMemoryMemory `json:"memory"`
 }
 
 // GetMemory returns GetMemoryResponse.Memory, and is useful for accessing the field via an interface.
 func (v *GetMemoryResponse) GetMemory() *GetMemoryMemory { return v.Memory }
 
-// GetNodeByIdNodeByIdNode includes the requested fields of the GraphQL type Node.
-type GetNodeByIdNodeByIdNode struct {
+// GetNodeNode includes the requested fields of the GraphQL type Node.
+type GetNodeNode struct {
 	Id          string  `json:"id"`
 	MemoryId    string  `json:"memoryId"`
 	Loc         string  `json:"loc"`
@@ -1762,173 +1784,186 @@ type GetNodeByIdNodeByIdNode struct {
 	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
 	Abstract *string `json:"abstract"`
 	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness; when the two values differ AND abstractOriginHash is non-null, the abstract may not reflect current content. System-managed; never settable via NodeInput.
-	AbstractOriginHash *string                                     `json:"abstractOriginHash"`
-	NodeType           string                                      `json:"nodeType"`
-	Tags               []string                                    `json:"tags"`
-	Content            *string                                     `json:"content"`
-	Data               *json.RawMessage                            `json:"data"`
-	Seq                *int                                        `json:"seq"`
-	IsRunnable         *bool                                       `json:"isRunnable"`
-	CreatedAt          string                                      `json:"createdAt"`
-	UpdatedAt          string                                      `json:"updatedAt"`
-	OutgoingEdges      []*GetNodeByIdNodeByIdNodeOutgoingEdgesEdge `json:"outgoingEdges"`
-	IncomingEdges      []*GetNodeByIdNodeByIdNodeIncomingEdgesEdge `json:"incomingEdges"`
+	AbstractOriginHash *string                         `json:"abstractOriginHash"`
+	NodeType           string                          `json:"nodeType"`
+	Tags               []string                        `json:"tags"`
+	Content            *string                         `json:"content"`
+	Data               *json.RawMessage                `json:"data"`
+	Seq                *int                            `json:"seq"`
+	IsRunnable         *bool                           `json:"isRunnable"`
+	CreatedAt          string                          `json:"createdAt"`
+	UpdatedAt          string                          `json:"updatedAt"`
+	OutgoingEdges      []*GetNodeNodeOutgoingEdgesEdge `json:"outgoingEdges"`
+	IncomingEdges      []*GetNodeNodeIncomingEdgesEdge `json:"incomingEdges"`
 }
 
-// GetId returns GetNodeByIdNodeByIdNode.Id, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNode) GetId() string { return v.Id }
+// GetId returns GetNodeNode.Id, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetId() string { return v.Id }
 
-// GetMemoryId returns GetNodeByIdNodeByIdNode.MemoryId, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNode) GetMemoryId() string { return v.MemoryId }
+// GetMemoryId returns GetNodeNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetMemoryId() string { return v.MemoryId }
 
-// GetLoc returns GetNodeByIdNodeByIdNode.Loc, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNode) GetLoc() string { return v.Loc }
+// GetLoc returns GetNodeNode.Loc, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetLoc() string { return v.Loc }
 
-// GetName returns GetNodeByIdNodeByIdNode.Name, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNode) GetName() string { return v.Name }
+// GetName returns GetNodeNode.Name, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetName() string { return v.Name }
 
-// GetDescription returns GetNodeByIdNodeByIdNode.Description, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNode) GetDescription() *string { return v.Description }
+// GetDescription returns GetNodeNode.Description, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetDescription() *string { return v.Description }
 
-// GetAbstract returns GetNodeByIdNodeByIdNode.Abstract, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNode) GetAbstract() *string { return v.Abstract }
+// GetAbstract returns GetNodeNode.Abstract, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetAbstract() *string { return v.Abstract }
 
-// GetAbstractOriginHash returns GetNodeByIdNodeByIdNode.AbstractOriginHash, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNode) GetAbstractOriginHash() *string { return v.AbstractOriginHash }
+// GetAbstractOriginHash returns GetNodeNode.AbstractOriginHash, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetAbstractOriginHash() *string { return v.AbstractOriginHash }
 
-// GetNodeType returns GetNodeByIdNodeByIdNode.NodeType, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNode) GetNodeType() string { return v.NodeType }
+// GetNodeType returns GetNodeNode.NodeType, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetNodeType() string { return v.NodeType }
 
-// GetTags returns GetNodeByIdNodeByIdNode.Tags, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNode) GetTags() []string { return v.Tags }
+// GetTags returns GetNodeNode.Tags, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetTags() []string { return v.Tags }
 
-// GetContent returns GetNodeByIdNodeByIdNode.Content, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNode) GetContent() *string { return v.Content }
+// GetContent returns GetNodeNode.Content, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetContent() *string { return v.Content }
 
-// GetData returns GetNodeByIdNodeByIdNode.Data, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNode) GetData() *json.RawMessage { return v.Data }
+// GetData returns GetNodeNode.Data, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetData() *json.RawMessage { return v.Data }
 
-// GetSeq returns GetNodeByIdNodeByIdNode.Seq, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNode) GetSeq() *int { return v.Seq }
+// GetSeq returns GetNodeNode.Seq, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetSeq() *int { return v.Seq }
 
-// GetIsRunnable returns GetNodeByIdNodeByIdNode.IsRunnable, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNode) GetIsRunnable() *bool { return v.IsRunnable }
+// GetIsRunnable returns GetNodeNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetIsRunnable() *bool { return v.IsRunnable }
 
-// GetCreatedAt returns GetNodeByIdNodeByIdNode.CreatedAt, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNode) GetCreatedAt() string { return v.CreatedAt }
+// GetCreatedAt returns GetNodeNode.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetCreatedAt() string { return v.CreatedAt }
 
-// GetUpdatedAt returns GetNodeByIdNodeByIdNode.UpdatedAt, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNode) GetUpdatedAt() string { return v.UpdatedAt }
+// GetUpdatedAt returns GetNodeNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetUpdatedAt() string { return v.UpdatedAt }
 
-// GetOutgoingEdges returns GetNodeByIdNodeByIdNode.OutgoingEdges, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNode) GetOutgoingEdges() []*GetNodeByIdNodeByIdNodeOutgoingEdgesEdge {
-	return v.OutgoingEdges
+// GetOutgoingEdges returns GetNodeNode.OutgoingEdges, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetOutgoingEdges() []*GetNodeNodeOutgoingEdgesEdge { return v.OutgoingEdges }
+
+// GetIncomingEdges returns GetNodeNode.IncomingEdges, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetIncomingEdges() []*GetNodeNodeIncomingEdgesEdge { return v.IncomingEdges }
+
+// GetNodeNodeIncomingEdgesEdge includes the requested fields of the GraphQL type Edge.
+type GetNodeNodeIncomingEdgesEdge struct {
+	Id         string                                  `json:"id"`
+	Name       *string                                 `json:"name"`
+	Loc        string                                  `json:"loc"`
+	IsRunnable *bool                                   `json:"isRunnable"`
+	Priority   int                                     `json:"priority"`
+	Source     *GetNodeNodeIncomingEdgesEdgeSourceNode `json:"source"`
 }
 
-// GetIncomingEdges returns GetNodeByIdNodeByIdNode.IncomingEdges, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNode) GetIncomingEdges() []*GetNodeByIdNodeByIdNodeIncomingEdgesEdge {
-	return v.IncomingEdges
-}
+// GetId returns GetNodeNodeIncomingEdgesEdge.Id, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeIncomingEdgesEdge) GetId() string { return v.Id }
 
-// GetNodeByIdNodeByIdNodeIncomingEdgesEdge includes the requested fields of the GraphQL type Edge.
-type GetNodeByIdNodeByIdNodeIncomingEdgesEdge struct {
-	Id         string                                              `json:"id"`
-	Name       *string                                             `json:"name"`
-	Loc        string                                              `json:"loc"`
-	IsRunnable *bool                                               `json:"isRunnable"`
-	Priority   int                                                 `json:"priority"`
-	Source     *GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode `json:"source"`
-}
+// GetName returns GetNodeNodeIncomingEdgesEdge.Name, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeIncomingEdgesEdge) GetName() *string { return v.Name }
 
-// GetId returns GetNodeByIdNodeByIdNodeIncomingEdgesEdge.Id, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdge) GetId() string { return v.Id }
+// GetLoc returns GetNodeNodeIncomingEdgesEdge.Loc, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeIncomingEdgesEdge) GetLoc() string { return v.Loc }
 
-// GetName returns GetNodeByIdNodeByIdNodeIncomingEdgesEdge.Name, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdge) GetName() *string { return v.Name }
+// GetIsRunnable returns GetNodeNodeIncomingEdgesEdge.IsRunnable, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeIncomingEdgesEdge) GetIsRunnable() *bool { return v.IsRunnable }
 
-// GetLoc returns GetNodeByIdNodeByIdNodeIncomingEdgesEdge.Loc, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdge) GetLoc() string { return v.Loc }
+// GetPriority returns GetNodeNodeIncomingEdgesEdge.Priority, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeIncomingEdgesEdge) GetPriority() int { return v.Priority }
 
-// GetIsRunnable returns GetNodeByIdNodeByIdNodeIncomingEdgesEdge.IsRunnable, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdge) GetIsRunnable() *bool { return v.IsRunnable }
-
-// GetPriority returns GetNodeByIdNodeByIdNodeIncomingEdgesEdge.Priority, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdge) GetPriority() int { return v.Priority }
-
-// GetSource returns GetNodeByIdNodeByIdNodeIncomingEdgesEdge.Source, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdge) GetSource() *GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode {
+// GetSource returns GetNodeNodeIncomingEdgesEdge.Source, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeIncomingEdgesEdge) GetSource() *GetNodeNodeIncomingEdgesEdgeSourceNode {
 	return v.Source
 }
 
-// GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode includes the requested fields of the GraphQL type Node.
-type GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode struct {
+// GetNodeNodeIncomingEdgesEdgeSourceNode includes the requested fields of the GraphQL type Node.
+type GetNodeNodeIncomingEdgesEdgeSourceNode struct {
 	Id       string `json:"id"`
 	Loc      string `json:"loc"`
 	MemoryId string `json:"memoryId"`
 }
 
-// GetId returns GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode.Id, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode) GetId() string { return v.Id }
+// GetId returns GetNodeNodeIncomingEdgesEdgeSourceNode.Id, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeIncomingEdgesEdgeSourceNode) GetId() string { return v.Id }
 
-// GetLoc returns GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode.Loc, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode) GetLoc() string { return v.Loc }
+// GetLoc returns GetNodeNodeIncomingEdgesEdgeSourceNode.Loc, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeIncomingEdgesEdgeSourceNode) GetLoc() string { return v.Loc }
 
-// GetMemoryId returns GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode.MemoryId, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeIncomingEdgesEdgeSourceNode) GetMemoryId() string { return v.MemoryId }
+// GetMemoryId returns GetNodeNodeIncomingEdgesEdgeSourceNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeIncomingEdgesEdgeSourceNode) GetMemoryId() string { return v.MemoryId }
 
-// GetNodeByIdNodeByIdNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
-type GetNodeByIdNodeByIdNodeOutgoingEdgesEdge struct {
-	Id         string                                              `json:"id"`
-	Name       *string                                             `json:"name"`
-	Loc        string                                              `json:"loc"`
-	IsRunnable *bool                                               `json:"isRunnable"`
-	Priority   int                                                 `json:"priority"`
-	Target     *GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode `json:"target"`
+// GetNodeNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
+type GetNodeNodeOutgoingEdgesEdge struct {
+	Id         string                                  `json:"id"`
+	Name       *string                                 `json:"name"`
+	Loc        string                                  `json:"loc"`
+	IsRunnable *bool                                   `json:"isRunnable"`
+	Priority   int                                     `json:"priority"`
+	Target     *GetNodeNodeOutgoingEdgesEdgeTargetNode `json:"target"`
 }
 
-// GetId returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdge.Id, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdge) GetId() string { return v.Id }
+// GetId returns GetNodeNodeOutgoingEdgesEdge.Id, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeOutgoingEdgesEdge) GetId() string { return v.Id }
 
-// GetName returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdge.Name, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdge) GetName() *string { return v.Name }
+// GetName returns GetNodeNodeOutgoingEdgesEdge.Name, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeOutgoingEdgesEdge) GetName() *string { return v.Name }
 
-// GetLoc returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdge.Loc, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdge) GetLoc() string { return v.Loc }
+// GetLoc returns GetNodeNodeOutgoingEdgesEdge.Loc, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeOutgoingEdgesEdge) GetLoc() string { return v.Loc }
 
-// GetIsRunnable returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdge.IsRunnable, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdge) GetIsRunnable() *bool { return v.IsRunnable }
+// GetIsRunnable returns GetNodeNodeOutgoingEdgesEdge.IsRunnable, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeOutgoingEdgesEdge) GetIsRunnable() *bool { return v.IsRunnable }
 
-// GetPriority returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdge.Priority, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdge) GetPriority() int { return v.Priority }
+// GetPriority returns GetNodeNodeOutgoingEdgesEdge.Priority, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeOutgoingEdgesEdge) GetPriority() int { return v.Priority }
 
-// GetTarget returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdge.Target, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdge) GetTarget() *GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode {
+// GetTarget returns GetNodeNodeOutgoingEdgesEdge.Target, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeOutgoingEdgesEdge) GetTarget() *GetNodeNodeOutgoingEdgesEdgeTargetNode {
 	return v.Target
 }
 
-// GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode includes the requested fields of the GraphQL type Node.
-type GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode struct {
+// GetNodeNodeOutgoingEdgesEdgeTargetNode includes the requested fields of the GraphQL type Node.
+type GetNodeNodeOutgoingEdgesEdgeTargetNode struct {
 	Id       string `json:"id"`
 	Loc      string `json:"loc"`
 	MemoryId string `json:"memoryId"`
 }
 
-// GetId returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode.Id, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode) GetId() string { return v.Id }
+// GetId returns GetNodeNodeOutgoingEdgesEdgeTargetNode.Id, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeOutgoingEdgesEdgeTargetNode) GetId() string { return v.Id }
 
-// GetLoc returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode.Loc, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode) GetLoc() string { return v.Loc }
+// GetLoc returns GetNodeNodeOutgoingEdgesEdgeTargetNode.Loc, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeOutgoingEdgesEdgeTargetNode) GetLoc() string { return v.Loc }
 
-// GetMemoryId returns GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode.MemoryId, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdNodeByIdNodeOutgoingEdgesEdgeTargetNode) GetMemoryId() string { return v.MemoryId }
+// GetMemoryId returns GetNodeNodeOutgoingEdgesEdgeTargetNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeOutgoingEdgesEdgeTargetNode) GetMemoryId() string { return v.MemoryId }
 
-// GetNodeByIdResponse is returned by GetNodeById on success.
-type GetNodeByIdResponse struct {
-	NodeById *GetNodeByIdNodeByIdNode `json:"nodeById"`
+// GetNodeResponse is returned by GetNode on success.
+type GetNodeResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<org>::<memory>::<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memory' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a readable memory is treated as form 2 (a full URN); pass
+	// 'memory' to force loc interpretation.
+	//
+	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
+	// resolve. Access: the caller's readable-memory set (same gate the old
+	// queries used); denied and missing are both null.
+	Node *GetNodeNode `json:"node"`
 }
 
-// GetNodeById returns GetNodeByIdResponse.NodeById, and is useful for accessing the field via an interface.
-func (v *GetNodeByIdResponse) GetNodeById() *GetNodeByIdNodeByIdNode { return v.NodeById }
+// GetNode returns GetNodeResponse.Node, and is useful for accessing the field via an interface.
+func (v *GetNodeResponse) GetNode() *GetNodeNode { return v.Node }
 
 // GetOrganizationOrganization includes the requested fields of the GraphQL type Organization.
 type GetOrganizationOrganization struct {
@@ -2014,9 +2049,9 @@ func (v *GetOrganizationOrganization) __premarshalJSON() (*__premarshalGetOrgani
 
 // GetOrganizationResponse is returned by GetOrganization on success.
 type GetOrganizationResponse struct {
-	// Fetch an Organization by id (org member or platform ADMIN).
+	// Fetch an Organization (org member or platform ADMIN).
 	//
-	// Accepts the entity's ID or URN.
+	// 'ref' accepts the entity's ID or URN.
 	Organization *GetOrganizationOrganization `json:"organization"`
 }
 
@@ -2081,6 +2116,94 @@ func (v *MemUserFields) GetEmail() *string { return v.Email }
 // GetHandle returns MemUserFields.Handle, and is useful for accessing the field via an interface.
 func (v *MemUserFields) GetHandle() *string { return v.Handle }
 
+// MemoriesMemoriesMemoriesPage includes the requested fields of the GraphQL type MemoriesPage.
+type MemoriesMemoriesMemoriesPage struct {
+	Total int                                        `json:"total"`
+	Items []*MemoriesMemoriesMemoriesPageItemsMemory `json:"items"`
+}
+
+// GetTotal returns MemoriesMemoriesMemoriesPage.Total, and is useful for accessing the field via an interface.
+func (v *MemoriesMemoriesMemoriesPage) GetTotal() int { return v.Total }
+
+// GetItems returns MemoriesMemoriesMemoriesPage.Items, and is useful for accessing the field via an interface.
+func (v *MemoriesMemoriesMemoriesPage) GetItems() []*MemoriesMemoriesMemoriesPageItemsMemory {
+	return v.Items
+}
+
+// MemoriesMemoriesMemoriesPageItemsMemory includes the requested fields of the GraphQL type Memory.
+type MemoriesMemoriesMemoriesPageItemsMemory struct {
+	Id               string            `json:"id"`
+	Urn              string            `json:"urn"`
+	Name             string            `json:"name"`
+	ShortDescription *string           `json:"shortDescription"`
+	Class            MemoryClass       `json:"class"`
+	Visibility       *MemoryVisibility `json:"visibility"`
+	OrganizationId   string            `json:"organizationId"`
+	IsEncrypted      bool              `json:"isEncrypted"`
+	UpdatedAt        string            `json:"updatedAt"`
+}
+
+// GetId returns MemoriesMemoriesMemoriesPageItemsMemory.Id, and is useful for accessing the field via an interface.
+func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetId() string { return v.Id }
+
+// GetUrn returns MemoriesMemoriesMemoriesPageItemsMemory.Urn, and is useful for accessing the field via an interface.
+func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetUrn() string { return v.Urn }
+
+// GetName returns MemoriesMemoriesMemoriesPageItemsMemory.Name, and is useful for accessing the field via an interface.
+func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetName() string { return v.Name }
+
+// GetShortDescription returns MemoriesMemoriesMemoriesPageItemsMemory.ShortDescription, and is useful for accessing the field via an interface.
+func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetShortDescription() *string {
+	return v.ShortDescription
+}
+
+// GetClass returns MemoriesMemoriesMemoriesPageItemsMemory.Class, and is useful for accessing the field via an interface.
+func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetClass() MemoryClass { return v.Class }
+
+// GetVisibility returns MemoriesMemoriesMemoriesPageItemsMemory.Visibility, and is useful for accessing the field via an interface.
+func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetVisibility() *MemoryVisibility {
+	return v.Visibility
+}
+
+// GetOrganizationId returns MemoriesMemoriesMemoriesPageItemsMemory.OrganizationId, and is useful for accessing the field via an interface.
+func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetOrganizationId() string { return v.OrganizationId }
+
+// GetIsEncrypted returns MemoriesMemoriesMemoriesPageItemsMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetUpdatedAt returns MemoriesMemoriesMemoriesPageItemsMemory.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// MemoriesResponse is returned by Memories on success.
+type MemoriesResponse struct {
+	// Uniform paginated memory list (#473) — replaces myMemories,
+	// publicMemories, and orgSystemMemories.
+	//
+	// Default scope: the caller's union — (1) their OWN personal/private
+	// memories (always; they are user-owned and show in every org context),
+	// (2) memories their member orgs own, (3) memories their member orgs
+	// subscribe to. Per-user agent memories (userMemoryOfAgentId) are excluded.
+	// App-key callers get the union of their installed Agents' memory items.
+	//
+	// filter.visibility: PUBLIC selects the public marketplace slice instead
+	// (every PUBLIC memory — the old publicMemories). filter.memoryClasses
+	// restricts to exactly the listed classes; omitted, the noisy agent system
+	// class is hidden by default (pass it explicitly to surface system
+	// memories, e.g. the old orgSystemMemories = orgId + memoryClasses:
+	// [system]).
+	//
+	// orgId follows cor:api:100:01: member -> the "active organization" view
+	// (own personal/private + that org's owned + subscribed memories);
+	// non-member -> empty page, no existence disclosure, no admin bypass.
+	//
+	// Name-ascending order (id tiebreak); limit default 50 / cap 200;
+	// limit: 0 -> count only.
+	Memories *MemoriesMemoriesMemoriesPage `json:"memories"`
+}
+
+// GetMemories returns MemoriesResponse.Memories, and is useful for accessing the field via an interface.
+func (v *MemoriesResponse) GetMemories() *MemoriesMemoriesMemoriesPage { return v.Memories }
+
 type MemoryClass string
 
 const (
@@ -2111,6 +2234,25 @@ var AllMemoryClass = []MemoryClass{
 	MemoryClassPrivate,
 	MemoryClassSystem,
 }
+
+// Filter for the uniform memories() list (#473). All clauses AND-combine and
+// only ever narrow the caller's accessible scope — with one documented scope
+// SELECTION: visibility: PUBLIC switches from the caller's own union
+// (org-owned + org-subscribed + own personal/private) to the public
+// marketplace slice (every PUBLIC memory — the old publicMemories query).
+// Both slices are readable by the caller, so this never widens access.
+type MemoryFilter struct {
+	// Restrict to exactly these classes. Omitted, the noisy agent system class is hidden by default; pass it explicitly to surface system memories.
+	MemoryClasses []MemoryClass `json:"memoryClasses,omitempty"`
+	// Restrict by visibility. PUBLIC selects the marketplace slice (see above).
+	Visibility *MemoryVisibility `json:"visibility,omitempty"`
+}
+
+// GetMemoryClasses returns MemoryFilter.MemoryClasses, and is useful for accessing the field via an interface.
+func (v *MemoryFilter) GetMemoryClasses() []MemoryClass { return v.MemoryClasses }
+
+// GetVisibility returns MemoryFilter.Visibility, and is useful for accessing the field via an interface.
+func (v *MemoryFilter) GetVisibility() *MemoryVisibility { return v.Visibility }
 
 // 023-app-shape US4: role on a MemoryMember row. Symmetric team
 // membership for group-class memory.
@@ -2251,9 +2393,9 @@ func (v *MemoryMembersMemoryMembersMemoryMemberUser) __premarshalJSON() (*__prem
 
 // MemoryMembersResponse is returned by MemoryMembers on success.
 type MemoryMembersResponse struct {
-	// Fetch a single Memory (org member or platform ADMIN).
+	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
 	//
-	// Accepts the entity's ID or URN.
+	// 'ref' accepts the entity's ID or URN.
 	Memory *MemoryMembersMemory `json:"memory"`
 }
 
@@ -2397,9 +2539,9 @@ func (v *MemorySharesMemorySharesMemoryShareGranteeUser) __premarshalJSON() (*__
 
 // MemorySharesResponse is returned by MemoryShares on success.
 type MemorySharesResponse struct {
-	// Fetch a single Memory (org member or platform ADMIN).
+	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
 	//
-	// Accepts the entity's ID or URN.
+	// 'ref' accepts the entity's ID or URN.
 	Memory *MemorySharesMemory `json:"memory"`
 }
 
@@ -2425,54 +2567,6 @@ var AllMemoryVisibility = []MemoryVisibility{
 	MemoryVisibilityOrganization,
 	MemoryVisibilityPublic,
 }
-
-// MyMemoriesMyMemoriesMemory includes the requested fields of the GraphQL type Memory.
-type MyMemoriesMyMemoriesMemory struct {
-	Id               string            `json:"id"`
-	Urn              string            `json:"urn"`
-	Name             string            `json:"name"`
-	ShortDescription *string           `json:"shortDescription"`
-	Class            MemoryClass       `json:"class"`
-	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   string            `json:"organizationId"`
-	IsEncrypted      bool              `json:"isEncrypted"`
-	UpdatedAt        string            `json:"updatedAt"`
-}
-
-// GetId returns MyMemoriesMyMemoriesMemory.Id, and is useful for accessing the field via an interface.
-func (v *MyMemoriesMyMemoriesMemory) GetId() string { return v.Id }
-
-// GetUrn returns MyMemoriesMyMemoriesMemory.Urn, and is useful for accessing the field via an interface.
-func (v *MyMemoriesMyMemoriesMemory) GetUrn() string { return v.Urn }
-
-// GetName returns MyMemoriesMyMemoriesMemory.Name, and is useful for accessing the field via an interface.
-func (v *MyMemoriesMyMemoriesMemory) GetName() string { return v.Name }
-
-// GetShortDescription returns MyMemoriesMyMemoriesMemory.ShortDescription, and is useful for accessing the field via an interface.
-func (v *MyMemoriesMyMemoriesMemory) GetShortDescription() *string { return v.ShortDescription }
-
-// GetClass returns MyMemoriesMyMemoriesMemory.Class, and is useful for accessing the field via an interface.
-func (v *MyMemoriesMyMemoriesMemory) GetClass() MemoryClass { return v.Class }
-
-// GetVisibility returns MyMemoriesMyMemoriesMemory.Visibility, and is useful for accessing the field via an interface.
-func (v *MyMemoriesMyMemoriesMemory) GetVisibility() *MemoryVisibility { return v.Visibility }
-
-// GetOrganizationId returns MyMemoriesMyMemoriesMemory.OrganizationId, and is useful for accessing the field via an interface.
-func (v *MyMemoriesMyMemoriesMemory) GetOrganizationId() string { return v.OrganizationId }
-
-// GetIsEncrypted returns MyMemoriesMyMemoriesMemory.IsEncrypted, and is useful for accessing the field via an interface.
-func (v *MyMemoriesMyMemoriesMemory) GetIsEncrypted() bool { return v.IsEncrypted }
-
-// GetUpdatedAt returns MyMemoriesMyMemoriesMemory.UpdatedAt, and is useful for accessing the field via an interface.
-func (v *MyMemoriesMyMemoriesMemory) GetUpdatedAt() string { return v.UpdatedAt }
-
-// MyMemoriesResponse is returned by MyMemories on success.
-type MyMemoriesResponse struct {
-	MyMemories []*MyMemoriesMyMemoriesMemory `json:"myMemories"`
-}
-
-// GetMyMemories returns MyMemoriesResponse.MyMemories, and is useful for accessing the field via an interface.
-func (v *MyMemoriesResponse) GetMyMemories() []*MyMemoriesMyMemoriesMemory { return v.MyMemories }
 
 // MyUserApiKeysMyUserApiKeysUserApiKey includes the requested fields of the GraphQL type UserApiKey.
 type MyUserApiKeysMyUserApiKeysUserApiKey struct {
@@ -2818,15 +2912,15 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode) 
 type NodeBatchResponse struct {
 	// Batch read (spec cor:api:040) — the full node projection (select any Node
 	// fields, including content + edges) for MANY nodes in one call, eliminating
-	// the N+1 of one nodeById per node (e.g. 'spec lint --all'). Provide EITHER
+	// the N+1 of one node(ref:) per node (e.g. 'spec lint --all'). Provide EITHER
 	// 'ids' (explicit set, returned in input order) OR 'memory' + 'locPrefix'
 	// (subtree, loc order) — not both. Per-node access is applied independently:
 	// denied or missing ids come back in 'unavailable' and never fail the call.
 	// Bounded by hard caps — over the node-count cap throws BAD_USER_INPUT; over
 	// the response-size cap returns a partial result with 'truncated: true' and
 	// the dropped ids in 'omitted' (never a silent short read). Node content is
-	// returned raw — Mustache templates are NOT compiled (unlike single-node
-	// 'node'/'nodeById'), since this is a bulk source read for lint / audit /
+	// returned raw — Mustache templates are NOT compiled (unlike the single-node
+	// 'node' read), since this is a bulk source read for lint / audit /
 	// migration and compiling per node would re-introduce the N+1 it eliminates.
 	NodeBatch *NodeBatchNodeBatchNodeBatchResult `json:"nodeBatch"`
 }
@@ -2877,41 +2971,58 @@ var AllNodeExportFormat = []NodeExportFormat{
 	NodeExportFormatPdf,
 }
 
-// NodeExportMetaNodeByIdNode includes the requested fields of the GraphQL type Node.
-type NodeExportMetaNodeByIdNode struct {
-	Loc      string                            `json:"loc"`
-	Name     string                            `json:"name"`
-	MemoryId string                            `json:"memoryId"`
-	Memory   *NodeExportMetaNodeByIdNodeMemory `json:"memory"`
+// NodeExportMetaNode includes the requested fields of the GraphQL type Node.
+type NodeExportMetaNode struct {
+	Loc      string                    `json:"loc"`
+	Name     string                    `json:"name"`
+	MemoryId string                    `json:"memoryId"`
+	Memory   *NodeExportMetaNodeMemory `json:"memory"`
 }
 
-// GetLoc returns NodeExportMetaNodeByIdNode.Loc, and is useful for accessing the field via an interface.
-func (v *NodeExportMetaNodeByIdNode) GetLoc() string { return v.Loc }
+// GetLoc returns NodeExportMetaNode.Loc, and is useful for accessing the field via an interface.
+func (v *NodeExportMetaNode) GetLoc() string { return v.Loc }
 
-// GetName returns NodeExportMetaNodeByIdNode.Name, and is useful for accessing the field via an interface.
-func (v *NodeExportMetaNodeByIdNode) GetName() string { return v.Name }
+// GetName returns NodeExportMetaNode.Name, and is useful for accessing the field via an interface.
+func (v *NodeExportMetaNode) GetName() string { return v.Name }
 
-// GetMemoryId returns NodeExportMetaNodeByIdNode.MemoryId, and is useful for accessing the field via an interface.
-func (v *NodeExportMetaNodeByIdNode) GetMemoryId() string { return v.MemoryId }
+// GetMemoryId returns NodeExportMetaNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *NodeExportMetaNode) GetMemoryId() string { return v.MemoryId }
 
-// GetMemory returns NodeExportMetaNodeByIdNode.Memory, and is useful for accessing the field via an interface.
-func (v *NodeExportMetaNodeByIdNode) GetMemory() *NodeExportMetaNodeByIdNodeMemory { return v.Memory }
+// GetMemory returns NodeExportMetaNode.Memory, and is useful for accessing the field via an interface.
+func (v *NodeExportMetaNode) GetMemory() *NodeExportMetaNodeMemory { return v.Memory }
 
-// NodeExportMetaNodeByIdNodeMemory includes the requested fields of the GraphQL type Memory.
-type NodeExportMetaNodeByIdNodeMemory struct {
+// NodeExportMetaNodeMemory includes the requested fields of the GraphQL type Memory.
+type NodeExportMetaNodeMemory struct {
 	Urn string `json:"urn"`
 }
 
-// GetUrn returns NodeExportMetaNodeByIdNodeMemory.Urn, and is useful for accessing the field via an interface.
-func (v *NodeExportMetaNodeByIdNodeMemory) GetUrn() string { return v.Urn }
+// GetUrn returns NodeExportMetaNodeMemory.Urn, and is useful for accessing the field via an interface.
+func (v *NodeExportMetaNodeMemory) GetUrn() string { return v.Urn }
 
 // NodeExportMetaResponse is returned by NodeExportMeta on success.
 type NodeExportMetaResponse struct {
-	NodeById *NodeExportMetaNodeByIdNode `json:"nodeById"`
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<org>::<memory>::<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memory' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a readable memory is treated as form 2 (a full URN); pass
+	// 'memory' to force loc interpretation.
+	//
+	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
+	// resolve. Access: the caller's readable-memory set (same gate the old
+	// queries used); denied and missing are both null.
+	Node *NodeExportMetaNode `json:"node"`
 }
 
-// GetNodeById returns NodeExportMetaResponse.NodeById, and is useful for accessing the field via an interface.
-func (v *NodeExportMetaResponse) GetNodeById() *NodeExportMetaNodeByIdNode { return v.NodeById }
+// GetNode returns NodeExportMetaResponse.Node, and is useful for accessing the field via an interface.
+func (v *NodeExportMetaResponse) GetNode() *NodeExportMetaNode { return v.Node }
 
 // NodeExportNodeExportNodeExportResult includes the requested fields of the GraphQL type NodeExportResult.
 type NodeExportNodeExportNodeExportResult struct {
@@ -3188,9 +3299,9 @@ func (v *OrgMembersOrganizationMembersOrgMemberUser) __premarshalJSON() (*__prem
 
 // OrgMembersResponse is returned by OrgMembers on success.
 type OrgMembersResponse struct {
-	// Fetch an Organization by id (org member or platform ADMIN).
+	// Fetch an Organization (org member or platform ADMIN).
 	//
-	// Accepts the entity's ID or URN.
+	// 'ref' accepts the entity's ID or URN.
 	Organization *OrgMembersOrganization `json:"organization"`
 }
 
@@ -3748,46 +3859,67 @@ func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResultResultsSearc
 
 // SearchUsersResponse is returned by SearchUsers on success.
 type SearchUsersResponse struct {
-	SearchUsers []*SearchUsersSearchUsersUser `json:"searchUsers"`
+	// Uniform paginated user list (#473) — replaces the admin-only users list
+	// and searchUsers. Platform ADMIN/OWNER: every live user, filter.query
+	// optional. Everyone else: filter.query is REQUIRED (blank/omitted -> empty
+	// page) and matching is enumeration-safe per cor:acl:070:02 — handle /
+	// githubUsername by substring, email by exact match, name only where the
+	// viewer may see it (self/admin/co-member). Name-ascending order (id
+	// tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
+	Users *SearchUsersUsersUsersPage `json:"users"`
 }
 
-// GetSearchUsers returns SearchUsersResponse.SearchUsers, and is useful for accessing the field via an interface.
-func (v *SearchUsersResponse) GetSearchUsers() []*SearchUsersSearchUsersUser { return v.SearchUsers }
+// GetUsers returns SearchUsersResponse.Users, and is useful for accessing the field via an interface.
+func (v *SearchUsersResponse) GetUsers() *SearchUsersUsersUsersPage { return v.Users }
 
-// SearchUsersSearchUsersUser includes the requested fields of the GraphQL type User.
-type SearchUsersSearchUsersUser struct {
+// SearchUsersUsersUsersPage includes the requested fields of the GraphQL type UsersPage.
+type SearchUsersUsersUsersPage struct {
+	Total int                                   `json:"total"`
+	Items []*SearchUsersUsersUsersPageItemsUser `json:"items"`
+}
+
+// GetTotal returns SearchUsersUsersUsersPage.Total, and is useful for accessing the field via an interface.
+func (v *SearchUsersUsersUsersPage) GetTotal() int { return v.Total }
+
+// GetItems returns SearchUsersUsersUsersPage.Items, and is useful for accessing the field via an interface.
+func (v *SearchUsersUsersUsersPage) GetItems() []*SearchUsersUsersUsersPageItemsUser { return v.Items }
+
+// SearchUsersUsersUsersPageItemsUser includes the requested fields of the GraphQL type User.
+type SearchUsersUsersUsersPageItemsUser struct {
 	UserFields `json:"-"`
 }
 
-// GetId returns SearchUsersSearchUsersUser.Id, and is useful for accessing the field via an interface.
-func (v *SearchUsersSearchUsersUser) GetId() string { return v.UserFields.Id }
+// GetId returns SearchUsersUsersUsersPageItemsUser.Id, and is useful for accessing the field via an interface.
+func (v *SearchUsersUsersUsersPageItemsUser) GetId() string { return v.UserFields.Id }
 
-// GetName returns SearchUsersSearchUsersUser.Name, and is useful for accessing the field via an interface.
-func (v *SearchUsersSearchUsersUser) GetName() *string { return v.UserFields.Name }
+// GetName returns SearchUsersUsersUsersPageItemsUser.Name, and is useful for accessing the field via an interface.
+func (v *SearchUsersUsersUsersPageItemsUser) GetName() *string { return v.UserFields.Name }
 
-// GetEmail returns SearchUsersSearchUsersUser.Email, and is useful for accessing the field via an interface.
-func (v *SearchUsersSearchUsersUser) GetEmail() *string { return v.UserFields.Email }
+// GetEmail returns SearchUsersUsersUsersPageItemsUser.Email, and is useful for accessing the field via an interface.
+func (v *SearchUsersUsersUsersPageItemsUser) GetEmail() *string { return v.UserFields.Email }
 
-// GetHandle returns SearchUsersSearchUsersUser.Handle, and is useful for accessing the field via an interface.
-func (v *SearchUsersSearchUsersUser) GetHandle() *string { return v.UserFields.Handle }
+// GetHandle returns SearchUsersUsersUsersPageItemsUser.Handle, and is useful for accessing the field via an interface.
+func (v *SearchUsersUsersUsersPageItemsUser) GetHandle() *string { return v.UserFields.Handle }
 
-// GetGithubUsername returns SearchUsersSearchUsersUser.GithubUsername, and is useful for accessing the field via an interface.
-func (v *SearchUsersSearchUsersUser) GetGithubUsername() *string { return v.UserFields.GithubUsername }
+// GetGithubUsername returns SearchUsersUsersUsersPageItemsUser.GithubUsername, and is useful for accessing the field via an interface.
+func (v *SearchUsersUsersUsersPageItemsUser) GetGithubUsername() *string {
+	return v.UserFields.GithubUsername
+}
 
-// GetRoles returns SearchUsersSearchUsersUser.Roles, and is useful for accessing the field via an interface.
-func (v *SearchUsersSearchUsersUser) GetRoles() []Role { return v.UserFields.Roles }
+// GetRoles returns SearchUsersUsersUsersPageItemsUser.Roles, and is useful for accessing the field via an interface.
+func (v *SearchUsersUsersUsersPageItemsUser) GetRoles() []Role { return v.UserFields.Roles }
 
-func (v *SearchUsersSearchUsersUser) UnmarshalJSON(b []byte) error {
+func (v *SearchUsersUsersUsersPageItemsUser) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*SearchUsersSearchUsersUser
+		*SearchUsersUsersUsersPageItemsUser
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.SearchUsersSearchUsersUser = v
+	firstPass.SearchUsersUsersUsersPageItemsUser = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -3802,7 +3934,7 @@ func (v *SearchUsersSearchUsersUser) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalSearchUsersSearchUsersUser struct {
+type __premarshalSearchUsersUsersUsersPageItemsUser struct {
 	Id string `json:"id"`
 
 	Name *string `json:"name"`
@@ -3816,7 +3948,7 @@ type __premarshalSearchUsersSearchUsersUser struct {
 	Roles []Role `json:"roles"`
 }
 
-func (v *SearchUsersSearchUsersUser) MarshalJSON() ([]byte, error) {
+func (v *SearchUsersUsersUsersPageItemsUser) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -3824,8 +3956,8 @@ func (v *SearchUsersSearchUsersUser) MarshalJSON() ([]byte, error) {
 	return json.Marshal(premarshaled)
 }
 
-func (v *SearchUsersSearchUsersUser) __premarshalJSON() (*__premarshalSearchUsersSearchUsersUser, error) {
-	var retval __premarshalSearchUsersSearchUsersUser
+func (v *SearchUsersUsersUsersPageItemsUser) __premarshalJSON() (*__premarshalSearchUsersUsersUsersPageItemsUser, error) {
+	var retval __premarshalSearchUsersUsersUsersPageItemsUser
 
 	retval.Id = v.UserFields.Id
 	retval.Name = v.UserFields.Name
@@ -4902,11 +5034,19 @@ func (v *__AddOrgMemberInput) GetRole() Role { return v.Role }
 
 // __AppsInput is used internally by genqlient
 type __AppsInput struct {
-	OrgId string `json:"orgId"`
+	OrgId  string `json:"orgId"`
+	Limit  *int   `json:"limit,omitempty"`
+	Offset *int   `json:"offset,omitempty"`
 }
 
 // GetOrgId returns __AppsInput.OrgId, and is useful for accessing the field via an interface.
 func (v *__AppsInput) GetOrgId() string { return v.OrgId }
+
+// GetLimit returns __AppsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AppsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __AppsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AppsInput) GetOffset() *int { return v.Offset }
 
 // __CloneMemoryInput is used internally by genqlient
 type __CloneMemoryInput struct {
@@ -5194,51 +5334,59 @@ func (v *__FindNodesInput) GetOffset() *int { return v.Offset }
 
 // __GetMemoryInput is used internally by genqlient
 type __GetMemoryInput struct {
-	Id string `json:"id"`
+	Ref string `json:"ref"`
 }
 
-// GetId returns __GetMemoryInput.Id, and is useful for accessing the field via an interface.
-func (v *__GetMemoryInput) GetId() string { return v.Id }
+// GetRef returns __GetMemoryInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetMemoryInput) GetRef() string { return v.Ref }
 
-// __GetNodeByIdInput is used internally by genqlient
-type __GetNodeByIdInput struct {
-	Id string `json:"id"`
+// __GetNodeInput is used internally by genqlient
+type __GetNodeInput struct {
+	Ref string `json:"ref"`
 }
 
-// GetId returns __GetNodeByIdInput.Id, and is useful for accessing the field via an interface.
-func (v *__GetNodeByIdInput) GetId() string { return v.Id }
+// GetRef returns __GetNodeInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetNodeInput) GetRef() string { return v.Ref }
 
 // __GetOrganizationInput is used internally by genqlient
 type __GetOrganizationInput struct {
-	Id string `json:"id"`
+	Ref string `json:"ref"`
 }
 
-// GetId returns __GetOrganizationInput.Id, and is useful for accessing the field via an interface.
-func (v *__GetOrganizationInput) GetId() string { return v.Id }
+// GetRef returns __GetOrganizationInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetOrganizationInput) GetRef() string { return v.Ref }
+
+// __MemoriesInput is used internally by genqlient
+type __MemoriesInput struct {
+	Filter *MemoryFilter `json:"filter,omitempty"`
+	Limit  *int          `json:"limit,omitempty"`
+	Offset *int          `json:"offset,omitempty"`
+}
+
+// GetFilter returns __MemoriesInput.Filter, and is useful for accessing the field via an interface.
+func (v *__MemoriesInput) GetFilter() *MemoryFilter { return v.Filter }
+
+// GetLimit returns __MemoriesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__MemoriesInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __MemoriesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__MemoriesInput) GetOffset() *int { return v.Offset }
 
 // __MemoryMembersInput is used internally by genqlient
 type __MemoryMembersInput struct {
-	Id string `json:"id"`
+	Ref string `json:"ref"`
 }
 
-// GetId returns __MemoryMembersInput.Id, and is useful for accessing the field via an interface.
-func (v *__MemoryMembersInput) GetId() string { return v.Id }
+// GetRef returns __MemoryMembersInput.Ref, and is useful for accessing the field via an interface.
+func (v *__MemoryMembersInput) GetRef() string { return v.Ref }
 
 // __MemorySharesInput is used internally by genqlient
 type __MemorySharesInput struct {
-	Id string `json:"id"`
+	Ref string `json:"ref"`
 }
 
-// GetId returns __MemorySharesInput.Id, and is useful for accessing the field via an interface.
-func (v *__MemorySharesInput) GetId() string { return v.Id }
-
-// __MyMemoriesInput is used internally by genqlient
-type __MyMemoriesInput struct {
-	IncludeAgentSystem *bool `json:"includeAgentSystem,omitempty"`
-}
-
-// GetIncludeAgentSystem returns __MyMemoriesInput.IncludeAgentSystem, and is useful for accessing the field via an interface.
-func (v *__MyMemoriesInput) GetIncludeAgentSystem() *bool { return v.IncludeAgentSystem }
+// GetRef returns __MemorySharesInput.Ref, and is useful for accessing the field via an interface.
+func (v *__MemorySharesInput) GetRef() string { return v.Ref }
 
 // __NodeBatchInput is used internally by genqlient
 type __NodeBatchInput struct {
@@ -5262,19 +5410,19 @@ func (v *__NodeExportInput) GetFormat() NodeExportFormat { return v.Format }
 
 // __NodeExportMetaInput is used internally by genqlient
 type __NodeExportMetaInput struct {
-	Id string `json:"id"`
+	Ref string `json:"ref"`
 }
 
-// GetId returns __NodeExportMetaInput.Id, and is useful for accessing the field via an interface.
-func (v *__NodeExportMetaInput) GetId() string { return v.Id }
+// GetRef returns __NodeExportMetaInput.Ref, and is useful for accessing the field via an interface.
+func (v *__NodeExportMetaInput) GetRef() string { return v.Ref }
 
 // __OrgMembersInput is used internally by genqlient
 type __OrgMembersInput struct {
-	Id string `json:"id"`
+	Ref string `json:"ref"`
 }
 
-// GetId returns __OrgMembersInput.Id, and is useful for accessing the field via an interface.
-func (v *__OrgMembersInput) GetId() string { return v.Id }
+// GetRef returns __OrgMembersInput.Ref, and is useful for accessing the field via an interface.
+func (v *__OrgMembersInput) GetRef() string { return v.Ref }
 
 // __RemoveMemoryMemberInput is used internally by genqlient
 type __RemoveMemoryMemberInput struct {
@@ -5370,11 +5518,19 @@ func (v *__SearchReplaceInNodesInput) GetInput() *SearchReplaceInNodesInput { re
 
 // __SearchUsersInput is used internally by genqlient
 type __SearchUsersInput struct {
-	Query string `json:"query"`
+	Query  string `json:"query"`
+	Limit  *int   `json:"limit,omitempty"`
+	Offset *int   `json:"offset,omitempty"`
 }
 
 // GetQuery returns __SearchUsersInput.Query, and is useful for accessing the field via an interface.
 func (v *__SearchUsersInput) GetQuery() string { return v.Query }
+
+// GetLimit returns __SearchUsersInput.Limit, and is useful for accessing the field via an interface.
+func (v *__SearchUsersInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __SearchUsersInput.Offset, and is useful for accessing the field via an interface.
+func (v *__SearchUsersInput) GetOffset() *int { return v.Offset }
 
 // __UpdateAiServiceConfigInput is used internally by genqlient
 type __UpdateAiServiceConfigInput struct {
@@ -5669,29 +5825,38 @@ func AddOrgMember(
 
 // The query executed by Apps.
 const Apps_Operation = `
-query Apps ($orgId: ID!) {
-	apps(orgId: $orgId) {
-		id
-		urn
-		name
-		appType
-		agentId
-		memberCount
-		createdAt
+query Apps ($orgId: ID!, $limit: Int, $offset: Int) {
+	apps(orgId: $orgId, limit: $limit, offset: $offset) {
+		total
+		items {
+			id
+			urn
+			name
+			appType
+			agentId
+			memberCount
+			createdAt
+		}
 	}
 }
 `
 
+// Uniform paginated app list (hadron-server#473) — { items, total } envelope,
+// limit capped at 200 server-side; `app ls` pages to exhaustion.
 func Apps(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	orgId string,
+	limit *int,
+	offset *int,
 ) (data_ *AppsResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "Apps",
 		Query:  Apps_Operation,
 		Variables: &__AppsInput{
-			OrgId: orgId,
+			OrgId:  orgId,
+			Limit:  limit,
+			Offset: offset,
 		},
 	}
 
@@ -6492,8 +6657,8 @@ func FindNodes(
 
 // The query executed by GetMemory.
 const GetMemory_Operation = `
-query GetMemory ($id: ID!) {
-	memory(id: $id) {
+query GetMemory ($ref: ID!) {
+	memory(ref: $ref) {
 		id
 		urn
 		name
@@ -6514,16 +6679,17 @@ query GetMemory ($id: ID!) {
 }
 `
 
+// memory(ref:) accepts the memory's PK id or URN (hadron-server#473).
 func GetMemory(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 ) (data_ *GetMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "GetMemory",
 		Query:  GetMemory_Operation,
 		Variables: &__GetMemoryInput{
-			Id: id,
+			Ref: ref,
 		},
 	}
 
@@ -6539,10 +6705,10 @@ func GetMemory(
 	return data_, err_
 }
 
-// The query executed by GetNodeById.
-const GetNodeById_Operation = `
-query GetNodeById ($id: ID!) {
-	nodeById(id: $id) {
+// The query executed by GetNode.
+const GetNode_Operation = `
+query GetNode ($ref: ID!) {
+	node(ref: $ref) {
 		id
 		memoryId
 		loc
@@ -6586,20 +6752,24 @@ query GetNodeById ($id: ID!) {
 }
 `
 
-func GetNodeById(
+// The uniform single-node read (hadron-server#473) — node(ref:) subsumes the
+// former nodeById(id:); ref accepts a PK, a fully-qualified node URN, or a
+// bare loc (memory-scoped via the separate `memory` arg, unused here — the
+// CLI resolves refs to PKs first via resolveUrn).
+func GetNode(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
-) (data_ *GetNodeByIdResponse, err_ error) {
+	ref string,
+) (data_ *GetNodeResponse, err_ error) {
 	req_ := &graphql.Request{
-		OpName: "GetNodeById",
-		Query:  GetNodeById_Operation,
-		Variables: &__GetNodeByIdInput{
-			Id: id,
+		OpName: "GetNode",
+		Query:  GetNode_Operation,
+		Variables: &__GetNodeInput{
+			Ref: ref,
 		},
 	}
 
-	data_ = &GetNodeByIdResponse{}
+	data_ = &GetNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -6613,8 +6783,8 @@ func GetNodeById(
 
 // The query executed by GetOrganization.
 const GetOrganization_Operation = `
-query GetOrganization ($id: ID!) {
-	organization(id: $id) {
+query GetOrganization ($ref: ID!) {
+	organization(ref: $ref) {
 		... OrgFields
 	}
 }
@@ -6628,16 +6798,17 @@ fragment OrgFields on Organization {
 }
 `
 
+// organization(ref:) accepts the org's PK id or URN (hadron-server#473).
 func GetOrganization(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 ) (data_ *GetOrganizationResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "GetOrganization",
 		Query:  GetOrganization_Operation,
 		Variables: &__GetOrganizationInput{
-			Id: id,
+			Ref: ref,
 		},
 	}
 
@@ -6688,10 +6859,63 @@ func Me(
 	return data_, err_
 }
 
+// The query executed by Memories.
+const Memories_Operation = `
+query Memories ($filter: MemoryFilter, $limit: Int, $offset: Int) {
+	memories(filter: $filter, limit: $limit, offset: $offset) {
+		total
+		items {
+			id
+			urn
+			name
+			shortDescription
+			class
+			visibility
+			organizationId
+			isEncrypted
+			updatedAt
+		}
+	}
+}
+`
+
+// Uniform paginated memory list (hadron-server#473) — replaces myMemories.
+// The noisy agent system class is hidden unless filter.memoryClasses names it
+// explicitly; limit is capped at 200 server-side, so whole-scope callers page
+// to exhaustion (api.CollectAll).
+func Memories(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	filter *MemoryFilter,
+	limit *int,
+	offset *int,
+) (data_ *MemoriesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "Memories",
+		Query:  Memories_Operation,
+		Variables: &__MemoriesInput{
+			Filter: filter,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &MemoriesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by MemoryMembers.
 const MemoryMembers_Operation = `
-query MemoryMembers ($id: ID!) {
-	memory(id: $id) {
+query MemoryMembers ($ref: ID!) {
+	memory(ref: $ref) {
 		id
 		members {
 			role
@@ -6710,17 +6934,18 @@ fragment MemUserFields on User {
 }
 `
 
-// memory(id) is the path to a memory's member/share rows.
+// memory(ref) — PK id or URN (hadron-server#473) — is the path to a memory's
+// member/share rows.
 func MemoryMembers(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 ) (data_ *MemoryMembersResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "MemoryMembers",
 		Query:  MemoryMembers_Operation,
 		Variables: &__MemoryMembersInput{
-			Id: id,
+			Ref: ref,
 		},
 	}
 
@@ -6738,8 +6963,8 @@ func MemoryMembers(
 
 // The query executed by MemoryShares.
 const MemoryShares_Operation = `
-query MemoryShares ($id: ID!) {
-	memory(id: $id) {
+query MemoryShares ($ref: ID!) {
+	memory(ref: $ref) {
 		id
 		shares {
 			role
@@ -6761,59 +6986,17 @@ fragment MemUserFields on User {
 func MemoryShares(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 ) (data_ *MemorySharesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "MemoryShares",
 		Query:  MemoryShares_Operation,
 		Variables: &__MemorySharesInput{
-			Id: id,
+			Ref: ref,
 		},
 	}
 
 	data_ = &MemorySharesResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
-// The query executed by MyMemories.
-const MyMemories_Operation = `
-query MyMemories ($includeAgentSystem: Boolean) {
-	myMemories(includeAgentSystem: $includeAgentSystem) {
-		id
-		urn
-		name
-		shortDescription
-		class
-		visibility
-		organizationId
-		isEncrypted
-		updatedAt
-	}
-}
-`
-
-func MyMemories(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	includeAgentSystem *bool,
-) (data_ *MyMemoriesResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "MyMemories",
-		Query:  MyMemories_Operation,
-		Variables: &__MyMemoriesInput{
-			IncludeAgentSystem: includeAgentSystem,
-		},
-	}
-
-	data_ = &MyMemoriesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -6922,7 +7105,7 @@ query NodeBatch ($ids: [ID!]) {
 // node projection — both edge directions (with target/source loc + memoryId),
 // everything the markdown exporter serializes, and the fields the spec detail/
 // lint builders read — so the whole-corpus fan-outs (`memory export`,
-// `spec get --prefix`) read in ceil(N/200) round-trips instead of one nodeById
+// `spec get --prefix`) read in ceil(N/200) round-trips instead of one node(ref)
 // per node. Driven through api.CollectNodeBatch.
 func NodeBatch(
 	ctx_ context.Context,
@@ -6995,8 +7178,8 @@ func NodeExport(
 
 // The query executed by NodeExportMeta.
 const NodeExportMeta_Operation = `
-query NodeExportMeta ($id: ID!) {
-	nodeById(id: $id) {
+query NodeExportMeta ($ref: ID!) {
+	node(ref: $ref) {
 		loc
 		name
 		memoryId
@@ -7009,17 +7192,17 @@ query NodeExportMeta ($id: ID!) {
 
 // Minimal metadata for the `node export -o` summary (loc/name/memory): the
 // server's nodeExport render returns the bytes but no identifying fields, and
-// memory { urn } here avoids a second myMemories round-trip (#106 review).
+// memory { urn } here avoids a second memory-list round-trip (#106 review).
 func NodeExportMeta(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 ) (data_ *NodeExportMetaResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "NodeExportMeta",
 		Query:  NodeExportMeta_Operation,
 		Variables: &__NodeExportMetaInput{
-			Id: id,
+			Ref: ref,
 		},
 	}
 
@@ -7037,8 +7220,8 @@ func NodeExportMeta(
 
 // The query executed by OrgMembers.
 const OrgMembers_Operation = `
-query OrgMembers ($id: ID!) {
-	organization(id: $id) {
+query OrgMembers ($ref: ID!) {
+	organization(ref: $ref) {
 		id
 		members {
 			id
@@ -7060,17 +7243,17 @@ fragment UserFields on User {
 }
 `
 
-// organization(id) is the only path to an org's members (no plural query).
+// organization(ref) is the only path to an org's members.
 func OrgMembers(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 ) (data_ *OrgMembersResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "OrgMembers",
 		Query:  OrgMembers_Operation,
 		Variables: &__OrgMembersInput{
-			Id: id,
+			Ref: ref,
 		},
 	}
 
@@ -7412,9 +7595,12 @@ func SearchReplaceInNodes(
 
 // The query executed by SearchUsers.
 const SearchUsers_Operation = `
-query SearchUsers ($query: String!) {
-	searchUsers(query: $query) {
-		... UserFields
+query SearchUsers ($query: String!, $limit: Int, $offset: Int) {
+	users(filter: {query:$query}, limit: $limit, offset: $offset) {
+		total
+		items {
+			... UserFields
+		}
 	}
 }
 fragment UserFields on User {
@@ -7427,16 +7613,24 @@ fragment UserFields on User {
 }
 `
 
+// Uniform paginated user list (hadron-server#473) — replaces searchUsers.
+// Non-admin callers must pass filter.query (enumeration-safe matching:
+// handle/githubUsername substring, email exact). One 200-cap page is plenty
+// for user-ref resolution; ambiguity past that is an error anyway.
 func SearchUsers(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	query string,
+	limit *int,
+	offset *int,
 ) (data_ *SearchUsersResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "SearchUsers",
 		Query:  SearchUsers_Operation,
 		Variables: &__SearchUsersInput{
-			Query: query,
+			Query:  query,
+			Limit:  limit,
+			Offset: offset,
 		},
 	}
 

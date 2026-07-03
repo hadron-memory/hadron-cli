@@ -125,10 +125,10 @@ func testFactory(t *testing.T) (*cmdutil.Factory, *strings.Builder) {
 
 func TestMemoryLsJSON(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
-		"MyMemories": `{"data":{"myMemories":[
+		"Memories": `{"data":{"memories":{"total":1,"items":[
 			{"id":"m1","urn":"acme.com::kb","name":"KB","shortDescription":null,
 			 "class":"knowledge","visibility":"ORGANIZATION","organizationId":"o1",
-			 "isEncrypted":false,"updatedAt":"2026-06-11T00:00:00Z"}]}}`,
+			 "isEncrypted":false,"updatedAt":"2026-06-11T00:00:00Z"}]}}}`,
 	})
 	f, out := testFactory(t)
 
@@ -149,10 +149,10 @@ func TestMemoryLsJSON(t *testing.T) {
 
 func TestMemoryLsTable(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
-		"MyMemories": `{"data":{"myMemories":[
+		"Memories": `{"data":{"memories":{"total":1,"items":[
 			{"id":"m1","urn":"acme.com::kb","name":"KB","shortDescription":null,
 			 "class":"knowledge","visibility":null,"organizationId":"o1",
-			 "isEncrypted":false,"updatedAt":"2026-06-11T00:00:00Z"}]}}`,
+			 "isEncrypted":false,"updatedAt":"2026-06-11T00:00:00Z"}]}}}`,
 	})
 	f, out := testFactory(t)
 

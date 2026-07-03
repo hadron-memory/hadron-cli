@@ -19,8 +19,8 @@ func nodeExportResp(format, mime, fname, data string) string {
 
 // The minimal NodeExportMeta read for the file-write summary (loc/name/memory)
 // — the render itself returns no identifying metadata. memory { urn } here means
-// no second myMemories round-trip.
-const exportMetaJSON = `{"data":{"nodeById":{"loc":"findings:flaky-ci","name":"Flaky CI",
+// no second memory-list round-trip.
+const exportMetaJSON = `{"data":{"node":{"loc":"findings:flaky-ci","name":"Flaky CI",
 	"memoryId":"mem1","memory":{"urn":"acme.com:kb"}}}}`
 
 // node export routes through the SERVER renderer (#106): the CLI writes exactly
@@ -77,7 +77,7 @@ func TestNodeExportFileSummaryFallback(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn":     resolveNodeJSON,
 		"NodeExport":     nodeExportResp("MD", "text/markdown", "f.md", md),
-		"NodeExportMeta": `{"data":{"nodeById":null}}`, // metadata unreadable
+		"NodeExportMeta": `{"data":{"node":null}}`, // metadata unreadable
 	})
 	f, out := testFactory(t)
 	file := filepath.Join(t.TempDir(), "f.md")
@@ -432,7 +432,7 @@ body
 // --with-edges wires only the new edge: the (target, label) already on the node
 // is skipped (idempotent re-import), and condition + priority are forwarded.
 func TestNodeImportWithEdgesIdempotent(t *testing.T) {
-	const existingEdges = `{"data":{"nodeById":{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
+	const existingEdges = `{"data":{"node":{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
 		"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"task","tags":[],
 		"content":"x","data":null,"seq":null,"createdAt":"2026-06-11T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
 		"outgoingEdges":[{"id":"e0","name":"existing-label","priority":0,"target":{"id":"n2","loc":"start","memoryId":"mem1"}}],
@@ -440,7 +440,7 @@ func TestNodeImportWithEdgesIdempotent(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn":  `{"data":{"resolveUrn":{"id":"n2","kind":"node","memoryId":"mem1"}}}`,
 		"UpdateNode":  `{"data":{"updateNode":` + nodeJSON + `}}`,
-		"GetNodeById": existingEdges,
+		"GetNode": existingEdges,
 		"CreateEdge":  `{"data":{"createEdge":` + edgeJSON + `}}`,
 	})
 	f, out := testFactory(t)
@@ -483,7 +483,7 @@ func TestNodeImportWithEdgesIdempotent(t *testing.T) {
 // An edge whose target can't be resolved is reported in unwiredEdges, never
 // fatal — the import still succeeds (exit 0).
 func TestNodeImportWithEdgesUnwiredTarget(t *testing.T) {
-	const noEdges = `{"data":{"nodeById":{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
+	const noEdges = `{"data":{"node":{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
 		"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"task","tags":[],
 		"content":"x","data":null,"seq":null,"createdAt":"2026-06-11T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
 		"outgoingEdges":[],"incomingEdges":[]}}}`
@@ -491,7 +491,7 @@ func TestNodeImportWithEdgesUnwiredTarget(t *testing.T) {
 		"ResolveUrn":  `{"data":{"resolveUrn":null}}`, // edge target unresolvable
 		"UpdateNode":  `{"errors":[{"message":"node not found","extensions":{"code":"NODE_NOT_FOUND"}}]}`, // node absent → created
 		"CreateNode":  `{"data":{"createNode":` + nodeJSON + `}}`,
-		"GetNodeById": noEdges,
+		"GetNode": noEdges,
 	})
 	f, out := testFactory(t)
 	file := filepath.Join(t.TempDir(), "ghost.md")
@@ -527,14 +527,14 @@ func TestNodeImportWithEdgesUnwiredTarget(t *testing.T) {
 // An edge the server rejects (e.g. a condition operator outside the v1
 // allowlist) is reported with the reason, and the import still succeeds.
 func TestNodeImportWithEdgesRejectedReason(t *testing.T) {
-	const noEdges = `{"data":{"nodeById":{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
+	const noEdges = `{"data":{"node":{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
 		"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"task","tags":[],
 		"content":"x","data":null,"seq":null,"createdAt":"2026-06-11T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
 		"outgoingEdges":[],"incomingEdges":[]}}}`
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn":  `{"data":{"resolveUrn":{"id":"n2","kind":"node","memoryId":"mem1"}}}`,
 		"UpdateNode":  `{"data":{"updateNode":` + nodeJSON + `}}`,
-		"GetNodeById": noEdges,
+		"GetNode": noEdges,
 		"CreateEdge":  `{"errors":[{"message":"createEdge operator 'flag' is not in the v1 allowlist"}]}`,
 	})
 	f, out := testFactory(t)

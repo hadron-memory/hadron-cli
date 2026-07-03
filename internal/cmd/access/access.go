@@ -30,10 +30,11 @@ func NewCmdAccess(f *cmdutil.Factory) *cobra.Command {
 // resolveUserID turns a user reference (id, email, handle, or an
 // hrn:user:/urn:user: URN wrapping one of those) into a User ID, which is the
 // only form effectiveAccess(user:) accepts today (the server has no user-URN
-// support yet — hadron-server#325). Resolution goes through searchUsers, which
-// is itself access-scoped to the caller. A bare token that searchUsers can't
-// match is passed through verbatim as a literal id so an explicit id always
-// works; an email/handle that matches nothing is a not-found error.
+// support yet — hadron-server#325). Resolution goes through users(filter:
+// { query }) (hadron-server#473, the searchUsers successor), which is itself
+// access-scoped to the caller. A bare token the query can't match is passed
+// through verbatim as a literal id so an explicit id always works; an
+// email/handle that matches nothing is a not-found error.
 func resolveUserID(cmd *cobra.Command, client graphql.Client, ref string) (string, error) {
 	token := strings.TrimSpace(ref)
 	for _, p := range []string{"hrn:user:", "urn:user:"} {
@@ -43,14 +44,17 @@ func resolveUserID(cmd *cobra.Command, client graphql.Client, ref string) (strin
 		}
 	}
 	// A leading "@" is a handle sigil, not part of the handle — strip it so it
-	// matches both the searchUsers query and the stored handle/githubUsername.
+	// matches both the users(filter.query) match and the stored handle/githubUsername.
 	// (An email never leads with "@", so this is a no-op for emails.)
 	token = strings.TrimPrefix(token, "@")
 	if token == "" {
 		return "", exitcode.Newf(exitcode.Usage, "empty user reference")
 	}
 
-	resp, err := gen.SearchUsers(cmd.Context(), client, token)
+	// One max-size page is enough: past 200 matches, resolution is ambiguous
+	// long before paging would matter.
+	limit := api.PageLimit
+	resp, err := gen.SearchUsers(cmd.Context(), client, token, &limit, nil)
 	if err != nil {
 		return "", api.MapError(err)
 	}
@@ -58,8 +62,8 @@ func resolveUserID(cmd *cobra.Command, client graphql.Client, ref string) (strin
 	// Prefer an exact match on a stable identifier; fall back to a sole fuzzy
 	// hit. Ambiguity (multiple non-exact matches) is a usage error rather than
 	// an arbitrary pick.
-	var exact, fuzzy []*gen.SearchUsersSearchUsersUser
-	for _, u := range resp.SearchUsers {
+	var exact, fuzzy []*gen.SearchUsersUsersUsersPageItemsUser
+	for _, u := range resp.Users.Items {
 		if u == nil {
 			continue
 		}
@@ -98,7 +102,7 @@ func eqFold(field *string, token string) bool {
 	return field != nil && *field != "" && strings.EqualFold(*field, token)
 }
 
-func ambiguousUserErr(ref string, matches []*gen.SearchUsersSearchUsersUser) error {
+func ambiguousUserErr(ref string, matches []*gen.SearchUsersUsersUsersPageItemsUser) error {
 	labels := make([]string, 0, len(matches))
 	for _, m := range matches {
 		labels = append(labels, m.Id)

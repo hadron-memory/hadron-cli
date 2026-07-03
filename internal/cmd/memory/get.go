@@ -34,11 +34,9 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			memID, err := resolveMemoryID(cmd, client, args[0])
-			if err != nil {
-				return err
-			}
-			resp, err := gen.GetMemory(cmd.Context(), client, memID)
+			// memory(ref:) dispatches PKs and URNs server-side
+			// (hadron-server#473) — no client-side resolution hop needed.
+			resp, err := gen.GetMemory(cmd.Context(), client, args[0])
 			if err != nil {
 				return api.MapError(err)
 			}

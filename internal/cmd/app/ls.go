@@ -27,7 +27,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
-		Short:   "List Apps in an organization (requires org ADMIN)",
+		Short:   "List Apps in an organization (requires org membership)",
 		Example: `  hadron app ls --org acme.com`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -35,13 +35,24 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := gen.Apps(cmd.Context(), client, org)
+			// Paged { items, total } envelope (hadron-server#473), drained to
+			// exhaustion — this command's contract is "all Apps in the org".
+			items, err := api.CollectAll(func(limit, offset int) ([]*gen.AppsAppsAppsPageItemsApp, int, error) {
+				resp, err := gen.Apps(cmd.Context(), client, org, &limit, &offset)
+				if err != nil {
+					return nil, 0, api.MapError(err)
+				}
+				return resp.Apps.Items, resp.Apps.Total, nil
+			})
 			if err != nil {
-				return api.MapError(err)
+				return err
 			}
 
-			apps := make([]appDTO, 0, len(resp.Apps))
-			for _, a := range resp.Apps {
+			apps := make([]appDTO, 0, len(items))
+			for _, a := range items {
+				if a == nil {
+					continue
+				}
 				apps = append(apps, appDTO{
 					ID:          a.Id,
 					URN:         a.Urn,

@@ -92,7 +92,7 @@ func TestNodeLs(t *testing.T) {
 func TestNodeGet(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn":  resolveNodeJSON,
-		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+		"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -127,7 +127,7 @@ func TestNodeGetPrefixPassthrough(t *testing.T) {
 		t.Run(prefixed, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{
 				"ResolveUrn":  resolveNodeJSON,
-				"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+				"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
 			})
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
@@ -445,7 +445,7 @@ func TestNodeUpdateDataMerge(t *testing.T) {
 	}
 	// A merge-only update needs just the id, so it resolves the ref without
 	// the extra GetNodeById round-trip (captureGraphQL flags unexpected ops).
-	if _, fetched := captured["GetNodeById"]; fetched {
+	if _, fetched := captured["GetNode"]; fetched {
 		t.Errorf("a merge-only update must not call GetNodeById")
 	}
 	var vars struct {
@@ -472,7 +472,7 @@ func TestNodeUpdateDataMergeFile(t *testing.T) {
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn":     resolveNodeJSON,
-		"GetNodeById":    `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
 		"UpdateNodeData": `{"data":{"updateNodeData":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
@@ -500,7 +500,7 @@ func TestNodeGetSurfacesRunnable(t *testing.T) {
 	for _, jsonMode := range []bool{false, true} {
 		gql, _ := captureGraphQL(t, map[string]string{
 			"ResolveUrn":  resolveNodeJSON,
-			"GetNodeById": `{"data":{"nodeById":` + detailRunnable + `}}`,
+			"GetNode": `{"data":{"node":` + detailRunnable + `}}`,
 		})
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
@@ -773,7 +773,7 @@ func TestNodeUpdateRejectsDataMergeAndDataMergeFile(t *testing.T) {
 func TestNodeUpdateRejectsInvalidDataMerge(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn":  resolveNodeJSON,
-		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+		"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -794,7 +794,7 @@ func TestNodeGetSurfacesData(t *testing.T) {
 	for _, jsonMode := range []bool{false, true} {
 		gql, _ := captureGraphQL(t, map[string]string{
 			"ResolveUrn":  resolveNodeJSON,
-			"GetNodeById": `{"data":{"nodeById":` + detailWithData + `}}`,
+			"GetNode": `{"data":{"node":` + detailWithData + `}}`,
 		})
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
@@ -818,7 +818,7 @@ func TestNodeGetSurfacesData(t *testing.T) {
 func TestNodeRmRequiresYesNonInteractive(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn":  resolveNodeJSON,
-		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+		"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -832,7 +832,7 @@ func TestNodeRmRequiresYesNonInteractive(t *testing.T) {
 func TestNodeRmWithYes(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn":  resolveNodeJSON,
-		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+		"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
 		"DeleteNode":  `{"data":{"deleteNode":true}}`,
 	})
 	f, _ := testFactory(t)
@@ -882,7 +882,7 @@ func TestEdgeAddOmitsUnsetOptionals(t *testing.T) {
 func TestNodeGetMemoryFlag(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn":  resolveNodeJSON,
-		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+		"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -905,7 +905,7 @@ func TestNodeGetMemoryFlag(t *testing.T) {
 func TestNodeGetMemoryFlagMultiColonLoc(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn":  resolveNodeJSON,
-		"GetNodeById": `{"data":{"nodeById":` + nodeDetailJSON + `}}`,
+		"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -1011,7 +1011,7 @@ func TestMemorySetCreate(t *testing.T) {
 
 func TestMemorySetUpdate(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"MyMemories":   `{"data":{"myMemories":[` + memoryJSON + `]}}`,
+		"GetMemory":    `{"data":{"memory":` + memoryJSON + `}}`,
 		"UpdateMemory": `{"data":{"updateMemory":` + memoryJSON + `}}`,
 	})
 	f, _ := testFactory(t)
@@ -1022,7 +1022,7 @@ func TestMemorySetUpdate(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["UpdateMemory"], &vars)
-	// The URN is resolved to the PK via myMemories before updateMemory.
+	// The URN is resolved to the PK via memory(ref:) before updateMemory.
 	if vars["id"] != "m1" || vars["shortDescription"] != "Project knowledge" {
 		t.Errorf("unexpected update vars: %v", vars)
 	}
@@ -1037,7 +1037,7 @@ func TestMemorySetUpdate(t *testing.T) {
 
 func TestMemorySetUpdateSendsTags(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"MyMemories":   `{"data":{"myMemories":[` + memoryJSON + `]}}`,
+		"GetMemory":    `{"data":{"memory":` + memoryJSON + `}}`,
 		"UpdateMemory": `{"data":{"updateMemory":` + memoryJSON + `}}`,
 	})
 	f, _ := testFactory(t)
@@ -1123,7 +1123,7 @@ const appJSON = `{"id":"app1","urn":"urn:agent:acme.com::bot::acme.com:helper","
 
 func TestAppLs(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"Apps": `{"data":{"apps":[` + appJSON + `]}}`,
+		"Apps": `{"data":{"apps":{"total":1,"items":[` + appJSON + `]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)

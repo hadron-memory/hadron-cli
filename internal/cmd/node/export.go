@@ -162,15 +162,15 @@ func resolveDocFormat(format, outFile string, explicit bool) (string, error) {
 
 // exportSummaryMeta reads a node's loc, name, and memory URN for the file-write
 // summary — the server's render returns the bytes but no identifying metadata.
-// One query carries memory { urn }, so there's no second myMemories round-trip.
+// One query carries memory { urn }, so there's no second memory-list round-trip.
 // Best-effort: an unreadable node yields empty fields rather than failing an
 // export whose file is already written.
 func exportSummaryMeta(cmd *cobra.Command, client graphql.Client, id string) (loc, name, memURN string) {
 	resp, err := gen.NodeExportMeta(cmd.Context(), client, id)
-	if err != nil || resp == nil || resp.NodeById == nil {
+	if err != nil || resp == nil || resp.Node == nil {
 		return "", "", ""
 	}
-	n := resp.NodeById
+	n := resp.Node
 	// memory is nullable on Node; fall back to the id so the summary still
 	// names the memory, just not by URN.
 	memURN = n.MemoryId

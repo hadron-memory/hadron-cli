@@ -23,13 +23,30 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := gen.MyMemories(cmd.Context(), client, &includeAgentSystem)
+			// memories() hides the noisy agent system class unless the filter
+			// names it explicitly (hadron-server#473) — the flag maps to
+			// "every class, system included". Paged to exhaustion: the server
+			// caps a page at 200 and this command's contract is "everything".
+			var filter *gen.MemoryFilter
+			if includeAgentSystem {
+				filter = &gen.MemoryFilter{MemoryClasses: gen.AllMemoryClass}
+			}
+			items, err := api.CollectAll(func(limit, offset int) ([]*gen.MemoriesMemoriesMemoriesPageItemsMemory, int, error) {
+				resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset)
+				if err != nil {
+					return nil, 0, api.MapError(err)
+				}
+				return resp.Memories.Items, resp.Memories.Total, nil
+			})
 			if err != nil {
-				return api.MapError(err)
+				return err
 			}
 
-			memories := make([]memoryDTO, 0, len(resp.MyMemories))
-			for _, m := range resp.MyMemories {
+			memories := make([]memoryDTO, 0, len(items))
+			for _, m := range items {
+				if m == nil {
+					continue
+				}
 				dto := memoryDTO{
 					ID:               m.Id,
 					URN:              m.Urn,

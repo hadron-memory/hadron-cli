@@ -395,7 +395,7 @@ func stripMemoryScheme(s string) string {
 
 // canonicalMemoryURN returns the canonical fully-qualified <org>::<memory>
 // form: scheme stripped and the org/memory separator normalized to "::"
-// (myMemories may report a memory's own urn with a single colon). A bare PK
+// (the memory list may report a memory's own urn with a single colon). A bare PK
 // (no colon) is returned unchanged.
 func canonicalMemoryURN(s string) string {
 	s = stripMemoryScheme(s)
@@ -419,7 +419,7 @@ func memoryURNFromFlag(m string) (string, error) {
 // resolveSpecMemoryURN resolves the -m/--memory value to the canonical
 // <org>::<memory> form that node-ref FQNs and the nodes filter require. A ref
 // already in <org>::<memory> (or an hrn:/urn: URN) shape is normalized without
-// a round-trip; a PK or a memory name is resolved via myMemories. This is the
+// a round-trip; a PK or a memory name is resolved via the memories list. This is the
 // one resolver every spec subcommand shares, so a PK no longer leaks into edge
 // targets as "<pk>::<loc>" (issue #91).
 func resolveSpecMemoryURN(cmd *cobra.Command, client graphql.Client, ref string) (string, error) {
@@ -436,14 +436,14 @@ func resolveSpecMemoryURN(cmd *cobra.Command, client graphql.Client, ref string)
 
 // resolveSpecMemoryID resolves the -m/--memory value to the memory's PK id and
 // its canonical <org>::<memory> urn. Query.memory / updateMemory take a PK, so
-// this always consults myMemories. Accepts a PK, an hrn:/urn: URN, a bare
+// this always consults the memories list. Accepts a PK, an hrn:/urn: URN, a bare
 // <org>::<memory>, or a memory name (issue #91 — describe previously accepted
 // none of these).
 func resolveSpecMemoryID(cmd *cobra.Command, client graphql.Client, ref string) (id, memURN string, err error) {
 	return lookupSpecMemory(cmd, client, ref)
 }
 
-// lookupSpecMemory matches a memory ref against myMemories by PK, urn (in any
+// lookupSpecMemory matches a memory ref against the memories list by PK, urn (in any
 // scheme/colon form), or name, returning the memory's id and canonical
 // <org>::<memory> urn. A ref reachable as a node filter without an id lookup is
 // served by resolveSpecMemoryURN's fast path before this is ever called.
@@ -456,13 +456,25 @@ func lookupSpecMemory(cmd *cobra.Command, client graphql.Client, ref string) (id
 		return "", "", exitcode.Newf(exitcode.Usage, "a memory is required: pass -m/--memory <org::memory>")
 	}
 	want := collapseColons(norm)
-	includeAgentSystem := true
-	resp, err := gen.MyMemories(cmd.Context(), client, &includeAgentSystem)
+	// Every class, system included (memories() hides system by default), paged
+	// to exhaustion — the name/urn match and the "did you mean" suggestions
+	// both need the caller's whole memory list (hadron-server#473).
+	filter := &gen.MemoryFilter{MemoryClasses: gen.AllMemoryClass}
+	items, err := api.CollectAll(func(limit, offset int) ([]*gen.MemoriesMemoriesMemoriesPageItemsMemory, int, error) {
+		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset)
+		if err != nil {
+			return nil, 0, api.MapError(err)
+		}
+		return resp.Memories.Items, resp.Memories.Total, nil
+	})
 	if err != nil {
-		return "", "", api.MapError(err)
+		return "", "", err
 	}
 	var available []string
-	for _, m := range resp.MyMemories {
+	for _, m := range items {
+		if m == nil {
+			continue
+		}
 		canon := canonicalMemoryURN(m.Urn)
 		if ref == m.Id || ref == m.Name || want == collapseColons(canon) {
 			return m.Id, canon, nil
@@ -543,23 +555,23 @@ func resolveSpecNode(cmd *cobra.Command, client graphql.Client, memoryURN, loc s
 }
 
 // fetchSpecNode resolves a citation/loc and reads the full node.
-func fetchSpecNode(cmd *cobra.Command, client graphql.Client, memoryURN, loc string) (*gen.GetNodeByIdNodeByIdNode, error) {
+func fetchSpecNode(cmd *cobra.Command, client graphql.Client, memoryURN, loc string) (*gen.GetNodeNode, error) {
 	id, err := resolveSpecNode(cmd, client, memoryURN, loc)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := gen.GetNodeById(cmd.Context(), client, id)
+	resp, err := gen.GetNode(cmd.Context(), client, id)
 	if err != nil {
 		return nil, api.MapError(err)
 	}
-	if resp.NodeById == nil {
+	if resp.Node == nil {
 		return nil, exitcode.Newf(exitcode.NotFound, "spec %q not found", loc)
 	}
-	return resp.NodeById, nil
+	return resp.Node, nil
 }
 
 // fetchRegister reads the memory's `register` node (advisory; not a spec).
-func fetchRegister(cmd *cobra.Command, client graphql.Client, memoryURN string) (*gen.GetNodeByIdNodeByIdNode, error) {
+func fetchRegister(cmd *cobra.Command, client graphql.Client, memoryURN string) (*gen.GetNodeNode, error) {
 	return fetchSpecNode(cmd, client, memoryURN, "register")
 }
 
@@ -666,7 +678,7 @@ type specNode struct {
 	OutEdges           []specEdge
 }
 
-func nodeFromGQL(n *gen.GetNodeByIdNodeByIdNode) specNode {
+func nodeFromGQL(n *gen.GetNodeNode) specNode {
 	sn := specNode{
 		Loc:                n.Loc,
 		Name:               n.Name,

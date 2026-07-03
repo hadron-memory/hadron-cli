@@ -32,7 +32,7 @@ sent as JSON when they parse as JSON, otherwise as strings. Pass "-"
 as the query to read the document from standard input, or use
 --input <file>.`,
 		Example: `  hadron api 'query { me { id email } }'
-  hadron api 'query($id: ID!) { memory(id: $id) { urn name } }' -F id=mem_123
+  hadron api 'query($ref: ID!) { memory(ref: $ref) { urn name } }' -F ref=mem_123
   cat op.graphql | hadron api -`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

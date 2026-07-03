@@ -223,7 +223,7 @@ func TestMemoryURNFromFlag(t *testing.T) {
 
 // canonicalMemoryURN must fold every memory-ref form to the same
 // <org>::<memory> so resolution is consistent (issue #91): scheme-prefixed,
-// single-colon (the form myMemories reports a memory's own urn in), and
+// single-colon (the form the memories list reports a memory's own urn in), and
 // double-colon all canonicalize, while a bare PK passes through untouched.
 func TestCanonicalMemoryURN(t *testing.T) {
 	cases := map[string]string{
@@ -241,7 +241,7 @@ func TestCanonicalMemoryURN(t *testing.T) {
 }
 
 // A blank ref or a bare scheme prefix (which strips to "") must error before any
-// myMemories lookup — an empty `want` must never collide with an empty-urn
+// memories-list lookup — an empty `want` must never collide with an empty-urn
 // memory. The empty-norm guard short-circuits before touching cmd/client, so a
 // nil client is safe here.
 func TestResolveSpecMemoryRejectsEmptyRef(t *testing.T) {

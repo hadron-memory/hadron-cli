@@ -73,13 +73,13 @@ func wireEdges(cmd *cobra.Command, client graphql.Client, memoryRef, sourceID st
 // existingEdgeKeys reads the upserted node's current outgoing edges so wireEdges
 // can skip any (target, label) that already exists.
 func existingEdgeKeys(cmd *cobra.Command, client graphql.Client, nodeID string) (map[string]bool, error) {
-	resp, err := gen.GetNodeById(cmd.Context(), client, nodeID)
+	resp, err := gen.GetNode(cmd.Context(), client, nodeID)
 	if err != nil {
 		return nil, api.MapError(err)
 	}
 	keys := map[string]bool{}
-	if resp.NodeById != nil {
-		for _, e := range resp.NodeById.OutgoingEdges {
+	if resp.Node != nil {
+		for _, e := range resp.Node.OutgoingEdges {
 			if e != nil && e.Target != nil {
 				name := ""
 				if e.Name != nil {

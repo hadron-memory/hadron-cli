@@ -16,8 +16,8 @@ func searchUserJSON(id, name, email, handle string) string {
 
 func TestAccessCheckJSON(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"SearchUsers": `{"data":{"searchUsers":[` +
-			searchUserJSON("u1", "Alice", "alice@acme.com", "alice") + `]}}`,
+		"SearchUsers": `{"data":{"users":{"total":1,"items":[` +
+			searchUserJSON("u1", "Alice", "alice@acme.com", "alice") + `]}}}`,
 		"EffectiveAccess": `{"data":{"effectiveAccess":{
 			"user":{"id":"u1","name":"Alice","email":"alice@acme.com","handle":"alice"},
 			"resourceUrn":"hrn:memory:acme.com::kb","resourceKind":"memory",
@@ -60,8 +60,8 @@ func TestAccessCheckJSON(t *testing.T) {
 
 func TestAccessCheckNoAccessTable(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
-		"SearchUsers": `{"data":{"searchUsers":[` +
-			searchUserJSON("u2", "Bob", "bob@acme.com", "bob") + `]}}`,
+		"SearchUsers": `{"data":{"users":{"total":1,"items":[` +
+			searchUserJSON("u2", "Bob", "bob@acme.com", "bob") + `]}}}`,
 		"EffectiveAccess": `{"data":{"effectiveAccess":{
 			"user":{"id":"u2","name":"Bob","email":"bob@acme.com","handle":"bob"},
 			"resourceUrn":"hrn:memory:acme.com::kb","resourceKind":"memory",
@@ -101,9 +101,9 @@ func TestAccessCheckUnderQualifiedResource(t *testing.T) {
 // match wins over an unrelated fuzzy hit (rather than erroring as ambiguous).
 func TestAccessCheckHandleSigil(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"SearchUsers": `{"data":{"searchUsers":[` +
+		"SearchUsers": `{"data":{"users":{"total":2,"items":[` +
 			searchUserJSON("u1", "Alice", "alice@acme.com", "alice") + `,` +
-			searchUserJSON("u2", "Alice Smith", "asmith@acme.com", "alicesmith") + `]}}`,
+			searchUserJSON("u2", "Alice Smith", "asmith@acme.com", "alicesmith") + `]}}}`,
 		"EffectiveAccess": `{"data":{"effectiveAccess":{
 			"user":{"id":"u1","name":"Alice","email":"alice@acme.com","handle":"alice"},
 			"resourceUrn":"hrn:memory:acme.com::kb","resourceKind":"memory",
@@ -130,9 +130,9 @@ func TestAccessCheckHandleSigil(t *testing.T) {
 // Multiple non-exact user matches are ambiguous rather than an arbitrary pick.
 func TestAccessCheckAmbiguousUser(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
-		"SearchUsers": `{"data":{"searchUsers":[` +
+		"SearchUsers": `{"data":{"users":{"total":2,"items":[` +
 			searchUserJSON("u1", "Alice One", "alice1@acme.com", "alice1") + `,` +
-			searchUserJSON("u2", "Alice Two", "alice2@acme.com", "alice2") + `]}}`,
+			searchUserJSON("u2", "Alice Two", "alice2@acme.com", "alice2") + `]}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
