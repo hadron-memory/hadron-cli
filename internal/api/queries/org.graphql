@@ -41,6 +41,16 @@ query OrgMembers($ref: ID!) {
   }
 }
 
+# The uniform single-user read (hadron-server#473): ref accepts a PK or an
+# hrn:user:<handle> URN; denied and missing are both null (anti-enumeration).
+# The access-check user resolution tries this before falling back to the
+# paged search below.
+query GetUser($ref: ID!) {
+  user(ref: $ref) {
+    ...UserFields
+  }
+}
+
 # Uniform paginated user list (hadron-server#473) — replaces searchUsers.
 # Non-admin callers must pass filter.query (enumeration-safe matching:
 # handle/githubUsername substring, email exact). Results are name-ascending,

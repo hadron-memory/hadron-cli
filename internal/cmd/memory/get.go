@@ -40,7 +40,7 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.Memory == nil {
+			if resp == nil || resp.Memory == nil {
 				return exitcode.Newf(exitcode.NotFound, "memory %q not found", args[0])
 			}
 

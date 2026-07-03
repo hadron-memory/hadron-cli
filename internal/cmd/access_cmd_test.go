@@ -105,6 +105,7 @@ func TestAccessCheckUnderQualifiedResource(t *testing.T) {
 // match wins over an unrelated fuzzy hit (rather than erroring as ambiguous).
 func TestAccessCheckHandleSigil(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
+		"GetUser": `{"data":{"user":null}}`, // find-one misses; the paged search must still resolve
 		"SearchUsers": `{"data":{"users":{"total":2,"items":[` +
 			searchUserJSON("u1", "Alice", "alice@acme.com", "alice") + `,` +
 			searchUserJSON("u2", "Alice Smith", "asmith@acme.com", "alicesmith") + `]}}}`,
@@ -134,6 +135,7 @@ func TestAccessCheckHandleSigil(t *testing.T) {
 // Multiple non-exact user matches are ambiguous rather than an arbitrary pick.
 func TestAccessCheckAmbiguousUser(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
+		"GetUser": `{"data":{"user":null}}`, // neither a PK nor an exact handle
 		"SearchUsers": `{"data":{"users":{"total":2,"items":[` +
 			searchUserJSON("u1", "Alice One", "alice1@acme.com", "alice1") + `,` +
 			searchUserJSON("u2", "Alice Two", "alice2@acme.com", "alice2") + `]}}}`,
@@ -182,6 +184,10 @@ func TestAccessCheckExactMatchBeyondFirstPage(t *testing.T) {
 		_ = json.Unmarshal(raw, &body)
 		w.Header().Set("Content-Type", "application/json")
 		switch body.OperationName {
+		case "GetUser":
+			// The find-one fast path misses — the exact match is only
+			// reachable through the paged search.
+			_, _ = w.Write([]byte(`{"data":{"user":null}}`))
 		case "SearchUsers":
 			searchCalls++
 			if body.Variables.Offset != nil && *body.Variables.Offset >= 200 {
@@ -224,5 +230,84 @@ func TestAccessCheckExactMatchBeyondFirstPage(t *testing.T) {
 	}
 	if vars.User != "u-exact" {
 		t.Errorf("@alice should resolve to the exact-handle match u-exact, got %q", vars.User)
+	}
+}
+
+
+// An @handle ref resolves through the user(ref:) find-one fast path — one
+// round trip, no paged search at all (SearchUsers is deliberately not
+// registered: calling it would fail the test).
+func TestAccessCheckFastPathHandle(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetUser": `{"data":{"user":` +
+			searchUserJSON("u9", "Alice", "alice@acme.com", "alice") + `}}`,
+		"EffectiveAccess": `{"data":{"effectiveAccess":{
+			"user":{"id":"u9","name":"Alice","email":"alice@acme.com","handle":"alice"},
+			"resourceUrn":"hrn:memory:acme.com::kb","resourceKind":"memory",
+			"canRead":true,"canWrite":false,"canManage":false,"canDelete":false,
+			"role":"reader","grants":[{"source":"MEMORY_MEMBER","role":"reader","via":null}]}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"access", "check", "@alice", "hrn:memory:acme.com::kb", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// A sigiled ref is handle-shaped: the find-one must get the URN form.
+	var getUserVars struct {
+		Ref string `json:"ref"`
+	}
+	if err := json.Unmarshal(captured["GetUser"], &getUserVars); err != nil {
+		t.Fatalf("decode GetUser vars: %v", err)
+	}
+	if getUserVars.Ref != "hrn:user:alice" {
+		t.Errorf("expected user(ref: hrn:user:alice), got %q", getUserVars.Ref)
+	}
+	var vars struct {
+		User string `json:"user"`
+	}
+	if err := json.Unmarshal(captured["EffectiveAccess"], &vars); err != nil {
+		t.Fatalf("decode vars: %v", err)
+	}
+	if vars.User != "u9" {
+		t.Errorf("@alice should fast-path to u9, got %q", vars.User)
+	}
+}
+
+// A bare id-shaped ref fast-paths as a PK — the first user(ref:) attempt is
+// the token itself, no URN wrapping and no search.
+func TestAccessCheckFastPathId(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetUser": `{"data":{"user":` +
+			searchUserJSON("usr_42", "Bob", "bob@acme.com", "bob") + `}}`,
+		"EffectiveAccess": `{"data":{"effectiveAccess":{
+			"user":{"id":"usr_42","name":"Bob","email":"bob@acme.com","handle":"bob"},
+			"resourceUrn":"hrn:memory:acme.com::kb","resourceKind":"memory",
+			"canRead":true,"canWrite":true,"canManage":false,"canDelete":false,
+			"role":"writer","grants":[{"source":"MEMORY_SHARE","role":"writer","via":null}]}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"access", "check", "usr_42", "hrn:memory:acme.com::kb", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var getUserVars struct {
+		Ref string `json:"ref"`
+	}
+	if err := json.Unmarshal(captured["GetUser"], &getUserVars); err != nil {
+		t.Fatalf("decode GetUser vars: %v", err)
+	}
+	if getUserVars.Ref != "usr_42" {
+		t.Errorf("expected user(ref: usr_42) first, got %q", getUserVars.Ref)
+	}
+	var vars struct {
+		User string `json:"user"`
+	}
+	if err := json.Unmarshal(captured["EffectiveAccess"], &vars); err != nil {
+		t.Fatalf("decode vars: %v", err)
+	}
+	if vars.User != "usr_42" {
+		t.Errorf("usr_42 should fast-path to itself, got %q", vars.User)
 	}
 }

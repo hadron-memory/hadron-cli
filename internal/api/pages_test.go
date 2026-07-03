@@ -76,3 +76,55 @@ func TestCollectUntilPropagatesError(t *testing.T) {
 		t.Errorf("expected fetch error to propagate, got %v", err)
 	}
 }
+
+// A server may serve pages shorter than the asked-for limit without being
+// done (e.g. a lower enforced cap). The pager must advance by what was
+// actually served and keep going until the reported total is in hand.
+func TestCollectAllHonorsLowerServerCap(t *testing.T) {
+	const serverCap = 50
+	const total = 120
+	var calls int
+	fetch := func(limit, offset int) ([]int, int, error) {
+		calls++
+		if limit > serverCap {
+			limit = serverCap
+		}
+		items := make([]int, 0, limit)
+		for i := offset; i < total && i < offset+limit; i++ {
+			items = append(items, i)
+		}
+		return items, total, nil
+	}
+	items, err := CollectAll(fetch)
+	if err != nil {
+		t.Fatalf("CollectAll: %v", err)
+	}
+	if len(items) != total {
+		t.Errorf("expected all %d items despite the %d-cap pages, got %d", total, serverCap, len(items))
+	}
+	for i, v := range items {
+		if v != i {
+			t.Fatalf("item %d skipped/duplicated: got %d", i, v)
+		}
+	}
+	if calls != 3 {
+		t.Errorf("expected 3 pages (50+50+20), got %d", calls)
+	}
+}
+
+// An overstated total (rows deleted mid-scan) must not loop forever: an
+// empty page is the safety break.
+func TestCollectAllStopsOnEmptyPageDespiteTotal(t *testing.T) {
+	var calls int
+	fetch := func(limit, offset int) ([]int, int, error) {
+		calls++
+		return nil, 10, nil // total says 10, server serves nothing
+	}
+	items, err := CollectAll(fetch)
+	if err != nil {
+		t.Fatalf("CollectAll: %v", err)
+	}
+	if len(items) != 0 || calls != 1 {
+		t.Errorf("expected an immediate empty stop, got %d items in %d calls", len(items), calls)
+	}
+}

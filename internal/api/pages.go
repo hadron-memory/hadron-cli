@@ -19,15 +19,19 @@ func CollectAll[T any](fetch func(limit, offset int) ([]T, int, error)) ([]T, er
 // in a sorted list — without draining the remaining pages.
 func CollectUntil[T any](fetch func(limit, offset int) ([]T, int, error), done func(items []T) bool) ([]T, error) {
 	items := make([]T, 0)
-	for offset := 0; ; offset += PageLimit {
+	for offset := 0; ; {
 		page, total, err := fetch(PageLimit, offset)
 		if err != nil {
 			return nil, err
 		}
 		items = append(items, page...)
-		// A short page is authoritative "no more"; the total guard saves
-		// the trailing empty round-trip when a page lands exactly on it.
-		if done(items) || len(page) < PageLimit || len(items) >= total {
+		// Advance by what was actually served — a page shorter than the
+		// asked-for limit (a lower enforced cap, concurrent deletes) must
+		// not skip rows. Termination is total-primary; the empty-page check
+		// is the safety break when total overstates what the server will
+		// actually serve.
+		offset += len(page)
+		if done(items) || len(items) >= total || len(page) == 0 {
 			return items, nil
 		}
 	}

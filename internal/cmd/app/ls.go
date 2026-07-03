@@ -42,6 +42,9 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 				if err != nil {
 					return nil, 0, api.MapError(err)
 				}
+				if resp == nil || resp.Apps == nil {
+					return nil, 0, nil
+				}
 				return resp.Apps.Items, resp.Apps.Total, nil
 			})
 			if err != nil {

@@ -2060,6 +2060,102 @@ func (v *GetOrganizationResponse) GetOrganization() *GetOrganizationOrganization
 	return v.Organization
 }
 
+// GetUserResponse is returned by GetUser on success.
+type GetUserResponse struct {
+	// The uniform single-user read (#473). 'ref' accepts a primary key or a
+	// `hrn:user:<handle>` URN. Resolves for the user themselves, a platform
+	// ADMIN/OWNER, or a caller sharing at least one organization with the
+	// target (the resolveUrn user gate); anyone else gets null — denied and
+	// missing are indistinguishable, preserving #384's anti-enumeration
+	// posture. PII fields (name/email) stay gated by the User field resolvers.
+	User *GetUserUser `json:"user"`
+}
+
+// GetUser returns GetUserResponse.User, and is useful for accessing the field via an interface.
+func (v *GetUserResponse) GetUser() *GetUserUser { return v.User }
+
+// GetUserUser includes the requested fields of the GraphQL type User.
+type GetUserUser struct {
+	UserFields `json:"-"`
+}
+
+// GetId returns GetUserUser.Id, and is useful for accessing the field via an interface.
+func (v *GetUserUser) GetId() string { return v.UserFields.Id }
+
+// GetName returns GetUserUser.Name, and is useful for accessing the field via an interface.
+func (v *GetUserUser) GetName() *string { return v.UserFields.Name }
+
+// GetEmail returns GetUserUser.Email, and is useful for accessing the field via an interface.
+func (v *GetUserUser) GetEmail() *string { return v.UserFields.Email }
+
+// GetHandle returns GetUserUser.Handle, and is useful for accessing the field via an interface.
+func (v *GetUserUser) GetHandle() *string { return v.UserFields.Handle }
+
+// GetGithubUsername returns GetUserUser.GithubUsername, and is useful for accessing the field via an interface.
+func (v *GetUserUser) GetGithubUsername() *string { return v.UserFields.GithubUsername }
+
+// GetRoles returns GetUserUser.Roles, and is useful for accessing the field via an interface.
+func (v *GetUserUser) GetRoles() []Role { return v.UserFields.Roles }
+
+func (v *GetUserUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetUserUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetUserUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UserFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetUserUser struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Email *string `json:"email"`
+
+	Handle *string `json:"handle"`
+
+	GithubUsername *string `json:"githubUsername"`
+
+	Roles []Role `json:"roles"`
+}
+
+func (v *GetUserUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetUserUser) __premarshalJSON() (*__premarshalGetUserUser, error) {
+	var retval __premarshalGetUserUser
+
+	retval.Id = v.UserFields.Id
+	retval.Name = v.UserFields.Name
+	retval.Email = v.UserFields.Email
+	retval.Handle = v.UserFields.Handle
+	retval.GithubUsername = v.UserFields.GithubUsername
+	retval.Roles = v.UserFields.Roles
+	return &retval, nil
+}
+
 // MeMeUser includes the requested fields of the GraphQL type User.
 type MeMeUser struct {
 	Id             string  `json:"id"`
@@ -5356,6 +5452,14 @@ type __GetOrganizationInput struct {
 // GetRef returns __GetOrganizationInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetOrganizationInput) GetRef() string { return v.Ref }
 
+// __GetUserInput is used internally by genqlient
+type __GetUserInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetUserInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetUserInput) GetRef() string { return v.Ref }
+
 // __MemoriesInput is used internally by genqlient
 type __MemoriesInput struct {
 	Filter *MemoryFilter `json:"filter,omitempty"`
@@ -6813,6 +6917,52 @@ func GetOrganization(
 	}
 
 	data_ = &GetOrganizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetUser.
+const GetUser_Operation = `
+query GetUser ($ref: ID!) {
+	user(ref: $ref) {
+		... UserFields
+	}
+}
+fragment UserFields on User {
+	id
+	name
+	email
+	handle
+	githubUsername
+	roles
+}
+`
+
+// The uniform single-user read (hadron-server#473): ref accepts a PK or an
+// hrn:user:<handle> URN; denied and missing are both null (anti-enumeration).
+// The access-check user resolution tries this before falling back to the
+// paged search below.
+func GetUser(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetUserResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetUser",
+		Query:  GetUser_Operation,
+		Variables: &__GetUserInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetUserResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
