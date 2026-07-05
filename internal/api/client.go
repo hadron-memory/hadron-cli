@@ -51,14 +51,22 @@ func RequireSecureURL(serverURL, token string) error {
 }
 
 // schemeIsSecure reports whether the bearer token may ride on u: https, a
-// loopback host, or the HADRON_ALLOW_HTTP escape hatch.
+// loopback host, or — via the HADRON_ALLOW_HTTP escape hatch — cleartext HTTP.
+// The override is deliberately limited to http: it must never green-light a
+// token on ftp/ssh/other non-HTTP schemes.
 func schemeIsSecure(u *url.URL) bool {
-	return u.Scheme == "https" || isLoopbackHost(u.Hostname()) || os.Getenv(EnvAllowHTTP) == "1"
+	if u.Scheme == "https" || isLoopbackHost(u.Hostname()) {
+		return true
+	}
+	return u.Scheme == "http" && os.Getenv(EnvAllowHTTP) == "1"
 }
 
-// isLoopbackHost reports whether host is a loopback name or IP.
+// isLoopbackHost reports whether host is a loopback name or IP. Per RFC 6761,
+// `localhost` and any `*.localhost` name resolve to loopback; a trailing dot
+// (root-zone form) and case are normalized away.
 func isLoopbackHost(host string) bool {
-	if host == "localhost" {
+	host = strings.ToLower(strings.TrimSuffix(host, "."))
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
 		return true
 	}
 	if ip := net.ParseIP(host); ip != nil {

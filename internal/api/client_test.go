@@ -19,10 +19,12 @@ func TestRequireSecureURL(t *testing.T) {
 		{"http with token rejected", "http://srv.hadronmemory.com", "hdr_user_x", false, true},
 		{"http anonymous ok", "http://srv.hadronmemory.com", "", false, false},
 		{"http localhost ok", "http://localhost:8080", "hdr_user_x", false, false},
+		{"http *.localhost ok", "http://api.localhost:8080", "hdr_user_x", false, false},
 		{"http 127.0.0.1 ok", "http://127.0.0.1:3000", "hdr_user_x", false, false},
 		{"http ::1 ok", "http://[::1]:3000", "hdr_user_x", false, false},
 		{"http allowed via env", "http://internal.corp", "hdr_user_x", true, false},
 		{"non-http scheme with token rejected", "ftp://srv.example.com", "hdr_user_x", false, true},
+		{"env override does not permit ftp", "ftp://srv.example.com", "hdr_user_x", true, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
