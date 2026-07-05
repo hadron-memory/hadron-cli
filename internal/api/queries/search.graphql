@@ -1,0 +1,60 @@
+# Ranked node search backing `hadron search` (#135). Same unified findNodes
+# field as nodes.graphql's FindNodes, but a search-shaped selection: per-hit
+# score, abstract/description, and the vector abstract-staleness flag — so a
+# result list is assessable at a glance without one `node get` per hit. Kept
+# separate from FindNodes so the browse/list callers (`node ls`, exports, spec
+# reads) don't pay for abstract payloads they never render.
+#
+# The server treats an omitted NodeFilter field as "no constraint"; nil
+# pointers must therefore be omitted, not sent as null — same contract as
+# nodes.graphql.
+# @genqlient(for: "NodeFilter.memoryIds", omitempty: true)
+# @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
+# @genqlient(for: "NodeFilter.nodeType", omitempty: true)
+# @genqlient(for: "NodeFilter.tags", omitempty: true)
+# @genqlient(for: "NodeFilter.isRunnable", omitempty: true)
+# @genqlient(for: "NodeFilter.locPrefix", omitempty: true)
+# @genqlient(for: "NodeFilter.createdBy", omitempty: true)
+# @genqlient(for: "NodeFilter.updatedAfter", omitempty: true)
+# @genqlient(for: "NodeFilter.updatedBefore", omitempty: true)
+# @genqlient(for: "NodeFilter.includeDeleted", omitempty: true)
+query SearchNodes(
+  $query: String!
+  # @genqlient(omitempty: true)
+  $mode: FindNodesMode
+  # @genqlient(omitempty: true)
+  $filter: NodeFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  findNodes(
+    query: $query
+    mode: $mode
+    filter: $filter
+    limit: $limit
+    offset: $offset
+  ) {
+    total
+    degraded
+    reason
+    hits {
+      score
+      vector {
+        abstractStale
+      }
+      node {
+        id
+        memoryId
+        loc
+        name
+        nodeType
+        tags
+        description
+        abstract
+        updatedAt
+      }
+    }
+  }
+}
