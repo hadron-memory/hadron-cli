@@ -28,6 +28,9 @@ type rawError struct {
 // error carries the mapped exit code when the response contains
 // GraphQL errors.
 func RawGraphQL(ctx context.Context, serverURL, token, query string, variables map[string]any, httpClient *http.Client) (*RawResult, error) {
+	if err := RequireSecureURL(serverURL, token); err != nil {
+		return nil, err
+	}
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 60 * time.Second}
 	}

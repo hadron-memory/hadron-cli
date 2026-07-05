@@ -4,15 +4,60 @@
 package api
 
 import (
+	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/Khan/genqlient/graphql"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 const graphqlPath = "/graphql"
+
+// EnvAllowHTTP opts out of the HTTPS-enforcement guard for a trusted local or
+// self-hosted server (set to "1").
+const EnvAllowHTTP = "HADRON_ALLOW_HTTP"
+
+// RequireSecureURL refuses to transmit the bearer token over a non-https
+// server URL — cleartext credentials are trivially captured by an on-path
+// attacker on the shared CI/dev machines this CLI runs on (#114). Carve-outs:
+// a loopback host (local dev, incl. the test httptest servers) and
+// HADRON_ALLOW_HTTP=1 (a trusted self-hosted backend). An empty token means no
+// credential rides, so the check is a no-op — anonymous http is allowed.
+func RequireSecureURL(serverURL, token string) error {
+	if token == "" {
+		return nil
+	}
+	u, err := url.Parse(serverURL)
+	if err != nil {
+		return err
+	}
+	if u.Scheme == "https" || isLoopbackHost(u.Hostname()) || os.Getenv(EnvAllowHTTP) == "1" {
+		return nil
+	}
+	scheme := u.Scheme
+	if scheme == "" {
+		scheme = "(none)"
+	}
+	return exitcode.Newf(exitcode.Usage,
+		"refusing to send credentials to %s over %s — use https, or set %s=1 for a trusted local/self-hosted server",
+		serverURL, scheme, EnvAllowHTTP)
+}
+
+// isLoopbackHost reports whether host is a loopback name or IP.
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
+}
 
 // bearerDoer injects the Authorization header on every request.
 type bearerDoer struct {
@@ -36,6 +81,9 @@ func Endpoint(serverURL string) string {
 // authenticating with token (may be empty for anonymous calls).
 func NewClient(serverURL, token string, httpClient *http.Client) (graphql.Client, error) {
 	if _, err := url.ParseRequestURI(serverURL); err != nil {
+		return nil, err
+	}
+	if err := RequireSecureURL(serverURL, token); err != nil {
 		return nil, err
 	}
 	if httpClient == nil {

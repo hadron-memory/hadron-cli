@@ -21,7 +21,10 @@ Hadron portal. `auth token` requires a user login — an app/agent key can't
 manage user tokens; the raw key is shown once, so store it on creation. The
 server defaults to
 `https://srv.hadronmemory.com`; override per-invocation with `--server
-<url>` or persistently with `hadron config set server <url>`.
+<url>` or persistently with `hadron config set server <url>`. The CLI refuses
+to send your token to a non-`https` server (cleartext credentials); a loopback
+host is exempt, and `HADRON_ALLOW_HTTP=1` overrides the check for a trusted
+self-hosted backend.
 
 ## Output contract
 
