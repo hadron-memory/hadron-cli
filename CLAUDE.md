@@ -79,5 +79,6 @@ Command-level tests live in `internal/cmd/*_test.go` against a fake GraphQL serv
 ## Conventions for changes
 
 - **Substantial features get a design-as-built plan doc in `docs/plans/`**, bundled in the PR for review (see the existing ones).
+- **Before opening a PR, run the Hadron review flow** — the CLI-specific checklist pass, complementing the generic `/code-review` skill. Run the task node `hrn:node:hadronmemory.com::hadron-cli::tasks:review-changes` (read the `review` parent, then walk the applicable `Applies when …` children against your diff). When a defect or near-miss reveals a reusable pattern, capture it with `tasks:add-review-node`.
 - One change per PR, squash-merged; CI (build/test/lint + `goreleaser check`) must be green.
 - **Releasing is tag-driven** (push `vX.Y.Z` → goreleaser publishes archives + auto-bumps the Homebrew cask). See the README "Releasing" section.
