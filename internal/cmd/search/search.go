@@ -77,6 +77,12 @@ prints abstracts in the text output too.`,
 			if err != nil {
 				return err
 			}
+			if limit < 0 {
+				return exitcode.Newf(exitcode.Usage, "limit must be non-negative")
+			}
+			if offset < 0 {
+				return exitcode.Newf(exitcode.Usage, "offset must be non-negative")
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -118,8 +124,12 @@ prints abstracts in the text output too.`,
 			if err != nil {
 				return api.MapError(err)
 			}
-			if note := degradedNote(page.Degraded, page.Reason); note != "" {
-				fmt.Fprintf(f.IOStreams.ErrOut, "note: %s\n", note)
+			// The --json envelope already carries degraded/reason; the
+			// human-readable note is text-mode only.
+			if !f.JSON {
+				if note := degradedNote(page.Degraded, page.Reason); note != "" {
+					fmt.Fprintf(f.IOStreams.ErrOut, "note: %s\n", note)
+				}
 			}
 
 			result := resultDTO{Hits: []hitDTO{}, Total: page.Total, Degraded: page.Degraded, Reason: page.Reason}
