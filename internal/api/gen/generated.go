@@ -7155,7 +7155,7 @@ mutation ImportNode ($input: ImportNodeInput!) {
 // application/pdf the $content is raw base64. Every input field is optional, and
 // the server reads an *omitted* field differently from an explicit null — nil
 // pointers must be omitted from the wire, hence the per-field omitempty
-// annotations. Backs `hadron node ingest`.
+// annotations. Backs `hadron node import`'s content mode.
 func ImportNode(
 	ctx_ context.Context,
 	client_ graphql.Client,
