@@ -184,6 +184,7 @@ query GetNode($ref: ID!) {
 # @genqlient(for: "CreateNodeInput.aiAgent", omitempty: true)
 # @genqlient(for: "CreateNodeInput.alias", omitempty: true)
 # @genqlient(for: "CreateNodeInput.content", omitempty: true)
+# @genqlient(for: "CreateNodeInput.contentType", omitempty: true)
 # @genqlient(for: "CreateNodeInput.data", omitempty: true)
 # @genqlient(for: "CreateNodeInput.description", omitempty: true)
 # @genqlient(for: "CreateNodeInput.edges", omitempty: true)
@@ -226,6 +227,7 @@ mutation CreateNode(
 # @genqlient(for: "UpdateNodeInput.aiAgent", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.alias", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.content", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.contentType", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.data", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.description", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.edges", omitempty: true)
@@ -262,7 +264,7 @@ mutation DeleteNode($loc: String!, $memoryId: String!) {
 # application/pdf the $content is raw base64. Every input field is optional, and
 # the server reads an *omitted* field differently from an explicit null — nil
 # pointers must be omitted from the wire, hence the per-field omitempty
-# annotations. Backs `hadron node ingest`.
+# annotations. Backs `hadron node import`'s content mode.
 # @genqlient(for: "ImportNodeInput.memoryId", omitempty: true)
 # @genqlient(for: "ImportNodeInput.loc", omitempty: true)
 # @genqlient(for: "ImportNodeInput.nodeUrn", omitempty: true)

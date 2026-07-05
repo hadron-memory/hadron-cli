@@ -1064,7 +1064,7 @@ type CreateNodeInput struct {
 	Alias    *string `json:"alias,omitempty"`
 	Content  *string `json:"content,omitempty"`
 	// MIME type of content (#476/#488, spec cor:cnv:010:01): 'text/markdown' (default) stores as-is; 'text/html' converts captured DOM to Markdown; 'application/pdf' extracts a PDF's text layer to Markdown (send 'content' as raw base64 — a PDF is binary; scanned/image-only PDFs error). The conversion runs before storage and fills properties.title from the extracted title when not supplied. Consumed at write time — never persisted. Any other value is rejected.
-	ContentType *string          `json:"contentType"`
+	ContentType *string          `json:"contentType,omitempty"`
 	Data        *json.RawMessage `json:"data,omitempty"`
 	Description *string          `json:"description,omitempty"`
 	// Outgoing edges to create with the node.
@@ -4840,7 +4840,7 @@ type UpdateNodeInput struct {
 	Alias    *string `json:"alias,omitempty"`
 	Content  *string `json:"content,omitempty"`
 	// MIME type of content (#476/#488, spec cor:cnv:010:01): 'text/markdown' (default) stores as-is; 'text/html' converts captured DOM to Markdown; 'application/pdf' extracts a PDF's text layer to Markdown (send 'content' as raw base64 — a PDF is binary; scanned/image-only PDFs error). The conversion runs before storage and fills properties.title from the extracted title when not supplied. Consumed at write time — never persisted. Any other value is rejected.
-	ContentType *string          `json:"contentType"`
+	ContentType *string          `json:"contentType,omitempty"`
 	Data        *json.RawMessage `json:"data,omitempty"`
 	Description *string          `json:"description,omitempty"`
 	Edges       []*NodeEdgeInput `json:"edges,omitempty"`

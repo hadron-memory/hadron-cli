@@ -58,7 +58,7 @@ type unwiredEdgeDTO struct {
 
 // contentExtensions are source extensions that can only ever be raw content (a
 // node-export file is frontmatter-markdown or canonical JSON, never these), so
-// they route to content mode without an explicit --content.
+// they route to content mode without an explicit --as-content.
 var contentExtensions = map[string]bool{".pdf": true, ".html": true, ".htm": true}
 
 func newCmdImport(f *cmdutil.Factory) *cobra.Command {
@@ -171,7 +171,7 @@ func rejectFlags(cmd *cobra.Command, names []string, why string) error {
 // canonical JSON): a node already at the target loc is updated, else created.
 func runImportRestore(cmd *cobra.Command, f *cmdutil.Factory, path, memory, loc, format string, formatChanged, withEdges, createOnly, dryRun bool) error {
 	if path == "" {
-		return exitcode.Newf(exitcode.Usage, "no input file — pass a <file>/`-`, or --url/--content to ingest external content")
+		return exitcode.Newf(exitcode.Usage, "no input file — pass a <file>/`-`, or --url/--as-content to ingest external content")
 	}
 	fmtName, err := resolveDocFormat(format, path, formatChanged)
 	if err != nil {

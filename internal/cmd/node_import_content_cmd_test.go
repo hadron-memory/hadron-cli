@@ -226,3 +226,31 @@ func TestNodeImportContentRejectsRestoreFlags(t *testing.T) {
 		t.Fatalf("--with-edges in content mode should be a usage error, got %v", err)
 	}
 }
+
+// A restore-mode import (an export file with no content type) must NOT put
+// contentType on the wire: the server reads an explicit null as "clear", so an
+// unset field has to be omitted, not serialized as null (Codex PR-139 P2).
+func TestNodeImportRestoreOmitsContentType(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	file := filepath.Join(t.TempDir(), "flaky.md")
+	if err := os.WriteFile(file, []byte("---\nname: Flaky CI\nloc: findings:flaky-ci\nmemory: acme.com:kb\n---\n\nbody\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "import", file, "--create-only", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input map[string]json.RawMessage `json:"input"`
+	}
+	if err := json.Unmarshal(captured["CreateNode"], &vars); err != nil {
+		t.Fatalf("decode CreateNode vars: %v\n%s", err, captured["CreateNode"])
+	}
+	if _, present := vars.Input["contentType"]; present {
+		t.Errorf("restore write must omit contentType from the wire, got input %v", vars.Input)
+	}
+}
