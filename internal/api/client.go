@@ -4,6 +4,8 @@
 package api
 
 import (
+	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -36,7 +38,7 @@ func RequireSecureURL(serverURL, token string) error {
 	if err != nil {
 		return err
 	}
-	if u.Scheme == "https" || isLoopbackHost(u.Hostname()) || os.Getenv(EnvAllowHTTP) == "1" {
+	if schemeIsSecure(u) {
 		return nil
 	}
 	scheme := u.Scheme
@@ -48,6 +50,12 @@ func RequireSecureURL(serverURL, token string) error {
 		serverURL, scheme, EnvAllowHTTP)
 }
 
+// schemeIsSecure reports whether the bearer token may ride on u: https, a
+// loopback host, or the HADRON_ALLOW_HTTP escape hatch.
+func schemeIsSecure(u *url.URL) bool {
+	return u.Scheme == "https" || isLoopbackHost(u.Hostname()) || os.Getenv(EnvAllowHTTP) == "1"
+}
+
 // isLoopbackHost reports whether host is a loopback name or IP.
 func isLoopbackHost(host string) bool {
 	if host == "localhost" {
@@ -57,6 +65,29 @@ func isLoopbackHost(host string) bool {
 		return ip.IsLoopback()
 	}
 	return false
+}
+
+// withSecureRedirects returns a shallow copy of client whose CheckRedirect
+// refuses any redirect hop to a non-secure target. Go forwards the
+// Authorization header across SAME-host redirects, so without this a
+// misconfigured https endpoint that 30x-redirects to http://<same-host> would
+// put the bearer token on the wire in cleartext despite the initial-URL guard
+// (#114 / #121). The caller's client is copied, not mutated (it is shared).
+func withSecureRedirects(client *http.Client) *http.Client {
+	c := *client
+	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if !schemeIsSecure(req.URL) {
+			return fmt.Errorf("refusing to follow a redirect to %s over %s — the bearer token would be sent in cleartext",
+				req.URL.Redacted(), req.URL.Scheme)
+		}
+		// Preserve the net/http default cap of 10 hops (overridden once we set
+		// CheckRedirect ourselves).
+		if len(via) >= 10 {
+			return errors.New("stopped after 10 redirects")
+		}
+		return nil
+	}
+	return &c
 }
 
 // bearerDoer injects the Authorization header on every request.
@@ -88,6 +119,9 @@ func NewClient(serverURL, token string, httpClient *http.Client) (graphql.Client
 	}
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
+	}
+	if token != "" {
+		httpClient = withSecureRedirects(httpClient)
 	}
 	return graphql.NewClient(Endpoint(serverURL), &bearerDoer{token: token, inner: httpClient}), nil
 }

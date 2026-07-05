@@ -34,6 +34,9 @@ func RawGraphQL(ctx context.Context, serverURL, token, query string, variables m
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 60 * time.Second}
 	}
+	if token != "" {
+		httpClient = withSecureRedirects(httpClient)
+	}
 	payload, err := json.Marshal(map[string]any{"query": query, "variables": variables})
 	if err != nil {
 		return nil, err

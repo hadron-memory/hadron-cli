@@ -1,6 +1,7 @@
 package api
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -25,8 +26,12 @@ func TestRequireSecureURL(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			// Pin the override in EVERY subtest so an ambient HADRON_ALLOW_HTTP=1
+			// in the dev/CI env can't silently disable the rejection cases.
 			if tc.allow {
 				t.Setenv(EnvAllowHTTP, "1")
+			} else {
+				t.Setenv(EnvAllowHTTP, "")
 			}
 			err := RequireSecureURL(tc.url, tc.token)
 			if tc.wantErr {
@@ -48,6 +53,7 @@ func TestRequireSecureURL(t *testing.T) {
 // NewClient must refuse a credentialed cleartext-http server before returning
 // a client (the token would otherwise ride in cleartext).
 func TestNewClientRejectsCredentialedHTTP(t *testing.T) {
+	t.Setenv(EnvAllowHTTP, "") // isolate from an ambient override
 	if _, err := NewClient("http://srv.hadronmemory.com", "hdr_user_x", nil); err == nil {
 		t.Fatal("NewClient over http with a token should error")
 	}
@@ -57,5 +63,36 @@ func TestNewClientRejectsCredentialedHTTP(t *testing.T) {
 	}
 	if _, err := NewClient("http://127.0.0.1:8080", "hdr_user_x", nil); err != nil {
 		t.Errorf("loopback http with token should be allowed: %v", err)
+	}
+}
+
+// The redirect guard refuses a hop to a non-secure target (a same-host
+// https→http downgrade would otherwise carry the bearer in cleartext — #121)
+// while allowing https / loopback and preserving the 10-hop cap.
+func TestSecureRedirectGuard(t *testing.T) {
+	t.Setenv(EnvAllowHTTP, "")
+	c := withSecureRedirects(&http.Client{})
+
+	mustReq := func(u string) *http.Request {
+		r, err := http.NewRequest(http.MethodGet, u, nil)
+		if err != nil {
+			t.Fatalf("build request %q: %v", u, err)
+		}
+		return r
+	}
+
+	if err := c.CheckRedirect(mustReq("http://srv.hadronmemory.com/graphql"), nil); err == nil {
+		t.Error("a redirect to cleartext http must be refused")
+	}
+	if err := c.CheckRedirect(mustReq("https://srv.hadronmemory.com/graphql"), nil); err != nil {
+		t.Errorf("an https redirect must be allowed: %v", err)
+	}
+	if err := c.CheckRedirect(mustReq("http://127.0.0.1:8080/graphql"), nil); err != nil {
+		t.Errorf("a loopback redirect must be allowed: %v", err)
+	}
+	// The 10-hop cap is preserved now that we own CheckRedirect.
+	via := make([]*http.Request, 10)
+	if err := c.CheckRedirect(mustReq("https://srv.hadronmemory.com/graphql"), via); err == nil {
+		t.Error("should stop after 10 redirects")
 	}
 }
