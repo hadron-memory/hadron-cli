@@ -8,16 +8,21 @@ import (
 
 const probeAccount = "hadron-cli-keyring-probe"
 
-// Resolve picks the keychain backend when one is usable, otherwise
-// the 0600-file fallback. The probe is a read-only Get: a usable
-// keyring answers ErrNotFound for the nonexistent probe account,
-// while an unavailable one (headless box, no dbus) errors otherwise.
-func Resolve() Store {
+// keyringAvailable reports whether the OS keychain is usable. The probe is a
+// read-only Get: a usable keyring answers ErrNotFound for the nonexistent probe
+// account, while an unavailable one (headless box, no dbus) errors otherwise.
+func keyringAvailable() bool {
 	_, err := keyring.Get(keyringService, probeAccount)
-	if err != nil && !errors.Is(err, keyring.ErrNotFound) {
-		return File{}
+	return err == nil || errors.Is(err, keyring.ErrNotFound)
+}
+
+// Resolve picks the keychain backend when one is usable, otherwise the
+// 0600-file fallback.
+func Resolve() Store {
+	if keyringAvailable() {
+		return Keyring{}
 	}
-	return Keyring{}
+	return File{}
 }
 
 // EnvToken is the environment variable that overrides any stored

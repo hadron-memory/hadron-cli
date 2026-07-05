@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/auth"
+	"github.com/hadron-memory/hadron-cli/internal/auth/store"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -56,8 +57,17 @@ environment variable (which skips storage entirely).`,
 			}
 
 			st := f.TokenStore()
-			if err := st.Set(auth.Host(server), token); err != nil {
+			host := auth.Host(server)
+			if err := st.Set(host, token); err != nil {
 				return fmt.Errorf("storing token: %w", err)
+			}
+			// Clear the non-selected backend so a token from a prior login in a
+			// different environment (keychain vs plaintext file) can't linger as
+			// a stale, still-readable duplicate (#116). Warn rather than fail if
+			// it couldn't be removed — the new token is already stored, but a
+			// stale one may remain in the other store.
+			if err := store.ClearExcept(st, host); err != nil {
+				fmt.Fprintf(f.IOStreams.ErrOut, "warning: a prior credential in the other store could not be cleared (%v); run `hadron auth logout` if a stale token may linger\n", err)
 			}
 
 			dto := loginResult{Server: server, TokenStorage: st.Name()}

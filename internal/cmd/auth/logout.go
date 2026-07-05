@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"errors"
 	"fmt"
 	"io"
 
@@ -23,16 +22,20 @@ func newCmdLogout(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			err = f.TokenStore().Delete(auth.Host(server))
-			if errors.Is(err, store.ErrNotFound) {
+			// Delete from EVERY backend, not just the one Resolve() picks now:
+			// a token written to the plaintext file on a headless box would
+			// otherwise survive a logout that resolves to the keychain, and
+			// vice-versa (#116).
+			removed, err := store.Purge(auth.Host(server))
+			if err != nil {
+				return err
+			}
+			if !removed {
 				dto := map[string]string{"server": server, "status": "no_stored_credential"}
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					_, err := fmt.Fprintf(w, "no stored credential for %s\n", server)
 					return err
 				})
-			}
-			if err != nil {
-				return err
 			}
 			dto := map[string]string{"server": server, "status": "logged_out"}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
