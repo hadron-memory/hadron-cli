@@ -1,9 +1,12 @@
 package node
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
@@ -17,14 +20,32 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-// importNodeSummaryDTO is the stable --json shape for an import run.
+// importNodeSummaryDTO is the stable --json shape for a restore-mode import (a
+// node-export file reconstituted via createNode/updateNode). `mode` is the
+// discriminator against the content-mode shape below.
 type importNodeSummaryDTO struct {
+	Mode         string           `json:"mode"` // always "restore"
 	Memory       string           `json:"memory"`
 	Loc          string           `json:"loc"`
 	Action       string           `json:"action"`
 	NodeID       string           `json:"nodeId"`
 	EdgesWired   int              `json:"edgesWired"`
 	UnwiredEdges []unwiredEdgeDTO `json:"unwiredEdges"`
+}
+
+// importContentSummaryDTO is the stable --json shape for a content-mode import
+// (raw source — URL/HTML/Markdown/PDF — converted to a node body by the server's
+// importNode). `mode` discriminates it from the restore shape above.
+type importContentSummaryDTO struct {
+	Mode     string `json:"mode"` // always "content"
+	Status   string `json:"status"`
+	Memory   string `json:"memory"`
+	Loc      string `json:"loc"`
+	NodeID   string `json:"nodeId"`
+	Name     string `json:"name"`
+	NodeType string `json:"nodeType"`
+	// JobID is reserved for the future async URL path; null in sync v1.
+	JobID string `json:"jobId,omitempty"`
 }
 
 // unwiredEdgeDTO is one outgoing edge --with-edges could not wire, with why —
@@ -35,142 +56,342 @@ type unwiredEdgeDTO struct {
 	Reason string `json:"reason"`
 }
 
+// contentExtensions are source extensions that can only ever be raw content (a
+// node-export file is frontmatter-markdown or canonical JSON, never these), so
+// they route to content mode without an explicit --as-content.
+var contentExtensions = map[string]bool{".pdf": true, ".html": true, ".htm": true}
+
 func newCmdImport(f *cmdutil.Factory) *cobra.Command {
 	var (
-		memory     string
-		loc        string
+		memory string
+		loc    string
+		// Restore-mode (node-export file) flags.
 		format     string
 		withEdges  bool
 		createOnly bool
 		dryRun     bool
+		// Content-mode (importNode) flags.
+		asContent      bool
+		url            string
+		nodeURN        string
+		contentType    string
+		name           string
+		nodeType       string
+		properties     string
+		propertiesFile string
 	)
 	cmd := &cobra.Command{
-		Use:   "import <file-path|->",
-		Short: "Import a node from a file, creating or updating it",
-		Long: `Import a node from a file produced by ` + "`hadron node export`" + ` (or any
-frontmatter-markdown / canonical-JSON node file). A node already at the target
-loc is updated; otherwise a new one is created. Read "-" to import from stdin,
-so an export pipes straight into an import.
+		Use:   "import [<file>|-]",
+		Short: "Import a node — reconstitute an export file, or ingest external content (URL/HTML/Markdown/PDF)",
+		Long: `Import into a node. Two modes:
 
-The target memory and loc come from the file's self-describing keys; -m/--memory
-and --loc override them (and let you re-home a node into a different memory).
-Outgoing edges are imported only with --with-edges (off by default so an import
-never makes surprising edge mutations).`,
-		Example: `  hadron node import flaky.md                       # self-describing file
-  hadron node import flaky.md -m acme.com:kb2        # retarget to another memory
-  hadron node import --format json flaky.json --with-edges
-  hadron node export acme.com:kb:x | hadron node import -m acme.com:kb2 -`,
-		Args: cobra.ExactArgs(1),
+RESTORE (default) — reconstitute a node-export file produced by ` + "`hadron node export`" + `
+(frontmatter-markdown, or ` + "`--format json`" + `). A node already at the target loc is
+updated, else created. Read "-" to import from stdin, so an export pipes straight
+into an import. The target memory/loc come from the file's own keys; -m/--memory
+and --loc override them (re-homing a node into another memory). Outgoing edges
+are imported only with --with-edges (off by default).
+
+CONTENT — ingest RAW external source (a web page, a captured HTML DOM, a Markdown
+file, or a PDF) and let the server convert it to the node's Markdown body. This
+mode is selected by --url, by --as-content (force it for an otherwise-ambiguous
+.md/.json / stdin source), or automatically for a .pdf/.html file. A PDF's text
+layer is extracted to Markdown — the CLI base64-encodes the file for you
+(scanned/image-only PDFs error server-side). The content type is inferred from
+the file extension unless --content-type overrides it (required for a PDF over
+stdin). Target the node with -m/--memory + --loc or --node <urn>; a node already
+there is updated in place, else created (nodeType defaults to webpage, or info
+for a PDF).`,
+		Example: `  hadron node import flaky.md                        # restore a node-export file
+  hadron node export acme.com:kb:x | hadron node import -m acme.com:kb2 -
+  hadron node import paper.pdf -m acme.com:kb --loc papers:attention
+  hadron node import --url https://example.com/post -m acme.com:kb --loc clips:post
+  hadron node import notes.md --as-content -m acme.com:kb --loc notes:today`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			path := args[0]
-			fmtName, err := resolveDocFormat(format, path, cmd.Flags().Changed("format"))
-			if err != nil {
-				return err
+			var srcPath string
+			if len(args) == 1 {
+				srcPath = args[0]
 			}
 
-			data, err := readImportSource(path, f.IOStreams.In)
-			if err != nil {
-				return err
-			}
-			if strings.TrimSpace(string(data)) == "" {
-				return exitcode.Newf(exitcode.Usage, "empty input — nothing to import")
-			}
+			// Mode dispatch. Content mode is selected explicitly (--url,
+			// --as-content, --content-type) or by an unambiguously-content file
+			// extension; everything else (a .md/.json export doc, or a stdin
+			// pipe) defaults to restore so `export | import` still round-trips.
+			contentMode := url != "" ||
+				asContent ||
+				cmd.Flags().Changed("content-type") ||
+				(srcPath != "" && srcPath != "-" && contentExtensions[strings.ToLower(filepath.Ext(srcPath))])
 
-			var doc *nodedoc.Document
-			if fmtName == "json" {
-				doc, err = nodedoc.ParseJSON(data)
-			} else {
-				doc, err = nodedoc.ParseMarkdown(data)
-			}
-			if err != nil {
-				return exitcode.Newf(exitcode.Usage, "%v", err)
-			}
-
-			// Target resolution: flag > frontmatter > error.
-			memoryRef := firstNonEmpty(memory, doc.MemoryURN)
-			if memoryRef == "" {
-				return exitcode.Newf(exitcode.Usage, "no target memory — pass -m <memory> or include a `memory:` key in the file")
-			}
-			targetLoc := firstNonEmpty(loc, doc.Loc)
-			if targetLoc == "" {
-				return exitcode.Newf(exitcode.Usage, "no target loc — pass --loc <loc> or include a `loc:` key in the file")
-			}
-			if strings.TrimSpace(doc.Name) == "" {
-				return exitcode.Newf(exitcode.Usage, "file has no `name` — a node name is required")
-			}
-
-			client, err := f.GraphQLClient()
-			if err != nil {
-				return err
-			}
-
-			if dryRun {
-				// Classify create vs update by a best-effort existence probe
-				// (the executed path derives it from which mutation succeeds).
-				action := "created"
-				if nodeExists(cmd, client, memoryRef, targetLoc) {
-					action = "updated"
-				}
-				return emitImportSummary(f, importNodeSummaryDTO{
-					Memory: memoryRef, Loc: targetLoc, Action: action,
-					EdgesWired: 0, UnwiredEdges: []unwiredEdgeDTO{},
-				}, true, withEdges, len(doc.Edges))
-			}
-
-			input, err := buildCreateNodeInput(doc, memoryRef, targetLoc)
-			if err != nil {
-				return err
-			}
-
-			// The old upsert is now emulated (spec 039 Phase 0 split the write):
-			// without --create-only, try updateNode keyed on (memoryId, loc) and
-			// fall back to createNode when the server says NODE_NOT_FOUND; with
-			// --create-only, go straight to createNode (a live node at the loc
-			// rejects with NodeLocConflictError).
-			var nodeID, nodeLoc, action string
-			if createOnly {
-				resp, err := gen.CreateNode(cmd.Context(), client, input)
-				if err != nil {
-					return api.MapError(err)
-				}
-				nodeID, nodeLoc, action = resp.CreateNode.Id, resp.CreateNode.Loc, "created"
-			} else {
-				uResp, uErr := gen.UpdateNode(cmd.Context(), client, updateNodeInputFrom(input))
-				switch {
-				case uErr == nil:
-					nodeID, nodeLoc, action = uResp.UpdateNode.Id, uResp.UpdateNode.Loc, "updated"
-				case api.HasErrorCode(uErr, "NODE_NOT_FOUND"):
-					cResp, cErr := gen.CreateNode(cmd.Context(), client, input)
-					if cErr != nil {
-						return api.MapError(cErr)
-					}
-					nodeID, nodeLoc, action = cResp.CreateNode.Id, cResp.CreateNode.Loc, "created"
-				default:
-					return api.MapError(uErr)
-				}
-			}
-
-			edgesWired, unwired := 0, []unwiredEdgeDTO{}
-			if withEdges && len(doc.Edges) > 0 {
-				edgesWired, unwired, err = wireEdges(cmd, client, memoryRef, nodeID, doc.Edges)
-				if err != nil {
+			// Reject flags belonging to the other mode so a wrong combination
+			// fails loudly instead of being silently ignored.
+			restoreOnly := []string{"format", "with-edges", "create-only", "dry-run"}
+			contentOnly := []string{"url", "as-content", "content-type", "name", "type", "properties", "properties-file", "node"}
+			if contentMode {
+				if err := rejectFlags(cmd, restoreOnly, "does not apply to content import (--url/--as-content/PDF)"); err != nil {
 					return err
 				}
+				return runImportContent(cmd, f, srcPath, url, memory, loc, nodeURN, contentType, name, nodeType, properties, propertiesFile)
 			}
-
-			return emitImportSummary(f, importNodeSummaryDTO{
-				Memory: memoryRef, Loc: nodeLoc, Action: action, NodeID: nodeID,
-				EdgesWired: edgesWired, UnwiredEdges: unwired,
-			}, false, withEdges, len(doc.Edges))
+			if err := rejectFlags(cmd, contentOnly, "applies only to content import — pass --as-content to ingest this file as raw content"); err != nil {
+				return err
+			}
+			return runImportRestore(cmd, f, srcPath, memory, loc, format, cmd.Flags().Changed("format"), withEdges, createOnly, dryRun)
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "target memory ID or URN (overrides the file's memory key)")
-	cmd.Flags().StringVar(&loc, "loc", "", "target loc (overrides the file's loc key)")
-	cmd.Flags().StringVar(&format, "format", "md", "input format: md or json (inferred from the file extension when unset)")
-	cmd.Flags().BoolVar(&withEdges, "with-edges", false, "also wire the file's outgoing edges (best-effort)")
-	cmd.Flags().BoolVar(&createOnly, "create-only", false, "fail if the loc already exists (no update)")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "parse and classify without mutating")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "target memory ID or URN (overrides an export file's memory key)")
+	cmd.Flags().StringVar(&loc, "loc", "", "target loc (overrides an export file's loc key)")
+	cmd.Flags().StringVar(&format, "format", "md", "restore: input format, md or json (inferred from the file extension when unset)")
+	cmd.Flags().BoolVar(&withEdges, "with-edges", false, "restore: also wire the file's outgoing edges (best-effort)")
+	cmd.Flags().BoolVar(&createOnly, "create-only", false, "restore: fail if the loc already exists (no update)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "restore: parse and classify without mutating")
+	cmd.Flags().BoolVar(&asContent, "as-content", false, "content: ingest the file/stdin as raw content (convert server-side) instead of restoring an export file")
+	cmd.Flags().StringVar(&url, "url", "", "content: fetch this URL server-side as the source (instead of a file/stdin)")
+	cmd.Flags().StringVar(&nodeURN, "node", "", "content: target node URN (instead of -m/--memory + --loc)")
+	cmd.Flags().StringVar(&contentType, "content-type", "", "content: MIME type — text/html, text/markdown, or application/pdf (inferred from the file extension when unset)")
+	cmd.Flags().StringVar(&name, "name", "", "content: node display name (defaults to the extracted title, or preserves an existing node's name)")
+	cmd.Flags().StringVar(&nodeType, "type", "", "content: node type (defaults to webpage, or info for a PDF)")
+	cmd.Flags().StringVar(&properties, "properties", "", "content: provenance JSON object merged into the node's properties")
+	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "content: read the properties JSON object from a file")
 	return cmd
+}
+
+// rejectFlags returns a usage error if any of the named flags was set, so a
+// flag belonging to the other import mode fails loudly.
+func rejectFlags(cmd *cobra.Command, names []string, why string) error {
+	for _, n := range names {
+		if cmd.Flags().Changed(n) {
+			return exitcode.Newf(exitcode.Usage, "--%s %s", n, why)
+		}
+	}
+	return nil
+}
+
+// runImportRestore reconstitutes a node-export file (frontmatter-markdown or
+// canonical JSON): a node already at the target loc is updated, else created.
+func runImportRestore(cmd *cobra.Command, f *cmdutil.Factory, path, memory, loc, format string, formatChanged, withEdges, createOnly, dryRun bool) error {
+	if path == "" {
+		return exitcode.Newf(exitcode.Usage, "no input file — pass a <file>/`-`, or --url/--as-content to ingest external content")
+	}
+	fmtName, err := resolveDocFormat(format, path, formatChanged)
+	if err != nil {
+		return err
+	}
+
+	data, err := readImportSource(path, f.IOStreams.In)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(string(data)) == "" {
+		return exitcode.Newf(exitcode.Usage, "empty input — nothing to import")
+	}
+
+	var doc *nodedoc.Document
+	if fmtName == "json" {
+		doc, err = nodedoc.ParseJSON(data)
+	} else {
+		doc, err = nodedoc.ParseMarkdown(data)
+	}
+	if err != nil {
+		return exitcode.Newf(exitcode.Usage, "%v", err)
+	}
+
+	// Target resolution: flag > frontmatter > error.
+	memoryRef := firstNonEmpty(memory, doc.MemoryURN)
+	if memoryRef == "" {
+		return exitcode.Newf(exitcode.Usage, "no target memory — pass -m <memory> or include a `memory:` key in the file")
+	}
+	targetLoc := firstNonEmpty(loc, doc.Loc)
+	if targetLoc == "" {
+		return exitcode.Newf(exitcode.Usage, "no target loc — pass --loc <loc> or include a `loc:` key in the file")
+	}
+	if strings.TrimSpace(doc.Name) == "" {
+		return exitcode.Newf(exitcode.Usage, "file has no `name` — a node name is required")
+	}
+
+	client, err := f.GraphQLClient()
+	if err != nil {
+		return err
+	}
+
+	if dryRun {
+		// Classify create vs update by a best-effort existence probe
+		// (the executed path derives it from which mutation succeeds).
+		action := "created"
+		if nodeExists(cmd, client, memoryRef, targetLoc) {
+			action = "updated"
+		}
+		return emitImportSummary(f, importNodeSummaryDTO{
+			Mode: "restore", Memory: memoryRef, Loc: targetLoc, Action: action,
+			EdgesWired: 0, UnwiredEdges: []unwiredEdgeDTO{},
+		}, true, withEdges, len(doc.Edges))
+	}
+
+	input, err := buildCreateNodeInput(doc, memoryRef, targetLoc)
+	if err != nil {
+		return err
+	}
+
+	// The old upsert is now emulated (spec 039 Phase 0 split the write):
+	// without --create-only, try updateNode keyed on (memoryId, loc) and
+	// fall back to createNode when the server says NODE_NOT_FOUND; with
+	// --create-only, go straight to createNode (a live node at the loc
+	// rejects with NodeLocConflictError).
+	var nodeID, nodeLoc, action string
+	if createOnly {
+		resp, err := gen.CreateNode(cmd.Context(), client, input)
+		if err != nil {
+			return api.MapError(err)
+		}
+		nodeID, nodeLoc, action = resp.CreateNode.Id, resp.CreateNode.Loc, "created"
+	} else {
+		uResp, uErr := gen.UpdateNode(cmd.Context(), client, updateNodeInputFrom(input))
+		switch {
+		case uErr == nil:
+			nodeID, nodeLoc, action = uResp.UpdateNode.Id, uResp.UpdateNode.Loc, "updated"
+		case api.HasErrorCode(uErr, "NODE_NOT_FOUND"):
+			cResp, cErr := gen.CreateNode(cmd.Context(), client, input)
+			if cErr != nil {
+				return api.MapError(cErr)
+			}
+			nodeID, nodeLoc, action = cResp.CreateNode.Id, cResp.CreateNode.Loc, "created"
+		default:
+			return api.MapError(uErr)
+		}
+	}
+
+	edgesWired, unwired := 0, []unwiredEdgeDTO{}
+	if withEdges && len(doc.Edges) > 0 {
+		edgesWired, unwired, err = wireEdges(cmd, client, memoryRef, nodeID, doc.Edges)
+		if err != nil {
+			return err
+		}
+	}
+
+	return emitImportSummary(f, importNodeSummaryDTO{
+		Mode: "restore", Memory: memoryRef, Loc: nodeLoc, Action: action, NodeID: nodeID,
+		EdgesWired: edgesWired, UnwiredEdges: unwired,
+	}, false, withEdges, len(doc.Edges))
+}
+
+// runImportContent ingests raw external source (a URL, or a file/stdin holding
+// HTML/Markdown/PDF) through the server's importNode, which converts it to the
+// node's Markdown body.
+func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, srcPath, url, memory, loc, nodeURN, contentType, name, nodeType, properties, propertiesFile string) error {
+	// Source dispatch: exactly one of --url | inline (<file>|-).
+	hasURL := url != ""
+	hasInline := srcPath != ""
+	if hasURL == hasInline {
+		return exitcode.Newf(exitcode.Usage, "provide exactly one source: a <file>/`-` argument OR --url")
+	}
+
+	// Target dispatch: --node XOR (-m/--memory + --loc).
+	input := gen.ImportNodeInput{}
+	if nodeURN != "" {
+		if memory != "" || loc != "" {
+			return exitcode.Newf(exitcode.Usage, "identify the target by --node OR by -m/--memory + --loc, not both")
+		}
+		input.NodeUrn = &nodeURN
+	} else {
+		if memory == "" || loc == "" {
+			return exitcode.Newf(exitcode.Usage, "no target — pass --node <urn>, or both -m/--memory and --loc")
+		}
+		input.MemoryId = &memory
+		input.Loc = &loc
+	}
+
+	if name != "" {
+		input.Name = &name
+	}
+	if nodeType != "" {
+		input.NodeType = &nodeType
+	}
+	if properties != "" || propertiesFile != "" {
+		props, err := resolveProperties(properties, propertiesFile)
+		if err != nil {
+			return err
+		}
+		input.Properties = props
+	}
+
+	if hasURL {
+		input.Url = &url
+		// contentType is ignored on the url path (server always fetches HTML).
+	} else {
+		data, err := readImportSource(srcPath, f.IOStreams.In)
+		if err != nil {
+			return err
+		}
+		if len(data) == 0 {
+			return exitcode.Newf(exitcode.Usage, "empty input — nothing to import")
+		}
+		// Explicit --content-type wins; otherwise infer from the file
+		// extension (nothing is inferable from stdin).
+		ct := contentType
+		if ct == "" && srcPath != "-" {
+			ct = inferContentType(srcPath)
+		}
+		var content string
+		if strings.EqualFold(strings.TrimSpace(ct), "application/pdf") {
+			// A PDF is binary; the inline content String carries it base64-encoded.
+			content = base64.StdEncoding.EncodeToString(data)
+		} else {
+			content = string(data)
+		}
+		input.Content = &content
+		// Omit an unset contentType so the server applies its default (text/html).
+		if ct != "" {
+			input.ContentType = &ct
+		}
+	}
+
+	client, err := f.GraphQLClient()
+	if err != nil {
+		return err
+	}
+
+	resp, err := gen.ImportNode(cmd.Context(), client, &input)
+	if err != nil {
+		return api.MapError(err)
+	}
+	result := resp.ImportNode
+	if result == nil {
+		// importNode is ImportNodeResult! — a null here is a non-spec-compliant
+		// server (a real failure would arrive as a GraphQL error above); guard
+		// so it surfaces as an error, not a nil-deref panic.
+		return exitcode.Newf(exitcode.Error, "import returned no result")
+	}
+	if result.Node == nil {
+		// Sync v1 always returns the stored node; a nil here means the server
+		// changed shape (e.g. an async path landed) — surface it, don't panic.
+		return exitcode.Newf(exitcode.Error, "import returned status %s with no node", result.Status)
+	}
+	n := result.Node
+
+	// Prefer the user-supplied memory ref for the human line (friendlier than
+	// the returned raw id); the DTO carries the authoritative id.
+	memDisplay := memory
+	if memDisplay == "" {
+		memDisplay = n.MemoryId
+	}
+	jobID := ""
+	if result.JobId != nil {
+		jobID = *result.JobId
+	}
+	dto := importContentSummaryDTO{
+		Mode:     "content",
+		Status:   string(result.Status),
+		Memory:   memDisplay,
+		Loc:      n.Loc,
+		NodeID:   n.Id,
+		Name:     n.Name,
+		NodeType: n.NodeType,
+		JobID:    jobID,
+	}
+	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+		fmt.Fprintf(w, "✓ imported %s:%s (%s)\n", dto.Memory, dto.Loc, dto.NodeType)
+		return nil
+	})
 }
 
 // readImportSource reads the node file, or stdin when path is "-".
@@ -187,6 +408,46 @@ func readImportSource(path string, stdin io.Reader) ([]byte, error) {
 		return nil, exitcode.Newf(exitcode.Usage, "reading %s: %v", path, err)
 	}
 	return data, nil
+}
+
+// inferContentType maps a source file's extension to importNode's contentType,
+// or "" when nothing is inferable (an unknown extension defers to the server
+// default, text/html).
+func inferContentType(path string) string {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".pdf":
+		return "application/pdf"
+	case ".html", ".htm":
+		return "text/html"
+	case ".md", ".markdown":
+		return "text/markdown"
+	default:
+		return ""
+	}
+}
+
+// resolveProperties reads the provenance JSON from --properties (inline) or
+// --properties-file, validates it, and returns it ready for the input. Callers
+// gate the call so an unset flag stays omitted from the wire.
+func resolveProperties(properties, propertiesFile string) (*json.RawMessage, error) {
+	if properties != "" && propertiesFile != "" {
+		return nil, exitcode.Newf(exitcode.Usage, "--properties and --properties-file are mutually exclusive")
+	}
+	raw := strings.TrimSpace(properties)
+	flag := "--properties"
+	if propertiesFile != "" {
+		b, err := os.ReadFile(propertiesFile)
+		if err != nil {
+			return nil, exitcode.Newf(exitcode.Usage, "reading --properties-file: %v", err)
+		}
+		raw = strings.TrimSpace(string(b))
+		flag = "--properties-file"
+	}
+	if !json.Valid([]byte(raw)) {
+		return nil, exitcode.Newf(exitcode.Usage, "%s must contain valid JSON", flag)
+	}
+	msg := json.RawMessage(raw)
+	return &msg, nil
 }
 
 // buildCreateNodeInput maps a Document onto the create input (the canonical
@@ -258,6 +519,7 @@ func updateNodeInputFrom(in *gen.CreateNodeInput) *gen.UpdateNodeInput {
 		Loc:         &in.Loc,
 		Name:        &name,
 		Content:     in.Content,
+		ContentType: in.ContentType,
 		NodeType:    in.NodeType,
 		Alias:       in.Alias,
 		Description: in.Description,

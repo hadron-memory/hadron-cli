@@ -1059,10 +1059,12 @@ func (v *CreateNodeCreateNode) GetUpdatedAt() string { return v.UpdatedAt }
 // NodeLocConflictError (spec 039 Phase 0 D1/D4).
 type CreateNodeInput struct {
 	// Paragraph-length summary of this node — see Node.abstract for the surfacing contract. Optional. Empty + whitespace-only normalize to null. Cap is 2000 characters.
-	Abstract    *string          `json:"abstract,omitempty"`
-	AiAgent     *string          `json:"aiAgent,omitempty"`
-	Alias       *string          `json:"alias,omitempty"`
-	Content     *string          `json:"content,omitempty"`
+	Abstract *string `json:"abstract,omitempty"`
+	AiAgent  *string `json:"aiAgent,omitempty"`
+	Alias    *string `json:"alias,omitempty"`
+	Content  *string `json:"content,omitempty"`
+	// MIME type of content (#476/#488, spec cor:cnv:010:01): 'text/markdown' (default) stores as-is; 'text/html' converts captured DOM to Markdown; 'application/pdf' extracts a PDF's text layer to Markdown (send 'content' as raw base64 — a PDF is binary; scanned/image-only PDFs error). The conversion runs before storage and fills properties.title from the extracted title when not supplied. Consumed at write time — never persisted. Any other value is rejected.
+	ContentType *string          `json:"contentType,omitempty"`
 	Data        *json.RawMessage `json:"data,omitempty"`
 	Description *string          `json:"description,omitempty"`
 	// Outgoing edges to create with the node.
@@ -1099,6 +1101,9 @@ func (v *CreateNodeInput) GetAlias() *string { return v.Alias }
 
 // GetContent returns CreateNodeInput.Content, and is useful for accessing the field via an interface.
 func (v *CreateNodeInput) GetContent() *string { return v.Content }
+
+// GetContentType returns CreateNodeInput.ContentType, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetContentType() *string { return v.ContentType }
 
 // GetData returns CreateNodeInput.Data, and is useful for accessing the field via an interface.
 func (v *CreateNodeInput) GetData() *json.RawMessage { return v.Data }
@@ -1576,7 +1581,11 @@ func (v *EffectiveAccessResponse) GetEffectiveAccess() *EffectiveAccessEffective
 // passages carry chunk-granularity results; reason/degraded surface no-index /
 // reduced-fidelity outcomes.
 type FindNodesFindNodesFindNodesResult struct {
-	Total    *int                                            `json:"total"`
+	Total *int `json:"total"`
+	// Reduced-fidelity flag(s); hits are usable. May carry MULTIPLE
+	// comma-separated codes (e.g. 'no_vector_index,literal_fallback') —
+	// parse the set, never compare the whole string. Codes: no_vector_index,
+	// embedding_unavailable, literal_fallback.
 	Degraded *string                                         `json:"degraded"`
 	Reason   *string                                         `json:"reason"`
 	Hits     []*FindNodesFindNodesFindNodesResultHitsNodeHit `json:"hits"`
@@ -1677,8 +1686,12 @@ type FindNodesResponse struct {
 	// rank queries in PR3). Omit `query` for a filtered list in deterministic
 	// order (subsumes `nodes`); pass `query` to rank by `mode`
 	// (keyword | vector | hybrid | regex). Lexical modes honor boolean operators
-	// (`(a OR b) AND c`, quoted phrases, NOT/-) and `fields` as a ranking
-	// weight-mask. `filter` is the structured, AND-combined filter context
+	// (`(a OR b) AND c`, quoted phrases, NOT/-) — operator words are
+	// UPPERCASE-ONLY, so natural phrases like 'not sure' search literally —
+	// and `fields` as a ranking weight-mask. Malformed boolean syntax
+	// (unmatched parenthesis, unterminated quote) DEGRADES to a literal phrase
+	// search flagged `degraded: 'literal_fallback'` instead of erroring; only
+	// mode: regex fails loudly on bad syntax. `filter` is the structured, AND-combined filter context
 	// (SYSTEM memory class excluded by default; explicit wins). Returns a
 	// scored-hit envelope. Access-scoped identically to the per-kind node queries.
 	//
@@ -2154,6 +2167,137 @@ func (v *GetUserUser) __premarshalJSON() (*__premarshalGetUserUser, error) {
 	retval.GithubUsername = v.UserFields.GithubUsername
 	retval.Roles = v.UserFields.Roles
 	return &retval, nil
+}
+
+// ImportNodeImportNodeImportNodeResult includes the requested fields of the GraphQL type ImportNodeResult.
+type ImportNodeImportNodeImportNodeResult struct {
+	Status ImportNodeStatus `json:"status"`
+	// Reserved for the async path — always null in sync v1.
+	JobId *string                                   `json:"jobId"`
+	Node  *ImportNodeImportNodeImportNodeResultNode `json:"node"`
+}
+
+// GetStatus returns ImportNodeImportNodeImportNodeResult.Status, and is useful for accessing the field via an interface.
+func (v *ImportNodeImportNodeImportNodeResult) GetStatus() ImportNodeStatus { return v.Status }
+
+// GetJobId returns ImportNodeImportNodeImportNodeResult.JobId, and is useful for accessing the field via an interface.
+func (v *ImportNodeImportNodeImportNodeResult) GetJobId() *string { return v.JobId }
+
+// GetNode returns ImportNodeImportNodeImportNodeResult.Node, and is useful for accessing the field via an interface.
+func (v *ImportNodeImportNodeImportNodeResult) GetNode() *ImportNodeImportNodeImportNodeResultNode {
+	return v.Node
+}
+
+// ImportNodeImportNodeImportNodeResultNode includes the requested fields of the GraphQL type Node.
+type ImportNodeImportNodeImportNodeResultNode struct {
+	Id        string `json:"id"`
+	MemoryId  string `json:"memoryId"`
+	Loc       string `json:"loc"`
+	Name      string `json:"name"`
+	NodeType  string `json:"nodeType"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+// GetId returns ImportNodeImportNodeImportNodeResultNode.Id, and is useful for accessing the field via an interface.
+func (v *ImportNodeImportNodeImportNodeResultNode) GetId() string { return v.Id }
+
+// GetMemoryId returns ImportNodeImportNodeImportNodeResultNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *ImportNodeImportNodeImportNodeResultNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns ImportNodeImportNodeImportNodeResultNode.Loc, and is useful for accessing the field via an interface.
+func (v *ImportNodeImportNodeImportNodeResultNode) GetLoc() string { return v.Loc }
+
+// GetName returns ImportNodeImportNodeImportNodeResultNode.Name, and is useful for accessing the field via an interface.
+func (v *ImportNodeImportNodeImportNodeResultNode) GetName() string { return v.Name }
+
+// GetNodeType returns ImportNodeImportNodeImportNodeResultNode.NodeType, and is useful for accessing the field via an interface.
+func (v *ImportNodeImportNodeImportNodeResultNode) GetNodeType() string { return v.NodeType }
+
+// GetUpdatedAt returns ImportNodeImportNodeImportNodeResultNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ImportNodeImportNodeImportNodeResultNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// Input for importNode (#457). Target: 'nodeUrn' XOR ('memoryId' + 'loc') —
+// the URN may name a not-yet-existing node (import creates it). Source:
+// exactly one of 'url' | 'content'.
+type ImportNodeInput struct {
+	// Inline source content (e.g. the Web Clipper's authenticated-DOM capture). XOR with 'url'.
+	Content *string `json:"content,omitempty"`
+	// MIME type of 'content': text/html (DEFAULT here — unlike createNode) converts to Markdown at the write seam; text/markdown stores as-is; application/pdf extracts a PDF's text layer to Markdown ('content' must be raw base64 — a PDF is binary; scanned/image-only PDFs error). Ignored on the url path (always HTML).
+	ContentType *string `json:"contentType,omitempty"`
+	// Target loc within 'memoryId'. XOR with 'nodeUrn'.
+	Loc *string `json:"loc,omitempty"`
+	// Target memory (ID or fully-qualified URN), with 'loc'. XOR with 'nodeUrn'.
+	MemoryId *string `json:"memoryId,omitempty"`
+	// Display name. Default: the extracted page/article/document title; on a re-import of an existing node the current name is preserved; a fresh create without either falls back to the loc leaf.
+	Name *string `json:"name,omitempty"`
+	// Default 'webpage' (or 'info' when contentType is application/pdf).
+	NodeType *string `json:"nodeType,omitempty"`
+	// Fully-qualified node URN naming the target (existing or new). XOR with memoryId+loc.
+	NodeUrn *string `json:"nodeUrn,omitempty"`
+	// Merged provenance metadata; the server sets properties.url on the url path when absent (properties.title is filled from the extracted title by the write seam).
+	Properties *json.RawMessage `json:"properties,omitempty"`
+	// Source URL (http/https) — fetched server-side, SSRF-guarded, WITHOUT user credentials.
+	Url *string `json:"url,omitempty"`
+}
+
+// GetContent returns ImportNodeInput.Content, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetContent() *string { return v.Content }
+
+// GetContentType returns ImportNodeInput.ContentType, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetContentType() *string { return v.ContentType }
+
+// GetLoc returns ImportNodeInput.Loc, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetLoc() *string { return v.Loc }
+
+// GetMemoryId returns ImportNodeInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetMemoryId() *string { return v.MemoryId }
+
+// GetName returns ImportNodeInput.Name, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetName() *string { return v.Name }
+
+// GetNodeType returns ImportNodeInput.NodeType, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetNodeType() *string { return v.NodeType }
+
+// GetNodeUrn returns ImportNodeInput.NodeUrn, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetNodeUrn() *string { return v.NodeUrn }
+
+// GetProperties returns ImportNodeInput.Properties, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetProperties() *json.RawMessage { return v.Properties }
+
+// GetUrl returns ImportNodeInput.Url, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetUrl() *string { return v.Url }
+
+// ImportNodeResponse is returned by ImportNode on success.
+type ImportNodeResponse struct {
+	// Import external content into a node (#457, sync v1). Source: exactly one
+	// of 'url' (server-fetched inline, SSRF-guarded, Readability-extracted,
+	// ~30s budget — the fetch carries NO user credentials, so authenticated
+	// pages must come as 'content') or 'content' (client-captured, e.g. the
+	// Web Clipper's authenticated DOM). Target: 'nodeUrn' XOR ('memoryId' +
+	// 'loc'); an existing node is updated IN PLACE (NodeVersion snapshot is
+	// the undo), a missing one is created. HTML converts to Markdown at the
+	// write seam (contentType defaults to text/html here, unlike createNode).
+	ImportNode *ImportNodeImportNodeImportNodeResult `json:"importNode"`
+}
+
+// GetImportNode returns ImportNodeResponse.ImportNode, and is useful for accessing the field via an interface.
+func (v *ImportNodeResponse) GetImportNode() *ImportNodeImportNodeImportNodeResult {
+	return v.ImportNode
+}
+
+// importNode outcome. Sync v1 always returns STORED with the stored node;
+// FETCH_PENDING + jobId are RESERVED for the future async url path (same API
+// shape, no breaking change when it lands).
+type ImportNodeStatus string
+
+const (
+	ImportNodeStatusFetchPending ImportNodeStatus = "FETCH_PENDING"
+	ImportNodeStatusStored       ImportNodeStatus = "STORED"
+)
+
+var AllImportNodeStatus = []ImportNodeStatus{
+	ImportNodeStatusFetchPending,
+	ImportNodeStatusStored,
 }
 
 // MeMeUser includes the requested fields of the GraphQL type User.
@@ -4823,10 +4967,12 @@ func (v *UpdateNodeDataUpdateNodeDataNode) GetUpdatedAt() string { return v.Upda
 // Every content field is optional: omitted = preserved (D4).
 type UpdateNodeInput struct {
 	// Paragraph-length summary of this node — see Node.abstract for the surfacing contract. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
-	Abstract    *string          `json:"abstract,omitempty"`
-	AiAgent     *string          `json:"aiAgent,omitempty"`
-	Alias       *string          `json:"alias,omitempty"`
-	Content     *string          `json:"content,omitempty"`
+	Abstract *string `json:"abstract,omitempty"`
+	AiAgent  *string `json:"aiAgent,omitempty"`
+	Alias    *string `json:"alias,omitempty"`
+	Content  *string `json:"content,omitempty"`
+	// MIME type of content (#476/#488, spec cor:cnv:010:01): 'text/markdown' (default) stores as-is; 'text/html' converts captured DOM to Markdown; 'application/pdf' extracts a PDF's text layer to Markdown (send 'content' as raw base64 — a PDF is binary; scanned/image-only PDFs error). The conversion runs before storage and fills properties.title from the extracted title when not supplied. Consumed at write time — never persisted. Any other value is rejected.
+	ContentType *string          `json:"contentType,omitempty"`
 	Data        *json.RawMessage `json:"data,omitempty"`
 	Description *string          `json:"description,omitempty"`
 	Edges       []*NodeEdgeInput `json:"edges,omitempty"`
@@ -4864,6 +5010,9 @@ func (v *UpdateNodeInput) GetAlias() *string { return v.Alias }
 
 // GetContent returns UpdateNodeInput.Content, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetContent() *string { return v.Content }
+
+// GetContentType returns UpdateNodeInput.ContentType, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetContentType() *string { return v.ContentType }
 
 // GetData returns UpdateNodeInput.Data, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetData() *json.RawMessage { return v.Data }
@@ -5591,6 +5740,14 @@ type __GetUserInput struct {
 
 // GetRef returns __GetUserInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetUserInput) GetRef() string { return v.Ref }
+
+// __ImportNodeInput is used internally by genqlient
+type __ImportNodeInput struct {
+	Input *ImportNodeInput `json:"input,omitempty"`
+}
+
+// GetInput returns __ImportNodeInput.Input, and is useful for accessing the field via an interface.
+func (v *__ImportNodeInput) GetInput() *ImportNodeInput { return v.Input }
 
 // __MemoriesInput is used internally by genqlient
 type __MemoriesInput struct {
@@ -7119,6 +7276,56 @@ func GetUser(
 	}
 
 	data_ = &GetUserResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ImportNode.
+const ImportNode_Operation = `
+mutation ImportNode ($input: ImportNodeInput!) {
+	importNode(input: $input) {
+		status
+		jobId
+		node {
+			id
+			memoryId
+			loc
+			name
+			nodeType
+			updatedAt
+		}
+	}
+}
+`
+
+// Import external content into a node (cor:api:130 / importNode #457, #488).
+// Target: $nodeUrn XOR ($memoryId + $loc) — the URN may name a not-yet-existing
+// node (import creates it). Source: exactly one of $url or $content; for
+// application/pdf the $content is raw base64. Every input field is optional, and
+// the server reads an *omitted* field differently from an explicit null — nil
+// pointers must be omitted from the wire, hence the per-field omitempty
+// annotations. Backs `hadron node import`'s content mode.
+func ImportNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *ImportNodeInput,
+) (data_ *ImportNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ImportNode",
+		Query:  ImportNode_Operation,
+		Variables: &__ImportNodeInput{
+			Input: input,
+		},
+	}
+
+	data_ = &ImportNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
