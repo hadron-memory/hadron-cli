@@ -33,8 +33,9 @@ func purge(host string, keyringUp bool, stores ...Store) (removed bool, err erro
 			// keychain genuinely unavailable — can't delete, skip
 		default:
 			// real failure: file IO, or a delete that failed on an available
-			// keychain (token still there) — surface it, don't swallow
-			err = derr
+			// keychain (token still there) — surface it, don't swallow. Join so
+			// a failure in both backends reports both.
+			err = errors.Join(err, derr)
 		}
 	}
 	return removed, err
@@ -62,7 +63,7 @@ func clearExcept(keep Store, host string, keyringUp bool, stores ...Store) (err 
 		case unavailableKeyring(s, keyringUp):
 			// keychain unavailable — skip
 		default:
-			err = derr
+			err = errors.Join(err, derr)
 		}
 	}
 	return err
