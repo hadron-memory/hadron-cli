@@ -51,6 +51,25 @@ enum AccessSource {
   PUBLIC_VISIBILITY
 }
 
+"""One consumable ticket in the org ledger (cor:acl:050:04 tier 2)."""
+type ActionTicket {
+  action: String!
+  appId: ID
+  consumedAt: String
+  consumedByRunId: ID
+  createdAt: String!
+  expiresAt: String
+  id: ID!
+  mintedBy: String!
+  note: String
+  organizationId: ID!
+}
+
+type ActionTicketsPage {
+  items: [ActionTicket!]!
+  total: Int!
+}
+
 type AddMemoryMemberPayload {
   memoryMember: MemoryMember!
 }
@@ -144,6 +163,34 @@ type AgentOrgGrant {
   revokedBy: ID
 }
 
+"""Recurring trigger (cor:agt:010, D-2026-07-04-E)."""
+type AgentSchedule {
+  agentId: ID
+  aiConfigName: String
+  appId: ID!
+  createdAt: String!
+  createdBy: String
+  cron: String!
+  enabled: Boolean!
+  entryNodeUrn: String!
+  eventData: JSON
+  id: ID!
+  lastRunAt: String
+  name: String!
+  nextRunAt: String
+  organizationId: ID!
+  policy: JSON
+  timezone: String!
+
+  """On-behalf-of user captured at creation; v1 only the creator themself."""
+  userId: ID
+}
+
+type AgentSchedulesPage {
+  items: [AgentSchedule!]!
+  total: Int!
+}
+
 type AgentSubscription {
   activatedAt: String
   agent: Agent
@@ -170,6 +217,42 @@ enum AgentVisibility {
   ORGANIZATION
   PERSONAL
   PUBLIC
+}
+
+"""
+Webhook trigger (D-2026-05-02). The secret is NEVER exposed here — the URL is returned once at create/rotate.
+"""
+type AgentWebhook {
+  agentId: ID
+  aiConfigName: String
+  appId: ID!
+  argsSchema: JSON
+  createdAt: String!
+  createdBy: String
+  enabled: Boolean!
+  entryNodeUrn: String!
+  eventData: JSON
+  id: ID!
+  lastCalledAt: String
+  name: String!
+  organizationId: ID!
+  policy: JSON
+  userId: ID
+}
+
+"""Create/rotate result — path + platform token are shown ONCE."""
+type AgentWebhookCredentials {
+  """Server-relative URL path: /hooks/<secret>/<name>. Append ?hpt=<token>."""
+  path: String!
+
+  """The time-limited platform JWT (hpt) — the second factor. Store it now."""
+  token: String!
+  webhook: AgentWebhook!
+}
+
+type AgentWebhooksPage {
+  items: [AgentWebhook!]!
+  total: Int!
 }
 
 type AgentsPage {
@@ -376,6 +459,58 @@ enum AppMemoryKind {
   user
 }
 
+type AppRun {
+  agentId: ID
+  appId: ID!
+  attempts: Int!
+
+  """Remaining action budget — live-decremented per write/tool action."""
+  budgetActions: Int
+
+  """Remaining LLM-token budget — live-decremented; zero halts the run."""
+  budgetTokens: Int
+  createdAt: String!
+  createdBy: String
+  curNodeUrn: String
+  entryNodeUrn: String!
+  eventData: JSON
+  failure: JSON
+  finishedAt: String
+  id: ID!
+  organizationId: ID!
+  parentRunId: ID
+  policy: JSON
+  startedAt: String
+  status: AppRunStatus!
+  timeoutMs: Int
+  triggerId: ID
+  triggerKind: AppRunTriggerKind!
+
+  """On-behalf-of user (cor:agt:010:01). Null = pure App service identity."""
+  userId: ID
+}
+
+enum AppRunStatus {
+  CANCELLED
+  COMPLETED
+  FAILED
+  PENDING
+  RUNNING
+  TIMED_OUT
+}
+
+enum AppRunTriggerKind {
+  INTEGRATION
+  MANUAL
+  SCHEDULE
+  WEBHOOK
+}
+
+type AppRunsPage {
+  items: [AppRun!]!
+  total: Int!
+}
+
 enum AppType {
   AGENT
   AUTOMATION
@@ -523,6 +658,55 @@ input CompleteAssetUploadInput {
   uploadId: ID!
 }
 
+input CreateAgentScheduleInput {
+  agentId: ID
+
+  """Named AI config for this trigger (spec-036 walk override)."""
+  aiConfigName: String
+
+  """App the run executes as (ID or URN)."""
+  appId: String!
+
+  """5-field cron expression, evaluated in timezone (default UTC)."""
+  cron: String!
+  enabled: Boolean
+
+  """Fully-qualified URN of the prompt node to run (D-2026-05-09-012/017)."""
+  entryNodeUrn: String!
+
+  """Static payload merged into each run's template args."""
+  eventData: JSON
+  name: String!
+
+  """
+  Trigger-layer allow-list { allow: [...] } — one link of the conjunctive chain (cor:acl:040).
+  """
+  policy: JSON
+
+  """
+  true: the run acts on behalf of YOU (required to reach your personal memories). v1 never delegates a third party (cor:agt:010:01).
+  """
+  runAsSelf: Boolean
+  timezone: String
+}
+
+input CreateAgentWebhookInput {
+  agentId: ID
+  aiConfigName: String
+  appId: String!
+
+  """JSON Schema for POST args (stored in v1; enforcement is follow-on)."""
+  argsSchema: JSON
+  enabled: Boolean
+  entryNodeUrn: String!
+  eventData: JSON
+
+  """Lowercase alphanumeric/dash, 1-64 chars — part of the URL."""
+  name: String!
+  policy: JSON
+  runAsSelf: Boolean
+}
+
 type CreateMemorySharePayload {
   memoryShare: MemoryShare!
 }
@@ -540,6 +724,11 @@ input CreateNodeInput {
   aiAgent: String
   alias: String
   content: String
+
+  """
+  MIME type of content (#476/#488, spec cor:cnv:010:01): 'text/markdown' (default) stores as-is; 'text/html' converts captured DOM to Markdown; 'application/pdf' extracts a PDF's text layer to Markdown (send 'content' as raw base64 — a PDF is binary; scanned/image-only PDFs error). The conversion runs before storage and fills properties.title from the extracted title when not supplied. Consumed at write time — never persisted. Any other value is rejected.
+  """
+  contentType: String
   data: JSON
   description: String
 
@@ -595,6 +784,11 @@ type Edge {
   priority: Int!
   source: Node!
   target: Node!
+
+  """
+  Fully-qualified edge URN (hrn:edge:<org>::<memory>::<loc>), composed server-side from the edge's (source-side) memory URN + loc (#481 parity — edges are loc-addressed peers of nodes, spec 037).
+  """
+  urn: String!
 }
 
 """
@@ -730,6 +924,12 @@ passages carry chunk-granularity results; reason/degraded surface no-index /
 reduced-fidelity outcomes.
 """
 type FindNodesResult {
+  """
+  Reduced-fidelity flag(s); hits are usable. May carry MULTIPLE
+  comma-separated codes (e.g. 'no_vector_index,literal_fallback') —
+  parse the set, never compare the whole string. Codes: no_vector_index,
+  embedding_unavailable, literal_fallback.
+  """
   degraded: String
   hits: [NodeHit!]!
   passages: [Passage!]!
@@ -819,6 +1019,71 @@ type GraphNodesPage {
 enum IdentifyUserMethod {
   SECRET
   USER_ID
+}
+
+"""
+Input for importNode (#457). Target: 'nodeUrn' XOR ('memoryId' + 'loc') —
+the URN may name a not-yet-existing node (import creates it). Source:
+exactly one of 'url' | 'content'.
+"""
+input ImportNodeInput {
+  """
+  Inline source content (e.g. the Web Clipper's authenticated-DOM capture). XOR with 'url'.
+  """
+  content: String
+
+  """
+  MIME type of 'content': text/html (DEFAULT here — unlike createNode) converts to Markdown at the write seam; text/markdown stores as-is; application/pdf extracts a PDF's text layer to Markdown ('content' must be raw base64 — a PDF is binary; scanned/image-only PDFs error). Ignored on the url path (always HTML).
+  """
+  contentType: String
+
+  """Target loc within 'memoryId'. XOR with 'nodeUrn'."""
+  loc: String
+
+  """
+  Target memory (ID or fully-qualified URN), with 'loc'. XOR with 'nodeUrn'.
+  """
+  memoryId: String
+
+  """
+  Display name. Default: the extracted page/article/document title; on a re-import of an existing node the current name is preserved; a fresh create without either falls back to the loc leaf.
+  """
+  name: String
+
+  """Default 'webpage' (or 'info' when contentType is application/pdf)."""
+  nodeType: String
+
+  """
+  Fully-qualified node URN naming the target (existing or new). XOR with memoryId+loc.
+  """
+  nodeUrn: String
+
+  """
+  Merged provenance metadata; the server sets properties.url on the url path when absent (properties.title is filled from the extracted title by the write seam).
+  """
+  properties: JSON
+
+  """
+  Source URL (http/https) — fetched server-side, SSRF-guarded, WITHOUT user credentials.
+  """
+  url: String
+}
+
+type ImportNodeResult {
+  """Reserved for the async path — always null in sync v1."""
+  jobId: ID
+  node: Node
+  status: ImportNodeStatus!
+}
+
+"""
+importNode outcome. Sync v1 always returns STORED with the stored node;
+FETCH_PENDING + jobId are RESERVED for the future async url path (same API
+shape, no breaking change when it lands).
+"""
+enum ImportNodeStatus {
+  FETCH_PENDING
+  STORED
 }
 
 """
@@ -1143,6 +1408,20 @@ input MergeNodesInput {
   target: String!
 }
 
+input MintActionTicketsInput {
+  """v1: comm.outbound only."""
+  action: String!
+
+  """Scope tickets to one App; omit for org-wide."""
+  appId: ID
+  count: Int!
+  expiresAt: String
+
+  """Ledger legibility — why these tickets exist."""
+  note: String
+  orgId: String!
+}
+
 type Mutation {
   acceptInvitation(slug: String!): Boolean!
 
@@ -1205,6 +1484,11 @@ type Mutation {
   beginAssetUploadV2(input: BeginAssetUploadV2Input!): BeginAssetUploadResult!
 
   """
+  The kill switch manual handle: PENDING/RUNNING to CANCELLED (cor:agt:010:02).
+  """
+  cancelAppRun(id: ID!): AppRun!
+
+  """
   Clear an Agent's AI provider config.
   
   036-ai-service-config: deletes the Agent's registry config named
@@ -1241,6 +1525,12 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   createAgent(description: String, name: String!, orgId: ID!, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, visibility: AgentVisibility): Agent!
+  createAgentSchedule(input: CreateAgentScheduleInput!): AgentSchedule!
+
+  """
+  Create a webhook trigger — returns the URL path + platform token ONCE (D-2026-05-02).
+  """
+  createAgentWebhook(input: CreateAgentWebhookInput!): AgentWebhookCredentials!
 
   """
   036-ai-service-config: create a named AI config on an owner entity.
@@ -1450,6 +1740,8 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   deleteAgent(id: ID!): Boolean!
+  deleteAgentSchedule(id: ID!): Boolean!
+  deleteAgentWebhook(id: ID!): Boolean!
 
   """
   036-ai-service-config: delete a named AI config (hard delete; the
@@ -1515,6 +1807,18 @@ type Mutation {
   ensureAppMember(appId: ID!, role: String!, userId: ID!): AppMember!
   exchangeMoveMessage(connectionId: ID!, folderId: String!, messageId: ID!): Boolean!
   exchangeReply(body: String!, connectionId: ID!, messageId: ID!): Boolean!
+
+  """
+  Import external content into a node (#457, sync v1). Source: exactly one
+  of 'url' (server-fetched inline, SSRF-guarded, Readability-extracted,
+  ~30s budget — the fetch carries NO user credentials, so authenticated
+  pages must come as 'content') or 'content' (client-captured, e.g. the
+  Web Clipper's authenticated DOM). Target: 'nodeUrn' XOR ('memoryId' +
+  'loc'); an existing node is updated IN PLACE (NodeVersion snapshot is
+  the undo), a missing one is created. HTML converts to Markdown at the
+  write seam (contentType defaults to text/html here, unlike createNode).
+  """
+  importNode(input: ImportNodeInput!): ImportNodeResult!
 
   """
   Install an Agent into an App (023-app-shape US1). Creates an AppAgent
@@ -1590,6 +1894,11 @@ type Mutation {
   linkMemoryToUser(dataKey: String, externalUserId: String!, memoryId: ID!): Memory!
   mergeMemories(input: MergeMemoriesInput!): Memory!
   mergeNodes(input: MergeNodesInput!): Node!
+
+  """
+  Mint comm.outbound tickets into the org ledger (org-ADMIN; cor:acl:050:04).
+  """
+  mintActionTickets(input: MintActionTicketsInput!): Int!
   moveNode(from: String!, memoryId: String!, targetMemoryId: String, to: String!): Node!
   processChatResponse(chatId: String!, toolResponse: JSON!): ChatResponseResult!
 
@@ -1729,6 +2038,9 @@ type Mutation {
   resolved callers.
   """
   revokeUserApiKey(id: ID!): UserApiKey!
+
+  """New secret + token; the old URL dies immediately."""
+  rotateAgentWebhook(id: ID!): AgentWebhookCredentials!
   runTask(args: JSON, memory: String, task: String, urn: String): String!
   saveChatSummary(chatId: String!, summary: String!): Boolean!
   searchReplaceInNodes(input: SearchReplaceInNodesInput!): SearchReplaceResult!
@@ -1763,6 +2075,11 @@ type Mutation {
   """
   syncMemory(id: ID!): Memory!
   testExchangeConnection(id: ID!): Boolean!
+
+  """
+  Run an entry node now (MANUAL trigger) — same launch gate + kernel as a schedule.
+  """
+  triggerAppRun(input: TriggerAppRunInput!): AppRun!
 
   """
   Uninstall an Agent from an App. Deletes the AppAgent row. The Agent's
@@ -1807,6 +2124,7 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   updateAgentMemoryRole(agentId: ID!, memoryId: ID!, role: String!): Agent!
+  updateAgentSchedule(id: ID!, input: UpdateAgentScheduleInput!): AgentSchedule!
 
   """
   036-ai-service-config: update a named AI config. All fields optional.
@@ -1979,6 +2297,11 @@ type Node {
   tags: [String!]!
   tokens: Int
   updatedAt: String!
+
+  """
+  Fully-qualified node URN (hrn:node:<org>::<memory>::<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+  """
+  urn: String!
 }
 
 """
@@ -2267,6 +2590,16 @@ type Organization {
   urn: String!
 }
 
+"""Filter for the uniform organizations() list (#473)."""
+input OrganizationFilter {
+  """
+  true restricts the list to the caller's own memberships — even for
+  platform ADMIN/OWNER, whose unscoped reach otherwise spans every live
+  org; the old myOrganizations semantics.
+  """
+  memberOnly: Boolean
+}
+
 type OrganizationsPage {
   items: [Organization!]!
   total: Int!
@@ -2289,6 +2622,9 @@ type Passage {
 }
 
 type Query {
+  """The ticket ledger: minted, consumed-by-which-run, expired (org-ADMIN)."""
+  actionTickets(limit: Int, offset: Int, orgId: String!): ActionTicketsPage!
+
   """
   The uniform single-agent read (#473) — the first top-level Agent query;
   previously Agents were reachable only via Organization.agents /
@@ -2311,6 +2647,7 @@ type Query {
   """
   agentAIConfig(agentId: ID!): AgentAIConfig
   agentAssets(agentUrn: String!, count: Int = 20, includeDeleted: Boolean = false, mimeType: String, skip: Int = 0): AssetListResult!
+  agentSchedules(appId: String!, limit: Int, offset: Int): AgentSchedulesPage!
 
   """
   005-agent-subscription FR-022: list all AgentSubscriptions for an
@@ -2319,6 +2656,7 @@ type Query {
   Accepts the entity's ID or URN.
   """
   agentSubscriptions(agentId: ID!): [AgentSubscription!]!
+  agentWebhooks(appId: String!, limit: Int, offset: Int): AgentWebhooksPage!
 
   """
   Uniform paginated agent list (#473). Scope: Agents owned by the caller's
@@ -2384,6 +2722,10 @@ type Query {
   Accepts the entity's ID or URN.
   """
   appNodes(appId: ID!, limit: Int): [Node!]!
+
+  """One run by ID (runs are URN-less, like AiServiceConfig)."""
+  appRun(ref: ID!): AppRun
+  appRuns(appId: ID, limit: Int, offset: Int, orgId: ID, status: AppRunStatus): AppRunsPage!
 
   """
   Uniform paginated app list (#473) — replaces the org-ADMIN apps(orgId!)
@@ -2457,8 +2799,12 @@ type Query {
   rank queries in PR3). Omit `query` for a filtered list in deterministic
   order (subsumes `nodes`); pass `query` to rank by `mode`
   (keyword | vector | hybrid | regex). Lexical modes honor boolean operators
-  (`(a OR b) AND c`, quoted phrases, NOT/-) and `fields` as a ranking
-  weight-mask. `filter` is the structured, AND-combined filter context
+  (`(a OR b) AND c`, quoted phrases, NOT/-) — operator words are
+  UPPERCASE-ONLY, so natural phrases like 'not sure' search literally —
+  and `fields` as a ranking weight-mask. Malformed boolean syntax
+  (unmatched parenthesis, unterminated quote) DEGRADES to a literal phrase
+  search flagged `degraded: 'literal_fallback'` instead of erroring; only
+  mode: regex fails loudly on bad syntax. `filter` is the structured, AND-combined filter context
   (SYSTEM memory class excluded by default; explicit wins). Returns a
   scored-hit envelope. Access-scoped identically to the per-kind node queries.
   
@@ -2645,10 +2991,12 @@ type Query {
   """
   Uniform paginated organization list (#473) — replaces organizations +
   myOrganizations. Scope: the caller's memberships; platform ADMIN/OWNER
-  get every live org (the established admin unscoped reach). Name-ascending
-  order (id tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
+  get every live org (the established admin unscoped reach) unless
+  filter.memberOnly restricts the list to their own memberships (the old
+  myOrganizations view, as a slice-as-filter). Name-ascending order (id
+  tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
   """
-  organizations(limit: Int, offset: Int): OrganizationsPage!
+  organizations(filter: OrganizationFilter, limit: Int, offset: Int): OrganizationsPage!
 
   """
   036-ai-service-config: resolve a config name for an execution context
@@ -3007,6 +3355,14 @@ enum SyncStatus {
   SYNCING
 }
 
+input TriggerAppRunInput {
+  aiConfigName: String
+  appId: String!
+  entryNodeUrn: String!
+  eventData: JSON
+  runAsSelf: Boolean
+}
+
 """
 Return shape for the uninstallAgentFromApp mutation. The Agent's
 per-(App, Agent, *) memories are NOT cascade-deleted (spec 023 FR-005);
@@ -3015,6 +3371,18 @@ they persist as orphans on the now-removed AppAgent edge.
 type UninstallAgentFromAppPayload {
   agentId: ID!
   appId: ID!
+}
+
+input UpdateAgentScheduleInput {
+  aiConfigName: String
+  cron: String
+  enabled: Boolean
+  entryNodeUrn: String
+  eventData: JSON
+  name: String
+  policy: JSON
+  runAsSelf: Boolean
+  timezone: String
 }
 
 type UpdateMemoryMemberRolePayload {
@@ -3039,6 +3407,11 @@ input UpdateNodeInput {
   aiAgent: String
   alias: String
   content: String
+
+  """
+  MIME type of content (#476/#488, spec cor:cnv:010:01): 'text/markdown' (default) stores as-is; 'text/html' converts captured DOM to Markdown; 'application/pdf' extracts a PDF's text layer to Markdown (send 'content' as raw base64 — a PDF is binary; scanned/image-only PDFs error). The conversion runs before storage and fills properties.title from the extracted title when not supplied. Consumed at write time — never persisted. Any other value is rejected.
+  """
+  contentType: String
   data: JSON
   description: String
   edges: [NodeEdgeInput!]
