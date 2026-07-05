@@ -19,14 +19,17 @@ func MapError(err error) error {
 	}
 
 	// A curated command sends a query baked into this binary, so a GraphQL
-	// *validation* failure means the server no longer has a field/operation this
-	// build references — schema skew from a stale binary, not a user mistake.
-	// Turn the raw 400/envelope into one actionable line (#136). (`hadron api`
-	// runs user-authored queries and doesn't go through MapError, so its
-	// validation errors still surface verbatim.)
+	// *validation* failure means the CLI and server disagree on the schema —
+	// version skew, not a user mistake. Turn the raw 400/envelope into one
+	// actionable line (#136). (`hadron api` runs user-authored queries and
+	// doesn't go through MapError, so its validation errors surface verbatim.)
 	if isSchemaSkew(err) {
-		msg := "the server rejected a query this `hadron` build sends — your CLI is likely out of date. " +
-			"Upgrade it (e.g. `brew upgrade hadron`) and retry; run `hadron version` to check the build."
+		// Direction-neutral: skew can be a stale CLI against a newer server OR a
+		// newer CLI against an older self-hosted server — recommending only a CLI
+		// upgrade would misdirect the latter.
+		msg := "the server rejected a query this `hadron` build sends — the CLI and server schema versions are out of sync. " +
+			"Update whichever is behind: upgrade the CLI (e.g. `brew upgrade hadron`), or the server if it is self-hosted. " +
+			"`hadron version` shows the CLI build."
 		if detail := firstGraphQLMessage(err); detail != "" {
 			msg += " (server said: " + detail + ")"
 		}
@@ -124,12 +127,26 @@ func firstGraphQLMessage(err error) string {
 			return e.Message
 		}
 	}
+	// Fallback: pull the first "message" from a raw JSON body, honoring
+	// backslash escapes so an embedded \" (e.g. Cannot query field \"x\") ends
+	// the value at the real closing quote instead of truncating at the first \".
 	s := err.Error()
 	const key = `"message":"`
-	if i := strings.Index(s, key); i >= 0 {
-		rest := s[i+len(key):]
-		if j := strings.Index(rest, `"`); j >= 0 {
-			return rest[:j]
+	i := strings.Index(s, key)
+	if i < 0 {
+		return ""
+	}
+	rest := s[i+len(key):]
+	var b strings.Builder
+	for j := 0; j < len(rest); j++ {
+		switch c := rest[j]; {
+		case c == '\\' && j+1 < len(rest):
+			j++
+			b.WriteByte(rest[j]) // emit the escaped char literally
+		case c == '"':
+			return b.String() // unescaped closing quote
+		default:
+			b.WriteByte(c)
 		}
 	}
 	return ""
