@@ -227,6 +227,21 @@ func TestNodeImportContentRejectsRestoreFlags(t *testing.T) {
 	}
 }
 
+// A null importNode result surfaces as an error, not a nil-deref panic
+// (importNode is ImportNodeResult! — this defends against a non-compliant
+// server; Gemini PR-139).
+func TestNodeImportContentNullResultErrors(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ImportNode": `{"data":{"importNode":null}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "import", "--url", "https://x", "-m", "acme.com:kb", "--loc", "x", "--server", gql.URL})
+	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "no result") {
+		t.Fatalf("null importNode should error (not panic), got %v", err)
+	}
+}
+
 // A restore-mode import (an export file with no content type) must NOT put
 // contentType on the wire: the server reads an explicit null as "clear", so an
 // unset field has to be omitted, not serialized as null (Codex PR-139 P2).

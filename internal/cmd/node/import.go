@@ -355,6 +355,12 @@ func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, srcPath, url, memo
 		return api.MapError(err)
 	}
 	result := resp.ImportNode
+	if result == nil {
+		// importNode is ImportNodeResult! — a null here is a non-spec-compliant
+		// server (a real failure would arrive as a GraphQL error above); guard
+		// so it surfaces as an error, not a nil-deref panic.
+		return exitcode.Newf(exitcode.Error, "import returned no result")
+	}
 	if result.Node == nil {
 		// Sync v1 always returns the stored node; a nil here means the server
 		// changed shape (e.g. an async path landed) — surface it, don't panic.
