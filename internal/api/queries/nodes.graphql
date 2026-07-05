@@ -184,6 +184,7 @@ query GetNode($ref: ID!) {
 # @genqlient(for: "CreateNodeInput.aiAgent", omitempty: true)
 # @genqlient(for: "CreateNodeInput.alias", omitempty: true)
 # @genqlient(for: "CreateNodeInput.content", omitempty: true)
+# @genqlient(for: "CreateNodeInput.contentType", omitempty: true)
 # @genqlient(for: "CreateNodeInput.data", omitempty: true)
 # @genqlient(for: "CreateNodeInput.description", omitempty: true)
 # @genqlient(for: "CreateNodeInput.edges", omitempty: true)
@@ -226,6 +227,7 @@ mutation CreateNode(
 # @genqlient(for: "UpdateNodeInput.aiAgent", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.alias", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.content", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.contentType", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.data", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.description", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.edges", omitempty: true)
@@ -254,6 +256,39 @@ mutation UpdateNode(
 
 mutation DeleteNode($loc: String!, $memoryId: String!) {
   deleteNode(loc: $loc, memoryId: $memoryId)
+}
+
+# Import external content into a node (cor:api:130 / importNode #457, #488).
+# Target: $nodeUrn XOR ($memoryId + $loc) — the URN may name a not-yet-existing
+# node (import creates it). Source: exactly one of $url or $content; for
+# application/pdf the $content is raw base64. Every input field is optional, and
+# the server reads an *omitted* field differently from an explicit null — nil
+# pointers must be omitted from the wire, hence the per-field omitempty
+# annotations. Backs `hadron node import`'s content mode.
+# @genqlient(for: "ImportNodeInput.memoryId", omitempty: true)
+# @genqlient(for: "ImportNodeInput.loc", omitempty: true)
+# @genqlient(for: "ImportNodeInput.nodeUrn", omitempty: true)
+# @genqlient(for: "ImportNodeInput.url", omitempty: true)
+# @genqlient(for: "ImportNodeInput.content", omitempty: true)
+# @genqlient(for: "ImportNodeInput.contentType", omitempty: true)
+# @genqlient(for: "ImportNodeInput.name", omitempty: true)
+# @genqlient(for: "ImportNodeInput.nodeType", omitempty: true)
+# @genqlient(for: "ImportNodeInput.properties", omitempty: true)
+mutation ImportNode(
+  $input: ImportNodeInput!
+) {
+  importNode(input: $input) {
+    status
+    jobId
+    node {
+      id
+      memoryId
+      loc
+      name
+      nodeType
+      updatedAt
+    }
+  }
 }
 
 # Shallow-merge a JSON patch into a node's `data` bag (the supplied object's

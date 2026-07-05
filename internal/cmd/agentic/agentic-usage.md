@@ -123,16 +123,31 @@ Conventions:
   (frontmatter markdown, or `--format json`) — to stdout by default so it pipes
   into `node import`, or `-o <file>`. Rendered by the server (the one renderer
   shared with the portal and every other client, so the bytes are identical
-  everywhere); needs a server with `nodeExport` (hadron-server #386). `node import <file|->` recreates it: a
-  node already at the target loc is updated, else created. The target memory and
-  loc come from the file's `memory:`/`loc:` keys; `-m`/`--loc` override them
-  (re-homing a node into another memory). Outgoing edges are imported only with
-  `--with-edges` (best-effort: targets resolve by loc then id, an edge that
-  can't be wired is reported in `unwiredEdges` with a `reason`, never fatal, and
-  re-import is idempotent);
-  `--create-only` refuses to update; `--dry-run` classifies without mutating.
-  The server recomputes `contentHash`/`abstractOriginHash`, so a clean
-  export→import round-trips losslessly.
+  everywhere); needs a server with `nodeExport` (hadron-server #386). `node import
+  [<file>|-]` has TWO modes, chosen by the `mode` field in its `--json` output:
+  - RESTORE (default) recreates an export file: a node already at the target loc
+    is updated, else created. The target memory and loc come from the file's
+    `memory:`/`loc:` keys; `-m`/`--loc` override them (re-homing a node into
+    another memory). Outgoing edges are imported only with `--with-edges`
+    (best-effort: targets resolve by loc then id, an edge that can't be wired is
+    reported in `unwiredEdges` with a `reason`, never fatal, and re-import is
+    idempotent); `--create-only` refuses to update; `--dry-run` classifies
+    without mutating. The server recomputes `contentHash`/`abstractOriginHash`,
+    so a clean export→import round-trips losslessly.
+  - CONTENT ingests RAW external source and lets the server convert it to the
+    node's Markdown body. Selected by `--url <url>` (fetched server-side,
+    SSRF-guarded, WITHOUT your credentials — authenticated pages must be captured
+    and passed inline), by a `.pdf`/`.html` file, or by `--as-content` to force an
+    otherwise-ambiguous `.md`/`.json`/stdin source into this mode. The content
+    type is inferred from the file extension (`.pdf` → `application/pdf`,
+    `.html`/`.htm` → `text/html`, `.md`/`.markdown` → `text/markdown`) unless
+    `--content-type` overrides it (required for a PDF over stdin, since a pipe
+    has no extension); a PDF's text layer is extracted to Markdown and the CLI
+    base64-encodes it for you (scanned/image-only PDFs error). Target with
+    `--node <urn>` or `-m`/`--memory` + `--loc`; a node already there is updated
+    in place, else created (nodeType defaults to `webpage`, or `info` for a PDF).
+    `--name`/`--type` and `--properties`/`--properties-file` (provenance JSON)
+    are optional. Flags belonging to the other mode are rejected loudly.
 - `memory clone` deep-copies a memory (nodes, edges, pending edges)
   into a new same-org memory and rewrites references to the source
   memory's URN inside node content and abstracts. Version history,
