@@ -54,9 +54,9 @@ The data bag can be written two ways:
 
 Replace and merge are different operations, so --data and --data-merge are
 mutually exclusive.`,
-		Example: `  hadron node update acme.com:kb:findings:flaky-ci --name "Flaky CI (resolved)"
-  cat updated.md | hadron node update findings:flaky-ci -m acme.com:kb --content -
-  hadron node update acme.com:kb:findings:flaky-ci --data-merge '{"status":"closed"}'`,
+		Example: `  hadron node update acme.com::kb::findings:flaky-ci --name "Flaky CI (resolved)"
+  cat updated.md | hadron node update findings:flaky-ci -m acme.com::kb --content -
+  hadron node update acme.com::kb::findings:flaky-ci --data-merge '{"status":"closed"}'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed

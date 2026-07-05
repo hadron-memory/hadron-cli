@@ -18,8 +18,8 @@ func newCmdSetActive(f *cmdutil.Factory) *cobra.Command {
 		Long: `Set the default memory URN or ID stored in ~/.config/hadron/config.toml.
 Pass an empty string ("") to clear it. A single invocation can
 override the default with the global -m/--memory flag.`,
-		Example: `  hadron memory set-active hadronmemory.com:dev
-  hadron memory set-active acme.com:kb
+		Example: `  hadron memory set-active hadronmemory.com::dev
+  hadron memory set-active acme.com::kb
   hadron memory set-active ""  # clear the default`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

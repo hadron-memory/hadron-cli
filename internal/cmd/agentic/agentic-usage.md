@@ -346,17 +346,17 @@ hadron memory get acme.com:project-memory --json
 hadron memory export acme.com:project-memory --out ./kb --json
 
 # List nodes in a memory
-hadron node ls --memory acme.com:kb --json
+hadron node ls --memory acme.com::kb --json
 
 # Read one node's content and edges
-hadron node get acme.com:kb:findings:flaky-ci --json
+hadron node get acme.com::kb::findings:flaky-ci --json
 
 # Create a node from stdin
-cat finding.md | hadron node add -m acme.com:kb --loc findings:flaky-ci \
+cat finding.md | hadron node add -m acme.com::kb --loc findings:flaky-ci \
   --name "Flaky CI" --content -
 
 # Update just the name (other fields preserved)
-hadron node update acme.com:kb:findings:flaky-ci --name "Flaky CI (resolved)"
+hadron node update acme.com::kb::findings:flaky-ci --name "Flaky CI (resolved)"
 
 # Bulk search-and-replace across a memory. A real run previews + prompts;
 # agents pass --dry-run to preview or --yes to apply non-interactively. Even
@@ -364,18 +364,18 @@ hadron node update acme.com:kb:findings:flaky-ci --name "Flaky CI (resolved)"
 # --max-nodes N refuses the write if more than N nodes would change (a guard
 # against a whole-memory rewrite from a wrong -m URN or a forgotten --prefix).
 hadron replace text "old-url.com" "new-url.com" \
-  -m acme.com:kb --field content --field description --dry-run
+  -m acme.com::kb --field content --field description --dry-run
 
 # Connect two nodes
-hadron edge add --from acme.com:kb:findings:flaky-ci \
-  --to acme.com:kb:start-here --label routes-to
+hadron edge add --from acme.com::kb::findings:flaky-ci \
+  --to acme.com::kb::start-here --label routes-to
 
 # List a node's edges, delete one (agents must pass --yes)
-hadron edge ls acme.com:kb:findings:flaky-ci --json
+hadron edge ls acme.com::kb::findings:flaky-ci --json
 hadron edge rm <edge-id> --yes
 
 # Delete a node (agents must pass --yes)
-hadron node rm acme.com:kb:findings:flaky-ci --yes
+hadron node rm acme.com::kb::findings:flaky-ci --yes
 
 # Ranked search (hybrid semantic+keyword by default; scores + abstracts in --json)
 hadron search "how do users report a bad actor" -m micromentor.org::mmdata --json

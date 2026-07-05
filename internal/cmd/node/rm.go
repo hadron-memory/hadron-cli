@@ -19,8 +19,8 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 		Use:     "delete <node-urn> | <loc> -m <memory>",
 		Aliases: []string{"rm"},
 		Short:   "Delete a node",
-		Example: `  hadron node rm acme.com:kb:findings:flaky-ci --yes
-  hadron node rm findings:flaky-ci -m acme.com:kb --yes`,
+		Example: `  hadron node rm acme.com::kb::findings:flaky-ci --yes
+  hadron node rm findings:flaky-ci -m acme.com::kb --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

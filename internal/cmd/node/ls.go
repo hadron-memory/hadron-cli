@@ -39,9 +39,9 @@ scopes the listing to that memory. --prefix filters on the node loc
 --sort-seq [asc|desc] sorts results by seq in ascending or descending order.
 --seq-gt N filters to nodes with seq > N (useful for reading new messages
 after a known seq number).`,
-		Example: `  hadron node ls --memory hadronmemory.com:dev
-  hadron node ls -m hadronmemory.com:dev --prefix findings: --json
-  hadron node ls -m hadronmemory.com:dev --seq-gt 42 --sort-seq asc`,
+		Example: `  hadron node ls --memory hadronmemory.com::dev
+  hadron node ls -m hadronmemory.com::dev --prefix findings: --json
+  hadron node ls -m hadronmemory.com::dev --seq-gt 42 --sort-seq asc`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
