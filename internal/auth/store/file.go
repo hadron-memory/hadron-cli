@@ -33,24 +33,30 @@ func (File) Get(host string) (string, error) {
 }
 
 func (File) Set(host, token string) error {
-	data, err := readAuthFile()
-	if err != nil {
-		return err
-	}
-	data.Hosts[host] = hostAuth{Token: token}
-	return writeAuthFile(data)
+	// Lock the whole read-modify-write so two concurrent logins can't each read
+	// the file before the other writes and silently drop one host's token (#118).
+	return config.WithLock(func() error {
+		data, err := readAuthFile()
+		if err != nil {
+			return err
+		}
+		data.Hosts[host] = hostAuth{Token: token}
+		return writeAuthFile(data)
+	})
 }
 
 func (File) Delete(host string) error {
-	data, err := readAuthFile()
-	if err != nil {
-		return err
-	}
-	if _, ok := data.Hosts[host]; !ok {
-		return ErrNotFound
-	}
-	delete(data.Hosts, host)
-	return writeAuthFile(data)
+	return config.WithLock(func() error {
+		data, err := readAuthFile()
+		if err != nil {
+			return err
+		}
+		if _, ok := data.Hosts[host]; !ok {
+			return ErrNotFound
+		}
+		delete(data.Hosts, host)
+		return writeAuthFile(data)
+	})
 }
 
 func readAuthFile() (*authFile, error) {
@@ -87,5 +93,5 @@ func writeAuthFile(data *authFile) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, append(raw, '\n'), 0o600)
+	return config.WriteFileAtomic(path, append(raw, '\n'), 0o600)
 }
