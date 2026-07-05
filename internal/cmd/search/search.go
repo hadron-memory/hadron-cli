@@ -73,6 +73,9 @@ prints abstracts in the text output too.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			query := args[0]
+			if strings.TrimSpace(query) == "" {
+				return exitcode.Newf(exitcode.Usage, "query must not be empty")
+			}
 			modeArg, err := parseMode(mode)
 			if err != nil {
 				return err

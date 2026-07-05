@@ -144,3 +144,43 @@ func TestSearchInvalidModeIsUsageError(t *testing.T) {
 		t.Errorf("invalid --mode should be a usage error, got %v", err)
 	}
 }
+
+// --mode maps to the wire enum (lowercase) for every non-default mode.
+func TestSearchModeMapping(t *testing.T) {
+	for _, mode := range []string{"keyword", "vector", "regex"} {
+		gql, captured := captureGraphQL(t, map[string]string{"SearchNodes": searchEnvelope})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"search", "x", "--mode", mode, "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("mode %s: execute: %v", mode, err)
+		}
+		var vars searchVars
+		_ = json.Unmarshal(captured["SearchNodes"], &vars)
+		if vars.Mode == nil || *vars.Mode != mode {
+			t.Errorf("--mode %s should send %q, got %v", mode, mode, vars.Mode)
+		}
+	}
+}
+
+func TestSearchEmptyQueryIsUsageError(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"search", "   "})
+	err := root.Execute()
+	if err == nil || exitcode.FromError(err) != exitcode.Usage {
+		t.Fatalf("whitespace-only query should be a usage error, got %v", err)
+	}
+}
+
+func TestSearchNegativeLimitOffsetAreUsageErrors(t *testing.T) {
+	for _, arg := range [][]string{{"--limit", "-1"}, {"--offset", "-1"}} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"search", "x"}, arg...))
+		err := root.Execute()
+		if err == nil || exitcode.FromError(err) != exitcode.Usage {
+			t.Errorf("%v should be a usage error, got %v", arg, err)
+		}
+	}
+}
