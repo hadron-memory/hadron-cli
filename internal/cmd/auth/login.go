@@ -63,8 +63,12 @@ environment variable (which skips storage entirely).`,
 			}
 			// Clear the non-selected backend so a token from a prior login in a
 			// different environment (keychain vs plaintext file) can't linger as
-			// a stale, still-readable duplicate (#116).
-			store.ClearExcept(st, host)
+			// a stale, still-readable duplicate (#116). Warn rather than fail if
+			// it couldn't be removed — the new token is already stored, but a
+			// stale one may remain in the other store.
+			if err := store.ClearExcept(st, host); err != nil {
+				fmt.Fprintf(f.IOStreams.ErrOut, "warning: a prior credential in the other store could not be cleared (%v); run `hadron auth logout` if a stale token may linger\n", err)
+			}
 
 			dto := loginResult{Server: server, TokenStorage: st.Name()}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
