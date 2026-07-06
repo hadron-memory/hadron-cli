@@ -54,7 +54,7 @@ hadron auth login | logout | whoami | status | token create|ls|revoke <id>
 hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>]
 hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn> | export <urn> [-o <file>] [--format md|json] | import <file|-> [-m <memory>] [--with-edges]
 hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--tag <t>]... [--limit N] [--offset N] [-l|--long] [--json]
-hadron replace <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
+hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
 hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | register [--check] | find <query> [--match-exactly] | new ... | extract <citation> --to-feature <fff> | lint [<citation>] | supersede <citation> | import spec-kit|code
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
@@ -355,7 +355,7 @@ hadron node update acme.com:kb:findings:flaky-ci --name "Flaky CI (resolved)"
 # with --yes the affected node count is printed to stderr before writing;
 # --max-nodes N refuses the write if more than N nodes would change (a guard
 # against a whole-memory rewrite from a wrong -m URN or a forgotten --prefix).
-hadron replace "old-url.com" "new-url.com" \
+hadron replace text "old-url.com" "new-url.com" \
   -m acme.com:kb --field content --field description --dry-run
 
 # Connect two nodes

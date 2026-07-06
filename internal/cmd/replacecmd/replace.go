@@ -120,6 +120,9 @@ saved to version history, so replacements are undoable.`,
 			if len(fields) == 0 {
 				return exitcode.Newf(exitcode.Usage, "pass at least one --field (content, name, alias, description, abstract, tags)")
 			}
+			if maxNodes < 0 {
+				return exitcode.Newf(exitcode.Usage, "--max-nodes must be zero (no limit) or a positive integer, got %d", maxNodes)
+			}
 			gqlFields := make([]gen.NodeTextField, 0, len(fields))
 			for _, fl := range fields {
 				tf, ok := textFields[strings.ToLower(fl)]
@@ -186,6 +189,10 @@ saved to version history, so replacements are undoable.`,
 			}
 			if preview.TotalReplacements == 0 {
 				fmt.Fprintln(f.IOStreams.ErrOut, "No matches — nothing to replace.")
+				// This is the real-run result (a no-op), not a preview: report it as
+				// such so --json shows dryRun=false for a run the user did not flag
+				// --dry-run on.
+				preview.DryRun = false
 				return writeReport(f, preview)
 			}
 			if maxNodes > 0 && preview.NodesChanged > maxNodes {

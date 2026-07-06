@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -20,6 +22,11 @@ const searchReplaceRealJSON = `{"data":{"searchReplaceInNodes":{
 // --max-nodes ceiling and the --yes count-before-write signal (#126).
 const searchReplaceWideDryJSON = `{"data":{"searchReplaceInNodes":{
 	"nodesScanned":50,"nodesChanged":42,"totalReplacements":99,"dryRun":true,
+	"results":[]}}}`
+
+// A zero-match preview (server echoes dryRun=true for the probe).
+const searchReplaceZeroDryJSON = `{"data":{"searchReplaceInNodes":{
+	"nodesScanned":5,"nodesChanged":0,"totalReplacements":0,"dryRun":true,
 	"results":[]}}}`
 
 func TestReplaceDryRun(t *testing.T) {
@@ -176,6 +183,81 @@ func TestReplaceMaxNodesRefusesWideWrite(t *testing.T) {
 	}
 	if vars.Input.DryRun == nil || !*vars.Input.DryRun {
 		t.Errorf("only the dry-run preview should have run, last call dryRun=%v", vars.Input.DryRun)
+	}
+}
+
+// #126 review: prove the --yes path previews (dryRun=true) THEN writes
+// (dryRun=false), in that order. captureGraphQL keeps only the last call, so a
+// recording handler is used here to assert the full two-call sequence.
+func TestReplaceWithYesPreviewsThenWrites(t *testing.T) {
+	var dryRuns []bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Variables struct {
+				Input struct {
+					DryRun *bool `json:"dryRun"`
+				} `json:"input"`
+			} `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		dryRuns = append(dryRuns, body.Variables.Input.DryRun != nil && *body.Variables.Input.DryRun)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(searchReplaceRealJSON))
+	}))
+	defer srv.Close()
+
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{
+		"replace", "text", "cat", "dog",
+		"-m", "acme.com::kb", "--field", "content", "--yes", "--server", srv.URL,
+	})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(dryRuns) != 2 || dryRuns[0] != true || dryRuns[1] != false {
+		t.Errorf("--yes must preview then write; got dryRun sequence %v, want [true false]", dryRuns)
+	}
+}
+
+// #126 review: a real --yes run that matches nothing must report dryRun=false
+// (a no-op real run), not the preview's dryRun=true, so --json stays honest.
+func TestReplaceYesZeroMatchesReportsRealRun(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"SearchReplaceInNodes": searchReplaceZeroDryJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{
+		"replace", "text", "cat", "dog",
+		"-m", "acme.com::kb", "--field", "content", "--yes", "--json", "--server", gql.URL,
+	})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		DryRun bool `json:"dryRun"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	if dto.DryRun {
+		t.Errorf("a real --yes run with zero matches must report dryRun=false, got %s", out.String())
+	}
+}
+
+// #126 review: a negative --max-nodes is a usage error (fires before any
+// network round-trip), not a silently-disabled ceiling.
+func TestReplaceRejectsNegativeMaxNodes(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{
+		"replace", "text", "cat", "dog",
+		"-m", "acme.com::kb", "--field", "content", "--yes", "--max-nodes", "-1", "--server", "http://127.0.0.1:1",
+	})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "max-nodes") {
+		t.Fatalf("expected a negative --max-nodes usage error, got: %v", err)
 	}
 }
 
