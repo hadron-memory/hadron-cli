@@ -33,16 +33,16 @@ checksum:
 # checksum manifest is the one this pipeline produced — not merely internally
 # consistent (#123). Keyless uses the release job's GitHub OIDC identity (no
 # long-lived key); the short-lived signing cert is recorded in the public Rekor
-# transparency log. Produces checksums.txt.pem (cert) + checksums.txt.sig next
+# transparency log. Emits a single Sigstore bundle (cosign v3 / goreleaser),
+# checksums.txt.sigstore.json — cert + signature + Rekor entry in one file — next
 # to the manifest on the Release. Requires cosign on the runner and
 # `id-token: write` in the workflow.
 signs:
   - cmd: cosign
-    certificate: '${artifact}.pem'
+    signature: '${artifact}.sigstore.json'
     args:
       - sign-blob
-      - '--output-certificate=${certificate}'
-      - '--output-signature=${signature}'
+      - '--bundle=${signature}'
       - '${artifact}'
       - '--yes'
     artifacts: checksum

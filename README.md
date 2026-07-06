@@ -35,14 +35,13 @@ verify it, and put `hadron` on your PATH.
 
 `checksums.txt` is signed with [cosign](https://docs.sigstore.dev/) keyless, so
 you can confirm it came from this repo's release pipeline before trusting the
-checksums in it. Download `checksums.txt`, `checksums.txt.pem`, and
-`checksums.txt.sig` from the release, then:
+checksums in it. Download `checksums.txt` and `checksums.txt.sigstore.json`
+(the Sigstore bundle — cert + signature in one file) from the release, then:
 
 ```sh
 # 1. Verify the checksum manifest was signed by this repo's release workflow.
 cosign verify-blob \
-  --certificate checksums.txt.pem \
-  --signature checksums.txt.sig \
+  --bundle checksums.txt.sigstore.json \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   --certificate-identity-regexp '^https://github.com/hadron-memory/hadron-cli/\.github/workflows/release\.yml@refs/tags/v' \
   checksums.txt
@@ -56,6 +55,10 @@ The `--certificate-identity-regexp` pins the signer to the release workflow on a
 GitHub identity. Verifying the signature first is what makes the checksum
 meaningful: the manifest is co-hosted with the archives, so checking an archive
 against an unsigned `checksums.txt` only proves they agree with each other.
+
+On Windows, run the above from WSL or Git Bash, or use the native
+[`cosign.exe`](https://docs.sigstore.dev/system_config/installation/) with
+PowerShell's `Get-FileHash checksums.txt` for the checksum step.
 
 ### Go
 
@@ -205,7 +208,7 @@ which runs [goreleaser](https://goreleaser.com) ([`.goreleaser.yaml`](.gorelease
 - cross-compile darwin/linux/windows (amd64/arm64) binaries — version-stamped
   from the tag — into archives + `checksums.txt`;
 - sign `checksums.txt` with cosign keyless (GitHub OIDC — no key material),
-  emitting `checksums.txt.pem` + `checksums.txt.sig` (the job needs
+  emitting the `checksums.txt.sigstore.json` bundle (the job needs
   `id-token: write`; see the verification steps under
   [Release archives](#release-archives-macos-linux-windows));
 - publish a GitHub Release with those assets and an auto-generated changelog;
