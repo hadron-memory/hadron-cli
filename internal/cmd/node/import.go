@@ -238,7 +238,7 @@ func runImportRestore(cmd *cobra.Command, f *cmdutil.Factory, path, memory, loc,
 	// the destructive-op regime (#129). --create-only never overwrites (it fails
 	// on a live loc), so it skips the probe.
 	if !createOnly && nodeExists(cmd, client, memoryRef, targetLoc) {
-		if err := confirmOverwrite(f, yes, fmt.Sprintf("%s:%s", memoryRef, targetLoc)); err != nil {
+		if err := confirmOverwrite(f, yes, overwriteTarget(memoryRef, targetLoc)); err != nil {
 			return err
 		}
 	}
@@ -371,7 +371,7 @@ func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, srcPath, url, memo
 	if nodeURN != "" {
 		overwrites, target = nodeExistsByURN(cmd, client, nodeURN), nodeURN
 	} else {
-		overwrites, target = nodeExists(cmd, client, memory, loc), memory+":"+loc
+		overwrites, target = nodeExists(cmd, client, memory, loc), overwriteTarget(memory, loc)
 	}
 	if overwrites {
 		if err := confirmOverwrite(f, yes, target); err != nil {
@@ -619,6 +619,17 @@ func nodeExistsByURN(cmd *cobra.Command, client graphql.Client, ref string) bool
 func confirmOverwrite(f *cmdutil.Factory, yes bool, target string) error {
 	return cmdutil.Confirm(f.IOStreams, yes,
 		fmt.Sprintf("node %s already exists and will be overwritten (a prior version is kept) — continue?", target))
+}
+
+// overwriteTarget is an unambiguous label for the node an import would
+// overwrite: the canonical node URN when it can be composed, else the raw-id
+// memoryRef:loc (a memory id can't form a URN). Avoids the ambiguous
+// single-colon memoryRef:loc for the common org::memory case.
+func overwriteTarget(memoryRef, loc string) string {
+	if urn := cmdutil.NodeURN(memoryRef, loc); urn != "" {
+		return urn
+	}
+	return memoryRef + ":" + loc
 }
 
 // emitImportSummary writes the --json DTO or the human line. dryRun and

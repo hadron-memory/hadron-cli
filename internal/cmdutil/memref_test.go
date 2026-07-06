@@ -23,6 +23,24 @@ func TestCanonicalMemoryRef(t *testing.T) {
 	}
 }
 
+func TestNodeURN(t *testing.T) {
+	cases := []struct {
+		memory, loc, want string
+	}{
+		{"acme.com:kb", "findings:x", "hrn:node:acme.com::kb::findings:x"},  // single-colon memory
+		{"acme.com::kb", "findings:x", "hrn:node:acme.com::kb::findings:x"}, // double-colon memory
+		{"hrn:memory:acme.com::kb", "x", "hrn:node:acme.com::kb::x"},        // prefixed memory
+		{"rawmemid", "x", ""},      // raw id → can't compose
+		{"acme.com::kb", "", ""},   // empty loc → guarded
+		{"foo::bar::baz", "x", ""}, // malformed multi-part → rejected
+	}
+	for _, tc := range cases {
+		if got := NodeURN(tc.memory, tc.loc); got != tc.want {
+			t.Errorf("NodeURN(%q, %q) = %q, want %q", tc.memory, tc.loc, got, tc.want)
+		}
+	}
+}
+
 func TestCanonicalOrgMemory(t *testing.T) {
 	cases := map[string]string{
 		"acme.com:kb":             "acme.com::kb",
