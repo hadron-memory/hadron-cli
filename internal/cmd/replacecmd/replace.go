@@ -71,6 +71,7 @@ func newCmdReplaceText(f *cmdutil.Factory) *cobra.Command {
 		dryRun     bool
 		yes        bool
 		reason     string
+		maxNodes   int
 	)
 	cmd := &cobra.Command{
 		Use:   "text <old> <new> --field <field> (--node <urn> | -m <memory>)",
@@ -91,8 +92,11 @@ treats <old> as a regular expression and <new> as a replacement pattern
 
 A real run previews the per-node match counts and asks for confirmation
 before writing; pass --yes to skip the prompt (required in non-interactive
-use), or --dry-run to preview without writing. Every change is saved to
-version history, so replacements are undoable.`,
+use), or --dry-run to preview without writing. Even with --yes the affected
+count is printed to stderr before applying, and --max-nodes N refuses the
+write if more than N nodes would change — a guard against a whole-memory
+rewrite from a wrong --memory URN or a forgotten --prefix. Every change is
+saved to version history, so replacements are undoable.`,
 		Example: `  # Preview only
   hadron replace text oldtext newtext -m acme.com::kb --field content --dry-run
 
@@ -115,6 +119,9 @@ version history, so replacements are undoable.`,
 			}
 			if len(fields) == 0 {
 				return exitcode.Newf(exitcode.Usage, "pass at least one --field (content, name, alias, description, abstract, tags)")
+			}
+			if maxNodes < 0 {
+				return exitcode.Newf(exitcode.Usage, "--max-nodes must be zero (no limit) or a positive integer, got %d", maxNodes)
 			}
 			gqlFields := make([]gen.NodeTextField, 0, len(fields))
 			for _, fl := range fields {
@@ -172,17 +179,33 @@ version history, so replacements are undoable.`,
 				return writeReport(f, dto)
 			}
 
-			// Real write. Unless --yes, preview first and confirm.
-			if !yes {
-				preview, err := run(true)
-				if err != nil {
-					return err
-				}
+			// Real write. ALWAYS preview first — the affected count is the only
+			// signal of blast radius, and a whole-memory `-m` scope (a wrong URN,
+			// or a forgotten --prefix) can rewrite every node in one call. The
+			// --yes path agents use previously skipped this entirely (#126).
+			preview, err := run(true)
+			if err != nil {
+				return err
+			}
+			if preview.TotalReplacements == 0 {
+				fmt.Fprintln(f.IOStreams.ErrOut, "No matches — nothing to replace.")
+				// This is the real-run result (a no-op), not a preview: report it as
+				// such so --json shows dryRun=false for a run the user did not flag
+				// --dry-run on.
+				preview.DryRun = false
+				return writeReport(f, preview)
+			}
+			if maxNodes > 0 && preview.NodesChanged > maxNodes {
+				return exitcode.Newf(exitcode.Usage,
+					"refusing to replace across %d node(s): exceeds --max-nodes=%d — narrow the scope with --prefix/--node, or raise --max-nodes",
+					preview.NodesChanged, maxNodes)
+			}
+			if yes {
+				// No prompt, but never write blind: surface the count on stderr first.
+				fmt.Fprintf(f.IOStreams.ErrOut, "Replacing %d occurrence(s) across %d node(s) (--yes)...\n",
+					preview.TotalReplacements, preview.NodesChanged)
+			} else {
 				_ = renderReport(f.IOStreams.ErrOut, preview)
-				if preview.TotalReplacements == 0 {
-					fmt.Fprintln(f.IOStreams.ErrOut, "No matches — nothing to replace.")
-					return writeReport(f, preview)
-				}
 				prompt := fmt.Sprintf("Replace %d occurrence(s) across %d node(s)? Changes are saved to version history.",
 					preview.TotalReplacements, preview.NodesChanged)
 				if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
@@ -205,6 +228,7 @@ version history, so replacements are undoable.`,
 	cmd.Flags().BoolVarP(&ignoreCase, "ignore-case", "i", false, "match case-insensitively")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview match counts without writing anything")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt (required in non-interactive use)")
+	cmd.Flags().IntVar(&maxNodes, "max-nodes", 0, "refuse to apply if more than N nodes would change (0 = no limit)")
 	cmd.Flags().StringVar(&reason, "reason", "", "why this change was made (recorded in version history)")
 	return cmd
 }
