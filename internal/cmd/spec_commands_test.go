@@ -1554,10 +1554,10 @@ func TestSpecExtract(t *testing.T) {
 	}
 }
 
-// A ToC/inheritance edge that can't be wired leaves the extracted spec orphaned
-// from the tree. The spec is still created (the JSON is emitted), but the command
-// exits non-zero so the gap isn't read as a clean extract — matching `spec
-// new`/`spec supersede` (#127).
+// An edge that can't be wired (ToC, inheritance, or the cross-ref to the source)
+// is a partial write. The spec is still created (the JSON is emitted), but the
+// command exits non-zero so the gap isn't read as a clean extract — matching
+// `spec new`/`spec supersede` (#127).
 func TestSpecExtractFailsLoudOnEdgeFailure(t *testing.T) {
 	mocks := extractMocks()
 	// Every target resolves, but CreateEdge is rejected — so all planned edges
@@ -1570,7 +1570,7 @@ func TestSpecExtractFailsLoudOnEdgeFailure(t *testing.T) {
 	root.SetArgs([]string{"spec", "extract", "cor:dmo:060:02", "-m", specMem,
 		"--to-feature", "020", "--title", "Node type", "--content", "-", "--json", "--server", gql.URL})
 	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "orphaned") {
+	if err == nil || !strings.Contains(err.Error(), "could not be wired") {
 		t.Fatalf("an extract that can't wire its edge(s) must fail loudly, got %v", err)
 	}
 	if code := exitcode.FromError(err); code != exitcode.Error {

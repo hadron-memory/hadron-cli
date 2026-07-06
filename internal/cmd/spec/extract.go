@@ -255,12 +255,14 @@ chunk leaves the source alone with a warning.`,
 			}); err != nil {
 				return err
 			}
-			// The spec was created but a structural edge is missing — it's orphaned
-			// from the ToC. Exit non-zero so the gap isn't read as a clean extract,
-			// matching `spec new`/`spec supersede` (#127).
+			// The spec was created but one or more of its edges (ToC, inheritance,
+			// or the cross-ref back to the source) could not be wired. Exit non-zero
+			// so the partial write isn't read as a clean extract (#127). Note the
+			// gap is a partial edge outcome — a lone cross-ref miss still leaves the
+			// spec attached to the ToC, so this doesn't claim "orphaned" outright.
 			if len(edgeFailures) > 0 {
 				return exitcode.Newf(exitcode.Error,
-					"extracted %s but failed to wire %d edge(s) to %s — the new spec is orphaned from the spec tree; fix the target(s) and wire with `hadron edge add`",
+					"extracted %s but %d edge(s) could not be wired to %s (see the warnings above); fix the target(s) and wire with `hadron edge add`",
 					target.Format(), len(edgeFailures), strings.Join(edgeFailures, ", "))
 			}
 			return nil
