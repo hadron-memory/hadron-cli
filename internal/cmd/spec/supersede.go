@@ -142,6 +142,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				MemoryId: memURN, Loc: newTarget.Format(), Name: name,
 				Tags: newTags, NodeType: &nodeType,
 				Abstract: &abs, Content: &body, Data: specDataRaw(),
+				Seq: specSeq(newTarget),
 			}
 			up, err := gen.CreateNode(cmd.Context(), client, &in)
 			if err != nil {

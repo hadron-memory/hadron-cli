@@ -276,6 +276,7 @@ is one call instead of four.`,
 				Abstract: &abs,
 				Content:  &body,
 				Data:     specDataRaw(),
+				Seq:      specSeq(target),
 			}
 			up, err := gen.CreateNode(cmd.Context(), client, &input)
 			if err != nil {
@@ -312,6 +313,7 @@ is one call instead of four.`,
 					Abstract: &coContract.abstract,
 					Content:  &coContract.body,
 					Data:     specDataRaw(),
+					Seq:      specSeq(coContract.cit),
 				}
 				cUp, cErr := gen.CreateNode(cmd.Context(), client, &cInput)
 				if cErr != nil {
@@ -767,6 +769,7 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 			MemoryId: memURN, Loc: pn.cit.Format(), Name: pn.name,
 			Tags: tagSet, NodeType: &nodeType,
 			Abstract: &ab, Content: &bd, Data: specDataRaw(),
+			Seq: specSeq(pn.cit),
 		}
 		up, uerr := gen.CreateNode(cmd.Context(), client, &input)
 		if uerr != nil {

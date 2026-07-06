@@ -131,6 +131,32 @@ func TestParseCitationInvalid(t *testing.T) {
 	}
 }
 
+func TestCitationSeq(t *testing.T) {
+	cases := []struct {
+		in     string
+		want   int
+		wantOK bool
+	}{
+		{"msg:010", 10, true},      // feature leaf (3 digits, zero-padded)
+		{"msg:010:02", 2, true},    // rule leaf
+		{"msg:010:02:03", 3, true}, // flow leaf
+		{"cli:cha:010", 10, true},  // product-rooted feature
+		{"msg:000", 0, true},       // module contract feature sorts first
+		{"msg", 0, false},          // module leaf is alphabetic — no seq
+	}
+	for _, tc := range cases {
+		c := mustCit(t, tc.in)
+		got, ok := c.Seq()
+		if ok != tc.wantOK || (ok && got != tc.want) {
+			t.Errorf("Citation(%q).Seq() = (%d, %v), want (%d, %v)", tc.in, got, ok, tc.want, tc.wantOK)
+		}
+	}
+	// A bare product root (built directly, not parseable) has no seq.
+	if _, ok := (Citation{Product: "cli"}).Seq(); ok {
+		t.Error("a bare product root must have no seq")
+	}
+}
+
 func TestCitationParentContract(t *testing.T) {
 	c := mustCit(t, "msg:010:02:03")
 	if p, ok := c.Parent(); !ok || p.Format() != "msg:010:02" {
