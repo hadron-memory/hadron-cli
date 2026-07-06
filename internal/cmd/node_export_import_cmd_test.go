@@ -513,8 +513,9 @@ func TestNodeImportWithEdgesIdempotent(t *testing.T) {
 	}
 }
 
-// An edge whose target can't be resolved is reported in unwiredEdges, never
-// fatal — the import still succeeds (exit 0).
+// An edge whose target can't be resolved is reported in unwiredEdges. The node
+// is still written and the summary is emitted, but the command now exits
+// non-zero so a partial success isn't read as complete (#127).
 func TestNodeImportWithEdgesUnwiredTarget(t *testing.T) {
 	const noEdges = `{"data":{"node":{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
 		"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"task","tags":[],
@@ -535,12 +536,18 @@ func TestNodeImportWithEdgesUnwiredTarget(t *testing.T) {
 	}
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"node", "import", file, "--with-edges", "--json", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute should succeed despite unwired edges: %v", err)
+	err := root.Execute()
+	// Partial success — the node was imported but an edge is unwired, so exit 1.
+	if err == nil {
+		t.Fatal("an import that leaves edges unwired must exit non-zero")
+	}
+	if code := exitcode.FromError(err); code != exitcode.Error {
+		t.Errorf("unwired-edge exit code = %d, want %d (Error)", code, exitcode.Error)
 	}
 	if captured["CreateEdge"] != nil {
 		t.Error("no edge should be created for an unresolvable target")
 	}
+	// The summary (with unwiredEdges) is still emitted to stdout before the error.
 	var summary struct {
 		EdgesWired   int `json:"edgesWired"`
 		UnwiredEdges []struct {
@@ -548,7 +555,9 @@ func TestNodeImportWithEdgesUnwiredTarget(t *testing.T) {
 			Reason string `json:"reason"`
 		} `json:"unwiredEdges"`
 	}
-	_ = json.Unmarshal([]byte(out.String()), &summary)
+	if uerr := json.Unmarshal([]byte(out.String()), &summary); uerr != nil {
+		t.Fatalf("summary must still be emitted on stdout: %v\n%s", uerr, out.String())
+	}
 	if summary.EdgesWired != 0 || len(summary.UnwiredEdges) != 1 || summary.UnwiredEdges[0].Target != "ghost" {
 		t.Errorf("expected one unwired edge 'ghost', got wired=%d unwired=%+v", summary.EdgesWired, summary.UnwiredEdges)
 	}
@@ -558,7 +567,8 @@ func TestNodeImportWithEdgesUnwiredTarget(t *testing.T) {
 }
 
 // An edge the server rejects (e.g. a condition operator outside the v1
-// allowlist) is reported with the reason, and the import still succeeds.
+// allowlist) is reported with the reason; the node is imported but the command
+// exits non-zero to signal the partial failure (#127).
 func TestNodeImportWithEdgesRejectedReason(t *testing.T) {
 	const noEdges = `{"data":{"node":{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
 		"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"task","tags":[],
@@ -579,8 +589,9 @@ func TestNodeImportWithEdgesRejectedReason(t *testing.T) {
 	root := NewRootCmd(f)
 	// The node exists (probe resolves it), so overwriting is gated — --yes bypasses.
 	root.SetArgs([]string{"node", "import", file, "--with-edges", "--yes", "--json", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute should succeed (best-effort edges): %v", err)
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Error {
+		t.Fatalf("a rejected edge is a partial failure — exit %d, want %d (Error): %v", code, exitcode.Error, err)
 	}
 	var summary struct {
 		EdgesWired   int `json:"edgesWired"`

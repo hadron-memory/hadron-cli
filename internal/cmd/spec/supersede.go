@@ -18,14 +18,31 @@ import (
 const supersededByLabel = "superseded-by"
 const supersededTag = "superseded"
 
+// Edge outcome, tracked per edge so the output reports what actually happened
+// rather than echoing the plan as if every edge were created (#128).
+const (
+	edgeStatusPlanned = "planned" // dry-run / not yet executed
+	edgeStatusCreated = "created"
+	edgeStatusFailed  = "failed"  // CreateEdge rejected it
+	edgeStatusSkipped = "skipped" // target didn't resolve, so it was never attempted
+)
+
+// supersedeEdgeDTO is one structural edge with its execution outcome. It extends
+// the plan-time plannedEdgeDTO shape with a status the real run fills in.
+type supersedeEdgeDTO struct {
+	Label  string `json:"label"`
+	Target string `json:"target"`
+	Status string `json:"status"`
+}
+
 type supersedeResultDTO struct {
-	Old      string           `json:"old"`
-	New      string           `json:"new"`
-	MemoryID string           `json:"memoryId"`
-	Name     string           `json:"name"`
-	Tags     []string         `json:"tags"`
-	Edges    []plannedEdgeDTO `json:"edges"`
-	DryRun   bool             `json:"dryRun"`
+	Old      string             `json:"old"`
+	New      string             `json:"new"`
+	MemoryID string             `json:"memoryId"`
+	Name     string             `json:"name"`
+	Tags     []string           `json:"tags"`
+	Edges    []supersedeEdgeDTO `json:"edges"`
+	DryRun   bool               `json:"dryRun"`
 }
 
 func newCmdSupersede(f *cmdutil.Factory) *cobra.Command {
@@ -109,12 +126,16 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				Name: name, Tags: newTags, DryRun: dryRun,
 			}
 			if parentLoc != "" {
-				result.Edges = append(result.Edges, plannedEdgeDTO{Label: title, Target: parentLoc})
+				result.Edges = append(result.Edges, supersedeEdgeDTO{Label: title, Target: parentLoc, Status: edgeStatusPlanned})
 			}
 			if inheritLoc != "" {
-				result.Edges = append(result.Edges, plannedEdgeDTO{Label: inheritEdgeLabel, Target: inheritLoc})
+				result.Edges = append(result.Edges, supersedeEdgeDTO{Label: inheritEdgeLabel, Target: inheritLoc, Status: edgeStatusPlanned})
 			}
-			result.Edges = append(result.Edges, plannedEdgeDTO{Label: supersededByLabel, Target: oldCit.Format() + " → " + newTarget.Format()})
+			// The retirement link is identified by its POSITION, not its label: a
+			// ToC edge carries the user's --title, which could itself be
+			// "superseded-by" and collide with a label match (Codex #155).
+			supersededByIdx := len(result.Edges)
+			result.Edges = append(result.Edges, supersedeEdgeDTO{Label: supersededByLabel, Target: oldCit.Format() + " → " + newTarget.Format(), Status: edgeStatusPlanned})
 
 			render := func(w io.Writer) error { return renderSupersede(w, result) }
 			if dryRun {
@@ -150,22 +171,39 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			}
 			newID := up.CreateNode.Id
 
-			// 2. New node's ToC + inheritance edges.
-			for _, e := range result.Edges {
-				if e.Label == supersededByLabel {
+			// 2. New node's ToC + inheritance edges. Best-effort, but each outcome
+			// is tracked and surfaced: a target that doesn't resolve was previously
+			// skipped SILENTLY (the else branch was a no-op), and every planned edge
+			// was then printed as if created (#128). Now the status is recorded and a
+			// skip/failure is folded into the exit code (#127).
+			var edgeFailures []string
+			for i := range result.Edges {
+				if i == supersededByIdx {
+					continue // the retirement link is created in step 3
+				}
+				e := &result.Edges[i]
+				tid, rerr := resolveSpecNode(cmd, client, memURN, e.Target)
+				if rerr != nil {
+					fmt.Fprintf(f.IOStreams.ErrOut, "warning: skipped edge %q → %s: %v\n", e.Label, e.Target, rerr)
+					e.Status = edgeStatusSkipped
+					edgeFailures = append(edgeFailures, e.Target)
 					continue
 				}
-				if tid, rerr := resolveSpecNode(cmd, client, memURN, e.Target); rerr == nil {
-					if _, cerr := gen.CreateEdge(cmd.Context(), client, newID, tid, e.Label, nil, nil, nil, nil, nil, nil); cerr != nil {
-						fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q failed: %v\n", e.Label, api.MapError(cerr))
-					}
+				if _, cerr := gen.CreateEdge(cmd.Context(), client, newID, tid, e.Label, nil, nil, nil, nil, nil, nil); cerr != nil {
+					fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", e.Label, e.Target, api.MapError(cerr))
+					e.Status = edgeStatusFailed
+					edgeFailures = append(edgeFailures, e.Target)
+					continue
 				}
+				e.Status = edgeStatusCreated
 			}
 
-			// 3. superseded-by edge old → new.
+			// 3. superseded-by edge old → new (its failure is fatal — the retirement
+			// link is the whole point of the command).
 			if _, cerr := gen.CreateEdge(cmd.Context(), client, oldNode.Id, newID, supersededByLabel, nil, nil, nil, nil, nil, nil); cerr != nil {
 				return api.MapError(cerr)
 			}
+			result.Edges[supersededByIdx].Status = edgeStatusCreated
 
 			// 4. Retire the old spec: tag superseded, same loc, append a note.
 			note := fmt.Sprintf("\n\n> Superseded by %s.", newTarget.Format())
@@ -187,7 +225,18 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			}
 
 			fmt.Fprintf(f.IOStreams.ErrOut, "reminder: update the register — mark %s retired and add %s to the ledger.\n", oldCit.Format(), newTarget.Format())
-			return output.Write(f.IOStreams, f.JSON, result, render)
+			if err := output.Write(f.IOStreams, f.JSON, result, render); err != nil {
+				return err
+			}
+			// The replacement exists but a structural edge is missing — it's
+			// orphaned from the spec ToC. Exit non-zero so the gap isn't read as a
+			// clean supersede (#127/#128), matching `spec new`'s edge-failure regime.
+			if len(edgeFailures) > 0 {
+				return exitcode.Newf(exitcode.Error,
+					"superseded %s with %s but failed to wire %d structural edge(s) to %s — the replacement is orphaned from the spec tree; fix the target(s) and wire with `hadron edge add`",
+					oldCit.Format(), newTarget.Format(), len(edgeFailures), strings.Join(edgeFailures, ", "))
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
@@ -267,7 +316,13 @@ func renderSupersede(w io.Writer, r supersedeResultDTO) error {
 	fmt.Fprintf(w, "%s %s → %s — %s\n", verb, r.Old, r.New, r.Name)
 	fmt.Fprintf(w, "  tags: %v\n", r.Tags)
 	for _, e := range r.Edges {
-		fmt.Fprintf(w, "  edge: %s → %s\n", e.Label, e.Target)
+		// Dry-run / not-yet-executed edges carry no meaningful status, so keep the
+		// plain form; a real run annotates each with created/failed/skipped.
+		if e.Status == "" || e.Status == edgeStatusPlanned {
+			fmt.Fprintf(w, "  edge: %s → %s\n", e.Label, e.Target)
+		} else {
+			fmt.Fprintf(w, "  edge [%s]: %s → %s\n", e.Status, e.Label, e.Target)
+		}
 	}
 	return nil
 }
