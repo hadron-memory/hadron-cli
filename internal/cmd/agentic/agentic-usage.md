@@ -47,6 +47,13 @@ self-hosted backend.
 | 5    | conflict (e.g. duplicate install) |
 | 6    | cancelled / timed out waiting for the user |
 
+A **partial write** exits non-zero (generic failure, 1): a command that creates
+the primary entity but cannot wire one or more of its edges — `node import
+--with-edges` (see `unwiredEdges`), `spec new`, and `spec supersede` (see each
+edge's `status`) — reports the detail on stdout/stderr and still exits 1, so a
+caller branching on the exit code never reads a partial success as complete. The
+node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
+
 ## Command surface (v1)
 
 ```

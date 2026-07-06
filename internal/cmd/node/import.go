@@ -284,10 +284,22 @@ func runImportRestore(cmd *cobra.Command, f *cmdutil.Factory, path, memory, loc,
 		}
 	}
 
-	return emitImportSummary(f, importNodeSummaryDTO{
+	summary := importNodeSummaryDTO{
 		Mode: "restore", Memory: memoryRef, Loc: nodeLoc, Action: action, NodeID: nodeID,
 		EdgesWired: edgesWired, UnwiredEdges: unwired,
-	}, false, withEdges, len(doc.Edges))
+	}
+	if err := emitImportSummary(f, summary, false, withEdges, len(doc.Edges)); err != nil {
+		return err
+	}
+	// The node was written, but one or more edges were left unwired — a partial
+	// success. Exit non-zero (after the report/`unwiredEdges` array is emitted) so
+	// a caller branching on the exit code doesn't read partial as complete (#127).
+	if len(unwired) > 0 {
+		return exitcode.Newf(exitcode.Error,
+			"imported %s:%s but %d of %d edge(s) could not be wired (see unwiredEdges above); fix the target(s) and re-run with --with-edges, or wire them with `hadron edge add`",
+			summary.Memory, summary.Loc, len(unwired), len(doc.Edges))
+	}
+	return nil
 }
 
 // runImportContent ingests raw external source (a URL, or a file/stdin holding

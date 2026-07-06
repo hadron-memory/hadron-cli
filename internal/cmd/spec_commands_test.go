@@ -3,6 +3,9 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1230,14 +1233,114 @@ func TestSpecSupersede(t *testing.T) {
 	}
 
 	var dto struct {
-		Old string `json:"old"`
-		New string `json:"new"`
+		Old   string `json:"old"`
+		New   string `json:"new"`
+		Edges []struct {
+			Status string `json:"status"`
+		} `json:"edges"`
 	}
 	_ = json.Unmarshal([]byte(out.String()), &dto)
 	if dto.Old != "msg:010:02" || dto.New != "msg:010:03" {
 		t.Errorf("supersede dto = %+v", dto)
 	}
+	// Every edge actually wired on the happy path reports status "created" — not
+	// the plan echoed back regardless of outcome (#128).
+	if len(dto.Edges) == 0 {
+		t.Fatal("supersede JSON must carry the wired edges")
+	}
+	for _, e := range dto.Edges {
+		if e.Status != "created" {
+			t.Errorf("happy-path edge status = %q, want created", e.Status)
+		}
+	}
 }
+
+// #127/#128: when a ToC/inheritance target can't be resolved, supersede skips
+// that edge (not silently — it's tagged "skipped" and warned), still emits the
+// JSON, and exits non-zero so the orphaned replacement isn't read as a clean
+// supersede.
+func TestSpecSupersedeOrphanedEdgeFailsLoud(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
+	responses := map[string]string{
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"FindNodes":  scan,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"UpdateNode": `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+			Variables     struct {
+				Urn string `json:"urn"`
+			} `json:"variables"`
+		}
+		raw, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(raw, &body)
+		w.Header().Set("Content-Type", "application/json")
+		if body.OperationName == "ResolveUrn" {
+			// Only the OLD spec resolves; every ToC/inheritance target misses, so
+			// those edges are skipped and the replacement is left orphaned.
+			if strings.HasSuffix(body.Variables.Urn, "::msg:010:02") {
+				_, _ = w.Write([]byte(resolveSpecJSON))
+			} else {
+				_, _ = w.Write([]byte(`{"data":{"resolveUrn":null}}`))
+			}
+			return
+		}
+		resp, ok := responses[body.OperationName]
+		if !ok {
+			t.Errorf("unexpected operation %q", body.OperationName)
+			resp = `{"errors":[{"message":"unexpected operation"}]}`
+		}
+		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, resp)))
+	}))
+	defer srv.Close()
+
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", srv.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "orphaned") {
+		t.Fatalf("a supersede that can't wire its ToC edge must fail loudly, got %v", err)
+	}
+	if code := exitcode.FromError(err); code != exitcode.Error {
+		t.Errorf("orphaned-edge exit code = %d, want %d (Error)", code, exitcode.Error)
+	}
+	// The JSON still reports each edge's REAL status: ToC/inheritance skipped, the
+	// superseded-by link created.
+	var dto struct {
+		Edges []struct {
+			Label  string `json:"label"`
+			Status string `json:"status"`
+		} `json:"edges"`
+	}
+	if uerr := json.Unmarshal([]byte(out.String()), &dto); uerr != nil {
+		t.Fatalf("supersede JSON must still be emitted: %v\n%s", uerr, out.String())
+	}
+	created, skipped := 0, 0
+	for _, e := range dto.Edges {
+		switch e.Status {
+		case edgeStatusCreatedTest:
+			created++
+		case edgeStatusSkippedTest:
+			skipped++
+		}
+	}
+	if created != 1 || skipped < 1 {
+		t.Errorf("edge statuses = %+v; want superseded-by created and ToC edge(s) skipped", dto.Edges)
+	}
+	if errStr := f.IOStreams.ErrOut.(*strings.Builder).String(); !strings.Contains(errStr, "skipped edge") {
+		t.Errorf("a skipped edge must warn on stderr, got: %q", errStr)
+	}
+}
+
+// String forms of the edge-status constants, kept local to the cmd-package test
+// (the constants themselves live in the unexported spec package).
+const (
+	edgeStatusCreatedTest = "created"
+	edgeStatusSkippedTest = "skipped"
+)
 
 func TestSpecImportStub(t *testing.T) {
 	f, _ := testFactory(t)
