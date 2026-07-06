@@ -37,12 +37,13 @@ func ResolveToken(st store.Store, serverURL string) (string, TokenSource, error)
 	if env := os.Getenv(store.EnvToken); env != "" {
 		return env, SourceEnv, nil
 	}
-	token, err := st.Get(Host(serverURL))
+	host := Host(serverURL)
+	token, err := st.Get(host)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		return "", SourceNone, nil
 	case err != nil:
-		return "", SourceNone, fmt.Errorf("reading the stored credential for %s: %w", Host(serverURL), err)
+		return "", SourceNone, fmt.Errorf("reading the stored credential for %s: %w", host, err)
 	case token == "":
 		return "", SourceNone, nil
 	default:
