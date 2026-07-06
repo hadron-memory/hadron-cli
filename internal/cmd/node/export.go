@@ -50,10 +50,10 @@ server-side export (hadron-server #386).
 Writes to stdout by default (so it composes in a pipe with node import);
 -o <file> writes a file instead. When --out ends in .md or .json and --format
 is unset, the format is inferred from the extension.`,
-		Example: `  hadron node export acme.com:kb:findings:flaky-ci            # markdown to stdout
-  hadron node export acme.com:kb:findings:flaky-ci -o flaky.md
-  hadron node export acme.com:kb:findings:flaky-ci --format json -o flaky.json
-  hadron node export acme.com:kb:x | hadron node import -m acme.com:kb2 -`,
+		Example: `  hadron node export acme.com::kb::findings:flaky-ci            # markdown to stdout
+  hadron node export acme.com::kb::findings:flaky-ci -o flaky.md
+  hadron node export acme.com::kb::findings:flaky-ci --format json -o flaky.json
+  hadron node export acme.com::kb::x | hadron node import -m acme.com::kb2 -`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmtName, err := resolveDocFormat(format, outFile, cmd.Flags().Changed("format"))

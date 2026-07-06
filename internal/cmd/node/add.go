@@ -39,8 +39,8 @@ loc (use ` + "`hadron node update`" + ` to modify an existing node).
 
 --content takes the content inline, or "-" to read it from standard
 input; --content-file reads it from a file.`,
-		Example: `  hadron node add -m acme.com:kb --loc findings:flaky-ci --name "Flaky CI" --content "..."
-  cat finding.md | hadron node add -m acme.com:kb --loc findings:flaky-ci --name "Flaky CI" --content -`,
+		Example: `  hadron node add -m acme.com::kb --loc findings:flaky-ci --name "Flaky CI" --content "..."
+  cat finding.md | hadron node add -m acme.com::kb --loc findings:flaky-ci --name "Flaky CI" --content -`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

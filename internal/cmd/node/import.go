@@ -109,10 +109,10 @@ An import that lands on an EXISTING node overwrites it (a prior version is
 kept). Like the destructive commands, that prompts on a terminal and requires
 --yes non-interactively; a create is never gated.`,
 		Example: `  hadron node import flaky.md                        # restore a node-export file
-  hadron node export acme.com:kb:x | hadron node import -m acme.com:kb2 -
-  hadron node import paper.pdf -m acme.com:kb --loc papers:attention
-  hadron node import --url https://example.com/post -m acme.com:kb --loc clips:post
-  hadron node import notes.md --as-content -m acme.com:kb --loc notes:today`,
+  hadron node export acme.com::kb::x | hadron node import -m acme.com::kb2 -
+  hadron node import paper.pdf -m acme.com::kb --loc papers:attention
+  hadron node import --url https://example.com/post -m acme.com::kb --loc clips:post
+  hadron node import notes.md --as-content -m acme.com::kb --loc notes:today`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var srcPath string

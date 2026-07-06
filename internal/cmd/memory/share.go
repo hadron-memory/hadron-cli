@@ -71,7 +71,7 @@ func newCmdShareCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "create <memory> --grantee <user-id> --role <writer|reader>",
 		Short:   "Share a memory with a user (or update their share role)",
-		Example: `  hadron memory share create acme.com:kb --grantee usr_789 --role reader`,
+		Example: `  hadron memory share create acme.com::kb --grantee usr_789 --role reader`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseShareRole(role)
@@ -109,7 +109,7 @@ func newCmdShareSetRole(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "set-role <memory> --grantee <user-id> --role <writer|reader>",
 		Short:   "Change a share's role",
-		Example: `  hadron memory share set-role acme.com:kb --grantee usr_789 --role writer`,
+		Example: `  hadron memory share set-role acme.com::kb --grantee usr_789 --role writer`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseShareRole(role)
@@ -148,7 +148,7 @@ func newCmdShareRevoke(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "revoke <memory> --grantee <user-id>",
 		Short:   "Revoke a user's share on a memory",
-		Example: `  hadron memory share revoke acme.com:kb --grantee usr_789 --yes`,
+		Example: `  hadron memory share revoke acme.com::kb --grantee usr_789 --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

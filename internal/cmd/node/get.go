@@ -25,7 +25,7 @@ optional (legacy urn:node: also accepted). Pass -m/--memory to name a
 node by a bare <loc> within that memory instead; without -m a bare loc
 is rejected, since the same loc can exist in several memories.`,
 		Example: `  hadron node get hadronmemory.com::dev::start-here
-  hadron node get start-here -m hadronmemory.com:dev --json`,
+  hadron node get start-here -m hadronmemory.com::dev --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
