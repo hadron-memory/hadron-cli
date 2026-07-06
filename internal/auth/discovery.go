@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
+	neturl "net/url"
 	"os"
 	"strings"
 
@@ -74,47 +74,81 @@ func Discover(ctx context.Context, serverURL string, httpClient *http.Client) (*
 	if meta.AuthorizationEndpoint == "" || meta.TokenEndpoint == "" || meta.RegistrationEndpoint == "" {
 		return nil, exitcode.Newf(exitcode.Error, "OAuth metadata from %s is missing required endpoints", url)
 	}
+	// The trusted origin: every discovered endpoint must live on this same host.
+	su, perr := neturl.Parse(serverURL)
+	if perr != nil || su.Host == "" {
+		return nil, exitcode.Newf(exitcode.Error, "invalid server URL %q", serverURL)
+	}
 	// Every endpoint prefix here is server-controlled (and, over a plain-http or
-	// MITM'd discovery fetch, attacker-controlled). Validate the scheme/host up
-	// front so authorization_endpoint can't point the OS URL-opener at a
-	// custom-scheme handler (vscode://, slack://) or a file:// path, and so a
-	// token never rides token/registration over a cleartext or exotic scheme (#120).
+	// MITM'd discovery fetch, attacker-controlled). Validate the scheme AND that
+	// each endpoint is same-origin with the trusted server, so authorization can't
+	// point the OS URL-opener at a custom-scheme handler (vscode://, slack://) or a
+	// file:// path (#120), and — the higher-stakes case — so the token/registration
+	// endpoints can't be swapped for an attacker host that would harvest the auth
+	// code + PKCE verifier (#115).
 	for _, e := range []struct{ name, raw string }{
 		{"authorization_endpoint", meta.AuthorizationEndpoint},
 		{"token_endpoint", meta.TokenEndpoint},
 		{"registration_endpoint", meta.RegistrationEndpoint},
 	} {
-		if err := validateEndpoint(e.name, e.raw); err != nil {
+		if err := validateEndpoint(e.name, e.raw, su); err != nil {
 			return nil, err
 		}
 	}
 	return &meta, nil
 }
 
-// validateEndpoint rejects a discovery-provided endpoint URL unless it is an
-// https URL with a host — or, for local development, an http URL to a loopback
-// host or under HADRON_ALLOW_HTTP=1. The scheme is allow-listed explicitly
-// (http/https only): a loopback host alone must NOT admit an arbitrary scheme
-// like vscode://localhost, which is exactly the URL-opener injection this guards.
-func validateEndpoint(name, raw string) error {
+// validateEndpoint rejects a discovery-provided endpoint URL unless it (a) uses
+// https — or, for local development, http to a loopback host or under
+// HADRON_ALLOW_HTTP=1 — and (b) is same-origin with the trusted server host.
+// The scheme is allow-listed explicitly (http/https only): a loopback host alone
+// must NOT admit an arbitrary scheme like vscode://localhost, the URL-opener
+// injection this guards. The same-host check (b) is the defense against a
+// malicious/MITM'd discovery doc pointing token/registration at an attacker host.
+func validateEndpoint(name, raw string, server *neturl.URL) error {
 	if strings.HasPrefix(raw, "-") {
 		return exitcode.Newf(exitcode.Error, "OAuth %s %q must not begin with '-'", name, raw)
 	}
-	u, err := url.Parse(raw)
+	u, err := neturl.Parse(raw)
 	if err != nil {
 		return exitcode.Newf(exitcode.Error, "OAuth %s %q is not a valid URL: %v", name, raw, err)
 	}
 	if u.Hostname() == "" {
 		return exitcode.Newf(exitcode.Error, "OAuth %s %q has no host", name, raw)
 	}
-	switch u.Scheme {
-	case "https":
-		return nil
-	case "http":
-		if urlsec.IsLoopbackHost(u.Hostname()) || os.Getenv(urlsec.EnvAllowHTTP) == "1" {
-			return nil
-		}
+	schemeOK := u.Scheme == "https" ||
+		(u.Scheme == "http" && (urlsec.IsLoopbackHost(u.Hostname()) || os.Getenv(urlsec.EnvAllowHTTP) == "1"))
+	if !schemeOK {
+		return exitcode.Newf(exitcode.Error,
+			"OAuth %s %q must use https (http allowed only for a loopback host or with %s=1)", name, raw, urlsec.EnvAllowHTTP)
 	}
-	return exitcode.Newf(exitcode.Error,
-		"OAuth %s %q must use https (http allowed only for a loopback host or with %s=1)", name, raw, urlsec.EnvAllowHTTP)
+	// Same-origin: hadron-server emits every endpoint as `${origin}/oauth/...`, so
+	// the endpoint must match the trusted server's origin. Compare hostname
+	// (case-insensitive) + effective port, so a default port written explicitly on
+	// one side only (auth.example.com vs auth.example.com:443) still matches. A
+	// genuinely cross-origin endpoint is refused — the token/verifier exfiltration
+	// path (#115).
+	if !strings.EqualFold(u.Hostname(), server.Hostname()) ||
+		effectivePort(u.Scheme, u.Port()) != effectivePort(server.Scheme, server.Port()) {
+		return exitcode.Newf(exitcode.Error,
+			"OAuth %s origin %q does not match the server origin %q — refusing a cross-origin endpoint",
+			name, u.Scheme+"://"+u.Host, server.Scheme+"://"+server.Host)
+	}
+	return nil
+}
+
+// effectivePort resolves a URL's port, filling in the scheme's default when the
+// port is written implicitly, so origin comparison isn't fooled by a bare vs
+// explicit default port.
+func effectivePort(scheme, port string) string {
+	if port != "" {
+		return port
+	}
+	switch scheme {
+	case "https":
+		return "443"
+	case "http":
+		return "80"
+	}
+	return ""
 }
