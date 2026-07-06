@@ -1037,7 +1037,7 @@ func TestMemorySetCreate(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"CreateMemory": `{"data":{"createMemory":` + memoryJSON + `}}`,
 	})
-	f, _ := testFactory(t)
+	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "KB", "--class", "knowledge", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
@@ -1047,6 +1047,10 @@ func TestMemorySetCreate(t *testing.T) {
 	_ = json.Unmarshal(captured["CreateMemory"], &vars)
 	if vars["orgId"] != "acme.com" || vars["name"] != "KB" {
 		t.Errorf("unexpected create vars: %v", vars)
+	}
+	// The create output surfaces the effective class + visibility (#108).
+	if s := out.String(); !strings.Contains(s, "class: knowledge") || !strings.Contains(s, "visibility: ORGANIZATION") {
+		t.Errorf("create output must echo effective class/visibility, got:\n%s", s)
 	}
 }
 

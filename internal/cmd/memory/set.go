@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"fmt"
 	"io"
 
 	"github.com/spf13/cobra"
@@ -29,7 +30,11 @@ func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 
 With a positional memory ID or URN, updates that memory (only the
 fields you pass change). Without one, creates a new memory — --org
-and --name are then required.`,
+and --name are then required.
+
+On create, the URN slug is derived from --name (kebab-cased, e.g.
+"Project KB" → project-kb); the resulting URN, class, and visibility
+are echoed in the output.`,
 		Example: `  hadron memory set --org acme.com --name "Project KB"
   hadron memory set --org acme.com --name "Notes" --class personal
   hadron memory set acme.com:project-kb --description "Long-form description"`,
@@ -115,16 +120,30 @@ and --name are then required.`,
 			return output.Write(f.IOStreams, f.JSON, m, func(w io.Writer) error {
 				t := output.NewTable(w)
 				t.Row("✓ "+verb, m.URN, m.Name)
-				return t.Flush()
+				if err := t.Flush(); err != nil {
+					return err
+				}
+				if verb == "created" {
+					// Echo the effective class/visibility so a server-assigned
+					// default (when --class/--visibility were omitted) isn't
+					// invisible (#108).
+					vis := "default"
+					if m.Visibility != nil && *m.Visibility != "" {
+						vis = *m.Visibility
+					}
+					_, err := fmt.Fprintf(w, "  class: %s   visibility: %s\n", m.Class, vis)
+					return err
+				}
+				return nil
 			})
 		},
 	}
 	cmd.Flags().StringVar(&org, "org", "", "organization ID or URN (create only)")
 	cmd.Flags().StringVar(&name, "name", "", "memory name")
-	cmd.Flags().StringVar(&class, "class", "", "memory class: knowledge|group|personal|private (create only)")
+	cmd.Flags().StringVar(&class, "class", "", "memory class: knowledge|group|personal|private (create only; server default: knowledge)")
 	cmd.Flags().StringVar(&short, "short", "", "short description")
 	cmd.Flags().StringVar(&description, "description", "", "long description")
-	cmd.Flags().StringVar(&visibility, "visibility", "", "visibility: PUBLIC|ORGANIZATION|GROUP")
+	cmd.Flags().StringVar(&visibility, "visibility", "", "visibility: PUBLIC|ORGANIZATION|GROUP (unset uses the server default; the create output echoes the effective value)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "tag (repeatable; replaces tags on update)")
 	return cmd
 }
