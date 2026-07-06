@@ -79,6 +79,8 @@ func newCmdImport(f *cmdutil.Factory) *cobra.Command {
 		nodeType       string
 		properties     string
 		propertiesFile string
+		// Shared.
+		yes bool
 	)
 	cmd := &cobra.Command{
 		Use:   "import [<file>|-]",
@@ -101,7 +103,11 @@ layer is extracted to Markdown — the CLI base64-encodes the file for you
 the file extension unless --content-type overrides it (required for a PDF over
 stdin). Target the node with -m/--memory + --loc or --node <urn>; a node already
 there is updated in place, else created (nodeType defaults to webpage, or info
-for a PDF).`,
+for a PDF).
+
+An import that lands on an EXISTING node overwrites it (a prior version is
+kept). Like the destructive commands, that prompts on a terminal and requires
+--yes non-interactively; a create is never gated.`,
 		Example: `  hadron node import flaky.md                        # restore a node-export file
   hadron node export acme.com:kb:x | hadron node import -m acme.com:kb2 -
   hadron node import paper.pdf -m acme.com:kb --loc papers:attention
@@ -131,12 +137,12 @@ for a PDF).`,
 				if err := rejectFlags(cmd, restoreOnly, "does not apply to content import (--url/--as-content/PDF)"); err != nil {
 					return err
 				}
-				return runImportContent(cmd, f, srcPath, url, memory, loc, nodeURN, contentType, name, nodeType, properties, propertiesFile)
+				return runImportContent(cmd, f, srcPath, url, memory, loc, nodeURN, contentType, name, nodeType, properties, propertiesFile, yes)
 			}
 			if err := rejectFlags(cmd, contentOnly, "applies only to content import — pass --as-content to ingest this file as raw content"); err != nil {
 				return err
 			}
-			return runImportRestore(cmd, f, srcPath, memory, loc, format, cmd.Flags().Changed("format"), withEdges, createOnly, dryRun)
+			return runImportRestore(cmd, f, srcPath, memory, loc, format, cmd.Flags().Changed("format"), withEdges, createOnly, dryRun, yes)
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "target memory ID or URN (overrides an export file's memory key)")
@@ -153,6 +159,7 @@ for a PDF).`,
 	cmd.Flags().StringVar(&nodeType, "type", "", "content: node type (defaults to webpage, or info for a PDF)")
 	cmd.Flags().StringVar(&properties, "properties", "", "content: provenance JSON object merged into the node's properties")
 	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "content: read the properties JSON object from a file")
+	cmd.Flags().BoolVar(&yes, "yes", false, "overwrite an existing node without prompting (required non-interactively)")
 	return cmd
 }
 
@@ -169,7 +176,7 @@ func rejectFlags(cmd *cobra.Command, names []string, why string) error {
 
 // runImportRestore reconstitutes a node-export file (frontmatter-markdown or
 // canonical JSON): a node already at the target loc is updated, else created.
-func runImportRestore(cmd *cobra.Command, f *cmdutil.Factory, path, memory, loc, format string, formatChanged, withEdges, createOnly, dryRun bool) error {
+func runImportRestore(cmd *cobra.Command, f *cmdutil.Factory, path, memory, loc, format string, formatChanged, withEdges, createOnly, dryRun, yes bool) error {
 	if path == "" {
 		return exitcode.Newf(exitcode.Usage, "no input file — pass a <file>/`-`, or --url/--as-content to ingest external content")
 	}
@@ -227,6 +234,15 @@ func runImportRestore(cmd *cobra.Command, f *cmdutil.Factory, path, memory, loc,
 		}, true, withEdges, len(doc.Edges))
 	}
 
+	// An import that lands on an existing node overwrites it — gate that behind
+	// the destructive-op regime (#129). --create-only never overwrites (it fails
+	// on a live loc), so it skips the probe.
+	if !createOnly && nodeExists(cmd, client, memoryRef, targetLoc) {
+		if err := confirmOverwrite(f, yes, overwriteTarget(memoryRef, targetLoc)); err != nil {
+			return err
+		}
+	}
+
 	input, err := buildCreateNodeInput(doc, memoryRef, targetLoc)
 	if err != nil {
 		return err
@@ -277,7 +293,7 @@ func runImportRestore(cmd *cobra.Command, f *cmdutil.Factory, path, memory, loc,
 // runImportContent ingests raw external source (a URL, or a file/stdin holding
 // HTML/Markdown/PDF) through the server's importNode, which converts it to the
 // node's Markdown body.
-func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, srcPath, url, memory, loc, nodeURN, contentType, name, nodeType, properties, propertiesFile string) error {
+func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, srcPath, url, memory, loc, nodeURN, contentType, name, nodeType, properties, propertiesFile string, yes bool) error {
 	// Source dispatch: exactly one of --url | inline (<file>|-).
 	hasURL := url != ""
 	hasInline := srcPath != ""
@@ -348,6 +364,19 @@ func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, srcPath, url, memo
 	client, err := f.GraphQLClient()
 	if err != nil {
 		return err
+	}
+
+	// Ingesting onto an existing node overwrites its body — gate that (#129).
+	overwrites, target := false, ""
+	if nodeURN != "" {
+		overwrites, target = nodeExistsByURN(cmd, client, nodeURN), nodeURN
+	} else {
+		overwrites, target = nodeExists(cmd, client, memory, loc), overwriteTarget(memory, loc)
+	}
+	if overwrites {
+		if err := confirmOverwrite(f, yes, target); err != nil {
+			return err
+		}
 	}
 
 	resp, err := gen.ImportNode(cmd.Context(), client, &input)
@@ -542,9 +571,12 @@ func updateNodeInputFrom(in *gen.CreateNodeInput) *gen.UpdateNodeInput {
 // upsert that follows is authoritative for real failures (auth/transport), and
 // a dry run degrades to "would create".
 func nodeExists(cmd *cobra.Command, client graphql.Client, memoryRef, loc string) bool {
-	// A URN-addressed memory resolves to an exact node URN in one round-trip.
-	if strings.Contains(memoryRef, ":") {
-		resp, err := gen.ResolveUrn(cmd.Context(), client, "hrn:node:"+memoryRef+":"+loc)
+	// An org::memory-shaped ref composes an exact node URN in one round-trip.
+	// (cmdutil.NodeURN normalizes the separators — building the URN by hand as
+	// memoryRef+":"+loc produced a single-colon `org::memory:loc` that never
+	// resolved, so the overwrite probe silently missed every existing node.)
+	if urn := cmdutil.NodeURN(memoryRef, loc); urn != "" {
+		resp, err := gen.ResolveUrn(cmd.Context(), client, urn)
 		return err == nil && resp.ResolveUrn != nil && resp.ResolveUrn.Kind == "node"
 	}
 	// A raw memory id: list by loc prefix and match the exact loc.
@@ -566,6 +598,38 @@ func nodeExists(cmd *cobra.Command, client graphql.Client, memoryRef, loc string
 			return false
 		}
 	}
+}
+
+// nodeExistsByURN best-effort probes whether a fully-qualified node URN already
+// resolves to a live node — the content-mode (`--node`) counterpart to
+// nodeExists, used to gate an importNode overwrite (#129).
+func nodeExistsByURN(cmd *cobra.Command, client graphql.Client, ref string) bool {
+	urn := ref
+	if !strings.HasPrefix(urn, "hrn:") && !strings.HasPrefix(urn, "urn:") {
+		urn = "hrn:node:" + urn
+	}
+	resp, err := gen.ResolveUrn(cmd.Context(), client, urn)
+	return err == nil && resp.ResolveUrn != nil && resp.ResolveUrn.Kind == "node"
+}
+
+// confirmOverwrite gates an import that would OVERWRITE an existing node behind
+// the destructive-op regime (#129): a live node at the target prompts on a TTY
+// and requires --yes non-interactively, matching `replace text`. A create (or
+// an unresolvable best-effort probe) proceeds without a prompt.
+func confirmOverwrite(f *cmdutil.Factory, yes bool, target string) error {
+	return cmdutil.Confirm(f.IOStreams, yes,
+		fmt.Sprintf("node %s already exists and will be overwritten (a prior version is kept) — continue?", target))
+}
+
+// overwriteTarget is an unambiguous label for the node an import would
+// overwrite: the canonical node URN when it can be composed, else the raw-id
+// memoryRef:loc (a memory id can't form a URN). Avoids the ambiguous
+// single-colon memoryRef:loc for the common org::memory case.
+func overwriteTarget(memoryRef, loc string) string {
+	if urn := cmdutil.NodeURN(memoryRef, loc); urn != "" {
+		return urn
+	}
+	return memoryRef + ":" + loc
 }
 
 // emitImportSummary writes the --json DTO or the human line. dryRun and

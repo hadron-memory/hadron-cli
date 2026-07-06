@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // nodeExportResp builds a NodeExport GraphQL response wrapping data, the way the
@@ -201,8 +203,10 @@ The body.
 
 func TestNodeImportCreate(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		// Upsert emulation: the update-by-(memory,loc) attempt misses with
-		// NODE_NOT_FOUND, so the import falls back to createNode → "created".
+		// A new target: the probe misses, so no overwrite gate; the update-by-
+		// (memory,loc) attempt then misses with NODE_NOT_FOUND and falls back to
+		// createNode → "created".
+		"ResolveUrn": resolveNullJSON,
 		"UpdateNode": `{"errors":[{"message":"node not found","extensions":{"code":"NODE_NOT_FOUND"}}]}`,
 		"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
 	})
@@ -290,7 +294,9 @@ func TestNodeImportCreate(t *testing.T) {
 
 func TestNodeImportUpdate(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		// The update-by-(memory,loc) attempt succeeds → "updated".
+		// The node exists (probe resolves it), so the overwrite is gated — --yes
+		// bypasses the prompt; the update-by-(memory,loc) attempt then succeeds.
+		"ResolveUrn": resolveNodeJSON,
 		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f, out := testFactory(t)
@@ -299,7 +305,7 @@ func TestNodeImportUpdate(t *testing.T) {
 		t.Fatal(err)
 	}
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "import", file, "--json", "--server", gql.URL})
+	root.SetArgs([]string{"node", "import", file, "--yes", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -309,6 +315,31 @@ func TestNodeImportUpdate(t *testing.T) {
 	_ = json.Unmarshal([]byte(out.String()), &summary)
 	if summary.Action != "updated" {
 		t.Errorf("action = %q, want updated", summary.Action)
+	}
+}
+
+// Importing onto an EXISTING node is an overwrite: non-interactive without --yes
+// it's refused (exit 2), and no write is attempted (#129).
+func TestNodeImportOverwriteRefusedWithoutYes(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON, // target already exists
+	})
+	f, _ := testFactory(t)
+	file := filepath.Join(t.TempDir(), "flaky.md")
+	if err := os.WriteFile(file, []byte(importMd), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "import", file, "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || exitcode.FromError(err) != exitcode.Usage {
+		t.Fatalf("overwrite without --yes should be a usage error, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "--yes") {
+		t.Errorf("error should mention --yes, got %v", err)
+	}
+	if captured["UpdateNode"] != nil || captured["CreateNode"] != nil {
+		t.Error("no write must be attempted when the overwrite is refused")
 	}
 }
 
@@ -356,6 +387,7 @@ func TestNodeImportMissingTargetIsUsageError(t *testing.T) {
 
 func TestNodeImportStdin(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNullJSON, // new target — no overwrite gate
 		"UpdateNode": `{"errors":[{"message":"node not found","extensions":{"code":"NODE_NOT_FOUND"}}]}`,
 		"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
 	})
@@ -438,10 +470,10 @@ func TestNodeImportWithEdgesIdempotent(t *testing.T) {
 		"outgoingEdges":[{"id":"e0","name":"existing-label","priority":0,"target":{"id":"n2","loc":"start","memoryId":"mem1"}}],
 		"incomingEdges":[]}}}`
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  `{"data":{"resolveUrn":{"id":"n2","kind":"node","memoryId":"mem1"}}}`,
-		"UpdateNode":  `{"data":{"updateNode":` + nodeJSON + `}}`,
-		"GetNode": existingEdges,
-		"CreateEdge":  `{"data":{"createEdge":` + edgeJSON + `}}`,
+		"ResolveUrn": `{"data":{"resolveUrn":{"id":"n2","kind":"node","memoryId":"mem1"}}}`,
+		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
+		"GetNode":    existingEdges,
+		"CreateEdge": `{"data":{"createEdge":` + edgeJSON + `}}`,
 	})
 	f, out := testFactory(t)
 	file := filepath.Join(t.TempDir(), "flaky.md")
@@ -449,7 +481,8 @@ func TestNodeImportWithEdgesIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "import", file, "--with-edges", "--json", "--server", gql.URL})
+	// The node exists (probe resolves it), so overwriting is gated — --yes bypasses.
+	root.SetArgs([]string{"node", "import", file, "--with-edges", "--yes", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -488,10 +521,10 @@ func TestNodeImportWithEdgesUnwiredTarget(t *testing.T) {
 		"content":"x","data":null,"seq":null,"createdAt":"2026-06-11T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
 		"outgoingEdges":[],"incomingEdges":[]}}}`
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  `{"data":{"resolveUrn":null}}`, // edge target unresolvable
-		"UpdateNode":  `{"errors":[{"message":"node not found","extensions":{"code":"NODE_NOT_FOUND"}}]}`, // node absent → created
-		"CreateNode":  `{"data":{"createNode":` + nodeJSON + `}}`,
-		"GetNode": noEdges,
+		"ResolveUrn": `{"data":{"resolveUrn":null}}`,                                                     // edge target unresolvable
+		"UpdateNode": `{"errors":[{"message":"node not found","extensions":{"code":"NODE_NOT_FOUND"}}]}`, // node absent → created
+		"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
+		"GetNode":    noEdges,
 	})
 	f, out := testFactory(t)
 	file := filepath.Join(t.TempDir(), "ghost.md")
@@ -532,10 +565,10 @@ func TestNodeImportWithEdgesRejectedReason(t *testing.T) {
 		"content":"x","data":null,"seq":null,"createdAt":"2026-06-11T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
 		"outgoingEdges":[],"incomingEdges":[]}}}`
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  `{"data":{"resolveUrn":{"id":"n2","kind":"node","memoryId":"mem1"}}}`,
-		"UpdateNode":  `{"data":{"updateNode":` + nodeJSON + `}}`,
-		"GetNode": noEdges,
-		"CreateEdge":  `{"errors":[{"message":"createEdge operator 'flag' is not in the v1 allowlist"}]}`,
+		"ResolveUrn": `{"data":{"resolveUrn":{"id":"n2","kind":"node","memoryId":"mem1"}}}`,
+		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
+		"GetNode":    noEdges,
+		"CreateEdge": `{"errors":[{"message":"createEdge operator 'flag' is not in the v1 allowlist"}]}`,
 	})
 	f, out := testFactory(t)
 	file := filepath.Join(t.TempDir(), "edge.md")
@@ -544,7 +577,8 @@ func TestNodeImportWithEdgesRejectedReason(t *testing.T) {
 		t.Fatal(err)
 	}
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "import", file, "--with-edges", "--json", "--server", gql.URL})
+	// The node exists (probe resolves it), so overwriting is gated — --yes bypasses.
+	root.SetArgs([]string{"node", "import", file, "--with-edges", "--yes", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute should succeed (best-effort edges): %v", err)
 	}

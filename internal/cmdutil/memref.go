@@ -43,6 +43,28 @@ func canonicalOrgMemory(memory string) string {
 	return memory
 }
 
+// NodeURN composes the canonical hrn:node URN for a (memory, loc). The memory's
+// org::slug separators are normalized (single-colon accepted), so it emits the
+// double-colon <org>::<memory>::<loc> the server resolves. It returns "" when
+// the memory isn't EXACTLY an org::slug pair (a raw id, or a malformed
+// multi-part ref like foo::bar::baz) or loc is empty — composing a URN from
+// those would produce an invalid one that resolves to nothing, silently
+// defeating the existence probe (#129 review). The caller must probe otherwise.
+func NodeURN(memory, loc string) string {
+	if loc == "" {
+		return ""
+	}
+	m := memory
+	for _, p := range []string{"hrn:memory:", "urn:memory:"} {
+		m = strings.TrimPrefix(m, p)
+	}
+	org, slug, ok := splitOrgSlug(m)
+	if !ok {
+		return ""
+	}
+	return "hrn:node:" + org + "::" + slug + "::" + loc
+}
+
 // CanonicalMemoryRef normalizes a memory reference for the server's memory(ref:)
 // dispatch: a raw id (no colon) or an already hrn:/urn:-prefixed URN passes
 // through; a bare "org:slug" / "org::slug" becomes the canonical

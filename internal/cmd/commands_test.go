@@ -67,6 +67,11 @@ const nodeDetailJSON = `{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","
 
 const resolveNodeJSON = `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`
 
+// resolveNullJSON is the "no such node" resolveUrn reply. Imports probe
+// existence to gate an overwrite (#129); a write test that isn't exercising the
+// gate mocks this so the probe classifies the target as new and the write runs.
+const resolveNullJSON = `{"data":{"resolveUrn":null}}`
+
 const nodeURN = "acme.com::kb::findings:flaky-ci"
 
 func TestNodeLs(t *testing.T) {
