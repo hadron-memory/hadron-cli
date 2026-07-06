@@ -91,7 +91,7 @@ func Discover(ctx context.Context, serverURL string, httpClient *http.Client) (*
 		{"token_endpoint", meta.TokenEndpoint},
 		{"registration_endpoint", meta.RegistrationEndpoint},
 	} {
-		if err := validateEndpoint(e.name, e.raw, su.Host); err != nil {
+		if err := validateEndpoint(e.name, e.raw, su); err != nil {
 			return nil, err
 		}
 	}
@@ -105,7 +105,7 @@ func Discover(ctx context.Context, serverURL string, httpClient *http.Client) (*
 // must NOT admit an arbitrary scheme like vscode://localhost, the URL-opener
 // injection this guards. The same-host check (b) is the defense against a
 // malicious/MITM'd discovery doc pointing token/registration at an attacker host.
-func validateEndpoint(name, raw, serverHost string) error {
+func validateEndpoint(name, raw string, server *neturl.URL) error {
 	if strings.HasPrefix(raw, "-") {
 		return exitcode.Newf(exitcode.Error, "OAuth %s %q must not begin with '-'", name, raw)
 	}
@@ -123,12 +123,32 @@ func validateEndpoint(name, raw, serverHost string) error {
 			"OAuth %s %q must use https (http allowed only for a loopback host or with %s=1)", name, raw, urlsec.EnvAllowHTTP)
 	}
 	// Same-origin: hadron-server emits every endpoint as `${origin}/oauth/...`, so
-	// an exact host[:port] match (host is case-insensitive) is correct. A
-	// cross-origin endpoint is refused — that's the token/verifier exfiltration
+	// the endpoint must match the trusted server's origin. Compare hostname
+	// (case-insensitive) + effective port, so a default port written explicitly on
+	// one side only (auth.example.com vs auth.example.com:443) still matches. A
+	// genuinely cross-origin endpoint is refused — the token/verifier exfiltration
 	// path (#115).
-	if !strings.EqualFold(u.Host, serverHost) {
+	if !strings.EqualFold(u.Hostname(), server.Hostname()) ||
+		effectivePort(u.Scheme, u.Port()) != effectivePort(server.Scheme, server.Port()) {
 		return exitcode.Newf(exitcode.Error,
-			"OAuth %s host %q does not match the server host %q — refusing a cross-origin endpoint", name, u.Host, serverHost)
+			"OAuth %s origin %q does not match the server origin %q — refusing a cross-origin endpoint",
+			name, u.Scheme+"://"+u.Host, server.Scheme+"://"+server.Host)
 	}
 	return nil
+}
+
+// effectivePort resolves a URL's port, filling in the scheme's default when the
+// port is written implicitly, so origin comparison isn't fooled by a bare vs
+// explicit default port.
+func effectivePort(scheme, port string) string {
+	if port != "" {
+		return port
+	}
+	switch scheme {
+	case "https":
+		return "443"
+	case "http":
+		return "80"
+	}
+	return ""
 }
