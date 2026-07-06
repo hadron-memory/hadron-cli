@@ -60,6 +60,10 @@ hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | reg
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
 hadron ai-config ls [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] | update <id> ... | rm <id>
 hadron org create --name <n> --urn <urn> | get <id> | update <id> | rm <id> | member ls|add|set-role|rm <org-id> --user <id> [--role <r>]
+hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--ai-config <n>] [--wait] | ls [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
+hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... | ls --app <ref> | update <id> ... | rm <id> --yes
+hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] | rotate <id> --yes | ls --app <ref> | rm <id> --yes
+hadron ticket mint --org <ref> [--app <id>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | ls --org <ref>
 hadron config get | set | list
 hadron api <query-or-mutation>                       # raw GraphQL
 hadron version
@@ -260,6 +264,41 @@ Conventions:
   strict-owner memory's principal) — otherwise the server's `FORBIDDEN` surfaces
   as exit 1. An unresolvable resource is exit 4; an under-qualified resource ref
   (e.g. `acme.com::kb` with no `hrn:` prefix) is a usage error (exit 2).
+- **Headless runs** (spec-040, `cor:agt:010`) drive an App off any interactive
+  session — the open-source counterpart to the portal's run surface. A *run*
+  executes an entry (prompt) node under an App's identity; `run`, `schedule`, and
+  `webhook` are three triggers into the same kernel, and `ticket` is the
+  action-budget ledger.
+  - `run trigger --app <ref> --entry <node-urn>` fires a MANUAL run now and prints
+    its id; `--arg k=v` (repeatable, value parsed as JSON or string) sets template
+    args, `--ai-config <n>` picks a named config, `--wait` polls to a terminal
+    status (`--wait-timeout`, default 5m; a timeout is exit 6). `run ls` is the
+    audit surface (scope `--app` XOR `--org`, filter `--status`, paged to
+    exhaustion); `run get <id>` is the full record (budgets, policy, failure
+    payload); `run cancel <id>` is the kill switch (requires `--yes`).
+  - `schedule create --app <ref> --name <n> --cron '<expr>' --entry <node-urn>`
+    registers a recurring trigger (5-field cron, evaluated in `--tz`, default UTC;
+    one-time `--at` is not yet a server capability). `--policy '<json>'` is a
+    trigger-layer allow-list (`{"allow":[…]}`, `cor:acl:040`). `schedule ls
+    --app`, `update <id>` (only the fields you pass change; `--enabled=false`
+    disables, unset fields preserved), `rm <id>` (`--yes`).
+  - `webhook create --app <ref> --name <n> --entry <node-urn>` mints an inbound
+    trigger and prints the URL path + platform token **once** — they are never
+    queryable again, so capture them (in `--json` they are `path`/`token`).
+    `webhook rotate <id>` reissues the secret (old URL dies immediately; `--yes`);
+    `webhook ls` never shows the secret; `webhook rm <id>` (`--yes`).
+  - `--as-self` (on `run trigger`, `schedule create`, `webhook create`) makes the
+    run act on behalf of YOU — required to reach your personal memories, and only
+    usable by an authenticated user; an App-key caller gets `UNAUTHENTICATED`
+    (exit 1). v1 never delegates a third party (`cor:agt:010:01`).
+  - `ticket mint --org <ref> --action comm.outbound --count <n>` mints consumable
+    action tickets into the org ledger (org ADMIN; `cor:acl:050:04`; `--app`
+    scopes to one App, `--note` records why, `--expires` sets an ISO expiry);
+    `ticket ls --org <ref>` is the ledger — minted / consumed-by-which-run /
+    expiries, paged to exhaustion.
+  - Every entry node is a fully-qualified node URN (`<org>::<memory>::<loc>`,
+    optionally `hrn:node:`-prefixed) — a bare loc is rejected (exit 2). `--app`
+    defaults to the App context (`hadron app use` / `--app`) when omitted.
 
 ## The escape hatch: hadron api
 
@@ -332,4 +371,20 @@ hadron search "how do users report a bad actor" -m micromentor.org::mmdata --jso
 
 # Arbitrary query with a variable
 hadron api 'query($q: String!) { findNodes(query: $q) { hits { node { loc name } } } }' -F q="auth flow"
+
+# Drive a headless run: fire an entry node now and wait for the result
+hadron run trigger --app acme.com:ops \
+  --entry acme.com::ops::tasks:nightly-digest --arg topic=security --wait --json
+
+# Schedule it nightly (on behalf of you, so it can reach your personal memories)
+hadron schedule create --app acme.com:ops --name nightly-digest \
+  --cron '0 6 * * *' --tz America/New_York \
+  --entry acme.com::ops::tasks:nightly-digest --as-self
+
+# Inspect what ran and why (the audit surface)
+hadron run ls --app acme.com:ops --status FAILED --json
+hadron run get <run-id> --json
+
+# Mint an outbound-comms budget the runs consume
+hadron ticket mint --org acme.com --action comm.outbound --count 100 --note 'digest sends'
 ```

@@ -83,6 +83,70 @@ the agent the CLI contract (auth checks, `--json`, `--yes` on
 destructive commands, fully-qualified node URNs) and defers to
 `hadron agentic-usage` as the runtime source of truth.
 
+## Driving headless runs
+
+`hadron` is the open-source counterpart to the closed-source portal: the
+spec-040 headless-run surface (`cor:agt:010`) is fully drivable from the CLI, so
+a self-hosted deployment needs no portal to schedule and operate agent runs. A
+*run* executes an entry (prompt) node under an App's identity, off any
+interactive session; `run`, `schedule`, and `webhook` are three triggers into the
+same kernel, and `ticket` is the action-budget ledger.
+
+End to end — pick the model, name the work, schedule it, watch the runs:
+
+```sh
+# 1. AI config the runs will use (App→Agent→Org→Host walk; innermost wins).
+printf '%s' "$ANTHROPIC_KEY" | hadron ai-config create --app acme.com:ops \
+  --name default --provider anthropic --model claude-opus-4-8 --api-key -
+
+# 2. The entry node — an ordinary prompt/task node in one of the App's memories.
+hadron node add -m acme.com::ops --loc tasks:nightly-digest --type task \
+  --name 'Nightly digest' --content 'Summarize today's incidents and email the team.'
+
+# 3. Schedule it. --as-self runs on behalf of you, so it can reach your
+#    personal memories (an App-key caller cannot use --as-self).
+hadron schedule create --app acme.com:ops --name nightly-digest \
+  --cron '0 6 * * *' --tz America/New_York \
+  --entry acme.com::ops::tasks:nightly-digest --as-self
+
+# 4. Mint the outbound-comms budget the runs consume (org ADMIN).
+hadron ticket mint --org acme.com --action comm.outbound --count 100 \
+  --note 'nightly digest sends'
+
+# 5. Trigger one now to test, waiting for the terminal status; then audit.
+hadron run trigger --app acme.com:ops \
+  --entry acme.com::ops::tasks:nightly-digest --as-self --wait --json
+hadron run ls --app acme.com:ops --status FAILED --json
+hadron run get <run-id> --json          # budgets, policy, failure payload
+```
+
+Webhooks are the push variant: `hadron webhook create --app <ref> --name <n> --entry <node-urn>`
+prints a URL path and platform token **once** (POST to fire the run) — capture
+them then, as the secret is never queryable again. `hadron webhook rotate <id>`
+reissues it. Full flag reference: `hadron agentic-usage`.
+
+### CLI coverage and deliberate exclusions
+
+Everything the platform can do is meant to be drivable from `hadron`. The
+headless-run surface above closes the spec-040 gap. Some server GraphQL
+operations have no dedicated command **by design** — they are reachable through
+the `hadron api` raw-GraphQL escape hatch when needed:
+
+- **Interactive / portal-only flows** — chat and session lifecycle
+  (`startChat`, `sendChatMessage`, `startSession`, …), the system-memory editor
+  lock and revision/version machinery, multipart asset upload, and invitation /
+  onboarding / profile mutations. These are browser-interaction shaped, not
+  batch-CLI shaped.
+- **Git-sync internals** — `replaceSubtree`, `mergeMemories`/`mergeNodes`,
+  `pushMemoryToGit`/`syncMemory`, `setMemorySourceToken`, `encryptMemory`. These
+  are server↔git machinery; the CLI's `memory export`/`node import` cover the
+  end-user round-trip.
+- **Not-yet-built, tracked as follow-ups** — the Agent surface (`agent` CRUD, AI
+  config wiring, subscriptions, imports) has no command group yet; one-time
+  schedules (`schedule create --at <iso>`), and the admin grants/policy/quota
+  surface are blocked on server work (hadron-server#510, #501). See issue #134's
+  comment thread for the running list.
+
 ## Development
 
 ```sh

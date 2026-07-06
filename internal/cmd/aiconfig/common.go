@@ -1,7 +1,6 @@
 package aiconfig
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -52,34 +51,6 @@ func resolveSecret(v string, stdin io.Reader) (string, error) {
 		return key, nil
 	}
 	return v, nil
-}
-
-// parseParams assembles repeated key=value flags into a JSON object. Each value
-// is sent as JSON when it parses as JSON (numbers, booleans, arrays, objects),
-// otherwise as a string. Returns nil for no params so the variable is omitted.
-func parseParams(pairs []string) (*json.RawMessage, error) {
-	if len(pairs) == 0 {
-		return nil, nil
-	}
-	obj := map[string]any{}
-	for _, p := range pairs {
-		k, v, ok := strings.Cut(p, "=")
-		if !ok || k == "" {
-			return nil, exitcode.Newf(exitcode.Usage, "--param must be key=value, got %q", p)
-		}
-		var jv any
-		if json.Unmarshal([]byte(v), &jv) == nil {
-			obj[k] = jv
-		} else {
-			obj[k] = v
-		}
-	}
-	b, err := json.Marshal(obj)
-	if err != nil {
-		return nil, err
-	}
-	raw := json.RawMessage(b)
-	return &raw, nil
 }
 
 // dtoFromFields maps a masked AiServiceConfig (the mutation return) into the

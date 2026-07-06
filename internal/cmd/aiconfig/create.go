@@ -39,7 +39,7 @@ later with 'ai-config update'. --param sets provider knobs (repeatable).`,
 			if err != nil {
 				return err
 			}
-			paramsJSON, err := parseParams(params)
+			paramsJSON, err := cmdutil.KeyValsToJSON(params, "param")
 			if err != nil {
 				return err
 			}
