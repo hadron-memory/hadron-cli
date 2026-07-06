@@ -49,15 +49,23 @@ func NewCmdMemory(f *cmdutil.Factory) *cobra.Command {
 // dispatches PKs and URNs server-side (hadron-server#473). The mutations
 // this feeds (updateMemory, member/share writes) still accept PK ids only.
 func resolveMemoryID(cmd *cobra.Command, client graphql.Client, ref string) (string, error) {
-	if !strings.Contains(ref, ":") {
-		return ref, nil
+	canon := cmdutil.CanonicalMemoryRef(ref)
+	if !strings.Contains(canon, ":") {
+		return canon, nil // a raw id — no round-trip needed
 	}
-	resp, err := gen.GetMemory(cmd.Context(), client, ref)
+	resp, err := gen.GetMemory(cmd.Context(), client, canon)
 	if err != nil {
 		return "", api.MapError(err)
 	}
 	if resp.Memory == nil {
-		return "", exitcode.Newf(exitcode.NotFound, "memory %q not found", ref)
+		return "", notFoundMemory(ref)
 	}
 	return resp.Memory.Id, nil
+}
+
+// notFoundMemory is the shared "no memory" error, naming the accepted forms so a
+// rejected short form isn't mistaken for a genuinely-absent memory (#108).
+func notFoundMemory(ref string) error {
+	return exitcode.Newf(exitcode.NotFound,
+		"no memory found for %q — expected a memory id or an <org>::<slug> URN (single-colon <org>:<slug> and an hrn:memory: prefix are also accepted)", ref)
 }

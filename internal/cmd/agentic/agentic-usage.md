@@ -69,15 +69,20 @@ hadron agentic-usage                                 # prints this doc
 
 Conventions:
 
-- Memory URNs are `org:memory` (e.g. `hadronmemory.com:dev`). Where a
-  command takes an ID it also accepts the URN.
-- Node references are fully-qualified URNs:
-  `<org>:<memory>:<loc>` (e.g. `hadronmemory.com:dev:start-here`),
-  optionally `hrn:node:`-prefixed (legacy `urn:node:` also accepted). A bare
-  loc is rejected (exit 2) *unless* you pass `-m/--memory <org:memory>` to
-  name the memory — then `node get|update|rm|export` and `edge add|ls` take a
-  bare `<loc>` (e.g. `node get start-here -m hadronmemory.com:dev`;
-  `edge add -m a:m --from x --to y …` applies the memory to both endpoints).
+- Memory references accept the memory id, the full `hrn:memory:<org>::<slug>`
+  URN, or the short `<org>::<slug>` / `<org>:<slug>` forms (all resolve to the
+  same memory) across `memory get|set|rm|member|share|export`.
+- Node references are fully-qualified URNs
+  `<org>::<memory>::<loc>` (double-colon between segments — e.g.
+  `hadronmemory.com::dev::start-here`), optionally `hrn:node:`-prefixed (legacy
+  `urn:node:` also accepted). Single-colon `<org>:<memory>:<loc>` is **not** a
+  valid full URN — a loc itself contains single colons
+  (`services:secureid:user-reporting`), so it's ambiguous. A bare loc is rejected
+  (exit 2) *unless* you pass `-m/--memory <org::memory>` (single-colon
+  `<org>:<memory>` also accepted) to name the memory — then
+  `node get|update|rm|export` and `edge add|ls` take a bare `<loc>` (e.g.
+  `node get start-here -m hadronmemory.com::dev`; `edge add -m a::m --from x
+  --to y …` applies the memory to both endpoints).
   Without `-m`, the URN must name the memory — the same loc can exist in
   several memories.
 - Edges are directed, first-class entities (spec 037): each carries an

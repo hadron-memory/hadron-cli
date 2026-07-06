@@ -9,7 +9,6 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
-	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -35,13 +34,14 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			// memory(ref:) dispatches PKs and URNs server-side
-			// (hadron-server#473) — no client-side resolution hop needed.
-			resp, err := gen.GetMemory(cmd.Context(), client, args[0])
+			// (hadron-server#473); normalize a bare org::slug / org:slug into the
+			// canonical URN first so the short forms resolve consistently (#108).
+			resp, err := gen.GetMemory(cmd.Context(), client, cmdutil.CanonicalMemoryRef(args[0]))
 			if err != nil {
 				return api.MapError(err)
 			}
 			if resp == nil || resp.Memory == nil {
-				return exitcode.Newf(exitcode.NotFound, "memory %q not found", args[0])
+				return notFoundMemory(args[0])
 			}
 
 			m := resp.Memory

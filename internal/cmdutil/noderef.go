@@ -29,10 +29,10 @@ func EdgeDisplay(name *string, loc string) string {
 // the strict-URN behavior is unchanged.
 func ResolveNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref string) (string, error) {
 	if memory = strings.TrimSpace(memory); memory != "" {
-		for _, p := range []string{"hrn:memory:", "urn:memory:"} {
-			memory = strings.TrimPrefix(memory, p)
-		}
-		ref = memory + "::" + strings.TrimSpace(ref)
+		// Normalize the memory to canonical org::memory so a single-colon
+		// `-m acme.com:kb` composes a valid <org>::<memory>::<loc> URN, not the
+		// 3-colon `acme.com:kb::loc` the strict grammar rejects (#38/#138).
+		ref = canonicalOrgMemory(memory) + "::" + strings.TrimSpace(ref)
 	}
 	return ResolveNodeURN(cmd, client, ref)
 }
@@ -48,10 +48,14 @@ func ResolveNodeURN(cmd *cobra.Command, client graphql.Client, ref string) (stri
 	// legacy-but-accepted-forever. A prefixed URN passes through verbatim
 	// (the server accepts both); a bare ref gets the canonical hrn:node:.
 	if !strings.HasPrefix(urn, "hrn:") && !strings.HasPrefix(urn, "urn:") {
-		// A full node URN has at least org::memory::loc.
-		if strings.Count(urn, ":") < 4 {
+		// A full node URN is <org>::<memory>::<loc> — TWO double-colon separators
+		// (org::memory, memory::loc). Counting single colons wouldn't enforce the
+		// grammar: a single-colon ref whose loc has its own colons
+		// (acme.com:kb:services:secureid:x) has ≥4 colons yet zero `::`, so it must
+		// be rejected as the ambiguous form it is, not passed to the server.
+		if strings.Count(urn, "::") < 2 {
 			return "", exitcode.Newf(exitcode.Usage,
-				"%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (e.g. hadronmemory.com::dev::start-here)", ref)
+				"%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (e.g. hadronmemory.com::dev::start-here), or pass -m <org::memory> (single-colon <org:memory> also accepted) with a bare loc", ref)
 		}
 		urn = "hrn:node:" + urn
 	}
@@ -60,7 +64,11 @@ func ResolveNodeURN(cmd *cobra.Command, client graphql.Client, ref string) (stri
 		return "", api.MapError(err)
 	}
 	if resp.ResolveUrn == nil {
-		return "", exitcode.Newf(exitcode.NotFound, "node %q not found", ref)
+		// resolveUrn returns null for a well-formed URN that names nothing —
+		// point at the canonical grammar so a spelling slip isn't read as a
+		// genuinely-absent node (#138).
+		return "", exitcode.Newf(exitcode.NotFound,
+			"node %q not found — verify it exists; the URN form is <org>::<memory>::<loc>, optionally hrn:node:/urn:node:-prefixed", ref)
 	}
 	if resp.ResolveUrn.Kind != "node" {
 		return "", exitcode.Newf(exitcode.Usage, "%q resolves to a %s, not a node", ref, resp.ResolveUrn.Kind)
