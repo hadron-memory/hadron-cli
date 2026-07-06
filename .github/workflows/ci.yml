@@ -1,5 +1,10 @@
 name: CI
 
+# Third-party actions are pinned to a full commit SHA (with the human-readable
+# tag in a trailing comment) rather than a floating tag, so a compromised or
+# force-moved upstream tag can't silently change what runs here (#119). Bump the
+# SHA + comment together when intentionally upgrading.
+
 on:
   push:
     branches: [main]
@@ -12,8 +17,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
       - name: Build
@@ -28,16 +33,30 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
-      - uses: golangci/golangci-lint-action@v8
+      - uses: golangci/golangci-lint-action@4afd733a84b1f43292c63897423277bb7f4313a9 # v8
+
+  vuln:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+      # Detective control for known-vulnerable dependencies (#124). govulncheck
+      # is symbol-aware: it only fails on advisories the code actually reaches,
+      # so an unreachable transitive CVE won't block a release. Pinned by module
+      # version (immutable via the checksum DB).
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.5.0 ./...
 
   release-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: goreleaser/goreleaser-action@v6
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
         with:
           args: check
