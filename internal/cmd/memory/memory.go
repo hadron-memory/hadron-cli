@@ -67,5 +67,5 @@ func resolveMemoryID(cmd *cobra.Command, client graphql.Client, ref string) (str
 // rejected short form isn't mistaken for a genuinely-absent memory (#108).
 func notFoundMemory(ref string) error {
 	return exitcode.Newf(exitcode.NotFound,
-		"no memory found for %q — expected a memory id, hrn:memory:<org>::<slug>, or <org>::<slug>", ref)
+		"no memory found for %q — expected a memory id or an <org>::<slug> URN (single-colon <org>:<slug> and an hrn:memory: prefix are also accepted)", ref)
 }

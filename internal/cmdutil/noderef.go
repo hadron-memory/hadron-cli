@@ -55,7 +55,7 @@ func ResolveNodeURN(cmd *cobra.Command, client graphql.Client, ref string) (stri
 		// be rejected as the ambiguous form it is, not passed to the server.
 		if strings.Count(urn, "::") < 2 {
 			return "", exitcode.Newf(exitcode.Usage,
-				"%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (e.g. hadronmemory.com::dev::start-here), or pass -m <org::memory> with a bare loc", ref)
+				"%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (e.g. hadronmemory.com::dev::start-here), or pass -m <org::memory> (single-colon <org:memory> also accepted) with a bare loc", ref)
 		}
 		urn = "hrn:node:" + urn
 	}
@@ -68,7 +68,7 @@ func ResolveNodeURN(cmd *cobra.Command, client graphql.Client, ref string) (stri
 		// point at the canonical grammar so a spelling slip isn't read as a
 		// genuinely-absent node (#138).
 		return "", exitcode.Newf(exitcode.NotFound,
-			"node %q not found — verify it exists and the URN form is hrn:node:<org>::<memory>::<loc>", ref)
+			"node %q not found — verify it exists; the URN form is <org>::<memory>::<loc>, optionally hrn:node:/urn:node:-prefixed", ref)
 	}
 	if resp.ResolveUrn.Kind != "node" {
 		return "", exitcode.Newf(exitcode.Usage, "%q resolves to a %s, not a node", ref, resp.ResolveUrn.Kind)
