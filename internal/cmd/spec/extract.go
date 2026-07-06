@@ -216,15 +216,18 @@ chunk leaves the source alone with a warning.`,
 			}
 			newID := up.CreateNode.Id
 
+			var edgeFailures []string
 			if !noEdges {
 				for _, e := range result.Edges {
 					targetID, rerr := resolveSpecNode(cmd, client, memURN, e.Target)
 					if rerr != nil {
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: skipped edge %q → %s: %v\n", e.Label, e.Target, rerr)
+						edgeFailures = append(edgeFailures, e.Target)
 						continue
 					}
 					if _, cerr := gen.CreateEdge(cmd.Context(), client, newID, targetID, e.Label, nil, nil, nil, nil, nil, nil); cerr != nil {
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", e.Label, e.Target, api.MapError(cerr))
+						edgeFailures = append(edgeFailures, e.Target)
 					}
 				}
 			}
@@ -247,9 +250,20 @@ chunk leaves the source alone with a warning.`,
 				}
 			}
 
-			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
+			if err := output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				return renderExtractResult(w, result)
-			})
+			}); err != nil {
+				return err
+			}
+			// The spec was created but a structural edge is missing — it's orphaned
+			// from the ToC. Exit non-zero so the gap isn't read as a clean extract,
+			// matching `spec new`/`spec supersede` (#127).
+			if len(edgeFailures) > 0 {
+				return exitcode.Newf(exitcode.Error,
+					"extracted %s but failed to wire %d edge(s) to %s — the new spec is orphaned from the spec tree; fix the target(s) and wire with `hadron edge add`",
+					target.Format(), len(edgeFailures), strings.Join(edgeFailures, ", "))
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")

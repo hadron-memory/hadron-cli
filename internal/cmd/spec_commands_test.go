@@ -1554,6 +1554,38 @@ func TestSpecExtract(t *testing.T) {
 	}
 }
 
+// A ToC/inheritance edge that can't be wired leaves the extracted spec orphaned
+// from the tree. The spec is still created (the JSON is emitted), but the command
+// exits non-zero so the gap isn't read as a clean extract — matching `spec
+// new`/`spec supersede` (#127).
+func TestSpecExtractFailsLoudOnEdgeFailure(t *testing.T) {
+	mocks := extractMocks()
+	// Every target resolves, but CreateEdge is rejected — so all planned edges
+	// fail (extract has no must-succeed edge to worry about).
+	mocks["CreateEdge"] = `{"errors":[{"message":"createEdge operator 'flag' is not in the v1 allowlist"}]}`
+	gql, _ := captureGraphQL(t, mocks)
+	f, out := testFactory(t)
+	f.IOStreams.In = strings.NewReader(extractChunk)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "extract", "cor:dmo:060:02", "-m", specMem,
+		"--to-feature", "020", "--title", "Node type", "--content", "-", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "orphaned") {
+		t.Fatalf("an extract that can't wire its edge(s) must fail loudly, got %v", err)
+	}
+	if code := exitcode.FromError(err); code != exitcode.Error {
+		t.Errorf("orphaned-edge exit code = %d, want %d (Error)", code, exitcode.Error)
+	}
+	// The created spec is still reported on stdout before the error.
+	var dto extractDTO
+	if uerr := json.Unmarshal([]byte(out.String()), &dto); uerr != nil {
+		t.Fatalf("extract JSON must still be emitted: %v\n%s", uerr, out.String())
+	}
+	if dto.Citation != "cor:dmo:020:04" {
+		t.Errorf("the created spec must still be reported, got %+v", dto)
+	}
+}
+
 func TestSpecExtractStripSourceHit(t *testing.T) {
 	gql, captured := captureGraphQL(t, extractMocks())
 	f, out := testFactory(t)
