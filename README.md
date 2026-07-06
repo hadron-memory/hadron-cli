@@ -233,35 +233,79 @@ releases keep working unsigned until they're configured. Until then the Homebrew
 cask strips the Gatekeeper quarantine flag on install; once notarized releases
 are verified, that strip is removed ([#158](https://github.com/hadron-memory/hadron-cli/issues/158)).
 
-To enable it, add five repo secrets (Apple Developer account required):
+To enable it, you set up **five repository secrets** — two from a signing
+certificate, three from a notary API key. One-time setup (an Apple Developer
+account is required); do it on a Mac, ~15 minutes.
 
-**Signing cert** — in your Apple Developer account, create a **Developer ID
-Application** certificate, then export it from Keychain Access as a
-password-protected `.p12`:
+#### Part 1 — the signing certificate → `MACOS_SIGN_P12`, `MACOS_SIGN_PASSWORD`
 
-```sh
-base64 -i DeveloperID.p12 | pbcopy   # → MACOS_SIGN_P12
-```
+goreleaser signs with a **Developer ID Application** certificate. What it needs is
+a `.p12` file bundling the certificate **and its private key**, base64-encoded.
 
-- `MACOS_SIGN_P12` — base64 of the `.p12`
-- `MACOS_SIGN_PASSWORD` — the `.p12` export password
+1. **Create the certificate.** In the [Apple Developer portal](https://developer.apple.com/account/resources/certificates/list),
+   *Certificates → +*, choose **Developer ID Application**. When asked which
+   intermediate, pick **G2 Sub-CA** (the current one). It has you upload a CSR —
+   generate that with *Keychain Access → Certificate Assistant → Request a
+   Certificate from a Certificate Authority* (save to disk). That creates the
+   matching **private key in your `login` keychain** — essential; don't delete it.
+   Download the issued `developerID_application.cer`.
 
-**Notary key** — in App Store Connect → *Users and Access → Integrations → App
-Store Connect API*, create a **Team key** (role *Developer*), and note the Issuer
-ID + Key ID as you download the `.p8`:
+2. **Import it into the `login` keychain** (not System, not iCloud). Drag the
+   `.cer` onto the **login** keychain in Keychain Access's sidebar, or
+   double-click and choose `login` if prompted. The cert must land in the **same
+   keychain as its private key**, or the `.p12` export won't be possible.
 
-```sh
-base64 -i AuthKey_XXXXXX.p8 | pbcopy  # → MACOS_NOTARY_KEY
-```
+   > **"This certificate is not trusted"** is expected and harmless — it only
+   > means the Apple intermediate isn't installed locally; signing and
+   > notarization validate against Apple's servers regardless. To clear it,
+   > download **Developer ID - G2** from
+   > <https://www.apple.com/certificateauthority/> and double-click it. **Do not**
+   > set a manual "Always Trust" override — that *breaks* `codesign`.
 
-- `MACOS_NOTARY_ISSUER_ID` — the API-key issuer id (a UUID)
-- `MACOS_NOTARY_KEY_ID` — the API-key id
-- `MACOS_NOTARY_KEY` — base64 of the `.p8`
+3. **Export the `.p12`.** Select the **login** keychain → **My Certificates**.
+   Find *Developer ID Application: …* — it must have a **▸ disclosure triangle
+   revealing a private key** underneath (the "My Certificates" category only lists
+   certs whose key is present). Right-click that row → **Export** → format
+   **Personal Information Exchange (.p12)** → save and set an **export password**.
 
-Add them under *Settings → Secrets and variables → Actions*. The next tagged
-release will sign + notarize automatically. The Developer ID cert expires
-(~5 years) — a build will start failing when it lapses; renew and re-export.
-Windows codesigning (a separate EV-cert lift) is out of scope.
+   > Export greyed out? The cert and key are in different keychains (usually the
+   > cert got imported into *System*). Redo step 2 into `login`.
+
+4. **Turn it into the two secrets:**
+   ```sh
+   base64 -i "Developer ID Application.p12" | pbcopy   # copies to clipboard
+   ```
+   - `MACOS_SIGN_P12` — paste that base64 blob
+   - `MACOS_SIGN_PASSWORD` — the export password from step 3
+
+#### Part 2 — the notary API key → `MACOS_NOTARY_*` (three secrets)
+
+Notarization authenticates to Apple with an **App Store Connect API key** —
+separate from the certificate.
+
+1. In [App Store Connect](https://appstoreconnect.apple.com/access/integrations/api)
+   → *Users and Access → Integrations → App Store Connect API → Team Keys*, click
+   **+**, name it, role **Developer**, Generate.
+2. Copy the **Issuer ID** (a UUID, shown above the table) and the row's **Key ID**,
+   and **Download** the `AuthKey_XXXXXXXXXX.p8` (downloadable **once** — keep it).
+3. Turn them into the three secrets:
+   ```sh
+   base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy             # copies to clipboard
+   ```
+   - `MACOS_NOTARY_ISSUER_ID` — the Issuer ID (UUID)
+   - `MACOS_NOTARY_KEY_ID` — the Key ID
+   - `MACOS_NOTARY_KEY` — paste that base64 blob
+
+#### Part 3 — add the secrets to GitHub
+
+For each of the five: repo **Settings → Secrets and variables → Actions → New
+repository secret**, enter the exact name above, paste the value, save. The next
+tagged release then signs + notarizes automatically — nothing else to flip (the
+config is gated on all five being present).
+
+**Maintenance:** the Developer ID certificate expires (~5 years) — a release
+starts failing when it lapses, so renew and re-export the `.p12` then. Windows
+codesigning (a separate EV-cert lift) is out of scope.
 
 Verify from the Actions run, the new
 [release](https://github.com/hadron-memory/hadron-cli/releases/latest), and the
