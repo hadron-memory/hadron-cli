@@ -249,6 +249,38 @@ func (c Citation) Level() int {
 	}
 }
 
+// Seq derives the sibling sort order from the citation's deepest numeric
+// segment (feature/rule/flow), so a spec node sorts among its siblings by
+// citation and the portal can offer a "Next" (#40). ok is false for a module or
+// bare product root, whose leaf is alphabetic and carries no numeric order.
+func (c Citation) Seq() (int, bool) {
+	var leaf string
+	switch {
+	case c.Flow != "":
+		leaf = c.Flow
+	case c.Rule != "":
+		leaf = c.Rule
+	case c.Feature != "":
+		leaf = c.Feature
+	default:
+		return 0, false
+	}
+	n, err := strconv.Atoi(leaf)
+	if err != nil {
+		return 0, false
+	}
+	return n, true
+}
+
+// specSeq returns the sibling sort order for a spec citation as a *int ready for
+// CreateNodeInput.Seq, or nil when the citation has no numeric leaf.
+func specSeq(c Citation) *int {
+	if n, ok := c.Seq(); ok {
+		return &n
+	}
+	return nil
+}
+
 // Format re-emits the colon form, including the product when present.
 func (c Citation) Format() string {
 	var parts []string
@@ -663,8 +695,8 @@ func paginateNodes(fetch func(limit, offset int) ([]*api.ListNode, error)) ([]*a
 // ---- the in-memory model the lint engine and renderers operate on ----
 
 type specEdge struct {
-	Name  string
-	Loc   string // the target's loc
+	Name string
+	Loc  string // the target's loc
 }
 
 // specNode is a lint/render-friendly projection of a node, decoupled from

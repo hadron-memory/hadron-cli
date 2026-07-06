@@ -208,6 +208,7 @@ chunk leaves the source alone with a warning.`,
 				Abstract: &abs,
 				Content:  &body,
 				Data:     specDataRaw(),
+				Seq:      specSeq(target),
 			}
 			up, err := gen.CreateNode(cmd.Context(), client, &input)
 			if err != nil {

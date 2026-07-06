@@ -101,8 +101,8 @@ func TestSpecLs(t *testing.T) {
 
 func TestSpecGet(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -126,8 +126,8 @@ func TestSpecGet(t *testing.T) {
 // #69 item 5: spec get surfaces the node's `data` block in the text view.
 func TestSpecGetSurfacesData(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -321,6 +321,7 @@ func TestSpecNew(t *testing.T) {
 			NodeType *string         `json:"nodeType"`
 			Abstract *string         `json:"abstract"`
 			Data     json.RawMessage `json:"data"`
+			Seq      *int            `json:"seq"`
 		} `json:"input"`
 	}
 	if err := json.Unmarshal(captured["CreateNode"], &up); err != nil {
@@ -328,6 +329,10 @@ func TestSpecNew(t *testing.T) {
 	}
 	if up.Input.Loc != "msg:010:01" {
 		t.Errorf("allocated loc = %q, want msg:010:01", up.Input.Loc)
+	}
+	// seq comes from the citation's numeric leaf (rule 01) so siblings sort (#40).
+	if up.Input.Seq == nil || *up.Input.Seq != 1 {
+		t.Errorf("seq = %v, want 1 (from rule leaf 01)", up.Input.Seq)
 	}
 	if up.Input.NodeType == nil || *up.Input.NodeType != "info" {
 		t.Errorf("nodeType = %v", up.Input.NodeType)
@@ -375,7 +380,7 @@ func TestSpecNew(t *testing.T) {
 func TestSpecNewResolvesPKForEdgeTargets(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:010", `["spec"]`) + `,` + specNodeList("msg:010:00", `["spec"]`) + `]}}`
 	gql, captured := captureGraphQL(t, map[string]string{
-		"Memories": memListMicromentorJSON,
+		"Memories":   memListMicromentorJSON,
 		"FindNodes":  scan,
 		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
@@ -426,9 +431,9 @@ func TestSpecNewFailsLoudOnSkippedEdge(t *testing.T) {
 // (URN, bare, PK, name).
 func TestSpecDescribeResolvesByPK(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"Memories": memListJSON,
-		"GetMemory":  memGetJSON(`null`),
-		"FindNodes":  `{"data":{"nodes":[` + specNodeList("cli", `["spec"]`) + `]}}`,
+		"Memories":  memListJSON,
+		"GetMemory": memGetJSON(`null`),
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("cli", `["spec"]`) + `]}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -559,9 +564,9 @@ func TestSpecDescribeProduct(t *testing.T) {
 		specNodeList("cli:cha:010:01", `["spec","p1"]`),
 	}, ",")
 	gql, _ := captureGraphQL(t, map[string]string{
-		"Memories": memListJSON,
-		"GetMemory":  memGetJSON(`null`),
-		"FindNodes":  `{"data":{"nodes":[` + nodes + `]}}`,
+		"Memories":  memListJSON,
+		"GetMemory": memGetJSON(`null`),
+		"FindNodes": `{"data":{"nodes":[` + nodes + `]}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -594,7 +599,7 @@ func TestSpecDescribeProduct(t *testing.T) {
 
 func TestSpecDescribeDeclare(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"Memories":   memListJSON,
+		"Memories":     memListJSON,
 		"GetMemory":    memGetJSON(`null`),
 		"UpdateMemory": `{"data":{"updateMemory":{"id":"mem1","urn":"hadronmemory.com:platform-specs","name":"P","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"data":{"spec":{"scheme":"product"}},"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"FindNodes":    `{"data":{"nodes":[]}}`, // empty corpus: the declared scheme is all there is
@@ -989,10 +994,10 @@ func TestSpecLintInfersSoleProduct(t *testing.T) {
 	// product (cli) is inferred and cli:cha is linted, instead of dead-ending
 	// (#99 item 4).
 	gql, _ := captureGraphQL(t, map[string]string{
-		"FindNodes":   `{"data":{"nodes":[` + specNodeList("cli:cha", `["spec","p0"]`) + `]}}`,
-		"GetNode": `{"data":{"node":` + cliChaModuleDetail + `}}`,
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("cli:cha", `["spec","p0"]`) + `]}}`,
+		"GetNode":   `{"data":{"node":` + cliChaModuleDetail + `}}`,
 		"Memories":  memListJSON,
-		"GetMemory":   memGetVectorEnabledJSON,
+		"GetMemory": memGetVectorEnabledJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1011,12 +1016,12 @@ func TestSpecLintScopedRootParentAboveScope(t *testing.T) {
 	// lives above the scoped scan. --strict makes any finding fatal, so a clean
 	// run proves the false positive is gone.
 	gql, _ := captureGraphQL(t, map[string]string{
-		"FindNodes":   `{"data":{"nodes":[` + specNodeList("cor:acl", `["spec","p0"]`) + `]}}`,
-		"GetNode": `{"data":{"node":` + corAclModuleDetail + `}}`,
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("cor:acl", `["spec","p0"]`) + `]}}`,
+		"GetNode":   `{"data":{"node":` + corAclModuleDetail + `}}`,
 		// lint now also probes the memory's vector index (#42); an indexed
 		// memory keeps this --strict run clean.
-		"Memories": memListJSON,
-		"GetMemory":  memGetVectorEnabledJSON,
+		"Memories":  memListJSON,
+		"GetMemory": memGetVectorEnabledJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1031,12 +1036,12 @@ func TestSpecLintScopedRootParentAboveScope(t *testing.T) {
 
 func TestSpecLintErrorsExitConflict(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": `{"data":{"node":` + badSpecDetail + `}}`,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + badSpecDetail + `}}`,
 		// lint also probes the vector index (#42); an indexed memory keeps the
 		// failing findings here about the rubric, not the index.
-		"Memories": memListMicromentorJSON,
-		"GetMemory":  memGetVectorEnabledJSON,
+		"Memories":  memListMicromentorJSON,
+		"GetMemory": memGetVectorEnabledJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1054,10 +1059,10 @@ func TestSpecLintErrorsExitConflict(t *testing.T) {
 // otherwise-clean spec still lints OK (exit 0) but surfaces the index gap.
 func TestSpecLintWarnsNoVectorIndex(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"Memories":  memListJSON,
-		"GetMemory":   memGetNoVectorJSON,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"Memories":   memListJSON,
+		"GetMemory":  memGetNoVectorJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1073,10 +1078,10 @@ func TestSpecLintWarnsNoVectorIndex(t *testing.T) {
 // #42: --strict promotes the vector-index warning to an error (exit Conflict).
 func TestSpecLintNoVectorIndexStrictFails(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"Memories":  memListJSON,
-		"GetMemory":   memGetNoVectorJSON,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"Memories":   memListJSON,
+		"GetMemory":  memGetNoVectorJSON,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -1090,10 +1095,10 @@ func TestSpecLintNoVectorIndexStrictFails(t *testing.T) {
 // vector-index finding.
 func TestSpecLintVectorIndexEnabledNoWarning(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"Memories":  memListJSON,
-		"GetMemory":   memGetVectorEnabledJSON,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"Memories":   memListJSON,
+		"GetMemory":  memGetVectorEnabledJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1113,8 +1118,8 @@ func TestSpecLintVectorIndexEnabledNoWarning(t *testing.T) {
 // lint — so it pipes cleanly into `node update --content -`.
 func TestSpecGetBodyOnly(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1135,8 +1140,8 @@ func TestSpecGetBodyOnly(t *testing.T) {
 
 func TestSpecGetBodyOnlyJSON(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1172,9 +1177,9 @@ func TestSpecGetBodyOnlyRejectsPrefixAndAbstractOnly(t *testing.T) {
 
 func TestSpecSupersedeRequiresYes(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"FindNodes":   `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"FindNodes":  `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -1187,12 +1192,12 @@ func TestSpecSupersedeRequiresYes(t *testing.T) {
 
 func TestSpecSupersede(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"FindNodes":   `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
-		"CreateNode":  `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"UpdateNode":  `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"CreateEdge":  `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"FindNodes":  `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"UpdateNode": `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1285,12 +1290,12 @@ func extractScan() string {
 
 func extractMocks() map[string]string {
 	return map[string]string{
-		"FindNodes":   extractScan(),
-		"GetNode": extractSrcDetail,
-		"ResolveUrn":  `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
-		"CreateNode":  `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"cor:dmo:020:04","name":"cor:dmo:020:04 — Node type","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"UpdateNode":  `{"data":{"updateNode":{"id":"src1","memoryId":"mem1","loc":"cor:dmo:060:02","name":"cor:dmo:060:02 — Node","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"CreateEdge":  `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"cor:dmo:020:04"},"target":{"id":"t1","loc":"cor:dmo:020"}}}}`,
+		"FindNodes":  extractScan(),
+		"GetNode":    extractSrcDetail,
+		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"cor:dmo:020:04","name":"cor:dmo:020:04 — Node type","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"UpdateNode": `{"data":{"updateNode":{"id":"src1","memoryId":"mem1","loc":"cor:dmo:060:02","name":"cor:dmo:060:02 — Node","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"cor:dmo:020:04"},"target":{"id":"t1","loc":"cor:dmo:020"}}}}`,
 	}
 }
 
@@ -1451,9 +1456,9 @@ func TestSpecExtractDryRun(t *testing.T) {
 	// No mutation ops mocked — any CreateNode/UpdateNode/CreateEdge would be an
 	// unexpected op.
 	gql, captured := captureGraphQL(t, map[string]string{
-		"FindNodes":   extractScan(),
-		"GetNode": extractSrcDetail,
-		"ResolveUrn":  `{"data":{"resolveUrn":{"id":"src1","kind":"node","memoryId":"mem1"}}}`,
+		"FindNodes":  extractScan(),
+		"GetNode":    extractSrcDetail,
+		"ResolveUrn": `{"data":{"resolveUrn":{"id":"src1","kind":"node","memoryId":"mem1"}}}`,
 	})
 	f, out := testFactory(t)
 	f.IOStreams.In = strings.NewReader(extractChunk)
@@ -1490,8 +1495,8 @@ func TestSpecExtractStripNeedsChunk(t *testing.T) {
 
 func TestSpecExtractSourceNotFound(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  `{"data":{"resolveUrn":{"id":"src1","kind":"node","memoryId":"mem1"}}}`,
-		"GetNode": `{"data":{"node":null}}`,
+		"ResolveUrn": `{"data":{"resolveUrn":{"id":"src1","kind":"node","memoryId":"mem1"}}}`,
+		"GetNode":    `{"data":{"node":null}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -1540,9 +1545,9 @@ type linkDTO struct {
 
 func TestSpecLink(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": linkSpecDetail,
-		"CreateEdge":  linkEdgeResp,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    linkSpecDetail,
+		"CreateEdge": linkEdgeResp,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1577,9 +1582,9 @@ func TestSpecLink(t *testing.T) {
 
 func TestSpecLinkExplicitLabel(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": linkSpecDetail,
-		"CreateEdge":  linkEdgeResp,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    linkSpecDetail,
+		"CreateEdge": linkEdgeResp,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1605,8 +1610,8 @@ func TestSpecLinkExplicitLabel(t *testing.T) {
 func TestSpecLinkDryRun(t *testing.T) {
 	// CreateEdge is not mocked — a dry-run that called it would be an unexpected op.
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": linkSpecDetail,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    linkSpecDetail,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1624,8 +1629,8 @@ func TestSpecLinkDryRun(t *testing.T) {
 
 func TestSpecLinkNonSpecEndpoint(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": linkNonSpecDetail,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    linkNonSpecDetail,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -1647,8 +1652,8 @@ func TestSpecLinkSelf(t *testing.T) {
 
 func TestSpecLinkEndpointNotFound(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": `{"data":{"node":null}}`,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":null}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -1668,9 +1673,9 @@ const editNonSpecDetail = `{"data":{"node":{"id":"x1","memoryId":"mem1","loc":"r
 
 func editMocks() map[string]string {
 	return map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"UpdateNode":  `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","messaging"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"UpdateNode": `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","messaging"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 	}
 }
 
@@ -1730,8 +1735,8 @@ func TestSpecEditNoOp(t *testing.T) {
 	defer restore()
 
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1756,8 +1761,8 @@ func TestSpecEditCRLFNoOp(t *testing.T) {
 	defer restore()
 
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1793,8 +1798,8 @@ func TestSpecEditContentStdin(t *testing.T) {
 // TestSpecEditDryRun: --dry-run previews without writing.
 func TestSpecEditDryRun(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
 	})
 	f, out := testFactory(t)
 	f.IOStreams.In = strings.NewReader("# replaced body\n")
@@ -1878,8 +1883,8 @@ func TestSpecEditBodyAndAbstract(t *testing.T) {
 // TestSpecEditAbstractNoOp: passing the current abstract back changes nothing.
 func TestSpecEditAbstractNoOp(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1963,8 +1968,8 @@ func TestSpecEditDualStdin(t *testing.T) {
 
 func TestSpecEditNonSpec(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveSpecJSON,
-		"GetNode": editNonSpecDetail,
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    editNonSpecDetail,
 	})
 	f, _ := testFactory(t)
 	f.IOStreams.In = strings.NewReader("anything\n")
