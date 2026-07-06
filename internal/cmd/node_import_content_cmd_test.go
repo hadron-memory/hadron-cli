@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // importNodeResp builds an ImportNode GraphQL response (sync v1: STORED + the
@@ -45,6 +47,7 @@ func decodeIngestVars(t *testing.T, raw json.RawMessage) ingestVars {
 // encoding, so the caller just points at the file.
 func TestNodeImportPDFBase64EncodesAndSetsContentType(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNullJSON,
 		"ImportNode": importNodeResp("papers:attention", "Attention Is All You Need", "info"),
 	})
 	f, out := testFactory(t)
@@ -93,6 +96,7 @@ func TestNodeImportPDFBase64EncodesAndSetsContentType(t *testing.T) {
 // infers text/markdown, passing the body through verbatim (no base64).
 func TestNodeImportContentFlagInfersMarkdown(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNullJSON,
 		"ImportNode": importNodeResp("notes:today", "Today", "webpage"),
 	})
 	f, _ := testFactory(t)
@@ -118,6 +122,7 @@ func TestNodeImportContentFlagInfersMarkdown(t *testing.T) {
 // The --url path sends the url and no content; contentType is server-side (HTML).
 func TestNodeImportURL(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNullJSON,
 		"ImportNode": importNodeResp("clips:post", "A Post", "webpage"),
 	})
 	f, _ := testFactory(t)
@@ -139,6 +144,7 @@ func TestNodeImportURL(t *testing.T) {
 // piped over stdin, where nothing is inferable from a pipe.
 func TestNodeImportStdinPDFViaContentTypeFlag(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNullJSON,
 		"ImportNode": importNodeResp("papers:x", "X", "info"),
 	})
 	f, _ := testFactory(t)
@@ -159,6 +165,7 @@ func TestNodeImportStdinPDFViaContentTypeFlag(t *testing.T) {
 // infers text/html.
 func TestNodeImportContentNodeURNTarget(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNullJSON,
 		"ImportNode": importNodeResp("clips:example", "Example", "webpage"),
 	})
 	f, _ := testFactory(t)
@@ -232,6 +239,7 @@ func TestNodeImportContentRejectsRestoreFlags(t *testing.T) {
 // server; Gemini PR-139).
 func TestNodeImportContentNullResultErrors(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNullJSON,
 		"ImportNode": `{"data":{"importNode":null}}`,
 	})
 	f, _ := testFactory(t)
@@ -242,11 +250,30 @@ func TestNodeImportContentNullResultErrors(t *testing.T) {
 	}
 }
 
+// Content-mode ingest onto an EXISTING node is an overwrite: refused
+// non-interactively without --yes, with no importNode call (#129).
+func TestNodeImportContentOverwriteRefusedWithoutYes(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON, // target already exists
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "import", "--url", "https://example.com/post", "-m", "acme.com:kb", "--loc", "clips:post", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || exitcode.FromError(err) != exitcode.Usage {
+		t.Fatalf("content overwrite without --yes should be a usage error, got %v", err)
+	}
+	if captured["ImportNode"] != nil {
+		t.Error("importNode must not be called when the overwrite is refused")
+	}
+}
+
 // A restore-mode import (an export file with no content type) must NOT put
 // contentType on the wire: the server reads an explicit null as "clear", so an
 // unset field has to be omitted, not serialized as null (Codex PR-139 P2).
 func TestNodeImportRestoreOmitsContentType(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNullJSON,
 		"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)

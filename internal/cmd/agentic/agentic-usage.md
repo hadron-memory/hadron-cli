@@ -142,7 +142,10 @@ Conventions:
     reported in `unwiredEdges` with a `reason`, never fatal, and re-import is
     idempotent); `--create-only` refuses to update; `--dry-run` classifies
     without mutating. The server recomputes `contentHash`/`abstractOriginHash`,
-    so a clean export→import round-trips losslessly.
+    so a clean export→import round-trips losslessly. Landing on an EXISTING node
+    overwrites it — like the destructive commands, that prompts on a terminal and
+    requires `--yes` non-interactively (a prior version is kept); a create is
+    never gated.
   - CONTENT ingests RAW external source and lets the server convert it to the
     node's Markdown body. Selected by `--url <url>` (fetched server-side,
     SSRF-guarded, WITHOUT your credentials — authenticated pages must be captured
