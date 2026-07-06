@@ -99,8 +99,9 @@ func (f *Factory) Token() (string, auth.TokenSource, error) {
 	if err != nil {
 		return "", auth.SourceNone, err
 	}
-	token, source := auth.ResolveToken(f.TokenStore(), server)
-	return token, source, nil
+	// A corrupt/unreadable store surfaces as an error here rather than a false
+	// SourceNone, so a broken auth.json fails loud instead of "not signed in" (#125).
+	return auth.ResolveToken(f.TokenStore(), server)
 }
 
 // GraphQLClient returns an authenticated genqlient client, failing
