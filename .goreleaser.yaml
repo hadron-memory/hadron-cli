@@ -29,6 +29,25 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# Keyless cosign signature over checksums.txt, so a downloader can verify the
+# checksum manifest is the one this pipeline produced — not merely internally
+# consistent (#123). Keyless uses the release job's GitHub OIDC identity (no
+# long-lived key); the short-lived signing cert is recorded in the public Rekor
+# transparency log. Produces checksums.txt.pem (cert) + checksums.txt.sig next
+# to the manifest on the Release. Requires cosign on the runner and
+# `id-token: write` in the workflow.
+signs:
+  - cmd: cosign
+    certificate: '${artifact}.pem'
+    args:
+      - sign-blob
+      - '--output-certificate=${certificate}'
+      - '--output-signature=${signature}'
+      - '${artifact}'
+      - '--yes'
+    artifacts: checksum
+    output: true
+
 homebrew_casks:
   - repository:
       owner: hadron-memory

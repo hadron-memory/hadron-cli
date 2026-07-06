@@ -31,7 +31,31 @@ brew install --cask hadron
 
 Download the archive for your platform from the
 [latest release](https://github.com/hadron-memory/hadron-cli/releases/latest),
-verify against `checksums.txt`, and put `hadron` on your PATH.
+verify it, and put `hadron` on your PATH.
+
+`checksums.txt` is signed with [cosign](https://docs.sigstore.dev/) keyless, so
+you can confirm it came from this repo's release pipeline before trusting the
+checksums in it. Download `checksums.txt`, `checksums.txt.pem`, and
+`checksums.txt.sig` from the release, then:
+
+```sh
+# 1. Verify the checksum manifest was signed by this repo's release workflow.
+cosign verify-blob \
+  --certificate checksums.txt.pem \
+  --signature checksums.txt.sig \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/hadron-memory/hadron-cli/\.github/workflows/release\.yml@refs/tags/v' \
+  checksums.txt
+
+# 2. Only once that prints "Verified OK", check your archive against it.
+shasum -a 256 -c checksums.txt --ignore-missing
+```
+
+The `--certificate-identity-regexp` pins the signer to the release workflow on a
+`v*` tag in this repo — without it, `cosign` would accept a signature from *any*
+GitHub identity. Verifying the signature first is what makes the checksum
+meaningful: the manifest is co-hosted with the archives, so checking an archive
+against an unsigned `checksums.txt` only proves they agree with each other.
 
 ### Go
 
@@ -180,6 +204,10 @@ which runs [goreleaser](https://goreleaser.com) ([`.goreleaser.yaml`](.gorelease
 
 - cross-compile darwin/linux/windows (amd64/arm64) binaries — version-stamped
   from the tag — into archives + `checksums.txt`;
+- sign `checksums.txt` with cosign keyless (GitHub OIDC — no key material),
+  emitting `checksums.txt.pem` + `checksums.txt.sig` (the job needs
+  `id-token: write`; see the verification steps under
+  [Release archives](#release-archives-macos-linux-windows));
 - publish a GitHub Release with those assets and an auto-generated changelog;
 - push the Homebrew cask bump to
   [homebrew-hadron-cli](https://github.com/hadron-memory/homebrew-hadron-cli),
@@ -188,7 +216,12 @@ which runs [goreleaser](https://goreleaser.com) ([`.goreleaser.yaml`](.gorelease
 The cask push uses the `HOMEBREW_TAP_TOKEN` repo secret (a token with write
 access to the tap). If a release fails at the cask step, that token has expired
 or lost access — rotate it; nothing else needs a secret beyond the workflow's
-`GITHUB_TOKEN`.
+`GITHUB_TOKEN` (cosign signing is keyless — no secret).
+
+The macOS binaries are **not yet codesigned/notarized**, so the Homebrew cask
+strips the Gatekeeper quarantine flag on install. Notarizing them (which needs
+Apple Developer credentials) would let us drop that strip — tracked in
+[#158](https://github.com/hadron-memory/hadron-cli/issues/158).
 
 Verify from the Actions run, the new
 [release](https://github.com/hadron-memory/hadron-cli/releases/latest), and the
