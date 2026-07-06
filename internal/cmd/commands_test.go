@@ -91,8 +91,8 @@ func TestNodeLs(t *testing.T) {
 
 func TestNodeGet(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveNodeJSON,
-		"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -126,8 +126,8 @@ func TestNodeGetPrefixPassthrough(t *testing.T) {
 	} {
 		t.Run(prefixed, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{
-				"ResolveUrn":  resolveNodeJSON,
-				"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
+				"ResolveUrn": resolveNodeJSON,
+				"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
 			})
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
@@ -143,6 +143,29 @@ func TestNodeGetPrefixPassthrough(t *testing.T) {
 				t.Errorf("a scheme-prefixed ref must reach resolveUrn verbatim, got %q want %q", vars.Urn, prefixed)
 			}
 		})
+	}
+}
+
+// A single-colon `-m acme.com:kb` must normalize so the composed node URN is
+// the valid double-colon `acme.com::kb::<loc>` (not the 3-colon form the strict
+// grammar rejects) — #38/#138.
+func TestNodeGetSingleColonMemoryNormalizes(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", "findings:flaky-ci", "-m", "acme.com:kb", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Urn string `json:"urn"`
+	}
+	_ = json.Unmarshal(captured["ResolveUrn"], &vars)
+	if vars.Urn != "hrn:node:acme.com::kb::findings:flaky-ci" {
+		t.Errorf("single-colon -m should compose the canonical URN, got %q", vars.Urn)
 	}
 }
 
@@ -472,7 +495,7 @@ func TestNodeUpdateDataMergeFile(t *testing.T) {
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn":     resolveNodeJSON,
-		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"GetNode":        `{"data":{"node":` + nodeDetailJSON + `}}`,
 		"UpdateNodeData": `{"data":{"updateNodeData":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
@@ -499,8 +522,8 @@ func TestNodeGetSurfacesRunnable(t *testing.T) {
 		"outgoingEdges":[],"incomingEdges":[]}`
 	for _, jsonMode := range []bool{false, true} {
 		gql, _ := captureGraphQL(t, map[string]string{
-			"ResolveUrn":  resolveNodeJSON,
-			"GetNode": `{"data":{"node":` + detailRunnable + `}}`,
+			"ResolveUrn": resolveNodeJSON,
+			"GetNode":    `{"data":{"node":` + detailRunnable + `}}`,
 		})
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
@@ -772,8 +795,8 @@ func TestNodeUpdateRejectsDataMergeAndDataMergeFile(t *testing.T) {
 // runs after the node fetch, so the resolve/fetch responses must be stubbed.
 func TestNodeUpdateRejectsInvalidDataMerge(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveNodeJSON,
-		"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -793,8 +816,8 @@ func TestNodeGetSurfacesData(t *testing.T) {
 		"outgoingEdges":[],"incomingEdges":[]}`
 	for _, jsonMode := range []bool{false, true} {
 		gql, _ := captureGraphQL(t, map[string]string{
-			"ResolveUrn":  resolveNodeJSON,
-			"GetNode": `{"data":{"node":` + detailWithData + `}}`,
+			"ResolveUrn": resolveNodeJSON,
+			"GetNode":    `{"data":{"node":` + detailWithData + `}}`,
 		})
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
@@ -817,8 +840,8 @@ func TestNodeGetSurfacesData(t *testing.T) {
 
 func TestNodeRmRequiresYesNonInteractive(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveNodeJSON,
-		"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -831,9 +854,9 @@ func TestNodeRmRequiresYesNonInteractive(t *testing.T) {
 
 func TestNodeRmWithYes(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveNodeJSON,
-		"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
-		"DeleteNode":  `{"data":{"deleteNode":true}}`,
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"DeleteNode": `{"data":{"deleteNode":true}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -881,8 +904,8 @@ func TestEdgeAddOmitsUnsetOptionals(t *testing.T) {
 // fully-qualified form does (cf. TestNodeGet).
 func TestNodeGetMemoryFlag(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveNodeJSON,
-		"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -904,8 +927,8 @@ func TestNodeGetMemoryFlag(t *testing.T) {
 // for refs with ">=2 colons" would misparse this as a full URN and drop -m.)
 func TestNodeGetMemoryFlagMultiColonLoc(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":  resolveNodeJSON,
-		"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -1006,6 +1029,30 @@ func TestMemorySetCreate(t *testing.T) {
 	_ = json.Unmarshal(captured["CreateMemory"], &vars)
 	if vars["orgId"] != "acme.com" || vars["name"] != "KB" {
 		t.Errorf("unexpected create vars: %v", vars)
+	}
+}
+
+// A short memory ref (single- or double-colon org:slug) must normalize to the
+// canonical hrn:memory URN the server's memory(ref:) accepts, instead of failing
+// as "not found" (#108).
+func TestMemoryGetShortFormNormalizes(t *testing.T) {
+	for _, short := range []string{"acme.com:kb", "acme.com::kb"} {
+		gql, captured := captureGraphQL(t, map[string]string{
+			"GetMemory": `{"data":{"memory":` + memoryJSON + `}}`,
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"memory", "get", short, "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute %q: %v", short, err)
+		}
+		var vars struct {
+			Ref string `json:"ref"`
+		}
+		_ = json.Unmarshal(captured["GetMemory"], &vars)
+		if vars.Ref != "hrn:memory:acme.com::kb" {
+			t.Errorf("memory get %q should send canonical ref, got %q", short, vars.Ref)
+		}
 	}
 }
 
