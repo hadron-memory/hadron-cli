@@ -126,8 +126,10 @@ are echoed in the output.`,
 				if verb == "created" {
 					// Echo the effective class/visibility so a server-assigned
 					// default (when --class/--visibility were omitted) isn't
-					// invisible (#108).
-					vis := "default"
+					// invisible (#108). A nil visibility is genuinely unset — not
+					// applicable to the owner-scoped personal/private classes — so
+					// label it honestly rather than inventing a value.
+					vis := "<unset>"
 					if m.Visibility != nil && *m.Visibility != "" {
 						vis = *m.Visibility
 					}
