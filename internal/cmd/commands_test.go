@@ -179,6 +179,19 @@ func TestNodeGetRejectsBareLoc(t *testing.T) {
 	}
 }
 
+// A single-colon full ref whose loc itself carries colons has ≥4 colons but zero
+// `::`, so it must still be rejected as the ambiguous form — not passed to the
+// server's legacy parser (Codex #147 P2).
+func TestNodeGetRejectsSingleColonMultiColonLoc(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", "acme.com:kb:services:secureid:user-reporting", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "fully-qualified") {
+		t.Fatalf("single-colon multi-colon-loc ref must be rejected as ambiguous, got %v", err)
+	}
+}
+
 func TestNodeGetWrongKindIsUsageError(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": `{"data":{"resolveUrn":{"id":"m1","kind":"memory","memoryId":null}}}`,

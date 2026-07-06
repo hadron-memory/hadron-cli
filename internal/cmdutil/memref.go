@@ -3,16 +3,25 @@ package cmdutil
 import "strings"
 
 // splitOrgSlug parses an "org:slug" or "org::slug" reference into its parts.
-// ok is false when the ref isn't confidently that shape — empty, or the slug
-// still carries a colon (e.g. a full node URN or a raw id) — so callers can
-// leave it untouched for the server to judge.
+// The separator must be EXACTLY one or two colons: a malformed "org:::slug" is
+// rejected (ok=false) rather than silently collapsed onto the real "org::slug"
+// memory. ok is likewise false for anything that isn't confidently that shape —
+// empty parts, or a slug that still carries a colon (a full node URN or a raw
+// id) — so callers can leave it untouched for the server to judge.
 func splitOrgSlug(ref string) (org, slug string, ok bool) {
 	i := strings.Index(ref, ":")
 	if i <= 0 {
 		return "", "", false
 	}
 	org = ref[:i]
-	slug = strings.TrimLeft(ref[i+1:], ":") // collapse ':' or '::'
+	rest := ref[i+1:]
+	if strings.HasPrefix(rest, ":") {
+		rest = rest[1:] // the second colon of an "org::slug" separator
+		if strings.HasPrefix(rest, ":") {
+			return "", "", false // three or more colons — malformed
+		}
+	}
+	slug = rest
 	if slug == "" || strings.Contains(slug, ":") {
 		return "", "", false
 	}

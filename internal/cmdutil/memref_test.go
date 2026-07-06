@@ -13,6 +13,8 @@ func TestCanonicalMemoryRef(t *testing.T) {
 		"":                        "",
 		// A node-URN-shaped ref (3+ parts) is NOT a memory ref — leave it alone.
 		"acme.com:kb:findings": "acme.com:kb:findings",
+		// Malformed 3+ colon separator must NOT collapse onto the real memory.
+		"acme.com:::kb": "acme.com:::kb",
 	}
 	for in, want := range cases {
 		if got := CanonicalMemoryRef(in); got != want {

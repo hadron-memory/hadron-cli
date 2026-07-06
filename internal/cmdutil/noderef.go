@@ -48,10 +48,12 @@ func ResolveNodeURN(cmd *cobra.Command, client graphql.Client, ref string) (stri
 	// legacy-but-accepted-forever. A prefixed URN passes through verbatim
 	// (the server accepts both); a bare ref gets the canonical hrn:node:.
 	if !strings.HasPrefix(urn, "hrn:") && !strings.HasPrefix(urn, "urn:") {
-		// A full node URN is <org>::<memory>::<loc> (double-colon between
-		// segments — the loc itself may contain single colons, which is exactly
-		// why single-colon `org:memory:loc` is ambiguous and rejected).
-		if strings.Count(urn, ":") < 4 {
+		// A full node URN is <org>::<memory>::<loc> — TWO double-colon separators
+		// (org::memory, memory::loc). Counting single colons wouldn't enforce the
+		// grammar: a single-colon ref whose loc has its own colons
+		// (acme.com:kb:services:secureid:x) has ≥4 colons yet zero `::`, so it must
+		// be rejected as the ambiguous form it is, not passed to the server.
+		if strings.Count(urn, "::") < 2 {
 			return "", exitcode.Newf(exitcode.Usage,
 				"%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (e.g. hadronmemory.com::dev::start-here), or pass -m <org::memory> with a bare loc", ref)
 		}
