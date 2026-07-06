@@ -104,7 +104,7 @@ func validateEndpoint(name, raw string) error {
 	if err != nil {
 		return exitcode.Newf(exitcode.Error, "OAuth %s %q is not a valid URL: %v", name, raw, err)
 	}
-	if u.Host == "" {
+	if u.Hostname() == "" {
 		return exitcode.Newf(exitcode.Error, "OAuth %s %q has no host", name, raw)
 	}
 	switch u.Scheme {

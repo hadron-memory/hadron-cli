@@ -29,6 +29,7 @@ func TestValidateEndpoint(t *testing.T) {
 		{"file scheme rejected", "file:///etc/passwd", true},
 		{"leading dash rejected", "-oParam=x", true},
 		{"empty host rejected", "https:///authorize", true},
+		{"port-only host rejected", "https://:443/authorize", true},
 		{"empty string rejected", "", true},
 	}
 	for _, c := range cases {

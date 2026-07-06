@@ -50,15 +50,19 @@ func RequireSecureURL(serverURL, token string) error {
 		serverURL, scheme, EnvAllowHTTP)
 }
 
-// schemeIsSecure reports whether the bearer token may ride on u: https, a
-// loopback host, or — via the HADRON_ALLOW_HTTP escape hatch — cleartext HTTP.
-// The override is deliberately limited to http: it must never green-light a
-// token on ftp/ssh/other non-HTTP schemes.
+// schemeIsSecure reports whether the bearer token may ride on u: https, an http
+// loopback host, or — via the HADRON_ALLOW_HTTP escape hatch — cleartext http.
+// The scheme is allow-listed explicitly: a loopback host must NOT green-light a
+// token on ftp/ssh/vscode/other non-HTTP schemes (which url.Hostname() would
+// still report as "localhost").
 func schemeIsSecure(u *url.URL) bool {
-	if u.Scheme == "https" || urlsec.IsLoopbackHost(u.Hostname()) {
+	switch u.Scheme {
+	case "https":
 		return true
+	case "http":
+		return urlsec.IsLoopbackHost(u.Hostname()) || os.Getenv(EnvAllowHTTP) == "1"
 	}
-	return u.Scheme == "http" && os.Getenv(EnvAllowHTTP) == "1"
+	return false
 }
 
 // withSecureRedirects returns a shallow copy of client whose CheckRedirect
