@@ -211,6 +211,9 @@ which runs [goreleaser](https://goreleaser.com) ([`.goreleaser.yaml`](.gorelease
   emitting the `checksums.txt.sigstore.json` bundle (the job needs
   `id-token: write`; see the verification steps under
   [Release archives](#release-archives-macos-linux-windows));
+- codesign + notarize the macOS binaries — **only when the signing secrets are
+  configured** (see [macOS signing](#macos-signing-notarization) below);
+  otherwise skipped and the release ships unsigned;
 - publish a GitHub Release with those assets and an auto-generated changelog;
 - push the Homebrew cask bump to
   [homebrew-hadron-cli](https://github.com/hadron-memory/homebrew-hadron-cli),
@@ -221,10 +224,44 @@ access to the tap). If a release fails at the cask step, that token has expired
 or lost access — rotate it; nothing else needs a secret beyond the workflow's
 `GITHUB_TOKEN` (cosign signing is keyless — no secret).
 
-The macOS binaries are **not yet codesigned/notarized**, so the Homebrew cask
-strips the Gatekeeper quarantine flag on install. Notarizing them (which needs
-Apple Developer credentials) would let us drop that strip — tracked in
-[#158](https://github.com/hadron-memory/hadron-cli/issues/158).
+### macOS signing (notarization)
+
+goreleaser codesigns (Developer ID Application) and notarizes the macOS binaries
+via [quill](https://github.com/anchore/quill), which runs on the Linux runner —
+no macOS runner needed. It's **gated on the signing secrets being present**, so
+releases keep working unsigned until they're configured. Until then the Homebrew
+cask strips the Gatekeeper quarantine flag on install; once notarized releases
+are verified, that strip is removed ([#158](https://github.com/hadron-memory/hadron-cli/issues/158)).
+
+To enable it, add five repo secrets (Apple Developer account required):
+
+**Signing cert** — in your Apple Developer account, create a **Developer ID
+Application** certificate, then export it from Keychain Access as a
+password-protected `.p12`:
+
+```sh
+base64 -i DeveloperID.p12 | pbcopy   # → MACOS_SIGN_P12
+```
+
+- `MACOS_SIGN_P12` — base64 of the `.p12`
+- `MACOS_SIGN_PASSWORD` — the `.p12` export password
+
+**Notary key** — in App Store Connect → *Users and Access → Integrations → App
+Store Connect API*, create a **Team key** (role *Developer*), and note the Issuer
+ID + Key ID as you download the `.p8`:
+
+```sh
+base64 -i AuthKey_XXXXXX.p8 | pbcopy  # → MACOS_NOTARY_KEY
+```
+
+- `MACOS_NOTARY_ISSUER_ID` — the API-key issuer id (a UUID)
+- `MACOS_NOTARY_KEY_ID` — the API-key id
+- `MACOS_NOTARY_KEY` — base64 of the `.p8`
+
+Add them under *Settings → Secrets and variables → Actions*. The next tagged
+release will sign + notarize automatically. The Developer ID cert expires
+(~5 years) — a build will start failing when it lapses; renew and re-export.
+Windows codesigning (a separate EV-cert lift) is out of scope.
 
 Verify from the Actions run, the new
 [release](https://github.com/hadron-memory/hadron-cli/releases/latest), and the

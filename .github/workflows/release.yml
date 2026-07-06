@@ -38,3 +38,12 @@ jobs:
           # this secret exists the cask stanza stays skip_upload: true
           # and the cask is bumped manually.
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN || secrets.GITHUB_TOKEN }}
+          # macOS codesign + notarize (#158). The goreleaser notarize block is
+          # gated on MACOS_SIGN_P12 being set, so these stay empty (and signing is
+          # skipped) until the secrets are configured — the release still works
+          # unsigned in the meantime. See the README "Releasing" section.
+          MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
+          MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
