@@ -25,6 +25,10 @@ func TestRequireSecureURL(t *testing.T) {
 		{"http allowed via env", "http://internal.corp", "hdr_user_x", true, false},
 		{"non-http scheme with token rejected", "ftp://srv.example.com", "hdr_user_x", false, true},
 		{"env override does not permit ftp", "ftp://srv.example.com", "hdr_user_x", true, true},
+		// A loopback host must NOT launder an exotic scheme past the guard —
+		// url.Hostname() still reports "localhost" for these (regression cover).
+		{"ftp on loopback rejected", "ftp://localhost:3000", "hdr_user_x", false, true},
+		{"custom scheme on loopback rejected", "vscode://localhost/x", "hdr_user_x", false, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
