@@ -57,6 +57,7 @@ environment variable (which skips storage entirely).`,
 			}
 
 			st := f.TokenStore()
+			warnIfPlaintext(f.IOStreams, st)
 			host := auth.Host(server)
 			if err := st.Set(host, token); err != nil {
 				return fmt.Errorf("storing token: %w", err)
@@ -84,6 +85,16 @@ environment variable (which skips storage entirely).`,
 type loginResult struct {
 	Server       string `json:"server"`
 	TokenStorage string `json:"tokenStorage"`
+}
+
+// warnIfPlaintext surfaces a downgrade to the plaintext file store: landing
+// there means no usable OS keychain was found — which also happens when the
+// keychain is merely LOCKED or transiently unavailable, so the token would
+// otherwise be written unencrypted without any signal (#122).
+func warnIfPlaintext(io *output.IOStreams, st store.Store) {
+	if st.Name() == (store.File{}).Name() {
+		fmt.Fprintln(io.ErrOut, "warning: no usable OS keychain — storing the token unencrypted on disk (auth.json). If your keychain is just locked, unlock it and re-run `hadron auth login` to use the secure store.")
+	}
 }
 
 func readToken(in io.Reader) (string, error) {
