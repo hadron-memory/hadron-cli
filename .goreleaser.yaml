@@ -34,9 +34,11 @@ archives:
 # happens after build and before archiving, so the archives carry the signed
 # binary.
 #
-# GATED: enabled only when the signing secrets are present, so a release still
-# works (unsigned) until the Apple credentials are configured. Needs five repo
-# secrets — see the "Releasing" section of the README for how to mint them:
+# GATED on ALL FIVE secrets being present, so a partially-configured set (e.g. the
+# cert added before the notary key) cleanly SKIPS notarization instead of failing
+# the release; a secretless release still works unsigned. Env refs use
+# envOrDefault so an unset var resolves to "" rather than erroring the whole
+# release. See the "Releasing" section of the README for how to mint them:
 #   MACOS_SIGN_P12          base64 of the Developer ID Application cert (.p12)
 #   MACOS_SIGN_PASSWORD     the .p12 export password
 #   MACOS_NOTARY_ISSUER_ID  App Store Connect API key issuer id
@@ -44,15 +46,15 @@ archives:
 #   MACOS_NOTARY_KEY        base64 of the App Store Connect API private key (.p8)
 notarize:
   macos:
-    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
+    - enabled: '{{ and (isEnvSet "MACOS_SIGN_P12") (isEnvSet "MACOS_SIGN_PASSWORD") (isEnvSet "MACOS_NOTARY_ISSUER_ID") (isEnvSet "MACOS_NOTARY_KEY_ID") (isEnvSet "MACOS_NOTARY_KEY") }}'
       ids: [hadron]
       sign:
-        certificate: '{{ .Env.MACOS_SIGN_P12 }}'
-        password: '{{ .Env.MACOS_SIGN_PASSWORD }}'
+        certificate: '{{ envOrDefault "MACOS_SIGN_P12" "" }}'
+        password: '{{ envOrDefault "MACOS_SIGN_PASSWORD" "" }}'
       notarize:
-        issuer_id: '{{ .Env.MACOS_NOTARY_ISSUER_ID }}'
-        key_id: '{{ .Env.MACOS_NOTARY_KEY_ID }}'
-        key: '{{ .Env.MACOS_NOTARY_KEY }}'
+        issuer_id: '{{ envOrDefault "MACOS_NOTARY_ISSUER_ID" "" }}'
+        key_id: '{{ envOrDefault "MACOS_NOTARY_KEY_ID" "" }}'
+        key: '{{ envOrDefault "MACOS_NOTARY_KEY" "" }}'
         wait: true
         timeout: 30m
 
