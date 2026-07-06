@@ -131,6 +131,29 @@ func TestRunTriggerWaitFailedExitsNonZero(t *testing.T) {
 	}
 }
 
+// A --wait whose poll fails (or times out) after the run was created must still
+// print the run record — the run exists, so a --json caller needs its id/status
+// to inspect — while returning the wait error (Codex PR #153 review).
+func TestRunTriggerWaitPollErrorStillPrintsRun(t *testing.T) {
+	pending := strings.Replace(appRunJSON, `"status":"COMPLETED"`, `"status":"PENDING"`, 1)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"TriggerAppRun": `{"data":{"triggerAppRun":` + pending + `}}`,
+		"AppRun":        `{"errors":[{"message":"transient poll failure"}]}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"run", "trigger", "--app", "app1",
+		"--entry", "hrn:node:acme.com::ops::tasks:digest", "--wait", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("a failed --wait poll must return a non-nil error")
+	}
+	// The created run (from the trigger response) must still be printed.
+	if !strings.Contains(out.String(), "run1") || !strings.Contains(out.String(), "PENDING") {
+		t.Errorf("the created run must still be printed on a wait error:\n%s", out.String())
+	}
+}
+
 func TestRunLsRejectsInvalidStatus(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)

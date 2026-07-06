@@ -60,6 +60,17 @@ func TestTicketMintRejectsNonPositiveCount(t *testing.T) {
 	}
 }
 
+func TestTicketMintRejectsUnsupportedAction(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"ticket", "mint", "--org", "acme.com", "--action", "comm.inbound",
+		"--count", "5", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "unsupported --action") {
+		t.Fatalf("expected unsupported-action usage error, got %v", err)
+	}
+}
+
 func TestTicketLs(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ActionTickets": `{"data":{"actionTickets":{"total":1,"items":[` + ticketJSON + `]}}}`,

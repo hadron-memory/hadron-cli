@@ -3,6 +3,7 @@ package ticket
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -32,6 +33,9 @@ v1 supports the comm.outbound action only. --app scopes the tickets to one App
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if count <= 0 {
 				return exitcode.Newf(exitcode.Usage, "--count must be a positive integer")
+			}
+			if !isSupportedMintAction(action) {
+				return exitcode.Newf(exitcode.Usage, "unsupported --action %q — v1 supports %s", action, strings.Join(supportedMintActions, ", "))
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {

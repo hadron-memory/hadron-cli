@@ -82,23 +82,35 @@ so a script can branch on the run's outcome.`,
 			}
 			dto := dtoFromFields(resp.TriggerAppRun.AppRunFields)
 
+			var waitErr error
 			if wait && !isTerminal(dto.Status) {
-				dto, err = pollToTerminal(cmd, client, dto.ID, waitTimeout)
-				if err != nil {
-					return err
+				polled, perr := pollToTerminal(cmd, client, dto.ID, waitTimeout)
+				// Keep the freshest observed state; on an early timeout (nothing
+				// polled yet) fall back to the just-created run so a wait error
+				// still leaves a run record to print.
+				if polled.ID != "" {
+					dto = polled
 				}
+				waitErr = perr
 			}
 
+			// Print the run record FIRST — the run was created, so a --wait that
+			// timed out or hit a poll error must still leave the caller a record
+			// (id/status) to inspect, especially under --json.
 			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				return writeRunDetail(w, dto)
 			}); err != nil {
 				return err
 			}
-			// With --wait we know the outcome, so reflect it in the exit code: a
-			// run that ended in any non-COMPLETED terminal status is a failure a
-			// script can branch on (the run — including its failure payload — is
-			// already printed, so the error is silent).
-			if wait && isTerminal(dto.Status) && dto.Status != "COMPLETED" {
+			// Then surface the wait outcome via the exit code so scripts can
+			// branch on it: a timeout / poll error returns that coded error, and
+			// a run that ended in any non-COMPLETED terminal status is a failure
+			// (the record — including its failure payload — is already printed,
+			// so the terminal-status error is silent).
+			switch {
+			case waitErr != nil:
+				return waitErr
+			case wait && isTerminal(dto.Status) && dto.Status != "COMPLETED":
 				return exitcode.Silent(exitcode.Error)
 			}
 			return nil
@@ -127,12 +139,14 @@ func pollToTerminal(cmd *cobra.Command, client graphql.Client, runID string, tim
 	timedOut := func() error {
 		return exitcode.Newf(exitcode.Cancelled, "run %s did not finish within %s (last status %s)", runID, timeout, statusOr(last))
 	}
+	// One reused ticker rather than a fresh time.After timer per iteration; the
+	// first status read fires immediately (no initial pollInterval delay).
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
 	for {
-		select {
-		case <-ctx.Done():
-			// A zero/elapsed --wait-timeout lands here before the first poll.
+		// A zero/already-elapsed --wait-timeout must not even issue a poll.
+		if ctx.Err() != nil {
 			return last, timedOut()
-		case <-time.After(pollInterval):
 		}
 		resp, err := gen.AppRun(ctx, client, runID)
 		if err != nil {
@@ -147,6 +161,11 @@ func pollToTerminal(cmd *cobra.Command, client graphql.Client, runID string, tim
 		last = dtoFromFields(resp.AppRun.AppRunFields)
 		if isTerminal(last.Status) {
 			return last, nil
+		}
+		select {
+		case <-ctx.Done():
+			return last, timedOut()
+		case <-ticker.C:
 		}
 	}
 }

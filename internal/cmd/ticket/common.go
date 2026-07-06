@@ -8,6 +8,21 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
+// supportedMintActions is what `ticket mint` can grant. The server itself
+// accepts only comm.outbound in v1 (cor:acl:050:04); validating client-side
+// keeps behavior aligned with the help text and gives a fast, clear usage
+// error instead of a server round-trip.
+var supportedMintActions = []string{"comm.outbound"}
+
+func isSupportedMintAction(a string) bool {
+	for _, v := range supportedMintActions {
+		if v == a {
+			return true
+		}
+	}
+	return false
+}
+
 // mintResultDTO is the stable --json shape for a `ticket mint` result — the
 // count minted plus the scope it was minted for.
 type mintResultDTO struct {
