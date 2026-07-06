@@ -1,0 +1,272 @@
+# Spec-040 headless-run surface (cor:agt:010, cor:acl:050:04). Recurring/one-off
+# triggers (schedules, webhooks), the run audit+control surface, and the action
+# ticket ledger. hadron-server #493 (kernel + surfaces), #494 (webhooks +
+# tickets). Every DTO the CLI marshals is an explicit struct in the command
+# package — these fragments are the wire read, never the --json shape.
+
+fragment AppRunFields on AppRun {
+  id
+  organizationId
+  appId
+  agentId
+  status
+  triggerKind
+  triggerId
+  entryNodeUrn
+  curNodeUrn
+  userId
+  createdBy
+  parentRunId
+  attempts
+  budgetActions
+  budgetTokens
+  timeoutMs
+  policy
+  eventData
+  failure
+  createdAt
+  startedAt
+  finishedAt
+}
+
+fragment AgentScheduleFields on AgentSchedule {
+  id
+  organizationId
+  appId
+  agentId
+  name
+  cron
+  timezone
+  enabled
+  entryNodeUrn
+  aiConfigName
+  userId
+  createdBy
+  eventData
+  policy
+  lastRunAt
+  nextRunAt
+  createdAt
+}
+
+fragment AgentWebhookFields on AgentWebhook {
+  id
+  organizationId
+  appId
+  agentId
+  name
+  enabled
+  entryNodeUrn
+  aiConfigName
+  userId
+  createdBy
+  argsSchema
+  eventData
+  policy
+  lastCalledAt
+  createdAt
+}
+
+fragment AgentWebhookCredentialFields on AgentWebhookCredentials {
+  path
+  token
+  webhook {
+    ...AgentWebhookFields
+  }
+}
+
+fragment ActionTicketFields on ActionTicket {
+  id
+  organizationId
+  appId
+  action
+  mintedBy
+  note
+  consumedByRunId
+  consumedAt
+  expiresAt
+  createdAt
+}
+
+# --- Runs (the audit + control surface, cor:agt:010:02) ---
+
+# MANUAL trigger. runAsSelf requires an authenticated user (an App-key caller
+# gets UNAUTHENTICATED). eventData carries the template args.
+#
+# The server reads an omitted optional input field as "unset"; nil pointers must
+# be omitted, not sent as null — hence the per-field omitempty directives (the
+# NodeInput contract in nodes.graphql). Load-bearing on the Update* inputs,
+# where an explicit null means "clear".
+# @genqlient(for: "TriggerAppRunInput.aiConfigName", omitempty: true)
+# @genqlient(for: "TriggerAppRunInput.eventData", omitempty: true)
+# @genqlient(for: "TriggerAppRunInput.runAsSelf", omitempty: true)
+mutation TriggerAppRun(
+  $input: TriggerAppRunInput!
+) {
+  triggerAppRun(input: $input) {
+    ...AppRunFields
+  }
+}
+
+# Paged { items, total } envelope (#473). appId/orgId/status all optional
+# filters; `run ls` pages to exhaustion.
+query AppRuns(
+  # @genqlient(omitempty: true)
+  $appId: ID
+  # @genqlient(omitempty: true)
+  $orgId: ID
+  # @genqlient(omitempty: true)
+  $status: AppRunStatus
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  appRuns(appId: $appId, orgId: $orgId, status: $status, limit: $limit, offset: $offset) {
+    total
+    items {
+      ...AppRunFields
+    }
+  }
+}
+
+# Single-run detail; null when absent/denied (anti-enumeration).
+query AppRun($ref: ID!) {
+  appRun(ref: $ref) {
+    ...AppRunFields
+  }
+}
+
+# The kill switch — transitions a live run to CANCELLED.
+mutation CancelAppRun($id: ID!) {
+  cancelAppRun(id: $id) {
+    ...AppRunFields
+  }
+}
+
+# --- Schedules (cor:agt:010, D-2026-07-04-E) ---
+
+# @genqlient(for: "CreateAgentScheduleInput.agentId", omitempty: true)
+# @genqlient(for: "CreateAgentScheduleInput.aiConfigName", omitempty: true)
+# @genqlient(for: "CreateAgentScheduleInput.enabled", omitempty: true)
+# @genqlient(for: "CreateAgentScheduleInput.eventData", omitempty: true)
+# @genqlient(for: "CreateAgentScheduleInput.policy", omitempty: true)
+# @genqlient(for: "CreateAgentScheduleInput.runAsSelf", omitempty: true)
+# @genqlient(for: "CreateAgentScheduleInput.timezone", omitempty: true)
+mutation CreateAgentSchedule(
+  $input: CreateAgentScheduleInput!
+) {
+  createAgentSchedule(input: $input) {
+    ...AgentScheduleFields
+  }
+}
+
+query AgentSchedules(
+  $appId: String!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  agentSchedules(appId: $appId, limit: $limit, offset: $offset) {
+    total
+    items {
+      ...AgentScheduleFields
+    }
+  }
+}
+
+# Every field optional. An omitted field preserves; an explicit null clears —
+# so unset flags MUST be omitted (nil pointers dropped by these directives).
+# @genqlient(for: "UpdateAgentScheduleInput.name", omitempty: true)
+# @genqlient(for: "UpdateAgentScheduleInput.cron", omitempty: true)
+# @genqlient(for: "UpdateAgentScheduleInput.timezone", omitempty: true)
+# @genqlient(for: "UpdateAgentScheduleInput.enabled", omitempty: true)
+# @genqlient(for: "UpdateAgentScheduleInput.entryNodeUrn", omitempty: true)
+# @genqlient(for: "UpdateAgentScheduleInput.aiConfigName", omitempty: true)
+# @genqlient(for: "UpdateAgentScheduleInput.eventData", omitempty: true)
+# @genqlient(for: "UpdateAgentScheduleInput.policy", omitempty: true)
+# @genqlient(for: "UpdateAgentScheduleInput.runAsSelf", omitempty: true)
+mutation UpdateAgentSchedule(
+  $id: ID!
+  $input: UpdateAgentScheduleInput!
+) {
+  updateAgentSchedule(id: $id, input: $input) {
+    ...AgentScheduleFields
+  }
+}
+
+mutation DeleteAgentSchedule($id: ID!) {
+  deleteAgentSchedule(id: $id)
+}
+
+# --- Webhooks (D-2026-05-02). The secret (path + platform token) is returned
+# ONCE at create/rotate and is never queryable again. ---
+
+# @genqlient(for: "CreateAgentWebhookInput.agentId", omitempty: true)
+# @genqlient(for: "CreateAgentWebhookInput.aiConfigName", omitempty: true)
+# @genqlient(for: "CreateAgentWebhookInput.argsSchema", omitempty: true)
+# @genqlient(for: "CreateAgentWebhookInput.enabled", omitempty: true)
+# @genqlient(for: "CreateAgentWebhookInput.eventData", omitempty: true)
+# @genqlient(for: "CreateAgentWebhookInput.policy", omitempty: true)
+# @genqlient(for: "CreateAgentWebhookInput.runAsSelf", omitempty: true)
+mutation CreateAgentWebhook(
+  $input: CreateAgentWebhookInput!
+) {
+  createAgentWebhook(input: $input) {
+    ...AgentWebhookCredentialFields
+  }
+}
+
+mutation RotateAgentWebhook($id: ID!) {
+  rotateAgentWebhook(id: $id) {
+    ...AgentWebhookCredentialFields
+  }
+}
+
+query AgentWebhooks(
+  $appId: String!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  agentWebhooks(appId: $appId, limit: $limit, offset: $offset) {
+    total
+    items {
+      ...AgentWebhookFields
+    }
+  }
+}
+
+mutation DeleteAgentWebhook($id: ID!) {
+  deleteAgentWebhook(id: $id)
+}
+
+# --- Tickets (cor:acl:050:04 tier 2) ---
+
+# Mint N consumable tickets into the org ledger; returns the count minted.
+# @genqlient(for: "MintActionTicketsInput.appId", omitempty: true)
+# @genqlient(for: "MintActionTicketsInput.note", omitempty: true)
+# @genqlient(for: "MintActionTicketsInput.expiresAt", omitempty: true)
+mutation MintActionTickets(
+  $input: MintActionTicketsInput!
+) {
+  mintActionTickets(input: $input)
+}
+
+# The ledger — minted / consumed-by-which-run / expired. Paged { items, total }.
+query ActionTickets(
+  $orgId: String!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  actionTickets(orgId: $orgId, limit: $limit, offset: $offset) {
+    total
+    items {
+      ...ActionTicketFields
+    }
+  }
+}

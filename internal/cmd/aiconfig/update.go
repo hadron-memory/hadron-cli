@@ -38,7 +38,7 @@ Find ids with 'hadron ai-config ls --json'.`,
 				!changed("api-key") && !changed("param") && !changed("enabled") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
-			paramsJSON, err := parseParams(params)
+			paramsJSON, err := cmdutil.KeyValsToJSON(params, "param")
 			if err != nil {
 				return err
 			}

@@ -21,10 +21,14 @@ import (
 	nodecmd "github.com/hadron-memory/hadron-cli/internal/cmd/node"
 	orgcmd "github.com/hadron-memory/hadron-cli/internal/cmd/org"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/replacecmd"
+	runcmd "github.com/hadron-memory/hadron-cli/internal/cmd/run"
+	schedulecmd "github.com/hadron-memory/hadron-cli/internal/cmd/schedule"
 	searchcmd "github.com/hadron-memory/hadron-cli/internal/cmd/search"
 	speccmd "github.com/hadron-memory/hadron-cli/internal/cmd/spec"
 	taskcmd "github.com/hadron-memory/hadron-cli/internal/cmd/task"
+	ticketcmd "github.com/hadron-memory/hadron-cli/internal/cmd/ticket"
 	versioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/version"
+	webhookcmd "github.com/hadron-memory/hadron-cli/internal/cmd/webhook"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -59,6 +63,10 @@ func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	root.AddCommand(orgcmd.NewCmdOrg(f))
 	root.AddCommand(accesscmd.NewCmdAccess(f))
 	root.AddCommand(aiconfigcmd.NewCmdAiConfig(f))
+	root.AddCommand(runcmd.NewCmdRun(f))
+	root.AddCommand(schedulecmd.NewCmdSchedule(f))
+	root.AddCommand(webhookcmd.NewCmdWebhook(f))
+	root.AddCommand(ticketcmd.NewCmdTicket(f))
 	root.AddCommand(configcmd.NewCmdConfig(f))
 	root.AddCommand(apicmd.NewCmdAPI(f))
 	root.AddCommand(versioncmd.NewCmdVersion(f))

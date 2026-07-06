@@ -41,6 +41,16 @@ func NewTable(w io.Writer, headers ...string) *Table {
 	return t
 }
 
+// Dash renders an optional string cell: the value, or an em-dash placeholder
+// when the pointer is nil or empty. Keeps "no value" columns consistent across
+// the table-rendering commands.
+func Dash(s *string) string {
+	if s == nil || *s == "" {
+		return "—"
+	}
+	return *s
+}
+
 func (t *Table) Row(cells ...string) {
 	for i, c := range cells {
 		if i > 0 {

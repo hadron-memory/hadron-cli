@@ -48,6 +48,207 @@ var AllAccessSource = []AccessSource{
 	AccessSourcePublicVisibility,
 }
 
+// ActionTicketFields includes the GraphQL fields of ActionTicket requested by the fragment ActionTicketFields.
+// The GraphQL type's documentation follows.
+//
+// One consumable ticket in the org ledger (cor:acl:050:04 tier 2).
+type ActionTicketFields struct {
+	Id              string  `json:"id"`
+	OrganizationId  string  `json:"organizationId"`
+	AppId           *string `json:"appId"`
+	Action          string  `json:"action"`
+	MintedBy        string  `json:"mintedBy"`
+	Note            *string `json:"note"`
+	ConsumedByRunId *string `json:"consumedByRunId"`
+	ConsumedAt      *string `json:"consumedAt"`
+	ExpiresAt       *string `json:"expiresAt"`
+	CreatedAt       string  `json:"createdAt"`
+}
+
+// GetId returns ActionTicketFields.Id, and is useful for accessing the field via an interface.
+func (v *ActionTicketFields) GetId() string { return v.Id }
+
+// GetOrganizationId returns ActionTicketFields.OrganizationId, and is useful for accessing the field via an interface.
+func (v *ActionTicketFields) GetOrganizationId() string { return v.OrganizationId }
+
+// GetAppId returns ActionTicketFields.AppId, and is useful for accessing the field via an interface.
+func (v *ActionTicketFields) GetAppId() *string { return v.AppId }
+
+// GetAction returns ActionTicketFields.Action, and is useful for accessing the field via an interface.
+func (v *ActionTicketFields) GetAction() string { return v.Action }
+
+// GetMintedBy returns ActionTicketFields.MintedBy, and is useful for accessing the field via an interface.
+func (v *ActionTicketFields) GetMintedBy() string { return v.MintedBy }
+
+// GetNote returns ActionTicketFields.Note, and is useful for accessing the field via an interface.
+func (v *ActionTicketFields) GetNote() *string { return v.Note }
+
+// GetConsumedByRunId returns ActionTicketFields.ConsumedByRunId, and is useful for accessing the field via an interface.
+func (v *ActionTicketFields) GetConsumedByRunId() *string { return v.ConsumedByRunId }
+
+// GetConsumedAt returns ActionTicketFields.ConsumedAt, and is useful for accessing the field via an interface.
+func (v *ActionTicketFields) GetConsumedAt() *string { return v.ConsumedAt }
+
+// GetExpiresAt returns ActionTicketFields.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *ActionTicketFields) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetCreatedAt returns ActionTicketFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ActionTicketFields) GetCreatedAt() string { return v.CreatedAt }
+
+// ActionTicketsActionTicketsActionTicketsPage includes the requested fields of the GraphQL type ActionTicketsPage.
+type ActionTicketsActionTicketsActionTicketsPage struct {
+	Total int                                                             `json:"total"`
+	Items []*ActionTicketsActionTicketsActionTicketsPageItemsActionTicket `json:"items"`
+}
+
+// GetTotal returns ActionTicketsActionTicketsActionTicketsPage.Total, and is useful for accessing the field via an interface.
+func (v *ActionTicketsActionTicketsActionTicketsPage) GetTotal() int { return v.Total }
+
+// GetItems returns ActionTicketsActionTicketsActionTicketsPage.Items, and is useful for accessing the field via an interface.
+func (v *ActionTicketsActionTicketsActionTicketsPage) GetItems() []*ActionTicketsActionTicketsActionTicketsPageItemsActionTicket {
+	return v.Items
+}
+
+// ActionTicketsActionTicketsActionTicketsPageItemsActionTicket includes the requested fields of the GraphQL type ActionTicket.
+// The GraphQL type's documentation follows.
+//
+// One consumable ticket in the org ledger (cor:acl:050:04 tier 2).
+type ActionTicketsActionTicketsActionTicketsPageItemsActionTicket struct {
+	ActionTicketFields `json:"-"`
+}
+
+// GetId returns ActionTicketsActionTicketsActionTicketsPageItemsActionTicket.Id, and is useful for accessing the field via an interface.
+func (v *ActionTicketsActionTicketsActionTicketsPageItemsActionTicket) GetId() string {
+	return v.ActionTicketFields.Id
+}
+
+// GetOrganizationId returns ActionTicketsActionTicketsActionTicketsPageItemsActionTicket.OrganizationId, and is useful for accessing the field via an interface.
+func (v *ActionTicketsActionTicketsActionTicketsPageItemsActionTicket) GetOrganizationId() string {
+	return v.ActionTicketFields.OrganizationId
+}
+
+// GetAppId returns ActionTicketsActionTicketsActionTicketsPageItemsActionTicket.AppId, and is useful for accessing the field via an interface.
+func (v *ActionTicketsActionTicketsActionTicketsPageItemsActionTicket) GetAppId() *string {
+	return v.ActionTicketFields.AppId
+}
+
+// GetAction returns ActionTicketsActionTicketsActionTicketsPageItemsActionTicket.Action, and is useful for accessing the field via an interface.
+func (v *ActionTicketsActionTicketsActionTicketsPageItemsActionTicket) GetAction() string {
+	return v.ActionTicketFields.Action
+}
+
+// GetMintedBy returns ActionTicketsActionTicketsActionTicketsPageItemsActionTicket.MintedBy, and is useful for accessing the field via an interface.
+func (v *ActionTicketsActionTicketsActionTicketsPageItemsActionTicket) GetMintedBy() string {
+	return v.ActionTicketFields.MintedBy
+}
+
+// GetNote returns ActionTicketsActionTicketsActionTicketsPageItemsActionTicket.Note, and is useful for accessing the field via an interface.
+func (v *ActionTicketsActionTicketsActionTicketsPageItemsActionTicket) GetNote() *string {
+	return v.ActionTicketFields.Note
+}
+
+// GetConsumedByRunId returns ActionTicketsActionTicketsActionTicketsPageItemsActionTicket.ConsumedByRunId, and is useful for accessing the field via an interface.
+func (v *ActionTicketsActionTicketsActionTicketsPageItemsActionTicket) GetConsumedByRunId() *string {
+	return v.ActionTicketFields.ConsumedByRunId
+}
+
+// GetConsumedAt returns ActionTicketsActionTicketsActionTicketsPageItemsActionTicket.ConsumedAt, and is useful for accessing the field via an interface.
+func (v *ActionTicketsActionTicketsActionTicketsPageItemsActionTicket) GetConsumedAt() *string {
+	return v.ActionTicketFields.ConsumedAt
+}
+
+// GetExpiresAt returns ActionTicketsActionTicketsActionTicketsPageItemsActionTicket.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *ActionTicketsActionTicketsActionTicketsPageItemsActionTicket) GetExpiresAt() *string {
+	return v.ActionTicketFields.ExpiresAt
+}
+
+// GetCreatedAt returns ActionTicketsActionTicketsActionTicketsPageItemsActionTicket.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ActionTicketsActionTicketsActionTicketsPageItemsActionTicket) GetCreatedAt() string {
+	return v.ActionTicketFields.CreatedAt
+}
+
+func (v *ActionTicketsActionTicketsActionTicketsPageItemsActionTicket) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ActionTicketsActionTicketsActionTicketsPageItemsActionTicket
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ActionTicketsActionTicketsActionTicketsPageItemsActionTicket = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ActionTicketFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalActionTicketsActionTicketsActionTicketsPageItemsActionTicket struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	AppId *string `json:"appId"`
+
+	Action string `json:"action"`
+
+	MintedBy string `json:"mintedBy"`
+
+	Note *string `json:"note"`
+
+	ConsumedByRunId *string `json:"consumedByRunId"`
+
+	ConsumedAt *string `json:"consumedAt"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *ActionTicketsActionTicketsActionTicketsPageItemsActionTicket) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ActionTicketsActionTicketsActionTicketsPageItemsActionTicket) __premarshalJSON() (*__premarshalActionTicketsActionTicketsActionTicketsPageItemsActionTicket, error) {
+	var retval __premarshalActionTicketsActionTicketsActionTicketsPageItemsActionTicket
+
+	retval.Id = v.ActionTicketFields.Id
+	retval.OrganizationId = v.ActionTicketFields.OrganizationId
+	retval.AppId = v.ActionTicketFields.AppId
+	retval.Action = v.ActionTicketFields.Action
+	retval.MintedBy = v.ActionTicketFields.MintedBy
+	retval.Note = v.ActionTicketFields.Note
+	retval.ConsumedByRunId = v.ActionTicketFields.ConsumedByRunId
+	retval.ConsumedAt = v.ActionTicketFields.ConsumedAt
+	retval.ExpiresAt = v.ActionTicketFields.ExpiresAt
+	retval.CreatedAt = v.ActionTicketFields.CreatedAt
+	return &retval, nil
+}
+
+// ActionTicketsResponse is returned by ActionTickets on success.
+type ActionTicketsResponse struct {
+	// The ticket ledger: minted, consumed-by-which-run, expired (org-ADMIN).
+	ActionTickets *ActionTicketsActionTicketsActionTicketsPage `json:"actionTickets"`
+}
+
+// GetActionTickets returns ActionTicketsResponse.ActionTickets, and is useful for accessing the field via an interface.
+func (v *ActionTicketsResponse) GetActionTickets() *ActionTicketsActionTicketsActionTicketsPage {
+	return v.ActionTickets
+}
+
 // AddMemoryMemberAddMemoryMemberAddMemoryMemberPayload includes the requested fields of the GraphQL type AddMemoryMemberPayload.
 type AddMemoryMemberAddMemoryMemberAddMemoryMemberPayload struct {
 	MemoryMember *AddMemoryMemberAddMemoryMemberAddMemoryMemberPayloadMemoryMember `json:"memoryMember"`
@@ -298,6 +499,743 @@ type AddOrgMemberResponse struct {
 // GetAddOrgMember returns AddOrgMemberResponse.AddOrgMember, and is useful for accessing the field via an interface.
 func (v *AddOrgMemberResponse) GetAddOrgMember() *AddOrgMemberAddOrgMember { return v.AddOrgMember }
 
+// AgentScheduleFields includes the GraphQL fields of AgentSchedule requested by the fragment AgentScheduleFields.
+// The GraphQL type's documentation follows.
+//
+// Recurring trigger (cor:agt:010, D-2026-07-04-E).
+type AgentScheduleFields struct {
+	Id             string  `json:"id"`
+	OrganizationId string  `json:"organizationId"`
+	AppId          string  `json:"appId"`
+	AgentId        *string `json:"agentId"`
+	Name           string  `json:"name"`
+	Cron           string  `json:"cron"`
+	Timezone       string  `json:"timezone"`
+	Enabled        bool    `json:"enabled"`
+	EntryNodeUrn   string  `json:"entryNodeUrn"`
+	AiConfigName   *string `json:"aiConfigName"`
+	// On-behalf-of user captured at creation; v1 only the creator themself.
+	UserId    *string          `json:"userId"`
+	CreatedBy *string          `json:"createdBy"`
+	EventData *json.RawMessage `json:"eventData"`
+	Policy    *json.RawMessage `json:"policy"`
+	LastRunAt *string          `json:"lastRunAt"`
+	NextRunAt *string          `json:"nextRunAt"`
+	CreatedAt string           `json:"createdAt"`
+}
+
+// GetId returns AgentScheduleFields.Id, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetId() string { return v.Id }
+
+// GetOrganizationId returns AgentScheduleFields.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetOrganizationId() string { return v.OrganizationId }
+
+// GetAppId returns AgentScheduleFields.AppId, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetAppId() string { return v.AppId }
+
+// GetAgentId returns AgentScheduleFields.AgentId, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetAgentId() *string { return v.AgentId }
+
+// GetName returns AgentScheduleFields.Name, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetName() string { return v.Name }
+
+// GetCron returns AgentScheduleFields.Cron, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetCron() string { return v.Cron }
+
+// GetTimezone returns AgentScheduleFields.Timezone, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetTimezone() string { return v.Timezone }
+
+// GetEnabled returns AgentScheduleFields.Enabled, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetEnabled() bool { return v.Enabled }
+
+// GetEntryNodeUrn returns AgentScheduleFields.EntryNodeUrn, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetEntryNodeUrn() string { return v.EntryNodeUrn }
+
+// GetAiConfigName returns AgentScheduleFields.AiConfigName, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetAiConfigName() *string { return v.AiConfigName }
+
+// GetUserId returns AgentScheduleFields.UserId, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetUserId() *string { return v.UserId }
+
+// GetCreatedBy returns AgentScheduleFields.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetCreatedBy() *string { return v.CreatedBy }
+
+// GetEventData returns AgentScheduleFields.EventData, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetEventData() *json.RawMessage { return v.EventData }
+
+// GetPolicy returns AgentScheduleFields.Policy, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetPolicy() *json.RawMessage { return v.Policy }
+
+// GetLastRunAt returns AgentScheduleFields.LastRunAt, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetLastRunAt() *string { return v.LastRunAt }
+
+// GetNextRunAt returns AgentScheduleFields.NextRunAt, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetNextRunAt() *string { return v.NextRunAt }
+
+// GetCreatedAt returns AgentScheduleFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetCreatedAt() string { return v.CreatedAt }
+
+// AgentSchedulesAgentSchedulesAgentSchedulesPage includes the requested fields of the GraphQL type AgentSchedulesPage.
+type AgentSchedulesAgentSchedulesAgentSchedulesPage struct {
+	Total int                                                                 `json:"total"`
+	Items []*AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule `json:"items"`
+}
+
+// GetTotal returns AgentSchedulesAgentSchedulesAgentSchedulesPage.Total, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPage) GetTotal() int { return v.Total }
+
+// GetItems returns AgentSchedulesAgentSchedulesAgentSchedulesPage.Items, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPage) GetItems() []*AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule {
+	return v.Items
+}
+
+// AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule includes the requested fields of the GraphQL type AgentSchedule.
+// The GraphQL type's documentation follows.
+//
+// Recurring trigger (cor:agt:010, D-2026-07-04-E).
+type AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule struct {
+	AgentScheduleFields `json:"-"`
+}
+
+// GetId returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.Id, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetId() string {
+	return v.AgentScheduleFields.Id
+}
+
+// GetOrganizationId returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetOrganizationId() string {
+	return v.AgentScheduleFields.OrganizationId
+}
+
+// GetAppId returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.AppId, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetAppId() string {
+	return v.AgentScheduleFields.AppId
+}
+
+// GetAgentId returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.AgentId, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetAgentId() *string {
+	return v.AgentScheduleFields.AgentId
+}
+
+// GetName returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.Name, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetName() string {
+	return v.AgentScheduleFields.Name
+}
+
+// GetCron returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.Cron, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetCron() string {
+	return v.AgentScheduleFields.Cron
+}
+
+// GetTimezone returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.Timezone, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetTimezone() string {
+	return v.AgentScheduleFields.Timezone
+}
+
+// GetEnabled returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.Enabled, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetEnabled() bool {
+	return v.AgentScheduleFields.Enabled
+}
+
+// GetEntryNodeUrn returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.EntryNodeUrn, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetEntryNodeUrn() string {
+	return v.AgentScheduleFields.EntryNodeUrn
+}
+
+// GetAiConfigName returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.AiConfigName, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetAiConfigName() *string {
+	return v.AgentScheduleFields.AiConfigName
+}
+
+// GetUserId returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.UserId, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetUserId() *string {
+	return v.AgentScheduleFields.UserId
+}
+
+// GetCreatedBy returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetCreatedBy() *string {
+	return v.AgentScheduleFields.CreatedBy
+}
+
+// GetEventData returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.EventData, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetEventData() *json.RawMessage {
+	return v.AgentScheduleFields.EventData
+}
+
+// GetPolicy returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.Policy, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetPolicy() *json.RawMessage {
+	return v.AgentScheduleFields.Policy
+}
+
+// GetLastRunAt returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.LastRunAt, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetLastRunAt() *string {
+	return v.AgentScheduleFields.LastRunAt
+}
+
+// GetNextRunAt returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.NextRunAt, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetNextRunAt() *string {
+	return v.AgentScheduleFields.NextRunAt
+}
+
+// GetCreatedAt returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetCreatedAt() string {
+	return v.AgentScheduleFields.CreatedAt
+}
+
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentScheduleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	AppId string `json:"appId"`
+
+	AgentId *string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	Cron string `json:"cron"`
+
+	Timezone string `json:"timezone"`
+
+	Enabled bool `json:"enabled"`
+
+	EntryNodeUrn string `json:"entryNodeUrn"`
+
+	AiConfigName *string `json:"aiConfigName"`
+
+	UserId *string `json:"userId"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	EventData *json.RawMessage `json:"eventData"`
+
+	Policy *json.RawMessage `json:"policy"`
+
+	LastRunAt *string `json:"lastRunAt"`
+
+	NextRunAt *string `json:"nextRunAt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) __premarshalJSON() (*__premarshalAgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule, error) {
+	var retval __premarshalAgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule
+
+	retval.Id = v.AgentScheduleFields.Id
+	retval.OrganizationId = v.AgentScheduleFields.OrganizationId
+	retval.AppId = v.AgentScheduleFields.AppId
+	retval.AgentId = v.AgentScheduleFields.AgentId
+	retval.Name = v.AgentScheduleFields.Name
+	retval.Cron = v.AgentScheduleFields.Cron
+	retval.Timezone = v.AgentScheduleFields.Timezone
+	retval.Enabled = v.AgentScheduleFields.Enabled
+	retval.EntryNodeUrn = v.AgentScheduleFields.EntryNodeUrn
+	retval.AiConfigName = v.AgentScheduleFields.AiConfigName
+	retval.UserId = v.AgentScheduleFields.UserId
+	retval.CreatedBy = v.AgentScheduleFields.CreatedBy
+	retval.EventData = v.AgentScheduleFields.EventData
+	retval.Policy = v.AgentScheduleFields.Policy
+	retval.LastRunAt = v.AgentScheduleFields.LastRunAt
+	retval.NextRunAt = v.AgentScheduleFields.NextRunAt
+	retval.CreatedAt = v.AgentScheduleFields.CreatedAt
+	return &retval, nil
+}
+
+// AgentSchedulesResponse is returned by AgentSchedules on success.
+type AgentSchedulesResponse struct {
+	AgentSchedules *AgentSchedulesAgentSchedulesAgentSchedulesPage `json:"agentSchedules"`
+}
+
+// GetAgentSchedules returns AgentSchedulesResponse.AgentSchedules, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesResponse) GetAgentSchedules() *AgentSchedulesAgentSchedulesAgentSchedulesPage {
+	return v.AgentSchedules
+}
+
+// AgentWebhookCredentialFields includes the GraphQL fields of AgentWebhookCredentials requested by the fragment AgentWebhookCredentialFields.
+// The GraphQL type's documentation follows.
+//
+// Create/rotate result — path + platform token are shown ONCE.
+type AgentWebhookCredentialFields struct {
+	// Server-relative URL path: /hooks/<secret>/<name>. Append ?hpt=<token>.
+	Path string `json:"path"`
+	// The time-limited platform JWT (hpt) — the second factor. Store it now.
+	Token   string                                           `json:"token"`
+	Webhook *AgentWebhookCredentialFieldsWebhookAgentWebhook `json:"webhook"`
+}
+
+// GetPath returns AgentWebhookCredentialFields.Path, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFields) GetPath() string { return v.Path }
+
+// GetToken returns AgentWebhookCredentialFields.Token, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFields) GetToken() string { return v.Token }
+
+// GetWebhook returns AgentWebhookCredentialFields.Webhook, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFields) GetWebhook() *AgentWebhookCredentialFieldsWebhookAgentWebhook {
+	return v.Webhook
+}
+
+// AgentWebhookCredentialFieldsWebhookAgentWebhook includes the requested fields of the GraphQL type AgentWebhook.
+// The GraphQL type's documentation follows.
+//
+// Webhook trigger (D-2026-05-02). The secret is NEVER exposed here — the URL is returned once at create/rotate.
+type AgentWebhookCredentialFieldsWebhookAgentWebhook struct {
+	AgentWebhookFields `json:"-"`
+}
+
+// GetId returns AgentWebhookCredentialFieldsWebhookAgentWebhook.Id, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetId() string {
+	return v.AgentWebhookFields.Id
+}
+
+// GetOrganizationId returns AgentWebhookCredentialFieldsWebhookAgentWebhook.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetOrganizationId() string {
+	return v.AgentWebhookFields.OrganizationId
+}
+
+// GetAppId returns AgentWebhookCredentialFieldsWebhookAgentWebhook.AppId, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetAppId() string {
+	return v.AgentWebhookFields.AppId
+}
+
+// GetAgentId returns AgentWebhookCredentialFieldsWebhookAgentWebhook.AgentId, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetAgentId() *string {
+	return v.AgentWebhookFields.AgentId
+}
+
+// GetName returns AgentWebhookCredentialFieldsWebhookAgentWebhook.Name, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetName() string {
+	return v.AgentWebhookFields.Name
+}
+
+// GetEnabled returns AgentWebhookCredentialFieldsWebhookAgentWebhook.Enabled, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetEnabled() bool {
+	return v.AgentWebhookFields.Enabled
+}
+
+// GetEntryNodeUrn returns AgentWebhookCredentialFieldsWebhookAgentWebhook.EntryNodeUrn, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetEntryNodeUrn() string {
+	return v.AgentWebhookFields.EntryNodeUrn
+}
+
+// GetAiConfigName returns AgentWebhookCredentialFieldsWebhookAgentWebhook.AiConfigName, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetAiConfigName() *string {
+	return v.AgentWebhookFields.AiConfigName
+}
+
+// GetUserId returns AgentWebhookCredentialFieldsWebhookAgentWebhook.UserId, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetUserId() *string {
+	return v.AgentWebhookFields.UserId
+}
+
+// GetCreatedBy returns AgentWebhookCredentialFieldsWebhookAgentWebhook.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetCreatedBy() *string {
+	return v.AgentWebhookFields.CreatedBy
+}
+
+// GetArgsSchema returns AgentWebhookCredentialFieldsWebhookAgentWebhook.ArgsSchema, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetArgsSchema() *json.RawMessage {
+	return v.AgentWebhookFields.ArgsSchema
+}
+
+// GetEventData returns AgentWebhookCredentialFieldsWebhookAgentWebhook.EventData, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetEventData() *json.RawMessage {
+	return v.AgentWebhookFields.EventData
+}
+
+// GetPolicy returns AgentWebhookCredentialFieldsWebhookAgentWebhook.Policy, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetPolicy() *json.RawMessage {
+	return v.AgentWebhookFields.Policy
+}
+
+// GetLastCalledAt returns AgentWebhookCredentialFieldsWebhookAgentWebhook.LastCalledAt, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetLastCalledAt() *string {
+	return v.AgentWebhookFields.LastCalledAt
+}
+
+// GetCreatedAt returns AgentWebhookCredentialFieldsWebhookAgentWebhook.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetCreatedAt() string {
+	return v.AgentWebhookFields.CreatedAt
+}
+
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentWebhookCredentialFieldsWebhookAgentWebhook
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentWebhookCredentialFieldsWebhookAgentWebhook = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentWebhookFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentWebhookCredentialFieldsWebhookAgentWebhook struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	AppId string `json:"appId"`
+
+	AgentId *string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	Enabled bool `json:"enabled"`
+
+	EntryNodeUrn string `json:"entryNodeUrn"`
+
+	AiConfigName *string `json:"aiConfigName"`
+
+	UserId *string `json:"userId"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	ArgsSchema *json.RawMessage `json:"argsSchema"`
+
+	EventData *json.RawMessage `json:"eventData"`
+
+	Policy *json.RawMessage `json:"policy"`
+
+	LastCalledAt *string `json:"lastCalledAt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) __premarshalJSON() (*__premarshalAgentWebhookCredentialFieldsWebhookAgentWebhook, error) {
+	var retval __premarshalAgentWebhookCredentialFieldsWebhookAgentWebhook
+
+	retval.Id = v.AgentWebhookFields.Id
+	retval.OrganizationId = v.AgentWebhookFields.OrganizationId
+	retval.AppId = v.AgentWebhookFields.AppId
+	retval.AgentId = v.AgentWebhookFields.AgentId
+	retval.Name = v.AgentWebhookFields.Name
+	retval.Enabled = v.AgentWebhookFields.Enabled
+	retval.EntryNodeUrn = v.AgentWebhookFields.EntryNodeUrn
+	retval.AiConfigName = v.AgentWebhookFields.AiConfigName
+	retval.UserId = v.AgentWebhookFields.UserId
+	retval.CreatedBy = v.AgentWebhookFields.CreatedBy
+	retval.ArgsSchema = v.AgentWebhookFields.ArgsSchema
+	retval.EventData = v.AgentWebhookFields.EventData
+	retval.Policy = v.AgentWebhookFields.Policy
+	retval.LastCalledAt = v.AgentWebhookFields.LastCalledAt
+	retval.CreatedAt = v.AgentWebhookFields.CreatedAt
+	return &retval, nil
+}
+
+// AgentWebhookFields includes the GraphQL fields of AgentWebhook requested by the fragment AgentWebhookFields.
+// The GraphQL type's documentation follows.
+//
+// Webhook trigger (D-2026-05-02). The secret is NEVER exposed here — the URL is returned once at create/rotate.
+type AgentWebhookFields struct {
+	Id             string           `json:"id"`
+	OrganizationId string           `json:"organizationId"`
+	AppId          string           `json:"appId"`
+	AgentId        *string          `json:"agentId"`
+	Name           string           `json:"name"`
+	Enabled        bool             `json:"enabled"`
+	EntryNodeUrn   string           `json:"entryNodeUrn"`
+	AiConfigName   *string          `json:"aiConfigName"`
+	UserId         *string          `json:"userId"`
+	CreatedBy      *string          `json:"createdBy"`
+	ArgsSchema     *json.RawMessage `json:"argsSchema"`
+	EventData      *json.RawMessage `json:"eventData"`
+	Policy         *json.RawMessage `json:"policy"`
+	LastCalledAt   *string          `json:"lastCalledAt"`
+	CreatedAt      string           `json:"createdAt"`
+}
+
+// GetId returns AgentWebhookFields.Id, and is useful for accessing the field via an interface.
+func (v *AgentWebhookFields) GetId() string { return v.Id }
+
+// GetOrganizationId returns AgentWebhookFields.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AgentWebhookFields) GetOrganizationId() string { return v.OrganizationId }
+
+// GetAppId returns AgentWebhookFields.AppId, and is useful for accessing the field via an interface.
+func (v *AgentWebhookFields) GetAppId() string { return v.AppId }
+
+// GetAgentId returns AgentWebhookFields.AgentId, and is useful for accessing the field via an interface.
+func (v *AgentWebhookFields) GetAgentId() *string { return v.AgentId }
+
+// GetName returns AgentWebhookFields.Name, and is useful for accessing the field via an interface.
+func (v *AgentWebhookFields) GetName() string { return v.Name }
+
+// GetEnabled returns AgentWebhookFields.Enabled, and is useful for accessing the field via an interface.
+func (v *AgentWebhookFields) GetEnabled() bool { return v.Enabled }
+
+// GetEntryNodeUrn returns AgentWebhookFields.EntryNodeUrn, and is useful for accessing the field via an interface.
+func (v *AgentWebhookFields) GetEntryNodeUrn() string { return v.EntryNodeUrn }
+
+// GetAiConfigName returns AgentWebhookFields.AiConfigName, and is useful for accessing the field via an interface.
+func (v *AgentWebhookFields) GetAiConfigName() *string { return v.AiConfigName }
+
+// GetUserId returns AgentWebhookFields.UserId, and is useful for accessing the field via an interface.
+func (v *AgentWebhookFields) GetUserId() *string { return v.UserId }
+
+// GetCreatedBy returns AgentWebhookFields.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentWebhookFields) GetCreatedBy() *string { return v.CreatedBy }
+
+// GetArgsSchema returns AgentWebhookFields.ArgsSchema, and is useful for accessing the field via an interface.
+func (v *AgentWebhookFields) GetArgsSchema() *json.RawMessage { return v.ArgsSchema }
+
+// GetEventData returns AgentWebhookFields.EventData, and is useful for accessing the field via an interface.
+func (v *AgentWebhookFields) GetEventData() *json.RawMessage { return v.EventData }
+
+// GetPolicy returns AgentWebhookFields.Policy, and is useful for accessing the field via an interface.
+func (v *AgentWebhookFields) GetPolicy() *json.RawMessage { return v.Policy }
+
+// GetLastCalledAt returns AgentWebhookFields.LastCalledAt, and is useful for accessing the field via an interface.
+func (v *AgentWebhookFields) GetLastCalledAt() *string { return v.LastCalledAt }
+
+// GetCreatedAt returns AgentWebhookFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentWebhookFields) GetCreatedAt() string { return v.CreatedAt }
+
+// AgentWebhooksAgentWebhooksAgentWebhooksPage includes the requested fields of the GraphQL type AgentWebhooksPage.
+type AgentWebhooksAgentWebhooksAgentWebhooksPage struct {
+	Total int                                                             `json:"total"`
+	Items []*AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook `json:"items"`
+}
+
+// GetTotal returns AgentWebhooksAgentWebhooksAgentWebhooksPage.Total, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPage) GetTotal() int { return v.Total }
+
+// GetItems returns AgentWebhooksAgentWebhooksAgentWebhooksPage.Items, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPage) GetItems() []*AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook {
+	return v.Items
+}
+
+// AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook includes the requested fields of the GraphQL type AgentWebhook.
+// The GraphQL type's documentation follows.
+//
+// Webhook trigger (D-2026-05-02). The secret is NEVER exposed here — the URL is returned once at create/rotate.
+type AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook struct {
+	AgentWebhookFields `json:"-"`
+}
+
+// GetId returns AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook.Id, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetId() string {
+	return v.AgentWebhookFields.Id
+}
+
+// GetOrganizationId returns AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetOrganizationId() string {
+	return v.AgentWebhookFields.OrganizationId
+}
+
+// GetAppId returns AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook.AppId, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetAppId() string {
+	return v.AgentWebhookFields.AppId
+}
+
+// GetAgentId returns AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook.AgentId, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetAgentId() *string {
+	return v.AgentWebhookFields.AgentId
+}
+
+// GetName returns AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook.Name, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetName() string {
+	return v.AgentWebhookFields.Name
+}
+
+// GetEnabled returns AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook.Enabled, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetEnabled() bool {
+	return v.AgentWebhookFields.Enabled
+}
+
+// GetEntryNodeUrn returns AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook.EntryNodeUrn, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetEntryNodeUrn() string {
+	return v.AgentWebhookFields.EntryNodeUrn
+}
+
+// GetAiConfigName returns AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook.AiConfigName, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetAiConfigName() *string {
+	return v.AgentWebhookFields.AiConfigName
+}
+
+// GetUserId returns AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook.UserId, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetUserId() *string {
+	return v.AgentWebhookFields.UserId
+}
+
+// GetCreatedBy returns AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetCreatedBy() *string {
+	return v.AgentWebhookFields.CreatedBy
+}
+
+// GetArgsSchema returns AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook.ArgsSchema, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetArgsSchema() *json.RawMessage {
+	return v.AgentWebhookFields.ArgsSchema
+}
+
+// GetEventData returns AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook.EventData, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetEventData() *json.RawMessage {
+	return v.AgentWebhookFields.EventData
+}
+
+// GetPolicy returns AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook.Policy, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetPolicy() *json.RawMessage {
+	return v.AgentWebhookFields.Policy
+}
+
+// GetLastCalledAt returns AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook.LastCalledAt, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetLastCalledAt() *string {
+	return v.AgentWebhookFields.LastCalledAt
+}
+
+// GetCreatedAt returns AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetCreatedAt() string {
+	return v.AgentWebhookFields.CreatedAt
+}
+
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentWebhookFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	AppId string `json:"appId"`
+
+	AgentId *string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	Enabled bool `json:"enabled"`
+
+	EntryNodeUrn string `json:"entryNodeUrn"`
+
+	AiConfigName *string `json:"aiConfigName"`
+
+	UserId *string `json:"userId"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	ArgsSchema *json.RawMessage `json:"argsSchema"`
+
+	EventData *json.RawMessage `json:"eventData"`
+
+	Policy *json.RawMessage `json:"policy"`
+
+	LastCalledAt *string `json:"lastCalledAt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) __premarshalJSON() (*__premarshalAgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook, error) {
+	var retval __premarshalAgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook
+
+	retval.Id = v.AgentWebhookFields.Id
+	retval.OrganizationId = v.AgentWebhookFields.OrganizationId
+	retval.AppId = v.AgentWebhookFields.AppId
+	retval.AgentId = v.AgentWebhookFields.AgentId
+	retval.Name = v.AgentWebhookFields.Name
+	retval.Enabled = v.AgentWebhookFields.Enabled
+	retval.EntryNodeUrn = v.AgentWebhookFields.EntryNodeUrn
+	retval.AiConfigName = v.AgentWebhookFields.AiConfigName
+	retval.UserId = v.AgentWebhookFields.UserId
+	retval.CreatedBy = v.AgentWebhookFields.CreatedBy
+	retval.ArgsSchema = v.AgentWebhookFields.ArgsSchema
+	retval.EventData = v.AgentWebhookFields.EventData
+	retval.Policy = v.AgentWebhookFields.Policy
+	retval.LastCalledAt = v.AgentWebhookFields.LastCalledAt
+	retval.CreatedAt = v.AgentWebhookFields.CreatedAt
+	return &retval, nil
+}
+
+// AgentWebhooksResponse is returned by AgentWebhooks on success.
+type AgentWebhooksResponse struct {
+	AgentWebhooks *AgentWebhooksAgentWebhooksAgentWebhooksPage `json:"agentWebhooks"`
+}
+
+// GetAgentWebhooks returns AgentWebhooksResponse.AgentWebhooks, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksResponse) GetAgentWebhooks() *AgentWebhooksAgentWebhooksAgentWebhooksPage {
+	return v.AgentWebhooks
+}
+
 // 036-ai-service-config: which entity owns an AiServiceConfig. Exactly one
 // owner per config (DB-enforced).
 type AiConfigOwnerType string
@@ -374,6 +1312,552 @@ func (v *AiServiceConfigFields) GetCreatedAt() string { return v.CreatedAt }
 
 // GetUpdatedAt returns AiServiceConfigFields.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *AiServiceConfigFields) GetUpdatedAt() *string { return v.UpdatedAt }
+
+// AppRunAppRun includes the requested fields of the GraphQL type AppRun.
+type AppRunAppRun struct {
+	AppRunFields `json:"-"`
+}
+
+// GetId returns AppRunAppRun.Id, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetId() string { return v.AppRunFields.Id }
+
+// GetOrganizationId returns AppRunAppRun.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetOrganizationId() string { return v.AppRunFields.OrganizationId }
+
+// GetAppId returns AppRunAppRun.AppId, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetAppId() string { return v.AppRunFields.AppId }
+
+// GetAgentId returns AppRunAppRun.AgentId, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetAgentId() *string { return v.AppRunFields.AgentId }
+
+// GetStatus returns AppRunAppRun.Status, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetStatus() AppRunStatus { return v.AppRunFields.Status }
+
+// GetTriggerKind returns AppRunAppRun.TriggerKind, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetTriggerKind() AppRunTriggerKind { return v.AppRunFields.TriggerKind }
+
+// GetTriggerId returns AppRunAppRun.TriggerId, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetTriggerId() *string { return v.AppRunFields.TriggerId }
+
+// GetEntryNodeUrn returns AppRunAppRun.EntryNodeUrn, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetEntryNodeUrn() string { return v.AppRunFields.EntryNodeUrn }
+
+// GetCurNodeUrn returns AppRunAppRun.CurNodeUrn, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetCurNodeUrn() *string { return v.AppRunFields.CurNodeUrn }
+
+// GetUserId returns AppRunAppRun.UserId, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetUserId() *string { return v.AppRunFields.UserId }
+
+// GetCreatedBy returns AppRunAppRun.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetCreatedBy() *string { return v.AppRunFields.CreatedBy }
+
+// GetParentRunId returns AppRunAppRun.ParentRunId, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetParentRunId() *string { return v.AppRunFields.ParentRunId }
+
+// GetAttempts returns AppRunAppRun.Attempts, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetAttempts() int { return v.AppRunFields.Attempts }
+
+// GetBudgetActions returns AppRunAppRun.BudgetActions, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetBudgetActions() *int { return v.AppRunFields.BudgetActions }
+
+// GetBudgetTokens returns AppRunAppRun.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetBudgetTokens() *int { return v.AppRunFields.BudgetTokens }
+
+// GetTimeoutMs returns AppRunAppRun.TimeoutMs, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetTimeoutMs() *int { return v.AppRunFields.TimeoutMs }
+
+// GetPolicy returns AppRunAppRun.Policy, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetPolicy() *json.RawMessage { return v.AppRunFields.Policy }
+
+// GetEventData returns AppRunAppRun.EventData, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetEventData() *json.RawMessage { return v.AppRunFields.EventData }
+
+// GetFailure returns AppRunAppRun.Failure, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetFailure() *json.RawMessage { return v.AppRunFields.Failure }
+
+// GetCreatedAt returns AppRunAppRun.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetCreatedAt() string { return v.AppRunFields.CreatedAt }
+
+// GetStartedAt returns AppRunAppRun.StartedAt, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetStartedAt() *string { return v.AppRunFields.StartedAt }
+
+// GetFinishedAt returns AppRunAppRun.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetFinishedAt() *string { return v.AppRunFields.FinishedAt }
+
+func (v *AppRunAppRun) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AppRunAppRun
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AppRunAppRun = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppRunFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAppRunAppRun struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	AppId string `json:"appId"`
+
+	AgentId *string `json:"agentId"`
+
+	Status AppRunStatus `json:"status"`
+
+	TriggerKind AppRunTriggerKind `json:"triggerKind"`
+
+	TriggerId *string `json:"triggerId"`
+
+	EntryNodeUrn string `json:"entryNodeUrn"`
+
+	CurNodeUrn *string `json:"curNodeUrn"`
+
+	UserId *string `json:"userId"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	ParentRunId *string `json:"parentRunId"`
+
+	Attempts int `json:"attempts"`
+
+	BudgetActions *int `json:"budgetActions"`
+
+	BudgetTokens *int `json:"budgetTokens"`
+
+	TimeoutMs *int `json:"timeoutMs"`
+
+	Policy *json.RawMessage `json:"policy"`
+
+	EventData *json.RawMessage `json:"eventData"`
+
+	Failure *json.RawMessage `json:"failure"`
+
+	CreatedAt string `json:"createdAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+}
+
+func (v *AppRunAppRun) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AppRunAppRun) __premarshalJSON() (*__premarshalAppRunAppRun, error) {
+	var retval __premarshalAppRunAppRun
+
+	retval.Id = v.AppRunFields.Id
+	retval.OrganizationId = v.AppRunFields.OrganizationId
+	retval.AppId = v.AppRunFields.AppId
+	retval.AgentId = v.AppRunFields.AgentId
+	retval.Status = v.AppRunFields.Status
+	retval.TriggerKind = v.AppRunFields.TriggerKind
+	retval.TriggerId = v.AppRunFields.TriggerId
+	retval.EntryNodeUrn = v.AppRunFields.EntryNodeUrn
+	retval.CurNodeUrn = v.AppRunFields.CurNodeUrn
+	retval.UserId = v.AppRunFields.UserId
+	retval.CreatedBy = v.AppRunFields.CreatedBy
+	retval.ParentRunId = v.AppRunFields.ParentRunId
+	retval.Attempts = v.AppRunFields.Attempts
+	retval.BudgetActions = v.AppRunFields.BudgetActions
+	retval.BudgetTokens = v.AppRunFields.BudgetTokens
+	retval.TimeoutMs = v.AppRunFields.TimeoutMs
+	retval.Policy = v.AppRunFields.Policy
+	retval.EventData = v.AppRunFields.EventData
+	retval.Failure = v.AppRunFields.Failure
+	retval.CreatedAt = v.AppRunFields.CreatedAt
+	retval.StartedAt = v.AppRunFields.StartedAt
+	retval.FinishedAt = v.AppRunFields.FinishedAt
+	return &retval, nil
+}
+
+// AppRunFields includes the GraphQL fields of AppRun requested by the fragment AppRunFields.
+type AppRunFields struct {
+	Id             string            `json:"id"`
+	OrganizationId string            `json:"organizationId"`
+	AppId          string            `json:"appId"`
+	AgentId        *string           `json:"agentId"`
+	Status         AppRunStatus      `json:"status"`
+	TriggerKind    AppRunTriggerKind `json:"triggerKind"`
+	TriggerId      *string           `json:"triggerId"`
+	EntryNodeUrn   string            `json:"entryNodeUrn"`
+	CurNodeUrn     *string           `json:"curNodeUrn"`
+	// On-behalf-of user (cor:agt:010:01). Null = pure App service identity.
+	UserId      *string `json:"userId"`
+	CreatedBy   *string `json:"createdBy"`
+	ParentRunId *string `json:"parentRunId"`
+	Attempts    int     `json:"attempts"`
+	// Remaining action budget — live-decremented per write/tool action.
+	BudgetActions *int `json:"budgetActions"`
+	// Remaining LLM-token budget — live-decremented; zero halts the run.
+	BudgetTokens *int             `json:"budgetTokens"`
+	TimeoutMs    *int             `json:"timeoutMs"`
+	Policy       *json.RawMessage `json:"policy"`
+	EventData    *json.RawMessage `json:"eventData"`
+	Failure      *json.RawMessage `json:"failure"`
+	CreatedAt    string           `json:"createdAt"`
+	StartedAt    *string          `json:"startedAt"`
+	FinishedAt   *string          `json:"finishedAt"`
+}
+
+// GetId returns AppRunFields.Id, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetId() string { return v.Id }
+
+// GetOrganizationId returns AppRunFields.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetOrganizationId() string { return v.OrganizationId }
+
+// GetAppId returns AppRunFields.AppId, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetAppId() string { return v.AppId }
+
+// GetAgentId returns AppRunFields.AgentId, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetAgentId() *string { return v.AgentId }
+
+// GetStatus returns AppRunFields.Status, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetStatus() AppRunStatus { return v.Status }
+
+// GetTriggerKind returns AppRunFields.TriggerKind, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetTriggerKind() AppRunTriggerKind { return v.TriggerKind }
+
+// GetTriggerId returns AppRunFields.TriggerId, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetTriggerId() *string { return v.TriggerId }
+
+// GetEntryNodeUrn returns AppRunFields.EntryNodeUrn, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetEntryNodeUrn() string { return v.EntryNodeUrn }
+
+// GetCurNodeUrn returns AppRunFields.CurNodeUrn, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetCurNodeUrn() *string { return v.CurNodeUrn }
+
+// GetUserId returns AppRunFields.UserId, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetUserId() *string { return v.UserId }
+
+// GetCreatedBy returns AppRunFields.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetCreatedBy() *string { return v.CreatedBy }
+
+// GetParentRunId returns AppRunFields.ParentRunId, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetParentRunId() *string { return v.ParentRunId }
+
+// GetAttempts returns AppRunFields.Attempts, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetAttempts() int { return v.Attempts }
+
+// GetBudgetActions returns AppRunFields.BudgetActions, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetBudgetActions() *int { return v.BudgetActions }
+
+// GetBudgetTokens returns AppRunFields.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetBudgetTokens() *int { return v.BudgetTokens }
+
+// GetTimeoutMs returns AppRunFields.TimeoutMs, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetTimeoutMs() *int { return v.TimeoutMs }
+
+// GetPolicy returns AppRunFields.Policy, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetPolicy() *json.RawMessage { return v.Policy }
+
+// GetEventData returns AppRunFields.EventData, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetEventData() *json.RawMessage { return v.EventData }
+
+// GetFailure returns AppRunFields.Failure, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetFailure() *json.RawMessage { return v.Failure }
+
+// GetCreatedAt returns AppRunFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetStartedAt returns AppRunFields.StartedAt, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetStartedAt() *string { return v.StartedAt }
+
+// GetFinishedAt returns AppRunFields.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetFinishedAt() *string { return v.FinishedAt }
+
+// AppRunResponse is returned by AppRun on success.
+type AppRunResponse struct {
+	// One run by ID (runs are URN-less, like AiServiceConfig).
+	AppRun *AppRunAppRun `json:"appRun"`
+}
+
+// GetAppRun returns AppRunResponse.AppRun, and is useful for accessing the field via an interface.
+func (v *AppRunResponse) GetAppRun() *AppRunAppRun { return v.AppRun }
+
+type AppRunStatus string
+
+const (
+	AppRunStatusCancelled AppRunStatus = "CANCELLED"
+	AppRunStatusCompleted AppRunStatus = "COMPLETED"
+	AppRunStatusFailed    AppRunStatus = "FAILED"
+	AppRunStatusPending   AppRunStatus = "PENDING"
+	AppRunStatusRunning   AppRunStatus = "RUNNING"
+	AppRunStatusTimedOut  AppRunStatus = "TIMED_OUT"
+)
+
+var AllAppRunStatus = []AppRunStatus{
+	AppRunStatusCancelled,
+	AppRunStatusCompleted,
+	AppRunStatusFailed,
+	AppRunStatusPending,
+	AppRunStatusRunning,
+	AppRunStatusTimedOut,
+}
+
+type AppRunTriggerKind string
+
+const (
+	AppRunTriggerKindIntegration AppRunTriggerKind = "INTEGRATION"
+	AppRunTriggerKindManual      AppRunTriggerKind = "MANUAL"
+	AppRunTriggerKindSchedule    AppRunTriggerKind = "SCHEDULE"
+	AppRunTriggerKindWebhook     AppRunTriggerKind = "WEBHOOK"
+)
+
+var AllAppRunTriggerKind = []AppRunTriggerKind{
+	AppRunTriggerKindIntegration,
+	AppRunTriggerKindManual,
+	AppRunTriggerKindSchedule,
+	AppRunTriggerKindWebhook,
+}
+
+// AppRunsAppRunsAppRunsPage includes the requested fields of the GraphQL type AppRunsPage.
+type AppRunsAppRunsAppRunsPage struct {
+	Total int                                     `json:"total"`
+	Items []*AppRunsAppRunsAppRunsPageItemsAppRun `json:"items"`
+}
+
+// GetTotal returns AppRunsAppRunsAppRunsPage.Total, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPage) GetTotal() int { return v.Total }
+
+// GetItems returns AppRunsAppRunsAppRunsPage.Items, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPage) GetItems() []*AppRunsAppRunsAppRunsPageItemsAppRun {
+	return v.Items
+}
+
+// AppRunsAppRunsAppRunsPageItemsAppRun includes the requested fields of the GraphQL type AppRun.
+type AppRunsAppRunsAppRunsPageItemsAppRun struct {
+	AppRunFields `json:"-"`
+}
+
+// GetId returns AppRunsAppRunsAppRunsPageItemsAppRun.Id, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetId() string { return v.AppRunFields.Id }
+
+// GetOrganizationId returns AppRunsAppRunsAppRunsPageItemsAppRun.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetOrganizationId() string {
+	return v.AppRunFields.OrganizationId
+}
+
+// GetAppId returns AppRunsAppRunsAppRunsPageItemsAppRun.AppId, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetAppId() string { return v.AppRunFields.AppId }
+
+// GetAgentId returns AppRunsAppRunsAppRunsPageItemsAppRun.AgentId, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetAgentId() *string { return v.AppRunFields.AgentId }
+
+// GetStatus returns AppRunsAppRunsAppRunsPageItemsAppRun.Status, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetStatus() AppRunStatus { return v.AppRunFields.Status }
+
+// GetTriggerKind returns AppRunsAppRunsAppRunsPageItemsAppRun.TriggerKind, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetTriggerKind() AppRunTriggerKind {
+	return v.AppRunFields.TriggerKind
+}
+
+// GetTriggerId returns AppRunsAppRunsAppRunsPageItemsAppRun.TriggerId, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetTriggerId() *string {
+	return v.AppRunFields.TriggerId
+}
+
+// GetEntryNodeUrn returns AppRunsAppRunsAppRunsPageItemsAppRun.EntryNodeUrn, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetEntryNodeUrn() string {
+	return v.AppRunFields.EntryNodeUrn
+}
+
+// GetCurNodeUrn returns AppRunsAppRunsAppRunsPageItemsAppRun.CurNodeUrn, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetCurNodeUrn() *string {
+	return v.AppRunFields.CurNodeUrn
+}
+
+// GetUserId returns AppRunsAppRunsAppRunsPageItemsAppRun.UserId, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetUserId() *string { return v.AppRunFields.UserId }
+
+// GetCreatedBy returns AppRunsAppRunsAppRunsPageItemsAppRun.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetCreatedBy() *string {
+	return v.AppRunFields.CreatedBy
+}
+
+// GetParentRunId returns AppRunsAppRunsAppRunsPageItemsAppRun.ParentRunId, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetParentRunId() *string {
+	return v.AppRunFields.ParentRunId
+}
+
+// GetAttempts returns AppRunsAppRunsAppRunsPageItemsAppRun.Attempts, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetAttempts() int { return v.AppRunFields.Attempts }
+
+// GetBudgetActions returns AppRunsAppRunsAppRunsPageItemsAppRun.BudgetActions, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetBudgetActions() *int {
+	return v.AppRunFields.BudgetActions
+}
+
+// GetBudgetTokens returns AppRunsAppRunsAppRunsPageItemsAppRun.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetBudgetTokens() *int {
+	return v.AppRunFields.BudgetTokens
+}
+
+// GetTimeoutMs returns AppRunsAppRunsAppRunsPageItemsAppRun.TimeoutMs, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetTimeoutMs() *int { return v.AppRunFields.TimeoutMs }
+
+// GetPolicy returns AppRunsAppRunsAppRunsPageItemsAppRun.Policy, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetPolicy() *json.RawMessage {
+	return v.AppRunFields.Policy
+}
+
+// GetEventData returns AppRunsAppRunsAppRunsPageItemsAppRun.EventData, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetEventData() *json.RawMessage {
+	return v.AppRunFields.EventData
+}
+
+// GetFailure returns AppRunsAppRunsAppRunsPageItemsAppRun.Failure, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetFailure() *json.RawMessage {
+	return v.AppRunFields.Failure
+}
+
+// GetCreatedAt returns AppRunsAppRunsAppRunsPageItemsAppRun.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetCreatedAt() string { return v.AppRunFields.CreatedAt }
+
+// GetStartedAt returns AppRunsAppRunsAppRunsPageItemsAppRun.StartedAt, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetStartedAt() *string {
+	return v.AppRunFields.StartedAt
+}
+
+// GetFinishedAt returns AppRunsAppRunsAppRunsPageItemsAppRun.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetFinishedAt() *string {
+	return v.AppRunFields.FinishedAt
+}
+
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AppRunsAppRunsAppRunsPageItemsAppRun
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AppRunsAppRunsAppRunsPageItemsAppRun = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppRunFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAppRunsAppRunsAppRunsPageItemsAppRun struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	AppId string `json:"appId"`
+
+	AgentId *string `json:"agentId"`
+
+	Status AppRunStatus `json:"status"`
+
+	TriggerKind AppRunTriggerKind `json:"triggerKind"`
+
+	TriggerId *string `json:"triggerId"`
+
+	EntryNodeUrn string `json:"entryNodeUrn"`
+
+	CurNodeUrn *string `json:"curNodeUrn"`
+
+	UserId *string `json:"userId"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	ParentRunId *string `json:"parentRunId"`
+
+	Attempts int `json:"attempts"`
+
+	BudgetActions *int `json:"budgetActions"`
+
+	BudgetTokens *int `json:"budgetTokens"`
+
+	TimeoutMs *int `json:"timeoutMs"`
+
+	Policy *json.RawMessage `json:"policy"`
+
+	EventData *json.RawMessage `json:"eventData"`
+
+	Failure *json.RawMessage `json:"failure"`
+
+	CreatedAt string `json:"createdAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+}
+
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) __premarshalJSON() (*__premarshalAppRunsAppRunsAppRunsPageItemsAppRun, error) {
+	var retval __premarshalAppRunsAppRunsAppRunsPageItemsAppRun
+
+	retval.Id = v.AppRunFields.Id
+	retval.OrganizationId = v.AppRunFields.OrganizationId
+	retval.AppId = v.AppRunFields.AppId
+	retval.AgentId = v.AppRunFields.AgentId
+	retval.Status = v.AppRunFields.Status
+	retval.TriggerKind = v.AppRunFields.TriggerKind
+	retval.TriggerId = v.AppRunFields.TriggerId
+	retval.EntryNodeUrn = v.AppRunFields.EntryNodeUrn
+	retval.CurNodeUrn = v.AppRunFields.CurNodeUrn
+	retval.UserId = v.AppRunFields.UserId
+	retval.CreatedBy = v.AppRunFields.CreatedBy
+	retval.ParentRunId = v.AppRunFields.ParentRunId
+	retval.Attempts = v.AppRunFields.Attempts
+	retval.BudgetActions = v.AppRunFields.BudgetActions
+	retval.BudgetTokens = v.AppRunFields.BudgetTokens
+	retval.TimeoutMs = v.AppRunFields.TimeoutMs
+	retval.Policy = v.AppRunFields.Policy
+	retval.EventData = v.AppRunFields.EventData
+	retval.Failure = v.AppRunFields.Failure
+	retval.CreatedAt = v.AppRunFields.CreatedAt
+	retval.StartedAt = v.AppRunFields.StartedAt
+	retval.FinishedAt = v.AppRunFields.FinishedAt
+	return &retval, nil
+}
+
+// AppRunsResponse is returned by AppRuns on success.
+type AppRunsResponse struct {
+	AppRuns *AppRunsAppRunsAppRunsPage `json:"appRuns"`
+}
+
+// GetAppRuns returns AppRunsResponse.AppRuns, and is useful for accessing the field via an interface.
+func (v *AppRunsResponse) GetAppRuns() *AppRunsAppRunsAppRunsPage { return v.AppRuns }
 
 type AppType string
 
@@ -454,6 +1938,195 @@ type AppsResponse struct {
 // GetApps returns AppsResponse.Apps, and is useful for accessing the field via an interface.
 func (v *AppsResponse) GetApps() *AppsAppsAppsPage { return v.Apps }
 
+// CancelAppRunCancelAppRun includes the requested fields of the GraphQL type AppRun.
+type CancelAppRunCancelAppRun struct {
+	AppRunFields `json:"-"`
+}
+
+// GetId returns CancelAppRunCancelAppRun.Id, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetId() string { return v.AppRunFields.Id }
+
+// GetOrganizationId returns CancelAppRunCancelAppRun.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetOrganizationId() string { return v.AppRunFields.OrganizationId }
+
+// GetAppId returns CancelAppRunCancelAppRun.AppId, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetAppId() string { return v.AppRunFields.AppId }
+
+// GetAgentId returns CancelAppRunCancelAppRun.AgentId, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetAgentId() *string { return v.AppRunFields.AgentId }
+
+// GetStatus returns CancelAppRunCancelAppRun.Status, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetStatus() AppRunStatus { return v.AppRunFields.Status }
+
+// GetTriggerKind returns CancelAppRunCancelAppRun.TriggerKind, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetTriggerKind() AppRunTriggerKind {
+	return v.AppRunFields.TriggerKind
+}
+
+// GetTriggerId returns CancelAppRunCancelAppRun.TriggerId, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetTriggerId() *string { return v.AppRunFields.TriggerId }
+
+// GetEntryNodeUrn returns CancelAppRunCancelAppRun.EntryNodeUrn, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetEntryNodeUrn() string { return v.AppRunFields.EntryNodeUrn }
+
+// GetCurNodeUrn returns CancelAppRunCancelAppRun.CurNodeUrn, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetCurNodeUrn() *string { return v.AppRunFields.CurNodeUrn }
+
+// GetUserId returns CancelAppRunCancelAppRun.UserId, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetUserId() *string { return v.AppRunFields.UserId }
+
+// GetCreatedBy returns CancelAppRunCancelAppRun.CreatedBy, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetCreatedBy() *string { return v.AppRunFields.CreatedBy }
+
+// GetParentRunId returns CancelAppRunCancelAppRun.ParentRunId, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetParentRunId() *string { return v.AppRunFields.ParentRunId }
+
+// GetAttempts returns CancelAppRunCancelAppRun.Attempts, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetAttempts() int { return v.AppRunFields.Attempts }
+
+// GetBudgetActions returns CancelAppRunCancelAppRun.BudgetActions, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetBudgetActions() *int { return v.AppRunFields.BudgetActions }
+
+// GetBudgetTokens returns CancelAppRunCancelAppRun.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetBudgetTokens() *int { return v.AppRunFields.BudgetTokens }
+
+// GetTimeoutMs returns CancelAppRunCancelAppRun.TimeoutMs, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetTimeoutMs() *int { return v.AppRunFields.TimeoutMs }
+
+// GetPolicy returns CancelAppRunCancelAppRun.Policy, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetPolicy() *json.RawMessage { return v.AppRunFields.Policy }
+
+// GetEventData returns CancelAppRunCancelAppRun.EventData, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetEventData() *json.RawMessage { return v.AppRunFields.EventData }
+
+// GetFailure returns CancelAppRunCancelAppRun.Failure, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetFailure() *json.RawMessage { return v.AppRunFields.Failure }
+
+// GetCreatedAt returns CancelAppRunCancelAppRun.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetCreatedAt() string { return v.AppRunFields.CreatedAt }
+
+// GetStartedAt returns CancelAppRunCancelAppRun.StartedAt, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetStartedAt() *string { return v.AppRunFields.StartedAt }
+
+// GetFinishedAt returns CancelAppRunCancelAppRun.FinishedAt, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetFinishedAt() *string { return v.AppRunFields.FinishedAt }
+
+func (v *CancelAppRunCancelAppRun) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CancelAppRunCancelAppRun
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CancelAppRunCancelAppRun = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppRunFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCancelAppRunCancelAppRun struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	AppId string `json:"appId"`
+
+	AgentId *string `json:"agentId"`
+
+	Status AppRunStatus `json:"status"`
+
+	TriggerKind AppRunTriggerKind `json:"triggerKind"`
+
+	TriggerId *string `json:"triggerId"`
+
+	EntryNodeUrn string `json:"entryNodeUrn"`
+
+	CurNodeUrn *string `json:"curNodeUrn"`
+
+	UserId *string `json:"userId"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	ParentRunId *string `json:"parentRunId"`
+
+	Attempts int `json:"attempts"`
+
+	BudgetActions *int `json:"budgetActions"`
+
+	BudgetTokens *int `json:"budgetTokens"`
+
+	TimeoutMs *int `json:"timeoutMs"`
+
+	Policy *json.RawMessage `json:"policy"`
+
+	EventData *json.RawMessage `json:"eventData"`
+
+	Failure *json.RawMessage `json:"failure"`
+
+	CreatedAt string `json:"createdAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+}
+
+func (v *CancelAppRunCancelAppRun) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CancelAppRunCancelAppRun) __premarshalJSON() (*__premarshalCancelAppRunCancelAppRun, error) {
+	var retval __premarshalCancelAppRunCancelAppRun
+
+	retval.Id = v.AppRunFields.Id
+	retval.OrganizationId = v.AppRunFields.OrganizationId
+	retval.AppId = v.AppRunFields.AppId
+	retval.AgentId = v.AppRunFields.AgentId
+	retval.Status = v.AppRunFields.Status
+	retval.TriggerKind = v.AppRunFields.TriggerKind
+	retval.TriggerId = v.AppRunFields.TriggerId
+	retval.EntryNodeUrn = v.AppRunFields.EntryNodeUrn
+	retval.CurNodeUrn = v.AppRunFields.CurNodeUrn
+	retval.UserId = v.AppRunFields.UserId
+	retval.CreatedBy = v.AppRunFields.CreatedBy
+	retval.ParentRunId = v.AppRunFields.ParentRunId
+	retval.Attempts = v.AppRunFields.Attempts
+	retval.BudgetActions = v.AppRunFields.BudgetActions
+	retval.BudgetTokens = v.AppRunFields.BudgetTokens
+	retval.TimeoutMs = v.AppRunFields.TimeoutMs
+	retval.Policy = v.AppRunFields.Policy
+	retval.EventData = v.AppRunFields.EventData
+	retval.Failure = v.AppRunFields.Failure
+	retval.CreatedAt = v.AppRunFields.CreatedAt
+	retval.StartedAt = v.AppRunFields.StartedAt
+	retval.FinishedAt = v.AppRunFields.FinishedAt
+	return &retval, nil
+}
+
+// CancelAppRunResponse is returned by CancelAppRun on success.
+type CancelAppRunResponse struct {
+	// The kill switch manual handle: PENDING/RUNNING to CANCELLED (cor:agt:010:02).
+	CancelAppRun *CancelAppRunCancelAppRun `json:"cancelAppRun"`
+}
+
+// GetCancelAppRun returns CancelAppRunResponse.CancelAppRun, and is useful for accessing the field via an interface.
+func (v *CancelAppRunResponse) GetCancelAppRun() *CancelAppRunCancelAppRun { return v.CancelAppRun }
+
 // CloneMemoryCloneMemory includes the requested fields of the GraphQL type Memory.
 type CloneMemoryCloneMemory struct {
 	Id               string            `json:"id"`
@@ -517,6 +2190,378 @@ type CloneMemoryResponse struct {
 
 // GetCloneMemory returns CloneMemoryResponse.CloneMemory, and is useful for accessing the field via an interface.
 func (v *CloneMemoryResponse) GetCloneMemory() *CloneMemoryCloneMemory { return v.CloneMemory }
+
+// CreateAgentScheduleCreateAgentSchedule includes the requested fields of the GraphQL type AgentSchedule.
+// The GraphQL type's documentation follows.
+//
+// Recurring trigger (cor:agt:010, D-2026-07-04-E).
+type CreateAgentScheduleCreateAgentSchedule struct {
+	AgentScheduleFields `json:"-"`
+}
+
+// GetId returns CreateAgentScheduleCreateAgentSchedule.Id, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetId() string { return v.AgentScheduleFields.Id }
+
+// GetOrganizationId returns CreateAgentScheduleCreateAgentSchedule.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetOrganizationId() string {
+	return v.AgentScheduleFields.OrganizationId
+}
+
+// GetAppId returns CreateAgentScheduleCreateAgentSchedule.AppId, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetAppId() string {
+	return v.AgentScheduleFields.AppId
+}
+
+// GetAgentId returns CreateAgentScheduleCreateAgentSchedule.AgentId, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetAgentId() *string {
+	return v.AgentScheduleFields.AgentId
+}
+
+// GetName returns CreateAgentScheduleCreateAgentSchedule.Name, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetName() string { return v.AgentScheduleFields.Name }
+
+// GetCron returns CreateAgentScheduleCreateAgentSchedule.Cron, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetCron() string { return v.AgentScheduleFields.Cron }
+
+// GetTimezone returns CreateAgentScheduleCreateAgentSchedule.Timezone, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetTimezone() string {
+	return v.AgentScheduleFields.Timezone
+}
+
+// GetEnabled returns CreateAgentScheduleCreateAgentSchedule.Enabled, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetEnabled() bool {
+	return v.AgentScheduleFields.Enabled
+}
+
+// GetEntryNodeUrn returns CreateAgentScheduleCreateAgentSchedule.EntryNodeUrn, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetEntryNodeUrn() string {
+	return v.AgentScheduleFields.EntryNodeUrn
+}
+
+// GetAiConfigName returns CreateAgentScheduleCreateAgentSchedule.AiConfigName, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetAiConfigName() *string {
+	return v.AgentScheduleFields.AiConfigName
+}
+
+// GetUserId returns CreateAgentScheduleCreateAgentSchedule.UserId, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetUserId() *string {
+	return v.AgentScheduleFields.UserId
+}
+
+// GetCreatedBy returns CreateAgentScheduleCreateAgentSchedule.CreatedBy, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetCreatedBy() *string {
+	return v.AgentScheduleFields.CreatedBy
+}
+
+// GetEventData returns CreateAgentScheduleCreateAgentSchedule.EventData, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetEventData() *json.RawMessage {
+	return v.AgentScheduleFields.EventData
+}
+
+// GetPolicy returns CreateAgentScheduleCreateAgentSchedule.Policy, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetPolicy() *json.RawMessage {
+	return v.AgentScheduleFields.Policy
+}
+
+// GetLastRunAt returns CreateAgentScheduleCreateAgentSchedule.LastRunAt, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetLastRunAt() *string {
+	return v.AgentScheduleFields.LastRunAt
+}
+
+// GetNextRunAt returns CreateAgentScheduleCreateAgentSchedule.NextRunAt, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetNextRunAt() *string {
+	return v.AgentScheduleFields.NextRunAt
+}
+
+// GetCreatedAt returns CreateAgentScheduleCreateAgentSchedule.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetCreatedAt() string {
+	return v.AgentScheduleFields.CreatedAt
+}
+
+func (v *CreateAgentScheduleCreateAgentSchedule) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateAgentScheduleCreateAgentSchedule
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateAgentScheduleCreateAgentSchedule = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentScheduleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateAgentScheduleCreateAgentSchedule struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	AppId string `json:"appId"`
+
+	AgentId *string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	Cron string `json:"cron"`
+
+	Timezone string `json:"timezone"`
+
+	Enabled bool `json:"enabled"`
+
+	EntryNodeUrn string `json:"entryNodeUrn"`
+
+	AiConfigName *string `json:"aiConfigName"`
+
+	UserId *string `json:"userId"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	EventData *json.RawMessage `json:"eventData"`
+
+	Policy *json.RawMessage `json:"policy"`
+
+	LastRunAt *string `json:"lastRunAt"`
+
+	NextRunAt *string `json:"nextRunAt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *CreateAgentScheduleCreateAgentSchedule) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateAgentScheduleCreateAgentSchedule) __premarshalJSON() (*__premarshalCreateAgentScheduleCreateAgentSchedule, error) {
+	var retval __premarshalCreateAgentScheduleCreateAgentSchedule
+
+	retval.Id = v.AgentScheduleFields.Id
+	retval.OrganizationId = v.AgentScheduleFields.OrganizationId
+	retval.AppId = v.AgentScheduleFields.AppId
+	retval.AgentId = v.AgentScheduleFields.AgentId
+	retval.Name = v.AgentScheduleFields.Name
+	retval.Cron = v.AgentScheduleFields.Cron
+	retval.Timezone = v.AgentScheduleFields.Timezone
+	retval.Enabled = v.AgentScheduleFields.Enabled
+	retval.EntryNodeUrn = v.AgentScheduleFields.EntryNodeUrn
+	retval.AiConfigName = v.AgentScheduleFields.AiConfigName
+	retval.UserId = v.AgentScheduleFields.UserId
+	retval.CreatedBy = v.AgentScheduleFields.CreatedBy
+	retval.EventData = v.AgentScheduleFields.EventData
+	retval.Policy = v.AgentScheduleFields.Policy
+	retval.LastRunAt = v.AgentScheduleFields.LastRunAt
+	retval.NextRunAt = v.AgentScheduleFields.NextRunAt
+	retval.CreatedAt = v.AgentScheduleFields.CreatedAt
+	return &retval, nil
+}
+
+type CreateAgentScheduleInput struct {
+	AgentId *string `json:"agentId,omitempty"`
+	// Named AI config for this trigger (spec-036 walk override).
+	AiConfigName *string `json:"aiConfigName,omitempty"`
+	// App the run executes as (ID or URN).
+	AppId string `json:"appId"`
+	// 5-field cron expression, evaluated in timezone (default UTC).
+	Cron    string `json:"cron"`
+	Enabled *bool  `json:"enabled,omitempty"`
+	// Fully-qualified URN of the prompt node to run (D-2026-05-09-012/017).
+	EntryNodeUrn string `json:"entryNodeUrn"`
+	// Static payload merged into each run's template args.
+	EventData *json.RawMessage `json:"eventData,omitempty"`
+	Name      string           `json:"name"`
+	// Trigger-layer allow-list { allow: [...] } — one link of the conjunctive chain (cor:acl:040).
+	Policy *json.RawMessage `json:"policy,omitempty"`
+	// true: the run acts on behalf of YOU (required to reach your personal memories). v1 never delegates a third party (cor:agt:010:01).
+	RunAsSelf *bool   `json:"runAsSelf,omitempty"`
+	Timezone  *string `json:"timezone,omitempty"`
+}
+
+// GetAgentId returns CreateAgentScheduleInput.AgentId, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetAgentId() *string { return v.AgentId }
+
+// GetAiConfigName returns CreateAgentScheduleInput.AiConfigName, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetAiConfigName() *string { return v.AiConfigName }
+
+// GetAppId returns CreateAgentScheduleInput.AppId, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetAppId() string { return v.AppId }
+
+// GetCron returns CreateAgentScheduleInput.Cron, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetCron() string { return v.Cron }
+
+// GetEnabled returns CreateAgentScheduleInput.Enabled, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetEnabled() *bool { return v.Enabled }
+
+// GetEntryNodeUrn returns CreateAgentScheduleInput.EntryNodeUrn, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetEntryNodeUrn() string { return v.EntryNodeUrn }
+
+// GetEventData returns CreateAgentScheduleInput.EventData, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetEventData() *json.RawMessage { return v.EventData }
+
+// GetName returns CreateAgentScheduleInput.Name, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetName() string { return v.Name }
+
+// GetPolicy returns CreateAgentScheduleInput.Policy, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetPolicy() *json.RawMessage { return v.Policy }
+
+// GetRunAsSelf returns CreateAgentScheduleInput.RunAsSelf, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetRunAsSelf() *bool { return v.RunAsSelf }
+
+// GetTimezone returns CreateAgentScheduleInput.Timezone, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetTimezone() *string { return v.Timezone }
+
+// CreateAgentScheduleResponse is returned by CreateAgentSchedule on success.
+type CreateAgentScheduleResponse struct {
+	CreateAgentSchedule *CreateAgentScheduleCreateAgentSchedule `json:"createAgentSchedule"`
+}
+
+// GetCreateAgentSchedule returns CreateAgentScheduleResponse.CreateAgentSchedule, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleResponse) GetCreateAgentSchedule() *CreateAgentScheduleCreateAgentSchedule {
+	return v.CreateAgentSchedule
+}
+
+// CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials includes the requested fields of the GraphQL type AgentWebhookCredentials.
+// The GraphQL type's documentation follows.
+//
+// Create/rotate result — path + platform token are shown ONCE.
+type CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials struct {
+	AgentWebhookCredentialFields `json:"-"`
+}
+
+// GetPath returns CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials.Path, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials) GetPath() string {
+	return v.AgentWebhookCredentialFields.Path
+}
+
+// GetToken returns CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials.Token, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials) GetToken() string {
+	return v.AgentWebhookCredentialFields.Token
+}
+
+// GetWebhook returns CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials.Webhook, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials) GetWebhook() *AgentWebhookCredentialFieldsWebhookAgentWebhook {
+	return v.AgentWebhookCredentialFields.Webhook
+}
+
+func (v *CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentWebhookCredentialFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials struct {
+	Path string `json:"path"`
+
+	Token string `json:"token"`
+
+	Webhook *AgentWebhookCredentialFieldsWebhookAgentWebhook `json:"webhook"`
+}
+
+func (v *CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials) __premarshalJSON() (*__premarshalCreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials, error) {
+	var retval __premarshalCreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials
+
+	retval.Path = v.AgentWebhookCredentialFields.Path
+	retval.Token = v.AgentWebhookCredentialFields.Token
+	retval.Webhook = v.AgentWebhookCredentialFields.Webhook
+	return &retval, nil
+}
+
+type CreateAgentWebhookInput struct {
+	AgentId      *string `json:"agentId,omitempty"`
+	AiConfigName *string `json:"aiConfigName,omitempty"`
+	AppId        string  `json:"appId"`
+	// JSON Schema for POST args (stored in v1; enforcement is follow-on).
+	ArgsSchema   *json.RawMessage `json:"argsSchema,omitempty"`
+	Enabled      *bool            `json:"enabled,omitempty"`
+	EntryNodeUrn string           `json:"entryNodeUrn"`
+	EventData    *json.RawMessage `json:"eventData,omitempty"`
+	// Lowercase alphanumeric/dash, 1-64 chars — part of the URL.
+	Name      string           `json:"name"`
+	Policy    *json.RawMessage `json:"policy,omitempty"`
+	RunAsSelf *bool            `json:"runAsSelf,omitempty"`
+}
+
+// GetAgentId returns CreateAgentWebhookInput.AgentId, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetAgentId() *string { return v.AgentId }
+
+// GetAiConfigName returns CreateAgentWebhookInput.AiConfigName, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetAiConfigName() *string { return v.AiConfigName }
+
+// GetAppId returns CreateAgentWebhookInput.AppId, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetAppId() string { return v.AppId }
+
+// GetArgsSchema returns CreateAgentWebhookInput.ArgsSchema, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetArgsSchema() *json.RawMessage { return v.ArgsSchema }
+
+// GetEnabled returns CreateAgentWebhookInput.Enabled, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetEnabled() *bool { return v.Enabled }
+
+// GetEntryNodeUrn returns CreateAgentWebhookInput.EntryNodeUrn, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetEntryNodeUrn() string { return v.EntryNodeUrn }
+
+// GetEventData returns CreateAgentWebhookInput.EventData, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetEventData() *json.RawMessage { return v.EventData }
+
+// GetName returns CreateAgentWebhookInput.Name, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetName() string { return v.Name }
+
+// GetPolicy returns CreateAgentWebhookInput.Policy, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetPolicy() *json.RawMessage { return v.Policy }
+
+// GetRunAsSelf returns CreateAgentWebhookInput.RunAsSelf, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetRunAsSelf() *bool { return v.RunAsSelf }
+
+// CreateAgentWebhookResponse is returned by CreateAgentWebhook on success.
+type CreateAgentWebhookResponse struct {
+	// Create a webhook trigger — returns the URL path + platform token ONCE (D-2026-05-02).
+	CreateAgentWebhook *CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials `json:"createAgentWebhook"`
+}
+
+// GetCreateAgentWebhook returns CreateAgentWebhookResponse.CreateAgentWebhook, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookResponse) GetCreateAgentWebhook() *CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials {
+	return v.CreateAgentWebhook
+}
 
 // CreateAiServiceConfigCreateAiServiceConfig includes the requested fields of the GraphQL type AiServiceConfig.
 // The GraphQL type's documentation follows.
@@ -1384,6 +3429,22 @@ type CreateUserApiKeyResponse struct {
 func (v *CreateUserApiKeyResponse) GetCreateUserApiKey() *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult {
 	return v.CreateUserApiKey
 }
+
+// DeleteAgentScheduleResponse is returned by DeleteAgentSchedule on success.
+type DeleteAgentScheduleResponse struct {
+	DeleteAgentSchedule bool `json:"deleteAgentSchedule"`
+}
+
+// GetDeleteAgentSchedule returns DeleteAgentScheduleResponse.DeleteAgentSchedule, and is useful for accessing the field via an interface.
+func (v *DeleteAgentScheduleResponse) GetDeleteAgentSchedule() bool { return v.DeleteAgentSchedule }
+
+// DeleteAgentWebhookResponse is returned by DeleteAgentWebhook on success.
+type DeleteAgentWebhookResponse struct {
+	DeleteAgentWebhook bool `json:"deleteAgentWebhook"`
+}
+
+// GetDeleteAgentWebhook returns DeleteAgentWebhookResponse.DeleteAgentWebhook, and is useful for accessing the field via an interface.
+func (v *DeleteAgentWebhookResponse) GetDeleteAgentWebhook() bool { return v.DeleteAgentWebhook }
 
 // DeleteAiServiceConfigResponse is returned by DeleteAiServiceConfig on success.
 type DeleteAiServiceConfigResponse struct {
@@ -2808,6 +4869,45 @@ var AllMemoryVisibility = []MemoryVisibility{
 	MemoryVisibilityPublic,
 }
 
+type MintActionTicketsInput struct {
+	// v1: comm.outbound only.
+	Action string `json:"action"`
+	// Scope tickets to one App; omit for org-wide.
+	AppId     *string `json:"appId,omitempty"`
+	Count     int     `json:"count"`
+	ExpiresAt *string `json:"expiresAt,omitempty"`
+	// Ledger legibility — why these tickets exist.
+	Note  *string `json:"note,omitempty"`
+	OrgId string  `json:"orgId"`
+}
+
+// GetAction returns MintActionTicketsInput.Action, and is useful for accessing the field via an interface.
+func (v *MintActionTicketsInput) GetAction() string { return v.Action }
+
+// GetAppId returns MintActionTicketsInput.AppId, and is useful for accessing the field via an interface.
+func (v *MintActionTicketsInput) GetAppId() *string { return v.AppId }
+
+// GetCount returns MintActionTicketsInput.Count, and is useful for accessing the field via an interface.
+func (v *MintActionTicketsInput) GetCount() int { return v.Count }
+
+// GetExpiresAt returns MintActionTicketsInput.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *MintActionTicketsInput) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetNote returns MintActionTicketsInput.Note, and is useful for accessing the field via an interface.
+func (v *MintActionTicketsInput) GetNote() *string { return v.Note }
+
+// GetOrgId returns MintActionTicketsInput.OrgId, and is useful for accessing the field via an interface.
+func (v *MintActionTicketsInput) GetOrgId() string { return v.OrgId }
+
+// MintActionTicketsResponse is returned by MintActionTickets on success.
+type MintActionTicketsResponse struct {
+	// Mint comm.outbound tickets into the org ledger (org-ADMIN; cor:acl:050:04).
+	MintActionTickets int `json:"mintActionTickets"`
+}
+
+// GetMintActionTickets returns MintActionTicketsResponse.MintActionTickets, and is useful for accessing the field via an interface.
+func (v *MintActionTicketsResponse) GetMintActionTickets() int { return v.MintActionTickets }
+
 // MyUserApiKeysMyUserApiKeysUserApiKey includes the requested fields of the GraphQL type UserApiKey.
 type MyUserApiKeysMyUserApiKeysUserApiKey struct {
 	UserApiKeyFields `json:"-"`
@@ -3920,6 +6020,90 @@ var AllRole = []Role{
 	RoleReader,
 }
 
+// RotateAgentWebhookResponse is returned by RotateAgentWebhook on success.
+type RotateAgentWebhookResponse struct {
+	// New secret + token; the old URL dies immediately.
+	RotateAgentWebhook *RotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials `json:"rotateAgentWebhook"`
+}
+
+// GetRotateAgentWebhook returns RotateAgentWebhookResponse.RotateAgentWebhook, and is useful for accessing the field via an interface.
+func (v *RotateAgentWebhookResponse) GetRotateAgentWebhook() *RotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials {
+	return v.RotateAgentWebhook
+}
+
+// RotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials includes the requested fields of the GraphQL type AgentWebhookCredentials.
+// The GraphQL type's documentation follows.
+//
+// Create/rotate result — path + platform token are shown ONCE.
+type RotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials struct {
+	AgentWebhookCredentialFields `json:"-"`
+}
+
+// GetPath returns RotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials.Path, and is useful for accessing the field via an interface.
+func (v *RotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials) GetPath() string {
+	return v.AgentWebhookCredentialFields.Path
+}
+
+// GetToken returns RotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials.Token, and is useful for accessing the field via an interface.
+func (v *RotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials) GetToken() string {
+	return v.AgentWebhookCredentialFields.Token
+}
+
+// GetWebhook returns RotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials.Webhook, and is useful for accessing the field via an interface.
+func (v *RotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials) GetWebhook() *AgentWebhookCredentialFieldsWebhookAgentWebhook {
+	return v.AgentWebhookCredentialFields.Webhook
+}
+
+func (v *RotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentWebhookCredentialFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials struct {
+	Path string `json:"path"`
+
+	Token string `json:"token"`
+
+	Webhook *AgentWebhookCredentialFieldsWebhookAgentWebhook `json:"webhook"`
+}
+
+func (v *RotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials) __premarshalJSON() (*__premarshalRotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials, error) {
+	var retval __premarshalRotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials
+
+	retval.Path = v.AgentWebhookCredentialFields.Path
+	retval.Token = v.AgentWebhookCredentialFields.Token
+	retval.Webhook = v.AgentWebhookCredentialFields.Webhook
+	return &retval, nil
+}
+
 // RunTaskResponse is returned by RunTask on success.
 type RunTaskResponse struct {
 	RunTask string `json:"runTask"`
@@ -4362,6 +6546,448 @@ var AllSyncStatus = []SyncStatus{
 	SyncStatusOk,
 	SyncStatusPending,
 	SyncStatusSyncing,
+}
+
+type TriggerAppRunInput struct {
+	AiConfigName *string          `json:"aiConfigName,omitempty"`
+	AppId        string           `json:"appId"`
+	EntryNodeUrn string           `json:"entryNodeUrn"`
+	EventData    *json.RawMessage `json:"eventData,omitempty"`
+	RunAsSelf    *bool            `json:"runAsSelf,omitempty"`
+}
+
+// GetAiConfigName returns TriggerAppRunInput.AiConfigName, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunInput) GetAiConfigName() *string { return v.AiConfigName }
+
+// GetAppId returns TriggerAppRunInput.AppId, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunInput) GetAppId() string { return v.AppId }
+
+// GetEntryNodeUrn returns TriggerAppRunInput.EntryNodeUrn, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunInput) GetEntryNodeUrn() string { return v.EntryNodeUrn }
+
+// GetEventData returns TriggerAppRunInput.EventData, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunInput) GetEventData() *json.RawMessage { return v.EventData }
+
+// GetRunAsSelf returns TriggerAppRunInput.RunAsSelf, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunInput) GetRunAsSelf() *bool { return v.RunAsSelf }
+
+// TriggerAppRunResponse is returned by TriggerAppRun on success.
+type TriggerAppRunResponse struct {
+	// Run an entry node now (MANUAL trigger) — same launch gate + kernel as a schedule.
+	TriggerAppRun *TriggerAppRunTriggerAppRun `json:"triggerAppRun"`
+}
+
+// GetTriggerAppRun returns TriggerAppRunResponse.TriggerAppRun, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunResponse) GetTriggerAppRun() *TriggerAppRunTriggerAppRun {
+	return v.TriggerAppRun
+}
+
+// TriggerAppRunTriggerAppRun includes the requested fields of the GraphQL type AppRun.
+type TriggerAppRunTriggerAppRun struct {
+	AppRunFields `json:"-"`
+}
+
+// GetId returns TriggerAppRunTriggerAppRun.Id, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetId() string { return v.AppRunFields.Id }
+
+// GetOrganizationId returns TriggerAppRunTriggerAppRun.OrganizationId, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetOrganizationId() string { return v.AppRunFields.OrganizationId }
+
+// GetAppId returns TriggerAppRunTriggerAppRun.AppId, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetAppId() string { return v.AppRunFields.AppId }
+
+// GetAgentId returns TriggerAppRunTriggerAppRun.AgentId, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetAgentId() *string { return v.AppRunFields.AgentId }
+
+// GetStatus returns TriggerAppRunTriggerAppRun.Status, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetStatus() AppRunStatus { return v.AppRunFields.Status }
+
+// GetTriggerKind returns TriggerAppRunTriggerAppRun.TriggerKind, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetTriggerKind() AppRunTriggerKind {
+	return v.AppRunFields.TriggerKind
+}
+
+// GetTriggerId returns TriggerAppRunTriggerAppRun.TriggerId, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetTriggerId() *string { return v.AppRunFields.TriggerId }
+
+// GetEntryNodeUrn returns TriggerAppRunTriggerAppRun.EntryNodeUrn, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetEntryNodeUrn() string { return v.AppRunFields.EntryNodeUrn }
+
+// GetCurNodeUrn returns TriggerAppRunTriggerAppRun.CurNodeUrn, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetCurNodeUrn() *string { return v.AppRunFields.CurNodeUrn }
+
+// GetUserId returns TriggerAppRunTriggerAppRun.UserId, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetUserId() *string { return v.AppRunFields.UserId }
+
+// GetCreatedBy returns TriggerAppRunTriggerAppRun.CreatedBy, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetCreatedBy() *string { return v.AppRunFields.CreatedBy }
+
+// GetParentRunId returns TriggerAppRunTriggerAppRun.ParentRunId, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetParentRunId() *string { return v.AppRunFields.ParentRunId }
+
+// GetAttempts returns TriggerAppRunTriggerAppRun.Attempts, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetAttempts() int { return v.AppRunFields.Attempts }
+
+// GetBudgetActions returns TriggerAppRunTriggerAppRun.BudgetActions, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetBudgetActions() *int { return v.AppRunFields.BudgetActions }
+
+// GetBudgetTokens returns TriggerAppRunTriggerAppRun.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetBudgetTokens() *int { return v.AppRunFields.BudgetTokens }
+
+// GetTimeoutMs returns TriggerAppRunTriggerAppRun.TimeoutMs, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetTimeoutMs() *int { return v.AppRunFields.TimeoutMs }
+
+// GetPolicy returns TriggerAppRunTriggerAppRun.Policy, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetPolicy() *json.RawMessage { return v.AppRunFields.Policy }
+
+// GetEventData returns TriggerAppRunTriggerAppRun.EventData, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetEventData() *json.RawMessage { return v.AppRunFields.EventData }
+
+// GetFailure returns TriggerAppRunTriggerAppRun.Failure, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetFailure() *json.RawMessage { return v.AppRunFields.Failure }
+
+// GetCreatedAt returns TriggerAppRunTriggerAppRun.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetCreatedAt() string { return v.AppRunFields.CreatedAt }
+
+// GetStartedAt returns TriggerAppRunTriggerAppRun.StartedAt, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetStartedAt() *string { return v.AppRunFields.StartedAt }
+
+// GetFinishedAt returns TriggerAppRunTriggerAppRun.FinishedAt, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetFinishedAt() *string { return v.AppRunFields.FinishedAt }
+
+func (v *TriggerAppRunTriggerAppRun) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TriggerAppRunTriggerAppRun
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TriggerAppRunTriggerAppRun = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppRunFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTriggerAppRunTriggerAppRun struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	AppId string `json:"appId"`
+
+	AgentId *string `json:"agentId"`
+
+	Status AppRunStatus `json:"status"`
+
+	TriggerKind AppRunTriggerKind `json:"triggerKind"`
+
+	TriggerId *string `json:"triggerId"`
+
+	EntryNodeUrn string `json:"entryNodeUrn"`
+
+	CurNodeUrn *string `json:"curNodeUrn"`
+
+	UserId *string `json:"userId"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	ParentRunId *string `json:"parentRunId"`
+
+	Attempts int `json:"attempts"`
+
+	BudgetActions *int `json:"budgetActions"`
+
+	BudgetTokens *int `json:"budgetTokens"`
+
+	TimeoutMs *int `json:"timeoutMs"`
+
+	Policy *json.RawMessage `json:"policy"`
+
+	EventData *json.RawMessage `json:"eventData"`
+
+	Failure *json.RawMessage `json:"failure"`
+
+	CreatedAt string `json:"createdAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+}
+
+func (v *TriggerAppRunTriggerAppRun) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TriggerAppRunTriggerAppRun) __premarshalJSON() (*__premarshalTriggerAppRunTriggerAppRun, error) {
+	var retval __premarshalTriggerAppRunTriggerAppRun
+
+	retval.Id = v.AppRunFields.Id
+	retval.OrganizationId = v.AppRunFields.OrganizationId
+	retval.AppId = v.AppRunFields.AppId
+	retval.AgentId = v.AppRunFields.AgentId
+	retval.Status = v.AppRunFields.Status
+	retval.TriggerKind = v.AppRunFields.TriggerKind
+	retval.TriggerId = v.AppRunFields.TriggerId
+	retval.EntryNodeUrn = v.AppRunFields.EntryNodeUrn
+	retval.CurNodeUrn = v.AppRunFields.CurNodeUrn
+	retval.UserId = v.AppRunFields.UserId
+	retval.CreatedBy = v.AppRunFields.CreatedBy
+	retval.ParentRunId = v.AppRunFields.ParentRunId
+	retval.Attempts = v.AppRunFields.Attempts
+	retval.BudgetActions = v.AppRunFields.BudgetActions
+	retval.BudgetTokens = v.AppRunFields.BudgetTokens
+	retval.TimeoutMs = v.AppRunFields.TimeoutMs
+	retval.Policy = v.AppRunFields.Policy
+	retval.EventData = v.AppRunFields.EventData
+	retval.Failure = v.AppRunFields.Failure
+	retval.CreatedAt = v.AppRunFields.CreatedAt
+	retval.StartedAt = v.AppRunFields.StartedAt
+	retval.FinishedAt = v.AppRunFields.FinishedAt
+	return &retval, nil
+}
+
+type UpdateAgentScheduleInput struct {
+	AiConfigName *string          `json:"aiConfigName,omitempty"`
+	Cron         *string          `json:"cron,omitempty"`
+	Enabled      *bool            `json:"enabled,omitempty"`
+	EntryNodeUrn *string          `json:"entryNodeUrn,omitempty"`
+	EventData    *json.RawMessage `json:"eventData,omitempty"`
+	Name         *string          `json:"name,omitempty"`
+	Policy       *json.RawMessage `json:"policy,omitempty"`
+	RunAsSelf    *bool            `json:"runAsSelf,omitempty"`
+	Timezone     *string          `json:"timezone,omitempty"`
+}
+
+// GetAiConfigName returns UpdateAgentScheduleInput.AiConfigName, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleInput) GetAiConfigName() *string { return v.AiConfigName }
+
+// GetCron returns UpdateAgentScheduleInput.Cron, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleInput) GetCron() *string { return v.Cron }
+
+// GetEnabled returns UpdateAgentScheduleInput.Enabled, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleInput) GetEnabled() *bool { return v.Enabled }
+
+// GetEntryNodeUrn returns UpdateAgentScheduleInput.EntryNodeUrn, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleInput) GetEntryNodeUrn() *string { return v.EntryNodeUrn }
+
+// GetEventData returns UpdateAgentScheduleInput.EventData, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleInput) GetEventData() *json.RawMessage { return v.EventData }
+
+// GetName returns UpdateAgentScheduleInput.Name, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleInput) GetName() *string { return v.Name }
+
+// GetPolicy returns UpdateAgentScheduleInput.Policy, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleInput) GetPolicy() *json.RawMessage { return v.Policy }
+
+// GetRunAsSelf returns UpdateAgentScheduleInput.RunAsSelf, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleInput) GetRunAsSelf() *bool { return v.RunAsSelf }
+
+// GetTimezone returns UpdateAgentScheduleInput.Timezone, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleInput) GetTimezone() *string { return v.Timezone }
+
+// UpdateAgentScheduleResponse is returned by UpdateAgentSchedule on success.
+type UpdateAgentScheduleResponse struct {
+	UpdateAgentSchedule *UpdateAgentScheduleUpdateAgentSchedule `json:"updateAgentSchedule"`
+}
+
+// GetUpdateAgentSchedule returns UpdateAgentScheduleResponse.UpdateAgentSchedule, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleResponse) GetUpdateAgentSchedule() *UpdateAgentScheduleUpdateAgentSchedule {
+	return v.UpdateAgentSchedule
+}
+
+// UpdateAgentScheduleUpdateAgentSchedule includes the requested fields of the GraphQL type AgentSchedule.
+// The GraphQL type's documentation follows.
+//
+// Recurring trigger (cor:agt:010, D-2026-07-04-E).
+type UpdateAgentScheduleUpdateAgentSchedule struct {
+	AgentScheduleFields `json:"-"`
+}
+
+// GetId returns UpdateAgentScheduleUpdateAgentSchedule.Id, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetId() string { return v.AgentScheduleFields.Id }
+
+// GetOrganizationId returns UpdateAgentScheduleUpdateAgentSchedule.OrganizationId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetOrganizationId() string {
+	return v.AgentScheduleFields.OrganizationId
+}
+
+// GetAppId returns UpdateAgentScheduleUpdateAgentSchedule.AppId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetAppId() string {
+	return v.AgentScheduleFields.AppId
+}
+
+// GetAgentId returns UpdateAgentScheduleUpdateAgentSchedule.AgentId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetAgentId() *string {
+	return v.AgentScheduleFields.AgentId
+}
+
+// GetName returns UpdateAgentScheduleUpdateAgentSchedule.Name, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetName() string { return v.AgentScheduleFields.Name }
+
+// GetCron returns UpdateAgentScheduleUpdateAgentSchedule.Cron, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetCron() string { return v.AgentScheduleFields.Cron }
+
+// GetTimezone returns UpdateAgentScheduleUpdateAgentSchedule.Timezone, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetTimezone() string {
+	return v.AgentScheduleFields.Timezone
+}
+
+// GetEnabled returns UpdateAgentScheduleUpdateAgentSchedule.Enabled, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetEnabled() bool {
+	return v.AgentScheduleFields.Enabled
+}
+
+// GetEntryNodeUrn returns UpdateAgentScheduleUpdateAgentSchedule.EntryNodeUrn, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetEntryNodeUrn() string {
+	return v.AgentScheduleFields.EntryNodeUrn
+}
+
+// GetAiConfigName returns UpdateAgentScheduleUpdateAgentSchedule.AiConfigName, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetAiConfigName() *string {
+	return v.AgentScheduleFields.AiConfigName
+}
+
+// GetUserId returns UpdateAgentScheduleUpdateAgentSchedule.UserId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetUserId() *string {
+	return v.AgentScheduleFields.UserId
+}
+
+// GetCreatedBy returns UpdateAgentScheduleUpdateAgentSchedule.CreatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetCreatedBy() *string {
+	return v.AgentScheduleFields.CreatedBy
+}
+
+// GetEventData returns UpdateAgentScheduleUpdateAgentSchedule.EventData, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetEventData() *json.RawMessage {
+	return v.AgentScheduleFields.EventData
+}
+
+// GetPolicy returns UpdateAgentScheduleUpdateAgentSchedule.Policy, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetPolicy() *json.RawMessage {
+	return v.AgentScheduleFields.Policy
+}
+
+// GetLastRunAt returns UpdateAgentScheduleUpdateAgentSchedule.LastRunAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetLastRunAt() *string {
+	return v.AgentScheduleFields.LastRunAt
+}
+
+// GetNextRunAt returns UpdateAgentScheduleUpdateAgentSchedule.NextRunAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetNextRunAt() *string {
+	return v.AgentScheduleFields.NextRunAt
+}
+
+// GetCreatedAt returns UpdateAgentScheduleUpdateAgentSchedule.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetCreatedAt() string {
+	return v.AgentScheduleFields.CreatedAt
+}
+
+func (v *UpdateAgentScheduleUpdateAgentSchedule) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateAgentScheduleUpdateAgentSchedule
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateAgentScheduleUpdateAgentSchedule = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentScheduleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateAgentScheduleUpdateAgentSchedule struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	AppId string `json:"appId"`
+
+	AgentId *string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	Cron string `json:"cron"`
+
+	Timezone string `json:"timezone"`
+
+	Enabled bool `json:"enabled"`
+
+	EntryNodeUrn string `json:"entryNodeUrn"`
+
+	AiConfigName *string `json:"aiConfigName"`
+
+	UserId *string `json:"userId"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	EventData *json.RawMessage `json:"eventData"`
+
+	Policy *json.RawMessage `json:"policy"`
+
+	LastRunAt *string `json:"lastRunAt"`
+
+	NextRunAt *string `json:"nextRunAt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *UpdateAgentScheduleUpdateAgentSchedule) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateAgentScheduleUpdateAgentSchedule) __premarshalJSON() (*__premarshalUpdateAgentScheduleUpdateAgentSchedule, error) {
+	var retval __premarshalUpdateAgentScheduleUpdateAgentSchedule
+
+	retval.Id = v.AgentScheduleFields.Id
+	retval.OrganizationId = v.AgentScheduleFields.OrganizationId
+	retval.AppId = v.AgentScheduleFields.AppId
+	retval.AgentId = v.AgentScheduleFields.AgentId
+	retval.Name = v.AgentScheduleFields.Name
+	retval.Cron = v.AgentScheduleFields.Cron
+	retval.Timezone = v.AgentScheduleFields.Timezone
+	retval.Enabled = v.AgentScheduleFields.Enabled
+	retval.EntryNodeUrn = v.AgentScheduleFields.EntryNodeUrn
+	retval.AiConfigName = v.AgentScheduleFields.AiConfigName
+	retval.UserId = v.AgentScheduleFields.UserId
+	retval.CreatedBy = v.AgentScheduleFields.CreatedBy
+	retval.EventData = v.AgentScheduleFields.EventData
+	retval.Policy = v.AgentScheduleFields.Policy
+	retval.LastRunAt = v.AgentScheduleFields.LastRunAt
+	retval.NextRunAt = v.AgentScheduleFields.NextRunAt
+	retval.CreatedAt = v.AgentScheduleFields.CreatedAt
+	return &retval, nil
 }
 
 // UpdateAiServiceConfigResponse is returned by UpdateAiServiceConfig on success.
@@ -5385,6 +8011,22 @@ func (v *UserFields) GetGithubUsername() *string { return v.GithubUsername }
 // GetRoles returns UserFields.Roles, and is useful for accessing the field via an interface.
 func (v *UserFields) GetRoles() []Role { return v.Roles }
 
+// __ActionTicketsInput is used internally by genqlient
+type __ActionTicketsInput struct {
+	OrgId  string `json:"orgId"`
+	Limit  *int   `json:"limit,omitempty"`
+	Offset *int   `json:"offset,omitempty"`
+}
+
+// GetOrgId returns __ActionTicketsInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__ActionTicketsInput) GetOrgId() string { return v.OrgId }
+
+// GetLimit returns __ActionTicketsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ActionTicketsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __ActionTicketsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ActionTicketsInput) GetOffset() *int { return v.Offset }
+
 // __AddMemoryMemberInput is used internally by genqlient
 type __AddMemoryMemberInput struct {
 	MemoryId string           `json:"memoryId"`
@@ -5417,6 +8059,70 @@ func (v *__AddOrgMemberInput) GetUserId() string { return v.UserId }
 // GetRole returns __AddOrgMemberInput.Role, and is useful for accessing the field via an interface.
 func (v *__AddOrgMemberInput) GetRole() Role { return v.Role }
 
+// __AgentSchedulesInput is used internally by genqlient
+type __AgentSchedulesInput struct {
+	AppId  string `json:"appId"`
+	Limit  *int   `json:"limit,omitempty"`
+	Offset *int   `json:"offset,omitempty"`
+}
+
+// GetAppId returns __AgentSchedulesInput.AppId, and is useful for accessing the field via an interface.
+func (v *__AgentSchedulesInput) GetAppId() string { return v.AppId }
+
+// GetLimit returns __AgentSchedulesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentSchedulesInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __AgentSchedulesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AgentSchedulesInput) GetOffset() *int { return v.Offset }
+
+// __AgentWebhooksInput is used internally by genqlient
+type __AgentWebhooksInput struct {
+	AppId  string `json:"appId"`
+	Limit  *int   `json:"limit,omitempty"`
+	Offset *int   `json:"offset,omitempty"`
+}
+
+// GetAppId returns __AgentWebhooksInput.AppId, and is useful for accessing the field via an interface.
+func (v *__AgentWebhooksInput) GetAppId() string { return v.AppId }
+
+// GetLimit returns __AgentWebhooksInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentWebhooksInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __AgentWebhooksInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AgentWebhooksInput) GetOffset() *int { return v.Offset }
+
+// __AppRunInput is used internally by genqlient
+type __AppRunInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __AppRunInput.Ref, and is useful for accessing the field via an interface.
+func (v *__AppRunInput) GetRef() string { return v.Ref }
+
+// __AppRunsInput is used internally by genqlient
+type __AppRunsInput struct {
+	AppId  *string       `json:"appId,omitempty"`
+	OrgId  *string       `json:"orgId,omitempty"`
+	Status *AppRunStatus `json:"status,omitempty"`
+	Limit  *int          `json:"limit,omitempty"`
+	Offset *int          `json:"offset,omitempty"`
+}
+
+// GetAppId returns __AppRunsInput.AppId, and is useful for accessing the field via an interface.
+func (v *__AppRunsInput) GetAppId() *string { return v.AppId }
+
+// GetOrgId returns __AppRunsInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__AppRunsInput) GetOrgId() *string { return v.OrgId }
+
+// GetStatus returns __AppRunsInput.Status, and is useful for accessing the field via an interface.
+func (v *__AppRunsInput) GetStatus() *AppRunStatus { return v.Status }
+
+// GetLimit returns __AppRunsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AppRunsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __AppRunsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AppRunsInput) GetOffset() *int { return v.Offset }
+
 // __AppsInput is used internally by genqlient
 type __AppsInput struct {
 	OrgId  string `json:"orgId"`
@@ -5433,6 +8139,14 @@ func (v *__AppsInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __AppsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AppsInput) GetOffset() *int { return v.Offset }
 
+// __CancelAppRunInput is used internally by genqlient
+type __CancelAppRunInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __CancelAppRunInput.Id, and is useful for accessing the field via an interface.
+func (v *__CancelAppRunInput) GetId() string { return v.Id }
+
 // __CloneMemoryInput is used internally by genqlient
 type __CloneMemoryInput struct {
 	Id   string `json:"id"`
@@ -5444,6 +8158,22 @@ func (v *__CloneMemoryInput) GetId() string { return v.Id }
 
 // GetName returns __CloneMemoryInput.Name, and is useful for accessing the field via an interface.
 func (v *__CloneMemoryInput) GetName() string { return v.Name }
+
+// __CreateAgentScheduleInput is used internally by genqlient
+type __CreateAgentScheduleInput struct {
+	Input *CreateAgentScheduleInput `json:"input,omitempty"`
+}
+
+// GetInput returns __CreateAgentScheduleInput.Input, and is useful for accessing the field via an interface.
+func (v *__CreateAgentScheduleInput) GetInput() *CreateAgentScheduleInput { return v.Input }
+
+// __CreateAgentWebhookInput is used internally by genqlient
+type __CreateAgentWebhookInput struct {
+	Input *CreateAgentWebhookInput `json:"input,omitempty"`
+}
+
+// GetInput returns __CreateAgentWebhookInput.Input, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWebhookInput) GetInput() *CreateAgentWebhookInput { return v.Input }
 
 // __CreateAiServiceConfigInput is used internally by genqlient
 type __CreateAiServiceConfigInput struct {
@@ -5625,6 +8355,22 @@ type __CreateUserApiKeyInput struct {
 // GetLabel returns __CreateUserApiKeyInput.Label, and is useful for accessing the field via an interface.
 func (v *__CreateUserApiKeyInput) GetLabel() *string { return v.Label }
 
+// __DeleteAgentScheduleInput is used internally by genqlient
+type __DeleteAgentScheduleInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __DeleteAgentScheduleInput.Id, and is useful for accessing the field via an interface.
+func (v *__DeleteAgentScheduleInput) GetId() string { return v.Id }
+
+// __DeleteAgentWebhookInput is used internally by genqlient
+type __DeleteAgentWebhookInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __DeleteAgentWebhookInput.Id, and is useful for accessing the field via an interface.
+func (v *__DeleteAgentWebhookInput) GetId() string { return v.Id }
+
 // __DeleteAiServiceConfigInput is used internally by genqlient
 type __DeleteAiServiceConfigInput struct {
 	Id string `json:"id"`
@@ -5789,6 +8535,14 @@ type __MemorySharesInput struct {
 // GetRef returns __MemorySharesInput.Ref, and is useful for accessing the field via an interface.
 func (v *__MemorySharesInput) GetRef() string { return v.Ref }
 
+// __MintActionTicketsInput is used internally by genqlient
+type __MintActionTicketsInput struct {
+	Input *MintActionTicketsInput `json:"input,omitempty"`
+}
+
+// GetInput returns __MintActionTicketsInput.Input, and is useful for accessing the field via an interface.
+func (v *__MintActionTicketsInput) GetInput() *MintActionTicketsInput { return v.Input }
+
 // __NodeBatchInput is used internally by genqlient
 type __NodeBatchInput struct {
 	Ids []string `json:"ids,omitempty"`
@@ -5889,6 +8643,14 @@ type __RevokeUserApiKeyInput struct {
 // GetId returns __RevokeUserApiKeyInput.Id, and is useful for accessing the field via an interface.
 func (v *__RevokeUserApiKeyInput) GetId() string { return v.Id }
 
+// __RotateAgentWebhookInput is used internally by genqlient
+type __RotateAgentWebhookInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __RotateAgentWebhookInput.Id, and is useful for accessing the field via an interface.
+func (v *__RotateAgentWebhookInput) GetId() string { return v.Id }
+
 // __RunTaskInput is used internally by genqlient
 type __RunTaskInput struct {
 	Urn    *string          `json:"urn"`
@@ -5956,6 +8718,26 @@ func (v *__SearchUsersInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __SearchUsersInput.Offset, and is useful for accessing the field via an interface.
 func (v *__SearchUsersInput) GetOffset() *int { return v.Offset }
+
+// __TriggerAppRunInput is used internally by genqlient
+type __TriggerAppRunInput struct {
+	Input *TriggerAppRunInput `json:"input,omitempty"`
+}
+
+// GetInput returns __TriggerAppRunInput.Input, and is useful for accessing the field via an interface.
+func (v *__TriggerAppRunInput) GetInput() *TriggerAppRunInput { return v.Input }
+
+// __UpdateAgentScheduleInput is used internally by genqlient
+type __UpdateAgentScheduleInput struct {
+	Id    string                    `json:"id"`
+	Input *UpdateAgentScheduleInput `json:"input,omitempty"`
+}
+
+// GetId returns __UpdateAgentScheduleInput.Id, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentScheduleInput) GetId() string { return v.Id }
+
+// GetInput returns __UpdateAgentScheduleInput.Input, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentScheduleInput) GetInput() *UpdateAgentScheduleInput { return v.Input }
 
 // __UpdateAiServiceConfigInput is used internally by genqlient
 type __UpdateAiServiceConfigInput struct {
@@ -6149,6 +8931,60 @@ func (v *__UpdateOrganizationInput) GetUrn() *string { return v.Urn }
 // GetIsVisible returns __UpdateOrganizationInput.IsVisible, and is useful for accessing the field via an interface.
 func (v *__UpdateOrganizationInput) GetIsVisible() *bool { return v.IsVisible }
 
+// The query executed by ActionTickets.
+const ActionTickets_Operation = `
+query ActionTickets ($orgId: String!, $limit: Int, $offset: Int) {
+	actionTickets(orgId: $orgId, limit: $limit, offset: $offset) {
+		total
+		items {
+			... ActionTicketFields
+		}
+	}
+}
+fragment ActionTicketFields on ActionTicket {
+	id
+	organizationId
+	appId
+	action
+	mintedBy
+	note
+	consumedByRunId
+	consumedAt
+	expiresAt
+	createdAt
+}
+`
+
+// The ledger — minted / consumed-by-which-run / expired. Paged { items, total }.
+func ActionTickets(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId string,
+	limit *int,
+	offset *int,
+) (data_ *ActionTicketsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ActionTickets",
+		Query:  ActionTickets_Operation,
+		Variables: &__ActionTicketsInput{
+			OrgId:  orgId,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &ActionTicketsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by AddMemoryMember.
 const AddMemoryMember_Operation = `
 mutation AddMemoryMember ($memoryId: ID!, $userId: ID!, $role: MemoryMemberRole!) {
@@ -6248,6 +9084,254 @@ func AddOrgMember(
 	return data_, err_
 }
 
+// The query executed by AgentSchedules.
+const AgentSchedules_Operation = `
+query AgentSchedules ($appId: String!, $limit: Int, $offset: Int) {
+	agentSchedules(appId: $appId, limit: $limit, offset: $offset) {
+		total
+		items {
+			... AgentScheduleFields
+		}
+	}
+}
+fragment AgentScheduleFields on AgentSchedule {
+	id
+	organizationId
+	appId
+	agentId
+	name
+	cron
+	timezone
+	enabled
+	entryNodeUrn
+	aiConfigName
+	userId
+	createdBy
+	eventData
+	policy
+	lastRunAt
+	nextRunAt
+	createdAt
+}
+`
+
+func AgentSchedules(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appId string,
+	limit *int,
+	offset *int,
+) (data_ *AgentSchedulesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentSchedules",
+		Query:  AgentSchedules_Operation,
+		Variables: &__AgentSchedulesInput{
+			AppId:  appId,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &AgentSchedulesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentWebhooks.
+const AgentWebhooks_Operation = `
+query AgentWebhooks ($appId: String!, $limit: Int, $offset: Int) {
+	agentWebhooks(appId: $appId, limit: $limit, offset: $offset) {
+		total
+		items {
+			... AgentWebhookFields
+		}
+	}
+}
+fragment AgentWebhookFields on AgentWebhook {
+	id
+	organizationId
+	appId
+	agentId
+	name
+	enabled
+	entryNodeUrn
+	aiConfigName
+	userId
+	createdBy
+	argsSchema
+	eventData
+	policy
+	lastCalledAt
+	createdAt
+}
+`
+
+func AgentWebhooks(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appId string,
+	limit *int,
+	offset *int,
+) (data_ *AgentWebhooksResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentWebhooks",
+		Query:  AgentWebhooks_Operation,
+		Variables: &__AgentWebhooksInput{
+			AppId:  appId,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &AgentWebhooksResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppRun.
+const AppRun_Operation = `
+query AppRun ($ref: ID!) {
+	appRun(ref: $ref) {
+		... AppRunFields
+	}
+}
+fragment AppRunFields on AppRun {
+	id
+	organizationId
+	appId
+	agentId
+	status
+	triggerKind
+	triggerId
+	entryNodeUrn
+	curNodeUrn
+	userId
+	createdBy
+	parentRunId
+	attempts
+	budgetActions
+	budgetTokens
+	timeoutMs
+	policy
+	eventData
+	failure
+	createdAt
+	startedAt
+	finishedAt
+}
+`
+
+// Single-run detail; null when absent/denied (anti-enumeration).
+func AppRun(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *AppRunResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppRun",
+		Query:  AppRun_Operation,
+		Variables: &__AppRunInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &AppRunResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppRuns.
+const AppRuns_Operation = `
+query AppRuns ($appId: ID, $orgId: ID, $status: AppRunStatus, $limit: Int, $offset: Int) {
+	appRuns(appId: $appId, orgId: $orgId, status: $status, limit: $limit, offset: $offset) {
+		total
+		items {
+			... AppRunFields
+		}
+	}
+}
+fragment AppRunFields on AppRun {
+	id
+	organizationId
+	appId
+	agentId
+	status
+	triggerKind
+	triggerId
+	entryNodeUrn
+	curNodeUrn
+	userId
+	createdBy
+	parentRunId
+	attempts
+	budgetActions
+	budgetTokens
+	timeoutMs
+	policy
+	eventData
+	failure
+	createdAt
+	startedAt
+	finishedAt
+}
+`
+
+// Paged { items, total } envelope (#473). appId/orgId/status all optional
+// filters; `run ls` pages to exhaustion.
+func AppRuns(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appId *string,
+	orgId *string,
+	status *AppRunStatus,
+	limit *int,
+	offset *int,
+) (data_ *AppRunsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppRuns",
+		Query:  AppRuns_Operation,
+		Variables: &__AppRunsInput{
+			AppId:  appId,
+			OrgId:  orgId,
+			Status: status,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &AppRunsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by Apps.
 const Apps_Operation = `
 query Apps ($orgId: ID!, $limit: Int, $offset: Int) {
@@ -6297,6 +9381,65 @@ func Apps(
 	return data_, err_
 }
 
+// The mutation executed by CancelAppRun.
+const CancelAppRun_Operation = `
+mutation CancelAppRun ($id: ID!) {
+	cancelAppRun(id: $id) {
+		... AppRunFields
+	}
+}
+fragment AppRunFields on AppRun {
+	id
+	organizationId
+	appId
+	agentId
+	status
+	triggerKind
+	triggerId
+	entryNodeUrn
+	curNodeUrn
+	userId
+	createdBy
+	parentRunId
+	attempts
+	budgetActions
+	budgetTokens
+	timeoutMs
+	policy
+	eventData
+	failure
+	createdAt
+	startedAt
+	finishedAt
+}
+`
+
+// The kill switch — transitions a live run to CANCELLED.
+func CancelAppRun(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *CancelAppRunResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CancelAppRun",
+		Query:  CancelAppRun_Operation,
+		Variables: &__CancelAppRunInput{
+			Id: id,
+		},
+	}
+
+	data_ = &CancelAppRunResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CloneMemory.
 const CloneMemory_Operation = `
 mutation CloneMemory ($id: ID!, $name: String!) {
@@ -6330,6 +9473,117 @@ func CloneMemory(
 	}
 
 	data_ = &CloneMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateAgentSchedule.
+const CreateAgentSchedule_Operation = `
+mutation CreateAgentSchedule ($input: CreateAgentScheduleInput!) {
+	createAgentSchedule(input: $input) {
+		... AgentScheduleFields
+	}
+}
+fragment AgentScheduleFields on AgentSchedule {
+	id
+	organizationId
+	appId
+	agentId
+	name
+	cron
+	timezone
+	enabled
+	entryNodeUrn
+	aiConfigName
+	userId
+	createdBy
+	eventData
+	policy
+	lastRunAt
+	nextRunAt
+	createdAt
+}
+`
+
+func CreateAgentSchedule(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *CreateAgentScheduleInput,
+) (data_ *CreateAgentScheduleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAgentSchedule",
+		Query:  CreateAgentSchedule_Operation,
+		Variables: &__CreateAgentScheduleInput{
+			Input: input,
+		},
+	}
+
+	data_ = &CreateAgentScheduleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateAgentWebhook.
+const CreateAgentWebhook_Operation = `
+mutation CreateAgentWebhook ($input: CreateAgentWebhookInput!) {
+	createAgentWebhook(input: $input) {
+		... AgentWebhookCredentialFields
+	}
+}
+fragment AgentWebhookCredentialFields on AgentWebhookCredentials {
+	path
+	token
+	webhook {
+		... AgentWebhookFields
+	}
+}
+fragment AgentWebhookFields on AgentWebhook {
+	id
+	organizationId
+	appId
+	agentId
+	name
+	enabled
+	entryNodeUrn
+	aiConfigName
+	userId
+	createdBy
+	argsSchema
+	eventData
+	policy
+	lastCalledAt
+	createdAt
+}
+`
+
+func CreateAgentWebhook(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *CreateAgentWebhookInput,
+) (data_ *CreateAgentWebhookResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAgentWebhook",
+		Query:  CreateAgentWebhook_Operation,
+		Variables: &__CreateAgentWebhookInput{
+			Input: input,
+		},
+	}
+
+	data_ = &CreateAgentWebhookResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -6750,6 +10004,70 @@ func CreateUserApiKey(
 	}
 
 	data_ = &CreateUserApiKeyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteAgentSchedule.
+const DeleteAgentSchedule_Operation = `
+mutation DeleteAgentSchedule ($id: ID!) {
+	deleteAgentSchedule(id: $id)
+}
+`
+
+func DeleteAgentSchedule(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *DeleteAgentScheduleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteAgentSchedule",
+		Query:  DeleteAgentSchedule_Operation,
+		Variables: &__DeleteAgentScheduleInput{
+			Id: id,
+		},
+	}
+
+	data_ = &DeleteAgentScheduleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteAgentWebhook.
+const DeleteAgentWebhook_Operation = `
+mutation DeleteAgentWebhook ($id: ID!) {
+	deleteAgentWebhook(id: $id)
+}
+`
+
+func DeleteAgentWebhook(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *DeleteAgentWebhookResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteAgentWebhook",
+		Query:  DeleteAgentWebhook_Operation,
+		Variables: &__DeleteAgentWebhookInput{
+			Id: id,
+		},
+	}
+
+	data_ = &DeleteAgentWebhookResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -7529,6 +10847,39 @@ func MemoryShares(
 	return data_, err_
 }
 
+// The mutation executed by MintActionTickets.
+const MintActionTickets_Operation = `
+mutation MintActionTickets ($input: MintActionTicketsInput!) {
+	mintActionTickets(input: $input)
+}
+`
+
+// Mint N consumable tickets into the org ledger; returns the count minted.
+func MintActionTickets(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *MintActionTicketsInput,
+) (data_ *MintActionTicketsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MintActionTickets",
+		Query:  MintActionTickets_Operation,
+		Variables: &__MintActionTicketsInput{
+			Input: input,
+		},
+	}
+
+	data_ = &MintActionTicketsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by MyUserApiKeys.
 const MyUserApiKeys_Operation = `
 query MyUserApiKeys {
@@ -8025,6 +11376,64 @@ func RevokeUserApiKey(
 	return data_, err_
 }
 
+// The mutation executed by RotateAgentWebhook.
+const RotateAgentWebhook_Operation = `
+mutation RotateAgentWebhook ($id: ID!) {
+	rotateAgentWebhook(id: $id) {
+		... AgentWebhookCredentialFields
+	}
+}
+fragment AgentWebhookCredentialFields on AgentWebhookCredentials {
+	path
+	token
+	webhook {
+		... AgentWebhookFields
+	}
+}
+fragment AgentWebhookFields on AgentWebhook {
+	id
+	organizationId
+	appId
+	agentId
+	name
+	enabled
+	entryNodeUrn
+	aiConfigName
+	userId
+	createdBy
+	argsSchema
+	eventData
+	policy
+	lastCalledAt
+	createdAt
+}
+`
+
+func RotateAgentWebhook(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *RotateAgentWebhookResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RotateAgentWebhook",
+		Query:  RotateAgentWebhook_Operation,
+		Variables: &__RotateAgentWebhookInput{
+			Id: id,
+		},
+	}
+
+	data_ = &RotateAgentWebhookResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RunTask.
 const RunTask_Operation = `
 mutation RunTask ($urn: String, $memory: String, $task: String, $args: JSON) {
@@ -8228,6 +11637,128 @@ func SearchUsers(
 	}
 
 	data_ = &SearchUsersResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TriggerAppRun.
+const TriggerAppRun_Operation = `
+mutation TriggerAppRun ($input: TriggerAppRunInput!) {
+	triggerAppRun(input: $input) {
+		... AppRunFields
+	}
+}
+fragment AppRunFields on AppRun {
+	id
+	organizationId
+	appId
+	agentId
+	status
+	triggerKind
+	triggerId
+	entryNodeUrn
+	curNodeUrn
+	userId
+	createdBy
+	parentRunId
+	attempts
+	budgetActions
+	budgetTokens
+	timeoutMs
+	policy
+	eventData
+	failure
+	createdAt
+	startedAt
+	finishedAt
+}
+`
+
+// MANUAL trigger. runAsSelf requires an authenticated user (an App-key caller
+// gets UNAUTHENTICATED). eventData carries the template args.
+//
+// The server reads an omitted optional input field as "unset"; nil pointers must
+// be omitted, not sent as null — hence the per-field omitempty directives (the
+// NodeInput contract in nodes.graphql). Load-bearing on the Update* inputs,
+// where an explicit null means "clear".
+func TriggerAppRun(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *TriggerAppRunInput,
+) (data_ *TriggerAppRunResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TriggerAppRun",
+		Query:  TriggerAppRun_Operation,
+		Variables: &__TriggerAppRunInput{
+			Input: input,
+		},
+	}
+
+	data_ = &TriggerAppRunResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateAgentSchedule.
+const UpdateAgentSchedule_Operation = `
+mutation UpdateAgentSchedule ($id: ID!, $input: UpdateAgentScheduleInput!) {
+	updateAgentSchedule(id: $id, input: $input) {
+		... AgentScheduleFields
+	}
+}
+fragment AgentScheduleFields on AgentSchedule {
+	id
+	organizationId
+	appId
+	agentId
+	name
+	cron
+	timezone
+	enabled
+	entryNodeUrn
+	aiConfigName
+	userId
+	createdBy
+	eventData
+	policy
+	lastRunAt
+	nextRunAt
+	createdAt
+}
+`
+
+// Every field optional. An omitted field preserves; an explicit null clears —
+// so unset flags MUST be omitted (nil pointers dropped by these directives).
+func UpdateAgentSchedule(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	input *UpdateAgentScheduleInput,
+) (data_ *UpdateAgentScheduleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateAgentSchedule",
+		Query:  UpdateAgentSchedule_Operation,
+		Variables: &__UpdateAgentScheduleInput{
+			Id:    id,
+			Input: input,
+		},
+	}
+
+	data_ = &UpdateAgentScheduleResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
