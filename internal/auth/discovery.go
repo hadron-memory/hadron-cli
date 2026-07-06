@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/urlsec"
 )
 
 // Metadata is the subset of RFC 8414 authorization-server metadata
@@ -71,5 +74,47 @@ func Discover(ctx context.Context, serverURL string, httpClient *http.Client) (*
 	if meta.AuthorizationEndpoint == "" || meta.TokenEndpoint == "" || meta.RegistrationEndpoint == "" {
 		return nil, exitcode.Newf(exitcode.Error, "OAuth metadata from %s is missing required endpoints", url)
 	}
+	// Every endpoint prefix here is server-controlled (and, over a plain-http or
+	// MITM'd discovery fetch, attacker-controlled). Validate the scheme/host up
+	// front so authorization_endpoint can't point the OS URL-opener at a
+	// custom-scheme handler (vscode://, slack://) or a file:// path, and so a
+	// token never rides token/registration over a cleartext or exotic scheme (#120).
+	for _, e := range []struct{ name, raw string }{
+		{"authorization_endpoint", meta.AuthorizationEndpoint},
+		{"token_endpoint", meta.TokenEndpoint},
+		{"registration_endpoint", meta.RegistrationEndpoint},
+	} {
+		if err := validateEndpoint(e.name, e.raw); err != nil {
+			return nil, err
+		}
+	}
 	return &meta, nil
+}
+
+// validateEndpoint rejects a discovery-provided endpoint URL unless it is an
+// https URL with a host — or, for local development, an http URL to a loopback
+// host or under HADRON_ALLOW_HTTP=1. The scheme is allow-listed explicitly
+// (http/https only): a loopback host alone must NOT admit an arbitrary scheme
+// like vscode://localhost, which is exactly the URL-opener injection this guards.
+func validateEndpoint(name, raw string) error {
+	if strings.HasPrefix(raw, "-") {
+		return exitcode.Newf(exitcode.Error, "OAuth %s %q must not begin with '-'", name, raw)
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return exitcode.Newf(exitcode.Error, "OAuth %s %q is not a valid URL: %v", name, raw, err)
+	}
+	if u.Host == "" {
+		return exitcode.Newf(exitcode.Error, "OAuth %s %q has no host", name, raw)
+	}
+	switch u.Scheme {
+	case "https":
+		return nil
+	case "http":
+		if urlsec.IsLoopbackHost(u.Hostname()) || os.Getenv(urlsec.EnvAllowHTTP) == "1" {
+			return nil
+		}
+	}
+	return exitcode.Newf(exitcode.Error,
+		"OAuth %s %q must use https (http allowed only for a loopback host or with %s=1)", name, raw, urlsec.EnvAllowHTTP)
 }

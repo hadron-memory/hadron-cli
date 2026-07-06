@@ -6,7 +6,6 @@ package api
 import (
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,13 +15,14 @@ import (
 	"github.com/Khan/genqlient/graphql"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/urlsec"
 )
 
 const graphqlPath = "/graphql"
 
 // EnvAllowHTTP opts out of the HTTPS-enforcement guard for a trusted local or
 // self-hosted server (set to "1").
-const EnvAllowHTTP = "HADRON_ALLOW_HTTP"
+const EnvAllowHTTP = urlsec.EnvAllowHTTP
 
 // RequireSecureURL refuses to transmit the bearer token over a non-https
 // server URL — cleartext credentials are trivially captured by an on-path
@@ -55,24 +55,10 @@ func RequireSecureURL(serverURL, token string) error {
 // The override is deliberately limited to http: it must never green-light a
 // token on ftp/ssh/other non-HTTP schemes.
 func schemeIsSecure(u *url.URL) bool {
-	if u.Scheme == "https" || isLoopbackHost(u.Hostname()) {
+	if u.Scheme == "https" || urlsec.IsLoopbackHost(u.Hostname()) {
 		return true
 	}
 	return u.Scheme == "http" && os.Getenv(EnvAllowHTTP) == "1"
-}
-
-// isLoopbackHost reports whether host is a loopback name or IP. Per RFC 6761,
-// `localhost` and any `*.localhost` name resolve to loopback; a trailing dot
-// (root-zone form) and case are normalized away.
-func isLoopbackHost(host string) bool {
-	host = strings.ToLower(strings.TrimSuffix(host, "."))
-	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
-		return true
-	}
-	if ip := net.ParseIP(host); ip != nil {
-		return ip.IsLoopback()
-	}
-	return false
 }
 
 // withSecureRedirects returns a shallow copy of client whose CheckRedirect

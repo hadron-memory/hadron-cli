@@ -127,11 +127,19 @@ func exchangeCode(ctx context.Context, httpClient *http.Client, tokenEndpoint, c
 	return &Token{AccessToken: out.AccessToken}, nil
 }
 
-// OpenInBrowser launches the platform's URL opener.
+// OpenInBrowser launches the platform's URL opener. The target is passed as
+// argv (never via a shell), but a leading '-' would still be parsed as a flag
+// by `open`, so it is rejected outright and, on darwin, an explicit `--`
+// end-of-options separator is used as belt-and-suspenders. Callers that route
+// through Discover have already scheme/host-validated the URL (#120); this guard
+// keeps the opener safe for any other caller too.
 func OpenInBrowser(target string) error {
+	if strings.HasPrefix(target, "-") {
+		return fmt.Errorf("refusing to open a URL beginning with '-': %q", target)
+	}
 	switch runtime.GOOS {
 	case "darwin":
-		return exec.Command("open", target).Start()
+		return exec.Command("open", "--", target).Start()
 	case "windows":
 		return exec.Command("rundll32", "url.dll,FileProtocolHandler", target).Start()
 	default:
