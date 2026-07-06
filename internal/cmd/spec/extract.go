@@ -216,15 +216,18 @@ chunk leaves the source alone with a warning.`,
 			}
 			newID := up.CreateNode.Id
 
+			var edgeFailures []string
 			if !noEdges {
 				for _, e := range result.Edges {
 					targetID, rerr := resolveSpecNode(cmd, client, memURN, e.Target)
 					if rerr != nil {
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: skipped edge %q → %s: %v\n", e.Label, e.Target, rerr)
+						edgeFailures = append(edgeFailures, e.Target)
 						continue
 					}
 					if _, cerr := gen.CreateEdge(cmd.Context(), client, newID, targetID, e.Label, nil, nil, nil, nil, nil, nil); cerr != nil {
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", e.Label, e.Target, api.MapError(cerr))
+						edgeFailures = append(edgeFailures, e.Target)
 					}
 				}
 			}
@@ -247,9 +250,22 @@ chunk leaves the source alone with a warning.`,
 				}
 			}
 
-			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
+			if err := output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				return renderExtractResult(w, result)
-			})
+			}); err != nil {
+				return err
+			}
+			// The spec was created but one or more of its edges (ToC, inheritance,
+			// or the cross-ref back to the source) could not be wired. Exit non-zero
+			// so the partial write isn't read as a clean extract (#127). Note the
+			// gap is a partial edge outcome — a lone cross-ref miss still leaves the
+			// spec attached to the ToC, so this doesn't claim "orphaned" outright.
+			if len(edgeFailures) > 0 {
+				return exitcode.Newf(exitcode.Error,
+					"extracted %s but %d edge(s) could not be wired to %s (see the warnings above); fix the target(s) and wire with `hadron edge add`",
+					target.Format(), len(edgeFailures), strings.Join(edgeFailures, ", "))
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
