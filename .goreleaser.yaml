@@ -93,16 +93,12 @@ homebrew_casks:
     # the workflow's GITHUB_TOKEN can't push to a sibling repo). That secret
     # MUST exist — the workflow falls back to GITHUB_TOKEN, which would fail the
     # cask upload and the release.
-    # Strip the Gatekeeper quarantine flag on install; without it an UNSIGNED
-    # first run is blocked with "hadron cannot be opened". Once the notarize block
-    # above is active (signing secrets configured) this becomes redundant — a
-    # notarized binary passes Gatekeeper on its own — and should be removed after
-    # the first notarized release is verified (#158). must_succeed:false keeps it
-    # harmless in the meantime.
-    hooks:
-      post:
-        install: |
-          system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/hadron"], must_succeed: false
+    #
+    # No quarantine-strip hook: the darwin binaries are codesigned + notarized
+    # (see the notarize block above), so Gatekeeper passes them on their own.
+    # The old `xattr -dr com.apple.quarantine` postflight was removed once
+    # notarization was verified in v0.6.1 (#158) — it disabled the OS's own
+    # tamper check, which was the audit concern.
 
 changelog:
   use: github-native
