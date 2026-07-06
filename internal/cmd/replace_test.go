@@ -16,6 +16,12 @@ const searchReplaceRealJSON = `{"data":{"searchReplaceInNodes":{
 	"results":[{"nodeId":"n1","loc":"findings:flaky-ci","memoryId":"mem1","replacements":3,
 		"fields":[{"field":"content","matches":2},{"field":"tags","matches":1}]}]}}}`
 
+// A wide dry-run preview: many nodes would change. Used to exercise the
+// --max-nodes ceiling and the --yes count-before-write signal (#126).
+const searchReplaceWideDryJSON = `{"data":{"searchReplaceInNodes":{
+	"nodesScanned":50,"nodesChanged":42,"totalReplacements":99,"dryRun":true,
+	"results":[]}}}`
+
 func TestReplaceDryRun(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"SearchReplaceInNodes": searchReplaceDryJSON,
@@ -120,6 +126,56 @@ func TestReplaceWithYesWrites(t *testing.T) {
 	_ = json.Unmarshal(captured["SearchReplaceInNodes"], &vars)
 	if vars.Input.DryRun == nil || *vars.Input.DryRun {
 		t.Errorf("--yes write should send dryRun=false: %v", vars.Input.DryRun)
+	}
+}
+
+// #126: even with --yes, the affected count is surfaced on stderr before the
+// write, so a whole-memory blast radius is never invisible.
+func TestReplaceWithYesShowsCountOnStderr(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"SearchReplaceInNodes": searchReplaceRealJSON,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{
+		"replace", "text", "cat", "dog",
+		"-m", "acme.com::kb", "--field", "content", "--yes", "--server", gql.URL,
+	})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if errStr := f.IOStreams.ErrOut.(*strings.Builder).String(); !strings.Contains(errStr, "Replacing 3 occurrence(s) across 1 node(s) (--yes)") {
+		t.Errorf("expected a pre-write count on stderr, got: %q", errStr)
+	}
+}
+
+// #126: --max-nodes refuses a write whose preview exceeds the ceiling, BEFORE
+// the real (dryRun=false) write is issued.
+func TestReplaceMaxNodesRefusesWideWrite(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"SearchReplaceInNodes": searchReplaceWideDryJSON,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{
+		"replace", "text", "cat", "dog",
+		"-m", "acme.com::kb", "--field", "content", "--yes", "--max-nodes", "10", "--server", gql.URL,
+	})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "max-nodes") {
+		t.Fatalf("expected a --max-nodes refusal, got: %v", err)
+	}
+	// The only call made must be the dry-run preview — no real write.
+	var vars struct {
+		Input struct {
+			DryRun *bool `json:"dryRun"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(captured["SearchReplaceInNodes"], &vars); err != nil {
+		t.Fatalf("unmarshal vars: %v", err)
+	}
+	if vars.Input.DryRun == nil || !*vars.Input.DryRun {
+		t.Errorf("only the dry-run preview should have run, last call dryRun=%v", vars.Input.DryRun)
 	}
 }
 
