@@ -295,9 +295,11 @@ func runImportRestore(cmd *cobra.Command, f *cmdutil.Factory, path, memory, loc,
 	// success. Exit non-zero (after the report/`unwiredEdges` array is emitted) so
 	// a caller branching on the exit code doesn't read partial as complete (#127).
 	if len(unwired) > 0 {
+		// Count only what was unwired — not a ratio against len(doc.Edges), which
+		// is misleading when wireEdges idempotently skipped already-present edges.
 		return exitcode.Newf(exitcode.Error,
-			"imported %s:%s but %d of %d edge(s) could not be wired (see unwiredEdges above); fix the target(s) and re-run with --with-edges, or wire them with `hadron edge add`",
-			summary.Memory, summary.Loc, len(unwired), len(doc.Edges))
+			"imported %s:%s but %d edge(s) could not be wired (see unwiredEdges above); fix the target(s) and re-run with --with-edges, or wire them with `hadron edge add`",
+			summary.Memory, summary.Loc, len(unwired))
 	}
 	return nil
 }

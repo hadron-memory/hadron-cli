@@ -131,6 +131,10 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			if inheritLoc != "" {
 				result.Edges = append(result.Edges, supersedeEdgeDTO{Label: inheritEdgeLabel, Target: inheritLoc, Status: edgeStatusPlanned})
 			}
+			// The retirement link is identified by its POSITION, not its label: a
+			// ToC edge carries the user's --title, which could itself be
+			// "superseded-by" and collide with a label match (Codex #155).
+			supersededByIdx := len(result.Edges)
 			result.Edges = append(result.Edges, supersedeEdgeDTO{Label: supersededByLabel, Target: oldCit.Format() + " → " + newTarget.Format(), Status: edgeStatusPlanned})
 
 			render := func(w io.Writer) error { return renderSupersede(w, result) }
@@ -174,10 +178,10 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			// skip/failure is folded into the exit code (#127).
 			var edgeFailures []string
 			for i := range result.Edges {
-				e := &result.Edges[i]
-				if e.Label == supersededByLabel {
-					continue // created in step 3
+				if i == supersededByIdx {
+					continue // the retirement link is created in step 3
 				}
+				e := &result.Edges[i]
 				tid, rerr := resolveSpecNode(cmd, client, memURN, e.Target)
 				if rerr != nil {
 					fmt.Fprintf(f.IOStreams.ErrOut, "warning: skipped edge %q → %s: %v\n", e.Label, e.Target, rerr)
@@ -199,11 +203,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			if _, cerr := gen.CreateEdge(cmd.Context(), client, oldNode.Id, newID, supersededByLabel, nil, nil, nil, nil, nil, nil); cerr != nil {
 				return api.MapError(cerr)
 			}
-			for i := range result.Edges {
-				if result.Edges[i].Label == supersededByLabel {
-					result.Edges[i].Status = edgeStatusCreated
-				}
-			}
+			result.Edges[supersededByIdx].Status = edgeStatusCreated
 
 			// 4. Retire the old spec: tag superseded, same loc, append a note.
 			note := fmt.Sprintf("\n\n> Superseded by %s.", newTarget.Format())

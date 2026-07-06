@@ -1335,6 +1335,70 @@ func TestSpecSupersedeOrphanedEdgeFailsLoud(t *testing.T) {
 	}
 }
 
+// Codex #155: a --title of literally "superseded-by" collides with the
+// retirement edge's label. The old label-keyed logic would skip creating the
+// ToC edge (mistaking it for the special edge) yet still mark it "created" —
+// a false success on an orphaned replacement. The retirement edge is now keyed
+// by position, so the ToC edge is wired and reported honestly.
+func TestSpecSupersedeTitleCollidesWithSpecialLabel(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
+	var createdEdgeLabels []string
+	responses := map[string]string{
+		"ResolveUrn": resolveSpecJSON, // every target resolves
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"FindNodes":  scan,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — superseded-by","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"UpdateNode": `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"a","loc":"x"},"target":{"id":"b","loc":"y"}}}}`,
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+			Variables     struct {
+				Name string `json:"name"`
+			} `json:"variables"`
+		}
+		raw, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(raw, &body)
+		if body.OperationName == "CreateEdge" {
+			createdEdgeLabels = append(createdEdgeLabels, body.Variables.Name)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		resp, ok := responses[body.OperationName]
+		if !ok {
+			t.Errorf("unexpected operation %q", body.OperationName)
+			resp = `{"errors":[{"message":"unexpected operation"}]}`
+		}
+		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, resp)))
+	}))
+	defer srv.Close()
+
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "superseded-by", "--yes", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute should succeed — every target resolves: %v", err)
+	}
+	var dto struct {
+		Edges []struct {
+			Status string `json:"status"`
+		} `json:"edges"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	// Every planned edge — including the ToC edge whose label collides with the
+	// --title — must actually be wired (one CreateEdge each) and reported created.
+	// Before the fix the colliding ToC edge was skipped yet marked created, so
+	// CreateEdge fired fewer times than there were edges.
+	if len(createdEdgeLabels) != len(dto.Edges) {
+		t.Errorf("wired %d edge(s) but planned/reported %d (a colliding ToC edge was skipped): calls=%v", len(createdEdgeLabels), len(dto.Edges), createdEdgeLabels)
+	}
+	for _, e := range dto.Edges {
+		if e.Status != edgeStatusCreatedTest {
+			t.Errorf("with all targets resolving, every edge must be created, got %q in %+v", e.Status, dto.Edges)
+		}
+	}
+}
+
 // String forms of the edge-status constants, kept local to the cmd-package test
 // (the constants themselves live in the unexported spec package).
 const (
