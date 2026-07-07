@@ -68,6 +68,7 @@ hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | reg
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
 hadron ai-config ls [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] | update <id> ... | rm <id>
 hadron org ls [--mine] | create --name <n> --urn <urn> | get <id> | update <id> | rm <id> | member ls|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
+hadron agent ls [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | get <ref> | create --org <id> --name <n> [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
 hadron user search <query> [--limit N] [--offset N]
 hadron profile set [--name <n>] [--email <e>] [--handle <h>]
 hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--ai-config <n>] [--wait] | ls [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
@@ -274,6 +275,13 @@ Conventions:
   <id>` manage them. `org invite create <email> --org <id> --role <r>` mints an
   invitation whose returned `slug` is the acceptance token — the invitee redeems
   it with `org invite accept <slug>`; `org invite show <slug>` inspects one.
+- `agent` manages agents (org-owned; an App runs an agent). `agent ls [--org
+  <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC]`,
+  `agent get <ref>` (ID or URN); `agent create --org <id> --name <n>` with
+  optional `--type`/`--visibility`/`--description`/`--system-prompt`/
+  `--system-memory`/`--surface` (repeatable); `agent update <id> [<field flags>]`
+  changes only the fields you pass (`--surface` replaces the set); `agent rm <id>`
+  requires `--yes`. Memory-attach, AI-config wiring, and app-wiring land next.
 - `user search <query>` finds users (enumeration-safe: substring on handle /
   GitHub username, exact on email) — the way to resolve a user ID for `org
   member`/`memory member`/`memory share`. `profile set [--name|--email|--handle]`
