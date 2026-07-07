@@ -180,8 +180,9 @@ the `hadron api` raw-GraphQL escape hatch when needed:
 make build      # build with version stamp
 make test       # go test ./...
 make lint       # golangci-lint run
-make generate   # regenerate genqlient code from schema/schema.graphql
-make schema     # refresh schema snapshot from ../hadron-server, then generate
+make generate      # regenerate genqlient code from schema/schema.graphql
+make schema        # refresh schema snapshot from ../hadron-server, then generate
+make schema-check  # fail if the committed snapshot is stale vs ../hadron-server
 ```
 
 The GraphQL schema snapshot at `schema/schema.graphql` is exported
@@ -189,6 +190,17 @@ from hadron-server (`pnpm schema:export` there) and committed here;
 typed operations live in `internal/api/queries/*.graphql` and are
 compiled by [genqlient](https://github.com/Khan/genqlient). CI fails
 if generated code drifts from the committed schema.
+
+That per-PR check only compares the generated client against the
+*committed* snapshot, so it can't catch the snapshot itself lagging the
+server (e.g. a server-side `appId` → `appRef` rename). `make schema-check`
+closes that gap: it re-exports the SDL from `../hadron-server` and fails
+if the generated client would change for an operation the CLI uses
+(server changes the CLI doesn't touch are ignored). The
+[`schema-drift`](.github/workflows/schema-drift.yml) workflow runs it
+nightly against the server's `main`; enable it by adding a
+`HADRON_SERVER_RO_TOKEN` repo secret (a token with read access to the
+private hadron-server repo). Without the secret the job no-ops.
 
 ## Releasing
 
