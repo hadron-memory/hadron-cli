@@ -2827,7 +2827,7 @@ type CreateAgentScheduleInput struct {
 	// true: the run acts on behalf of YOU (required to reach your personal memories). v1 never delegates a third party (cor:agt:010:01).
 	RunAsSelf *bool `json:"runAsSelf,omitempty"`
 	// One-shot: run once at this ISO-8601 instant (#510). Provide exactly one of cron / runAt.
-	RunAt    *string `json:"runAt"`
+	RunAt    *string `json:"runAt,omitempty"`
 	Timezone *string `json:"timezone,omitempty"`
 }
 
@@ -8046,7 +8046,7 @@ func (v *UpdateAgentResponse) GetUpdateAgent() *UpdateAgentUpdateAgent { return 
 
 type UpdateAgentScheduleInput struct {
 	// Agent — ref: PK or URN; must be installed in the App.
-	AgentRef     *string `json:"agentRef"`
+	AgentRef     *string `json:"agentRef,omitempty"`
 	AiConfigName *string `json:"aiConfigName,omitempty"`
 	// Providing cron switches the schedule to recurring (clears runAt).
 	Cron         *string          `json:"cron,omitempty"`
@@ -8057,7 +8057,7 @@ type UpdateAgentScheduleInput struct {
 	Policy       *json.RawMessage `json:"policy,omitempty"`
 	RunAsSelf    *bool            `json:"runAsSelf,omitempty"`
 	// Providing runAt switches the schedule to one-shot (clears cron). At most one of cron / runAt per call.
-	RunAt    *string `json:"runAt"`
+	RunAt    *string `json:"runAt,omitempty"`
 	Timezone *string `json:"timezone,omitempty"`
 }
 

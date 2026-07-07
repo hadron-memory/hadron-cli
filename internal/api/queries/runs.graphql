@@ -153,6 +153,7 @@ mutation CancelAppRun($id: ID!) {
 # @genqlient(for: "CreateAgentScheduleInput.eventData", omitempty: true)
 # @genqlient(for: "CreateAgentScheduleInput.policy", omitempty: true)
 # @genqlient(for: "CreateAgentScheduleInput.runAsSelf", omitempty: true)
+# @genqlient(for: "CreateAgentScheduleInput.runAt", omitempty: true)
 # @genqlient(for: "CreateAgentScheduleInput.timezone", omitempty: true)
 mutation CreateAgentSchedule(
   $input: CreateAgentScheduleInput!
@@ -188,6 +189,8 @@ query AgentSchedules(
 # @genqlient(for: "UpdateAgentScheduleInput.eventData", omitempty: true)
 # @genqlient(for: "UpdateAgentScheduleInput.policy", omitempty: true)
 # @genqlient(for: "UpdateAgentScheduleInput.runAsSelf", omitempty: true)
+# @genqlient(for: "UpdateAgentScheduleInput.agentRef", omitempty: true)
+# @genqlient(for: "UpdateAgentScheduleInput.runAt", omitempty: true)
 mutation UpdateAgentSchedule(
   $id: ID!
   $input: UpdateAgentScheduleInput!
