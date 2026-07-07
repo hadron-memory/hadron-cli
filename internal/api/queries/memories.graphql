@@ -144,3 +144,16 @@ mutation CloneMemory($id: ID!, $name: String!) {
     updatedAt
   }
 }
+
+# Convert a plaintext memory to encrypted-at-rest (#57). One-way: the caller
+# provides the data key and all node content/data is rewritten as ciphertext in
+# a single transaction. There is no decrypt mutation, so the command gates like a
+# destructive op.
+mutation EncryptMemory($memoryId: ID!, $dataKey: String!) {
+  encryptMemory(memoryId: $memoryId, dataKey: $dataKey) {
+    id
+    urn
+    name
+    isEncrypted
+  }
+}
