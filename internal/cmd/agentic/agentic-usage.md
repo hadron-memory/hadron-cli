@@ -192,9 +192,10 @@ Conventions:
   `member ls|add|set-role|rm <memory> --user <id> --role <owner|writer|reader>`
   manages team membership (rows exist only on group-class memories);
   `share ls|create|set-role|revoke <memory> --grantee <id> --role <writer|reader>`
-  grants individual users access; `subscription ls|create|set-role|rm <memory>
-  --org <id> --role <owner|admin|contributor|reader>` grants an entire
-  organization access (the org-level counterpart, with the full Role set). The
+  grants individual users access; `subscription` grants an entire organization
+  access (the org-level counterpart, with the full Role set) — `subscription
+  create|set-role <memory> --org <id> --role <owner|admin|contributor|reader>`,
+  and `subscription ls <memory>` / `subscription rm <memory> --org <id>`. The
   memory ref is an id or URN; `add`/`create` upsert; `member rm` / `share revoke`
   / `subscription rm` require `--yes` non-interactively. Find user IDs via
   `org member ls` or `auth whoami`.
