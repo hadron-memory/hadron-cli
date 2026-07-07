@@ -9,6 +9,14 @@ import (
 	"github.com/Khan/genqlient/graphql"
 )
 
+// AcceptInvitationResponse is returned by AcceptInvitation on success.
+type AcceptInvitationResponse struct {
+	AcceptInvitation bool `json:"acceptInvitation"`
+}
+
+// GetAcceptInvitation returns AcceptInvitationResponse.AcceptInvitation, and is useful for accessing the field via an interface.
+func (v *AcceptInvitationResponse) GetAcceptInvitation() bool { return v.AcceptInvitation }
+
 // issue #323: where a single grant in an EffectiveAccess result comes from.
 type AccessSource string
 
@@ -3479,6 +3487,155 @@ func (v *CreateUserApiKeyResponse) GetCreateUserApiKey() *CreateUserApiKeyCreate
 	return v.CreateUserApiKey
 }
 
+// CreateUserInvitationCreateUserInvitation includes the requested fields of the GraphQL type UserInvitation.
+type CreateUserInvitationCreateUserInvitation struct {
+	InvitationFields `json:"-"`
+}
+
+// GetId returns CreateUserInvitationCreateUserInvitation.Id, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetId() string { return v.InvitationFields.Id }
+
+// GetSlug returns CreateUserInvitationCreateUserInvitation.Slug, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetSlug() string { return v.InvitationFields.Slug }
+
+// GetEmail returns CreateUserInvitationCreateUserInvitation.Email, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetEmail() *string {
+	return v.InvitationFields.Email
+}
+
+// GetName returns CreateUserInvitationCreateUserInvitation.Name, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetName() *string { return v.InvitationFields.Name }
+
+// GetGithubUsername returns CreateUserInvitationCreateUserInvitation.GithubUsername, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetGithubUsername() *string {
+	return v.InvitationFields.GithubUsername
+}
+
+// GetMemberRole returns CreateUserInvitationCreateUserInvitation.MemberRole, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetMemberRole() Role {
+	return v.InvitationFields.MemberRole
+}
+
+// GetOrganizationId returns CreateUserInvitationCreateUserInvitation.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetOrganizationId() *string {
+	return v.InvitationFields.OrganizationId
+}
+
+// GetMaxActivations returns CreateUserInvitationCreateUserInvitation.MaxActivations, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetMaxActivations() *int {
+	return v.InvitationFields.MaxActivations
+}
+
+// GetActivationCount returns CreateUserInvitationCreateUserInvitation.ActivationCount, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetActivationCount() int {
+	return v.InvitationFields.ActivationCount
+}
+
+// GetExpiresAt returns CreateUserInvitationCreateUserInvitation.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetExpiresAt() *string {
+	return v.InvitationFields.ExpiresAt
+}
+
+// GetAcceptedAt returns CreateUserInvitationCreateUserInvitation.AcceptedAt, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetAcceptedAt() *string {
+	return v.InvitationFields.AcceptedAt
+}
+
+// GetCreatedAt returns CreateUserInvitationCreateUserInvitation.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetCreatedAt() string {
+	return v.InvitationFields.CreatedAt
+}
+
+func (v *CreateUserInvitationCreateUserInvitation) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateUserInvitationCreateUserInvitation
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateUserInvitationCreateUserInvitation = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.InvitationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateUserInvitationCreateUserInvitation struct {
+	Id string `json:"id"`
+
+	Slug string `json:"slug"`
+
+	Email *string `json:"email"`
+
+	Name *string `json:"name"`
+
+	GithubUsername *string `json:"githubUsername"`
+
+	MemberRole Role `json:"memberRole"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	MaxActivations *int `json:"maxActivations"`
+
+	ActivationCount int `json:"activationCount"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	AcceptedAt *string `json:"acceptedAt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *CreateUserInvitationCreateUserInvitation) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateUserInvitationCreateUserInvitation) __premarshalJSON() (*__premarshalCreateUserInvitationCreateUserInvitation, error) {
+	var retval __premarshalCreateUserInvitationCreateUserInvitation
+
+	retval.Id = v.InvitationFields.Id
+	retval.Slug = v.InvitationFields.Slug
+	retval.Email = v.InvitationFields.Email
+	retval.Name = v.InvitationFields.Name
+	retval.GithubUsername = v.InvitationFields.GithubUsername
+	retval.MemberRole = v.InvitationFields.MemberRole
+	retval.OrganizationId = v.InvitationFields.OrganizationId
+	retval.MaxActivations = v.InvitationFields.MaxActivations
+	retval.ActivationCount = v.InvitationFields.ActivationCount
+	retval.ExpiresAt = v.InvitationFields.ExpiresAt
+	retval.AcceptedAt = v.InvitationFields.AcceptedAt
+	retval.CreatedAt = v.InvitationFields.CreatedAt
+	return &retval, nil
+}
+
+// CreateUserInvitationResponse is returned by CreateUserInvitation on success.
+type CreateUserInvitationResponse struct {
+	// User invitations (org ADMIN or platform ADMIN).
+	//
+	// Accepts the entity's ID or URN.
+	CreateUserInvitation *CreateUserInvitationCreateUserInvitation `json:"createUserInvitation"`
+}
+
+// GetCreateUserInvitation returns CreateUserInvitationResponse.CreateUserInvitation, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationResponse) GetCreateUserInvitation() *CreateUserInvitationCreateUserInvitation {
+	return v.CreateUserInvitation
+}
+
 // DeleteAgentScheduleResponse is returned by DeleteAgentSchedule on success.
 type DeleteAgentScheduleResponse struct {
 	DeleteAgentSchedule bool `json:"deleteAgentSchedule"`
@@ -3863,6 +4020,150 @@ type FindNodesResponse struct {
 
 // GetFindNodes returns FindNodesResponse.FindNodes, and is useful for accessing the field via an interface.
 func (v *FindNodesResponse) GetFindNodes() *FindNodesFindNodesFindNodesResult { return v.FindNodes }
+
+// GetInvitationInvitationUserInvitation includes the requested fields of the GraphQL type UserInvitation.
+type GetInvitationInvitationUserInvitation struct {
+	InvitationFields `json:"-"`
+}
+
+// GetId returns GetInvitationInvitationUserInvitation.Id, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetId() string { return v.InvitationFields.Id }
+
+// GetSlug returns GetInvitationInvitationUserInvitation.Slug, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetSlug() string { return v.InvitationFields.Slug }
+
+// GetEmail returns GetInvitationInvitationUserInvitation.Email, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetEmail() *string { return v.InvitationFields.Email }
+
+// GetName returns GetInvitationInvitationUserInvitation.Name, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetName() *string { return v.InvitationFields.Name }
+
+// GetGithubUsername returns GetInvitationInvitationUserInvitation.GithubUsername, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetGithubUsername() *string {
+	return v.InvitationFields.GithubUsername
+}
+
+// GetMemberRole returns GetInvitationInvitationUserInvitation.MemberRole, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetMemberRole() Role {
+	return v.InvitationFields.MemberRole
+}
+
+// GetOrganizationId returns GetInvitationInvitationUserInvitation.OrganizationId, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetOrganizationId() *string {
+	return v.InvitationFields.OrganizationId
+}
+
+// GetMaxActivations returns GetInvitationInvitationUserInvitation.MaxActivations, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetMaxActivations() *int {
+	return v.InvitationFields.MaxActivations
+}
+
+// GetActivationCount returns GetInvitationInvitationUserInvitation.ActivationCount, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetActivationCount() int {
+	return v.InvitationFields.ActivationCount
+}
+
+// GetExpiresAt returns GetInvitationInvitationUserInvitation.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetExpiresAt() *string {
+	return v.InvitationFields.ExpiresAt
+}
+
+// GetAcceptedAt returns GetInvitationInvitationUserInvitation.AcceptedAt, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetAcceptedAt() *string {
+	return v.InvitationFields.AcceptedAt
+}
+
+// GetCreatedAt returns GetInvitationInvitationUserInvitation.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetCreatedAt() string {
+	return v.InvitationFields.CreatedAt
+}
+
+func (v *GetInvitationInvitationUserInvitation) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetInvitationInvitationUserInvitation
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetInvitationInvitationUserInvitation = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.InvitationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetInvitationInvitationUserInvitation struct {
+	Id string `json:"id"`
+
+	Slug string `json:"slug"`
+
+	Email *string `json:"email"`
+
+	Name *string `json:"name"`
+
+	GithubUsername *string `json:"githubUsername"`
+
+	MemberRole Role `json:"memberRole"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	MaxActivations *int `json:"maxActivations"`
+
+	ActivationCount int `json:"activationCount"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	AcceptedAt *string `json:"acceptedAt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *GetInvitationInvitationUserInvitation) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetInvitationInvitationUserInvitation) __premarshalJSON() (*__premarshalGetInvitationInvitationUserInvitation, error) {
+	var retval __premarshalGetInvitationInvitationUserInvitation
+
+	retval.Id = v.InvitationFields.Id
+	retval.Slug = v.InvitationFields.Slug
+	retval.Email = v.InvitationFields.Email
+	retval.Name = v.InvitationFields.Name
+	retval.GithubUsername = v.InvitationFields.GithubUsername
+	retval.MemberRole = v.InvitationFields.MemberRole
+	retval.OrganizationId = v.InvitationFields.OrganizationId
+	retval.MaxActivations = v.InvitationFields.MaxActivations
+	retval.ActivationCount = v.InvitationFields.ActivationCount
+	retval.ExpiresAt = v.InvitationFields.ExpiresAt
+	retval.AcceptedAt = v.InvitationFields.AcceptedAt
+	retval.CreatedAt = v.InvitationFields.CreatedAt
+	return &retval, nil
+}
+
+// GetInvitationResponse is returned by GetInvitation on success.
+type GetInvitationResponse struct {
+	Invitation *GetInvitationInvitationUserInvitation `json:"invitation"`
+}
+
+// GetInvitation returns GetInvitationResponse.Invitation, and is useful for accessing the field via an interface.
+func (v *GetInvitationResponse) GetInvitation() *GetInvitationInvitationUserInvitation {
+	return v.Invitation
+}
 
 // GetMemoryMemory includes the requested fields of the GraphQL type Memory.
 type GetMemoryMemory struct {
@@ -4457,6 +4758,58 @@ var AllImportNodeStatus = []ImportNodeStatus{
 	ImportNodeStatusFetchPending,
 	ImportNodeStatusStored,
 }
+
+// InvitationFields includes the GraphQL fields of UserInvitation requested by the fragment InvitationFields.
+type InvitationFields struct {
+	Id              string  `json:"id"`
+	Slug            string  `json:"slug"`
+	Email           *string `json:"email"`
+	Name            *string `json:"name"`
+	GithubUsername  *string `json:"githubUsername"`
+	MemberRole      Role    `json:"memberRole"`
+	OrganizationId  *string `json:"organizationId"`
+	MaxActivations  *int    `json:"maxActivations"`
+	ActivationCount int     `json:"activationCount"`
+	ExpiresAt       *string `json:"expiresAt"`
+	AcceptedAt      *string `json:"acceptedAt"`
+	CreatedAt       string  `json:"createdAt"`
+}
+
+// GetId returns InvitationFields.Id, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetId() string { return v.Id }
+
+// GetSlug returns InvitationFields.Slug, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetSlug() string { return v.Slug }
+
+// GetEmail returns InvitationFields.Email, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetEmail() *string { return v.Email }
+
+// GetName returns InvitationFields.Name, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetName() *string { return v.Name }
+
+// GetGithubUsername returns InvitationFields.GithubUsername, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetGithubUsername() *string { return v.GithubUsername }
+
+// GetMemberRole returns InvitationFields.MemberRole, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetMemberRole() Role { return v.MemberRole }
+
+// GetOrganizationId returns InvitationFields.OrganizationId, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetOrganizationId() *string { return v.OrganizationId }
+
+// GetMaxActivations returns InvitationFields.MaxActivations, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetMaxActivations() *int { return v.MaxActivations }
+
+// GetActivationCount returns InvitationFields.ActivationCount, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetActivationCount() int { return v.ActivationCount }
+
+// GetExpiresAt returns InvitationFields.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetAcceptedAt returns InvitationFields.AcceptedAt, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetAcceptedAt() *string { return v.AcceptedAt }
+
+// GetCreatedAt returns InvitationFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetCreatedAt() string { return v.CreatedAt }
 
 // MeMeUser includes the requested fields of the GraphQL type User.
 type MeMeUser struct {
@@ -5811,6 +6164,141 @@ type OrgMembersResponse struct {
 
 // GetOrganization returns OrgMembersResponse.Organization, and is useful for accessing the field via an interface.
 func (v *OrgMembersResponse) GetOrganization() *OrgMembersOrganization { return v.Organization }
+
+// Filter for the uniform organizations() list (#473).
+type OrganizationFilter struct {
+	// true restricts the list to the caller's own memberships — even for
+	// platform ADMIN/OWNER, whose unscoped reach otherwise spans every live
+	// org; the old myOrganizations semantics.
+	MemberOnly *bool `json:"memberOnly"`
+}
+
+// GetMemberOnly returns OrganizationFilter.MemberOnly, and is useful for accessing the field via an interface.
+func (v *OrganizationFilter) GetMemberOnly() *bool { return v.MemberOnly }
+
+// OrganizationsOrganizationsOrganizationsPage includes the requested fields of the GraphQL type OrganizationsPage.
+type OrganizationsOrganizationsOrganizationsPage struct {
+	Total int                                                             `json:"total"`
+	Items []*OrganizationsOrganizationsOrganizationsPageItemsOrganization `json:"items"`
+}
+
+// GetTotal returns OrganizationsOrganizationsOrganizationsPage.Total, and is useful for accessing the field via an interface.
+func (v *OrganizationsOrganizationsOrganizationsPage) GetTotal() int { return v.Total }
+
+// GetItems returns OrganizationsOrganizationsOrganizationsPage.Items, and is useful for accessing the field via an interface.
+func (v *OrganizationsOrganizationsOrganizationsPage) GetItems() []*OrganizationsOrganizationsOrganizationsPageItemsOrganization {
+	return v.Items
+}
+
+// OrganizationsOrganizationsOrganizationsPageItemsOrganization includes the requested fields of the GraphQL type Organization.
+type OrganizationsOrganizationsOrganizationsPageItemsOrganization struct {
+	OrgFields `json:"-"`
+}
+
+// GetId returns OrganizationsOrganizationsOrganizationsPageItemsOrganization.Id, and is useful for accessing the field via an interface.
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) GetId() string {
+	return v.OrgFields.Id
+}
+
+// GetUrn returns OrganizationsOrganizationsOrganizationsPageItemsOrganization.Urn, and is useful for accessing the field via an interface.
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) GetUrn() string {
+	return v.OrgFields.Urn
+}
+
+// GetName returns OrganizationsOrganizationsOrganizationsPageItemsOrganization.Name, and is useful for accessing the field via an interface.
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) GetName() string {
+	return v.OrgFields.Name
+}
+
+// GetIsVisible returns OrganizationsOrganizationsOrganizationsPageItemsOrganization.IsVisible, and is useful for accessing the field via an interface.
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) GetIsVisible() *bool {
+	return v.OrgFields.IsVisible
+}
+
+// GetCreatedAt returns OrganizationsOrganizationsOrganizationsPageItemsOrganization.CreatedAt, and is useful for accessing the field via an interface.
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) GetCreatedAt() string {
+	return v.OrgFields.CreatedAt
+}
+
+// GetUpdatedAt returns OrganizationsOrganizationsOrganizationsPageItemsOrganization.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) GetUpdatedAt() string {
+	return v.OrgFields.UpdatedAt
+}
+
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*OrganizationsOrganizationsOrganizationsPageItemsOrganization
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.OrganizationsOrganizationsOrganizationsPageItemsOrganization = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.OrgFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalOrganizationsOrganizationsOrganizationsPageItemsOrganization struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	IsVisible *bool `json:"isVisible"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) __premarshalJSON() (*__premarshalOrganizationsOrganizationsOrganizationsPageItemsOrganization, error) {
+	var retval __premarshalOrganizationsOrganizationsOrganizationsPageItemsOrganization
+
+	retval.Id = v.OrgFields.Id
+	retval.Urn = v.OrgFields.Urn
+	retval.Name = v.OrgFields.Name
+	retval.IsVisible = v.OrgFields.IsVisible
+	retval.CreatedAt = v.OrgFields.CreatedAt
+	retval.UpdatedAt = v.OrgFields.UpdatedAt
+	return &retval, nil
+}
+
+// OrganizationsResponse is returned by Organizations on success.
+type OrganizationsResponse struct {
+	// Uniform paginated organization list (#473) — replaces organizations +
+	// myOrganizations. Scope: the caller's memberships; platform ADMIN/OWNER
+	// get every live org (the established admin unscoped reach) unless
+	// filter.memberOnly restricts the list to their own memberships (the old
+	// myOrganizations view, as a slice-as-filter). Name-ascending order (id
+	// tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
+	Organizations *OrganizationsOrganizationsOrganizationsPage `json:"organizations"`
+}
+
+// GetOrganizations returns OrganizationsResponse.Organizations, and is useful for accessing the field via an interface.
+func (v *OrganizationsResponse) GetOrganizations() *OrganizationsOrganizationsOrganizationsPage {
+	return v.Organizations
+}
 
 // RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload includes the requested fields of the GraphQL type RemoveMemoryMemberPayload.
 type RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload struct {
@@ -8224,6 +8712,14 @@ func (v *UserFields) GetGithubUsername() *string { return v.GithubUsername }
 // GetRoles returns UserFields.Roles, and is useful for accessing the field via an interface.
 func (v *UserFields) GetRoles() []Role { return v.Roles }
 
+// __AcceptInvitationInput is used internally by genqlient
+type __AcceptInvitationInput struct {
+	Slug string `json:"slug"`
+}
+
+// GetSlug returns __AcceptInvitationInput.Slug, and is useful for accessing the field via an interface.
+func (v *__AcceptInvitationInput) GetSlug() string { return v.Slug }
+
 // __ActionTicketsInput is used internally by genqlient
 type __ActionTicketsInput struct {
 	OrgId  string `json:"orgId"`
@@ -8584,6 +9080,38 @@ type __CreateUserApiKeyInput struct {
 // GetLabel returns __CreateUserApiKeyInput.Label, and is useful for accessing the field via an interface.
 func (v *__CreateUserApiKeyInput) GetLabel() *string { return v.Label }
 
+// __CreateUserInvitationInput is used internally by genqlient
+type __CreateUserInvitationInput struct {
+	OrgId          string  `json:"orgId"`
+	MemberRole     Role    `json:"memberRole"`
+	Email          *string `json:"email,omitempty"`
+	Name           *string `json:"name,omitempty"`
+	GithubUsername *string `json:"githubUsername,omitempty"`
+	ExpiresInDays  *int    `json:"expiresInDays,omitempty"`
+	MaxActivations *int    `json:"maxActivations,omitempty"`
+}
+
+// GetOrgId returns __CreateUserInvitationInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__CreateUserInvitationInput) GetOrgId() string { return v.OrgId }
+
+// GetMemberRole returns __CreateUserInvitationInput.MemberRole, and is useful for accessing the field via an interface.
+func (v *__CreateUserInvitationInput) GetMemberRole() Role { return v.MemberRole }
+
+// GetEmail returns __CreateUserInvitationInput.Email, and is useful for accessing the field via an interface.
+func (v *__CreateUserInvitationInput) GetEmail() *string { return v.Email }
+
+// GetName returns __CreateUserInvitationInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateUserInvitationInput) GetName() *string { return v.Name }
+
+// GetGithubUsername returns __CreateUserInvitationInput.GithubUsername, and is useful for accessing the field via an interface.
+func (v *__CreateUserInvitationInput) GetGithubUsername() *string { return v.GithubUsername }
+
+// GetExpiresInDays returns __CreateUserInvitationInput.ExpiresInDays, and is useful for accessing the field via an interface.
+func (v *__CreateUserInvitationInput) GetExpiresInDays() *int { return v.ExpiresInDays }
+
+// GetMaxActivations returns __CreateUserInvitationInput.MaxActivations, and is useful for accessing the field via an interface.
+func (v *__CreateUserInvitationInput) GetMaxActivations() *int { return v.MaxActivations }
+
 // __DeleteAgentScheduleInput is used internally by genqlient
 type __DeleteAgentScheduleInput struct {
 	Id string `json:"id"`
@@ -8716,6 +9244,14 @@ func (v *__FindNodesInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __FindNodesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__FindNodesInput) GetOffset() *int { return v.Offset }
 
+// __GetInvitationInput is used internally by genqlient
+type __GetInvitationInput struct {
+	Slug string `json:"slug"`
+}
+
+// GetSlug returns __GetInvitationInput.Slug, and is useful for accessing the field via an interface.
+func (v *__GetInvitationInput) GetSlug() string { return v.Slug }
+
 // __GetMemoryInput is used internally by genqlient
 type __GetMemoryInput struct {
 	Ref string `json:"ref"`
@@ -8839,6 +9375,22 @@ type __OrgMembersInput struct {
 
 // GetRef returns __OrgMembersInput.Ref, and is useful for accessing the field via an interface.
 func (v *__OrgMembersInput) GetRef() string { return v.Ref }
+
+// __OrganizationsInput is used internally by genqlient
+type __OrganizationsInput struct {
+	Filter *OrganizationFilter `json:"filter,omitempty"`
+	Limit  *int                `json:"limit,omitempty"`
+	Offset *int                `json:"offset,omitempty"`
+}
+
+// GetFilter returns __OrganizationsInput.Filter, and is useful for accessing the field via an interface.
+func (v *__OrganizationsInput) GetFilter() *OrganizationFilter { return v.Filter }
+
+// GetLimit returns __OrganizationsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__OrganizationsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __OrganizationsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__OrganizationsInput) GetOffset() *int { return v.Offset }
 
 // __RemoveMemoryMemberInput is used internally by genqlient
 type __RemoveMemoryMemberInput struct {
@@ -9207,6 +9759,38 @@ func (v *__UpdateOrganizationInput) GetUrn() *string { return v.Urn }
 
 // GetIsVisible returns __UpdateOrganizationInput.IsVisible, and is useful for accessing the field via an interface.
 func (v *__UpdateOrganizationInput) GetIsVisible() *bool { return v.IsVisible }
+
+// The mutation executed by AcceptInvitation.
+const AcceptInvitation_Operation = `
+mutation AcceptInvitation ($slug: String!) {
+	acceptInvitation(slug: $slug)
+}
+`
+
+func AcceptInvitation(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	slug string,
+) (data_ *AcceptInvitationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AcceptInvitation",
+		Query:  AcceptInvitation_Operation,
+		Variables: &__AcceptInvitationInput{
+			Slug: slug,
+		},
+	}
+
+	data_ = &AcceptInvitationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
 
 // The query executed by ActionTickets.
 const ActionTickets_Operation = `
@@ -10336,6 +10920,68 @@ func CreateUserApiKey(
 	return data_, err_
 }
 
+// The mutation executed by CreateUserInvitation.
+const CreateUserInvitation_Operation = `
+mutation CreateUserInvitation ($orgId: ID!, $memberRole: Role!, $email: String, $name: String, $githubUsername: String, $expiresInDays: Int, $maxActivations: Int) {
+	createUserInvitation(orgId: $orgId, memberRole: $memberRole, email: $email, name: $name, githubUsername: $githubUsername, expiresInDays: $expiresInDays, maxActivations: $maxActivations) {
+		... InvitationFields
+	}
+}
+fragment InvitationFields on UserInvitation {
+	id
+	slug
+	email
+	name
+	githubUsername
+	memberRole
+	organizationId
+	maxActivations
+	activationCount
+	expiresAt
+	acceptedAt
+	createdAt
+}
+`
+
+// Org-scoped invitation (#56). The returned `slug` is the acceptance token the
+// invitee redeems with `org invite accept <slug>`.
+func CreateUserInvitation(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId string,
+	memberRole Role,
+	email *string,
+	name *string,
+	githubUsername *string,
+	expiresInDays *int,
+	maxActivations *int,
+) (data_ *CreateUserInvitationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateUserInvitation",
+		Query:  CreateUserInvitation_Operation,
+		Variables: &__CreateUserInvitationInput{
+			OrgId:          orgId,
+			MemberRole:     memberRole,
+			Email:          email,
+			Name:           name,
+			GithubUsername: githubUsername,
+			ExpiresInDays:  expiresInDays,
+			MaxActivations: maxActivations,
+		},
+	}
+
+	data_ = &CreateUserInvitationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by DeleteAgentSchedule.
 const DeleteAgentSchedule_Operation = `
 mutation DeleteAgentSchedule ($id: ID!) {
@@ -10785,6 +11431,54 @@ func FindNodes(
 	}
 
 	data_ = &FindNodesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetInvitation.
+const GetInvitation_Operation = `
+query GetInvitation ($slug: String!) {
+	invitation(slug: $slug) {
+		... InvitationFields
+	}
+}
+fragment InvitationFields on UserInvitation {
+	id
+	slug
+	email
+	name
+	githubUsername
+	memberRole
+	organizationId
+	maxActivations
+	activationCount
+	expiresAt
+	acceptedAt
+	createdAt
+}
+`
+
+func GetInvitation(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	slug string,
+) (data_ *GetInvitationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetInvitation",
+		Query:  GetInvitation_Operation,
+		Variables: &__GetInvitationInput{
+			Slug: slug,
+		},
+	}
+
+	data_ = &GetInvitationResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -11571,6 +12265,58 @@ func OrgMembers(
 	}
 
 	data_ = &OrgMembersResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by Organizations.
+const Organizations_Operation = `
+query Organizations ($filter: OrganizationFilter, $limit: Int, $offset: Int) {
+	organizations(filter: $filter, limit: $limit, offset: $offset) {
+		total
+		items {
+			... OrgFields
+		}
+	}
+}
+fragment OrgFields on Organization {
+	id
+	urn
+	name
+	isVisible
+	createdAt
+	updatedAt
+}
+`
+
+// Organizations list (#473 uniform surface) — for `org ls`. Unscoped spans
+// every org the caller can see (all live orgs for a platform admin); memberOnly
+// restricts to the caller's own memberships.
+func Organizations(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	filter *OrganizationFilter,
+	limit *int,
+	offset *int,
+) (data_ *OrganizationsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "Organizations",
+		Query:  Organizations_Operation,
+		Variables: &__OrganizationsInput{
+			Filter: filter,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &OrganizationsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

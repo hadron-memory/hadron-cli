@@ -67,7 +67,7 @@ hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
 hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | register [--check] | find <query> [--match-exactly] | new ... | extract <citation> --to-feature <fff> | lint [<citation>] | supersede <citation> | import spec-kit|code
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
 hadron ai-config ls [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] | update <id> ... | rm <id>
-hadron org create --name <n> --urn <urn> | get <id> | update <id> | rm <id> | member ls|add|set-role|rm <org-id> --user <id> [--role <r>]
+hadron org ls [--mine] | create --name <n> --urn <urn> | get <id> | update <id> | rm <id> | member ls|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
 hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--ai-config <n>] [--wait] | ls [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
 hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... | ls --app <ref> | update <id> ... | rm <id> --yes
 hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] | rotate <id> --yes | ls --app <ref> | rm <id> --yes
@@ -263,12 +263,15 @@ Conventions:
   `update <id>` changes only the fields you pass — `--api-key ""` clears the
   key, omitting it keeps it; `--param k=v` (repeatable) replaces the params
   object. `rm <id>` requires `--yes` non-interactively.
-- `org` manages organizations and their members. `org create --name --urn`,
-  `org get <id>`, `org update <id> [--name|--urn|--visible]`, `org rm <id>`
-  (requires `--yes`). `org member ls <org-id>` lists members; `member
-  add|set-role <org-id> --user <id> --role <OWNER|ADMIN|CONTRIBUTOR|READER>` and
-  `member rm <org-id> --user <id>` manage them. There's no org-list query —
-  address an org by id (the org behind a memory URN).
+- `org` manages organizations, their members, and invitations. `org ls`
+  lists organizations (`--mine` restricts to your memberships; unscoped spans
+  every org you can see); `org create --name --urn`, `org get <id>`,
+  `org update <id> [--name|--urn|--visible]`, `org rm <id>` (requires `--yes`).
+  `org member ls <org-id>` lists members; `member add|set-role <org-id> --user
+  <id> --role <OWNER|ADMIN|CONTRIBUTOR|READER>` and `member rm <org-id> --user
+  <id>` manage them. `org invite create <email> --org <id> --role <r>` mints an
+  invitation whose returned `slug` is the acceptance token — the invitee redeems
+  it with `org invite accept <slug>`; `org invite show <slug>` inspects one.
 - `access check <user> <resource>` answers "what access does this user have to
   this resource?" — the authoritative, server-computed effective access plus the
   grants that confer it (no client-side re-derivation). `<user>` is an id, email,
