@@ -8250,6 +8250,100 @@ func (v *UpdateMemoryUpdateMemory) GetData() *json.RawMessage { return v.Data }
 // GetUpdatedAt returns UpdateMemoryUpdateMemory.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryUpdateMemory) GetUpdatedAt() string { return v.UpdatedAt }
 
+// UpdateMyProfileResponse is returned by UpdateMyProfile on success.
+type UpdateMyProfileResponse struct {
+	UpdateMyProfile *UpdateMyProfileUpdateMyProfileUser `json:"updateMyProfile"`
+}
+
+// GetUpdateMyProfile returns UpdateMyProfileResponse.UpdateMyProfile, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileResponse) GetUpdateMyProfile() *UpdateMyProfileUpdateMyProfileUser {
+	return v.UpdateMyProfile
+}
+
+// UpdateMyProfileUpdateMyProfileUser includes the requested fields of the GraphQL type User.
+type UpdateMyProfileUpdateMyProfileUser struct {
+	UserFields `json:"-"`
+}
+
+// GetId returns UpdateMyProfileUpdateMyProfileUser.Id, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileUpdateMyProfileUser) GetId() string { return v.UserFields.Id }
+
+// GetName returns UpdateMyProfileUpdateMyProfileUser.Name, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileUpdateMyProfileUser) GetName() *string { return v.UserFields.Name }
+
+// GetEmail returns UpdateMyProfileUpdateMyProfileUser.Email, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileUpdateMyProfileUser) GetEmail() *string { return v.UserFields.Email }
+
+// GetHandle returns UpdateMyProfileUpdateMyProfileUser.Handle, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileUpdateMyProfileUser) GetHandle() *string { return v.UserFields.Handle }
+
+// GetGithubUsername returns UpdateMyProfileUpdateMyProfileUser.GithubUsername, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileUpdateMyProfileUser) GetGithubUsername() *string {
+	return v.UserFields.GithubUsername
+}
+
+// GetRoles returns UpdateMyProfileUpdateMyProfileUser.Roles, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileUpdateMyProfileUser) GetRoles() []Role { return v.UserFields.Roles }
+
+func (v *UpdateMyProfileUpdateMyProfileUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateMyProfileUpdateMyProfileUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateMyProfileUpdateMyProfileUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UserFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateMyProfileUpdateMyProfileUser struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Email *string `json:"email"`
+
+	Handle *string `json:"handle"`
+
+	GithubUsername *string `json:"githubUsername"`
+
+	Roles []Role `json:"roles"`
+}
+
+func (v *UpdateMyProfileUpdateMyProfileUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateMyProfileUpdateMyProfileUser) __premarshalJSON() (*__premarshalUpdateMyProfileUpdateMyProfileUser, error) {
+	var retval __premarshalUpdateMyProfileUpdateMyProfileUser
+
+	retval.Id = v.UserFields.Id
+	retval.Name = v.UserFields.Name
+	retval.Email = v.UserFields.Email
+	retval.Handle = v.UserFields.Handle
+	retval.GithubUsername = v.UserFields.GithubUsername
+	retval.Roles = v.UserFields.Roles
+	return &retval, nil
+}
+
 // UpdateNodeDataResponse is returned by UpdateNodeData on success.
 type UpdateNodeDataResponse struct {
 	UpdateNodeData *UpdateNodeDataUpdateNodeDataNode `json:"updateNodeData"`
@@ -9699,6 +9793,22 @@ func (v *__UpdateMemorySubscriptionInput) GetOrgId() string { return v.OrgId }
 
 // GetRole returns __UpdateMemorySubscriptionInput.Role, and is useful for accessing the field via an interface.
 func (v *__UpdateMemorySubscriptionInput) GetRole() Role { return v.Role }
+
+// __UpdateMyProfileInput is used internally by genqlient
+type __UpdateMyProfileInput struct {
+	Name   *string `json:"name,omitempty"`
+	Email  *string `json:"email,omitempty"`
+	Handle *string `json:"handle,omitempty"`
+}
+
+// GetName returns __UpdateMyProfileInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateMyProfileInput) GetName() *string { return v.Name }
+
+// GetEmail returns __UpdateMyProfileInput.Email, and is useful for accessing the field via an interface.
+func (v *__UpdateMyProfileInput) GetEmail() *string { return v.Email }
+
+// GetHandle returns __UpdateMyProfileInput.Handle, and is useful for accessing the field via an interface.
+func (v *__UpdateMyProfileInput) GetHandle() *string { return v.Handle }
 
 // __UpdateNodeDataInput is used internally by genqlient
 type __UpdateNodeDataInput struct {
@@ -13270,6 +13380,54 @@ func UpdateMemorySubscription(
 	}
 
 	data_ = &UpdateMemorySubscriptionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateMyProfile.
+const UpdateMyProfile_Operation = `
+mutation UpdateMyProfile ($name: String, $email: String, $handle: String) {
+	updateMyProfile(name: $name, email: $email, handle: $handle) {
+		... UserFields
+	}
+}
+fragment UserFields on User {
+	id
+	name
+	email
+	handle
+	githubUsername
+	roles
+}
+`
+
+// Update the signed-in user's own profile (#56). Only the fields passed are sent
+// (omitempty), so an unset flag leaves that field unchanged.
+func UpdateMyProfile(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	name *string,
+	email *string,
+	handle *string,
+) (data_ *UpdateMyProfileResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateMyProfile",
+		Query:  UpdateMyProfile_Operation,
+		Variables: &__UpdateMyProfileInput{
+			Name:   name,
+			Email:  email,
+			Handle: handle,
+		},
+	}
+
+	data_ = &UpdateMyProfileResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

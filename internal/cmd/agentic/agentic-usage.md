@@ -68,6 +68,8 @@ hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | reg
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
 hadron ai-config ls [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] | update <id> ... | rm <id>
 hadron org ls [--mine] | create --name <n> --urn <urn> | get <id> | update <id> | rm <id> | member ls|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
+hadron user search <query> [--limit N] [--offset N]
+hadron profile set [--name <n>] [--email <e>] [--handle <h>]
 hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--ai-config <n>] [--wait] | ls [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
 hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... | ls --app <ref> | update <id> ... | rm <id> --yes
 hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] | rotate <id> --yes | ls --app <ref> | rm <id> --yes
@@ -272,6 +274,10 @@ Conventions:
   <id>` manage them. `org invite create <email> --org <id> --role <r>` mints an
   invitation whose returned `slug` is the acceptance token — the invitee redeems
   it with `org invite accept <slug>`; `org invite show <slug>` inspects one.
+- `user search <query>` finds users (enumeration-safe: substring on handle /
+  GitHub username, exact on email) — the way to resolve a user ID for `org
+  member`/`memory member`/`memory share`. `profile set [--name|--email|--handle]`
+  updates YOUR own profile; only the fields you pass change.
 - `access check <user> <resource>` answers "what access does this user have to
   this resource?" — the authoritative, server-computed effective access plus the
   grants that confer it (no client-side re-derivation). `<user>` is an id, email,

@@ -191,3 +191,18 @@ query GetInvitation($slug: String!) {
     ...InvitationFields
   }
 }
+
+# Update the signed-in user's own profile (#56). Only the fields passed are sent
+# (omitempty), so an unset flag leaves that field unchanged.
+mutation UpdateMyProfile(
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $email: String
+  # @genqlient(omitempty: true)
+  $handle: String
+) {
+  updateMyProfile(name: $name, email: $email, handle: $handle) {
+    ...UserFields
+  }
+}
