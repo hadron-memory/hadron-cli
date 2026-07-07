@@ -507,6 +507,78 @@ type AddOrgMemberResponse struct {
 // GetAddOrgMember returns AddOrgMemberResponse.AddOrgMember, and is useful for accessing the field via an interface.
 func (v *AddOrgMemberResponse) GetAddOrgMember() *AddOrgMemberAddOrgMember { return v.AddOrgMember }
 
+// AgentFields includes the GraphQL fields of Agent requested by the fragment AgentFields.
+type AgentFields struct {
+	Id             string          `json:"id"`
+	Urn            string          `json:"urn"`
+	Name           string          `json:"name"`
+	Description    *string         `json:"description"`
+	Type           AgentType       `json:"type"`
+	Visibility     AgentVisibility `json:"visibility"`
+	OrganizationId string          `json:"organizationId"`
+	Surfaces       []string        `json:"surfaces"`
+	SystemMemoryId *string         `json:"systemMemoryId"`
+	SystemPrompt   *string         `json:"systemPrompt"`
+	AiProvider     *string         `json:"aiProvider"`
+	AiModel        *string         `json:"aiModel"`
+	HasAiApiKey    bool            `json:"hasAiApiKey"`
+	CreatedAt      string          `json:"createdAt"`
+}
+
+// GetId returns AgentFields.Id, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetId() string { return v.Id }
+
+// GetUrn returns AgentFields.Urn, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetUrn() string { return v.Urn }
+
+// GetName returns AgentFields.Name, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetName() string { return v.Name }
+
+// GetDescription returns AgentFields.Description, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetDescription() *string { return v.Description }
+
+// GetType returns AgentFields.Type, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetType() AgentType { return v.Type }
+
+// GetVisibility returns AgentFields.Visibility, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetVisibility() AgentVisibility { return v.Visibility }
+
+// GetOrganizationId returns AgentFields.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetOrganizationId() string { return v.OrganizationId }
+
+// GetSurfaces returns AgentFields.Surfaces, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetSurfaces() []string { return v.Surfaces }
+
+// GetSystemMemoryId returns AgentFields.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetSystemMemoryId() *string { return v.SystemMemoryId }
+
+// GetSystemPrompt returns AgentFields.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetSystemPrompt() *string { return v.SystemPrompt }
+
+// GetAiProvider returns AgentFields.AiProvider, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetAiProvider() *string { return v.AiProvider }
+
+// GetAiModel returns AgentFields.AiModel, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetAiModel() *string { return v.AiModel }
+
+// GetHasAiApiKey returns AgentFields.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetHasAiApiKey() bool { return v.HasAiApiKey }
+
+// GetCreatedAt returns AgentFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetCreatedAt() string { return v.CreatedAt }
+
+// Filter for the uniform agents() list (#473). Clauses AND-combine.
+type AgentFilter struct {
+	Type       *AgentType       `json:"type"`
+	Visibility *AgentVisibility `json:"visibility"`
+}
+
+// GetType returns AgentFilter.Type, and is useful for accessing the field via an interface.
+func (v *AgentFilter) GetType() *AgentType { return v.Type }
+
+// GetVisibility returns AgentFilter.Visibility, and is useful for accessing the field via an interface.
+func (v *AgentFilter) GetVisibility() *AgentVisibility { return v.Visibility }
+
 // AgentScheduleFields includes the GraphQL fields of AgentSchedule requested by the fragment AgentScheduleFields.
 // The GraphQL type's documentation follows.
 //
@@ -790,6 +862,34 @@ type AgentSchedulesResponse struct {
 // GetAgentSchedules returns AgentSchedulesResponse.AgentSchedules, and is useful for accessing the field via an interface.
 func (v *AgentSchedulesResponse) GetAgentSchedules() *AgentSchedulesAgentSchedulesAgentSchedulesPage {
 	return v.AgentSchedules
+}
+
+type AgentType string
+
+const (
+	AgentTypeAssistant AgentType = "ASSISTANT"
+	AgentTypeChatbot   AgentType = "CHATBOT"
+)
+
+var AllAgentType = []AgentType{
+	AgentTypeAssistant,
+	AgentTypeChatbot,
+}
+
+// 035-visibility-enum-cleanup: agents have their own visibility enum,
+// decoupled from MemoryVisibility. PERSONAL is the creator-only draft state.
+type AgentVisibility string
+
+const (
+	AgentVisibilityOrganization AgentVisibility = "ORGANIZATION"
+	AgentVisibilityPersonal     AgentVisibility = "PERSONAL"
+	AgentVisibilityPublic       AgentVisibility = "PUBLIC"
+)
+
+var AllAgentVisibility = []AgentVisibility{
+	AgentVisibilityOrganization,
+	AgentVisibilityPersonal,
+	AgentVisibilityPublic,
 }
 
 // AgentWebhookCredentialFields includes the GraphQL fields of AgentWebhookCredentials requested by the fragment AgentWebhookCredentialFields.
@@ -1243,6 +1343,170 @@ type AgentWebhooksResponse struct {
 func (v *AgentWebhooksResponse) GetAgentWebhooks() *AgentWebhooksAgentWebhooksAgentWebhooksPage {
 	return v.AgentWebhooks
 }
+
+// AgentsAgentsAgentsPage includes the requested fields of the GraphQL type AgentsPage.
+type AgentsAgentsAgentsPage struct {
+	Total int                                 `json:"total"`
+	Items []*AgentsAgentsAgentsPageItemsAgent `json:"items"`
+}
+
+// GetTotal returns AgentsAgentsAgentsPage.Total, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPage) GetTotal() int { return v.Total }
+
+// GetItems returns AgentsAgentsAgentsPage.Items, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPage) GetItems() []*AgentsAgentsAgentsPageItemsAgent { return v.Items }
+
+// AgentsAgentsAgentsPageItemsAgent includes the requested fields of the GraphQL type Agent.
+type AgentsAgentsAgentsPageItemsAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns AgentsAgentsAgentsPageItemsAgent.Id, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns AgentsAgentsAgentsPageItemsAgent.Urn, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns AgentsAgentsAgentsPageItemsAgent.Name, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns AgentsAgentsAgentsPageItemsAgent.Description, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetDescription() *string { return v.AgentFields.Description }
+
+// GetType returns AgentsAgentsAgentsPageItemsAgent.Type, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns AgentsAgentsAgentsPageItemsAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns AgentsAgentsAgentsPageItemsAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetOrganizationId() string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns AgentsAgentsAgentsPageItemsAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns AgentsAgentsAgentsPageItemsAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetSystemPrompt returns AgentsAgentsAgentsPageItemsAgent.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetSystemPrompt() *string {
+	return v.AgentFields.SystemPrompt
+}
+
+// GetAiProvider returns AgentsAgentsAgentsPageItemsAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
+
+// GetAiModel returns AgentsAgentsAgentsPageItemsAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns AgentsAgentsAgentsPageItemsAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
+
+// GetCreatedAt returns AgentsAgentsAgentsPageItemsAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *AgentsAgentsAgentsPageItemsAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentsAgentsAgentsPageItemsAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentsAgentsAgentsPageItemsAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	SystemPrompt *string `json:"systemPrompt"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *AgentsAgentsAgentsPageItemsAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgentsAgentsAgentsPageItemsAgent, error) {
+	var retval __premarshalAgentsAgentsAgentsPageItemsAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// AgentsResponse is returned by Agents on success.
+type AgentsResponse struct {
+	// Uniform paginated agent list (#473). Scope: Agents owned by the caller's
+	// member orgs; platform ADMIN/OWNER unscoped get every live Agent. orgId
+	// follows cor:api:100:01 (member -> scope, non-member -> empty page, no
+	// disclosure, no admin bypass). filter narrows by type / visibility.
+	// Name-ascending order (id tiebreak); limit default 50 / cap 200;
+	// limit: 0 -> count only.
+	Agents *AgentsAgentsAgentsPage `json:"agents"`
+}
+
+// GetAgents returns AgentsResponse.Agents, and is useful for accessing the field via an interface.
+func (v *AgentsResponse) GetAgents() *AgentsAgentsAgentsPage { return v.Agents }
 
 // 036-ai-service-config: which entity owns an AiServiceConfig. Exactly one
 // owner per config (DB-enforced).
@@ -2198,6 +2462,147 @@ type CloneMemoryResponse struct {
 
 // GetCloneMemory returns CloneMemoryResponse.CloneMemory, and is useful for accessing the field via an interface.
 func (v *CloneMemoryResponse) GetCloneMemory() *CloneMemoryCloneMemory { return v.CloneMemory }
+
+// CreateAgentCreateAgent includes the requested fields of the GraphQL type Agent.
+type CreateAgentCreateAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns CreateAgentCreateAgent.Id, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns CreateAgentCreateAgent.Urn, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns CreateAgentCreateAgent.Name, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns CreateAgentCreateAgent.Description, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetDescription() *string { return v.AgentFields.Description }
+
+// GetType returns CreateAgentCreateAgent.Type, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns CreateAgentCreateAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetVisibility() AgentVisibility { return v.AgentFields.Visibility }
+
+// GetOrganizationId returns CreateAgentCreateAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetOrganizationId() string { return v.AgentFields.OrganizationId }
+
+// GetSurfaces returns CreateAgentCreateAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns CreateAgentCreateAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetSystemMemoryId() *string { return v.AgentFields.SystemMemoryId }
+
+// GetSystemPrompt returns CreateAgentCreateAgent.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
+
+// GetAiProvider returns CreateAgentCreateAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
+
+// GetAiModel returns CreateAgentCreateAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns CreateAgentCreateAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
+
+// GetCreatedAt returns CreateAgentCreateAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *CreateAgentCreateAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateAgentCreateAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateAgentCreateAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateAgentCreateAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	SystemPrompt *string `json:"systemPrompt"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *CreateAgentCreateAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCreateAgent, error) {
+	var retval __premarshalCreateAgentCreateAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// CreateAgentResponse is returned by CreateAgent on success.
+type CreateAgentResponse struct {
+	// Create an Agent in an organization.
+	//
+	// Accepts the entity's ID or URN.
+	CreateAgent *CreateAgentCreateAgent `json:"createAgent"`
+}
+
+// GetCreateAgent returns CreateAgentResponse.CreateAgent, and is useful for accessing the field via an interface.
+func (v *CreateAgentResponse) GetCreateAgent() *CreateAgentCreateAgent { return v.CreateAgent }
 
 // CreateAgentScheduleCreateAgentSchedule includes the requested fields of the GraphQL type AgentSchedule.
 // The GraphQL type's documentation follows.
@@ -3636,6 +4041,17 @@ func (v *CreateUserInvitationResponse) GetCreateUserInvitation() *CreateUserInvi
 	return v.CreateUserInvitation
 }
 
+// DeleteAgentResponse is returned by DeleteAgent on success.
+type DeleteAgentResponse struct {
+	// Soft-delete an Agent.
+	//
+	// Accepts the entity's ID or URN.
+	DeleteAgent bool `json:"deleteAgent"`
+}
+
+// GetDeleteAgent returns DeleteAgentResponse.DeleteAgent, and is useful for accessing the field via an interface.
+func (v *DeleteAgentResponse) GetDeleteAgent() bool { return v.DeleteAgent }
+
 // DeleteAgentScheduleResponse is returned by DeleteAgentSchedule on success.
 type DeleteAgentScheduleResponse struct {
 	DeleteAgentSchedule bool `json:"deleteAgentSchedule"`
@@ -4020,6 +4436,151 @@ type FindNodesResponse struct {
 
 // GetFindNodes returns FindNodesResponse.FindNodes, and is useful for accessing the field via an interface.
 func (v *FindNodesResponse) GetFindNodes() *FindNodesFindNodesFindNodesResult { return v.FindNodes }
+
+// GetAgentAgent includes the requested fields of the GraphQL type Agent.
+type GetAgentAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns GetAgentAgent.Id, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns GetAgentAgent.Urn, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns GetAgentAgent.Name, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns GetAgentAgent.Description, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetDescription() *string { return v.AgentFields.Description }
+
+// GetType returns GetAgentAgent.Type, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns GetAgentAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetVisibility() AgentVisibility { return v.AgentFields.Visibility }
+
+// GetOrganizationId returns GetAgentAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetOrganizationId() string { return v.AgentFields.OrganizationId }
+
+// GetSurfaces returns GetAgentAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns GetAgentAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetSystemMemoryId() *string { return v.AgentFields.SystemMemoryId }
+
+// GetSystemPrompt returns GetAgentAgent.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
+
+// GetAiProvider returns GetAgentAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
+
+// GetAiModel returns GetAgentAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns GetAgentAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
+
+// GetCreatedAt returns GetAgentAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *GetAgentAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetAgentAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetAgentAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetAgentAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	SystemPrompt *string `json:"systemPrompt"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *GetAgentAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
+	var retval __premarshalGetAgentAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// GetAgentResponse is returned by GetAgent on success.
+type GetAgentResponse struct {
+	// The uniform single-agent read (#473) — the first top-level Agent query;
+	// previously Agents were reachable only via Organization.agents /
+	// App.agents nesting. Gate mirrors resolveUrn's agent branch: member of
+	// the Agent's org or platform ADMIN/OWNER; denied throws Forbidden,
+	// missing is null.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Agent *GetAgentAgent `json:"agent"`
+}
+
+// GetAgent returns GetAgentResponse.Agent, and is useful for accessing the field via an interface.
+func (v *GetAgentResponse) GetAgent() *GetAgentAgent { return v.Agent }
 
 // GetInvitationInvitationUserInvitation includes the requested fields of the GraphQL type UserInvitation.
 type GetInvitationInvitationUserInvitation struct {
@@ -7414,6 +7975,17 @@ func (v *TriggerAppRunTriggerAppRun) __premarshalJSON() (*__premarshalTriggerApp
 	return &retval, nil
 }
 
+// UpdateAgentResponse is returned by UpdateAgent on success.
+type UpdateAgentResponse struct {
+	// Update an Agent.
+	//
+	// Accepts the entity's ID or URN.
+	UpdateAgent *UpdateAgentUpdateAgent `json:"updateAgent"`
+}
+
+// GetUpdateAgent returns UpdateAgentResponse.UpdateAgent, and is useful for accessing the field via an interface.
+func (v *UpdateAgentResponse) GetUpdateAgent() *UpdateAgentUpdateAgent { return v.UpdateAgent }
+
 type UpdateAgentScheduleInput struct {
 	AiConfigName *string          `json:"aiConfigName,omitempty"`
 	Cron         *string          `json:"cron,omitempty"`
@@ -7639,6 +8211,136 @@ func (v *UpdateAgentScheduleUpdateAgentSchedule) __premarshalJSON() (*__premarsh
 	retval.LastRunAt = v.AgentScheduleFields.LastRunAt
 	retval.NextRunAt = v.AgentScheduleFields.NextRunAt
 	retval.CreatedAt = v.AgentScheduleFields.CreatedAt
+	return &retval, nil
+}
+
+// UpdateAgentUpdateAgent includes the requested fields of the GraphQL type Agent.
+type UpdateAgentUpdateAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns UpdateAgentUpdateAgent.Id, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns UpdateAgentUpdateAgent.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns UpdateAgentUpdateAgent.Name, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns UpdateAgentUpdateAgent.Description, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetDescription() *string { return v.AgentFields.Description }
+
+// GetType returns UpdateAgentUpdateAgent.Type, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns UpdateAgentUpdateAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetVisibility() AgentVisibility { return v.AgentFields.Visibility }
+
+// GetOrganizationId returns UpdateAgentUpdateAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetOrganizationId() string { return v.AgentFields.OrganizationId }
+
+// GetSurfaces returns UpdateAgentUpdateAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns UpdateAgentUpdateAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetSystemMemoryId() *string { return v.AgentFields.SystemMemoryId }
+
+// GetSystemPrompt returns UpdateAgentUpdateAgent.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
+
+// GetAiProvider returns UpdateAgentUpdateAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
+
+// GetAiModel returns UpdateAgentUpdateAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns UpdateAgentUpdateAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
+
+// GetCreatedAt returns UpdateAgentUpdateAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *UpdateAgentUpdateAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateAgentUpdateAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateAgentUpdateAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateAgentUpdateAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	SystemPrompt *string `json:"systemPrompt"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *UpdateAgentUpdateAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpdateAgent, error) {
+	var retval __premarshalUpdateAgentUpdateAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
 
@@ -8894,6 +9596,26 @@ func (v *__AgentWebhooksInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __AgentWebhooksInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AgentWebhooksInput) GetOffset() *int { return v.Offset }
 
+// __AgentsInput is used internally by genqlient
+type __AgentsInput struct {
+	OrgId  *string      `json:"orgId,omitempty"`
+	Filter *AgentFilter `json:"filter,omitempty"`
+	Limit  *int         `json:"limit,omitempty"`
+	Offset *int         `json:"offset,omitempty"`
+}
+
+// GetOrgId returns __AgentsInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__AgentsInput) GetOrgId() *string { return v.OrgId }
+
+// GetFilter returns __AgentsInput.Filter, and is useful for accessing the field via an interface.
+func (v *__AgentsInput) GetFilter() *AgentFilter { return v.Filter }
+
+// GetLimit returns __AgentsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __AgentsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AgentsInput) GetOffset() *int { return v.Offset }
+
 // __AppRunInput is used internally by genqlient
 type __AppRunInput struct {
 	Ref string `json:"ref"`
@@ -8961,6 +9683,42 @@ func (v *__CloneMemoryInput) GetId() string { return v.Id }
 
 // GetName returns __CloneMemoryInput.Name, and is useful for accessing the field via an interface.
 func (v *__CloneMemoryInput) GetName() string { return v.Name }
+
+// __CreateAgentInput is used internally by genqlient
+type __CreateAgentInput struct {
+	Name           string           `json:"name"`
+	OrgId          string           `json:"orgId"`
+	Description    *string          `json:"description,omitempty"`
+	AgentType      *AgentType       `json:"agentType,omitempty"`
+	Visibility     *AgentVisibility `json:"visibility,omitempty"`
+	SystemPrompt   *string          `json:"systemPrompt,omitempty"`
+	SystemMemoryId *string          `json:"systemMemoryId,omitempty"`
+	Surfaces       []string         `json:"surfaces,omitempty"`
+}
+
+// GetName returns __CreateAgentInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetName() string { return v.Name }
+
+// GetOrgId returns __CreateAgentInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetOrgId() string { return v.OrgId }
+
+// GetDescription returns __CreateAgentInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetDescription() *string { return v.Description }
+
+// GetAgentType returns __CreateAgentInput.AgentType, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetAgentType() *AgentType { return v.AgentType }
+
+// GetVisibility returns __CreateAgentInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetVisibility() *AgentVisibility { return v.Visibility }
+
+// GetSystemPrompt returns __CreateAgentInput.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetSystemPrompt() *string { return v.SystemPrompt }
+
+// GetSystemMemoryId returns __CreateAgentInput.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
+
+// GetSurfaces returns __CreateAgentInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetSurfaces() []string { return v.Surfaces }
 
 // __CreateAgentScheduleInput is used internally by genqlient
 type __CreateAgentScheduleInput struct {
@@ -9206,6 +9964,14 @@ func (v *__CreateUserInvitationInput) GetExpiresInDays() *int { return v.Expires
 // GetMaxActivations returns __CreateUserInvitationInput.MaxActivations, and is useful for accessing the field via an interface.
 func (v *__CreateUserInvitationInput) GetMaxActivations() *int { return v.MaxActivations }
 
+// __DeleteAgentInput is used internally by genqlient
+type __DeleteAgentInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __DeleteAgentInput.Id, and is useful for accessing the field via an interface.
+func (v *__DeleteAgentInput) GetId() string { return v.Id }
+
 // __DeleteAgentScheduleInput is used internally by genqlient
 type __DeleteAgentScheduleInput struct {
 	Id string `json:"id"`
@@ -9337,6 +10103,14 @@ func (v *__FindNodesInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __FindNodesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__FindNodesInput) GetOffset() *int { return v.Offset }
+
+// __GetAgentInput is used internally by genqlient
+type __GetAgentInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetAgentInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetAgentInput) GetRef() string { return v.Ref }
 
 // __GetInvitationInput is used internally by genqlient
 type __GetInvitationInput struct {
@@ -9633,6 +10407,46 @@ type __TriggerAppRunInput struct {
 
 // GetInput returns __TriggerAppRunInput.Input, and is useful for accessing the field via an interface.
 func (v *__TriggerAppRunInput) GetInput() *TriggerAppRunInput { return v.Input }
+
+// __UpdateAgentInput is used internally by genqlient
+type __UpdateAgentInput struct {
+	Id             string           `json:"id"`
+	Name           *string          `json:"name,omitempty"`
+	Description    *string          `json:"description,omitempty"`
+	AgentType      *AgentType       `json:"agentType,omitempty"`
+	Visibility     *AgentVisibility `json:"visibility,omitempty"`
+	SystemPrompt   *string          `json:"systemPrompt,omitempty"`
+	SystemMemoryId *string          `json:"systemMemoryId,omitempty"`
+	Surfaces       []string         `json:"surfaces,omitempty"`
+	Urn            *string          `json:"urn,omitempty"`
+}
+
+// GetId returns __UpdateAgentInput.Id, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetId() string { return v.Id }
+
+// GetName returns __UpdateAgentInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetName() *string { return v.Name }
+
+// GetDescription returns __UpdateAgentInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetDescription() *string { return v.Description }
+
+// GetAgentType returns __UpdateAgentInput.AgentType, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetAgentType() *AgentType { return v.AgentType }
+
+// GetVisibility returns __UpdateAgentInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetVisibility() *AgentVisibility { return v.Visibility }
+
+// GetSystemPrompt returns __UpdateAgentInput.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetSystemPrompt() *string { return v.SystemPrompt }
+
+// GetSystemMemoryId returns __UpdateAgentInput.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
+
+// GetSurfaces returns __UpdateAgentInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetSurfaces() []string { return v.Surfaces }
+
+// GetUrn returns __UpdateAgentInput.Urn, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetUrn() *string { return v.Urn }
 
 // __UpdateAgentScheduleInput is used internally by genqlient
 type __UpdateAgentScheduleInput struct {
@@ -10173,6 +10987,65 @@ func AgentWebhooks(
 	return data_, err_
 }
 
+// The query executed by Agents.
+const Agents_Operation = `
+query Agents ($orgId: ID, $filter: AgentFilter, $limit: Int, $offset: Int) {
+	agents(orgId: $orgId, filter: $filter, limit: $limit, offset: $offset) {
+		total
+		items {
+			... AgentFields
+		}
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	systemPrompt
+	aiProvider
+	aiModel
+	hasAiApiKey
+	createdAt
+}
+`
+
+func Agents(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId *string,
+	filter *AgentFilter,
+	limit *int,
+	offset *int,
+) (data_ *AgentsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "Agents",
+		Query:  Agents_Operation,
+		Variables: &__AgentsInput{
+			OrgId:  orgId,
+			Filter: filter,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &AgentsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by AppRun.
 const AppRun_Operation = `
 query AppRun ($ref: ID!) {
@@ -10444,6 +11317,70 @@ func CloneMemory(
 	}
 
 	data_ = &CloneMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateAgent.
+const CreateAgent_Operation = `
+mutation CreateAgent ($name: String!, $orgId: ID!, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!]) {
+	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	systemPrompt
+	aiProvider
+	aiModel
+	hasAiApiKey
+	createdAt
+}
+`
+
+func CreateAgent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	name string,
+	orgId string,
+	description *string,
+	agentType *AgentType,
+	visibility *AgentVisibility,
+	systemPrompt *string,
+	systemMemoryId *string,
+	surfaces []string,
+) (data_ *CreateAgentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAgent",
+		Query:  CreateAgent_Operation,
+		Variables: &__CreateAgentInput{
+			Name:           name,
+			OrgId:          orgId,
+			Description:    description,
+			AgentType:      agentType,
+			Visibility:     visibility,
+			SystemPrompt:   systemPrompt,
+			SystemMemoryId: systemMemoryId,
+			Surfaces:       surfaces,
+		},
+	}
+
+	data_ = &CreateAgentResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -11092,6 +12029,38 @@ func CreateUserInvitation(
 	return data_, err_
 }
 
+// The mutation executed by DeleteAgent.
+const DeleteAgent_Operation = `
+mutation DeleteAgent ($id: ID!) {
+	deleteAgent(id: $id)
+}
+`
+
+func DeleteAgent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *DeleteAgentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteAgent",
+		Query:  DeleteAgent_Operation,
+		Variables: &__DeleteAgentInput{
+			Id: id,
+		},
+	}
+
+	data_ = &DeleteAgentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by DeleteAgentSchedule.
 const DeleteAgentSchedule_Operation = `
 mutation DeleteAgentSchedule ($id: ID!) {
@@ -11541,6 +12510,56 @@ func FindNodes(
 	}
 
 	data_ = &FindNodesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetAgent.
+const GetAgent_Operation = `
+query GetAgent ($ref: ID!) {
+	agent(ref: $ref) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	systemPrompt
+	aiProvider
+	aiModel
+	hasAiApiKey
+	createdAt
+}
+`
+
+func GetAgent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetAgentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetAgent",
+		Query:  GetAgent_Operation,
+		Variables: &__GetAgentInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetAgentResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -12999,6 +14018,72 @@ func TriggerAppRun(
 	}
 
 	data_ = &TriggerAppRunResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateAgent.
+const UpdateAgent_Operation = `
+mutation UpdateAgent ($id: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!], $urn: String) {
+	updateAgent(id: $id, name: $name, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	systemPrompt
+	aiProvider
+	aiModel
+	hasAiApiKey
+	createdAt
+}
+`
+
+func UpdateAgent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	name *string,
+	description *string,
+	agentType *AgentType,
+	visibility *AgentVisibility,
+	systemPrompt *string,
+	systemMemoryId *string,
+	surfaces []string,
+	urn *string,
+) (data_ *UpdateAgentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateAgent",
+		Query:  UpdateAgent_Operation,
+		Variables: &__UpdateAgentInput{
+			Id:             id,
+			Name:           name,
+			Description:    description,
+			AgentType:      agentType,
+			Visibility:     visibility,
+			SystemPrompt:   systemPrompt,
+			SystemMemoryId: systemMemoryId,
+			Surfaces:       surfaces,
+			Urn:            urn,
+		},
+	}
+
+	data_ = &UpdateAgentResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
