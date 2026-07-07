@@ -30,7 +30,7 @@ func TestScheduleCreate(t *testing.T) {
 	}
 	_ = json.Unmarshal(captured["CreateAgentSchedule"], &vars)
 	in := vars.Input
-	if in["appId"] != "acme.com:ops" || in["name"] != "nightly-digest" || in["cron"] != "0 6 * * *" {
+	if in["appRef"] != "acme.com:ops" || in["name"] != "nightly-digest" || in["cron"] != "0 6 * * *" {
 		t.Errorf("core fields wrong: %v", in)
 	}
 	if in["timezone"] != "America/New_York" {
@@ -72,7 +72,7 @@ func TestScheduleCreateDisabledOmitsOptionals(t *testing.T) {
 	if vars.Input["enabled"] != false {
 		t.Errorf("--disabled should send enabled:false, got %v", vars.Input["enabled"])
 	}
-	for _, k := range []string{"timezone", "aiConfigName", "agentId", "runAsSelf", "eventData", "policy"} {
+	for _, k := range []string{"timezone", "aiConfigName", "agentRef", "runAsSelf", "eventData", "policy"} {
 		if v, present := vars.Input[k]; present {
 			t.Errorf("unset %q must be omitted, got %v", k, v)
 		}
@@ -91,8 +91,8 @@ func TestScheduleLs(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["AgentSchedules"], &vars)
-	if vars["appId"] != "acme.com:ops" {
-		t.Errorf("--app should map to appId, got %v", vars["appId"])
+	if vars["appRef"] != "acme.com:ops" {
+		t.Errorf("--app should map to appRef, got %v", vars["appRef"])
 	}
 	if !strings.Contains(out.String(), "nightly-digest") {
 		t.Errorf("output missing schedule: %s", out.String())

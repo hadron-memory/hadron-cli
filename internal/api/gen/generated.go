@@ -589,11 +589,12 @@ type AgentScheduleFields struct {
 	AppId          string  `json:"appId"`
 	AgentId        *string `json:"agentId"`
 	Name           string  `json:"name"`
-	Cron           string  `json:"cron"`
-	Timezone       string  `json:"timezone"`
-	Enabled        bool    `json:"enabled"`
-	EntryNodeUrn   string  `json:"entryNodeUrn"`
-	AiConfigName   *string `json:"aiConfigName"`
+	// 5-field cron for recurring schedules; null for one-shots (#510).
+	Cron         *string `json:"cron"`
+	Timezone     string  `json:"timezone"`
+	Enabled      bool    `json:"enabled"`
+	EntryNodeUrn string  `json:"entryNodeUrn"`
+	AiConfigName *string `json:"aiConfigName"`
 	// On-behalf-of user captured at creation; v1 only the creator themself.
 	UserId    *string          `json:"userId"`
 	CreatedBy *string          `json:"createdBy"`
@@ -620,7 +621,7 @@ func (v *AgentScheduleFields) GetAgentId() *string { return v.AgentId }
 func (v *AgentScheduleFields) GetName() string { return v.Name }
 
 // GetCron returns AgentScheduleFields.Cron, and is useful for accessing the field via an interface.
-func (v *AgentScheduleFields) GetCron() string { return v.Cron }
+func (v *AgentScheduleFields) GetCron() *string { return v.Cron }
 
 // GetTimezone returns AgentScheduleFields.Timezone, and is useful for accessing the field via an interface.
 func (v *AgentScheduleFields) GetTimezone() string { return v.Timezone }
@@ -703,7 +704,7 @@ func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetNa
 }
 
 // GetCron returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.Cron, and is useful for accessing the field via an interface.
-func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetCron() string {
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetCron() *string {
 	return v.AgentScheduleFields.Cron
 }
 
@@ -798,7 +799,7 @@ type __premarshalAgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedul
 
 	Name string `json:"name"`
 
-	Cron string `json:"cron"`
+	Cron *string `json:"cron"`
 
 	Timezone string `json:"timezone"`
 
@@ -1644,6 +1645,9 @@ func (v *AppRunAppRun) GetPolicy() *json.RawMessage { return v.AppRunFields.Poli
 // GetEventData returns AppRunAppRun.EventData, and is useful for accessing the field via an interface.
 func (v *AppRunAppRun) GetEventData() *json.RawMessage { return v.AppRunFields.EventData }
 
+// GetData returns AppRunAppRun.Data, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetData() *json.RawMessage { return v.AppRunFields.Data }
+
 // GetFailure returns AppRunAppRun.Failure, and is useful for accessing the field via an interface.
 func (v *AppRunAppRun) GetFailure() *json.RawMessage { return v.AppRunFields.Failure }
 
@@ -1718,6 +1722,8 @@ type __premarshalAppRunAppRun struct {
 
 	EventData *json.RawMessage `json:"eventData"`
 
+	Data *json.RawMessage `json:"data"`
+
 	Failure *json.RawMessage `json:"failure"`
 
 	CreatedAt string `json:"createdAt"`
@@ -1756,6 +1762,7 @@ func (v *AppRunAppRun) __premarshalJSON() (*__premarshalAppRunAppRun, error) {
 	retval.TimeoutMs = v.AppRunFields.TimeoutMs
 	retval.Policy = v.AppRunFields.Policy
 	retval.EventData = v.AppRunFields.EventData
+	retval.Data = v.AppRunFields.Data
 	retval.Failure = v.AppRunFields.Failure
 	retval.CreatedAt = v.AppRunFields.CreatedAt
 	retval.StartedAt = v.AppRunFields.StartedAt
@@ -1786,10 +1793,12 @@ type AppRunFields struct {
 	TimeoutMs    *int             `json:"timeoutMs"`
 	Policy       *json.RawMessage `json:"policy"`
 	EventData    *json.RawMessage `json:"eventData"`
-	Failure      *json.RawMessage `json:"failure"`
-	CreatedAt    string           `json:"createdAt"`
-	StartedAt    *string          `json:"startedAt"`
-	FinishedAt   *string          `json:"finishedAt"`
+	// The run envelope (plan-multi-node D-MN-1): fields extracted by flow nodes as the walker advances. eventData stays the immutable trigger payload; on key collision the envelope wins.
+	Data       *json.RawMessage `json:"data"`
+	Failure    *json.RawMessage `json:"failure"`
+	CreatedAt  string           `json:"createdAt"`
+	StartedAt  *string          `json:"startedAt"`
+	FinishedAt *string          `json:"finishedAt"`
 }
 
 // GetId returns AppRunFields.Id, and is useful for accessing the field via an interface.
@@ -1845,6 +1854,9 @@ func (v *AppRunFields) GetPolicy() *json.RawMessage { return v.Policy }
 
 // GetEventData returns AppRunFields.EventData, and is useful for accessing the field via an interface.
 func (v *AppRunFields) GetEventData() *json.RawMessage { return v.EventData }
+
+// GetData returns AppRunFields.Data, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetData() *json.RawMessage { return v.Data }
 
 // GetFailure returns AppRunFields.Failure, and is useful for accessing the field via an interface.
 func (v *AppRunFields) GetFailure() *json.RawMessage { return v.Failure }
@@ -1998,6 +2010,9 @@ func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetEventData() *json.RawMessage {
 	return v.AppRunFields.EventData
 }
 
+// GetData returns AppRunsAppRunsAppRunsPageItemsAppRun.Data, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetData() *json.RawMessage { return v.AppRunFields.Data }
+
 // GetFailure returns AppRunsAppRunsAppRunsPageItemsAppRun.Failure, and is useful for accessing the field via an interface.
 func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetFailure() *json.RawMessage {
 	return v.AppRunFields.Failure
@@ -2078,6 +2093,8 @@ type __premarshalAppRunsAppRunsAppRunsPageItemsAppRun struct {
 
 	EventData *json.RawMessage `json:"eventData"`
 
+	Data *json.RawMessage `json:"data"`
+
 	Failure *json.RawMessage `json:"failure"`
 
 	CreatedAt string `json:"createdAt"`
@@ -2116,6 +2133,7 @@ func (v *AppRunsAppRunsAppRunsPageItemsAppRun) __premarshalJSON() (*__premarshal
 	retval.TimeoutMs = v.AppRunFields.TimeoutMs
 	retval.Policy = v.AppRunFields.Policy
 	retval.EventData = v.AppRunFields.EventData
+	retval.Data = v.AppRunFields.Data
 	retval.Failure = v.AppRunFields.Failure
 	retval.CreatedAt = v.AppRunFields.CreatedAt
 	retval.StartedAt = v.AppRunFields.StartedAt
@@ -2271,6 +2289,9 @@ func (v *CancelAppRunCancelAppRun) GetPolicy() *json.RawMessage { return v.AppRu
 // GetEventData returns CancelAppRunCancelAppRun.EventData, and is useful for accessing the field via an interface.
 func (v *CancelAppRunCancelAppRun) GetEventData() *json.RawMessage { return v.AppRunFields.EventData }
 
+// GetData returns CancelAppRunCancelAppRun.Data, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetData() *json.RawMessage { return v.AppRunFields.Data }
+
 // GetFailure returns CancelAppRunCancelAppRun.Failure, and is useful for accessing the field via an interface.
 func (v *CancelAppRunCancelAppRun) GetFailure() *json.RawMessage { return v.AppRunFields.Failure }
 
@@ -2345,6 +2366,8 @@ type __premarshalCancelAppRunCancelAppRun struct {
 
 	EventData *json.RawMessage `json:"eventData"`
 
+	Data *json.RawMessage `json:"data"`
+
 	Failure *json.RawMessage `json:"failure"`
 
 	CreatedAt string `json:"createdAt"`
@@ -2383,6 +2406,7 @@ func (v *CancelAppRunCancelAppRun) __premarshalJSON() (*__premarshalCancelAppRun
 	retval.TimeoutMs = v.AppRunFields.TimeoutMs
 	retval.Policy = v.AppRunFields.Policy
 	retval.EventData = v.AppRunFields.EventData
+	retval.Data = v.AppRunFields.Data
 	retval.Failure = v.AppRunFields.Failure
 	retval.CreatedAt = v.AppRunFields.CreatedAt
 	retval.StartedAt = v.AppRunFields.StartedAt
@@ -2634,7 +2658,7 @@ func (v *CreateAgentScheduleCreateAgentSchedule) GetAgentId() *string {
 func (v *CreateAgentScheduleCreateAgentSchedule) GetName() string { return v.AgentScheduleFields.Name }
 
 // GetCron returns CreateAgentScheduleCreateAgentSchedule.Cron, and is useful for accessing the field via an interface.
-func (v *CreateAgentScheduleCreateAgentSchedule) GetCron() string { return v.AgentScheduleFields.Cron }
+func (v *CreateAgentScheduleCreateAgentSchedule) GetCron() *string { return v.AgentScheduleFields.Cron }
 
 // GetTimezone returns CreateAgentScheduleCreateAgentSchedule.Timezone, and is useful for accessing the field via an interface.
 func (v *CreateAgentScheduleCreateAgentSchedule) GetTimezone() string {
@@ -2727,7 +2751,7 @@ type __premarshalCreateAgentScheduleCreateAgentSchedule struct {
 
 	Name string `json:"name"`
 
-	Cron string `json:"cron"`
+	Cron *string `json:"cron"`
 
 	Timezone string `json:"timezone"`
 
@@ -2784,14 +2808,15 @@ func (v *CreateAgentScheduleCreateAgentSchedule) __premarshalJSON() (*__premarsh
 }
 
 type CreateAgentScheduleInput struct {
-	AgentId *string `json:"agentId,omitempty"`
+	// Agent — ref: PK or URN; must be installed in the App.
+	AgentRef *string `json:"agentRef,omitempty"`
 	// Named AI config for this trigger (spec-036 walk override).
 	AiConfigName *string `json:"aiConfigName,omitempty"`
-	// App the run executes as (ID or URN).
-	AppId string `json:"appId"`
-	// 5-field cron expression, evaluated in timezone (default UTC).
-	Cron    string `json:"cron"`
-	Enabled *bool  `json:"enabled,omitempty"`
+	// App the run executes as — ref: PK or fully-qualified URN.
+	AppRef string `json:"appRef"`
+	// Recurring: 5-field cron expression, evaluated in timezone (default UTC). Provide exactly one of cron / runAt.
+	Cron    *string `json:"cron"`
+	Enabled *bool   `json:"enabled,omitempty"`
 	// Fully-qualified URN of the prompt node to run (D-2026-05-09-012/017).
 	EntryNodeUrn string `json:"entryNodeUrn"`
 	// Static payload merged into each run's template args.
@@ -2800,21 +2825,23 @@ type CreateAgentScheduleInput struct {
 	// Trigger-layer allow-list { allow: [...] } — one link of the conjunctive chain (cor:acl:040).
 	Policy *json.RawMessage `json:"policy,omitempty"`
 	// true: the run acts on behalf of YOU (required to reach your personal memories). v1 never delegates a third party (cor:agt:010:01).
-	RunAsSelf *bool   `json:"runAsSelf,omitempty"`
-	Timezone  *string `json:"timezone,omitempty"`
+	RunAsSelf *bool `json:"runAsSelf,omitempty"`
+	// One-shot: run once at this ISO-8601 instant (#510). Provide exactly one of cron / runAt.
+	RunAt    *string `json:"runAt"`
+	Timezone *string `json:"timezone,omitempty"`
 }
 
-// GetAgentId returns CreateAgentScheduleInput.AgentId, and is useful for accessing the field via an interface.
-func (v *CreateAgentScheduleInput) GetAgentId() *string { return v.AgentId }
+// GetAgentRef returns CreateAgentScheduleInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetAgentRef() *string { return v.AgentRef }
 
 // GetAiConfigName returns CreateAgentScheduleInput.AiConfigName, and is useful for accessing the field via an interface.
 func (v *CreateAgentScheduleInput) GetAiConfigName() *string { return v.AiConfigName }
 
-// GetAppId returns CreateAgentScheduleInput.AppId, and is useful for accessing the field via an interface.
-func (v *CreateAgentScheduleInput) GetAppId() string { return v.AppId }
+// GetAppRef returns CreateAgentScheduleInput.AppRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetAppRef() string { return v.AppRef }
 
 // GetCron returns CreateAgentScheduleInput.Cron, and is useful for accessing the field via an interface.
-func (v *CreateAgentScheduleInput) GetCron() string { return v.Cron }
+func (v *CreateAgentScheduleInput) GetCron() *string { return v.Cron }
 
 // GetEnabled returns CreateAgentScheduleInput.Enabled, and is useful for accessing the field via an interface.
 func (v *CreateAgentScheduleInput) GetEnabled() *bool { return v.Enabled }
@@ -2833,6 +2860,9 @@ func (v *CreateAgentScheduleInput) GetPolicy() *json.RawMessage { return v.Polic
 
 // GetRunAsSelf returns CreateAgentScheduleInput.RunAsSelf, and is useful for accessing the field via an interface.
 func (v *CreateAgentScheduleInput) GetRunAsSelf() *bool { return v.RunAsSelf }
+
+// GetRunAt returns CreateAgentScheduleInput.RunAt, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetRunAt() *string { return v.RunAt }
 
 // GetTimezone returns CreateAgentScheduleInput.Timezone, and is useful for accessing the field via an interface.
 func (v *CreateAgentScheduleInput) GetTimezone() *string { return v.Timezone }
@@ -2921,9 +2951,11 @@ func (v *CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials) __premarsh
 }
 
 type CreateAgentWebhookInput struct {
-	AgentId      *string `json:"agentId,omitempty"`
+	// Agent — ref: PK or URN; must be installed in the App.
+	AgentRef     *string `json:"agentRef,omitempty"`
 	AiConfigName *string `json:"aiConfigName,omitempty"`
-	AppId        string  `json:"appId"`
+	// App — ref: PK or fully-qualified URN.
+	AppRef string `json:"appRef"`
 	// JSON Schema for POST args (stored in v1; enforcement is follow-on).
 	ArgsSchema   *json.RawMessage `json:"argsSchema,omitempty"`
 	Enabled      *bool            `json:"enabled,omitempty"`
@@ -2935,14 +2967,14 @@ type CreateAgentWebhookInput struct {
 	RunAsSelf *bool            `json:"runAsSelf,omitempty"`
 }
 
-// GetAgentId returns CreateAgentWebhookInput.AgentId, and is useful for accessing the field via an interface.
-func (v *CreateAgentWebhookInput) GetAgentId() *string { return v.AgentId }
+// GetAgentRef returns CreateAgentWebhookInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetAgentRef() *string { return v.AgentRef }
 
 // GetAiConfigName returns CreateAgentWebhookInput.AiConfigName, and is useful for accessing the field via an interface.
 func (v *CreateAgentWebhookInput) GetAiConfigName() *string { return v.AiConfigName }
 
-// GetAppId returns CreateAgentWebhookInput.AppId, and is useful for accessing the field via an interface.
-func (v *CreateAgentWebhookInput) GetAppId() string { return v.AppId }
+// GetAppRef returns CreateAgentWebhookInput.AppRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetAppRef() string { return v.AppRef }
 
 // GetArgsSchema returns CreateAgentWebhookInput.ArgsSchema, and is useful for accessing the field via an interface.
 func (v *CreateAgentWebhookInput) GetArgsSchema() *json.RawMessage { return v.ArgsSchema }
@@ -4291,9 +4323,12 @@ func (v *EncryptMemoryEncryptMemory) GetIsEncrypted() bool { return v.IsEncrypte
 
 // EncryptMemoryResponse is returned by EncryptMemory on success.
 type EncryptMemoryResponse struct {
-	// Convert an existing plaintext memory to an encrypted one. The caller
-	// provides the data key; all existing node content/data is re-written
-	// as ciphertext in a single transaction.
+	// Convert a plaintext PRIVATE memory to encrypted (spec 041, caller-held
+	// keys). Exactly one of dataKey (base64, 32 bytes) / passphrase (scrypt-
+	// derived; salt + params stored on the memory, the key itself never).
+	// Owner or org-App-key. All node content/abstract/data is re-written as
+	// ciphertext in one transaction. One-way without the key: the server
+	// cannot recover the content.
 	//
 	// Accepts the entity's ID or URN.
 	EncryptMemory *EncryptMemoryEncryptMemory `json:"encryptMemory"`
@@ -5240,6 +5275,8 @@ func (v *ImportNodeImportNodeImportNodeResultNode) GetUpdatedAt() string { retur
 // the URN may name a not-yet-existing node (import creates it). Source:
 // exactly one of 'url' | 'content'.
 type ImportNodeInput struct {
+	// App to run the task under — PK or URN. Falls back to the caller's active App. Only meaningful with taskRef.
+	AppRef *string `json:"appRef"`
 	// Inline source content (e.g. the Web Clipper's authenticated-DOM capture). XOR with 'url'.
 	Content *string `json:"content,omitempty"`
 	// MIME type of 'content': text/html (DEFAULT here — unlike createNode) converts to Markdown at the write seam; text/markdown stores as-is; application/pdf extracts a PDF's text layer to Markdown ('content' must be raw base64 — a PDF is binary; scanned/image-only PDFs error). Ignored on the url path (always HTML).
@@ -5256,9 +5293,16 @@ type ImportNodeInput struct {
 	NodeUrn *string `json:"nodeUrn,omitempty"`
 	// Merged provenance metadata; the server sets properties.url on the url path when absent (properties.title is filled from the extracted title by the write seam).
 	Properties *json.RawMessage `json:"properties,omitempty"`
+	// Extra template args merged into the task run's eventData (only meaningful with taskRef).
+	TaskArgs *json.RawMessage `json:"taskArgs"`
+	// Task node to run against the imported node once stored (#528) — PK or fully-qualified URN. Presence triggers a MANUAL app run; the result envelope is FETCH_PENDING + jobId (poll appRun(ref:)). The imported node's URN is passed to the task as eventData.importedNodeUrn.
+	TaskRef *string `json:"taskRef"`
 	// Source URL (http/https) — fetched server-side, SSRF-guarded, WITHOUT user credentials.
 	Url *string `json:"url,omitempty"`
 }
+
+// GetAppRef returns ImportNodeInput.AppRef, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetAppRef() *string { return v.AppRef }
 
 // GetContent returns ImportNodeInput.Content, and is useful for accessing the field via an interface.
 func (v *ImportNodeInput) GetContent() *string { return v.Content }
@@ -5283,6 +5327,12 @@ func (v *ImportNodeInput) GetNodeUrn() *string { return v.NodeUrn }
 
 // GetProperties returns ImportNodeInput.Properties, and is useful for accessing the field via an interface.
 func (v *ImportNodeInput) GetProperties() *json.RawMessage { return v.Properties }
+
+// GetTaskArgs returns ImportNodeInput.TaskArgs, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetTaskArgs() *json.RawMessage { return v.TaskArgs }
+
+// GetTaskRef returns ImportNodeInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetTaskRef() *string { return v.TaskRef }
 
 // GetUrl returns ImportNodeInput.Url, and is useful for accessing the field via an interface.
 func (v *ImportNodeInput) GetUrl() *string { return v.Url }
@@ -5950,20 +6000,21 @@ var AllMemoryVisibility = []MemoryVisibility{
 type MintActionTicketsInput struct {
 	// v1: comm.outbound only.
 	Action string `json:"action"`
-	// Scope tickets to one App; omit for org-wide.
-	AppId     *string `json:"appId,omitempty"`
+	// Scope tickets to one App (ref: PK or URN); omit for org-wide.
+	AppRef    *string `json:"appRef,omitempty"`
 	Count     int     `json:"count"`
 	ExpiresAt *string `json:"expiresAt,omitempty"`
 	// Ledger legibility — why these tickets exist.
-	Note  *string `json:"note,omitempty"`
-	OrgId string  `json:"orgId"`
+	Note *string `json:"note,omitempty"`
+	// Organization — ref: PK or URN.
+	OrgRef string `json:"orgRef"`
 }
 
 // GetAction returns MintActionTicketsInput.Action, and is useful for accessing the field via an interface.
 func (v *MintActionTicketsInput) GetAction() string { return v.Action }
 
-// GetAppId returns MintActionTicketsInput.AppId, and is useful for accessing the field via an interface.
-func (v *MintActionTicketsInput) GetAppId() *string { return v.AppId }
+// GetAppRef returns MintActionTicketsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *MintActionTicketsInput) GetAppRef() *string { return v.AppRef }
 
 // GetCount returns MintActionTicketsInput.Count, and is useful for accessing the field via an interface.
 func (v *MintActionTicketsInput) GetCount() int { return v.Count }
@@ -5974,8 +6025,8 @@ func (v *MintActionTicketsInput) GetExpiresAt() *string { return v.ExpiresAt }
 // GetNote returns MintActionTicketsInput.Note, and is useful for accessing the field via an interface.
 func (v *MintActionTicketsInput) GetNote() *string { return v.Note }
 
-// GetOrgId returns MintActionTicketsInput.OrgId, and is useful for accessing the field via an interface.
-func (v *MintActionTicketsInput) GetOrgId() string { return v.OrgId }
+// GetOrgRef returns MintActionTicketsInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *MintActionTicketsInput) GetOrgRef() string { return v.OrgRef }
 
 // MintActionTicketsResponse is returned by MintActionTickets on success.
 type MintActionTicketsResponse struct {
@@ -7762,8 +7813,9 @@ var AllSyncStatus = []SyncStatus{
 }
 
 type TriggerAppRunInput struct {
-	AiConfigName *string          `json:"aiConfigName,omitempty"`
-	AppId        string           `json:"appId"`
+	AiConfigName *string `json:"aiConfigName,omitempty"`
+	// App — ref: PK or fully-qualified URN.
+	AppRef       string           `json:"appRef"`
 	EntryNodeUrn string           `json:"entryNodeUrn"`
 	EventData    *json.RawMessage `json:"eventData,omitempty"`
 	RunAsSelf    *bool            `json:"runAsSelf,omitempty"`
@@ -7772,8 +7824,8 @@ type TriggerAppRunInput struct {
 // GetAiConfigName returns TriggerAppRunInput.AiConfigName, and is useful for accessing the field via an interface.
 func (v *TriggerAppRunInput) GetAiConfigName() *string { return v.AiConfigName }
 
-// GetAppId returns TriggerAppRunInput.AppId, and is useful for accessing the field via an interface.
-func (v *TriggerAppRunInput) GetAppId() string { return v.AppId }
+// GetAppRef returns TriggerAppRunInput.AppRef, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunInput) GetAppRef() string { return v.AppRef }
 
 // GetEntryNodeUrn returns TriggerAppRunInput.EntryNodeUrn, and is useful for accessing the field via an interface.
 func (v *TriggerAppRunInput) GetEntryNodeUrn() string { return v.EntryNodeUrn }
@@ -7856,6 +7908,9 @@ func (v *TriggerAppRunTriggerAppRun) GetPolicy() *json.RawMessage { return v.App
 // GetEventData returns TriggerAppRunTriggerAppRun.EventData, and is useful for accessing the field via an interface.
 func (v *TriggerAppRunTriggerAppRun) GetEventData() *json.RawMessage { return v.AppRunFields.EventData }
 
+// GetData returns TriggerAppRunTriggerAppRun.Data, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetData() *json.RawMessage { return v.AppRunFields.Data }
+
 // GetFailure returns TriggerAppRunTriggerAppRun.Failure, and is useful for accessing the field via an interface.
 func (v *TriggerAppRunTriggerAppRun) GetFailure() *json.RawMessage { return v.AppRunFields.Failure }
 
@@ -7930,6 +7985,8 @@ type __premarshalTriggerAppRunTriggerAppRun struct {
 
 	EventData *json.RawMessage `json:"eventData"`
 
+	Data *json.RawMessage `json:"data"`
+
 	Failure *json.RawMessage `json:"failure"`
 
 	CreatedAt string `json:"createdAt"`
@@ -7968,6 +8025,7 @@ func (v *TriggerAppRunTriggerAppRun) __premarshalJSON() (*__premarshalTriggerApp
 	retval.TimeoutMs = v.AppRunFields.TimeoutMs
 	retval.Policy = v.AppRunFields.Policy
 	retval.EventData = v.AppRunFields.EventData
+	retval.Data = v.AppRunFields.Data
 	retval.Failure = v.AppRunFields.Failure
 	retval.CreatedAt = v.AppRunFields.CreatedAt
 	retval.StartedAt = v.AppRunFields.StartedAt
@@ -7987,7 +8045,10 @@ type UpdateAgentResponse struct {
 func (v *UpdateAgentResponse) GetUpdateAgent() *UpdateAgentUpdateAgent { return v.UpdateAgent }
 
 type UpdateAgentScheduleInput struct {
-	AiConfigName *string          `json:"aiConfigName,omitempty"`
+	// Agent — ref: PK or URN; must be installed in the App.
+	AgentRef     *string `json:"agentRef"`
+	AiConfigName *string `json:"aiConfigName,omitempty"`
+	// Providing cron switches the schedule to recurring (clears runAt).
 	Cron         *string          `json:"cron,omitempty"`
 	Enabled      *bool            `json:"enabled,omitempty"`
 	EntryNodeUrn *string          `json:"entryNodeUrn,omitempty"`
@@ -7995,8 +8056,13 @@ type UpdateAgentScheduleInput struct {
 	Name         *string          `json:"name,omitempty"`
 	Policy       *json.RawMessage `json:"policy,omitempty"`
 	RunAsSelf    *bool            `json:"runAsSelf,omitempty"`
-	Timezone     *string          `json:"timezone,omitempty"`
+	// Providing runAt switches the schedule to one-shot (clears cron). At most one of cron / runAt per call.
+	RunAt    *string `json:"runAt"`
+	Timezone *string `json:"timezone,omitempty"`
 }
+
+// GetAgentRef returns UpdateAgentScheduleInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleInput) GetAgentRef() *string { return v.AgentRef }
 
 // GetAiConfigName returns UpdateAgentScheduleInput.AiConfigName, and is useful for accessing the field via an interface.
 func (v *UpdateAgentScheduleInput) GetAiConfigName() *string { return v.AiConfigName }
@@ -8021,6 +8087,9 @@ func (v *UpdateAgentScheduleInput) GetPolicy() *json.RawMessage { return v.Polic
 
 // GetRunAsSelf returns UpdateAgentScheduleInput.RunAsSelf, and is useful for accessing the field via an interface.
 func (v *UpdateAgentScheduleInput) GetRunAsSelf() *bool { return v.RunAsSelf }
+
+// GetRunAt returns UpdateAgentScheduleInput.RunAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleInput) GetRunAt() *string { return v.RunAt }
 
 // GetTimezone returns UpdateAgentScheduleInput.Timezone, and is useful for accessing the field via an interface.
 func (v *UpdateAgentScheduleInput) GetTimezone() *string { return v.Timezone }
@@ -8065,7 +8134,7 @@ func (v *UpdateAgentScheduleUpdateAgentSchedule) GetAgentId() *string {
 func (v *UpdateAgentScheduleUpdateAgentSchedule) GetName() string { return v.AgentScheduleFields.Name }
 
 // GetCron returns UpdateAgentScheduleUpdateAgentSchedule.Cron, and is useful for accessing the field via an interface.
-func (v *UpdateAgentScheduleUpdateAgentSchedule) GetCron() string { return v.AgentScheduleFields.Cron }
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetCron() *string { return v.AgentScheduleFields.Cron }
 
 // GetTimezone returns UpdateAgentScheduleUpdateAgentSchedule.Timezone, and is useful for accessing the field via an interface.
 func (v *UpdateAgentScheduleUpdateAgentSchedule) GetTimezone() string {
@@ -8158,7 +8227,7 @@ type __premarshalUpdateAgentScheduleUpdateAgentSchedule struct {
 
 	Name string `json:"name"`
 
-	Cron string `json:"cron"`
+	Cron *string `json:"cron"`
 
 	Timezone string `json:"timezone"`
 
@@ -9518,13 +9587,13 @@ func (v *__AcceptInvitationInput) GetSlug() string { return v.Slug }
 
 // __ActionTicketsInput is used internally by genqlient
 type __ActionTicketsInput struct {
-	OrgId  string `json:"orgId"`
+	OrgRef string `json:"orgRef"`
 	Limit  *int   `json:"limit,omitempty"`
 	Offset *int   `json:"offset,omitempty"`
 }
 
-// GetOrgId returns __ActionTicketsInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__ActionTicketsInput) GetOrgId() string { return v.OrgId }
+// GetOrgRef returns __ActionTicketsInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__ActionTicketsInput) GetOrgRef() string { return v.OrgRef }
 
 // GetLimit returns __ActionTicketsInput.Limit, and is useful for accessing the field via an interface.
 func (v *__ActionTicketsInput) GetLimit() *int { return v.Limit }
@@ -9566,13 +9635,13 @@ func (v *__AddOrgMemberInput) GetRole() Role { return v.Role }
 
 // __AgentSchedulesInput is used internally by genqlient
 type __AgentSchedulesInput struct {
-	AppId  string `json:"appId"`
+	AppRef string `json:"appRef"`
 	Limit  *int   `json:"limit,omitempty"`
 	Offset *int   `json:"offset,omitempty"`
 }
 
-// GetAppId returns __AgentSchedulesInput.AppId, and is useful for accessing the field via an interface.
-func (v *__AgentSchedulesInput) GetAppId() string { return v.AppId }
+// GetAppRef returns __AgentSchedulesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AgentSchedulesInput) GetAppRef() string { return v.AppRef }
 
 // GetLimit returns __AgentSchedulesInput.Limit, and is useful for accessing the field via an interface.
 func (v *__AgentSchedulesInput) GetLimit() *int { return v.Limit }
@@ -9582,13 +9651,13 @@ func (v *__AgentSchedulesInput) GetOffset() *int { return v.Offset }
 
 // __AgentWebhooksInput is used internally by genqlient
 type __AgentWebhooksInput struct {
-	AppId  string `json:"appId"`
+	AppRef string `json:"appRef"`
 	Limit  *int   `json:"limit,omitempty"`
 	Offset *int   `json:"offset,omitempty"`
 }
 
-// GetAppId returns __AgentWebhooksInput.AppId, and is useful for accessing the field via an interface.
-func (v *__AgentWebhooksInput) GetAppId() string { return v.AppId }
+// GetAppRef returns __AgentWebhooksInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AgentWebhooksInput) GetAppRef() string { return v.AppRef }
 
 // GetLimit returns __AgentWebhooksInput.Limit, and is useful for accessing the field via an interface.
 func (v *__AgentWebhooksInput) GetLimit() *int { return v.Limit }
@@ -9626,18 +9695,18 @@ func (v *__AppRunInput) GetRef() string { return v.Ref }
 
 // __AppRunsInput is used internally by genqlient
 type __AppRunsInput struct {
-	AppId  *string       `json:"appId,omitempty"`
-	OrgId  *string       `json:"orgId,omitempty"`
+	AppRef *string       `json:"appRef,omitempty"`
+	OrgRef *string       `json:"orgRef,omitempty"`
 	Status *AppRunStatus `json:"status,omitempty"`
 	Limit  *int          `json:"limit,omitempty"`
 	Offset *int          `json:"offset,omitempty"`
 }
 
-// GetAppId returns __AppRunsInput.AppId, and is useful for accessing the field via an interface.
-func (v *__AppRunsInput) GetAppId() *string { return v.AppId }
+// GetAppRef returns __AppRunsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppRunsInput) GetAppRef() *string { return v.AppRef }
 
-// GetOrgId returns __AppRunsInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__AppRunsInput) GetOrgId() *string { return v.OrgId }
+// GetOrgRef returns __AppRunsInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__AppRunsInput) GetOrgRef() *string { return v.OrgRef }
 
 // GetStatus returns __AppRunsInput.Status, and is useful for accessing the field via an interface.
 func (v *__AppRunsInput) GetStatus() *AppRunStatus { return v.Status }
@@ -10718,8 +10787,8 @@ func AcceptInvitation(
 
 // The query executed by ActionTickets.
 const ActionTickets_Operation = `
-query ActionTickets ($orgId: String!, $limit: Int, $offset: Int) {
-	actionTickets(orgId: $orgId, limit: $limit, offset: $offset) {
+query ActionTickets ($orgRef: String!, $limit: Int, $offset: Int) {
+	actionTickets(orgRef: $orgRef, limit: $limit, offset: $offset) {
 		total
 		items {
 			... ActionTicketFields
@@ -10744,7 +10813,7 @@ fragment ActionTicketFields on ActionTicket {
 func ActionTickets(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	orgId string,
+	orgRef string,
 	limit *int,
 	offset *int,
 ) (data_ *ActionTicketsResponse, err_ error) {
@@ -10752,7 +10821,7 @@ func ActionTickets(
 		OpName: "ActionTickets",
 		Query:  ActionTickets_Operation,
 		Variables: &__ActionTicketsInput{
-			OrgId:  orgId,
+			OrgRef: orgRef,
 			Limit:  limit,
 			Offset: offset,
 		},
@@ -10871,8 +10940,8 @@ func AddOrgMember(
 
 // The query executed by AgentSchedules.
 const AgentSchedules_Operation = `
-query AgentSchedules ($appId: String!, $limit: Int, $offset: Int) {
-	agentSchedules(appId: $appId, limit: $limit, offset: $offset) {
+query AgentSchedules ($appRef: String!, $limit: Int, $offset: Int) {
+	agentSchedules(appRef: $appRef, limit: $limit, offset: $offset) {
 		total
 		items {
 			... AgentScheduleFields
@@ -10903,7 +10972,7 @@ fragment AgentScheduleFields on AgentSchedule {
 func AgentSchedules(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	appId string,
+	appRef string,
 	limit *int,
 	offset *int,
 ) (data_ *AgentSchedulesResponse, err_ error) {
@@ -10911,7 +10980,7 @@ func AgentSchedules(
 		OpName: "AgentSchedules",
 		Query:  AgentSchedules_Operation,
 		Variables: &__AgentSchedulesInput{
-			AppId:  appId,
+			AppRef: appRef,
 			Limit:  limit,
 			Offset: offset,
 		},
@@ -10931,8 +11000,8 @@ func AgentSchedules(
 
 // The query executed by AgentWebhooks.
 const AgentWebhooks_Operation = `
-query AgentWebhooks ($appId: String!, $limit: Int, $offset: Int) {
-	agentWebhooks(appId: $appId, limit: $limit, offset: $offset) {
+query AgentWebhooks ($appRef: String!, $limit: Int, $offset: Int) {
+	agentWebhooks(appRef: $appRef, limit: $limit, offset: $offset) {
 		total
 		items {
 			... AgentWebhookFields
@@ -10961,7 +11030,7 @@ fragment AgentWebhookFields on AgentWebhook {
 func AgentWebhooks(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	appId string,
+	appRef string,
 	limit *int,
 	offset *int,
 ) (data_ *AgentWebhooksResponse, err_ error) {
@@ -10969,7 +11038,7 @@ func AgentWebhooks(
 		OpName: "AgentWebhooks",
 		Query:  AgentWebhooks_Operation,
 		Variables: &__AgentWebhooksInput{
-			AppId:  appId,
+			AppRef: appRef,
 			Limit:  limit,
 			Offset: offset,
 		},
@@ -11072,6 +11141,7 @@ fragment AppRunFields on AppRun {
 	timeoutMs
 	policy
 	eventData
+	data
 	failure
 	createdAt
 	startedAt
@@ -11107,8 +11177,8 @@ func AppRun(
 
 // The query executed by AppRuns.
 const AppRuns_Operation = `
-query AppRuns ($appId: ID, $orgId: ID, $status: AppRunStatus, $limit: Int, $offset: Int) {
-	appRuns(appId: $appId, orgId: $orgId, status: $status, limit: $limit, offset: $offset) {
+query AppRuns ($appRef: String, $orgRef: String, $status: AppRunStatus, $limit: Int, $offset: Int) {
+	appRuns(appRef: $appRef, orgRef: $orgRef, status: $status, limit: $limit, offset: $offset) {
 		total
 		items {
 			... AppRunFields
@@ -11134,6 +11204,7 @@ fragment AppRunFields on AppRun {
 	timeoutMs
 	policy
 	eventData
+	data
 	failure
 	createdAt
 	startedAt
@@ -11141,13 +11212,13 @@ fragment AppRunFields on AppRun {
 }
 `
 
-// Paged { items, total } envelope (#473). appId/orgId/status all optional
+// Paged { items, total } envelope (#473). appRef/orgRef/status all optional
 // filters; `run ls` pages to exhaustion.
 func AppRuns(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	appId *string,
-	orgId *string,
+	appRef *string,
+	orgRef *string,
 	status *AppRunStatus,
 	limit *int,
 	offset *int,
@@ -11156,8 +11227,8 @@ func AppRuns(
 		OpName: "AppRuns",
 		Query:  AppRuns_Operation,
 		Variables: &__AppRunsInput{
-			AppId:  appId,
-			OrgId:  orgId,
+			AppRef: appRef,
+			OrgRef: orgRef,
 			Status: status,
 			Limit:  limit,
 			Offset: offset,
@@ -11251,6 +11322,7 @@ fragment AppRunFields on AppRun {
 	timeoutMs
 	policy
 	eventData
+	data
 	failure
 	createdAt
 	startedAt
@@ -13990,6 +14062,7 @@ fragment AppRunFields on AppRun {
 	timeoutMs
 	policy
 	eventData
+	data
 	failure
 	createdAt
 	startedAt

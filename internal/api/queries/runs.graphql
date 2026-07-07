@@ -23,6 +23,7 @@ fragment AppRunFields on AppRun {
   timeoutMs
   policy
   eventData
+  data
   failure
   createdAt
   startedAt
@@ -108,13 +109,13 @@ mutation TriggerAppRun(
   }
 }
 
-# Paged { items, total } envelope (#473). appId/orgId/status all optional
+# Paged { items, total } envelope (#473). appRef/orgRef/status all optional
 # filters; `run ls` pages to exhaustion.
 query AppRuns(
   # @genqlient(omitempty: true)
-  $appId: ID
+  $appRef: String
   # @genqlient(omitempty: true)
-  $orgId: ID
+  $orgRef: String
   # @genqlient(omitempty: true)
   $status: AppRunStatus
   # @genqlient(omitempty: true)
@@ -122,7 +123,7 @@ query AppRuns(
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  appRuns(appId: $appId, orgId: $orgId, status: $status, limit: $limit, offset: $offset) {
+  appRuns(appRef: $appRef, orgRef: $orgRef, status: $status, limit: $limit, offset: $offset) {
     total
     items {
       ...AppRunFields
@@ -146,7 +147,7 @@ mutation CancelAppRun($id: ID!) {
 
 # --- Schedules (cor:agt:010, D-2026-07-04-E) ---
 
-# @genqlient(for: "CreateAgentScheduleInput.agentId", omitempty: true)
+# @genqlient(for: "CreateAgentScheduleInput.agentRef", omitempty: true)
 # @genqlient(for: "CreateAgentScheduleInput.aiConfigName", omitempty: true)
 # @genqlient(for: "CreateAgentScheduleInput.enabled", omitempty: true)
 # @genqlient(for: "CreateAgentScheduleInput.eventData", omitempty: true)
@@ -162,13 +163,13 @@ mutation CreateAgentSchedule(
 }
 
 query AgentSchedules(
-  $appId: String!
+  $appRef: String!
   # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  agentSchedules(appId: $appId, limit: $limit, offset: $offset) {
+  agentSchedules(appRef: $appRef, limit: $limit, offset: $offset) {
     total
     items {
       ...AgentScheduleFields
@@ -203,7 +204,7 @@ mutation DeleteAgentSchedule($id: ID!) {
 # --- Webhooks (D-2026-05-02). The secret (path + platform token) is returned
 # ONCE at create/rotate and is never queryable again. ---
 
-# @genqlient(for: "CreateAgentWebhookInput.agentId", omitempty: true)
+# @genqlient(for: "CreateAgentWebhookInput.agentRef", omitempty: true)
 # @genqlient(for: "CreateAgentWebhookInput.aiConfigName", omitempty: true)
 # @genqlient(for: "CreateAgentWebhookInput.argsSchema", omitempty: true)
 # @genqlient(for: "CreateAgentWebhookInput.enabled", omitempty: true)
@@ -225,13 +226,13 @@ mutation RotateAgentWebhook($id: ID!) {
 }
 
 query AgentWebhooks(
-  $appId: String!
+  $appRef: String!
   # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  agentWebhooks(appId: $appId, limit: $limit, offset: $offset) {
+  agentWebhooks(appRef: $appRef, limit: $limit, offset: $offset) {
     total
     items {
       ...AgentWebhookFields
@@ -246,7 +247,7 @@ mutation DeleteAgentWebhook($id: ID!) {
 # --- Tickets (cor:acl:050:04 tier 2) ---
 
 # Mint N consumable tickets into the org ledger; returns the count minted.
-# @genqlient(for: "MintActionTicketsInput.appId", omitempty: true)
+# @genqlient(for: "MintActionTicketsInput.appRef", omitempty: true)
 # @genqlient(for: "MintActionTicketsInput.note", omitempty: true)
 # @genqlient(for: "MintActionTicketsInput.expiresAt", omitempty: true)
 mutation MintActionTickets(
@@ -257,13 +258,13 @@ mutation MintActionTickets(
 
 # The ledger — minted / consumed-by-which-run / expired. Paged { items, total }.
 query ActionTickets(
-  $orgId: String!
+  $orgRef: String!
   # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  actionTickets(orgId: $orgId, limit: $limit, offset: $offset) {
+  actionTickets(orgRef: $orgRef, limit: $limit, offset: $offset) {
     total
     items {
       ...ActionTicketFields

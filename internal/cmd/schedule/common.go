@@ -34,13 +34,19 @@ type scheduleDTO struct {
 }
 
 func dtoFromFields(f gen.AgentScheduleFields) scheduleDTO {
+	// cron went nullable when the server added one-shot (runAt) schedules (#510);
+	// the CLI only creates recurring ones, so keep the --json shape a plain string.
+	cron := ""
+	if f.Cron != nil {
+		cron = *f.Cron
+	}
 	return scheduleDTO{
 		ID:             f.Id,
 		OrganizationID: f.OrganizationId,
 		AppID:          f.AppId,
 		AgentID:        f.AgentId,
 		Name:           f.Name,
-		Cron:           f.Cron,
+		Cron:           cron,
 		Timezone:       f.Timezone,
 		Enabled:        f.Enabled,
 		EntryNodeURN:   f.EntryNodeUrn,

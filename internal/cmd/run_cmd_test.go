@@ -13,7 +13,7 @@ const appRunJSON = `{"id":"run1","organizationId":"org1","appId":"app1","agentId
 	"entryNodeUrn":"hrn:node:acme.com::ops::tasks:digest","curNodeUrn":null,
 	"userId":"u1","createdBy":"u1","parentRunId":null,"attempts":1,
 	"budgetActions":50,"budgetTokens":10000,"timeoutMs":60000,"policy":null,
-	"eventData":{"topic":"security"},"failure":null,
+	"eventData":{"topic":"security"},"data":{"category":"urgent"},"failure":null,
 	"createdAt":"2026-07-05T00:00:00Z","startedAt":"2026-07-05T00:00:01Z","finishedAt":"2026-07-05T00:00:09Z"}`
 
 func TestRunTrigger(t *testing.T) {
@@ -32,8 +32,8 @@ func TestRunTrigger(t *testing.T) {
 		Input map[string]any `json:"input"`
 	}
 	_ = json.Unmarshal(captured["TriggerAppRun"], &vars)
-	if vars.Input["appId"] != "acme.com:ops" {
-		t.Errorf("appId should map from --app: %v", vars.Input["appId"])
+	if vars.Input["appRef"] != "acme.com:ops" {
+		t.Errorf("appRef should map from --app: %v", vars.Input["appRef"])
 	}
 	// A bare <org>::<memory>::<loc> entry must be normalized to the hrn:node: form.
 	if vars.Input["entryNodeUrn"] != "hrn:node:acme.com::ops::tasks:digest" {
@@ -176,15 +176,15 @@ func TestRunLs(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["AppRuns"], &vars)
-	if vars["orgId"] != "acme.com" {
-		t.Errorf("--org should map to orgId, got %v", vars["orgId"])
+	if vars["orgRef"] != "acme.com" {
+		t.Errorf("--org should map to orgRef, got %v", vars["orgRef"])
 	}
 	// --status is upper-cased into the enum.
 	if vars["status"] != "COMPLETED" {
 		t.Errorf("--status should be upper-cased, got %v", vars["status"])
 	}
-	if v, present := vars["appId"]; present {
-		t.Errorf("appId must be omitted when scoping by --org, got %v", v)
+	if v, present := vars["appRef"]; present {
+		t.Errorf("appRef must be omitted when scoping by --org, got %v", v)
 	}
 	if !strings.Contains(out.String(), "run1") {
 		t.Errorf("output missing run id:\n%s", out.String())
@@ -218,6 +218,10 @@ func TestRunGet(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "tasks:digest") {
 		t.Errorf("detail missing entry: %s", out.String())
+	}
+	// The run envelope (AppRun.data, #168) must surface in the detail view.
+	if !strings.Contains(out.String(), "category") {
+		t.Errorf("detail missing run envelope (data): %s", out.String())
 	}
 }
 

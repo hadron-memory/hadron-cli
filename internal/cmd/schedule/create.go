@@ -56,9 +56,9 @@ args merged into each run (repeatable). --policy is a trigger-layer allow-list
 
 			enabled := !disabled
 			input := &gen.CreateAgentScheduleInput{
-				AppId:        appRef,
+				AppRef:       appRef,
 				Name:         name,
-				Cron:         cron,
+				Cron:         &cron,
 				EntryNodeUrn: entryURN,
 				Enabled:      &enabled,
 				EventData:    eventData,
@@ -71,7 +71,7 @@ args merged into each run (repeatable). --policy is a trigger-layer allow-list
 				input.AiConfigName = &aiConfig
 			}
 			if agent != "" {
-				input.AgentId = &agent
+				input.AgentRef = &agent
 			}
 			if asSelf {
 				input.RunAsSelf = &asSelf
