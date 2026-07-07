@@ -31,6 +31,25 @@ func TestMemoryEncrypt(t *testing.T) {
 	}
 }
 
+// A literal --data-key is trimmed too (not just the stdin path), so stray
+// copy-paste whitespace can't silently corrupt the key.
+func TestMemoryEncryptTrimsLiteralKey(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"EncryptMemory": `{"data":{"encryptMemory":{"id":"mem1","urn":"acme.com::kb","name":"KB","isEncrypted":true}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "encrypt", "mem1", "--data-key", "  padded-key  ", "--yes", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["EncryptMemory"], &vars)
+	if vars["dataKey"] != "padded-key" {
+		t.Errorf("literal key should be trimmed, got %q", vars["dataKey"])
+	}
+}
+
 // Irreversible + rewrites all content → gated like a destructive op.
 func TestMemoryEncryptRequiresYes(t *testing.T) {
 	f, _ := testFactory(t)

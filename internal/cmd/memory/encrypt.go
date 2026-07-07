@@ -43,10 +43,6 @@ requires --yes when run non-interactively.`,
 			if dataKey == "" {
 				return exitcode.Newf(exitcode.Usage, "a data key is required — pass --data-key - to read it from stdin")
 			}
-			key, err := readDataKey(dataKey, f.IOStreams.In)
-			if err != nil {
-				return err
-			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -55,9 +51,17 @@ requires --yes when run non-interactively.`,
 			if err != nil {
 				return err
 			}
+			// Confirm BEFORE reading the key from stdin: `--data-key -` consumes
+			// stdin, so reading it first would starve the interactive prompt (EOF →
+			// cancel) and would also swallow a piped key on a run that then refuses
+			// for lack of --yes. Confirm first, then read the key.
 			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf(
 				"Encrypt memory %s? This rewrites ALL node content as ciphertext and cannot be undone from the CLI — keep your data key safe.",
 				args[0])); err != nil {
+				return err
+			}
+			key, err := readDataKey(dataKey, f.IOStreams.In)
+			if err != nil {
 				return err
 			}
 			resp, err := gen.EncryptMemory(cmd.Context(), client, memID, key)
@@ -80,18 +84,22 @@ requires --yes when run non-interactively.`,
 	return cmd
 }
 
-// readDataKey reads the encryption key: "-" pulls it from stdin (trimmed), so
-// the key never appears in argv or shell history. An empty key is rejected.
+// readDataKey reads the encryption key: "-" pulls it from stdin, so the key
+// never appears in argv or shell history. The value is trimmed either way —
+// keys are base64/hex, so surrounding whitespace (a stray newline from a pipe, a
+// copy-paste space) is never meaningful and silently keeping it would cause
+// hard-to-debug failures. An empty key is rejected.
 func readDataKey(v string, stdin io.Reader) (string, error) {
 	if v == "-" {
 		data, err := io.ReadAll(stdin)
 		if err != nil {
 			return "", err
 		}
-		v = strings.TrimSpace(string(data))
+		v = string(data)
 	}
-	if strings.TrimSpace(v) == "" {
-		return "", exitcode.Newf(exitcode.Usage, "empty data key")
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return "", exitcode.Newf(exitcode.Usage, "empty data key — provide a non-empty key via --data-key - (stdin) or --data-key <value>")
 	}
 	return v, nil
 }
