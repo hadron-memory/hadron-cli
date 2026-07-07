@@ -298,3 +298,18 @@ func TestOrgInviteShow(t *testing.T) {
 		t.Errorf("show dto: %+v", dto)
 	}
 }
+
+// A false acceptInvitation return is a failed accept → non-zero exit, so
+// automation can't read it as success.
+func TestOrgInviteAcceptFalseExitsNonZero(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"AcceptInvitation": `{"data":{"acceptInvitation":false}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "invite", "accept", "inv_stale", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "not accepted") {
+		t.Fatalf("a false accept must exit non-zero, got %v", err)
+	}
+}

@@ -99,14 +99,16 @@ func newCmdInviteAccept(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return api.MapError(err)
 			}
-			dto := map[string]any{"slug": args[0], "accepted": resp.AcceptInvitation}
+			// A `false` return is a failed accept (expired / already used / revoked)
+			// — surface it as a non-zero exit so automation doesn't read it as
+			// success, rather than printing a cheerful line and exiting 0.
+			if !resp.AcceptInvitation {
+				return exitcode.Newf(exitcode.Error, "invitation %s was not accepted (it may be expired, already used, or revoked)", args[0])
+			}
+			dto := map[string]any{"slug": args[0], "accepted": true}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				if resp.AcceptInvitation {
-					fmt.Fprintf(w, "✓ accepted invitation %s\n", args[0])
-				} else {
-					fmt.Fprintf(w, "invitation %s was not accepted\n", args[0])
-				}
-				return nil
+				_, err := fmt.Fprintf(w, "✓ accepted invitation %s\n", args[0])
+				return err
 			})
 		},
 	}
@@ -137,10 +139,7 @@ func newCmdInviteShow(f *cmdutil.Factory) *cobra.Command {
 
 func emitInvitation(f *cmdutil.Factory, dto invitationDTO, verb string) error {
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-		who := orDash(dto.Email)
-		if dto.GithubUsername != nil && *dto.GithubUsername != "" {
-			who = orDash(dto.Email) + " (gh:" + *dto.GithubUsername + ")"
-		}
+		who := inviteeLabel(dto)
 		if verb != "" {
 			fmt.Fprintf(w, "%s %s as %s\n", verb, who, dto.MemberRole)
 		} else {
@@ -149,4 +148,21 @@ func emitInvitation(f *cmdutil.Factory, dto invitationDTO, verb string) error {
 		fmt.Fprintf(w, "  accept with: hadron org invite accept %s\n", dto.Slug)
 		return nil
 	})
+}
+
+// inviteeLabel renders who an invitation is for: email, GitHub handle, or both —
+// never a bare dash next to a real handle.
+func inviteeLabel(dto invitationDTO) string {
+	hasEmail := dto.Email != nil && *dto.Email != ""
+	hasGithub := dto.GithubUsername != nil && *dto.GithubUsername != ""
+	switch {
+	case hasEmail && hasGithub:
+		return *dto.Email + " (gh:" + *dto.GithubUsername + ")"
+	case hasEmail:
+		return *dto.Email
+	case hasGithub:
+		return "gh:" + *dto.GithubUsername
+	default:
+		return "—"
+	}
 }
