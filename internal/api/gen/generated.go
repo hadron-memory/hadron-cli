@@ -3063,6 +3063,55 @@ func (v *CreateMemoryShareResponse) GetCreateMemoryShare() *CreateMemoryShareCre
 	return v.CreateMemoryShare
 }
 
+// CreateMemorySubscriptionCreateMemorySubscription includes the requested fields of the GraphQL type MemorySubscription.
+type CreateMemorySubscriptionCreateMemorySubscription struct {
+	Role         Role                                                          `json:"role"`
+	Activated    bool                                                          `json:"activated"`
+	Organization *CreateMemorySubscriptionCreateMemorySubscriptionOrganization `json:"organization"`
+}
+
+// GetRole returns CreateMemorySubscriptionCreateMemorySubscription.Role, and is useful for accessing the field via an interface.
+func (v *CreateMemorySubscriptionCreateMemorySubscription) GetRole() Role { return v.Role }
+
+// GetActivated returns CreateMemorySubscriptionCreateMemorySubscription.Activated, and is useful for accessing the field via an interface.
+func (v *CreateMemorySubscriptionCreateMemorySubscription) GetActivated() bool { return v.Activated }
+
+// GetOrganization returns CreateMemorySubscriptionCreateMemorySubscription.Organization, and is useful for accessing the field via an interface.
+func (v *CreateMemorySubscriptionCreateMemorySubscription) GetOrganization() *CreateMemorySubscriptionCreateMemorySubscriptionOrganization {
+	return v.Organization
+}
+
+// CreateMemorySubscriptionCreateMemorySubscriptionOrganization includes the requested fields of the GraphQL type Organization.
+type CreateMemorySubscriptionCreateMemorySubscriptionOrganization struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	Urn  string `json:"urn"`
+}
+
+// GetId returns CreateMemorySubscriptionCreateMemorySubscriptionOrganization.Id, and is useful for accessing the field via an interface.
+func (v *CreateMemorySubscriptionCreateMemorySubscriptionOrganization) GetId() string { return v.Id }
+
+// GetName returns CreateMemorySubscriptionCreateMemorySubscriptionOrganization.Name, and is useful for accessing the field via an interface.
+func (v *CreateMemorySubscriptionCreateMemorySubscriptionOrganization) GetName() string {
+	return v.Name
+}
+
+// GetUrn returns CreateMemorySubscriptionCreateMemorySubscriptionOrganization.Urn, and is useful for accessing the field via an interface.
+func (v *CreateMemorySubscriptionCreateMemorySubscriptionOrganization) GetUrn() string { return v.Urn }
+
+// CreateMemorySubscriptionResponse is returned by CreateMemorySubscription on success.
+type CreateMemorySubscriptionResponse struct {
+	// Create a cross-org Memory subscription.
+	//
+	// Accepts the entity's ID or URN.
+	CreateMemorySubscription *CreateMemorySubscriptionCreateMemorySubscription `json:"createMemorySubscription"`
+}
+
+// GetCreateMemorySubscription returns CreateMemorySubscriptionResponse.CreateMemorySubscription, and is useful for accessing the field via an interface.
+func (v *CreateMemorySubscriptionResponse) GetCreateMemorySubscription() *CreateMemorySubscriptionCreateMemorySubscription {
+	return v.CreateMemorySubscription
+}
+
 // CreateNodeCreateNode includes the requested fields of the GraphQL type Node.
 type CreateNodeCreateNode struct {
 	Id         string   `json:"id"`
@@ -3489,6 +3538,19 @@ type DeleteMemoryResponse struct {
 
 // GetDeleteMemory returns DeleteMemoryResponse.DeleteMemory, and is useful for accessing the field via an interface.
 func (v *DeleteMemoryResponse) GetDeleteMemory() bool { return v.DeleteMemory }
+
+// DeleteMemorySubscriptionResponse is returned by DeleteMemorySubscription on success.
+type DeleteMemorySubscriptionResponse struct {
+	// Delete a cross-org Memory subscription.
+	//
+	// Accepts the entity's ID or URN.
+	DeleteMemorySubscription bool `json:"deleteMemorySubscription"`
+}
+
+// GetDeleteMemorySubscription returns DeleteMemorySubscriptionResponse.DeleteMemorySubscription, and is useful for accessing the field via an interface.
+func (v *DeleteMemorySubscriptionResponse) GetDeleteMemorySubscription() bool {
+	return v.DeleteMemorySubscription
+}
 
 // DeleteNodeResponse is returned by DeleteNode on success.
 type DeleteNodeResponse struct {
@@ -4848,6 +4910,73 @@ type MemorySharesResponse struct {
 
 // GetMemory returns MemorySharesResponse.Memory, and is useful for accessing the field via an interface.
 func (v *MemorySharesResponse) GetMemory() *MemorySharesMemory { return v.Memory }
+
+// MemorySubscriptionsMemory includes the requested fields of the GraphQL type Memory.
+type MemorySubscriptionsMemory struct {
+	Id            string                                                      `json:"id"`
+	Subscriptions []*MemorySubscriptionsMemorySubscriptionsMemorySubscription `json:"subscriptions"`
+}
+
+// GetId returns MemorySubscriptionsMemory.Id, and is useful for accessing the field via an interface.
+func (v *MemorySubscriptionsMemory) GetId() string { return v.Id }
+
+// GetSubscriptions returns MemorySubscriptionsMemory.Subscriptions, and is useful for accessing the field via an interface.
+func (v *MemorySubscriptionsMemory) GetSubscriptions() []*MemorySubscriptionsMemorySubscriptionsMemorySubscription {
+	return v.Subscriptions
+}
+
+// MemorySubscriptionsMemorySubscriptionsMemorySubscription includes the requested fields of the GraphQL type MemorySubscription.
+type MemorySubscriptionsMemorySubscriptionsMemorySubscription struct {
+	Role         Role                                                                  `json:"role"`
+	Activated    bool                                                                  `json:"activated"`
+	Organization *MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization `json:"organization"`
+}
+
+// GetRole returns MemorySubscriptionsMemorySubscriptionsMemorySubscription.Role, and is useful for accessing the field via an interface.
+func (v *MemorySubscriptionsMemorySubscriptionsMemorySubscription) GetRole() Role { return v.Role }
+
+// GetActivated returns MemorySubscriptionsMemorySubscriptionsMemorySubscription.Activated, and is useful for accessing the field via an interface.
+func (v *MemorySubscriptionsMemorySubscriptionsMemorySubscription) GetActivated() bool {
+	return v.Activated
+}
+
+// GetOrganization returns MemorySubscriptionsMemorySubscriptionsMemorySubscription.Organization, and is useful for accessing the field via an interface.
+func (v *MemorySubscriptionsMemorySubscriptionsMemorySubscription) GetOrganization() *MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization {
+	return v.Organization
+}
+
+// MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization includes the requested fields of the GraphQL type Organization.
+type MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	Urn  string `json:"urn"`
+}
+
+// GetId returns MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization.Id, and is useful for accessing the field via an interface.
+func (v *MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization) GetId() string {
+	return v.Id
+}
+
+// GetName returns MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization.Name, and is useful for accessing the field via an interface.
+func (v *MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization) GetName() string {
+	return v.Name
+}
+
+// GetUrn returns MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization.Urn, and is useful for accessing the field via an interface.
+func (v *MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization) GetUrn() string {
+	return v.Urn
+}
+
+// MemorySubscriptionsResponse is returned by MemorySubscriptions on success.
+type MemorySubscriptionsResponse struct {
+	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Memory *MemorySubscriptionsMemory `json:"memory"`
+}
+
+// GetMemory returns MemorySubscriptionsResponse.Memory, and is useful for accessing the field via an interface.
+func (v *MemorySubscriptionsResponse) GetMemory() *MemorySubscriptionsMemory { return v.Memory }
 
 // 035-visibility-enum-cleanup: meaningful only for knowledge
 // (PUBLIC/ORGANIZATION) and group (GROUP); null otherwise. PERSONAL/PRIVATE
@@ -7503,6 +7632,55 @@ func (v *UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadM
 	return &retval, nil
 }
 
+// UpdateMemorySubscriptionResponse is returned by UpdateMemorySubscription on success.
+type UpdateMemorySubscriptionResponse struct {
+	// Update a cross-org Memory subscription.
+	//
+	// Accepts the entity's ID or URN.
+	UpdateMemorySubscription *UpdateMemorySubscriptionUpdateMemorySubscription `json:"updateMemorySubscription"`
+}
+
+// GetUpdateMemorySubscription returns UpdateMemorySubscriptionResponse.UpdateMemorySubscription, and is useful for accessing the field via an interface.
+func (v *UpdateMemorySubscriptionResponse) GetUpdateMemorySubscription() *UpdateMemorySubscriptionUpdateMemorySubscription {
+	return v.UpdateMemorySubscription
+}
+
+// UpdateMemorySubscriptionUpdateMemorySubscription includes the requested fields of the GraphQL type MemorySubscription.
+type UpdateMemorySubscriptionUpdateMemorySubscription struct {
+	Role         Role                                                          `json:"role"`
+	Activated    bool                                                          `json:"activated"`
+	Organization *UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization `json:"organization"`
+}
+
+// GetRole returns UpdateMemorySubscriptionUpdateMemorySubscription.Role, and is useful for accessing the field via an interface.
+func (v *UpdateMemorySubscriptionUpdateMemorySubscription) GetRole() Role { return v.Role }
+
+// GetActivated returns UpdateMemorySubscriptionUpdateMemorySubscription.Activated, and is useful for accessing the field via an interface.
+func (v *UpdateMemorySubscriptionUpdateMemorySubscription) GetActivated() bool { return v.Activated }
+
+// GetOrganization returns UpdateMemorySubscriptionUpdateMemorySubscription.Organization, and is useful for accessing the field via an interface.
+func (v *UpdateMemorySubscriptionUpdateMemorySubscription) GetOrganization() *UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization {
+	return v.Organization
+}
+
+// UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization includes the requested fields of the GraphQL type Organization.
+type UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	Urn  string `json:"urn"`
+}
+
+// GetId returns UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization.Id, and is useful for accessing the field via an interface.
+func (v *UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization) GetId() string { return v.Id }
+
+// GetName returns UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization.Name, and is useful for accessing the field via an interface.
+func (v *UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization) GetName() string {
+	return v.Name
+}
+
+// GetUrn returns UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization) GetUrn() string { return v.Urn }
+
 // UpdateMemoryUpdateMemory includes the requested fields of the GraphQL type Memory.
 type UpdateMemoryUpdateMemory struct {
 	Id               string            `json:"id"`
@@ -8327,6 +8505,22 @@ func (v *__CreateMemoryShareInput) GetGranteeId() string { return v.GranteeId }
 // GetRole returns __CreateMemoryShareInput.Role, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryShareInput) GetRole() MemoryShareRole { return v.Role }
 
+// __CreateMemorySubscriptionInput is used internally by genqlient
+type __CreateMemorySubscriptionInput struct {
+	MemoryId string `json:"memoryId"`
+	OrgId    string `json:"orgId"`
+	Role     Role   `json:"role"`
+}
+
+// GetMemoryId returns __CreateMemorySubscriptionInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__CreateMemorySubscriptionInput) GetMemoryId() string { return v.MemoryId }
+
+// GetOrgId returns __CreateMemorySubscriptionInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__CreateMemorySubscriptionInput) GetOrgId() string { return v.OrgId }
+
+// GetRole returns __CreateMemorySubscriptionInput.Role, and is useful for accessing the field via an interface.
+func (v *__CreateMemorySubscriptionInput) GetRole() Role { return v.Role }
+
 // __CreateNodeInput is used internally by genqlient
 type __CreateNodeInput struct {
 	Input *CreateNodeInput `json:"input,omitempty"`
@@ -8402,6 +8596,18 @@ type __DeleteMemoryInput struct {
 
 // GetId returns __DeleteMemoryInput.Id, and is useful for accessing the field via an interface.
 func (v *__DeleteMemoryInput) GetId() string { return v.Id }
+
+// __DeleteMemorySubscriptionInput is used internally by genqlient
+type __DeleteMemorySubscriptionInput struct {
+	MemoryId string `json:"memoryId"`
+	OrgId    string `json:"orgId"`
+}
+
+// GetMemoryId returns __DeleteMemorySubscriptionInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__DeleteMemorySubscriptionInput) GetMemoryId() string { return v.MemoryId }
+
+// GetOrgId returns __DeleteMemorySubscriptionInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__DeleteMemorySubscriptionInput) GetOrgId() string { return v.OrgId }
 
 // __DeleteNodeInput is used internally by genqlient
 type __DeleteNodeInput struct {
@@ -8534,6 +8740,14 @@ type __MemorySharesInput struct {
 
 // GetRef returns __MemorySharesInput.Ref, and is useful for accessing the field via an interface.
 func (v *__MemorySharesInput) GetRef() string { return v.Ref }
+
+// __MemorySubscriptionsInput is used internally by genqlient
+type __MemorySubscriptionsInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __MemorySubscriptionsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__MemorySubscriptionsInput) GetRef() string { return v.Ref }
 
 // __MintActionTicketsInput is used internally by genqlient
 type __MintActionTicketsInput struct {
@@ -8870,6 +9084,22 @@ func (v *__UpdateMemoryShareRoleInput) GetGranteeId() string { return v.GranteeI
 
 // GetRole returns __UpdateMemoryShareRoleInput.Role, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryShareRoleInput) GetRole() MemoryShareRole { return v.Role }
+
+// __UpdateMemorySubscriptionInput is used internally by genqlient
+type __UpdateMemorySubscriptionInput struct {
+	MemoryId string `json:"memoryId"`
+	OrgId    string `json:"orgId"`
+	Role     Role   `json:"role"`
+}
+
+// GetMemoryId returns __UpdateMemorySubscriptionInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__UpdateMemorySubscriptionInput) GetMemoryId() string { return v.MemoryId }
+
+// GetOrgId returns __UpdateMemorySubscriptionInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__UpdateMemorySubscriptionInput) GetOrgId() string { return v.OrgId }
+
+// GetRole returns __UpdateMemorySubscriptionInput.Role, and is useful for accessing the field via an interface.
+func (v *__UpdateMemorySubscriptionInput) GetRole() Role { return v.Role }
 
 // __UpdateNodeDataInput is used internally by genqlient
 type __UpdateNodeDataInput struct {
@@ -9878,6 +10108,50 @@ func CreateMemoryShare(
 	return data_, err_
 }
 
+// The mutation executed by CreateMemorySubscription.
+const CreateMemorySubscription_Operation = `
+mutation CreateMemorySubscription ($memoryId: ID!, $orgId: ID!, $role: Role!) {
+	createMemorySubscription(memoryId: $memoryId, orgId: $orgId, role: $role) {
+		role
+		activated
+		organization {
+			id
+			name
+			urn
+		}
+	}
+}
+`
+
+func CreateMemorySubscription(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId string,
+	orgId string,
+	role Role,
+) (data_ *CreateMemorySubscriptionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateMemorySubscription",
+		Query:  CreateMemorySubscription_Operation,
+		Variables: &__CreateMemorySubscriptionInput{
+			MemoryId: memoryId,
+			OrgId:    orgId,
+			Role:     role,
+		},
+	}
+
+	data_ = &CreateMemorySubscriptionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateNode.
 const CreateNode_Operation = `
 mutation CreateNode ($input: CreateNodeInput!) {
@@ -10196,6 +10470,40 @@ func DeleteMemory(
 	}
 
 	data_ = &DeleteMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteMemorySubscription.
+const DeleteMemorySubscription_Operation = `
+mutation DeleteMemorySubscription ($memoryId: ID!, $orgId: ID!) {
+	deleteMemorySubscription(memoryId: $memoryId, orgId: $orgId)
+}
+`
+
+func DeleteMemorySubscription(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId string,
+	orgId string,
+) (data_ *DeleteMemorySubscriptionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteMemorySubscription",
+		Query:  DeleteMemorySubscription_Operation,
+		Variables: &__DeleteMemorySubscriptionInput{
+			MemoryId: memoryId,
+			OrgId:    orgId,
+		},
+	}
+
+	data_ = &DeleteMemorySubscriptionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -10836,6 +11144,49 @@ func MemoryShares(
 	}
 
 	data_ = &MemorySharesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MemorySubscriptions.
+const MemorySubscriptions_Operation = `
+query MemorySubscriptions ($ref: ID!) {
+	memory(ref: $ref) {
+		id
+		subscriptions {
+			role
+			activated
+			organization {
+				id
+				name
+				urn
+			}
+		}
+	}
+}
+`
+
+func MemorySubscriptions(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *MemorySubscriptionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MemorySubscriptions",
+		Query:  MemorySubscriptions_Operation,
+		Variables: &__MemorySubscriptionsInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &MemorySubscriptionsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -12039,6 +12390,50 @@ func UpdateMemoryShareRole(
 	}
 
 	data_ = &UpdateMemoryShareRoleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateMemorySubscription.
+const UpdateMemorySubscription_Operation = `
+mutation UpdateMemorySubscription ($memoryId: ID!, $orgId: ID!, $role: Role!) {
+	updateMemorySubscription(memoryId: $memoryId, orgId: $orgId, role: $role) {
+		role
+		activated
+		organization {
+			id
+			name
+			urn
+		}
+	}
+}
+`
+
+func UpdateMemorySubscription(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId string,
+	orgId string,
+	role Role,
+) (data_ *UpdateMemorySubscriptionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateMemorySubscription",
+		Query:  UpdateMemorySubscription_Operation,
+		Variables: &__UpdateMemorySubscriptionInput{
+			MemoryId: memoryId,
+			OrgId:    orgId,
+			Role:     role,
+		},
+	}
+
+	data_ = &UpdateMemorySubscriptionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

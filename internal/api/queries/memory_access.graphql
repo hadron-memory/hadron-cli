@@ -94,3 +94,51 @@ mutation RevokeMemoryShare($memoryId: ID!, $granteeId: ID!) {
     memoryId
   }
 }
+
+# Subscriptions (#57): grant an ORGANIZATION a role on a memory (memoryId +
+# orgId + Role). Unlike members/shares these are org-scoped and return the
+# MemorySubscription unwrapped; the role is the general Role enum (ADMIN/
+# CONTRIBUTOR/OWNER/READER).
+
+query MemorySubscriptions($ref: ID!) {
+  memory(ref: $ref) {
+    id
+    subscriptions {
+      role
+      activated
+      organization {
+        id
+        name
+        urn
+      }
+    }
+  }
+}
+
+mutation CreateMemorySubscription($memoryId: ID!, $orgId: ID!, $role: Role!) {
+  createMemorySubscription(memoryId: $memoryId, orgId: $orgId, role: $role) {
+    role
+    activated
+    organization {
+      id
+      name
+      urn
+    }
+  }
+}
+
+mutation UpdateMemorySubscription($memoryId: ID!, $orgId: ID!, $role: Role!) {
+  updateMemorySubscription(memoryId: $memoryId, orgId: $orgId, role: $role) {
+    role
+    activated
+    organization {
+      id
+      name
+      urn
+    }
+  }
+}
+
+mutation DeleteMemorySubscription($memoryId: ID!, $orgId: ID!) {
+  deleteMemorySubscription(memoryId: $memoryId, orgId: $orgId)
+}
