@@ -170,7 +170,9 @@ type AgentSchedule {
   appId: ID!
   createdAt: String!
   createdBy: String
-  cron: String!
+
+  """5-field cron for recurring schedules; null for one-shots (#510)."""
+  cron: String
   enabled: Boolean!
   entryNodeUrn: String!
   eventData: JSON
@@ -180,6 +182,9 @@ type AgentSchedule {
   nextRunAt: String
   organizationId: ID!
   policy: JSON
+
+  """One-shot instant (#510); null for recurring schedules. XOR with cron."""
+  runAt: String
   timezone: String!
 
   """On-behalf-of user captured at creation; v1 only the creator themself."""
@@ -376,6 +381,11 @@ type App {
   name: String!
   organization: Organization
   organizationId: String!
+
+  """
+  App-layer action-policy link (cor:acl:040:02, #510). Null = no restriction. Org-admin-authored via updateApp.
+  """
+  policy: JSON
   role: AppMembershipRole!
   sessionTimeoutSeconds: Int!
   surfaces: [String!]!
@@ -472,6 +482,11 @@ type AppRun {
   createdAt: String!
   createdBy: String
   curNodeUrn: String
+
+  """
+  The run envelope (plan-multi-node D-MN-1): fields extracted by flow nodes as the walker advances. eventData stays the immutable trigger payload; on key collision the envelope wins.
+  """
+  data: JSON
   entryNodeUrn: String!
   eventData: JSON
   failure: JSON
@@ -659,16 +674,19 @@ input CompleteAssetUploadInput {
 }
 
 input CreateAgentScheduleInput {
-  agentId: ID
+  """Agent — ref: PK or URN; must be installed in the App."""
+  agentRef: String
 
   """Named AI config for this trigger (spec-036 walk override)."""
   aiConfigName: String
 
-  """App the run executes as (ID or URN)."""
-  appId: String!
+  """App the run executes as — ref: PK or fully-qualified URN."""
+  appRef: String!
 
-  """5-field cron expression, evaluated in timezone (default UTC)."""
-  cron: String!
+  """
+  Recurring: 5-field cron expression, evaluated in timezone (default UTC). Provide exactly one of cron / runAt.
+  """
+  cron: String
   enabled: Boolean
 
   """Fully-qualified URN of the prompt node to run (D-2026-05-09-012/017)."""
@@ -687,13 +705,21 @@ input CreateAgentScheduleInput {
   true: the run acts on behalf of YOU (required to reach your personal memories). v1 never delegates a third party (cor:agt:010:01).
   """
   runAsSelf: Boolean
+
+  """
+  One-shot: run once at this ISO-8601 instant (#510). Provide exactly one of cron / runAt.
+  """
+  runAt: String
   timezone: String
 }
 
 input CreateAgentWebhookInput {
-  agentId: ID
+  """Agent — ref: PK or URN; must be installed in the App."""
+  agentRef: String
   aiConfigName: String
-  appId: String!
+
+  """App — ref: PK or fully-qualified URN."""
+  appRef: String!
 
   """JSON Schema for POST args (stored in v1; enforcement is follow-on)."""
   argsSchema: JSON
@@ -869,6 +895,14 @@ type EffectiveAccess {
   user: User!
 }
 
+"""
+The standing-chain policy debug surface (#510): per-layer verdicts for one action (cor:acl:040:02). Trigger/run links are per-trigger and not part of the standing chain.
+"""
+type EffectiveActionPolicy {
+  allowed: Boolean!
+  layers: [PolicyLayerVerdict!]!
+}
+
 enum EmbeddingSource {
   abstract
   both
@@ -997,7 +1031,16 @@ type GraphEdgesPage {
 Slim node projection for the graph view (issue #466) — only what a node-link graph draws.
 """
 type GraphNode {
+  """
+  Short one-line description for graph tooltips / detail (nullable; #513). NOT the heavy body — content/abstract/data stay out of the slim projection.
+  """
+  description: String
   id: ID!
+
+  """
+  Whether the node can be run as a task — drives the tree action indicator (nullable; #513).
+  """
+  isRunnable: Boolean
   loc: String!
 
   """Non-null — mirrors Node.name (the DB column is NOT NULL)."""
@@ -1005,6 +1048,11 @@ type GraphNode {
 
   """Non-null — mirrors Node.nodeType (NOT NULL, defaults to 'info')."""
   nodeType: String!
+
+  """
+  Sibling sort order in the tree view (nullable; #513). Small scalar — kept in the slim projection.
+  """
+  seq: Int
   tags: [String!]!
 }
 
@@ -1027,6 +1075,11 @@ the URN may name a not-yet-existing node (import creates it). Source:
 exactly one of 'url' | 'content'.
 """
 input ImportNodeInput {
+  """
+  App to run the task under — PK or URN. Falls back to the caller's active App. Only meaningful with taskRef.
+  """
+  appRef: ID
+
   """
   Inline source content (e.g. the Web Clipper's authenticated-DOM capture). XOR with 'url'.
   """
@@ -1062,6 +1115,16 @@ input ImportNodeInput {
   Merged provenance metadata; the server sets properties.url on the url path when absent (properties.title is filled from the extracted title by the write seam).
   """
   properties: JSON
+
+  """
+  Extra template args merged into the task run's eventData (only meaningful with taskRef).
+  """
+  taskArgs: JSON
+
+  """
+  Task node to run against the imported node once stored (#528) — PK or fully-qualified URN. Presence triggers a MANUAL app run; the result envelope is FETCH_PENDING + jobId (poll appRun(ref:)). The imported node's URN is passed to the task as eventData.importedNodeUrn.
+  """
+  taskRef: ID
 
   """
   Source URL (http/https) — fetched server-side, SSRF-guarded, WITHOUT user credentials.
@@ -1412,14 +1475,16 @@ input MintActionTicketsInput {
   """v1: comm.outbound only."""
   action: String!
 
-  """Scope tickets to one App; omit for org-wide."""
-  appId: ID
+  """Scope tickets to one App (ref: PK or URN); omit for org-wide."""
+  appRef: String
   count: Int!
   expiresAt: String
 
   """Ledger legibility — why these tickets exist."""
   note: String
-  orgId: String!
+
+  """Organization — ref: PK or URN."""
+  orgRef: String!
 }
 
 type Mutation {
@@ -1592,6 +1657,11 @@ type Mutation {
     installOptional: [ID!]
     name: String!
     orgId: ID!
+
+    """
+    App-layer action-policy link (cor:acl:040:02, #510). Explicit null clears; omitted preserves.
+    """
+    policy: JSON
     role: AppMembershipRole
     sessionTimeoutSeconds: Int
     surfaces: [String!]
@@ -1784,13 +1854,16 @@ type Mutation {
   deleteOrganization(id: ID!): Boolean!
 
   """
-  Convert an existing plaintext memory to an encrypted one. The caller
-  provides the data key; all existing node content/data is re-written
-  as ciphertext in a single transaction.
+  Convert a plaintext PRIVATE memory to encrypted (spec 041, caller-held
+  keys). Exactly one of dataKey (base64, 32 bytes) / passphrase (scrypt-
+  derived; salt + params stored on the memory, the key itself never).
+  Owner or org-App-key. All node content/abstract/data is re-written as
+  ciphertext in one transaction. One-way without the key: the server
+  cannot recover the content.
   
   Accepts the entity's ID or URN.
   """
-  encryptMemory(dataKey: String!, memoryId: ID!): Memory!
+  encryptMemory(dataKey: String, memoryId: ID!, passphrase: String): Memory!
   endAgentSession(sessionId: ID!): Boolean!
   endSession(errorCount: Int, id: ID!, inputTokens: Int, outputTokens: Int, summary: String, turnCount: Int): Session!
 
@@ -2041,7 +2114,7 @@ type Mutation {
 
   """New secret + token; the old URL dies immediately."""
   rotateAgentWebhook(id: ID!): AgentWebhookCredentials!
-  runTask(args: JSON, memory: String, task: String, urn: String): String!
+  runTask(appRef: ID, args: JSON, memory: String, runAsSelf: Boolean, task: String, urn: String): String!
   saveChatSummary(chatId: String!, summary: String!): Boolean!
   searchReplaceInNodes(input: SearchReplaceInNodesInput!): SearchReplaceResult!
   sendChatMessage(chatId: String!, userMessage: String!): ChatPromptResult!
@@ -2054,6 +2127,11 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   setMemorySourceToken(expiresAt: String, id: ID!, token: String!): Memory!
+
+  """
+  Set the stored (enforced) quota limit for a scope x action (#510) - the operator dial that previously required psql. Org-ADMIN.
+  """
+  setQuotaLimit(input: SetQuotaLimitInput!): QuotaCounter!
   softDeleteAsset(assetId: ID!): Asset!
   startAgentSession(agentId: ID!, dataKey: String, externalUserId: String, sessionTimeoutSeconds: Int): Session!
 
@@ -2195,6 +2273,11 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   updateMemorySubscription(memoryId: ID!, orgId: ID!, role: Role!): MemorySubscription!
+
+  """
+  Author YOUR user-layer action-policy link (cor:acl:040:02, #510). Null clears (= no restriction).
+  """
+  updateMyPolicy(policy: JSON): User!
   updateMyProfile(email: String, handle: String, name: String): User!
 
   """
@@ -2224,7 +2307,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  updateOrganization(id: ID!, isVisible: Boolean, name: String, urn: String): Organization!
+  updateOrganization(id: ID!, isVisible: Boolean, name: String, policy: JSON, urn: String): Organization!
   updateUserRoles(roles: [Role!]!, userId: ID!): User!
 }
 
@@ -2585,6 +2668,11 @@ type Organization {
   members: [OrgMember!]!
   memories: [Memory!]!
   name: String!
+
+  """
+  Org-layer action-policy link (cor:acl:040:02, #510). Null = no restriction. Org-admin-authored via updateOrganization.
+  """
+  policy: JSON
   subscriptions: [MemorySubscription!]!
   updatedAt: String!
   urn: String!
@@ -2621,9 +2709,22 @@ type Passage {
   text: String!
 }
 
+"""One layer's verdict in an explained policy evaluation (#510)."""
+type PolicyLayerVerdict {
+  """The layer's allow-list, for display; null when absent."""
+  allow: [String!]
+  allowed: Boolean!
+
+  """org, user, or app."""
+  layer: String!
+
+  """Whether this layer has a link at all (absent = no restriction)."""
+  present: Boolean!
+}
+
 type Query {
   """The ticket ledger: minted, consumed-by-which-run, expired (org-ADMIN)."""
-  actionTickets(limit: Int, offset: Int, orgId: String!): ActionTicketsPage!
+  actionTickets(limit: Int, offset: Int, orgRef: String!): ActionTicketsPage!
 
   """
   The uniform single-agent read (#473) — the first top-level Agent query;
@@ -2647,7 +2748,7 @@ type Query {
   """
   agentAIConfig(agentId: ID!): AgentAIConfig
   agentAssets(agentUrn: String!, count: Int = 20, includeDeleted: Boolean = false, mimeType: String, skip: Int = 0): AssetListResult!
-  agentSchedules(appId: String!, limit: Int, offset: Int): AgentSchedulesPage!
+  agentSchedules(appRef: String!, limit: Int, offset: Int): AgentSchedulesPage!
 
   """
   005-agent-subscription FR-022: list all AgentSubscriptions for an
@@ -2656,7 +2757,7 @@ type Query {
   Accepts the entity's ID or URN.
   """
   agentSubscriptions(agentId: ID!): [AgentSubscription!]!
-  agentWebhooks(appId: String!, limit: Int, offset: Int): AgentWebhooksPage!
+  agentWebhooks(appRef: String!, limit: Int, offset: Int): AgentWebhooksPage!
 
   """
   Uniform paginated agent list (#473). Scope: Agents owned by the caller's
@@ -2717,15 +2818,25 @@ type Query {
   appKeys(appId: ID!): [AppKey!]!
 
   """
-  All nodes accessible by an App (across all subscribed memories).
+  All nodes accessible by an App: the union of every installed agent's
+  system memory (read-only) and its knowledge memoryItems (#524).
   
   Accepts the entity's ID or URN.
+  
+  An optional NodeFilter pushes node-level predicates server-side — e.g.
+  filter: { isRunnable: true } to list the App's runnable task nodes (#525).
+  The App's memory scope is authoritative, so the filter's memory-scope
+  fields (memoryIds / memoryClasses) are rejected with BAD_USER_INPUT rather
+  than silently ignored — use findNodes for cross-memory scoping. Only
+  node-level predicates (nodeType, tags, isRunnable, locPrefix, createdBy,
+  updatedAfter/Before, includeDeleted) apply. Unlike findNodes, system-memory
+  nodes are NOT excluded by default.
   """
-  appNodes(appId: ID!, limit: Int): [Node!]!
+  appNodes(appId: ID!, filter: NodeFilter, limit: Int): [Node!]!
 
   """One run by ID (runs are URN-less, like AiServiceConfig)."""
   appRun(ref: ID!): AppRun
-  appRuns(appId: ID, limit: Int, offset: Int, orgId: ID, status: AppRunStatus): AppRunsPage!
+  appRuns(appRef: String, limit: Int, offset: Int, orgRef: String, status: AppRunStatus): AppRunsPage!
 
   """
   Uniform paginated app list (#473) — replaces the org-ADMIN apps(orgId!)
@@ -2783,6 +2894,11 @@ type Query {
   unknown resource ref is NOT_FOUND.
   """
   effectiveAccess(resource: ID!, user: ID!): EffectiveAccess!
+
+  """
+  Explain the standing policy chain (org / user / app) for one action - which layer denies it (#510, cor:acl:040:02). Org-ADMIN on the app's org.
+  """
+  effectiveActionPolicy(action: String!, appRef: String!, userRef: String): EffectiveActionPolicy!
 
   """
   Exchange connections for an org.
@@ -2999,6 +3115,11 @@ type Query {
   organizations(filter: OrganizationFilter, limit: Int, offset: Int): OrganizationsPage!
 
   """
+  Usage-vs-limit counters for an org (+ one app when appRef given). Org-ADMIN. Rows materialize on first view, seeded with platform defaults (#510).
+  """
+  quotaCounters(appRef: String, orgRef: String!): [QuotaCounter!]!
+
+  """
   036-ai-service-config: resolve a config name for an execution context
   and return the DECRYPTED credentials (privileged; successor to
   agentAIConfig/appAIConfig).
@@ -3099,6 +3220,27 @@ type Query {
   tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
   """
   users(filter: UserFilter, limit: Int, offset: Int): UsersPage!
+}
+
+"""
+Usage-vs-limit for one scope x action window (#510). The stored limit is the enforced value; env defaults only seed first touch.
+"""
+type QuotaCounter {
+  """run.execute or llm.tokens."""
+  action: String!
+  id: ID!
+  limit: Int!
+  resetAt: String!
+  scopeId: String!
+
+  """app or org."""
+  scopeKind: String!
+  used: Int!
+
+  """
+  Window kind (day). The row rolls in place at UTC midnight - used resets, limit persists.
+  """
+  window: String!
 }
 
 type RemoveMemoryMemberPayload {
@@ -3338,6 +3480,24 @@ input SetAgentAssetUploadEnabledInput {
   enabled: Boolean!
 }
 
+input SetQuotaLimitInput {
+  """run.execute or llm.tokens."""
+  action: String!
+
+  """
+  Optional app scope - ref: PK or URN; must belong to the org. Omit to set the org-level limit.
+  """
+  appRef: String
+
+  """
+  Non-negative integer; 0 pauses the scope (every launch denies QUOTA_EXCEEDED).
+  """
+  limit: Int!
+
+  """Org - ref: PK or URN."""
+  orgRef: String!
+}
+
 enum SubscriptionType {
   READ_ONLY
   READ_WRITE
@@ -3357,7 +3517,9 @@ enum SyncStatus {
 
 input TriggerAppRunInput {
   aiConfigName: String
-  appId: String!
+
+  """App — ref: PK or fully-qualified URN."""
+  appRef: String!
   entryNodeUrn: String!
   eventData: JSON
   runAsSelf: Boolean
@@ -3374,7 +3536,11 @@ type UninstallAgentFromAppPayload {
 }
 
 input UpdateAgentScheduleInput {
+  """Agent — ref: PK or URN; must be installed in the App."""
+  agentRef: String
   aiConfigName: String
+
+  """Providing cron switches the schedule to recurring (clears runAt)."""
   cron: String
   enabled: Boolean
   entryNodeUrn: String
@@ -3382,6 +3548,11 @@ input UpdateAgentScheduleInput {
   name: String
   policy: JSON
   runAsSelf: Boolean
+
+  """
+  Providing runAt switches the schedule to one-shot (clears cron). At most one of cron / runAt per call.
+  """
+  runAt: String
   timezone: String
 }
 
@@ -3522,6 +3693,11 @@ type User {
   linkedAt: String
   maxReferrals: Int
   name: String
+
+  """
+  User-layer action-policy link (cor:acl:040:02, #510) — constrains runs made on the user's behalf. Null = no restriction. Self-authored via updateMyPolicy.
+  """
+  policy: JSON
   roles: [Role!]!
   urn: String
 }

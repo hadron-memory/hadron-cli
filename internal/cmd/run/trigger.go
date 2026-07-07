@@ -62,7 +62,7 @@ so a script can branch on the run's outcome.`,
 			}
 
 			input := &gen.TriggerAppRunInput{
-				AppId:        appRef,
+				AppRef:       appRef,
 				EntryNodeUrn: entryURN,
 				EventData:    eventData,
 			}

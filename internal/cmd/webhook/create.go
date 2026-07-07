@@ -58,7 +58,7 @@ follow-on). --as-self runs on behalf of you (authenticated user only).`,
 
 			enabled := !disabled
 			input := &gen.CreateAgentWebhookInput{
-				AppId:        appRef,
+				AppRef:       appRef,
 				Name:         name,
 				EntryNodeUrn: entryURN,
 				Enabled:      &enabled,
@@ -70,7 +70,7 @@ follow-on). --as-self runs on behalf of you (authenticated user only).`,
 				input.AiConfigName = &aiConfig
 			}
 			if agent != "" {
-				input.AgentId = &agent
+				input.AgentRef = &agent
 			}
 			if asSelf {
 				input.RunAsSelf = &asSelf

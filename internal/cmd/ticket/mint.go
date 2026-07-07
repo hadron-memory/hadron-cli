@@ -42,12 +42,12 @@ v1 supports the comm.outbound action only. --app scopes the tickets to one App
 				return err
 			}
 			input := &gen.MintActionTicketsInput{
-				OrgId:  org,
+				OrgRef: org,
 				Action: action,
 				Count:  count,
 			}
 			if app != "" {
-				input.AppId = &app
+				input.AppRef = &app
 			}
 			if note != "" {
 				input.Note = &note

@@ -308,8 +308,9 @@ Conventions:
     args, `--ai-config <n>` picks a named config, `--wait` polls to a terminal
     status (`--wait-timeout`, default 5m; a timeout is exit 6). `run ls` is the
     audit surface (scope `--app` XOR `--org`, filter `--status`, paged to
-    exhaustion); `run get <id>` is the full record (budgets, policy, failure
-    payload); `run cancel <id>` is the kill switch (requires `--yes`).
+    exhaustion); `run get <id>` is the full record (budgets, policy, the run
+    envelope `data` — fields extracted by flow nodes as the walk advances — and
+    the failure payload); `run cancel <id>` is the kill switch (requires `--yes`).
   - `schedule create --app <ref> --name <n> --cron '<expr>' --entry <node-urn>`
     registers a recurring trigger (5-field cron, evaluated in `--tz`, default UTC;
     one-time `--at` is not yet a server capability). `--policy '<json>'` is a
