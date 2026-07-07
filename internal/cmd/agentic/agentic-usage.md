@@ -59,7 +59,7 @@ node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 
 ```
 hadron auth login | logout | whoami | status | token create|ls|revoke <id>
-hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>]
+hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>]
 hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn> | export <urn> [-o <file>] [--format md|json] | import <file|-> [-m <memory>] [--with-edges]
 hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--tag <t>]... [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
@@ -192,9 +192,13 @@ Conventions:
   `member ls|add|set-role|rm <memory> --user <id> --role <owner|writer|reader>`
   manages team membership (rows exist only on group-class memories);
   `share ls|create|set-role|revoke <memory> --grantee <id> --role <writer|reader>`
-  grants individual users access. The memory ref is an id or URN; `add`/`create`
-  upsert; `member rm` / `share revoke` require `--yes` non-interactively. Find
-  user IDs via `org member ls` or `auth whoami`.
+  grants individual users access; `subscription` grants an entire organization
+  access (the org-level counterpart, with the full Role set) — `subscription
+  create|set-role <memory> --org <id> --role <owner|admin|contributor|reader>`,
+  and `subscription ls <memory>` / `subscription rm <memory> --org <id>`. The
+  memory ref is an id or URN; `add`/`create` upsert; `member rm` / `share revoke`
+  / `subscription rm` require `--yes` non-interactively. Find user IDs via
+  `org member ls` or `auth whoami`.
 - `spec` manages product-spec nodes whose loc IS a citation number. A memory
   is either flat (`<module>:<feature>:<rule>[:<flow>]`, e.g. `msg:010:02`) or
   product-rooted (`<product>:<module>:<feature>:<rule>[:<flow>]`, e.g.

@@ -31,6 +31,21 @@ type shareDTO struct {
 	Grantee accessUserDTO `json:"grantee"`
 }
 
+// subscriptionDTO is the stable --json shape for a memory subscription — an
+// ORGANIZATION granted a role on the memory (member/share are per-user).
+// `activated` reflects the server's activation state.
+type subscriptionDTO struct {
+	Role         string `json:"role"`
+	Activated    bool   `json:"activated"`
+	Organization orgRef `json:"organization"`
+}
+
+type orgRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	URN  string `json:"urn"`
+}
+
 func userFromMemFields(u gen.MemUserFields) accessUserDTO {
 	return accessUserDTO{ID: u.Id, Name: u.Name, Email: u.Email, Handle: u.Handle}
 }
@@ -56,6 +71,23 @@ func parseShareRole(s string) (gen.MemoryShareRole, error) {
 		return gen.MemoryShareRoleReader, nil
 	default:
 		return "", exitcode.Newf(exitcode.Usage, "invalid --role %q (want writer or reader)", s)
+	}
+}
+
+// parseSubscriptionRole parses the general Role enum (subscriptions carry the
+// full ADMIN/CONTRIBUTOR/OWNER/READER set, not the reduced member/share roles).
+func parseSubscriptionRole(s string) (gen.Role, error) {
+	switch strings.ToUpper(strings.TrimSpace(s)) {
+	case "ADMIN":
+		return gen.RoleAdmin, nil
+	case "CONTRIBUTOR":
+		return gen.RoleContributor, nil
+	case "OWNER":
+		return gen.RoleOwner, nil
+	case "READER":
+		return gen.RoleReader, nil
+	default:
+		return "", exitcode.Newf(exitcode.Usage, "invalid --role %q (want admin, contributor, owner, or reader)", s)
 	}
 }
 
