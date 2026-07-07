@@ -185,3 +185,131 @@ func TestOrgMemberRmRequiresYes(t *testing.T) {
 		t.Fatalf("expected --yes refusal, got %v", err)
 	}
 }
+
+const orgInviteJSON = `{"id":"inv1","slug":"inv_abc","email":"alice@partner.com","name":null,
+	"githubUsername":null,"memberRole":"CONTRIBUTOR","organizationId":"org1","maxActivations":null,
+	"activationCount":0,"expiresAt":null,"acceptedAt":null,"createdAt":"2026-06-19T00:00:00Z"}`
+
+func TestOrgLs(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"Organizations": `{"data":{"organizations":{"total":1,"items":[` + orgJSON + `]}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "ls", "--mine", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var orgs []map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &orgs); err != nil {
+		t.Fatalf("not a JSON array: %v\n%s", err, out.String())
+	}
+	if len(orgs) != 1 || orgs[0]["urn"] != "acme.com" {
+		t.Errorf("orgs: %v", orgs)
+	}
+	var vars struct {
+		Filter *struct {
+			MemberOnly *bool `json:"memberOnly"`
+		} `json:"filter"`
+	}
+	_ = json.Unmarshal(captured["Organizations"], &vars)
+	if vars.Filter == nil || vars.Filter.MemberOnly == nil || !*vars.Filter.MemberOnly {
+		t.Errorf("--mine must send filter.memberOnly=true, got %s", captured["Organizations"])
+	}
+}
+
+func TestOrgInviteCreate(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateUserInvitation": `{"data":{"createUserInvitation":` + orgInviteJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	// mixed-case role normalizes to the UPPER-case Role enum.
+	root.SetArgs([]string{"org", "invite", "create", "alice@partner.com", "--org", "org1", "--role", "Contributor", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateUserInvitation"], &vars)
+	if vars["orgId"] != "org1" || vars["memberRole"] != "CONTRIBUTOR" || vars["email"] != "alice@partner.com" {
+		t.Errorf("invite vars: %v", vars)
+	}
+	// unset optionals must be omitted, not sent as null/0.
+	for _, k := range []string{"name", "githubUsername", "expiresInDays", "maxActivations"} {
+		if _, present := vars[k]; present {
+			t.Errorf("unset %q must be omitted, got %v", k, vars[k])
+		}
+	}
+	var dto struct {
+		Slug string `json:"slug"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	if dto.Slug != "inv_abc" {
+		t.Errorf("expected slug in output, got %s", out.String())
+	}
+}
+
+func TestOrgInviteCreateRejectsBadRole(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "invite", "create", "a@b.com", "--org", "org1", "--role", "boss", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "invalid --role") {
+		t.Fatalf("expected invalid-role error, got %v", err)
+	}
+}
+
+func TestOrgInviteAccept(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"AcceptInvitation": `{"data":{"acceptInvitation":true}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "invite", "accept", "inv_abc", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["AcceptInvitation"], &vars)
+	if vars["slug"] != "inv_abc" {
+		t.Errorf("accept vars: %v", vars)
+	}
+	if !strings.Contains(out.String(), "accepted") {
+		t.Errorf("expected accepted confirmation, got %s", out.String())
+	}
+}
+
+func TestOrgInviteShow(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetInvitation": `{"data":{"invitation":` + orgInviteJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "invite", "show", "inv_abc", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Slug       string `json:"slug"`
+		MemberRole string `json:"memberRole"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	if dto.Slug != "inv_abc" || dto.MemberRole != "CONTRIBUTOR" {
+		t.Errorf("show dto: %+v", dto)
+	}
+}
+
+// A false acceptInvitation return is a failed accept → non-zero exit, so
+// automation can't read it as success.
+func TestOrgInviteAcceptFalseExitsNonZero(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"AcceptInvitation": `{"data":{"acceptInvitation":false}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "invite", "accept", "inv_stale", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "not accepted") {
+		t.Fatalf("a false accept must exit non-zero, got %v", err)
+	}
+}
