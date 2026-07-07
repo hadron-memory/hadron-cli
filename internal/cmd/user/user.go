@@ -6,6 +6,7 @@ package user
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -62,6 +63,15 @@ GitHub username, exact on email. Results are name-ascending.`,
 		Example: `  hadron user search alice --json`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if strings.TrimSpace(args[0]) == "" {
+				return exitcode.Newf(exitcode.Usage, "query must not be empty")
+			}
+			if limit < 0 {
+				return exitcode.Newf(exitcode.Usage, "limit must be non-negative")
+			}
+			if offset < 0 {
+				return exitcode.Newf(exitcode.Usage, "offset must be non-negative")
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -148,7 +158,10 @@ func newCmdProfileSet(f *cmdutil.Factory) *cobra.Command {
 			}
 			dto := userDTOFromFields(resp.UpdateMyProfile.UserFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ updated your profile (%s)\n", dash(dto.Email))
+				// Lead with the stable user ID (email/handle may be empty or just
+				// cleared), matching how other update commands identify the entity.
+				_, err := fmt.Fprintf(w, "✓ updated your profile %s (handle: %s, email: %s)\n",
+					dto.ID, dash(dto.Handle), dash(dto.Email))
 				return err
 			})
 		},

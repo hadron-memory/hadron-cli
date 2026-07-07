@@ -66,3 +66,19 @@ func TestProfileSetNothingIsUsageError(t *testing.T) {
 		t.Fatalf("expected nothing-to-update usage error, got %v", err)
 	}
 }
+
+func TestUserSearchRejectsBadArgs(t *testing.T) {
+	cases := [][]string{
+		{"user", "search", "  ", "--server", "http://127.0.0.1:1"},
+		{"user", "search", "alice", "--limit", "-1", "--server", "http://127.0.0.1:1"},
+		{"user", "search", "alice", "--offset", "-5", "--server", "http://127.0.0.1:1"},
+	}
+	for _, args := range cases {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(args)
+		if err := root.Execute(); err == nil {
+			t.Errorf("expected a usage error for args %v, got nil", args)
+		}
+	}
+}
