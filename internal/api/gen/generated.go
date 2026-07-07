@@ -3696,6 +3696,41 @@ func (v *EffectiveAccessResponse) GetEffectiveAccess() *EffectiveAccessEffective
 	return v.EffectiveAccess
 }
 
+// EncryptMemoryEncryptMemory includes the requested fields of the GraphQL type Memory.
+type EncryptMemoryEncryptMemory struct {
+	Id          string `json:"id"`
+	Urn         string `json:"urn"`
+	Name        string `json:"name"`
+	IsEncrypted bool   `json:"isEncrypted"`
+}
+
+// GetId returns EncryptMemoryEncryptMemory.Id, and is useful for accessing the field via an interface.
+func (v *EncryptMemoryEncryptMemory) GetId() string { return v.Id }
+
+// GetUrn returns EncryptMemoryEncryptMemory.Urn, and is useful for accessing the field via an interface.
+func (v *EncryptMemoryEncryptMemory) GetUrn() string { return v.Urn }
+
+// GetName returns EncryptMemoryEncryptMemory.Name, and is useful for accessing the field via an interface.
+func (v *EncryptMemoryEncryptMemory) GetName() string { return v.Name }
+
+// GetIsEncrypted returns EncryptMemoryEncryptMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *EncryptMemoryEncryptMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// EncryptMemoryResponse is returned by EncryptMemory on success.
+type EncryptMemoryResponse struct {
+	// Convert an existing plaintext memory to an encrypted one. The caller
+	// provides the data key; all existing node content/data is re-written
+	// as ciphertext in a single transaction.
+	//
+	// Accepts the entity's ID or URN.
+	EncryptMemory *EncryptMemoryEncryptMemory `json:"encryptMemory"`
+}
+
+// GetEncryptMemory returns EncryptMemoryResponse.EncryptMemory, and is useful for accessing the field via an interface.
+func (v *EncryptMemoryResponse) GetEncryptMemory() *EncryptMemoryEncryptMemory {
+	return v.EncryptMemory
+}
+
 // FindNodesFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
 // The GraphQL type's documentation follows.
 //
@@ -8641,6 +8676,18 @@ func (v *__EffectiveAccessInput) GetUser() string { return v.User }
 // GetResource returns __EffectiveAccessInput.Resource, and is useful for accessing the field via an interface.
 func (v *__EffectiveAccessInput) GetResource() string { return v.Resource }
 
+// __EncryptMemoryInput is used internally by genqlient
+type __EncryptMemoryInput struct {
+	MemoryId string `json:"memoryId"`
+	DataKey  string `json:"dataKey"`
+}
+
+// GetMemoryId returns __EncryptMemoryInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__EncryptMemoryInput) GetMemoryId() string { return v.MemoryId }
+
+// GetDataKey returns __EncryptMemoryInput.DataKey, and is useful for accessing the field via an interface.
+func (v *__EncryptMemoryInput) GetDataKey() string { return v.DataKey }
+
 // __FindNodesInput is used internally by genqlient
 type __FindNodesInput struct {
 	Query  *string        `json:"query,omitempty"`
@@ -10623,6 +10670,49 @@ func EffectiveAccess(
 	}
 
 	data_ = &EffectiveAccessResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by EncryptMemory.
+const EncryptMemory_Operation = `
+mutation EncryptMemory ($memoryId: ID!, $dataKey: String!) {
+	encryptMemory(memoryId: $memoryId, dataKey: $dataKey) {
+		id
+		urn
+		name
+		isEncrypted
+	}
+}
+`
+
+// Convert a plaintext memory to encrypted-at-rest (#57). One-way: the caller
+// provides the data key and all node content/data is rewritten as ciphertext in
+// a single transaction. There is no decrypt mutation, so the command gates like a
+// destructive op.
+func EncryptMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId string,
+	dataKey string,
+) (data_ *EncryptMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EncryptMemory",
+		Query:  EncryptMemory_Operation,
+		Variables: &__EncryptMemoryInput{
+			MemoryId: memoryId,
+			DataKey:  dataKey,
+		},
+	}
+
+	data_ = &EncryptMemoryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

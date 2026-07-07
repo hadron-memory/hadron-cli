@@ -59,7 +59,7 @@ node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 
 ```
 hadron auth login | logout | whoami | status | token create|ls|revoke <id>
-hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>]
+hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
 hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn> | export <urn> [-o <file>] [--format md|json] | import <file|-> [-m <memory>] [--with-edges]
 hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--tag <t>]... [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
@@ -105,9 +105,14 @@ Conventions:
   `edge ls` and in `node get --json`). A nameless edge prints its loc instead.
   Cross-memory edges are allowed.
 - Destructive / bulk-write commands (`memory rm`, `node rm`, `edge rm`,
-  `app uninstall`, and a real `replace`) prompt on a terminal and REQUIRE
-  `--yes` when run non-interactively (agents must always pass `--yes`, or
-  `--dry-run` to preview `replace`). Without it they exit 2.
+  `app uninstall`, a real `replace`, and `memory encrypt`) prompt on a terminal
+  and REQUIRE `--yes` when run non-interactively (agents must always pass
+  `--yes`, or `--dry-run` to preview `replace`). Without it they exit 2.
+- `memory encrypt <memory> --data-key -` converts a plaintext memory to
+  encrypted-at-rest: you provide the data key (read from stdin via `--data-key -`
+  so it stays out of shell history) and the server rewrites all node content as
+  ciphertext in one transaction. It is ONE-WAY — there is no decrypt command —
+  so keep the key. Reads by authorized callers stay transparent afterward.
 - `memory set` creates when called without a positional argument
   (requires `--org` and `--name`) and updates when given one. Only
   fields passed as flags change.
