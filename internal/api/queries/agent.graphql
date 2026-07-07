@@ -87,6 +87,10 @@ mutation UpdateAgent(
   $systemPrompt: String
   # @genqlient(omitempty: true)
   $systemMemoryId: String
+  # omitempty: unset (nil) is omitted → preserved. The CLI's --surface
+  # (StringArrayVar) only ever yields nil or a NON-empty slice, so the
+  # "empty slice gets omitted" case is unreachable here; explicit clear-the-set
+  # support would need a dedicated flag (a later #58 slice).
   # @genqlient(omitempty: true)
   $surfaces: [String!]
   # @genqlient(omitempty: true)
