@@ -58,7 +58,103 @@ require a user login — an app or agent key cannot manage user tokens.`,
 	}
 	cmd.AddCommand(newCmdTokenCreate(f))
 	cmd.AddCommand(newCmdTokenLs(f))
+	cmd.AddCommand(newCmdTokenValidate(f))
 	cmd.AddCommand(newCmdTokenRevoke(f))
+	return cmd
+}
+
+// validateResult is the stable --json shape for `token validate`. `valid` is
+// the load-bearing field; the identity fields are populated only when valid.
+type validateResult struct {
+	Valid  bool     `json:"valid"`
+	UserID string   `json:"userId,omitempty"`
+	Name   string   `json:"name,omitempty"`
+	Email  string   `json:"email,omitempty"`
+	Handle string   `json:"handle,omitempty"`
+	Roles  []string `json:"roles"`
+}
+
+func newCmdTokenValidate(f *cmdutil.Factory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "validate",
+		Short: "Check whether a token is valid (reads it from stdin)",
+		Long: `Check whether a personal access token authenticates, without storing it.
+
+The token is read from standard input, so it never lands in your shell history
+or the process table. A valid token prints the user it belongs to and exits 0;
+a rejected or revoked token exits 3.`,
+		Example: `  echo $TOKEN | hadron auth token validate
+  hadron auth token validate --json < token.txt`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			token, err := readToken(f.IOStreams.In, "token validate")
+			if err != nil {
+				return err
+			}
+			server, err := f.Server()
+			if err != nil {
+				return err
+			}
+			client, err := api.NewClient(server, token, f.HTTPClient)
+			if err != nil {
+				return err
+			}
+
+			dto := validateResult{Roles: []string{}}
+			resp, err := gen.Me(cmd.Context(), client)
+			switch {
+			case err != nil:
+				// A rejected token is a definitive "invalid" answer, not a CLI
+				// failure; anything else (transport, server error) we can't judge.
+				mapped := api.MapError(err)
+				if exitcode.FromError(mapped) != exitcode.AuthRequired {
+					return mapped
+				}
+			case resp.Me != nil:
+				dto.Valid = true
+				dto.UserID = resp.Me.Id
+				if resp.Me.Name != nil {
+					dto.Name = *resp.Me.Name
+				}
+				if resp.Me.Email != nil {
+					dto.Email = *resp.Me.Email
+				}
+				if resp.Me.Handle != nil {
+					dto.Handle = *resp.Me.Handle
+				}
+				for _, r := range resp.Me.Roles {
+					dto.Roles = append(dto.Roles, string(r))
+				}
+			}
+
+			writeErr := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				if !dto.Valid {
+					_, err := fmt.Fprintln(w, "✗ Token is invalid, revoked, or expired")
+					return err
+				}
+				label := dto.Name
+				if label == "" {
+					label = dto.Handle
+				}
+				if label == "" {
+					label = dto.UserID
+				}
+				if dto.Email != "" {
+					_, err := fmt.Fprintf(w, "✓ Token is valid — %s (%s)\n", label, dto.Email)
+					return err
+				}
+				_, err := fmt.Fprintf(w, "✓ Token is valid — %s\n", label)
+				return err
+			})
+			if writeErr != nil {
+				return writeErr
+			}
+			if !dto.Valid {
+				return exitcode.Silent(exitcode.AuthRequired)
+			}
+			return nil
+		},
+	}
 	return cmd
 }
 

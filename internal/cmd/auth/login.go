@@ -40,7 +40,7 @@ environment variable (which skips storage entirely).`,
 
 			var token string
 			if withToken {
-				token, err = readToken(f.IOStreams.In)
+				token, err = readToken(f.IOStreams.In, "--with-token")
 				if err != nil {
 					return err
 				}
@@ -97,14 +97,17 @@ func warnIfPlaintext(io *output.IOStreams, st store.Store) {
 	}
 }
 
-func readToken(in io.Reader) (string, error) {
+// readToken reads a single token line from stdin. src names the caller so the
+// usage error points at the right surface (e.g. "--with-token" for login, the
+// command name for `token validate`).
+func readToken(in io.Reader, src string) (string, error) {
 	scanner := bufio.NewScanner(in)
 	if !scanner.Scan() {
-		return "", exitcode.Newf(exitcode.Usage, "--with-token expects a token on standard input")
+		return "", exitcode.Newf(exitcode.Usage, "%s expects a token on standard input", src)
 	}
 	token := strings.TrimSpace(scanner.Text())
 	if token == "" {
-		return "", exitcode.Newf(exitcode.Usage, "--with-token expects a non-empty token on standard input")
+		return "", exitcode.Newf(exitcode.Usage, "%s expects a non-empty token on standard input", src)
 	}
 	return token, nil
 }
