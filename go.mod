@@ -1,6 +1,6 @@
 module github.com/hadron-memory/hadron-cli
 
-go 1.26.4
+go 1.26.5
 
 require (
 	github.com/Khan/genqlient v0.8.1
