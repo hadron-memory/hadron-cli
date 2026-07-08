@@ -388,7 +388,7 @@ mutation UpdateEdge(
   $data: JSON
 ) {
   updateEdge(
-    edgeId: $edgeId
+    edgeRef: $edgeId
     name: $name
     loc: $loc
     description: $description
@@ -414,7 +414,7 @@ mutation UpdateEdge(
 }
 
 mutation DeleteEdge($edgeId: ID!) {
-  deleteEdge(edgeId: $edgeId)
+  deleteEdge(edgeRef: $edgeId)
 }
 
 # Bulk literal/regex search-and-replace across selected nodes (hadron-server#312).

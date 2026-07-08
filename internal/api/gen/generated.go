@@ -12256,7 +12256,7 @@ func DeleteApp(
 // The mutation executed by DeleteEdge.
 const DeleteEdge_Operation = `
 mutation DeleteEdge ($edgeId: ID!) {
-	deleteEdge(edgeId: $edgeId)
+	deleteEdge(edgeRef: $edgeId)
 }
 `
 
@@ -14283,7 +14283,7 @@ func UpdateAiServiceConfig(
 // The mutation executed by UpdateEdge.
 const UpdateEdge_Operation = `
 mutation UpdateEdge ($edgeId: ID!, $name: String, $loc: String, $description: String, $isRunnable: Boolean, $priority: Int, $condition: JSON, $data: JSON) {
-	updateEdge(edgeId: $edgeId, name: $name, loc: $loc, description: $description, isRunnable: $isRunnable, priority: $priority, condition: $condition, data: $data) {
+	updateEdge(edgeRef: $edgeId, name: $name, loc: $loc, description: $description, isRunnable: $isRunnable, priority: $priority, condition: $condition, data: $data) {
 		id
 		name
 		loc
