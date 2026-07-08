@@ -1,3 +1,3 @@
-mutation RunTask($urn: String, $memory: String, $task: String, $args: JSON) {
-  runTask(urn: $urn, memory: $memory, task: $task, args: $args)
+mutation RunTask($nodeRef: String!, $args: JSON) {
+  runTask(nodeRef: $nodeRef, args: $args)
 }

@@ -2114,7 +2114,7 @@ type Mutation {
 
   """New secret + token; the old URL dies immediately."""
   rotateAgentWebhook(id: ID!): AgentWebhookCredentials!
-  runTask(appRef: ID, args: JSON, memory: String, runAsSelf: Boolean, task: String, urn: String): String!
+  runTask(nodeRef: String!, args: JSON, appRef: ID, runAsSelf: Boolean): String!
   saveChatSummary(chatId: String!, summary: String!): Boolean!
   searchReplaceInNodes(input: SearchReplaceInNodesInput!): SearchReplaceResult!
   sendChatMessage(chatId: String!, userMessage: String!): ChatPromptResult!
