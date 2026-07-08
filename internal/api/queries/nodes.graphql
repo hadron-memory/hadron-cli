@@ -351,9 +351,9 @@ mutation CloneNode(
 }
 
 # Fold one node (source) into another (target), returning the surviving target
-# (mergeNodes, #186). $source / $target are ids or fully-qualified URNs.
-# `include` selects which fields fold in (ABSTRACT/CONTENT/DATA/DESCRIPTION/
-# EDGES/PROPERTIES/TAGS); `deleteSource` hard-deletes the source afterwards.
+# (mergeNodes, #186). input.source / input.target are ids or fully-qualified
+# URNs. `include` selects which fields fold in (ABSTRACT/CONTENT/DATA/
+# DESCRIPTION/EDGES/PROPERTIES/TAGS); `deleteSource` hard-deletes it afterwards.
 # Both optional inputs are omitempty so an unset one takes the server default
 # (omit include = every mergeable field; omit deleteSource = keep the source).
 # @genqlient(for: "MergeNodesInput.include", omitempty: true)

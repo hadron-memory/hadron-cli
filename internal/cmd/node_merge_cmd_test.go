@@ -90,6 +90,22 @@ func TestNodeMergeDeleteSource(t *testing.T) {
 	}
 }
 
+// A conformant server never returns null for the non-null mergeNodes field
+// without a GraphQL error, but a misbehaving one must yield an error, not a
+// nil-pointer panic.
+func TestNodeMergeNullResult(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"MergeNodes": `{"data":{"mergeNodes":null}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "merge", nodeURN, "--into", "acme.com::kb::x", "--yes", "--server", gql.URL, "--json"})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected an error when the server returns a null node")
+	}
+}
+
 func TestNodeMergeRequiresInto(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)

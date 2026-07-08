@@ -77,11 +77,13 @@ terminal and requires --yes non-interactively.`,
 
 			// Merging mutates the target and can delete the source — gate it like
 			// the other destructive/bulk-write commands.
-			what := fmt.Sprintf("merge %s into %s", args[0], into)
+			prompt := fmt.Sprintf("About to merge %s into %s.", args[0], into)
 			if deleteSource {
-				what += " and hard-delete the source"
+				// --delete-source hard-removes the source — call out that it's
+				// irreversible, matching the deletion prompts' wording.
+				prompt = fmt.Sprintf("About to merge %s into %s and hard-delete the source. This cannot be undone.", args[0], into)
 			}
-			if err := cmdutil.Confirm(f.IOStreams, yes, "About to "+what+"."); err != nil {
+			if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
 				return err
 			}
 
@@ -96,6 +98,12 @@ terminal and requires --yes non-interactively.`,
 			resp, err := gen.MergeNodes(cmd.Context(), client, &input)
 			if err != nil {
 				return api.MapError(err)
+			}
+			// mergeNodes is declared Node! so a conformant server never returns
+			// null without an error, but guard the deref rather than panic on a
+			// misbehaving one.
+			if resp == nil || resp.MergeNodes == nil {
+				return exitcode.Newf(exitcode.Error, "merge returned no node")
 			}
 			dto := mergeNodesDTO(resp.MergeNodes)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
