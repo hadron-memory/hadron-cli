@@ -61,7 +61,7 @@ node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 ```
 hadron auth login | logout | whoami | status | token create|ls|validate|revoke <id>
 hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
-hadron node ls [-m <memory>] | get <urn> | add | update <urn> | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | rm <urn> [--hard] | export <urn> [-o <file>] [--format md|json] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]]
+hadron node ls [-m <memory>] | get <urn> | add | update <urn> | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] | export <urn> [-o <file>] [--format md|json] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
 hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--tag <t>]... [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
@@ -111,10 +111,10 @@ Conventions:
   `--runnable`); `edge update`/`edge rm` address it by its edge ID (shown by
   `edge ls` and in `node get --json`). A nameless edge prints its loc instead.
   Cross-memory edges are allowed.
-- Destructive / bulk-write commands (`memory rm`, `node rm`, `edge rm`,
-  `app uninstall`, a real `replace`, and `memory encrypt`) prompt on a terminal
-  and REQUIRE `--yes` when run non-interactively (agents must always pass
-  `--yes`, or `--dry-run` to preview `replace`). Without it they exit 2.
+- Destructive / bulk-write commands (`memory rm`, `node rm`, `node merge`,
+  `edge rm`, `app uninstall`, a real `replace`, and `memory encrypt`) prompt on a
+  terminal and REQUIRE `--yes` when run non-interactively (agents must always
+  pass `--yes`, or `--dry-run` to preview `replace`). Without it they exit 2.
 - `memory encrypt <memory> --data-key -` converts a plaintext memory to
   encrypted-at-rest: you provide the data key (read from stdin via `--data-key -`
   so it stays out of shell history) and the server rewrites all node content as
@@ -145,6 +145,14 @@ Conventions:
   (fresh id) and copies only the outgoing edges that resolve at the destination
   (incoming edges are never copied). Both fail loudly if a live node already
   occupies the destination loc.
+- `node merge <source> --into <target>` folds the source node into the target
+  (the survivor) and returns the target. Name each by URN or a bare `<loc>` with
+  `-m` (which scopes both). By default every mergeable field folds in; restrict
+  with repeated `--field`: `CONTENT`/`ABSTRACT`/`DESCRIPTION` concatenate
+  (target first), `TAGS` unions, `DATA`/`PROPERTIES` shallow-merge (target wins
+  on key collisions), `EDGES` re-points the source's edges onto the target. The
+  source stays in place unless `--delete-source` hard-removes it after the merge.
+  Merging mutates the target, so it's gated — pass `--yes` non-interactively.
 - `isRunnable` gates whether `hadron task run` will execute a node. Both
   `node add` and `node update` take `--runnable` to set it; on `update` it's
   tri-state — `--runnable` sets true, `--runnable=false` clears it, omitting it
@@ -415,6 +423,10 @@ hadron node update acme.com::kb::findings:flaky-ci --name "Flaky CI (resolved)"
 # Move a node (keeps its id + edges); clone it to a new memory (new id)
 hadron node move acme.com::kb::findings:flaky-ci --to-urn acme.com::kb::archive:flaky-ci
 hadron node clone acme.com::kb::templates:base --to-memory acme.com::sandbox --json
+
+# Fold a duplicate node into the canonical one (agents must pass --yes)
+hadron node merge acme.com::kb::findings:dup --into acme.com::kb::findings:canonical \
+  --field CONTENT --field EDGES --delete-source --yes
 
 # Bulk search-and-replace across a memory. A real run previews + prompts;
 # agents pass --dry-run to preview or --yes to apply non-interactively. Even
