@@ -401,8 +401,11 @@ hadron edge add --from acme.com::kb::findings:flaky-ci \
 hadron edge ls acme.com::kb::findings:flaky-ci --json
 hadron edge rm <edge-id> --yes
 
-# Delete a node (agents must pass --yes)
+# Delete a node (agents must pass --yes). Soft by default (recoverable from
+# version history); --hard removes the row + its edges + version history
+# irreversibly.
 hadron node rm acme.com::kb::findings:flaky-ci --yes
+hadron node rm acme.com::kb::data:stale --hard --yes
 
 # Ranked search (hybrid semantic+keyword by default; scores + abstracts in --json)
 hadron search "how do users report a bad actor" -m micromentor.org::mmdata --json
