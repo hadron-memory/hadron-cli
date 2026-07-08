@@ -1828,7 +1828,7 @@ type Mutation {
   """
   deleteApp(id: ID!): Boolean!
   deleteChat(chatId: String!): Boolean!
-  deleteEdge(edgeId: ID!): Boolean!
+  deleteEdge(edgeRef: ID!): Boolean!
   deleteExchangeConnection(id: ID!): Boolean!
 
   """
@@ -2221,7 +2221,7 @@ type Mutation {
   """
   updateApp(agentTools: [String!], aiApiKey: String, aiModel: String, aiProvider: String, anonymousTtlDays: Int, appType: AppType, createUserPermission: CreateUserPermission, description: String, expiresAt: String, id: ID!, identifyUserMethod: IdentifyUserMethod, name: String, role: AppMembershipRole, sessionTimeoutSeconds: Int, surfaces: [String!], systemPrompt: String, trainingMode: Boolean, urn: String): App!
   updateChatTitle(chatId: String!, title: String!): Boolean!
-  updateEdge(condition: JSON, data: JSON, description: String, edgeId: ID!, isRunnable: Boolean, loc: String, name: String, priority: Int): Edge!
+  updateEdge(condition: JSON, data: JSON, description: String, edgeRef: ID!, isRunnable: Boolean, loc: String, name: String, priority: Int): Edge!
 
   """
   Update a Memory.
