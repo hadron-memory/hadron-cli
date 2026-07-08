@@ -10105,6 +10105,7 @@ func (v *__DeleteMemorySubscriptionInput) GetOrgId() string { return v.OrgId }
 type __DeleteNodeInput struct {
 	Loc      string `json:"loc"`
 	MemoryId string `json:"memoryId"`
+	Hard     *bool  `json:"hard,omitempty"`
 }
 
 // GetLoc returns __DeleteNodeInput.Loc, and is useful for accessing the field via an interface.
@@ -10112,6 +10113,9 @@ func (v *__DeleteNodeInput) GetLoc() string { return v.Loc }
 
 // GetMemoryId returns __DeleteNodeInput.MemoryId, and is useful for accessing the field via an interface.
 func (v *__DeleteNodeInput) GetMemoryId() string { return v.MemoryId }
+
+// GetHard returns __DeleteNodeInput.Hard, and is useful for accessing the field via an interface.
+func (v *__DeleteNodeInput) GetHard() *bool { return v.Hard }
 
 // __DeleteOrganizationInput is used internally by genqlient
 type __DeleteOrganizationInput struct {
@@ -12361,16 +12365,20 @@ func DeleteMemorySubscription(
 
 // The mutation executed by DeleteNode.
 const DeleteNode_Operation = `
-mutation DeleteNode ($loc: String!, $memoryId: String!) {
-	deleteNode(loc: $loc, memoryId: $memoryId)
+mutation DeleteNode ($loc: String!, $memoryId: String!, $hard: Boolean) {
+	deleteNode(loc: $loc, memoryId: $memoryId, hard: $hard)
 }
 `
 
+// Soft-delete by default (sets deletedAt; recoverable via version history).
+// hard: true removes the row entirely — cascades edges + NodeVersion, irreversible
+// (#391). Omitted when false so a soft delete never sends an explicit hard: null.
 func DeleteNode(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	loc string,
 	memoryId string,
+	hard *bool,
 ) (data_ *DeleteNodeResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteNode",
@@ -12378,6 +12386,7 @@ func DeleteNode(
 		Variables: &__DeleteNodeInput{
 			Loc:      loc,
 			MemoryId: memoryId,
+			Hard:     hard,
 		},
 	}
 

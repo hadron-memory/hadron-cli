@@ -13,14 +13,21 @@ import (
 )
 
 func newCmdRm(f *cmdutil.Factory) *cobra.Command {
-	var yes bool
+	var yes, hard bool
 	var memory string
 	cmd := &cobra.Command{
 		Use:     "delete <node-urn> | <loc> -m <memory>",
 		Aliases: []string{"rm"},
 		Short:   "Delete a node",
+		Long: `Delete a node. By default this is a soft delete — the node disappears from
+reads but is recoverable from version history.
+
+--hard removes the row entirely, cascading its edges and version history
+(#391). This bypasses version-history recovery and is irreversible, so it
+prompts with a distinct warning (still gated by --yes non-interactively).`,
 		Example: `  hadron node rm acme.com::kb::findings:flaky-ci --yes
-  hadron node rm findings:flaky-ci -m acme.com::kb --yes`,
+  hadron node rm findings:flaky-ci -m acme.com::kb --yes
+  hadron node rm acme.com::kb::data:stale --hard --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
@@ -31,20 +38,35 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "node "+args[0]); err != nil {
+			// A hard delete bypasses version-history recovery, so name that in
+			// the prompt — the default ConfirmDeletion line understates it.
+			what := "node " + args[0]
+			if hard {
+				what += " (hard — permanently removes the row, its edges, and version history)"
+			}
+			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, what); err != nil {
 				return err
 			}
-			if _, err := gen.DeleteNode(cmd.Context(), client, node.Loc, node.MemoryId); err != nil {
+			var hardArg *bool
+			if hard {
+				hardArg = &hard
+			}
+			if _, err := gen.DeleteNode(cmd.Context(), client, node.Loc, node.MemoryId, hardArg); err != nil {
 				return api.MapError(err)
 			}
-			dto := map[string]string{"loc": node.Loc, "memoryId": node.MemoryId, "status": "deleted"}
+			status, verb := "deleted", "Deleted"
+			if hard {
+				status, verb = "hard-deleted", "Hard-deleted"
+			}
+			dto := map[string]string{"loc": node.Loc, "memoryId": node.MemoryId, "status": status}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ Deleted node %s\n", args[0])
+				_, err := fmt.Fprintf(w, "✓ %s node %s\n", verb, args[0])
 				return err
 			})
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org::memory) to resolve a bare <loc> against")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
+	cmd.Flags().BoolVar(&hard, "hard", false, "permanently remove the row (cascades edges + version history; irreversible)")
 	return cmd
 }

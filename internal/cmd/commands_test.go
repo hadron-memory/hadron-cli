@@ -882,13 +882,38 @@ func TestNodeRmWithYes(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var vars struct {
-		Loc      string `json:"loc"`
-		MemoryID string `json:"memoryId"`
-	}
+	var vars map[string]any
 	_ = json.Unmarshal(captured["DeleteNode"], &vars)
-	if vars.Loc != "findings:flaky-ci" || vars.MemoryID != "mem1" {
+	if vars["loc"] != "findings:flaky-ci" || vars["memoryId"] != "mem1" {
 		t.Errorf("delete args must come from the fetched node: %+v", vars)
+	}
+	// A default (soft) delete must not send hard at all — an explicit hard:null
+	// or hard:false would be wrong wire shape for "soft".
+	if v, present := vars["hard"]; present {
+		t.Errorf("soft delete must omit hard, got %v", v)
+	}
+}
+
+func TestNodeRmHard(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"DeleteNode": `{"data":{"deleteNode":true}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "rm", nodeURN, "--hard", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["DeleteNode"], &vars)
+	if vars["hard"] != true {
+		t.Errorf("--hard must send hard:true, got %v", vars["hard"])
+	}
+	// The --json status distinguishes a hard delete from a soft one.
+	if !strings.Contains(out.String(), "hard-deleted") {
+		t.Errorf("--json status should be hard-deleted, got %s", out.String())
 	}
 }
 
