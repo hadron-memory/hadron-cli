@@ -490,14 +490,14 @@ func TestNodeUpdateDataMerge(t *testing.T) {
 		t.Errorf("a merge-only update must not call GetNodeById")
 	}
 	var vars struct {
-		NodeId string         `json:"nodeId"`
-		Data   map[string]any `json:"data"`
+		NodeRef string         `json:"nodeRef"`
+		Data    map[string]any `json:"data"`
 	}
 	if err := json.Unmarshal(captured["UpdateNodeData"], &vars); err != nil {
 		t.Fatalf("unmarshal UpdateNodeData variables: %v", err)
 	}
-	if vars.NodeId != "n1" {
-		t.Errorf("nodeId must be the resolved id, got %q", vars.NodeId)
+	if vars.NodeRef != "n1" {
+		t.Errorf("nodeRef must be the resolved id, got %q", vars.NodeRef)
 	}
 	if vars.Data["status"] != "closed" {
 		t.Errorf("--data-merge must forward the parsed patch, got %v", vars.Data)
@@ -884,8 +884,9 @@ func TestNodeRmWithYes(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["DeleteNode"], &vars)
-	if vars["loc"] != "findings:flaky-ci" || vars["memoryId"] != "mem1" {
-		t.Errorf("delete args must come from the fetched node: %+v", vars)
+	// #542: deleteNode takes a single nodeRef — the resolved node's PK.
+	if vars["nodeRef"] != "n1" {
+		t.Errorf("delete arg must be the fetched node's id: %+v", vars)
 	}
 	// A default (soft) delete must not send hard at all — an explicit hard:null
 	// or hard:false would be wrong wire shape for "soft".

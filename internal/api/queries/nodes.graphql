@@ -258,12 +258,11 @@ mutation UpdateNode(
 # hard: true removes the row entirely — cascades edges + NodeVersion, irreversible
 # (#391). Omitted when false so a soft delete never sends an explicit hard: null.
 mutation DeleteNode(
-  $loc: String!
-  $memoryId: String!
+  $nodeRef: ID!
   # @genqlient(omitempty: true)
   $hard: Boolean
 ) {
-  deleteNode(loc: $loc, memoryId: $memoryId, hard: $hard)
+  deleteNode(nodeRef: $nodeRef, hard: $hard)
 }
 
 # Import external content into a node (cor:api:130 / importNode #457, #488).
@@ -305,12 +304,12 @@ mutation ImportNode(
 # server rejects a non-object patch with BAD_USER_INPUT. Backs the
 # `--data-merge`/`--data-merge-file` flags on `hadron node update`.
 mutation UpdateNodeData(
-  $nodeId: ID!
+  $nodeRef: ID!
   $data: JSON!
   # @genqlient(omitempty: true)
   $reason: String
 ) {
-  updateNodeData(nodeId: $nodeId, data: $data, reason: $reason) {
+  updateNodeData(nodeRef: $nodeRef, data: $data, reason: $reason) {
     id
     memoryId
     loc
@@ -326,8 +325,8 @@ mutation UpdateNodeData(
 # explicit nulls — the server rejects priority: null (hadron-server#263)
 # and treats condition/data: null as "clear".
 mutation CreateEdge(
-  $sourceNodeId: ID!
-  $targetNodeId: ID!
+  $sourceRef: ID!
+  $targetRef: ID!
   $name: String!
   # @genqlient(omitempty: true)
   $loc: String
@@ -343,8 +342,8 @@ mutation CreateEdge(
   $data: JSON
 ) {
   createEdge(
-    sourceNodeId: $sourceNodeId
-    targetNodeId: $targetNodeId
+    sourceRef: $sourceRef
+    targetRef: $targetRef
     name: $name
     loc: $loc
     description: $description
