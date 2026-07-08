@@ -20,6 +20,9 @@ type whoamiResult struct {
 	Handle         string   `json:"handle,omitempty"`
 	GithubUsername string   `json:"githubUsername,omitempty"`
 	Roles          []string `json:"roles"`
+	PrincipalType  string   `json:"principalType,omitempty"`
+	AppID          string   `json:"appId,omitempty"`
+	AgentID        string   `json:"agentId,omitempty"`
 }
 
 func newCmdWhoami(f *cmdutil.Factory) *cobra.Command {
@@ -32,32 +35,48 @@ func newCmdWhoami(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := gen.Me(cmd.Context(), client)
+			resp, err := gen.AuthContext(cmd.Context(), client)
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.Me == nil {
+			if resp.AuthContext == nil {
 				return exitcode.Newf(exitcode.AuthRequired, "token was not accepted — run `hadron auth login`")
 			}
+			ac := resp.AuthContext
 
-			dto := whoamiResult{ID: resp.Me.Id, Roles: []string{}}
-			if resp.Me.Name != nil {
-				dto.Name = *resp.Me.Name
+			dto := whoamiResult{Roles: []string{}, PrincipalType: string(ac.PrincipalType)}
+			if ac.User != nil {
+				dto.ID = ac.User.Id
+				if ac.User.Name != nil {
+					dto.Name = *ac.User.Name
+				}
+				if ac.User.Email != nil {
+					dto.Email = *ac.User.Email
+				}
+				if ac.User.Handle != nil {
+					dto.Handle = *ac.User.Handle
+				}
+				if ac.User.GithubUsername != nil {
+					dto.GithubUsername = *ac.User.GithubUsername
+				}
+				for _, r := range ac.User.Roles {
+					dto.Roles = append(dto.Roles, string(r))
+				}
 			}
-			if resp.Me.Email != nil {
-				dto.Email = *resp.Me.Email
+			if ac.AppId != nil {
+				dto.AppID = *ac.AppId
 			}
-			if resp.Me.Handle != nil {
-				dto.Handle = *resp.Me.Handle
-			}
-			if resp.Me.GithubUsername != nil {
-				dto.GithubUsername = *resp.Me.GithubUsername
-			}
-			for _, r := range resp.Me.Roles {
-				dto.Roles = append(dto.Roles, string(r))
+			if ac.AgentId != nil {
+				dto.AgentID = *ac.AgentId
 			}
 
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				// An App/Agent key resolves to no user — name the principal
+				// instead of erroring.
+				if ac.User == nil {
+					_, err := fmt.Fprintln(w, nonUserLabel(dto.AppID, dto.AgentID, dto.PrincipalType))
+					return err
+				}
 				label := dto.Name
 				if label == "" {
 					label = dto.Handle

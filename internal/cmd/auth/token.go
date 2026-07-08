@@ -65,13 +65,20 @@ require a user login — an app or agent key cannot manage user tokens.`,
 
 // validateResult is the stable --json shape for `token validate`. `valid` is
 // the load-bearing field; the identity fields are populated only when valid.
+// principalType/appId/key come from the server's authContext, so validate is
+// credential-type-agnostic (a valid App key is valid, not a false negative) and
+// can name the exact user key presented.
 type validateResult struct {
-	Valid  bool     `json:"valid"`
-	UserID string   `json:"userId,omitempty"`
-	Name   string   `json:"name,omitempty"`
-	Email  string   `json:"email,omitempty"`
-	Handle string   `json:"handle,omitempty"`
-	Roles  []string `json:"roles"`
+	Valid         bool      `json:"valid"`
+	PrincipalType string    `json:"principalType,omitempty"`
+	UserID        string    `json:"userId,omitempty"`
+	Name          string    `json:"name,omitempty"`
+	Email         string    `json:"email,omitempty"`
+	Handle        string    `json:"handle,omitempty"`
+	Roles         []string  `json:"roles"`
+	AppID         string    `json:"appId,omitempty"`
+	AgentID       string    `json:"agentId,omitempty"`
+	Key           *tokenDTO `json:"key,omitempty"`
 }
 
 func newCmdTokenValidate(f *cmdutil.Factory) *cobra.Command {
@@ -101,7 +108,7 @@ a rejected or revoked token exits 3.`,
 			}
 
 			dto := validateResult{Roles: []string{}}
-			resp, err := gen.Me(cmd.Context(), client)
+			resp, err := gen.AuthContext(cmd.Context(), client)
 			switch {
 			case err != nil:
 				// A rejected token is a definitive "invalid" answer, not a CLI
@@ -110,26 +117,45 @@ a rejected or revoked token exits 3.`,
 				if exitcode.FromError(mapped) != exitcode.AuthRequired {
 					return mapped
 				}
-			case resp.Me != nil:
+			case resp.AuthContext != nil:
+				ac := resp.AuthContext
 				dto.Valid = true
-				dto.UserID = resp.Me.Id
-				if resp.Me.Name != nil {
-					dto.Name = *resp.Me.Name
+				dto.PrincipalType = string(ac.PrincipalType)
+				if ac.User != nil {
+					dto.UserID = ac.User.Id
+					if ac.User.Name != nil {
+						dto.Name = *ac.User.Name
+					}
+					if ac.User.Email != nil {
+						dto.Email = *ac.User.Email
+					}
+					if ac.User.Handle != nil {
+						dto.Handle = *ac.User.Handle
+					}
+					for _, r := range ac.User.Roles {
+						dto.Roles = append(dto.Roles, string(r))
+					}
 				}
-				if resp.Me.Email != nil {
-					dto.Email = *resp.Me.Email
+				if ac.AppId != nil {
+					dto.AppID = *ac.AppId
 				}
-				if resp.Me.Handle != nil {
-					dto.Handle = *resp.Me.Handle
+				if ac.AgentId != nil {
+					dto.AgentID = *ac.AgentId
 				}
-				for _, r := range resp.Me.Roles {
-					dto.Roles = append(dto.Roles, string(r))
+				if ac.ApiKey != nil {
+					k := toTokenDTO(ac.ApiKey.UserApiKeyFields)
+					dto.Key = &k
 				}
 			}
 
 			writeErr := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if !dto.Valid {
 					_, err := fmt.Fprintln(w, "✗ Token is invalid, revoked, or expired")
+					return err
+				}
+				// A non-user principal (App/Agent key) has no user subject or key.
+				if dto.UserID == "" {
+					_, err := fmt.Fprintf(w, "✓ Token is valid — %s\n", nonUserLabel(dto.AppID, dto.AgentID, dto.PrincipalType))
 					return err
 				}
 				label := dto.Name
@@ -140,11 +166,17 @@ a rejected or revoked token exits 3.`,
 					label = dto.UserID
 				}
 				if dto.Email != "" {
-					_, err := fmt.Fprintf(w, "✓ Token is valid — %s (%s)\n", label, dto.Email)
+					if _, err := fmt.Fprintf(w, "✓ Token is valid — %s (%s)\n", label, dto.Email); err != nil {
+						return err
+					}
+				} else if _, err := fmt.Fprintf(w, "✓ Token is valid — %s\n", label); err != nil {
 					return err
 				}
-				_, err := fmt.Fprintf(w, "✓ Token is valid — %s\n", label)
-				return err
+				if dto.Key != nil {
+					_, err := fmt.Fprintf(w, "  key %s, last used %s\n", keyLabel(*dto.Key), orText(dto.Key.LastUsedAt, "never"))
+					return err
+				}
+				return nil
 			})
 			if writeErr != nil {
 				return writeErr
@@ -270,6 +302,28 @@ func newCmdTokenRevoke(f *cmdutil.Factory) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	return cmd
+}
+
+// nonUserLabel names a principal that resolves to no user (an App or Agent
+// key), falling back to the bare principal type so nothing renders empty.
+func nonUserLabel(appID, agentID, principalType string) string {
+	switch {
+	case appID != "":
+		return "App " + appID
+	case agentID != "":
+		return "Agent " + agentID
+	default:
+		return principalType
+	}
+}
+
+// keyLabel renders a token for a human line: its preview, plus its label in
+// parentheses when set (e.g. `hdrk_ab1 (ci-deploy)`).
+func keyLabel(k tokenDTO) string {
+	if k.Label != nil && *k.Label != "" {
+		return fmt.Sprintf("%s (%s)", k.KeyPreview, *k.Label)
+	}
+	return k.KeyPreview
 }
 
 func orDash(s *string) string {

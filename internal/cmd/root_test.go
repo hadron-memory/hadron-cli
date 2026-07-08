@@ -11,6 +11,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/auth/store"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/config"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -169,8 +170,9 @@ func TestMemoryLsTable(t *testing.T) {
 
 func TestWhoami(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
-		"Me": `{"data":{"me":{"id":"u1","name":"Holger","email":"h@example.com",
-			"handle":null,"githubUsername":null,"roles":[]}}}`,
+		"AuthContext": `{"data":{"authContext":{"principalType":"USER","appId":null,"agentId":null,
+			"user":{"id":"u1","name":"Holger","email":"h@example.com","handle":null,"githubUsername":null,"roles":[]},
+			"apiKey":null}}}`,
 	})
 	f, out := testFactory(t)
 
@@ -181,6 +183,53 @@ func TestWhoami(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Holger") {
 		t.Errorf("unexpected output: %s", out.String())
+	}
+}
+
+// status resolves the active token via authContext and surfaces the principal
+// type plus the authenticating key.
+func TestAuthStatus(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"AuthContext": `{"data":{"authContext":{"principalType":"USER","appId":null,"agentId":null,
+			"user":{"id":"u1","name":"Holger","email":"h@example.com","handle":null,"githubUsername":null,"roles":[]},
+			"apiKey":{"id":"uak_1","label":"ci-deploy","keyPreview":"hdrk_ab1","issuedVia":"cli","createdAt":"2026-06-19T00:00:00Z","lastUsedAt":null,"revokedAt":null}}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"auth", "status", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Authenticated bool   `json:"authenticated"`
+		PrincipalType string `json:"principalType"`
+		Key           *struct {
+			KeyPreview string `json:"keyPreview"`
+		} `json:"key"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out.String())
+	}
+	if !dto.Authenticated || dto.PrincipalType != "USER" || dto.Key == nil || dto.Key.KeyPreview != "hdrk_ab1" {
+		t.Errorf("unexpected status: %s", out.String())
+	}
+}
+
+// Against an older/self-hosted server without authContext, status must surface
+// the schema-skew error (exit 2), not masquerade it as a rejected token (Codex).
+func TestAuthStatusSurfacesSchemaSkew(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"AuthContext": `{"errors":[{"message":"Cannot query field \"authContext\" on type \"Query\"","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"auth", "status", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Fatalf("schema skew should exit %d (usage), got %d (err=%v)", exitcode.Usage, code, err)
+	}
+	if strings.Contains(out.String(), "rejected") {
+		t.Errorf("skew must not be reported as a rejected token: %s", out.String())
 	}
 }
 
