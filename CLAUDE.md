@@ -35,6 +35,7 @@ make test       # go test ./...
 make lint       # golangci-lint run
 make generate   # regenerate genqlient code from the committed schema snapshot
 make schema     # re-export the schema from ../hadron-server, then generate
+make schema-check  # fail if the committed snapshot is stale vs ../hadron-server (drift detector)
 ```
 
 - Run one test: `go test ./internal/cmd/ -run TestSpecGet -v` (any `<pkg> -run <name>`).
@@ -47,6 +48,7 @@ The client is fully typed via [genqlient](https://github.com/Khan/genqlient); yo
 - `schema/schema.graphql` — a committed snapshot of hadron-server's SDL; the contract genqlient checks against. Refresh with `make schema` (re-exports from the sibling `../hadron-server` checkout) — needed whenever an operation references a server field not yet in the snapshot.
 - `internal/api/queries/*.graphql` — the typed operations you author. Add/edit one, then `make generate`.
 - `internal/api/gen/generated.go` — generated; never hand-edit. CI fails if it drifts from the committed schema.
+- The `make generate` freshness check only compares generated code against the *committed* snapshot, so it can't see the snapshot lagging the live server (an `appId`→`appRef`-style server rename ships unnoticed until a live call fails — #168). `make schema-check` catches that: it re-exports the SDL from `../hadron-server` and fails only if the generated client would change for an operation the CLI uses. The `schema-drift` workflow runs it nightly.
 - Generated type names are deeply nested (e.g. `gen.NodeBatchNodeBatchNodeBatchResultNodesNode`); alias them locally (`type batchNode = gen.…`) when reused.
 
 **Wire-semantics gotcha:** the server reads an *omitted* input field as "preserve" and an explicit `null` as "clear". Optional mutation variables therefore carry `# @genqlient(omitempty: true)` so a nil pointer is omitted, not sent as `null`. Follow the omitempty annotations already in `nodes.graphql`/`memories.graphql` when adding flags, or you'll silently clear fields.

@@ -9,6 +9,14 @@ import (
 	"github.com/Khan/genqlient/graphql"
 )
 
+// AcceptInvitationResponse is returned by AcceptInvitation on success.
+type AcceptInvitationResponse struct {
+	AcceptInvitation bool `json:"acceptInvitation"`
+}
+
+// GetAcceptInvitation returns AcceptInvitationResponse.AcceptInvitation, and is useful for accessing the field via an interface.
+func (v *AcceptInvitationResponse) GetAcceptInvitation() bool { return v.AcceptInvitation }
+
 // issue #323: where a single grant in an EffectiveAccess result comes from.
 type AccessSource string
 
@@ -499,6 +507,78 @@ type AddOrgMemberResponse struct {
 // GetAddOrgMember returns AddOrgMemberResponse.AddOrgMember, and is useful for accessing the field via an interface.
 func (v *AddOrgMemberResponse) GetAddOrgMember() *AddOrgMemberAddOrgMember { return v.AddOrgMember }
 
+// AgentFields includes the GraphQL fields of Agent requested by the fragment AgentFields.
+type AgentFields struct {
+	Id             string          `json:"id"`
+	Urn            string          `json:"urn"`
+	Name           string          `json:"name"`
+	Description    *string         `json:"description"`
+	Type           AgentType       `json:"type"`
+	Visibility     AgentVisibility `json:"visibility"`
+	OrganizationId string          `json:"organizationId"`
+	Surfaces       []string        `json:"surfaces"`
+	SystemMemoryId *string         `json:"systemMemoryId"`
+	SystemPrompt   *string         `json:"systemPrompt"`
+	AiProvider     *string         `json:"aiProvider"`
+	AiModel        *string         `json:"aiModel"`
+	HasAiApiKey    bool            `json:"hasAiApiKey"`
+	CreatedAt      string          `json:"createdAt"`
+}
+
+// GetId returns AgentFields.Id, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetId() string { return v.Id }
+
+// GetUrn returns AgentFields.Urn, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetUrn() string { return v.Urn }
+
+// GetName returns AgentFields.Name, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetName() string { return v.Name }
+
+// GetDescription returns AgentFields.Description, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetDescription() *string { return v.Description }
+
+// GetType returns AgentFields.Type, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetType() AgentType { return v.Type }
+
+// GetVisibility returns AgentFields.Visibility, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetVisibility() AgentVisibility { return v.Visibility }
+
+// GetOrganizationId returns AgentFields.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetOrganizationId() string { return v.OrganizationId }
+
+// GetSurfaces returns AgentFields.Surfaces, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetSurfaces() []string { return v.Surfaces }
+
+// GetSystemMemoryId returns AgentFields.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetSystemMemoryId() *string { return v.SystemMemoryId }
+
+// GetSystemPrompt returns AgentFields.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetSystemPrompt() *string { return v.SystemPrompt }
+
+// GetAiProvider returns AgentFields.AiProvider, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetAiProvider() *string { return v.AiProvider }
+
+// GetAiModel returns AgentFields.AiModel, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetAiModel() *string { return v.AiModel }
+
+// GetHasAiApiKey returns AgentFields.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetHasAiApiKey() bool { return v.HasAiApiKey }
+
+// GetCreatedAt returns AgentFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetCreatedAt() string { return v.CreatedAt }
+
+// Filter for the uniform agents() list (#473). Clauses AND-combine.
+type AgentFilter struct {
+	Type       *AgentType       `json:"type"`
+	Visibility *AgentVisibility `json:"visibility"`
+}
+
+// GetType returns AgentFilter.Type, and is useful for accessing the field via an interface.
+func (v *AgentFilter) GetType() *AgentType { return v.Type }
+
+// GetVisibility returns AgentFilter.Visibility, and is useful for accessing the field via an interface.
+func (v *AgentFilter) GetVisibility() *AgentVisibility { return v.Visibility }
+
 // AgentScheduleFields includes the GraphQL fields of AgentSchedule requested by the fragment AgentScheduleFields.
 // The GraphQL type's documentation follows.
 //
@@ -509,11 +589,12 @@ type AgentScheduleFields struct {
 	AppId          string  `json:"appId"`
 	AgentId        *string `json:"agentId"`
 	Name           string  `json:"name"`
-	Cron           string  `json:"cron"`
-	Timezone       string  `json:"timezone"`
-	Enabled        bool    `json:"enabled"`
-	EntryNodeUrn   string  `json:"entryNodeUrn"`
-	AiConfigName   *string `json:"aiConfigName"`
+	// 5-field cron for recurring schedules; null for one-shots (#510).
+	Cron         *string `json:"cron"`
+	Timezone     string  `json:"timezone"`
+	Enabled      bool    `json:"enabled"`
+	EntryNodeUrn string  `json:"entryNodeUrn"`
+	AiConfigName *string `json:"aiConfigName"`
 	// On-behalf-of user captured at creation; v1 only the creator themself.
 	UserId    *string          `json:"userId"`
 	CreatedBy *string          `json:"createdBy"`
@@ -540,7 +621,7 @@ func (v *AgentScheduleFields) GetAgentId() *string { return v.AgentId }
 func (v *AgentScheduleFields) GetName() string { return v.Name }
 
 // GetCron returns AgentScheduleFields.Cron, and is useful for accessing the field via an interface.
-func (v *AgentScheduleFields) GetCron() string { return v.Cron }
+func (v *AgentScheduleFields) GetCron() *string { return v.Cron }
 
 // GetTimezone returns AgentScheduleFields.Timezone, and is useful for accessing the field via an interface.
 func (v *AgentScheduleFields) GetTimezone() string { return v.Timezone }
@@ -623,7 +704,7 @@ func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetNa
 }
 
 // GetCron returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.Cron, and is useful for accessing the field via an interface.
-func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetCron() string {
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetCron() *string {
 	return v.AgentScheduleFields.Cron
 }
 
@@ -718,7 +799,7 @@ type __premarshalAgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedul
 
 	Name string `json:"name"`
 
-	Cron string `json:"cron"`
+	Cron *string `json:"cron"`
 
 	Timezone string `json:"timezone"`
 
@@ -782,6 +863,34 @@ type AgentSchedulesResponse struct {
 // GetAgentSchedules returns AgentSchedulesResponse.AgentSchedules, and is useful for accessing the field via an interface.
 func (v *AgentSchedulesResponse) GetAgentSchedules() *AgentSchedulesAgentSchedulesAgentSchedulesPage {
 	return v.AgentSchedules
+}
+
+type AgentType string
+
+const (
+	AgentTypeAssistant AgentType = "ASSISTANT"
+	AgentTypeChatbot   AgentType = "CHATBOT"
+)
+
+var AllAgentType = []AgentType{
+	AgentTypeAssistant,
+	AgentTypeChatbot,
+}
+
+// 035-visibility-enum-cleanup: agents have their own visibility enum,
+// decoupled from MemoryVisibility. PERSONAL is the creator-only draft state.
+type AgentVisibility string
+
+const (
+	AgentVisibilityOrganization AgentVisibility = "ORGANIZATION"
+	AgentVisibilityPersonal     AgentVisibility = "PERSONAL"
+	AgentVisibilityPublic       AgentVisibility = "PUBLIC"
+)
+
+var AllAgentVisibility = []AgentVisibility{
+	AgentVisibilityOrganization,
+	AgentVisibilityPersonal,
+	AgentVisibilityPublic,
 }
 
 // AgentWebhookCredentialFields includes the GraphQL fields of AgentWebhookCredentials requested by the fragment AgentWebhookCredentialFields.
@@ -1236,6 +1345,170 @@ func (v *AgentWebhooksResponse) GetAgentWebhooks() *AgentWebhooksAgentWebhooksAg
 	return v.AgentWebhooks
 }
 
+// AgentsAgentsAgentsPage includes the requested fields of the GraphQL type AgentsPage.
+type AgentsAgentsAgentsPage struct {
+	Total int                                 `json:"total"`
+	Items []*AgentsAgentsAgentsPageItemsAgent `json:"items"`
+}
+
+// GetTotal returns AgentsAgentsAgentsPage.Total, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPage) GetTotal() int { return v.Total }
+
+// GetItems returns AgentsAgentsAgentsPage.Items, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPage) GetItems() []*AgentsAgentsAgentsPageItemsAgent { return v.Items }
+
+// AgentsAgentsAgentsPageItemsAgent includes the requested fields of the GraphQL type Agent.
+type AgentsAgentsAgentsPageItemsAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns AgentsAgentsAgentsPageItemsAgent.Id, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns AgentsAgentsAgentsPageItemsAgent.Urn, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns AgentsAgentsAgentsPageItemsAgent.Name, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns AgentsAgentsAgentsPageItemsAgent.Description, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetDescription() *string { return v.AgentFields.Description }
+
+// GetType returns AgentsAgentsAgentsPageItemsAgent.Type, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns AgentsAgentsAgentsPageItemsAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns AgentsAgentsAgentsPageItemsAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetOrganizationId() string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns AgentsAgentsAgentsPageItemsAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns AgentsAgentsAgentsPageItemsAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetSystemPrompt returns AgentsAgentsAgentsPageItemsAgent.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetSystemPrompt() *string {
+	return v.AgentFields.SystemPrompt
+}
+
+// GetAiProvider returns AgentsAgentsAgentsPageItemsAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
+
+// GetAiModel returns AgentsAgentsAgentsPageItemsAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns AgentsAgentsAgentsPageItemsAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
+
+// GetCreatedAt returns AgentsAgentsAgentsPageItemsAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *AgentsAgentsAgentsPageItemsAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentsAgentsAgentsPageItemsAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentsAgentsAgentsPageItemsAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	SystemPrompt *string `json:"systemPrompt"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *AgentsAgentsAgentsPageItemsAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgentsAgentsAgentsPageItemsAgent, error) {
+	var retval __premarshalAgentsAgentsAgentsPageItemsAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// AgentsResponse is returned by Agents on success.
+type AgentsResponse struct {
+	// Uniform paginated agent list (#473). Scope: Agents owned by the caller's
+	// member orgs; platform ADMIN/OWNER unscoped get every live Agent. orgId
+	// follows cor:api:100:01 (member -> scope, non-member -> empty page, no
+	// disclosure, no admin bypass). filter narrows by type / visibility.
+	// Name-ascending order (id tiebreak); limit default 50 / cap 200;
+	// limit: 0 -> count only.
+	Agents *AgentsAgentsAgentsPage `json:"agents"`
+}
+
+// GetAgents returns AgentsResponse.Agents, and is useful for accessing the field via an interface.
+func (v *AgentsResponse) GetAgents() *AgentsAgentsAgentsPage { return v.Agents }
+
 // 036-ai-service-config: which entity owns an AiServiceConfig. Exactly one
 // owner per config (DB-enforced).
 type AiConfigOwnerType string
@@ -1372,6 +1645,9 @@ func (v *AppRunAppRun) GetPolicy() *json.RawMessage { return v.AppRunFields.Poli
 // GetEventData returns AppRunAppRun.EventData, and is useful for accessing the field via an interface.
 func (v *AppRunAppRun) GetEventData() *json.RawMessage { return v.AppRunFields.EventData }
 
+// GetData returns AppRunAppRun.Data, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetData() *json.RawMessage { return v.AppRunFields.Data }
+
 // GetFailure returns AppRunAppRun.Failure, and is useful for accessing the field via an interface.
 func (v *AppRunAppRun) GetFailure() *json.RawMessage { return v.AppRunFields.Failure }
 
@@ -1446,6 +1722,8 @@ type __premarshalAppRunAppRun struct {
 
 	EventData *json.RawMessage `json:"eventData"`
 
+	Data *json.RawMessage `json:"data"`
+
 	Failure *json.RawMessage `json:"failure"`
 
 	CreatedAt string `json:"createdAt"`
@@ -1484,6 +1762,7 @@ func (v *AppRunAppRun) __premarshalJSON() (*__premarshalAppRunAppRun, error) {
 	retval.TimeoutMs = v.AppRunFields.TimeoutMs
 	retval.Policy = v.AppRunFields.Policy
 	retval.EventData = v.AppRunFields.EventData
+	retval.Data = v.AppRunFields.Data
 	retval.Failure = v.AppRunFields.Failure
 	retval.CreatedAt = v.AppRunFields.CreatedAt
 	retval.StartedAt = v.AppRunFields.StartedAt
@@ -1514,10 +1793,12 @@ type AppRunFields struct {
 	TimeoutMs    *int             `json:"timeoutMs"`
 	Policy       *json.RawMessage `json:"policy"`
 	EventData    *json.RawMessage `json:"eventData"`
-	Failure      *json.RawMessage `json:"failure"`
-	CreatedAt    string           `json:"createdAt"`
-	StartedAt    *string          `json:"startedAt"`
-	FinishedAt   *string          `json:"finishedAt"`
+	// The run envelope (plan-multi-node D-MN-1): fields extracted by flow nodes as the walker advances. eventData stays the immutable trigger payload; on key collision the envelope wins.
+	Data       *json.RawMessage `json:"data"`
+	Failure    *json.RawMessage `json:"failure"`
+	CreatedAt  string           `json:"createdAt"`
+	StartedAt  *string          `json:"startedAt"`
+	FinishedAt *string          `json:"finishedAt"`
 }
 
 // GetId returns AppRunFields.Id, and is useful for accessing the field via an interface.
@@ -1573,6 +1854,9 @@ func (v *AppRunFields) GetPolicy() *json.RawMessage { return v.Policy }
 
 // GetEventData returns AppRunFields.EventData, and is useful for accessing the field via an interface.
 func (v *AppRunFields) GetEventData() *json.RawMessage { return v.EventData }
+
+// GetData returns AppRunFields.Data, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetData() *json.RawMessage { return v.Data }
 
 // GetFailure returns AppRunFields.Failure, and is useful for accessing the field via an interface.
 func (v *AppRunFields) GetFailure() *json.RawMessage { return v.Failure }
@@ -1726,6 +2010,9 @@ func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetEventData() *json.RawMessage {
 	return v.AppRunFields.EventData
 }
 
+// GetData returns AppRunsAppRunsAppRunsPageItemsAppRun.Data, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetData() *json.RawMessage { return v.AppRunFields.Data }
+
 // GetFailure returns AppRunsAppRunsAppRunsPageItemsAppRun.Failure, and is useful for accessing the field via an interface.
 func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetFailure() *json.RawMessage {
 	return v.AppRunFields.Failure
@@ -1806,6 +2093,8 @@ type __premarshalAppRunsAppRunsAppRunsPageItemsAppRun struct {
 
 	EventData *json.RawMessage `json:"eventData"`
 
+	Data *json.RawMessage `json:"data"`
+
 	Failure *json.RawMessage `json:"failure"`
 
 	CreatedAt string `json:"createdAt"`
@@ -1844,6 +2133,7 @@ func (v *AppRunsAppRunsAppRunsPageItemsAppRun) __premarshalJSON() (*__premarshal
 	retval.TimeoutMs = v.AppRunFields.TimeoutMs
 	retval.Policy = v.AppRunFields.Policy
 	retval.EventData = v.AppRunFields.EventData
+	retval.Data = v.AppRunFields.Data
 	retval.Failure = v.AppRunFields.Failure
 	retval.CreatedAt = v.AppRunFields.CreatedAt
 	retval.StartedAt = v.AppRunFields.StartedAt
@@ -1999,6 +2289,9 @@ func (v *CancelAppRunCancelAppRun) GetPolicy() *json.RawMessage { return v.AppRu
 // GetEventData returns CancelAppRunCancelAppRun.EventData, and is useful for accessing the field via an interface.
 func (v *CancelAppRunCancelAppRun) GetEventData() *json.RawMessage { return v.AppRunFields.EventData }
 
+// GetData returns CancelAppRunCancelAppRun.Data, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetData() *json.RawMessage { return v.AppRunFields.Data }
+
 // GetFailure returns CancelAppRunCancelAppRun.Failure, and is useful for accessing the field via an interface.
 func (v *CancelAppRunCancelAppRun) GetFailure() *json.RawMessage { return v.AppRunFields.Failure }
 
@@ -2073,6 +2366,8 @@ type __premarshalCancelAppRunCancelAppRun struct {
 
 	EventData *json.RawMessage `json:"eventData"`
 
+	Data *json.RawMessage `json:"data"`
+
 	Failure *json.RawMessage `json:"failure"`
 
 	CreatedAt string `json:"createdAt"`
@@ -2111,6 +2406,7 @@ func (v *CancelAppRunCancelAppRun) __premarshalJSON() (*__premarshalCancelAppRun
 	retval.TimeoutMs = v.AppRunFields.TimeoutMs
 	retval.Policy = v.AppRunFields.Policy
 	retval.EventData = v.AppRunFields.EventData
+	retval.Data = v.AppRunFields.Data
 	retval.Failure = v.AppRunFields.Failure
 	retval.CreatedAt = v.AppRunFields.CreatedAt
 	retval.StartedAt = v.AppRunFields.StartedAt
@@ -2191,6 +2487,147 @@ type CloneMemoryResponse struct {
 // GetCloneMemory returns CloneMemoryResponse.CloneMemory, and is useful for accessing the field via an interface.
 func (v *CloneMemoryResponse) GetCloneMemory() *CloneMemoryCloneMemory { return v.CloneMemory }
 
+// CreateAgentCreateAgent includes the requested fields of the GraphQL type Agent.
+type CreateAgentCreateAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns CreateAgentCreateAgent.Id, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns CreateAgentCreateAgent.Urn, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns CreateAgentCreateAgent.Name, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns CreateAgentCreateAgent.Description, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetDescription() *string { return v.AgentFields.Description }
+
+// GetType returns CreateAgentCreateAgent.Type, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns CreateAgentCreateAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetVisibility() AgentVisibility { return v.AgentFields.Visibility }
+
+// GetOrganizationId returns CreateAgentCreateAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetOrganizationId() string { return v.AgentFields.OrganizationId }
+
+// GetSurfaces returns CreateAgentCreateAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns CreateAgentCreateAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetSystemMemoryId() *string { return v.AgentFields.SystemMemoryId }
+
+// GetSystemPrompt returns CreateAgentCreateAgent.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
+
+// GetAiProvider returns CreateAgentCreateAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
+
+// GetAiModel returns CreateAgentCreateAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns CreateAgentCreateAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
+
+// GetCreatedAt returns CreateAgentCreateAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *CreateAgentCreateAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateAgentCreateAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateAgentCreateAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateAgentCreateAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	SystemPrompt *string `json:"systemPrompt"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *CreateAgentCreateAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCreateAgent, error) {
+	var retval __premarshalCreateAgentCreateAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// CreateAgentResponse is returned by CreateAgent on success.
+type CreateAgentResponse struct {
+	// Create an Agent in an organization.
+	//
+	// Accepts the entity's ID or URN.
+	CreateAgent *CreateAgentCreateAgent `json:"createAgent"`
+}
+
+// GetCreateAgent returns CreateAgentResponse.CreateAgent, and is useful for accessing the field via an interface.
+func (v *CreateAgentResponse) GetCreateAgent() *CreateAgentCreateAgent { return v.CreateAgent }
+
 // CreateAgentScheduleCreateAgentSchedule includes the requested fields of the GraphQL type AgentSchedule.
 // The GraphQL type's documentation follows.
 //
@@ -2221,7 +2658,7 @@ func (v *CreateAgentScheduleCreateAgentSchedule) GetAgentId() *string {
 func (v *CreateAgentScheduleCreateAgentSchedule) GetName() string { return v.AgentScheduleFields.Name }
 
 // GetCron returns CreateAgentScheduleCreateAgentSchedule.Cron, and is useful for accessing the field via an interface.
-func (v *CreateAgentScheduleCreateAgentSchedule) GetCron() string { return v.AgentScheduleFields.Cron }
+func (v *CreateAgentScheduleCreateAgentSchedule) GetCron() *string { return v.AgentScheduleFields.Cron }
 
 // GetTimezone returns CreateAgentScheduleCreateAgentSchedule.Timezone, and is useful for accessing the field via an interface.
 func (v *CreateAgentScheduleCreateAgentSchedule) GetTimezone() string {
@@ -2314,7 +2751,7 @@ type __premarshalCreateAgentScheduleCreateAgentSchedule struct {
 
 	Name string `json:"name"`
 
-	Cron string `json:"cron"`
+	Cron *string `json:"cron"`
 
 	Timezone string `json:"timezone"`
 
@@ -2371,14 +2808,15 @@ func (v *CreateAgentScheduleCreateAgentSchedule) __premarshalJSON() (*__premarsh
 }
 
 type CreateAgentScheduleInput struct {
-	AgentId *string `json:"agentId,omitempty"`
+	// Agent — ref: PK or URN; must be installed in the App.
+	AgentRef *string `json:"agentRef,omitempty"`
 	// Named AI config for this trigger (spec-036 walk override).
 	AiConfigName *string `json:"aiConfigName,omitempty"`
-	// App the run executes as (ID or URN).
-	AppId string `json:"appId"`
-	// 5-field cron expression, evaluated in timezone (default UTC).
-	Cron    string `json:"cron"`
-	Enabled *bool  `json:"enabled,omitempty"`
+	// App the run executes as — ref: PK or fully-qualified URN.
+	AppRef string `json:"appRef"`
+	// Recurring: 5-field cron expression, evaluated in timezone (default UTC). Provide exactly one of cron / runAt.
+	Cron    *string `json:"cron"`
+	Enabled *bool   `json:"enabled,omitempty"`
 	// Fully-qualified URN of the prompt node to run (D-2026-05-09-012/017).
 	EntryNodeUrn string `json:"entryNodeUrn"`
 	// Static payload merged into each run's template args.
@@ -2387,21 +2825,23 @@ type CreateAgentScheduleInput struct {
 	// Trigger-layer allow-list { allow: [...] } — one link of the conjunctive chain (cor:acl:040).
 	Policy *json.RawMessage `json:"policy,omitempty"`
 	// true: the run acts on behalf of YOU (required to reach your personal memories). v1 never delegates a third party (cor:agt:010:01).
-	RunAsSelf *bool   `json:"runAsSelf,omitempty"`
-	Timezone  *string `json:"timezone,omitempty"`
+	RunAsSelf *bool `json:"runAsSelf,omitempty"`
+	// One-shot: run once at this ISO-8601 instant (#510). Provide exactly one of cron / runAt.
+	RunAt    *string `json:"runAt,omitempty"`
+	Timezone *string `json:"timezone,omitempty"`
 }
 
-// GetAgentId returns CreateAgentScheduleInput.AgentId, and is useful for accessing the field via an interface.
-func (v *CreateAgentScheduleInput) GetAgentId() *string { return v.AgentId }
+// GetAgentRef returns CreateAgentScheduleInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetAgentRef() *string { return v.AgentRef }
 
 // GetAiConfigName returns CreateAgentScheduleInput.AiConfigName, and is useful for accessing the field via an interface.
 func (v *CreateAgentScheduleInput) GetAiConfigName() *string { return v.AiConfigName }
 
-// GetAppId returns CreateAgentScheduleInput.AppId, and is useful for accessing the field via an interface.
-func (v *CreateAgentScheduleInput) GetAppId() string { return v.AppId }
+// GetAppRef returns CreateAgentScheduleInput.AppRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetAppRef() string { return v.AppRef }
 
 // GetCron returns CreateAgentScheduleInput.Cron, and is useful for accessing the field via an interface.
-func (v *CreateAgentScheduleInput) GetCron() string { return v.Cron }
+func (v *CreateAgentScheduleInput) GetCron() *string { return v.Cron }
 
 // GetEnabled returns CreateAgentScheduleInput.Enabled, and is useful for accessing the field via an interface.
 func (v *CreateAgentScheduleInput) GetEnabled() *bool { return v.Enabled }
@@ -2420,6 +2860,9 @@ func (v *CreateAgentScheduleInput) GetPolicy() *json.RawMessage { return v.Polic
 
 // GetRunAsSelf returns CreateAgentScheduleInput.RunAsSelf, and is useful for accessing the field via an interface.
 func (v *CreateAgentScheduleInput) GetRunAsSelf() *bool { return v.RunAsSelf }
+
+// GetRunAt returns CreateAgentScheduleInput.RunAt, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetRunAt() *string { return v.RunAt }
 
 // GetTimezone returns CreateAgentScheduleInput.Timezone, and is useful for accessing the field via an interface.
 func (v *CreateAgentScheduleInput) GetTimezone() *string { return v.Timezone }
@@ -2508,9 +2951,11 @@ func (v *CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials) __premarsh
 }
 
 type CreateAgentWebhookInput struct {
-	AgentId      *string `json:"agentId,omitempty"`
+	// Agent — ref: PK or URN; must be installed in the App.
+	AgentRef     *string `json:"agentRef,omitempty"`
 	AiConfigName *string `json:"aiConfigName,omitempty"`
-	AppId        string  `json:"appId"`
+	// App — ref: PK or fully-qualified URN.
+	AppRef string `json:"appRef"`
 	// JSON Schema for POST args (stored in v1; enforcement is follow-on).
 	ArgsSchema   *json.RawMessage `json:"argsSchema,omitempty"`
 	Enabled      *bool            `json:"enabled,omitempty"`
@@ -2522,14 +2967,14 @@ type CreateAgentWebhookInput struct {
 	RunAsSelf *bool            `json:"runAsSelf,omitempty"`
 }
 
-// GetAgentId returns CreateAgentWebhookInput.AgentId, and is useful for accessing the field via an interface.
-func (v *CreateAgentWebhookInput) GetAgentId() *string { return v.AgentId }
+// GetAgentRef returns CreateAgentWebhookInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetAgentRef() *string { return v.AgentRef }
 
 // GetAiConfigName returns CreateAgentWebhookInput.AiConfigName, and is useful for accessing the field via an interface.
 func (v *CreateAgentWebhookInput) GetAiConfigName() *string { return v.AiConfigName }
 
-// GetAppId returns CreateAgentWebhookInput.AppId, and is useful for accessing the field via an interface.
-func (v *CreateAgentWebhookInput) GetAppId() string { return v.AppId }
+// GetAppRef returns CreateAgentWebhookInput.AppRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetAppRef() string { return v.AppRef }
 
 // GetArgsSchema returns CreateAgentWebhookInput.ArgsSchema, and is useful for accessing the field via an interface.
 func (v *CreateAgentWebhookInput) GetArgsSchema() *json.RawMessage { return v.ArgsSchema }
@@ -3063,6 +3508,55 @@ func (v *CreateMemoryShareResponse) GetCreateMemoryShare() *CreateMemoryShareCre
 	return v.CreateMemoryShare
 }
 
+// CreateMemorySubscriptionCreateMemorySubscription includes the requested fields of the GraphQL type MemorySubscription.
+type CreateMemorySubscriptionCreateMemorySubscription struct {
+	Role         Role                                                          `json:"role"`
+	Activated    bool                                                          `json:"activated"`
+	Organization *CreateMemorySubscriptionCreateMemorySubscriptionOrganization `json:"organization"`
+}
+
+// GetRole returns CreateMemorySubscriptionCreateMemorySubscription.Role, and is useful for accessing the field via an interface.
+func (v *CreateMemorySubscriptionCreateMemorySubscription) GetRole() Role { return v.Role }
+
+// GetActivated returns CreateMemorySubscriptionCreateMemorySubscription.Activated, and is useful for accessing the field via an interface.
+func (v *CreateMemorySubscriptionCreateMemorySubscription) GetActivated() bool { return v.Activated }
+
+// GetOrganization returns CreateMemorySubscriptionCreateMemorySubscription.Organization, and is useful for accessing the field via an interface.
+func (v *CreateMemorySubscriptionCreateMemorySubscription) GetOrganization() *CreateMemorySubscriptionCreateMemorySubscriptionOrganization {
+	return v.Organization
+}
+
+// CreateMemorySubscriptionCreateMemorySubscriptionOrganization includes the requested fields of the GraphQL type Organization.
+type CreateMemorySubscriptionCreateMemorySubscriptionOrganization struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	Urn  string `json:"urn"`
+}
+
+// GetId returns CreateMemorySubscriptionCreateMemorySubscriptionOrganization.Id, and is useful for accessing the field via an interface.
+func (v *CreateMemorySubscriptionCreateMemorySubscriptionOrganization) GetId() string { return v.Id }
+
+// GetName returns CreateMemorySubscriptionCreateMemorySubscriptionOrganization.Name, and is useful for accessing the field via an interface.
+func (v *CreateMemorySubscriptionCreateMemorySubscriptionOrganization) GetName() string {
+	return v.Name
+}
+
+// GetUrn returns CreateMemorySubscriptionCreateMemorySubscriptionOrganization.Urn, and is useful for accessing the field via an interface.
+func (v *CreateMemorySubscriptionCreateMemorySubscriptionOrganization) GetUrn() string { return v.Urn }
+
+// CreateMemorySubscriptionResponse is returned by CreateMemorySubscription on success.
+type CreateMemorySubscriptionResponse struct {
+	// Create a cross-org Memory subscription.
+	//
+	// Accepts the entity's ID or URN.
+	CreateMemorySubscription *CreateMemorySubscriptionCreateMemorySubscription `json:"createMemorySubscription"`
+}
+
+// GetCreateMemorySubscription returns CreateMemorySubscriptionResponse.CreateMemorySubscription, and is useful for accessing the field via an interface.
+func (v *CreateMemorySubscriptionResponse) GetCreateMemorySubscription() *CreateMemorySubscriptionCreateMemorySubscription {
+	return v.CreateMemorySubscription
+}
+
 // CreateNodeCreateNode includes the requested fields of the GraphQL type Node.
 type CreateNodeCreateNode struct {
 	Id         string   `json:"id"`
@@ -3430,6 +3924,166 @@ func (v *CreateUserApiKeyResponse) GetCreateUserApiKey() *CreateUserApiKeyCreate
 	return v.CreateUserApiKey
 }
 
+// CreateUserInvitationCreateUserInvitation includes the requested fields of the GraphQL type UserInvitation.
+type CreateUserInvitationCreateUserInvitation struct {
+	InvitationFields `json:"-"`
+}
+
+// GetId returns CreateUserInvitationCreateUserInvitation.Id, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetId() string { return v.InvitationFields.Id }
+
+// GetSlug returns CreateUserInvitationCreateUserInvitation.Slug, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetSlug() string { return v.InvitationFields.Slug }
+
+// GetEmail returns CreateUserInvitationCreateUserInvitation.Email, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetEmail() *string {
+	return v.InvitationFields.Email
+}
+
+// GetName returns CreateUserInvitationCreateUserInvitation.Name, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetName() *string { return v.InvitationFields.Name }
+
+// GetGithubUsername returns CreateUserInvitationCreateUserInvitation.GithubUsername, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetGithubUsername() *string {
+	return v.InvitationFields.GithubUsername
+}
+
+// GetMemberRole returns CreateUserInvitationCreateUserInvitation.MemberRole, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetMemberRole() Role {
+	return v.InvitationFields.MemberRole
+}
+
+// GetOrganizationId returns CreateUserInvitationCreateUserInvitation.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetOrganizationId() *string {
+	return v.InvitationFields.OrganizationId
+}
+
+// GetMaxActivations returns CreateUserInvitationCreateUserInvitation.MaxActivations, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetMaxActivations() *int {
+	return v.InvitationFields.MaxActivations
+}
+
+// GetActivationCount returns CreateUserInvitationCreateUserInvitation.ActivationCount, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetActivationCount() int {
+	return v.InvitationFields.ActivationCount
+}
+
+// GetExpiresAt returns CreateUserInvitationCreateUserInvitation.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetExpiresAt() *string {
+	return v.InvitationFields.ExpiresAt
+}
+
+// GetAcceptedAt returns CreateUserInvitationCreateUserInvitation.AcceptedAt, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetAcceptedAt() *string {
+	return v.InvitationFields.AcceptedAt
+}
+
+// GetCreatedAt returns CreateUserInvitationCreateUserInvitation.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationCreateUserInvitation) GetCreatedAt() string {
+	return v.InvitationFields.CreatedAt
+}
+
+func (v *CreateUserInvitationCreateUserInvitation) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateUserInvitationCreateUserInvitation
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateUserInvitationCreateUserInvitation = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.InvitationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateUserInvitationCreateUserInvitation struct {
+	Id string `json:"id"`
+
+	Slug string `json:"slug"`
+
+	Email *string `json:"email"`
+
+	Name *string `json:"name"`
+
+	GithubUsername *string `json:"githubUsername"`
+
+	MemberRole Role `json:"memberRole"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	MaxActivations *int `json:"maxActivations"`
+
+	ActivationCount int `json:"activationCount"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	AcceptedAt *string `json:"acceptedAt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *CreateUserInvitationCreateUserInvitation) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateUserInvitationCreateUserInvitation) __premarshalJSON() (*__premarshalCreateUserInvitationCreateUserInvitation, error) {
+	var retval __premarshalCreateUserInvitationCreateUserInvitation
+
+	retval.Id = v.InvitationFields.Id
+	retval.Slug = v.InvitationFields.Slug
+	retval.Email = v.InvitationFields.Email
+	retval.Name = v.InvitationFields.Name
+	retval.GithubUsername = v.InvitationFields.GithubUsername
+	retval.MemberRole = v.InvitationFields.MemberRole
+	retval.OrganizationId = v.InvitationFields.OrganizationId
+	retval.MaxActivations = v.InvitationFields.MaxActivations
+	retval.ActivationCount = v.InvitationFields.ActivationCount
+	retval.ExpiresAt = v.InvitationFields.ExpiresAt
+	retval.AcceptedAt = v.InvitationFields.AcceptedAt
+	retval.CreatedAt = v.InvitationFields.CreatedAt
+	return &retval, nil
+}
+
+// CreateUserInvitationResponse is returned by CreateUserInvitation on success.
+type CreateUserInvitationResponse struct {
+	// User invitations (org ADMIN or platform ADMIN).
+	//
+	// Accepts the entity's ID or URN.
+	CreateUserInvitation *CreateUserInvitationCreateUserInvitation `json:"createUserInvitation"`
+}
+
+// GetCreateUserInvitation returns CreateUserInvitationResponse.CreateUserInvitation, and is useful for accessing the field via an interface.
+func (v *CreateUserInvitationResponse) GetCreateUserInvitation() *CreateUserInvitationCreateUserInvitation {
+	return v.CreateUserInvitation
+}
+
+// DeleteAgentResponse is returned by DeleteAgent on success.
+type DeleteAgentResponse struct {
+	// Soft-delete an Agent.
+	//
+	// Accepts the entity's ID or URN.
+	DeleteAgent bool `json:"deleteAgent"`
+}
+
+// GetDeleteAgent returns DeleteAgentResponse.DeleteAgent, and is useful for accessing the field via an interface.
+func (v *DeleteAgentResponse) GetDeleteAgent() bool { return v.DeleteAgent }
+
 // DeleteAgentScheduleResponse is returned by DeleteAgentSchedule on success.
 type DeleteAgentScheduleResponse struct {
 	DeleteAgentSchedule bool `json:"deleteAgentSchedule"`
@@ -3489,6 +4143,19 @@ type DeleteMemoryResponse struct {
 
 // GetDeleteMemory returns DeleteMemoryResponse.DeleteMemory, and is useful for accessing the field via an interface.
 func (v *DeleteMemoryResponse) GetDeleteMemory() bool { return v.DeleteMemory }
+
+// DeleteMemorySubscriptionResponse is returned by DeleteMemorySubscription on success.
+type DeleteMemorySubscriptionResponse struct {
+	// Delete a cross-org Memory subscription.
+	//
+	// Accepts the entity's ID or URN.
+	DeleteMemorySubscription bool `json:"deleteMemorySubscription"`
+}
+
+// GetDeleteMemorySubscription returns DeleteMemorySubscriptionResponse.DeleteMemorySubscription, and is useful for accessing the field via an interface.
+func (v *DeleteMemorySubscriptionResponse) GetDeleteMemorySubscription() bool {
+	return v.DeleteMemorySubscription
+}
 
 // DeleteNodeResponse is returned by DeleteNode on success.
 type DeleteNodeResponse struct {
@@ -3634,6 +4301,44 @@ func (v *EffectiveAccessResponse) GetEffectiveAccess() *EffectiveAccessEffective
 	return v.EffectiveAccess
 }
 
+// EncryptMemoryEncryptMemory includes the requested fields of the GraphQL type Memory.
+type EncryptMemoryEncryptMemory struct {
+	Id          string `json:"id"`
+	Urn         string `json:"urn"`
+	Name        string `json:"name"`
+	IsEncrypted bool   `json:"isEncrypted"`
+}
+
+// GetId returns EncryptMemoryEncryptMemory.Id, and is useful for accessing the field via an interface.
+func (v *EncryptMemoryEncryptMemory) GetId() string { return v.Id }
+
+// GetUrn returns EncryptMemoryEncryptMemory.Urn, and is useful for accessing the field via an interface.
+func (v *EncryptMemoryEncryptMemory) GetUrn() string { return v.Urn }
+
+// GetName returns EncryptMemoryEncryptMemory.Name, and is useful for accessing the field via an interface.
+func (v *EncryptMemoryEncryptMemory) GetName() string { return v.Name }
+
+// GetIsEncrypted returns EncryptMemoryEncryptMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *EncryptMemoryEncryptMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// EncryptMemoryResponse is returned by EncryptMemory on success.
+type EncryptMemoryResponse struct {
+	// Convert a plaintext PRIVATE memory to encrypted (spec 041, caller-held
+	// keys). Exactly one of dataKey (base64, 32 bytes) / passphrase (scrypt-
+	// derived; salt + params stored on the memory, the key itself never).
+	// Owner or org-App-key. All node content/abstract/data is re-written as
+	// ciphertext in one transaction. One-way without the key: the server
+	// cannot recover the content.
+	//
+	// Accepts the entity's ID or URN.
+	EncryptMemory *EncryptMemoryEncryptMemory `json:"encryptMemory"`
+}
+
+// GetEncryptMemory returns EncryptMemoryResponse.EncryptMemory, and is useful for accessing the field via an interface.
+func (v *EncryptMemoryResponse) GetEncryptMemory() *EncryptMemoryEncryptMemory {
+	return v.EncryptMemory
+}
+
 // FindNodesFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
 // The GraphQL type's documentation follows.
 //
@@ -3766,6 +4471,295 @@ type FindNodesResponse struct {
 
 // GetFindNodes returns FindNodesResponse.FindNodes, and is useful for accessing the field via an interface.
 func (v *FindNodesResponse) GetFindNodes() *FindNodesFindNodesFindNodesResult { return v.FindNodes }
+
+// GetAgentAgent includes the requested fields of the GraphQL type Agent.
+type GetAgentAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns GetAgentAgent.Id, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns GetAgentAgent.Urn, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns GetAgentAgent.Name, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns GetAgentAgent.Description, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetDescription() *string { return v.AgentFields.Description }
+
+// GetType returns GetAgentAgent.Type, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns GetAgentAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetVisibility() AgentVisibility { return v.AgentFields.Visibility }
+
+// GetOrganizationId returns GetAgentAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetOrganizationId() string { return v.AgentFields.OrganizationId }
+
+// GetSurfaces returns GetAgentAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns GetAgentAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetSystemMemoryId() *string { return v.AgentFields.SystemMemoryId }
+
+// GetSystemPrompt returns GetAgentAgent.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
+
+// GetAiProvider returns GetAgentAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
+
+// GetAiModel returns GetAgentAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns GetAgentAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
+
+// GetCreatedAt returns GetAgentAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *GetAgentAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetAgentAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetAgentAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetAgentAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	SystemPrompt *string `json:"systemPrompt"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *GetAgentAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
+	var retval __premarshalGetAgentAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// GetAgentResponse is returned by GetAgent on success.
+type GetAgentResponse struct {
+	// The uniform single-agent read (#473) — the first top-level Agent query;
+	// previously Agents were reachable only via Organization.agents /
+	// App.agents nesting. Gate mirrors resolveUrn's agent branch: member of
+	// the Agent's org or platform ADMIN/OWNER; denied throws Forbidden,
+	// missing is null.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Agent *GetAgentAgent `json:"agent"`
+}
+
+// GetAgent returns GetAgentResponse.Agent, and is useful for accessing the field via an interface.
+func (v *GetAgentResponse) GetAgent() *GetAgentAgent { return v.Agent }
+
+// GetInvitationInvitationUserInvitation includes the requested fields of the GraphQL type UserInvitation.
+type GetInvitationInvitationUserInvitation struct {
+	InvitationFields `json:"-"`
+}
+
+// GetId returns GetInvitationInvitationUserInvitation.Id, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetId() string { return v.InvitationFields.Id }
+
+// GetSlug returns GetInvitationInvitationUserInvitation.Slug, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetSlug() string { return v.InvitationFields.Slug }
+
+// GetEmail returns GetInvitationInvitationUserInvitation.Email, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetEmail() *string { return v.InvitationFields.Email }
+
+// GetName returns GetInvitationInvitationUserInvitation.Name, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetName() *string { return v.InvitationFields.Name }
+
+// GetGithubUsername returns GetInvitationInvitationUserInvitation.GithubUsername, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetGithubUsername() *string {
+	return v.InvitationFields.GithubUsername
+}
+
+// GetMemberRole returns GetInvitationInvitationUserInvitation.MemberRole, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetMemberRole() Role {
+	return v.InvitationFields.MemberRole
+}
+
+// GetOrganizationId returns GetInvitationInvitationUserInvitation.OrganizationId, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetOrganizationId() *string {
+	return v.InvitationFields.OrganizationId
+}
+
+// GetMaxActivations returns GetInvitationInvitationUserInvitation.MaxActivations, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetMaxActivations() *int {
+	return v.InvitationFields.MaxActivations
+}
+
+// GetActivationCount returns GetInvitationInvitationUserInvitation.ActivationCount, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetActivationCount() int {
+	return v.InvitationFields.ActivationCount
+}
+
+// GetExpiresAt returns GetInvitationInvitationUserInvitation.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetExpiresAt() *string {
+	return v.InvitationFields.ExpiresAt
+}
+
+// GetAcceptedAt returns GetInvitationInvitationUserInvitation.AcceptedAt, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetAcceptedAt() *string {
+	return v.InvitationFields.AcceptedAt
+}
+
+// GetCreatedAt returns GetInvitationInvitationUserInvitation.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetInvitationInvitationUserInvitation) GetCreatedAt() string {
+	return v.InvitationFields.CreatedAt
+}
+
+func (v *GetInvitationInvitationUserInvitation) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetInvitationInvitationUserInvitation
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetInvitationInvitationUserInvitation = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.InvitationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetInvitationInvitationUserInvitation struct {
+	Id string `json:"id"`
+
+	Slug string `json:"slug"`
+
+	Email *string `json:"email"`
+
+	Name *string `json:"name"`
+
+	GithubUsername *string `json:"githubUsername"`
+
+	MemberRole Role `json:"memberRole"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	MaxActivations *int `json:"maxActivations"`
+
+	ActivationCount int `json:"activationCount"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	AcceptedAt *string `json:"acceptedAt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *GetInvitationInvitationUserInvitation) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetInvitationInvitationUserInvitation) __premarshalJSON() (*__premarshalGetInvitationInvitationUserInvitation, error) {
+	var retval __premarshalGetInvitationInvitationUserInvitation
+
+	retval.Id = v.InvitationFields.Id
+	retval.Slug = v.InvitationFields.Slug
+	retval.Email = v.InvitationFields.Email
+	retval.Name = v.InvitationFields.Name
+	retval.GithubUsername = v.InvitationFields.GithubUsername
+	retval.MemberRole = v.InvitationFields.MemberRole
+	retval.OrganizationId = v.InvitationFields.OrganizationId
+	retval.MaxActivations = v.InvitationFields.MaxActivations
+	retval.ActivationCount = v.InvitationFields.ActivationCount
+	retval.ExpiresAt = v.InvitationFields.ExpiresAt
+	retval.AcceptedAt = v.InvitationFields.AcceptedAt
+	retval.CreatedAt = v.InvitationFields.CreatedAt
+	return &retval, nil
+}
+
+// GetInvitationResponse is returned by GetInvitation on success.
+type GetInvitationResponse struct {
+	Invitation *GetInvitationInvitationUserInvitation `json:"invitation"`
+}
+
+// GetInvitation returns GetInvitationResponse.Invitation, and is useful for accessing the field via an interface.
+func (v *GetInvitationResponse) GetInvitation() *GetInvitationInvitationUserInvitation {
+	return v.Invitation
+}
 
 // GetMemoryMemory includes the requested fields of the GraphQL type Memory.
 type GetMemoryMemory struct {
@@ -4281,6 +5275,8 @@ func (v *ImportNodeImportNodeImportNodeResultNode) GetUpdatedAt() string { retur
 // the URN may name a not-yet-existing node (import creates it). Source:
 // exactly one of 'url' | 'content'.
 type ImportNodeInput struct {
+	// App to run the task under — PK or URN. Falls back to the caller's active App. Only meaningful with taskRef.
+	AppRef *string `json:"appRef"`
 	// Inline source content (e.g. the Web Clipper's authenticated-DOM capture). XOR with 'url'.
 	Content *string `json:"content,omitempty"`
 	// MIME type of 'content': text/html (DEFAULT here — unlike createNode) converts to Markdown at the write seam; text/markdown stores as-is; application/pdf extracts a PDF's text layer to Markdown ('content' must be raw base64 — a PDF is binary; scanned/image-only PDFs error). Ignored on the url path (always HTML).
@@ -4297,9 +5293,16 @@ type ImportNodeInput struct {
 	NodeUrn *string `json:"nodeUrn,omitempty"`
 	// Merged provenance metadata; the server sets properties.url on the url path when absent (properties.title is filled from the extracted title by the write seam).
 	Properties *json.RawMessage `json:"properties,omitempty"`
+	// Extra template args merged into the task run's eventData (only meaningful with taskRef).
+	TaskArgs *json.RawMessage `json:"taskArgs"`
+	// Task node to run against the imported node once stored (#528) — PK or fully-qualified URN. Presence triggers a MANUAL app run; the result envelope is FETCH_PENDING + jobId (poll appRun(ref:)). The imported node's URN is passed to the task as eventData.importedNodeUrn.
+	TaskRef *string `json:"taskRef"`
 	// Source URL (http/https) — fetched server-side, SSRF-guarded, WITHOUT user credentials.
 	Url *string `json:"url,omitempty"`
 }
+
+// GetAppRef returns ImportNodeInput.AppRef, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetAppRef() *string { return v.AppRef }
 
 // GetContent returns ImportNodeInput.Content, and is useful for accessing the field via an interface.
 func (v *ImportNodeInput) GetContent() *string { return v.Content }
@@ -4324,6 +5327,12 @@ func (v *ImportNodeInput) GetNodeUrn() *string { return v.NodeUrn }
 
 // GetProperties returns ImportNodeInput.Properties, and is useful for accessing the field via an interface.
 func (v *ImportNodeInput) GetProperties() *json.RawMessage { return v.Properties }
+
+// GetTaskArgs returns ImportNodeInput.TaskArgs, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetTaskArgs() *json.RawMessage { return v.TaskArgs }
+
+// GetTaskRef returns ImportNodeInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetTaskRef() *string { return v.TaskRef }
 
 // GetUrl returns ImportNodeInput.Url, and is useful for accessing the field via an interface.
 func (v *ImportNodeInput) GetUrl() *string { return v.Url }
@@ -4360,6 +5369,58 @@ var AllImportNodeStatus = []ImportNodeStatus{
 	ImportNodeStatusFetchPending,
 	ImportNodeStatusStored,
 }
+
+// InvitationFields includes the GraphQL fields of UserInvitation requested by the fragment InvitationFields.
+type InvitationFields struct {
+	Id              string  `json:"id"`
+	Slug            string  `json:"slug"`
+	Email           *string `json:"email"`
+	Name            *string `json:"name"`
+	GithubUsername  *string `json:"githubUsername"`
+	MemberRole      Role    `json:"memberRole"`
+	OrganizationId  *string `json:"organizationId"`
+	MaxActivations  *int    `json:"maxActivations"`
+	ActivationCount int     `json:"activationCount"`
+	ExpiresAt       *string `json:"expiresAt"`
+	AcceptedAt      *string `json:"acceptedAt"`
+	CreatedAt       string  `json:"createdAt"`
+}
+
+// GetId returns InvitationFields.Id, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetId() string { return v.Id }
+
+// GetSlug returns InvitationFields.Slug, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetSlug() string { return v.Slug }
+
+// GetEmail returns InvitationFields.Email, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetEmail() *string { return v.Email }
+
+// GetName returns InvitationFields.Name, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetName() *string { return v.Name }
+
+// GetGithubUsername returns InvitationFields.GithubUsername, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetGithubUsername() *string { return v.GithubUsername }
+
+// GetMemberRole returns InvitationFields.MemberRole, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetMemberRole() Role { return v.MemberRole }
+
+// GetOrganizationId returns InvitationFields.OrganizationId, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetOrganizationId() *string { return v.OrganizationId }
+
+// GetMaxActivations returns InvitationFields.MaxActivations, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetMaxActivations() *int { return v.MaxActivations }
+
+// GetActivationCount returns InvitationFields.ActivationCount, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetActivationCount() int { return v.ActivationCount }
+
+// GetExpiresAt returns InvitationFields.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetAcceptedAt returns InvitationFields.AcceptedAt, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetAcceptedAt() *string { return v.AcceptedAt }
+
+// GetCreatedAt returns InvitationFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *InvitationFields) GetCreatedAt() string { return v.CreatedAt }
 
 // MeMeUser includes the requested fields of the GraphQL type User.
 type MeMeUser struct {
@@ -4849,6 +5910,73 @@ type MemorySharesResponse struct {
 // GetMemory returns MemorySharesResponse.Memory, and is useful for accessing the field via an interface.
 func (v *MemorySharesResponse) GetMemory() *MemorySharesMemory { return v.Memory }
 
+// MemorySubscriptionsMemory includes the requested fields of the GraphQL type Memory.
+type MemorySubscriptionsMemory struct {
+	Id            string                                                      `json:"id"`
+	Subscriptions []*MemorySubscriptionsMemorySubscriptionsMemorySubscription `json:"subscriptions"`
+}
+
+// GetId returns MemorySubscriptionsMemory.Id, and is useful for accessing the field via an interface.
+func (v *MemorySubscriptionsMemory) GetId() string { return v.Id }
+
+// GetSubscriptions returns MemorySubscriptionsMemory.Subscriptions, and is useful for accessing the field via an interface.
+func (v *MemorySubscriptionsMemory) GetSubscriptions() []*MemorySubscriptionsMemorySubscriptionsMemorySubscription {
+	return v.Subscriptions
+}
+
+// MemorySubscriptionsMemorySubscriptionsMemorySubscription includes the requested fields of the GraphQL type MemorySubscription.
+type MemorySubscriptionsMemorySubscriptionsMemorySubscription struct {
+	Role         Role                                                                  `json:"role"`
+	Activated    bool                                                                  `json:"activated"`
+	Organization *MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization `json:"organization"`
+}
+
+// GetRole returns MemorySubscriptionsMemorySubscriptionsMemorySubscription.Role, and is useful for accessing the field via an interface.
+func (v *MemorySubscriptionsMemorySubscriptionsMemorySubscription) GetRole() Role { return v.Role }
+
+// GetActivated returns MemorySubscriptionsMemorySubscriptionsMemorySubscription.Activated, and is useful for accessing the field via an interface.
+func (v *MemorySubscriptionsMemorySubscriptionsMemorySubscription) GetActivated() bool {
+	return v.Activated
+}
+
+// GetOrganization returns MemorySubscriptionsMemorySubscriptionsMemorySubscription.Organization, and is useful for accessing the field via an interface.
+func (v *MemorySubscriptionsMemorySubscriptionsMemorySubscription) GetOrganization() *MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization {
+	return v.Organization
+}
+
+// MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization includes the requested fields of the GraphQL type Organization.
+type MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	Urn  string `json:"urn"`
+}
+
+// GetId returns MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization.Id, and is useful for accessing the field via an interface.
+func (v *MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization) GetId() string {
+	return v.Id
+}
+
+// GetName returns MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization.Name, and is useful for accessing the field via an interface.
+func (v *MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization) GetName() string {
+	return v.Name
+}
+
+// GetUrn returns MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization.Urn, and is useful for accessing the field via an interface.
+func (v *MemorySubscriptionsMemorySubscriptionsMemorySubscriptionOrganization) GetUrn() string {
+	return v.Urn
+}
+
+// MemorySubscriptionsResponse is returned by MemorySubscriptions on success.
+type MemorySubscriptionsResponse struct {
+	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Memory *MemorySubscriptionsMemory `json:"memory"`
+}
+
+// GetMemory returns MemorySubscriptionsResponse.Memory, and is useful for accessing the field via an interface.
+func (v *MemorySubscriptionsResponse) GetMemory() *MemorySubscriptionsMemory { return v.Memory }
+
 // 035-visibility-enum-cleanup: meaningful only for knowledge
 // (PUBLIC/ORGANIZATION) and group (GROUP); null otherwise. PERSONAL/PRIVATE
 // were dropped — privacy is the personal/private memory CLASS now.
@@ -4872,20 +6000,21 @@ var AllMemoryVisibility = []MemoryVisibility{
 type MintActionTicketsInput struct {
 	// v1: comm.outbound only.
 	Action string `json:"action"`
-	// Scope tickets to one App; omit for org-wide.
-	AppId     *string `json:"appId,omitempty"`
+	// Scope tickets to one App (ref: PK or URN); omit for org-wide.
+	AppRef    *string `json:"appRef,omitempty"`
 	Count     int     `json:"count"`
 	ExpiresAt *string `json:"expiresAt,omitempty"`
 	// Ledger legibility — why these tickets exist.
-	Note  *string `json:"note,omitempty"`
-	OrgId string  `json:"orgId"`
+	Note *string `json:"note,omitempty"`
+	// Organization — ref: PK or URN.
+	OrgRef string `json:"orgRef"`
 }
 
 // GetAction returns MintActionTicketsInput.Action, and is useful for accessing the field via an interface.
 func (v *MintActionTicketsInput) GetAction() string { return v.Action }
 
-// GetAppId returns MintActionTicketsInput.AppId, and is useful for accessing the field via an interface.
-func (v *MintActionTicketsInput) GetAppId() *string { return v.AppId }
+// GetAppRef returns MintActionTicketsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *MintActionTicketsInput) GetAppRef() *string { return v.AppRef }
 
 // GetCount returns MintActionTicketsInput.Count, and is useful for accessing the field via an interface.
 func (v *MintActionTicketsInput) GetCount() int { return v.Count }
@@ -4896,8 +6025,8 @@ func (v *MintActionTicketsInput) GetExpiresAt() *string { return v.ExpiresAt }
 // GetNote returns MintActionTicketsInput.Note, and is useful for accessing the field via an interface.
 func (v *MintActionTicketsInput) GetNote() *string { return v.Note }
 
-// GetOrgId returns MintActionTicketsInput.OrgId, and is useful for accessing the field via an interface.
-func (v *MintActionTicketsInput) GetOrgId() string { return v.OrgId }
+// GetOrgRef returns MintActionTicketsInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *MintActionTicketsInput) GetOrgRef() string { return v.OrgRef }
 
 // MintActionTicketsResponse is returned by MintActionTickets on success.
 type MintActionTicketsResponse struct {
@@ -5647,6 +6776,141 @@ type OrgMembersResponse struct {
 
 // GetOrganization returns OrgMembersResponse.Organization, and is useful for accessing the field via an interface.
 func (v *OrgMembersResponse) GetOrganization() *OrgMembersOrganization { return v.Organization }
+
+// Filter for the uniform organizations() list (#473).
+type OrganizationFilter struct {
+	// true restricts the list to the caller's own memberships — even for
+	// platform ADMIN/OWNER, whose unscoped reach otherwise spans every live
+	// org; the old myOrganizations semantics.
+	MemberOnly *bool `json:"memberOnly"`
+}
+
+// GetMemberOnly returns OrganizationFilter.MemberOnly, and is useful for accessing the field via an interface.
+func (v *OrganizationFilter) GetMemberOnly() *bool { return v.MemberOnly }
+
+// OrganizationsOrganizationsOrganizationsPage includes the requested fields of the GraphQL type OrganizationsPage.
+type OrganizationsOrganizationsOrganizationsPage struct {
+	Total int                                                             `json:"total"`
+	Items []*OrganizationsOrganizationsOrganizationsPageItemsOrganization `json:"items"`
+}
+
+// GetTotal returns OrganizationsOrganizationsOrganizationsPage.Total, and is useful for accessing the field via an interface.
+func (v *OrganizationsOrganizationsOrganizationsPage) GetTotal() int { return v.Total }
+
+// GetItems returns OrganizationsOrganizationsOrganizationsPage.Items, and is useful for accessing the field via an interface.
+func (v *OrganizationsOrganizationsOrganizationsPage) GetItems() []*OrganizationsOrganizationsOrganizationsPageItemsOrganization {
+	return v.Items
+}
+
+// OrganizationsOrganizationsOrganizationsPageItemsOrganization includes the requested fields of the GraphQL type Organization.
+type OrganizationsOrganizationsOrganizationsPageItemsOrganization struct {
+	OrgFields `json:"-"`
+}
+
+// GetId returns OrganizationsOrganizationsOrganizationsPageItemsOrganization.Id, and is useful for accessing the field via an interface.
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) GetId() string {
+	return v.OrgFields.Id
+}
+
+// GetUrn returns OrganizationsOrganizationsOrganizationsPageItemsOrganization.Urn, and is useful for accessing the field via an interface.
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) GetUrn() string {
+	return v.OrgFields.Urn
+}
+
+// GetName returns OrganizationsOrganizationsOrganizationsPageItemsOrganization.Name, and is useful for accessing the field via an interface.
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) GetName() string {
+	return v.OrgFields.Name
+}
+
+// GetIsVisible returns OrganizationsOrganizationsOrganizationsPageItemsOrganization.IsVisible, and is useful for accessing the field via an interface.
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) GetIsVisible() *bool {
+	return v.OrgFields.IsVisible
+}
+
+// GetCreatedAt returns OrganizationsOrganizationsOrganizationsPageItemsOrganization.CreatedAt, and is useful for accessing the field via an interface.
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) GetCreatedAt() string {
+	return v.OrgFields.CreatedAt
+}
+
+// GetUpdatedAt returns OrganizationsOrganizationsOrganizationsPageItemsOrganization.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) GetUpdatedAt() string {
+	return v.OrgFields.UpdatedAt
+}
+
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*OrganizationsOrganizationsOrganizationsPageItemsOrganization
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.OrganizationsOrganizationsOrganizationsPageItemsOrganization = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.OrgFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalOrganizationsOrganizationsOrganizationsPageItemsOrganization struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	IsVisible *bool `json:"isVisible"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) __premarshalJSON() (*__premarshalOrganizationsOrganizationsOrganizationsPageItemsOrganization, error) {
+	var retval __premarshalOrganizationsOrganizationsOrganizationsPageItemsOrganization
+
+	retval.Id = v.OrgFields.Id
+	retval.Urn = v.OrgFields.Urn
+	retval.Name = v.OrgFields.Name
+	retval.IsVisible = v.OrgFields.IsVisible
+	retval.CreatedAt = v.OrgFields.CreatedAt
+	retval.UpdatedAt = v.OrgFields.UpdatedAt
+	return &retval, nil
+}
+
+// OrganizationsResponse is returned by Organizations on success.
+type OrganizationsResponse struct {
+	// Uniform paginated organization list (#473) — replaces organizations +
+	// myOrganizations. Scope: the caller's memberships; platform ADMIN/OWNER
+	// get every live org (the established admin unscoped reach) unless
+	// filter.memberOnly restricts the list to their own memberships (the old
+	// myOrganizations view, as a slice-as-filter). Name-ascending order (id
+	// tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
+	Organizations *OrganizationsOrganizationsOrganizationsPage `json:"organizations"`
+}
+
+// GetOrganizations returns OrganizationsResponse.Organizations, and is useful for accessing the field via an interface.
+func (v *OrganizationsResponse) GetOrganizations() *OrganizationsOrganizationsOrganizationsPage {
+	return v.Organizations
+}
 
 // RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload includes the requested fields of the GraphQL type RemoveMemoryMemberPayload.
 type RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload struct {
@@ -6549,8 +7813,9 @@ var AllSyncStatus = []SyncStatus{
 }
 
 type TriggerAppRunInput struct {
-	AiConfigName *string          `json:"aiConfigName,omitempty"`
-	AppId        string           `json:"appId"`
+	AiConfigName *string `json:"aiConfigName,omitempty"`
+	// App — ref: PK or fully-qualified URN.
+	AppRef       string           `json:"appRef"`
 	EntryNodeUrn string           `json:"entryNodeUrn"`
 	EventData    *json.RawMessage `json:"eventData,omitempty"`
 	RunAsSelf    *bool            `json:"runAsSelf,omitempty"`
@@ -6559,8 +7824,8 @@ type TriggerAppRunInput struct {
 // GetAiConfigName returns TriggerAppRunInput.AiConfigName, and is useful for accessing the field via an interface.
 func (v *TriggerAppRunInput) GetAiConfigName() *string { return v.AiConfigName }
 
-// GetAppId returns TriggerAppRunInput.AppId, and is useful for accessing the field via an interface.
-func (v *TriggerAppRunInput) GetAppId() string { return v.AppId }
+// GetAppRef returns TriggerAppRunInput.AppRef, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunInput) GetAppRef() string { return v.AppRef }
 
 // GetEntryNodeUrn returns TriggerAppRunInput.EntryNodeUrn, and is useful for accessing the field via an interface.
 func (v *TriggerAppRunInput) GetEntryNodeUrn() string { return v.EntryNodeUrn }
@@ -6643,6 +7908,9 @@ func (v *TriggerAppRunTriggerAppRun) GetPolicy() *json.RawMessage { return v.App
 // GetEventData returns TriggerAppRunTriggerAppRun.EventData, and is useful for accessing the field via an interface.
 func (v *TriggerAppRunTriggerAppRun) GetEventData() *json.RawMessage { return v.AppRunFields.EventData }
 
+// GetData returns TriggerAppRunTriggerAppRun.Data, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetData() *json.RawMessage { return v.AppRunFields.Data }
+
 // GetFailure returns TriggerAppRunTriggerAppRun.Failure, and is useful for accessing the field via an interface.
 func (v *TriggerAppRunTriggerAppRun) GetFailure() *json.RawMessage { return v.AppRunFields.Failure }
 
@@ -6717,6 +7985,8 @@ type __premarshalTriggerAppRunTriggerAppRun struct {
 
 	EventData *json.RawMessage `json:"eventData"`
 
+	Data *json.RawMessage `json:"data"`
+
 	Failure *json.RawMessage `json:"failure"`
 
 	CreatedAt string `json:"createdAt"`
@@ -6755,6 +8025,7 @@ func (v *TriggerAppRunTriggerAppRun) __premarshalJSON() (*__premarshalTriggerApp
 	retval.TimeoutMs = v.AppRunFields.TimeoutMs
 	retval.Policy = v.AppRunFields.Policy
 	retval.EventData = v.AppRunFields.EventData
+	retval.Data = v.AppRunFields.Data
 	retval.Failure = v.AppRunFields.Failure
 	retval.CreatedAt = v.AppRunFields.CreatedAt
 	retval.StartedAt = v.AppRunFields.StartedAt
@@ -6762,8 +8033,22 @@ func (v *TriggerAppRunTriggerAppRun) __premarshalJSON() (*__premarshalTriggerApp
 	return &retval, nil
 }
 
+// UpdateAgentResponse is returned by UpdateAgent on success.
+type UpdateAgentResponse struct {
+	// Update an Agent.
+	//
+	// Accepts the entity's ID or URN.
+	UpdateAgent *UpdateAgentUpdateAgent `json:"updateAgent"`
+}
+
+// GetUpdateAgent returns UpdateAgentResponse.UpdateAgent, and is useful for accessing the field via an interface.
+func (v *UpdateAgentResponse) GetUpdateAgent() *UpdateAgentUpdateAgent { return v.UpdateAgent }
+
 type UpdateAgentScheduleInput struct {
-	AiConfigName *string          `json:"aiConfigName,omitempty"`
+	// Agent — ref: PK or URN; must be installed in the App.
+	AgentRef     *string `json:"agentRef,omitempty"`
+	AiConfigName *string `json:"aiConfigName,omitempty"`
+	// Providing cron switches the schedule to recurring (clears runAt).
 	Cron         *string          `json:"cron,omitempty"`
 	Enabled      *bool            `json:"enabled,omitempty"`
 	EntryNodeUrn *string          `json:"entryNodeUrn,omitempty"`
@@ -6771,8 +8056,13 @@ type UpdateAgentScheduleInput struct {
 	Name         *string          `json:"name,omitempty"`
 	Policy       *json.RawMessage `json:"policy,omitempty"`
 	RunAsSelf    *bool            `json:"runAsSelf,omitempty"`
-	Timezone     *string          `json:"timezone,omitempty"`
+	// Providing runAt switches the schedule to one-shot (clears cron). At most one of cron / runAt per call.
+	RunAt    *string `json:"runAt,omitempty"`
+	Timezone *string `json:"timezone,omitempty"`
 }
+
+// GetAgentRef returns UpdateAgentScheduleInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleInput) GetAgentRef() *string { return v.AgentRef }
 
 // GetAiConfigName returns UpdateAgentScheduleInput.AiConfigName, and is useful for accessing the field via an interface.
 func (v *UpdateAgentScheduleInput) GetAiConfigName() *string { return v.AiConfigName }
@@ -6797,6 +8087,9 @@ func (v *UpdateAgentScheduleInput) GetPolicy() *json.RawMessage { return v.Polic
 
 // GetRunAsSelf returns UpdateAgentScheduleInput.RunAsSelf, and is useful for accessing the field via an interface.
 func (v *UpdateAgentScheduleInput) GetRunAsSelf() *bool { return v.RunAsSelf }
+
+// GetRunAt returns UpdateAgentScheduleInput.RunAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleInput) GetRunAt() *string { return v.RunAt }
 
 // GetTimezone returns UpdateAgentScheduleInput.Timezone, and is useful for accessing the field via an interface.
 func (v *UpdateAgentScheduleInput) GetTimezone() *string { return v.Timezone }
@@ -6841,7 +8134,7 @@ func (v *UpdateAgentScheduleUpdateAgentSchedule) GetAgentId() *string {
 func (v *UpdateAgentScheduleUpdateAgentSchedule) GetName() string { return v.AgentScheduleFields.Name }
 
 // GetCron returns UpdateAgentScheduleUpdateAgentSchedule.Cron, and is useful for accessing the field via an interface.
-func (v *UpdateAgentScheduleUpdateAgentSchedule) GetCron() string { return v.AgentScheduleFields.Cron }
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetCron() *string { return v.AgentScheduleFields.Cron }
 
 // GetTimezone returns UpdateAgentScheduleUpdateAgentSchedule.Timezone, and is useful for accessing the field via an interface.
 func (v *UpdateAgentScheduleUpdateAgentSchedule) GetTimezone() string {
@@ -6934,7 +8227,7 @@ type __premarshalUpdateAgentScheduleUpdateAgentSchedule struct {
 
 	Name string `json:"name"`
 
-	Cron string `json:"cron"`
+	Cron *string `json:"cron"`
 
 	Timezone string `json:"timezone"`
 
@@ -6987,6 +8280,136 @@ func (v *UpdateAgentScheduleUpdateAgentSchedule) __premarshalJSON() (*__premarsh
 	retval.LastRunAt = v.AgentScheduleFields.LastRunAt
 	retval.NextRunAt = v.AgentScheduleFields.NextRunAt
 	retval.CreatedAt = v.AgentScheduleFields.CreatedAt
+	return &retval, nil
+}
+
+// UpdateAgentUpdateAgent includes the requested fields of the GraphQL type Agent.
+type UpdateAgentUpdateAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns UpdateAgentUpdateAgent.Id, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns UpdateAgentUpdateAgent.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns UpdateAgentUpdateAgent.Name, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns UpdateAgentUpdateAgent.Description, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetDescription() *string { return v.AgentFields.Description }
+
+// GetType returns UpdateAgentUpdateAgent.Type, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns UpdateAgentUpdateAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetVisibility() AgentVisibility { return v.AgentFields.Visibility }
+
+// GetOrganizationId returns UpdateAgentUpdateAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetOrganizationId() string { return v.AgentFields.OrganizationId }
+
+// GetSurfaces returns UpdateAgentUpdateAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns UpdateAgentUpdateAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetSystemMemoryId() *string { return v.AgentFields.SystemMemoryId }
+
+// GetSystemPrompt returns UpdateAgentUpdateAgent.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
+
+// GetAiProvider returns UpdateAgentUpdateAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
+
+// GetAiModel returns UpdateAgentUpdateAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns UpdateAgentUpdateAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
+
+// GetCreatedAt returns UpdateAgentUpdateAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *UpdateAgentUpdateAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateAgentUpdateAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateAgentUpdateAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateAgentUpdateAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	SystemPrompt *string `json:"systemPrompt"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *UpdateAgentUpdateAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpdateAgent, error) {
+	var retval __premarshalUpdateAgentUpdateAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
 
@@ -7503,6 +8926,55 @@ func (v *UpdateMemoryShareRoleUpdateMemoryShareRoleUpdateMemoryShareRolePayloadM
 	return &retval, nil
 }
 
+// UpdateMemorySubscriptionResponse is returned by UpdateMemorySubscription on success.
+type UpdateMemorySubscriptionResponse struct {
+	// Update a cross-org Memory subscription.
+	//
+	// Accepts the entity's ID or URN.
+	UpdateMemorySubscription *UpdateMemorySubscriptionUpdateMemorySubscription `json:"updateMemorySubscription"`
+}
+
+// GetUpdateMemorySubscription returns UpdateMemorySubscriptionResponse.UpdateMemorySubscription, and is useful for accessing the field via an interface.
+func (v *UpdateMemorySubscriptionResponse) GetUpdateMemorySubscription() *UpdateMemorySubscriptionUpdateMemorySubscription {
+	return v.UpdateMemorySubscription
+}
+
+// UpdateMemorySubscriptionUpdateMemorySubscription includes the requested fields of the GraphQL type MemorySubscription.
+type UpdateMemorySubscriptionUpdateMemorySubscription struct {
+	Role         Role                                                          `json:"role"`
+	Activated    bool                                                          `json:"activated"`
+	Organization *UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization `json:"organization"`
+}
+
+// GetRole returns UpdateMemorySubscriptionUpdateMemorySubscription.Role, and is useful for accessing the field via an interface.
+func (v *UpdateMemorySubscriptionUpdateMemorySubscription) GetRole() Role { return v.Role }
+
+// GetActivated returns UpdateMemorySubscriptionUpdateMemorySubscription.Activated, and is useful for accessing the field via an interface.
+func (v *UpdateMemorySubscriptionUpdateMemorySubscription) GetActivated() bool { return v.Activated }
+
+// GetOrganization returns UpdateMemorySubscriptionUpdateMemorySubscription.Organization, and is useful for accessing the field via an interface.
+func (v *UpdateMemorySubscriptionUpdateMemorySubscription) GetOrganization() *UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization {
+	return v.Organization
+}
+
+// UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization includes the requested fields of the GraphQL type Organization.
+type UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	Urn  string `json:"urn"`
+}
+
+// GetId returns UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization.Id, and is useful for accessing the field via an interface.
+func (v *UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization) GetId() string { return v.Id }
+
+// GetName returns UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization.Name, and is useful for accessing the field via an interface.
+func (v *UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization) GetName() string {
+	return v.Name
+}
+
+// GetUrn returns UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization) GetUrn() string { return v.Urn }
+
 // UpdateMemoryUpdateMemory includes the requested fields of the GraphQL type Memory.
 type UpdateMemoryUpdateMemory struct {
 	Id               string            `json:"id"`
@@ -7548,6 +9020,100 @@ func (v *UpdateMemoryUpdateMemory) GetData() *json.RawMessage { return v.Data }
 
 // GetUpdatedAt returns UpdateMemoryUpdateMemory.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryUpdateMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// UpdateMyProfileResponse is returned by UpdateMyProfile on success.
+type UpdateMyProfileResponse struct {
+	UpdateMyProfile *UpdateMyProfileUpdateMyProfileUser `json:"updateMyProfile"`
+}
+
+// GetUpdateMyProfile returns UpdateMyProfileResponse.UpdateMyProfile, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileResponse) GetUpdateMyProfile() *UpdateMyProfileUpdateMyProfileUser {
+	return v.UpdateMyProfile
+}
+
+// UpdateMyProfileUpdateMyProfileUser includes the requested fields of the GraphQL type User.
+type UpdateMyProfileUpdateMyProfileUser struct {
+	UserFields `json:"-"`
+}
+
+// GetId returns UpdateMyProfileUpdateMyProfileUser.Id, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileUpdateMyProfileUser) GetId() string { return v.UserFields.Id }
+
+// GetName returns UpdateMyProfileUpdateMyProfileUser.Name, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileUpdateMyProfileUser) GetName() *string { return v.UserFields.Name }
+
+// GetEmail returns UpdateMyProfileUpdateMyProfileUser.Email, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileUpdateMyProfileUser) GetEmail() *string { return v.UserFields.Email }
+
+// GetHandle returns UpdateMyProfileUpdateMyProfileUser.Handle, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileUpdateMyProfileUser) GetHandle() *string { return v.UserFields.Handle }
+
+// GetGithubUsername returns UpdateMyProfileUpdateMyProfileUser.GithubUsername, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileUpdateMyProfileUser) GetGithubUsername() *string {
+	return v.UserFields.GithubUsername
+}
+
+// GetRoles returns UpdateMyProfileUpdateMyProfileUser.Roles, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileUpdateMyProfileUser) GetRoles() []Role { return v.UserFields.Roles }
+
+func (v *UpdateMyProfileUpdateMyProfileUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateMyProfileUpdateMyProfileUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateMyProfileUpdateMyProfileUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UserFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateMyProfileUpdateMyProfileUser struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Email *string `json:"email"`
+
+	Handle *string `json:"handle"`
+
+	GithubUsername *string `json:"githubUsername"`
+
+	Roles []Role `json:"roles"`
+}
+
+func (v *UpdateMyProfileUpdateMyProfileUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateMyProfileUpdateMyProfileUser) __premarshalJSON() (*__premarshalUpdateMyProfileUpdateMyProfileUser, error) {
+	var retval __premarshalUpdateMyProfileUpdateMyProfileUser
+
+	retval.Id = v.UserFields.Id
+	retval.Name = v.UserFields.Name
+	retval.Email = v.UserFields.Email
+	retval.Handle = v.UserFields.Handle
+	retval.GithubUsername = v.UserFields.GithubUsername
+	retval.Roles = v.UserFields.Roles
+	return &retval, nil
+}
 
 // UpdateNodeDataResponse is returned by UpdateNodeData on success.
 type UpdateNodeDataResponse struct {
@@ -8011,15 +9577,23 @@ func (v *UserFields) GetGithubUsername() *string { return v.GithubUsername }
 // GetRoles returns UserFields.Roles, and is useful for accessing the field via an interface.
 func (v *UserFields) GetRoles() []Role { return v.Roles }
 
+// __AcceptInvitationInput is used internally by genqlient
+type __AcceptInvitationInput struct {
+	Slug string `json:"slug"`
+}
+
+// GetSlug returns __AcceptInvitationInput.Slug, and is useful for accessing the field via an interface.
+func (v *__AcceptInvitationInput) GetSlug() string { return v.Slug }
+
 // __ActionTicketsInput is used internally by genqlient
 type __ActionTicketsInput struct {
-	OrgId  string `json:"orgId"`
+	OrgRef string `json:"orgRef"`
 	Limit  *int   `json:"limit,omitempty"`
 	Offset *int   `json:"offset,omitempty"`
 }
 
-// GetOrgId returns __ActionTicketsInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__ActionTicketsInput) GetOrgId() string { return v.OrgId }
+// GetOrgRef returns __ActionTicketsInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__ActionTicketsInput) GetOrgRef() string { return v.OrgRef }
 
 // GetLimit returns __ActionTicketsInput.Limit, and is useful for accessing the field via an interface.
 func (v *__ActionTicketsInput) GetLimit() *int { return v.Limit }
@@ -8061,13 +9635,13 @@ func (v *__AddOrgMemberInput) GetRole() Role { return v.Role }
 
 // __AgentSchedulesInput is used internally by genqlient
 type __AgentSchedulesInput struct {
-	AppId  string `json:"appId"`
+	AppRef string `json:"appRef"`
 	Limit  *int   `json:"limit,omitempty"`
 	Offset *int   `json:"offset,omitempty"`
 }
 
-// GetAppId returns __AgentSchedulesInput.AppId, and is useful for accessing the field via an interface.
-func (v *__AgentSchedulesInput) GetAppId() string { return v.AppId }
+// GetAppRef returns __AgentSchedulesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AgentSchedulesInput) GetAppRef() string { return v.AppRef }
 
 // GetLimit returns __AgentSchedulesInput.Limit, and is useful for accessing the field via an interface.
 func (v *__AgentSchedulesInput) GetLimit() *int { return v.Limit }
@@ -8077,19 +9651,39 @@ func (v *__AgentSchedulesInput) GetOffset() *int { return v.Offset }
 
 // __AgentWebhooksInput is used internally by genqlient
 type __AgentWebhooksInput struct {
-	AppId  string `json:"appId"`
+	AppRef string `json:"appRef"`
 	Limit  *int   `json:"limit,omitempty"`
 	Offset *int   `json:"offset,omitempty"`
 }
 
-// GetAppId returns __AgentWebhooksInput.AppId, and is useful for accessing the field via an interface.
-func (v *__AgentWebhooksInput) GetAppId() string { return v.AppId }
+// GetAppRef returns __AgentWebhooksInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AgentWebhooksInput) GetAppRef() string { return v.AppRef }
 
 // GetLimit returns __AgentWebhooksInput.Limit, and is useful for accessing the field via an interface.
 func (v *__AgentWebhooksInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __AgentWebhooksInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AgentWebhooksInput) GetOffset() *int { return v.Offset }
+
+// __AgentsInput is used internally by genqlient
+type __AgentsInput struct {
+	OrgId  *string      `json:"orgId,omitempty"`
+	Filter *AgentFilter `json:"filter,omitempty"`
+	Limit  *int         `json:"limit,omitempty"`
+	Offset *int         `json:"offset,omitempty"`
+}
+
+// GetOrgId returns __AgentsInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__AgentsInput) GetOrgId() *string { return v.OrgId }
+
+// GetFilter returns __AgentsInput.Filter, and is useful for accessing the field via an interface.
+func (v *__AgentsInput) GetFilter() *AgentFilter { return v.Filter }
+
+// GetLimit returns __AgentsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __AgentsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AgentsInput) GetOffset() *int { return v.Offset }
 
 // __AppRunInput is used internally by genqlient
 type __AppRunInput struct {
@@ -8101,18 +9695,18 @@ func (v *__AppRunInput) GetRef() string { return v.Ref }
 
 // __AppRunsInput is used internally by genqlient
 type __AppRunsInput struct {
-	AppId  *string       `json:"appId,omitempty"`
-	OrgId  *string       `json:"orgId,omitempty"`
+	AppRef *string       `json:"appRef,omitempty"`
+	OrgRef *string       `json:"orgRef,omitempty"`
 	Status *AppRunStatus `json:"status,omitempty"`
 	Limit  *int          `json:"limit,omitempty"`
 	Offset *int          `json:"offset,omitempty"`
 }
 
-// GetAppId returns __AppRunsInput.AppId, and is useful for accessing the field via an interface.
-func (v *__AppRunsInput) GetAppId() *string { return v.AppId }
+// GetAppRef returns __AppRunsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppRunsInput) GetAppRef() *string { return v.AppRef }
 
-// GetOrgId returns __AppRunsInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__AppRunsInput) GetOrgId() *string { return v.OrgId }
+// GetOrgRef returns __AppRunsInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__AppRunsInput) GetOrgRef() *string { return v.OrgRef }
 
 // GetStatus returns __AppRunsInput.Status, and is useful for accessing the field via an interface.
 func (v *__AppRunsInput) GetStatus() *AppRunStatus { return v.Status }
@@ -8158,6 +9752,42 @@ func (v *__CloneMemoryInput) GetId() string { return v.Id }
 
 // GetName returns __CloneMemoryInput.Name, and is useful for accessing the field via an interface.
 func (v *__CloneMemoryInput) GetName() string { return v.Name }
+
+// __CreateAgentInput is used internally by genqlient
+type __CreateAgentInput struct {
+	Name           string           `json:"name"`
+	OrgId          string           `json:"orgId"`
+	Description    *string          `json:"description,omitempty"`
+	AgentType      *AgentType       `json:"agentType,omitempty"`
+	Visibility     *AgentVisibility `json:"visibility,omitempty"`
+	SystemPrompt   *string          `json:"systemPrompt,omitempty"`
+	SystemMemoryId *string          `json:"systemMemoryId,omitempty"`
+	Surfaces       []string         `json:"surfaces,omitempty"`
+}
+
+// GetName returns __CreateAgentInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetName() string { return v.Name }
+
+// GetOrgId returns __CreateAgentInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetOrgId() string { return v.OrgId }
+
+// GetDescription returns __CreateAgentInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetDescription() *string { return v.Description }
+
+// GetAgentType returns __CreateAgentInput.AgentType, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetAgentType() *AgentType { return v.AgentType }
+
+// GetVisibility returns __CreateAgentInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetVisibility() *AgentVisibility { return v.Visibility }
+
+// GetSystemPrompt returns __CreateAgentInput.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetSystemPrompt() *string { return v.SystemPrompt }
+
+// GetSystemMemoryId returns __CreateAgentInput.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
+
+// GetSurfaces returns __CreateAgentInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetSurfaces() []string { return v.Surfaces }
 
 // __CreateAgentScheduleInput is used internally by genqlient
 type __CreateAgentScheduleInput struct {
@@ -8327,6 +9957,22 @@ func (v *__CreateMemoryShareInput) GetGranteeId() string { return v.GranteeId }
 // GetRole returns __CreateMemoryShareInput.Role, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryShareInput) GetRole() MemoryShareRole { return v.Role }
 
+// __CreateMemorySubscriptionInput is used internally by genqlient
+type __CreateMemorySubscriptionInput struct {
+	MemoryId string `json:"memoryId"`
+	OrgId    string `json:"orgId"`
+	Role     Role   `json:"role"`
+}
+
+// GetMemoryId returns __CreateMemorySubscriptionInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__CreateMemorySubscriptionInput) GetMemoryId() string { return v.MemoryId }
+
+// GetOrgId returns __CreateMemorySubscriptionInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__CreateMemorySubscriptionInput) GetOrgId() string { return v.OrgId }
+
+// GetRole returns __CreateMemorySubscriptionInput.Role, and is useful for accessing the field via an interface.
+func (v *__CreateMemorySubscriptionInput) GetRole() Role { return v.Role }
+
 // __CreateNodeInput is used internally by genqlient
 type __CreateNodeInput struct {
 	Input *CreateNodeInput `json:"input,omitempty"`
@@ -8354,6 +10000,46 @@ type __CreateUserApiKeyInput struct {
 
 // GetLabel returns __CreateUserApiKeyInput.Label, and is useful for accessing the field via an interface.
 func (v *__CreateUserApiKeyInput) GetLabel() *string { return v.Label }
+
+// __CreateUserInvitationInput is used internally by genqlient
+type __CreateUserInvitationInput struct {
+	OrgId          string  `json:"orgId"`
+	MemberRole     Role    `json:"memberRole"`
+	Email          *string `json:"email,omitempty"`
+	Name           *string `json:"name,omitempty"`
+	GithubUsername *string `json:"githubUsername,omitempty"`
+	ExpiresInDays  *int    `json:"expiresInDays,omitempty"`
+	MaxActivations *int    `json:"maxActivations,omitempty"`
+}
+
+// GetOrgId returns __CreateUserInvitationInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__CreateUserInvitationInput) GetOrgId() string { return v.OrgId }
+
+// GetMemberRole returns __CreateUserInvitationInput.MemberRole, and is useful for accessing the field via an interface.
+func (v *__CreateUserInvitationInput) GetMemberRole() Role { return v.MemberRole }
+
+// GetEmail returns __CreateUserInvitationInput.Email, and is useful for accessing the field via an interface.
+func (v *__CreateUserInvitationInput) GetEmail() *string { return v.Email }
+
+// GetName returns __CreateUserInvitationInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateUserInvitationInput) GetName() *string { return v.Name }
+
+// GetGithubUsername returns __CreateUserInvitationInput.GithubUsername, and is useful for accessing the field via an interface.
+func (v *__CreateUserInvitationInput) GetGithubUsername() *string { return v.GithubUsername }
+
+// GetExpiresInDays returns __CreateUserInvitationInput.ExpiresInDays, and is useful for accessing the field via an interface.
+func (v *__CreateUserInvitationInput) GetExpiresInDays() *int { return v.ExpiresInDays }
+
+// GetMaxActivations returns __CreateUserInvitationInput.MaxActivations, and is useful for accessing the field via an interface.
+func (v *__CreateUserInvitationInput) GetMaxActivations() *int { return v.MaxActivations }
+
+// __DeleteAgentInput is used internally by genqlient
+type __DeleteAgentInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __DeleteAgentInput.Id, and is useful for accessing the field via an interface.
+func (v *__DeleteAgentInput) GetId() string { return v.Id }
 
 // __DeleteAgentScheduleInput is used internally by genqlient
 type __DeleteAgentScheduleInput struct {
@@ -8403,10 +10089,23 @@ type __DeleteMemoryInput struct {
 // GetId returns __DeleteMemoryInput.Id, and is useful for accessing the field via an interface.
 func (v *__DeleteMemoryInput) GetId() string { return v.Id }
 
+// __DeleteMemorySubscriptionInput is used internally by genqlient
+type __DeleteMemorySubscriptionInput struct {
+	MemoryId string `json:"memoryId"`
+	OrgId    string `json:"orgId"`
+}
+
+// GetMemoryId returns __DeleteMemorySubscriptionInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__DeleteMemorySubscriptionInput) GetMemoryId() string { return v.MemoryId }
+
+// GetOrgId returns __DeleteMemorySubscriptionInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__DeleteMemorySubscriptionInput) GetOrgId() string { return v.OrgId }
+
 // __DeleteNodeInput is used internally by genqlient
 type __DeleteNodeInput struct {
 	Loc      string `json:"loc"`
 	MemoryId string `json:"memoryId"`
+	Hard     *bool  `json:"hard,omitempty"`
 }
 
 // GetLoc returns __DeleteNodeInput.Loc, and is useful for accessing the field via an interface.
@@ -8414,6 +10113,9 @@ func (v *__DeleteNodeInput) GetLoc() string { return v.Loc }
 
 // GetMemoryId returns __DeleteNodeInput.MemoryId, and is useful for accessing the field via an interface.
 func (v *__DeleteNodeInput) GetMemoryId() string { return v.MemoryId }
+
+// GetHard returns __DeleteNodeInput.Hard, and is useful for accessing the field via an interface.
+func (v *__DeleteNodeInput) GetHard() *bool { return v.Hard }
 
 // __DeleteOrganizationInput is used internally by genqlient
 type __DeleteOrganizationInput struct {
@@ -8434,6 +10136,18 @@ func (v *__EffectiveAccessInput) GetUser() string { return v.User }
 
 // GetResource returns __EffectiveAccessInput.Resource, and is useful for accessing the field via an interface.
 func (v *__EffectiveAccessInput) GetResource() string { return v.Resource }
+
+// __EncryptMemoryInput is used internally by genqlient
+type __EncryptMemoryInput struct {
+	MemoryId string `json:"memoryId"`
+	DataKey  string `json:"dataKey"`
+}
+
+// GetMemoryId returns __EncryptMemoryInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__EncryptMemoryInput) GetMemoryId() string { return v.MemoryId }
+
+// GetDataKey returns __EncryptMemoryInput.DataKey, and is useful for accessing the field via an interface.
+func (v *__EncryptMemoryInput) GetDataKey() string { return v.DataKey }
 
 // __FindNodesInput is used internally by genqlient
 type __FindNodesInput struct {
@@ -8462,6 +10176,22 @@ func (v *__FindNodesInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __FindNodesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__FindNodesInput) GetOffset() *int { return v.Offset }
+
+// __GetAgentInput is used internally by genqlient
+type __GetAgentInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetAgentInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetAgentInput) GetRef() string { return v.Ref }
+
+// __GetInvitationInput is used internally by genqlient
+type __GetInvitationInput struct {
+	Slug string `json:"slug"`
+}
+
+// GetSlug returns __GetInvitationInput.Slug, and is useful for accessing the field via an interface.
+func (v *__GetInvitationInput) GetSlug() string { return v.Slug }
 
 // __GetMemoryInput is used internally by genqlient
 type __GetMemoryInput struct {
@@ -8535,6 +10265,14 @@ type __MemorySharesInput struct {
 // GetRef returns __MemorySharesInput.Ref, and is useful for accessing the field via an interface.
 func (v *__MemorySharesInput) GetRef() string { return v.Ref }
 
+// __MemorySubscriptionsInput is used internally by genqlient
+type __MemorySubscriptionsInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __MemorySubscriptionsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__MemorySubscriptionsInput) GetRef() string { return v.Ref }
+
 // __MintActionTicketsInput is used internally by genqlient
 type __MintActionTicketsInput struct {
 	Input *MintActionTicketsInput `json:"input,omitempty"`
@@ -8578,6 +10316,22 @@ type __OrgMembersInput struct {
 
 // GetRef returns __OrgMembersInput.Ref, and is useful for accessing the field via an interface.
 func (v *__OrgMembersInput) GetRef() string { return v.Ref }
+
+// __OrganizationsInput is used internally by genqlient
+type __OrganizationsInput struct {
+	Filter *OrganizationFilter `json:"filter,omitempty"`
+	Limit  *int                `json:"limit,omitempty"`
+	Offset *int                `json:"offset,omitempty"`
+}
+
+// GetFilter returns __OrganizationsInput.Filter, and is useful for accessing the field via an interface.
+func (v *__OrganizationsInput) GetFilter() *OrganizationFilter { return v.Filter }
+
+// GetLimit returns __OrganizationsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__OrganizationsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __OrganizationsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__OrganizationsInput) GetOffset() *int { return v.Offset }
 
 // __RemoveMemoryMemberInput is used internally by genqlient
 type __RemoveMemoryMemberInput struct {
@@ -8718,6 +10472,46 @@ type __TriggerAppRunInput struct {
 
 // GetInput returns __TriggerAppRunInput.Input, and is useful for accessing the field via an interface.
 func (v *__TriggerAppRunInput) GetInput() *TriggerAppRunInput { return v.Input }
+
+// __UpdateAgentInput is used internally by genqlient
+type __UpdateAgentInput struct {
+	Id             string           `json:"id"`
+	Name           *string          `json:"name,omitempty"`
+	Description    *string          `json:"description,omitempty"`
+	AgentType      *AgentType       `json:"agentType,omitempty"`
+	Visibility     *AgentVisibility `json:"visibility,omitempty"`
+	SystemPrompt   *string          `json:"systemPrompt,omitempty"`
+	SystemMemoryId *string          `json:"systemMemoryId,omitempty"`
+	Surfaces       []string         `json:"surfaces,omitempty"`
+	Urn            *string          `json:"urn,omitempty"`
+}
+
+// GetId returns __UpdateAgentInput.Id, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetId() string { return v.Id }
+
+// GetName returns __UpdateAgentInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetName() *string { return v.Name }
+
+// GetDescription returns __UpdateAgentInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetDescription() *string { return v.Description }
+
+// GetAgentType returns __UpdateAgentInput.AgentType, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetAgentType() *AgentType { return v.AgentType }
+
+// GetVisibility returns __UpdateAgentInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetVisibility() *AgentVisibility { return v.Visibility }
+
+// GetSystemPrompt returns __UpdateAgentInput.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetSystemPrompt() *string { return v.SystemPrompt }
+
+// GetSystemMemoryId returns __UpdateAgentInput.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
+
+// GetSurfaces returns __UpdateAgentInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetSurfaces() []string { return v.Surfaces }
+
+// GetUrn returns __UpdateAgentInput.Urn, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetUrn() *string { return v.Urn }
 
 // __UpdateAgentScheduleInput is used internally by genqlient
 type __UpdateAgentScheduleInput struct {
@@ -8863,6 +10657,38 @@ func (v *__UpdateMemoryShareRoleInput) GetGranteeId() string { return v.GranteeI
 // GetRole returns __UpdateMemoryShareRoleInput.Role, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryShareRoleInput) GetRole() MemoryShareRole { return v.Role }
 
+// __UpdateMemorySubscriptionInput is used internally by genqlient
+type __UpdateMemorySubscriptionInput struct {
+	MemoryId string `json:"memoryId"`
+	OrgId    string `json:"orgId"`
+	Role     Role   `json:"role"`
+}
+
+// GetMemoryId returns __UpdateMemorySubscriptionInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__UpdateMemorySubscriptionInput) GetMemoryId() string { return v.MemoryId }
+
+// GetOrgId returns __UpdateMemorySubscriptionInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__UpdateMemorySubscriptionInput) GetOrgId() string { return v.OrgId }
+
+// GetRole returns __UpdateMemorySubscriptionInput.Role, and is useful for accessing the field via an interface.
+func (v *__UpdateMemorySubscriptionInput) GetRole() Role { return v.Role }
+
+// __UpdateMyProfileInput is used internally by genqlient
+type __UpdateMyProfileInput struct {
+	Name   *string `json:"name,omitempty"`
+	Email  *string `json:"email,omitempty"`
+	Handle *string `json:"handle,omitempty"`
+}
+
+// GetName returns __UpdateMyProfileInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateMyProfileInput) GetName() *string { return v.Name }
+
+// GetEmail returns __UpdateMyProfileInput.Email, and is useful for accessing the field via an interface.
+func (v *__UpdateMyProfileInput) GetEmail() *string { return v.Email }
+
+// GetHandle returns __UpdateMyProfileInput.Handle, and is useful for accessing the field via an interface.
+func (v *__UpdateMyProfileInput) GetHandle() *string { return v.Handle }
+
 // __UpdateNodeDataInput is used internally by genqlient
 type __UpdateNodeDataInput struct {
 	NodeId string          `json:"nodeId"`
@@ -8923,10 +10749,42 @@ func (v *__UpdateOrganizationInput) GetUrn() *string { return v.Urn }
 // GetIsVisible returns __UpdateOrganizationInput.IsVisible, and is useful for accessing the field via an interface.
 func (v *__UpdateOrganizationInput) GetIsVisible() *bool { return v.IsVisible }
 
+// The mutation executed by AcceptInvitation.
+const AcceptInvitation_Operation = `
+mutation AcceptInvitation ($slug: String!) {
+	acceptInvitation(slug: $slug)
+}
+`
+
+func AcceptInvitation(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	slug string,
+) (data_ *AcceptInvitationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AcceptInvitation",
+		Query:  AcceptInvitation_Operation,
+		Variables: &__AcceptInvitationInput{
+			Slug: slug,
+		},
+	}
+
+	data_ = &AcceptInvitationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by ActionTickets.
 const ActionTickets_Operation = `
-query ActionTickets ($orgId: String!, $limit: Int, $offset: Int) {
-	actionTickets(orgId: $orgId, limit: $limit, offset: $offset) {
+query ActionTickets ($orgRef: String!, $limit: Int, $offset: Int) {
+	actionTickets(orgRef: $orgRef, limit: $limit, offset: $offset) {
 		total
 		items {
 			... ActionTicketFields
@@ -8951,7 +10809,7 @@ fragment ActionTicketFields on ActionTicket {
 func ActionTickets(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	orgId string,
+	orgRef string,
 	limit *int,
 	offset *int,
 ) (data_ *ActionTicketsResponse, err_ error) {
@@ -8959,7 +10817,7 @@ func ActionTickets(
 		OpName: "ActionTickets",
 		Query:  ActionTickets_Operation,
 		Variables: &__ActionTicketsInput{
-			OrgId:  orgId,
+			OrgRef: orgRef,
 			Limit:  limit,
 			Offset: offset,
 		},
@@ -9078,8 +10936,8 @@ func AddOrgMember(
 
 // The query executed by AgentSchedules.
 const AgentSchedules_Operation = `
-query AgentSchedules ($appId: String!, $limit: Int, $offset: Int) {
-	agentSchedules(appId: $appId, limit: $limit, offset: $offset) {
+query AgentSchedules ($appRef: String!, $limit: Int, $offset: Int) {
+	agentSchedules(appRef: $appRef, limit: $limit, offset: $offset) {
 		total
 		items {
 			... AgentScheduleFields
@@ -9110,7 +10968,7 @@ fragment AgentScheduleFields on AgentSchedule {
 func AgentSchedules(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	appId string,
+	appRef string,
 	limit *int,
 	offset *int,
 ) (data_ *AgentSchedulesResponse, err_ error) {
@@ -9118,7 +10976,7 @@ func AgentSchedules(
 		OpName: "AgentSchedules",
 		Query:  AgentSchedules_Operation,
 		Variables: &__AgentSchedulesInput{
-			AppId:  appId,
+			AppRef: appRef,
 			Limit:  limit,
 			Offset: offset,
 		},
@@ -9138,8 +10996,8 @@ func AgentSchedules(
 
 // The query executed by AgentWebhooks.
 const AgentWebhooks_Operation = `
-query AgentWebhooks ($appId: String!, $limit: Int, $offset: Int) {
-	agentWebhooks(appId: $appId, limit: $limit, offset: $offset) {
+query AgentWebhooks ($appRef: String!, $limit: Int, $offset: Int) {
+	agentWebhooks(appRef: $appRef, limit: $limit, offset: $offset) {
 		total
 		items {
 			... AgentWebhookFields
@@ -9168,7 +11026,7 @@ fragment AgentWebhookFields on AgentWebhook {
 func AgentWebhooks(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	appId string,
+	appRef string,
 	limit *int,
 	offset *int,
 ) (data_ *AgentWebhooksResponse, err_ error) {
@@ -9176,13 +11034,72 @@ func AgentWebhooks(
 		OpName: "AgentWebhooks",
 		Query:  AgentWebhooks_Operation,
 		Variables: &__AgentWebhooksInput{
-			AppId:  appId,
+			AppRef: appRef,
 			Limit:  limit,
 			Offset: offset,
 		},
 	}
 
 	data_ = &AgentWebhooksResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by Agents.
+const Agents_Operation = `
+query Agents ($orgId: ID, $filter: AgentFilter, $limit: Int, $offset: Int) {
+	agents(orgId: $orgId, filter: $filter, limit: $limit, offset: $offset) {
+		total
+		items {
+			... AgentFields
+		}
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	systemPrompt
+	aiProvider
+	aiModel
+	hasAiApiKey
+	createdAt
+}
+`
+
+func Agents(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId *string,
+	filter *AgentFilter,
+	limit *int,
+	offset *int,
+) (data_ *AgentsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "Agents",
+		Query:  Agents_Operation,
+		Variables: &__AgentsInput{
+			OrgId:  orgId,
+			Filter: filter,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &AgentsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -9220,6 +11137,7 @@ fragment AppRunFields on AppRun {
 	timeoutMs
 	policy
 	eventData
+	data
 	failure
 	createdAt
 	startedAt
@@ -9255,8 +11173,8 @@ func AppRun(
 
 // The query executed by AppRuns.
 const AppRuns_Operation = `
-query AppRuns ($appId: ID, $orgId: ID, $status: AppRunStatus, $limit: Int, $offset: Int) {
-	appRuns(appId: $appId, orgId: $orgId, status: $status, limit: $limit, offset: $offset) {
+query AppRuns ($appRef: String, $orgRef: String, $status: AppRunStatus, $limit: Int, $offset: Int) {
+	appRuns(appRef: $appRef, orgRef: $orgRef, status: $status, limit: $limit, offset: $offset) {
 		total
 		items {
 			... AppRunFields
@@ -9282,6 +11200,7 @@ fragment AppRunFields on AppRun {
 	timeoutMs
 	policy
 	eventData
+	data
 	failure
 	createdAt
 	startedAt
@@ -9289,13 +11208,13 @@ fragment AppRunFields on AppRun {
 }
 `
 
-// Paged { items, total } envelope (#473). appId/orgId/status all optional
+// Paged { items, total } envelope (#473). appRef/orgRef/status all optional
 // filters; `run ls` pages to exhaustion.
 func AppRuns(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	appId *string,
-	orgId *string,
+	appRef *string,
+	orgRef *string,
 	status *AppRunStatus,
 	limit *int,
 	offset *int,
@@ -9304,8 +11223,8 @@ func AppRuns(
 		OpName: "AppRuns",
 		Query:  AppRuns_Operation,
 		Variables: &__AppRunsInput{
-			AppId:  appId,
-			OrgId:  orgId,
+			AppRef: appRef,
+			OrgRef: orgRef,
 			Status: status,
 			Limit:  limit,
 			Offset: offset,
@@ -9399,6 +11318,7 @@ fragment AppRunFields on AppRun {
 	timeoutMs
 	policy
 	eventData
+	data
 	failure
 	createdAt
 	startedAt
@@ -9465,6 +11385,70 @@ func CloneMemory(
 	}
 
 	data_ = &CloneMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateAgent.
+const CreateAgent_Operation = `
+mutation CreateAgent ($name: String!, $orgId: ID!, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!]) {
+	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	systemPrompt
+	aiProvider
+	aiModel
+	hasAiApiKey
+	createdAt
+}
+`
+
+func CreateAgent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	name string,
+	orgId string,
+	description *string,
+	agentType *AgentType,
+	visibility *AgentVisibility,
+	systemPrompt *string,
+	systemMemoryId *string,
+	surfaces []string,
+) (data_ *CreateAgentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAgent",
+		Query:  CreateAgent_Operation,
+		Variables: &__CreateAgentInput{
+			Name:           name,
+			OrgId:          orgId,
+			Description:    description,
+			AgentType:      agentType,
+			Visibility:     visibility,
+			SystemPrompt:   systemPrompt,
+			SystemMemoryId: systemMemoryId,
+			Surfaces:       surfaces,
+		},
+	}
+
+	data_ = &CreateAgentResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -9870,6 +11854,50 @@ func CreateMemoryShare(
 	return data_, err_
 }
 
+// The mutation executed by CreateMemorySubscription.
+const CreateMemorySubscription_Operation = `
+mutation CreateMemorySubscription ($memoryId: ID!, $orgId: ID!, $role: Role!) {
+	createMemorySubscription(memoryId: $memoryId, orgId: $orgId, role: $role) {
+		role
+		activated
+		organization {
+			id
+			name
+			urn
+		}
+	}
+}
+`
+
+func CreateMemorySubscription(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId string,
+	orgId string,
+	role Role,
+) (data_ *CreateMemorySubscriptionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateMemorySubscription",
+		Query:  CreateMemorySubscription_Operation,
+		Variables: &__CreateMemorySubscriptionInput{
+			MemoryId: memoryId,
+			OrgId:    orgId,
+			Role:     role,
+		},
+	}
+
+	data_ = &CreateMemorySubscriptionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateNode.
 const CreateNode_Operation = `
 mutation CreateNode ($input: CreateNodeInput!) {
@@ -9996,6 +12024,100 @@ func CreateUserApiKey(
 	}
 
 	data_ = &CreateUserApiKeyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateUserInvitation.
+const CreateUserInvitation_Operation = `
+mutation CreateUserInvitation ($orgId: ID!, $memberRole: Role!, $email: String, $name: String, $githubUsername: String, $expiresInDays: Int, $maxActivations: Int) {
+	createUserInvitation(orgId: $orgId, memberRole: $memberRole, email: $email, name: $name, githubUsername: $githubUsername, expiresInDays: $expiresInDays, maxActivations: $maxActivations) {
+		... InvitationFields
+	}
+}
+fragment InvitationFields on UserInvitation {
+	id
+	slug
+	email
+	name
+	githubUsername
+	memberRole
+	organizationId
+	maxActivations
+	activationCount
+	expiresAt
+	acceptedAt
+	createdAt
+}
+`
+
+// Org-scoped invitation (#56). The returned `slug` is the acceptance token the
+// invitee redeems with `org invite accept <slug>`.
+func CreateUserInvitation(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId string,
+	memberRole Role,
+	email *string,
+	name *string,
+	githubUsername *string,
+	expiresInDays *int,
+	maxActivations *int,
+) (data_ *CreateUserInvitationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateUserInvitation",
+		Query:  CreateUserInvitation_Operation,
+		Variables: &__CreateUserInvitationInput{
+			OrgId:          orgId,
+			MemberRole:     memberRole,
+			Email:          email,
+			Name:           name,
+			GithubUsername: githubUsername,
+			ExpiresInDays:  expiresInDays,
+			MaxActivations: maxActivations,
+		},
+	}
+
+	data_ = &CreateUserInvitationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteAgent.
+const DeleteAgent_Operation = `
+mutation DeleteAgent ($id: ID!) {
+	deleteAgent(id: $id)
+}
+`
+
+func DeleteAgent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *DeleteAgentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteAgent",
+		Query:  DeleteAgent_Operation,
+		Variables: &__DeleteAgentInput{
+			Id: id,
+		},
+	}
+
+	data_ = &DeleteAgentResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -10199,18 +12321,56 @@ func DeleteMemory(
 	return data_, err_
 }
 
-// The mutation executed by DeleteNode.
-const DeleteNode_Operation = `
-mutation DeleteNode ($loc: String!, $memoryId: String!) {
-	deleteNode(loc: $loc, memoryId: $memoryId)
+// The mutation executed by DeleteMemorySubscription.
+const DeleteMemorySubscription_Operation = `
+mutation DeleteMemorySubscription ($memoryId: ID!, $orgId: ID!) {
+	deleteMemorySubscription(memoryId: $memoryId, orgId: $orgId)
 }
 `
 
+func DeleteMemorySubscription(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId string,
+	orgId string,
+) (data_ *DeleteMemorySubscriptionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteMemorySubscription",
+		Query:  DeleteMemorySubscription_Operation,
+		Variables: &__DeleteMemorySubscriptionInput{
+			MemoryId: memoryId,
+			OrgId:    orgId,
+		},
+	}
+
+	data_ = &DeleteMemorySubscriptionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteNode.
+const DeleteNode_Operation = `
+mutation DeleteNode ($loc: String!, $memoryId: String!, $hard: Boolean) {
+	deleteNode(loc: $loc, memoryId: $memoryId, hard: $hard)
+}
+`
+
+// Soft-delete by default (sets deletedAt; recoverable via version history).
+// hard: true removes the row entirely — cascades edges + NodeVersion, irreversible
+// (#391). Omitted when false so a soft delete never sends an explicit hard: null.
 func DeleteNode(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	loc string,
 	memoryId string,
+	hard *bool,
 ) (data_ *DeleteNodeResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteNode",
@@ -10218,6 +12378,7 @@ func DeleteNode(
 		Variables: &__DeleteNodeInput{
 			Loc:      loc,
 			MemoryId: memoryId,
+			Hard:     hard,
 		},
 	}
 
@@ -10318,6 +12479,49 @@ func EffectiveAccess(
 	return data_, err_
 }
 
+// The mutation executed by EncryptMemory.
+const EncryptMemory_Operation = `
+mutation EncryptMemory ($memoryId: ID!, $dataKey: String!) {
+	encryptMemory(memoryId: $memoryId, dataKey: $dataKey) {
+		id
+		urn
+		name
+		isEncrypted
+	}
+}
+`
+
+// Convert a plaintext memory to encrypted-at-rest (#57). One-way: the caller
+// provides the data key and all node content/data is rewritten as ciphertext in
+// a single transaction. There is no decrypt mutation, so the command gates like a
+// destructive op.
+func EncryptMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId string,
+	dataKey string,
+) (data_ *EncryptMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EncryptMemory",
+		Query:  EncryptMemory_Operation,
+		Variables: &__EncryptMemoryInput{
+			MemoryId: memoryId,
+			DataKey:  dataKey,
+		},
+	}
+
+	data_ = &EncryptMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by FindNodes.
 const FindNodes_Operation = `
 query FindNodes ($query: String, $mode: FindNodesMode, $filter: NodeFilter, $sort: NodeSort, $limit: Int, $offset: Int) {
@@ -10379,6 +12583,104 @@ func FindNodes(
 	}
 
 	data_ = &FindNodesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetAgent.
+const GetAgent_Operation = `
+query GetAgent ($ref: ID!) {
+	agent(ref: $ref) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	systemPrompt
+	aiProvider
+	aiModel
+	hasAiApiKey
+	createdAt
+}
+`
+
+func GetAgent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetAgentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetAgent",
+		Query:  GetAgent_Operation,
+		Variables: &__GetAgentInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetAgentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetInvitation.
+const GetInvitation_Operation = `
+query GetInvitation ($slug: String!) {
+	invitation(slug: $slug) {
+		... InvitationFields
+	}
+}
+fragment InvitationFields on UserInvitation {
+	id
+	slug
+	email
+	name
+	githubUsername
+	memberRole
+	organizationId
+	maxActivations
+	activationCount
+	expiresAt
+	acceptedAt
+	createdAt
+}
+`
+
+func GetInvitation(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	slug string,
+) (data_ *GetInvitationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetInvitation",
+		Query:  GetInvitation_Operation,
+		Variables: &__GetInvitationInput{
+			Slug: slug,
+		},
+	}
+
+	data_ = &GetInvitationResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -10839,6 +13141,49 @@ func MemoryShares(
 	return data_, err_
 }
 
+// The query executed by MemorySubscriptions.
+const MemorySubscriptions_Operation = `
+query MemorySubscriptions ($ref: ID!) {
+	memory(ref: $ref) {
+		id
+		subscriptions {
+			role
+			activated
+			organization {
+				id
+				name
+				urn
+			}
+		}
+	}
+}
+`
+
+func MemorySubscriptions(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *MemorySubscriptionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MemorySubscriptions",
+		Query:  MemorySubscriptions_Operation,
+		Variables: &__MemorySubscriptionsInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &MemorySubscriptionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by MintActionTickets.
 const MintActionTickets_Operation = `
 mutation MintActionTickets ($input: MintActionTicketsInput!) {
@@ -11122,6 +13467,58 @@ func OrgMembers(
 	}
 
 	data_ = &OrgMembersResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by Organizations.
+const Organizations_Operation = `
+query Organizations ($filter: OrganizationFilter, $limit: Int, $offset: Int) {
+	organizations(filter: $filter, limit: $limit, offset: $offset) {
+		total
+		items {
+			... OrgFields
+		}
+	}
+}
+fragment OrgFields on Organization {
+	id
+	urn
+	name
+	isVisible
+	createdAt
+	updatedAt
+}
+`
+
+// Organizations list (#473 uniform surface) — for `org ls`. Unscoped spans
+// every org the caller can see (all live orgs for a platform admin); memberOnly
+// restricts to the caller's own memberships.
+func Organizations(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	filter *OrganizationFilter,
+	limit *int,
+	offset *int,
+) (data_ *OrganizationsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "Organizations",
+		Query:  Organizations_Operation,
+		Variables: &__OrganizationsInput{
+			Filter: filter,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &OrganizationsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -11662,6 +14059,7 @@ fragment AppRunFields on AppRun {
 	timeoutMs
 	policy
 	eventData
+	data
 	failure
 	createdAt
 	startedAt
@@ -11690,6 +14088,72 @@ func TriggerAppRun(
 	}
 
 	data_ = &TriggerAppRunResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateAgent.
+const UpdateAgent_Operation = `
+mutation UpdateAgent ($id: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!], $urn: String) {
+	updateAgent(id: $id, name: $name, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	systemPrompt
+	aiProvider
+	aiModel
+	hasAiApiKey
+	createdAt
+}
+`
+
+func UpdateAgent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	name *string,
+	description *string,
+	agentType *AgentType,
+	visibility *AgentVisibility,
+	systemPrompt *string,
+	systemMemoryId *string,
+	surfaces []string,
+	urn *string,
+) (data_ *UpdateAgentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateAgent",
+		Query:  UpdateAgent_Operation,
+		Variables: &__UpdateAgentInput{
+			Id:             id,
+			Name:           name,
+			Description:    description,
+			AgentType:      agentType,
+			Visibility:     visibility,
+			SystemPrompt:   systemPrompt,
+			SystemMemoryId: systemMemoryId,
+			Surfaces:       surfaces,
+			Urn:            urn,
+		},
+	}
+
+	data_ = &UpdateAgentResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -12027,6 +14491,98 @@ func UpdateMemoryShareRole(
 	}
 
 	data_ = &UpdateMemoryShareRoleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateMemorySubscription.
+const UpdateMemorySubscription_Operation = `
+mutation UpdateMemorySubscription ($memoryId: ID!, $orgId: ID!, $role: Role!) {
+	updateMemorySubscription(memoryId: $memoryId, orgId: $orgId, role: $role) {
+		role
+		activated
+		organization {
+			id
+			name
+			urn
+		}
+	}
+}
+`
+
+func UpdateMemorySubscription(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId string,
+	orgId string,
+	role Role,
+) (data_ *UpdateMemorySubscriptionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateMemorySubscription",
+		Query:  UpdateMemorySubscription_Operation,
+		Variables: &__UpdateMemorySubscriptionInput{
+			MemoryId: memoryId,
+			OrgId:    orgId,
+			Role:     role,
+		},
+	}
+
+	data_ = &UpdateMemorySubscriptionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateMyProfile.
+const UpdateMyProfile_Operation = `
+mutation UpdateMyProfile ($name: String, $email: String, $handle: String) {
+	updateMyProfile(name: $name, email: $email, handle: $handle) {
+		... UserFields
+	}
+}
+fragment UserFields on User {
+	id
+	name
+	email
+	handle
+	githubUsername
+	roles
+}
+`
+
+// Update the signed-in user's own profile (#56). Only the fields passed are sent
+// (omitempty), so an unset flag leaves that field unchanged.
+func UpdateMyProfile(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	name *string,
+	email *string,
+	handle *string,
+) (data_ *UpdateMyProfileResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateMyProfile",
+		Query:  UpdateMyProfile_Operation,
+		Variables: &__UpdateMyProfileInput{
+			Name:   name,
+			Email:  email,
+			Handle: handle,
+		},
+	}
+
+	data_ = &UpdateMyProfileResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

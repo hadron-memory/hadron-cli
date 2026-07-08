@@ -30,7 +30,7 @@ func TestScheduleCreate(t *testing.T) {
 	}
 	_ = json.Unmarshal(captured["CreateAgentSchedule"], &vars)
 	in := vars.Input
-	if in["appId"] != "acme.com:ops" || in["name"] != "nightly-digest" || in["cron"] != "0 6 * * *" {
+	if in["appRef"] != "acme.com:ops" || in["name"] != "nightly-digest" || in["cron"] != "0 6 * * *" {
 		t.Errorf("core fields wrong: %v", in)
 	}
 	if in["timezone"] != "America/New_York" {
@@ -72,7 +72,7 @@ func TestScheduleCreateDisabledOmitsOptionals(t *testing.T) {
 	if vars.Input["enabled"] != false {
 		t.Errorf("--disabled should send enabled:false, got %v", vars.Input["enabled"])
 	}
-	for _, k := range []string{"timezone", "aiConfigName", "agentId", "runAsSelf", "eventData", "policy"} {
+	for _, k := range []string{"timezone", "aiConfigName", "agentRef", "runAsSelf", "eventData", "policy", "runAt"} {
 		if v, present := vars.Input[k]; present {
 			t.Errorf("unset %q must be omitted, got %v", k, v)
 		}
@@ -91,8 +91,8 @@ func TestScheduleLs(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["AgentSchedules"], &vars)
-	if vars["appId"] != "acme.com:ops" {
-		t.Errorf("--app should map to appId, got %v", vars["appId"])
+	if vars["appRef"] != "acme.com:ops" {
+		t.Errorf("--app should map to appRef, got %v", vars["appRef"])
 	}
 	if !strings.Contains(out.String(), "nightly-digest") {
 		t.Errorf("output missing schedule: %s", out.String())
@@ -124,8 +124,11 @@ func TestScheduleUpdatePreservesUnsetFields(t *testing.T) {
 	if v, present := vars.Input["enabled"]; !present || v != false {
 		t.Errorf("--enabled=false must send enabled:false, got %v (present=%v)", v, present)
 	}
-	// Unset fields must be OMITTED (omitted = preserve; null = clear).
-	for _, k := range []string{"name", "timezone", "entryNodeUrn", "aiConfigName", "eventData", "policy", "runAsSelf"} {
+	// Unset fields must be OMITTED (omitted = preserve; null = clear). agentRef
+	// and runAt were added by the server's one-shot schedules (#510); without
+	// omitempty they'd serialize as an explicit null and CLEAR those fields on
+	// every update (#169 review).
+	for _, k := range []string{"name", "timezone", "entryNodeUrn", "aiConfigName", "eventData", "policy", "runAsSelf", "agentRef", "runAt"} {
 		if v, present := vars.Input[k]; present {
 			t.Errorf("unset %q must be omitted from update, got %v", k, v)
 		}

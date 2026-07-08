@@ -176,3 +176,105 @@ func TestMemoryShareRevokeWithYes(t *testing.T) {
 		t.Errorf("revoke vars: %v", vars)
 	}
 }
+
+const memOrgJSON = `{"id":"org1","name":"PartnerCo","urn":"partnerco.com"}`
+
+func TestMemorySubscriptionCreate(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateMemorySubscription": `{"data":{"createMemorySubscription":{"role":"READER","activated":true,"organization":` + memOrgJSON + `}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	// Mixed-case role must normalize to the UPPER-case general Role enum.
+	root.SetArgs([]string{"memory", "subscription", "create", "mem1", "--org", "org1", "--role", "Reader", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateMemorySubscription"], &vars)
+	if vars["memoryId"] != "mem1" || vars["orgId"] != "org1" || vars["role"] != "READER" {
+		t.Errorf("subscription vars: %v", vars)
+	}
+}
+
+func TestMemorySubscriptionRejectsBadRole(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "subscription", "create", "mem1", "--org", "org1", "--role", "manager", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "invalid --role") {
+		t.Fatalf("expected invalid-role error, got %v", err)
+	}
+}
+
+func TestMemorySubscriptionLs(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"MemorySubscriptions": `{"data":{"memory":{"id":"mem1","subscriptions":[
+			{"role":"CONTRIBUTOR","activated":true,"organization":` + memOrgJSON + `}
+		]}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "subscription", "ls", "mem1", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var subs []struct {
+		Role         string `json:"role"`
+		Activated    bool   `json:"activated"`
+		Organization struct {
+			ID  string `json:"id"`
+			URN string `json:"urn"`
+		} `json:"organization"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &subs); err != nil {
+		t.Fatalf("not a JSON array: %v\n%s", err, out.String())
+	}
+	if len(subs) != 1 || subs[0].Role != "CONTRIBUTOR" || !subs[0].Activated || subs[0].Organization.URN != "partnerco.com" {
+		t.Errorf("subscriptions: %+v", subs)
+	}
+}
+
+func TestMemorySubscriptionSetRole(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateMemorySubscription": `{"data":{"updateMemorySubscription":{"role":"ADMIN","activated":true,"organization":` + memOrgJSON + `}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "subscription", "set-role", "mem1", "--org", "org1", "--role", "admin", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateMemorySubscription"], &vars)
+	if vars["role"] != "ADMIN" || vars["orgId"] != "org1" {
+		t.Errorf("set-role vars: %v", vars)
+	}
+}
+
+func TestMemorySubscriptionRmRequiresYes(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "subscription", "rm", "mem1", "--org", "org1", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "--yes") {
+		t.Fatalf("expected --yes refusal, got %v", err)
+	}
+}
+
+func TestMemorySubscriptionRmWithYes(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"DeleteMemorySubscription": `{"data":{"deleteMemorySubscription":true}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "subscription", "rm", "mem1", "--org", "org1", "--yes", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["DeleteMemorySubscription"], &vars)
+	if vars["memoryId"] != "mem1" || vars["orgId"] != "org1" {
+		t.Errorf("rm vars: %v", vars)
+	}
+}

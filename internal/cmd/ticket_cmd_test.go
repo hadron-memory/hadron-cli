@@ -26,7 +26,7 @@ func TestTicketMint(t *testing.T) {
 	}
 	_ = json.Unmarshal(captured["MintActionTickets"], &vars)
 	in := vars.Input
-	if in["orgId"] != "acme.com" || in["action"] != "comm.outbound" {
+	if in["orgRef"] != "acme.com" || in["action"] != "comm.outbound" {
 		t.Errorf("core fields wrong: %v", in)
 	}
 	if in["count"] != float64(100) {
@@ -36,7 +36,7 @@ func TestTicketMint(t *testing.T) {
 		t.Errorf("--note should map, got %v", in["note"])
 	}
 	// Unset --app must be omitted.
-	if v, present := in["appId"]; present {
+	if v, present := in["appRef"]; present {
 		t.Errorf("unset --app must be omitted, got %v", v)
 	}
 	var dto struct {
@@ -83,8 +83,8 @@ func TestTicketLs(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["ActionTickets"], &vars)
-	if vars["orgId"] != "acme.com" {
-		t.Errorf("--org should map to orgId, got %v", vars["orgId"])
+	if vars["orgRef"] != "acme.com" {
+		t.Errorf("--org should map to orgRef, got %v", vars["orgRef"])
 	}
 	got := out.String()
 	// An unconsumed, non-expiring ticket reads as available.

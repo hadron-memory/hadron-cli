@@ -118,3 +118,91 @@ mutation UpdateOrgMember($orgId: ID!, $userId: ID!, $role: Role!) {
 mutation RemoveOrgMember($orgId: ID!, $userId: ID!) {
   removeOrgMember(orgId: $orgId, userId: $userId)
 }
+
+# Organizations list (#473 uniform surface) — for `org ls`. Unscoped spans
+# every org the caller can see (all live orgs for a platform admin); memberOnly
+# restricts to the caller's own memberships.
+query Organizations(
+  # @genqlient(omitempty: true)
+  $filter: OrganizationFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  organizations(filter: $filter, limit: $limit, offset: $offset) {
+    total
+    items {
+      ...OrgFields
+    }
+  }
+}
+
+fragment InvitationFields on UserInvitation {
+  id
+  slug
+  email
+  name
+  githubUsername
+  memberRole
+  organizationId
+  maxActivations
+  activationCount
+  expiresAt
+  acceptedAt
+  createdAt
+}
+
+# Org-scoped invitation (#56). The returned `slug` is the acceptance token the
+# invitee redeems with `org invite accept <slug>`.
+mutation CreateUserInvitation(
+  $orgId: ID!
+  $memberRole: Role!
+  # @genqlient(omitempty: true)
+  $email: String
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $githubUsername: String
+  # @genqlient(omitempty: true)
+  $expiresInDays: Int
+  # @genqlient(omitempty: true)
+  $maxActivations: Int
+) {
+  createUserInvitation(
+    orgId: $orgId
+    memberRole: $memberRole
+    email: $email
+    name: $name
+    githubUsername: $githubUsername
+    expiresInDays: $expiresInDays
+    maxActivations: $maxActivations
+  ) {
+    ...InvitationFields
+  }
+}
+
+mutation AcceptInvitation($slug: String!) {
+  acceptInvitation(slug: $slug)
+}
+
+query GetInvitation($slug: String!) {
+  invitation(slug: $slug) {
+    ...InvitationFields
+  }
+}
+
+# Update the signed-in user's own profile (#56). Only the fields passed are sent
+# (omitempty), so an unset flag leaves that field unchanged.
+mutation UpdateMyProfile(
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $email: String
+  # @genqlient(omitempty: true)
+  $handle: String
+) {
+  updateMyProfile(name: $name, email: $email, handle: $handle) {
+    ...UserFields
+  }
+}

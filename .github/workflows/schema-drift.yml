@@ -1,0 +1,114 @@
+name: Schema drift
+
+# Nightly (and on-demand) detector for GraphQL contract drift. It rebuilds the
+# SDL from hadron-server's schema source and fails if the committed
+# `schema/schema.graphql` snapshot + generated genqlient client are stale for an
+# operation the CLI actually uses (e.g. the appId -> appRef server rename in #168
+# that the CLI shipped against, unnoticed, until a live call failed).
+#
+# Why this exists separately from CI's "codegen freshness" step: that step only
+# checks the generated client against the *committed* snapshot, so it can't see
+# the snapshot itself lagging the server. This job closes that gap. It's
+# deliberately NOT a PR gate — it depends on a cross-repo checkout and is a
+# heads-up ("go run `make schema`"), not a blocker.
+#
+# Setup: add a repo secret HADRON_SERVER_RO_TOKEN — a token (fine-grained PAT
+# with Contents: Read on hadron-memory/hadron-server, or equivalent) so this job
+# can check out the private server repo. Without it the job no-ops with a notice
+# so forks and unconfigured clones stay green.
+#
+# Third-party actions are pinned to a full commit SHA (tag in a trailing
+# comment), matching ci.yml (#119). Bump SHA + comment together when upgrading.
+
+on:
+  schedule:
+    - cron: '17 6 * * *' # 06:17 UTC daily (off the hour to dodge scheduler congestion)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write # file a tracking issue when drift is found
+
+jobs:
+  schema-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+
+      - name: Gate on server-access token
+        id: gate
+        env:
+          TOKEN: ${{ secrets.HADRON_SERVER_RO_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::notice::HADRON_SERVER_RO_TOKEN not set — skipping schema-drift check."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Sparse checkout of just the SDL source + export script — typeDefs.ts is a
+      # self-contained SDL string, so nothing else of the server is needed (and
+      # we pull as little of the private repo as possible).
+      - name: Check out hadron-server SDL source
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          repository: hadron-memory/hadron-server
+          token: ${{ secrets.HADRON_SERVER_RO_TOKEN }}
+          path: .hadron-server
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/export-graphql-sdl.mjs
+            src/api/graphql/schema/typeDefs.ts
+          sparse-checkout-cone-mode: false
+
+      # Reuses the same `make schema-check` developers run locally. SDL_EXPORT is
+      # overridden to export the SDL without a full server `pnpm install`:
+      # typeDefs.ts is a self-contained SDL string, so a throwaway local install
+      # of just tsx + graphql (the export script's only runtime deps) suffices.
+      # Install chatter goes to stderr so stdout stays clean SDL for the redirect.
+      - name: Check for schema drift
+        id: check
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          make schema-check \
+            HADRON_SERVER_DIR=.hadron-server \
+            SDL_EXPORT="npm install --no-save --no-package-lock --silent tsx graphql@16 1>&2 && node_modules/.bin/tsx scripts/export-graphql-sdl.mjs"
+
+      # Only on a genuine drift failure — not an infra failure (e.g. a bad
+      # checkout), which leaves steps.check.outcome != 'failure'.
+      - name: File a drift tracking issue
+        if: steps.check.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="GraphQL schema drift vs hadron-server"
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          # De-dupe: don't stack issues if one is already open.
+          existing=$(gh issue list --state open --search "\"$title\" in:title" \
+            --json title,number --jq "[.[] | select(.title==\"$title\")][0].number // empty")
+          if [ -n "$existing" ]; then
+            echo "Drift issue already open (#$existing); adding a note instead."
+            gh issue comment "$existing" --body "Still drifting as of $run_url"
+            exit 0
+          fi
+          gh issue create --title "$title" --body "$(cat <<EOF
+          The nightly schema-drift check found that the committed \`schema/schema.graphql\` snapshot and/or the generated genqlient client are out of sync with hadron-server's SDL for an operation the CLI uses.
+
+          Refresh locally and open a PR:
+
+          \`\`\`sh
+          make schema   # re-export SDL from ../hadron-server + regenerate
+          git diff      # review the drift, then wire up any renamed fields
+          \`\`\`
+
+          Failing run: $run_url
+          EOF
+          )"

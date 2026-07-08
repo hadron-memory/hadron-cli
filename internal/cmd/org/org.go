@@ -13,10 +13,12 @@ func NewCmdOrg(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"orgs", "organization"},
 		Short:   "Work with organizations and their members",
 	}
+	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdCreate(f))
 	cmd.AddCommand(newCmdGet(f))
 	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdRm(f))
 	cmd.AddCommand(newCmdMember(f))
+	cmd.AddCommand(newCmdInvite(f))
 	return cmd
 }

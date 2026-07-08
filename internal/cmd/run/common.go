@@ -34,6 +34,7 @@ type appRunDTO struct {
 	TimeoutMs      *int             `json:"timeoutMs"`
 	Policy         *json.RawMessage `json:"policy"`
 	EventData      *json.RawMessage `json:"eventData"`
+	Data           *json.RawMessage `json:"data"`
 	Failure        *json.RawMessage `json:"failure"`
 	CreatedAt      string           `json:"createdAt"`
 	StartedAt      *string          `json:"startedAt"`
@@ -60,6 +61,7 @@ func dtoFromFields(f gen.AppRunFields) appRunDTO {
 		TimeoutMs:      f.TimeoutMs,
 		Policy:         f.Policy,
 		EventData:      f.EventData,
+		Data:           f.Data,
 		Failure:        f.Failure,
 		CreatedAt:      f.CreatedAt,
 		StartedAt:      f.StartedAt,
@@ -122,6 +124,9 @@ func writeRunDetail(w io.Writer, r appRunDTO) error {
 		fmt.Fprintf(w, "  finished %s", *r.FinishedAt)
 	}
 	fmt.Fprintln(w)
+	if r.Data != nil {
+		fmt.Fprintf(w, "  data %s\n", string(*r.Data))
+	}
 	if r.Failure != nil {
 		fmt.Fprintf(w, "  failure %s\n", string(*r.Failure))
 	}

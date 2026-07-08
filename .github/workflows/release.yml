@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write # keyless cosign signing of checksums.txt via GitHub OIDC (#123)
 
 # Actions are pinned to a full commit SHA (tag in a trailing comment), not a
 # floating tag: this job holds HOMEBREW_TAP_TOKEN (cross-repo write), so a
@@ -20,13 +21,14 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0 # goreleaser changelog needs history + tags
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
-      - uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+      - uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7
         with:
           args: release --clean
         env:
@@ -36,3 +38,12 @@ jobs:
           # this secret exists the cask stanza stays skip_upload: true
           # and the cask is bumped manually.
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN || secrets.GITHUB_TOKEN }}
+          # macOS codesign + notarize (#158). The goreleaser notarize block is
+          # gated on MACOS_SIGN_P12 being set, so these stay empty (and signing is
+          # skipped) until the secrets are configured — the release still works
+          # unsigned in the meantime. See the README "Releasing" section.
+          MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
+          MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}

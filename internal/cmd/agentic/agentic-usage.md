@@ -59,7 +59,7 @@ node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 
 ```
 hadron auth login | logout | whoami | status | token create|ls|revoke <id>
-hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>]
+hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
 hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn> | export <urn> [-o <file>] [--format md|json] | import <file|-> [-m <memory>] [--with-edges]
 hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--tag <t>]... [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
@@ -67,7 +67,10 @@ hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
 hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | register [--check] | find <query> [--match-exactly] | new ... | extract <citation> --to-feature <fff> | lint [<citation>] | supersede <citation> | import spec-kit|code
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
 hadron ai-config ls [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] | update <id> ... | rm <id>
-hadron org create --name <n> --urn <urn> | get <id> | update <id> | rm <id> | member ls|add|set-role|rm <org-id> --user <id> [--role <r>]
+hadron org ls [--mine] | create --name <n> --urn <urn> | get <id> | update <id> | rm <id> | member ls|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
+hadron agent ls [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | get <ref> | create --org <id> --name <n> [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
+hadron user search <query> [--limit N] [--offset N]
+hadron profile set [--name <n>] [--email <e>] [--handle <h>]
 hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--ai-config <n>] [--wait] | ls [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
 hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... | ls --app <ref> | update <id> ... | rm <id> --yes
 hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] | rotate <id> --yes | ls --app <ref> | rm <id> --yes
@@ -105,9 +108,14 @@ Conventions:
   `edge ls` and in `node get --json`). A nameless edge prints its loc instead.
   Cross-memory edges are allowed.
 - Destructive / bulk-write commands (`memory rm`, `node rm`, `edge rm`,
-  `app uninstall`, and a real `replace`) prompt on a terminal and REQUIRE
-  `--yes` when run non-interactively (agents must always pass `--yes`, or
-  `--dry-run` to preview `replace`). Without it they exit 2.
+  `app uninstall`, a real `replace`, and `memory encrypt`) prompt on a terminal
+  and REQUIRE `--yes` when run non-interactively (agents must always pass
+  `--yes`, or `--dry-run` to preview `replace`). Without it they exit 2.
+- `memory encrypt <memory> --data-key -` converts a plaintext memory to
+  encrypted-at-rest: you provide the data key (read from stdin via `--data-key -`
+  so it stays out of shell history) and the server rewrites all node content as
+  ciphertext in one transaction. It is ONE-WAY — there is no decrypt command —
+  so keep the key. Reads by authorized callers stay transparent afterward.
 - `memory set` creates when called without a positional argument
   (requires `--org` and `--name`) and updates when given one. Only
   fields passed as flags change.
@@ -192,9 +200,13 @@ Conventions:
   `member ls|add|set-role|rm <memory> --user <id> --role <owner|writer|reader>`
   manages team membership (rows exist only on group-class memories);
   `share ls|create|set-role|revoke <memory> --grantee <id> --role <writer|reader>`
-  grants individual users access. The memory ref is an id or URN; `add`/`create`
-  upsert; `member rm` / `share revoke` require `--yes` non-interactively. Find
-  user IDs via `org member ls` or `auth whoami`.
+  grants individual users access; `subscription` grants an entire organization
+  access (the org-level counterpart, with the full Role set) — `subscription
+  create|set-role <memory> --org <id> --role <owner|admin|contributor|reader>`,
+  and `subscription ls <memory>` / `subscription rm <memory> --org <id>`. The
+  memory ref is an id or URN; `add`/`create` upsert; `member rm` / `share revoke`
+  / `subscription rm` require `--yes` non-interactively. Find user IDs via
+  `org member ls` or `auth whoami`.
 - `spec` manages product-spec nodes whose loc IS a citation number. A memory
   is either flat (`<module>:<feature>:<rule>[:<flow>]`, e.g. `msg:010:02`) or
   product-rooted (`<product>:<module>:<feature>:<rule>[:<flow>]`, e.g.
@@ -254,12 +266,26 @@ Conventions:
   `update <id>` changes only the fields you pass — `--api-key ""` clears the
   key, omitting it keeps it; `--param k=v` (repeatable) replaces the params
   object. `rm <id>` requires `--yes` non-interactively.
-- `org` manages organizations and their members. `org create --name --urn`,
-  `org get <id>`, `org update <id> [--name|--urn|--visible]`, `org rm <id>`
-  (requires `--yes`). `org member ls <org-id>` lists members; `member
-  add|set-role <org-id> --user <id> --role <OWNER|ADMIN|CONTRIBUTOR|READER>` and
-  `member rm <org-id> --user <id>` manage them. There's no org-list query —
-  address an org by id (the org behind a memory URN).
+- `org` manages organizations, their members, and invitations. `org ls`
+  lists organizations (`--mine` restricts to your memberships; unscoped spans
+  every org you can see); `org create --name --urn`, `org get <id>`,
+  `org update <id> [--name|--urn|--visible]`, `org rm <id>` (requires `--yes`).
+  `org member ls <org-id>` lists members; `member add|set-role <org-id> --user
+  <id> --role <OWNER|ADMIN|CONTRIBUTOR|READER>` and `member rm <org-id> --user
+  <id>` manage them. `org invite create <email> --org <id> --role <r>` mints an
+  invitation whose returned `slug` is the acceptance token — the invitee redeems
+  it with `org invite accept <slug>`; `org invite show <slug>` inspects one.
+- `agent` manages agents (org-owned; an App runs an agent). `agent ls [--org
+  <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC]`,
+  `agent get <ref>` (ID or URN); `agent create --org <id> --name <n>` with
+  optional `--type`/`--visibility`/`--description`/`--system-prompt`/
+  `--system-memory`/`--surface` (repeatable); `agent update <id> [<field flags>]`
+  changes only the fields you pass (`--surface` replaces the set); `agent rm <id>`
+  requires `--yes`. Memory-attach, AI-config wiring, and app-wiring land next.
+- `user search <query>` finds users (enumeration-safe: substring on handle /
+  GitHub username, exact on email) — the way to resolve a user ID for `org
+  member`/`memory member`/`memory share`. `profile set [--name|--email|--handle]`
+  updates YOUR own profile; only the fields you pass change.
 - `access check <user> <resource>` answers "what access does this user have to
   this resource?" — the authoritative, server-computed effective access plus the
   grants that confer it (no client-side re-derivation). `<user>` is an id, email,
@@ -282,8 +308,9 @@ Conventions:
     args, `--ai-config <n>` picks a named config, `--wait` polls to a terminal
     status (`--wait-timeout`, default 5m; a timeout is exit 6). `run ls` is the
     audit surface (scope `--app` XOR `--org`, filter `--status`, paged to
-    exhaustion); `run get <id>` is the full record (budgets, policy, failure
-    payload); `run cancel <id>` is the kill switch (requires `--yes`).
+    exhaustion); `run get <id>` is the full record (budgets, policy, the run
+    envelope `data` — fields extracted by flow nodes as the walk advances — and
+    the failure payload); `run cancel <id>` is the kill switch (requires `--yes`).
   - `schedule create --app <ref> --name <n> --cron '<expr>' --entry <node-urn>`
     registers a recurring trigger (5-field cron, evaluated in `--tz`, default UTC;
     one-time `--at` is not yet a server capability). `--policy '<json>'` is a
@@ -374,8 +401,11 @@ hadron edge add --from acme.com::kb::findings:flaky-ci \
 hadron edge ls acme.com::kb::findings:flaky-ci --json
 hadron edge rm <edge-id> --yes
 
-# Delete a node (agents must pass --yes)
+# Delete a node (agents must pass --yes). Soft by default (recoverable from
+# version history); --hard removes the row + its edges + version history
+# irreversibly.
 hadron node rm acme.com::kb::findings:flaky-ci --yes
+hadron node rm acme.com::kb::data:stale --hard --yes
 
 # Ranked search (hybrid semantic+keyword by default; scores + abstracts in --json)
 hadron search "how do users report a bad actor" -m micromentor.org::mmdata --json

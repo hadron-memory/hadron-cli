@@ -254,8 +254,16 @@ mutation UpdateNode(
   }
 }
 
-mutation DeleteNode($loc: String!, $memoryId: String!) {
-  deleteNode(loc: $loc, memoryId: $memoryId)
+# Soft-delete by default (sets deletedAt; recoverable via version history).
+# hard: true removes the row entirely — cascades edges + NodeVersion, irreversible
+# (#391). Omitted when false so a soft delete never sends an explicit hard: null.
+mutation DeleteNode(
+  $loc: String!
+  $memoryId: String!
+  # @genqlient(omitempty: true)
+  $hard: Boolean
+) {
+  deleteNode(loc: $loc, memoryId: $memoryId, hard: $hard)
 }
 
 # Import external content into a node (cor:api:130 / importNode #457, #488).

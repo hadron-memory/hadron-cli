@@ -31,7 +31,34 @@ brew install --cask hadron
 
 Download the archive for your platform from the
 [latest release](https://github.com/hadron-memory/hadron-cli/releases/latest),
-verify against `checksums.txt`, and put `hadron` on your PATH.
+verify it, and put `hadron` on your PATH.
+
+`checksums.txt` is signed with [cosign](https://docs.sigstore.dev/) keyless, so
+you can confirm it came from this repo's release pipeline before trusting the
+checksums in it. Download `checksums.txt` and `checksums.txt.sigstore.json`
+(the Sigstore bundle — cert + signature in one file) from the release, then:
+
+```sh
+# 1. Verify the checksum manifest was signed by this repo's release workflow.
+cosign verify-blob \
+  --bundle checksums.txt.sigstore.json \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/hadron-memory/hadron-cli/\.github/workflows/release\.yml@refs/tags/v' \
+  checksums.txt
+
+# 2. Only once that prints "Verified OK", check your archive against it.
+shasum -a 256 -c checksums.txt --ignore-missing
+```
+
+The `--certificate-identity-regexp` pins the signer to the release workflow on a
+`v*` tag in this repo — without it, `cosign` would accept a signature from *any*
+GitHub identity. Verifying the signature first is what makes the checksum
+meaningful: the manifest is co-hosted with the archives, so checking an archive
+against an unsigned `checksums.txt` only proves they agree with each other.
+
+On Windows, run the above from WSL or Git Bash, or use the native
+[`cosign.exe`](https://docs.sigstore.dev/system_config/installation/) with
+PowerShell's `Get-FileHash checksums.txt` for the checksum step.
 
 ### Go
 
@@ -153,8 +180,9 @@ the `hadron api` raw-GraphQL escape hatch when needed:
 make build      # build with version stamp
 make test       # go test ./...
 make lint       # golangci-lint run
-make generate   # regenerate genqlient code from schema/schema.graphql
-make schema     # refresh schema snapshot from ../hadron-server, then generate
+make generate      # regenerate genqlient code from schema/schema.graphql
+make schema        # refresh schema snapshot from ../hadron-server, then generate
+make schema-check  # fail if the committed snapshot is stale vs ../hadron-server
 ```
 
 The GraphQL schema snapshot at `schema/schema.graphql` is exported
@@ -162,6 +190,17 @@ from hadron-server (`pnpm schema:export` there) and committed here;
 typed operations live in `internal/api/queries/*.graphql` and are
 compiled by [genqlient](https://github.com/Khan/genqlient). CI fails
 if generated code drifts from the committed schema.
+
+That per-PR check only compares the generated client against the
+*committed* snapshot, so it can't catch the snapshot itself lagging the
+server (e.g. a server-side `appId` → `appRef` rename). `make schema-check`
+closes that gap: it re-exports the SDL from `../hadron-server` and fails
+if the generated client would change for an operation the CLI uses
+(server changes the CLI doesn't touch are ignored). The
+[`schema-drift`](.github/workflows/schema-drift.yml) workflow runs it
+nightly against the server's `main`; enable it by adding a
+`HADRON_SERVER_RO_TOKEN` repo secret (a token with read access to the
+private hadron-server repo). Without the secret the job no-ops.
 
 ## Releasing
 
@@ -180,6 +219,13 @@ which runs [goreleaser](https://goreleaser.com) ([`.goreleaser.yaml`](.gorelease
 
 - cross-compile darwin/linux/windows (amd64/arm64) binaries — version-stamped
   from the tag — into archives + `checksums.txt`;
+- sign `checksums.txt` with cosign keyless (GitHub OIDC — no key material),
+  emitting the `checksums.txt.sigstore.json` bundle (the job needs
+  `id-token: write`; see the verification steps under
+  [Release archives](#release-archives-macos-linux-windows));
+- codesign + notarize the macOS binaries — **only when the signing secrets are
+  configured** (see [macOS signing](#macos-signing-notarization) below);
+  otherwise skipped and the release ships unsigned;
 - publish a GitHub Release with those assets and an auto-generated changelog;
 - push the Homebrew cask bump to
   [homebrew-hadron-cli](https://github.com/hadron-memory/homebrew-hadron-cli),
@@ -188,7 +234,90 @@ which runs [goreleaser](https://goreleaser.com) ([`.goreleaser.yaml`](.gorelease
 The cask push uses the `HOMEBREW_TAP_TOKEN` repo secret (a token with write
 access to the tap). If a release fails at the cask step, that token has expired
 or lost access — rotate it; nothing else needs a secret beyond the workflow's
-`GITHUB_TOKEN`.
+`GITHUB_TOKEN` (cosign signing is keyless — no secret).
+
+### macOS signing (notarization)
+
+goreleaser codesigns (Developer ID Application) and notarizes the macOS binaries
+via [quill](https://github.com/anchore/quill), which runs on the Linux runner —
+no macOS runner needed. It's **gated on the signing secrets being present**, so
+releases keep working unsigned until they're configured. Until then the Homebrew
+cask strips the Gatekeeper quarantine flag on install; once notarized releases
+are verified, that strip is removed ([#158](https://github.com/hadron-memory/hadron-cli/issues/158)).
+
+To enable it, you set up **five repository secrets** — two from a signing
+certificate, three from a notary API key. One-time setup (an Apple Developer
+account is required); do it on a Mac, ~15 minutes.
+
+#### Part 1 — the signing certificate → `MACOS_SIGN_P12`, `MACOS_SIGN_PASSWORD`
+
+goreleaser signs with a **Developer ID Application** certificate. What it needs is
+a `.p12` file bundling the certificate **and its private key**, base64-encoded.
+
+1. **Create the certificate.** In the [Apple Developer portal](https://developer.apple.com/account/resources/certificates/list),
+   *Certificates → +*, choose **Developer ID Application**. When asked which
+   intermediate, pick **G2 Sub-CA** (the current one). It has you upload a CSR —
+   generate that with *Keychain Access → Certificate Assistant → Request a
+   Certificate from a Certificate Authority* (save to disk). That creates the
+   matching **private key in your `login` keychain** — essential; don't delete it.
+   Download the issued `developerID_application.cer`.
+
+2. **Import it into the `login` keychain** (not System, not iCloud). Drag the
+   `.cer` onto the **login** keychain in Keychain Access's sidebar, or
+   double-click and choose `login` if prompted. The cert must land in the **same
+   keychain as its private key**, or the `.p12` export won't be possible.
+
+   > **"This certificate is not trusted"** is expected and harmless — it only
+   > means the Apple intermediate isn't installed locally; signing and
+   > notarization validate against Apple's servers regardless. To clear it,
+   > download **Developer ID - G2** from
+   > <https://www.apple.com/certificateauthority/> and double-click it. **Do not**
+   > set a manual "Always Trust" override — that *breaks* `codesign`.
+
+3. **Export the `.p12`.** Select the **login** keychain → **My Certificates**.
+   Find *Developer ID Application: …* — it must have a **▸ disclosure triangle
+   revealing a private key** underneath (the "My Certificates" category only lists
+   certs whose key is present). Right-click that row → **Export** → format
+   **Personal Information Exchange (.p12)** → save and set an **export password**.
+
+   > Export greyed out? The cert and key are in different keychains (usually the
+   > cert got imported into *System*). Redo step 2 into `login`.
+
+4. **Turn it into the two secrets:**
+   ```sh
+   base64 -i "Developer ID Application.p12" | pbcopy   # copies to clipboard
+   ```
+   - `MACOS_SIGN_P12` — paste that base64 blob
+   - `MACOS_SIGN_PASSWORD` — the export password from step 3
+
+#### Part 2 — the notary API key → `MACOS_NOTARY_*` (three secrets)
+
+Notarization authenticates to Apple with an **App Store Connect API key** —
+separate from the certificate.
+
+1. In [App Store Connect](https://appstoreconnect.apple.com/access/integrations/api)
+   → *Users and Access → Integrations → App Store Connect API → Team Keys*, click
+   **+**, name it, role **Developer**, Generate.
+2. Copy the **Issuer ID** (a UUID, shown above the table) and the row's **Key ID**,
+   and **Download** the `AuthKey_XXXXXXXXXX.p8` (downloadable **once** — keep it).
+3. Turn them into the three secrets:
+   ```sh
+   base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy             # copies to clipboard
+   ```
+   - `MACOS_NOTARY_ISSUER_ID` — the Issuer ID (UUID)
+   - `MACOS_NOTARY_KEY_ID` — the Key ID
+   - `MACOS_NOTARY_KEY` — paste that base64 blob
+
+#### Part 3 — add the secrets to GitHub
+
+For each of the five: repo **Settings → Secrets and variables → Actions → New
+repository secret**, enter the exact name above, paste the value, save. The next
+tagged release then signs + notarizes automatically — nothing else to flip (the
+config is gated on all five being present).
+
+**Maintenance:** the Developer ID certificate expires (~5 years) — a release
+starts failing when it lapses, so renew and re-export the `.p12` then. Windows
+codesigning (a separate EV-cert lift) is out of scope.
 
 Verify from the Actions run, the new
 [release](https://github.com/hadron-memory/hadron-cli/releases/latest), and the

@@ -1,0 +1,116 @@
+# Agent lifecycle CRUD (#58, part 1). Agents are org-owned; create/update take
+# positional args (no input struct). Optional args are omitempty so an unset
+# flag leaves the server default (create) or the field unchanged (update).
+
+fragment AgentFields on Agent {
+  id
+  urn
+  name
+  description
+  type
+  visibility
+  organizationId
+  surfaces
+  systemMemoryId
+  systemPrompt
+  aiProvider
+  aiModel
+  hasAiApiKey
+  createdAt
+}
+
+query GetAgent($ref: ID!) {
+  agent(ref: $ref) {
+    ...AgentFields
+  }
+}
+
+query Agents(
+  # @genqlient(omitempty: true)
+  $orgId: ID
+  # @genqlient(omitempty: true)
+  $filter: AgentFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  agents(orgId: $orgId, filter: $filter, limit: $limit, offset: $offset) {
+    total
+    items {
+      ...AgentFields
+    }
+  }
+}
+
+mutation CreateAgent(
+  $name: String!
+  $orgId: ID!
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true)
+  $agentType: AgentType
+  # @genqlient(omitempty: true)
+  $visibility: AgentVisibility
+  # @genqlient(omitempty: true)
+  $systemPrompt: String
+  # @genqlient(omitempty: true)
+  $systemMemoryId: String
+  # @genqlient(omitempty: true)
+  $surfaces: [String!]
+) {
+  createAgent(
+    name: $name
+    orgId: $orgId
+    description: $description
+    type: $agentType
+    visibility: $visibility
+    systemPrompt: $systemPrompt
+    systemMemoryId: $systemMemoryId
+    surfaces: $surfaces
+  ) {
+    ...AgentFields
+  }
+}
+
+mutation UpdateAgent(
+  $id: ID!
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true)
+  $agentType: AgentType
+  # @genqlient(omitempty: true)
+  $visibility: AgentVisibility
+  # @genqlient(omitempty: true)
+  $systemPrompt: String
+  # @genqlient(omitempty: true)
+  $systemMemoryId: String
+  # omitempty: unset (nil) is omitted → preserved. The CLI's --surface
+  # (StringArrayVar) only ever yields nil or a NON-empty slice, so the
+  # "empty slice gets omitted" case is unreachable here; explicit clear-the-set
+  # support would need a dedicated flag (a later #58 slice).
+  # @genqlient(omitempty: true)
+  $surfaces: [String!]
+  # @genqlient(omitempty: true)
+  $urn: String
+) {
+  updateAgent(
+    id: $id
+    name: $name
+    description: $description
+    type: $agentType
+    visibility: $visibility
+    systemPrompt: $systemPrompt
+    systemMemoryId: $systemMemoryId
+    surfaces: $surfaces
+    urn: $urn
+  ) {
+    ...AgentFields
+  }
+}
+
+mutation DeleteAgent($id: ID!) {
+  deleteAgent(id: $id)
+}
