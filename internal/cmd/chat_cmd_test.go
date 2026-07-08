@@ -227,6 +227,60 @@ func TestChatPostUsesProjectConfig(t *testing.T) {
 	}
 }
 
+// --body-file reads the message from a file (composed multi-line body).
+func TestChatPostBodyFile(t *testing.T) {
+	dir := t.TempDir()
+	msg := "line one\nline two @rufus\n"
+	file := filepath.Join(dir, "msg.md")
+	if err := os.WriteFile(file, []byte(msg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateNode": `{"data":{"createNode":{"id":"n1","memoryId":"mem1","loc":"chats:api:messages:STAMP-iris","name":"m","nodeType":"message","tags":[],"seq":3,"isRunnable":false,"updatedAt":"2026-06-21T00:00:00Z"}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"chat", "post", "-m", "acme.com::tc", "--chat", "api", "--handle", "iris",
+		"--body-file", file, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input struct {
+			Data json.RawMessage `json:"data"`
+		} `json:"input"`
+	}
+	_ = json.Unmarshal(captured["CreateNode"], &vars)
+	var data struct {
+		Body     string   `json:"body"`
+		Mentions []string `json:"mentions"`
+	}
+	_ = json.Unmarshal(vars.Input.Data, &data)
+	if data.Body != msg {
+		t.Errorf("body should be the file's contents verbatim, got %q", data.Body)
+	}
+	if len(data.Mentions) != 1 || data.Mentions[0] != "rufus" {
+		t.Errorf("mentions parsed from a file body too, got %v", data.Mentions)
+	}
+}
+
+// --body and --body-file are mutually exclusive; neither is a usage error.
+func TestChatPostBodySourceExclusive(t *testing.T) {
+	cases := [][]string{
+		{"--body", "hi", "--body-file", "/tmp/x"}, // both
+		{}, // neither
+	}
+	for _, extra := range cases {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		args := append([]string{"chat", "post", "-m", "acme.com::tc", "--chat", "api", "--handle", "iris"}, extra...)
+		root.SetArgs(append(args, "--server", "http://127.0.0.1:1"))
+		if err := root.Execute(); err == nil {
+			t.Fatalf("expected a usage error for body args %v", extra)
+		}
+	}
+}
+
 func TestChatReadRequiresCoords(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)

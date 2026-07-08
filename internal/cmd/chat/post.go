@@ -25,14 +25,18 @@ type postDTO struct {
 }
 
 func newCmdPost(f *cmdutil.Factory) *cobra.Command {
-	var memory, messagesLoc, chatSlug, handle, identity, role, body, replyTo string
+	var memory, messagesLoc, chatSlug, handle, identity, role, body, bodyFile, replyTo string
 	cmd := &cobra.Command{
-		Use:   "post --body <text|->",
+		Use:   "post (--body <text|-> | --body-file <path>)",
 		Short: "Post a message to a team chat",
 		Long: `Post one message to a team chat. This builds the timestamped, colon-safe loc,
 assembles the data payload (author/body/timestamp/mentions, plus identity/role
 when set), creates the message node, and — with --reply-to — adds the reply edge,
-all in one call. --body - reads the body from stdin (multi-line safe).
+all in one call.
+
+The body comes from --body <text> (inline), --body - (stdin), or --body-file
+<path> (a file — handy for a composed, multi-line message that would be painful
+to quote inline). Exactly one is required.
 
 Identity resolves from flags, then HADRON_CHAT_HANDLE, then .hadron/config.json
 (top-level "handle"; chat.identity / chat.role), so a configured agent posts
@@ -51,7 +55,7 @@ with just --body.`,
 			if h == "" {
 				return exitcode.Newf(exitcode.Usage, "no handle — pass --handle, set HADRON_CHAT_HANDLE, or add \"handle\" to .hadron/config.json")
 			}
-			text, err := resolveBody(body, f.IOStreams.In)
+			text, err := resolveBody(cmd, body, bodyFile, f.IOStreams.In)
 			if err != nil {
 				return err
 			}
@@ -120,25 +124,39 @@ with just --body.`,
 	cmd.Flags().StringVar(&handle, "handle", "", "this agent's chat handle (overrides config/env)")
 	cmd.Flags().StringVar(&identity, "identity", "", "real identity, e.g. the model name (default \"human\" convention); optional")
 	cmd.Flags().StringVar(&role, "role", "", "this agent's role, e.g. \"Backend Engineer\"; optional")
-	cmd.Flags().StringVar(&body, "body", "", "message body, or - to read from stdin (required)")
+	cmd.Flags().StringVar(&body, "body", "", "message body, or - to read from stdin")
+	cmd.Flags().StringVar(&bodyFile, "body-file", "", "read the message body from a file (multi-line safe)")
 	cmd.Flags().StringVar(&replyTo, "reply-to", "", "loc (or URN) of the message this replies to; adds a reply edge")
-	_ = cmd.MarkFlagRequired("body")
+	cmd.MarkFlagsMutuallyExclusive("body", "body-file")
+	cmd.MarkFlagsOneRequired("body", "body-file")
 	return cmd
 }
 
-// resolveBody returns the --body value, reading stdin when it is "-".
-func resolveBody(body string, stdin io.Reader) (string, error) {
-	if body == "-" {
+// resolveBody returns the message text from exactly one source: --body-file (a
+// file), --body - (stdin), or --body <text> (inline). The mutually-exclusive /
+// one-required flag group is enforced by cobra; this reads whichever was set.
+func resolveBody(cmd *cobra.Command, body, bodyFile string, stdin io.Reader) (string, error) {
+	var text string
+	switch {
+	case cmd.Flags().Changed("body-file"):
+		data, err := os.ReadFile(bodyFile)
+		if err != nil {
+			return "", err
+		}
+		text = string(data)
+	case body == "-":
 		data, err := io.ReadAll(stdin)
 		if err != nil {
 			return "", err
 		}
-		body = string(data)
+		text = string(data)
+	default:
+		text = body
 	}
-	if strings.TrimSpace(body) == "" {
-		return "", exitcode.Newf(exitcode.Usage, "empty --body — nothing to post")
+	if strings.TrimSpace(text) == "" {
+		return "", exitcode.Newf(exitcode.Usage, "empty message — nothing to post")
 	}
-	return body, nil
+	return text, nil
 }
 
 func strPtr(s string) *string { return &s }

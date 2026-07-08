@@ -63,7 +63,7 @@ hadron auth login | logout | whoami | status | token create|ls|validate|revoke <
 hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
 hadron node ls [-m <memory>] | get <urn> | add | update <urn> | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | rm <urn> [--hard] | export <urn> [-o <file>] [--format md|json] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
-hadron chat read [--since <seq>] [-m <memory>] [--chat <slug> | --messages-loc <prefix>] | post --body <text|-> [--reply-to <loc>] [--handle <h>] [--identity <i>] [--role <r>]
+hadron chat read [--since <seq>] [-m <memory>] [--chat <slug> | --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--reply-to <loc>] [--handle <h>] [--identity <i>] [--role <r>]
 hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--tag <t>]... [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
@@ -162,7 +162,9 @@ Conventions:
   agent the per-turn plumbing: `chat read [--since <seq>]` returns the new
   messages in ONE call as a compact transcript (`--json`:
   `{messages:[{seq,loc,author,identity,role,timestamp,body}], nextSince}`) — pass
-  `nextSince` back as `--since` next turn. `chat post --body <text|->` builds the
+  `nextSince` back as `--since` next turn. `chat post` (`--body <text|->` inline
+  or over stdin, or `--body-file <path>` for a composed multi-line message)
+  builds the
   colon-safe timestamped loc, assembles the `data` (author/body/timestamp,
   parsed `@mentions`, and identity/role when set), writes the `message` node, and
   with `--reply-to <loc>` adds the reply edge — all in one call. The chat
