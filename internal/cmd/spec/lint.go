@@ -31,7 +31,7 @@ var (
 )
 
 func newCmdLint(f *cmdutil.Factory) *cobra.Command {
-	var memory, product, module, prefix string
+	var memory, product, module, prefixFlag string
 	var all, strict bool
 	cmd := &cobra.Command{
 		Use:     "lint [<citation>]",
@@ -61,11 +61,8 @@ to errors too.`,
 				return err
 			}
 
-			if len(args) == 1 && (product != "" || module != "" || all || prefix != "") {
-				return exitcode.Newf(exitcode.Usage, "a <citation> argument cannot be combined with --prefix/--product/--module/--all")
-			}
-			if prefix != "" && (product != "" || module != "" || all) {
-				return exitcode.Newf(exitcode.Usage, "--prefix cannot be combined with --product/--module/--all")
+			if err := lintScopeError(len(args) == 1, prefixFlag, product, module, all); err != nil {
+				return err
 			}
 
 			var nodes []specNode
@@ -81,17 +78,17 @@ to errors too.`,
 					return err
 				}
 				nodes = []specNode{nodeFromGQL(n)}
-			case prefix != "":
+			case prefixFlag != "":
 				// A citation prefix — that node plus its descendants (one feature
 				// and its rules, a module, etc.). Mirrors `spec get --prefix`;
 				// linted as a corpus so subtree parent-exists checks run.
-				scopeRoot = prefix
-				nodes, err = scanPrefixDetail(cmd, client, memURN, prefix)
+				scopeRoot = prefixFlag
+				nodes, err = scanPrefixDetail(cmd, client, memURN, prefixFlag)
 				if err != nil {
 					return err
 				}
 				if len(nodes) == 0 {
-					return exitcode.Newf(exitcode.NotFound, "no specs found under %q", prefix)
+					return exitcode.Newf(exitcode.NotFound, "no specs found under %q", prefixFlag)
 				}
 				corpus = true
 			case product != "" || module != "":
@@ -153,7 +150,7 @@ to errors too.`,
 				}
 				corpus = true
 			default:
-				return exitcode.Newf(exitcode.Usage, "specify a <citation>, --product <ppp>, --module <mmm>, or --all")
+				return exitcode.Newf(exitcode.Usage, "specify a <citation>, --prefix <citation>, --product <ppp>, --module <mmm>, or --all")
 			}
 
 			var findings []lintFindingDTO
@@ -205,13 +202,27 @@ to errors too.`,
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
-	cmd.Flags().StringVar(&prefix, "prefix", "", "lint every spec under this citation prefix (that node + its descendants, e.g. a feature: cor:api:140)")
+	cmd.Flags().StringVar(&prefixFlag, "prefix", "", "lint every spec under this citation prefix (that node + its descendants, e.g. a feature: cor:api:140)")
 	cmd.Flags().StringVar(&product, "product", "", "lint every spec under this product")
 	cmd.Flags().StringVar(&module, "module", "", "lint every spec under this module (optionally within --product)")
 	cmd.Flags().BoolVar(&all, "all", false, "lint every spec in the memory")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
 	_ = cmd.MarkFlagRequired("memory")
 	return cmd
+}
+
+// lintScopeError enforces that exactly one scope selector is used: a positional
+// <citation>, --prefix, --product/--module, or --all are mutually exclusive.
+// Returns a usage error describing the conflict, or nil when the combination is
+// valid (including the no-scope case, which the RunE switch's default handles).
+func lintScopeError(hasCitationArg bool, prefixFlag, product, module string, all bool) error {
+	if hasCitationArg && (product != "" || module != "" || all || prefixFlag != "") {
+		return exitcode.Newf(exitcode.Usage, "a <citation> argument cannot be combined with --prefix/--product/--module/--all")
+	}
+	if prefixFlag != "" && (product != "" || module != "" || all) {
+		return exitcode.Newf(exitcode.Usage, "--prefix cannot be combined with --product/--module/--all")
+	}
+	return nil
 }
 
 // lintNode runs the per-node rules and returns findings tagged with the
@@ -427,9 +438,10 @@ func parentInScope(parentLoc, scopeRoot string) bool {
 // ---- corpus scans (one Nodes query + per-node detail reads) ----
 
 // scanPrefixDetail reads every node under a loc prefix (headers + specs) with
-// full detail for linting. The prefix is a product, a module, or a
-// product-qualified module (e.g. "cli", "msg", or "cli:cha"). The scan pages
-// to exhaustion so a subtree larger than one server page is linted whole (#23).
+// full detail for linting. The prefix is any citation prefix — a product, a
+// module, a product-qualified module, or a deeper subtree (e.g. "cli", "msg",
+// "cli:cha", or a feature like "cor:api:140"). The scan pages to exhaustion so
+// a subtree larger than one server page is linted whole (#23).
 func scanPrefixDetail(cmd *cobra.Command, client graphql.Client, memURN, prefix string) ([]specNode, error) {
 	all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil)
 	if err != nil {

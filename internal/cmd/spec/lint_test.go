@@ -283,3 +283,44 @@ func TestLintCorpusMixedArity(t *testing.T) {
 		t.Errorf("expected mixed-arity warning; got %v", lintCorpus(nodes, "", lintMem))
 	}
 }
+
+// TestLintScopeError covers the mutual-exclusion rules for `spec lint` scope
+// selectors: a positional <citation>, --prefix, --product/--module, and --all
+// are mutually exclusive; any single one (or none) is valid.
+func TestLintScopeError(t *testing.T) {
+	cases := []struct {
+		name        string
+		hasCitation bool
+		prefix      string
+		product     string
+		module      string
+		all         bool
+		wantErr     string // substring; "" means no error
+	}{
+		{name: "none", wantErr: ""},
+		{name: "citation only", hasCitation: true, wantErr: ""},
+		{name: "prefix only", prefix: "cor:api:140", wantErr: ""},
+		{name: "product only", product: "cor", wantErr: ""},
+		{name: "module only", module: "api", wantErr: ""},
+		{name: "all only", all: true, wantErr: ""},
+		{name: "citation + prefix", hasCitation: true, prefix: "cor:api", wantErr: "<citation> argument cannot be combined"},
+		{name: "citation + product", hasCitation: true, product: "cor", wantErr: "<citation> argument cannot be combined"},
+		{name: "citation + all", hasCitation: true, all: true, wantErr: "<citation> argument cannot be combined"},
+		{name: "prefix + product", prefix: "cor:api", product: "cor", wantErr: "--prefix cannot be combined"},
+		{name: "prefix + module", prefix: "cor:api", module: "api", wantErr: "--prefix cannot be combined"},
+		{name: "prefix + all", prefix: "cor:api", all: true, wantErr: "--prefix cannot be combined"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := lintScopeError(tc.hasCitation, tc.prefix, tc.product, tc.module, tc.all)
+			switch {
+			case tc.wantErr == "" && err != nil:
+				t.Fatalf("expected no error, got %v", err)
+			case tc.wantErr != "" && err == nil:
+				t.Fatalf("expected error containing %q, got nil", tc.wantErr)
+			case tc.wantErr != "" && !strings.Contains(err.Error(), tc.wantErr):
+				t.Fatalf("expected error containing %q, got %v", tc.wantErr, err)
+			}
+		})
+	}
+}
