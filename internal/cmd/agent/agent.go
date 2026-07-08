@@ -107,14 +107,25 @@ func NewCmdAgent(f *cmdutil.Factory) *cobra.Command {
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var org, typ, vis string
 	var limit, offset int
+	var public bool
 	cmd := &cobra.Command{
-		Use:     "ls [--org <id>] [--type <t>] [--visibility <v>]",
+		Use:     "ls [--org <id>] [--type <t>] [--visibility <v>] | --public [--type <t>]",
 		Aliases: []string{"list"},
 		Short:   "List agents",
-		Args:    cobra.NoArgs,
+		Long: `List agents. By default this is the member-scoped view — agents in orgs you
+belong to.
+
+--public instead lists the cross-org marketplace slice: every live PUBLIC
+agent, readable without org membership (a foreign public agent you can grab the
+URN of to subscribe/install). It's a separate surface, so --org and
+--visibility don't apply to it; --type still filters.`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if limit < 0 || offset < 0 {
 				return exitcode.Newf(exitcode.Usage, "--limit and --offset must be non-negative")
+			}
+			if public && (org != "" || vis != "") {
+				return exitcode.Newf(exitcode.Usage, "--public is the cross-org PUBLIC slice — --org and --visibility don't apply to it")
 			}
 			at, err := parseAgentType(typ)
 			if err != nil {
@@ -128,14 +139,6 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			var filter *gen.AgentFilter
-			if at != nil || av != nil {
-				filter = &gen.AgentFilter{Type: at, Visibility: av}
-			}
-			var orgPtr *string
-			if org != "" {
-				orgPtr = &org
-			}
 			var lim, off *int
 			if cmd.Flags().Changed("limit") {
 				lim = &limit
@@ -143,17 +146,45 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 			if cmd.Flags().Changed("offset") {
 				off = &offset
 			}
-			resp, err := gen.Agents(cmd.Context(), client, orgPtr, filter, lim, off)
-			if err != nil {
-				return api.MapError(err)
-			}
+
 			agents := []agentDTO{}
-			if resp.Agents != nil {
-				for _, a := range resp.Agents.Items {
-					if a == nil {
-						continue
+			if public {
+				var filter *gen.AgentFilter
+				if at != nil {
+					filter = &gen.AgentFilter{Type: at}
+				}
+				resp, err := gen.PublicAgents(cmd.Context(), client, filter, lim, off)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp.PublicAgents != nil {
+					for _, a := range resp.PublicAgents.Items {
+						if a == nil {
+							continue
+						}
+						agents = append(agents, agentDTOFromFields(a.AgentFields))
 					}
-					agents = append(agents, agentDTOFromFields(a.AgentFields))
+				}
+			} else {
+				var filter *gen.AgentFilter
+				if at != nil || av != nil {
+					filter = &gen.AgentFilter{Type: at, Visibility: av}
+				}
+				var orgPtr *string
+				if org != "" {
+					orgPtr = &org
+				}
+				resp, err := gen.Agents(cmd.Context(), client, orgPtr, filter, lim, off)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp.Agents != nil {
+					for _, a := range resp.Agents.Items {
+						if a == nil {
+							continue
+						}
+						agents = append(agents, agentDTOFromFields(a.AgentFields))
+					}
 				}
 			}
 			return output.Write(f.IOStreams, f.JSON, agents, func(w io.Writer) error {
@@ -168,6 +199,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVar(&org, "org", "", "restrict to one organization (ID)")
 	cmd.Flags().StringVar(&typ, "type", "", "filter by type: ASSISTANT or CHATBOT")
 	cmd.Flags().StringVar(&vis, "visibility", "", "filter by visibility: ORGANIZATION, PERSONAL, or PUBLIC")
+	cmd.Flags().BoolVar(&public, "public", false, "list the cross-org PUBLIC marketplace slice instead of your member-scoped agents")
 	cmd.Flags().IntVar(&limit, "limit", 0, "max results (server default when unset)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "results to skip")
 	return cmd
