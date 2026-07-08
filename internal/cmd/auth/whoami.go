@@ -22,6 +22,7 @@ type whoamiResult struct {
 	Roles          []string `json:"roles"`
 	PrincipalType  string   `json:"principalType,omitempty"`
 	AppID          string   `json:"appId,omitempty"`
+	AgentID        string   `json:"agentId,omitempty"`
 }
 
 func newCmdWhoami(f *cmdutil.Factory) *cobra.Command {
@@ -65,15 +66,15 @@ func newCmdWhoami(f *cmdutil.Factory) *cobra.Command {
 			if ac.AppId != nil {
 				dto.AppID = *ac.AppId
 			}
+			if ac.AgentId != nil {
+				dto.AgentID = *ac.AgentId
+			}
 
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				// An App key resolves to no user — name the App instead of erroring.
+				// An App/Agent key resolves to no user — name the principal
+				// instead of erroring.
 				if ac.User == nil {
-					if dto.AppID != "" {
-						_, err := fmt.Fprintf(w, "App %s\n", dto.AppID)
-						return err
-					}
-					_, err := fmt.Fprintln(w, dto.PrincipalType)
+					_, err := fmt.Fprintln(w, nonUserLabel(dto.AppID, dto.AgentID, dto.PrincipalType))
 					return err
 				}
 				label := dto.Name

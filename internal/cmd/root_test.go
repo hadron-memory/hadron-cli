@@ -11,6 +11,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/auth/store"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/config"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -211,6 +212,24 @@ func TestAuthStatus(t *testing.T) {
 	}
 	if !dto.Authenticated || dto.PrincipalType != "USER" || dto.Key == nil || dto.Key.KeyPreview != "hdrk_ab1" {
 		t.Errorf("unexpected status: %s", out.String())
+	}
+}
+
+// Against an older/self-hosted server without authContext, status must surface
+// the schema-skew error (exit 2), not masquerade it as a rejected token (Codex).
+func TestAuthStatusSurfacesSchemaSkew(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"AuthContext": `{"errors":[{"message":"Cannot query field \"authContext\" on type \"Query\"","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"auth", "status", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Fatalf("schema skew should exit %d (usage), got %d (err=%v)", exitcode.Usage, code, err)
+	}
+	if strings.Contains(out.String(), "rejected") {
+		t.Errorf("skew must not be reported as a rejected token: %s", out.String())
 	}
 }
 

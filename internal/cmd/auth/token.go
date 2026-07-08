@@ -77,6 +77,7 @@ type validateResult struct {
 	Handle        string    `json:"handle,omitempty"`
 	Roles         []string  `json:"roles"`
 	AppID         string    `json:"appId,omitempty"`
+	AgentID       string    `json:"agentId,omitempty"`
 	Key           *tokenDTO `json:"key,omitempty"`
 }
 
@@ -138,6 +139,9 @@ a rejected or revoked token exits 3.`,
 				if ac.AppId != nil {
 					dto.AppID = *ac.AppId
 				}
+				if ac.AgentId != nil {
+					dto.AgentID = *ac.AgentId
+				}
 				if ac.ApiKey != nil {
 					k := toTokenDTO(ac.ApiKey.UserApiKeyFields)
 					dto.Key = &k
@@ -149,8 +153,9 @@ a rejected or revoked token exits 3.`,
 					_, err := fmt.Fprintln(w, "✗ Token is invalid, revoked, or expired")
 					return err
 				}
-				if dto.AppID != "" {
-					_, err := fmt.Fprintf(w, "✓ Token is valid — App %s\n", dto.AppID)
+				// A non-user principal (App/Agent key) has no user subject or key.
+				if dto.UserID == "" {
+					_, err := fmt.Fprintf(w, "✓ Token is valid — %s\n", nonUserLabel(dto.AppID, dto.AgentID, dto.PrincipalType))
 					return err
 				}
 				label := dto.Name
@@ -161,9 +166,11 @@ a rejected or revoked token exits 3.`,
 					label = dto.UserID
 				}
 				if dto.Email != "" {
-					fmt.Fprintf(w, "✓ Token is valid — %s (%s)\n", label, dto.Email)
-				} else {
-					fmt.Fprintf(w, "✓ Token is valid — %s\n", label)
+					if _, err := fmt.Fprintf(w, "✓ Token is valid — %s (%s)\n", label, dto.Email); err != nil {
+						return err
+					}
+				} else if _, err := fmt.Fprintf(w, "✓ Token is valid — %s\n", label); err != nil {
+					return err
 				}
 				if dto.Key != nil {
 					_, err := fmt.Fprintf(w, "  key %s, last used %s\n", keyLabel(*dto.Key), orText(dto.Key.LastUsedAt, "never"))
@@ -295,6 +302,19 @@ func newCmdTokenRevoke(f *cmdutil.Factory) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	return cmd
+}
+
+// nonUserLabel names a principal that resolves to no user (an App or Agent
+// key), falling back to the bare principal type so nothing renders empty.
+func nonUserLabel(appID, agentID, principalType string) string {
+	switch {
+	case appID != "":
+		return "App " + appID
+	case agentID != "":
+		return "Agent " + agentID
+	default:
+		return principalType
+	}
 }
 
 // keyLabel renders a token for a human line: its preview, plus its label in

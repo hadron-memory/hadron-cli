@@ -61,20 +61,20 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			resp, err := gen.AuthContext(cmd.Context(), client)
-			if err == nil && resp.AuthContext != nil {
+			if err != nil {
+				// Only a rejected credential means "not signed in". Any other
+				// failure — transport, or schema skew on an older self-hosted
+				// server that lacks authContext — must surface, not masquerade as
+				// a rejected token (Codex #192).
+				mapped := api.MapError(err)
+				if exitcode.FromError(mapped) != exitcode.AuthRequired {
+					return mapped
+				}
+			} else if resp.AuthContext != nil {
 				ac := resp.AuthContext
 				dto.Authenticated = true
 				dto.PrincipalType = string(ac.PrincipalType)
-				switch {
-				case ac.User != nil && ac.User.Name != nil:
-					dto.User = *ac.User.Name
-				case ac.User != nil && ac.User.Email != nil:
-					dto.User = *ac.User.Email
-				case ac.User != nil:
-					dto.User = ac.User.Id
-				case ac.AppId != nil:
-					dto.User = "App " + *ac.AppId
-				}
+				dto.User = principalLabel(ac)
 				if ac.ApiKey != nil {
 					k := toTokenDTO(ac.ApiKey.UserApiKeyFields)
 					dto.Key = &k
@@ -86,7 +86,9 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 					_, err := fmt.Fprintf(w, "✗ %s: token from %s was rejected — run `hadron auth login`\n", server, describeSource(dto))
 					return err
 				}
-				fmt.Fprintf(w, "✓ %s: signed in as %s (token from %s)\n", server, dto.User, describeSource(dto))
+				if _, err := fmt.Fprintf(w, "✓ %s: signed in as %s (token from %s)\n", server, dto.User, describeSource(dto)); err != nil {
+					return err
+				}
 				if dto.Key != nil {
 					_, err := fmt.Fprintf(w, "  key %s, last used %s\n", keyLabel(*dto.Key), orText(dto.Key.LastUsedAt, "never"))
 					return err
@@ -109,4 +111,27 @@ func describeSource(dto statusResult) string {
 		return "HADRON_TOKEN"
 	}
 	return dto.TokenStorage
+}
+
+// principalLabel is the human subject for a resolved principal: the user's
+// display name / email / id, else "App <id>" / "Agent <id>", else the bare
+// principal type — so no principal ever renders as an empty subject.
+func principalLabel(ac *gen.AuthContextAuthContext) string {
+	switch {
+	case ac.User != nil && ac.User.Name != nil && *ac.User.Name != "":
+		return *ac.User.Name
+	case ac.User != nil && ac.User.Email != nil && *ac.User.Email != "":
+		return *ac.User.Email
+	case ac.User != nil:
+		return ac.User.Id
+	default:
+		appID, agentID := "", ""
+		if ac.AppId != nil {
+			appID = *ac.AppId
+		}
+		if ac.AgentId != nil {
+			agentID = *ac.AgentId
+		}
+		return nonUserLabel(appID, agentID, string(ac.PrincipalType))
+	}
 }
