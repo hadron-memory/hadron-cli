@@ -41,9 +41,12 @@ with -m/--memory to name a single memory instead.`,
 				return err
 			}
 
-			// Resolve the task reference to validate it exists (even though we pass the URN to runTask).
+			// Resolve the task reference to a concrete node ID client-side, then
+			// pass that as the single `nodeRef` arg (#542 — runTask unified on the
+			// <object>Ref convention). ResolveNodeRef handles both a full URN and a
+			// bare <loc> with -m <memory>.
 			taskRef := cmdArgs[0]
-			_, err = cmdutil.ResolveNodeRef(cmd, client, memory, taskRef)
+			nodeID, err := cmdutil.ResolveNodeRef(cmd, client, memory, taskRef)
 			if err != nil {
 				return err
 			}
@@ -64,13 +67,8 @@ with -m/--memory to name a single memory instead.`,
 				taskArgs = &msg
 			}
 
-			// Run the task via the runTask mutation.
-			memoryPtr := &memory
-			if memory == "" {
-				memoryPtr = nil
-			}
-			taskRefPtr := &taskRef
-			resp, err := gen.RunTask(cmd.Context(), client, nil, memoryPtr, taskRefPtr, taskArgs)
+			// Run the task via the runTask mutation, passing the resolved node ID.
+			resp, err := gen.RunTask(cmd.Context(), client, nodeID, taskArgs)
 			if err != nil {
 				return api.MapError(err)
 			}

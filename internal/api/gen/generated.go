@@ -8653,20 +8653,12 @@ func (v *__RotateAgentWebhookInput) GetId() string { return v.Id }
 
 // __RunTaskInput is used internally by genqlient
 type __RunTaskInput struct {
-	Urn    *string          `json:"urn"`
-	Memory *string          `json:"memory"`
-	Task   *string          `json:"task"`
-	Args   *json.RawMessage `json:"args"`
+	NodeRef string           `json:"nodeRef"`
+	Args    *json.RawMessage `json:"args"`
 }
 
-// GetUrn returns __RunTaskInput.Urn, and is useful for accessing the field via an interface.
-func (v *__RunTaskInput) GetUrn() *string { return v.Urn }
-
-// GetMemory returns __RunTaskInput.Memory, and is useful for accessing the field via an interface.
-func (v *__RunTaskInput) GetMemory() *string { return v.Memory }
-
-// GetTask returns __RunTaskInput.Task, and is useful for accessing the field via an interface.
-func (v *__RunTaskInput) GetTask() *string { return v.Task }
+// GetNodeRef returns __RunTaskInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__RunTaskInput) GetNodeRef() string { return v.NodeRef }
 
 // GetArgs returns __RunTaskInput.Args, and is useful for accessing the field via an interface.
 func (v *__RunTaskInput) GetArgs() *json.RawMessage { return v.Args }
@@ -11436,27 +11428,23 @@ func RotateAgentWebhook(
 
 // The mutation executed by RunTask.
 const RunTask_Operation = `
-mutation RunTask ($urn: String, $memory: String, $task: String, $args: JSON) {
-	runTask(urn: $urn, memory: $memory, task: $task, args: $args)
+mutation RunTask ($nodeRef: String!, $args: JSON) {
+	runTask(nodeRef: $nodeRef, args: $args)
 }
 `
 
 func RunTask(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	urn *string,
-	memory *string,
-	task *string,
+	nodeRef string,
 	args *json.RawMessage,
 ) (data_ *RunTaskResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "RunTask",
 		Query:  RunTask_Operation,
 		Variables: &__RunTaskInput{
-			Urn:    urn,
-			Memory: memory,
-			Task:   task,
-			Args:   args,
+			NodeRef: nodeRef,
+			Args:    args,
 		},
 	}
 
