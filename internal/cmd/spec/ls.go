@@ -35,7 +35,7 @@ explicit page instead.`,
 			}
 			var memoryArg *string
 			if memory != "" {
-				m, err := resolveSpecMemoryURN(cmd, client, memory)
+				m, err := specMemoryURN(f, cmd, client, memory)
 				if err != nil {
 					return err
 				}

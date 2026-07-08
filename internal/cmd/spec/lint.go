@@ -56,7 +56,7 @@ to errors too.`,
 			if err != nil {
 				return err
 			}
-			memURN, err := resolveSpecMemoryURN(cmd, client, memory)
+			memURN, err := specMemoryURN(f, cmd, client, memory)
 			if err != nil {
 				return err
 			}
@@ -201,13 +201,12 @@ to errors too.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to `hadron spec use`, then the active memory)")
 	cmd.Flags().StringVar(&prefixFlag, "prefix", "", "lint every spec under this citation prefix (that node + its descendants, e.g. a feature: cor:api:140)")
 	cmd.Flags().StringVar(&product, "product", "", "lint every spec under this product")
 	cmd.Flags().StringVar(&module, "module", "", "lint every spec under this module (optionally within --product)")
 	cmd.Flags().BoolVar(&all, "all", false, "lint every spec in the memory")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
-	_ = cmd.MarkFlagRequired("memory")
 	return cmd
 }
 

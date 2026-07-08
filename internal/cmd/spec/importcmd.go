@@ -38,8 +38,7 @@ Not yet implemented — planned for a follow-up effort.`,
 			return exitcode.Newf(exitcode.Usage, "spec import spec-kit: not yet implemented (planned follow-up)")
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "target memory ID or fully-qualified URN (required)")
-	_ = cmd.MarkFlagRequired("memory")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "target memory ID or fully-qualified URN (defaults to `hadron spec use`, then the active memory)")
 	return cmd
 }
 
@@ -60,7 +59,6 @@ Not yet implemented — planned for a follow-up effort.`,
 			return exitcode.Newf(exitcode.Usage, "spec import code: not yet implemented (planned follow-up)")
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "target memory ID or fully-qualified URN (required)")
-	_ = cmd.MarkFlagRequired("memory")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "target memory ID or fully-qualified URN (defaults to `hadron spec use`, then the active memory)")
 	return cmd
 }

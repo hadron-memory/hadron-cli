@@ -19,9 +19,10 @@ const DefaultServer = "https://srv.hadronmemory.com"
 
 // Keys lists the settings hadron config get/set accepts.
 var Keys = map[string]string{
-	"server": "Hadron server base URL",
-	"app":    "default App URN sent with requests (set via hadron app use)",
-	"memory": "default memory URN or ID (set via hadron memory set-active)",
+	"server":      "Hadron server base URL",
+	"app":         "default App URN sent with requests (set via hadron app use)",
+	"memory":      "default memory URN or ID (set via hadron memory set-active)",
+	"spec_memory": "default memory for spec commands (set via hadron spec use); overrides the global memory for `hadron spec`",
 }
 
 type Config struct {
@@ -65,6 +66,18 @@ func (c *Config) App() string { return c.v.GetString("app") }
 
 // Memory returns the default memory URN or ID, or "" for no memory context.
 func (c *Config) Memory() string { return c.v.GetString("memory") }
+
+// SpecMemory returns the default memory for `hadron spec` commands, with the
+// HADRON_SPEC_MEMORY environment variable taking precedence over the
+// spec_memory config key. Empty means no spec-specific default (callers then
+// fall back to the global Memory()). The spec corpus is usually a fixed memory
+// distinct from the global active memory, so it gets its own default.
+func (c *Config) SpecMemory() string {
+	if env := os.Getenv("HADRON_SPEC_MEMORY"); env != "" {
+		return env
+	}
+	return c.v.GetString("spec_memory")
+}
 
 // Get returns a known key's value.
 func (c *Config) Get(key string) (string, error) {

@@ -119,7 +119,7 @@ is one call instead of four.`,
 			}
 			// Resolve to the canonical <org>::<memory> so a PK-supplied memory
 			// still builds valid edge-target FQNs (issue #91 Bug 2).
-			memURN, err := resolveSpecMemoryURN(cmd, client, memory)
+			memURN, err := specMemoryURN(f, cmd, client, memory)
 			if err != nil {
 				return err
 			}
@@ -342,7 +342,7 @@ is one call instead of four.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to `hadron spec use`, then the active memory)")
 	cmd.Flags().StringVar(&product, "product", "", "3-letter product code (product-rooted corpora)")
 	cmd.Flags().StringVar(&module, "module", "", "3-letter module code")
 	cmd.Flags().StringVar(&title, "title", "", "human title for the spec (required)")
@@ -364,7 +364,6 @@ is one call instead of four.`,
 	cmd.Flags().BoolVar(&noEdges, "no-edges", false, "do not create table-of-contents / inheritance edges")
 	cmd.Flags().BoolVar(&noContract, "no-contract", false, "when creating a root, do not also scaffold its general-provisions contract")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the planned spec without writing anything")
-	_ = cmd.MarkFlagRequired("memory")
 	_ = cmd.MarkFlagRequired("title")
 	return cmd
 }

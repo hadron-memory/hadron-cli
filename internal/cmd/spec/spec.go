@@ -57,6 +57,7 @@ generic node/edge primitives. Every subcommand takes -m/--memory.`,
 	cmd.AddCommand(newCmdLint(f))
 	cmd.AddCommand(newCmdSupersede(f))
 	cmd.AddCommand(newCmdImport(f))
+	cmd.AddCommand(newCmdUse(f))
 	return cmd
 }
 
@@ -473,6 +474,52 @@ func resolveSpecMemoryURN(cmd *cobra.Command, client graphql.Client, ref string)
 // none of these).
 func resolveSpecMemoryID(cmd *cobra.Command, client graphql.Client, ref string) (id, memURN string, err error) {
 	return lookupSpecMemory(cmd, client, ref)
+}
+
+// effectiveSpecMemory picks the memory ref for a spec command from, in order:
+// the -m/--memory flag, the spec-specific default (HADRON_SPEC_MEMORY env or the
+// spec_memory config key, set via `hadron spec use`), then the global active
+// memory (`hadron memory set-active`). When it falls back to a default it prints
+// a note to stderr so the context is never silent. Returns a usage error when
+// nothing is configured. The spec corpus is usually a fixed memory distinct from
+// the global active memory, hence its own default tier.
+func effectiveSpecMemory(f *cmdutil.Factory, flagVal string) (string, error) {
+	if strings.TrimSpace(flagVal) != "" {
+		return flagVal, nil
+	}
+	cfg, err := f.Config()
+	if err != nil {
+		return "", err
+	}
+	if m := cfg.SpecMemory(); m != "" {
+		fmt.Fprintf(f.IOStreams.ErrOut, "note: using spec memory %s (hadron spec use / HADRON_SPEC_MEMORY)\n", m)
+		return m, nil
+	}
+	if m := cfg.Memory(); m != "" {
+		fmt.Fprintf(f.IOStreams.ErrOut, "note: using active memory %s (hadron memory set-active)\n", m)
+		return m, nil
+	}
+	return "", exitcode.Newf(exitcode.Usage,
+		"a memory is required: pass -m/--memory, or set a spec default with `hadron spec use <org::memory>`")
+}
+
+// specMemoryURN is resolveSpecMemoryURN with the spec-memory default chain
+// applied to an empty flag value (see effectiveSpecMemory).
+func specMemoryURN(f *cmdutil.Factory, cmd *cobra.Command, client graphql.Client, flagVal string) (string, error) {
+	ref, err := effectiveSpecMemory(f, flagVal)
+	if err != nil {
+		return "", err
+	}
+	return resolveSpecMemoryURN(cmd, client, ref)
+}
+
+// specMemoryID is resolveSpecMemoryID with the spec-memory default chain applied.
+func specMemoryID(f *cmdutil.Factory, cmd *cobra.Command, client graphql.Client, flagVal string) (id, memURN string, err error) {
+	ref, err := effectiveSpecMemory(f, flagVal)
+	if err != nil {
+		return "", "", err
+	}
+	return resolveSpecMemoryID(cmd, client, ref)
 }
 
 // lookupSpecMemory matches a memory ref against the memories list by PK, urn (in any

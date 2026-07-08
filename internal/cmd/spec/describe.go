@@ -75,7 +75,7 @@ writes that declaration.`,
 				return err
 			}
 
-			memID, memURN, err := resolveSpecMemoryID(cmd, client, memory)
+			memID, memURN, err := specMemoryID(f, cmd, client, memory)
 			if err != nil {
 				return err
 			}
@@ -121,9 +121,8 @@ writes that declaration.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to `hadron spec use`, then the active memory)")
 	cmd.Flags().StringVar(&declare, "declare", "", "declare the scheme in the memory's data: flat | product")
-	_ = cmd.MarkFlagRequired("memory")
 	return cmd
 }
 

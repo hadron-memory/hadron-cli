@@ -68,7 +68,7 @@ convention ("documents <from> on the <to> entity"); refine it with
 			if err != nil {
 				return err
 			}
-			memURN, err := resolveSpecMemoryURN(cmd, client, memory)
+			memURN, err := specMemoryURN(f, cmd, client, memory)
 			if err != nil {
 				return err
 			}
@@ -120,10 +120,9 @@ convention ("documents <from> on the <to> entity"); refine it with
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to `hadron spec use`, then the active memory)")
 	cmd.Flags().StringVar(&label, "label", "", "edge label (default: synthesized from the two titles)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the planned edge without writing anything")
-	_ = cmd.MarkFlagRequired("memory")
 	return cmd
 }
 
