@@ -2589,6 +2589,82 @@ type CancelAppRunResponse struct {
 // GetCancelAppRun returns CancelAppRunResponse.CancelAppRun, and is useful for accessing the field via an interface.
 func (v *CancelAppRunResponse) GetCancelAppRun() *CancelAppRunCancelAppRun { return v.CancelAppRun }
 
+// ChatMessagesFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
+// The GraphQL type's documentation follows.
+//
+// Envelope for findNodes (cor:api:090) — the unified node list + search field
+// (it replaced the removed nodes + nodeSearch queries). hits carry per-hit score + vector metadata;
+// passages carry chunk-granularity results; reason/degraded surface no-index /
+// reduced-fidelity outcomes.
+type ChatMessagesFindNodesFindNodesResult struct {
+	Hits []*ChatMessagesFindNodesFindNodesResultHitsNodeHit `json:"hits"`
+}
+
+// GetHits returns ChatMessagesFindNodesFindNodesResult.Hits, and is useful for accessing the field via an interface.
+func (v *ChatMessagesFindNodesFindNodesResult) GetHits() []*ChatMessagesFindNodesFindNodesResultHitsNodeHit {
+	return v.Hits
+}
+
+// ChatMessagesFindNodesFindNodesResultHitsNodeHit includes the requested fields of the GraphQL type NodeHit.
+// The GraphQL type's documentation follows.
+//
+// A scored node hit (cor:api:090:04). score is null for an unscored filtered list (no query).
+type ChatMessagesFindNodesFindNodesResultHitsNodeHit struct {
+	Node *ChatMessagesFindNodesFindNodesResultHitsNodeHitNode `json:"node"`
+}
+
+// GetNode returns ChatMessagesFindNodesFindNodesResultHitsNodeHit.Node, and is useful for accessing the field via an interface.
+func (v *ChatMessagesFindNodesFindNodesResultHitsNodeHit) GetNode() *ChatMessagesFindNodesFindNodesResultHitsNodeHitNode {
+	return v.Node
+}
+
+// ChatMessagesFindNodesFindNodesResultHitsNodeHitNode includes the requested fields of the GraphQL type Node.
+type ChatMessagesFindNodesFindNodesResultHitsNodeHitNode struct {
+	Loc  string           `json:"loc"`
+	Seq  *int             `json:"seq"`
+	Data *json.RawMessage `json:"data"`
+}
+
+// GetLoc returns ChatMessagesFindNodesFindNodesResultHitsNodeHitNode.Loc, and is useful for accessing the field via an interface.
+func (v *ChatMessagesFindNodesFindNodesResultHitsNodeHitNode) GetLoc() string { return v.Loc }
+
+// GetSeq returns ChatMessagesFindNodesFindNodesResultHitsNodeHitNode.Seq, and is useful for accessing the field via an interface.
+func (v *ChatMessagesFindNodesFindNodesResultHitsNodeHitNode) GetSeq() *int { return v.Seq }
+
+// GetData returns ChatMessagesFindNodesFindNodesResultHitsNodeHitNode.Data, and is useful for accessing the field via an interface.
+func (v *ChatMessagesFindNodesFindNodesResultHitsNodeHitNode) GetData() *json.RawMessage {
+	return v.Data
+}
+
+// ChatMessagesResponse is returned by ChatMessages on success.
+type ChatMessagesResponse struct {
+	// Unified node search (cor:api:090) — the single node list + retrieval
+	// surface (it replaced the removed `nodes` filter/list and `nodeSearch`
+	// rank queries in PR3). Omit `query` for a filtered list in deterministic
+	// order (subsumes `nodes`); pass `query` to rank by `mode`
+	// (keyword | vector | hybrid | regex). Lexical modes honor boolean operators
+	// (`(a OR b) AND c`, quoted phrases, NOT/-) — operator words are
+	// UPPERCASE-ONLY, so natural phrases like 'not sure' search literally —
+	// and `fields` as a ranking weight-mask. Malformed boolean syntax
+	// (unmatched parenthesis, unterminated quote) DEGRADES to a literal phrase
+	// search flagged `degraded: 'literal_fallback'` instead of erroring; only
+	// mode: regex fails loudly on bad syntax. `filter` is the structured, AND-combined filter context
+	// (SYSTEM memory class excluded by default; explicit wins). Returns a
+	// scored-hit envelope. Access-scoped identically to the per-kind node queries.
+	//
+	// orgId (optional) narrows the accessible scope to a single organization the
+	// caller is a member of; a non-member orgId returns an empty envelope
+	// (total 0, no existence disclosure). Combined with filter.isRunnable: true
+	// this is the canonical "the caller's runnable task nodes in one org" query
+	// (there is no separate myTasks surface — a task is simply an isRunnable node).
+	FindNodes *ChatMessagesFindNodesFindNodesResult `json:"findNodes"`
+}
+
+// GetFindNodes returns ChatMessagesResponse.FindNodes, and is useful for accessing the field via an interface.
+func (v *ChatMessagesResponse) GetFindNodes() *ChatMessagesFindNodesFindNodesResult {
+	return v.FindNodes
+}
+
 // CloneMemoryCloneMemory includes the requested fields of the GraphQL type Memory.
 type CloneMemoryCloneMemory struct {
 	Id               string            `json:"id"`
@@ -3775,6 +3851,7 @@ type CreateNodeCreateNode struct {
 	Name       string   `json:"name"`
 	NodeType   string   `json:"nodeType"`
 	Tags       []string `json:"tags"`
+	Seq        *int     `json:"seq"`
 	IsRunnable *bool    `json:"isRunnable"`
 	UpdatedAt  string   `json:"updatedAt"`
 }
@@ -3796,6 +3873,9 @@ func (v *CreateNodeCreateNode) GetNodeType() string { return v.NodeType }
 
 // GetTags returns CreateNodeCreateNode.Tags, and is useful for accessing the field via an interface.
 func (v *CreateNodeCreateNode) GetTags() []string { return v.Tags }
+
+// GetSeq returns CreateNodeCreateNode.Seq, and is useful for accessing the field via an interface.
+func (v *CreateNodeCreateNode) GetSeq() *int { return v.Seq }
 
 // GetIsRunnable returns CreateNodeCreateNode.IsRunnable, and is useful for accessing the field via an interface.
 func (v *CreateNodeCreateNode) GetIsRunnable() *bool { return v.IsRunnable }
@@ -10195,6 +10275,22 @@ type __CancelAppRunInput struct {
 // GetId returns __CancelAppRunInput.Id, and is useful for accessing the field via an interface.
 func (v *__CancelAppRunInput) GetId() string { return v.Id }
 
+// __ChatMessagesInput is used internally by genqlient
+type __ChatMessagesInput struct {
+	Filter *NodeFilter `json:"filter,omitempty"`
+	Limit  *int        `json:"limit,omitempty"`
+	Offset *int        `json:"offset,omitempty"`
+}
+
+// GetFilter returns __ChatMessagesInput.Filter, and is useful for accessing the field via an interface.
+func (v *__ChatMessagesInput) GetFilter() *NodeFilter { return v.Filter }
+
+// GetLimit returns __ChatMessagesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ChatMessagesInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __ChatMessagesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ChatMessagesInput) GetOffset() *int { return v.Offset }
+
 // __CloneMemoryInput is used internally by genqlient
 type __CloneMemoryInput struct {
 	Id   string `json:"id"`
@@ -11914,6 +12010,63 @@ func CancelAppRun(
 	return data_, err_
 }
 
+// The query executed by ChatMessages.
+const ChatMessages_Operation = `
+query ChatMessages ($filter: NodeFilter, $limit: Int, $offset: Int) {
+	findNodes(filter: $filter, sort: seq, limit: $limit, offset: $offset) {
+		hits {
+			node {
+				loc
+				seq
+				data
+			}
+		}
+	}
+}
+`
+
+// Team-chat reads (hadron chat read). Messages are message-type nodes under a
+// `messagesLoc` prefix; the payload (author/body/timestamp/…) lives in each
+// node's `data`. Selecting `data` inline means one findNodes call returns the
+// bodies — no per-message node(ref) fetch. sort: seq gives server-assigned
+// order; the CLI paginates to exhaustion and filters seq>since client-side
+// (there is no server-side seq cursor). Mirrors the hadron-client channel's
+// ChatPoll so CLI and channel reads agree.
+//
+// NodeFilter is a SHARED generated struct, and genqlient resolves a shared input
+// type's field-level omitempty per-operation with last-writer-wins (not a merge).
+// So this op must repeat FindNodes' (nodes.graphql) FULL set verbatim — a partial
+// or empty set here would non-deterministically strip omitempty off the struct
+// depending on generation order. Keep these two lists identical.
+func ChatMessages(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	filter *NodeFilter,
+	limit *int,
+	offset *int,
+) (data_ *ChatMessagesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ChatMessages",
+		Query:  ChatMessages_Operation,
+		Variables: &__ChatMessagesInput{
+			Filter: filter,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &ChatMessagesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CloneMemory.
 const CloneMemory_Operation = `
 mutation CloneMemory ($id: ID!, $name: String!) {
@@ -12520,6 +12673,7 @@ mutation CreateNode ($input: CreateNodeInput!) {
 		name
 		nodeType
 		tags
+		seq
 		isRunnable
 		updatedAt
 	}

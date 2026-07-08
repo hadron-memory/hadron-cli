@@ -207,6 +207,7 @@ mutation CreateNode(
     name
     nodeType
     tags
+    seq
     isRunnable
     updatedAt
   }
