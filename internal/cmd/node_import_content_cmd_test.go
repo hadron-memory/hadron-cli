@@ -28,8 +28,11 @@ type ingestVars struct {
 		Url         *string `json:"url"`
 		Content     *string `json:"content"`
 		ContentType *string `json:"contentType"`
-		Name        *string `json:"name"`
-		NodeType    *string `json:"nodeType"`
+		Name        *string          `json:"name"`
+		NodeType    *string          `json:"nodeType"`
+		TaskRef     *string          `json:"taskRef"`
+		AppRef      *string          `json:"appRef"`
+		TaskArgs    *json.RawMessage `json:"taskArgs"`
 	} `json:"input"`
 }
 
@@ -137,6 +140,63 @@ func TestNodeImportURL(t *testing.T) {
 	}
 	if vars.Input.Content != nil || vars.Input.ContentType != nil {
 		t.Errorf("url path must omit content/contentType: content=%v contentType=%v", vars.Input.Content, vars.Input.ContentType)
+	}
+	// A plain (no --task) import must omit the post-import-run fields entirely.
+	if vars.Input.TaskRef != nil || vars.Input.AppRef != nil || vars.Input.TaskArgs != nil {
+		t.Errorf("no-task import must omit taskRef/appRef/taskArgs, got %v/%v/%v", vars.Input.TaskRef, vars.Input.AppRef, vars.Input.TaskArgs)
+	}
+}
+
+// --task mints a post-import run: taskRef/appRef/taskArgs reach the wire, and
+// the returned jobId (run id) is surfaced (--json jobId + a follow-up hint).
+func TestNodeImportWithTask(t *testing.T) {
+	pendingResp := `{"data":{"importNode":{"status":"FETCH_PENDING","jobId":"run_xyz","node":{` +
+		`"id":"n1","memoryId":"mem1","loc":"clips:p","name":"P","nodeType":"webpage","updatedAt":"2026-06-11T00:00:00Z"}}}}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNullJSON,
+		"ImportNode": pendingResp,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "import", "--url", "https://ex.com/p", "-m", "acme.com:kb", "--loc", "clips:p",
+		"--task", "acme.com::kb::tasks:distill", "--task-args", `{"depth":2}`, "--app", "acme.com:ops",
+		"--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	vars := decodeIngestVars(t, captured["ImportNode"])
+	if vars.Input.TaskRef == nil || *vars.Input.TaskRef != "acme.com::kb::tasks:distill" {
+		t.Errorf("taskRef = %v", vars.Input.TaskRef)
+	}
+	if vars.Input.AppRef == nil || *vars.Input.AppRef != "acme.com:ops" {
+		t.Errorf("appRef = %v", vars.Input.AppRef)
+	}
+	if vars.Input.TaskArgs == nil || string(*vars.Input.TaskArgs) != `{"depth":2}` {
+		t.Errorf("taskArgs = %v", vars.Input.TaskArgs)
+	}
+	var dto struct {
+		Status string `json:"status"`
+		JobID  string `json:"jobId"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("--json invalid: %v\n%s", err, out.String())
+	}
+	if dto.Status != "FETCH_PENDING" || dto.JobID != "run_xyz" {
+		t.Errorf("expected the run id surfaced, got %+v", dto)
+	}
+}
+
+// --task-args and --app only shape a post-import run, so each requires --task.
+func TestNodeImportTaskFlagsRequireTask(t *testing.T) {
+	for _, extra := range [][]string{{"--task-args", "{}"}, {"--app", "acme.com:ops"}} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		base := []string{"node", "import", "--url", "https://ex.com/p", "-m", "acme.com:kb", "--loc", "clips:p"}
+		root.SetArgs(append(append(base, extra...), "--server", "http://127.0.0.1:1"))
+		err := root.Execute()
+		if err == nil || !strings.Contains(err.Error(), "requires --task") {
+			t.Fatalf("expected --task requirement for %v, got %v", extra, err)
+		}
 	}
 }
 

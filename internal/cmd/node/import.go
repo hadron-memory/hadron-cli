@@ -44,7 +44,8 @@ type importContentSummaryDTO struct {
 	NodeID   string `json:"nodeId"`
 	Name     string `json:"name"`
 	NodeType string `json:"nodeType"`
-	// JobID is reserved for the future async URL path; null in sync v1.
+	// JobID is the run id when --task minted a post-import task run (status
+	// FETCH_PENDING); empty otherwise (#528).
 	JobID string `json:"jobId,omitempty"`
 }
 
@@ -79,6 +80,10 @@ func newCmdImport(f *cmdutil.Factory) *cobra.Command {
 		nodeType       string
 		properties     string
 		propertiesFile string
+		// Content-mode post-import task run (#528).
+		taskRef  string
+		taskArgs string
+		app      string
 		// Shared.
 		yes bool
 	)
@@ -107,12 +112,19 @@ for a PDF).
 
 An import that lands on an EXISTING node overwrites it (a prior version is
 kept). Like the destructive commands, that prompts on a terminal and requires
---yes non-interactively; a create is never gated.`,
+--yes non-interactively; a create is never gated.
+
+--task <ref> (content mode) runs a task node against the freshly-stored node:
+the server mints a MANUAL run (the imported node's URN is passed to the task)
+and this prints the run id — follow it with 'hadron run get <id>'. --task-args
+adds template args and --app names the App to run under (default: your active
+App).`,
 		Example: `  hadron node import flaky.md                        # restore a node-export file
   hadron node export acme.com::kb::x | hadron node import -m acme.com::kb2 -
   hadron node import paper.pdf -m acme.com::kb --loc papers:attention
   hadron node import --url https://example.com/post -m acme.com::kb --loc clips:post
-  hadron node import notes.md --as-content -m acme.com::kb --loc notes:today`,
+  hadron node import notes.md --as-content -m acme.com::kb --loc notes:today
+  hadron node import --url https://ex.com/p -m acme.com::kb --loc clips:p --task acme.com::kb::tasks:distill --app acme.com:ops`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var srcPath string
@@ -132,12 +144,17 @@ kept). Like the destructive commands, that prompts on a terminal and requires
 			// Reject flags belonging to the other mode so a wrong combination
 			// fails loudly instead of being silently ignored.
 			restoreOnly := []string{"format", "with-edges", "create-only", "dry-run"}
-			contentOnly := []string{"url", "as-content", "content-type", "name", "type", "properties", "properties-file", "node"}
+			contentOnly := []string{"url", "as-content", "content-type", "name", "type", "properties", "properties-file", "node", "task", "task-args", "app"}
 			if contentMode {
 				if err := rejectFlags(cmd, restoreOnly, "does not apply to content import (--url/--as-content/PDF)"); err != nil {
 					return err
 				}
-				return runImportContent(cmd, f, srcPath, url, memory, loc, nodeURN, contentType, name, nodeType, properties, propertiesFile, yes)
+				return runImportContent(cmd, f, contentImportOpts{
+					srcPath: srcPath, url: url, memory: memory, loc: loc, nodeURN: nodeURN,
+					contentType: contentType, name: name, nodeType: nodeType,
+					properties: properties, propertiesFile: propertiesFile,
+					taskRef: taskRef, taskArgs: taskArgs, app: app, yes: yes,
+				})
 			}
 			if err := rejectFlags(cmd, contentOnly, "applies only to content import — pass --as-content to ingest this file as raw content"); err != nil {
 				return err
@@ -159,6 +176,9 @@ kept). Like the destructive commands, that prompts on a terminal and requires
 	cmd.Flags().StringVar(&nodeType, "type", "", "content: node type (defaults to webpage, or info for a PDF)")
 	cmd.Flags().StringVar(&properties, "properties", "", "content: provenance JSON object merged into the node's properties")
 	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "content: read the properties JSON object from a file")
+	cmd.Flags().StringVar(&taskRef, "task", "", "content: after storing, run this task node (ID or URN) against the imported node; prints the run id")
+	cmd.Flags().StringVar(&taskArgs, "task-args", "", "content: JSON object of extra template args merged into the task run (requires --task)")
+	cmd.Flags().StringVar(&app, "app", "", "content: App (ID or URN) to run --task under (defaults to your active App)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "overwrite an existing node without prompting (required non-interactively)")
 	return cmd
 }
@@ -304,10 +324,31 @@ func runImportRestore(cmd *cobra.Command, f *cmdutil.Factory, path, memory, loc,
 	return nil
 }
 
+// contentImportOpts carries the content-mode inputs — a struct rather than a
+// long positional list now that a post-import task run (--task/--task-args/--app)
+// joins the source/target/metadata flags.
+type contentImportOpts struct {
+	srcPath, url, memory, loc, nodeURN string
+	contentType, name, nodeType        string
+	properties, propertiesFile         string
+	taskRef, taskArgs, app             string
+	yes                                bool
+}
+
 // runImportContent ingests raw external source (a URL, or a file/stdin holding
 // HTML/Markdown/PDF) through the server's importNode, which converts it to the
-// node's Markdown body.
-func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, srcPath, url, memory, loc, nodeURN, contentType, name, nodeType, properties, propertiesFile string, yes bool) error {
+// node's Markdown body. With --task it also mints a post-import run of that task
+// against the stored node (#528).
+func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, o contentImportOpts) error {
+	srcPath, url, memory, loc, nodeURN := o.srcPath, o.url, o.memory, o.loc, o.nodeURN
+	// --task-args/--app only shape a post-import run, so they need --task.
+	if o.taskArgs != "" && o.taskRef == "" {
+		return exitcode.Newf(exitcode.Usage, "--task-args requires --task")
+	}
+	if o.app != "" && o.taskRef == "" {
+		return exitcode.Newf(exitcode.Usage, "--app requires --task (it names the App the task runs under)")
+	}
+
 	// Source dispatch: exactly one of --url | inline (<file>|-).
 	hasURL := url != ""
 	hasInline := srcPath != ""
@@ -330,18 +371,33 @@ func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, srcPath, url, memo
 		input.Loc = &loc
 	}
 
-	if name != "" {
-		input.Name = &name
+	if o.name != "" {
+		input.Name = &o.name
 	}
-	if nodeType != "" {
-		input.NodeType = &nodeType
+	if o.nodeType != "" {
+		input.NodeType = &o.nodeType
 	}
-	if properties != "" || propertiesFile != "" {
-		props, err := resolveProperties(properties, propertiesFile)
+	if o.properties != "" || o.propertiesFile != "" {
+		props, err := resolveProperties(o.properties, o.propertiesFile)
 		if err != nil {
 			return err
 		}
 		input.Properties = props
+	}
+	if o.taskRef != "" {
+		input.TaskRef = &o.taskRef
+		// --app is passed verbatim (ID or URN); omitted, the server runs the
+		// task under the caller's active App.
+		if o.app != "" {
+			input.AppRef = &o.app
+		}
+		if o.taskArgs != "" {
+			ta, err := cmdutil.ParseJSONArg(o.taskArgs, "task-args")
+			if err != nil {
+				return err
+			}
+			input.TaskArgs = ta
+		}
 	}
 
 	if hasURL {
@@ -357,7 +413,7 @@ func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, srcPath, url, memo
 		}
 		// Explicit --content-type wins; otherwise infer from the file
 		// extension (nothing is inferable from stdin).
-		ct := contentType
+		ct := o.contentType
 		if ct == "" && srcPath != "-" {
 			ct = inferContentType(srcPath)
 		}
@@ -388,7 +444,7 @@ func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, srcPath, url, memo
 		overwrites, target = nodeExists(cmd, client, memory, loc), overwriteTarget(memory, loc)
 	}
 	if overwrites {
-		if err := confirmOverwrite(f, yes, target); err != nil {
+		if err := confirmOverwrite(f, o.yes, target); err != nil {
 			return err
 		}
 	}
@@ -433,6 +489,10 @@ func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, srcPath, url, memo
 	}
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 		fmt.Fprintf(w, "✓ imported %s:%s (%s)\n", dto.Memory, dto.Loc, dto.NodeType)
+		// A --task import mints a run against the stored node (jobId is its id).
+		if dto.JobID != "" {
+			fmt.Fprintf(w, "  task run started: %s\n  follow it with: hadron run get %s\n", dto.JobID, dto.JobID)
+		}
 		return nil
 	})
 }

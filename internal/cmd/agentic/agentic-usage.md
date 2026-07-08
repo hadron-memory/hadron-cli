@@ -61,7 +61,7 @@ node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 ```
 hadron auth login | logout | whoami | status | token create|ls|validate|revoke <id>
 hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
-hadron node ls [-m <memory>] | get <urn> | add | update <urn> | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | rm <urn> [--hard] | export <urn> [-o <file>] [--format md|json] | import <file|-> [-m <memory>] [--with-edges]
+hadron node ls [-m <memory>] | get <urn> | add | update <urn> | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | rm <urn> [--hard] | export <urn> [-o <file>] [--format md|json] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
 hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--tag <t>]... [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
@@ -192,6 +192,12 @@ Conventions:
     in place, else created (nodeType defaults to `webpage`, or `info` for a PDF).
     `--name`/`--type` and `--properties`/`--properties-file` (provenance JSON)
     are optional. Flags belonging to the other mode are rejected loudly.
+    `--task <ref>` runs a task node against the just-stored node (the server
+    mints a MANUAL run and passes the imported node's URN as
+    `eventData.importedNodeUrn`); the response is `status:"FETCH_PENDING"` +
+    the run id in `jobId` (follow it with `run get <id>`). `--task-args <json>`
+    adds template args and `--app <ref>` names the App (default: your active
+    App); both require `--task`.
 - `memory clone` deep-copies a memory (nodes, edges, pending edges)
   into a new same-org memory and rewrites references to the source
   memory's URN inside node content and abstracts. Version history,
