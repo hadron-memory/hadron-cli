@@ -12353,7 +12353,7 @@ func DeleteMemorySubscription(
 
 // The mutation executed by DeleteNode.
 const DeleteNode_Operation = `
-mutation DeleteNode ($nodeRef: String!, $hard: Boolean) {
+mutation DeleteNode ($nodeRef: ID!, $hard: Boolean) {
 	deleteNode(nodeRef: $nodeRef, hard: $hard)
 }
 `

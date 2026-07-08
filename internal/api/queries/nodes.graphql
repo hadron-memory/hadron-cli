@@ -258,7 +258,7 @@ mutation UpdateNode(
 # hard: true removes the row entirely — cascades edges + NodeVersion, irreversible
 # (#391). Omitted when false so a soft delete never sends an explicit hard: null.
 mutation DeleteNode(
-  $nodeRef: String!
+  $nodeRef: ID!
   # @genqlient(omitempty: true)
   $hard: Boolean
 ) {

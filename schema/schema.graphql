@@ -1844,7 +1844,7 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   deleteMemorySubscription(memoryId: ID!, orgId: ID!): Boolean!
-  deleteNode(hard: Boolean, nodeRef: String!): Boolean!
+  deleteNode(hard: Boolean, nodeRef: ID!): Boolean!
 
   """
   Soft-delete an Organization.
@@ -1972,7 +1972,7 @@ type Mutation {
   Mint comm.outbound tickets into the org ledger (org-ADMIN; cor:acl:050:04).
   """
   mintActionTickets(input: MintActionTicketsInput!): Int!
-  moveNode(from: String!, memoryRef: String!, targetMemoryRef: String, to: String!): Node!
+  moveNode(from: String!, memoryRef: ID!, targetMemoryRef: ID, to: String!): Node!
   processChatResponse(chatId: String!, toolResponse: JSON!): ChatResponseResult!
 
   """
