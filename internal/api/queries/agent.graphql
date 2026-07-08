@@ -43,6 +43,25 @@ query Agents(
   }
 }
 
+# The cross-org marketplace slice (#551/#552): every live PUBLIC agent, readable
+# without org membership. A deliberately separate surface from agents() (which
+# stays member-scoped), not a visibility filter on it — backs `agent ls --public`.
+query PublicAgents(
+  # @genqlient(omitempty: true)
+  $filter: AgentFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  publicAgents(filter: $filter, limit: $limit, offset: $offset) {
+    total
+    items {
+      ...AgentFields
+    }
+  }
+}
+
 mutation CreateAgent(
   $name: String!
   $orgId: ID!

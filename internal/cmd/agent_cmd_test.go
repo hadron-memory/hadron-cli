@@ -79,6 +79,51 @@ func TestAgentLs(t *testing.T) {
 	}
 }
 
+// --public hits the cross-org publicAgents slice (not agents()), passes --type
+// through as a filter, and sends no orgId.
+func TestAgentLsPublic(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"PublicAgents": `{"data":{"publicAgents":{"total":1,"items":[` + agentJSON + `]}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "ls", "--public", "--type", "ASSISTANT", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["PublicAgents"], &vars)
+	if _, present := vars["orgId"]; present {
+		t.Errorf("--public must not send orgId, got %v", vars["orgId"])
+	}
+	if fl, _ := vars["filter"].(map[string]any); fl["type"] != "ASSISTANT" {
+		t.Errorf("--type should map to filter.type, got %v", vars["filter"])
+	}
+	var agents []struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &agents); err != nil {
+		t.Fatalf("not a JSON array: %v\n%s", err, out.String())
+	}
+	if len(agents) != 1 || agents[0].ID != "agt1" {
+		t.Errorf("agents: %+v", agents)
+	}
+}
+
+// --public is a distinct surface; --org / --visibility don't apply and are a
+// usage error rather than a silently-ignored flag.
+func TestAgentLsPublicRejectsOrgAndVisibility(t *testing.T) {
+	for _, extra := range [][]string{{"--org", "acme.com"}, {"--visibility", "PUBLIC"}} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"agent", "ls", "--public"}, append(extra, "--server", "http://127.0.0.1:1")...))
+		err := root.Execute()
+		if err == nil || !strings.Contains(err.Error(), "don't apply") {
+			t.Fatalf("expected --public exclusivity error for %v, got %v", extra, err)
+		}
+	}
+}
+
 func TestAgentGet(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetAgent": `{"data":{"agent":` + agentJSON + `}}`,

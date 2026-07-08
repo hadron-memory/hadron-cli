@@ -81,18 +81,24 @@ type Agent {
 
   """
   023-app-shape: the AppAgent join rows where this Agent is installed.
-  Use App.appAgents to get the join rows from the App side. Resolvable
-  to ADMIN/OWNER of the Agent's owning org.
+  Use App.appAgents to get the join rows from the App side. #551: same
+  caller-org scope as apps — never exposes a foreign org's App.
   """
   appAgents: [AppAgent!]!
+
+  """
+  Adoption count. #551: the agent owning-org members' view (0 otherwise).
+  """
   appCount: Int!
 
   """
   Apps that have this Agent installed (via the AppAgent join). After
   spec 023-app-shape, an App can install multiple Agents; this list
   contains every App where THIS Agent is one of the installed ones.
-  Resolvable to ADMIN/OWNER of the Agent's owning org; non-admins
-  see an empty list.
+  #551: these are OTHER tenants' App objects (whose keys/members are not
+  re-gated at the field level), so — unlike the Agent's own fields — this is
+  NOT public on a PUBLIC agent. Scoped to Apps in orgs the CALLER belongs to
+  (platform ADMIN/OWNER: all); a non-member gets an empty list.
   """
   apps: [App!]!
   createdAt: String!
@@ -107,8 +113,9 @@ type Agent {
   name: String!
 
   """
-  Org grants for this Agent. Resolvable to ADMIN/OWNER of the Agent's
-  owning org only.
+  Org grants for this Agent (which orgs were granted it). #551: the agent's
+  customer list — visible to members of the Agent's owning org only (empty
+  otherwise), regardless of the agent's PUBLIC visibility.
   """
   orgGrants: [AgentOrgGrant!]!
   organizationId: String!
@@ -491,10 +498,20 @@ type AppRun {
   eventData: JSON
   failure: JSON
   finishedAt: String
+
+  """
+  Per-hop trail (#538): one element per completed hop — [{node, edgeOut, startedAt, finishedAt, tokensSpent}]. edgeOut is the routing edge taken FROM the hop (null on the last). A hop that failed mid-execution has no element; curNodeUrn + failure identify it.
+  """
+  hops: JSON
   id: ID!
   organizationId: ID!
   parentRunId: ID
   policy: JSON
+
+  """
+  Fan-out state (plan-spawn, #548): set on runs that called hadron_spawn — {processItem, itemKey, callback?, itemCallback?, total, callbackFiredAt?, callbackError?}. callbackError records a callback mint that was denied (quota/policy) — the digest that never came.
+  """
+  spawn: JSON
   startedAt: String
   status: AppRunStatus!
   timeoutMs: Int
@@ -518,6 +535,7 @@ enum AppRunTriggerKind {
   INTEGRATION
   MANUAL
   SCHEDULE
+  SPAWN
   WEBHOOK
 }
 
@@ -2114,7 +2132,7 @@ type Mutation {
 
   """New secret + token; the old URL dies immediately."""
   rotateAgentWebhook(id: ID!): AgentWebhookCredentials!
-  runTask(nodeRef: String!, args: JSON, appRef: ID, runAsSelf: Boolean): String!
+  runTask(appRef: ID, args: JSON, nodeRef: String!, runAsSelf: Boolean): String!
   saveChatSummary(chatId: String!, summary: String!): Boolean!
   searchReplaceInNodes(input: SearchReplaceInNodesInput!): SearchReplaceResult!
   sendChatMessage(chatId: String!, userMessage: String!): ChatPromptResult!
@@ -2836,7 +2854,7 @@ type Query {
 
   """One run by ID (runs are URN-less, like AiServiceConfig)."""
   appRun(ref: ID!): AppRun
-  appRuns(appRef: String, limit: Int, offset: Int, orgRef: String, status: AppRunStatus): AppRunsPage!
+  appRuns(appRef: String, limit: Int, offset: Int, orgRef: String, parentRunId: ID, status: AppRunStatus): AppRunsPage!
 
   """
   Uniform paginated app list (#473) — replaces the org-ADMIN apps(orgId!)
@@ -3064,13 +3082,13 @@ type Query {
     1. a primary key (the unambiguous read — the old nodeById),
     2. a fully-qualified node URN (`hrn:node:<org>::<memory>::<loc>`,
        legacy `urn:` scheme accepted),
-    3. a bare loc — scoped by 'memory' (an ID or URN) when given; unscoped,
+    3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
        it resolves across every readable memory and a cross-memory loc
        collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
        (listing the candidate memoryIds) rather than silently returning
        one (#335). An unprefixed 3+-segment ref whose first two segments
        name a readable memory is treated as form 2 (a full URN); pass
-       'memory' to force loc interpretation.
+       'memoryRef' to force loc interpretation.
   
   raw: true skips Mustache template compilation. Soft-deleted nodes do not
   resolve. Access: the caller's readable-memory set (same gate the old
@@ -3113,6 +3131,22 @@ type Query {
   tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
   """
   organizations(filter: OrganizationFilter, limit: Int, offset: Int): OrganizationsPage!
+
+  """
+  #551 — the public-agent marketplace slice: every live PUBLIC agent,
+  readable by ANY caller (no membership required), so an org can discover
+  foreign public agents to subscribe to (008/009 AgentOrgGrant;
+  hadron-portal#486). Kept SEPARATE from agents() on purpose: agents() stays
+  bounded to the caller's own orgs, and the cross-org widening is this
+  explicit, paginated surface rather than a value in a filter.
+  
+  filter.type narrows by AgentType; filter.visibility is IGNORED (the slice
+  is PUBLIC by definition). Field-level exposure is slim for non-members:
+  systemPrompt / systemMemoryId / memoryItems / imports / importedBy are
+  member/admin-gated (null / [] for outsiders). Name-ascending order
+  (id tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
+  """
+  publicAgents(filter: AgentFilter, limit: Int, offset: Int): AgentsPage!
 
   """
   Usage-vs-limit counters for an org (+ one app when appRef given). Org-ADMIN. Rows materialize on first view, seeded with platform defaults (#510).

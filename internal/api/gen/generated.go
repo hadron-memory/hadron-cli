@@ -1905,6 +1905,7 @@ const (
 	AppRunTriggerKindIntegration AppRunTriggerKind = "INTEGRATION"
 	AppRunTriggerKindManual      AppRunTriggerKind = "MANUAL"
 	AppRunTriggerKindSchedule    AppRunTriggerKind = "SCHEDULE"
+	AppRunTriggerKindSpawn       AppRunTriggerKind = "SPAWN"
 	AppRunTriggerKindWebhook     AppRunTriggerKind = "WEBHOOK"
 )
 
@@ -1912,6 +1913,7 @@ var AllAppRunTriggerKind = []AppRunTriggerKind{
 	AppRunTriggerKindIntegration,
 	AppRunTriggerKindManual,
 	AppRunTriggerKindSchedule,
+	AppRunTriggerKindSpawn,
 	AppRunTriggerKindWebhook,
 }
 
@@ -5016,13 +5018,13 @@ type GetNodeResponse struct {
 	// 1. a primary key (the unambiguous read — the old nodeById),
 	// 2. a fully-qualified node URN (`hrn:node:<org>::<memory>::<loc>`,
 	// legacy `urn:` scheme accepted),
-	// 3. a bare loc — scoped by 'memory' (an ID or URN) when given; unscoped,
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
 	// it resolves across every readable memory and a cross-memory loc
 	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
 	// (listing the candidate memoryIds) rather than silently returning
 	// one (#335). An unprefixed 3+-segment ref whose first two segments
 	// name a readable memory is treated as form 2 (a full URN); pass
-	// 'memory' to force loc interpretation.
+	// 'memoryRef' to force loc interpretation.
 	//
 	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
 	// resolve. Access: the caller's readable-memory set (same gate the old
@@ -6476,13 +6478,13 @@ type NodeExportMetaResponse struct {
 	// 1. a primary key (the unambiguous read — the old nodeById),
 	// 2. a fully-qualified node URN (`hrn:node:<org>::<memory>::<loc>`,
 	// legacy `urn:` scheme accepted),
-	// 3. a bare loc — scoped by 'memory' (an ID or URN) when given; unscoped,
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
 	// it resolves across every readable memory and a cross-memory loc
 	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
 	// (listing the candidate memoryIds) rather than silently returning
 	// one (#335). An unprefixed 3+-segment ref whose first two segments
 	// name a readable memory is treated as form 2 (a full URN); pass
-	// 'memory' to force loc interpretation.
+	// 'memoryRef' to force loc interpretation.
 	//
 	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
 	// resolve. Access: the caller's readable-memory set (same gate the old
@@ -6910,6 +6912,192 @@ type OrganizationsResponse struct {
 // GetOrganizations returns OrganizationsResponse.Organizations, and is useful for accessing the field via an interface.
 func (v *OrganizationsResponse) GetOrganizations() *OrganizationsOrganizationsOrganizationsPage {
 	return v.Organizations
+}
+
+// PublicAgentsPublicAgentsAgentsPage includes the requested fields of the GraphQL type AgentsPage.
+type PublicAgentsPublicAgentsAgentsPage struct {
+	Total int                                             `json:"total"`
+	Items []*PublicAgentsPublicAgentsAgentsPageItemsAgent `json:"items"`
+}
+
+// GetTotal returns PublicAgentsPublicAgentsAgentsPage.Total, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPage) GetTotal() int { return v.Total }
+
+// GetItems returns PublicAgentsPublicAgentsAgentsPage.Items, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPage) GetItems() []*PublicAgentsPublicAgentsAgentsPageItemsAgent {
+	return v.Items
+}
+
+// PublicAgentsPublicAgentsAgentsPageItemsAgent includes the requested fields of the GraphQL type Agent.
+type PublicAgentsPublicAgentsAgentsPageItemsAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns PublicAgentsPublicAgentsAgentsPageItemsAgent.Id, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns PublicAgentsPublicAgentsAgentsPageItemsAgent.Urn, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns PublicAgentsPublicAgentsAgentsPageItemsAgent.Name, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns PublicAgentsPublicAgentsAgentsPageItemsAgent.Description, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns PublicAgentsPublicAgentsAgentsPageItemsAgent.Type, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns PublicAgentsPublicAgentsAgentsPageItemsAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns PublicAgentsPublicAgentsAgentsPageItemsAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetOrganizationId() string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns PublicAgentsPublicAgentsAgentsPageItemsAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetSurfaces() []string {
+	return v.AgentFields.Surfaces
+}
+
+// GetSystemMemoryId returns PublicAgentsPublicAgentsAgentsPageItemsAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetSystemPrompt returns PublicAgentsPublicAgentsAgentsPageItemsAgent.SystemPrompt, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetSystemPrompt() *string {
+	return v.AgentFields.SystemPrompt
+}
+
+// GetAiProvider returns PublicAgentsPublicAgentsAgentsPageItemsAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns PublicAgentsPublicAgentsAgentsPageItemsAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetAiModel() *string {
+	return v.AgentFields.AiModel
+}
+
+// GetHasAiApiKey returns PublicAgentsPublicAgentsAgentsPageItemsAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetHasAiApiKey() bool {
+	return v.AgentFields.HasAiApiKey
+}
+
+// GetCreatedAt returns PublicAgentsPublicAgentsAgentsPageItemsAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetCreatedAt() string {
+	return v.AgentFields.CreatedAt
+}
+
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PublicAgentsPublicAgentsAgentsPageItemsAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PublicAgentsPublicAgentsAgentsPageItemsAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	SystemPrompt *string `json:"systemPrompt"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent, error) {
+	var retval __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.SystemPrompt = v.AgentFields.SystemPrompt
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// PublicAgentsResponse is returned by PublicAgents on success.
+type PublicAgentsResponse struct {
+	// #551 — the public-agent marketplace slice: every live PUBLIC agent,
+	// readable by ANY caller (no membership required), so an org can discover
+	// foreign public agents to subscribe to (008/009 AgentOrgGrant;
+	// hadron-portal#486). Kept SEPARATE from agents() on purpose: agents() stays
+	// bounded to the caller's own orgs, and the cross-org widening is this
+	// explicit, paginated surface rather than a value in a filter.
+	//
+	// filter.type narrows by AgentType; filter.visibility is IGNORED (the slice
+	// is PUBLIC by definition). Field-level exposure is slim for non-members:
+	// systemPrompt / systemMemoryId / memoryItems / imports / importedBy are
+	// member/admin-gated (null / [] for outsiders). Name-ascending order
+	// (id tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
+	PublicAgents *PublicAgentsPublicAgentsAgentsPage `json:"publicAgents"`
+}
+
+// GetPublicAgents returns PublicAgentsResponse.PublicAgents, and is useful for accessing the field via an interface.
+func (v *PublicAgentsResponse) GetPublicAgents() *PublicAgentsPublicAgentsAgentsPage {
+	return v.PublicAgents
 }
 
 // RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload includes the requested fields of the GraphQL type RemoveMemoryMemberPayload.
@@ -10329,6 +10517,22 @@ func (v *__OrganizationsInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __OrganizationsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__OrganizationsInput) GetOffset() *int { return v.Offset }
 
+// __PublicAgentsInput is used internally by genqlient
+type __PublicAgentsInput struct {
+	Filter *AgentFilter `json:"filter,omitempty"`
+	Limit  *int         `json:"limit,omitempty"`
+	Offset *int         `json:"offset,omitempty"`
+}
+
+// GetFilter returns __PublicAgentsInput.Filter, and is useful for accessing the field via an interface.
+func (v *__PublicAgentsInput) GetFilter() *AgentFilter { return v.Filter }
+
+// GetLimit returns __PublicAgentsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__PublicAgentsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __PublicAgentsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__PublicAgentsInput) GetOffset() *int { return v.Offset }
+
 // __RemoveMemoryMemberInput is used internally by genqlient
 type __RemoveMemoryMemberInput struct {
 	MemoryId string `json:"memoryId"`
@@ -13521,6 +13725,66 @@ func Organizations(
 	}
 
 	data_ = &OrganizationsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by PublicAgents.
+const PublicAgents_Operation = `
+query PublicAgents ($filter: AgentFilter, $limit: Int, $offset: Int) {
+	publicAgents(filter: $filter, limit: $limit, offset: $offset) {
+		total
+		items {
+			... AgentFields
+		}
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	systemPrompt
+	aiProvider
+	aiModel
+	hasAiApiKey
+	createdAt
+}
+`
+
+// The cross-org marketplace slice (#551/#552): every live PUBLIC agent, readable
+// without org membership. A deliberately separate surface from agents() (which
+// stays member-scoped), not a visibility filter on it — backs `agent ls --public`.
+func PublicAgents(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	filter *AgentFilter,
+	limit *int,
+	offset *int,
+) (data_ *PublicAgentsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PublicAgents",
+		Query:  PublicAgents_Operation,
+		Variables: &__PublicAgentsInput{
+			Filter: filter,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &PublicAgentsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
