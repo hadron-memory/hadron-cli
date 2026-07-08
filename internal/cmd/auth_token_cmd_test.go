@@ -144,13 +144,19 @@ func TestAuthTokenValidateInvalid(t *testing.T) {
 		t.Fatalf("expected exit %d, got %d (err=%v)", exitcode.AuthRequired, code, err)
 	}
 	var dto struct {
-		Valid bool `json:"valid"`
+		Valid bool      `json:"valid"`
+		Roles *[]string `json:"roles"`
 	}
 	if jsonErr := json.Unmarshal([]byte(out.String()), &dto); jsonErr != nil {
 		t.Fatalf("not JSON: %v\n%s", jsonErr, out.String())
 	}
 	if dto.Valid {
 		t.Errorf("expected valid:false, got %s", out.String())
+	}
+	// The contract is roles:[] even when invalid — a regression to null (nil
+	// pointer here) or a missing field must fail (a *[]string tells them apart).
+	if dto.Roles == nil || len(*dto.Roles) != 0 {
+		t.Errorf("expected roles:[], got %s", out.String())
 	}
 }
 

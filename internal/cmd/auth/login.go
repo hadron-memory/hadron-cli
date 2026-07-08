@@ -103,6 +103,11 @@ func warnIfPlaintext(io *output.IOStreams, st store.Store) {
 func readToken(in io.Reader, src string) (string, error) {
 	scanner := bufio.NewScanner(in)
 	if !scanner.Scan() {
+		// Distinguish a real read error from plain EOF (no input) — the former
+		// shouldn't masquerade as a usage error (matches cmdutil.Confirm).
+		if err := scanner.Err(); err != nil {
+			return "", err
+		}
 		return "", exitcode.Newf(exitcode.Usage, "%s expects a token on standard input", src)
 	}
 	token := strings.TrimSpace(scanner.Text())
