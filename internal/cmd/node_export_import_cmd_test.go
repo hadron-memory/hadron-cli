@@ -502,7 +502,7 @@ func TestNodeImportWithEdgesIdempotent(t *testing.T) {
 	if ce["name"] != "new-label" {
 		t.Errorf("wired the wrong edge: %v", ce)
 	}
-	if ce["sourceNodeId"] != "n1" || ce["targetNodeId"] != "n2" {
+	if ce["sourceRef"] != "n1" || ce["targetRef"] != "n2" {
 		t.Errorf("createEdge endpoints = %v", ce)
 	}
 	if ce["priority"] != float64(7) {

@@ -1677,7 +1677,7 @@ type Mutation {
   """
   createAppKey(appId: ID!, label: String): AppKeyCreated!
   createAppUser(email: String, externalId: String!, handle: String, name: String): User!
-  createEdge(condition: JSON, data: JSON, description: String, isRunnable: Boolean, loc: String, name: String, priority: Int, sourceNodeId: ID!, targetNodeId: ID!): Edge!
+  createEdge(condition: JSON, data: JSON, description: String, isRunnable: Boolean, loc: String, name: String, priority: Int, sourceRef: ID!, targetRef: ID!): Edge!
 
   """
   Create a memory in an organization. Accepts the entity's ID or URN
@@ -1844,7 +1844,7 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   deleteMemorySubscription(memoryId: ID!, orgId: ID!): Boolean!
-  deleteNode(hard: Boolean, loc: String!, memoryId: String!): Boolean!
+  deleteNode(hard: Boolean, nodeRef: String!): Boolean!
 
   """
   Soft-delete an Organization.
@@ -1972,7 +1972,7 @@ type Mutation {
   Mint comm.outbound tickets into the org ledger (org-ADMIN; cor:acl:050:04).
   """
   mintActionTickets(input: MintActionTicketsInput!): Int!
-  moveNode(from: String!, memoryId: String!, targetMemoryId: String, to: String!): Node!
+  moveNode(from: String!, memoryRef: String!, targetMemoryRef: String, to: String!): Node!
   processChatResponse(chatId: String!, toolResponse: JSON!): ChatResponseResult!
 
   """
@@ -2290,7 +2290,7 @@ type Mutation {
   contract; omitted 'tags' are preserved, issue #235).
   """
   updateNode(input: UpdateNodeInput!): Node!
-  updateNodeData(data: JSON!, nodeId: ID!, reason: String): Node!
+  updateNodeData(data: JSON!, nodeRef: ID!, reason: String): Node!
 
   """
   Set GitHub App credentials for an organization (encrypted at rest).
@@ -3076,7 +3076,7 @@ type Query {
   resolve. Access: the caller's readable-memory set (same gate the old
   queries used); denied and missing are both null.
   """
-  node(memory: ID, raw: Boolean, ref: ID!): Node
+  node(memoryRef: ID, raw: Boolean, ref: ID!): Node
 
   """
   Batch read (spec cor:api:040) — the full node projection (select any Node

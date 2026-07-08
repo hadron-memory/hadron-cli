@@ -9871,22 +9871,22 @@ func (v *__CreateAppInput) GetDescription() *string { return v.Description }
 
 // __CreateEdgeInput is used internally by genqlient
 type __CreateEdgeInput struct {
-	SourceNodeId string           `json:"sourceNodeId"`
-	TargetNodeId string           `json:"targetNodeId"`
-	Name         string           `json:"name"`
-	Loc          *string          `json:"loc,omitempty"`
-	Description  *string          `json:"description,omitempty"`
-	IsRunnable   *bool            `json:"isRunnable,omitempty"`
-	Priority     *int             `json:"priority,omitempty"`
-	Condition    *json.RawMessage `json:"condition,omitempty"`
-	Data         *json.RawMessage `json:"data,omitempty"`
+	SourceRef   string           `json:"sourceRef"`
+	TargetRef   string           `json:"targetRef"`
+	Name        string           `json:"name"`
+	Loc         *string          `json:"loc,omitempty"`
+	Description *string          `json:"description,omitempty"`
+	IsRunnable  *bool            `json:"isRunnable,omitempty"`
+	Priority    *int             `json:"priority,omitempty"`
+	Condition   *json.RawMessage `json:"condition,omitempty"`
+	Data        *json.RawMessage `json:"data,omitempty"`
 }
 
-// GetSourceNodeId returns __CreateEdgeInput.SourceNodeId, and is useful for accessing the field via an interface.
-func (v *__CreateEdgeInput) GetSourceNodeId() string { return v.SourceNodeId }
+// GetSourceRef returns __CreateEdgeInput.SourceRef, and is useful for accessing the field via an interface.
+func (v *__CreateEdgeInput) GetSourceRef() string { return v.SourceRef }
 
-// GetTargetNodeId returns __CreateEdgeInput.TargetNodeId, and is useful for accessing the field via an interface.
-func (v *__CreateEdgeInput) GetTargetNodeId() string { return v.TargetNodeId }
+// GetTargetRef returns __CreateEdgeInput.TargetRef, and is useful for accessing the field via an interface.
+func (v *__CreateEdgeInput) GetTargetRef() string { return v.TargetRef }
 
 // GetName returns __CreateEdgeInput.Name, and is useful for accessing the field via an interface.
 func (v *__CreateEdgeInput) GetName() string { return v.Name }
@@ -10103,16 +10103,12 @@ func (v *__DeleteMemorySubscriptionInput) GetOrgId() string { return v.OrgId }
 
 // __DeleteNodeInput is used internally by genqlient
 type __DeleteNodeInput struct {
-	Loc      string `json:"loc"`
-	MemoryId string `json:"memoryId"`
-	Hard     *bool  `json:"hard,omitempty"`
+	NodeRef string `json:"nodeRef"`
+	Hard    *bool  `json:"hard,omitempty"`
 }
 
-// GetLoc returns __DeleteNodeInput.Loc, and is useful for accessing the field via an interface.
-func (v *__DeleteNodeInput) GetLoc() string { return v.Loc }
-
-// GetMemoryId returns __DeleteNodeInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__DeleteNodeInput) GetMemoryId() string { return v.MemoryId }
+// GetNodeRef returns __DeleteNodeInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__DeleteNodeInput) GetNodeRef() string { return v.NodeRef }
 
 // GetHard returns __DeleteNodeInput.Hard, and is useful for accessing the field via an interface.
 func (v *__DeleteNodeInput) GetHard() *bool { return v.Hard }
@@ -10691,13 +10687,13 @@ func (v *__UpdateMyProfileInput) GetHandle() *string { return v.Handle }
 
 // __UpdateNodeDataInput is used internally by genqlient
 type __UpdateNodeDataInput struct {
-	NodeId string          `json:"nodeId"`
-	Data   json.RawMessage `json:"data"`
-	Reason *string         `json:"reason,omitempty"`
+	NodeRef string          `json:"nodeRef"`
+	Data    json.RawMessage `json:"data"`
+	Reason  *string         `json:"reason,omitempty"`
 }
 
-// GetNodeId returns __UpdateNodeDataInput.NodeId, and is useful for accessing the field via an interface.
-func (v *__UpdateNodeDataInput) GetNodeId() string { return v.NodeId }
+// GetNodeRef returns __UpdateNodeDataInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeDataInput) GetNodeRef() string { return v.NodeRef }
 
 // GetData returns __UpdateNodeDataInput.Data, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeDataInput) GetData() json.RawMessage { return v.Data }
@@ -11688,8 +11684,8 @@ func CreateApp(
 
 // The mutation executed by CreateEdge.
 const CreateEdge_Operation = `
-mutation CreateEdge ($sourceNodeId: ID!, $targetNodeId: ID!, $name: String!, $loc: String, $description: String, $isRunnable: Boolean, $priority: Int, $condition: JSON, $data: JSON) {
-	createEdge(sourceNodeId: $sourceNodeId, targetNodeId: $targetNodeId, name: $name, loc: $loc, description: $description, isRunnable: $isRunnable, priority: $priority, condition: $condition, data: $data) {
+mutation CreateEdge ($sourceRef: ID!, $targetRef: ID!, $name: String!, $loc: String, $description: String, $isRunnable: Boolean, $priority: Int, $condition: JSON, $data: JSON) {
+	createEdge(sourceRef: $sourceRef, targetRef: $targetRef, name: $name, loc: $loc, description: $description, isRunnable: $isRunnable, priority: $priority, condition: $condition, data: $data) {
 		id
 		name
 		loc
@@ -11713,8 +11709,8 @@ mutation CreateEdge ($sourceNodeId: ID!, $targetNodeId: ID!, $name: String!, $lo
 func CreateEdge(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	sourceNodeId string,
-	targetNodeId string,
+	sourceRef string,
+	targetRef string,
 	name string,
 	loc *string,
 	description *string,
@@ -11727,15 +11723,15 @@ func CreateEdge(
 		OpName: "CreateEdge",
 		Query:  CreateEdge_Operation,
 		Variables: &__CreateEdgeInput{
-			SourceNodeId: sourceNodeId,
-			TargetNodeId: targetNodeId,
-			Name:         name,
-			Loc:          loc,
-			Description:  description,
-			IsRunnable:   isRunnable,
-			Priority:     priority,
-			Condition:    condition,
-			Data:         data,
+			SourceRef:   sourceRef,
+			TargetRef:   targetRef,
+			Name:        name,
+			Loc:         loc,
+			Description: description,
+			IsRunnable:  isRunnable,
+			Priority:    priority,
+			Condition:   condition,
+			Data:        data,
 		},
 	}
 
@@ -12357,8 +12353,8 @@ func DeleteMemorySubscription(
 
 // The mutation executed by DeleteNode.
 const DeleteNode_Operation = `
-mutation DeleteNode ($loc: String!, $memoryId: String!, $hard: Boolean) {
-	deleteNode(loc: $loc, memoryId: $memoryId, hard: $hard)
+mutation DeleteNode ($nodeRef: String!, $hard: Boolean) {
+	deleteNode(nodeRef: $nodeRef, hard: $hard)
 }
 `
 
@@ -12368,17 +12364,15 @@ mutation DeleteNode ($loc: String!, $memoryId: String!, $hard: Boolean) {
 func DeleteNode(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	loc string,
-	memoryId string,
+	nodeRef string,
 	hard *bool,
 ) (data_ *DeleteNodeResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteNode",
 		Query:  DeleteNode_Operation,
 		Variables: &__DeleteNodeInput{
-			Loc:      loc,
-			MemoryId: memoryId,
-			Hard:     hard,
+			NodeRef: nodeRef,
+			Hard:    hard,
 		},
 	}
 
@@ -14644,8 +14638,8 @@ func UpdateNode(
 
 // The mutation executed by UpdateNodeData.
 const UpdateNodeData_Operation = `
-mutation UpdateNodeData ($nodeId: ID!, $data: JSON!, $reason: String) {
-	updateNodeData(nodeId: $nodeId, data: $data, reason: $reason) {
+mutation UpdateNodeData ($nodeRef: ID!, $data: JSON!, $reason: String) {
+	updateNodeData(nodeRef: $nodeRef, data: $data, reason: $reason) {
 		id
 		memoryId
 		loc
@@ -14666,7 +14660,7 @@ mutation UpdateNodeData ($nodeId: ID!, $data: JSON!, $reason: String) {
 func UpdateNodeData(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	nodeId string,
+	nodeRef string,
 	data json.RawMessage,
 	reason *string,
 ) (data_ *UpdateNodeDataResponse, err_ error) {
@@ -14674,9 +14668,9 @@ func UpdateNodeData(
 		OpName: "UpdateNodeData",
 		Query:  UpdateNodeData_Operation,
 		Variables: &__UpdateNodeDataInput{
-			NodeId: nodeId,
-			Data:   data,
-			Reason: reason,
+			NodeRef: nodeRef,
+			Data:    data,
+			Reason:  reason,
 		},
 	}
 

@@ -51,7 +51,10 @@ prompts with a distinct warning (still gated by --yes non-interactively).`,
 			if hard {
 				hardArg = &hard
 			}
-			if _, err := gen.DeleteNode(cmd.Context(), client, node.Loc, node.MemoryId, hardArg); err != nil {
+			// #542: deleteNode takes a single nodeRef. fetchNode already resolved
+			// the target (URN or <loc> -m <memory>) to a concrete row, so pass its
+			// immutable PK.
+			if _, err := gen.DeleteNode(cmd.Context(), client, node.Id, hardArg); err != nil {
 				return api.MapError(err)
 			}
 			status, verb := "deleted", "Deleted"
