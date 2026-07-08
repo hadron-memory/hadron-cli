@@ -918,6 +918,80 @@ func TestNodeRmHard(t *testing.T) {
 	}
 }
 
+// Default (render) mode: resolve the ref to a nodeRef, omit appRef, and print
+// the compiled prompt the server returns.
+func TestTaskRunRendersPrompt(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"RunTask":    `{"data":{"runTask":"compiled prompt"}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"task", "run", nodeURN, "--arg", "chat_slug=demo", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["RunTask"], &vars)
+	if vars["nodeRef"] != "n1" {
+		t.Errorf("URN must resolve to a node ref passed as nodeRef, got %v", vars["nodeRef"])
+	}
+	if v, present := vars["appRef"]; present {
+		t.Errorf("render mode must omit appRef, got %v", v)
+	}
+	if a, _ := vars["args"].(map[string]any); a["chat_slug"] != "demo" {
+		t.Errorf("--arg should build the args object, got %v", vars["args"])
+	}
+	if !strings.Contains(out.String(), "compiled prompt") {
+		t.Errorf("rendered prompt should be printed, got %s", out.String())
+	}
+}
+
+// --app switches to execute mode: send appRef and treat the returned string as
+// a run id (printed, and surfaced as runId/mode in --json).
+func TestTaskRunExecuteMode(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"RunTask":    `{"data":{"runTask":"run_abc"}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"task", "run", nodeURN, "--app", "acme.com:ops", "--as-self", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["RunTask"], &vars)
+	if vars["appRef"] != "acme.com:ops" {
+		t.Errorf("--app should map to appRef, got %v", vars["appRef"])
+	}
+	if vars["runAsSelf"] != true {
+		t.Errorf("--as-self should send runAsSelf:true, got %v", vars["runAsSelf"])
+	}
+	var dto struct {
+		Mode  string `json:"mode"`
+		RunID string `json:"runId"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("--json not valid: %v\n%s", err, out.String())
+	}
+	if dto.Mode != "execute" || dto.RunID != "run_abc" {
+		t.Errorf("execute mode should report runId, got %+v", dto)
+	}
+}
+
+// --as-self is meaningless without --app and must be rejected, not silently
+// dropped.
+func TestTaskRunAsSelfRequiresApp(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"task", "run", nodeURN, "--as-self", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "--as-self requires --app") {
+		t.Fatalf("expected --as-self/--app usage error, got %v", err)
+	}
+}
+
 func TestEdgeAddOmitsUnsetOptionals(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,

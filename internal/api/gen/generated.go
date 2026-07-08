@@ -10403,8 +10403,10 @@ func (v *__RotateAgentWebhookInput) GetId() string { return v.Id }
 
 // __RunTaskInput is used internally by genqlient
 type __RunTaskInput struct {
-	NodeRef string           `json:"nodeRef"`
-	Args    *json.RawMessage `json:"args"`
+	NodeRef   string           `json:"nodeRef"`
+	Args      *json.RawMessage `json:"args"`
+	AppRef    *string          `json:"appRef,omitempty"`
+	RunAsSelf *bool            `json:"runAsSelf,omitempty"`
 }
 
 // GetNodeRef returns __RunTaskInput.NodeRef, and is useful for accessing the field via an interface.
@@ -10412,6 +10414,12 @@ func (v *__RunTaskInput) GetNodeRef() string { return v.NodeRef }
 
 // GetArgs returns __RunTaskInput.Args, and is useful for accessing the field via an interface.
 func (v *__RunTaskInput) GetArgs() *json.RawMessage { return v.Args }
+
+// GetAppRef returns __RunTaskInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__RunTaskInput) GetAppRef() *string { return v.AppRef }
+
+// GetRunAsSelf returns __RunTaskInput.RunAsSelf, and is useful for accessing the field via an interface.
+func (v *__RunTaskInput) GetRunAsSelf() *bool { return v.RunAsSelf }
 
 // __SearchNodesInput is used internally by genqlient
 type __SearchNodesInput struct {
@@ -13819,23 +13827,35 @@ func RotateAgentWebhook(
 
 // The mutation executed by RunTask.
 const RunTask_Operation = `
-mutation RunTask ($nodeRef: String!, $args: JSON) {
-	runTask(nodeRef: $nodeRef, args: $args)
+mutation RunTask ($nodeRef: String!, $args: JSON, $appRef: ID, $runAsSelf: Boolean) {
+	runTask(nodeRef: $nodeRef, args: $args, appRef: $appRef, runAsSelf: $runAsSelf)
 }
 `
 
+// nodeRef identifies the task node — a PK or fully-qualified node URN (spec 007
+// entity-ref migration, server #542; the CLI resolves the ref to a PK first).
+//
+// Two modes (server #529): WITHOUT appRef, runTask renders and returns the
+// compiled prompt string. WITH appRef (App PK/URN), it mints a MANUAL app run
+// for the task under that App and returns the run id (poll via `run get`).
+// runAsSelf runs on behalf of the caller. Unset appRef/runAsSelf must be omitted,
+// not sent as null (a null appRef would otherwise look like an explicit choice).
 func RunTask(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	nodeRef string,
 	args *json.RawMessage,
+	appRef *string,
+	runAsSelf *bool,
 ) (data_ *RunTaskResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "RunTask",
 		Query:  RunTask_Operation,
 		Variables: &__RunTaskInput{
-			NodeRef: nodeRef,
-			Args:    args,
+			NodeRef:   nodeRef,
+			Args:      args,
+			AppRef:    appRef,
+			RunAsSelf: runAsSelf,
 		},
 	}
 
