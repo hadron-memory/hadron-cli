@@ -31,19 +31,22 @@ var (
 )
 
 func newCmdLint(f *cmdutil.Factory) *cobra.Command {
-	var memory, product, module string
+	var memory, product, module, prefixFlag string
 	var all, strict bool
 	cmd := &cobra.Command{
 		Use:     "lint [<citation>]",
 		Aliases: []string{"check", "validate"},
 		Short:   "Validate specs against the rubric and stability rules",
-		Long: `Validate one spec, a product, a module, or the whole corpus
-against the loc-as-citation rubric and stability rules.
+		Long: `Validate one spec, a subtree, a product, a module, or the whole
+corpus against the loc-as-citation rubric and stability rules.
 
-Scope is one of: a single <citation> argument, --product <ppp>, --module
-<mmm> (optionally within --product), or --all. Errors (rubric/stability
-violations) exit with code 5; --strict promotes warnings to errors too.`,
+Scope is one of: a single <citation> argument, --prefix <citation> (that
+node plus its descendants — e.g. one feature and its rules), --product
+<ppp>, --module <mmm> (optionally within --product), or --all. Errors
+(rubric/stability violations) exit with code 5; --strict promotes warnings
+to errors too.`,
 		Example: `  hadron spec lint msg:010:02 -m micromentor.org::platform-specs
+  hadron spec lint --prefix cor:api:140 -m hadronmemory.com::specs
   hadron spec lint --module msg -m micromentor.org::platform-specs
   hadron spec lint --product cli -m hadronmemory.com::platform-specs
   hadron spec lint --all -m micromentor.org::platform-specs --strict`,
@@ -58,8 +61,8 @@ violations) exit with code 5; --strict promotes warnings to errors too.`,
 				return err
 			}
 
-			if len(args) == 1 && (product != "" || module != "" || all) {
-				return exitcode.Newf(exitcode.Usage, "a <citation> argument cannot be combined with --product/--module/--all")
+			if err := lintScopeError(len(args) == 1, prefixFlag, product, module, all); err != nil {
+				return err
 			}
 
 			var nodes []specNode
@@ -75,6 +78,19 @@ violations) exit with code 5; --strict promotes warnings to errors too.`,
 					return err
 				}
 				nodes = []specNode{nodeFromGQL(n)}
+			case prefixFlag != "":
+				// A citation prefix — that node plus its descendants (one feature
+				// and its rules, a module, etc.). Mirrors `spec get --prefix`;
+				// linted as a corpus so subtree parent-exists checks run.
+				scopeRoot = prefixFlag
+				nodes, err = scanPrefixDetail(cmd, client, memURN, prefixFlag)
+				if err != nil {
+					return err
+				}
+				if len(nodes) == 0 {
+					return exitcode.Newf(exitcode.NotFound, "no specs found under %q", prefixFlag)
+				}
+				corpus = true
 			case product != "" || module != "":
 				if product != "" && !reModule.MatchString(product) {
 					return exitcode.Newf(exitcode.Usage, "--product %q must be 3 lowercase letters", product)
@@ -134,7 +150,7 @@ violations) exit with code 5; --strict promotes warnings to errors too.`,
 				}
 				corpus = true
 			default:
-				return exitcode.Newf(exitcode.Usage, "specify a <citation>, --product <ppp>, --module <mmm>, or --all")
+				return exitcode.Newf(exitcode.Usage, "specify a <citation>, --prefix <citation>, --product <ppp>, --module <mmm>, or --all")
 			}
 
 			var findings []lintFindingDTO
@@ -186,12 +202,27 @@ violations) exit with code 5; --strict promotes warnings to errors too.`,
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
+	cmd.Flags().StringVar(&prefixFlag, "prefix", "", "lint every spec under this citation prefix (that node + its descendants, e.g. a feature: cor:api:140)")
 	cmd.Flags().StringVar(&product, "product", "", "lint every spec under this product")
 	cmd.Flags().StringVar(&module, "module", "", "lint every spec under this module (optionally within --product)")
 	cmd.Flags().BoolVar(&all, "all", false, "lint every spec in the memory")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
 	_ = cmd.MarkFlagRequired("memory")
 	return cmd
+}
+
+// lintScopeError enforces that exactly one scope selector is used: a positional
+// <citation>, --prefix, --product/--module, or --all are mutually exclusive.
+// Returns a usage error describing the conflict, or nil when the combination is
+// valid (including the no-scope case, which the RunE switch's default handles).
+func lintScopeError(hasCitationArg bool, prefixFlag, product, module string, all bool) error {
+	if hasCitationArg && (product != "" || module != "" || all || prefixFlag != "") {
+		return exitcode.Newf(exitcode.Usage, "a <citation> argument cannot be combined with --prefix/--product/--module/--all")
+	}
+	if prefixFlag != "" && (product != "" || module != "" || all) {
+		return exitcode.Newf(exitcode.Usage, "--prefix cannot be combined with --product/--module/--all")
+	}
+	return nil
 }
 
 // lintNode runs the per-node rules and returns findings tagged with the
@@ -407,9 +438,10 @@ func parentInScope(parentLoc, scopeRoot string) bool {
 // ---- corpus scans (one Nodes query + per-node detail reads) ----
 
 // scanPrefixDetail reads every node under a loc prefix (headers + specs) with
-// full detail for linting. The prefix is a product, a module, or a
-// product-qualified module (e.g. "cli", "msg", or "cli:cha"). The scan pages
-// to exhaustion so a subtree larger than one server page is linted whole (#23).
+// full detail for linting. The prefix is any citation prefix — a product, a
+// module, a product-qualified module, or a deeper subtree (e.g. "cli", "msg",
+// "cli:cha", or a feature like "cor:api:140"). The scan pages to exhaustion so
+// a subtree larger than one server page is linted whole (#23).
 func scanPrefixDetail(cmd *cobra.Command, client graphql.Client, memURN, prefix string) ([]specNode, error) {
 	all, err := scanAllNodes(cmd.Context(), client, &memURN, &prefix, nil)
 	if err != nil {
