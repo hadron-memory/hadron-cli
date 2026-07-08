@@ -61,7 +61,9 @@ user-scoped — an app or agent key can't manage user tokens.
 
 `token validate` reads a token from standard input (so it never lands in your
 shell history) and reports whether it still authenticates — useful in CI to
-fail fast on an expired or revoked credential.
+fail fast on an expired or revoked credential. For a valid user key it names the
+exact key that authenticated (preview, label, last-used); a valid **App** key is
+reported as valid too (`principalType: APP`), not a false "invalid".
 
 ## Inspecting and clearing credentials
 

@@ -8,3 +8,26 @@ query Me {
     roles
   }
 }
+
+# The resolved principal for the credential on THIS request (server #562).
+# Credential-type-agnostic — unlike `me`, it's populated for a valid App key
+# too, and (for a user key) names the exact UserApiKey presented. Null when the
+# credential doesn't resolve (revoked / unknown / malformed alike — no oracle).
+query AuthContext {
+  authContext {
+    principalType
+    appId
+    agentId
+    user {
+      id
+      name
+      email
+      handle
+      githubUsername
+      roles
+    }
+    apiKey {
+      ...UserApiKeyFields
+    }
+  }
+}

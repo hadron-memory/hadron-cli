@@ -2230,6 +2230,170 @@ type AppsResponse struct {
 // GetApps returns AppsResponse.Apps, and is useful for accessing the field via an interface.
 func (v *AppsResponse) GetApps() *AppsAppsAppsPage { return v.Apps }
 
+// AuthContextAuthContext includes the requested fields of the GraphQL type AuthContext.
+type AuthContextAuthContext struct {
+	PrincipalType PrincipalType                           `json:"principalType"`
+	AppId         *string                                 `json:"appId"`
+	AgentId       *string                                 `json:"agentId"`
+	User          *AuthContextAuthContextUser             `json:"user"`
+	ApiKey        *AuthContextAuthContextApiKeyUserApiKey `json:"apiKey"`
+}
+
+// GetPrincipalType returns AuthContextAuthContext.PrincipalType, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContext) GetPrincipalType() PrincipalType { return v.PrincipalType }
+
+// GetAppId returns AuthContextAuthContext.AppId, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContext) GetAppId() *string { return v.AppId }
+
+// GetAgentId returns AuthContextAuthContext.AgentId, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContext) GetAgentId() *string { return v.AgentId }
+
+// GetUser returns AuthContextAuthContext.User, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContext) GetUser() *AuthContextAuthContextUser { return v.User }
+
+// GetApiKey returns AuthContextAuthContext.ApiKey, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContext) GetApiKey() *AuthContextAuthContextApiKeyUserApiKey { return v.ApiKey }
+
+// AuthContextAuthContextApiKeyUserApiKey includes the requested fields of the GraphQL type UserApiKey.
+type AuthContextAuthContextApiKeyUserApiKey struct {
+	UserApiKeyFields `json:"-"`
+}
+
+// GetId returns AuthContextAuthContextApiKeyUserApiKey.Id, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextApiKeyUserApiKey) GetId() string { return v.UserApiKeyFields.Id }
+
+// GetLabel returns AuthContextAuthContextApiKeyUserApiKey.Label, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextApiKeyUserApiKey) GetLabel() *string { return v.UserApiKeyFields.Label }
+
+// GetKeyPreview returns AuthContextAuthContextApiKeyUserApiKey.KeyPreview, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextApiKeyUserApiKey) GetKeyPreview() string {
+	return v.UserApiKeyFields.KeyPreview
+}
+
+// GetIssuedVia returns AuthContextAuthContextApiKeyUserApiKey.IssuedVia, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextApiKeyUserApiKey) GetIssuedVia() *string {
+	return v.UserApiKeyFields.IssuedVia
+}
+
+// GetCreatedAt returns AuthContextAuthContextApiKeyUserApiKey.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextApiKeyUserApiKey) GetCreatedAt() string {
+	return v.UserApiKeyFields.CreatedAt
+}
+
+// GetLastUsedAt returns AuthContextAuthContextApiKeyUserApiKey.LastUsedAt, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextApiKeyUserApiKey) GetLastUsedAt() *string {
+	return v.UserApiKeyFields.LastUsedAt
+}
+
+// GetRevokedAt returns AuthContextAuthContextApiKeyUserApiKey.RevokedAt, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextApiKeyUserApiKey) GetRevokedAt() *string {
+	return v.UserApiKeyFields.RevokedAt
+}
+
+func (v *AuthContextAuthContextApiKeyUserApiKey) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AuthContextAuthContextApiKeyUserApiKey
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AuthContextAuthContextApiKeyUserApiKey = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UserApiKeyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAuthContextAuthContextApiKeyUserApiKey struct {
+	Id string `json:"id"`
+
+	Label *string `json:"label"`
+
+	KeyPreview string `json:"keyPreview"`
+
+	IssuedVia *string `json:"issuedVia"`
+
+	CreatedAt string `json:"createdAt"`
+
+	LastUsedAt *string `json:"lastUsedAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+}
+
+func (v *AuthContextAuthContextApiKeyUserApiKey) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AuthContextAuthContextApiKeyUserApiKey) __premarshalJSON() (*__premarshalAuthContextAuthContextApiKeyUserApiKey, error) {
+	var retval __premarshalAuthContextAuthContextApiKeyUserApiKey
+
+	retval.Id = v.UserApiKeyFields.Id
+	retval.Label = v.UserApiKeyFields.Label
+	retval.KeyPreview = v.UserApiKeyFields.KeyPreview
+	retval.IssuedVia = v.UserApiKeyFields.IssuedVia
+	retval.CreatedAt = v.UserApiKeyFields.CreatedAt
+	retval.LastUsedAt = v.UserApiKeyFields.LastUsedAt
+	retval.RevokedAt = v.UserApiKeyFields.RevokedAt
+	return &retval, nil
+}
+
+// AuthContextAuthContextUser includes the requested fields of the GraphQL type User.
+type AuthContextAuthContextUser struct {
+	Id             string  `json:"id"`
+	Name           *string `json:"name"`
+	Email          *string `json:"email"`
+	Handle         *string `json:"handle"`
+	GithubUsername *string `json:"githubUsername"`
+	Roles          []Role  `json:"roles"`
+}
+
+// GetId returns AuthContextAuthContextUser.Id, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextUser) GetId() string { return v.Id }
+
+// GetName returns AuthContextAuthContextUser.Name, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextUser) GetName() *string { return v.Name }
+
+// GetEmail returns AuthContextAuthContextUser.Email, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextUser) GetEmail() *string { return v.Email }
+
+// GetHandle returns AuthContextAuthContextUser.Handle, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextUser) GetHandle() *string { return v.Handle }
+
+// GetGithubUsername returns AuthContextAuthContextUser.GithubUsername, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextUser) GetGithubUsername() *string { return v.GithubUsername }
+
+// GetRoles returns AuthContextAuthContextUser.Roles, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextUser) GetRoles() []Role { return v.Roles }
+
+// AuthContextResponse is returned by AuthContext on success.
+type AuthContextResponse struct {
+	// The resolved principal for the credential on THIS request (issue #562).
+	// Credential-type-agnostic: works for personal API keys, JWT sessions, and
+	// App keys alike — unlike me, which is null for a valid App credential.
+	// Returns null when the presented credential does not resolve (identically
+	// for revoked / never-existed / malformed — never a token oracle). See the
+	// AuthContext type for the full security posture.
+	AuthContext *AuthContextAuthContext `json:"authContext"`
+}
+
+// GetAuthContext returns AuthContextResponse.AuthContext, and is useful for accessing the field via an interface.
+func (v *AuthContextResponse) GetAuthContext() *AuthContextAuthContext { return v.AuthContext }
+
 // CancelAppRunCancelAppRun includes the requested fields of the GraphQL type AppRun.
 type CancelAppRunCancelAppRun struct {
 	AppRunFields `json:"-"`
@@ -6914,6 +7078,20 @@ func (v *OrganizationsResponse) GetOrganizations() *OrganizationsOrganizationsOr
 	return v.Organizations
 }
 
+type PrincipalType string
+
+const (
+	PrincipalTypeAgent PrincipalType = "AGENT"
+	PrincipalTypeApp   PrincipalType = "APP"
+	PrincipalTypeUser  PrincipalType = "USER"
+)
+
+var AllPrincipalType = []PrincipalType{
+	PrincipalTypeAgent,
+	PrincipalTypeApp,
+	PrincipalTypeUser,
+}
+
 // PublicAgentsPublicAgentsAgentsPage includes the requested fields of the GraphQL type AgentsPage.
 type PublicAgentsPublicAgentsAgentsPage struct {
 	Total int                                             `json:"total"`
@@ -11489,6 +11667,62 @@ func Apps(
 	}
 
 	data_ = &AppsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AuthContext.
+const AuthContext_Operation = `
+query AuthContext {
+	authContext {
+		principalType
+		appId
+		agentId
+		user {
+			id
+			name
+			email
+			handle
+			githubUsername
+			roles
+		}
+		apiKey {
+			... UserApiKeyFields
+		}
+	}
+}
+fragment UserApiKeyFields on UserApiKey {
+	id
+	label
+	keyPreview
+	issuedVia
+	createdAt
+	lastUsedAt
+	revokedAt
+}
+`
+
+// The resolved principal for the credential on THIS request (server #562).
+// Credential-type-agnostic — unlike `me`, it's populated for a valid App key
+// too, and (for a user key) names the exact UserApiKey presented. Null when the
+// credential doesn't resolve (revoked / unknown / malformed alike — no oracle).
+func AuthContext(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *AuthContextResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AuthContext",
+		Query:  AuthContext_Operation,
+	}
+
+	data_ = &AuthContextResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

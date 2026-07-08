@@ -104,11 +104,14 @@ func TestAuthTokenLsHuman(t *testing.T) {
 	}
 }
 
-// A token the server accepts prints valid:true with the owning user and exits 0.
+const authCtxUserJSON = `{"data":{"authContext":{"principalType":"USER","appId":null,"agentId":null,` +
+	`"user":{"id":"u1","name":"Holger","email":"h@example.com","handle":null,"githubUsername":null,"roles":["USER"]},` +
+	`"apiKey":{"id":"uak_1","label":"ci-deploy","keyPreview":"hdrk_ab1","issuedVia":"cli","createdAt":"2026-06-19T00:00:00Z","lastUsedAt":"2026-07-01T00:00:00Z","revokedAt":null}}}}`
+
+// A user token the server accepts prints valid:true with the owning user, the
+// exact key that authenticated, and exits 0.
 func TestAuthTokenValidateValid(t *testing.T) {
-	gql := fakeGraphQL(t, map[string]string{
-		"Me": `{"data":{"me":{"id":"u1","name":"Holger","email":"h@example.com","handle":null,"githubUsername":null,"roles":["USER"]}}}`,
-	})
+	gql := fakeGraphQL(t, map[string]string{"AuthContext": authCtxUserJSON})
 	f, out := testFactory(t)
 	f.IOStreams.In = strings.NewReader("hdr_user_secret123\n")
 	root := NewRootCmd(f)
@@ -117,23 +120,59 @@ func TestAuthTokenValidateValid(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var dto struct {
-		Valid  bool     `json:"valid"`
-		UserID string   `json:"userId"`
-		Email  string   `json:"email"`
-		Roles  []string `json:"roles"`
+		Valid         bool     `json:"valid"`
+		PrincipalType string   `json:"principalType"`
+		UserID        string   `json:"userId"`
+		Email         string   `json:"email"`
+		Roles         []string `json:"roles"`
+		Key           *struct {
+			ID         string `json:"id"`
+			KeyPreview string `json:"keyPreview"`
+			LastUsedAt string `json:"lastUsedAt"`
+		} `json:"key"`
 	}
 	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
 		t.Fatalf("not JSON: %v\n%s", err, out.String())
 	}
-	if !dto.Valid || dto.UserID != "u1" || dto.Email != "h@example.com" || len(dto.Roles) != 1 {
+	if !dto.Valid || dto.PrincipalType != "USER" || dto.UserID != "u1" || dto.Email != "h@example.com" || len(dto.Roles) != 1 {
 		t.Errorf("dto = %+v", dto)
+	}
+	if dto.Key == nil || dto.Key.ID != "uak_1" || dto.Key.KeyPreview != "hdrk_ab1" {
+		t.Errorf("expected the authenticating key named, got %s", out.String())
+	}
+}
+
+// A valid App key is valid — not a false negative (the old me-based path would
+// have reported it invalid). No user/key, but principalType + appId.
+func TestAuthTokenValidateAppKey(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"AuthContext": `{"data":{"authContext":{"principalType":"APP","appId":"app_9","agentId":null,"user":null,"apiKey":null}}}`,
+	})
+	f, out := testFactory(t)
+	f.IOStreams.In = strings.NewReader("hdr_app_secret\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"auth", "token", "validate", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Valid         bool   `json:"valid"`
+		PrincipalType string `json:"principalType"`
+		AppID         string `json:"appId"`
+		UserID        string `json:"userId"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out.String())
+	}
+	if !dto.Valid || dto.PrincipalType != "APP" || dto.AppID != "app_9" || dto.UserID != "" {
+		t.Errorf("app key should be valid with appId and no user: %+v", dto)
 	}
 }
 
 // A rejected token is a definitive answer, not a CLI failure: valid:false and exit 3.
 func TestAuthTokenValidateInvalid(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
-		"Me": `{"data":{"me":null},"errors":[{"message":"not signed in","extensions":{"code":"UNAUTHENTICATED"}}]}`,
+		"AuthContext": `{"data":{"authContext":null},"errors":[{"message":"not signed in","extensions":{"code":"UNAUTHENTICATED"}}]}`,
 	})
 	f, out := testFactory(t)
 	f.IOStreams.In = strings.NewReader("hdr_user_bad\n")

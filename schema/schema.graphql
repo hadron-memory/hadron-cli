@@ -599,6 +599,14 @@ enum AssetScanStatus {
   PENDING
 }
 
+type AuthContext {
+  agentId: ID
+  apiKey: UserApiKey
+  appId: ID
+  principalType: PrincipalType!
+  user: User
+}
+
 input BeginAssetUploadInput {
   """Accepts the entity's ID or URN."""
   agentUrn: String!
@@ -1600,6 +1608,7 @@ type Mutation {
   memories are rejected.
   """
   cloneMemory(id: ID!, name: String!): Memory!
+  cloneNode(sourceRef: ID!, targetMemoryRef: ID, targetUrn: String): Node!
   completeAssetUpload(input: CompleteAssetUploadInput!): Asset!
 
   """
@@ -1990,7 +1999,7 @@ type Mutation {
   Mint comm.outbound tickets into the org ledger (org-ADMIN; cor:acl:050:04).
   """
   mintActionTickets(input: MintActionTicketsInput!): Int!
-  moveNode(from: String!, memoryRef: ID!, targetMemoryRef: ID, to: String!): Node!
+  moveNode(sourceRef: ID!, targetMemoryRef: ID, targetUrn: String): Node!
   processChatResponse(chatId: String!, toolResponse: JSON!): ChatResponseResult!
 
   """
@@ -2740,6 +2749,12 @@ type PolicyLayerVerdict {
   present: Boolean!
 }
 
+enum PrincipalType {
+  AGENT
+  APP
+  USER
+}
+
 type Query {
   """The ticket ledger: minted, consumed-by-which-run, expired (org-ADMIN)."""
   actionTickets(limit: Int, offset: Int, orgRef: String!): ActionTicketsPage!
@@ -2867,6 +2882,16 @@ type Query {
   """
   apps(limit: Int, offset: Int, orgId: ID): AppsPage!
   assetDownloadUrl(assetId: ID!, ttlSeconds: Int = 300): AssetDownloadUrl!
+
+  """
+  The resolved principal for the credential on THIS request (issue #562).
+  Credential-type-agnostic: works for personal API keys, JWT sessions, and
+  App keys alike — unlike me, which is null for a valid App credential.
+  Returns null when the presented credential does not resolve (identically
+  for revoked / never-existed / malformed — never a token oracle). See the
+  AuthContext type for the full security posture.
+  """
+  authContext: AuthContext
   chatHistory(chatId: String!, limit: Int): [ChatMessage!]!
 
   """

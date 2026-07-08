@@ -15,11 +15,13 @@ import (
 )
 
 type statusResult struct {
-	Server        string `json:"server"`
-	Authenticated bool   `json:"authenticated"`
-	TokenSource   string `json:"tokenSource,omitempty"`
-	TokenStorage  string `json:"tokenStorage,omitempty"`
-	User          string `json:"user,omitempty"`
+	Server        string    `json:"server"`
+	Authenticated bool      `json:"authenticated"`
+	TokenSource   string    `json:"tokenSource,omitempty"`
+	TokenStorage  string    `json:"tokenStorage,omitempty"`
+	User          string    `json:"user,omitempty"`
+	PrincipalType string    `json:"principalType,omitempty"`
+	Key           *tokenDTO `json:"key,omitempty"`
 }
 
 func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
@@ -58,25 +60,38 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := gen.Me(cmd.Context(), client)
-			if err == nil && resp.Me != nil {
+			resp, err := gen.AuthContext(cmd.Context(), client)
+			if err == nil && resp.AuthContext != nil {
+				ac := resp.AuthContext
 				dto.Authenticated = true
-				if resp.Me.Name != nil {
-					dto.User = *resp.Me.Name
-				} else if resp.Me.Email != nil {
-					dto.User = *resp.Me.Email
-				} else {
-					dto.User = resp.Me.Id
+				dto.PrincipalType = string(ac.PrincipalType)
+				switch {
+				case ac.User != nil && ac.User.Name != nil:
+					dto.User = *ac.User.Name
+				case ac.User != nil && ac.User.Email != nil:
+					dto.User = *ac.User.Email
+				case ac.User != nil:
+					dto.User = ac.User.Id
+				case ac.AppId != nil:
+					dto.User = "App " + *ac.AppId
+				}
+				if ac.ApiKey != nil {
+					k := toTokenDTO(ac.ApiKey.UserApiKeyFields)
+					dto.Key = &k
 				}
 			}
 
 			writeErr := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				if dto.Authenticated {
-					_, err := fmt.Fprintf(w, "✓ %s: signed in as %s (token from %s)\n", server, dto.User, describeSource(dto))
+				if !dto.Authenticated {
+					_, err := fmt.Fprintf(w, "✗ %s: token from %s was rejected — run `hadron auth login`\n", server, describeSource(dto))
 					return err
 				}
-				_, err := fmt.Fprintf(w, "✗ %s: token from %s was rejected — run `hadron auth login`\n", server, describeSource(dto))
-				return err
+				fmt.Fprintf(w, "✓ %s: signed in as %s (token from %s)\n", server, dto.User, describeSource(dto))
+				if dto.Key != nil {
+					_, err := fmt.Fprintf(w, "  key %s, last used %s\n", keyLabel(*dto.Key), orText(dto.Key.LastUsedAt, "never"))
+					return err
+				}
+				return nil
 			})
 			if writeErr != nil {
 				return writeErr

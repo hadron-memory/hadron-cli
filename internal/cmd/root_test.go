@@ -169,8 +169,9 @@ func TestMemoryLsTable(t *testing.T) {
 
 func TestWhoami(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
-		"Me": `{"data":{"me":{"id":"u1","name":"Holger","email":"h@example.com",
-			"handle":null,"githubUsername":null,"roles":[]}}}`,
+		"AuthContext": `{"data":{"authContext":{"principalType":"USER","appId":null,"agentId":null,
+			"user":{"id":"u1","name":"Holger","email":"h@example.com","handle":null,"githubUsername":null,"roles":[]},
+			"apiKey":null}}}`,
 	})
 	f, out := testFactory(t)
 
@@ -181,6 +182,35 @@ func TestWhoami(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Holger") {
 		t.Errorf("unexpected output: %s", out.String())
+	}
+}
+
+// status resolves the active token via authContext and surfaces the principal
+// type plus the authenticating key.
+func TestAuthStatus(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"AuthContext": `{"data":{"authContext":{"principalType":"USER","appId":null,"agentId":null,
+			"user":{"id":"u1","name":"Holger","email":"h@example.com","handle":null,"githubUsername":null,"roles":[]},
+			"apiKey":{"id":"uak_1","label":"ci-deploy","keyPreview":"hdrk_ab1","issuedVia":"cli","createdAt":"2026-06-19T00:00:00Z","lastUsedAt":null,"revokedAt":null}}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"auth", "status", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Authenticated bool   `json:"authenticated"`
+		PrincipalType string `json:"principalType"`
+		Key           *struct {
+			KeyPreview string `json:"keyPreview"`
+		} `json:"key"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out.String())
+	}
+	if !dto.Authenticated || dto.PrincipalType != "USER" || dto.Key == nil || dto.Key.KeyPreview != "hdrk_ab1" {
+		t.Errorf("unexpected status: %s", out.String())
 	}
 }
 
