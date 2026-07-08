@@ -1,0 +1,41 @@
+# Team-chat reads (hadron chat read). Messages are message-type nodes under a
+# `messagesLoc` prefix; the payload (author/body/timestamp/…) lives in each
+# node's `data`. Selecting `data` inline means one findNodes call returns the
+# bodies — no per-message node(ref) fetch. sort: seq gives server-assigned
+# order; the CLI paginates to exhaustion and filters seq>since client-side
+# (there is no server-side seq cursor). Mirrors the hadron-client channel's
+# ChatPoll so CLI and channel reads agree.
+#
+# NodeFilter is a SHARED generated struct, and genqlient resolves a shared input
+# type's field-level omitempty per-operation with last-writer-wins (not a merge).
+# So this op must repeat FindNodes' (nodes.graphql) FULL set verbatim — a partial
+# or empty set here would non-deterministically strip omitempty off the struct
+# depending on generation order. Keep these two lists identical.
+# @genqlient(for: "NodeFilter.memoryIds", omitempty: true)
+# @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
+# @genqlient(for: "NodeFilter.nodeType", omitempty: true)
+# @genqlient(for: "NodeFilter.tags", omitempty: true)
+# @genqlient(for: "NodeFilter.isRunnable", omitempty: true)
+# @genqlient(for: "NodeFilter.locPrefix", omitempty: true)
+# @genqlient(for: "NodeFilter.createdBy", omitempty: true)
+# @genqlient(for: "NodeFilter.updatedAfter", omitempty: true)
+# @genqlient(for: "NodeFilter.updatedBefore", omitempty: true)
+# @genqlient(for: "NodeFilter.includeDeleted", omitempty: true)
+query ChatMessages(
+  # @genqlient(omitempty: true)
+  $filter: NodeFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  findNodes(filter: $filter, sort: seq, limit: $limit, offset: $offset) {
+    hits {
+      node {
+        loc
+        seq
+        data
+      }
+    }
+  }
+}

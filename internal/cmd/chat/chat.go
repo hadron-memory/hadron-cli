@@ -1,0 +1,139 @@
+// Package chat implements `hadron chat ...` — a token-lean surface for AI agents
+// (and humans) participating in a Hadron team-chat memory (see the how-to guide
+// "Set up an agent team chat"). Messages are message-type nodes under a
+// `messagesLoc` prefix, the payload in each node's `data`; the server assigns an
+// ordering `seq`. `chat read` pulls new messages in one compact call; `chat
+// post` writes one (with an optional reply edge). Both resolve the agent's
+// identity and chat coordinates from flags, env, or the project-local
+// .hadron/config.json shared with the hadron-client push channel.
+package chat
+
+import (
+	"encoding/json"
+	"os"
+	"regexp"
+	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+)
+
+// NewCmdChat builds the `chat` command group.
+func NewCmdChat(f *cmdutil.Factory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "chat <command>",
+		Short: "Participate in a Hadron team chat (agent-friendly read/post)",
+		Long: `Read and post messages in a Hadron team-chat memory — a low-friction surface
+over the message-node protocol, built so an AI agent spends as few tokens and as
+little attention as possible on coordination.
+
+The chat coordinates and this agent's identity resolve from (highest first):
+a flag, the matching HADRON_CHAT_* env var, then the project-local
+.hadron/config.json (the same file the hadron-client push channel reads —
+top-level "handle" and "chat": { "memory", "messagesLoc", "identity", "role" }).
+Configure once and a turn is just 'chat read --since <seq>' / 'chat post --body …'.`,
+	}
+	cmd.AddCommand(newCmdRead(f))
+	cmd.AddCommand(newCmdPost(f))
+	return cmd
+}
+
+// coords is the resolved (memory, messagesLoc) of one chat. messagesLoc is the
+// loc prefix whose child nodes are the messages (e.g. "chats:api-redesign:messages").
+type coords struct {
+	memory      string
+	messagesLoc string
+}
+
+// resolveCoords applies flag > env > config > --chat sugar to locate the chat.
+// --chat <slug> expands to the how-to convention "chats:<slug>:messages" when no
+// explicit messagesLoc is given.
+func resolveCoords(pc projectChat, memoryFlag, messagesLocFlag, chatSlug string) (coords, error) {
+	memory := firstNonEmpty(memoryFlag, os.Getenv("HADRON_CHAT_MEMORY"), pc.Memory)
+	if memory == "" {
+		return coords{}, exitcode.Newf(exitcode.Usage, "no chat memory — pass -m/--memory, set HADRON_CHAT_MEMORY, or add chat.memory to .hadron/config.json")
+	}
+	messagesLoc := firstNonEmpty(messagesLocFlag, os.Getenv("HADRON_CHAT_MESSAGES_LOC"), pc.MessagesLoc)
+	if messagesLoc == "" && chatSlug != "" {
+		messagesLoc = "chats:" + chatSlug + ":messages"
+	}
+	if messagesLoc == "" {
+		return coords{}, exitcode.Newf(exitcode.Usage, "no chat location — pass --chat <slug> or --messages-loc <prefix>, set HADRON_CHAT_MESSAGES_LOC, or add chat.messagesLoc to .hadron/config.json")
+	}
+	// A trailing colon would double against the ":<id>" join; normalize it off.
+	messagesLoc = strings.TrimSuffix(messagesLoc, ":")
+	return coords{memory: memory, messagesLoc: messagesLoc}, nil
+}
+
+// message is the parsed, chat-shaped view of one message node — only the fields
+// a participant cares about, lifted out of the node's generic `data` block.
+type message struct {
+	Seq       *int   `json:"seq"`
+	Loc       string `json:"loc"`
+	Author    string `json:"author"`
+	Identity  string `json:"identity,omitempty"`
+	Role      string `json:"role,omitempty"`
+	Timestamp string `json:"timestamp,omitempty"`
+	Body      string `json:"body"`
+}
+
+// parseMessage lifts the chat fields out of a message node's data block. Author
+// falls back to the loc's "<timestamp>-<handle>" suffix when data has none, so
+// hand-created messages still attribute (matching the channel's messageAuthor).
+func parseMessage(loc string, seq *int, data *json.RawMessage) message {
+	m := message{Seq: seq, Loc: loc}
+	if data != nil {
+		var d struct {
+			Author    string `json:"author"`
+			Identity  string `json:"identity"`
+			Role      string `json:"role"`
+			Timestamp string `json:"timestamp"`
+			Body      string `json:"body"`
+		}
+		if json.Unmarshal(*data, &d) == nil {
+			m.Author, m.Identity, m.Role, m.Timestamp, m.Body = d.Author, d.Identity, d.Role, d.Timestamp, d.Body
+		}
+	}
+	if m.Author == "" {
+		m.Author = authorFromLoc(loc)
+	}
+	return m
+}
+
+// authorFromLoc recovers the handle from a "<prefix>:<timestamp>-<handle>" loc.
+// The "Z-" terminator splits stamp from handle so dashed handles survive; a
+// legacy no-Z stamp falls back to the last dash.
+func authorFromLoc(loc string) string {
+	last := loc
+	if i := strings.LastIndex(loc, ":"); i >= 0 {
+		last = loc[i+1:]
+	}
+	if i := strings.Index(last, "Z-"); i >= 0 {
+		return last[i+2:]
+	}
+	if i := strings.LastIndex(last, "-"); i >= 0 {
+		return last[i+1:]
+	}
+	return "unknown"
+}
+
+// mentionRE matches an @handle not preceded by a word char or dot (so
+// user@example.com isn't a mention). Go's regexp has no lookbehind, so the
+// boundary is a captured group we discard. Mirrors the channel's MENTION_RE.
+var mentionRE = regexp.MustCompile(`(^|[^a-zA-Z0-9._-])@([a-z0-9_-]+)`)
+
+// mentions extracts the distinct @handles from a body, in first-seen order.
+func mentions(body string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, m := range mentionRE.FindAllStringSubmatch(body, -1) {
+		h := strings.ToLower(m[2])
+		if !seen[h] {
+			seen[h] = true
+			out = append(out, h)
+		}
+	}
+	return out
+}

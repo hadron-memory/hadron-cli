@@ -1,0 +1,144 @@
+package chat
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/spf13/cobra"
+
+	"github.com/hadron-memory/hadron-cli/internal/api"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
+)
+
+// postDTO is the stable --json shape for a posted message.
+type postDTO struct {
+	Loc     string `json:"loc"`
+	Seq     *int   `json:"seq"`
+	ReplyTo string `json:"replyTo,omitempty"`
+}
+
+func newCmdPost(f *cmdutil.Factory) *cobra.Command {
+	var memory, messagesLoc, chatSlug, handle, identity, role, body, replyTo string
+	cmd := &cobra.Command{
+		Use:   "post --body <text|->",
+		Short: "Post a message to a team chat",
+		Long: `Post one message to a team chat. This builds the timestamped, colon-safe loc,
+assembles the data payload (author/body/timestamp/mentions, plus identity/role
+when set), creates the message node, and — with --reply-to — adds the reply edge,
+all in one call. --body - reads the body from stdin (multi-line safe).
+
+Identity resolves from flags, then HADRON_CHAT_HANDLE, then .hadron/config.json
+(top-level "handle"; chat.identity / chat.role), so a configured agent posts
+with just --body.`,
+		Example: `  hadron chat post --body "@rufus schema looks good, shipping it"
+  hadron chat post --chat api-redesign -m acme.com::team-chats --handle iris \
+    --role "Backend Engineer" --body "done" --reply-to chats:api-redesign:messages:...-rufus`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			pc := loadProjectChat()
+			c, err := resolveCoords(pc, memory, messagesLoc, chatSlug)
+			if err != nil {
+				return err
+			}
+			h := firstNonEmpty(handle, os.Getenv("HADRON_CHAT_HANDLE"), pc.Handle)
+			if h == "" {
+				return exitcode.Newf(exitcode.Usage, "no handle — pass --handle, set HADRON_CHAT_HANDLE, or add \"handle\" to .hadron/config.json")
+			}
+			text, err := resolveBody(body, f.IOStreams.In)
+			if err != nil {
+				return err
+			}
+
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+
+			// Loc convention: <messagesLoc>:<compact-ISO>-<handle>. The stamp is
+			// the RFC3339 instant with ':' and '.' stripped (they're loc
+			// separators / illegal), matching the hadron-client channel so
+			// CLI- and channel-posted messages interleave cleanly.
+			ts := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+			stamp := strings.NewReplacer(":", "", ".", "").Replace(ts)
+			loc := fmt.Sprintf("%s:%s-%s", c.messagesLoc, stamp, h)
+
+			data := map[string]any{"author": h, "body": text, "timestamp": ts}
+			if id := firstNonEmpty(identity, pc.Identity); id != "" {
+				data["identity"] = id
+			}
+			if r := firstNonEmpty(role, pc.Role); r != "" {
+				data["role"] = r
+			}
+			if ms := mentions(text); len(ms) > 0 {
+				data["mentions"] = ms
+			}
+			raw, err := json.Marshal(data)
+			if err != nil {
+				return err
+			}
+			dataMsg := json.RawMessage(raw)
+
+			input := gen.CreateNodeInput{
+				MemoryId: c.memory,
+				Loc:      loc,
+				Name:     "Message from " + h,
+				NodeType: strPtr("message"),
+				Data:     &dataMsg,
+			}
+			// The reply edge goes FROM the new message TO the one it answers; a
+			// short loc resolves within this memory. Minted inline with the node
+			// so a post is a single round-trip.
+			if replyTo != "" {
+				input.Edges = []*gen.NodeEdgeInput{{TargetId: replyTo, Name: strPtr("reply")}}
+			}
+
+			resp, err := gen.CreateNode(cmd.Context(), client, &input)
+			if err != nil {
+				return api.MapError(err)
+			}
+			dto := postDTO{Loc: loc, ReplyTo: replyTo}
+			if resp.CreateNode != nil {
+				dto.Loc = resp.CreateNode.Loc
+				dto.Seq = resp.CreateNode.Seq
+			}
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				fmt.Fprintf(w, "✓ posted %s (seq %s)\n", dto.Loc, seqStr(dto.Seq))
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "chat memory (org::memory); overrides config/env")
+	cmd.Flags().StringVar(&chatSlug, "chat", "", "chat slug (expands to loc prefix chats:<slug>:messages)")
+	cmd.Flags().StringVar(&messagesLoc, "messages-loc", "", "explicit messages loc prefix (overrides --chat)")
+	cmd.Flags().StringVar(&handle, "handle", "", "this agent's chat handle (overrides config/env)")
+	cmd.Flags().StringVar(&identity, "identity", "", "real identity, e.g. the model name (default \"human\" convention); optional")
+	cmd.Flags().StringVar(&role, "role", "", "this agent's role, e.g. \"Backend Engineer\"; optional")
+	cmd.Flags().StringVar(&body, "body", "", "message body, or - to read from stdin (required)")
+	cmd.Flags().StringVar(&replyTo, "reply-to", "", "loc (or URN) of the message this replies to; adds a reply edge")
+	_ = cmd.MarkFlagRequired("body")
+	return cmd
+}
+
+// resolveBody returns the --body value, reading stdin when it is "-".
+func resolveBody(body string, stdin io.Reader) (string, error) {
+	if body == "-" {
+		data, err := io.ReadAll(stdin)
+		if err != nil {
+			return "", err
+		}
+		body = string(data)
+	}
+	if strings.TrimSpace(body) == "" {
+		return "", exitcode.Newf(exitcode.Usage, "empty --body — nothing to post")
+	}
+	return body, nil
+}
+
+func strPtr(s string) *string { return &s }
