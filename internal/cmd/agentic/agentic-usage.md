@@ -60,7 +60,8 @@ node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 ```
 hadron auth login | logout | whoami | status | token create|ls|revoke <id>
 hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
-hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn> | export <urn> [-o <file>] [--format md|json] | import <file|-> [-m <memory>] [--with-edges]
+hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn> [--hard] | export <urn> [-o <file>] [--format md|json] | import <file|-> [-m <memory>] [--with-edges]
+hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
 hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--tag <t>]... [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
@@ -322,7 +323,12 @@ Conventions:
     queryable again, so capture them (in `--json` they are `path`/`token`).
     `webhook rotate <id>` reissues the secret (old URL dies immediately; `--yes`);
     `webhook ls` never shows the secret; `webhook rm <id>` (`--yes`).
-  - `--as-self` (on `run trigger`, `schedule create`, `webhook create`) makes the
+  - `task run <task>` renders a task node's prompt by default; `--app <ref>`
+    instead EXECUTES it server-side — minting a MANUAL run under that App (a real
+    LLM run) and printing the run id (`--json`: `mode:"execute"`, `runId`). Follow
+    it with `run get <id>`. It's the fourth trigger into the same kernel.
+  - `--as-self` (on `run trigger`, `schedule create`, `webhook create`,
+    `task run --app`) makes the
     run act on behalf of YOU — required to reach your personal memories, and only
     usable by an authenticated user; an App-key caller gets `UNAUTHENTICATED`
     (exit 1). v1 never delegates a third party (`cor:agt:010:01`).

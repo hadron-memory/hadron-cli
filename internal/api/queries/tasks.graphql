@@ -1,3 +1,18 @@
-mutation RunTask($nodeRef: String!, $args: JSON) {
-  runTask(nodeRef: $nodeRef, args: $args)
+# nodeRef identifies the task node — a PK or fully-qualified node URN (spec 007
+# entity-ref migration, server #542; the CLI resolves the ref to a PK first).
+#
+# Two modes (server #529): WITHOUT appRef, runTask renders and returns the
+# compiled prompt string. WITH appRef (App PK/URN), it mints a MANUAL app run
+# for the task under that App and returns the run id (poll via `run get`).
+# runAsSelf runs on behalf of the caller. Unset appRef/runAsSelf must be omitted,
+# not sent as null (a null appRef would otherwise look like an explicit choice).
+mutation RunTask(
+  $nodeRef: String!
+  $args: JSON
+  # @genqlient(omitempty: true)
+  $appRef: ID
+  # @genqlient(omitempty: true)
+  $runAsSelf: Boolean
+) {
+  runTask(nodeRef: $nodeRef, args: $args, appRef: $appRef, runAsSelf: $runAsSelf)
 }
