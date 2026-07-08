@@ -5486,7 +5486,7 @@ func (v *ImportNodeImportNodeImportNodeResultNode) GetUpdatedAt() string { retur
 // exactly one of 'url' | 'content'.
 type ImportNodeInput struct {
 	// App to run the task under — PK or URN. Falls back to the caller's active App. Only meaningful with taskRef.
-	AppRef *string `json:"appRef"`
+	AppRef *string `json:"appRef,omitempty"`
 	// Inline source content (e.g. the Web Clipper's authenticated-DOM capture). XOR with 'url'.
 	Content *string `json:"content,omitempty"`
 	// MIME type of 'content': text/html (DEFAULT here — unlike createNode) converts to Markdown at the write seam; text/markdown stores as-is; application/pdf extracts a PDF's text layer to Markdown ('content' must be raw base64 — a PDF is binary; scanned/image-only PDFs error). Ignored on the url path (always HTML).
@@ -5504,9 +5504,9 @@ type ImportNodeInput struct {
 	// Merged provenance metadata; the server sets properties.url on the url path when absent (properties.title is filled from the extracted title by the write seam).
 	Properties *json.RawMessage `json:"properties,omitempty"`
 	// Extra template args merged into the task run's eventData (only meaningful with taskRef).
-	TaskArgs *json.RawMessage `json:"taskArgs"`
+	TaskArgs *json.RawMessage `json:"taskArgs,omitempty"`
 	// Task node to run against the imported node once stored (#528) — PK or fully-qualified URN. Presence triggers a MANUAL app run; the result envelope is FETCH_PENDING + jobId (poll appRun(ref:)). The imported node's URN is passed to the task as eventData.importedNodeUrn.
-	TaskRef *string `json:"taskRef"`
+	TaskRef *string `json:"taskRef,omitempty"`
 	// Source URL (http/https) — fetched server-side, SSRF-guarded, WITHOUT user credentials.
 	Url *string `json:"url,omitempty"`
 }
