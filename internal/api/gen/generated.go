@@ -2489,6 +2489,50 @@ type CloneMemoryResponse struct {
 // GetCloneMemory returns CloneMemoryResponse.CloneMemory, and is useful for accessing the field via an interface.
 func (v *CloneMemoryResponse) GetCloneMemory() *CloneMemoryCloneMemory { return v.CloneMemory }
 
+// CloneNodeCloneNode includes the requested fields of the GraphQL type Node.
+type CloneNodeCloneNode struct {
+	Id         string   `json:"id"`
+	MemoryId   string   `json:"memoryId"`
+	Loc        string   `json:"loc"`
+	Name       string   `json:"name"`
+	NodeType   string   `json:"nodeType"`
+	Tags       []string `json:"tags"`
+	IsRunnable *bool    `json:"isRunnable"`
+	UpdatedAt  string   `json:"updatedAt"`
+}
+
+// GetId returns CloneNodeCloneNode.Id, and is useful for accessing the field via an interface.
+func (v *CloneNodeCloneNode) GetId() string { return v.Id }
+
+// GetMemoryId returns CloneNodeCloneNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *CloneNodeCloneNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns CloneNodeCloneNode.Loc, and is useful for accessing the field via an interface.
+func (v *CloneNodeCloneNode) GetLoc() string { return v.Loc }
+
+// GetName returns CloneNodeCloneNode.Name, and is useful for accessing the field via an interface.
+func (v *CloneNodeCloneNode) GetName() string { return v.Name }
+
+// GetNodeType returns CloneNodeCloneNode.NodeType, and is useful for accessing the field via an interface.
+func (v *CloneNodeCloneNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns CloneNodeCloneNode.Tags, and is useful for accessing the field via an interface.
+func (v *CloneNodeCloneNode) GetTags() []string { return v.Tags }
+
+// GetIsRunnable returns CloneNodeCloneNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *CloneNodeCloneNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetUpdatedAt returns CloneNodeCloneNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CloneNodeCloneNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// CloneNodeResponse is returned by CloneNode on success.
+type CloneNodeResponse struct {
+	CloneNode *CloneNodeCloneNode `json:"cloneNode"`
+}
+
+// GetCloneNode returns CloneNodeResponse.CloneNode, and is useful for accessing the field via an interface.
+func (v *CloneNodeResponse) GetCloneNode() *CloneNodeCloneNode { return v.CloneNode }
+
 // CreateAgentCreateAgent includes the requested fields of the GraphQL type Agent.
 type CreateAgentCreateAgent struct {
 	AgentFields `json:"-"`
@@ -6038,6 +6082,50 @@ type MintActionTicketsResponse struct {
 
 // GetMintActionTickets returns MintActionTicketsResponse.MintActionTickets, and is useful for accessing the field via an interface.
 func (v *MintActionTicketsResponse) GetMintActionTickets() int { return v.MintActionTickets }
+
+// MoveNodeMoveNode includes the requested fields of the GraphQL type Node.
+type MoveNodeMoveNode struct {
+	Id         string   `json:"id"`
+	MemoryId   string   `json:"memoryId"`
+	Loc        string   `json:"loc"`
+	Name       string   `json:"name"`
+	NodeType   string   `json:"nodeType"`
+	Tags       []string `json:"tags"`
+	IsRunnable *bool    `json:"isRunnable"`
+	UpdatedAt  string   `json:"updatedAt"`
+}
+
+// GetId returns MoveNodeMoveNode.Id, and is useful for accessing the field via an interface.
+func (v *MoveNodeMoveNode) GetId() string { return v.Id }
+
+// GetMemoryId returns MoveNodeMoveNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *MoveNodeMoveNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns MoveNodeMoveNode.Loc, and is useful for accessing the field via an interface.
+func (v *MoveNodeMoveNode) GetLoc() string { return v.Loc }
+
+// GetName returns MoveNodeMoveNode.Name, and is useful for accessing the field via an interface.
+func (v *MoveNodeMoveNode) GetName() string { return v.Name }
+
+// GetNodeType returns MoveNodeMoveNode.NodeType, and is useful for accessing the field via an interface.
+func (v *MoveNodeMoveNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns MoveNodeMoveNode.Tags, and is useful for accessing the field via an interface.
+func (v *MoveNodeMoveNode) GetTags() []string { return v.Tags }
+
+// GetIsRunnable returns MoveNodeMoveNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *MoveNodeMoveNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetUpdatedAt returns MoveNodeMoveNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *MoveNodeMoveNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// MoveNodeResponse is returned by MoveNode on success.
+type MoveNodeResponse struct {
+	MoveNode *MoveNodeMoveNode `json:"moveNode"`
+}
+
+// GetMoveNode returns MoveNodeResponse.MoveNode, and is useful for accessing the field via an interface.
+func (v *MoveNodeResponse) GetMoveNode() *MoveNodeMoveNode { return v.MoveNode }
 
 // MyUserApiKeysMyUserApiKeysUserApiKey includes the requested fields of the GraphQL type UserApiKey.
 type MyUserApiKeysMyUserApiKeysUserApiKey struct {
@@ -9941,6 +10029,22 @@ func (v *__CloneMemoryInput) GetId() string { return v.Id }
 // GetName returns __CloneMemoryInput.Name, and is useful for accessing the field via an interface.
 func (v *__CloneMemoryInput) GetName() string { return v.Name }
 
+// __CloneNodeInput is used internally by genqlient
+type __CloneNodeInput struct {
+	SourceRef       string  `json:"sourceRef"`
+	TargetUrn       *string `json:"targetUrn,omitempty"`
+	TargetMemoryRef *string `json:"targetMemoryRef,omitempty"`
+}
+
+// GetSourceRef returns __CloneNodeInput.SourceRef, and is useful for accessing the field via an interface.
+func (v *__CloneNodeInput) GetSourceRef() string { return v.SourceRef }
+
+// GetTargetUrn returns __CloneNodeInput.TargetUrn, and is useful for accessing the field via an interface.
+func (v *__CloneNodeInput) GetTargetUrn() *string { return v.TargetUrn }
+
+// GetTargetMemoryRef returns __CloneNodeInput.TargetMemoryRef, and is useful for accessing the field via an interface.
+func (v *__CloneNodeInput) GetTargetMemoryRef() *string { return v.TargetMemoryRef }
+
 // __CreateAgentInput is used internally by genqlient
 type __CreateAgentInput struct {
 	Name           string           `json:"name"`
@@ -10464,6 +10568,22 @@ type __MintActionTicketsInput struct {
 
 // GetInput returns __MintActionTicketsInput.Input, and is useful for accessing the field via an interface.
 func (v *__MintActionTicketsInput) GetInput() *MintActionTicketsInput { return v.Input }
+
+// __MoveNodeInput is used internally by genqlient
+type __MoveNodeInput struct {
+	SourceRef       string  `json:"sourceRef"`
+	TargetUrn       *string `json:"targetUrn,omitempty"`
+	TargetMemoryRef *string `json:"targetMemoryRef,omitempty"`
+}
+
+// GetSourceRef returns __MoveNodeInput.SourceRef, and is useful for accessing the field via an interface.
+func (v *__MoveNodeInput) GetSourceRef() string { return v.SourceRef }
+
+// GetTargetUrn returns __MoveNodeInput.TargetUrn, and is useful for accessing the field via an interface.
+func (v *__MoveNodeInput) GetTargetUrn() *string { return v.TargetUrn }
+
+// GetTargetMemoryRef returns __MoveNodeInput.TargetMemoryRef, and is useful for accessing the field via an interface.
+func (v *__MoveNodeInput) GetTargetMemoryRef() *string { return v.TargetMemoryRef }
 
 // __NodeBatchInput is used internally by genqlient
 type __NodeBatchInput struct {
@@ -11593,6 +11713,56 @@ func CloneMemory(
 	}
 
 	data_ = &CloneMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CloneNode.
+const CloneNode_Operation = `
+mutation CloneNode ($sourceRef: ID!, $targetUrn: String, $targetMemoryRef: ID) {
+	cloneNode(sourceRef: $sourceRef, targetUrn: $targetUrn, targetMemoryRef: $targetMemoryRef) {
+		id
+		memoryId
+		loc
+		name
+		nodeType
+		tags
+		isRunnable
+		updatedAt
+	}
+}
+`
+
+// Clone a node to a new location, returning the NEW node with a fresh id
+// (#564). Same selector shape as MoveNode ($sourceRef + exactly one of
+// $targetUrn / $targetMemoryRef). Copies the node's own fields plus the outgoing
+// edges that naturally resolve at the destination; incoming edges are not
+// copied. Backs `hadron node clone`.
+func CloneNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	sourceRef string,
+	targetUrn *string,
+	targetMemoryRef *string,
+) (data_ *CloneNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CloneNode",
+		Query:  CloneNode_Operation,
+		Variables: &__CloneNodeInput{
+			SourceRef:       sourceRef,
+			TargetUrn:       targetUrn,
+			TargetMemoryRef: targetMemoryRef,
+		},
+	}
+
+	data_ = &CloneNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -13412,6 +13582,57 @@ func MintActionTickets(
 	}
 
 	data_ = &MintActionTicketsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by MoveNode.
+const MoveNode_Operation = `
+mutation MoveNode ($sourceRef: ID!, $targetUrn: String, $targetMemoryRef: ID) {
+	moveNode(sourceRef: $sourceRef, targetUrn: $targetUrn, targetMemoryRef: $targetMemoryRef) {
+		id
+		memoryId
+		loc
+		name
+		nodeType
+		tags
+		isRunnable
+		updatedAt
+	}
+}
+`
+
+// Relocate a node (#564). $sourceRef is the node's id or full URN; the
+// destination is EXACTLY ONE of $targetUrn (the node's new full URN — new
+// memory and/or loc) or $targetMemoryRef (a memory id/URN; the node keeps its
+// loc, only its memory changes). The node keeps its id, so edge references stay
+// valid. Optional destination vars must be omitted (not sent as null) so the
+// server sees exactly one. Backs `hadron node move`.
+func MoveNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	sourceRef string,
+	targetUrn *string,
+	targetMemoryRef *string,
+) (data_ *MoveNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MoveNode",
+		Query:  MoveNode_Operation,
+		Variables: &__MoveNodeInput{
+			SourceRef:       sourceRef,
+			TargetUrn:       targetUrn,
+			TargetMemoryRef: targetMemoryRef,
+		},
+	}
+
+	data_ = &MoveNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

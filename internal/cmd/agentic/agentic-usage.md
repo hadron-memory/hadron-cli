@@ -60,7 +60,7 @@ node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 ```
 hadron auth login | logout | whoami | status | token create|ls|revoke <id>
 hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
-hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn> [--hard] | export <urn> [-o <file>] [--format md|json] | import <file|-> [-m <memory>] [--with-edges]
+hadron node ls [-m <memory>] | get <urn> | add | update <urn> | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | rm <urn> [--hard] | export <urn> [-o <file>] [--format md|json] | import <file|-> [-m <memory>] [--with-edges]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
 hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--tag <t>]... [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
@@ -134,6 +134,14 @@ Conventions:
   `--data-merge-file <path>`; the patch must be an object, and merge is
   mutually exclusive with the `--data` replace. `node get`/`spec get` show
   `data` in the text view (and the `data` field in `--json`).
+- `node move` relocates a node and `node clone` copies it. Both name the source
+  by URN (or a bare `<loc>` with `-m`) and take **exactly one** destination:
+  `--to-urn <org>::<memory>::<loc>` (a full destination URN — new memory and/or
+  loc) or `--to-memory <org::memory>` (keep the loc, change the memory). `move`
+  keeps the node's id so its edges stay valid; `clone` returns a **new** node
+  (fresh id) and copies only the outgoing edges that resolve at the destination
+  (incoming edges are never copied). Both fail loudly if a live node already
+  occupies the destination loc.
 - `isRunnable` gates whether `hadron task run` will execute a node. Both
   `node add` and `node update` take `--runnable` to set it; on `update` it's
   tri-state — `--runnable` sets true, `--runnable=false` clears it, omitting it
@@ -394,6 +402,10 @@ cat finding.md | hadron node add -m acme.com::kb --loc findings:flaky-ci \
 
 # Update just the name (other fields preserved)
 hadron node update acme.com::kb::findings:flaky-ci --name "Flaky CI (resolved)"
+
+# Move a node (keeps its id + edges); clone it to a new memory (new id)
+hadron node move acme.com::kb::findings:flaky-ci --to-urn acme.com::kb::archive:flaky-ci
+hadron node clone acme.com::kb::templates:base --to-memory acme.com::sandbox --json
 
 # Bulk search-and-replace across a memory. A real run previews + prompts;
 # agents pass --dry-run to preview or --yes to apply non-interactively. Even
