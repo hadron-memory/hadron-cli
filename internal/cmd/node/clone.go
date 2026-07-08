@@ -38,11 +38,17 @@ already occupies the destination loc.`,
   hadron node clone templates:base -m acme.com::kb --to-memory acme.com::sandbox`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Validate the destination flags before touching the network, so a
+			// bad flag combo is a usage error even when unauthenticated.
+			targetUrn, targetMemoryRef, err := relocationDestination(toURN, toMemory)
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			sourceRef, targetUrn, targetMemoryRef, err := resolveRelocation(cmd, client, memory, args[0], toURN, toMemory)
+			sourceRef, err := cmdutil.ResolveNodeRef(cmd, client, memory, args[0])
 			if err != nil {
 				return err
 			}

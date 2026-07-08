@@ -96,9 +96,11 @@ Conventions:
   (`services:secureid:user-reporting`), so it's ambiguous. A bare loc is rejected
   (exit 2) *unless* you pass `-m/--memory <org::memory>` (single-colon
   `<org>:<memory>` also accepted) to name the memory — then
-  `node get|update|rm|export` and `edge add|ls` take a bare `<loc>` (e.g.
-  `node get start-here -m hadronmemory.com::dev`; `edge add -m a::m --from x
-  --to y …` applies the memory to both endpoints).
+  `node get|update|move|clone|rm|export` and `edge add|ls` take a bare `<loc>`
+  (e.g. `node get start-here -m hadronmemory.com::dev`; `edge add -m a::m --from
+  x --to y …` applies the memory to both endpoints). For `node move|clone`, `-m`
+  scopes only the source `<loc>`; the destination is always the explicit
+  `--to-urn`/`--to-memory`.
   Without `-m`, the URN must name the memory — the same loc can exist in
   several memories.
 - Edges are directed, first-class entities (spec 037): each carries an

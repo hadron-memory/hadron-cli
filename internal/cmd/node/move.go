@@ -2,8 +2,8 @@ package node
 
 import (
 	"io"
+	"strings"
 
-	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -38,11 +38,17 @@ Fails loudly if a live node already occupies the destination.`,
   hadron node move findings:flaky-ci -m acme.com::kb --to-memory acme.com::archive`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Validate the destination flags before touching the network, so a
+			// bad flag combo is a usage error even when unauthenticated.
+			targetUrn, targetMemoryRef, err := relocationDestination(toURN, toMemory)
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			sourceRef, targetUrn, targetMemoryRef, err := resolveRelocation(cmd, client, memory, args[0], toURN, toMemory)
+			sourceRef, err := cmdutil.ResolveNodeRef(cmd, client, memory, args[0])
 			if err != nil {
 				return err
 			}
@@ -64,31 +70,31 @@ Fails loudly if a live node already occupies the destination.`,
 	return cmd
 }
 
-// resolveRelocation resolves the shared source/destination inputs of `node
-// move` and `node clone`. It enforces the client-side "exactly one destination"
-// rule (the server enforces it too, but a local error is friendlier), resolves
-// the source to a node id, and normalizes the chosen destination. Exactly one
-// of the returned targetUrn / targetMemoryRef is non-nil.
-func resolveRelocation(cmd *cobra.Command, client graphql.Client, memory, source, toURN, toMemory string) (string, *string, *string, error) {
+// relocationDestination validates and normalizes the shared destination flags
+// of `node move` and `node clone`. It enforces the "exactly one destination"
+// rule client-side (the server enforces it too, but a local error is
+// friendlier) and is pure — no network — so callers run it before requiring an
+// authenticated client. Inputs are trimmed first, so a whitespace-only flag is
+// treated as unset (not smuggled through as an empty ref). Exactly one of the
+// returned targetUrn / targetMemoryRef is non-nil.
+func relocationDestination(toURN, toMemory string) (*string, *string, error) {
+	toURN = strings.TrimSpace(toURN)
+	toMemory = strings.TrimSpace(toMemory)
 	switch {
 	case toURN != "" && toMemory != "":
-		return "", nil, nil, exitcode.Newf(exitcode.Usage, "--to-urn and --to-memory are mutually exclusive")
+		return nil, nil, exitcode.Newf(exitcode.Usage, "--to-urn and --to-memory are mutually exclusive")
 	case toURN == "" && toMemory == "":
-		return "", nil, nil, exitcode.Newf(exitcode.Usage, "specify a destination: --to-urn <org::memory::loc> or --to-memory <org::memory>")
-	}
-	sourceRef, err := cmdutil.ResolveNodeRef(cmd, client, memory, source)
-	if err != nil {
-		return "", nil, nil, err
+		return nil, nil, exitcode.Newf(exitcode.Usage, "specify a destination: --to-urn <org>::<memory>::<loc> or --to-memory <org>::<memory>")
 	}
 	if toURN != "" {
 		urn, err := cmdutil.CanonicalNodeURN(toURN)
 		if err != nil {
-			return "", nil, nil, err
+			return nil, nil, err
 		}
-		return sourceRef, &urn, nil, nil
+		return &urn, nil, nil
 	}
 	memRef := cmdutil.CanonicalMemoryRef(toMemory)
-	return sourceRef, nil, &memRef, nil
+	return nil, &memRef, nil
 }
 
 func moveDTO(n *gen.MoveNodeMoveNode) nodeDTO {

@@ -84,6 +84,15 @@ func TestNodeMoveRequiresExactlyOneDestination(t *testing.T) {
 	if err := root2.Execute(); err == nil {
 		t.Fatal("expected an error with both destinations")
 	}
+
+	// A whitespace-only destination is treated as unset, not smuggled through as
+	// an empty ref — so this is still "no destination", a usage error.
+	f3, _ := testFactory(t)
+	root3 := NewRootCmd(f3)
+	root3.SetArgs([]string{"node", "move", nodeURN, "--to-memory", "   "})
+	if err := root3.Execute(); err == nil {
+		t.Fatal("expected an error with a whitespace-only destination")
+	}
 }
 
 func TestNodeCloneToURN(t *testing.T) {
