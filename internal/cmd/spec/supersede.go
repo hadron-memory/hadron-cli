@@ -69,7 +69,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			if err != nil {
 				return err
 			}
-			memURN, err := resolveSpecMemoryURN(cmd, client, memory)
+			memURN, err := specMemoryURN(f, cmd, client, memory)
 			if err != nil {
 				return err
 			}
@@ -239,7 +239,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to `hadron spec use`, then the active memory)")
 	cmd.Flags().StringVar(&title, "title", "", "human title for the replacement spec (required)")
 	cmd.Flags().StringVar(&feature, "feature", "", "relocate the replacement under this existing feature (3 digits)")
 	cmd.Flags().StringVar(&ruleAfter, "rule-after", "", "allocate the replacement rule strictly after this number")
@@ -247,7 +247,6 @@ afterward (the tool prints a reminder; it never edits the register).`,
 	cmd.Flags().BoolVar(&copyBody, "copy-body", false, "seed the replacement's body/abstract from the old spec")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the plan without writing anything")
-	_ = cmd.MarkFlagRequired("memory")
 	_ = cmd.MarkFlagRequired("title")
 	return cmd
 }

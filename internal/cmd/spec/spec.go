@@ -57,6 +57,7 @@ generic node/edge primitives. Every subcommand takes -m/--memory.`,
 	cmd.AddCommand(newCmdLint(f))
 	cmd.AddCommand(newCmdSupersede(f))
 	cmd.AddCommand(newCmdImport(f))
+	cmd.AddCommand(newCmdUse(f))
 	return cmd
 }
 
@@ -473,6 +474,82 @@ func resolveSpecMemoryURN(cmd *cobra.Command, client graphql.Client, ref string)
 // none of these).
 func resolveSpecMemoryID(cmd *cobra.Command, client graphql.Client, ref string) (id, memURN string, err error) {
 	return lookupSpecMemory(cmd, client, ref)
+}
+
+// specMemoryDefault resolves the memory ref for a spec command from, in order:
+// the -m/--memory flag, the spec-specific default (HADRON_SPEC_MEMORY env or the
+// spec_memory config key, set via `hadron spec use`), then the global active
+// memory (`hadron memory set-active`). It returns the ref and a human note
+// naming the source when a default was used (empty note for the flag or when
+// nothing is configured). The spec corpus is usually a fixed memory distinct
+// from the global active memory, hence its own default tier.
+func specMemoryDefault(f *cmdutil.Factory, flagVal string) (ref, note string, err error) {
+	if strings.TrimSpace(flagVal) != "" {
+		return flagVal, "", nil
+	}
+	cfg, cerr := f.Config()
+	if cerr != nil {
+		return "", "", cerr
+	}
+	if m := cfg.SpecMemory(); m != "" {
+		return m, "note: using spec memory " + m + " (hadron spec use / HADRON_SPEC_MEMORY)", nil
+	}
+	if m := cfg.Memory(); m != "" {
+		return m, "note: using active memory " + m + " (hadron memory set-active)", nil
+	}
+	return "", "", nil
+}
+
+// effectiveSpecMemory resolves the memory ref for a spec command that REQUIRES
+// one, printing a note to stderr when it falls back to a default and returning a
+// usage error when nothing is configured.
+func effectiveSpecMemory(f *cmdutil.Factory, flagVal string) (string, error) {
+	ref, note, err := specMemoryDefault(f, flagVal)
+	if err != nil {
+		return "", err
+	}
+	if ref == "" {
+		return "", exitcode.Newf(exitcode.Usage,
+			"a memory is required: pass -m/--memory, or set a spec default with `hadron spec use <org::memory>`")
+	}
+	if note != "" {
+		fmt.Fprintln(f.IOStreams.ErrOut, note)
+	}
+	return ref, nil
+}
+
+// effectiveSpecMemoryOptional is effectiveSpecMemory for list/search commands
+// (ls, find) where memory is an optional scope: it returns "" (no error) when
+// nothing is configured, so the command runs unscoped. A configured default is
+// still honored (and noted), so `hadron spec use` scopes a bare `ls`/`find`.
+func effectiveSpecMemoryOptional(f *cmdutil.Factory, flagVal string) (string, error) {
+	ref, note, err := specMemoryDefault(f, flagVal)
+	if err != nil {
+		return "", err
+	}
+	if ref != "" && note != "" {
+		fmt.Fprintln(f.IOStreams.ErrOut, note)
+	}
+	return ref, nil
+}
+
+// specMemoryURN is resolveSpecMemoryURN with the spec-memory default chain
+// applied to an empty flag value (see effectiveSpecMemory).
+func specMemoryURN(f *cmdutil.Factory, cmd *cobra.Command, client graphql.Client, flagVal string) (string, error) {
+	ref, err := effectiveSpecMemory(f, flagVal)
+	if err != nil {
+		return "", err
+	}
+	return resolveSpecMemoryURN(cmd, client, ref)
+}
+
+// specMemoryID is resolveSpecMemoryID with the spec-memory default chain applied.
+func specMemoryID(f *cmdutil.Factory, cmd *cobra.Command, client graphql.Client, flagVal string) (id, memURN string, err error) {
+	ref, err := effectiveSpecMemory(f, flagVal)
+	if err != nil {
+		return "", "", err
+	}
+	return resolveSpecMemoryID(cmd, client, ref)
 }
 
 // lookupSpecMemory matches a memory ref against the memories list by PK, urn (in any

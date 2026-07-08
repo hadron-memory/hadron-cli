@@ -102,7 +102,7 @@ nothing.`,
 			if err != nil {
 				return err
 			}
-			memURN, err := resolveSpecMemoryURN(cmd, client, memory)
+			memURN, err := specMemoryURN(f, cmd, client, memory)
 			if err != nil {
 				return err
 			}
@@ -196,13 +196,12 @@ nothing.`,
 			return render()
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to `hadron spec use`, then the active memory)")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `replace the body with this value ("-" reads stdin) instead of opening $EDITOR`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "replace the body with a file's contents instead of opening $EDITOR")
 	cmd.Flags().StringVar(&abstract, "abstract", "", `replace the abstract with this value ("-" reads stdin) instead of opening $EDITOR`)
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "replace the abstract with a file's contents instead of opening $EDITOR")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would change without writing")
-	_ = cmd.MarkFlagRequired("memory")
 	return cmd
 }
 

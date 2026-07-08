@@ -55,7 +55,7 @@ one object for a single citation, an array for --prefix.`,
 			if err != nil {
 				return err
 			}
-			memURN, err := resolveSpecMemoryURN(cmd, client, memory)
+			memURN, err := specMemoryURN(f, cmd, client, memory)
 			if err != nil {
 				return err
 			}
@@ -160,7 +160,7 @@ one object for a single citation, an array for --prefix.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to `hadron spec use`, then the active memory)")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "dump every spec under this citation prefix (e.g. cor:cht)")
 	cmd.Flags().BoolVar(&abstractOnly, "abstract-only", false, "print metadata + abstract, omit the body")
 	cmd.Flags().BoolVar(&bodyOnly, "body-only", false, "print only the raw markdown body of a single spec (for a clean edit round-trip; alias: --content-only)")
@@ -169,7 +169,6 @@ one object for a single citation, an array for --prefix.`,
 	// `edit`/`new` call the markdown body "content"; accept --content-only as
 	// an alias so that vocabulary carries over to `get` (#99 item 5).
 	withFlagAliases(cmd, map[string]string{"content-only": "body-only"})
-	_ = cmd.MarkFlagRequired("memory")
 	return cmd
 }
 

@@ -97,7 +97,7 @@ chunk leaves the source alone with a warning.`,
 			if err != nil {
 				return err
 			}
-			memURN, err := resolveSpecMemoryURN(cmd, client, memory)
+			memURN, err := specMemoryURN(f, cmd, client, memory)
 			if err != nil {
 				return err
 			}
@@ -268,7 +268,7 @@ chunk leaves the source alone with a warning.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to `hadron spec use`, then the active memory)")
 	cmd.Flags().StringVar(&toFeature, "to-feature", "", "existing feature the extracted rule lands under (3 digits, required)")
 	cmd.Flags().StringVar(&rule, "rule", "", "create this exact rule number (2 digits; default: allocate the next)")
 	cmd.Flags().StringVar(&title, "title", "", "human title for the extracted spec (required)")
@@ -281,7 +281,6 @@ chunk leaves the source alone with a warning.`,
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "extra semantic tag (repeatable)")
 	cmd.Flags().BoolVar(&noEdges, "no-edges", false, "do not create the ToC / inheritance / cross-ref edges")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the planned extraction without writing anything")
-	_ = cmd.MarkFlagRequired("memory")
 	_ = cmd.MarkFlagRequired("to-feature")
 	_ = cmd.MarkFlagRequired("title")
 	return cmd

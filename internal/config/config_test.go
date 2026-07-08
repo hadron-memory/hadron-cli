@@ -71,3 +71,28 @@ func TestConfigConcurrentSetKeepsAllKeys(t *testing.T) {
 		}
 	}
 }
+
+// TestSpecMemoryPrecedence covers the SpecMemory accessor: the HADRON_SPEC_MEMORY
+// env var wins over the spec_memory config key, which is otherwise the value.
+func TestSpecMemoryPrecedence(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("HADRON_SPEC_MEMORY", "") // ensure a clean baseline
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := c.SpecMemory(); got != "" {
+		t.Errorf("unset SpecMemory = %q, want empty", got)
+	}
+	if err := c.Set("spec_memory", "acme.com::specs"); err != nil {
+		t.Fatal(err)
+	}
+	if got := c.SpecMemory(); got != "acme.com::specs" {
+		t.Errorf("SpecMemory from config = %q, want acme.com::specs", got)
+	}
+	// The env var takes precedence over the config key.
+	t.Setenv("HADRON_SPEC_MEMORY", "env.org::specs")
+	if got := c.SpecMemory(); got != "env.org::specs" {
+		t.Errorf("SpecMemory with env set = %q, want env.org::specs", got)
+	}
+}

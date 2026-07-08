@@ -35,7 +35,7 @@ hand-written ledger and any drift is reported (exit 5 if drift is found).`,
 			if err != nil {
 				return err
 			}
-			memURN, err := resolveSpecMemoryURN(cmd, client, memory)
+			memURN, err := specMemoryURN(f, cmd, client, memory)
 			if err != nil {
 				return err
 			}
@@ -96,9 +96,8 @@ hand-written ledger and any drift is reported (exit 5 if drift is found).`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to `hadron spec use`, then the active memory)")
 	cmd.Flags().BoolVar(&check, "check", false, "diff the register ledger against live nodes (exit 5 on drift)")
-	_ = cmd.MarkFlagRequired("memory")
 	return cmd
 }
 

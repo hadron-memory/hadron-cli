@@ -39,9 +39,16 @@ Results are filtered to spec nodes.`,
 				return err
 			}
 
+			// Honor the spec default (hadron spec use / active memory) even when
+			// -m is omitted, so a bare `find` searches the configured corpus
+			// instead of every accessible memory. Nothing configured ⇒ unscoped.
 			var memURN string
-			if memory != "" {
-				memURN, err = resolveSpecMemoryURN(cmd, client, memory)
+			ref, rerr := effectiveSpecMemoryOptional(f, memory)
+			if rerr != nil {
+				return rerr
+			}
+			if ref != "" {
+				memURN, err = resolveSpecMemoryURN(cmd, client, ref)
 				if err != nil {
 					return err
 				}

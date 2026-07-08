@@ -33,9 +33,17 @@ explicit page instead.`,
 			if err != nil {
 				return err
 			}
+			// Honor the spec default (hadron spec use / active memory) even
+			// when -m is omitted, so a bare `ls` scopes to the configured
+			// corpus instead of scanning every accessible memory. With nothing
+			// configured, ref is "" and the list stays unscoped.
 			var memoryArg *string
-			if memory != "" {
-				m, err := resolveSpecMemoryURN(cmd, client, memory)
+			ref, err := effectiveSpecMemoryOptional(f, memory)
+			if err != nil {
+				return err
+			}
+			if ref != "" {
+				m, err := resolveSpecMemoryURN(cmd, client, ref)
 				if err != nil {
 					return err
 				}
