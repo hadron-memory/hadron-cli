@@ -254,16 +254,17 @@ mutation UpdateNode(
   }
 }
 
-# Soft-delete by default (sets deletedAt; recoverable via version history).
-# hard: true removes the row entirely — cascades edges + NodeVersion, irreversible
-# (#391). Omitted when false so a soft delete never sends an explicit hard: null.
+# nodeRef is a PK or fully-qualified node URN (spec 007 entity-ref migration; the
+# CLI resolves to a PK first). Soft-delete by default (sets deletedAt; recoverable
+# via version history). hard: true removes the row entirely — cascades edges +
+# NodeVersion, irreversible (#391). Omitted when false so a soft delete never
+# sends an explicit hard: null.
 mutation DeleteNode(
-  $loc: String!
-  $memoryId: String!
+  $nodeRef: ID!
   # @genqlient(omitempty: true)
   $hard: Boolean
 ) {
-  deleteNode(loc: $loc, memoryId: $memoryId, hard: $hard)
+  deleteNode(nodeRef: $nodeRef, hard: $hard)
 }
 
 # Import external content into a node (cor:api:130 / importNode #457, #488).
@@ -310,7 +311,7 @@ mutation UpdateNodeData(
   # @genqlient(omitempty: true)
   $reason: String
 ) {
-  updateNodeData(nodeId: $nodeId, data: $data, reason: $reason) {
+  updateNodeData(nodeRef: $nodeId, data: $data, reason: $reason) {
     id
     memoryId
     loc
@@ -343,8 +344,8 @@ mutation CreateEdge(
   $data: JSON
 ) {
   createEdge(
-    sourceNodeId: $sourceNodeId
-    targetNodeId: $targetNodeId
+    sourceRef: $sourceNodeId
+    targetRef: $targetNodeId
     name: $name
     loc: $loc
     description: $description
@@ -389,7 +390,7 @@ mutation UpdateEdge(
   $data: JSON
 ) {
   updateEdge(
-    edgeId: $edgeId
+    edgeRef: $edgeId
     name: $name
     loc: $loc
     description: $description
@@ -415,7 +416,7 @@ mutation UpdateEdge(
 }
 
 mutation DeleteEdge($edgeId: ID!) {
-  deleteEdge(edgeId: $edgeId)
+  deleteEdge(edgeRef: $edgeId)
 }
 
 # Bulk literal/regex search-and-replace across selected nodes (hadron-server#312).

@@ -41,9 +41,12 @@ with -m/--memory to name a single memory instead.`,
 				return err
 			}
 
-			// Resolve the task reference to validate it exists (even though we pass the URN to runTask).
-			taskRef := cmdArgs[0]
-			_, err = cmdutil.ResolveNodeRef(cmd, client, memory, taskRef)
+			// Resolve the task ref (full URN or bare loc + -m) to a concrete node
+			// PK and pass THAT as runTask's nodeRef. The old op sent the raw
+			// positional as the `task` (name) hint, so a URN-shaped ref was
+			// searched as a name and missed (#171); resolving first fixes both
+			// forms. nodeRef accepts a PK or URN (spec 007).
+			nodeRef, err := cmdutil.ResolveNodeRef(cmd, client, memory, cmdArgs[0])
 			if err != nil {
 				return err
 			}
@@ -64,13 +67,9 @@ with -m/--memory to name a single memory instead.`,
 				taskArgs = &msg
 			}
 
-			// Run the task via the runTask mutation.
-			memoryPtr := &memory
-			if memory == "" {
-				memoryPtr = nil
-			}
-			taskRefPtr := &taskRef
-			resp, err := gen.RunTask(cmd.Context(), client, nil, memoryPtr, taskRefPtr, taskArgs)
+			// Run the task via the runTask mutation. Without appRef this renders
+			// and returns the compiled prompt (execute-mode --app is #166).
+			resp, err := gen.RunTask(cmd.Context(), client, nodeRef, taskArgs)
 			if err != nil {
 				return api.MapError(err)
 			}

@@ -884,8 +884,9 @@ func TestNodeRmWithYes(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["DeleteNode"], &vars)
-	if vars["loc"] != "findings:flaky-ci" || vars["memoryId"] != "mem1" {
-		t.Errorf("delete args must come from the fetched node: %+v", vars)
+	// The resolved node PK is passed as nodeRef (spec 007 entity-ref migration).
+	if vars["nodeRef"] != "n1" {
+		t.Errorf("delete must pass the resolved node ref: %+v", vars)
 	}
 	// A default (soft) delete must not send hard at all — an explicit hard:null
 	// or hard:false would be wrong wire shape for "soft".
@@ -914,6 +915,33 @@ func TestNodeRmHard(t *testing.T) {
 	// The --json status distinguishes a hard delete from a soft one.
 	if !strings.Contains(out.String(), "hard-deleted") {
 		t.Errorf("--json status should be hard-deleted, got %s", out.String())
+	}
+}
+
+// A fully-qualified URN must be resolved to a node ref and passed as runTask's
+// nodeRef — the pre-#171 code sent the raw positional as the `task` name hint,
+// so a URN was searched as a name and missed.
+func TestTaskRunResolvesUrnToNodeRef(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"RunTask":    `{"data":{"runTask":"compiled prompt"}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"task", "run", nodeURN, "--arg", "chat_slug=demo", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["RunTask"], &vars)
+	if vars["nodeRef"] != "n1" {
+		t.Errorf("URN must resolve to a node ref passed as nodeRef, got %v", vars["nodeRef"])
+	}
+	if a, _ := vars["args"].(map[string]any); a["chat_slug"] != "demo" {
+		t.Errorf("--arg should build the args object, got %v", vars["args"])
+	}
+	if !strings.Contains(out.String(), "compiled prompt") {
+		t.Errorf("rendered prompt should be printed, got %s", out.String())
 	}
 }
 

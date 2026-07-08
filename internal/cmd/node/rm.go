@@ -51,7 +51,7 @@ prompts with a distinct warning (still gated by --yes non-interactively).`,
 			if hard {
 				hardArg = &hard
 			}
-			if _, err := gen.DeleteNode(cmd.Context(), client, node.Loc, node.MemoryId, hardArg); err != nil {
+			if _, err := gen.DeleteNode(cmd.Context(), client, node.Id, hardArg); err != nil {
 				return api.MapError(err)
 			}
 			status, verb := "deleted", "Deleted"

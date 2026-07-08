@@ -1905,6 +1905,7 @@ const (
 	AppRunTriggerKindIntegration AppRunTriggerKind = "INTEGRATION"
 	AppRunTriggerKindManual      AppRunTriggerKind = "MANUAL"
 	AppRunTriggerKindSchedule    AppRunTriggerKind = "SCHEDULE"
+	AppRunTriggerKindSpawn       AppRunTriggerKind = "SPAWN"
 	AppRunTriggerKindWebhook     AppRunTriggerKind = "WEBHOOK"
 )
 
@@ -1912,6 +1913,7 @@ var AllAppRunTriggerKind = []AppRunTriggerKind{
 	AppRunTriggerKindIntegration,
 	AppRunTriggerKindManual,
 	AppRunTriggerKindSchedule,
+	AppRunTriggerKindSpawn,
 	AppRunTriggerKindWebhook,
 }
 
@@ -5016,13 +5018,13 @@ type GetNodeResponse struct {
 	// 1. a primary key (the unambiguous read — the old nodeById),
 	// 2. a fully-qualified node URN (`hrn:node:<org>::<memory>::<loc>`,
 	// legacy `urn:` scheme accepted),
-	// 3. a bare loc — scoped by 'memory' (an ID or URN) when given; unscoped,
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
 	// it resolves across every readable memory and a cross-memory loc
 	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
 	// (listing the candidate memoryIds) rather than silently returning
 	// one (#335). An unprefixed 3+-segment ref whose first two segments
 	// name a readable memory is treated as form 2 (a full URN); pass
-	// 'memory' to force loc interpretation.
+	// 'memoryRef' to force loc interpretation.
 	//
 	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
 	// resolve. Access: the caller's readable-memory set (same gate the old
@@ -6476,13 +6478,13 @@ type NodeExportMetaResponse struct {
 	// 1. a primary key (the unambiguous read — the old nodeById),
 	// 2. a fully-qualified node URN (`hrn:node:<org>::<memory>::<loc>`,
 	// legacy `urn:` scheme accepted),
-	// 3. a bare loc — scoped by 'memory' (an ID or URN) when given; unscoped,
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
 	// it resolves across every readable memory and a cross-memory loc
 	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
 	// (listing the candidate memoryIds) rather than silently returning
 	// one (#335). An unprefixed 3+-segment ref whose first two segments
 	// name a readable memory is treated as form 2 (a full URN); pass
-	// 'memory' to force loc interpretation.
+	// 'memoryRef' to force loc interpretation.
 	//
 	// raw: true skips Mustache template compilation. Soft-deleted nodes do not
 	// resolve. Access: the caller's readable-memory set (same gate the old
@@ -10103,16 +10105,12 @@ func (v *__DeleteMemorySubscriptionInput) GetOrgId() string { return v.OrgId }
 
 // __DeleteNodeInput is used internally by genqlient
 type __DeleteNodeInput struct {
-	Loc      string `json:"loc"`
-	MemoryId string `json:"memoryId"`
-	Hard     *bool  `json:"hard,omitempty"`
+	NodeRef string `json:"nodeRef"`
+	Hard    *bool  `json:"hard,omitempty"`
 }
 
-// GetLoc returns __DeleteNodeInput.Loc, and is useful for accessing the field via an interface.
-func (v *__DeleteNodeInput) GetLoc() string { return v.Loc }
-
-// GetMemoryId returns __DeleteNodeInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__DeleteNodeInput) GetMemoryId() string { return v.MemoryId }
+// GetNodeRef returns __DeleteNodeInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__DeleteNodeInput) GetNodeRef() string { return v.NodeRef }
 
 // GetHard returns __DeleteNodeInput.Hard, and is useful for accessing the field via an interface.
 func (v *__DeleteNodeInput) GetHard() *bool { return v.Hard }
@@ -10407,20 +10405,12 @@ func (v *__RotateAgentWebhookInput) GetId() string { return v.Id }
 
 // __RunTaskInput is used internally by genqlient
 type __RunTaskInput struct {
-	Urn    *string          `json:"urn"`
-	Memory *string          `json:"memory"`
-	Task   *string          `json:"task"`
-	Args   *json.RawMessage `json:"args"`
+	NodeRef string           `json:"nodeRef"`
+	Args    *json.RawMessage `json:"args"`
 }
 
-// GetUrn returns __RunTaskInput.Urn, and is useful for accessing the field via an interface.
-func (v *__RunTaskInput) GetUrn() *string { return v.Urn }
-
-// GetMemory returns __RunTaskInput.Memory, and is useful for accessing the field via an interface.
-func (v *__RunTaskInput) GetMemory() *string { return v.Memory }
-
-// GetTask returns __RunTaskInput.Task, and is useful for accessing the field via an interface.
-func (v *__RunTaskInput) GetTask() *string { return v.Task }
+// GetNodeRef returns __RunTaskInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__RunTaskInput) GetNodeRef() string { return v.NodeRef }
 
 // GetArgs returns __RunTaskInput.Args, and is useful for accessing the field via an interface.
 func (v *__RunTaskInput) GetArgs() *json.RawMessage { return v.Args }
@@ -11697,7 +11687,7 @@ func CreateApp(
 // The mutation executed by CreateEdge.
 const CreateEdge_Operation = `
 mutation CreateEdge ($sourceNodeId: ID!, $targetNodeId: ID!, $name: String!, $loc: String, $description: String, $isRunnable: Boolean, $priority: Int, $condition: JSON, $data: JSON) {
-	createEdge(sourceNodeId: $sourceNodeId, targetNodeId: $targetNodeId, name: $name, loc: $loc, description: $description, isRunnable: $isRunnable, priority: $priority, condition: $condition, data: $data) {
+	createEdge(sourceRef: $sourceNodeId, targetRef: $targetNodeId, name: $name, loc: $loc, description: $description, isRunnable: $isRunnable, priority: $priority, condition: $condition, data: $data) {
 		id
 		name
 		loc
@@ -12268,7 +12258,7 @@ func DeleteApp(
 // The mutation executed by DeleteEdge.
 const DeleteEdge_Operation = `
 mutation DeleteEdge ($edgeId: ID!) {
-	deleteEdge(edgeId: $edgeId)
+	deleteEdge(edgeRef: $edgeId)
 }
 `
 
@@ -12365,28 +12355,28 @@ func DeleteMemorySubscription(
 
 // The mutation executed by DeleteNode.
 const DeleteNode_Operation = `
-mutation DeleteNode ($loc: String!, $memoryId: String!, $hard: Boolean) {
-	deleteNode(loc: $loc, memoryId: $memoryId, hard: $hard)
+mutation DeleteNode ($nodeRef: ID!, $hard: Boolean) {
+	deleteNode(nodeRef: $nodeRef, hard: $hard)
 }
 `
 
-// Soft-delete by default (sets deletedAt; recoverable via version history).
-// hard: true removes the row entirely — cascades edges + NodeVersion, irreversible
-// (#391). Omitted when false so a soft delete never sends an explicit hard: null.
+// nodeRef is a PK or fully-qualified node URN (spec 007 entity-ref migration; the
+// CLI resolves to a PK first). Soft-delete by default (sets deletedAt; recoverable
+// via version history). hard: true removes the row entirely — cascades edges +
+// NodeVersion, irreversible (#391). Omitted when false so a soft delete never
+// sends an explicit hard: null.
 func DeleteNode(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	loc string,
-	memoryId string,
+	nodeRef string,
 	hard *bool,
 ) (data_ *DeleteNodeResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteNode",
 		Query:  DeleteNode_Operation,
 		Variables: &__DeleteNodeInput{
-			Loc:      loc,
-			MemoryId: memoryId,
-			Hard:     hard,
+			NodeRef: nodeRef,
+			Hard:    hard,
 		},
 	}
 
@@ -13833,27 +13823,27 @@ func RotateAgentWebhook(
 
 // The mutation executed by RunTask.
 const RunTask_Operation = `
-mutation RunTask ($urn: String, $memory: String, $task: String, $args: JSON) {
-	runTask(urn: $urn, memory: $memory, task: $task, args: $args)
+mutation RunTask ($nodeRef: String!, $args: JSON) {
+	runTask(nodeRef: $nodeRef, args: $args)
 }
 `
 
+// nodeRef identifies the task node — a PK or fully-qualified node URN (spec 007
+// entity-ref migration, server #542; the CLI resolves the ref to a PK first).
+// Without appRef this renders and returns the compiled prompt; the execute-mode
+// appRef/runAsSelf params are wired in a follow-up (#166).
 func RunTask(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	urn *string,
-	memory *string,
-	task *string,
+	nodeRef string,
 	args *json.RawMessage,
 ) (data_ *RunTaskResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "RunTask",
 		Query:  RunTask_Operation,
 		Variables: &__RunTaskInput{
-			Urn:    urn,
-			Memory: memory,
-			Task:   task,
-			Args:   args,
+			NodeRef: nodeRef,
+			Args:    args,
 		},
 	}
 
@@ -14301,7 +14291,7 @@ func UpdateAiServiceConfig(
 // The mutation executed by UpdateEdge.
 const UpdateEdge_Operation = `
 mutation UpdateEdge ($edgeId: ID!, $name: String, $loc: String, $description: String, $isRunnable: Boolean, $priority: Int, $condition: JSON, $data: JSON) {
-	updateEdge(edgeId: $edgeId, name: $name, loc: $loc, description: $description, isRunnable: $isRunnable, priority: $priority, condition: $condition, data: $data) {
+	updateEdge(edgeRef: $edgeId, name: $name, loc: $loc, description: $description, isRunnable: $isRunnable, priority: $priority, condition: $condition, data: $data) {
 		id
 		name
 		loc
@@ -14657,7 +14647,7 @@ func UpdateNode(
 // The mutation executed by UpdateNodeData.
 const UpdateNodeData_Operation = `
 mutation UpdateNodeData ($nodeId: ID!, $data: JSON!, $reason: String) {
-	updateNodeData(nodeId: $nodeId, data: $data, reason: $reason) {
+	updateNodeData(nodeRef: $nodeId, data: $data, reason: $reason) {
 		id
 		memoryId
 		loc
