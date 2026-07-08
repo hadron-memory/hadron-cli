@@ -6287,6 +6287,73 @@ var AllMemoryVisibility = []MemoryVisibility{
 	MemoryVisibilityPublic,
 }
 
+type MergeNodesInput struct {
+	// Hard-delete the source node after a successful merge.
+	DeleteSource *bool `json:"deleteSource,omitempty"`
+	// Fields to merge. Omit (or null) to merge every mergeable field.
+	Include []NodeMergeField `json:"include,omitempty"`
+	// Source node — ID or fully-qualified URN. Folded into 'target'.
+	Source string `json:"source"`
+	// Target node — ID or fully-qualified URN. The surviving node.
+	Target string `json:"target"`
+}
+
+// GetDeleteSource returns MergeNodesInput.DeleteSource, and is useful for accessing the field via an interface.
+func (v *MergeNodesInput) GetDeleteSource() *bool { return v.DeleteSource }
+
+// GetInclude returns MergeNodesInput.Include, and is useful for accessing the field via an interface.
+func (v *MergeNodesInput) GetInclude() []NodeMergeField { return v.Include }
+
+// GetSource returns MergeNodesInput.Source, and is useful for accessing the field via an interface.
+func (v *MergeNodesInput) GetSource() string { return v.Source }
+
+// GetTarget returns MergeNodesInput.Target, and is useful for accessing the field via an interface.
+func (v *MergeNodesInput) GetTarget() string { return v.Target }
+
+// MergeNodesMergeNodesNode includes the requested fields of the GraphQL type Node.
+type MergeNodesMergeNodesNode struct {
+	Id         string   `json:"id"`
+	MemoryId   string   `json:"memoryId"`
+	Loc        string   `json:"loc"`
+	Name       string   `json:"name"`
+	NodeType   string   `json:"nodeType"`
+	Tags       []string `json:"tags"`
+	IsRunnable *bool    `json:"isRunnable"`
+	UpdatedAt  string   `json:"updatedAt"`
+}
+
+// GetId returns MergeNodesMergeNodesNode.Id, and is useful for accessing the field via an interface.
+func (v *MergeNodesMergeNodesNode) GetId() string { return v.Id }
+
+// GetMemoryId returns MergeNodesMergeNodesNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *MergeNodesMergeNodesNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns MergeNodesMergeNodesNode.Loc, and is useful for accessing the field via an interface.
+func (v *MergeNodesMergeNodesNode) GetLoc() string { return v.Loc }
+
+// GetName returns MergeNodesMergeNodesNode.Name, and is useful for accessing the field via an interface.
+func (v *MergeNodesMergeNodesNode) GetName() string { return v.Name }
+
+// GetNodeType returns MergeNodesMergeNodesNode.NodeType, and is useful for accessing the field via an interface.
+func (v *MergeNodesMergeNodesNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns MergeNodesMergeNodesNode.Tags, and is useful for accessing the field via an interface.
+func (v *MergeNodesMergeNodesNode) GetTags() []string { return v.Tags }
+
+// GetIsRunnable returns MergeNodesMergeNodesNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *MergeNodesMergeNodesNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetUpdatedAt returns MergeNodesMergeNodesNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *MergeNodesMergeNodesNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// MergeNodesResponse is returned by MergeNodes on success.
+type MergeNodesResponse struct {
+	MergeNodes *MergeNodesMergeNodesNode `json:"mergeNodes"`
+}
+
+// GetMergeNodes returns MergeNodesResponse.MergeNodes, and is useful for accessing the field via an interface.
+func (v *MergeNodesResponse) GetMergeNodes() *MergeNodesMergeNodesNode { return v.MergeNodes }
+
 type MintActionTicketsInput struct {
 	// v1: comm.outbound only.
 	Action string `json:"action"`
@@ -6911,6 +6978,36 @@ func (v *NodeFilter) GetUpdatedAfter() *string { return v.UpdatedAfter }
 
 // GetUpdatedBefore returns NodeFilter.UpdatedBefore, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetUpdatedBefore() *string { return v.UpdatedBefore }
+
+// A node field that mergeNodes can fold from the source into the target.
+type NodeMergeField string
+
+const (
+	// Concatenate source abstract after target abstract (2000-char cap enforced).
+	NodeMergeFieldAbstract NodeMergeField = "ABSTRACT"
+	// Concatenate source content after target content (blank-line separated).
+	NodeMergeFieldContent NodeMergeField = "CONTENT"
+	// Shallow-merge the encrypted 'data' JSON; target wins on key collisions.
+	NodeMergeFieldData NodeMergeField = "DATA"
+	// Concatenate source description after target description.
+	NodeMergeFieldDescription NodeMergeField = "DESCRIPTION"
+	// Re-point the source's incoming and outgoing edges onto the target.
+	NodeMergeFieldEdges NodeMergeField = "EDGES"
+	// Shallow-merge the 'properties' JSON; target wins on key collisions.
+	NodeMergeFieldProperties NodeMergeField = "PROPERTIES"
+	// Union the tag sets (target order first, then new source tags).
+	NodeMergeFieldTags NodeMergeField = "TAGS"
+)
+
+var AllNodeMergeField = []NodeMergeField{
+	NodeMergeFieldAbstract,
+	NodeMergeFieldContent,
+	NodeMergeFieldData,
+	NodeMergeFieldDescription,
+	NodeMergeFieldEdges,
+	NodeMergeFieldProperties,
+	NodeMergeFieldTags,
+}
 
 // Result ordering for findNodes. Default relevance; the rest suppress scoring (browse order).
 type NodeSort string
@@ -10835,6 +10932,14 @@ type __MemorySubscriptionsInput struct {
 // GetRef returns __MemorySubscriptionsInput.Ref, and is useful for accessing the field via an interface.
 func (v *__MemorySubscriptionsInput) GetRef() string { return v.Ref }
 
+// __MergeNodesInput is used internally by genqlient
+type __MergeNodesInput struct {
+	Input *MergeNodesInput `json:"input,omitempty"`
+}
+
+// GetInput returns __MergeNodesInput.Input, and is useful for accessing the field via an interface.
+func (v *__MergeNodesInput) GetInput() *MergeNodesInput { return v.Input }
+
 // __MintActionTicketsInput is used internally by genqlient
 type __MintActionTicketsInput struct {
 	Input *MintActionTicketsInput `json:"input,omitempty"`
@@ -13937,6 +14042,53 @@ func MemorySubscriptions(
 	}
 
 	data_ = &MemorySubscriptionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by MergeNodes.
+const MergeNodes_Operation = `
+mutation MergeNodes ($input: MergeNodesInput!) {
+	mergeNodes(input: $input) {
+		id
+		memoryId
+		loc
+		name
+		nodeType
+		tags
+		isRunnable
+		updatedAt
+	}
+}
+`
+
+// Fold one node (source) into another (target), returning the surviving target
+// (mergeNodes, #186). input.source / input.target are ids or fully-qualified
+// URNs. `include` selects which fields fold in (ABSTRACT/CONTENT/DATA/
+// DESCRIPTION/EDGES/PROPERTIES/TAGS); `deleteSource` hard-deletes it afterwards.
+// Both optional inputs are omitempty so an unset one takes the server default
+// (omit include = every mergeable field; omit deleteSource = keep the source).
+func MergeNodes(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *MergeNodesInput,
+) (data_ *MergeNodesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MergeNodes",
+		Query:  MergeNodes_Operation,
+		Variables: &__MergeNodesInput{
+			Input: input,
+		},
+	}
+
+	data_ = &MergeNodesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
