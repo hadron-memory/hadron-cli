@@ -104,3 +104,46 @@ func TestEffectiveSpecMemory(t *testing.T) {
 		}
 	})
 }
+
+func TestEffectiveSpecMemoryOptional(t *testing.T) {
+	t.Run("nothing configured returns empty, no error, no note", func(t *testing.T) {
+		f, _, stderr := testFactory(t)
+		got, err := effectiveSpecMemoryOptional(f, "")
+		if err != nil {
+			t.Fatalf("optional resolve must not error when unset: %v", err)
+		}
+		if got != "" {
+			t.Errorf("got %q, want empty (unscoped)", got)
+		}
+		if s := stderr(); s != "" {
+			t.Errorf("no default ⇒ no note, got %q", s)
+		}
+	})
+
+	t.Run("flag wins, no note", func(t *testing.T) {
+		f, cfg, stderr := testFactory(t)
+		_ = cfg.Set("spec_memory", "cfg.org::specs")
+		got, err := effectiveSpecMemoryOptional(f, "flag.org::specs")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != "flag.org::specs" || stderr() != "" {
+			t.Errorf("flag path: got %q note %q", got, stderr())
+		}
+	})
+
+	t.Run("honors spec default with note", func(t *testing.T) {
+		f, cfg, stderr := testFactory(t)
+		_ = cfg.Set("spec_memory", "cfg.org::specs")
+		got, err := effectiveSpecMemoryOptional(f, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != "cfg.org::specs" {
+			t.Errorf("got %q, want the spec default", got)
+		}
+		if s := stderr(); !strings.Contains(s, "spec memory") {
+			t.Errorf("expected a spec-memory note, got %q", s)
+		}
+	})
+}
