@@ -298,6 +298,55 @@ mutation ImportNode(
   }
 }
 
+# Relocate a node (#564). $sourceRef is the node's id or full URN; the
+# destination is EXACTLY ONE of $targetUrn (the node's new full URN — new
+# memory and/or loc) or $targetMemoryRef (a memory id/URN; the node keeps its
+# loc, only its memory changes). The node keeps its id, so edge references stay
+# valid. Optional destination vars must be omitted (not sent as null) so the
+# server sees exactly one. Backs `hadron node move`.
+mutation MoveNode(
+  $sourceRef: ID!
+  # @genqlient(omitempty: true)
+  $targetUrn: String
+  # @genqlient(omitempty: true)
+  $targetMemoryRef: ID
+) {
+  moveNode(sourceRef: $sourceRef, targetUrn: $targetUrn, targetMemoryRef: $targetMemoryRef) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    tags
+    isRunnable
+    updatedAt
+  }
+}
+
+# Clone a node to a new location, returning the NEW node with a fresh id
+# (#564). Same selector shape as MoveNode ($sourceRef + exactly one of
+# $targetUrn / $targetMemoryRef). Copies the node's own fields plus the outgoing
+# edges that naturally resolve at the destination; incoming edges are not
+# copied. Backs `hadron node clone`.
+mutation CloneNode(
+  $sourceRef: ID!
+  # @genqlient(omitempty: true)
+  $targetUrn: String
+  # @genqlient(omitempty: true)
+  $targetMemoryRef: ID
+) {
+  cloneNode(sourceRef: $sourceRef, targetUrn: $targetUrn, targetMemoryRef: $targetMemoryRef) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    tags
+    isRunnable
+    updatedAt
+  }
+}
+
 # Shallow-merge a JSON patch into a node's `data` bag (the supplied object's
 # top-level keys overwrite existing ones; absent keys are preserved). Unlike
 # UpdateNode's `data`, which replaces the whole bag, this is a merge — the
