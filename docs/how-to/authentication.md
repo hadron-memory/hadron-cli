@@ -52,11 +52,16 @@ automation — no browser needed:
 ```sh
 hadron auth token create --label ci-deploy     # prints the raw key ONCE
 hadron auth token ls
+echo "$TOKEN" | hadron auth token validate     # check a token: exit 0 valid / 3 rejected
 hadron auth token revoke <id>
 ```
 
 The raw key is shown once (the server stores only its hash). Tokens are
 user-scoped — an app or agent key can't manage user tokens.
+
+`token validate` reads a token from standard input (so it never lands in your
+shell history) and reports whether it still authenticates — useful in CI to
+fail fast on an expired or revoked credential.
 
 ## Inspecting and clearing credentials
 

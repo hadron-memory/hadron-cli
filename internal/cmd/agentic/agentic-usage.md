@@ -13,6 +13,7 @@ hadron auth login             # interactive browser OAuth (human only)
 echo $TOKEN | hadron auth login --with-token   # store a PAT
 HADRON_TOKEN=hdr_user_...     # env var, overrides stored tokens (CI)
 hadron auth token create      # mint a PAT (after login); ls | revoke <id> to manage
+echo $TOKEN | hadron auth token validate   # check a PAT: exit 0 valid / 3 rejected
 ```
 
 Tokens are long-lived `hdr_user_*` personal access tokens, minted with
@@ -58,7 +59,7 @@ node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 ## Command surface (v1)
 
 ```
-hadron auth login | logout | whoami | status | token create|ls|revoke <id>
+hadron auth login | logout | whoami | status | token create|ls|validate|revoke <id>
 hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
 hadron node ls [-m <memory>] | get <urn> | add | update <urn> | rm <urn> [--hard] | export <urn> [-o <file>] [--format md|json] | import <file|-> [-m <memory>] [--with-edges]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
