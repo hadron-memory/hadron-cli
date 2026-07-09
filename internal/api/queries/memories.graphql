@@ -82,6 +82,10 @@ mutation UpdateMemory(
   $visibility: MemoryVisibility
   # @genqlient(omitempty: true)
   $data: JSON
+  # The new URN slug (a bare slug, e.g. "hadrontool-pdf"). The server
+  # kebab-normalizes it and recomposes the memory URN. Omitted = preserve.
+  # @genqlient(omitempty: true)
+  $urn: String
 ) {
   updateMemory(
     id: $id
@@ -91,6 +95,7 @@ mutation UpdateMemory(
     tags: $tags
     visibility: $visibility
     data: $data
+    urn: $urn
   ) {
     id
     urn

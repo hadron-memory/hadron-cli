@@ -1216,7 +1216,7 @@ func TestMemorySetUpdate(t *testing.T) {
 	}
 	// Unset optionals must be OMITTED, not sent as explicit nulls —
 	// the server treats omitted as "preserve".
-	for _, key := range []string{"name", "description", "tags", "visibility"} {
+	for _, key := range []string{"name", "description", "tags", "visibility", "urn"} {
 		if v, present := vars[key]; present {
 			t.Errorf("unset %q must be omitted from updateMemory variables, got %v", key, v)
 		}
@@ -1240,6 +1240,83 @@ func TestMemorySetUpdateSendsTags(t *testing.T) {
 	_ = json.Unmarshal(captured["UpdateMemory"], &vars)
 	if len(vars.Tags) != 2 || vars.Tags[0] != "go" || vars.Tags[1] != "cli" {
 		t.Errorf("tags not sent: %s", captured["UpdateMemory"])
+	}
+}
+
+// --slug on update renames the memory: the bare slug is sent as updateMemory's
+// urn argument (#108).
+func TestMemorySetUpdateSlug(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetMemory":    `{"data":{"memory":` + memoryJSON + `}}`,
+		"UpdateMemory": `{"data":{"updateMemory":` + memoryJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "set", "acme.com::kb", "--slug", "project-kb", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateMemory"], &vars)
+	if vars["id"] != "m1" || vars["urn"] != "project-kb" {
+		t.Errorf("--slug should send the bare slug as updateMemory urn, got %v", vars)
+	}
+}
+
+// --slug on create: createMemory derives the slug from --name, so the CLI
+// follows up with a rename to the requested slug and echoes the renamed URN
+// (#108 — name and slug differing, expressible in one command).
+func TestMemorySetCreateWithSlug(t *testing.T) {
+	renamed := `{"id":"m1","urn":"acme.com::hadrontool-pdf","name":"Hadron PDF Tool","shortDescription":null,
+		"class":"knowledge","visibility":"ORGANIZATION","organizationId":"o1",
+		"isEncrypted":false,"updatedAt":"2026-06-11T00:00:00Z"}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateMemory": `{"data":{"createMemory":` + memoryJSON + `}}`,
+		"UpdateMemory": `{"data":{"updateMemory":` + renamed + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "Hadron PDF Tool", "--slug", "hadrontool-pdf", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var uvars map[string]any
+	_ = json.Unmarshal(captured["UpdateMemory"], &uvars)
+	if uvars["id"] != "m1" || uvars["urn"] != "hadrontool-pdf" {
+		t.Errorf("create --slug should rename via updateMemory urn, got %v", uvars)
+	}
+	if s := out.String(); !strings.Contains(s, "acme.com::hadrontool-pdf") {
+		t.Errorf("output should show the renamed URN, got:\n%s", s)
+	}
+}
+
+// When --slug already matches the name-derived slug, no rename call is made —
+// create stays a single round-trip.
+func TestMemorySetCreateSlugMatchesSkipsRename(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateMemory": `{"data":{"createMemory":` + memoryJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	// memoryJSON's slug is already "kb"; an unregistered UpdateMemory call would
+	// error, so a wrongly-fired rename fails the test.
+	root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "KB", "--slug", "kb", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, called := captured["UpdateMemory"]; called {
+		t.Errorf("no rename should fire when --slug matches the derived slug")
+	}
+}
+
+// A malformed --slug is a usage error caught client-side, before any call.
+func TestMemorySetRejectsBadSlug(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "KB", "--slug", "Bad Slug", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "not a valid URN slug") {
+		t.Fatalf("expected slug validation error, got %v", err)
 	}
 }
 

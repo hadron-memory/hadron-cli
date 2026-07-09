@@ -88,8 +88,8 @@ hadron agentic-usage                                 # prints this doc
 Conventions:
 
 - A new URN slug you supply — `org create/update --urn`, `app install --urn`,
-  `node add --loc`, `agent update --urn` — is validated client-side before the
-  call: each `:`-separated segment must be 1–64 chars of `[A-Za-z0-9._-]`,
+  `node add --loc`, `agent update --urn`, `memory set --slug` — is validated
+  client-side before the call: each `:`-separated segment must be 1–64 chars of `[A-Za-z0-9._-]`,
   starting and ending alphanumeric (so `--urn "Flow Lab"` is rejected, exit 2).
   This mirrors the server grammar; a bad slug fails fast with a usage error
   instead of a round-trip.
@@ -129,7 +129,13 @@ Conventions:
   so keep the key. Reads by authorized callers stay transparent afterward.
 - `memory set` creates when called without a positional argument
   (requires `--org` and `--name`) and updates when given one. Only
-  fields passed as flags change.
+  fields passed as flags change. The URN slug is kebab-derived from
+  `--name` on create (`"Project KB"` → `project-kb`) unless you pass
+  `--slug <bare-slug>` to set it explicitly; on update, `--slug` renames
+  the memory (its URN — and every node URN under it — changes). Because
+  `createMemory` has no slug input, `--slug` on create is a create plus a
+  rename: if the rename fails the memory still exists under its derived
+  slug and the command exits non-zero (a partial write).
 - `node add` fails if the loc already exists; `node update` modifies
   an existing node and preserves unset fields. Content comes from
   `--content "<text>"`, `--content -` (stdin), or `--content-file`;
