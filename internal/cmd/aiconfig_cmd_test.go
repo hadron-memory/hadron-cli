@@ -13,6 +13,17 @@ const aiCfgJSON = `{"id":"cfg1","name":"default","ownerType":"APP","ownerId":"ap
 	"provider":"anthropic","model":"claude-opus-4-8","hasApiKey":true,"apiKeyPreview":"abcd",
 	"params":{"maxTokens":4096},"enabled":true,"createdAt":"2026-06-19T00:00:00Z","updatedAt":null}`
 
+// unmarshalVars decodes captured GraphQL request variables, failing the test if
+// they aren't valid JSON (so a serialization regression surfaces here).
+func unmarshalVars(t *testing.T, b []byte) map[string]any {
+	t.Helper()
+	var vars map[string]any
+	if err := json.Unmarshal(b, &vars); err != nil {
+		t.Fatalf("captured request vars not JSON: %v", err)
+	}
+	return vars
+}
+
 func TestAiConfigCreate(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"CreateAiServiceConfig": `{"data":{"createAiServiceConfig":` + aiCfgJSON + `}}`,
@@ -126,8 +137,7 @@ func TestAiConfigCreateFromFile(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var vars map[string]any
-	_ = json.Unmarshal(captured["CreateAiServiceConfig"], &vars)
+	vars := unmarshalVars(t, captured["CreateAiServiceConfig"])
 	if vars["name"] != "default" || vars["provider"] != "anthropic" || vars["model"] != "claude-opus-4-8" {
 		t.Errorf("core fields wrong: %v", vars)
 	}
@@ -166,8 +176,7 @@ func TestAiConfigCreateFileFlagOverride(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var vars map[string]any
-	_ = json.Unmarshal(captured["CreateAiServiceConfig"], &vars)
+	vars := unmarshalVars(t, captured["CreateAiServiceConfig"])
 	if vars["model"] != "gpt-4o" {
 		t.Errorf("--model flag should override the file's model, got %v", vars["model"])
 	}
@@ -189,10 +198,81 @@ func TestAiConfigCreateFileStdin(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var vars map[string]any
-	_ = json.Unmarshal(captured["CreateAiServiceConfig"], &vars)
+	vars := unmarshalVars(t, captured["CreateAiServiceConfig"])
 	if vars["apiKey"] != "sk-piped" || vars["name"] != "default" {
 		t.Errorf("--file - should parse the piped JSON, got %v", vars)
+	}
+}
+
+// An owner flag on the command line replaces the file's owner selection
+// wholesale — pairing a file `agent` with a flag `--app` must NOT trip the
+// mutual-exclusion check (regression: field-by-field merge did).
+func TestAiConfigCreateFileOwnerFlagOverride(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateAiServiceConfig": `{"data":{"createAiServiceConfig":` + aiCfgJSON + `}}`,
+	})
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cfg.json")
+	spec := `{"agent":"acme.com:juno","name":"default","provider":"anthropic","model":"claude-opus-4-8"}`
+	if err := os.WriteFile(path, []byte(spec), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"ai-config", "create", "--file", path, "--app", "acme.com:juno-app", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	vars := unmarshalVars(t, captured["CreateAiServiceConfig"])
+	if vars["ownerType"] != "APP" || vars["ownerId"] != "acme.com:juno-app" {
+		t.Errorf("--app should replace the file's agent owner, got type=%v id=%v", vars["ownerType"], vars["ownerId"])
+	}
+}
+
+// --file - and --api-key - both read stdin; asking for both is a usage error.
+func TestAiConfigCreateFileStdinKeyConflict(t *testing.T) {
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader(`{}`)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"ai-config", "create", "--file", "-", "--api-key", "-", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "both read stdin") {
+		t.Fatalf("expected stdin-conflict error, got %v", err)
+	}
+}
+
+// The file must be exactly one JSON object — trailing content is rejected, not
+// silently ignored.
+func TestAiConfigCreateFileRejectsTrailingData(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cfg.json")
+	spec := `{"org":"acme.com","name":"x","provider":"p","model":"m"}{"extra":true}`
+	if err := os.WriteFile(path, []byte(spec), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"ai-config", "create", "--file", path, "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "trailing data") {
+		t.Fatalf("expected trailing-data error, got %v", err)
+	}
+}
+
+// params in the file must be a JSON object; a non-object is rejected.
+func TestAiConfigCreateFileRejectsNonObjectParams(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cfg.json")
+	spec := `{"org":"acme.com","name":"x","provider":"p","model":"m","params":[1,2,3]}`
+	if err := os.WriteFile(path, []byte(spec), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"ai-config", "create", "--file", path, "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), `"params" must be a JSON object`) {
+		t.Fatalf("expected params-object error, got %v", err)
 	}
 }
 

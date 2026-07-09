@@ -40,7 +40,7 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 		disabled              bool
 	)
 	cmd := &cobra.Command{
-		Use:   "create (--app | --agent | --org <id-or-urn>) --name <n> --provider <p> --model <m>",
+		Use:   "create ((--app | --agent | --org <id-or-urn>) --name <n> --provider <p> --model <m> | --file <path>)",
 		Short: "Create an AI service config",
 		Long: `Create an AI service config owned by an App, Agent, or Organization.
 
@@ -75,11 +75,16 @@ when given, replaces the file's params object.`,
 				spec = *s
 			}
 
-			ownerType, ownerID, err := resolveOwner(
-				strOr(spec.App, app, changed("app")),
-				strOr(spec.Agent, agent, changed("agent")),
-				strOr(spec.Org, org, changed("org")),
-			)
+			// Owner is a single choice (exactly one of app/agent/org), so treat
+			// it as a unit: any owner flag on the command line replaces the
+			// file's owner selection wholesale. Merging field-by-field could
+			// pair a file `agent` with a flag `--app` and trip the
+			// mutual-exclusion check.
+			ownerApp, ownerAgent, ownerOrg := deref(spec.App), deref(spec.Agent), deref(spec.Org)
+			if changed("app") || changed("agent") || changed("org") {
+				ownerApp, ownerAgent, ownerOrg = app, agent, org
+			}
+			ownerType, ownerID, err := resolveOwner(ownerApp, ownerAgent, ownerOrg)
 			if err != nil {
 				return err
 			}
@@ -160,7 +165,8 @@ when given, replaces the file's params object.`,
 
 // loadCreateFileSpec reads and parses the --file JSON object. "-" reads stdin
 // so the whole config (API key included) can be piped in, never touching argv.
-// Unknown keys are rejected to catch typos like "apikey" for "apiKey".
+// Unknown keys are rejected to catch typos (e.g. "api_key" for "apiKey" — note
+// Go matches field names case-insensitively, so "apikey" would still bind).
 func loadCreateFileSpec(path string, stdin io.Reader) (*createFileSpec, error) {
 	var (
 		data []byte
@@ -180,6 +186,22 @@ func loadCreateFileSpec(path string, stdin io.Reader) (*createFileSpec, error) {
 	if err := dec.Decode(&spec); err != nil {
 		return nil, exitcode.Newf(exitcode.Usage, "parsing --file: %v", err)
 	}
+	// The file must be exactly one JSON object — reject trailing content (e.g.
+	// two concatenated objects) rather than silently ignoring it.
+	if _, err := dec.Token(); err != io.EOF {
+		return nil, exitcode.Newf(exitcode.Usage, "parsing --file: unexpected trailing data after the JSON object")
+	}
+	// params, when present, must be a JSON object (the help says so, and it maps
+	// to the provider-params object). A JSON null means "unset" → drop it.
+	if spec.Params != nil {
+		p := bytes.TrimSpace(*spec.Params)
+		switch {
+		case len(p) == 0, bytes.Equal(p, []byte("null")):
+			spec.Params = nil
+		case p[0] != '{':
+			return nil, exitcode.Newf(exitcode.Usage, `parsing --file: "params" must be a JSON object`)
+		}
+	}
 	return &spec, nil
 }
 
@@ -193,4 +215,12 @@ func strOr(fileVal *string, flagVal string, flagChanged bool) string {
 		return *fileVal
 	}
 	return ""
+}
+
+// deref returns the pointed-to string, or "" for a nil pointer.
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

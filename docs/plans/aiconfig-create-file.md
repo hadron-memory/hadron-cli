@@ -40,8 +40,11 @@ The file is a JSON object whose keys mirror the flags — all optional:
 
 - **File seeds every field; an explicit flag overrides the matching field.**
   Resolution is per-field via `strOr(fileVal, flagVal, changed)`.
-- **Owner** — file `app`/`agent`/`org` (or the flags) feed the existing
-  `resolveOwner`, so the exactly-one-owner rule is unchanged.
+- **Owner is overridden as a unit, not per-field.** Owner is a single choice
+  (exactly one of `app`/`agent`/`org`), so if *any* owner flag is on the command
+  line the file's owner selection is dropped wholesale and only the flags feed
+  `resolveOwner`. A per-field merge would pair a file `agent` with a flag
+  `--app` and trip the mutual-exclusion check (review fix).
 - **Required fields** — `name`/`provider`/`model` are validated after the merge
   (from either source), so `MarkFlagRequired` was dropped in favour of a manual
   usage error; the file can now satisfy them.
@@ -60,7 +63,12 @@ The file is a JSON object whose keys mirror the flags — all optional:
 - Unknown top-level keys are rejected (`DisallowUnknownFields`) to catch typos
   before a config is created without a field the author intended. JSON's
   case-insensitive field matching still applies, so `apikey` is accepted as
-  `apiKey`.
+  `apiKey` (but `api_key` is rejected).
+- The file must be **exactly one JSON object**: trailing content after the first
+  object (e.g. two concatenated objects) is rejected rather than silently
+  ignored (the decoder's next token must be EOF).
+- **`params`, when present, must be a JSON object** (matching the flag's
+  semantics); a JSON `null` is treated as unset, and any non-object is rejected.
 - File read / parse failures map to exit code 2 (Usage) via
   `exitcode.Newf(exitcode.Usage, …)`.
 
