@@ -59,7 +59,7 @@ already occupies the destination loc.`,
 			dto := cloneDTO(resp.CloneNode)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ cloned", dto.Loc, dto.Name)
+				t.Row("✓ cloned", "to: "+dto.URN)
 				return t.Flush()
 			})
 		},
@@ -73,6 +73,7 @@ already occupies the destination loc.`,
 func cloneDTO(n *gen.CloneNodeCloneNode) nodeDTO {
 	return nodeDTO{
 		ID:         n.Id,
+		URN:        n.Urn,
 		MemoryID:   n.MemoryId,
 		Loc:        n.Loc,
 		Name:       n.Name,

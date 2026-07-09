@@ -59,7 +59,7 @@ Fails loudly if a live node already occupies the destination.`,
 			dto := moveDTO(resp.MoveNode)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ moved", dto.Loc, dto.Name)
+				t.Row("✓ moved", "to: "+dto.URN)
 				return t.Flush()
 			})
 		},
@@ -100,6 +100,7 @@ func relocationDestination(toURN, toMemory string) (*string, *string, error) {
 func moveDTO(n *gen.MoveNodeMoveNode) nodeDTO {
 	return nodeDTO{
 		ID:         n.Id,
+		URN:        n.Urn,
 		MemoryID:   n.MemoryId,
 		Loc:        n.Loc,
 		Name:       n.Name,

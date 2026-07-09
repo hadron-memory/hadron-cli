@@ -151,7 +151,8 @@ Conventions:
   keeps the node's id so its edges stay valid; `clone` returns a **new** node
   (fresh id) and copies only the outgoing edges that resolve at the destination
   (incoming edges are never copied). Both fail loudly if a live node already
-  occupies the destination loc.
+  occupies the destination loc. The confirmation identifies the node by its
+  destination URN (carried in `--json` as `urn`).
 - `node merge <source> --into <target>` folds the source node into the target
   (the survivor) and returns the target. Name each by URN or a bare `<loc>` with
   `-m` (which scopes both). By default every mergeable field folds in; restrict

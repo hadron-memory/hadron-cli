@@ -11,8 +11,13 @@ import (
 )
 
 // nodeDTO is the stable --json shape for a node in list output.
+//
+// URN is the fully-qualified node URN the server composes (hrn:node:<org>::
+// <memory>::<loc>). It's omitempty because only the surfaces that select `urn`
+// populate it (today: move/clone); others leave the key out rather than emit "".
 type nodeDTO struct {
 	ID         string   `json:"id"`
+	URN        string   `json:"urn,omitempty"`
 	MemoryID   string   `json:"memoryId"`
 	Loc        string   `json:"loc"`
 	Name       string   `json:"name"`

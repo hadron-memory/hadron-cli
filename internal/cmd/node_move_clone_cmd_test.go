@@ -2,14 +2,17 @@ package cmd
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
 // movedNodeJSON / clonedNodeJSON are the mutation payloads the server returns
 // for the relocated / new node.
-const movedNodeJSON = `{"data":{"moveNode":{"id":"n1","memoryId":"mem2","loc":"archive:flaky-ci",
+const movedNodeJSON = `{"data":{"moveNode":{"id":"n1","urn":"hrn:node:acme.com::archive::archive:flaky-ci",
+	"memoryId":"mem2","loc":"archive:flaky-ci",
 	"name":"Flaky CI","nodeType":"task","tags":[],"isRunnable":false,"updatedAt":"2026-07-08T00:00:00Z"}}}`
-const clonedNodeJSON = `{"data":{"cloneNode":{"id":"n9","memoryId":"mem1","loc":"findings:new",
+const clonedNodeJSON = `{"data":{"cloneNode":{"id":"n9","urn":"hrn:node:acme.com::kb::findings:new",
+	"memoryId":"mem1","loc":"findings:new",
 	"name":"Flaky CI","nodeType":"task","tags":[],"isRunnable":false,"updatedAt":"2026-07-08T00:00:00Z"}}}`
 
 func TestNodeMoveToURN(t *testing.T) {
@@ -19,7 +22,7 @@ func TestNodeMoveToURN(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "move", nodeURN, "--to-urn", "acme.com::kb::archive:flaky-ci", "--server", gql.URL, "--json"})
+	root.SetArgs([]string{"node", "move", nodeURN, "--to-urn", "acme.com::archive::archive:flaky-ci", "--server", gql.URL, "--json"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -30,7 +33,7 @@ func TestNodeMoveToURN(t *testing.T) {
 		t.Errorf("sourceRef = %v, want n1", vars["sourceRef"])
 	}
 	// A bare --to-urn is normalized to the canonical hrn:node: form.
-	if vars["targetUrn"] != "hrn:node:acme.com::kb::archive:flaky-ci" {
+	if vars["targetUrn"] != "hrn:node:acme.com::archive::archive:flaky-ci" {
 		t.Errorf("targetUrn = %v", vars["targetUrn"])
 	}
 	// targetMemoryRef is omitted (not sent as null) so the server sees exactly one.
@@ -43,6 +46,47 @@ func TestNodeMoveToURN(t *testing.T) {
 	}
 	if dto["loc"] != "archive:flaky-ci" || dto["memoryId"] != "mem2" {
 		t.Errorf("unexpected dto: %v", dto)
+	}
+	if dto["urn"] != "hrn:node:acme.com::archive::archive:flaky-ci" {
+		t.Errorf("--json should carry the destination urn, got %v", dto["urn"])
+	}
+}
+
+// The human (non-JSON) confirmation identifies the node by its destination URN,
+// not by loc + display name (#197).
+func TestNodeMoveHumanOutputShowsURN(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"MoveNode":   movedNodeJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "move", nodeURN, "--to-urn", "acme.com::archive::archive:flaky-ci", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "to: hrn:node:acme.com::archive::archive:flaky-ci") {
+		t.Errorf("output should show the destination URN, got:\n%s", got)
+	}
+	if strings.Contains(got, "Flaky CI") {
+		t.Errorf("output should not build the summary from the display name, got:\n%s", got)
+	}
+}
+
+func TestNodeCloneHumanOutputShowsURN(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"CloneNode":  clonedNodeJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "clone", nodeURN, "--to-urn", "acme.com::kb::findings:new", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if got := out.String(); !strings.Contains(got, "to: hrn:node:acme.com::kb::findings:new") {
+		t.Errorf("output should show the new node's URN, got:\n%s", got)
 	}
 }
 

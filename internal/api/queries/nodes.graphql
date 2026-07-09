@@ -317,6 +317,7 @@ mutation MoveNode(
 ) {
   moveNode(sourceRef: $sourceRef, targetUrn: $targetUrn, targetMemoryRef: $targetMemoryRef) {
     id
+    urn
     memoryId
     loc
     name
@@ -341,6 +342,7 @@ mutation CloneNode(
 ) {
   cloneNode(sourceRef: $sourceRef, targetUrn: $targetUrn, targetMemoryRef: $targetMemoryRef) {
     id
+    urn
     memoryId
     loc
     name

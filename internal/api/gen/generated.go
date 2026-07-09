@@ -2731,7 +2731,9 @@ func (v *CloneMemoryResponse) GetCloneMemory() *CloneMemoryCloneMemory { return 
 
 // CloneNodeCloneNode includes the requested fields of the GraphQL type Node.
 type CloneNodeCloneNode struct {
-	Id         string   `json:"id"`
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<org>::<memory>::<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn        string   `json:"urn"`
 	MemoryId   string   `json:"memoryId"`
 	Loc        string   `json:"loc"`
 	Name       string   `json:"name"`
@@ -2743,6 +2745,9 @@ type CloneNodeCloneNode struct {
 
 // GetId returns CloneNodeCloneNode.Id, and is useful for accessing the field via an interface.
 func (v *CloneNodeCloneNode) GetId() string { return v.Id }
+
+// GetUrn returns CloneNodeCloneNode.Urn, and is useful for accessing the field via an interface.
+func (v *CloneNodeCloneNode) GetUrn() string { return v.Urn }
 
 // GetMemoryId returns CloneNodeCloneNode.MemoryId, and is useful for accessing the field via an interface.
 func (v *CloneNodeCloneNode) GetMemoryId() string { return v.MemoryId }
@@ -6396,7 +6401,9 @@ func (v *MintActionTicketsResponse) GetMintActionTickets() int { return v.MintAc
 
 // MoveNodeMoveNode includes the requested fields of the GraphQL type Node.
 type MoveNodeMoveNode struct {
-	Id         string   `json:"id"`
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<org>::<memory>::<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn        string   `json:"urn"`
 	MemoryId   string   `json:"memoryId"`
 	Loc        string   `json:"loc"`
 	Name       string   `json:"name"`
@@ -6408,6 +6415,9 @@ type MoveNodeMoveNode struct {
 
 // GetId returns MoveNodeMoveNode.Id, and is useful for accessing the field via an interface.
 func (v *MoveNodeMoveNode) GetId() string { return v.Id }
+
+// GetUrn returns MoveNodeMoveNode.Urn, and is useful for accessing the field via an interface.
+func (v *MoveNodeMoveNode) GetUrn() string { return v.Urn }
 
 // GetMemoryId returns MoveNodeMoveNode.MemoryId, and is useful for accessing the field via an interface.
 func (v *MoveNodeMoveNode) GetMemoryId() string { return v.MemoryId }
@@ -12221,6 +12231,7 @@ const CloneNode_Operation = `
 mutation CloneNode ($sourceRef: ID!, $targetUrn: String, $targetMemoryRef: ID) {
 	cloneNode(sourceRef: $sourceRef, targetUrn: $targetUrn, targetMemoryRef: $targetMemoryRef) {
 		id
+		urn
 		memoryId
 		loc
 		name
@@ -14138,6 +14149,7 @@ const MoveNode_Operation = `
 mutation MoveNode ($sourceRef: ID!, $targetUrn: String, $targetMemoryRef: ID) {
 	moveNode(sourceRef: $sourceRef, targetUrn: $targetUrn, targetMemoryRef: $targetMemoryRef) {
 		id
+		urn
 		memoryId
 		loc
 		name
