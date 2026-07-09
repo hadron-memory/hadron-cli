@@ -22,7 +22,7 @@ func TestNodeMoveToURN(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "move", nodeURN, "--to-urn", "acme.com::kb::archive:flaky-ci", "--server", gql.URL, "--json"})
+	root.SetArgs([]string{"node", "move", nodeURN, "--to-urn", "acme.com::archive::archive:flaky-ci", "--server", gql.URL, "--json"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestNodeMoveToURN(t *testing.T) {
 		t.Errorf("sourceRef = %v, want n1", vars["sourceRef"])
 	}
 	// A bare --to-urn is normalized to the canonical hrn:node: form.
-	if vars["targetUrn"] != "hrn:node:acme.com::kb::archive:flaky-ci" {
+	if vars["targetUrn"] != "hrn:node:acme.com::archive::archive:flaky-ci" {
 		t.Errorf("targetUrn = %v", vars["targetUrn"])
 	}
 	// targetMemoryRef is omitted (not sent as null) so the server sees exactly one.
