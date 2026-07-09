@@ -14,6 +14,7 @@ import (
 // and role are CLI-only additions the channel ignores.
 type projectChat struct {
 	Handle      string
+	Node        string
 	Memory      string
 	MessagesLoc string
 	Identity    string
@@ -21,9 +22,13 @@ type projectChat struct {
 }
 
 // projectConfigJSON is the on-disk shape (only the fields chat cares about).
+// chat.node is a single node URN packing memory + messagesLoc (the message
+// parent); memory/messagesLoc are the equivalent two-field form the push channel
+// uses. Either identifies the chat.
 type projectConfigJSON struct {
 	Handle string `json:"handle"`
 	Chat   struct {
+		Node        string `json:"node"`
 		Memory      string `json:"memory"`
 		MessagesLoc string `json:"messagesLoc"`
 		Identity    string `json:"identity"`
@@ -47,6 +52,7 @@ func loadProjectChat() projectChat {
 			if json.Unmarshal(raw, &c) == nil {
 				return projectChat{
 					Handle:      c.Handle,
+					Node:        c.Chat.Node,
 					Memory:      c.Chat.Memory,
 					MessagesLoc: c.Chat.MessagesLoc,
 					Identity:    c.Chat.Identity,

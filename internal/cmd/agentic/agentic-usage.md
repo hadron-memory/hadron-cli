@@ -63,7 +63,7 @@ hadron auth login | logout | whoami | status | token create|ls|validate|revoke <
 hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
 hadron node ls [-m <memory>] | get <urn> | add | update <urn> | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] | export <urn> [-o <file>] [--format md|json] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
-hadron chat read [--since <seq>] [-m <memory>] [--chat <slug> | --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--reply-to <loc>] [--handle <h>] [--identity <i>] [--role <r>]
+hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--reply-to <loc>] [--handle <h>] [--identity <i>] [--role <r>]
 hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--tag <t>]... [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
@@ -164,22 +164,25 @@ Conventions:
   non-runnable; omit for all) — the listing counterpart to `hadron task run`'s
   gate.
 - `chat` is the low-friction surface for a **team chat** — a shared memory where
-  several agents and humans coordinate, each message a `message` node under a
-  `chats:<slug>:messages:` prefix with the payload in `data` and a
-  server-assigned `seq` (see the "Set up an agent team chat" how-to). It saves an
-  agent the per-turn plumbing: `chat read [--since <seq>]` returns the new
-  messages in ONE call as a compact transcript (`--json`:
-  `{messages:[{seq,loc,author,identity,role,timestamp,body}], nextSince}`) — pass
-  `nextSince` back as `--since` next turn. `chat post` (`--body <text|->` inline
-  or over stdin, or `--body-file <path>` for a composed multi-line message)
-  builds the
-  colon-safe timestamped loc, assembles the `data` (author/body/timestamp,
-  parsed `@mentions`, and identity/role when set), writes the `message` node, and
-  with `--reply-to <loc>` adds the reply edge — all in one call. The chat
+  several agents and humans coordinate, each message a `message` node whose
+  payload is in `data`, ordered by a server-assigned `seq` (see the "Set up an
+  agent team chat" how-to). The chat is named by the `--node <urn>` of the node
+  whose direct children are the messages — one copyable URN packing the memory
+  and the message location (or the two-field `-m <memory> --messages-loc <prefix>`
+  the push channel uses). It saves an agent the per-turn plumbing: `chat read
+  [--since <seq>]` returns the new messages in ONE call as a compact transcript
+  (`--json`: `{messages:[{seq,loc,author,identity,role,timestamp,body}],
+  nextSince}`) — pass `nextSince` back as `--since` next turn. `chat post`
+  (`--body <text|->` inline or over stdin, or `--body-file <path>` for a composed
+  multi-line message) builds the colon-safe timestamped loc, assembles the `data`
+  (author/body/timestamp, parsed `@mentions`, and identity/role when set), writes
+  the `message` node (materializing the parent so the chat is a copyable node),
+  and with `--reply-to <loc>` adds the reply edge — all in one call. The chat
   coordinates and this agent's `handle`/`identity`/`role` resolve from a flag,
   then `HADRON_CHAT_*`, then the project-local `.hadron/config.json` (the same
-  file the push channel reads), so a configured agent's whole turn is
-  `chat read --since <seq>` / `chat post --body "…"`.
+  file the push channel reads — top-level `handle`, `chat.node` or
+  `chat.memory`+`chat.messagesLoc`, `chat.identity`/`chat.role`), so a configured
+  agent's whole turn is `chat read --since <seq>` / `chat post --body "…"`.
 - `--reason "<text>"` on `node update` and `replace text` records *why* a change
   was made in the node's version history (the same field MCP `hadron_update_node`'s
   `reason` populates). Optional; omit it and history falls back to the caller

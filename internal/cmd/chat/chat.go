@@ -29,11 +29,17 @@ func NewCmdChat(f *cmdutil.Factory) *cobra.Command {
 over the message-node protocol, built so an AI agent spends as few tokens and as
 little attention as possible on coordination.
 
-The chat coordinates and this agent's identity resolve from (highest first):
-a flag, the matching HADRON_CHAT_* env var, then the project-local
+A chat is named by the URN of the node whose direct children are its messages
+(--node, or "chat":{"node"} in config) — one copyable value that packs the
+memory and the message location. The two-field form (-m + --messages-loc, or
+"chat":{"memory","messagesLoc"} — what the push channel uses) is equivalent.
+
+Those coordinates and this agent's identity resolve from (highest first): a
+flag, the matching HADRON_CHAT_* env var, then the project-local
 .hadron/config.json (the same file the hadron-client push channel reads —
-top-level "handle" and "chat": { "memory", "messagesLoc", "identity", "role" }).
-Configure once and a turn is just 'chat read --since <seq>' / 'chat post --body …'.`,
+top-level "handle" and "chat": { "node" | "memory"+"messagesLoc", "identity",
+"role" }). Configure once and a turn is just 'chat read --since <seq>' /
+'chat post --body …'.`,
 	}
 	cmd.AddCommand(newCmdRead(f))
 	cmd.AddCommand(newCmdPost(f))
@@ -41,30 +47,56 @@ Configure once and a turn is just 'chat read --since <seq>' / 'chat post --body 
 }
 
 // coords is the resolved (memory, messagesLoc) of one chat. messagesLoc is the
-// loc prefix whose child nodes are the messages (e.g. "chats:api-redesign:messages").
+// loc prefix whose direct child nodes are the messages (e.g.
+// "team-chat:academy:chat:messages").
 type coords struct {
 	memory      string
 	messagesLoc string
 }
 
-// resolveCoords applies flag > env > config > --chat sugar to locate the chat.
-// --chat <slug> expands to the how-to convention "chats:<slug>:messages" when no
-// explicit messagesLoc is given.
-func resolveCoords(pc projectChat, memoryFlag, messagesLocFlag, chatSlug string) (coords, error) {
+// resolveCoords locates the chat. The primary form is a single message-parent
+// node URN — --node, then HADRON_CHAT_NODE, then chat.node — which packs the
+// memory and messagesLoc into one copyable, URN-conformant value. The
+// equivalent two-field form (-m + --messages-loc, the HADRON_CHAT_MEMORY /
+// HADRON_CHAT_MESSAGES_LOC env vars, or chat.memory + chat.messagesLoc — what
+// the push channel uses) is the fallback. All resolve to the same (memory,
+// messagesLoc); messages are direct children of messagesLoc.
+func resolveCoords(pc projectChat, nodeFlag, memoryFlag, messagesLocFlag string) (coords, error) {
+	if ref := firstNonEmpty(nodeFlag, os.Getenv("HADRON_CHAT_NODE"), pc.Node); ref != "" {
+		memory, loc, err := splitNodeURN(ref)
+		if err != nil {
+			return coords{}, err
+		}
+		return coords{memory: memory, messagesLoc: loc}, nil
+	}
 	memory := firstNonEmpty(memoryFlag, os.Getenv("HADRON_CHAT_MEMORY"), pc.Memory)
 	if memory == "" {
-		return coords{}, exitcode.Newf(exitcode.Usage, "no chat memory — pass -m/--memory, set HADRON_CHAT_MEMORY, or add chat.memory to .hadron/config.json")
+		return coords{}, exitcode.Newf(exitcode.Usage, "no chat — pass --node <message-parent-urn>, or -m/--memory + --messages-loc; or set them (chat.node, or chat.memory + chat.messagesLoc) in .hadron/config.json")
 	}
 	messagesLoc := firstNonEmpty(messagesLocFlag, os.Getenv("HADRON_CHAT_MESSAGES_LOC"), pc.MessagesLoc)
-	if messagesLoc == "" && chatSlug != "" {
-		messagesLoc = "chats:" + chatSlug + ":messages"
-	}
 	if messagesLoc == "" {
-		return coords{}, exitcode.Newf(exitcode.Usage, "no chat location — pass --chat <slug> or --messages-loc <prefix>, set HADRON_CHAT_MESSAGES_LOC, or add chat.messagesLoc to .hadron/config.json")
+		return coords{}, exitcode.Newf(exitcode.Usage, "no message location — pass --messages-loc <prefix> (or use --node <urn>), set HADRON_CHAT_MESSAGES_LOC, or add chat.messagesLoc to .hadron/config.json")
 	}
 	// A trailing colon would double against the ":<id>" join; normalize it off.
 	messagesLoc = strings.TrimSuffix(messagesLoc, ":")
 	return coords{memory: memory, messagesLoc: messagesLoc}, nil
+}
+
+// splitNodeURN splits a fully-qualified node URN into its memory (org::memory)
+// and loc. Accepts an optional hrn:node: / urn:node: prefix. The loc is the
+// message-parent prefix — its direct children are the messages.
+func splitNodeURN(ref string) (memory, loc string, err error) {
+	s := strings.TrimSpace(ref)
+	for _, p := range []string{"hrn:node:", "urn:node:"} {
+		s = strings.TrimPrefix(s, p)
+	}
+	// A node URN is <org>::<memory>::<loc> — exactly two "::" separators (a loc
+	// uses single colons). SplitN keeps any "::" inside the loc intact.
+	parts := strings.SplitN(s, "::", 3)
+	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+		return "", "", exitcode.Newf(exitcode.Usage, "%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (optionally hrn:node:-prefixed)", ref)
+	}
+	return parts[0] + "::" + parts[1], strings.TrimSuffix(parts[2], ":"), nil
 }
 
 // message is the parsed, chat-shaped view of one message node — only the fields

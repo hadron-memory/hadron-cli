@@ -25,7 +25,7 @@ type readDTO struct {
 }
 
 func newCmdRead(f *cmdutil.Factory) *cobra.Command {
-	var memory, messagesLoc, chatSlug string
+	var node, memory, messagesLoc string
 	var since int
 	cmd := &cobra.Command{
 		Use:     "read [--since <seq>]",
@@ -38,10 +38,10 @@ for the whole history. The response's nextSince is the seq to pass next turn.
 Output is a compact transcript ("[<seq>] <author> (<role>): <body>"); --json
 returns { messages:[{seq,loc,author,identity,role,timestamp,body}], nextSince }.`,
 		Example: `  hadron chat read --since 42
-  hadron chat read --chat api-redesign -m acme.com::team-chats --json`,
+  hadron chat read --node acme.com::team-chats::team-chat:api:messages --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, err := resolveCoords(loadProjectChat(), memory, messagesLoc, chatSlug)
+			c, err := resolveCoords(loadProjectChat(), node, memory, messagesLoc)
 			if err != nil {
 				return err
 			}
@@ -74,10 +74,12 @@ returns { messages:[{seq,loc,author,identity,role,timestamp,body}], nextSince }.
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "chat memory (org::memory); overrides config/env")
-	cmd.Flags().StringVar(&chatSlug, "chat", "", "chat slug (expands to loc prefix chats:<slug>:messages)")
-	cmd.Flags().StringVar(&messagesLoc, "messages-loc", "", "explicit messages loc prefix (overrides --chat)")
+	cmd.Flags().StringVar(&node, "node", "", "message-parent node URN (org::memory::loc); packs memory + message location")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "chat memory (org::memory); the two-field form with --messages-loc")
+	cmd.Flags().StringVar(&messagesLoc, "messages-loc", "", "message-parent loc prefix; the two-field form with -m")
 	cmd.Flags().IntVar(&since, "since", 0, "only messages with seq greater than this (0 = whole history)")
+	cmd.MarkFlagsMutuallyExclusive("node", "memory")
+	cmd.MarkFlagsMutuallyExclusive("node", "messages-loc")
 	return cmd
 }
 

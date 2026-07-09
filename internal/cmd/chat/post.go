@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -25,14 +27,15 @@ type postDTO struct {
 }
 
 func newCmdPost(f *cmdutil.Factory) *cobra.Command {
-	var memory, messagesLoc, chatSlug, handle, identity, role, body, bodyFile, replyTo string
+	var node, memory, messagesLoc, handle, identity, role, body, bodyFile, replyTo string
 	cmd := &cobra.Command{
 		Use:   "post (--body <text|-> | --body-file <path>)",
 		Short: "Post a message to a team chat",
 		Long: `Post one message to a team chat. This builds the timestamped, colon-safe loc,
 assembles the data payload (author/body/timestamp/mentions, plus identity/role
 when set), creates the message node, and — with --reply-to — adds the reply edge,
-all in one call.
+all in one call. It also materializes the message-parent node (best-effort) so
+the chat shows up as a real, copyable node in the portal.
 
 The body comes from --body <text> (inline), --body - (stdin), or --body-file
 <path> (a file — handy for a composed, multi-line message that would be painful
@@ -42,12 +45,12 @@ Identity resolves from flags, then HADRON_CHAT_HANDLE, then .hadron/config.json
 (top-level "handle"; chat.identity / chat.role), so a configured agent posts
 with just --body.`,
 		Example: `  hadron chat post --body "@rufus schema looks good, shipping it"
-  hadron chat post --chat api-redesign -m acme.com::team-chats --handle iris \
-    --role "Backend Engineer" --body "done" --reply-to chats:api-redesign:messages:...-rufus`,
+  hadron chat post --node acme.com::team-chats::team-chat:api:messages --handle iris \
+    --role "Backend Engineer" --body "done" --reply-to team-chat:api:messages:...-rufus`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pc := loadProjectChat()
-			c, err := resolveCoords(pc, memory, messagesLoc, chatSlug)
+			c, err := resolveCoords(pc, node, memory, messagesLoc)
 			if err != nil {
 				return err
 			}
@@ -89,6 +92,13 @@ with just --body.`,
 			}
 			dataMsg := json.RawMessage(raw)
 
+			// Best-effort: materialize the message-parent as a real "chat" node so
+			// the chat is a copyable node in the portal. Locs don't require the
+			// parent to exist (messages post fine without it), so this is purely
+			// cosmetic — ignore every outcome, including the expected conflict once
+			// it already exists, and never let it block the post.
+			ensureChatParent(cmd.Context(), client, c)
+
 			input := gen.CreateNodeInput{
 				MemoryId: c.memory,
 				Loc:      loc,
@@ -118,9 +128,11 @@ with just --body.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "chat memory (org::memory); overrides config/env")
-	cmd.Flags().StringVar(&chatSlug, "chat", "", "chat slug (expands to loc prefix chats:<slug>:messages)")
-	cmd.Flags().StringVar(&messagesLoc, "messages-loc", "", "explicit messages loc prefix (overrides --chat)")
+	cmd.Flags().StringVar(&node, "node", "", "message-parent node URN (org::memory::loc); packs memory + message location")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "chat memory (org::memory); the two-field form with --messages-loc")
+	cmd.Flags().StringVar(&messagesLoc, "messages-loc", "", "message-parent loc prefix; the two-field form with -m")
+	cmd.MarkFlagsMutuallyExclusive("node", "memory")
+	cmd.MarkFlagsMutuallyExclusive("node", "messages-loc")
 	cmd.Flags().StringVar(&handle, "handle", "", "this agent's chat handle (overrides config/env)")
 	cmd.Flags().StringVar(&identity, "identity", "", "real identity, e.g. the model name (default \"human\" convention); optional")
 	cmd.Flags().StringVar(&role, "role", "", "this agent's role, e.g. \"Backend Engineer\"; optional")
@@ -160,3 +172,19 @@ func resolveBody(cmd *cobra.Command, body, bodyFile string, stdin io.Reader) (st
 }
 
 func strPtr(s string) *string { return &s }
+
+// ensureChatParent best-effort creates the message-parent node so the chat is a
+// real, copyable node. Create-only, so a re-post conflicts harmlessly; all
+// outcomes are ignored — this must never affect the post.
+func ensureChatParent(ctx context.Context, client graphql.Client, c coords) {
+	name := c.messagesLoc
+	if i := strings.LastIndex(c.messagesLoc, ":"); i >= 0 {
+		name = c.messagesLoc[i+1:]
+	}
+	_, _ = gen.CreateNode(ctx, client, &gen.CreateNodeInput{
+		MemoryId: c.memory,
+		Loc:      c.messagesLoc,
+		Name:     name,
+		NodeType: strPtr("chat"),
+	})
+}
