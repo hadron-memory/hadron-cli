@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,7 +30,7 @@ func TestChatReadJSON(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"chat", "read", "-m", "acme.com::tc", "--chat", "api", "--since", "1", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"chat", "read", "--node", "acme.com::tc::chats:api:messages", "--since", "1", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -44,7 +46,7 @@ func TestChatReadJSON(t *testing.T) {
 		t.Errorf("memory filter: %+v", vars.Filter)
 	}
 	if vars.Filter.LocPrefix != "chats:api:messages:" {
-		t.Errorf("--chat should derive the prefix, got %q", vars.Filter.LocPrefix)
+		t.Errorf("--node's loc should become the message prefix, got %q", vars.Filter.LocPrefix)
 	}
 	var dto struct {
 		Messages []struct {
@@ -75,7 +77,7 @@ func TestChatReadSinceFilter(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"chat", "read", "-m", "acme.com::tc", "--chat", "api", "--since", "3", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"chat", "read", "--node", "acme.com::tc::chats:api:messages", "--since", "3", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -93,7 +95,7 @@ func TestChatReadTranscript(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"chat", "read", "-m", "acme.com::tc", "--chat", "api", "--server", gql.URL})
+	root.SetArgs([]string{"chat", "read", "--node", "acme.com::tc::chats:api:messages", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -108,7 +110,7 @@ func TestChatPost(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"chat", "post", "-m", "acme.com::tc", "--chat", "api", "--handle", "iris",
+	root.SetArgs([]string{"chat", "post", "--node", "acme.com::tc::chats:api:messages", "--handle", "iris",
 		"--role", "Backend", "--body", "@rufus schema looks good", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -162,7 +164,7 @@ func TestChatPostReplyEdge(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"chat", "post", "-m", "acme.com::tc", "--chat", "api", "--handle", "iris",
+	root.SetArgs([]string{"chat", "post", "--node", "acme.com::tc::chats:api:messages", "--handle", "iris",
 		"--body", "done", "--reply-to", "chats:api:messages:t1-rufus", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -240,7 +242,7 @@ func TestChatPostBodyFile(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"chat", "post", "-m", "acme.com::tc", "--chat", "api", "--handle", "iris",
+	root.SetArgs([]string{"chat", "post", "--node", "acme.com::tc::chats:api:messages", "--handle", "iris",
 		"--body-file", file, "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -273,7 +275,7 @@ func TestChatPostBodySourceExclusive(t *testing.T) {
 	for _, extra := range cases {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
-		args := append([]string{"chat", "post", "-m", "acme.com::tc", "--chat", "api", "--handle", "iris"}, extra...)
+		args := append([]string{"chat", "post", "--node", "acme.com::tc::chats:api:messages", "--handle", "iris"}, extra...)
 		root.SetArgs(append(args, "--server", "http://127.0.0.1:1"))
 		if err := root.Execute(); err == nil {
 			t.Fatalf("expected a usage error for body args %v", extra)
@@ -281,13 +283,104 @@ func TestChatPostBodySourceExclusive(t *testing.T) {
 	}
 }
 
+// A single chat.node URN in config supplies both memory and message location.
+func TestChatPostUsesNodeConfig(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".hadron"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := `{"handle":"iris","chat":{"node":"acme.com::tc::team-chat:api:messages","role":"Backend"}}`
+	if err := os.WriteFile(filepath.Join(dir, ".hadron", "config.json"), []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(dir)
+
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateNode": `{"data":{"createNode":{"id":"n1","memoryId":"mem1","loc":"team-chat:api:messages:STAMP-iris","name":"m","nodeType":"message","tags":[],"seq":2,"isRunnable":false,"updatedAt":"2026-06-21T00:00:00Z"}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"chat", "post", "--body", "hi", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input struct {
+			MemoryId string `json:"memoryId"`
+			Loc      string `json:"loc"`
+		} `json:"input"`
+	}
+	_ = json.Unmarshal(captured["CreateNode"], &vars)
+	if vars.Input.MemoryId != "acme.com::tc" {
+		t.Errorf("chat.node should supply the memory, got %q", vars.Input.MemoryId)
+	}
+	if !strings.HasPrefix(vars.Input.Loc, "team-chat:api:messages:") {
+		t.Errorf("chat.node's loc should be the message prefix, got %q", vars.Input.Loc)
+	}
+}
+
+// --node packs memory + loc, so it's mutually exclusive with -m / --messages-loc.
+func TestChatNodeExclusiveWithMemory(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"chat", "read", "--node", "a::b::c:d", "-m", "a::b", "--server", "http://127.0.0.1:1"})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected mutual-exclusivity error for --node with -m")
+	}
+}
+
+// post best-effort materializes the message-parent node (nodeType chat) so the
+// chat is a real, copyable node — alongside the message itself.
+func TestChatPostMaterializesParent(t *testing.T) {
+	var locs []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Variables struct {
+				Input struct {
+					Loc string `json:"loc"`
+				} `json:"input"`
+			} `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body.Variables.Input.Loc != "" {
+			locs = append(locs, body.Variables.Input.Loc)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"createNode":{"id":"n1","memoryId":"mem1","loc":"team-chat:api:messages:x-iris","name":"m","nodeType":"message","tags":[],"seq":1,"isRunnable":false,"updatedAt":"2026-06-21T00:00:00Z"}}}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"chat", "post", "--node", "acme.com::tc::team-chat:api:messages",
+		"--handle", "iris", "--body", "hi", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var sawParent, sawMessage bool
+	for _, l := range locs {
+		if l == "team-chat:api:messages" {
+			sawParent = true
+		}
+		if strings.HasPrefix(l, "team-chat:api:messages:") {
+			sawMessage = true
+		}
+	}
+	if !sawParent {
+		t.Errorf("post should materialize the parent loc team-chat:api:messages, saw %v", locs)
+	}
+	if !sawMessage {
+		t.Errorf("post should create the message under the parent, saw %v", locs)
+	}
+}
+
 func TestChatReadRequiresCoords(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	// No -m/--chat and (in the test's cwd) no config → usage error.
+	// --messages-loc without -m/--node and (in the test's cwd) no config → error.
 	root.SetArgs([]string{"chat", "read", "--messages-loc", "chats:api:messages", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "no chat memory") {
-		t.Fatalf("expected missing-memory usage error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "no chat") {
+		t.Fatalf("expected missing-coordinates usage error, got %v", err)
 	}
 }
