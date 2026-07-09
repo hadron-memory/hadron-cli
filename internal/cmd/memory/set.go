@@ -45,8 +45,10 @@ every node under it, change.`,
   hadron memory set acme.com:project-kb --description "Long-form description"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Pure, so a bad slug is a usage error even offline.
-			if slug != "" {
+			// Pure, so a bad slug is a usage error even offline. Gate on
+			// Changed, not slug != "", so an explicit --slug "" is rejected
+			// (empty is invalid) rather than silently treated as "no slug".
+			if cmd.Flags().Changed("slug") {
 				if err := cmdutil.ValidateURNSlug("--slug", slug); err != nil {
 					return err
 				}
@@ -110,6 +112,8 @@ every node under it, change.`,
 				if slug != "" && !memorySlugIs(m.URN, slug) {
 					if resp, rerr := gen.UpdateMemory(cmd.Context(), client, m.ID, nil, nil, nil, nil, nil, nil, &slug); rerr != nil {
 						slugErr = api.MapError(rerr)
+					} else if resp == nil || resp.UpdateMemory == nil {
+						slugErr = exitcode.Newf(exitcode.Error, "server returned no memory on rename")
 					} else {
 						m = dtoFromUpdatedMemory(resp.UpdateMemory)
 					}
@@ -132,6 +136,9 @@ every node under it, change.`,
 				resp, err := gen.UpdateMemory(cmd.Context(), client, memID, optional(name), optional(short), optional(description), tagsArg, visArg, nil, urnArg)
 				if err != nil {
 					return api.MapError(err)
+				}
+				if resp == nil || resp.UpdateMemory == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no memory")
 				}
 				m = dtoFromUpdatedMemory(resp.UpdateMemory)
 				verb = "updated"

@@ -1320,6 +1320,18 @@ func TestMemorySetRejectsBadSlug(t *testing.T) {
 	}
 }
 
+// An explicit empty --slug is rejected (not silently treated as "no slug"), so
+// the caller fails fast instead of creating a memory under the derived slug.
+func TestMemorySetRejectsEmptySlug(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "KB", "--slug", "", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "not a valid URN slug") {
+		t.Fatalf("expected empty-slug rejection, got %v", err)
+	}
+}
+
 func TestMemorySetCreateRequiresOrgAndName(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
