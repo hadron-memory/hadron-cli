@@ -69,7 +69,7 @@ hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--pref
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
 hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | supersede <citation> | import spec-kit|code
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
-hadron ai-config ls [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] | update <id> ... | rm <id>
+hadron ai-config ls [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
 hadron org ls [--mine] | create --name <n> --urn <urn> | get <id> | update <id> | rm <id> | member ls|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
 hadron agent ls [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | ls --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --org <id> --name <n> [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
 hadron user search <query> [--limit N] [--offset N]
@@ -316,6 +316,10 @@ Conventions:
   underlying provider configs: `create` needs an owner (exactly one of
   `--app`/`--agent`/`--org`, ID or URN) plus `--name`/`--provider`/`--model`;
   the API key is a secret read via `--api-key -` (stdin) and never echoed back.
+  `--file <path>` (or `--file -` for stdin) reads the whole config — key
+  included — from a JSON object (keys mirror the flags: app/agent/org, name,
+  provider, model, apiKey, params, enabled), keeping the secret out of argv;
+  an explicit flag overrides the matching file field.
   `update <id>` changes only the fields you pass — `--api-key ""` clears the
   key, omitting it keeps it; `--param k=v` (repeatable) replaces the params
   object. `rm <id>` requires `--yes` non-interactively.
