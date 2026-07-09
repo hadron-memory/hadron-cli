@@ -11319,6 +11319,7 @@ type __UpdateMemoryInput struct {
 	Tags             *[]string         `json:"tags,omitempty"`
 	Visibility       *MemoryVisibility `json:"visibility,omitempty"`
 	Data             *json.RawMessage  `json:"data,omitempty"`
+	Urn              *string           `json:"urn,omitempty"`
 }
 
 // GetId returns __UpdateMemoryInput.Id, and is useful for accessing the field via an interface.
@@ -11341,6 +11342,9 @@ func (v *__UpdateMemoryInput) GetVisibility() *MemoryVisibility { return v.Visib
 
 // GetData returns __UpdateMemoryInput.Data, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryInput) GetData() *json.RawMessage { return v.Data }
+
+// GetUrn returns __UpdateMemoryInput.Urn, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetUrn() *string { return v.Urn }
 
 // __UpdateMemoryMemberRoleInput is used internally by genqlient
 type __UpdateMemoryMemberRoleInput struct {
@@ -15401,8 +15405,8 @@ func UpdateEdge(
 
 // The mutation executed by UpdateMemory.
 const UpdateMemory_Operation = `
-mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $data: JSON) {
-	updateMemory(id: $id, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, data: $data) {
+mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $data: JSON, $urn: String) {
+	updateMemory(id: $id, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, data: $data, urn: $urn) {
 		id
 		urn
 		name
@@ -15428,6 +15432,7 @@ func UpdateMemory(
 	tags *[]string,
 	visibility *MemoryVisibility,
 	data *json.RawMessage,
+	urn *string,
 ) (data_ *UpdateMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateMemory",
@@ -15440,6 +15445,7 @@ func UpdateMemory(
 			Tags:             tags,
 			Visibility:       visibility,
 			Data:             data,
+			Urn:              urn,
 		},
 	}
 
