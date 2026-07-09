@@ -14,6 +14,10 @@ import (
 //go:embed agentic-usage.md
 var usageDoc string
 
+// Doc returns the embedded agent-facing usage document — the authoritative
+// command contract. Exposed so a test can assert every command is documented.
+func Doc() string { return usageDoc }
+
 func NewCmdAgenticUsage(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "agentic-usage",
