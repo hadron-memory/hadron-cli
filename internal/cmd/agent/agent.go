@@ -296,6 +296,13 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 				!changed("system-prompt") && !changed("system-memory") && !changed("surface") && !changed("urn") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
+			// The server prepends the org (`<org>:<urn>`), so --urn is the agent
+			// slug — which may carry an author-org atom, hence a path check.
+			if changed("urn") {
+				if err := cmdutil.ValidateURNPath("--urn", urn); err != nil {
+					return err
+				}
+			}
 			at, err := parseAgentType(typ)
 			if err != nil {
 				return err

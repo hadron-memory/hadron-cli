@@ -248,6 +248,23 @@ func TestNodeAddUsesCreateNode(t *testing.T) {
 	}
 }
 
+// An invalid --loc (space) is rejected client-side, before any network call —
+// CreateNode must never be reached (issue #189).
+func TestNodeAddRejectsInvalidLoc(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "add", "-m", "acme.com::kb", "--loc", "bad loc", "--name", "X", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected an error for a loc with a space")
+	}
+	if _, ok := captured["CreateNode"]; ok {
+		t.Error("CreateNode should not be called when --loc is invalid")
+	}
+}
+
 func TestNodeUpdatePreservesUnsetFields(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,

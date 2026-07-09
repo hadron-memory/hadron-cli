@@ -33,6 +33,23 @@ func TestOrgCreate(t *testing.T) {
 	}
 }
 
+// An invalid --urn (space) is rejected client-side, before any network call —
+// CreateOrganization must never be reached (issue #189).
+func TestOrgCreateRejectsInvalidURN(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateOrganization": `{"data":{"createOrganization":` + orgJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "create", "--name", "Acme", "--urn", "Flow Lab", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected an error for a URN with a space")
+	}
+	if _, ok := captured["CreateOrganization"]; ok {
+		t.Error("CreateOrganization should not be called when --urn is invalid")
+	}
+}
+
 func TestOrgGetNotFound(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetOrganization": `{"data":{"organization":null}}`,

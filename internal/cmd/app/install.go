@@ -27,6 +27,12 @@ func newCmdInstall(f *cmdutil.Factory) *cobra.Command {
   hadron app install --org acme.com --agent agent_123 --name "Support Bot" --type CHATBOT`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// --urn is an optional slug; validate it only when supplied.
+			if urn != "" {
+				if err := cmdutil.ValidateURNSlug("--urn", urn); err != nil {
+					return err
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
