@@ -43,6 +43,9 @@ input; --content-file reads it from a file.`,
   cat finding.md | hadron node add -m acme.com::kb --loc findings:flaky-ci --name "Flaky CI" --content -`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := cmdutil.ValidateURNPath("--loc", loc); err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err

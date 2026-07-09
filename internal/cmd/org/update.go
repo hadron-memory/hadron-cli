@@ -29,6 +29,11 @@ Use --visible=false to hide it from listings.`,
 			if !changed("name") && !changed("urn") && !changed("visible") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass --name, --urn, or --visible")
 			}
+			if changed("urn") {
+				if err := cmdutil.ValidateURNSlug("--urn", urn); err != nil {
+					return err
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
