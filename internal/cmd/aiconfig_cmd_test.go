@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -102,6 +104,113 @@ func TestAiConfigCreateRejectsMultipleOwners(t *testing.T) {
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
 		t.Fatalf("expected mutual-exclusion error, got %v", err)
+	}
+}
+
+// --file carries the whole config, key included, so nothing sensitive touches
+// argv. Every field is read from the file.
+func TestAiConfigCreateFromFile(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateAiServiceConfig": `{"data":{"createAiServiceConfig":` + aiCfgJSON + `}}`,
+	})
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cfg.json")
+	spec := `{"app":"acme.com:juno-app","name":"default","provider":"anthropic",
+		"model":"claude-opus-4-8","apiKey":"sk-file-key","params":{"maxTokens":4096},"enabled":false}`
+	if err := os.WriteFile(path, []byte(spec), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"ai-config", "create", "--file", path, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateAiServiceConfig"], &vars)
+	if vars["name"] != "default" || vars["provider"] != "anthropic" || vars["model"] != "claude-opus-4-8" {
+		t.Errorf("core fields wrong: %v", vars)
+	}
+	if vars["ownerType"] != "APP" || vars["ownerId"] != "acme.com:juno-app" {
+		t.Errorf("file app should map to ownerType APP + ownerId: %v", vars)
+	}
+	if vars["apiKey"] != "sk-file-key" {
+		t.Errorf("apiKey should come from the file, got %v", vars["apiKey"])
+	}
+	if vars["enabled"] != false {
+		t.Errorf("file enabled=false should disable, got %v", vars["enabled"])
+	}
+	if p, _ := vars["params"].(map[string]any); p["maxTokens"] != float64(4096) {
+		t.Errorf("params should come from the file: %v", vars["params"])
+	}
+	if strings.Contains(out.String(), "sk-file-key") {
+		t.Errorf("create output leaked the API key:\n%s", out.String())
+	}
+}
+
+// An explicit flag overrides the file's value for that field; the rest of the
+// file still applies.
+func TestAiConfigCreateFileFlagOverride(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateAiServiceConfig": `{"data":{"createAiServiceConfig":` + aiCfgJSON + `}}`,
+	})
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cfg.json")
+	spec := `{"org":"acme.com","name":"fast","provider":"openai","model":"gpt-4o-mini"}`
+	if err := os.WriteFile(path, []byte(spec), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"ai-config", "create", "--file", path, "--model", "gpt-4o", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateAiServiceConfig"], &vars)
+	if vars["model"] != "gpt-4o" {
+		t.Errorf("--model flag should override the file's model, got %v", vars["model"])
+	}
+	if vars["name"] != "fast" || vars["ownerType"] != "ORGANIZATION" {
+		t.Errorf("unoverridden file fields should still apply: %v", vars)
+	}
+}
+
+// --file - reads the JSON spec (key included) from stdin.
+func TestAiConfigCreateFileStdin(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateAiServiceConfig": `{"data":{"createAiServiceConfig":` + aiCfgJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader(
+		`{"org":"acme.com","name":"default","provider":"anthropic","model":"claude-opus-4-8","apiKey":"sk-piped"}`)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"ai-config", "create", "--file", "-", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateAiServiceConfig"], &vars)
+	if vars["apiKey"] != "sk-piped" || vars["name"] != "default" {
+		t.Errorf("--file - should parse the piped JSON, got %v", vars)
+	}
+}
+
+// A typo'd key (here "modell") must be rejected, not silently dropped —
+// otherwise a mistyped field would vanish without warning.
+func TestAiConfigCreateFileRejectsUnknownField(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cfg.json")
+	spec := `{"org":"acme.com","name":"x","provider":"p","model":"m","modell":"oops"}`
+	if err := os.WriteFile(path, []byte(spec), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"ai-config", "create", "--file", path, "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "parsing --file") {
+		t.Fatalf("expected parse error on unknown field, got %v", err)
 	}
 }
 
