@@ -1,10 +1,10 @@
 query ResolveAiServiceConfigs(
   # @genqlient(omitempty: true)
-  $appId: ID
+  $appRef: ID
   # @genqlient(omitempty: true)
-  $agentId: ID
+  $agentRef: ID
 ) {
-  resolveAiServiceConfigs(appId: $appId, agentId: $agentId) {
+  resolveAiServiceConfigs(appRef: $appRef, agentRef: $agentRef) {
     id
     name
     ownerType
