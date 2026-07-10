@@ -1368,13 +1368,13 @@ func TestMemoryClone(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "clone", "acme.com::kb", "--name", "kb-fork", "--server", gql.URL, "--json"})
+	root.SetArgs([]string{"memory", "clone", "acme.com::kb", "--target-urn", "acme.com::kb-fork", "--server", gql.URL, "--json"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CloneMemory"], &vars)
-	if vars["id"] != "acme.com::kb" || vars["name"] != "kb-fork" {
+	if vars["ref"] != "acme.com::kb" || vars["targetUrn"] != "acme.com::kb-fork" {
 		t.Errorf("unexpected clone vars: %v", vars)
 	}
 	var dto map[string]any
@@ -1386,12 +1386,23 @@ func TestMemoryClone(t *testing.T) {
 	}
 }
 
-func TestMemoryCloneRequiresName(t *testing.T) {
+func TestMemoryCloneRequiresTargetURN(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"memory", "clone", "acme.com::kb"})
 	if err := root.Execute(); err == nil {
-		t.Fatal("expected an error when --name is missing")
+		t.Fatal("expected an error when --target-urn is missing")
+	}
+}
+
+func TestMemoryCloneRejectsRelativeTargetURN(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	// A bare slug (no "::") is caught client-side before any network call.
+	root.SetArgs([]string{"memory", "clone", "acme.com::kb", "--target-urn", "just-a-slug"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "fully-qualified") {
+		t.Fatalf("expected a fully-qualified URN error, got %v", err)
 	}
 }
 

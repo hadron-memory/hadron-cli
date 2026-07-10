@@ -2707,22 +2707,28 @@ func (v *CloneMemoryCloneMemory) GetUpdatedAt() string { return v.UpdatedAt }
 
 // CloneMemoryResponse is returned by CloneMemory on success.
 type CloneMemoryResponse struct {
-	// Clone a Memory into a new Memory (same org) named `name`.
+	// Clone a Memory into a new Memory at `targetUrn`.
 	//
-	// Accepts the source's ID or URN. Copies the Memory row plus all live
-	// Nodes, Edges, and PendingEdges; references to the source memory's URN
-	// inside node content/abstract (canonical and legacy spellings) are
-	// rewritten to the clone's URN. Vector-index config carries over and the
-	// clone's nodes are stamped for re-embedding.
+	// `ref` accepts the source's ID or URN. `targetUrn` is a fully-qualified
+	// "org::slug" memory URN naming the clone; its org segment MAY differ from
+	// the source's, cloning the memory into another organization. The clone's
+	// display name is derived from the target slug.
+	//
+	// Copies the Memory row plus all live Nodes, Edges, and PendingEdges;
+	// references to the source memory's URN inside node content/abstract
+	// (canonical and legacy spellings) are rewritten to the clone's URN.
+	// Vector-index config carries over and the clone's nodes are stamped for
+	// re-embedding.
 	//
 	// NOT copied: version history, subscriptions, shares, group members
 	// (the caller is bootstrapped as a group clone's first owner), sessions,
 	// licenses, log entries, assets, and git-sync config (the clone starts
 	// DB-only).
 	//
-	// Authorization mirrors deleteMemory: personal/private → owner only;
-	// knowledge/group → org ADMIN. system/app-class sources and encrypted
-	// memories are rejected.
+	// Authorization: the SOURCE side mirrors deleteMemory (personal/private →
+	// owner only; knowledge/group → source-org ADMIN). When `targetUrn` names a
+	// DIFFERENT org, the caller must additionally be a non-reader member of that
+	// target org. system/app-class sources and encrypted memories are rejected.
 	CloneMemory *CloneMemoryCloneMemory `json:"cloneMemory"`
 }
 
@@ -10400,15 +10406,15 @@ func (v *__ChatMessagesInput) GetOffset() *int { return v.Offset }
 
 // __CloneMemoryInput is used internally by genqlient
 type __CloneMemoryInput struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+	Ref       string `json:"ref"`
+	TargetUrn string `json:"targetUrn"`
 }
 
-// GetId returns __CloneMemoryInput.Id, and is useful for accessing the field via an interface.
-func (v *__CloneMemoryInput) GetId() string { return v.Id }
+// GetRef returns __CloneMemoryInput.Ref, and is useful for accessing the field via an interface.
+func (v *__CloneMemoryInput) GetRef() string { return v.Ref }
 
-// GetName returns __CloneMemoryInput.Name, and is useful for accessing the field via an interface.
-func (v *__CloneMemoryInput) GetName() string { return v.Name }
+// GetTargetUrn returns __CloneMemoryInput.TargetUrn, and is useful for accessing the field via an interface.
+func (v *__CloneMemoryInput) GetTargetUrn() string { return v.TargetUrn }
 
 // __CloneNodeInput is used internally by genqlient
 type __CloneNodeInput struct {
@@ -12188,8 +12194,8 @@ func ChatMessages(
 
 // The mutation executed by CloneMemory.
 const CloneMemory_Operation = `
-mutation CloneMemory ($id: ID!, $name: String!) {
-	cloneMemory(id: $id, name: $name) {
+mutation CloneMemory ($ref: ID!, $targetUrn: String!) {
+	cloneMemory(ref: $ref, targetUrn: $targetUrn) {
 		id
 		urn
 		name
@@ -12206,15 +12212,15 @@ mutation CloneMemory ($id: ID!, $name: String!) {
 func CloneMemory(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
-	name string,
+	ref string,
+	targetUrn string,
 ) (data_ *CloneMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CloneMemory",
 		Query:  CloneMemory_Operation,
 		Variables: &__CloneMemoryInput{
-			Id:   id,
-			Name: name,
+			Ref:       ref,
+			TargetUrn: targetUrn,
 		},
 	}
 
