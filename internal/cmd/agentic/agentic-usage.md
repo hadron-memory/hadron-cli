@@ -60,7 +60,7 @@ node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 
 ```
 hadron auth login | logout | whoami | status | token create|ls|validate|revoke <id>
-hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --name <new-name> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
+hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn <org::slug> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
 hadron node ls [-m <memory>] | get <urn> | add | update <urn> | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] | export <urn> [-o <file>] [--format md|json] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
 hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--reply-to <loc>] [--handle <h>] [--identity <i>] [--role <r>]
@@ -240,11 +240,14 @@ Conventions:
     the run id in `jobId` (follow it with `run get <id>`). `--task-args <json>`
     adds template args and `--app <ref>` names the App (default: your active
     App); both require `--task`.
-- `memory clone` deep-copies a memory (nodes, edges, pending edges)
-  into a new same-org memory and rewrites references to the source
-  memory's URN inside node content and abstracts. Version history,
-  shares/subscriptions, assets, and git-sync config are NOT copied.
-  Encrypted memories and agent system / app memories cannot be cloned.
+- `memory clone <id-or-urn> --target-urn <org::slug>` deep-copies a memory
+  (nodes, edges, pending edges) into a new memory named by `--target-urn`
+  (a fully-qualified "org::slug" URN) and rewrites references to the source
+  memory's URN inside node content and abstracts. The target org MAY differ
+  from the source's, cloning into another org — you must be a non-reader
+  member of that target org. Version history, shares/subscriptions, assets,
+  and git-sync config are NOT copied. Encrypted memories and agent system /
+  app memories cannot be cloned.
 - `memory export <id-or-urn> [--out <dir>]` writes every node to a local
   directory (`--out` defaults to `.`, the current directory) as frontmatter
   markdown (`<out>/<loc>.md`, one self-contained file per node, colons in the

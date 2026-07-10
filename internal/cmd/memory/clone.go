@@ -3,6 +3,7 @@ package memory
 import (
 	"errors"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -36,6 +37,12 @@ Encrypted memories and agent system / app memories cannot be cloned.`,
   hadron memory clone acme.com:project-kb --target-urn other-org::project-kb`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Coarse client-side gate: a fully-qualified memory URN carries the
+			// canonical "::" org→slug separator. Reject an obviously-relative
+			// value before the round-trip; the server does the full validation.
+			if !strings.Contains(targetURN, "::") {
+				return errors.New("--target-urn must be a fully-qualified \"org::slug\" memory URN")
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err

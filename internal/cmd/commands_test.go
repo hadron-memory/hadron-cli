@@ -1395,6 +1395,17 @@ func TestMemoryCloneRequiresTargetURN(t *testing.T) {
 	}
 }
 
+func TestMemoryCloneRejectsRelativeTargetURN(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	// A bare slug (no "::") is caught client-side before any network call.
+	root.SetArgs([]string{"memory", "clone", "acme.com::kb", "--target-urn", "just-a-slug"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "fully-qualified") {
+		t.Fatalf("expected a fully-qualified URN error, got %v", err)
+	}
+}
+
 const appJSON = `{"id":"app1","urn":"urn:agent:acme.com::bot::acme.com:helper","name":"Bot",
 	"appType":"CHATBOT","agentId":"agent1","memberCount":2,"createdAt":"2026-06-11T00:00:00Z"}`
 
