@@ -2779,7 +2779,7 @@ type Query {
   
   Accepts the entity's ID or URN.
   """
-  agentAIConfig(agentId: ID!): AgentAIConfig
+  agentAIConfig(agentRef: ID!): AgentAIConfig
   agentAssets(agentUrn: String!, count: Int = 20, includeDeleted: Boolean = false, mimeType: String, skip: Int = 0): AssetListResult!
   agentSchedules(appRef: String!, limit: Int, offset: Int): AgentSchedulesPage!
 
@@ -2789,7 +2789,7 @@ type Query {
   
   Accepts the entity's ID or URN.
   """
-  agentSubscriptions(agentId: ID!): [AgentSubscription!]!
+  agentSubscriptions(agentRef: ID!): [AgentSubscription!]!
   agentWebhooks(appRef: String!, limit: Int, offset: Int): AgentWebhooksPage!
 
   """
@@ -2841,14 +2841,14 @@ type Query {
   
   Accepts the entity's ID or URN.
   """
-  appAIConfig(appId: ID!): AppAIConfig
+  appAIConfig(appRef: ID!): AppAIConfig
 
   """
   List keys for an App (org ADMIN of the App's org).
   
   Accepts the entity's ID or URN.
   """
-  appKeys(appId: ID!): [AppKey!]!
+  appKeys(appRef: ID!): [AppKey!]!
 
   """
   All nodes accessible by an App: the union of every installed agent's
@@ -2865,7 +2865,7 @@ type Query {
   updatedAfter/Before, includeDeleted) apply. Unlike findNodes, system-memory
   nodes are NOT excluded by default.
   """
-  appNodes(appId: ID!, filter: NodeFilter, limit: Int): [Node!]!
+  appNodes(appRef: ID!, filter: NodeFilter, limit: Int): [Node!]!
 
   """One run by ID (runs are URN-less, like AiServiceConfig)."""
   appRun(ref: ID!): AppRun
@@ -3055,7 +3055,7 @@ type Query {
   which the client drops as a dangling endpoint. Same access gate, paging, and
   deterministic loc-ascending order as memoryNodes.
   """
-  memoryEdges(limit: Int, memoryId: ID!, offset: Int): GraphEdgesPage!
+  memoryEdges(limit: Int, memoryRef: ID!, offset: Int): GraphEdgesPage!
 
   """
   Slim, paginated node list for rendering a memory's graph view (issue #466).
@@ -3072,14 +3072,14 @@ type Query {
   this memory" node count. Deterministic loc-ascending order so offset paging
   never drops/duplicates.
   """
-  memoryNodes(limit: Int, memoryId: ID!, offset: Int): GraphNodesPage!
+  memoryNodes(limit: Int, memoryRef: ID!, offset: Int): GraphNodesPage!
 
   """
   Aggregated usage counts per node and type for a memory.
   
   Accepts the entity's ID or URN.
   """
-  memoryUsageSummary(memoryId: ID!): [UsageSummaryEntry!]!
+  memoryUsageSummary(memoryRef: ID!): [UsageSummaryEntry!]!
   myAgentSubscriptions: [AgentSubscription!]!
   myApp: App
 
@@ -3089,7 +3089,7 @@ type Query {
   
   Accepts the entity's ID or URN.
   """
-  myChats(agentId: ID!, limit: Int, offset: Int): [Chat!]!
+  myChats(agentRef: ID!, limit: Int, offset: Int): [Chat!]!
 
   """
   025-oauth-for-mcp FR-004: list the calling User's API keys (active
@@ -3194,9 +3194,9 @@ type Query {
   Auth: org ADMIN of the effective context org, or platform
   ADMIN/OWNER (required when no app/agent context is given).
   
-  appId/agentId accept the entity's ID or URN.
+  appRef/agentRef accept the entity's ID or URN.
   """
-  resolveAIConfig(agentId: ID, appId: ID, name: String): ResolvedAiConfig!
+  resolveAIConfig(agentRef: ID, appRef: ID, name: String): ResolvedAiConfig!
 
   """
   036-ai-service-config: the MASKED set of configs RESOLVABLE in an
@@ -3212,15 +3212,15 @@ type Query {
   material (hasApiKey + apiKeyPreview only).
   
   Auth: scoped to one App's chat context. A non-admin caller MUST pass an
-  appId, be a member of that App, and (when an agentId is given) the Agent
+  appRef, be a member of that App, and (when an agentRef is given) the Agent
   must be installed in that App. Because the result is masked (no key
   material), App membership — not org admin — is the bar, unlike
   resolveAIConfig and the aiServiceConfigs management list. Platform
-  ADMIN/OWNER are always allowed and may omit appId.
+  ADMIN/OWNER are always allowed and may omit appRef.
   
-  appId/agentId accept the entity's ID or URN.
+  appRef/agentRef accept the entity's ID or URN.
   """
-  resolveAiServiceConfigs(agentId: ID, appId: ID): [AiServiceConfig!]!
+  resolveAiServiceConfigs(agentRef: ID, appRef: ID): [AiServiceConfig!]!
 
   """
   Resolve a fully-qualified, `hrn:<type>:`-prefixed Hadron URN (legacy `urn:` scheme also accepted) to the ids

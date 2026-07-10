@@ -7702,13 +7702,13 @@ type ResolveAiServiceConfigsResponse struct {
 	// material (hasApiKey + apiKeyPreview only).
 	//
 	// Auth: scoped to one App's chat context. A non-admin caller MUST pass an
-	// appId, be a member of that App, and (when an agentId is given) the Agent
+	// appRef, be a member of that App, and (when an agentRef is given) the Agent
 	// must be installed in that App. Because the result is masked (no key
 	// material), App membership — not org admin — is the bar, unlike
 	// resolveAIConfig and the aiServiceConfigs management list. Platform
-	// ADMIN/OWNER are always allowed and may omit appId.
+	// ADMIN/OWNER are always allowed and may omit appRef.
 	//
-	// appId/agentId accept the entity's ID or URN.
+	// appRef/agentRef accept the entity's ID or URN.
 	ResolveAiServiceConfigs []*ResolveAiServiceConfigsResolveAiServiceConfigsAiServiceConfig `json:"resolveAiServiceConfigs"`
 }
 
@@ -11068,15 +11068,15 @@ func (v *__RemoveOrgMemberInput) GetUserId() string { return v.UserId }
 
 // __ResolveAiServiceConfigsInput is used internally by genqlient
 type __ResolveAiServiceConfigsInput struct {
-	AppId   *string `json:"appId,omitempty"`
-	AgentId *string `json:"agentId,omitempty"`
+	AppRef   *string `json:"appRef,omitempty"`
+	AgentRef *string `json:"agentRef,omitempty"`
 }
 
-// GetAppId returns __ResolveAiServiceConfigsInput.AppId, and is useful for accessing the field via an interface.
-func (v *__ResolveAiServiceConfigsInput) GetAppId() *string { return v.AppId }
+// GetAppRef returns __ResolveAiServiceConfigsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__ResolveAiServiceConfigsInput) GetAppRef() *string { return v.AppRef }
 
-// GetAgentId returns __ResolveAiServiceConfigsInput.AgentId, and is useful for accessing the field via an interface.
-func (v *__ResolveAiServiceConfigsInput) GetAgentId() *string { return v.AgentId }
+// GetAgentRef returns __ResolveAiServiceConfigsInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__ResolveAiServiceConfigsInput) GetAgentRef() *string { return v.AgentRef }
 
 // __ResolveUrnInput is used internally by genqlient
 type __ResolveUrnInput struct {
@@ -14646,8 +14646,8 @@ func RemoveOrgMember(
 
 // The query executed by ResolveAiServiceConfigs.
 const ResolveAiServiceConfigs_Operation = `
-query ResolveAiServiceConfigs ($appId: ID, $agentId: ID) {
-	resolveAiServiceConfigs(appId: $appId, agentId: $agentId) {
+query ResolveAiServiceConfigs ($appRef: ID, $agentRef: ID) {
+	resolveAiServiceConfigs(appRef: $appRef, agentRef: $agentRef) {
 		id
 		name
 		ownerType
@@ -14667,15 +14667,15 @@ query ResolveAiServiceConfigs ($appId: ID, $agentId: ID) {
 func ResolveAiServiceConfigs(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	appId *string,
-	agentId *string,
+	appRef *string,
+	agentRef *string,
 ) (data_ *ResolveAiServiceConfigsResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "ResolveAiServiceConfigs",
 		Query:  ResolveAiServiceConfigs_Operation,
 		Variables: &__ResolveAiServiceConfigsInput{
-			AppId:   appId,
-			AgentId: agentId,
+			AppRef:   appRef,
+			AgentRef: agentRef,
 		},
 	}
 

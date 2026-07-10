@@ -1493,10 +1493,10 @@ func TestAiConfigLs(t *testing.T) {
 		}
 	}
 
-	// --app and --agent map to the appId/agentId variables (ID or URN, verbatim).
+	// --app and --agent map to the appRef/agentRef variables (ID or URN, verbatim).
 	var vars map[string]any
 	_ = json.Unmarshal(captured["ResolveAiServiceConfigs"], &vars)
-	if vars["appId"] != "acme.com:juno-app" || vars["agentId"] != "acme.com:juno" {
+	if vars["appRef"] != "acme.com:juno-app" || vars["agentRef"] != "acme.com:juno" {
 		t.Errorf("unexpected vars: %v", vars)
 	}
 }
@@ -1534,10 +1534,10 @@ func TestAiConfigLsJSONOmitsUnsetAgent(t *testing.T) {
 
 	var vars map[string]any
 	_ = json.Unmarshal(captured["ResolveAiServiceConfigs"], &vars)
-	if vars["appId"] != "acme.com:juno-app" {
-		t.Errorf("appId should map from --app, got %v", vars["appId"])
+	if vars["appRef"] != "acme.com:juno-app" {
+		t.Errorf("appRef should map from --app, got %v", vars["appRef"])
 	}
-	if v, present := vars["agentId"]; present {
+	if v, present := vars["agentRef"]; present {
 		t.Errorf("unset --agent must be omitted from variables, got %v", v)
 	}
 }
