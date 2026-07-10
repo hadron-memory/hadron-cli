@@ -136,8 +136,8 @@ query GetMemory($ref: ID!) {
   }
 }
 
-mutation CloneMemory($id: ID!, $name: String!) {
-  cloneMemory(id: $id, name: $name) {
+mutation CloneMemory($ref: ID!, $targetUrn: String!) {
+  cloneMemory(ref: $ref, targetUrn: $targetUrn) {
     id
     urn
     name
