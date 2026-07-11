@@ -1,0 +1,52 @@
+# --- Principal grants (design:grant-model; server #615) ---
+
+fragment PrincipalGrantFields on PrincipalGrant {
+  id
+  principalType
+  principalId
+  principalHandle
+  organizationId
+  organizationUrn
+  actions
+  expiresAt
+  createdAt
+}
+
+# Action grants. Default scope: the caller's own (self-audit is never gated).
+# An org admin passing orgRef sees that org's grants, optionally narrowed by
+# userRef. Paged { items, total }.
+query PrincipalGrants(
+  # @genqlient(omitempty: true)
+  $orgRef: String
+  # @genqlient(omitempty: true)
+  $userRef: String
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  principalGrants(orgRef: $orgRef, userRef: $userRef, limit: $limit, offset: $offset) {
+    total
+    items {
+      ...PrincipalGrantFields
+    }
+  }
+}
+
+# Grant a member extra management actions (org ADMIN, interactive-only).
+mutation CreatePrincipalGrant(
+  $orgRef: String!
+  $userRef: String!
+  $actions: [String!]!
+  # @genqlient(omitempty: true)
+  $expiresAt: String
+) {
+  createPrincipalGrant(orgRef: $orgRef, userRef: $userRef, actions: $actions, expiresAt: $expiresAt) {
+    ...PrincipalGrantFields
+  }
+}
+
+# Revoke an action grant (org ADMIN; soft delete).
+mutation RevokePrincipalGrant($ref: ID!) {
+  revokePrincipalGrant(ref: $ref)
+}

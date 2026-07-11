@@ -4094,6 +4094,136 @@ func (v *CreateOrganizationResponse) GetCreateOrganization() *CreateOrganization
 	return v.CreateOrganization
 }
 
+// CreatePrincipalGrantCreatePrincipalGrant includes the requested fields of the GraphQL type PrincipalGrant.
+// The GraphQL type's documentation follows.
+//
+// An individual action grant (design:grant-model): extra management actions for one member of one org, on top of their role bundle. Grantee and org are projected as scalars, never nested objects.
+type CreatePrincipalGrantCreatePrincipalGrant struct {
+	PrincipalGrantFields `json:"-"`
+}
+
+// GetId returns CreatePrincipalGrantCreatePrincipalGrant.Id, and is useful for accessing the field via an interface.
+func (v *CreatePrincipalGrantCreatePrincipalGrant) GetId() string { return v.PrincipalGrantFields.Id }
+
+// GetPrincipalType returns CreatePrincipalGrantCreatePrincipalGrant.PrincipalType, and is useful for accessing the field via an interface.
+func (v *CreatePrincipalGrantCreatePrincipalGrant) GetPrincipalType() string {
+	return v.PrincipalGrantFields.PrincipalType
+}
+
+// GetPrincipalId returns CreatePrincipalGrantCreatePrincipalGrant.PrincipalId, and is useful for accessing the field via an interface.
+func (v *CreatePrincipalGrantCreatePrincipalGrant) GetPrincipalId() string {
+	return v.PrincipalGrantFields.PrincipalId
+}
+
+// GetPrincipalHandle returns CreatePrincipalGrantCreatePrincipalGrant.PrincipalHandle, and is useful for accessing the field via an interface.
+func (v *CreatePrincipalGrantCreatePrincipalGrant) GetPrincipalHandle() *string {
+	return v.PrincipalGrantFields.PrincipalHandle
+}
+
+// GetOrganizationId returns CreatePrincipalGrantCreatePrincipalGrant.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreatePrincipalGrantCreatePrincipalGrant) GetOrganizationId() string {
+	return v.PrincipalGrantFields.OrganizationId
+}
+
+// GetOrganizationUrn returns CreatePrincipalGrantCreatePrincipalGrant.OrganizationUrn, and is useful for accessing the field via an interface.
+func (v *CreatePrincipalGrantCreatePrincipalGrant) GetOrganizationUrn() *string {
+	return v.PrincipalGrantFields.OrganizationUrn
+}
+
+// GetActions returns CreatePrincipalGrantCreatePrincipalGrant.Actions, and is useful for accessing the field via an interface.
+func (v *CreatePrincipalGrantCreatePrincipalGrant) GetActions() []string {
+	return v.PrincipalGrantFields.Actions
+}
+
+// GetExpiresAt returns CreatePrincipalGrantCreatePrincipalGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *CreatePrincipalGrantCreatePrincipalGrant) GetExpiresAt() *string {
+	return v.PrincipalGrantFields.ExpiresAt
+}
+
+// GetCreatedAt returns CreatePrincipalGrantCreatePrincipalGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreatePrincipalGrantCreatePrincipalGrant) GetCreatedAt() string {
+	return v.PrincipalGrantFields.CreatedAt
+}
+
+func (v *CreatePrincipalGrantCreatePrincipalGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreatePrincipalGrantCreatePrincipalGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreatePrincipalGrantCreatePrincipalGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PrincipalGrantFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreatePrincipalGrantCreatePrincipalGrant struct {
+	Id string `json:"id"`
+
+	PrincipalType string `json:"principalType"`
+
+	PrincipalId string `json:"principalId"`
+
+	PrincipalHandle *string `json:"principalHandle"`
+
+	OrganizationId string `json:"organizationId"`
+
+	OrganizationUrn *string `json:"organizationUrn"`
+
+	Actions []string `json:"actions"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *CreatePrincipalGrantCreatePrincipalGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreatePrincipalGrantCreatePrincipalGrant) __premarshalJSON() (*__premarshalCreatePrincipalGrantCreatePrincipalGrant, error) {
+	var retval __premarshalCreatePrincipalGrantCreatePrincipalGrant
+
+	retval.Id = v.PrincipalGrantFields.Id
+	retval.PrincipalType = v.PrincipalGrantFields.PrincipalType
+	retval.PrincipalId = v.PrincipalGrantFields.PrincipalId
+	retval.PrincipalHandle = v.PrincipalGrantFields.PrincipalHandle
+	retval.OrganizationId = v.PrincipalGrantFields.OrganizationId
+	retval.OrganizationUrn = v.PrincipalGrantFields.OrganizationUrn
+	retval.Actions = v.PrincipalGrantFields.Actions
+	retval.ExpiresAt = v.PrincipalGrantFields.ExpiresAt
+	retval.CreatedAt = v.PrincipalGrantFields.CreatedAt
+	return &retval, nil
+}
+
+// CreatePrincipalGrantResponse is returned by CreatePrincipalGrant on success.
+type CreatePrincipalGrantResponse struct {
+	// Grant a member extra management actions (org-ADMIN, interactive-only; design:grant-model). The grantee must be a live member of the org.
+	CreatePrincipalGrant *CreatePrincipalGrantCreatePrincipalGrant `json:"createPrincipalGrant"`
+}
+
+// GetCreatePrincipalGrant returns CreatePrincipalGrantResponse.CreatePrincipalGrant, and is useful for accessing the field via an interface.
+func (v *CreatePrincipalGrantResponse) GetCreatePrincipalGrant() *CreatePrincipalGrantCreatePrincipalGrant {
+	return v.CreatePrincipalGrant
+}
+
 // CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult includes the requested fields of the GraphQL type UserApiKeyCreateResult.
 type CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult struct {
 	RawKey     string                                                            `json:"rawKey"`
@@ -4652,7 +4782,9 @@ type FindNodesFindNodesFindNodesResult struct {
 	// Reduced-fidelity flag(s); hits are usable. May carry MULTIPLE
 	// comma-separated codes (e.g. 'no_vector_index,literal_fallback') —
 	// parse the set, never compare the whole string. Codes: no_vector_index,
-	// embedding_unavailable, literal_fallback.
+	// embedding_unavailable, literal_fallback, and_relaxed_to_or (a bare
+	// multi-term keyword query matched nothing under AND, so it was retried as
+	// OR and these hits match ANY term).
 	Degraded *string                                         `json:"degraded"`
 	Reason   *string                                         `json:"reason"`
 	Hits     []*FindNodesFindNodesFindNodesResultHitsNodeHit `json:"hits"`
@@ -7007,7 +7139,7 @@ const (
 	NodeMergeFieldData NodeMergeField = "DATA"
 	// Concatenate source description after target description.
 	NodeMergeFieldDescription NodeMergeField = "DESCRIPTION"
-	// Re-point the source's incoming and outgoing edges onto the target.
+	// Re-point the source's incoming and outgoing edges onto the target. Each re-homed edge's loc is recomputed from its new endpoints (deriveEdgeLoc); a re-homed edge whose recomputed (loc, memoryId) collides with one the target already holds is dropped rather than duplicated — so an equivalent edge with an endpoint-derived loc is de-duplicated — as are self-loops.
 	NodeMergeFieldEdges NodeMergeField = "EDGES"
 	// Shallow-merge the 'properties' JSON; target wins on key collisions.
 	NodeMergeFieldProperties NodeMergeField = "PROPERTIES"
@@ -7357,6 +7489,198 @@ type OrganizationsResponse struct {
 // GetOrganizations returns OrganizationsResponse.Organizations, and is useful for accessing the field via an interface.
 func (v *OrganizationsResponse) GetOrganizations() *OrganizationsOrganizationsOrganizationsPage {
 	return v.Organizations
+}
+
+// PrincipalGrantFields includes the GraphQL fields of PrincipalGrant requested by the fragment PrincipalGrantFields.
+// The GraphQL type's documentation follows.
+//
+// An individual action grant (design:grant-model): extra management actions for one member of one org, on top of their role bundle. Grantee and org are projected as scalars, never nested objects.
+type PrincipalGrantFields struct {
+	Id string `json:"id"`
+	// Grantee kind - 'USER' in v1.
+	PrincipalType   string  `json:"principalType"`
+	PrincipalId     string  `json:"principalId"`
+	PrincipalHandle *string `json:"principalHandle"`
+	OrganizationId  string  `json:"organizationId"`
+	OrganizationUrn *string `json:"organizationUrn"`
+	// Allowed actions - exact ('memory.clone'), prefix ('memory.*'), or '*'.
+	Actions []string `json:"actions"`
+	// ISO-8601 expiry, or null for perpetual (until revoked).
+	ExpiresAt *string `json:"expiresAt"`
+	CreatedAt string  `json:"createdAt"`
+}
+
+// GetId returns PrincipalGrantFields.Id, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantFields) GetId() string { return v.Id }
+
+// GetPrincipalType returns PrincipalGrantFields.PrincipalType, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantFields) GetPrincipalType() string { return v.PrincipalType }
+
+// GetPrincipalId returns PrincipalGrantFields.PrincipalId, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantFields) GetPrincipalId() string { return v.PrincipalId }
+
+// GetPrincipalHandle returns PrincipalGrantFields.PrincipalHandle, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantFields) GetPrincipalHandle() *string { return v.PrincipalHandle }
+
+// GetOrganizationId returns PrincipalGrantFields.OrganizationId, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantFields) GetOrganizationId() string { return v.OrganizationId }
+
+// GetOrganizationUrn returns PrincipalGrantFields.OrganizationUrn, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantFields) GetOrganizationUrn() *string { return v.OrganizationUrn }
+
+// GetActions returns PrincipalGrantFields.Actions, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantFields) GetActions() []string { return v.Actions }
+
+// GetExpiresAt returns PrincipalGrantFields.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantFields) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetCreatedAt returns PrincipalGrantFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantFields) GetCreatedAt() string { return v.CreatedAt }
+
+// PrincipalGrantsPrincipalGrantsPrincipalGrantsPage includes the requested fields of the GraphQL type PrincipalGrantsPage.
+type PrincipalGrantsPrincipalGrantsPrincipalGrantsPage struct {
+	Total int                                                                     `json:"total"`
+	Items []*PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant `json:"items"`
+}
+
+// GetTotal returns PrincipalGrantsPrincipalGrantsPrincipalGrantsPage.Total, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantsPrincipalGrantsPrincipalGrantsPage) GetTotal() int { return v.Total }
+
+// GetItems returns PrincipalGrantsPrincipalGrantsPrincipalGrantsPage.Items, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantsPrincipalGrantsPrincipalGrantsPage) GetItems() []*PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant {
+	return v.Items
+}
+
+// PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant includes the requested fields of the GraphQL type PrincipalGrant.
+// The GraphQL type's documentation follows.
+//
+// An individual action grant (design:grant-model): extra management actions for one member of one org, on top of their role bundle. Grantee and org are projected as scalars, never nested objects.
+type PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant struct {
+	PrincipalGrantFields `json:"-"`
+}
+
+// GetId returns PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant.Id, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant) GetId() string {
+	return v.PrincipalGrantFields.Id
+}
+
+// GetPrincipalType returns PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant.PrincipalType, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant) GetPrincipalType() string {
+	return v.PrincipalGrantFields.PrincipalType
+}
+
+// GetPrincipalId returns PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant.PrincipalId, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant) GetPrincipalId() string {
+	return v.PrincipalGrantFields.PrincipalId
+}
+
+// GetPrincipalHandle returns PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant.PrincipalHandle, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant) GetPrincipalHandle() *string {
+	return v.PrincipalGrantFields.PrincipalHandle
+}
+
+// GetOrganizationId returns PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant.OrganizationId, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant) GetOrganizationId() string {
+	return v.PrincipalGrantFields.OrganizationId
+}
+
+// GetOrganizationUrn returns PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant.OrganizationUrn, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant) GetOrganizationUrn() *string {
+	return v.PrincipalGrantFields.OrganizationUrn
+}
+
+// GetActions returns PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant.Actions, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant) GetActions() []string {
+	return v.PrincipalGrantFields.Actions
+}
+
+// GetExpiresAt returns PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant) GetExpiresAt() *string {
+	return v.PrincipalGrantFields.ExpiresAt
+}
+
+// GetCreatedAt returns PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant) GetCreatedAt() string {
+	return v.PrincipalGrantFields.CreatedAt
+}
+
+func (v *PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PrincipalGrantFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant struct {
+	Id string `json:"id"`
+
+	PrincipalType string `json:"principalType"`
+
+	PrincipalId string `json:"principalId"`
+
+	PrincipalHandle *string `json:"principalHandle"`
+
+	OrganizationId string `json:"organizationId"`
+
+	OrganizationUrn *string `json:"organizationUrn"`
+
+	Actions []string `json:"actions"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant) __premarshalJSON() (*__premarshalPrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant, error) {
+	var retval __premarshalPrincipalGrantsPrincipalGrantsPrincipalGrantsPageItemsPrincipalGrant
+
+	retval.Id = v.PrincipalGrantFields.Id
+	retval.PrincipalType = v.PrincipalGrantFields.PrincipalType
+	retval.PrincipalId = v.PrincipalGrantFields.PrincipalId
+	retval.PrincipalHandle = v.PrincipalGrantFields.PrincipalHandle
+	retval.OrganizationId = v.PrincipalGrantFields.OrganizationId
+	retval.OrganizationUrn = v.PrincipalGrantFields.OrganizationUrn
+	retval.Actions = v.PrincipalGrantFields.Actions
+	retval.ExpiresAt = v.PrincipalGrantFields.ExpiresAt
+	retval.CreatedAt = v.PrincipalGrantFields.CreatedAt
+	return &retval, nil
+}
+
+// PrincipalGrantsResponse is returned by PrincipalGrants on success.
+type PrincipalGrantsResponse struct {
+	// Action grants. Default: the caller's own (self-audit is never gated). An org admin passing orgRef sees that org's grants, optionally narrowed by userRef.
+	PrincipalGrants *PrincipalGrantsPrincipalGrantsPrincipalGrantsPage `json:"principalGrants"`
+}
+
+// GetPrincipalGrants returns PrincipalGrantsResponse.PrincipalGrants, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantsResponse) GetPrincipalGrants() *PrincipalGrantsPrincipalGrantsPrincipalGrantsPage {
+	return v.PrincipalGrants
 }
 
 type PrincipalType string
@@ -7802,6 +8126,15 @@ func (v *RevokeMemoryShareRevokeMemoryShareRevokeMemorySharePayload) GetMemoryId
 	return v.MemoryId
 }
 
+// RevokePrincipalGrantResponse is returned by RevokePrincipalGrant on success.
+type RevokePrincipalGrantResponse struct {
+	// Revoke an action grant (org-ADMIN, interactive-only; soft delete).
+	RevokePrincipalGrant bool `json:"revokePrincipalGrant"`
+}
+
+// GetRevokePrincipalGrant returns RevokePrincipalGrantResponse.RevokePrincipalGrant, and is useful for accessing the field via an interface.
+func (v *RevokePrincipalGrantResponse) GetRevokePrincipalGrant() bool { return v.RevokePrincipalGrant }
+
 // RevokeUserApiKeyResponse is returned by RevokeUserApiKey on success.
 type RevokeUserApiKeyResponse struct {
 	// 025-oauth-for-mcp FR-004: revoke a user-scoped API key owned by
@@ -8035,7 +8368,9 @@ type SearchNodesFindNodesFindNodesResult struct {
 	// Reduced-fidelity flag(s); hits are usable. May carry MULTIPLE
 	// comma-separated codes (e.g. 'no_vector_index,literal_fallback') —
 	// parse the set, never compare the whole string. Codes: no_vector_index,
-	// embedding_unavailable, literal_fallback.
+	// embedding_unavailable, literal_fallback, and_relaxed_to_or (a bare
+	// multi-term keyword query matched nothing under AND, so it was retried as
+	// OR and these hits match ANY term).
 	Degraded *string                                           `json:"degraded"`
 	Reason   *string                                           `json:"reason"`
 	Hits     []*SearchNodesFindNodesFindNodesResultHitsNodeHit `json:"hits"`
@@ -10672,6 +11007,26 @@ func (v *__CreateOrganizationInput) GetName() string { return v.Name }
 // GetUrn returns __CreateOrganizationInput.Urn, and is useful for accessing the field via an interface.
 func (v *__CreateOrganizationInput) GetUrn() string { return v.Urn }
 
+// __CreatePrincipalGrantInput is used internally by genqlient
+type __CreatePrincipalGrantInput struct {
+	OrgRef    string   `json:"orgRef"`
+	UserRef   string   `json:"userRef"`
+	Actions   []string `json:"actions"`
+	ExpiresAt *string  `json:"expiresAt,omitempty"`
+}
+
+// GetOrgRef returns __CreatePrincipalGrantInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreatePrincipalGrantInput) GetOrgRef() string { return v.OrgRef }
+
+// GetUserRef returns __CreatePrincipalGrantInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__CreatePrincipalGrantInput) GetUserRef() string { return v.UserRef }
+
+// GetActions returns __CreatePrincipalGrantInput.Actions, and is useful for accessing the field via an interface.
+func (v *__CreatePrincipalGrantInput) GetActions() []string { return v.Actions }
+
+// GetExpiresAt returns __CreatePrincipalGrantInput.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *__CreatePrincipalGrantInput) GetExpiresAt() *string { return v.ExpiresAt }
+
 // __CreateUserApiKeyInput is used internally by genqlient
 type __CreateUserApiKeyInput struct {
 	Label *string `json:"label,omitempty"`
@@ -11032,6 +11387,26 @@ func (v *__OrganizationsInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __OrganizationsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__OrganizationsInput) GetOffset() *int { return v.Offset }
 
+// __PrincipalGrantsInput is used internally by genqlient
+type __PrincipalGrantsInput struct {
+	OrgRef  *string `json:"orgRef,omitempty"`
+	UserRef *string `json:"userRef,omitempty"`
+	Limit   *int    `json:"limit,omitempty"`
+	Offset  *int    `json:"offset,omitempty"`
+}
+
+// GetOrgRef returns __PrincipalGrantsInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__PrincipalGrantsInput) GetOrgRef() *string { return v.OrgRef }
+
+// GetUserRef returns __PrincipalGrantsInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__PrincipalGrantsInput) GetUserRef() *string { return v.UserRef }
+
+// GetLimit returns __PrincipalGrantsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__PrincipalGrantsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __PrincipalGrantsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__PrincipalGrantsInput) GetOffset() *int { return v.Offset }
+
 // __PublicAgentsInput is used internally by genqlient
 type __PublicAgentsInput struct {
 	Filter *AgentFilter `json:"filter,omitempty"`
@@ -11103,6 +11478,14 @@ func (v *__RevokeMemoryShareInput) GetMemoryId() string { return v.MemoryId }
 
 // GetGranteeId returns __RevokeMemoryShareInput.GranteeId, and is useful for accessing the field via an interface.
 func (v *__RevokeMemoryShareInput) GetGranteeId() string { return v.GranteeId }
+
+// __RevokePrincipalGrantInput is used internally by genqlient
+type __RevokePrincipalGrantInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __RevokePrincipalGrantInput.Ref, and is useful for accessing the field via an interface.
+func (v *__RevokePrincipalGrantInput) GetRef() string { return v.Ref }
 
 // __RevokeUserApiKeyInput is used internally by genqlient
 type __RevokeUserApiKeyInput struct {
@@ -12879,6 +13262,58 @@ func CreateOrganization(
 	return data_, err_
 }
 
+// The mutation executed by CreatePrincipalGrant.
+const CreatePrincipalGrant_Operation = `
+mutation CreatePrincipalGrant ($orgRef: String!, $userRef: String!, $actions: [String!]!, $expiresAt: String) {
+	createPrincipalGrant(orgRef: $orgRef, userRef: $userRef, actions: $actions, expiresAt: $expiresAt) {
+		... PrincipalGrantFields
+	}
+}
+fragment PrincipalGrantFields on PrincipalGrant {
+	id
+	principalType
+	principalId
+	principalHandle
+	organizationId
+	organizationUrn
+	actions
+	expiresAt
+	createdAt
+}
+`
+
+// Grant a member extra management actions (org ADMIN, interactive-only).
+func CreatePrincipalGrant(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef string,
+	userRef string,
+	actions []string,
+	expiresAt *string,
+) (data_ *CreatePrincipalGrantResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreatePrincipalGrant",
+		Query:  CreatePrincipalGrant_Operation,
+		Variables: &__CreatePrincipalGrantInput{
+			OrgRef:    orgRef,
+			UserRef:   userRef,
+			Actions:   actions,
+			ExpiresAt: expiresAt,
+		},
+	}
+
+	data_ = &CreatePrincipalGrantResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateUserApiKey.
 const CreateUserApiKey_Operation = `
 mutation CreateUserApiKey ($label: String) {
@@ -14519,6 +14954,63 @@ func Organizations(
 	return data_, err_
 }
 
+// The query executed by PrincipalGrants.
+const PrincipalGrants_Operation = `
+query PrincipalGrants ($orgRef: String, $userRef: String, $limit: Int, $offset: Int) {
+	principalGrants(orgRef: $orgRef, userRef: $userRef, limit: $limit, offset: $offset) {
+		total
+		items {
+			... PrincipalGrantFields
+		}
+	}
+}
+fragment PrincipalGrantFields on PrincipalGrant {
+	id
+	principalType
+	principalId
+	principalHandle
+	organizationId
+	organizationUrn
+	actions
+	expiresAt
+	createdAt
+}
+`
+
+// Action grants. Default scope: the caller's own (self-audit is never gated).
+// An org admin passing orgRef sees that org's grants, optionally narrowed by
+// userRef. Paged { items, total }.
+func PrincipalGrants(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef *string,
+	userRef *string,
+	limit *int,
+	offset *int,
+) (data_ *PrincipalGrantsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PrincipalGrants",
+		Query:  PrincipalGrants_Operation,
+		Variables: &__PrincipalGrantsInput{
+			OrgRef:  orgRef,
+			UserRef: userRef,
+			Limit:   limit,
+			Offset:  offset,
+		},
+	}
+
+	data_ = &PrincipalGrantsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by PublicAgents.
 const PublicAgents_Operation = `
 query PublicAgents ($filter: AgentFilter, $limit: Int, $offset: Int) {
@@ -14759,6 +15251,39 @@ func RevokeMemoryShare(
 	}
 
 	data_ = &RevokeMemoryShareResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RevokePrincipalGrant.
+const RevokePrincipalGrant_Operation = `
+mutation RevokePrincipalGrant ($ref: ID!) {
+	revokePrincipalGrant(ref: $ref)
+}
+`
+
+// Revoke an action grant (org ADMIN; soft delete).
+func RevokePrincipalGrant(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *RevokePrincipalGrantResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokePrincipalGrant",
+		Query:  RevokePrincipalGrant_Operation,
+		Variables: &__RevokePrincipalGrantInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &RevokePrincipalGrantResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

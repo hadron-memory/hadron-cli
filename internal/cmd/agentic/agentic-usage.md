@@ -78,6 +78,7 @@ hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--
 hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... | ls --app <ref> | update <id> ... | rm <id> --yes
 hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] | rotate <id> --yes | ls --app <ref> | rm <id> --yes
 hadron ticket mint --org <ref> [--app <id>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | ls --org <ref>
+hadron grant create --org <ref> --user <ref> --action <a>[,...] [--expires <iso>] | ls [--org <ref>] [--user <ref>] | revoke <id> --yes
 hadron config get | set | list
 hadron api <query-or-mutation>                       # raw GraphQL
 hadron version
@@ -407,6 +408,14 @@ Conventions:
     scopes to one App, `--note` records why, `--expires` sets an ISO expiry);
     `ticket ls --org <ref>` is the ledger — minted / consumed-by-which-run /
     expiries, paged to exhaustion.
+  - `grant create --org <ref> --user <ref> --action memory.clone[,...]` hands one
+    org member extra management actions on top of their role bundle (org ADMIN,
+    interactive-only; the grantee must be a live member — a grant dies with the
+    membership). Actions use the matcher grammar: exact (`memory.clone`),
+    prefix (`memory.*`), or `*`. `grant ls` defaults to YOUR OWN grants
+    (self-audit is never gated); org ADMINs pass `--org` for the whole org,
+    optionally `--user` to narrow. `grant revoke <id> --yes` soft-deletes;
+    takes effect at the next gate check.
   - Every entry node is a fully-qualified node URN (`<org>::<memory>::<loc>`,
     optionally `hrn:node:`-prefixed) — a bare loc is rejected (exit 2). `--app`
     defaults to the App context (`hadron app use` / `--app`) when omitted.
