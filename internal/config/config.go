@@ -15,7 +15,7 @@ import (
 
 // DefaultServer is the hosted Hadron platform's API server (the
 // GraphQL + OAuth host; hadronmemory.com itself is the portal).
-const DefaultServer = "https://srv.hadronmemory.com"
+const DefaultServer = "https://mcp.hadronmemory.com"
 
 // Keys lists the settings hadron config get/set accepts.
 var Keys = map[string]string{

@@ -5,7 +5,7 @@
 hosts its own OAuth server (spec `025-oauth-for-mcp`), so a self-hosted server is
 all you need.
 
-Point the CLI at your server first (the default is `https://srv.hadronmemory.com`):
+Point the CLI at your server first (the default is `https://mcp.hadronmemory.com`):
 
 ```sh
 hadron config set server https://hadron.example.com     # persistent

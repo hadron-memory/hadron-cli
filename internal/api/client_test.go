@@ -15,9 +15,9 @@ func TestRequireSecureURL(t *testing.T) {
 		allow   bool // set HADRON_ALLOW_HTTP=1
 		wantErr bool
 	}{
-		{"https ok", "https://srv.hadronmemory.com", "hdr_user_x", false, false},
-		{"http with token rejected", "http://srv.hadronmemory.com", "hdr_user_x", false, true},
-		{"http anonymous ok", "http://srv.hadronmemory.com", "", false, false},
+		{"https ok", "https://mcp.hadronmemory.com", "hdr_user_x", false, false},
+		{"http with token rejected", "http://mcp.hadronmemory.com", "hdr_user_x", false, true},
+		{"http anonymous ok", "http://mcp.hadronmemory.com", "", false, false},
 		{"http localhost ok", "http://localhost:8080", "hdr_user_x", false, false},
 		{"http *.localhost ok", "http://api.localhost:8080", "hdr_user_x", false, false},
 		{"http 127.0.0.1 ok", "http://127.0.0.1:3000", "hdr_user_x", false, false},
@@ -60,11 +60,11 @@ func TestRequireSecureURL(t *testing.T) {
 // a client (the token would otherwise ride in cleartext).
 func TestNewClientRejectsCredentialedHTTP(t *testing.T) {
 	t.Setenv(EnvAllowHTTP, "") // isolate from an ambient override
-	if _, err := NewClient("http://srv.hadronmemory.com", "hdr_user_x", nil); err == nil {
+	if _, err := NewClient("http://mcp.hadronmemory.com", "hdr_user_x", nil); err == nil {
 		t.Fatal("NewClient over http with a token should error")
 	}
 	// Anonymous http is fine, and loopback is carved out for local dev/tests.
-	if _, err := NewClient("http://srv.hadronmemory.com", "", nil); err != nil {
+	if _, err := NewClient("http://mcp.hadronmemory.com", "", nil); err != nil {
 		t.Errorf("anonymous http should be allowed: %v", err)
 	}
 	if _, err := NewClient("http://127.0.0.1:8080", "hdr_user_x", nil); err != nil {
@@ -87,10 +87,10 @@ func TestSecureRedirectGuard(t *testing.T) {
 		return r
 	}
 
-	if err := c.CheckRedirect(mustReq("http://srv.hadronmemory.com/graphql"), nil); err == nil {
+	if err := c.CheckRedirect(mustReq("http://mcp.hadronmemory.com/graphql"), nil); err == nil {
 		t.Error("a redirect to cleartext http must be refused")
 	}
-	if err := c.CheckRedirect(mustReq("https://srv.hadronmemory.com/graphql"), nil); err != nil {
+	if err := c.CheckRedirect(mustReq("https://mcp.hadronmemory.com/graphql"), nil); err != nil {
 		t.Errorf("an https redirect must be allowed: %v", err)
 	}
 	if err := c.CheckRedirect(mustReq("http://127.0.0.1:8080/graphql"), nil); err != nil {
@@ -98,7 +98,7 @@ func TestSecureRedirectGuard(t *testing.T) {
 	}
 	// The 10-hop cap is preserved now that we own CheckRedirect.
 	via := make([]*http.Request, 10)
-	if err := c.CheckRedirect(mustReq("https://srv.hadronmemory.com/graphql"), via); err == nil {
+	if err := c.CheckRedirect(mustReq("https://mcp.hadronmemory.com/graphql"), via); err == nil {
 		t.Error("should stop after 10 redirects")
 	}
 }

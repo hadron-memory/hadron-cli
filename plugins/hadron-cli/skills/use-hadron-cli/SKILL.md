@@ -78,7 +78,7 @@ reflected in the exit code.
 
 ## Server / App context
 
-Default server is `https://srv.hadronmemory.com`; override with
+Default server is `https://mcp.hadronmemory.com`; override with
 `--server <url>` or `hadron config set server <url>`. Most calls need no App
 context; set one with `hadron app use <urn>` or per-call `--app <urn>` only
 when the deployment requires it.
