@@ -1,0 +1,79 @@
+# Node version-history surface (hadron-server #617). nodeRef accepts a node PK
+# or a fully-qualified URN; versionId is a snapshot's opaque id. editedByUser
+# resolves editedBy to the editor's PUBLIC identifiers only (handle + urn) — it
+# is null for app/client principals, deleted, or handle-less users, in which
+# case the raw editedBy string is the fallback.
+
+# History for a node, most-recent-first. Per-snapshot memory-gated server-side.
+query NodeVersions(
+  $nodeRef: ID!
+  # @genqlient(omitempty: true)
+  $limit: Int
+) {
+  nodeVersions(nodeRef: $nodeRef, limit: $limit) {
+    id
+    nodeId
+    loc
+    name
+    description
+    tags
+    createdAt
+    editedBy
+    editedByUser {
+      handle
+      urn
+    }
+  }
+}
+
+# A single snapshot for display (content + metadata). Null — never an error —
+# when the node is unreadable or soft-deleted, so there is no existence
+# disclosure.
+query NodeVersion($versionId: ID!) {
+  nodeVersion(versionId: $versionId) {
+    id
+    nodeId
+    loc
+    name
+    description
+    content
+    tags
+    createdAt
+    editedBy
+    editedByUser {
+      handle
+      urn
+    }
+  }
+}
+
+# Restore a snapshot. Default snapshots-then-restores (undoable). truncate:true
+# also deletes every snapshot newer than the selected one, which becomes the new
+# baseline (restore+truncate is one atomic transaction). omitempty so an unset
+# flag falls through to the server default (false), never sending null.
+mutation RestoreNodeVersion(
+  $versionId: ID!
+  # @genqlient(omitempty: true)
+  $truncate: Boolean
+) {
+  restoreNodeVersion(versionId: $versionId, truncate: $truncate) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    updatedAt
+  }
+}
+
+# Delete one snapshot (memory-write auth; NOT_FOUND for an unknown id).
+mutation DeleteNodeVersion($versionId: ID!) {
+  deleteNodeVersion(versionId: $versionId)
+}
+
+# Delete all of a node's snapshots, returning the count. Reachable on
+# soft-deleted nodes (cleanup), so callers may pass a PK the read surfaces no
+# longer resolve.
+mutation ClearNodeHistory($nodeRef: ID!) {
+  clearNodeHistory(nodeRef: $nodeRef)
+}

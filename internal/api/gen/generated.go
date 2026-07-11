@@ -2665,6 +2665,14 @@ func (v *ChatMessagesResponse) GetFindNodes() *ChatMessagesFindNodesFindNodesRes
 	return v.FindNodes
 }
 
+// ClearNodeHistoryResponse is returned by ClearNodeHistory on success.
+type ClearNodeHistoryResponse struct {
+	ClearNodeHistory int `json:"clearNodeHistory"`
+}
+
+// GetClearNodeHistory returns ClearNodeHistoryResponse.ClearNodeHistory, and is useful for accessing the field via an interface.
+func (v *ClearNodeHistoryResponse) GetClearNodeHistory() int { return v.ClearNodeHistory }
+
 // CloneMemoryCloneMemory includes the requested fields of the GraphQL type Memory.
 type CloneMemoryCloneMemory struct {
 	Id               string            `json:"id"`
@@ -4595,6 +4603,14 @@ type DeleteNodeResponse struct {
 
 // GetDeleteNode returns DeleteNodeResponse.DeleteNode, and is useful for accessing the field via an interface.
 func (v *DeleteNodeResponse) GetDeleteNode() bool { return v.DeleteNode }
+
+// DeleteNodeVersionResponse is returned by DeleteNodeVersion on success.
+type DeleteNodeVersionResponse struct {
+	DeleteNodeVersion bool `json:"deleteNodeVersion"`
+}
+
+// GetDeleteNodeVersion returns DeleteNodeVersionResponse.DeleteNodeVersion, and is useful for accessing the field via an interface.
+func (v *DeleteNodeVersionResponse) GetDeleteNodeVersion() bool { return v.DeleteNodeVersion }
 
 // DeleteOrganizationResponse is returned by DeleteOrganization on success.
 type DeleteOrganizationResponse struct {
@@ -7196,6 +7212,174 @@ var AllNodeTextField = []NodeTextField{
 	NodeTextFieldTags,
 }
 
+// NodeVersionNodeVersion includes the requested fields of the GraphQL type NodeVersion.
+type NodeVersionNodeVersion struct {
+	Id          string   `json:"id"`
+	NodeId      string   `json:"nodeId"`
+	Loc         string   `json:"loc"`
+	Name        string   `json:"name"`
+	Description *string  `json:"description"`
+	Content     *string  `json:"content"`
+	Tags        []string `json:"tags"`
+	CreatedAt   string   `json:"createdAt"`
+	// Raw editor id at capture: a User id OR an app/client principal id (opaque). Use editedByUser to resolve the user case.
+	EditedBy *string `json:"editedBy"`
+	// The editor resolved to a user (handle + URN), when editedBy is a user id.
+	// Null for app/client principals, deleted users, or handle-less users — the
+	// portal falls back to the raw editedBy string. Public identifiers only (#617).
+	EditedByUser *NodeVersionNodeVersionEditedByUserNodeVersionEditor `json:"editedByUser"`
+}
+
+// GetId returns NodeVersionNodeVersion.Id, and is useful for accessing the field via an interface.
+func (v *NodeVersionNodeVersion) GetId() string { return v.Id }
+
+// GetNodeId returns NodeVersionNodeVersion.NodeId, and is useful for accessing the field via an interface.
+func (v *NodeVersionNodeVersion) GetNodeId() string { return v.NodeId }
+
+// GetLoc returns NodeVersionNodeVersion.Loc, and is useful for accessing the field via an interface.
+func (v *NodeVersionNodeVersion) GetLoc() string { return v.Loc }
+
+// GetName returns NodeVersionNodeVersion.Name, and is useful for accessing the field via an interface.
+func (v *NodeVersionNodeVersion) GetName() string { return v.Name }
+
+// GetDescription returns NodeVersionNodeVersion.Description, and is useful for accessing the field via an interface.
+func (v *NodeVersionNodeVersion) GetDescription() *string { return v.Description }
+
+// GetContent returns NodeVersionNodeVersion.Content, and is useful for accessing the field via an interface.
+func (v *NodeVersionNodeVersion) GetContent() *string { return v.Content }
+
+// GetTags returns NodeVersionNodeVersion.Tags, and is useful for accessing the field via an interface.
+func (v *NodeVersionNodeVersion) GetTags() []string { return v.Tags }
+
+// GetCreatedAt returns NodeVersionNodeVersion.CreatedAt, and is useful for accessing the field via an interface.
+func (v *NodeVersionNodeVersion) GetCreatedAt() string { return v.CreatedAt }
+
+// GetEditedBy returns NodeVersionNodeVersion.EditedBy, and is useful for accessing the field via an interface.
+func (v *NodeVersionNodeVersion) GetEditedBy() *string { return v.EditedBy }
+
+// GetEditedByUser returns NodeVersionNodeVersion.EditedByUser, and is useful for accessing the field via an interface.
+func (v *NodeVersionNodeVersion) GetEditedByUser() *NodeVersionNodeVersionEditedByUserNodeVersionEditor {
+	return v.EditedByUser
+}
+
+// NodeVersionNodeVersionEditedByUserNodeVersionEditor includes the requested fields of the GraphQL type NodeVersionEditor.
+// The GraphQL type's documentation follows.
+//
+// A version's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
+// excludes name / email / any PII — resolving editedBy must never widen the
+// disclosure surface. handle + urn are the same public identifiers the users
+// search already exposes, so no per-caller visibility gate applies.
+type NodeVersionNodeVersionEditedByUserNodeVersionEditor struct {
+	Handle *string `json:"handle"`
+	Urn    *string `json:"urn"`
+}
+
+// GetHandle returns NodeVersionNodeVersionEditedByUserNodeVersionEditor.Handle, and is useful for accessing the field via an interface.
+func (v *NodeVersionNodeVersionEditedByUserNodeVersionEditor) GetHandle() *string { return v.Handle }
+
+// GetUrn returns NodeVersionNodeVersionEditedByUserNodeVersionEditor.Urn, and is useful for accessing the field via an interface.
+func (v *NodeVersionNodeVersionEditedByUserNodeVersionEditor) GetUrn() *string { return v.Urn }
+
+// NodeVersionResponse is returned by NodeVersion on success.
+type NodeVersionResponse struct {
+	// A single node-version snapshot by its id (#617 Display).
+	//
+	// Access-gated on the snapshot's node memory (read): null when the version
+	// does not exist OR the caller cannot read the node's current memory OR the
+	// memory the snapshot was captured in (per-snapshot gating mirrors
+	// nodeVersions — a moved node keeps its id, so a snapshot may belong to a
+	// memory the caller cannot read). A soft-deleted node is also null (its
+	// history drops out of every read surface). Null, never an error, so there
+	// is no existence disclosure.
+	NodeVersion *NodeVersionNodeVersion `json:"nodeVersion"`
+}
+
+// GetNodeVersion returns NodeVersionResponse.NodeVersion, and is useful for accessing the field via an interface.
+func (v *NodeVersionResponse) GetNodeVersion() *NodeVersionNodeVersion { return v.NodeVersion }
+
+// NodeVersionsNodeVersionsNodeVersion includes the requested fields of the GraphQL type NodeVersion.
+type NodeVersionsNodeVersionsNodeVersion struct {
+	Id          string   `json:"id"`
+	NodeId      string   `json:"nodeId"`
+	Loc         string   `json:"loc"`
+	Name        string   `json:"name"`
+	Description *string  `json:"description"`
+	Tags        []string `json:"tags"`
+	CreatedAt   string   `json:"createdAt"`
+	// Raw editor id at capture: a User id OR an app/client principal id (opaque). Use editedByUser to resolve the user case.
+	EditedBy *string `json:"editedBy"`
+	// The editor resolved to a user (handle + URN), when editedBy is a user id.
+	// Null for app/client principals, deleted users, or handle-less users — the
+	// portal falls back to the raw editedBy string. Public identifiers only (#617).
+	EditedByUser *NodeVersionsNodeVersionsNodeVersionEditedByUserNodeVersionEditor `json:"editedByUser"`
+}
+
+// GetId returns NodeVersionsNodeVersionsNodeVersion.Id, and is useful for accessing the field via an interface.
+func (v *NodeVersionsNodeVersionsNodeVersion) GetId() string { return v.Id }
+
+// GetNodeId returns NodeVersionsNodeVersionsNodeVersion.NodeId, and is useful for accessing the field via an interface.
+func (v *NodeVersionsNodeVersionsNodeVersion) GetNodeId() string { return v.NodeId }
+
+// GetLoc returns NodeVersionsNodeVersionsNodeVersion.Loc, and is useful for accessing the field via an interface.
+func (v *NodeVersionsNodeVersionsNodeVersion) GetLoc() string { return v.Loc }
+
+// GetName returns NodeVersionsNodeVersionsNodeVersion.Name, and is useful for accessing the field via an interface.
+func (v *NodeVersionsNodeVersionsNodeVersion) GetName() string { return v.Name }
+
+// GetDescription returns NodeVersionsNodeVersionsNodeVersion.Description, and is useful for accessing the field via an interface.
+func (v *NodeVersionsNodeVersionsNodeVersion) GetDescription() *string { return v.Description }
+
+// GetTags returns NodeVersionsNodeVersionsNodeVersion.Tags, and is useful for accessing the field via an interface.
+func (v *NodeVersionsNodeVersionsNodeVersion) GetTags() []string { return v.Tags }
+
+// GetCreatedAt returns NodeVersionsNodeVersionsNodeVersion.CreatedAt, and is useful for accessing the field via an interface.
+func (v *NodeVersionsNodeVersionsNodeVersion) GetCreatedAt() string { return v.CreatedAt }
+
+// GetEditedBy returns NodeVersionsNodeVersionsNodeVersion.EditedBy, and is useful for accessing the field via an interface.
+func (v *NodeVersionsNodeVersionsNodeVersion) GetEditedBy() *string { return v.EditedBy }
+
+// GetEditedByUser returns NodeVersionsNodeVersionsNodeVersion.EditedByUser, and is useful for accessing the field via an interface.
+func (v *NodeVersionsNodeVersionsNodeVersion) GetEditedByUser() *NodeVersionsNodeVersionsNodeVersionEditedByUserNodeVersionEditor {
+	return v.EditedByUser
+}
+
+// NodeVersionsNodeVersionsNodeVersionEditedByUserNodeVersionEditor includes the requested fields of the GraphQL type NodeVersionEditor.
+// The GraphQL type's documentation follows.
+//
+// A version's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
+// excludes name / email / any PII — resolving editedBy must never widen the
+// disclosure surface. handle + urn are the same public identifiers the users
+// search already exposes, so no per-caller visibility gate applies.
+type NodeVersionsNodeVersionsNodeVersionEditedByUserNodeVersionEditor struct {
+	Handle *string `json:"handle"`
+	Urn    *string `json:"urn"`
+}
+
+// GetHandle returns NodeVersionsNodeVersionsNodeVersionEditedByUserNodeVersionEditor.Handle, and is useful for accessing the field via an interface.
+func (v *NodeVersionsNodeVersionsNodeVersionEditedByUserNodeVersionEditor) GetHandle() *string {
+	return v.Handle
+}
+
+// GetUrn returns NodeVersionsNodeVersionsNodeVersionEditedByUserNodeVersionEditor.Urn, and is useful for accessing the field via an interface.
+func (v *NodeVersionsNodeVersionsNodeVersionEditedByUserNodeVersionEditor) GetUrn() *string {
+	return v.Urn
+}
+
+// NodeVersionsResponse is returned by NodeVersions on success.
+type NodeVersionsResponse struct {
+	// Version history for a node, most recent first.
+	//
+	// Accepts the node's ID or URN. Access-gated on the node's memory: a node
+	// whose memory the caller can't read returns an empty list (no existence
+	// disclosure).
+	NodeVersions []*NodeVersionsNodeVersionsNodeVersion `json:"nodeVersions"`
+}
+
+// GetNodeVersions returns NodeVersionsResponse.NodeVersions, and is useful for accessing the field via an interface.
+func (v *NodeVersionsResponse) GetNodeVersions() []*NodeVersionsNodeVersionsNodeVersion {
+	return v.NodeVersions
+}
+
 // OrgFields includes the GraphQL fields of Organization requested by the fragment OrgFields.
 type OrgFields struct {
 	Id        string `json:"id"`
@@ -8094,6 +8278,44 @@ type ResolveUrnResponse struct {
 
 // GetResolveUrn returns ResolveUrnResponse.ResolveUrn, and is useful for accessing the field via an interface.
 func (v *ResolveUrnResponse) GetResolveUrn() *ResolveUrnResolveUrnUrnResolution { return v.ResolveUrn }
+
+// RestoreNodeVersionResponse is returned by RestoreNodeVersion on success.
+type RestoreNodeVersionResponse struct {
+	RestoreNodeVersion *RestoreNodeVersionRestoreNodeVersionNode `json:"restoreNodeVersion"`
+}
+
+// GetRestoreNodeVersion returns RestoreNodeVersionResponse.RestoreNodeVersion, and is useful for accessing the field via an interface.
+func (v *RestoreNodeVersionResponse) GetRestoreNodeVersion() *RestoreNodeVersionRestoreNodeVersionNode {
+	return v.RestoreNodeVersion
+}
+
+// RestoreNodeVersionRestoreNodeVersionNode includes the requested fields of the GraphQL type Node.
+type RestoreNodeVersionRestoreNodeVersionNode struct {
+	Id        string `json:"id"`
+	MemoryId  string `json:"memoryId"`
+	Loc       string `json:"loc"`
+	Name      string `json:"name"`
+	NodeType  string `json:"nodeType"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+// GetId returns RestoreNodeVersionRestoreNodeVersionNode.Id, and is useful for accessing the field via an interface.
+func (v *RestoreNodeVersionRestoreNodeVersionNode) GetId() string { return v.Id }
+
+// GetMemoryId returns RestoreNodeVersionRestoreNodeVersionNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *RestoreNodeVersionRestoreNodeVersionNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns RestoreNodeVersionRestoreNodeVersionNode.Loc, and is useful for accessing the field via an interface.
+func (v *RestoreNodeVersionRestoreNodeVersionNode) GetLoc() string { return v.Loc }
+
+// GetName returns RestoreNodeVersionRestoreNodeVersionNode.Name, and is useful for accessing the field via an interface.
+func (v *RestoreNodeVersionRestoreNodeVersionNode) GetName() string { return v.Name }
+
+// GetNodeType returns RestoreNodeVersionRestoreNodeVersionNode.NodeType, and is useful for accessing the field via an interface.
+func (v *RestoreNodeVersionRestoreNodeVersionNode) GetNodeType() string { return v.NodeType }
+
+// GetUpdatedAt returns RestoreNodeVersionRestoreNodeVersionNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *RestoreNodeVersionRestoreNodeVersionNode) GetUpdatedAt() string { return v.UpdatedAt }
 
 // RevokeMemoryShareResponse is returned by RevokeMemoryShare on success.
 type RevokeMemoryShareResponse struct {
@@ -10739,6 +10961,14 @@ func (v *__ChatMessagesInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __ChatMessagesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__ChatMessagesInput) GetOffset() *int { return v.Offset }
 
+// __ClearNodeHistoryInput is used internally by genqlient
+type __ClearNodeHistoryInput struct {
+	NodeRef string `json:"nodeRef"`
+}
+
+// GetNodeRef returns __ClearNodeHistoryInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__ClearNodeHistoryInput) GetNodeRef() string { return v.NodeRef }
+
 // __CloneMemoryInput is used internally by genqlient
 type __CloneMemoryInput struct {
 	Ref       string `json:"ref"`
@@ -11147,6 +11377,14 @@ func (v *__DeleteNodeInput) GetNodeRef() string { return v.NodeRef }
 // GetHard returns __DeleteNodeInput.Hard, and is useful for accessing the field via an interface.
 func (v *__DeleteNodeInput) GetHard() *bool { return v.Hard }
 
+// __DeleteNodeVersionInput is used internally by genqlient
+type __DeleteNodeVersionInput struct {
+	VersionId string `json:"versionId"`
+}
+
+// GetVersionId returns __DeleteNodeVersionInput.VersionId, and is useful for accessing the field via an interface.
+func (v *__DeleteNodeVersionInput) GetVersionId() string { return v.VersionId }
+
 // __DeleteOrganizationInput is used internally by genqlient
 type __DeleteOrganizationInput struct {
 	Id string `json:"id"`
@@ -11363,6 +11601,26 @@ type __NodeExportMetaInput struct {
 // GetRef returns __NodeExportMetaInput.Ref, and is useful for accessing the field via an interface.
 func (v *__NodeExportMetaInput) GetRef() string { return v.Ref }
 
+// __NodeVersionInput is used internally by genqlient
+type __NodeVersionInput struct {
+	VersionId string `json:"versionId"`
+}
+
+// GetVersionId returns __NodeVersionInput.VersionId, and is useful for accessing the field via an interface.
+func (v *__NodeVersionInput) GetVersionId() string { return v.VersionId }
+
+// __NodeVersionsInput is used internally by genqlient
+type __NodeVersionsInput struct {
+	NodeRef string `json:"nodeRef"`
+	Limit   *int   `json:"limit,omitempty"`
+}
+
+// GetNodeRef returns __NodeVersionsInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__NodeVersionsInput) GetNodeRef() string { return v.NodeRef }
+
+// GetLimit returns __NodeVersionsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__NodeVersionsInput) GetLimit() *int { return v.Limit }
+
 // __OrgMembersInput is used internally by genqlient
 type __OrgMembersInput struct {
 	Ref string `json:"ref"`
@@ -11466,6 +11724,18 @@ type __ResolveUrnInput struct {
 
 // GetUrn returns __ResolveUrnInput.Urn, and is useful for accessing the field via an interface.
 func (v *__ResolveUrnInput) GetUrn() string { return v.Urn }
+
+// __RestoreNodeVersionInput is used internally by genqlient
+type __RestoreNodeVersionInput struct {
+	VersionId string `json:"versionId"`
+	Truncate  *bool  `json:"truncate,omitempty"`
+}
+
+// GetVersionId returns __RestoreNodeVersionInput.VersionId, and is useful for accessing the field via an interface.
+func (v *__RestoreNodeVersionInput) GetVersionId() string { return v.VersionId }
+
+// GetTruncate returns __RestoreNodeVersionInput.Truncate, and is useful for accessing the field via an interface.
+func (v *__RestoreNodeVersionInput) GetTruncate() *bool { return v.Truncate }
 
 // __RevokeMemoryShareInput is used internally by genqlient
 type __RevokeMemoryShareInput struct {
@@ -12564,6 +12834,41 @@ func ChatMessages(
 	}
 
 	data_ = &ChatMessagesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ClearNodeHistory.
+const ClearNodeHistory_Operation = `
+mutation ClearNodeHistory ($nodeRef: ID!) {
+	clearNodeHistory(nodeRef: $nodeRef)
+}
+`
+
+// Delete all of a node's snapshots, returning the count. Reachable on
+// soft-deleted nodes (cleanup), so callers may pass a PK the read surfaces no
+// longer resolve.
+func ClearNodeHistory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+) (data_ *ClearNodeHistoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ClearNodeHistory",
+		Query:  ClearNodeHistory_Operation,
+		Variables: &__ClearNodeHistoryInput{
+			NodeRef: nodeRef,
+		},
+	}
+
+	data_ = &ClearNodeHistoryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -13719,6 +14024,39 @@ func DeleteNode(
 	return data_, err_
 }
 
+// The mutation executed by DeleteNodeVersion.
+const DeleteNodeVersion_Operation = `
+mutation DeleteNodeVersion ($versionId: ID!) {
+	deleteNodeVersion(versionId: $versionId)
+}
+`
+
+// Delete one snapshot (memory-write auth; NOT_FOUND for an unknown id).
+func DeleteNodeVersion(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	versionId string,
+) (data_ *DeleteNodeVersionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteNodeVersion",
+		Query:  DeleteNodeVersion_Operation,
+		Variables: &__DeleteNodeVersionInput{
+			VersionId: versionId,
+		},
+	}
+
+	data_ = &DeleteNodeVersionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by DeleteOrganization.
 const DeleteOrganization_Operation = `
 mutation DeleteOrganization ($id: ID!) {
@@ -14851,6 +15189,103 @@ func NodeExportMeta(
 	return data_, err_
 }
 
+// The query executed by NodeVersion.
+const NodeVersion_Operation = `
+query NodeVersion ($versionId: ID!) {
+	nodeVersion(versionId: $versionId) {
+		id
+		nodeId
+		loc
+		name
+		description
+		content
+		tags
+		createdAt
+		editedBy
+		editedByUser {
+			handle
+			urn
+		}
+	}
+}
+`
+
+// A single snapshot for display (content + metadata). Null — never an error —
+// when the node is unreadable or soft-deleted, so there is no existence
+// disclosure.
+func NodeVersion(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	versionId string,
+) (data_ *NodeVersionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeVersion",
+		Query:  NodeVersion_Operation,
+		Variables: &__NodeVersionInput{
+			VersionId: versionId,
+		},
+	}
+
+	data_ = &NodeVersionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NodeVersions.
+const NodeVersions_Operation = `
+query NodeVersions ($nodeRef: ID!, $limit: Int) {
+	nodeVersions(nodeRef: $nodeRef, limit: $limit) {
+		id
+		nodeId
+		loc
+		name
+		description
+		tags
+		createdAt
+		editedBy
+		editedByUser {
+			handle
+			urn
+		}
+	}
+}
+`
+
+// History for a node, most-recent-first. Per-snapshot memory-gated server-side.
+func NodeVersions(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+	limit *int,
+) (data_ *NodeVersionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeVersions",
+		Query:  NodeVersions_Operation,
+		Variables: &__NodeVersionsInput{
+			NodeRef: nodeRef,
+			Limit:   limit,
+		},
+	}
+
+	data_ = &NodeVersionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by OrgMembers.
 const OrgMembers_Operation = `
 query OrgMembers ($ref: ID!) {
@@ -15214,6 +15649,51 @@ func ResolveUrn(
 	}
 
 	data_ = &ResolveUrnResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RestoreNodeVersion.
+const RestoreNodeVersion_Operation = `
+mutation RestoreNodeVersion ($versionId: ID!, $truncate: Boolean) {
+	restoreNodeVersion(versionId: $versionId, truncate: $truncate) {
+		id
+		memoryId
+		loc
+		name
+		nodeType
+		updatedAt
+	}
+}
+`
+
+// Restore a snapshot. Default snapshots-then-restores (undoable). truncate:true
+// also deletes every snapshot newer than the selected one, which becomes the new
+// baseline (restore+truncate is one atomic transaction). omitempty so an unset
+// flag falls through to the server default (false), never sending null.
+func RestoreNodeVersion(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	versionId string,
+	truncate *bool,
+) (data_ *RestoreNodeVersionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RestoreNodeVersion",
+		Query:  RestoreNodeVersion_Operation,
+		Variables: &__RestoreNodeVersionInput{
+			VersionId: versionId,
+			Truncate:  truncate,
+		},
+	}
+
+	data_ = &RestoreNodeVersionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
