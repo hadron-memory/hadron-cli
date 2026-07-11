@@ -86,6 +86,9 @@ func newCmdVersionList(f *cmdutil.Factory) *cobra.Command {
   hadron node version list start-here -m hadronmemory.com::dev --limit 5 --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit < 0 {
+				return exitcode.Newf(exitcode.Usage, "limit must be non-negative")
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -314,7 +317,7 @@ read surfaces no longer resolve its URN.`,
 			if err != nil {
 				return api.MapError(err)
 			}
-			dto := map[string]any{"nodeRef": ref, "deleted": resp.ClearNodeHistory}
+			dto := map[string]any{"nodeRef": ref, "deletedCount": resp.ClearNodeHistory}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ Deleted %d snapshot(s)\n", resp.ClearNodeHistory)
 				return err

@@ -92,6 +92,23 @@ func TestNodeVersionListRejectsBareLoc(t *testing.T) {
 	}
 }
 
+// A negative --limit is a usage error (matching `hadron search`), rejected
+// before any server call.
+func TestNodeVersionListRejectsNegativeLimit(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"NodeVersions": nodeVersionsJSON,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "version", "list", "n1", "--limit", "-1", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected a usage error for a negative --limit")
+	}
+	if _, called := captured["NodeVersions"]; called {
+		t.Error("a negative --limit must not reach the server")
+	}
+}
+
 func TestNodeVersionShow(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"NodeVersion": `{"data":{"nodeVersion":{"id":"v2","nodeId":"n1","loc":"findings:flaky-ci",
@@ -254,12 +271,21 @@ func TestNodeVersionClear(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "version", "clear", "n1", "--yes", "--server", gql.URL})
+	root.SetArgs([]string{"node", "version", "clear", "n1", "--yes", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if !strings.Contains(out.String(), "Deleted 3 snapshot(s)") {
-		t.Errorf("unexpected output: %s", out.String())
+	// --json uses deletedCount (an int) — distinct from `delete`'s boolean
+	// `deleted`, so the two commands' shapes don't collide on one key name.
+	var got struct {
+		NodeRef      string `json:"nodeRef"`
+		DeletedCount int    `json:"deletedCount"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+		t.Fatalf("--json is not valid: %v\n%s", err, out.String())
+	}
+	if got.DeletedCount != 3 {
+		t.Errorf("deletedCount should be 3, got %d", got.DeletedCount)
 	}
 	var vars struct {
 		NodeRef string `json:"nodeRef"`
