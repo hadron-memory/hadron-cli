@@ -699,6 +699,41 @@ input CompleteAssetUploadInput {
   uploadId: ID!
 }
 
+"""
+A user-owned connection's scoped delegation to an App install (spec-042 Track
+B, #593). The connection OWNER grants a specific App scoped access to their
+mailbox/calendar; the enforcement gate is requireEmailConnection. The grantee
+App is exposed as SCALARS only (never a nested App object), so a cross-org
+grant can't reach the App keys/members. Token material is never exposed.
+"""
+type ConnectionGrant {
+  connectionId: ID!
+  createdAt: String!
+
+  """ISO-8601 expiry, or null for perpetual (until revoked)."""
+  expiresAt: String
+
+  """The App install this grant delegates to."""
+  granteeAppId: ID!
+  granteeAppName: String
+
+  """
+  Canonical URN of the grantee App (hrn:app:<org>::<slug>), or null if unresolvable.
+  """
+  granteeAppUrn: String
+  id: ID!
+
+  """
+  Covered scopes: mail.read, mail.send, calendar.freebusy, calendar.read.
+  """
+  scopes: [String!]!
+}
+
+type ConnectionGrantsPage {
+  items: [ConnectionGrant!]!
+  total: Int!
+}
+
 input CreateAgentScheduleInput {
   """Agent — ref: PK or URN; must be installed in the App."""
   agentRef: String
@@ -929,6 +964,17 @@ type EffectiveActionPolicy {
   layers: [PolicyLayerVerdict!]!
 }
 
+type EmailDraftInfo {
+  conversationId: ID
+  draftId: ID!
+}
+
+enum EmailFlag {
+  COMPLETE
+  FLAGGED
+  NONE
+}
+
 enum EmbeddingSource {
   abstract
   both
@@ -943,6 +989,7 @@ type ExchangeConnection {
   lastSyncAt: String
   mailboxEmail: String!
   organizationId: String!
+  provider: String!
   syncEnabled: Boolean!
   syncStatus: SyncStatus!
   updatedAt: String!
@@ -988,7 +1035,9 @@ type FindNodesResult {
   Reduced-fidelity flag(s); hits are usable. May carry MULTIPLE
   comma-separated codes (e.g. 'no_vector_index,literal_fallback') —
   parse the set, never compare the whole string. Codes: no_vector_index,
-  embedding_unavailable, literal_fallback.
+  embedding_unavailable, literal_fallback, and_relaxed_to_or (a bare
+  multi-term keyword query matched nothing under AND, so it was retried as
+  OR and these hits match ANY term).
   """
   degraded: String
   hits: [NodeHit!]!
@@ -1591,23 +1640,23 @@ type Mutation {
 
   """
   Clone a Memory into a new Memory at `targetUrn`.
-
+  
   `ref` accepts the source's ID or URN. `targetUrn` is a fully-qualified
   "org::slug" memory URN naming the clone; its org segment MAY differ from
   the source's, cloning the memory into another organization. The clone's
   display name is derived from the target slug.
-
+  
   Copies the Memory row plus all live Nodes, Edges, and PendingEdges;
   references to the source memory's URN inside node content/abstract
   (canonical and legacy spellings) are rewritten to the clone's URN.
   Vector-index config carries over and the clone's nodes are stamped for
   re-embedding.
-
+  
   NOT copied: version history, subscriptions, shares, group members
   (the caller is bootstrapped as a group clone's first owner), sessions,
   licenses, log entries, assets, and git-sync config (the clone starts
   DB-only).
-
+  
   Authorization: the SOURCE side mirrors deleteMemory (personal/private →
   owner only; knowledge/group → source-org ADMIN). When `targetUrn` names a
   DIFFERENT org, the caller must additionally be a non-reader member of that
@@ -1710,6 +1759,13 @@ type Mutation {
   """
   createAppKey(appId: ID!, label: String): AppKeyCreated!
   createAppUser(email: String, externalId: String!, handle: String, name: String): User!
+
+  """
+  Grant an App install scoped access to a connection you OWN. scopes must be a
+  subset of {mail.read, mail.send, calendar.freebusy, calendar.read}; expiresAt
+  (ISO-8601) is optional and must be in the future. appRef is a PK or App URN.
+  """
+  createConnectionGrant(appRef: String!, connectionRef: String!, expiresAt: String, scopes: [String!]!): ConnectionGrant!
   createEdge(condition: JSON, data: JSON, description: String, isRunnable: Boolean, loc: String, name: String, priority: Int, sourceRef: ID!, targetRef: ID!): Edge!
 
   """
@@ -1815,11 +1871,25 @@ type Mutation {
   createOrganization(name: String!, urn: String!): Organization!
 
   """
+  Grant a member extra management actions (org-ADMIN, interactive-only; design:grant-model). The grantee must be a live member of the org.
+  """
+  createPrincipalGrant(actions: [String!]!, expiresAt: String, orgRef: String!, userRef: String!): PrincipalGrant!
+
+  """
   Snapshot an Agent's system memory as a new revision.
   
   Accepts the entity's ID or URN.
   """
   createRevision(agentId: ID!, description: String): RevisionResult!
+
+  """
+  Register a Slack workspace install (spec 043). orgRef/appRef accept ID
+  or URN (cor:api:140); the App must belong to the org. Both tokens are
+  validated live by the tool and stored encrypted THERE — core keeps
+  identity only, and no field ever returns a token. Requires org
+  ADMIN/OWNER.
+  """
+  createSlackConnection(appRef: ID!, appToken: String!, botToken: String!, orgRef: ID!): SlackConnection!
 
   """
   025-oauth-for-mcp FR-004: mint a new user-scoped API key for the
@@ -1885,6 +1955,38 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   deleteOrganization(id: ID!): Boolean!
+
+  """
+  Soft-delete a Slack connection (org ADMIN/OWNER); tears down the tool side best-effort.
+  """
+  deleteSlackConnection(ref: ID!): Boolean!
+
+  """Set the categories (color labels) on a message. Owner-only."""
+  emailCategorizeMessage(categories: [String!]!, connectionRef: ID!, messageId: ID!): Boolean!
+
+  """Delete a message (provider trash semantics). Owner-only."""
+  emailDeleteMessage(connectionRef: ID!, messageId: ID!): Boolean!
+
+  """Flag, unflag, or complete a message (default FLAGGED). Owner-only."""
+  emailFlagMessage(connectionRef: ID!, flag: EmailFlag, messageId: ID!): Boolean!
+
+  """Mark a message read or unread (default read). Owner-only."""
+  emailMarkRead(connectionRef: ID!, isRead: Boolean, messageId: ID!): Boolean!
+
+  """
+  Save a draft in the mailbox's own Drafts folder (spec 002 US5): either a
+  reply-draft (replyToMessageId) or a fresh draft (to + subject). Owner-only.
+  idempotencyKey makes retries safe (at-least-once callers).
+  """
+  emailSaveDraft(bodyHtml: String!, connectionRef: ID!, idempotencyKey: String, replyToMessageId: ID, subject: String, to: [String!]): EmailDraftInfo!
+
+  """
+  Send a provider-side draft. Owner-only; idempotencyKey makes retries safe.
+  """
+  emailSendDraft(connectionRef: ID!, draftId: ID!, idempotencyKey: String): Boolean!
+
+  """Update a provider-side draft's body. Owner-only."""
+  emailUpdateDraft(bodyHtml: String!, connectionRef: ID!, draftId: ID!): Boolean!
 
   """
   Convert a plaintext PRIVATE memory to encrypted (spec 041, caller-held
@@ -2125,6 +2227,9 @@ type Mutation {
   revokeAgentSubscription(agentId: ID!, userId: ID!): AgentSubscription!
   revokeAppKey(id: ID!): Boolean!
 
+  """Revoke a connection grant you created (soft delete). Owner-only."""
+  revokeConnectionGrant(ref: ID!): Boolean!
+
   """
   023-app-shape US3 — revoke a MemoryShare. Per FR-022, revocation
   takes effect on the next read (there's no "deactivated" state;
@@ -2133,6 +2238,9 @@ type Mutation {
   Caller-authority rule matches createMemoryShare.
   """
   revokeMemoryShare(granteeId: ID!, memoryId: ID!): RevokeMemorySharePayload!
+
+  """Revoke an action grant (org-ADMIN, interactive-only; soft delete)."""
+  revokePrincipalGrant(ref: ID!): Boolean!
 
   """
   025-oauth-for-mcp FR-004: revoke a user-scoped API key owned by
@@ -2617,7 +2725,9 @@ enum NodeMergeField {
   """Concatenate source description after target description."""
   DESCRIPTION
 
-  """Re-point the source's incoming and outgoing edges onto the target."""
+  """
+  Re-point the source's incoming and outgoing edges onto the target. Each re-homed edge's loc is recomputed from its new endpoints (deriveEdgeLoc); a re-homed edge whose recomputed (loc, memoryId) collides with one the target already holds is dropped rather than duplicated — so an equivalent edge with an endpoint-derived loc is de-duplicated — as are self-loops.
+  """
   EDGES
 
   """Shallow-merge the 'properties' JSON; target wins on key collisions."""
@@ -2753,6 +2863,31 @@ type PolicyLayerVerdict {
 
   """Whether this layer has a link at all (absent = no restriction)."""
   present: Boolean!
+}
+
+"""
+An individual action grant (design:grant-model): extra management actions for one member of one org, on top of their role bundle. Grantee and org are projected as scalars, never nested objects.
+"""
+type PrincipalGrant {
+  """Allowed actions - exact ('memory.clone'), prefix ('memory.*'), or '*'."""
+  actions: [String!]!
+  createdAt: String!
+
+  """ISO-8601 expiry, or null for perpetual (until revoked)."""
+  expiresAt: String
+  id: ID!
+  organizationId: ID!
+  organizationUrn: String
+  principalHandle: String
+  principalId: ID!
+
+  """Grantee kind - 'USER' in v1."""
+  principalType: String!
+}
+
+type PrincipalGrantsPage {
+  items: [PrincipalGrant!]!
+  total: Int!
 }
 
 enum PrincipalType {
@@ -2901,6 +3036,16 @@ type Query {
   chatHistory(chatId: String!, limit: Int): [ChatMessage!]!
 
   """
+  One connection grant the caller created, by ID; null if not theirs (no existence oracle).
+  """
+  connectionGrant(ref: ID!): ConnectionGrant
+
+  """
+  The caller's own connection grants; connectionRef narrows to one connection.
+  """
+  connectionGrants(connectionRef: String, limit: Int, offset: Int): ConnectionGrantsPage!
+
+  """
   The uniform single-edge read (#473) — edges are first-class, loc-addressed
   peers of nodes (spec 037). 'ref' accepts a primary key or a
   fully-qualified edge URN (`hrn:edge:<org>::<memory>::<loc>`; the edge's
@@ -2956,7 +3101,16 @@ type Query {
   """
   exchangeConnections(orgId: ID!): [ExchangeConnection!]!
   exchangeFolders(connectionId: ID!): [ExchangeFolder!]!
-  exchangeMessages(connectionId: ID!, filter: String, top: Int): [ExchangeMessage!]!
+  exchangeMessages(
+    connectionId: ID!
+
+    """
+    Deprecated: raw provider filters are gone; only 'isRead eq false' still translates. Use unreadOnly.
+    """
+    filter: String
+    top: Int
+    unreadOnly: Boolean
+  ): [ExchangeMessage!]!
 
   """
   Unified node search (cor:api:090) — the single node list + retrieval
@@ -2979,7 +3133,23 @@ type Query {
   this is the canonical "the caller's runnable task nodes in one org" query
   (there is no separate myTasks surface — a task is simply an isRunnable node).
   """
-  findNodes(expand: Int, fields: [NodeField!], filter: NodeFilter, granularity: SearchGranularity, limit: Int, mode: FindNodesMode, offset: Int, orgId: ID, query: String, sort: NodeSort): FindNodesResult!
+  findNodes(
+    expand: Int
+    fields: [NodeField!]
+    filter: NodeFilter
+    granularity: SearchGranularity
+    limit: Int
+
+    """
+    Optional absolute relevance floor (cor:api:090 / #497): drop ranked hits whose score is below this value. Scores are NOT comparable across modes, so the meaningful scale differs per mode (keyword ts_rank is roughly 0..a-few; vector cosine similarity is 0..1; hybrid is a small RRF fraction) — pick a floor for the mode in use. Ignored on the no-query browse list (unscored) and never trims expand-neighbours. A floor returns fewer hits, never weaker ones.
+    """
+    minScore: Float
+    mode: FindNodesMode
+    offset: Int
+    orgId: ID
+    query: String
+    sort: NodeSort
+  ): FindNodesResult!
 
   """
   Cross-entity global search across organizations, memories, nodes, agents,
@@ -3070,7 +3240,7 @@ type Query {
   fraction of the full node fragment. The graph view loads this to completion
   (page by page) and renders nodes, THEN loads memoryEdges to draw the links.
   
-  memoryId accepts the memory's ID or URN; a memory the caller can't read
+  memoryRef accepts the memory's ID or URN; a memory the caller can't read
   returns an empty page (total 0, no existence disclosure). Paged via limit
   (default 1000, hard-capped 2000) + offset; total is the memory's full node
   count so the client can show "N of M" and know when it has paged them all.
@@ -3144,7 +3314,15 @@ type Query {
   nodeBatch(ids: [ID!], locPrefix: String, memory: ID): NodeBatchResult!
   nodeExport(format: NodeExportFormat = MD, full: Boolean = true, id: ID!, sections: [NodeExportSection!]): NodeExportResult!
   nodeUsage(limit: Int, loc: String!): [UsageEvent!]!
-  nodeVersions(limit: Int, nodeId: ID!): [NodeVersion!]!
+
+  """
+  Version history for a node, most recent first.
+  
+  Accepts the node's ID or URN. Access-gated on the node's memory: a node
+  whose memory the caller can't read returns an empty list (no existence
+  disclosure).
+  """
+  nodeVersions(limit: Int, nodeRef: ID!): [NodeVersion!]!
 
   """
   Fetch an Organization (org member or platform ADMIN).
@@ -3162,6 +3340,16 @@ type Query {
   tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
   """
   organizations(filter: OrganizationFilter, limit: Int, offset: Int): OrganizationsPage!
+
+  """
+  One action grant by ID - visible to the grantee or an admin of its org; null otherwise (no existence oracle).
+  """
+  principalGrant(ref: ID!): PrincipalGrant
+
+  """
+  Action grants. Default: the caller's own (self-audit is never gated). An org admin passing orgRef sees that org's grants, optionally narrowed by userRef.
+  """
+  principalGrants(limit: Int, offset: Int, orgRef: String, userRef: String): PrincipalGrantsPage!
 
   """
   #551 — the public-agent marketplace slice: every live PUBLIC agent,
@@ -3263,6 +3451,22 @@ type Query {
   serverInfo: ServerInfo!
   session(id: ID!): Session
   sessions(customerId: String, limit: Int, offset: Int, repo: String, type: String): [Session!]!
+
+  """
+  Fetch one Slack connection by id (spec 043). Returns null when the row
+  does not exist OR the caller is not a member of its org — no existence
+  disclosure.
+  """
+  slackConnection(ref: ID!): SlackConnection
+
+  """
+  Uniform paginated Slack-connection list (cor:api:120). Default scope:
+  the caller's member orgs. orgId follows cor:api:100:01 (member -> that
+  org, non-member -> empty page, no disclosure, no admin bypass).
+  Team-name-ascending order (id tiebreak); limit default 50 / cap 200;
+  limit: 0 -> count only.
+  """
+  slackConnections(limit: Int, offset: Int, orgId: ID): SlackConnectionsPage!
   usageEvents(limit: Int, memoryId: ID, nodeId: ID, offset: Int, type: String): [UsageEvent!]!
 
   """
@@ -3561,6 +3765,37 @@ input SetQuotaLimitInput {
 
   """Org - ref: PK or URN."""
   orgRef: String!
+}
+
+type SlackConnection {
+  """
+  The bot's BOT id (B…) — what bot message events carry. Distinct from botUserId; the bridge loop filter needs both.
+  """
+  botId: String!
+
+  """The bot's Slack USER id (U…) — the sender on messages it posts."""
+  botUserId: String!
+  createdAt: String!
+  defaultAppId: String!
+  id: ID!
+  lastError: String
+  organizationId: String!
+
+  """Slack provider backing this connection ('slack' today)."""
+  provider: String!
+
+  """'ACTIVE' or 'ERROR' (the tool's connection-status vocabulary)."""
+  status: String!
+
+  """Slack workspace (team) id, e.g. T0123456789."""
+  teamId: String!
+  teamName: String!
+  updatedAt: String!
+}
+
+type SlackConnectionsPage {
+  items: [SlackConnection!]!
+  total: Int!
 }
 
 enum SubscriptionType {
