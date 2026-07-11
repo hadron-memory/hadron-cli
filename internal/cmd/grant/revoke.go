@@ -9,6 +9,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -34,7 +35,12 @@ next gate check; the grantee keeps their role and membership.`,
 			if err != nil {
 				return api.MapError(err)
 			}
-			_ = resp.RevokePrincipalGrant // true on success; server errors map above
+			// The server throws NOT_FOUND rather than returning false today,
+			// but honor a false defensively (webhook rm precedent; PR-214
+			// review) instead of reporting a revoke that didn't happen.
+			if resp == nil || !resp.RevokePrincipalGrant {
+				return exitcode.Newf(exitcode.NotFound, "grant %q not found", args[0])
+			}
 			dto := map[string]string{"id": args[0], "status": "revoked"}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ revoked grant %s\n", args[0])

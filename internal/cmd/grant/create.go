@@ -63,6 +63,11 @@ verb simply never matches a gate.`,
 			if err != nil {
 				return api.MapError(err)
 			}
+			// The schema marks the payload non-null, so this only fires on a
+			// malformed response — guard rather than panic (PR-214 review).
+			if resp == nil || resp.CreatePrincipalGrant == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no grant payload")
+			}
 			dto := dtoFromFields(resp.CreatePrincipalGrant.PrincipalGrantFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ granted %s to %s in %s (grant %s, %s)\n",
