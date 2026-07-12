@@ -60,7 +60,7 @@ node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 
 ```
 hadron auth login | logout | whoami | status | token create|ls|validate|revoke <id>
-hadron memory ls | get <id-or-urn> | set [<id-or-urn>] [--max-rev-count <n>] | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn <org::slug> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
+hadron memory ls | get <id-or-urn> | set [<id-or-urn>] [--max-rev-count <n>] | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn <org::slug> | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
 hadron node ls [-m <memory>] | get <urn> | add | update <urn> | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
 hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--reply-to <loc>] [--handle <h>] [--identity <i>] [--role <r>]
@@ -251,6 +251,17 @@ Conventions:
   member of that target org. Version history, shares/subscriptions, assets,
   and git-sync config are NOT copied. Encrypted memories and agent system /
   app memories cannot be cloned.
+- `memory extract <parentRef> <targetUrn> [--move]` extracts a parent node and
+  its loc-subtree into a NEW memory named by `<targetUrn>` (a fully-qualified
+  "org::slug" URN, org MAY differ), making the parent the memory's root — locs
+  are rebased (`findings:auth`→`<slug>`, `findings:auth:oauth`→`<slug>:oauth`).
+  `<parentRef>` is a node id or fully-qualified `<org>::<memory>::<loc>` URN;
+  pass `-m <org::memory>` with a bare loc instead. Default COPIES (source
+  intact); `--move` relocates it, soft-deleting the source subtree (needs
+  source write access, cannot target the source root). The new memory preserves
+  the source's class. v1 limitation: node content is copied verbatim, so URN
+  references among the moved nodes break (slug + locs change); unresolved
+  pending edges in the subtree are dropped.
 - `memory export <id-or-urn> [--out <dir>]` writes every node to a local
   directory (`--out` defaults to `.`, the current directory) as frontmatter
   markdown (`<out>/<loc>.md`, one self-contained file per node, colons in the

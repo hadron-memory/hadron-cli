@@ -1472,6 +1472,83 @@ func TestMemoryCloneRejectsRelativeTargetURN(t *testing.T) {
 	}
 }
 
+func TestMemoryExtract(t *testing.T) {
+	extractJSON := `{"id":"m3","urn":"acme.com:auth-kb","name":"auth-kb","shortDescription":null,
+		"class":"knowledge","visibility":"ORGANIZATION","organizationId":"org1",
+		"isEncrypted":false,"updatedAt":"2026-07-12T00:00:00Z"}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":                resolveNodeJSON,
+		"ExtractParentNodeToMemory": `{"data":{"extractParentNodeToMemory":` + extractJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "extract", nodeURN, "acme.com::auth-kb", "--server", gql.URL, "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["ExtractParentNodeToMemory"], &vars)
+	// The parent ref is resolved to a node id before the mutation.
+	if vars["parentRef"] != "n1" {
+		t.Errorf("parentRef = %v, want n1", vars["parentRef"])
+	}
+	if vars["targetUrn"] != "acme.com::auth-kb" {
+		t.Errorf("targetUrn = %v", vars["targetUrn"])
+	}
+	// move is omitted (not sent as null/false) so the server keeps its default.
+	if _, ok := vars["move"]; ok {
+		t.Errorf("move should be omitted when the flag is unset, got %v", vars["move"])
+	}
+	var dto map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	if dto["urn"] != "acme.com:auth-kb" {
+		t.Errorf("unexpected output dto: %v", dto)
+	}
+}
+
+func TestMemoryExtractMoveWithMemoryFlag(t *testing.T) {
+	extractJSON := `{"id":"m3","urn":"acme.com:auth-kb","name":"auth-kb","shortDescription":null,
+		"class":"knowledge","visibility":"ORGANIZATION","organizationId":"org1",
+		"isEncrypted":false,"updatedAt":"2026-07-12T00:00:00Z"}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":                resolveNodeJSON,
+		"ExtractParentNodeToMemory": `{"data":{"extractParentNodeToMemory":` + extractJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	// A bare loc resolves through -m; --move sends move=true.
+	root.SetArgs([]string{"memory", "extract", "-m", "acme.com::kb", "findings:auth", "acme.com::auth-kb", "--move", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var resolveVars map[string]any
+	_ = json.Unmarshal(captured["ResolveUrn"], &resolveVars)
+	if resolveVars["urn"] != "hrn:node:acme.com::kb::findings:auth" {
+		t.Errorf("ResolveUrn urn = %v", resolveVars["urn"])
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["ExtractParentNodeToMemory"], &vars)
+	if vars["move"] != true {
+		t.Errorf("move = %v, want true", vars["move"])
+	}
+	if got := out.String(); !strings.Contains(got, "moved") {
+		t.Errorf("human output should note the move, got:\n%s", got)
+	}
+}
+
+func TestMemoryExtractRejectsRelativeTargetURN(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	// A bare slug (no "::") is caught client-side before any network call.
+	root.SetArgs([]string{"memory", "extract", nodeURN, "just-a-slug"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "fully-qualified") {
+		t.Fatalf("expected a fully-qualified URN error, got %v", err)
+	}
+}
+
 const appJSON = `{"id":"app1","urn":"urn:agent:acme.com::bot::acme.com:helper","name":"Bot",
 	"appType":"CHATBOT","agentId":"agent1","memberCount":2,"createdAt":"2026-06-11T00:00:00Z"}`
 

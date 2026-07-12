@@ -5254,6 +5254,108 @@ func (v *EncryptMemoryResponse) GetEncryptMemory() *EncryptMemoryEncryptMemory {
 	return v.EncryptMemory
 }
 
+// ExtractParentNodeToMemoryExtractParentNodeToMemory includes the requested fields of the GraphQL type Memory.
+type ExtractParentNodeToMemoryExtractParentNodeToMemory struct {
+	Id               string            `json:"id"`
+	Urn              string            `json:"urn"`
+	Name             string            `json:"name"`
+	ShortDescription *string           `json:"shortDescription"`
+	Class            MemoryClass       `json:"class"`
+	Visibility       *MemoryVisibility `json:"visibility"`
+	OrganizationId   string            `json:"organizationId"`
+	IsEncrypted      bool              `json:"isEncrypted"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int    `json:"maxRevCount"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+// GetId returns ExtractParentNodeToMemoryExtractParentNodeToMemory.Id, and is useful for accessing the field via an interface.
+func (v *ExtractParentNodeToMemoryExtractParentNodeToMemory) GetId() string { return v.Id }
+
+// GetUrn returns ExtractParentNodeToMemoryExtractParentNodeToMemory.Urn, and is useful for accessing the field via an interface.
+func (v *ExtractParentNodeToMemoryExtractParentNodeToMemory) GetUrn() string { return v.Urn }
+
+// GetName returns ExtractParentNodeToMemoryExtractParentNodeToMemory.Name, and is useful for accessing the field via an interface.
+func (v *ExtractParentNodeToMemoryExtractParentNodeToMemory) GetName() string { return v.Name }
+
+// GetShortDescription returns ExtractParentNodeToMemoryExtractParentNodeToMemory.ShortDescription, and is useful for accessing the field via an interface.
+func (v *ExtractParentNodeToMemoryExtractParentNodeToMemory) GetShortDescription() *string {
+	return v.ShortDescription
+}
+
+// GetClass returns ExtractParentNodeToMemoryExtractParentNodeToMemory.Class, and is useful for accessing the field via an interface.
+func (v *ExtractParentNodeToMemoryExtractParentNodeToMemory) GetClass() MemoryClass { return v.Class }
+
+// GetVisibility returns ExtractParentNodeToMemoryExtractParentNodeToMemory.Visibility, and is useful for accessing the field via an interface.
+func (v *ExtractParentNodeToMemoryExtractParentNodeToMemory) GetVisibility() *MemoryVisibility {
+	return v.Visibility
+}
+
+// GetOrganizationId returns ExtractParentNodeToMemoryExtractParentNodeToMemory.OrganizationId, and is useful for accessing the field via an interface.
+func (v *ExtractParentNodeToMemoryExtractParentNodeToMemory) GetOrganizationId() string {
+	return v.OrganizationId
+}
+
+// GetIsEncrypted returns ExtractParentNodeToMemoryExtractParentNodeToMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *ExtractParentNodeToMemoryExtractParentNodeToMemory) GetIsEncrypted() bool {
+	return v.IsEncrypted
+}
+
+// GetMaxRevCount returns ExtractParentNodeToMemoryExtractParentNodeToMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *ExtractParentNodeToMemoryExtractParentNodeToMemory) GetMaxRevCount() int {
+	return v.MaxRevCount
+}
+
+// GetUpdatedAt returns ExtractParentNodeToMemoryExtractParentNodeToMemory.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ExtractParentNodeToMemoryExtractParentNodeToMemory) GetUpdatedAt() string {
+	return v.UpdatedAt
+}
+
+// ExtractParentNodeToMemoryResponse is returned by ExtractParentNodeToMemory on success.
+type ExtractParentNodeToMemoryResponse struct {
+	// Extract a parent node and its whole loc-subtree into a BRAND-NEW memory,
+	// making the parent the new memory's root.
+	//
+	// The subtree is loc-prefix defined: the node at the parent's loc plus every
+	// live descendant (loc starting with 'parentLoc:'). Locs are REBASED so the
+	// parent becomes the root — 'findings:auth' becomes the memory slug and
+	// 'findings:auth:oauth' becomes '<slug>:oauth'. Edges wholly inside the
+	// subtree carry over (their loc re-derived from the rebased endpoints);
+	// boundary-crossing edges and PendingEdges are dropped.
+	//
+	// 'parentRef' is the parent node's ID or fully-qualified URN. 'targetUrn' is
+	// a fully-qualified '<org>::<slug>' URN naming the new memory (it may land in
+	// a DIFFERENT org). 'move' = false (default) COPIES the subtree, leaving the
+	// source intact; 'move' = true relocates it, soft-deleting the source subtree
+	// (its nodes, the source memory's touching edges, and its pending edges).
+	//
+	// The new memory PRESERVES the source's class so an extract never widens who
+	// can read the content: a member-restricted 'group' stays group, a
+	// personal/private source stays owner-owned, knowledge stays knowledge.
+	// Governance/config (requiresLicense, chunk dials, revision cap, acceptsUploads)
+	// carries over from the source.
+	//
+	// Authorization: read access to the source memory (denial reads as
+	// NODE_NOT_FOUND). For knowledge/group sources the caller needs the SOURCE
+	// org's memory.clone grant (an export) AND the destination org's memory.create
+	// (plus a non-reader membership for a cross-org drop); a personal/private
+	// extract instead requires the owner to be a member of the destination org.
+	// 'move' additionally requires source write access, and cannot target the
+	// source root (that would empty the source — clone + deleteMemory instead).
+	// Encrypted and system/app-class sources are rejected.
+	//
+	// v1 limitation: node content is copied verbatim — because both the slug and
+	// node locs change, URN references among the moved nodes WILL break; and
+	// unresolved PendingEdges within the subtree are dropped.
+	ExtractParentNodeToMemory *ExtractParentNodeToMemoryExtractParentNodeToMemory `json:"extractParentNodeToMemory"`
+}
+
+// GetExtractParentNodeToMemory returns ExtractParentNodeToMemoryResponse.ExtractParentNodeToMemory, and is useful for accessing the field via an interface.
+func (v *ExtractParentNodeToMemoryResponse) GetExtractParentNodeToMemory() *ExtractParentNodeToMemoryExtractParentNodeToMemory {
+	return v.ExtractParentNodeToMemory
+}
+
 // FindNodesFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
 // The GraphQL type's documentation follows.
 //
@@ -12832,6 +12934,22 @@ func (v *__EncryptMemoryInput) GetMemoryId() string { return v.MemoryId }
 // GetDataKey returns __EncryptMemoryInput.DataKey, and is useful for accessing the field via an interface.
 func (v *__EncryptMemoryInput) GetDataKey() string { return v.DataKey }
 
+// __ExtractParentNodeToMemoryInput is used internally by genqlient
+type __ExtractParentNodeToMemoryInput struct {
+	ParentRef string `json:"parentRef"`
+	TargetUrn string `json:"targetUrn"`
+	Move      *bool  `json:"move,omitempty"`
+}
+
+// GetParentRef returns __ExtractParentNodeToMemoryInput.ParentRef, and is useful for accessing the field via an interface.
+func (v *__ExtractParentNodeToMemoryInput) GetParentRef() string { return v.ParentRef }
+
+// GetTargetUrn returns __ExtractParentNodeToMemoryInput.TargetUrn, and is useful for accessing the field via an interface.
+func (v *__ExtractParentNodeToMemoryInput) GetTargetUrn() string { return v.TargetUrn }
+
+// GetMove returns __ExtractParentNodeToMemoryInput.Move, and is useful for accessing the field via an interface.
+func (v *__ExtractParentNodeToMemoryInput) GetMove() *bool { return v.Move }
+
 // __FindNodesInput is used internally by genqlient
 type __FindNodesInput struct {
 	Query  *string        `json:"query,omitempty"`
@@ -15875,6 +15993,57 @@ func EncryptMemory(
 	}
 
 	data_ = &EncryptMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ExtractParentNodeToMemory.
+const ExtractParentNodeToMemory_Operation = `
+mutation ExtractParentNodeToMemory ($parentRef: ID!, $targetUrn: String!, $move: Boolean) {
+	extractParentNodeToMemory(parentRef: $parentRef, targetUrn: $targetUrn, move: $move) {
+		id
+		urn
+		name
+		shortDescription
+		class
+		visibility
+		organizationId
+		isEncrypted
+		maxRevCount
+		updatedAt
+	}
+}
+`
+
+// Extract a parent node + its loc-subtree into a new memory (hadron-server#637).
+// move = false copies (source intact); move = true relocates, soft-deleting the
+// source subtree. The default is applied server-side, so it is omitted when the
+// --move flag is not set.
+func ExtractParentNodeToMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	parentRef string,
+	targetUrn string,
+	move *bool,
+) (data_ *ExtractParentNodeToMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ExtractParentNodeToMemory",
+		Query:  ExtractParentNodeToMemory_Operation,
+		Variables: &__ExtractParentNodeToMemoryInput{
+			ParentRef: parentRef,
+			TargetUrn: targetUrn,
+			Move:      move,
+		},
+	}
+
+	data_ = &ExtractParentNodeToMemoryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
