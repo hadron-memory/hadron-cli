@@ -3930,6 +3930,131 @@ type CreateEdgeResponse struct {
 // GetCreateEdge returns CreateEdgeResponse.CreateEdge, and is useful for accessing the field via an interface.
 func (v *CreateEdgeResponse) GetCreateEdge() *CreateEdgeCreateEdge { return v.CreateEdge }
 
+// CreateMcpServerCreateMcpServer includes the requested fields of the GraphQL type McpServer.
+type CreateMcpServerCreateMcpServer struct {
+	McpServerFields `json:"-"`
+}
+
+// GetId returns CreateMcpServerCreateMcpServer.Id, and is useful for accessing the field via an interface.
+func (v *CreateMcpServerCreateMcpServer) GetId() string { return v.McpServerFields.Id }
+
+// GetOrganizationId returns CreateMcpServerCreateMcpServer.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateMcpServerCreateMcpServer) GetOrganizationId() string {
+	return v.McpServerFields.OrganizationId
+}
+
+// GetSlug returns CreateMcpServerCreateMcpServer.Slug, and is useful for accessing the field via an interface.
+func (v *CreateMcpServerCreateMcpServer) GetSlug() string { return v.McpServerFields.Slug }
+
+// GetName returns CreateMcpServerCreateMcpServer.Name, and is useful for accessing the field via an interface.
+func (v *CreateMcpServerCreateMcpServer) GetName() string { return v.McpServerFields.Name }
+
+// GetUrl returns CreateMcpServerCreateMcpServer.Url, and is useful for accessing the field via an interface.
+func (v *CreateMcpServerCreateMcpServer) GetUrl() string { return v.McpServerFields.Url }
+
+// GetToolAllowlist returns CreateMcpServerCreateMcpServer.ToolAllowlist, and is useful for accessing the field via an interface.
+func (v *CreateMcpServerCreateMcpServer) GetToolAllowlist() []string {
+	return v.McpServerFields.ToolAllowlist
+}
+
+// GetHasHeaders returns CreateMcpServerCreateMcpServer.HasHeaders, and is useful for accessing the field via an interface.
+func (v *CreateMcpServerCreateMcpServer) GetHasHeaders() bool { return v.McpServerFields.HasHeaders }
+
+// GetEnabled returns CreateMcpServerCreateMcpServer.Enabled, and is useful for accessing the field via an interface.
+func (v *CreateMcpServerCreateMcpServer) GetEnabled() bool { return v.McpServerFields.Enabled }
+
+// GetCreatedAt returns CreateMcpServerCreateMcpServer.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateMcpServerCreateMcpServer) GetCreatedAt() string { return v.McpServerFields.CreatedAt }
+
+// GetUpdatedAt returns CreateMcpServerCreateMcpServer.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateMcpServerCreateMcpServer) GetUpdatedAt() string { return v.McpServerFields.UpdatedAt }
+
+func (v *CreateMcpServerCreateMcpServer) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateMcpServerCreateMcpServer
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateMcpServerCreateMcpServer = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.McpServerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateMcpServerCreateMcpServer struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Slug string `json:"slug"`
+
+	Name string `json:"name"`
+
+	Url string `json:"url"`
+
+	ToolAllowlist []string `json:"toolAllowlist"`
+
+	HasHeaders bool `json:"hasHeaders"`
+
+	Enabled bool `json:"enabled"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *CreateMcpServerCreateMcpServer) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateMcpServerCreateMcpServer) __premarshalJSON() (*__premarshalCreateMcpServerCreateMcpServer, error) {
+	var retval __premarshalCreateMcpServerCreateMcpServer
+
+	retval.Id = v.McpServerFields.Id
+	retval.OrganizationId = v.McpServerFields.OrganizationId
+	retval.Slug = v.McpServerFields.Slug
+	retval.Name = v.McpServerFields.Name
+	retval.Url = v.McpServerFields.Url
+	retval.ToolAllowlist = v.McpServerFields.ToolAllowlist
+	retval.HasHeaders = v.McpServerFields.HasHeaders
+	retval.Enabled = v.McpServerFields.Enabled
+	retval.CreatedAt = v.McpServerFields.CreatedAt
+	retval.UpdatedAt = v.McpServerFields.UpdatedAt
+	return &retval, nil
+}
+
+// CreateMcpServerResponse is returned by CreateMcpServer on success.
+type CreateMcpServerResponse struct {
+	// Register an external MCP server (org ADMIN/OWNER). orgRef accepts ID
+	// or URN (cor:api:140). headers is a JSON object of static request
+	// headers (e.g. Authorization) — encrypted at rest, write-only, never
+	// returned. Registration grants nothing by itself: runs still need the
+	// policy chain to allow tool.mcp__<slug>__<tool>.
+	CreateMcpServer *CreateMcpServerCreateMcpServer `json:"createMcpServer"`
+}
+
+// GetCreateMcpServer returns CreateMcpServerResponse.CreateMcpServer, and is useful for accessing the field via an interface.
+func (v *CreateMcpServerResponse) GetCreateMcpServer() *CreateMcpServerCreateMcpServer {
+	return v.CreateMcpServer
+}
+
 // CreateMemoryCreateMemory includes the requested fields of the GraphQL type Memory.
 type CreateMemoryCreateMemory struct {
 	Id               string            `json:"id"`
@@ -4905,6 +5030,15 @@ type DeleteEdgeResponse struct {
 
 // GetDeleteEdge returns DeleteEdgeResponse.DeleteEdge, and is useful for accessing the field via an interface.
 func (v *DeleteEdgeResponse) GetDeleteEdge() bool { return v.DeleteEdge }
+
+// DeleteMcpServerResponse is returned by DeleteMcpServer on success.
+type DeleteMcpServerResponse struct {
+	// Hard-delete a registered MCP server (org ADMIN/OWNER); runs referencing its tools fail loud afterwards.
+	DeleteMcpServer bool `json:"deleteMcpServer"`
+}
+
+// GetDeleteMcpServer returns DeleteMcpServerResponse.DeleteMcpServer, and is useful for accessing the field via an interface.
+func (v *DeleteMcpServerResponse) GetDeleteMcpServer() bool { return v.DeleteMcpServer }
 
 // DeleteMemoryResponse is returned by DeleteMemory on success.
 type DeleteMemoryResponse struct {
@@ -6210,6 +6344,368 @@ func (v *InvitationFields) GetAcceptedAt() *string { return v.AcceptedAt }
 
 // GetCreatedAt returns InvitationFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *InvitationFields) GetCreatedAt() string { return v.CreatedAt }
+
+// McpServerFields includes the GraphQL fields of McpServer requested by the fragment McpServerFields.
+type McpServerFields struct {
+	Id             string `json:"id"`
+	OrganizationId string `json:"organizationId"`
+	// Run-tool name segment (mcp__<slug>__<tool>); lowercase [a-z0-9-], unique per org, immutable.
+	Slug string `json:"slug"`
+	Name string `json:"name"`
+	// Streamable-HTTP MCP endpoint URL.
+	Url string `json:"url"`
+	// Exposed-tool allowlist; empty = every tool the server advertises.
+	ToolAllowlist []string `json:"toolAllowlist"`
+	// Whether encrypted static headers are stored (the values are never returned).
+	HasHeaders bool `json:"hasHeaders"`
+	// Disabled servers fail run-tool resolution loud, same as an unregistered slug.
+	Enabled   bool   `json:"enabled"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+// GetId returns McpServerFields.Id, and is useful for accessing the field via an interface.
+func (v *McpServerFields) GetId() string { return v.Id }
+
+// GetOrganizationId returns McpServerFields.OrganizationId, and is useful for accessing the field via an interface.
+func (v *McpServerFields) GetOrganizationId() string { return v.OrganizationId }
+
+// GetSlug returns McpServerFields.Slug, and is useful for accessing the field via an interface.
+func (v *McpServerFields) GetSlug() string { return v.Slug }
+
+// GetName returns McpServerFields.Name, and is useful for accessing the field via an interface.
+func (v *McpServerFields) GetName() string { return v.Name }
+
+// GetUrl returns McpServerFields.Url, and is useful for accessing the field via an interface.
+func (v *McpServerFields) GetUrl() string { return v.Url }
+
+// GetToolAllowlist returns McpServerFields.ToolAllowlist, and is useful for accessing the field via an interface.
+func (v *McpServerFields) GetToolAllowlist() []string { return v.ToolAllowlist }
+
+// GetHasHeaders returns McpServerFields.HasHeaders, and is useful for accessing the field via an interface.
+func (v *McpServerFields) GetHasHeaders() bool { return v.HasHeaders }
+
+// GetEnabled returns McpServerFields.Enabled, and is useful for accessing the field via an interface.
+func (v *McpServerFields) GetEnabled() bool { return v.Enabled }
+
+// GetCreatedAt returns McpServerFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *McpServerFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns McpServerFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *McpServerFields) GetUpdatedAt() string { return v.UpdatedAt }
+
+// McpServerMcpServer includes the requested fields of the GraphQL type McpServer.
+type McpServerMcpServer struct {
+	McpServerFields `json:"-"`
+}
+
+// GetId returns McpServerMcpServer.Id, and is useful for accessing the field via an interface.
+func (v *McpServerMcpServer) GetId() string { return v.McpServerFields.Id }
+
+// GetOrganizationId returns McpServerMcpServer.OrganizationId, and is useful for accessing the field via an interface.
+func (v *McpServerMcpServer) GetOrganizationId() string { return v.McpServerFields.OrganizationId }
+
+// GetSlug returns McpServerMcpServer.Slug, and is useful for accessing the field via an interface.
+func (v *McpServerMcpServer) GetSlug() string { return v.McpServerFields.Slug }
+
+// GetName returns McpServerMcpServer.Name, and is useful for accessing the field via an interface.
+func (v *McpServerMcpServer) GetName() string { return v.McpServerFields.Name }
+
+// GetUrl returns McpServerMcpServer.Url, and is useful for accessing the field via an interface.
+func (v *McpServerMcpServer) GetUrl() string { return v.McpServerFields.Url }
+
+// GetToolAllowlist returns McpServerMcpServer.ToolAllowlist, and is useful for accessing the field via an interface.
+func (v *McpServerMcpServer) GetToolAllowlist() []string { return v.McpServerFields.ToolAllowlist }
+
+// GetHasHeaders returns McpServerMcpServer.HasHeaders, and is useful for accessing the field via an interface.
+func (v *McpServerMcpServer) GetHasHeaders() bool { return v.McpServerFields.HasHeaders }
+
+// GetEnabled returns McpServerMcpServer.Enabled, and is useful for accessing the field via an interface.
+func (v *McpServerMcpServer) GetEnabled() bool { return v.McpServerFields.Enabled }
+
+// GetCreatedAt returns McpServerMcpServer.CreatedAt, and is useful for accessing the field via an interface.
+func (v *McpServerMcpServer) GetCreatedAt() string { return v.McpServerFields.CreatedAt }
+
+// GetUpdatedAt returns McpServerMcpServer.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *McpServerMcpServer) GetUpdatedAt() string { return v.McpServerFields.UpdatedAt }
+
+func (v *McpServerMcpServer) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*McpServerMcpServer
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.McpServerMcpServer = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.McpServerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalMcpServerMcpServer struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Slug string `json:"slug"`
+
+	Name string `json:"name"`
+
+	Url string `json:"url"`
+
+	ToolAllowlist []string `json:"toolAllowlist"`
+
+	HasHeaders bool `json:"hasHeaders"`
+
+	Enabled bool `json:"enabled"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *McpServerMcpServer) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *McpServerMcpServer) __premarshalJSON() (*__premarshalMcpServerMcpServer, error) {
+	var retval __premarshalMcpServerMcpServer
+
+	retval.Id = v.McpServerFields.Id
+	retval.OrganizationId = v.McpServerFields.OrganizationId
+	retval.Slug = v.McpServerFields.Slug
+	retval.Name = v.McpServerFields.Name
+	retval.Url = v.McpServerFields.Url
+	retval.ToolAllowlist = v.McpServerFields.ToolAllowlist
+	retval.HasHeaders = v.McpServerFields.HasHeaders
+	retval.Enabled = v.McpServerFields.Enabled
+	retval.CreatedAt = v.McpServerFields.CreatedAt
+	retval.UpdatedAt = v.McpServerFields.UpdatedAt
+	return &retval, nil
+}
+
+// McpServerResponse is returned by McpServer on success.
+type McpServerResponse struct {
+	// Fetch one registered external MCP server by id. Returns null when the
+	// row does not exist OR the caller is not a member of its org — no
+	// existence disclosure.
+	McpServer *McpServerMcpServer `json:"mcpServer"`
+}
+
+// GetMcpServer returns McpServerResponse.McpServer, and is useful for accessing the field via an interface.
+func (v *McpServerResponse) GetMcpServer() *McpServerMcpServer { return v.McpServer }
+
+// McpServerToolsMcpServerToolsMcpServerTool includes the requested fields of the GraphQL type McpServerTool.
+type McpServerToolsMcpServerToolsMcpServerTool struct {
+	// The tool's name on the external server.
+	Name        string  `json:"name"`
+	Description *string `json:"description"`
+	// The run-tool / policy name: mcp__<slug>__<name>.
+	RunToolName string `json:"runToolName"`
+	// The tool's argument JSON Schema, passed through verbatim.
+	InputSchema *json.RawMessage `json:"inputSchema"`
+}
+
+// GetName returns McpServerToolsMcpServerToolsMcpServerTool.Name, and is useful for accessing the field via an interface.
+func (v *McpServerToolsMcpServerToolsMcpServerTool) GetName() string { return v.Name }
+
+// GetDescription returns McpServerToolsMcpServerToolsMcpServerTool.Description, and is useful for accessing the field via an interface.
+func (v *McpServerToolsMcpServerToolsMcpServerTool) GetDescription() *string { return v.Description }
+
+// GetRunToolName returns McpServerToolsMcpServerToolsMcpServerTool.RunToolName, and is useful for accessing the field via an interface.
+func (v *McpServerToolsMcpServerToolsMcpServerTool) GetRunToolName() string { return v.RunToolName }
+
+// GetInputSchema returns McpServerToolsMcpServerToolsMcpServerTool.InputSchema, and is useful for accessing the field via an interface.
+func (v *McpServerToolsMcpServerToolsMcpServerTool) GetInputSchema() *json.RawMessage {
+	return v.InputSchema
+}
+
+// McpServerToolsResponse is returned by McpServerTools on success.
+type McpServerToolsResponse struct {
+	// Live tools/list passthrough for one registered server (org member) —
+	// what authors browse to pick data.tools entries. Applies the same
+	// admissibility filter as run-tool materialization, so what it returns
+	// IS what a run can call: a disabled server errors with
+	// MCP_SERVER_DISABLED rather than listing uncallable tools. Null when
+	// the row does not exist or the caller is not a member of its org;
+	// errors with MCP_TOOL_* codes when the conduit or the external server
+	// fails.
+	McpServerTools []*McpServerToolsMcpServerToolsMcpServerTool `json:"mcpServerTools"`
+}
+
+// GetMcpServerTools returns McpServerToolsResponse.McpServerTools, and is useful for accessing the field via an interface.
+func (v *McpServerToolsResponse) GetMcpServerTools() []*McpServerToolsMcpServerToolsMcpServerTool {
+	return v.McpServerTools
+}
+
+// McpServersMcpServersMcpServersPage includes the requested fields of the GraphQL type McpServersPage.
+type McpServersMcpServersMcpServersPage struct {
+	Items []*McpServersMcpServersMcpServersPageItemsMcpServer `json:"items"`
+	Total int                                                 `json:"total"`
+}
+
+// GetItems returns McpServersMcpServersMcpServersPage.Items, and is useful for accessing the field via an interface.
+func (v *McpServersMcpServersMcpServersPage) GetItems() []*McpServersMcpServersMcpServersPageItemsMcpServer {
+	return v.Items
+}
+
+// GetTotal returns McpServersMcpServersMcpServersPage.Total, and is useful for accessing the field via an interface.
+func (v *McpServersMcpServersMcpServersPage) GetTotal() int { return v.Total }
+
+// McpServersMcpServersMcpServersPageItemsMcpServer includes the requested fields of the GraphQL type McpServer.
+type McpServersMcpServersMcpServersPageItemsMcpServer struct {
+	McpServerFields `json:"-"`
+}
+
+// GetId returns McpServersMcpServersMcpServersPageItemsMcpServer.Id, and is useful for accessing the field via an interface.
+func (v *McpServersMcpServersMcpServersPageItemsMcpServer) GetId() string {
+	return v.McpServerFields.Id
+}
+
+// GetOrganizationId returns McpServersMcpServersMcpServersPageItemsMcpServer.OrganizationId, and is useful for accessing the field via an interface.
+func (v *McpServersMcpServersMcpServersPageItemsMcpServer) GetOrganizationId() string {
+	return v.McpServerFields.OrganizationId
+}
+
+// GetSlug returns McpServersMcpServersMcpServersPageItemsMcpServer.Slug, and is useful for accessing the field via an interface.
+func (v *McpServersMcpServersMcpServersPageItemsMcpServer) GetSlug() string {
+	return v.McpServerFields.Slug
+}
+
+// GetName returns McpServersMcpServersMcpServersPageItemsMcpServer.Name, and is useful for accessing the field via an interface.
+func (v *McpServersMcpServersMcpServersPageItemsMcpServer) GetName() string {
+	return v.McpServerFields.Name
+}
+
+// GetUrl returns McpServersMcpServersMcpServersPageItemsMcpServer.Url, and is useful for accessing the field via an interface.
+func (v *McpServersMcpServersMcpServersPageItemsMcpServer) GetUrl() string {
+	return v.McpServerFields.Url
+}
+
+// GetToolAllowlist returns McpServersMcpServersMcpServersPageItemsMcpServer.ToolAllowlist, and is useful for accessing the field via an interface.
+func (v *McpServersMcpServersMcpServersPageItemsMcpServer) GetToolAllowlist() []string {
+	return v.McpServerFields.ToolAllowlist
+}
+
+// GetHasHeaders returns McpServersMcpServersMcpServersPageItemsMcpServer.HasHeaders, and is useful for accessing the field via an interface.
+func (v *McpServersMcpServersMcpServersPageItemsMcpServer) GetHasHeaders() bool {
+	return v.McpServerFields.HasHeaders
+}
+
+// GetEnabled returns McpServersMcpServersMcpServersPageItemsMcpServer.Enabled, and is useful for accessing the field via an interface.
+func (v *McpServersMcpServersMcpServersPageItemsMcpServer) GetEnabled() bool {
+	return v.McpServerFields.Enabled
+}
+
+// GetCreatedAt returns McpServersMcpServersMcpServersPageItemsMcpServer.CreatedAt, and is useful for accessing the field via an interface.
+func (v *McpServersMcpServersMcpServersPageItemsMcpServer) GetCreatedAt() string {
+	return v.McpServerFields.CreatedAt
+}
+
+// GetUpdatedAt returns McpServersMcpServersMcpServersPageItemsMcpServer.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *McpServersMcpServersMcpServersPageItemsMcpServer) GetUpdatedAt() string {
+	return v.McpServerFields.UpdatedAt
+}
+
+func (v *McpServersMcpServersMcpServersPageItemsMcpServer) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*McpServersMcpServersMcpServersPageItemsMcpServer
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.McpServersMcpServersMcpServersPageItemsMcpServer = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.McpServerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalMcpServersMcpServersMcpServersPageItemsMcpServer struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Slug string `json:"slug"`
+
+	Name string `json:"name"`
+
+	Url string `json:"url"`
+
+	ToolAllowlist []string `json:"toolAllowlist"`
+
+	HasHeaders bool `json:"hasHeaders"`
+
+	Enabled bool `json:"enabled"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *McpServersMcpServersMcpServersPageItemsMcpServer) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *McpServersMcpServersMcpServersPageItemsMcpServer) __premarshalJSON() (*__premarshalMcpServersMcpServersMcpServersPageItemsMcpServer, error) {
+	var retval __premarshalMcpServersMcpServersMcpServersPageItemsMcpServer
+
+	retval.Id = v.McpServerFields.Id
+	retval.OrganizationId = v.McpServerFields.OrganizationId
+	retval.Slug = v.McpServerFields.Slug
+	retval.Name = v.McpServerFields.Name
+	retval.Url = v.McpServerFields.Url
+	retval.ToolAllowlist = v.McpServerFields.ToolAllowlist
+	retval.HasHeaders = v.McpServerFields.HasHeaders
+	retval.Enabled = v.McpServerFields.Enabled
+	retval.CreatedAt = v.McpServerFields.CreatedAt
+	retval.UpdatedAt = v.McpServerFields.UpdatedAt
+	return &retval, nil
+}
+
+// McpServersResponse is returned by McpServers on success.
+type McpServersResponse struct {
+	// Uniform paginated MCP-server list (cor:api:120). Default scope: the
+	// caller's member orgs. orgId follows cor:api:100:01 (member -> that
+	// org, non-member -> empty page, no disclosure, no admin bypass).
+	// Slug-ascending order (id tiebreak); limit default 50 / cap 200;
+	// limit: 0 -> count only.
+	McpServers *McpServersMcpServersMcpServersPage `json:"mcpServers"`
+}
+
+// GetMcpServers returns McpServersResponse.McpServers, and is useful for accessing the field via an interface.
+func (v *McpServersResponse) GetMcpServers() *McpServersMcpServersMcpServersPage { return v.McpServers }
 
 // MeMeUser includes the requested fields of the GraphQL type User.
 type MeMeUser struct {
@@ -10416,6 +10912,130 @@ func (v *UpdateEdgeUpdateEdgeTargetNode) GetId() string { return v.Id }
 // GetLoc returns UpdateEdgeUpdateEdgeTargetNode.Loc, and is useful for accessing the field via an interface.
 func (v *UpdateEdgeUpdateEdgeTargetNode) GetLoc() string { return v.Loc }
 
+// UpdateMcpServerResponse is returned by UpdateMcpServer on success.
+type UpdateMcpServerResponse struct {
+	// Update a registered MCP server (org ADMIN/OWNER). The slug is
+	// immutable — flow nodes reference it in data.tools names. headers
+	// REPLACES the stored object; clearHeaders: true removes it (pass one
+	// or the other, not both).
+	UpdateMcpServer *UpdateMcpServerUpdateMcpServer `json:"updateMcpServer"`
+}
+
+// GetUpdateMcpServer returns UpdateMcpServerResponse.UpdateMcpServer, and is useful for accessing the field via an interface.
+func (v *UpdateMcpServerResponse) GetUpdateMcpServer() *UpdateMcpServerUpdateMcpServer {
+	return v.UpdateMcpServer
+}
+
+// UpdateMcpServerUpdateMcpServer includes the requested fields of the GraphQL type McpServer.
+type UpdateMcpServerUpdateMcpServer struct {
+	McpServerFields `json:"-"`
+}
+
+// GetId returns UpdateMcpServerUpdateMcpServer.Id, and is useful for accessing the field via an interface.
+func (v *UpdateMcpServerUpdateMcpServer) GetId() string { return v.McpServerFields.Id }
+
+// GetOrganizationId returns UpdateMcpServerUpdateMcpServer.OrganizationId, and is useful for accessing the field via an interface.
+func (v *UpdateMcpServerUpdateMcpServer) GetOrganizationId() string {
+	return v.McpServerFields.OrganizationId
+}
+
+// GetSlug returns UpdateMcpServerUpdateMcpServer.Slug, and is useful for accessing the field via an interface.
+func (v *UpdateMcpServerUpdateMcpServer) GetSlug() string { return v.McpServerFields.Slug }
+
+// GetName returns UpdateMcpServerUpdateMcpServer.Name, and is useful for accessing the field via an interface.
+func (v *UpdateMcpServerUpdateMcpServer) GetName() string { return v.McpServerFields.Name }
+
+// GetUrl returns UpdateMcpServerUpdateMcpServer.Url, and is useful for accessing the field via an interface.
+func (v *UpdateMcpServerUpdateMcpServer) GetUrl() string { return v.McpServerFields.Url }
+
+// GetToolAllowlist returns UpdateMcpServerUpdateMcpServer.ToolAllowlist, and is useful for accessing the field via an interface.
+func (v *UpdateMcpServerUpdateMcpServer) GetToolAllowlist() []string {
+	return v.McpServerFields.ToolAllowlist
+}
+
+// GetHasHeaders returns UpdateMcpServerUpdateMcpServer.HasHeaders, and is useful for accessing the field via an interface.
+func (v *UpdateMcpServerUpdateMcpServer) GetHasHeaders() bool { return v.McpServerFields.HasHeaders }
+
+// GetEnabled returns UpdateMcpServerUpdateMcpServer.Enabled, and is useful for accessing the field via an interface.
+func (v *UpdateMcpServerUpdateMcpServer) GetEnabled() bool { return v.McpServerFields.Enabled }
+
+// GetCreatedAt returns UpdateMcpServerUpdateMcpServer.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateMcpServerUpdateMcpServer) GetCreatedAt() string { return v.McpServerFields.CreatedAt }
+
+// GetUpdatedAt returns UpdateMcpServerUpdateMcpServer.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateMcpServerUpdateMcpServer) GetUpdatedAt() string { return v.McpServerFields.UpdatedAt }
+
+func (v *UpdateMcpServerUpdateMcpServer) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateMcpServerUpdateMcpServer
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateMcpServerUpdateMcpServer = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.McpServerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateMcpServerUpdateMcpServer struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Slug string `json:"slug"`
+
+	Name string `json:"name"`
+
+	Url string `json:"url"`
+
+	ToolAllowlist []string `json:"toolAllowlist"`
+
+	HasHeaders bool `json:"hasHeaders"`
+
+	Enabled bool `json:"enabled"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *UpdateMcpServerUpdateMcpServer) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateMcpServerUpdateMcpServer) __premarshalJSON() (*__premarshalUpdateMcpServerUpdateMcpServer, error) {
+	var retval __premarshalUpdateMcpServerUpdateMcpServer
+
+	retval.Id = v.McpServerFields.Id
+	retval.OrganizationId = v.McpServerFields.OrganizationId
+	retval.Slug = v.McpServerFields.Slug
+	retval.Name = v.McpServerFields.Name
+	retval.Url = v.McpServerFields.Url
+	retval.ToolAllowlist = v.McpServerFields.ToolAllowlist
+	retval.HasHeaders = v.McpServerFields.HasHeaders
+	retval.Enabled = v.McpServerFields.Enabled
+	retval.CreatedAt = v.McpServerFields.CreatedAt
+	retval.UpdatedAt = v.McpServerFields.UpdatedAt
+	return &retval, nil
+}
+
 // UpdateMemoryMemberRoleResponse is returned by UpdateMemoryMemberRole on success.
 type UpdateMemoryMemberRoleResponse struct {
 	// 023-app-shape US4 — change the role on an existing team member.
@@ -11904,6 +12524,38 @@ func (v *__CreateEdgeInput) GetCondition() *json.RawMessage { return v.Condition
 // GetData returns __CreateEdgeInput.Data, and is useful for accessing the field via an interface.
 func (v *__CreateEdgeInput) GetData() *json.RawMessage { return v.Data }
 
+// __CreateMcpServerInput is used internally by genqlient
+type __CreateMcpServerInput struct {
+	OrgRef        string           `json:"orgRef"`
+	Slug          string           `json:"slug"`
+	Name          string           `json:"name"`
+	Url           string           `json:"url"`
+	Headers       *json.RawMessage `json:"headers,omitempty"`
+	ToolAllowlist *[]string        `json:"toolAllowlist,omitempty"`
+	Enabled       *bool            `json:"enabled,omitempty"`
+}
+
+// GetOrgRef returns __CreateMcpServerInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateMcpServerInput) GetOrgRef() string { return v.OrgRef }
+
+// GetSlug returns __CreateMcpServerInput.Slug, and is useful for accessing the field via an interface.
+func (v *__CreateMcpServerInput) GetSlug() string { return v.Slug }
+
+// GetName returns __CreateMcpServerInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateMcpServerInput) GetName() string { return v.Name }
+
+// GetUrl returns __CreateMcpServerInput.Url, and is useful for accessing the field via an interface.
+func (v *__CreateMcpServerInput) GetUrl() string { return v.Url }
+
+// GetHeaders returns __CreateMcpServerInput.Headers, and is useful for accessing the field via an interface.
+func (v *__CreateMcpServerInput) GetHeaders() *json.RawMessage { return v.Headers }
+
+// GetToolAllowlist returns __CreateMcpServerInput.ToolAllowlist, and is useful for accessing the field via an interface.
+func (v *__CreateMcpServerInput) GetToolAllowlist() *[]string { return v.ToolAllowlist }
+
+// GetEnabled returns __CreateMcpServerInput.Enabled, and is useful for accessing the field via an interface.
+func (v *__CreateMcpServerInput) GetEnabled() *bool { return v.Enabled }
+
 // __CreateMemoryInput is used internally by genqlient
 type __CreateMemoryInput struct {
 	OrgId            string            `json:"orgId"`
@@ -12100,6 +12752,14 @@ type __DeleteEdgeInput struct {
 // GetEdgeId returns __DeleteEdgeInput.EdgeId, and is useful for accessing the field via an interface.
 func (v *__DeleteEdgeInput) GetEdgeId() string { return v.EdgeId }
 
+// __DeleteMcpServerInput is used internally by genqlient
+type __DeleteMcpServerInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __DeleteMcpServerInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteMcpServerInput) GetRef() string { return v.Ref }
+
 // __DeleteMemoryInput is used internally by genqlient
 type __DeleteMemoryInput struct {
 	Id string `json:"id"`
@@ -12255,6 +12915,38 @@ type __ImportNodeInput struct {
 
 // GetInput returns __ImportNodeInput.Input, and is useful for accessing the field via an interface.
 func (v *__ImportNodeInput) GetInput() *ImportNodeInput { return v.Input }
+
+// __McpServerInput is used internally by genqlient
+type __McpServerInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __McpServerInput.Ref, and is useful for accessing the field via an interface.
+func (v *__McpServerInput) GetRef() string { return v.Ref }
+
+// __McpServerToolsInput is used internally by genqlient
+type __McpServerToolsInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __McpServerToolsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__McpServerToolsInput) GetRef() string { return v.Ref }
+
+// __McpServersInput is used internally by genqlient
+type __McpServersInput struct {
+	OrgId  *string `json:"orgId,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+	Offset *int    `json:"offset,omitempty"`
+}
+
+// GetOrgId returns __McpServersInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__McpServersInput) GetOrgId() *string { return v.OrgId }
+
+// GetLimit returns __McpServersInput.Limit, and is useful for accessing the field via an interface.
+func (v *__McpServersInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __McpServersInput.Offset, and is useful for accessing the field via an interface.
+func (v *__McpServersInput) GetOffset() *int { return v.Offset }
 
 // __MemoriesInput is used internally by genqlient
 type __MemoriesInput struct {
@@ -12731,6 +13423,38 @@ func (v *__UpdateEdgeInput) GetCondition() *json.RawMessage { return v.Condition
 
 // GetData returns __UpdateEdgeInput.Data, and is useful for accessing the field via an interface.
 func (v *__UpdateEdgeInput) GetData() *json.RawMessage { return v.Data }
+
+// __UpdateMcpServerInput is used internally by genqlient
+type __UpdateMcpServerInput struct {
+	Ref           string           `json:"ref"`
+	Name          *string          `json:"name,omitempty"`
+	Url           *string          `json:"url,omitempty"`
+	Headers       *json.RawMessage `json:"headers,omitempty"`
+	ClearHeaders  *bool            `json:"clearHeaders,omitempty"`
+	ToolAllowlist *[]string        `json:"toolAllowlist,omitempty"`
+	Enabled       *bool            `json:"enabled,omitempty"`
+}
+
+// GetRef returns __UpdateMcpServerInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateMcpServerInput) GetRef() string { return v.Ref }
+
+// GetName returns __UpdateMcpServerInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateMcpServerInput) GetName() *string { return v.Name }
+
+// GetUrl returns __UpdateMcpServerInput.Url, and is useful for accessing the field via an interface.
+func (v *__UpdateMcpServerInput) GetUrl() *string { return v.Url }
+
+// GetHeaders returns __UpdateMcpServerInput.Headers, and is useful for accessing the field via an interface.
+func (v *__UpdateMcpServerInput) GetHeaders() *json.RawMessage { return v.Headers }
+
+// GetClearHeaders returns __UpdateMcpServerInput.ClearHeaders, and is useful for accessing the field via an interface.
+func (v *__UpdateMcpServerInput) GetClearHeaders() *bool { return v.ClearHeaders }
+
+// GetToolAllowlist returns __UpdateMcpServerInput.ToolAllowlist, and is useful for accessing the field via an interface.
+func (v *__UpdateMcpServerInput) GetToolAllowlist() *[]string { return v.ToolAllowlist }
+
+// GetEnabled returns __UpdateMcpServerInput.Enabled, and is useful for accessing the field via an interface.
+func (v *__UpdateMcpServerInput) GetEnabled() *bool { return v.Enabled }
 
 // __UpdateMemoryInput is used internally by genqlient
 type __UpdateMemoryInput struct {
@@ -14213,6 +14937,65 @@ func CreateEdge(
 	return data_, err_
 }
 
+// The mutation executed by CreateMcpServer.
+const CreateMcpServer_Operation = `
+mutation CreateMcpServer ($orgRef: ID!, $slug: String!, $name: String!, $url: String!, $headers: JSON, $toolAllowlist: [String!], $enabled: Boolean) {
+	createMcpServer(orgRef: $orgRef, slug: $slug, name: $name, url: $url, headers: $headers, toolAllowlist: $toolAllowlist, enabled: $enabled) {
+		... McpServerFields
+	}
+}
+fragment McpServerFields on McpServer {
+	id
+	organizationId
+	slug
+	name
+	url
+	toolAllowlist
+	hasHeaders
+	enabled
+	createdAt
+	updatedAt
+}
+`
+
+// headers is a write-only JSON object; toolAllowlist empty/omitted = all tools.
+func CreateMcpServer(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef string,
+	slug string,
+	name string,
+	url string,
+	headers *json.RawMessage,
+	toolAllowlist *[]string,
+	enabled *bool,
+) (data_ *CreateMcpServerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateMcpServer",
+		Query:  CreateMcpServer_Operation,
+		Variables: &__CreateMcpServerInput{
+			OrgRef:        orgRef,
+			Slug:          slug,
+			Name:          name,
+			Url:           url,
+			Headers:       headers,
+			ToolAllowlist: toolAllowlist,
+			Enabled:       enabled,
+		},
+	}
+
+	data_ = &CreateMcpServerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateMemory.
 const CreateMemory_Operation = `
 mutation CreateMemory ($orgId: ID!, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int) {
@@ -14796,6 +15579,38 @@ func DeleteEdge(
 	}
 
 	data_ = &DeleteEdgeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteMcpServer.
+const DeleteMcpServer_Operation = `
+mutation DeleteMcpServer ($ref: ID!) {
+	deleteMcpServer(ref: $ref)
+}
+`
+
+func DeleteMcpServer(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *DeleteMcpServerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteMcpServer",
+		Query:  DeleteMcpServer_Operation,
+		Variables: &__DeleteMcpServerInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &DeleteMcpServerResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -15496,6 +16311,145 @@ func ImportNode(
 	}
 
 	data_ = &ImportNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by McpServer.
+const McpServer_Operation = `
+query McpServer ($ref: ID!) {
+	mcpServer(ref: $ref) {
+		... McpServerFields
+	}
+}
+fragment McpServerFields on McpServer {
+	id
+	organizationId
+	slug
+	name
+	url
+	toolAllowlist
+	hasHeaders
+	enabled
+	createdAt
+	updatedAt
+}
+`
+
+func McpServer(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *McpServerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "McpServer",
+		Query:  McpServer_Operation,
+		Variables: &__McpServerInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &McpServerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by McpServerTools.
+const McpServerTools_Operation = `
+query McpServerTools ($ref: ID!) {
+	mcpServerTools(ref: $ref) {
+		name
+		description
+		runToolName
+		inputSchema
+	}
+}
+`
+
+// Live tools/list as admitted by the registry row (allowlist + grammar applied);
+// runToolName is the mcp__<slug>__<tool> an author pastes into data.tools.
+func McpServerTools(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *McpServerToolsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "McpServerTools",
+		Query:  McpServerTools_Operation,
+		Variables: &__McpServerToolsInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &McpServerToolsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by McpServers.
+const McpServers_Operation = `
+query McpServers ($orgId: ID, $limit: Int, $offset: Int) {
+	mcpServers(orgId: $orgId, limit: $limit, offset: $offset) {
+		items {
+			... McpServerFields
+		}
+		total
+	}
+}
+fragment McpServerFields on McpServer {
+	id
+	organizationId
+	slug
+	name
+	url
+	toolAllowlist
+	hasHeaders
+	enabled
+	createdAt
+	updatedAt
+}
+`
+
+// Org-scoped list (uniform { items, total } page).
+func McpServers(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId *string,
+	limit *int,
+	offset *int,
+) (data_ *McpServersResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "McpServers",
+		Query:  McpServers_Operation,
+		Variables: &__McpServersInput{
+			OrgId:  orgId,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &McpServersResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -17334,6 +18288,66 @@ func UpdateEdge(
 	}
 
 	data_ = &UpdateEdgeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateMcpServer.
+const UpdateMcpServer_Operation = `
+mutation UpdateMcpServer ($ref: ID!, $name: String, $url: String, $headers: JSON, $clearHeaders: Boolean, $toolAllowlist: [String!], $enabled: Boolean) {
+	updateMcpServer(ref: $ref, name: $name, url: $url, headers: $headers, clearHeaders: $clearHeaders, toolAllowlist: $toolAllowlist, enabled: $enabled) {
+		... McpServerFields
+	}
+}
+fragment McpServerFields on McpServer {
+	id
+	organizationId
+	slug
+	name
+	url
+	toolAllowlist
+	hasHeaders
+	enabled
+	createdAt
+	updatedAt
+}
+`
+
+// slug is immutable. headers REPLACES the stored object; clearHeaders removes it
+// (pass one or the other, never both).
+func UpdateMcpServer(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	name *string,
+	url *string,
+	headers *json.RawMessage,
+	clearHeaders *bool,
+	toolAllowlist *[]string,
+	enabled *bool,
+) (data_ *UpdateMcpServerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateMcpServer",
+		Query:  UpdateMcpServer_Operation,
+		Variables: &__UpdateMcpServerInput{
+			Ref:           ref,
+			Name:          name,
+			Url:           url,
+			Headers:       headers,
+			ClearHeaders:  clearHeaders,
+			ToolAllowlist: toolAllowlist,
+			Enabled:       enabled,
+		},
+	}
+
+	data_ = &UpdateMcpServerResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
