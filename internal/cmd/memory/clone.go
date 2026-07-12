@@ -59,7 +59,7 @@ Encrypted memories and agent system / app memories cannot be cloned.`,
 				ID: cloned.Id, URN: cloned.Urn, Name: cloned.Name,
 				ShortDescription: cloned.ShortDescription, Class: string(cloned.Class),
 				OrganizationID: cloned.OrganizationId, IsEncrypted: cloned.IsEncrypted,
-				UpdatedAt: cloned.UpdatedAt,
+				MaxRevCount: cloned.MaxRevCount, UpdatedAt: cloned.UpdatedAt,
 			}
 			if cloned.Visibility != nil {
 				v := string(*cloned.Visibility)

@@ -23,6 +23,7 @@ query Memories(
       visibility
       organizationId
       isEncrypted
+      maxRevCount
       updatedAt
     }
   }
@@ -157,6 +158,7 @@ mutation CloneMemory($ref: ID!, $targetUrn: String!) {
     visibility
     organizationId
     isEncrypted
+    maxRevCount
     updatedAt
   }
 }

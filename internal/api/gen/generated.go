@@ -2686,7 +2686,10 @@ type CloneMemoryCloneMemory struct {
 	Visibility       *MemoryVisibility `json:"visibility"`
 	OrganizationId   string            `json:"organizationId"`
 	IsEncrypted      bool              `json:"isEncrypted"`
-	UpdatedAt        string            `json:"updatedAt"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int    `json:"maxRevCount"`
+	UpdatedAt   string `json:"updatedAt"`
 }
 
 // GetId returns CloneMemoryCloneMemory.Id, and is useful for accessing the field via an interface.
@@ -2712,6 +2715,9 @@ func (v *CloneMemoryCloneMemory) GetOrganizationId() string { return v.Organizat
 
 // GetIsEncrypted returns CloneMemoryCloneMemory.IsEncrypted, and is useful for accessing the field via an interface.
 func (v *CloneMemoryCloneMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetMaxRevCount returns CloneMemoryCloneMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *CloneMemoryCloneMemory) GetMaxRevCount() int { return v.MaxRevCount }
 
 // GetUpdatedAt returns CloneMemoryCloneMemory.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *CloneMemoryCloneMemory) GetUpdatedAt() string { return v.UpdatedAt }
@@ -5966,7 +5972,10 @@ type MemoriesMemoriesMemoriesPageItemsMemory struct {
 	Visibility       *MemoryVisibility `json:"visibility"`
 	OrganizationId   string            `json:"organizationId"`
 	IsEncrypted      bool              `json:"isEncrypted"`
-	UpdatedAt        string            `json:"updatedAt"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int    `json:"maxRevCount"`
+	UpdatedAt   string `json:"updatedAt"`
 }
 
 // GetId returns MemoriesMemoriesMemoriesPageItemsMemory.Id, and is useful for accessing the field via an interface.
@@ -5996,6 +6005,9 @@ func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetOrganizationId() string { r
 
 // GetIsEncrypted returns MemoriesMemoriesMemoriesPageItemsMemory.IsEncrypted, and is useful for accessing the field via an interface.
 func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetMaxRevCount returns MemoriesMemoriesMemoriesPageItemsMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetMaxRevCount() int { return v.MaxRevCount }
 
 // GetUpdatedAt returns MemoriesMemoriesMemoriesPageItemsMemory.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetUpdatedAt() string { return v.UpdatedAt }
@@ -13285,6 +13297,7 @@ mutation CloneMemory ($ref: ID!, $targetUrn: String!) {
 		visibility
 		organizationId
 		isEncrypted
+		maxRevCount
 		updatedAt
 	}
 }
@@ -15066,6 +15079,7 @@ query Memories ($filter: MemoryFilter, $limit: Int, $offset: Int) {
 			visibility
 			organizationId
 			isEncrypted
+			maxRevCount
 			updatedAt
 		}
 	}

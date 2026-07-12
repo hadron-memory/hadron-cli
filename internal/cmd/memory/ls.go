@@ -58,6 +58,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 					Class:            string(m.Class),
 					OrganizationID:   m.OrganizationId,
 					IsEncrypted:      m.IsEncrypted,
+					MaxRevCount:      m.MaxRevCount,
 					UpdatedAt:        m.UpdatedAt,
 				}
 				if m.Visibility != nil {
