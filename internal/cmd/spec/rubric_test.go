@@ -35,7 +35,7 @@ func TestTierBodyShapes(t *testing.T) {
 		{"module-contract", Citation{Module: "msg", Feature: "000"}, []string{"General provisions", "every feature in `msg`", "What invalidates"}},
 		{"feature-root", Citation{Module: "msg", Feature: "010"}, []string{"load-bearing point", "## Rules"}},
 		{"feature-contract", Citation{Module: "msg", Feature: "010", Rule: "00"}, []string{"General provisions", "every rule in `msg:010`", "What invalidates"}},
-		{"rule", Citation{Module: "msg", Feature: "010", Rule: "02"}, []string{"## Definition", "## Rule & examples", "What invalidates this spec"}},
+		{"rule", Citation{Module: "msg", Feature: "010", Rule: "02"}, []string{"## Definition", "## Scenarios / user stories", "As a <actor>", "## Rule & examples", "What invalidates this spec", "## Acceptance criteria"}},
 		{"flow", Citation{Module: "msg", Feature: "010", Rule: "02", Flow: "03"}, []string{"## Definition"}},
 	}
 	for _, tc := range cases {
@@ -47,6 +47,31 @@ func TestTierBodyShapes(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// The optional Scenarios/Acceptance sections (issue #217) appear only on the
+// rule tier, placed after the definition and before the rule; the terser flow
+// tier omits them. Being un-linted, they must not disturb the mandatory rubric a
+// scaffold already passes.
+func TestOptionalSectionsRuleTierOnly(t *testing.T) {
+	rule := tierBody(Citation{Module: "msg", Feature: "010", Rule: "02"}, "T")
+	defIdx := strings.Index(rule, "## "+headingDefinition)
+	scnIdx := strings.Index(rule, "## "+headingScenarios)
+	ruleIdx := strings.Index(rule, "## "+headingRule)
+	if scnIdx < 0 || defIdx < 0 || ruleIdx < 0 {
+		t.Fatalf("rule body missing a required heading:\n%s", rule)
+	}
+	if defIdx >= scnIdx || scnIdx >= ruleIdx {
+		t.Errorf("scenarios must sit after definition, before rule (def=%d scn=%d rule=%d)", defIdx, scnIdx, ruleIdx)
+	}
+	if !strings.Contains(rule, "## "+headingAcceptance) {
+		t.Errorf("rule body missing optional acceptance-criteria section:\n%s", rule)
+	}
+
+	flow := tierBody(Citation{Module: "msg", Feature: "010", Rule: "02", Flow: "03"}, "T")
+	if strings.Contains(flow, headingScenarios) || strings.Contains(flow, headingAcceptance) {
+		t.Errorf("flow body should stay terse — no optional sections:\n%s", flow)
 	}
 }
 

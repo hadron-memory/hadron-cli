@@ -107,6 +107,31 @@ creates a top-level module):
 hadron spec new -m micromentor.org::platform-specs --module msg --feature 010 --title "W4 — 7d check-in"
 ```
 
+## The rule rubric
+
+`spec new` scaffolds a rule with the sections below. Only the abstract and the
+**What invalidates this spec** statement are `lint`-enforced; the rest are
+conventions you fill in (and the two *optional* sections you delete when they add
+nothing).
+
+1. **Definition** — one line: what this spec governs.
+2. **Scenarios / user stories** *(optional)* — 3–7 short scenarios that explain
+   who needs the rule and why, framing intent before the precise contract. Prefer
+   `As a <actor>, I want <capability>, so that <outcome>.`; for lower-level,
+   multi-actor, or failure/recovery behavior, plain `Scenarios:` bullets read
+   better. Add them where they clarify intent (APIs, auth, permissions,
+   workflows, multi-actor flows); skip them on a self-evident schema rule. Don't
+   pad to fill the template.
+3. **Rule & examples** — the rule precisely, with concrete examples and edge cases.
+4. **Durable vs tunable** — which parts are load-bearing, which are dials.
+5. **What invalidates this spec** *(mandatory)* — the changes that repeal or
+   supersede it.
+6. **Acceptance criteria** *(optional)* — concrete, checkable statements
+   engineering or QA can verify, for specs whose behavior must be testable.
+
+Flows (`:NN:NN`) inherit their rule's scenarios and stay terse — they scaffold
+only the mandatory rubric.
+
 ## Navigating and validating
 
 ```sh
