@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,12 +12,19 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-// nodeExportResp builds a NodeExport GraphQL response wrapping data, the way the
+// nodeExportResp builds a TEXT-encoded NodeExport response (MD/JSON), the way the
 // server's single-node renderer returns it (#106).
 func nodeExportResp(format, mime, fname, data string) string {
+	return nodeExportRespEnc(format, "TEXT", mime, fname, data)
+}
+
+// nodeExportRespEnc builds a NodeExport response with an explicit encoding — TEXT
+// for MD/JSON, BASE64 for PDF (#109). `data` is the raw payload string exactly as
+// the server would put it in the `data` field (already base64 for BASE64).
+func nodeExportRespEnc(format, encoding, mime, fname, data string) string {
 	d, _ := json.Marshal(data)
-	return fmt.Sprintf(`{"data":{"nodeExport":{"format":%q,"mimeType":%q,"filename":%q,"data":%s,"bytes":%d}}}`,
-		format, mime, fname, d, len(data))
+	return fmt.Sprintf(`{"data":{"nodeExport":{"format":%q,"encoding":%q,"mimeType":%q,"filename":%q,"data":%s,"bytes":%d}}}`,
+		format, encoding, mime, fname, d, len(data))
 }
 
 // The minimal NodeExportMeta read for the file-write summary (loc/name/memory)
@@ -140,6 +148,86 @@ func TestNodeExportJSONFormat(t *testing.T) {
 	_ = json.Unmarshal(captured["NodeExport"], &vars)
 	if vars.Format != "JSON" {
 		t.Errorf("--format json must ask the server for JSON, got %q", vars.Format)
+	}
+}
+
+// PDF is server-rendered and returned BASE64-encoded (#109): the CLI must decode
+// it to the real bytes and write those, never the base64 text.
+func TestNodeExportPDFDecodesToFile(t *testing.T) {
+	pdfBytes := "%PDF-1.7\n\x00\x01binary\xff\n%%EOF"
+	b64 := base64.StdEncoding.EncodeToString([]byte(pdfBytes))
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":     resolveNodeJSON,
+		"NodeExport":     nodeExportRespEnc("PDF", "BASE64", "application/pdf", "flaky-ci.pdf", b64),
+		"NodeExportMeta": exportMetaJSON,
+	})
+	f, out := testFactory(t)
+	file := filepath.Join(t.TempDir(), "flaky.pdf")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "export", nodeURN, "--format", "pdf", "-o", file, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// The file holds the DECODED bytes, byte-for-byte — not the base64 string.
+	if got := mustRead(t, file); got != pdfBytes {
+		t.Errorf("file must be the decoded PDF bytes:\ngot:  %q\nwant: %q", got, pdfBytes)
+	}
+	var summary struct {
+		Format string `json:"format"`
+		Bytes  int    `json:"bytes"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &summary)
+	if summary.Format != "pdf" || summary.Bytes != len(pdfBytes) {
+		t.Errorf("summary should report pdf + decoded byte count, got %+v", summary)
+	}
+	var vars struct {
+		Format string `json:"format"`
+	}
+	_ = json.Unmarshal(captured["NodeExport"], &vars)
+	if vars.Format != "PDF" {
+		t.Errorf("--format pdf must ask the server for PDF, got %q", vars.Format)
+	}
+}
+
+// A binary (PDF) export has no safe stdout form, so it's refused without -o.
+func TestNodeExportPDFToStdoutRejected(t *testing.T) {
+	b64 := base64.StdEncoding.EncodeToString([]byte("%PDF-1.7"))
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"NodeExport": nodeExportRespEnc("PDF", "BASE64", "application/pdf", "f.pdf", b64),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "export", nodeURN, "--format", "pdf", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected a usage error exporting PDF to stdout")
+	}
+	if out.String() != "" {
+		t.Errorf("nothing should be written to stdout for a rejected PDF export, got %q", out.String())
+	}
+}
+
+// `-o file.pdf` without --format infers PDF from the extension.
+func TestNodeExportPDFInferredFromExtension(t *testing.T) {
+	b64 := base64.StdEncoding.EncodeToString([]byte("%PDF-1.7\nx"))
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":     resolveNodeJSON,
+		"NodeExport":     nodeExportRespEnc("PDF", "BASE64", "application/pdf", "f.pdf", b64),
+		"NodeExportMeta": exportMetaJSON,
+	})
+	f, _ := testFactory(t)
+	file := filepath.Join(t.TempDir(), "out.pdf")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "export", nodeURN, "-o", file, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Format string `json:"format"`
+	}
+	_ = json.Unmarshal(captured["NodeExport"], &vars)
+	if vars.Format != "PDF" {
+		t.Errorf(".pdf extension should infer PDF, got %q", vars.Format)
 	}
 }
 

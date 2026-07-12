@@ -1,6 +1,7 @@
 package node
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
@@ -32,7 +33,7 @@ func newCmdExport(f *cmdutil.Factory) *cobra.Command {
 	var outFile, format, memory string
 	cmd := &cobra.Command{
 		Use:   "export <node-urn> | <loc> -m <memory>",
-		Short: "Export a single node to a portable file (markdown or JSON)",
+		Short: "Export a single node to a portable file (markdown, JSON, or PDF)",
 		Long: `Export one node by its fully-qualified URN (<org>::<memory>::<loc>) to a
 self-contained file you can review, edit, move, and import back with
 ` + "`hadron node import`" + ` — into the same memory, a different memory, or a
@@ -47,12 +48,17 @@ every other API client), so the bytes are identical everywhere; it round-trips
 back through ` + "`hadron node import`" + `. Requires a server that supports
 server-side export (hadron-server #386).
 
+--format pdf renders a PDF server-side (the same renderer the portal's
+"Download → PDF" uses). It's binary, so it must go to a file: pass -o <file>
+(writing PDF to stdout is refused). full/sections don't apply to a PDF render.
+
 Writes to stdout by default (so it composes in a pipe with node import);
--o <file> writes a file instead. When --out ends in .md or .json and --format
-is unset, the format is inferred from the extension.`,
+-o <file> writes a file instead. When --out ends in .md, .json, or .pdf and
+--format is unset, the format is inferred from the extension.`,
 		Example: `  hadron node export acme.com::kb::findings:flaky-ci            # markdown to stdout
   hadron node export acme.com::kb::findings:flaky-ci -o flaky.md
   hadron node export acme.com::kb::findings:flaky-ci --format json -o flaky.json
+  hadron node export acme.com::kb::findings:flaky-ci --format pdf -o flaky.pdf
   hadron node export acme.com::kb::x | hadron node import -m acme.com::kb2 -`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -73,8 +79,11 @@ is unset, the format is inferred from the extension.`,
 			// bytes are byte-for-byte what the portal and any other API client get
 			// (#106). full: true is the canonical, import-round-trippable form.
 			exportFmt := gen.NodeExportFormatMd
-			if fmtName == "json" {
+			switch fmtName {
+			case "json":
 				exportFmt = gen.NodeExportFormatJson
+			case "pdf":
+				exportFmt = gen.NodeExportFormatPdf
 			}
 			resp, err := gen.NodeExport(cmd.Context(), client, id, exportFmt)
 			if err != nil {
@@ -82,17 +91,37 @@ is unset, the format is inferred from the extension.`,
 					return exitcode.Newf(exitcode.Usage,
 						"this hadron-server is too old to render exports server-side (no nodeExport field; needs hadron-server #386) — upgrade the server")
 				}
+				// An older server has nodeExport but not the PDF renderer, so it
+				// rejects the PDF enum value at validation time (#109).
+				if fmtName == "pdf" && isUnknownExportFormatErr(err) {
+					return exitcode.Newf(exitcode.Usage,
+						"this hadron-server doesn't support PDF export (unknown NodeExportFormat value PDF) — upgrade the server")
+				}
 				return api.MapError(err)
 			}
 			if resp == nil || resp.NodeExport == nil {
 				return exitcode.Newf(exitcode.NotFound, "node %q is not readable", args[0])
 			}
-			rendered := resp.NodeExport.Data
+
+			// TEXT (md/json) passes through; BASE64 (pdf) is decoded to the real
+			// bytes before writing — never write the base64 text (#109).
+			outBytes := []byte(resp.NodeExport.Data)
+			if resp.NodeExport.Encoding == gen.NodeExportEncodingBase64 {
+				decoded, derr := base64.StdEncoding.DecodeString(resp.NodeExport.Data)
+				if derr != nil {
+					return exitcode.Newf(exitcode.Error, "server returned an undecodable base64 %s payload: %v", fmtName, derr)
+				}
+				outBytes = decoded
+			}
 
 			// stdout: the document IS the output — no summary wrapper, even with
-			// --json (don't corrupt a piped md/json stream).
+			// --json (don't corrupt a piped md/json stream). A binary format has
+			// no safe stdout representation, so require -o for it.
 			if outFile == "" || outFile == "-" {
-				_, werr := io.WriteString(f.IOStreams.Out, rendered)
+				if resp.NodeExport.Encoding == gen.NodeExportEncodingBase64 {
+					return exitcode.Newf(exitcode.Usage, "%s export is binary — write it to a file with -o <file>", fmtName)
+				}
+				_, werr := f.IOStreams.Out.Write(outBytes)
 				return werr
 			}
 
@@ -101,7 +130,7 @@ is unset, the format is inferred from the extension.`,
 					return err
 				}
 			}
-			if err := os.WriteFile(outFile, []byte(rendered), 0o644); err != nil {
+			if err := os.WriteFile(outFile, outBytes, 0o644); err != nil {
 				return err
 			}
 
@@ -115,7 +144,7 @@ is unset, the format is inferred from the extension.`,
 				Memory:  memURN,
 				OutFile: outFile,
 				Format:  fmtName,
-				Bytes:   resp.NodeExport.Bytes,
+				Bytes:   len(outBytes),
 			}
 			return output.Write(f.IOStreams, f.JSON, summary, func(w io.Writer) error {
 				// Fall back through loc → name → the original ref so the message
@@ -134,7 +163,7 @@ is unset, the format is inferred from the extension.`,
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org::memory) to resolve a bare <loc> against")
 	cmd.Flags().StringVarP(&outFile, "out", "o", "", `output file ("-" or unset writes to stdout)`)
-	cmd.Flags().StringVar(&format, "format", "md", "output format: md or json")
+	cmd.Flags().StringVar(&format, "format", "md", "output format: md, json, or pdf (pdf requires -o)")
 	return cmd
 }
 
@@ -148,6 +177,8 @@ func resolveDocFormat(format, outFile string, explicit bool) (string, error) {
 			return "json", nil
 		case ".md", ".markdown":
 			return "md", nil
+		case ".pdf":
+			return "pdf", nil
 		}
 	}
 	switch strings.ToLower(format) {
@@ -155,9 +186,27 @@ func resolveDocFormat(format, outFile string, explicit bool) (string, error) {
 		return "md", nil
 	case "json":
 		return "json", nil
+	case "pdf":
+		return "pdf", nil
 	default:
-		return "", exitcode.Newf(exitcode.Usage, "unsupported --format %q (want md or json)", format)
+		return "", exitcode.Newf(exitcode.Usage, "unsupported --format %q (want md, json, or pdf)", format)
 	}
+}
+
+// isUnknownExportFormatErr reports whether err is the GraphQL validation failure
+// an older server raises for the PDF enum value it doesn't know — the value (not
+// the field) is unknown, so it reads differently from isUnknownFieldErr.
+func isUnknownExportFormatErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "PDF") {
+		return false
+	}
+	return strings.Contains(msg, "does not exist in") ||
+		strings.Contains(msg, "GRAPHQL_VALIDATION_FAILED") ||
+		strings.Contains(msg, "NodeExportFormat")
 }
 
 // exportSummaryMeta reads a node's loc, name, and memory URN for the file-write
