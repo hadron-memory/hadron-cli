@@ -50,10 +50,10 @@ func TestTierBodyShapes(t *testing.T) {
 	}
 }
 
-// The optional Scenarios/Acceptance sections (issue #217) belong only to the
-// rule tier — placed after the definition and before the rule — and never to the
-// terser flow tier, and they must not disturb the mandatory rubric a scaffold
-// already passes (they are un-linted).
+// The optional Scenarios/Acceptance sections (issue #217) appear only on the
+// rule tier, placed after the definition and before the rule; the terser flow
+// tier omits them. Being un-linted, they must not disturb the mandatory rubric a
+// scaffold already passes.
 func TestOptionalSectionsRuleTierOnly(t *testing.T) {
 	rule := tierBody(Citation{Module: "msg", Feature: "010", Rule: "02"}, "T")
 	defIdx := strings.Index(rule, "## "+headingDefinition)
