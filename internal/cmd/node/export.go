@@ -103,22 +103,28 @@ Writes to stdout by default (so it composes in a pipe with node import);
 				return exitcode.Newf(exitcode.NotFound, "node %q is not readable", args[0])
 			}
 
-			// TEXT (md/json) passes through; BASE64 (pdf) is decoded to the real
-			// bytes before writing — never write the base64 text (#109).
-			outBytes := []byte(resp.NodeExport.Data)
-			if resp.NodeExport.Encoding == gen.NodeExportEncodingBase64 {
+			// The payload encoding is deterministic by format: md/json come back as
+			// TEXT (pass through), pdf as BASE64 — decode it to the real bytes
+			// before writing, never the base64 text (#109). Keying off the
+			// requested format (not a queried `encoding` field) keeps the md/json
+			// query working against a server that predates the encoding field.
+			isBinary := fmtName == "pdf"
+			var outBytes []byte
+			if isBinary {
 				decoded, derr := base64.StdEncoding.DecodeString(resp.NodeExport.Data)
 				if derr != nil {
 					return exitcode.Newf(exitcode.Error, "server returned an undecodable base64 %s payload: %v", fmtName, derr)
 				}
 				outBytes = decoded
+			} else {
+				outBytes = []byte(resp.NodeExport.Data)
 			}
 
 			// stdout: the document IS the output — no summary wrapper, even with
 			// --json (don't corrupt a piped md/json stream). A binary format has
 			// no safe stdout representation, so require -o for it.
 			if outFile == "" || outFile == "-" {
-				if resp.NodeExport.Encoding == gen.NodeExportEncodingBase64 {
+				if isBinary {
 					return exitcode.Newf(exitcode.Usage, "%s export is binary — write it to a file with -o <file>", fmtName)
 				}
 				_, werr := f.IOStreams.Out.Write(outBytes)

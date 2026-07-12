@@ -525,7 +525,6 @@ mutation SearchReplaceInNodes($input: SearchReplaceInNodesInput!) {
 query NodeExport($id: ID!, $format: NodeExportFormat!) {
   nodeExport(id: $id, format: $format, full: true) {
     format
-    encoding
     mimeType
     filename
     data

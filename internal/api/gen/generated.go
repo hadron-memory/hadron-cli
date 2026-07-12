@@ -7018,19 +7018,6 @@ func (v *NodeEdgeInput) GetName() *string { return v.Name }
 // GetTargetId returns NodeEdgeInput.TargetId, and is useful for accessing the field via an interface.
 func (v *NodeEdgeInput) GetTargetId() string { return v.TargetId }
 
-// How the rendered payload is encoded. TEXT for MD/JSON; BASE64 for PDF.
-type NodeExportEncoding string
-
-const (
-	NodeExportEncodingBase64 NodeExportEncoding = "BASE64"
-	NodeExportEncodingText   NodeExportEncoding = "TEXT"
-)
-
-var AllNodeExportEncoding = []NodeExportEncoding{
-	NodeExportEncodingBase64,
-	NodeExportEncodingText,
-}
-
 type NodeExportFormat string
 
 const (
@@ -7100,8 +7087,7 @@ func (v *NodeExportMetaResponse) GetNode() *NodeExportMetaNode { return v.Node }
 
 // NodeExportNodeExportNodeExportResult includes the requested fields of the GraphQL type NodeExportResult.
 type NodeExportNodeExportNodeExportResult struct {
-	Format   NodeExportFormat   `json:"format"`
-	Encoding NodeExportEncoding `json:"encoding"`
+	Format NodeExportFormat `json:"format"`
 	// MIME type, e.g. text/markdown or application/json.
 	MimeType string `json:"mimeType"`
 	// Suggested download filename, e.g. <loc-leaf>.md.
@@ -7114,9 +7100,6 @@ type NodeExportNodeExportNodeExportResult struct {
 
 // GetFormat returns NodeExportNodeExportNodeExportResult.Format, and is useful for accessing the field via an interface.
 func (v *NodeExportNodeExportNodeExportResult) GetFormat() NodeExportFormat { return v.Format }
-
-// GetEncoding returns NodeExportNodeExportNodeExportResult.Encoding, and is useful for accessing the field via an interface.
-func (v *NodeExportNodeExportNodeExportResult) GetEncoding() NodeExportEncoding { return v.Encoding }
 
 // GetMimeType returns NodeExportNodeExportNodeExportResult.MimeType, and is useful for accessing the field via an interface.
 func (v *NodeExportNodeExportNodeExportResult) GetMimeType() string { return v.MimeType }
@@ -15536,7 +15519,6 @@ const NodeExport_Operation = `
 query NodeExport ($id: ID!, $format: NodeExportFormat!) {
 	nodeExport(id: $id, format: $format, full: true) {
 		format
-		encoding
 		mimeType
 		filename
 		data
