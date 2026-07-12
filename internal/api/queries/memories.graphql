@@ -163,6 +163,30 @@ mutation CloneMemory($ref: ID!, $targetUrn: String!) {
   }
 }
 
+# Extract a parent node + its loc-subtree into a new memory (hadron-server#637).
+# move = false copies (source intact); move = true relocates, soft-deleting the
+# source subtree. The default is applied server-side, so it is omitted when the
+# --move flag is not set.
+mutation ExtractParentNodeToMemory(
+  $parentRef: ID!
+  $targetUrn: String!
+  # @genqlient(omitempty: true)
+  $move: Boolean
+) {
+  extractParentNodeToMemory(parentRef: $parentRef, targetUrn: $targetUrn, move: $move) {
+    id
+    urn
+    name
+    shortDescription
+    class
+    visibility
+    organizationId
+    isEncrypted
+    maxRevCount
+    updatedAt
+  }
+}
+
 # Convert a plaintext memory to encrypted-at-rest (#57). One-way: the caller
 # provides the data key and all node content/data is rewritten as ciphertext in
 # a single transaction. There is no decrypt mutation, so the command gates like a
