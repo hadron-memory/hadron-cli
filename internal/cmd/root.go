@@ -18,7 +18,9 @@ import (
 	authcmd "github.com/hadron-memory/hadron-cli/internal/cmd/auth"
 	chatcmd "github.com/hadron-memory/hadron-cli/internal/cmd/chat"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/configcmd"
+	connectioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/connection"
 	edgecmd "github.com/hadron-memory/hadron-cli/internal/cmd/edge"
+	grantcmd "github.com/hadron-memory/hadron-cli/internal/cmd/grant"
 	memorycmd "github.com/hadron-memory/hadron-cli/internal/cmd/memory"
 	nodecmd "github.com/hadron-memory/hadron-cli/internal/cmd/node"
 	orgcmd "github.com/hadron-memory/hadron-cli/internal/cmd/org"
@@ -28,7 +30,6 @@ import (
 	searchcmd "github.com/hadron-memory/hadron-cli/internal/cmd/search"
 	speccmd "github.com/hadron-memory/hadron-cli/internal/cmd/spec"
 	taskcmd "github.com/hadron-memory/hadron-cli/internal/cmd/task"
-	grantcmd "github.com/hadron-memory/hadron-cli/internal/cmd/grant"
 	ticketcmd "github.com/hadron-memory/hadron-cli/internal/cmd/ticket"
 	usercmd "github.com/hadron-memory/hadron-cli/internal/cmd/user"
 	versioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/version"
@@ -76,6 +77,7 @@ func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	root.AddCommand(webhookcmd.NewCmdWebhook(f))
 	root.AddCommand(ticketcmd.NewCmdTicket(f))
 	root.AddCommand(grantcmd.NewCmdGrant(f))
+	root.AddCommand(connectioncmd.NewCmdConnection(f))
 	root.AddCommand(configcmd.NewCmdConfig(f))
 	root.AddCommand(apicmd.NewCmdAPI(f))
 	root.AddCommand(versioncmd.NewCmdVersion(f))
