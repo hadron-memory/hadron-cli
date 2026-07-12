@@ -1,0 +1,111 @@
+# External MCP server registry (hadrontool-mcp conduit; hadron-server #634).
+# Org-owned McpServer rows whose tools headless runs call as mcp__<slug>__<tool>.
+# Static auth headers are encrypted + WRITE-ONLY — readers only ever see
+# hasHeaders, never the values.
+
+fragment McpServerFields on McpServer {
+  id
+  organizationId
+  slug
+  name
+  url
+  toolAllowlist
+  hasHeaders
+  enabled
+  createdAt
+  updatedAt
+}
+
+# Org-scoped list (uniform { items, total } page).
+query McpServers(
+  # @genqlient(omitempty: true)
+  $orgId: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  mcpServers(orgId: $orgId, limit: $limit, offset: $offset) {
+    items {
+      ...McpServerFields
+    }
+    total
+  }
+}
+
+query McpServer($ref: ID!) {
+  mcpServer(ref: $ref) {
+    ...McpServerFields
+  }
+}
+
+# Live tools/list as admitted by the registry row (allowlist + grammar applied);
+# runToolName is the mcp__<slug>__<tool> an author pastes into data.tools.
+query McpServerTools($ref: ID!) {
+  mcpServerTools(ref: $ref) {
+    name
+    description
+    runToolName
+    inputSchema
+  }
+}
+
+# headers is a write-only JSON object; toolAllowlist empty/omitted = all tools.
+mutation CreateMcpServer(
+  $orgRef: ID!
+  $slug: String!
+  $name: String!
+  $url: String!
+  # @genqlient(omitempty: true)
+  $headers: JSON
+  # @genqlient(omitempty: true, bind: "*[]string")
+  $toolAllowlist: [String!]
+  # @genqlient(omitempty: true)
+  $enabled: Boolean
+) {
+  createMcpServer(
+    orgRef: $orgRef
+    slug: $slug
+    name: $name
+    url: $url
+    headers: $headers
+    toolAllowlist: $toolAllowlist
+    enabled: $enabled
+  ) {
+    ...McpServerFields
+  }
+}
+
+# slug is immutable. headers REPLACES the stored object; clearHeaders removes it
+# (pass one or the other, never both).
+mutation UpdateMcpServer(
+  $ref: ID!
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $url: String
+  # @genqlient(omitempty: true)
+  $headers: JSON
+  # @genqlient(omitempty: true)
+  $clearHeaders: Boolean
+  # @genqlient(omitempty: true, bind: "*[]string")
+  $toolAllowlist: [String!]
+  # @genqlient(omitempty: true)
+  $enabled: Boolean
+) {
+  updateMcpServer(
+    ref: $ref
+    name: $name
+    url: $url
+    headers: $headers
+    clearHeaders: $clearHeaders
+    toolAllowlist: $toolAllowlist
+    enabled: $enabled
+  ) {
+    ...McpServerFields
+  }
+}
+
+mutation DeleteMcpServer($ref: ID!) {
+  deleteMcpServer(ref: $ref)
+}
