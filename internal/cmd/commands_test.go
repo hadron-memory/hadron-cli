@@ -1148,7 +1148,7 @@ func TestEdgeUpdateExplicitNullClearsCondition(t *testing.T) {
 
 const memoryJSON = `{"id":"m1","urn":"acme.com::kb","name":"KB","shortDescription":null,
 	"class":"knowledge","visibility":"ORGANIZATION","organizationId":"o1",
-	"isEncrypted":false,"updatedAt":"2026-06-11T00:00:00Z"}`
+	"isEncrypted":false,"maxRevCount":10,"updatedAt":"2026-06-11T00:00:00Z"}`
 
 func TestMemorySetCreate(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
@@ -1216,10 +1216,76 @@ func TestMemorySetUpdate(t *testing.T) {
 	}
 	// Unset optionals must be OMITTED, not sent as explicit nulls —
 	// the server treats omitted as "preserve".
-	for _, key := range []string{"name", "description", "tags", "visibility", "urn"} {
+	for _, key := range []string{"name", "description", "tags", "visibility", "urn", "maxRevCount"} {
 		if v, present := vars[key]; present {
 			t.Errorf("unset %q must be omitted from updateMemory variables, got %v", key, v)
 		}
+	}
+}
+
+// --max-rev-count threads maxRevCount into create and update, and rejects < 1
+// client-side (mirrors the server guard) before any network call.
+func TestMemorySetMaxRevCount(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateMemory": `{"data":{"createMemory":` + memoryJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "KB", "--max-rev-count", "25", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("create execute: %v", err)
+	}
+	var cvars map[string]any
+	_ = json.Unmarshal(captured["CreateMemory"], &cvars)
+	if cvars["maxRevCount"] != float64(25) {
+		t.Errorf("create should send maxRevCount=25, got %v", cvars["maxRevCount"])
+	}
+
+	gql2, captured2 := captureGraphQL(t, map[string]string{
+		"GetMemory":    `{"data":{"memory":` + memoryJSON + `}}`,
+		"UpdateMemory": `{"data":{"updateMemory":` + memoryJSON + `}}`,
+	})
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"memory", "set", "acme.com::kb", "--max-rev-count", "5", "--server", gql2.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("update execute: %v", err)
+	}
+	var uvars map[string]any
+	_ = json.Unmarshal(captured2["UpdateMemory"], &uvars)
+	if uvars["maxRevCount"] != float64(5) {
+		t.Errorf("update should send maxRevCount=5, got %v", uvars["maxRevCount"])
+	}
+}
+
+func TestMemorySetRejectsMaxRevCountBelowOne(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateMemory": `{"data":{"createMemory":` + memoryJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "KB", "--max-rev-count", "0", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected a usage error for --max-rev-count 0")
+	}
+	if _, called := captured["CreateMemory"]; called {
+		t.Error("an invalid --max-rev-count must not reach the server")
+	}
+}
+
+// `memory get` displays maxRevCount.
+func TestMemoryGetShowsMaxRevCount(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetMemory": `{"data":{"memory":` + memoryJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "get", "acme.com::kb", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "max revisions: 10") {
+		t.Errorf("get output should show max revisions: %s", out.String())
 	}
 }
 

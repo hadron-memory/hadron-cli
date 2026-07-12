@@ -93,7 +93,7 @@ writes that declaration.`,
 				if merr != nil {
 					return merr
 				}
-				if _, uerr := gen.UpdateMemory(cmd.Context(), client, memID, nil, nil, nil, nil, nil, &merged, nil); uerr != nil {
+				if _, uerr := gen.UpdateMemory(cmd.Context(), client, memID, nil, nil, nil, nil, nil, &merged, nil, nil); uerr != nil {
 					return api.MapError(uerr)
 				}
 				curData = &merged

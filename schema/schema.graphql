@@ -47,6 +47,11 @@ enum AccessSource {
   """Platform ADMIN/OWNER."""
   PLATFORM_ROLE
 
+  """
+  individual action grant (PrincipalGrant, cor:acl:040:06) - clone/delete capabilities on top of the role bundle.
+  """
+  PRINCIPAL_GRANT
+
   """resource is publicly / universally visible."""
   PUBLIC_VISIBILITY
 }
@@ -281,6 +286,24 @@ enum AiConfigOwnerType {
   APP
   HADRON_SERVER
   ORGANIZATION
+}
+
+type AiModelPrice {
+  createdAt: String!
+  createdBy: String
+  effectiveAt: String!
+  id: ID!
+  inputMicroCentsPerMTok: String!
+  markupBasisPoints: Int
+  model: String!
+  outputMicroCentsPerMTok: String!
+  provider: String!
+  tier: Int!
+}
+
+type AiModelPriceList {
+  items: [AiModelPrice!]!
+  total: Int!
 }
 
 """
@@ -847,7 +870,7 @@ input CreateNodeInput {
   properties: JSON
 
   """
-  Recorded on version history only when a soft-deleted node is resurrected (a pure create snapshots nothing).
+  Recorded on revision history only when a soft-deleted node is resurrected (a pure create snapshots nothing).
   """
   reason: String
   seq: Int
@@ -858,6 +881,29 @@ enum CreateUserPermission {
   DENY
   EXPLICIT
   IMPLICIT
+}
+
+type CreditBalance {
+  balanceMicroCents: String!
+  organizationId: ID!
+}
+
+type CreditLedgerEntry {
+  amountMicroCents: String!
+  createdAt: String!
+  createdBy: String
+  expiresAt: String
+  id: ID!
+  kind: String!
+  note: String
+  organizationId: ID!
+  sourceId: String
+  sourceType: String
+}
+
+type CreditLedgerEntryList {
+  items: [CreditLedgerEntry!]!
+  total: Int!
 }
 
 type Edge {
@@ -1081,6 +1127,15 @@ type GlobalSearchResult {
   operates over this bounded, fully-ranked list.
   """
   total: Int!
+}
+
+input GrantCreditsInput {
+  amountMicroCents: String!
+  expiresAt: String
+  note: String
+  orgRef: String!
+  sourceId: String
+  sourceType: String
 }
 
 """
@@ -1314,6 +1369,12 @@ type Memory {
   isEncrypted: Boolean!
   lastSyncedAt: String
   license: String
+
+  """
+  #621 — cap on how many NodeRevision rows are kept per node in this memory.
+  On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+  """
+  maxRevCount: Int!
 
   """
   023-app-shape US4: team membership rows on this memory. Non-empty
@@ -1653,7 +1714,7 @@ type Mutation {
   Vector-index config carries over and the clone's nodes are stamped for
   re-embedding.
   
-  NOT copied: version history, subscriptions, shares, group members
+  NOT copied: revision history, subscriptions, shares, group members
   (the caller is bootstrapped as a group clone's first owner), sessions,
   licenses, log entries, assets, and git-sync config (the clone starts
   DB-only).
@@ -1795,6 +1856,9 @@ type Mutation {
     homeUrl: String
     iconUrl: String
     license: String
+
+    """#621 — per-node revision-history cap (default 10, minimum 1)."""
+    maxRevCount: Int
 
     """
     'knowledge' (default), 'group', or the owner-only 'personal' /
@@ -1949,7 +2013,7 @@ type Mutation {
   """
   deleteMemorySubscription(memoryId: ID!, orgId: ID!): Boolean!
   deleteNode(hard: Boolean, nodeRef: ID!): Boolean!
-  deleteNodeVersion(versionId: ID!): Boolean!
+  deleteNodeRevision(revisionId: ID!): Boolean!
 
   """
   Soft-delete an Organization.
@@ -2019,12 +2083,17 @@ type Mutation {
   exchangeReply(body: String!, connectionId: ID!, messageId: ID!): Boolean!
 
   """
+  Mint credits for an org - a positive grant ledger row (spec 046). PLATFORM ADMIN ONLY (self-grant risk); processor top-ups land here later.
+  """
+  grantCredits(input: GrantCreditsInput!): CreditLedgerEntry!
+
+  """
   Import external content into a node (#457, sync v1). Source: exactly one
   of 'url' (server-fetched inline, SSRF-guarded, Readability-extracted,
   ~30s budget — the fetch carries NO user credentials, so authenticated
   pages must come as 'content') or 'content' (client-captured, e.g. the
   Web Clipper's authenticated DOM). Target: 'nodeUrn' XOR ('memoryId' +
-  'loc'); an existing node is updated IN PLACE (NodeVersion snapshot is
+  'loc'); an existing node is updated IN PLACE (NodeRevision snapshot is
   the undo), a missing one is created. HTML converts to Markdown at the
   write seam (contentType defaults to text/html here, unlike createNode).
   """
@@ -2209,7 +2278,7 @@ type Mutation {
   removeOrgMember(orgId: ID!, userId: ID!): Boolean!
   replaceSubtree(edges: [EdgeInput!]!, memoryId: String!, nodes: [NodeInput!]!, ownerRepo: String!): Int!
   restoreAsset(assetId: ID!): Asset!
-  restoreNodeVersion(truncate: Boolean = false, versionId: ID!): Node!
+  restoreNodeRevision(revisionId: ID!, truncate: Boolean = false): Node!
 
   """
   Restore an Agent's system memory from a revision (auto-saves first).
@@ -2263,6 +2332,11 @@ type Mutation {
   sendChatMessage(chatId: String!, userMessage: String!): ChatPromptResult!
   sendContactMessage(email: String!, message: String!, name: String!): Boolean!
   setAgentAssetUploadEnabled(input: SetAgentAssetUploadEnabledInput!): App!
+
+  """
+  Append an effective-dated provider rate row (spec 046). PLATFORM ADMIN - org admins must never set the prices they are billed at.
+  """
+  setAiModelPrice(input: SetAiModelPriceInput!): AiModelPrice!
 
   """
   Set encrypted source token for non-GitHub-App repos.
@@ -2378,7 +2452,7 @@ type Mutation {
   truth in `FR_026_DISCLOSURE` — see `src/lib/entityRef/errors.ts`). On a
   non-encrypted memory the flag is a no-op.
   """
-  updateMemory(acknowledgeVectorInversionRisk: Boolean, category0: String, category1: String, category2: String, chunkOverlap: Int, chunkTokens: Int, data: JSON, description: String, embeddingSource: EmbeddingSource, forceFixedSize: Boolean, heroUrl: String, homeUrl: String, iconUrl: String, id: ID!, license: String, name: String, organizationId: ID, readBranch: String, shortDescription: String, source: String, tags: [String!], urn: String, vectorIndexEnabled: Boolean, visibility: MemoryVisibility, writeBranch: String): Memory!
+  updateMemory(acknowledgeVectorInversionRisk: Boolean, category0: String, category1: String, category2: String, chunkOverlap: Int, chunkTokens: Int, data: JSON, description: String, embeddingSource: EmbeddingSource, forceFixedSize: Boolean, heroUrl: String, homeUrl: String, iconUrl: String, id: ID!, license: String, maxRevCount: Int, name: String, organizationId: ID, readBranch: String, shortDescription: String, source: String, tags: [String!], urn: String, vectorIndexEnabled: Boolean, visibility: MemoryVisibility, writeBranch: String): Memory!
 
   """
   023-app-shape US4 — change the role on an existing team member.
@@ -2434,6 +2508,7 @@ type Mutation {
   """
   updateNode(input: UpdateNodeInput!): Node!
   updateNodeData(data: JSON!, nodeRef: ID!, reason: String): Node!
+  updateNodeRevision(revLabel: String, revisionId: ID!): NodeRevision!
 
   """
   Set GitHub App credentials for an organization (encrypted at rest).
@@ -2500,7 +2575,7 @@ type Node {
   """
   Spec 033 FR-006/FR-007 — set when this node needs (re-)embedding;
   cleared on success. The single work signal the embedding worker
-  drains. Operational state (never versioned on NodeVersion). The
+  drains. Operational state (never versioned on NodeRevision). The
   portal renders this as a subtle "embedding…" badge so a user who
   just edited isn't confused that their change "didn't take" in
   search yet. System-managed.
@@ -2697,10 +2772,11 @@ input NodeInput {
   properties: JSON
 
   """
-  Why this change was made — recorded on the version-history snapshot
-  (NodeVersion.editedBy), mirroring hadron_update_node's reason arg so CLI
-  and MCP edits leave equally-traceable history. Only an update snapshots a
-  prior version, so reason has no effect on a pure create.
+  Why this change was made — recorded on the revision-history snapshot
+  (NodeRevision.revLabel, #620; historically it squatted in editedBy),
+  mirroring hadron_update_node's reason arg so CLI and MCP edits leave
+  equally-traceable history. Only an update snapshots a prior revision, so
+  reason has no effect on a pure create.
   """
   reason: String
   seq: Int
@@ -2739,6 +2815,84 @@ enum NodeMergeField {
   TAGS
 }
 
+type NodeRevision {
+  """Paragraph summary at capture (spec 031)."""
+  abstract: String
+  aiAgent: String
+  alias: String
+
+  """
+  Reserved (#620): User id that approved this revision. No write surface yet.
+  """
+  approvedBy: String
+
+  """
+  approvedBy resolved to public identifiers (handle + URN), like editedByUser.
+  """
+  approvedByUser: NodeRevisionEditor
+
+  """
+  Which node fields the edit that took this snapshot changed, e.g.
+  ["abstract","tags"] (#620). The snapshot is the PRE-edit state, so this
+  describes the delta between this snapshot and the state that replaced it.
+  Empty for legacy rows.
+  """
+  changes: [String!]!
+  content: String
+  createdAt: String!
+  data: JSON
+  description: String
+
+  """
+  The editing User id, when a user is known (#620). Use editedByUser for resolution.
+  """
+  editedBy: String
+
+  """
+  What is known about the editor when no User id is available (#620):
+  'github:<login>' / 'email:<addr>' / 'user:<id>' identity strings, or
+  'app:<App.id>' for App-key principals. (Legacy free-form #88 reasons /
+  commit messages that squatted in editedBy were migrated to revLabel.)
+  """
+  editedByInfo: String
+
+  """
+  The editor resolved to a user (handle + URN) — from editedBy as a User id,
+  the createdBy fallback (#619), or an identity-string form of editedByInfo
+  ('github:<login>' resolves via the user's linked GitHub username). Null when
+  nothing resolves — the portal falls back to the raw strings. Public
+  identifiers only (#617).
+  """
+  editedByUser: NodeRevisionEditor
+  id: ID!
+  isLink: Boolean
+  isRunnable: Boolean
+  llmModel: String
+  loc: String!
+  name: String!
+  nodeId: String!
+  nodeType: String
+  properties: JSON
+
+  """
+  User-settable label for this revision (#620, 500-char cap) — set via updateNodeRevision; also captures the 'reason' supplied with the edit that took this snapshot (legacy reasons were migrated here).
+  """
+  revLabel: String
+  seq: Int
+  tags: [String!]!
+}
+
+"""
+A revision's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
+excludes name / email / any PII — resolving editedBy must never widen the
+disclosure surface. handle + urn are the same public identifiers the users
+search already exposes, so no per-caller visibility gate applies.
+"""
+type NodeRevisionEditor {
+  handle: String
+  urn: String
+}
+
 """
 Result ordering for findNodes. Default relevance; the rest suppress scoring (browse order).
 """
@@ -2772,41 +2926,6 @@ type NodeVectorMeta {
   offsets: [Int!]
   similarity: Float
   source: String
-}
-
-type NodeVersion {
-  alias: String
-  content: String
-  createdAt: String!
-  description: String
-
-  """
-  Raw editor id at capture: a User id OR an app/client principal id (opaque). Use editedByUser to resolve the user case.
-  """
-  editedBy: String
-
-  """
-  The editor resolved to a user (handle + URN), when editedBy is a user id.
-  Null for app/client principals, deleted users, or handle-less users — the
-  portal falls back to the raw editedBy string. Public identifiers only (#617).
-  """
-  editedByUser: NodeVersionEditor
-  id: ID!
-  loc: String!
-  name: String!
-  nodeId: String!
-  tags: [String!]!
-}
-
-"""
-A version's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
-excludes name / email / any PII — resolving editedBy must never widen the
-disclosure surface. handle + urn are the same public identifiers the users
-search already exposes, so no per-caller visibility gate applies.
-"""
-type NodeVersionEditor {
-  handle: String
-  urn: String
 }
 
 type OrgMember {
@@ -2968,6 +3087,16 @@ type Query {
   agents(filter: AgentFilter, limit: Int, offset: Int, orgId: ID): AgentsPage!
 
   """
+  One provider rate row by id (spec 046). Authenticated read - rates are not a secret.
+  """
+  aiModelPrice(ref: ID!): AiModelPrice
+
+  """
+  Provider rate rows, newest effective first, optional provider/model filter (spec 046). Authenticated read.
+  """
+  aiModelPrices(limit: Int, model: String, offset: Int, provider: String, tier: Int): AiModelPriceList!
+
+  """
   The uniform single-config read (#473). 'ref' is the config's ID —
   AiServiceConfig is the one URN-less entity (matching resolveUrn /
   effectiveAccess dispatch). Masked: never returns key material, only
@@ -3068,6 +3197,16 @@ type Query {
   The caller's own connection grants; connectionRef narrows to one connection.
   """
   connectionGrants(connectionRef: String, limit: Int, offset: Int): ConnectionGrantsPage!
+
+  """
+  One org's credit balance - SUM over the append-only ledger (spec 046). Org-ADMIN.
+  """
+  creditBalance(orgRef: String!): CreditBalance!
+
+  """
+  One org's append-only credit-ledger page, newest first (spec 046). Org-ADMIN.
+  """
+  creditLedgerEntries(limit: Int, offset: Int, orgRef: String!): CreditLedgerEntryList!
 
   """
   The uniform single-edge read (#473) — edges are first-class, loc-addressed
@@ -3337,29 +3476,29 @@ type Query {
   """
   nodeBatch(ids: [ID!], locPrefix: String, memory: ID): NodeBatchResult!
   nodeExport(format: NodeExportFormat = MD, full: Boolean = true, id: ID!, sections: [NodeExportSection!]): NodeExportResult!
-  nodeUsage(limit: Int, loc: String!): [UsageEvent!]!
 
   """
-  A single node-version snapshot by its id (#617 Display).
+  A single node-revision snapshot by its id (#617 Display).
   
-  Access-gated on the snapshot's node memory (read): null when the version
+  Access-gated on the snapshot's node memory (read): null when the revision
   does not exist OR the caller cannot read the node's current memory OR the
   memory the snapshot was captured in (per-snapshot gating mirrors
-  nodeVersions — a moved node keeps its id, so a snapshot may belong to a
+  nodeRevisions — a moved node keeps its id, so a snapshot may belong to a
   memory the caller cannot read). A soft-deleted node is also null (its
   history drops out of every read surface). Null, never an error, so there
   is no existence disclosure.
   """
-  nodeVersion(versionId: ID!): NodeVersion
+  nodeRevision(revisionId: ID!): NodeRevision
 
   """
-  Version history for a node, most recent first.
+  Revision history for a node, most recent first.
   
   Accepts the node's ID or URN. Access-gated on the node's memory: a node
   whose memory the caller can't read returns an empty list (no existence
   disclosure).
   """
-  nodeVersions(limit: Int, nodeRef: ID!): [NodeVersion!]!
+  nodeRevisions(limit: Int, nodeRef: ID!): [NodeRevision!]!
+  nodeUsage(limit: Int, loc: String!): [UsageEvent!]!
 
   """
   Fetch an Organization (org member or platform ADMIN).
@@ -3691,8 +3830,9 @@ input SearchReplaceInNodesInput {
   prefix: String
 
   """
-  Why this change was made — recorded on each changed node's version-history
-  snapshot (NodeVersion.editedBy), mirroring hadron_update_node's reason arg.
+  Why this change was made — recorded on each changed node's revision-history
+  snapshot (NodeRevision.revLabel, #620; historically it squatted in
+  editedBy), mirroring hadron_update_node's reason arg.
   """
   reason: String
 
@@ -3784,6 +3924,16 @@ input SetAgentAssetUploadEnabledInput {
   """
   agentUrn: String!
   enabled: Boolean!
+}
+
+input SetAiModelPriceInput {
+  effectiveAt: String
+  inputMicroCentsPerMTok: String!
+  markupBasisPoints: Int
+  model: String!
+  outputMicroCentsPerMTok: String!
+  provider: String!
+  tier: Int
 }
 
 input SetQuotaLimitInput {
@@ -3952,9 +4102,10 @@ input UpdateNodeInput {
   properties: JSON
 
   """
-  Why this change was made — recorded on the version-history snapshot
-  (NodeVersion.editedBy), mirroring hadron_update_node's reason arg so CLI
-  and MCP edits leave equally-traceable history.
+  Why this change was made — recorded on the revision-history snapshot
+  (NodeRevision.revLabel, #620; historically it squatted in editedBy),
+  mirroring hadron_update_node's reason arg so CLI and MCP edits leave
+  equally-traceable history.
   """
   reason: String
   seq: Int
@@ -3990,14 +4141,19 @@ type UrnResolution {
 type UsageEvent {
   actionArgs: JSON
   appId: String
+  costMicroCents: String
   createdAt: String!
   id: ID!
+  keyOwnerType: String
   model: String
   nodeLoc: String
+  organizationId: String
+  provider: String
   sessionId: String
   tokensIn: Int
   tokensOut: Int
   type: String!
+  userId: String
 }
 
 input UsageEventInput {

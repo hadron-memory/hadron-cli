@@ -39,6 +39,8 @@ const (
 	AccessSourceOrgRole AccessSource = "ORG_ROLE"
 	// Platform ADMIN/OWNER.
 	AccessSourcePlatformRole AccessSource = "PLATFORM_ROLE"
+	// individual action grant (PrincipalGrant, cor:acl:040:06) - clone/delete capabilities on top of the role bundle.
+	AccessSourcePrincipalGrant AccessSource = "PRINCIPAL_GRANT"
 	// resource is publicly / universally visible.
 	AccessSourcePublicVisibility AccessSource = "PUBLIC_VISIBILITY"
 )
@@ -53,6 +55,7 @@ var AllAccessSource = []AccessSource{
 	AccessSourceNodeInherited,
 	AccessSourceOrgRole,
 	AccessSourcePlatformRole,
+	AccessSourcePrincipalGrant,
 	AccessSourcePublicVisibility,
 }
 
@@ -2683,7 +2686,10 @@ type CloneMemoryCloneMemory struct {
 	Visibility       *MemoryVisibility `json:"visibility"`
 	OrganizationId   string            `json:"organizationId"`
 	IsEncrypted      bool              `json:"isEncrypted"`
-	UpdatedAt        string            `json:"updatedAt"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int    `json:"maxRevCount"`
+	UpdatedAt   string `json:"updatedAt"`
 }
 
 // GetId returns CloneMemoryCloneMemory.Id, and is useful for accessing the field via an interface.
@@ -2710,6 +2716,9 @@ func (v *CloneMemoryCloneMemory) GetOrganizationId() string { return v.Organizat
 // GetIsEncrypted returns CloneMemoryCloneMemory.IsEncrypted, and is useful for accessing the field via an interface.
 func (v *CloneMemoryCloneMemory) GetIsEncrypted() bool { return v.IsEncrypted }
 
+// GetMaxRevCount returns CloneMemoryCloneMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *CloneMemoryCloneMemory) GetMaxRevCount() int { return v.MaxRevCount }
+
 // GetUpdatedAt returns CloneMemoryCloneMemory.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *CloneMemoryCloneMemory) GetUpdatedAt() string { return v.UpdatedAt }
 
@@ -2728,7 +2737,7 @@ type CloneMemoryResponse struct {
 	// Vector-index config carries over and the clone's nodes are stamped for
 	// re-embedding.
 	//
-	// NOT copied: version history, subscriptions, shares, group members
+	// NOT copied: revision history, subscriptions, shares, group members
 	// (the caller is bootstrapped as a group clone's first owner), sessions,
 	// licenses, log entries, assets, and git-sync config (the clone starts
 	// DB-only).
@@ -3612,7 +3621,10 @@ type CreateMemoryCreateMemory struct {
 	Visibility       *MemoryVisibility `json:"visibility"`
 	OrganizationId   string            `json:"organizationId"`
 	IsEncrypted      bool              `json:"isEncrypted"`
-	UpdatedAt        string            `json:"updatedAt"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int    `json:"maxRevCount"`
+	UpdatedAt   string `json:"updatedAt"`
 }
 
 // GetId returns CreateMemoryCreateMemory.Id, and is useful for accessing the field via an interface.
@@ -3638,6 +3650,9 @@ func (v *CreateMemoryCreateMemory) GetOrganizationId() string { return v.Organiz
 
 // GetIsEncrypted returns CreateMemoryCreateMemory.IsEncrypted, and is useful for accessing the field via an interface.
 func (v *CreateMemoryCreateMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetMaxRevCount returns CreateMemoryCreateMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *CreateMemoryCreateMemory) GetMaxRevCount() int { return v.MaxRevCount }
 
 // GetUpdatedAt returns CreateMemoryCreateMemory.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *CreateMemoryCreateMemory) GetUpdatedAt() string { return v.UpdatedAt }
@@ -3932,7 +3947,7 @@ type CreateNodeInput struct {
 	NodeType   *string          `json:"nodeType,omitempty"`
 	OwnerRepo  *string          `json:"ownerRepo,omitempty"`
 	Properties *json.RawMessage `json:"properties,omitempty"`
-	// Recorded on version history only when a soft-deleted node is resurrected (a pure create snapshots nothing).
+	// Recorded on revision history only when a soft-deleted node is resurrected (a pure create snapshots nothing).
 	Reason *string  `json:"reason,omitempty"`
 	Seq    *int     `json:"seq,omitempty"`
 	Tags   []string `json:"tags,omitempty"`
@@ -4604,13 +4619,13 @@ type DeleteNodeResponse struct {
 // GetDeleteNode returns DeleteNodeResponse.DeleteNode, and is useful for accessing the field via an interface.
 func (v *DeleteNodeResponse) GetDeleteNode() bool { return v.DeleteNode }
 
-// DeleteNodeVersionResponse is returned by DeleteNodeVersion on success.
-type DeleteNodeVersionResponse struct {
-	DeleteNodeVersion bool `json:"deleteNodeVersion"`
+// DeleteNodeRevisionResponse is returned by DeleteNodeRevision on success.
+type DeleteNodeRevisionResponse struct {
+	DeleteNodeRevision bool `json:"deleteNodeRevision"`
 }
 
-// GetDeleteNodeVersion returns DeleteNodeVersionResponse.DeleteNodeVersion, and is useful for accessing the field via an interface.
-func (v *DeleteNodeVersionResponse) GetDeleteNodeVersion() bool { return v.DeleteNodeVersion }
+// GetDeleteNodeRevision returns DeleteNodeRevisionResponse.DeleteNodeRevision, and is useful for accessing the field via an interface.
+func (v *DeleteNodeRevisionResponse) GetDeleteNodeRevision() bool { return v.DeleteNodeRevision }
 
 // DeleteOrganizationResponse is returned by DeleteOrganization on success.
 type DeleteOrganizationResponse struct {
@@ -5225,6 +5240,9 @@ type GetMemoryMemory struct {
 	Source             *string           `json:"source"`
 	SyncStatus         SyncStatus        `json:"syncStatus"`
 	VectorIndexEnabled bool              `json:"vectorIndexEnabled"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int `json:"maxRevCount"`
 	// Free-form structured metadata bag (client-defined JSON, no server-side
 	// semantics). Null when unset. Settable via createMemory / updateMemory.
 	Data      *json.RawMessage `json:"data"`
@@ -5270,6 +5288,9 @@ func (v *GetMemoryMemory) GetSyncStatus() SyncStatus { return v.SyncStatus }
 
 // GetVectorIndexEnabled returns GetMemoryMemory.VectorIndexEnabled, and is useful for accessing the field via an interface.
 func (v *GetMemoryMemory) GetVectorIndexEnabled() bool { return v.VectorIndexEnabled }
+
+// GetMaxRevCount returns GetMemoryMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *GetMemoryMemory) GetMaxRevCount() int { return v.MaxRevCount }
 
 // GetData returns GetMemoryMemory.Data, and is useful for accessing the field via an interface.
 func (v *GetMemoryMemory) GetData() *json.RawMessage { return v.Data }
@@ -5793,7 +5814,7 @@ type ImportNodeResponse struct {
 	// ~30s budget — the fetch carries NO user credentials, so authenticated
 	// pages must come as 'content') or 'content' (client-captured, e.g. the
 	// Web Clipper's authenticated DOM). Target: 'nodeUrn' XOR ('memoryId' +
-	// 'loc'); an existing node is updated IN PLACE (NodeVersion snapshot is
+	// 'loc'); an existing node is updated IN PLACE (NodeRevision snapshot is
 	// the undo), a missing one is created. HTML converts to Markdown at the
 	// write seam (contentType defaults to text/html here, unlike createNode).
 	ImportNode *ImportNodeImportNodeImportNodeResult `json:"importNode"`
@@ -5951,7 +5972,10 @@ type MemoriesMemoriesMemoriesPageItemsMemory struct {
 	Visibility       *MemoryVisibility `json:"visibility"`
 	OrganizationId   string            `json:"organizationId"`
 	IsEncrypted      bool              `json:"isEncrypted"`
-	UpdatedAt        string            `json:"updatedAt"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int    `json:"maxRevCount"`
+	UpdatedAt   string `json:"updatedAt"`
 }
 
 // GetId returns MemoriesMemoriesMemoriesPageItemsMemory.Id, and is useful for accessing the field via an interface.
@@ -5981,6 +6005,9 @@ func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetOrganizationId() string { r
 
 // GetIsEncrypted returns MemoriesMemoriesMemoriesPageItemsMemory.IsEncrypted, and is useful for accessing the field via an interface.
 func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetMaxRevCount returns MemoriesMemoriesMemoriesPageItemsMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetMaxRevCount() int { return v.MaxRevCount }
 
 // GetUpdatedAt returns MemoriesMemoriesMemoriesPageItemsMemory.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetUpdatedAt() string { return v.UpdatedAt }
@@ -7173,6 +7200,297 @@ var AllNodeMergeField = []NodeMergeField{
 	NodeMergeFieldTags,
 }
 
+// NodeRevisionNodeRevision includes the requested fields of the GraphQL type NodeRevision.
+type NodeRevisionNodeRevision struct {
+	RevisionFields `json:"-"`
+	Content        *string `json:"content"`
+}
+
+// GetContent returns NodeRevisionNodeRevision.Content, and is useful for accessing the field via an interface.
+func (v *NodeRevisionNodeRevision) GetContent() *string { return v.Content }
+
+// GetId returns NodeRevisionNodeRevision.Id, and is useful for accessing the field via an interface.
+func (v *NodeRevisionNodeRevision) GetId() string { return v.RevisionFields.Id }
+
+// GetNodeId returns NodeRevisionNodeRevision.NodeId, and is useful for accessing the field via an interface.
+func (v *NodeRevisionNodeRevision) GetNodeId() string { return v.RevisionFields.NodeId }
+
+// GetLoc returns NodeRevisionNodeRevision.Loc, and is useful for accessing the field via an interface.
+func (v *NodeRevisionNodeRevision) GetLoc() string { return v.RevisionFields.Loc }
+
+// GetName returns NodeRevisionNodeRevision.Name, and is useful for accessing the field via an interface.
+func (v *NodeRevisionNodeRevision) GetName() string { return v.RevisionFields.Name }
+
+// GetDescription returns NodeRevisionNodeRevision.Description, and is useful for accessing the field via an interface.
+func (v *NodeRevisionNodeRevision) GetDescription() *string { return v.RevisionFields.Description }
+
+// GetTags returns NodeRevisionNodeRevision.Tags, and is useful for accessing the field via an interface.
+func (v *NodeRevisionNodeRevision) GetTags() []string { return v.RevisionFields.Tags }
+
+// GetCreatedAt returns NodeRevisionNodeRevision.CreatedAt, and is useful for accessing the field via an interface.
+func (v *NodeRevisionNodeRevision) GetCreatedAt() string { return v.RevisionFields.CreatedAt }
+
+// GetEditedBy returns NodeRevisionNodeRevision.EditedBy, and is useful for accessing the field via an interface.
+func (v *NodeRevisionNodeRevision) GetEditedBy() *string { return v.RevisionFields.EditedBy }
+
+// GetEditedByInfo returns NodeRevisionNodeRevision.EditedByInfo, and is useful for accessing the field via an interface.
+func (v *NodeRevisionNodeRevision) GetEditedByInfo() *string { return v.RevisionFields.EditedByInfo }
+
+// GetEditedByUser returns NodeRevisionNodeRevision.EditedByUser, and is useful for accessing the field via an interface.
+func (v *NodeRevisionNodeRevision) GetEditedByUser() *RevisionFieldsEditedByUserNodeRevisionEditor {
+	return v.RevisionFields.EditedByUser
+}
+
+// GetRevLabel returns NodeRevisionNodeRevision.RevLabel, and is useful for accessing the field via an interface.
+func (v *NodeRevisionNodeRevision) GetRevLabel() *string { return v.RevisionFields.RevLabel }
+
+// GetChanges returns NodeRevisionNodeRevision.Changes, and is useful for accessing the field via an interface.
+func (v *NodeRevisionNodeRevision) GetChanges() []string { return v.RevisionFields.Changes }
+
+func (v *NodeRevisionNodeRevision) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeRevisionNodeRevision
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeRevisionNodeRevision = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.RevisionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeRevisionNodeRevision struct {
+	Content *string `json:"content"`
+
+	Id string `json:"id"`
+
+	NodeId string `json:"nodeId"`
+
+	Loc string `json:"loc"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Tags []string `json:"tags"`
+
+	CreatedAt string `json:"createdAt"`
+
+	EditedBy *string `json:"editedBy"`
+
+	EditedByInfo *string `json:"editedByInfo"`
+
+	EditedByUser *RevisionFieldsEditedByUserNodeRevisionEditor `json:"editedByUser"`
+
+	RevLabel *string `json:"revLabel"`
+
+	Changes []string `json:"changes"`
+}
+
+func (v *NodeRevisionNodeRevision) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeRevisionNodeRevision) __premarshalJSON() (*__premarshalNodeRevisionNodeRevision, error) {
+	var retval __premarshalNodeRevisionNodeRevision
+
+	retval.Content = v.Content
+	retval.Id = v.RevisionFields.Id
+	retval.NodeId = v.RevisionFields.NodeId
+	retval.Loc = v.RevisionFields.Loc
+	retval.Name = v.RevisionFields.Name
+	retval.Description = v.RevisionFields.Description
+	retval.Tags = v.RevisionFields.Tags
+	retval.CreatedAt = v.RevisionFields.CreatedAt
+	retval.EditedBy = v.RevisionFields.EditedBy
+	retval.EditedByInfo = v.RevisionFields.EditedByInfo
+	retval.EditedByUser = v.RevisionFields.EditedByUser
+	retval.RevLabel = v.RevisionFields.RevLabel
+	retval.Changes = v.RevisionFields.Changes
+	return &retval, nil
+}
+
+// NodeRevisionResponse is returned by NodeRevision on success.
+type NodeRevisionResponse struct {
+	// A single node-revision snapshot by its id (#617 Display).
+	//
+	// Access-gated on the snapshot's node memory (read): null when the revision
+	// does not exist OR the caller cannot read the node's current memory OR the
+	// memory the snapshot was captured in (per-snapshot gating mirrors
+	// nodeRevisions — a moved node keeps its id, so a snapshot may belong to a
+	// memory the caller cannot read). A soft-deleted node is also null (its
+	// history drops out of every read surface). Null, never an error, so there
+	// is no existence disclosure.
+	NodeRevision *NodeRevisionNodeRevision `json:"nodeRevision"`
+}
+
+// GetNodeRevision returns NodeRevisionResponse.NodeRevision, and is useful for accessing the field via an interface.
+func (v *NodeRevisionResponse) GetNodeRevision() *NodeRevisionNodeRevision { return v.NodeRevision }
+
+// NodeRevisionsNodeRevisionsNodeRevision includes the requested fields of the GraphQL type NodeRevision.
+type NodeRevisionsNodeRevisionsNodeRevision struct {
+	RevisionFields `json:"-"`
+}
+
+// GetId returns NodeRevisionsNodeRevisionsNodeRevision.Id, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsNodeRevisionsNodeRevision) GetId() string { return v.RevisionFields.Id }
+
+// GetNodeId returns NodeRevisionsNodeRevisionsNodeRevision.NodeId, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsNodeRevisionsNodeRevision) GetNodeId() string { return v.RevisionFields.NodeId }
+
+// GetLoc returns NodeRevisionsNodeRevisionsNodeRevision.Loc, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsNodeRevisionsNodeRevision) GetLoc() string { return v.RevisionFields.Loc }
+
+// GetName returns NodeRevisionsNodeRevisionsNodeRevision.Name, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsNodeRevisionsNodeRevision) GetName() string { return v.RevisionFields.Name }
+
+// GetDescription returns NodeRevisionsNodeRevisionsNodeRevision.Description, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsNodeRevisionsNodeRevision) GetDescription() *string {
+	return v.RevisionFields.Description
+}
+
+// GetTags returns NodeRevisionsNodeRevisionsNodeRevision.Tags, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsNodeRevisionsNodeRevision) GetTags() []string { return v.RevisionFields.Tags }
+
+// GetCreatedAt returns NodeRevisionsNodeRevisionsNodeRevision.CreatedAt, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsNodeRevisionsNodeRevision) GetCreatedAt() string {
+	return v.RevisionFields.CreatedAt
+}
+
+// GetEditedBy returns NodeRevisionsNodeRevisionsNodeRevision.EditedBy, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsNodeRevisionsNodeRevision) GetEditedBy() *string {
+	return v.RevisionFields.EditedBy
+}
+
+// GetEditedByInfo returns NodeRevisionsNodeRevisionsNodeRevision.EditedByInfo, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsNodeRevisionsNodeRevision) GetEditedByInfo() *string {
+	return v.RevisionFields.EditedByInfo
+}
+
+// GetEditedByUser returns NodeRevisionsNodeRevisionsNodeRevision.EditedByUser, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsNodeRevisionsNodeRevision) GetEditedByUser() *RevisionFieldsEditedByUserNodeRevisionEditor {
+	return v.RevisionFields.EditedByUser
+}
+
+// GetRevLabel returns NodeRevisionsNodeRevisionsNodeRevision.RevLabel, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsNodeRevisionsNodeRevision) GetRevLabel() *string {
+	return v.RevisionFields.RevLabel
+}
+
+// GetChanges returns NodeRevisionsNodeRevisionsNodeRevision.Changes, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsNodeRevisionsNodeRevision) GetChanges() []string {
+	return v.RevisionFields.Changes
+}
+
+func (v *NodeRevisionsNodeRevisionsNodeRevision) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*NodeRevisionsNodeRevisionsNodeRevision
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.NodeRevisionsNodeRevisionsNodeRevision = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.RevisionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalNodeRevisionsNodeRevisionsNodeRevision struct {
+	Id string `json:"id"`
+
+	NodeId string `json:"nodeId"`
+
+	Loc string `json:"loc"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Tags []string `json:"tags"`
+
+	CreatedAt string `json:"createdAt"`
+
+	EditedBy *string `json:"editedBy"`
+
+	EditedByInfo *string `json:"editedByInfo"`
+
+	EditedByUser *RevisionFieldsEditedByUserNodeRevisionEditor `json:"editedByUser"`
+
+	RevLabel *string `json:"revLabel"`
+
+	Changes []string `json:"changes"`
+}
+
+func (v *NodeRevisionsNodeRevisionsNodeRevision) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *NodeRevisionsNodeRevisionsNodeRevision) __premarshalJSON() (*__premarshalNodeRevisionsNodeRevisionsNodeRevision, error) {
+	var retval __premarshalNodeRevisionsNodeRevisionsNodeRevision
+
+	retval.Id = v.RevisionFields.Id
+	retval.NodeId = v.RevisionFields.NodeId
+	retval.Loc = v.RevisionFields.Loc
+	retval.Name = v.RevisionFields.Name
+	retval.Description = v.RevisionFields.Description
+	retval.Tags = v.RevisionFields.Tags
+	retval.CreatedAt = v.RevisionFields.CreatedAt
+	retval.EditedBy = v.RevisionFields.EditedBy
+	retval.EditedByInfo = v.RevisionFields.EditedByInfo
+	retval.EditedByUser = v.RevisionFields.EditedByUser
+	retval.RevLabel = v.RevisionFields.RevLabel
+	retval.Changes = v.RevisionFields.Changes
+	return &retval, nil
+}
+
+// NodeRevisionsResponse is returned by NodeRevisions on success.
+type NodeRevisionsResponse struct {
+	// Revision history for a node, most recent first.
+	//
+	// Accepts the node's ID or URN. Access-gated on the node's memory: a node
+	// whose memory the caller can't read returns an empty list (no existence
+	// disclosure).
+	NodeRevisions []*NodeRevisionsNodeRevisionsNodeRevision `json:"nodeRevisions"`
+}
+
+// GetNodeRevisions returns NodeRevisionsResponse.NodeRevisions, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsResponse) GetNodeRevisions() []*NodeRevisionsNodeRevisionsNodeRevision {
+	return v.NodeRevisions
+}
+
 // Result ordering for findNodes. Default relevance; the rest suppress scoring (browse order).
 type NodeSort string
 
@@ -7210,174 +7528,6 @@ var AllNodeTextField = []NodeTextField{
 	NodeTextFieldDescription,
 	NodeTextFieldName,
 	NodeTextFieldTags,
-}
-
-// NodeVersionNodeVersion includes the requested fields of the GraphQL type NodeVersion.
-type NodeVersionNodeVersion struct {
-	Id          string   `json:"id"`
-	NodeId      string   `json:"nodeId"`
-	Loc         string   `json:"loc"`
-	Name        string   `json:"name"`
-	Description *string  `json:"description"`
-	Content     *string  `json:"content"`
-	Tags        []string `json:"tags"`
-	CreatedAt   string   `json:"createdAt"`
-	// Raw editor id at capture: a User id OR an app/client principal id (opaque). Use editedByUser to resolve the user case.
-	EditedBy *string `json:"editedBy"`
-	// The editor resolved to a user (handle + URN), when editedBy is a user id.
-	// Null for app/client principals, deleted users, or handle-less users — the
-	// portal falls back to the raw editedBy string. Public identifiers only (#617).
-	EditedByUser *NodeVersionNodeVersionEditedByUserNodeVersionEditor `json:"editedByUser"`
-}
-
-// GetId returns NodeVersionNodeVersion.Id, and is useful for accessing the field via an interface.
-func (v *NodeVersionNodeVersion) GetId() string { return v.Id }
-
-// GetNodeId returns NodeVersionNodeVersion.NodeId, and is useful for accessing the field via an interface.
-func (v *NodeVersionNodeVersion) GetNodeId() string { return v.NodeId }
-
-// GetLoc returns NodeVersionNodeVersion.Loc, and is useful for accessing the field via an interface.
-func (v *NodeVersionNodeVersion) GetLoc() string { return v.Loc }
-
-// GetName returns NodeVersionNodeVersion.Name, and is useful for accessing the field via an interface.
-func (v *NodeVersionNodeVersion) GetName() string { return v.Name }
-
-// GetDescription returns NodeVersionNodeVersion.Description, and is useful for accessing the field via an interface.
-func (v *NodeVersionNodeVersion) GetDescription() *string { return v.Description }
-
-// GetContent returns NodeVersionNodeVersion.Content, and is useful for accessing the field via an interface.
-func (v *NodeVersionNodeVersion) GetContent() *string { return v.Content }
-
-// GetTags returns NodeVersionNodeVersion.Tags, and is useful for accessing the field via an interface.
-func (v *NodeVersionNodeVersion) GetTags() []string { return v.Tags }
-
-// GetCreatedAt returns NodeVersionNodeVersion.CreatedAt, and is useful for accessing the field via an interface.
-func (v *NodeVersionNodeVersion) GetCreatedAt() string { return v.CreatedAt }
-
-// GetEditedBy returns NodeVersionNodeVersion.EditedBy, and is useful for accessing the field via an interface.
-func (v *NodeVersionNodeVersion) GetEditedBy() *string { return v.EditedBy }
-
-// GetEditedByUser returns NodeVersionNodeVersion.EditedByUser, and is useful for accessing the field via an interface.
-func (v *NodeVersionNodeVersion) GetEditedByUser() *NodeVersionNodeVersionEditedByUserNodeVersionEditor {
-	return v.EditedByUser
-}
-
-// NodeVersionNodeVersionEditedByUserNodeVersionEditor includes the requested fields of the GraphQL type NodeVersionEditor.
-// The GraphQL type's documentation follows.
-//
-// A version's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
-// excludes name / email / any PII — resolving editedBy must never widen the
-// disclosure surface. handle + urn are the same public identifiers the users
-// search already exposes, so no per-caller visibility gate applies.
-type NodeVersionNodeVersionEditedByUserNodeVersionEditor struct {
-	Handle *string `json:"handle"`
-	Urn    *string `json:"urn"`
-}
-
-// GetHandle returns NodeVersionNodeVersionEditedByUserNodeVersionEditor.Handle, and is useful for accessing the field via an interface.
-func (v *NodeVersionNodeVersionEditedByUserNodeVersionEditor) GetHandle() *string { return v.Handle }
-
-// GetUrn returns NodeVersionNodeVersionEditedByUserNodeVersionEditor.Urn, and is useful for accessing the field via an interface.
-func (v *NodeVersionNodeVersionEditedByUserNodeVersionEditor) GetUrn() *string { return v.Urn }
-
-// NodeVersionResponse is returned by NodeVersion on success.
-type NodeVersionResponse struct {
-	// A single node-version snapshot by its id (#617 Display).
-	//
-	// Access-gated on the snapshot's node memory (read): null when the version
-	// does not exist OR the caller cannot read the node's current memory OR the
-	// memory the snapshot was captured in (per-snapshot gating mirrors
-	// nodeVersions — a moved node keeps its id, so a snapshot may belong to a
-	// memory the caller cannot read). A soft-deleted node is also null (its
-	// history drops out of every read surface). Null, never an error, so there
-	// is no existence disclosure.
-	NodeVersion *NodeVersionNodeVersion `json:"nodeVersion"`
-}
-
-// GetNodeVersion returns NodeVersionResponse.NodeVersion, and is useful for accessing the field via an interface.
-func (v *NodeVersionResponse) GetNodeVersion() *NodeVersionNodeVersion { return v.NodeVersion }
-
-// NodeVersionsNodeVersionsNodeVersion includes the requested fields of the GraphQL type NodeVersion.
-type NodeVersionsNodeVersionsNodeVersion struct {
-	Id          string   `json:"id"`
-	NodeId      string   `json:"nodeId"`
-	Loc         string   `json:"loc"`
-	Name        string   `json:"name"`
-	Description *string  `json:"description"`
-	Tags        []string `json:"tags"`
-	CreatedAt   string   `json:"createdAt"`
-	// Raw editor id at capture: a User id OR an app/client principal id (opaque). Use editedByUser to resolve the user case.
-	EditedBy *string `json:"editedBy"`
-	// The editor resolved to a user (handle + URN), when editedBy is a user id.
-	// Null for app/client principals, deleted users, or handle-less users — the
-	// portal falls back to the raw editedBy string. Public identifiers only (#617).
-	EditedByUser *NodeVersionsNodeVersionsNodeVersionEditedByUserNodeVersionEditor `json:"editedByUser"`
-}
-
-// GetId returns NodeVersionsNodeVersionsNodeVersion.Id, and is useful for accessing the field via an interface.
-func (v *NodeVersionsNodeVersionsNodeVersion) GetId() string { return v.Id }
-
-// GetNodeId returns NodeVersionsNodeVersionsNodeVersion.NodeId, and is useful for accessing the field via an interface.
-func (v *NodeVersionsNodeVersionsNodeVersion) GetNodeId() string { return v.NodeId }
-
-// GetLoc returns NodeVersionsNodeVersionsNodeVersion.Loc, and is useful for accessing the field via an interface.
-func (v *NodeVersionsNodeVersionsNodeVersion) GetLoc() string { return v.Loc }
-
-// GetName returns NodeVersionsNodeVersionsNodeVersion.Name, and is useful for accessing the field via an interface.
-func (v *NodeVersionsNodeVersionsNodeVersion) GetName() string { return v.Name }
-
-// GetDescription returns NodeVersionsNodeVersionsNodeVersion.Description, and is useful for accessing the field via an interface.
-func (v *NodeVersionsNodeVersionsNodeVersion) GetDescription() *string { return v.Description }
-
-// GetTags returns NodeVersionsNodeVersionsNodeVersion.Tags, and is useful for accessing the field via an interface.
-func (v *NodeVersionsNodeVersionsNodeVersion) GetTags() []string { return v.Tags }
-
-// GetCreatedAt returns NodeVersionsNodeVersionsNodeVersion.CreatedAt, and is useful for accessing the field via an interface.
-func (v *NodeVersionsNodeVersionsNodeVersion) GetCreatedAt() string { return v.CreatedAt }
-
-// GetEditedBy returns NodeVersionsNodeVersionsNodeVersion.EditedBy, and is useful for accessing the field via an interface.
-func (v *NodeVersionsNodeVersionsNodeVersion) GetEditedBy() *string { return v.EditedBy }
-
-// GetEditedByUser returns NodeVersionsNodeVersionsNodeVersion.EditedByUser, and is useful for accessing the field via an interface.
-func (v *NodeVersionsNodeVersionsNodeVersion) GetEditedByUser() *NodeVersionsNodeVersionsNodeVersionEditedByUserNodeVersionEditor {
-	return v.EditedByUser
-}
-
-// NodeVersionsNodeVersionsNodeVersionEditedByUserNodeVersionEditor includes the requested fields of the GraphQL type NodeVersionEditor.
-// The GraphQL type's documentation follows.
-//
-// A version's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
-// excludes name / email / any PII — resolving editedBy must never widen the
-// disclosure surface. handle + urn are the same public identifiers the users
-// search already exposes, so no per-caller visibility gate applies.
-type NodeVersionsNodeVersionsNodeVersionEditedByUserNodeVersionEditor struct {
-	Handle *string `json:"handle"`
-	Urn    *string `json:"urn"`
-}
-
-// GetHandle returns NodeVersionsNodeVersionsNodeVersionEditedByUserNodeVersionEditor.Handle, and is useful for accessing the field via an interface.
-func (v *NodeVersionsNodeVersionsNodeVersionEditedByUserNodeVersionEditor) GetHandle() *string {
-	return v.Handle
-}
-
-// GetUrn returns NodeVersionsNodeVersionsNodeVersionEditedByUserNodeVersionEditor.Urn, and is useful for accessing the field via an interface.
-func (v *NodeVersionsNodeVersionsNodeVersionEditedByUserNodeVersionEditor) GetUrn() *string {
-	return v.Urn
-}
-
-// NodeVersionsResponse is returned by NodeVersions on success.
-type NodeVersionsResponse struct {
-	// Version history for a node, most recent first.
-	//
-	// Accepts the node's ID or URN. Access-gated on the node's memory: a node
-	// whose memory the caller can't read returns an empty list (no existence
-	// disclosure).
-	NodeVersions []*NodeVersionsNodeVersionsNodeVersion `json:"nodeVersions"`
-}
-
-// GetNodeVersions returns NodeVersionsResponse.NodeVersions, and is useful for accessing the field via an interface.
-func (v *NodeVersionsResponse) GetNodeVersions() []*NodeVersionsNodeVersionsNodeVersion {
-	return v.NodeVersions
 }
 
 // OrgFields includes the GraphQL fields of Organization requested by the fragment OrgFields.
@@ -8279,18 +8429,18 @@ type ResolveUrnResponse struct {
 // GetResolveUrn returns ResolveUrnResponse.ResolveUrn, and is useful for accessing the field via an interface.
 func (v *ResolveUrnResponse) GetResolveUrn() *ResolveUrnResolveUrnUrnResolution { return v.ResolveUrn }
 
-// RestoreNodeVersionResponse is returned by RestoreNodeVersion on success.
-type RestoreNodeVersionResponse struct {
-	RestoreNodeVersion *RestoreNodeVersionRestoreNodeVersionNode `json:"restoreNodeVersion"`
+// RestoreNodeRevisionResponse is returned by RestoreNodeRevision on success.
+type RestoreNodeRevisionResponse struct {
+	RestoreNodeRevision *RestoreNodeRevisionRestoreNodeRevisionNode `json:"restoreNodeRevision"`
 }
 
-// GetRestoreNodeVersion returns RestoreNodeVersionResponse.RestoreNodeVersion, and is useful for accessing the field via an interface.
-func (v *RestoreNodeVersionResponse) GetRestoreNodeVersion() *RestoreNodeVersionRestoreNodeVersionNode {
-	return v.RestoreNodeVersion
+// GetRestoreNodeRevision returns RestoreNodeRevisionResponse.RestoreNodeRevision, and is useful for accessing the field via an interface.
+func (v *RestoreNodeRevisionResponse) GetRestoreNodeRevision() *RestoreNodeRevisionRestoreNodeRevisionNode {
+	return v.RestoreNodeRevision
 }
 
-// RestoreNodeVersionRestoreNodeVersionNode includes the requested fields of the GraphQL type Node.
-type RestoreNodeVersionRestoreNodeVersionNode struct {
+// RestoreNodeRevisionRestoreNodeRevisionNode includes the requested fields of the GraphQL type Node.
+type RestoreNodeRevisionRestoreNodeRevisionNode struct {
 	Id        string `json:"id"`
 	MemoryId  string `json:"memoryId"`
 	Loc       string `json:"loc"`
@@ -8299,23 +8449,110 @@ type RestoreNodeVersionRestoreNodeVersionNode struct {
 	UpdatedAt string `json:"updatedAt"`
 }
 
-// GetId returns RestoreNodeVersionRestoreNodeVersionNode.Id, and is useful for accessing the field via an interface.
-func (v *RestoreNodeVersionRestoreNodeVersionNode) GetId() string { return v.Id }
+// GetId returns RestoreNodeRevisionRestoreNodeRevisionNode.Id, and is useful for accessing the field via an interface.
+func (v *RestoreNodeRevisionRestoreNodeRevisionNode) GetId() string { return v.Id }
 
-// GetMemoryId returns RestoreNodeVersionRestoreNodeVersionNode.MemoryId, and is useful for accessing the field via an interface.
-func (v *RestoreNodeVersionRestoreNodeVersionNode) GetMemoryId() string { return v.MemoryId }
+// GetMemoryId returns RestoreNodeRevisionRestoreNodeRevisionNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *RestoreNodeRevisionRestoreNodeRevisionNode) GetMemoryId() string { return v.MemoryId }
 
-// GetLoc returns RestoreNodeVersionRestoreNodeVersionNode.Loc, and is useful for accessing the field via an interface.
-func (v *RestoreNodeVersionRestoreNodeVersionNode) GetLoc() string { return v.Loc }
+// GetLoc returns RestoreNodeRevisionRestoreNodeRevisionNode.Loc, and is useful for accessing the field via an interface.
+func (v *RestoreNodeRevisionRestoreNodeRevisionNode) GetLoc() string { return v.Loc }
 
-// GetName returns RestoreNodeVersionRestoreNodeVersionNode.Name, and is useful for accessing the field via an interface.
-func (v *RestoreNodeVersionRestoreNodeVersionNode) GetName() string { return v.Name }
+// GetName returns RestoreNodeRevisionRestoreNodeRevisionNode.Name, and is useful for accessing the field via an interface.
+func (v *RestoreNodeRevisionRestoreNodeRevisionNode) GetName() string { return v.Name }
 
-// GetNodeType returns RestoreNodeVersionRestoreNodeVersionNode.NodeType, and is useful for accessing the field via an interface.
-func (v *RestoreNodeVersionRestoreNodeVersionNode) GetNodeType() string { return v.NodeType }
+// GetNodeType returns RestoreNodeRevisionRestoreNodeRevisionNode.NodeType, and is useful for accessing the field via an interface.
+func (v *RestoreNodeRevisionRestoreNodeRevisionNode) GetNodeType() string { return v.NodeType }
 
-// GetUpdatedAt returns RestoreNodeVersionRestoreNodeVersionNode.UpdatedAt, and is useful for accessing the field via an interface.
-func (v *RestoreNodeVersionRestoreNodeVersionNode) GetUpdatedAt() string { return v.UpdatedAt }
+// GetUpdatedAt returns RestoreNodeRevisionRestoreNodeRevisionNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *RestoreNodeRevisionRestoreNodeRevisionNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// Shared projection for list / single-snapshot / label reads.
+type RevisionFields struct {
+	Id          string   `json:"id"`
+	NodeId      string   `json:"nodeId"`
+	Loc         string   `json:"loc"`
+	Name        string   `json:"name"`
+	Description *string  `json:"description"`
+	Tags        []string `json:"tags"`
+	CreatedAt   string   `json:"createdAt"`
+	// The editing User id, when a user is known (#620). Use editedByUser for resolution.
+	EditedBy *string `json:"editedBy"`
+	// What is known about the editor when no User id is available (#620):
+	// 'github:<login>' / 'email:<addr>' / 'user:<id>' identity strings, or
+	// 'app:<App.id>' for App-key principals. (Legacy free-form #88 reasons /
+	// commit messages that squatted in editedBy were migrated to revLabel.)
+	EditedByInfo *string `json:"editedByInfo"`
+	// The editor resolved to a user (handle + URN) — from editedBy as a User id,
+	// the createdBy fallback (#619), or an identity-string form of editedByInfo
+	// ('github:<login>' resolves via the user's linked GitHub username). Null when
+	// nothing resolves — the portal falls back to the raw strings. Public
+	// identifiers only (#617).
+	EditedByUser *RevisionFieldsEditedByUserNodeRevisionEditor `json:"editedByUser"`
+	// User-settable label for this revision (#620, 500-char cap) — set via updateNodeRevision; also captures the 'reason' supplied with the edit that took this snapshot (legacy reasons were migrated here).
+	RevLabel *string `json:"revLabel"`
+	// Which node fields the edit that took this snapshot changed, e.g.
+	// ["abstract","tags"] (#620). The snapshot is the PRE-edit state, so this
+	// describes the delta between this snapshot and the state that replaced it.
+	// Empty for legacy rows.
+	Changes []string `json:"changes"`
+}
+
+// GetId returns RevisionFields.Id, and is useful for accessing the field via an interface.
+func (v *RevisionFields) GetId() string { return v.Id }
+
+// GetNodeId returns RevisionFields.NodeId, and is useful for accessing the field via an interface.
+func (v *RevisionFields) GetNodeId() string { return v.NodeId }
+
+// GetLoc returns RevisionFields.Loc, and is useful for accessing the field via an interface.
+func (v *RevisionFields) GetLoc() string { return v.Loc }
+
+// GetName returns RevisionFields.Name, and is useful for accessing the field via an interface.
+func (v *RevisionFields) GetName() string { return v.Name }
+
+// GetDescription returns RevisionFields.Description, and is useful for accessing the field via an interface.
+func (v *RevisionFields) GetDescription() *string { return v.Description }
+
+// GetTags returns RevisionFields.Tags, and is useful for accessing the field via an interface.
+func (v *RevisionFields) GetTags() []string { return v.Tags }
+
+// GetCreatedAt returns RevisionFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *RevisionFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetEditedBy returns RevisionFields.EditedBy, and is useful for accessing the field via an interface.
+func (v *RevisionFields) GetEditedBy() *string { return v.EditedBy }
+
+// GetEditedByInfo returns RevisionFields.EditedByInfo, and is useful for accessing the field via an interface.
+func (v *RevisionFields) GetEditedByInfo() *string { return v.EditedByInfo }
+
+// GetEditedByUser returns RevisionFields.EditedByUser, and is useful for accessing the field via an interface.
+func (v *RevisionFields) GetEditedByUser() *RevisionFieldsEditedByUserNodeRevisionEditor {
+	return v.EditedByUser
+}
+
+// GetRevLabel returns RevisionFields.RevLabel, and is useful for accessing the field via an interface.
+func (v *RevisionFields) GetRevLabel() *string { return v.RevLabel }
+
+// GetChanges returns RevisionFields.Changes, and is useful for accessing the field via an interface.
+func (v *RevisionFields) GetChanges() []string { return v.Changes }
+
+// RevisionFieldsEditedByUserNodeRevisionEditor includes the requested fields of the GraphQL type NodeRevisionEditor.
+// The GraphQL type's documentation follows.
+//
+// A revision's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
+// excludes name / email / any PII — resolving editedBy must never widen the
+// disclosure surface. handle + urn are the same public identifiers the users
+// search already exposes, so no per-caller visibility gate applies.
+type RevisionFieldsEditedByUserNodeRevisionEditor struct {
+	Handle *string `json:"handle"`
+	Urn    *string `json:"urn"`
+}
+
+// GetHandle returns RevisionFieldsEditedByUserNodeRevisionEditor.Handle, and is useful for accessing the field via an interface.
+func (v *RevisionFieldsEditedByUserNodeRevisionEditor) GetHandle() *string { return v.Handle }
+
+// GetUrn returns RevisionFieldsEditedByUserNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
+func (v *RevisionFieldsEditedByUserNodeRevisionEditor) GetUrn() *string { return v.Urn }
 
 // RevokeMemoryShareResponse is returned by RevokeMemoryShare on success.
 type RevokeMemoryShareResponse struct {
@@ -8753,8 +8990,9 @@ type SearchReplaceInNodesInput struct {
 	OldText string `json:"oldText"`
 	// Loc-prefix filter applied within 'memoryIds' (parent loc + descendants).
 	Prefix *string `json:"prefix"`
-	// Why this change was made — recorded on each changed node's version-history
-	// snapshot (NodeVersion.editedBy), mirroring hadron_update_node's reason arg.
+	// Why this change was made — recorded on each changed node's revision-history
+	// snapshot (NodeRevision.revLabel, #620; historically it squatted in
+	// editedBy), mirroring hadron_update_node's reason arg.
 	Reason *string `json:"reason"`
 	// Treat oldText as a RegExp source and newText as a replacement pattern.
 	Regex *bool `json:"regex"`
@@ -10189,6 +10427,9 @@ type UpdateMemoryUpdateMemory struct {
 	Visibility       *MemoryVisibility `json:"visibility"`
 	OrganizationId   string            `json:"organizationId"`
 	IsEncrypted      bool              `json:"isEncrypted"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int `json:"maxRevCount"`
 	// Free-form structured metadata bag (client-defined JSON, no server-side
 	// semantics). Null when unset. Settable via createMemory / updateMemory.
 	Data      *json.RawMessage `json:"data"`
@@ -10218,6 +10459,9 @@ func (v *UpdateMemoryUpdateMemory) GetOrganizationId() string { return v.Organiz
 
 // GetIsEncrypted returns UpdateMemoryUpdateMemory.IsEncrypted, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryUpdateMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetMaxRevCount returns UpdateMemoryUpdateMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *UpdateMemoryUpdateMemory) GetMaxRevCount() int { return v.MaxRevCount }
 
 // GetData returns UpdateMemoryUpdateMemory.Data, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryUpdateMemory) GetData() *json.RawMessage { return v.Data }
@@ -10394,9 +10638,10 @@ type UpdateNodeInput struct {
 	NodeType   *string          `json:"nodeType,omitempty"`
 	OwnerRepo  *string          `json:"ownerRepo,omitempty"`
 	Properties *json.RawMessage `json:"properties,omitempty"`
-	// Why this change was made — recorded on the version-history snapshot
-	// (NodeVersion.editedBy), mirroring hadron_update_node's reason arg so CLI
-	// and MCP edits leave equally-traceable history.
+	// Why this change was made — recorded on the revision-history snapshot
+	// (NodeRevision.revLabel, #620; historically it squatted in editedBy),
+	// mirroring hadron_update_node's reason arg so CLI and MCP edits leave
+	// equally-traceable history.
 	Reason *string `json:"reason,omitempty"`
 	Seq    *int    `json:"seq,omitempty"`
 	// Omit to preserve existing tags (issue #235); supply to replace the set.
@@ -10477,6 +10722,146 @@ type UpdateNodeResponse struct {
 
 // GetUpdateNode returns UpdateNodeResponse.UpdateNode, and is useful for accessing the field via an interface.
 func (v *UpdateNodeResponse) GetUpdateNode() *UpdateNodeUpdateNode { return v.UpdateNode }
+
+// UpdateNodeRevisionResponse is returned by UpdateNodeRevision on success.
+type UpdateNodeRevisionResponse struct {
+	UpdateNodeRevision *UpdateNodeRevisionUpdateNodeRevision `json:"updateNodeRevision"`
+}
+
+// GetUpdateNodeRevision returns UpdateNodeRevisionResponse.UpdateNodeRevision, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRevisionResponse) GetUpdateNodeRevision() *UpdateNodeRevisionUpdateNodeRevision {
+	return v.UpdateNodeRevision
+}
+
+// UpdateNodeRevisionUpdateNodeRevision includes the requested fields of the GraphQL type NodeRevision.
+type UpdateNodeRevisionUpdateNodeRevision struct {
+	RevisionFields `json:"-"`
+}
+
+// GetId returns UpdateNodeRevisionUpdateNodeRevision.Id, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRevisionUpdateNodeRevision) GetId() string { return v.RevisionFields.Id }
+
+// GetNodeId returns UpdateNodeRevisionUpdateNodeRevision.NodeId, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRevisionUpdateNodeRevision) GetNodeId() string { return v.RevisionFields.NodeId }
+
+// GetLoc returns UpdateNodeRevisionUpdateNodeRevision.Loc, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRevisionUpdateNodeRevision) GetLoc() string { return v.RevisionFields.Loc }
+
+// GetName returns UpdateNodeRevisionUpdateNodeRevision.Name, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRevisionUpdateNodeRevision) GetName() string { return v.RevisionFields.Name }
+
+// GetDescription returns UpdateNodeRevisionUpdateNodeRevision.Description, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRevisionUpdateNodeRevision) GetDescription() *string {
+	return v.RevisionFields.Description
+}
+
+// GetTags returns UpdateNodeRevisionUpdateNodeRevision.Tags, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRevisionUpdateNodeRevision) GetTags() []string { return v.RevisionFields.Tags }
+
+// GetCreatedAt returns UpdateNodeRevisionUpdateNodeRevision.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRevisionUpdateNodeRevision) GetCreatedAt() string {
+	return v.RevisionFields.CreatedAt
+}
+
+// GetEditedBy returns UpdateNodeRevisionUpdateNodeRevision.EditedBy, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRevisionUpdateNodeRevision) GetEditedBy() *string {
+	return v.RevisionFields.EditedBy
+}
+
+// GetEditedByInfo returns UpdateNodeRevisionUpdateNodeRevision.EditedByInfo, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRevisionUpdateNodeRevision) GetEditedByInfo() *string {
+	return v.RevisionFields.EditedByInfo
+}
+
+// GetEditedByUser returns UpdateNodeRevisionUpdateNodeRevision.EditedByUser, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRevisionUpdateNodeRevision) GetEditedByUser() *RevisionFieldsEditedByUserNodeRevisionEditor {
+	return v.RevisionFields.EditedByUser
+}
+
+// GetRevLabel returns UpdateNodeRevisionUpdateNodeRevision.RevLabel, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRevisionUpdateNodeRevision) GetRevLabel() *string {
+	return v.RevisionFields.RevLabel
+}
+
+// GetChanges returns UpdateNodeRevisionUpdateNodeRevision.Changes, and is useful for accessing the field via an interface.
+func (v *UpdateNodeRevisionUpdateNodeRevision) GetChanges() []string { return v.RevisionFields.Changes }
+
+func (v *UpdateNodeRevisionUpdateNodeRevision) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateNodeRevisionUpdateNodeRevision
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateNodeRevisionUpdateNodeRevision = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.RevisionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateNodeRevisionUpdateNodeRevision struct {
+	Id string `json:"id"`
+
+	NodeId string `json:"nodeId"`
+
+	Loc string `json:"loc"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Tags []string `json:"tags"`
+
+	CreatedAt string `json:"createdAt"`
+
+	EditedBy *string `json:"editedBy"`
+
+	EditedByInfo *string `json:"editedByInfo"`
+
+	EditedByUser *RevisionFieldsEditedByUserNodeRevisionEditor `json:"editedByUser"`
+
+	RevLabel *string `json:"revLabel"`
+
+	Changes []string `json:"changes"`
+}
+
+func (v *UpdateNodeRevisionUpdateNodeRevision) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateNodeRevisionUpdateNodeRevision) __premarshalJSON() (*__premarshalUpdateNodeRevisionUpdateNodeRevision, error) {
+	var retval __premarshalUpdateNodeRevisionUpdateNodeRevision
+
+	retval.Id = v.RevisionFields.Id
+	retval.NodeId = v.RevisionFields.NodeId
+	retval.Loc = v.RevisionFields.Loc
+	retval.Name = v.RevisionFields.Name
+	retval.Description = v.RevisionFields.Description
+	retval.Tags = v.RevisionFields.Tags
+	retval.CreatedAt = v.RevisionFields.CreatedAt
+	retval.EditedBy = v.RevisionFields.EditedBy
+	retval.EditedByInfo = v.RevisionFields.EditedByInfo
+	retval.EditedByUser = v.RevisionFields.EditedByUser
+	retval.RevLabel = v.RevisionFields.RevLabel
+	retval.Changes = v.RevisionFields.Changes
+	return &retval, nil
+}
 
 // UpdateNodeUpdateNode includes the requested fields of the GraphQL type Node.
 type UpdateNodeUpdateNode struct {
@@ -11162,6 +11547,7 @@ type __CreateMemoryInput struct {
 	Description      *string           `json:"description,omitempty"`
 	Tags             *[]string         `json:"tags,omitempty"`
 	Visibility       *MemoryVisibility `json:"visibility,omitempty"`
+	MaxRevCount      *int              `json:"maxRevCount,omitempty"`
 }
 
 // GetOrgId returns __CreateMemoryInput.OrgId, and is useful for accessing the field via an interface.
@@ -11184,6 +11570,9 @@ func (v *__CreateMemoryInput) GetTags() *[]string { return v.Tags }
 
 // GetVisibility returns __CreateMemoryInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryInput) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// GetMaxRevCount returns __CreateMemoryInput.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetMaxRevCount() *int { return v.MaxRevCount }
 
 // __CreateMemoryShareInput is used internally by genqlient
 type __CreateMemoryShareInput struct {
@@ -11377,13 +11766,13 @@ func (v *__DeleteNodeInput) GetNodeRef() string { return v.NodeRef }
 // GetHard returns __DeleteNodeInput.Hard, and is useful for accessing the field via an interface.
 func (v *__DeleteNodeInput) GetHard() *bool { return v.Hard }
 
-// __DeleteNodeVersionInput is used internally by genqlient
-type __DeleteNodeVersionInput struct {
-	VersionId string `json:"versionId"`
+// __DeleteNodeRevisionInput is used internally by genqlient
+type __DeleteNodeRevisionInput struct {
+	RevisionId string `json:"revisionId"`
 }
 
-// GetVersionId returns __DeleteNodeVersionInput.VersionId, and is useful for accessing the field via an interface.
-func (v *__DeleteNodeVersionInput) GetVersionId() string { return v.VersionId }
+// GetRevisionId returns __DeleteNodeRevisionInput.RevisionId, and is useful for accessing the field via an interface.
+func (v *__DeleteNodeRevisionInput) GetRevisionId() string { return v.RevisionId }
 
 // __DeleteOrganizationInput is used internally by genqlient
 type __DeleteOrganizationInput struct {
@@ -11601,25 +11990,25 @@ type __NodeExportMetaInput struct {
 // GetRef returns __NodeExportMetaInput.Ref, and is useful for accessing the field via an interface.
 func (v *__NodeExportMetaInput) GetRef() string { return v.Ref }
 
-// __NodeVersionInput is used internally by genqlient
-type __NodeVersionInput struct {
-	VersionId string `json:"versionId"`
+// __NodeRevisionInput is used internally by genqlient
+type __NodeRevisionInput struct {
+	RevisionId string `json:"revisionId"`
 }
 
-// GetVersionId returns __NodeVersionInput.VersionId, and is useful for accessing the field via an interface.
-func (v *__NodeVersionInput) GetVersionId() string { return v.VersionId }
+// GetRevisionId returns __NodeRevisionInput.RevisionId, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionInput) GetRevisionId() string { return v.RevisionId }
 
-// __NodeVersionsInput is used internally by genqlient
-type __NodeVersionsInput struct {
+// __NodeRevisionsInput is used internally by genqlient
+type __NodeRevisionsInput struct {
 	NodeRef string `json:"nodeRef"`
 	Limit   *int   `json:"limit,omitempty"`
 }
 
-// GetNodeRef returns __NodeVersionsInput.NodeRef, and is useful for accessing the field via an interface.
-func (v *__NodeVersionsInput) GetNodeRef() string { return v.NodeRef }
+// GetNodeRef returns __NodeRevisionsInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionsInput) GetNodeRef() string { return v.NodeRef }
 
-// GetLimit returns __NodeVersionsInput.Limit, and is useful for accessing the field via an interface.
-func (v *__NodeVersionsInput) GetLimit() *int { return v.Limit }
+// GetLimit returns __NodeRevisionsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionsInput) GetLimit() *int { return v.Limit }
 
 // __OrgMembersInput is used internally by genqlient
 type __OrgMembersInput struct {
@@ -11725,17 +12114,17 @@ type __ResolveUrnInput struct {
 // GetUrn returns __ResolveUrnInput.Urn, and is useful for accessing the field via an interface.
 func (v *__ResolveUrnInput) GetUrn() string { return v.Urn }
 
-// __RestoreNodeVersionInput is used internally by genqlient
-type __RestoreNodeVersionInput struct {
-	VersionId string `json:"versionId"`
-	Truncate  *bool  `json:"truncate,omitempty"`
+// __RestoreNodeRevisionInput is used internally by genqlient
+type __RestoreNodeRevisionInput struct {
+	RevisionId string `json:"revisionId"`
+	Truncate   *bool  `json:"truncate,omitempty"`
 }
 
-// GetVersionId returns __RestoreNodeVersionInput.VersionId, and is useful for accessing the field via an interface.
-func (v *__RestoreNodeVersionInput) GetVersionId() string { return v.VersionId }
+// GetRevisionId returns __RestoreNodeRevisionInput.RevisionId, and is useful for accessing the field via an interface.
+func (v *__RestoreNodeRevisionInput) GetRevisionId() string { return v.RevisionId }
 
-// GetTruncate returns __RestoreNodeVersionInput.Truncate, and is useful for accessing the field via an interface.
-func (v *__RestoreNodeVersionInput) GetTruncate() *bool { return v.Truncate }
+// GetTruncate returns __RestoreNodeRevisionInput.Truncate, and is useful for accessing the field via an interface.
+func (v *__RestoreNodeRevisionInput) GetTruncate() *bool { return v.Truncate }
 
 // __RevokeMemoryShareInput is used internally by genqlient
 type __RevokeMemoryShareInput struct {
@@ -11979,6 +12368,7 @@ type __UpdateMemoryInput struct {
 	Visibility       *MemoryVisibility `json:"visibility,omitempty"`
 	Data             *json.RawMessage  `json:"data,omitempty"`
 	Urn              *string           `json:"urn,omitempty"`
+	MaxRevCount      *int              `json:"maxRevCount,omitempty"`
 }
 
 // GetId returns __UpdateMemoryInput.Id, and is useful for accessing the field via an interface.
@@ -12004,6 +12394,9 @@ func (v *__UpdateMemoryInput) GetData() *json.RawMessage { return v.Data }
 
 // GetUrn returns __UpdateMemoryInput.Urn, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryInput) GetUrn() *string { return v.Urn }
+
+// GetMaxRevCount returns __UpdateMemoryInput.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetMaxRevCount() *int { return v.MaxRevCount }
 
 // __UpdateMemoryMemberRoleInput is used internally by genqlient
 type __UpdateMemoryMemberRoleInput struct {
@@ -12092,6 +12485,18 @@ type __UpdateNodeInput struct {
 
 // GetInput returns __UpdateNodeInput.Input, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeInput) GetInput() *UpdateNodeInput { return v.Input }
+
+// __UpdateNodeRevisionInput is used internally by genqlient
+type __UpdateNodeRevisionInput struct {
+	RevisionId string  `json:"revisionId"`
+	RevLabel   *string `json:"revLabel,omitempty"`
+}
+
+// GetRevisionId returns __UpdateNodeRevisionInput.RevisionId, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeRevisionInput) GetRevisionId() string { return v.RevisionId }
+
+// GetRevLabel returns __UpdateNodeRevisionInput.RevLabel, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeRevisionInput) GetRevLabel() *string { return v.RevLabel }
 
 // __UpdateOrgMemberInput is used internally by genqlient
 type __UpdateOrgMemberInput struct {
@@ -12892,6 +13297,7 @@ mutation CloneMemory ($ref: ID!, $targetUrn: String!) {
 		visibility
 		organizationId
 		isEncrypted
+		maxRevCount
 		updatedAt
 	}
 }
@@ -13332,8 +13738,8 @@ func CreateEdge(
 
 // The mutation executed by CreateMemory.
 const CreateMemory_Operation = `
-mutation CreateMemory ($orgId: ID!, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility) {
-	createMemory(orgId: $orgId, name: $name, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility) {
+mutation CreateMemory ($orgId: ID!, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int) {
+	createMemory(orgId: $orgId, name: $name, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, maxRevCount: $maxRevCount) {
 		id
 		urn
 		name
@@ -13342,6 +13748,7 @@ mutation CreateMemory ($orgId: ID!, $name: String!, $memoryClass: MemoryClass, $
 		visibility
 		organizationId
 		isEncrypted
+		maxRevCount
 		updatedAt
 	}
 }
@@ -13357,6 +13764,7 @@ func CreateMemory(
 	description *string,
 	tags *[]string,
 	visibility *MemoryVisibility,
+	maxRevCount *int,
 ) (data_ *CreateMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateMemory",
@@ -13369,6 +13777,7 @@ func CreateMemory(
 			Description:      description,
 			Tags:             tags,
 			Visibility:       visibility,
+			MaxRevCount:      maxRevCount,
 		},
 	}
 
@@ -14024,28 +14433,28 @@ func DeleteNode(
 	return data_, err_
 }
 
-// The mutation executed by DeleteNodeVersion.
-const DeleteNodeVersion_Operation = `
-mutation DeleteNodeVersion ($versionId: ID!) {
-	deleteNodeVersion(versionId: $versionId)
+// The mutation executed by DeleteNodeRevision.
+const DeleteNodeRevision_Operation = `
+mutation DeleteNodeRevision ($revisionId: ID!) {
+	deleteNodeRevision(revisionId: $revisionId)
 }
 `
 
 // Delete one snapshot (memory-write auth; NOT_FOUND for an unknown id).
-func DeleteNodeVersion(
+func DeleteNodeRevision(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	versionId string,
-) (data_ *DeleteNodeVersionResponse, err_ error) {
+	revisionId string,
+) (data_ *DeleteNodeRevisionResponse, err_ error) {
 	req_ := &graphql.Request{
-		OpName: "DeleteNodeVersion",
-		Query:  DeleteNodeVersion_Operation,
-		Variables: &__DeleteNodeVersionInput{
-			VersionId: versionId,
+		OpName: "DeleteNodeRevision",
+		Query:  DeleteNodeRevision_Operation,
+		Variables: &__DeleteNodeRevisionInput{
+			RevisionId: revisionId,
 		},
 	}
 
-	data_ = &DeleteNodeVersionResponse{}
+	data_ = &DeleteNodeRevisionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -14372,6 +14781,7 @@ query GetMemory ($ref: ID!) {
 		source
 		syncStatus
 		vectorIndexEnabled
+		maxRevCount
 		data
 		createdAt
 		updatedAt
@@ -14669,6 +15079,7 @@ query Memories ($filter: MemoryFilter, $limit: Int, $offset: Int) {
 			visibility
 			organizationId
 			isEncrypted
+			maxRevCount
 			updatedAt
 		}
 	}
@@ -15189,44 +15600,49 @@ func NodeExportMeta(
 	return data_, err_
 }
 
-// The query executed by NodeVersion.
-const NodeVersion_Operation = `
-query NodeVersion ($versionId: ID!) {
-	nodeVersion(versionId: $versionId) {
-		id
-		nodeId
-		loc
-		name
-		description
+// The query executed by NodeRevision.
+const NodeRevision_Operation = `
+query NodeRevision ($revisionId: ID!) {
+	nodeRevision(revisionId: $revisionId) {
+		... RevisionFields
 		content
-		tags
-		createdAt
-		editedBy
-		editedByUser {
-			handle
-			urn
-		}
 	}
+}
+fragment RevisionFields on NodeRevision {
+	id
+	nodeId
+	loc
+	name
+	description
+	tags
+	createdAt
+	editedBy
+	editedByInfo
+	editedByUser {
+		handle
+		urn
+	}
+	revLabel
+	changes
 }
 `
 
-// A single snapshot for display (content + metadata). Null — never an error —
-// when the node is unreadable or soft-deleted, so there is no existence
-// disclosure.
-func NodeVersion(
+// A single snapshot for display (adds content). Null — never an error — when the
+// node is unreadable or soft-deleted, so there is no existence disclosure.
+func NodeRevision(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	versionId string,
-) (data_ *NodeVersionResponse, err_ error) {
+	revisionId string,
+) (data_ *NodeRevisionResponse, err_ error) {
 	req_ := &graphql.Request{
-		OpName: "NodeVersion",
-		Query:  NodeVersion_Operation,
-		Variables: &__NodeVersionInput{
-			VersionId: versionId,
+		OpName: "NodeRevision",
+		Query:  NodeRevision_Operation,
+		Variables: &__NodeRevisionInput{
+			RevisionId: revisionId,
 		},
 	}
 
-	data_ = &NodeVersionResponse{}
+	data_ = &NodeRevisionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -15238,43 +15654,49 @@ func NodeVersion(
 	return data_, err_
 }
 
-// The query executed by NodeVersions.
-const NodeVersions_Operation = `
-query NodeVersions ($nodeRef: ID!, $limit: Int) {
-	nodeVersions(nodeRef: $nodeRef, limit: $limit) {
-		id
-		nodeId
-		loc
-		name
-		description
-		tags
-		createdAt
-		editedBy
-		editedByUser {
-			handle
-			urn
-		}
+// The query executed by NodeRevisions.
+const NodeRevisions_Operation = `
+query NodeRevisions ($nodeRef: ID!, $limit: Int) {
+	nodeRevisions(nodeRef: $nodeRef, limit: $limit) {
+		... RevisionFields
 	}
+}
+fragment RevisionFields on NodeRevision {
+	id
+	nodeId
+	loc
+	name
+	description
+	tags
+	createdAt
+	editedBy
+	editedByInfo
+	editedByUser {
+		handle
+		urn
+	}
+	revLabel
+	changes
 }
 `
 
 // History for a node, most-recent-first. Per-snapshot memory-gated server-side.
-func NodeVersions(
+func NodeRevisions(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	nodeRef string,
 	limit *int,
-) (data_ *NodeVersionsResponse, err_ error) {
+) (data_ *NodeRevisionsResponse, err_ error) {
 	req_ := &graphql.Request{
-		OpName: "NodeVersions",
-		Query:  NodeVersions_Operation,
-		Variables: &__NodeVersionsInput{
+		OpName: "NodeRevisions",
+		Query:  NodeRevisions_Operation,
+		Variables: &__NodeRevisionsInput{
 			NodeRef: nodeRef,
 			Limit:   limit,
 		},
 	}
 
-	data_ = &NodeVersionsResponse{}
+	data_ = &NodeRevisionsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -15660,10 +16082,10 @@ func ResolveUrn(
 	return data_, err_
 }
 
-// The mutation executed by RestoreNodeVersion.
-const RestoreNodeVersion_Operation = `
-mutation RestoreNodeVersion ($versionId: ID!, $truncate: Boolean) {
-	restoreNodeVersion(versionId: $versionId, truncate: $truncate) {
+// The mutation executed by RestoreNodeRevision.
+const RestoreNodeRevision_Operation = `
+mutation RestoreNodeRevision ($revisionId: ID!, $truncate: Boolean) {
+	restoreNodeRevision(revisionId: $revisionId, truncate: $truncate) {
 		id
 		memoryId
 		loc
@@ -15678,22 +16100,22 @@ mutation RestoreNodeVersion ($versionId: ID!, $truncate: Boolean) {
 // also deletes every snapshot newer than the selected one, which becomes the new
 // baseline (restore+truncate is one atomic transaction). omitempty so an unset
 // flag falls through to the server default (false), never sending null.
-func RestoreNodeVersion(
+func RestoreNodeRevision(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	versionId string,
+	revisionId string,
 	truncate *bool,
-) (data_ *RestoreNodeVersionResponse, err_ error) {
+) (data_ *RestoreNodeRevisionResponse, err_ error) {
 	req_ := &graphql.Request{
-		OpName: "RestoreNodeVersion",
-		Query:  RestoreNodeVersion_Operation,
-		Variables: &__RestoreNodeVersionInput{
-			VersionId: versionId,
-			Truncate:  truncate,
+		OpName: "RestoreNodeRevision",
+		Query:  RestoreNodeRevision_Operation,
+		Variables: &__RestoreNodeRevisionInput{
+			RevisionId: revisionId,
+			Truncate:   truncate,
 		},
 	}
 
-	data_ = &RestoreNodeVersionResponse{}
+	data_ = &RestoreNodeRevisionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -16416,8 +16838,8 @@ func UpdateEdge(
 
 // The mutation executed by UpdateMemory.
 const UpdateMemory_Operation = `
-mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $data: JSON, $urn: String) {
-	updateMemory(id: $id, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, data: $data, urn: $urn) {
+mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $data: JSON, $urn: String, $maxRevCount: Int) {
+	updateMemory(id: $id, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, data: $data, urn: $urn, maxRevCount: $maxRevCount) {
 		id
 		urn
 		name
@@ -16426,6 +16848,7 @@ mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $desc
 		visibility
 		organizationId
 		isEncrypted
+		maxRevCount
 		data
 		updatedAt
 	}
@@ -16444,6 +16867,7 @@ func UpdateMemory(
 	visibility *MemoryVisibility,
 	data *json.RawMessage,
 	urn *string,
+	maxRevCount *int,
 ) (data_ *UpdateMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateMemory",
@@ -16457,6 +16881,7 @@ func UpdateMemory(
 			Visibility:       visibility,
 			Data:             data,
 			Urn:              urn,
+			MaxRevCount:      maxRevCount,
 		},
 	}
 
@@ -16749,6 +17174,61 @@ func UpdateNodeData(
 	}
 
 	data_ = &UpdateNodeDataResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateNodeRevision.
+const UpdateNodeRevision_Operation = `
+mutation UpdateNodeRevision ($revisionId: ID!, $revLabel: String) {
+	updateNodeRevision(revisionId: $revisionId, revLabel: $revLabel) {
+		... RevisionFields
+	}
+}
+fragment RevisionFields on NodeRevision {
+	id
+	nodeId
+	loc
+	name
+	description
+	tags
+	createdAt
+	editedBy
+	editedByInfo
+	editedByUser {
+		handle
+		urn
+	}
+	revLabel
+	changes
+}
+`
+
+// Set a revision's user-facing label (#620, 500-char cap). Returns the full
+// snapshot (and enforces the same read gates as nodeRevision).
+func UpdateNodeRevision(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	revisionId string,
+	revLabel *string,
+) (data_ *UpdateNodeRevisionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateNodeRevision",
+		Query:  UpdateNodeRevision_Operation,
+		Variables: &__UpdateNodeRevisionInput{
+			RevisionId: revisionId,
+			RevLabel:   revLabel,
+		},
+	}
+
+	data_ = &UpdateNodeRevisionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

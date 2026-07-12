@@ -60,8 +60,8 @@ node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 
 ```
 hadron auth login | logout | whoami | status | token create|ls|validate|revoke <id>
-hadron memory ls | get <id-or-urn> | set [<id-or-urn>] | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn <org::slug> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
-hadron node ls [-m <memory>] | get <urn> | add | update <urn> | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] | export <urn> [-o <file>] [--format md|json] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | version list <node-ref> [-m <memory>] [--limit N] | version get <version-id> | version restore <version-id> [--truncate [--yes]] | version delete <version-id> [--yes] | version clear <node-ref> [-m <memory>] [--yes]
+hadron memory ls | get <id-or-urn> | set [<id-or-urn>] [--max-rev-count <n>] | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn <org::slug> | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
+hadron node ls [-m <memory>] | get <urn> | add | update <urn> | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] | export <urn> [-o <file>] [--format md|json] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
 hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--reply-to <loc>] [--handle <h>] [--identity <i>] [--role <r>]
 hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--tag <t>]... [--limit N] [--offset N] [-l|--long] [--json]
@@ -500,14 +500,15 @@ hadron edge rm <edge-id> --yes
 hadron node rm acme.com::kb::findings:flaky-ci --yes
 hadron node rm acme.com::kb::data:stale --hard --yes
 
-# Version history: list a node's snapshots, then inspect or restore one. restore
-# is undoable by default; --truncate discards newer history (needs --yes). Pass a
-# bare node id to reach a soft-deleted node's history for cleanup.
-hadron node version list acme.com::kb::findings:flaky-ci --json
-hadron node version get <version-id>
-hadron node version restore <version-id>
-hadron node version restore <version-id> --truncate --yes
-hadron node version clear acme.com::kb::findings:flaky-ci --yes
+# Revision history: list a node's snapshots, then inspect, label, or restore one.
+# restore is undoable by default; --truncate discards newer history (needs --yes).
+# Pass a bare node id to reach a soft-deleted node's history for cleanup.
+hadron node revision list acme.com::kb::findings:flaky-ci --json
+hadron node revision get <revision-id>
+hadron node revision label <revision-id> --label "before the auth refactor"
+hadron node revision restore <revision-id>
+hadron node revision restore <revision-id> --truncate --yes
+hadron node revision clear acme.com::kb::findings:flaky-ci --yes
 
 # Ranked search (hybrid semantic+keyword by default; scores + abstracts in --json)
 hadron search "how do users report a bad actor" -m micromentor.org::mmdata --json

@@ -24,6 +24,7 @@ type memoryDTO struct {
 	Visibility       *string `json:"visibility"`
 	OrganizationID   string  `json:"organizationId"`
 	IsEncrypted      bool    `json:"isEncrypted"`
+	MaxRevCount      int     `json:"maxRevCount"`
 	UpdatedAt        string  `json:"updatedAt"`
 }
 

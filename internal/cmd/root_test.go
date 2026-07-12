@@ -129,7 +129,7 @@ func TestMemoryLsJSON(t *testing.T) {
 		"Memories": `{"data":{"memories":{"total":1,"items":[
 			{"id":"m1","urn":"acme.com::kb","name":"KB","shortDescription":null,
 			 "class":"knowledge","visibility":"ORGANIZATION","organizationId":"o1",
-			 "isEncrypted":false,"updatedAt":"2026-06-11T00:00:00Z"}]}}}`,
+			 "isEncrypted":false,"maxRevCount":10,"updatedAt":"2026-06-11T00:00:00Z"}]}}}`,
 	})
 	f, out := testFactory(t)
 
@@ -145,6 +145,11 @@ func TestMemoryLsJSON(t *testing.T) {
 	}
 	if len(got) != 1 || got[0]["urn"] != "acme.com::kb" || got[0]["class"] != "knowledge" {
 		t.Errorf("unexpected output: %s", out.String())
+	}
+	// The shared memoryDTO carries maxRevCount; ls selects it, so --json must
+	// report the real value, not a bogus 0 (the shared-DTO gap the bots caught).
+	if got[0]["maxRevCount"] != float64(10) {
+		t.Errorf("memory ls --json should surface maxRevCount=10, got %v", got[0]["maxRevCount"])
 	}
 }
 
