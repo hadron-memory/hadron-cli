@@ -31,11 +31,15 @@ hadron memory extract <parentRef> <targetUrn> [--move] [-m <org::memory>]
 ```
 
 - **`<parentRef>`** — the parent node's id or a fully-qualified
-  `<org>::<memory>::<loc>` URN, or a bare `<loc>` with `-m/--memory`. Resolved
-  to a node id via `cmdutil.ResolveNodeRef` (same path as `node get`/`move`), so
-  a malformed ref is a usage error (exit 2) and a genuinely-absent node is
-  not-found (exit 4) before the mutation runs. Resolving client-side also hands
-  the server a plain id it always accepts.
+  `<org>::<memory>::<loc>` URN, or a bare `<loc>` with `-m/--memory`. Handled by
+  `resolveExtractParentRef`, mirroring node's `revisionNodeRef`: a URN / `-m`+loc
+  is resolved client-side via `cmdutil.ResolveNodeRef` (validating the grammar —
+  malformed ref → usage exit 2, absent node → not-found exit 4); a colon-free
+  bare token is taken as a node **PK** and passed through verbatim (the server's
+  `parentRef` accepts a PK); a colon-carrying bare token is a namespaced loc,
+  never a PK, so it's rejected with the shared node-ref guidance. The raw-id
+  pass-through was a #229 review fix (Codex/Copilot) — routing everything through
+  `ResolveNodeRef` wrongly rejected the documented raw-id form.
 - **`<targetUrn>`** — a fully-qualified `<org>::<slug>` memory URN naming the new
   memory; its org may differ from the source's. A value without `::` is rejected
   client-side (mirrors `memory clone`'s `--target-urn` gate); the server does the

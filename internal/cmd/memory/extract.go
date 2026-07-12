@@ -5,11 +5,13 @@ import (
 	"io"
 	"strings"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -61,7 +63,7 @@ and node locs change, URN references among the moved nodes will break.`,
 			if err != nil {
 				return err
 			}
-			parentID, err := cmdutil.ResolveNodeRef(cmd, client, memoryRef, parentRef)
+			parentID, err := resolveExtractParentRef(cmd, client, memoryRef, parentRef)
 			if err != nil {
 				return err
 			}
@@ -103,4 +105,28 @@ and node locs change, URN references among the moved nodes will break.`,
 	cmd.Flags().StringVarP(&memoryRef, "memory", "m", "", "memory (org::memory) for a bare-loc <parentRef>")
 	cmd.Flags().BoolVar(&move, "move", false, "relocate the subtree (soft-delete the source) instead of copying")
 	return cmd
+}
+
+// resolveExtractParentRef turns the <parentRef> arg into a node id the mutation
+// accepts. A fully-qualified URN, or a -m/--memory + bare loc, is resolved
+// client-side (validating the URN grammar) — same as the node commands. A
+// colon-free bare token with neither is taken as a node PK and passed through
+// verbatim: the server's parentRef accepts a PK, and the command + server
+// contract both advertise a raw id. A bare token carrying single colons is a
+// namespaced loc (e.g. findings:auth), never a PK — reject it with the shared
+// node-ref guidance rather than letting it miss server-side as a bogus id.
+// Mirrors node's revisionNodeRef (#229 review: Codex/Copilot).
+func resolveExtractParentRef(cmd *cobra.Command, client graphql.Client, memory, ref string) (string, error) {
+	ref = strings.TrimSpace(ref)
+	if strings.TrimSpace(memory) == "" &&
+		!strings.Contains(ref, "::") &&
+		!strings.HasPrefix(ref, "hrn:") &&
+		!strings.HasPrefix(ref, "urn:") {
+		if strings.Contains(ref, ":") {
+			return "", exitcode.Newf(exitcode.Usage,
+				"%q is not a fully-qualified node URN — expected <org>::<memory>::<loc>, or pass -m <org::memory> with a bare loc (or a node id)", ref)
+		}
+		return ref, nil
+	}
+	return cmdutil.ResolveNodeRef(cmd, client, memory, ref)
 }

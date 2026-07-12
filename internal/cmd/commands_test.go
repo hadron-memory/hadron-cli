@@ -1538,6 +1538,40 @@ func TestMemoryExtractMoveWithMemoryFlag(t *testing.T) {
 	}
 }
 
+func TestMemoryExtractAcceptsRawNodeID(t *testing.T) {
+	extractJSON := `{"id":"m3","urn":"acme.com:auth-kb","name":"auth-kb","shortDescription":null,
+		"class":"knowledge","visibility":"ORGANIZATION","organizationId":"org1",
+		"isEncrypted":false,"updatedAt":"2026-07-12T00:00:00Z"}`
+	// No ResolveUrn mock: a colon-free raw node id is passed straight to the
+	// mutation as a PK (the server's parentRef accepts it), not resolved.
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ExtractParentNodeToMemory": `{"data":{"extractParentNodeToMemory":` + extractJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "extract", "n1", "acme.com::auth-kb", "--server", gql.URL, "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["ExtractParentNodeToMemory"], &vars)
+	if vars["parentRef"] != "n1" {
+		t.Errorf("parentRef = %v, want the raw id n1 passed through", vars["parentRef"])
+	}
+}
+
+// A colon-carrying bare token is a namespaced loc, not a PK — rejected client-side
+// with the node-ref guidance rather than sent as a bogus id.
+func TestMemoryExtractRejectsBareLocWithoutMemory(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "extract", "findings:auth", "acme.com::auth-kb"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "fully-qualified node URN") {
+		t.Fatalf("expected a fully-qualified-URN usage error, got %v", err)
+	}
+}
+
 func TestMemoryExtractRejectsRelativeTargetURN(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
