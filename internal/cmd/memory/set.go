@@ -24,6 +24,7 @@ func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 		visibility  string
 		slug        string
 		tags        []string
+		maxRevCount int
 	)
 	cmd := &cobra.Command{
 		Use:   "set [<memory-id-or-urn>]",
@@ -52,6 +53,15 @@ every node under it, change.`,
 				if err := cmdutil.ValidateURNSlug("--slug", slug); err != nil {
 					return err
 				}
+			}
+			// Mirror the server guard (chk_memory_max_rev_count_positive) so a
+			// bad value is a usage error before any network call.
+			var maxRevArg *int
+			if cmd.Flags().Changed("max-rev-count") {
+				if maxRevCount < 1 {
+					return exitcode.Newf(exitcode.Usage, "--max-rev-count must be at least 1")
+				}
+				maxRevArg = &maxRevCount
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -88,7 +98,7 @@ every node under it, change.`,
 					c := gen.MemoryClass(class)
 					classArg = &c
 				}
-				resp, err := gen.CreateMemory(cmd.Context(), client, org, name, classArg, optional(short), optional(description), tagsArg, visArg)
+				resp, err := gen.CreateMemory(cmd.Context(), client, org, name, classArg, optional(short), optional(description), tagsArg, visArg, maxRevArg)
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -97,7 +107,7 @@ every node under it, change.`,
 					ID: created.Id, URN: created.Urn, Name: created.Name,
 					ShortDescription: created.ShortDescription, Class: string(created.Class),
 					OrganizationID: created.OrganizationId, IsEncrypted: created.IsEncrypted,
-					UpdatedAt: created.UpdatedAt,
+					MaxRevCount: created.MaxRevCount, UpdatedAt: created.UpdatedAt,
 				}
 				if created.Visibility != nil {
 					v := string(*created.Visibility)
@@ -110,7 +120,7 @@ every node under it, change.`,
 				// under its derived slug: keep m as-is, record the error, and
 				// report it as a partial write below.
 				if slug != "" && !memorySlugIs(m.URN, slug) {
-					if resp, rerr := gen.UpdateMemory(cmd.Context(), client, m.ID, nil, nil, nil, nil, nil, nil, &slug); rerr != nil {
+					if resp, rerr := gen.UpdateMemory(cmd.Context(), client, m.ID, nil, nil, nil, nil, nil, nil, &slug, nil); rerr != nil {
 						slugErr = api.MapError(rerr)
 					} else if resp == nil || resp.UpdateMemory == nil {
 						slugErr = exitcode.Newf(exitcode.Error, "server returned no memory on rename")
@@ -122,7 +132,7 @@ every node under it, change.`,
 				if org != "" || class != "" {
 					return exitcode.Newf(exitcode.Usage, "--org and --class only apply when creating (no positional argument)")
 				}
-				if name == "" && short == "" && description == "" && visibility == "" && tagsArg == nil && slug == "" {
+				if name == "" && short == "" && description == "" && visibility == "" && tagsArg == nil && slug == "" && maxRevArg == nil {
 					return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 				}
 				memID, err := resolveMemoryID(cmd, client, args[0])
@@ -133,7 +143,7 @@ every node under it, change.`,
 				if slug != "" {
 					urnArg = &slug
 				}
-				resp, err := gen.UpdateMemory(cmd.Context(), client, memID, optional(name), optional(short), optional(description), tagsArg, visArg, nil, urnArg)
+				resp, err := gen.UpdateMemory(cmd.Context(), client, memID, optional(name), optional(short), optional(description), tagsArg, visArg, nil, urnArg, maxRevArg)
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -186,6 +196,7 @@ every node under it, change.`,
 	cmd.Flags().StringVar(&visibility, "visibility", "", "visibility: PUBLIC|ORGANIZATION|GROUP (unset uses the server default; the create output echoes the effective value)")
 	cmd.Flags().StringVar(&slug, "slug", "", "URN slug (bare, e.g. hadrontool-pdf): set it explicitly on create instead of deriving from --name; renames the memory on update")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "tag (repeatable; replaces tags on update)")
+	cmd.Flags().IntVar(&maxRevCount, "max-rev-count", 0, "per-node revision-history cap (min 1; unset leaves the server default / current value)")
 	return cmd
 }
 
@@ -195,7 +206,7 @@ func dtoFromUpdatedMemory(u *gen.UpdateMemoryUpdateMemory) memoryDTO {
 		ID: u.Id, URN: u.Urn, Name: u.Name,
 		ShortDescription: u.ShortDescription, Class: string(u.Class),
 		OrganizationID: u.OrganizationId, IsEncrypted: u.IsEncrypted,
-		UpdatedAt: u.UpdatedAt,
+		MaxRevCount: u.MaxRevCount, UpdatedAt: u.UpdatedAt,
 	}
 	if u.Visibility != nil {
 		v := string(*u.Visibility)

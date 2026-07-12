@@ -54,6 +54,7 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 					Class:            string(m.Class),
 					OrganizationID:   m.OrganizationId,
 					IsEncrypted:      m.IsEncrypted,
+					MaxRevCount:      m.MaxRevCount,
 					UpdatedAt:        m.UpdatedAt,
 				},
 				Description:        m.Description,
@@ -76,6 +77,7 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 				if len(dto.Tags) > 0 {
 					fmt.Fprintf(w, "  tags: %v\n", dto.Tags)
 				}
+				fmt.Fprintf(w, "  max revisions: %d\n", dto.MaxRevCount)
 				fmt.Fprintf(w, "  updated: %s\n", dto.UpdatedAt)
 				return nil
 			})

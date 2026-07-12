@@ -43,6 +43,9 @@ mutation CreateMemory(
   $tags: [String!]
   # @genqlient(omitempty: true)
   $visibility: MemoryVisibility
+  # #621 — per-node revision-history cap (min 1). Omitted = server default.
+  # @genqlient(omitempty: true)
+  $maxRevCount: Int
 ) {
   createMemory(
     orgId: $orgId
@@ -52,6 +55,7 @@ mutation CreateMemory(
     description: $description
     tags: $tags
     visibility: $visibility
+    maxRevCount: $maxRevCount
   ) {
     id
     urn
@@ -61,6 +65,7 @@ mutation CreateMemory(
     visibility
     organizationId
     isEncrypted
+    maxRevCount
     updatedAt
   }
 }
@@ -86,6 +91,9 @@ mutation UpdateMemory(
   # kebab-normalizes it and recomposes the memory URN. Omitted = preserve.
   # @genqlient(omitempty: true)
   $urn: String
+  # #621 — per-node revision-history cap (min 1). Omitted = preserve.
+  # @genqlient(omitempty: true)
+  $maxRevCount: Int
 ) {
   updateMemory(
     id: $id
@@ -96,6 +104,7 @@ mutation UpdateMemory(
     visibility: $visibility
     data: $data
     urn: $urn
+    maxRevCount: $maxRevCount
   ) {
     id
     urn
@@ -105,6 +114,7 @@ mutation UpdateMemory(
     visibility
     organizationId
     isEncrypted
+    maxRevCount
     data
     updatedAt
   }
@@ -130,6 +140,7 @@ query GetMemory($ref: ID!) {
     source
     syncStatus
     vectorIndexEnabled
+    maxRevCount
     data
     createdAt
     updatedAt
