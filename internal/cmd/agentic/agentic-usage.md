@@ -79,6 +79,7 @@ hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --en
 hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] | rotate <id> --yes | ls --app <ref> | rm <id> --yes
 hadron ticket mint --org <ref> [--app <id>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | ls --org <ref>
 hadron grant create --org <ref> --user <ref> --action <a>[,...] [--expires <iso>] | ls [--org <ref>] [--user <ref>] | revoke <id> --yes
+hadron connection grant create --connection <ref> --app <ref> --scopes <s>[,...] [--expires-at <iso>] | ls [--connection <ref>] | revoke <grant-id> --yes
 hadron config get | set | list
 hadron api <query-or-mutation>                       # raw GraphQL
 hadron version

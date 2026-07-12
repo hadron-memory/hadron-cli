@@ -2801,6 +2801,195 @@ type CloneNodeResponse struct {
 // GetCloneNode returns CloneNodeResponse.CloneNode, and is useful for accessing the field via an interface.
 func (v *CloneNodeResponse) GetCloneNode() *CloneNodeCloneNode { return v.CloneNode }
 
+// ConnectionGrantFields includes the GraphQL fields of ConnectionGrant requested by the fragment ConnectionGrantFields.
+// The GraphQL type's documentation follows.
+//
+// A user-owned connection's scoped delegation to an App install (spec-042 Track
+// B, #593). The connection OWNER grants a specific App scoped access to their
+// mailbox/calendar; the enforcement gate is requireEmailConnection. The grantee
+// App is exposed as SCALARS only (never a nested App object), so a cross-org
+// grant can't reach the App keys/members. Token material is never exposed.
+type ConnectionGrantFields struct {
+	Id           string `json:"id"`
+	ConnectionId string `json:"connectionId"`
+	// The App install this grant delegates to.
+	GranteeAppId   string  `json:"granteeAppId"`
+	GranteeAppName *string `json:"granteeAppName"`
+	// Canonical URN of the grantee App (hrn:app:<org>::<slug>), or null if unresolvable.
+	GranteeAppUrn *string `json:"granteeAppUrn"`
+	// Covered scopes: mail.read, mail.send, calendar.freebusy, calendar.read.
+	Scopes []string `json:"scopes"`
+	// ISO-8601 expiry, or null for perpetual (until revoked).
+	ExpiresAt *string `json:"expiresAt"`
+	CreatedAt string  `json:"createdAt"`
+}
+
+// GetId returns ConnectionGrantFields.Id, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantFields) GetId() string { return v.Id }
+
+// GetConnectionId returns ConnectionGrantFields.ConnectionId, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantFields) GetConnectionId() string { return v.ConnectionId }
+
+// GetGranteeAppId returns ConnectionGrantFields.GranteeAppId, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantFields) GetGranteeAppId() string { return v.GranteeAppId }
+
+// GetGranteeAppName returns ConnectionGrantFields.GranteeAppName, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantFields) GetGranteeAppName() *string { return v.GranteeAppName }
+
+// GetGranteeAppUrn returns ConnectionGrantFields.GranteeAppUrn, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantFields) GetGranteeAppUrn() *string { return v.GranteeAppUrn }
+
+// GetScopes returns ConnectionGrantFields.Scopes, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantFields) GetScopes() []string { return v.Scopes }
+
+// GetExpiresAt returns ConnectionGrantFields.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantFields) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetCreatedAt returns ConnectionGrantFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantFields) GetCreatedAt() string { return v.CreatedAt }
+
+// ConnectionGrantsConnectionGrantsConnectionGrantsPage includes the requested fields of the GraphQL type ConnectionGrantsPage.
+type ConnectionGrantsConnectionGrantsConnectionGrantsPage struct {
+	Items []*ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant `json:"items"`
+	Total int                                                                         `json:"total"`
+}
+
+// GetItems returns ConnectionGrantsConnectionGrantsConnectionGrantsPage.Items, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantsConnectionGrantsConnectionGrantsPage) GetItems() []*ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant {
+	return v.Items
+}
+
+// GetTotal returns ConnectionGrantsConnectionGrantsConnectionGrantsPage.Total, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantsConnectionGrantsConnectionGrantsPage) GetTotal() int { return v.Total }
+
+// ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant includes the requested fields of the GraphQL type ConnectionGrant.
+// The GraphQL type's documentation follows.
+//
+// A user-owned connection's scoped delegation to an App install (spec-042 Track
+// B, #593). The connection OWNER grants a specific App scoped access to their
+// mailbox/calendar; the enforcement gate is requireEmailConnection. The grantee
+// App is exposed as SCALARS only (never a nested App object), so a cross-org
+// grant can't reach the App keys/members. Token material is never exposed.
+type ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant struct {
+	ConnectionGrantFields `json:"-"`
+}
+
+// GetId returns ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant.Id, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant) GetId() string {
+	return v.ConnectionGrantFields.Id
+}
+
+// GetConnectionId returns ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant.ConnectionId, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant) GetConnectionId() string {
+	return v.ConnectionGrantFields.ConnectionId
+}
+
+// GetGranteeAppId returns ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant.GranteeAppId, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant) GetGranteeAppId() string {
+	return v.ConnectionGrantFields.GranteeAppId
+}
+
+// GetGranteeAppName returns ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant.GranteeAppName, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant) GetGranteeAppName() *string {
+	return v.ConnectionGrantFields.GranteeAppName
+}
+
+// GetGranteeAppUrn returns ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant.GranteeAppUrn, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant) GetGranteeAppUrn() *string {
+	return v.ConnectionGrantFields.GranteeAppUrn
+}
+
+// GetScopes returns ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant.Scopes, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant) GetScopes() []string {
+	return v.ConnectionGrantFields.Scopes
+}
+
+// GetExpiresAt returns ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant) GetExpiresAt() *string {
+	return v.ConnectionGrantFields.ExpiresAt
+}
+
+// GetCreatedAt returns ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant) GetCreatedAt() string {
+	return v.ConnectionGrantFields.CreatedAt
+}
+
+func (v *ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ConnectionGrantFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant struct {
+	Id string `json:"id"`
+
+	ConnectionId string `json:"connectionId"`
+
+	GranteeAppId string `json:"granteeAppId"`
+
+	GranteeAppName *string `json:"granteeAppName"`
+
+	GranteeAppUrn *string `json:"granteeAppUrn"`
+
+	Scopes []string `json:"scopes"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant) __premarshalJSON() (*__premarshalConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant, error) {
+	var retval __premarshalConnectionGrantsConnectionGrantsConnectionGrantsPageItemsConnectionGrant
+
+	retval.Id = v.ConnectionGrantFields.Id
+	retval.ConnectionId = v.ConnectionGrantFields.ConnectionId
+	retval.GranteeAppId = v.ConnectionGrantFields.GranteeAppId
+	retval.GranteeAppName = v.ConnectionGrantFields.GranteeAppName
+	retval.GranteeAppUrn = v.ConnectionGrantFields.GranteeAppUrn
+	retval.Scopes = v.ConnectionGrantFields.Scopes
+	retval.ExpiresAt = v.ConnectionGrantFields.ExpiresAt
+	retval.CreatedAt = v.ConnectionGrantFields.CreatedAt
+	return &retval, nil
+}
+
+// ConnectionGrantsResponse is returned by ConnectionGrants on success.
+type ConnectionGrantsResponse struct {
+	// The caller's own connection grants; connectionRef narrows to one connection.
+	ConnectionGrants *ConnectionGrantsConnectionGrantsConnectionGrantsPage `json:"connectionGrants"`
+}
+
+// GetConnectionGrants returns ConnectionGrantsResponse.ConnectionGrants, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantsResponse) GetConnectionGrants() *ConnectionGrantsConnectionGrantsConnectionGrantsPage {
+	return v.ConnectionGrants
+}
+
 // CreateAgentCreateAgent includes the requested fields of the GraphQL type Agent.
 type CreateAgentCreateAgent struct {
 	AgentFields `json:"-"`
@@ -3546,6 +3735,136 @@ type CreateAppResponse struct {
 
 // GetCreateApp returns CreateAppResponse.CreateApp, and is useful for accessing the field via an interface.
 func (v *CreateAppResponse) GetCreateApp() *CreateAppCreateApp { return v.CreateApp }
+
+// CreateConnectionGrantCreateConnectionGrant includes the requested fields of the GraphQL type ConnectionGrant.
+// The GraphQL type's documentation follows.
+//
+// A user-owned connection's scoped delegation to an App install (spec-042 Track
+// B, #593). The connection OWNER grants a specific App scoped access to their
+// mailbox/calendar; the enforcement gate is requireEmailConnection. The grantee
+// App is exposed as SCALARS only (never a nested App object), so a cross-org
+// grant can't reach the App keys/members. Token material is never exposed.
+type CreateConnectionGrantCreateConnectionGrant struct {
+	ConnectionGrantFields `json:"-"`
+}
+
+// GetId returns CreateConnectionGrantCreateConnectionGrant.Id, and is useful for accessing the field via an interface.
+func (v *CreateConnectionGrantCreateConnectionGrant) GetId() string {
+	return v.ConnectionGrantFields.Id
+}
+
+// GetConnectionId returns CreateConnectionGrantCreateConnectionGrant.ConnectionId, and is useful for accessing the field via an interface.
+func (v *CreateConnectionGrantCreateConnectionGrant) GetConnectionId() string {
+	return v.ConnectionGrantFields.ConnectionId
+}
+
+// GetGranteeAppId returns CreateConnectionGrantCreateConnectionGrant.GranteeAppId, and is useful for accessing the field via an interface.
+func (v *CreateConnectionGrantCreateConnectionGrant) GetGranteeAppId() string {
+	return v.ConnectionGrantFields.GranteeAppId
+}
+
+// GetGranteeAppName returns CreateConnectionGrantCreateConnectionGrant.GranteeAppName, and is useful for accessing the field via an interface.
+func (v *CreateConnectionGrantCreateConnectionGrant) GetGranteeAppName() *string {
+	return v.ConnectionGrantFields.GranteeAppName
+}
+
+// GetGranteeAppUrn returns CreateConnectionGrantCreateConnectionGrant.GranteeAppUrn, and is useful for accessing the field via an interface.
+func (v *CreateConnectionGrantCreateConnectionGrant) GetGranteeAppUrn() *string {
+	return v.ConnectionGrantFields.GranteeAppUrn
+}
+
+// GetScopes returns CreateConnectionGrantCreateConnectionGrant.Scopes, and is useful for accessing the field via an interface.
+func (v *CreateConnectionGrantCreateConnectionGrant) GetScopes() []string {
+	return v.ConnectionGrantFields.Scopes
+}
+
+// GetExpiresAt returns CreateConnectionGrantCreateConnectionGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *CreateConnectionGrantCreateConnectionGrant) GetExpiresAt() *string {
+	return v.ConnectionGrantFields.ExpiresAt
+}
+
+// GetCreatedAt returns CreateConnectionGrantCreateConnectionGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateConnectionGrantCreateConnectionGrant) GetCreatedAt() string {
+	return v.ConnectionGrantFields.CreatedAt
+}
+
+func (v *CreateConnectionGrantCreateConnectionGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateConnectionGrantCreateConnectionGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateConnectionGrantCreateConnectionGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ConnectionGrantFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateConnectionGrantCreateConnectionGrant struct {
+	Id string `json:"id"`
+
+	ConnectionId string `json:"connectionId"`
+
+	GranteeAppId string `json:"granteeAppId"`
+
+	GranteeAppName *string `json:"granteeAppName"`
+
+	GranteeAppUrn *string `json:"granteeAppUrn"`
+
+	Scopes []string `json:"scopes"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *CreateConnectionGrantCreateConnectionGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateConnectionGrantCreateConnectionGrant) __premarshalJSON() (*__premarshalCreateConnectionGrantCreateConnectionGrant, error) {
+	var retval __premarshalCreateConnectionGrantCreateConnectionGrant
+
+	retval.Id = v.ConnectionGrantFields.Id
+	retval.ConnectionId = v.ConnectionGrantFields.ConnectionId
+	retval.GranteeAppId = v.ConnectionGrantFields.GranteeAppId
+	retval.GranteeAppName = v.ConnectionGrantFields.GranteeAppName
+	retval.GranteeAppUrn = v.ConnectionGrantFields.GranteeAppUrn
+	retval.Scopes = v.ConnectionGrantFields.Scopes
+	retval.ExpiresAt = v.ConnectionGrantFields.ExpiresAt
+	retval.CreatedAt = v.ConnectionGrantFields.CreatedAt
+	return &retval, nil
+}
+
+// CreateConnectionGrantResponse is returned by CreateConnectionGrant on success.
+type CreateConnectionGrantResponse struct {
+	// Grant an App install scoped access to a connection you OWN. scopes must be a
+	// subset of {mail.read, mail.send, calendar.freebusy, calendar.read}; expiresAt
+	// (ISO-8601) is optional and must be in the future. appRef is a PK or App URN.
+	CreateConnectionGrant *CreateConnectionGrantCreateConnectionGrant `json:"createConnectionGrant"`
+}
+
+// GetCreateConnectionGrant returns CreateConnectionGrantResponse.CreateConnectionGrant, and is useful for accessing the field via an interface.
+func (v *CreateConnectionGrantResponse) GetCreateConnectionGrant() *CreateConnectionGrantCreateConnectionGrant {
+	return v.CreateConnectionGrant
+}
 
 // CreateEdgeCreateEdge includes the requested fields of the GraphQL type Edge.
 type CreateEdgeCreateEdge struct {
@@ -8554,6 +8873,17 @@ func (v *RevisionFieldsEditedByUserNodeRevisionEditor) GetHandle() *string { ret
 // GetUrn returns RevisionFieldsEditedByUserNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
 func (v *RevisionFieldsEditedByUserNodeRevisionEditor) GetUrn() *string { return v.Urn }
 
+// RevokeConnectionGrantResponse is returned by RevokeConnectionGrant on success.
+type RevokeConnectionGrantResponse struct {
+	// Revoke a connection grant you created (soft delete). Owner-only.
+	RevokeConnectionGrant bool `json:"revokeConnectionGrant"`
+}
+
+// GetRevokeConnectionGrant returns RevokeConnectionGrantResponse.RevokeConnectionGrant, and is useful for accessing the field via an interface.
+func (v *RevokeConnectionGrantResponse) GetRevokeConnectionGrant() bool {
+	return v.RevokeConnectionGrant
+}
+
 // RevokeMemoryShareResponse is returned by RevokeMemoryShare on success.
 type RevokeMemoryShareResponse struct {
 	// 023-app-shape US3 — revoke a MemoryShare. Per FR-022, revocation
@@ -11382,6 +11712,22 @@ func (v *__CloneNodeInput) GetTargetUrn() *string { return v.TargetUrn }
 // GetTargetMemoryRef returns __CloneNodeInput.TargetMemoryRef, and is useful for accessing the field via an interface.
 func (v *__CloneNodeInput) GetTargetMemoryRef() *string { return v.TargetMemoryRef }
 
+// __ConnectionGrantsInput is used internally by genqlient
+type __ConnectionGrantsInput struct {
+	ConnectionRef *string `json:"connectionRef,omitempty"`
+	Limit         *int    `json:"limit,omitempty"`
+	Offset        *int    `json:"offset,omitempty"`
+}
+
+// GetConnectionRef returns __ConnectionGrantsInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__ConnectionGrantsInput) GetConnectionRef() *string { return v.ConnectionRef }
+
+// GetLimit returns __ConnectionGrantsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ConnectionGrantsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __ConnectionGrantsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ConnectionGrantsInput) GetOffset() *int { return v.Offset }
+
 // __CreateAgentInput is used internally by genqlient
 type __CreateAgentInput struct {
 	Name           string           `json:"name"`
@@ -11497,6 +11843,26 @@ func (v *__CreateAppInput) GetAppType() *AppType { return v.AppType }
 
 // GetDescription returns __CreateAppInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateAppInput) GetDescription() *string { return v.Description }
+
+// __CreateConnectionGrantInput is used internally by genqlient
+type __CreateConnectionGrantInput struct {
+	ConnectionRef string   `json:"connectionRef"`
+	AppRef        string   `json:"appRef"`
+	Scopes        []string `json:"scopes"`
+	ExpiresAt     *string  `json:"expiresAt,omitempty"`
+}
+
+// GetConnectionRef returns __CreateConnectionGrantInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__CreateConnectionGrantInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetAppRef returns __CreateConnectionGrantInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CreateConnectionGrantInput) GetAppRef() string { return v.AppRef }
+
+// GetScopes returns __CreateConnectionGrantInput.Scopes, and is useful for accessing the field via an interface.
+func (v *__CreateConnectionGrantInput) GetScopes() []string { return v.Scopes }
+
+// GetExpiresAt returns __CreateConnectionGrantInput.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *__CreateConnectionGrantInput) GetExpiresAt() *string { return v.ExpiresAt }
 
 // __CreateEdgeInput is used internally by genqlient
 type __CreateEdgeInput struct {
@@ -12125,6 +12491,14 @@ func (v *__RestoreNodeRevisionInput) GetRevisionId() string { return v.RevisionI
 
 // GetTruncate returns __RestoreNodeRevisionInput.Truncate, and is useful for accessing the field via an interface.
 func (v *__RestoreNodeRevisionInput) GetTruncate() *bool { return v.Truncate }
+
+// __RevokeConnectionGrantInput is used internally by genqlient
+type __RevokeConnectionGrantInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __RevokeConnectionGrantInput.Ref, and is useful for accessing the field via an interface.
+func (v *__RevokeConnectionGrantInput) GetRef() string { return v.Ref }
 
 // __RevokeMemoryShareInput is used internally by genqlient
 type __RevokeMemoryShareInput struct {
@@ -13381,6 +13755,58 @@ func CloneNode(
 	return data_, err_
 }
 
+// The query executed by ConnectionGrants.
+const ConnectionGrants_Operation = `
+query ConnectionGrants ($connectionRef: String, $limit: Int, $offset: Int) {
+	connectionGrants(connectionRef: $connectionRef, limit: $limit, offset: $offset) {
+		items {
+			... ConnectionGrantFields
+		}
+		total
+	}
+}
+fragment ConnectionGrantFields on ConnectionGrant {
+	id
+	connectionId
+	granteeAppId
+	granteeAppName
+	granteeAppUrn
+	scopes
+	expiresAt
+	createdAt
+}
+`
+
+// Grants on the caller's connections, optionally narrowed to one connection.
+func ConnectionGrants(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef *string,
+	limit *int,
+	offset *int,
+) (data_ *ConnectionGrantsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ConnectionGrants",
+		Query:  ConnectionGrants_Operation,
+		Variables: &__ConnectionGrantsInput{
+			ConnectionRef: connectionRef,
+			Limit:         limit,
+			Offset:        offset,
+		},
+	}
+
+	data_ = &ConnectionGrantsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateAgent.
 const CreateAgent_Operation = `
 mutation CreateAgent ($name: String!, $orgId: ID!, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!]) {
@@ -13660,6 +14086,57 @@ func CreateApp(
 	}
 
 	data_ = &CreateAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateConnectionGrant.
+const CreateConnectionGrant_Operation = `
+mutation CreateConnectionGrant ($connectionRef: String!, $appRef: String!, $scopes: [String!]!, $expiresAt: String) {
+	createConnectionGrant(connectionRef: $connectionRef, appRef: $appRef, scopes: $scopes, expiresAt: $expiresAt) {
+		... ConnectionGrantFields
+	}
+}
+fragment ConnectionGrantFields on ConnectionGrant {
+	id
+	connectionId
+	granteeAppId
+	granteeAppName
+	granteeAppUrn
+	scopes
+	expiresAt
+	createdAt
+}
+`
+
+// appRef accepts a PK or an App URN; expiresAt is optional ISO-8601 (future).
+func CreateConnectionGrant(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	appRef string,
+	scopes []string,
+	expiresAt *string,
+) (data_ *CreateConnectionGrantResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateConnectionGrant",
+		Query:  CreateConnectionGrant_Operation,
+		Variables: &__CreateConnectionGrantInput{
+			ConnectionRef: connectionRef,
+			AppRef:        appRef,
+			Scopes:        scopes,
+			ExpiresAt:     expiresAt,
+		},
+	}
+
+	data_ = &CreateConnectionGrantResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -16116,6 +16593,38 @@ func RestoreNodeRevision(
 	}
 
 	data_ = &RestoreNodeRevisionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RevokeConnectionGrant.
+const RevokeConnectionGrant_Operation = `
+mutation RevokeConnectionGrant ($ref: ID!) {
+	revokeConnectionGrant(ref: $ref)
+}
+`
+
+func RevokeConnectionGrant(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *RevokeConnectionGrantResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokeConnectionGrant",
+		Query:  RevokeConnectionGrant_Operation,
+		Variables: &__RevokeConnectionGrantInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &RevokeConnectionGrantResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

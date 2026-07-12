@@ -1,0 +1,53 @@
+# Connection-grant surface (spec-042 Track B, hadron-server #593/#599). A
+# ConnectionGrant lets a connection OWNER delegate scoped access on their own
+# email/calendar connection to a specific App install. Owner-only create/revoke.
+
+fragment ConnectionGrantFields on ConnectionGrant {
+  id
+  connectionId
+  granteeAppId
+  granteeAppName
+  granteeAppUrn
+  scopes
+  expiresAt
+  createdAt
+}
+
+# Grants on the caller's connections, optionally narrowed to one connection.
+query ConnectionGrants(
+  # @genqlient(omitempty: true)
+  $connectionRef: String
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  connectionGrants(connectionRef: $connectionRef, limit: $limit, offset: $offset) {
+    items {
+      ...ConnectionGrantFields
+    }
+    total
+  }
+}
+
+# appRef accepts a PK or an App URN; expiresAt is optional ISO-8601 (future).
+mutation CreateConnectionGrant(
+  $connectionRef: String!
+  $appRef: String!
+  $scopes: [String!]!
+  # @genqlient(omitempty: true)
+  $expiresAt: String
+) {
+  createConnectionGrant(
+    connectionRef: $connectionRef
+    appRef: $appRef
+    scopes: $scopes
+    expiresAt: $expiresAt
+  ) {
+    ...ConnectionGrantFields
+  }
+}
+
+mutation RevokeConnectionGrant($ref: ID!) {
+  revokeConnectionGrant(ref: $ref)
+}
