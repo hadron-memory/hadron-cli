@@ -62,7 +62,7 @@ func TestOptionalSectionsRuleTierOnly(t *testing.T) {
 	if scnIdx < 0 || defIdx < 0 || ruleIdx < 0 {
 		t.Fatalf("rule body missing a required heading:\n%s", rule)
 	}
-	if !(defIdx < scnIdx && scnIdx < ruleIdx) {
+	if defIdx >= scnIdx || scnIdx >= ruleIdx {
 		t.Errorf("scenarios must sit after definition, before rule (def=%d scn=%d rule=%d)", defIdx, scnIdx, ruleIdx)
 	}
 	if !strings.Contains(rule, "## "+headingAcceptance) {
