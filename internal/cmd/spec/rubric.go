@@ -10,9 +10,11 @@ import (
 // freshly scaffolded spec passes its own structural checks.
 const (
 	headingDefinition  = "Definition"
+	headingScenarios   = "Scenarios / user stories"
 	headingRule        = "Rule & examples"
 	headingDurable     = "Durable vs tunable"
 	headingInvalidates = "What invalidates this spec"
+	headingAcceptance  = "Acceptance criteria"
 )
 
 // abstractPlaceholder marks an un-filled abstract; lint flags any abstract
@@ -83,14 +85,25 @@ func tierBody(c Citation, title string) string {
 
 // rubricBody returns the scaffolded spec body: the title H1 plus the four
 // mandatory sections, ready for the author to fill in. Used for rules and
-// flows — the compliance-loadable tiers.
+// flows — the compliance-loadable tiers. Rule-tier scaffolds also carry two
+// optional, un-linted sections — "Scenarios / user stories" (right after the
+// definition, framing intent) and a trailing "Acceptance criteria" — that an
+// author fills in where they clarify the contract and deletes otherwise (issue
+// #217). Flows stay terse: they inherit their rule's scenarios and are pulled on
+// demand, so they get only the mandatory rubric.
 func rubricBody(c Citation, title string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s — %s\n\n", c.Format(), title)
 	fmt.Fprintf(&b, "## %s\n\nOne-line definition of what this spec governs.\n\n", headingDefinition)
+	if c.Level() == 3 {
+		fmt.Fprintf(&b, "## %s *(optional — delete if it adds nothing)*\n\n3–7 short scenarios that explain who needs this and why. Prefer\n`As a <actor>, I want <capability>, so that <outcome>.`, or plain\n`Scenarios:` bullets for lower-level, multi-actor, or failure/recovery\nbehavior. Cover the happy path, key alternates, and identity/permission\nboundaries — not filler.\n\n", headingScenarios)
+	}
 	fmt.Fprintf(&b, "## %s\n\nState the rule precisely. Give concrete examples and edge cases.\n\n", headingRule)
 	fmt.Fprintf(&b, "## %s\n\n**Durable:** the parts that, if changed, mean a different spec.\n**Tunable:** the parts that can change without invalidating this spec.\n\n", headingDurable)
 	fmt.Fprintf(&b, "## %s\n\nThe specific changes that repeal or supersede this spec. (Mandatory.)\n", headingInvalidates)
+	if c.Level() == 3 {
+		fmt.Fprintf(&b, "\n## %s *(optional — include when the behavior must be testable)*\n\nConcrete, checkable statements engineering or QA can verify (one bullet\neach).\n", headingAcceptance)
+	}
 	return b.String()
 }
 
