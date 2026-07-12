@@ -82,6 +82,23 @@ func TestConnectionGrantCreateRequiresScopes(t *testing.T) {
 	}
 }
 
+// An unknown scope is rejected client-side (fixed enum) before any server call.
+func TestConnectionGrantCreateRejectsUnknownScope(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateConnectionGrant": `{"data":{"createConnectionGrant":` + connGrantJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"connection", "grant", "create",
+		"--connection", "conn_123", "--app", "app_1", "--scopes", "mail.read,mail.reed", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected a usage error for an unknown scope")
+	}
+	if _, called := captured["CreateConnectionGrant"]; called {
+		t.Error("an invalid scope must not reach the server")
+	}
+}
+
 func TestConnectionGrantLs(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ConnectionGrants": `{"data":{"connectionGrants":{"items":[` + connGrantJSON + `],"total":1}}}`,

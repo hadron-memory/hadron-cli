@@ -6,6 +6,19 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
+// validScopeList is the closed set of connection-grant scopes (spec-042);
+// validScopes indexes it for the create-time check. Kept together so the flag
+// help and the validation never drift.
+var validScopeList = []string{"mail.read", "mail.send", "calendar.freebusy", "calendar.read"}
+
+var validScopes = func() map[string]bool {
+	m := make(map[string]bool, len(validScopeList))
+	for _, s := range validScopeList {
+		m[s] = true
+	}
+	return m
+}()
+
 // connectionGrantDTO is the stable --json shape for a ConnectionGrant.
 type connectionGrantDTO struct {
 	ID             string   `json:"id"`

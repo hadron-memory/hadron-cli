@@ -49,6 +49,15 @@ for a perpetual grant (until revoked).`,
 			if len(scopeSet) == 0 {
 				return exitcode.Newf(exitcode.Usage, "at least one --scopes entry is required (e.g. --scopes mail.read)")
 			}
+			// Scopes are a small, fixed enum (unlike grant's open-ended action
+			// matcher), so a typo is caught here with the valid set rather than a
+			// slower, vaguer server round-trip.
+			for _, s := range scopeSet {
+				if !validScopes[s] {
+					return exitcode.Newf(exitcode.Usage,
+						"unknown scope %q (valid: %s)", s, strings.Join(validScopeList, ", "))
+				}
+			}
 
 			client, err := f.GraphQLClient()
 			if err != nil {

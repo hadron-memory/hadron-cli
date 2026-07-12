@@ -35,10 +35,15 @@ the delegated access.`,
 			if err != nil {
 				return api.MapError(err)
 			}
+			// A nil payload is a server/transport anomaly (exit 1), distinct from a
+			// grant that isn't there (exit 4).
+			if resp == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no revoke payload")
+			}
 			// The server throws NOT_FOUND rather than returning false today, but
 			// honor a false defensively instead of reporting a revoke that didn't
 			// happen.
-			if resp == nil || !resp.RevokeConnectionGrant {
+			if !resp.RevokeConnectionGrant {
 				return exitcode.Newf(exitcode.NotFound, "connection grant %q not found", args[0])
 			}
 			dto := map[string]string{"id": args[0], "status": "revoked"}
