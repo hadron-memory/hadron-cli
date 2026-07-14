@@ -79,7 +79,9 @@ func TestUserMerge(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(captured["MergeUsers"], &vars)
+	if err := json.Unmarshal(captured["MergeUsers"], &vars); err != nil {
+		t.Fatalf("captured MergeUsers vars not JSON: %v", err)
+	}
 	if vars["source"] != "dup" || vars["target"] != "hrn:user:alice" {
 		t.Errorf("source/target vars = %v/%v, want dup / hrn:user:alice", vars["source"], vars["target"])
 	}
@@ -109,6 +111,27 @@ func TestUserMergeHumanOutput(t *testing.T) {
 	// Human output names both the source ref and the surviving user id.
 	if got := out.String(); !strings.Contains(got, "dup") || !strings.Contains(got, "usr1") {
 		t.Errorf("human output should name source and survivor: %q", got)
+	}
+}
+
+// Surrounding whitespace on either ref is trimmed once and the normalized value
+// is what reaches the server (so an accidental " alice " doesn't fail resolution).
+func TestUserMergeTrimsRefs(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"MergeUsers": `{"data":{"mergeUsers":` + uUserJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "merge", "  dup  ", "--into", "  alice  ", "--yes", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	if err := json.Unmarshal(captured["MergeUsers"], &vars); err != nil {
+		t.Fatalf("captured MergeUsers vars not JSON: %v", err)
+	}
+	if vars["source"] != "dup" || vars["target"] != "alice" {
+		t.Errorf("refs not trimmed on the wire: source=%v target=%v", vars["source"], vars["target"])
 	}
 }
 

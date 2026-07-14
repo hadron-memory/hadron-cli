@@ -90,8 +90,9 @@ So the snapshot update here is **surgical**: only `MergeUsersInput` + the
 the rest of the committed snapshot untouched. `make generate` then produced the
 typed client, and codegen is idempotent. **The `nodeVersions` → `nodeRevisions`
 drift is a separate, pre-existing bug** that should be reconciled on its own (it
-also requires touching `internal/cmd/node/version.go` + tests), and is flagged for
-follow-up.
+also requires touching `internal/cmd/node/version.go` + tests) — tracked in
+[#238](https://github.com/hadron-memory/hadron-cli/issues/238), which owns the full
+`make schema` refresh.
 
 ## Documentation sync
 

@@ -90,11 +90,16 @@ checks. Spec cor:api:010:02.`,
 			// error, and confirm before any GraphQL request so a cancellation
 			// makes no call. References pass through verbatim; the server resolves
 			// and authorizes them.
+			// Normalize both refs once (trim surrounding whitespace) and use the
+			// normalized values everywhere — the prompt, and the GraphQL variables.
+			// MarkFlagRequired below catches a missing --into; this still catches a
+			// whitespace-only one.
 			source := strings.TrimSpace(args[0])
+			into = strings.TrimSpace(into)
 			if source == "" {
 				return exitcode.Newf(exitcode.Usage, "source user must not be empty")
 			}
-			if strings.TrimSpace(into) == "" {
+			if into == "" {
 				return exitcode.Newf(exitcode.Usage, "specify the surviving user with --into <ref> (id, handle, or hrn:user:<handle>)")
 			}
 
@@ -128,6 +133,7 @@ checks. Spec cor:api:010:02.`,
 		},
 	}
 	cmd.Flags().StringVar(&into, "into", "", "the surviving target user (id, handle, or hrn:user:<handle>)")
+	_ = cmd.MarkFlagRequired("into")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	return cmd
 }
