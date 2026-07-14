@@ -72,7 +72,7 @@ hadron app ls --org <org> | install | uninstall <id> | use <urn>
 hadron ai-config ls [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
 hadron org ls [--mine] | create --name <n> --urn <urn> | get <id> | update <id> | rm <id> | member ls|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
 hadron agent ls [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | ls --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --org <id> --name <n> [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
-hadron user search <query> [--limit N] [--offset N]
+hadron user search <query> [--limit N] [--offset N] | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--email <e>] [--handle <h>]
 hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--ai-config <n>] [--wait] | ls [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
 hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... | ls --app <ref> | update <id> ... | rm <id> --yes
@@ -120,9 +120,9 @@ Conventions:
   `edge ls` and in `node get --json`). A nameless edge prints its loc instead.
   Cross-memory edges are allowed.
 - Destructive / bulk-write commands (`memory rm`, `node rm`, `node merge`,
-  `edge rm`, `app uninstall`, a real `replace`, and `memory encrypt`) prompt on a
-  terminal and REQUIRE `--yes` when run non-interactively (agents must always
-  pass `--yes`, or `--dry-run` to preview `replace`). Without it they exit 2.
+  `user merge`, `edge rm`, `app uninstall`, a real `replace`, and `memory encrypt`)
+  prompt on a terminal and REQUIRE `--yes` when run non-interactively (agents must
+  always pass `--yes`, or `--dry-run` to preview `replace`). Without it they exit 2.
 - `memory encrypt <memory> --data-key -` converts a plaintext memory to
   encrypted-at-rest: you provide the data key (read from stdin via `--data-key -`
   so it stays out of shell history) and the server rewrites all node content as
@@ -168,6 +168,13 @@ Conventions:
   on key collisions), `EDGES` re-points the source's edges onto the target. The
   source stays in place unless `--delete-source` hard-removes it after the merge.
   Merging mutates the target, so it's gated — pass `--yes` non-interactively.
+- `user merge <source> --into <target>` globally consolidates a duplicate source
+  user into the surviving target and returns the target. `<source>` is
+  soft-deleted; `--into <target>` survives. Each ref is a user id, bare handle, or
+  `hrn:user:<handle>` URN, passed through verbatim (the server resolves and
+  authorizes — platform ADMIN/OWNER, or an org ADMIN/OWNER over both members). No
+  server dry-run; the confirmation is the last local safety boundary, so it's gated
+  — pass `--yes` non-interactively.
 - `isRunnable` gates whether `hadron task run` will execute a node. Both
   `node add` and `node update` take `--runnable` to set it; on `update` it's
   tri-state — `--runnable` sets true, `--runnable=false` clears it, omitting it

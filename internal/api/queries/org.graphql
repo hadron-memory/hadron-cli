@@ -206,3 +206,16 @@ mutation UpdateMyProfile(
     ...UserFields
   }
 }
+
+# mergeUsers globally consolidates a duplicate source user into a surviving
+# target user; $source and $target each accept a PK id, bare handle, or
+# fully-qualified hrn:user:<handle> URN, passed through verbatim. The source is
+# soft-deleted; the target survives. Destructive + irreversible — `hadron user
+# merge` gates it behind a confirmation. The server is authoritative for
+# authorization (platform or org ADMIN/OWNER) and collision handling; the CLI
+# adds no local checks. Spec cor:api:010:02.
+mutation MergeUsers($source: String!, $target: String!) {
+  mergeUsers(input: { source: $source, target: $target }) {
+    ...UserFields
+  }
+}

@@ -6513,6 +6513,96 @@ type MergeNodesResponse struct {
 // GetMergeNodes returns MergeNodesResponse.MergeNodes, and is useful for accessing the field via an interface.
 func (v *MergeNodesResponse) GetMergeNodes() *MergeNodesMergeNodesNode { return v.MergeNodes }
 
+// MergeUsersMergeUsersUser includes the requested fields of the GraphQL type User.
+type MergeUsersMergeUsersUser struct {
+	UserFields `json:"-"`
+}
+
+// GetId returns MergeUsersMergeUsersUser.Id, and is useful for accessing the field via an interface.
+func (v *MergeUsersMergeUsersUser) GetId() string { return v.UserFields.Id }
+
+// GetName returns MergeUsersMergeUsersUser.Name, and is useful for accessing the field via an interface.
+func (v *MergeUsersMergeUsersUser) GetName() *string { return v.UserFields.Name }
+
+// GetEmail returns MergeUsersMergeUsersUser.Email, and is useful for accessing the field via an interface.
+func (v *MergeUsersMergeUsersUser) GetEmail() *string { return v.UserFields.Email }
+
+// GetHandle returns MergeUsersMergeUsersUser.Handle, and is useful for accessing the field via an interface.
+func (v *MergeUsersMergeUsersUser) GetHandle() *string { return v.UserFields.Handle }
+
+// GetGithubUsername returns MergeUsersMergeUsersUser.GithubUsername, and is useful for accessing the field via an interface.
+func (v *MergeUsersMergeUsersUser) GetGithubUsername() *string { return v.UserFields.GithubUsername }
+
+// GetRoles returns MergeUsersMergeUsersUser.Roles, and is useful for accessing the field via an interface.
+func (v *MergeUsersMergeUsersUser) GetRoles() []Role { return v.UserFields.Roles }
+
+func (v *MergeUsersMergeUsersUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*MergeUsersMergeUsersUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.MergeUsersMergeUsersUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UserFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalMergeUsersMergeUsersUser struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Email *string `json:"email"`
+
+	Handle *string `json:"handle"`
+
+	GithubUsername *string `json:"githubUsername"`
+
+	Roles []Role `json:"roles"`
+}
+
+func (v *MergeUsersMergeUsersUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *MergeUsersMergeUsersUser) __premarshalJSON() (*__premarshalMergeUsersMergeUsersUser, error) {
+	var retval __premarshalMergeUsersMergeUsersUser
+
+	retval.Id = v.UserFields.Id
+	retval.Name = v.UserFields.Name
+	retval.Email = v.UserFields.Email
+	retval.Handle = v.UserFields.Handle
+	retval.GithubUsername = v.UserFields.GithubUsername
+	retval.Roles = v.UserFields.Roles
+	return &retval, nil
+}
+
+// MergeUsersResponse is returned by MergeUsers on success.
+type MergeUsersResponse struct {
+	MergeUsers *MergeUsersMergeUsersUser `json:"mergeUsers"`
+}
+
+// GetMergeUsers returns MergeUsersResponse.MergeUsers, and is useful for accessing the field via an interface.
+func (v *MergeUsersResponse) GetMergeUsers() *MergeUsersMergeUsersUser { return v.MergeUsers }
+
 type MintActionTicketsInput struct {
 	// v1: comm.outbound only.
 	Action string `json:"action"`
@@ -11549,6 +11639,18 @@ type __MergeNodesInput struct {
 // GetInput returns __MergeNodesInput.Input, and is useful for accessing the field via an interface.
 func (v *__MergeNodesInput) GetInput() *MergeNodesInput { return v.Input }
 
+// __MergeUsersInput is used internally by genqlient
+type __MergeUsersInput struct {
+	Source string `json:"source"`
+	Target string `json:"target"`
+}
+
+// GetSource returns __MergeUsersInput.Source, and is useful for accessing the field via an interface.
+func (v *__MergeUsersInput) GetSource() string { return v.Source }
+
+// GetTarget returns __MergeUsersInput.Target, and is useful for accessing the field via an interface.
+func (v *__MergeUsersInput) GetTarget() string { return v.Target }
+
 // __MintActionTicketsInput is used internally by genqlient
 type __MintActionTicketsInput struct {
 	Input *MintActionTicketsInput `json:"input,omitempty"`
@@ -14883,6 +14985,57 @@ func MergeNodes(
 	}
 
 	data_ = &MergeNodesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by MergeUsers.
+const MergeUsers_Operation = `
+mutation MergeUsers ($source: String!, $target: String!) {
+	mergeUsers(input: {source:$source,target:$target}) {
+		... UserFields
+	}
+}
+fragment UserFields on User {
+	id
+	name
+	email
+	handle
+	githubUsername
+	roles
+}
+`
+
+// mergeUsers globally consolidates a duplicate source user into a surviving
+// target user; $source and $target each accept a PK id, bare handle, or
+// fully-qualified hrn:user:<handle> URN, passed through verbatim. The source is
+// soft-deleted; the target survives. Destructive + irreversible — `hadron user
+// merge` gates it behind a confirmation. The server is authoritative for
+// authorization (platform or org ADMIN/OWNER) and collision handling; the CLI
+// adds no local checks. Spec cor:api:010:02.
+func MergeUsers(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	source string,
+	target string,
+) (data_ *MergeUsersResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MergeUsers",
+		Query:  MergeUsers_Operation,
+		Variables: &__MergeUsersInput{
+			Source: source,
+			Target: target,
+		},
+	}
+
+	data_ = &MergeUsersResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

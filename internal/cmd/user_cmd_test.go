@@ -67,6 +67,116 @@ func TestProfileSetNothingIsUsageError(t *testing.T) {
 	}
 }
 
+func TestUserMerge(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"MergeUsers": `{"data":{"mergeUsers":` + uUserJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	// Refs pass through verbatim: a bare handle source, a URN target.
+	root.SetArgs([]string{"user", "merge", "dup", "--into", "hrn:user:alice", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["MergeUsers"], &vars)
+	if vars["source"] != "dup" || vars["target"] != "hrn:user:alice" {
+		t.Errorf("source/target vars = %v/%v, want dup / hrn:user:alice", vars["source"], vars["target"])
+	}
+	// JSON output is the surviving target user.
+	var dto struct {
+		ID     string `json:"id"`
+		Handle string `json:"handle"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	if dto.ID != "usr1" || dto.Handle != "alice" {
+		t.Errorf("survivor dto = %+v, want id usr1 / handle alice", dto)
+	}
+}
+
+func TestUserMergeHumanOutput(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"MergeUsers": `{"data":{"mergeUsers":` + uUserJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "merge", "dup", "--into", "alice", "--yes", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// Human output names both the source ref and the surviving user id.
+	if got := out.String(); !strings.Contains(got, "dup") || !strings.Contains(got, "usr1") {
+		t.Errorf("human output should name source and survivor: %q", got)
+	}
+}
+
+func TestUserMergeRequiresInto(t *testing.T) {
+	// A missing/empty --into is a usage error before any GraphQL request.
+	for _, args := range [][]string{
+		{"user", "merge", "dup", "--yes", "--server", "http://127.0.0.1:1"},
+		{"user", "merge", "dup", "--into", "  ", "--yes", "--server", "http://127.0.0.1:1"},
+		{"user", "merge", "  ", "--into", "alice", "--yes", "--server", "http://127.0.0.1:1"},
+	} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(args)
+		if err := root.Execute(); err == nil {
+			t.Errorf("expected a usage error for args %v, got nil", args)
+		}
+	}
+}
+
+// Without --yes and no interactive terminal (the test IOStreams), the
+// confirmation gate refuses — user merge is a destructive global operation —
+// and MergeUsers must never be reached (cancellation performs no request).
+func TestUserMergeRequiresYesNonInteractive(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"MergeUsers": `{"data":{"mergeUsers":` + uUserJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "merge", "dup", "--into", "alice", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected a refusal without --yes in non-interactive mode")
+	}
+	if _, ok := captured["MergeUsers"]; ok {
+		t.Error("MergeUsers must not be called when the confirmation gate refuses")
+	}
+}
+
+// A misbehaving server returning null for the non-null mergeUsers field must
+// yield an error, not a nil-pointer panic.
+func TestUserMergeNullResult(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"MergeUsers": `{"data":{"mergeUsers":null}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "merge", "dup", "--into", "alice", "--yes", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected an error when the server returns a null user")
+	}
+}
+
+// Server-side failures (forbidden, same-user merge) propagate through the CLI's
+// API error mapping rather than being duplicated locally.
+func TestUserMergeServerErrorPropagates(t *testing.T) {
+	for _, msg := range []string{
+		`{"errors":[{"message":"forbidden","extensions":{"code":"FORBIDDEN"}}]}`,
+		`{"errors":[{"message":"cannot merge a user into itself","extensions":{"code":"BAD_USER_INPUT"}}]}`,
+	} {
+		gql, _ := captureGraphQL(t, map[string]string{"MergeUsers": msg})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"user", "merge", "dup", "--into", "alice", "--yes", "--server", gql.URL})
+		if err := root.Execute(); err == nil {
+			t.Errorf("expected a server error to propagate for %q", msg)
+		}
+	}
+}
+
 func TestUserSearchRejectsBadArgs(t *testing.T) {
 	cases := [][]string{
 		{"user", "search", "  ", "--server", "http://127.0.0.1:1"},

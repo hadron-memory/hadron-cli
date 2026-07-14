@@ -1546,6 +1546,18 @@ input MergeNodesInput {
   target: String!
 }
 
+input MergeUsersInput {
+  """
+  Source user — ID, bare handle, or fully-qualified user URN. Folded into 'target' and soft-deleted.
+  """
+  source: String!
+
+  """
+  Target user — ID, bare handle, or fully-qualified user URN. The surviving user; target wins non-combinable conflicts while roles preserve the strongest live entitlement.
+  """
+  target: String!
+}
+
 input MintActionTicketsInput {
   """v1: comm.outbound only."""
   action: String!
@@ -2104,6 +2116,7 @@ type Mutation {
   linkMemoryToUser(dataKey: String, externalUserId: String!, memoryId: ID!): Memory!
   mergeMemories(input: MergeMemoriesInput!): Memory!
   mergeNodes(input: MergeNodesInput!): Node!
+  mergeUsers(input: MergeUsersInput!): User!
 
   """
   Mint comm.outbound tickets into the org ledger (org-ADMIN; cor:acl:050:04).
