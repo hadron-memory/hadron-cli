@@ -62,7 +62,7 @@ one object for a single citation, an array for --prefix.`,
 
 			// Single citation — behavior unchanged.
 			if prefix == "" {
-				n, err := fetchSpecNode(cmd, client, memURN, args[0])
+				n, _, err := fetchSpecTaggedNode(cmd, client, memURN, args[0])
 				if err != nil {
 					return err
 				}
@@ -239,7 +239,7 @@ func nodeByIDFromBatch(b *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) *gen.G
 			Name:       e.Name,
 			Loc:        e.Loc,
 			IsRunnable: e.IsRunnable,
-			Target: &gen.GetNodeNodeOutgoingEdgesEdgeTargetNode{Id: e.Target.Id, Loc: e.Target.Loc, MemoryId: e.Target.MemoryId},
+			Target:     &gen.GetNodeNodeOutgoingEdgesEdgeTargetNode{Id: e.Target.Id, Loc: e.Target.Loc, MemoryId: e.Target.MemoryId},
 		})
 	}
 	for _, e := range b.IncomingEdges {
@@ -250,7 +250,7 @@ func nodeByIDFromBatch(b *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) *gen.G
 			Name:       e.Name,
 			Loc:        e.Loc,
 			IsRunnable: e.IsRunnable,
-			Source: &gen.GetNodeNodeIncomingEdgesEdgeSourceNode{Id: e.Source.Id, Loc: e.Source.Loc, MemoryId: e.Source.MemoryId},
+			Source:     &gen.GetNodeNodeIncomingEdgesEdgeSourceNode{Id: e.Source.Id, Loc: e.Source.Loc, MemoryId: e.Source.MemoryId},
 		})
 	}
 	return n

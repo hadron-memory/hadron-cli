@@ -74,11 +74,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				return err
 			}
 
-			oldNode, err := fetchSpecNode(cmd, client, memURN, args[0])
-			if err != nil {
-				return err
-			}
-			oldCit, err := ParseCitation(oldNode.Loc)
+			oldNode, oldCit, err := fetchSpecTaggedNode(cmd, client, memURN, args[0])
 			if err != nil {
 				return err
 			}

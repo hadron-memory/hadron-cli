@@ -106,13 +106,9 @@ nothing.`,
 			if err != nil {
 				return err
 			}
-			node, err := fetchSpecNode(cmd, client, memURN, args[0])
+			node, _, err := fetchSpecTaggedNode(cmd, client, memURN, args[0])
 			if err != nil {
 				return err
-			}
-			if !hasTag(node.Tags, "spec") {
-				return exitcode.Newf(exitcode.Usage,
-					"%s is not a spec (no \"spec\" tag) — use `hadron node update` to edit arbitrary nodes", node.Loc)
 			}
 			curBody, curAbstract := derefStr(node.Content), derefStr(node.Abstract)
 

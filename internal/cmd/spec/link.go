@@ -76,18 +76,12 @@ convention ("documents <from> on the <to> entity"); refine it with
 			// Fetch both endpoints: a clear per-endpoint NotFound, the "spec" tag
 			// guard, and the names for the default label. Same-corpus is structural
 			// — both are resolved under -m, so no cross-memory check is needed.
-			fromNode, err := fetchSpecNode(cmd, client, memURN, from.Format())
+			fromNode, _, err := fetchSpecTaggedNode(cmd, client, memURN, from.Format())
 			if err != nil {
 				return err
 			}
-			if err := requireSpecTag(fromNode.Tags, from.Format()); err != nil {
-				return err
-			}
-			toNode, err := fetchSpecNode(cmd, client, memURN, to.Format())
+			toNode, _, err := fetchSpecTaggedNode(cmd, client, memURN, to.Format())
 			if err != nil {
-				return err
-			}
-			if err := requireSpecTag(toNode.Tags, to.Format()); err != nil {
 				return err
 			}
 

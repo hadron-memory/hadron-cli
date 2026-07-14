@@ -126,6 +126,28 @@ func TestSpecGet(t *testing.T) {
 	}
 }
 
+func TestSpecGetRejectsMalformedCitation(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "get", "register", "-m", specMem, "--server", "http://127.0.0.1:1"})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("malformed spec citation should be Usage, got %d", got)
+	}
+}
+
+func TestSpecGetRejectsNonSpecNode(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    linkNonSpecDetail,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "get", "msg:010:02", "-m", specMem, "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("non-spec node through spec get should be Usage, got %d", got)
+	}
+}
+
 // #69 item 5: spec get surfaces the node's `data` block in the text view.
 func TestSpecGetSurfacesData(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
@@ -1193,6 +1215,19 @@ func TestSpecSupersedeRequiresYes(t *testing.T) {
 	}
 }
 
+func TestSpecSupersedeRejectsNonSpecSource(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    linkNonSpecDetail,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("non-spec supersede source should be Usage, got %d", got)
+	}
+}
+
 func TestSpecSupersede(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
@@ -1703,6 +1738,20 @@ func TestSpecExtractSourceNotFound(t *testing.T) {
 		"--to-feature", "020", "--title", "T", "--server", gql.URL})
 	if got := exitcode.FromError(root.Execute()); got != exitcode.NotFound {
 		t.Fatalf("missing source should be NotFound, got %d", got)
+	}
+}
+
+func TestSpecExtractRejectsNonSpecSource(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    linkNonSpecDetail,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "extract", "cor:dmo:060:02", "-m", specMem,
+		"--to-feature", "020", "--title", "T", "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("non-spec extract source should be Usage, got %d", got)
 	}
 }
 
