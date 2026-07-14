@@ -16,6 +16,8 @@ hadron config set server https://hadron.example.com     # persistent
 
 ```sh
 hadron auth login
+# or choose Google instead of the default GitHub identity flow:
+hadron auth login --provider google
 ```
 
 Runs OAuth 2.0 authorization-code + PKCE against the **server**: the CLI reads
@@ -23,6 +25,8 @@ the server's `/.well-known/oauth-authorization-server`, dynamically registers a
 one-shot client bound to a `127.0.0.1` loopback redirect, opens the server's
 consent screen in your browser, and exchanges the code for a token (stored in
 your OS keychain). Same shape as `gh auth login`; the portal is never involved.
+The provider flag only selects the server's login route — Google credentials
+remain on the server and are never stored by the CLI.
 
 ## 2. Host bootstrap (no browser / air-gapped)
 

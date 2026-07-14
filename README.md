@@ -79,7 +79,8 @@ Requires Go (see `go.mod` for the version).
 ## Quick start
 
 ```sh
-hadron auth login            # browser OAuth; token stored in OS keychain
+hadron auth login                         # browser OAuth via GitHub (default)
+hadron auth login --provider google       # browser OAuth via Google
 hadron auth whoami
 hadron memory ls --json
 hadron api 'query { me { id email } }'
