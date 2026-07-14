@@ -2233,6 +2233,78 @@ type AppsResponse struct {
 // GetApps returns AppsResponse.Apps, and is useful for accessing the field via an interface.
 func (v *AppsResponse) GetApps() *AppsAppsAppsPage { return v.Apps }
 
+// AttachMemoryToAppAttachMemoryToAppMemory includes the requested fields of the GraphQL type Memory.
+type AttachMemoryToAppAttachMemoryToAppMemory struct {
+	Id               string            `json:"id"`
+	Urn              string            `json:"urn"`
+	Name             string            `json:"name"`
+	ShortDescription *string           `json:"shortDescription"`
+	Class            MemoryClass       `json:"class"`
+	Visibility       *MemoryVisibility `json:"visibility"`
+	OrganizationId   string            `json:"organizationId"`
+	IsEncrypted      bool              `json:"isEncrypted"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int    `json:"maxRevCount"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+// GetId returns AttachMemoryToAppAttachMemoryToAppMemory.Id, and is useful for accessing the field via an interface.
+func (v *AttachMemoryToAppAttachMemoryToAppMemory) GetId() string { return v.Id }
+
+// GetUrn returns AttachMemoryToAppAttachMemoryToAppMemory.Urn, and is useful for accessing the field via an interface.
+func (v *AttachMemoryToAppAttachMemoryToAppMemory) GetUrn() string { return v.Urn }
+
+// GetName returns AttachMemoryToAppAttachMemoryToAppMemory.Name, and is useful for accessing the field via an interface.
+func (v *AttachMemoryToAppAttachMemoryToAppMemory) GetName() string { return v.Name }
+
+// GetShortDescription returns AttachMemoryToAppAttachMemoryToAppMemory.ShortDescription, and is useful for accessing the field via an interface.
+func (v *AttachMemoryToAppAttachMemoryToAppMemory) GetShortDescription() *string {
+	return v.ShortDescription
+}
+
+// GetClass returns AttachMemoryToAppAttachMemoryToAppMemory.Class, and is useful for accessing the field via an interface.
+func (v *AttachMemoryToAppAttachMemoryToAppMemory) GetClass() MemoryClass { return v.Class }
+
+// GetVisibility returns AttachMemoryToAppAttachMemoryToAppMemory.Visibility, and is useful for accessing the field via an interface.
+func (v *AttachMemoryToAppAttachMemoryToAppMemory) GetVisibility() *MemoryVisibility {
+	return v.Visibility
+}
+
+// GetOrganizationId returns AttachMemoryToAppAttachMemoryToAppMemory.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AttachMemoryToAppAttachMemoryToAppMemory) GetOrganizationId() string {
+	return v.OrganizationId
+}
+
+// GetIsEncrypted returns AttachMemoryToAppAttachMemoryToAppMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *AttachMemoryToAppAttachMemoryToAppMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetMaxRevCount returns AttachMemoryToAppAttachMemoryToAppMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *AttachMemoryToAppAttachMemoryToAppMemory) GetMaxRevCount() int { return v.MaxRevCount }
+
+// GetUpdatedAt returns AttachMemoryToAppAttachMemoryToAppMemory.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AttachMemoryToAppAttachMemoryToAppMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// AttachMemoryToAppResponse is returned by AttachMemoryToApp on success.
+type AttachMemoryToAppResponse struct {
+	// Attach an EXISTING free-standing memory to an App.
+	//
+	// Applies only to 'personal'/'private' memories owned by the caller (an
+	// 'app'-class memory can't be free-standing, so there is nothing to attach).
+	// Sets the App and Agent scope; the memory's URN, class, and owner are
+	// unchanged. memoryRef/appRef/agentRef accept an ID, bare URN, or prefixed
+	// URN; the Agent must be installed in the App. Requires App membership.
+	//
+	// Typed errors: UNSUPPORTED_MEMORY_CLASS, MEMORY_ALREADY_APP_SCOPED,
+	// APP_UNINSTALLED, AGENT_NOT_INSTALLED, FORBIDDEN, ORGANIZATION_MISMATCH.
+	AttachMemoryToApp *AttachMemoryToAppAttachMemoryToAppMemory `json:"attachMemoryToApp"`
+}
+
+// GetAttachMemoryToApp returns AttachMemoryToAppResponse.AttachMemoryToApp, and is useful for accessing the field via an interface.
+func (v *AttachMemoryToAppResponse) GetAttachMemoryToApp() *AttachMemoryToAppAttachMemoryToAppMemory {
+	return v.AttachMemoryToApp
+}
+
 // AuthContextAuthContext includes the requested fields of the GraphQL type AuthContext.
 type AuthContextAuthContext struct {
 	PrincipalType PrincipalType                           `json:"principalType"`
@@ -4100,6 +4172,83 @@ func (v *CreateMemoryCreateMemory) GetMaxRevCount() int { return v.MaxRevCount }
 
 // GetUpdatedAt returns CreateMemoryCreateMemory.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *CreateMemoryCreateMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// CreateMemoryInAppCreateMemoryInAppMemory includes the requested fields of the GraphQL type Memory.
+type CreateMemoryInAppCreateMemoryInAppMemory struct {
+	Id               string            `json:"id"`
+	Urn              string            `json:"urn"`
+	Name             string            `json:"name"`
+	ShortDescription *string           `json:"shortDescription"`
+	Class            MemoryClass       `json:"class"`
+	Visibility       *MemoryVisibility `json:"visibility"`
+	OrganizationId   string            `json:"organizationId"`
+	IsEncrypted      bool              `json:"isEncrypted"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int    `json:"maxRevCount"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+// GetId returns CreateMemoryInAppCreateMemoryInAppMemory.Id, and is useful for accessing the field via an interface.
+func (v *CreateMemoryInAppCreateMemoryInAppMemory) GetId() string { return v.Id }
+
+// GetUrn returns CreateMemoryInAppCreateMemoryInAppMemory.Urn, and is useful for accessing the field via an interface.
+func (v *CreateMemoryInAppCreateMemoryInAppMemory) GetUrn() string { return v.Urn }
+
+// GetName returns CreateMemoryInAppCreateMemoryInAppMemory.Name, and is useful for accessing the field via an interface.
+func (v *CreateMemoryInAppCreateMemoryInAppMemory) GetName() string { return v.Name }
+
+// GetShortDescription returns CreateMemoryInAppCreateMemoryInAppMemory.ShortDescription, and is useful for accessing the field via an interface.
+func (v *CreateMemoryInAppCreateMemoryInAppMemory) GetShortDescription() *string {
+	return v.ShortDescription
+}
+
+// GetClass returns CreateMemoryInAppCreateMemoryInAppMemory.Class, and is useful for accessing the field via an interface.
+func (v *CreateMemoryInAppCreateMemoryInAppMemory) GetClass() MemoryClass { return v.Class }
+
+// GetVisibility returns CreateMemoryInAppCreateMemoryInAppMemory.Visibility, and is useful for accessing the field via an interface.
+func (v *CreateMemoryInAppCreateMemoryInAppMemory) GetVisibility() *MemoryVisibility {
+	return v.Visibility
+}
+
+// GetOrganizationId returns CreateMemoryInAppCreateMemoryInAppMemory.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateMemoryInAppCreateMemoryInAppMemory) GetOrganizationId() string {
+	return v.OrganizationId
+}
+
+// GetIsEncrypted returns CreateMemoryInAppCreateMemoryInAppMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *CreateMemoryInAppCreateMemoryInAppMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetMaxRevCount returns CreateMemoryInAppCreateMemoryInAppMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *CreateMemoryInAppCreateMemoryInAppMemory) GetMaxRevCount() int { return v.MaxRevCount }
+
+// GetUpdatedAt returns CreateMemoryInAppCreateMemoryInAppMemory.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateMemoryInAppCreateMemoryInAppMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// CreateMemoryInAppResponse is returned by CreateMemoryInApp on success.
+type CreateMemoryInAppResponse struct {
+	// Add a NEW memory to an App, born App-scoped.
+	//
+	// Unlike createMemory (which only makes free-standing memories), this scopes
+	// the new memory to an App. memoryClass accepts only the App-associable
+	// classes: 'app', 'personal', or 'private' ('system'/'knowledge'/'group'
+	// forbid an app_id). appRef/agentRef accept an ID, bare URN, or prefixed URN;
+	// the Agent must be installed in the App.
+	//
+	// Authorization is split by class: 'app' is shared deployment data and
+	// requires org OWNER/ADMIN; 'personal'/'private' are the caller's OWN memory
+	// and require only App membership (the caller becomes the owner).
+	//
+	// Typed errors: UNSUPPORTED_MEMORY_CLASS, BAD_USER_INPUT (maxRevCount < 1),
+	// APP_UNINSTALLED, AGENT_NOT_INSTALLED, MEMORY_URN_CONFLICT, FORBIDDEN,
+	// UNAUTHENTICATED.
+	CreateMemoryInApp *CreateMemoryInAppCreateMemoryInAppMemory `json:"createMemoryInApp"`
+}
+
+// GetCreateMemoryInApp returns CreateMemoryInAppResponse.CreateMemoryInApp, and is useful for accessing the field via an interface.
+func (v *CreateMemoryInAppResponse) GetCreateMemoryInApp() *CreateMemoryInAppCreateMemoryInAppMemory {
+	return v.CreateMemoryInApp
+}
 
 // CreateMemoryResponse is returned by CreateMemory on success.
 type CreateMemoryResponse struct {
@@ -12374,6 +12523,22 @@ func (v *__AppsInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __AppsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AppsInput) GetOffset() *int { return v.Offset }
 
+// __AttachMemoryToAppInput is used internally by genqlient
+type __AttachMemoryToAppInput struct {
+	MemoryRef string `json:"memoryRef"`
+	AppRef    string `json:"appRef"`
+	AgentRef  string `json:"agentRef"`
+}
+
+// GetMemoryRef returns __AttachMemoryToAppInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__AttachMemoryToAppInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetAppRef returns __AttachMemoryToAppInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AttachMemoryToAppInput) GetAppRef() string { return v.AppRef }
+
+// GetAgentRef returns __AttachMemoryToAppInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__AttachMemoryToAppInput) GetAgentRef() string { return v.AgentRef }
+
 // __CancelAppRunInput is used internally by genqlient
 type __CancelAppRunInput struct {
 	Id string `json:"id"`
@@ -12657,6 +12822,42 @@ func (v *__CreateMcpServerInput) GetToolAllowlist() *[]string { return v.ToolAll
 
 // GetEnabled returns __CreateMcpServerInput.Enabled, and is useful for accessing the field via an interface.
 func (v *__CreateMcpServerInput) GetEnabled() *bool { return v.Enabled }
+
+// __CreateMemoryInAppInput is used internally by genqlient
+type __CreateMemoryInAppInput struct {
+	AppRef           string      `json:"appRef"`
+	AgentRef         string      `json:"agentRef"`
+	MemoryClass      MemoryClass `json:"memoryClass"`
+	Name             string      `json:"name"`
+	ShortDescription *string     `json:"shortDescription,omitempty"`
+	Description      *string     `json:"description,omitempty"`
+	Tags             *[]string   `json:"tags,omitempty"`
+	MaxRevCount      *int        `json:"maxRevCount,omitempty"`
+}
+
+// GetAppRef returns __CreateMemoryInAppInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInAppInput) GetAppRef() string { return v.AppRef }
+
+// GetAgentRef returns __CreateMemoryInAppInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInAppInput) GetAgentRef() string { return v.AgentRef }
+
+// GetMemoryClass returns __CreateMemoryInAppInput.MemoryClass, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInAppInput) GetMemoryClass() MemoryClass { return v.MemoryClass }
+
+// GetName returns __CreateMemoryInAppInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInAppInput) GetName() string { return v.Name }
+
+// GetShortDescription returns __CreateMemoryInAppInput.ShortDescription, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInAppInput) GetShortDescription() *string { return v.ShortDescription }
+
+// GetDescription returns __CreateMemoryInAppInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInAppInput) GetDescription() *string { return v.Description }
+
+// GetTags returns __CreateMemoryInAppInput.Tags, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInAppInput) GetTags() *[]string { return v.Tags }
+
+// GetMaxRevCount returns __CreateMemoryInAppInput.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInAppInput) GetMaxRevCount() *int { return v.MaxRevCount }
 
 // __CreateMemoryInput is used internally by genqlient
 type __CreateMemoryInput struct {
@@ -14293,6 +14494,55 @@ func Apps(
 	return data_, err_
 }
 
+// The mutation executed by AttachMemoryToApp.
+const AttachMemoryToApp_Operation = `
+mutation AttachMemoryToApp ($memoryRef: ID!, $appRef: ID!, $agentRef: ID!) {
+	attachMemoryToApp(memoryRef: $memoryRef, appRef: $appRef, agentRef: $agentRef) {
+		id
+		urn
+		name
+		shortDescription
+		class
+		visibility
+		organizationId
+		isEncrypted
+		maxRevCount
+		updatedAt
+	}
+}
+`
+
+// Bind an existing free-standing personal/private memory to an App. All refs
+// accept either IDs or URNs and are resolved by the server.
+func AttachMemoryToApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	appRef string,
+	agentRef string,
+) (data_ *AttachMemoryToAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AttachMemoryToApp",
+		Query:  AttachMemoryToApp_Operation,
+		Variables: &__AttachMemoryToAppInput{
+			MemoryRef: memoryRef,
+			AppRef:    appRef,
+			AgentRef:  agentRef,
+		},
+	}
+
+	data_ = &AttachMemoryToAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by AuthContext.
 const AuthContext_Operation = `
 query AuthContext {
@@ -15160,6 +15410,66 @@ func CreateMemory(
 	}
 
 	data_ = &CreateMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateMemoryInApp.
+const CreateMemoryInApp_Operation = `
+mutation CreateMemoryInApp ($appRef: ID!, $agentRef: ID!, $memoryClass: MemoryClass!, $name: String!, $shortDescription: String, $description: String, $tags: [String!], $maxRevCount: Int) {
+	createMemoryInApp(appRef: $appRef, agentRef: $agentRef, memoryClass: $memoryClass, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, maxRevCount: $maxRevCount) {
+		id
+		urn
+		name
+		shortDescription
+		class
+		visibility
+		organizationId
+		isEncrypted
+		maxRevCount
+		updatedAt
+	}
+}
+`
+
+// Create a new App-scoped app/personal/private memory. The server owns URN
+// composition: app-class URNs are name-derived; personal/private use opaque
+// per-owner identities, so this mutation intentionally has no slug argument.
+func CreateMemoryInApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	agentRef string,
+	memoryClass MemoryClass,
+	name string,
+	shortDescription *string,
+	description *string,
+	tags *[]string,
+	maxRevCount *int,
+) (data_ *CreateMemoryInAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateMemoryInApp",
+		Query:  CreateMemoryInApp_Operation,
+		Variables: &__CreateMemoryInAppInput{
+			AppRef:           appRef,
+			AgentRef:         agentRef,
+			MemoryClass:      memoryClass,
+			Name:             name,
+			ShortDescription: shortDescription,
+			Description:      description,
+			Tags:             tags,
+			MaxRevCount:      maxRevCount,
+		},
+	}
+
+	data_ = &CreateMemoryInAppResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

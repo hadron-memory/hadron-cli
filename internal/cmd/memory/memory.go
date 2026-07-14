@@ -28,6 +28,36 @@ type memoryDTO struct {
 	UpdatedAt        string  `json:"updatedAt"`
 }
 
+// memoryResult is the common projection selected by memory mutations. The
+// generated operation structs expose these getters, so commands can share the
+// stable DTO mapping without depending on any one generated type name.
+type memoryResult interface {
+	GetId() string
+	GetUrn() string
+	GetName() string
+	GetShortDescription() *string
+	GetClass() gen.MemoryClass
+	GetVisibility() *gen.MemoryVisibility
+	GetOrganizationId() string
+	GetIsEncrypted() bool
+	GetMaxRevCount() int
+	GetUpdatedAt() string
+}
+
+func dtoFromMemory(m memoryResult) memoryDTO {
+	dto := memoryDTO{
+		ID: m.GetId(), URN: m.GetUrn(), Name: m.GetName(),
+		ShortDescription: m.GetShortDescription(), Class: string(m.GetClass()),
+		OrganizationID: m.GetOrganizationId(), IsEncrypted: m.GetIsEncrypted(),
+		MaxRevCount: m.GetMaxRevCount(), UpdatedAt: m.GetUpdatedAt(),
+	}
+	if m.GetVisibility() != nil {
+		v := string(*m.GetVisibility())
+		dto.Visibility = &v
+	}
+	return dto
+}
+
 func NewCmdMemory(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "memory <command>",
@@ -37,6 +67,7 @@ func NewCmdMemory(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdGet(f))
 	cmd.AddCommand(newCmdSet(f))
+	cmd.AddCommand(newCmdAttach(f))
 	cmd.AddCommand(newCmdSetActive(f))
 	cmd.AddCommand(newCmdRm(f))
 	cmd.AddCommand(newCmdClone(f))

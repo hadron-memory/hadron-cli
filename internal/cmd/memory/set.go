@@ -23,6 +23,8 @@ func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 		description string
 		visibility  string
 		slug        string
+		app         string
+		agent       string
 		tags        []string
 		maxRevCount int
 	)
@@ -32,10 +34,16 @@ func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 		Long: `Create or update a memory.
 
 With a positional memory ID or URN, updates that memory (only the
-fields you pass change). Without one, creates a new memory — --org
-and --name are then required.
+fields you pass change). Without one, creates a new memory. A
+free-standing memory requires --org and --name. An App-scoped memory
+requires --app, --agent, --class, and --name.
 
-On create, the URN slug is derived from --name (kebab-cased, e.g.
+App-scoped creation accepts class app, personal, or private. It has no
+--slug input: app-class URNs are name-derived by the server, while
+personal/private URNs use an opaque per-owner identity. Use memory
+attach to bind an existing free-standing personal/private memory.
+
+On free-standing create, the URN slug is derived from --name (kebab-cased, e.g.
 "Project KB" → project-kb) unless you pass --slug to set it explicitly;
 the resulting URN, class, and visibility are echoed in the output. On
 update, --slug renames the memory — its URN, and therefore the URNs of
@@ -43,9 +51,14 @@ every node under it, change.`,
 		Example: `  hadron memory set --org acme.com --name "Project KB"
   hadron memory set --org acme.com --name "Hadron PDF Tool" --slug hadrontool-pdf
   hadron memory set --org acme.com --name "Notes" --class personal
+  hadron memory set --app acme.com::coach --agent acme.com::agent --class app --name "Runbook"
   hadron memory set acme.com:project-kb --description "Long-form description"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			appScoped := app != "" || agent != ""
+			if (app == "") != (agent == "") {
+				return exitcode.Newf(exitcode.Usage, "--app and --agent must be passed together")
+			}
 			// Pure, so a bad slug is a usage error even offline. Gate on
 			// Changed, not slug != "", so an explicit --slug "" is rejected
 			// (empty is invalid) rather than silently treated as "no slug".
@@ -90,28 +103,47 @@ every node under it, change.`,
 			// rename failed — a partial write we report, then exit non-zero.
 			var slugErr error
 			if len(args) == 0 {
-				if org == "" || name == "" {
-					return exitcode.Newf(exitcode.Usage, "creating a memory requires --org and --name")
-				}
-				var classArg *gen.MemoryClass
-				if class != "" {
-					c := gen.MemoryClass(class)
-					classArg = &c
-				}
-				resp, err := gen.CreateMemory(cmd.Context(), client, org, name, classArg, optional(short), optional(description), tagsArg, visArg, maxRevArg)
-				if err != nil {
-					return api.MapError(err)
-				}
-				created := resp.CreateMemory
-				m = memoryDTO{
-					ID: created.Id, URN: created.Urn, Name: created.Name,
-					ShortDescription: created.ShortDescription, Class: string(created.Class),
-					OrganizationID: created.OrganizationId, IsEncrypted: created.IsEncrypted,
-					MaxRevCount: created.MaxRevCount, UpdatedAt: created.UpdatedAt,
-				}
-				if created.Visibility != nil {
-					v := string(*created.Visibility)
-					m.Visibility = &v
+				if appScoped {
+					if org != "" {
+						return exitcode.Newf(exitcode.Usage, "--org cannot be used with --app/--agent; the App determines the organization")
+					}
+					if visibility != "" {
+						return exitcode.Newf(exitcode.Usage, "--visibility cannot be used with App-scoped creation")
+					}
+					if cmd.Flags().Changed("slug") {
+						return exitcode.Newf(exitcode.Usage, "--slug cannot be used with App-scoped creation; the server assigns the URN")
+					}
+					if name == "" {
+						return exitcode.Newf(exitcode.Usage, "App-scoped creation requires --name")
+					}
+					if class != "app" && class != "personal" && class != "private" {
+						return exitcode.Newf(exitcode.Usage, "App-scoped creation requires --class app, personal, or private")
+					}
+					resp, err := gen.CreateMemoryInApp(cmd.Context(), client, app, agent, gen.MemoryClass(class), name, optional(short), optional(description), tagsArg, maxRevArg)
+					if err != nil {
+						return api.MapError(err)
+					}
+					if resp == nil || resp.CreateMemoryInApp == nil {
+						return exitcode.Newf(exitcode.Error, "server returned no memory")
+					}
+					m = dtoFromMemory(resp.CreateMemoryInApp)
+				} else {
+					if org == "" || name == "" {
+						return exitcode.Newf(exitcode.Usage, "creating a free-standing memory requires --org and --name")
+					}
+					var classArg *gen.MemoryClass
+					if class != "" {
+						c := gen.MemoryClass(class)
+						classArg = &c
+					}
+					resp, err := gen.CreateMemory(cmd.Context(), client, org, name, classArg, optional(short), optional(description), tagsArg, visArg, maxRevArg)
+					if err != nil {
+						return api.MapError(err)
+					}
+					if resp == nil || resp.CreateMemory == nil {
+						return exitcode.Newf(exitcode.Error, "server returned no memory")
+					}
+					m = dtoFromMemory(resp.CreateMemory)
 				}
 				verb = "created"
 				// createMemory has no slug input — it derives the slug from
@@ -119,18 +151,18 @@ every node under it, change.`,
 				// differs (a second call). If that fails, the memory still exists
 				// under its derived slug: keep m as-is, record the error, and
 				// report it as a partial write below.
-				if slug != "" && !memorySlugIs(m.URN, slug) {
+				if !appScoped && slug != "" && !memorySlugIs(m.URN, slug) {
 					if resp, rerr := gen.UpdateMemory(cmd.Context(), client, m.ID, nil, nil, nil, nil, nil, nil, &slug, nil); rerr != nil {
 						slugErr = api.MapError(rerr)
 					} else if resp == nil || resp.UpdateMemory == nil {
 						slugErr = exitcode.Newf(exitcode.Error, "server returned no memory on rename")
 					} else {
-						m = dtoFromUpdatedMemory(resp.UpdateMemory)
+						m = dtoFromMemory(resp.UpdateMemory)
 					}
 				}
 			} else {
-				if org != "" || class != "" {
-					return exitcode.Newf(exitcode.Usage, "--org and --class only apply when creating (no positional argument)")
+				if org != "" || class != "" || appScoped {
+					return exitcode.Newf(exitcode.Usage, "--org, --class, --app, and --agent only apply when creating (no positional argument)")
 				}
 				if name == "" && short == "" && description == "" && visibility == "" && tagsArg == nil && slug == "" && maxRevArg == nil {
 					return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
@@ -150,7 +182,7 @@ every node under it, change.`,
 				if resp == nil || resp.UpdateMemory == nil {
 					return exitcode.Newf(exitcode.Error, "server returned no memory")
 				}
-				m = dtoFromUpdatedMemory(resp.UpdateMemory)
+				m = dtoFromMemory(resp.UpdateMemory)
 				verb = "updated"
 			}
 
@@ -190,29 +222,16 @@ every node under it, change.`,
 	}
 	cmd.Flags().StringVar(&org, "org", "", "organization ID or URN (create only)")
 	cmd.Flags().StringVar(&name, "name", "", "memory name")
-	cmd.Flags().StringVar(&class, "class", "", "memory class: knowledge|group|personal|private (create only; server default: knowledge)")
+	cmd.Flags().StringVar(&class, "class", "", "memory class: knowledge|group|personal|private, or app with --app/--agent (create only; free-standing server default: knowledge)")
 	cmd.Flags().StringVar(&short, "short", "", "short description")
 	cmd.Flags().StringVar(&description, "description", "", "long description")
 	cmd.Flags().StringVar(&visibility, "visibility", "", "visibility: PUBLIC|ORGANIZATION|GROUP (unset uses the server default; the create output echoes the effective value)")
-	cmd.Flags().StringVar(&slug, "slug", "", "URN slug (bare, e.g. hadrontool-pdf): set it explicitly on create instead of deriving from --name; renames the memory on update")
+	cmd.Flags().StringVar(&slug, "slug", "", "URN slug (bare, e.g. hadrontool-pdf): set it on free-standing create instead of deriving from --name; renames the memory on update")
+	cmd.Flags().StringVar(&app, "app", "", "App ID or URN (App-scoped create only; requires --agent)")
+	cmd.Flags().StringVar(&agent, "agent", "", "installed Agent ID or URN (App-scoped create only; requires --app)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "tag (repeatable; replaces tags on update)")
 	cmd.Flags().IntVar(&maxRevCount, "max-rev-count", 0, "per-node revision-history cap (min 1; unset leaves the server default / current value)")
 	return cmd
-}
-
-// dtoFromUpdatedMemory maps an updateMemory result into the stable --json DTO.
-func dtoFromUpdatedMemory(u *gen.UpdateMemoryUpdateMemory) memoryDTO {
-	m := memoryDTO{
-		ID: u.Id, URN: u.Urn, Name: u.Name,
-		ShortDescription: u.ShortDescription, Class: string(u.Class),
-		OrganizationID: u.OrganizationId, IsEncrypted: u.IsEncrypted,
-		MaxRevCount: u.MaxRevCount, UpdatedAt: u.UpdatedAt,
-	}
-	if u.Visibility != nil {
-		v := string(*u.Visibility)
-		m.Visibility = &v
-	}
-	return m
 }
 
 // memorySlugIs reports whether urn's slug (the segment after the final "::")

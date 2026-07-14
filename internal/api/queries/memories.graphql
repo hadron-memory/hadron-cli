@@ -71,6 +71,64 @@ mutation CreateMemory(
   }
 }
 
+# Create a new App-scoped app/personal/private memory. The server owns URN
+# composition: app-class URNs are name-derived; personal/private use opaque
+# per-owner identities, so this mutation intentionally has no slug argument.
+mutation CreateMemoryInApp(
+  $appRef: ID!
+  $agentRef: ID!
+  $memoryClass: MemoryClass!
+  $name: String!
+  # @genqlient(omitempty: true)
+  $shortDescription: String
+  # @genqlient(omitempty: true)
+  $description: String
+  # bound to *[]string so an explicitly-passed empty list still serializes as [].
+  # @genqlient(omitempty: true, bind: "*[]string")
+  $tags: [String!]
+  # @genqlient(omitempty: true)
+  $maxRevCount: Int
+) {
+  createMemoryInApp(
+    appRef: $appRef
+    agentRef: $agentRef
+    memoryClass: $memoryClass
+    name: $name
+    shortDescription: $shortDescription
+    description: $description
+    tags: $tags
+    maxRevCount: $maxRevCount
+  ) {
+    id
+    urn
+    name
+    shortDescription
+    class
+    visibility
+    organizationId
+    isEncrypted
+    maxRevCount
+    updatedAt
+  }
+}
+
+# Bind an existing free-standing personal/private memory to an App. All refs
+# accept either IDs or URNs and are resolved by the server.
+mutation AttachMemoryToApp($memoryRef: ID!, $appRef: ID!, $agentRef: ID!) {
+  attachMemoryToApp(memoryRef: $memoryRef, appRef: $appRef, agentRef: $agentRef) {
+    id
+    urn
+    name
+    shortDescription
+    class
+    visibility
+    organizationId
+    isEncrypted
+    maxRevCount
+    updatedAt
+  }
+}
+
 # Omitted = preserve; flags the user didn't pass must not reach the wire.
 mutation UpdateMemory(
   $id: ID!

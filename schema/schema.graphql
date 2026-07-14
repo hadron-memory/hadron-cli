@@ -672,6 +672,88 @@ input BeginAssetUploadV2Input {
   uploadRequestId: String
 }
 
+type CalendarAttendee {
+  address: String!
+  name: String
+  optional: Boolean!
+  response: CalendarEventResponse!
+}
+
+type CalendarEvent {
+  attendees: [CalendarAttendee!]!
+  calendarId: String!
+  createdAt: String
+  description: String
+  end: CalendarEventTime!
+  id: ID!
+  isAllDay: Boolean!
+
+  """True when the connected account organized the event."""
+  isOrganizer: Boolean!
+  location: String
+
+  """The connected account's own response; null when it is not an attendee."""
+  myResponse: CalendarEventResponse
+  organizer: CalendarPerson
+
+  """Series id when this is an instance of a recurring event."""
+  seriesId: ID
+  start: CalendarEventTime!
+
+  """confirmed, tentative, or cancelled (provider-neutral vocabulary)."""
+  status: String!
+  title: String
+  updatedAt: String
+  webLink: String
+}
+
+"""Provider-neutral attendee response. NONE = invited, not yet answered."""
+enum CalendarEventResponse {
+  ACCEPTED
+  DECLINED
+  NONE
+  TENTATIVE
+}
+
+"""
+An event boundary: exactly one of dateTime (timed, with timeZone) or
+date (YYYY-MM-DD, all-day) is set.
+"""
+type CalendarEventTime {
+  date: String
+  dateTime: String
+  timeZone: String
+}
+
+"""
+An event boundary for create/update: exactly one of dateTime (timed) or
+date (YYYY-MM-DD, all-day). A dateTime needs timeZone unless it carries
+its own UTC offset — a zone-less value is rejected, never guessed.
+"""
+input CalendarEventTimeInput {
+  date: String
+  dateTime: String
+  timeZone: String
+}
+
+"""One calendar the connected account can see."""
+type CalendarInfo {
+  """True when the connected account may create/modify events here."""
+  canEdit: Boolean!
+  description: String
+  id: ID!
+
+  """True for the account's primary calendar (the default calendarId)."""
+  isPrimary: Boolean!
+  name: String!
+  timeZone: String
+}
+
+type CalendarPerson {
+  address: String
+  name: String
+}
+
 type Chat {
   conversationName: String
   createdAt: String!
@@ -1198,6 +1280,54 @@ type GraphNodesPage {
   total: Int!
 }
 
+type HomeAssistantInstance {
+  createdAt: String!
+  createdBy: String
+
+  """
+  Disabled instances fail run-tool resolution loud, same as an unregistered slug.
+  """
+  enabled: Boolean!
+  id: ID!
+  name: String!
+
+  """
+  Exposed-op allowlist over the closed op catalog; empty = every op. Lets an admin register a read-only instance.
+  """
+  opAllowlist: [String!]!
+  organizationId: String!
+
+  """
+  Run-tool name segment (ha__<slug>__<op>); lowercase [a-z0-9-], unique per org, immutable.
+  """
+  slug: String!
+  updatedAt: String!
+  updatedBy: String
+
+  """
+  Home Assistant base URL (e.g. https://ha.example.com or a Nabu Casa remote URL).
+  """
+  url: String!
+}
+
+type HomeAssistantInstancesPage {
+  items: [HomeAssistantInstance!]!
+  total: Int!
+}
+
+type HomeAssistantOp {
+  description: String!
+
+  """The op's argument JSON Schema."""
+  inputSchema: JSON
+
+  """The op segment, e.g. call_service."""
+  op: String!
+
+  """The run-tool / policy name: ha__<slug>__<op>."""
+  runToolName: String!
+}
+
 enum IdentifyUserMethod {
   SECRET
   USER_ID
@@ -1660,6 +1790,18 @@ input MergeNodesInput {
   target: String!
 }
 
+input MergeUsersInput {
+  """
+  Source user — ID, bare handle, or fully-qualified user URN. Folded into 'target' and soft-deleted.
+  """
+  source: String!
+
+  """
+  Target user — ID, bare handle, or fully-qualified user URN. The surviving user; target wins non-combinable conflicts while roles preserve the strongest live entitlement.
+  """
+  target: String!
+}
+
 input MintActionTicketsInput {
   """v1: comm.outbound only."""
   action: String!
@@ -1734,8 +1876,54 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   addToMyMemories(memoryId: ID!): Boolean!
+
+  """
+  Attach an EXISTING free-standing memory to an App.
+
+  Applies only to 'personal'/'private' memories owned by the caller (an
+  'app'-class memory can't be free-standing, so there is nothing to attach).
+  Sets the App and Agent scope; the memory's URN, class, and owner are
+  unchanged. memoryRef/appRef/agentRef accept an ID, bare URN, or prefixed
+  URN; the Agent must be installed in the App. Requires App membership.
+
+  Typed errors: UNSUPPORTED_MEMORY_CLASS, MEMORY_ALREADY_APP_SCOPED,
+  APP_UNINSTALLED, AGENT_NOT_INSTALLED, FORBIDDEN, ORGANIZATION_MISMATCH.
+  """
+  attachMemoryToApp(agentRef: ID!, appRef: ID!, memoryRef: ID!): Memory!
   beginAssetUpload(input: BeginAssetUploadInput!): BeginAssetUploadResult!
   beginAssetUploadV2(input: BeginAssetUploadV2Input!): BeginAssetUploadResult!
+
+  """
+  Create an event. calendarId defaults to the primary calendar. Owner-only.
+  """
+  calendarCreateEvent(
+    """Attendee email addresses."""
+    attendees: [String!]
+    calendarId: String
+    connectionRef: ID!
+    description: String
+    end: CalendarEventTimeInput!
+    idempotencyKey: String
+    location: String
+    notifyAttendees: Boolean
+    start: CalendarEventTimeInput!
+    title: String!
+  ): CalendarEvent!
+
+  """Delete (cancel) an event. Owner-only."""
+  calendarDeleteEvent(calendarId: String, connectionRef: ID!, eventId: ID!, idempotencyKey: String, notifyAttendees: Boolean): Boolean!
+
+  """
+  Set the connected account's own RSVP on an event it was invited to
+  (ACCEPTED / DECLINED / TENTATIVE — NONE is not a settable response).
+  Owner-only.
+  """
+  calendarRespondToEvent(calendarId: String, connectionRef: ID!, eventId: ID!, response: CalendarEventResponse!): CalendarEvent!
+
+  """
+  Patch an event — absent fields stay unchanged; attendees replaces the set. Owner-only.
+  """
+  calendarUpdateEvent(attendees: [String!], calendarId: String, connectionRef: ID!, description: String, end: CalendarEventTimeInput, eventId: ID!, idempotencyKey: String, location: String, notifyAttendees: Boolean, start: CalendarEventTimeInput, title: String): CalendarEvent!
 
   """
   The kill switch manual handle: PENDING/RUNNING to CANCELLED (cor:agt:010:02).
@@ -1787,6 +1975,13 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   createAgent(description: String, name: String!, orgId: ID!, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, visibility: AgentVisibility): Agent!
+
+  """
+  Subscribe an organization to a PUBLIC Agent without creating an App.
+
+  Accepts the entity's ID or URN.
+  """
+  createAgentOrgGrant(agentRef: ID!, orgRef: ID!): AgentOrgGrant!
   createAgentSchedule(input: CreateAgentScheduleInput!): AgentSchedule!
 
   """
@@ -1884,6 +2079,15 @@ type Mutation {
   createEdge(condition: JSON, data: JSON, description: String, isRunnable: Boolean, loc: String, name: String, priority: Int, sourceRef: ID!, targetRef: ID!): Edge!
 
   """
+  Register a Home Assistant instance (org ADMIN/OWNER). orgRef accepts
+  ID or URN (cor:api:140). accessToken is an HA long-lived access token
+  — encrypted at rest, write-only, never returned. Registration grants
+  nothing by itself: runs still need the policy chain to allow
+  tool.ha__<slug>__<op>.
+  """
+  createHomeAssistantInstance(accessToken: String!, enabled: Boolean, name: String!, opAllowlist: [String!], orgRef: ID!, slug: String!, url: String!): HomeAssistantInstance!
+
+  """
   Register an external MCP server (org ADMIN/OWNER). orgRef accepts ID
   or URN (cor:api:140). headers is a JSON object of static request
   headers (e.g. Authorization) — encrypted at rest, write-only, never
@@ -1946,6 +2150,25 @@ type Mutation {
     visibility: MemoryVisibility
     writeBranch: String
   ): Memory!
+
+  """
+  Add a NEW memory to an App, born App-scoped.
+
+  Unlike createMemory (which only makes free-standing memories), this scopes
+  the new memory to an App. memoryClass accepts only the App-associable
+  classes: 'app', 'personal', or 'private' ('system'/'knowledge'/'group'
+  forbid an app_id). appRef/agentRef accept an ID, bare URN, or prefixed URN;
+  the Agent must be installed in the App.
+
+  Authorization is split by class: 'app' is shared deployment data and
+  requires org OWNER/ADMIN; 'personal'/'private' are the caller's OWN memory
+  and require only App membership (the caller becomes the owner).
+
+  Typed errors: UNSUPPORTED_MEMORY_CLASS, BAD_USER_INPUT (maxRevCount < 1),
+  APP_UNINSTALLED, AGENT_NOT_INSTALLED, MEMORY_URN_CONFLICT, FORBIDDEN,
+  UNAUTHENTICATED.
+  """
+  createMemoryInApp(agentRef: ID!, appRef: ID!, data: JSON, description: String, embeddingSource: EmbeddingSource, maxRevCount: Int, memoryClass: MemoryClass!, name: String!, shortDescription: String, tags: [String!], vectorIndexEnabled: Boolean): Memory!
 
   """
   023-app-shape US3 — asymmetric cross-user grant on a personal-class
@@ -2060,6 +2283,11 @@ type Mutation {
   deleteChat(chatId: String!): Boolean!
   deleteEdge(edgeRef: ID!): Boolean!
   deleteExchangeConnection(id: ID!): Boolean!
+
+  """
+  Hard-delete a registered Home Assistant instance (org ADMIN/OWNER); runs referencing its ops fail loud afterwards.
+  """
+  deleteHomeAssistantInstance(ref: ID!): Boolean!
 
   """
   Hard-delete a registered MCP server (org ADMIN/OWNER); runs referencing its tools fail loud afterwards.
@@ -2278,6 +2506,7 @@ type Mutation {
   linkMemoryToUser(dataKey: String, externalUserId: String!, memoryId: ID!): Memory!
   mergeMemories(input: MergeMemoriesInput!): Memory!
   mergeNodes(input: MergeNodesInput!): Node!
+  mergeUsers(input: MergeUsersInput!): User!
 
   """
   Mint comm.outbound tickets into the org ledger (org-ADMIN; cor:acl:050:04).
@@ -2391,6 +2620,13 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   restoreRevision(agentId: ID!, revisionLoc: String!): RevisionResult!
+
+  """
+  Revoke an organization's Agent subscription without deleting install state.
+
+  Accepts the entity's ID or URN.
+  """
+  revokeAgentOrgGrant(agentRef: ID!, orgRef: ID!): AgentOrgGrant!
 
   """
   005-agent-subscription FR-023 + FR-028 + FR-029: revoke a user's
@@ -2544,6 +2780,14 @@ type Mutation {
   updateApp(agentTools: [String!], aiApiKey: String, aiModel: String, aiProvider: String, anonymousTtlDays: Int, appType: AppType, createUserPermission: CreateUserPermission, description: String, expiresAt: String, id: ID!, identifyUserMethod: IdentifyUserMethod, name: String, role: AppMembershipRole, sessionTimeoutSeconds: Int, surfaces: [String!], systemPrompt: String, trainingMode: Boolean, urn: String): App!
   updateChatTitle(chatId: String!, title: String!): Boolean!
   updateEdge(condition: JSON, data: JSON, description: String, edgeRef: ID!, isRunnable: Boolean, loc: String, name: String, priority: Int): Edge!
+
+  """
+  Update a registered Home Assistant instance (org ADMIN/OWNER). The
+  slug is immutable — flow nodes reference it in data.tools names.
+  accessToken REPLACES the stored token (never cleared: an instance
+  without a token is unusable).
+  """
+  updateHomeAssistantInstance(accessToken: String, enabled: Boolean, name: String, opAllowlist: [String!], ref: ID!, url: String): HomeAssistantInstance!
 
   """
   Update a registered MCP server (org ADMIN/OWNER). The slug is
@@ -3299,6 +3543,36 @@ type Query {
   AuthContext type for the full security posture.
   """
   authContext: AuthContext
+
+  """One event by id. Grant scope: calendar.read."""
+  calendarEvent(calendarId: String, connectionRef: ID!, eventId: ID!): CalendarEvent!
+
+  """
+  Events in a time window (recurring events expand to instances, ordered
+  chronologically). start/end are RFC 3339; calendarId defaults to the
+  account's primary calendar. Grant scope: calendar.read.
+  """
+  calendarEvents(
+    calendarId: String
+    connectionRef: ID!
+    end: String
+
+    """Free-text search over event fields."""
+    query: String
+    start: String
+    top: Int
+  ): [CalendarEvent!]!
+
+  """
+  Free/busy intervals for one or more schedules (calendar ids or addresses
+  the account can read; defaults to the account's primary calendar).
+  Structurally capped at yes/no busy windows — never event contents.
+  Grant scope: calendar.freebusy.
+  """
+  calendarSchedule(connectionRef: ID!, end: String!, schedules: [String!], start: String!): [ScheduleFreeBusy!]!
+
+  """Calendars the connected account can see. Grant scope: calendar.read."""
+  calendars(connectionRef: ID!): [CalendarInfo!]!
   chatHistory(chatId: String!, limit: Int): [ChatMessage!]!
 
   """
@@ -3453,6 +3727,31 @@ type Query {
   GlobalSearchResult.total.
   """
   globalSearch(entityTypes: [SearchEntityType!], fields: [SearchField!], limit: Int, offset: Int, orgId: ID, query: String!): GlobalSearchResult!
+
+  """
+  Fetch one registered Home Assistant instance (org member). Null when
+  the row does not exist OR the caller is not a member of its org — no
+  existence disclosure.
+  """
+  homeAssistantInstance(ref: ID!): HomeAssistantInstance
+
+  """
+  The ops one registered instance exposes (the closed catalog filtered
+  by the row's allowlist) — what authors browse to pick data.tools
+  entries; what this returns IS what a run can call. Null when the row
+  does not exist or the caller is not a member of its org; a disabled
+  instance errors with HA_INSTANCE_DISABLED.
+  """
+  homeAssistantInstanceOps(ref: ID!): [HomeAssistantOp!]
+
+  """
+  Uniform paginated Home Assistant instance list (cor:api:120). Default
+  scope: the caller's member orgs. orgId follows cor:api:100:01 (member
+  -> that org, non-member -> empty page, no disclosure, no admin
+  bypass). Slug-ascending order (id tiebreak); limit default 50 / cap
+  200; limit: 0 -> count only.
+  """
+  homeAssistantInstances(limit: Int, offset: Int, orgId: ID): HomeAssistantInstancesPage!
   invitation(slug: String!): UserInvitation
 
   """
@@ -3812,7 +4111,7 @@ type Query {
 Usage-vs-limit for one scope x action window (#510). The stored limit is the enforced value; env defaults only seed first touch.
 """
 type QuotaCounter {
-  """run.execute or llm.tokens."""
+  """run.execute, llm.tokens, or sms.send."""
   action: String!
   id: ID!
   limit: Int!
@@ -3873,6 +4172,22 @@ enum Role {
   CONTRIBUTOR
   OWNER
   READER
+}
+
+type ScheduleBusyInterval {
+  end: String!
+  start: String!
+}
+
+"""Free/busy intervals for one requested schedule (calendarSchedule)."""
+type ScheduleFreeBusy {
+  busy: [ScheduleBusyInterval!]!
+
+  """
+  Set when the provider could not resolve this schedule; the query still succeeds for the others.
+  """
+  error: String
+  id: ID!
 }
 
 """
@@ -4078,7 +4393,7 @@ input SetAiModelPriceInput {
 }
 
 input SetQuotaLimitInput {
-  """run.execute or llm.tokens."""
+  """run.execute, llm.tokens, or sms.send."""
   action: String!
 
   """

@@ -60,7 +60,7 @@ node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 
 ```
 hadron auth login | logout | whoami | status | token create|ls|validate|revoke <id>
-hadron memory ls | get <id-or-urn> | set [<id-or-urn>] [--max-rev-count <n>] | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn <org::slug> | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
+hadron memory ls | get <id-or-urn> | set [<id-or-urn>] [--max-rev-count <n>] [--app <ref> --agent <ref>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn <org::slug> | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
 hadron node ls [-m <memory>] | get <urn> | add | update <urn> | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
 hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--reply-to <loc>] [--handle <h>] [--identity <i>] [--role <r>]
@@ -98,7 +98,7 @@ Conventions:
   instead of a round-trip.
 - Memory references accept the memory id, the full `hrn:memory:<org>::<slug>`
   URN, or the short `<org>::<slug>` / `<org>:<slug>` forms (all resolve to the
-  same memory) across `memory get|set|rm|member|share|export`.
+  same memory) across `memory get|set|attach|rm|member|share|export`.
 - Node references are fully-qualified URNs
   `<org>::<memory>::<loc>` (double-colon between segments — e.g.
   `hadronmemory.com::dev::start-here`), optionally `hrn:node:`-prefixed (legacy
@@ -131,14 +131,23 @@ Conventions:
   ciphertext in one transaction. It is ONE-WAY — there is no decrypt command —
   so keep the key. Reads by authorized callers stay transparent afterward.
 - `memory set` creates when called without a positional argument
-  (requires `--org` and `--name`) and updates when given one. Only
-  fields passed as flags change. The URN slug is kebab-derived from
+  and updates when given one. Free-standing create requires `--org` and
+  `--name`. App-scoped create requires `--app <ref> --agent <ref> --class
+  app|personal|private --name <name>`; both refs accept an ID or URN, and the
+  Agent must be installed in the App. Only fields passed as flags change. The
+  free-standing URN slug is kebab-derived from
   `--name` on create (`"Project KB"` → `project-kb`) unless you pass
   `--slug <bare-slug>` to set it explicitly; on update, `--slug` renames
   the memory (its URN — and every node URN under it — changes). Because
   `createMemory` has no slug input, `--slug` on create is a create plus a
   rename: if the rename fails the memory still exists under its derived
-  slug and the command exits non-zero (a partial write).
+  slug and the command exits non-zero (a partial write). App-scoped create
+  rejects `--slug`: App-class URNs are name-derived by the server, while
+  personal/private URNs use a per-owner opaque id.
+- `memory attach <memory> --app <ref> --agent <ref>` binds an existing
+  free-standing personal/private memory to that App/installed Agent. The
+  memory must be caller-owned and keeps its URN, class, and owner; server typed
+  errors report already-scoped, cross-org, membership, and install failures.
 - `node add` fails if the loc already exists; `node update` modifies
   an existing node and preserves unset fields. Content comes from
   `--content "<text>"`, `--content -` (stdin), or `--content-file`;
