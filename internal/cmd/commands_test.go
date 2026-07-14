@@ -1173,6 +1173,136 @@ func TestMemorySetCreate(t *testing.T) {
 	}
 }
 
+func TestMemorySetCreateInApp(t *testing.T) {
+	appMemoryJSON := `{"id":"m2","urn":"acme.com::coach:agent:app-mem:runbook","name":"Runbook","shortDescription":"Shared ops",
+		"class":"app","visibility":null,"organizationId":"o1",
+		"isEncrypted":false,"maxRevCount":25,"updatedAt":"2026-07-14T00:00:00Z"}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateMemoryInApp": `{"data":{"createMemoryInApp":` + appMemoryJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "set", "--app", "acme.com::coach", "--agent", "acme.com::agent",
+		"--class", "app", "--name", "Runbook", "--short", "Shared ops", "--tag", "ops",
+		"--max-rev-count", "25", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateMemoryInApp"], &vars)
+	for key, want := range map[string]any{
+		"appRef": "acme.com::coach", "agentRef": "acme.com::agent",
+		"memoryClass": "app", "name": "Runbook", "shortDescription": "Shared ops",
+		"maxRevCount": float64(25),
+	} {
+		if vars[key] != want {
+			t.Errorf("%s = %v, want %v (all vars: %v)", key, vars[key], want, vars)
+		}
+	}
+	if _, present := vars["orgId"]; present {
+		t.Errorf("App-scoped create must not send orgId: %v", vars)
+	}
+	if _, present := vars["visibility"]; present {
+		t.Errorf("App-scoped create must not send visibility: %v", vars)
+	}
+	if _, present := vars["description"]; present {
+		t.Errorf("unset optional description must be omitted, not sent as null: %v", vars)
+	}
+	tags, _ := vars["tags"].([]any)
+	if len(tags) != 1 || tags[0] != "ops" {
+		t.Errorf("unexpected tags: %v", vars["tags"])
+	}
+
+	var dto map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("invalid JSON output: %v\n%s", err, out.String())
+	}
+	if dto["urn"] != "acme.com::coach:agent:app-mem:runbook" || dto["class"] != "app" {
+		t.Errorf("unexpected stable memory DTO: %v", dto)
+	}
+}
+
+func TestMemorySetCreateInAppValidatesFlags(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"paired refs", []string{"--app", "app1", "--class", "app", "--name", "Runbook"}, "--app and --agent"},
+		{"class required", []string{"--app", "app1", "--agent", "agent1", "--name", "Runbook"}, "requires --class"},
+		{"supported class", []string{"--app", "app1", "--agent", "agent1", "--class", "knowledge", "--name", "KB"}, "requires --class app, personal, or private"},
+		{"org rejected", []string{"--app", "app1", "--agent", "agent1", "--class", "app", "--name", "Runbook", "--org", "acme.com"}, "--org cannot be used"},
+		{"visibility rejected", []string{"--app", "app1", "--agent", "agent1", "--class", "app", "--name", "Runbook", "--visibility", "ORGANIZATION"}, "--visibility cannot be used"},
+		{"slug rejected", []string{"--app", "app1", "--agent", "agent1", "--class", "app", "--name", "Runbook", "--slug", "runbook"}, "--slug cannot be used"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			args := append([]string{"memory", "set"}, tt.args...)
+			args = append(args, "--server", "http://127.0.0.1:1")
+			root.SetArgs(args)
+			err := root.Execute()
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("expected %q error, got %v", tt.want, err)
+			}
+		})
+	}
+}
+
+func TestMemorySetCreateRejectsAppAndSystemClassesWithoutApp(t *testing.T) {
+	for _, class := range []string{"app", "system"} {
+		t.Run(class, func(t *testing.T) {
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "KB", "--class", class, "--server", "http://127.0.0.1:1"})
+			err := root.Execute()
+			if err == nil || !strings.Contains(err.Error(), "free-standing creation does not support --class "+class) {
+				t.Fatalf("expected free-standing %s-class usage error, got %v", class, err)
+			}
+		})
+	}
+}
+
+func TestMemoryAttach(t *testing.T) {
+	attachedJSON := `{"id":"m3","urn":"acme.com::my-notes","name":"My notes","shortDescription":null,
+		"class":"personal","visibility":null,"organizationId":"o1",
+		"isEncrypted":false,"maxRevCount":10,"updatedAt":"2026-07-14T00:00:00Z"}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"AttachMemoryToApp": `{"data":{"attachMemoryToApp":` + attachedJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "attach", "acme.com::my-notes", "--app", "app1", "--agent", "agent1", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	var vars map[string]any
+	_ = json.Unmarshal(captured["AttachMemoryToApp"], &vars)
+	if vars["memoryRef"] != "hrn:memory:acme.com::my-notes" || vars["appRef"] != "app1" || vars["agentRef"] != "agent1" {
+		t.Errorf("unexpected attach refs: %v", vars)
+	}
+	var dto map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("invalid JSON output: %v\n%s", err, out.String())
+	}
+	if dto["urn"] != "acme.com::my-notes" || dto["class"] != "personal" {
+		t.Errorf("unexpected stable memory DTO: %v", dto)
+	}
+}
+
+func TestMemoryAttachRequiresAppAndAgent(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "attach", "m1", "--app", "app1", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "requires --app and --agent") {
+		t.Fatalf("expected required-ref usage error, got %v", err)
+	}
+}
+
 // A short memory ref (single- or double-colon org:slug) must normalize to the
 // canonical hrn:memory URN the server's memory(ref:) accepts, instead of failing
 // as "not found" (#108).
