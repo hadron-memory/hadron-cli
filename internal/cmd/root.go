@@ -122,5 +122,9 @@ func isUsageError(err error) bool {
 	return strings.HasPrefix(msg, "unknown command") ||
 		strings.HasPrefix(msg, "unknown flag") ||
 		strings.HasPrefix(msg, "accepts ") ||
-		strings.HasPrefix(msg, "requires ")
+		strings.HasPrefix(msg, "requires ") ||
+		// cobra's MarkFlagRequired failure ("required flag(s) \"x\" not set") —
+		// a missing required flag is a usage error, so it must exit 2 like the
+		// other flag/arg validation failures, not the generic error code.
+		strings.HasPrefix(msg, "required flag")
 }

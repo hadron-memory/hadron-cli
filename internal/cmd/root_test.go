@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -217,6 +218,27 @@ func TestAuthStatus(t *testing.T) {
 	}
 	if !dto.Authenticated || dto.PrincipalType != "USER" || dto.Key == nil || dto.Key.KeyPreview != "hdrk_ab1" {
 		t.Errorf("unexpected status: %s", out.String())
+	}
+}
+
+// isUsageError classifies cobra's flag/arg validation failures so they exit 2
+// (usage), not 1 (generic). A missing required flag — cobra's MarkFlagRequired
+// message — must be among them, so a command that marks a flag required exits 2.
+func TestIsUsageErrorClassifiesRequiredFlag(t *testing.T) {
+	usage := []string{
+		`required flag(s) "into" not set`,
+		"unknown command \"x\" for \"hadron\"",
+		"unknown flag: --bogus",
+		"accepts 1 arg(s), received 0",
+		"requires at least 1 arg(s), only received 0",
+	}
+	for _, m := range usage {
+		if !isUsageError(errors.New(m)) {
+			t.Errorf("isUsageError(%q) = false, want true", m)
+		}
+	}
+	if isUsageError(errors.New("some unrelated runtime failure")) {
+		t.Error("isUsageError misclassified a non-usage error")
 	}
 }
 

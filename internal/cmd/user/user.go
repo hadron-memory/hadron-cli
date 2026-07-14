@@ -50,6 +50,91 @@ func NewCmdUser(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Look up users",
 	}
 	cmd.AddCommand(newCmdSearch(f))
+	cmd.AddCommand(newCmdMerge(f))
+	return cmd
+}
+
+// newCmdMerge builds `hadron user merge <source> --into <target>` over the
+// server's mergeUsers mutation — a global, irreversible consolidation of a
+// duplicate source user into a surviving target. The direction is fixed:
+// <source> is soft-deleted, --into <target> survives.
+func newCmdMerge(f *cmdutil.Factory) *cobra.Command {
+	var into string
+	var yes bool
+	cmd := &cobra.Command{
+		Use:   "merge <source> --into <target> [--yes]",
+		Short: "Merge a duplicate user into a surviving one (global, irreversible)",
+		Long: `Consolidate a duplicate SOURCE user into a surviving TARGET user.
+
+The direction is unmistakable: <source> is consumed and soft-deleted; the
+--into <target> survives. Each reference accepts a user id, a bare handle, or a
+fully-qualified hrn:user:<handle> URN, and is passed through verbatim — the
+server resolves it.
+
+The source's identities, memberships, owned data, credentials, grants, and
+connections move to the target; the source loses its unique login identifiers
+and is soft-deleted. This is a global, irreversible consolidation with no
+server-side dry-run, so it prompts for confirmation on a terminal and requires
+--yes to run non-interactively — the confirmation is the last local safety
+boundary.
+
+Authorization is enforced by the server (platform ADMIN/OWNER, or an
+organization ADMIN/OWNER when source and target are both live members of an
+organization you administer); the CLI adds no local authorization or collision
+checks. Spec cor:api:010:02.`,
+		Example: `  hadron user merge dup-handle --into canonical-handle --yes
+  hadron user merge usr_0abc --into alice --json`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Validate refs before anything else so a bad invocation is a usage
+			// error, and confirm before any GraphQL request so a cancellation
+			// makes no call. References pass through verbatim; the server resolves
+			// and authorizes them.
+			// Normalize both refs once (trim surrounding whitespace) and use the
+			// normalized values everywhere — the prompt, and the GraphQL variables.
+			// MarkFlagRequired below catches a missing --into; this still catches a
+			// whitespace-only one.
+			source := strings.TrimSpace(args[0])
+			into = strings.TrimSpace(into)
+			if source == "" {
+				return exitcode.Newf(exitcode.Usage, "source user must not be empty")
+			}
+			if into == "" {
+				return exitcode.Newf(exitcode.Usage, "specify the surviving user with --into <ref> (id, handle, or hrn:user:<handle>)")
+			}
+
+			prompt := fmt.Sprintf("About to merge user %s into %s. %s will be soft-deleted; this is a global, irreversible consolidation.", source, into, source)
+			if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
+				return err
+			}
+
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.MergeUsers(cmd.Context(), client, source, into)
+			if err != nil {
+				return api.MapError(err)
+			}
+			// mergeUsers is declared User! so a conformant server never returns
+			// null without an error, but guard the deref rather than panic on a
+			// misbehaving one.
+			if resp == nil || resp.MergeUsers == nil {
+				return exitcode.Newf(exitcode.Error, "merge returned no user")
+			}
+			dto := userDTOFromFields(resp.MergeUsers.UserFields)
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				// Lead with the surviving user's stable id (handle/email may be
+				// empty), matching how the other user commands identify the entity.
+				_, err := fmt.Fprintf(w, "✓ merged %s into surviving user %s (handle: %s, email: %s)\n",
+					source, dto.ID, dash(dto.Handle), dash(dto.Email))
+				return err
+			})
+		},
+	}
+	cmd.Flags().StringVar(&into, "into", "", "the surviving target user (id, handle, or hrn:user:<handle>)")
+	_ = cmd.MarkFlagRequired("into")
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	return cmd
 }
 
