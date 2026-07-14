@@ -50,6 +50,8 @@ generic node/edge primitives. Every subcommand takes -m/--memory.`,
 	cmd.AddCommand(newCmdDescribe(f))
 	cmd.AddCommand(newCmdRegister(f))
 	cmd.AddCommand(newCmdFind(f))
+	cmd.AddCommand(newCmdGrep(f))
+	cmd.AddCommand(newCmdReplace(f))
 	cmd.AddCommand(newCmdNew(f))
 	cmd.AddCommand(newCmdEdit(f))
 	cmd.AddCommand(newCmdExtract(f))
