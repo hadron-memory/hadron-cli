@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -88,6 +89,29 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			if hasTag(oldNode.Tags, supersededTag) {
 				return exitcode.Newf(exitcode.Usage, "%q is already superseded", oldNode.Loc)
 			}
+			if successorLoc, ok := existingSupersededByTarget(oldNode); ok {
+				result := supersedeResultDTO{
+					Old: oldCit.Format(), New: successorLoc, MemoryID: memURN,
+					Name: specName(oldCit, title), Tags: specTags(semanticTags(oldNode.Tags)), DryRun: dryRun,
+					Edges: []supersedeEdgeDTO{{Label: supersededByLabel, Target: oldCit.Format() + " → " + successorLoc, Status: edgeStatusCreated}},
+				}
+				render := func(w io.Writer) error { return renderSupersede(w, result) }
+				if dryRun {
+					return output.Write(f.IOStreams, f.JSON, result, render)
+				}
+				if err := cmdutil.Confirm(f.IOStreams, yes,
+					fmt.Sprintf("Finish retiring %s as superseded by %s?", oldCit.Format(), successorLoc)); err != nil {
+					return err
+				}
+				if rerr := retireSupersededSpec(cmd, client, oldNode, successorLoc, reason); rerr != nil {
+					_ = output.Write(f.IOStreams, f.JSON, result, render)
+					return exitcode.Newf(exitcode.Error,
+						"%s is already linked to %s but the old spec could not be tagged retired: %v; rerun this command to retry the retirement update",
+						oldCit.Format(), successorLoc, api.MapError(rerr))
+				}
+				fmt.Fprintf(f.IOStreams.ErrOut, "reminder: update the register — mark %s retired and add %s to the ledger.\n", oldCit.Format(), successorLoc)
+				return output.Write(f.IOStreams, f.JSON, result, render)
+			}
 
 			// Scan the module subtree for allocation + parent checks. Paged to
 			// exhaustion — a truncated scan here would make the replacement
@@ -113,9 +137,16 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				allLocs = append(allLocs, n.Loc)
 			}
 
-			newTarget, parentLoc, inheritLoc, err := planReplacement(oldCit, feature, ruleAfter, locs, allLocs)
-			if err != nil {
-				return err
+			reusingExistingReplacement := false
+			newTarget, foundExistingReplacement := findExistingReplacementCandidate(oldCit, feature, ruleAfter, title, all)
+			var parentLoc, inheritLoc string
+			if foundExistingReplacement {
+				reusingExistingReplacement = true
+			} else {
+				newTarget, parentLoc, inheritLoc, err = planReplacement(oldCit, feature, ruleAfter, locs, allLocs)
+				if err != nil {
+					return err
+				}
 			}
 
 			newTags := specTags(semanticTags(oldNode.Tags))
@@ -148,28 +179,37 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			}
 
 			// 1. Create the replacement.
-			body := rubricBody(newTarget, title)
-			abs := placeholderAbstract(newTarget, title)
-			if copyBody {
-				if oldNode.Content != nil {
-					body = *oldNode.Content
+			var newID string
+			if reusingExistingReplacement {
+				newID, err = resolveSpecNode(cmd, client, memURN, newTarget.Format())
+				if err != nil {
+					return err
 				}
-				if abstractPresent(oldNode.Abstract) {
-					abs = *oldNode.Abstract
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: reusing existing replacement %s; finishing retirement\n", newTarget.Format())
+			} else {
+				body := rubricBody(newTarget, title)
+				abs := placeholderAbstract(newTarget, title)
+				if copyBody {
+					if oldNode.Content != nil {
+						body = *oldNode.Content
+					}
+					if abstractPresent(oldNode.Abstract) {
+						abs = *oldNode.Abstract
+					}
 				}
+				nodeType := "info"
+				in := gen.CreateNodeInput{
+					MemoryId: memURN, Loc: newTarget.Format(), Name: name,
+					Tags: newTags, NodeType: &nodeType,
+					Abstract: &abs, Content: &body, Data: specDataRaw(),
+					Seq: specSeq(newTarget),
+				}
+				up, err := gen.CreateNode(cmd.Context(), client, &in)
+				if err != nil {
+					return api.MapError(err)
+				}
+				newID = up.CreateNode.Id
 			}
-			nodeType := "info"
-			in := gen.CreateNodeInput{
-				MemoryId: memURN, Loc: newTarget.Format(), Name: name,
-				Tags: newTags, NodeType: &nodeType,
-				Abstract: &abs, Content: &body, Data: specDataRaw(),
-				Seq: specSeq(newTarget),
-			}
-			up, err := gen.CreateNode(cmd.Context(), client, &in)
-			if err != nil {
-				return api.MapError(err)
-			}
-			newID := up.CreateNode.Id
 
 			// 2. New node's ToC + inheritance edges. Best-effort, but each outcome
 			// is tracked and surfaced: a target that doesn't resolve was previously
@@ -201,27 +241,20 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			// 3. superseded-by edge old → new (its failure is fatal — the retirement
 			// link is the whole point of the command).
 			if _, cerr := gen.CreateEdge(cmd.Context(), client, oldNode.Id, newID, supersededByLabel, nil, nil, nil, nil, nil, nil); cerr != nil {
-				return api.MapError(cerr)
+				result.Edges[supersededByIdx].Status = edgeStatusFailed
+				_ = output.Write(f.IOStreams, f.JSON, result, render)
+				return exitcode.Newf(exitcode.Error,
+					"created replacement %s but failed to create the %q edge from %s: %v; rerun this command to reuse %s and finish retirement",
+					newTarget.Format(), supersededByLabel, oldCit.Format(), api.MapError(cerr), newTarget.Format())
 			}
 			result.Edges[supersededByIdx].Status = edgeStatusCreated
 
 			// 4. Retire the old spec: tag superseded, same loc, append a note.
-			note := fmt.Sprintf("\n\n> Superseded by %s.", newTarget.Format())
-			if reason != "" {
-				note = fmt.Sprintf("\n\n> Superseded by %s: %s", newTarget.Format(), reason)
-			}
-			oldContent := ""
-			if oldNode.Content != nil {
-				oldContent = *oldNode.Content
-			}
-			retired := oldContent + note
-			retireTags := append(append([]string{}, oldNode.Tags...), supersededTag)
-			retireIn := gen.UpdateNodeInput{
-				MemoryId: &oldNode.MemoryId, Loc: &oldNode.Loc,
-				Tags: retireTags, Content: &retired,
-			}
-			if _, rerr := gen.UpdateNode(cmd.Context(), client, &retireIn); rerr != nil {
-				return api.MapError(rerr)
+			if rerr := retireSupersededSpec(cmd, client, oldNode, newTarget.Format(), reason); rerr != nil {
+				_ = output.Write(f.IOStreams, f.JSON, result, render)
+				return exitcode.Newf(exitcode.Error,
+					"linked %s to replacement %s but failed to tag/update the old spec as retired: %v; rerun this command to finish the retirement update",
+					oldCit.Format(), newTarget.Format(), api.MapError(rerr))
 			}
 
 			fmt.Fprintf(f.IOStreams.ErrOut, "reminder: update the register — mark %s retired and add %s to the ledger.\n", oldCit.Format(), newTarget.Format())
@@ -292,6 +325,87 @@ func planReplacement(old Citation, feature, ruleAfter string, locs map[string]bo
 		}
 		return t, parent.Format(), inherit, nil
 	}
+}
+
+func existingSupersededByTarget(n *gen.GetNodeNode) (string, bool) {
+	for _, e := range n.OutgoingEdges {
+		if e == nil || e.Target == nil || edgeNameStr(e.Name) != supersededByLabel {
+			continue
+		}
+		return e.Target.Loc, true
+	}
+	return "", false
+}
+
+func findExistingReplacementCandidate(old Citation, feature, ruleAfter, title string, nodes []*api.ListNode) (Citation, bool) {
+	parent := Citation{Product: old.Product, Module: old.Module, Feature: old.Feature}
+	if old.Level() == 4 {
+		parent.Rule = old.Rule
+	} else if feature != "" {
+		parent.Feature = feature
+	}
+	after := 0
+	if ruleAfter != "" {
+		n, err := strconv.Atoi(ruleAfter)
+		if err != nil {
+			return Citation{}, false
+		}
+		after = n
+	}
+	for _, n := range nodes {
+		if n == nil || !hasTag(n.Tags, "spec") {
+			continue
+		}
+		c, err := ParseCitation(n.Loc)
+		if err != nil || c.Format() == old.Format() || c.Level() != old.Level() {
+			continue
+		}
+		if n.Name != specName(c, title) {
+			continue
+		}
+		if p, ok := c.Parent(); !ok || p.Format() != parent.Format() {
+			continue
+		}
+		if old.Level() == 3 && after > 0 {
+			rule, _ := strconv.Atoi(c.Rule)
+			if rule <= after {
+				continue
+			}
+		}
+		if old.Level() == 4 && after > 0 {
+			flow, _ := strconv.Atoi(c.Flow)
+			if flow <= after {
+				continue
+			}
+		}
+		return c, true
+	}
+	return Citation{}, false
+}
+
+func retireSupersededSpec(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode, successorLoc, reason string) error {
+	note := fmt.Sprintf("\n\n> Superseded by %s.", successorLoc)
+	if reason != "" {
+		note = fmt.Sprintf("\n\n> Superseded by %s: %s", successorLoc, reason)
+	}
+	oldContent := ""
+	if oldNode.Content != nil {
+		oldContent = *oldNode.Content
+	}
+	retired := oldContent
+	if !strings.Contains(retired, "> Superseded by "+successorLoc) {
+		retired += note
+	}
+	retireTags := append([]string{}, oldNode.Tags...)
+	if !hasTag(retireTags, supersededTag) {
+		retireTags = append(retireTags, supersededTag)
+	}
+	retireIn := gen.UpdateNodeInput{
+		MemoryId: &oldNode.MemoryId, Loc: &oldNode.Loc,
+		Tags: retireTags, Content: &retired,
+	}
+	_, err := gen.UpdateNode(cmd.Context(), client, &retireIn)
+	return err
 }
 
 // semanticTags strips the structural tags (spec / p-level / superseded),

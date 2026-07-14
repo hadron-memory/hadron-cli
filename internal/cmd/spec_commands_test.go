@@ -1335,6 +1335,129 @@ func TestSpecSupersedeOrphanedEdgeFailsLoud(t *testing.T) {
 	}
 }
 
+func TestSpecSupersedeRetirementEdgeFailureEmitsResult(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"FindNodes":  scan,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge": `{"errors":[{"message":"edge boom"}]}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if got := exitcode.FromError(err); got != exitcode.Error {
+		t.Fatalf("retirement-edge failure should be Error, got err=%v code=%d", err, got)
+	}
+	var dto struct {
+		New   string `json:"new"`
+		Edges []struct {
+			Label  string `json:"label"`
+			Status string `json:"status"`
+		} `json:"edges"`
+	}
+	if uerr := json.Unmarshal([]byte(out.String()), &dto); uerr != nil {
+		t.Fatalf("partial failure should still emit JSON: %v\n%s", uerr, out.String())
+	}
+	if dto.New != "msg:010:03" {
+		t.Fatalf("partial result must name replacement, got %+v", dto)
+	}
+	foundFailedRetirement := false
+	for _, e := range dto.Edges {
+		if e.Label == "superseded-by" && e.Status == "failed" {
+			foundFailedRetirement = true
+		}
+	}
+	if !foundFailedRetirement {
+		t.Fatalf("superseded-by edge should be marked failed, got %+v", dto.Edges)
+	}
+}
+
+func TestSpecSupersedeRetireUpdateFailureEmitsRecoverableResult(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"FindNodes":  scan,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
+		"UpdateNode": `{"errors":[{"message":"update boom"}]}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if got := exitcode.FromError(err); got != exitcode.Error {
+		t.Fatalf("retire update failure should be Error, got err=%v code=%d", err, got)
+	}
+	if !strings.Contains(err.Error(), "finish the retirement update") {
+		t.Fatalf("error should name idempotent recovery path, got %v", err)
+	}
+	if !strings.Contains(out.String(), `"new": "msg:010:03"`) || !strings.Contains(out.String(), `"status": "created"`) {
+		t.Fatalf("partial update failure should emit replacement and completed edge statuses:\n%s", out.String())
+	}
+}
+
+func TestSpecSupersedeRetryExistingRetirementEdgeFinishesUpdate(t *testing.T) {
+	oldWithEdge := `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+		`"description":null,"abstract":"Win back users who never engaged after signup.","abstractOriginHash":null,` +
+		`"nodeType":"info","tags":["spec","p1"],` +
+		`"content":"# msg:010:02 — W2\n\n## What invalidates this spec\nChanges.\n",` +
+		`"data":{"version":"0.0.1"},"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+		`"outgoingEdges":[{"id":"e2","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:010:03","isRunnable":false,"priority":0,"target":{"id":"new1","loc":"msg:010:03","memoryId":"mem1"}}],` +
+		`"incomingEdges":[]}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + oldWithEdge + `}}`,
+		"UpdateNode": `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("retry should finish old-node retirement: %v\n%s", err, out.String())
+	}
+	if _, ok := captured["CreateNode"]; ok {
+		t.Fatal("retry with existing superseded-by edge must not create another replacement")
+	}
+	if _, ok := captured["CreateEdge"]; ok {
+		t.Fatal("retry with existing superseded-by edge must not create another retirement edge")
+	}
+	if !strings.Contains(out.String(), `"new": "msg:010:03"`) {
+		t.Fatalf("retry output should name existing successor:\n%s", out.String())
+	}
+}
+
+func TestSpecSupersedeRetryExistingReplacementReusesIt(t *testing.T) {
+	scan := `{"data":{"nodes":[` +
+		specNodeList("msg", `["spec","p1"]`) + `,` +
+		specNodeList("msg:010", `["spec","p1"]`) + `,` +
+		specNodeList("msg:010:02", `["spec","p1"]`) + `,` +
+		`{"id":"id-msg:010:03","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}` +
+		`]}}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"FindNodes":  scan,
+		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
+		"UpdateNode": `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("retry should reuse existing replacement: %v\n%s", err, out.String())
+	}
+	if _, ok := captured["CreateNode"]; ok {
+		t.Fatal("retry with existing replacement must not create another successor")
+	}
+	if !strings.Contains(out.String(), `"new": "msg:010:03"`) {
+		t.Fatalf("retry output should name existing replacement:\n%s", out.String())
+	}
+}
+
 // Codex #155: a --title of literally "superseded-by" collides with the
 // retirement edge's label. The old label-keyed logic would skip creating the
 // ToC edge (mistaking it for the special edge) yet still mark it "created" —
