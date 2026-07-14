@@ -6,11 +6,13 @@ shelling out to it.
 
 ## Status
 
-Full v1 command surface implemented: `auth login|logout|whoami|status`,
+Implemented v1 command surface: `auth login|logout|whoami|status`,
 `memory ls|get|set|rm|clone|export`, `node ls|get|add|update|rm`,
-`spec ls|get|describe|register|find|new|lint|supersede|import`,
+`spec ls|get|describe|register|find|new|edit|extract|link|lint|supersede|use`,
 `app ls|install|uninstall|use`, `config get|set|list`, `api` (raw
 GraphQL escape hatch), `replace`, `version`, `completion`, `agentic-usage`.
+`spec import spec-kit|code` is reserved as a stable command stub but is not yet
+implemented.
 
 Specs follow a legal-code citation scheme — flat (`<module>:<feature>:<rule>`)
 or product-rooted (`<product>:<module>:<feature>:<rule>`) for a multi-product
