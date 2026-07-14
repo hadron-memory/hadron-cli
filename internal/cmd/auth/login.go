@@ -17,19 +17,22 @@ import (
 
 func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 	var withToken bool
+	var provider string
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Sign in to a Hadron server",
 		Long: `Sign in to a Hadron server.
 
 By default this opens your browser and runs an OAuth flow against the
-server's consent screen. The resulting token is stored in the OS
+server's consent screen, using GitHub for identity. Pass --provider google
+to sign in with Google instead. The resulting token is stored in the OS
 keychain (or ~/.config/hadron/auth.json when no keychain is available).
 
 For CI and scripting, pipe a personal access token to
 ` + "`hadron auth login --with-token`" + ` or set the HADRON_TOKEN
 environment variable (which skips storage entirely).`,
 		Example: `  hadron auth login
+  hadron auth login --provider google
   echo $TOKEN | hadron auth login --with-token`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -46,9 +49,10 @@ environment variable (which skips storage entirely).`,
 				}
 			} else {
 				result, err := auth.BrowserStrategy{}.Login(cmd.Context(), auth.LoginOptions{
-					ServerURL:  server,
-					IO:         f.IOStreams,
-					HTTPClient: f.HTTPClient,
+					ServerURL:     server,
+					LoginProvider: provider,
+					IO:            f.IOStreams,
+					HTTPClient:    f.HTTPClient,
 				})
 				if err != nil {
 					return err
@@ -79,6 +83,8 @@ environment variable (which skips storage entirely).`,
 		},
 	}
 	cmd.Flags().BoolVar(&withToken, "with-token", false, "read the token from standard input")
+	cmd.Flags().StringVar(&provider, "provider", "github", "browser identity provider: github or google")
+	cmd.MarkFlagsMutuallyExclusive("with-token", "provider")
 	return cmd
 }
 

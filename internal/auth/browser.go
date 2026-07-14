@@ -27,6 +27,11 @@ type BrowserStrategy struct{}
 func (BrowserStrategy) Name() string { return "browser" }
 
 func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, error) {
+	loginProvider, err := loginProviderParam(opts.LoginProvider)
+	if err != nil {
+		return nil, err
+	}
+
 	httpClient := opts.HTTPClient
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
@@ -76,6 +81,9 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 	if resource != "" {
 		authorizeParams.Set("resource", resource)
 	}
+	if loginProvider != "" {
+		authorizeParams.Set("login_provider", loginProvider)
+	}
 	authorizeURL := meta.AuthorizationEndpoint + "?" + authorizeParams.Encode()
 
 	fmt.Fprintln(opts.IO.ErrOut, "Opening your browser to sign in to Hadron...")
@@ -90,6 +98,21 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 	}
 
 	return exchangeCode(ctx, httpClient, meta.TokenEndpoint, clientID, code, pk.Verifier, loopback.RedirectURI(), resource)
+}
+
+// loginProviderParam returns the provider hint sent to /oauth/authorize.
+// GitHub is deliberately omitted so the default CLI remains compatible with
+// servers predating provider selection. Credentials stay on the server; this
+// value only chooses which first-party login route performs the browser hop.
+func loginProviderParam(provider string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "", "github":
+		return "", nil
+	case "google":
+		return "google", nil
+	default:
+		return "", exitcode.Newf(exitcode.Usage, "unsupported login provider %q (choose github or google)", provider)
+	}
 }
 
 func exchangeCode(ctx context.Context, httpClient *http.Client, tokenEndpoint, clientID, code, verifier, redirectURI, resource string) (*Token, error) {
