@@ -1,8 +1,12 @@
 package spec
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/api"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
 // lintMem is a stand-in memory URN for the corpus-lint tests; it qualifies the
@@ -165,6 +169,24 @@ func TestLintNodeHeaderLight(t *testing.T) {
 	}
 }
 
+func TestLintNodeHeaderMissingSpecTag(t *testing.T) {
+	header := specNode{Loc: "msg:010", Name: "msg:010 — W-series", NodeType: "info", Tags: []string{"p1"}}
+	fs := lintNode(header)
+	if !hasRule(fs, "tag-spec") {
+		t.Errorf("header node missing the spec tag should be flagged; got %v", fs)
+	}
+	if hasRule(fs, "abstract") || hasRule(fs, "invalidates") {
+		t.Errorf("header node should still skip rule-level rubric checks; got %v", fs)
+	}
+}
+
+func TestLintNodeUnavailable(t *testing.T) {
+	fs := lintNode(specNode{Loc: "msg:010:02", Unavailable: true})
+	if len(fs) != 1 || fs[0].Rule != "unavailable" || fs[0].Severity != sevError {
+		t.Fatalf("unavailable listed node should produce one explicit error, got %v", fs)
+	}
+}
+
 func TestLintCorpusInheritanceAndParent(t *testing.T) {
 	nodes := []specNode{
 		{Loc: "msg", Name: "msg — Messaging", NodeType: "info", Tags: []string{"spec", "p1"}},
@@ -202,6 +224,18 @@ func messageFor(fs []lintFindingDTO, citation, rule string) string {
 		}
 	}
 	return ""
+}
+
+func equalIntSlices(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestLintCorpusOrphanParent(t *testing.T) {
@@ -284,6 +318,21 @@ func TestLintCorpusMixedArity(t *testing.T) {
 	}
 }
 
+func TestLintCorpusCleanReturnsEmptySlice(t *testing.T) {
+	nodes := []specNode{
+		{Loc: "msg", Name: "msg — Messaging", NodeType: "info", Tags: []string{"spec", "p0"}},
+		{Loc: "msg:010", Name: "msg:010 — W-series", NodeType: "info", Tags: []string{"spec", "p1"}},
+		cleanSpec(t, "msg:010:02", "W2"),
+	}
+	fs := lintCorpus(nodes, "", lintMem)
+	if fs == nil {
+		t.Fatal("clean corpus findings must be an empty slice, not nil")
+	}
+	if len(fs) != 0 {
+		t.Fatalf("clean corpus should have no findings, got %v", fs)
+	}
+}
+
 // TestLintScopeError covers the mutual-exclusion rules for `spec lint` scope
 // selectors: a positional <citation>, --prefix, --product/--module, and --all
 // are mutually exclusive; any single one (or none) is valid.
@@ -309,6 +358,9 @@ func TestLintScopeError(t *testing.T) {
 		{name: "prefix + product", prefix: "cor:api", product: "cor", wantErr: "--prefix cannot be combined"},
 		{name: "prefix + module", prefix: "cor:api", module: "api", wantErr: "--prefix cannot be combined"},
 		{name: "prefix + all", prefix: "cor:api", all: true, wantErr: "--prefix cannot be combined"},
+		{name: "all + product", product: "cor", all: true, wantErr: "--all cannot be combined"},
+		{name: "all + module", module: "api", all: true, wantErr: "--all cannot be combined"},
+		{name: "all + product + module", product: "cor", module: "api", all: true, wantErr: "--all cannot be combined"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -322,5 +374,65 @@ func TestLintScopeError(t *testing.T) {
 				t.Fatalf("expected error containing %q, got %v", tc.wantErr, err)
 			}
 		})
+	}
+}
+
+type specBatchResult = gen.NodeBatchNodeBatchNodeBatchResult
+type specBatchResultNode = gen.NodeBatchNodeBatchNodeBatchResultNodesNode
+
+func specBatchNodesWithIDs(ids ...string) []*specBatchResultNode {
+	out := make([]*specBatchResultNode, len(ids))
+	for i, id := range ids {
+		out[i] = &specBatchResultNode{Id: id}
+	}
+	return out
+}
+
+func TestCollectSpecDetailBatchChunksByCap(t *testing.T) {
+	ids := make([]string, api.NodeBatchCap+1)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("id-%d", i)
+	}
+	var sizes []int
+	got, unavailable, err := collectSpecDetailBatch(ids, func(chunk []string) (*specBatchResult, error) {
+		sizes = append(sizes, len(chunk))
+		return &specBatchResult{Nodes: specBatchNodesWithIDs(chunk...)}, nil
+	})
+	if err != nil {
+		t.Fatalf("collectSpecDetailBatch: %v", err)
+	}
+	if len(got) != len(ids) {
+		t.Fatalf("got %d nodes, want %d", len(got), len(ids))
+	}
+	if len(unavailable) != 0 {
+		t.Fatalf("unexpected unavailable ids: %v", unavailable)
+	}
+	if want := []int{api.NodeBatchCap, 1}; !equalIntSlices(sizes, want) {
+		t.Fatalf("chunk sizes = %v, want %v", sizes, want)
+	}
+}
+
+func TestCollectSpecDetailBatchRequeuesTruncatedAndUnavailable(t *testing.T) {
+	calls := 0
+	got, unavailable, err := collectSpecDetailBatch([]string{"a", "b", "c"}, func(chunk []string) (*specBatchResult, error) {
+		calls++
+		switch calls {
+		case 1:
+			return &specBatchResult{Nodes: specBatchNodesWithIDs("a"), Truncated: true, Omitted: []string{"b", "c"}}, nil
+		default:
+			return &specBatchResult{Nodes: specBatchNodesWithIDs("b"), Unavailable: []string{"c"}}, nil
+		}
+	})
+	if err != nil {
+		t.Fatalf("collectSpecDetailBatch: %v", err)
+	}
+	if len(got) != 2 || got[0].Id != "a" || got[1].Id != "b" {
+		t.Fatalf("got nodes %+v, want a and b", got)
+	}
+	if len(unavailable) != 1 || unavailable[0] != "c" {
+		t.Fatalf("unavailable = %v, want [c]", unavailable)
+	}
+	if calls != 2 {
+		t.Fatalf("calls = %d, want 2", calls)
 	}
 }

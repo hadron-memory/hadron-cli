@@ -40,18 +40,9 @@ hand-written ledger and any drift is reported (exit 5 if drift is found).`,
 				return err
 			}
 
-			all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, []string{"spec"})
+			locs, err := scanAllCitationLocs(cmd, client, memURN)
 			if err != nil {
 				return err
-			}
-			var locs []string
-			for _, n := range all {
-				if n == nil {
-					continue
-				}
-				if _, err := ParseCitation(n.Loc); err == nil {
-					locs = append(locs, n.Loc)
-				}
 			}
 
 			ledger := registerLedger{modules: map[string]bool{}, retired: map[string][]int{}}
@@ -167,12 +158,12 @@ func buildLedgerDTO(memURN string, locs []string, ledger registerLedger) ledgerD
 	}
 	sort.Strings(modKeys)
 
-	dto := ledgerDTO{Memory: memURN}
+	dto := ledgerDTO{Memory: memURN, Modules: []ledgerModuleDTO{}}
 	for _, key := range modKeys {
 		ma := mods[key]
 		featNums := sortedKeys(ma.features)
 		nextFeat, _ := allocateChild(ma.cit, featNums, ledger.retired[key], 0)
-		md := ledgerModuleDTO{Module: key, NextFeature: nextFeat.Feature}
+		md := ledgerModuleDTO{Module: key, NextFeature: nextFeat.Feature, Features: []ledgerFeatureDTO{}}
 		for _, fn := range featNums {
 			feat := fmt.Sprintf("%03d", fn)
 			ruleNums := sortedKeys(ma.rules[fn])

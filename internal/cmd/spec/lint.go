@@ -52,16 +52,16 @@ to errors too.`,
   hadron spec lint --all -m micromentor.org::platform-specs --strict`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := lintScopeError(len(args) == 1, prefixFlag, product, module, all); err != nil {
+				return err
+			}
+
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
 			memURN, err := specMemoryURN(f, cmd, client, memory)
 			if err != nil {
-				return err
-			}
-
-			if err := lintScopeError(len(args) == 1, prefixFlag, product, module, all); err != nil {
 				return err
 			}
 
@@ -153,7 +153,7 @@ to errors too.`,
 				return exitcode.Newf(exitcode.Usage, "specify a <citation>, --prefix <citation>, --product <ppp>, --module <mmm>, or --all")
 			}
 
-			var findings []lintFindingDTO
+			findings := []lintFindingDTO{}
 			if corpus {
 				findings = lintCorpus(nodes, scopeRoot, memURN)
 			} else {
@@ -221,6 +221,9 @@ func lintScopeError(hasCitationArg bool, prefixFlag, product, module string, all
 	if prefixFlag != "" && (product != "" || module != "" || all) {
 		return exitcode.Newf(exitcode.Usage, "--prefix cannot be combined with --product/--module/--all")
 	}
+	if all && (product != "" || module != "") {
+		return exitcode.Newf(exitcode.Usage, "--all cannot be combined with --product/--module")
+	}
 	return nil
 }
 
@@ -232,6 +235,10 @@ func lintNode(n specNode) []lintFindingDTO {
 	add := func(rule, sev, msg string) {
 		fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: rule, Severity: sev, Message: msg})
 	}
+	if n.Unavailable {
+		add("unavailable", sevError, "node was listed by the corpus scan but could not be read")
+		return fs
+	}
 
 	c, err := ParseCitation(n.Loc)
 	if err != nil {
@@ -242,6 +249,9 @@ func lintNode(n specNode) []lintFindingDTO {
 	}
 	if n.NodeType != "info" {
 		add("nodetype-info", sevError, fmt.Sprintf("nodeType must be \"info\", got %q", n.NodeType))
+	}
+	if !hasTag(n.Tags, "spec") {
+		add("tag-spec", sevError, `missing "spec" tag`)
 	}
 
 	if err != nil || c.Level() < 3 {
@@ -265,9 +275,6 @@ func lintNode(n specNode) []lintFindingDTO {
 	rubricSev := sevError
 	if c.Level() == 4 {
 		rubricSev = sevWarning
-	}
-	if !hasTag(n.Tags, "spec") {
-		add("tag-spec", sevError, `missing "spec" tag`)
 	}
 	if !abstractPresent(n.Abstract) {
 		add("abstract", rubricSev, "missing abstract — the vector-search retrieval surface (or still a placeholder)")
@@ -293,7 +300,7 @@ func lintNode(n specNode) []lintFindingDTO {
 // memURN qualifies the node refs in the inheritance-edge remedy message so the
 // suggested `hadron edge add` command is copy-pasteable.
 func lintCorpus(nodes []specNode, scopeRoot, memURN string) []lintFindingDTO {
-	var fs []lintFindingDTO
+	fs := []lintFindingDTO{}
 	locCount := map[string]int{}
 	contracts := map[string]bool{}
 	productCodes := map[string]bool{}
@@ -301,6 +308,9 @@ func lintCorpus(nodes []specNode, scopeRoot, memURN string) []lintFindingDTO {
 	for _, n := range nodes {
 		fs = append(fs, lintNode(n)...)
 		locCount[n.Loc]++
+		if n.Unavailable {
+			continue
+		}
 		c, err := ParseCitation(n.Loc)
 		if err != nil {
 			continue
@@ -318,6 +328,9 @@ func lintCorpus(nodes []specNode, scopeRoot, memURN string) []lintFindingDTO {
 
 	dupReported := map[string]bool{}
 	for _, n := range nodes {
+		if n.Unavailable {
+			continue
+		}
 		c, err := ParseCitation(n.Loc)
 		if err != nil {
 			continue
@@ -461,15 +474,42 @@ func scanPrefixDetail(cmd *cobra.Command, client graphql.Client, memURN, prefix 
 	return fetchDetails(cmd, client, nodes)
 }
 
-// scanAllSpecsDetail reads every spec-tagged node in the memory with full
-// detail; non-citation nodes (e.g. the register) are skipped. The scan pages
-// to exhaustion so a corpus larger than one server page is linted whole (#23).
+// scanAllSpecsDetail reads every citation-shaped node in the memory with full
+// detail; non-citation nodes (e.g. the register) are skipped. The scan is not
+// pre-filtered by tag because lintNode itself validates the required "spec"
+// tag, including on malformed corpus members (#241). The scan pages to
+// exhaustion so a corpus larger than one server page is linted whole (#23).
 func scanAllSpecsDetail(cmd *cobra.Command, client graphql.Client, memURN string) ([]specNode, error) {
-	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, []string{"spec"})
+	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	var nodes []*api.ListNode
+	nodes := citationListNodes(all)
+	return fetchDetails(cmd, client, nodes)
+}
+
+// scanAllCitationLocs reads every citation-shaped node in the memory. It is
+// intentionally tag-agnostic so inventory views don't hide malformed specs
+// before lint can report the missing tag.
+func scanAllCitationLocs(cmd *cobra.Command, client graphql.Client, memURN string) ([]string, error) {
+	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	locs := make([]string, 0, len(all))
+	for _, n := range all {
+		if n == nil {
+			continue
+		}
+		if _, err := ParseCitation(n.Loc); err == nil {
+			locs = append(locs, n.Loc)
+		}
+	}
+	return locs, nil
+}
+
+func citationListNodes(all []*api.ListNode) []*api.ListNode {
+	nodes := make([]*api.ListNode, 0, len(all))
 	for _, n := range all {
 		if n == nil {
 			continue
@@ -478,7 +518,7 @@ func scanAllSpecsDetail(cmd *cobra.Command, client graphql.Client, memURN string
 			nodes = append(nodes, n)
 		}
 	}
-	return fetchDetails(cmd, client, nodes)
+	return nodes
 }
 
 // discoverProducts returns the distinct product codes present in the memory's
@@ -486,16 +526,13 @@ func scanAllSpecsDetail(cmd *cobra.Command, client graphql.Client, memURN string
 // per-node detail), so it's cheap enough to run on the --module dead-end path
 // to infer or disambiguate the product (#99 item 4).
 func discoverProducts(cmd *cobra.Command, client graphql.Client, memURN string) ([]string, error) {
-	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, []string{"spec"})
+	locs, err := scanAllCitationLocs(cmd, client, memURN)
 	if err != nil {
 		return nil, err
 	}
 	set := map[string]bool{}
-	for _, n := range all {
-		if n == nil {
-			continue
-		}
-		if c, perr := ParseCitation(n.Loc); perr == nil && c.Product != "" {
+	for _, loc := range locs {
+		if c, perr := ParseCitation(loc); perr == nil && c.Product != "" {
 			set[c.Product] = true
 		}
 	}
@@ -503,18 +540,80 @@ func discoverProducts(cmd *cobra.Command, client graphql.Client, memURN string) 
 }
 
 func fetchDetails(cmd *cobra.Command, client graphql.Client, list []*api.ListNode) ([]specNode, error) {
-	out := make([]specNode, 0, len(list))
+	nodes, unavailable, err := fetchDetailsWithUnavailable(cmd, client, list)
+	if err != nil {
+		return nil, err
+	}
+	if len(unavailable) > 0 {
+		nodes = append(nodes, unavailableSpecNodes(list, unavailable)...)
+	}
+	return nodes, nil
+}
+
+func fetchDetailsWithUnavailable(cmd *cobra.Command, client graphql.Client, list []*api.ListNode) ([]specNode, []string, error) {
+	ids := make([]string, 0, len(list))
 	for _, n := range list {
 		if n == nil {
 			continue
 		}
-		resp, err := gen.GetNode(cmd.Context(), client, n.Id)
-		if err != nil {
-			return nil, api.MapError(err)
-		}
-		if resp.Node != nil {
-			out = append(out, nodeFromGQL(resp.Node))
-		}
+		ids = append(ids, n.Id)
 	}
-	return out, nil
+	batched, unavailable, err := collectSpecDetails(cmd, client, ids)
+	if err != nil {
+		return nil, nil, err
+	}
+	out := make([]specNode, 0, len(list))
+	for _, bn := range batched {
+		if bn == nil {
+			continue
+		}
+		out = append(out, nodeFromGQL(nodeByIDFromBatch(bn)))
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Loc < out[j].Loc })
+	sort.Strings(unavailable)
+	return out, unavailable, nil
+}
+
+func collectSpecDetails(cmd *cobra.Command, client graphql.Client, ids []string) ([]*gen.NodeBatchNodeBatchNodeBatchResultNodesNode, []string, error) {
+	return collectSpecDetailBatch(ids, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
+		resp, ferr := gen.NodeBatch(cmd.Context(), client, chunk)
+		if ferr != nil {
+			return nil, api.MapError(ferr)
+		}
+		return resp.NodeBatch, nil
+	})
+}
+
+func collectSpecDetailBatch(
+	ids []string,
+	fetch func([]string) (*gen.NodeBatchNodeBatchNodeBatchResult, error),
+) ([]*gen.NodeBatchNodeBatchNodeBatchResultNodesNode, []string, error) {
+	batched, unavailable, err := api.CollectNodeBatch(ids, fetch)
+	if err != nil {
+		return nil, nil, err
+	}
+	return batched, unavailable, nil
+}
+
+func unavailableSpecNodes(list []*api.ListNode, unavailable []string) []specNode {
+	if len(unavailable) == 0 {
+		return nil
+	}
+	locByID := map[string]string{}
+	for _, n := range list {
+		if n == nil {
+			continue
+		}
+		locByID[n.Id] = n.Loc
+	}
+	out := make([]specNode, 0, len(unavailable))
+	for _, id := range unavailable {
+		loc := locByID[id]
+		if loc == "" {
+			loc = "unavailable:" + id
+		}
+		out = append(out, specNode{Loc: loc, Unavailable: true})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Loc < out[j].Loc })
+	return out
 }
