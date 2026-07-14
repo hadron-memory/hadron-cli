@@ -131,6 +131,9 @@ every node under it, change.`,
 					if org == "" || name == "" {
 						return exitcode.Newf(exitcode.Usage, "creating a free-standing memory requires --org and --name")
 					}
+					if class == "app" || class == "system" {
+						return exitcode.Newf(exitcode.Usage, "free-standing creation does not support --class %s; app memories require --app/--agent, and system memories are auto-provisioned", class)
+					}
 					var classArg *gen.MemoryClass
 					if class != "" {
 						c := gen.MemoryClass(class)

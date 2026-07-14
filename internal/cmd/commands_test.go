@@ -1251,6 +1251,20 @@ func TestMemorySetCreateInAppValidatesFlags(t *testing.T) {
 	}
 }
 
+func TestMemorySetCreateRejectsAppAndSystemClassesWithoutApp(t *testing.T) {
+	for _, class := range []string{"app", "system"} {
+		t.Run(class, func(t *testing.T) {
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "KB", "--class", class, "--server", "http://127.0.0.1:1"})
+			err := root.Execute()
+			if err == nil || !strings.Contains(err.Error(), "free-standing creation does not support --class "+class) {
+				t.Fatalf("expected free-standing %s-class usage error, got %v", class, err)
+			}
+		})
+	}
+}
+
 func TestMemoryAttach(t *testing.T) {
 	attachedJSON := `{"id":"m3","urn":"acme.com::my-notes","name":"My notes","shortDescription":null,
 		"class":"personal","visibility":null,"organizationId":"o1",
