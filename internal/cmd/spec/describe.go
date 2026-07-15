@@ -100,18 +100,9 @@ writes that declaration.`,
 			}
 			declared := schemeFromData(curData)
 
-			all, err := scanAllNodes(cmd.Context(), client, &memURN, nil, []string{"spec"})
+			locs, err := scanAllCitationLocs(cmd, client, memURN)
 			if err != nil {
 				return err
-			}
-			var locs []string
-			for _, n := range all {
-				if n == nil {
-					continue
-				}
-				if _, perr := ParseCitation(n.Loc); perr == nil {
-					locs = append(locs, n.Loc)
-				}
 			}
 			dto := describeScheme(memURN, locs)
 			applyDeclared(&dto, declared)

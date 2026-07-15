@@ -780,6 +780,7 @@ type specEdge struct {
 // the genqlient types so the rule engine is trivially unit-testable.
 type specNode struct {
 	Loc                string
+	Unavailable        bool
 	Name               string
 	NodeType           string
 	Tags               []string

@@ -231,6 +231,7 @@ is one call instead of four.`,
 				Name:     name,
 				Tags:     tagSet,
 				Abstract: abs,
+				Edges:    []plannedEdgeDTO{},
 				DryRun:   dryRun,
 			}
 			if !noEdges {
@@ -248,6 +249,7 @@ is one call instead of four.`,
 					Name:     coContract.name,
 					Tags:     tagSet,
 					Abstract: coContract.abstract,
+					Edges:    []plannedEdgeDTO{},
 					DryRun:   dryRun,
 				}
 				if dryRun {
@@ -737,7 +739,7 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 	for _, pn := range plan {
 		dto := newResultDTO{
 			Citation: pn.cit.Format(), MemoryID: memURN, Name: pn.name,
-			Tags: tagSet, Abstract: pn.abstract, Edges: pn.edges, DryRun: dryRun,
+			Tags: tagSet, Abstract: pn.abstract, Edges: append([]plannedEdgeDTO{}, pn.edges...), DryRun: dryRun,
 		}
 		if dryRun {
 			dto.Content = pn.body

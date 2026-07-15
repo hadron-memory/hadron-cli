@@ -185,6 +185,9 @@ func edgeNameStr(s *string) string {
 // for --abstract-only).
 func specDetailFromNode(n *gen.GetNodeNode, includeContent bool) specDetailDTO {
 	findings := lintNode(nodeFromGQL(n))
+	if findings == nil {
+		findings = []lintFindingDTO{}
+	}
 	dto := specDetailDTO{
 		Citation:  n.Loc,
 		MemoryID:  n.MemoryId,
@@ -193,6 +196,7 @@ func specDetailFromNode(n *gen.GetNodeNode, includeContent bool) specDetailDTO {
 		Tags:      n.Tags,
 		Abstract:  n.Abstract,
 		Data:      n.Data,
+		Edges:     []specEdgeDTO{},
 		Lint:      findings,
 		UpdatedAt: n.UpdatedAt,
 	}
@@ -239,7 +243,7 @@ func nodeByIDFromBatch(b *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) *gen.G
 			Name:       e.Name,
 			Loc:        e.Loc,
 			IsRunnable: e.IsRunnable,
-			Target: &gen.GetNodeNodeOutgoingEdgesEdgeTargetNode{Id: e.Target.Id, Loc: e.Target.Loc, MemoryId: e.Target.MemoryId},
+			Target:     &gen.GetNodeNodeOutgoingEdgesEdgeTargetNode{Id: e.Target.Id, Loc: e.Target.Loc, MemoryId: e.Target.MemoryId},
 		})
 	}
 	for _, e := range b.IncomingEdges {
@@ -250,7 +254,7 @@ func nodeByIDFromBatch(b *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) *gen.G
 			Name:       e.Name,
 			Loc:        e.Loc,
 			IsRunnable: e.IsRunnable,
-			Source: &gen.GetNodeNodeIncomingEdgesEdgeSourceNode{Id: e.Source.Id, Loc: e.Source.Loc, MemoryId: e.Source.MemoryId},
+			Source:     &gen.GetNodeNodeIncomingEdgesEdgeSourceNode{Id: e.Source.Id, Loc: e.Source.Loc, MemoryId: e.Source.MemoryId},
 		})
 	}
 	return n

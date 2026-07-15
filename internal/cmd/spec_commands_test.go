@@ -28,14 +28,27 @@ func specNodeList(loc, tags string) string {
 // level-3 loc under msg:010: name prefix, spec+p1 tags, abstract, an
 // invalidates section, data.version, and a toc edge to the parent msg:010.
 func specBatchNode(loc string) string {
+	return specBatchNodeWithTags(loc, `["spec","p1"]`)
+}
+
+func specBatchNodeWithTags(loc, tags string) string {
 	return fmt.Sprintf(`{"id":"id-%s","memoryId":"mem1","loc":%q,"name":%q,"alias":null,"nodeType":"info",`+
 		`"description":null,"abstract":"Win back users who never engaged after signup.","abstractOriginHash":null,`+
-		`"tags":["spec","p1"],"seq":null,"data":{"version":"0.0.1"},"properties":null,`+
+		`"tags":%s,"seq":null,"data":{"version":"0.0.1"},"properties":null,`+
 		`"content":"# spec\n\n## Definition\nx\n\n## Rule\nx\n\n## Durable vs tunable\nx\n\n## What invalidates this spec\nChanges.\n",`+
 		`"updatedAt":"2026-06-14T00:00:00Z",`+
 		`"outgoingEdges":[{"label":"p1: W2","priority":0,"condition":null,"target":{"id":"f1","loc":"msg:010","memoryId":"mem1"}}],`+
 		`"incomingEdges":[]}`,
-		loc, loc, loc+" — W2")
+		loc, loc, loc+" — W2", tags)
+}
+
+func specBatchHeaderNode(loc, title, tags string) string {
+	return fmt.Sprintf(`{"id":"id-%s","memoryId":"mem1","loc":%q,"name":%q,"alias":null,"nodeType":"info",`+
+		`"description":null,"abstract":null,"abstractOriginHash":null,`+
+		`"tags":%s,"seq":null,"data":null,"properties":null,`+
+		`"content":"# %s — %s\n","updatedAt":"2026-06-14T00:00:00Z",`+
+		`"outgoingEdges":[],"incomingEdges":[]}`,
+		loc, loc, loc+" — "+title, tags, loc, title)
 }
 
 func specBatchResp(locs ...string) string {
@@ -63,14 +76,6 @@ const badSpecDetail = `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"
 	`"outgoingEdges":[],"incomingEdges":[]}`
 
 const resolveSpecJSON = `{"data":{"resolveUrn":{"id":"sp1","kind":"node","memoryId":"mem1"}}}`
-
-// A clean product-rooted module header (cor:acl). Its parent (cor, the
-// product root) lives above a --product/--module scope, so a scoped lint
-// must not raise parent-exists for it (issue #21).
-const corAclModuleDetail = `{"id":"id-cor:acl","memoryId":"mem1","loc":"cor:acl","name":"cor:acl — Access control",` +
-	`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p0"],` +
-	`"content":"# cor:acl — Access control\n","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
-	`"outgoingEdges":[],"incomingEdges":[]}`
 
 // A clean product-rooted module header (cli:cha), used to prove --module product
 // inference lints the right node (#99 item 4).
@@ -745,15 +750,15 @@ func TestSpecNewProduct(t *testing.T) {
 		t.Errorf("product root loc = %q, want cli", up.Input.Loc)
 	}
 	var dto struct {
-		Citation string           `json:"citation"`
-		Edges    []map[string]any `json:"edges"`
+		Citation string          `json:"citation"`
+		Edges    json.RawMessage `json:"edges"`
 	}
 	_ = json.Unmarshal([]byte(out.String()), &dto)
 	if dto.Citation != "cli" {
 		t.Errorf("citation = %q, want cli", dto.Citation)
 	}
-	if len(dto.Edges) != 0 {
-		t.Errorf("a product root has no ToC/inherit edges, got %v", dto.Edges)
+	if string(dto.Edges) != "[]" {
+		t.Errorf("a product root has no ToC/inherit edges and must render edges: [], got %s", dto.Edges)
 	}
 }
 
@@ -998,7 +1003,8 @@ func TestSpecLintInfersSoleProduct(t *testing.T) {
 	// (#99 item 4).
 	gql, _ := captureGraphQL(t, map[string]string{
 		"FindNodes": `{"data":{"nodes":[` + specNodeList("cli:cha", `["spec","p0"]`) + `]}}`,
-		"GetNode":   `{"data":{"node":` + cliChaModuleDetail + `}}`,
+		"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` +
+			specBatchHeaderNode("cli:cha", "Chat", `["spec","p0"]`) + `]}}}`,
 		"Memories":  memListJSON,
 		"GetMemory": memGetVectorEnabledJSON,
 	})
@@ -1020,7 +1026,8 @@ func TestSpecLintScopedRootParentAboveScope(t *testing.T) {
 	// run proves the false positive is gone.
 	gql, _ := captureGraphQL(t, map[string]string{
 		"FindNodes": `{"data":{"nodes":[` + specNodeList("cor:acl", `["spec","p0"]`) + `]}}`,
-		"GetNode":   `{"data":{"node":` + corAclModuleDetail + `}}`,
+		"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` +
+			specBatchHeaderNode("cor:acl", "Access control", `["spec","p0"]`) + `]}}}`,
 		// lint now also probes the memory's vector index (#42); an indexed
 		// memory keeps this --strict run clean.
 		"Memories":  memListJSON,
@@ -1055,6 +1062,83 @@ func TestSpecLintErrorsExitConflict(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "invalidates") {
 		t.Errorf("expected the invalidates finding in output:\n%s", out.String())
+	}
+}
+
+func TestSpecLintAllReportsUntaggedCitation(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:02", `["p1"]`) + `]}}`,
+		"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` +
+			specBatchNodeWithTags("msg:010:02", `["p1"]`) + `]}}}`,
+		"Memories":  memListMicromentorJSON,
+		"GetMemory": memGetVectorEnabledJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "--all", "-m", specMem, "--json", "--server", gql.URL})
+	err := root.Execute()
+	if got := exitcode.FromError(err); got != exitcode.Conflict {
+		t.Fatalf("expected Conflict for missing spec tag, got err=%v code=%d\n%s", err, got, out.String())
+	}
+	if !strings.Contains(out.String(), `"rule": "tag-spec"`) {
+		t.Fatalf("expected tag-spec finding in JSON output:\n%s", out.String())
+	}
+	var vars findNodesVars
+	_ = json.Unmarshal(captured["FindNodes"], &vars)
+	if len(vars.Filter.Tags) != 0 {
+		t.Fatalf("lint --all must not pre-filter by spec tag, got %v", vars.Filter.Tags)
+	}
+}
+
+func TestSpecLintAllUnavailableListedNode(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":["id-msg:010:02"],"nodes":[]}}}`,
+		"Memories":  memListMicromentorJSON,
+		"GetMemory": memGetVectorEnabledJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "--all", "-m", specMem, "--json", "--server", gql.URL})
+	err := root.Execute()
+	if got := exitcode.FromError(err); got != exitcode.Conflict {
+		t.Fatalf("expected Conflict for unavailable listed node, got err=%v code=%d\n%s", err, got, out.String())
+	}
+	if !strings.Contains(out.String(), `"citation": "msg:010:02"`) || !strings.Contains(out.String(), `"rule": "unavailable"`) {
+		t.Fatalf("expected unavailable finding naming the listed citation:\n%s", out.String())
+	}
+}
+
+func TestSpecLintScopeConflictsCommand(t *testing.T) {
+	for _, args := range [][]string{
+		{"spec", "lint", "--all", "--product", "cor", "-m", specMem},
+		{"spec", "lint", "--all", "--module", "api", "-m", specMem},
+		{"spec", "lint", "--all", "--product", "cor", "--module", "api", "-m", specMem},
+	} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(args)
+		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+			t.Fatalf("args %v: expected usage error, got %d", args, got)
+		}
+	}
+}
+
+func TestSpecLintCleanJSONEmptyArray(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"Memories":   memListMicromentorJSON,
+		"GetMemory":  memGetVectorEnabledJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "msg:010:02", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v\n%s", err, out.String())
+	}
+	if strings.TrimSpace(out.String()) != "[]" {
+		t.Fatalf("clean lint JSON must be [], got:\n%s", out.String())
 	}
 }
 
@@ -1138,6 +1222,51 @@ func TestSpecGetBodyOnly(t *testing.T) {
 		if strings.Contains(text, metadata) {
 			t.Errorf("body-only output must omit %q metadata:\n%s", metadata, text)
 		}
+	}
+}
+
+func TestSpecGetJSONEmptyEdgesAndLint(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cliChaModuleDetail + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "get", "cli:cha", "-m", specProductMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Edges json.RawMessage `json:"edges"`
+		Lint  json.RawMessage `json:"lint"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("unmarshal: %v\n%s", err, out.String())
+	}
+	if string(dto.Edges) != "[]" || string(dto.Lint) != "[]" {
+		t.Fatalf("edge-free clean spec get JSON must render edges/lint as [], got edges=%s lint=%s", dto.Edges, dto.Lint)
+	}
+}
+
+func TestSpecRegisterEmptyJSONModulesArray(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes":  `{"data":{"nodes":[]}}`,
+		"ResolveUrn": `{"data":{"resolveUrn":null}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "register", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v\n%s", err, out.String())
+	}
+	var dto struct {
+		Modules json.RawMessage `json:"modules"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("unmarshal: %v\n%s", err, out.String())
+	}
+	if string(dto.Modules) != "[]" {
+		t.Fatalf("empty register must render modules: [], got %s", dto.Modules)
 	}
 }
 
