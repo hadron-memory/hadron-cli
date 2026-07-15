@@ -13031,7 +13031,7 @@ func (v *__ConnectionGrantsInput) GetOffset() *int { return v.Offset }
 // __CreateAgentInput is used internally by genqlient
 type __CreateAgentInput struct {
 	Name           string           `json:"name"`
-	OrgId          string           `json:"orgId"`
+	OrgId          *string          `json:"orgId,omitempty"`
 	Description    *string          `json:"description,omitempty"`
 	AgentType      *AgentType       `json:"agentType,omitempty"`
 	Visibility     *AgentVisibility `json:"visibility,omitempty"`
@@ -13044,7 +13044,7 @@ type __CreateAgentInput struct {
 func (v *__CreateAgentInput) GetName() string { return v.Name }
 
 // GetOrgId returns __CreateAgentInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__CreateAgentInput) GetOrgId() string { return v.OrgId }
+func (v *__CreateAgentInput) GetOrgId() *string { return v.OrgId }
 
 // GetDescription returns __CreateAgentInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetDescription() *string { return v.Description }
@@ -15382,7 +15382,7 @@ func ConnectionGrants(
 
 // The mutation executed by CreateAgent.
 const CreateAgent_Operation = `
-mutation CreateAgent ($name: String!, $orgId: ID!, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!]) {
+mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!]) {
 	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces) {
 		... AgentFields
 	}
@@ -15409,7 +15409,7 @@ func CreateAgent(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	name string,
-	orgId string,
+	orgId *string,
 	description *string,
 	agentType *AgentType,
 	visibility *AgentVisibility,

@@ -125,6 +125,9 @@ func buildCreatePayload(
 }
 
 func genericMetadata(pairs []string, raw string) (*json.RawMessage, error) {
+	if len(pairs) == 0 && raw == "" {
+		return nil, nil
+	}
 	if len(pairs) > 0 && raw != "" {
 		return nil, exitcode.Newf(exitcode.Usage, "--meta and --meta-json are mutually exclusive")
 	}

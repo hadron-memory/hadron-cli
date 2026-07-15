@@ -1,4 +1,4 @@
-# Agent lifecycle CRUD (#58, part 1). Agents are org-owned; create/update take
+# Agent lifecycle CRUD (#58, part 1). Agents may be user- or org-owned; create/update take
 # positional args (no input struct). Optional args are omitempty so an unset
 # flag leaves the server default (create) or the field unchanged (update).
 
@@ -64,7 +64,8 @@ query PublicAgents(
 
 mutation CreateAgent(
   $name: String!
-  $orgId: ID!
+  # @genqlient(omitempty: true)
+  $orgId: ID
   # @genqlient(omitempty: true)
   $description: String
   # @genqlient(omitempty: true)

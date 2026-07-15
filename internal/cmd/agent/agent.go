@@ -241,10 +241,11 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	var org, name, description, typ, vis, systemPrompt, systemMemory string
 	var surfaces []string
 	cmd := &cobra.Command{
-		Use:     "create --org <id> --name <n>",
-		Short:   "Create an agent",
-		Example: `  hadron agent create --org acme.com --name "Support Bot" --type CHATBOT --visibility ORGANIZATION`,
-		Args:    cobra.NoArgs,
+		Use:   "create --name <n> [--org <id>]",
+		Short: "Create an agent",
+		Example: `  hadron agent create --name "My Agent" --type ASSISTANT
+  hadron agent create --org acme.com --name "Support Bot" --type CHATBOT --visibility ORGANIZATION`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			at, err := parseAgentType(typ)
 			if err != nil {
@@ -258,7 +259,7 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := gen.CreateAgent(cmd.Context(), client, name, org,
+			resp, err := gen.CreateAgent(cmd.Context(), client, name, optStr(org),
 				optStr(description), at, av, optStr(systemPrompt), optStr(systemMemory), surfaces)
 			if err != nil {
 				return api.MapError(err)
@@ -269,7 +270,7 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 			return emitAgent(f, agentDTOFromFields(resp.CreateAgent.AgentFields), "✓ created")
 		},
 	}
-	cmd.Flags().StringVar(&org, "org", "", "owning organization (ID)")
+	cmd.Flags().StringVar(&org, "org", "", "owning organization (ID); omit for a user-owned agent")
 	cmd.Flags().StringVar(&name, "name", "", "agent name")
 	cmd.Flags().StringVar(&description, "description", "", "agent description")
 	cmd.Flags().StringVar(&typ, "type", "", "type: ASSISTANT or CHATBOT (server default when unset)")
@@ -277,7 +278,6 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVar(&systemPrompt, "system-prompt", "", "system prompt")
 	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "system memory ID")
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable)")
-	_ = cmd.MarkFlagRequired("org")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }

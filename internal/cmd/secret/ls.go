@@ -53,13 +53,13 @@ by the API and never printed by the CLI.`,
 				secrets = append(secrets, dtoFromFields(s.SecretFields))
 			}
 			return output.Write(f.IOStreams, f.JSON, secrets, func(w io.Writer) error {
-				t := output.NewTable(w, "ID", "NAME", "KIND", "OWNER", "METADATA", "UPDATED")
+				t := output.NewTable(w, "ID", "NAME", "KIND", "OWNER", "METADATA", "CREATED")
 				for _, s := range secrets {
 					meta := "-"
 					if s.Metadata != nil {
 						meta = string(*s.Metadata)
 					}
-					t.Row(s.ID, s.Name, s.Kind, s.OwnerType+":"+s.OwnerID, meta, s.UpdatedAt)
+					t.Row(s.ID, s.Name, s.Kind, s.OwnerType+":"+s.OwnerID, meta, s.CreatedAt)
 				}
 				return t.Flush()
 			})

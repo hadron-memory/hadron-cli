@@ -127,7 +127,12 @@ func readSecretMaterial(ioStreams *output.IOStreams, source, label string) (stri
 		data, err = io.ReadAll(ioStreams.In)
 	default:
 		fmt.Fprintf(ioStreams.ErrOut, "%s: ", label)
-		data, err = term.ReadPassword(int(os.Stdin.Fd()))
+		input, ok := ioStreams.In.(*os.File)
+		if !ok {
+			fmt.Fprintln(ioStreams.ErrOut)
+			return "", exitcode.Newf(exitcode.Usage, "interactive secret prompt requires file-backed stdin")
+		}
+		data, err = term.ReadPassword(int(input.Fd()))
 		fmt.Fprintln(ioStreams.ErrOut)
 	}
 	if err != nil {
