@@ -296,10 +296,11 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 				!changed("system-prompt") && !changed("system-memory") && !changed("surface") && !changed("urn") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
-			// The server prepends the org (`<org>:<urn>`), so --urn is the agent
-			// slug — which may carry an author-org atom, hence a path check.
+			// The server prepends the owner namespace, so --urn is the agent
+			// slug — which may carry an author org or @handle atom, hence an
+			// agent-context path check rather than a plain node-loc check.
 			if changed("urn") {
-				if err := cmdutil.ValidateURNPath("--urn", urn); err != nil {
+				if err := cmdutil.ValidateAgentURNPath("--urn", urn); err != nil {
 					return err
 				}
 			}
@@ -339,7 +340,7 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVar(&systemPrompt, "system-prompt", "", "system prompt")
 	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "system memory ID")
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable; replaces the set)")
-	cmd.Flags().StringVar(&urn, "urn", "", "agent URN")
+	cmd.Flags().StringVar(&urn, "urn", "", "agent URN path")
 	return cmd
 }
 

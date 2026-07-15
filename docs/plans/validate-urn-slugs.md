@@ -34,9 +34,14 @@ space in `Flow Lab` — but *allows* uppercase.
 - `isSlugAtom(atom)` — mirrors `validateAtomShape` (1–64, charset, alnum edges),
   hand-rolled (no regexp) for an allocation-free hot path.
 - `ValidateURNSlug(flag, slug)` — a single slug atom (org/app slug).
-- `ValidateURNPath(flag, path)` — a `:`-delimited path (node loc, or an agent
-  slug that may carry an author-org atom); every atom must be a valid slug atom,
-  so leading/trailing/doubled colons are rejected too.
+- `ValidateURNPath(flag, path)` — a `:`-delimited node loc; every atom must be a
+  valid slug atom, so leading/trailing/doubled colons are rejected too. `@`
+  remains illegal here because it is not a valid node-loc character.
+- `ValidateAgentURNPath(flag, path)` — an agent slug path that may carry an
+  author org atom or spec-047 user-author namespace (`@handle:slug`).
+- `CanonicalizeURN(flag, urn)` — a scheme-prefixed URN validator/canonicalizer
+  for parser-parity golden cases, including spec-047 `@handle` owner/author
+  namespaces, type-marker optionality, and source/self-install collapse.
 
 Both return an `exitcode.Usage` (exit 2) error anchored on the flag name, and run
 **before** `GraphQLClient()` so a bad slug never triggers a network/auth call.
@@ -57,7 +62,7 @@ the same anti-drift reason.
 | `org update` | `--urn` (when changed) | `ValidateURNSlug` |
 | `app install` | `--urn` (when set) | `ValidateURNSlug` |
 | `node add` | `--loc` (req) | `ValidateURNPath` |
-| `agent update` | `--urn` (when changed) | `ValidateURNPath` |
+| `agent update` | `--urn` (when changed) | `ValidateAgentURNPath` |
 
 `org create/update --urn` are already server-validated (`validateOrgSlug`); the
 client check is pre-flight UX there. `agent update --urn` and `node add --loc`
