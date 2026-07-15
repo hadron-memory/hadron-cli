@@ -2504,3 +2504,183 @@ func TestSpecEditNonSpec(t *testing.T) {
 		t.Fatalf("editing a non-spec node should be Usage, got %d", got)
 	}
 }
+
+// specReplaceResp is a searchReplaceInNodes response over two specs (one CONTENT
+// match in msg:010:01, two in msg:010:02).
+func specReplaceResp(dryRun bool) string {
+	return fmt.Sprintf(`{"data":{"searchReplaceInNodes":{"nodesScanned":10,"nodesChanged":2,"totalReplacements":3,"dryRun":%v,`+
+		`"results":[`+
+		`{"nodeId":"id-msg:010:01","loc":"msg:010:01","memoryId":"mem1","replacements":1,"fields":[{"field":"CONTENT","matches":1}]},`+
+		`{"nodeId":"id-msg:010:02","loc":"msg:010:02","memoryId":"mem1","replacements":2,"fields":[{"field":"CONTENT","matches":2}]}`+
+		`]}}}`, dryRun)
+}
+
+// spec grep bulk-reads bodies (FindNodes list → nodeBatch) and matches
+// client-side, printing citation:line: text for every occurrence.
+func TestSpecGrep(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:01", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"NodeBatch": specBatchResp("msg:010:01", "msg:010:02"),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "grep", "Definition", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var matches []struct {
+		Citation string `json:"citation"`
+		Field    string `json:"field"`
+		Line     int    `json:"line"`
+		Text     string `json:"text"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &matches); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	// "## Definition" is line 3 of each spec's body; both specs match.
+	if len(matches) != 2 {
+		t.Fatalf("want 2 content matches, got %d: %+v", len(matches), matches)
+	}
+	for _, m := range matches {
+		if m.Field != "content" || m.Line != 3 || !strings.Contains(m.Text, "Definition") {
+			t.Errorf("unexpected match: %+v", m)
+		}
+	}
+	if matches[0].Citation != "msg:010:01" || matches[1].Citation != "msg:010:02" {
+		t.Errorf("citations = %s,%s", matches[0].Citation, matches[1].Citation)
+	}
+}
+
+// grep searches the abstract too (default), tagging those hits distinctly.
+func TestSpecGrepAbstract(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:01", `["spec","p1"]`) + `]}}`,
+		"NodeBatch": specBatchResp("msg:010:01"),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "grep", "signup", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var matches []struct {
+		Field string `json:"field"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &matches)
+	if len(matches) != 1 || matches[0].Field != "abstract" {
+		t.Fatalf("want 1 abstract match, got %+v", matches)
+	}
+}
+
+func TestSpecGrepRejectsBadArgs(t *testing.T) {
+	for _, args := range [][]string{
+		{"spec", "grep", "", "-m", specMem, "--server", "http://127.0.0.1:1"},
+		{"spec", "grep", "a(", "-m", specMem, "--regex", "--server", "http://127.0.0.1:1"},
+		{"spec", "grep", "x", "-m", specMem, "--field", "tags", "--server", "http://127.0.0.1:1"},
+	} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(args)
+		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+			t.Errorf("args %v: want Usage exit, got %d", args, got)
+		}
+	}
+}
+
+// spec replace --dry-run previews per-citation counts and sends a
+// word-boundary-wrapped regex (default) over content + abstract.
+func TestSpecReplaceDryRun(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"FindNodes":            `{"data":{"nodes":[` + specNodeList("msg:010:01", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"SearchReplaceInNodes": specReplaceResp(true),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "replace", "h-read-node", "hadron_get_node", "-m", specMem, "--dry-run", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input struct {
+			OldText   string   `json:"oldText"`
+			NewText   string   `json:"newText"`
+			Regex     bool     `json:"regex"`
+			DryRun    bool     `json:"dryRun"`
+			Fields    []string `json:"fields"`
+			NodeIds   []string `json:"nodeIds"`
+			MemoryIds []string `json:"memoryIds"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(captured["SearchReplaceInNodes"], &vars); err != nil {
+		t.Fatalf("captured vars not JSON: %v", err)
+	}
+	if vars.Input.OldText != `\bh-read-node\b` || !vars.Input.Regex {
+		t.Errorf("word-boundary default wrong: oldText=%q regex=%v", vars.Input.OldText, vars.Input.Regex)
+	}
+	if !vars.Input.DryRun {
+		t.Error("dry-run should send dryRun=true")
+	}
+	// Spec-scoped: explicit spec nodeIds, never a whole-memory memoryIds scope.
+	if len(vars.Input.NodeIds) != 2 || len(vars.Input.MemoryIds) != 0 {
+		t.Errorf("want 2 nodeIds and no memoryIds, got nodeIds=%v memoryIds=%v", vars.Input.NodeIds, vars.Input.MemoryIds)
+	}
+	gotFields := strings.ToLower(strings.Join(vars.Input.Fields, ","))
+	if !strings.Contains(gotFields, "content") || !strings.Contains(gotFields, "abstract") {
+		t.Errorf("default fields = %v, want content+abstract", vars.Input.Fields)
+	}
+	var dto struct {
+		DryRun            bool `json:"dryRun"`
+		TotalReplacements int  `json:"totalReplacements"`
+		SpecsChanged      int  `json:"specsChanged"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	if !dto.DryRun || dto.TotalReplacements != 3 || dto.SpecsChanged != 2 {
+		t.Errorf("dry-run report = %+v", dto)
+	}
+}
+
+// A real spec replace applies, then re-lints the changed specs in one bulk
+// nodeBatch read.
+func TestSpecReplaceApplyRelints(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes":            `{"data":{"nodes":[` + specNodeList("msg:010:01", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"SearchReplaceInNodes": specReplaceResp(false),
+		"NodeBatch":            specBatchResp("msg:010:01", "msg:010:02"),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "replace", "h-read-node", "hadron_get_node", "-m", specMem, "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		DryRun bool             `json:"dryRun"`
+		Lint   []map[string]any `json:"lint"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	if dto.DryRun {
+		t.Error("a --yes run must report dryRun=false")
+	}
+	// cleanSpecDetail is rubric-clean, so the re-lint finds nothing.
+	if len(dto.Lint) != 0 {
+		t.Errorf("re-lint should be clean, got %+v", dto.Lint)
+	}
+}
+
+// Without --yes and no terminal, a real spec replace refuses and never writes.
+func TestSpecReplaceRequiresYesNonInteractive(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"SearchReplaceInNodes": specReplaceResp(false),
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "replace", "h-read-node", "hadron_get_node", "-m", specMem, "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("want Usage refusal without --yes, got %d", got)
+	}
+	if _, ok := captured["SearchReplaceInNodes"]; ok {
+		t.Error("SearchReplaceInNodes must not be called when the gate refuses")
+	}
+}

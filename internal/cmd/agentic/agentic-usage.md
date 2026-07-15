@@ -67,7 +67,7 @@ hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <pre
 hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--tag <t>]... [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
-hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | supersede <citation> | import spec-kit|code
+hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | supersede <citation> | import spec-kit|code
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
 hadron ai-config ls [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
 hadron org ls [--mine] | create --name <n> --urn <urn> | get <id> | update <id> | rm <id> | member ls|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
@@ -122,9 +122,10 @@ Conventions:
   `edge ls` and in `node get --json`). A nameless edge prints its loc instead.
   Cross-memory edges are allowed.
 - Destructive / bulk-write commands (`memory rm`, `node rm`, `node merge`,
-  `user merge`, `edge rm`, `app uninstall`, a real `replace`, and `memory encrypt`)
-  prompt on a terminal and REQUIRE `--yes` when run non-interactively (agents must
-  always pass `--yes`, or `--dry-run` to preview `replace`). Without it they exit 2.
+  `user merge`, `edge rm`, `app uninstall`, a real `replace` / `spec replace`, and
+  `memory encrypt`) prompt on a terminal and REQUIRE `--yes` when run
+  non-interactively (agents must always pass `--yes`, or `--dry-run` to preview a
+  `replace`). Without it they exit 2.
 - `memory encrypt <memory> --data-key -` converts a plaintext memory to
   encrypted-at-rest: you provide the data key (read from stdin via `--data-key -`
   so it stays out of shell history) and the server rewrites all node content as
@@ -342,7 +343,18 @@ Conventions:
   convention-aware `edge add` that validates both endpoints are specs in the
   same corpus and synthesizes the field→entity label when `--label` is omitted
   (`--dry-run` previews); `spec find` is semantic by default (`--match-exactly`
-  forces literal regex matching); `spec register` is advisory/read-only (`--check` reports
+  forces literal regex matching); `spec grep <pattern>` searches every spec's
+  **body + abstract** across the whole corpus (one bulk read, not a per-spec
+  loop) and prints each hit as `citation:line: text`, exhaustively — literal by
+  default, `--regex` for RE2, `-i` to fold case, `--field content|abstract` to
+  narrow; use it to discover where a token lives (it's deliberately broad — no
+  word boundary); `spec replace <pattern> <replacement>` is the citation-aware
+  bulk find/replace over bodies + abstracts, **word-boundary-aware by default**
+  (whole-token only, so `h-read-node` never hits `h-read-nodes`;
+  `--word-boundary=false` for substring, `--regex` for a pattern with `$1`
+  backrefs), gated like other bulk writes (`--dry-run` previews per-citation
+  counts, `--yes` non-interactively, `--max-specs N` caps blast radius) and
+  **re-lints the changed specs** afterward; `spec register` is advisory/read-only (`--check` reports
   ledger drift, exit 5); `spec lint` takes `--product`/`--module`/`--all`,
   flags mixed-arity corpora, names the exact `edge add` remedy for a missing
   inheritance edge, and warns (rule `vector-index`) when the memory has no

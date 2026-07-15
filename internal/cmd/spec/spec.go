@@ -50,6 +50,8 @@ generic node/edge primitives. Every subcommand takes -m/--memory.`,
 	cmd.AddCommand(newCmdDescribe(f))
 	cmd.AddCommand(newCmdRegister(f))
 	cmd.AddCommand(newCmdFind(f))
+	cmd.AddCommand(newCmdGrep(f))
+	cmd.AddCommand(newCmdReplace(f))
 	cmd.AddCommand(newCmdNew(f))
 	cmd.AddCommand(newCmdEdit(f))
 	cmd.AddCommand(newCmdExtract(f))
@@ -826,6 +828,35 @@ type specNode struct {
 }
 
 func nodeFromGQL(n *gen.GetNodeNode) specNode {
+	sn := specNode{
+		Loc:                n.Loc,
+		Name:               n.Name,
+		NodeType:           n.NodeType,
+		Tags:               n.Tags,
+		Abstract:           n.Abstract,
+		AbstractOriginHash: n.AbstractOriginHash,
+		Content:            n.Content,
+	}
+	if n.Data != nil {
+		var d struct {
+			Version string `json:"version"`
+		}
+		if err := json.Unmarshal(*n.Data, &d); err == nil {
+			sn.DataVersion = d.Version
+		}
+	}
+	for _, e := range n.OutgoingEdges {
+		if e == nil || e.Target == nil {
+			continue
+		}
+		sn.OutEdges = append(sn.OutEdges, specEdge{Name: edgeNameStr(e.Name), Loc: e.Target.Loc})
+	}
+	return sn
+}
+
+// nodeFromBatch is nodeFromGQL for a bulk-read (nodeBatch) node — same lint
+// projection, so a batch-read spec lints identically to a single-read one.
+func nodeFromBatch(n *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) specNode {
 	sn := specNode{
 		Loc:                n.Loc,
 		Name:               n.Name,

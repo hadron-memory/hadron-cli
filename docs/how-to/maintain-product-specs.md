@@ -140,10 +140,17 @@ hadron spec ls   -m $M --prefix cli            # one product (or cli:cha for one
 hadron spec ls   -m $M --prefix cli:cha:010    # one feature and its rules/flows
 hadron spec get  cli:cha:010:01 -m $M          # one spec + lint summary
 hadron spec find "backpressure" -m $M          # semantic search, filtered to specs
+hadron spec grep h-read-node -m $M             # body+abstract search, citation:line: text (exhaustive)
 hadron spec lint --product cli -m $M           # lint one product
 hadron spec lint --all -m $M --strict          # lint the whole corpus, warnings = errors
 hadron spec register -m $M                      # derived number ledger (next-free at each tier)
 ```
+
+`find` ranks by relevance over name/loc/description/tags; `grep` is the
+exhaustive, line-oriented complement that reads every spec's **body and
+abstract** (one bulk fetch, not a per-spec loop) and prints every occurrence as
+`citation:line: text` — literal by default, `--regex`/`-i`, `--field
+content|abstract`, `--prefix` to scope.
 
 `lint` enforces the rubric (abstract + "what invalidates"), the citation shape,
 parent existence, inheritance edges to the tier contract, and the
@@ -153,6 +160,27 @@ Use `hadron spec use $M` when you are repeatedly maintaining the same corpus.
 It writes `spec_memory` to your user config (for example,
 `~/.config/hadron/config.toml`), so it applies across checkouts; pass `-m` when
 one repository or one call should target a different corpus.
+
+## Corpus-wide find/replace
+
+To rename a token across the whole corpus (e.g. stale tool shorthand), use
+`spec replace` — word-boundary-aware by default, so it rewrites whole tokens only:
+
+```sh
+# Preview: which specs, how many matches (nothing written)
+hadron spec replace h-read-node hadron_get_node -m $M --dry-run
+
+# Apply across one module (whole-token only), then it re-lints the changed specs
+hadron spec replace h-read-node hadron_get_node -m $M --prefix cor:api --yes
+
+# Regex with a backreference; --word-boundary=false for a raw substring replace
+hadron spec replace 'h-chat-(\w+)' 'hadron_chatbot_$1' -m $M --regex --yes
+```
+
+It rewrites **body + abstract** by default (`--field` narrows), is gated like
+other bulk writes (prompt / `--yes`, `--max-specs N` to cap blast radius), saves
+every change to version history, and re-lints the rewritten specs so a body edit
+that leaves an abstract stale is surfaced immediately.
 
 ## Editing and splitting specs
 
