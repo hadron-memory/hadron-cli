@@ -19,10 +19,14 @@ type Token struct {
 
 // LoginOptions parameterizes a login flow.
 type LoginOptions struct {
-	ServerURL   string
-	IO          *output.IOStreams
-	HTTPClient  *http.Client
-	OpenBrowser func(url string) error
+	ServerURL string
+	// LoginProvider selects the server-side identity provider used for the
+	// browser hop. Empty and "github" preserve the legacy authorize request;
+	// "google" asks a provider-aware server to use Google.
+	LoginProvider string
+	IO            *output.IOStreams
+	HTTPClient    *http.Client
+	OpenBrowser   func(url string) error
 }
 
 // Strategy is a way to obtain a token interactively. BrowserStrategy

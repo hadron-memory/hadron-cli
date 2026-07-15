@@ -104,6 +104,9 @@ func TestBrowserLoginHappyPath(t *testing.T) {
 		if got := q.Get("scope"); got != "mcp" {
 			return fmt.Errorf("authorize scope %q, want %q", got, "mcp")
 		}
+		if got := q.Get("login_provider"); got != "" {
+			return fmt.Errorf("default authorize login_provider %q, want omitted", got)
+		}
 		// Simulate the consent redirect back to the loopback server.
 		go func() {
 			resp, err := http.Get(redirect + "?" + url.Values{
@@ -134,6 +137,39 @@ func TestBrowserLoginHappyPath(t *testing.T) {
 	sum := sha256.Sum256([]byte(as.seenVerifier))
 	if got := base64.RawURLEncoding.EncodeToString(sum[:]); got != challenge {
 		t.Error("code_verifier does not match code_challenge")
+	}
+}
+
+func TestLoginProviderParam(t *testing.T) {
+	tests := []struct {
+		name     string
+		provider string
+		want     string
+		wantErr  bool
+	}{
+		{name: "empty preserves legacy request", provider: "", want: ""},
+		{name: "GitHub preserves legacy request", provider: "github", want: ""},
+		{name: "Google is sent", provider: "google", want: "google"},
+		{name: "case and whitespace normalize", provider: " Google ", want: "google"},
+		{name: "unknown is rejected", provider: "microsoft", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := loginProviderParam(tt.provider)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("loginProviderParam(%q) expected an error", tt.provider)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("loginProviderParam(%q) error: %v", tt.provider, err)
+			}
+			if got != tt.want {
+				t.Errorf("loginProviderParam(%q) = %q, want %q", tt.provider, got, tt.want)
+			}
+		})
 	}
 }
 

@@ -135,6 +135,7 @@ only the mandatory rubric.
 ## Navigating and validating
 
 ```sh
+hadron spec use $M                                # save the default spec memory in your user config
 hadron spec ls   -m $M --prefix cli            # one product (or cli:cha for one module)
 hadron spec ls   -m $M --prefix cli:cha:010    # one feature and its rules/flows
 hadron spec get  cli:cha:010:01 -m $M          # one spec + lint summary
@@ -154,6 +155,11 @@ content|abstract`, `--prefix` to scope.
 `lint` enforces the rubric (abstract + "what invalidates"), the citation shape,
 parent existence, inheritance edges to the tier contract, and the
 **one-arity-per-memory** rule.
+
+Use `hadron spec use $M` when you are repeatedly maintaining the same corpus.
+It writes `spec_memory` to your user config (for example,
+`~/.config/hadron/config.toml`), so it applies across checkouts; pass `-m` when
+one repository or one call should target a different corpus.
 
 ## Corpus-wide find/replace
 
@@ -176,6 +182,44 @@ other bulk writes (prompt / `--yes`, `--max-specs N` to cap blast radius), saves
 every change to version history, and re-lints the rewritten specs so a body edit
 that leaves an abstract stale is surfaced immediately.
 
+## Editing and splitting specs
+
+Use `edit` for ordinary body or abstract changes that do not change the durable
+meaning of the citation:
+
+```sh
+hadron spec edit cli:cha:010:01 -m $M
+hadron spec edit cli:cha:010:01 -m $M --content-file /tmp/rule.md --abstract-file /tmp/abstract.md --dry-run
+```
+
+The interactive form opens both abstract and body in `$EDITOR`; non-interactive
+flags update only the fields you provide and preserve the rest.
+
+Use `extract` when part of a fat rule deserves its own citation. Pipe or pass
+the moved chunk as the new body; `--strip-source` trims it from the old body only
+when it matches verbatim.
+
+```sh
+hadron spec extract cli:cha:010:01 -m $M \
+  --to-feature 010 --title "backpressure timeout" \
+  --content-file /tmp/extracted.md --strip-source --dry-run
+```
+
+After an extract, refresh both abstracts so semantic search can retrieve the
+right node.
+
+## Cross-referencing specs
+
+Use `link` for same-corpus spec-to-spec references. The command validates both
+endpoints are spec nodes and creates the edge from the more specific citation to
+the more general one; omit `--label` to let the CLI synthesize the conventional
+field-to-entity wording.
+
+```sh
+hadron spec link cli:cha:010:04 cli:cha:010:01 -m $M --dry-run
+hadron spec link cli:cha:010:04 cli:cha:010:01 -m $M --label "documents retry timing"
+```
+
 ## Replacing a spec
 
 Numbers are never reused. To change a binding rule, mint a replacement and
@@ -194,3 +238,6 @@ hadron spec supersede cli:cha:010:01 -m $M --title "backpressure v2" --yes
   non-empty memory — but declaring it up front lets an empty memory state its
   intended arity and lets `describe` flag drift. See
   [docs/plans/spec-product-level.md](../plans/spec-product-level.md).
+- `hadron spec import spec-kit|code` is reserved for future import workflows and
+  currently exits with a not-implemented usage error; new, edit, extract,
+  link, and supersede are the supported write paths today.

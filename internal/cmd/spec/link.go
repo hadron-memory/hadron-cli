@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -76,18 +77,12 @@ convention ("documents <from> on the <to> entity"); refine it with
 			// Fetch both endpoints: a clear per-endpoint NotFound, the "spec" tag
 			// guard, and the names for the default label. Same-corpus is structural
 			// — both are resolved under -m, so no cross-memory check is needed.
-			fromNode, err := fetchSpecNode(cmd, client, memURN, from.Format())
+			fromNode, err := fetchSpecLinkEndpoint(cmd, client, memURN, from)
 			if err != nil {
 				return err
 			}
-			if err := requireSpecTag(fromNode.Tags, from.Format()); err != nil {
-				return err
-			}
-			toNode, err := fetchSpecNode(cmd, client, memURN, to.Format())
+			toNode, err := fetchSpecLinkEndpoint(cmd, client, memURN, to)
 			if err != nil {
-				return err
-			}
-			if err := requireSpecTag(toNode.Tags, to.Format()); err != nil {
 				return err
 			}
 
@@ -135,6 +130,17 @@ func requireSpecTag(tags []string, loc string) error {
 			"%s is not a spec (no \"spec\" tag) — use `hadron edge add` for arbitrary nodes", loc)
 	}
 	return nil
+}
+
+func fetchSpecLinkEndpoint(cmd *cobra.Command, client graphql.Client, memoryURN string, cit Citation) (*gen.GetNodeNode, error) {
+	n, err := fetchSpecNode(cmd, client, memoryURN, cit.Format())
+	if err != nil {
+		return nil, err
+	}
+	if err := requireSpecTag(n.Tags, n.Loc); err != nil {
+		return nil, err
+	}
+	return n, nil
 }
 
 func renderLinkResult(w io.Writer, r linkResultDTO) error {

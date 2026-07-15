@@ -233,7 +233,7 @@ func TestInheritedContractLoc(t *testing.T) {
 }
 
 func TestMemoryURNFromFlag(t *testing.T) {
-	for _, in := range []string{"micromentor.org::platform-specs", "hrn:memory:micromentor.org::platform-specs", "urn:memory:micromentor.org::platform-specs"} {
+	for _, in := range []string{"micromentor.org::platform-specs", "micromentor.org:platform-specs", "hrn:memory:micromentor.org::platform-specs", "urn:memory:micromentor.org::platform-specs"} {
 		got, err := memoryURNFromFlag(in)
 		if err != nil {
 			t.Fatalf("memoryURNFromFlag(%q): %v", in, err)
@@ -244,6 +244,11 @@ func TestMemoryURNFromFlag(t *testing.T) {
 	}
 	if _, err := memoryURNFromFlag("  "); err == nil {
 		t.Error("empty memory should error")
+	}
+	for _, in := range []string{"micromentor.org:::platform-specs", "micromentor.org::platform-specs::extra", "hrn:memory:micromentor.org::platform-specs::extra"} {
+		if _, err := memoryURNFromFlag(in); err == nil {
+			t.Errorf("memoryURNFromFlag(%q) should reject malformed memory refs", in)
+		}
 	}
 }
 
@@ -277,6 +282,38 @@ func TestResolveSpecMemoryRejectsEmptyRef(t *testing.T) {
 		}
 		if _, _, err := resolveSpecMemoryID(nil, nil, ref); err == nil {
 			t.Errorf("resolveSpecMemoryID(%q) should error", ref)
+		}
+	}
+}
+
+func TestResolveSpecMemoryAcceptsCanonicalForms(t *testing.T) {
+	cases := map[string]string{
+		"hadronmemory.com::specs":                                "hadronmemory.com::specs",
+		"hadronmemory.com:specs":                                 "hadronmemory.com::specs",
+		"hrn:memory:hadronmemory.com::specs":                     "hadronmemory.com::specs",
+		"urn:memory:hadronmemory.com::specs":                     "hadronmemory.com::specs",
+		"hadronmemory.com::coach:agent:app-mem:runbook":          "hadronmemory.com::coach:agent:app-mem:runbook",
+		"hrn:memory:hadronmemory.com::coach:agent:app-mem:specs": "hadronmemory.com::coach:agent:app-mem:specs",
+	}
+	for ref, want := range cases {
+		got, err := resolveSpecMemoryURN(nil, nil, ref)
+		if err != nil {
+			t.Fatalf("resolveSpecMemoryURN(%q): %v", ref, err)
+		}
+		if got != want {
+			t.Errorf("resolveSpecMemoryURN(%q)=%q, want %q", ref, got, want)
+		}
+	}
+}
+
+func TestResolveSpecMemoryRejectsMalformedSeparatedRefs(t *testing.T) {
+	for _, ref := range []string{
+		"hadronmemory.com:::specs",
+		"hadronmemory.com::specs::extra",
+		"hrn:memory:hadronmemory.com::specs::extra",
+	} {
+		if _, err := resolveSpecMemoryURN(nil, nil, ref); err == nil {
+			t.Errorf("resolveSpecMemoryURN(%q) should reject malformed separated refs", ref)
 		}
 	}
 }

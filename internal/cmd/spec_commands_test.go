@@ -28,14 +28,27 @@ func specNodeList(loc, tags string) string {
 // level-3 loc under msg:010: name prefix, spec+p1 tags, abstract, an
 // invalidates section, data.version, and a toc edge to the parent msg:010.
 func specBatchNode(loc string) string {
+	return specBatchNodeWithTags(loc, `["spec","p1"]`)
+}
+
+func specBatchNodeWithTags(loc, tags string) string {
 	return fmt.Sprintf(`{"id":"id-%s","memoryId":"mem1","loc":%q,"name":%q,"alias":null,"nodeType":"info",`+
 		`"description":null,"abstract":"Win back users who never engaged after signup.","abstractOriginHash":null,`+
-		`"tags":["spec","p1"],"seq":null,"data":{"version":"0.0.1"},"properties":null,`+
+		`"tags":%s,"seq":null,"data":{"version":"0.0.1"},"properties":null,`+
 		`"content":"# spec\n\n## Definition\nx\n\n## Rule\nx\n\n## Durable vs tunable\nx\n\n## What invalidates this spec\nChanges.\n",`+
 		`"updatedAt":"2026-06-14T00:00:00Z",`+
 		`"outgoingEdges":[{"label":"p1: W2","priority":0,"condition":null,"target":{"id":"f1","loc":"msg:010","memoryId":"mem1"}}],`+
 		`"incomingEdges":[]}`,
-		loc, loc, loc+" — W2")
+		loc, loc, loc+" — W2", tags)
+}
+
+func specBatchHeaderNode(loc, title, tags string) string {
+	return fmt.Sprintf(`{"id":"id-%s","memoryId":"mem1","loc":%q,"name":%q,"alias":null,"nodeType":"info",`+
+		`"description":null,"abstract":null,"abstractOriginHash":null,`+
+		`"tags":%s,"seq":null,"data":null,"properties":null,`+
+		`"content":"# %s — %s\n","updatedAt":"2026-06-14T00:00:00Z",`+
+		`"outgoingEdges":[],"incomingEdges":[]}`,
+		loc, loc, loc+" — "+title, tags, loc, title)
 }
 
 func specBatchResp(locs ...string) string {
@@ -63,14 +76,6 @@ const badSpecDetail = `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"
 	`"outgoingEdges":[],"incomingEdges":[]}`
 
 const resolveSpecJSON = `{"data":{"resolveUrn":{"id":"sp1","kind":"node","memoryId":"mem1"}}}`
-
-// A clean product-rooted module header (cor:acl). Its parent (cor, the
-// product root) lives above a --product/--module scope, so a scoped lint
-// must not raise parent-exists for it (issue #21).
-const corAclModuleDetail = `{"id":"id-cor:acl","memoryId":"mem1","loc":"cor:acl","name":"cor:acl — Access control",` +
-	`"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","tags":["spec","p0"],` +
-	`"content":"# cor:acl — Access control\n","data":null,"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
-	`"outgoingEdges":[],"incomingEdges":[]}`
 
 // A clean product-rooted module header (cli:cha), used to prove --module product
 // inference lints the right node (#99 item 4).
@@ -123,6 +128,32 @@ func TestSpecGet(t *testing.T) {
 	_ = json.Unmarshal(captured["ResolveUrn"], &vars)
 	if vars.Urn != "hrn:node:"+specMem+"::msg:010:02" {
 		t.Errorf("resolveUrn got %q", vars.Urn)
+	}
+}
+
+func TestSpecGetRejectsMalformedCitation(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "get", "register", "-m", specMem, "--server", "http://127.0.0.1:1"})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("malformed spec citation should be Usage, got %d", got)
+	}
+}
+
+func TestSpecGetRejectsNonSpecNode(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    linkNonSpecDetail,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "get", "msg:010:02", "-m", specMem, "--server", gql.URL})
+	err := root.Execute()
+	if got := exitcode.FromError(err); got != exitcode.Usage {
+		t.Fatalf("non-spec node through spec get should be Usage, got %d", got)
+	}
+	if strings.Contains(err.Error(), "edge add") {
+		t.Fatalf("spec get non-spec error should be generic, got %q", err)
 	}
 }
 
@@ -245,6 +276,13 @@ func TestSpecFindSemanticDefault(t *testing.T) {
 	}
 	if vars.Mode == nil || *vars.Mode != "hybrid" {
 		t.Errorf("default find should use hybrid mode, got %v", vars.Mode)
+	}
+	const wantSpecFindPageSize = 50
+	if vars.Limit == nil || *vars.Limit != wantSpecFindPageSize {
+		t.Errorf("default find should oversample raw hits with page size %d, got %v", wantSpecFindPageSize, vars.Limit)
+	}
+	if vars.Offset == nil || *vars.Offset != 0 {
+		t.Errorf("default find should start at offset 0, got %v", vars.Offset)
 	}
 	if len(vars.Filter.MemoryIds) != 1 || vars.Filter.MemoryIds[0] != specMem {
 		t.Errorf("memory scope should map to filter.memoryIds, got %v", vars.Filter.MemoryIds)
@@ -745,15 +783,15 @@ func TestSpecNewProduct(t *testing.T) {
 		t.Errorf("product root loc = %q, want cli", up.Input.Loc)
 	}
 	var dto struct {
-		Citation string           `json:"citation"`
-		Edges    []map[string]any `json:"edges"`
+		Citation string          `json:"citation"`
+		Edges    json.RawMessage `json:"edges"`
 	}
 	_ = json.Unmarshal([]byte(out.String()), &dto)
 	if dto.Citation != "cli" {
 		t.Errorf("citation = %q, want cli", dto.Citation)
 	}
-	if len(dto.Edges) != 0 {
-		t.Errorf("a product root has no ToC/inherit edges, got %v", dto.Edges)
+	if string(dto.Edges) != "[]" {
+		t.Errorf("a product root has no ToC/inherit edges and must render edges: [], got %s", dto.Edges)
 	}
 }
 
@@ -998,7 +1036,8 @@ func TestSpecLintInfersSoleProduct(t *testing.T) {
 	// (#99 item 4).
 	gql, _ := captureGraphQL(t, map[string]string{
 		"FindNodes": `{"data":{"nodes":[` + specNodeList("cli:cha", `["spec","p0"]`) + `]}}`,
-		"GetNode":   `{"data":{"node":` + cliChaModuleDetail + `}}`,
+		"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` +
+			specBatchHeaderNode("cli:cha", "Chat", `["spec","p0"]`) + `]}}}`,
 		"Memories":  memListJSON,
 		"GetMemory": memGetVectorEnabledJSON,
 	})
@@ -1020,7 +1059,8 @@ func TestSpecLintScopedRootParentAboveScope(t *testing.T) {
 	// run proves the false positive is gone.
 	gql, _ := captureGraphQL(t, map[string]string{
 		"FindNodes": `{"data":{"nodes":[` + specNodeList("cor:acl", `["spec","p0"]`) + `]}}`,
-		"GetNode":   `{"data":{"node":` + corAclModuleDetail + `}}`,
+		"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` +
+			specBatchHeaderNode("cor:acl", "Access control", `["spec","p0"]`) + `]}}}`,
 		// lint now also probes the memory's vector index (#42); an indexed
 		// memory keeps this --strict run clean.
 		"Memories":  memListJSON,
@@ -1055,6 +1095,83 @@ func TestSpecLintErrorsExitConflict(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "invalidates") {
 		t.Errorf("expected the invalidates finding in output:\n%s", out.String())
+	}
+}
+
+func TestSpecLintAllReportsUntaggedCitation(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:02", `["p1"]`) + `]}}`,
+		"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` +
+			specBatchNodeWithTags("msg:010:02", `["p1"]`) + `]}}}`,
+		"Memories":  memListMicromentorJSON,
+		"GetMemory": memGetVectorEnabledJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "--all", "-m", specMem, "--json", "--server", gql.URL})
+	err := root.Execute()
+	if got := exitcode.FromError(err); got != exitcode.Conflict {
+		t.Fatalf("expected Conflict for missing spec tag, got err=%v code=%d\n%s", err, got, out.String())
+	}
+	if !strings.Contains(out.String(), `"rule": "tag-spec"`) {
+		t.Fatalf("expected tag-spec finding in JSON output:\n%s", out.String())
+	}
+	var vars findNodesVars
+	_ = json.Unmarshal(captured["FindNodes"], &vars)
+	if len(vars.Filter.Tags) != 0 {
+		t.Fatalf("lint --all must not pre-filter by spec tag, got %v", vars.Filter.Tags)
+	}
+}
+
+func TestSpecLintAllUnavailableListedNode(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":["id-msg:010:02"],"nodes":[]}}}`,
+		"Memories":  memListMicromentorJSON,
+		"GetMemory": memGetVectorEnabledJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "--all", "-m", specMem, "--json", "--server", gql.URL})
+	err := root.Execute()
+	if got := exitcode.FromError(err); got != exitcode.Conflict {
+		t.Fatalf("expected Conflict for unavailable listed node, got err=%v code=%d\n%s", err, got, out.String())
+	}
+	if !strings.Contains(out.String(), `"citation": "msg:010:02"`) || !strings.Contains(out.String(), `"rule": "unavailable"`) {
+		t.Fatalf("expected unavailable finding naming the listed citation:\n%s", out.String())
+	}
+}
+
+func TestSpecLintScopeConflictsCommand(t *testing.T) {
+	for _, args := range [][]string{
+		{"spec", "lint", "--all", "--product", "cor", "-m", specMem},
+		{"spec", "lint", "--all", "--module", "api", "-m", specMem},
+		{"spec", "lint", "--all", "--product", "cor", "--module", "api", "-m", specMem},
+	} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(args)
+		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+			t.Fatalf("args %v: expected usage error, got %d", args, got)
+		}
+	}
+}
+
+func TestSpecLintCleanJSONEmptyArray(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"Memories":   memListMicromentorJSON,
+		"GetMemory":  memGetVectorEnabledJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "lint", "msg:010:02", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v\n%s", err, out.String())
+	}
+	if strings.TrimSpace(out.String()) != "[]" {
+		t.Fatalf("clean lint JSON must be [], got:\n%s", out.String())
 	}
 }
 
@@ -1141,6 +1258,51 @@ func TestSpecGetBodyOnly(t *testing.T) {
 	}
 }
 
+func TestSpecGetJSONEmptyEdgesAndLint(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cliChaModuleDetail + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "get", "cli:cha", "-m", specProductMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Edges json.RawMessage `json:"edges"`
+		Lint  json.RawMessage `json:"lint"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("unmarshal: %v\n%s", err, out.String())
+	}
+	if string(dto.Edges) != "[]" || string(dto.Lint) != "[]" {
+		t.Fatalf("edge-free clean spec get JSON must render edges/lint as [], got edges=%s lint=%s", dto.Edges, dto.Lint)
+	}
+}
+
+func TestSpecRegisterEmptyJSONModulesArray(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes":  `{"data":{"nodes":[]}}`,
+		"ResolveUrn": `{"data":{"resolveUrn":null}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "register", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v\n%s", err, out.String())
+	}
+	var dto struct {
+		Modules json.RawMessage `json:"modules"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("unmarshal: %v\n%s", err, out.String())
+	}
+	if string(dto.Modules) != "[]" {
+		t.Fatalf("empty register must render modules: [], got %s", dto.Modules)
+	}
+}
+
 func TestSpecGetBodyOnlyJSON(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
@@ -1190,6 +1352,19 @@ func TestSpecSupersedeRequiresYes(t *testing.T) {
 	err := root.Execute()
 	if exitcode.FromError(err) != exitcode.Usage {
 		t.Fatalf("non-interactive supersede without --yes should be Usage, got err=%v code=%d", err, exitcode.FromError(err))
+	}
+}
+
+func TestSpecSupersedeRejectsNonSpecSource(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    linkNonSpecDetail,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("non-spec supersede source should be Usage, got %d", got)
 	}
 }
 
@@ -1332,6 +1507,139 @@ func TestSpecSupersedeOrphanedEdgeFailsLoud(t *testing.T) {
 	}
 	if errStr := f.IOStreams.ErrOut.(*strings.Builder).String(); !strings.Contains(errStr, "skipped edge") {
 		t.Errorf("a skipped edge must warn on stderr, got: %q", errStr)
+	}
+}
+
+func TestSpecSupersedeRetirementEdgeFailureEmitsResult(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"FindNodes":  scan,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge": `{"errors":[{"message":"edge boom"}]}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if got := exitcode.FromError(err); got != exitcode.Error {
+		t.Fatalf("retirement-edge failure should be Error, got err=%v code=%d", err, got)
+	}
+	var dto struct {
+		New   string `json:"new"`
+		Edges []struct {
+			Label  string `json:"label"`
+			Status string `json:"status"`
+		} `json:"edges"`
+	}
+	if uerr := json.Unmarshal([]byte(out.String()), &dto); uerr != nil {
+		t.Fatalf("partial failure should still emit JSON: %v\n%s", uerr, out.String())
+	}
+	if dto.New != "msg:010:03" {
+		t.Fatalf("partial result must name replacement, got %+v", dto)
+	}
+	foundFailedRetirement := false
+	for _, e := range dto.Edges {
+		if e.Label == "superseded-by" && e.Status == "failed" {
+			foundFailedRetirement = true
+		}
+	}
+	if !foundFailedRetirement {
+		t.Fatalf("superseded-by edge should be marked failed, got %+v", dto.Edges)
+	}
+}
+
+func TestSpecSupersedeRetireUpdateFailureEmitsRecoverableResult(t *testing.T) {
+	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"FindNodes":  scan,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
+		"UpdateNode": `{"errors":[{"message":"update boom"}]}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if got := exitcode.FromError(err); got != exitcode.Error {
+		t.Fatalf("retire update failure should be Error, got err=%v code=%d", err, got)
+	}
+	if !strings.Contains(err.Error(), "finish the retirement update") {
+		t.Fatalf("error should name idempotent recovery path, got %v", err)
+	}
+	if !strings.Contains(out.String(), `"new": "msg:010:03"`) || !strings.Contains(out.String(), `"status": "created"`) {
+		t.Fatalf("partial update failure should emit replacement and completed edge statuses:\n%s", out.String())
+	}
+}
+
+func TestSpecSupersedeRetryExistingRetirementEdgeFinishesUpdate(t *testing.T) {
+	oldWithEdge := `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+		`"description":null,"abstract":"Win back users who never engaged after signup.","abstractOriginHash":null,` +
+		`"nodeType":"info","tags":["spec","p1"],` +
+		`"content":"# msg:010:02 — W2\n\n## What invalidates this spec\nChanges.\n",` +
+		`"data":{"version":"0.0.1"},"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+		`"outgoingEdges":[{"id":"e2","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:010:03","isRunnable":false,"priority":0,"target":{"id":"new1","loc":"msg:010:03","memoryId":"mem1"}}],` +
+		`"incomingEdges":[]}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + oldWithEdge + `}}`,
+		"UpdateNode": `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("retry should finish old-node retirement: %v\n%s", err, out.String())
+	}
+	if _, ok := captured["CreateNode"]; ok {
+		t.Fatal("retry with existing superseded-by edge must not create another replacement")
+	}
+	if _, ok := captured["CreateEdge"]; ok {
+		t.Fatal("retry with existing superseded-by edge must not create another retirement edge")
+	}
+	if !strings.Contains(out.String(), `"new": "msg:010:03"`) {
+		t.Fatalf("retry output should name existing successor:\n%s", out.String())
+	}
+	if !strings.Contains(out.String(), `"name": "msg:010:03 — W2 v2"`) {
+		t.Fatalf("retry output should format the successor name with the successor citation:\n%s", out.String())
+	}
+}
+
+func TestSpecSupersedeDoesNotReuseUnlinkedSameTitleSibling(t *testing.T) {
+	scan := `{"data":{"nodes":[` +
+		specNodeList("msg", `["spec","p1"]`) + `,` +
+		specNodeList("msg:010", `["spec","p1"]`) + `,` +
+		specNodeList("msg:010:02", `["spec","p1"]`) + `,` +
+		`{"id":"id-msg:010:03","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}` +
+		`]}}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"FindNodes":  scan,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:04","name":"msg:010:04 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:04"}}}}`,
+		"UpdateNode": `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("supersede should allocate past same-title sibling: %v\n%s", err, out.String())
+	}
+	var created struct {
+		Input struct {
+			Loc string `json:"loc"`
+		} `json:"input"`
+	}
+	_ = json.Unmarshal(captured["CreateNode"], &created)
+	if created.Input.Loc != "msg:010:04" {
+		t.Fatalf("same-title sibling should not be reused; created loc = %q, want msg:010:04", created.Input.Loc)
+	}
+	if strings.Contains(out.String(), `"new": "msg:010:03"`) || !strings.Contains(out.String(), `"new": "msg:010:04"`) {
+		t.Fatalf("output should name the newly allocated successor, not the existing sibling:\n%s", out.String())
 	}
 }
 
@@ -1706,6 +2014,20 @@ func TestSpecExtractSourceNotFound(t *testing.T) {
 	}
 }
 
+func TestSpecExtractRejectsNonSpecSource(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    linkNonSpecDetail,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "extract", "cor:dmo:060:02", "-m", specMem,
+		"--to-feature", "020", "--title", "T", "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Fatalf("non-spec extract source should be Usage, got %d", got)
+	}
+}
+
 func TestSpecExtractRejectsAbstractAndAbstractFile(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -1834,8 +2156,12 @@ func TestSpecLinkNonSpecEndpoint(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "link", "cor:dmo:020:04", "cor:dmo:060:02", "-m", specMem, "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	err := root.Execute()
+	if got := exitcode.FromError(err); got != exitcode.Usage {
 		t.Fatalf("a non-spec endpoint should be Usage, got %d", got)
+	}
+	if !strings.Contains(err.Error(), "hadron edge add") {
+		t.Fatalf("spec link non-spec error should suggest edge add, got %q", err)
 	}
 }
 
