@@ -1428,9 +1428,12 @@ func TestSpecSupersedeRetryExistingRetirementEdgeFinishesUpdate(t *testing.T) {
 	if !strings.Contains(out.String(), `"new": "msg:010:03"`) {
 		t.Fatalf("retry output should name existing successor:\n%s", out.String())
 	}
+	if !strings.Contains(out.String(), `"name": "msg:010:03 — W2 v2"`) {
+		t.Fatalf("retry output should format the successor name with the successor citation:\n%s", out.String())
+	}
 }
 
-func TestSpecSupersedeRetryExistingReplacementReusesIt(t *testing.T) {
+func TestSpecSupersedeDoesNotReuseUnlinkedSameTitleSibling(t *testing.T) {
 	scan := `{"data":{"nodes":[` +
 		specNodeList("msg", `["spec","p1"]`) + `,` +
 		specNodeList("msg:010", `["spec","p1"]`) + `,` +
@@ -1441,20 +1444,27 @@ func TestSpecSupersedeRetryExistingReplacementReusesIt(t *testing.T) {
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
 		"FindNodes":  scan,
-		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
+		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:04","name":"msg:010:04 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:04"}}}}`,
 		"UpdateNode": `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
-		t.Fatalf("retry should reuse existing replacement: %v\n%s", err, out.String())
+		t.Fatalf("supersede should allocate past same-title sibling: %v\n%s", err, out.String())
 	}
-	if _, ok := captured["CreateNode"]; ok {
-		t.Fatal("retry with existing replacement must not create another successor")
+	var created struct {
+		Input struct {
+			Loc string `json:"loc"`
+		} `json:"input"`
 	}
-	if !strings.Contains(out.String(), `"new": "msg:010:03"`) {
-		t.Fatalf("retry output should name existing replacement:\n%s", out.String())
+	_ = json.Unmarshal(captured["CreateNode"], &created)
+	if created.Input.Loc != "msg:010:04" {
+		t.Fatalf("same-title sibling should not be reused; created loc = %q, want msg:010:04", created.Input.Loc)
+	}
+	if strings.Contains(out.String(), `"new": "msg:010:03"`) || !strings.Contains(out.String(), `"new": "msg:010:04"`) {
+		t.Fatalf("output should name the newly allocated successor, not the existing sibling:\n%s", out.String())
 	}
 }
 
