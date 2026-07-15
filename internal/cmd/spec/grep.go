@@ -75,11 +75,12 @@ token appears — including inside longer tokens — then rewrite precisely with
 			if prefix != "" {
 				prefixPtr = &prefix
 			}
-			// List every citation node in scope (paged to exhaustion — #23), then
-			// bulk-read their full content/abstract via nodeBatch (200/1 MB per
-			// call) rather than a per-spec GetNode loop, which timed out over the
-			// whole corpus (#240).
-			all, err := scanAllNodes(cmd.Context(), client, &memURN, prefixPtr, nil)
+			// List every spec-tagged citation node in scope (paged to exhaustion —
+			// #23), then bulk-read their full content/abstract via nodeBatch (200/1
+			// MB per call) rather than a per-spec GetNode loop, which timed out over
+			// the whole corpus (#240). Scoping to the "spec" tag keeps grep to the
+			// corpus proper — never the register or other non-spec nodes.
+			all, err := scanAllNodes(cmd.Context(), client, &memURN, prefixPtr, []string{"spec"})
 			if err != nil {
 				return err
 			}
@@ -89,9 +90,13 @@ token appears — including inside longer tokens — then rewrite precisely with
 					continue
 				}
 				if _, perr := ParseCitation(n.Loc); perr != nil {
-					continue // skip the register and other non-citation nodes
+					continue // skip any non-citation-shaped node
 				}
 				ids = append(ids, n.Id)
+			}
+			// Nothing to read — skip the nodeBatch round-trip entirely.
+			if len(ids) == 0 {
+				return output.Write(f.IOStreams, f.JSON, []specMatchDTO{}, func(w io.Writer) error { return nil })
 			}
 			nodes, unavailable, err := api.CollectNodeBatch(ids, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
 				resp, err := gen.NodeBatch(cmd.Context(), client, chunk)

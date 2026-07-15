@@ -94,32 +94,36 @@ func mustMatcher(t *testing.T, pat string) *regexp.Regexp {
 }
 
 func TestBuildReplacePattern(t *testing.T) {
-	// Default: word-boundary, sent as a regex.
-	old, rx, err := buildReplacePattern("h-read-node", false, true)
-	if err != nil || !rx {
-		t.Fatalf("word-boundary should be regex: old=%q rx=%v err=%v", old, rx, err)
-	}
-	if old != `\bh-read-node\b` {
-		t.Errorf("word-boundary oldText = %q, want \\bh-read-node\\b", old)
+	// Default: word-boundary on both ends (token starts/ends with word chars).
+	old, rx := buildReplacePattern("h-read-node", false, true)
+	if !rx || old != `\bh-read-node\b` {
+		t.Errorf("word-boundary = (%q,%v), want (\\bh-read-node\\b,true)", old, rx)
 	}
 	// Metacharacters in a word-boundary literal are escaped.
-	old, _, _ = buildReplacePattern("a.b", false, true)
-	if old != `\ba\.b\b` {
-		t.Errorf("escaped word-boundary oldText = %q, want \\ba\\.b\\b", old)
+	if old, _ := buildReplacePattern("a.b", false, true); old != `\ba\.b\b` {
+		t.Errorf("escaped word-boundary = %q, want \\ba\\.b\\b", old)
+	}
+	// A non-word boundary char must NOT get a \b on that side (else \b never
+	// matches and the replace silently no-ops): "@handle" anchors only the right.
+	if old, _ := buildReplacePattern("@handle", false, true); old != `@handle\b` {
+		t.Errorf("leading non-word: got %q, want @handle\\b (no leading \\b)", old)
+	}
+	// "node!" anchors only the left.
+	if old, _ := buildReplacePattern("node!", false, true); old != `\bnode!` {
+		t.Errorf("trailing non-word: got %q, want \\bnode! (no trailing \\b)", old)
 	}
 	// Plain literal (no boundary): passthrough, regex off.
-	old, rx, _ = buildReplacePattern("h-read-node", false, false)
-	if rx || old != "h-read-node" {
+	if old, rx := buildReplacePattern("h-read-node", false, false); rx || old != "h-read-node" {
 		t.Errorf("plain literal = (%q,%v), want (h-read-node,false)", old, rx)
 	}
-	// Regex: passthrough, regex on; boundary flag ignored.
-	old, rx, _ = buildReplacePattern(`h-chat-(\w+)`, true, true)
-	if !rx || old != `h-chat-(\w+)` {
+	// Regex: passthrough, regex on; boundary flag ignored. Not pre-validated
+	// (the server's JS engine is the source of truth), so even a Go-invalid
+	// pattern passes through unchanged rather than erroring here.
+	if old, rx := buildReplacePattern(`h-chat-(\w+)`, true, true); !rx || old != `h-chat-(\w+)` {
 		t.Errorf("regex = (%q,%v), want (h-chat-(\\w+),true)", old, rx)
 	}
-	// Invalid regex is a usage error.
-	if _, _, err := buildReplacePattern("a(", true, false); err == nil {
-		t.Error("invalid --regex should error")
+	if old, rx := buildReplacePattern("a(", true, false); !rx || old != "a(" {
+		t.Errorf("regex passthrough = (%q,%v), want (a(,true) — server validates", old, rx)
 	}
 }
 

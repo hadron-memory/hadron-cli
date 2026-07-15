@@ -2265,6 +2265,7 @@ func TestSpecGrepRejectsBadArgs(t *testing.T) {
 // word-boundary-wrapped regex (default) over content + abstract.
 func TestSpecReplaceDryRun(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
+		"FindNodes":            `{"data":{"nodes":[` + specNodeList("msg:010:01", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
 		"SearchReplaceInNodes": specReplaceResp(true),
 	})
 	f, out := testFactory(t)
@@ -2275,11 +2276,13 @@ func TestSpecReplaceDryRun(t *testing.T) {
 	}
 	var vars struct {
 		Input struct {
-			OldText string   `json:"oldText"`
-			NewText string   `json:"newText"`
-			Regex   bool     `json:"regex"`
-			DryRun  bool     `json:"dryRun"`
-			Fields  []string `json:"fields"`
+			OldText   string   `json:"oldText"`
+			NewText   string   `json:"newText"`
+			Regex     bool     `json:"regex"`
+			DryRun    bool     `json:"dryRun"`
+			Fields    []string `json:"fields"`
+			NodeIds   []string `json:"nodeIds"`
+			MemoryIds []string `json:"memoryIds"`
 		} `json:"input"`
 	}
 	if err := json.Unmarshal(captured["SearchReplaceInNodes"], &vars); err != nil {
@@ -2290,6 +2293,10 @@ func TestSpecReplaceDryRun(t *testing.T) {
 	}
 	if !vars.Input.DryRun {
 		t.Error("dry-run should send dryRun=true")
+	}
+	// Spec-scoped: explicit spec nodeIds, never a whole-memory memoryIds scope.
+	if len(vars.Input.NodeIds) != 2 || len(vars.Input.MemoryIds) != 0 {
+		t.Errorf("want 2 nodeIds and no memoryIds, got nodeIds=%v memoryIds=%v", vars.Input.NodeIds, vars.Input.MemoryIds)
 	}
 	gotFields := strings.ToLower(strings.Join(vars.Input.Fields, ","))
 	if !strings.Contains(gotFields, "content") || !strings.Contains(gotFields, "abstract") {
@@ -2306,12 +2313,13 @@ func TestSpecReplaceDryRun(t *testing.T) {
 	}
 }
 
-// A real spec replace applies, then re-lints the changed specs.
+// A real spec replace applies, then re-lints the changed specs in one bulk
+// nodeBatch read.
 func TestSpecReplaceApplyRelints(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes":            `{"data":{"nodes":[` + specNodeList("msg:010:01", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
 		"SearchReplaceInNodes": specReplaceResp(false),
-		"ResolveUrn":           resolveSpecJSON,
-		"GetNode":              `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":            specBatchResp("msg:010:01", "msg:010:02"),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)

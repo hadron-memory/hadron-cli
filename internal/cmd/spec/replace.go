@@ -26,6 +26,7 @@ type specReplaceFieldDTO struct {
 
 type specReplaceNodeDTO struct {
 	Citation     string                `json:"citation"`
+	NodeID       string                `json:"nodeId"`
 	Replacements int                   `json:"replacements"`
 	Fields       []specReplaceFieldDTO `json:"fields"`
 }
@@ -96,21 +97,43 @@ example, leave an abstract out of sync with its content.`,
 					"refusing to write without --yes in non-interactive mode; pass --dry-run to preview or --yes to apply")
 			}
 
-			oldText, regexFlag, err := buildReplacePattern(pattern, useRegex, wordBoundary)
-			if err != nil {
-				return err
-			}
+			oldText, regexFlag := buildReplacePattern(pattern, useRegex, wordBoundary)
 
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			// searchReplaceInNodes.memoryIds accepts a memory ID or URN (as
-			// `hadron replace text` relies on), so the resolved spec-memory URN
-			// goes straight on the wire — no separate ID lookup.
 			memURN, err := specMemoryURN(f, cmd, client, memory)
 			if err != nil {
 				return err
+			}
+			// Scope the rewrite to the SPEC nodes explicitly: searchReplaceInNodes
+			// with memoryIds would rewrite every live node in the memory (the
+			// register, any non-spec node), but this command is citation-aware. So
+			// list the spec-tagged citation nodes in scope (--prefix narrows here,
+			// not on the wire) and pass their ids as nodeIds. Doubles as the id set
+			// for the re-lint below.
+			var prefixPtr *string
+			if prefix != "" {
+				prefixPtr = &prefix
+			}
+			all, err := scanAllNodes(cmd.Context(), client, &memURN, prefixPtr, []string{"spec"})
+			if err != nil {
+				return err
+			}
+			specIDs := make([]string, 0, len(all))
+			for _, n := range all {
+				if n == nil {
+					continue
+				}
+				if _, perr := ParseCitation(n.Loc); perr != nil {
+					continue
+				}
+				specIDs = append(specIDs, n.Id)
+			}
+			if len(specIDs) == 0 {
+				fmt.Fprintln(f.IOStreams.ErrOut, "No specs in scope — nothing to replace.")
+				return writeSpecReplaceReport(f, specReplaceResultDTO{DryRun: dryRun, Results: []specReplaceNodeDTO{}})
 			}
 
 			run := func(dry bool) (specReplaceResultDTO, error) {
@@ -118,13 +141,10 @@ example, leave an abstract out of sync with its content.`,
 					OldText:         oldText,
 					NewText:         replacement,
 					Fields:          fields,
-					MemoryIds:       []string{memURN},
+					NodeIds:         specIDs,
 					CaseInsensitive: &ignoreCase,
 					Regex:           &regexFlag,
 					DryRun:          &dry,
-				}
-				if prefix != "" {
-					input.Prefix = &prefix
 				}
 				if r := strings.TrimSpace(reason); r != "" {
 					input.Reason = &r
@@ -146,8 +166,8 @@ example, leave an abstract out of sync with its content.`,
 			}
 
 			// Real write. ALWAYS preview first — the affected count is the only
-			// signal of blast radius, and a whole-memory scope (a wrong -m, or a
-			// forgotten --prefix) can rewrite the entire corpus in one call.
+			// signal of blast radius, and an over-broad scope (a wrong -m, or a
+			// forgotten --prefix) can rewrite the whole corpus in one call.
 			preview, err := run(true)
 			if err != nil {
 				return err
@@ -182,7 +202,7 @@ example, leave an abstract out of sync with its content.`,
 			// result — a bulk body rewrite can, e.g., desync an abstract from its
 			// content (abstract-stale). Best-effort: a lint read error doesn't
 			// undo a successful replace, so it's surfaced as a note, not an error.
-			dto.Lint = relintChanged(cmd, client, memURN, dto.Results, f)
+			dto.Lint = relintChanged(cmd, client, dto.Results, f)
 			return writeSpecReplaceReport(f, dto)
 		},
 	}
@@ -215,25 +235,48 @@ func parseReplaceFields(field string) ([]gen.NodeTextField, error) {
 }
 
 // buildReplacePattern turns the CLI flags into the (oldText, regex) pair the
-// server's searchReplaceInNodes wants. --regex passes through untouched;
-// otherwise the literal is quoted, and (by default) wrapped in \b…\b so only
-// whole tokens match — sent as a regex because that is how word boundaries are
-// expressed. --word-boundary=false is a plain literal replace.
-func buildReplacePattern(pattern string, useRegex, wordBoundary bool) (oldText string, regex bool, err error) {
+// server's searchReplaceInNodes wants. --regex passes the pattern through
+// untouched — the server (a JS RegExp, not Go's RE2) is the source of truth for
+// its validity, so a malformed pattern surfaces as the server's error rather
+// than a Go/JS engine-mismatch false-reject here. Otherwise the literal is
+// quoted, and (by default) wrapped in \b so only whole tokens match — sent as a
+// regex because that is how word boundaries are expressed. --word-boundary=false
+// is a plain literal replace.
+func buildReplacePattern(pattern string, useRegex, wordBoundary bool) (oldText string, regex bool) {
 	switch {
 	case useRegex:
-		if _, cerr := regexp.Compile(pattern); cerr != nil {
-			return "", false, exitcode.Newf(exitcode.Usage, "invalid --regex pattern %q: %v", pattern, cerr)
-		}
-		return pattern, true, nil
+		return pattern, true
 	case wordBoundary:
-		// QuoteMeta escapes RE2 metacharacters; the escaped form is also valid in
-		// the server's RegExp engine for identifier-like tokens (letters, digits,
-		// -, _), which is what word boundaries are meaningful for.
-		return `\b` + regexp.QuoteMeta(pattern) + `\b`, true, nil
+		// \b asserts a boundary between a word char ([A-Za-z0-9_]) and a non-word
+		// char, so it is only meaningful next to a word char. Anchor each end only
+		// when its outermost rune is a word char — otherwise a leading/trailing
+		// non-word char (e.g. "@handle", "h-read-node!") would make \b fail to
+		// match and the replace silently do nothing. The escaped form is valid in
+		// the server's RegExp engine too. (Internal '-' in a token like
+		// h-read-node is fine — only the outer boundaries are anchored.)
+		out := regexp.QuoteMeta(pattern)
+		r := []rune(pattern)
+		if len(r) > 0 {
+			if isWordRune(r[0]) {
+				out = `\b` + out
+			}
+			if isWordRune(r[len(r)-1]) {
+				out += `\b`
+			}
+		}
+		return out, true
 	default:
-		return pattern, false, nil
+		return pattern, false
 	}
+}
+
+// isWordRune reports whether r is a regex word character ([A-Za-z0-9_]) — the
+// class \b is defined against.
+func isWordRune(r rune) bool {
+	return r == '_' ||
+		(r >= 'a' && r <= 'z') ||
+		(r >= 'A' && r <= 'Z') ||
+		(r >= '0' && r <= '9')
 }
 
 // specReplaceDTO folds the server result into the citation-keyed shape.
@@ -246,7 +289,7 @@ func specReplaceDTO(r *gen.SearchReplaceInNodesSearchReplaceInNodesSearchReplace
 		Results:           []specReplaceNodeDTO{},
 	}
 	for _, n := range r.Results {
-		nd := specReplaceNodeDTO{Citation: n.Loc, Replacements: n.Replacements}
+		nd := specReplaceNodeDTO{Citation: n.Loc, NodeID: n.NodeId, Replacements: n.Replacements}
 		for _, fres := range n.Fields {
 			nd.Fields = append(nd.Fields, specReplaceFieldDTO{Field: string(fres.Field), Matches: fres.Matches})
 		}
@@ -256,18 +299,43 @@ func specReplaceDTO(r *gen.SearchReplaceInNodesSearchReplaceInNodesSearchReplace
 	return dto
 }
 
-// relintChanged re-lints the specs a real replace rewrote, returning their
-// findings (sorted by citation). Best-effort: an unreadable spec is noted on
-// stderr, never fatal — the replace already succeeded.
-func relintChanged(cmd *cobra.Command, client graphql.Client, memURN string, changed []specReplaceNodeDTO, f *cmdutil.Factory) []lintFindingDTO {
-	var findings []lintFindingDTO
+// relintChanged re-lints the specs a real replace rewrote, in a single bulk
+// nodeBatch read (not a per-spec fetch loop), returning their findings sorted by
+// citation. Best-effort: a read error or an unreadable spec is noted on stderr,
+// never fatal — the replace already succeeded.
+func relintChanged(cmd *cobra.Command, client graphql.Client, changed []specReplaceNodeDTO, f *cmdutil.Factory) []lintFindingDTO {
+	ids := make([]string, 0, len(changed))
 	for _, c := range changed {
-		n, err := fetchSpecNode(cmd, client, memURN, c.Citation)
-		if err != nil || n == nil {
-			fmt.Fprintf(f.IOStreams.ErrOut, "note: could not re-lint %s after replace\n", c.Citation)
+		if c.NodeID != "" {
+			ids = append(ids, c.NodeID)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	nodes, unavailable, err := api.CollectNodeBatch(ids, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
+		resp, err := gen.NodeBatch(cmd.Context(), client, chunk)
+		if err != nil {
+			return nil, api.MapError(err)
+		}
+		if resp == nil {
+			return nil, nil
+		}
+		return resp.NodeBatch, nil
+	})
+	if err != nil {
+		fmt.Fprintf(f.IOStreams.ErrOut, "note: could not re-lint the rewritten specs: %v\n", err)
+		return nil
+	}
+	if len(unavailable) > 0 {
+		fmt.Fprintf(f.IOStreams.ErrOut, "note: %d rewritten spec(s) unreadable — not re-linted\n", len(unavailable))
+	}
+	var findings []lintFindingDTO
+	for _, n := range nodes {
+		if n == nil {
 			continue
 		}
-		findings = append(findings, lintNode(nodeFromGQL(n))...)
+		findings = append(findings, lintNode(nodeFromBatch(n))...)
 	}
 	sort.Slice(findings, func(i, j int) bool { return findings[i].Citation < findings[j].Citation })
 	return findings

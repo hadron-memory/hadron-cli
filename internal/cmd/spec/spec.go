@@ -819,6 +819,35 @@ func nodeFromGQL(n *gen.GetNodeNode) specNode {
 	return sn
 }
 
+// nodeFromBatch is nodeFromGQL for a bulk-read (nodeBatch) node — same lint
+// projection, so a batch-read spec lints identically to a single-read one.
+func nodeFromBatch(n *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) specNode {
+	sn := specNode{
+		Loc:                n.Loc,
+		Name:               n.Name,
+		NodeType:           n.NodeType,
+		Tags:               n.Tags,
+		Abstract:           n.Abstract,
+		AbstractOriginHash: n.AbstractOriginHash,
+		Content:            n.Content,
+	}
+	if n.Data != nil {
+		var d struct {
+			Version string `json:"version"`
+		}
+		if err := json.Unmarshal(*n.Data, &d); err == nil {
+			sn.DataVersion = d.Version
+		}
+	}
+	for _, e := range n.OutgoingEdges {
+		if e == nil || e.Target == nil {
+			continue
+		}
+		sn.OutEdges = append(sn.OutEdges, specEdge{Name: edgeNameStr(e.Name), Loc: e.Target.Loc})
+	}
+	return sn
+}
+
 // ---- register access (advisory; the tool never writes the register) ----
 
 // registerLedger is the best-effort parse of a `register` node body: the

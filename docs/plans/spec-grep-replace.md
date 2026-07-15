@@ -51,25 +51,37 @@ locally is simpler and truly complete.
 The citation-aware, spec-scoped analogue of `hadron replace text`.
 
 - **Word-boundary-aware by default**: a literal pattern is quoted and wrapped in
-  `\b…\b`, sent as a regex, so renaming `h-read-node` never touches
-  `h-read-nodes` or `h-read-next-node` (the exact cross-contamination that forced
-  hand-written longest-match logic). `--word-boundary=false` for a raw substring,
-  `--regex` for a full pattern with `$1`/`$&` backrefs (boundaries yours to set),
-  `-i` folds case.
+  `\b`, sent as a regex, so renaming `h-read-node` never touches `h-read-nodes`
+  or `h-read-next-node` (the exact cross-contamination that forced hand-written
+  longest-match logic). `\b` is anchored **only on ends whose outermost char is a
+  word char** — a leading/trailing non-word char (`@handle`, `node!`) would make
+  `\b` fail and silently no-op, so that side is left unanchored.
+  `--word-boundary=false` for a raw substring, `--regex` for a full pattern with
+  `$1`/`$&` backrefs (boundaries yours to set), `-i` folds case. A `--regex`
+  pattern is **not** pre-validated with Go's RE2 — the server evaluates it as a JS
+  `RegExp`, so it is the source of truth and a bad pattern surfaces as its error
+  rather than a Go/JS engine-mismatch false-reject.
+- **Spec-scoped, not whole-memory**: the rewrite targets an explicit set of
+  `nodeIds` — the spec-tagged citation nodes in scope (`--prefix` narrows this
+  client-side) — never a bare `memoryIds`, which would also rewrite non-spec nodes
+  in the specs memory (the `register`, etc.). The same list of nodes drives the
+  re-lint.
 - Rewrites **content + abstract** by default (`--field` narrows).
 - Gated like every bulk write: `--dry-run` previews affected specs + per-citation
   counts; a real run previews first, then prompts (or `--yes`, required
   non-interactively); `--max-specs N` caps blast radius; every change is versioned
   (undoable).
-- **Re-lints the changed specs afterward** and folds findings into the report — a
-  bulk body rewrite can leave an abstract out of sync with its content
-  (abstract-stale), and the re-lint surfaces exactly that. Best-effort: a lint
-  read error is a note, never an undo.
-- `--json` emits the citation-keyed result + a `lint` array.
+- **Re-lints the changed specs afterward** — in a single bulk `nodeBatch` read
+  (the changed `nodeId`s come back on the result), not a per-spec fetch loop — and
+  folds findings into the report. A bulk body rewrite can leave an abstract out of
+  sync with its content (abstract-stale), and the re-lint surfaces exactly that.
+  Best-effort: a lint read error is a note, never an undo.
+- `--json` emits the citation-keyed result (with `nodeId`) + a `lint` array.
 
 Both reuse the server's `searchReplaceInNodes` (regex built by JS `RegExp`, so
-`\b` works) — the spec memory URN goes straight into `memoryIds` (URN-or-ID
-accepted), no separate ID lookup.
+`\b` works). `grep` and `replace` both first list the **spec-tagged** citation
+nodes in scope (`tags:["spec"]`), so neither touches the `register` or other
+non-spec nodes.
 
 ## Tests
 
