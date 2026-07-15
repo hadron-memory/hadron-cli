@@ -22,7 +22,7 @@ type memoryDTO struct {
 	ShortDescription *string `json:"shortDescription"`
 	Class            string  `json:"class"`
 	Visibility       *string `json:"visibility"`
-	OrganizationID   string  `json:"organizationId"`
+	OrganizationID   *string `json:"organizationId"`
 	IsEncrypted      bool    `json:"isEncrypted"`
 	MaxRevCount      int     `json:"maxRevCount"`
 	UpdatedAt        string  `json:"updatedAt"`
@@ -38,7 +38,7 @@ type memoryResult interface {
 	GetShortDescription() *string
 	GetClass() gen.MemoryClass
 	GetVisibility() *gen.MemoryVisibility
-	GetOrganizationId() string
+	GetOrganizationId() *string
 	GetIsEncrypted() bool
 	GetMaxRevCount() int
 	GetUpdatedAt() string

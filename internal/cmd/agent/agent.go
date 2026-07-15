@@ -23,7 +23,7 @@ type agentDTO struct {
 	Description    *string  `json:"description"`
 	Type           string   `json:"type"`
 	Visibility     string   `json:"visibility"`
-	OrganizationID string   `json:"organizationId"`
+	OrganizationID *string  `json:"organizationId"`
 	Surfaces       []string `json:"surfaces"`
 	SystemMemoryID *string  `json:"systemMemoryId"`
 	SystemPrompt   *string  `json:"systemPrompt"`

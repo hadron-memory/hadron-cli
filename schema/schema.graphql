@@ -123,7 +123,7 @@ type Agent {
   otherwise), regardless of the agent's PUBLIC visibility.
   """
   orgGrants: [AgentOrgGrant!]!
-  organizationId: String!
+  organizationId: String
   properties: JSON
   surfaces: [String!]!
   systemMemoryId: String
@@ -410,7 +410,7 @@ type App {
   members: [AppMember!]!
   name: String!
   organization: Organization
-  organizationId: String!
+  organizationId: String
 
   """
   App-layer action-policy link (cor:acl:040:02, #510). Null = no restriction. Org-admin-authored via updateApp.
@@ -1567,7 +1567,7 @@ type Memory {
   members: [MemoryMember!]!
   name: String!
   organization: Organization
-  organizationId: String!
+  organizationId: String
   pendingEdgeCount: Int!
   readBranch: String
 
@@ -1823,7 +1823,7 @@ type Mutation {
 
   """
   Acquire (or renew) the editor lock for an Agent's system memory.
-  
+
   Accepts the entity's ID or URN.
   """
   acquireEditorLock(agentId: ID!): EditorLockResult!
@@ -1831,7 +1831,7 @@ type Mutation {
   """
   DEPRECATED: use installAgentIntoApp. Carried for source-compat with
   pre-023 portal callers.
-  
+
   Accepts the entity's ID or URN.
   """
   addAgentToApp(agentId: ID!, appId: ID!, trainingMode: Boolean): App! @deprecated(reason: "Use installAgentIntoApp (spec 023-app-shape US1). Returns Payload type with the AppAgent row.")
@@ -1840,11 +1840,11 @@ type Mutation {
   023-app-shape US4 — add a team member to a group-class Memory.
   Idempotent on the (memoryId, userId) PK: re-calling with a
   different role upserts the role.
-  
+
   The caller MUST be an owner of the Memory (role = owner). The
   bootstrap case is handled by createMemory itself, which adds the
   creator as the first owner of a newly-created group memory.
-  
+
   Error codes (extensions.code, Error.name style):
     - UNAUTHENTICATED — no logged-in user in context.
     - FORBIDDEN — caller is not an owner of the memory. (Uniform
@@ -1862,7 +1862,7 @@ type Mutation {
 
   """
   Attach a Memory to an Agent.
-  
+
   Accepts the entity's ID or URN.
   """
   addMemoryToAgent(agentId: ID!, memoryId: ID!, role: String): Agent!
@@ -1872,7 +1872,7 @@ type Mutation {
 
   """
   Add a public memory to the current user's personal workspace.
-  
+
   Accepts the entity's ID or URN.
   """
   addToMyMemories(memoryId: ID!): Boolean!
@@ -1932,10 +1932,10 @@ type Mutation {
 
   """
   Clear an Agent's AI provider config.
-  
+
   036-ai-service-config: deletes the Agent's registry config named
   'default'.
-  
+
   Accepts the entity's ID or URN.
   """
   clearAgentAIConfig(agentId: ID!): Agent!
@@ -1943,23 +1943,23 @@ type Mutation {
 
   """
   Clone a Memory into a new Memory at `targetUrn`.
-  
+
   `ref` accepts the source's ID or URN. `targetUrn` is a fully-qualified
   "org::slug" memory URN naming the clone; its org segment MAY differ from
   the source's, cloning the memory into another organization. The clone's
   display name is derived from the target slug.
-  
+
   Copies the Memory row plus all live Nodes, Edges, and PendingEdges;
   references to the source memory's URN inside node content/abstract
   (canonical and legacy spellings) are rewritten to the clone's URN.
   Vector-index config carries over and the clone's nodes are stamped for
   re-embedding.
-  
+
   NOT copied: revision history, subscriptions, shares, group members
   (the caller is bootstrapped as a group clone's first owner), sessions,
   licenses, log entries, assets, and git-sync config (the clone starts
   DB-only).
-  
+
   Authorization: the SOURCE side mirrors deleteMemory (personal/private →
   owner only; knowledge/group → source-org ADMIN). When `targetUrn` names a
   DIFFERENT org, the caller must additionally be a non-reader member of that
@@ -1970,11 +1970,14 @@ type Mutation {
   completeAssetUpload(input: CompleteAssetUploadInput!): Asset!
 
   """
-  Create an Agent in an organization.
-  
-  Accepts the entity's ID or URN.
+  Create an agent. Provide orgId to create an ORG-owned agent (requires org
+  ADMIN); OMIT orgId to create a USER-OWNED agent owned by the caller (spec
+  047) — its URN is namespaced under the caller's @handle and its system
+  memory is user-owned too. Exactly one owner (org XOR user).
+
+  orgId accepts the org's ID or URN.
   """
-  createAgent(description: String, name: String!, orgId: ID!, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, visibility: AgentVisibility): Agent!
+  createAgent(description: String, name: String!, orgId: ID, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, visibility: AgentVisibility): Agent!
 
   """
   Subscribe an organization to a PUBLIC Agent without creating an App.
@@ -1991,13 +1994,13 @@ type Mutation {
 
   """
   036-ai-service-config: create a named AI config on an owner entity.
-  
+
   apiKey semantics: omitted = stored without a key (unusable for
   execution until one is set); non-empty = encrypted at rest with a
   masked preview. Name must be 1-64 lower-case [a-z0-9_-], unique per
   owner. provider must be a known provider; params are validated per
   provider.
-  
+
   Auth: as aiServiceConfigs. ownerId accepts ID or URN
   (HADRON_SERVER: ID only).
   """
@@ -2005,18 +2008,18 @@ type Mutation {
 
   """
   Install an Agent into an organization, creating an App that deploys it.
-  
+
   Auto-provisions an AgentOrgGrant for (orgId, agentId) on first install,
   and adds the caller as an AppMember with role 'owner'. Required
   AgentImports cascade automatically; optional imports cascade only when
   their id appears in installOptional.
-  
+
   009-install-agent-flow: the cross-org install restriction (FR-009) is
   enforced at the portal — the Install affordance is hidden for Agents
   not owned by the calling org. The server still auto-provisions grants
   on first install (preserved from 008); a hard server-side cross-org
   gate is reserved for the marketplace spec.
-  
+
   Accepts the entity's ID or URN.
   """
   createApp(
@@ -2064,7 +2067,7 @@ type Mutation {
 
   """
   Mint a new AppKey for an App.
-  
+
   Accepts the entity's ID or URN.
   """
   createAppKey(appId: ID!, label: String): AppKeyCreated!
@@ -2099,7 +2102,7 @@ type Mutation {
   """
   Create a memory in an organization. Accepts the entity's ID or URN
   for orgId.
-  
+
   Defaults to knowledge-class with ORGANIZATION visibility. Pass
   memoryClass: group + visibility: GROUP for a group-class memory
   (023-app-shape US4; the caller is auto-added as the first owner),
@@ -2176,16 +2179,16 @@ type Mutation {
   write access. Used for the per-pairing pattern (Alice's
   paired-with-Mentor-A memory is distinct from her
   paired-with-Mentor-B memory; each gets its own MemoryShare).
-  
+
   Upsert semantics: re-calling with a different role on an existing
   (memoryId, granteeId) pair updates the role rather than throwing.
-  
+
   For v1 the caller MUST be the principal themselves (memory.userId
   === ctx.userId). The Agent-mediated path (App backend acting on
   the principal's behalf via MCP) is supported by the access-control
   predicate but not by this GraphQL surface — see the deferred
   policy discussion linked from joinApp.ts.
-  
+
   Error codes (extensions.code, Error.name style):
     - UNAUTHENTICATED — no logged-in user in context.
     - FORBIDDEN — caller is not the Memory's principal. The
@@ -2206,7 +2209,7 @@ type Mutation {
 
   """
   Create a cross-org Memory subscription.
-  
+
   Accepts the entity's ID or URN.
   """
   createMemorySubscription(memoryId: ID!, orgId: ID!, role: Role!): MemorySubscription!
@@ -2226,11 +2229,28 @@ type Mutation {
   createPrincipalGrant(actions: [String!]!, expiresAt: String, orgRef: String!, userRef: String!): PrincipalGrant!
 
   """
+  Register one BYO Resend sender for an org. The API key is encrypted and never returned.
+  """
+  createResendSender(apiKey: String!, enabled: Boolean, from: String!, orgRef: ID!): ResendSender!
+
+  """
   Snapshot an Agent's system memory as a new revision.
-  
+
   Accepts the entity's ID or URN.
   """
   createRevision(agentId: ID!, description: String): RevisionResult!
+
+  """
+  Create a named, owner-scoped secret (#677). Gate per owner scope:
+  user -> that user (ownerRef optional, defaults to the caller); org ->
+  org ADMIN; app -> app owner / org ADMIN; memory -> memory WRITE.
+  value is the secret payload — encrypted at rest, write-only, never
+  returned. kind selects validation: generic (opaque JSON) or
+  webfetch-auth ({type: bearer|basic|header, ...} + metadata.urlPrefix
+  origin binding). A run resolves the name via the CSS cascade
+  (memory -> app -> user -> org) at entitled scopes only.
+  """
+  createSecret(kind: String!, metadata: JSON, name: String!, ownerRef: ID, ownerType: String!, value: JSON!): Secret!
 
   """
   Register a Slack workspace install (spec 043). orgRef/appRef accept ID
@@ -2252,14 +2272,14 @@ type Mutation {
 
   """
   User invitations (org ADMIN or platform ADMIN).
-  
+
   Accepts the entity's ID or URN.
   """
   createUserInvitation(email: String, expiresInDays: Int, githubUsername: String, maxActivations: Int, memberRole: Role!, name: String, orgId: ID!): UserInvitation!
 
   """
   Soft-delete an Agent.
-  
+
   Accepts the entity's ID or URN.
   """
   deleteAgent(id: ID!): Boolean!
@@ -2269,14 +2289,14 @@ type Mutation {
   """
   036-ai-service-config: delete a named AI config (hard delete; the
   resolution walk simply no longer finds it).
-  
+
   Auth: admin rights on the owning entity (as aiServiceConfigs).
   """
   deleteAiServiceConfig(id: ID!): Boolean!
 
   """
   Soft-delete an App.
-  
+
   Accepts the entity's ID or URN.
   """
   deleteApp(id: ID!): Boolean!
@@ -2296,26 +2316,34 @@ type Mutation {
 
   """
   Soft-delete a Memory.
-  
+
   Accepts the entity's ID or URN.
   """
   deleteMemory(id: ID!): Boolean!
 
   """
   Delete a cross-org Memory subscription.
-  
+
   Accepts the entity's ID or URN.
   """
   deleteMemorySubscription(memoryId: ID!, orgId: ID!): Boolean!
-  deleteNode(hard: Boolean, nodeRef: ID!): Boolean!
+  deleteNode(cascadeCrossMemoryEdges: Boolean, hard: Boolean, nodeRef: ID!, recursive: Boolean): Boolean!
   deleteNodeRevision(revisionId: ID!): Boolean!
 
   """
   Soft-delete an Organization.
-  
+
   Accepts the entity's ID or URN.
   """
   deleteOrganization(id: ID!): Boolean!
+
+  """Hard-delete an org's BYO Resend sender."""
+  deleteResendSender(ref: ID!): Boolean!
+
+  """
+  Hard-delete a secret; referencing runs fail their resolution loud (or fall through the cascade) afterwards.
+  """
+  deleteSecret(ref: ID!): Boolean!
 
   """
   Soft-delete a Slack connection (org ADMIN/OWNER); tears down the tool side best-effort.
@@ -2356,7 +2384,7 @@ type Mutation {
   Owner or org-App-key. All node content/abstract/data is re-written as
   ciphertext in one transaction. One-way without the key: the server
   cannot recover the content.
-  
+
   Accepts the entity's ID or URN.
   """
   encryptMemory(dataKey: String, memoryId: ID!, passphrase: String): Memory!
@@ -2370,7 +2398,7 @@ type Mutation {
   rejected if the App's current member count meets or exceeds the
   Agent's installationPolicy.maxMembers. Updating an existing member's
   role does NOT trigger the maxMembers check.
-  
+
   Accepts the entity's ID or URN.
   """
   ensureAppMember(appId: ID!, role: String!, userId: ID!): AppMember!
@@ -2380,26 +2408,26 @@ type Mutation {
   """
   Extract a parent node and its whole loc-subtree into a BRAND-NEW memory,
   making the parent the new memory's root.
-  
+
   The subtree is loc-prefix defined: the node at the parent's loc plus every
   live descendant (loc starting with 'parentLoc:'). Locs are REBASED so the
   parent becomes the root — 'findings:auth' becomes the memory slug and
   'findings:auth:oauth' becomes '<slug>:oauth'. Edges wholly inside the
   subtree carry over (their loc re-derived from the rebased endpoints);
   boundary-crossing edges and PendingEdges are dropped.
-  
+
   'parentRef' is the parent node's ID or fully-qualified URN. 'targetUrn' is
   a fully-qualified '<org>::<slug>' URN naming the new memory (it may land in
   a DIFFERENT org). 'move' = false (default) COPIES the subtree, leaving the
   source intact; 'move' = true relocates it, soft-deleting the source subtree
   (its nodes, the source memory's touching edges, and its pending edges).
-  
+
   The new memory PRESERVES the source's class so an extract never widens who
   can read the content: a member-restricted 'group' stays group, a
   personal/private source stays owner-owned, knowledge stays knowledge.
   Governance/config (requiresLicense, chunk dials, revision cap, acceptsUploads)
   carries over from the source.
-  
+
   Authorization: read access to the source memory (denial reads as
   NODE_NOT_FOUND). For knowledge/group sources the caller needs the SOURCE
   org's memory.clone grant (an export) AND the destination org's memory.create
@@ -2408,7 +2436,7 @@ type Mutation {
   'move' additionally requires source write access, and cannot target the
   source root (that would empty the source — clone + deleteMemory instead).
   Encrypted and system/app-class sources are rejected.
-  
+
   v1 limitation: node content is copied verbatim — because both the slug and
   node locs change, URN references among the moved nodes WILL break; and
   unresolved PendingEdges within the subtree are dropped.
@@ -2436,10 +2464,10 @@ type Mutation {
   Install an Agent into an App (023-app-shape US1). Creates an AppAgent
   row joining the two. An App can have multiple Agents installed; one
   credential addresses all of them.
-  
+
   Rejects with code DUPLICATE_APP_AGENT when the Agent is already
   installed in the App.
-  
+
   Accepts the entity's ID or URN for both appId and agentId. Optional
   trainingMode flag updates the per-App training flag (applies to
   every installed Agent — training mode is per-App, not per-Agent,
@@ -2453,12 +2481,12 @@ type Mutation {
   joins the App as an AppMember. NO OrgMember check (spec 023 FR-009)
   so this works for B2C / consumer / therapy use cases where the
   end-user is not in the App's operator org.
-  
+
   Role defaults to the first value in the Agent's
   installationPolicy.memberRoles (the conventional "guest" or "owner"
   slot). Idempotent — if the user is already an AppMember of the App,
   the existing row is returned.
-  
+
   Error codes (GraphQLError extensions.code, Error.name style):
     - UNAUTHENTICATED — no logged-in user in context.
     - AppNotFoundError — the App does not exist or is soft-deleted.
@@ -2473,7 +2501,7 @@ type Mutation {
     - InvalidRoleError — the picked default role isn't accepted by
       the Agent's policy (rare; would indicate a policy update
       race).
-  
+
   Accepts the entity's ID or URN.
   """
   joinApp(appId: ID!): JoinAppPayload!
@@ -2484,14 +2512,14 @@ type Mutation {
   leaves an App. Idempotent (no-op when not a member). The user's
   personal-class Memory at (appId, userId) is NOT cascade-deleted
   per spec 008 FR-015 — it re-attaches if the user later re-joins.
-  
+
   Accepts the entity's ID or URN.
   """
   leaveApp(appId: ID!): LeaveAppPayload!
 
   """
   Link a GitHub App installation to an organization (org ADMIN or platform ADMIN).
-  
+
   Accepts the entity's ID or URN.
   """
   linkGithubApp(installationId: Int!, orgId: ID!): Organization!
@@ -2500,7 +2528,7 @@ type Mutation {
   Link an anonymous memory to a real user (converts session memory
   ownership). Providing dataKey encrypts the memory in place atomically
   with the link.
-  
+
   Accepts the entity's ID or URN.
   """
   linkMemoryToUser(dataKey: String, externalUserId: String!, memoryId: ID!): Memory!
@@ -2519,26 +2547,26 @@ type Mutation {
   Publish a dependency edge from a parent Agent to an imported Agent
   (008-agent-installation FR-005). v1 supports 1-level imports only:
   the imported Agent must not itself be a parent of any other import.
-  
+
   Authorization: ADMIN/OWNER of the parent Agent's owning org. The
   parent's owning org MUST hold an active AgentOrgGrant for the
   imported Agent — bundling requires the same kind of license that
   installation does.
-  
+
   Accepts the entity's ID or URN for both Agent ids.
   """
   publishAgentImport(importedAgentId: ID!, parentAgentId: ID!, position: Int!, required: Boolean = true): AgentImport!
 
   """
   Publish a revision and pin the Agent to it.
-  
+
   Accepts the entity's ID or URN.
   """
   publishRevision(agentId: ID!, revisionLoc: String!, versionLabel: String): RevisionResult!
 
   """
   Push all nodes in a memory to its configured git repo.
-  
+
   Accepts the entity's ID or URN.
   """
   pushMemoryToGit(id: ID!): Boolean!
@@ -2547,14 +2575,14 @@ type Mutation {
   """
   App key management — revoke all active keys for an App and mint a
   fresh one. (See createAppKey / revokeAppKey / deleteApp below.)
-  
+
   Accepts the entity's ID or URN.
   """
   regenerateAppKey(id: ID!): AppCreated!
 
   """
   Release the editor lock for an Agent's system memory.
-  
+
   Accepts the entity's ID or URN.
   """
   releaseEditorLock(agentId: ID!): Boolean!
@@ -2562,7 +2590,7 @@ type Mutation {
   """
   DEPRECATED: use uninstallAgentFromApp. Carried for source-compat
   with pre-023 portal callers.
-  
+
   Accepts the entity's ID or URN.
   """
   removeAgentFromApp(agentId: ID!, appId: ID!): App! @deprecated(reason: "Use uninstallAgentFromApp (spec 023-app-shape US1).")
@@ -2572,7 +2600,7 @@ type Mutation {
   the row doesn't exist). Apps that already installed the imported
   Agent are unaffected; removing the import only stops *future*
   parent installs from cascading the dep.
-  
+
   Accepts the entity's ID or URN.
   """
   removeAgentImport(importedAgentId: ID!, parentAgentId: ID!): Boolean!
@@ -2582,14 +2610,14 @@ type Mutation {
   Personal-class memory at (appId, userId) is retained as an orphan per
   FR-015 — re-attaches automatically if the user later rejoins the same
   App.
-  
+
   Accepts the entity's ID or URN.
   """
   removeAppMember(appId: ID!, userId: ID!): Boolean!
 
   """
   Detach a Memory from an Agent.
-  
+
   Accepts the entity's ID or URN.
   """
   removeMemoryFromAgent(agentId: ID!, memoryId: ID!): Agent!
@@ -2599,10 +2627,10 @@ type Mutation {
   the LAST owner is rejected with LastOwnerProtectedError (FR-038)
   — group memories must always have ≥1 owner; the path to fully
   empty one is to delete the Memory.
-  
+
   Removing the last non-owner does NOT delete the Memory (FR-031);
   the row persists with its remaining owner(s).
-  
+
   Caller-authority: either an owner of the Memory, or the member
   being removed (self-removal).
   """
@@ -2616,7 +2644,7 @@ type Mutation {
 
   """
   Restore an Agent's system memory from a revision (auto-saves first).
-  
+
   Accepts the entity's ID or URN.
   """
   restoreRevision(agentId: ID!, revisionLoc: String!): RevisionResult!
@@ -2633,7 +2661,7 @@ type Mutation {
   AgentSubscription. Authorized for ADMIN/OWNER of the Agent's owning
   org. Side effect: empty personal Memory of (user, agent) is hard-
   deleted; non-empty is retained with userMemoryOfAgentId preserved.
-  
+
   Accepts the entity's ID or URN (agentId).
   """
   revokeAgentSubscription(agentId: ID!, userId: ID!): AgentSubscription!
@@ -2646,7 +2674,7 @@ type Mutation {
   023-app-shape US3 — revoke a MemoryShare. Per FR-022, revocation
   takes effect on the next read (there's no "deactivated" state;
   just a row delete). Idempotent.
-  
+
   Caller-authority rule matches createMemoryShare.
   """
   revokeMemoryShare(granteeId: ID!, memoryId: ID!): RevokeMemorySharePayload!
@@ -2681,7 +2709,7 @@ type Mutation {
 
   """
   Set encrypted source token for non-GitHub-App repos.
-  
+
   Accepts the entity's ID or URN.
   """
   setMemorySourceToken(expiresAt: String, id: ID!, token: String!): Memory!
@@ -2698,7 +2726,7 @@ type Mutation {
   compiled prompt). When called by a JWT user, the chat is created in
   that user's personal memory for the agent (provisioned lazily if
   needed).
-  
+
   Accepts the entity's ID or URN.
   """
   startChat(agentId: ID!, conversationName: String, isTestRun: Boolean = false, scope: ChatScope = private, userId: String): ChatStartResult!
@@ -2706,7 +2734,7 @@ type Mutation {
 
   """
   Trigger an on-demand sync for one memory (org ADMIN or CONTRIBUTOR).
-  
+
   Accepts the entity's ID or URN.
   """
   syncMemory(id: ID!): Memory!
@@ -2722,41 +2750,41 @@ type Mutation {
   per-(App, Agent, *) memories are NOT cascade-deleted (spec 023 FR-005);
   they persist as orphans and become reachable again if the same Agent
   is later reinstalled.
-  
+
   Idempotent — succeeds whether or not the AppAgent row exists.
-  
+
   Accepts the entity's ID or URN.
   """
   uninstallAgentFromApp(agentId: ID!, appId: ID!): UninstallAgentFromAppPayload!
 
   """
   Remove all GitHub App config from an organization.
-  
+
   Accepts the entity's ID or URN.
   """
   unlinkGithubApp(orgId: ID!): Organization!
 
   """
   Update an Agent.
-  
+
   Accepts the entity's ID or URN.
   """
   updateAgent(description: String, id: ID!, name: String, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, urn: String, visibility: AgentVisibility): Agent!
 
   """
   Update an Agent's AI provider config. Key is encrypted at rest.
-  
+
   036-ai-service-config: upserts the Agent's registry config named
   'default'. Prefer createAiServiceConfig/updateAiServiceConfig for
   new callers.
-  
+
   Accepts the entity's ID or URN.
   """
   updateAgentAIConfig(agentId: ID!, apiKey: String, model: String!, provider: String!): Agent!
 
   """
   Update an Agent's role on an attached Memory.
-  
+
   Accepts the entity's ID or URN.
   """
   updateAgentMemoryRole(agentId: ID!, memoryId: ID!, role: String!): Agent!
@@ -2764,17 +2792,17 @@ type Mutation {
 
   """
   036-ai-service-config: update a named AI config. All fields optional.
-  
+
   apiKey semantics: omitted = keep the stored key; empty string =
   clear it; non-empty = replace (encrypted, preview recomputed).
-  
+
   Auth: admin rights on the owning entity (as aiServiceConfigs).
   """
   updateAiServiceConfig(apiKey: String, enabled: Boolean, id: ID!, model: String, name: String, params: JSON, provider: String): AiServiceConfig!
 
   """
   Update an App.
-  
+
   Accepts the entity's ID or URN.
   """
   updateApp(agentTools: [String!], aiApiKey: String, aiModel: String, aiProvider: String, anonymousTtlDays: Int, appType: AppType, createUserPermission: CreateUserPermission, description: String, expiresAt: String, id: ID!, identifyUserMethod: IdentifyUserMethod, name: String, role: AppMembershipRole, sessionTimeoutSeconds: Int, surfaces: [String!], systemPrompt: String, trainingMode: Boolean, urn: String): App!
@@ -2799,9 +2827,9 @@ type Mutation {
 
   """
   Update a Memory.
-  
+
   Accepts the entity's ID or URN.
-  
+
   Spec 033 FR-026: enabling `vectorIndexEnabled` on an `isEncrypted` memory
   requires `acknowledgeVectorInversionRisk: true` in the same call. Without
   the flag, an `EncryptedVectorIndexNotAcknowledgedError` is thrown carrying
@@ -2816,9 +2844,9 @@ type Mutation {
   Throws MemoryMemberNotFoundError when the row doesn't exist;
   use addMemoryMember to upsert. Throws LastOwnerProtectedError
   (FR-038) when demoting the sole remaining owner.
-  
+
   Caller-authority rule matches addMemoryMember.
-  
+
   Error codes (extensions.code, Error.name style):
     - UNAUTHENTICATED — no logged-in user in context.
     - FORBIDDEN — caller is not an owner of a live group memory.
@@ -2836,14 +2864,14 @@ type Mutation {
   023-app-shape US3 — change the role on an existing MemoryShare.
   Throws MemoryShareNotFoundError if the (memoryId, granteeId) row
   doesn't exist — use createMemoryShare to upsert.
-  
+
   Caller-authority rule matches createMemoryShare.
   """
   updateMemoryShareRole(granteeId: ID!, memoryId: ID!, role: MemoryShareRole!): UpdateMemoryShareRolePayload!
 
   """
   Update a cross-org Memory subscription.
-  
+
   Accepts the entity's ID or URN.
   """
   updateMemorySubscription(memoryId: ID!, orgId: ID!, role: Role!): MemorySubscription!
@@ -2869,7 +2897,7 @@ type Mutation {
 
   """
   Set GitHub App credentials for an organization (encrypted at rest).
-  
+
   Accepts the entity's ID or URN.
   """
   updateOrgGithubApp(appId: String!, orgId: ID!, privateKey: String!): Organization!
@@ -2879,10 +2907,23 @@ type Mutation {
 
   """
   Update an Organization.
-  
+
   Accepts the entity's ID or URN.
   """
   updateOrganization(id: ID!, isVisible: Boolean, name: String, policy: JSON, urn: String): Organization!
+
+  """
+  Update the fixed sender, replace its write-only API key, or enable/disable it.
+  """
+  updateResendSender(apiKey: String, enabled: Boolean, from: String, ref: ID!): ResendSender!
+
+  """
+  Overwrite a secret's value and/or metadata (v1 rotation — no
+  versioning). Name, kind, and owner are immutable — the cascade and
+  flow config reference the name; create a new name instead. The
+  effective (metadata, value) pair is re-validated per kind.
+  """
+  updateSecret(metadata: JSON, ref: ID!, value: JSON): Secret!
   updateUserRoles(roles: [Role!]!, userId: ID!): User!
 }
 
@@ -3406,7 +3447,7 @@ type Query {
   App.agents nesting. Gate mirrors resolveUrn's agent branch: member of
   the Agent's org or platform ADMIN/OWNER; denied throws Forbidden,
   missing is null.
-  
+
   'ref' accepts the entity's ID or URN.
   """
   agent(ref: ID!): Agent
@@ -3414,10 +3455,10 @@ type Query {
   """
   Agent AI config (org ADMIN) — returns the decrypted API key so the
   portal backend can make LLM calls on behalf of the user.
-  
+
   036-ai-service-config: registry-backed (the Agent's config named
   'default'). Prefer resolveAIConfig for new callers.
-  
+
   Accepts the entity's ID or URN.
   """
   agentAIConfig(agentRef: ID!): AgentAIConfig
@@ -3427,7 +3468,7 @@ type Query {
   """
   005-agent-subscription FR-022: list all AgentSubscriptions for an
   Agent. Authorized for ADMIN/OWNER of the Agent's owning org.
-  
+
   Accepts the entity's ID or URN.
   """
   agentSubscriptions(agentRef: ID!): [AgentSubscription!]!
@@ -3467,12 +3508,12 @@ type Query {
   """
   036-ai-service-config: masked, paginated list of AI configs (#473).
   Never returns key material — only hasApiKey + apiKeyPreview.
-  
+
   filter names the owning entity. Auth: platform ADMIN/OWNER for
   HADRON_SERVER owners; org ADMIN of the owning org for ORGANIZATION /
   APP / AGENT owners. filter omitted entirely = the platform ADMIN/OWNER
   cross-owner view of every config (non-admin callers must filter).
-  
+
   Name-ascending order (id tiebreak); limit default 50 / cap 200;
   limit: 0 -> count only.
   """
@@ -3482,21 +3523,21 @@ type Query {
   Fetch an App (member of the App's org, or platform ADMIN — the myApps
   exposure bar; #473 relaxed this from org ADMIN for read parity with the
   list).
-  
+
   'ref' accepts the entity's ID or URN.
   """
   app(ref: ID!): App
 
   """
   Decrypted AI config for an App (org ADMIN of the App's org).
-  
+
   Accepts the entity's ID or URN.
   """
   appAIConfig(appRef: ID!): AppAIConfig
 
   """
   List keys for an App (org ADMIN of the App's org).
-  
+
   Accepts the entity's ID or URN.
   """
   appKeys(appRef: ID!): [AppKey!]!
@@ -3504,9 +3545,9 @@ type Query {
   """
   All nodes accessible by an App: the union of every installed agent's
   system memory (read-only) and its knowledge memoryItems (#524).
-  
+
   Accepts the entity's ID or URN.
-  
+
   An optional NodeFilter pushes node-level predicates server-side — e.g.
   filter: { isRunnable: true } to list the App's runnable task nodes (#525).
   The App's memory scope is authoritative, so the filter's memory-scope
@@ -3619,20 +3660,20 @@ type Query {
   the 'hadron access check <user> <resource>' audit command — one resolver
   that reuses the server's authorization rules instead of re-deriving them
   client-side.
-  
+
   'user' (the subject) accepts a User ID or a hrn:user:<handle> URN (spec
   cor:urn:010:01). 'resource' is dispatched on URN type the same way
   resolveUrn dispatches: a memory, node, app, agent, org, or user MUST be a
   fully-qualified hrn:<type>: URN (a bare id is ambiguous across those kinds).
   A bare id with no scheme prefix is treated as an AiServiceConfig id — the
   only URN-less resource kind.
-  
+
   Authorization (who may CALL this): the same visibility bar already
   enforced on the underlying grant tables — a platform ADMIN/OWNER, an
   ADMIN/OWNER of the resource's owning org, or (for a strict-owner memory)
   the memory's principal. Everyone else gets FORBIDDEN, NOT a silent empty
   result, so the command can't probe access it isn't allowed to audit.
-  
+
   A subject with no access is a SUCCESS with an empty grants list (all
   capabilities false, role null) — not NOT_FOUND. An unresolvable or
   unknown resource ref is NOT_FOUND.
@@ -3646,7 +3687,7 @@ type Query {
 
   """
   Exchange connections for an org.
-  
+
   Accepts the entity's ID or URN.
   """
   exchangeConnections(orgId: ID!): [ExchangeConnection!]!
@@ -3676,7 +3717,7 @@ type Query {
   mode: regex fails loudly on bad syntax. `filter` is the structured, AND-combined filter context
   (SYSTEM memory class excluded by default; explicit wins). Returns a
   scored-hit envelope. Access-scoped identically to the per-kind node queries.
-  
+
   orgId (optional) narrows the accessible scope to a single organization the
   caller is a member of; a non-member orgId returns an empty envelope
   (total 0, no existence disclosure). Combined with filter.isRunnable: true
@@ -3704,14 +3745,14 @@ type Query {
   """
   Cross-entity global search across organizations, memories, nodes, agents,
   apps, AiServiceConfigs, and users — one ranked, flat list of hits.
-  
+
   By default the query shape is smart-sniffed: a PK-shaped input does an exact
   id lookup, a URN-shaped input matches URNs, anything else matches name + URN.
   Pass `fields` to force specific fields (overrides the sniff) and
   `entityTypes` to restrict the kinds searched. Every hit is access-scoped to
   the caller exactly as the per-kind queries are. Distinct from `findNodes`,
   which is the node-only, vector-aware retrieval surface.
-  
+
   orgId (optional) narrows the org-anchored slices to a single organization:
   node/memory hits are confined to that org's memories and organization /
   agent / app / aiServiceConfig hits to that org. (The user slice is NOT
@@ -3719,7 +3760,7 @@ type Query {
   user-visibility as usual.) Omit for the cross-org union (default). A caller
   who is not a member of orgId gets an empty page (total: 0) — no
   org-existence disclosure; membership-gated for everyone, no admin bypass.
-  
+
   Paged in the repo standard idiom: limit (default 50, capped 200) + offset
   (default 0), with total in the envelope. NOTE: total is the ranked-match
   count WITHIN the per-entity candidate bound (a fixed cap per entity type),
@@ -3786,24 +3827,24 @@ type Query {
   """
   Uniform paginated memory list (#473) — replaces myMemories,
   publicMemories, and orgSystemMemories.
-  
+
   Default scope: the caller's union — (1) their OWN personal/private
   memories (always; they are user-owned and show in every org context),
   (2) memories their member orgs own, (3) memories their member orgs
   subscribe to. Per-user agent memories (userMemoryOfAgentId) are excluded.
   App-key callers get the union of their installed Agents' memory items.
-  
+
   filter.visibility: PUBLIC selects the public marketplace slice instead
   (every PUBLIC memory — the old publicMemories). filter.memoryClasses
   restricts to exactly the listed classes; omitted, the noisy agent system
   class is hidden by default (pass it explicitly to surface system
   memories, e.g. the old orgSystemMemories = orgId + memoryClasses:
   [system]).
-  
+
   orgId follows cor:api:100:01: member -> the "active organization" view
   (own personal/private + that org's owned + subscribed memories);
   non-member -> empty page, no existence disclosure, no admin bypass.
-  
+
   Name-ascending order (id tiebreak); limit default 50 / cap 200;
   limit: 0 -> count only.
   """
@@ -3811,7 +3852,7 @@ type Query {
 
   """
   Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
-  
+
   'ref' accepts the entity's ID or URN.
   """
   memory(ref: ID!): Memory
@@ -3820,7 +3861,7 @@ type Query {
   v2 (spec 006) — memory-addressed listing. Returns assets for a
   specific memory; caller must have read access. The replacement
   for agentAssets in the v2 surface.
-  
+
   Accepts the entity's ID or URN.
   """
   memoryAssets(count: Int = 20, includeDeleted: Boolean = false, memoryId: ID!, mimeType: String, skip: Int = 0): AssetListResult!
@@ -3842,7 +3883,7 @@ type Query {
   tags) — no content / abstract / data / tokens / edges — so the payload is a
   fraction of the full node fragment. The graph view loads this to completion
   (page by page) and renders nodes, THEN loads memoryEdges to draw the links.
-  
+
   memoryRef accepts the memory's ID or URN; a memory the caller can't read
   returns an empty page (total 0, no existence disclosure). Paged via limit
   (default 1000, hard-capped 2000) + offset; total is the memory's full node
@@ -3855,7 +3896,7 @@ type Query {
 
   """
   Aggregated usage counts per node and type for a memory.
-  
+
   Accepts the entity's ID or URN.
   """
   memoryUsageSummary(memoryRef: ID!): [UsageSummaryEntry!]!
@@ -3865,7 +3906,7 @@ type Query {
   """
   Saved chats for the current user in their personal memory for an
   agent. Newest first.
-  
+
   Accepts the entity's ID or URN.
   """
   myChats(agentRef: ID!, limit: Int, offset: Int): [Chat!]!
@@ -3882,7 +3923,7 @@ type Query {
   """
   The uniform single-node read (#473) — subsumes the former nodeById(id:)
   and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
-  
+
     1. a primary key (the unambiguous read — the old nodeById),
     2. a fully-qualified node URN (`hrn:node:<org>::<memory>::<loc>`,
        legacy `urn:` scheme accepted),
@@ -3893,7 +3934,7 @@ type Query {
        one (#335). An unprefixed 3+-segment ref whose first two segments
        name a readable memory is treated as form 2 (a full URN); pass
        'memoryRef' to force loc interpretation.
-  
+
   raw: true skips Mustache template compilation. Soft-deleted nodes do not
   resolve. Access: the caller's readable-memory set (same gate the old
   queries used); denied and missing are both null.
@@ -3919,7 +3960,7 @@ type Query {
 
   """
   A single node-revision snapshot by its id (#617 Display).
-  
+
   Access-gated on the snapshot's node memory (read): null when the revision
   does not exist OR the caller cannot read the node's current memory OR the
   memory the snapshot was captured in (per-snapshot gating mirrors
@@ -3932,7 +3973,7 @@ type Query {
 
   """
   Revision history for a node, most recent first.
-  
+
   Accepts the node's ID or URN. Access-gated on the node's memory: a node
   whose memory the caller can't read returns an empty list (no existence
   disclosure).
@@ -3942,7 +3983,7 @@ type Query {
 
   """
   Fetch an Organization (org member or platform ADMIN).
-  
+
   'ref' accepts the entity's ID or URN.
   """
   organization(ref: ID!): Organization
@@ -3974,7 +4015,7 @@ type Query {
   hadron-portal#486). Kept SEPARATE from agents() on purpose: agents() stays
   bounded to the caller's own orgs, and the cross-org widening is this
   explicit, paginated surface rather than a value in a filter.
-  
+
   filter.type narrows by AgentType; filter.visibility is IGNORED (the slice
   is PUBLIC by definition). Field-level exposure is slim for non-members:
   systemPrompt / systemMemoryId / memoryItems / imports / importedBy are
@@ -3989,10 +4030,20 @@ type Query {
   quotaCounters(appRef: String, orgRef: String!): [QuotaCounter!]!
 
   """
+  Fetch one sanitized BYO Resend sender config; null for missing or inaccessible.
+  """
+  resendSender(ref: ID!): ResendSender
+
+  """
+  Uniform paginated BYO Resend sender list scoped to the caller's member orgs.
+  """
+  resendSenders(limit: Int, offset: Int, orgId: ID): ResendSendersPage!
+
+  """
   036-ai-service-config: resolve a config name for an execution context
   and return the DECRYPTED credentials (privileged; successor to
   agentAIConfig/appAIConfig).
-  
+
   Walk: App -> Agent -> Org (of the App, else of the Agent) ->
   HadronServer; disabled configs are skipped. When name is omitted,
   'default' is resolved. When an explicit name misses, resolution falls
@@ -4000,10 +4051,10 @@ type Query {
   NoAiConfigAvailableError. Consumers (webhooks, scheduled tasks, the
   portal chatbot) reference configs by name only — pass the name plus
   the execution context, never credentials.
-  
+
   Auth: org ADMIN of the effective context org, or platform
   ADMIN/OWNER (required when no app/agent context is given).
-  
+
   appRef/agentRef accept the entity's ID or URN.
   """
   resolveAIConfig(agentRef: ID, appRef: ID, name: String): ResolvedAiConfig!
@@ -4012,7 +4063,7 @@ type Query {
   036-ai-service-config: the MASKED set of configs RESOLVABLE in an
   execution context — every distinct config name a chat in this context
   could select. Populates a config picker in the chatbot UI.
-  
+
   Same walk as resolveAIConfig (App -> Agent -> Org (of the App, else of
   the Agent) -> HadronServer), but returns ALL names instead of resolving
   one: configs are deduped by name with the innermost owner winning, so
@@ -4020,14 +4071,14 @@ type Query {
   the Agent named here contributes — sibling Agents installed in the same
   App are not consulted. Disabled configs are skipped. Never returns key
   material (hasApiKey + apiKeyPreview only).
-  
+
   Auth: scoped to one App's chat context. A non-admin caller MUST pass an
   appRef, be a member of that App, and (when an agentRef is given) the Agent
   must be installed in that App. Because the result is masked (no key
   material), App membership — not org admin — is the bar, unlike
   resolveAIConfig and the aiServiceConfigs management list. Platform
   ADMIN/OWNER are always allowed and may omit appRef.
-  
+
   appRef/agentRef accept the entity's ID or URN.
   """
   resolveAiServiceConfigs(agentRef: ID, appRef: ID): [AiServiceConfig!]!
@@ -4039,11 +4090,11 @@ type Query {
   per-kind queries — which throw `Forbidden` on no-access — this query
   deliberately collapses both not-found and no-access to null, so a
   redirect resolver can 404 uniformly without disclosing which case it was.
-  
+
   Per-kind access uses the SAME authorization rules as the dedicated
   queries (memory/org/agent: org membership; app: org ADMIN; node:
   memoryAccessFilter), only with the throw replaced by a null return.
-  
+
   The `hrn:<type>:` prefix (legacy `urn:<type>:` also accepted) is the
   dispatch key — bare URNs without a type prefix are ambiguous across kinds
   (`org::slug` could be a memory or an agent) and resolve to null.
@@ -4051,16 +4102,33 @@ type Query {
   resolveUrn(urn: String!): UrnResolution
 
   """
+  Fetch one secret's inspectable half (never the value). Null when the
+  row does not exist OR the caller is not entitled to its owner scope —
+  no existence disclosure. Entitlement: user -> that user; org -> org
+  member; app -> app owner or org member; memory -> memory READ.
+  """
+  secret(ref: ID!): Secret
+
+  """
+  Paginated secret list for ONE owner scope (the hadron secret ls
+  surface). ownerRef accepts ID or URN (cor:api:140) and defaults to the
+  caller for ownerType user. An unresolvable ref or a non-entitled owner
+  yields an empty page — no disclosure. Name-ascending order (id
+  tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
+  """
+  secrets(limit: Int, offset: Int, ownerRef: ID, ownerType: String!): SecretsPage!
+
+  """
   Identity of the hadron-server this GraphQL endpoint is bound to: the
   server-identity version and the deployment's canonical base URL. The
   GraphQL counterpart to the hadron_server_info MCP tool — both read the
   same getDeploymentInfo() helper, so MCP and GraphQL callers get one
   consistent answer to "which server/API am I talking to?".
-  
+
   'version' is HADRON_SERVER_VERSION — the MCP/API-surface contract
   version, bumped when the tool/query surface changes in a caller-visible
   way. It is intentionally NOT the repo's package.json release version.
-  
+
   Public — no authentication required. Does NOT expose the DATABASE_URL
   (it may carry credentials).
   """
@@ -4111,7 +4179,7 @@ type Query {
 Usage-vs-limit for one scope x action window (#510). The stored limit is the enforced value; env defaults only seed first touch.
 """
 type QuotaCounter {
-  """run.execute, llm.tokens, or sms.send."""
+  """run.execute, llm.tokens, sms.send, or email.send."""
   action: String!
   id: ID!
   limit: Int!
@@ -4131,6 +4199,32 @@ type QuotaCounter {
 type RemoveMemoryMemberPayload {
   memoryId: ID!
   userId: ID!
+}
+
+"""
+One org-owned BYO Resend sender. The API key is encrypted and write-only.
+"""
+type ResendSender {
+  createdAt: String!
+  createdBy: String
+  enabled: Boolean!
+
+  """
+  Fixed sender identity, e.g. Hadron Agent <agent@example.com>; Resend enforces verification.
+  """
+  from: String!
+
+  """Whether an encrypted API key is stored; the key is never returned."""
+  hasApiKey: Boolean!
+  id: ID!
+  organizationId: String!
+  updatedAt: String!
+  updatedBy: String
+}
+
+type ResendSendersPage {
+  items: [ResendSender!]!
+  total: Int!
 }
 
 """
@@ -4321,6 +4415,32 @@ type SearchReplaceResult {
   totalReplacements: Int!
 }
 
+type Secret {
+  createdAt: String!
+  createdBy: String
+  id: ID!
+
+  """Extensible kind; v1: generic | webfetch-auth."""
+  kind: String!
+
+  """The NON-secret, inspectable half (webfetch-auth: { type, urlPrefix })."""
+  metadata: JSON
+
+  """Cascade-resolution key; unique per owner; lowercase [a-z0-9-], max 64."""
+  name: String!
+  ownerId: ID!
+
+  """Owner scope: user | org | app | memory."""
+  ownerType: String!
+  updatedAt: String!
+  updatedBy: String
+}
+
+type SecretsPage {
+  items: [Secret!]!
+  total: Int!
+}
+
 """Identity of the running hadron-server (see Query.serverInfo)."""
 type ServerInfo {
   baseUrl: String!
@@ -4393,7 +4513,7 @@ input SetAiModelPriceInput {
 }
 
 input SetQuotaLimitInput {
-  """run.execute, llm.tokens, or sms.send."""
+  """run.execute, llm.tokens, sms.send, or email.send."""
   action: String!
 
   """

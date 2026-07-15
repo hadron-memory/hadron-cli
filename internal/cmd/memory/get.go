@@ -70,7 +70,7 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				fmt.Fprintf(w, "%s\n  urn: %s\n  class: %s\n  org: %s\n", dto.Name, dto.URN, dto.Class, dto.OrganizationID)
+				fmt.Fprintf(w, "%s\n  urn: %s\n  class: %s\n  org: %s\n", dto.Name, dto.URN, dto.Class, output.Dash(dto.OrganizationID))
 				if dto.ShortDescription != nil && *dto.ShortDescription != "" {
 					fmt.Fprintf(w, "  about: %s\n", *dto.ShortDescription)
 				}

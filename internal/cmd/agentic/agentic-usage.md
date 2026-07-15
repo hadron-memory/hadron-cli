@@ -81,6 +81,7 @@ hadron ticket mint --org <ref> [--app <id>] --action comm.outbound --count <n> [
 hadron grant create --org <ref> --user <ref> --action <a>[,...] [--expires <iso>] | ls [--org <ref>] [--user <ref>] | revoke <id> --yes
 hadron connection grant create --connection <ref> --app <ref> --scopes <s>[,...] [--expires-at <iso>] | ls [--connection <ref>] | revoke <grant-id> --yes
 hadron mcp-server ls [--org <ref>] | get <id> | tools <id> | create --org <ref> --slug <s> --name <n> --url <u> [--header 'Name: value']... [--allow <tool>]... [--disabled] | update <id> [--name <n>] [--url <u>] [--header ...]... [--clear-headers] [--allow <tool>]... [--clear-allow] [--enabled|--disabled] | delete <id> --yes
+hadron secret create --name <n> --scope user|org|app|memory [--owner <ref>] --kind generic|webfetch-auth [--value-file -|@file] | ls --scope <s> [--owner <ref>] | rm <id> --yes
 hadron config get | set | list
 hadron api <query-or-mutation>                       # raw GraphQL
 hadron version
@@ -375,6 +376,14 @@ Conventions:
   `update <id>` changes only the fields you pass — `--api-key ""` clears the
   key, omitting it keeps it; `--param k=v` (repeatable) replaces the params
   object. `rm <id>` requires `--yes` non-interactively.
+- `secret create|ls|rm` manages the general owner-scoped secret store. Values
+  are write-only: `create` reads the secret material from stdin, a file, or an
+  interactive no-echo prompt (never argv), and `ls` prints only the inspectable
+  half (`name`, `kind`, `metadata`, audit fields). `--scope user` may omit
+  `--owner` to mean the caller; org/app/memory scopes require `--owner`.
+  `webfetch-auth` secrets use `--type bearer|basic|header` plus `--url-prefix`;
+  the server derives `metadata.type`. `rm <id>` requires `--yes`
+  non-interactively.
 - `org` manages organizations, their members, and invitations. `org ls`
   lists organizations (`--mine` restricts to your memberships; unscoped spans
   every org you can see); `org create --name --urn`, `org get <id>`,
