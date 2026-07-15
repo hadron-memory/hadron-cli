@@ -135,7 +135,7 @@ only the mandatory rubric.
 ## Navigating and validating
 
 ```sh
-hadron spec use $M                                # save the default spec memory for this checkout
+hadron spec use $M                                # save the default spec memory in your user config
 hadron spec ls   -m $M --prefix cli            # one product (or cli:cha for one module)
 hadron spec ls   -m $M --prefix cli:cha:010    # one feature and its rules/flows
 hadron spec get  cli:cha:010:01 -m $M          # one spec + lint summary
@@ -149,9 +149,10 @@ hadron spec register -m $M                      # derived number ledger (next-fr
 parent existence, inheritance edges to the tier contract, and the
 **one-arity-per-memory** rule.
 
-Use `hadron spec use $M` when you are repeatedly maintaining the same corpus;
-after that, the other `spec` commands can omit `-m` unless you need to override
-the memory for one call.
+Use `hadron spec use $M` when you are repeatedly maintaining the same corpus.
+It writes `spec_memory` to your user config (for example,
+`~/.config/hadron/config.toml`), so it applies across checkouts; pass `-m` when
+one repository or one call should target a different corpus.
 
 ## Editing and splitting specs
 
@@ -210,5 +211,5 @@ hadron spec supersede cli:cha:010:01 -m $M --title "backpressure v2" --yes
   intended arity and lets `describe` flag drift. See
   [docs/plans/spec-product-level.md](../plans/spec-product-level.md).
 - `hadron spec import spec-kit|code` is reserved for future import workflows and
-  currently exits with a not-implemented usage error; create, edit, extract,
+  currently exits with a not-implemented usage error; new, edit, extract,
   link, and supersede are the supported write paths today.
