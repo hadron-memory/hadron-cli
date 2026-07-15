@@ -251,6 +251,13 @@ func TestSpecFindSemanticDefault(t *testing.T) {
 	if vars.Mode == nil || *vars.Mode != "hybrid" {
 		t.Errorf("default find should use hybrid mode, got %v", vars.Mode)
 	}
+	const wantSpecFindPageSize = 50
+	if vars.Limit == nil || *vars.Limit != wantSpecFindPageSize {
+		t.Errorf("default find should oversample raw hits with page size %d, got %v", wantSpecFindPageSize, vars.Limit)
+	}
+	if vars.Offset == nil || *vars.Offset != 0 {
+		t.Errorf("default find should start at offset 0, got %v", vars.Offset)
+	}
 	if len(vars.Filter.MemoryIds) != 1 || vars.Filter.MemoryIds[0] != specMem {
 		t.Errorf("memory scope should map to filter.memoryIds, got %v", vars.Filter.MemoryIds)
 	}

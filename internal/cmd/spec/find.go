@@ -10,7 +10,13 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
+)
+
+const (
+	specFindDefaultLimit = 15
+	specFindPageSize     = 50
 )
 
 func newCmdFind(f *cmdutil.Factory) *cobra.Command {
@@ -34,6 +40,9 @@ Results are filtered to spec nodes.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			query := args[0]
+			if limit < 0 {
+				return exitcode.Newf(exitcode.Usage, "limit must be non-negative")
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -53,9 +62,9 @@ Results are filtered to spec nodes.`,
 					return err
 				}
 			}
-			var limitArg *int
-			if limit > 0 {
-				limitArg = &limit
+			resultLimit := limit
+			if resultLimit == 0 {
+				resultLimit = specFindDefaultLimit
 			}
 
 			var memoryArg *string
@@ -79,19 +88,15 @@ Results are filtered to spec nodes.`,
 			}
 			filter := newNodeFilter(memoryArg, nil, tagFilter)
 
-			page, err := api.FindNodes(cmd.Context(), client, &query, &mode, filter, nil, limitArg, nil)
+			specs, degraded, reason, err := collectSpecFindResults(resultLimit, func(limit, offset int) (*api.FindNodesPage, error) {
+				limitArg, offsetArg := limit, offset
+				return api.FindNodes(cmd.Context(), client, &query, &mode, filter, nil, &limitArg, &offsetArg)
+			})
 			if err != nil {
 				return api.MapError(err)
 			}
-			if note := degradedNote(page.Degraded, page.Reason); note != "" {
+			if note := degradedNote(degraded, reason); note != "" {
 				fmt.Fprintf(f.IOStreams.ErrOut, "note: %s\n", note)
-			}
-			specs := []specDTO{}
-			for _, n := range page.Nodes {
-				if n == nil || !isSpecNode(n.Tags, n.Loc) {
-					continue
-				}
-				specs = append(specs, specDTO{Citation: n.Loc, MemoryID: n.MemoryId, Name: n.Name, NodeType: n.NodeType, Tags: n.Tags, UpdatedAt: n.UpdatedAt})
 			}
 
 			return output.Write(f.IOStreams, f.JSON, specs, func(w io.Writer) error {
@@ -105,10 +110,59 @@ Results are filtered to spec nodes.`,
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "scope to a memory (ID or fully-qualified URN)")
 	cmd.Flags().BoolVar(&matchExactly, "match-exactly", false, "literal keyword search instead of semantic (alias: --exact)")
-	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of results")
+	cmd.Flags().IntVar(&limit, "limit", specFindDefaultLimit, "maximum number of spec results")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "additional tag filter (repeatable; --match-exactly only)")
 	withFlagAliases(cmd, map[string]string{"exact": "match-exactly"})
 	return cmd
+}
+
+func collectSpecFindResults(
+	resultLimit int,
+	fetch func(limit, offset int) (*api.FindNodesPage, error),
+) ([]specDTO, *string, *string, error) {
+	if resultLimit <= 0 {
+		return []specDTO{}, nil, nil, nil
+	}
+	pageSize := specFindPageSize
+	if pageSize < resultLimit {
+		pageSize = resultLimit
+	}
+	if pageSize > nodesPageSize {
+		pageSize = nodesPageSize
+	}
+	specs := make([]specDTO, 0, resultLimit)
+	var degraded, reason *string
+	for offset := 0; len(specs) < resultLimit; offset += pageSize {
+		page, err := fetch(pageSize, offset)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if page == nil {
+			break
+		}
+		if degraded == nil && page.Degraded != nil {
+			degraded = page.Degraded
+		}
+		if reason == nil && page.Reason != nil {
+			reason = page.Reason
+		}
+		for _, n := range page.Nodes {
+			if n == nil || !isSpecNode(n.Tags, n.Loc) {
+				continue
+			}
+			specs = append(specs, specDTO{Citation: n.Loc, MemoryID: n.MemoryId, Name: n.Name, NodeType: n.NodeType, Tags: n.Tags, UpdatedAt: n.UpdatedAt})
+			if len(specs) == resultLimit {
+				break
+			}
+		}
+		if len(page.Nodes) < pageSize {
+			break
+		}
+		if page.Total != nil && offset+pageSize >= *page.Total {
+			break
+		}
+	}
+	return specs, degraded, reason, nil
 }
 
 // isSpecNode reports whether a search hit is a spec: it carries the spec
