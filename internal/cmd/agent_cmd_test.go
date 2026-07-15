@@ -43,6 +43,26 @@ func TestAgentCreate(t *testing.T) {
 	}
 }
 
+func TestAgentCreateUserOwnedOmitsOrg(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateAgent": `{"data":{"createAgent":` + agentJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "create", "--name", "Personal Bot", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateAgent"], &vars)
+	if vars["name"] != "Personal Bot" {
+		t.Errorf("create name: %v", vars)
+	}
+	if _, present := vars["orgId"]; present {
+		t.Errorf("user-owned create must omit orgId, got %v", vars["orgId"])
+	}
+}
+
 func TestAgentCreateRejectsBadType(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)

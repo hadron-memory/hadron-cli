@@ -29,6 +29,7 @@ import (
 	runcmd "github.com/hadron-memory/hadron-cli/internal/cmd/run"
 	schedulecmd "github.com/hadron-memory/hadron-cli/internal/cmd/schedule"
 	searchcmd "github.com/hadron-memory/hadron-cli/internal/cmd/search"
+	secretcmd "github.com/hadron-memory/hadron-cli/internal/cmd/secret"
 	speccmd "github.com/hadron-memory/hadron-cli/internal/cmd/spec"
 	taskcmd "github.com/hadron-memory/hadron-cli/internal/cmd/task"
 	ticketcmd "github.com/hadron-memory/hadron-cli/internal/cmd/ticket"
@@ -80,6 +81,7 @@ func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	root.AddCommand(grantcmd.NewCmdGrant(f))
 	root.AddCommand(connectioncmd.NewCmdConnection(f))
 	root.AddCommand(mcpservercmd.NewCmdMcpServer(f))
+	root.AddCommand(secretcmd.NewCmdSecret(f))
 	root.AddCommand(configcmd.NewCmdConfig(f))
 	root.AddCommand(apicmd.NewCmdAPI(f))
 	root.AddCommand(versioncmd.NewCmdVersion(f))

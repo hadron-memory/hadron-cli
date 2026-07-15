@@ -518,7 +518,7 @@ type AgentFields struct {
 	Description    *string         `json:"description"`
 	Type           AgentType       `json:"type"`
 	Visibility     AgentVisibility `json:"visibility"`
-	OrganizationId string          `json:"organizationId"`
+	OrganizationId *string         `json:"organizationId"`
 	Surfaces       []string        `json:"surfaces"`
 	SystemMemoryId *string         `json:"systemMemoryId"`
 	SystemPrompt   *string         `json:"systemPrompt"`
@@ -547,7 +547,7 @@ func (v *AgentFields) GetType() AgentType { return v.Type }
 func (v *AgentFields) GetVisibility() AgentVisibility { return v.Visibility }
 
 // GetOrganizationId returns AgentFields.OrganizationId, and is useful for accessing the field via an interface.
-func (v *AgentFields) GetOrganizationId() string { return v.OrganizationId }
+func (v *AgentFields) GetOrganizationId() *string { return v.OrganizationId }
 
 // GetSurfaces returns AgentFields.Surfaces, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetSurfaces() []string { return v.Surfaces }
@@ -1386,7 +1386,7 @@ func (v *AgentsAgentsAgentsPageItemsAgent) GetVisibility() AgentVisibility {
 }
 
 // GetOrganizationId returns AgentsAgentsAgentsPageItemsAgent.OrganizationId, and is useful for accessing the field via an interface.
-func (v *AgentsAgentsAgentsPageItemsAgent) GetOrganizationId() string {
+func (v *AgentsAgentsAgentsPageItemsAgent) GetOrganizationId() *string {
 	return v.AgentFields.OrganizationId
 }
 
@@ -1453,7 +1453,7 @@ type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
 
 	Visibility AgentVisibility `json:"visibility"`
 
-	OrganizationId string `json:"organizationId"`
+	OrganizationId *string `json:"organizationId"`
 
 	Surfaces []string `json:"surfaces"`
 
@@ -2241,7 +2241,7 @@ type AttachMemoryToAppAttachMemoryToAppMemory struct {
 	ShortDescription *string           `json:"shortDescription"`
 	Class            MemoryClass       `json:"class"`
 	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   string            `json:"organizationId"`
+	OrganizationId   *string           `json:"organizationId"`
 	IsEncrypted      bool              `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
@@ -2272,7 +2272,7 @@ func (v *AttachMemoryToAppAttachMemoryToAppMemory) GetVisibility() *MemoryVisibi
 }
 
 // GetOrganizationId returns AttachMemoryToAppAttachMemoryToAppMemory.OrganizationId, and is useful for accessing the field via an interface.
-func (v *AttachMemoryToAppAttachMemoryToAppMemory) GetOrganizationId() string {
+func (v *AttachMemoryToAppAttachMemoryToAppMemory) GetOrganizationId() *string {
 	return v.OrganizationId
 }
 
@@ -2756,7 +2756,7 @@ type CloneMemoryCloneMemory struct {
 	ShortDescription *string           `json:"shortDescription"`
 	Class            MemoryClass       `json:"class"`
 	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   string            `json:"organizationId"`
+	OrganizationId   *string           `json:"organizationId"`
 	IsEncrypted      bool              `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
@@ -2783,7 +2783,7 @@ func (v *CloneMemoryCloneMemory) GetClass() MemoryClass { return v.Class }
 func (v *CloneMemoryCloneMemory) GetVisibility() *MemoryVisibility { return v.Visibility }
 
 // GetOrganizationId returns CloneMemoryCloneMemory.OrganizationId, and is useful for accessing the field via an interface.
-func (v *CloneMemoryCloneMemory) GetOrganizationId() string { return v.OrganizationId }
+func (v *CloneMemoryCloneMemory) GetOrganizationId() *string { return v.OrganizationId }
 
 // GetIsEncrypted returns CloneMemoryCloneMemory.IsEncrypted, and is useful for accessing the field via an interface.
 func (v *CloneMemoryCloneMemory) GetIsEncrypted() bool { return v.IsEncrypted }
@@ -3086,7 +3086,7 @@ func (v *CreateAgentCreateAgent) GetType() AgentType { return v.AgentFields.Type
 func (v *CreateAgentCreateAgent) GetVisibility() AgentVisibility { return v.AgentFields.Visibility }
 
 // GetOrganizationId returns CreateAgentCreateAgent.OrganizationId, and is useful for accessing the field via an interface.
-func (v *CreateAgentCreateAgent) GetOrganizationId() string { return v.AgentFields.OrganizationId }
+func (v *CreateAgentCreateAgent) GetOrganizationId() *string { return v.AgentFields.OrganizationId }
 
 // GetSurfaces returns CreateAgentCreateAgent.Surfaces, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
@@ -3147,7 +3147,7 @@ type __premarshalCreateAgentCreateAgent struct {
 
 	Visibility AgentVisibility `json:"visibility"`
 
-	OrganizationId string `json:"organizationId"`
+	OrganizationId *string `json:"organizationId"`
 
 	Surfaces []string `json:"surfaces"`
 
@@ -3194,9 +3194,12 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 
 // CreateAgentResponse is returned by CreateAgent on success.
 type CreateAgentResponse struct {
-	// Create an Agent in an organization.
+	// Create an agent. Provide orgId to create an ORG-owned agent (requires org
+	// ADMIN); OMIT orgId to create a USER-OWNED agent owned by the caller (spec
+	// 047) — its URN is namespaced under the caller's @handle and its system
+	// memory is user-owned too. Exactly one owner (org XOR user).
 	//
-	// Accepts the entity's ID or URN.
+	// orgId accepts the org's ID or URN.
 	CreateAgent *CreateAgentCreateAgent `json:"createAgent"`
 }
 
@@ -4135,7 +4138,7 @@ type CreateMemoryCreateMemory struct {
 	ShortDescription *string           `json:"shortDescription"`
 	Class            MemoryClass       `json:"class"`
 	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   string            `json:"organizationId"`
+	OrganizationId   *string           `json:"organizationId"`
 	IsEncrypted      bool              `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
@@ -4162,7 +4165,7 @@ func (v *CreateMemoryCreateMemory) GetClass() MemoryClass { return v.Class }
 func (v *CreateMemoryCreateMemory) GetVisibility() *MemoryVisibility { return v.Visibility }
 
 // GetOrganizationId returns CreateMemoryCreateMemory.OrganizationId, and is useful for accessing the field via an interface.
-func (v *CreateMemoryCreateMemory) GetOrganizationId() string { return v.OrganizationId }
+func (v *CreateMemoryCreateMemory) GetOrganizationId() *string { return v.OrganizationId }
 
 // GetIsEncrypted returns CreateMemoryCreateMemory.IsEncrypted, and is useful for accessing the field via an interface.
 func (v *CreateMemoryCreateMemory) GetIsEncrypted() bool { return v.IsEncrypted }
@@ -4181,7 +4184,7 @@ type CreateMemoryInAppCreateMemoryInAppMemory struct {
 	ShortDescription *string           `json:"shortDescription"`
 	Class            MemoryClass       `json:"class"`
 	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   string            `json:"organizationId"`
+	OrganizationId   *string           `json:"organizationId"`
 	IsEncrypted      bool              `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
@@ -4212,7 +4215,7 @@ func (v *CreateMemoryInAppCreateMemoryInAppMemory) GetVisibility() *MemoryVisibi
 }
 
 // GetOrganizationId returns CreateMemoryInAppCreateMemoryInAppMemory.OrganizationId, and is useful for accessing the field via an interface.
-func (v *CreateMemoryInAppCreateMemoryInAppMemory) GetOrganizationId() string {
+func (v *CreateMemoryInAppCreateMemoryInAppMemory) GetOrganizationId() *string {
 	return v.OrganizationId
 }
 
@@ -4840,6 +4843,128 @@ func (v *CreatePrincipalGrantResponse) GetCreatePrincipalGrant() *CreatePrincipa
 	return v.CreatePrincipalGrant
 }
 
+// CreateSecretCreateSecret includes the requested fields of the GraphQL type Secret.
+type CreateSecretCreateSecret struct {
+	SecretFields `json:"-"`
+}
+
+// GetId returns CreateSecretCreateSecret.Id, and is useful for accessing the field via an interface.
+func (v *CreateSecretCreateSecret) GetId() string { return v.SecretFields.Id }
+
+// GetOwnerType returns CreateSecretCreateSecret.OwnerType, and is useful for accessing the field via an interface.
+func (v *CreateSecretCreateSecret) GetOwnerType() string { return v.SecretFields.OwnerType }
+
+// GetOwnerId returns CreateSecretCreateSecret.OwnerId, and is useful for accessing the field via an interface.
+func (v *CreateSecretCreateSecret) GetOwnerId() string { return v.SecretFields.OwnerId }
+
+// GetName returns CreateSecretCreateSecret.Name, and is useful for accessing the field via an interface.
+func (v *CreateSecretCreateSecret) GetName() string { return v.SecretFields.Name }
+
+// GetKind returns CreateSecretCreateSecret.Kind, and is useful for accessing the field via an interface.
+func (v *CreateSecretCreateSecret) GetKind() string { return v.SecretFields.Kind }
+
+// GetMetadata returns CreateSecretCreateSecret.Metadata, and is useful for accessing the field via an interface.
+func (v *CreateSecretCreateSecret) GetMetadata() *json.RawMessage { return v.SecretFields.Metadata }
+
+// GetCreatedAt returns CreateSecretCreateSecret.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateSecretCreateSecret) GetCreatedAt() string { return v.SecretFields.CreatedAt }
+
+// GetCreatedBy returns CreateSecretCreateSecret.CreatedBy, and is useful for accessing the field via an interface.
+func (v *CreateSecretCreateSecret) GetCreatedBy() *string { return v.SecretFields.CreatedBy }
+
+// GetUpdatedAt returns CreateSecretCreateSecret.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateSecretCreateSecret) GetUpdatedAt() string { return v.SecretFields.UpdatedAt }
+
+// GetUpdatedBy returns CreateSecretCreateSecret.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *CreateSecretCreateSecret) GetUpdatedBy() *string { return v.SecretFields.UpdatedBy }
+
+func (v *CreateSecretCreateSecret) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateSecretCreateSecret
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateSecretCreateSecret = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SecretFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateSecretCreateSecret struct {
+	Id string `json:"id"`
+
+	OwnerType string `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Name string `json:"name"`
+
+	Kind string `json:"kind"`
+
+	Metadata *json.RawMessage `json:"metadata"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *CreateSecretCreateSecret) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateSecretCreateSecret) __premarshalJSON() (*__premarshalCreateSecretCreateSecret, error) {
+	var retval __premarshalCreateSecretCreateSecret
+
+	retval.Id = v.SecretFields.Id
+	retval.OwnerType = v.SecretFields.OwnerType
+	retval.OwnerId = v.SecretFields.OwnerId
+	retval.Name = v.SecretFields.Name
+	retval.Kind = v.SecretFields.Kind
+	retval.Metadata = v.SecretFields.Metadata
+	retval.CreatedAt = v.SecretFields.CreatedAt
+	retval.CreatedBy = v.SecretFields.CreatedBy
+	retval.UpdatedAt = v.SecretFields.UpdatedAt
+	retval.UpdatedBy = v.SecretFields.UpdatedBy
+	return &retval, nil
+}
+
+// CreateSecretResponse is returned by CreateSecret on success.
+type CreateSecretResponse struct {
+	// Create a named, owner-scoped secret (#677). Gate per owner scope:
+	// user -> that user (ownerRef optional, defaults to the caller); org ->
+	// org ADMIN; app -> app owner / org ADMIN; memory -> memory WRITE.
+	// value is the secret payload — encrypted at rest, write-only, never
+	// returned. kind selects validation: generic (opaque JSON) or
+	// webfetch-auth ({type: bearer|basic|header, ...} + metadata.urlPrefix
+	// origin binding). A run resolves the name via the CSS cascade
+	// (memory -> app -> user -> org) at entitled scopes only.
+	CreateSecret *CreateSecretCreateSecret `json:"createSecret"`
+}
+
+// GetCreateSecret returns CreateSecretResponse.CreateSecret, and is useful for accessing the field via an interface.
+func (v *CreateSecretResponse) GetCreateSecret() *CreateSecretCreateSecret { return v.CreateSecret }
+
 // CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult includes the requested fields of the GraphQL type UserApiKeyCreateResult.
 type CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult struct {
 	RawKey     string                                                            `json:"rawKey"`
@@ -5240,6 +5365,15 @@ type DeleteOrganizationResponse struct {
 // GetDeleteOrganization returns DeleteOrganizationResponse.DeleteOrganization, and is useful for accessing the field via an interface.
 func (v *DeleteOrganizationResponse) GetDeleteOrganization() bool { return v.DeleteOrganization }
 
+// DeleteSecretResponse is returned by DeleteSecret on success.
+type DeleteSecretResponse struct {
+	// Hard-delete a secret; referencing runs fail their resolution loud (or fall through the cascade) afterwards.
+	DeleteSecret bool `json:"deleteSecret"`
+}
+
+// GetDeleteSecret returns DeleteSecretResponse.DeleteSecret, and is useful for accessing the field via an interface.
+func (v *DeleteSecretResponse) GetDeleteSecret() bool { return v.DeleteSecret }
+
 // EffectiveAccessEffectiveAccess includes the requested fields of the GraphQL type EffectiveAccess.
 // The GraphQL type's documentation follows.
 //
@@ -5411,7 +5545,7 @@ type ExtractParentNodeToMemoryExtractParentNodeToMemory struct {
 	ShortDescription *string           `json:"shortDescription"`
 	Class            MemoryClass       `json:"class"`
 	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   string            `json:"organizationId"`
+	OrganizationId   *string           `json:"organizationId"`
 	IsEncrypted      bool              `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
@@ -5442,7 +5576,7 @@ func (v *ExtractParentNodeToMemoryExtractParentNodeToMemory) GetVisibility() *Me
 }
 
 // GetOrganizationId returns ExtractParentNodeToMemoryExtractParentNodeToMemory.OrganizationId, and is useful for accessing the field via an interface.
-func (v *ExtractParentNodeToMemoryExtractParentNodeToMemory) GetOrganizationId() string {
+func (v *ExtractParentNodeToMemoryExtractParentNodeToMemory) GetOrganizationId() *string {
 	return v.OrganizationId
 }
 
@@ -5664,7 +5798,7 @@ func (v *GetAgentAgent) GetType() AgentType { return v.AgentFields.Type }
 func (v *GetAgentAgent) GetVisibility() AgentVisibility { return v.AgentFields.Visibility }
 
 // GetOrganizationId returns GetAgentAgent.OrganizationId, and is useful for accessing the field via an interface.
-func (v *GetAgentAgent) GetOrganizationId() string { return v.AgentFields.OrganizationId }
+func (v *GetAgentAgent) GetOrganizationId() *string { return v.AgentFields.OrganizationId }
 
 // GetSurfaces returns GetAgentAgent.Surfaces, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
@@ -5725,7 +5859,7 @@ type __premarshalGetAgentAgent struct {
 
 	Visibility AgentVisibility `json:"visibility"`
 
-	OrganizationId string `json:"organizationId"`
+	OrganizationId *string `json:"organizationId"`
 
 	Surfaces []string `json:"surfaces"`
 
@@ -5938,7 +6072,7 @@ type GetMemoryMemory struct {
 	Description        *string           `json:"description"`
 	Class              MemoryClass       `json:"class"`
 	Visibility         *MemoryVisibility `json:"visibility"`
-	OrganizationId     string            `json:"organizationId"`
+	OrganizationId     *string           `json:"organizationId"`
 	IsEncrypted        bool              `json:"isEncrypted"`
 	Tags               []string          `json:"tags"`
 	Source             *string           `json:"source"`
@@ -5976,7 +6110,7 @@ func (v *GetMemoryMemory) GetClass() MemoryClass { return v.Class }
 func (v *GetMemoryMemory) GetVisibility() *MemoryVisibility { return v.Visibility }
 
 // GetOrganizationId returns GetMemoryMemory.OrganizationId, and is useful for accessing the field via an interface.
-func (v *GetMemoryMemory) GetOrganizationId() string { return v.OrganizationId }
+func (v *GetMemoryMemory) GetOrganizationId() *string { return v.OrganizationId }
 
 // GetIsEncrypted returns GetMemoryMemory.IsEncrypted, and is useful for accessing the field via an interface.
 func (v *GetMemoryMemory) GetIsEncrypted() bool { return v.IsEncrypted }
@@ -7036,7 +7170,7 @@ type MemoriesMemoriesMemoriesPageItemsMemory struct {
 	ShortDescription *string           `json:"shortDescription"`
 	Class            MemoryClass       `json:"class"`
 	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   string            `json:"organizationId"`
+	OrganizationId   *string           `json:"organizationId"`
 	IsEncrypted      bool              `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
@@ -7067,7 +7201,9 @@ func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetVisibility() *MemoryVisibil
 }
 
 // GetOrganizationId returns MemoriesMemoriesMemoriesPageItemsMemory.OrganizationId, and is useful for accessing the field via an interface.
-func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetOrganizationId() string { return v.OrganizationId }
+func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetOrganizationId() *string {
+	return v.OrganizationId
+}
 
 // GetIsEncrypted returns MemoriesMemoriesMemoriesPageItemsMemory.IsEncrypted, and is useful for accessing the field via an interface.
 func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetIsEncrypted() bool { return v.IsEncrypted }
@@ -9229,7 +9365,7 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetVisibility() AgentVisi
 }
 
 // GetOrganizationId returns PublicAgentsPublicAgentsAgentsPageItemsAgent.OrganizationId, and is useful for accessing the field via an interface.
-func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetOrganizationId() string {
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetOrganizationId() *string {
 	return v.AgentFields.OrganizationId
 }
 
@@ -9306,7 +9442,7 @@ type __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 
 	Visibility AgentVisibility `json:"visibility"`
 
-	OrganizationId string `json:"organizationId"`
+	OrganizationId *string `json:"organizationId"`
 
 	Surfaces []string `json:"surfaces"`
 
@@ -10405,6 +10541,193 @@ func (v *SearchUsersUsersUsersPageItemsUser) __premarshalJSON() (*__premarshalSe
 	return &retval, nil
 }
 
+// SecretFields includes the GraphQL fields of Secret requested by the fragment SecretFields.
+type SecretFields struct {
+	Id string `json:"id"`
+	// Owner scope: user | org | app | memory.
+	OwnerType string `json:"ownerType"`
+	OwnerId   string `json:"ownerId"`
+	// Cascade-resolution key; unique per owner; lowercase [a-z0-9-], max 64.
+	Name string `json:"name"`
+	// Extensible kind; v1: generic | webfetch-auth.
+	Kind string `json:"kind"`
+	// The NON-secret, inspectable half (webfetch-auth: { type, urlPrefix }).
+	Metadata  *json.RawMessage `json:"metadata"`
+	CreatedAt string           `json:"createdAt"`
+	CreatedBy *string          `json:"createdBy"`
+	UpdatedAt string           `json:"updatedAt"`
+	UpdatedBy *string          `json:"updatedBy"`
+}
+
+// GetId returns SecretFields.Id, and is useful for accessing the field via an interface.
+func (v *SecretFields) GetId() string { return v.Id }
+
+// GetOwnerType returns SecretFields.OwnerType, and is useful for accessing the field via an interface.
+func (v *SecretFields) GetOwnerType() string { return v.OwnerType }
+
+// GetOwnerId returns SecretFields.OwnerId, and is useful for accessing the field via an interface.
+func (v *SecretFields) GetOwnerId() string { return v.OwnerId }
+
+// GetName returns SecretFields.Name, and is useful for accessing the field via an interface.
+func (v *SecretFields) GetName() string { return v.Name }
+
+// GetKind returns SecretFields.Kind, and is useful for accessing the field via an interface.
+func (v *SecretFields) GetKind() string { return v.Kind }
+
+// GetMetadata returns SecretFields.Metadata, and is useful for accessing the field via an interface.
+func (v *SecretFields) GetMetadata() *json.RawMessage { return v.Metadata }
+
+// GetCreatedAt returns SecretFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SecretFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetCreatedBy returns SecretFields.CreatedBy, and is useful for accessing the field via an interface.
+func (v *SecretFields) GetCreatedBy() *string { return v.CreatedBy }
+
+// GetUpdatedAt returns SecretFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *SecretFields) GetUpdatedAt() string { return v.UpdatedAt }
+
+// GetUpdatedBy returns SecretFields.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *SecretFields) GetUpdatedBy() *string { return v.UpdatedBy }
+
+// SecretsResponse is returned by Secrets on success.
+type SecretsResponse struct {
+	// Paginated secret list for ONE owner scope (the hadron secret ls
+	// surface). ownerRef accepts ID or URN (cor:api:140) and defaults to the
+	// caller for ownerType user. An unresolvable ref or a non-entitled owner
+	// yields an empty page — no disclosure. Name-ascending order (id
+	// tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
+	Secrets *SecretsSecretsSecretsPage `json:"secrets"`
+}
+
+// GetSecrets returns SecretsResponse.Secrets, and is useful for accessing the field via an interface.
+func (v *SecretsResponse) GetSecrets() *SecretsSecretsSecretsPage { return v.Secrets }
+
+// SecretsSecretsSecretsPage includes the requested fields of the GraphQL type SecretsPage.
+type SecretsSecretsSecretsPage struct {
+	Items []*SecretsSecretsSecretsPageItemsSecret `json:"items"`
+	Total int                                     `json:"total"`
+}
+
+// GetItems returns SecretsSecretsSecretsPage.Items, and is useful for accessing the field via an interface.
+func (v *SecretsSecretsSecretsPage) GetItems() []*SecretsSecretsSecretsPageItemsSecret {
+	return v.Items
+}
+
+// GetTotal returns SecretsSecretsSecretsPage.Total, and is useful for accessing the field via an interface.
+func (v *SecretsSecretsSecretsPage) GetTotal() int { return v.Total }
+
+// SecretsSecretsSecretsPageItemsSecret includes the requested fields of the GraphQL type Secret.
+type SecretsSecretsSecretsPageItemsSecret struct {
+	SecretFields `json:"-"`
+}
+
+// GetId returns SecretsSecretsSecretsPageItemsSecret.Id, and is useful for accessing the field via an interface.
+func (v *SecretsSecretsSecretsPageItemsSecret) GetId() string { return v.SecretFields.Id }
+
+// GetOwnerType returns SecretsSecretsSecretsPageItemsSecret.OwnerType, and is useful for accessing the field via an interface.
+func (v *SecretsSecretsSecretsPageItemsSecret) GetOwnerType() string { return v.SecretFields.OwnerType }
+
+// GetOwnerId returns SecretsSecretsSecretsPageItemsSecret.OwnerId, and is useful for accessing the field via an interface.
+func (v *SecretsSecretsSecretsPageItemsSecret) GetOwnerId() string { return v.SecretFields.OwnerId }
+
+// GetName returns SecretsSecretsSecretsPageItemsSecret.Name, and is useful for accessing the field via an interface.
+func (v *SecretsSecretsSecretsPageItemsSecret) GetName() string { return v.SecretFields.Name }
+
+// GetKind returns SecretsSecretsSecretsPageItemsSecret.Kind, and is useful for accessing the field via an interface.
+func (v *SecretsSecretsSecretsPageItemsSecret) GetKind() string { return v.SecretFields.Kind }
+
+// GetMetadata returns SecretsSecretsSecretsPageItemsSecret.Metadata, and is useful for accessing the field via an interface.
+func (v *SecretsSecretsSecretsPageItemsSecret) GetMetadata() *json.RawMessage {
+	return v.SecretFields.Metadata
+}
+
+// GetCreatedAt returns SecretsSecretsSecretsPageItemsSecret.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SecretsSecretsSecretsPageItemsSecret) GetCreatedAt() string { return v.SecretFields.CreatedAt }
+
+// GetCreatedBy returns SecretsSecretsSecretsPageItemsSecret.CreatedBy, and is useful for accessing the field via an interface.
+func (v *SecretsSecretsSecretsPageItemsSecret) GetCreatedBy() *string {
+	return v.SecretFields.CreatedBy
+}
+
+// GetUpdatedAt returns SecretsSecretsSecretsPageItemsSecret.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *SecretsSecretsSecretsPageItemsSecret) GetUpdatedAt() string { return v.SecretFields.UpdatedAt }
+
+// GetUpdatedBy returns SecretsSecretsSecretsPageItemsSecret.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *SecretsSecretsSecretsPageItemsSecret) GetUpdatedBy() *string {
+	return v.SecretFields.UpdatedBy
+}
+
+func (v *SecretsSecretsSecretsPageItemsSecret) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SecretsSecretsSecretsPageItemsSecret
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SecretsSecretsSecretsPageItemsSecret = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SecretFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSecretsSecretsSecretsPageItemsSecret struct {
+	Id string `json:"id"`
+
+	OwnerType string `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Name string `json:"name"`
+
+	Kind string `json:"kind"`
+
+	Metadata *json.RawMessage `json:"metadata"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *SecretsSecretsSecretsPageItemsSecret) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SecretsSecretsSecretsPageItemsSecret) __premarshalJSON() (*__premarshalSecretsSecretsSecretsPageItemsSecret, error) {
+	var retval __premarshalSecretsSecretsSecretsPageItemsSecret
+
+	retval.Id = v.SecretFields.Id
+	retval.OwnerType = v.SecretFields.OwnerType
+	retval.OwnerId = v.SecretFields.OwnerId
+	retval.Name = v.SecretFields.Name
+	retval.Kind = v.SecretFields.Kind
+	retval.Metadata = v.SecretFields.Metadata
+	retval.CreatedAt = v.SecretFields.CreatedAt
+	retval.CreatedBy = v.SecretFields.CreatedBy
+	retval.UpdatedAt = v.SecretFields.UpdatedAt
+	retval.UpdatedBy = v.SecretFields.UpdatedBy
+	return &retval, nil
+}
+
 type SyncStatus string
 
 const (
@@ -10916,7 +11239,7 @@ func (v *UpdateAgentUpdateAgent) GetType() AgentType { return v.AgentFields.Type
 func (v *UpdateAgentUpdateAgent) GetVisibility() AgentVisibility { return v.AgentFields.Visibility }
 
 // GetOrganizationId returns UpdateAgentUpdateAgent.OrganizationId, and is useful for accessing the field via an interface.
-func (v *UpdateAgentUpdateAgent) GetOrganizationId() string { return v.AgentFields.OrganizationId }
+func (v *UpdateAgentUpdateAgent) GetOrganizationId() *string { return v.AgentFields.OrganizationId }
 
 // GetSurfaces returns UpdateAgentUpdateAgent.Surfaces, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
@@ -10977,7 +11300,7 @@ type __premarshalUpdateAgentUpdateAgent struct {
 
 	Visibility AgentVisibility `json:"visibility"`
 
-	OrganizationId string `json:"organizationId"`
+	OrganizationId *string `json:"organizationId"`
 
 	Surfaces []string `json:"surfaces"`
 
@@ -11716,7 +12039,7 @@ type UpdateMemoryUpdateMemory struct {
 	ShortDescription *string           `json:"shortDescription"`
 	Class            MemoryClass       `json:"class"`
 	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   string            `json:"organizationId"`
+	OrganizationId   *string           `json:"organizationId"`
 	IsEncrypted      bool              `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
@@ -11746,7 +12069,7 @@ func (v *UpdateMemoryUpdateMemory) GetClass() MemoryClass { return v.Class }
 func (v *UpdateMemoryUpdateMemory) GetVisibility() *MemoryVisibility { return v.Visibility }
 
 // GetOrganizationId returns UpdateMemoryUpdateMemory.OrganizationId, and is useful for accessing the field via an interface.
-func (v *UpdateMemoryUpdateMemory) GetOrganizationId() string { return v.OrganizationId }
+func (v *UpdateMemoryUpdateMemory) GetOrganizationId() *string { return v.OrganizationId }
 
 // GetIsEncrypted returns UpdateMemoryUpdateMemory.IsEncrypted, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryUpdateMemory) GetIsEncrypted() bool { return v.IsEncrypted }
@@ -12708,7 +13031,7 @@ func (v *__ConnectionGrantsInput) GetOffset() *int { return v.Offset }
 // __CreateAgentInput is used internally by genqlient
 type __CreateAgentInput struct {
 	Name           string           `json:"name"`
-	OrgId          string           `json:"orgId"`
+	OrgId          *string          `json:"orgId,omitempty"`
 	Description    *string          `json:"description,omitempty"`
 	AgentType      *AgentType       `json:"agentType,omitempty"`
 	Visibility     *AgentVisibility `json:"visibility,omitempty"`
@@ -12721,7 +13044,7 @@ type __CreateAgentInput struct {
 func (v *__CreateAgentInput) GetName() string { return v.Name }
 
 // GetOrgId returns __CreateAgentInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__CreateAgentInput) GetOrgId() string { return v.OrgId }
+func (v *__CreateAgentInput) GetOrgId() *string { return v.OrgId }
 
 // GetDescription returns __CreateAgentInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetDescription() *string { return v.Description }
@@ -13057,6 +13380,34 @@ func (v *__CreatePrincipalGrantInput) GetActions() []string { return v.Actions }
 // GetExpiresAt returns __CreatePrincipalGrantInput.ExpiresAt, and is useful for accessing the field via an interface.
 func (v *__CreatePrincipalGrantInput) GetExpiresAt() *string { return v.ExpiresAt }
 
+// __CreateSecretInput is used internally by genqlient
+type __CreateSecretInput struct {
+	OwnerType string           `json:"ownerType"`
+	OwnerRef  *string          `json:"ownerRef,omitempty"`
+	Name      string           `json:"name"`
+	Kind      string           `json:"kind"`
+	Metadata  *json.RawMessage `json:"metadata,omitempty"`
+	Value     json.RawMessage  `json:"value"`
+}
+
+// GetOwnerType returns __CreateSecretInput.OwnerType, and is useful for accessing the field via an interface.
+func (v *__CreateSecretInput) GetOwnerType() string { return v.OwnerType }
+
+// GetOwnerRef returns __CreateSecretInput.OwnerRef, and is useful for accessing the field via an interface.
+func (v *__CreateSecretInput) GetOwnerRef() *string { return v.OwnerRef }
+
+// GetName returns __CreateSecretInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateSecretInput) GetName() string { return v.Name }
+
+// GetKind returns __CreateSecretInput.Kind, and is useful for accessing the field via an interface.
+func (v *__CreateSecretInput) GetKind() string { return v.Kind }
+
+// GetMetadata returns __CreateSecretInput.Metadata, and is useful for accessing the field via an interface.
+func (v *__CreateSecretInput) GetMetadata() *json.RawMessage { return v.Metadata }
+
+// GetValue returns __CreateSecretInput.Value, and is useful for accessing the field via an interface.
+func (v *__CreateSecretInput) GetValue() json.RawMessage { return v.Value }
+
 // __CreateUserApiKeyInput is used internally by genqlient
 type __CreateUserApiKeyInput struct {
 	Label *string `json:"label,omitempty"`
@@ -13200,6 +13551,14 @@ type __DeleteOrganizationInput struct {
 
 // GetId returns __DeleteOrganizationInput.Id, and is useful for accessing the field via an interface.
 func (v *__DeleteOrganizationInput) GetId() string { return v.Id }
+
+// __DeleteSecretInput is used internally by genqlient
+type __DeleteSecretInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __DeleteSecretInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteSecretInput) GetRef() string { return v.Ref }
 
 // __EffectiveAccessInput is used internally by genqlient
 type __EffectiveAccessInput struct {
@@ -13716,6 +14075,26 @@ func (v *__SearchUsersInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __SearchUsersInput.Offset, and is useful for accessing the field via an interface.
 func (v *__SearchUsersInput) GetOffset() *int { return v.Offset }
+
+// __SecretsInput is used internally by genqlient
+type __SecretsInput struct {
+	OwnerType string  `json:"ownerType"`
+	OwnerRef  *string `json:"ownerRef,omitempty"`
+	Limit     *int    `json:"limit,omitempty"`
+	Offset    *int    `json:"offset,omitempty"`
+}
+
+// GetOwnerType returns __SecretsInput.OwnerType, and is useful for accessing the field via an interface.
+func (v *__SecretsInput) GetOwnerType() string { return v.OwnerType }
+
+// GetOwnerRef returns __SecretsInput.OwnerRef, and is useful for accessing the field via an interface.
+func (v *__SecretsInput) GetOwnerRef() *string { return v.OwnerRef }
+
+// GetLimit returns __SecretsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__SecretsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __SecretsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__SecretsInput) GetOffset() *int { return v.Offset }
 
 // __TriggerAppRunInput is used internally by genqlient
 type __TriggerAppRunInput struct {
@@ -15003,7 +15382,7 @@ func ConnectionGrants(
 
 // The mutation executed by CreateAgent.
 const CreateAgent_Operation = `
-mutation CreateAgent ($name: String!, $orgId: ID!, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!]) {
+mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!]) {
 	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces) {
 		... AgentFields
 	}
@@ -15030,7 +15409,7 @@ func CreateAgent(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	name string,
-	orgId string,
+	orgId *string,
 	description *string,
 	agentType *AgentType,
 	visibility *AgentVisibility,
@@ -15818,6 +16197,62 @@ func CreatePrincipalGrant(
 	return data_, err_
 }
 
+// The mutation executed by CreateSecret.
+const CreateSecret_Operation = `
+mutation CreateSecret ($ownerType: String!, $ownerRef: ID, $name: String!, $kind: String!, $metadata: JSON, $value: JSON!) {
+	createSecret(ownerType: $ownerType, ownerRef: $ownerRef, name: $name, kind: $kind, metadata: $metadata, value: $value) {
+		... SecretFields
+	}
+}
+fragment SecretFields on Secret {
+	id
+	ownerType
+	ownerId
+	name
+	kind
+	metadata
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+}
+`
+
+func CreateSecret(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ownerType string,
+	ownerRef *string,
+	name string,
+	kind string,
+	metadata *json.RawMessage,
+	value json.RawMessage,
+) (data_ *CreateSecretResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateSecret",
+		Query:  CreateSecret_Operation,
+		Variables: &__CreateSecretInput{
+			OwnerType: ownerType,
+			OwnerRef:  ownerRef,
+			Name:      name,
+			Kind:      kind,
+			Metadata:  metadata,
+			Value:     value,
+		},
+	}
+
+	data_ = &CreateSecretResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateUserApiKey.
 const CreateUserApiKey_Operation = `
 mutation CreateUserApiKey ($label: String) {
@@ -16309,6 +16744,38 @@ func DeleteOrganization(
 	}
 
 	data_ = &DeleteOrganizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteSecret.
+const DeleteSecret_Operation = `
+mutation DeleteSecret ($ref: ID!) {
+	deleteSecret(ref: $ref)
+}
+`
+
+func DeleteSecret(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *DeleteSecretResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteSecret",
+		Query:  DeleteSecret_Operation,
+		Variables: &__DeleteSecretInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &DeleteSecretResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -18605,6 +19072,61 @@ func SearchUsers(
 	}
 
 	data_ = &SearchUsersResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by Secrets.
+const Secrets_Operation = `
+query Secrets ($ownerType: String!, $ownerRef: ID, $limit: Int, $offset: Int) {
+	secrets(ownerType: $ownerType, ownerRef: $ownerRef, limit: $limit, offset: $offset) {
+		items {
+			... SecretFields
+		}
+		total
+	}
+}
+fragment SecretFields on Secret {
+	id
+	ownerType
+	ownerId
+	name
+	kind
+	metadata
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+}
+`
+
+func Secrets(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ownerType string,
+	ownerRef *string,
+	limit *int,
+	offset *int,
+) (data_ *SecretsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "Secrets",
+		Query:  Secrets_Operation,
+		Variables: &__SecretsInput{
+			OwnerType: ownerType,
+			OwnerRef:  ownerRef,
+			Limit:     limit,
+			Offset:    offset,
+		},
+	}
+
+	data_ = &SecretsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
