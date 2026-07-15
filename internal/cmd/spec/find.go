@@ -127,6 +127,9 @@ func collectSpecFindResults(
 	if pageSize < resultLimit {
 		pageSize = resultLimit
 	}
+	if pageSize > nodesPageSize {
+		pageSize = nodesPageSize
+	}
 	specs := make([]specDTO, 0, resultLimit)
 	var degraded, reason *string
 	for offset := 0; len(specs) < resultLimit; offset += pageSize {

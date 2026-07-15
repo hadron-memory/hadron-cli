@@ -75,6 +75,39 @@ func TestCollectSpecFindResultsStopsWhenExhausted(t *testing.T) {
 	}
 }
 
+func TestCollectSpecFindResultsCapsRawPageSize(t *testing.T) {
+	offsets := []int{}
+	got, _, _, err := collectSpecFindResults(nodesPageSize+1, func(limit, offset int) (*api.FindNodesPage, error) {
+		offsets = append(offsets, offset)
+		if limit != nodesPageSize {
+			t.Fatalf("raw page size = %d, want capped page size %d", limit, nodesPageSize)
+		}
+		switch offset {
+		case 0:
+			total := 2 * nodesPageSize
+			nodes := make([]*api.ListNode, 0, nodesPageSize)
+			for i := 0; i < nodesPageSize; i++ {
+				nodes = append(nodes, findNode("note-"+string(rune('a'+i%26)), "misc"))
+			}
+			return &api.FindNodesPage{Total: &total, Nodes: nodes}, nil
+		case nodesPageSize:
+			return &api.FindNodesPage{Nodes: []*api.ListNode{findNode("msg:010:01", "spec")}}, nil
+		default:
+			t.Fatalf("unexpected offset %d", offset)
+			return nil, nil
+		}
+	})
+	if err != nil {
+		t.Fatalf("collectSpecFindResults: %v", err)
+	}
+	if len(offsets) != 2 || offsets[0] != 0 || offsets[1] != nodesPageSize {
+		t.Fatalf("offsets = %v, want [0 %d]", offsets, nodesPageSize)
+	}
+	if len(got) != 1 || got[0].Citation != "msg:010:01" {
+		t.Fatalf("got %+v, want one spec from second capped page", got)
+	}
+}
+
 func TestIsSpecNodeSemanticIncludesUntaggedCitation(t *testing.T) {
 	if !isSpecNode(nil, "msg:010:02") {
 		t.Fatal("semantic spec filtering should include citation-shaped untagged nodes")
