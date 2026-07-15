@@ -431,11 +431,7 @@ func stripMemoryScheme(s string) string {
 // (the memory list may report a memory's own urn with a single colon). A bare PK
 // (no colon) is returned unchanged.
 func canonicalMemoryURN(s string) string {
-	s = stripMemoryScheme(s)
-	if !strings.Contains(s, "::") {
-		s = strings.Replace(s, ":", "::", 1)
-	}
-	return s
+	return stripMemoryScheme(cmdutil.CanonicalMemoryRef(s))
 }
 
 // memoryURNFromFlag normalizes the -m/--memory value to the canonical
@@ -446,7 +442,23 @@ func memoryURNFromFlag(m string) (string, error) {
 	if strings.TrimSpace(m) == "" {
 		return "", exitcode.Newf(exitcode.Usage, "a memory is required: pass -m/--memory <org::memory>")
 	}
-	return canonicalMemoryURN(m), nil
+	canon := cmdutil.CanonicalMemoryRef(m)
+	if !isFullyQualifiedMemoryURN(canon) {
+		return "", exitcode.Newf(exitcode.Usage, "invalid memory ref %q: use <org::memory>, <org:memory>, or hrn:memory:<org::memory>", m)
+	}
+	return stripMemoryScheme(canon), nil
+}
+
+func isFullyQualifiedMemoryURN(ref string) bool {
+	norm := stripMemoryScheme(ref)
+	org, memory, ok := strings.Cut(norm, "::")
+	if !ok || org == "" || memory == "" {
+		return false
+	}
+	if strings.Contains(org, ":") || strings.HasPrefix(memory, ":") || strings.Contains(memory, "::") {
+		return false
+	}
+	return true
 }
 
 // resolveSpecMemoryURN resolves the -m/--memory value to the canonical
@@ -456,11 +468,15 @@ func memoryURNFromFlag(m string) (string, error) {
 // one resolver every spec subcommand shares, so a PK no longer leaks into edge
 // targets as "<pk>::<loc>" (issue #91).
 func resolveSpecMemoryURN(cmd *cobra.Command, client graphql.Client, ref string) (string, error) {
-	norm := stripMemoryScheme(ref)
+	canon := cmdutil.CanonicalMemoryRef(ref)
+	norm := stripMemoryScheme(canon)
 	if norm == "" {
 		return "", exitcode.Newf(exitcode.Usage, "a memory is required: pass -m/--memory <org::memory>")
 	}
-	if strings.Contains(norm, "::") {
+	if strings.Contains(norm, ":") {
+		if !isFullyQualifiedMemoryURN(canon) {
+			return "", exitcode.Newf(exitcode.Usage, "invalid memory ref %q: use <org::memory>, <org:memory>, or hrn:memory:<org::memory>", ref)
+		}
 		return norm, nil // already fully-qualified — no lookup needed
 	}
 	_, memURN, err := lookupSpecMemory(cmd, client, ref)
@@ -680,6 +696,24 @@ func fetchSpecNode(cmd *cobra.Command, client graphql.Client, memoryURN, loc str
 		return nil, exitcode.Newf(exitcode.NotFound, "spec %q not found", loc)
 	}
 	return resp.Node, nil
+}
+
+// fetchSpecTaggedNode resolves a citation, reads the node, and requires it to
+// be part of the spec corpus. Lint and register intentionally use the generic
+// fetchSpecNode path because they validate malformed or advisory nodes.
+func fetchSpecTaggedNode(cmd *cobra.Command, client graphql.Client, memoryURN, loc string) (*gen.GetNodeNode, Citation, error) {
+	cit, err := ParseCitation(loc)
+	if err != nil {
+		return nil, Citation{}, err
+	}
+	n, err := fetchSpecNode(cmd, client, memoryURN, cit.Format())
+	if err != nil {
+		return nil, Citation{}, err
+	}
+	if !hasTag(n.Tags, "spec") {
+		return nil, Citation{}, exitcode.Newf(exitcode.Usage, "%s is not a spec (no \"spec\" tag)", n.Loc)
+	}
+	return n, cit, nil
 }
 
 // fetchRegister reads the memory's `register` node (advisory; not a spec).

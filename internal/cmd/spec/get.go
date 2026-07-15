@@ -62,7 +62,7 @@ one object for a single citation, an array for --prefix.`,
 
 			// Single citation — behavior unchanged.
 			if prefix == "" {
-				n, err := fetchSpecNode(cmd, client, memURN, args[0])
+				n, _, err := fetchSpecTaggedNode(cmd, client, memURN, args[0])
 				if err != nil {
 					return err
 				}

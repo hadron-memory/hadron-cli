@@ -104,7 +104,7 @@ chunk leaves the source alone with a warning.`,
 
 			// Fetch the source: existence + name (for the default ref-label) +
 			// body (for --strip-source). A typo fails fast here.
-			srcNode, err := fetchSpecNode(cmd, client, memURN, source.Format())
+			srcNode, _, err := fetchSpecTaggedNode(cmd, client, memURN, source.Format())
 			if err != nil {
 				return err
 			}
