@@ -143,8 +143,12 @@ func TestSpecGetRejectsNonSpecNode(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "get", "msg:010:02", "-m", specMem, "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	err := root.Execute()
+	if got := exitcode.FromError(err); got != exitcode.Usage {
 		t.Fatalf("non-spec node through spec get should be Usage, got %d", got)
+	}
+	if strings.Contains(err.Error(), "edge add") {
+		t.Fatalf("spec get non-spec error should be generic, got %q", err)
 	}
 }
 
@@ -1883,8 +1887,12 @@ func TestSpecLinkNonSpecEndpoint(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "link", "cor:dmo:020:04", "cor:dmo:060:02", "-m", specMem, "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	err := root.Execute()
+	if got := exitcode.FromError(err); got != exitcode.Usage {
 		t.Fatalf("a non-spec endpoint should be Usage, got %d", got)
+	}
+	if !strings.Contains(err.Error(), "hadron edge add") {
+		t.Fatalf("spec link non-spec error should suggest edge add, got %q", err)
 	}
 }
 

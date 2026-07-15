@@ -288,10 +288,12 @@ func TestResolveSpecMemoryRejectsEmptyRef(t *testing.T) {
 
 func TestResolveSpecMemoryAcceptsCanonicalForms(t *testing.T) {
 	cases := map[string]string{
-		"hadronmemory.com::specs":            "hadronmemory.com::specs",
-		"hadronmemory.com:specs":             "hadronmemory.com::specs",
-		"hrn:memory:hadronmemory.com::specs": "hadronmemory.com::specs",
-		"urn:memory:hadronmemory.com::specs": "hadronmemory.com::specs",
+		"hadronmemory.com::specs":                                "hadronmemory.com::specs",
+		"hadronmemory.com:specs":                                 "hadronmemory.com::specs",
+		"hrn:memory:hadronmemory.com::specs":                     "hadronmemory.com::specs",
+		"urn:memory:hadronmemory.com::specs":                     "hadronmemory.com::specs",
+		"hadronmemory.com::coach:agent:app-mem:runbook":          "hadronmemory.com::coach:agent:app-mem:runbook",
+		"hrn:memory:hadronmemory.com::coach:agent:app-mem:specs": "hadronmemory.com::coach:agent:app-mem:specs",
 	}
 	for ref, want := range cases {
 		got, err := resolveSpecMemoryURN(nil, nil, ref)

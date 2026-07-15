@@ -443,10 +443,22 @@ func memoryURNFromFlag(m string) (string, error) {
 		return "", exitcode.Newf(exitcode.Usage, "a memory is required: pass -m/--memory <org::memory>")
 	}
 	canon := cmdutil.CanonicalMemoryRef(m)
-	if cmdutil.NodeURN(canon, "_") == "" {
+	if !isFullyQualifiedMemoryURN(canon) {
 		return "", exitcode.Newf(exitcode.Usage, "invalid memory ref %q: use <org::memory>, <org:memory>, or hrn:memory:<org::memory>", m)
 	}
 	return stripMemoryScheme(canon), nil
+}
+
+func isFullyQualifiedMemoryURN(ref string) bool {
+	norm := stripMemoryScheme(ref)
+	org, memory, ok := strings.Cut(norm, "::")
+	if !ok || org == "" || memory == "" {
+		return false
+	}
+	if strings.Contains(org, ":") || strings.HasPrefix(memory, ":") || strings.Contains(memory, "::") {
+		return false
+	}
+	return true
 }
 
 // resolveSpecMemoryURN resolves the -m/--memory value to the canonical
@@ -462,7 +474,7 @@ func resolveSpecMemoryURN(cmd *cobra.Command, client graphql.Client, ref string)
 		return "", exitcode.Newf(exitcode.Usage, "a memory is required: pass -m/--memory <org::memory>")
 	}
 	if strings.Contains(norm, ":") {
-		if cmdutil.NodeURN(canon, "_") == "" {
+		if !isFullyQualifiedMemoryURN(canon) {
 			return "", exitcode.Newf(exitcode.Usage, "invalid memory ref %q: use <org::memory>, <org:memory>, or hrn:memory:<org::memory>", ref)
 		}
 		return norm, nil // already fully-qualified — no lookup needed
@@ -698,8 +710,8 @@ func fetchSpecTaggedNode(cmd *cobra.Command, client graphql.Client, memoryURN, l
 	if err != nil {
 		return nil, Citation{}, err
 	}
-	if err := requireSpecTag(n.Tags, n.Loc); err != nil {
-		return nil, Citation{}, err
+	if !hasTag(n.Tags, "spec") {
+		return nil, Citation{}, exitcode.Newf(exitcode.Usage, "%s is not a spec (no \"spec\" tag)", n.Loc)
 	}
 	return n, cit, nil
 }
