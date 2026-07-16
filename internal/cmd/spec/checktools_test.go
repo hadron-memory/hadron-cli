@@ -60,7 +60,7 @@ func TestToolTokenRegexNoTrailingUnderscore(t *testing.T) {
 }
 
 // The embedded manifest and ignore-list must be present and sane — a broken
-// go:embed or an emptied file would silently disable the check.
+// embed directive or an emptied file would silently disable the check.
 func TestEmbeddedToolManifest(t *testing.T) {
 	reg := parseToolList(toolManifestRaw)
 	if len(reg) < 30 {
