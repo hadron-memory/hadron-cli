@@ -10,7 +10,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-const slugRule = "a valid Hadron URN slug atom"
+const slugRule = "1-64 characters of [A-Za-z0-9._-], starting and ending with a letter or digit"
 
 func urnUsageError(flag, value string, err error) error {
 	var pe *urn.ParseError

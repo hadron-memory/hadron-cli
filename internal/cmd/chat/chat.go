@@ -87,7 +87,16 @@ func resolveCoords(pc projectChat, nodeFlag, memoryFlag, messagesLocFlag string)
 // and loc. Accepts an optional hrn:node: / urn:node: prefix. The loc is the
 // message-parent prefix — its direct children are the messages.
 func splitNodeURN(ref string) (memory, loc string, err error) {
-	parts, splitErr := urnlib.SplitNodeUrn(strings.TrimSpace(ref))
+	raw := strings.TrimSpace(ref)
+	path := urnlib.NormalizeScheme(raw)
+	path = strings.TrimPrefix(path, "hrn:node:")
+	// Chat nodes use the CLI's documented node-ref form: <org>::<memory>::<loc>.
+	// urn-lib-go also accepts legacy single-colon forms, but those are ambiguous
+	// when the loc itself contains colons, so keep the stricter chat boundary.
+	if strings.Count(path, "::") < 2 {
+		return "", "", exitcode.Newf(exitcode.Usage, "%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (optionally hrn:node:-prefixed)", ref)
+	}
+	parts, splitErr := urnlib.SplitNodeUrn(raw)
 	if splitErr != nil {
 		return "", "", exitcode.Newf(exitcode.Usage, "%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (optionally hrn:node:-prefixed)", ref)
 	}

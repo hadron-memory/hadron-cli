@@ -27,6 +27,7 @@ func TestValidateURNSlug(t *testing.T) {
 		"a:b",      // colon is not a slug char (that's a path)
 		"emoji😀",   // non-ASCII
 		"has/slash",
+		"system", // reserved role marker
 	}
 	for _, s := range invalid {
 		if err := ValidateURNSlug("--urn", s); err == nil {
