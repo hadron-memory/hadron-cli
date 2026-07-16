@@ -1,0 +1,10 @@
+# Known hadron_* identifiers that are NOT tools but legitimately appear in spec
+# prose — so `hadron spec check-tools` must not flag them. HAND-MAINTAINED (not
+# generated): add an entry, with a reason, when a real non-tool hadron_* token
+# is a false positive. Keep it minimal — a genuinely-unregistered tool reference
+# should be fixed in the spec, not silenced here.
+#
+# Blank lines and #-comments are ignored; one identifier per line.
+
+hadron_token      # the web sign-in cookie (cor:aut) — a credential, not a tool
+hadron_chatbot    # the "hadron_chatbot_*" tool-family prefix, written as a glob

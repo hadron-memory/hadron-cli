@@ -2684,3 +2684,58 @@ func TestSpecReplaceRequiresYesNonInteractive(t *testing.T) {
 		t.Error("SearchReplaceInNodes must not be called when the gate refuses")
 	}
 }
+
+// specBatchNodeBody is a nodeBatch node with caller-chosen content — used by the
+// check-tools tests to plant a bogus hadron_* token.
+func specBatchNodeBody(loc, content string) string {
+	return fmt.Sprintf(`{"id":"id-%s","memoryId":"mem1","loc":%q,"name":%q,"alias":null,"nodeType":"info",`+
+		`"description":null,"abstract":"Abstract mentions hadron_get_node only.","abstractOriginHash":null,`+
+		`"tags":["spec","p1"],"seq":null,"data":{"version":"0.0.1"},"properties":null,`+
+		`"content":%q,"updatedAt":"2026-06-14T00:00:00Z","outgoingEdges":[],"incomingEdges":[]}`,
+		loc, loc, loc+" — T", content)
+}
+
+// spec check-tools flags a hadron_* token that isn't a registered tool (exit 5),
+// and passes over a real one.
+func TestSpecCheckToolsFlagsUnknown(t *testing.T) {
+	body := `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` +
+		specBatchNodeBody("cor:api:010:01", "Use hadron_get_node, then hadron_bogus_tool to finish.") + `]}}}`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("cor:api:010:01", `["spec","p1"]`) + `]}}`,
+		"NodeBatch": body,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "check-tools", "-m", specMem, "--json", "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Conflict {
+		t.Fatalf("an unregistered tool token should exit %d (conflict), got %d", exitcode.Conflict, got)
+	}
+	var findings []struct {
+		Citation string `json:"citation"`
+		Token    string `json:"token"`
+		Field    string `json:"field"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &findings); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	// hadron_get_node is registered; only hadron_bogus_tool is flagged.
+	if len(findings) != 1 || findings[0].Token != "hadron_bogus_tool" || findings[0].Citation != "cor:api:010:01" {
+		t.Errorf("findings = %+v", findings)
+	}
+}
+
+// A corpus whose every hadron_* token is registered (or ignored) exits 0.
+func TestSpecCheckToolsClean(t *testing.T) {
+	body := `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` +
+		specBatchNodeBody("cor:api:010:01", "Use hadron_get_node and the hadron_token cookie (not a tool).") + `]}}}`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("cor:api:010:01", `["spec","p1"]`) + `]}}`,
+		"NodeBatch": body,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "check-tools", "-m", specMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("clean corpus should exit 0, got %v", err)
+	}
+}

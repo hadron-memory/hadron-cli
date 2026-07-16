@@ -67,6 +67,8 @@ jobs:
           sparse-checkout: |
             scripts/export-graphql-sdl.mjs
             src/api/graphql/schema/typeDefs.ts
+            src/mcp/server.ts
+            src/lib/runner/tools
           sparse-checkout-cone-mode: false
 
       # Reuses the same `make schema-check` developers run locally. SDL_EXPORT is
@@ -77,10 +79,21 @@ jobs:
       - name: Check for schema drift
         id: check
         if: steps.gate.outputs.enabled == 'true'
+        continue-on-error: true
         run: |
           make schema-check \
             HADRON_SERVER_DIR=.hadron-server \
             SDL_EXPORT="npm install --no-save --no-package-lock --silent tsx graphql@16 1>&2 && node_modules/.bin/tsx scripts/export-graphql-sdl.mjs"
+
+      # Same cross-repo checkout, second drift axis: the registered-tool manifest
+      # `hadron spec check-tools` embeds. Pure grep over the tool-source files —
+      # no server install needed. continue-on-error so both checks always run and
+      # the gate below reports either.
+      - name: Check for tool-manifest drift
+        id: tools
+        if: steps.gate.outputs.enabled == 'true'
+        continue-on-error: true
+        run: make tools-manifest-check HADRON_SERVER_DIR=.hadron-server
 
       # Only on a genuine drift failure — not an infra failure (e.g. a bad
       # checkout), which leaves steps.check.outcome != 'failure'.
@@ -112,3 +125,40 @@ jobs:
           Failing run: $run_url
           EOF
           )"
+
+      # Same de-duped issue pattern for the second drift axis.
+      - name: File a tool-manifest drift issue
+        if: steps.tools.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Tool-manifest drift vs hadron-server"
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          existing=$(gh issue list --state open --search "\"$title\" in:title" \
+            --json title,number --jq "[.[] | select(.title==\"$title\")][0].number // empty")
+          if [ -n "$existing" ]; then
+            echo "Drift issue already open (#$existing); adding a note instead."
+            gh issue comment "$existing" --body "Still drifting as of $run_url"
+            exit 0
+          fi
+          gh issue create --title "$title" --body "$(cat <<EOF
+          The nightly check found that the committed \`internal/cmd/spec/mcp-tools.txt\` manifest — the registered hadron_* tool names \`hadron spec check-tools\` embeds — is out of sync with hadron-server's tool registries (a tool added/removed/renamed).
+
+          Refresh locally and open a PR:
+
+          \`\`\`sh
+          make tools-manifest   # regenerate from ../hadron-server
+          git diff              # review, then reconcile any spec that cites a renamed tool
+          \`\`\`
+
+          Failing run: $run_url
+          EOF
+          )"
+
+      # Both checks are continue-on-error so they always both run; fail the job
+      # if either drifted, so the nightly result is red and visible.
+      - name: Fail on any drift
+        if: steps.check.outcome == 'failure' || steps.tools.outcome == 'failure'
+        run: |
+          echo "Drift detected — see the steps above and any filed issue(s)."
+          exit 1

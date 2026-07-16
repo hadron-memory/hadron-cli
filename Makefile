@@ -15,7 +15,7 @@ HADRON_SERVER_DIR ?= ../hadron-server
 # (typeDefs.ts is a self-contained SDL string, so those are the only deps).
 SDL_EXPORT ?= pnpm -s tsx scripts/export-graphql-sdl.mjs
 
-.PHONY: build test lint generate schema schema-check clean
+.PHONY: build test lint generate schema schema-check tools-manifest tools-manifest-check clean
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/hadron
@@ -61,6 +61,32 @@ schema-check:
 	  exit 1; \
 	fi; \
 	echo "✓ generated client in sync with $(HADRON_SERVER_DIR)"
+
+# Refresh the registered-tool manifest (internal/cmd/spec/mcp-tools.txt) from the
+# hadron-server checkout — the union of the MCP + runner tool registries that
+# `hadron spec check-tools` embeds. Regenerate whenever server tools are added,
+# removed, or renamed. The hand-maintained internal/cmd/spec/mcp-tools-ignore.txt
+# (known non-tool hadron_* identifiers) is separate and NOT touched here.
+tools-manifest:
+	HADRON_SERVER_DIR=$(HADRON_SERVER_DIR) bash scripts/gen-tools-manifest.sh > internal/cmd/spec/mcp-tools.txt
+
+# Drift detector for the tool manifest: regenerate from the server checkout and
+# fail if the committed internal/cmd/spec/mcp-tools.txt is stale — the tool renamed/added
+# out from under a spec that cites it (the h-* shorthand rot that motivated
+# `spec check-tools`, #240). Restores the working tree afterward. The
+# schema-drift workflow runs this nightly against a fresh server checkout.
+tools-manifest-check:
+	@set -e; \
+	bak=$$(mktemp -d); \
+	cp internal/cmd/spec/mcp-tools.txt $$bak/mcp-tools.txt; \
+	trap 'cp $$bak/mcp-tools.txt internal/cmd/spec/mcp-tools.txt; rm -rf $$bak' EXIT; \
+	HADRON_SERVER_DIR=$(HADRON_SERVER_DIR) bash scripts/gen-tools-manifest.sh > internal/cmd/spec/mcp-tools.txt; \
+	if ! git diff --quiet -- internal/cmd/spec/mcp-tools.txt; then \
+	  echo "✗ tool-manifest drift: hadron-server's tool set changed — run 'make tools-manifest' and commit."; \
+	  git --no-pager diff -- internal/cmd/spec/mcp-tools.txt; \
+	  exit 1; \
+	fi; \
+	echo "✓ tool manifest in sync with $(HADRON_SERVER_DIR)"
 
 clean:
 	rm -rf bin
