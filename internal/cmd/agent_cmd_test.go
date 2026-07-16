@@ -187,6 +187,23 @@ func TestAgentUpdate(t *testing.T) {
 	}
 }
 
+func TestAgentUpdateAcceptsUserAuthorURN(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateAgent": `{"data":{"updateAgent":` + agentJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "update", "agt1", "--urn", "@holger:triage", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateAgent"], &vars)
+	if vars["urn"] != "@holger:triage" {
+		t.Errorf("update urn: %v", vars)
+	}
+}
+
 func TestAgentUpdateNothingIsUsageError(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)

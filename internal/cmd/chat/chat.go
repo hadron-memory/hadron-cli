@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strings"
 
+	urnlib "github.com/hadron-memory/urn-lib-go"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
@@ -86,17 +87,22 @@ func resolveCoords(pc projectChat, nodeFlag, memoryFlag, messagesLocFlag string)
 // and loc. Accepts an optional hrn:node: / urn:node: prefix. The loc is the
 // message-parent prefix — its direct children are the messages.
 func splitNodeURN(ref string) (memory, loc string, err error) {
-	s := strings.TrimSpace(ref)
-	for _, p := range []string{"hrn:node:", "urn:node:"} {
-		s = strings.TrimPrefix(s, p)
-	}
-	// A node URN is <org>::<memory>::<loc> — exactly two "::" separators (a loc
-	// uses single colons). SplitN keeps any "::" inside the loc intact.
-	parts := strings.SplitN(s, "::", 3)
-	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+	raw := strings.TrimSpace(ref)
+	path := urnlib.NormalizeScheme(raw)
+	path = strings.TrimPrefix(path, "hrn:node:")
+	// Chat nodes use the CLI's documented node-ref form: <org>::<memory>::<loc>.
+	// urn-lib-go also accepts legacy single-colon forms, but those are ambiguous
+	// when the loc itself contains colons, so keep the stricter chat boundary.
+	if strings.Count(path, "::") < 2 {
 		return "", "", exitcode.Newf(exitcode.Usage, "%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (optionally hrn:node:-prefixed)", ref)
 	}
-	return parts[0] + "::" + parts[1], strings.TrimSuffix(parts[2], ":"), nil
+	parts, splitErr := urnlib.SplitNodeUrn(raw)
+	if splitErr != nil {
+		return "", "", exitcode.Newf(exitcode.Usage, "%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (optionally hrn:node:-prefixed)", ref)
+	}
+	mem := cmdutil.CanonicalMemoryRef(parts.MemoryURN)
+	mem = strings.TrimPrefix(urnlib.NormalizeScheme(mem), "hrn:memory:")
+	return mem, strings.TrimSuffix(parts.Loc, ":"), nil
 }
 
 // message is the parsed, chat-shaped view of one message node — only the fields

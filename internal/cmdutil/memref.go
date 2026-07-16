@@ -1,31 +1,47 @@
 package cmdutil
 
-import "strings"
+import (
+	"strings"
 
-// splitOrgSlug parses an "org:slug" or "org::slug" reference into its parts.
-// The separator must be EXACTLY one or two colons: a malformed "org:::slug" is
-// rejected (ok=false) rather than silently collapsed onto the real "org::slug"
-// memory. ok is likewise false for anything that isn't confidently that shape —
-// empty parts, or a slug that still carries a colon (a full node URN or a raw
-// id) — so callers can leave it untouched for the server to judge.
-func splitOrgSlug(ref string) (org, slug string, ok bool) {
-	i := strings.Index(ref, ":")
-	if i <= 0 {
-		return "", "", false
+	urn "github.com/hadron-memory/urn-lib-go"
+)
+
+const memoryPrefix = "hrn:memory:"
+
+func stripMemoryPrefix(ref string) (string, bool) {
+	normalized := urn.NormalizeScheme(ref)
+	if strings.HasPrefix(normalized, memoryPrefix) {
+		return strings.TrimPrefix(normalized, memoryPrefix), true
 	}
-	org = ref[:i]
-	rest := ref[i+1:]
-	if strings.HasPrefix(rest, ":") {
-		rest = rest[1:] // the second colon of an "org::slug" separator
-		if strings.HasPrefix(rest, ":") {
-			return "", "", false // three or more colons — malformed
+	return ref, false
+}
+
+func canonicalMemoryPath(ref string) (string, bool) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return "", false
+	}
+	bare, prefixed := stripMemoryPrefix(ref)
+	if !prefixed && urn.HasSchemePrefix(ref) {
+		return "", false
+	}
+	if !prefixed {
+		switch {
+		case strings.Contains(bare, ":::"):
+			return "", false
+		case strings.Contains(bare, "::"):
+			if strings.Count(bare, "::") != 1 {
+				return "", false
+			}
+		case strings.Count(bare, ":") != 1:
+			return "", false
 		}
 	}
-	slug = rest
-	if slug == "" || strings.Contains(slug, ":") {
-		return "", "", false
+	canon, err := urn.FormatCanonicalUrn("memory", bare)
+	if err != nil {
+		return "", false
 	}
-	return org, slug, true
+	return strings.TrimPrefix(canon, memoryPrefix), true
 }
 
 // canonicalOrgMemory normalizes a memory identifier — "org:slug" or "org::slug",
@@ -34,11 +50,8 @@ func splitOrgSlug(ref string) (org, slug string, ok bool) {
 // unchanged. This is what lets `-m acme.com:kb` (single colon, as the docs once
 // wrote it) and `-m acme.com::kb` both address the same memory.
 func canonicalOrgMemory(memory string) string {
-	for _, p := range []string{"hrn:memory:", "urn:memory:"} {
-		memory = strings.TrimPrefix(memory, p)
-	}
-	if org, slug, ok := splitOrgSlug(memory); ok {
-		return org + "::" + slug
+	if path, ok := canonicalMemoryPath(memory); ok {
+		return path
 	}
 	return memory
 }
@@ -54,15 +67,15 @@ func NodeURN(memory, loc string) string {
 	if loc == "" {
 		return ""
 	}
-	m := memory
-	for _, p := range []string{"hrn:memory:", "urn:memory:"} {
-		m = strings.TrimPrefix(m, p)
-	}
-	org, slug, ok := splitOrgSlug(m)
+	path, ok := canonicalMemoryPath(memory)
 	if !ok {
 		return ""
 	}
-	return "hrn:node:" + org + "::" + slug + "::" + loc
+	nodeURN, err := urn.ComposeNodeUrn(path, loc)
+	if err != nil {
+		return ""
+	}
+	return nodeURN
 }
 
 // CanonicalMemoryRef normalizes a memory reference for the server's memory(ref:)
@@ -72,11 +85,11 @@ func NodeURN(memory, loc string) string {
 // consistently instead of failing as "not found" (#108).
 func CanonicalMemoryRef(ref string) string {
 	ref = strings.TrimSpace(ref)
-	if ref == "" || strings.HasPrefix(ref, "hrn:") || strings.HasPrefix(ref, "urn:") {
+	if ref == "" {
 		return ref
 	}
-	if org, slug, ok := splitOrgSlug(ref); ok {
-		return "hrn:memory:" + org + "::" + slug
+	if path, ok := canonicalMemoryPath(ref); ok {
+		return memoryPrefix + path
 	}
 	return ref // raw id or an unrecognized shape — let the server decide
 }

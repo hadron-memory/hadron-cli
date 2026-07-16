@@ -91,12 +91,14 @@ hadron agentic-usage                                 # prints this doc
 
 Conventions:
 
-- A new URN slug you supply — `org create/update --urn`, `app install --urn`,
-  `node add --loc`, `agent update --urn`, `memory set --slug` — is validated
-  client-side before the call: each `:`-separated segment must be 1–64 chars of `[A-Za-z0-9._-]`,
-  starting and ending alphanumeric (so `--urn "Flow Lab"` is rejected, exit 2).
-  This mirrors the server grammar; a bad slug fails fast with a usage error
-  instead of a round-trip.
+- A new URN slug/path you supply — `org create/update --urn`, `app install
+  --urn`, `node add --loc`, `agent update --urn`, `memory set --slug` — is
+  validated client-side before the call: slug atoms must be 1–64 chars of
+  `[A-Za-z0-9._-]`, starting and ending alphanumeric (so `--urn "Flow Lab"` is
+  rejected, exit 2). `agent update --urn` also accepts the spec-047 user-author
+  namespace form `@handle:slug`; node locs still reject `@`. This mirrors the
+  server grammar; a bad slug fails fast with a usage error instead of a
+  round-trip.
 - Memory references accept the memory id, the full `hrn:memory:<org>::<slug>`
   URN, or the short `<org>::<slug>` / `<org>:<slug>` forms (all resolve to the
   same memory) across `memory get|set|attach|rm|member|share|export`.

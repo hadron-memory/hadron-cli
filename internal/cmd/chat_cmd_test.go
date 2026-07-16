@@ -329,6 +329,16 @@ func TestChatNodeExclusiveWithMemory(t *testing.T) {
 	}
 }
 
+func TestChatNodeRejectsAmbiguousSingleColonURN(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"chat", "read", "--node", "acme.com:tc:chats:api:messages", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "not a fully-qualified node URN") {
+		t.Fatalf("expected ambiguous single-colon node URN rejection, got %v", err)
+	}
+}
+
 // post best-effort materializes the message-parent node (nodeType chat) so the
 // chat is a real, copyable node — alongside the message itself.
 func TestChatPostMaterializesParent(t *testing.T) {

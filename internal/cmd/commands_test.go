@@ -1511,7 +1511,7 @@ func TestMemorySetRejectsBadSlug(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "KB", "--slug", "Bad Slug", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "not a valid URN slug") {
+	if err == nil || !strings.Contains(err.Error(), "is not valid") {
 		t.Fatalf("expected slug validation error, got %v", err)
 	}
 }
@@ -1523,7 +1523,7 @@ func TestMemorySetRejectsEmptySlug(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "KB", "--slug", "", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "not a valid URN slug") {
+	if err == nil || !strings.Contains(err.Error(), "is not valid") {
 		t.Fatalf("expected empty-slug rejection, got %v", err)
 	}
 }

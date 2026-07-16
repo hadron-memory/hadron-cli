@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
+	urnlib "github.com/hadron-memory/urn-lib-go"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -47,13 +48,13 @@ func ResolveNodeURN(cmd *cobra.Command, client graphql.Client, ref string) (stri
 	// Accept either scheme prefix: hrn: is canonical (issue #239), urn: is
 	// legacy-but-accepted-forever. A prefixed URN passes through verbatim
 	// (the server accepts both); a bare ref gets the canonical hrn:node:.
-	if !strings.HasPrefix(urn, "hrn:") && !strings.HasPrefix(urn, "urn:") {
+	if !urnlib.HasSchemePrefix(urn) {
 		// A full node URN is <org>::<memory>::<loc> — TWO double-colon separators
 		// (org::memory, memory::loc). Counting single colons wouldn't enforce the
 		// grammar: a single-colon ref whose loc has its own colons
 		// (acme.com:kb:services:secureid:x) has ≥4 colons yet zero `::`, so it must
 		// be rejected as the ambiguous form it is, not passed to the server.
-		if strings.Count(urn, "::") < 2 {
+		if strings.Count(urn, "::") < 2 || urnlib.AssertFullyQualifiedUrn(urn, "node") != nil {
 			return "", exitcode.Newf(exitcode.Usage,
 				"%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (e.g. hadronmemory.com::dev::start-here), or pass -m <org::memory> (single-colon <org:memory> also accepted) with a bare loc", ref)
 		}
