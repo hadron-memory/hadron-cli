@@ -28,18 +28,28 @@ var toolManifestRaw string
 var toolIgnoreRaw string
 
 // reToolToken matches a hadron_* tool-shaped token: an underscore-joined run of
-// lowercase-letter segments (so a trailing "_" in "hadron_chatbot_*" is not
-// captured, and the token is comparable to a registered name).
-var reToolToken = regexp.MustCompile(`hadron_[a-z]+(?:_[a-z]+)*`)
+// lowercase-alphanumeric segments (digits included, so a name like
+// hadron_s3_v2 matches whole; a trailing "_" in "hadron_chatbot_*" is not
+// captured, keeping the token comparable to a registered name).
+var reToolToken = regexp.MustCompile(`hadron_[a-z0-9]+(?:_[a-z0-9]+)*`)
 
-// specToolFindingDTO is the stable --json shape for one unregistered tool token.
+// specToolFindingDTO is the stable --json shape for one finding. Kind is
+// "unregistered-tool" (Token names it) or "unavailable" (a spec listed by the
+// scan but unreadable by the batch read — reported so a check-tools gate can't
+// pass while part of the corpus went unchecked).
 type specToolFindingDTO struct {
 	Citation string `json:"citation"`
-	Field    string `json:"field"` // "content" | "abstract"
-	Line     int    `json:"line"`
-	Token    string `json:"token"`
-	Text     string `json:"text"`
+	Kind     string `json:"kind"`
+	Field    string `json:"field,omitempty"` // "content" | "abstract"
+	Line     int    `json:"line,omitempty"`
+	Token    string `json:"token,omitempty"`
+	Text     string `json:"text,omitempty"`
 }
+
+const (
+	kindUnregistered = "unregistered-tool"
+	kindUnavailable  = "unavailable"
+)
 
 func newCmdCheckTools(f *cmdutil.Factory) *cobra.Command {
 	var memory, prefix string
@@ -86,6 +96,7 @@ exits 0.`,
 				return err
 			}
 			ids := make([]string, 0, len(all))
+			locByID := map[string]string{}
 			for _, n := range all {
 				if n == nil {
 					continue
@@ -94,6 +105,7 @@ exits 0.`,
 					continue
 				}
 				ids = append(ids, n.Id)
+				locByID[n.Id] = n.Loc
 			}
 			findings := []specToolFindingDTO{}
 			if len(ids) > 0 {
@@ -110,8 +122,16 @@ exits 0.`,
 				if err != nil {
 					return err
 				}
-				if len(unavailable) > 0 {
-					fmt.Fprintf(f.IOStreams.ErrOut, "note: %d spec(s) listed but unreadable — not checked\n", len(unavailable))
+				// A spec that lists but can't be read went UNCHECKED — surface it as
+				// a finding (not just a note) so a check-tools gate can't report
+				// success while part of the corpus was skipped (matches spec lint's
+				// treatment of unavailable nodes).
+				for _, id := range unavailable {
+					loc := locByID[id]
+					if loc == "" {
+						loc = id
+					}
+					findings = append(findings, specToolFindingDTO{Citation: loc, Kind: kindUnavailable, Text: "listed but unreadable — not checked"})
 				}
 				for _, n := range nodes {
 					if n == nil {
@@ -144,22 +164,23 @@ exits 0.`,
 					fmt.Fprintf(w, "✓ no unregistered hadron_* tool references (checked against %d registered tools)\n", len(registered))
 					return nil
 				}
-				t := output.NewTable(w, "CITATION", "FIELD", "LINE", "UNKNOWN TOOL")
+				t := output.NewTable(w, "CITATION", "KIND", "LOCATION", "DETAIL")
 				for _, fnd := range findings {
-					line := ""
-					if fnd.Field == "content" {
-						line = fmt.Sprintf("%d", fnd.Line)
+					loc, detail := "-", fnd.Token
+					if fnd.Kind == kindUnregistered {
+						loc = fmt.Sprintf("%s:%d", fnd.Field, fnd.Line)
 					} else {
-						line = fmt.Sprintf("abstract:%d", fnd.Line)
+						detail = fnd.Text
 					}
-					t.Row(fnd.Citation, fnd.Field, line, fnd.Token)
+					t.Row(fnd.Citation, fnd.Kind, loc, detail)
 				}
 				return t.Flush()
 			}); err != nil {
 				return err
 			}
-			// Findings are a drift signal — exit 5 (Conflict), matching `spec lint`,
-			// so CI can gate on it.
+			// Any finding — an unregistered token OR a spec that couldn't be
+			// checked — is a drift/coverage signal: exit 5 (Conflict), matching
+			// `spec lint`, so CI can gate on it.
 			if len(findings) > 0 {
 				return exitcode.Silent(exitcode.Conflict)
 			}
@@ -199,7 +220,7 @@ func checkToolField(loc, field, text string, registered, ignored map[string]bool
 				continue
 			}
 			seen[tok] = true
-			out = append(out, specToolFindingDTO{Citation: loc, Field: field, Line: i + 1, Token: tok, Text: line})
+			out = append(out, specToolFindingDTO{Citation: loc, Kind: kindUnregistered, Field: field, Line: i + 1, Token: tok, Text: line})
 		}
 	}
 	return out

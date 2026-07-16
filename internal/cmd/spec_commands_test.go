@@ -2739,3 +2739,29 @@ func TestSpecCheckToolsClean(t *testing.T) {
 		t.Fatalf("clean corpus should exit 0, got %v", err)
 	}
 }
+
+// A spec that lists but can't be read (nodeBatch unavailable) is surfaced as an
+// `unavailable` finding and fails the gate (exit 5) — a check-tools gate must
+// not pass while part of the corpus went unchecked.
+func TestSpecCheckToolsUnavailableFails(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("cor:api:010:01", `["spec","p1"]`) + `]}}`,
+		"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":["id-cor:api:010:01"],"nodes":[]}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "check-tools", "-m", specMem, "--json", "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Conflict {
+		t.Fatalf("an unavailable spec should exit %d (conflict), got %d", exitcode.Conflict, got)
+	}
+	var findings []struct {
+		Citation string `json:"citation"`
+		Kind     string `json:"kind"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &findings); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	if len(findings) != 1 || findings[0].Kind != "unavailable" || findings[0].Citation != "cor:api:010:01" {
+		t.Errorf("findings = %+v", findings)
+	}
+}

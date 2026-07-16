@@ -5,8 +5,9 @@
 #   1. MCP tools:    server.tool('hadron_*', …) in src/mcp/server.ts
 #   2. Runner tools: RunToolDef { name: 'hadron_*' } in src/lib/runner/tools/*.ts
 # Prints one tool name per line, sorted and de-duplicated, to stdout. The
-# Makefile `tools-manifest` target writes this to schema/mcp-tools.txt (embedded
-# into `hadron spec check-tools`); `tools-manifest-check` diffs it for drift.
+# Makefile `tools-manifest` target writes this to internal/cmd/spec/mcp-tools.txt
+# (embedded into `hadron spec check-tools`); `tools-manifest-check` diffs it for
+# drift.
 set -euo pipefail
 
 DIR="${HADRON_SERVER_DIR:-../hadron-server}"
@@ -32,13 +33,16 @@ HEADER
 
 {
   # MCP tools: the name is the first argument to server.tool(, on the line that
-  # immediately follows the call opener.
-  grep -A1 -E 'server\.tool\(' "$mcp" | grep -oE "'hadron_[a-z_]+'" | tr -d "'"
+  # immediately follows the call opener. Accept single or double quotes and
+  # digits in the name; `|| :` so a zero-match grep doesn't abort under
+  # `set -o pipefail` (an actually-empty result is caught downstream — the
+  # embed-sanity test and the drift diff both fail loudly on an empty manifest).
+  grep -A1 -E 'server\.tool\(' "$mcp" | grep -oE "['\"]hadron_[a-z0-9_]+['\"]" | tr -d "'\"" || :
 
   # Runner tools: the RunToolDef.name field. (Non-hadron_ runner/integration
   # tools — e.g. ha__*, twilio_* — are out of scope: a spec can only drift on a
   # hadron_* token.)
   if [ -d "$runner" ]; then
-    grep -rhoE "name: '(hadron_[a-z_]+)'" "$runner" | grep -oE "hadron_[a-z_]+"
+    grep -rhoE "name:[[:space:]]*['\"]hadron_[a-z0-9_]+['\"]" "$runner" | grep -oE "hadron_[a-z0-9_]+" || :
   fi
 } | sort -u
