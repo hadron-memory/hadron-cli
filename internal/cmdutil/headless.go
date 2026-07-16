@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 
+	urnlib "github.com/hadron-memory/urn-lib-go"
+
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -38,13 +40,17 @@ func CanonicalNodeURN(ref string) (string, error) {
 	if urn == "" {
 		return "", exitcode.Newf(exitcode.Usage, "an entry node URN is required")
 	}
-	if strings.HasPrefix(urn, "hrn:") || strings.HasPrefix(urn, "urn:") {
+	if urnlib.HasSchemePrefix(urn) {
+		if err := urnlib.AssertFullyQualifiedUrn(urn, "node"); err != nil {
+			return "", exitcode.Newf(exitcode.Usage,
+				"%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (e.g. hadronmemory.com::dev::tasks:nightly-digest), optionally hrn:node:-prefixed", ref)
+		}
 		return urn, nil
 	}
 	// A full node URN is <org>::<memory>::<loc> — TWO `::` separators. A
 	// single-colon ref whose loc carries its own colons has zero `::`, so it is
 	// rejected as ambiguous rather than passed on (cf. ResolveNodeURN).
-	if strings.Count(urn, "::") < 2 {
+	if strings.Count(urn, "::") < 2 || urnlib.AssertFullyQualifiedUrn(urn, "node") != nil {
 		return "", exitcode.Newf(exitcode.Usage,
 			"%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (e.g. hadronmemory.com::dev::tasks:nightly-digest), optionally hrn:node:-prefixed", ref)
 	}

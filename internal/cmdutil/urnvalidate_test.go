@@ -7,8 +7,7 @@ func TestValidateURNSlug(t *testing.T) {
 		"acme.com",        // dots allowed in the interior
 		"personal-holger", // hyphens
 		"flow-lab",
-		"a",        // single alphanumeric
-		"Flow-Lab", // uppercase is allowed (mirrors the server today)
+		"a", // single alphanumeric
 		"kb_2024",
 		"x1",
 	}
@@ -21,6 +20,7 @@ func TestValidateURNSlug(t *testing.T) {
 	invalid := []string{
 		"",         // empty
 		"Flow Lab", // space — the issue #189 case
+		"Flow-Lab", // create-time slugs are lowercase-canonical
 		"-lead",    // must start alphanumeric
 		"trail-",   // must end alphanumeric
 		".dot",     // leading dot

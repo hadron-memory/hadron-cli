@@ -9,6 +9,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/nodedoc"
 )
 
@@ -96,7 +97,11 @@ func existingEdgeKeys(cmd *cobra.Command, client graphql.Client, nodeID string) 
 // target memory first (portable across re-homing), then the frontmatter id.
 func resolveEdgeTarget(cmd *cobra.Command, client graphql.Client, memoryRef string, e nodedoc.Edge) string {
 	if e.TargetLoc != "" && strings.Contains(memoryRef, ":") {
-		resp, err := gen.ResolveUrn(cmd.Context(), client, "hrn:node:"+memoryRef+":"+e.TargetLoc)
+		targetURN := cmdutil.NodeURN(memoryRef, e.TargetLoc)
+		if targetURN == "" {
+			return e.TargetID
+		}
+		resp, err := gen.ResolveUrn(cmd.Context(), client, targetURN)
 		if err == nil && resp.ResolveUrn != nil && resp.ResolveUrn.Kind == "node" {
 			return resp.ResolveUrn.Id
 		}

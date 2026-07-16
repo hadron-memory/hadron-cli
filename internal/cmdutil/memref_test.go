@@ -8,7 +8,7 @@ func TestCanonicalMemoryRef(t *testing.T) {
 		"acme.com::kb":            "hrn:memory:acme.com::kb", // double colon → canonical
 		"  acme.com:kb  ":         "hrn:memory:acme.com::kb", // trimmed
 		"hrn:memory:acme.com::kb": "hrn:memory:acme.com::kb", // already canonical
-		"urn:memory:acme.com::kb": "urn:memory:acme.com::kb", // legacy prefix passes through
+		"urn:memory:acme.com::kb": "hrn:memory:acme.com::kb", // legacy prefix normalizes
 		"019f01ebcafef00dcafe":    "019f01ebcafef00dcafe",    // raw id (no colon)
 		"":                        "",
 		// A node-URN-shaped ref (3+ parts) is NOT a memory ref — leave it alone.
