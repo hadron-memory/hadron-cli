@@ -1,0 +1,54 @@
+# Registered hadron_* tool names — the union of hadron-server's two tool
+# registries (MCP server.tool() + runner RunToolDef). GENERATED, do not edit
+# by hand: run 'make tools-manifest'. Embedded into 'hadron spec check-tools',
+# which flags any hadron_* token in a spec that is neither in this list nor in
+# mcp-tools-ignore.txt. CI's tools-manifest-check fails if this drifts from
+# hadron-server (the drift that let h-* shorthand rot silently — issue #240).
+#
+hadron_chatbot_add_training_entry
+hadron_chatbot_define_persona
+hadron_chatbot_get_route_history
+hadron_chatbot_get_routing_map
+hadron_chatbot_list_personas
+hadron_chatbot_pop_goal
+hadron_chatbot_process
+hadron_chatbot_push_goal
+hadron_chatbot_run_persona
+hadron_chatbot_send
+hadron_chatbot_start
+hadron_child_runs
+hadron_create_edge
+hadron_create_node
+hadron_create_parent_node
+hadron_delete_node
+hadron_end_session
+hadron_fail
+hadron_find_nodes
+hadron_get_next_node
+hadron_get_node
+hadron_get_nodes
+hadron_list_apps
+hadron_list_memories
+hadron_list_nodes
+hadron_lock_memory
+hadron_log
+hadron_move_node
+hadron_read_node
+hadron_read_secret
+hadron_replace_text
+hadron_run_action
+hadron_run_task
+hadron_search
+hadron_send_email
+hadron_send_sms
+hadron_server_info
+hadron_set_active_app
+hadron_set_active_memory
+hadron_spawn
+hadron_start_session
+hadron_store_file
+hadron_sync_graph
+hadron_unlock_memory
+hadron_update_node
+hadron_update_node_data
+hadron_validate

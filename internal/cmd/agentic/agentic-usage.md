@@ -67,7 +67,7 @@ hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <pre
 hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--tag <t>]... [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
-hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | supersede <citation> | import spec-kit|code
+hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | supersede <citation> | import spec-kit|code
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
 hadron ai-config ls [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
 hadron org ls [--mine] | create --name <n> --urn <urn> | get <id> | update <id> | rm <id> | member ls|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
@@ -362,7 +362,12 @@ Conventions:
   flags mixed-arity corpora, names the exact `edge add` remedy for a missing
   inheritance edge, and warns (rule `vector-index`) when the memory has no
   vector index so spec abstracts aren't embedded for semantic `find`
-  (`--strict` promotes warnings to errors, exit 5); `spec supersede` retires a
+  (`--strict` promotes warnings to errors, exit 5); `spec check-tools` scans the
+  corpus for `hadron_*` tool references and flags any that aren't a real
+  registered tool (checked against a manifest baked into the binary — the union
+  of the MCP + runner tool registries — with a small ignore-list for known
+  non-tools like the `hadron_token` cookie), exit 5 on findings so CI can gate on
+  tool-name drift; `spec supersede` retires a
   spec (never renumbers) and REQUIRES `--yes`; `spec import` is not yet
   implemented (exit 2).
 - `ai-config ls` lists the masked AI configs *resolvable* in an App's chat
