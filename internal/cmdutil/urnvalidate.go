@@ -65,7 +65,8 @@ func ValidateAgentURNPath(flag, path string) error {
 }
 
 // CanonicalizeURN validates a scheme-prefixed Hadron URN and returns its
-// parser-canonical form.
+// parser-canonical form. It is intentionally kept as a thin wrapper for the
+// spec-047 golden tests, which pin CLI parser parity to urn-lib-go.
 func CanonicalizeURN(flag, input string) (string, error) {
 	if !urn.HasSchemePrefix(input) {
 		return "", exitcode.Newf(exitcode.Usage, "%s %q is not a valid URN: malformed grammar", flag, input)
