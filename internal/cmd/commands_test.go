@@ -169,7 +169,7 @@ func TestNodeGetSingleColonMemoryNormalizes(t *testing.T) {
 		Urn string `json:"urn"`
 	}
 	_ = json.Unmarshal(captured["ResolveUrn"], &vars)
-	if vars.Urn != "hrn:node:acme.com::kb::findings:flaky-ci" {
+	if vars.Urn != "hrn:node:acme.com:kb:findings:flaky-ci" {
 		t.Errorf("single-colon -m should compose the canonical URN, got %q", vars.Urn)
 	}
 }
@@ -1052,7 +1052,7 @@ func TestNodeGetMemoryFlag(t *testing.T) {
 		Urn string `json:"urn"`
 	}
 	_ = json.Unmarshal(captured["ResolveUrn"], &vars)
-	if vars.Urn != "hrn:node:acme.com::kb::findings:flaky-ci" {
+	if vars.Urn != "hrn:node:acme.com:kb:findings:flaky-ci" {
 		t.Errorf("-m <memory> + bare loc should resolve the full URN, got %q", vars.Urn)
 	}
 }
@@ -1075,7 +1075,7 @@ func TestNodeGetMemoryFlagMultiColonLoc(t *testing.T) {
 		Urn string `json:"urn"`
 	}
 	_ = json.Unmarshal(captured["ResolveUrn"], &vars)
-	if vars.Urn != "hrn:node:hadronmemory.com::specs::cor:acl:010:01" {
+	if vars.Urn != "hrn:node:hadronmemory.com:specs:cor:acl:010:01" {
 		t.Errorf("a multi-colon loc with -m must join verbatim, got %q", vars.Urn)
 	}
 }
@@ -1098,7 +1098,7 @@ func TestEdgeAddMemoryFlag(t *testing.T) {
 		Urn string `json:"urn"`
 	}
 	_ = json.Unmarshal(captured["ResolveUrn"], &vars)
-	if vars.Urn != "hrn:node:acme.com::kb::start-here" {
+	if vars.Urn != "hrn:node:acme.com:kb:start-here" {
 		t.Errorf("edge add -m should resolve --to as a bare loc in the memory, got %q", vars.Urn)
 	}
 }
@@ -1281,7 +1281,7 @@ func TestMemoryAttach(t *testing.T) {
 
 	var vars map[string]any
 	_ = json.Unmarshal(captured["AttachMemoryToApp"], &vars)
-	if vars["memoryRef"] != "hrn:memory:acme.com::my-notes" || vars["appRef"] != "app1" || vars["agentRef"] != "agent1" {
+	if vars["memoryRef"] != "hrn:mem:acme.com:my-notes" || vars["appRef"] != "app1" || vars["agentRef"] != "agent1" {
 		t.Errorf("unexpected attach refs: %v", vars)
 	}
 	var dto map[string]any
@@ -1321,7 +1321,7 @@ func TestMemoryGetShortFormNormalizes(t *testing.T) {
 			Ref string `json:"ref"`
 		}
 		_ = json.Unmarshal(captured["GetMemory"], &vars)
-		if vars.Ref != "hrn:memory:acme.com::kb" {
+		if vars.Ref != "hrn:mem:acme.com:kb" {
 			t.Errorf("memory get %q should send canonical ref, got %q", short, vars.Ref)
 		}
 	}
@@ -1655,7 +1655,7 @@ func TestMemoryExtractMoveWithMemoryFlag(t *testing.T) {
 	}
 	var resolveVars map[string]any
 	_ = json.Unmarshal(captured["ResolveUrn"], &resolveVars)
-	if resolveVars["urn"] != "hrn:node:acme.com::kb::findings:auth" {
+	if resolveVars["urn"] != "hrn:node:acme.com:kb:findings:auth" {
 		t.Errorf("ResolveUrn urn = %v", resolveVars["urn"])
 	}
 	var vars map[string]any

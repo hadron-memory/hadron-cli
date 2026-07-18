@@ -104,7 +104,7 @@ func TestNodeMoveToMemory(t *testing.T) {
 	var vars map[string]any
 	_ = json.Unmarshal(captured["MoveNode"], &vars)
 	// A bare org::memory is canonicalized to the hrn:memory: form.
-	if vars["targetMemoryRef"] != "hrn:memory:acme.com::archive" {
+	if vars["targetMemoryRef"] != "hrn:mem:acme.com:archive" {
 		t.Errorf("targetMemoryRef = %v", vars["targetMemoryRef"])
 	}
 	if _, ok := vars["targetUrn"]; ok {
@@ -183,7 +183,7 @@ func TestNodeMoveBareLocWithMemory(t *testing.T) {
 	}
 	var resolveVars map[string]any
 	_ = json.Unmarshal(captured["ResolveUrn"], &resolveVars)
-	if resolveVars["urn"] != "hrn:node:acme.com::kb::findings:flaky-ci" {
+	if resolveVars["urn"] != "hrn:node:acme.com:kb:findings:flaky-ci" {
 		t.Errorf("ResolveUrn urn = %v", resolveVars["urn"])
 	}
 }

@@ -30,10 +30,15 @@ func EdgeDisplay(name *string, loc string) string {
 // the strict-URN behavior is unchanged.
 func ResolveNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref string) (string, error) {
 	if memory = strings.TrimSpace(memory); memory != "" {
-		// Normalize the memory to canonical org::memory so a single-colon
-		// `-m acme.com:kb` composes a valid <org>::<memory>::<loc> URN, not the
-		// 3-colon `acme.com:kb::loc` the strict grammar rejects (#38/#138).
-		ref = canonicalOrgMemory(memory) + "::" + strings.TrimSpace(ref)
+		// -m <org::memory> + a bare loc composes a canonical grammar-v2 flat node
+		// URN (hrn:node:<root>:<slug>:<loc…>) in one step. A single-colon
+		// `-m acme.com:kb` and the legacy `acme.com::kb` both normalize here.
+		nodeURN := NodeURN(memory, ref)
+		if nodeURN == "" {
+			return "", exitcode.Newf(exitcode.Usage,
+				"%q is not an <org::memory> ref — pass -m <org::memory> (single-colon <org:memory> also accepted) with a bare loc", memory)
+		}
+		return ResolveNodeURN(cmd, client, nodeURN)
 	}
 	return ResolveNodeURN(cmd, client, ref)
 }

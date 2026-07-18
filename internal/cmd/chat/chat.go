@@ -88,20 +88,23 @@ func resolveCoords(pc projectChat, nodeFlag, memoryFlag, messagesLocFlag string)
 // message-parent prefix — its direct children are the messages.
 func splitNodeURN(ref string) (memory, loc string, err error) {
 	raw := strings.TrimSpace(ref)
-	path := urnlib.NormalizeScheme(raw)
-	path = strings.TrimPrefix(path, "hrn:node:")
-	// Chat nodes use the CLI's documented node-ref form: <org>::<memory>::<loc>.
-	// urn-lib-go also accepts legacy single-colon forms, but those are ambiguous
-	// when the loc itself contains colons, so keep the stricter chat boundary.
-	if strings.Count(path, "::") < 2 {
-		return "", "", exitcode.Newf(exitcode.Usage, "%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (optionally hrn:node:-prefixed)", ref)
+	// A scheme-prefixed URN (hrn:node:/urn:node:) is unambiguous — the grammar
+	// fixes the memory as the first two atoms, so both the flat grammar-v2 form
+	// (hrn:node:<root>:<slug>:<loc…>) and the legacy <org>::<memory>::<loc> split
+	// deterministically. A BARE ref must carry the two "::" separators: a bare
+	// single-colon form is ambiguous once the loc itself has colons, so require
+	// the scheme prefix for those.
+	if !urnlib.HasSchemePrefix(raw) && strings.Count(raw, "::") < 2 {
+		return "", "", exitcode.Newf(exitcode.Usage, "%q is not a fully-qualified node URN — expected <org>::<memory>::<loc>, or the flat hrn:node:<root>:<slug>:<loc> form", ref)
 	}
 	parts, splitErr := urnlib.SplitNodeUrn(raw)
 	if splitErr != nil {
-		return "", "", exitcode.Newf(exitcode.Usage, "%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (optionally hrn:node:-prefixed)", ref)
+		return "", "", exitcode.Newf(exitcode.Usage, "%q is not a fully-qualified node URN — expected <org>::<memory>::<loc>, or the flat hrn:node:<root>:<slug>:<loc> form", ref)
 	}
+	// SplitNodeUrn hands back the memory as a bare <root>:<slug>; canonicalize it
+	// to the grammar-v2 flat URN (hrn:mem:<root>:<slug>) the server now emits and
+	// resolves.
 	mem := cmdutil.CanonicalMemoryRef(parts.MemoryURN)
-	mem = strings.TrimPrefix(urnlib.NormalizeScheme(mem), "hrn:memory:")
 	return mem, strings.TrimSuffix(parts.Loc, ":"), nil
 }
 
