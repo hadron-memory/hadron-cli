@@ -21,6 +21,36 @@ func chatMessagesResp(hits ...string) string {
 	return `{"data":{"findNodes":{"hits":[` + strings.Join(hits, ",") + `]}}}`
 }
 
+// The server now emits flat grammar-v2 node URNs (#697); a user pasting one
+// back as --node must resolve to the same (memory, prefix) as the legacy v1
+// form — the memory canonicalizing to the flat hrn:mem: URN.
+func TestChatReadAcceptsV2NodeURN(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ChatMessages": chatMessagesResp(
+			chatMsg("chats:api:messages:t1-iris", 2, `{"author":"iris","body":"hi"}`),
+		),
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"chat", "read", "--node", "hrn:node:acme.com:tc:chats:api:messages", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Filter struct {
+			MemoryIds []string `json:"memoryIds"`
+			LocPrefix string   `json:"locPrefix"`
+		} `json:"filter"`
+	}
+	_ = json.Unmarshal(captured["ChatMessages"], &vars)
+	if len(vars.Filter.MemoryIds) != 1 || vars.Filter.MemoryIds[0] != "hrn:mem:acme.com:tc" {
+		t.Errorf("v2 --node memory filter: %+v", vars.Filter)
+	}
+	if vars.Filter.LocPrefix != "chats:api:messages:" {
+		t.Errorf("v2 --node loc prefix, got %q", vars.Filter.LocPrefix)
+	}
+}
+
 func TestChatReadJSON(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ChatMessages": chatMessagesResp(
@@ -42,7 +72,7 @@ func TestChatReadJSON(t *testing.T) {
 		} `json:"filter"`
 	}
 	_ = json.Unmarshal(captured["ChatMessages"], &vars)
-	if len(vars.Filter.MemoryIds) != 1 || vars.Filter.MemoryIds[0] != "acme.com::tc" {
+	if len(vars.Filter.MemoryIds) != 1 || vars.Filter.MemoryIds[0] != "hrn:mem:acme.com:tc" {
 		t.Errorf("memory filter: %+v", vars.Filter)
 	}
 	if vars.Filter.LocPrefix != "chats:api:messages:" {
@@ -311,7 +341,7 @@ func TestChatPostUsesNodeConfig(t *testing.T) {
 		} `json:"input"`
 	}
 	_ = json.Unmarshal(captured["CreateNode"], &vars)
-	if vars.Input.MemoryId != "acme.com::tc" {
+	if vars.Input.MemoryId != "hrn:mem:acme.com:tc" {
 		t.Errorf("chat.node should supply the memory, got %q", vars.Input.MemoryId)
 	}
 	if !strings.HasPrefix(vars.Input.Loc, "team-chat:api:messages:") {

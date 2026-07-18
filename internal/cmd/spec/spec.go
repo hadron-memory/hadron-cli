@@ -429,12 +429,29 @@ func stripMemoryScheme(s string) string {
 	return s
 }
 
+// memoryRefV1 normalizes any accepted memory spelling — including the flat
+// grammar-v2 hrn:mem:<root>:<slug> the server now emits — to the v1
+// fully-qualified hrn:memory:<org>::<slug> form. The spec surface builds its
+// node-ref FQNs, nodes filters, and loc-as-citation plumbing on the "::" shape,
+// and the server accepts every spelling forever (#239), so spec composes v1
+// internally rather than the flat v2 that cmdutil.CanonicalMemoryRef now emits.
+// Keeping v1 here also preserves resolution of COMPOUND app-mem memories
+// (<org>::<agent>:app-mem:<slug>), which a fixed-arity flat node URN can't
+// round-trip (the hadron-server urnEmit.ts caveat). A compound or raw ref that
+// isn't a plain <org>::<slug> pair passes through untouched.
+func memoryRefV1(ref string) string {
+	if root, slug, ok := cmdutil.MemoryParts(ref); ok {
+		return "hrn:memory:" + root + "::" + slug
+	}
+	return strings.TrimSpace(ref)
+}
+
 // canonicalMemoryURN returns the canonical fully-qualified <org>::<memory>
 // form: scheme stripped and the org/memory separator normalized to "::"
-// (the memory list may report a memory's own urn with a single colon). A bare PK
-// (no colon) is returned unchanged.
+// (the memory list may report a memory's own urn with a single colon, or the
+// flat v2 hrn:mem: form). A bare PK (no colon) is returned unchanged.
 func canonicalMemoryURN(s string) string {
-	return stripMemoryScheme(cmdutil.CanonicalMemoryRef(s))
+	return stripMemoryScheme(memoryRefV1(s))
 }
 
 // memoryURNFromFlag normalizes the -m/--memory value to the canonical
@@ -445,7 +462,7 @@ func memoryURNFromFlag(m string) (string, error) {
 	if strings.TrimSpace(m) == "" {
 		return "", exitcode.Newf(exitcode.Usage, "a memory is required: pass -m/--memory <org::memory>")
 	}
-	canon := cmdutil.CanonicalMemoryRef(m)
+	canon := memoryRefV1(m)
 	if !isFullyQualifiedMemoryURN(canon) {
 		return "", exitcode.Newf(exitcode.Usage, "invalid memory ref %q: use <org::memory>, <org:memory>, or hrn:memory:<org::memory>", m)
 	}
@@ -471,7 +488,7 @@ func isFullyQualifiedMemoryURN(ref string) bool {
 // one resolver every spec subcommand shares, so a PK no longer leaks into edge
 // targets as "<pk>::<loc>" (issue #91).
 func resolveSpecMemoryURN(cmd *cobra.Command, client graphql.Client, ref string) (string, error) {
-	canon := cmdutil.CanonicalMemoryRef(ref)
+	canon := memoryRefV1(ref)
 	norm := stripMemoryScheme(canon)
 	if norm == "" {
 		return "", exitcode.Newf(exitcode.Usage, "a memory is required: pass -m/--memory <org::memory>")

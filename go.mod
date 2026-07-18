@@ -5,7 +5,7 @@ go 1.26.5
 require (
 	github.com/Khan/genqlient v0.8.1
 	github.com/gofrs/flock v0.13.0
-	github.com/hadron-memory/urn-lib-go v0.0.0-20260716002326-b569ad3abe7e
+	github.com/hadron-memory/urn-lib-go v0.0.0-20260717002612-0fac69e13550
 	github.com/mattn/go-isatty v0.0.22
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/spf13/cobra v1.10.2
