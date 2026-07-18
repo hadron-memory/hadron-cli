@@ -30,15 +30,28 @@ func EdgeDisplay(name *string, loc string) string {
 // the strict-URN behavior is unchanged.
 func ResolveNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref string) (string, error) {
 	if memory = strings.TrimSpace(memory); memory != "" {
-		// -m <org::memory> + a bare loc composes a canonical grammar-v2 flat node
-		// URN (hrn:node:<root>:<slug>:<loc…>) in one step. A single-colon
-		// `-m acme.com:kb` and the legacy `acme.com::kb` both normalize here.
-		nodeURN := NodeURN(memory, ref)
-		if nodeURN == "" {
-			return "", exitcode.Newf(exitcode.Usage,
-				"%q is not an <org::memory> ref — pass -m <org::memory> (single-colon <org:memory> also accepted) with a bare loc", memory)
+		loc := strings.TrimSpace(ref)
+		if loc == "" {
+			return "", exitcode.Newf(exitcode.Usage, "a bare node loc is required with -m/--memory <org::memory>")
 		}
-		return ResolveNodeURN(cmd, client, nodeURN)
+		// A simple <org>::<slug> memory + a bare loc composes a canonical
+		// grammar-v2 flat node URN (hrn:node:<root>:<slug>:<loc…>) in one step. A
+		// single-colon `-m acme.com:kb` and the legacy `acme.com::kb` both
+		// normalize here.
+		if _, _, ok := MemoryParts(memory); ok {
+			nodeURN := NodeURN(memory, loc)
+			if nodeURN == "" {
+				return "", exitcode.Newf(exitcode.Usage,
+					"%q is not a valid node loc — each colon-separated segment must be %s", loc, slugRule)
+			}
+			return ResolveNodeURN(cmd, client, nodeURN)
+		}
+		// A COMPOUND app-mem memory (<org>::<agent>:app-mem:<slug>) carries its own
+		// colons, so it can't be expressed as a fixed-arity flat v2 node URN. Join
+		// it into the legacy <memory>::<loc> form — already "::"-separated — which
+		// ResolveNodeURN prefixes and the server still resolves (accepted forever,
+		// #239). This preserves `-m <compound-memory> <bare-loc>` for those.
+		ref = memory + "::" + loc
 	}
 	return ResolveNodeURN(cmd, client, ref)
 }

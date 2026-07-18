@@ -1080,6 +1080,30 @@ func TestNodeGetMemoryFlagMultiColonLoc(t *testing.T) {
 	}
 }
 
+// A COMPOUND app-mem memory (<org>::<agent>:app-mem:<slug>) can't be expressed
+// as a fixed-arity grammar-v2 flat node URN, so -m + a bare loc must fall back
+// to the legacy <memory>::<loc> join the server still resolves — not error out
+// locally. (Regression guard: PR #266 review.)
+func TestNodeGetCompoundMemoryFlag(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", "findings:x", "-m", "acme.com::coach:agent:app-mem:runbook", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Urn string `json:"urn"`
+	}
+	_ = json.Unmarshal(captured["ResolveUrn"], &vars)
+	if vars.Urn != "hrn:node:acme.com::coach:agent:app-mem:runbook::findings:x" {
+		t.Errorf("compound -m should join into the legacy v1 node URN, got %q", vars.Urn)
+	}
+}
+
 // edge add -m resolves both endpoints as bare locs in that one memory.
 func TestEdgeAddMemoryFlag(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{

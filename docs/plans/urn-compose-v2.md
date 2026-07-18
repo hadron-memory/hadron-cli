@@ -45,7 +45,10 @@ CLI **accept** the v2 URNs the server hands out — is the real deliverable.
   now emits `hrn:mem:<root>:<slug>`; `NodeURN` now emits
   `hrn:node:<root>:<slug>:<loc…>`. Both via `ComposeUrnV2`.
 - **`cmdutil/noderef.go`** — `ResolveNodeRef` composes a v2 node URN from
-  `-m <org::memory>` + a bare loc.
+  `-m <org::memory>` + a bare loc. A **compound app-mem memory**
+  (`<org>::<agent>:app-mem:<slug>`) can't be a fixed-arity flat node URN, so it
+  falls back to the legacy `<memory>::<loc>` join the server still resolves —
+  preserving `-m <compound-memory> <bare-loc>` (PR #266 review).
 - **`cmd/chat/chat.go`** — `splitNodeURN` accepts a scheme-prefixed v2 `--node`
   (the memory canonicalizes to the flat `hrn:mem:` form); a bare ref still
   requires the two `::` separators to stay unambiguous.
