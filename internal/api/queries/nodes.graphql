@@ -151,9 +151,11 @@ query GetNode($ref: ID!) {
     abstract
     abstractOriginHash
     nodeType
+    objectType
     tags
     content
     data
+    properties
     seq
     isRunnable
     createdAt
@@ -201,6 +203,7 @@ query GetNode($ref: ID!) {
 # @genqlient(for: "CreateNodeInput.isRunnable", omitempty: true)
 # @genqlient(for: "CreateNodeInput.llmModel", omitempty: true)
 # @genqlient(for: "CreateNodeInput.nodeType", omitempty: true)
+# @genqlient(for: "CreateNodeInput.objectType", omitempty: true)
 # @genqlient(for: "CreateNodeInput.ownerRepo", omitempty: true)
 # @genqlient(for: "CreateNodeInput.reason", omitempty: true)
 # @genqlient(for: "CreateNodeInput.properties", omitempty: true)
@@ -244,6 +247,7 @@ mutation CreateNode(
 # @genqlient(for: "UpdateNodeInput.isRunnable", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.llmModel", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.nodeType", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.objectType", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.ownerRepo", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.reason", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.properties", omitempty: true)

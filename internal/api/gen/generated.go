@@ -4539,9 +4539,11 @@ type CreateNodeInput struct {
 	// URN (per spec 007 ID-or-URN dispatch). URN inputs MUST be fully
 	// qualified (org:memory) per spec 022 — relative-form URNs are
 	// rejected as GraphQL errors with extensions.code "URN_NOT_QUALIFIED".
-	MemoryId   string           `json:"memoryId"`
-	Name       string           `json:"name"`
-	NodeType   *string          `json:"nodeType,omitempty"`
+	MemoryId string  `json:"memoryId"`
+	Name     string  `json:"name"`
+	NodeType *string `json:"nodeType,omitempty"`
+	// #725 — collection discriminator (e.g. "competitor" / "insight"). NULL for an ordinary node.
+	ObjectType *string          `json:"objectType,omitempty"`
 	OwnerRepo  *string          `json:"ownerRepo,omitempty"`
 	Properties *json.RawMessage `json:"properties,omitempty"`
 	// Recorded on revision history only when a soft-deleted node is resurrected (a pure create snapshots nothing).
@@ -4594,6 +4596,9 @@ func (v *CreateNodeInput) GetName() string { return v.Name }
 
 // GetNodeType returns CreateNodeInput.NodeType, and is useful for accessing the field via an interface.
 func (v *CreateNodeInput) GetNodeType() *string { return v.NodeType }
+
+// GetObjectType returns CreateNodeInput.ObjectType, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetObjectType() *string { return v.ObjectType }
 
 // GetOwnerRepo returns CreateNodeInput.OwnerRepo, and is useful for accessing the field via an interface.
 func (v *CreateNodeInput) GetOwnerRepo() *string { return v.OwnerRepo }
@@ -6084,7 +6089,9 @@ type GetMemoryMemory struct {
 	MaxRevCount int `json:"maxRevCount"`
 	// Free-form structured metadata bag (client-defined JSON, no server-side
 	// semantics). Null when unset. Settable via createMemory / updateMemory.
-	Data      *json.RawMessage `json:"data"`
+	Data *json.RawMessage `json:"data"`
+	// #725 — opt-in per-memory property schema (declared collections + typed fields). NULL = unstructured. Authored via updateMemory; well-formedness validated server-side.
+	Schema    *json.RawMessage `json:"schema"`
 	CreatedAt string           `json:"createdAt"`
 	UpdatedAt string           `json:"updatedAt"`
 }
@@ -6134,6 +6141,9 @@ func (v *GetMemoryMemory) GetMaxRevCount() int { return v.MaxRevCount }
 // GetData returns GetMemoryMemory.Data, and is useful for accessing the field via an interface.
 func (v *GetMemoryMemory) GetData() *json.RawMessage { return v.Data }
 
+// GetSchema returns GetMemoryMemory.Schema, and is useful for accessing the field via an interface.
+func (v *GetMemoryMemory) GetSchema() *json.RawMessage { return v.Schema }
+
 // GetCreatedAt returns GetMemoryMemory.CreatedAt, and is useful for accessing the field via an interface.
 func (v *GetMemoryMemory) GetCreatedAt() string { return v.CreatedAt }
 
@@ -6161,17 +6171,20 @@ type GetNodeNode struct {
 	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
 	Abstract *string `json:"abstract"`
 	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness; when the two values differ AND abstractOriginHash is non-null, the abstract may not reflect current content. System-managed; never settable via NodeInput.
-	AbstractOriginHash *string                         `json:"abstractOriginHash"`
-	NodeType           string                          `json:"nodeType"`
-	Tags               []string                        `json:"tags"`
-	Content            *string                         `json:"content"`
-	Data               *json.RawMessage                `json:"data"`
-	Seq                *int                            `json:"seq"`
-	IsRunnable         *bool                           `json:"isRunnable"`
-	CreatedAt          string                          `json:"createdAt"`
-	UpdatedAt          string                          `json:"updatedAt"`
-	OutgoingEdges      []*GetNodeNodeOutgoingEdgesEdge `json:"outgoingEdges"`
-	IncomingEdges      []*GetNodeNodeIncomingEdgesEdge `json:"incomingEdges"`
+	AbstractOriginHash *string `json:"abstractOriginHash"`
+	NodeType           string  `json:"nodeType"`
+	// #725 — collection discriminator (which domain object this node is, e.g. "competitor"). NULL for an ordinary node.
+	ObjectType    *string                         `json:"objectType"`
+	Tags          []string                        `json:"tags"`
+	Content       *string                         `json:"content"`
+	Data          *json.RawMessage                `json:"data"`
+	Properties    *json.RawMessage                `json:"properties"`
+	Seq           *int                            `json:"seq"`
+	IsRunnable    *bool                           `json:"isRunnable"`
+	CreatedAt     string                          `json:"createdAt"`
+	UpdatedAt     string                          `json:"updatedAt"`
+	OutgoingEdges []*GetNodeNodeOutgoingEdgesEdge `json:"outgoingEdges"`
+	IncomingEdges []*GetNodeNodeIncomingEdgesEdge `json:"incomingEdges"`
 }
 
 // GetId returns GetNodeNode.Id, and is useful for accessing the field via an interface.
@@ -6198,6 +6211,9 @@ func (v *GetNodeNode) GetAbstractOriginHash() *string { return v.AbstractOriginH
 // GetNodeType returns GetNodeNode.NodeType, and is useful for accessing the field via an interface.
 func (v *GetNodeNode) GetNodeType() string { return v.NodeType }
 
+// GetObjectType returns GetNodeNode.ObjectType, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetObjectType() *string { return v.ObjectType }
+
 // GetTags returns GetNodeNode.Tags, and is useful for accessing the field via an interface.
 func (v *GetNodeNode) GetTags() []string { return v.Tags }
 
@@ -6206,6 +6222,9 @@ func (v *GetNodeNode) GetContent() *string { return v.Content }
 
 // GetData returns GetNodeNode.Data, and is useful for accessing the field via an interface.
 func (v *GetNodeNode) GetData() *json.RawMessage { return v.Data }
+
+// GetProperties returns GetNodeNode.Properties, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetProperties() *json.RawMessage { return v.Properties }
 
 // GetSeq returns GetNodeNode.Seq, and is useful for accessing the field via an interface.
 func (v *GetNodeNode) GetSeq() *int { return v.Seq }
@@ -12259,8 +12278,10 @@ type UpdateNodeInput struct {
 	// Selector, with 'loc': the target's memory (ID or fully-qualified URN). XOR with 'id'.
 	MemoryId *string `json:"memoryId,omitempty"`
 	// Omit to preserve (D4).
-	Name       *string          `json:"name,omitempty"`
-	NodeType   *string          `json:"nodeType,omitempty"`
+	Name     *string `json:"name,omitempty"`
+	NodeType *string `json:"nodeType,omitempty"`
+	// #725 — collection discriminator (e.g. "competitor"). Omit to preserve; null to clear.
+	ObjectType *string          `json:"objectType,omitempty"`
 	OwnerRepo  *string          `json:"ownerRepo,omitempty"`
 	Properties *json.RawMessage `json:"properties,omitempty"`
 	// Why this change was made — recorded on the revision-history snapshot
@@ -12317,6 +12338,9 @@ func (v *UpdateNodeInput) GetName() *string { return v.Name }
 
 // GetNodeType returns UpdateNodeInput.NodeType, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetNodeType() *string { return v.NodeType }
+
+// GetObjectType returns UpdateNodeInput.ObjectType, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetObjectType() *string { return v.ObjectType }
 
 // GetOwnerRepo returns UpdateNodeInput.OwnerRepo, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetOwnerRepo() *string { return v.OwnerRepo }
@@ -14286,6 +14310,7 @@ type __UpdateMemoryInput struct {
 	Data             *json.RawMessage  `json:"data,omitempty"`
 	Urn              *string           `json:"urn,omitempty"`
 	MaxRevCount      *int              `json:"maxRevCount,omitempty"`
+	Schema           *json.RawMessage  `json:"schema,omitempty"`
 }
 
 // GetId returns __UpdateMemoryInput.Id, and is useful for accessing the field via an interface.
@@ -14314,6 +14339,9 @@ func (v *__UpdateMemoryInput) GetUrn() *string { return v.Urn }
 
 // GetMaxRevCount returns __UpdateMemoryInput.MaxRevCount, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryInput) GetMaxRevCount() *int { return v.MaxRevCount }
+
+// GetSchema returns __UpdateMemoryInput.Schema, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetSchema() *json.RawMessage { return v.Schema }
 
 // __UpdateMemoryMemberRoleInput is used internally by genqlient
 type __UpdateMemoryMemberRoleInput struct {
@@ -17148,6 +17176,7 @@ query GetMemory ($ref: ID!) {
 		vectorIndexEnabled
 		maxRevCount
 		data
+		schema
 		createdAt
 		updatedAt
 	}
@@ -17192,9 +17221,11 @@ query GetNode ($ref: ID!) {
 		abstract
 		abstractOriginHash
 		nodeType
+		objectType
 		tags
 		content
 		data
+		properties
 		seq
 		isRunnable
 		createdAt
@@ -19545,8 +19576,8 @@ func UpdateMcpServer(
 
 // The mutation executed by UpdateMemory.
 const UpdateMemory_Operation = `
-mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $data: JSON, $urn: String, $maxRevCount: Int) {
-	updateMemory(id: $id, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, data: $data, urn: $urn, maxRevCount: $maxRevCount) {
+mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $data: JSON, $urn: String, $maxRevCount: Int, $schema: JSON) {
+	updateMemory(id: $id, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, data: $data, urn: $urn, maxRevCount: $maxRevCount, schema: $schema) {
 		id
 		urn
 		name
@@ -19575,6 +19606,7 @@ func UpdateMemory(
 	data *json.RawMessage,
 	urn *string,
 	maxRevCount *int,
+	schema *json.RawMessage,
 ) (data_ *UpdateMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateMemory",
@@ -19589,6 +19621,7 @@ func UpdateMemory(
 			Data:             data,
 			Urn:              urn,
 			MaxRevCount:      maxRevCount,
+			Schema:           schema,
 		},
 	}
 

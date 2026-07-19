@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -15,12 +16,13 @@ import (
 // memoryDetailDTO extends the list shape with detail-only fields.
 type memoryDetailDTO struct {
 	memoryDTO
-	Description        *string  `json:"description"`
-	Tags               []string `json:"tags"`
-	Source             *string  `json:"source"`
-	SyncStatus         string   `json:"syncStatus"`
-	VectorIndexEnabled bool     `json:"vectorIndexEnabled"`
-	CreatedAt          string   `json:"createdAt"`
+	Description        *string          `json:"description"`
+	Tags               []string         `json:"tags"`
+	Source             *string          `json:"source"`
+	SyncStatus         string           `json:"syncStatus"`
+	VectorIndexEnabled bool             `json:"vectorIndexEnabled"`
+	Schema             *json.RawMessage `json:"schema,omitempty"`
+	CreatedAt          string           `json:"createdAt"`
 }
 
 func newCmdGet(f *cmdutil.Factory) *cobra.Command {
@@ -62,6 +64,7 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 				Source:             m.Source,
 				SyncStatus:         string(m.SyncStatus),
 				VectorIndexEnabled: m.VectorIndexEnabled,
+				Schema:             m.Schema,
 				CreatedAt:          m.CreatedAt,
 			}
 			if m.Visibility != nil {
@@ -78,6 +81,11 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 					fmt.Fprintf(w, "  tags: %v\n", dto.Tags)
 				}
 				fmt.Fprintf(w, "  max revisions: %d\n", dto.MaxRevCount)
+				if dto.Schema != nil && len(*dto.Schema) > 0 {
+					if schemaStr := string(*dto.Schema); schemaStr != "null" {
+						fmt.Fprintf(w, "  schema: %s\n", schemaStr)
+					}
+				}
 				fmt.Fprintf(w, "  updated: %s\n", dto.UpdatedAt)
 				return nil
 			})

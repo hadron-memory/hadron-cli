@@ -17,21 +17,24 @@ import (
 
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var (
-		memory        string
-		name          string
-		content       string
-		contentFile   string
-		nodeType      string
-		description   string
-		abstract      string
-		abstractFile  string
-		data          string
-		dataFile      string
-		dataMerge     string
-		dataMergeFile string
-		runnable      bool
-		reason        string
-		tags          []string
+		memory         string
+		name           string
+		content        string
+		contentFile    string
+		nodeType       string
+		objectType     string
+		description    string
+		abstract       string
+		abstractFile   string
+		data           string
+		dataFile       string
+		dataMerge      string
+		dataMergeFile  string
+		properties     string
+		propertiesFile string
+		runnable       bool
+		reason         string
+		tags           []string
 	)
 	cmd := &cobra.Command{
 		Use:   "update <node-urn> | <loc> -m <memory>",
@@ -53,7 +56,14 @@ The data bag can be written two ways:
                              patch must be an object.
 
 Replace and merge are different operations, so --data and --data-merge are
-mutually exclusive.`,
+mutually exclusive.
+
+--object-type sets the node's structured-storage collection (#725); pass "" to
+clear it (→ ordinary node), omit to preserve. --properties / --properties-file
+REPLACE the typed properties bag the schema governs (pass "null" to clear) —
+distinct from --data. (There is no --properties-merge yet; a shallow merge needs
+the server-side updateNodeProperties mutation, tracked as hadron-server#742. On a
+schema-governed memory the server validates the result and rejects a violation.)`,
 		Example: `  hadron node update acme.com::kb::findings:flaky-ci --name "Flaky CI (resolved)"
   cat updated.md | hadron node update findings:flaky-ci -m acme.com::kb --content -
   hadron node update acme.com::kb::findings:flaky-ci --data-merge '{"status":"closed"}'`,
@@ -62,10 +72,11 @@ mutually exclusive.`,
 			changed := cmd.Flags().Changed
 			replaceData := changed("data") || changed("data-file")
 			mergeData := changed("data-merge") || changed("data-merge-file")
+			replaceProps := changed("properties") || changed("properties-file")
 			anyField := changed("name") || changed("content") || changed("content-file") ||
-				changed("type") || changed("description") ||
+				changed("type") || changed("object-type") || changed("description") ||
 				changed("abstract") || changed("abstract-file") ||
-				replaceData || changed("runnable") || changed("tag")
+				replaceData || replaceProps || changed("runnable") || changed("tag")
 			if !anyField && !mergeData {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
@@ -73,10 +84,15 @@ mutually exclusive.`,
 			if replaceData && mergeData {
 				return exitcode.Newf(exitcode.Usage, "--data (replace) and --data-merge (merge) are mutually exclusive")
 			}
-			// --data-merge and --data-merge-file are mutually exclusive. Guard
-			// on Changed() (not the resolved value): an explicit --data-merge ""
-			// would otherwise slip past resolveMergeData's value check and let
-			// the file silently win.
+			// The inline/-file pairs are mutually exclusive. Guard on Changed()
+			// (not the resolved value): an explicit --X "" would otherwise slip past
+			// the value check and let the file silently win.
+			if changed("data") && changed("data-file") {
+				return exitcode.Newf(exitcode.Usage, "--data and --data-file are mutually exclusive")
+			}
+			if changed("properties") && changed("properties-file") {
+				return exitcode.Newf(exitcode.Usage, "--properties and --properties-file are mutually exclusive")
+			}
 			if changed("data-merge") && changed("data-merge-file") {
 				return exitcode.Newf(exitcode.Usage, "--data-merge and --data-merge-file are mutually exclusive")
 			}
@@ -145,6 +161,9 @@ mutually exclusive.`,
 				if changed("type") {
 					input.NodeType = &nodeType
 				}
+				if changed("object-type") {
+					input.ObjectType = &objectType
+				}
 				if changed("description") {
 					input.Description = &description
 				}
@@ -156,11 +175,18 @@ mutually exclusive.`,
 					input.Abstract = &abs
 				}
 				if replaceData {
-					raw, err := resolveData(data, dataFile)
+					raw, err := resolveJSONObject("--data", data, dataFile)
 					if err != nil {
 						return err
 					}
 					input.Data = raw
+				}
+				if replaceProps {
+					raw, err := resolveJSONObject("--properties", properties, propertiesFile)
+					if err != nil {
+						return err
+					}
+					input.Properties = raw
 				}
 				if changed("runnable") {
 					input.IsRunnable = &runnable
@@ -203,6 +229,7 @@ mutually exclusive.`,
 	cmd.Flags().StringVarP(&content, "content", "c", "", `new content ("-" reads stdin)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read new content from a file")
 	cmd.Flags().StringVar(&nodeType, "type", "", "new node type")
+	cmd.Flags().StringVar(&objectType, "object-type", "", `new structured-storage collection (#725; "" clears → ordinary node; omit to preserve)`)
 	cmd.Flags().StringVar(&description, "description", "", "new one-line description")
 	cmd.Flags().StringVar(&abstract, "abstract", "", `new paragraph-length summary ("-" reads stdin)`)
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "read the new abstract from a file")
@@ -210,6 +237,8 @@ mutually exclusive.`,
 	cmd.Flags().StringVar(&dataFile, "data-file", "", "read the replacement JSON data object from a file")
 	cmd.Flags().StringVar(&dataMerge, "data-merge", "", `merge a JSON object into data, preserving unmentioned keys ("-" reads stdin)`)
 	cmd.Flags().StringVar(&dataMergeFile, "data-merge-file", "", "read the JSON object to merge into data from a file")
+	cmd.Flags().StringVar(&properties, "properties", "", `replace the structured-storage JSON properties (#725; "null" clears)`)
+	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "read the replacement JSON properties object from a file")
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "mark the node runnable by 'hadron task run' (--runnable=false clears it; omit to preserve)")
 	cmd.Flags().StringVar(&reason, "reason", "", "why this change was made (recorded in version history)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "replace tags (repeatable)")

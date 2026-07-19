@@ -624,6 +624,7 @@ func updateNodeInputFrom(in *gen.CreateNodeInput) *gen.UpdateNodeInput {
 		Content:     in.Content,
 		ContentType: in.ContentType,
 		NodeType:    in.NodeType,
+		ObjectType:  in.ObjectType,
 		Alias:       in.Alias,
 		Description: in.Description,
 		Abstract:    in.Abstract,
