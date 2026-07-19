@@ -65,7 +65,7 @@ explicit page instead.`,
 				if offset > 0 {
 					offsetArg = &offset
 				}
-				page, rerr := api.FindNodes(cmd.Context(), client, nil, nil, newNodeFilter(memoryArg, prefixArg, []string{"spec"}), sortLoc(), limitArg, offsetArg)
+				page, rerr := api.FindNodes(cmd.Context(), client, nil, nil, newNodeFilter(memoryArg, prefixArg, []string{"spec"}), sortLoc(), nil, limitArg, offsetArg)
 				if rerr != nil {
 					return api.MapError(rerr)
 				}

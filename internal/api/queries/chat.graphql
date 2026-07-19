@@ -14,6 +14,7 @@
 # @genqlient(for: "NodeFilter.memoryIds", omitempty: true)
 # @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
 # @genqlient(for: "NodeFilter.nodeType", omitempty: true)
+# @genqlient(for: "NodeFilter.objectType", omitempty: true)
 # @genqlient(for: "NodeFilter.tags", omitempty: true)
 # @genqlient(for: "NodeFilter.isRunnable", omitempty: true)
 # @genqlient(for: "NodeFilter.locPrefix", omitempty: true)
@@ -21,6 +22,7 @@
 # @genqlient(for: "NodeFilter.updatedAfter", omitempty: true)
 # @genqlient(for: "NodeFilter.updatedBefore", omitempty: true)
 # @genqlient(for: "NodeFilter.includeDeleted", omitempty: true)
+# @genqlient(for: "NodeFilter.where", omitempty: true)
 query ChatMessages(
   # @genqlient(omitempty: true)
   $filter: NodeFilter

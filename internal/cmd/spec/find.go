@@ -90,7 +90,7 @@ Results are filtered to spec nodes.`,
 
 			specs, degraded, reason, err := collectSpecFindResults(resultLimit, func(limit, offset int) (*api.FindNodesPage, error) {
 				limitArg, offsetArg := limit, offset
-				return api.FindNodes(cmd.Context(), client, &query, &mode, filter, nil, &limitArg, &offsetArg)
+				return api.FindNodes(cmd.Context(), client, &query, &mode, filter, nil, nil, &limitArg, &offsetArg)
 			})
 			if err != nil {
 				return api.MapError(err)

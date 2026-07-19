@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 
 	"github.com/Khan/genqlient/graphql"
+	"github.com/hadron-memory/hadron-cli/internal/api/gqltypes"
 )
 
 // AcceptInvitationResponse is returned by AcceptInvitation on success.
@@ -8425,11 +8426,15 @@ type NodeFilter struct {
 	// Restrict by memory class. SYSTEM is excluded by default; passing this (or naming a system memory in memoryIds) overrides that.
 	MemoryClasses []MemoryClass `json:"memoryClasses,omitempty"`
 	// Memory scope — a mix of memory IDs and fully-qualified URNs; intersected with the caller's access.
-	MemoryIds     []string `json:"memoryIds,omitempty"`
-	NodeType      *string  `json:"nodeType,omitempty"`
+	MemoryIds []string `json:"memoryIds,omitempty"`
+	NodeType  *string  `json:"nodeType,omitempty"`
+	// #725 — collection facet: only nodes whose objectType equals this (e.g. "competitor").
+	ObjectType    *string  `json:"objectType,omitempty"`
 	Tags          []string `json:"tags,omitempty"`
 	UpdatedAfter  *string  `json:"updatedAfter,omitempty"`
 	UpdatedBefore *string  `json:"updatedBefore,omitempty"`
+	// Structured predicate over the node's properties/data JSONB (#719).
+	Where *gqltypes.NodeWhereInput `json:"where,omitempty"`
 }
 
 // GetCreatedBy returns NodeFilter.CreatedBy, and is useful for accessing the field via an interface.
@@ -8453,6 +8458,9 @@ func (v *NodeFilter) GetMemoryIds() []string { return v.MemoryIds }
 // GetNodeType returns NodeFilter.NodeType, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetNodeType() *string { return v.NodeType }
 
+// GetObjectType returns NodeFilter.ObjectType, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetObjectType() *string { return v.ObjectType }
+
 // GetTags returns NodeFilter.Tags, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetTags() []string { return v.Tags }
 
@@ -8461,6 +8469,9 @@ func (v *NodeFilter) GetUpdatedAfter() *string { return v.UpdatedAfter }
 
 // GetUpdatedBefore returns NodeFilter.UpdatedBefore, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetUpdatedBefore() *string { return v.UpdatedBefore }
+
+// GetWhere returns NodeFilter.Where, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetWhere() *gqltypes.NodeWhereInput { return v.Where }
 
 // A node field that mergeNodes can fold from the source into the target.
 type NodeMergeField string
@@ -13602,12 +13613,13 @@ func (v *__ExtractParentNodeToMemoryInput) GetMove() *bool { return v.Move }
 
 // __FindNodesInput is used internally by genqlient
 type __FindNodesInput struct {
-	Query  *string        `json:"query,omitempty"`
-	Mode   *FindNodesMode `json:"mode,omitempty"`
-	Filter *NodeFilter    `json:"filter,omitempty"`
-	Sort   *NodeSort      `json:"sort,omitempty"`
-	Limit  *int           `json:"limit,omitempty"`
-	Offset *int           `json:"offset,omitempty"`
+	Query        *string                    `json:"query,omitempty"`
+	Mode         *FindNodesMode             `json:"mode,omitempty"`
+	Filter       *NodeFilter                `json:"filter,omitempty"`
+	Sort         *NodeSort                  `json:"sort,omitempty"`
+	SortProperty *gqltypes.NodePropertySort `json:"sortProperty,omitempty"`
+	Limit        *int                       `json:"limit,omitempty"`
+	Offset       *int                       `json:"offset,omitempty"`
 }
 
 // GetQuery returns __FindNodesInput.Query, and is useful for accessing the field via an interface.
@@ -13621,6 +13633,9 @@ func (v *__FindNodesInput) GetFilter() *NodeFilter { return v.Filter }
 
 // GetSort returns __FindNodesInput.Sort, and is useful for accessing the field via an interface.
 func (v *__FindNodesInput) GetSort() *NodeSort { return v.Sort }
+
+// GetSortProperty returns __FindNodesInput.SortProperty, and is useful for accessing the field via an interface.
+func (v *__FindNodesInput) GetSortProperty() *gqltypes.NodePropertySort { return v.SortProperty }
 
 // GetLimit returns __FindNodesInput.Limit, and is useful for accessing the field via an interface.
 func (v *__FindNodesInput) GetLimit() *int { return v.Limit }
@@ -14030,11 +14045,12 @@ func (v *__RunTaskInput) GetRunAsSelf() *bool { return v.RunAsSelf }
 
 // __SearchNodesInput is used internally by genqlient
 type __SearchNodesInput struct {
-	Query  string         `json:"query"`
-	Mode   *FindNodesMode `json:"mode,omitempty"`
-	Filter *NodeFilter    `json:"filter,omitempty"`
-	Limit  *int           `json:"limit,omitempty"`
-	Offset *int           `json:"offset,omitempty"`
+	Query        string                     `json:"query"`
+	Mode         *FindNodesMode             `json:"mode,omitempty"`
+	Filter       *NodeFilter                `json:"filter,omitempty"`
+	SortProperty *gqltypes.NodePropertySort `json:"sortProperty,omitempty"`
+	Limit        *int                       `json:"limit,omitempty"`
+	Offset       *int                       `json:"offset,omitempty"`
 }
 
 // GetQuery returns __SearchNodesInput.Query, and is useful for accessing the field via an interface.
@@ -14045,6 +14061,9 @@ func (v *__SearchNodesInput) GetMode() *FindNodesMode { return v.Mode }
 
 // GetFilter returns __SearchNodesInput.Filter, and is useful for accessing the field via an interface.
 func (v *__SearchNodesInput) GetFilter() *NodeFilter { return v.Filter }
+
+// GetSortProperty returns __SearchNodesInput.SortProperty, and is useful for accessing the field via an interface.
+func (v *__SearchNodesInput) GetSortProperty() *gqltypes.NodePropertySort { return v.SortProperty }
 
 // GetLimit returns __SearchNodesInput.Limit, and is useful for accessing the field via an interface.
 func (v *__SearchNodesInput) GetLimit() *int { return v.Limit }
@@ -16936,8 +16955,8 @@ func ExtractParentNodeToMemory(
 
 // The query executed by FindNodes.
 const FindNodes_Operation = `
-query FindNodes ($query: String, $mode: FindNodesMode, $filter: NodeFilter, $sort: NodeSort, $limit: Int, $offset: Int) {
-	findNodes(query: $query, mode: $mode, filter: $filter, sort: $sort, limit: $limit, offset: $offset) {
+query FindNodes ($query: String, $mode: FindNodesMode, $filter: NodeFilter, $sort: NodeSort, $sortProperty: NodePropertySort, $limit: Int, $offset: Int) {
+	findNodes(query: $query, mode: $mode, filter: $filter, sort: $sort, sortProperty: $sortProperty, limit: $limit, offset: $offset) {
 		total
 		degraded
 		reason
@@ -16971,6 +16990,10 @@ query FindNodes ($query: String, $mode: FindNodesMode, $filter: NodeFilter, $sor
 // The server treats an omitted NodeFilter field as "no constraint"; nil
 // pointers must therefore be omitted, not sent as null — hence the per-field
 // omitempty annotations mirroring nodes.graphql's NodeInput contract.
+// NodeWhereInput / NodePropertySort are bound to hand-authored structs
+// (internal/api/gqltypes, wired in genqlient.yaml) whose json tags pin the
+// omit-vs-null wire contract — genqlient's own omitempty resolution is
+// non-deterministic for the recursive NodeWhereInput, so it can't own it.
 func FindNodes(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -16978,6 +17001,7 @@ func FindNodes(
 	mode *FindNodesMode,
 	filter *NodeFilter,
 	sort *NodeSort,
+	sortProperty *gqltypes.NodePropertySort,
 	limit *int,
 	offset *int,
 ) (data_ *FindNodesResponse, err_ error) {
@@ -16985,12 +17009,13 @@ func FindNodes(
 		OpName: "FindNodes",
 		Query:  FindNodes_Operation,
 		Variables: &__FindNodesInput{
-			Query:  query,
-			Mode:   mode,
-			Filter: filter,
-			Sort:   sort,
-			Limit:  limit,
-			Offset: offset,
+			Query:        query,
+			Mode:         mode,
+			Filter:       filter,
+			Sort:         sort,
+			SortProperty: sortProperty,
+			Limit:        limit,
+			Offset:       offset,
 		},
 	}
 
@@ -18909,8 +18934,8 @@ func RunTask(
 
 // The query executed by SearchNodes.
 const SearchNodes_Operation = `
-query SearchNodes ($query: String!, $mode: FindNodesMode, $filter: NodeFilter, $limit: Int, $offset: Int) {
-	findNodes(query: $query, mode: $mode, filter: $filter, limit: $limit, offset: $offset) {
+query SearchNodes ($query: String!, $mode: FindNodesMode, $filter: NodeFilter, $sortProperty: NodePropertySort, $limit: Int, $offset: Int) {
+	findNodes(query: $query, mode: $mode, filter: $filter, sortProperty: $sortProperty, limit: $limit, offset: $offset) {
 		total
 		degraded
 		reason
@@ -18945,12 +18970,16 @@ query SearchNodes ($query: String!, $mode: FindNodesMode, $filter: NodeFilter, $
 // The server treats an omitted NodeFilter field as "no constraint"; nil
 // pointers must therefore be omitted, not sent as null — same contract as
 // nodes.graphql.
+// NodeWhereInput / NodePropertySort are bound to hand-authored structs
+// (internal/api/gqltypes) — see nodes.graphql's FindNodes for why genqlient
+// can't own the omitempty on the recursive NodeWhereInput.
 func SearchNodes(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	query string,
 	mode *FindNodesMode,
 	filter *NodeFilter,
+	sortProperty *gqltypes.NodePropertySort,
 	limit *int,
 	offset *int,
 ) (data_ *SearchNodesResponse, err_ error) {
@@ -18958,11 +18987,12 @@ func SearchNodes(
 		OpName: "SearchNodes",
 		Query:  SearchNodes_Operation,
 		Variables: &__SearchNodesInput{
-			Query:  query,
-			Mode:   mode,
-			Filter: filter,
-			Limit:  limit,
-			Offset: offset,
+			Query:        query,
+			Mode:         mode,
+			Filter:       filter,
+			SortProperty: sortProperty,
+			Limit:        limit,
+			Offset:       offset,
 		},
 	}
 

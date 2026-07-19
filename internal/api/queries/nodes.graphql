@@ -13,6 +13,7 @@
 # @genqlient(for: "NodeFilter.memoryIds", omitempty: true)
 # @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
 # @genqlient(for: "NodeFilter.nodeType", omitempty: true)
+# @genqlient(for: "NodeFilter.objectType", omitempty: true)
 # @genqlient(for: "NodeFilter.tags", omitempty: true)
 # @genqlient(for: "NodeFilter.isRunnable", omitempty: true)
 # @genqlient(for: "NodeFilter.locPrefix", omitempty: true)
@@ -20,6 +21,11 @@
 # @genqlient(for: "NodeFilter.updatedAfter", omitempty: true)
 # @genqlient(for: "NodeFilter.updatedBefore", omitempty: true)
 # @genqlient(for: "NodeFilter.includeDeleted", omitempty: true)
+# @genqlient(for: "NodeFilter.where", omitempty: true)
+# NodeWhereInput / NodePropertySort are bound to hand-authored structs
+# (internal/api/gqltypes, wired in genqlient.yaml) whose json tags pin the
+# omit-vs-null wire contract — genqlient's own omitempty resolution is
+# non-deterministic for the recursive NodeWhereInput, so it can't own it.
 query FindNodes(
   # @genqlient(omitempty: true)
   $query: String
@@ -30,6 +36,8 @@ query FindNodes(
   # @genqlient(omitempty: true)
   $sort: NodeSort
   # @genqlient(omitempty: true)
+  $sortProperty: NodePropertySort
+  # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
@@ -39,6 +47,7 @@ query FindNodes(
     mode: $mode
     filter: $filter
     sort: $sort
+    sortProperty: $sortProperty
     limit: $limit
     offset: $offset
   ) {

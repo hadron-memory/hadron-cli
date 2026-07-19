@@ -659,7 +659,7 @@ func nodeExists(cmd *cobra.Command, client graphql.Client, memoryRef, loc string
 	sort := gen.NodeSortLoc
 	for offset := 0; ; offset += limit {
 		off := offset
-		page, err := api.FindNodes(cmd.Context(), client, nil, nil, filter, &sort, &limit, &off)
+		page, err := api.FindNodes(cmd.Context(), client, nil, nil, filter, &sort, nil, &limit, &off)
 		if err != nil {
 			return false
 		}

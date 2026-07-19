@@ -61,10 +61,10 @@ node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 ```
 hadron auth login | logout | whoami | status | token create|ls|validate|revoke <id>
 hadron memory ls | get <id-or-urn> | set [<id-or-urn>] [--max-rev-count <n>] [--app <ref> --agent <ref>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn <org::slug> | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
-hadron node ls [-m <memory>] | get <urn> | add | update <urn> | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
+hadron node ls [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--sort-seq asc|desc] [--seq-gt N] | get <urn> | add | update <urn> | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
 hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--reply-to <loc>] [--handle <h>] [--identity <i>] [--role <r>]
-hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--tag <t>]... [--limit N] [--offset N] [-l|--long] [--json]
+hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
 hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | supersede <citation> | import spec-kit|code
@@ -570,6 +570,19 @@ hadron node revision clear acme.com::kb::findings:flaky-ci --yes
 
 # Ranked search (hybrid semantic+keyword by default; scores + abstracts in --json)
 hadron search "how do users report a bad actor" -m micromentor.org::mmdata --json
+
+# Structured property/attribute queries (parity with the server #719 `where`
+# predicate). --where is a raw-JSON predicate over the node's properties/data
+# JSONB: a LEAF is {"path":[...],"<op>":<value>} with one operator of
+# eq|ne|in|lt|lte|gt|gte|between|exists|contains, optional "field":properties|data
+# (default properties) and "as":text|number|datetime|boolean (default text); a
+# BRANCH is {"and"|"or":[...]} or {"not":{...}}. --object-type filters the
+# objectType collection facet; --sort-property orders by a JSON path (overrides
+# relevance/loc sort). Available on both `node ls` (browse) and `search` (ranked).
+hadron node ls -m acme.com::kb --object-type insight \
+  --where '{"and":[{"path":["source"],"eq":"substack"},{"path":["capturedAt"],"as":"datetime","gte":"2026-07-04"}]}' \
+  --sort-property '{"path":["capturedAt"],"as":"datetime","direction":"desc"}' --json
+hadron search "pricing" --object-type competitor --where '{"path":["tier"],"eq":"enterprise"}' --json
 
 # Arbitrary query with a variable
 hadron api 'query($q: String!) { findNodes(query: $q) { hits { node { loc name } } } }' -F q="auth flow"

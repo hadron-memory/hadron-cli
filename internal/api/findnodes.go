@@ -6,6 +6,7 @@ import (
 	"github.com/Khan/genqlient/graphql"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/api/gqltypes"
 )
 
 // ListNode is the shallow node projection the unified `findNodes` field returns
@@ -29,9 +30,10 @@ type FindNodesPage struct {
 // FindNodes runs the unified node search/list (cor:api:090) and flattens the
 // hits[].node envelope into a bare node slice. Omit query for a filtered list
 // in deterministic order (the old `nodes` semantics); pass query + mode to rank
-// (the old `nodeSearch`). All args are optional; nil pointers are omitted from
-// the wire so the server applies no constraint. The caller maps GraphQL errors
-// through MapError as usual.
+// (the old `nodeSearch`). sortProperty orders by a properties/data JSON path and
+// overrides sort when set (#719). All args are optional; nil pointers are omitted
+// from the wire so the server applies no constraint. The caller maps GraphQL
+// errors through MapError as usual.
 func FindNodes(
 	ctx context.Context,
 	client graphql.Client,
@@ -39,9 +41,10 @@ func FindNodes(
 	mode *gen.FindNodesMode,
 	filter *gen.NodeFilter,
 	sort *gen.NodeSort,
+	sortProperty *gqltypes.NodePropertySort,
 	limit, offset *int,
 ) (*FindNodesPage, error) {
-	resp, err := gen.FindNodes(ctx, client, query, mode, filter, sort, limit, offset)
+	resp, err := gen.FindNodes(ctx, client, query, mode, filter, sort, sortProperty, limit, offset)
 	if err != nil {
 		return nil, err
 	}

@@ -11,6 +11,7 @@
 # @genqlient(for: "NodeFilter.memoryIds", omitempty: true)
 # @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
 # @genqlient(for: "NodeFilter.nodeType", omitempty: true)
+# @genqlient(for: "NodeFilter.objectType", omitempty: true)
 # @genqlient(for: "NodeFilter.tags", omitempty: true)
 # @genqlient(for: "NodeFilter.isRunnable", omitempty: true)
 # @genqlient(for: "NodeFilter.locPrefix", omitempty: true)
@@ -18,12 +19,18 @@
 # @genqlient(for: "NodeFilter.updatedAfter", omitempty: true)
 # @genqlient(for: "NodeFilter.updatedBefore", omitempty: true)
 # @genqlient(for: "NodeFilter.includeDeleted", omitempty: true)
+# @genqlient(for: "NodeFilter.where", omitempty: true)
+# NodeWhereInput / NodePropertySort are bound to hand-authored structs
+# (internal/api/gqltypes) — see nodes.graphql's FindNodes for why genqlient
+# can't own the omitempty on the recursive NodeWhereInput.
 query SearchNodes(
   $query: String!
   # @genqlient(omitempty: true)
   $mode: FindNodesMode
   # @genqlient(omitempty: true)
   $filter: NodeFilter
+  # @genqlient(omitempty: true)
+  $sortProperty: NodePropertySort
   # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
@@ -33,6 +40,7 @@ query SearchNodes(
     query: $query
     mode: $mode
     filter: $filter
+    sortProperty: $sortProperty
     limit: $limit
     offset: $offset
   ) {
