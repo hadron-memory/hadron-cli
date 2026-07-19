@@ -50,6 +50,13 @@ const (
 // and/or/not) OR a leaf (a path plus exactly one operator). Every field is
 // optional and carries `omitempty`, so an unset field is omitted from the wire
 // rather than sent as null — see the package doc for why that matters.
+//
+// The scalar operands are non-pointer json.RawMessage on purpose: an absent
+// operand is a nil (len 0) RawMessage that omitempty drops, but an EXPLICIT JSON
+// null operand (e.g. `--where '{"path":["archivedAt"],"eq":null}'`) unmarshals to
+// the 4-byte `null` — non-empty, so it survives to the wire. A `*json.RawMessage`
+// would collapse both to nil and silently drop a schema-legal `eq: null`,
+// breaking the documented raw-JSON grammar parity.
 type NodeWhereInput struct {
 	And []*NodeWhereInput `json:"and,omitempty"`
 	Or  []*NodeWhereInput `json:"or,omitempty"`
@@ -59,16 +66,16 @@ type NodeWhereInput struct {
 	Path  []string         `json:"path,omitempty"`
 	As    *NodeWhereCast   `json:"as,omitempty"`
 
-	Eq       *json.RawMessage  `json:"eq,omitempty"`
-	Ne       *json.RawMessage  `json:"ne,omitempty"`
+	Eq       json.RawMessage   `json:"eq,omitempty"`
+	Ne       json.RawMessage   `json:"ne,omitempty"`
 	In       []json.RawMessage `json:"in,omitempty"`
-	Lt       *json.RawMessage  `json:"lt,omitempty"`
-	Lte      *json.RawMessage  `json:"lte,omitempty"`
-	Gt       *json.RawMessage  `json:"gt,omitempty"`
-	Gte      *json.RawMessage  `json:"gte,omitempty"`
+	Lt       json.RawMessage   `json:"lt,omitempty"`
+	Lte      json.RawMessage   `json:"lte,omitempty"`
+	Gt       json.RawMessage   `json:"gt,omitempty"`
+	Gte      json.RawMessage   `json:"gte,omitempty"`
 	Between  []json.RawMessage `json:"between,omitempty"`
 	Exists   *bool             `json:"exists,omitempty"`
-	Contains *json.RawMessage  `json:"contains,omitempty"`
+	Contains json.RawMessage   `json:"contains,omitempty"`
 }
 
 // NodePropertySort orders findNodes by the value at a properties/data JSON path

@@ -13,8 +13,7 @@ import (
 // types precisely because genqlient's omitempty on the recursive NodeWhereInput
 // is non-deterministic; this test pins the tags so a hand-edit can't regress them.
 func TestNodeWhereInputOmitsUnsetFields(t *testing.T) {
-	eq := json.RawMessage(`"substack"`)
-	leaf := NodeWhereInput{Path: []string{"source"}, Eq: &eq}
+	leaf := NodeWhereInput{Path: []string{"source"}, Eq: json.RawMessage(`"substack"`)}
 	b, err := json.Marshal(leaf)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
@@ -30,10 +29,25 @@ func TestNodeWhereInputOmitsUnsetFields(t *testing.T) {
 	}
 }
 
+// An EXPLICIT JSON null operand is schema-legal and must survive to the wire —
+// only an ABSENT operand is omitted. (Regression guard for the *json.RawMessage →
+// json.RawMessage change: a pointer would collapse both to nil.)
+func TestNodeWhereInputPreservesExplicitNull(t *testing.T) {
+	// Simulates `--where '{"path":["archivedAt"],"eq":null}'`: the decoder fills
+	// Eq with the 4-byte `null`.
+	var leaf NodeWhereInput
+	if err := json.Unmarshal([]byte(`{"path":["archivedAt"],"eq":null}`), &leaf); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	b, _ := json.Marshal(leaf)
+	if got := string(b); got != `{"path":["archivedAt"],"eq":null}` {
+		t.Errorf("explicit eq:null must survive, got %s", got)
+	}
+}
+
 // A branch node marshals to just its combinator; the leaf fields stay omitted.
 func TestNodeWhereInputBranchOmitsLeafFields(t *testing.T) {
-	eq := json.RawMessage(`"x"`)
-	tree := NodeWhereInput{And: []*NodeWhereInput{{Path: []string{"a"}, Eq: &eq}}}
+	tree := NodeWhereInput{And: []*NodeWhereInput{{Path: []string{"a"}, Eq: json.RawMessage(`"x"`)}}}
 	b, _ := json.Marshal(tree)
 	if got := string(b); got != `{"and":[{"path":["a"],"eq":"x"}]}` {
 		t.Errorf("branch should carry only and[], got %s", got)
