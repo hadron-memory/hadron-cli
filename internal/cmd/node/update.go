@@ -84,10 +84,15 @@ schema-governed memory the server validates the result and rejects a violation.)
 			if replaceData && mergeData {
 				return exitcode.Newf(exitcode.Usage, "--data (replace) and --data-merge (merge) are mutually exclusive")
 			}
-			// --data-merge and --data-merge-file are mutually exclusive. Guard
-			// on Changed() (not the resolved value): an explicit --data-merge ""
-			// would otherwise slip past resolveMergeData's value check and let
-			// the file silently win.
+			// The inline/-file pairs are mutually exclusive. Guard on Changed()
+			// (not the resolved value): an explicit --X "" would otherwise slip past
+			// the value check and let the file silently win.
+			if changed("data") && changed("data-file") {
+				return exitcode.Newf(exitcode.Usage, "--data and --data-file are mutually exclusive")
+			}
+			if changed("properties") && changed("properties-file") {
+				return exitcode.Newf(exitcode.Usage, "--properties and --properties-file are mutually exclusive")
+			}
 			if changed("data-merge") && changed("data-merge-file") {
 				return exitcode.Newf(exitcode.Usage, "--data-merge and --data-merge-file are mutually exclusive")
 			}

@@ -120,15 +120,39 @@ func TestNodeAddPropertiesInvalidJSONIsUsageError(t *testing.T) {
 	}
 }
 
-// --properties and --properties-file are mutually exclusive.
+// --properties and --properties-file are mutually exclusive — and (PR #269
+// review) the guard is Changed()-based, so an explicit empty inline value still
+// trips it rather than letting the file silently win.
 func TestNodeAddPropertiesFlagsMutuallyExclusive(t *testing.T) {
+	for _, inline := range []string{`{}`, ``} { // "" is the review's bypass case
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"node", "add", "-m", "acme.com::kb", "--loc", "x", "--name", "X",
+			"--properties", inline, "--properties-file", "/tmp/x.json"})
+		err := root.Execute()
+		if err == nil || exitcode.FromError(err) != exitcode.Usage {
+			t.Errorf("--properties %q + --properties-file should be a usage error, got %v", inline, err)
+		}
+	}
+}
+
+// (PR #269 review) An explicitly-empty --properties "" on create must reach
+// validation and fail as invalid JSON — consistent with node update, not a
+// silent no-op. CreateNode must never be reached.
+func TestNodeAddEmptyPropertiesIsUsageError(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
+	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"node", "add", "-m", "acme.com::kb", "--loc", "x", "--name", "X",
-		"--properties", `{}`, "--properties-file", "/tmp/x.json"})
+		"--properties", "", "--server", gql.URL})
 	err := root.Execute()
 	if err == nil || exitcode.FromError(err) != exitcode.Usage {
-		t.Fatalf("--properties + --properties-file should be a usage error, got %v", err)
+		t.Fatalf("--properties \"\" should be a usage error (invalid JSON), got %v", err)
+	}
+	if _, ok := captured["CreateNode"]; ok {
+		t.Error("CreateNode must not be called when --properties is an empty string")
 	}
 }
 

@@ -87,14 +87,25 @@ schema and rejects a violation.`,
 			if abstract != "" {
 				input.Abstract = &abstract
 			}
-			if data != "" || dataFile != "" {
+			// Gate on Changed() (not the value): an explicit --data "" / --properties ""
+			// is a deliberate write of an empty/invalid bag — it must reach
+			// resolveJSONObject (and error as invalid JSON), matching node update, and
+			// must still trip mutual exclusion against its -file companion.
+			changed := cmd.Flags().Changed
+			if changed("data") && changed("data-file") {
+				return exitcode.Newf(exitcode.Usage, "--data and --data-file are mutually exclusive")
+			}
+			if changed("properties") && changed("properties-file") {
+				return exitcode.Newf(exitcode.Usage, "--properties and --properties-file are mutually exclusive")
+			}
+			if changed("data") || changed("data-file") {
 				raw, err := resolveJSONObject("--data", data, dataFile)
 				if err != nil {
 					return err
 				}
 				input.Data = raw
 			}
-			if properties != "" || propertiesFile != "" {
+			if changed("properties") || changed("properties-file") {
 				raw, err := resolveJSONObject("--properties", properties, propertiesFile)
 				if err != nil {
 					return err
@@ -165,25 +176,26 @@ func resolveContent(content, contentFile string, stdin io.Reader) (string, error
 // for a create/update input field. The value REPLACES the whole bag on write
 // (the server preserves an omitted field and overwrites a supplied one); pass
 // `null` to clear it. flag is the base flag name (e.g. "--data",
-// "--properties") — the "-file" variant is derived for error messages. Callers
-// gate the call so an unset flag stays omitted from the wire.
+// "--properties") — the "-file" variant is derived for error messages.
+//
+// The two sources are mutually exclusive, but that's enforced at the call site
+// on cmd.Flags().Changed() (an inline value of "" is a *set* empty string, which
+// a value check here couldn't tell from unset) — so this only reads the source
+// that's present, file winning when both values are non-empty. Callers gate the
+// call on Changed() so an unset flag stays omitted from the wire, and an
+// explicit "" reaches here to fail as invalid JSON.
 func resolveJSONObject(flag, inline, file string) (*json.RawMessage, error) {
-	if inline != "" && file != "" {
-		return nil, exitcode.Newf(exitcode.Usage, "%s and %s-file are mutually exclusive", flag, flag)
-	}
 	raw := strings.TrimSpace(inline)
+	name := flag
 	if file != "" {
 		b, err := os.ReadFile(file)
 		if err != nil {
 			return nil, exitcode.Newf(exitcode.Usage, "reading %s-file: %v", flag, err)
 		}
 		raw = strings.TrimSpace(string(b))
+		name = flag + "-file"
 	}
 	if !json.Valid([]byte(raw)) {
-		name := flag
-		if file != "" {
-			name = flag + "-file"
-		}
 		return nil, exitcode.Newf(exitcode.Usage, "%s must contain valid JSON (use `null` to clear)", name)
 	}
 	msg := json.RawMessage(raw)
