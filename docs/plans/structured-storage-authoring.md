@@ -47,8 +47,15 @@ is backed by the dedicated server-side `updateNodeData` mutation built specifica
 to avoid a read-modify-write race (see `node-data-merge.md`). There is **no
 `updateNodeProperties` mutation**, so a client-side merge would reintroduce exactly
 that race. Per an explicit product decision, this PR ships REPLACE only and defers
-merge to a future server `updateNodeProperties` mutation (filed as a hadron-server
-issue). The `node update` help and `agentic-usage` call this out.
+merge to the server-side `updateNodeProperties` mutation tracked as
+**hadron-server#742** (plaintext shallow-merge + schema enforcement). Once it lands,
+add `--properties-merge` / `--properties-merge-file` mapping onto it. The `node
+update` help and `agentic-usage` carry this breadcrumb.
+
+Structured storage works on **encrypted memories** too — `Memory.schema` and
+`Node.properties` are both plaintext, so nothing here gates on encryption (the only
+encrypted caveat is on the read side, `--where`/`--sort-property` over `field: data`,
+a #265 concern).
 
 ## Read-back
 

@@ -61,9 +61,9 @@ mutually exclusive.
 --object-type sets the node's structured-storage collection (#725); pass "" to
 clear it (→ ordinary node), omit to preserve. --properties / --properties-file
 REPLACE the typed properties bag the schema governs (pass "null" to clear) —
-distinct from --data. (There is no --properties-merge yet; it needs a
-server-side merge mutation. On a schema-governed memory the server validates the
-result and rejects a violation.)`,
+distinct from --data. (There is no --properties-merge yet; a shallow merge needs
+the server-side updateNodeProperties mutation, tracked as hadron-server#742. On a
+schema-governed memory the server validates the result and rejects a violation.)`,
 		Example: `  hadron node update acme.com::kb::findings:flaky-ci --name "Flaky CI (resolved)"
   cat updated.md | hadron node update findings:flaky-ci -m acme.com::kb --content -
   hadron node update acme.com::kb::findings:flaky-ci --data-merge '{"status":"closed"}'`,

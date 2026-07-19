@@ -538,7 +538,9 @@ hadron node add -m acme.com::research --loc competitors:acme --name Acme \
 hadron node update acme.com::research::competitors:acme --properties '{"tier":"pro","seats":12}'
 # --properties REPLACES the bag (like --data, not --data-merge); pass "null" to
 # clear it, --object-type "" to make a node ordinary again. There is no
-# --properties-merge yet (it needs a server-side merge mutation).
+# --properties-merge yet (blocked on the server-side updateNodeProperties
+# mutation, hadron-server#742). Schema + properties work on encrypted memories
+# too (both are plaintext).
 
 # Move a node (keeps its id + edges); clone it to a new memory (new id)
 hadron node move acme.com::kb::findings:flaky-ci --to-urn acme.com::kb::archive:flaky-ci
