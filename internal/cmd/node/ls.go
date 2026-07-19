@@ -15,16 +15,19 @@ import (
 
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var (
-		memory   string
-		prefix   string
-		nodeType string
-		runnable bool
-		tags     []string
-		search   string
-		limit    int
-		offset   int
-		sortSeq  string
-		seqGt    int
+		memory     string
+		prefix     string
+		nodeType   string
+		objectType string
+		runnable   bool
+		tags       []string
+		search     string
+		where      string
+		sortProp   string
+		limit      int
+		offset     int
+		sortSeq    string
+		seqGt      int
 	)
 	cmd := &cobra.Command{
 		Use:     "list",
@@ -38,12 +41,27 @@ scopes the listing to that memory. --prefix filters on the node loc
 
 --sort-seq [asc|desc] sorts results by seq in ascending or descending order.
 --seq-gt N filters to nodes with seq > N (useful for reading new messages
-after a known seq number).`,
+after a known seq number).
+
+--where takes a JSON predicate over the node's properties/data JSONB (a leaf is
+a path plus one of eq|ne|in|lt|lte|gt|gte|between|exists|contains; branch with
+and/or/not). --object-type filters the objectType collection facet.
+--sort-property orders by a properties/data JSON path.`,
 		Example: `  hadron node ls --memory hadronmemory.com::dev
   hadron node ls -m hadronmemory.com::dev --prefix findings: --json
-  hadron node ls -m hadronmemory.com::dev --seq-gt 42 --sort-seq asc`,
+  hadron node ls -m hadronmemory.com::dev --seq-gt 42 --sort-seq asc
+  hadron node ls -m acme.com::kb --object-type insight --where '{"path":["source"],"eq":"substack"}'
+  hadron node ls -m acme.com::kb --sort-property '{"path":["rank"],"as":"number","direction":"desc"}'`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			whereArg, err := cmdutil.ParseNodeWhere(where)
+			if err != nil {
+				return err
+			}
+			sortPropArg, err := cmdutil.ParseNodePropertySort(sortProp)
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -74,8 +92,16 @@ after a known seq number).`,
 				filter.NodeType = &nodeType
 				filterSet = true
 			}
+			if objectType != "" {
+				filter.ObjectType = &objectType
+				filterSet = true
+			}
 			if len(tags) > 0 {
 				filter.Tags = tags
+				filterSet = true
+			}
+			if whereArg != nil {
+				filter.Where = whereArg
 				filterSet = true
 			}
 			// Pass nil (not an empty &{}) when nothing is constrained, so a bare
@@ -104,7 +130,7 @@ after a known seq number).`,
 				offsetArg = &offset
 			}
 
-			page, err := api.FindNodes(cmd.Context(), client, searchArg, mode, filterArg, sortArg, limitArg, offsetArg)
+			page, err := api.FindNodes(cmd.Context(), client, searchArg, mode, filterArg, sortArg, sortPropArg, limitArg, offsetArg)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -189,10 +215,13 @@ after a known seq number).`,
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "scope to a memory (ID or URN)")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "filter by node loc prefix")
 	cmd.Flags().StringVar(&nodeType, "type", "", "filter by node type")
+	cmd.Flags().StringVar(&objectType, "object-type", "", "filter by objectType collection facet (e.g. competitor)")
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "filter by runnable status (--runnable / --runnable=false); omit for all")
 	cmd.Flags().Lookup("runnable").NoOptDefVal = "true"
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "filter by tag (repeatable)")
 	cmd.Flags().StringVar(&search, "search", "", "keyword filter on name/description")
+	cmd.Flags().StringVar(&where, "where", "", "structured predicate over properties/data as JSON (e.g. '{\"path\":[\"source\"],\"eq\":\"substack\"}')")
+	cmd.Flags().StringVar(&sortProp, "sort-property", "", "order by a properties/data JSON path as JSON (e.g. '{\"path\":[\"rank\"],\"as\":\"number\",\"direction\":\"desc\"}')")
 	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of nodes")
 	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset")
 	cmd.Flags().StringVar(&sortSeq, "sort-seq", "", "sort by seq: 'asc' or 'desc'")

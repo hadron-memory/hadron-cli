@@ -3115,9 +3115,15 @@ input NodeFilter {
   """
   memoryIds: [ID!]
   nodeType: String
+
+  """#725 — collection facet: only nodes whose objectType equals this (e.g. "competitor")."""
+  objectType: String
   tags: [String!]
   updatedAfter: String
   updatedBefore: String
+
+  """Structured predicate over the node's properties/data JSONB (#719)."""
+  where: NodeWhereInput
 }
 
 """
@@ -3211,6 +3217,30 @@ enum NodeMergeField {
 
   """Union the tag sets (target order first, then new source tags)."""
   TAGS
+}
+
+"""
+Order findNodes by the value at a properties/data JSON path (#719).
+
+Reuses the NodeWhere leaf addressing: path into field (properties|data), typed
+by as (text|number|datetime|boolean). number/datetime route through the same DB
+guards, so a missing or unparseable value sorts LAST regardless of direction;
+loc ascending breaks ties for stable pagination. Overrides the sort enum when
+present. On vector/hybrid modes it re-orders the retrieved candidate window (the
+ranking runs against the vector index, not the JSONB), like the sort enum does.
+"""
+input NodePropertySort {
+  """Path of object keys into the column, e.g. ['stage']."""
+  path: [String!]!
+
+  """JSONB column (default properties)."""
+  field: NodeWhereColumn
+
+  """Value typing before comparison (default text)."""
+  as: NodeWhereCast
+
+  """Direction (default asc)."""
+  direction: SortDirection
 }
 
 type NodeRevision {
@@ -3324,6 +3354,59 @@ type NodeVectorMeta {
   offsets: [Int!]
   similarity: Float
   source: String
+}
+
+"""How a NodeWhere leaf's extracted value is typed before comparison (#719). Default text."""
+enum NodeWhereCast {
+  text
+  number
+  datetime
+  boolean
+}
+
+"""JSONB column a NodeWhere leaf reads (#719). Defaults to properties."""
+enum NodeWhereColumn {
+  properties
+  data
+}
+
+"""
+A recursive structured predicate over a node's properties/data JSONB (#719).
+
+A node is EITHER a branch (exactly one of and/or/not) OR a leaf (a path plus
+exactly one operator). Leaf values are JSON scalars, bound as parameters; path
+segments are identifier-validated. datetime/number comparisons route through
+DB guard functions so unparseable data drops the row (never a 500). Bounded:
+depth ≤ 4, ≤ 32 leaves, path ≤ 8 segments — a malformed/oversized tree is
+BAD_USER_INPUT. Composes with every mode (keyword/regex/vector/hybrid) and the
+no-query browse: for lexical modes + browse the predicate is applied in-query;
+for vector/hybrid it post-filters the ranked candidate set (rank order preserved).
+"""
+input NodeWhereInput {
+  and: [NodeWhereInput!]
+  or: [NodeWhereInput!]
+  not: NodeWhereInput
+
+  """JSONB column (default properties)."""
+  field: NodeWhereColumn
+
+  """Path of object keys into the column, e.g. ['capturedAt']."""
+  path: [String!]
+
+  """Value typing for the comparison (default text)."""
+  as: NodeWhereCast
+  eq: JSON
+  ne: JSON
+  in: [JSON!]
+  lt: JSON
+  lte: JSON
+  gt: JSON
+  gte: JSON
+  between: [JSON!]
+  exists: Boolean
+
+  """jsonb containment (@>) of the JSON value at the path."""
+  contains: JSON
 }
 
 type OrgMember {
@@ -3740,6 +3823,9 @@ type Query {
     orgId: ID
     query: String
     sort: NodeSort
+
+    """#719 — order by a properties/data JSON path; overrides sort when present."""
+    sortProperty: NodePropertySort
   ): FindNodesResult!
 
   """
@@ -4559,6 +4645,12 @@ type SlackConnection {
 type SlackConnectionsPage {
   items: [SlackConnection!]!
   total: Int!
+}
+
+"""Sort direction for a findNodes property-path sort (#719). Default asc."""
+enum SortDirection {
+  asc
+  desc
 }
 
 enum SubscriptionType {

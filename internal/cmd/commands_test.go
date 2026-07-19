@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // captureGraphQL is like fakeGraphQL but also records request bodies
@@ -607,6 +609,94 @@ func TestNodeLsSurfacesRunnable(t *testing.T) {
 	}
 	if len(got) != 1 || !got[0].IsRunnable {
 		t.Errorf("node ls --json must surface isRunnable, got %s", out.String())
+	}
+}
+
+// #265: node ls --where / --object-type / --sort-property (parity with the
+// server #719 structured predicate + #725 objectType facet + #739 property-path
+// sort). Asserts the predicate reaches filter.where verbatim, objectType lands
+// on the filter, sortProperty is a top-level arg, and — the load-bearing part —
+// unset leaf operators are OMITTED from the wire, never sent as null (the server
+// counts any operator key that is not undefined, so a null would trip its
+// "exactly one operator" check).
+func TestNodeLsWherePredicate(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + nodeJSON + `]}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{
+		"node", "ls", "-m", "acme.com::kb",
+		"--object-type", "insight",
+		"--where", `{"and":[{"path":["source"],"eq":"substack"},{"path":["capturedAt"],"as":"datetime","gte":"2026-07-01"}]}`,
+		"--sort-property", `{"path":["rank"],"as":"number","direction":"desc"}`,
+		"--server", gql.URL,
+	})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	// The raw wire body must not carry any explicit null operator/branch key —
+	// that's the omit-vs-null contract the server's leaf validation depends on.
+	raw := string(captured["FindNodes"])
+	for _, banned := range []string{`"ne":null`, `"lt":null`, `"gt":null`, `"exists":null`, `"not":null`, `"or":null`, `"contains":null`, `"field":null`} {
+		if strings.Contains(raw, banned) {
+			t.Fatalf("unset field leaked as null (%s) — omitempty broken:\n%s", banned, raw)
+		}
+	}
+
+	var vars struct {
+		Filter struct {
+			ObjectType *string        `json:"objectType"`
+			Where      map[string]any `json:"where"`
+		} `json:"filter"`
+		SortProperty map[string]any `json:"sortProperty"`
+	}
+	if err := json.Unmarshal(captured["FindNodes"], &vars); err != nil {
+		t.Fatalf("unmarshal vars: %v", err)
+	}
+	if vars.Filter.ObjectType == nil || *vars.Filter.ObjectType != "insight" {
+		t.Errorf("--object-type should map to filter.objectType, got %v", vars.Filter.ObjectType)
+	}
+	and, ok := vars.Filter.Where["and"].([]any)
+	if !ok || len(and) != 2 {
+		t.Fatalf("filter.where.and should carry 2 leaves, got %v", vars.Filter.Where)
+	}
+	leaf0, _ := and[0].(map[string]any)
+	if leaf0["eq"] != "substack" {
+		t.Errorf("first leaf eq should be substack, got %v", leaf0)
+	}
+	if _, present := leaf0["ne"]; present {
+		t.Errorf("unset operators must be omitted from the leaf, got %v", leaf0)
+	}
+	leaf1, _ := and[1].(map[string]any)
+	if leaf1["as"] != "datetime" || leaf1["gte"] != "2026-07-01" {
+		t.Errorf("second leaf should carry as+gte, got %v", leaf1)
+	}
+	if vars.SortProperty["as"] != "number" || vars.SortProperty["direction"] != "desc" {
+		t.Errorf("sortProperty should reach the wire, got %v", vars.SortProperty)
+	}
+	// path is [String!]! (required) so it is never omitempty.
+	if p, _ := vars.SortProperty["path"].([]any); len(p) != 1 || p[0] != "rank" {
+		t.Errorf("sortProperty.path should be [rank], got %v", vars.SortProperty["path"])
+	}
+}
+
+// A malformed --where / --sort-property JSON is a client-side usage error
+// (exit 2) — it never reaches the server.
+func TestNodeLsWhereMalformedIsUsageError(t *testing.T) {
+	for _, arg := range [][]string{
+		{"--where", `{"path":["x"],`},
+		{"--where", `{"path":["x"],"nope":1}`}, // unknown field
+		{"--sort-property", `not json`},
+	} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"node", "ls", "-m", "acme.com::kb"}, arg...))
+		err := root.Execute()
+		if err == nil || exitcode.FromError(err) != exitcode.Usage {
+			t.Errorf("%v should be a usage error, got %v", arg, err)
+		}
 	}
 }
 

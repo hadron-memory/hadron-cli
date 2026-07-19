@@ -6,6 +6,7 @@ import (
 	"github.com/Khan/genqlient/graphql"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/api/gqltypes"
 )
 
 // SearchNode is the search-shaped node projection (abstract included).
@@ -30,16 +31,19 @@ type SearchPage struct {
 }
 
 // SearchNodes runs a ranked findNodes query (the `hadron search` backend),
-// keeping per-hit score + vector metadata that FindNodes drops.
+// keeping per-hit score + vector metadata that FindNodes drops. sortProperty
+// orders by a properties/data JSON path and overrides the mode ranking window
+// when set (#719); nil pointers are omitted from the wire.
 func SearchNodes(
 	ctx context.Context,
 	client graphql.Client,
 	query string,
 	mode *gen.FindNodesMode,
 	filter *gen.NodeFilter,
+	sortProperty *gqltypes.NodePropertySort,
 	limit, offset *int,
 ) (*SearchPage, error) {
-	resp, err := gen.SearchNodes(ctx, client, query, mode, filter, limit, offset)
+	resp, err := gen.SearchNodes(ctx, client, query, mode, filter, sortProperty, limit, offset)
 	if err != nil {
 		return nil, err
 	}

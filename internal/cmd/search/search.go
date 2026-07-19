@@ -40,14 +40,17 @@ type resultDTO struct {
 // NewCmdSearch wires `hadron search` — the ranked node-retrieval front door.
 func NewCmdSearch(f *cmdutil.Factory) *cobra.Command {
 	var (
-		memories []string
-		mode     string
-		prefix   string
-		nodeType string
-		tags     []string
-		limit    int
-		offset   int
-		long     bool
+		memories   []string
+		mode       string
+		prefix     string
+		nodeType   string
+		objectType string
+		tags       []string
+		where      string
+		sortProp   string
+		limit      int
+		offset     int
+		long       bool
 	)
 	cmd := &cobra.Command{
 		Use:   "search <query>",
@@ -65,11 +68,18 @@ search several. Omit for everything you can access.
 
 Each hit carries a score plus the node's description and abstract (--json),
 so results are assessable without a follow-up 'node get' per hit. --long
-prints abstracts in the text output too.`,
+prints abstracts in the text output too.
+
+--where takes a JSON predicate over the node's properties/data JSONB (a leaf is
+a path plus one of eq|ne|in|lt|lte|gt|gte|between|exists|contains; branch with
+and/or/not). --object-type filters the objectType collection facet.
+--sort-property orders by a properties/data JSON path (overrides relevance).`,
 		Example: `  hadron search "how do users report a bad actor" -m micromentor.org::mmdata
   hadron search "rate limiting" -m acme.com::kb -m acme.com::ops --mode keyword --json
   hadron search "(auth OR login) AND token" --mode keyword --prefix findings:
-  hadron search 'reportUser|contentConcern' --mode regex --limit 30`,
+  hadron search 'reportUser|contentConcern' --mode regex --limit 30
+  hadron search "pricing" --object-type insight --where '{"path":["source"],"eq":"substack"}'
+  hadron search "roadmap" --sort-property '{"path":["rank"],"as":"number","direction":"desc"}'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			query := args[0]
@@ -85,6 +95,14 @@ prints abstracts in the text output too.`,
 			}
 			if offset < 0 {
 				return exitcode.Newf(exitcode.Usage, "offset must be non-negative")
+			}
+			whereArg, err := cmdutil.ParseNodeWhere(where)
+			if err != nil {
+				return err
+			}
+			sortPropArg, err := cmdutil.ParseNodePropertySort(sortProp)
+			if err != nil {
+				return err
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -105,8 +123,16 @@ prints abstracts in the text output too.`,
 				filter.NodeType = &nodeType
 				filterSet = true
 			}
+			if objectType != "" {
+				filter.ObjectType = &objectType
+				filterSet = true
+			}
 			if len(tags) > 0 {
 				filter.Tags = tags
+				filterSet = true
+			}
+			if whereArg != nil {
+				filter.Where = whereArg
 				filterSet = true
 			}
 			// Send no filter object at all when nothing is constrained,
@@ -123,7 +149,7 @@ prints abstracts in the text output too.`,
 				offsetArg = &offset
 			}
 
-			page, err := api.SearchNodes(cmd.Context(), client, query, modeArg, filterArg, limitArg, offsetArg)
+			page, err := api.SearchNodes(cmd.Context(), client, query, modeArg, filterArg, sortPropArg, limitArg, offsetArg)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -167,7 +193,10 @@ prints abstracts in the text output too.`,
 	cmd.Flags().StringVar(&mode, "mode", "hybrid", "ranking mode: hybrid|keyword|vector|regex")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "filter by node loc prefix")
 	cmd.Flags().StringVar(&nodeType, "type", "", "filter by node type")
+	cmd.Flags().StringVar(&objectType, "object-type", "", "filter by objectType collection facet (e.g. competitor)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "filter by tag (repeatable)")
+	cmd.Flags().StringVar(&where, "where", "", "structured predicate over properties/data as JSON (e.g. '{\"path\":[\"source\"],\"eq\":\"substack\"}')")
+	cmd.Flags().StringVar(&sortProp, "sort-property", "", "order by a properties/data JSON path as JSON (e.g. '{\"path\":[\"rank\"],\"as\":\"number\",\"direction\":\"desc\"}')")
 	cmd.Flags().IntVar(&limit, "limit", 15, "maximum number of hits (0 = server default)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset")
 	cmd.Flags().BoolVarP(&long, "long", "l", false, "per-hit block output including description/abstract")

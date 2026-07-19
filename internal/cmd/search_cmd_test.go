@@ -22,9 +22,12 @@ type searchVars struct {
 	Mode   *string `json:"mode"`
 	Limit  *int    `json:"limit"`
 	Filter struct {
-		MemoryIds []string `json:"memoryIds"`
-		LocPrefix string   `json:"locPrefix"`
+		MemoryIds  []string       `json:"memoryIds"`
+		LocPrefix  string         `json:"locPrefix"`
+		ObjectType *string        `json:"objectType"`
+		Where      map[string]any `json:"where"`
 	} `json:"filter"`
+	SortProperty map[string]any `json:"sortProperty"`
 }
 
 func TestSearchRankedJSON(t *testing.T) {
@@ -160,6 +163,55 @@ func TestSearchModeMapping(t *testing.T) {
 		if vars.Mode == nil || *vars.Mode != mode {
 			t.Errorf("--mode %s should send %q, got %v", mode, mode, vars.Mode)
 		}
+	}
+}
+
+// #265: search --where / --object-type / --sort-property compose on top of a
+// ranked query (parity with the server #719/#725/#739 surfaces). The predicate
+// reaches filter.where, the facet lands on filter.objectType, sortProperty is a
+// top-level arg, and unset leaf operators are omitted (never null).
+func TestSearchWherePredicate(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{"SearchNodes": searchEnvelope})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{
+		"search", "pricing",
+		"--object-type", "insight",
+		"--where", `{"path":["source"],"eq":"substack"}`,
+		"--sort-property", `{"path":["rank"],"as":"number","direction":"desc"}`,
+		"--server", gql.URL,
+	})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if raw := string(captured["SearchNodes"]); strings.Contains(raw, `"ne":null`) || strings.Contains(raw, `"lt":null`) {
+		t.Fatalf("unset operators leaked as null — omitempty broken:\n%s", raw)
+	}
+	var vars searchVars
+	if err := json.Unmarshal(captured["SearchNodes"], &vars); err != nil {
+		t.Fatalf("unmarshal vars: %v", err)
+	}
+	if vars.Filter.ObjectType == nil || *vars.Filter.ObjectType != "insight" {
+		t.Errorf("--object-type should map to filter.objectType, got %v", vars.Filter.ObjectType)
+	}
+	if vars.Filter.Where["eq"] != "substack" {
+		t.Errorf("--where should reach filter.where, got %v", vars.Filter.Where)
+	}
+	if _, present := vars.Filter.Where["ne"]; present {
+		t.Errorf("unset operators must be omitted, got %v", vars.Filter.Where)
+	}
+	if vars.SortProperty["direction"] != "desc" {
+		t.Errorf("--sort-property should reach the wire, got %v", vars.SortProperty)
+	}
+}
+
+func TestSearchWhereMalformedIsUsageError(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"search", "x", "--where", `{"path":["x"],`})
+	err := root.Execute()
+	if err == nil || exitcode.FromError(err) != exitcode.Usage {
+		t.Fatalf("malformed --where should be a usage error, got %v", err)
 	}
 }
 

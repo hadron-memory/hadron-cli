@@ -9,3 +9,18 @@ optional: pointer
 bindings:
   JSON:
     type: encoding/json.RawMessage
+  # NodeWhereInput is recursive; genqlient's per-field omitempty resolution for a
+  # self-referential input is non-deterministic (the ,omitempty tag flips between
+  # runs), which breaks the omit-vs-null wire contract and reds the codegen gate.
+  # Bind it + its companions to hand-authored structs (internal/api/gqltypes) that
+  # pin the json tags. See that package's doc for the leaf-validation why.
+  NodeWhereInput:
+    type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.NodeWhereInput
+  NodePropertySort:
+    type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.NodePropertySort
+  NodeWhereColumn:
+    type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.NodeWhereColumn
+  NodeWhereCast:
+    type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.NodeWhereCast
+  SortDirection:
+    type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.SortDirection

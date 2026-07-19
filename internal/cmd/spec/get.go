@@ -100,7 +100,7 @@ one object for a single citation, an array for --prefix.`,
 				if offset > 0 {
 					offsetArg = &offset
 				}
-				page, rerr := api.FindNodes(cmd.Context(), client, nil, nil, newNodeFilter(&memURN, &prefixArg, []string{"spec"}), sortLoc(), limitArg, offsetArg)
+				page, rerr := api.FindNodes(cmd.Context(), client, nil, nil, newNodeFilter(&memURN, &prefixArg, []string{"spec"}), sortLoc(), nil, limitArg, offsetArg)
 				if rerr != nil {
 					return api.MapError(rerr)
 				}
