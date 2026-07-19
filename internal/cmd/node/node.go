@@ -31,10 +31,12 @@ type nodeDTO struct {
 // nodeDetailDTO extends the list shape for single-node output.
 type nodeDetailDTO struct {
 	nodeDTO
+	ObjectType    *string          `json:"objectType"`
 	Description   *string          `json:"description"`
 	Abstract      *string          `json:"abstract"`
 	Content       *string          `json:"content"`
 	Data          *json.RawMessage `json:"data,omitempty"`
+	Properties    *json.RawMessage `json:"properties,omitempty"`
 	Seq           *int             `json:"seq"`
 	CreatedAt     string           `json:"createdAt"`
 	OutgoingEdges []edgeRefDTO     `json:"outgoingEdges"`

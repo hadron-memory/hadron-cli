@@ -952,6 +952,9 @@ input CreateNodeInput {
   memoryId: String!
   name: String!
   nodeType: String
+
+  """#725 — collection discriminator (e.g. "competitor" / "insight"). NULL for an ordinary node."""
+  objectType: String
   ownerRepo: String
   properties: JSON
 
@@ -1570,6 +1573,9 @@ type Memory {
   organizationId: String
   pendingEdgeCount: Int!
   readBranch: String
+
+  """#725 — opt-in per-memory property schema (declared collections + typed fields). NULL = unstructured. Authored via updateMemory; well-formedness validated server-side."""
+  schema: JSON
 
   """
   023-app-shape US3: cross-user grants on this memory. Non-empty
@@ -2837,7 +2843,7 @@ type Mutation {
   truth in `FR_026_DISCLOSURE` — see `src/lib/entityRef/errors.ts`). On a
   non-encrypted memory the flag is a no-op.
   """
-  updateMemory(acknowledgeVectorInversionRisk: Boolean, category0: String, category1: String, category2: String, chunkOverlap: Int, chunkTokens: Int, data: JSON, description: String, embeddingSource: EmbeddingSource, forceFixedSize: Boolean, heroUrl: String, homeUrl: String, iconUrl: String, id: ID!, license: String, maxRevCount: Int, name: String, organizationId: ID, readBranch: String, shortDescription: String, source: String, tags: [String!], urn: String, vectorIndexEnabled: Boolean, visibility: MemoryVisibility, writeBranch: String): Memory!
+  updateMemory(acknowledgeVectorInversionRisk: Boolean, category0: String, category1: String, category2: String, chunkOverlap: Int, chunkTokens: Int, data: JSON, description: String, embeddingSource: EmbeddingSource, forceFixedSize: Boolean, heroUrl: String, homeUrl: String, iconUrl: String, id: ID!, license: String, maxRevCount: Int, name: String, organizationId: ID, readBranch: String, schema: JSON, shortDescription: String, source: String, tags: [String!], urn: String, vectorIndexEnabled: Boolean, visibility: MemoryVisibility, writeBranch: String): Memory!
 
   """
   023-app-shape US4 — change the role on an existing team member.
@@ -2989,6 +2995,9 @@ type Node {
   memoryId: String!
   name: String!
   nodeType: String!
+
+  """#725 — collection discriminator (which domain object this node is, e.g. "competitor"). NULL for an ordinary node."""
+  objectType: String
   outgoingEdges: [Edge!]!
   ownerRepo: String
   properties: JSON
@@ -4766,6 +4775,9 @@ input UpdateNodeInput {
   """Omit to preserve (D4)."""
   name: String
   nodeType: String
+
+  """#725 — collection discriminator (e.g. "competitor"). Omit to preserve; null to clear."""
+  objectType: String
   ownerRepo: String
   properties: JSON
 

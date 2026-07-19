@@ -153,6 +153,11 @@ mutation UpdateMemory(
   # #621 — per-node revision-history cap (min 1). Omitted = preserve.
   # @genqlient(omitempty: true)
   $maxRevCount: Int
+  # #725 — opt-in per-memory property schema (declared collections + typed
+  # fields). Omitted = preserve; explicit JSON null clears it. The server
+  # validates well-formedness and rejects a malformed schema with BAD_USER_INPUT.
+  # @genqlient(omitempty: true)
+  $schema: JSON
 ) {
   updateMemory(
     id: $id
@@ -164,6 +169,7 @@ mutation UpdateMemory(
     data: $data
     urn: $urn
     maxRevCount: $maxRevCount
+    schema: $schema
   ) {
     id
     urn
@@ -201,6 +207,7 @@ query GetMemory($ref: ID!) {
     vectorIndexEnabled
     maxRevCount
     data
+    schema
     createdAt
     updatedAt
   }

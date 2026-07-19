@@ -1,8 +1,10 @@
 package memory
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -27,6 +29,8 @@ func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 		agent       string
 		tags        []string
 		maxRevCount int
+		schema      string
+		schemaFile  string
 	)
 	cmd := &cobra.Command{
 		Use:   "set [<memory-id-or-urn>]",
@@ -47,12 +51,19 @@ On free-standing create, the URN slug is derived from --name (kebab-cased, e.g.
 "Project KB" → project-kb) unless you pass --slug to set it explicitly;
 the resulting URN, class, and visibility are echoed in the output. On
 update, --slug renames the memory — its URN, and therefore the URNs of
-every node under it, change.`,
+every node under it, change.
+
+--schema / --schema-file set the memory's structured-storage property schema
+(#725) — declared collections and typed fields that govern node objectType +
+properties. Pass "" or "null" to clear it. The server validates the schema shape
+and rejects a malformed one. (createMemory takes no schema, so on create it is
+applied in a follow-up update.)`,
 		Example: `  hadron memory set --org acme.com --name "Project KB"
   hadron memory set --org acme.com --name "Hadron PDF Tool" --slug hadrontool-pdf
   hadron memory set --org acme.com --name "Notes" --class personal
   hadron memory set --app acme.com::coach --agent acme.com::agent --class app --name "Runbook"
-  hadron memory set acme.com:project-kb --description "Long-form description"`,
+  hadron memory set acme.com:project-kb --description "Long-form description"
+  hadron memory set acme.com:research --schema-file schema.json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			appScoped := app != "" || agent != ""
@@ -75,6 +86,21 @@ every node under it, change.`,
 					return exitcode.Newf(exitcode.Usage, "--max-rev-count must be at least 1")
 				}
 				maxRevArg = &maxRevCount
+			}
+			if cmd.Flags().Changed("schema") && cmd.Flags().Changed("schema-file") {
+				return exitcode.Newf(exitcode.Usage, "--schema and --schema-file are mutually exclusive")
+			}
+			// Resolve --schema offline (pure JSON parse), so a malformed value is a
+			// usage error before any network call. nil unless the flag was passed —
+			// gated on Changed so an unset flag stays omitted (preserve), while an
+			// explicit --schema "" / "null" resolves to JSON null (clear).
+			var schemaArg *json.RawMessage
+			if cmd.Flags().Changed("schema") || cmd.Flags().Changed("schema-file") {
+				s, serr := resolveSchema(schema, schemaFile)
+				if serr != nil {
+					return serr
+				}
+				schemaArg = s
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -99,9 +125,10 @@ every node under it, change.`,
 
 			var m memoryDTO
 			var verb string
-			// Set on create when the memory was made but the follow-up --slug
-			// rename failed — a partial write we report, then exit non-zero.
-			var slugErr error
+			// Set on create when the memory was made but the follow-up updateMemory
+			// (--slug rename and/or --schema) failed — a partial write we report,
+			// then exit non-zero.
+			var postCreateErr error
 			if len(args) == 0 {
 				if appScoped {
 					if org != "" {
@@ -149,16 +176,21 @@ every node under it, change.`,
 					m = dtoFromMemory(resp.CreateMemory)
 				}
 				verb = "created"
-				// createMemory has no slug input — it derives the slug from
-				// --name. Honor an explicit --slug by renaming to it when it
-				// differs (a second call). If that fails, the memory still exists
-				// under its derived slug: keep m as-is, record the error, and
-				// report it as a partial write below.
-				if !appScoped && slug != "" && !memorySlugIs(m.URN, slug) {
-					if resp, rerr := gen.UpdateMemory(cmd.Context(), client, m.ID, nil, nil, nil, nil, nil, nil, &slug, nil); rerr != nil {
-						slugErr = api.MapError(rerr)
+				// createMemory/createMemoryInApp take neither a slug (free-standing
+				// derives it from --name) nor a schema, so apply either in one
+				// follow-up updateMemory. If it fails, the memory still exists under
+				// its derived slug with no schema: keep m as-is, record the error,
+				// and report it as a partial write below.
+				needSlug := !appScoped && slug != "" && !memorySlugIs(m.URN, slug)
+				if needSlug || schemaArg != nil {
+					var urnPtr *string
+					if needSlug {
+						urnPtr = &slug
+					}
+					if resp, rerr := gen.UpdateMemory(cmd.Context(), client, m.ID, nil, nil, nil, nil, nil, nil, urnPtr, nil, schemaArg); rerr != nil {
+						postCreateErr = api.MapError(rerr)
 					} else if resp == nil || resp.UpdateMemory == nil {
-						slugErr = exitcode.Newf(exitcode.Error, "server returned no memory on rename")
+						postCreateErr = exitcode.Newf(exitcode.Error, "server returned no memory on the post-create update")
 					} else {
 						m = dtoFromMemory(resp.UpdateMemory)
 					}
@@ -167,7 +199,7 @@ every node under it, change.`,
 				if org != "" || class != "" || appScoped {
 					return exitcode.Newf(exitcode.Usage, "--org, --class, --app, and --agent only apply when creating (no positional argument)")
 				}
-				if name == "" && short == "" && description == "" && visibility == "" && tagsArg == nil && slug == "" && maxRevArg == nil {
+				if name == "" && short == "" && description == "" && visibility == "" && tagsArg == nil && slug == "" && maxRevArg == nil && schemaArg == nil {
 					return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 				}
 				memID, err := resolveMemoryID(cmd, client, args[0])
@@ -178,7 +210,7 @@ every node under it, change.`,
 				if slug != "" {
 					urnArg = &slug
 				}
-				resp, err := gen.UpdateMemory(cmd.Context(), client, memID, optional(name), optional(short), optional(description), tagsArg, visArg, nil, urnArg, maxRevArg)
+				resp, err := gen.UpdateMemory(cmd.Context(), client, memID, optional(name), optional(short), optional(description), tagsArg, visArg, nil, urnArg, maxRevArg, schemaArg)
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -212,13 +244,21 @@ every node under it, change.`,
 			}); err != nil {
 				return err
 			}
-			// The memory was created but couldn't be renamed to --slug: honest
-			// partial-write reporting — surface it and exit non-zero so a script
-			// doesn't read a clean success (matches node import --with-edges).
-			if slugErr != nil {
+			// The memory was created but the follow-up updateMemory (slug and/or
+			// schema) failed: honest partial-write reporting — surface it and exit
+			// non-zero so a script doesn't read a clean success (matches node import
+			// --with-edges).
+			if postCreateErr != nil {
+				var pending []string
+				if !appScoped && slug != "" && !memorySlugIs(m.URN, slug) {
+					pending = append(pending, fmt.Sprintf("slug %q", slug))
+				}
+				if schemaArg != nil {
+					pending = append(pending, "schema")
+				}
 				return exitcode.Newf(exitcode.Error,
-					"memory created as %s, but setting slug %q failed: %v — retry with: hadron memory set %s --slug %s",
-					m.URN, slug, slugErr, m.URN, slug)
+					"memory created as %s, but applying %s failed: %v — retry against the created memory (hadron memory set %s ...)",
+					m.URN, strings.Join(pending, " + "), postCreateErr, m.URN)
 			}
 			return nil
 		},
@@ -234,7 +274,41 @@ every node under it, change.`,
 	cmd.Flags().StringVar(&agent, "agent", "", "installed Agent ID or URN (App-scoped create only; requires --app)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "tag (repeatable; replaces tags on update)")
 	cmd.Flags().IntVar(&maxRevCount, "max-rev-count", 0, "per-node revision-history cap (min 1; unset leaves the server default / current value)")
+	cmd.Flags().StringVar(&schema, "schema", "", `structured-storage property schema as JSON (#725); "" or "null" clears it`)
+	cmd.Flags().StringVar(&schemaFile, "schema-file", "", "read the property schema JSON from a file")
 	return cmd
+}
+
+// resolveSchema reads the Memory.schema JSON from --schema (inline) or
+// --schema-file. An empty value or the literal "null" clears the schema (returns
+// JSON null); any other value must be valid JSON. Well-formedness of the schema
+// shape itself is validated server-side (BAD_USER_INPUT). The caller gates on
+// Changed() so an unset flag stays omitted (preserve) rather than clearing.
+func resolveSchema(schema, schemaFile string) (*json.RawMessage, error) {
+	raw := strings.TrimSpace(schema)
+	fromFile := schemaFile != ""
+	if fromFile {
+		b, err := os.ReadFile(schemaFile)
+		if err != nil {
+			return nil, exitcode.Newf(exitcode.Usage, "reading --schema-file: %v", err)
+		}
+		raw = strings.TrimSpace(string(b))
+	}
+	// Empty (--schema "") or "null" clears the schema — mirror the --data
+	// convention, plus "" for ergonomics.
+	if raw == "" || raw == "null" {
+		msg := json.RawMessage("null")
+		return &msg, nil
+	}
+	if !json.Valid([]byte(raw)) {
+		flag := "--schema"
+		if fromFile {
+			flag = "--schema-file"
+		}
+		return nil, exitcode.Newf(exitcode.Usage, `%s must contain valid JSON (use "null" or "" to clear)`, flag)
+	}
+	msg := json.RawMessage(raw)
+	return &msg, nil
 }
 
 // memorySlugIs reports whether urn's slug (the segment after the final "::")

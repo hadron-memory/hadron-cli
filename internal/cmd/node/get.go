@@ -40,6 +40,9 @@ is rejected, since the same loc can exist in several memories.`,
 			dto := detailDTO(node)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				fmt.Fprintf(w, "%s\n  loc: %s\n  type: %s\n", dto.Name, dto.Loc, dto.NodeType)
+				if dto.ObjectType != nil && *dto.ObjectType != "" {
+					fmt.Fprintf(w, "  object-type: %s\n", *dto.ObjectType)
+				}
 				fmt.Fprintf(w, "  runnable: %t\n", dto.IsRunnable)
 				if dto.Description != nil && *dto.Description != "" {
 					fmt.Fprintf(w, "  about: %s\n", *dto.Description)
@@ -51,6 +54,11 @@ is rejected, since the same loc can exist in several memories.`,
 				if dto.Data != nil && len(*dto.Data) > 0 {
 					if dataStr := string(*dto.Data); dataStr != "null" {
 						fmt.Fprintf(w, "  data: %s\n", dataStr)
+					}
+				}
+				if dto.Properties != nil && len(*dto.Properties) > 0 {
+					if propStr := string(*dto.Properties); propStr != "null" {
+						fmt.Fprintf(w, "  properties: %s\n", propStr)
 					}
 				}
 				if len(dto.OutgoingEdges) > 0 || len(dto.IncomingEdges) > 0 {
@@ -123,10 +131,12 @@ func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 			IsRunnable: boolVal(n.IsRunnable),
 			UpdatedAt:  n.UpdatedAt,
 		},
+		ObjectType:    n.ObjectType,
 		Description:   n.Description,
 		Abstract:      n.Abstract,
 		Content:       n.Content,
 		Data:          n.Data,
+		Properties:    n.Properties,
 		Seq:           n.Seq,
 		CreatedAt:     n.CreatedAt,
 		OutgoingEdges: []edgeRefDTO{},
