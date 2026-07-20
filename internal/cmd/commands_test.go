@@ -977,6 +977,26 @@ func TestNodeRmRequiresYesNonInteractive(t *testing.T) {
 	}
 }
 
+// The confirmation target names the subtree + hard blast radius, surfaced here
+// via the non-interactive "refusing to delete <what>" message (#239).
+func TestNodeRmRecursiveHardPromptWording(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "rm", nodeURN, "--recursive", "--hard", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected the non-interactive --yes refusal")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "subtree") || !strings.Contains(msg, "HARD") {
+		t.Errorf("recursive+hard prompt target should name the subtree and HARD blast radius, got %q", msg)
+	}
+}
+
 func TestNodeRmWithYes(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,
@@ -1022,6 +1042,131 @@ func TestNodeRmHard(t *testing.T) {
 	// The --json status distinguishes a hard delete from a soft one.
 	if !strings.Contains(out.String(), "hard-deleted") {
 		t.Errorf("--json status should be hard-deleted, got %s", out.String())
+	}
+}
+
+// #239: --recursive sends recursive:true (deleting the whole subtree); an
+// omitted --recursive must NOT reach the wire (server default = refuse on
+// descendants), mirroring the hard tri-state.
+func TestNodeRmRecursive(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"DeleteNode": `{"data":{"deleteNode":true}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "rm", nodeURN, "--recursive", "--yes", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	if err := json.Unmarshal(captured["DeleteNode"], &vars); err != nil {
+		t.Fatalf("unmarshal DeleteNode vars: %v", err)
+	}
+	if vars["recursive"] != true {
+		t.Errorf("--recursive must send recursive:true, got %v", vars["recursive"])
+	}
+	if v, present := vars["hard"]; present {
+		t.Errorf("a soft recursive delete must omit hard, got %v", v)
+	}
+	if !strings.Contains(out.String(), "and its subtree") {
+		t.Errorf("output should note the subtree, got %s", out.String())
+	}
+}
+
+// #271 review: --json must carry recursive as a real boolean (true), not the
+// string "true".
+func TestNodeRmRecursiveJSONIsBoolean(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"DeleteNode": `{"data":{"deleteNode":true}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "rm", nodeURN, "--recursive", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Recursive any `json:"recursive"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("output is not JSON: %v\n%s", err, out.String())
+	}
+	if dto.Recursive != true {
+		t.Errorf("--json recursive must be boolean true, got %T %v", dto.Recursive, dto.Recursive)
+	}
+}
+
+func TestNodeRmOmitsRecursiveWhenUnset(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"DeleteNode": `{"data":{"deleteNode":true}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "rm", nodeURN, "--yes", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	if err := json.Unmarshal(captured["DeleteNode"], &vars); err != nil {
+		t.Fatalf("unmarshal DeleteNode vars: %v", err)
+	}
+	if v, present := vars["recursive"]; present {
+		t.Errorf("omitted --recursive must not reach the wire, got %v", v)
+	}
+}
+
+// #239: a non-recursive delete of a node with descendants refuses with
+// NODE_HAS_DESCENDANTS; the CLI surfaces the count + loc + the --recursive flag
+// (not the raw "pass recursive: true" GraphQL wording), as a usage error.
+func TestNodeRmDescendantsRefusalIsActionable(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"DeleteNode": `{"errors":[{"message":"Node \"n1\" has 3 descendant(s). Pass recursive: true to delete the whole subtree.","extensions":{"code":"NODE_HAS_DESCENDANTS","count":3,"ref":"n1"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "rm", nodeURN, "--yes", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected the descendants refusal")
+	}
+	if exitcode.FromError(err) != exitcode.Usage {
+		t.Errorf("NODE_HAS_DESCENDANTS should be a usage error, got exit %d", exitcode.FromError(err))
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "3 descendant") || !strings.Contains(msg, "--recursive") {
+		t.Errorf("message should name the count and --recursive, got %q", msg)
+	}
+	// The node's loc (not the opaque PK) should anchor the message.
+	if !strings.Contains(msg, "findings:flaky-ci") {
+		t.Errorf("message should name the loc, got %q", msg)
+	}
+	// Must not leak the GraphQL-flavored "recursive: true" wording.
+	if strings.Contains(msg, "recursive: true") {
+		t.Errorf("message should not echo the raw 'recursive: true' wording, got %q", msg)
+	}
+}
+
+// A --hard delete refused for descendants suggests preserving the hard intent.
+func TestNodeRmDescendantsRefusalKeepsHard(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"DeleteNode": `{"errors":[{"message":"has descendants","extensions":{"code":"NODE_HAS_DESCENDANTS","count":2}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "rm", nodeURN, "--hard", "--yes", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "--recursive --hard") {
+		t.Errorf("a --hard refusal should suggest --recursive --hard, got %v", err)
 	}
 }
 

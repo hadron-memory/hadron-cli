@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 
@@ -160,6 +161,38 @@ func extensionCode(e *gqlerror.Error) string {
 		return code
 	}
 	return ""
+}
+
+// DescendantCount returns the descendant count carried by a
+// NODE_HAS_DESCENDANTS error (server #661: its extensions.count), or -1 when err
+// is not that error or carries no non-negative numeric count. JSON numbers decode
+// to float64, but a few other numeric shapes are tolerated. A negative or
+// non-numeric value is treated as "no count" (-1) so callers never render a
+// nonsensical "-N descendant(s)". Call it BEFORE MapError wraps the error.
+func DescendantCount(err error) int {
+	for _, e := range graphQLErrors(err) {
+		if e == nil || extensionCode(e) != "NODE_HAS_DESCENDANTS" || e.Extensions == nil {
+			continue
+		}
+		n := -1
+		switch v := e.Extensions["count"].(type) {
+		case float64:
+			n = int(v)
+		case int:
+			n = v
+		case int64:
+			n = int(v)
+		case json.Number:
+			if i, cerr := v.Int64(); cerr == nil {
+				n = int(i)
+			}
+		}
+		if n >= 0 {
+			return n
+		}
+		return -1
+	}
+	return -1
 }
 
 func codeForExtension(code string) int {
