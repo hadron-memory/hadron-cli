@@ -34,12 +34,16 @@ updated flat record.
 			if changed("fields") && changed("fields-file") {
 				return exitcode.Newf(exitcode.Usage, "--fields and --fields-file are mutually exclusive")
 			}
+			if !changed("fields") && !changed("fields-file") {
+				return exitcode.Newf(exitcode.Usage, "--fields (or --fields-file) is required")
+			}
 			fieldsArg, err := resolveJSON("--fields", fields, fieldsFile)
 			if err != nil {
 				return err
 			}
+			// Set but resolved empty — an explicit --fields "" is a bad value.
 			if fieldsArg == nil {
-				return exitcode.Newf(exitcode.Usage, "--fields (or --fields-file) is required")
+				return exitcode.Newf(exitcode.Usage, "--fields must contain a JSON object")
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {

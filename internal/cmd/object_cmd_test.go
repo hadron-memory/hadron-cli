@@ -74,6 +74,22 @@ func TestObjectCreateFieldValidation(t *testing.T) {
 	}
 }
 
+// #273 review: an explicitly-empty --fields is a "must contain JSON" error, not
+// the misleading "is required" (the flag WAS provided).
+func TestObjectCreateEmptyFieldsIsNotRequiredMessage(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"object", "create", "-m", "acme.com::m", "--type", "t", "--fields", ""})
+	err := root.Execute()
+	if err == nil || exitcode.FromError(err) != exitcode.Usage {
+		t.Fatalf("empty --fields should be a usage error, got %v", err)
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "is required") || !strings.Contains(msg, "JSON") {
+		t.Errorf("set-but-empty --fields should report a JSON error, not 'is required'; got %q", msg)
+	}
+}
+
 func TestObjectGet(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetObject": `{"data":{"object":{"id":"o1","type":"competitor","stage":"series-a"}}}`,
@@ -156,6 +172,24 @@ func TestObjectDelete(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Hard-deleted") {
 		t.Errorf("output should note hard delete, got %s", out.String())
+	}
+}
+
+// #273 review: deleteObject returning false must NOT report a phantom success —
+// it's a not-found outcome.
+func TestObjectDeleteFalseIsNotFound(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"DeleteObject": `{"data":{"deleteObject":false}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"object", "delete", "01missing", "--yes", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || exitcode.FromError(err) != exitcode.NotFound {
+		t.Fatalf("deleteObject:false should be exit 4 not-found, got %v", err)
+	}
+	if strings.Contains(out.String(), "Deleted") {
+		t.Errorf("must not print a success line on a false delete, got %s", out.String())
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -40,8 +41,16 @@ deletion is non-recursive — an object is a single record.`,
 			if hard {
 				hardArg = &hard
 			}
-			if _, err := gen.DeleteObject(cmd.Context(), client, cmdutil.CanonicalNodeRef(args[0]), hardArg); err != nil {
+			resp, err := gen.DeleteObject(cmd.Context(), client, cmdutil.CanonicalNodeRef(args[0]), hardArg)
+			if err != nil {
 				return api.MapError(err)
+			}
+			// deleteObject returns true on success; a false result means nothing was
+			// removed (no such object / already gone) — don't report a phantom
+			// success. Unlike node rm, object delete doesn't pre-resolve the ref, so
+			// this is a real outcome to surface.
+			if resp == nil || !resp.DeleteObject {
+				return exitcode.Newf(exitcode.NotFound, "object %q not found or already deleted", args[0])
 			}
 			status, verb := "deleted", "Deleted"
 			if hard {
