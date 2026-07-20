@@ -56,6 +56,10 @@ func TestDescendantCount(t *testing.T) {
 	if got := DescendantCount(noCount); got != -1 {
 		t.Errorf("missing count should be -1, got %d", got)
 	}
+	negCount := gqlerror.List{{Message: "x", Extensions: map[string]any{"code": "NODE_HAS_DESCENDANTS", "count": float64(-5)}}}
+	if got := DescendantCount(negCount); got != -1 {
+		t.Errorf("negative count should be treated as -1, got %d", got)
+	}
 	if got := DescendantCount(gqlErr("BAD_USER_INPUT")); got != -1 {
 		t.Errorf("wrong code should be -1, got %d", got)
 	}

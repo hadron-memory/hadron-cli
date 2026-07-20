@@ -13,6 +13,15 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
+// rmDTO is the stable --json shape for a delete. Recursive is a real boolean,
+// omitted when false so an ordinary delete's shape is unchanged.
+type rmDTO struct {
+	Loc       string `json:"loc"`
+	MemoryID  string `json:"memoryId"`
+	Status    string `json:"status"`
+	Recursive bool   `json:"recursive,omitempty"`
+}
+
 func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 	var yes, hard, recursive bool
 	var memory string
@@ -95,10 +104,9 @@ at --recursive.`,
 			if hard {
 				status, verb = "hard-deleted", "Hard-deleted"
 			}
-			dto := map[string]string{"loc": node.Loc, "memoryId": node.MemoryId, "status": status}
-			if recursive {
-				dto["recursive"] = "true"
-			}
+			// Explicit DTO (not a map) so --json stays a stable, correctly-typed
+			// contract: recursive is a real boolean, omitted when false.
+			dto := rmDTO{Loc: node.Loc, MemoryID: node.MemoryId, Status: status, Recursive: recursive}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				suffix := ""
 				if recursive {

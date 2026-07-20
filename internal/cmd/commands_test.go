@@ -1061,7 +1061,9 @@ func TestNodeRmRecursive(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(captured["DeleteNode"], &vars)
+	if err := json.Unmarshal(captured["DeleteNode"], &vars); err != nil {
+		t.Fatalf("unmarshal DeleteNode vars: %v", err)
+	}
 	if vars["recursive"] != true {
 		t.Errorf("--recursive must send recursive:true, got %v", vars["recursive"])
 	}
@@ -1070,6 +1072,31 @@ func TestNodeRmRecursive(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "and its subtree") {
 		t.Errorf("output should note the subtree, got %s", out.String())
+	}
+}
+
+// #271 review: --json must carry recursive as a real boolean (true), not the
+// string "true".
+func TestNodeRmRecursiveJSONIsBoolean(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"DeleteNode": `{"data":{"deleteNode":true}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "rm", nodeURN, "--recursive", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Recursive any `json:"recursive"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("output is not JSON: %v\n%s", err, out.String())
+	}
+	if dto.Recursive != true {
+		t.Errorf("--json recursive must be boolean true, got %T %v", dto.Recursive, dto.Recursive)
 	}
 }
 
@@ -1086,7 +1113,9 @@ func TestNodeRmOmitsRecursiveWhenUnset(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(captured["DeleteNode"], &vars)
+	if err := json.Unmarshal(captured["DeleteNode"], &vars); err != nil {
+		t.Fatalf("unmarshal DeleteNode vars: %v", err)
+	}
 	if v, present := vars["recursive"]; present {
 		t.Errorf("omitted --recursive must not reach the wire, got %v", v)
 	}
