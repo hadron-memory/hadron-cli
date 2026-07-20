@@ -1,0 +1,79 @@
+# Object store (cor:api:170, server #745/#747) — the legible sugar surface over
+# structured storage. An object IS a node with an objectType, projected to a flat
+# record { id, type, ...fields }; every op is a thin projection onto the node
+# write/read surface (createNode / updateNodeProperties / deleteNode / node /
+# findNodes). Objects and fields/match/where/sort are all the JSON scalar
+# (json.RawMessage), so these ops carry raw JSON in and out — the CLI validates
+# well-formedness and passes through; the server owns schema conformance,
+# reserved-field, and grammar validation (surfaced verbatim via api.MapError).
+# Backs the `hadron object` command group.
+
+# Create an object; returns the flat record. key/name are optional, so a nil
+# pointer must be omitted (not sent as null) — hence the per-var omitempty.
+mutation CreateObject(
+  $memoryRef: String!
+  $objectType: String!
+  $fields: JSON!
+  # @genqlient(omitempty: true)
+  $key: String
+  # @genqlient(omitempty: true)
+  $name: String
+) {
+  createObject(memoryRef: $memoryRef, type: $objectType, fields: $fields, key: $key, name: $name)
+}
+
+# Read one object by id or node URN; the JSON is null when not found/inaccessible.
+query GetObject($ref: ID!) {
+  object(ref: $ref)
+}
+
+# Atomic server-side shallow merge of fields into the object; returns the merged
+# flat record. reason is optional (recorded in revision history).
+mutation UpdateObject(
+  $ref: ID!
+  $fields: JSON!
+  # @genqlient(omitempty: true)
+  $reason: String
+) {
+  updateObject(ref: $ref, fields: $fields, reason: $reason)
+}
+
+# Soft-delete by default; hard: true removes the row. Omitted when false so a
+# soft delete never sends an explicit hard: null.
+mutation DeleteObject(
+  $ref: ID!
+  # @genqlient(omitempty: true)
+  $hard: Boolean
+) {
+  deleteObject(ref: $ref, hard: $hard)
+}
+
+# Query a collection; returns { objects, total }. match/where/sort/limit/offset
+# are optional — nil pointers omitted so an unset filter applies no constraint.
+query FindObjects(
+  $memoryRef: String!
+  $objectType: String!
+  # @genqlient(omitempty: true)
+  $match: JSON
+  # @genqlient(omitempty: true)
+  $where: JSON
+  # @genqlient(omitempty: true)
+  $sort: JSON
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  findObjects(
+    memoryRef: $memoryRef
+    type: $objectType
+    match: $match
+    where: $where
+    sort: $sort
+    limit: $limit
+    offset: $offset
+  ) {
+    objects
+    total
+  }
+}

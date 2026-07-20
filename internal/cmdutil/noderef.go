@@ -56,6 +56,25 @@ func ResolveNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref strin
 	return ResolveNodeURN(cmd, client, ref)
 }
 
+// CanonicalNodeRef canonicalizes a node reference for a server op that itself
+// accepts an ID or a URN (spec 007 dispatch) — e.g. the object store's
+// object(ref:)/updateObject/deleteObject, which forward ref to node(ref:). A
+// scheme-prefixed URN passes through, a bare/legacy fully-qualified node URN
+// (<org>::<memory>::<loc>) gets the canonical hrn:node: prefix, and a raw id (or
+// any unrecognized shape) is left for the server to resolve. Unlike
+// ResolveNodeURN it does NOT round-trip through resolveUrn, so a raw object id
+// works without a lookup and without being rejected as "not a URN".
+func CanonicalNodeRef(ref string) string {
+	ref = strings.TrimSpace(ref)
+	if urnlib.HasSchemePrefix(ref) {
+		return ref
+	}
+	if strings.Count(ref, "::") >= 2 && urnlib.AssertFullyQualifiedUrn(ref, "node") == nil {
+		return "hrn:node:" + ref
+	}
+	return ref // raw id or an unrecognized shape — let the server decide
+}
+
 // ResolveNodeURN turns a fully-qualified node URN into a node ID via
 // Query.resolveUrn. Bare locs are rejected client-side with a usage
 // error: node references always name the memory (same-loc collisions

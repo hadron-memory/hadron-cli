@@ -62,6 +62,7 @@ node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 hadron auth login | logout | whoami | status | token create|ls|validate|revoke <id>
 hadron memory ls | get <id-or-urn> | set [<id-or-urn>] [--max-rev-count <n>] [--schema <json> | --schema-file <path>] [--app <ref> --agent <ref>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn <org::slug> | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <id> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
 hadron node ls [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--sort-seq asc|desc] [--seq-gt N] | get <urn> | add [--type <t>] [--object-type <t>] [--data <json>|--data-file <path>] [--properties <json>|--properties-file <path>] | update <urn> [--type <t>] [--object-type <t>|""] [--data <json>|--data-file <path>|--data-merge <json>|--data-merge-file <path>] [--properties <json>|--properties-file <path>] | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] [--recursive|-r] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
+hadron object create -m <memory> --type <t> --fields <json>|--fields-file <path> [--key <k>] [--name <n>] | get <ref> | update <ref> --fields <json>|--fields-file <path> [--reason <r>] | delete <ref> [--hard] --yes | find -m <memory> --type <t> [--match <json>] [--where <json>] [--sort <json>] [--limit N] [--offset N]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
 hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--reply-to <loc>] [--handle <h>] [--identity <i>] [--role <r>]
 hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--limit N] [--offset N] [-l|--long] [--json]
@@ -541,6 +542,19 @@ hadron node update acme.com::research::competitors:acme --properties '{"tier":"p
 # --properties-merge yet (blocked on the server-side updateNodeProperties
 # mutation, hadron-server#742). Schema + properties work on encrypted memories
 # too (both are plaintext).
+
+# The `object` group is the legible, collection-oriented sugar over the same
+# structured storage (#745). An object IS a node with an objectType, presented
+# as a flat record { id, type, ...fields } — id/type reserved, loc/name hidden.
+# create validates against the schema; update is an atomic shallow MERGE (unlike
+# node --properties, which replaces); find desugars --match/--sort to the
+# where/sort-property grammar. Use it when you want records, not graph nodes.
+hadron object create -m acme.com::research --type competitor \
+  --fields '{"name":"Letta","stage":"series-a","fundingUsd":12000000}' --key letta
+hadron object update acme.com::research::competitor:letta --fields '{"stage":"series-b"}'
+hadron object find -m acme.com::research --type competitor \
+  --match '{"stage":"series-b"}' --sort '{"fundingUsd":"desc"}' --json
+hadron object get acme.com::research::competitor:letta   # flat { id, type, ...fields }
 
 # Move a node (keeps its id + edges); clone it to a new memory (new id)
 hadron node move acme.com::kb::findings:flaky-ci --to-urn acme.com::kb::archive:flaky-ci

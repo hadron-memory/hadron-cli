@@ -4627,6 +4627,15 @@ type CreateNodeResponse struct {
 // GetCreateNode returns CreateNodeResponse.CreateNode, and is useful for accessing the field via an interface.
 func (v *CreateNodeResponse) GetCreateNode() *CreateNodeCreateNode { return v.CreateNode }
 
+// CreateObjectResponse is returned by CreateObject on success.
+type CreateObjectResponse struct {
+	// #745 — create an object in a collection (object store; sugar over structured storage). memoryRef is a memory ID or fully-qualified URN; type is the collection (node objectType); fields are the flat typed properties (validated against the memory schema when declared). loc is auto-derived (<type>:<key>) and hidden; key gives a human-meaningful id (a single segment, no ':'), name overrides the derived node name. id and type are reserved field names. Returns the flat object.
+	CreateObject json.RawMessage `json:"createObject"`
+}
+
+// GetCreateObject returns CreateObjectResponse.CreateObject, and is useful for accessing the field via an interface.
+func (v *CreateObjectResponse) GetCreateObject() json.RawMessage { return v.CreateObject }
+
 // CreateOrganizationCreateOrganization includes the requested fields of the GraphQL type Organization.
 type CreateOrganizationCreateOrganization struct {
 	OrgFields `json:"-"`
@@ -5360,6 +5369,15 @@ type DeleteNodeRevisionResponse struct {
 // GetDeleteNodeRevision returns DeleteNodeRevisionResponse.DeleteNodeRevision, and is useful for accessing the field via an interface.
 func (v *DeleteNodeRevisionResponse) GetDeleteNodeRevision() bool { return v.DeleteNodeRevision }
 
+// DeleteObjectResponse is returned by DeleteObject on success.
+type DeleteObjectResponse struct {
+	// #745 — delete an object (soft by default; hard: true removes the row). ref is the object id or node URN. Non-recursive. Returns true on success.
+	DeleteObject bool `json:"deleteObject"`
+}
+
+// GetDeleteObject returns DeleteObjectResponse.DeleteObject, and is useful for accessing the field via an interface.
+func (v *DeleteObjectResponse) GetDeleteObject() bool { return v.DeleteObject }
+
 // DeleteOrganizationResponse is returned by DeleteOrganization on success.
 type DeleteOrganizationResponse struct {
 	// Soft-delete an Organization.
@@ -5779,6 +5797,34 @@ type FindNodesResponse struct {
 
 // GetFindNodes returns FindNodesResponse.FindNodes, and is useful for accessing the field via an interface.
 func (v *FindNodesResponse) GetFindNodes() *FindNodesFindNodesFindNodesResult { return v.FindNodes }
+
+// FindObjectsFindObjectsObjectList includes the requested fields of the GraphQL type ObjectList.
+// The GraphQL type's documentation follows.
+//
+// #745 — a page of objects from the object store. Each object is a flat JSON
+// record { id, type, ...fields } (the projection of a node). 'total' is the full
+// match count (null when unbounded).
+type FindObjectsFindObjectsObjectList struct {
+	Objects []json.RawMessage `json:"objects"`
+	Total   *int              `json:"total"`
+}
+
+// GetObjects returns FindObjectsFindObjectsObjectList.Objects, and is useful for accessing the field via an interface.
+func (v *FindObjectsFindObjectsObjectList) GetObjects() []json.RawMessage { return v.Objects }
+
+// GetTotal returns FindObjectsFindObjectsObjectList.Total, and is useful for accessing the field via an interface.
+func (v *FindObjectsFindObjectsObjectList) GetTotal() *int { return v.Total }
+
+// FindObjectsResponse is returned by FindObjects on success.
+type FindObjectsResponse struct {
+	// #745 — query a collection in the object store. Returns objects of the given type (the collection / node objectType) in the memory, projected flat, plus a count. match is an equality shorthand ({ field: value }) desugared to a where predicate (cast inferred from the memory schema); where is the full #719 predicate (ANDed with match); sort is a single-field shorthand ({ field: 'asc' | 'desc' }) desugared to a property-path sort.
+	FindObjects *FindObjectsFindObjectsObjectList `json:"findObjects"`
+}
+
+// GetFindObjects returns FindObjectsResponse.FindObjects, and is useful for accessing the field via an interface.
+func (v *FindObjectsResponse) GetFindObjects() *FindObjectsFindObjectsObjectList {
+	return v.FindObjects
+}
 
 // GetAgentAgent includes the requested fields of the GraphQL type Agent.
 type GetAgentAgent struct {
@@ -6360,6 +6406,15 @@ type GetNodeResponse struct {
 
 // GetNode returns GetNodeResponse.Node, and is useful for accessing the field via an interface.
 func (v *GetNodeResponse) GetNode() *GetNodeNode { return v.Node }
+
+// GetObjectResponse is returned by GetObject on success.
+type GetObjectResponse struct {
+	// #745 — read one object by its id (the object store's flat projection of a node). Returns a JSON object { id, type, ...fields } or null if not found/inaccessible. The object store is the legible sugar surface over structured storage (an object IS a node); see createObject / findObjects.
+	Object *json.RawMessage `json:"object"`
+}
+
+// GetObject returns GetObjectResponse.Object, and is useful for accessing the field via an interface.
+func (v *GetObjectResponse) GetObject() *json.RawMessage { return v.Object }
 
 // GetOrganizationOrganization includes the requested fields of the GraphQL type Organization.
 type GetOrganizationOrganization struct {
@@ -12548,6 +12603,15 @@ func (v *UpdateNodeUpdateNode) GetIsRunnable() *bool { return v.IsRunnable }
 // GetUpdatedAt returns UpdateNodeUpdateNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateNodeUpdateNode) GetUpdatedAt() string { return v.UpdatedAt }
 
+// UpdateObjectResponse is returned by UpdateObject on success.
+type UpdateObjectResponse struct {
+	// #745 — merge fields into an existing object (atomic server-side shallow merge + schema conformance on the result). ref is the object id or node URN; fields wins on key collision, unmentioned keys preserved. Returns the updated flat object.
+	UpdateObject json.RawMessage `json:"updateObject"`
+}
+
+// GetUpdateObject returns UpdateObjectResponse.UpdateObject, and is useful for accessing the field via an interface.
+func (v *UpdateObjectResponse) GetUpdateObject() json.RawMessage { return v.UpdateObject }
+
 // UpdateOrgMemberResponse is returned by UpdateOrgMember on success.
 type UpdateOrgMemberResponse struct {
 	// Accepts the entity's ID or URN (orgId).
@@ -13383,6 +13447,30 @@ type __CreateNodeInput struct {
 // GetInput returns __CreateNodeInput.Input, and is useful for accessing the field via an interface.
 func (v *__CreateNodeInput) GetInput() *CreateNodeInput { return v.Input }
 
+// __CreateObjectInput is used internally by genqlient
+type __CreateObjectInput struct {
+	MemoryRef  string          `json:"memoryRef"`
+	ObjectType string          `json:"objectType"`
+	Fields     json.RawMessage `json:"fields"`
+	Key        *string         `json:"key,omitempty"`
+	Name       *string         `json:"name,omitempty"`
+}
+
+// GetMemoryRef returns __CreateObjectInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__CreateObjectInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetObjectType returns __CreateObjectInput.ObjectType, and is useful for accessing the field via an interface.
+func (v *__CreateObjectInput) GetObjectType() string { return v.ObjectType }
+
+// GetFields returns __CreateObjectInput.Fields, and is useful for accessing the field via an interface.
+func (v *__CreateObjectInput) GetFields() json.RawMessage { return v.Fields }
+
+// GetKey returns __CreateObjectInput.Key, and is useful for accessing the field via an interface.
+func (v *__CreateObjectInput) GetKey() *string { return v.Key }
+
+// GetName returns __CreateObjectInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateObjectInput) GetName() *string { return v.Name }
+
 // __CreateOrganizationInput is used internally by genqlient
 type __CreateOrganizationInput struct {
 	Name string `json:"name"`
@@ -13583,6 +13671,18 @@ type __DeleteNodeRevisionInput struct {
 // GetRevisionId returns __DeleteNodeRevisionInput.RevisionId, and is useful for accessing the field via an interface.
 func (v *__DeleteNodeRevisionInput) GetRevisionId() string { return v.RevisionId }
 
+// __DeleteObjectInput is used internally by genqlient
+type __DeleteObjectInput struct {
+	Ref  string `json:"ref"`
+	Hard *bool  `json:"hard,omitempty"`
+}
+
+// GetRef returns __DeleteObjectInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteObjectInput) GetRef() string { return v.Ref }
+
+// GetHard returns __DeleteObjectInput.Hard, and is useful for accessing the field via an interface.
+func (v *__DeleteObjectInput) GetHard() *bool { return v.Hard }
+
 // __DeleteOrganizationInput is used internally by genqlient
 type __DeleteOrganizationInput struct {
 	Id string `json:"id"`
@@ -13671,6 +13771,38 @@ func (v *__FindNodesInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __FindNodesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__FindNodesInput) GetOffset() *int { return v.Offset }
 
+// __FindObjectsInput is used internally by genqlient
+type __FindObjectsInput struct {
+	MemoryRef  string           `json:"memoryRef"`
+	ObjectType string           `json:"objectType"`
+	Match      *json.RawMessage `json:"match,omitempty"`
+	Where      *json.RawMessage `json:"where,omitempty"`
+	Sort       *json.RawMessage `json:"sort,omitempty"`
+	Limit      *int             `json:"limit,omitempty"`
+	Offset     *int             `json:"offset,omitempty"`
+}
+
+// GetMemoryRef returns __FindObjectsInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__FindObjectsInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetObjectType returns __FindObjectsInput.ObjectType, and is useful for accessing the field via an interface.
+func (v *__FindObjectsInput) GetObjectType() string { return v.ObjectType }
+
+// GetMatch returns __FindObjectsInput.Match, and is useful for accessing the field via an interface.
+func (v *__FindObjectsInput) GetMatch() *json.RawMessage { return v.Match }
+
+// GetWhere returns __FindObjectsInput.Where, and is useful for accessing the field via an interface.
+func (v *__FindObjectsInput) GetWhere() *json.RawMessage { return v.Where }
+
+// GetSort returns __FindObjectsInput.Sort, and is useful for accessing the field via an interface.
+func (v *__FindObjectsInput) GetSort() *json.RawMessage { return v.Sort }
+
+// GetLimit returns __FindObjectsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__FindObjectsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __FindObjectsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__FindObjectsInput) GetOffset() *int { return v.Offset }
+
 // __GetAgentInput is used internally by genqlient
 type __GetAgentInput struct {
 	Ref string `json:"ref"`
@@ -13702,6 +13834,14 @@ type __GetNodeInput struct {
 
 // GetRef returns __GetNodeInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetNodeInput) GetRef() string { return v.Ref }
+
+// __GetObjectInput is used internally by genqlient
+type __GetObjectInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetObjectInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetObjectInput) GetRef() string { return v.Ref }
 
 // __GetOrganizationInput is used internally by genqlient
 type __GetOrganizationInput struct {
@@ -14446,6 +14586,22 @@ func (v *__UpdateNodeRevisionInput) GetRevisionId() string { return v.RevisionId
 
 // GetRevLabel returns __UpdateNodeRevisionInput.RevLabel, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeRevisionInput) GetRevLabel() *string { return v.RevLabel }
+
+// __UpdateObjectInput is used internally by genqlient
+type __UpdateObjectInput struct {
+	Ref    string          `json:"ref"`
+	Fields json.RawMessage `json:"fields"`
+	Reason *string         `json:"reason,omitempty"`
+}
+
+// GetRef returns __UpdateObjectInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateObjectInput) GetRef() string { return v.Ref }
+
+// GetFields returns __UpdateObjectInput.Fields, and is useful for accessing the field via an interface.
+func (v *__UpdateObjectInput) GetFields() json.RawMessage { return v.Fields }
+
+// GetReason returns __UpdateObjectInput.Reason, and is useful for accessing the field via an interface.
+func (v *__UpdateObjectInput) GetReason() *string { return v.Reason }
 
 // __UpdateOrgMemberInput is used internally by genqlient
 type __UpdateOrgMemberInput struct {
@@ -16152,6 +16308,48 @@ func CreateNode(
 	return data_, err_
 }
 
+// The mutation executed by CreateObject.
+const CreateObject_Operation = `
+mutation CreateObject ($memoryRef: String!, $objectType: String!, $fields: JSON!, $key: String, $name: String) {
+	createObject(memoryRef: $memoryRef, type: $objectType, fields: $fields, key: $key, name: $name)
+}
+`
+
+// Create an object; returns the flat record. key/name are optional, so a nil
+// pointer must be omitted (not sent as null) — hence the per-var omitempty.
+func CreateObject(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	objectType string,
+	fields json.RawMessage,
+	key *string,
+	name *string,
+) (data_ *CreateObjectResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateObject",
+		Query:  CreateObject_Operation,
+		Variables: &__CreateObjectInput{
+			MemoryRef:  memoryRef,
+			ObjectType: objectType,
+			Fields:     fields,
+			Key:        key,
+			Name:       name,
+		},
+	}
+
+	data_ = &CreateObjectResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateOrganization.
 const CreateOrganization_Operation = `
 mutation CreateOrganization ($name: String!, $urn: String!) {
@@ -16780,6 +16978,42 @@ func DeleteNodeRevision(
 	return data_, err_
 }
 
+// The mutation executed by DeleteObject.
+const DeleteObject_Operation = `
+mutation DeleteObject ($ref: ID!, $hard: Boolean) {
+	deleteObject(ref: $ref, hard: $hard)
+}
+`
+
+// Soft-delete by default; hard: true removes the row. Omitted when false so a
+// soft delete never sends an explicit hard: null.
+func DeleteObject(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	hard *bool,
+) (data_ *DeleteObjectResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteObject",
+		Query:  DeleteObject_Operation,
+		Variables: &__DeleteObjectInput{
+			Ref:  ref,
+			Hard: hard,
+		},
+	}
+
+	data_ = &DeleteObjectResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by DeleteOrganization.
 const DeleteOrganization_Operation = `
 mutation DeleteOrganization ($id: ID!) {
@@ -17069,6 +17303,55 @@ func FindNodes(
 	return data_, err_
 }
 
+// The query executed by FindObjects.
+const FindObjects_Operation = `
+query FindObjects ($memoryRef: String!, $objectType: String!, $match: JSON, $where: JSON, $sort: JSON, $limit: Int, $offset: Int) {
+	findObjects(memoryRef: $memoryRef, type: $objectType, match: $match, where: $where, sort: $sort, limit: $limit, offset: $offset) {
+		objects
+		total
+	}
+}
+`
+
+// Query a collection; returns { objects, total }. match/where/sort/limit/offset
+// are optional — nil pointers omitted so an unset filter applies no constraint.
+func FindObjects(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	objectType string,
+	match *json.RawMessage,
+	where *json.RawMessage,
+	sort *json.RawMessage,
+	limit *int,
+	offset *int,
+) (data_ *FindObjectsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "FindObjects",
+		Query:  FindObjects_Operation,
+		Variables: &__FindObjectsInput{
+			MemoryRef:  memoryRef,
+			ObjectType: objectType,
+			Match:      match,
+			Where:      where,
+			Sort:       sort,
+			Limit:      limit,
+			Offset:     offset,
+		},
+	}
+
+	data_ = &FindObjectsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by GetAgent.
 const GetAgent_Operation = `
 query GetAgent ($ref: ID!) {
@@ -17286,6 +17569,39 @@ func GetNode(
 	}
 
 	data_ = &GetNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetObject.
+const GetObject_Operation = `
+query GetObject ($ref: ID!) {
+	object(ref: $ref)
+}
+`
+
+// Read one object by id or node URN; the JSON is null when not found/inaccessible.
+func GetObject(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetObjectResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetObject",
+		Query:  GetObject_Operation,
+		Variables: &__GetObjectInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetObjectResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -19979,6 +20295,44 @@ func UpdateNodeRevision(
 	}
 
 	data_ = &UpdateNodeRevisionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateObject.
+const UpdateObject_Operation = `
+mutation UpdateObject ($ref: ID!, $fields: JSON!, $reason: String) {
+	updateObject(ref: $ref, fields: $fields, reason: $reason)
+}
+`
+
+// Atomic server-side shallow merge of fields into the object; returns the merged
+// flat record. reason is optional (recorded in revision history).
+func UpdateObject(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	fields json.RawMessage,
+	reason *string,
+) (data_ *UpdateObjectResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateObject",
+		Query:  UpdateObject_Operation,
+		Variables: &__UpdateObjectInput{
+			Ref:    ref,
+			Fields: fields,
+			Reason: reason,
+		},
+	}
+
+	data_ = &UpdateObjectResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
