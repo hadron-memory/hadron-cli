@@ -24,6 +24,7 @@ import (
 	mcpservercmd "github.com/hadron-memory/hadron-cli/internal/cmd/mcpserver"
 	memorycmd "github.com/hadron-memory/hadron-cli/internal/cmd/memory"
 	nodecmd "github.com/hadron-memory/hadron-cli/internal/cmd/node"
+	objectcmd "github.com/hadron-memory/hadron-cli/internal/cmd/object"
 	orgcmd "github.com/hadron-memory/hadron-cli/internal/cmd/org"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/replacecmd"
 	runcmd "github.com/hadron-memory/hadron-cli/internal/cmd/run"
@@ -61,6 +62,7 @@ func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	root.AddCommand(authcmd.NewCmdAuth(f))
 	root.AddCommand(memorycmd.NewCmdMemory(f))
 	root.AddCommand(nodecmd.NewCmdNode(f))
+	root.AddCommand(objectcmd.NewCmdObject(f))
 	root.AddCommand(searchcmd.NewCmdSearch(f))
 	root.AddCommand(edgecmd.NewCmdEdge(f))
 	root.AddCommand(taskcmd.NewCmdTask(f))

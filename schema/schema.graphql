@@ -2227,6 +2227,11 @@ type Mutation {
   'name' is required here and only here (D4).
   """
   createNode(input: CreateNodeInput!): Node!
+
+  """
+  #745 — create an object in a collection (object store; sugar over structured storage). memoryRef is a memory ID or fully-qualified URN; type is the collection (node objectType); fields are the flat typed properties (validated against the memory schema when declared). loc is auto-derived (<type>:<key>) and hidden; key gives a human-meaningful id (a single segment, no ':'), name overrides the derived node name. id and type are reserved field names. Returns the flat object.
+  """
+  createObject(memoryRef: String!, type: String!, fields: JSON!, key: String, name: String): JSON!
   createOrganization(name: String!, urn: String!): Organization!
 
   """
@@ -2334,6 +2339,9 @@ type Mutation {
   """
   deleteMemorySubscription(memoryId: ID!, orgId: ID!): Boolean!
   deleteNode(cascadeCrossMemoryEdges: Boolean, hard: Boolean, nodeRef: ID!, recursive: Boolean): Boolean!
+
+  """#745 — delete an object (soft by default; hard: true removes the row). ref is the object id or node URN. Non-recursive. Returns true on success."""
+  deleteObject(ref: ID!, hard: Boolean): Boolean!
   deleteNodeRevision(revisionId: ID!): Boolean!
 
   """
@@ -2899,6 +2907,9 @@ type Mutation {
   """
   updateNode(input: UpdateNodeInput!): Node!
   updateNodeData(data: JSON!, nodeRef: ID!, reason: String): Node!
+
+  """#745 — merge fields into an existing object (atomic server-side shallow merge + schema conformance on the result). ref is the object id or node URN; fields wins on key collision, unmentioned keys preserved. Returns the updated flat object."""
+  updateObject(ref: ID!, fields: JSON!, reason: String): JSON!
   updateNodeRevision(revLabel: String, revisionId: ID!): NodeRevision!
 
   """
@@ -3418,6 +3429,16 @@ input NodeWhereInput {
   contains: JSON
 }
 
+"""
+#745 — a page of objects from the object store. Each object is a flat JSON
+record { id, type, ...fields } (the projection of a node). 'total' is the full
+match count (null when unbounded).
+"""
+type ObjectList {
+  objects: [JSON!]!
+  total: Int
+}
+
 type OrgMember {
   canInvite: Boolean!
   createdAt: String!
@@ -3865,6 +3886,11 @@ type Query {
   globalSearch(entityTypes: [SearchEntityType!], fields: [SearchField!], limit: Int, offset: Int, orgId: ID, query: String!): GlobalSearchResult!
 
   """
+  #745 — query a collection in the object store. Returns objects of the given type (the collection / node objectType) in the memory, projected flat, plus a count. match is an equality shorthand ({ field: value }) desugared to a where predicate (cast inferred from the memory schema); where is the full #719 predicate (ANDed with match); sort is a single-field shorthand ({ field: 'asc' | 'desc' }) desugared to a property-path sort.
+  """
+  findObjects(memoryRef: String!, type: String!, match: JSON, where: JSON, sort: JSON, limit: Int, offset: Int): ObjectList!
+
+  """
   Fetch one registered Home Assistant instance (org member). Null when
   the row does not exist OR the caller is not a member of its org — no
   existence disclosure.
@@ -4075,6 +4101,11 @@ type Query {
   """
   nodeRevisions(limit: Int, nodeRef: ID!): [NodeRevision!]!
   nodeUsage(limit: Int, loc: String!): [UsageEvent!]!
+
+  """
+  #745 — read one object by its id (the object store's flat projection of a node). Returns a JSON object { id, type, ...fields } or null if not found/inaccessible. The object store is the legible sugar surface over structured storage (an object IS a node); see createObject / findObjects.
+  """
+  object(ref: ID!): JSON
 
   """
   Fetch an Organization (org member or platform ADMIN).
