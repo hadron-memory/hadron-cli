@@ -42,6 +42,28 @@ func TestMapError(t *testing.T) {
 	}
 }
 
+// #239: DescendantCount extracts extensions.count from a NODE_HAS_DESCENDANTS
+// error (JSON numbers arrive as float64), and returns -1 for anything else.
+func TestDescendantCount(t *testing.T) {
+	withCount := gqlerror.List{{
+		Message:    "has descendants",
+		Extensions: map[string]any{"code": "NODE_HAS_DESCENDANTS", "count": float64(7)},
+	}}
+	if got := DescendantCount(withCount); got != 7 {
+		t.Errorf("count = %d, want 7", got)
+	}
+	noCount := gqlerror.List{{Message: "x", Extensions: map[string]any{"code": "NODE_HAS_DESCENDANTS"}}}
+	if got := DescendantCount(noCount); got != -1 {
+		t.Errorf("missing count should be -1, got %d", got)
+	}
+	if got := DescendantCount(gqlErr("BAD_USER_INPUT")); got != -1 {
+		t.Errorf("wrong code should be -1, got %d", got)
+	}
+	if got := DescendantCount(errors.New("plain")); got != -1 {
+		t.Errorf("plain error should be -1, got %d", got)
+	}
+}
+
 // A curated command hitting a schema-validation failure (the CLI and server
 // disagree on the schema) gets one actionable, direction-NEUTRAL line — not the
 // raw envelope — and includes the server's message (#136).

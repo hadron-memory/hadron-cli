@@ -13561,8 +13561,9 @@ func (v *__DeleteMemorySubscriptionInput) GetOrgId() string { return v.OrgId }
 
 // __DeleteNodeInput is used internally by genqlient
 type __DeleteNodeInput struct {
-	NodeRef string `json:"nodeRef"`
-	Hard    *bool  `json:"hard,omitempty"`
+	NodeRef   string `json:"nodeRef"`
+	Hard      *bool  `json:"hard,omitempty"`
+	Recursive *bool  `json:"recursive,omitempty"`
 }
 
 // GetNodeRef returns __DeleteNodeInput.NodeRef, and is useful for accessing the field via an interface.
@@ -13570,6 +13571,9 @@ func (v *__DeleteNodeInput) GetNodeRef() string { return v.NodeRef }
 
 // GetHard returns __DeleteNodeInput.Hard, and is useful for accessing the field via an interface.
 func (v *__DeleteNodeInput) GetHard() *bool { return v.Hard }
+
+// GetRecursive returns __DeleteNodeInput.Recursive, and is useful for accessing the field via an interface.
+func (v *__DeleteNodeInput) GetRecursive() *bool { return v.Recursive }
 
 // __DeleteNodeRevisionInput is used internally by genqlient
 type __DeleteNodeRevisionInput struct {
@@ -16702,26 +16706,32 @@ func DeleteMemorySubscription(
 
 // The mutation executed by DeleteNode.
 const DeleteNode_Operation = `
-mutation DeleteNode ($nodeRef: ID!, $hard: Boolean) {
-	deleteNode(nodeRef: $nodeRef, hard: $hard)
+mutation DeleteNode ($nodeRef: ID!, $hard: Boolean, $recursive: Boolean) {
+	deleteNode(nodeRef: $nodeRef, hard: $hard, recursive: $recursive)
 }
 `
 
 // Soft-delete by default (sets deletedAt; recoverable via version history).
 // hard: true removes the row entirely — cascades edges + NodeVersion, irreversible
-// (#391). Omitted when false so a soft delete never sends an explicit hard: null.
+// (#391). recursive: true deletes the node PLUS every descendant under its loc
+// prefix; a plain (non-recursive) delete of a node that HAS descendants REFUSES
+// with a typed NODE_HAS_DESCENDANTS error carrying the count (#239, server #661).
+// Both flags are omitted when false so a soft/non-recursive delete never sends an
+// explicit null.
 func DeleteNode(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	nodeRef string,
 	hard *bool,
+	recursive *bool,
 ) (data_ *DeleteNodeResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteNode",
 		Query:  DeleteNode_Operation,
 		Variables: &__DeleteNodeInput{
-			NodeRef: nodeRef,
-			Hard:    hard,
+			NodeRef:   nodeRef,
+			Hard:      hard,
+			Recursive: recursive,
 		},
 	}
 
