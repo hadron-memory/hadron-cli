@@ -71,6 +71,14 @@ func newCmdImport(f *cmdutil.Factory) *cobra.Command {
 		withEdges  bool
 		createOnly bool
 		dryRun     bool
+		// Recursive-mode (directory-tree) flags.
+		recursive   bool
+		under       string
+		onConflict  string
+		include     []string
+		exclude     []string
+		hidden      bool
+		maxFileSize int64
 		// Content-mode (importNode) flags.
 		asContent      bool
 		url            string
@@ -88,9 +96,9 @@ func newCmdImport(f *cmdutil.Factory) *cobra.Command {
 		yes bool
 	)
 	cmd := &cobra.Command{
-		Use:   "import [<file>|-]",
-		Short: "Import a node — reconstitute an export file, or ingest external content (URL/HTML/Markdown/PDF)",
-		Long: `Import into a node. Two modes:
+		Use:   "import [<file>|<dir>|-]",
+		Short: "Import a node — reconstitute an export file, ingest external content, or map a directory tree",
+		Long: `Import into a node. Three modes:
 
 RESTORE (default) — reconstitute a node-export file produced by ` + "`hadron node export`" + `
 (frontmatter-markdown, or ` + "`--format json`" + `). A node already at the target loc is
@@ -118,18 +126,47 @@ kept). Like the destructive commands, that prompts on a terminal and requires
 the server mints a MANUAL run (the imported node's URN is passed to the task)
 and this prints the run id — follow it with 'hadron run get <id>'. --task-args
 adds template args and --app names the App to run under (default: your active
-App).`,
+App).
+
+RECURSIVE (-r) — map a local DIRECTORY tree into the memory graph: each
+directory becomes a branch node, each text file a leaf node (loc = slugified
+path without the extension; name = filename), and the directory hierarchy
+becomes parent→child 'contains' edges. A directory's README.md / index.md folds
+into that directory's node instead of a separate child. Binary files are skipped
+and reported. Import is create-only: an existing loc is an error unless
+--on-conflict skip. --under <loc> roots the tree under a prefix; --include /
+--exclude globs, --hidden, and --max-file-size filter the walk; --dry-run prints
+the plan without writing.`,
 		Example: `  hadron node import flaky.md                        # restore a node-export file
   hadron node export acme.com::kb::x | hadron node import -m acme.com::kb2 -
   hadron node import paper.pdf -m acme.com::kb --loc papers:attention
   hadron node import --url https://example.com/post -m acme.com::kb --loc clips:post
   hadron node import notes.md --as-content -m acme.com::kb --loc notes:today
-  hadron node import --url https://ex.com/p -m acme.com::kb --loc clips:p --task acme.com::kb::tasks:distill --app acme.com:ops`,
+  hadron node import --url https://ex.com/p -m acme.com::kb --loc clips:p --task acme.com::kb::tasks:distill --app acme.com:ops
+  hadron node import -r ./docs -m acme.com::kb --dry-run        # preview the tree it would create
+  hadron node import -r ./docs -m acme.com::kb --under manuals --exclude '**/*.tmp'`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var srcPath string
 			if len(args) == 1 {
 				srcPath = args[0]
+			}
+
+			// Recursive mode takes priority: map a directory tree into the
+			// memory graph. Its arg is a directory, not a file/stdin.
+			if recursive {
+				if srcPath == "" || srcPath == "-" {
+					return exitcode.Newf(exitcode.Usage, "recursive import (-r) needs a directory path argument")
+				}
+				treeReject := []string{"format", "with-edges", "create-only", "url", "as-content", "content-type", "name", "node", "properties", "properties-file", "task", "task-args", "app", "loc"}
+				if err := rejectFlags(cmd, treeReject, "does not apply to recursive directory import (-r)"); err != nil {
+					return err
+				}
+				return runImportTree(cmd, f, treeImportOpts{
+					dir: srcPath, memory: memory, under: under, nodeType: nodeType,
+					onConflict: onConflict, include: include, exclude: exclude,
+					hidden: hidden, maxFileSize: maxFileSize, dryRun: dryRun,
+				})
 			}
 
 			// Mode dispatch. Content mode is selected explicitly (--url,
@@ -167,7 +204,14 @@ App).`,
 	cmd.Flags().StringVar(&format, "format", "md", "restore: input format, md or json (inferred from the file extension when unset)")
 	cmd.Flags().BoolVar(&withEdges, "with-edges", false, "restore: also wire the file's outgoing edges (best-effort)")
 	cmd.Flags().BoolVar(&createOnly, "create-only", false, "restore: fail if the loc already exists (no update)")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "restore: parse and classify without mutating")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "restore/recursive: parse and plan without mutating")
+	cmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "recursive: import a directory tree (dirs→branch nodes, text files→leaf nodes, hierarchy→contains edges)")
+	cmd.Flags().StringVar(&under, "under", "", "recursive: loc prefix to root the imported tree under (default: the directory's name)")
+	cmd.Flags().StringVar(&onConflict, "on-conflict", "error", "recursive: error|skip when a target loc already exists")
+	cmd.Flags().StringArrayVar(&include, "include", nil, "recursive: only import files matching this glob, relative to the root (repeatable)")
+	cmd.Flags().StringArrayVar(&exclude, "exclude", nil, "recursive: skip files/dirs matching this glob, relative to the root (repeatable)")
+	cmd.Flags().BoolVar(&hidden, "hidden", false, "recursive: include dotfiles/dot-directories (skipped by default; .git always skipped)")
+	cmd.Flags().Int64Var(&maxFileSize, "max-file-size", 1<<20, "recursive: skip text files larger than this many bytes")
 	cmd.Flags().BoolVar(&asContent, "as-content", false, "content: ingest the file/stdin as raw content (convert server-side) instead of restoring an export file")
 	cmd.Flags().StringVar(&url, "url", "", "content: fetch this URL server-side as the source (instead of a file/stdin)")
 	cmd.Flags().StringVar(&nodeURN, "node", "", "content: target node URN (instead of -m/--memory + --loc)")

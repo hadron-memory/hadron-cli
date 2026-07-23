@@ -4,6 +4,7 @@ go 1.26.5
 
 require (
 	github.com/Khan/genqlient v0.8.1
+	github.com/bmatcuk/doublestar/v4 v4.6.1
 	github.com/gofrs/flock v0.13.0
 	github.com/hadron-memory/urn-lib-go v0.0.0-20260717002612-0fac69e13550
 	github.com/mattn/go-isatty v0.0.22
@@ -21,7 +22,6 @@ require (
 	github.com/agnivade/levenshtein v1.1.1 // indirect
 	github.com/alexflint/go-arg v1.5.1 // indirect
 	github.com/alexflint/go-scalar v1.2.0 // indirect
-	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
