@@ -1587,6 +1587,8 @@ func TestMemorySetOwnerMeValidatesFlags(t *testing.T) {
 		want string
 	}{
 		{"class must be owner-only", []string{"--owner-me", "--name", "Jens", "--class", "knowledge"}, "supports --class personal or private"},
+		{"class app points to app mode", []string{"--owner-me", "--name", "Jens", "--class", "app"}, "created with --app/--agent"},
+		{"class system explained", []string{"--owner-me", "--name", "Jens", "--class", "system"}, "auto-provisioned"},
 		{"org rejected", []string{"--owner-me", "--name", "Jens", "--org", "acme.com"}, "drop --org"},
 		{"app rejected", []string{"--owner-me", "--name", "Jens", "--app", "app1", "--agent", "agent1", "--class", "app"}, "cannot be used with --app"},
 		{"name required", []string{"--owner-me"}, "requires --name"},
@@ -1604,6 +1606,52 @@ func TestMemorySetOwnerMeValidatesFlags(t *testing.T) {
 				t.Fatalf("expected %q error, got %v", tt.want, err)
 			}
 		})
+	}
+}
+
+// #279 review: an --owner-me create whose --slug already matches the server's
+// derived slug must NOT fire a redundant UpdateMemory. The derived URN is the
+// flat handle form (hrn:mem:holger:jens), which the old memorySlugIs (final "::"
+// only) never recognized — so it always saw a mismatch and renamed, risking a
+// partial-write error on a plain create.
+func TestMemorySetOwnerMeMatchingSlugSkipsUpdate(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateMemory": `{"data":{"createMemory":` + ownerMemoryJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	// The server derives slug "jens"; passing --slug jens must be a no-op rename.
+	root.SetArgs([]string{"memory", "set", "--owner-me", "--name", "Jens", "--slug", "jens", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, renamed := captured["UpdateMemory"]; renamed {
+		t.Error("a matching --slug on the flat user-owned URN must not trigger UpdateMemory")
+	}
+}
+
+// A DIFFERENT --slug on the same create still renames via a follow-up
+// UpdateMemory — the fix narrows the no-op case, it doesn't disable renaming.
+func TestMemorySetOwnerMeDifferentSlugRenames(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateMemory": `{"data":{"createMemory":` + ownerMemoryJSON + `}}`,
+		"UpdateMemory": `{"data":{"updateMemory":` + ownerMemoryJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "set", "--owner-me", "--name", "Jens", "--slug", "jens-notes", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, renamed := captured["UpdateMemory"]; !renamed {
+		t.Fatal("a differing --slug must trigger UpdateMemory")
+	}
+	// The rename slug rides as the flat $urn variable (the server recomposes the
+	// memory URN from it).
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateMemory"], &vars)
+	if vars["urn"] != "jens-notes" {
+		t.Errorf("rename must send the new slug as $urn, got %v", vars["urn"])
 	}
 }
 

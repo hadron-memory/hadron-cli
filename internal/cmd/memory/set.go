@@ -183,7 +183,16 @@ applied in a follow-up update.)`,
 					// --class is omitted (the server's default, knowledge, is invalid
 					// here).
 					if class != "" && class != "personal" && class != "private" {
-						return exitcode.Newf(exitcode.Usage, "--owner-me supports --class personal or private only; pass --org to create a %s memory", class)
+						// Point the user at the right creation mode for the class they
+						// asked for, not always --org (which is wrong for app/system).
+						switch class {
+						case "app":
+							return exitcode.Newf(exitcode.Usage, "--owner-me supports --class personal or private only; an app memory is created with --app/--agent")
+						case "system":
+							return exitcode.Newf(exitcode.Usage, "--owner-me supports --class personal or private only; system memories are auto-provisioned, not created directly")
+						default:
+							return exitcode.Newf(exitcode.Usage, "--owner-me supports --class personal or private only; pass --org to create a %s memory", class)
+						}
 					}
 					c := gen.MemoryClass("personal")
 					if class != "" {
@@ -355,13 +364,16 @@ func resolveSchema(schema, schemaFile string) (*json.RawMessage, error) {
 	return &msg, nil
 }
 
-// memorySlugIs reports whether urn's slug (the segment after the final "::")
-// equals slug, case-insensitively — the server lower-cases derived slugs, so a
-// case-only difference isn't a real rename worth a second call.
+// memorySlugIs reports whether urn's slug equals slug, case-insensitively — the
+// server lower-cases derived slugs, so a case-only difference isn't a real
+// rename worth a second call. It parses via the shared memory-ref parser so it
+// recognizes BOTH the org form (hrn:mem:<org>::<slug>) and the flat user-owned
+// form (hrn:mem:<handle>:<slug>) — otherwise an --owner-me create whose derived
+// slug already matches would fire a redundant UpdateMemory (#279 review).
 func memorySlugIs(urn, slug string) bool {
-	i := strings.LastIndex(urn, "::")
-	if i < 0 {
+	_, s, ok := cmdutil.MemoryParts(urn)
+	if !ok {
 		return false
 	}
-	return strings.EqualFold(urn[i+2:], slug)
+	return strings.EqualFold(s, slug)
 }
