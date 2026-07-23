@@ -74,7 +74,7 @@ func TestPlanDir(t *testing.T) {
 
 	res := &planResult{skipped: []skipEntry{}, collisions: []collisionEntry{}}
 	p := &planner{o: treeImportOpts{maxFileSize: 1 << 20}, res: res}
-	node, err := p.planDir(root, "docs", "docs", "docs")
+	node, err := p.planDir(root, "", "docs", "docs")
 	if err != nil {
 		t.Fatalf("planDir: %v", err)
 	}
@@ -106,11 +106,11 @@ func TestPlanDir(t *testing.T) {
 		t.Errorf("leaf content/kind wrong, got %+v", howto.children[1])
 	}
 
-	// Skips and collisions are reported.
-	if !hasSkip(res.skipped, "docs/.secret", "hidden") {
+	// Skips and collisions are reported with root-relative paths.
+	if !hasSkip(res.skipped, ".secret", "hidden") {
 		t.Errorf("hidden file should be reported skipped, got %+v", res.skipped)
 	}
-	if !hasSkip(res.skipped, "docs/logo.png", "binary") {
+	if !hasSkip(res.skipped, "logo.png", "binary") {
 		t.Errorf("binary file should be reported skipped, got %+v", res.skipped)
 	}
 	if len(res.collisions) != 1 || res.collisions[0].Loc != "docs:how-to:setup-2" {
@@ -132,18 +132,67 @@ func TestPlanDirFilters(t *testing.T) {
 		include:     []string{"**/*.md"},
 		exclude:     []string{"**/*.tmp"},
 	}, res: res}
-	node, err := p.planDir(root, "src", "src", "src")
+	node, err := p.planDir(root, "", "src", "src")
 	if err != nil {
 		t.Fatalf("planDir: %v", err)
 	}
 	if len(node.children) != 1 || node.children[0].name != "keep.md" {
 		t.Fatalf("only keep.md should survive, got %+v", node.children)
 	}
-	if !hasSkip(res.skipped, "src/drop.tmp", "excluded") {
+	if !hasSkip(res.skipped, "drop.tmp", "excluded") {
 		t.Errorf("drop.tmp should be excluded, got %+v", res.skipped)
 	}
-	if !hasSkip(res.skipped, "src/big.md", "too-large") {
+	if !hasSkip(res.skipped, "big.md", "too-large") {
 		t.Errorf("big.md should be too-large, got %+v", res.skipped)
+	}
+}
+
+// A literal `setup-2.md` beside two `setup.*` must not have its slot stolen by
+// the renamed second `setup` — the suffix advances past the occupied atom.
+func TestPlanDirCollisionAvoidsOccupied(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "d")
+	mustWrite(t, filepath.Join(root, "setup-2.md"), "a")
+	mustWrite(t, filepath.Join(root, "setup.md"), "b")
+	mustWrite(t, filepath.Join(root, "setup.txt"), "c")
+
+	res := &planResult{skipped: []skipEntry{}, collisions: []collisionEntry{}}
+	p := &planner{o: treeImportOpts{maxFileSize: 1 << 20}, res: res}
+	node, err := p.planDir(root, "", "d", "d")
+	if err != nil {
+		t.Fatalf("planDir: %v", err)
+	}
+	locs := map[string]bool{}
+	for _, c := range node.children {
+		if locs[c.loc] {
+			t.Fatalf("duplicate loc assigned: %s (children %+v)", c.loc, node.children)
+		}
+		locs[c.loc] = true
+	}
+	// sorted: setup-2.md→setup-2, setup.md→setup, setup.txt→setup(taken)→setup-2(taken)→setup-3
+	if !locs["d:setup-2"] || !locs["d:setup"] || !locs["d:setup-3"] {
+		t.Errorf("expected d:setup-2, d:setup, d:setup-3, got %v", locs)
+	}
+}
+
+// A symlink (even one pointing at a regular file) is skipped as irregular — it
+// could pull content from outside the import root.
+func TestPlanDirSkipsSymlink(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "d")
+	mustWrite(t, filepath.Join(root, "real.md"), "real")
+	if err := os.Symlink(filepath.Join(root, "real.md"), filepath.Join(root, "link.md")); err != nil {
+		t.Skipf("symlink unsupported: %v", err)
+	}
+	res := &planResult{skipped: []skipEntry{}, collisions: []collisionEntry{}}
+	p := &planner{o: treeImportOpts{maxFileSize: 1 << 20}, res: res}
+	node, err := p.planDir(root, "", "d", "d")
+	if err != nil {
+		t.Fatalf("planDir: %v", err)
+	}
+	if len(node.children) != 1 || node.children[0].name != "real.md" {
+		t.Errorf("only the regular file should become a node, got %+v", node.children)
+	}
+	if !hasSkip(res.skipped, "link.md", "irregular") {
+		t.Errorf("symlink should be skipped as irregular, got %+v", res.skipped)
 	}
 }
 

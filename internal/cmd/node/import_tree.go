@@ -77,8 +77,9 @@ type importTreeSummaryDTO struct {
 	Root         string           `json:"root"`
 	DryRun       bool             `json:"dryRun"`
 	Created      []createdNodeDTO `json:"created"`
-	Existing     []string         `json:"existing"` // locs already present (--on-conflict skip)
-	Skipped      []skipEntry      `json:"skipped"`  // files omitted during planning
+	Existing     []string         `json:"existing"`   // locs already present (--on-conflict skip)
+	Unresolved   []string         `json:"unresolved"` // skipped locs whose id couldn't be resolved (parent edge dropped)
+	Skipped      []skipEntry      `json:"skipped"`    // files omitted during planning
 	Collisions   []collisionEntry `json:"collisions"`
 	EdgesWired   int              `json:"edgesWired"`
 	NodesCreated int              `json:"nodesCreated"`
@@ -121,6 +122,13 @@ func runImportTree(cmd *cobra.Command, f *cmdutil.Factory, o treeImportOpts) err
 	if o.onConflict != "error" && o.onConflict != "skip" {
 		return exitcode.Newf(exitcode.Usage, "--on-conflict must be error or skip (got %q)", o.onConflict)
 	}
+	// Validate globs up front — a malformed pattern that Match() silently treats
+	// as "no match" would make a filter appear to work while dropping everything.
+	for _, pat := range append(append([]string{}, o.include...), o.exclude...) {
+		if !doublestar.ValidatePattern(pat) {
+			return exitcode.Newf(exitcode.Usage, "invalid glob pattern %q", pat)
+		}
+	}
 
 	abs, err := filepath.Abs(o.dir)
 	if err != nil {
@@ -135,7 +143,10 @@ func runImportTree(cmd *cobra.Command, f *cmdutil.Factory, o treeImportOpts) err
 
 	res := &planResult{skipped: []skipEntry{}, collisions: []collisionEntry{}}
 	p := &planner{o: o, res: res}
-	root, err := p.planDir(o.dir, base, rootLoc, origBase)
+	// The reporting/glob path is relative to the import ROOT (empty here), so a
+	// documented root-relative glob like `--include '*.md'` matches `README.md`,
+	// not `<basename>/README.md`.
+	root, err := p.planDir(o.dir, "", rootLoc, origBase)
 	if err != nil {
 		return err
 	}
@@ -150,7 +161,7 @@ func runImportTree(cmd *cobra.Command, f *cmdutil.Factory, o treeImportOpts) err
 		edges := collectDryRun(root, &created)
 		dto := importTreeSummaryDTO{
 			Mode: "tree", Memory: o.memory, Root: rootLoc, DryRun: true,
-			Created: created, Existing: []string{}, Skipped: res.skipped,
+			Created: created, Existing: []string{}, Unresolved: []string{}, Skipped: res.skipped,
 			Collisions: res.collisions, EdgesWired: edges, NodesCreated: len(created),
 		}
 		return emitTreeSummary(f, dto, root)
@@ -163,13 +174,13 @@ func runImportTree(cmd *cobra.Command, f *cmdutil.Factory, o treeImportOpts) err
 	ex := &treeExecutor{
 		ctx: cmd.Context(), client: client,
 		memory: o.memory, nodeType: o.nodeType, onConflict: o.onConflict,
-		created: []createdNodeDTO{}, existing: []string{},
+		created: []createdNodeDTO{}, existing: []string{}, unresolved: []string{},
 	}
 	_, createErr := ex.create(root)
 
 	dto := importTreeSummaryDTO{
 		Mode: "tree", Memory: o.memory, Root: rootLoc,
-		Created: ex.created, Existing: ex.existing, Skipped: res.skipped,
+		Created: ex.created, Existing: ex.existing, Unresolved: ex.unresolved, Skipped: res.skipped,
 		Collisions: res.collisions, EdgesWired: ex.edgesWired, NodesCreated: len(ex.created),
 	}
 	// A mid-tree create failure is partial — emit what landed, then surface the
@@ -207,7 +218,7 @@ func (p *planner) planDir(absDir, relPath, loc, displayName string) (*planNode, 
 	// branch's body rather than a child).
 	foldName, foldBest := "", len(foldNames)
 	for _, e := range entries {
-		if e.IsDir() {
+		if e.IsDir() || !e.Type().IsRegular() {
 			continue
 		}
 		n := e.Name()
@@ -239,6 +250,14 @@ func (p *planner) planDir(absDir, relPath, loc, displayName string) (*planNode, 
 			kids = append(kids, &kidSpec{isDir: true, abs: abs, rel: rel, orig: n, atom: slugifyAtom(n)})
 			continue
 		}
+		// Only regular files become nodes. A symlink (its Type carries
+		// ModeSymlink even when it points at a file) could pull in content from
+		// outside the import root, and a FIFO/device/socket would block or hang
+		// os.ReadFile — skip both, reported.
+		if !e.Type().IsRegular() {
+			p.res.skipped = append(p.res.skipped, skipEntry{Path: rel, Reason: "irregular"})
+			continue
+		}
 		data, rerr := os.ReadFile(abs)
 		if rerr != nil {
 			p.res.skipped = append(p.res.skipped, skipEntry{Path: rel, Reason: "unreadable"})
@@ -256,15 +275,23 @@ func (p *planner) planDir(absDir, relPath, loc, displayName string) (*planNode, 
 	}
 
 	// Resolve loc-atom collisions among siblings (dirs and files share the
-	// namespace); assignment is deterministic in the sorted order.
-	seen := map[string]int{}
+	// namespace); assignment is deterministic in the sorted order. The suffix
+	// advances until it lands on an atom no sibling already owns — a literal
+	// `setup-2.md` beside two `setup.*` must not steal the renamed `setup`'s slot.
+	used := map[string]bool{}
 	for _, k := range kids {
-		count := seen[k.atom]
-		seen[k.atom] = count + 1
-		if count > 0 {
-			renamed := fmt.Sprintf("%s-%d", k.atom, count+1)
-			k.atom = renamed
-			p.res.collisions = append(p.res.collisions, collisionEntry{Path: k.rel, Loc: loc + ":" + renamed})
+		if !used[k.atom] {
+			used[k.atom] = true
+			continue
+		}
+		for i := 2; ; i++ {
+			cand := fmt.Sprintf("%s-%d", k.atom, i)
+			if !used[cand] {
+				used[cand] = true
+				p.res.collisions = append(p.res.collisions, collisionEntry{Path: k.rel, Loc: loc + ":" + cand})
+				k.atom = cand
+				break
+			}
 		}
 	}
 
@@ -327,6 +354,7 @@ type treeExecutor struct {
 	memory, nodeType, onConflict string
 	created                      []createdNodeDTO
 	existing                     []string
+	unresolved                   []string
 	edgesWired                   int
 }
 
@@ -361,8 +389,7 @@ func (e *treeExecutor) create(n *planNode) (string, error) {
 	if err != nil {
 		if api.HasErrorCode(err, "NodeLocConflictError") {
 			if e.onConflict == "skip" {
-				e.existing = append(e.existing, n.loc)
-				return e.resolveExisting(n.loc), nil
+				return e.skipExisting(n, edges)
 			}
 			return "", exitcode.Newf(exitcode.Conflict,
 				"a node already exists at %s — re-run with --on-conflict skip to import only the missing nodes (some nodes may already have been created)", n.loc)
@@ -374,20 +401,59 @@ func (e *treeExecutor) create(n *planNode) (string, error) {
 	return resp.CreateNode.Id, nil
 }
 
-// resolveExisting looks up the id of a node already present at loc (an
-// --on-conflict skip), so its parent's `contains` edge can still point at it. A
-// pre-existing node has no creation lag; a raw-id memory (no composable URN) or
-// an unresolvable loc yields "" (the edge is simply dropped).
-func (e *treeExecutor) resolveExisting(loc string) string {
-	urn := cmdutil.NodeURN(e.memory, loc)
-	if urn == "" {
-		return ""
+// skipExisting handles a node whose loc already exists under --on-conflict skip:
+// it resolves the pre-existing node's id (so its parent's `contains` edge can
+// still point at it), and — because a skipped BRANCH node is never rewritten —
+// wires `contains` edges from it to the children this run just created, so those
+// children aren't left orphaned under a pre-existing directory. A node whose id
+// can't be resolved is recorded under `unresolved` rather than silently dropping
+// the parent's edge.
+func (e *treeExecutor) skipExisting(n *planNode, edges []*gen.NodeEdgeInput) (string, error) {
+	e.existing = append(e.existing, n.loc)
+	id, found := e.resolveExistingID(n.loc)
+	if !found {
+		e.unresolved = append(e.unresolved, n.loc)
+		return "", nil
 	}
-	resp, err := gen.ResolveUrn(e.ctx, e.client, urn)
-	if err == nil && resp.ResolveUrn != nil && resp.ResolveUrn.Kind == "node" {
-		return resp.ResolveUrn.Id
+	// Best-effort: an edge that already exists (a prior run, or a child that
+	// also pre-existed) is rejected server-side on its derived loc — ignore it.
+	for _, ed := range edges {
+		if _, werr := gen.CreateEdge(e.ctx, e.client, id, ed.TargetId, "contains", nil, nil, nil, nil, nil, nil); werr == nil {
+			e.edgesWired++
+		}
 	}
-	return ""
+	return id, nil
+}
+
+// resolveExistingID looks up the id of a node already present at loc. It first
+// composes the exact node URN (works for an org::memory ref); a raw memory id
+// can't form a URN, so it falls back to a loc-prefix listing and an exact-loc
+// match (mirroring import.go's nodeExists). A pre-existing node has no creation
+// lag, so no retry is needed.
+func (e *treeExecutor) resolveExistingID(loc string) (string, bool) {
+	if urn := cmdutil.NodeURN(e.memory, loc); urn != "" {
+		if resp, err := gen.ResolveUrn(e.ctx, e.client, urn); err == nil && resp.ResolveUrn != nil && resp.ResolveUrn.Kind == "node" {
+			return resp.ResolveUrn.Id, true
+		}
+	}
+	limit := 200
+	filter := &gen.NodeFilter{MemoryIds: []string{e.memory}, LocPrefix: &loc}
+	sortLoc := gen.NodeSortLoc
+	for offset := 0; ; offset += limit {
+		off := offset
+		page, err := api.FindNodes(e.ctx, e.client, nil, nil, filter, &sortLoc, nil, &limit, &off)
+		if err != nil {
+			return "", false
+		}
+		for _, nd := range page.Nodes {
+			if nd != nil && nd.Loc == loc {
+				return nd.Id, true
+			}
+		}
+		if len(page.Nodes) < limit {
+			return "", false
+		}
+	}
 }
 
 // collectDryRun mirrors create's post-order walk without mutating: it appends a
@@ -498,6 +564,12 @@ func emitTreeSummary(f *cmdutil.Factory, dto importTreeSummaryDTO, root *planNod
 		if len(dto.Existing) > 0 {
 			fmt.Fprintf(w, "  %d node(s) already existed (left as-is):\n", len(dto.Existing))
 			for _, l := range dto.Existing {
+				fmt.Fprintf(w, "    - %s\n", l)
+			}
+		}
+		if len(dto.Unresolved) > 0 {
+			fmt.Fprintf(w, "  %d existing node(s) could not be resolved — their parent edge was dropped:\n", len(dto.Unresolved))
+			for _, l := range dto.Unresolved {
 				fmt.Fprintf(w, "    - %s\n", l)
 			}
 		}
