@@ -1524,6 +1524,137 @@ func TestMemorySetCreateRejectsAppAndSystemClassesWithoutApp(t *testing.T) {
 	}
 }
 
+// ownerMemoryJSON is a user-owned (spec 047) memory: organizationId null, a
+// server-derived handle-rooted URN, personal class.
+const ownerMemoryJSON = `{"id":"m9","urn":"hrn:mem:holger:jens","name":"Jens","shortDescription":null,
+	"class":"personal","visibility":null,"organizationId":null,
+	"isEncrypted":false,"maxRevCount":10,"updatedAt":"2026-07-14T00:00:00Z"}`
+
+func TestMemorySetCreateOwnerMe(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateMemory": `{"data":{"createMemory":` + ownerMemoryJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "set", "--owner-me", "--name", "Jens", "--class", "personal", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateMemory"], &vars)
+	// spec 047: the org-less path must OMIT orgId (nil pointer → omitted), not
+	// send it as an explicit null — that is what routes the server to the
+	// user-owned path.
+	if _, present := vars["orgId"]; present {
+		t.Errorf("user-owned create must omit orgId, got: %v", vars)
+	}
+	if vars["memoryClass"] != "personal" || vars["name"] != "Jens" {
+		t.Errorf("unexpected create vars: %v", vars)
+	}
+	// The server derives the handle-rooted URN; the CLI echoes it verbatim
+	// (never constructs/prefixes it — the #278 double-prefix footgun).
+	if s := out.String(); !strings.Contains(s, "hrn:mem:holger:jens") || !strings.Contains(s, "class: personal") {
+		t.Errorf("owner-me output must echo the server URN + class, got:\n%s", s)
+	}
+}
+
+func TestMemorySetOwnerMeDefaultsToPersonalClass(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateMemory": `{"data":{"createMemory":` + ownerMemoryJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	// No --class: the org-less server default (knowledge) is invalid here, so the
+	// CLI defaults to personal rather than provoking a server rejection.
+	root.SetArgs([]string{"memory", "set", "--owner-me", "--name", "Jens", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateMemory"], &vars)
+	if vars["memoryClass"] != "personal" {
+		t.Errorf("owner-me without --class must default to personal, got: %v", vars["memoryClass"])
+	}
+	if _, present := vars["orgId"]; present {
+		t.Errorf("user-owned create must omit orgId, got: %v", vars)
+	}
+}
+
+func TestMemorySetOwnerMeValidatesFlags(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"class must be owner-only", []string{"--owner-me", "--name", "Jens", "--class", "knowledge"}, "supports --class personal or private"},
+		{"class app points to app mode", []string{"--owner-me", "--name", "Jens", "--class", "app"}, "created with --app/--agent"},
+		{"class system explained", []string{"--owner-me", "--name", "Jens", "--class", "system"}, "auto-provisioned"},
+		{"org rejected", []string{"--owner-me", "--name", "Jens", "--org", "acme.com"}, "drop --org"},
+		{"app rejected", []string{"--owner-me", "--name", "Jens", "--app", "app1", "--agent", "agent1", "--class", "app"}, "cannot be used with --app"},
+		{"name required", []string{"--owner-me"}, "requires --name"},
+		{"update rejected", []string{"acme.com::kb", "--owner-me", "--short", "x"}, "only apply when creating"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			args := append([]string{"memory", "set"}, tt.args...)
+			args = append(args, "--server", "http://127.0.0.1:1")
+			root.SetArgs(args)
+			err := root.Execute()
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("expected %q error, got %v", tt.want, err)
+			}
+		})
+	}
+}
+
+// #279 review: an --owner-me create whose --slug already matches the server's
+// derived slug must NOT fire a redundant UpdateMemory. The derived URN is the
+// flat handle form (hrn:mem:holger:jens), which the old memorySlugIs (final "::"
+// only) never recognized — so it always saw a mismatch and renamed, risking a
+// partial-write error on a plain create.
+func TestMemorySetOwnerMeMatchingSlugSkipsUpdate(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateMemory": `{"data":{"createMemory":` + ownerMemoryJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	// The server derives slug "jens"; passing --slug jens must be a no-op rename.
+	root.SetArgs([]string{"memory", "set", "--owner-me", "--name", "Jens", "--slug", "jens", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, renamed := captured["UpdateMemory"]; renamed {
+		t.Error("a matching --slug on the flat user-owned URN must not trigger UpdateMemory")
+	}
+}
+
+// A DIFFERENT --slug on the same create still renames via a follow-up
+// UpdateMemory — the fix narrows the no-op case, it doesn't disable renaming.
+func TestMemorySetOwnerMeDifferentSlugRenames(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateMemory": `{"data":{"createMemory":` + ownerMemoryJSON + `}}`,
+		"UpdateMemory": `{"data":{"updateMemory":` + ownerMemoryJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "set", "--owner-me", "--name", "Jens", "--slug", "jens-notes", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, renamed := captured["UpdateMemory"]; !renamed {
+		t.Fatal("a differing --slug must trigger UpdateMemory")
+	}
+	// The rename slug rides as the flat $urn variable (the server recomposes the
+	// memory URN from it).
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateMemory"], &vars)
+	if vars["urn"] != "jens-notes" {
+		t.Errorf("rename must send the new slug as $urn, got %v", vars["urn"])
+	}
+}
+
 func TestMemoryAttach(t *testing.T) {
 	attachedJSON := `{"id":"m3","urn":"acme.com::my-notes","name":"My notes","shortDescription":null,
 		"class":"personal","visibility":null,"organizationId":"o1",

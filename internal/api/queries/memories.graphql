@@ -30,7 +30,13 @@ query Memories(
 }
 
 mutation CreateMemory(
-  $orgId: ID!
+  # spec 047 — orgId is OPTIONAL: omit it (nil pointer) for a user-owned
+  # memory in the caller's own @handle namespace (organizationId NULL,
+  # ownerUserId = caller). omitempty so a nil pointer is omitted, not sent as
+  # an explicit null. The server derives the bare <handle>:<slug> URN; never
+  # construct or prefix it client-side.
+  # @genqlient(omitempty: true)
+  $orgId: ID
   $name: String!
   # @genqlient(omitempty: true)
   $memoryClass: MemoryClass
