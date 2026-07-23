@@ -275,8 +275,12 @@ Conventions:
     error unless `--on-conflict skip` (which leaves it in place and lists it under
     `existing[]`). `--under <loc>` roots the tree under a prefix; `--include`/
     `--exclude` globs, `--hidden` (dotfiles; `.git` always skipped), and
-    `--max-file-size` filter the walk; `--dry-run` prints the plan without
-    writing. `--json` is `{mode:"tree", root, created[], existing[], skipped[],
+    `--max-file-size` filter the walk (globs are root-relative and validated up
+    front; symlinks/special files are skipped); `--dry-run` prints the plan
+    without writing. Under `--on-conflict skip` a pre-existing branch is still
+    wired to the children created this run; a skipped node whose id can't be
+    resolved is listed under `unresolved[]` (its parent edge is dropped). `--json`
+    is `{mode:"tree", root, created[], existing[], unresolved[], skipped[],
     collisions[], edgesWired, nodesCreated}`.
 - `memory clone <id-or-urn> --target-urn <org::slug>` deep-copies a memory
   (nodes, edges, pending edges) into a new memory named by `--target-urn`

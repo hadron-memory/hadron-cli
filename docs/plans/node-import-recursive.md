@@ -81,7 +81,9 @@ Each path segment is slugified to satisfy the loc `slugRule`
 **Collisions** (`setup.md` + `setup.txt` → `setup`; or a dir `foo/` beside a
 file `foo.md`) are disambiguated by a numeric suffix on the loc atom (`setup`,
 `setup-2`), assigned in a stable sorted order and reported in the summary. The
-final validated full loc is re-checked with `ValidateURNPath`.
+suffix advances past any atom a sibling already owns — so a literal `setup-2.md`
+beside two `setup.*` yields `setup-2`, `setup`, `setup-3`, never a duplicate loc.
+The final validated full loc is re-checked with `ValidateURNPath`.
 
 ## Creation order — post-order, edges for free
 
@@ -100,9 +102,15 @@ pure loc-prefix convention (no stored parent FK — `node ls --prefix` and the
 string), so there is no ordering constraint on the nodes themselves; ordering is
 chosen only to make edges free.
 
-**`--on-conflict skip`** on an existing child loc: catch
-`NodeLocConflictError`, `ResolveUrn` the existing node's id (a pre-existing node
-has no creation lag), use that id for the parent edge, mark it skipped.
+**`--on-conflict skip`** on an existing child loc: catch `NodeLocConflictError`,
+resolve the existing node's id (compose the node URN and `ResolveUrn`; a raw
+memory id can't form a URN, so fall back to a loc-prefix listing + exact match),
+use that id for the parent edge, mark it skipped. Because a skipped **branch**
+node is never rewritten, its `contains` edges to the children created *this run*
+are wired explicitly via `createEdge` (best-effort — a duplicate is rejected on
+its derived loc and ignored), so those children aren't orphaned under a
+pre-existing directory. A skipped node whose id can't be resolved is recorded
+under `unresolved[]` (its parent edge is dropped) rather than dropped silently.
 
 ## README / index folding
 
@@ -116,10 +124,16 @@ empty-content branch node.
 
 - **Binary sniff**: a file is text iff its first 8 KiB is valid UTF-8 with no NUL
   byte; otherwise skipped with reason `binary`.
-- **Filters** (applied per entry, relative path): `--exclude` glob → `excluded`;
-  not matching a non-empty `--include` set → `not-included`; dotfile without
-  `--hidden` → `hidden`; over `--max-file-size` → `too-large`. `.git` always
-  skipped. Every skip is recorded with its reason.
+- **Non-regular entries** (symlinks — even to a regular file — and
+  FIFO/device/socket) are skipped with reason `irregular`: a symlink could pull
+  content in from outside the import root, and a special file would block
+  `os.ReadFile`. Directory symlinks are therefore never traversed.
+- **Filters** (applied per entry, path **relative to the import root**):
+  `--exclude` glob → `excluded`; not matching a non-empty `--include` set →
+  `not-included`; dotfile without `--hidden` → `hidden`; over `--max-file-size` →
+  `too-large`. `.git` always skipped. Glob patterns are validated up front (an
+  invalid pattern is a usage error, not a silent no-match). Every skip is
+  recorded with its reason.
 - An empty directory (all children skipped/empty) still yields its branch node,
   so the tree shape is preserved.
 
@@ -134,8 +148,10 @@ empty-content branch node.
     { "loc": "docs:how-to:setup", "name": "setup.md", "kind": "leaf",   "nodeId": "…" },
     { "loc": "docs:how-to",       "name": "how-to",   "kind": "branch", "nodeId": "…" }
   ],
-  "skipped": [ { "path": "docs/diagram.png", "reason": "binary" } ],
-  "collisions": [ { "path": "docs/setup.txt", "loc": "docs:how-to:setup-2" } ],
+  "existing": [],                 // locs left as-is under --on-conflict skip
+  "unresolved": [],               // skipped locs whose id couldn't be resolved
+  "skipped": [ { "path": "diagram.png", "reason": "binary" } ],
+  "collisions": [ { "path": "setup.txt", "loc": "docs:how-to:setup-2" } ],
   "edgesWired": 3,
   "nodesCreated": 2,
   "nodesSkipped": 1

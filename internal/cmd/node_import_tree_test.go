@@ -196,10 +196,12 @@ func TestNodeImportTreeJSON(t *testing.T) {
 	if len(dto.Collisions) != 1 || len(dto.Skipped) != 2 {
 		t.Errorf("want 1 collision + 2 skips, got %+v %+v", dto.Collisions, dto.Skipped)
 	}
-	// Arrays must serialize even when empty (existing has no entries here) —
-	// [], never null (the output is indented, so match with the space).
-	if !strings.Contains(out.String(), `"existing": []`) || strings.Contains(out.String(), `"existing": null`) {
-		t.Errorf("empty arrays must render as [], got %s", out.String())
+	// Arrays must serialize even when empty (existing/unresolved have no entries
+	// here) — [], never null (the output is indented, so match with the space).
+	for _, key := range []string{`"existing": []`, `"unresolved": []`} {
+		if !strings.Contains(out.String(), key) {
+			t.Errorf("empty arrays must render as [] (%s), got %s", key, out.String())
+		}
 	}
 }
 
@@ -287,6 +289,87 @@ func TestNodeImportTreeOnConflictError(t *testing.T) {
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "--on-conflict skip") {
 		t.Fatalf("expected an actionable conflict error, got %v", err)
+	}
+}
+
+// An invalid --include/--exclude glob is a usage error, before any walk/write.
+func TestNodeImportTreeRejectsBadGlob(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "docs")
+	writeTree(t, dir)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "import", "-r", dir, "-m", "acme.com::kb", "--include", "[", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "invalid glob") {
+		t.Fatalf("expected an invalid-glob usage error, got %v", err)
+	}
+}
+
+// --on-conflict skip on a pre-existing BRANCH still wires `contains` edges from
+// the existing branch to the children created this run, so they aren't orphaned.
+func TestNodeImportTreeSkipBranchWiresChildEdges(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "docs")
+	writeTree(t, dir)
+
+	type edge struct{ from, to, name string }
+	var mu sync.Mutex
+	var edges []edge
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string          `json:"operationName"`
+			Variables     json.RawMessage `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "CreateNode":
+			var v struct {
+				Input createNodeInput `json:"input"`
+			}
+			_ = json.Unmarshal(body.Variables, &v)
+			if v.Input.Loc == "docs:how-to" { // the branch already exists
+				_, _ = w.Write([]byte(`{"errors":[{"message":"exists","extensions":{"code":"NodeLocConflictError"}}]}`))
+				return
+			}
+			fmt.Fprintf(w, `{"data":{"createNode":{"id":"nid:%s","memoryId":"mem1","loc":%q,"name":%q,"nodeType":null,"tags":[],"seq":null,"isRunnable":null,"updatedAt":"2026-01-01T00:00:00Z"}}}`,
+				v.Input.Loc, v.Input.Loc, v.Input.Name)
+		case "ResolveUrn":
+			_, _ = w.Write([]byte(`{"data":{"resolveUrn":{"id":"existing-howto","kind":"node","memoryId":"mem1"}}}`))
+		case "CreateEdge":
+			var v struct {
+				SourceRef string `json:"sourceRef"`
+				TargetRef string `json:"targetRef"`
+				Name      string `json:"name"`
+			}
+			_ = json.Unmarshal(body.Variables, &v)
+			mu.Lock()
+			edges = append(edges, edge{v.SourceRef, v.TargetRef, v.Name})
+			mu.Unlock()
+			_, _ = w.Write([]byte(`{"data":{"createEdge":{"id":"e1"}}}`))
+		default:
+			t.Errorf("unexpected op %q", body.OperationName)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "import", "-r", dir, "-m", "acme.com::kb", "--on-conflict", "skip", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// The pre-existing branch is wired to both just-created leaves.
+	if len(edges) != 2 {
+		t.Fatalf("expected 2 contains edges from the existing branch, got %+v", edges)
+	}
+	for _, e := range edges {
+		if e.from != "existing-howto" || e.name != "contains" {
+			t.Errorf("edge should originate from existing-howto as contains, got %+v", e)
+		}
+	}
+	targets := map[string]bool{edges[0].to: true, edges[1].to: true}
+	if !targets["nid:docs:how-to:setup"] || !targets["nid:docs:how-to:setup-2"] {
+		t.Errorf("edges should target the two leaf ids, got %+v", edges)
 	}
 }
 
