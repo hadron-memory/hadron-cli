@@ -231,7 +231,7 @@ Conventions:
   into `node import`, or `-o <file>`. Rendered by the server (the one renderer
   shared with the portal and every other client, so the bytes are identical
   everywhere); needs a server with `nodeExport` (hadron-server #386). `node import
-  [<file>|-]` has TWO modes, chosen by the `mode` field in its `--json` output:
+  [<file>|<dir>|-]` has THREE modes, chosen by the `mode` field in its `--json` output:
   - RESTORE (default) recreates an export file: a node already at the target loc
     is updated, else created. The target memory and loc come from the file's
     `memory:`/`loc:` keys; `-m`/`--loc` override them (re-homing a node into
@@ -264,6 +264,20 @@ Conventions:
     the run id in `jobId` (follow it with `run get <id>`). `--task-args <json>`
     adds template args and `--app <ref>` names the App (default: your active
     App); both require `--task`.
+  - RECURSIVE (`-r <dir>`) maps a local DIRECTORY TREE into the memory graph:
+    each directory becomes a branch node, each text file a leaf node (loc =
+    slugified path without the extension; name = filename), and the hierarchy
+    becomes parent→child `contains` edges (materialized inline, bottom-up, no
+    extra round-trips). A directory's `README.md`/`index.md` folds into that
+    directory's node instead of a separate child. Binary files are skipped and
+    listed under `skipped[]`; loc collisions are suffixed (`setup`, `setup-2`)
+    and listed under `collisions[]`. Import is create-only: an existing loc is an
+    error unless `--on-conflict skip` (which leaves it in place and lists it under
+    `existing[]`). `--under <loc>` roots the tree under a prefix; `--include`/
+    `--exclude` globs, `--hidden` (dotfiles; `.git` always skipped), and
+    `--max-file-size` filter the walk; `--dry-run` prints the plan without
+    writing. `--json` is `{mode:"tree", root, created[], existing[], skipped[],
+    collisions[], edgesWired, nodesCreated}`.
 - `memory clone <id-or-urn> --target-urn <org::slug>` deep-copies a memory
   (nodes, edges, pending edges) into a new memory named by `--target-urn`
   (a fully-qualified "org::slug" URN) and rewrites references to the source
