@@ -1876,7 +1876,7 @@ func (v *AppRunFields) GetFinishedAt() *string { return v.FinishedAt }
 
 // AppRunResponse is returned by AppRun on success.
 type AppRunResponse struct {
-	// One run by ID (runs are URN-less, like AiServiceConfig).
+	// One run (cor:agt:010:02). ref is an AppRun ID or an hrn:apprun:<root>:<app>:<run-id> URN (#696).
 	AppRun *AppRunAppRun `json:"appRun"`
 }
 
@@ -4629,7 +4629,6 @@ func (v *CreateNodeResponse) GetCreateNode() *CreateNodeCreateNode { return v.Cr
 
 // CreateObjectResponse is returned by CreateObject on success.
 type CreateObjectResponse struct {
-	// #745 — create an object in a collection (object store; sugar over structured storage). memoryRef is a memory ID or fully-qualified URN; type is the collection (node objectType); fields are the flat typed properties (validated against the memory schema when declared). loc is auto-derived (<type>:<key>) and hidden; key gives a human-meaningful id (a single segment, no ':'), name overrides the derived node name. id and type are reserved field names. Returns the flat object.
 	CreateObject json.RawMessage `json:"createObject"`
 }
 
@@ -5371,7 +5370,6 @@ func (v *DeleteNodeRevisionResponse) GetDeleteNodeRevision() bool { return v.Del
 
 // DeleteObjectResponse is returned by DeleteObject on success.
 type DeleteObjectResponse struct {
-	// #745 — delete an object (soft by default; hard: true removes the row). ref is the object id or node URN. Non-recursive. Returns true on success.
 	DeleteObject bool `json:"deleteObject"`
 }
 
@@ -5817,7 +5815,12 @@ func (v *FindObjectsFindObjectsObjectList) GetTotal() *int { return v.Total }
 
 // FindObjectsResponse is returned by FindObjects on success.
 type FindObjectsResponse struct {
-	// #745 — query a collection in the object store. Returns objects of the given type (the collection / node objectType) in the memory, projected flat, plus a count. match is an equality shorthand ({ field: value }) desugared to a where predicate (cast inferred from the memory schema); where is the full #719 predicate (ANDed with match); sort is a single-field shorthand ({ field: 'asc' | 'desc' }) desugared to a property-path sort.
+	// #745 — query a collection. Returns objects of the given type (the collection
+	// / node objectType) in the memory, projected flat. 'match' is an equality
+	// shorthand ({ field: value }) desugared to a where predicate with each field's
+	// cast inferred from the memory schema; 'where' is the full #719 predicate
+	// (ANDed with match); 'sort' is a single-field shorthand desugared to a
+	// property-path sort.
 	FindObjects *FindObjectsFindObjectsObjectList `json:"findObjects"`
 }
 
@@ -6409,7 +6412,10 @@ func (v *GetNodeResponse) GetNode() *GetNodeNode { return v.Node }
 
 // GetObjectResponse is returned by GetObject on success.
 type GetObjectResponse struct {
-	// #745 — read one object by its id (the object store's flat projection of a node). Returns a JSON object { id, type, ...fields } or null if not found/inaccessible. The object store is the legible sugar surface over structured storage (an object IS a node); see createObject / findObjects.
+	// #745 — read one object by its id (the object store's flat projection of a
+	// node). Returns a JSON object { id, type, ...fields } or null if not
+	// found/inaccessible. The object store is the legible sugar surface over
+	// structured storage (an object IS a node); see createObject / findObjects.
 	Object *json.RawMessage `json:"object"`
 }
 
@@ -12605,7 +12611,6 @@ func (v *UpdateNodeUpdateNode) GetUpdatedAt() string { return v.UpdatedAt }
 
 // UpdateObjectResponse is returned by UpdateObject on success.
 type UpdateObjectResponse struct {
-	// #745 — merge fields into an existing object (atomic server-side shallow merge + schema conformance on the result). ref is the object id or node URN; fields wins on key collision, unmentioned keys preserved. Returns the updated flat object.
 	UpdateObject json.RawMessage `json:"updateObject"`
 }
 
@@ -13373,7 +13378,7 @@ func (v *__CreateMemoryInAppInput) GetMaxRevCount() *int { return v.MaxRevCount 
 
 // __CreateMemoryInput is used internally by genqlient
 type __CreateMemoryInput struct {
-	OrgId            string            `json:"orgId"`
+	OrgId            *string           `json:"orgId,omitempty"`
 	Name             string            `json:"name"`
 	MemoryClass      *MemoryClass      `json:"memoryClass,omitempty"`
 	ShortDescription *string           `json:"shortDescription,omitempty"`
@@ -13384,7 +13389,7 @@ type __CreateMemoryInput struct {
 }
 
 // GetOrgId returns __CreateMemoryInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__CreateMemoryInput) GetOrgId() string { return v.OrgId }
+func (v *__CreateMemoryInput) GetOrgId() *string { return v.OrgId }
 
 // GetName returns __CreateMemoryInput.Name, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryInput) GetName() string { return v.Name }
@@ -16054,7 +16059,7 @@ func CreateMcpServer(
 
 // The mutation executed by CreateMemory.
 const CreateMemory_Operation = `
-mutation CreateMemory ($orgId: ID!, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int) {
+mutation CreateMemory ($orgId: ID, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int) {
 	createMemory(orgId: $orgId, name: $name, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, maxRevCount: $maxRevCount) {
 		id
 		urn
@@ -16073,7 +16078,7 @@ mutation CreateMemory ($orgId: ID!, $name: String!, $memoryClass: MemoryClass, $
 func CreateMemory(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	orgId string,
+	orgId *string,
 	name string,
 	memoryClass *MemoryClass,
 	shortDescription *string,

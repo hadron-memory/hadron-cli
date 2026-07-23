@@ -19,6 +19,7 @@ import (
 func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 	var (
 		org         string
+		ownerMe     bool
 		name        string
 		class       string
 		short       string
@@ -42,6 +43,13 @@ fields you pass change). Without one, creates a new memory. A
 free-standing memory requires --org and --name. An App-scoped memory
 requires --app, --agent, --class, and --name.
 
+--owner-me creates a user-owned memory with no org: it is owned by you in
+your own @handle namespace, so its URN roots on your handle
+(hrn:mem:<handle>:<slug>) rather than an org domain. This path is owner-only
+— it accepts --class personal or private (defaulting to personal), while the
+org-shared knowledge/group classes still require --org. The server derives
+the handle and bare URN; it is never constructed client-side.
+
 App-scoped creation accepts class app, personal, or private. It has no
 --slug input: app-class URNs are name-derived by the server, while
 personal/private URNs use an opaque per-owner identity. Use memory
@@ -61,6 +69,7 @@ applied in a follow-up update.)`,
 		Example: `  hadron memory set --org acme.com --name "Project KB"
   hadron memory set --org acme.com --name "Hadron PDF Tool" --slug hadrontool-pdf
   hadron memory set --org acme.com --name "Notes" --class personal
+  hadron memory set --owner-me --name "Jens" --class personal
   hadron memory set --app acme.com::coach --agent acme.com::agent --class app --name "Runbook"
   hadron memory set acme.com:project-kb --description "Long-form description"
   hadron memory set acme.com:research --schema-file schema.json`,
@@ -130,7 +139,11 @@ applied in a follow-up update.)`,
 			// then exit non-zero.
 			var postCreateErr error
 			if len(args) == 0 {
-				if appScoped {
+				switch {
+				case appScoped:
+					if ownerMe {
+						return exitcode.Newf(exitcode.Usage, "--owner-me cannot be used with --app/--agent; an App-scoped memory belongs to the App, not to you")
+					}
 					if org != "" {
 						return exitcode.Newf(exitcode.Usage, "--org cannot be used with --app/--agent; the App determines the organization")
 					}
@@ -154,9 +167,39 @@ applied in a follow-up update.)`,
 						return exitcode.Newf(exitcode.Error, "server returned no memory")
 					}
 					m = dtoFromMemory(resp.CreateMemoryInApp)
-				} else {
+				case ownerMe:
+					// spec 047 user-owned tenancy: omit orgId (nil) so the server
+					// creates the memory in the caller's own @handle namespace and
+					// derives the bare <handle>:<slug> URN — never constructed here.
+					if org != "" {
+						return exitcode.Newf(exitcode.Usage, "--owner-me creates a memory you own in your own namespace; drop --org (or drop --owner-me to create an organization memory)")
+					}
+					if name == "" {
+						return exitcode.Newf(exitcode.Usage, "creating a user-owned memory requires --name")
+					}
+					// The org-less path is owner-only: the server accepts only
+					// personal/private (knowledge/group are org-shared). Validate
+					// client-side for a clear message, and default to personal when
+					// --class is omitted (the server's default, knowledge, is invalid
+					// here).
+					if class != "" && class != "personal" && class != "private" {
+						return exitcode.Newf(exitcode.Usage, "--owner-me supports --class personal or private only; pass --org to create a %s memory", class)
+					}
+					c := gen.MemoryClass("personal")
+					if class != "" {
+						c = gen.MemoryClass(class)
+					}
+					resp, err := gen.CreateMemory(cmd.Context(), client, nil, name, &c, optional(short), optional(description), tagsArg, visArg, maxRevArg)
+					if err != nil {
+						return api.MapError(err)
+					}
+					if resp == nil || resp.CreateMemory == nil {
+						return exitcode.Newf(exitcode.Error, "server returned no memory")
+					}
+					m = dtoFromMemory(resp.CreateMemory)
+				default:
 					if org == "" || name == "" {
-						return exitcode.Newf(exitcode.Usage, "creating a free-standing memory requires --org and --name")
+						return exitcode.Newf(exitcode.Usage, "creating a free-standing memory requires --org and --name (or --owner-me for a memory you own personally)")
 					}
 					if class == "app" || class == "system" {
 						return exitcode.Newf(exitcode.Usage, "free-standing creation does not support --class %s; app memories require --app/--agent, and system memories are auto-provisioned", class)
@@ -166,7 +209,7 @@ applied in a follow-up update.)`,
 						c := gen.MemoryClass(class)
 						classArg = &c
 					}
-					resp, err := gen.CreateMemory(cmd.Context(), client, org, name, classArg, optional(short), optional(description), tagsArg, visArg, maxRevArg)
+					resp, err := gen.CreateMemory(cmd.Context(), client, optional(org), name, classArg, optional(short), optional(description), tagsArg, visArg, maxRevArg)
 					if err != nil {
 						return api.MapError(err)
 					}
@@ -196,8 +239,8 @@ applied in a follow-up update.)`,
 					}
 				}
 			} else {
-				if org != "" || class != "" || appScoped {
-					return exitcode.Newf(exitcode.Usage, "--org, --class, --app, and --agent only apply when creating (no positional argument)")
+				if org != "" || class != "" || appScoped || ownerMe {
+					return exitcode.Newf(exitcode.Usage, "--org, --class, --app, --agent, and --owner-me only apply when creating (no positional argument)")
 				}
 				if name == "" && short == "" && description == "" && visibility == "" && tagsArg == nil && slug == "" && maxRevArg == nil && schemaArg == nil {
 					return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
@@ -264,6 +307,7 @@ applied in a follow-up update.)`,
 		},
 	}
 	cmd.Flags().StringVar(&org, "org", "", "organization ID or URN (create only)")
+	cmd.Flags().BoolVar(&ownerMe, "owner-me", false, "create a user-owned memory in your own @handle namespace (org-less; class personal|private only; create only)")
 	cmd.Flags().StringVar(&name, "name", "", "memory name")
 	cmd.Flags().StringVar(&class, "class", "", "memory class: knowledge|group|personal|private, or app with --app/--agent (create only; free-standing server default: knowledge)")
 	cmd.Flags().StringVar(&short, "short", "", "short description")
