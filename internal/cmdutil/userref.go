@@ -120,9 +120,12 @@ func ResolveUserID(cmd *cobra.Command, client graphql.Client, ref string) (strin
 	}
 
 	// No matches. An email is unambiguous about intent, so report not-found
-	// rather than silently treating it as an id.
+	// rather than silently treating it as an id. User search is access-scoped
+	// (self / co-members / admin), so a grantee outside the caller's visibility
+	// (e.g. sharing a personal memory cross-org) can't be found by email/handle —
+	// point the caller at the id, which always works.
 	if strings.Contains(token, "@") {
-		return "", exitcode.Newf(exitcode.NotFound, "no user matches %q", ref)
+		return "", exitcode.Newf(exitcode.NotFound, "no user matches %q — if they are outside your organization, pass their user id", ref)
 	}
 	return token, nil
 }
