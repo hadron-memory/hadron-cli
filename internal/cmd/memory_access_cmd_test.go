@@ -108,6 +108,8 @@ func TestMemoryMemberRmWithYes(t *testing.T) {
 
 func TestMemoryShareCreate(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
+		// A raw id resolves via the user(ref:) fast path before the share write.
+		"GetUser":           `{"data":{"user":{"id":"usr1","name":"Alice","email":"alice@acme.com","handle":"alice","githubUsername":null,"roles":[]}}}`,
 		"CreateMemoryShare": `{"data":{"createMemoryShare":{"memoryShare":{"role":"reader","grantee":` + memUserJSON + `}}}}`,
 	})
 	f, _ := testFactory(t)
@@ -120,6 +122,33 @@ func TestMemoryShareCreate(t *testing.T) {
 	_ = json.Unmarshal(captured["CreateMemoryShare"], &vars)
 	if vars["memoryId"] != "mem1" || vars["granteeId"] != "usr1" || vars["role"] != "reader" {
 		t.Errorf("share vars: %v", vars)
+	}
+}
+
+// #280: --grantee accepts a user ref (here a @handle), resolved to the PK the
+// createMemoryShare(granteeId: ID!) mutation requires.
+func TestMemoryShareCreateResolvesGranteeRef(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetUser":           `{"data":{"user":{"id":"usr_jane","name":"Jane","email":"jane@acme.com","handle":"jane","githubUsername":null,"roles":[]}}}`,
+		"CreateMemoryShare": `{"data":{"createMemoryShare":{"memoryShare":{"role":"writer","grantee":` + memUserJSON + `}}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "share", "create", "mem1", "--grantee", "@jane", "--role", "writer", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// The @handle sigil is stripped and resolved via user(ref: hrn:user:jane).
+	var getUserVars map[string]any
+	_ = json.Unmarshal(captured["GetUser"], &getUserVars)
+	if getUserVars["ref"] != "hrn:user:jane" {
+		t.Errorf("a @handle must resolve via hrn:user:<handle>, got %v", getUserVars["ref"])
+	}
+	// The mutation receives the resolved PK, not the raw ref.
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateMemoryShare"], &vars)
+	if vars["granteeId"] != "usr_jane" {
+		t.Errorf("createMemoryShare must receive the resolved user id, got %v", vars["granteeId"])
 	}
 }
 
@@ -162,6 +191,7 @@ func TestMemoryShareLs(t *testing.T) {
 
 func TestMemoryShareRevokeWithYes(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
+		"GetUser":           `{"data":{"user":{"id":"usr1","name":"Alice","email":"alice@acme.com","handle":"alice","githubUsername":null,"roles":[]}}}`,
 		"RevokeMemoryShare": `{"data":{"revokeMemoryShare":{"memoryId":"mem1","granteeId":"usr1"}}}`,
 	})
 	f, _ := testFactory(t)

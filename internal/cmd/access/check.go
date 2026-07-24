@@ -76,7 +76,7 @@ owner memory) the memory's principal.`,
 			if err != nil {
 				return err
 			}
-			userID, err := resolveUserID(cmd, client, args[0])
+			userID, err := cmdutil.ResolveUserID(cmd, client, args[0])
 			if err != nil {
 				return err
 			}
