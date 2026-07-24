@@ -69,10 +69,12 @@ func newCmdShareLs(f *cmdutil.Factory) *cobra.Command {
 func newCmdShareCreate(f *cmdutil.Factory) *cobra.Command {
 	var grantee, role string
 	cmd := &cobra.Command{
-		Use:     "create <memory> --grantee <user-id> --role <writer|reader>",
-		Short:   "Share a memory with a user (or update their share role)",
-		Example: `  hadron memory share create acme.com::kb --grantee usr_789 --role reader`,
-		Args:    cobra.ExactArgs(1),
+		Use:   "create <memory> --grantee <user> --role <writer|reader>",
+		Short: "Share a memory with a user (or update their share role)",
+		Example: `  hadron memory share create acme.com::kb --grantee usr_789 --role reader
+  hadron memory share create acme.com::kb --grantee jane@acme.com --role writer
+  hadron memory share create acme.com::kb --grantee @jane --role reader`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseShareRole(role)
 			if err != nil {
@@ -86,7 +88,11 @@ func newCmdShareCreate(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := gen.CreateMemoryShare(cmd.Context(), client, memID, grantee, r)
+			granteeID, err := cmdutil.ResolveUserID(cmd, client, grantee)
+			if err != nil {
+				return err
+			}
+			resp, err := gen.CreateMemoryShare(cmd.Context(), client, memID, granteeID, r)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -97,7 +103,7 @@ func newCmdShareCreate(f *cmdutil.Factory) *cobra.Command {
 			return emitShare(f, "✓ shared with", shareDTO{Role: string(s.Role), Grantee: userFromMemFields(s.Grantee.MemUserFields)})
 		},
 	}
-	cmd.Flags().StringVar(&grantee, "grantee", "", "user ID to share with")
+	cmd.Flags().StringVar(&grantee, "grantee", "", "user to share with (ID, email, handle, or hrn:user:<handle>)")
 	cmd.Flags().StringVar(&role, "role", "", "role: writer or reader")
 	_ = cmd.MarkFlagRequired("grantee")
 	_ = cmd.MarkFlagRequired("role")
@@ -107,7 +113,7 @@ func newCmdShareCreate(f *cmdutil.Factory) *cobra.Command {
 func newCmdShareSetRole(f *cmdutil.Factory) *cobra.Command {
 	var grantee, role string
 	cmd := &cobra.Command{
-		Use:     "set-role <memory> --grantee <user-id> --role <writer|reader>",
+		Use:     "set-role <memory> --grantee <user> --role <writer|reader>",
 		Short:   "Change a share's role",
 		Example: `  hadron memory share set-role acme.com::kb --grantee usr_789 --role writer`,
 		Args:    cobra.ExactArgs(1),
@@ -124,7 +130,11 @@ func newCmdShareSetRole(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := gen.UpdateMemoryShareRole(cmd.Context(), client, memID, grantee, r)
+			granteeID, err := cmdutil.ResolveUserID(cmd, client, grantee)
+			if err != nil {
+				return err
+			}
+			resp, err := gen.UpdateMemoryShareRole(cmd.Context(), client, memID, granteeID, r)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -135,7 +145,7 @@ func newCmdShareSetRole(f *cmdutil.Factory) *cobra.Command {
 			return emitShare(f, "✓ set", shareDTO{Role: string(s.Role), Grantee: userFromMemFields(s.Grantee.MemUserFields)})
 		},
 	}
-	cmd.Flags().StringVar(&grantee, "grantee", "", "grantee user ID")
+	cmd.Flags().StringVar(&grantee, "grantee", "", "grantee user (ID, email, handle, or hrn:user:<handle>)")
 	cmd.Flags().StringVar(&role, "role", "", "new role: writer or reader")
 	_ = cmd.MarkFlagRequired("grantee")
 	_ = cmd.MarkFlagRequired("role")
@@ -146,7 +156,7 @@ func newCmdShareRevoke(f *cmdutil.Factory) *cobra.Command {
 	var grantee string
 	var yes bool
 	cmd := &cobra.Command{
-		Use:     "revoke <memory> --grantee <user-id>",
+		Use:     "revoke <memory> --grantee <user>",
 		Short:   "Revoke a user's share on a memory",
 		Example: `  hadron memory share revoke acme.com::kb --grantee usr_789 --yes`,
 		Args:    cobra.ExactArgs(1),
@@ -159,10 +169,16 @@ func newCmdShareRevoke(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// Resolve (and validate) the grantee ref before prompting, so a
+			// typo fails fast rather than after the confirmation.
+			granteeID, err := cmdutil.ResolveUserID(cmd, client, grantee)
+			if err != nil {
+				return err
+			}
 			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "share for "+grantee+" on memory "+args[0]); err != nil {
 				return err
 			}
-			if _, err := gen.RevokeMemoryShare(cmd.Context(), client, memID, grantee); err != nil {
+			if _, err := gen.RevokeMemoryShare(cmd.Context(), client, memID, granteeID); err != nil {
 				return api.MapError(err)
 			}
 			dto := map[string]string{"memory": args[0], "grantee": grantee, "status": "revoked"}
@@ -172,7 +188,7 @@ func newCmdShareRevoke(f *cmdutil.Factory) *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVar(&grantee, "grantee", "", "grantee user ID")
+	cmd.Flags().StringVar(&grantee, "grantee", "", "grantee user (ID, email, handle, or hrn:user:<handle>)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	_ = cmd.MarkFlagRequired("grantee")
 	return cmd
