@@ -32,7 +32,7 @@ catalogue, --marketplace=false to unlist it.`,
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass --name, --urn, or --marketplace")
 			}
 			if changed("urn") {
-				if err := cmdutil.ValidateURNSlug("--urn", urn); err != nil {
+				if err := cmdutil.ValidateOrgSlug("--urn", urn); err != nil {
 					return err
 				}
 			}

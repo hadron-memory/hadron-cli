@@ -218,6 +218,14 @@ func newCmdProfileSet(f *cmdutil.Factory) *cobra.Command {
 			if !changed("name") && !changed("email") && !changed("handle") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one of --name, --email, or --handle")
 			}
+			// Validate a non-empty handle against the shared urn-lib rule (#692)
+			// so a bad handle fails fast with a clear message; an empty value
+			// (clear) defers to the server.
+			if changed("handle") && handle != "" {
+				if err := cmdutil.ValidateUserHandle("--handle", handle); err != nil {
+					return err
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err

@@ -21,7 +21,7 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 		Example: `  hadron org create --name "Acme" --urn acme.com`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := cmdutil.ValidateURNSlug("--urn", urn); err != nil {
+			if err := cmdutil.ValidateOrgSlug("--urn", urn); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()

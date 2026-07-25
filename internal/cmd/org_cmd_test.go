@@ -50,6 +50,26 @@ func TestOrgCreateRejectsInvalidURN(t *testing.T) {
 	}
 }
 
+// #262: an org --urn is validated against the shared urn-lib org-slug rule — it
+// must be a bare, dotted, lowercase domain (no scheme prefix / colon), matching
+// what the server enforces. Rejected client-side, before any network call.
+func TestOrgURNValidatedAsOrgSlug(t *testing.T) {
+	// non-dotted, scheme-prefixed, colon, and uppercase all fail.
+	for _, bad := range []string{"acme", "hrn:org:acme.com", "acme:com", "Acme.com"} {
+		for _, argv := range [][]string{
+			{"org", "create", "--name", "X", "--urn", bad},
+			{"org", "update", "org1", "--urn", bad},
+		} {
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(argv, "--server", "http://127.0.0.1:1"))
+			if err := root.Execute(); err == nil {
+				t.Errorf("org --urn %q should be rejected (%v)", bad, argv[:2])
+			}
+		}
+	}
+}
+
 func TestOrgGetNotFound(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetOrganization": `{"data":{"organization":null}}`,

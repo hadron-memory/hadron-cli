@@ -67,6 +67,20 @@ func TestProfileSetNothingIsUsageError(t *testing.T) {
 	}
 }
 
+// #262: a --handle is validated client-side against the shared urn-lib handle
+// rule (dot-free lowercase slug, no reserved word) — a bad handle fails fast,
+// before any network round-trip.
+func TestProfileSetRejectsInvalidHandle(t *testing.T) {
+	for _, bad := range []string{"has.dot", "UpperCase", "has space"} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"profile", "set", "--handle", bad, "--server", "http://127.0.0.1:1"})
+		if err := root.Execute(); err == nil {
+			t.Errorf("handle %q should be rejected client-side", bad)
+		}
+	}
+}
+
 func TestUserMerge(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"MergeUsers": `{"data":{"mergeUsers":` + uUserJSON + `}}`,
