@@ -8,12 +8,14 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 func newCmdInstall(f *cmdutil.Factory) *cobra.Command {
 	var (
 		org         string
+		ownerMe     bool
 		agent       string
 		name        string
 		urn         string
@@ -21,12 +23,23 @@ func newCmdInstall(f *cmdutil.Factory) *cobra.Command {
 		description string
 	)
 	cmd := &cobra.Command{
-		Use:   "install",
-		Short: "Install an Agent into an organization as an App",
+		Use:   "install (--org <id> | --owner-me) --agent <ref> --name <n>",
+		Short: "Install an Agent as an App — into an organization, or as a personal App (--owner-me)",
+		Long: `Install an Agent as an App. Pass --org to install into an organization (you
+must be an org ADMIN), or --owner-me to create a user-owned (personal) App in
+your own @handle namespace (spec 047). A personal App can install a PUBLIC
+(marketplace) agent or your own user-owned agent.`,
 		Example: `  hadron app install --org acme.com --agent agent_123 --name "Support Bot"
-  hadron app install --org acme.com --agent agent_123 --name "Support Bot" --type CHATBOT`,
+  hadron app install --owner-me --agent acme.com::support-bot --name "My Bot"`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// spec 047: an App is owned by EXACTLY ONE of an org or the caller.
+			if ownerMe && org != "" {
+				return exitcode.Newf(exitcode.Usage, "--owner-me creates an App you own in your own namespace; drop --org (or drop --owner-me to install into an organization)")
+			}
+			if !ownerMe && org == "" {
+				return exitcode.Newf(exitcode.Usage, "specify --org <id> to install into an organization, or --owner-me to create a personal App")
+			}
 			// --urn is an optional slug; validate it only when supplied.
 			if urn != "" {
 				if err := cmdutil.ValidateURNSlug("--urn", urn); err != nil {
@@ -50,7 +63,10 @@ func newCmdInstall(f *cmdutil.Factory) *cobra.Command {
 				typeArg = &t
 			}
 
-			resp, err := gen.CreateApp(cmd.Context(), client, org, agent, name, optional(urn), typeArg, optional(description))
+			// optional(org) is nil for --owner-me (org == "") — the server reads an
+			// omitted orgId as the personal-create signal (an empty string is
+			// rejected), so nil-omitted is exactly right.
+			resp, err := gen.CreateApp(cmd.Context(), client, optional(org), agent, name, optional(urn), typeArg, optional(description))
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -72,13 +88,13 @@ func newCmdInstall(f *cmdutil.Factory) *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVar(&org, "org", "", "organization ID or URN (required)")
+	cmd.Flags().StringVar(&org, "org", "", "organization ID or URN to install into (or use --owner-me for a personal App)")
+	cmd.Flags().BoolVar(&ownerMe, "owner-me", false, "create a user-owned (personal) App in your own @handle namespace (org-less)")
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent ID or URN to install (required)")
 	cmd.Flags().StringVar(&name, "name", "", "App name (required)")
 	cmd.Flags().StringVar(&urn, "urn", "", "App URN slug")
 	cmd.Flags().StringVar(&appType, "type", "", "App type: AGENT|AUTOMATION|CHATBOT|CLOUD|IOT|WORKSTATION")
 	cmd.Flags().StringVar(&description, "description", "", "App description")
-	_ = cmd.MarkFlagRequired("org")
 	_ = cmd.MarkFlagRequired("agent")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
