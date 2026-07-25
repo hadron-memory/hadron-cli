@@ -40,6 +40,11 @@ type exportSummaryDTO struct {
 	SkippedData   int      `json:"skippedData"`
 	WroteManifest bool     `json:"wroteManifest"`
 	Unavailable   []string `json:"unavailable"`
+	// HiddenEdges counts outgoing edges omitted from the export because their
+	// target lives in a memory the caller can't read (#781) — the edge can't be
+	// faithfully round-tripped, so it's surfaced here rather than silently
+	// dropped (matching the `unavailable` node contract).
+	HiddenEdges int `json:"hiddenEdges"`
 }
 
 func newCmdExport(f *cmdutil.Factory) *cobra.Command {
@@ -114,11 +119,14 @@ left in place — export never deletes.`,
 				return err
 			}
 
-			// 3. Write each node to <out>/<loc>.md.
+			// 3. Write each node to <out>/<loc>.md, tallying edges dropped
+			//    because their target is in an unreadable memory (#781).
+			hiddenEdges := 0
 			for _, n := range nodes {
 				if err := writeNodeMarkdown(outDir, n); err != nil {
 					return err
 				}
+				hiddenEdges += countHiddenTargetEdges(n)
 			}
 
 			// 4. Synthesize a root README.md manifest when no node owns the
@@ -140,6 +148,7 @@ left in place — export never deletes.`,
 				SkippedData:   skippedData,
 				WroteManifest: wroteManifest,
 				Unavailable:   unavailable,
+				HiddenEdges:   hiddenEdges,
 			}
 			return output.Write(f.IOStreams, f.JSON, summary, func(w io.Writer) error {
 				fmt.Fprintf(w, "✓ exported %d node(s) to %s\n", summary.NodeCount, outDir)
@@ -151,6 +160,9 @@ left in place — export never deletes.`,
 				}
 				if len(unavailable) > 0 {
 					fmt.Fprintf(w, "  warning: %d node(s) unavailable: %s\n", len(unavailable), strings.Join(unavailable, ", "))
+				}
+				if hiddenEdges > 0 {
+					fmt.Fprintf(w, "  warning: %d edge(s) omitted — target in an unreadable memory (#781); the export can't reproduce them\n", hiddenEdges)
 				}
 				return nil
 			})
@@ -202,6 +214,23 @@ func writeNodeMarkdown(root string, n *batchNode) error {
 		return err
 	}
 	return os.WriteFile(path, []byte(doc), 0o644)
+}
+
+// countHiddenTargetEdges reports how many of a node's outgoing edges point at a
+// target the caller can't read (#781: target == null). Those edges are dropped
+// from the exported document (they can't be round-tripped without a target), so
+// the caller surfaces the count in the summary rather than losing them silently.
+func countHiddenTargetEdges(n *batchNode) int {
+	if n == nil {
+		return 0
+	}
+	hidden := 0
+	for _, e := range n.OutgoingEdges {
+		if e != nil && e.Target == nil {
+			hidden++
+		}
+	}
+	return hidden
 }
 
 // rootManifest is the frontmatter for a synthesized root README.md.

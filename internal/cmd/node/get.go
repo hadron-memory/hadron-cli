@@ -143,12 +143,23 @@ func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 		IncomingEdges: []edgeRefDTO{},
 	}
 	for _, e := range n.OutgoingEdges {
+		// #781: target/source is null when its memory is unreadable to the
+		// caller (a cross-memory edge's far endpoint) — surface a blank ref
+		// rather than dereferencing nil.
+		tid, tloc, tmem := "", "", ""
+		if e.Target != nil {
+			tid, tloc, tmem = e.Target.Id, e.Target.Loc, e.Target.MemoryId
+		}
 		dto.OutgoingEdges = append(dto.OutgoingEdges,
-			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, e.Target.Id, e.Target.Loc, e.Target.MemoryId))
+			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, tid, tloc, tmem))
 	}
 	for _, e := range n.IncomingEdges {
+		sid, sloc, smem := "", "", ""
+		if e.Source != nil {
+			sid, sloc, smem = e.Source.Id, e.Source.Loc, e.Source.MemoryId
+		}
 		dto.IncomingEdges = append(dto.IncomingEdges,
-			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, e.Source.Id, e.Source.Loc, e.Source.MemoryId))
+			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, sid, sloc, smem))
 	}
 	return dto
 }

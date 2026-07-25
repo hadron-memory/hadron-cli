@@ -314,7 +314,10 @@ Conventions:
   are pulled in bulk; `data`-type nodes are skipped; nodes the read API
   cannot return come back under `unavailable` in the `--json` summary
   (a client-side export is bounded by per-node read access, unlike the
-  server's full-DB git push). Existing files are overwritten but files for
+  server's full-DB git push). Outgoing edges whose target is in a memory you
+  can't read (#781) can't be round-tripped, so they're omitted and counted in
+  the summary's `hiddenEdges` (with a stderr warning) rather than dropped
+  silently. Existing files are overwritten but files for
   removed nodes are never deleted. `--format markdown` is the default and
   only target today.
 - `memory member` and `memory share` control who can access a memory.

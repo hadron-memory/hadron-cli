@@ -122,6 +122,82 @@ func TestNodeGet(t *testing.T) {
 	}
 }
 
+// #781: a cross-memory edge whose endpoint memory is unreadable comes back with
+// target/source == null. The edge readers must render a blank ref, never
+// dereference nil.
+const nodeNullEdgeDetailJSON = `{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
+	"description":null,"abstract":null,"nodeType":"finding","tags":["ci"],
+	"content":"body","data":null,"seq":null,"isRunnable":null,
+	"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
+	"outgoingEdges":[{"id":"e1","name":"routes-to","loc":"findings:flaky-ci:routes-to:hidden","isRunnable":false,"priority":0,"target":null}],
+	"incomingEdges":[{"id":"e2","name":"from","loc":"other:from:findings:flaky-ci","isRunnable":false,"priority":0,"source":null}]}`
+
+func TestNodeGetHandlesNullEdgeEndpoint(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeNullEdgeDetailJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", nodeURN, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("must not panic on a null edge endpoint: %v", err)
+	}
+	var dto struct {
+		OutgoingEdges []struct {
+			EdgeID string `json:"edgeId"`
+			NodeID string `json:"nodeId"`
+			Loc    string `json:"loc"`
+		} `json:"outgoingEdges"`
+		IncomingEdges []struct {
+			EdgeID string `json:"edgeId"`
+			NodeID string `json:"nodeId"`
+		} `json:"incomingEdges"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out.String())
+	}
+	// The edge is still surfaced, with a blank hidden endpoint.
+	if len(dto.OutgoingEdges) != 1 || dto.OutgoingEdges[0].EdgeID != "e1" {
+		t.Fatalf("outgoing edge should still list, got %+v", dto.OutgoingEdges)
+	}
+	if dto.OutgoingEdges[0].NodeID != "" || dto.OutgoingEdges[0].Loc != "" {
+		t.Errorf("hidden target must render blank, got %+v", dto.OutgoingEdges[0])
+	}
+	if len(dto.IncomingEdges) != 1 || dto.IncomingEdges[0].EdgeID != "e2" || dto.IncomingEdges[0].NodeID != "" {
+		t.Errorf("hidden source must render blank, got %+v", dto.IncomingEdges)
+	}
+}
+
+func TestEdgeLsHandlesNullEndpoint(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeNullEdgeDetailJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"edge", "ls", nodeURN, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("must not panic on a null edge endpoint: %v", err)
+	}
+	var rows []struct {
+		ID       string `json:"id"`
+		OtherID  string `json:"otherNodeId"`
+		OtherLoc string `json:"otherNodeLoc"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &rows); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out.String())
+	}
+	if len(rows) != 2 {
+		t.Fatalf("both edges should list, got %+v", rows)
+	}
+	for _, r := range rows {
+		if r.OtherID != "" || r.OtherLoc != "" {
+			t.Errorf("hidden endpoint must render blank, got %+v", r)
+		}
+	}
+}
+
 // A node ref that already carries a scheme prefix passes through to
 // resolveUrn verbatim — hrn: is canonical, but legacy urn: is accepted
 // forever (issue #239). Only a bare ref gets the canonical hrn:node:
