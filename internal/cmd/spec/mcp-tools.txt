@@ -19,14 +19,18 @@ hadron_chatbot_start
 hadron_child_runs
 hadron_create_edge
 hadron_create_node
+hadron_create_object
 hadron_create_parent_node
 hadron_delete_node
+hadron_delete_object
 hadron_end_session
 hadron_fail
 hadron_find_nodes
+hadron_find_objects
 hadron_get_next_node
 hadron_get_node
 hadron_get_nodes
+hadron_get_object
 hadron_list_apps
 hadron_list_memories
 hadron_list_nodes
@@ -51,4 +55,5 @@ hadron_sync_graph
 hadron_unlock_memory
 hadron_update_node
 hadron_update_node_data
+hadron_update_object
 hadron_validate
