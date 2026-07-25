@@ -2226,6 +2226,48 @@ func TestAppInstall(t *testing.T) {
 	}
 }
 
+// #260: --owner-me creates a user-owned (personal) App — orgId is OMITTED (the
+// spec-047 personal-create signal; an empty string would be rejected).
+func TestAppInstallOwnerMeOmitsOrg(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateApp": `{"data":{"createApp":` + appJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"app", "install", "--owner-me", "--agent", "acme.com::helper", "--name", "My Bot", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateApp"], &vars)
+	if _, present := vars["orgId"]; present {
+		t.Errorf("--owner-me must omit orgId, got %v", vars["orgId"])
+	}
+	if vars["agentId"] != "acme.com::helper" {
+		t.Errorf("agentId: %v", vars["agentId"])
+	}
+}
+
+func TestAppInstallRejectsOwnerMeAndOrg(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"app", "install", "--owner-me", "--org", "acme.com", "--agent", "a1", "--name", "X", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "drop --org") {
+		t.Fatalf("expected a mutual-exclusion usage error, got %v", err)
+	}
+}
+
+func TestAppInstallRequiresOrgOrOwnerMe(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"app", "install", "--agent", "a1", "--name", "X", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "--owner-me to create a personal App") {
+		t.Fatalf("expected an org-or-owner-me usage error, got %v", err)
+	}
+}
+
 func TestAppUninstall(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"DeleteApp": `{"data":{"deleteApp":true}}`,

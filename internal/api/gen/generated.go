@@ -13505,7 +13505,7 @@ func (v *__CreateAiServiceConfigInput) GetParams() *json.RawMessage { return v.P
 
 // __CreateAppInput is used internally by genqlient
 type __CreateAppInput struct {
-	OrgId       string   `json:"orgId"`
+	OrgId       *string  `json:"orgId,omitempty"`
 	AgentId     string   `json:"agentId"`
 	Name        string   `json:"name"`
 	Urn         *string  `json:"urn,omitempty"`
@@ -13514,7 +13514,7 @@ type __CreateAppInput struct {
 }
 
 // GetOrgId returns __CreateAppInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__CreateAppInput) GetOrgId() string { return v.OrgId }
+func (v *__CreateAppInput) GetOrgId() *string { return v.OrgId }
 
 // GetAgentId returns __CreateAppInput.AgentId, and is useful for accessing the field via an interface.
 func (v *__CreateAppInput) GetAgentId() string { return v.AgentId }
@@ -16125,7 +16125,7 @@ func CreateAiServiceConfig(
 
 // The mutation executed by CreateApp.
 const CreateApp_Operation = `
-mutation CreateApp ($orgId: ID!, $agentId: ID!, $name: String!, $urn: String, $appType: AppType, $description: String) {
+mutation CreateApp ($orgId: ID, $agentId: ID!, $name: String!, $urn: String, $appType: AppType, $description: String) {
 	createApp(orgId: $orgId, agentId: $agentId, name: $name, urn: $urn, appType: $appType, description: $description) {
 		id
 		urn
@@ -16141,7 +16141,7 @@ mutation CreateApp ($orgId: ID!, $agentId: ID!, $name: String!, $urn: String, $a
 func CreateApp(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	orgId string,
+	orgId *string,
 	agentId string,
 	name string,
 	urn *string,
