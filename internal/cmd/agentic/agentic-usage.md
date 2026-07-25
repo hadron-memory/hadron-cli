@@ -92,14 +92,23 @@ hadron agentic-usage                                 # prints this doc
 
 Conventions:
 
-- A new URN slug/path you supply — `org create/update --urn`, `app install
-  --urn`, `node add --loc`, `agent update --urn`, `memory set --slug` — is
-  validated client-side before the call: slug atoms must be 1–64 chars of
-  `[A-Za-z0-9._-]`, starting and ending alphanumeric (so `--urn "Flow Lab"` is
-  rejected, exit 2). `agent update --urn` also accepts the spec-047 user-author
-  namespace form `@handle:slug`; node locs still reject `@`. This mirrors the
-  server grammar; a bad slug fails fast with a usage error instead of a
-  round-trip.
+- A new URN slug/path or identity you supply is validated client-side before the
+  call, with the same `urn-lib` rule the server enforces — a bad value fails fast
+  with a usage error (exit 2) instead of a round-trip:
+  - **node locs** (`node add --loc`) — colon-joined atoms, each 1–64 chars of
+    `[A-Za-z0-9._-]` starting/ending alphanumeric (so `--loc "Flow Lab"` is
+    rejected; `@` is rejected).
+  - **slug flags** (`memory set --slug`, `app install --urn`) — the atom rule
+    plus **lowercase-only** and reserved-word rejection.
+  - **org roots** (`org create/update --urn`) — stricter still: a **bare, dotted,
+    lowercase domain** (no scheme prefix or colon), e.g. `acme.com`. So `acme`
+    (not dotted), `Acme.com` (uppercase), and `hrn:org:acme.com` (prefixed) are
+    all rejected.
+  - **user handle** (`profile set --handle`) — a lowercase slug that must be
+    **dot-free** and not a reserved word (so `has.dot` is rejected). An empty
+    `--handle` defers to the server.
+  - `agent update --urn` also accepts the spec-047 user-author form
+    `@handle:slug`.
 - Memory references accept the memory id, the full `hrn:memory:<org>::<slug>`
   URN, or the short `<org>::<slug>` / `<org>:<slug>` forms (all resolve to the
   same memory) across `memory get|set|attach|rm|member|share|export`.

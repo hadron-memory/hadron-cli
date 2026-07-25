@@ -69,14 +69,22 @@ func TestProfileSetNothingIsUsageError(t *testing.T) {
 
 // #262: a --handle is validated client-side against the shared urn-lib handle
 // rule (dot-free lowercase slug, no reserved word) — a bad handle fails fast,
-// before any network round-trip.
+// BEFORE the mutation. The fake server would answer UpdateMyProfile if the
+// command reached it, so asserting it's never called proves the rejection is
+// client-side (not a later network error).
 func TestProfileSetRejectsInvalidHandle(t *testing.T) {
 	for _, bad := range []string{"has.dot", "UpperCase", "has space"} {
+		gql, captured := captureGraphQL(t, map[string]string{
+			"UpdateMyProfile": `{"data":{"updateMyProfile":` + uUserJSON + `}}`,
+		})
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
-		root.SetArgs([]string{"profile", "set", "--handle", bad, "--server", "http://127.0.0.1:1"})
+		root.SetArgs([]string{"profile", "set", "--handle", bad, "--server", gql.URL})
 		if err := root.Execute(); err == nil {
-			t.Errorf("handle %q should be rejected client-side", bad)
+			t.Errorf("handle %q should be rejected", bad)
+		}
+		if _, called := captured["UpdateMyProfile"]; called {
+			t.Errorf("invalid handle %q must be rejected before UpdateMyProfile is called", bad)
 		}
 	}
 }
