@@ -53,7 +53,10 @@ func DocumentFromBatchNode(n *batchNode) *nodedoc.Document {
 }
 
 // edgesFromBatch projects outgoing edges into nodedoc.Edge, skipping any edge
-// whose target can't be addressed (no target node).
+// whose target can't be addressed — either a malformed nil edge or, per #781, a
+// target in a memory the caller can't read (target == null). Such an edge can't
+// be round-tripped, so it's omitted here; `memory export` surfaces the count
+// (via countHiddenTargetEdges) rather than dropping it silently.
 func edgesFromBatch(edges []*batchEdge) []nodedoc.Edge {
 	out := make([]nodedoc.Edge, 0, len(edges))
 	for _, e := range edges {

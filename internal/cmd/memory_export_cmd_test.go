@@ -8,6 +8,56 @@ import (
 	"testing"
 )
 
+// #781 review (Codex P1): a cross-memory edge whose target is unreadable comes
+// back with target:null. `memory export` can't round-trip it, so it must be
+// SURFACED (counted + warned), not silently dropped.
+func TestMemoryExportSurfacesHiddenEdge(t *testing.T) {
+	// A root-ish node (short colon-free loc) suppresses the manifest fetch.
+	const nodesResp = `{"data":{"nodes":[
+		{"id":"n-root","memoryId":"mem1","loc":"root","name":"Root","nodeType":"info","tags":[],"updatedAt":"2026-06-11T00:00:00Z"},
+		{"id":"n-src","memoryId":"mem1","loc":"guide:intro","name":"Intro","nodeType":"info","tags":[],"updatedAt":"2026-06-11T00:00:00Z"}
+	]}}`
+	// n-src has one readable edge and one whose target is null (hidden memory).
+	const batchResp = `{"data":{"nodeBatch":{
+		"truncated":false,"omitted":[],"unavailable":[],
+		"nodes":[
+			{"id":"n-root","memoryId":"mem1","loc":"root","name":"Root","alias":null,"nodeType":"info","description":null,"abstract":null,"abstractOriginHash":null,"tags":[],"seq":null,"data":null,"properties":null,"content":"Root.","outgoingEdges":[]},
+			{"id":"n-src","memoryId":"mem1","loc":"guide:intro","name":"Intro","alias":null,"nodeType":"info","description":null,"abstract":null,"abstractOriginHash":null,"tags":[],"seq":null,"data":null,"properties":null,"content":"Intro.","outgoingEdges":[{"name":"next","priority":0,"condition":null,"target":{"id":"n-root","loc":"root"}},{"name":"crosslink","priority":0,"condition":null,"target":null}]}
+		]
+	}}}`
+	for _, jsonMode := range []bool{true, false} {
+		gql, _ := captureGraphQL(t, map[string]string{
+			"FindNodes": nodesResp,
+			"NodeBatch": batchResp,
+		})
+		f, out := testFactory(t)
+		dir := t.TempDir()
+		root := NewRootCmd(f)
+		args := []string{"memory", "export", "mem1", "--out", dir, "--server", gql.URL}
+		if jsonMode {
+			args = append(args, "--json")
+		}
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute (json=%v): %v", jsonMode, err)
+		}
+		if jsonMode {
+			var summary struct {
+				HiddenEdges int `json:"hiddenEdges"`
+				NodeCount   int `json:"nodeCount"`
+			}
+			if err := json.Unmarshal([]byte(out.String()), &summary); err != nil {
+				t.Fatalf("summary not JSON: %v\n%s", err, out.String())
+			}
+			if summary.HiddenEdges != 1 || summary.NodeCount != 2 {
+				t.Errorf("summary = %+v, want hiddenEdges=1 nodeCount=2", summary)
+			}
+		} else if !strings.Contains(out.String(), "omitted") {
+			t.Errorf("human output must warn about the omitted edge, got:\n%s", out.String())
+		}
+	}
+}
+
 // TestMemoryExport drives the whole command: resolve → list → skip data →
 // bulk-fetch → write files → summary. The memory ref is a bare id (no colon)
 // so resolveMemoryID returns it without a MyMemories round-trip, and one
