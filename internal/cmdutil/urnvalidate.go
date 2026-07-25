@@ -32,6 +32,29 @@ func ValidateURNSlug(flag, slug string) error {
 	return nil
 }
 
+// ValidateOrgSlug checks an organization slug supplied on a create/rename flag.
+// An org root must be a bare, dotted domain (no scheme prefix or colon) that
+// also satisfies the shared slug rules — the shared urn-lib owns the policy
+// (grammar-v2 / #692), so the CLI fails fast with the same rule the server
+// enforces rather than surfacing a less actionable server error.
+func ValidateOrgSlug(flag, slug string) error {
+	if err := urn.ValidateOrgSlug(slug); err != nil {
+		return urnUsageError(flag, slug, err)
+	}
+	return nil
+}
+
+// ValidateUserHandle checks a user handle supplied on a create/rename flag. A
+// handle is a slug that must additionally be dot-free, so it stays disjoint from
+// dotted org roots in the shared principal pool (#692). The shared urn-lib owns
+// the policy.
+func ValidateUserHandle(flag, handle string) error {
+	if err := urn.ValidateUserHandle(handle); err != nil {
+		return urnUsageError(flag, handle, err)
+	}
+	return nil
+}
+
 // ValidateURNPath checks a colon-delimited node loc. A loc is a single
 // hierarchy leaf whose atoms are separated by single colons.
 func ValidateURNPath(flag, path string) error {
