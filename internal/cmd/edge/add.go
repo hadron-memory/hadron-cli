@@ -89,8 +89,18 @@ Cross-memory edges are allowed — use full URNs (omit -m) for those.`,
 			}
 
 			e := resp.CreateEdge
-			dto := edgeDTOFrom(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority,
-				e.Source.Id, e.Source.Loc, e.Target.Id, e.Target.Loc)
+			// #781: an endpoint is null when its memory is unreadable to the
+			// caller; a just-created edge is normally fully readable, but guard
+			// against nil rather than panicking.
+			sid, sloc := "", ""
+			if e.Source != nil {
+				sid, sloc = e.Source.Id, e.Source.Loc
+			}
+			tid, tloc := "", ""
+			if e.Target != nil {
+				tid, tloc = e.Target.Id, e.Target.Loc
+			}
+			dto := edgeDTOFrom(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, sid, sloc, tid, tloc)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				t := output.NewTable(w)
 				t.Row("✓ created", dto.SourceLoc+" → "+dto.TargetLoc, "("+cmdutil.EdgeDisplay(e.Name, e.Loc)+")", dto.ID)

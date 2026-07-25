@@ -3944,13 +3944,15 @@ func (v *CreateConnectionGrantResponse) GetCreateConnectionGrant() *CreateConnec
 
 // CreateEdgeCreateEdge includes the requested fields of the GraphQL type Edge.
 type CreateEdgeCreateEdge struct {
-	Id         string                          `json:"id"`
-	Name       *string                         `json:"name"`
-	Loc        string                          `json:"loc"`
-	IsRunnable *bool                           `json:"isRunnable"`
-	Priority   int                             `json:"priority"`
-	Source     *CreateEdgeCreateEdgeSourceNode `json:"source"`
-	Target     *CreateEdgeCreateEdgeTargetNode `json:"target"`
+	Id         string  `json:"id"`
+	Name       *string `json:"name"`
+	Loc        string  `json:"loc"`
+	IsRunnable *bool   `json:"isRunnable"`
+	Priority   int     `json:"priority"`
+	// The source node. NULLABLE (#781): null when the caller cannot read the source node's memory — a cross-memory edge (e.g. reached via incomingEdges) must not expose an endpoint in a memory the caller can't read. For a same-memory edge the caller can already see, this is always present.
+	Source *CreateEdgeCreateEdgeSourceNode `json:"source"`
+	// The target node. NULLABLE (#781): null when the caller cannot read the target node's memory (a cross-memory edge's far endpoint). For a same-memory edge, always present.
+	Target *CreateEdgeCreateEdgeTargetNode `json:"target"`
 }
 
 // GetId returns CreateEdgeCreateEdge.Id, and is useful for accessing the field via an interface.
@@ -6306,12 +6308,13 @@ func (v *GetNodeNode) GetIncomingEdges() []*GetNodeNodeIncomingEdgesEdge { retur
 
 // GetNodeNodeIncomingEdgesEdge includes the requested fields of the GraphQL type Edge.
 type GetNodeNodeIncomingEdgesEdge struct {
-	Id         string                                  `json:"id"`
-	Name       *string                                 `json:"name"`
-	Loc        string                                  `json:"loc"`
-	IsRunnable *bool                                   `json:"isRunnable"`
-	Priority   int                                     `json:"priority"`
-	Source     *GetNodeNodeIncomingEdgesEdgeSourceNode `json:"source"`
+	Id         string  `json:"id"`
+	Name       *string `json:"name"`
+	Loc        string  `json:"loc"`
+	IsRunnable *bool   `json:"isRunnable"`
+	Priority   int     `json:"priority"`
+	// The source node. NULLABLE (#781): null when the caller cannot read the source node's memory — a cross-memory edge (e.g. reached via incomingEdges) must not expose an endpoint in a memory the caller can't read. For a same-memory edge the caller can already see, this is always present.
+	Source *GetNodeNodeIncomingEdgesEdgeSourceNode `json:"source"`
 }
 
 // GetId returns GetNodeNodeIncomingEdgesEdge.Id, and is useful for accessing the field via an interface.
@@ -6352,12 +6355,13 @@ func (v *GetNodeNodeIncomingEdgesEdgeSourceNode) GetMemoryId() string { return v
 
 // GetNodeNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
 type GetNodeNodeOutgoingEdgesEdge struct {
-	Id         string                                  `json:"id"`
-	Name       *string                                 `json:"name"`
-	Loc        string                                  `json:"loc"`
-	IsRunnable *bool                                   `json:"isRunnable"`
-	Priority   int                                     `json:"priority"`
-	Target     *GetNodeNodeOutgoingEdgesEdgeTargetNode `json:"target"`
+	Id         string  `json:"id"`
+	Name       *string `json:"name"`
+	Loc        string  `json:"loc"`
+	IsRunnable *bool   `json:"isRunnable"`
+	Priority   int     `json:"priority"`
+	// The target node. NULLABLE (#781): null when the caller cannot read the target node's memory (a cross-memory edge's far endpoint). For a same-memory edge, always present.
+	Target *GetNodeNodeOutgoingEdgesEdgeTargetNode `json:"target"`
 }
 
 // GetId returns GetNodeNodeOutgoingEdgesEdge.Id, and is useful for accessing the field via an interface.
@@ -8258,10 +8262,11 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetIncomingEdges() []*NodeB
 
 // NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge includes the requested fields of the GraphQL type Edge.
 type NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge struct {
-	Name       *string                                                                `json:"name"`
-	Loc        string                                                                 `json:"loc"`
-	IsRunnable *bool                                                                  `json:"isRunnable"`
-	Source     *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode `json:"source"`
+	Name       *string `json:"name"`
+	Loc        string  `json:"loc"`
+	IsRunnable *bool   `json:"isRunnable"`
+	// The source node. NULLABLE (#781): null when the caller cannot read the source node's memory — a cross-memory edge (e.g. reached via incomingEdges) must not expose an endpoint in a memory the caller can't read. For a same-memory edge the caller can already see, this is always present.
+	Source *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode `json:"source"`
 }
 
 // GetName returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.Name, and is useful for accessing the field via an interface.
@@ -8306,13 +8311,14 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode) 
 
 // NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
 type NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge struct {
-	Name        *string                                                                `json:"name"`
-	Loc         string                                                                 `json:"loc"`
-	Description *string                                                                `json:"description"`
-	IsRunnable  *bool                                                                  `json:"isRunnable"`
-	Priority    int                                                                    `json:"priority"`
-	Condition   *json.RawMessage                                                       `json:"condition"`
-	Target      *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode `json:"target"`
+	Name        *string          `json:"name"`
+	Loc         string           `json:"loc"`
+	Description *string          `json:"description"`
+	IsRunnable  *bool            `json:"isRunnable"`
+	Priority    int              `json:"priority"`
+	Condition   *json.RawMessage `json:"condition"`
+	// The target node. NULLABLE (#781): null when the caller cannot read the target node's memory (a cross-memory edge's far endpoint). For a same-memory edge, always present.
+	Target *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode `json:"target"`
 }
 
 // GetName returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.Name, and is useful for accessing the field via an interface.
@@ -11886,13 +11892,15 @@ func (v *UpdateEdgeResponse) GetUpdateEdge() *UpdateEdgeUpdateEdge { return v.Up
 
 // UpdateEdgeUpdateEdge includes the requested fields of the GraphQL type Edge.
 type UpdateEdgeUpdateEdge struct {
-	Id         string                          `json:"id"`
-	Name       *string                         `json:"name"`
-	Loc        string                          `json:"loc"`
-	IsRunnable *bool                           `json:"isRunnable"`
-	Priority   int                             `json:"priority"`
-	Source     *UpdateEdgeUpdateEdgeSourceNode `json:"source"`
-	Target     *UpdateEdgeUpdateEdgeTargetNode `json:"target"`
+	Id         string  `json:"id"`
+	Name       *string `json:"name"`
+	Loc        string  `json:"loc"`
+	IsRunnable *bool   `json:"isRunnable"`
+	Priority   int     `json:"priority"`
+	// The source node. NULLABLE (#781): null when the caller cannot read the source node's memory — a cross-memory edge (e.g. reached via incomingEdges) must not expose an endpoint in a memory the caller can't read. For a same-memory edge the caller can already see, this is always present.
+	Source *UpdateEdgeUpdateEdgeSourceNode `json:"source"`
+	// The target node. NULLABLE (#781): null when the caller cannot read the target node's memory (a cross-memory edge's far endpoint). For a same-memory edge, always present.
+	Target *UpdateEdgeUpdateEdgeTargetNode `json:"target"`
 }
 
 // GetId returns UpdateEdgeUpdateEdge.Id, and is useful for accessing the field via an interface.

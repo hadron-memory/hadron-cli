@@ -67,10 +67,21 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 
 			edges := []edgeListDTO{}
 			for _, e := range resp.Node.OutgoingEdges {
-				edges = append(edges, edgeListRow(e.Id, "outgoing", e.Name, e.Loc, e.IsRunnable, e.Priority, e.Target.Id, e.Target.Loc))
+				// #781: target is null when its memory is unreadable to the
+				// caller (a cross-memory edge's far endpoint) — leave the node
+				// id/loc blank rather than dereferencing nil.
+				tid, tloc := "", ""
+				if e.Target != nil {
+					tid, tloc = e.Target.Id, e.Target.Loc
+				}
+				edges = append(edges, edgeListRow(e.Id, "outgoing", e.Name, e.Loc, e.IsRunnable, e.Priority, tid, tloc))
 			}
 			for _, e := range resp.Node.IncomingEdges {
-				edges = append(edges, edgeListRow(e.Id, "incoming", e.Name, e.Loc, e.IsRunnable, e.Priority, e.Source.Id, e.Source.Loc))
+				sid, sloc := "", ""
+				if e.Source != nil {
+					sid, sloc = e.Source.Id, e.Source.Loc
+				}
+				edges = append(edges, edgeListRow(e.Id, "incoming", e.Name, e.Loc, e.IsRunnable, e.Priority, sid, sloc))
 			}
 
 			return output.Write(f.IOStreams, f.JSON, edges, func(w io.Writer) error {
