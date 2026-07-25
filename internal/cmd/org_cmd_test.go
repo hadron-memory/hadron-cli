@@ -133,6 +133,87 @@ func TestOrgGetJSONKeepsIsVisibleAlias(t *testing.T) {
 	}
 }
 
+const publicOrgJSON = `{"id":"org1","urn":"acme.com","name":"Acme","listedOnMarketplace":true,
+	"publicMemories":[{"id":"m1","name":"KB","urn":"acme.com::kb","description":"the handbook"}],
+	"publicAgents":[{"id":"a1","name":"Helper","urn":"acme.com::helper","description":null}]}`
+
+// #270: `org public <ref>` fetches the sanitized discoverable view — org fields
+// plus public memories/agents — and forwards the ref verbatim.
+func TestOrgPublic(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"PublicOrganization": `{"data":{"publicOrganization":` + publicOrgJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "public", "acme.com", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["PublicOrganization"], &vars)
+	if vars["ref"] != "acme.com" {
+		t.Errorf("ref must forward verbatim, got %v", vars["ref"])
+	}
+	var dto struct {
+		Name                string `json:"name"`
+		ListedOnMarketplace bool   `json:"listedOnMarketplace"`
+		PublicMemories      []struct {
+			URN         string  `json:"urn"`
+			Description *string `json:"description"`
+		} `json:"publicMemories"`
+		PublicAgents []struct {
+			URN         string  `json:"urn"`
+			Description *string `json:"description"`
+		} `json:"publicAgents"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out.String())
+	}
+	if dto.Name != "Acme" || !dto.ListedOnMarketplace {
+		t.Errorf("org fields wrong: %+v", dto)
+	}
+	if len(dto.PublicMemories) != 1 || dto.PublicMemories[0].URN != "acme.com::kb" ||
+		dto.PublicMemories[0].Description == nil || *dto.PublicMemories[0].Description != "the handbook" {
+		t.Errorf("public memories: %+v", dto.PublicMemories)
+	}
+	if len(dto.PublicAgents) != 1 || dto.PublicAgents[0].URN != "acme.com::helper" || dto.PublicAgents[0].Description != nil {
+		t.Errorf("public agents: %+v", dto.PublicAgents)
+	}
+}
+
+// A null response (not discoverable OR not found — the server collapses both) is
+// a not-found error, not a nil-deref.
+func TestOrgPublicNotDiscoverable(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"PublicOrganization": `{"data":{"publicOrganization":null}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "public", "ghost.com", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "not discoverable") {
+		t.Fatalf("expected a not-discoverable not-found error, got %v", err)
+	}
+}
+
+// Empty footprint renders [] (not null) — the DTO slices are always initialized.
+func TestOrgPublicEmptyListsRenderArray(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"PublicOrganization": `{"data":{"publicOrganization":{"id":"org1","urn":"acme.com","name":"Acme","listedOnMarketplace":false,"publicMemories":[],"publicAgents":[]}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "public", "acme.com", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	for _, key := range []string{`"publicMemories": []`, `"publicAgents": []`} {
+		if !strings.Contains(out.String(), key) {
+			t.Errorf("empty lists must render as [] (%s), got %s", key, out.String())
+		}
+	}
+}
+
 func TestOrgUpdateNothingIsUsageError(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)

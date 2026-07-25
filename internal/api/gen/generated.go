@@ -9629,6 +9629,250 @@ func (v *PublicAgentsResponse) GetPublicAgents() *PublicAgentsPublicAgentsAgents
 	return v.PublicAgents
 }
 
+// PublicOrganizationPublicOrganization includes the requested fields of the GraphQL type PublicOrganization.
+// The GraphQL type's documentation follows.
+//
+// cor:acl:080:02 — a sanitized, non-member-safe view of a DISCOVERABLE org.
+// Deliberately a SEPARATE type from Organization: it exposes only public
+// identity + the org's public footprint, never members / private memories /
+// apps / credentials (which the full Organization's nested resolvers would leak).
+type PublicOrganizationPublicOrganization struct {
+	Id                  string `json:"id"`
+	Urn                 string `json:"urn"`
+	Name                string `json:"name"`
+	ListedOnMarketplace bool   `json:"listedOnMarketplace"`
+	// The org's PUBLIC, non-app-scoped memories (sanitized refs).
+	PublicMemories []*PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef `json:"publicMemories"`
+	// The org's PUBLIC agents (sanitized refs).
+	PublicAgents []*PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef `json:"publicAgents"`
+}
+
+// GetId returns PublicOrganizationPublicOrganization.Id, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganization) GetId() string { return v.Id }
+
+// GetUrn returns PublicOrganizationPublicOrganization.Urn, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganization) GetUrn() string { return v.Urn }
+
+// GetName returns PublicOrganizationPublicOrganization.Name, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganization) GetName() string { return v.Name }
+
+// GetListedOnMarketplace returns PublicOrganizationPublicOrganization.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganization) GetListedOnMarketplace() bool {
+	return v.ListedOnMarketplace
+}
+
+// GetPublicMemories returns PublicOrganizationPublicOrganization.PublicMemories, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganization) GetPublicMemories() []*PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef {
+	return v.PublicMemories
+}
+
+// GetPublicAgents returns PublicOrganizationPublicOrganization.PublicAgents, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganization) GetPublicAgents() []*PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef {
+	return v.PublicAgents
+}
+
+// PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
+// The GraphQL type's documentation follows.
+//
+// A minimal, safe reference to a public resource (marketplace / discovery).
+type PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef struct {
+	PublicResourceRefFields `json:"-"`
+}
+
+// GetId returns PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef.Id, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) GetId() string {
+	return v.PublicResourceRefFields.Id
+}
+
+// GetName returns PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef.Name, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) GetName() string {
+	return v.PublicResourceRefFields.Name
+}
+
+// GetUrn returns PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) GetUrn() string {
+	return v.PublicResourceRefFields.Urn
+}
+
+// GetDescription returns PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef.Description, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) GetDescription() *string {
+	return v.PublicResourceRefFields.Description
+}
+
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PublicResourceRefFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Urn string `json:"urn"`
+
+	Description *string `json:"description"`
+}
+
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef) __premarshalJSON() (*__premarshalPublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef, error) {
+	var retval __premarshalPublicOrganizationPublicOrganizationPublicAgentsPublicResourceRef
+
+	retval.Id = v.PublicResourceRefFields.Id
+	retval.Name = v.PublicResourceRefFields.Name
+	retval.Urn = v.PublicResourceRefFields.Urn
+	retval.Description = v.PublicResourceRefFields.Description
+	return &retval, nil
+}
+
+// PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
+// The GraphQL type's documentation follows.
+//
+// A minimal, safe reference to a public resource (marketplace / discovery).
+type PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef struct {
+	PublicResourceRefFields `json:"-"`
+}
+
+// GetId returns PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef.Id, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) GetId() string {
+	return v.PublicResourceRefFields.Id
+}
+
+// GetName returns PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef.Name, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) GetName() string {
+	return v.PublicResourceRefFields.Name
+}
+
+// GetUrn returns PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef.Urn, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) GetUrn() string {
+	return v.PublicResourceRefFields.Urn
+}
+
+// GetDescription returns PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef.Description, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) GetDescription() *string {
+	return v.PublicResourceRefFields.Description
+}
+
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PublicResourceRefFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Urn string `json:"urn"`
+
+	Description *string `json:"description"`
+}
+
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef) __premarshalJSON() (*__premarshalPublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef, error) {
+	var retval __premarshalPublicOrganizationPublicOrganizationPublicMemoriesPublicResourceRef
+
+	retval.Id = v.PublicResourceRefFields.Id
+	retval.Name = v.PublicResourceRefFields.Name
+	retval.Urn = v.PublicResourceRefFields.Urn
+	retval.Description = v.PublicResourceRefFields.Description
+	return &retval, nil
+}
+
+// PublicOrganizationResponse is returned by PublicOrganization on success.
+type PublicOrganizationResponse struct {
+	// cor:acl:080:02 — the sanitized PUBLIC view of a DISCOVERABLE organization,
+	// safe for a non-member. Returns non-null only when the org exposes a public
+	// footprint (a PUBLIC memory/agent, or listedOnMarketplace); otherwise null
+	// (denied is indistinguishable from not-found — anti-enumeration). Never
+	// exposes members, private memories, apps, or credentials. 'ref' accepts the
+	// org ID or URN.
+	PublicOrganization *PublicOrganizationPublicOrganization `json:"publicOrganization"`
+}
+
+// GetPublicOrganization returns PublicOrganizationResponse.PublicOrganization, and is useful for accessing the field via an interface.
+func (v *PublicOrganizationResponse) GetPublicOrganization() *PublicOrganizationPublicOrganization {
+	return v.PublicOrganization
+}
+
+// publicOrganization returns the sanitized, non-member-safe view of a
+// DISCOVERABLE organization (activated + a public footprint), or null when the
+// org isn't discoverable — the server collapses not-found and not-discoverable
+// to null for anti-enumeration. `$ref` accepts an org id or URN. Surfaced by
+// `hadron org public`. Spec cor:acl:080:02 (#270 / hadron-server#741).
+type PublicResourceRefFields struct {
+	Id          string  `json:"id"`
+	Name        string  `json:"name"`
+	Urn         string  `json:"urn"`
+	Description *string `json:"description"`
+}
+
+// GetId returns PublicResourceRefFields.Id, and is useful for accessing the field via an interface.
+func (v *PublicResourceRefFields) GetId() string { return v.Id }
+
+// GetName returns PublicResourceRefFields.Name, and is useful for accessing the field via an interface.
+func (v *PublicResourceRefFields) GetName() string { return v.Name }
+
+// GetUrn returns PublicResourceRefFields.Urn, and is useful for accessing the field via an interface.
+func (v *PublicResourceRefFields) GetUrn() string { return v.Urn }
+
+// GetDescription returns PublicResourceRefFields.Description, and is useful for accessing the field via an interface.
+func (v *PublicResourceRefFields) GetDescription() *string { return v.Description }
+
 // RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload includes the requested fields of the GraphQL type RemoveMemoryMemberPayload.
 type RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload struct {
 	MemoryId string `json:"memoryId"`
@@ -14126,6 +14370,14 @@ func (v *__PublicAgentsInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __PublicAgentsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__PublicAgentsInput) GetOffset() *int { return v.Offset }
+
+// __PublicOrganizationInput is used internally by genqlient
+type __PublicOrganizationInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __PublicOrganizationInput.Ref, and is useful for accessing the field via an interface.
+func (v *__PublicOrganizationInput) GetRef() string { return v.Ref }
 
 // __RemoveMemoryMemberInput is used internally by genqlient
 type __RemoveMemoryMemberInput struct {
@@ -18865,6 +19117,55 @@ func PublicAgents(
 	}
 
 	data_ = &PublicAgentsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by PublicOrganization.
+const PublicOrganization_Operation = `
+query PublicOrganization ($ref: ID!) {
+	publicOrganization(ref: $ref) {
+		id
+		urn
+		name
+		listedOnMarketplace
+		publicMemories {
+			... PublicResourceRefFields
+		}
+		publicAgents {
+			... PublicResourceRefFields
+		}
+	}
+}
+fragment PublicResourceRefFields on PublicResourceRef {
+	id
+	name
+	urn
+	description
+}
+`
+
+func PublicOrganization(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *PublicOrganizationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PublicOrganization",
+		Query:  PublicOrganization_Operation,
+		Variables: &__PublicOrganizationInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &PublicOrganizationResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
