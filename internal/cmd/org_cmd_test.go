@@ -105,6 +105,34 @@ func TestOrgUpdateMarketplaceFlag(t *testing.T) {
 	}
 }
 
+// #285 review (Codex P1): --json keeps the deprecated isVisible key (mirroring
+// listedOnMarketplace) so existing decoders/selectors don't break when the
+// server-side field was removed.
+func TestOrgGetJSONKeepsIsVisibleAlias(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetOrganization": `{"data":{"organization":` + orgJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "get", "org1", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), `"isVisible"`) {
+		t.Errorf("deprecated isVisible key must remain in --json, got %s", out.String())
+	}
+	var dto struct {
+		ListedOnMarketplace bool  `json:"listedOnMarketplace"`
+		IsVisible           *bool `json:"isVisible"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out.String())
+	}
+	if !dto.ListedOnMarketplace || dto.IsVisible == nil || *dto.IsVisible != dto.ListedOnMarketplace {
+		t.Errorf("isVisible must mirror listedOnMarketplace(=true), got isVisible=%v listed=%v", dto.IsVisible, dto.ListedOnMarketplace)
+	}
+}
+
 func TestOrgUpdateNothingIsUsageError(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)

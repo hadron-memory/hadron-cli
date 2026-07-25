@@ -20,9 +20,11 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		Use:   "update <id>",
 		Short: "Update an organization",
 		Long: `Update an organization by id. Only the fields you pass change.
-Use --marketplace=false to remove it from the marketplace catalogue.`,
+Pass --marketplace (or --marketplace=true) to list the org on the marketplace
+catalogue, --marketplace=false to unlist it.`,
 		Example: `  hadron org update org_123 --name "Acme Inc"
-  hadron org update org_123 --marketplace=false`,
+  hadron org update org_123 --marketplace         # list on the marketplace
+  hadron org update org_123 --marketplace=false   # unlist`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
@@ -65,6 +67,6 @@ Use --marketplace=false to remove it from the marketplace catalogue.`,
 	}
 	cmd.Flags().StringVar(&name, "name", "", "new display name")
 	cmd.Flags().StringVar(&urn, "urn", "", "new URN")
-	cmd.Flags().BoolVar(&marketplace, "marketplace", false, "list this organization on the marketplace catalogue (advertisement, not access; e.g. --marketplace=false)")
+	cmd.Flags().BoolVar(&marketplace, "marketplace", false, "list this org on the marketplace catalogue: --marketplace to list, --marketplace=false to unlist (advertisement, not access)")
 	return cmd
 }
