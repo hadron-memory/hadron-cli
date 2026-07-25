@@ -63,6 +63,37 @@ func TestAgentCreateUserOwnedOmitsOrg(t *testing.T) {
 	}
 }
 
+// #257: --owner-me is the explicit user-owned affordance — it omits orgId (the
+// spec-047 personal-create path), same as omitting --org.
+func TestAgentCreateOwnerMeOmitsOrg(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateAgent": `{"data":{"createAgent":` + agentJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "create", "--owner-me", "--name", "Personal Bot", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateAgent"], &vars)
+	if _, present := vars["orgId"]; present {
+		t.Errorf("--owner-me must omit orgId, got %v", vars["orgId"])
+	}
+}
+
+// --owner-me and --org are mutually exclusive (an agent is owned by exactly one
+// of a user or an org) — the guard fires before any network round-trip.
+func TestAgentCreateRejectsOwnerMeAndOrg(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "create", "--owner-me", "--org", "acme.com", "--name", "X", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "drop --org") {
+		t.Fatalf("expected a mutual-exclusion usage error, got %v", err)
+	}
+}
+
 func TestAgentCreateRejectsBadType(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)

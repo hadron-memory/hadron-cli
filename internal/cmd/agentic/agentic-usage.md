@@ -72,7 +72,7 @@ hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | use
 hadron app ls --org <org> | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <id> | use <urn>
 hadron ai-config ls [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
 hadron org ls [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member ls|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
-hadron agent ls [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | ls --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id>] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
+hadron agent ls [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | ls --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
 hadron user search <query> [--limit N] [--offset N] | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--email <e>] [--handle <h>]
 hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--ai-config <n>] [--wait] | ls [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
@@ -442,8 +442,11 @@ Conventions:
   readable without org membership, so you can grab a foreign agent's URN to
   subscribe/install (`--org`/`--visibility` don't apply to it).
   `agent get <ref>` (ID or URN); `agent create --name <n>` creates a
-  user-owned agent by default, or pass `--org <id>` for an org-owned agent,
-  with optional `--type`/`--visibility`/`--description`/`--system-prompt`/
+  user-owned agent — pass `--owner-me` to say so explicitly, or `--org <id>`
+  for an org-owned agent (the two are mutually exclusive). A user-owned agent is
+  PERSONAL/owner-only in v1 (spec 047; the server derives the `@handle:<slug>`
+  URN and rejects a non-PERSONAL visibility). Optional
+  `--type`/`--visibility`/`--description`/`--system-prompt`/
   `--system-memory`/`--surface` (repeatable); `agent update <id> [<field flags>]`
   changes only the fields you pass (`--surface` replaces the set); `agent rm <id>`
   requires `--yes`. Memory-attach, AI-config wiring, and app-wiring land next.

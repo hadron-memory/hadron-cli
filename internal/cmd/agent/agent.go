@@ -240,13 +240,24 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	var org, name, description, typ, vis, systemPrompt, systemMemory string
 	var surfaces []string
+	var ownerMe bool
 	cmd := &cobra.Command{
-		Use:   "create --name <n> [--org <id>]",
-		Short: "Create an agent",
-		Example: `  hadron agent create --name "My Agent" --type ASSISTANT
+		Use:   "create --name <n> [--org <id> | --owner-me]",
+		Short: "Create an agent (org-owned, or user-owned with --owner-me)",
+		Long: `Create an agent. Pass --org to create an org-owned agent (you must be an org
+ADMIN). Otherwise the agent is user-owned, in your own @handle namespace (spec
+047) — pass --owner-me to say so explicitly, or just omit --org. A user-owned
+agent is PERSONAL/owner-only in v1: the server derives the @handle:<slug> URN
+and rejects a non-PERSONAL --visibility. --org and --owner-me are mutually
+exclusive.`,
+		Example: `  hadron agent create --owner-me --name "My Agent" --type ASSISTANT
   hadron agent create --org acme.com --name "Support Bot" --type CHATBOT --visibility ORGANIZATION`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// spec 047: an agent is owned by EXACTLY ONE of an org or the caller.
+			if ownerMe && org != "" {
+				return exitcode.Newf(exitcode.Usage, "--owner-me creates an agent you own in your own namespace; drop --org (or drop --owner-me to create an organization agent)")
+			}
 			at, err := parseAgentType(typ)
 			if err != nil {
 				return err
@@ -270,7 +281,8 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 			return emitAgent(f, agentDTOFromFields(resp.CreateAgent.AgentFields), "✓ created")
 		},
 	}
-	cmd.Flags().StringVar(&org, "org", "", "owning organization (ID); omit for a user-owned agent")
+	cmd.Flags().StringVar(&org, "org", "", "owning organization (ID); omit (or use --owner-me) for a user-owned agent")
+	cmd.Flags().BoolVar(&ownerMe, "owner-me", false, "create a user-owned agent in your own @handle namespace (org-less; PERSONAL only)")
 	cmd.Flags().StringVar(&name, "name", "", "agent name")
 	cmd.Flags().StringVar(&description, "description", "", "agent description")
 	cmd.Flags().StringVar(&typ, "type", "", "type: ASSISTANT or CHATBOT (server default when unset)")
