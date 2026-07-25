@@ -420,7 +420,9 @@ Conventions:
 - `org` manages organizations, their members, and invitations. `org ls`
   lists organizations (`--mine` restricts to your memberships; unscoped spans
   every org you can see); `org create --name --urn`, `org get <id>`,
-  `org update <id> [--name|--urn|--visible]`, `org rm <id>` (requires `--yes`).
+  `org update <id> [--name|--urn|--marketplace]` (`--marketplace` toggles the
+  org's marketplace-catalogue listing — the field formerly called `isVisible`),
+  `org rm <id>` (requires `--yes`).
   `org member ls <org-id>` lists members; `member add|set-role <org-id> --user
   <id> --role <OWNER|ADMIN|CONTRIBUTOR|READER>` and `member rm <org-id> --user
   <id>` manage them. `org invite create <email> --org <id> --role <r>` mints an

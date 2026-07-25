@@ -1007,6 +1007,44 @@ type CreditLedgerEntryList {
   total: Int!
 }
 
+"""One widget the caller has placed on their /app/dashboard grid (#772)."""
+type DashboardWidget {
+  id: ID!
+
+  """0-based sort order among the caller's widgets."""
+  position: Int!
+
+  """Columns spanned on the 12-col desktop grid."""
+  span: Int!
+  type: DashboardWidgetType!
+}
+
+"""
+Combined data for one activated widget type — the portal fans this out by type (#772).
+"""
+type DashboardWidgetData {
+  """The widget-specific payload (e.g. memory-stats => { memoryCount })."""
+  data: JSON!
+  type: DashboardWidgetType!
+}
+
+"""
+One widget in a setDashboardWidgets selection; grid position is the array order.
+"""
+input DashboardWidgetInput {
+  """
+  Columns to span (1-12); clamped server-side. Defaults to 4 when omitted.
+  """
+  span: Int
+  type: DashboardWidgetType!
+}
+
+"""#772 — the kinds of widget placeable on a user's /app/dashboard grid."""
+enum DashboardWidgetType {
+  AGENT_STATS
+  MEMORY_STATS
+}
+
 """Text representation a drive export can request."""
 enum DriveExportFormat {
   HTML
@@ -1639,6 +1677,16 @@ type Memory {
   (any role) and to ADMIN/OWNER of the memory's owning org.
   """
   members: [MemoryMember!]!
+
+  """
+  The caller's OWN share of this memory (they are the grantee), or
+  null. Grantee-readable — unlike shares (principal / org-admin only),
+  this returns at most the single MemoryShare row keyed
+  (memoryId, callerId), so it never leaks co-grantees. null for a
+  non-grantee or an App-key caller. Lets the portal render
+  Shared-by-@grantor + the role on each shared-with-me row.
+  """
+  myShare: MemoryShare
   name: String!
   organization: Organization
   organizationId: String
@@ -1649,6 +1697,15 @@ type Memory {
   #725 — opt-in per-memory property schema (declared collections + typed fields). NULL = unstructured. Authored via updateMemory; well-formedness validated server-side.
   """
   schema: JSON
+
+  """
+  #766 — derived shareability signal: true iff this memory can be shared
+  with an individual user via MemoryShare, i.e. class = 'personal'
+  (spec 023 FR-018). Lets the CLI and portal surface or gate the share
+  action before a createMemoryShare attempt rather than discovering
+  InvalidMemoryClassForShareError at execution time.
+  """
+  shareable: Boolean!
 
   """
   023-app-shape US3: cross-user grants on this memory. Non-empty
@@ -1714,17 +1771,32 @@ enum MemoryClass {
 
 """
 Filter for the uniform memories() list (#473). All clauses AND-combine and
-only ever narrow the caller's accessible scope — with one documented scope
-SELECTION: visibility: PUBLIC switches from the caller's own union
-(org-owned + org-subscribed + own personal/private) to the public
-marketplace slice (every PUBLIC memory — the old publicMemories query).
-Both slices are readable by the caller, so this never widens access.
+only ever narrow the caller's accessible scope — with two documented slice
+SELECTIONS, each switching which readable set the list draws from (never
+widening access beyond what the caller may already read):
+  - visibility: PUBLIC switches from the caller's own union (org-owned +
+    org-subscribed + own personal/private) to the public marketplace slice
+    (every PUBLIC memory — the old publicMemories query).
+  - sharedWithMe: true switches to the memories shared WITH the caller via
+    MemoryShare (the caller is a grantee) — the portal's
+    Memories-shared-with-me tab.
 """
 input MemoryFilter {
   """
   Restrict to exactly these classes. Omitted, the noisy agent system class is hidden by default; pass it explicitly to surface system memories.
   """
   memoryClasses: [MemoryClass!]
+
+  """
+  true selects the distinct set of memories shared WITH the caller
+  via MemoryShare (the caller is a grantee) — the portal's
+  Memories-shared-with-me tab. This is its own slice, NOT part of the
+  caller's owned/org union: a grantee is never their own grantor, so
+  it excludes owned memories. App-key callers get an empty page
+  (sharing is a user-to-user concept). See Memory.myShare for the
+  per-row grantor + role.
+  """
+  sharedWithMe: Boolean
 
   """
   Restrict by visibility. PUBLIC selects the marketplace slice (see above).
@@ -1948,13 +2020,6 @@ type Mutation {
 
   """Accepts the entity's ID or URN (orgId)."""
   addOrgMember(orgId: ID!, role: Role!, userId: ID!): OrgMember!
-
-  """
-  Add a public memory to the current user's personal workspace.
-  
-  Accepts the entity's ID or URN.
-  """
-  addToMyMemories(memoryId: ID!): Boolean!
 
   """
   Attach an EXISTING free-standing memory to an App.
@@ -2283,6 +2348,13 @@ type Mutation {
   predicate but not by this GraphQL surface — see the deferred
   policy discussion linked from joinApp.ts.
   
+  Share-audience rule (#778): a plain ORG-OWNED personal memory
+  (organizationId set, no agent scope) may be shared ONLY with a
+  current member of that org; a FREE-STANDING (org-less) personal
+  memory may be shared with any user. Agent-scoped personal memories
+  (the spec-023 per-pairing App pattern) are exempt — their audience
+  is governed by AppMember + AgentSubscription, not org membership.
+  
   Error codes (extensions.code, Error.name style):
     - UNAUTHENTICATED — no logged-in user in context.
     - FORBIDDEN — caller is not the Memory's principal. The
@@ -2294,12 +2366,26 @@ type Mutation {
     - MemoryShareGranteeMissingError — granteeId doesn't resolve to
       an existing User. Only reachable when the caller passes the
       principal guard.
+    - CrossOrgShareNotAllowedError — the grantee is not a member of an
+      org-owned personal memory's org (the #778 audience rule above).
     - InvalidMemoryClassForShareError / MemoryNotFoundForShareError —
       defined on the controller for completeness; functionally
       unreachable via this GraphQL mutation in v1 because the
       caller-authority guard short-circuits to FORBIDDEN first.
   """
-  createMemoryShare(granteeId: ID!, memoryId: ID!, role: MemoryShareRole!): CreateMemorySharePayload!
+  createMemoryShare(
+    """
+    Deprecated (#769): the grantee's user PK. Use granteeRef, which also accepts email / handle / URN.
+    """
+    granteeId: ID @deprecated(reason: "Use granteeRef (accepts id / email / handle / hrn:user URN).")
+
+    """
+    #769 — the grantee as a reference resolved server-side: a user id, email, handle, or hrn:user:<handle> URN. Resolution sees the full user table, so a cross-org personal-memory share works by email/handle. Supply this OR granteeId.
+    """
+    granteeRef: String
+    memoryId: ID!
+    role: MemoryShareRole!
+  ): CreateMemorySharePayload!
 
   """
   Create a cross-org Memory subscription.
@@ -2783,7 +2869,15 @@ type Mutation {
   
   Caller-authority rule matches createMemoryShare.
   """
-  revokeMemoryShare(granteeId: ID!, memoryId: ID!): RevokeMemorySharePayload!
+  revokeMemoryShare(
+    granteeId: ID @deprecated(reason: "Use granteeRef (accepts id / email / handle / hrn:user URN).")
+
+    """
+    #769 — the grantee as a server-resolved reference (id / email / handle / hrn:user URN). Supply this OR granteeId.
+    """
+    granteeRef: String
+    memoryId: ID!
+  ): RevokeMemorySharePayload!
 
   """Revoke an action grant (org-ADMIN, interactive-only; soft delete)."""
   revokePrincipalGrant(ref: ID!): Boolean!
@@ -2812,6 +2906,14 @@ type Mutation {
   Append an effective-dated provider rate row (spec 046). PLATFORM ADMIN - org admins must never set the prices they are billed at.
   """
   setAiModelPrice(input: SetAiModelPriceInput!): AiModelPrice!
+
+  """
+  #772 — replace the caller's entire dashboard widget selection. Grid position
+  is the array order; span defaults to 4 and is clamped to 1-12. Covers both
+  create and update (the layout is always saved as a whole). Returns the new
+  selection. Requires an authenticated user.
+  """
+  setDashboardWidgets(widgets: [DashboardWidgetInput!]!): [DashboardWidget!]!
 
   """
   Set encrypted source token for non-GitHub-App repos.
@@ -2973,7 +3075,16 @@ type Mutation {
   
   Caller-authority rule matches createMemoryShare.
   """
-  updateMemoryShareRole(granteeId: ID!, memoryId: ID!, role: MemoryShareRole!): UpdateMemoryShareRolePayload!
+  updateMemoryShareRole(
+    granteeId: ID @deprecated(reason: "Use granteeRef (accepts id / email / handle / hrn:user URN).")
+
+    """
+    #769 — the grantee as a server-resolved reference (id / email / handle / hrn:user URN). Supply this OR granteeId.
+    """
+    granteeRef: String
+    memoryId: ID!
+    role: MemoryShareRole!
+  ): UpdateMemoryShareRolePayload!
 
   """
   Update a cross-org Memory subscription.
@@ -3018,7 +3129,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  updateOrganization(id: ID!, isVisible: Boolean, listedOnMarketplace: Boolean, name: String, policy: JSON, urn: String): Organization!
+  updateOrganization(id: ID!, listedOnMarketplace: Boolean, name: String, policy: JSON, urn: String): Organization!
 
   """
   Update the fixed sender, replace its write-only API key, or enable/disable it.
@@ -3573,7 +3684,6 @@ type Organization {
   githubInstallationId: Int
   hasGithubAppPrivateKey: Boolean!
   id: ID!
-  isVisible: Boolean
 
   """
   cor:acl:080:04 — opt-in marketplace catalogue flag (advertisement, not access).
@@ -3905,6 +4015,16 @@ type Query {
   """
   creditLedgerEntries(limit: Int, offset: Int, orgRef: String!): CreditLedgerEntryList!
 
+  """
+  #772 — combined data for all of the caller's activated widget types, in one request. Empty for a non-user caller.
+  """
+  dashboardWidgetData: [DashboardWidgetData!]!
+
+  """
+  #772 — the caller's placed dashboard widgets, ordered by position. Empty for a non-user (App-key) caller.
+  """
+  dashboardWidgets: [DashboardWidget!]!
+
   """File metadata by id. Grant scope: drive.read."""
   driveFile(connectionRef: ID!, fileId: ID!): DriveFile!
 
@@ -4150,7 +4270,7 @@ type Query {
   listedOnMarketplace AND publicly accessible. Public (no membership required);
   sanitized flat refs only (never members / private data / credentials). One
   paginated query per resource type; ordered by (name, id) for stable paging.
-  - marketplaceOrganizations: activated (isVisible=true) + listed orgs.
+  - marketplaceOrganizations: listedOnMarketplace orgs.
   - marketplaceAgents: listed + visibility=PUBLIC agents.
   - marketplaceMemories: listed + public-readable memories.
   Drill into an org's public footprint via publicOrganization(ref:).
@@ -4396,11 +4516,11 @@ type Query {
 
   """
   cor:acl:080:02 — the sanitized PUBLIC view of a DISCOVERABLE organization,
-  safe for a non-member. Returns non-null only when the org is activated
-  (isVisible=true) AND exposes a public footprint (a PUBLIC memory/agent, or
-  listedOnMarketplace); otherwise null (denied is indistinguishable from
-  not-found — anti-enumeration). Never exposes members, private memories,
-  apps, or credentials. 'ref' accepts the org ID or URN.
+  safe for a non-member. Returns non-null only when the org exposes a public
+  footprint (a PUBLIC memory/agent, or listedOnMarketplace); otherwise null
+  (denied is indistinguishable from not-found — anti-enumeration). Never
+  exposes members, private memories, apps, or credentials. 'ref' accepts the
+  org ID or URN.
   """
   publicOrganization(ref: ID!): PublicOrganization
 

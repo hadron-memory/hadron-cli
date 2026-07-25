@@ -11,9 +11,18 @@ import (
 
 // orgDTO is the stable --json shape for an organization.
 type orgDTO struct {
-	ID        string `json:"id"`
-	URN       string `json:"urn"`
-	Name      string `json:"name"`
+	ID   string `json:"id"`
+	URN  string `json:"urn"`
+	Name string `json:"name"`
+	// ListedOnMarketplace is the marketplace-catalogue flag (cor:acl:080:04) that
+	// replaced the server's removed Organization.isVisible; the org's separate
+	// discoverability now lives behind publicOrganization (#270).
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+	// IsVisible is a DEPRECATED compatibility alias mirroring ListedOnMarketplace.
+	// The server dropped Organization.isVisible, but --json is a stable public
+	// contract (agents select this key), so it's retained rather than removed —
+	// it now carries the listedOnMarketplace value. Slated for removal at a major
+	// version bump.
 	IsVisible *bool  `json:"isVisible"`
 	CreatedAt string `json:"createdAt"`
 	UpdatedAt string `json:"updatedAt"`
@@ -39,13 +48,15 @@ type memberDTO struct {
 }
 
 func orgDTOFromFields(o gen.OrgFields) orgDTO {
+	listed := o.ListedOnMarketplace
 	return orgDTO{
-		ID:        o.Id,
-		URN:       o.Urn,
-		Name:      o.Name,
-		IsVisible: o.IsVisible,
-		CreatedAt: o.CreatedAt,
-		UpdatedAt: o.UpdatedAt,
+		ID:                  o.Id,
+		URN:                 o.Urn,
+		Name:                o.Name,
+		ListedOnMarketplace: listed,
+		IsVisible:           &listed, // deprecated alias — mirrors listedOnMarketplace
+		CreatedAt:           o.CreatedAt,
+		UpdatedAt:           o.UpdatedAt,
 	}
 }
 

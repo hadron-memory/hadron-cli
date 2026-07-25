@@ -15,19 +15,21 @@ import (
 
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var name, urn string
-	var visible bool
+	var marketplace bool
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update an organization",
 		Long: `Update an organization by id. Only the fields you pass change.
-Use --visible=false to hide it from listings.`,
+Pass --marketplace (or --marketplace=true) to list the org on the marketplace
+catalogue, --marketplace=false to unlist it.`,
 		Example: `  hadron org update org_123 --name "Acme Inc"
-  hadron org update org_123 --visible=false`,
+  hadron org update org_123 --marketplace         # list on the marketplace
+  hadron org update org_123 --marketplace=false   # unlist`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
-			if !changed("name") && !changed("urn") && !changed("visible") {
-				return exitcode.Newf(exitcode.Usage, "nothing to update — pass --name, --urn, or --visible")
+			if !changed("name") && !changed("urn") && !changed("marketplace") {
+				return exitcode.Newf(exitcode.Usage, "nothing to update — pass --name, --urn, or --marketplace")
 			}
 			if changed("urn") {
 				if err := cmdutil.ValidateURNSlug("--urn", urn); err != nil {
@@ -39,17 +41,17 @@ Use --visible=false to hide it from listings.`,
 				return err
 			}
 			var nameArg, urnArg *string
-			var visArg *bool
+			var marketplaceArg *bool
 			if changed("name") {
 				nameArg = &name
 			}
 			if changed("urn") {
 				urnArg = &urn
 			}
-			if changed("visible") {
-				visArg = &visible
+			if changed("marketplace") {
+				marketplaceArg = &marketplace
 			}
-			resp, err := gen.UpdateOrganization(cmd.Context(), client, args[0], nameArg, urnArg, visArg)
+			resp, err := gen.UpdateOrganization(cmd.Context(), client, args[0], nameArg, urnArg, marketplaceArg)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -65,6 +67,6 @@ Use --visible=false to hide it from listings.`,
 	}
 	cmd.Flags().StringVar(&name, "name", "", "new display name")
 	cmd.Flags().StringVar(&urn, "urn", "", "new URN")
-	cmd.Flags().BoolVar(&visible, "visible", true, "organization visibility (e.g. --visible=false)")
+	cmd.Flags().BoolVar(&marketplace, "marketplace", false, "list this org on the marketplace catalogue: --marketplace to list, --marketplace=false to unlist (advertisement, not access)")
 	return cmd
 }
