@@ -11,12 +11,16 @@ import (
 
 // orgDTO is the stable --json shape for an organization.
 type orgDTO struct {
-	ID        string `json:"id"`
-	URN       string `json:"urn"`
-	Name      string `json:"name"`
-	IsVisible *bool  `json:"isVisible"`
-	CreatedAt string `json:"createdAt"`
-	UpdatedAt string `json:"updatedAt"`
+	ID   string `json:"id"`
+	URN  string `json:"urn"`
+	Name string `json:"name"`
+	// ListedOnMarketplace replaces the removed isVisible field — the server's
+	// org-visibility rework split "visibility" into the marketplace-catalogue
+	// flag (this, cor:acl:080:04) and the separate publicOrganization
+	// discoverability view (#270).
+	ListedOnMarketplace bool   `json:"listedOnMarketplace"`
+	CreatedAt           string `json:"createdAt"`
+	UpdatedAt           string `json:"updatedAt"`
 }
 
 // userDTO is the stable --json shape for a user (search results, member.user).
@@ -40,12 +44,12 @@ type memberDTO struct {
 
 func orgDTOFromFields(o gen.OrgFields) orgDTO {
 	return orgDTO{
-		ID:        o.Id,
-		URN:       o.Urn,
-		Name:      o.Name,
-		IsVisible: o.IsVisible,
-		CreatedAt: o.CreatedAt,
-		UpdatedAt: o.UpdatedAt,
+		ID:                  o.Id,
+		URN:                 o.Urn,
+		Name:                o.Name,
+		ListedOnMarketplace: o.ListedOnMarketplace,
+		CreatedAt:           o.CreatedAt,
+		UpdatedAt:           o.UpdatedAt,
 	}
 }
 

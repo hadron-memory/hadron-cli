@@ -33,11 +33,11 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 			}
 			dto := orgDTOFromFields(resp.Organization.OrgFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				vis := "visible"
-				if dto.IsVisible != nil && !*dto.IsVisible {
-					vis = "hidden"
+				listing := "not listed on marketplace"
+				if dto.ListedOnMarketplace {
+					listing = "listed on marketplace"
 				}
-				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  %s\n  updated: %s\n", dto.Name, dto.URN, dto.ID, vis, dto.UpdatedAt)
+				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  %s\n  updated: %s\n", dto.Name, dto.URN, dto.ID, listing, dto.UpdatedAt)
 				return nil
 			})
 		},

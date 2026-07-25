@@ -4402,6 +4402,13 @@ type CreateMemoryShareResponse struct {
 	// predicate but not by this GraphQL surface — see the deferred
 	// policy discussion linked from joinApp.ts.
 	//
+	// Share-audience rule (#778): a plain ORG-OWNED personal memory
+	// (organizationId set, no agent scope) may be shared ONLY with a
+	// current member of that org; a FREE-STANDING (org-less) personal
+	// memory may be shared with any user. Agent-scoped personal memories
+	// (the spec-023 per-pairing App pattern) are exempt — their audience
+	// is governed by AppMember + AgentSubscription, not org membership.
+	//
 	// Error codes (extensions.code, Error.name style):
 	// - UNAUTHENTICATED — no logged-in user in context.
 	// - FORBIDDEN — caller is not the Memory's principal. The
@@ -4413,6 +4420,8 @@ type CreateMemoryShareResponse struct {
 	// - MemoryShareGranteeMissingError — granteeId doesn't resolve to
 	// an existing User. Only reachable when the caller passes the
 	// principal guard.
+	// - CrossOrgShareNotAllowedError — the grantee is not a member of an
+	// org-owned personal memory's org (the #778 audience rule above).
 	// - InvalidMemoryClassForShareError / MemoryNotFoundForShareError —
 	// defined on the controller for completeness; functionally
 	// unreachable via this GraphQL mutation in v1 because the
@@ -4649,8 +4658,10 @@ func (v *CreateOrganizationCreateOrganization) GetUrn() string { return v.OrgFie
 // GetName returns CreateOrganizationCreateOrganization.Name, and is useful for accessing the field via an interface.
 func (v *CreateOrganizationCreateOrganization) GetName() string { return v.OrgFields.Name }
 
-// GetIsVisible returns CreateOrganizationCreateOrganization.IsVisible, and is useful for accessing the field via an interface.
-func (v *CreateOrganizationCreateOrganization) GetIsVisible() *bool { return v.OrgFields.IsVisible }
+// GetListedOnMarketplace returns CreateOrganizationCreateOrganization.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *CreateOrganizationCreateOrganization) GetListedOnMarketplace() bool {
+	return v.OrgFields.ListedOnMarketplace
+}
 
 // GetCreatedAt returns CreateOrganizationCreateOrganization.CreatedAt, and is useful for accessing the field via an interface.
 func (v *CreateOrganizationCreateOrganization) GetCreatedAt() string { return v.OrgFields.CreatedAt }
@@ -4690,7 +4701,7 @@ type __premarshalCreateOrganizationCreateOrganization struct {
 
 	Name string `json:"name"`
 
-	IsVisible *bool `json:"isVisible"`
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
 
 	CreatedAt string `json:"createdAt"`
 
@@ -4711,7 +4722,7 @@ func (v *CreateOrganizationCreateOrganization) __premarshalJSON() (*__premarshal
 	retval.Id = v.OrgFields.Id
 	retval.Urn = v.OrgFields.Urn
 	retval.Name = v.OrgFields.Name
-	retval.IsVisible = v.OrgFields.IsVisible
+	retval.ListedOnMarketplace = v.OrgFields.ListedOnMarketplace
 	retval.CreatedAt = v.OrgFields.CreatedAt
 	retval.UpdatedAt = v.OrgFields.UpdatedAt
 	return &retval, nil
@@ -6436,8 +6447,10 @@ func (v *GetOrganizationOrganization) GetUrn() string { return v.OrgFields.Urn }
 // GetName returns GetOrganizationOrganization.Name, and is useful for accessing the field via an interface.
 func (v *GetOrganizationOrganization) GetName() string { return v.OrgFields.Name }
 
-// GetIsVisible returns GetOrganizationOrganization.IsVisible, and is useful for accessing the field via an interface.
-func (v *GetOrganizationOrganization) GetIsVisible() *bool { return v.OrgFields.IsVisible }
+// GetListedOnMarketplace returns GetOrganizationOrganization.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *GetOrganizationOrganization) GetListedOnMarketplace() bool {
+	return v.OrgFields.ListedOnMarketplace
+}
 
 // GetCreatedAt returns GetOrganizationOrganization.CreatedAt, and is useful for accessing the field via an interface.
 func (v *GetOrganizationOrganization) GetCreatedAt() string { return v.OrgFields.CreatedAt }
@@ -6477,7 +6490,7 @@ type __premarshalGetOrganizationOrganization struct {
 
 	Name string `json:"name"`
 
-	IsVisible *bool `json:"isVisible"`
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
 
 	CreatedAt string `json:"createdAt"`
 
@@ -6498,7 +6511,7 @@ func (v *GetOrganizationOrganization) __premarshalJSON() (*__premarshalGetOrgani
 	retval.Id = v.OrgFields.Id
 	retval.Urn = v.OrgFields.Urn
 	retval.Name = v.OrgFields.Name
-	retval.IsVisible = v.OrgFields.IsVisible
+	retval.ListedOnMarketplace = v.OrgFields.ListedOnMarketplace
 	retval.CreatedAt = v.OrgFields.CreatedAt
 	retval.UpdatedAt = v.OrgFields.UpdatedAt
 	return &retval, nil
@@ -7357,20 +7370,35 @@ var AllMemoryClass = []MemoryClass{
 }
 
 // Filter for the uniform memories() list (#473). All clauses AND-combine and
-// only ever narrow the caller's accessible scope — with one documented scope
-// SELECTION: visibility: PUBLIC switches from the caller's own union
-// (org-owned + org-subscribed + own personal/private) to the public
-// marketplace slice (every PUBLIC memory — the old publicMemories query).
-// Both slices are readable by the caller, so this never widens access.
+// only ever narrow the caller's accessible scope — with two documented slice
+// SELECTIONS, each switching which readable set the list draws from (never
+// widening access beyond what the caller may already read):
+// - visibility: PUBLIC switches from the caller's own union (org-owned +
+// org-subscribed + own personal/private) to the public marketplace slice
+// (every PUBLIC memory — the old publicMemories query).
+// - sharedWithMe: true switches to the memories shared WITH the caller via
+// MemoryShare (the caller is a grantee) — the portal's
+// Memories-shared-with-me tab.
 type MemoryFilter struct {
 	// Restrict to exactly these classes. Omitted, the noisy agent system class is hidden by default; pass it explicitly to surface system memories.
 	MemoryClasses []MemoryClass `json:"memoryClasses,omitempty"`
+	// true selects the distinct set of memories shared WITH the caller
+	// via MemoryShare (the caller is a grantee) — the portal's
+	// Memories-shared-with-me tab. This is its own slice, NOT part of the
+	// caller's owned/org union: a grantee is never their own grantor, so
+	// it excludes owned memories. App-key callers get an empty page
+	// (sharing is a user-to-user concept). See Memory.myShare for the
+	// per-row grantor + role.
+	SharedWithMe *bool `json:"sharedWithMe"`
 	// Restrict by visibility. PUBLIC selects the marketplace slice (see above).
 	Visibility *MemoryVisibility `json:"visibility,omitempty"`
 }
 
 // GetMemoryClasses returns MemoryFilter.MemoryClasses, and is useful for accessing the field via an interface.
 func (v *MemoryFilter) GetMemoryClasses() []MemoryClass { return v.MemoryClasses }
+
+// GetSharedWithMe returns MemoryFilter.SharedWithMe, and is useful for accessing the field via an interface.
+func (v *MemoryFilter) GetSharedWithMe() *bool { return v.SharedWithMe }
 
 // GetVisibility returns MemoryFilter.Visibility, and is useful for accessing the field via an interface.
 func (v *MemoryFilter) GetVisibility() *MemoryVisibility { return v.Visibility }
@@ -8915,12 +8943,13 @@ var AllNodeTextField = []NodeTextField{
 
 // OrgFields includes the GraphQL fields of Organization requested by the fragment OrgFields.
 type OrgFields struct {
-	Id        string `json:"id"`
-	Urn       string `json:"urn"`
-	Name      string `json:"name"`
-	IsVisible *bool  `json:"isVisible"`
-	CreatedAt string `json:"createdAt"`
-	UpdatedAt string `json:"updatedAt"`
+	Id   string `json:"id"`
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+	// cor:acl:080:04 — opt-in marketplace catalogue flag (advertisement, not access).
+	ListedOnMarketplace bool   `json:"listedOnMarketplace"`
+	CreatedAt           string `json:"createdAt"`
+	UpdatedAt           string `json:"updatedAt"`
 }
 
 // GetId returns OrgFields.Id, and is useful for accessing the field via an interface.
@@ -8932,8 +8961,8 @@ func (v *OrgFields) GetUrn() string { return v.Urn }
 // GetName returns OrgFields.Name, and is useful for accessing the field via an interface.
 func (v *OrgFields) GetName() string { return v.Name }
 
-// GetIsVisible returns OrgFields.IsVisible, and is useful for accessing the field via an interface.
-func (v *OrgFields) GetIsVisible() *bool { return v.IsVisible }
+// GetListedOnMarketplace returns OrgFields.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *OrgFields) GetListedOnMarketplace() bool { return v.ListedOnMarketplace }
 
 // GetCreatedAt returns OrgFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *OrgFields) GetCreatedAt() string { return v.CreatedAt }
@@ -9118,9 +9147,9 @@ func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) GetName()
 	return v.OrgFields.Name
 }
 
-// GetIsVisible returns OrganizationsOrganizationsOrganizationsPageItemsOrganization.IsVisible, and is useful for accessing the field via an interface.
-func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) GetIsVisible() *bool {
-	return v.OrgFields.IsVisible
+// GetListedOnMarketplace returns OrganizationsOrganizationsOrganizationsPageItemsOrganization.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) GetListedOnMarketplace() bool {
+	return v.OrgFields.ListedOnMarketplace
 }
 
 // GetCreatedAt returns OrganizationsOrganizationsOrganizationsPageItemsOrganization.CreatedAt, and is useful for accessing the field via an interface.
@@ -9165,7 +9194,7 @@ type __premarshalOrganizationsOrganizationsOrganizationsPageItemsOrganization st
 
 	Name string `json:"name"`
 
-	IsVisible *bool `json:"isVisible"`
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
 
 	CreatedAt string `json:"createdAt"`
 
@@ -9186,7 +9215,7 @@ func (v *OrganizationsOrganizationsOrganizationsPageItemsOrganization) __premars
 	retval.Id = v.OrgFields.Id
 	retval.Urn = v.OrgFields.Urn
 	retval.Name = v.OrgFields.Name
-	retval.IsVisible = v.OrgFields.IsVisible
+	retval.ListedOnMarketplace = v.OrgFields.ListedOnMarketplace
 	retval.CreatedAt = v.OrgFields.CreatedAt
 	retval.UpdatedAt = v.OrgFields.UpdatedAt
 	return &retval, nil
@@ -12756,8 +12785,10 @@ func (v *UpdateOrganizationUpdateOrganization) GetUrn() string { return v.OrgFie
 // GetName returns UpdateOrganizationUpdateOrganization.Name, and is useful for accessing the field via an interface.
 func (v *UpdateOrganizationUpdateOrganization) GetName() string { return v.OrgFields.Name }
 
-// GetIsVisible returns UpdateOrganizationUpdateOrganization.IsVisible, and is useful for accessing the field via an interface.
-func (v *UpdateOrganizationUpdateOrganization) GetIsVisible() *bool { return v.OrgFields.IsVisible }
+// GetListedOnMarketplace returns UpdateOrganizationUpdateOrganization.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *UpdateOrganizationUpdateOrganization) GetListedOnMarketplace() bool {
+	return v.OrgFields.ListedOnMarketplace
+}
 
 // GetCreatedAt returns UpdateOrganizationUpdateOrganization.CreatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateOrganizationUpdateOrganization) GetCreatedAt() string { return v.OrgFields.CreatedAt }
@@ -12797,7 +12828,7 @@ type __premarshalUpdateOrganizationUpdateOrganization struct {
 
 	Name string `json:"name"`
 
-	IsVisible *bool `json:"isVisible"`
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
 
 	CreatedAt string `json:"createdAt"`
 
@@ -12818,7 +12849,7 @@ func (v *UpdateOrganizationUpdateOrganization) __premarshalJSON() (*__premarshal
 	retval.Id = v.OrgFields.Id
 	retval.Urn = v.OrgFields.Urn
 	retval.Name = v.OrgFields.Name
-	retval.IsVisible = v.OrgFields.IsVisible
+	retval.ListedOnMarketplace = v.OrgFields.ListedOnMarketplace
 	retval.CreatedAt = v.OrgFields.CreatedAt
 	retval.UpdatedAt = v.OrgFields.UpdatedAt
 	return &retval, nil
@@ -14626,10 +14657,10 @@ func (v *__UpdateOrgMemberInput) GetRole() Role { return v.Role }
 
 // __UpdateOrganizationInput is used internally by genqlient
 type __UpdateOrganizationInput struct {
-	Id        string  `json:"id"`
-	Name      *string `json:"name,omitempty"`
-	Urn       *string `json:"urn,omitempty"`
-	IsVisible *bool   `json:"isVisible,omitempty"`
+	Id                  string  `json:"id"`
+	Name                *string `json:"name,omitempty"`
+	Urn                 *string `json:"urn,omitempty"`
+	ListedOnMarketplace *bool   `json:"listedOnMarketplace,omitempty"`
 }
 
 // GetId returns __UpdateOrganizationInput.Id, and is useful for accessing the field via an interface.
@@ -14641,8 +14672,8 @@ func (v *__UpdateOrganizationInput) GetName() *string { return v.Name }
 // GetUrn returns __UpdateOrganizationInput.Urn, and is useful for accessing the field via an interface.
 func (v *__UpdateOrganizationInput) GetUrn() *string { return v.Urn }
 
-// GetIsVisible returns __UpdateOrganizationInput.IsVisible, and is useful for accessing the field via an interface.
-func (v *__UpdateOrganizationInput) GetIsVisible() *bool { return v.IsVisible }
+// GetListedOnMarketplace returns __UpdateOrganizationInput.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *__UpdateOrganizationInput) GetListedOnMarketplace() *bool { return v.ListedOnMarketplace }
 
 // The mutation executed by AcceptInvitation.
 const AcceptInvitation_Operation = `
@@ -16366,7 +16397,7 @@ fragment OrgFields on Organization {
 	id
 	urn
 	name
-	isVisible
+	listedOnMarketplace
 	createdAt
 	updatedAt
 }
@@ -17629,7 +17660,7 @@ fragment OrgFields on Organization {
 	id
 	urn
 	name
-	isVisible
+	listedOnMarketplace
 	createdAt
 	updatedAt
 }
@@ -18690,7 +18721,7 @@ fragment OrgFields on Organization {
 	id
 	urn
 	name
-	isVisible
+	listedOnMarketplace
 	createdAt
 	updatedAt
 }
@@ -20401,8 +20432,8 @@ func UpdateOrgMember(
 
 // The mutation executed by UpdateOrganization.
 const UpdateOrganization_Operation = `
-mutation UpdateOrganization ($id: ID!, $name: String, $urn: String, $isVisible: Boolean) {
-	updateOrganization(id: $id, name: $name, urn: $urn, isVisible: $isVisible) {
+mutation UpdateOrganization ($id: ID!, $name: String, $urn: String, $listedOnMarketplace: Boolean) {
+	updateOrganization(id: $id, name: $name, urn: $urn, listedOnMarketplace: $listedOnMarketplace) {
 		... OrgFields
 	}
 }
@@ -20410,7 +20441,7 @@ fragment OrgFields on Organization {
 	id
 	urn
 	name
-	isVisible
+	listedOnMarketplace
 	createdAt
 	updatedAt
 }
@@ -20422,16 +20453,16 @@ func UpdateOrganization(
 	id string,
 	name *string,
 	urn *string,
-	isVisible *bool,
+	listedOnMarketplace *bool,
 ) (data_ *UpdateOrganizationResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateOrganization",
 		Query:  UpdateOrganization_Operation,
 		Variables: &__UpdateOrganizationInput{
-			Id:        id,
-			Name:      name,
-			Urn:       urn,
-			IsVisible: isVisible,
+			Id:                  id,
+			Name:                name,
+			Urn:                 urn,
+			ListedOnMarketplace: listedOnMarketplace,
 		},
 	}
 

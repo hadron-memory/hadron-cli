@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-const orgJSON = `{"id":"org1","urn":"acme.com","name":"Acme","isVisible":true,
+const orgJSON = `{"id":"org1","urn":"acme.com","name":"Acme","listedOnMarketplace":true,
 	"createdAt":"2026-06-19T00:00:00Z","updatedAt":"2026-06-19T00:00:00Z"}`
 const orgUserJSON = `{"id":"usr1","name":"Alice","email":"alice@acme.com","handle":"alice",
 	"githubUsername":null,"roles":["CONTRIBUTOR"]}`
@@ -78,10 +78,30 @@ func TestOrgUpdatePreservesUnset(t *testing.T) {
 	if vars["id"] != "org1" || vars["name"] != "Acme Inc" {
 		t.Errorf("update vars: %v", vars)
 	}
-	for _, k := range []string{"urn", "isVisible"} {
+	for _, k := range []string{"urn", "listedOnMarketplace"} {
 		if _, present := vars[k]; present {
 			t.Errorf("unset %q must be omitted, got %v", k, vars[k])
 		}
+	}
+}
+
+// The renamed --marketplace flag maps to the updateOrganization
+// listedOnMarketplace argument (the server dropped isVisible in its
+// org-visibility rework, #264).
+func TestOrgUpdateMarketplaceFlag(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateOrganization": `{"data":{"updateOrganization":` + orgJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "update", "org1", "--marketplace=false", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateOrganization"], &vars)
+	if v, present := vars["listedOnMarketplace"]; !present || v != false {
+		t.Errorf("--marketplace=false must send listedOnMarketplace:false, got %v (present=%v)", v, present)
 	}
 }
 
