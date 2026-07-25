@@ -242,12 +242,14 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	var surfaces []string
 	var ownerMe bool
 	cmd := &cobra.Command{
-		Use:   "create --name <n> (--org <id> | --owner-me)",
+		Use:   "create --name <n> [--org <id> | --owner-me]",
 		Short: "Create an agent (org-owned, or user-owned with --owner-me)",
 		Long: `Create an agent. Pass --org to create an org-owned agent (you must be an org
-ADMIN), or --owner-me to create a user-owned agent in your own @handle namespace
-(spec 047). A user-owned agent is PERSONAL/owner-only in v1 — the server derives
-the @handle:<slug> URN and rejects a non-PERSONAL --visibility.`,
+ADMIN). Otherwise the agent is user-owned, in your own @handle namespace (spec
+047) — pass --owner-me to say so explicitly, or just omit --org. A user-owned
+agent is PERSONAL/owner-only in v1: the server derives the @handle:<slug> URN
+and rejects a non-PERSONAL --visibility. --org and --owner-me are mutually
+exclusive.`,
 		Example: `  hadron agent create --owner-me --name "My Agent" --type ASSISTANT
   hadron agent create --org acme.com --name "Support Bot" --type CHATBOT --visibility ORGANIZATION`,
 		Args: cobra.NoArgs,
