@@ -71,7 +71,7 @@ hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
 hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | supersede <citation> | import spec-kit|code
 hadron app ls --org <org> | install | uninstall <id> | use <urn>
 hadron ai-config ls [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
-hadron org ls [--mine] | create --name <n> --urn <urn> | get <id> | update <id> | rm <id> | member ls|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
+hadron org ls [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member ls|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
 hadron agent ls [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | ls --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id>] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
 hadron user search <query> [--limit N] [--offset N] | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--email <e>] [--handle <h>]
@@ -422,7 +422,11 @@ Conventions:
   every org you can see); `org create --name --urn`, `org get <id>`,
   `org update <id> [--name|--urn|--marketplace]` (`--marketplace` toggles the
   org's marketplace-catalogue listing — the field formerly called `isVisible`),
-  `org rm <id>` (requires `--yes`).
+  `org rm <id>` (requires `--yes`). `org public <org-ref>` fetches the sanitized,
+  member-free **discoverable** view of an org — its `publicMemories` /
+  `publicAgents` (each a `{id,name,urn,description}` ref) plus
+  `listedOnMarketplace` — or a not-found when the org isn't discoverable (the
+  server collapses not-found and not-discoverable for anti-enumeration).
   `org member ls <org-id>` lists members; `member add|set-role <org-id> --user
   <id> --role <OWNER|ADMIN|CONTRIBUTOR|READER>` and `member rm <org-id> --user
   <id>` manage them. `org invite create <email> --org <id> --role <r>` mints an

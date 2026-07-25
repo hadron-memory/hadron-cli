@@ -219,3 +219,30 @@ mutation MergeUsers($source: String!, $target: String!) {
     ...UserFields
   }
 }
+
+# publicOrganization returns the sanitized, non-member-safe view of a
+# DISCOVERABLE organization (activated + a public footprint), or null when the
+# org isn't discoverable — the server collapses not-found and not-discoverable
+# to null for anti-enumeration. `$ref` accepts an org id or URN. Surfaced by
+# `hadron org public`. Spec cor:acl:080:02 (#270 / hadron-server#741).
+fragment PublicResourceRefFields on PublicResourceRef {
+  id
+  name
+  urn
+  description
+}
+
+query PublicOrganization($ref: ID!) {
+  publicOrganization(ref: $ref) {
+    id
+    urn
+    name
+    listedOnMarketplace
+    publicMemories {
+      ...PublicResourceRefFields
+    }
+    publicAgents {
+      ...PublicResourceRefFields
+    }
+  }
+}
