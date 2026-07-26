@@ -192,8 +192,10 @@ Conventions:
   refused (usage error, exit 2, with the reason) for a safe subset — an
   encrypted source/destination memory, a git-backed source, a subtree containing
   a chat-root, or a node that would violate the destination's collection schema.
-  A live node already at the destination is a **conflict** (exit 5). The
-  confirmation identifies the node by its destination URN (carried in `--json`
+  Any move (same- or cross-memory) is a **conflict** (exit 5) if a live node
+  already occupies the destination, or if the source changes concurrently
+  mid-move. The confirmation identifies the node by its destination URN (carried
+  in `--json`
   as `urn`).
 - `node merge <source> --into <target>` folds the source node into the target
   (the survivor) and returns the target. Name each by URN or a bare `<loc>` with
