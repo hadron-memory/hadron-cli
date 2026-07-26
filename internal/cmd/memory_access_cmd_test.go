@@ -189,10 +189,30 @@ func TestMemoryShareLs(t *testing.T) {
 	}
 }
 
-func TestMemoryShareRevokeWithYes(t *testing.T) {
+func TestMemoryShareRmWithYes(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetUser":           `{"data":{"user":{"id":"usr1","name":"Alice","email":"alice@acme.com","handle":"alice","githubUsername":null,"roles":[]}}}`,
-		"RevokeMemoryShare": `{"data":{"revokeMemoryShare":{"memoryId":"mem1","granteeId":"usr1"}}}`,
+		"DeleteMemoryShare": `{"data":{"deleteMemoryShare":{"memoryId":"mem1","granteeId":"usr1"}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "share", "rm", "mem1", "--grantee", "usr1", "--yes", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["DeleteMemoryShare"], &vars)
+	if vars["memoryRef"] != "mem1" || vars["granteeId"] != "usr1" {
+		t.Errorf("rm vars: %v", vars)
+	}
+}
+
+// `revoke` stays as an alias so existing scripts keep working after the
+// hadron-server#785 rename.
+func TestMemoryShareRevokeAlias(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetUser":           `{"data":{"user":{"id":"usr1","name":"Alice","email":"alice@acme.com","handle":"alice","githubUsername":null,"roles":[]}}}`,
+		"DeleteMemoryShare": `{"data":{"deleteMemoryShare":{"memoryId":"mem1","granteeId":"usr1"}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -200,10 +220,37 @@ func TestMemoryShareRevokeWithYes(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
+	if _, ok := captured["DeleteMemoryShare"]; !ok {
+		t.Error("the revoke alias must call deleteMemoryShare")
+	}
+}
+
+// hadron-server#785: no --grantee means "my own share" — the grantee variable
+// must be OMITTED (not sent as an empty string), so the server keys the delete
+// on the caller. No GetUser round-trip either: there's no ref to resolve.
+func TestMemoryShareRmSelfOmitsGrantee(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"DeleteMemoryShare": `{"data":{"deleteMemoryShare":{"memoryId":"mem1","granteeId":"usr_me"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "share", "rm", "mem1", "--yes", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
 	var vars map[string]any
-	_ = json.Unmarshal(captured["RevokeMemoryShare"], &vars)
-	if vars["memoryId"] != "mem1" || vars["granteeId"] != "usr1" {
-		t.Errorf("revoke vars: %v", vars)
+	_ = json.Unmarshal(captured["DeleteMemoryShare"], &vars)
+	if vars["memoryRef"] != "mem1" {
+		t.Errorf("rm vars: %v", vars)
+	}
+	if g, ok := vars["granteeId"]; ok && g != nil {
+		t.Errorf("self-removal must not send a grantee, got %v", g)
+	}
+	if _, ok := captured["GetUser"]; ok {
+		t.Error("self-removal must not resolve a user ref")
+	}
+	if !strings.Contains(out.String(), "your share") {
+		t.Errorf("output should name the self path, got %q", out.String())
 	}
 }
 
