@@ -339,14 +339,19 @@ Conventions:
 - `memory member` and `memory share` control who can access a memory.
   `member ls|add|set-role|rm <memory> --user <id> --role <owner|writer|reader>`
   manages team membership (rows exist only on group-class memories);
-  `share ls|create|set-role|revoke <memory> --grantee <user-ref> --role <writer|reader>`
-  grants individual users access (`--grantee` accepts a user id, email, handle,
-  or `hrn:user:<handle>` — resolved to a user id client-side, among users you can
-  see; for a grantee outside your org visibility, pass their id); `subscription` grants an entire organization
+  `share ls <memory>` and `share create|set-role <memory> --grantee <user-ref>
+  --role <writer|reader>` grant individual users access (`--grantee` accepts a
+  user id, email, handle, or `hrn:user:<handle>` — resolved to a user id
+  client-side, among users you can see; for a grantee outside your org
+  visibility, pass their id). `share rm <memory> [--grantee <user-ref>]` (alias
+  `revoke`; no `--role`) removes a share: with `--grantee` the owner revokes
+  that user, without it you remove YOUR OWN share of a memory someone shared
+  with you — the leave path, which needs no ownership.
+  `subscription` grants an entire organization
   access (the org-level counterpart, with the full Role set) — `subscription
   create|set-role <memory> --org <id> --role <owner|admin|contributor|reader>`,
   and `subscription ls <memory>` / `subscription rm <memory> --org <id>`. The
-  memory ref is an id or URN; `add`/`create` upsert; `member rm` / `share revoke`
+  memory ref is an id or URN; `add`/`create` upsert; `member rm` / `share rm`
   / `subscription rm` require `--yes` non-interactively. Find user IDs via
   `org member ls` or `auth whoami`.
 - `spec` manages product-spec nodes whose loc IS a citation number. A memory

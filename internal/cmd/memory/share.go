@@ -22,7 +22,7 @@ func newCmdShare(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdShareLs(f))
 	cmd.AddCommand(newCmdShareCreate(f))
 	cmd.AddCommand(newCmdShareSetRole(f))
-	cmd.AddCommand(newCmdShareRevoke(f))
+	cmd.AddCommand(newCmdShareRm(f))
 	return cmd
 }
 
@@ -152,44 +152,69 @@ func newCmdShareSetRole(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
-func newCmdShareRevoke(f *cmdutil.Factory) *cobra.Command {
+func newCmdShareRm(f *cmdutil.Factory) *cobra.Command {
 	var grantee string
 	var yes bool
 	cmd := &cobra.Command{
-		Use:     "revoke <memory> --grantee <user>",
-		Short:   "Revoke a user's share on a memory",
-		Example: `  hadron memory share revoke acme.com::kb --grantee usr_789 --yes`,
-		Args:    cobra.ExactArgs(1),
+		Use:     "rm <memory> [--grantee <user>]",
+		Aliases: []string{"revoke", "delete"},
+		Short:   "Remove a share on a memory (yours, or a grantee's if you own it)",
+		Long: `Remove a MemoryShare.
+
+With --grantee, the memory's owner removes that user's share. Without it, you
+remove YOUR OWN share of a memory someone shared with you (leave) — that path
+needs no ownership, only that the share is yours.`,
+		Example: `  hadron memory share rm acme.com::kb --grantee usr_789 --yes
+  hadron memory share rm acme.com::kb --yes   # leave a memory shared with you`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			memID, err := resolveMemoryID(cmd, client, args[0])
-			if err != nil {
-				return err
-			}
+			// deleteMemoryShare takes a memoryRef (id OR URN), so hand it the
+			// canonical ref rather than pre-resolving through memory(ref:):
+			// that lookup can't see a SOFT-DELETED memory, and leaving one is
+			// a case the server explicitly supports (hadron-server#785) —
+			// resolving first would fail the command before the mutation ran.
+			memRef := cmdutil.CanonicalMemoryRef(args[0])
 			// Resolve (and validate) the grantee ref before prompting, so a
-			// typo fails fast rather than after the confirmation.
-			granteeID, err := cmdutil.ResolveUserID(cmd, client, grantee)
-			if err != nil {
+			// typo fails fast rather than after the confirmation. No --grantee
+			// means "mine": leave granteeID nil and the server keys the delete
+			// on the caller.
+			var granteeID *string
+			target := "your share"
+			if grantee != "" {
+				id, err := cmdutil.ResolveUserID(cmd, client, grantee)
+				if err != nil {
+					return err
+				}
+				granteeID = &id
+				target = "share for " + grantee
+			}
+			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, target+" on memory "+args[0]); err != nil {
 				return err
 			}
-			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "share for "+grantee+" on memory "+args[0]); err != nil {
-				return err
-			}
-			if _, err := gen.RevokeMemoryShare(cmd.Context(), client, memID, granteeID); err != nil {
+			if _, err := gen.DeleteMemoryShare(cmd.Context(), client, memRef, granteeID); err != nil {
 				return api.MapError(err)
 			}
-			dto := map[string]string{"memory": args[0], "grantee": grantee, "status": "revoked"}
+			// "removed" matches the sibling rm commands (member rm, subscription
+			// rm), but the retained `revoke` alias keeps emitting its published
+			// "revoked" so scripts that branch on the JSON status don't break on
+			// what is only a rename.
+			status := "removed"
+			verb := "removed"
+			if cmd.CalledAs() == "revoke" {
+				status, verb = "revoked", "revoked"
+			}
+			dto := map[string]string{"memory": args[0], "grantee": grantee, "status": status}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ revoked share for %s on memory %s\n", grantee, args[0])
+				_, err := fmt.Fprintf(w, "✓ %s %s on memory %s\n", verb, target, args[0])
 				return err
 			})
 		},
 	}
-	cmd.Flags().StringVar(&grantee, "grantee", "", "grantee user (ID, email, handle, or hrn:user:<handle>)")
+	cmd.Flags().StringVar(&grantee, "grantee", "", "grantee user (ID, email, handle, or hrn:user:<handle>); omit to remove your own share")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
-	_ = cmd.MarkFlagRequired("grantee")
 	return cmd
 }

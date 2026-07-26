@@ -5352,6 +5352,67 @@ type DeleteMemoryResponse struct {
 // GetDeleteMemory returns DeleteMemoryResponse.DeleteMemory, and is useful for accessing the field via an interface.
 func (v *DeleteMemoryResponse) GetDeleteMemory() bool { return v.DeleteMemory }
 
+// DeleteMemoryShareDeleteMemoryShareDeleteMemorySharePayload includes the requested fields of the GraphQL type DeleteMemorySharePayload.
+// The GraphQL type's documentation follows.
+//
+// Return shape for deleteMemoryShare. Both fields are RESOLVED primary
+// keys, so a caller who passed a URN / email / handle can correlate the
+// deletion. granteeId is the caller themselves on the self-removal path.
+type DeleteMemoryShareDeleteMemoryShareDeleteMemorySharePayload struct {
+	GranteeId string `json:"granteeId"`
+	MemoryId  string `json:"memoryId"`
+}
+
+// GetGranteeId returns DeleteMemoryShareDeleteMemoryShareDeleteMemorySharePayload.GranteeId, and is useful for accessing the field via an interface.
+func (v *DeleteMemoryShareDeleteMemoryShareDeleteMemorySharePayload) GetGranteeId() string {
+	return v.GranteeId
+}
+
+// GetMemoryId returns DeleteMemoryShareDeleteMemoryShareDeleteMemorySharePayload.MemoryId, and is useful for accessing the field via an interface.
+func (v *DeleteMemoryShareDeleteMemoryShareDeleteMemorySharePayload) GetMemoryId() string {
+	return v.MemoryId
+}
+
+// DeleteMemoryShareResponse is returned by DeleteMemoryShare on success.
+type DeleteMemoryShareResponse struct {
+	// 023-app-shape US3 — delete a MemoryShare. Per FR-022, revocation
+	// takes effect on the next read (there's no "deactivated" state;
+	// just a row delete). Renamed from revokeMemoryShare in #785.
+	//
+	// Caller-authority rule (#785) — principal OR self, the same shape
+	// removeMemoryMember uses:
+	// - The memory's principal (memory.userId) may delete ANY grantee
+	// row on their memory. Idempotent: deleting a share that is
+	// already gone succeeds.
+	// - A GRANTEE may delete THEIR OWN row — the
+	// stop-sharing-with-me / leave path. Omit granteeRef entirely and
+	// the mutation targets the caller's own share.
+	// - Everyone else gets FORBIDDEN.
+	//
+	// On the self path the SHARE ROW itself is the authorization, so that
+	// path is idempotent only up to the row's lifetime: repeating a
+	// successful leave answers FORBIDDEN (you already left). That is what
+	// keeps every unauthorized outcome identical — a caller who is
+	// neither principal nor grantee cannot tell "no such memory" from
+	// "not shared with me" from "not yours", by error code or by the
+	// difference between an error and a successful no-op. The same rule
+	// covers the grantee reference: a non-principal caller gets FORBIDDEN
+	// whether the named user exists or not, so neither memories nor
+	// users can be enumerated here. (A principal, who by definition
+	// already knows the memory exists, still gets NOT_FOUND for a
+	// granteeRef that resolves to nobody.)
+	//
+	// A grantee may leave a memory whose owner has soft-deleted it (the
+	// row would otherwise be stranded); the principal path still treats a
+	// soft-deleted memory as FORBIDDEN.
+	DeleteMemoryShare *DeleteMemoryShareDeleteMemoryShareDeleteMemorySharePayload `json:"deleteMemoryShare"`
+}
+
+// GetDeleteMemoryShare returns DeleteMemoryShareResponse.DeleteMemoryShare, and is useful for accessing the field via an interface.
+func (v *DeleteMemoryShareResponse) GetDeleteMemoryShare() *DeleteMemoryShareDeleteMemoryShareDeleteMemorySharePayload {
+	return v.DeleteMemoryShare
+}
+
 // DeleteMemorySubscriptionResponse is returned by DeleteMemorySubscription on success.
 type DeleteMemorySubscriptionResponse struct {
 	// Delete a cross-org Memory subscription.
@@ -10227,37 +10288,6 @@ func (v *RevokeConnectionGrantResponse) GetRevokeConnectionGrant() bool {
 	return v.RevokeConnectionGrant
 }
 
-// RevokeMemoryShareResponse is returned by RevokeMemoryShare on success.
-type RevokeMemoryShareResponse struct {
-	// 023-app-shape US3 — revoke a MemoryShare. Per FR-022, revocation
-	// takes effect on the next read (there's no "deactivated" state;
-	// just a row delete). Idempotent.
-	//
-	// Caller-authority rule matches createMemoryShare.
-	RevokeMemoryShare *RevokeMemoryShareRevokeMemoryShareRevokeMemorySharePayload `json:"revokeMemoryShare"`
-}
-
-// GetRevokeMemoryShare returns RevokeMemoryShareResponse.RevokeMemoryShare, and is useful for accessing the field via an interface.
-func (v *RevokeMemoryShareResponse) GetRevokeMemoryShare() *RevokeMemoryShareRevokeMemoryShareRevokeMemorySharePayload {
-	return v.RevokeMemoryShare
-}
-
-// RevokeMemoryShareRevokeMemoryShareRevokeMemorySharePayload includes the requested fields of the GraphQL type RevokeMemorySharePayload.
-type RevokeMemoryShareRevokeMemoryShareRevokeMemorySharePayload struct {
-	GranteeId string `json:"granteeId"`
-	MemoryId  string `json:"memoryId"`
-}
-
-// GetGranteeId returns RevokeMemoryShareRevokeMemoryShareRevokeMemorySharePayload.GranteeId, and is useful for accessing the field via an interface.
-func (v *RevokeMemoryShareRevokeMemoryShareRevokeMemorySharePayload) GetGranteeId() string {
-	return v.GranteeId
-}
-
-// GetMemoryId returns RevokeMemoryShareRevokeMemoryShareRevokeMemorySharePayload.MemoryId, and is useful for accessing the field via an interface.
-func (v *RevokeMemoryShareRevokeMemoryShareRevokeMemorySharePayload) GetMemoryId() string {
-	return v.MemoryId
-}
-
 // RevokePrincipalGrantResponse is returned by RevokePrincipalGrant on success.
 type RevokePrincipalGrantResponse struct {
 	// Revoke an action grant (org-ADMIN, interactive-only; soft delete).
@@ -13923,6 +13953,18 @@ type __DeleteMemoryInput struct {
 // GetId returns __DeleteMemoryInput.Id, and is useful for accessing the field via an interface.
 func (v *__DeleteMemoryInput) GetId() string { return v.Id }
 
+// __DeleteMemoryShareInput is used internally by genqlient
+type __DeleteMemoryShareInput struct {
+	MemoryRef string  `json:"memoryRef"`
+	GranteeId *string `json:"granteeId,omitempty"`
+}
+
+// GetMemoryRef returns __DeleteMemoryShareInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__DeleteMemoryShareInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetGranteeId returns __DeleteMemoryShareInput.GranteeId, and is useful for accessing the field via an interface.
+func (v *__DeleteMemoryShareInput) GetGranteeId() *string { return v.GranteeId }
+
 // __DeleteMemorySubscriptionInput is used internally by genqlient
 type __DeleteMemorySubscriptionInput struct {
 	MemoryId string `json:"memoryId"`
@@ -14450,18 +14492,6 @@ type __RevokeConnectionGrantInput struct {
 
 // GetRef returns __RevokeConnectionGrantInput.Ref, and is useful for accessing the field via an interface.
 func (v *__RevokeConnectionGrantInput) GetRef() string { return v.Ref }
-
-// __RevokeMemoryShareInput is used internally by genqlient
-type __RevokeMemoryShareInput struct {
-	MemoryId  string `json:"memoryId"`
-	GranteeId string `json:"granteeId"`
-}
-
-// GetMemoryId returns __RevokeMemoryShareInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__RevokeMemoryShareInput) GetMemoryId() string { return v.MemoryId }
-
-// GetGranteeId returns __RevokeMemoryShareInput.GranteeId, and is useful for accessing the field via an interface.
-func (v *__RevokeMemoryShareInput) GetGranteeId() string { return v.GranteeId }
 
 // __RevokePrincipalGrantInput is used internally by genqlient
 type __RevokePrincipalGrantInput struct {
@@ -17164,6 +17194,51 @@ func DeleteMemory(
 	return data_, err_
 }
 
+// The mutation executed by DeleteMemoryShare.
+const DeleteMemoryShare_Operation = `
+mutation DeleteMemoryShare ($memoryRef: ID!, $granteeId: ID) {
+	deleteMemoryShare(memoryRef: $memoryRef, granteeId: $granteeId) {
+		granteeId
+		memoryId
+	}
+}
+`
+
+// hadron-server#785: renamed from revokeMemoryShare, and the authority widened
+// from principal-only to principal-OR-self. `granteeId` is optional now — omit
+// it and the server deletes the CALLER'S own share (leave / stop-sharing-with-me).
+// The contract is OMITTED, not null, so the variable carries omitempty: a nil
+// *string must drop the key rather than serialize "granteeId": null.
+// memoryRef takes an id or a URN and is passed through WITHOUT a client-side
+// memory(ref:) lookup — that lookup can't see a soft-deleted memory, and leaving
+// one is exactly a case this mutation supports.
+func DeleteMemoryShare(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	granteeId *string,
+) (data_ *DeleteMemoryShareResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteMemoryShare",
+		Query:  DeleteMemoryShare_Operation,
+		Variables: &__DeleteMemoryShareInput{
+			MemoryRef: memoryRef,
+			GranteeId: granteeId,
+		},
+	}
+
+	data_ = &DeleteMemoryShareResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by DeleteMemorySubscription.
 const DeleteMemorySubscription_Operation = `
 mutation DeleteMemorySubscription ($memoryId: ID!, $orgId: ID!) {
@@ -19405,43 +19480,6 @@ func RevokeConnectionGrant(
 	}
 
 	data_ = &RevokeConnectionGrantResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
-// The mutation executed by RevokeMemoryShare.
-const RevokeMemoryShare_Operation = `
-mutation RevokeMemoryShare ($memoryId: ID!, $granteeId: ID!) {
-	revokeMemoryShare(memoryId: $memoryId, granteeId: $granteeId) {
-		granteeId
-		memoryId
-	}
-}
-`
-
-func RevokeMemoryShare(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	memoryId string,
-	granteeId string,
-) (data_ *RevokeMemoryShareResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "RevokeMemoryShare",
-		Query:  RevokeMemoryShare_Operation,
-		Variables: &__RevokeMemoryShareInput{
-			MemoryId:  memoryId,
-			GranteeId: granteeId,
-		},
-	}
-
-	data_ = &RevokeMemoryShareResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
