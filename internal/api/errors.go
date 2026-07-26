@@ -203,7 +203,7 @@ func codeForExtension(code string) int {
 		return exitcode.NotFound
 	case code == "BAD_USER_INPUT" || code == "GRAPHQL_VALIDATION_FAILED":
 		return exitcode.Usage
-	case code == "CONFLICT" || strings.HasPrefix(code, "DUPLICATE_"):
+	case code == "CONFLICT" || strings.HasPrefix(code, "DUPLICATE_") || strings.HasSuffix(code, "_ALREADY_EXISTS"):
 		return exitcode.Conflict
 	default:
 		return exitcode.Error

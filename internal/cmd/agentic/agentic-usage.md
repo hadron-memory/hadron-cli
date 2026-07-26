@@ -185,11 +185,18 @@ Conventions:
   by URN (or a bare `<loc>` with `-m`) and take **exactly one** destination:
   `--to-urn <org>::<memory>::<loc>` (a full destination URN — new memory and/or
   loc) or `--to-memory <org::memory>` (keep the loc, change the memory). `move`
-  keeps the node's id so its edges stay valid; `clone` returns a **new** node
-  (fresh id) and copies only the outgoing edges that resolve at the destination
-  (incoming edges are never copied). Both fail loudly if a live node already
-  occupies the destination loc. The confirmation identifies the node by its
-  destination URN (carried in `--json` as `urn`).
+  relocates the node **together with its whole subtree** (descendants come
+  along) and keeps each node's id so edges stay valid; `clone` returns a **new**
+  node (fresh id) and copies only the outgoing edges that resolve at the
+  destination (incoming edges are never copied). A **cross-memory** `move` is
+  refused (usage error, exit 2, with the reason) for a safe subset — an
+  encrypted source/destination memory, a git-backed source, a subtree containing
+  a chat-root, or a node that would violate the destination's collection schema.
+  Any move (same- or cross-memory) is a **conflict** (exit 5) if a live node
+  already occupies the destination, or if the source changes concurrently
+  mid-move. The confirmation identifies the node by its destination URN (carried
+  in `--json`
+  as `urn`).
 - `node merge <source> --into <target>` folds the source node into the target
   (the survivor) and returns the target. Name each by URN or a bare `<loc>` with
   `-m` (which scopes both). By default every mergeable field folds in; restrict
