@@ -13956,7 +13956,7 @@ func (v *__DeleteMemoryInput) GetId() string { return v.Id }
 // __DeleteMemoryShareInput is used internally by genqlient
 type __DeleteMemoryShareInput struct {
 	MemoryRef string  `json:"memoryRef"`
-	GranteeId *string `json:"granteeId"`
+	GranteeId *string `json:"granteeId,omitempty"`
 }
 
 // GetMemoryRef returns __DeleteMemoryShareInput.MemoryRef, and is useful for accessing the field via an interface.
@@ -17207,6 +17207,11 @@ mutation DeleteMemoryShare ($memoryRef: ID!, $granteeId: ID) {
 // hadron-server#785: renamed from revokeMemoryShare, and the authority widened
 // from principal-only to principal-OR-self. `granteeId` is optional now — omit
 // it and the server deletes the CALLER'S own share (leave / stop-sharing-with-me).
+// The contract is OMITTED, not null, so the variable carries omitempty: a nil
+// *string must drop the key rather than serialize "granteeId": null.
+// memoryRef takes an id or a URN and is passed through WITHOUT a client-side
+// memory(ref:) lookup — that lookup can't see a soft-deleted memory, and leaving
+// one is exactly a case this mutation supports.
 func DeleteMemoryShare(
 	ctx_ context.Context,
 	client_ graphql.Client,

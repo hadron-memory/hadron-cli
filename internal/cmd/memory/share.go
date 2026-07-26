@@ -172,14 +172,16 @@ needs no ownership, only that the share is yours.`,
 			if err != nil {
 				return err
 			}
-			memID, err := resolveMemoryID(cmd, client, args[0])
-			if err != nil {
-				return err
-			}
+			// deleteMemoryShare takes a memoryRef (id OR URN), so hand it the
+			// canonical ref rather than pre-resolving through memory(ref:):
+			// that lookup can't see a SOFT-DELETED memory, and leaving one is
+			// a case the server explicitly supports (hadron-server#785) —
+			// resolving first would fail the command before the mutation ran.
+			memRef := cmdutil.CanonicalMemoryRef(args[0])
 			// Resolve (and validate) the grantee ref before prompting, so a
 			// typo fails fast rather than after the confirmation. No --grantee
 			// means "mine": leave granteeID nil and the server keys the delete
-			// on the caller (hadron-server#785).
+			// on the caller.
 			var granteeID *string
 			target := "your share"
 			if grantee != "" {
@@ -193,12 +195,21 @@ needs no ownership, only that the share is yours.`,
 			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, target+" on memory "+args[0]); err != nil {
 				return err
 			}
-			if _, err := gen.DeleteMemoryShare(cmd.Context(), client, memID, granteeID); err != nil {
+			if _, err := gen.DeleteMemoryShare(cmd.Context(), client, memRef, granteeID); err != nil {
 				return api.MapError(err)
 			}
-			dto := map[string]string{"memory": args[0], "grantee": grantee, "status": "removed"}
+			// "removed" matches the sibling rm commands (member rm, subscription
+			// rm), but the retained `revoke` alias keeps emitting its published
+			// "revoked" so scripts that branch on the JSON status don't break on
+			// what is only a rename.
+			status := "removed"
+			verb := "removed"
+			if cmd.CalledAs() == "revoke" {
+				status, verb = "revoked", "revoked"
+			}
+			dto := map[string]string{"memory": args[0], "grantee": grantee, "status": status}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ removed %s on memory %s\n", target, args[0])
+				_, err := fmt.Fprintf(w, "✓ %s %s on memory %s\n", verb, target, args[0])
 				return err
 			})
 		},

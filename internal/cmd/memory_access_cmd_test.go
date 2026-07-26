@@ -208,26 +208,53 @@ func TestMemoryShareRmWithYes(t *testing.T) {
 }
 
 // `revoke` stays as an alias so existing scripts keep working after the
-// hadron-server#785 rename.
+// hadron-server#785 rename — including the JSON status they branch on.
 func TestMemoryShareRevokeAlias(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetUser":           `{"data":{"user":{"id":"usr1","name":"Alice","email":"alice@acme.com","handle":"alice","githubUsername":null,"roles":[]}}}`,
 		"DeleteMemoryShare": `{"data":{"deleteMemoryShare":{"memoryId":"mem1","granteeId":"usr1"}}}`,
 	})
-	f, _ := testFactory(t)
+	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "share", "revoke", "mem1", "--grantee", "usr1", "--yes", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "share", "revoke", "mem1", "--grantee", "usr1", "--yes", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	if _, ok := captured["DeleteMemoryShare"]; !ok {
 		t.Error("the revoke alias must call deleteMemoryShare")
 	}
+	var dto struct {
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out.String())
+	}
+	// The published status for `revoke` predates the rename; scripts branch on it.
+	if dto.Status != "revoked" {
+		t.Errorf("the revoke alias must keep status=revoked, got %q", dto.Status)
+	}
+}
+
+// The canonical verb reports the value its sibling rm commands use.
+func TestMemoryShareRmStatusRemoved(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetUser":           `{"data":{"user":{"id":"usr1","name":"Alice","email":"alice@acme.com","handle":"alice","githubUsername":null,"roles":[]}}}`,
+		"DeleteMemoryShare": `{"data":{"deleteMemoryShare":{"memoryId":"mem1","granteeId":"usr1"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "share", "rm", "mem1", "--grantee", "usr1", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), `"status": "removed"`) {
+		t.Errorf("share rm should report status=removed, got %s", out.String())
+	}
 }
 
 // hadron-server#785: no --grantee means "my own share" — the grantee variable
-// must be OMITTED (not sent as an empty string), so the server keys the delete
-// on the caller. No GetUser round-trip either: there's no ref to resolve.
+// must be OMITTED, not sent as null (the server keys the delete on the caller
+// only when the key is absent). No GetUser round-trip either: nothing to resolve.
 func TestMemoryShareRmSelfOmitsGrantee(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"DeleteMemoryShare": `{"data":{"deleteMemoryShare":{"memoryId":"mem1","granteeId":"usr_me"}}}`,
@@ -243,14 +270,38 @@ func TestMemoryShareRmSelfOmitsGrantee(t *testing.T) {
 	if vars["memoryRef"] != "mem1" {
 		t.Errorf("rm vars: %v", vars)
 	}
-	if g, ok := vars["granteeId"]; ok && g != nil {
-		t.Errorf("self-removal must not send a grantee, got %v", g)
+	// Key ABSENT, not present-and-null: a null would be a different request
+	// than the one the server's self-removal contract describes.
+	if _, present := vars["granteeId"]; present {
+		t.Errorf("self-removal must omit granteeId entirely, got %v", vars["granteeId"])
 	}
 	if _, ok := captured["GetUser"]; ok {
 		t.Error("self-removal must not resolve a user ref")
 	}
 	if !strings.Contains(out.String(), "your share") {
 		t.Errorf("output should name the self path, got %q", out.String())
+	}
+}
+
+// The memory is passed through as a REF (canonicalized, no memory(ref:) lookup):
+// that lookup can't see a soft-deleted memory, and leaving one is supported.
+func TestMemoryShareRmPassesMemoryRefWithoutLookup(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"DeleteMemoryShare": `{"data":{"deleteMemoryShare":{"memoryId":"mem1","granteeId":"usr_me"}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "share", "rm", "acme.com::kb", "--yes", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, ok := captured["GetMemory"]; ok {
+		t.Error("share rm must not pre-resolve the memory — a soft-deleted one wouldn't resolve")
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["DeleteMemoryShare"], &vars)
+	if vars["memoryRef"] != "hrn:mem:acme.com:kb" {
+		t.Errorf("the URN should reach the server canonicalized, got %v", vars["memoryRef"])
 	}
 }
 
