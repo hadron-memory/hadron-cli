@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // movedNodeJSON / clonedNodeJSON are the mutation payloads the server returns
@@ -14,6 +16,42 @@ const movedNodeJSON = `{"data":{"moveNode":{"id":"n1","urn":"hrn:node:acme.com::
 const clonedNodeJSON = `{"data":{"cloneNode":{"id":"n9","urn":"hrn:node:acme.com::kb::findings:new",
 	"memoryId":"mem1","loc":"findings:new",
 	"name":"Flaky CI","nodeType":"task","tags":[],"isRunnable":false,"updatedAt":"2026-07-08T00:00:00Z"}}}`
+
+// #291: a cross-memory move's server refusals surface with a clear exit code
+// and the server's own message — not an opaque generic failure. A collision
+// (NODE_ALREADY_EXISTS) and a concurrent-change (CONFLICT) both map to exit 5;
+// a safe-subset refusal (BAD_USER_INPUT) maps to exit 2.
+func TestNodeMoveSurfacesServerRefusals(t *testing.T) {
+	cases := []struct {
+		name, code, msg string
+		want            int
+	}{
+		{"collision", "NODE_ALREADY_EXISTS", "a node already exists at the destination", exitcode.Conflict},
+		{"chat-root refusal", "BAD_USER_INPUT", "cannot move a subtree containing a chat root", exitcode.Usage},
+		{"concurrent change", "CONFLICT", "the source changed during the move", exitcode.Conflict},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, _ := captureGraphQL(t, map[string]string{
+				"ResolveUrn": resolveNodeJSON,
+				"MoveNode":   `{"errors":[{"message":"` + tc.msg + `","extensions":{"code":"` + tc.code + `"}}]}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"node", "move", nodeURN, "--to-memory", "acme.com::archive", "--server", gql.URL})
+			err := root.Execute()
+			if err == nil {
+				t.Fatalf("%s should be an error", tc.code)
+			}
+			if got := exitcode.FromError(err); got != tc.want {
+				t.Errorf("%s: exit code = %d, want %d", tc.code, got, tc.want)
+			}
+			if !strings.Contains(err.Error(), tc.msg) {
+				t.Errorf("%s: the server message must surface, got %v", tc.code, err)
+			}
+		})
+	}
+}
 
 func TestNodeMoveToURN(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{

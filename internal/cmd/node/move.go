@@ -22,8 +22,9 @@ func newCmdMove(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "move <node-urn> | <loc> -m <memory> (--to-urn <urn> | --to-memory <memory>)",
 		Short: "Move a node to a new loc and/or memory",
-		Long: `Relocate a node, keeping its id — so every incoming and outgoing edge
-reference stays valid. Name the source by its fully-qualified URN
+		Long: `Relocate a node — together with its whole subtree, so every descendant moves
+with it — keeping each node's id, so every incoming and outgoing edge reference
+stays valid. Name the source by its fully-qualified URN
 (<org>::<memory>::<loc>) or by a bare <loc> with -m/--memory.
 
 Give the destination exactly one of:
@@ -33,7 +34,15 @@ Give the destination exactly one of:
   --to-memory <org::memory>         a destination memory; the node keeps its
                                     current loc, only its memory changes.
 
-Fails loudly if a live node already occupies the destination.`,
+A move within one memory always works. A CROSS-MEMORY move (a different
+destination memory) is refused for a safe subset — a usage error (exit 2) whose
+message names the reason — when:
+  - the source or destination memory is encrypted, or the source is git-backed;
+  - the subtree contains a chat-root node (a private/shared conversation); or
+  - a node would violate the destination memory's collection (property) schema.
+
+A live node already at the destination is a conflict (exit 5); so is a
+concurrent change to the source while the move is in flight.`,
 		Example: `  hadron node move acme.com::kb::findings:flaky-ci --to-urn acme.com::kb::archive:flaky-ci
   hadron node move findings:flaky-ci -m acme.com::kb --to-memory acme.com::archive`,
 		Args: cobra.ExactArgs(1),
