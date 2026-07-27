@@ -12,7 +12,7 @@ hadron auth status            # am I signed in? exit 0 yes / 3 no
 hadron auth login             # interactive browser OAuth (human only)
 echo $TOKEN | hadron auth login --with-token   # store a PAT
 HADRON_TOKEN=hdr_user_...     # env var, overrides stored tokens (CI)
-hadron auth token create      # mint a PAT (after login); ls | revoke <id> to manage
+hadron auth token create      # mint a PAT (after login); list | revoke <id> to manage
 echo $TOKEN | hadron auth token validate   # check a PAT: exit 0 valid / 3 rejected
 ```
 
@@ -65,30 +65,30 @@ node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 ## Command surface (v1)
 
 ```
-hadron auth login | logout | whoami | status | token create|ls|validate|revoke <id>
-hadron memory ls | get <id-or-urn> | set [<id-or-urn>] [--org <ref> | --owner-me | --app <ref> --agent <ref>] [--class <c>] [--max-rev-count <n>] [--schema <json> | --schema-file <path>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn <org::slug> | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member ls|add|set-role|rm <memory> --user <id> [--role <r>] | share ls|create|set-role|revoke <memory> --grantee <user-ref> [--role <r>] | subscription ls|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
-hadron node ls [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--sort-seq asc|desc] [--seq-gt N] | get <urn> | add [--type <t>] [--object-type <t>] [--data <json>|--data-file <path>] [--properties <json>|--properties-file <path>] | update <urn> [--type <t>] [--object-type <t>|""] [--data <json>|--data-file <path>|--data-merge <json>|--data-merge-file <path>] [--properties <json>|--properties-file <path>] | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] [--recursive|-r] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
+hadron auth login | logout | whoami | status | token create|list|validate|revoke <id>
+hadron memory list | get <id-or-urn> | set [<id-or-urn>] [--org <ref> | --owner-me | --app <ref> --agent <ref>] [--class <c>] [--max-rev-count <n>] [--schema <json> | --schema-file <path>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn <org::slug> | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member list|add|set-role|rm <memory> --user <id> [--role <r>] | share list|create|set-role|revoke <memory> --grantee <user-ref> [--role <r>] | subscription list|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key -
+hadron node list [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--sort-seq asc|desc] [--seq-gt N] | get <urn> | add [--type <t>] [--object-type <t>] [--data <json>|--data-file <path>] [--properties <json>|--properties-file <path>] | update <urn> [--type <t>] [--object-type <t>|""] [--data <json>|--data-file <path>|--data-merge <json>|--data-merge-file <path>] [--properties <json>|--properties-file <path>] | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] [--recursive|-r] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
 hadron object create -m <memory> --type <t> --fields <json>|--fields-file <path> [--key <k>] [--name <n>] | get <ref> | update <ref> --fields <json>|--fields-file <path> [--reason <r>] | delete <ref> [--hard] --yes | find -m <memory> --type <t> [--match <json>] [--where <json>] [--sort <json>] [--limit N] [--offset N]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
 hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--reply-to <loc>] [--handle <h>] [--identity <i>] [--role <r>]
 hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
-hadron edge ls <node-urn> | add | update <edge-id> | rm <edge-id>
-hadron spec ls [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | supersede <citation> | import spec-kit|code
-hadron app ls --org <org> | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <id> | use <urn>
-hadron ai-config ls [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
-hadron org ls [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member ls|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
-hadron agent ls [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | ls --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
+hadron edge list <node-urn> | add | update <edge-id> | rm <edge-id>
+hadron spec list [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | supersede <citation> | import spec-kit|code
+hadron app list --org <org> | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <id> | use <urn>
+hadron ai-config list [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
+hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
+hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
 hadron user search <query> [--limit N] [--offset N] | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--email <e>] [--handle <h>]
-hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--ai-config <n>] [--wait] | ls [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
-hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... | ls --app <ref> | update <id> ... | rm <id> --yes
-hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] | rotate <id> --yes | ls --app <ref> | rm <id> --yes
-hadron ticket mint --org <ref> [--app <id>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | ls --org <ref>
-hadron grant create --org <ref> --user <ref> --action <a>[,...] [--expires <iso>] | ls [--org <ref>] [--user <ref>] | revoke <id> --yes
-hadron connection grant create --connection <ref> --app <ref> --scopes <s>[,...] [--expires-at <iso>] | ls [--connection <ref>] | revoke <grant-id> --yes
-hadron mcp-server ls [--org <ref>] | get <id> | tools <id> | create --org <ref> --slug <s> --name <n> --url <u> [--header 'Name: value']... [--allow <tool>]... [--disabled] | update <id> [--name <n>] [--url <u>] [--header ...]... [--clear-headers] [--allow <tool>]... [--clear-allow] [--enabled|--disabled] | delete <id> --yes
-hadron secret create --name <n> --scope user|org|app|memory [--owner <ref>] --kind generic|webfetch-auth [--value-file -|@file] | ls --scope <s> [--owner <ref>] | rm <id> --yes
+hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--ai-config <n>] [--wait] | list [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
+hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... | list --app <ref> | update <id> ... | rm <id> --yes
+hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] | rotate <id> --yes | list --app <ref> | rm <id> --yes
+hadron ticket mint --org <ref> [--app <id>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | list --org <ref>
+hadron grant create --org <ref> --user <ref> --action <a>[,...] [--expires <iso>] | list [--org <ref>] [--user <ref>] | revoke <id> --yes
+hadron connection grant create --connection <ref> --app <ref> --scopes <s>[,...] [--expires-at <iso>] | list [--connection <ref>] | revoke <grant-id> --yes
+hadron mcp-server list [--org <ref>] | get <id> | tools <id> | create --org <ref> --slug <s> --name <n> --url <u> [--header 'Name: value']... [--allow <tool>]... [--disabled] | update <id> [--name <n>] [--url <u>] [--header ...]... [--clear-headers] [--allow <tool>]... [--clear-allow] [--enabled|--disabled] | delete <id> --yes
+hadron secret create --name <n> --scope user|org|app|memory [--owner <ref>] --kind generic|webfetch-auth [--value-file -|@file] | list --scope <s> [--owner <ref>] | rm <id> --yes
 hadron config get | set | list
 hadron api <query-or-mutation>                       # raw GraphQL
 hadron version
@@ -126,7 +126,7 @@ Conventions:
   (`services:secureid:user-reporting`), so it's ambiguous. A bare loc is rejected
   (exit 2) *unless* you pass `-m/--memory <org::memory>` (single-colon
   `<org>:<memory>` also accepted) to name the memory — then
-  `node get|update|move|clone|rm|export` and `edge add|ls` take a bare `<loc>`
+  `node get|update|move|clone|rm|export` and `edge add|list` take a bare `<loc>`
   (e.g. `node get start-here -m hadronmemory.com::dev`; `edge add -m a::m --from
   x --to y …` applies the memory to both endpoints). For `node move|clone`, `-m`
   scopes only the source `<loc>`; the destination is always the explicit
@@ -138,7 +138,7 @@ Conventions:
   identity (`hrn:edge:<org>::<memory>::<loc>`). `edge add --from <node> --to
   <node> --name <rel>` creates one (plus optional `--loc`/`--description`/
   `--runnable`); `edge update`/`edge rm` address it by its edge ID (shown by
-  `edge ls` and in `node get --json`). A nameless edge prints its loc instead.
+  `edge list` and in `node get --json`). A nameless edge prints its loc instead.
   Cross-memory edges are allowed.
 - Destructive / bulk-write commands (`memory rm`, `node rm`, `node merge`,
   `user merge`, `edge rm`, `app uninstall`, a real `replace` / `spec replace`, and
@@ -222,8 +222,8 @@ Conventions:
   `node add` and `node update` take `--runnable` to set it; on `update` it's
   tri-state — `--runnable` sets true, `--runnable=false` clears it, omitting it
   preserves the current value. `node get` shows `runnable:` in the text view,
-  and both `node get` and `node ls` surface `isRunnable` in `--json` (`ls`
-  also shows a `RUN` column with a ✓ for runnable nodes). `node ls --runnable`
+  and both `node get` and `node list` surface `isRunnable` in `--json` (`list`
+  also shows a `RUN` column with a ✓ for runnable nodes). `node list --runnable`
   filters server-side to runnable nodes (`--runnable=false` to the explicitly
   non-runnable; omit for all) — the listing counterpart to `hadron task run`'s
   gate.
@@ -343,9 +343,9 @@ Conventions:
   removed nodes are never deleted. `--format markdown` is the default and
   only target today.
 - `memory member` and `memory share` control who can access a memory.
-  `member ls|add|set-role|rm <memory> --user <id> --role <owner|writer|reader>`
+  `member list|add|set-role|rm <memory> --user <id> --role <owner|writer|reader>`
   manages team membership (rows exist only on group-class memories);
-  `share ls <memory>` and `share create|set-role <memory> --grantee <user-ref>
+  `share list <memory>` and `share create|set-role <memory> --grantee <user-ref>
   --role <writer|reader>` grant individual users access (`--grantee` accepts a
   user id, email, handle, or `hrn:user:<handle>` — resolved to a user id
   client-side, among users you can see; for a grantee outside your org
@@ -356,10 +356,10 @@ Conventions:
   `subscription` grants an entire organization
   access (the org-level counterpart, with the full Role set) — `subscription
   create|set-role <memory> --org <id> --role <owner|admin|contributor|reader>`,
-  and `subscription ls <memory>` / `subscription rm <memory> --org <id>`. The
+  and `subscription list <memory>` / `subscription rm <memory> --org <id>`. The
   memory ref is an id or URN; `add`/`create` upsert; `member rm` / `share rm`
   / `subscription rm` require `--yes` non-interactively. Find user IDs via
-  `org member ls` or `auth whoami`.
+  `org member list` or `auth whoami`.
 - `spec` manages product-spec nodes whose loc IS a citation number. A memory
   is either flat (`<module>:<feature>:<rule>[:<flow>]`, e.g. `msg:010:02`) or
   product-rooted (`<product>:<module>:<feature>:<rule>[:<flow>]`, e.g.
@@ -426,7 +426,7 @@ Conventions:
   tool-name drift; `spec supersede` retires a
   spec (never renumbers) and REQUIRES `--yes`; `spec import` is not yet
   implemented (exit 2).
-- `ai-config ls` lists the masked AI configs *resolvable* in an App's chat
+- `ai-config list` lists the masked AI configs *resolvable* in an App's chat
   context (App→Agent→Org→HadronServer, innermost wins, enabled-only) — never
   key material, only a preview. `ai-config create|update|rm` manage the
   underlying provider configs: `create` needs an owner (exactly one of
@@ -439,15 +439,15 @@ Conventions:
   `update <id>` changes only the fields you pass — `--api-key ""` clears the
   key, omitting it keeps it; `--param k=v` (repeatable) replaces the params
   object. `rm <id>` requires `--yes` non-interactively.
-- `secret create|ls|rm` manages the general owner-scoped secret store. Values
+- `secret create|list|rm` manages the general owner-scoped secret store. Values
   are write-only: `create` reads the secret material from stdin, a file, or an
-  interactive no-echo prompt (never argv), and `ls` prints only the inspectable
+  interactive no-echo prompt (never argv), and `list` prints only the inspectable
   half (`name`, `kind`, `metadata`, audit fields). `--scope user` may omit
   `--owner` to mean the caller; org/app/memory scopes require `--owner`.
   `webfetch-auth` secrets use `--type bearer|basic|header` plus `--url-prefix`;
   the server derives `metadata.type`. `rm <id>` requires `--yes`
   non-interactively.
-- `org` manages organizations, their members, and invitations. `org ls`
+- `org` manages organizations, their members, and invitations. `org list`
   lists organizations (`--mine` restricts to your memberships; unscoped spans
   every org you can see); `org create --name --urn`, `org get <id>`,
   `org update <id> [--name|--urn|--marketplace]` (`--marketplace` toggles the
@@ -457,14 +457,14 @@ Conventions:
   `publicAgents` (each a `{id,name,urn,description}` ref) plus
   `listedOnMarketplace` — or a not-found when the org isn't discoverable (the
   server collapses not-found and not-discoverable for anti-enumeration).
-  `org member ls <org-id>` lists members; `member add|set-role <org-id> --user
+  `org member list <org-id>` lists members; `member add|set-role <org-id> --user
   <id> --role <OWNER|ADMIN|CONTRIBUTOR|READER>` and `member rm <org-id> --user
   <id>` manage them. `org invite create <email> --org <id> --role <r>` mints an
   invitation whose returned `slug` is the acceptance token — the invitee redeems
   it with `org invite accept <slug>`; `org invite show <slug>` inspects one.
-- `agent` manages agents (user- or org-owned; an App runs an agent). `agent ls [--org
+- `agent` manages agents (user- or org-owned; an App runs an agent). `agent list [--org
   <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC]`
-  is the member-scoped view (agents in your orgs); `agent ls --public [--type
+  is the member-scoped view (agents in your orgs); `agent list --public [--type
   <t>]` is the separate cross-org marketplace slice — every live PUBLIC agent,
   readable without org membership, so you can grab a foreign agent's URN to
   subscribe/install (`--org`/`--visibility` don't apply to it).
@@ -501,7 +501,7 @@ Conventions:
   - `run trigger --app <ref> --entry <node-urn>` fires a MANUAL run now and prints
     its id; `--arg k=v` (repeatable, value parsed as JSON or string) sets template
     args, `--ai-config <n>` picks a named config, `--wait` polls to a terminal
-    status (`--wait-timeout`, default 5m; a timeout is exit 6). `run ls` is the
+    status (`--wait-timeout`, default 5m; a timeout is exit 6). `run list` is the
     audit surface (scope `--app` XOR `--org`, filter `--status`, paged to
     exhaustion); `run get <id>` is the full record (budgets, policy, the run
     envelope `data` — fields extracted by flow nodes as the walk advances — and
@@ -509,14 +509,14 @@ Conventions:
   - `schedule create --app <ref> --name <n> --cron '<expr>' --entry <node-urn>`
     registers a recurring trigger (5-field cron, evaluated in `--tz`, default UTC;
     one-time `--at` is not yet a server capability). `--policy '<json>'` is a
-    trigger-layer allow-list (`{"allow":[…]}`, `cor:acl:040`). `schedule ls
+    trigger-layer allow-list (`{"allow":[…]}`, `cor:acl:040`). `schedule list
     --app`, `update <id>` (only the fields you pass change; `--enabled=false`
     disables, unset fields preserved), `rm <id>` (`--yes`).
   - `webhook create --app <ref> --name <n> --entry <node-urn>` mints an inbound
     trigger and prints the URL path + platform token **once** — they are never
     queryable again, so capture them (in `--json` they are `path`/`token`).
     `webhook rotate <id>` reissues the secret (old URL dies immediately; `--yes`);
-    `webhook ls` never shows the secret; `webhook rm <id>` (`--yes`).
+    `webhook list` never shows the secret; `webhook rm <id>` (`--yes`).
   - `task run <task>` renders a task node's prompt by default; `--app <ref>`
     instead EXECUTES it server-side — minting a MANUAL run under that App (a real
     LLM run) and printing the run id (`--json`: `mode:"execute"`, `runId`). Follow
@@ -529,13 +529,13 @@ Conventions:
   - `ticket mint --org <ref> --action comm.outbound --count <n>` mints consumable
     action tickets into the org ledger (org ADMIN; `cor:acl:050:04`; `--app`
     scopes to one App, `--note` records why, `--expires` sets an ISO expiry);
-    `ticket ls --org <ref>` is the ledger — minted / consumed-by-which-run /
+    `ticket list --org <ref>` is the ledger — minted / consumed-by-which-run /
     expiries, paged to exhaustion.
   - `grant create --org <ref> --user <ref> --action memory.clone[,...]` hands one
     org member extra management actions on top of their role bundle (org ADMIN,
     interactive-only; the grantee must be a live member — a grant dies with the
     membership). Actions use the matcher grammar: exact (`memory.clone`),
-    prefix (`memory.*`), or `*`. `grant ls` defaults to YOUR OWN grants
+    prefix (`memory.*`), or `*`. `grant list` defaults to YOUR OWN grants
     (self-audit is never gated); org ADMINs pass `--org` for the whole org,
     optionally `--user` to narrow. `grant revoke <id> --yes` soft-deletes;
     takes effect at the next gate check.
@@ -572,7 +572,7 @@ with `hadron app use <urn>` or override per-invocation with
 hadron auth whoami --json
 
 # List memories, machine-readable
-hadron memory ls --json
+hadron memory list --json
 
 # Inspect one memory by URN
 hadron memory get acme.com:project-memory --json
@@ -581,7 +581,7 @@ hadron memory get acme.com:project-memory --json
 hadron memory export acme.com:project-memory --out ./kb --json
 
 # List nodes in a memory
-hadron node ls --memory acme.com::kb --json
+hadron node list --memory acme.com::kb --json
 
 # Read one node's content and edges
 hadron node get acme.com::kb::findings:flaky-ci --json
@@ -641,7 +641,7 @@ hadron edge add --from acme.com::kb::findings:flaky-ci \
   --to acme.com::kb::start-here --label routes-to
 
 # List a node's edges, delete one (agents must pass --yes)
-hadron edge ls acme.com::kb::findings:flaky-ci --json
+hadron edge list acme.com::kb::findings:flaky-ci --json
 hadron edge rm <edge-id> --yes
 
 # Delete a node (agents must pass --yes). Soft by default (recoverable from
@@ -673,8 +673,8 @@ hadron search "how do users report a bad actor" -m micromentor.org::mmdata --jso
 # (default properties) and "as":text|number|datetime|boolean (default text); a
 # BRANCH is {"and"|"or":[...]} or {"not":{...}}. --object-type filters the
 # objectType collection facet; --sort-property orders by a JSON path (overrides
-# relevance/loc sort). Available on both `node ls` (browse) and `search` (ranked).
-hadron node ls -m acme.com::kb --object-type insight \
+# relevance/loc sort). Available on both `node list` (browse) and `search` (ranked).
+hadron node list -m acme.com::kb --object-type insight \
   --where '{"and":[{"path":["source"],"eq":"substack"},{"path":["capturedAt"],"as":"datetime","gte":"2026-07-04"}]}' \
   --sort-property '{"path":["capturedAt"],"as":"datetime","direction":"desc"}' --json
 hadron search "pricing" --object-type competitor --where '{"path":["tier"],"eq":"enterprise"}' --json
@@ -692,7 +692,7 @@ hadron schedule create --app acme.com:ops --name nightly-digest \
   --entry acme.com::ops::tasks:nightly-digest --as-self
 
 # Inspect what ran and why (the audit surface)
-hadron run ls --app acme.com:ops --status FAILED --json
+hadron run list --app acme.com:ops --status FAILED --json
 hadron run get <run-id> --json
 
 # Mint an outbound-comms budget the runs consume

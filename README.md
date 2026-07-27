@@ -7,9 +7,9 @@ shelling out to it.
 ## Status
 
 Implemented v1 command surface: `auth login|logout|whoami|status`,
-`memory ls|get|set|rm|clone|export`, `node ls|get|add|update|rm`,
-`spec ls|get|describe|register|find|new|edit|extract|link|lint|supersede|use`,
-`app ls|install|uninstall|use`, `config get|set|list`, `api` (raw
+`memory list|get|set|rm|clone|export`, `node list|get|add|update|rm`,
+`spec list|get|describe|register|find|new|edit|extract|link|lint|supersede|use`,
+`app list|install|uninstall|use`, `config get|set|list`, `api` (raw
 GraphQL escape hatch), `replace`, `version`, `completion`, `agentic-usage`.
 `spec import spec-kit|code` is reserved as a stable command stub but is not yet
 implemented.
@@ -84,7 +84,7 @@ Requires Go (see `go.mod` for the version).
 hadron auth login                         # browser OAuth via GitHub (default)
 hadron auth login --provider google       # browser OAuth via Google
 hadron auth whoami
-hadron memory ls --json
+hadron memory list --json
 hadron api 'query { me { id email } }'
 ```
 
@@ -146,7 +146,7 @@ hadron ticket mint --org acme.com --action comm.outbound --count 100 \
 # 5. Trigger one now to test, waiting for the terminal status; then audit.
 hadron run trigger --app acme.com:ops \
   --entry acme.com::ops::tasks:nightly-digest --as-self --wait --json
-hadron run ls --app acme.com:ops --status FAILED --json
+hadron run list --app acme.com:ops --status FAILED --json
 hadron run get <run-id> --json          # budgets, policy, failure payload
 ```
 

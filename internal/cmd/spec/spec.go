@@ -555,9 +555,9 @@ func effectiveSpecMemory(f *cmdutil.Factory, flagVal string) (string, error) {
 }
 
 // effectiveSpecMemoryOptional is effectiveSpecMemory for list/search commands
-// (ls, find) where memory is an optional scope: it returns "" (no error) when
+// (list, find) where memory is an optional scope: it returns "" (no error) when
 // nothing is configured, so the command runs unscoped. A configured default is
-// still honored (and noted), so `hadron spec use` scopes a bare `ls`/`find`.
+// still honored (and noted), so `hadron spec use` scopes a bare `list`/`find`.
 func effectiveSpecMemoryOptional(f *cmdutil.Factory, flagVal string) (string, error) {
 	ref, note, err := specMemoryDefault(f, flagVal)
 	if err != nil {
@@ -754,7 +754,7 @@ const nodesPageSize = 500
 // scanAllNodes pages the nodes query to exhaustion and returns every node
 // matching (memory, prefix, tags). Any command whose contract is "the whole
 // memory/scope" — spec lint --all and prefix-scoped lint, register, describe,
-// bare spec ls, and the new/supersede allocation scans — must use this rather
+// bare spec list, and the new/supersede allocation scans — must use this rather
 // than a single unbounded findNodes call, which the server truncates to one
 // default page (issue #23). For an allocation scan that truncation is not just
 // under-reporting: a missed tail makes the allocator reuse a live number.
@@ -797,7 +797,7 @@ func newNodeFilter(memory, prefix *string, tags []string) *gen.NodeFilter {
 }
 
 // sortLoc pins the deterministic loc ordering the corpus scans (and bare
-// `spec ls`) rely on — findNodes defaults to relevance, which is unscored (and
+// `spec list`) rely on — findNodes defaults to relevance, which is unscored (and
 // thus unordered) for a query-less filtered list.
 func sortLoc() *gen.NodeSort {
 	s := gen.NodeSortLoc

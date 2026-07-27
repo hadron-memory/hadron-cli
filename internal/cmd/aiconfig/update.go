@@ -26,7 +26,7 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 
 --api-key sets a new key ("-" reads stdin); --api-key "" clears the stored key;
 omit it to keep the current key. --param replaces the whole params object.
-Find ids with 'hadron ai-config ls --json'.`,
+Find ids with 'hadron ai-config list --json'.`,
 		Example: `  hadron ai-config update cfg_123 --model claude-opus-4-8
   printf '%s' "$KEY" | hadron ai-config update cfg_123 --api-key -
   hadron ai-config update cfg_123 --api-key ""        # clear the key

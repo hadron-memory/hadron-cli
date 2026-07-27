@@ -43,7 +43,7 @@ Then hand it to the CLI:
 ```sh
 echo "$TOKEN" | hadron auth login --with-token     # store in the keychain
 # or, ephemerally, for a single invocation:
-HADRON_TOKEN=hdr_user_… hadron memory ls
+HADRON_TOKEN=hdr_user_… hadron memory list
 ```
 
 (See [hadron-server#303](https://github.com/hadron-memory/hadron-server/pull/303).)
@@ -55,7 +55,7 @@ automation — no browser needed:
 
 ```sh
 hadron auth token create --label ci-deploy     # prints the raw key ONCE
-hadron auth token ls
+hadron auth token list
 echo "$TOKEN" | hadron auth token validate     # check a token: exit 0 valid / 3 rejected
 hadron auth token revoke <id>
 ```

@@ -24,8 +24,8 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 Scope with --app or --org (mutually exclusive; --app defaults to the App
 context). Filter with --status (one of PENDING, RUNNING, COMPLETED, FAILED,
 CANCELLED, TIMED_OUT). The list pages to exhaustion.`,
-		Example: `  hadron run ls --app acme.com:ops --status FAILED
-  hadron run ls --org acme.com --json`,
+		Example: `  hadron run list --app acme.com:ops --status FAILED
+  hadron run list --org acme.com --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if app != "" && org != "" {

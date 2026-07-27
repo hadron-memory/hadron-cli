@@ -33,8 +33,8 @@ type aiConfigDTO struct {
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var agent string
 	cmd := &cobra.Command{
-		Use:     "ls",
-		Aliases: []string{"list"},
+		Use:     "list",
+		Aliases: []string{"ls"},
 		Short:   "List the AI service configs resolvable in an App's chat context",
 		Long: `List the masked set of AI service configs resolvable in an App's chat
 context — every distinct config name a chat could select, deduped with the
@@ -45,8 +45,8 @@ Output is masked: never key material, only hasApiKey and a short apiKeyPreview.
 --app defaults to the configured App context (hadron app use / global --app);
 you must be a member of that App. --agent narrows to an agent installed in it.
 Both accept an ID or a URN.`,
-		Example: `  hadron ai-config ls --app acme.com:juno-app
-  hadron ai-config ls --app acme.com:juno-app --agent acme.com:juno --json`,
+		Example: `  hadron ai-config list --app acme.com:juno-app
+  hadron ai-config list --app acme.com:juno-app --agent acme.com:juno --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

@@ -1,6 +1,6 @@
 // Package aiconfig implements `hadron ai-config ...` — the AI service
 // config surface. Today it exposes the masked resolvable-config picker
-// (`ls`); CRUD and decrypted resolve can grow into this group later.
+// (`list`); CRUD and decrypted resolve can grow into this group later.
 package aiconfig
 
 import (

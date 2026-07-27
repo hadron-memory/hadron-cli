@@ -136,8 +136,8 @@ only the mandatory rubric.
 
 ```sh
 hadron spec use $M                                # save the default spec memory in your user config
-hadron spec ls   -m $M --prefix cli            # one product (or cli:cha for one module)
-hadron spec ls   -m $M --prefix cli:cha:010    # one feature and its rules/flows
+hadron spec list   -m $M --prefix cli            # one product (or cli:cha for one module)
+hadron spec list   -m $M --prefix cli:cha:010    # one feature and its rules/flows
 hadron spec get  cli:cha:010:01 -m $M          # one spec + lint summary
 hadron spec find "backpressure" -m $M          # semantic search, filtered to specs
 hadron spec grep h-read-node -m $M             # body+abstract search, citation:line: text (exhaustive)

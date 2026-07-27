@@ -28,8 +28,8 @@ func newCmdShare(f *cmdutil.Factory) *cobra.Command {
 
 func newCmdShareLs(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:     "ls <memoryRef>",
-		Aliases: []string{"list"},
+		Use:     "list <memoryRef>",
+		Aliases: []string{"ls"},
 		Short:   "List a memory's shares",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -109,8 +109,8 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var limit, offset int
 	var public bool
 	cmd := &cobra.Command{
-		Use:     "ls [--org <id>] [--type <t>] [--visibility <v>] | --public [--type <t>]",
-		Aliases: []string{"list"},
+		Use:     "list [--org <id>] [--type <t>] [--visibility <v>] | --public [--type <t>]",
+		Aliases: []string{"ls"},
 		Short:   "List agents",
 		Long: `List agents. By default this is the member-scoped view — agents in orgs you
 belong to.

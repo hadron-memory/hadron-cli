@@ -39,7 +39,7 @@ type userDTO struct {
 }
 
 // memberDTO is the stable --json shape for an org membership. CanInvite is only
-// populated by `member ls` (the mutations don't project it).
+// populated by `member list` (the mutations don't project it).
 type memberDTO struct {
 	ID        string  `json:"id"`
 	Role      string  `json:"role"`

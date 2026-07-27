@@ -18,7 +18,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List an App's schedules",
-		Example: `  hadron schedule ls --app acme.com:ops --json`,
+		Example: `  hadron schedule list --app acme.com:ops --json`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			appRef, err := cmdutil.ResolveAppRef(f, app)

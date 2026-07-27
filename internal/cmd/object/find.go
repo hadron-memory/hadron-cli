@@ -33,7 +33,7 @@ func newCmdFind(f *cmdutil.Factory) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:     "find -m <memory> --type <type>",
-		Aliases: []string{"ls"},
+		Aliases: []string{"list", "ls"},
 		Short:   "Query a collection",
 		Long: `Query one collection in a memory and print the matching objects plus a total.
 

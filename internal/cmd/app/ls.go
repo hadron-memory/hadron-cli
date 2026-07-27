@@ -28,7 +28,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List Apps in an organization (requires org membership)",
-		Example: `  hadron app ls --org acme.com`,
+		Example: `  hadron app list --org acme.com`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

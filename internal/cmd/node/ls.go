@@ -47,11 +47,11 @@ after a known seq number).
 a path plus one of eq|ne|in|lt|lte|gt|gte|between|exists|contains; branch with
 and/or/not). --object-type filters the objectType collection facet.
 --sort-property orders by a properties/data JSON path.`,
-		Example: `  hadron node ls --memory hadronmemory.com::dev
-  hadron node ls -m hadronmemory.com::dev --prefix findings: --json
-  hadron node ls -m hadronmemory.com::dev --seq-gt 42 --sort-seq asc
-  hadron node ls -m acme.com::kb --object-type insight --where '{"path":["source"],"eq":"substack"}'
-  hadron node ls -m acme.com::kb --sort-property '{"path":["rank"],"as":"number","direction":"desc"}'`,
+		Example: `  hadron node list --memory hadronmemory.com::dev
+  hadron node list -m hadronmemory.com::dev --prefix findings: --json
+  hadron node list -m hadronmemory.com::dev --seq-gt 42 --sort-seq asc
+  hadron node list -m acme.com::kb --object-type insight --where '{"path":["source"],"eq":"substack"}'
+  hadron node list -m acme.com::kb --sort-property '{"path":["rank"],"as":"number","direction":"desc"}'`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			whereArg, err := cmdutil.ParseNodeWhere(where)
@@ -105,7 +105,7 @@ and/or/not). --object-type filters the objectType collection facet.
 				filterSet = true
 			}
 			// Pass nil (not an empty &{}) when nothing is constrained, so a bare
-			// `node ls` sends no filter object at all — mirroring newNodeFilter
+			// `node list` sends no filter object at all — mirroring newNodeFilter
 			// in the spec package.
 			var filterArg *gen.NodeFilter
 			if filterSet {

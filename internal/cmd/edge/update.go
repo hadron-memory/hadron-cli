@@ -26,7 +26,7 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <edge-id>",
 		Short: "Update an edge's name, loc, description, runnable, priority, condition, or data",
-		Long: `Update an edge by its ID (shown by hadron edge ls and in node get
+		Long: `Update an edge by its ID (shown by hadron edge list and in node get
 --json output). Only the fields you pass change.`,
 		Example: `  hadron edge update edg_123 --name complements
   hadron edge update edg_123 --priority 10`,

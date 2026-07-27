@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -60,24 +61,29 @@ func TestMemoryRefCommandsDocumentAcceptedForms(t *testing.T) {
 	}
 }
 
-// `memory share ls` had no Long at all, so annotating it must promote
-// Short rather than leave the command described only by the boilerplate
-// (this is the exact command from #282).
+// The share-listing command had no Long at all, so annotating it must
+// promote Short rather than leave the command described only by the
+// boilerplate (this is the exact command from #282 — reported against
+// its `ls` spelling, renamed to `list` in #283, still reachable as both).
 func TestMemoryRefHelpPromotesShortWhenLongIsEmpty(t *testing.T) {
-	var ls *cobra.Command
+	const path = "memory share list"
+	var shareList *cobra.Command
 	walk(NewCmdMemory(cmdutil.NewFactory()), func(cmd *cobra.Command) {
-		if cmd.CommandPath() == "memory share ls" {
-			ls = cmd
+		if cmd.CommandPath() == path {
+			shareList = cmd
 		}
 	})
-	if ls == nil {
-		t.Fatal("memory share ls not found")
+	if shareList == nil {
+		t.Fatalf("%q not found", path)
 	}
-	if !strings.HasPrefix(ls.Long, ls.Short) {
-		t.Errorf("Long = %q does not lead with Short = %q", ls.Long, ls.Short)
+	if !strings.HasPrefix(shareList.Long, shareList.Short) {
+		t.Errorf("Long = %q does not lead with Short = %q", shareList.Long, shareList.Short)
 	}
-	if !strings.Contains(ls.Use, memoryRefToken) {
-		t.Errorf("Use = %q does not take a %s", ls.Use, memoryRefToken)
+	if !strings.Contains(shareList.Use, memoryRefToken) {
+		t.Errorf("Use = %q does not take a %s", shareList.Use, memoryRefToken)
+	}
+	if !slices.Contains(shareList.Aliases, "ls") {
+		t.Errorf("%q lost the `ls` alias the issue was reported against", path)
 	}
 }
 

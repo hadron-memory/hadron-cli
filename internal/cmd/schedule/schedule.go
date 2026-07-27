@@ -14,7 +14,7 @@ func NewCmdSchedule(f *cmdutil.Factory) *cobra.Command {
 		Long: `Manage recurring headless-run triggers (spec-040, cor:agt:010, D-2026-07-04-E).
 
 A schedule fires an entry node under an App's identity on a 5-field cron
-expression. The runs it spawns show up in ` + "`hadron run ls`" + `.
+expression. The runs it spawns show up in ` + "`hadron run list`" + `.
 
 Note: runAsSelf (--as-self) requires an authenticated user — an App-key caller
 cannot use it (UNAUTHENTICATED).`,
