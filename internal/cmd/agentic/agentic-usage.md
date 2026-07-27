@@ -248,8 +248,10 @@ Conventions:
   — pass `--yes` non-interactively.
 - `server-info` reports the hadron-server this invocation targets:
   `{url, version, baseUrl, authenticated}`. It works **signed out** (the field
-  is public), so it doubles as a reachability probe — a failure here is the
-  server or the network, not your credentials. `version` is the server's
+  is public), so it doubles as a reachability probe — a failure REACHING the
+  server is the server or the network, not a missing login (a credential store
+  that cannot be read is still reported: it fails loud rather than silently
+  querying anonymously). `version` is the server's
   API-SURFACE CONTRACT version, bumped when the query/tool surface changes in a
   caller-visible way; it is NOT a release version, so use it to decide whether a
   surface exists rather than comparing it to a release tag. `url` is where the
