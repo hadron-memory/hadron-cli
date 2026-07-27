@@ -576,7 +576,7 @@ func fetchDetailsWithUnavailable(cmd *cobra.Command, client graphql.Client, list
 
 func collectSpecDetails(cmd *cobra.Command, client graphql.Client, ids []string) ([]*gen.NodeBatchNodeBatchNodeBatchResultNodesNode, []string, error) {
 	return collectSpecDetailBatch(ids, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
-		resp, ferr := gen.NodeBatch(cmd.Context(), client, chunk)
+		resp, ferr := gen.NodeBatch(cmd.Context(), client, chunk, nil, nil)
 		if ferr != nil {
 			return nil, api.MapError(ferr)
 		}

@@ -99,7 +99,7 @@ token appears — including inside longer tokens — then rewrite precisely with
 				return output.Write(f.IOStreams, f.JSON, []specMatchDTO{}, func(w io.Writer) error { return nil })
 			}
 			nodes, unavailable, err := api.CollectNodeBatch(ids, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
-				resp, err := gen.NodeBatch(cmd.Context(), client, chunk)
+				resp, err := gen.NodeBatch(cmd.Context(), client, chunk, nil, nil)
 				if err != nil {
 					return nil, api.MapError(err)
 				}

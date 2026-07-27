@@ -8318,12 +8318,15 @@ func (v *NodeBatchNodeBatchNodeBatchResult) GetNodes() []*NodeBatchNodeBatchNode
 
 // NodeBatchNodeBatchNodeBatchResultNodesNode includes the requested fields of the GraphQL type Node.
 type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
-	Id          string  `json:"id"`
-	MemoryId    string  `json:"memoryId"`
-	Loc         string  `json:"loc"`
-	Name        string  `json:"name"`
-	Alias       *string `json:"alias"`
-	NodeType    string  `json:"nodeType"`
+	Id       string  `json:"id"`
+	MemoryId string  `json:"memoryId"`
+	Loc      string  `json:"loc"`
+	Name     string  `json:"name"`
+	Alias    *string `json:"alias"`
+	NodeType string  `json:"nodeType"`
+	// #725 — collection discriminator (which domain object this node is, e.g. "competitor"). NULL for an ordinary node.
+	ObjectType  *string `json:"objectType"`
+	IsRunnable  *bool   `json:"isRunnable"`
 	Description *string `json:"description"`
 	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
 	Abstract *string `json:"abstract"`
@@ -8334,6 +8337,7 @@ type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
 	Data               *json.RawMessage                                               `json:"data"`
 	Properties         *json.RawMessage                                               `json:"properties"`
 	Content            *string                                                        `json:"content"`
+	CreatedAt          string                                                         `json:"createdAt"`
 	UpdatedAt          string                                                         `json:"updatedAt"`
 	OutgoingEdges      []*NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge `json:"outgoingEdges"`
 	IncomingEdges      []*NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge `json:"incomingEdges"`
@@ -8356,6 +8360,12 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetAlias() *string { return
 
 // GetNodeType returns NodeBatchNodeBatchNodeBatchResultNodesNode.NodeType, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetNodeType() string { return v.NodeType }
+
+// GetObjectType returns NodeBatchNodeBatchNodeBatchResultNodesNode.ObjectType, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetObjectType() *string { return v.ObjectType }
+
+// GetIsRunnable returns NodeBatchNodeBatchNodeBatchResultNodesNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetDescription returns NodeBatchNodeBatchNodeBatchResultNodesNode.Description, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetDescription() *string { return v.Description }
@@ -8385,6 +8395,9 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetProperties() *json.RawMe
 // GetContent returns NodeBatchNodeBatchNodeBatchResultNodesNode.Content, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetContent() *string { return v.Content }
 
+// GetCreatedAt returns NodeBatchNodeBatchNodeBatchResultNodesNode.CreatedAt, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetCreatedAt() string { return v.CreatedAt }
+
 // GetUpdatedAt returns NodeBatchNodeBatchNodeBatchResultNodesNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetUpdatedAt() string { return v.UpdatedAt }
 
@@ -8400,12 +8413,17 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetIncomingEdges() []*NodeB
 
 // NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge includes the requested fields of the GraphQL type Edge.
 type NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge struct {
+	Id         string  `json:"id"`
 	Name       *string `json:"name"`
 	Loc        string  `json:"loc"`
+	Priority   int     `json:"priority"`
 	IsRunnable *bool   `json:"isRunnable"`
 	// The source node. NULLABLE (#781): null when the caller cannot read the source node's memory — a cross-memory edge (e.g. reached via incomingEdges) must not expose an endpoint in a memory the caller can't read. For a same-memory edge the caller can already see, this is always present.
 	Source *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode `json:"source"`
 }
+
+// GetId returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.Id, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge) GetId() string { return v.Id }
 
 // GetName returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.Name, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge) GetName() *string {
@@ -8414,6 +8432,11 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge) GetName() 
 
 // GetLoc returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.Loc, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge) GetLoc() string { return v.Loc }
+
+// GetPriority returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.Priority, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge) GetPriority() int {
+	return v.Priority
+}
 
 // GetIsRunnable returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.IsRunnable, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge) GetIsRunnable() *bool {
@@ -8449,6 +8472,7 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode) 
 
 // NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
 type NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge struct {
+	Id          string           `json:"id"`
 	Name        *string          `json:"name"`
 	Loc         string           `json:"loc"`
 	Description *string          `json:"description"`
@@ -8458,6 +8482,9 @@ type NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge struct {
 	// The target node. NULLABLE (#781): null when the caller cannot read the target node's memory (a cross-memory edge's far endpoint). For a same-memory edge, always present.
 	Target *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode `json:"target"`
 }
+
+// GetId returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.Id, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) GetId() string { return v.Id }
 
 // GetName returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.Name, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) GetName() *string {
@@ -14551,11 +14578,19 @@ func (v *__MoveNodeInput) GetTargetMemoryRef() *string { return v.TargetMemoryRe
 
 // __NodeBatchInput is used internally by genqlient
 type __NodeBatchInput struct {
-	Ids []string `json:"ids,omitempty"`
+	Ids       []string `json:"ids,omitempty"`
+	Memory    *string  `json:"memory,omitempty"`
+	LocPrefix *string  `json:"locPrefix,omitempty"`
 }
 
 // GetIds returns __NodeBatchInput.Ids, and is useful for accessing the field via an interface.
 func (v *__NodeBatchInput) GetIds() []string { return v.Ids }
+
+// GetMemory returns __NodeBatchInput.Memory, and is useful for accessing the field via an interface.
+func (v *__NodeBatchInput) GetMemory() *string { return v.Memory }
+
+// GetLocPrefix returns __NodeBatchInput.LocPrefix, and is useful for accessing the field via an interface.
+func (v *__NodeBatchInput) GetLocPrefix() *string { return v.LocPrefix }
 
 // __NodeExportInput is used internally by genqlient
 type __NodeExportInput struct {
@@ -19023,8 +19058,8 @@ func MyUserApiKeys(
 
 // The query executed by NodeBatch.
 const NodeBatch_Operation = `
-query NodeBatch ($ids: [ID!]) {
-	nodeBatch(ids: $ids) {
+query NodeBatch ($ids: [ID!], $memory: ID, $locPrefix: String) {
+	nodeBatch(ids: $ids, memory: $memory, locPrefix: $locPrefix) {
 		truncated
 		omitted
 		unavailable
@@ -19035,6 +19070,8 @@ query NodeBatch ($ids: [ID!]) {
 			name
 			alias
 			nodeType
+			objectType
+			isRunnable
 			description
 			abstract
 			abstractOriginHash
@@ -19043,8 +19080,10 @@ query NodeBatch ($ids: [ID!]) {
 			data
 			properties
 			content
+			createdAt
 			updatedAt
 			outgoingEdges {
+				id
 				name
 				loc
 				description
@@ -19058,8 +19097,10 @@ query NodeBatch ($ids: [ID!]) {
 				}
 			}
 			incomingEdges {
+				id
 				name
 				loc
+				priority
 				isRunnable
 				source {
 					id
@@ -19081,16 +19122,24 @@ query NodeBatch ($ids: [ID!]) {
 // lint builders read — so the whole-corpus fan-outs (`memory export`,
 // `spec get --prefix`) read in ceil(N/200) round-trips instead of one node(ref)
 // per node. Driven through api.CollectNodeBatch.
+// The prefix form (memory + locPrefix) reads a whole subtree in ONE call with
+// no per-node resolution, which `node get --prefix` uses. The server requires
+// EITHER ids OR memory+locPrefix, so every variable is omitempty: a nil pointer
+// must be absent, not an explicit null the server would count as "provided".
 func NodeBatch(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	ids []string,
+	memory *string,
+	locPrefix *string,
 ) (data_ *NodeBatchResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "NodeBatch",
 		Query:  NodeBatch_Operation,
 		Variables: &__NodeBatchInput{
-			Ids: ids,
+			Ids:       ids,
+			Memory:    memory,
+			LocPrefix: locPrefix,
 		},
 	}
 

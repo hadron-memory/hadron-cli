@@ -314,7 +314,7 @@ func relintChanged(cmd *cobra.Command, client graphql.Client, changed []specRepl
 		return nil
 	}
 	nodes, unavailable, err := api.CollectNodeBatch(ids, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
-		resp, err := gen.NodeBatch(cmd.Context(), client, chunk)
+		resp, err := gen.NodeBatch(cmd.Context(), client, chunk, nil, nil)
 		if err != nil {
 			return nil, api.MapError(err)
 		}
