@@ -270,3 +270,39 @@ mutation EncryptMemory($memoryId: ID!, $dataKey: String!) {
     isEncrypted
   }
 }
+
+# Promote an anonymous/session memory to a registered user (#75, descoped from
+# #57). Backs `hadron memory link-user`.
+#
+# App-key only: the server gates on ctx.appId, so a user PAT is refused. The
+# memory must be a user/anonymous memory in the App's own organization.
+#
+# externalUserId is the App's own identifier for the end user; the server
+# resolves it to an existing app-scoped user or provisions one (unless the App
+# sets createUserPermission=DENY).
+#
+# Two side effects the caller must see, hence selecting urn and isEncrypted:
+# the memory's URN is RE-MINTED as a fresh flat v2 urn (the old one stops
+# resolving), and passing dataKey encrypts every node in place and lands the
+# memory as class='private' owned by that user.
+mutation LinkMemoryToUser(
+  $memoryId: ID!
+  $externalUserId: String!
+  # Optional: omitempty so a nil pointer is omitted rather than sent as an
+  # explicit null (the server reads an omitted field as "no encryption").
+  # @genqlient(omitempty: true)
+  $dataKey: String
+) {
+  linkMemoryToUser(memoryId: $memoryId, externalUserId: $externalUserId, dataKey: $dataKey) {
+    id
+    urn
+    name
+    shortDescription
+    class
+    visibility
+    organizationId
+    isEncrypted
+    maxRevCount
+    updatedAt
+  }
+}
