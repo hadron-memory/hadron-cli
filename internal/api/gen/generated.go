@@ -573,9 +573,19 @@ func (v *AgentFields) GetCreatedAt() string { return v.CreatedAt }
 
 // Filter for the uniform agents() list (#473). Clauses AND-combine.
 type AgentFilter struct {
+	// #782 — true restricts the list to the caller's OWN user-owned (org-less)
+	// agents: organizationId IS NULL AND ownerUserId = the caller. For ALL
+	// callers INCLUDING platform ADMIN/OWNER (owner scope is never an
+	// admin-bypass surface), mirroring the owner-only personal/private memories
+	// slice. Org-less by definition, so orgId is not consulted. App-key callers
+	// (no user context) get an empty page. Powers the portal's "My agents".
+	OwnedByMe  *bool            `json:"ownedByMe"`
 	Type       *AgentType       `json:"type"`
 	Visibility *AgentVisibility `json:"visibility"`
 }
+
+// GetOwnedByMe returns AgentFilter.OwnedByMe, and is useful for accessing the field via an interface.
+func (v *AgentFilter) GetOwnedByMe() *bool { return v.OwnedByMe }
 
 // GetType returns AgentFilter.Type, and is useful for accessing the field via an interface.
 func (v *AgentFilter) GetType() *AgentType { return v.Type }
@@ -1505,8 +1515,9 @@ type AgentsResponse struct {
 	// member orgs; platform ADMIN/OWNER unscoped get every live Agent. orgId
 	// follows cor:api:100:01 (member -> scope, non-member -> empty page, no
 	// disclosure, no admin bypass). filter narrows by type / visibility.
-	// Name-ascending order (id tiebreak); limit default 50 / cap 200;
-	// limit: 0 -> count only.
+	// filter.ownedByMe (#782) narrows to the caller's own user-owned (org-less)
+	// agents for every caller including platform admins. Name-ascending order
+	// (id tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
 	Agents *AgentsAgentsAgentsPage `json:"agents"`
 }
 
@@ -2227,7 +2238,8 @@ type AppsResponse struct {
 	// ADMIN/OWNER unscoped get every live App. orgId follows cor:api:100:01
 	// (member -> scope, non-member -> empty page, no disclosure, no admin
 	// bypass). Name-ascending order (id tiebreak); limit default 50 / cap 200;
-	// limit: 0 -> count only.
+	// limit: 0 -> count only. filter.ownedByMe (#782) narrows to the caller's own
+	// user-owned (org-less) Apps for every caller including platform admins.
 	Apps *AppsAppsAppsPage `json:"apps"`
 }
 
@@ -9510,6 +9522,20 @@ var AllPrincipalType = []PrincipalType{
 	PrincipalTypeUser,
 }
 
+// Filter for the publicAgents() marketplace slice (#551). ONLY 'type' narrows.
+// Deliberately a SEPARATE, narrower input from AgentFilter: the slice is PUBLIC
+// by definition (so 'visibility' is meaningless) and a PUBLIC agent is never
+// user-owned (user-owned agents are strictly PERSONAL, spec 047), so an
+// 'ownedByMe' here would always be empty — rejecting it at the schema keeps a
+// client from applying the filter uniformly and silently getting cross-org
+// marketplace agents (#782 Codex review).
+type PublicAgentFilter struct {
+	Type *AgentType `json:"type"`
+}
+
+// GetType returns PublicAgentFilter.Type, and is useful for accessing the field via an interface.
+func (v *PublicAgentFilter) GetType() *AgentType { return v.Type }
+
 // PublicAgentsPublicAgentsAgentsPage includes the requested fields of the GraphQL type AgentsPage.
 type PublicAgentsPublicAgentsAgentsPage struct {
 	Total int                                             `json:"total"`
@@ -14407,13 +14433,13 @@ func (v *__PrincipalGrantsInput) GetOffset() *int { return v.Offset }
 
 // __PublicAgentsInput is used internally by genqlient
 type __PublicAgentsInput struct {
-	Filter *AgentFilter `json:"filter,omitempty"`
-	Limit  *int         `json:"limit,omitempty"`
-	Offset *int         `json:"offset,omitempty"`
+	Filter *PublicAgentFilter `json:"filter,omitempty"`
+	Limit  *int               `json:"limit,omitempty"`
+	Offset *int               `json:"offset,omitempty"`
 }
 
 // GetFilter returns __PublicAgentsInput.Filter, and is useful for accessing the field via an interface.
-func (v *__PublicAgentsInput) GetFilter() *AgentFilter { return v.Filter }
+func (v *__PublicAgentsInput) GetFilter() *PublicAgentFilter { return v.Filter }
 
 // GetLimit returns __PublicAgentsInput.Limit, and is useful for accessing the field via an interface.
 func (v *__PublicAgentsInput) GetLimit() *int { return v.Limit }
@@ -19153,7 +19179,7 @@ func PrincipalGrants(
 
 // The query executed by PublicAgents.
 const PublicAgents_Operation = `
-query PublicAgents ($filter: AgentFilter, $limit: Int, $offset: Int) {
+query PublicAgents ($filter: PublicAgentFilter, $limit: Int, $offset: Int) {
 	publicAgents(filter: $filter, limit: $limit, offset: $offset) {
 		total
 		items {
@@ -19182,10 +19208,16 @@ fragment AgentFields on Agent {
 // The cross-org marketplace slice (#551/#552): every live PUBLIC agent, readable
 // without org membership. A deliberately separate surface from agents() (which
 // stays member-scoped), not a visibility filter on it — backs `agent ls --public`.
+//
+// Its filter is a separate, narrower input than agents()' AgentFilter: only
+// `type` narrows. The slice is PUBLIC by definition (so `visibility` is
+// meaningless) and a PUBLIC agent is never user-owned (so `ownedByMe` would
+// always be empty) — the server rejects both at the schema rather than letting a
+// client apply AgentFilter uniformly and silently get cross-org agents back.
 func PublicAgents(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	filter *AgentFilter,
+	filter *PublicAgentFilter,
 	limit *int,
 	offset *int,
 ) (data_ *PublicAgentsResponse, err_ error) {

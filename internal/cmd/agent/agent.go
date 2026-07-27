@@ -149,9 +149,11 @@ URN of to subscribe/install). It's a separate surface, so --org and
 
 			agents := []agentDTO{}
 			if public {
-				var filter *gen.AgentFilter
+				// PublicAgentFilter is deliberately narrower than AgentFilter:
+				// only --type narrows the marketplace slice.
+				var filter *gen.PublicAgentFilter
 				if at != nil {
-					filter = &gen.AgentFilter{Type: at}
+					filter = &gen.PublicAgentFilter{Type: at}
 				}
 				resp, err := gen.PublicAgents(cmd.Context(), client, filter, lim, off)
 				if err != nil {
