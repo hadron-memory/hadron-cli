@@ -14,8 +14,8 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var memory, prefix string
 	var limit, offset int
 	cmd := &cobra.Command{
-		Use:     "ls",
-		Aliases: []string{"list"},
+		Use:     "list",
+		Aliases: []string{"ls"},
 		Short:   "List spec nodes in a memory",
 		Long: `List spec nodes, optionally scoped to a loc prefix.
 
@@ -25,8 +25,8 @@ module, --prefix msg:010 one feature and its rules/flows.
 By default every matching spec is listed (the query is paged to
 exhaustion). Pass --limit (with optional --offset) to fetch a single
 explicit page instead.`,
-		Example: `  hadron spec ls -m micromentor.org::platform-specs
-  hadron spec ls -m micromentor.org::platform-specs --prefix msg:010 --json`,
+		Example: `  hadron spec list -m micromentor.org::platform-specs
+  hadron spec list -m micromentor.org::platform-specs --prefix msg:010 --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
@@ -34,7 +34,7 @@ explicit page instead.`,
 				return err
 			}
 			// Honor the spec default (hadron spec use / active memory) even
-			// when -m is omitted, so a bare `ls` scopes to the configured
+			// when -m is omitted, so a bare `list` scopes to the configured
 			// corpus instead of scanning every accessible memory. With nothing
 			// configured, ref is "" and the list stays unscoped.
 			var memoryArg *string
@@ -53,7 +53,7 @@ explicit page instead.`,
 			if prefix != "" {
 				prefixArg = &prefix
 			}
-			// Bare `ls` lists the whole memory, so page to exhaustion (#23).
+			// Bare `list` lists the whole memory, so page to exhaustion (#23).
 			// An explicit --limit/--offset is honored verbatim as a single
 			// page — deliberate user-driven pagination, not the default.
 			var rawNodes []*api.ListNode

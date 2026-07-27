@@ -89,7 +89,7 @@ one object for a single citation, an array for --prefix.`,
 			// Prefix dump — list specs under the prefix, then fetch each
 			// node's detail. By default page to exhaustion (#23); an explicit
 			// --limit/--offset is honored verbatim as a single page, mirroring
-			// `spec ls`.
+			// `spec list`.
 			prefixArg := prefix
 			var listed []*api.ListNode
 			if limit > 0 || offset > 0 {

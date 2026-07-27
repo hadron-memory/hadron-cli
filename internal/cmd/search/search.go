@@ -136,7 +136,7 @@ and/or/not). --object-type filters the objectType collection facet.
 				filterSet = true
 			}
 			// Send no filter object at all when nothing is constrained,
-			// mirroring node ls / spec find.
+			// mirroring node list / spec find.
 			var filterArg *gen.NodeFilter
 			if filterSet {
 				filterArg = &filter

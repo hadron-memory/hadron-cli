@@ -54,7 +54,7 @@ func resolveSecret(v string, stdin io.Reader) (string, error) {
 }
 
 // dtoFromFields maps a masked AiServiceConfig (the mutation return) into the
-// stable --json DTO shared with `ai-config ls`. Never key material.
+// stable --json DTO shared with `ai-config list`. Never key material.
 func dtoFromFields(f gen.AiServiceConfigFields) aiConfigDTO {
 	return aiConfigDTO{
 		ID:            f.Id,

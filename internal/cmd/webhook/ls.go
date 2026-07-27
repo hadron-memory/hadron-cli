@@ -20,7 +20,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Short:   "List an App's webhooks (never the secret)",
 		Long: `List an App's webhooks. The secret (URL path + token) is never listed — it is
 only shown at create and rotate.`,
-		Example: `  hadron webhook ls --app acme.com:ops --json`,
+		Example: `  hadron webhook list --app acme.com:ops --json`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			appRef, err := cmdutil.ResolveAppRef(f, app)

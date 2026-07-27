@@ -236,8 +236,8 @@ a CI secret). Only the token's hash is kept server-side.`,
 
 func newCmdTokenLs(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:     "ls",
-		Aliases: []string{"list"},
+		Use:     "list",
+		Aliases: []string{"ls"},
 		Short:   "List your personal API tokens",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

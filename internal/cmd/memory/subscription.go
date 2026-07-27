@@ -33,8 +33,8 @@ user). The role is the full set: owner, admin, contributor, or reader.`,
 
 func newCmdSubscriptionLs(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:     "ls <memoryRef>",
-		Aliases: []string{"list"},
+		Use:     "list <memoryRef>",
+		Aliases: []string{"ls"},
 		Short:   "List a memory's organization subscriptions",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

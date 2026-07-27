@@ -19,7 +19,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Short:   "List the org's action-ticket ledger",
 		Long: `List the org's action-ticket ledger — minted, consumed-by-which-run, and
 expiries (cor:acl:050:04). Pages to exhaustion.`,
-		Example: `  hadron ticket ls --org acme.com --json`,
+		Example: `  hadron ticket list --org acme.com --json`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

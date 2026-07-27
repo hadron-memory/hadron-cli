@@ -18,7 +18,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "List registered MCP servers",
 		Long:    `List registered external MCP servers, optionally scoped to one org. Pages to exhaustion.`,
-		Example: `  hadron mcp-server ls --org acme.com --json`,
+		Example: `  hadron mcp-server list --org acme.com --json`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

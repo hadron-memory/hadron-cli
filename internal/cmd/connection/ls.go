@@ -19,8 +19,8 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Short:   "List connection grants",
 		Long: `List connection grants on the connections you own. With --connection, narrows
 to grants on that one connection. Pages to exhaustion.`,
-		Example: `  hadron connection grant ls
-  hadron connection grant ls --connection conn_123 --json`,
+		Example: `  hadron connection grant list
+  hadron connection grant list --connection conn_123 --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

@@ -21,9 +21,9 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 (self-audit is never gated). An org ADMIN passing --org sees that whole
 org's grants, optionally narrowed by --user; a non-admin passing --org stays
 pinned to their own grants there. Pages to exhaustion.`,
-		Example: `  hadron grant ls
-  hadron grant ls --org acme.com
-  hadron grant ls --org acme.com --user jane --json`,
+		Example: `  hadron grant list
+  hadron grant list --org acme.com
+  hadron grant list --org acme.com --user jane --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

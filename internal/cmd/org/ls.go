@@ -16,8 +16,8 @@ type orgListItem = gen.OrganizationsOrganizationsOrganizationsPageItemsOrganizat
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var mine bool
 	cmd := &cobra.Command{
-		Use:     "ls",
-		Aliases: []string{"list"},
+		Use:     "list",
+		Aliases: []string{"ls"},
 		Short:   "List organizations",
 		Long: `List organizations.
 
