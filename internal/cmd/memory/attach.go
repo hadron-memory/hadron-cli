@@ -16,7 +16,7 @@ func newCmdAttach(f *cmdutil.Factory) *cobra.Command {
 	var app string
 	var agent string
 	cmd := &cobra.Command{
-		Use:   "attach <memory-id-or-urn> --app <app-id-or-urn> --agent <agent-id-or-urn>",
+		Use:   "attach <memoryRef> --app <app-id-or-urn> --agent <agent-id-or-urn>",
 		Short: "Attach a free-standing personal/private memory to an App",
 		Long: `Attach an existing free-standing personal or private memory to an App.
 

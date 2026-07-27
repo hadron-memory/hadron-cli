@@ -77,7 +77,52 @@ func NewCmdMemory(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdShare(f))
 	cmd.AddCommand(newCmdSubscription(f))
 	cmd.AddCommand(newCmdEncrypt(f))
+	annotateMemoryRefHelp(cmd)
 	return cmd
+}
+
+// memoryRefToken is the placeholder every command in this group uses in
+// its usage line for the memory it acts on.
+const memoryRefToken = "<memoryRef>"
+
+// memoryRefHelp spells out what that placeholder accepts. `memory share
+// ls <memory>` said nothing about the accepted forms, so there was no
+// way to tell from --help whether it wanted an id or a URN (#282).
+//
+// It has to stay exhaustive to be worth printing: <root> is an org
+// domain OR a user handle (an --owner-me memory is minted under your own
+// handle), and cmdutil.MemoryParts normalizes urn: to hrn: before
+// matching, so both schemes work everywhere. memoryRefFormsAreAccepted
+// pins every form named here against the parser.
+const memoryRefHelp = `<memoryRef> identifies the memory. It accepts the memory's id, or any of the
+URN spellings below, where <root> is an organization domain or a user handle
+(a memory created with --owner-me lives under your own handle):
+
+  hrn:mem:<root>:<slug>       canonical
+  hrn:memory:<root>::<slug>   legacy
+  <root>:<slug>               short form
+  <root>::<slug>              short form
+
+urn: is accepted in place of hrn: throughout.`
+
+// annotateMemoryRefHelp appends memoryRefHelp to the long help of every
+// command in the tree that takes a <memoryRef>. Doing it here rather
+// than pasting the paragraph into ~17 commands keeps the accepted forms
+// from drifting apart and covers new commands for free.
+func annotateMemoryRefHelp(cmd *cobra.Command) {
+	for _, sub := range cmd.Commands() {
+		annotateMemoryRefHelp(sub)
+	}
+	if !strings.Contains(cmd.Use, memoryRefToken) {
+		return
+	}
+	// Cobra shows Long instead of Short once Long is set, so a command
+	// with no Long keeps its description by leading with it.
+	long := strings.TrimRight(cmd.Long, "\n")
+	if long == "" {
+		long = cmd.Short + "."
+	}
+	cmd.Long = long + "\n\n" + memoryRefHelp
 }
 
 // resolveMemoryID maps a memory URN to its ID via memory(ref:), which

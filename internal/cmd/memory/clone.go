@@ -16,7 +16,7 @@ import (
 func newCmdClone(f *cmdutil.Factory) *cobra.Command {
 	var targetURN string
 	cmd := &cobra.Command{
-		Use:     "clone <memory-id-or-urn> --target-urn <new-urn>",
+		Use:     "clone <memoryRef> --target-urn <new-urn>",
 		Aliases: []string{"cp"},
 		Short:   "Clone a memory into a new memory (optionally in another org)",
 		Long: `Clone a memory into a new memory at a target URN.

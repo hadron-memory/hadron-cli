@@ -28,7 +28,7 @@ func newCmdMember(f *cmdutil.Factory) *cobra.Command {
 
 func newCmdMemberLs(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:     "ls <memory>",
+		Use:     "ls <memoryRef>",
 		Aliases: []string{"list"},
 		Short:   "List a memory's members",
 		Args:    cobra.ExactArgs(1),
@@ -69,7 +69,7 @@ func newCmdMemberLs(f *cmdutil.Factory) *cobra.Command {
 func newCmdMemberAdd(f *cmdutil.Factory) *cobra.Command {
 	var user, role string
 	cmd := &cobra.Command{
-		Use:     "add <memory> --user <user-id> --role <owner|writer|reader>",
+		Use:     "add <memoryRef> --user <user-id> --role <owner|writer|reader>",
 		Short:   "Add (or upsert) a member on a memory",
 		Example: `  hadron memory member add acme.com::kb --user usr_456 --role writer`,
 		Args:    cobra.ExactArgs(1),
@@ -107,7 +107,7 @@ func newCmdMemberAdd(f *cmdutil.Factory) *cobra.Command {
 func newCmdMemberSetRole(f *cmdutil.Factory) *cobra.Command {
 	var user, role string
 	cmd := &cobra.Command{
-		Use:     "set-role <memory> --user <user-id> --role <owner|writer|reader>",
+		Use:     "set-role <memoryRef> --user <user-id> --role <owner|writer|reader>",
 		Short:   "Change a member's role",
 		Example: `  hadron memory member set-role acme.com::kb --user usr_456 --role reader`,
 		Args:    cobra.ExactArgs(1),
@@ -146,7 +146,7 @@ func newCmdMemberRm(f *cmdutil.Factory) *cobra.Command {
 	var user string
 	var yes bool
 	cmd := &cobra.Command{
-		Use:     "rm <memory> --user <user-id>",
+		Use:     "rm <memoryRef> --user <user-id>",
 		Aliases: []string{"remove"},
 		Short:   "Remove a member from a memory",
 		Example: `  hadron memory member rm acme.com::kb --user usr_456 --yes`,

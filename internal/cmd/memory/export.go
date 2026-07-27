@@ -50,7 +50,7 @@ type exportSummaryDTO struct {
 func newCmdExport(f *cmdutil.Factory) *cobra.Command {
 	var outDir, format string
 	cmd := &cobra.Command{
-		Use:   "export <memory-id-or-urn> [--out <dir>]",
+		Use:   "export <memoryRef> [--out <dir>]",
 		Short: "Export a memory's nodes to local markdown files",
 		Long: `Export every node in a memory to a local directory as frontmatter
 markdown — the same one-file-per-node layout hadron-server writes to a git
