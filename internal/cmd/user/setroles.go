@@ -22,7 +22,11 @@ type setRolesDTO struct {
 	User          userDTO  `json:"user"`
 	PreviousRoles []string `json:"previousRoles"`
 	Roles         []string `json:"roles"`
-	Changed       bool     `json:"changed"`
+	// Changed is null when the prior roles could not be read (the
+	// pass-through case). Reporting false there would claim nothing
+	// changed when the truth is that we cannot tell; previousRoles is
+	// then [] because it is unknown, not because it was empty.
+	Changed *bool `json:"changed"`
 }
 
 // platformRoles is the server's Role enum. Validating here turns a typo into
@@ -84,7 +88,11 @@ updateUserRoles takes a raw id and does no ref resolution of its own.`,
 			// unlike mergeUsers, the server won't do it. ResolveUser hands
 			// back the fields the resolution already read, so the current
 			// roles come for free rather than costing a second round trip.
-			current, found, err := cmdutil.ResolveUser(cmd, client, ref)
+			// Exactly, not fuzzily: ResolveUser falls back to a sole substring
+			// hit, which is a convenience for additive commands but a hazard
+			// here — a typo like "alic" would silently replace alice's global
+			// roles (review on #300).
+			current, found, err := cmdutil.ResolveUserExactly(cmd, client, ref)
 			if err != nil {
 				return err
 			}
@@ -95,9 +103,13 @@ updateUserRoles takes a raw id and does no ref resolution of its own.`,
 			if found {
 				previous = userDTOFromFields(current).Roles
 			}
+			// Confirm against the RESOLVED account, never the typed ref: the
+			// whole point of the prompt is to show which account is about to
+			// change.
+			label := cmdutil.DescribeUser(current)
 
 			next := roleStrings(wanted)
-			if err := cmdutil.Confirm(f.IOStreams, yes, setRolesPrompt(ref, previous, next)); err != nil {
+			if err := cmdutil.Confirm(f.IOStreams, yes, setRolesPrompt(label, previous, found, next)); err != nil {
 				return err
 			}
 
@@ -113,15 +125,25 @@ updateUserRoles takes a raw id and does no ref resolution of its own.`,
 			dto := setRolesDTO{
 				User:          userDTOFromFields(resp.UpdateUserRoles.UserFields),
 				PreviousRoles: previous,
-				Changed:       !slices.Equal(previous, next),
+			}
+			if found {
+				// Set membership, not slice order: --role contributor --role
+				// admin over an existing [ADMIN, CONTRIBUTOR] grants the same
+				// permissions, so reporting changed:true would be wrong.
+				changed := !sameRoleSet(previous, next)
+				dto.Changed = &changed
 			}
 			dto.Roles = dto.User.Roles
 			if dto.PreviousRoles == nil {
 				dto.PreviousRoles = []string{}
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				was := joinRoles(dto.PreviousRoles)
+				if !found {
+					was = "unknown — the previous roles could not be read"
+				}
 				_, err := fmt.Fprintf(w, "✓ %s now has roles: %s (was: %s)\n",
-					dto.User.ID, joinRoles(dto.Roles), joinRoles(dto.PreviousRoles))
+					dto.User.ID, joinRoles(dto.Roles), was)
 				return err
 			})
 		},
@@ -182,25 +204,57 @@ func joinRoles(roles []string) string {
 	return strings.Join(roles, ", ")
 }
 
-// setRolesPrompt spells out the replacement. Naming the roles being REMOVED
-// is the point: the failure mode of a replace-semantics command is dropping a
-// role you didn't realize the user had.
-func setRolesPrompt(ref string, previous, next []string) string {
+// sameRoleSet compares role sets by MEMBERSHIP, not slice order: the server
+// grants permissions from the set, so [ADMIN, CONTRIBUTOR] and
+// [CONTRIBUTOR, ADMIN] are the same standing (review on #300).
+func sameRoleSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	x, y := slices.Clone(a), slices.Clone(b)
+	slices.Sort(x)
+	slices.Sort(y)
+	return slices.Equal(x, y)
+}
+
+// grantsPlatformAdmin reports whether a role set can run this command.
+// requireRole compares the caller's HIGHEST role against ADMIN on the server's
+// ROLE_ORDER (READER 0 < CONTRIBUTOR 1 < ADMIN 2 < OWNER 3), so OWNER
+// qualifies too — dropping OWNER while keeping ADMIN is not a lockout.
+func grantsPlatformAdmin(roles []string) bool {
+	return slices.Contains(roles, string(gen.RoleAdmin)) || slices.Contains(roles, string(gen.RoleOwner))
+}
+
+// setRolesPrompt spells out the replacement against the RESOLVED account.
+// Naming the roles being REMOVED is the point: the failure mode of a
+// replace-semantics command is dropping a role you didn't realize the user had.
+//
+// previousKnown is false when the prior roles couldn't be read. Rendering that
+// as "none" would tell an administrator the account is unprivileged when it may
+// hold ADMIN or OWNER, so it is stated as unknown instead.
+func setRolesPrompt(label string, previous []string, previousKnown bool, next []string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Replace platform roles on %s: %s → %s.", ref, joinRoles(previous), joinRoles(next))
-	var removed []string
-	for _, p := range previous {
-		if !slices.Contains(next, p) {
-			removed = append(removed, p)
+	if !previousKnown {
+		fmt.Fprintf(&b, "Replace platform roles on %s with %s."+
+			" Their current roles could not be read, so this replaces whatever they hold — possibly including %s or %s.",
+			label, joinRoles(next), gen.RoleAdmin, gen.RoleOwner)
+	} else {
+		fmt.Fprintf(&b, "Replace platform roles on %s: %s → %s.", label, joinRoles(previous), joinRoles(next))
+		var removed []string
+		for _, p := range previous {
+			if !slices.Contains(next, p) {
+				removed = append(removed, p)
+			}
+		}
+		if len(removed) > 0 {
+			fmt.Fprintf(&b, " This REMOVES %s.", joinRoles(removed))
 		}
 	}
-	if len(removed) > 0 {
-		fmt.Fprintf(&b, " This REMOVES %s.", joinRoles(removed))
-		if slices.Contains(removed, string(gen.RoleAdmin)) || slices.Contains(removed, string(gen.RoleOwner)) {
-			// Only a platform admin can run this command, so removing the last
-			// admin role from yourself is a one-way door.
-			b.WriteString(" Removing platform admin cannot be undone by this user themselves.")
-		}
+	// Only a platform admin can run this command, so warn when the RESULT
+	// leaves the user unable to — not merely when some privileged role is
+	// dropped. Replacing [OWNER, ADMIN] with [ADMIN] keeps them able to undo it.
+	if !grantsPlatformAdmin(next) && (!previousKnown || grantsPlatformAdmin(previous)) {
+		b.WriteString(" The resulting roles cannot run this command, so this user could not undo it themselves.")
 	}
 	return b.String()
 }

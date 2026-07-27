@@ -53,6 +53,33 @@ case the prior roles are genuinely *unknown*, so they render as `[]` rather than
 claiming the user had none — and the update still proceeds, because reading the
 current roles feeds the confirmation message and is not an authorization gate.
 
+**Exact-match resolution.** `ResolveUser` falls back to a sole *substring* hit,
+which is a convenience for additive commands (`memory share --grantee alic`
+finding alice). For a destructive global write it is a hazard: a typo would
+silently retarget another account, and `--yes` skips the prompt that would have
+caught it. `cmdutil.ResolveUserExactly` wraps `ResolveUser` and refuses a
+partial match, naming what it matched so the operator can retype. The
+pass-through of an unmatched bare token as a literal id is preserved.
+
+**Confirm against the resolved account.** The prompt names the resolved user
+(`usr1 (@alice, alice@acme.com)`), never the typed ref — showing the input back
+would confirm nothing about who is actually being modified.
+
+**`changed` is a set comparison, and nullable.** Role order carries no meaning
+server-side, so `[ADMIN, CONTRIBUTOR]` and `[CONTRIBUTOR, ADMIN]` compare equal.
+When the prior roles could not be read, `changed` is `null` rather than `false`:
+false would assert nothing changed when the truth is that it can't be known.
+The prompt and human output say "unknown" for the same reason — rendering
+unknown prior roles as "none" would tell an administrator the account is
+unprivileged when it may hold ADMIN or OWNER.
+
+**The lockout warning tracks the RESULT, not the removal.** Only a platform
+admin can run this command, and the server's `requireRole` compares the caller's
+*highest* role against ADMIN on `ROLE_ORDER` (READER 0 < CONTRIBUTOR 1 <
+ADMIN 2 < OWNER 3) — so OWNER qualifies too. The warning fires only when the
+resulting set grants neither: replacing `[OWNER, ADMIN]` with `[ADMIN]` removes
+a role but is still undoable by that user, so it stays quiet.
+
 **Client-side role validation.** A typo becomes a usage error naming the valid
 set, instead of a GraphQL enum-coercion error from the wire. `--role ""` is
 rejected rather than treated as "clear every role".
@@ -67,6 +94,7 @@ mutation; revisit only if the server grows a delta-based surface.
 ## Contract
 
 `--json` emits `{user, previousRoles, roles, changed}`. `previousRoles` and
-`roles` are always arrays, never null. Exit codes: 2 for an unknown/empty role,
+`roles` are always arrays, never null. `changed` is `null` when the prior roles
+could not be read; otherwise it is a set-membership comparison. Exit codes: 2 for an unknown/empty role,
 a missing `--role`, or a missing `--yes` non-interactively; the server's
 `Forbidden` propagates through `api.MapError` for a non-admin caller.

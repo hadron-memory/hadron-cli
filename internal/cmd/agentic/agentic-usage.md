@@ -230,7 +230,12 @@ Conventions:
   flags REPLACE the whole role set — they are not additive, so every role the
   user keeps must be passed, and any omitted role is removed. `--json` returns
   `{user, previousRoles, roles, changed}` so the displaced set is visible without
-  a second read. Platform roles are global standing, NOT org or memory
+  a second read; `changed` compares set MEMBERSHIP (role order is meaningless)
+  and is **null** when the prior roles could not be read, in which case
+  `previousRoles` is `[]` because it is unknown, not because it was empty.
+  `<userRef>` must match a user EXACTLY (id, handle, email) — unlike
+  `--grantee` elsewhere, a partial match is refused rather than silently
+  retargeting another account. Platform roles are global standing, NOT org or memory
   membership — for those use `org member set-role` / `memory member set-role`.
   Gated: pass `--yes` non-interactively.
 - `user merge <source> --into <target>` globally consolidates a duplicate source
