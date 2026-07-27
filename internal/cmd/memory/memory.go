@@ -88,10 +88,22 @@ const memoryRefToken = "<memoryRef>"
 // memoryRefHelp spells out what that placeholder accepts. `memory share
 // ls <memory>` said nothing about the accepted forms, so there was no
 // way to tell from --help whether it wanted an id or a URN (#282).
-const memoryRefHelp = `<memoryRef> identifies the memory. It accepts the memory's id, or any URN
-spelling: the canonical hrn:mem:<org>:<slug>, the legacy
-hrn:memory:<org>::<slug>, or the bare short forms <org>:<slug> and
-<org>::<slug>.`
+//
+// It has to stay exhaustive to be worth printing: <root> is an org
+// domain OR a user handle (an --owner-me memory is minted under your own
+// handle), and cmdutil.MemoryParts normalizes urn: to hrn: before
+// matching, so both schemes work everywhere. memoryRefFormsAreAccepted
+// pins every form named here against the parser.
+const memoryRefHelp = `<memoryRef> identifies the memory. It accepts the memory's id, or any of the
+URN spellings below, where <root> is an organization domain or a user handle
+(a memory created with --owner-me lives under your own handle):
+
+  hrn:mem:<root>:<slug>       canonical
+  hrn:memory:<root>::<slug>   legacy
+  <root>:<slug>               short form
+  <root>::<slug>              short form
+
+urn: is accepted in place of hrn: throughout.`
 
 // annotateMemoryRefHelp appends memoryRefHelp to the long help of every
 // command in the tree that takes a <memoryRef>. Doing it here rather

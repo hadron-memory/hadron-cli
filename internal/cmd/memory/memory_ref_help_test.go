@@ -81,6 +81,57 @@ func TestMemoryRefHelpPromotesShortWhenLongIsEmpty(t *testing.T) {
 	}
 }
 
+// The help paragraph presents itself as exhaustive, so every form it
+// names must actually resolve, and every form the parser accepts must be
+// named. The first version claimed "any URN spelling" while listing only
+// the two `hrn:` forms and calling the root atom `<org>` — misleading for
+// anyone holding a `urn:` reference or an --owner-me memory, which is
+// minted under a user handle (review on #296).
+func TestMemoryRefHelpMatchesTheParser(t *testing.T) {
+	// One representative per spelling the help documents, in both the
+	// org-domain and user-handle shapes.
+	accepted := []struct{ ref, wantRoot, wantSlug string }{
+		{"hrn:mem:acme.com:kb", "acme.com", "kb"},
+		{"hrn:memory:acme.com::kb", "acme.com", "kb"},
+		{"urn:mem:acme.com:kb", "acme.com", "kb"},
+		{"urn:memory:acme.com::kb", "acme.com", "kb"},
+		{"acme.com:kb", "acme.com", "kb"},
+		{"acme.com::kb", "acme.com", "kb"},
+		{"hrn:mem:jane:kb", "jane", "kb"},
+		{"urn:mem:jane:kb", "jane", "kb"},
+		{"jane:kb", "jane", "kb"},
+	}
+	for _, tc := range accepted {
+		root, slug, ok := cmdutil.MemoryParts(tc.ref)
+		if !ok || root != tc.wantRoot || slug != tc.wantSlug {
+			t.Errorf("MemoryParts(%q) = (%q, %q, %v); the help documents this form as accepted",
+				tc.ref, root, slug, ok)
+		}
+	}
+
+	// Every documented token must appear in the paragraph — this is what
+	// catches the omission the reviewers found.
+	for _, want := range []string{
+		"hrn:mem:<root>:<slug>",
+		"hrn:memory:<root>::<slug>",
+		"<root>:<slug>",
+		"<root>::<slug>",
+		"urn:",
+		"user handle",
+		"id",
+	} {
+		if !strings.Contains(memoryRefHelp, want) {
+			t.Errorf("memoryRefHelp does not mention %q", want)
+		}
+	}
+
+	// The root atom is not necessarily an org, so the help must not call
+	// it one.
+	if strings.Contains(memoryRefHelp, "<org>") {
+		t.Error("memoryRefHelp calls the root atom <org>, but it may be a user handle")
+	}
+}
+
 // The annotation is idempotent per tree, but a second NewCmdMemory must
 // not compound onto shared state either.
 func TestMemoryRefHelpAppendedOnce(t *testing.T) {
