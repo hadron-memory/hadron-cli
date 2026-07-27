@@ -57,6 +57,9 @@ func newCmdEdit(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "edit <citation>",
 		Short: "Edit a spec's body and abstract in $EDITOR (or from flags)",
+		// "update" is the intuitive verb for this and reads nothing
+		// like "edit", so distance-based suggestion never finds it.
+		SuggestFor: []string{"update", "modify", "change", "set"},
 		Long: `Edit a spec's markdown body and its abstract in place — they are
 one logical unit, so this command maintains both. By default it opens the
 current abstract and body together in your $EDITOR (then $VISUAL, else vi)

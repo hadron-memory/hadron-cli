@@ -52,6 +52,10 @@ func newCmdSupersede(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "supersede <old-citation>",
 		Short: "Retire a spec and mint its replacement",
+		// Retiring a spec is the supersede flow, never a delete; point
+		// the deletion verbs here rather than at the generic node
+		// commands that do hard-delete a spec node.
+		SuggestFor: []string{"delete", "rm", "remove", "retire", "deprecate"},
 		Long: `Retire a numbered spec and create its replacement.
 
 The old spec is never renumbered or deleted — it is tagged "superseded"
