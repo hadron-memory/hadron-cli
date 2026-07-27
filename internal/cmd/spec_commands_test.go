@@ -205,11 +205,11 @@ func TestSpecGetPrefix(t *testing.T) {
 	}
 	// Details come from one bulk nodeBatch call, not a GetNodeById per spec.
 	var batchVars struct {
-		Ids []string `json:"ids"`
+		Refs []string `json:"refs"`
 	}
 	_ = json.Unmarshal(captured["NodeBatch"], &batchVars)
-	if len(batchVars.Ids) != 2 {
-		t.Errorf("expected 2 ids in the bulk read, got %v", batchVars.Ids)
+	if len(batchVars.Refs) != 2 {
+		t.Errorf("expected 2 refs in the bulk read, got %v", batchVars.Refs)
 	}
 }
 

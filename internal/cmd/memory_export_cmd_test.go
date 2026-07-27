@@ -108,14 +108,14 @@ func TestMemoryExport(t *testing.T) {
 
 	// The data node must be excluded from the batch request.
 	var batchVars struct {
-		Ids []string `json:"ids"`
+		Refs []string `json:"refs"`
 	}
 	_ = json.Unmarshal(captured["NodeBatch"], &batchVars)
-	if strings.Contains(strings.Join(batchVars.Ids, ","), "n-blob") {
-		t.Errorf("data node should not be batched, got ids %v", batchVars.Ids)
+	if strings.Contains(strings.Join(batchVars.Refs, ","), "n-blob") {
+		t.Errorf("data node should not be batched, got refs %v", batchVars.Refs)
 	}
-	if len(batchVars.Ids) != 2 {
-		t.Errorf("want 2 batched ids, got %v", batchVars.Ids)
+	if len(batchVars.Refs) != 2 {
+		t.Errorf("want 2 batched refs, got %v", batchVars.Refs)
 	}
 
 	// Files land at <out>/<loc>.md with colons as path segments.

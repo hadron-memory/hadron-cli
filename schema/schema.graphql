@@ -1080,6 +1080,28 @@ input DashboardWidgetInput {
   type: DashboardWidgetType!
 }
 
+"""
+#806 — a named, saved widget configuration. A palette entry: applying one
+COPIES its config into a placement, so later edits to the preset do not reach
+placements already seeded from it, and deleting it never orphans a placement.
+Owner-only — no org, no sharing.
+"""
+type DashboardWidgetPreset {
+  """
+  The saved settings, shape widget-defined — becomes a placement's config verbatim.
+  """
+  config: JSON!
+  id: ID!
+
+  """Display name, unique among the caller's presets for this type."""
+  name: String!
+
+  """
+  The widget type this configuration belongs to. Immutable after creation.
+  """
+  type: DashboardWidgetType!
+}
+
 """#772 — the kinds of widget placeable on a user's /app/dashboard grid."""
 enum DashboardWidgetType {
   AGENT_STATS
@@ -2289,6 +2311,15 @@ type Mutation {
   (ISO-8601) is optional and must be in the future. appRef is a PK or App URN.
   """
   createConnectionGrant(appRef: String!, connectionRef: String!, expiresAt: String, scopes: [String!]!): ConnectionGrant!
+
+  """
+  #806 — save a named widget configuration for the caller. 'name' is trimmed
+  and must be 1-60 characters, unique among the caller's presets for that
+  widget type; a duplicate is BAD_USER_INPUT. 'config' must be a JSON object
+  within the same 4KB budget as a placement's config. Requires an
+  authenticated user.
+  """
+  createDashboardWidgetPreset(config: JSON!, name: String!, type: DashboardWidgetType!): DashboardWidgetPreset!
   createEdge(condition: JSON, data: JSON, description: String, isRunnable: Boolean, loc: String, name: String, priority: Int, sourceRef: ID!, targetRef: ID!): Edge!
 
   """
@@ -2542,6 +2573,13 @@ type Mutation {
   """
   deleteApp(id: ID!): Boolean!
   deleteChat(chatId: String!): Boolean!
+
+  """
+  #806 — delete one of the caller's presets. Placements already seeded from it
+  keep their config (apply copies; there is no live link). A preset the caller
+  does not own is indistinguishable from one that does not exist (NOT_FOUND).
+  """
+  deleteDashboardWidgetPreset(presetRef: ID!): Boolean!
   deleteEdge(edgeRef: ID!): Boolean!
   deleteExchangeConnection(id: ID!): Boolean!
 
@@ -3130,6 +3168,15 @@ type Mutation {
   """
   updateApp(agentTools: [String!], aiApiKey: String, aiModel: String, aiProvider: String, anonymousTtlDays: Int, appType: AppType, createUserPermission: CreateUserPermission, description: String, expiresAt: String, id: ID!, identifyUserMethod: IdentifyUserMethod, name: String, role: AppMembershipRole, sessionTimeoutSeconds: Int, surfaces: [String!], systemPrompt: String, trainingMode: Boolean, urn: String): App!
   updateChatTitle(chatId: String!, title: String!): Boolean!
+
+  """
+  #806 — rename a preset and/or replace its settings. Partial: an omitted (or
+  null) argument leaves that field alone; there is no way to clear 'config',
+  since a preset with no settings has nothing to apply. 'type' is immutable —
+  delete and re-create to move settings to another widget. A preset the caller
+  does not own is indistinguishable from one that does not exist (NOT_FOUND).
+  """
+  updateDashboardWidgetPreset(config: JSON, name: String, presetRef: ID!): DashboardWidgetPreset!
   updateEdge(condition: JSON, data: JSON, description: String, edgeRef: ID!, isRunnable: Boolean, loc: String, name: String, priority: Int): Edge!
 
   """
@@ -3344,12 +3391,15 @@ type Node {
 
 """
 Spec cor:api:040 — result envelope for the batch node read (nodeBatch).
-'nodes' is the authorized, existing subset (input order for an id set, loc
+'nodes' is the authorized, existing subset (input order for a ref set, loc
 order for a prefix). 'unavailable' lists the requested refs that were denied
 OR not found — indistinguishable, so the result never discloses whether an
 unreadable node exists. 'truncated' is true when the response-size cap was
-reached, and 'omitted' then carries the dropped node ids. (Over the
-node-count cap the query errors instead — never a silent short read.)
+reached, and 'omitted' then carries the dropped nodes. (Over the node-count
+cap the query errors instead — never a silent short read.) Both lists echo
+the caller's OWN ref strings for the 'refs' form — pass a URN, get that URN
+back, not a primary key you never sent — and node ids for the prefix form,
+which has no caller refs.
 """
 type NodeBatchResult {
   nodes: [Node!]!
@@ -4151,6 +4201,16 @@ type Query {
   dashboardWidgetData: [DashboardWidgetData!]!
 
   """
+  #806 — the caller's saved widget configurations, name-ordered (id tiebreak),
+  optionally narrowed to one widget type. Empty for a non-user caller; never
+  another user's presets.
+  """
+  dashboardWidgetPresets(
+    """Return only presets for this widget type. Omit for all of them."""
+    type: DashboardWidgetType
+  ): [DashboardWidgetPreset!]!
+
+  """
   #772 — the caller's placed dashboard widgets, ordered by position. Empty for a non-user (App-key) caller.
   """
   dashboardWidgets: [DashboardWidget!]!
@@ -4557,17 +4617,21 @@ type Query {
   Batch read (spec cor:api:040) — the full node projection (select any Node
   fields, including content + edges) for MANY nodes in one call, eliminating
   the N+1 of one node(ref:) per node (e.g. 'spec lint --all'). Provide EITHER
-  'ids' (explicit set, returned in input order) OR 'memory' + 'locPrefix'
-  (subtree, loc order) — not both. Per-node access is applied independently:
-  denied or missing ids come back in 'unavailable' and never fail the call.
-  Bounded by hard caps — over the node-count cap throws BAD_USER_INPUT; over
-  the response-size cap returns a partial result with 'truncated: true' and
-  the dropped ids in 'omitted' (never a silent short read). Node content is
-  returned raw — Mustache templates are NOT compiled (unlike the single-node
-  'node' read), since this is a bulk source read for lint / audit /
-  migration and compiling per node would re-introduce the N+1 it eliminates.
+  'refs' (explicit set, returned in input order) OR 'memory' + 'locPrefix'
+  (subtree, loc order) — not both. Each entry of 'refs' is a primary key OR a
+  fully-qualified node URN (cor:api:140), so a URN-holding caller batches in
+  ONE call instead of resolving each ref first; a malformed / unqualified ref
+  errors rather than landing silently in 'unavailable'. Per-node access is
+  applied independently AFTER resolution: denied or missing refs come back in
+  'unavailable' and never fail the call. Bounded by hard caps — over the
+  node-count cap throws BAD_USER_INPUT; over the response-size cap returns a
+  partial result with 'truncated: true' and the dropped refs in 'omitted'
+  (never a silent short read). Node content is returned raw — Mustache
+  templates are NOT compiled (unlike the single-node 'node' read), since this
+  is a bulk source read for lint / audit / migration and compiling per node
+  would re-introduce the N+1 it eliminates.
   """
-  nodeBatch(ids: [ID!], locPrefix: String, memory: ID): NodeBatchResult!
+  nodeBatch(locPrefix: String, memory: ID, refs: [ID!]): NodeBatchResult!
   nodeExport(format: NodeExportFormat = MD, full: Boolean = true, id: ID!, sections: [NodeExportSection!]): NodeExportResult!
 
   """
@@ -4786,9 +4850,17 @@ type Query {
   #796 — read/write activity counts, bucketed by time.
   
   Default scope is the caller's OWN events across everything they touched;
-  pass memoryRef to switch to all users' events attributed to that memory,
-  which requires read access to it. A memory the caller cannot read is
-  indistinguishable from one that does not exist (both empty).
+  pass memoryRefs to switch to all users' events attributed to ANY of those
+  memories (#805), each of which requires read access. The result is the
+  UNION as a single read/write series, not a per-memory breakdown; since every
+  event carries exactly one memory, the union equals the sum of the separate
+  scopes with no double-counting.
+  
+  A ref the caller cannot read — or that does not exist — is silently dropped
+  from the union rather than failing the query, so the result never reveals
+  which of the named memories exist. Passing an empty list therefore yields
+  an empty result, NOT the caller's own activity. A malformed ref is still an
+  error. At most 20 refs.
   
   Only non-empty buckets are returned — zero-fill the window client-side.
   Counts only events of type read and write. Window bounds are ISO-8601
@@ -4802,8 +4874,10 @@ type Query {
     """Window start, inclusive. Default: to minus 7 days."""
     from: String
 
-    """Switch scope to all users of this memory (ID or URN)."""
-    memoryRef: ID
+    """
+    Switch scope to all users of these memories, unioned (each ID or URN; max 20).
+    """
+    memoryRefs: [ID!]
 
     """IANA zone deciding where bucket boundaries fall. Default UTC."""
     timeZone: String

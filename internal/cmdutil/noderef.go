@@ -56,6 +56,50 @@ func ResolveNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref strin
 	return ResolveNodeURN(cmd, client, ref)
 }
 
+// BatchNodeRef canonicalizes a node reference for a server op that resolves a
+// PK-or-URN itself, WITHOUT the resolveUrn round trip ResolveNodeRef costs —
+// today nodeBatch(refs:), which accepts both since hadron-server#813. It takes
+// the same inputs ResolveNodeRef does (a fully-qualified URN, or a bare loc
+// with -m/--memory) and applies the same composition, but returns the ref to
+// send instead of an id. That is what makes a batch of URNs ONE call rather
+// than N resolves plus a batch.
+//
+// It rejects locally what the server would reject loudly: the server errors on
+// a malformed / unqualified ref rather than listing it as unavailable, and one
+// mistyped ref must not cost the other nineteen their read. Callers map the
+// returned Usage error onto their own unavailable list.
+func BatchNodeRef(memory, ref string) (string, error) {
+	ref = strings.TrimSpace(ref)
+	if memory = strings.TrimSpace(memory); memory != "" {
+		if ref == "" {
+			return "", exitcode.Newf(exitcode.Usage, "a bare node loc is required with -m/--memory <org::memory>")
+		}
+		// Mirrors ResolveNodeRef: a simple <org>::<slug> memory + a bare loc
+		// composes a canonical flat v2 node URN; a COMPOUND app-mem memory
+		// carries its own colons and joins into the legacy <memory>::<loc>
+		// form instead (still accepted forever, #239).
+		if _, _, ok := MemoryParts(memory); ok {
+			nodeURN := NodeURN(memory, ref)
+			if nodeURN == "" {
+				return "", exitcode.Newf(exitcode.Usage,
+					"%q is not a valid node loc — each colon-separated segment must be %s", ref, slugRule)
+			}
+			return nodeURN, nil
+		}
+		ref = memory + "::" + ref
+	}
+	if urnlib.HasSchemePrefix(ref) {
+		return ref, nil
+	}
+	// Same client-side grammar gate as ResolveNodeURN, so `node get <ref>` and
+	// `node get <ref> <ref>` accept exactly the same refs.
+	if strings.Count(ref, "::") < 2 || urnlib.AssertFullyQualifiedUrn(ref, "node") != nil {
+		return "", exitcode.Newf(exitcode.Usage,
+			"%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (e.g. hadronmemory.com::dev::start-here), or pass -m <org::memory> (single-colon <org:memory> also accepted) with a bare loc", ref)
+	}
+	return "hrn:node:" + ref, nil
+}
+
 // CanonicalNodeRef canonicalizes a node reference for a server op that itself
 // accepts an ID or a URN (spec 007 dispatch) — e.g. the object store's
 // object(ref:)/updateObject/deleteObject, which forward ref to node(ref:). A

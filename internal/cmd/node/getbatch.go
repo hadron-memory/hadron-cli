@@ -30,15 +30,16 @@ type nodeBatchDTO struct {
 	Unavailable []string        `json:"unavailable"`
 }
 
-// fetchNodeBatch reads many nodes. With locPrefix set it is ONE call for the
-// whole subtree; otherwise each ref costs a resolve (URNs are not PKs — the
-// server matches nodeBatch ids on the primary key) and the bodies then come
-// back in one batched read.
+// fetchNodeBatch reads many nodes in ONE call — whether the caller named a
+// subtree with locPrefix or an explicit set of refs. Since hadron-server#813
+// nodeBatch(refs:) takes a PK or a fully-qualified URN, so the refs go straight
+// out; before that they were matched on the primary key alone and every URN
+// needed its own resolve first, which made an N-node read cost N+1 round trips.
 func fetchNodeBatch(
 	cmd *cobra.Command, client graphql.Client, memory, locPrefix string, refs []string, prefixMode bool,
 ) ([]*batchNode, []string, error) {
-	fetch := func(ids []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
-		resp, err := gen.NodeBatch(cmd.Context(), client, ids, nil, nil)
+	fetch := func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
+		resp, err := gen.NodeBatch(cmd.Context(), client, chunk, nil, nil)
 		if err != nil {
 			return nil, api.MapError(err)
 		}
@@ -69,51 +70,40 @@ func fetchNodeBatch(
 		return nodes, unavailable, nil
 	}
 
-	// Explicit set. A ref that is merely absent or malformed is reported as
-	// unavailable rather than failing the whole batch — one bad ref in twenty
-	// should not cost the other nineteen.
-	ids := make([]string, 0, len(refs))
+	// Explicit set — canonicalized locally, then sent in one batched read. A
+	// ref that is malformed is reported as unavailable rather than failing the
+	// whole batch (the server errors loudly on one, so it never gets sent):
+	// one bad ref in twenty should not cost the other nineteen.
+	sendable := make([]string, 0, len(refs))
 	var unresolved []string
-	// The server reports unavailable nodes by PRIMARY KEY, but the caller
-	// typed locs or URNs; without this mapping the output names an opaque id
-	// they never supplied and cannot act on.
-	refByID := make(map[string]string, len(refs))
 	seen := map[string]bool{}
 	for _, ref := range refs {
-		id, err := cmdutil.ResolveNodeRef(cmd, client, memory, ref)
+		out, err := cmdutil.BatchNodeRef(memory, ref)
 		if err != nil {
-			// ONLY absence and a locally-invalid ref are "unavailable".
-			// Expired credentials, a dead transport, a cancelled context or an
-			// incompatible schema are real failures: swallowing them would emit
-			// a plausible partial result and exit 4, hiding an auth or
-			// operational error behind a not-found (review on #303).
-			switch exitcode.FromError(err) {
-			case exitcode.NotFound, exitcode.Usage:
+			// ONLY a locally-invalid ref is "unavailable". Anything else is a
+			// real failure: swallowing it would emit a plausible partial result
+			// and exit 4, hiding an auth or operational error behind a
+			// not-found (review on #303).
+			if exitcode.FromError(err) == exitcode.Usage {
 				unresolved = append(unresolved, ref)
 				continue
-			default:
-				return nil, nil, err
 			}
+			return nil, nil, err
 		}
-		if seen[id] {
+		if seen[out] {
 			continue // a repeated ref must not yield the node twice
 		}
-		seen[id] = true
-		refByID[id] = ref
-		ids = append(ids, id)
+		seen[out] = true
+		sendable = append(sendable, out)
 	}
-	nodes, unavailable, err := api.CollectNodeBatch(ids, fetch)
+	nodes, unavailable, err := api.CollectNodeBatch(sendable, fetch)
 	if err != nil {
 		return nil, nil, err
 	}
-	// Translate ids the server refused back into what the caller typed.
-	for _, id := range unavailable {
-		if ref, ok := refByID[id]; ok {
-			unresolved = append(unresolved, ref)
-			continue
-		}
-		unresolved = append(unresolved, id)
-	}
+	// The server echoes the refs as sent, so nothing has to be translated back
+	// — what the caller sees named is what the caller typed (modulo the
+	// canonical hrn:node: prefix).
+	unresolved = append(unresolved, unavailable...)
 	return nodes, unresolved, nil
 }
 

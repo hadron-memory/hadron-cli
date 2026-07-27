@@ -26,15 +26,16 @@ optional (legacy urn:node: also accepted). Pass -m/--memory to name a
 node by a bare <loc> within that memory instead; without -m a bare loc
 is rejected, since the same loc can exist in several memories.
 
-Pass SEVERAL refs to read them together. The bodies then come back in one
-batched call instead of one round trip each, and a ref that is missing or
-unreadable is reported under "unavailable" rather than failing the whole read.
+Pass SEVERAL refs to read them together. However many you pass, they cost ONE
+call — the server reads a batch by URN as happily as by id — and a ref that is
+missing or unreadable is reported under "unavailable" rather than failing the
+whole read.
 
 --prefix <loc> -m <memory> reads a whole subtree — every node whose loc starts
-with the prefix — in a SINGLE call with no per-node resolution. This is the
-cheapest way to pull a branch, and unlike ` + "`node list`" + ` it returns full
-content and edges. An empty --prefix means the whole memory. The server caps
-the node count and fails loudly rather than truncating silently.
+with the prefix — in a SINGLE call, without naming each node. That is the way
+to pull a branch you have not enumerated, and unlike ` + "`node list`" + ` it
+returns full content and edges. An empty --prefix means the whole memory. The
+server caps the node count and fails loudly rather than truncating silently.
 
 With one ref the output is the node object, unchanged. With several refs, or
 with --prefix, it is {nodes, unavailable}. "unavailable" names refs that are
