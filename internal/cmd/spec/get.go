@@ -126,7 +126,7 @@ one object for a single citation, an array for --prefix.`,
 			// Bulk-read the full nodes (cor:api:040) rather than one GetNode
 			// per spec — ceil(N/200) round-trips instead of N.
 			batched, unavailable, berr := api.CollectNodeBatch(ids, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
-				resp, ferr := gen.NodeBatch(cmd.Context(), client, chunk)
+				resp, ferr := gen.NodeBatch(cmd.Context(), client, chunk, nil, nil)
 				if ferr != nil {
 					return nil, api.MapError(ferr)
 				}

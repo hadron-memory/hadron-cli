@@ -88,9 +88,19 @@ query ResolveUrn($urn: String!) {
 # lint builders read — so the whole-corpus fan-outs (`memory export`,
 # `spec get --prefix`) read in ceil(N/200) round-trips instead of one node(ref)
 # per node. Driven through api.CollectNodeBatch.
-# @genqlient(omitempty: true)
-query NodeBatch($ids: [ID!]) {
-  nodeBatch(ids: $ids) {
+# The prefix form (memory + locPrefix) reads a whole subtree in ONE call with
+# no per-node resolution, which `node get --prefix` uses. The server requires
+# EITHER ids OR memory+locPrefix, so every variable is omitempty: a nil pointer
+# must be absent, not an explicit null the server would count as "provided".
+query NodeBatch(
+  # @genqlient(omitempty: true)
+  $ids: [ID!]
+  # @genqlient(omitempty: true)
+  $memory: ID
+  # @genqlient(omitempty: true)
+  $locPrefix: String
+) {
+  nodeBatch(ids: $ids, memory: $memory, locPrefix: $locPrefix) {
     truncated
     omitted
     unavailable
@@ -101,6 +111,8 @@ query NodeBatch($ids: [ID!]) {
       name
       alias
       nodeType
+      objectType
+      isRunnable
       description
       abstract
       abstractOriginHash
@@ -109,8 +121,10 @@ query NodeBatch($ids: [ID!]) {
       data
       properties
       content
+      createdAt
       updatedAt
       outgoingEdges {
+        id
         name
         loc
         description
@@ -124,8 +138,10 @@ query NodeBatch($ids: [ID!]) {
         }
       }
       incomingEdges {
+        id
         name
         loc
+        priority
         isRunnable
         source {
           id
