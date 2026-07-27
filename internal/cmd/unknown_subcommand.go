@@ -47,8 +47,16 @@ func checkUnknownSubcommand(args []string) (jsonOut bool, err error) {
 	// slips through as the bare-help case.
 	target.InitDefaultHelpFlag()
 	flags := target.Flags()
+	// Flags that belong to the INTENDED leaf are unknown to the group,
+	// so a strict parse of `spec update <cit> --content body` dies on
+	// --content and the typo goes unreported: cobra would then say only
+	// "unknown flag: --content", never naming `update` or suggesting
+	// `edit`. Tolerate unknown flags — a flag can't be validated against
+	// a subcommand that doesn't exist, so the missing subcommand is both
+	// the more fundamental error and the more useful one to report.
+	flags.ParseErrorsAllowlist.UnknownFlags = true
 	if err := flags.Parse(rest); err != nil {
-		// A malformed flag is cobra's error to report, not ours.
+		// Any other malformed flag is cobra's error to report, not ours.
 		return false, nil
 	}
 	positional := flags.Args()

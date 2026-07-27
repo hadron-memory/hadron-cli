@@ -32,6 +32,27 @@ func TestCheckUnknownSubcommand(t *testing.T) {
 			contains: []string{`unknown command "update" for "hadron spec"`, `did you mean "edit"?`},
 		},
 		{
+			// A flag belonging to the INTENDED leaf is unknown to the
+			// group. A strict parse died on it and the typo went
+			// unreported — cobra said only "unknown flag: --content".
+			name:     "leaf flag after the typo keeps the suggestion",
+			args:     []string{"spec", "update", "cor:acl:010", "--content", "body"},
+			wantErr:  true,
+			contains: []string{`unknown command "update" for "hadron spec"`, `did you mean "edit"?`},
+		},
+		{
+			name:     "leaf flag immediately after the typo",
+			args:     []string{"spec", "update", "--content", "body"},
+			wantErr:  true,
+			contains: []string{`unknown command "update" for "hadron spec"`},
+		},
+		{
+			name:     "shorthand leaf flag after the typo",
+			args:     []string{"spec", "update", "-m", "acme.com::specs"},
+			wantErr:  true,
+			contains: []string{`unknown command "update" for "hadron spec"`},
+		},
+		{
 			name:     "spec delete points at supersede",
 			args:     []string{"spec", "delete"},
 			wantErr:  true,
@@ -58,6 +79,10 @@ func TestCheckUnknownSubcommand(t *testing.T) {
 		// subcommand, including when a flag value precedes it.
 		{name: "flag value before positional", args: []string{"node", "get", "-m", "acme.com::kb", "findings:x"}},
 		{name: "unknown root command is cobra's to report", args: []string{"bogus"}},
+		// Tolerating unknown flags must not start swallowing flag errors
+		// on commands that DO exist — those stay cobra's to report.
+		{name: "bad flag on a real leaf stays cobra's", args: []string{"spec", "edit", "cor:acl:010", "--bogus-flag"}},
+		{name: "bad flag on a real group stays cobra's", args: []string{"spec", "--bogus-flag"}},
 	}
 
 	for _, tt := range tests {
