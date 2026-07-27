@@ -5,6 +5,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -97,11 +98,25 @@ func Execute() int {
 	f := cmdutil.NewFactory()
 	root := NewRootCmd(f)
 
+	// Catch an unknown subcommand before cobra dispatches — it would
+	// otherwise print the group's help and exit 0 (#232). This runs
+	// before cobra binds --json, so take that from the probe.
+	if jsonOut, err := checkUnknownSubcommand(os.Args[1:]); err != nil {
+		f.JSON = jsonOut
+		return renderError(f, err)
+	}
+
 	err := root.Execute()
 	if err == nil {
 		return exitcode.OK
 	}
 
+	return renderError(f, err)
+}
+
+// renderError maps err to an exit code and writes it to stderr in the
+// format the --json contract requires.
+func renderError(f *cmdutil.Factory, err error) int {
 	code := exitcode.FromError(err)
 	// Cobra reports unknown commands/arguments as plain errors;
 	// classify them as usage errors so exit code 2 stays meaningful.

@@ -48,6 +48,12 @@ self-hosted backend.
 | 5    | conflict (e.g. duplicate install) |
 | 6    | cancelled / timed out waiting for the user |
 
+An **unknown subcommand** is a usage error (2), at every depth: `hadron spec
+update` exits 2 with `unknown command "update" for "hadron spec"; did you mean
+"edit"?` rather than printing the group's help and exiting 0. This holds with
+`--help` attached too, so a probe like `hadron <group> <guess> --help` is a
+reliable way to test whether a subcommand exists.
+
 A **partial write** exits non-zero (generic failure, 1): a command that creates
 the primary entity but cannot wire one or more of its edges — `node import
 --with-edges` (see `unwiredEdges`), `spec new`, `spec extract`, and `spec
