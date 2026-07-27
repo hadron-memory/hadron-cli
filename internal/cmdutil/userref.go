@@ -1,6 +1,7 @@
 package cmdutil
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
@@ -24,24 +25,26 @@ import (
 // Shared by `access check` (resource authorization) and `memory share`
 // (grantee), so both accept the same ref forms (hadron-cli#280).
 func ResolveUserID(cmd *cobra.Command, client graphql.Client, ref string) (string, error) {
-	token := strings.TrimSpace(ref)
-	wasQualified := false // an hrn:user:/urn:user: or @-sigil ref names a handle, never a PK
-	for _, p := range []string{"hrn:user:", "urn:user:"} {
-		if rest := strings.TrimPrefix(token, p); rest != token {
-			token = strings.TrimSpace(rest)
-			wasQualified = true
-			break
-		}
+	fields, _, err := ResolveUser(cmd, client, ref)
+	if err != nil {
+		return "", err
 	}
-	// A leading "@" is a handle sigil, not part of the handle — strip it so it
-	// matches both the users(filter.query) match and the stored handle/githubUsername.
-	// (An email never leads with "@", so this is a no-op for emails.)
-	if rest := strings.TrimPrefix(token, "@"); rest != token {
-		token = rest
-		wasQualified = true
-	}
-	if token == "" {
-		return "", exitcode.Newf(exitcode.Usage, "empty user reference")
+	return fields.Id, nil
+}
+
+// ResolveUser is ResolveUserID's underlying lookup, returning everything the
+// resolution already read instead of just the id — both paths fetch the full
+// UserFields, so a caller that also needs the user's current state (roles,
+// handle) gets it without a second round trip.
+//
+// found reports whether a user was actually matched. It is false only for the
+// pass-through case described above, where an unmatched bare token is returned
+// verbatim as a literal id and fields carries nothing but that Id — the caller
+// decides whether that is enough to act on.
+func ResolveUser(cmd *cobra.Command, client graphql.Client, ref string) (fields gen.UserFields, found bool, err error) {
+	token, wasQualified, err := normalizeUserToken(ref)
+	if err != nil {
+		return gen.UserFields{}, false, err
 	}
 
 	// Fast path (PR #133 review): user(ref:) dispatches a PK or an
@@ -57,10 +60,10 @@ func ResolveUserID(cmd *cobra.Command, client graphql.Client, ref string) (strin
 		for _, r := range refs {
 			resp, err := gen.GetUser(cmd.Context(), client, r)
 			if err != nil {
-				return "", api.MapError(err)
+				return gen.UserFields{}, false, api.MapError(err)
 			}
 			if resp != nil && resp.User != nil {
-				return resp.User.Id, nil
+				return resp.User.UserFields, true, nil
 			}
 		}
 	}
@@ -92,7 +95,7 @@ func ResolveUserID(cmd *cobra.Command, client graphql.Client, ref string) (strin
 		},
 	)
 	if err != nil {
-		return "", err
+		return gen.UserFields{}, false, err
 	}
 
 	// Prefer an exact match on a stable identifier; fall back to a sole fuzzy
@@ -110,13 +113,13 @@ func ResolveUserID(cmd *cobra.Command, client graphql.Client, ref string) (strin
 	}
 	switch {
 	case len(exact) == 1:
-		return exact[0].Id, nil
+		return exact[0].UserFields, true, nil
 	case len(exact) > 1:
-		return "", ambiguousUserErr(ref, exact)
+		return gen.UserFields{}, false, ambiguousUserErr(ref, exact)
 	case len(fuzzy) == 1:
-		return fuzzy[0].Id, nil
+		return fuzzy[0].UserFields, true, nil
 	case len(fuzzy) > 1:
-		return "", ambiguousUserErr(ref, fuzzy)
+		return gen.UserFields{}, false, ambiguousUserErr(ref, fuzzy)
 	}
 
 	// No matches. An email is unambiguous about intent, so report not-found
@@ -125,9 +128,80 @@ func ResolveUserID(cmd *cobra.Command, client graphql.Client, ref string) (strin
 	// (e.g. sharing a personal memory cross-org) can't be found by email/handle —
 	// point the caller at the id, which always works.
 	if strings.Contains(token, "@") {
-		return "", exitcode.Newf(exitcode.NotFound, "no user matches %q — if they are outside your organization, pass their user id", ref)
+		return gen.UserFields{}, false, exitcode.Newf(exitcode.NotFound, "no user matches %q — if they are outside your organization, pass their user id", ref)
 	}
-	return token, nil
+	return gen.UserFields{Id: token}, false, nil
+}
+
+// normalizeUserToken strips the scheme prefix and "@" sigil from a user ref,
+// reporting whether either was present — a qualified ref names a handle, never
+// a PK. Shared by ResolveUser and ResolveUserExactly so both judge the same
+// token.
+func normalizeUserToken(ref string) (token string, qualified bool, err error) {
+	token = strings.TrimSpace(ref)
+	for _, p := range []string{"hrn:user:", "urn:user:"} {
+		if rest := strings.TrimPrefix(token, p); rest != token {
+			token = strings.TrimSpace(rest)
+			qualified = true
+			break
+		}
+	}
+	// A leading "@" is a handle sigil, not part of the handle — strip it so it
+	// matches both the users(filter.query) match and the stored handle/githubUsername.
+	// (An email never leads with "@", so this is a no-op for emails.)
+	if rest := strings.TrimPrefix(token, "@"); rest != token {
+		token = rest
+		qualified = true
+	}
+	if token == "" {
+		return "", false, exitcode.Newf(exitcode.Usage, "empty user reference")
+	}
+	return token, qualified, nil
+}
+
+// ResolveUserExactly is ResolveUser restricted to an EXACT identifier match.
+//
+// ResolveUser deliberately falls back to a sole substring hit, which is right
+// for additive operations (sharing a memory with "alic" when only "alice"
+// matches is a convenience). It is wrong for a destructive global write: a typo
+// would silently retarget a different account. Commands that overwrite or
+// remove state should resolve through this instead, so a partial match is a
+// usage error naming what it matched rather than a silent retarget.
+//
+// The pass-through case is preserved: a bare token nothing matched is still
+// returned verbatim as a literal id with found=false, so an explicit id the
+// caller cannot read still works.
+func ResolveUserExactly(cmd *cobra.Command, client graphql.Client, ref string) (fields gen.UserFields, found bool, err error) {
+	token, _, err := normalizeUserToken(ref)
+	if err != nil {
+		return gen.UserFields{}, false, err
+	}
+	fields, found, err = ResolveUser(cmd, client, ref)
+	if err != nil {
+		return gen.UserFields{}, false, err
+	}
+	if found && !userMatchesExactly(fields, token) {
+		return gen.UserFields{}, false, exitcode.Newf(exitcode.Usage,
+			"%q only matched user %s partially — pass an exact id, handle, or email", ref, DescribeUser(fields))
+	}
+	return fields, found, nil
+}
+
+// DescribeUser renders a user for a confirmation prompt or an error: the id
+// always, plus whichever human identifiers exist. The id alone is unreadable
+// and the handle alone is not unique enough to confirm against.
+func DescribeUser(u gen.UserFields) string {
+	labels := []string{}
+	if u.Handle != nil && *u.Handle != "" {
+		labels = append(labels, "@"+*u.Handle)
+	}
+	if u.Email != nil && *u.Email != "" {
+		labels = append(labels, *u.Email)
+	}
+	if len(labels) == 0 {
+		return u.Id
+	}
+	return fmt.Sprintf("%s (%s)", u.Id, strings.Join(labels, ", "))
 }
 
 func userMatchesExactly(u gen.UserFields, token string) bool {

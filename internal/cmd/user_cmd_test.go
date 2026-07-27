@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 const uUserJSON = `{"id":"usr1","name":"Alice","email":"alice@acme.com","handle":"alice",
@@ -235,5 +237,336 @@ func TestUserSearchRejectsBadArgs(t *testing.T) {
 		if err := root.Execute(); err == nil {
 			t.Errorf("expected a usage error for args %v, got nil", args)
 		}
+	}
+}
+
+// --- user set-roles (#75) -------------------------------------------------
+
+// uAdminUserJSON is the post-update projection: roles REPLACED, not merged.
+const uAdminUserJSON = `{"id":"usr1","name":"Alice","email":"alice@acme.com","handle":"alice",
+	"githubUsername":null,"roles":["ADMIN"]}`
+
+// setRolesFakes wires both round trips the command makes: GetUser reads the
+// current roles (for before → after) and UpdateUserRoles performs the replace.
+func setRolesFakes() map[string]string {
+	return map[string]string{
+		"GetUser":         `{"data":{"user":` + uUserJSON + `}}`,
+		"UpdateUserRoles": `{"data":{"updateUserRoles":` + uAdminUserJSON + `}}`,
+	}
+}
+
+func TestUserSetRoles(t *testing.T) {
+	gql, captured := captureGraphQL(t, setRolesFakes())
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	// An id ref skips search resolution and is passed through as the PK.
+	root.SetArgs([]string{"user", "set-roles", "usr1", "--role", "admin", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	var vars struct {
+		UserID string   `json:"userId"`
+		Roles  []string `json:"roles"`
+	}
+	if err := json.Unmarshal(captured["UpdateUserRoles"], &vars); err != nil {
+		t.Fatalf("captured UpdateUserRoles vars not JSON: %v", err)
+	}
+	if vars.UserID != "usr1" {
+		t.Errorf("userId = %q, want usr1", vars.UserID)
+	}
+	// Lowercase input must reach the wire as the server's enum spelling.
+	if len(vars.Roles) != 1 || vars.Roles[0] != "ADMIN" {
+		t.Errorf("roles = %v, want [ADMIN]", vars.Roles)
+	}
+
+	var dto struct {
+		User          struct{ ID string } `json:"user"`
+		PreviousRoles []string            `json:"previousRoles"`
+		Roles         []string            `json:"roles"`
+		Changed       bool                `json:"changed"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	if dto.User.ID != "usr1" {
+		t.Errorf("user.id = %q, want usr1", dto.User.ID)
+	}
+	// The before/after pair is the point of the DTO: it shows what the
+	// replacement displaced without a second read.
+	if len(dto.PreviousRoles) != 1 || dto.PreviousRoles[0] != "CONTRIBUTOR" {
+		t.Errorf("previousRoles = %v, want [CONTRIBUTOR]", dto.PreviousRoles)
+	}
+	if len(dto.Roles) != 1 || dto.Roles[0] != "ADMIN" {
+		t.Errorf("roles = %v, want [ADMIN]", dto.Roles)
+	}
+	if !dto.Changed {
+		t.Error("changed should be true when the role set differs")
+	}
+}
+
+func TestUserSetRolesRepeatableAndDeduped(t *testing.T) {
+	gql, captured := captureGraphQL(t, setRolesFakes())
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "set-roles", "usr1",
+		"--role", "contributor", "--role", "READER", "--role", "contributor",
+		"--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Roles []string `json:"roles"`
+	}
+	if err := json.Unmarshal(captured["UpdateUserRoles"], &vars); err != nil {
+		t.Fatalf("captured vars not JSON: %v", err)
+	}
+	// Order preserved, case normalized, exact duplicate dropped.
+	if len(vars.Roles) != 2 || vars.Roles[0] != "CONTRIBUTOR" || vars.Roles[1] != "READER" {
+		t.Errorf("roles = %v, want [CONTRIBUTOR READER]", vars.Roles)
+	}
+}
+
+func TestUserSetRolesRejectsUnknownRole(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "set-roles", "usr1", "--role", "superadmin", "--yes", "--json"})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected a usage error for an unknown role")
+	}
+	if got := exitcode.FromError(err); got != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
+	}
+	// The message must name the valid set — that's the whole point of
+	// validating client-side instead of letting enum coercion fail on the wire.
+	for _, want := range []string{"superadmin", "owner", "admin", "contributor", "reader"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q should mention %q", err.Error(), want)
+		}
+	}
+}
+
+func TestUserSetRolesRejectsEmptyRole(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	// `--role ""` must not read as "clear every role".
+	root.SetArgs([]string{"user", "set-roles", "usr1", "--role", "", "--yes", "--json"})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected a usage error for an empty role")
+	} else if got := exitcode.FromError(err); got != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
+	}
+}
+
+func TestUserSetRolesRequiresRole(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "set-roles", "usr1", "--yes", "--json"})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected an error when --role is omitted")
+	}
+}
+
+func TestUserSetRolesRequiresYesNonInteractive(t *testing.T) {
+	gql, captured := captureGraphQL(t, setRolesFakes())
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	// No --yes, and the test factory's stdin is not a terminal: a role
+	// replacement must not proceed unattended.
+	root.SetArgs([]string{"user", "set-roles", "usr1", "--role", "admin", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected a refusal without --yes in non-interactive mode")
+	}
+	if got := exitcode.FromError(err); got != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
+	}
+	// The refusal is up front: a caller that could never answer the prompt
+	// should not have spent a round trip finding that out.
+	if len(captured) != 0 {
+		t.Errorf("no GraphQL call should be made before refusing, got %v", captured)
+	}
+}
+
+// An id the caller can't read back (user(ref:) returns null for denied and
+// missing alike, and the search finds nothing) is passed through verbatim as
+// a literal id. The update must still run: reading the current roles feeds
+// the confirmation message, it is not a gate.
+func TestUserSetRolesSurvivesUnreadableCurrentUser(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetUser":         `{"data":{"user":null}}`,
+		"SearchUsers":     `{"data":{"users":{"total":0,"items":[]}}}`,
+		"UpdateUserRoles": `{"data":{"updateUserRoles":` + uAdminUserJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "set-roles", "usr1", "--role", "admin", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		PreviousRoles []string `json:"previousRoles"`
+		Roles         []string `json:"roles"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	// Renders as [] rather than null, per the --json contract.
+	if dto.PreviousRoles == nil {
+		t.Error("previousRoles must be [] when the prior roles are unknown, not null")
+	}
+	if len(dto.Roles) != 1 || dto.Roles[0] != "ADMIN" {
+		t.Errorf("roles = %v, want [ADMIN]", dto.Roles)
+	}
+}
+
+func TestUserSetRolesHumanOutputShowsBeforeAndAfter(t *testing.T) {
+	gql, _ := captureGraphQL(t, setRolesFakes())
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "set-roles", "usr1", "--role", "admin", "--yes", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "ADMIN") || !strings.Contains(got, "CONTRIBUTOR") {
+		t.Errorf("human output should show both the new and the displaced roles: %q", got)
+	}
+}
+
+func TestUserSetRolesServerErrorPropagates(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetUser":         `{"data":{"user":` + uUserJSON + `}}`,
+		"UpdateUserRoles": `{"errors":[{"message":"Forbidden"}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "set-roles", "usr1", "--role", "admin", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected the server's Forbidden to propagate (platform ADMIN only)")
+	}
+}
+
+// A destructive global write must not be retargeted by a typo. ResolveUser
+// accepts a sole SUBSTRING hit (fine for additive commands like memory
+// share); here "alic" matching only "alice" would silently replace alice's
+// platform roles, so set-roles resolves exactly (#300 review).
+func TestUserSetRolesRejectsFuzzyMatch(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetUser":         `{"data":{"user":null}}`,
+		"SearchUsers":     `{"data":{"users":{"total":1,"items":[` + uUserJSON + `]}}}`,
+		"UpdateUserRoles": `{"data":{"updateUserRoles":` + uAdminUserJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "set-roles", "alic", "--role", "admin", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected a usage error for a partial match")
+	}
+	if got := exitcode.FromError(err); got != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
+	}
+	// The error must name what it DID match, so the operator can retype it.
+	for _, want := range []string{"alic", "usr1", "alice"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q should mention %q", err.Error(), want)
+		}
+	}
+	if _, called := captured["UpdateUserRoles"]; called {
+		t.Error("a partial match must be rejected BEFORE the roles are replaced")
+	}
+}
+
+// An exact handle still resolves through the search fallback.
+func TestUserSetRolesAcceptsExactHandleViaSearch(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetUser":         `{"data":{"user":null}}`,
+		"SearchUsers":     `{"data":{"users":{"total":1,"items":[` + uUserJSON + `]}}}`,
+		"UpdateUserRoles": `{"data":{"updateUserRoles":` + uAdminUserJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "set-roles", "alice", "--role", "admin", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("an exact handle must resolve: %v", err)
+	}
+	if _, called := captured["UpdateUserRoles"]; !called {
+		t.Error("UpdateUserRoles should have been called for an exact match")
+	}
+}
+
+// `changed` reflects set MEMBERSHIP, not the order the flags were typed.
+func TestUserSetRolesChangedIgnoresRoleOrder(t *testing.T) {
+	const twoRoleUser = `{"id":"usr1","name":"Alice","email":"alice@acme.com","handle":"alice",
+		"githubUsername":null,"roles":["ADMIN","CONTRIBUTOR"]}`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetUser":         `{"data":{"user":` + twoRoleUser + `}}`,
+		"UpdateUserRoles": `{"data":{"updateUserRoles":` + twoRoleUser + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	// Same set, reversed order.
+	root.SetArgs([]string{"user", "set-roles", "usr1",
+		"--role", "contributor", "--role", "admin", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Changed *bool `json:"changed"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	if dto.Changed == nil || *dto.Changed {
+		t.Errorf("changed should be false for the same set in a different order, got %v", dto.Changed)
+	}
+}
+
+// When the prior roles can't be read, `changed` must be null — claiming
+// false would assert nothing changed when the truth is we cannot tell.
+func TestUserSetRolesChangedIsNullWhenPriorRolesUnknown(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetUser":         `{"data":{"user":null}}`,
+		"SearchUsers":     `{"data":{"users":{"total":0,"items":[]}}}`,
+		"UpdateUserRoles": `{"data":{"updateUserRoles":` + uAdminUserJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "set-roles", "usr1", "--role", "admin", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Changed *bool `json:"changed"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	if dto.Changed != nil {
+		t.Errorf("changed should be null when the prior roles are unknown, got %v", *dto.Changed)
+	}
+}
+
+// The human output must not report unknown prior roles as "none".
+func TestUserSetRolesHumanOutputSaysUnknownNotNone(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetUser":         `{"data":{"user":null}}`,
+		"SearchUsers":     `{"data":{"users":{"total":0,"items":[]}}}`,
+		"UpdateUserRoles": `{"data":{"updateUserRoles":` + uAdminUserJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "set-roles", "usr1", "--role", "admin", "--yes", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "unknown") {
+		t.Errorf("output should say the prior roles are unknown: %q", got)
+	}
+	if strings.Contains(got, "was: none") {
+		t.Errorf("unknown prior roles must not render as 'none': %q", got)
 	}
 }

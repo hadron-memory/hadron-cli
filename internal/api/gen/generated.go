@@ -13228,6 +13228,100 @@ func (v *UpdateOrganizationUpdateOrganization) __premarshalJSON() (*__premarshal
 	return &retval, nil
 }
 
+// UpdateUserRolesResponse is returned by UpdateUserRoles on success.
+type UpdateUserRolesResponse struct {
+	UpdateUserRoles *UpdateUserRolesUpdateUserRolesUser `json:"updateUserRoles"`
+}
+
+// GetUpdateUserRoles returns UpdateUserRolesResponse.UpdateUserRoles, and is useful for accessing the field via an interface.
+func (v *UpdateUserRolesResponse) GetUpdateUserRoles() *UpdateUserRolesUpdateUserRolesUser {
+	return v.UpdateUserRoles
+}
+
+// UpdateUserRolesUpdateUserRolesUser includes the requested fields of the GraphQL type User.
+type UpdateUserRolesUpdateUserRolesUser struct {
+	UserFields `json:"-"`
+}
+
+// GetId returns UpdateUserRolesUpdateUserRolesUser.Id, and is useful for accessing the field via an interface.
+func (v *UpdateUserRolesUpdateUserRolesUser) GetId() string { return v.UserFields.Id }
+
+// GetName returns UpdateUserRolesUpdateUserRolesUser.Name, and is useful for accessing the field via an interface.
+func (v *UpdateUserRolesUpdateUserRolesUser) GetName() *string { return v.UserFields.Name }
+
+// GetEmail returns UpdateUserRolesUpdateUserRolesUser.Email, and is useful for accessing the field via an interface.
+func (v *UpdateUserRolesUpdateUserRolesUser) GetEmail() *string { return v.UserFields.Email }
+
+// GetHandle returns UpdateUserRolesUpdateUserRolesUser.Handle, and is useful for accessing the field via an interface.
+func (v *UpdateUserRolesUpdateUserRolesUser) GetHandle() *string { return v.UserFields.Handle }
+
+// GetGithubUsername returns UpdateUserRolesUpdateUserRolesUser.GithubUsername, and is useful for accessing the field via an interface.
+func (v *UpdateUserRolesUpdateUserRolesUser) GetGithubUsername() *string {
+	return v.UserFields.GithubUsername
+}
+
+// GetRoles returns UpdateUserRolesUpdateUserRolesUser.Roles, and is useful for accessing the field via an interface.
+func (v *UpdateUserRolesUpdateUserRolesUser) GetRoles() []Role { return v.UserFields.Roles }
+
+func (v *UpdateUserRolesUpdateUserRolesUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateUserRolesUpdateUserRolesUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateUserRolesUpdateUserRolesUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UserFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateUserRolesUpdateUserRolesUser struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Email *string `json:"email"`
+
+	Handle *string `json:"handle"`
+
+	GithubUsername *string `json:"githubUsername"`
+
+	Roles []Role `json:"roles"`
+}
+
+func (v *UpdateUserRolesUpdateUserRolesUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateUserRolesUpdateUserRolesUser) __premarshalJSON() (*__premarshalUpdateUserRolesUpdateUserRolesUser, error) {
+	var retval __premarshalUpdateUserRolesUpdateUserRolesUser
+
+	retval.Id = v.UserFields.Id
+	retval.Name = v.UserFields.Name
+	retval.Email = v.UserFields.Email
+	retval.Handle = v.UserFields.Handle
+	retval.GithubUsername = v.UserFields.GithubUsername
+	retval.Roles = v.UserFields.Roles
+	return &retval, nil
+}
+
 // UserApiKeyFields includes the GraphQL fields of UserApiKey requested by the fragment UserApiKeyFields.
 type UserApiKeyFields struct {
 	Id         string  `json:"id"`
@@ -15071,6 +15165,18 @@ func (v *__UpdateOrganizationInput) GetUrn() *string { return v.Urn }
 
 // GetListedOnMarketplace returns __UpdateOrganizationInput.ListedOnMarketplace, and is useful for accessing the field via an interface.
 func (v *__UpdateOrganizationInput) GetListedOnMarketplace() *bool { return v.ListedOnMarketplace }
+
+// __UpdateUserRolesInput is used internally by genqlient
+type __UpdateUserRolesInput struct {
+	UserId string `json:"userId"`
+	Roles  []Role `json:"roles"`
+}
+
+// GetUserId returns __UpdateUserRolesInput.UserId, and is useful for accessing the field via an interface.
+func (v *__UpdateUserRolesInput) GetUserId() string { return v.UserId }
+
+// GetRoles returns __UpdateUserRolesInput.Roles, and is useful for accessing the field via an interface.
+func (v *__UpdateUserRolesInput) GetRoles() []Role { return v.Roles }
 
 // The mutation executed by AcceptInvitation.
 const AcceptInvitation_Operation = `
@@ -20988,6 +21094,61 @@ func UpdateOrganization(
 	}
 
 	data_ = &UpdateOrganizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateUserRoles.
+const UpdateUserRoles_Operation = `
+mutation UpdateUserRoles ($userId: ID!, $roles: [Role!]!) {
+	updateUserRoles(userId: $userId, roles: $roles) {
+		... UserFields
+	}
+}
+fragment UserFields on User {
+	id
+	name
+	email
+	handle
+	githubUsername
+	roles
+}
+`
+
+// Platform-role administration (#75, descoped from #56). Backs
+// `hadron user set-roles`.
+//
+// updateUserRoles takes a raw PK — unlike mergeUsers it does NOT resolve a
+// ref server-side — so the CLI resolves the caller's <userRef> to an id
+// first (cmdutil.ResolveUserID) and passes that.
+//
+// `roles` REPLACES the user's whole role set; the server assigns the list
+// verbatim. The command reads the current set first (via the GetUser query
+// above) so it can show before → after and make that replacement explicit
+// before it happens.
+func UpdateUserRoles(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	userId string,
+	roles []Role,
+) (data_ *UpdateUserRolesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateUserRoles",
+		Query:  UpdateUserRoles_Operation,
+		Variables: &__UpdateUserRolesInput{
+			UserId: userId,
+			Roles:  roles,
+		},
+	}
+
+	data_ = &UpdateUserRolesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

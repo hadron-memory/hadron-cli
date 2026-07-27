@@ -50,6 +50,7 @@ func NewCmdUser(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Look up users",
 	}
 	cmd.AddCommand(newCmdSearch(f))
+	cmd.AddCommand(newCmdSetRoles(f))
 	cmd.AddCommand(newCmdMerge(f))
 	return cmd
 }
