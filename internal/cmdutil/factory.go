@@ -120,3 +120,32 @@ func (f *Factory) GraphQLClient() (graphql.Client, error) {
 	}
 	return api.NewClient(server, token, f.HTTPClient)
 }
+
+// PublicGraphQLClient returns a client for the server's PUBLIC surface. It
+// attaches credentials when they exist but does NOT require them, so a query
+// the server serves anonymously still works when signed out.
+//
+// authenticated reports whether credentials were attached — a caller can then
+// say which surface the answer came from instead of implying it was privileged.
+// A corrupt token store still errors rather than silently degrading to
+// anonymous (#125): failing loud beats a confusing half-answer.
+func (f *Factory) PublicGraphQLClient() (client graphql.Client, authenticated bool, err error) {
+	server, err := f.Server()
+	if err != nil {
+		return nil, false, err
+	}
+	token, source, err := f.Token()
+	if err != nil {
+		return nil, false, err
+	}
+	if source == auth.SourceNone {
+		// NewClient sends no bearer for an empty token, and RequireSecureURL
+		// permits plain http when there are no credentials to leak.
+		token = ""
+	}
+	c, err := api.NewClient(server, token, f.HTTPClient)
+	if err != nil {
+		return nil, false, err
+	}
+	return c, token != "", nil
+}

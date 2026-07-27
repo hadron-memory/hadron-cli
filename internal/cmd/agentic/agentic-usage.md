@@ -81,6 +81,7 @@ hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <or
 hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
 hadron user search <query> [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--email <e>] [--handle <h>]
+hadron server-info
 hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--ai-config <n>] [--wait] | list [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
 hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... | list --app <ref> | update <id> ... | rm <id> --yes
 hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] | rotate <id> --yes | list --app <ref> | rm <id> --yes
@@ -245,6 +246,17 @@ Conventions:
   authorizes — platform ADMIN/OWNER, or an org ADMIN/OWNER over both members). No
   server dry-run; the confirmation is the last local safety boundary, so it's gated
   — pass `--yes` non-interactively.
+- `server-info` reports the hadron-server this invocation targets:
+  `{url, version, baseUrl, authenticated}`. It works **signed out** (the field
+  is public), so it doubles as a reachability probe — a failure here is the
+  server or the network, not your credentials. `version` is the server's
+  API-SURFACE CONTRACT version, bumped when the query/tool surface changes in a
+  caller-visible way; it is NOT a release version, so use it to decide whether a
+  surface exists rather than comparing it to a release tag. `url` is where the
+  query was sent and `baseUrl` is what the server calls itself — a mismatch
+  means it sits behind a proxy without its public base URL configured, so every
+  absolute URL it emits points somewhere wrong. `hadron version` reports the CLI
+  build instead and needs no network.
 - `isRunnable` gates whether `hadron task run` will execute a node. Both
   `node add` and `node update` take `--runnable` to set it; on `update` it's
   tri-state — `--runnable` sets true, `--runnable=false` clears it, omitting it
