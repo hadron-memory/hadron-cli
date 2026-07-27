@@ -126,6 +126,28 @@ func TestServerInfoNoWarningWhenBaseURLAgrees(t *testing.T) {
 	}
 }
 
+// A trailing slash on --server must not trip the mismatch warning: the client
+// trims it when building the endpoint, so both spellings reach the same
+// deployment (review on #302).
+func TestServerInfoNoWarningOnTrailingSlash(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"serverInfo":{"version":"0.10.0","baseUrl":"` + srv.URL + `"}}}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"server-info", "--server", srv.URL + "/"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Contains(out.String(), "different base url") {
+		t.Errorf("a trailing slash is not a mismatch: %q", out.String())
+	}
+}
+
 // A misbehaving server returning null for the non-null field must error
 // rather than panic, and the message must name what was queried.
 func TestServerInfoNullResult(t *testing.T) {

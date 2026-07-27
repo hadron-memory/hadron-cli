@@ -4,6 +4,8 @@ package serverinfo
 import (
 	"fmt"
 	"io"
+	"net/url"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -30,6 +32,37 @@ type serverInfoDTO struct {
 	Authenticated bool   `json:"authenticated"`
 }
 
+// sameServer reports whether two base URLs address the same deployment.
+//
+// The comparison must be normalized, not literal: api.Endpoint already trims a
+// trailing slash when building the request URL, so `--server https://x/` and a
+// reported `https://x` reach the same place. Warning on that spelling would
+// cry proxy-misconfiguration at a correctly configured server, and a warning
+// that fires on healthy setups stops being read. Scheme and host are
+// case-insensitive per RFC 3986, and an explicit default port is equivalent to
+// none.
+func sameServer(a, b string) bool {
+	return normalizeServerURL(a) == normalizeServerURL(b)
+}
+
+func normalizeServerURL(raw string) string {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		// Unparseable: fall back to a literal compare rather than claiming
+		// a match we cannot justify.
+		return strings.TrimRight(strings.TrimSpace(raw), "/")
+	}
+	scheme := strings.ToLower(u.Scheme)
+	host := strings.ToLower(u.Host)
+	// Strip the default port for the scheme (https://x:443 == https://x).
+	for s, port := range map[string]string{"http": ":80", "https": ":443"} {
+		if scheme == s {
+			host = strings.TrimSuffix(host, port)
+		}
+	}
+	return scheme + "://" + host + strings.TrimRight(u.Path, "/")
+}
+
 func NewCmdServerInfo(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:     "server-info",
@@ -38,8 +71,10 @@ func NewCmdServerInfo(f *cmdutil.Factory) *cobra.Command {
 		Long: `Report the identity of the server this CLI is configured to reach.
 
 Works SIGNED OUT: the server answers this query publicly, so it doubles as a
-reachability probe — if this fails, the problem is the server or the network,
-not your credentials. Credentials are still sent when present.
+reachability probe — a failure reaching the server is the server or the
+network, not a missing login. Credentials are still sent when present, and a
+credential STORE that cannot be read is still reported (it fails loud rather
+than silently querying anonymously).
 
 'version' is the server's API-surface CONTRACT version, bumped when the
 tool/query surface changes in a caller-visible way. It is NOT the server's
@@ -90,7 +125,7 @@ every absolute URL it emits (OAuth discovery, webhooks) point somewhere wrong.
 				if _, err := fmt.Fprintf(w, "  base url: %s\n", dto.BaseURL); err != nil {
 					return err
 				}
-				if dto.BaseURL != "" && dto.BaseURL != dto.URL {
+				if dto.BaseURL != "" && !sameServer(dto.BaseURL, dto.URL) {
 					if _, err := fmt.Fprintf(w,
 						"  ! the server reports a different base url than the one queried —\n"+
 							"    absolute URLs it emits (OAuth discovery, webhooks) will point at %s\n", dto.BaseURL); err != nil {
