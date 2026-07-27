@@ -147,8 +147,15 @@ func TestAgentLsPublic(t *testing.T) {
 	if _, present := vars["orgId"]; present {
 		t.Errorf("--public must not send orgId, got %v", vars["orgId"])
 	}
-	if fl, _ := vars["filter"].(map[string]any); fl["type"] != "ASSISTANT" {
+	fl, _ := vars["filter"].(map[string]any)
+	if fl["type"] != "ASSISTANT" {
 		t.Errorf("--type should map to filter.type, got %v", vars["filter"])
+	}
+	// PublicAgentFilter is a narrower input than agents()' AgentFilter — the
+	// server rejects visibility / ownedByMe on this slice, so sending the
+	// wider filter here is a schema error, not a silently-ignored field.
+	if len(fl) != 1 {
+		t.Errorf("public filter must carry only type, got %v", fl)
 	}
 	var agents []struct {
 		ID string `json:"id"`

@@ -46,9 +46,15 @@ query Agents(
 # The cross-org marketplace slice (#551/#552): every live PUBLIC agent, readable
 # without org membership. A deliberately separate surface from agents() (which
 # stays member-scoped), not a visibility filter on it — backs `agent ls --public`.
+#
+# Its filter is a separate, narrower input than agents()' AgentFilter: only
+# `type` narrows. The slice is PUBLIC by definition (so `visibility` is
+# meaningless) and a PUBLIC agent is never user-owned (so `ownedByMe` would
+# always be empty) — the server rejects both at the schema rather than letting a
+# client apply AgentFilter uniformly and silently get cross-org agents back.
 query PublicAgents(
   # @genqlient(omitempty: true)
-  $filter: AgentFilter
+  $filter: PublicAgentFilter
   # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
