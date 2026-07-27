@@ -6901,6 +6901,71 @@ func (v *InvitationFields) GetAcceptedAt() *string { return v.AcceptedAt }
 // GetCreatedAt returns InvitationFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *InvitationFields) GetCreatedAt() string { return v.CreatedAt }
 
+// LinkMemoryToUserLinkMemoryToUserMemory includes the requested fields of the GraphQL type Memory.
+type LinkMemoryToUserLinkMemoryToUserMemory struct {
+	Id               string            `json:"id"`
+	Urn              string            `json:"urn"`
+	Name             string            `json:"name"`
+	ShortDescription *string           `json:"shortDescription"`
+	Class            MemoryClass       `json:"class"`
+	Visibility       *MemoryVisibility `json:"visibility"`
+	OrganizationId   *string           `json:"organizationId"`
+	IsEncrypted      bool              `json:"isEncrypted"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int    `json:"maxRevCount"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+// GetId returns LinkMemoryToUserLinkMemoryToUserMemory.Id, and is useful for accessing the field via an interface.
+func (v *LinkMemoryToUserLinkMemoryToUserMemory) GetId() string { return v.Id }
+
+// GetUrn returns LinkMemoryToUserLinkMemoryToUserMemory.Urn, and is useful for accessing the field via an interface.
+func (v *LinkMemoryToUserLinkMemoryToUserMemory) GetUrn() string { return v.Urn }
+
+// GetName returns LinkMemoryToUserLinkMemoryToUserMemory.Name, and is useful for accessing the field via an interface.
+func (v *LinkMemoryToUserLinkMemoryToUserMemory) GetName() string { return v.Name }
+
+// GetShortDescription returns LinkMemoryToUserLinkMemoryToUserMemory.ShortDescription, and is useful for accessing the field via an interface.
+func (v *LinkMemoryToUserLinkMemoryToUserMemory) GetShortDescription() *string {
+	return v.ShortDescription
+}
+
+// GetClass returns LinkMemoryToUserLinkMemoryToUserMemory.Class, and is useful for accessing the field via an interface.
+func (v *LinkMemoryToUserLinkMemoryToUserMemory) GetClass() MemoryClass { return v.Class }
+
+// GetVisibility returns LinkMemoryToUserLinkMemoryToUserMemory.Visibility, and is useful for accessing the field via an interface.
+func (v *LinkMemoryToUserLinkMemoryToUserMemory) GetVisibility() *MemoryVisibility {
+	return v.Visibility
+}
+
+// GetOrganizationId returns LinkMemoryToUserLinkMemoryToUserMemory.OrganizationId, and is useful for accessing the field via an interface.
+func (v *LinkMemoryToUserLinkMemoryToUserMemory) GetOrganizationId() *string { return v.OrganizationId }
+
+// GetIsEncrypted returns LinkMemoryToUserLinkMemoryToUserMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *LinkMemoryToUserLinkMemoryToUserMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetMaxRevCount returns LinkMemoryToUserLinkMemoryToUserMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *LinkMemoryToUserLinkMemoryToUserMemory) GetMaxRevCount() int { return v.MaxRevCount }
+
+// GetUpdatedAt returns LinkMemoryToUserLinkMemoryToUserMemory.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *LinkMemoryToUserLinkMemoryToUserMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// LinkMemoryToUserResponse is returned by LinkMemoryToUser on success.
+type LinkMemoryToUserResponse struct {
+	// Link an anonymous memory to a real user (converts session memory
+	// ownership). Providing dataKey encrypts the memory in place atomically
+	// with the link.
+	//
+	// Accepts the entity's ID or URN.
+	LinkMemoryToUser *LinkMemoryToUserLinkMemoryToUserMemory `json:"linkMemoryToUser"`
+}
+
+// GetLinkMemoryToUser returns LinkMemoryToUserResponse.LinkMemoryToUser, and is useful for accessing the field via an interface.
+func (v *LinkMemoryToUserResponse) GetLinkMemoryToUser() *LinkMemoryToUserLinkMemoryToUserMemory {
+	return v.LinkMemoryToUser
+}
+
 // McpServerFields includes the GraphQL fields of McpServer requested by the fragment McpServerFields.
 type McpServerFields struct {
 	Id             string `json:"id"`
@@ -14223,6 +14288,22 @@ type __ImportNodeInput struct {
 // GetInput returns __ImportNodeInput.Input, and is useful for accessing the field via an interface.
 func (v *__ImportNodeInput) GetInput() *ImportNodeInput { return v.Input }
 
+// __LinkMemoryToUserInput is used internally by genqlient
+type __LinkMemoryToUserInput struct {
+	MemoryId       string  `json:"memoryId"`
+	ExternalUserId string  `json:"externalUserId"`
+	DataKey        *string `json:"dataKey,omitempty"`
+}
+
+// GetMemoryId returns __LinkMemoryToUserInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__LinkMemoryToUserInput) GetMemoryId() string { return v.MemoryId }
+
+// GetExternalUserId returns __LinkMemoryToUserInput.ExternalUserId, and is useful for accessing the field via an interface.
+func (v *__LinkMemoryToUserInput) GetExternalUserId() string { return v.ExternalUserId }
+
+// GetDataKey returns __LinkMemoryToUserInput.DataKey, and is useful for accessing the field via an interface.
+func (v *__LinkMemoryToUserInput) GetDataKey() *string { return v.DataKey }
+
 // __McpServerInput is used internally by genqlient
 type __McpServerInput struct {
 	Ref string `json:"ref"`
@@ -18138,6 +18219,67 @@ func ImportNode(
 	}
 
 	data_ = &ImportNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by LinkMemoryToUser.
+const LinkMemoryToUser_Operation = `
+mutation LinkMemoryToUser ($memoryId: ID!, $externalUserId: String!, $dataKey: String) {
+	linkMemoryToUser(memoryId: $memoryId, externalUserId: $externalUserId, dataKey: $dataKey) {
+		id
+		urn
+		name
+		shortDescription
+		class
+		visibility
+		organizationId
+		isEncrypted
+		maxRevCount
+		updatedAt
+	}
+}
+`
+
+// Promote an anonymous/session memory to a registered user (#75, descoped from
+// #57). Backs `hadron memory link-user`.
+//
+// App-key only: the server gates on ctx.appId, so a user PAT is refused. The
+// memory must be a user/anonymous memory in the App's own organization.
+//
+// externalUserId is the App's own identifier for the end user; the server
+// resolves it to an existing app-scoped user or provisions one (unless the App
+// sets createUserPermission=DENY).
+//
+// Two side effects the caller must see, hence selecting urn and isEncrypted:
+// the memory's URN is RE-MINTED as a fresh flat v2 urn (the old one stops
+// resolving), and passing dataKey encrypts every node in place and lands the
+// memory as class='private' owned by that user.
+func LinkMemoryToUser(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId string,
+	externalUserId string,
+	dataKey *string,
+) (data_ *LinkMemoryToUserResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "LinkMemoryToUser",
+		Query:  LinkMemoryToUser_Operation,
+		Variables: &__LinkMemoryToUserInput{
+			MemoryId:       memoryId,
+			ExternalUserId: externalUserId,
+			DataKey:        dataKey,
+		},
+	}
+
+	data_ = &LinkMemoryToUserResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
