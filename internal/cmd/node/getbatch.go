@@ -69,35 +69,63 @@ func fetchNodeBatch(
 		return nodes, unavailable, nil
 	}
 
-	// Explicit set. A ref that cannot be resolved is reported as unavailable
-	// rather than failing the whole batch — one bad ref in twenty should not
-	// cost the other nineteen, and "denied" and "missing" are indistinguishable
-	// here anyway.
+	// Explicit set. A ref that is merely absent or malformed is reported as
+	// unavailable rather than failing the whole batch — one bad ref in twenty
+	// should not cost the other nineteen.
 	ids := make([]string, 0, len(refs))
 	var unresolved []string
+	// The server reports unavailable nodes by PRIMARY KEY, but the caller
+	// typed locs or URNs; without this mapping the output names an opaque id
+	// they never supplied and cannot act on.
+	refByID := make(map[string]string, len(refs))
 	seen := map[string]bool{}
 	for _, ref := range refs {
 		id, err := cmdutil.ResolveNodeRef(cmd, client, memory, ref)
 		if err != nil {
-			unresolved = append(unresolved, ref)
-			continue
+			// ONLY absence and a locally-invalid ref are "unavailable".
+			// Expired credentials, a dead transport, a cancelled context or an
+			// incompatible schema are real failures: swallowing them would emit
+			// a plausible partial result and exit 4, hiding an auth or
+			// operational error behind a not-found (review on #303).
+			switch exitcode.FromError(err) {
+			case exitcode.NotFound, exitcode.Usage:
+				unresolved = append(unresolved, ref)
+				continue
+			default:
+				return nil, nil, err
+			}
 		}
 		if seen[id] {
 			continue // a repeated ref must not yield the node twice
 		}
 		seen[id] = true
+		refByID[id] = ref
 		ids = append(ids, id)
 	}
 	nodes, unavailable, err := api.CollectNodeBatch(ids, fetch)
 	if err != nil {
 		return nil, nil, err
 	}
-	return nodes, append(unresolved, unavailable...), nil
+	// Translate ids the server refused back into what the caller typed.
+	for _, id := range unavailable {
+		if ref, ok := refByID[id]; ok {
+			unresolved = append(unresolved, ref)
+			continue
+		}
+		unresolved = append(unresolved, id)
+	}
+	return nodes, unresolved, nil
 }
 
 // batchDetailDTO maps the batch projection onto the same per-node shape the
-// single read emits, so one node out of `node get a b c` is byte-identical to
-// `node get a`.
+// single read emits, so the FIELDS match `node get <one-ref>` exactly.
+//
+// One value does differ, by server design: nodeBatch returns content RAW —
+// Mustache templates are not compiled — whereas the single node(ref:) read
+// compiles them, because the batch is meant as a bulk source read for
+// lint/audit/migration and compiling per node would reintroduce the N+1 it
+// exists to remove. For a node without templates the two are identical; for a
+// template node the batch yields the source. The command help says so.
 func batchDetailDTO(n *batchNode) nodeDetailDTO {
 	dto := nodeDetailDTO{
 		nodeDTO: nodeDTO{

@@ -37,8 +37,15 @@ content and edges. An empty --prefix means the whole memory. The server caps
 the node count and fails loudly rather than truncating silently.
 
 With one ref the output is the node object, unchanged. With several refs, or
-with --prefix, it is {nodes, unavailable}. Any unavailable ref exits 4, so a
-partial read is never mistaken for a complete one.`,
+with --prefix, it is {nodes, unavailable}. "unavailable" names refs that are
+missing OR not readable by you — the server reports those identically — and any
+unavailable ref exits 4, so a partial read is never mistaken for a complete one.
+
+One difference to know about: a batched read returns content RAW, with Mustache
+templates left uncompiled, while a single-ref read compiles them. That is the
+server's design — the batch is a bulk SOURCE read for lint/audit/migration, and
+compiling per node would reintroduce the N+1 it removes. Identical for a node
+without templates; for a template node the batch gives you the source.`,
 		Example: `  hadron node get hadronmemory.com::dev::start-here
   hadron node get start-here -m hadronmemory.com::dev --json
   hadron node get start-here preflight instructions -m hadronmemory.com::dev --json
