@@ -1,0 +1,17 @@
+# Identity of the running hadron-server (#102, MCP parity with
+# hadron_server_info). Backs `hadron server-info`.
+#
+# PUBLIC — the server answers this without authentication, which is what makes
+# it a reachability probe as well as a version check. It deliberately does NOT
+# expose DATABASE_URL (that may carry credentials).
+#
+# `version` is HADRON_SERVER_VERSION: the MCP/API-surface CONTRACT version,
+# bumped when the tool/query surface changes in a caller-visible way. It is
+# NOT the server's package.json release version, so don't compare it against a
+# release tag.
+query ServerInfo {
+  serverInfo {
+    version
+    baseUrl
+  }
+}

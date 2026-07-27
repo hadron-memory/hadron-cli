@@ -11219,6 +11219,41 @@ func (v *SecretsSecretsSecretsPageItemsSecret) __premarshalJSON() (*__premarshal
 	return &retval, nil
 }
 
+// ServerInfoResponse is returned by ServerInfo on success.
+type ServerInfoResponse struct {
+	// Identity of the hadron-server this GraphQL endpoint is bound to: the
+	// server-identity version and the deployment's canonical base URL. The
+	// GraphQL counterpart to the hadron_server_info MCP tool — both read the
+	// same getDeploymentInfo() helper, so MCP and GraphQL callers get one
+	// consistent answer to "which server/API am I talking to?".
+	//
+	// 'version' is HADRON_SERVER_VERSION — the MCP/API-surface contract
+	// version, bumped when the tool/query surface changes in a caller-visible
+	// way. It is intentionally NOT the repo's package.json release version.
+	//
+	// Public — no authentication required. Does NOT expose the DATABASE_URL
+	// (it may carry credentials).
+	ServerInfo *ServerInfoServerInfo `json:"serverInfo"`
+}
+
+// GetServerInfo returns ServerInfoResponse.ServerInfo, and is useful for accessing the field via an interface.
+func (v *ServerInfoResponse) GetServerInfo() *ServerInfoServerInfo { return v.ServerInfo }
+
+// ServerInfoServerInfo includes the requested fields of the GraphQL type ServerInfo.
+// The GraphQL type's documentation follows.
+//
+// Identity of the running hadron-server (see Query.serverInfo).
+type ServerInfoServerInfo struct {
+	Version string `json:"version"`
+	BaseUrl string `json:"baseUrl"`
+}
+
+// GetVersion returns ServerInfoServerInfo.Version, and is useful for accessing the field via an interface.
+func (v *ServerInfoServerInfo) GetVersion() string { return v.Version }
+
+// GetBaseUrl returns ServerInfoServerInfo.BaseUrl, and is useful for accessing the field via an interface.
+func (v *ServerInfoServerInfo) GetBaseUrl() string { return v.BaseUrl }
+
 type SyncStatus string
 
 const (
@@ -20177,6 +20212,48 @@ func Secrets(
 	}
 
 	data_ = &SecretsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ServerInfo.
+const ServerInfo_Operation = `
+query ServerInfo {
+	serverInfo {
+		version
+		baseUrl
+	}
+}
+`
+
+// Identity of the running hadron-server (#102, MCP parity with
+// hadron_server_info). Backs `hadron server-info`.
+//
+// PUBLIC — the server answers this without authentication, which is what makes
+// it a reachability probe as well as a version check. It deliberately does NOT
+// expose DATABASE_URL (that may carry credentials).
+//
+// `version` is HADRON_SERVER_VERSION: the MCP/API-surface CONTRACT version,
+// bumped when the tool/query surface changes in a caller-visible way. It is
+// NOT the server's package.json release version, so don't compare it against a
+// release tag.
+func ServerInfo(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *ServerInfoResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ServerInfo",
+		Query:  ServerInfo_Operation,
+	}
+
+	data_ = &ServerInfoResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
