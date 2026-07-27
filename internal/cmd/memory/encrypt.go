@@ -26,7 +26,7 @@ func newCmdEncrypt(f *cmdutil.Factory) *cobra.Command {
 	var dataKey string
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "encrypt <memory>",
+		Use:   "encrypt <memoryRef>",
 		Short: "Convert a plaintext memory to encrypted-at-rest",
 		Long: `Convert a plaintext memory to encrypted at rest.
 

@@ -12,7 +12,7 @@ import (
 
 func newCmdSetActive(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:     "set-active <memory-urn-or-id>",
+		Use:     "set-active <memoryRef>",
 		Aliases: []string{"use"},
 		Short:   "Set the default memory context for future invocations",
 		Long: `Set the default memory URN or ID stored in ~/.config/hadron/config.toml.

@@ -28,7 +28,7 @@ func newCmdShare(f *cmdutil.Factory) *cobra.Command {
 
 func newCmdShareLs(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:     "ls <memory>",
+		Use:     "ls <memoryRef>",
 		Aliases: []string{"list"},
 		Short:   "List a memory's shares",
 		Args:    cobra.ExactArgs(1),
@@ -69,7 +69,7 @@ func newCmdShareLs(f *cmdutil.Factory) *cobra.Command {
 func newCmdShareCreate(f *cmdutil.Factory) *cobra.Command {
 	var grantee, role string
 	cmd := &cobra.Command{
-		Use:   "create <memory> --grantee <user> --role <writer|reader>",
+		Use:   "create <memoryRef> --grantee <user> --role <writer|reader>",
 		Short: "Share a memory with a user (or update their share role)",
 		Example: `  hadron memory share create acme.com::kb --grantee usr_789 --role reader
   hadron memory share create acme.com::kb --grantee jane@acme.com --role writer
@@ -113,7 +113,7 @@ func newCmdShareCreate(f *cmdutil.Factory) *cobra.Command {
 func newCmdShareSetRole(f *cmdutil.Factory) *cobra.Command {
 	var grantee, role string
 	cmd := &cobra.Command{
-		Use:     "set-role <memory> --grantee <user> --role <writer|reader>",
+		Use:     "set-role <memoryRef> --grantee <user> --role <writer|reader>",
 		Short:   "Change a share's role",
 		Example: `  hadron memory share set-role acme.com::kb --grantee usr_789 --role writer`,
 		Args:    cobra.ExactArgs(1),
@@ -156,7 +156,7 @@ func newCmdShareRm(f *cmdutil.Factory) *cobra.Command {
 	var grantee string
 	var yes bool
 	cmd := &cobra.Command{
-		Use:     "rm <memory> [--grantee <user>]",
+		Use:     "rm <memoryRef> [--grantee <user>]",
 		Aliases: []string{"revoke", "delete"},
 		Short:   "Remove a share on a memory (yours, or a grantee's if you own it)",
 		Long: `Remove a MemoryShare.

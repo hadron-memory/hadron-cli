@@ -15,7 +15,7 @@ import (
 func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:     "rm <memory-id-or-urn>",
+		Use:     "rm <memoryRef>",
 		Aliases: []string{"delete"},
 		Short:   "Delete a memory and all its nodes",
 		Example: `  hadron memory rm acme.com:scratch --yes`,

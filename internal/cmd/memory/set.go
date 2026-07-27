@@ -34,7 +34,7 @@ func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 		schemaFile  string
 	)
 	cmd := &cobra.Command{
-		Use:   "set [<memory-id-or-urn>]",
+		Use:   "set [<memoryRef>]",
 		Short: "Create or update a memory",
 		Long: `Create or update a memory.
 

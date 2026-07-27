@@ -27,7 +27,7 @@ type memoryDetailDTO struct {
 
 func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <memory-id-or-urn>",
+		Use:   "get <memoryRef>",
 		Short: "Show a memory",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
