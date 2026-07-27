@@ -246,3 +246,20 @@ query PublicOrganization($ref: ID!) {
     }
   }
 }
+
+# Platform-role administration (#75, descoped from #56). Backs
+# `hadron user set-roles`.
+#
+# updateUserRoles takes a raw PK — unlike mergeUsers it does NOT resolve a
+# ref server-side — so the CLI resolves the caller's <userRef> to an id
+# first (cmdutil.ResolveUserID) and passes that.
+#
+# `roles` REPLACES the user's whole role set; the server assigns the list
+# verbatim. The command reads the current set first (via the GetUser query
+# above) so it can show before → after and make that replacement explicit
+# before it happens.
+mutation UpdateUserRoles($userId: ID!, $roles: [Role!]!) {
+  updateUserRoles(userId: $userId, roles: $roles) {
+    ...UserFields
+  }
+}

@@ -79,7 +79,7 @@ hadron app list --org <org> | install (--org <id> | --owner-me) --agent <ref> --
 hadron ai-config list [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
 hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
-hadron user search <query> [--limit N] [--offset N] | merge <source> --into <target> --yes
+hadron user search <query> [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--email <e>] [--handle <h>]
 hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--ai-config <n>] [--wait] | list [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
 hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... | list --app <ref> | update <id> ... | rm <id> --yes
@@ -141,8 +141,8 @@ Conventions:
   `edge list` and in `node get --json`). A nameless edge prints its loc instead.
   Cross-memory edges are allowed.
 - Destructive / bulk-write commands (`memory rm`, `node rm`, `node merge`,
-  `user merge`, `edge rm`, `app uninstall`, a real `replace` / `spec replace`,
-  `memory link-user`, and
+  `user merge`, `user set-roles`, `edge rm`, `app uninstall`, a real `replace` /
+  `spec replace`, `memory link-user`, and
   `memory encrypt`) prompt on a terminal and REQUIRE `--yes` when run
   non-interactively (agents must always pass `--yes`, or `--dry-run` to preview a
   `replace`). Without it they exit 2.
@@ -225,6 +225,14 @@ Conventions:
   on key collisions), `EDGES` re-points the source's edges onto the target. The
   source stays in place unless `--delete-source` hard-removes it after the merge.
   Merging mutates the target, so it's gated — pass `--yes` non-interactively.
+- `user set-roles <userRef> --role <r>...` sets a user's PLATFORM roles (`owner`,
+  `admin`, `contributor`, `reader`; case-insensitive). Platform ADMIN only. The
+  flags REPLACE the whole role set — they are not additive, so every role the
+  user keeps must be passed, and any omitted role is removed. `--json` returns
+  `{user, previousRoles, roles, changed}` so the displaced set is visible without
+  a second read. Platform roles are global standing, NOT org or memory
+  membership — for those use `org member set-role` / `memory member set-role`.
+  Gated: pass `--yes` non-interactively.
 - `user merge <source> --into <target>` globally consolidates a duplicate source
   user into the surviving target and returns the target. `<source>` is
   soft-deleted; `--into <target>` survives. Each ref is a user id, bare handle, or

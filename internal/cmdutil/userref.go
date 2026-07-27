@@ -24,6 +24,23 @@ import (
 // Shared by `access check` (resource authorization) and `memory share`
 // (grantee), so both accept the same ref forms (hadron-cli#280).
 func ResolveUserID(cmd *cobra.Command, client graphql.Client, ref string) (string, error) {
+	fields, _, err := ResolveUser(cmd, client, ref)
+	if err != nil {
+		return "", err
+	}
+	return fields.Id, nil
+}
+
+// ResolveUser is ResolveUserID's underlying lookup, returning everything the
+// resolution already read instead of just the id — both paths fetch the full
+// UserFields, so a caller that also needs the user's current state (roles,
+// handle) gets it without a second round trip.
+//
+// found reports whether a user was actually matched. It is false only for the
+// pass-through case described above, where an unmatched bare token is returned
+// verbatim as a literal id and fields carries nothing but that Id — the caller
+// decides whether that is enough to act on.
+func ResolveUser(cmd *cobra.Command, client graphql.Client, ref string) (fields gen.UserFields, found bool, err error) {
 	token := strings.TrimSpace(ref)
 	wasQualified := false // an hrn:user:/urn:user: or @-sigil ref names a handle, never a PK
 	for _, p := range []string{"hrn:user:", "urn:user:"} {
@@ -41,7 +58,7 @@ func ResolveUserID(cmd *cobra.Command, client graphql.Client, ref string) (strin
 		wasQualified = true
 	}
 	if token == "" {
-		return "", exitcode.Newf(exitcode.Usage, "empty user reference")
+		return gen.UserFields{}, false, exitcode.Newf(exitcode.Usage, "empty user reference")
 	}
 
 	// Fast path (PR #133 review): user(ref:) dispatches a PK or an
@@ -57,10 +74,10 @@ func ResolveUserID(cmd *cobra.Command, client graphql.Client, ref string) (strin
 		for _, r := range refs {
 			resp, err := gen.GetUser(cmd.Context(), client, r)
 			if err != nil {
-				return "", api.MapError(err)
+				return gen.UserFields{}, false, api.MapError(err)
 			}
 			if resp != nil && resp.User != nil {
-				return resp.User.Id, nil
+				return resp.User.UserFields, true, nil
 			}
 		}
 	}
@@ -92,7 +109,7 @@ func ResolveUserID(cmd *cobra.Command, client graphql.Client, ref string) (strin
 		},
 	)
 	if err != nil {
-		return "", err
+		return gen.UserFields{}, false, err
 	}
 
 	// Prefer an exact match on a stable identifier; fall back to a sole fuzzy
@@ -110,13 +127,13 @@ func ResolveUserID(cmd *cobra.Command, client graphql.Client, ref string) (strin
 	}
 	switch {
 	case len(exact) == 1:
-		return exact[0].Id, nil
+		return exact[0].UserFields, true, nil
 	case len(exact) > 1:
-		return "", ambiguousUserErr(ref, exact)
+		return gen.UserFields{}, false, ambiguousUserErr(ref, exact)
 	case len(fuzzy) == 1:
-		return fuzzy[0].Id, nil
+		return fuzzy[0].UserFields, true, nil
 	case len(fuzzy) > 1:
-		return "", ambiguousUserErr(ref, fuzzy)
+		return gen.UserFields{}, false, ambiguousUserErr(ref, fuzzy)
 	}
 
 	// No matches. An email is unambiguous about intent, so report not-found
@@ -125,9 +142,9 @@ func ResolveUserID(cmd *cobra.Command, client graphql.Client, ref string) (strin
 	// (e.g. sharing a personal memory cross-org) can't be found by email/handle —
 	// point the caller at the id, which always works.
 	if strings.Contains(token, "@") {
-		return "", exitcode.Newf(exitcode.NotFound, "no user matches %q — if they are outside your organization, pass their user id", ref)
+		return gen.UserFields{}, false, exitcode.Newf(exitcode.NotFound, "no user matches %q — if they are outside your organization, pass their user id", ref)
 	}
-	return token, nil
+	return gen.UserFields{Id: token}, false, nil
 }
 
 func userMatchesExactly(u gen.UserFields, token string) bool {
