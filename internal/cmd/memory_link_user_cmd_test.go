@@ -210,3 +210,42 @@ func TestMemoryLinkUserAppKeyErrorPropagates(t *testing.T) {
 		t.Errorf("error should name the App-key requirement, got %v", err)
 	}
 }
+
+// `--data-key "$KEY"` with an unset KEY must fail, not silently skip
+// encryption. Presence is what counts, not the value: treating an empty
+// value as "flag absent" would complete an IRREVERSIBLE promotion leaving
+// content plaintext while the caller believed it was encrypted (#301 review).
+func TestMemoryLinkUserRejectsEmptyDataKey(t *testing.T) {
+	gql, captured := captureGraphQL(t, linkUserFakes(linkedMemoryJSON))
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "link-user", "acme.com::anon-7f3",
+		"--external-user", "u1", "--data-key", "", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected a usage error for an explicitly empty --data-key")
+	}
+	if got := exitcode.FromError(err); got != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
+	}
+	// Critically, the irreversible promotion must not have run.
+	if _, called := captured["LinkMemoryToUser"]; called {
+		t.Error("an empty data key must be rejected BEFORE the promotion runs")
+	}
+}
+
+// A whitespace-only key is equally empty once trimmed.
+func TestMemoryLinkUserRejectsBlankStdinDataKey(t *testing.T) {
+	gql, captured := captureGraphQL(t, linkUserFakes(linkedMemoryJSON))
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader("   \n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "link-user", "acme.com::anon-7f3",
+		"--external-user", "u1", "--data-key", "-", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected a usage error for a blank piped data key")
+	}
+	if _, called := captured["LinkMemoryToUser"]; called {
+		t.Error("a blank data key must be rejected BEFORE the promotion runs")
+	}
+}

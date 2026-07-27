@@ -80,10 +80,17 @@ Because the promotion is irreversible, this prompts on a terminal and requires
 				return exitcode.Newf(exitcode.Usage, "memory reference must not be empty")
 			}
 
+			// Presence, not emptiness: `--data-key "$KEY"` with an unset KEY
+			// must NOT quietly skip encryption. Testing the value would make
+			// that a silent no-op that leaves content plaintext even though
+			// the caller asked for encryption; Changed() routes the empty
+			// value into readDataKey, which rejects it (review on #301).
+			wantsEncryption := cmd.Flags().Changed("data-key")
+
 			what := fmt.Sprintf("memory %s to external user %q", args[0], externalUser)
 			prompt := "Promote " + what +
 				"? The memory's URN is re-minted (the anonymous one stops resolving) and its expiry is cleared."
-			if dataKey != "" {
+			if wantsEncryption {
 				prompt += " It is also encrypted at rest with the supplied data key — this is ONE-WAY."
 			}
 			// Confirm BEFORE reading the key: `--data-key -` consumes stdin,
@@ -93,7 +100,7 @@ Because the promotion is irreversible, this prompts on a terminal and requires
 			}
 
 			var key *string
-			if dataKey != "" {
+			if wantsEncryption {
 				k, err := readDataKey(dataKey, f.IOStreams.In)
 				if err != nil {
 					return err

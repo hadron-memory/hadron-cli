@@ -48,6 +48,14 @@ is read because `--data-key -` consumes the stdin the prompt is answered on.
 `dataKey` carries `omitempty`, so omitting it sends no field rather than an
 explicit null.
 
+**`--data-key` presence, not value.** The flag is detected with
+`cmd.Flags().Changed("data-key")`, never `dataKey != ""`. Testing the value
+would make `--data-key "$KEY"` with an unset `KEY` a silent no-op: the
+irreversible promotion completes with content left plaintext while the caller
+believed it was encrypted. `Changed()` routes the empty value into
+`readDataKey`, which rejects it — so a broken key variable is a usage error
+before anything is written (review on #301).
+
 **Gated.** The promotion is irreversible — URN re-minted, TTL cleared, possibly
 encrypted — so it prompts on a terminal and requires `--yes` non-interactively,
 like the other destructive memory commands. The prompt names the encryption
