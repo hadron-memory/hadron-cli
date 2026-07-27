@@ -1,11 +1,17 @@
 package cmd
 
 import (
+	"io/fs"
+	"os"
+	"path/filepath"
+	"regexp"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmd/agentic"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 )
 
@@ -60,6 +66,66 @@ func TestEveryLsAliasHasAListSpelling(t *testing.T) {
 			t.Errorf("%q answers to \"ls\" but not to \"list\"", cmd.CommandPath())
 		}
 	})
+}
+
+// The tree-walk tests above can't see documentation, which is how the
+// shipped Claude Code plugin kept teaching `hadron edge ls` after the
+// command surface went canonical (review on #297). Agents generate
+// commands from these files, so a stale `ls` here quietly defeats the
+// standardization even though the alias keeps the example runnable.
+//
+// docs/plans/ is deliberately excluded: those are design-as-built
+// records of what shipped at the time, not live instructions.
+func TestShippedDocsUseTheCanonicalSpelling(t *testing.T) {
+	// Test binaries run with cwd set to their package directory.
+	const repoRoot = "../.."
+	roots := []string{
+		filepath.Join(repoRoot, "plugins"),
+		filepath.Join(repoRoot, "docs", "how-to"),
+	}
+	files := []string{filepath.Join(repoRoot, "README.md")}
+	for _, root := range roots {
+		err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if !d.IsDir() && strings.HasSuffix(path, ".md") {
+				files = append(files, path)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("walking %s: %v", root, err)
+		}
+	}
+	if len(files) < 2 {
+		t.Fatal("found almost no docs to check — the paths are wrong")
+	}
+
+	bareLs := regexp.MustCompile(`\bls\b`)
+	for _, path := range files {
+		body, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("reading %s: %v", path, err)
+		}
+		for i, line := range strings.Split(string(body), "\n") {
+			if bareLs.MatchString(line) {
+				t.Errorf("%s:%d teaches the non-canonical `ls`; use `list`:\n\t%s",
+					path, i+1, strings.TrimSpace(line))
+			}
+		}
+	}
+}
+
+// The embedded agent-facing contract is the highest-traffic doc of all.
+func TestAgenticUsageUsesTheCanonicalSpelling(t *testing.T) {
+	bareLs := regexp.MustCompile(`\bls\b`)
+	for i, line := range strings.Split(agentic.Doc(), "\n") {
+		if bareLs.MatchString(line) {
+			t.Errorf("agentic-usage.md:%d teaches the non-canonical `ls`; use `list`:\n\t%s",
+				i+1, strings.TrimSpace(line))
+		}
+	}
 }
 
 // Both spellings must actually resolve to the same command — the
