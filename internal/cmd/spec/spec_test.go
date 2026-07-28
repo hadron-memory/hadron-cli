@@ -387,7 +387,7 @@ func TestParseLedgerRetired(t *testing.T) {
 }
 
 func TestWriteSpecTableMemoryColumn(t *testing.T) {
-	one := []specDTO{{Citation: "msg:010:02", MemoryID: "mem1", MemoryUrn: "acme.com::specs", Name: "Retention"}}
+	one := []specDTO{{Citation: "msg:010:02", MemoryID: "mem1", MemoryURN: "acme.com::specs", Name: "Retention"}}
 	var buf strings.Builder
 	if err := writeSpecTable(&buf, one); err != nil {
 		t.Fatalf("write: %v", err)

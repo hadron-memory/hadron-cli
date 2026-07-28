@@ -96,7 +96,7 @@ func withFlagAliases(cmd *cobra.Command, aliases map[string]string) {
 type specDTO struct {
 	Citation  string   `json:"citation"`
 	MemoryID  string   `json:"memoryId"`
-	MemoryUrn string   `json:"memoryUrn"`
+	MemoryURN string   `json:"memoryUrn"`
 	Name      string   `json:"name"`
 	NodeType  string   `json:"nodeType"`
 	Tags      []string `json:"tags"`
@@ -594,7 +594,7 @@ func specMemoryID(f *cmdutil.Factory, cmd *cobra.Command, client graphql.Client,
 	return resolveSpecMemoryID(cmd, client, ref)
 }
 
-// annotateMemoryURNs fills specDTO.MemoryUrn for list/find results. A scoped run
+// annotateMemoryURNs fills specDTO.MemoryURN for list/find results. A scoped run
 // already resolved the memory and every hit came from it, so it costs nothing; an
 // unscoped run pays one paged memories call to map the ids. A failed lookup is
 // noted to errOut but not fatal — the listing is the deliverable, and rows still
@@ -605,7 +605,7 @@ func annotateMemoryURNs(cmd *cobra.Command, client graphql.Client, errOut io.Wri
 	}
 	if scopedURN != "" {
 		for i := range specs {
-			specs[i].MemoryUrn = scopedURN
+			specs[i].MemoryURN = scopedURN
 		}
 		return
 	}
@@ -615,8 +615,35 @@ func annotateMemoryURNs(cmd *cobra.Command, client graphql.Client, errOut io.Wri
 		return
 	}
 	for i := range specs {
-		specs[i].MemoryUrn = byID[specs[i].MemoryID]
+		id := specs[i].MemoryID
+		urn, seen := byID[id]
+		if !seen {
+			// The memories list draws from the caller's own union; findNodes
+			// reads a wider set, so a hit can live in a memory the list never
+			// returns — a MemoryShare grantee's slice (sharedWithMe) or the
+			// public marketplace slice, each documented as its own selection
+			// (schema MemoryFilter). Read those few by id rather than listing
+			// every slice on every call. Cached (empty included) so an
+			// unreadable memory costs one probe, not one per row.
+			urn = memoryURNByID(cmd, client, id)
+			byID[id] = urn
+		}
+		specs[i].MemoryURN = urn
 	}
+}
+
+// memoryURNByID reads one memory's canonical urn by PK, for an id the memories
+// list did not cover. An unreadable memory yields "" — the caller then renders
+// the id, which is a worse label but never a wrong one.
+func memoryURNByID(cmd *cobra.Command, client graphql.Client, id string) string {
+	if strings.TrimSpace(id) == "" {
+		return ""
+	}
+	resp, err := gen.GetMemory(cmd.Context(), client, id)
+	if err != nil || resp == nil || resp.Memory == nil {
+		return ""
+	}
+	return canonicalMemoryURN(resp.Memory.Urn)
 }
 
 // memoryURNsByID lists every accessible memory once and maps PK →
@@ -688,8 +715,8 @@ func spansMemories(specs []specDTO) bool {
 // memoryLabel is the MEMORY cell: the readable urn, falling back to the PK so
 // the column is never blank for a memory the list did not cover.
 func memoryLabel(s specDTO) string {
-	if s.MemoryUrn != "" {
-		return s.MemoryUrn
+	if s.MemoryURN != "" {
+		return s.MemoryURN
 	}
 	return s.MemoryID
 }

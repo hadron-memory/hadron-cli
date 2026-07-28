@@ -334,6 +334,38 @@ func TestSpecFindCrossMemoryShowsMemoryColumn(t *testing.T) {
 	}
 }
 
+// findNodes reads a wider set than the memories list returns: a hit can live in
+// a memory reachable only through the sharedWithMe or public-marketplace slice.
+// Those ids are resolved one by one rather than left as opaque PKs (#309).
+func TestSpecFindResolvesMemoryOutsideTheList(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodeSearch":{"degraded":null,"reason":null,"nodes":[` +
+			specNodeListIn("msg:010:02", "mem1") + `,` +
+			specNodeListIn("msg:010:02", "mem3") + `]}}}`,
+		"Memories": memListTwoJSON,
+		"GetMemory": `{"data":{"memory":{"id":"mem3","urn":"hrn:memory:acme.com::shared-specs","name":"Shared Specs",` +
+			`"shortDescription":null,"description":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org3",` +
+			`"isEncrypted":false,"tags":[],"source":null,"syncStatus":"OK","vectorIndexEnabled":false,"data":null,` +
+			`"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "find", "retention window", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "acme.com::shared-specs") {
+		t.Errorf("a memory outside the list should be read by id, got:\n%s", out.String())
+	}
+	var vars struct {
+		Ref string `json:"ref"`
+	}
+	_ = json.Unmarshal(captured["GetMemory"], &vars)
+	if vars.Ref != "mem3" {
+		t.Errorf("only the unlisted memory should be read by id, got ref=%q", vars.Ref)
+	}
+}
+
 // The urn resolution is a nicety on top of the listing: if the memories lookup
 // fails, the rows still render (keyed by memoryId) with a note (#309).
 func TestSpecFindCrossMemoryDegradesToMemoryIDs(t *testing.T) {
