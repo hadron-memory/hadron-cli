@@ -625,6 +625,59 @@ func TestSpecDescribeResolvesByPK(t *testing.T) {
 	}
 }
 
+// memGetSharedJSON is a GetMemory response for a memory the caller reaches only
+// through the sharedWithMe slice — readable, but never in the union listing.
+const memGetSharedJSON = `{"data":{"memory":{"id":"mem9","urn":"hrn:memory:acme.com::shared-specs","name":"Shared Specs",` +
+	`"shortDescription":null,"description":null,"class":"knowledge","visibility":"PRIVATE","organizationId":"org9",` +
+	`"isEncrypted":false,"tags":[],"source":null,"syncStatus":"OK","vectorIndexEnabled":false,"data":null,` +
+	`"schema":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z"}}}`
+
+// #311: memories() draws the caller's own union, while sharedWithMe and
+// visibility:PUBLIC are separate slice selections — so a memory shared with the
+// caller is readable but absent from the listing. It must resolve by ref rather
+// than dead-ending in "not found".
+func TestSpecMemoryOutsideListingResolvesByRef(t *testing.T) {
+	for _, ref := range []string{"acme.com::shared-specs", "acme.com:shared-specs", "mem9"} {
+		gql, captured := captureGraphQL(t, map[string]string{
+			"Memories":  memListJSON, // covers mem1 only — never the shared one
+			"GetMemory": memGetSharedJSON,
+			"FindNodes": `{"data":{"nodes":[` + specNodeList("cli", `["spec"]`) + `]}}`,
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"spec", "describe", "-m", ref, "--json", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("-m %q names a readable shared memory and must resolve, got %v", ref, err)
+		}
+		var vars struct {
+			Ref string `json:"ref"`
+		}
+		_ = json.Unmarshal(captured["GetMemory"], &vars)
+		if vars.Ref == "" {
+			t.Errorf("-m %q should have been read directly after the listing missed", ref)
+		}
+	}
+}
+
+// The direct read is a fallback, not a way to swallow a genuine typo: a ref
+// that neither lists nor reads still fails as NotFound with the suggestions.
+func TestSpecMemoryUnknownRefStillNotFound(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"Memories":  memListJSON,
+		"GetMemory": `{"data":{"memory":null}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "describe", "-m", "hadronmemory.com::platfrm-specs", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if got := exitcode.FromError(err); got != exitcode.NotFound {
+		t.Fatalf("an unknown memory should exit %d (not found), got %d (%v)", exitcode.NotFound, got, err)
+	}
+	if !strings.Contains(err.Error(), "platform-specs") {
+		t.Errorf("expected a did-you-mean tail naming the real memory, got %v", err)
+	}
+}
+
 // #45 review: --abstract and --abstract-file are mutually exclusive, guarded
 // on Changed() (so an explicit empty --abstract is caught too); fires before
 // any GraphQL call.
