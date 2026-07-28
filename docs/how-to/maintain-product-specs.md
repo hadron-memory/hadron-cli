@@ -63,42 +63,74 @@ hadron spec describe -m hadronmemory.com::platform-specs --declare product
 Provisions shared across siblings live in a reserved **contract** node that the
 siblings inherit from — one per tier:
 
-| shared across… | contract loc | created with |
-|---|---|---|
-| all rules of a feature | `msg:010:00` | `spec new --feature 010 --contract` |
-| all features of a module | `msg:000` | `spec new --module msg --contract` |
-| all modules of a product | `cli:gen` | `spec new --product cli --contract` |
+| shared across… | contract loc | created with the root… | …or retrofitted with |
+|---|---|---|---|
+| all rules of a feature | `msg:010:00` | `spec new --module msg --new-feature` | `spec new --module msg --feature 010 --contract` |
+| all features of a module | `msg:000` | `spec new --module msg --new-module` | `spec new --module msg --contract` |
+| all modules of a product | `cli:gen` | `spec new --product cli --new-product` | `spec new --product cli --contract` |
 
 The contract spelling follows each tier's alphabet — the numeric tiers use their
 "zero" (`00`, `000`), and the alpha module tier uses the reserved code `gen`.
-`--contract` always scaffolds the contract at the **deepest tier you name**, so
-you don't have to remember which spelling applies. A new sibling automatically
-gets an inheritance edge to the contract when it exists.
+A new sibling automatically gets an inheritance edge to the contract when it
+exists.
+
+**You rarely create one by hand.** Creating a root — `--new-product`,
+`--new-module`, `--new-feature`, or any root minted by `--new-path` — *also*
+scaffolds that tier's contract, titled `<title> general provisions` and wired
+back to the root, so the root's children have an inheritance target from the
+start. Pass `--no-contract` to suppress it; the root is still created, and still
+inherits whatever contract already exists above it.
+
+`--contract` is therefore for retrofitting a tier that predates that behaviour
+or was created with `--no-contract`. It always scaffolds the contract at the
+**deepest tier you name**, so you don't have to remember which spelling applies.
 
 ## Scaffolding a product corpus
 
-Create top-down; each level must exist before its children. Use `--dry-run` to
-preview any step without writing.
+`spec new <citation> --new-path` creates the citation you name **plus every
+missing ancestor** in one call — each with its tier template and, for the roots,
+its general-provisions contract. Use `--dry-run` to preview any step without
+writing.
 
 ```sh
 M=hadronmemory.com::platform-specs
 
-# 1. the product root
+hadron spec new -m $M cli:cha:010:01 --new-path --title "backpressure"
+```
+
+From an empty corpus that one call mints `cli`, `cli:gen`, `cli:cha`,
+`cli:cha:000`, `cli:cha:010`, `cli:cha:010:00` and the rule itself, wired
+top-down; ancestors that already exist are left alone. `--new-path` takes the
+citation *positionally* and refuses to be combined with the tier-selecting flags
+(`--product` / `--module` / `--feature` / `--rule` / `--flow` / `--inherit` /
+`--new-*` / `--contract`).
+
+**Rename the ancestors afterward.** `--title` lands on the citation you named;
+each ancestor is titled from its own citation segment — `cli:cha` is titled
+`cha`, `cli:cha:010` is titled `010`. That lints clean (the name leads with the
+citation), so nothing will remind you:
+
+```sh
+hadron node update cli:cha -m $M --name "cli:cha — chat command group"
+```
+
+Building tier by tier is still there for when you want to title and populate
+each level as you go. Each level must exist before its children:
+
+```sh
 hadron spec new -m $M --new-product --product cli --title "Hadron CLI"
-
-# 2. (optional) the product's general provisions, inherited by every module
-hadron spec new -m $M --product cli --contract --title "CLI-wide provisions"
-
-# 3. a module under the product
 hadron spec new -m $M --product cli --new-module --module cha --title "chat command group"
-
-# 4. (optional) the module's general provisions, inherited by every feature
-hadron spec new -m $M --product cli --module cha --contract --title "chat provisions"
-
-# 5. a feature, then its rules
 hadron spec new -m $M --product cli --module cha --new-feature --title "streaming"
 hadron spec new -m $M --product cli --module cha --feature 010 --title "backpressure"
 ```
+
+Each of the first three calls also scaffolds its tier's contract (`cli:gen`,
+`cli:cha:000`, `cli:cha:010:00`) unless you pass `--no-contract`. Product and
+module codes are frozen — re-minting one exits 5 — and a missing parent tier is
+rejected up front (exit 4, nothing written). An edge that can't be wired is the
+one failure that half-writes: the node exists, `spec new` exits 1 rather than
+report success, and you fix the target and re-run or wire it with `hadron edge
+add`.
 
 A flat corpus is identical without the `--product` flag (and `--new-module`
 creates a top-level module):
