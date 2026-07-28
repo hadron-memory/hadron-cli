@@ -2091,7 +2091,19 @@ type Mutation {
       idempotent upsert path when the call would demote an
       existing sole owner to reader/writer.
   """
-  addMemoryMember(memoryId: ID!, role: MemoryMemberRole!, userId: ID!): AddMemoryMemberPayload!
+  addMemoryMember(
+    memoryId: ID @deprecated(reason: "Use memoryRef (accepts id / URN).")
+
+    """#764 — the memory as an id or URN. Supply this OR memoryId."""
+    memoryRef: String
+    role: MemoryMemberRole!
+    userId: ID @deprecated(reason: "Use userRef (accepts id / email / handle / URN).")
+
+    """
+    #764 — the user as an id / email / handle / hrn:user:<handle> URN. Supply this OR userId.
+    """
+    userRef: String
+  ): AddMemoryMemberPayload!
 
   """
   Attach a Memory to an Agent.
@@ -2101,7 +2113,21 @@ type Mutation {
   addMemoryToAgent(agentId: ID!, memoryId: ID!, role: String): Agent!
 
   """Accepts the entity's ID or URN (orgId)."""
-  addOrgMember(orgId: ID!, role: Role!, userId: ID!): OrgMember!
+  addOrgMember(
+    orgId: ID @deprecated(reason: "Use orgRef (accepts id / slug / URN).")
+
+    """
+    #764 — the organization as an id / slug / hrn:org:<slug> URN. Supply this OR orgId.
+    """
+    orgRef: String
+    role: Role!
+    userId: ID @deprecated(reason: "Use userRef (accepts id / email / handle / URN).")
+
+    """
+    #764 — the user as an id / email / handle / hrn:user:<handle> URN. Supply this OR userId.
+    """
+    userRef: String
+  ): OrgMember!
 
   """
   Attach an EXISTING free-standing memory to an App.
@@ -2483,7 +2509,19 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  createMemorySubscription(memoryId: ID!, orgId: ID!, role: Role!): MemorySubscription!
+  createMemorySubscription(
+    memoryId: ID @deprecated(reason: "Use memoryRef (accepts id / URN).")
+
+    """#764 — the memory as an id or URN. Supply this OR memoryId."""
+    memoryRef: String
+    orgId: ID @deprecated(reason: "Use orgRef (accepts id / slug / URN).")
+
+    """
+    #764 — the organization as an id / slug / hrn:org:<slug> URN. Supply this OR orgId.
+    """
+    orgRef: String
+    role: Role!
+  ): MemorySubscription!
 
   """
   Create a single node. Rejects with NodeLocConflictError when a live node
@@ -2649,7 +2687,18 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  deleteMemorySubscription(memoryId: ID!, orgId: ID!): Boolean!
+  deleteMemorySubscription(
+    memoryId: ID @deprecated(reason: "Use memoryRef (accepts id / URN).")
+
+    """#764 — the memory as an id or URN. Supply this OR memoryId."""
+    memoryRef: String
+    orgId: ID @deprecated(reason: "Use orgRef (accepts id / slug / URN).")
+
+    """
+    #764 — the organization as an id / slug / hrn:org:<slug> URN. Supply this OR orgId.
+    """
+    orgRef: String
+  ): Boolean!
   deleteNode(cascadeCrossMemoryEdges: Boolean, hard: Boolean, nodeRef: ID!, recursive: Boolean): Boolean!
   deleteNodeRevision(revisionId: ID!): Boolean!
   deleteObject(hard: Boolean, ref: ID!): Boolean!
@@ -2753,7 +2802,19 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  ensureAppMember(appId: ID!, role: String!, userId: ID!): AppMember!
+  ensureAppMember(
+    appId: ID @deprecated(reason: "Use appRef (accepts id / URN).")
+
+    """#764 — the App as an id / URN. Supply this OR appId."""
+    appRef: String
+    role: String!
+    userId: ID @deprecated(reason: "Use userRef (accepts id / email / handle / URN).")
+
+    """
+    #764 — the user as an id / email / handle / hrn:user:<handle> URN. Supply this OR userId.
+    """
+    userRef: String
+  ): AppMember!
   exchangeMoveMessage(connectionId: ID!, folderId: String!, messageId: ID!): Boolean!
   exchangeReply(body: String!, connectionId: ID!, messageId: ID!): Boolean!
 
@@ -2975,7 +3036,18 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  removeAppMember(appId: ID!, userId: ID!): Boolean!
+  removeAppMember(
+    appId: ID @deprecated(reason: "Use appRef (accepts id / URN).")
+
+    """#764 — the App as an id / URN. Supply this OR appId."""
+    appRef: String
+    userId: ID @deprecated(reason: "Use userRef (accepts id / email / handle / URN).")
+
+    """
+    #764 — the user as an id / email / handle / hrn:user:<handle> URN. Supply this OR userId.
+    """
+    userRef: String
+  ): Boolean!
 
   """
   Detach a Memory from an Agent.
@@ -2996,10 +3068,34 @@ type Mutation {
   Caller-authority: either an owner of the Memory, or the member
   being removed (self-removal).
   """
-  removeMemoryMember(memoryId: ID!, userId: ID!): RemoveMemoryMemberPayload!
+  removeMemoryMember(
+    memoryId: ID @deprecated(reason: "Use memoryRef (accepts id / URN).")
+
+    """#764 — the memory as an id or URN. Supply this OR memoryId."""
+    memoryRef: String
+    userId: ID @deprecated(reason: "Use userRef (accepts id / email / handle / URN).")
+
+    """
+    #764 — the user as an id / email / handle / hrn:user:<handle> URN. Supply this OR userId.
+    """
+    userRef: String
+  ): RemoveMemoryMemberPayload!
 
   """Accepts the entity's ID or URN (orgId)."""
-  removeOrgMember(orgId: ID!, userId: ID!): Boolean!
+  removeOrgMember(
+    orgId: ID @deprecated(reason: "Use orgRef (accepts id / slug / URN).")
+
+    """
+    #764 — the organization as an id / slug / hrn:org:<slug> URN. Supply this OR orgId.
+    """
+    orgRef: String
+    userId: ID @deprecated(reason: "Use userRef (accepts id / email / handle / URN).")
+
+    """
+    #764 — the user as an id / email / handle / hrn:user:<handle> URN. Supply this OR userId.
+    """
+    userRef: String
+  ): Boolean!
   replaceSubtree(edges: [EdgeInput!]!, memoryId: String!, nodes: [NodeInput!]!, ownerRepo: String!): Int!
   restoreAsset(assetId: ID!): Asset!
   restoreNodeRevision(revisionId: ID!, truncate: Boolean = false): Node!
@@ -3026,7 +3122,18 @@ type Mutation {
   
   Accepts the entity's ID or URN (agentId).
   """
-  revokeAgentSubscription(agentId: ID!, userId: ID!): AgentSubscription!
+  revokeAgentSubscription(
+    agentId: ID @deprecated(reason: "Use agentRef (accepts id / URN).")
+
+    """#764 — the Agent as an id / URN. Supply this OR agentId."""
+    agentRef: String
+    userId: ID @deprecated(reason: "Use userRef (accepts id / email / handle / URN).")
+
+    """
+    #764 — the user as an id / email / handle / hrn:user:<handle> URN. Supply this OR userId.
+    """
+    userRef: String
+  ): AgentSubscription!
   revokeAppKey(id: ID!): Boolean!
 
   """Revoke a connection grant you created (soft delete). Owner-only."""
@@ -3062,9 +3169,9 @@ type Mutation {
 
   """
   #772 — replace the caller's entire dashboard widget selection. Grid position
-  is the array order; span defaults to 4 and is clamped to 1-12. Covers both
-  create and update (the layout is always saved as a whole). Returns the new
-  selection. Requires an authenticated user.
+  is the array order; each widget's span (1-12) and rowSpan (1-4) are required
+  and clamped server-side. Covers both create and update (the layout is always
+  saved as a whole). Returns the new selection. Requires an authenticated user.
   """
   setDashboardWidgets(widgets: [DashboardWidgetInput!]!): [DashboardWidget!]!
 
@@ -3228,7 +3335,19 @@ type Mutation {
     - MemoryMemberNotFoundError — no row at (memoryId, userId).
     - LastOwnerProtectedError (FR-038) — would demote the sole owner.
   """
-  updateMemoryMemberRole(memoryId: ID!, role: MemoryMemberRole!, userId: ID!): UpdateMemoryMemberRolePayload!
+  updateMemoryMemberRole(
+    memoryId: ID @deprecated(reason: "Use memoryRef (accepts id / URN).")
+
+    """#764 — the memory as an id or URN. Supply this OR memoryId."""
+    memoryRef: String
+    role: MemoryMemberRole!
+    userId: ID @deprecated(reason: "Use userRef (accepts id / email / handle / URN).")
+
+    """
+    #764 — the user as an id / email / handle / hrn:user:<handle> URN. Supply this OR userId.
+    """
+    userRef: String
+  ): UpdateMemoryMemberRolePayload!
 
   """
   023-app-shape US3 — change the role on an existing MemoryShare.
@@ -3253,7 +3372,19 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  updateMemorySubscription(memoryId: ID!, orgId: ID!, role: Role!): MemorySubscription!
+  updateMemorySubscription(
+    memoryId: ID @deprecated(reason: "Use memoryRef (accepts id / URN).")
+
+    """#764 — the memory as an id or URN. Supply this OR memoryId."""
+    memoryRef: String
+    orgId: ID @deprecated(reason: "Use orgRef (accepts id / slug / URN).")
+
+    """
+    #764 — the organization as an id / slug / hrn:org:<slug> URN. Supply this OR orgId.
+    """
+    orgRef: String
+    role: Role!
+  ): MemorySubscription!
 
   """
   Author YOUR user-layer action-policy link (cor:acl:040:02, #510). Null clears (= no restriction).
@@ -3284,7 +3415,21 @@ type Mutation {
   updateOrgGithubApp(appId: String!, orgId: ID!, privateKey: String!): Organization!
 
   """Accepts the entity's ID or URN (orgId)."""
-  updateOrgMember(orgId: ID!, role: Role!, userId: ID!): OrgMember!
+  updateOrgMember(
+    orgId: ID @deprecated(reason: "Use orgRef (accepts id / slug / URN).")
+
+    """
+    #764 — the organization as an id / slug / hrn:org:<slug> URN. Supply this OR orgId.
+    """
+    orgRef: String
+    role: Role!
+    userId: ID @deprecated(reason: "Use userRef (accepts id / email / handle / URN).")
+
+    """
+    #764 — the user as an id / email / handle / hrn:user:<handle> URN. Supply this OR userId.
+    """
+    userRef: String
+  ): OrgMember!
 
   """
   Update an Organization.
@@ -3392,14 +3537,15 @@ type Node {
 """
 Spec cor:api:040 — result envelope for the batch node read (nodeBatch).
 'nodes' is the authorized, existing subset (input order for a ref set, loc
-order for a prefix). 'unavailable' lists the requested refs that were denied
-OR not found — indistinguishable, so the result never discloses whether an
+order for a prefix). 'unavailable' and 'omitted' are both lists of REFS, not
+node objects. 'unavailable' lists the requested refs that were denied OR not
+found — indistinguishable, so the result never discloses whether an
 unreadable node exists. 'truncated' is true when the response-size cap was
-reached, and 'omitted' then carries the dropped nodes. (Over the node-count
-cap the query errors instead — never a silent short read.) Both lists echo
-the caller's OWN ref strings for the 'refs' form — pass a URN, get that URN
-back, not a primary key you never sent — and node ids for the prefix form,
-which has no caller refs.
+reached, and 'omitted' then carries the refs of the nodes dropped to stay
+under it. (Over the node-count cap the query errors instead — never a silent
+short read.) Both lists echo the caller's OWN ref strings for the 'refs'
+form — pass a URN, get that URN back, not a primary key you never sent — and
+node ids for the prefix form, which has no caller refs.
 """
 type NodeBatchResult {
   nodes: [Node!]!
@@ -4620,9 +4766,13 @@ type Query {
   'refs' (explicit set, returned in input order) OR 'memory' + 'locPrefix'
   (subtree, loc order) — not both. Each entry of 'refs' is a primary key OR a
   fully-qualified node URN (cor:api:140), so a URN-holding caller batches in
-  ONE call instead of resolving each ref first; a malformed / unqualified ref
-  errors rather than landing silently in 'unavailable'. Per-node access is
-  applied independently AFTER resolution: denied or missing refs come back in
+  ONE call instead of resolving each ref first. The split on a bad ref is by
+  KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
+  / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
+  'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+  the caller may read comes back in 'unavailable'. A caller mistake stays
+  loud instead of hiding among denials. Per-node access is applied
+  independently AFTER resolution: denied or missing refs come back in
   'unavailable' and never fail the call. Bounded by hard caps — over the
   node-count cap throws BAD_USER_INPUT; over the response-size cap returns a
   partial result with 'truncated: true' and the dropped refs in 'omitted'
@@ -4655,6 +4805,25 @@ type Query {
   disclosure).
   """
   nodeRevisions(limit: Int, nodeRef: ID!): [NodeRevision!]!
+
+  """
+  Usage events for a node loc, most recent first.
+  
+  'loc' names no memory, so this is a cross-memory exact nodeLoc match — the
+  same bare-loc semantics as usageEvents(nodeId:). It is a filter, not a
+  lookup: an unknown loc yields an empty list, not NODE_NOT_FOUND.
+  
+  Access control (#802): results are scoped to the memories the caller may
+  read (org membership / subscriptions / public / owned personal+private per
+  spec 034; ADMIN/OWNER see all EXCEPT another user's personal/private
+  memories and, per spec 047, another user's user-owned memories), so this is
+  never cross-tenant. An unreadable loc and a nonexistent one both return an
+  empty list (no existence disclosure).
+  
+  Equivalent to usageEvents(nodeId: <loc>), which additionally supports a PK
+  or fully-qualified URN, type filtering, and paging — prefer it for new
+  callers.
+  """
   nodeUsage(limit: Int, loc: String!): [UsageEvent!]!
 
   """
@@ -5480,6 +5649,12 @@ type UsageEvent {
   createdAt: String!
   id: ID!
   keyOwnerType: String
+
+  """
+  Memory the event is attributed to (#796). Stored at write time, so it
+  outlives the node — null only for events written before the backfill
+  whose node was already deleted, or paths with no memory in scope.
+  """
   memoryId: String
   model: String
   nodeLoc: String
