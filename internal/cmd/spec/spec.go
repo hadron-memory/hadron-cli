@@ -636,14 +636,25 @@ func annotateMemoryURNs(cmd *cobra.Command, client graphql.Client, errOut io.Wri
 // list did not cover. An unreadable memory yields "" — the caller then renders
 // the id, which is a worse label but never a wrong one.
 func memoryURNByID(cmd *cobra.Command, client graphql.Client, id string) string {
-	if strings.TrimSpace(id) == "" {
-		return ""
+	_, memURN, _ := readMemoryByRef(cmd, client, id)
+	return memURN
+}
+
+// readMemoryByRef reads one memory directly, for a ref the memories listing did
+// not cover: the listing draws the caller's own union, while sharedWithMe and
+// visibility:PUBLIC are separate slice SELECTIONS on MemoryFilter, so a memory
+// shared with the caller (or a marketplace one) is readable yet absent from it
+// (#311). A memory *name* isn't a ref the server resolves, so it misses here and
+// the caller falls through to its not-found path.
+func readMemoryByRef(cmd *cobra.Command, client graphql.Client, ref string) (id, memURN string, ok bool) {
+	if strings.TrimSpace(ref) == "" {
+		return "", "", false
 	}
-	resp, err := gen.GetMemory(cmd.Context(), client, id)
+	resp, err := gen.GetMemory(cmd.Context(), client, cmdutil.CanonicalMemoryRef(ref))
 	if err != nil || resp == nil || resp.Memory == nil {
-		return ""
+		return "", "", false
 	}
-	return canonicalMemoryURN(resp.Memory.Urn)
+	return resp.Memory.Id, canonicalMemoryURN(resp.Memory.Urn), true
 }
 
 // memoryURNsByID lists every accessible memory once and maps PK →
@@ -761,6 +772,14 @@ func lookupSpecMemory(cmd *cobra.Command, client graphql.Client, ref string) (id
 			return m.Id, canon, nil
 		}
 		available = append(available, canon)
+	}
+	// The listing covers only the caller's own union, so a readable memory can
+	// be missing from it entirely (a MemoryShare grantee's, or a marketplace
+	// one). Ask for the ref directly before declaring it absent — otherwise
+	// `-m <shared-memory>` is a flat "not found" for a memory whose nodes the
+	// caller can read (#311).
+	if id, memURN, ok := readMemoryByRef(cmd, client, ref); ok {
+		return id, memURN, nil
 	}
 	// A bare "not found" is a dead end — the author has to guess the real urn.
 	// Point them at the closest match (same org, spec memories first) or list
