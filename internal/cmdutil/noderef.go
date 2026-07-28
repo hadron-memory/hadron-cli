@@ -89,6 +89,21 @@ func BatchNodeRef(memory, ref string) (string, error) {
 		ref = memory + "::" + ref
 	}
 	if urnlib.HasSchemePrefix(ref) {
+		// Validate rather than pass through. A prefixed ref used to go out
+		// unchecked, so a wrong-kind URN like "hrn:mem:acme.com:kb" reached the
+		// server and failed the WHOLE nodeBatch(refs:) call with a generic
+		// BAD_USER_INPUT — taking every valid ref in the batch down with it.
+		// AssertFullyQualifiedUrn catches it here, precisely and locally
+		// (review on #305).
+		//
+		// It validates only; the ref is NOT rewritten. Collapsing spellings to
+		// one canonical form would flatten a COMPOUND app-mem memory
+		// (<org>::<agent>:app-mem:<slug>), whose "::" is the only thing marking
+		// where the memory ends and the loc begins.
+		if urnlib.AssertFullyQualifiedUrn(ref, "node") != nil {
+			return "", exitcode.Newf(exitcode.Usage,
+				"%q is not a fully-qualified node URN — expected <org>::<memory>::<loc>, optionally hrn:node:/urn:node:-prefixed", ref)
+		}
 		return ref, nil
 	}
 	// Same client-side grammar gate as ResolveNodeURN, so `node get <ref>` and

@@ -1,6 +1,7 @@
 package cmdutil
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -66,5 +67,47 @@ func TestBatchNodeRefRejectsUnqualified(t *testing.T) {
 				t.Errorf("exit code = %d, want %d (usage)", code, exitcode.Usage)
 			}
 		})
+	}
+}
+
+// A scheme-prefixed ref is validated, not trusted. It used to pass through
+// unchecked, so a wrong-kind or malformed URN reached the server and failed
+// the WHOLE nodeBatch(refs:) call — taking every valid ref with it (#305).
+func TestBatchNodeRefValidatesPrefixedRefs(t *testing.T) {
+	bad := []struct{ name, ref string }{
+		{"wrong entity type", "hrn:mem:acme.com:kb"},
+		{"memory urn, node expected", "hrn:memory:acme.com::kb"},
+		{"prefixed but not qualified", "hrn:node:acme.com"},
+		{"legacy scheme, wrong kind", "urn:mem:acme.com:kb"},
+	}
+	for _, tt := range bad {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := BatchNodeRef("", tt.ref)
+			if err == nil {
+				t.Fatalf("BatchNodeRef(%q) = %q, want a usage error", tt.ref, got)
+			}
+			if !strings.Contains(err.Error(), tt.ref) {
+				t.Errorf("error should name the offending ref, got %v", err)
+			}
+		})
+	}
+
+	// A well-formed prefixed node URN still passes through UNCHANGED — the
+	// check validates, it does not rewrite. Rewriting would flatten a compound
+	// app-mem memory, whose "::" marks the memory/loc boundary.
+	for _, ok := range []string{
+		"hrn:node:acme.com:kb:alpha",
+		"hrn:node:acme.com::kb::alpha",
+		"urn:node:acme.com::kb::alpha",
+		"hrn:node:acme.com::juno:app-mem:ops::alpha",
+	} {
+		got, err := BatchNodeRef("", ok)
+		if err != nil {
+			t.Errorf("BatchNodeRef(%q): unexpected error %v", ok, err)
+			continue
+		}
+		if got != ok {
+			t.Errorf("BatchNodeRef(%q) = %q — a valid prefixed ref must pass through unchanged", ok, got)
+		}
 	}
 }

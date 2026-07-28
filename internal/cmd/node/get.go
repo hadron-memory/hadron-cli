@@ -26,10 +26,11 @@ optional (legacy urn:node: also accepted). Pass -m/--memory to name a
 node by a bare <loc> within that memory instead; without -m a bare loc
 is rejected, since the same loc can exist in several memories.
 
-Pass SEVERAL refs to read them together. However many you pass, they cost ONE
-call — the server reads a batch by URN as happily as by id — and a ref that is
-missing or unreadable is reported under "unavailable" rather than failing the
-whole read.
+Pass SEVERAL refs to read them together. They are sent as one batched read —
+the server takes a URN as happily as an id, so nothing is resolved first — and a
+ref that is missing or unreadable is reported under "unavailable" rather than
+failing the whole read. Up to 200 nodes that is a single request; beyond the
+server's cap the set is split into as few requests as the cap allows.
 
 --prefix <loc> -m <memory> reads a whole subtree — every node whose loc starts
 with the prefix — in a SINGLE call, without naming each node. That is the way

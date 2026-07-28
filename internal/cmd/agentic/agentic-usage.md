@@ -261,9 +261,10 @@ Conventions:
   build instead and needs no network.
 - `node get` reads MANY nodes at once. With one ref the output is the node
   object, unchanged. With several refs, or with `--prefix <loc> -m <memory>`,
-  it is `{nodes, unavailable}`. Several refs cost ONE call, however many you
-  pass — `nodeBatch` takes a PK or a fully-qualified URN, so nothing is resolved
-  first. `--prefix` is the form for a whole branch: also one call, and unlike
+  it is `{nodes, unavailable}`. Several refs are sent as one batched read —
+  `nodeBatch` takes a PK or a fully-qualified URN, so nothing is resolved first.
+  Up to the server's 200-node cap that is a single request; a larger set is
+  chunked (and response-size spillover re-queued), never silently truncated. `--prefix` is the form for a whole branch: also one call, and unlike
   `node list` it returns full content and edges. An empty `--prefix` means the
   whole memory; the server caps the node count and fails loudly rather than
   truncating.
