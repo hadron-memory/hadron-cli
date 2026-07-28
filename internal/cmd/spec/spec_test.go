@@ -385,3 +385,32 @@ func TestParseLedgerRetired(t *testing.T) {
 		t.Errorf("retired[msg:010]=%v", l.retired["msg:010"])
 	}
 }
+
+func TestWriteSpecTableMemoryColumn(t *testing.T) {
+	one := []specDTO{{Citation: "msg:010:02", MemoryID: "mem1", MemoryURN: "acme.com::specs", Name: "Retention"}}
+	var buf strings.Builder
+	if err := writeSpecTable(&buf, one); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if strings.Contains(buf.String(), "MEMORY") {
+		t.Errorf("single-memory results should not carry the column:\n%s", buf.String())
+	}
+
+	// Second hit has no resolved urn: the column falls back to the id rather
+	// than rendering a blank cell.
+	two := append(one, specDTO{Citation: "msg:010:02", MemoryID: "mem2", Name: "Retention"})
+	buf.Reset()
+	if err := writeSpecTable(&buf, two); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	for _, want := range []string{"MEMORY", "acme.com::specs", "mem2"} {
+		if !strings.Contains(buf.String(), want) {
+			t.Errorf("missing %q in cross-memory table:\n%s", want, buf.String())
+		}
+	}
+
+	buf.Reset()
+	if err := writeSpecTable(&buf, nil); err != nil {
+		t.Fatalf("empty: %v", err)
+	}
+}

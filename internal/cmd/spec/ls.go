@@ -95,12 +95,14 @@ explicit page instead.`,
 				})
 			}
 
+			var scopedURN string
+			if memoryArg != nil {
+				scopedURN = *memoryArg
+			}
+			annotateMemoryURNs(cmd, client, f.IOStreams.ErrOut, specs, scopedURN)
+
 			return output.Write(f.IOStreams, f.JSON, specs, func(w io.Writer) error {
-				t := output.NewTable(w, "CITATION", "NAME")
-				for _, s := range specs {
-					t.Row(s.Citation, s.Name)
-				}
-				return t.Flush()
+				return writeSpecTable(w, specs)
 			})
 		},
 	}

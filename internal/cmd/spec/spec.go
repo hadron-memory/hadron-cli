@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"regexp"
 	"sort"
 	"strconv"
@@ -25,6 +26,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // NewCmdSpec returns the `hadron spec` command group.
@@ -87,10 +89,14 @@ func withFlagAliases(cmd *cobra.Command, aliases map[string]string) {
 
 // ---- stable --json DTOs (never genqlient structs; see output package) ----
 
-// specDTO is the --json shape for a spec in list output.
+// specDTO is the --json shape for a spec in list output. MemoryUrn is the
+// readable <org>::<memory> form of MemoryID (an opaque PK): a cross-memory
+// result set has colliding citations and names, so the urn is what tells two
+// hits apart (#309). It is empty when the memory could not be resolved.
 type specDTO struct {
 	Citation  string   `json:"citation"`
 	MemoryID  string   `json:"memoryId"`
+	MemoryURN string   `json:"memoryUrn"`
 	Name      string   `json:"name"`
 	NodeType  string   `json:"nodeType"`
 	Tags      []string `json:"tags"`
@@ -586,6 +592,133 @@ func specMemoryID(f *cmdutil.Factory, cmd *cobra.Command, client graphql.Client,
 		return "", "", err
 	}
 	return resolveSpecMemoryID(cmd, client, ref)
+}
+
+// annotateMemoryURNs fills specDTO.MemoryURN for list/find results. A scoped run
+// already resolved the memory and every hit came from it, so it costs nothing; an
+// unscoped run pays one paged memories call to map the ids. A failed lookup is
+// noted to errOut but not fatal — the listing is the deliverable, and rows still
+// render their memoryId (#309).
+func annotateMemoryURNs(cmd *cobra.Command, client graphql.Client, errOut io.Writer, specs []specDTO, scopedURN string) {
+	if len(specs) == 0 {
+		return
+	}
+	if scopedURN != "" {
+		for i := range specs {
+			specs[i].MemoryURN = scopedURN
+		}
+		return
+	}
+	byID, err := memoryURNsByID(cmd, client)
+	if err != nil {
+		fmt.Fprintf(errOut, "note: could not resolve memory urns (showing ids): %v\n", err)
+		return
+	}
+	for i := range specs {
+		id := specs[i].MemoryID
+		urn, seen := byID[id]
+		if !seen {
+			// The memories list draws from the caller's own union; findNodes
+			// reads a wider set, so a hit can live in a memory the list never
+			// returns — a MemoryShare grantee's slice (sharedWithMe) or the
+			// public marketplace slice, each documented as its own selection
+			// (schema MemoryFilter). Read those few by id rather than listing
+			// every slice on every call. Cached (empty included) so an
+			// unreadable memory costs one probe, not one per row.
+			urn = memoryURNByID(cmd, client, id)
+			byID[id] = urn
+		}
+		specs[i].MemoryURN = urn
+	}
+}
+
+// memoryURNByID reads one memory's canonical urn by PK, for an id the memories
+// list did not cover. An unreadable memory yields "" — the caller then renders
+// the id, which is a worse label but never a wrong one.
+func memoryURNByID(cmd *cobra.Command, client graphql.Client, id string) string {
+	if strings.TrimSpace(id) == "" {
+		return ""
+	}
+	resp, err := gen.GetMemory(cmd.Context(), client, id)
+	if err != nil || resp == nil || resp.Memory == nil {
+		return ""
+	}
+	return canonicalMemoryURN(resp.Memory.Urn)
+}
+
+// memoryURNsByID lists every accessible memory once and maps PK →
+// canonical <org>::<memory> urn. Same paging and class coverage as
+// lookupSpecMemory: memories() hides system memories by default, and a spec hit
+// may live in any class the caller can read.
+func memoryURNsByID(cmd *cobra.Command, client graphql.Client) (map[string]string, error) {
+	filter := &gen.MemoryFilter{MemoryClasses: gen.AllMemoryClass}
+	items, err := api.CollectAll(func(limit, offset int) ([]*gen.MemoriesMemoriesMemoriesPageItemsMemory, int, error) {
+		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset)
+		if err != nil {
+			return nil, 0, api.MapError(err)
+		}
+		if resp == nil || resp.Memories == nil {
+			return nil, 0, nil
+		}
+		return resp.Memories.Items, resp.Memories.Total, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[string]string, len(items))
+	for _, m := range items {
+		if m == nil {
+			continue
+		}
+		byID[m.Id] = canonicalMemoryURN(m.Urn)
+	}
+	return byID, nil
+}
+
+// writeSpecTable renders the `spec list` / `spec find` table. The MEMORY column
+// appears only when the results span more than one memory, so scoped output —
+// the common case — stays as narrow as it was, while an unscoped result set
+// (where the same citation and name legitimately exist in several corpora) is
+// self-disambiguating rather than silently ambiguous (#309).
+func writeSpecTable(w io.Writer, specs []specDTO) error {
+	if !spansMemories(specs) {
+		t := output.NewTable(w, "CITATION", "NAME")
+		for _, s := range specs {
+			t.Row(s.Citation, s.Name)
+		}
+		return t.Flush()
+	}
+	t := output.NewTable(w, "CITATION", "MEMORY", "NAME")
+	for _, s := range specs {
+		t.Row(s.Citation, memoryLabel(s), s.Name)
+	}
+	return t.Flush()
+}
+
+// spansMemories reports whether the results come from more than one memory,
+// keyed on the memoryId — the authoritative identity, present even when the urn
+// lookup failed.
+func spansMemories(specs []specDTO) bool {
+	var first string
+	for i, s := range specs {
+		if i == 0 {
+			first = s.MemoryID
+			continue
+		}
+		if s.MemoryID != first {
+			return true
+		}
+	}
+	return false
+}
+
+// memoryLabel is the MEMORY cell: the readable urn, falling back to the PK so
+// the column is never blank for a memory the list did not cover.
+func memoryLabel(s specDTO) string {
+	if s.MemoryURN != "" {
+		return s.MemoryURN
+	}
+	return s.MemoryID
 }
 
 // lookupSpecMemory matches a memory ref against the memories list by PK, urn (in any
