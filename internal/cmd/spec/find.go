@@ -148,7 +148,7 @@ func collectSpecFindResults(
 			if n == nil || !isSpecNode(n.Tags, n.Loc) {
 				continue
 			}
-			specs = append(specs, specDTO{Citation: n.Loc, MemoryID: n.MemoryId, Name: n.Name, NodeType: n.NodeType, Tags: n.Tags, UpdatedAt: n.UpdatedAt})
+			specs = append(specs, specDTO{Citation: n.Loc, MemoryID: n.MemoryId, Name: n.Name, NodeType: n.NodeType, Tags: tagsOrEmpty(n.Tags), UpdatedAt: n.UpdatedAt})
 			if len(specs) == resultLimit {
 				break
 			}
