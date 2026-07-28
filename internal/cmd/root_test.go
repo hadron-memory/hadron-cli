@@ -109,6 +109,9 @@ func testFactory(t *testing.T) (*cmdutil.Factory, *strings.Builder) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("HADRON_TOKEN", "hdr_user_test")
 	t.Setenv("HADRON_SERVER", "")
+	// The spec commands read this env var ahead of the (temp-dir) config, so a
+	// developer with it exported would silently scope the unscoped-path tests.
+	t.Setenv("HADRON_SPEC_MEMORY", "")
 	io, _, _ := output.Test()
 	out := &strings.Builder{}
 	errOut := &strings.Builder{}

@@ -18,9 +18,23 @@ import (
 
 const specMem = "micromentor.org::platform-specs"
 
+// specNodeList is a hit in mem1, with the id the NodeBatch stubs echo back as
+// `id-<loc>`.
 func specNodeList(loc, tags string) string {
-	return fmt.Sprintf(`{"id":"id-%s","memoryId":"mem1","loc":%q,"name":%q,"nodeType":"info","tags":%s,"updatedAt":"2026-06-14T00:00:00Z"}`,
-		loc, loc, loc+" — T", tags)
+	return specNodeListNode("id-"+loc, loc, tags, "mem1")
+}
+
+// specNodeListIn is specNodeList for a spec hit in a named memory: cross-memory
+// list/find results carry colliding citations and names, so the tests that
+// exercise the MEMORY column need hits that differ only by memoryId — hence the
+// memory-qualified id too (#309).
+func specNodeListIn(loc, memoryID string) string {
+	return specNodeListNode("id-"+memoryID+"-"+loc, loc, `["spec"]`, memoryID)
+}
+
+func specNodeListNode(id, loc, tags, memoryID string) string {
+	return fmt.Sprintf(`{"id":%q,"memoryId":%q,"loc":%q,"name":%q,"nodeType":"info","tags":%s,"updatedAt":"2026-06-14T00:00:00Z"}`,
+		id, memoryID, loc, loc+" — T", tags)
 }
 
 // specBatchNode is one node in a nodeBatch response — the projection the
@@ -286,6 +300,98 @@ func TestSpecFindSemanticDefault(t *testing.T) {
 	}
 	if len(vars.Filter.MemoryIds) != 1 || vars.Filter.MemoryIds[0] != specMem {
 		t.Errorf("memory scope should map to filter.memoryIds, got %v", vars.Filter.MemoryIds)
+	}
+}
+
+// memListTwoJSON is a Memories response covering both memories used by the
+// cross-memory list/find tests.
+const memListTwoJSON = `{"data":{"memories":{"total":2,"items":[` +
+	`{"id":"mem1","urn":"hrn:memory:micromentor.org::platform-specs","name":"Platform Specs","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"updatedAt":"2026-06-14T00:00:00Z"},` +
+	`{"id":"mem2","urn":"hrn:memory:hadronmemory.com::specs","name":"Specs","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org2","isEncrypted":false,"updatedAt":"2026-06-14T00:00:00Z"}]}}}`
+
+// An unscoped find can return the same citation and name from several corpora.
+// Those rows are only distinguishable if the table names the memory (#309).
+func TestSpecFindCrossMemoryShowsMemoryColumn(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodeSearch":{"degraded":null,"reason":null,"nodes":[` +
+			specNodeListIn("msg:010:02", "mem1") + `,` +
+			specNodeListIn("msg:010:02", "mem2") + `]}}}`,
+		"Memories": memListTwoJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "find", "retention window", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "MEMORY") {
+		t.Errorf("cross-memory results need a MEMORY column:\n%s", out.String())
+	}
+	for _, urn := range []string{"micromentor.org::platform-specs", "hadronmemory.com::specs"} {
+		if !strings.Contains(out.String(), urn) {
+			t.Errorf("missing memory %q in output:\n%s", urn, out.String())
+		}
+	}
+}
+
+// The urn resolution is a nicety on top of the listing: if the memories lookup
+// fails, the rows still render (keyed by memoryId) with a note (#309).
+func TestSpecFindCrossMemoryDegradesToMemoryIDs(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodeSearch":{"degraded":null,"reason":null,"nodes":[` +
+			specNodeListIn("cor:api:010:01", "mem1") + `,` +
+			specNodeListIn("cor:api:010:01", "mem2") + `]}}}`,
+		"Memories": `{"errors":[{"message":"boom"}]}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "find", "retention window", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a failed memory lookup must not fail the listing: %v", err)
+	}
+	if !strings.Contains(out.String(), "mem1") || !strings.Contains(out.String(), "mem2") {
+		t.Errorf("expected the memoryId fallback in the MEMORY column:\n%s", out.String())
+	}
+	errOut, _ := f.IOStreams.ErrOut.(*strings.Builder)
+	if errOut == nil || !strings.Contains(errOut.String(), "could not resolve memory urns") {
+		t.Errorf("expected a note about the failed lookup, got %q", errOut)
+	}
+}
+
+// A scoped run already knows its memory: the column stays off (nothing to
+// disambiguate) and the urn is filled without a memories round-trip (#309).
+func TestSpecListScopedOmitsMemoryColumn(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:02", `["spec"]`) + `]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "list", "-m", specMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Contains(out.String(), "MEMORY") {
+		t.Errorf("single-memory output should stay narrow:\n%s", out.String())
+	}
+	if _, ok := captured["Memories"]; ok {
+		t.Error("a scoped run already knows its memory — no memories lookup expected")
+	}
+
+	f, out = testFactory(t)
+	root = NewRootCmd(f)
+	root.SetArgs([]string{"spec", "list", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute --json: %v", err)
+	}
+	var specs []struct {
+		MemoryID  string `json:"memoryId"`
+		MemoryUrn string `json:"memoryUrn"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &specs); err != nil {
+		t.Fatalf("unmarshal: %v (%s)", err, out.String())
+	}
+	if len(specs) != 1 || specs[0].MemoryUrn != specMem || specs[0].MemoryID != "mem1" {
+		t.Errorf("--json should carry both the id and the readable urn, got %+v", specs)
 	}
 }
 

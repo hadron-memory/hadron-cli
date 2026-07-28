@@ -161,6 +161,22 @@ It writes `spec_memory` to your user config (for example,
 `~/.config/hadron/config.toml`), so it applies across checkouts; pass `-m` when
 one repository or one call should target a different corpus.
 
+### Working across several spec corpora
+
+Specs in different memories share citations and names — `msg:010:02` exists in
+as many corpora as have a messaging module — so an *unscoped* `list`/`find`
+returns rows that look identical. Two things keep that straight:
+
+- **Scope the session.** `export HADRON_SPEC_MEMORY=$M` scopes every `hadron
+  spec` call in that shell (and any agent it launches). Prefer it over `hadron
+  spec use` when you work on more than one corpus: `use` writes the
+  machine-global user config, so two concurrent sessions would fight over it.
+  Whenever a default answers, the command notes which one on stderr.
+- **Read the MEMORY column.** When results *do* span several memories, `list`
+  and `find` add a `MEMORY` column naming each hit's `<org>::<memory>`; scoped
+  output stays narrow. In `--json`, every row carries `memoryId` (the PK) and
+  `memoryUrn` (the readable form) regardless of scope.
+
 ## Corpus-wide find/replace
 
 To rename a token across the whole corpus (e.g. stale tool shorthand), use

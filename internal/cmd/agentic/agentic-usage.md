@@ -465,7 +465,11 @@ Conventions:
   convention-aware `edge add` that validates both endpoints are specs in the
   same corpus and synthesizes the field→entity label when `--label` is omitted
   (`--dry-run` previews); `spec find` is semantic by default (`--match-exactly`
-  forces literal regex matching); `spec grep <pattern>` searches every spec's
+  forces literal regex matching); `spec list`/`spec find` run unscoped when no
+  memory is given (`-m`, `HADRON_SPEC_MEMORY`, `spec use`, then the active
+  memory), and since citations and names collide across corpora, results
+  spanning more than one memory add a `MEMORY` column — `--json` always carries
+  both `memoryId` and the readable `memoryUrn`; `spec grep <pattern>` searches every spec's
   **body + abstract** across the whole corpus (one bulk read, not a per-spec
   loop) and prints each hit as `citation:line: text`, exhaustively — literal by
   default, `--regex` for RE2, `-i` to fold case, `--field content|abstract` to

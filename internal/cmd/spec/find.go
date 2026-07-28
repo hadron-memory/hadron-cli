@@ -99,12 +99,10 @@ Results are filtered to spec nodes.`,
 				fmt.Fprintf(f.IOStreams.ErrOut, "note: %s\n", note)
 			}
 
+			annotateMemoryURNs(cmd, client, f.IOStreams.ErrOut, specs, memURN)
+
 			return output.Write(f.IOStreams, f.JSON, specs, func(w io.Writer) error {
-				t := output.NewTable(w, "CITATION", "NAME")
-				for _, s := range specs {
-					t.Row(s.Citation, s.Name)
-				}
-				return t.Flush()
+				return writeSpecTable(w, specs)
 			})
 		},
 	}
