@@ -261,16 +261,20 @@ Conventions:
   build instead and needs no network.
 - `node get` reads MANY nodes at once. With one ref the output is the node
   object, unchanged. With several refs, or with `--prefix <loc> -m <memory>`,
-  it is `{nodes, unavailable}`. Several refs cost one resolve each plus ONE
-  batched body read (nodeBatch matches on primary key, so URNs must be resolved
-  first) — half the round trips of a per-node loop. `--prefix` is the cheapest
-  form: one call, no per-node resolution, and unlike `node list` it returns full
-  content and edges. An empty `--prefix` means the whole memory; the server caps
-  the node count and fails loudly rather than truncating.
+  it is `{nodes, unavailable}`. Several refs are sent as one batched read —
+  `nodeBatch` takes a PK or a fully-qualified URN, so nothing is resolved first.
+  Up to the server's 200-node cap that is a single request; a larger set is
+  chunked (and response-size spillover re-queued), never silently truncated. `--prefix` is the form for a whole branch: also one call, and unlike
+  `node list` it returns full content and edges. An empty `--prefix` means the
+  whole memory; the server caps the node count and fails loudly rather than
+  truncating.
   `unavailable` lists refs that are missing OR not readable by you — the server
   reports those identically, so neither the CLI nor you can tell them apart —
-  named as you supplied them, not as opaque ids. Any unavailable ref exits **4**,
-  so a partial read is never mistaken for a complete one.
+  named as the ref that was sent (your ref, canonicalized), not as opaque ids.
+  Any unavailable ref exits **4**, so a partial read is never mistaken for a
+  complete one. A MALFORMED ref (not fully qualified, or a URN of the wrong
+  entity) is a different case: it fails the whole call with exit **2**, before
+  anything is read, so a typo never hides among the denials.
   **Content differs between the forms:** a batched read returns content RAW
   (Mustache templates NOT compiled); a single-ref read compiles them. That is
   the server's design — the batch is a bulk SOURCE read for

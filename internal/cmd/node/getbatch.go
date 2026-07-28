@@ -30,15 +30,16 @@ type nodeBatchDTO struct {
 	Unavailable []string        `json:"unavailable"`
 }
 
-// fetchNodeBatch reads many nodes. With locPrefix set it is ONE call for the
-// whole subtree; otherwise each ref costs a resolve (URNs are not PKs — the
-// server matches nodeBatch ids on the primary key) and the bodies then come
-// back in one batched read.
+// fetchNodeBatch reads many nodes in ONE call — whether the caller named a
+// subtree with locPrefix or an explicit set of refs. Since hadron-server#813
+// nodeBatch(refs:) takes a PK or a fully-qualified URN, so the refs go straight
+// out; before that they were matched on the primary key alone and every URN
+// needed its own resolve first, which made an N-node read cost N+1 round trips.
 func fetchNodeBatch(
 	cmd *cobra.Command, client graphql.Client, memory, locPrefix string, refs []string, prefixMode bool,
 ) ([]*batchNode, []string, error) {
-	fetch := func(ids []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
-		resp, err := gen.NodeBatch(cmd.Context(), client, ids, nil, nil)
+	fetch := func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
+		resp, err := gen.NodeBatch(cmd.Context(), client, chunk, nil, nil)
 		if err != nil {
 			return nil, api.MapError(err)
 		}
@@ -69,52 +70,37 @@ func fetchNodeBatch(
 		return nodes, unavailable, nil
 	}
 
-	// Explicit set. A ref that is merely absent or malformed is reported as
-	// unavailable rather than failing the whole batch — one bad ref in twenty
-	// should not cost the other nineteen.
-	ids := make([]string, 0, len(refs))
-	var unresolved []string
-	// The server reports unavailable nodes by PRIMARY KEY, but the caller
-	// typed locs or URNs; without this mapping the output names an opaque id
-	// they never supplied and cannot act on.
-	refByID := make(map[string]string, len(refs))
+	// Explicit set — canonicalized locally, then sent in one batched read.
+	//
+	// A ref whose SHAPE is wrong fails the WHOLE call rather than being filed
+	// under unavailable. That mirrors the server's own rule for
+	// nodeBatch(refs:): the split is by kind, not by luck — an unqualified or
+	// wrong-entity ref errors, while a well-formed ref naming nothing the
+	// caller may read comes back in unavailable. Reporting a typo as
+	// "not found, or not readable by you" would hide a caller mistake among
+	// denials, which is exactly the conflation that contract prevents.
+	sendable := make([]string, 0, len(refs))
 	seen := map[string]bool{}
 	for _, ref := range refs {
-		id, err := cmdutil.ResolveNodeRef(cmd, client, memory, ref)
+		out, err := cmdutil.BatchNodeRef(memory, ref)
 		if err != nil {
-			// ONLY absence and a locally-invalid ref are "unavailable".
-			// Expired credentials, a dead transport, a cancelled context or an
-			// incompatible schema are real failures: swallowing them would emit
-			// a plausible partial result and exit 4, hiding an auth or
-			// operational error behind a not-found (review on #303).
-			switch exitcode.FromError(err) {
-			case exitcode.NotFound, exitcode.Usage:
-				unresolved = append(unresolved, ref)
-				continue
-			default:
-				return nil, nil, err
-			}
+			return nil, nil, err
 		}
-		if seen[id] {
+		if seen[out] {
 			continue // a repeated ref must not yield the node twice
 		}
-		seen[id] = true
-		refByID[id] = ref
-		ids = append(ids, id)
+		seen[out] = true
+		sendable = append(sendable, out)
 	}
-	nodes, unavailable, err := api.CollectNodeBatch(ids, fetch)
+	nodes, unavailable, err := api.CollectNodeBatch(sendable, fetch)
 	if err != nil {
 		return nil, nil, err
 	}
-	// Translate ids the server refused back into what the caller typed.
-	for _, id := range unavailable {
-		if ref, ok := refByID[id]; ok {
-			unresolved = append(unresolved, ref)
-			continue
-		}
-		unresolved = append(unresolved, id)
-	}
-	return nodes, unresolved, nil
+	// The server echoes the refs as sent, so nothing has to be translated back
+	// — what the caller sees named is what the caller typed (modulo the
+	// canonical hrn:node: prefix). Every entry here is a real absence or
+	// denial; a malformed ref never got this far.
+	return nodes, unavailable, nil
 }
 
 // batchDetailDTO maps the batch projection onto the same per-node shape the

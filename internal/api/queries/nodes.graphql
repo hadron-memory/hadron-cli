@@ -79,28 +79,32 @@ query ResolveUrn($urn: String!) {
   }
 }
 
-# Bulk read of full nodes by id (cor:api:040). Server caps a call at 200
-# nodes / 1 MB: an over-cap window comes back with truncated=true and the
-# spillover ids in `omitted`, so callers must re-request those; `unavailable`
-# lists ids the server could not return (deleted/inaccessible). Selects a full
-# node projection — both edge directions (with target/source loc + memoryId),
+# Bulk read of full nodes by ref (cor:api:040). Each entry of `refs` is a
+# primary key OR a fully-qualified node URN (hadron-server#813) — so a caller
+# holding URNs reads them in ONE call instead of resolving each one first. A
+# malformed ref is a loud server error, so refs are validated client-side before
+# they go out. Server caps a call at 200 nodes / 1 MB: an over-cap window comes
+# back with truncated=true and the spillover in `omitted`, so callers must
+# re-request those; `unavailable` lists refs the server could not return
+# (deleted/inaccessible). Both lists echo the refs as SENT. Selects a full node
+# projection — both edge directions (with target/source loc + memoryId),
 # everything the markdown exporter serializes, and the fields the spec detail/
 # lint builders read — so the whole-corpus fan-outs (`memory export`,
 # `spec get --prefix`) read in ceil(N/200) round-trips instead of one node(ref)
 # per node. Driven through api.CollectNodeBatch.
 # The prefix form (memory + locPrefix) reads a whole subtree in ONE call with
 # no per-node resolution, which `node get --prefix` uses. The server requires
-# EITHER ids OR memory+locPrefix, so every variable is omitempty: a nil pointer
+# EITHER refs OR memory+locPrefix, so every variable is omitempty: a nil pointer
 # must be absent, not an explicit null the server would count as "provided".
 query NodeBatch(
   # @genqlient(omitempty: true)
-  $ids: [ID!]
+  $refs: [ID!]
   # @genqlient(omitempty: true)
   $memory: ID
   # @genqlient(omitempty: true)
   $locPrefix: String
 ) {
-  nodeBatch(ids: $ids, memory: $memory, locPrefix: $locPrefix) {
+  nodeBatch(refs: $refs, memory: $memory, locPrefix: $locPrefix) {
     truncated
     omitted
     unavailable

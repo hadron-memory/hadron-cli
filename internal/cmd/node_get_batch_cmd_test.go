@@ -24,46 +24,11 @@ func nodeBatchResult(nodes []string, unavailable string) string {
 		"nodes":[` + strings.Join(nodes, ",") + `]}}}`
 }
 
-// resolvingGraphQL answers ResolveUrn per-ref (so distinct refs get distinct
-// ids, which the shared operation-keyed fake cannot do) and NodeBatch with a
-// fixed body. Needed to exercise the id → caller-ref mapping.
-func resolvingGraphQL(t *testing.T, idByURNSuffix map[string]string, batch string) *httptest.Server {
-	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			OperationName string `json:"operationName"`
-			Variables     struct {
-				Urn string `json:"urn"`
-			} `json:"variables"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		w.Header().Set("Content-Type", "application/json")
-		switch body.OperationName {
-		case "ResolveUrn":
-			for suffix, id := range idByURNSuffix {
-				if strings.HasSuffix(body.Variables.Urn, suffix) {
-					_, _ = w.Write([]byte(`{"data":{"resolveUrn":{"id":"` + id + `","kind":"node","memoryId":"mem1"}}}`))
-					return
-				}
-			}
-			_, _ = w.Write([]byte(`{"data":{"resolveUrn":null}}`))
-		case "NodeBatch":
-			_, _ = w.Write([]byte(batch))
-		default:
-			t.Errorf("unexpected operation %q", body.OperationName)
-			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected operation"}]}`))
-		}
-	}))
-	t.Cleanup(srv.Close)
-	return srv
-}
-
-// Several refs read together: each is resolved, then the bodies come back in
-// ONE nodeBatch call rather than a GetNode per node.
+// Several refs read together come back in ONE nodeBatch call — no GetNode per
+// node, and (since hadron-server#813) no ResolveUrn per ref either.
 func TestNodeGetBatch(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveNodeJSON,
-		"NodeBatch":  nodeBatchResult([]string{batchNodeJSON("n1", "alpha"), batchNodeJSON("n2", "beta")}, ""),
+		"NodeBatch": nodeBatchResult([]string{batchNodeJSON("n1", "alpha"), batchNodeJSON("n2", "beta")}, ""),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -76,6 +41,21 @@ func TestNodeGetBatch(t *testing.T) {
 	}
 	if _, called := captured["GetNode"]; called {
 		t.Error("the single-node read must not be used for a multi-ref get")
+	}
+	// The whole point of #813: nodeBatch(refs:) takes URNs, so N refs cost ONE
+	// call, not N resolves plus a batch.
+	if _, called := captured["ResolveUrn"]; called {
+		t.Error("refs must go straight to nodeBatch — no per-ref resolve round trip")
+	}
+	var vars struct {
+		Refs []string `json:"refs"`
+	}
+	if err := json.Unmarshal(captured["NodeBatch"], &vars); err != nil {
+		t.Fatalf("captured vars not JSON: %v", err)
+	}
+	want := []string{"hrn:node:acme.com:kb:alpha", "hrn:node:acme.com:kb:beta"}
+	if len(vars.Refs) != 2 || vars.Refs[0] != want[0] || vars.Refs[1] != want[1] {
+		t.Errorf("refs = %v, want the canonical node URNs %v", vars.Refs, want)
 	}
 
 	var dto struct {
@@ -154,9 +134,9 @@ func TestNodeGetPrefixIsOneCall(t *testing.T) {
 	if vars["memory"] != "hrn:mem:acme.com:kb" {
 		t.Errorf("memory = %v, want the canonical memory ref", vars["memory"])
 	}
-	// ids must be ABSENT, not null — the server rejects "both forms provided".
-	if _, present := vars["ids"]; present {
-		t.Errorf("ids must be omitted in prefix mode, got %v", vars["ids"])
+	// refs must be ABSENT, not null — the server rejects "both forms provided".
+	if _, present := vars["refs"]; present {
+		t.Errorf("refs must be omitted in prefix mode, got %v", vars["refs"])
 	}
 	var dto struct {
 		Nodes []struct{ Loc string } `json:"nodes"`
@@ -172,12 +152,14 @@ func TestNodeGetPrefixIsOneCall(t *testing.T) {
 // than asked for without saying so would hide that — so unavailable is
 // reported AND the exit code is non-zero.
 func TestNodeGetBatchSurfacesUnavailable(t *testing.T) {
-	// alpha → n1 (returned), beta → n2 (refused by the batch).
-	srv := resolvingGraphQL(t, map[string]string{"alpha": "n1", "beta": "n2"},
-		nodeBatchResult([]string{batchNodeJSON("n1", "alpha")}, `"n2"`))
+	// alpha comes back; beta is refused — echoed by the server as the ref that
+	// was sent (hadron-server#813), so no client-side id → ref mapping is left.
+	gql, _ := captureGraphQL(t, map[string]string{
+		"NodeBatch": nodeBatchResult([]string{batchNodeJSON("n1", "alpha")}, `"hrn:node:acme.com:kb:beta"`),
+	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "get", "alpha", "beta", "-m", "acme.com::kb", "--json", "--server", srv.URL})
+	root.SetArgs([]string{"node", "get", "alpha", "beta", "-m", "acme.com::kb", "--json", "--server", gql.URL})
 	err := root.Execute()
 	if err == nil {
 		t.Fatal("an unavailable ref must not exit 0 — a partial read is not a complete one")
@@ -195,18 +177,20 @@ func TestNodeGetBatchSurfacesUnavailable(t *testing.T) {
 	if len(dto.Nodes) != 1 || len(dto.Unavailable) != 1 {
 		t.Fatalf("dto = %+v", dto)
 	}
-	// Named as the CALLER typed it. The server answers with a primary key
-	// ("n2"), which the caller never supplied and cannot act on (#303 review).
-	if dto.Unavailable[0] != "beta" {
-		t.Errorf("unavailable = %v, want the caller's ref \"beta\", not the server id", dto.Unavailable)
+	// Named by the ref that was SENT — actionable, and re-runnable as-is. The
+	// server used to answer with a primary key the caller never supplied and
+	// could not act on, which the CLI had to map back (#303 review); #813
+	// made it echo the ref instead.
+	if dto.Unavailable[0] != "hrn:node:acme.com:kb:beta" {
+		t.Errorf("unavailable = %v, want the ref as sent", dto.Unavailable)
 	}
 }
 
-// An error that is NOT absence — expired credentials, a dead transport, a
+// An error that is NOT a bad ref — expired credentials, a dead transport, a
 // cancelled context — must propagate, not be laundered into `unavailable`.
 // Otherwise the command emits a plausible partial result and exits 4, hiding
 // an auth or operational failure behind a not-found (#303 review).
-func TestNodeGetBatchPropagatesNonNotFoundResolveErrors(t *testing.T) {
+func TestNodeGetBatchPropagatesNonRefErrors(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		// The shape api.MapError classifies as an auth failure.
@@ -227,32 +211,34 @@ func TestNodeGetBatchPropagatesNonNotFoundResolveErrors(t *testing.T) {
 	}
 }
 
-// A ref that cannot even be resolved is reported, not fatal — one bad ref in
-// twenty must not cost the other nineteen.
-func TestNodeGetBatchUnresolvableRefIsReportedNotFatal(t *testing.T) {
-	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveNodeJSON,
-		"NodeBatch":  nodeBatchResult([]string{batchNodeJSON("n1", "alpha")}, ""),
+// A malformed ref fails the WHOLE call, matching the server's rule for
+// nodeBatch(refs:). Filing it under `unavailable` would render a typo as
+// "not found, or not readable by you", hiding a caller mistake among
+// denials — the conflation that contract exists to prevent.
+func TestNodeGetBatchMalformedRefIsLoud(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"NodeBatch": nodeBatchResult([]string{batchNodeJSON("n1", "alpha")}, ""),
 	})
-	f, out := testFactory(t)
+	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	// The second ref is a bare loc with no -m, which cannot be resolved.
+	// The second ref is a bare loc with no -m: unqualified, so shape-wrong.
 	root.SetArgs([]string{"node", "get", "acme.com::kb::alpha", "bare-loc", "--json", "--server", gql.URL})
-	if err := root.Execute(); err == nil {
-		t.Fatal("expected a non-zero exit for the unresolvable ref")
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("a malformed ref must fail the call, not be reported as unavailable")
 	}
-	var dto struct {
-		Nodes       []struct{ Loc string } `json:"nodes"`
-		Unavailable []string               `json:"unavailable"`
+	// Exit 2 (caller mistake), NOT 4 (absent/denied) — that distinction is the
+	// whole point.
+	if got := exitcode.FromError(err); got != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (usage) — a typo must not read as not-found", got, exitcode.Usage)
 	}
-	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
-		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	if !strings.Contains(err.Error(), "bare-loc") {
+		t.Errorf("the error must name the offending ref, got %v", err)
 	}
-	if len(dto.Nodes) != 1 {
-		t.Errorf("the resolvable ref must still be returned, got %+v", dto.Nodes)
-	}
-	if len(dto.Unavailable) != 1 || dto.Unavailable[0] != "bare-loc" {
-		t.Errorf("the unresolvable ref must be reported by the name the caller typed, got %v", dto.Unavailable)
+	// Nothing is read: a caller mistake is caught before any node is fetched,
+	// so there is no half-answer to misread.
+	if _, called := captured["NodeBatch"]; called {
+		t.Error("a malformed ref must be rejected before the batch read")
 	}
 }
 
@@ -285,8 +271,7 @@ func TestNodeGetBatchRejectsBadCombinations(t *testing.T) {
 // duplicate, so neither should the batch.
 func TestNodeGetBatchDedupesRefs(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveNodeJSON,
-		"NodeBatch":  nodeBatchResult([]string{batchNodeJSON("n1", "alpha")}, ""),
+		"NodeBatch": nodeBatchResult([]string{batchNodeJSON("n1", "alpha")}, ""),
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -295,12 +280,12 @@ func TestNodeGetBatchDedupesRefs(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars struct {
-		IDs []string `json:"ids"`
+		Refs []string `json:"refs"`
 	}
 	if err := json.Unmarshal(captured["NodeBatch"], &vars); err != nil {
 		t.Fatalf("captured vars not JSON: %v", err)
 	}
-	if len(vars.IDs) != 1 {
-		t.Errorf("ids = %v, want the repeated ref collapsed to one", vars.IDs)
+	if len(vars.Refs) != 1 {
+		t.Errorf("refs = %v, want the repeated ref collapsed to one", vars.Refs)
 	}
 }

@@ -26,20 +26,25 @@ optional (legacy urn:node: also accepted). Pass -m/--memory to name a
 node by a bare <loc> within that memory instead; without -m a bare loc
 is rejected, since the same loc can exist in several memories.
 
-Pass SEVERAL refs to read them together. The bodies then come back in one
-batched call instead of one round trip each, and a ref that is missing or
-unreadable is reported under "unavailable" rather than failing the whole read.
+Pass SEVERAL refs to read them together. They are sent as one batched read —
+the server takes a URN as happily as an id, so nothing is resolved first — and a
+ref that is missing or unreadable is reported under "unavailable" rather than
+failing the whole read. Up to 200 nodes that is a single request; beyond the
+server's cap the set is split into as few requests as the cap allows.
 
 --prefix <loc> -m <memory> reads a whole subtree — every node whose loc starts
-with the prefix — in a SINGLE call with no per-node resolution. This is the
-cheapest way to pull a branch, and unlike ` + "`node list`" + ` it returns full
-content and edges. An empty --prefix means the whole memory. The server caps
-the node count and fails loudly rather than truncating silently.
+with the prefix — in a SINGLE call, without naming each node. That is the way
+to pull a branch you have not enumerated, and unlike ` + "`node list`" + ` it
+returns full content and edges. An empty --prefix means the whole memory. The
+server caps the node count and fails loudly rather than truncating silently.
 
 With one ref the output is the node object, unchanged. With several refs, or
 with --prefix, it is {nodes, unavailable}. "unavailable" names refs that are
 missing OR not readable by you — the server reports those identically — and any
 unavailable ref exits 4, so a partial read is never mistaken for a complete one.
+
+A malformed ref is a different thing and fails the whole call with exit 2, so a
+typo never hides among the denials.
 
 One difference to know about: a batched read returns content RAW, with Mustache
 templates left uncompiled, while a single-ref read compiles them. That is the

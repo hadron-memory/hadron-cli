@@ -8289,12 +8289,16 @@ func (v *MyUserApiKeysResponse) GetMyUserApiKeys() []*MyUserApiKeysMyUserApiKeys
 // The GraphQL type's documentation follows.
 //
 // Spec cor:api:040 — result envelope for the batch node read (nodeBatch).
-// 'nodes' is the authorized, existing subset (input order for an id set, loc
-// order for a prefix). 'unavailable' lists the requested refs that were denied
-// OR not found — indistinguishable, so the result never discloses whether an
+// 'nodes' is the authorized, existing subset (input order for a ref set, loc
+// order for a prefix). 'unavailable' and 'omitted' are both lists of REFS, not
+// node objects. 'unavailable' lists the requested refs that were denied OR not
+// found — indistinguishable, so the result never discloses whether an
 // unreadable node exists. 'truncated' is true when the response-size cap was
-// reached, and 'omitted' then carries the dropped node ids. (Over the
-// node-count cap the query errors instead — never a silent short read.)
+// reached, and 'omitted' then carries the refs of the nodes dropped to stay
+// under it. (Over the node-count cap the query errors instead — never a silent
+// short read.) Both lists echo the caller's OWN ref strings for the 'refs'
+// form — pass a URN, get that URN back, not a primary key you never sent — and
+// node ids for the prefix form, which has no caller refs.
 type NodeBatchNodeBatchNodeBatchResult struct {
 	Truncated   bool                                          `json:"truncated"`
 	Omitted     []string                                      `json:"omitted"`
@@ -8546,15 +8550,23 @@ type NodeBatchResponse struct {
 	// Batch read (spec cor:api:040) — the full node projection (select any Node
 	// fields, including content + edges) for MANY nodes in one call, eliminating
 	// the N+1 of one node(ref:) per node (e.g. 'spec lint --all'). Provide EITHER
-	// 'ids' (explicit set, returned in input order) OR 'memory' + 'locPrefix'
-	// (subtree, loc order) — not both. Per-node access is applied independently:
-	// denied or missing ids come back in 'unavailable' and never fail the call.
-	// Bounded by hard caps — over the node-count cap throws BAD_USER_INPUT; over
-	// the response-size cap returns a partial result with 'truncated: true' and
-	// the dropped ids in 'omitted' (never a silent short read). Node content is
-	// returned raw — Mustache templates are NOT compiled (unlike the single-node
-	// 'node' read), since this is a bulk source read for lint / audit /
-	// migration and compiling per node would re-introduce the N+1 it eliminates.
+	// 'refs' (explicit set, returned in input order) OR 'memory' + 'locPrefix'
+	// (subtree, loc order) — not both. Each entry of 'refs' is a primary key OR a
+	// fully-qualified node URN (cor:api:140), so a URN-holding caller batches in
+	// ONE call instead of resolving each ref first. The split on a bad ref is by
+	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
+	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
+	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// the caller may read comes back in 'unavailable'. A caller mistake stays
+	// loud instead of hiding among denials. Per-node access is applied
+	// independently AFTER resolution: denied or missing refs come back in
+	// 'unavailable' and never fail the call. Bounded by hard caps — over the
+	// node-count cap throws BAD_USER_INPUT; over the response-size cap returns a
+	// partial result with 'truncated: true' and the dropped refs in 'omitted'
+	// (never a silent short read). Node content is returned raw — Mustache
+	// templates are NOT compiled (unlike the single-node 'node' read), since this
+	// is a bulk source read for lint / audit / migration and compiling per node
+	// would re-introduce the N+1 it eliminates.
 	NodeBatch *NodeBatchNodeBatchNodeBatchResult `json:"nodeBatch"`
 }
 
@@ -14578,13 +14590,13 @@ func (v *__MoveNodeInput) GetTargetMemoryRef() *string { return v.TargetMemoryRe
 
 // __NodeBatchInput is used internally by genqlient
 type __NodeBatchInput struct {
-	Ids       []string `json:"ids,omitempty"`
+	Refs      []string `json:"refs,omitempty"`
 	Memory    *string  `json:"memory,omitempty"`
 	LocPrefix *string  `json:"locPrefix,omitempty"`
 }
 
-// GetIds returns __NodeBatchInput.Ids, and is useful for accessing the field via an interface.
-func (v *__NodeBatchInput) GetIds() []string { return v.Ids }
+// GetRefs returns __NodeBatchInput.Refs, and is useful for accessing the field via an interface.
+func (v *__NodeBatchInput) GetRefs() []string { return v.Refs }
 
 // GetMemory returns __NodeBatchInput.Memory, and is useful for accessing the field via an interface.
 func (v *__NodeBatchInput) GetMemory() *string { return v.Memory }
@@ -19058,8 +19070,8 @@ func MyUserApiKeys(
 
 // The query executed by NodeBatch.
 const NodeBatch_Operation = `
-query NodeBatch ($ids: [ID!], $memory: ID, $locPrefix: String) {
-	nodeBatch(ids: $ids, memory: $memory, locPrefix: $locPrefix) {
+query NodeBatch ($refs: [ID!], $memory: ID, $locPrefix: String) {
+	nodeBatch(refs: $refs, memory: $memory, locPrefix: $locPrefix) {
 		truncated
 		omitted
 		unavailable
@@ -19113,23 +19125,27 @@ query NodeBatch ($ids: [ID!], $memory: ID, $locPrefix: String) {
 }
 `
 
-// Bulk read of full nodes by id (cor:api:040). Server caps a call at 200
-// nodes / 1 MB: an over-cap window comes back with truncated=true and the
-// spillover ids in `omitted`, so callers must re-request those; `unavailable`
-// lists ids the server could not return (deleted/inaccessible). Selects a full
-// node projection — both edge directions (with target/source loc + memoryId),
+// Bulk read of full nodes by ref (cor:api:040). Each entry of `refs` is a
+// primary key OR a fully-qualified node URN (hadron-server#813) — so a caller
+// holding URNs reads them in ONE call instead of resolving each one first. A
+// malformed ref is a loud server error, so refs are validated client-side before
+// they go out. Server caps a call at 200 nodes / 1 MB: an over-cap window comes
+// back with truncated=true and the spillover in `omitted`, so callers must
+// re-request those; `unavailable` lists refs the server could not return
+// (deleted/inaccessible). Both lists echo the refs as SENT. Selects a full node
+// projection — both edge directions (with target/source loc + memoryId),
 // everything the markdown exporter serializes, and the fields the spec detail/
 // lint builders read — so the whole-corpus fan-outs (`memory export`,
 // `spec get --prefix`) read in ceil(N/200) round-trips instead of one node(ref)
 // per node. Driven through api.CollectNodeBatch.
 // The prefix form (memory + locPrefix) reads a whole subtree in ONE call with
 // no per-node resolution, which `node get --prefix` uses. The server requires
-// EITHER ids OR memory+locPrefix, so every variable is omitempty: a nil pointer
+// EITHER refs OR memory+locPrefix, so every variable is omitempty: a nil pointer
 // must be absent, not an explicit null the server would count as "provided".
 func NodeBatch(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	ids []string,
+	refs []string,
 	memory *string,
 	locPrefix *string,
 ) (data_ *NodeBatchResponse, err_ error) {
@@ -19137,7 +19153,7 @@ func NodeBatch(
 		OpName: "NodeBatch",
 		Query:  NodeBatch_Operation,
 		Variables: &__NodeBatchInput{
-			Ids:       ids,
+			Refs:      refs,
 			Memory:    memory,
 			LocPrefix: locPrefix,
 		},
