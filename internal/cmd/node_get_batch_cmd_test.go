@@ -211,32 +211,34 @@ func TestNodeGetBatchPropagatesNonRefErrors(t *testing.T) {
 	}
 }
 
-// A ref that cannot even be resolved is reported, not fatal — one bad ref in
-// twenty must not cost the other nineteen.
-func TestNodeGetBatchUnresolvableRefIsReportedNotFatal(t *testing.T) {
-	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveNodeJSON,
-		"NodeBatch":  nodeBatchResult([]string{batchNodeJSON("n1", "alpha")}, ""),
+// A malformed ref fails the WHOLE call, matching the server's rule for
+// nodeBatch(refs:). Filing it under `unavailable` would render a typo as
+// "not found, or not readable by you", hiding a caller mistake among
+// denials — the conflation that contract exists to prevent.
+func TestNodeGetBatchMalformedRefIsLoud(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"NodeBatch": nodeBatchResult([]string{batchNodeJSON("n1", "alpha")}, ""),
 	})
-	f, out := testFactory(t)
+	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	// The second ref is a bare loc with no -m, which cannot be resolved.
+	// The second ref is a bare loc with no -m: unqualified, so shape-wrong.
 	root.SetArgs([]string{"node", "get", "acme.com::kb::alpha", "bare-loc", "--json", "--server", gql.URL})
-	if err := root.Execute(); err == nil {
-		t.Fatal("expected a non-zero exit for the unresolvable ref")
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("a malformed ref must fail the call, not be reported as unavailable")
 	}
-	var dto struct {
-		Nodes       []struct{ Loc string } `json:"nodes"`
-		Unavailable []string               `json:"unavailable"`
+	// Exit 2 (caller mistake), NOT 4 (absent/denied) — that distinction is the
+	// whole point.
+	if got := exitcode.FromError(err); got != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (usage) — a typo must not read as not-found", got, exitcode.Usage)
 	}
-	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
-		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	if !strings.Contains(err.Error(), "bare-loc") {
+		t.Errorf("the error must name the offending ref, got %v", err)
 	}
-	if len(dto.Nodes) != 1 {
-		t.Errorf("the resolvable ref must still be returned, got %+v", dto.Nodes)
-	}
-	if len(dto.Unavailable) != 1 || dto.Unavailable[0] != "bare-loc" {
-		t.Errorf("the unresolvable ref must be reported by the name the caller typed, got %v", dto.Unavailable)
+	// Nothing is read: a caller mistake is caught before any node is fetched,
+	// so there is no half-answer to misread.
+	if _, called := captured["NodeBatch"]; called {
+		t.Error("a malformed ref must be rejected before the batch read")
 	}
 }
 

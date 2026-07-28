@@ -271,7 +271,9 @@ Conventions:
   reports those identically, so neither the CLI nor you can tell them apart —
   named as the ref that was sent (your ref, canonicalized), not as opaque ids.
   Any unavailable ref exits **4**, so a partial read is never mistaken for a
-  complete one.
+  complete one. A MALFORMED ref (not fully qualified, or a URN of the wrong
+  entity) is a different case: it fails the whole call with exit **2**, before
+  anything is read, so a typo never hides among the denials.
   **Content differs between the forms:** a batched read returns content RAW
   (Mustache templates NOT compiled); a single-ref read compiles them. That is
   the server's design — the batch is a bulk SOURCE read for
