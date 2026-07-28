@@ -42,6 +42,9 @@ with --prefix, it is {nodes, unavailable}. "unavailable" names refs that are
 missing OR not readable by you — the server reports those identically — and any
 unavailable ref exits 4, so a partial read is never mistaken for a complete one.
 
+A malformed ref is a different thing and fails the whole call with exit 2, so a
+typo never hides among the denials.
+
 One difference to know about: a batched read returns content RAW, with Mustache
 templates left uncompiled, while a single-ref read compiles them. That is the
 server's design — the batch is a bulk SOURCE read for lint/audit/migration, and

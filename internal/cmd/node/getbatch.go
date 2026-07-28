@@ -70,24 +70,20 @@ func fetchNodeBatch(
 		return nodes, unavailable, nil
 	}
 
-	// Explicit set — canonicalized locally, then sent in one batched read. A
-	// ref that is malformed is reported as unavailable rather than failing the
-	// whole batch (the server errors loudly on one, so it never gets sent):
-	// one bad ref in twenty should not cost the other nineteen.
+	// Explicit set — canonicalized locally, then sent in one batched read.
+	//
+	// A ref whose SHAPE is wrong fails the WHOLE call rather than being filed
+	// under unavailable. That mirrors the server's own rule for
+	// nodeBatch(refs:): the split is by kind, not by luck — an unqualified or
+	// wrong-entity ref errors, while a well-formed ref naming nothing the
+	// caller may read comes back in unavailable. Reporting a typo as
+	// "not found, or not readable by you" would hide a caller mistake among
+	// denials, which is exactly the conflation that contract prevents.
 	sendable := make([]string, 0, len(refs))
-	var unresolved []string
 	seen := map[string]bool{}
 	for _, ref := range refs {
 		out, err := cmdutil.BatchNodeRef(memory, ref)
 		if err != nil {
-			// ONLY a locally-invalid ref is "unavailable". Anything else is a
-			// real failure: swallowing it would emit a plausible partial result
-			// and exit 4, hiding an auth or operational error behind a
-			// not-found (review on #303).
-			if exitcode.FromError(err) == exitcode.Usage {
-				unresolved = append(unresolved, ref)
-				continue
-			}
 			return nil, nil, err
 		}
 		if seen[out] {
@@ -102,9 +98,9 @@ func fetchNodeBatch(
 	}
 	// The server echoes the refs as sent, so nothing has to be translated back
 	// — what the caller sees named is what the caller typed (modulo the
-	// canonical hrn:node: prefix).
-	unresolved = append(unresolved, unavailable...)
-	return nodes, unresolved, nil
+	// canonical hrn:node: prefix). Every entry here is a real absence or
+	// denial; a malformed ref never got this far.
+	return nodes, unavailable, nil
 }
 
 // batchDetailDTO maps the batch projection onto the same per-node shape the
