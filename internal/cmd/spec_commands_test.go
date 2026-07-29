@@ -952,6 +952,20 @@ func TestSpecNewPathNoContract(t *testing.T) {
 	}
 }
 
+// errNamesFlag reports whether msg lists flag as a whole token. The message
+// separates flags with "/", and a substring test would let "--rule-after"
+// satisfy a check for "--rule" — masking the very drift this guards against.
+func errNamesFlag(msg, flag string) bool {
+	for _, word := range strings.Fields(msg) {
+		for _, tok := range strings.Split(word, "/") {
+			if tok == flag {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // Every flag the guard rejects must also be named in the error, so the message
 // can't drift out of sync with the condition it explains (it silently omitted
 // --rule-after).
@@ -982,7 +996,7 @@ func TestSpecNewPathRejectsTierFlags(t *testing.T) {
 			t.Errorf("--new-path + %v should be Usage, got %d", tc.extra, got)
 			continue
 		}
-		if !strings.Contains(err.Error(), tc.wantMsg) {
+		if !errNamesFlag(err.Error(), tc.wantMsg) {
 			t.Errorf("--new-path + %v: error should name %q, got %q", tc.extra, tc.wantMsg, err.Error())
 		}
 	}
