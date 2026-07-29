@@ -157,10 +157,12 @@ and/or/not). --object-type filters the objectType collection facet.
 			// --seq-gt / --sort-seq post-process client-side, so they must see the
 			// WHOLE collection — not the server's default first page, which
 			// silently hid the newest nodes once a collection exceeded one page
-			// (#319: --seq-gt read empty as "no new messages"). On a browse (not a
-			// ranked --search) with either flag set, page to exhaustion and apply
-			// --limit/--offset client-side, after the seq filter/sort.
-			seqMode := (seqGt > 0 || sortSeq != "") && search == ""
+			// (#319: --seq-gt read empty as "no new messages"). Whenever either is
+			// set — browse OR a ranked --search (there, --search is the filter and
+			// seq the sort, so its later high-seq matches must be paged in too) —
+			// page to exhaustion and apply --limit/--offset client-side, after the
+			// seq filter/sort.
+			seqMode := seqGt > 0 || sortSeq != ""
 
 			var rawNodes []*api.ListNode
 			if seqMode {

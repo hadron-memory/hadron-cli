@@ -28,10 +28,11 @@ one page.
 This is the same #23 discipline the spec commands already use: a listing whose
 contract is "the whole collection" must page to exhaustion.
 
-- When `--seq-gt` or `--sort-seq` is set **on a browse** (not a ranked
-  `--search`), `node ls` now pages `findNodes` to exhaustion via
-  `paginateAllNodes` (fixed 500-node pages until a short page), then applies the
-  seq filter and sort over the full set.
+- When `--seq-gt` or `--sort-seq` is set — a plain browse **or** a ranked
+  `--search` (where `--search` is the filter and seq the sort, so its
+  later-page high-seq matches must be paged in too) — `node ls` now pages
+  `findNodes` to exhaustion via `paginateAllNodes` (fixed 500-node pages until a
+  short page), then applies the seq filter and sort over the full set.
 - `--limit`/`--offset` are then applied **client-side, after** the filter/sort —
   so `--sort-seq desc --limit 3` means "the top 3 by seq", not an arbitrary first
   page.

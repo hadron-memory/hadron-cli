@@ -2452,3 +2452,38 @@ func TestNodeLsSortSeqLimit(t *testing.T) {
 		t.Errorf("--sort-seq desc --limit 2 should be [52,51], got %+v", got)
 	}
 }
+
+// #319 review: --search combined with a seq flag must ALSO page to exhaustion
+// (search is the filter, seq the sort) — else later high-seq matches are hidden
+// and --seq-gt can still wrong-empty. Assert it requests a large page and applies
+// the seq sort.
+func TestNodeLsSearchWithSortSeqPaginates(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` +
+			nodeSeqJSON("m:48", 48) + `,` + nodeSeqJSON("m:52", 52) + `,` + nodeSeqJSON("m:51", 51) + `]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "ls", "-m", "acme.com::kb", "--search", "hello", "--sort-seq", "desc", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var got []struct {
+		Seq int `json:"seq"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &got)
+	if len(got) != 3 || got[0].Seq != 52 || got[2].Seq != 48 {
+		t.Errorf("--search + --sort-seq desc should sort matches by seq, got %+v", got)
+	}
+	var vars struct {
+		Query string `json:"query"`
+		Limit *int   `json:"limit"`
+	}
+	_ = json.Unmarshal(captured["FindNodes"], &vars)
+	if vars.Query != "hello" {
+		t.Errorf("--search should still send the query, got %q", vars.Query)
+	}
+	if vars.Limit == nil || *vars.Limit < 100 {
+		t.Errorf("search+seq must page with a large limit, got %v", vars.Limit)
+	}
+}
