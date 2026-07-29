@@ -7,6 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
 // withFlagAliases lets a command accept an alias spelling of a flag (#99 item
@@ -412,5 +414,24 @@ func TestWriteSpecTableMemoryColumn(t *testing.T) {
 	buf.Reset()
 	if err := writeSpecTable(&buf, nil); err != nil {
 		t.Fatalf("empty: %v", err)
+	}
+}
+
+func TestTagsOrEmpty(t *testing.T) {
+	if got := tagsOrEmpty(nil); got == nil || len(got) != 0 {
+		t.Errorf("nil tags must normalize to an empty slice, got %#v", got)
+	}
+	tags := []string{"spec"}
+	if got := tagsOrEmpty(tags); len(got) != 1 || got[0] != "spec" {
+		t.Errorf("existing tags must pass through, got %#v", got)
+	}
+}
+
+// specDetailFromNode's paths pin the spec tag today, so this guards the
+// normalization for any future caller that doesn't (#312).
+func TestSpecDetailFromNodeEmptyTags(t *testing.T) {
+	dto := specDetailFromNode(&gen.GetNodeNode{Loc: "msg:010:02", Name: "W2", NodeType: "info"}, false)
+	if dto.Tags == nil {
+		t.Error("detail DTO tags must never be nil (renders as null)")
 	}
 }

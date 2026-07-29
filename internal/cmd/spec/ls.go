@@ -90,7 +90,7 @@ explicit page instead.`,
 					MemoryID:  n.MemoryId,
 					Name:      n.Name,
 					NodeType:  n.NodeType,
-					Tags:      n.Tags,
+					Tags:      tagsOrEmpty(n.Tags),
 					UpdatedAt: n.UpdatedAt,
 				})
 			}

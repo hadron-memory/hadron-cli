@@ -103,6 +103,21 @@ type specDTO struct {
 	UpdatedAt string   `json:"updatedAt"`
 }
 
+// tagsOrEmpty normalizes a node's tags for a DTO: a nil slice marshals to
+// `null`, but the --json contract says an empty list renders as `[]`. Every
+// spec DTO carrying tags goes through this. Only `find`'s fuzzy branch can
+// actually deliver a tagless node — it scopes to specs client-side via
+// isSpecNode, which accepts a citation-shaped loc with no tags at all. The
+// `get` paths pin the spec tag (server-side for --prefix, fetchSpecTaggedNode
+// for a citation), so there it is defence for a future caller that doesn't
+// (#312).
+func tagsOrEmpty(tags []string) []string {
+	if tags == nil {
+		return []string{}
+	}
+	return tags
+}
+
 // specEdgeDTO is one edge in `spec get` output. Loc/MemoryID name the
 // other endpoint (cross-memory edges carry a different memoryId).
 type specEdgeDTO struct {

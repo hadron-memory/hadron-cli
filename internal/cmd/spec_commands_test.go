@@ -145,6 +145,28 @@ func TestSpecGet(t *testing.T) {
 	}
 }
 
+// The fuzzy `find` path admits citation-shaped nodes carrying no tags at all
+// (isSpecNode's second branch), and their tags must render as `[]`, never
+// `null` (#312). The `get` paths pin the spec tag — server-side for --prefix,
+// via fetchSpecTaggedNode for a citation — so they can't reach a nil slice
+// today; specDetailFromNode normalizes defensively, covered by the unit test in
+// the spec package.
+func TestSpecFindJSONEmptyTagsRenderAsList(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodeSearch":{"degraded":null,"reason":null,"nodes":[` +
+			specNodeListNode("id-1", "msg:010:02", `null`, "mem1") + `]}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "find", "nudge", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), `"tags": []`) {
+		t.Errorf("empty tags must render as [], got:\n%s", out.String())
+	}
+}
+
 func TestSpecGetRejectsMalformedCitation(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
