@@ -234,6 +234,10 @@ func TestIsUsageErrorClassifiesRequiredFlag(t *testing.T) {
 		"unknown flag: --bogus",
 		"accepts 1 arg(s), received 0",
 		"requires at least 1 arg(s), only received 0",
+		// cobra's flag-group failures (MarkFlagsMutuallyExclusive /
+		// MarkFlagsOneRequired), verbatim as cobra phrases them.
+		"if any flags in the group [shared-with-me include-agent-system] are set none of the others can be; [include-agent-system shared-with-me] were all set",
+		"at least one of the flags in the group [body body-file] is required",
 	}
 	for _, m := range usage {
 		if !isUsageError(errors.New(m)) {

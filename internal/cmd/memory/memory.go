@@ -26,6 +26,12 @@ type memoryDTO struct {
 	IsEncrypted      bool    `json:"isEncrypted"`
 	MaxRevCount      int     `json:"maxRevCount"`
 	UpdatedAt        string  `json:"updatedAt"`
+	// ShareRole/SharedBy come from Memory.myShare and are populated only by
+	// `memory ls --shared-with-me` (#316). omitempty by design: every other
+	// memory command's shape is then untouched, and their absence reads as
+	// "not a shared-with-me listing" rather than "no share".
+	ShareRole *string `json:"shareRole,omitempty"`
+	SharedBy  *string `json:"sharedBy,omitempty"`
 }
 
 // memoryResult is the common projection selected by memory mutations. The

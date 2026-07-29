@@ -7480,6 +7480,165 @@ type MemoriesResponse struct {
 // GetMemories returns MemoriesResponse.Memories, and is useful for accessing the field via an interface.
 func (v *MemoriesResponse) GetMemories() *MemoriesMemoriesMemoriesPage { return v.Memories }
 
+// MemoriesSharedWithMeMemoriesMemoriesPage includes the requested fields of the GraphQL type MemoriesPage.
+type MemoriesSharedWithMeMemoriesMemoriesPage struct {
+	Total int                                                    `json:"total"`
+	Items []*MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory `json:"items"`
+}
+
+// GetTotal returns MemoriesSharedWithMeMemoriesMemoriesPage.Total, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPage) GetTotal() int { return v.Total }
+
+// GetItems returns MemoriesSharedWithMeMemoriesMemoriesPage.Items, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPage) GetItems() []*MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory {
+	return v.Items
+}
+
+// MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory includes the requested fields of the GraphQL type Memory.
+type MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory struct {
+	Id               string            `json:"id"`
+	Urn              string            `json:"urn"`
+	Name             string            `json:"name"`
+	ShortDescription *string           `json:"shortDescription"`
+	Class            MemoryClass       `json:"class"`
+	Visibility       *MemoryVisibility `json:"visibility"`
+	OrganizationId   *string           `json:"organizationId"`
+	IsEncrypted      bool              `json:"isEncrypted"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int    `json:"maxRevCount"`
+	UpdatedAt   string `json:"updatedAt"`
+	// The caller's OWN share of this memory (they are the grantee), or
+	// null. Grantee-readable — unlike shares (principal / org-admin only),
+	// this returns at most the single MemoryShare row keyed
+	// (memoryId, callerId), so it never leaks co-grantees. null for a
+	// non-grantee or an App-key caller. Lets the portal render
+	// Shared-by-@grantor + the role on each shared-with-me row.
+	MyShare *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShare `json:"myShare"`
+}
+
+// GetId returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory.Id, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory) GetId() string { return v.Id }
+
+// GetUrn returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory.Urn, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory) GetUrn() string { return v.Urn }
+
+// GetName returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory.Name, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory) GetName() string { return v.Name }
+
+// GetShortDescription returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory.ShortDescription, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory) GetShortDescription() *string {
+	return v.ShortDescription
+}
+
+// GetClass returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory.Class, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory) GetClass() MemoryClass { return v.Class }
+
+// GetVisibility returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory.Visibility, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory) GetVisibility() *MemoryVisibility {
+	return v.Visibility
+}
+
+// GetOrganizationId returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory.OrganizationId, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory) GetOrganizationId() *string {
+	return v.OrganizationId
+}
+
+// GetIsEncrypted returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory) GetIsEncrypted() bool {
+	return v.IsEncrypted
+}
+
+// GetMaxRevCount returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory) GetMaxRevCount() int {
+	return v.MaxRevCount
+}
+
+// GetUpdatedAt returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory) GetUpdatedAt() string {
+	return v.UpdatedAt
+}
+
+// GetMyShare returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory.MyShare, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory) GetMyShare() *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShare {
+	return v.MyShare
+}
+
+// MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShare includes the requested fields of the GraphQL type MemoryShare.
+// The GraphQL type's documentation follows.
+//
+// 023-app-shape US3: asymmetric cross-user grant on a personal-class
+// Memory. The principal (memory.userId) grants a grantee read/write
+// access. Used for per-pairing isolation patterns (e.g., Alice's
+// personal Memory paired-with-Mentor-A is distinct from her
+// paired-with-Mentor-B Memory, each with its own MemoryShare).
+type MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShare struct {
+	Role MemoryShareRole `json:"role"`
+	// The principal of the Memory (Memory.userId). Per spec 023 FR-019
+	// this is always the principal, even when an App backend made the
+	// API call on the principal's behalf — that actor is recorded in
+	// createdBy instead.
+	Grantor *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser `json:"grantor"`
+}
+
+// GetRole returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShare.Role, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShare) GetRole() MemoryShareRole {
+	return v.Role
+}
+
+// GetGrantor returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShare.Grantor, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShare) GetGrantor() *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser {
+	return v.Grantor
+}
+
+// MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser includes the requested fields of the GraphQL type User.
+type MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser struct {
+	Handle *string `json:"handle"`
+	Name   *string `json:"name"`
+}
+
+// GetHandle returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser.Handle, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser) GetHandle() *string {
+	return v.Handle
+}
+
+// GetName returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser.Name, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser) GetName() *string {
+	return v.Name
+}
+
+// MemoriesSharedWithMeResponse is returned by MemoriesSharedWithMe on success.
+type MemoriesSharedWithMeResponse struct {
+	// Uniform paginated memory list (#473) — replaces myMemories,
+	// publicMemories, and orgSystemMemories.
+	//
+	// Default scope: the caller's union — (1) their OWN personal/private
+	// memories (always; they are user-owned and show in every org context),
+	// (2) memories their member orgs own, (3) memories their member orgs
+	// subscribe to. Per-user agent memories (userMemoryOfAgentId) are excluded.
+	// App-key callers get the union of their installed Agents' memory items.
+	//
+	// filter.visibility: PUBLIC selects the public marketplace slice instead
+	// (every PUBLIC memory — the old publicMemories). filter.memoryClasses
+	// restricts to exactly the listed classes; omitted, the noisy agent system
+	// class is hidden by default (pass it explicitly to surface system
+	// memories, e.g. the old orgSystemMemories = orgId + memoryClasses:
+	// [system]).
+	//
+	// orgId follows cor:api:100:01: member -> the "active organization" view
+	// (own personal/private + that org's owned + subscribed memories);
+	// non-member -> empty page, no existence disclosure, no admin bypass.
+	//
+	// Name-ascending order (id tiebreak); limit default 50 / cap 200;
+	// limit: 0 -> count only.
+	Memories *MemoriesSharedWithMeMemoriesMemoriesPage `json:"memories"`
+}
+
+// GetMemories returns MemoriesSharedWithMeResponse.Memories, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeResponse) GetMemories() *MemoriesSharedWithMeMemoriesMemoriesPage {
+	return v.Memories
+}
+
 type MemoryClass string
 
 const (
@@ -7531,7 +7690,7 @@ type MemoryFilter struct {
 	// it excludes owned memories. App-key callers get an empty page
 	// (sharing is a user-to-user concept). See Memory.myShare for the
 	// per-row grantor + role.
-	SharedWithMe *bool `json:"sharedWithMe"`
+	SharedWithMe *bool `json:"sharedWithMe,omitempty"`
 	// Restrict by visibility. PUBLIC selects the marketplace slice (see above).
 	Visibility *MemoryVisibility `json:"visibility,omitempty"`
 }
@@ -14520,6 +14679,18 @@ func (v *__MemoriesInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __MemoriesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__MemoriesInput) GetOffset() *int { return v.Offset }
 
+// __MemoriesSharedWithMeInput is used internally by genqlient
+type __MemoriesSharedWithMeInput struct {
+	Limit  *int `json:"limit,omitempty"`
+	Offset *int `json:"offset,omitempty"`
+}
+
+// GetLimit returns __MemoriesSharedWithMeInput.Limit, and is useful for accessing the field via an interface.
+func (v *__MemoriesSharedWithMeInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __MemoriesSharedWithMeInput.Offset, and is useful for accessing the field via an interface.
+func (v *__MemoriesSharedWithMeInput) GetOffset() *int { return v.Offset }
+
 // __MemoryMembersInput is used internally by genqlient
 type __MemoryMembersInput struct {
 	Ref string `json:"ref"`
@@ -18696,6 +18867,70 @@ func Memories(
 	}
 
 	data_ = &MemoriesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MemoriesSharedWithMe.
+const MemoriesSharedWithMe_Operation = `
+query MemoriesSharedWithMe ($limit: Int, $offset: Int) {
+	memories(filter: {sharedWithMe:true}, limit: $limit, offset: $offset) {
+		total
+		items {
+			id
+			urn
+			name
+			shortDescription
+			class
+			visibility
+			organizationId
+			isEncrypted
+			maxRevCount
+			updatedAt
+			myShare {
+				role
+				grantor {
+					handle
+					name
+				}
+			}
+		}
+	}
+}
+`
+
+// The shared-with-me slice (#316): memories the caller was granted via
+// MemoryShare. `sharedWithMe: true` SWITCHES which readable set memories()
+// draws from — it is not part of the caller's owned/org union, so this never
+// returns a memory you own.
+//
+// A separate operation from Memories on purpose: it selects myShare for the
+// per-row role + grantor (which MemoryFilter.sharedWithMe's own docblock points
+// at for this listing), and every whole-scope caller pages the plain memories()
+// list to exhaustion — a per-row myShare resolution must not ride along there.
+func MemoriesSharedWithMe(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	limit *int,
+	offset *int,
+) (data_ *MemoriesSharedWithMeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MemoriesSharedWithMe",
+		Query:  MemoriesSharedWithMe_Operation,
+		Variables: &__MemoriesSharedWithMeInput{
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &MemoriesSharedWithMeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
