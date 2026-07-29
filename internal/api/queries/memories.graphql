@@ -4,6 +4,7 @@
 # to exhaustion (api.CollectAll).
 # @genqlient(for: "MemoryFilter.memoryClasses", omitempty: true)
 # @genqlient(for: "MemoryFilter.visibility", omitempty: true)
+# @genqlient(for: "MemoryFilter.sharedWithMe", omitempty: true)
 query Memories(
   # @genqlient(omitempty: true)
   $filter: MemoryFilter
@@ -25,6 +26,48 @@ query Memories(
       isEncrypted
       maxRevCount
       updatedAt
+    }
+  }
+}
+
+# The shared-with-me slice (#316): memories the caller was granted via
+# MemoryShare. `sharedWithMe: true` SWITCHES which readable set memories()
+# draws from — it is not part of the caller's owned/org union, so this never
+# returns a memory you own.
+#
+# A separate operation from Memories on purpose: it selects myShare for the
+# per-row role + grantor (which MemoryFilter.sharedWithMe's own docblock points
+# at for this listing), and every whole-scope caller pages the plain memories()
+# list to exhaustion — a per-row myShare resolution must not ride along there.
+query MemoriesSharedWithMe(
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  memories(filter: { sharedWithMe: true }, limit: $limit, offset: $offset) {
+    total
+    items {
+      id
+      urn
+      name
+      shortDescription
+      class
+      visibility
+      organizationId
+      isEncrypted
+      maxRevCount
+      updatedAt
+      # The full user projection the sibling access listings (share list,
+      # member list) already emit — not a display label. `sharedBy` is the
+      # handle you feed back to `memory share rm --grantee`, and two grantors
+      # can share a display name, so the id has to survive to the DTO.
+      myShare {
+        role
+        grantor {
+          ...MemUserFields
+        }
+      }
     }
   }
 }

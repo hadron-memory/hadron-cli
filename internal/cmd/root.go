@@ -147,5 +147,12 @@ func isUsageError(err error) bool {
 		// cobra's MarkFlagRequired failure ("required flag(s) \"x\" not set") —
 		// a missing required flag is a usage error, so it must exit 2 like the
 		// other flag/arg validation failures, not the generic error code.
-		strings.HasPrefix(msg, "required flag")
+		strings.HasPrefix(msg, "required flag") ||
+		// cobra's flag-group failures, same reasoning: MarkFlagsMutuallyExclusive
+		// ("if any flags in the group …") and MarkFlagsOneRequired ("at least one
+		// of the flags in the group …"). Both are the user combining flags
+		// wrongly, and both were exiting 1 for every command that declares a
+		// group (chat post/read, auth login, mcpserver update, …).
+		strings.HasPrefix(msg, "if any flags in the group") ||
+		strings.HasPrefix(msg, "at least one of the flags in the group")
 }
