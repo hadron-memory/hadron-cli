@@ -58,11 +58,14 @@ query MemoriesSharedWithMe(
       isEncrypted
       maxRevCount
       updatedAt
+      # The full user projection the sibling access listings (share list,
+      # member list) already emit — not a display label. `sharedBy` is the
+      # handle you feed back to `memory share rm --grantee`, and two grantors
+      # can share a display name, so the id has to survive to the DTO.
       myShare {
         role
         grantor {
-          handle
-          name
+          ...MemUserFields
         }
       }
     }

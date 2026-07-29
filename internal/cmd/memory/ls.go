@@ -57,7 +57,7 @@ also reports the role you were granted and who shared it.`,
 				if sharedWithMe {
 					t := output.NewTable(w, "URN", "NAME", "ROLE", "SHARED BY")
 					for _, m := range memories {
-						t.Row(m.URN, m.Name, deref(m.ShareRole), deref(m.SharedBy))
+						t.Row(m.URN, m.Name, accessDash(m.ShareRole), grantorLabel(m.SharedBy))
 					}
 					return t.Flush()
 				}
@@ -138,8 +138,9 @@ func listSharedWithMe(cmd *cobra.Command, client graphql.Client) ([]memoryDTO, e
 		if s := m.MyShare; s != nil {
 			role := string(s.Role)
 			dto.ShareRole = &role
-			if who := grantorLabel(s.Grantor); who != "" {
-				dto.SharedBy = &who
+			if s.Grantor != nil {
+				u := userFromMemFields(s.Grantor.MemUserFields)
+				dto.SharedBy = &u
 			}
 		}
 		memories = append(memories, dto)
@@ -147,24 +148,13 @@ func listSharedWithMe(cmd *cobra.Command, client graphql.Client) ([]memoryDTO, e
 	return memories, nil
 }
 
-// grantorLabel names the sharer: the handle if they have one, else their
-// display name. Both are nullable, so this can be empty.
-func grantorLabel(g *gen.MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser) string {
-	if g == nil {
-		return ""
+// grantorLabel names the sharer for the human table. accessLabel is the shared
+// email → handle → name → id fallback the member/share tables use, so it can't
+// come up empty; a nil grantor still gets the accessDash em dash rather than a
+// blank cell.
+func grantorLabel(u *accessUserDTO) string {
+	if u == nil {
+		return accessDash(nil)
 	}
-	if g.Handle != nil && *g.Handle != "" {
-		return *g.Handle
-	}
-	if g.Name != nil {
-		return *g.Name
-	}
-	return ""
-}
-
-func deref(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
+	return accessLabel(*u)
 }

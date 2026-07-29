@@ -14,7 +14,7 @@ const sharedWithMeJSON = `{"data":{"memories":{"total":2,"items":[
 	{"id":"m1","urn":"holger::jens","name":"Jens","shortDescription":null,"class":"personal",
 	 "visibility":null,"organizationId":null,"isEncrypted":false,"maxRevCount":10,
 	 "updatedAt":"2026-07-28T00:00:00Z",
-	 "myShare":{"role":"reader","grantor":{"handle":"holger","name":"Holger S"}}},
+	 "myShare":{"role":"reader","grantor":{"id":"usr_9","name":"Holger S","email":null,"handle":"holger"}}},
 	{"id":"m2","urn":"acme.com::notes","name":"Notes","shortDescription":null,"class":"personal",
 	 "visibility":null,"organizationId":null,"isEncrypted":false,"maxRevCount":10,
 	 "updatedAt":"2026-07-28T00:00:00Z","myShare":null}]}}}`
@@ -58,7 +58,15 @@ func TestMemoryLsSharedWithMeJSON(t *testing.T) {
 	var memories []struct {
 		URN       string  `json:"urn"`
 		ShareRole *string `json:"shareRole"`
-		SharedBy  *string `json:"sharedBy"`
+		// sharedBy is the same user object the share/member listings emit, not
+		// a display label — the id is what `share rm --grantee` takes, and it
+		// disambiguates two grantors with the same display name.
+		SharedBy *struct {
+			ID     string  `json:"id"`
+			Name   *string `json:"name"`
+			Email  *string `json:"email"`
+			Handle *string `json:"handle"`
+		} `json:"sharedBy"`
 	}
 	if err := json.Unmarshal([]byte(out.String()), &memories); err != nil {
 		t.Fatalf("unmarshal: %v\n%s", err, out.String())
@@ -69,12 +77,40 @@ func TestMemoryLsSharedWithMeJSON(t *testing.T) {
 	if memories[0].ShareRole == nil || *memories[0].ShareRole != "reader" {
 		t.Errorf("shareRole = %v", memories[0].ShareRole)
 	}
-	if memories[0].SharedBy == nil || *memories[0].SharedBy != "holger" {
-		t.Errorf("sharedBy = %v", memories[0].SharedBy)
+	if memories[0].SharedBy == nil {
+		t.Fatalf("sharedBy missing: %s", out.String())
+	}
+	if got := memories[0].SharedBy.ID; got != "usr_9" {
+		t.Errorf("sharedBy.id = %q, want usr_9 — the grantee ref `share rm` takes", got)
+	}
+	if memories[0].SharedBy.Handle == nil || *memories[0].SharedBy.Handle != "holger" {
+		t.Errorf("sharedBy.handle = %v", memories[0].SharedBy.Handle)
 	}
 	// A null myShare must not drop the row — the memory is still shared with us.
 	if memories[1].URN != "acme.com::notes" || memories[1].ShareRole != nil {
 		t.Errorf("a row with no myShare should survive without a role, got %+v", memories[1])
+	}
+}
+
+// name and handle are both nullable, so the SHARED BY cell must not be able to
+// come out blank: accessLabel falls back email → handle → name → id, and the id
+// is always there. A blank cell would read as "nobody shared this".
+func TestMemoryLsSharedWithMeGrantorWithoutLabel(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"MemoriesSharedWithMe": `{"data":{"memories":{"total":1,"items":[
+			{"id":"m1","urn":"holger::jens","name":"Jens","shortDescription":null,"class":"personal",
+			 "visibility":null,"organizationId":null,"isEncrypted":false,"maxRevCount":10,
+			 "updatedAt":"2026-07-28T00:00:00Z",
+			 "myShare":{"role":"writer","grantor":{"id":"usr_9","name":null,"email":null,"handle":null}}}]}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "ls", "--shared-with-me", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "usr_9") {
+		t.Errorf("a grantor with no name/handle/email must fall back to the id:\n%s", out.String())
 	}
 }
 

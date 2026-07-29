@@ -405,6 +405,18 @@ Conventions:
   silently. Existing files are overwritten but files for
   removed nodes are never deleted. `--format markdown` is the default and
   only target today.
+- `memory list --shared-with-me` SWITCHES the listing to the memories other
+  users shared with you (you are the grantee). It is a slice selection, not a
+  narrowing: that set is disjoint from your own union, so the flag excludes
+  every memory you own, and plain `memory list` is the only way to see those.
+  This is how you discover the URN of a memory shared with you — it is
+  otherwise absent from every listing even though you can read its nodes. Each
+  row adds `shareRole` (`reader`/`writer`) and `sharedBy` (the grantor, as the
+  same `{id,name,email,handle}` object `share list` emits — feed `id` back to
+  `share rm --grantee`). Both keys are ABSENT on the ordinary listing, so their
+  absence means "not a shared-with-me listing". Rejected (exit 2) together with
+  `--include-agent-system`, which selects the other slice. An App-key caller
+  gets an empty list — sharing is user-to-user.
 - `memory member` and `memory share` control who can access a memory.
   `member list|add|set-role|rm <memory> --user <id> --role <owner|writer|reader>`
   manages team membership (rows exist only on group-class memories);

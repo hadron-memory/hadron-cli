@@ -7593,18 +7593,80 @@ func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShare) 
 
 // MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser includes the requested fields of the GraphQL type User.
 type MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser struct {
-	Handle *string `json:"handle"`
-	Name   *string `json:"name"`
+	MemUserFields `json:"-"`
 }
 
-// GetHandle returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser.Handle, and is useful for accessing the field via an interface.
-func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser) GetHandle() *string {
-	return v.Handle
+// GetId returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser.Id, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser) GetId() string {
+	return v.MemUserFields.Id
 }
 
 // GetName returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser.Name, and is useful for accessing the field via an interface.
 func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser) GetName() *string {
-	return v.Name
+	return v.MemUserFields.Name
+}
+
+// GetEmail returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser.Email, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser) GetEmail() *string {
+	return v.MemUserFields.Email
+}
+
+// GetHandle returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser.Handle, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser) GetHandle() *string {
+	return v.MemUserFields.Handle
+}
+
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.MemUserFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalMemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser struct {
+	Id string `json:"id"`
+
+	Name *string `json:"name"`
+
+	Email *string `json:"email"`
+
+	Handle *string `json:"handle"`
+}
+
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser) __premarshalJSON() (*__premarshalMemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser, error) {
+	var retval __premarshalMemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGrantorUser
+
+	retval.Id = v.MemUserFields.Id
+	retval.Name = v.MemUserFields.Name
+	retval.Email = v.MemUserFields.Email
+	retval.Handle = v.MemUserFields.Handle
+	return &retval, nil
 }
 
 // MemoriesSharedWithMeResponse is returned by MemoriesSharedWithMe on success.
@@ -18897,12 +18959,17 @@ query MemoriesSharedWithMe ($limit: Int, $offset: Int) {
 			myShare {
 				role
 				grantor {
-					handle
-					name
+					... MemUserFields
 				}
 			}
 		}
 	}
+}
+fragment MemUserFields on User {
+	id
+	name
+	email
+	handle
 }
 `
 
