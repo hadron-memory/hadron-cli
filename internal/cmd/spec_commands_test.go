@@ -952,14 +952,38 @@ func TestSpecNewPathNoContract(t *testing.T) {
 	}
 }
 
+// Every flag the guard rejects must also be named in the error, so the message
+// can't drift out of sync with the condition it explains (it silently omitted
+// --rule-after).
 func TestSpecNewPathRejectsTierFlags(t *testing.T) {
-	for _, extra := range [][]string{{"--module", "msg"}, {"--inherit", "msg:010:00"}, {"--new-module"}, {"--contract"}} {
+	cases := []struct {
+		extra   []string
+		wantMsg string // how the error is expected to name the offending flag
+	}{
+		{[]string{"--product", "cli"}, "--product"},
+		{[]string{"--module", "msg"}, "--module"},
+		{[]string{"--feature", "010"}, "--feature"},
+		{[]string{"--rule", "01"}, "--rule"},
+		{[]string{"--rule-after", "01"}, "--rule-after"},
+		{[]string{"--flow", "01"}, "--flow"},
+		{[]string{"--inherit", "msg:010:00"}, "--inherit"},
+		{[]string{"--new-feature"}, "--new-*"},
+		{[]string{"--new-module"}, "--new-*"},
+		{[]string{"--new-product"}, "--new-*"},
+		{[]string{"--contract"}, "--contract"},
+	}
+	for _, tc := range cases {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
-		args := append([]string{"spec", "new", "msg:010:01", "--new-path", "--title", "x", "-m", specMem, "--server", "http://127.0.0.1:1"}, extra...)
+		args := append([]string{"spec", "new", "msg:010:01", "--new-path", "--title", "x", "-m", specMem, "--server", "http://127.0.0.1:1"}, tc.extra...)
 		root.SetArgs(args)
-		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
-			t.Errorf("--new-path + %v should be Usage, got %d", extra, got)
+		err := root.Execute()
+		if got := exitcode.FromError(err); got != exitcode.Usage {
+			t.Errorf("--new-path + %v should be Usage, got %d", tc.extra, got)
+			continue
+		}
+		if !strings.Contains(err.Error(), tc.wantMsg) {
+			t.Errorf("--new-path + %v: error should name %q, got %q", tc.extra, tc.wantMsg, err.Error())
 		}
 	}
 }
