@@ -130,7 +130,7 @@ is one call instead of four.`,
 				}
 				if product != "" || module != "" || feature != "" || rule != "" || ruleAfter != "" ||
 					flow != "" || inherit != "" || newFeature || newModule || newProduct || contract {
-					return exitcode.Newf(exitcode.Usage, "--new-path takes a <citation> argument — don't combine it with --product/--module/--feature/--rule/--flow/--inherit/--new-*/--contract")
+					return exitcode.Newf(exitcode.Usage, "--new-path takes a <citation> argument — don't combine it with --product/--module/--feature/--rule/--rule-after/--flow/--inherit/--new-*/--contract")
 				}
 				target, perr := ParseCitation(args[0])
 				if perr != nil {
