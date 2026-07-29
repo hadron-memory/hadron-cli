@@ -13,6 +13,28 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
+// lsPageSize bounds one page of the exhaustive browse scan. The server caps an
+// unspecified limit at its default page and drops the rest (#23), so any
+// "whole-collection" listing — here, --seq-gt / --sort-seq, which filter and
+// sort client-side — must page explicitly to exhaustion (#319).
+const lsPageSize = 500
+
+// paginateAllNodes runs a browse fetch to exhaustion, returning every node in
+// scope. The fetch is injected so the loop is unit-testable without a server.
+func paginateAllNodes(fetch func(limit, offset int) ([]*api.ListNode, error)) ([]*api.ListNode, error) {
+	var all []*api.ListNode
+	for offset := 0; ; offset += lsPageSize {
+		page, err := fetch(lsPageSize, offset)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if len(page) < lsPageSize {
+			return all, nil
+		}
+	}
+}
+
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var (
 		memory     string
@@ -41,7 +63,9 @@ scopes the listing to that memory. --prefix filters on the node loc
 
 --sort-seq [asc|desc] sorts results by seq in ascending or descending order.
 --seq-gt N filters to nodes with seq > N (useful for reading new messages
-after a known seq number).
+after a known seq number). Both scan the WHOLE collection in scope — not just
+the server's default first page — so the newest nodes are never hidden past a
+page boundary; with --sort-seq, --limit then means "the top N by seq".
 
 --where takes a JSON predicate over the node's properties/data JSONB (a leaf is
 a path plus one of eq|ne|in|lt|lte|gt|gte|between|exists|contains; branch with
@@ -130,13 +154,39 @@ and/or/not). --object-type filters the objectType collection facet.
 				offsetArg = &offset
 			}
 
-			page, err := api.FindNodes(cmd.Context(), client, searchArg, mode, filterArg, sortArg, sortPropArg, limitArg, offsetArg)
+			// --seq-gt / --sort-seq post-process client-side, so they must see the
+			// WHOLE collection — not the server's default first page, which
+			// silently hid the newest nodes once a collection exceeded one page
+			// (#319: --seq-gt read empty as "no new messages"). Whenever either is
+			// set — browse OR a ranked --search (there, --search is the filter and
+			// seq the sort, so its later high-seq matches must be paged in too) —
+			// page to exhaustion and apply --limit/--offset client-side, after the
+			// seq filter/sort.
+			seqMode := seqGt > 0 || sortSeq != ""
+
+			var rawNodes []*api.ListNode
+			if seqMode {
+				rawNodes, err = paginateAllNodes(func(lim, off int) ([]*api.ListNode, error) {
+					l, o := lim, off
+					page, err := api.FindNodes(cmd.Context(), client, searchArg, mode, filterArg, sortArg, sortPropArg, &l, &o)
+					if err != nil {
+						return nil, err
+					}
+					return page.Nodes, nil
+				})
+			} else {
+				var page *api.FindNodesPage
+				page, err = api.FindNodes(cmd.Context(), client, searchArg, mode, filterArg, sortArg, sortPropArg, limitArg, offsetArg)
+				if err == nil {
+					rawNodes = page.Nodes
+				}
+			}
 			if err != nil {
 				return api.MapError(err)
 			}
 
-			nodes := make([]nodeDTO, 0, len(page.Nodes))
-			for _, n := range page.Nodes {
+			nodes := make([]nodeDTO, 0, len(rawNodes))
+			for _, n := range rawNodes {
 				nodes = append(nodes, nodeDTO{
 					ID:         n.Id,
 					MemoryID:   n.MemoryId,
@@ -193,6 +243,22 @@ and/or/not). --object-type filters the objectType collection facet.
 					}
 					return *seqI > *seqJ
 				})
+			}
+
+			// In seq mode the server page was bypassed (we paged to exhaustion),
+			// so --limit/--offset are applied here — over the seq-filtered, sorted
+			// result, i.e. "the top N by seq" rather than an arbitrary first page.
+			if seqMode {
+				if offset > 0 {
+					if offset >= len(nodes) {
+						nodes = nodes[:0]
+					} else {
+						nodes = nodes[offset:]
+					}
+				}
+				if limit > 0 && limit < len(nodes) {
+					nodes = nodes[:limit]
+				}
 			}
 
 			return output.Write(f.IOStreams, f.JSON, nodes, func(w io.Writer) error {

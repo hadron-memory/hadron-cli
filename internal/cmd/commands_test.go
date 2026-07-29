@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -2365,5 +2366,124 @@ func TestAiConfigLsJSONOmitsUnsetAgent(t *testing.T) {
 	}
 	if v, present := vars["agentRef"]; present {
 		t.Errorf("unset --agent must be omitted from variables, got %v", v)
+	}
+}
+
+// nodeSeqJSON is a FindNodes hit node carrying a seq — for the --seq-gt /
+// --sort-seq tests (#319).
+func nodeSeqJSON(loc string, seq int) string {
+	return fmt.Sprintf(`{"id":"id-%s","memoryId":"mem1","loc":%q,"name":%q,"nodeType":"message","tags":[],"seq":%d,"isRunnable":false,"updatedAt":"2026-07-29T00:00:00Z"}`,
+		loc, loc, loc, seq)
+}
+
+// #319: --seq-gt pages to exhaustion (requesting a large page, not the server
+// default) and filters client-side, so nodes past the first page aren't hidden.
+func TestNodeLsSeqGt(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` +
+			nodeSeqJSON("m:48", 48) + `,` + nodeSeqJSON("m:51", 51) + `,` + nodeSeqJSON("m:52", 52) + `]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "ls", "-m", "acme.com::kb", "--seq-gt", "50", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var got []struct {
+		Loc string `json:"loc"`
+		Seq *int   `json:"seq"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out.String())
+	}
+	if len(got) != 2 || got[0].Loc == "m:48" || got[1].Loc == "m:48" {
+		t.Errorf("--seq-gt 50 should return only seq>50 (m:51,m:52), got %+v", got)
+	}
+	// It must request a large page (the paginator's page size), not rely on the
+	// server's default first page — that was the bug.
+	var vars struct {
+		Limit *int `json:"limit"`
+	}
+	_ = json.Unmarshal(captured["FindNodes"], &vars)
+	if vars.Limit == nil || *vars.Limit < 100 {
+		t.Errorf("seq mode must page with a large limit, got %v", vars.Limit)
+	}
+}
+
+// #319: --sort-seq desc orders by seq across the whole (paged) collection.
+func TestNodeLsSortSeqDesc(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` +
+			nodeSeqJSON("m:48", 48) + `,` + nodeSeqJSON("m:52", 52) + `,` + nodeSeqJSON("m:51", 51) + `]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "ls", "-m", "acme.com::kb", "--sort-seq", "desc", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var got []struct {
+		Seq int `json:"seq"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &got)
+	if len(got) != 3 || got[0].Seq != 52 || got[1].Seq != 51 || got[2].Seq != 48 {
+		t.Errorf("--sort-seq desc order wrong: %+v", got)
+	}
+}
+
+// --sort-seq desc --limit 2 returns the top 2 by seq (limit applied client-side
+// AFTER the sort, not as an arbitrary server page).
+func TestNodeLsSortSeqLimit(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` +
+			nodeSeqJSON("m:48", 48) + `,` + nodeSeqJSON("m:52", 52) + `,` + nodeSeqJSON("m:51", 51) + `]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "ls", "-m", "acme.com::kb", "--sort-seq", "desc", "--limit", "2", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var got []struct {
+		Seq int `json:"seq"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &got)
+	if len(got) != 2 || got[0].Seq != 52 || got[1].Seq != 51 {
+		t.Errorf("--sort-seq desc --limit 2 should be [52,51], got %+v", got)
+	}
+}
+
+// #319 review: --search combined with a seq flag must ALSO page to exhaustion
+// (search is the filter, seq the sort) — else later high-seq matches are hidden
+// and --seq-gt can still wrong-empty. Assert it requests a large page and applies
+// the seq sort.
+func TestNodeLsSearchWithSortSeqPaginates(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` +
+			nodeSeqJSON("m:48", 48) + `,` + nodeSeqJSON("m:52", 52) + `,` + nodeSeqJSON("m:51", 51) + `]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "ls", "-m", "acme.com::kb", "--search", "hello", "--sort-seq", "desc", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var got []struct {
+		Seq int `json:"seq"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &got)
+	if len(got) != 3 || got[0].Seq != 52 || got[2].Seq != 48 {
+		t.Errorf("--search + --sort-seq desc should sort matches by seq, got %+v", got)
+	}
+	var vars struct {
+		Query string `json:"query"`
+		Limit *int   `json:"limit"`
+	}
+	_ = json.Unmarshal(captured["FindNodes"], &vars)
+	if vars.Query != "hello" {
+		t.Errorf("--search should still send the query, got %q", vars.Query)
+	}
+	if vars.Limit == nil || *vars.Limit < 100 {
+		t.Errorf("search+seq must page with a large limit, got %v", vars.Limit)
 	}
 }
