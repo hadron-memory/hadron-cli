@@ -65,9 +65,13 @@ siblings inherit from — one per tier:
 
 | shared across… | contract loc | created with the root… | …or retrofitted with |
 |---|---|---|---|
-| all rules of a feature | `msg:010:00` | `spec new --module msg --new-feature` | `spec new --module msg --feature 010 --contract` |
-| all features of a module | `msg:000` | `spec new --module msg --new-module` | `spec new --module msg --contract` |
-| all modules of a product | `cli:gen` | `spec new --product cli --new-product` | `spec new --product cli --contract` |
+| all rules of a feature | `<m>:<f>:00` | `spec new --module msg --new-feature` | `spec new --module msg --feature 010 --contract` |
+| all features of a module | `<m>:000` | `spec new --module msg --new-module` | `spec new --module msg --contract` |
+| all modules of a product | `<p>:gen` | `spec new --product cli --new-product` | `spec new --product cli --contract` |
+
+(Abbreviated: every one of those also needs `--title`, plus `-m` unless a default
+memory is set. `--new-feature` allocates the *next free* feature, so its contract
+lands under whatever number that turns out to be — not necessarily `010`.)
 
 The contract spelling follows each tier's alphabet — the numeric tiers use their
 "zero" (`00`, `000`), and the alpha module tier uses the reserved code `gen`.
@@ -102,8 +106,8 @@ From an empty corpus that one call mints `cli`, `cli:gen`, `cli:cha`,
 `cli:cha:000`, `cli:cha:010`, `cli:cha:010:00` and the rule itself, wired
 top-down; ancestors that already exist are left alone. `--new-path` takes the
 citation *positionally* and refuses to be combined with the tier-selecting flags
-(`--product` / `--module` / `--feature` / `--rule` / `--flow` / `--inherit` /
-`--new-*` / `--contract`).
+(`--product` / `--module` / `--feature` / `--rule` / `--rule-after` / `--flow` /
+`--inherit` / `--new-*` / `--contract`).
 
 **Rename the ancestors afterward.** `--title` lands on the citation you named;
 each ancestor is titled from its own citation segment — `cli:cha` is titled
@@ -126,11 +130,23 @@ hadron spec new -m $M --product cli --module cha --feature 010 --title "backpres
 
 Each of the first three calls also scaffolds its tier's contract (`cli:gen`,
 `cli:cha:000`, `cli:cha:010:00`) unless you pass `--no-contract`. Product and
-module codes are frozen — re-minting one exits 5 — and a missing parent tier is
-rejected up front (exit 4, nothing written). An edge that can't be wired is the
-one failure that half-writes: the node exists, `spec new` exits 1 rather than
-report success, and you fix the target and re-run or wire it with `hadron edge
-add`.
+module codes are frozen: re-minting one exits 5.
+
+**A failed `spec new` is not always a clean slate.** Only a missing parent tier
+is rejected up front (exit 4, nothing written). Every other failure can leave
+nodes behind, because each is created in its own call: a root whose contract
+then failed, a `--new-path` chain that stopped part-way, or a node created
+without the table-of-contents / inheritance edge it needs (exit 1 — `spec new`
+reports the orphan rather than `✓ created`). Don't reflexively re-run: the
+citation exists now, so `--new-path` and the `--new-*` roots exit 5 on conflict,
+while an allocating call (`--new-feature`, or `--feature` without `--rule`)
+quietly mints a *second* number instead of repairing the first. Inspect what
+actually landed, then finish it by hand:
+
+```sh
+hadron spec list -m $M --prefix cli:cha            # what actually exists
+hadron edge add -m $M --from cli:cha:010:01 --to cli:cha:010 --name "backpressure"
+```
 
 A flat corpus is identical without the `--product` flag (and `--new-module`
 creates a top-level module):
