@@ -69,9 +69,10 @@ func newCmdMemberLs(f *cmdutil.Factory) *cobra.Command {
 func newCmdMemberAdd(f *cmdutil.Factory) *cobra.Command {
 	var user, role string
 	cmd := &cobra.Command{
-		Use:     "add <memoryRef> --user <user-id> --role <owner|writer|reader>",
+		Use:     "add <memoryRef> --user <user> --role <owner|writer|reader>",
 		Short:   "Add (or upsert) a member on a memory",
-		Example: `  hadron memory member add acme.com::kb --user usr_456 --role writer`,
+		Example: `  hadron memory member add acme.com::kb --user jane@acme.com --role writer
+  hadron memory member add acme.com::kb --user jane --role reader`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseMemberRole(role)
@@ -97,7 +98,7 @@ func newCmdMemberAdd(f *cmdutil.Factory) *cobra.Command {
 			return emitMember(f, "✓ added", memberDTO{Role: string(m.Role), User: userFromMemFields(m.User.MemUserFields)})
 		},
 	}
-	cmd.Flags().StringVar(&user, "user", "", "user ID")
+	cmd.Flags().StringVar(&user, "user", "", "user (ID, email, handle, or hrn:user:<handle> URN)")
 	cmd.Flags().StringVar(&role, "role", "", "role: owner, writer, or reader")
 	_ = cmd.MarkFlagRequired("user")
 	_ = cmd.MarkFlagRequired("role")
@@ -107,9 +108,9 @@ func newCmdMemberAdd(f *cmdutil.Factory) *cobra.Command {
 func newCmdMemberSetRole(f *cmdutil.Factory) *cobra.Command {
 	var user, role string
 	cmd := &cobra.Command{
-		Use:     "set-role <memoryRef> --user <user-id> --role <owner|writer|reader>",
+		Use:     "set-role <memoryRef> --user <user> --role <owner|writer|reader>",
 		Short:   "Change a member's role",
-		Example: `  hadron memory member set-role acme.com::kb --user usr_456 --role reader`,
+		Example: `  hadron memory member set-role acme.com::kb --user jane --role reader`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseMemberRole(role)
@@ -135,7 +136,7 @@ func newCmdMemberSetRole(f *cmdutil.Factory) *cobra.Command {
 			return emitMember(f, "✓ set", memberDTO{Role: string(m.Role), User: userFromMemFields(m.User.MemUserFields)})
 		},
 	}
-	cmd.Flags().StringVar(&user, "user", "", "user ID")
+	cmd.Flags().StringVar(&user, "user", "", "user (ID, email, handle, or hrn:user:<handle> URN)")
 	cmd.Flags().StringVar(&role, "role", "", "new role: owner, writer, or reader")
 	_ = cmd.MarkFlagRequired("user")
 	_ = cmd.MarkFlagRequired("role")
@@ -146,10 +147,10 @@ func newCmdMemberRm(f *cmdutil.Factory) *cobra.Command {
 	var user string
 	var yes bool
 	cmd := &cobra.Command{
-		Use:     "rm <memoryRef> --user <user-id>",
+		Use:     "rm <memoryRef> --user <user>",
 		Aliases: []string{"remove"},
 		Short:   "Remove a member from a memory",
-		Example: `  hadron memory member rm acme.com::kb --user usr_456 --yes`,
+		Example: `  hadron memory member rm acme.com::kb --user jane --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
@@ -173,7 +174,7 @@ func newCmdMemberRm(f *cmdutil.Factory) *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVar(&user, "user", "", "user ID to remove")
+	cmd.Flags().StringVar(&user, "user", "", "user to remove (ID, email, handle, or hrn:user:<handle> URN)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	_ = cmd.MarkFlagRequired("user")
 	return cmd

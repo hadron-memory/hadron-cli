@@ -21,8 +21,30 @@ func TestMemoryMemberAdd(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["AddMemoryMember"], &vars)
-	if vars["memoryId"] != "mem1" || vars["userId"] != "usr1" || vars["role"] != "writer" {
+	if vars["memoryRef"] != "mem1" || vars["userRef"] != "usr1" || vars["role"] != "writer" {
 		t.Errorf("add vars: %v", vars)
+	}
+}
+
+// #304: `member add --user` passes the value straight through to userRef — the
+// SERVER resolves the handle/email (no client-side user lookup). A test guard
+// against re-introducing client-side resolution here (which would break the
+// cross-org / not-locally-visible grantee case that server-side resolution
+// deliberately supports).
+func TestMemoryMemberAddSendsUserRefUnresolved(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"AddMemoryMember": `{"data":{"addMemoryMember":{"memoryMember":{"role":"reader","user":` + memUserJSON + `}}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "member", "add", "mem1", "--user", "jane@acme.com", "--role", "reader", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["AddMemoryMember"], &vars)
+	if vars["userRef"] != "jane@acme.com" {
+		t.Errorf("userRef must reach the server verbatim for server-side resolution, got %v", vars["userRef"])
 	}
 }
 
@@ -74,7 +96,7 @@ func TestMemoryMemberSetRole(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["UpdateMemoryMemberRole"], &vars)
-	if vars["role"] != "reader" || vars["userId"] != "usr1" {
+	if vars["role"] != "reader" || vars["userRef"] != "usr1" {
 		t.Errorf("set-role vars: %v", vars)
 	}
 }
@@ -101,7 +123,7 @@ func TestMemoryMemberRmWithYes(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["RemoveMemoryMember"], &vars)
-	if vars["memoryId"] != "mem1" || vars["userId"] != "usr1" {
+	if vars["memoryRef"] != "mem1" || vars["userRef"] != "usr1" {
 		t.Errorf("rm vars: %v", vars)
 	}
 }
@@ -120,13 +142,13 @@ func TestMemoryShareCreate(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateMemoryShare"], &vars)
-	if vars["memoryId"] != "mem1" || vars["granteeId"] != "usr1" || vars["role"] != "reader" {
+	if vars["memoryId"] != "mem1" || vars["granteeRef"] != "usr1" || vars["role"] != "reader" {
 		t.Errorf("share vars: %v", vars)
 	}
 }
 
 // #280: --grantee accepts a user ref (here a @handle), resolved to the PK the
-// createMemoryShare(granteeId: ID!) mutation requires.
+// createMemoryShare now takes granteeRef (server-resolved).
 func TestMemoryShareCreateResolvesGranteeRef(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetUser":           `{"data":{"user":{"id":"usr_jane","name":"Jane","email":"jane@acme.com","handle":"jane","githubUsername":null,"roles":[]}}}`,
@@ -147,8 +169,8 @@ func TestMemoryShareCreateResolvesGranteeRef(t *testing.T) {
 	// The mutation receives the resolved PK, not the raw ref.
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateMemoryShare"], &vars)
-	if vars["granteeId"] != "usr_jane" {
-		t.Errorf("createMemoryShare must receive the resolved user id, got %v", vars["granteeId"])
+	if vars["granteeRef"] != "usr_jane" {
+		t.Errorf("createMemoryShare must receive the resolved user id, got %v", vars["granteeRef"])
 	}
 }
 
@@ -202,7 +224,7 @@ func TestMemoryShareRmWithYes(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["DeleteMemoryShare"], &vars)
-	if vars["memoryRef"] != "mem1" || vars["granteeId"] != "usr1" {
+	if vars["memoryRef"] != "mem1" || vars["granteeRef"] != "usr1" {
 		t.Errorf("rm vars: %v", vars)
 	}
 }
@@ -272,8 +294,8 @@ func TestMemoryShareRmSelfOmitsGrantee(t *testing.T) {
 	}
 	// Key ABSENT, not present-and-null: a null would be a different request
 	// than the one the server's self-removal contract describes.
-	if _, present := vars["granteeId"]; present {
-		t.Errorf("self-removal must omit granteeId entirely, got %v", vars["granteeId"])
+	if _, present := vars["granteeRef"]; present {
+		t.Errorf("self-removal must omit granteeId entirely, got %v", vars["granteeRef"])
 	}
 	if _, ok := captured["GetUser"]; ok {
 		t.Error("self-removal must not resolve a user ref")
@@ -320,7 +342,7 @@ func TestMemorySubscriptionCreate(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateMemorySubscription"], &vars)
-	if vars["memoryId"] != "mem1" || vars["orgId"] != "org1" || vars["role"] != "READER" {
+	if vars["memoryRef"] != "mem1" || vars["orgRef"] != "org1" || vars["role"] != "READER" {
 		t.Errorf("subscription vars: %v", vars)
 	}
 }
@@ -375,7 +397,7 @@ func TestMemorySubscriptionSetRole(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["UpdateMemorySubscription"], &vars)
-	if vars["role"] != "ADMIN" || vars["orgId"] != "org1" {
+	if vars["role"] != "ADMIN" || vars["orgRef"] != "org1" {
 		t.Errorf("set-role vars: %v", vars)
 	}
 }
@@ -402,7 +424,7 @@ func TestMemorySubscriptionRmWithYes(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["DeleteMemorySubscription"], &vars)
-	if vars["memoryId"] != "mem1" || vars["orgId"] != "org1" {
+	if vars["memoryRef"] != "mem1" || vars["orgRef"] != "org1" {
 		t.Errorf("rm vars: %v", vars)
 	}
 }

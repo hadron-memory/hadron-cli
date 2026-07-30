@@ -80,7 +80,7 @@ func newCmdSubscriptionLs(f *cmdutil.Factory) *cobra.Command {
 func newCmdSubscriptionCreate(f *cmdutil.Factory) *cobra.Command {
 	var org, role string
 	cmd := &cobra.Command{
-		Use:     "create <memoryRef> --org <org-id> --role <owner|admin|contributor|reader>",
+		Use:     "create <memoryRef> --org <org> --role <owner|admin|contributor|reader>",
 		Short:   "Subscribe an organization to a memory (or update its role)",
 		Example: `  hadron memory subscription create acme.com::kb --org partnerco.com --role reader`,
 		Args:    cobra.ExactArgs(1),
@@ -111,7 +111,7 @@ func newCmdSubscriptionCreate(f *cmdutil.Factory) *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVar(&org, "org", "", "organization ID or URN to subscribe")
+	cmd.Flags().StringVar(&org, "org", "", "organization to subscribe (ID, slug, or hrn:org:<slug> URN)")
 	cmd.Flags().StringVar(&role, "role", "", "role: owner, admin, contributor, or reader")
 	_ = cmd.MarkFlagRequired("org")
 	_ = cmd.MarkFlagRequired("role")
@@ -121,7 +121,7 @@ func newCmdSubscriptionCreate(f *cmdutil.Factory) *cobra.Command {
 func newCmdSubscriptionSetRole(f *cmdutil.Factory) *cobra.Command {
 	var org, role string
 	cmd := &cobra.Command{
-		Use:     "set-role <memoryRef> --org <org-id> --role <owner|admin|contributor|reader>",
+		Use:     "set-role <memoryRef> --org <org> --role <owner|admin|contributor|reader>",
 		Short:   "Change an organization subscription's role",
 		Example: `  hadron memory subscription set-role acme.com::kb --org partnerco.com --role contributor`,
 		Args:    cobra.ExactArgs(1),
@@ -152,7 +152,7 @@ func newCmdSubscriptionSetRole(f *cmdutil.Factory) *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVar(&org, "org", "", "subscribed organization ID or URN")
+	cmd.Flags().StringVar(&org, "org", "", "subscribed organization (ID, slug, or hrn:org:<slug> URN)")
 	cmd.Flags().StringVar(&role, "role", "", "new role: owner, admin, contributor, or reader")
 	_ = cmd.MarkFlagRequired("org")
 	_ = cmd.MarkFlagRequired("role")
@@ -163,7 +163,7 @@ func newCmdSubscriptionRm(f *cmdutil.Factory) *cobra.Command {
 	var org string
 	var yes bool
 	cmd := &cobra.Command{
-		Use:     "rm <memoryRef> --org <org-id>",
+		Use:     "rm <memoryRef> --org <org>",
 		Aliases: []string{"delete", "unsubscribe"},
 		Short:   "Remove an organization's subscription to a memory",
 		Example: `  hadron memory subscription rm acme.com::kb --org partnerco.com --yes`,
@@ -190,7 +190,7 @@ func newCmdSubscriptionRm(f *cmdutil.Factory) *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVar(&org, "org", "", "subscribed organization ID or URN")
+	cmd.Flags().StringVar(&org, "org", "", "subscribed organization (ID, slug, or hrn:org:<slug> URN)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	_ = cmd.MarkFlagRequired("org")
 	return cmd

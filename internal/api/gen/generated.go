@@ -13703,16 +13703,16 @@ func (v *__ActionTicketsInput) GetOffset() *int { return v.Offset }
 
 // __AddMemoryMemberInput is used internally by genqlient
 type __AddMemoryMemberInput struct {
-	MemoryId string           `json:"memoryId"`
-	UserId   string           `json:"userId"`
-	Role     MemoryMemberRole `json:"role"`
+	MemoryRef string           `json:"memoryRef"`
+	UserRef   string           `json:"userRef"`
+	Role      MemoryMemberRole `json:"role"`
 }
 
-// GetMemoryId returns __AddMemoryMemberInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__AddMemoryMemberInput) GetMemoryId() string { return v.MemoryId }
+// GetMemoryRef returns __AddMemoryMemberInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__AddMemoryMemberInput) GetMemoryRef() string { return v.MemoryRef }
 
-// GetUserId returns __AddMemoryMemberInput.UserId, and is useful for accessing the field via an interface.
-func (v *__AddMemoryMemberInput) GetUserId() string { return v.UserId }
+// GetUserRef returns __AddMemoryMemberInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__AddMemoryMemberInput) GetUserRef() string { return v.UserRef }
 
 // GetRole returns __AddMemoryMemberInput.Role, and is useful for accessing the field via an interface.
 func (v *__AddMemoryMemberInput) GetRole() MemoryMemberRole { return v.Role }
@@ -14207,32 +14207,32 @@ func (v *__CreateMemoryInput) GetMaxRevCount() *int { return v.MaxRevCount }
 
 // __CreateMemoryShareInput is used internally by genqlient
 type __CreateMemoryShareInput struct {
-	MemoryId  string          `json:"memoryId"`
-	GranteeId string          `json:"granteeId"`
-	Role      MemoryShareRole `json:"role"`
+	MemoryId   string          `json:"memoryId"`
+	GranteeRef string          `json:"granteeRef"`
+	Role       MemoryShareRole `json:"role"`
 }
 
 // GetMemoryId returns __CreateMemoryShareInput.MemoryId, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryShareInput) GetMemoryId() string { return v.MemoryId }
 
-// GetGranteeId returns __CreateMemoryShareInput.GranteeId, and is useful for accessing the field via an interface.
-func (v *__CreateMemoryShareInput) GetGranteeId() string { return v.GranteeId }
+// GetGranteeRef returns __CreateMemoryShareInput.GranteeRef, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryShareInput) GetGranteeRef() string { return v.GranteeRef }
 
 // GetRole returns __CreateMemoryShareInput.Role, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryShareInput) GetRole() MemoryShareRole { return v.Role }
 
 // __CreateMemorySubscriptionInput is used internally by genqlient
 type __CreateMemorySubscriptionInput struct {
-	MemoryId string `json:"memoryId"`
-	OrgId    string `json:"orgId"`
-	Role     Role   `json:"role"`
+	MemoryRef string `json:"memoryRef"`
+	OrgRef    string `json:"orgRef"`
+	Role      Role   `json:"role"`
 }
 
-// GetMemoryId returns __CreateMemorySubscriptionInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__CreateMemorySubscriptionInput) GetMemoryId() string { return v.MemoryId }
+// GetMemoryRef returns __CreateMemorySubscriptionInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__CreateMemorySubscriptionInput) GetMemoryRef() string { return v.MemoryRef }
 
-// GetOrgId returns __CreateMemorySubscriptionInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__CreateMemorySubscriptionInput) GetOrgId() string { return v.OrgId }
+// GetOrgRef returns __CreateMemorySubscriptionInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateMemorySubscriptionInput) GetOrgRef() string { return v.OrgRef }
 
 // GetRole returns __CreateMemorySubscriptionInput.Role, and is useful for accessing the field via an interface.
 func (v *__CreateMemorySubscriptionInput) GetRole() Role { return v.Role }
@@ -14435,27 +14435,27 @@ func (v *__DeleteMemoryInput) GetId() string { return v.Id }
 
 // __DeleteMemoryShareInput is used internally by genqlient
 type __DeleteMemoryShareInput struct {
-	MemoryRef string  `json:"memoryRef"`
-	GranteeId *string `json:"granteeId,omitempty"`
+	MemoryRef  string  `json:"memoryRef"`
+	GranteeRef *string `json:"granteeRef,omitempty"`
 }
 
 // GetMemoryRef returns __DeleteMemoryShareInput.MemoryRef, and is useful for accessing the field via an interface.
 func (v *__DeleteMemoryShareInput) GetMemoryRef() string { return v.MemoryRef }
 
-// GetGranteeId returns __DeleteMemoryShareInput.GranteeId, and is useful for accessing the field via an interface.
-func (v *__DeleteMemoryShareInput) GetGranteeId() *string { return v.GranteeId }
+// GetGranteeRef returns __DeleteMemoryShareInput.GranteeRef, and is useful for accessing the field via an interface.
+func (v *__DeleteMemoryShareInput) GetGranteeRef() *string { return v.GranteeRef }
 
 // __DeleteMemorySubscriptionInput is used internally by genqlient
 type __DeleteMemorySubscriptionInput struct {
-	MemoryId string `json:"memoryId"`
-	OrgId    string `json:"orgId"`
+	MemoryRef string `json:"memoryRef"`
+	OrgRef    string `json:"orgRef"`
 }
 
-// GetMemoryId returns __DeleteMemorySubscriptionInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__DeleteMemorySubscriptionInput) GetMemoryId() string { return v.MemoryId }
+// GetMemoryRef returns __DeleteMemorySubscriptionInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__DeleteMemorySubscriptionInput) GetMemoryRef() string { return v.MemoryRef }
 
-// GetOrgId returns __DeleteMemorySubscriptionInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__DeleteMemorySubscriptionInput) GetOrgId() string { return v.OrgId }
+// GetOrgRef returns __DeleteMemorySubscriptionInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__DeleteMemorySubscriptionInput) GetOrgRef() string { return v.OrgRef }
 
 // __DeleteNodeInput is used internally by genqlient
 type __DeleteNodeInput struct {
@@ -14947,15 +14947,15 @@ func (v *__PublicOrganizationInput) GetRef() string { return v.Ref }
 
 // __RemoveMemoryMemberInput is used internally by genqlient
 type __RemoveMemoryMemberInput struct {
-	MemoryId string `json:"memoryId"`
-	UserId   string `json:"userId"`
+	MemoryRef string `json:"memoryRef"`
+	UserRef   string `json:"userRef"`
 }
 
-// GetMemoryId returns __RemoveMemoryMemberInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__RemoveMemoryMemberInput) GetMemoryId() string { return v.MemoryId }
+// GetMemoryRef returns __RemoveMemoryMemberInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__RemoveMemoryMemberInput) GetMemoryRef() string { return v.MemoryRef }
 
-// GetUserId returns __RemoveMemoryMemberInput.UserId, and is useful for accessing the field via an interface.
-func (v *__RemoveMemoryMemberInput) GetUserId() string { return v.UserId }
+// GetUserRef returns __RemoveMemoryMemberInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__RemoveMemoryMemberInput) GetUserRef() string { return v.UserRef }
 
 // __RemoveOrgMemberInput is used internally by genqlient
 type __RemoveOrgMemberInput struct {
@@ -15331,48 +15331,48 @@ func (v *__UpdateMemoryInput) GetSchema() *json.RawMessage { return v.Schema }
 
 // __UpdateMemoryMemberRoleInput is used internally by genqlient
 type __UpdateMemoryMemberRoleInput struct {
-	MemoryId string           `json:"memoryId"`
-	UserId   string           `json:"userId"`
-	Role     MemoryMemberRole `json:"role"`
+	MemoryRef string           `json:"memoryRef"`
+	UserRef   string           `json:"userRef"`
+	Role      MemoryMemberRole `json:"role"`
 }
 
-// GetMemoryId returns __UpdateMemoryMemberRoleInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__UpdateMemoryMemberRoleInput) GetMemoryId() string { return v.MemoryId }
+// GetMemoryRef returns __UpdateMemoryMemberRoleInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryMemberRoleInput) GetMemoryRef() string { return v.MemoryRef }
 
-// GetUserId returns __UpdateMemoryMemberRoleInput.UserId, and is useful for accessing the field via an interface.
-func (v *__UpdateMemoryMemberRoleInput) GetUserId() string { return v.UserId }
+// GetUserRef returns __UpdateMemoryMemberRoleInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryMemberRoleInput) GetUserRef() string { return v.UserRef }
 
 // GetRole returns __UpdateMemoryMemberRoleInput.Role, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryMemberRoleInput) GetRole() MemoryMemberRole { return v.Role }
 
 // __UpdateMemoryShareRoleInput is used internally by genqlient
 type __UpdateMemoryShareRoleInput struct {
-	MemoryId  string          `json:"memoryId"`
-	GranteeId string          `json:"granteeId"`
-	Role      MemoryShareRole `json:"role"`
+	MemoryId   string          `json:"memoryId"`
+	GranteeRef string          `json:"granteeRef"`
+	Role       MemoryShareRole `json:"role"`
 }
 
 // GetMemoryId returns __UpdateMemoryShareRoleInput.MemoryId, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryShareRoleInput) GetMemoryId() string { return v.MemoryId }
 
-// GetGranteeId returns __UpdateMemoryShareRoleInput.GranteeId, and is useful for accessing the field via an interface.
-func (v *__UpdateMemoryShareRoleInput) GetGranteeId() string { return v.GranteeId }
+// GetGranteeRef returns __UpdateMemoryShareRoleInput.GranteeRef, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryShareRoleInput) GetGranteeRef() string { return v.GranteeRef }
 
 // GetRole returns __UpdateMemoryShareRoleInput.Role, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryShareRoleInput) GetRole() MemoryShareRole { return v.Role }
 
 // __UpdateMemorySubscriptionInput is used internally by genqlient
 type __UpdateMemorySubscriptionInput struct {
-	MemoryId string `json:"memoryId"`
-	OrgId    string `json:"orgId"`
-	Role     Role   `json:"role"`
+	MemoryRef string `json:"memoryRef"`
+	OrgRef    string `json:"orgRef"`
+	Role      Role   `json:"role"`
 }
 
-// GetMemoryId returns __UpdateMemorySubscriptionInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__UpdateMemorySubscriptionInput) GetMemoryId() string { return v.MemoryId }
+// GetMemoryRef returns __UpdateMemorySubscriptionInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__UpdateMemorySubscriptionInput) GetMemoryRef() string { return v.MemoryRef }
 
-// GetOrgId returns __UpdateMemorySubscriptionInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__UpdateMemorySubscriptionInput) GetOrgId() string { return v.OrgId }
+// GetOrgRef returns __UpdateMemorySubscriptionInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__UpdateMemorySubscriptionInput) GetOrgRef() string { return v.OrgRef }
 
 // GetRole returns __UpdateMemorySubscriptionInput.Role, and is useful for accessing the field via an interface.
 func (v *__UpdateMemorySubscriptionInput) GetRole() Role { return v.Role }
@@ -15581,8 +15581,8 @@ func ActionTickets(
 
 // The mutation executed by AddMemoryMember.
 const AddMemoryMember_Operation = `
-mutation AddMemoryMember ($memoryId: ID!, $userId: ID!, $role: MemoryMemberRole!) {
-	addMemoryMember(memoryId: $memoryId, userId: $userId, role: $role) {
+mutation AddMemoryMember ($memoryRef: String!, $userRef: String!, $role: MemoryMemberRole!) {
+	addMemoryMember(memoryRef: $memoryRef, userRef: $userRef, role: $role) {
 		memoryMember {
 			role
 			user {
@@ -15599,20 +15599,23 @@ fragment MemUserFields on User {
 }
 `
 
+// #764/#304: userRef + memoryRef are server-resolved (id / URN / handle / email),
+// so the CLI passes the raw --user value straight through — no client-side user
+// lookup. memoryRef receives the client-resolved memory id (a valid ref).
 func AddMemoryMember(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	memoryId string,
-	userId string,
+	memoryRef string,
+	userRef string,
 	role MemoryMemberRole,
 ) (data_ *AddMemoryMemberResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AddMemoryMember",
 		Query:  AddMemoryMember_Operation,
 		Variables: &__AddMemoryMemberInput{
-			MemoryId: memoryId,
-			UserId:   userId,
-			Role:     role,
+			MemoryRef: memoryRef,
+			UserRef:   userRef,
+			Role:      role,
 		},
 	}
 
@@ -17025,8 +17028,8 @@ func CreateMemoryInApp(
 
 // The mutation executed by CreateMemoryShare.
 const CreateMemoryShare_Operation = `
-mutation CreateMemoryShare ($memoryId: ID!, $granteeId: ID!, $role: MemoryShareRole!) {
-	createMemoryShare(memoryId: $memoryId, granteeId: $granteeId, role: $role) {
+mutation CreateMemoryShare ($memoryId: ID!, $granteeRef: String!, $role: MemoryShareRole!) {
+	createMemoryShare(memoryId: $memoryId, granteeRef: $granteeRef, role: $role) {
 		memoryShare {
 			role
 			grantee {
@@ -17043,20 +17046,24 @@ fragment MemUserFields on User {
 }
 `
 
+// #769/#304: granteeRef is server-resolved (id / email / handle / hrn:user URN) —
+// resolution sees the full user table, so a cross-org share by email works
+// without a client-side lookup. createMemoryShare has no memoryRef arg (the
+// memory is still passed as the client-resolved id via memoryId).
 func CreateMemoryShare(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	memoryId string,
-	granteeId string,
+	granteeRef string,
 	role MemoryShareRole,
 ) (data_ *CreateMemoryShareResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateMemoryShare",
 		Query:  CreateMemoryShare_Operation,
 		Variables: &__CreateMemoryShareInput{
-			MemoryId:  memoryId,
-			GranteeId: granteeId,
-			Role:      role,
+			MemoryId:   memoryId,
+			GranteeRef: granteeRef,
+			Role:       role,
 		},
 	}
 
@@ -17074,8 +17081,8 @@ func CreateMemoryShare(
 
 // The mutation executed by CreateMemorySubscription.
 const CreateMemorySubscription_Operation = `
-mutation CreateMemorySubscription ($memoryId: ID!, $orgId: ID!, $role: Role!) {
-	createMemorySubscription(memoryId: $memoryId, orgId: $orgId, role: $role) {
+mutation CreateMemorySubscription ($memoryRef: String!, $orgRef: String!, $role: Role!) {
+	createMemorySubscription(memoryRef: $memoryRef, orgRef: $orgRef, role: $role) {
 		role
 		activated
 		organization {
@@ -17087,20 +17094,22 @@ mutation CreateMemorySubscription ($memoryId: ID!, $orgId: ID!, $role: Role!) {
 }
 `
 
+// #764/#304: orgRef is server-resolved (id / slug / hrn:org URN); the CLI passes
+// the raw --org value. memoryRef receives the client-resolved memory id.
 func CreateMemorySubscription(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	memoryId string,
-	orgId string,
+	memoryRef string,
+	orgRef string,
 	role Role,
 ) (data_ *CreateMemorySubscriptionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateMemorySubscription",
 		Query:  CreateMemorySubscription_Operation,
 		Variables: &__CreateMemorySubscriptionInput{
-			MemoryId: memoryId,
-			OrgId:    orgId,
-			Role:     role,
+			MemoryRef: memoryRef,
+			OrgRef:    orgRef,
+			Role:      role,
 		},
 	}
 
@@ -17724,8 +17733,8 @@ func DeleteMemory(
 
 // The mutation executed by DeleteMemoryShare.
 const DeleteMemoryShare_Operation = `
-mutation DeleteMemoryShare ($memoryRef: ID!, $granteeId: ID) {
-	deleteMemoryShare(memoryRef: $memoryRef, granteeId: $granteeId) {
+mutation DeleteMemoryShare ($memoryRef: ID!, $granteeRef: String) {
+	deleteMemoryShare(memoryRef: $memoryRef, granteeRef: $granteeRef) {
 		granteeId
 		memoryId
 	}
@@ -17740,18 +17749,20 @@ mutation DeleteMemoryShare ($memoryRef: ID!, $granteeId: ID) {
 // memoryRef takes an id or a URN and is passed through WITHOUT a client-side
 // memory(ref:) lookup — that lookup can't see a soft-deleted memory, and leaving
 // one is exactly a case this mutation supports.
+// #304: granteeRef is server-resolved (id / email / handle / hrn:user URN);
+// omitted entirely it targets the caller's own share (self-removal / leave).
 func DeleteMemoryShare(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	memoryRef string,
-	granteeId *string,
+	granteeRef *string,
 ) (data_ *DeleteMemoryShareResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteMemoryShare",
 		Query:  DeleteMemoryShare_Operation,
 		Variables: &__DeleteMemoryShareInput{
-			MemoryRef: memoryRef,
-			GranteeId: granteeId,
+			MemoryRef:  memoryRef,
+			GranteeRef: granteeRef,
 		},
 	}
 
@@ -17769,23 +17780,23 @@ func DeleteMemoryShare(
 
 // The mutation executed by DeleteMemorySubscription.
 const DeleteMemorySubscription_Operation = `
-mutation DeleteMemorySubscription ($memoryId: ID!, $orgId: ID!) {
-	deleteMemorySubscription(memoryId: $memoryId, orgId: $orgId)
+mutation DeleteMemorySubscription ($memoryRef: String!, $orgRef: String!) {
+	deleteMemorySubscription(memoryRef: $memoryRef, orgRef: $orgRef)
 }
 `
 
 func DeleteMemorySubscription(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	memoryId string,
-	orgId string,
+	memoryRef string,
+	orgRef string,
 ) (data_ *DeleteMemorySubscriptionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteMemorySubscription",
 		Query:  DeleteMemorySubscription_Operation,
 		Variables: &__DeleteMemorySubscriptionInput{
-			MemoryId: memoryId,
-			OrgId:    orgId,
+			MemoryRef: memoryRef,
+			OrgRef:    orgRef,
 		},
 	}
 
@@ -19944,8 +19955,8 @@ func PublicOrganization(
 
 // The mutation executed by RemoveMemoryMember.
 const RemoveMemoryMember_Operation = `
-mutation RemoveMemoryMember ($memoryId: ID!, $userId: ID!) {
-	removeMemoryMember(memoryId: $memoryId, userId: $userId) {
+mutation RemoveMemoryMember ($memoryRef: String!, $userRef: String!) {
+	removeMemoryMember(memoryRef: $memoryRef, userRef: $userRef) {
 		memoryId
 		userId
 	}
@@ -19955,15 +19966,15 @@ mutation RemoveMemoryMember ($memoryId: ID!, $userId: ID!) {
 func RemoveMemoryMember(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	memoryId string,
-	userId string,
+	memoryRef string,
+	userRef string,
 ) (data_ *RemoveMemoryMemberResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "RemoveMemoryMember",
 		Query:  RemoveMemoryMember_Operation,
 		Variables: &__RemoveMemoryMemberInput{
-			MemoryId: memoryId,
-			UserId:   userId,
+			MemoryRef: memoryRef,
+			UserRef:   userRef,
 		},
 	}
 
@@ -21072,8 +21083,8 @@ func UpdateMemory(
 
 // The mutation executed by UpdateMemoryMemberRole.
 const UpdateMemoryMemberRole_Operation = `
-mutation UpdateMemoryMemberRole ($memoryId: ID!, $userId: ID!, $role: MemoryMemberRole!) {
-	updateMemoryMemberRole(memoryId: $memoryId, userId: $userId, role: $role) {
+mutation UpdateMemoryMemberRole ($memoryRef: String!, $userRef: String!, $role: MemoryMemberRole!) {
+	updateMemoryMemberRole(memoryRef: $memoryRef, userRef: $userRef, role: $role) {
 		memoryMember {
 			role
 			user {
@@ -21093,17 +21104,17 @@ fragment MemUserFields on User {
 func UpdateMemoryMemberRole(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	memoryId string,
-	userId string,
+	memoryRef string,
+	userRef string,
 	role MemoryMemberRole,
 ) (data_ *UpdateMemoryMemberRoleResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateMemoryMemberRole",
 		Query:  UpdateMemoryMemberRole_Operation,
 		Variables: &__UpdateMemoryMemberRoleInput{
-			MemoryId: memoryId,
-			UserId:   userId,
-			Role:     role,
+			MemoryRef: memoryRef,
+			UserRef:   userRef,
+			Role:      role,
 		},
 	}
 
@@ -21121,8 +21132,8 @@ func UpdateMemoryMemberRole(
 
 // The mutation executed by UpdateMemoryShareRole.
 const UpdateMemoryShareRole_Operation = `
-mutation UpdateMemoryShareRole ($memoryId: ID!, $granteeId: ID!, $role: MemoryShareRole!) {
-	updateMemoryShareRole(memoryId: $memoryId, granteeId: $granteeId, role: $role) {
+mutation UpdateMemoryShareRole ($memoryId: ID!, $granteeRef: String!, $role: MemoryShareRole!) {
+	updateMemoryShareRole(memoryId: $memoryId, granteeRef: $granteeRef, role: $role) {
 		memoryShare {
 			role
 			grantee {
@@ -21143,16 +21154,16 @@ func UpdateMemoryShareRole(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	memoryId string,
-	granteeId string,
+	granteeRef string,
 	role MemoryShareRole,
 ) (data_ *UpdateMemoryShareRoleResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateMemoryShareRole",
 		Query:  UpdateMemoryShareRole_Operation,
 		Variables: &__UpdateMemoryShareRoleInput{
-			MemoryId:  memoryId,
-			GranteeId: granteeId,
-			Role:      role,
+			MemoryId:   memoryId,
+			GranteeRef: granteeRef,
+			Role:       role,
 		},
 	}
 
@@ -21170,8 +21181,8 @@ func UpdateMemoryShareRole(
 
 // The mutation executed by UpdateMemorySubscription.
 const UpdateMemorySubscription_Operation = `
-mutation UpdateMemorySubscription ($memoryId: ID!, $orgId: ID!, $role: Role!) {
-	updateMemorySubscription(memoryId: $memoryId, orgId: $orgId, role: $role) {
+mutation UpdateMemorySubscription ($memoryRef: String!, $orgRef: String!, $role: Role!) {
+	updateMemorySubscription(memoryRef: $memoryRef, orgRef: $orgRef, role: $role) {
 		role
 		activated
 		organization {
@@ -21186,17 +21197,17 @@ mutation UpdateMemorySubscription ($memoryId: ID!, $orgId: ID!, $role: Role!) {
 func UpdateMemorySubscription(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	memoryId string,
-	orgId string,
+	memoryRef string,
+	orgRef string,
 	role Role,
 ) (data_ *UpdateMemorySubscriptionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateMemorySubscription",
 		Query:  UpdateMemorySubscription_Operation,
 		Variables: &__UpdateMemorySubscriptionInput{
-			MemoryId: memoryId,
-			OrgId:    orgId,
-			Role:     role,
+			MemoryRef: memoryRef,
+			OrgRef:    orgRef,
+			Role:      role,
 		},
 	}
 
