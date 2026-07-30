@@ -118,14 +118,41 @@ edge, so the "one bad batch of 5" reading does not hold either.
 **Decision — check `name` for empty/missing (error). Drop the loc-shape rule;
 mention a `:rel:` loc in the finding message as corroboration only.**
 
-### 3. New check: the edge target must resolve
+### 3. New check: the edge's far endpoint must resolve — and it isn't the same endpoint on both sides
 
 Not in the issue for `review lint` (only for `preflight lint`), but the live
 `review` tree has one (`tasks:build-review-coverage`, above).
 
-**Decision — add `target-resolves` as an error, and follow CLAUDE.md: a target
-that lists but cannot be read is reported as `unavailable`, never silently
-dropped.**
+**The two subcommands look at opposite ends of their edges**, which the rule
+names must reflect:
+
+- **`review lint` walks `incomingEdges`** on the `review` parent, so the far
+  endpoint is the edge's **`source`** — the check node
+  ([`nodes.graphql:195-205`](../../internal/api/queries/nodes.graphql), and
+  `edge/ls.go:81-84` reads `e.Source` for the incoming direction). The `target`
+  is `review` itself and is resolved by construction, so a rule named
+  `target-resolves` would be checking the one endpoint that cannot dangle.
+- **`preflight lint` walks outgoing routes**, where the far endpoint genuinely
+  *is* the `target`.
+
+**Decision — two differently-named rules:**
+
+- `check-node-resolves` on the review side, at **warning** severity.
+- `route-target-resolves` on the preflight side, at **error** severity — a route
+  to a dead node actively misroutes, and CLAUDE.md's own line is that stale
+  routing is worse than missing routing.
+
+The asymmetric severity is deliberate. When the far endpoint can't be read, the
+linter **cannot evaluate the Decision-1 membership predicate on it** — it may
+not be a checklist item at all. The one live instance is a good example:
+`tasks:build-review-coverage` sits beside `tasks:review-changes`, which *is*
+readable and *is* excluded as a runnable task, so the unreadable node is most
+likely a non-member too. Erroring on it would fail a build over a node that
+probably shouldn't be linted in the first place.
+
+Either way it is **reported as `unavailable`, never silently dropped**, per
+CLAUDE.md's list-vs-read visibility rule — the finding says the membership is
+indeterminate rather than asserting a defect.
 
 ### 4. Preflight action-phrasing is a warning, not an error
 
@@ -170,8 +197,8 @@ subcommands take `-m/--memory` like every other group.
 | `parent-edge-exists` | error | check invisible to `tasks:review-changes` |
 | `label-present` | error | the empty label (Decision 2) |
 | `label-is-condition` | error | `child-of`, `applies-when`, `related`, bare `Applies when` |
-| `target-resolves` | error | dangling / unreadable target (Decision 3) |
-| `description-has-trigger` | warning | second blind spot in `find_nodes` output |
+| `check-node-resolves` | warning | dangling / unreadable check node — the edge's `source` (Decision 3) |
+| `description-has-trigger` | warning | second blind spot in `hadron_find_nodes` output |
 | `duplicate-trigger` | warning | cloned check never re-pointed |
 | `seq-unique` | warning | non-deterministic sibling ordering |
 | `foreign-toolchain` | warning | the misfiled `format-sources` |
@@ -205,7 +232,8 @@ other bulk writes — prompt on a TTY, `--yes` non-interactively.
 
 Wired in [`internal/cmd/root.go`](../../internal/cmd/root.go) alongside the other
 groups. Rule engines take plain structs and injected fetch functions, so they
-unit-test without a server — the pattern `spec/lint.go` uses.
+unit-test without a server — the pattern
+[`internal/cmd/spec/lint.go`](../../internal/cmd/spec/lint.go) uses.
 
 ## GraphQL changes
 
@@ -216,7 +244,8 @@ edges with ids, direction, name, loc — what `edge ls` uses), the node listing
 
 ## Output and exit contract
 
-- Mirror `lintFindingDTO` (`spec/lint.go`) — node loc, rule, severity, message —
+- Mirror `lintFindingDTO` ([`internal/cmd/spec/lint.go`](../../internal/cmd/spec/lint.go))
+  — node loc, rule, severity, message —
   as an explicit DTO in the command package, slices initialised to `[]T{}`.
 - Render via `output.Write` with an `output.NewTable` human branch.
 - **Exit `5` (`exitcode.Conflict`) via `exitcode.Silent`** when any error-severity
@@ -239,13 +268,27 @@ edges with ids, direction, name, loc — what `edge ls` uses), the node listing
   toolchain heuristic both directions.
 - **Command/wiring tests** (`internal/cmd/coding_cmd_test.go`, via
   `testFactory` + `fakeGraphQL`/`captureGraphQL`): findings → exit 5; warnings
-  only → exit 0; `--strict` promotion; `--json` shape; an unreadable target
-  reported as `unavailable` rather than dropped; `--fix` asserted to issue
+  only → exit 0; `--strict` promotion; `--json` shape; an unreadable endpoint
+  reported as `unavailable` rather than dropped; the review side reading the
+  edge's `source` and the preflight side its `target` (Decision 3 — a test that
+  would fail if both used the same endpoint); `--fix` asserted to issue
   `UpdateEdge` per edge and **never** `UpdateNode` (the regression that would
   destroy sibling edges); `--fix` requires `--yes` non-interactively.
 - **Read-only live smoke test** against `micromentor.org::mmdata` and
-  `hadronmemory.com::hadron-portal`: expect 3 errors + the `format-sources`
-  warning on the former, clean on the latter.
+  `hadronmemory.com::hadron-portal`. On mmdata expect exactly **3 errors and 2
+  warnings**:
+
+  | Finding | Rule | Severity |
+  |---|---|---|
+  | `review:input-type-graphql-type` | `label-present` | error |
+  | `review:posthog-backend-vs-app-event-routing` | `label-is-condition` | error |
+  | `review:role-vs-group-ident-vocabulary` | `label-is-condition` | error |
+  | `review:format-sources` | `foreign-toolchain` | warning |
+  | `tasks:build-review-coverage` | `check-node-resolves` | warning |
+
+  Enumerated rather than counted, because a bare count is what let the earlier
+  draft of this doc omit the dangling endpoint entirely. The portal is expected
+  clean (0 findings across all 25 checks).
 
 ## Out of scope (follow-ups)
 
