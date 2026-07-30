@@ -7,6 +7,8 @@ package coding
 
 import (
 	"context"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
@@ -52,16 +54,35 @@ type checkNode struct {
 	IsRunnable  bool
 }
 
-// graphEdge is one edge incident to a lint root. Other is the far endpoint's
-// loc — the edge's source for the review tree's incoming edges, its target for
-// preflight's outgoing routes (see docs/plans/coding-command-group.md,
+// graphEdge is one edge incident to a lint root. Other* describe the far
+// endpoint — the edge's source for the review tree's incoming edges, its target
+// for preflight's outgoing routes (see docs/plans/coding-command-group.md,
 // Decision 3: the two subcommands read opposite ends).
+//
+// OtherID is the endpoint's node id, which is what the far node is read by: a
+// route may legitimately cross into another memory, so rebuilding a URN from
+// the root's memory would look the wrong node up (or miss it entirely).
+// OtherLoc is empty when the server redacted the endpoint projection — an
+// unreadable endpoint the linter must report, not skip.
 type graphEdge struct {
 	ID       string
 	Label    string
 	Loc      string // the edge's own (usually name-derived) loc
-	Other    string
-	MemoryID string // the far endpoint's memory, for the moved-memory route check
+	OtherID  string
+	Other    string // the far endpoint's loc; "" when the projection was redacted
+	MemoryID string // the far endpoint's memory id, for the moved-memory route check
+}
+
+// endpointName identifies an edge in a finding when its far endpoint has no
+// loc to name it by.
+func (e graphEdge) endpointName() string {
+	if e.Other != "" {
+		return e.Other
+	}
+	if e.Label != "" {
+		return "(unreadable target of " + strconv.Quote(e.Label) + ")"
+	}
+	return "(unreadable target of edge " + e.ID + ")"
 }
 
 // NewCmdCoding builds the `hadron coding` group.
@@ -133,19 +154,23 @@ func (m codingMemory) nodeRef(loc string) (string, error) {
 // fetchRootEdges reads a lint root and projects the edges on the requested
 // side. incoming=true reads incomingEdges (whose far endpoint is `source`),
 // incoming=false reads outgoingEdges (far endpoint `target`).
-func fetchRootEdges(ctx context.Context, client graphql.Client, mem codingMemory, rootLoc string, incoming bool) ([]graphEdge, error) {
+// It also returns the root's own memory id, which is the only value comparable
+// against an endpoint's MemoryId — both come from the same projection, whereas
+// the -m flag's canonical ref is a URN and would never match.
+func fetchRootEdges(ctx context.Context, client graphql.Client, mem codingMemory, rootLoc string, incoming bool) ([]graphEdge, string, error) {
 	ref, err := mem.nodeRef(rootLoc)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	resp, err := gen.GetNode(ctx, client, ref)
 	if err != nil {
-		return nil, api.MapError(err)
+		return nil, "", api.MapError(err)
 	}
 	if resp.Node == nil {
-		return nil, exitcode.Newf(exitcode.NotFound,
+		return nil, "", exitcode.Newf(exitcode.NotFound,
 			"no %q node in %s — nothing to lint", rootLoc, mem.raw)
 	}
+	rootMemoryID := resp.Node.MemoryId
 	var out []graphEdge
 	if incoming {
 		for _, e := range resp.Node.IncomingEdges {
@@ -157,11 +182,11 @@ func fetchRootEdges(ctx context.Context, client graphql.Client, mem codingMemory
 				ge.Label = *e.Name
 			}
 			if e.Source != nil {
-				ge.Other, ge.MemoryID = e.Source.Loc, e.Source.MemoryId
+				ge.OtherID, ge.Other, ge.MemoryID = e.Source.Id, e.Source.Loc, e.Source.MemoryId
 			}
 			out = append(out, ge)
 		}
-		return out, nil
+		return out, rootMemoryID, nil
 	}
 	for _, e := range resp.Node.OutgoingEdges {
 		if e == nil {
@@ -172,33 +197,33 @@ func fetchRootEdges(ctx context.Context, client graphql.Client, mem codingMemory
 			ge.Label = *e.Name
 		}
 		if e.Target != nil {
-			ge.Other, ge.MemoryID = e.Target.Loc, e.Target.MemoryId
+			ge.OtherID, ge.Other, ge.MemoryID = e.Target.Id, e.Target.Loc, e.Target.MemoryId
 		}
 		out = append(out, ge)
 	}
-	return out, nil
+	return out, rootMemoryID, nil
 }
 
 // fetchNodes bulk-reads locs into the lint model. The second return is the refs
 // the server would not hand back: a node can list but be unreadable, and
 // CLAUDE.md requires those be surfaced rather than silently dropped.
-func fetchNodes(ctx context.Context, client graphql.Client, mem codingMemory, locs []string) (map[string]checkNode, []string, error) {
-	if len(locs) == 0 {
+// Nodes are addressed by **id**, never by a URN rebuilt from the root's memory:
+// an edge may legitimately cross into another memory, and rebuilding the ref
+// would then look up the wrong memory — reporting a live node as unresolvable,
+// or silently linting a same-loc node from the home memory instead.
+func fetchNodes(ctx context.Context, client graphql.Client, byID map[string]string) (map[string]checkNode, []string, error) {
+	if len(byID) == 0 {
 		return map[string]checkNode{}, nil, nil
 	}
-	// Keep ref → loc, so an unavailable ref maps back to the bare loc every
-	// other row is keyed by. Deriving it by trimming a prefix would depend on
-	// how the URN happens to be spelled.
-	locByRef := make(map[string]string, len(locs))
-	refs := make([]string, 0, len(locs))
-	for _, l := range locs {
-		ref, err := mem.nodeRef(l)
-		if err != nil {
-			return nil, nil, err
-		}
-		locByRef[ref] = l
-		refs = append(refs, ref)
+	// Keep ref → loc, so an unavailable ref maps back to the loc every other
+	// row is keyed by.
+	locByRef := make(map[string]string, len(byID))
+	refs := make([]string, 0, len(byID))
+	for id, loc := range byID {
+		locByRef[id] = loc
+		refs = append(refs, id)
 	}
+	sort.Strings(refs) // deterministic batching
 	nodes, unavailable, err := api.CollectNodeBatch(refs, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
 		resp, ferr := gen.NodeBatch(ctx, client, chunk, nil, nil)
 		if ferr != nil {
@@ -236,16 +261,20 @@ func fetchNodes(ctx context.Context, client graphql.Client, mem codingMemory, lo
 	return out, bare, nil
 }
 
-// scanTagged pages a memory's nodes carrying every one of tags to exhaustion.
-// An unbounded query returns one page and silently drops the rest (#23), so a
-// "whole memory" sweep must paginate.
-func scanTagged(ctx context.Context, client graphql.Client, mem codingMemory, tags []string) ([]*api.ListNode, error) {
+// scanPrefix pages every node under a loc prefix to exhaustion. An unbounded
+// query returns one page and silently drops the rest (#23), so the sweep must
+// paginate.
+//
+// Scoped by prefix rather than listing the whole memory: membership is decided
+// by the lint root's child prefix, so anything outside it can never be a
+// checklist item and need not be fetched.
+func scanPrefix(ctx context.Context, client graphql.Client, mem codingMemory, locPrefix string) ([]*api.ListNode, error) {
 	const pageSize = 200
 	var all []*api.ListNode
 	for offset := 0; ; offset += pageSize {
-		limit, off := pageSize, offset
+		limit, off, pfx := pageSize, offset, locPrefix
 		page, err := api.FindNodes(ctx, client, nil, nil,
-			&gen.NodeFilter{MemoryIds: []string{mem.Ref}, Tags: tags}, nil, nil, &limit, &off)
+			&gen.NodeFilter{MemoryIds: []string{mem.Ref}, LocPrefix: &pfx}, nil, nil, &limit, &off)
 		if err != nil {
 			return nil, api.MapError(err)
 		}

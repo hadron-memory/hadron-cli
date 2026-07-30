@@ -46,7 +46,8 @@ Two further facts shaped the design:
 - **`preflight` in mmdata has 71 outgoing routes, 24 of them labelled the generic
   `routes-to`** rather than an action phrase — a third of the router fails the
   proposed convention check on day one.
-- **The `review` tree contains a dangling edge.** An inbound edge points at
+- ~~**The `review` tree contains a dangling edge.**~~ **Retracted — see
+  [Deviations §7](#7-the-dangling-edge-was-mine).** An inbound edge points at
   `tasks:build-review-coverage`, which is absent from the node listing *and*
   unreadable (`node get` → exit 4, not found). This is the list-vs-read
   visibility gap CLAUDE.md warns about, live in the data this command must scan.
@@ -121,8 +122,10 @@ mention a `:rel:` loc in the finding message as corroboration only.**
 
 ### 3. New check: the edge's far endpoint must resolve — and it isn't the same endpoint on both sides
 
-Not in the issue for `review lint` (only for `preflight lint`), but the live
-`review` tree has one (`tasks:build-review-coverage`, above).
+Not in the issue for `review lint` (only for `preflight lint`). It was added
+because the `review` tree appeared to contain one — a claim
+[deviation 7](#7-the-dangling-edge-was-mine) later retracts. The rule is kept
+anyway; the endpoint-direction reasoning below is what makes it correct.
 
 **The two subcommands look at opposite ends of their edges**, which the rule
 names must reflect:
@@ -145,11 +148,9 @@ names must reflect:
 
 The asymmetric severity is deliberate. When the far endpoint can't be read, the
 linter **cannot evaluate the Decision-1 membership predicate on it** — it may
-not be a checklist item at all. The one live instance is a good example:
-`tasks:build-review-coverage` sits beside `tasks:review-changes`, which *is*
-readable and *is* excluded as a runnable task, so the unreadable node is most
-likely a non-member too. Erroring on it would fail a build over a node that
-probably shouldn't be linted in the first place.
+not be a checklist item at all, so erroring would fail a build over a node that
+probably shouldn't be linted in the first place. A route, by contrast, is broken
+no matter what sits at the other end.
 
 Either way it is **reported as `unavailable`, never silently dropped**, per
 CLAUDE.md's list-vs-read visibility rule — the finding says the membership is
@@ -277,7 +278,7 @@ edges with ids, direction, name, loc — what `edge ls` uses), the node listing
   destroy sibling edges); `--fix` requires `--yes` non-interactively.
 - **Read-only live smoke test** against `micromentor.org::mmdata` and
   `hadronmemory.com::hadron-portal`. On mmdata expect exactly **3 errors and 2
-  warnings**:
+  warnings** *(superseded — see [Verification (as built)](#verification-as-built))*:
 
   | Finding | Rule | Severity |
   |---|---|---|
@@ -364,6 +365,32 @@ pair for URNs). Unavailable refs are mapped back to bare locs through a
 ref→loc map rather than by trimming a prefix, which would have depended on the
 URN spelling. A command test covers it.
 
+### 7. The "dangling edge" was mine
+
+The evidence section above cites `tasks:build-review-coverage` — an inbound edge
+whose endpoint was "absent from the node listing *and* unreadable" — as a live
+instance of CLAUDE.md's list-vs-read visibility gap, and Decision 3 leans on it.
+
+**It was never dangling.** The node is fully readable; it is simply not
+addressable by a URN rebuilt from its loc:
+
+```
+$ hadron api 'query($r:[ID!]){ nodeBatch(refs:$r){ unavailable nodes{ id loc tags } } }' \
+    -F r='["019eedd0a981749fa5eff355efa2bf47"]'
+  unavailable: []
+  loc: tasks:build-review-coverage   tags: [meta contributing review coverage …]
+```
+
+Reading endpoints by id (deviation 6 above, from review) made the finding
+disappear: the node resolves, is tagged `meta`, sits outside the `review:`
+prefix, and is correctly excluded as a non-check. The original "unreadable"
+verdict was produced by the URN-rebuilding bug, not by the data.
+
+`check-node-resolves` is kept regardless — a genuinely unreadable endpoint is
+possible and the visibility gap is real — but it is now a rule with no known
+live instance rather than one with a motivating example. Nothing in either
+memory currently trips it.
+
 ## Verification (as built)
 
 `go test ./...` (16 packages) and `make lint` (0 issues) are green. Read-only
@@ -371,7 +398,7 @@ live runs — no writes, `--fix` not exercised against a live memory:
 
 ```
 $ hadron coding review lint -m micromentor.org::mmdata          → exit 5
-  3 errors, 6 warnings
+  3 errors, 5 warnings
 $ hadron coding review lint -m hadronmemory.com::hadron-portal  → exit 0
   ✓ 24 check(s) OK
 $ hadron coding preflight lint -m micromentor.org::mmdata       → exit 0
@@ -388,11 +415,12 @@ The mmdata findings, all true positives:
 | `review:format-sources` | `foreign-toolchain` | warning |
 | `review:matching-engine-rule-contract` / `-defaults` | `duplicate-trigger` | warning ×2 |
 | `review:get-core-service-throws` / `review:provider-calls-behind-seam` | `seq-unique` | warning ×2 |
-| `tasks:build-review-coverage` | `check-node-resolves` | warning |
 
 This replaces the smoke table above, which predicted 3 errors + 2 warnings. The
-extra four warnings are the `duplicate-trigger` and `seq-unique` rules, which
-the plan specified but never measured — both fire, both on real defects. The
+extra warnings are the `duplicate-trigger` and `seq-unique` rules, which the
+plan specified but never measured — both fire, both on real defects. The
+predicted `check-node-resolves` warning is absent for the reason in deviation 7:
+that endpoint was never unreadable. The
 preflight run exits 0 with 25 warnings, which is Decision 4 working as intended:
 a third of the router failing a convention does not turn the build red.
 

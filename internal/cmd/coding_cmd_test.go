@@ -158,7 +158,7 @@ func TestCodingReviewLintSurfacesUnavailable(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
 		"GetNode":   codingRootJSON("review", inEdge("e1", "related", "tasks:ghost"), ""),
 		"FindNodes": `{"data":{"nodes":[]}}`,
-		"NodeBatch": codingBatch(nil, `"hrn:node:acme.com:kb:tasks:ghost"`),
+		"NodeBatch": codingBatch(nil, `"s_e1"`),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -216,7 +216,7 @@ func TestCodingLintReadsOppositeEndpoints(t *testing.T) {
 func TestCodingPreflightLintDeadRouteExit5(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
 		"GetNode":   codingRootJSON("preflight", "", outEdge("e1", "to do the thing", "findings:gone")),
-		"NodeBatch": codingBatch(nil, `"hrn:node:acme.com:kb:findings:gone"`),
+		"NodeBatch": codingBatch(nil, `"t_e1"`),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -226,6 +226,35 @@ func TestCodingPreflightLintDeadRouteExit5(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "route-target-resolves") {
 		t.Errorf("expected route-target-resolves, got %q", out.String())
+	}
+}
+
+// Route targets are read by node id. Rebuilding a URN from the router's own
+// memory would look a cross-memory target up in the wrong place — reporting a
+// live node as a dead route, or linting a same-loc node from the home memory.
+func TestCodingPreflightReadsTargetsByID(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetNode":   codingRootJSON("preflight", "", outEdge("e1", "to do the thing", "findings:elsewhere")),
+		"NodeBatch": codingBatch([]string{codingBatchNode("findings:elsewhere", "", "")}, ""),
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "preflight", "lint", "-m", codingMem, "--server", gql.URL})
+	_ = root.Execute()
+
+	var got struct {
+		Refs []string `json:"refs"`
+	}
+	if err := json.Unmarshal(captured["NodeBatch"], &got); err != nil {
+		t.Fatalf("decoding NodeBatch vars: %v", err)
+	}
+	if len(got.Refs) != 1 || got.Refs[0] != "t_e1" {
+		t.Errorf("targets must be batch-read by node id, got %v", got.Refs)
+	}
+	for _, r := range got.Refs {
+		if strings.HasPrefix(r, "hrn:") {
+			t.Errorf("a rebuilt URN (%q) resolves in the router's memory, not the target's", r)
+		}
 	}
 }
 

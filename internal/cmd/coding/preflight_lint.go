@@ -58,31 +58,29 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 			ctx := cmd.Context()
 
 			// Outgoing, so the far endpoint is the edge's target — the opposite
-			// end from the review tree's inbound edges.
-			routes, err := fetchRootEdges(ctx, client, mem, root, false)
+			// end from the review tree's inbound edges. The root's own memory
+			// id comes back too: it is the only value comparable against an
+			// endpoint's MemoryId.
+			routes, homeMemory, err := fetchRootEdges(ctx, client, mem, root, false)
 			if err != nil {
 				return err
 			}
-			locs := make([]string, 0, len(routes))
-			seen := map[string]bool{}
-			home := ""
+			// Read targets by id, so a route that legitimately crosses into
+			// another memory resolves there instead of being looked up in this
+			// one.
+			byID := map[string]string{}
 			for _, r := range routes {
-				if r.Other == "" || seen[r.Other] {
-					continue
+				if r.OtherID != "" {
+					byID[r.OtherID] = r.Other
 				}
-				seen[r.Other] = true
-				locs = append(locs, r.Other)
 			}
-			sort.Strings(locs)
-			targets, unavailable, err := fetchNodes(ctx, client, mem, locs)
+			targets, unavailable, err := fetchNodes(ctx, client, byID)
 			if err != nil {
 				return err
 			}
-			// The router's own memory, to spot a route that left it.
-			home = mem.Ref
 
 			findings := lintPreflight(preflightInput{
-				Routes: routes, Targets: targets, Unavailable: unavailable, HomeMemory: home,
+				Routes: routes, Targets: targets, Unavailable: unavailable, HomeMemory: homeMemory,
 			})
 			if strict {
 				for i := range findings {
@@ -137,17 +135,28 @@ func lintPreflight(in preflightInput) []findingDTO {
 
 	reported := map[string]bool{}
 	for _, r := range routes {
+		// A redacted endpoint projection leaves no loc at all. Skipping it
+		// would make the command's only error rule blind to exactly the
+		// unreadable-target case it exists for, and let it report a clean
+		// router.
 		if r.Other == "" {
+			name := r.endpointName()
+			if reported[name] {
+				continue
+			}
+			reported[name] = true
+			out = append(out, findingDTO{name, "route-target-resolves", sevError,
+				"route target could not be read — the route sends a reader nowhere"})
 			continue
 		}
-		if unavailable[r.Other] && !reported[r.Other] {
+		if unavailable[r.Other] {
+			if reported[r.Other] {
+				continue
+			}
 			reported[r.Other] = true
 			out = append(out, findingDTO{r.Other, "route-target-resolves", sevError,
 				"route target could not be read — the route sends a reader nowhere"})
 			continue // no point checking conventions on a node we can't see
-		}
-		if unavailable[r.Other] {
-			continue
 		}
 		label := strings.TrimSpace(r.Label)
 		switch {
@@ -184,14 +193,17 @@ func lintPreflight(in preflightInput) []findingDTO {
 	return out
 }
 
-// sameMemory compares a memory id against the URN the command was scoped by.
-// The edge carries an opaque memoryId while the scope is an org::memory URN, so
-// a mismatch is only conclusive when both are the same kind of string; anything
-// else is treated as "same" rather than risking a false positive.
-func sameMemory(edgeMemoryID, scope string) bool {
-	if edgeMemoryID == scope {
-		return true
+// sameMemory compares two memory ids from the SAME GraphQL projection — the
+// root node's and the endpoint's — so they are directly comparable.
+//
+// An earlier version compared against the -m flag's canonical ref instead.
+// CanonicalMemoryRef emits the flat hrn:mem:<root>:<slug> form, which contains
+// no "::", so its "don't guess across spellings" guard matched every time and
+// route-target-moved-memory could never fire in a real run. Its unit test
+// passed only because it supplied the legacy org::mem spelling by hand.
+func sameMemory(endpointMemoryID, rootMemoryID string) bool {
+	if endpointMemoryID == "" || rootMemoryID == "" {
+		return true // nothing conclusive to compare
 	}
-	// A PK-shaped id can't be compared to a URN-shaped scope; don't guess.
-	return !strings.Contains(scope, "::") || !strings.Contains(edgeMemoryID, "::")
+	return endpointMemoryID == rootMemoryID
 }

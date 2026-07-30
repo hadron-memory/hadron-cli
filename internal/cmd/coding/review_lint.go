@@ -71,45 +71,50 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 			}
 			ctx := cmd.Context()
 
-			edges, err := fetchRootEdges(ctx, client, mem, root, true)
+			edges, _, err := fetchRootEdges(ctx, client, mem, root, true)
 			if err != nil {
 				return err
 			}
 
-			// Two sources of candidate checks: nodes carrying the review tag or
-			// loc prefix (which catches a check with no edge at all — the
+			// Two sources of candidate checks: nodes under the root's child
+			// prefix (which catches a check with no edge at all — the
 			// highest-severity finding), and the far endpoints of the parent's
 			// inbound edges (which catches one that is unreadable).
-			listed, err := scanTagged(ctx, client, mem, nil)
+			listed, err := scanPrefix(ctx, client, mem, childPrefix(root))
 			if err != nil {
 				return err
 			}
-			candidates := map[string]bool{}
+			candidates := map[string]string{} // node id → loc
 			for _, n := range listed {
 				if n == nil {
 					continue
 				}
 				if isChecklistItemListing(root, n.Loc, n.Tags, n.IsRunnable) {
-					candidates[n.Loc] = true
+					candidates[n.Id] = n.Loc
 				}
 			}
 			edgeByLoc := map[string]graphEdge{}
+			var redacted []graphEdge
 			for _, e := range edges {
-				if e.Other == "" {
+				if e.OtherID == "" {
+					// The server redacted the endpoint projection, so there is
+					// no node to read or classify — report it rather than
+					// letting it vanish from the sweep.
+					redacted = append(redacted, e)
 					continue
 				}
-				edgeByLoc[e.Other] = e
-				candidates[e.Other] = true
+				if e.Other != "" {
+					edgeByLoc[e.Other] = e
+				}
+				candidates[e.OtherID] = e.Other
 			}
 
-			locs := make([]string, 0, len(candidates))
-			for l := range candidates {
-				locs = append(locs, l)
-			}
-			sort.Strings(locs)
-			nodes, unavailable, err := fetchNodes(ctx, client, mem, locs)
+			nodes, unavailable, err := fetchNodes(ctx, client, candidates)
 			if err != nil {
 				return err
+			}
+			for _, e := range redacted {
+				unavailable = append(unavailable, e.endpointName())
 			}
 
 			members := map[string]checkNode{}

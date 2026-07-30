@@ -1,9 +1,12 @@
 package coding
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func route(target, label string) graphEdge {
-	return graphEdge{ID: "edg_" + target, Label: label, Other: target, MemoryID: "org::mem"}
+	return graphEdge{ID: "edg_" + target, Label: label, OtherID: "id_" + target, Other: target, MemoryID: "mem1"}
 }
 
 func TestRouteLabelPhrasing(t *testing.T) {
@@ -18,7 +21,7 @@ func TestRouteLabelPhrasing(t *testing.T) {
 		in := preflightInput{
 			Routes:     []graphEdge{route("findings:x", tc.label)},
 			Targets:    map[string]checkNode{"findings:x": {Loc: "findings:x"}},
-			HomeMemory: "org::mem",
+			HomeMemory: "mem1",
 		}
 		rules := rulesFor(lintPreflight(in), "findings:x")
 		switch {
@@ -38,7 +41,7 @@ func TestRouteTargetUnresolvableIsError(t *testing.T) {
 		Routes:      []graphEdge{route("findings:gone", "to do the thing")},
 		Targets:     map[string]checkNode{},
 		Unavailable: []string{"findings:gone"},
-		HomeMemory:  "org::mem",
+		HomeMemory:  "mem1",
 	}
 	fs := lintPreflight(in)
 	if len(fs) != 1 || fs[0].Rule != "route-target-resolves" {
@@ -55,7 +58,7 @@ func TestUnresolvableTargetSuppressesOtherRules(t *testing.T) {
 	in := preflightInput{
 		Routes:      []graphEdge{route("findings:gone", "routes-to")},
 		Unavailable: []string{"findings:gone"},
-		HomeMemory:  "org::mem",
+		HomeMemory:  "mem1",
 	}
 	fs := lintPreflight(in)
 	if len(fs) != 1 {
@@ -68,7 +71,7 @@ func TestRouteTargetRetired(t *testing.T) {
 		in := preflightInput{
 			Routes:     []graphEdge{route("findings:old", "to do the thing")},
 			Targets:    map[string]checkNode{"findings:old": {Loc: "findings:old", Tags: []string{tag}}},
-			HomeMemory: "org::mem",
+			HomeMemory: "mem1",
 		}
 		if !has(rulesFor(lintPreflight(in), "findings:old"), "route-target-retired") {
 			t.Errorf("tag %q should trigger route-target-retired", tag)
@@ -76,23 +79,58 @@ func TestRouteTargetRetired(t *testing.T) {
 	}
 }
 
+// Both ids come from the same GraphQL projection, so they compare directly.
+// The earlier version compared the endpoint id against the -m flag's canonical
+// ref, which is a URN and never matched a PK — the rule could not fire in a
+// real run, and its test passed only by supplying a spelling the command never
+// produces. These cases use PK-shaped ids on both sides, as the command does.
 func TestRouteTargetMovedMemory(t *testing.T) {
+	const homePK = "019f76f283c27bc39c7f906c798e4268"
+	const otherPK = "019aaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
 	r := route("findings:moved", "to do the thing")
-	r.MemoryID = "other.org::elsewhere"
+	r.MemoryID = otherPK
 	in := preflightInput{
 		Routes:     []graphEdge{r},
 		Targets:    map[string]checkNode{"findings:moved": {Loc: "findings:moved"}},
-		HomeMemory: "org::mem",
+		HomeMemory: homePK,
 	}
 	if !has(rulesFor(lintPreflight(in), "findings:moved"), "route-target-moved-memory") {
-		t.Error("expected route-target-moved-memory")
+		t.Error("a target in another memory should be flagged")
 	}
 
-	// An opaque PK can't be compared against a URN-shaped scope; don't guess.
-	r.MemoryID = "019f76f283c27bc39c7f906c798e4268"
+	// Same memory — the overwhelmingly common case — must stay silent.
+	r.MemoryID = homePK
 	in.Routes = []graphEdge{r}
 	if has(rulesFor(lintPreflight(in), "findings:moved"), "route-target-moved-memory") {
-		t.Error("a PK-vs-URN comparison must not produce a finding")
+		t.Error("a same-memory target must not be flagged")
+	}
+
+	// Nothing conclusive to compare.
+	r.MemoryID = ""
+	in.Routes = []graphEdge{r}
+	if has(rulesFor(lintPreflight(in), "findings:moved"), "route-target-moved-memory") {
+		t.Error("an absent memory id must not produce a finding")
+	}
+}
+
+// A redacted endpoint projection leaves no loc. Skipping it would blind the
+// command's only error rule to exactly the unreadable-target case.
+func TestRouteWithRedactedTargetIsReported(t *testing.T) {
+	in := preflightInput{
+		Routes:     []graphEdge{{ID: "e9", Label: "to reach the hidden thing"}}, // no OtherID/Other
+		Targets:    map[string]checkNode{},
+		HomeMemory: "mem1",
+	}
+	fs := lintPreflight(in)
+	if len(fs) != 1 || fs[0].Rule != "route-target-resolves" {
+		t.Fatalf("a redacted target must be reported, got %v", fs)
+	}
+	if fs[0].Severity != sevError {
+		t.Errorf("expected an error, got %q", fs[0].Severity)
+	}
+	if !strings.Contains(fs[0].Node, "to reach the hidden thing") {
+		t.Errorf("the finding should identify the route by its label, got %q", fs[0].Node)
 	}
 }
 
@@ -106,7 +144,7 @@ func TestPreflightCleanRouter(t *testing.T) {
 			"findings:a": {Loc: "findings:a"},
 			"findings:b": {Loc: "findings:b"},
 		},
-		HomeMemory: "org::mem",
+		HomeMemory: "mem1",
 	}
 	if fs := lintPreflight(in); len(fs) != 0 {
 		t.Errorf("a clean router should yield no findings, got %v", fs)
