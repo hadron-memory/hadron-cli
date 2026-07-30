@@ -79,7 +79,7 @@ hadron app list --org <org> | install (--org <id> | --owner-me) --agent <ref> --
 hadron ai-config list [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
 hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
-hadron user search <query> [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
+hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--email <e>] [--handle <h>]
 hadron server-info
 hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--ai-config <n>] [--wait] | list [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
@@ -245,7 +245,13 @@ Conventions:
   `hrn:user:<handle>` URN, passed through verbatim (the server resolves and
   authorizes — platform ADMIN/OWNER, or an org ADMIN/OWNER over both members). No
   server dry-run; the confirmation is the last local safety boundary, so it's gated
-  — pass `--yes` non-interactively.
+  — pass `--yes` non-interactively. Data is safe (memberships, owned memories,
+  grants and connections transfer atomically, and role collisions keep the
+  strongest **live** entitlement), but **logins are not**: a source field fills the
+  target only where the target's is empty, so a populated collision is cleared from
+  the source and that credential stops authenticating. Compare both accounts'
+  `identityProvider`/`email`/`githubId` via `user search` first, and pick the
+  target for the handle you want to keep — there is no admin handle rename.
 - `server-info` reports the hadron-server this invocation targets:
   `{url, version, baseUrl, authenticated}`. It works **signed out** (the field
   is public), so it doubles as a reachability probe — a failure REACHING the
@@ -558,8 +564,16 @@ Conventions:
   requires `--yes`. Memory-attach, AI-config wiring, and app-wiring land next.
 - `user search <query>` finds users (enumeration-safe: substring on handle /
   GitHub username, exact on email) — the way to resolve a user ID for `org
-  member`/`memory member`/`memory share`. `profile set [--name|--email|--handle]`
-  updates YOUR own profile; only the fields you pass change.
+  member`/`memory member`/`memory share`. **Omit the query** (also spelled `user
+  list`) to list every user, the unfiltered listing a platform ADMIN/OWNER may
+  run; a caller without platform authority gets an empty list, not an error.
+  Without an explicit `--limit`/`--offset` it pages to exhaustion, so the
+  population is never truncated at one server page; either flag selects a single
+  explicit page. Each user carries `identityProvider`, `githubId`, `externalId`,
+  `externalAppId`, and `linkedAt` alongside the profile fields — read those before
+  `user merge`, since a login only survives a merge if the target's corresponding
+  field is empty. `profile set [--name|--email|--handle]` updates YOUR own
+  profile; only the fields you pass change.
 - `access check <user> <resource>` answers "what access does this user have to
   this resource?" — the authoritative, server-computed effective access plus the
   grants that confer it (no client-side re-derivation). `<user>` is an id, email,

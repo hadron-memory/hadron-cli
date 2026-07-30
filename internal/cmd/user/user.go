@@ -17,14 +17,22 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-// userDTO is the stable --json shape for a user.
+// userDTO is the stable --json shape for a user. The identity fields are
+// additive (#325): they let duplicate-account triage see which login each
+// account actually authenticates with before `user merge` clears a
+// colliding one — see cor:api:010:02.
 type userDTO struct {
-	ID             string   `json:"id"`
-	Name           *string  `json:"name"`
-	Email          *string  `json:"email"`
-	Handle         *string  `json:"handle"`
-	GithubUsername *string  `json:"githubUsername"`
-	Roles          []string `json:"roles"`
+	ID               string   `json:"id"`
+	Name             *string  `json:"name"`
+	Email            *string  `json:"email"`
+	Handle           *string  `json:"handle"`
+	GithubUsername   *string  `json:"githubUsername"`
+	Roles            []string `json:"roles"`
+	IdentityProvider *string  `json:"identityProvider"`
+	GithubID         *int     `json:"githubId"`
+	ExternalID       *string  `json:"externalId"`
+	ExternalAppID    *string  `json:"externalAppId"`
+	LinkedAt         *string  `json:"linkedAt"`
 }
 
 func userDTOFromFields(u gen.UserFields) userDTO {
@@ -32,7 +40,19 @@ func userDTOFromFields(u gen.UserFields) userDTO {
 	for _, r := range u.Roles {
 		roles = append(roles, string(r))
 	}
-	return userDTO{ID: u.Id, Name: u.Name, Email: u.Email, Handle: u.Handle, GithubUsername: u.GithubUsername, Roles: roles}
+	return userDTO{
+		ID:               u.Id,
+		Name:             u.Name,
+		Email:            u.Email,
+		Handle:           u.Handle,
+		GithubUsername:   u.GithubUsername,
+		Roles:            roles,
+		IdentityProvider: u.IdentityProvider,
+		GithubID:         u.GithubId,
+		ExternalID:       u.ExternalId,
+		ExternalAppID:    u.ExternalAppId,
+		LinkedAt:         u.LinkedAt,
+	}
 }
 
 func dash(s *string) string {
@@ -142,15 +162,32 @@ checks. Spec cor:api:010:02.`,
 func newCmdSearch(f *cmdutil.Factory) *cobra.Command {
 	var limit, offset int
 	cmd := &cobra.Command{
-		Use:   "search <query>",
-		Short: "Search users by handle, GitHub username, or exact email",
+		Use:     "search [query]",
+		Aliases: []string{"ls", "list"},
+		Short:   "Search users, or list them all as a platform admin",
 		Long: `Search users. Matching is enumeration-safe: substring on handle and
-GitHub username, exact on email. Results are name-ascending.`,
-		Example: `  hadron user search alice --json`,
-		Args:    cobra.ExactArgs(1),
+GitHub username, exact on email. Results are name-ascending.
+
+Omit the query to list every user — the unfiltered listing a platform
+ADMIN/OWNER may run (cor:acl:070:02). A caller without platform authority gets
+an empty list rather than an error, since the server will not confirm that
+accounts it won't show you exist.
+
+Without an explicit --limit/--offset the listing pages to exhaustion, so a
+population larger than one 200-row server page is never silently truncated.
+Passing either flag selects a single explicit page instead.`,
+		Example: `  hadron user search alice --json
+  hadron user search --json          # every user (platform admin)`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if strings.TrimSpace(args[0]) == "" {
-				return exitcode.Newf(exitcode.Usage, "query must not be empty")
+			// An absent query means "list all"; an explicitly empty one is a
+			// typo, not a request to enumerate the platform.
+			var query *string
+			if len(args) == 1 {
+				if strings.TrimSpace(args[0]) == "" {
+					return exitcode.Newf(exitcode.Usage, "query must not be empty — omit it entirely to list all users")
+				}
+				query = &args[0]
 			}
 			if limit < 0 {
 				return exitcode.Newf(exitcode.Usage, "limit must be non-negative")
@@ -162,37 +199,70 @@ GitHub username, exact on email. Results are name-ascending.`,
 			if err != nil {
 				return err
 			}
-			var lim, off *int
-			if cmd.Flags().Changed("limit") {
-				lim = &limit
-			}
-			if cmd.Flags().Changed("offset") {
-				off = &offset
-			}
-			resp, err := gen.SearchUsers(cmd.Context(), client, args[0], lim, off)
-			if err != nil {
-				return api.MapError(err)
-			}
-			users := []userDTO{}
-			if resp.Users != nil {
-				for _, u := range resp.Users.Items {
-					if u == nil {
-						continue
-					}
-					users = append(users, userDTOFromFields(u.UserFields))
+
+			fetch := func(lim, off *int) ([]*gen.SearchUsersUsersUsersPageItemsUser, int, error) {
+				resp, err := gen.SearchUsers(cmd.Context(), client, query, lim, off)
+				if err != nil {
+					return nil, 0, api.MapError(err)
 				}
+				if resp == nil || resp.Users == nil {
+					return nil, 0, nil
+				}
+				return resp.Users.Items, resp.Users.Total, nil
+			}
+
+			var items []*gen.SearchUsersUsersUsersPageItemsUser
+			paged := cmd.Flags().Changed("limit") || cmd.Flags().Changed("offset")
+			if paged {
+				var lim, off *int
+				if cmd.Flags().Changed("limit") {
+					lim = &limit
+				}
+				if cmd.Flags().Changed("offset") {
+					off = &offset
+				}
+				items, _, err = fetch(lim, off)
+			} else {
+				items, err = api.CollectAll(func(lim, off int) ([]*gen.SearchUsersUsersUsersPageItemsUser, int, error) {
+					return fetch(&lim, &off)
+				})
+			}
+			if err != nil {
+				return err
+			}
+
+			users := []userDTO{}
+			for _, u := range items {
+				if u == nil {
+					continue
+				}
+				users = append(users, userDTOFromFields(u.UserFields))
 			}
 			return output.Write(f.IOStreams, f.JSON, users, func(w io.Writer) error {
-				t := output.NewTable(w, "ID", "NAME", "EMAIL", "HANDLE", "GITHUB")
+				// PROVIDER earns a column because it explains an account's
+				// origin — the cheapest signal that two rows are one human who
+				// signed in two ways. It does NOT decide what a merge does to a
+				// login: auth resolves by provider id then email, and
+				// identityProvider is only the provider that created the row
+				// (the linking path keeps the original value). The fields that
+				// decide that are githubId/email and the --json-only ids.
+				t := output.NewTable(w, "ID", "NAME", "EMAIL", "HANDLE", "GITHUB", "PROVIDER")
 				for _, u := range users {
-					t.Row(u.ID, dash(u.Name), dash(u.Email), dash(u.Handle), dash(u.GithubUsername))
+					t.Row(u.ID, dash(u.Name), dash(u.Email), dash(u.Handle), dash(u.GithubUsername), dash(u.IdentityProvider))
 				}
-				return t.Flush()
+				if err := t.Flush(); err != nil {
+					return err
+				}
+				if query == nil && len(users) == 0 {
+					_, err := fmt.Fprintln(w, "\nNo users listed. The unfiltered listing requires platform ADMIN/OWNER; pass a query to search instead.")
+					return err
+				}
+				return nil
 			})
 		},
 	}
-	cmd.Flags().IntVar(&limit, "limit", 0, "max results (server default when unset)")
-	cmd.Flags().IntVar(&offset, "offset", 0, "results to skip")
+	cmd.Flags().IntVar(&limit, "limit", 0, "max results for a single explicit page (default: page to exhaustion)")
+	cmd.Flags().IntVar(&offset, "offset", 0, "results to skip (selects a single explicit page)")
 	return cmd
 }
 

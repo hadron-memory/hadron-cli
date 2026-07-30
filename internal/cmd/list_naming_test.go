@@ -138,6 +138,7 @@ func TestBothSpellingsResolve(t *testing.T) {
 		{{"edge", "ls"}, {"edge", "list"}},
 		{{"auth", "token", "ls"}, {"auth", "token", "list"}},
 		{{"object", "ls"}, {"object", "list"}},
+		{{"user", "ls"}, {"user", "list"}},
 	}
 	root := NewRootCmd(cmdutil.NewFactory())
 	for _, pair := range paths {

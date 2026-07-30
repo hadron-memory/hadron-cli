@@ -10,6 +10,12 @@ fragment OrgFields on Organization {
   updatedAt
 }
 
+# The identity fields (identityProvider/githubId/externalId/externalAppId)
+# are load-bearing for duplicate-account triage: `user merge` folds a
+# source-only value into an EMPTY target field only, so a populated
+# collision is cleared from the source and that login stops working. Seeing
+# both sides' providers is what tells a merge apart from a lockout
+# (cor:api:010:02).
 fragment UserFields on User {
   id
   name
@@ -17,6 +23,11 @@ fragment UserFields on User {
   handle
   githubUsername
   roles
+  identityProvider
+  githubId
+  externalId
+  externalAppId
+  linkedAt
 }
 
 # organization(ref:) accepts the org's PK id or URN (hadron-server#473).
@@ -56,8 +67,15 @@ query GetUser($ref: ID!) {
 # handle/githubUsername substring, email exact). Results are name-ascending,
 # so an EXACT identifier match can sit past the first 200-cap page — user-ref
 # resolution pages via api.CollectUntil with an exact-match short-circuit.
+#
+# $query is nullable and omitempty: a nil pointer drops the variable, which
+# GraphQL input-object coercion renders as `filter: {}` — i.e. an omitted
+# query. That is the platform ADMIN/OWNER full-user-list path (a non-admin
+# gets an empty page instead, per cor:acl:070:02), and it is the only way to
+# enumerate accounts nobody thought to search for.
 query SearchUsers(
-  $query: String!
+  # @genqlient(omitempty: true)
+  $query: String
   # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
