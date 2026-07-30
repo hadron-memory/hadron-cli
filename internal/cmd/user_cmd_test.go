@@ -98,7 +98,14 @@ func TestUserSearchOmitsQueryVariableForFullList(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(captured["SearchUsers"], &vars)
+	if err := json.Unmarshal(captured["SearchUsers"], &vars); err != nil {
+		t.Fatalf("decoding captured variables: %v", err)
+	}
+	// This assertion is a NEGATIVE one, so it would pass vacuously on an
+	// empty map — check something was actually captured first.
+	if len(vars) == 0 {
+		t.Fatal("no SearchUsers variables captured")
+	}
 	if _, present := vars["query"]; present {
 		t.Errorf("query variable must be omitted for the full list, got %v", vars)
 	}
@@ -131,7 +138,12 @@ func searchPagesServer(t *testing.T, offsets *[]int) *httptest.Server {
 				Offset *int `json:"offset"`
 			} `json:"variables"`
 		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		// A decode failure would silently look like offset=0 and make the
+		// paging assertions pass for the wrong reason. t.Errorf (not Fatalf)
+		// — this runs on the server's goroutine.
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decoding request body: %v", err)
+		}
 		off := 0
 		if body.Variables.Offset != nil {
 			off = *body.Variables.Offset

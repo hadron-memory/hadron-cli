@@ -291,6 +291,45 @@ func TestOrgMemberLs(t *testing.T) {
 	}
 }
 
+// A member roster is where duplicate accounts are most visible, so the
+// identity fields have to reach org's own DTO — adding them to the shared
+// UserFields fragment alone would fetch them and then drop them.
+func TestOrgMemberLsSurfacesIdentityFields(t *testing.T) {
+	member := `{"id":"usr9","name":"Dup","email":null,"handle":"dup","githubUsername":"dupgh",
+		"roles":["READER"],"identityProvider":"GITHUB","githubId":991,"externalId":null,
+		"externalAppId":null,"linkedAt":null}`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"OrgMembers": `{"data":{"organization":{"id":"org1","members":[
+			{"id":"m1","role":"ADMIN","canInvite":false,"user":` + member + `}
+		]}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "member", "ls", "org1", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var members []struct {
+		User struct {
+			IdentityProvider *string `json:"identityProvider"`
+			GithubID         *int    `json:"githubId"`
+		} `json:"user"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &members); err != nil {
+		t.Fatalf("not a JSON array: %v\n%s", err, out.String())
+	}
+	if len(members) != 1 {
+		t.Fatalf("members: %+v", members)
+	}
+	u := members[0].User
+	if u.IdentityProvider == nil || *u.IdentityProvider != "GITHUB" {
+		t.Errorf("identityProvider: %v", u.IdentityProvider)
+	}
+	if u.GithubID == nil || *u.GithubID != 991 {
+		t.Errorf("githubId: %v", u.GithubID)
+	}
+}
+
 func TestOrgMemberAdd(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"AddOrgMember": `{"data":{"addOrgMember":{"id":"m1","role":"CONTRIBUTOR","user":` + orgUserJSON + `}}}`,

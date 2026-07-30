@@ -50,10 +50,14 @@ returned an empty page and looked like a permissions problem. The command
 still rejects an explicitly empty argument as usage, since `user list ""` is a
 typo, not a request to enumerate the platform.
 
-**The identity fields go on the shared `UserFields` fragment**, so `org member
-list` and `access check` surface them too. They are the fields that distinguish
-"two rows for one human" from "two humans", and that judgement is made wherever
-users are listed, not only in `user list`.
+**The identity fields go on the shared `UserFields` fragment**, but that alone
+surfaces nothing: every command marshals its own DTO so `--json` stays stable
+across regenerations, so the fragment only makes the data *available*. `org
+member list` has its own `userDTO` in `internal/cmd/org/common.go` and was
+extended to match — a roster of one org's members is where two rows for the same
+human are most visible, and that judgement is made wherever users are listed,
+not only in `user list`. `access check` also selects `UserFields`, but only to
+resolve an id; it emits no user object, so there is nothing to surface there.
 
 **`identityProvider` is displayed but is not the answer.** It is tempting to
 read it as the login method; it is not. Auth resolves a user by *provider id*

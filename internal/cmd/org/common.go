@@ -29,13 +29,21 @@ type orgDTO struct {
 }
 
 // userDTO is the stable --json shape for a user (search results, member.user).
+// The identity fields mirror the user package's DTO: a roster of one org's
+// members is where two rows for the same human are most visible, and telling
+// that apart from two humans needs the provider identity, not just the profile.
 type userDTO struct {
-	ID             string   `json:"id"`
-	Name           *string  `json:"name"`
-	Email          *string  `json:"email"`
-	Handle         *string  `json:"handle"`
-	GithubUsername *string  `json:"githubUsername"`
-	Roles          []string `json:"roles"`
+	ID               string   `json:"id"`
+	Name             *string  `json:"name"`
+	Email            *string  `json:"email"`
+	Handle           *string  `json:"handle"`
+	GithubUsername   *string  `json:"githubUsername"`
+	Roles            []string `json:"roles"`
+	IdentityProvider *string  `json:"identityProvider"`
+	GithubID         *int     `json:"githubId"`
+	ExternalID       *string  `json:"externalId"`
+	ExternalAppID    *string  `json:"externalAppId"`
+	LinkedAt         *string  `json:"linkedAt"`
 }
 
 // memberDTO is the stable --json shape for an org membership. CanInvite is only
@@ -66,12 +74,17 @@ func userDTOFromFields(u gen.UserFields) userDTO {
 		roles = append(roles, string(r))
 	}
 	return userDTO{
-		ID:             u.Id,
-		Name:           u.Name,
-		Email:          u.Email,
-		Handle:         u.Handle,
-		GithubUsername: u.GithubUsername,
-		Roles:          roles,
+		ID:               u.Id,
+		Name:             u.Name,
+		Email:            u.Email,
+		Handle:           u.Handle,
+		GithubUsername:   u.GithubUsername,
+		Roles:            roles,
+		IdentityProvider: u.IdentityProvider,
+		GithubID:         u.GithubId,
+		ExternalID:       u.ExternalId,
+		ExternalAppID:    u.ExternalAppId,
+		LinkedAt:         u.LinkedAt,
 	}
 }
 

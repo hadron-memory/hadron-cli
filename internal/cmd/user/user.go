@@ -239,8 +239,13 @@ Passing either flag selects a single explicit page instead.`,
 				users = append(users, userDTOFromFields(u.UserFields))
 			}
 			return output.Write(f.IOStreams, f.JSON, users, func(w io.Writer) error {
-				// PROVIDER earns a column because it is the field that decides
-				// whether merging two accounts preserves or destroys a login.
+				// PROVIDER earns a column because it explains an account's
+				// origin — the cheapest signal that two rows are one human who
+				// signed in two ways. It does NOT decide what a merge does to a
+				// login: auth resolves by provider id then email, and
+				// identityProvider is only the provider that created the row
+				// (the linking path keeps the original value). The fields that
+				// decide that are githubId/email and the --json-only ids.
 				t := output.NewTable(w, "ID", "NAME", "EMAIL", "HANDLE", "GITHUB", "PROVIDER")
 				for _, u := range users {
 					t.Row(u.ID, dash(u.Name), dash(u.Email), dash(u.Handle), dash(u.GithubUsername), dash(u.IdentityProvider))
