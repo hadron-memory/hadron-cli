@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -35,6 +37,154 @@ func TestUserSearch(t *testing.T) {
 	}
 	if len(users) != 1 || users[0].Handle != "alice" {
 		t.Errorf("users: %+v", users)
+	}
+}
+
+// uIdentityUserJSON is a GitHub-login account with no email — the shape whose
+// identity fields decide whether merging it into an email account preserves
+// the GitHub login or destroys it (cor:api:010:02).
+const uIdentityUserJSON = `{"id":"usr2","name":"Bob","email":null,"handle":"bob",
+	"githubUsername":"bobgh","roles":["READER"],"identityProvider":"github","githubId":4242,
+	"externalId":"gh|4242","externalAppId":null,"linkedAt":"2026-07-01T00:00:00Z"}`
+
+func TestUserSearchSurfacesIdentityFields(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"SearchUsers": `{"data":{"users":{"total":1,"items":[` + uIdentityUserJSON + `]}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "search", "bob", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var users []struct {
+		IdentityProvider *string `json:"identityProvider"`
+		GithubID         *int    `json:"githubId"`
+		ExternalID       *string `json:"externalId"`
+		LinkedAt         *string `json:"linkedAt"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &users); err != nil {
+		t.Fatalf("not a JSON array: %v\n%s", err, out.String())
+	}
+	if len(users) != 1 {
+		t.Fatalf("users: %+v", users)
+	}
+	u := users[0]
+	if u.IdentityProvider == nil || *u.IdentityProvider != "github" {
+		t.Errorf("identityProvider: %v", u.IdentityProvider)
+	}
+	if u.GithubID == nil || *u.GithubID != 4242 {
+		t.Errorf("githubId: %v", u.GithubID)
+	}
+	if u.ExternalID == nil || *u.ExternalID != "gh|4242" {
+		t.Errorf("externalId: %v", u.ExternalID)
+	}
+	if u.LinkedAt == nil || *u.LinkedAt != "2026-07-01T00:00:00Z" {
+		t.Errorf("linkedAt: %v", u.LinkedAt)
+	}
+}
+
+// No positional arg must OMIT the query variable entirely — `filter: {}` is
+// what the server reads as the platform-admin full-list request. Sending an
+// explicit empty string would instead be a blank query (an empty page).
+func TestUserSearchOmitsQueryVariableForFullList(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"SearchUsers": `{"data":{"users":{"total":1,"items":[` + uUserJSON + `]}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "search", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["SearchUsers"], &vars)
+	if _, present := vars["query"]; present {
+		t.Errorf("query variable must be omitted for the full list, got %v", vars)
+	}
+}
+
+// A non-admin gets an empty page rather than an error; say why instead of
+// rendering a bare empty table.
+func TestUserSearchFullListHintsWhenEmpty(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"SearchUsers": `{"data":{"users":{"total":0,"items":[]}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "search", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "platform ADMIN/OWNER") {
+		t.Errorf("expected a permission hint, got:\n%s", out.String())
+	}
+}
+
+// searchPagesServer serves a 3-user population two rows at a time, recording
+// the offset of every request.
+func searchPagesServer(t *testing.T, offsets *[]int) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Variables struct {
+				Offset *int `json:"offset"`
+			} `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		off := 0
+		if body.Variables.Offset != nil {
+			off = *body.Variables.Offset
+		}
+		*offsets = append(*offsets, off)
+		items := `{"id":"u3","handle":"c","roles":[]}`
+		if off == 0 {
+			items = `{"id":"u1","handle":"a","roles":[]},{"id":"u2","handle":"b","roles":[]}`
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"users":{"total":3,"items":[` + items + `]}}}`))
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+// The whole-population contract: a listing that spans pages must drain, or
+// duplicate detection quietly misses the tail (the issue-#23 failure mode).
+func TestUserSearchPagesToExhaustion(t *testing.T) {
+	var offsets []int
+	gql := searchPagesServer(t, &offsets)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "search", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var users []struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &users); err != nil {
+		t.Fatalf("not a JSON array: %v\n%s", err, out.String())
+	}
+	if len(users) != 3 {
+		t.Errorf("want all 3 users, got %d: %+v", len(users), users)
+	}
+	if len(offsets) != 2 || offsets[0] != 0 || offsets[1] != 2 {
+		t.Errorf("want offsets [0 2], got %v", offsets)
+	}
+}
+
+// An explicit --limit is a request for one page, not a drain.
+func TestUserSearchExplicitLimitIsSinglePage(t *testing.T) {
+	var offsets []int
+	gql := searchPagesServer(t, &offsets)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"user", "search", "--limit", "2", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(offsets) != 1 {
+		t.Errorf("want exactly one request with an explicit --limit, got %v", offsets)
 	}
 }
 

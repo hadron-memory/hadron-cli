@@ -76,7 +76,9 @@ func ResolveUser(cmd *cobra.Command, client graphql.Client, ref string) (fields 
 	// fuzzy-ambiguous.
 	items, err := api.CollectUntil(
 		func(limit, offset int) ([]*gen.SearchUsersUsersUsersPageItemsUser, int, error) {
-			resp, err := gen.SearchUsers(cmd.Context(), client, token, &limit, &offset)
+			// Always a concrete query here — ref resolution never wants the
+			// unfiltered admin list.
+			resp, err := gen.SearchUsers(cmd.Context(), client, &token, &limit, &offset)
 			if err != nil {
 				return nil, 0, api.MapError(err)
 			}

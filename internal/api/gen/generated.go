@@ -443,6 +443,23 @@ func (v *AddOrgMemberAddOrgMemberUser) GetGithubUsername() *string {
 // GetRoles returns AddOrgMemberAddOrgMemberUser.Roles, and is useful for accessing the field via an interface.
 func (v *AddOrgMemberAddOrgMemberUser) GetRoles() []Role { return v.UserFields.Roles }
 
+// GetIdentityProvider returns AddOrgMemberAddOrgMemberUser.IdentityProvider, and is useful for accessing the field via an interface.
+func (v *AddOrgMemberAddOrgMemberUser) GetIdentityProvider() *string {
+	return v.UserFields.IdentityProvider
+}
+
+// GetGithubId returns AddOrgMemberAddOrgMemberUser.GithubId, and is useful for accessing the field via an interface.
+func (v *AddOrgMemberAddOrgMemberUser) GetGithubId() *int { return v.UserFields.GithubId }
+
+// GetExternalId returns AddOrgMemberAddOrgMemberUser.ExternalId, and is useful for accessing the field via an interface.
+func (v *AddOrgMemberAddOrgMemberUser) GetExternalId() *string { return v.UserFields.ExternalId }
+
+// GetExternalAppId returns AddOrgMemberAddOrgMemberUser.ExternalAppId, and is useful for accessing the field via an interface.
+func (v *AddOrgMemberAddOrgMemberUser) GetExternalAppId() *string { return v.UserFields.ExternalAppId }
+
+// GetLinkedAt returns AddOrgMemberAddOrgMemberUser.LinkedAt, and is useful for accessing the field via an interface.
+func (v *AddOrgMemberAddOrgMemberUser) GetLinkedAt() *string { return v.UserFields.LinkedAt }
+
 func (v *AddOrgMemberAddOrgMemberUser) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -480,6 +497,16 @@ type __premarshalAddOrgMemberAddOrgMemberUser struct {
 	GithubUsername *string `json:"githubUsername"`
 
 	Roles []Role `json:"roles"`
+
+	IdentityProvider *string `json:"identityProvider"`
+
+	GithubId *int `json:"githubId"`
+
+	ExternalId *string `json:"externalId"`
+
+	ExternalAppId *string `json:"externalAppId"`
+
+	LinkedAt *string `json:"linkedAt"`
 }
 
 func (v *AddOrgMemberAddOrgMemberUser) MarshalJSON() ([]byte, error) {
@@ -499,6 +526,11 @@ func (v *AddOrgMemberAddOrgMemberUser) __premarshalJSON() (*__premarshalAddOrgMe
 	retval.Handle = v.UserFields.Handle
 	retval.GithubUsername = v.UserFields.GithubUsername
 	retval.Roles = v.UserFields.Roles
+	retval.IdentityProvider = v.UserFields.IdentityProvider
+	retval.GithubId = v.UserFields.GithubId
+	retval.ExternalId = v.UserFields.ExternalId
+	retval.ExternalAppId = v.UserFields.ExternalAppId
+	retval.LinkedAt = v.UserFields.LinkedAt
 	return &retval, nil
 }
 
@@ -6644,6 +6676,21 @@ func (v *GetUserUser) GetGithubUsername() *string { return v.UserFields.GithubUs
 // GetRoles returns GetUserUser.Roles, and is useful for accessing the field via an interface.
 func (v *GetUserUser) GetRoles() []Role { return v.UserFields.Roles }
 
+// GetIdentityProvider returns GetUserUser.IdentityProvider, and is useful for accessing the field via an interface.
+func (v *GetUserUser) GetIdentityProvider() *string { return v.UserFields.IdentityProvider }
+
+// GetGithubId returns GetUserUser.GithubId, and is useful for accessing the field via an interface.
+func (v *GetUserUser) GetGithubId() *int { return v.UserFields.GithubId }
+
+// GetExternalId returns GetUserUser.ExternalId, and is useful for accessing the field via an interface.
+func (v *GetUserUser) GetExternalId() *string { return v.UserFields.ExternalId }
+
+// GetExternalAppId returns GetUserUser.ExternalAppId, and is useful for accessing the field via an interface.
+func (v *GetUserUser) GetExternalAppId() *string { return v.UserFields.ExternalAppId }
+
+// GetLinkedAt returns GetUserUser.LinkedAt, and is useful for accessing the field via an interface.
+func (v *GetUserUser) GetLinkedAt() *string { return v.UserFields.LinkedAt }
+
 func (v *GetUserUser) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -6681,6 +6728,16 @@ type __premarshalGetUserUser struct {
 	GithubUsername *string `json:"githubUsername"`
 
 	Roles []Role `json:"roles"`
+
+	IdentityProvider *string `json:"identityProvider"`
+
+	GithubId *int `json:"githubId"`
+
+	ExternalId *string `json:"externalId"`
+
+	ExternalAppId *string `json:"externalAppId"`
+
+	LinkedAt *string `json:"linkedAt"`
 }
 
 func (v *GetUserUser) MarshalJSON() ([]byte, error) {
@@ -6700,6 +6757,11 @@ func (v *GetUserUser) __premarshalJSON() (*__premarshalGetUserUser, error) {
 	retval.Handle = v.UserFields.Handle
 	retval.GithubUsername = v.UserFields.GithubUsername
 	retval.Roles = v.UserFields.Roles
+	retval.IdentityProvider = v.UserFields.IdentityProvider
+	retval.GithubId = v.UserFields.GithubId
+	retval.ExternalId = v.UserFields.ExternalId
+	retval.ExternalAppId = v.UserFields.ExternalAppId
+	retval.LinkedAt = v.UserFields.LinkedAt
 	return &retval, nil
 }
 
@@ -8237,6 +8299,23 @@ func (v *MergeUsersMergeUsersUser) GetGithubUsername() *string { return v.UserFi
 // GetRoles returns MergeUsersMergeUsersUser.Roles, and is useful for accessing the field via an interface.
 func (v *MergeUsersMergeUsersUser) GetRoles() []Role { return v.UserFields.Roles }
 
+// GetIdentityProvider returns MergeUsersMergeUsersUser.IdentityProvider, and is useful for accessing the field via an interface.
+func (v *MergeUsersMergeUsersUser) GetIdentityProvider() *string {
+	return v.UserFields.IdentityProvider
+}
+
+// GetGithubId returns MergeUsersMergeUsersUser.GithubId, and is useful for accessing the field via an interface.
+func (v *MergeUsersMergeUsersUser) GetGithubId() *int { return v.UserFields.GithubId }
+
+// GetExternalId returns MergeUsersMergeUsersUser.ExternalId, and is useful for accessing the field via an interface.
+func (v *MergeUsersMergeUsersUser) GetExternalId() *string { return v.UserFields.ExternalId }
+
+// GetExternalAppId returns MergeUsersMergeUsersUser.ExternalAppId, and is useful for accessing the field via an interface.
+func (v *MergeUsersMergeUsersUser) GetExternalAppId() *string { return v.UserFields.ExternalAppId }
+
+// GetLinkedAt returns MergeUsersMergeUsersUser.LinkedAt, and is useful for accessing the field via an interface.
+func (v *MergeUsersMergeUsersUser) GetLinkedAt() *string { return v.UserFields.LinkedAt }
+
 func (v *MergeUsersMergeUsersUser) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -8274,6 +8353,16 @@ type __premarshalMergeUsersMergeUsersUser struct {
 	GithubUsername *string `json:"githubUsername"`
 
 	Roles []Role `json:"roles"`
+
+	IdentityProvider *string `json:"identityProvider"`
+
+	GithubId *int `json:"githubId"`
+
+	ExternalId *string `json:"externalId"`
+
+	ExternalAppId *string `json:"externalAppId"`
+
+	LinkedAt *string `json:"linkedAt"`
 }
 
 func (v *MergeUsersMergeUsersUser) MarshalJSON() ([]byte, error) {
@@ -8293,6 +8382,11 @@ func (v *MergeUsersMergeUsersUser) __premarshalJSON() (*__premarshalMergeUsersMe
 	retval.Handle = v.UserFields.Handle
 	retval.GithubUsername = v.UserFields.GithubUsername
 	retval.Roles = v.UserFields.Roles
+	retval.IdentityProvider = v.UserFields.IdentityProvider
+	retval.GithubId = v.UserFields.GithubId
+	retval.ExternalId = v.UserFields.ExternalId
+	retval.ExternalAppId = v.UserFields.ExternalAppId
+	retval.LinkedAt = v.UserFields.LinkedAt
 	return &retval, nil
 }
 
@@ -9436,6 +9530,29 @@ func (v *OrgMembersOrganizationMembersOrgMemberUser) GetGithubUsername() *string
 // GetRoles returns OrgMembersOrganizationMembersOrgMemberUser.Roles, and is useful for accessing the field via an interface.
 func (v *OrgMembersOrganizationMembersOrgMemberUser) GetRoles() []Role { return v.UserFields.Roles }
 
+// GetIdentityProvider returns OrgMembersOrganizationMembersOrgMemberUser.IdentityProvider, and is useful for accessing the field via an interface.
+func (v *OrgMembersOrganizationMembersOrgMemberUser) GetIdentityProvider() *string {
+	return v.UserFields.IdentityProvider
+}
+
+// GetGithubId returns OrgMembersOrganizationMembersOrgMemberUser.GithubId, and is useful for accessing the field via an interface.
+func (v *OrgMembersOrganizationMembersOrgMemberUser) GetGithubId() *int { return v.UserFields.GithubId }
+
+// GetExternalId returns OrgMembersOrganizationMembersOrgMemberUser.ExternalId, and is useful for accessing the field via an interface.
+func (v *OrgMembersOrganizationMembersOrgMemberUser) GetExternalId() *string {
+	return v.UserFields.ExternalId
+}
+
+// GetExternalAppId returns OrgMembersOrganizationMembersOrgMemberUser.ExternalAppId, and is useful for accessing the field via an interface.
+func (v *OrgMembersOrganizationMembersOrgMemberUser) GetExternalAppId() *string {
+	return v.UserFields.ExternalAppId
+}
+
+// GetLinkedAt returns OrgMembersOrganizationMembersOrgMemberUser.LinkedAt, and is useful for accessing the field via an interface.
+func (v *OrgMembersOrganizationMembersOrgMemberUser) GetLinkedAt() *string {
+	return v.UserFields.LinkedAt
+}
+
 func (v *OrgMembersOrganizationMembersOrgMemberUser) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -9473,6 +9590,16 @@ type __premarshalOrgMembersOrganizationMembersOrgMemberUser struct {
 	GithubUsername *string `json:"githubUsername"`
 
 	Roles []Role `json:"roles"`
+
+	IdentityProvider *string `json:"identityProvider"`
+
+	GithubId *int `json:"githubId"`
+
+	ExternalId *string `json:"externalId"`
+
+	ExternalAppId *string `json:"externalAppId"`
+
+	LinkedAt *string `json:"linkedAt"`
 }
 
 func (v *OrgMembersOrganizationMembersOrgMemberUser) MarshalJSON() ([]byte, error) {
@@ -9492,6 +9619,11 @@ func (v *OrgMembersOrganizationMembersOrgMemberUser) __premarshalJSON() (*__prem
 	retval.Handle = v.UserFields.Handle
 	retval.GithubUsername = v.UserFields.GithubUsername
 	retval.Roles = v.UserFields.Roles
+	retval.IdentityProvider = v.UserFields.IdentityProvider
+	retval.GithubId = v.UserFields.GithubId
+	retval.ExternalId = v.UserFields.ExternalId
+	retval.ExternalAppId = v.UserFields.ExternalAppId
+	retval.LinkedAt = v.UserFields.LinkedAt
 	return &retval, nil
 }
 
@@ -11233,6 +11365,25 @@ func (v *SearchUsersUsersUsersPageItemsUser) GetGithubUsername() *string {
 // GetRoles returns SearchUsersUsersUsersPageItemsUser.Roles, and is useful for accessing the field via an interface.
 func (v *SearchUsersUsersUsersPageItemsUser) GetRoles() []Role { return v.UserFields.Roles }
 
+// GetIdentityProvider returns SearchUsersUsersUsersPageItemsUser.IdentityProvider, and is useful for accessing the field via an interface.
+func (v *SearchUsersUsersUsersPageItemsUser) GetIdentityProvider() *string {
+	return v.UserFields.IdentityProvider
+}
+
+// GetGithubId returns SearchUsersUsersUsersPageItemsUser.GithubId, and is useful for accessing the field via an interface.
+func (v *SearchUsersUsersUsersPageItemsUser) GetGithubId() *int { return v.UserFields.GithubId }
+
+// GetExternalId returns SearchUsersUsersUsersPageItemsUser.ExternalId, and is useful for accessing the field via an interface.
+func (v *SearchUsersUsersUsersPageItemsUser) GetExternalId() *string { return v.UserFields.ExternalId }
+
+// GetExternalAppId returns SearchUsersUsersUsersPageItemsUser.ExternalAppId, and is useful for accessing the field via an interface.
+func (v *SearchUsersUsersUsersPageItemsUser) GetExternalAppId() *string {
+	return v.UserFields.ExternalAppId
+}
+
+// GetLinkedAt returns SearchUsersUsersUsersPageItemsUser.LinkedAt, and is useful for accessing the field via an interface.
+func (v *SearchUsersUsersUsersPageItemsUser) GetLinkedAt() *string { return v.UserFields.LinkedAt }
+
 func (v *SearchUsersUsersUsersPageItemsUser) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -11270,6 +11421,16 @@ type __premarshalSearchUsersUsersUsersPageItemsUser struct {
 	GithubUsername *string `json:"githubUsername"`
 
 	Roles []Role `json:"roles"`
+
+	IdentityProvider *string `json:"identityProvider"`
+
+	GithubId *int `json:"githubId"`
+
+	ExternalId *string `json:"externalId"`
+
+	ExternalAppId *string `json:"externalAppId"`
+
+	LinkedAt *string `json:"linkedAt"`
 }
 
 func (v *SearchUsersUsersUsersPageItemsUser) MarshalJSON() ([]byte, error) {
@@ -11289,6 +11450,11 @@ func (v *SearchUsersUsersUsersPageItemsUser) __premarshalJSON() (*__premarshalSe
 	retval.Handle = v.UserFields.Handle
 	retval.GithubUsername = v.UserFields.GithubUsername
 	retval.Roles = v.UserFields.Roles
+	retval.IdentityProvider = v.UserFields.IdentityProvider
+	retval.GithubId = v.UserFields.GithubId
+	retval.ExternalId = v.UserFields.ExternalId
+	retval.ExternalAppId = v.UserFields.ExternalAppId
+	retval.LinkedAt = v.UserFields.LinkedAt
 	return &retval, nil
 }
 
@@ -12906,6 +13072,25 @@ func (v *UpdateMyProfileUpdateMyProfileUser) GetGithubUsername() *string {
 // GetRoles returns UpdateMyProfileUpdateMyProfileUser.Roles, and is useful for accessing the field via an interface.
 func (v *UpdateMyProfileUpdateMyProfileUser) GetRoles() []Role { return v.UserFields.Roles }
 
+// GetIdentityProvider returns UpdateMyProfileUpdateMyProfileUser.IdentityProvider, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileUpdateMyProfileUser) GetIdentityProvider() *string {
+	return v.UserFields.IdentityProvider
+}
+
+// GetGithubId returns UpdateMyProfileUpdateMyProfileUser.GithubId, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileUpdateMyProfileUser) GetGithubId() *int { return v.UserFields.GithubId }
+
+// GetExternalId returns UpdateMyProfileUpdateMyProfileUser.ExternalId, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileUpdateMyProfileUser) GetExternalId() *string { return v.UserFields.ExternalId }
+
+// GetExternalAppId returns UpdateMyProfileUpdateMyProfileUser.ExternalAppId, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileUpdateMyProfileUser) GetExternalAppId() *string {
+	return v.UserFields.ExternalAppId
+}
+
+// GetLinkedAt returns UpdateMyProfileUpdateMyProfileUser.LinkedAt, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileUpdateMyProfileUser) GetLinkedAt() *string { return v.UserFields.LinkedAt }
+
 func (v *UpdateMyProfileUpdateMyProfileUser) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -12943,6 +13128,16 @@ type __premarshalUpdateMyProfileUpdateMyProfileUser struct {
 	GithubUsername *string `json:"githubUsername"`
 
 	Roles []Role `json:"roles"`
+
+	IdentityProvider *string `json:"identityProvider"`
+
+	GithubId *int `json:"githubId"`
+
+	ExternalId *string `json:"externalId"`
+
+	ExternalAppId *string `json:"externalAppId"`
+
+	LinkedAt *string `json:"linkedAt"`
 }
 
 func (v *UpdateMyProfileUpdateMyProfileUser) MarshalJSON() ([]byte, error) {
@@ -12962,6 +13157,11 @@ func (v *UpdateMyProfileUpdateMyProfileUser) __premarshalJSON() (*__premarshalUp
 	retval.Handle = v.UserFields.Handle
 	retval.GithubUsername = v.UserFields.GithubUsername
 	retval.Roles = v.UserFields.Roles
+	retval.IdentityProvider = v.UserFields.IdentityProvider
+	retval.GithubId = v.UserFields.GithubId
+	retval.ExternalId = v.UserFields.ExternalId
+	retval.ExternalAppId = v.UserFields.ExternalAppId
+	retval.LinkedAt = v.UserFields.LinkedAt
 	return &retval, nil
 }
 
@@ -13367,6 +13567,25 @@ func (v *UpdateOrgMemberUpdateOrgMemberUser) GetGithubUsername() *string {
 // GetRoles returns UpdateOrgMemberUpdateOrgMemberUser.Roles, and is useful for accessing the field via an interface.
 func (v *UpdateOrgMemberUpdateOrgMemberUser) GetRoles() []Role { return v.UserFields.Roles }
 
+// GetIdentityProvider returns UpdateOrgMemberUpdateOrgMemberUser.IdentityProvider, and is useful for accessing the field via an interface.
+func (v *UpdateOrgMemberUpdateOrgMemberUser) GetIdentityProvider() *string {
+	return v.UserFields.IdentityProvider
+}
+
+// GetGithubId returns UpdateOrgMemberUpdateOrgMemberUser.GithubId, and is useful for accessing the field via an interface.
+func (v *UpdateOrgMemberUpdateOrgMemberUser) GetGithubId() *int { return v.UserFields.GithubId }
+
+// GetExternalId returns UpdateOrgMemberUpdateOrgMemberUser.ExternalId, and is useful for accessing the field via an interface.
+func (v *UpdateOrgMemberUpdateOrgMemberUser) GetExternalId() *string { return v.UserFields.ExternalId }
+
+// GetExternalAppId returns UpdateOrgMemberUpdateOrgMemberUser.ExternalAppId, and is useful for accessing the field via an interface.
+func (v *UpdateOrgMemberUpdateOrgMemberUser) GetExternalAppId() *string {
+	return v.UserFields.ExternalAppId
+}
+
+// GetLinkedAt returns UpdateOrgMemberUpdateOrgMemberUser.LinkedAt, and is useful for accessing the field via an interface.
+func (v *UpdateOrgMemberUpdateOrgMemberUser) GetLinkedAt() *string { return v.UserFields.LinkedAt }
+
 func (v *UpdateOrgMemberUpdateOrgMemberUser) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -13404,6 +13623,16 @@ type __premarshalUpdateOrgMemberUpdateOrgMemberUser struct {
 	GithubUsername *string `json:"githubUsername"`
 
 	Roles []Role `json:"roles"`
+
+	IdentityProvider *string `json:"identityProvider"`
+
+	GithubId *int `json:"githubId"`
+
+	ExternalId *string `json:"externalId"`
+
+	ExternalAppId *string `json:"externalAppId"`
+
+	LinkedAt *string `json:"linkedAt"`
 }
 
 func (v *UpdateOrgMemberUpdateOrgMemberUser) MarshalJSON() ([]byte, error) {
@@ -13423,6 +13652,11 @@ func (v *UpdateOrgMemberUpdateOrgMemberUser) __premarshalJSON() (*__premarshalUp
 	retval.Handle = v.UserFields.Handle
 	retval.GithubUsername = v.UserFields.GithubUsername
 	retval.Roles = v.UserFields.Roles
+	retval.IdentityProvider = v.UserFields.IdentityProvider
+	retval.GithubId = v.UserFields.GithubId
+	retval.ExternalId = v.UserFields.ExternalId
+	retval.ExternalAppId = v.UserFields.ExternalAppId
+	retval.LinkedAt = v.UserFields.LinkedAt
 	return &retval, nil
 }
 
@@ -13558,6 +13792,25 @@ func (v *UpdateUserRolesUpdateUserRolesUser) GetGithubUsername() *string {
 // GetRoles returns UpdateUserRolesUpdateUserRolesUser.Roles, and is useful for accessing the field via an interface.
 func (v *UpdateUserRolesUpdateUserRolesUser) GetRoles() []Role { return v.UserFields.Roles }
 
+// GetIdentityProvider returns UpdateUserRolesUpdateUserRolesUser.IdentityProvider, and is useful for accessing the field via an interface.
+func (v *UpdateUserRolesUpdateUserRolesUser) GetIdentityProvider() *string {
+	return v.UserFields.IdentityProvider
+}
+
+// GetGithubId returns UpdateUserRolesUpdateUserRolesUser.GithubId, and is useful for accessing the field via an interface.
+func (v *UpdateUserRolesUpdateUserRolesUser) GetGithubId() *int { return v.UserFields.GithubId }
+
+// GetExternalId returns UpdateUserRolesUpdateUserRolesUser.ExternalId, and is useful for accessing the field via an interface.
+func (v *UpdateUserRolesUpdateUserRolesUser) GetExternalId() *string { return v.UserFields.ExternalId }
+
+// GetExternalAppId returns UpdateUserRolesUpdateUserRolesUser.ExternalAppId, and is useful for accessing the field via an interface.
+func (v *UpdateUserRolesUpdateUserRolesUser) GetExternalAppId() *string {
+	return v.UserFields.ExternalAppId
+}
+
+// GetLinkedAt returns UpdateUserRolesUpdateUserRolesUser.LinkedAt, and is useful for accessing the field via an interface.
+func (v *UpdateUserRolesUpdateUserRolesUser) GetLinkedAt() *string { return v.UserFields.LinkedAt }
+
 func (v *UpdateUserRolesUpdateUserRolesUser) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -13595,6 +13848,16 @@ type __premarshalUpdateUserRolesUpdateUserRolesUser struct {
 	GithubUsername *string `json:"githubUsername"`
 
 	Roles []Role `json:"roles"`
+
+	IdentityProvider *string `json:"identityProvider"`
+
+	GithubId *int `json:"githubId"`
+
+	ExternalId *string `json:"externalId"`
+
+	ExternalAppId *string `json:"externalAppId"`
+
+	LinkedAt *string `json:"linkedAt"`
 }
 
 func (v *UpdateUserRolesUpdateUserRolesUser) MarshalJSON() ([]byte, error) {
@@ -13614,6 +13877,11 @@ func (v *UpdateUserRolesUpdateUserRolesUser) __premarshalJSON() (*__premarshalUp
 	retval.Handle = v.UserFields.Handle
 	retval.GithubUsername = v.UserFields.GithubUsername
 	retval.Roles = v.UserFields.Roles
+	retval.IdentityProvider = v.UserFields.IdentityProvider
+	retval.GithubId = v.UserFields.GithubId
+	retval.ExternalId = v.UserFields.ExternalId
+	retval.ExternalAppId = v.UserFields.ExternalAppId
+	retval.LinkedAt = v.UserFields.LinkedAt
 	return &retval, nil
 }
 
@@ -13649,14 +13917,24 @@ func (v *UserApiKeyFields) GetLastUsedAt() *string { return v.LastUsedAt }
 // GetRevokedAt returns UserApiKeyFields.RevokedAt, and is useful for accessing the field via an interface.
 func (v *UserApiKeyFields) GetRevokedAt() *string { return v.RevokedAt }
 
-// UserFields includes the GraphQL fields of User requested by the fragment UserFields.
+// The identity fields (identityProvider/githubId/externalId/externalAppId)
+// are load-bearing for duplicate-account triage: `user merge` folds a
+// source-only value into an EMPTY target field only, so a populated
+// collision is cleared from the source and that login stops working. Seeing
+// both sides' providers is what tells a merge apart from a lockout
+// (cor:api:010:02).
 type UserFields struct {
-	Id             string  `json:"id"`
-	Name           *string `json:"name"`
-	Email          *string `json:"email"`
-	Handle         *string `json:"handle"`
-	GithubUsername *string `json:"githubUsername"`
-	Roles          []Role  `json:"roles"`
+	Id               string  `json:"id"`
+	Name             *string `json:"name"`
+	Email            *string `json:"email"`
+	Handle           *string `json:"handle"`
+	GithubUsername   *string `json:"githubUsername"`
+	Roles            []Role  `json:"roles"`
+	IdentityProvider *string `json:"identityProvider"`
+	GithubId         *int    `json:"githubId"`
+	ExternalId       *string `json:"externalId"`
+	ExternalAppId    *string `json:"externalAppId"`
+	LinkedAt         *string `json:"linkedAt"`
 }
 
 // GetId returns UserFields.Id, and is useful for accessing the field via an interface.
@@ -13676,6 +13954,21 @@ func (v *UserFields) GetGithubUsername() *string { return v.GithubUsername }
 
 // GetRoles returns UserFields.Roles, and is useful for accessing the field via an interface.
 func (v *UserFields) GetRoles() []Role { return v.Roles }
+
+// GetIdentityProvider returns UserFields.IdentityProvider, and is useful for accessing the field via an interface.
+func (v *UserFields) GetIdentityProvider() *string { return v.IdentityProvider }
+
+// GetGithubId returns UserFields.GithubId, and is useful for accessing the field via an interface.
+func (v *UserFields) GetGithubId() *int { return v.GithubId }
+
+// GetExternalId returns UserFields.ExternalId, and is useful for accessing the field via an interface.
+func (v *UserFields) GetExternalId() *string { return v.ExternalId }
+
+// GetExternalAppId returns UserFields.ExternalAppId, and is useful for accessing the field via an interface.
+func (v *UserFields) GetExternalAppId() *string { return v.ExternalAppId }
+
+// GetLinkedAt returns UserFields.LinkedAt, and is useful for accessing the field via an interface.
+func (v *UserFields) GetLinkedAt() *string { return v.LinkedAt }
 
 // __AcceptInvitationInput is used internally by genqlient
 type __AcceptInvitationInput struct {
@@ -15091,13 +15384,13 @@ func (v *__SearchReplaceInNodesInput) GetInput() *SearchReplaceInNodesInput { re
 
 // __SearchUsersInput is used internally by genqlient
 type __SearchUsersInput struct {
-	Query  string `json:"query"`
-	Limit  *int   `json:"limit,omitempty"`
-	Offset *int   `json:"offset,omitempty"`
+	Query  *string `json:"query,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+	Offset *int    `json:"offset,omitempty"`
 }
 
 // GetQuery returns __SearchUsersInput.Query, and is useful for accessing the field via an interface.
-func (v *__SearchUsersInput) GetQuery() string { return v.Query }
+func (v *__SearchUsersInput) GetQuery() *string { return v.Query }
 
 // GetLimit returns __SearchUsersInput.Limit, and is useful for accessing the field via an interface.
 func (v *__SearchUsersInput) GetLimit() *int { return v.Limit }
@@ -15649,6 +15942,11 @@ fragment UserFields on User {
 	handle
 	githubUsername
 	roles
+	identityProvider
+	githubId
+	externalId
+	externalAppId
+	linkedAt
 }
 `
 
@@ -18580,6 +18878,11 @@ fragment UserFields on User {
 	handle
 	githubUsername
 	roles
+	identityProvider
+	githubId
+	externalId
+	externalAppId
+	linkedAt
 }
 `
 
@@ -19220,6 +19523,11 @@ fragment UserFields on User {
 	handle
 	githubUsername
 	roles
+	identityProvider
+	githubId
+	externalId
+	externalAppId
+	linkedAt
 }
 `
 
@@ -19700,6 +20008,11 @@ fragment UserFields on User {
 	handle
 	githubUsername
 	roles
+	identityProvider
+	githubId
+	externalId
+	externalAppId
+	linkedAt
 }
 `
 
@@ -20494,7 +20807,7 @@ func SearchReplaceInNodes(
 
 // The query executed by SearchUsers.
 const SearchUsers_Operation = `
-query SearchUsers ($query: String!, $limit: Int, $offset: Int) {
+query SearchUsers ($query: String, $limit: Int, $offset: Int) {
 	users(filter: {query:$query}, limit: $limit, offset: $offset) {
 		total
 		items {
@@ -20509,6 +20822,11 @@ fragment UserFields on User {
 	handle
 	githubUsername
 	roles
+	identityProvider
+	githubId
+	externalId
+	externalAppId
+	linkedAt
 }
 `
 
@@ -20517,10 +20835,16 @@ fragment UserFields on User {
 // handle/githubUsername substring, email exact). Results are name-ascending,
 // so an EXACT identifier match can sit past the first 200-cap page — user-ref
 // resolution pages via api.CollectUntil with an exact-match short-circuit.
+//
+// $query is nullable and omitempty: a nil pointer drops the variable, which
+// GraphQL input-object coercion renders as `filter: {}` — i.e. an omitted
+// query. That is the platform ADMIN/OWNER full-user-list path (a non-admin
+// gets an empty page instead, per cor:acl:070:02), and it is the only way to
+// enumerate accounts nobody thought to search for.
 func SearchUsers(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	query string,
+	query *string,
 	limit *int,
 	offset *int,
 ) (data_ *SearchUsersResponse, err_ error) {
@@ -21237,6 +21561,11 @@ fragment UserFields on User {
 	handle
 	githubUsername
 	roles
+	identityProvider
+	githubId
+	externalId
+	externalAppId
+	linkedAt
 }
 `
 
@@ -21480,6 +21809,11 @@ fragment UserFields on User {
 	handle
 	githubUsername
 	roles
+	identityProvider
+	githubId
+	externalId
+	externalAppId
+	linkedAt
 }
 `
 
@@ -21574,6 +21908,11 @@ fragment UserFields on User {
 	handle
 	githubUsername
 	roles
+	identityProvider
+	githubId
+	externalId
+	externalAppId
+	linkedAt
 }
 `
 
