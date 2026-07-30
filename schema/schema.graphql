@@ -60,10 +60,10 @@ enum AccessSource {
 type ActionTicket {
   action: String!
   appId: ID
-  consumedAt: String
+  consumedAt: DateTime
   consumedByRunId: ID
-  createdAt: String!
-  expiresAt: String
+  createdAt: DateTime!
+  expiresAt: DateTime
   id: ID!
   mintedBy: String!
   note: String
@@ -106,7 +106,7 @@ type Agent {
   (platform ADMIN/OWNER: all); a non-member gets an empty list.
   """
   apps: [App!]!
-  createdAt: String!
+  createdAt: DateTime!
   description: String
   hasAiApiKey: Boolean!
   id: ID!
@@ -160,7 +160,7 @@ input AgentFilter {
 }
 
 type AgentImport {
-  createdAt: String!
+  createdAt: DateTime!
   importedAgent: Agent!
   importedAgentId: ID!
   parentAgent: Agent!
@@ -170,22 +170,22 @@ type AgentImport {
 }
 
 type AgentMemoryItem {
-  createdAt: String!
+  createdAt: DateTime!
   id: ID!
   memory: Memory!
   role: String!
 }
 
 type AgentOrgGrant {
-  activatedAt: String
+  activatedAt: DateTime
   agent: Agent!
   agentId: ID!
-  createdAt: String!
-  expiresAt: String
+  createdAt: DateTime!
+  expiresAt: DateTime
   isActive: Boolean!
   orgId: ID!
   organization: Organization!
-  revokedAt: String
+  revokedAt: DateTime
   revokedBy: ID
 }
 
@@ -194,7 +194,7 @@ type AgentSchedule {
   agentId: ID
   aiConfigName: String
   appId: ID!
-  createdAt: String!
+  createdAt: DateTime!
   createdBy: String
 
   """5-field cron for recurring schedules; null for one-shots (#510)."""
@@ -203,14 +203,14 @@ type AgentSchedule {
   entryNodeUrn: String!
   eventData: JSON
   id: ID!
-  lastRunAt: String
+  lastRunAt: DateTime
   name: String!
-  nextRunAt: String
+  nextRunAt: DateTime
   organizationId: ID!
   policy: JSON
 
   """One-shot instant (#510); null for recurring schedules. XOR with cron."""
-  runAt: String
+  runAt: DateTime
   timezone: String!
 
   """On-behalf-of user captured at creation; v1 only the creator themself."""
@@ -223,13 +223,13 @@ type AgentSchedulesPage {
 }
 
 type AgentSubscription {
-  activatedAt: String
+  activatedAt: DateTime
   agent: Agent
   agentId: ID!
-  createdAt: String!
-  expiresAt: String
+  createdAt: DateTime!
+  expiresAt: DateTime
   isActive: Boolean!
-  revokedAt: String
+  revokedAt: DateTime
   revokedBy: ID
   user: User
   userId: ID!
@@ -258,13 +258,13 @@ type AgentWebhook {
   aiConfigName: String
   appId: ID!
   argsSchema: JSON
-  createdAt: String!
+  createdAt: DateTime!
   createdBy: String
   enabled: Boolean!
   entryNodeUrn: String!
   eventData: JSON
   id: ID!
-  lastCalledAt: String
+  lastCalledAt: DateTime
   name: String!
   organizationId: ID!
   policy: JSON
@@ -303,9 +303,9 @@ enum AiConfigOwnerType {
 }
 
 type AiModelPrice {
-  createdAt: String!
+  createdAt: DateTime!
   createdBy: String
-  effectiveAt: String!
+  effectiveAt: DateTime!
   id: ID!
   inputMicroCentsPerMTok: String!
   markupBasisPoints: Int
@@ -332,7 +332,7 @@ Name is unique per owner.
 type AiServiceConfig {
   """Ellipsis + last 4 characters of the stored key; null when no key."""
   apiKeyPreview: String
-  createdAt: String!
+  createdAt: DateTime!
 
   """
   Disabled configs are skipped by resolution (the walk continues outward).
@@ -356,7 +356,7 @@ type AiServiceConfig {
   Provider identifier; v1 known: 'anthropic' | 'openai' | 'glm' | 'bedrock'.
   """
   provider: String!
-  updatedAt: String
+  updatedAt: DateTime
 }
 
 """
@@ -400,9 +400,9 @@ type App {
   appAgents: [AppAgent!]!
   appType: AppType!
   createUserPermission: CreateUserPermission!
-  createdAt: String!
+  createdAt: DateTime!
   description: String
-  expiresAt: String
+  expiresAt: DateTime
   hasAiApiKey: Boolean!
   id: ID!
   identifyUserMethod: IdentifyUserMethod!
@@ -435,7 +435,7 @@ type App {
   surfaces: [String!]!
   systemPrompt: String
   trainingMode: Boolean!
-  updatedAt: String
+  updatedAt: DateTime
   urn: String!
 }
 
@@ -454,9 +454,9 @@ column (training mode is per-App, on App.trainingMode).
 type AppAgent {
   agent: Agent!
   app: App!
-  createdAt: String!
+  createdAt: DateTime!
   createdBy: String
-  updatedAt: String
+  updatedAt: DateTime
   updatedBy: String
 }
 
@@ -480,12 +480,12 @@ input AppFilter {
 
 type AppKey {
   appId: String!
-  createdAt: String!
+  createdAt: DateTime!
   id: ID!
   keyPreview: String!
   label: String
-  lastUsedAt: String
-  revokedAt: String
+  lastUsedAt: DateTime
+  revokedAt: DateTime
 }
 
 type AppKeyCreated {
@@ -496,7 +496,7 @@ type AppKeyCreated {
 type AppMember {
   app: App!
   appId: ID!
-  createdAt: String!
+  createdAt: DateTime!
 
   """
   023-app-shape US2: true when this User is an AppMember of the App
@@ -508,7 +508,7 @@ type AppMember {
   """
   isOrgExternal: Boolean!
   role: String!
-  updatedAt: String
+  updatedAt: DateTime
   user: User!
   userId: ID!
 }
@@ -536,7 +536,7 @@ type AppRun {
 
   """Remaining LLM-token budget — live-decremented; zero halts the run."""
   budgetTokens: Int
-  createdAt: String!
+  createdAt: DateTime!
   createdBy: String
   curNodeUrn: String
 
@@ -547,7 +547,7 @@ type AppRun {
   entryNodeUrn: String!
   eventData: JSON
   failure: JSON
-  finishedAt: String
+  finishedAt: DateTime
 
   """
   Per-hop trail (#538): one element per completed hop — [{node, edgeOut, startedAt, finishedAt, tokensSpent}]. edgeOut is the routing edge taken FROM the hop (null on the last). A hop that failed mid-execution has no element; curNodeUrn + failure identify it.
@@ -562,7 +562,7 @@ type AppRun {
   Fan-out state (plan-spawn, #548): set on runs that called hadron_spawn — {processItem, itemKey, callback?, itemCallback?, total, callbackFiredAt?, callbackError?}. callbackError records a callback mint that was denied (quota/policy) — the digest that never came.
   """
   spawn: JSON
-  startedAt: String
+  startedAt: DateTime
   status: AppRunStatus!
   timeoutMs: Int
   triggerId: ID
@@ -614,7 +614,7 @@ type AppsPage {
 }
 
 type Asset {
-  deletedAt: String
+  deletedAt: DateTime
   description: String
   filename: String!
   id: ID!
@@ -622,7 +622,7 @@ type Asset {
   mimeType: String!
   scanStatus: AssetScanStatus!
   sizeBytes: Int!
-  uploadedAt: String!
+  uploadedAt: DateTime!
 
   """
   Uploader (User id). Null when the asset was created server-side by an app run (hadron_store_file).
@@ -634,7 +634,7 @@ type Asset {
 }
 
 type AssetDownloadUrl {
-  expiresAt: String!
+  expiresAt: DateTime!
   filename: String!
   mimeType: String!
   sizeBytes: Int!
@@ -679,7 +679,7 @@ input BeginAssetUploadInput {
 
 type BeginAssetUploadResult {
   allowedMimeType: String!
-  expiresAt: String!
+  expiresAt: DateTime!
   maxSizeBytes: Int!
   putHeaders: [AssetPutHeader!]!
   putUrl: String!
@@ -714,7 +714,7 @@ type CalendarAttendee {
 type CalendarEvent {
   attendees: [CalendarAttendee!]!
   calendarId: String!
-  createdAt: String
+  createdAt: DateTime
   description: String
   end: CalendarEventTime!
   id: ID!
@@ -735,7 +735,7 @@ type CalendarEvent {
   """confirmed, tentative, or cancelled (provider-neutral vocabulary)."""
   status: String!
   title: String
-  updatedAt: String
+  updatedAt: DateTime
   webLink: String
 }
 
@@ -752,8 +752,15 @@ An event boundary: exactly one of dateTime (timed, with timeZone) or
 date (YYYY-MM-DD, all-day) is set.
 """
 type CalendarEventTime {
+  """
+  Calendar date for an all-day event, as YYYY-MM-DD. Deliberately String
+  and NOT DateTime (#205): an all-day event has no instant, and widening it
+  to a timestamp would force a timezone the provider never supplied.
+  """
   date: String
-  dateTime: String
+
+  """Instant for a timed event. Exactly one of dateTime / date is set."""
+  dateTime: DateTime
   timeZone: String
 }
 
@@ -788,10 +795,10 @@ type CalendarPerson {
 
 type Chat {
   conversationName: String
-  createdAt: String!
+  createdAt: DateTime!
   createdBy: ID
   id: ID!
-  lastMessageAt: String
+  lastMessageAt: DateTime
   loc: String!
   messageCount: Int!
   scope: ChatScope!
@@ -801,7 +808,7 @@ type Chat {
 
 type ChatMessage {
   content: String!
-  createdAt: String!
+  createdAt: DateTime!
   role: String!
   seq: Int
 }
@@ -849,10 +856,10 @@ grant can't reach the App keys/members. Token material is never exposed.
 """
 type ConnectionGrant {
   connectionId: ID!
-  createdAt: String!
+  createdAt: DateTime!
 
   """ISO-8601 expiry, or null for perpetual (until revoked)."""
-  expiresAt: String
+  expiresAt: DateTime
 
   """The App install this grant delegates to."""
   granteeAppId: ID!
@@ -1013,9 +1020,9 @@ type CreditBalance {
 
 type CreditLedgerEntry {
   amountMicroCents: String!
-  createdAt: String!
+  createdAt: DateTime!
   createdBy: String
-  expiresAt: String
+  expiresAt: DateTime
   id: ID!
   kind: String!
   note: String
@@ -1110,6 +1117,23 @@ enum DashboardWidgetType {
 }
 
 """
+A timestamp string, e.g. '2026-07-30T12:34:56.789Z'.
+
+Guaranteed parseable by Date.parse / new Date(). Values Hadron mints are
+ISO 8601 UTC; a value passed through from an external provider (calendar,
+mail, drive) keeps that provider's representation, which may carry a
+non-UTC offset — so compare instants, don't compare these as strings.
+
+Issue #205: date fields used to be declared String and fed a Prisma Date,
+which graphql-js coerced through Date.valueOf() into epoch milliseconds
+('1716943200000') — a value new Date() parses as Invalid Date. This scalar
+makes that shape unrepresentable, so no client needs to sniff the format.
+
+Output-only today: date-valued arguments remain String.
+"""
+scalar DateTime
+
+"""
 Return shape for deleteMemoryShare. Both fields are RESOLVED primary
 keys, so a caller who passed a URN / email / handle can correlate the
 deletion. granteeId is the caller themselves on the self-removal path.
@@ -1128,13 +1152,13 @@ enum DriveExportFormat {
 
 """A file or folder in the connected drive."""
 type DriveFile {
-  createdAt: String
+  createdAt: DateTime
   id: ID!
   kind: DriveFileKind!
 
   """The provider MIME type — informational; kind is the neutral field."""
   mimeType: String!
-  modifiedAt: String
+  modifiedAt: DateTime
   name: String!
 
   """Parent folder ids."""
@@ -1239,7 +1263,7 @@ type EdgesPage {
 }
 
 type EditorLockResult {
-  expiresAt: String
+  expiresAt: DateTime
   locked: Boolean!
   lockedBy: String
 }
@@ -1303,17 +1327,17 @@ enum EmbeddingSource {
 }
 
 type ExchangeConnection {
-  createdAt: String!
+  createdAt: DateTime!
   displayName: String
   id: ID!
   lastError: String
-  lastSyncAt: String
+  lastSyncAt: DateTime
   mailboxEmail: String!
   organizationId: String!
   provider: String!
   syncEnabled: Boolean!
   syncStatus: SyncStatus!
-  updatedAt: String!
+  updatedAt: DateTime!
   userId: String!
 }
 
@@ -1331,7 +1355,7 @@ type ExchangeMessage {
   hasAttachments: Boolean
   id: ID!
   isRead: Boolean
-  receivedDateTime: String
+  receivedDateTime: DateTime
   subject: String
 }
 
@@ -1470,7 +1494,7 @@ type GraphNodesPage {
 }
 
 type HomeAssistantInstance {
-  createdAt: String!
+  createdAt: DateTime!
   createdBy: String
 
   """
@@ -1490,7 +1514,7 @@ type HomeAssistantInstance {
   Run-tool name segment (ha__<slug>__<op>); lowercase [a-z0-9-], unique per org, immutable.
   """
   slug: String!
-  updatedAt: String!
+  updatedAt: DateTime!
   updatedBy: String
 
   """
@@ -1643,7 +1667,7 @@ type LeaveAppPayload {
 }
 
 type McpServer {
-  createdAt: String!
+  createdAt: DateTime!
   createdBy: String
 
   """
@@ -1666,7 +1690,7 @@ type McpServer {
 
   """Exposed-tool allowlist; empty = every tool the server advertises."""
   toolAllowlist: [String!]!
-  updatedAt: String!
+  updatedAt: DateTime!
   updatedBy: String
 
   """Streamable-HTTP MCP endpoint URL."""
@@ -1699,7 +1723,7 @@ type MemoriesPage {
 type Memory {
   acceptsUploads: Boolean!
   agent: Agent
-  anonymousExpiresAt: String
+  anonymousExpiresAt: DateTime
   app: App
   appId: ID
   category0: String
@@ -1718,7 +1742,7 @@ type Memory {
   """
   chunkTokens: Int
   class: MemoryClass!
-  createdAt: String!
+  createdAt: DateTime!
 
   """
   Free-form structured metadata bag (client-defined JSON, no server-side
@@ -1739,7 +1763,7 @@ type Memory {
   iconUrl: String
   id: ID!
   isEncrypted: Boolean!
-  lastSyncedAt: String
+  lastSyncedAt: DateTime
   license: String
 
   """
@@ -1802,7 +1826,7 @@ type Memory {
   syncError: String
   syncStatus: SyncStatus!
   tags: [String!]!
-  updatedAt: String!
+  updatedAt: DateTime!
   urn: String!
   userId: ID
   userMemoryOfAgentId: String
@@ -1820,7 +1844,7 @@ type Memory {
   unencrypted memories and for encrypted memories where the index
   was never enabled.
   """
-  vectorIndexEncryptedAckAt: String
+  vectorIndexEncryptedAckAt: DateTime
   visibility: MemoryVisibility
   writeBranch: String
 }
@@ -1893,11 +1917,11 @@ read/write a shared memory, governance by role, no single owner
 on the Memory itself.
 """
 type MemoryMember {
-  createdAt: String!
+  createdAt: DateTime!
   createdBy: String
   memory: Memory!
   role: MemoryMemberRole!
-  updatedAt: String
+  updatedAt: DateTime
   updatedBy: String
   user: User!
 }
@@ -1932,7 +1956,7 @@ personal Memory paired-with-Mentor-A is distinct from her
 paired-with-Mentor-B Memory, each with its own MemoryShare).
 """
 type MemoryShare {
-  createdAt: String!
+  createdAt: DateTime!
 
   """
   The API actor who created the row. Distinct from grantor when an
@@ -1952,7 +1976,7 @@ type MemoryShare {
   grantor: User!
   memory: Memory!
   role: MemoryShareRole!
-  updatedAt: String
+  updatedAt: DateTime
   updatedBy: String
 }
 
@@ -1970,7 +1994,7 @@ enum MemoryShareRole {
 
 type MemorySubscription {
   activated: Boolean!
-  createdAt: String!
+  createdAt: DateTime!
   id: ID!
   memory: Memory!
   organization: Organization!
@@ -3466,7 +3490,7 @@ type Node {
   aiAgent: String
   alias: String
   content: String
-  createdAt: String!
+  createdAt: DateTime!
   data: JSON
   description: String
 
@@ -3494,7 +3518,7 @@ type Node {
   empty index can distinguish "nothing matched" from "every embed
   failed". System-managed.
   """
-  embeddingFailedAt: String
+  embeddingFailedAt: DateTime
 
   """
   Spec 033 FR-006/FR-007 — set when this node needs (re-)embedding;
@@ -3504,7 +3528,7 @@ type Node {
   just edited isn't confused that their change "didn't take" in
   search yet. System-managed.
   """
-  embeddingPendingAt: String
+  embeddingPendingAt: DateTime
   id: ID!
   incomingEdges: [Edge!]!
   isLink: Boolean!
@@ -3526,7 +3550,7 @@ type Node {
   seq: Int
   tags: [String!]!
   tokens: Int
-  updatedAt: String!
+  updatedAt: DateTime!
 
   """
   Fully-qualified node URN (hrn:node:<org>::<memory>::<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
@@ -3809,7 +3833,7 @@ type NodeRevision {
   """
   changes: [String!]!
   content: String
-  createdAt: String!
+  createdAt: DateTime!
   data: JSON
   description: String
 
@@ -3975,7 +3999,7 @@ type ObjectList {
 
 type OrgMember {
   canInvite: Boolean!
-  createdAt: String!
+  createdAt: DateTime!
   id: ID!
 
   """
@@ -3989,7 +4013,7 @@ type Organization {
   agentOrgGrants: [AgentOrgGrant!]!
   agents: [Agent!]!
   apps: [App!]!
-  createdAt: String!
+  createdAt: DateTime!
   exchangeConnections: [ExchangeConnection!]!
   githubAppId: String
   githubInstallationId: Int
@@ -4009,7 +4033,7 @@ type Organization {
   """
   policy: JSON
   subscriptions: [MemorySubscription!]!
-  updatedAt: String!
+  updatedAt: DateTime!
   urn: String!
 }
 
@@ -4063,10 +4087,10 @@ An individual action grant (design:grant-model): extra management actions for on
 type PrincipalGrant {
   """Allowed actions - exact ('memory.clone'), prefix ('memory.*'), or '*'."""
   actions: [String!]!
-  createdAt: String!
+  createdAt: DateTime!
 
   """ISO-8601 expiry, or null for perpetual (until revoked)."""
-  expiresAt: String
+  expiresAt: DateTime
   id: ID!
   organizationId: ID!
   organizationUrn: String
@@ -5086,7 +5110,7 @@ type QuotaCounter {
   action: String!
   id: ID!
   limit: Int!
-  resetAt: String!
+  resetAt: DateTime!
   scopeId: String!
 
   """app or org."""
@@ -5108,7 +5132,7 @@ type RemoveMemoryMemberPayload {
 One org-owned BYO Resend sender. The API key is encrypted and write-only.
 """
 type ResendSender {
-  createdAt: String!
+  createdAt: DateTime!
   createdBy: String
   enabled: Boolean!
 
@@ -5121,7 +5145,7 @@ type ResendSender {
   hasApiKey: Boolean!
   id: ID!
   organizationId: String!
-  updatedAt: String!
+  updatedAt: DateTime!
   updatedBy: String
 }
 
@@ -5153,7 +5177,7 @@ type ResolvedAiConfig {
 }
 
 type RevisionResult {
-  createdAt: String!
+  createdAt: DateTime!
   label: String!
   published: Boolean!
   revisionLoc: String!
@@ -5167,8 +5191,8 @@ enum Role {
 }
 
 type ScheduleBusyInterval {
-  end: String!
-  start: String!
+  end: DateTime!
+  start: DateTime!
 }
 
 """Free/busy intervals for one requested schedule (calendarSchedule)."""
@@ -5314,7 +5338,7 @@ type SearchReplaceResult {
 }
 
 type Secret {
-  createdAt: String!
+  createdAt: DateTime!
   createdBy: String
   id: ID!
 
@@ -5330,7 +5354,7 @@ type Secret {
 
   """Owner scope: user | org | app | memory."""
   ownerType: String!
-  updatedAt: String!
+  updatedAt: DateTime!
   updatedBy: String
 }
 
@@ -5348,13 +5372,13 @@ type ServerInfo {
 type Session {
   agentId: String
   appId: String
-  autoExpiredAt: String
+  autoExpiredAt: DateTime
   branch: String
   customerId: String
-  endedAt: String
+  endedAt: DateTime
   errorCount: Int
   events: [UsageEvent!]!
-  expiresAt: String
+  expiresAt: DateTime
   id: ID!
   inputTokens: Int
   language: String
@@ -5369,7 +5393,7 @@ type Session {
   prNumber: Int
   prevSessionId: String
   repo: String
-  startedAt: String!
+  startedAt: DateTime!
   summary: String
   turnCount: Int
   type: String!
@@ -5436,7 +5460,7 @@ type SlackConnection {
 
   """The bot's Slack USER id (U…) — the sender on messages it posts."""
   botUserId: String!
-  createdAt: String!
+  createdAt: DateTime!
   defaultAppId: String!
   id: ID!
   lastError: String
@@ -5451,7 +5475,7 @@ type SlackConnection {
   """Slack workspace (team) id, e.g. T0123456789."""
   teamId: String!
   teamName: String!
-  updatedAt: String!
+  updatedAt: DateTime!
 }
 
 type SlackConnectionsPage {
@@ -5629,7 +5653,12 @@ type UrnResolution {
 
 """One time bucket of read+write activity (#796)."""
 type UsageActivityBucket {
-  """Bucket start as YYYY-MM-DD, in the requested timeZone."""
+  """
+  Bucket start as YYYY-MM-DD, in the requested timeZone. Deliberately
+  String and NOT DateTime (#205): it is a calendar-day label in the
+  caller's zone, not an instant — rendering it as a UTC timestamp would
+  shift buckets across the date line.
+  """
   date: String!
   reads: Int!
   writes: Int!
@@ -5646,7 +5675,7 @@ type UsageEvent {
   actionArgs: JSON
   appId: String
   costMicroCents: String
-  createdAt: String!
+  createdAt: DateTime!
   id: ID!
   keyOwnerType: String
 
@@ -5694,7 +5723,7 @@ type User {
   handle: String
   id: ID!
   identityProvider: String
-  linkedAt: String
+  linkedAt: DateTime
   maxReferrals: Int
   name: String
 
@@ -5707,13 +5736,13 @@ type User {
 }
 
 type UserApiKey {
-  createdAt: String!
+  createdAt: DateTime!
   id: ID!
   issuedVia: String
   keyPreview: String!
   label: String
-  lastUsedAt: String
-  revokedAt: String
+  lastUsedAt: DateTime
+  revokedAt: DateTime
 }
 
 type UserApiKeyCreateResult {
@@ -5734,11 +5763,11 @@ input UserFilter {
 }
 
 type UserInvitation {
-  acceptedAt: String
+  acceptedAt: DateTime
   activationCount: Int!
-  createdAt: String!
+  createdAt: DateTime!
   email: String
-  expiresAt: String
+  expiresAt: DateTime
   githubUsername: String
   id: ID!
   maxActivations: Int
