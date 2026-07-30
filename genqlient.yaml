@@ -9,6 +9,19 @@ optional: pointer
 bindings:
   JSON:
     type: encoding/json.RawMessage
+  # hadron-server #205 introduced a DateTime scalar for every date OUTPUT field
+  # (createdAt, updatedAt, expiresAt, lastUsedAt, … ~100 fields). It travels as
+  # a JSON string exactly as the old `String` did, so `string` is the faithful
+  # binding — every generated field keeps the type it already had and no call
+  # site changes. Deliberately NOT time.Time: that would be a behaviour change
+  # (parse errors become client-side failures) and belongs in its own decision.
+  #
+  # The server guarantees the value is Date.parse-able, not that it is canonical
+  # ISO UTC — values it mints are ISO UTC, but a value passed through from an
+  # external provider (calendar/mail/drive) keeps that provider's offset. So
+  # compare instants, never these strings.
+  DateTime:
+    type: string
   # NodeWhereInput is recursive; genqlient's per-field omitempty resolution for a
   # self-referential input is non-deterministic (the ,omitempty tag flips between
   # runs), which breaks the omit-vs-null wire contract and reds the codegen gate.
