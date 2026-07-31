@@ -233,7 +233,6 @@ func TestAccessCheckExactMatchBeyondFirstPage(t *testing.T) {
 	}
 }
 
-
 // An @handle ref resolves through the user(ref:) find-one fast path — one
 // round trip, no paged search at all (SearchUsers is deliberately not
 // registered: calling it would fail the test).

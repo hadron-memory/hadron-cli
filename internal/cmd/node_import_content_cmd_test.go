@@ -22,12 +22,12 @@ func importNodeResp(loc, name, nodeType string) string {
 // ingestVars is the decoded request-variable shape of an ImportNode call.
 type ingestVars struct {
 	Input struct {
-		MemoryId    *string `json:"memoryId"`
-		Loc         *string `json:"loc"`
-		NodeUrn     *string `json:"nodeUrn"`
-		Url         *string `json:"url"`
-		Content     *string `json:"content"`
-		ContentType *string `json:"contentType"`
+		MemoryId    *string          `json:"memoryId"`
+		Loc         *string          `json:"loc"`
+		NodeUrn     *string          `json:"nodeUrn"`
+		Url         *string          `json:"url"`
+		Content     *string          `json:"content"`
+		ContentType *string          `json:"contentType"`
 		Name        *string          `json:"name"`
 		NodeType    *string          `json:"nodeType"`
 		TaskRef     *string          `json:"taskRef"`
