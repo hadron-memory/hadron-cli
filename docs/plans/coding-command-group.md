@@ -200,7 +200,7 @@ subcommands take `-m/--memory` like every other group.
 | `label-present` | error | the empty label (Decision 2) |
 | `label-is-condition` | error | `child-of`, `applies-when`, `related`, bare `Applies when` |
 | `check-node-resolves` | warning | dangling / unreadable check node — the edge's `source` (Decision 3) |
-| `description-has-trigger` | warning | second blind spot in `hadron_find_nodes` output |
+| `description-present` | warning | second blind spot in `hadron_find_nodes` output (deviation 2) |
 | `duplicate-trigger` | warning | cloned check never re-pointed |
 | `seq-unique` | warning | non-deterministic sibling ordering |
 | `foreign-toolchain` | warning | the misfiled `format-sources` |
@@ -390,6 +390,28 @@ verdict was produced by the URN-rebuilding bug, not by the data.
 possible and the visibility gap is real — but it is now a rule with no known
 live instance rather than one with a motivating example. Nothing in either
 memory currently trips it.
+
+### 8. Label findings quote the body's trigger paragraph (#331)
+
+Added after `hadron coding review lint` found three bare-`Applies when` stems in
+`hadronmemory.com::hadron-server` (hadron-server#845) and `--fix` could repair
+none of them: the trigger text existed, but in the node body rather than the
+description.
+
+Measuring all 90 checks across the four memories that have them: 55 state their
+scope as `> **Scope.** …`, 2 as a line-initial `**Applies when** …`, and 33
+neither. So a body-derived trigger is findable for ~63% of checks.
+
+**It is quoted, not promoted.** Those paragraphs run a median of 238 characters
+(max 567) against a median healthy edge label of 84 (p90 142), so feeding one to
+`--fix` would mint a label 3x too long — and an enormous slugified edge loc with
+it. `label-present` / `label-is-condition` findings therefore append the
+paragraph, truncated to 160 characters, and `--fix` is untouched. `--suggest`
+prints it in full. When a body states no scope the finding gains nothing, since
+that is a third of checks and a "none found" line on each would be noise.
+
+Presentation only: a unit test asserts the hint changes neither which rules fire,
+their severities, nor the `--fix` plan.
 
 ## Verification (as built)
 

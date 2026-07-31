@@ -49,9 +49,13 @@ type checkNode struct {
 	Loc         string
 	Name        string
 	Description string
-	Tags        []string
-	Seq         *int
-	IsRunnable  bool
+	// Content is the node body. The shared NodeBatch operation already selects
+	// it, so carrying it costs no extra round trip — it is what lets a label
+	// finding quote the trigger paragraph the body already states (#331).
+	Content    string
+	Tags       []string
+	Seq        *int
+	IsRunnable bool
 }
 
 // graphEdge is one edge incident to a lint root. Other* describe the far
@@ -242,6 +246,9 @@ func fetchNodes(ctx context.Context, client graphql.Client, byID map[string]stri
 		cn := checkNode{Loc: n.Loc, Name: n.Name, Tags: n.Tags, Seq: n.Seq}
 		if n.Description != nil {
 			cn.Description = *n.Description
+		}
+		if n.Content != nil {
+			cn.Content = *n.Content
 		}
 		if n.IsRunnable != nil {
 			cn.IsRunnable = *n.IsRunnable
