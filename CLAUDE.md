@@ -32,7 +32,8 @@ don't batch to end-of-session.
 ```sh
 make build      # version-stamped binary at bin/hadron (ldflags from `git describe`)
 make test       # go test ./...
-make lint       # golangci-lint run
+make lint       # golangci-lint run (gofmt is gated here — a diff fails the build)
+make fmt        # golangci-lint fmt — apply the formatting `make lint` gates on
 make generate   # regenerate genqlient code from the committed schema snapshot
 make schema     # re-export the schema from ../hadron-server, then generate
 make schema-check  # fail if the committed snapshot is stale vs ../hadron-server (drift detector)

@@ -15,7 +15,7 @@ HADRON_SERVER_DIR ?= ../hadron-server
 # (typeDefs.ts is a self-contained SDL string, so those are the only deps).
 SDL_EXPORT ?= pnpm -s tsx scripts/export-graphql-sdl.mjs
 
-.PHONY: build test lint generate schema schema-check tools-manifest tools-manifest-check clean
+.PHONY: build test lint fmt generate schema schema-check tools-manifest tools-manifest-check clean
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/hadron
@@ -25,6 +25,10 @@ test:
 
 lint:
 	golangci-lint run
+
+# Apply the formatting `make lint` gates on (gofmt, per .golangci.yml).
+fmt:
+	golangci-lint fmt
 
 # Regenerate genqlient code from the committed schema snapshot.
 generate:

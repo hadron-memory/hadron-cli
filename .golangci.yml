@@ -17,6 +17,19 @@ linters:
         # deferred response-body closes
         - (io.ReadCloser).Close
 
+# Formatting is a gate, not a convention. Nothing enforced gofmt before this,
+# so six files had drifted unnoticed (#329) — `golangci-lint run` now reports a
+# diff as an issue, which fails both `make lint` and the CI lint job.
+# Run `make fmt` (golangci-lint fmt) to apply the fixes.
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    # internal/api/gen/generated.go is written by genqlient; a formatting
+    # complaint there is not actionable by hand, since `make generate`
+    # rewrites it.
+    generated: strict
+
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
