@@ -4,12 +4,12 @@ import "testing"
 
 func TestCanonicalMemoryRef(t *testing.T) {
 	cases := map[string]string{
-		"acme.com:kb":             "hrn:mem:acme.com:kb", // single colon → canonical v2
-		"acme.com::kb":            "hrn:mem:acme.com:kb", // legacy double colon → canonical v2
-		"  acme.com:kb  ":         "hrn:mem:acme.com:kb", // trimmed
-		"hrn:memory:acme.com::kb": "hrn:mem:acme.com:kb", // v1 URN → canonical v2
-		"urn:memory:acme.com::kb": "hrn:mem:acme.com:kb", // legacy prefix normalizes
-		"hrn:mem:acme.com:kb":     "hrn:mem:acme.com:kb", // already canonical v2
+		"acme.com:kb":             "hrn:mem:acme.com:kb",  // single colon → canonical v2
+		"acme.com::kb":            "hrn:mem:acme.com:kb",  // legacy double colon → canonical v2
+		"  acme.com:kb  ":         "hrn:mem:acme.com:kb",  // trimmed
+		"hrn:memory:acme.com::kb": "hrn:mem:acme.com:kb",  // v1 URN → canonical v2
+		"urn:memory:acme.com::kb": "hrn:mem:acme.com:kb",  // legacy prefix normalizes
+		"hrn:mem:acme.com:kb":     "hrn:mem:acme.com:kb",  // already canonical v2
 		"019f01ebcafef00dcafe":    "019f01ebcafef00dcafe", // raw id (no colon)
 		"":                        "",
 		// A node-URN-shaped ref (3+ parts) is NOT a memory ref — leave it alone.

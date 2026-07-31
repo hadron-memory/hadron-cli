@@ -251,4 +251,3 @@ func isUnknownFieldErr(err error, field string) bool {
 		strings.Contains(msg, "Unknown field") ||
 		strings.Contains(msg, "GRAPHQL_VALIDATION_FAILED")
 }
-

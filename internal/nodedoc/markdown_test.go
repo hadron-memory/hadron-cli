@@ -110,7 +110,7 @@ func TestBuildEdgeEntries(t *testing.T) {
 		{Name: "a", Priority: 0, TargetID: "t1", TargetLoc: "loc1"},       // priority 0 omitted
 		{Name: "", Priority: 3, TargetID: "t2", TargetLoc: ""},            // empty rel kept, loc omitted
 		{Name: "c", Condition: map[string]any{"==": "x"}, TargetID: "t3"}, // condition kept
-		{Name: "orphan"},                                                  // no target id → skipped
+		{Name: "orphan"}, // no target id → skipped
 	}
 	got := buildEdgeEntries(edges)
 	if len(got) != 3 {

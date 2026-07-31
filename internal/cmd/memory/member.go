@@ -69,11 +69,11 @@ func newCmdMemberLs(f *cmdutil.Factory) *cobra.Command {
 func newCmdMemberAdd(f *cmdutil.Factory) *cobra.Command {
 	var user, role string
 	cmd := &cobra.Command{
-		Use:     "add <memoryRef> --user <user> --role <owner|writer|reader>",
-		Short:   "Add (or upsert) a member on a memory",
+		Use:   "add <memoryRef> --user <user> --role <owner|writer|reader>",
+		Short: "Add (or upsert) a member on a memory",
 		Example: `  hadron memory member add acme.com::kb --user jane@acme.com --role writer
   hadron memory member add acme.com::kb --user jane --role reader`,
-		Args:    cobra.ExactArgs(1),
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseMemberRole(role)
 			if err != nil {
