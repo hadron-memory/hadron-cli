@@ -1,6 +1,7 @@
 package cmdutil
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
@@ -11,6 +12,25 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
+
+// reNodeID matches an opaque node id as the server mints them: 32 lowercase
+// hex characters.
+var reNodeID = regexp.MustCompile(`^[0-9a-f]{32}$`)
+
+// IsNodeID reports whether ref is a bare node id rather than a URN or loc.
+//
+// Every --json surface prints these (`id`, and `otherNodeId` on each edge) and
+// both node(ref:) and nodeBatch(refs:) accept them, so a ref the CLI just
+// emitted has to be feedable straight back (#336). It is matched by SHAPE, not
+// merely by "contains no colon": a bare loc typed without -m (`start-here`) is
+// also colon-free, and treating that as an id would swap a usage error naming
+// -m for a bare "not found".
+//
+// Note resolveUrn does NOT accept an id — it returns null for one — so callers
+// short-circuit rather than round-tripping.
+func IsNodeID(ref string) bool {
+	return reNodeID.MatchString(strings.TrimSpace(ref))
+}
 
 // EdgeDisplay is the human handle for an edge: its name, or its loc when the
 // name is empty (spec 037 — an edge's name is optional, its loc is the
@@ -107,7 +127,11 @@ func BatchNodeRef(memory, ref string) (string, error) {
 		return ref, nil
 	}
 	// Same client-side grammar gate as ResolveNodeURN, so `node get <ref>` and
-	// `node get <ref> <ref>` accept exactly the same refs.
+	// `node get <ref> <ref>` accept exactly the same refs — including a bare
+	// node id, which nodeBatch(refs:) takes verbatim.
+	if IsNodeID(ref) {
+		return ref, nil
+	}
 	if strings.Count(ref, "::") < 2 || urnlib.AssertFullyQualifiedUrn(ref, "node") != nil {
 		return "", exitcode.Newf(exitcode.Usage,
 			"%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (e.g. hadronmemory.com::dev::start-here), or pass -m <org::memory> (single-colon <org:memory> also accepted) with a bare loc", ref)
@@ -140,7 +164,15 @@ func CanonicalNodeRef(ref string) string {
 // across memories made anything less ambiguous). A URN that resolves
 // to a different entity kind is a usage error too.
 func ResolveNodeURN(cmd *cobra.Command, client graphql.Client, ref string) (string, error) {
-	urn := ref
+	urn := strings.TrimSpace(ref)
+	// A bare node id addresses the node directly. resolveUrn would return null
+	// for it, so return it as the id rather than round-tripping — the same
+	// shape as resolveMemoryID's raw-id fast path. Kind isn't verified (that
+	// would need the round-trip resolveUrn can't serve); a wrong-kind id fails
+	// cleanly at the caller's own read.
+	if IsNodeID(urn) {
+		return urn, nil
+	}
 	// Accept either scheme prefix: hrn: is canonical (issue #239), urn: is
 	// legacy-but-accepted-forever. A prefixed URN passes through verbatim
 	// (the server accepts both); a bare ref gets the canonical hrn:node:.

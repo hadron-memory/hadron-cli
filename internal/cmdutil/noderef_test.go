@@ -111,3 +111,54 @@ func TestBatchNodeRefValidatesPrefixedRefs(t *testing.T) {
 		}
 	}
 }
+
+// #336 — the CLI prints node ids on every --json surface, so a ref it just
+// emitted has to be feedable straight back.
+func TestIsNodeID(t *testing.T) {
+	for _, ref := range []string{
+		"019e61808abb79a38c66c4cd5a46fb14", // a real id, as printed
+		"  019e61808abb79a38c66c4cd5a46fb14  ",
+		"00000000000000000000000000000000",
+	} {
+		if !IsNodeID(ref) {
+			t.Errorf("%q should be recognised as a node id", ref)
+		}
+	}
+	// Matched by SHAPE, not by "colon-free": a bare loc typed without -m is
+	// also colon-free, and must keep its usage error naming -m.
+	for _, ref := range []string{
+		"start-here",                        // bare loc
+		"tasks:review-changes",              // bare loc with colons
+		"019E61808ABB79A38C66C4CD5A46FB14",  // uppercase
+		"019e61808abb79a38c66c4cd5a46fb1",   // 31 chars
+		"019e61808abb79a38c66c4cd5a46fb14a", // 33 chars
+		"019e61808abb79a38c66c4cd5a46fb1g",  // non-hex
+		"acme.com::kb::start-here",          // fully-qualified URN
+		"hrn:node:acme.com:kb:start-here",   // prefixed URN
+		"",
+	} {
+		if IsNodeID(ref) {
+			t.Errorf("%q must NOT be treated as a node id", ref)
+		}
+	}
+}
+
+// The batch path takes the same refs as the single path, so a bare id must
+// reach nodeBatch(refs:) verbatim rather than being rejected.
+func TestBatchNodeRefAcceptsBareID(t *testing.T) {
+	const id = "019e61808abb79a38c66c4cd5a46fb14"
+	got, err := BatchNodeRef("", id)
+	if err != nil {
+		t.Fatalf("a bare node id should be accepted, got %v", err)
+	}
+	if got != id {
+		t.Errorf("the id must pass through unrewritten: got %q", got)
+	}
+
+	// A non-id colon-free ref still gets the usage error that names -m.
+	if _, err := BatchNodeRef("", "start-here"); err == nil {
+		t.Error("a bare loc without -m should still be rejected")
+	} else if !strings.Contains(err.Error(), "-m") {
+		t.Errorf("the rejection should still point at -m, got %q", err.Error())
+	}
+}
