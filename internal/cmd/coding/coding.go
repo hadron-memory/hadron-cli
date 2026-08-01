@@ -49,9 +49,13 @@ type checkNode struct {
 	Loc         string
 	Name        string
 	Description string
-	Tags        []string
-	Seq         *int
-	IsRunnable  bool
+	// Content is the node body. The shared NodeBatch operation already selects
+	// it, so carrying it costs no extra round trip — it is what lets a label
+	// finding quote the trigger paragraph the body already states (#331).
+	Content    string
+	Tags       []string
+	Seq        *int
+	IsRunnable bool
 }
 
 // graphEdge is one edge incident to a lint root. Other* describe the far
@@ -211,7 +215,10 @@ func fetchRootEdges(ctx context.Context, client graphql.Client, mem codingMemory
 // an edge may legitimately cross into another memory, and rebuilding the ref
 // would then look up the wrong memory — reporting a live node as unresolvable,
 // or silently linting a same-loc node from the home memory instead.
-func fetchNodes(ctx context.Context, client graphql.Client, byID map[string]string) (map[string]checkNode, []string, error) {
+// wantContent retains node bodies. Only `review lint` reads them (to quote a
+// check's scope paragraph, #331); `preflight lint` never does, so it opts out
+// rather than holding every route target's body for the run.
+func fetchNodes(ctx context.Context, client graphql.Client, byID map[string]string, wantContent bool) (map[string]checkNode, []string, error) {
 	if len(byID) == 0 {
 		return map[string]checkNode{}, nil, nil
 	}
@@ -242,6 +249,9 @@ func fetchNodes(ctx context.Context, client graphql.Client, byID map[string]stri
 		cn := checkNode{Loc: n.Loc, Name: n.Name, Tags: n.Tags, Seq: n.Seq}
 		if n.Description != nil {
 			cn.Description = *n.Description
+		}
+		if wantContent && n.Content != nil {
+			cn.Content = *n.Content
 		}
 		if n.IsRunnable != nil {
 			cn.IsRunnable = *n.IsRunnable

@@ -30,11 +30,12 @@ type reviewInput struct {
 	Edges       map[string]graphEdge // loc → its edge to the review parent
 	Unavailable []string             // edge sources that could not be read
 	Toolchain   string               // "" = infer; "-" = disabled
+	Suggest     bool                 // quote the body's scope paragraph in full
 }
 
 func newCmdReviewLint(f *cmdutil.Factory) *cobra.Command {
 	var memory, root, toolchain string
-	var strict bool
+	var strict, suggest bool
 	var fix, yes bool
 	cmd := &cobra.Command{
 		Use:     "lint",
@@ -109,7 +110,7 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 				candidates[e.OtherID] = e.Other
 			}
 
-			nodes, unavailable, err := fetchNodes(ctx, client, candidates)
+			nodes, unavailable, err := fetchNodes(ctx, client, candidates, true)
 			if err != nil {
 				return err
 			}
@@ -125,7 +126,7 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 			}
 			// An unreadable node can't be tested against the predicate, so its
 			// membership is indeterminate — reported, never dropped.
-			in := reviewInput{Members: members, Edges: edgeByLoc, Unavailable: unavailable, Toolchain: toolchain}
+			in := reviewInput{Members: members, Edges: edgeByLoc, Unavailable: unavailable, Toolchain: toolchain, Suggest: suggest}
 			findings := lintReview(in)
 
 			if fix {
@@ -184,6 +185,7 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 	cmd.Flags().StringVar(&root, "root", reviewRootLoc, "loc of the review parent node")
 	cmd.Flags().StringVar(&toolchain, "toolchain", "", `the memory's toolchain for the foreign-toolchain check (e.g. "ts"; "-" disables; default: inferred)`)
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
+	cmd.Flags().BoolVar(&suggest, "suggest", false, "quote the body's scope paragraph in full rather than truncated")
 	cmd.Flags().BoolVar(&fix, "fix", false, "promote a check's description into an empty/non-condition edge label where possible")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt for --fix")
 	return cmd
@@ -211,19 +213,22 @@ func lintReview(in reviewInput) []findingDTO {
 			continue
 		}
 		label := strings.TrimSpace(e.Label)
+		// The text the label should carry is usually already in the body;
+		// quote it so the fixer doesn't have to open the node (#331).
+		hint := triggerHint(n.Content, in.Suggest)
 		switch {
 		case label == "":
 			msg := "edge label is empty — the check can never match a diff"
 			if reRelLoc.MatchString(e.Loc) {
 				msg += fmt.Sprintf(" (its derived loc %q confirms the name was never set)", e.Loc)
 			}
-			out = append(out, findingDTO{loc, "label-present", sevError, msg})
+			out = append(out, findingDTO{loc, "label-present", sevError, msg + hint})
 		case !strings.HasPrefix(strings.ToLower(label), triggerStem):
 			out = append(out, findingDTO{loc, "label-is-condition", sevError,
-				fmt.Sprintf("edge label %q is not a condition — expected %q followed by the trigger", label, triggerStem)})
+				fmt.Sprintf("edge label %q is not a condition — expected %q followed by the trigger", label, triggerStem) + hint})
 		case len(strings.TrimSpace(label[len(triggerStem):])) == 0:
 			out = append(out, findingDTO{loc, "label-is-condition", sevError,
-				fmt.Sprintf("edge label is the bare stem %q with no condition after it", label)})
+				fmt.Sprintf("edge label is the bare stem %q with no condition after it", label) + hint})
 		default:
 			valid[loc] = strings.ToLower(strings.Join(strings.Fields(label), " "))
 		}

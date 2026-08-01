@@ -307,3 +307,101 @@ func TestFindingsAreDeterministic(t *testing.T) {
 		}
 	}
 }
+
+// #331: a label finding quotes the trigger the body already states, so the
+// fixer has the source text without opening the node.
+func TestLabelFindingQuotesBodyTrigger(t *testing.T) {
+	withScope := func(loc string) checkNode {
+		return checkNode{
+			Loc: loc, Tags: []string{"review"}, Description: "Verifies a thing.",
+			Content: "# Review: x\n\n> **Scope.** Adding or renaming a GraphQL argument that identifies an entity.\n\nBody.",
+		}
+	}
+	for _, label := range []string{"", "child-of", "Applies when"} {
+		in := reviewInput{
+			Members:   map[string]checkNode{"review:x": withScope("review:x")},
+			Edges:     map[string]graphEdge{"review:x": edge("review:x", label)},
+			Toolchain: "-",
+		}
+		var msg string
+		for _, f := range lintReview(in) {
+			if f.Rule == "label-present" || f.Rule == "label-is-condition" {
+				msg = f.Message
+			}
+		}
+		if msg == "" {
+			t.Fatalf("label %q: expected a label finding", label)
+		}
+		if !strings.Contains(msg, "Adding or renaming a GraphQL argument") {
+			t.Errorf("label %q: finding should quote the body scope, got %q", label, msg)
+		}
+	}
+}
+
+// Two-thirds of checks state no scope, and a healthy label needs no hint —
+// neither case should gain a line.
+func TestTriggerQuoteStaysQuiet(t *testing.T) {
+	// Broken label, but no scope paragraph to quote.
+	noScope := checkNode{Loc: "review:x", Tags: []string{"review"}, Description: "d", Content: "# x\n\nJust prose.\n"}
+	in := reviewInput{
+		Members:   map[string]checkNode{"review:x": noScope},
+		Edges:     map[string]graphEdge{"review:x": edge("review:x", "child-of")},
+		Toolchain: "-",
+	}
+	for _, f := range lintReview(in) {
+		if f.Rule == "label-is-condition" && strings.Contains(f.Message, "condense") {
+			t.Errorf("no scope in the body, so no hint should appear: %q", f.Message)
+		}
+	}
+
+	// Healthy label: the body has a scope, but there is nothing to fix.
+	ok := checkNode{
+		Loc: "review:y", Tags: []string{"review"}, Description: "d",
+		Content: "> **Scope.** Something.\n",
+	}
+	in2 := reviewInput{
+		Members:   map[string]checkNode{"review:y": ok},
+		Edges:     map[string]graphEdge{"review:y": edge("review:y", "Applies when y changes")},
+		Toolchain: "-",
+	}
+	for _, f := range lintReview(in2) {
+		if strings.Contains(f.Message, "condense") {
+			t.Errorf("a healthy label must not carry a hint: %+v", f)
+		}
+	}
+}
+
+// The hint is presentation only — it must not change which rules fire, their
+// severities, or the --fix plan.
+func TestTriggerQuoteDoesNotAffectRulesOrFix(t *testing.T) {
+	mk := func(content string) checkNode {
+		return checkNode{Loc: "review:x", Tags: []string{"review"}, Description: "Applies when a resolver changes.", Content: content}
+	}
+	base := reviewInput{
+		Members:   map[string]checkNode{"review:x": mk("")},
+		Edges:     map[string]graphEdge{"review:x": edge("review:x", "child-of")},
+		Toolchain: "-",
+	}
+	withBody := reviewInput{
+		Members:   map[string]checkNode{"review:x": mk("> **Scope.** Adding an arg.\n")},
+		Edges:     map[string]graphEdge{"review:x": edge("review:x", "child-of")},
+		Toolchain: "-",
+	}
+	a, b := lintReview(base), lintReview(withBody)
+	if len(a) != len(b) {
+		t.Fatalf("the hint changed the finding count: %d vs %d", len(a), len(b))
+	}
+	for i := range a {
+		if a[i].Node != b[i].Node || a[i].Rule != b[i].Rule || a[i].Severity != b[i].Severity {
+			t.Errorf("the hint changed a finding's identity: %+v vs %+v", a[i], b[i])
+		}
+	}
+	// --fix still reads the description, never the body scope.
+	pa, pb := planReviewFix(base, a), planReviewFix(withBody, b)
+	if len(pa) != len(pb) || len(pb) != 1 || pa[0].NewLabel != pb[0].NewLabel {
+		t.Errorf("the hint leaked into --fix: %+v vs %+v", pa, pb)
+	}
+	if strings.Contains(pb[0].NewLabel, "Adding an arg") {
+		t.Error("--fix must not promote the body scope paragraph")
+	}
+}

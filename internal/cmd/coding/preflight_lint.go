@@ -74,7 +74,7 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 					byID[r.OtherID] = r.Other
 				}
 			}
-			targets, unavailable, err := fetchNodes(ctx, client, byID)
+			targets, unavailable, err := fetchNodes(ctx, client, byID, false)
 			if err != nil {
 				return err
 			}
