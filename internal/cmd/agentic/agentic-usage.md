@@ -117,15 +117,24 @@ Conventions:
     `--handle` defers to the server.
   - `agent update --urn` also accepts the spec-047 user-author form
     `@handle:slug`.
-- Memory references accept the memory id, the full `hrn:memory:<org>::<slug>`
-  URN, or the short `<org>::<slug>` / `<org>:<slug>` forms (all resolve to the
-  same memory) across `memory get|set|attach|rm|member|share|export`.
-- Node references are fully-qualified URNs
+- **URN grammar: the CLI emits flat grammar-v2, and accepts every spelling.**
+  What it prints back — and what the server hands out — is
+  `hrn:mem:<root>:<slug>` for a memory and `hrn:node:<root>:<slug>:<loc…>` for a
+  node (e.g. `hrn:node:hadronmemory.com:dev:start-here`). Prefer those when
+  composing a reference; every legacy form below stays accepted indefinitely, so
+  a URN you captured earlier keeps working.
+- Memory references accept the memory id, the canonical `hrn:mem:<root>:<slug>`
+  URN, the legacy `hrn:memory:<org>::<slug>`, or the short `<org>::<slug>` /
+  `<org>:<slug>` forms (all resolve to the same memory) across
+  `memory get|set|attach|rm|member|share|export`.
+- Node references are fully-qualified URNs. Either the canonical flat v2 form
+  `hrn:node:<root>:<slug>:<loc…>`, or the scheme-less
   `<org>::<memory>::<loc>` (double-colon between segments — e.g.
   `hadronmemory.com::dev::start-here`), optionally `hrn:node:`-prefixed (legacy
-  `urn:node:` also accepted). Single-colon `<org>:<memory>:<loc>` is **not** a
-  valid full URN — a loc itself contains single colons
-  (`services:secureid:user-reporting`), so it's ambiguous. A bare loc is rejected
+  `urn:node:` also accepted). Scheme-less single-colon `<org>:<memory>:<loc>` is
+  **not** a valid full URN — a loc itself contains single colons
+  (`services:secureid:user-reporting`), so it's ambiguous; the `hrn:node:` prefix
+  is what removes that ambiguity for the flat v2 form. A bare loc is rejected
   (exit 2) *unless* you pass `-m/--memory <org::memory>` (single-colon
   `<org>:<memory>` also accepted) to name the memory — then
   `node get|update|move|clone|rm|export` and `edge add|list` take a bare `<loc>`
@@ -579,7 +588,8 @@ Conventions:
   this resource?" — the authoritative, server-computed effective access plus the
   grants that confer it (no client-side re-derivation). `<user>` is an id, email,
   or handle (resolved via `searchUsers`); `<resource>` is a fully-qualified URN
-  — `hrn:memory:…`, `hrn:node:…`, `hrn:app:…`, `hrn:agent:…` — or a bare
+  — `hrn:mem:…`, `hrn:node:…`, `hrn:app:…`, `hrn:agent:…` (the legacy
+  `hrn:memory:<org>::<slug>` is also accepted) — or a bare
   AiServiceConfig id. Output carries `canRead/canWrite/canManage/canDelete`, a
   `role` label, and a `grants[]` array (each `{source, role, via}`); an empty
   `grants[]` is the first-class "no access" answer. Reading it requires audit
