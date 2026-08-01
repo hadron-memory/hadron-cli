@@ -162,3 +162,46 @@ func TestBatchNodeRefAcceptsBareID(t *testing.T) {
 		t.Errorf("the rejection should still point at -m, got %q", err.Error())
 	}
 }
+
+// An id is unambiguous by shape, so -m must not turn it into a loc. Without
+// this, `node get <id> -m <memory>` composed the id into a node URN and looked
+// up a node that doesn't exist.
+func TestBareIDWinsOverMemoryFlag(t *testing.T) {
+	const id = "019e61808abb79a38c66c4cd5a46fb14"
+	for _, mem := range []string{"", "acme.com::kb", "acme.com:kb", "acme.com::agent:app-mem:notes"} {
+		got, err := BatchNodeRef(mem, id)
+		if err != nil {
+			t.Errorf("-m %q: a bare id should still be accepted, got %v", mem, err)
+			continue
+		}
+		if got != id {
+			t.Errorf("-m %q: the id must pass through unrewritten, got %q", mem, got)
+		}
+	}
+
+	// A genuine bare loc with -m still composes, unchanged.
+	got, err := BatchNodeRef("acme.com::kb", "start-here")
+	if err != nil {
+		t.Fatalf("bare loc + -m should compose: %v", err)
+	}
+	if got != "hrn:node:acme.com:kb:start-here" {
+		t.Errorf("composition changed: %q", got)
+	}
+}
+
+// The CUID the schema also names as a PK form is deliberately NOT accepted: a
+// CUID-shaped rule is indistinguishable from an ordinary loc. These are real
+// locs from the sampled memories that such a rule would have swallowed.
+func TestLocsThatACUIDShapedRuleWouldSwallow(t *testing.T) {
+	for _, loc := range []string{
+		"preflight", "instructions", "conventions", "findings",
+		"discussions", "handoffs", "patterns", "register", "services",
+	} {
+		if IsNodeID(loc) {
+			t.Errorf("%q is a real loc and must not be read as an id", loc)
+		}
+		if _, err := BatchNodeRef("", loc); err == nil {
+			t.Errorf("%q without -m should still be a usage error", loc)
+		}
+	}
+}
