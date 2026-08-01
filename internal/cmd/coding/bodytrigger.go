@@ -45,7 +45,13 @@ func bodyTrigger(content string) (string, bool) {
 	lines := strings.Split(content, "\n")
 	for i, ln := range lines {
 		if m := reScopeMarker.FindStringSubmatch(ln); m != nil {
-			return joinParagraph(m[1], lines[i+1:], true)
+			// The marker's `>` is optional, so how the paragraph continues has
+			// to follow the line actually matched — assuming blockquote would
+			// silently drop the continuation of a plain `**Scope.**` paragraph.
+			// Every Scope marker in the live memories is blockquoted today, so
+			// this is a latent case rather than an observed one.
+			quoted := strings.HasPrefix(strings.TrimSpace(ln), ">")
+			return joinParagraph(m[1], lines[i+1:], quoted)
 		}
 		if m := reAppliesMarker.FindStringSubmatch(ln); m != nil {
 			// Keep the marker: "Applies when X" already reads as the trigger,
@@ -90,18 +96,26 @@ func joinParagraph(first string, rest []string, quoted bool) (string, bool) {
 	return out, true
 }
 
-// truncateRunes shortens s to at most n runes, cutting at a word boundary when
-// one is near the limit so the quote doesn't end mid-word.
+// truncateRunes shortens s to at most n runes, backing off to a word boundary
+// when one is near the limit so the quote doesn't end mid-word.
+//
+// Both the search and the threshold are in RUNES. strings.LastIndexAny would
+// return a byte offset, which over-truncates multi-byte text: a CJK trigger
+// whose only space sits at rune 50 has byte offset ~150, which passes a
+// "3/4 of 160" test and cuts 160 runes down to 50.
 func truncateRunes(s string, n int) string {
 	r := []rune(s)
 	if len(r) <= n {
 		return s
 	}
-	cut := string(r[:n])
-	if i := strings.LastIndexAny(cut, " \t"); i > n*3/4 {
-		cut = cut[:i]
+	cut := r[:n]
+	for i := len(cut) - 1; i > n*3/4; i-- {
+		if cut[i] == ' ' || cut[i] == '\t' {
+			cut = cut[:i]
+			break
+		}
 	}
-	return strings.TrimRight(cut, " \t,;:.") + "…"
+	return strings.TrimRight(string(cut), " \t,;:.") + "…"
 }
 
 // triggerHint is the sentence appended to a label finding when the body states

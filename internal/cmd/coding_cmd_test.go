@@ -52,6 +52,16 @@ func codingBatchNode(loc, tags, description string) string {
 		"outgoingEdges":[],"incomingEdges":[]}`
 }
 
+// codingBatchWithContent is a one-node batch carrying a body.
+func codingBatchWithContent(loc, tags, description, content string) string {
+	n := `{"id":"n_` + loc + `","memoryId":"mem1","loc":"` + loc + `","name":"` + loc + `",
+		"alias":null,"nodeType":"info","objectType":null,"isRunnable":false,"description":` + jsonStr(description) + `,
+		"abstract":null,"abstractOriginHash":null,"tags":[` + tags + `],"seq":null,"data":null,"properties":null,
+		"content":` + jsonStr(content) + `,"createdAt":"2026-07-30T00:00:00Z","updatedAt":"2026-07-30T00:00:00Z",
+		"outgoingEdges":[],"incomingEdges":[]}`
+	return codingBatch([]string{n}, "")
+}
+
 func codingBatch(nodes []string, unavailable string) string {
 	return `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[` + unavailable + `],
 		"nodes":[` + strings.Join(nodes, ",") + `]}}}`
@@ -339,5 +349,38 @@ func TestCodingLintRequiresMemory(t *testing.T) {
 		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
 			t.Errorf("%v without -m should be a usage error, got %d", args, got)
 		}
+	}
+}
+
+// review lint needs node bodies to quote a check's scope; preflight lint never
+// reads them, so it must not retain a body per route target.
+func TestCodingFetchNodesContentIsOptIn(t *testing.T) {
+	body := "> **Scope.** Adding an argument that identifies an entity."
+
+	// review lint: the body reaches the finding.
+	gql := fakeGraphQL(t, map[string]string{
+		"GetNode":   codingRootJSON("review", inEdge("e1", "child-of", "review:x"), ""),
+		"FindNodes": `{"data":{"nodes":[` + codingListNode("review:x") + `]}}`,
+		"NodeBatch": codingBatchWithContent("review:x", `"review"`, "d", body),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "review", "lint", "-m", codingMem, "--server", gql.URL})
+	_ = root.Execute()
+	if !strings.Contains(out.String(), "Adding an argument that identifies") {
+		t.Errorf("review lint should quote the body scope, got %q", out.String())
+	}
+
+	// preflight lint: same payload, but nothing derived from the body.
+	gql2 := fakeGraphQL(t, map[string]string{
+		"GetNode":   codingRootJSON("preflight", "", outEdge("e2", "to do the thing", "findings:r")),
+		"NodeBatch": codingBatchWithContent("findings:r", "", "d", body),
+	})
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"coding", "preflight", "lint", "-m", codingMem, "--server", gql2.URL})
+	_ = root2.Execute()
+	if strings.Contains(out2.String(), "Adding an argument") {
+		t.Errorf("preflight lint must not surface node bodies, got %q", out2.String())
 	}
 }

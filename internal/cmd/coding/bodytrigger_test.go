@@ -133,3 +133,44 @@ func TestTriggerHint(t *testing.T) {
 		t.Errorf("expected no hint with --suggest either, got %q", got)
 	}
 }
+
+// The Scope marker's `>` is optional, so continuation handling must follow the
+// line actually matched. Assuming blockquote silently dropped the rest of a
+// plain `**Scope.**` paragraph. No live memory uses this form today — all 57
+// Scope markers are blockquoted — so this guards a latent case.
+func TestBodyTriggerPlainScopeWraps(t *testing.T) {
+	got, ok := bodyTrigger("**Scope.** Adding an argument that identifies\nan existing entity.\n\nRest.")
+	if !ok {
+		t.Fatal("expected a trigger")
+	}
+	want := "Adding an argument that identifies an existing entity."
+	if got != want {
+		t.Errorf("plain Scope paragraph lost its continuation:\n  got  %q\n  want %q", got, want)
+	}
+
+	// The blockquoted form still stops at the end of the blockquote.
+	got, _ = bodyTrigger("> **Scope.** First line.\nplain continuation must not be absorbed.\n")
+	if strings.Contains(got, "plain continuation") {
+		t.Errorf("blockquoted paragraph absorbed a non-quoted line: %q", got)
+	}
+}
+
+// truncateRunes searches and thresholds in runes. strings.LastIndexAny returns
+// a BYTE offset, which over-truncated multi-byte text: a CJK trigger whose only
+// space sits at rune 50 has byte offset ~150, which passed a "3/4 of 160" test
+// and cut 160 runes down to 50.
+func TestTruncateRunesNonASCIIKeepsContext(t *testing.T) {
+	s := strings.Repeat("経", 50) + " " + strings.Repeat("路", 200)
+	got := []rune(truncateRunes(s, 160))
+	if len(got) < 150 {
+		t.Errorf("over-truncated multi-byte text to %d runes; want ~160", len(got))
+	}
+	// Still a valid string, still ends with the ellipsis.
+	if !strings.HasSuffix(string(got), "…") {
+		t.Errorf("expected an ellipsis, got %q", string(got))
+	}
+	// ASCII behaviour is unchanged: back off to the word boundary.
+	if got := truncateRunes("alpha beta gamma delta epsilon zeta", 30); strings.Contains(got, "zet") {
+		t.Errorf("expected a word-boundary cut, got %q", got)
+	}
+}

@@ -110,7 +110,7 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 				candidates[e.OtherID] = e.Other
 			}
 
-			nodes, unavailable, err := fetchNodes(ctx, client, candidates)
+			nodes, unavailable, err := fetchNodes(ctx, client, candidates, true)
 			if err != nil {
 				return err
 			}
