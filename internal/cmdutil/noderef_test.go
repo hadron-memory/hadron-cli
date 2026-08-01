@@ -111,3 +111,97 @@ func TestBatchNodeRefValidatesPrefixedRefs(t *testing.T) {
 		}
 	}
 }
+
+// #336 — the CLI prints node ids on every --json surface, so a ref it just
+// emitted has to be feedable straight back.
+func TestIsNodeID(t *testing.T) {
+	for _, ref := range []string{
+		"019e61808abb79a38c66c4cd5a46fb14", // a real id, as printed
+		"  019e61808abb79a38c66c4cd5a46fb14  ",
+		"00000000000000000000000000000000",
+	} {
+		if !IsNodeID(ref) {
+			t.Errorf("%q should be recognised as a node id", ref)
+		}
+	}
+	// Matched by SHAPE, not by "colon-free": a bare loc typed without -m is
+	// also colon-free, and must keep its usage error naming -m.
+	for _, ref := range []string{
+		"start-here",                        // bare loc
+		"tasks:review-changes",              // bare loc with colons
+		"019E61808ABB79A38C66C4CD5A46FB14",  // uppercase
+		"019e61808abb79a38c66c4cd5a46fb1",   // 31 chars
+		"019e61808abb79a38c66c4cd5a46fb14a", // 33 chars
+		"019e61808abb79a38c66c4cd5a46fb1g",  // non-hex
+		"acme.com::kb::start-here",          // fully-qualified URN
+		"hrn:node:acme.com:kb:start-here",   // prefixed URN
+		"",
+	} {
+		if IsNodeID(ref) {
+			t.Errorf("%q must NOT be treated as a node id", ref)
+		}
+	}
+}
+
+// The batch path takes the same refs as the single path, so a bare id must
+// reach nodeBatch(refs:) verbatim rather than being rejected.
+func TestBatchNodeRefAcceptsBareID(t *testing.T) {
+	const id = "019e61808abb79a38c66c4cd5a46fb14"
+	got, err := BatchNodeRef("", id)
+	if err != nil {
+		t.Fatalf("a bare node id should be accepted, got %v", err)
+	}
+	if got != id {
+		t.Errorf("the id must pass through unrewritten: got %q", got)
+	}
+
+	// A non-id colon-free ref still gets the usage error that names -m.
+	if _, err := BatchNodeRef("", "start-here"); err == nil {
+		t.Error("a bare loc without -m should still be rejected")
+	} else if !strings.Contains(err.Error(), "-m") {
+		t.Errorf("the rejection should still point at -m, got %q", err.Error())
+	}
+}
+
+// An id is unambiguous by shape, so -m must not turn it into a loc. Without
+// this, `node get <id> -m <memory>` composed the id into a node URN and looked
+// up a node that doesn't exist.
+func TestBareIDWinsOverMemoryFlag(t *testing.T) {
+	const id = "019e61808abb79a38c66c4cd5a46fb14"
+	for _, mem := range []string{"", "acme.com::kb", "acme.com:kb", "acme.com::agent:app-mem:notes"} {
+		got, err := BatchNodeRef(mem, id)
+		if err != nil {
+			t.Errorf("-m %q: a bare id should still be accepted, got %v", mem, err)
+			continue
+		}
+		if got != id {
+			t.Errorf("-m %q: the id must pass through unrewritten, got %q", mem, got)
+		}
+	}
+
+	// A genuine bare loc with -m still composes, unchanged.
+	got, err := BatchNodeRef("acme.com::kb", "start-here")
+	if err != nil {
+		t.Fatalf("bare loc + -m should compose: %v", err)
+	}
+	if got != "hrn:node:acme.com:kb:start-here" {
+		t.Errorf("composition changed: %q", got)
+	}
+}
+
+// The CUID the schema also names as a PK form is deliberately NOT accepted: a
+// CUID-shaped rule is indistinguishable from an ordinary loc. These are real
+// locs from the sampled memories that such a rule would have swallowed.
+func TestLocsThatACUIDShapedRuleWouldSwallow(t *testing.T) {
+	for _, loc := range []string{
+		"preflight", "instructions", "conventions", "findings",
+		"discussions", "handoffs", "patterns", "register", "services",
+	} {
+		if IsNodeID(loc) {
+			t.Errorf("%q is a real loc and must not be read as an id", loc)
+		}
+		if _, err := BatchNodeRef("", loc); err == nil {
+			t.Errorf("%q without -m should still be a usage error", loc)
+		}
+	}
+}

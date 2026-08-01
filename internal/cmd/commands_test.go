@@ -2487,3 +2487,47 @@ func TestNodeLsSearchWithSortSeqPaginates(t *testing.T) {
 		t.Errorf("search+seq must page with a large limit, got %v", vars.Limit)
 	}
 }
+
+// #336 — an id the CLI printed must be feedable straight back. The single-ref
+// path short-circuits resolveUrn (which returns null for a bare id), so
+// ResolveUrn is deliberately NOT registered: calling it would fail the test.
+func TestNodeGetAcceptsBareID(t *testing.T) {
+	const id = "019e61808abb79a38c66c4cd5a46fb14"
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetNode": `{"data":{"node":` + nodeDetailJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", id, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a bare node id should resolve: %v", err)
+	}
+	if !strings.Contains(out.String(), "The CI is flaky") {
+		t.Errorf("node content missing: %s", out.String())
+	}
+	if _, resolved := captured["ResolveUrn"]; resolved {
+		t.Error("a bare id must not round-trip through resolveUrn — it returns null for one")
+	}
+	var vars struct {
+		Ref string `json:"ref"`
+	}
+	_ = json.Unmarshal(captured["GetNode"], &vars)
+	if vars.Ref != id {
+		t.Errorf("node(ref:) should receive the id verbatim, got %q", vars.Ref)
+	}
+}
+
+// A bare loc without -m is also colon-free; it must keep the usage error that
+// names -m rather than being misread as an id and failing as "not found".
+func TestNodeGetBareLocStillRejected(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", "start-here", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if got := exitcode.FromError(err); got != exitcode.Usage {
+		t.Fatalf("a bare loc without -m should be a usage error, got %d", got)
+	}
+	if !strings.Contains(err.Error(), "-m") {
+		t.Errorf("the error should still point at -m, got %q", err.Error())
+	}
+}
