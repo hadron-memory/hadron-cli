@@ -264,3 +264,25 @@ func TestEdgeListRejectsContradictoryFilters(t *testing.T) {
 		}
 	}
 }
+
+// End-to-end: an unset shell variable must fail loudly rather than returning
+// every edge (#340 review).
+func TestEdgeListRejectsEmptyFilterValue(t *testing.T) {
+	for _, extra := range [][]string{
+		{"--to", ""},
+		{"--from", ""},
+		{"--name", ""},
+		{"--direction", ""},
+	} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"edge", "list", nodeURN, "--server", "http://127.0.0.1:1"}, extra...))
+		err := root.Execute()
+		if got := exitcode.FromError(err); got != exitcode.Usage {
+			t.Errorf("%v should be a usage error, got %d", extra, got)
+		}
+		if err != nil && !strings.Contains(err.Error(), "empty value") {
+			t.Errorf("%v: expected an empty-value message, got %q", extra, err.Error())
+		}
+	}
+}

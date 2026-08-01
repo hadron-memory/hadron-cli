@@ -55,6 +55,7 @@ type edgeFilter struct {
 }
 
 func (fl edgeFilter) match(e edgeListDTO) bool {
+	fl.Name, fl.To, fl.From = strings.TrimSpace(fl.Name), strings.TrimSpace(fl.To), strings.TrimSpace(fl.From)
 	if fl.Direction != "" && e.Direction != fl.Direction {
 		return false
 	}
@@ -89,9 +90,22 @@ func filterEdges(edges []edgeListDTO, fl edgeFilter) []edgeListDTO {
 	return out
 }
 
-// validate rejects combinations that can only ever match nothing, rather than
-// letting them return an empty list that reads like "no such edges".
-func (fl edgeFilter) validate() error {
+// validate rejects filters that can only ever match nothing, or that would
+// silently widen the result instead of narrowing it.
+//
+// provided names the flags the user actually passed, which an empty value
+// alone can't tell us: `--to "$TARGET"` with TARGET unset reaches us as an
+// explicitly-supplied "". Treating that as "no filter" returned EVERY edge —
+// the opposite of what the caller asked for, and silent. It is a usage error.
+func (fl edgeFilter) validate(provided map[string]bool) error {
+	for flag, val := range map[string]string{
+		"direction": fl.Direction, "name": fl.Name, "to": fl.To, "from": fl.From,
+	} {
+		if provided[flag] && strings.TrimSpace(val) == "" {
+			return exitcode.Newf(exitcode.Usage,
+				"--%s was given an empty value — omit the flag to not filter on it (a shell variable that expanded to nothing?)", flag)
+		}
+	}
 	switch fl.Direction {
 	case "", "incoming", "outgoing":
 	default:
@@ -132,7 +146,11 @@ far endpoint's loc or its id.`,
   hadron edge list preflight -m hadronmemory.com::dev --to findings:prisma-upsert-not-race-safe`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := fl.validate(); err != nil {
+			provided := map[string]bool{}
+			for _, n := range []string{"direction", "name", "to", "from"} {
+				provided[n] = cmd.Flags().Changed(n)
+			}
+			if err := fl.validate(provided); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()

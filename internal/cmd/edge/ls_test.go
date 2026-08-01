@@ -110,7 +110,7 @@ func TestEdgeFilterValidate(t *testing.T) {
 		{Name: "x", Direction: "incoming"},
 	}
 	for _, fl := range ok {
-		if err := fl.validate(); err != nil {
+		if err := fl.validate(nil); err != nil {
 			t.Errorf("%+v should be valid, got %v", fl, err)
 		}
 	}
@@ -126,7 +126,7 @@ func TestEdgeFilterValidate(t *testing.T) {
 		{edgeFilter{From: "x", Direction: "outgoing"}, "--from selects incoming"},
 	}
 	for _, tc := range bad {
-		err := tc.fl.validate()
+		err := tc.fl.validate(nil)
 		if err == nil {
 			t.Errorf("%+v should be rejected", tc.fl)
 			continue
@@ -137,5 +137,50 @@ func TestEdgeFilterValidate(t *testing.T) {
 		if !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("%+v: error should mention %q, got %q", tc.fl, tc.want, err.Error())
 		}
+	}
+}
+
+// An explicitly-supplied empty value is a usage error, not "no filter".
+// `--to "$TARGET"` with TARGET unset reaches us as "", and treating that as
+// absent returned EVERY edge — the opposite of what the caller asked for.
+func TestEmptyFilterValueIsRejected(t *testing.T) {
+	for _, flag := range []string{"direction", "name", "to", "from"} {
+		fl := edgeFilter{}
+		provided := map[string]bool{flag: true}
+		err := fl.validate(provided)
+		if err == nil {
+			t.Errorf("--%s \"\" should be rejected", flag)
+			continue
+		}
+		if got := exitcode.FromError(err); got != exitcode.Usage {
+			t.Errorf("--%s \"\": expected a usage error, got %d", flag, got)
+		}
+		if !strings.Contains(err.Error(), "--"+flag) {
+			t.Errorf("--%s: the error should name the flag, got %q", flag, err.Error())
+		}
+	}
+
+	// Whitespace-only counts as empty.
+	if err := (edgeFilter{To: "   "}).validate(map[string]bool{"to": true}); err == nil {
+		t.Error(`--to "   " should be rejected`)
+	}
+	// A flag NOT passed with an empty value is simply no filter.
+	if err := (edgeFilter{}).validate(map[string]bool{}); err != nil {
+		t.Errorf("an unset filter should be valid, got %v", err)
+	}
+	// A real value passed is fine.
+	if err := (edgeFilter{To: "findings:x"}).validate(map[string]bool{"to": true}); err != nil {
+		t.Errorf("a real --to should be valid, got %v", err)
+	}
+}
+
+// Filter values are trimmed on apply, so a ref padded by shell quoting matches.
+func TestFilterValuesAreTrimmed(t *testing.T) {
+	got := ids(filterEdges(sampleEdges(), edgeFilter{To: "  findings:slow  "}))
+	if len(got) != 1 || got[0] != "e2" {
+		t.Errorf("a padded --to should still match: %v", got)
+	}
+	if got := ids(filterEdges(sampleEdges(), edgeFilter{Name: " routes-to "})); len(got) != 2 {
+		t.Errorf("a padded --name should still match: %v", got)
 	}
 }
