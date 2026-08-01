@@ -24,7 +24,7 @@ The memory must belong to you, the Agent must be installed in the App, and you
 must be an App member. The memory keeps its URN, class, and owner. Memory, App,
 and Agent references accept IDs, bare URNs, or prefixed URNs.`,
 		Example: `  hadron memory attach acme.com::my-notes --app acme.com::coach --agent acme.com::agent
-  hadron memory attach hrn:memory:acme.com::private-notes --app app-id --agent agent-id --json`,
+  hadron memory attach hrn:mem:acme.com:private-notes --app app-id --agent agent-id --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if app == "" || agent == "" {
