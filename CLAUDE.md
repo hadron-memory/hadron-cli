@@ -10,18 +10,18 @@ Hadron is the platform's institutional memory — assume it covers things not ob
 code alone (past incidents, decisions, conventions baked into several places). Relevant
 memories:
 
-- `hrn:memory:hadronmemory.com::hadron-cli` — this CLI's own findings/conventions
-- `hrn:memory:hadronmemory.com::dev` — shared findings, conventions, ops, the `preflight` routing index
-- `hrn:memory:hadronmemory.com::hadron-server` — the GraphQL contract this CLI targets; server findings
-- `hrn:memory:hadronmemory.com::specs` — product specs (loc-as-citation); the `spec` command group is the citation-aware surface over this corpus
+- `hrn:mem:hadronmemory.com:hadron-cli` — this CLI's own findings/conventions
+- `hrn:mem:hadronmemory.com:dev` — shared findings, conventions, ops, the `preflight` routing index
+- `hrn:mem:hadronmemory.com:hadron-server` — the GraphQL contract this CLI targets; server findings
+- `hrn:mem:hadronmemory.com:specs` — product specs (loc-as-citation); the `spec` command group is the citation-aware surface over this corpus
 
 (1) **Query Hadron before reading code.** For the topics/entities in a request, run
 `hadron_find_nodes` first, then `hadron_get_node` on promising hits; cite node `loc` values. (Note the
 CLI *is* a superset of the MCP tools — but for memory reads while developing it, the `hadron_*` MCP
 tools are simplest; don't rely on the dev binary you may be mid-change on.)
 
-(2) Read `hadron_get_node hrn:node:hadronmemory.com::dev::instructions` once per session (what
-Hadron is, URN grammar, the specs corpus), and `hadron_get_node hrn:node:hadronmemory.com::dev::preflight`
+(2) Read `hadron_get_node hrn:node:hadronmemory.com:dev:instructions` once per session (what
+Hadron is, URN grammar, the specs corpus), and `hadron_get_node hrn:node:hadronmemory.com:dev:preflight`
 before a change (the shared server/platform routing index).
 
 (3) Capture a non-obvious finding the moment it emerges (`hadron_create_node` / `hadron_update_node`) —
@@ -67,7 +67,10 @@ Every command supports `--json`, and those shapes are a stable public contract t
 - Each group is `internal/cmd/<group>/` with a `New<Group>Cmd(*cmdutil.Factory)` constructor, wired in `internal/cmd/root.go`.
 - `cmdutil.Factory` is the DI seam: lazily resolves config, the token store, and the GraphQL client (`f.GraphQLClient()`), and carries the persistent `--json/--server/--app` flags plus `f.IOStreams`. Commands take the Factory; tests inject a fake one.
 - Destructive commands (`memory rm`, `node rm`, `edge rm`, `app uninstall`) prompt on a TTY and require `--yes` non-interactively (`cmdutil.ConfirmDeletion`).
-- Node references are fully-qualified URNs `<org>::<memory>::<loc>` (double-colon between segments — a loc contains single colons, so single-colon `org:memory:loc` is ambiguous and rejected); a bare loc is rejected *unless* `-m/--memory <org::memory>` is given (single-colon `<org>:<memory>` also accepted — `cmdutil.canonicalOrgMemory` normalizes it), which `node get|update|rm|export` and `edge add|ls` accept to name a bare `<loc>` (resolved via `cmdutil.ResolveNodeRef`, which joins memory+loc then defers to `ResolveNodeURN`). Memory refs likewise accept id / `hrn:memory:<org>::<slug>` / `<org>::<slug>` / `<org>:<slug>` via `cmdutil.CanonicalMemoryRef`. `spec` commands likewise take `-m/--memory` + a bare citation (the loc *is* a legal-code citation — see `docs/how-to/maintain-product-specs.md`).
+- **URN grammar — emit v2, accept everything.** The CLI *emits* the flat grammar-v2 form the server now hands out: `hrn:mem:<root>:<slug>` (`cmdutil.CanonicalMemoryRef`) and `hrn:node:<root>:<slug>:<loc…>` (`cmdutil.NodeURN`). *Input* stays Postel-liberal — every v1 spelling (`hrn:memory:<org>::<slug>`, `<org>::<memory>::<loc>`) is accepted forever (#239), so don't "fix" a legacy ref in a test fixture; those are the acceptance coverage. See [docs/plans/urn-compose-v2.md](docs/plans/urn-compose-v2.md).
+  - A *scheme-less* node ref must use `<org>::<memory>::<loc>`: a loc contains single colons, so `org:memory:loc` is ambiguous and rejected. The `hrn:node:` prefix removes the ambiguity, which is why the v2 flat form can use single colons throughout.
+  - A bare loc is rejected *unless* `-m/--memory <org::memory>` is given (single-colon `<org>:<memory>` also accepted — `cmdutil.canonicalOrgMemory` normalizes it), which `node get|update|rm|export` and `edge add|ls` accept to name a bare `<loc>` (resolved via `cmdutil.ResolveNodeRef`, which joins memory+loc then defers to `ResolveNodeURN`). Memory refs accept id / v2 / `<org>::<slug>` / `<org>:<slug>` / legacy `hrn:memory:` alike. `spec` commands likewise take `-m/--memory` + a bare citation (the loc *is* a legal-code citation — see `docs/how-to/maintain-product-specs.md`).
+  - **Exception:** the `spec` group composes v1 internally on purpose (`memoryRefV1`, `internal/cmd/spec/spec.go`) — a fixed-arity flat v2 node URN can't round-trip a COMPOUND app-mem memory (`<org>::<agent>:app-mem:<slug>`). Don't migrate that one without solving the compound case.
 
 ## Whole-corpus reads — paginate, don't truncate
 
@@ -82,6 +85,6 @@ Command-level tests live in `internal/cmd/*_test.go` against a fake GraphQL serv
 ## Conventions for changes
 
 - **Substantial features get a design-as-built plan doc in `docs/plans/`**, bundled in the PR for review (see the existing ones).
-- **Before opening a PR, run the Hadron review flow** — the CLI-specific checklist pass, complementing the generic `/code-review` skill. Run the task node `hrn:node:hadronmemory.com::hadron-cli::tasks:review-changes` (read the `review` parent, then walk the applicable `Applies when …` children against your diff). When a defect or near-miss reveals a reusable pattern, capture it with `tasks:add-review-node`.
+- **Before opening a PR, run the Hadron review flow** — the CLI-specific checklist pass, complementing the generic `/code-review` skill. Run the task node `hrn:node:hadronmemory.com:hadron-cli:tasks:review-changes` (read the `review` parent, then walk the applicable `Applies when …` children against your diff). When a defect or near-miss reveals a reusable pattern, capture it with `tasks:add-review-node`.
 - One change per PR, squash-merged; CI (build/test/lint + `goreleaser check`) must be green.
 - **Releasing is tag-driven** (push `vX.Y.Z` → goreleaser publishes archives + auto-bumps the Homebrew cask). See the README "Releasing" section.

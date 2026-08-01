@@ -41,8 +41,13 @@ func normalizeResourceRef(ref string) (string, error) {
 	}
 	if strings.Contains(r, ":") {
 		return "", exitcode.Newf(exitcode.Usage,
+			// The suggested example keeps the legacy hrn:memory: prefix on
+			// purpose: it composes correctly with the "::" shorthand the user
+			// just typed, whereas the canonical hrn:mem: form uses single
+			// colons throughout (hrn:mem:acme.com:kb).
 			"%q is not a fully-qualified resource URN — prefix it with its kind "+
-				"(hrn:memory:, hrn:node:, hrn:app:, or hrn:agent:), e.g. hrn:memory:%[1]s; "+
+				"(hrn:mem:, hrn:node:, hrn:app:, or hrn:agent:; the legacy hrn:memory: "+
+				"is also accepted), e.g. hrn:memory:%[1]s; "+
 				"a bare, colon-free id is read as an AiServiceConfig id", r)
 	}
 	return r, nil

@@ -55,14 +55,15 @@ func newCmdCheck(f *cmdutil.Factory) *cobra.Command {
 that confer it.
 
 The user is identified by id, email, or handle. The resource is a
-fully-qualified URN — hrn:memory:…, hrn:node:…, hrn:app:…, or
-hrn:agent:… — or a bare AiServiceConfig id.
+fully-qualified URN — hrn:mem:…, hrn:node:…, hrn:app:…, or hrn:agent:…
+— or a bare AiServiceConfig id. The legacy hrn:memory:<org>::<slug>
+spelling is still accepted.
 
 Reading this requires permission to audit the resource: a platform
 admin, an ADMIN/OWNER of the resource's owning org, or (for a strict-
 owner memory) the memory's principal.`,
-		Example: `  hadron access check alice@acme.com hrn:memory:acme.com::kb
-  hadron access check @alice hrn:node:acme.com::kb::start-here
+		Example: `  hadron access check alice@acme.com hrn:mem:acme.com:kb
+  hadron access check @alice hrn:node:acme.com:kb:start-here
   hadron access check usr_123 hrn:app:acme.com::support --json`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
