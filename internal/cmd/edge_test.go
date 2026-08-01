@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 const edgeJSON = `{"id":"e1","name":"routes-to","loc":"findings:flaky-ci:routes-to:start-here","isRunnable":false,"priority":0,
@@ -172,5 +174,93 @@ func TestEdgeRmWithYes(t *testing.T) {
 	root.SetArgs([]string{"edge", "rm", "e1", "--yes", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
+	}
+}
+
+// #337 — filters are client-side over what GetNode already returns, so the row
+// shape is unchanged and a filtered run is a subset of an unfiltered one.
+func TestEdgeListFilters(t *testing.T) {
+	const detail = `{"id":"n1","memoryId":"mem1","loc":"preflight","name":"preflight",
+		"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","objectType":null,
+		"tags":[],"content":null,"data":null,"properties":null,"seq":null,"isRunnable":false,
+		"createdAt":"2026-08-01T00:00:00Z","updatedAt":"2026-08-01T00:00:00Z",
+		"outgoingEdges":[
+			{"id":"e1","name":"routes-to","loc":"l1","isRunnable":false,"priority":0,"target":{"id":"t1","loc":"findings:race","memoryId":"mem1"}},
+			{"id":"e2","name":"to diagnose a slow query","loc":"l2","isRunnable":false,"priority":0,"target":{"id":"t2","loc":"findings:slow","memoryId":"mem1"}}],
+		"incomingEdges":[
+			{"id":"e3","name":"complements","loc":"l3","isRunnable":false,"priority":0,"source":{"id":"s1","loc":"instructions","memoryId":"mem1"}}]}`
+
+	run := func(t *testing.T, extra ...string) []map[string]any {
+		t.Helper()
+		gql := fakeGraphQL(t, map[string]string{
+			"ResolveUrn": resolveNodeJSON,
+			"GetNode":    `{"data":{"node":` + detail + `}}`,
+		})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"edge", "list", nodeURN, "--json", "--server", gql.URL}, extra...))
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute %v: %v", extra, err)
+		}
+		var rows []map[string]any
+		if err := json.Unmarshal([]byte(out.String()), &rows); err != nil {
+			t.Fatalf("--json must emit an array: %v (%q)", err, out.String())
+		}
+		return rows
+	}
+
+	edgeIDs := func(rows []map[string]any) []string {
+		out := []string{}
+		for _, r := range rows {
+			out = append(out, r["id"].(string))
+		}
+		return out
+	}
+
+	cases := []struct {
+		args []string
+		want string
+	}{
+		{nil, "e1,e2,e3"},
+		{[]string{"--direction", "outgoing"}, "e1,e2"},
+		{[]string{"--direction", "incoming"}, "e3"},
+		{[]string{"--name", "routes-to"}, "e1"},
+		{[]string{"--to", "findings:slow"}, "e2"},
+		{[]string{"--to", "t2"}, "e2"}, // by id
+		{[]string{"--from", "instructions"}, "e3"},
+		{[]string{"--name", "no-such-label"}, ""},
+	}
+	for _, tc := range cases {
+		got := strings.Join(edgeIDs(run(t, tc.args...)), ",")
+		if got != tc.want {
+			t.Errorf("%v: got %q, want %q", tc.args, got, tc.want)
+		}
+	}
+
+	// The row shape is untouched by filtering.
+	full := run(t)
+	filtered := run(t, "--direction", "outgoing")
+	for k := range full[0] {
+		if _, ok := filtered[0][k]; !ok {
+			t.Errorf("filtering dropped the %q field from the row shape", k)
+		}
+	}
+}
+
+// A contradictory combination fails up front rather than returning an empty
+// list that reads like "no such edges".
+func TestEdgeListRejectsContradictoryFilters(t *testing.T) {
+	for _, extra := range [][]string{
+		{"--direction", "sideways"},
+		{"--to", "x", "--from", "y"},
+		{"--to", "x", "--direction", "incoming"},
+		{"--from", "x", "--direction", "outgoing"},
+	} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"edge", "list", nodeURN, "--server", "http://127.0.0.1:1"}, extra...))
+		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+			t.Errorf("%v should be a usage error, got %d", extra, got)
+		}
 	}
 }
