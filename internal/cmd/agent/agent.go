@@ -300,10 +300,11 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var name, description, typ, vis, systemPrompt, systemMemory, urn string
 	var surfaces []string
 	cmd := &cobra.Command{
-		Use:     "update <id>",
-		Short:   "Update an agent (only the fields you pass change)",
-		Example: `  hadron agent update agt_123 --name "Support Bot v2" --visibility PUBLIC`,
-		Args:    cobra.ExactArgs(1),
+		Use:   "update <ref>",
+		Short: "Update an agent by ID or URN (only the fields you pass change)",
+		Example: `  hadron agent update acme.com::support-bot --name "Support Bot v2" --visibility PUBLIC
+  hadron agent update agt_123 --description "…"`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
 			if !changed("name") && !changed("description") && !changed("type") && !changed("visibility") &&
@@ -361,9 +362,10 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:     "rm <id>",
+		Use:     "rm <ref>",
 		Aliases: []string{"delete"},
-		Short:   "Delete an agent",
+		Short:   "Delete an agent by ID or URN",
+		Example: `  hadron agent rm acme.com::support-bot --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

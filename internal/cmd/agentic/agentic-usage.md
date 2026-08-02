@@ -569,9 +569,10 @@ Conventions:
   PERSONAL/owner-only in v1 (spec 047; the server derives the `@handle:<slug>`
   URN and rejects a non-PERSONAL visibility). Optional
   `--type`/`--visibility`/`--description`/`--system-prompt`/
-  `--system-memory`/`--surface` (repeatable); `agent update <id> [<field flags>]`
-  changes only the fields you pass (`--surface` replaces the set); `agent rm <id>`
-  requires `--yes`. Memory-attach, AI-config wiring, and app-wiring land next.
+  `--system-memory`/`--surface` (repeatable); `agent update <ref> [<field flags>]`
+  changes only the fields you pass (`--surface` replaces the set); `agent rm <ref>`
+  requires `--yes`. `<ref>` is an agent ID **or** a fully-qualified URN
+  (`acme.com::support-bot`) — no need to resolve an ID first. Memory-attach, AI-config wiring, and app-wiring land next.
 - `user search <query>` finds users (enumeration-safe: substring on handle /
   GitHub username, exact on email) — the way to resolve a user ID for `org
   member`/`memory member`/`memory share`. **Omit the query** (also spelled `user

@@ -2228,8 +2228,9 @@ func TestAppInstall(t *testing.T) {
 	}
 }
 
-// #260: --owner-me creates a user-owned (personal) App — orgId is OMITTED (the
+// #260: --owner-me creates a user-owned (personal) App — orgRef is OMITTED (the
 // spec-047 personal-create signal; an empty string would be rejected).
+// #789 renamed the arg orgId -> orgRef; the assertion below tracks that.
 func TestAppInstallOwnerMeOmitsOrg(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"CreateApp": `{"data":{"createApp":` + appJSON + `}}`,
