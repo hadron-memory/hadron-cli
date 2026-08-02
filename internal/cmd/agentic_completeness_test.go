@@ -99,3 +99,67 @@ func TestAgenticUsageDocumentsEveryCommand(t *testing.T) {
 		}
 	}
 }
+
+// TestRefTakingCommandsAdvertiseRef keeps the DISCOVERY surfaces honest about
+// which arguments accept a URN.
+//
+// hadron-server#789 made `updateAgent`/`deleteAgent` accept a PK **or** a
+// fully-qualified URN (they were PK-only). The CLI already forwarded whatever
+// the user typed, so the capability worked the moment the server shipped — but
+// `agent update <id>` / `agent rm <id>` in the help, and the same wording in
+// agentic-usage.md, still told callers to pre-resolve an ID. A capability
+// nobody can discover is not shipped (Codex review, hadron-cli#342).
+//
+// `<ref>` is the established spelling for a PK-or-URN positional across this
+// CLI (`agent get <ref>`, `memory get <memoryRef>`), so pin it.
+func TestRefTakingCommandsAdvertiseRef(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+
+	// group -> leaf commands whose first positional accepts a PK or a URN.
+	refTaking := map[string][]string{
+		"agent": {"get", "update", "rm"},
+	}
+
+	for group, leaves := range refTaking {
+		var groupCmd *cobra.Command
+		for _, c := range root.Commands() {
+			if c.Name() == group {
+				groupCmd = c
+				break
+			}
+		}
+		if groupCmd == nil {
+			t.Fatalf("command group %q not found", group)
+		}
+		for _, leaf := range leaves {
+			var cmd *cobra.Command
+			for _, c := range groupCmd.Commands() {
+				if c.Name() == leaf {
+					cmd = c
+					break
+				}
+			}
+			if cmd == nil {
+				t.Fatalf("%s %s not found", group, leaf)
+			}
+			// Use line must say <ref>, never <id> — the latter tells a caller
+			// (or a shelling agent) that a URN will be rejected.
+			if strings.Contains(cmd.Use, "<id>") {
+				t.Errorf("`%s %s` Use is %q — a PK-or-URN positional must be spelled <ref>", group, leaf, cmd.Use)
+			}
+			if !strings.Contains(cmd.Use, "<ref>") {
+				t.Errorf("`%s %s` Use is %q — expected a <ref> positional", group, leaf, cmd.Use)
+			}
+		}
+	}
+
+	// agentic-usage.md is the contract a shelling agent reads; it must not
+	// still advertise the ID-only form for these.
+	doc := agentic.Doc()
+	for _, banned := range []string{"agent update <id>", "agent rm <id>"} {
+		if strings.Contains(doc, banned) {
+			t.Errorf("agentic-usage.md still advertises %q — #789 made it accept a URN", banned)
+		}
+	}
+}
