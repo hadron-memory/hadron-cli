@@ -100,7 +100,7 @@ mutation CreateAgent(
 }
 
 mutation UpdateAgent(
-  $id: ID!
+  $ref: ID!
   # @genqlient(omitempty: true)
   $name: String
   # @genqlient(omitempty: true)
@@ -123,7 +123,7 @@ mutation UpdateAgent(
   $urn: String
 ) {
   updateAgent(
-    id: $id
+    ref: $ref
     name: $name
     description: $description
     type: $agentType
@@ -137,6 +137,6 @@ mutation UpdateAgent(
   }
 }
 
-mutation DeleteAgent($id: ID!) {
-  deleteAgent(id: $id)
+mutation DeleteAgent($ref: ID!) {
+  deleteAgent(ref: $ref)
 }

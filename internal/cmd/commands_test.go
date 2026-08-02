@@ -2216,7 +2216,8 @@ func TestAppInstall(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateApp"], &vars)
-	if vars["orgId"] != "acme.com" || vars["agentId"] != "agent1" || vars["appType"] != "CHATBOT" {
+	// #789: orgRef / agentRef (PK or URN), not orgId / agentId.
+	if vars["orgRef"] != "acme.com" || vars["agentRef"] != "agent1" || vars["appType"] != "CHATBOT" {
 		t.Errorf("unexpected vars: %v", vars)
 	}
 	// Unset optionals must be OMITTED, not sent as explicit nulls.
@@ -2241,11 +2242,13 @@ func TestAppInstallOwnerMeOmitsOrg(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateApp"], &vars)
-	if _, present := vars["orgId"]; present {
-		t.Errorf("--owner-me must omit orgId, got %v", vars["orgId"])
+	if _, present := vars["orgRef"]; present {
+		t.Errorf("--owner-me must omit orgRef, got %v", vars["orgRef"])
 	}
-	if vars["agentId"] != "acme.com::helper" {
-		t.Errorf("agentId: %v", vars["agentId"])
+	// A fully-qualified URN now reaches the server as-is — #789 is what makes
+	// the server able to resolve it rather than demanding a pre-resolved PK.
+	if vars["agentRef"] != "acme.com::helper" {
+		t.Errorf("agentRef: %v", vars["agentRef"])
 	}
 }
 
@@ -2281,7 +2284,8 @@ func TestAppUninstall(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["DeleteApp"], &vars)
-	if vars["id"] != "app1" {
+	// #789: `ref`, not `id`.
+	if vars["ref"] != "app1" {
 		t.Errorf("unexpected vars: %v", vars)
 	}
 }

@@ -2192,6 +2192,21 @@ func (v *AppRunsAppRunsAppRunsPageItemsAppRun) __premarshalJSON() (*__premarshal
 
 // AppRunsResponse is returned by AppRuns on success.
 type AppRunsResponse struct {
+	// The run audit list.
+	//
+	// statuses (#836) is a disjunction — 'everything still in flight' is
+	// [PENDING, RUNNING] and 'what went wrong' is [FAILED, TIMED_OUT], neither of
+	// which the single-valued status arg could express. Per
+	// conventions:multi-ref-scope-args: OMITTING it means no status filter, while
+	// an explicitly EMPTY list is the EMPTY scope and returns nothing - it never
+	// silently falls back to 'all'. Values are deduped; an unknown member is
+	// rejected by enum validation rather than dropped.
+	//
+	// status is DEPRECATED in favour of statuses. Both are accepted for one
+	// release; when both are given, statuses wins.
+	//
+	// sortBy / sortDir (#833) order the whole result set server-side, so a client
+	// table is no longer limited to sorting the page it happens to hold.
 	AppRuns *AppRunsAppRunsAppRunsPage `json:"appRuns"`
 }
 
@@ -10167,10 +10182,16 @@ type PublicAgentsResponse struct {
 	// explicit, paginated surface rather than a value in a filter.
 	//
 	// filter.type narrows by AgentType; filter.visibility is IGNORED (the slice
-	// is PUBLIC by definition). Field-level exposure is slim for non-members:
-	// systemPrompt / systemMemoryId / memoryItems / imports / importedBy are
-	// member/admin-gated (null / [] for outsiders). Name-ascending order
-	// (id tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
+	// is PUBLIC by definition).
+	//
+	// Field-level exposure: a PUBLIC agent publishes its OWN definition
+	// (systemPrompt / systemMemoryId / memoryItems / imports) to every caller —
+	// that is what a marketplace listing is (#551). The fields that surface OTHER
+	// tenants (apps / appAgents / appCount / orgGrants / importedBy) are scoped to
+	// the caller's own access and come back empty for an outsider (#552, #757).
+	//
+	// Name-ascending order (id tiebreak); limit default 50 / cap 200;
+	// limit: 0 -> count only.
 	PublicAgents *PublicAgentsPublicAgentsAgentsPage `json:"publicAgents"`
 }
 
@@ -14308,19 +14329,19 @@ func (v *__CreateAiServiceConfigInput) GetParams() *json.RawMessage { return v.P
 
 // __CreateAppInput is used internally by genqlient
 type __CreateAppInput struct {
-	OrgId       *string  `json:"orgId,omitempty"`
-	AgentId     string   `json:"agentId"`
+	OrgRef      *string  `json:"orgRef,omitempty"`
+	AgentRef    string   `json:"agentRef"`
 	Name        string   `json:"name"`
 	Urn         *string  `json:"urn,omitempty"`
 	AppType     *AppType `json:"appType,omitempty"`
 	Description *string  `json:"description,omitempty"`
 }
 
-// GetOrgId returns __CreateAppInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__CreateAppInput) GetOrgId() *string { return v.OrgId }
+// GetOrgRef returns __CreateAppInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateAppInput) GetOrgRef() *string { return v.OrgRef }
 
-// GetAgentId returns __CreateAppInput.AgentId, and is useful for accessing the field via an interface.
-func (v *__CreateAppInput) GetAgentId() string { return v.AgentId }
+// GetAgentRef returns __CreateAppInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__CreateAppInput) GetAgentRef() string { return v.AgentRef }
 
 // GetName returns __CreateAppInput.Name, and is useful for accessing the field via an interface.
 func (v *__CreateAppInput) GetName() string { return v.Name }
@@ -14664,11 +14685,11 @@ func (v *__CreateUserInvitationInput) GetMaxActivations() *int { return v.MaxAct
 
 // __DeleteAgentInput is used internally by genqlient
 type __DeleteAgentInput struct {
-	Id string `json:"id"`
+	Ref string `json:"ref"`
 }
 
-// GetId returns __DeleteAgentInput.Id, and is useful for accessing the field via an interface.
-func (v *__DeleteAgentInput) GetId() string { return v.Id }
+// GetRef returns __DeleteAgentInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteAgentInput) GetRef() string { return v.Ref }
 
 // __DeleteAgentScheduleInput is used internally by genqlient
 type __DeleteAgentScheduleInput struct {
@@ -14696,11 +14717,11 @@ func (v *__DeleteAiServiceConfigInput) GetId() string { return v.Id }
 
 // __DeleteAppInput is used internally by genqlient
 type __DeleteAppInput struct {
-	Id string `json:"id"`
+	Ref string `json:"ref"`
 }
 
-// GetId returns __DeleteAppInput.Id, and is useful for accessing the field via an interface.
-func (v *__DeleteAppInput) GetId() string { return v.Id }
+// GetRef returns __DeleteAppInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteAppInput) GetRef() string { return v.Ref }
 
 // __DeleteEdgeInput is used internally by genqlient
 type __DeleteEdgeInput struct {
@@ -15428,7 +15449,7 @@ func (v *__TriggerAppRunInput) GetInput() *TriggerAppRunInput { return v.Input }
 
 // __UpdateAgentInput is used internally by genqlient
 type __UpdateAgentInput struct {
-	Id             string           `json:"id"`
+	Ref            string           `json:"ref"`
 	Name           *string          `json:"name,omitempty"`
 	Description    *string          `json:"description,omitempty"`
 	AgentType      *AgentType       `json:"agentType,omitempty"`
@@ -15439,8 +15460,8 @@ type __UpdateAgentInput struct {
 	Urn            *string          `json:"urn,omitempty"`
 }
 
-// GetId returns __UpdateAgentInput.Id, and is useful for accessing the field via an interface.
-func (v *__UpdateAgentInput) GetId() string { return v.Id }
+// GetRef returns __UpdateAgentInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetRef() string { return v.Ref }
 
 // GetName returns __UpdateAgentInput.Name, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetName() *string { return v.Name }
@@ -16984,8 +17005,8 @@ func CreateAiServiceConfig(
 
 // The mutation executed by CreateApp.
 const CreateApp_Operation = `
-mutation CreateApp ($orgId: ID, $agentId: ID!, $name: String!, $urn: String, $appType: AppType, $description: String) {
-	createApp(orgId: $orgId, agentId: $agentId, name: $name, urn: $urn, appType: $appType, description: $description) {
+mutation CreateApp ($orgRef: ID, $agentRef: ID!, $name: String!, $urn: String, $appType: AppType, $description: String) {
+	createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description) {
 		id
 		urn
 		name
@@ -17000,8 +17021,8 @@ mutation CreateApp ($orgId: ID, $agentId: ID!, $name: String!, $urn: String, $ap
 func CreateApp(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	orgId *string,
-	agentId string,
+	orgRef *string,
+	agentRef string,
 	name string,
 	urn *string,
 	appType *AppType,
@@ -17011,8 +17032,8 @@ func CreateApp(
 		OpName: "CreateApp",
 		Query:  CreateApp_Operation,
 		Variables: &__CreateAppInput{
-			OrgId:       orgId,
-			AgentId:     agentId,
+			OrgRef:      orgRef,
+			AgentRef:    agentRef,
 			Name:        name,
 			Urn:         urn,
 			AppType:     appType,
@@ -17775,21 +17796,21 @@ func CreateUserInvitation(
 
 // The mutation executed by DeleteAgent.
 const DeleteAgent_Operation = `
-mutation DeleteAgent ($id: ID!) {
-	deleteAgent(id: $id)
+mutation DeleteAgent ($ref: ID!) {
+	deleteAgent(ref: $ref)
 }
 `
 
 func DeleteAgent(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 ) (data_ *DeleteAgentResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteAgent",
 		Query:  DeleteAgent_Operation,
 		Variables: &__DeleteAgentInput{
-			Id: id,
+			Ref: ref,
 		},
 	}
 
@@ -17903,21 +17924,21 @@ func DeleteAiServiceConfig(
 
 // The mutation executed by DeleteApp.
 const DeleteApp_Operation = `
-mutation DeleteApp ($id: ID!) {
-	deleteApp(id: $id)
+mutation DeleteApp ($ref: ID!) {
+	deleteApp(ref: $ref)
 }
 `
 
 func DeleteApp(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 ) (data_ *DeleteAppResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteApp",
 		Query:  DeleteApp_Operation,
 		Variables: &__DeleteAppInput{
-			Id: id,
+			Ref: ref,
 		},
 	}
 
@@ -21035,8 +21056,8 @@ func TriggerAppRun(
 
 // The mutation executed by UpdateAgent.
 const UpdateAgent_Operation = `
-mutation UpdateAgent ($id: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!], $urn: String) {
-	updateAgent(id: $id, name: $name, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn) {
+mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!], $urn: String) {
+	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn) {
 		... AgentFields
 	}
 }
@@ -21061,7 +21082,7 @@ fragment AgentFields on Agent {
 func UpdateAgent(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 	name *string,
 	description *string,
 	agentType *AgentType,
@@ -21075,7 +21096,7 @@ func UpdateAgent(
 		OpName: "UpdateAgent",
 		Query:  UpdateAgent_Operation,
 		Variables: &__UpdateAgentInput{
-			Id:             id,
+			Ref:            ref,
 			Name:           name,
 			Description:    description,
 			AgentType:      agentType,
