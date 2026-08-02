@@ -202,6 +202,45 @@ func TestAgentGet(t *testing.T) {
 	}
 }
 
+// #789 — `agent update` / `agent rm` accept a fully-qualified URN, not just a
+// PK. The CLI always passed the user's argument straight through; what changed
+// is server-side (updateAgent/deleteAgent did a PK-only findUniqueOrThrow, so a
+// URN was rejected). These pin that the URN reaches the wire untouched, so the
+// capability can't regress by someone re-adding a client-side pre-resolve.
+func TestAgentUpdateAcceptsURN(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateAgent": `{"data":{"updateAgent":` + agentJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "update", "acme.com::support-bot", "--name", "Bot v2", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateAgent"], &vars)
+	if vars["ref"] != "acme.com::support-bot" {
+		t.Errorf("update by URN should send the URN as ref, got: %v", vars)
+	}
+}
+
+func TestAgentRmAcceptsURN(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"DeleteAgent": `{"data":{"deleteAgent":true}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "rm", "acme.com::support-bot", "--yes", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["DeleteAgent"], &vars)
+	if vars["ref"] != "acme.com::support-bot" {
+		t.Errorf("rm by URN should send the URN as ref, got: %v", vars)
+	}
+}
+
 func TestAgentUpdate(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"UpdateAgent": `{"data":{"updateAgent":` + agentJSON + `}}`,
@@ -214,7 +253,8 @@ func TestAgentUpdate(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["UpdateAgent"], &vars)
-	if vars["id"] != "agt1" || vars["name"] != "Bot v2" || vars["visibility"] != "PUBLIC" {
+	// #789: the wire arg is `ref` (PK or fully-qualified URN), not `id`.
+	if vars["ref"] != "agt1" || vars["name"] != "Bot v2" || vars["visibility"] != "PUBLIC" {
 		t.Errorf("update vars: %v", vars)
 	}
 	// Unset fields must be omitted (preserve), not sent.
@@ -274,7 +314,8 @@ func TestAgentRmWithYes(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["DeleteAgent"], &vars)
-	if vars["id"] != "agt1" {
+	// #789: `ref`, not `id`.
+	if vars["ref"] != "agt1" {
 		t.Errorf("rm vars: %v", vars)
 	}
 }

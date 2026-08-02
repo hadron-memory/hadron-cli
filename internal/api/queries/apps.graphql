@@ -22,11 +22,11 @@ query Apps(
 }
 
 mutation CreateApp(
-  # spec 047: omit orgId to create a user-owned (personal) App under the
+  # spec 047: omit orgRef to create a user-owned (personal) App under the
   # caller's @handle. omitempty so a nil pointer is omitted, not sent as null.
   # @genqlient(omitempty: true)
-  $orgId: ID
-  $agentId: ID!
+  $orgRef: ID
+  $agentRef: ID!
   $name: String!
   # @genqlient(omitempty: true)
   $urn: String
@@ -36,8 +36,8 @@ mutation CreateApp(
   $description: String
 ) {
   createApp(
-    orgId: $orgId
-    agentId: $agentId
+    orgRef: $orgRef
+    agentRef: $agentRef
     name: $name
     urn: $urn
     appType: $appType
@@ -53,6 +53,6 @@ mutation CreateApp(
   }
 }
 
-mutation DeleteApp($id: ID!) {
-  deleteApp(id: $id)
+mutation DeleteApp($ref: ID!) {
+  deleteApp(ref: $ref)
 }

@@ -527,15 +527,48 @@ enum AppMemoryKind {
 }
 
 type AppRun {
+  """
+  Total budgeted actions consumed (#832) — only actions actually admitted by
+  the budget guard; a denied action counts nothing.
+  
+  NULL means UNKNOWN, not zero: runs minted before the counter existed have
+  no recorded action spend and, unlike tokens, no hop-trail signal to
+  reconstruct one from. Reporting 0 would contradict their already-decremented
+  budgetActions.
+  """
+  actionsSpent: Int
+
+  """
+  The agent that ran, when the run resolved one and the caller may read it.
+  """
+  agent: Agent
   agentId: ID
+
+  """
+  The App this run activated. Null when the caller may not read that App, or
+  when the App row was hard-deleted. appId remains the audit record.
+  """
+  app: App
   appId: ID!
   attempts: Int!
 
   """Remaining action budget — live-decremented per write/tool action."""
   budgetActions: Int
 
+  """
+  The action budget this run was minted with (#832). NULL for pre-existing runs.
+  """
+  budgetActionsInitial: Int
+
   """Remaining LLM-token budget — live-decremented; zero halts the run."""
   budgetTokens: Int
+
+  """
+  The token budget this run was MINTED with — budgetTokens is what REMAINS.
+  NULL for runs minted before this was recorded, which is deliberate: 0 would
+  render as 'no budget' rather than 'unknown'.
+  """
+  budgetTokensInitial: Int
   createdAt: DateTime!
   createdBy: String
   curNodeUrn: String
@@ -544,6 +577,13 @@ type AppRun {
   The run envelope (plan-multi-node D-MN-1): fields extracted by flow nodes as the walker advances. eventData stays the immutable trigger payload; on key collision the envelope wins.
   """
   data: JSON
+
+  """
+  The resolved entry node. NULLABLE by design — entryNodeUrn is the immutable
+  audit record and the node may have been deleted, moved, or be unreadable to
+  this caller since the run. A null here is a normal, expected state.
+  """
+  entryNode: Node
   entryNodeUrn: String!
   eventData: JSON
   failure: JSON
@@ -565,6 +605,26 @@ type AppRun {
   startedAt: DateTime
   status: AppRunStatus!
   timeoutMs: Int
+
+  """
+  Total LLM tokens consumed by this run (#832). Unclamped, so it stays
+  truthful when a hop overshoots the remaining budget — unlike
+  budgetTokensInitial minus budgetTokens, whose decrement is clamped.
+  
+  Counts every hop whose LLM call COMPLETED, including hops whose run later
+  failed — strictly more than a sum over the hops trail, which has no element
+  for a hop that did not complete.
+  
+  KNOWN GAP: a hop aborted by the TOOL LOOP (a tool denied by policy, or a
+  tool handler that threw) is NOT counted. The provider has already billed
+  that call, but the tool-loop helper discards the accumulated usage when a
+  tool throws, so the number is not available at the failure site. Such a run
+  under-reports. Do not treat this as a billing figure.
+  
+  NULL means UNKNOWN: a run minted before the counter existed, with no hop
+  trail to back-fill from. 0 means it genuinely spent nothing.
+  """
+  tokensSpent: Int
   triggerId: ID
   triggerKind: AppRunTriggerKind!
 
@@ -573,8 +633,34 @@ type AppRun {
   """
   urn: String
 
+  """
+  On-behalf-of user (cor:agt:010:01). Null = pure App service identity. Personal fields on the returned User carry their own #384 gate.
+  """
+  user: User
+
   """On-behalf-of user (cor:agt:010:01). Null = pure App service identity."""
   userId: ID
+}
+
+"""
+Orderable columns on the appRuns list (#833). Reuses the shared
+SortDirection enum. Default createdAt desc — existing callers depend on
+newest-first.
+
+startedAt / finishedAt are NULLABLE (a PENDING run has neither); nulls sort
+LAST in both directions, so unstarted runs never crowd out the rows an
+operator asked to see. Every sort carries an id tiebreak so offset paging is
+deterministic.
+
+Duration (finishedAt - startedAt) is deliberately absent: it has no stored
+column and Prisma cannot order by a computed expression, so it needs a
+generated column of its own - tracked separately rather than half-shipped.
+"""
+enum AppRunSortField {
+  createdAt
+  finishedAt
+  startedAt
+  status
 }
 
 enum AppRunStatus {
@@ -2001,6 +2087,76 @@ type MemorySubscription {
   role: Role!
 }
 
+"""One health check the validator runs (#819)."""
+enum MemoryValidationCheck {
+  """
+  An edge whose target node is missing OR soft-deleted. A hard-deleted target cannot occur - Edge.target is FK-enforced with onDelete: Cascade - so in practice this means a dangling edge to a tombstone.
+  """
+  BROKEN_REF
+
+  """
+  embedding_failed_at is set - transient-awaiting-retry, cap-exhausted, or the #206 permanent class (spec 033). Such a node is absent from vector search, which from outside looks identical to no hits matching.
+  """
+  EMBED_FAILED
+
+  """objectType/properties violate the memory declared schema (#725)."""
+  SCHEMA
+
+  """A node with no description, content, or abstract."""
+  SPARSE
+
+  """The abstract no longer reflects current content (spec 032 FR-011)."""
+  STALE_ABSTRACT
+}
+
+"""
+One finding (#819). nodeUrn is null when the URN could not be composed - a memory URN the flat v2 shape cannot express, or an unexpected/legacy loc - in which case nodeId and nodeLoc still identify the node.
+"""
+type MemoryValidationFinding {
+  detail: String!
+  kind: MemoryValidationCheck!
+  nodeId: ID!
+  nodeLoc: String!
+  nodeUrn: String
+}
+
+type MemoryValidationResult {
+  """Findings, capped by the limit argument."""
+  findings: [MemoryValidationFinding!]!
+  memoryId: ID!
+
+  """
+  Nodes scanned. The whole memory in one pass - the checks are cross-referential, so a partial scan would produce false positives rather than fewer findings.
+  """
+  nodesChecked: Int!
+
+  """
+  True only when EVERY check ran and none found anything. A skipped check
+  makes this false even with zero findings - you cannot claim health for a
+  check you did not run.
+  """
+  ok: Boolean!
+  skippedChecks: [MemoryValidationSkippedCheck!]!
+
+  """
+  The TRUE finding count, before any truncation - gate CI on this, not on findings.length.
+  """
+  totalFindings: Int!
+
+  """True when findings was capped and totalFindings is larger."""
+  truncated: Boolean!
+}
+
+"""
+A check that could NOT run (#819). Reported explicitly rather than silently
+omitted: a clean bill of health that quietly skipped a check is worse than no
+report at all.
+"""
+type MemoryValidationSkippedCheck {
+  check: MemoryValidationCheck!
+  reason: String!
+}
+
 """
 035-visibility-enum-cleanup: meaningful only for knowledge
 (PUBLIC/ORGANIZATION) and group (GROUP); null otherwise. PERSONAL/PRIVATE
@@ -2091,7 +2247,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  addAgentToApp(agentId: ID!, appId: ID!, trainingMode: Boolean): App! @deprecated(reason: "Use installAgentIntoApp (spec 023-app-shape US1). Returns Payload type with the AppAgent row.")
+  addAgentToApp(agentRef: ID!, appRef: ID!, trainingMode: Boolean): App! @deprecated(reason: "Use installAgentIntoApp (spec 023-app-shape US1). Returns Payload type with the AppAgent row.")
 
   """
   023-app-shape US4 — add a team member to a group-class Memory.
@@ -2134,7 +2290,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  addMemoryToAgent(agentId: ID!, memoryId: ID!, role: String): Agent!
+  addMemoryToAgent(agentRef: ID!, memoryRef: ID!, role: String): Agent!
 
   """Accepts the entity's ID or URN (orgId)."""
   addOrgMember(
@@ -2307,7 +2463,7 @@ type Mutation {
     affordance to Agents owned by the caller org. A hard server-side
     cross-org gate is reserved for the marketplace spec.
     """
-    agentId: ID!
+    agentRef: ID!
     agentTools: [String!]
     aiApiKey: String
     aiModel: String
@@ -2333,7 +2489,7 @@ type Mutation {
     USER-OWNED App owned by the caller (spec 047) — namespaced under the
     caller's @handle, owner-only in v1. Accepts the org's ID or URN.
     """
-    orgId: ID
+    orgRef: ID
 
     """
     App-layer action-policy link (cor:acl:040:02, #510). Explicit null clears; omitted preserves.
@@ -2352,7 +2508,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  createAppKey(appId: ID!, label: String): AppKeyCreated!
+  createAppKey(appRef: ID!, label: String): AppKeyCreated!
   createAppUser(email: String, externalId: String!, handle: String, name: String): User!
 
   """
@@ -2616,7 +2772,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  deleteAgent(id: ID!): Boolean!
+  deleteAgent(ref: ID!): Boolean!
   deleteAgentSchedule(id: ID!): Boolean!
   deleteAgentWebhook(id: ID!): Boolean!
 
@@ -2633,7 +2789,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  deleteApp(id: ID!): Boolean!
+  deleteApp(ref: ID!): Boolean!
   deleteChat(chatId: String!): Boolean!
 
   """
@@ -2920,7 +3076,7 @@ type Mutation {
   every installed Agent — training mode is per-App, not per-Agent,
   per spec 023 FR-001).
   """
-  installAgentIntoApp(agentId: ID!, appId: ID!, trainingMode: Boolean): InstallAgentIntoAppPayload!
+  installAgentIntoApp(agentRef: ID!, appRef: ID!, trainingMode: Boolean): InstallAgentIntoAppPayload!
   inviteUser(email: String, expiresInDays: Int, githubUsername: String, maxActivations: Int, name: String): UserInvitation!
 
   """
@@ -3002,7 +3158,7 @@ type Mutation {
   
   Accepts the entity's ID or URN for both Agent ids.
   """
-  publishAgentImport(importedAgentId: ID!, parentAgentId: ID!, position: Int!, required: Boolean = true): AgentImport!
+  publishAgentImport(importedAgentRef: ID!, parentAgentRef: ID!, position: Int!, required: Boolean = true): AgentImport!
 
   """
   Publish a revision and pin the Agent to it.
@@ -3025,7 +3181,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  regenerateAppKey(id: ID!): AppCreated!
+  regenerateAppKey(appRef: ID!): AppCreated!
 
   """
   Release the editor lock for an Agent's system memory.
@@ -3040,7 +3196,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  removeAgentFromApp(agentId: ID!, appId: ID!): App! @deprecated(reason: "Use uninstallAgentFromApp (spec 023-app-shape US1).")
+  removeAgentFromApp(agentRef: ID!, appRef: ID!): App! @deprecated(reason: "Use uninstallAgentFromApp (spec 023-app-shape US1).")
 
   """
   Delete a dependency edge between two Agents. Idempotent (no-op when
@@ -3050,7 +3206,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  removeAgentImport(importedAgentId: ID!, parentAgentId: ID!): Boolean!
+  removeAgentImport(importedAgentRef: ID!, parentAgentRef: ID!): Boolean!
 
   """
   Delete an AppMember row. Idempotent (no-op when the row doesn't exist).
@@ -3078,7 +3234,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  removeMemoryFromAgent(agentId: ID!, memoryId: ID!): Agent!
+  removeMemoryFromAgent(agentRef: ID!, memoryRef: ID!): Agent!
 
   """
   023-app-shape US4 — remove a team member. Idempotent. Removing
@@ -3247,7 +3403,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  uninstallAgentFromApp(agentId: ID!, appId: ID!): UninstallAgentFromAppPayload!
+  uninstallAgentFromApp(agentRef: ID!, appRef: ID!): UninstallAgentFromAppPayload!
 
   """
   Remove all GitHub App config from an organization.
@@ -3261,7 +3417,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  updateAgent(description: String, id: ID!, listedOnMarketplace: Boolean, name: String, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, urn: String, visibility: AgentVisibility): Agent!
+  updateAgent(description: String, listedOnMarketplace: Boolean, name: String, ref: ID!, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, urn: String, visibility: AgentVisibility): Agent!
 
   """
   Update an Agent's AI provider config. Key is encrypted at rest.
@@ -3279,7 +3435,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  updateAgentMemoryRole(agentId: ID!, memoryId: ID!, role: String!): Agent!
+  updateAgentMemoryRole(agentRef: ID!, memoryRef: ID!, role: String!): Agent!
   updateAgentSchedule(id: ID!, input: UpdateAgentScheduleInput!): AgentSchedule!
 
   """
@@ -3297,7 +3453,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  updateApp(agentTools: [String!], aiApiKey: String, aiModel: String, aiProvider: String, anonymousTtlDays: Int, appType: AppType, createUserPermission: CreateUserPermission, description: String, expiresAt: String, id: ID!, identifyUserMethod: IdentifyUserMethod, name: String, role: AppMembershipRole, sessionTimeoutSeconds: Int, surfaces: [String!], systemPrompt: String, trainingMode: Boolean, urn: String): App!
+  updateApp(agentTools: [String!], aiApiKey: String, aiModel: String, aiProvider: String, anonymousTtlDays: Int, appType: AppType, createUserPermission: CreateUserPermission, description: String, expiresAt: String, identifyUserMethod: IdentifyUserMethod, name: String, ref: ID!, role: AppMembershipRole, sessionTimeoutSeconds: Int, surfaces: [String!], systemPrompt: String, trainingMode: Boolean, urn: String): App!
   updateChatTitle(chatId: String!, title: String!): Boolean!
 
   """
@@ -4289,7 +4445,25 @@ type Query {
   One run (cor:agt:010:02). ref is an AppRun ID or an hrn:apprun:<root>:<app>:<run-id> URN (#696).
   """
   appRun(ref: ID!): AppRun
-  appRuns(appRef: String, limit: Int, offset: Int, orgRef: String, parentRunId: ID, status: AppRunStatus): AppRunsPage!
+
+  """
+  The run audit list.
+  
+  statuses (#836) is a disjunction — 'everything still in flight' is
+  [PENDING, RUNNING] and 'what went wrong' is [FAILED, TIMED_OUT], neither of
+  which the single-valued status arg could express. Per
+  conventions:multi-ref-scope-args: OMITTING it means no status filter, while
+  an explicitly EMPTY list is the EMPTY scope and returns nothing - it never
+  silently falls back to 'all'. Values are deduped; an unknown member is
+  rejected by enum validation rather than dropped.
+  
+  status is DEPRECATED in favour of statuses. Both are accepted for one
+  release; when both are given, statuses wins.
+  
+  sortBy / sortDir (#833) order the whole result set server-side, so a client
+  table is no longer limited to sorting the page it happens to hold.
+  """
+  appRuns(appRef: String, limit: Int, offset: Int, orgRef: String, parentRunId: ID, sortBy: AppRunSortField, sortDir: SortDirection, status: AppRunStatus @deprecated(reason: "Use statuses (#836) - a single value cannot express PENDING-or-RUNNING."), statuses: [AppRunStatus!]): AppRunsPage!
 
   """
   Uniform paginated app list (#473) — replaces the org-ADMIN apps(orgId!)
@@ -4763,6 +4937,27 @@ type Query {
   myUserApiKeys: [UserApiKey!]!
 
   """
+  The next sibling node under a parent, ordered by seq (#817) — the GraphQL
+  twin of hadron_get_next_node, so guided reading order is no longer MCP-only.
+  
+  parentRef / currentRef take a node PK or a fully-qualified URN
+  (cor:api:140). Omit currentRef to get the FIRST child.
+  
+  Order: seq ascending; a NULL seq sorts LAST, after every explicitly ordered
+  sibling; ties break on loc ascending. Identical to the MCP tool, so the two
+  surfaces cannot present different reading orders.
+  
+  Returns null at the end of the sibling chain, and for a parent that does
+  not exist or the caller cannot read — denied and missing are indistinguishable. A
+  currentRef that is not among the parent's direct children is likewise null
+  rather than an error, so it cannot probe a node's parentage. A MALFORMED
+  ref still throws: a shape error discloses nothing about what exists.
+  
+  Stateless — this is a next-sibling read, not a session-backed cursor.
+  """
+  nextNode(currentRef: ID, parentRef: ID!, raw: Boolean): Node
+
+  """
   The uniform single-node read (#473) — subsumes the former nodeById(id:)
   and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
   
@@ -4894,10 +5089,16 @@ type Query {
   explicit, paginated surface rather than a value in a filter.
   
   filter.type narrows by AgentType; filter.visibility is IGNORED (the slice
-  is PUBLIC by definition). Field-level exposure is slim for non-members:
-  systemPrompt / systemMemoryId / memoryItems / imports / importedBy are
-  member/admin-gated (null / [] for outsiders). Name-ascending order
-  (id tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
+  is PUBLIC by definition).
+  
+  Field-level exposure: a PUBLIC agent publishes its OWN definition
+  (systemPrompt / systemMemoryId / memoryItems / imports) to every caller —
+  that is what a marketplace listing is (#551). The fields that surface OTHER
+  tenants (apps / appAgents / appCount / orgGrants / importedBy) are scoped to
+  the caller's own access and come back empty for an outsider (#552, #757).
+  
+  Name-ascending order (id tiebreak); limit default 50 / cap 200;
+  limit: 0 -> count only.
   """
   publicAgents(filter: PublicAgentFilter, limit: Int, offset: Int): AgentsPage!
 
@@ -4915,6 +5116,38 @@ type Query {
   Usage-vs-limit counters for an org (+ one app when appRef given). Org-ADMIN. Rows materialize on first view, seeded with platform defaults (#510).
   """
   quotaCounters(appRef: String, orgRef: String!): [QuotaCounter!]!
+
+  """
+  Render a run/action node WITHOUT executing it (#818) — the GraphQL twin of
+  hadron_run_action, which despite its name executes nothing: it loads the
+  node, resolves its dependency edges, and renders with args.
+  
+  runTask covers the EXECUTE half. This is the render half, for previewing a
+  task before running it (a task run --dry-run), for reading an action's
+  assembled instructions when the CALLER is the executor, and for debugging
+  template/dependency resolution without side effects.
+  
+  A Query because it is side-effect-free, and unlike the MCP tool it records
+  NO action-run UsageEvent — metering a preview would inflate the ledger with
+  actions nobody took.
+  
+  Uses the SAME assembler runTask executes (Mustache compilation via
+  compileTemplate; flow-ROUTING edges skipped, since they are the walker's
+  rails rather than references), so a dry run predicts the real prompt.
+  
+  Two deliberate narrowings relative to execution, both fail-safe: a
+  referenced node the caller cannot READ is omitted rather than inlined
+  (an edge may cross memories), and an edge whose target was soft-deleted is
+  skipped so a preview cannot resurrect removed instructions.
+  
+  NOTE this is NOT the legacy MCP hadron_run_action bundle, which does a
+  literal placeholder replace and inlines every outgoing edge. Where the two
+  differ, this one matches execution.
+  
+  nodeRef is a node PK or a fully-qualified URN (cor:api:140). Denied and
+  missing both raise NODE_NOT_FOUND - no existence oracle.
+  """
+  renderRunNode(args: JSON, nodeRef: String!): String!
 
   """
   Fetch one sanitized BYO Resend sender config; null for missing or inaccessible.
@@ -5100,6 +5333,23 @@ type Query {
   tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
   """
   users(filter: UserFilter, limit: Int, offset: Int): UsersPage!
+
+  """
+  Memory health audit (#819) — the GraphQL twin of hadron_validate, which was
+  MCP-only, so the CLI, the portal and CI had no way to answer "is this
+  memory healthy?".
+  
+  Every check is over server-owned state a client cannot compute:
+  abstractOriginHash vs current content, embedding_failed_at (not projected
+  on Node at all), and property-schema conformance. So unlike other gaps
+  there is no slow client-side fallback.
+  
+  Returns TYPED findings so a caller can branch and CI can gate on
+  totalFindings. findings is capped by limit (default 200, max 1000) while
+  totalFindings reports the true count - so a gate is never fooled by
+  truncation. Read gate as the rest of the memory reads.
+  """
+  validateMemory(limit: Int, memoryRef: ID!): MemoryValidationResult!
 }
 
 """
@@ -5714,12 +5964,28 @@ type UsageSummaryEntry {
 
 type User {
   appMemberships: [AppMember!]!
+
+  """Apple account subject id (#837). Same gate and rationale as googleId."""
+  appleId: String
   avatarUrl: String
   email: String
   externalAppId: String
   externalId: String
   githubId: Int
   githubUsername: String
+
+  """
+  Google account subject id (#837). Opaque provider identifier, never an
+  address. Withheld (null) from a viewer who is not the user themselves, a
+  platform admin, or a co-member of one of their orgs — the same #384 gate that
+  name/email use.
+  
+  Load-bearing for duplicate-account triage: mergeUsers adopts a source
+  provider id only where the target column is null, and identityProvider
+  records only which provider CREATED the row, so it cannot be used to infer
+  this (a GITHUB row may carry a linked googleId).
+  """
+  googleId: String
   handle: String
   id: ID!
   identityProvider: String
