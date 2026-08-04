@@ -47,7 +47,10 @@ func TestImpersonationTokenLive(t *testing.T) {
 	}
 }
 
-// mutableStore records Set/Delete so we can assert the expired-token cleanup.
+// mutableStore is an in-memory Store double. `deleted` records Delete calls;
+// note ResolveImpersonationToken's expired-token cleanup goes through
+// store.Purge (all backends, best-effort), not this double, so the tests
+// assert the RESOLUTION result rather than the cleanup side effect.
 type mutableStore struct {
 	tokens  map[string]string
 	deleted []string
@@ -82,6 +85,23 @@ func TestResolveImpersonationToken(t *testing.T) {
 	empty := &mutableStore{tokens: map[string]string{}}
 	if got := ResolveImpersonationToken(empty, server); got != "" {
 		t.Errorf("absent token = %q, want empty", got)
+	}
+
+	// An EXPIRED token resolves to "" so the caller falls through to the real
+	// credential — a lapsed session must never wedge the CLI.
+	expired := &mutableStore{
+		tokens: map[string]string{key: makeImpToken(t, time.Now().Add(-time.Hour).Unix(), true)},
+	}
+	if got := ResolveImpersonationToken(expired, server); got != "" {
+		t.Errorf("expired token = %q, want empty", got)
+	}
+
+	// A non-impersonation token filed under the key is ignored too.
+	notImp := &mutableStore{
+		tokens: map[string]string{key: makeImpToken(t, time.Now().Add(time.Hour).Unix(), false)},
+	}
+	if got := ResolveImpersonationToken(notImp, server); got != "" {
+		t.Errorf("non-impersonation token = %q, want empty", got)
 	}
 }
 

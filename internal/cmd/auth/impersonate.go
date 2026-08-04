@@ -1,14 +1,17 @@
 package auth
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	authpkg "github.com/hadron-memory/hadron-cli/internal/auth"
+	"github.com/hadron-memory/hadron-cli/internal/auth/store"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -62,6 +65,17 @@ func newCmdImpersonate(f *cmdutil.Factory) *cobra.Command {
 }
 
 func runStartImpersonation(cmd *cobra.Command, f *cmdutil.Factory, userRef, org, reason string, yes bool) error {
+	// HADRON_TOKEN outranks the stored impersonation token in Factory.Token(),
+	// so starting a session while it is exported would report a READ-ONLY
+	// session that isn't: every later command would silently run with the
+	// admin credential, mutations included. Refuse rather than mislead
+	// (PR #345 review, P1).
+	if os.Getenv(store.EnvToken) != "" {
+		return exitcode.Newf(exitcode.Usage,
+			"%s is set and takes precedence over an impersonation session — unset it before impersonating, "+
+				"otherwise later commands would run as you, not the target", store.EnvToken)
+	}
+
 	// An impersonation session must not stack on another — Factory.Token()
 	// would already be handing out the existing impersonation token.
 	server, err := f.Server()
@@ -103,8 +117,17 @@ func runStartImpersonation(cmd *cobra.Command, f *cmdutil.Factory, userRef, org,
 	result := resp.StartImpersonation
 	// File the token under the impersonation key (beside, not over, the admin's
 	// own credential) so Factory.Token() prefers it until stop/expiry.
-	if err := f.TokenStore().Set(authpkg.ImpersonationHostKey(server), result.Token); err != nil {
+	impKey := authpkg.ImpersonationHostKey(server)
+	if err := f.TokenStore().Set(impKey, result.Token); err != nil {
 		return fmt.Errorf("storing the impersonation token: %w", err)
+	}
+	// Clear the key from the OTHER backend (the auth login precedent): if
+	// keychain availability flips between runs, a stale copy left in the
+	// backend we didn't write could resurrect a dead session. Non-fatal — the
+	// token we just wrote is the live one either way.
+	if err := store.ClearExcept(f.TokenStore(), impKey); err != nil {
+		fmt.Fprintf(f.IOStreams.ErrOut,
+			"warning: could not clear a stale impersonation token from the other credential store: %v\n", err)
 	}
 
 	targetLabel := user.Id
@@ -136,7 +159,13 @@ func runStopImpersonation(cmd *cobra.Command, f *cmdutil.Factory) error {
 		return err
 	}
 	key := authpkg.ImpersonationHostKey(server)
-	token, _ := f.TokenStore().Get(key)
+	token, err := f.TokenStore().Get(key)
+	// Distinguish "nothing filed" from "the store is unreadable" — reporting a
+	// corrupt auth.json as "no active session" would leave a live session the
+	// user believes is stopped (PR #345 review).
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("reading the stored impersonation token: %w", err)
+	}
 	if token == "" {
 		dto := impersonateResult{Status: "no_active_session"}
 		return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -161,7 +190,10 @@ func runStopImpersonation(cmd *cobra.Command, f *cmdutil.Factory) error {
 			}
 		}
 	}
-	if err := f.TokenStore().Delete(key); err != nil {
+	// Purge from EVERY backend, not just the one resolved now — the same
+	// cross-backend rule `auth logout` follows. Deleting only the selected
+	// store can leave a live token that reappears when availability flips.
+	if _, err := store.Purge(key); err != nil {
 		return fmt.Errorf("clearing the impersonation token: %w", err)
 	}
 

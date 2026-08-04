@@ -58,9 +58,11 @@ func decodeImpClaims(token string) (impJWTClaims, bool) {
 }
 
 // ResolveImpersonationToken returns a LIVE stored impersonation token for the
-// server, or "" if none is filed. A stored-but-expired token is deleted from
-// every backend as a side effect (so `Token()` can then fall through to the
-// real credential without the caller re-checking).
+// server, or "" if none is filed. A stored-but-expired token is purged on a
+// BEST-EFFORT basis as a side effect (across backends; purge errors are
+// ignored) so `Token()` can fall through to the real credential without the
+// caller re-checking. Treat the cleanup as opportunistic, not guaranteed —
+// correctness rests on the liveness check, not on the delete succeeding.
 func ResolveImpersonationToken(st store.Store, serverURL string) string {
 	key := ImpersonationHostKey(serverURL)
 	token, err := st.Get(key)

@@ -118,6 +118,12 @@ func describeSource(dto statusResult) string {
 	if dto.TokenSource == string(authpkg.SourceEnv) {
 		return "HADRON_TOKEN"
 	}
+	// TokenStorage is only set for a store-resolved credential, so fall back to
+	// the source label — otherwise an impersonation token that the server
+	// rejects renders as "token from  was rejected" (PR #345 review).
+	if dto.TokenStorage == "" {
+		return dto.TokenSource
+	}
 	return dto.TokenStorage
 }
 
