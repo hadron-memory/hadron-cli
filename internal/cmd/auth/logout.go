@@ -22,6 +22,14 @@ func newCmdLogout(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// An active impersonation session must not survive logout: it is
+			// filed under its own key, so purging only the credential key
+			// would leave Factory.Token() still resolving it — "logged out"
+			// while still authenticated as the target (PR #345 review).
+			impRemoved, err := store.Purge(auth.ImpersonationHostKey(server))
+			if err != nil {
+				return err
+			}
 			// Delete from EVERY backend, not just the one Resolve() picks now:
 			// a token written to the plaintext file on a headless box would
 			// otherwise survive a logout that resolves to the keychain, and
@@ -30,6 +38,7 @@ func newCmdLogout(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			removed = removed || impRemoved
 			if !removed {
 				dto := map[string]string{"server": server, "status": "no_stored_credential"}
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

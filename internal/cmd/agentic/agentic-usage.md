@@ -14,7 +14,15 @@ echo $TOKEN | hadron auth login --with-token   # store a PAT
 HADRON_TOKEN=hdr_user_...     # env var, overrides stored tokens (CI)
 hadron auth token create      # mint a PAT (after login); list | revoke <id> to manage
 echo $TOKEN | hadron auth token validate   # check a PAT: exit 0 valid / 3 rejected
+hadron auth impersonate <user> --org <org>   # admin: view read-only as a member
+hadron auth impersonate --stop               # end the impersonation session
 ```
+
+`hadron auth impersonate` is for org ADMIN/OWNER support/diagnostics: it
+starts a read-only session as another member of `--org` (peer-or-below — an
+ADMIN can't impersonate an OWNER), scoped to that one org, and files a
+short-TTL token that every later command prefers until `--stop` or expiry.
+`hadron auth whoami` / `status` announce the acting-as state loudly.
 
 Tokens are long-lived `hdr_user_*` personal access tokens, minted with
 `hadron auth token create` (after an interactive `auth login`) or in the

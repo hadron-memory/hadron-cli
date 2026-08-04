@@ -1,0 +1,28 @@
+# Admin impersonation (read-only support sessions). start returns the
+# short-TTL token exactly once; the CLI stores it under a host-derived
+# impersonation key and prefers it in Factory.Token().
+mutation StartImpersonation($orgRef: String!, $userRef: String!, $reason: String) {
+  startImpersonation(orgRef: $orgRef, userRef: $userRef, reason: $reason) {
+    token
+    session {
+      id
+      expiresAt
+      organization {
+        id
+        name
+      }
+      targetUser {
+        id
+        handle
+        name
+      }
+    }
+  }
+}
+
+mutation StopImpersonation($id: ID) {
+  stopImpersonation(id: $id) {
+    id
+    endedAt
+  }
+}

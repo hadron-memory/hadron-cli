@@ -13,9 +13,10 @@ import (
 type TokenSource string
 
 const (
-	SourceEnv   TokenSource = "HADRON_TOKEN"
-	SourceStore TokenSource = "store"
-	SourceNone  TokenSource = ""
+	SourceEnv           TokenSource = "HADRON_TOKEN"
+	SourceStore         TokenSource = "store"
+	SourceImpersonation TokenSource = "impersonation"
+	SourceNone          TokenSource = ""
 )
 
 // Host extracts the host key used for token storage from a server URL.
