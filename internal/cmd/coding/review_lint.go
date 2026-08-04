@@ -72,61 +72,11 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 			}
 			ctx := cmd.Context()
 
-			edges, _, err := fetchRootEdges(ctx, client, mem, root, true)
+			in, err := collectReview(ctx, client, mem, root)
 			if err != nil {
 				return err
 			}
-
-			// Two sources of candidate checks: nodes under the root's child
-			// prefix (which catches a check with no edge at all — the
-			// highest-severity finding), and the far endpoints of the parent's
-			// inbound edges (which catches one that is unreadable).
-			listed, err := scanPrefix(ctx, client, mem, childPrefix(root))
-			if err != nil {
-				return err
-			}
-			candidates := map[string]string{} // node id → loc
-			for _, n := range listed {
-				if n == nil {
-					continue
-				}
-				if isChecklistItemListing(root, n.Loc, n.Tags, n.IsRunnable) {
-					candidates[n.Id] = n.Loc
-				}
-			}
-			edgeByLoc := map[string]graphEdge{}
-			var redacted []graphEdge
-			for _, e := range edges {
-				if e.OtherID == "" {
-					// The server redacted the endpoint projection, so there is
-					// no node to read or classify — report it rather than
-					// letting it vanish from the sweep.
-					redacted = append(redacted, e)
-					continue
-				}
-				if e.Other != "" {
-					edgeByLoc[e.Other] = e
-				}
-				candidates[e.OtherID] = e.Other
-			}
-
-			nodes, unavailable, err := fetchNodes(ctx, client, candidates, true)
-			if err != nil {
-				return err
-			}
-			for _, e := range redacted {
-				unavailable = append(unavailable, e.endpointName())
-			}
-
-			members := map[string]checkNode{}
-			for loc, n := range nodes {
-				if isChecklistItem(root, n) {
-					members[loc] = n
-				}
-			}
-			// An unreadable node can't be tested against the predicate, so its
-			// membership is indeterminate — reported, never dropped.
-			in := reviewInput{Members: members, Edges: edgeByLoc, Unavailable: unavailable, Toolchain: toolchain, Suggest: suggest}
+			in.Toolchain, in.Suggest = toolchain, suggest
 			findings := lintReview(in)
 
 			if fix {
@@ -164,7 +114,7 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 
 			if err := output.Write(f.IOStreams, f.JSON, findings, func(w io.Writer) error {
 				if len(findings) == 0 {
-					fmt.Fprintf(w, "✓ %d check(s) OK\n", len(members))
+					fmt.Fprintf(w, "✓ %d check(s) OK\n", len(in.Members))
 					return nil
 				}
 				t := output.NewTable(w, "NODE", "SEVERITY", "RULE", "MESSAGE")

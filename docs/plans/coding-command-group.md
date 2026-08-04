@@ -1,6 +1,9 @@
 # Implementation Plan: `hadron coding` — lint the review checklist tree and the preflight router
 
-> **Status: implemented.** Originally a design-ahead doc for
+> **Status: implemented**, in two increments — the linters first, then the
+> `list`/`create` surface and the CI gate
+> ([Increment 2](#increment-2--the-readwrite-surface-and-the-ci-gate)).
+> Originally a design-ahead doc for
 > [#325](https://github.com/hadron-memory/hadron-cli/issues/325), written to
 > settle the open questions *before* code because the surface as filed produces
 > a >50% false-positive rate. The [Decisions](#decisions-resolved-against-live-data)
@@ -446,13 +449,126 @@ that endpoint was never unreadable. The
 preflight run exits 0 with 25 warnings, which is Decision 4 working as intended:
 a third of the router failing a convention does not turn the build red.
 
+## Increment 2 — the read/write surface and the CI gate
+
+The linters shipped first because a defect you cannot see is the expensive one.
+This increment adds what the issue's surface left room for, plus the CI wiring
+`--json` + exit 5 were designed to enable.
+
+```
+hadron coding review    list [-m <memory>] [--root <loc>] [--broken] [--json]
+                        create <check-name> -m <memory> --trigger <cond> --description <d>
+                          [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N]
+                          [--content <text|-> | --content-file <path>]
+                        lint …
+hadron coding preflight list [-m <memory>] [--root <loc>] [--broken] [--json]
+                        lint …
+```
+
+`list`, not `ls`: `list` is the canonical name everywhere in this CLI since
+#283, with `ls` kept as an alias (`internal/cmd/list_naming_test.go` enforces
+both halves).
+
+### 1. `list` shares the linter's engine rather than re-reading the graph
+
+`list` answers "what is in this checklist", `lint` answers "what is broken about
+it" — over the same corpus, with the same membership rule. Implemented twice
+they would drift, and a node that `list` shows but `lint` never sees is exactly
+the silent skip this group exists to detect.
+
+So the collection step is shared (`collect.go`), and the `STATUS` column is
+**derived from `lintReview`/`lintPreflight` output** rather than recomputed:
+`broken` means "the linter reports an error-severity finding for this row". The
+two views cannot disagree.
+
+`list` is read-only and always exits 0 — `lint` carries the exit-code contract.
+Two commands with the same exit semantics would make the linter's 5 meaningless
+in a pipeline.
+
+Unreadable endpoints list as `unavailable` for the same reason the linter warns
+on them: the caller asked what the checklist contains, and "something here I
+cannot see" is part of that answer.
+
+### 2. `create` writes the node and its trigger edge in one mutation
+
+`createNode(input:)` takes `edges:`, so the check and the edge that makes it
+discoverable land together. Sequencing them as two writes would open a window in
+which the check exists but is invisible — the precise failure this command group
+was built to detect, reintroduced by the tool meant to prevent it.
+
+(This is *create*, not the `updateNode(edges:)` hazard from Decision 5: that one
+replaces a node's whole outgoing edge set. `--fix` still relabels via
+`updateEdge`.)
+
+The response carries no edges, so the new node is read back to confirm the edge
+landed (step 6 of `tasks:add-review-node`, "verify discoverability"). If it
+didn't, the command reports the exact `hadron edge create` to run and exits **1**
+— the established partial-write contract in `agentic-usage.md`, so a caller
+branching on the exit code never reads an invisible check as complete.
+
+Validation is local and runs before any round trip: `--trigger` is normalized to
+`Applies when <condition>` (the stem is prepended when absent, a bare stem is
+rejected) and `--description` is required. Those are the linter's own rules, so
+**a check created by this command lints clean as written** — asserted by a unit
+test that runs `lintReview` over what `create` composes, which will fail if the
+two ever diverge.
+
+The scaffolded body is Scope-first, and the `> **Scope.**` blockquote is
+asserted to parse with `bodyTrigger` — the same parser deviation 8's label
+findings quote. A scaffold whose scope the linter cannot read would defeat the
+hint on day one.
+
+### 3. The CI gate is nightly, not a PR gate
+
+`.github/workflows/memory-hygiene.yml`, modelled on `schema-drift.yml`: gated on
+a `HADRON_TOKEN` secret (absent → no-op with a notice, so forks stay green),
+running both linters, filing a **de-duped** tracking issue with the
+error-severity findings as a table, and failing the job.
+
+Memories are edited out of band from this repo — by agents and by people working
+in other checkouts — so a break rarely coincides with a pull request. A PR gate
+would mostly no-op and would fail an unrelated PR when it didn't. The nightly
+catches the same defect without that coupling.
+
+Only **errors** fail it. Warnings exit 0 and stay in the log, per Decision 4: a
+third of a healthy router fails the action-phrasing convention, and a job that
+is red for a convention teaches people to ignore it.
+
+The issue-body table is built with `printf` into a file rather than an inline
+heredoc: a heredoc nested in an indented `run:` block keeps its leading spaces,
+and an indented markdown table renders as a code block. (`schema-drift.yml` has
+this today; its bodies are prose, so it only costs formatting.)
+
+### 4. Verification
+
+`go test ./...` and `make lint` (0 issues) green. Live, read-only:
+
+```
+$ hadron coding review list -m hadronmemory.com::hadron-cli     → 6 checks, all ok
+$ hadron coding preflight list -m hadronmemory.com::hadron-cli  → 9 routes, all ok
+$ hadron coding review list -m micromentor.org::mmdata --broken → 7 broken
+```
+
+mmdata has drifted since the first increment: 3 broken checks then, 7 now — four
+new ones (`exception-lists-not-patterns-in-ratchets`,
+`resync-sdl-after-schema-visible-change` labelled `child-of`,
+`authorized-roles-not-manual-admin-checks` and
+`use-namespace-import-when-present` labelled `applies-when`) that the linter
+caught and nobody had noticed. That is the drift rate the nightly exists for.
+
+`create`'s write path is covered by command tests asserting the `edges:` payload
+and the partial-write exit; live verification was limited to the read-only
+failure path (a missing `--root` parent exits 4 without writing) rather than
+creating a throwaway check in a shared memory.
+
 ## Out of scope (follow-ups)
 
-- `coding review ls|add`, `coding preflight ls` — the surface leaves room.
 - Coding-guidelines cross-link linting (mentioned in the issue's rationale, no
   checks specified).
 - `--fix` for anything beyond description→label promotion.
 - Auto-repair of dangling targets; the linter reports, a human decides whether
   the target moved or the edge is stale.
-- CI workflow wiring for memory hygiene — `--json` + exit 5 make it possible;
-  choosing which repos gate on it is a separate call.
+- `coding review update|rm` — `node update` / `edge update` already cover the
+  edit path, and a check is an ordinary node once it exists.
+- Rolling the nightly out to the other repos' memories; the workflow is
+  parameterised by `vars.HADRON_MEMORY`, so it is a copy plus a secret.

@@ -116,6 +116,8 @@ func newCmdReview(f *cmdutil.Factory) *cobra.Command {
 		Use:   "review <command>",
 		Short: "Work with the review:* checklist tree",
 	}
+	cmd.AddCommand(newCmdReviewList(f))
+	cmd.AddCommand(newCmdReviewAdd(f))
 	cmd.AddCommand(newCmdReviewLint(f))
 	return cmd
 }
@@ -125,6 +127,7 @@ func newCmdPreflight(f *cmdutil.Factory) *cobra.Command {
 		Use:   "preflight <command>",
 		Short: "Work with the preflight router",
 	}
+	cmd.AddCommand(newCmdPreflightList(f))
 	cmd.AddCommand(newCmdPreflightLint(f))
 	return cmd
 }

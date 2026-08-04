@@ -57,31 +57,11 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 			}
 			ctx := cmd.Context()
 
-			// Outgoing, so the far endpoint is the edge's target — the opposite
-			// end from the review tree's inbound edges. The root's own memory
-			// id comes back too: it is the only value comparable against an
-			// endpoint's MemoryId.
-			routes, homeMemory, err := fetchRootEdges(ctx, client, mem, root, false)
+			in, err := collectPreflight(ctx, client, mem, root)
 			if err != nil {
 				return err
 			}
-			// Read targets by id, so a route that legitimately crosses into
-			// another memory resolves there instead of being looked up in this
-			// one.
-			byID := map[string]string{}
-			for _, r := range routes {
-				if r.OtherID != "" {
-					byID[r.OtherID] = r.Other
-				}
-			}
-			targets, unavailable, err := fetchNodes(ctx, client, byID, false)
-			if err != nil {
-				return err
-			}
-
-			findings := lintPreflight(preflightInput{
-				Routes: routes, Targets: targets, Unavailable: unavailable, HomeMemory: homeMemory,
-			})
+			findings := lintPreflight(in)
 			if strict {
 				for i := range findings {
 					if findings[i].Severity == sevWarning {
@@ -99,7 +79,7 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 
 			if err := output.Write(f.IOStreams, f.JSON, findings, func(w io.Writer) error {
 				if len(findings) == 0 {
-					fmt.Fprintf(w, "✓ %d route(s) OK\n", len(routes))
+					fmt.Fprintf(w, "✓ %d route(s) OK\n", len(in.Routes))
 					return nil
 				}
 				t := output.NewTable(w, "ROUTE", "SEVERITY", "RULE", "MESSAGE")
