@@ -14,15 +14,27 @@ import (
 )
 
 type whoamiResult struct {
-	ID             string   `json:"id"`
-	Name           string   `json:"name,omitempty"`
-	Email          string   `json:"email,omitempty"`
-	Handle         string   `json:"handle,omitempty"`
-	GithubUsername string   `json:"githubUsername,omitempty"`
-	Roles          []string `json:"roles"`
-	PrincipalType  string   `json:"principalType,omitempty"`
-	AppID          string   `json:"appId,omitempty"`
-	AgentID        string   `json:"agentId,omitempty"`
+	ID             string             `json:"id"`
+	Name           string             `json:"name,omitempty"`
+	Email          string             `json:"email,omitempty"`
+	Handle         string             `json:"handle,omitempty"`
+	GithubUsername string             `json:"githubUsername,omitempty"`
+	Roles          []string           `json:"roles"`
+	PrincipalType  string             `json:"principalType,omitempty"`
+	AppID          string             `json:"appId,omitempty"`
+	AgentID        string             `json:"agentId,omitempty"`
+	Impersonation  *impersonationInfo `json:"impersonation,omitempty"`
+}
+
+// impersonationInfo mirrors AuthContext.impersonation for whoami/status — the
+// acting-as facts when the request authenticated with an impersonation token.
+type impersonationInfo struct {
+	SessionID      string `json:"sessionId"`
+	OrganizationID string `json:"organizationId"`
+	ExpiresAt      string `json:"expiresAt"`
+	ReadOnly       bool   `json:"readOnly"`
+	ActorHandle    string `json:"actorHandle,omitempty"`
+	ActorName      string `json:"actorName,omitempty"`
 }
 
 func newCmdWhoami(f *cmdutil.Factory) *cobra.Command {
@@ -69,6 +81,24 @@ func newCmdWhoami(f *cmdutil.Factory) *cobra.Command {
 			if ac.AgentId != nil {
 				dto.AgentID = *ac.AgentId
 			}
+			if ac.Impersonation != nil {
+				imp := ac.Impersonation
+				info := &impersonationInfo{
+					SessionID:      imp.SessionId,
+					OrganizationID: imp.OrganizationId,
+					ExpiresAt:      imp.ExpiresAt,
+					ReadOnly:       imp.ReadOnly,
+				}
+				if imp.ActorUser != nil {
+					if imp.ActorUser.Handle != nil {
+						info.ActorHandle = *imp.ActorUser.Handle
+					}
+					if imp.ActorUser.Name != nil {
+						info.ActorName = *imp.ActorUser.Name
+					}
+				}
+				dto.Impersonation = info
+			}
 
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				// An App/Agent key resolves to no user — name the principal
@@ -84,11 +114,26 @@ func newCmdWhoami(f *cmdutil.Factory) *cobra.Command {
 				if label == "" {
 					label = dto.ID
 				}
+				line := label
 				if dto.Email != "" {
-					_, err := fmt.Fprintf(w, "%s (%s)\n", label, dto.Email)
+					line = fmt.Sprintf("%s (%s)", label, dto.Email)
+				}
+				// Admin impersonation: make the acting-as state loud so a
+				// scripted or forgetful operator can't mistake it for their own.
+				if dto.Impersonation != nil {
+					actor := dto.Impersonation.ActorName
+					if actor == "" {
+						actor = dto.Impersonation.ActorHandle
+					}
+					if actor == "" {
+						actor = "another admin"
+					}
+					_, err := fmt.Fprintf(w,
+						"%s — IMPERSONATED (read-only), org %s, as %s, expires %s\n",
+						line, dto.Impersonation.OrganizationID, actor, dto.Impersonation.ExpiresAt)
 					return err
 				}
-				_, err := fmt.Fprintln(w, label)
+				_, err := fmt.Fprintln(w, line)
 				return err
 			})
 		},

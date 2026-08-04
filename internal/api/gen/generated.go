@@ -2367,11 +2367,12 @@ func (v *AttachMemoryToAppResponse) GetAttachMemoryToApp() *AttachMemoryToAppAtt
 
 // AuthContextAuthContext includes the requested fields of the GraphQL type AuthContext.
 type AuthContextAuthContext struct {
-	PrincipalType PrincipalType                           `json:"principalType"`
-	AppId         *string                                 `json:"appId"`
-	AgentId       *string                                 `json:"agentId"`
-	User          *AuthContextAuthContextUser             `json:"user"`
-	ApiKey        *AuthContextAuthContextApiKeyUserApiKey `json:"apiKey"`
+	PrincipalType PrincipalType                                         `json:"principalType"`
+	AppId         *string                                               `json:"appId"`
+	AgentId       *string                                               `json:"agentId"`
+	User          *AuthContextAuthContextUser                           `json:"user"`
+	ApiKey        *AuthContextAuthContextApiKeyUserApiKey               `json:"apiKey"`
+	Impersonation *AuthContextAuthContextImpersonationImpersonationInfo `json:"impersonation"`
 }
 
 // GetPrincipalType returns AuthContextAuthContext.PrincipalType, and is useful for accessing the field via an interface.
@@ -2388,6 +2389,11 @@ func (v *AuthContextAuthContext) GetUser() *AuthContextAuthContextUser { return 
 
 // GetApiKey returns AuthContextAuthContext.ApiKey, and is useful for accessing the field via an interface.
 func (v *AuthContextAuthContext) GetApiKey() *AuthContextAuthContextApiKeyUserApiKey { return v.ApiKey }
+
+// GetImpersonation returns AuthContextAuthContext.Impersonation, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContext) GetImpersonation() *AuthContextAuthContextImpersonationImpersonationInfo {
+	return v.Impersonation
+}
 
 // AuthContextAuthContextApiKeyUserApiKey includes the requested fields of the GraphQL type UserApiKey.
 type AuthContextAuthContextApiKeyUserApiKey struct {
@@ -2485,6 +2491,58 @@ func (v *AuthContextAuthContextApiKeyUserApiKey) __premarshalJSON() (*__premarsh
 	retval.LastUsedAt = v.UserApiKeyFields.LastUsedAt
 	retval.RevokedAt = v.UserApiKeyFields.RevokedAt
 	return &retval, nil
+}
+
+// AuthContextAuthContextImpersonationImpersonationInfo includes the requested fields of the GraphQL type ImpersonationInfo.
+type AuthContextAuthContextImpersonationImpersonationInfo struct {
+	SessionId      string                                                         `json:"sessionId"`
+	OrganizationId string                                                         `json:"organizationId"`
+	ExpiresAt      string                                                         `json:"expiresAt"`
+	ReadOnly       bool                                                           `json:"readOnly"`
+	ActorUser      *AuthContextAuthContextImpersonationImpersonationInfoActorUser `json:"actorUser"`
+}
+
+// GetSessionId returns AuthContextAuthContextImpersonationImpersonationInfo.SessionId, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextImpersonationImpersonationInfo) GetSessionId() string {
+	return v.SessionId
+}
+
+// GetOrganizationId returns AuthContextAuthContextImpersonationImpersonationInfo.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextImpersonationImpersonationInfo) GetOrganizationId() string {
+	return v.OrganizationId
+}
+
+// GetExpiresAt returns AuthContextAuthContextImpersonationImpersonationInfo.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextImpersonationImpersonationInfo) GetExpiresAt() string {
+	return v.ExpiresAt
+}
+
+// GetReadOnly returns AuthContextAuthContextImpersonationImpersonationInfo.ReadOnly, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextImpersonationImpersonationInfo) GetReadOnly() bool { return v.ReadOnly }
+
+// GetActorUser returns AuthContextAuthContextImpersonationImpersonationInfo.ActorUser, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextImpersonationImpersonationInfo) GetActorUser() *AuthContextAuthContextImpersonationImpersonationInfoActorUser {
+	return v.ActorUser
+}
+
+// AuthContextAuthContextImpersonationImpersonationInfoActorUser includes the requested fields of the GraphQL type User.
+type AuthContextAuthContextImpersonationImpersonationInfoActorUser struct {
+	Id     string  `json:"id"`
+	Handle *string `json:"handle"`
+	Name   *string `json:"name"`
+}
+
+// GetId returns AuthContextAuthContextImpersonationImpersonationInfoActorUser.Id, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextImpersonationImpersonationInfoActorUser) GetId() string { return v.Id }
+
+// GetHandle returns AuthContextAuthContextImpersonationImpersonationInfoActorUser.Handle, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextImpersonationImpersonationInfoActorUser) GetHandle() *string {
+	return v.Handle
+}
+
+// GetName returns AuthContextAuthContextImpersonationImpersonationInfoActorUser.Name, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextImpersonationImpersonationInfoActorUser) GetName() *string {
+	return v.Name
 }
 
 // AuthContextAuthContextUser includes the requested fields of the GraphQL type User.
@@ -2859,7 +2917,7 @@ type CloneMemoryResponse struct {
 	// Clone a Memory into a new Memory at `targetUrn`.
 	//
 	// `ref` accepts the source's ID or URN. `targetUrn` is a fully-qualified
-	// "org::slug" memory URN naming the clone; its org segment MAY differ from
+	// "root:slug" memory URN naming the clone; its org segment MAY differ from
 	// the source's, cloning the memory into another organization. The clone's
 	// display name is derived from the target slug.
 	//
@@ -2887,7 +2945,7 @@ func (v *CloneMemoryResponse) GetCloneMemory() *CloneMemoryCloneMemory { return 
 // CloneNodeCloneNode includes the requested fields of the GraphQL type Node.
 type CloneNodeCloneNode struct {
 	Id string `json:"id"`
-	// Fully-qualified node URN (hrn:node:<org>::<memory>::<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
 	Urn        string   `json:"urn"`
 	MemoryId   string   `json:"memoryId"`
 	Loc        string   `json:"loc"`
@@ -2947,7 +3005,7 @@ type ConnectionGrantFields struct {
 	// The App install this grant delegates to.
 	GranteeAppId   string  `json:"granteeAppId"`
 	GranteeAppName *string `json:"granteeAppName"`
-	// Canonical URN of the grantee App (hrn:app:<org>::<slug>), or null if unresolvable.
+	// Canonical URN of the grantee App (hrn:app:<root>:<slug>), or null if unresolvable.
 	GranteeAppUrn *string `json:"granteeAppUrn"`
 	// Covered scopes: mail.read, mail.send, calendar.freebusy, calendar.read.
 	Scopes []string `json:"scopes"`
@@ -3255,9 +3313,10 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 // CreateAgentResponse is returned by CreateAgent on success.
 type CreateAgentResponse struct {
 	// Create an agent. Provide orgId to create an ORG-owned agent (requires org
-	// ADMIN); OMIT orgId to create a USER-OWNED agent owned by the caller (spec
-	// 047) — its URN is namespaced under the caller's @handle and its system
-	// memory is user-owned too. Exactly one owner (org XOR user).
+	// ADMIN); OMIT orgId to create a USER-OWNED agent owned by the caller — its
+	// URN is rooted on the caller's bare handle (hrn:agent:<handle>:<slug>, grammar
+	// v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
+	// (org XOR user).
 	//
 	// orgId accepts the org's ID or URN.
 	CreateAgent *CreateAgentCreateAgent `json:"createAgent"`
@@ -5763,7 +5822,7 @@ type ExtractParentNodeToMemoryResponse struct {
 	// boundary-crossing edges and PendingEdges are dropped.
 	//
 	// 'parentRef' is the parent node's ID or fully-qualified URN. 'targetUrn' is
-	// a fully-qualified '<org>::<slug>' URN naming the new memory (it may land in
+	// a fully-qualified '<root>:<slug>' URN naming the new memory (it may land in
 	// a DIFFERENT org). 'move' = false (default) COPIES the subtree, leaving the
 	// source intact; 'move' = true relocates it, soft-deleting the source subtree
 	// (its nodes, the source memory's touching edges, and its pending edges).
@@ -6526,7 +6585,7 @@ type GetNodeResponse struct {
 	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
 	//
 	// 1. a primary key (the unambiguous read — the old nodeById),
-	// 2. a fully-qualified node URN (`hrn:node:<org>::<memory>::<loc>`,
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
 	// legacy `urn:` scheme accepted),
 	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
 	// it resolves across every readable memory and a cross-memory loc
@@ -8456,7 +8515,7 @@ func (v *MintActionTicketsResponse) GetMintActionTickets() int { return v.MintAc
 // MoveNodeMoveNode includes the requested fields of the GraphQL type Node.
 type MoveNodeMoveNode struct {
 	Id string `json:"id"`
-	// Fully-qualified node URN (hrn:node:<org>::<memory>::<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
 	Urn        string   `json:"urn"`
 	MemoryId   string   `json:"memoryId"`
 	Loc        string   `json:"loc"`
@@ -8911,7 +8970,7 @@ type NodeEdgeInput struct {
 	// Relationship name (was 'label'). Optional — loc is the identity.
 	Name *string `json:"name"`
 	// Reference to the target node. Accepts a node ID, a full URN
-	// (hrn:node:<memory-urn>::<loc>), a memory-prefixed loc
+	// (hrn:node:<memory-urn>:<loc>), a memory-prefixed loc
 	// (<memory-urn>:<loc>), or a short loc resolved within the source
 	// node's memory.
 	TargetId string `json:"targetId"`
@@ -8980,7 +9039,7 @@ type NodeExportMetaResponse struct {
 	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
 	//
 	// 1. a primary key (the unambiguous read — the old nodeById),
-	// 2. a fully-qualified node URN (`hrn:node:<org>::<memory>::<loc>`,
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
 	// legacy `urn:` scheme accepted),
 	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
 	// it resolves across every readable memory and a cross-memory loc
@@ -10649,7 +10708,7 @@ type ResolveUrnResponse struct {
 	//
 	// The `hrn:<type>:` prefix (legacy `urn:<type>:` also accepted) is the
 	// dispatch key — bare URNs without a type prefix are ambiguous across kinds
-	// (`org::slug` could be a memory or an agent) and resolve to null.
+	// (`root:slug` could be a memory or an agent) and resolve to null.
 	ResolveUrn *ResolveUrnResolveUrnUrnResolution `json:"resolveUrn"`
 }
 
@@ -11700,6 +11759,137 @@ func (v *ServerInfoServerInfo) GetVersion() string { return v.Version }
 
 // GetBaseUrl returns ServerInfoServerInfo.BaseUrl, and is useful for accessing the field via an interface.
 func (v *ServerInfoServerInfo) GetBaseUrl() string { return v.BaseUrl }
+
+// StartImpersonationResponse is returned by StartImpersonation on success.
+type StartImpersonationResponse struct {
+	// Start impersonating another member of orgRef (admin support/diagnostics).
+	// Caller must be a live ADMIN/OWNER of the org (platform ADMIN/OWNER is
+	// OWNER-equivalent), the target a live member, PEER-OR-BELOW (an org ADMIN
+	// may not impersonate an org OWNER), never self. Returns the audit session
+	// and a short-TTL token (returned exactly once) whose requests run
+	// READ-ONLY as the target, scoped to this one org: other orgs and all
+	// personal-class resources stay invisible, and every mutation except
+	// stopImpersonation is rejected. Every request re-validates the session
+	// row, so stopping it (or demoting the admin) kills the token immediately.
+	StartImpersonation *StartImpersonationStartImpersonationStartImpersonationResult `json:"startImpersonation"`
+}
+
+// GetStartImpersonation returns StartImpersonationResponse.StartImpersonation, and is useful for accessing the field via an interface.
+func (v *StartImpersonationResponse) GetStartImpersonation() *StartImpersonationStartImpersonationStartImpersonationResult {
+	return v.StartImpersonation
+}
+
+// StartImpersonationStartImpersonationStartImpersonationResult includes the requested fields of the GraphQL type StartImpersonationResult.
+type StartImpersonationStartImpersonationStartImpersonationResult struct {
+	Token   string                                                                                   `json:"token"`
+	Session *StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSession `json:"session"`
+}
+
+// GetToken returns StartImpersonationStartImpersonationStartImpersonationResult.Token, and is useful for accessing the field via an interface.
+func (v *StartImpersonationStartImpersonationStartImpersonationResult) GetToken() string {
+	return v.Token
+}
+
+// GetSession returns StartImpersonationStartImpersonationStartImpersonationResult.Session, and is useful for accessing the field via an interface.
+func (v *StartImpersonationStartImpersonationStartImpersonationResult) GetSession() *StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSession {
+	return v.Session
+}
+
+// StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSession includes the requested fields of the GraphQL type ImpersonationSession.
+type StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSession struct {
+	Id           string                                                                                               `json:"id"`
+	ExpiresAt    string                                                                                               `json:"expiresAt"`
+	Organization *StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionOrganization `json:"organization"`
+	TargetUser   *StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionTargetUser   `json:"targetUser"`
+}
+
+// GetId returns StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSession.Id, and is useful for accessing the field via an interface.
+func (v *StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSession) GetId() string {
+	return v.Id
+}
+
+// GetExpiresAt returns StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSession.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSession) GetExpiresAt() string {
+	return v.ExpiresAt
+}
+
+// GetOrganization returns StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSession.Organization, and is useful for accessing the field via an interface.
+func (v *StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSession) GetOrganization() *StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionOrganization {
+	return v.Organization
+}
+
+// GetTargetUser returns StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSession.TargetUser, and is useful for accessing the field via an interface.
+func (v *StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSession) GetTargetUser() *StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionTargetUser {
+	return v.TargetUser
+}
+
+// StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionOrganization includes the requested fields of the GraphQL type Organization.
+type StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionOrganization struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionOrganization.Id, and is useful for accessing the field via an interface.
+func (v *StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionOrganization) GetId() string {
+	return v.Id
+}
+
+// GetName returns StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionOrganization.Name, and is useful for accessing the field via an interface.
+func (v *StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionOrganization) GetName() string {
+	return v.Name
+}
+
+// StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionTargetUser includes the requested fields of the GraphQL type User.
+type StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionTargetUser struct {
+	Id     string  `json:"id"`
+	Handle *string `json:"handle"`
+	Name   *string `json:"name"`
+}
+
+// GetId returns StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionTargetUser.Id, and is useful for accessing the field via an interface.
+func (v *StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionTargetUser) GetId() string {
+	return v.Id
+}
+
+// GetHandle returns StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionTargetUser.Handle, and is useful for accessing the field via an interface.
+func (v *StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionTargetUser) GetHandle() *string {
+	return v.Handle
+}
+
+// GetName returns StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionTargetUser.Name, and is useful for accessing the field via an interface.
+func (v *StartImpersonationStartImpersonationStartImpersonationResultSessionImpersonationSessionTargetUser) GetName() *string {
+	return v.Name
+}
+
+// StopImpersonationResponse is returned by StopImpersonation on success.
+type StopImpersonationResponse struct {
+	// Stop an impersonation session (writes endedAt; the audit row is never
+	// deleted). With an impersonation token, id may be omitted (ends the
+	// token's own session — the one mutation an impersonated context may
+	// call). With a normal token, id is required and the caller must be the
+	// session's admin, an org ADMIN/OWNER of its org, or a platform admin.
+	// Idempotent on an already-ended session.
+	StopImpersonation *StopImpersonationStopImpersonationImpersonationSession `json:"stopImpersonation"`
+}
+
+// GetStopImpersonation returns StopImpersonationResponse.StopImpersonation, and is useful for accessing the field via an interface.
+func (v *StopImpersonationResponse) GetStopImpersonation() *StopImpersonationStopImpersonationImpersonationSession {
+	return v.StopImpersonation
+}
+
+// StopImpersonationStopImpersonationImpersonationSession includes the requested fields of the GraphQL type ImpersonationSession.
+type StopImpersonationStopImpersonationImpersonationSession struct {
+	Id      string  `json:"id"`
+	EndedAt *string `json:"endedAt"`
+}
+
+// GetId returns StopImpersonationStopImpersonationImpersonationSession.Id, and is useful for accessing the field via an interface.
+func (v *StopImpersonationStopImpersonationImpersonationSession) GetId() string { return v.Id }
+
+// GetEndedAt returns StopImpersonationStopImpersonationImpersonationSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *StopImpersonationStopImpersonationImpersonationSession) GetEndedAt() *string {
+	return v.EndedAt
+}
 
 type SyncStatus string
 
@@ -13247,7 +13437,7 @@ type UpdateNodeInput struct {
 	Data        *json.RawMessage `json:"data,omitempty"`
 	Description *string          `json:"description,omitempty"`
 	Edges       []*NodeEdgeInput `json:"edges,omitempty"`
-	// The node to change: PK (CUID / 32-char hex) or fully-qualified node URN (org::memory::loc). XOR with memoryId+loc.
+	// The node to change: PK (CUID / 32-char hex) or fully-qualified node URN (hrn:node:<root>:<memory>:<loc>). XOR with memoryId+loc.
 	Id *string `json:"id,omitempty"`
 	// Whether this node can be run as a task by hadron_run_task (cor:api:060). Omit to preserve.
 	IsRunnable *bool   `json:"isRunnable,omitempty"`
@@ -15439,6 +15629,30 @@ func (v *__SecretsInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __SecretsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__SecretsInput) GetOffset() *int { return v.Offset }
 
+// __StartImpersonationInput is used internally by genqlient
+type __StartImpersonationInput struct {
+	OrgRef  string  `json:"orgRef"`
+	UserRef string  `json:"userRef"`
+	Reason  *string `json:"reason"`
+}
+
+// GetOrgRef returns __StartImpersonationInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__StartImpersonationInput) GetOrgRef() string { return v.OrgRef }
+
+// GetUserRef returns __StartImpersonationInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__StartImpersonationInput) GetUserRef() string { return v.UserRef }
+
+// GetReason returns __StartImpersonationInput.Reason, and is useful for accessing the field via an interface.
+func (v *__StartImpersonationInput) GetReason() *string { return v.Reason }
+
+// __StopImpersonationInput is used internally by genqlient
+type __StopImpersonationInput struct {
+	Id *string `json:"id"`
+}
+
+// GetId returns __StopImpersonationInput.Id, and is useful for accessing the field via an interface.
+func (v *__StopImpersonationInput) GetId() *string { return v.Id }
+
 // __TriggerAppRunInput is used internally by genqlient
 type __TriggerAppRunInput struct {
 	Input *TriggerAppRunInput `json:"input,omitempty"`
@@ -16424,6 +16638,17 @@ query AuthContext {
 		}
 		apiKey {
 			... UserApiKeyFields
+		}
+		impersonation {
+			sessionId
+			organizationId
+			expiresAt
+			readOnly
+			actorUser {
+				id
+				handle
+				name
+			}
 		}
 	}
 }
@@ -20977,6 +21202,95 @@ func ServerInfo(
 	}
 
 	data_ = &ServerInfoResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by StartImpersonation.
+const StartImpersonation_Operation = `
+mutation StartImpersonation ($orgRef: String!, $userRef: String!, $reason: String) {
+	startImpersonation(orgRef: $orgRef, userRef: $userRef, reason: $reason) {
+		token
+		session {
+			id
+			expiresAt
+			organization {
+				id
+				name
+			}
+			targetUser {
+				id
+				handle
+				name
+			}
+		}
+	}
+}
+`
+
+// Admin impersonation (read-only support sessions). start returns the
+// short-TTL token exactly once; the CLI stores it under a host-derived
+// impersonation key and prefers it in Factory.Token().
+func StartImpersonation(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef string,
+	userRef string,
+	reason *string,
+) (data_ *StartImpersonationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "StartImpersonation",
+		Query:  StartImpersonation_Operation,
+		Variables: &__StartImpersonationInput{
+			OrgRef:  orgRef,
+			UserRef: userRef,
+			Reason:  reason,
+		},
+	}
+
+	data_ = &StartImpersonationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by StopImpersonation.
+const StopImpersonation_Operation = `
+mutation StopImpersonation ($id: ID) {
+	stopImpersonation(id: $id) {
+		id
+		endedAt
+	}
+}
+`
+
+func StopImpersonation(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id *string,
+) (data_ *StopImpersonationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "StopImpersonation",
+		Query:  StopImpersonation_Operation,
+		Variables: &__StopImpersonationInput{
+			Id: id,
+		},
+	}
+
+	data_ = &StopImpersonationResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

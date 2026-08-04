@@ -29,5 +29,16 @@ query AuthContext {
     apiKey {
       ...UserApiKeyFields
     }
+    impersonation {
+      sessionId
+      organizationId
+      expiresAt
+      readOnly
+      actorUser {
+        id
+        handle
+        name
+      }
+    }
   }
 }

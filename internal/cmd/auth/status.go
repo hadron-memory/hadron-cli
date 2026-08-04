@@ -22,6 +22,7 @@ type statusResult struct {
 	User          string    `json:"user,omitempty"`
 	PrincipalType string    `json:"principalType,omitempty"`
 	Key           *tokenDTO `json:"key,omitempty"`
+	Impersonating bool      `json:"impersonating,omitempty"`
 }
 
 func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
@@ -79,6 +80,9 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 					k := toTokenDTO(ac.ApiKey.UserApiKeyFields)
 					dto.Key = &k
 				}
+				if ac.Impersonation != nil {
+					dto.Impersonating = true
+				}
 			}
 
 			writeErr := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -86,7 +90,11 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 					_, err := fmt.Fprintf(w, "✗ %s: token from %s was rejected — run `hadron auth login`\n", server, describeSource(dto))
 					return err
 				}
-				if _, err := fmt.Fprintf(w, "✓ %s: signed in as %s (token from %s)\n", server, dto.User, describeSource(dto)); err != nil {
+				if dto.Impersonating {
+					if _, err := fmt.Fprintf(w, "✓ %s: IMPERSONATING %s (read-only) — `hadron auth impersonate --stop` to end\n", server, dto.User); err != nil {
+						return err
+					}
+				} else if _, err := fmt.Fprintf(w, "✓ %s: signed in as %s (token from %s)\n", server, dto.User, describeSource(dto)); err != nil {
 					return err
 				}
 				if dto.Key != nil {

@@ -99,6 +99,14 @@ func (f *Factory) Token() (string, auth.TokenSource, error) {
 	if err != nil {
 		return "", auth.SourceNone, err
 	}
+	// Admin impersonation: a LIVE stored impersonation token supersedes the
+	// admin's own credential (so every command runs read-only as the target).
+	// HADRON_TOKEN still wins above — an explicit env credential is never
+	// silently overridden. An expired stored token is deleted inside
+	// ResolveImpersonationToken and we fall through to the real credential.
+	if impToken := auth.ResolveImpersonationToken(f.TokenStore(), server); impToken != "" {
+		return impToken, auth.SourceImpersonation, nil
+	}
 	// A corrupt/unreadable store surfaces as an error here rather than a false
 	// SourceNone, so a broken auth.json fails loud instead of "not signed in" (#125).
 	return auth.ResolveToken(f.TokenStore(), server)

@@ -408,13 +408,15 @@ type App {
   identifyUserMethod: IdentifyUserMethod!
 
   """
-  Spec 021 US1: the R2 canonical install URN combining the App's
-  identity with its installed Agent's author-org and slug. Format is
-  hrn:agent:<installing-org>::<app-slug>::<author-org>:<agent-slug>.
-  Two orgs installing same-slug agents from different authors produce
-  distinct URNs that differ at the author-org segment, enabling
-  audit-log entries to identify each install unambiguously without a
-  PK disambiguator. Returns null when the App has no agent attached
+  The installed Agent's canonical URN. An installed agent stays
+  AUTHOR-ROOTED forever, so this is simply the Agent's own URN:
+  hrn:agent:<author-org>:<agent-slug>. Two orgs installing same-slug
+  agents from different authors therefore still produce distinct URNs
+  (they differ at the author root), enabling audit-log entries to
+  identify each install unambiguously without a PK disambiguator.
+  The v1 spec-021 R2 install chain
+  (hrn:agent:<installing-org>::<app-slug>::<author-org>:<agent-slug>)
+  is RETIRED — see #697 Stage 2 / D10 and emitInstalledAgentUrnV2. Returns null when the App has no agent attached
   (orphan apps from the 008 cutover; new apps require an agentId per
   009).
   """
@@ -748,6 +750,7 @@ type AuthContext {
   agentId: ID
   apiKey: UserApiKey
   appId: ID
+  impersonation: ImpersonationInfo
   principalType: PrincipalType!
   user: User
 }
@@ -952,7 +955,7 @@ type ConnectionGrant {
   granteeAppName: String
 
   """
-  Canonical URN of the grantee App (hrn:app:<org>::<slug>), or null if unresolvable.
+  Canonical URN of the grantee App (hrn:app:<root>:<slug>), or null if unresolvable.
   """
   granteeAppUrn: String
   id: ID!
@@ -1304,7 +1307,7 @@ type Edge {
   target: Node
 
   """
-  Fully-qualified edge URN (hrn:edge:<org>::<memory>::<loc>), composed server-side from the edge's (source-side) memory URN + loc (#481 parity — edges are loc-addressed peers of nodes, spec 037).
+  Fully-qualified edge URN (hrn:edge:<root>:<memory>:<loc>), composed server-side from the edge's (source-side) memory URN + loc (#481 parity — edges are loc-addressed peers of nodes, spec 037).
   """
   urn: String!
 }
@@ -1630,6 +1633,36 @@ type HomeAssistantOp {
 enum IdentifyUserMethod {
   SECRET
   USER_ID
+}
+
+type ImpersonationInfo {
+  actorUser: User
+  expiresAt: DateTime!
+  organizationId: ID!
+  readOnly: Boolean!
+  sessionId: ID!
+}
+
+type ImpersonationSession {
+  adminUser: User!
+  createdAt: DateTime!
+  endedAt: DateTime
+  endedBy: ID
+  expiresAt: DateTime!
+  id: ID!
+  isActive: Boolean!
+  organization: Organization!
+  reason: String
+  targetUser: User!
+}
+
+input ImpersonationSessionFilter {
+  activeOnly: Boolean
+}
+
+type ImpersonationSessionList {
+  items: [ImpersonationSession!]!
+  total: Int!
 }
 
 """
@@ -2377,7 +2410,7 @@ type Mutation {
   Clone a Memory into a new Memory at `targetUrn`.
   
   `ref` accepts the source's ID or URN. `targetUrn` is a fully-qualified
-  "org::slug" memory URN naming the clone; its org segment MAY differ from
+  "root:slug" memory URN naming the clone; its org segment MAY differ from
   the source's, cloning the memory into another organization. The clone's
   display name is derived from the target slug.
   
@@ -2403,9 +2436,10 @@ type Mutation {
 
   """
   Create an agent. Provide orgId to create an ORG-owned agent (requires org
-  ADMIN); OMIT orgId to create a USER-OWNED agent owned by the caller (spec
-  047) — its URN is namespaced under the caller's @handle and its system
-  memory is user-owned too. Exactly one owner (org XOR user).
+  ADMIN); OMIT orgId to create a USER-OWNED agent owned by the caller — its
+  URN is rooted on the caller's bare handle (hrn:agent:<handle>:<slug>, grammar
+  v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
+  (org XOR user).
   
   orgId accepts the org's ID or URN.
   """
@@ -2486,8 +2520,9 @@ type Mutation {
 
     """
     Provide to create an ORG-owned App (requires org ADMIN). OMIT to create a
-    USER-OWNED App owned by the caller (spec 047) — namespaced under the
-    caller's @handle, owner-only in v1. Accepts the org's ID or URN.
+    USER-OWNED App owned by the caller — rooted on the caller's bare handle
+    (hrn:app:<handle>:<slug>, grammar v2 — no @ sigil), owner-only. Accepts the
+    org's ID or URN.
     """
     orgRef: ID
 
@@ -3020,7 +3055,7 @@ type Mutation {
   boundary-crossing edges and PendingEdges are dropped.
   
   'parentRef' is the parent node's ID or fully-qualified URN. 'targetUrn' is
-  a fully-qualified '<org>::<slug>' URN naming the new memory (it may land in
+  a fully-qualified '<root>:<slug>' URN naming the new memory (it may land in
   a DIFFERENT org). 'move' = false (default) COPIES the subtree, leaving the
   source intact; 'move' = true relocates it, soft-deleting the source subtree
   (its nodes, the source memory's touching edges, and its pending edges).
@@ -3378,7 +3413,30 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   startChat(agentId: ID!, conversationName: String, isTestRun: Boolean = false, scope: ChatScope = private, userId: String): ChatStartResult!
+
+  """
+  Start impersonating another member of orgRef (admin support/diagnostics).
+  Caller must be a live ADMIN/OWNER of the org (platform ADMIN/OWNER is
+  OWNER-equivalent), the target a live member, PEER-OR-BELOW (an org ADMIN
+  may not impersonate an org OWNER), never self. Returns the audit session
+  and a short-TTL token (returned exactly once) whose requests run
+  READ-ONLY as the target, scoped to this one org: other orgs and all
+  personal-class resources stay invisible, and every mutation except
+  stopImpersonation is rejected. Every request re-validates the session
+  row, so stopping it (or demoting the admin) kills the token immediately.
+  """
+  startImpersonation(orgRef: String!, reason: String, userRef: String!): StartImpersonationResult!
   startSession(input: SessionInput!): Session!
+
+  """
+  Stop an impersonation session (writes endedAt; the audit row is never
+  deleted). With an impersonation token, id may be omitted (ends the
+  token's own session — the one mutation an impersonated context may
+  call). With a normal token, id is required and the caller must be the
+  session's admin, an org ADMIN/OWNER of its org, or a platform admin.
+  Idempotent on an already-ended session.
+  """
+  stopImpersonation(id: ID): ImpersonationSession!
 
   """
   Trigger an on-demand sync for one memory (org ADMIN or CONTRIBUTOR).
@@ -3709,7 +3767,7 @@ type Node {
   updatedAt: DateTime!
 
   """
-  Fully-qualified node URN (hrn:node:<org>::<memory>::<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+  Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
   """
   urn: String!
 }
@@ -3746,7 +3804,7 @@ input NodeEdgeInput {
 
   """
   Reference to the target node. Accepts a node ID, a full URN
-  (hrn:node:<memory-urn>::<loc>), a memory-prefixed loc
+  (hrn:node:<memory-urn>:<loc>), a memory-prefixed loc
   (<memory-urn>:<loc>), or a short loc resolved within the source
   node's memory.
   """
@@ -4597,7 +4655,7 @@ type Query {
   """
   The uniform single-edge read (#473) — edges are first-class, loc-addressed
   peers of nodes (spec 037). 'ref' accepts a primary key or a
-  fully-qualified edge URN (`hrn:edge:<org>::<memory>::<loc>`; the edge's
+  fully-qualified edge URN (`hrn:edge:<root>:<memory>:<loc>`; the edge's
   memory is its SOURCE node's memory). Access: the edge's memory must be in
   the caller's readable set; denied and missing are both null.
   """
@@ -4790,6 +4848,21 @@ type Query {
   200; limit: 0 -> count only.
   """
   homeAssistantInstances(limit: Int, offset: Int, orgId: ID): HomeAssistantInstancesPage!
+
+  """
+  One admin-impersonation audit record by id. Resolvable to the session's
+  admin, an org ADMIN/OWNER of its org, or a platform admin; anyone else
+  gets null (denied and missing are indistinguishable).
+  """
+  impersonationSession(ref: ID!): ImpersonationSession
+
+  """
+  Uniform paginated admin-impersonation audit list (createdAt-desc).
+  Platform admins may omit orgId (unscoped); everyone else must name an
+  org they are a live ADMIN/OWNER of. filter.activeOnly keeps only
+  currently-live sessions. limit default 50 / cap 200.
+  """
+  impersonationSessions(filter: ImpersonationSessionFilter, limit: Int, offset: Int, orgId: String): ImpersonationSessionList!
   invitation(slug: String!): UserInvitation
 
   """
@@ -4962,7 +5035,7 @@ type Query {
   and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
   
     1. a primary key (the unambiguous read — the old nodeById),
-    2. a fully-qualified node URN (`hrn:node:<org>::<memory>::<loc>`,
+    2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
        legacy `urn:` scheme accepted),
     3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
        it resolves across every readable memory and a cross-memory loc
@@ -5217,7 +5290,7 @@ type Query {
   
   The `hrn:<type>:` prefix (legacy `urn:<type>:` also accepted) is the
   dispatch key — bare URNs without a type prefix are ambiguous across kinds
-  (`org::slug` could be a memory or an agent) and resolve to null.
+  (`root:slug` could be a memory or an agent) and resolve to null.
   """
   resolveUrn(urn: String!): UrnResolution
 
@@ -5739,6 +5812,11 @@ enum SortDirection {
   desc
 }
 
+type StartImpersonationResult {
+  session: ImpersonationSession!
+  token: String!
+}
+
 enum SubscriptionType {
   READ_ONLY
   READ_WRITE
@@ -5829,7 +5907,7 @@ input UpdateNodeInput {
   edges: [NodeEdgeInput!]
 
   """
-  The node to change: PK (CUID / 32-char hex) or fully-qualified node URN (org::memory::loc). XOR with memoryId+loc.
+  The node to change: PK (CUID / 32-char hex) or fully-qualified node URN (hrn:node:<root>:<memory>:<loc>). XOR with memoryId+loc.
   """
   id: String
 
