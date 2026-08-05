@@ -45,9 +45,15 @@ schema:
 # for an operation the CLI actually uses (an appId->appRef-style server rename,
 # or a shape change to a type we select). Ignores server-side changes the CLI
 # doesn't touch (genqlient normalizes those away), so it's low-noise. Restores
-# the working tree afterward via a temp backup, so it's safe to run on a clean
-# tree. The schema-drift workflow runs this nightly against a fresh server
+# the working tree afterward via a temp backup, so it's safe to run on a dirty
+# tree too. The schema-drift workflow runs this nightly against a fresh server
 # checkout.
+#
+# The staleness test compares the regenerated client against the temp BACKUP,
+# not against git. Comparing against HEAD would conflate "regeneration changed
+# the client" (real drift) with "you have uncommitted generated code" (the
+# normal state while adding an operation), so the target would cry drift at
+# your own in-progress work until you committed it.
 schema-check:
 	@set -e; \
 	bak=$$(mktemp -d); \
@@ -59,9 +65,9 @@ schema-check:
 	  echo "✗ schema drift: CLI operations no longer typecheck against the server SDL — run 'make schema' and reconcile."; \
 	  exit 1; \
 	fi; \
-	if ! git diff --quiet -- internal/api/gen; then \
+	if ! diff -q $$bak/generated.go internal/api/gen/generated.go >/dev/null 2>&1; then \
 	  echo "✗ schema drift: the generated client is stale for an operation the CLI uses — run 'make schema' and commit."; \
-	  git --no-pager diff --stat -- internal/api/gen; \
+	  echo "  internal/api/gen/generated.go: $$(diff $$bak/generated.go internal/api/gen/generated.go | grep -c '^<' || true) line(s) removed, $$(diff $$bak/generated.go internal/api/gen/generated.go | grep -c '^>' || true) added"; \
 	  exit 1; \
 	fi; \
 	echo "✓ generated client in sync with $(HADRON_SERVER_DIR)"
@@ -77,17 +83,22 @@ tools-manifest:
 # Drift detector for the tool manifest: regenerate from the server checkout and
 # fail if the committed internal/cmd/spec/mcp-tools.txt is stale — the tool renamed/added
 # out from under a spec that cites it (the h-* shorthand rot that motivated
-# `spec check-tools`, #240). Restores the working tree afterward. The
-# schema-drift workflow runs this nightly against a fresh server checkout.
+# `spec check-tools`, #240). Restores the working tree afterward, so it is safe
+# to run on a dirty tree too. The schema-drift workflow runs this nightly
+# against a fresh server checkout.
+#
+# Compares against the temp BACKUP rather than git, for the same reason
+# schema-check does: comparing against HEAD would report drift for an
+# uncommitted manifest you had just regenerated yourself.
 tools-manifest-check:
 	@set -e; \
 	bak=$$(mktemp -d); \
 	cp internal/cmd/spec/mcp-tools.txt $$bak/mcp-tools.txt; \
 	trap 'cp $$bak/mcp-tools.txt internal/cmd/spec/mcp-tools.txt; rm -rf $$bak' EXIT; \
 	HADRON_SERVER_DIR=$(HADRON_SERVER_DIR) bash scripts/gen-tools-manifest.sh > internal/cmd/spec/mcp-tools.txt; \
-	if ! git diff --quiet -- internal/cmd/spec/mcp-tools.txt; then \
+	if ! diff -q $$bak/mcp-tools.txt internal/cmd/spec/mcp-tools.txt >/dev/null 2>&1; then \
 	  echo "✗ tool-manifest drift: hadron-server's tool set changed — run 'make tools-manifest' and commit."; \
-	  git --no-pager diff -- internal/cmd/spec/mcp-tools.txt; \
+	  diff -u $$bak/mcp-tools.txt internal/cmd/spec/mcp-tools.txt || true; \
 	  exit 1; \
 	fi; \
 	echo "✓ tool manifest in sync with $(HADRON_SERVER_DIR)"
