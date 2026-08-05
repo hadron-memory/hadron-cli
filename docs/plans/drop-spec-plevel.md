@@ -1,9 +1,11 @@
 # Implementation Plan: drop the spec read-priority p-level
 
-> **Status: implemented and verified** on branch `drop-spec-plevels` (not yet
-> merged). This document reflects the design *as built* and is the review
-> artifact for the change. Closes
-> [hadron-cli#43](https://github.com/hadron-memory/hadron-cli/issues/43).
+> **Status: shipped.** Merged as
+> [#44](https://github.com/hadron-memory/hadron-cli/pull/44) (`6d25c28`,
+> 2026-06-18), closing
+> [hadron-cli#43](https://github.com/hadron-memory/hadron-cli/issues/43); the
+> live `hadronmemory.com::specs` corpus is fully migrated and no node carries a
+> `p[0-3]` tag. This document reflects the design *as built*.
 
 ## Context
 
@@ -64,14 +66,17 @@ Read fixtures that still carry `p1`/`pN:` (e.g. `specBatchNode`) are left as-is:
 model **pre-migration** server data, which the read commands must still display
 correctly.
 
-## Follow-up: corpus migration (separate, sequenced after merge)
+## Follow-up: corpus migration (done)
 
-The 124 live nodes in `hadronmemory.com::specs` still carry `p[0-3]` tags and `pN:`
-edge-label prefixes. **The migration must run only after this change ships** —
-stripping the tags while the old `lint.go` still required one would fail every node.
-Once merged: strip the `p[0-3]` tag from each node (preserving other tags) and remove
-the `pN: ` prefix from ToC / inheritance edge labels, via a scripted
-`node update` / `edge update` loop.
+At the time of writing, the 124 live nodes in `hadronmemory.com::specs` carried
+`p[0-3]` tags and `pN:` edge-label prefixes. The migration had to run **only after
+this change shipped** — stripping the tags while the old `lint.go` still required
+one would have failed every node — so it was sequenced behind the merge: strip the
+`p[0-3]` tag from each node (preserving other tags) and remove the `pN: ` prefix
+from ToC / inheritance edge labels.
+
+That migration has since completed. The last straggler, `cor:aut:020:03`, was
+cleared on 2026-08-05; **no node in the corpus (now 271) carries a `p[0-3]` tag.**
 
 ## Contract / behavior notes
 
@@ -79,6 +84,10 @@ the `pN: ` prefix from ToC / inheritance edge labels, via a scripted
   `pN:` prefix. This is the intended, documented change.
 - `spec get` / `spec ls` are pass-throughs of server tags — their output is unchanged
   except insofar as the migrated corpus no longer contains p-levels.
-- The add-spec skill node (`hadronmemory.com::core::skills:add-spec`) was updated to
-  drop the "read-priority is automatic" convention in favour of "load by citation
-  depth."
+- The `add-spec` skill's source node — `hrn:node:hadronmemory.com:core:tasks:mint-spec`
+  (and the platform-corpus counterpart, `hrn:node:hadronmemory.com:specs:tasks:create-platform-spec`)
+  — drops the "read-priority is automatic" convention in favour of "load by citation
+  depth." Both were only fully reconciled with this change on 2026-08-05: until then
+  they still described `spec new` as emitting a `p<N>` and lint as requiring one,
+  neither of which had been true since this PR merged. Re-export the skills after
+  editing the nodes.
