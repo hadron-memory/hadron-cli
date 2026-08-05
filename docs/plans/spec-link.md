@@ -1,7 +1,6 @@
 # Implementation Plan: `hadron spec link` — convention-aware cross-ref
 
-> **Status: implemented and verified** on branch `feat/spec-link` (not yet
-> merged). Design *as built* and the review artifact for the change. Closes
+> **Status: shipped** — merged 2026-06-18 (`b84aeee`). Design *as built* and the review artifact for the change. Closes
 > item #4 of
 > [hadron-cli#41](https://github.com/hadron-memory/hadron-cli/issues/41)
 > ("Cross-reference edges are manual and the convention is implicit"). Ships as
@@ -86,9 +85,11 @@ hadron spec link <from-citation> <to-citation> -m <memory> [--label "…"] [--dr
 
 ## Follow-ups (out of scope for this PR)
 
-- The `add-spec` skill still says "add cross-refs by hand"; once `spec link`
-  lands that guidance is stale. The skill is generated from a Hadron node
-  (`hadronmemory.com::core::skills:add-spec`), so that is a corpus edit, not a
-  CLI change.
+- ~~The `add-spec` skill still says "add cross-refs by hand"; once `spec link`
+  lands that guidance is stale.~~ **Done 2026-08-05** — but it sat stale for
+  seven weeks after `spec link` shipped, because a corpus edit has no CI to
+  catch it. The source node is `hrn:node:hadronmemory.com:core:tasks:mint-spec`
+  (the URN recorded here originally, `hadronmemory.com::core::skills:add-spec`,
+  was already wrong); edit the node, then re-export the skill.
 - `spec edit` (#41 item 1, the `$EDITOR` affordance) is the remaining write-side
   gap, tracked in its own PR.

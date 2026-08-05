@@ -1,6 +1,6 @@
 # `memory ls --shared-with-me` (#316)
 
-> **Status: implemented** on this branch. Closes
+> **Status: implemented** — merged 2026-07-29 (`d72d9f7`). Closes
 > [#316](https://github.com/hadron-memory/hadron-cli/issues/316).
 
 ## Gap

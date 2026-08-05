@@ -1,6 +1,6 @@
 # Implementation Plan: `hadron spec` — product specification management
 
-> **Status: implemented and verified** on branch work (not yet committed). This
+> **Status: shipped** — merged 2026-06-14 (`8a3104f`). This
 > document reflects the design *as built* — including the deviations from the
 > original plan and the lint recalibration discovered while testing against the
 > live corpus. It is the review artifact for the change.

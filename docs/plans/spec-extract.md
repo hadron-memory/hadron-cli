@@ -1,7 +1,6 @@
 # Implementation Plan: `hadron spec extract` — first-class split
 
-> **Status: implemented and verified** on branch `feat/spec-extract` (not yet
-> merged). Design *as built* and the review artifact for the change. Closes
+> **Status: shipped** — merged 2026-06-18 (`57004b8`). Design *as built* and the review artifact for the change. Closes
 > item #2 of
 > [hadron-cli#41](https://github.com/hadron-memory/hadron-cli/issues/41)
 > ("No first-class extract / split"), the highest-value remaining write-side

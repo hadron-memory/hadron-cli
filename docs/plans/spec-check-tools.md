@@ -1,6 +1,6 @@
 # Implementation Plan: `hadron spec check-tools` (tool-name drift lint)
 
-> **Status: implemented and verified** on this branch; reflects the design as
+> **Status: implemented and verified** — merged 2026-07-16 (`21b2966`); reflects the design as
 > built. Resolves **part 3** of
 > [#240](https://github.com/hadron-memory/hadron-cli/issues/240) — the check that
 > prevents `hadron_*` tool references in specs from silently rotting (the root

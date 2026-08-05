@@ -1,7 +1,6 @@
 # Implementation Plan: `hadron ai-config` write — create / update / delete
 
-> **Status: implemented and verified** on branch `feat/aiconfig-write` (not yet
-> merged); this reflects the design as built. GH issue
+> **Status: shipped** — merged 2026-06-19 (`8c65f7b`); this reflects the design as built. GH issue
 > [#55](https://github.com/hadron-memory/hadron-cli/issues/55), Tier 1 of the
 > CLI⟷portal parity epic [#67](https://github.com/hadron-memory/hadron-cli/issues/67).
 

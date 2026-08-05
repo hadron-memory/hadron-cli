@@ -1,7 +1,6 @@
 # Implementation Plan: `hadron memory member` / `memory share` — access control
 
-> **Status: implemented and verified** on branch `feat/memory-access` (not yet
-> merged); this reflects the design as built. GH issue
+> **Status: shipped** — merged 2026-06-19 (`12b86cb`); this reflects the design as built. GH issue
 > [#57](https://github.com/hadron-memory/hadron-cli/issues/57), Tier 1 of the
 > CLI⟷portal parity epic [#67](https://github.com/hadron-memory/hadron-cli/issues/67).
 

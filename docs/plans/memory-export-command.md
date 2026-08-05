@@ -1,7 +1,6 @@
 # Implementation Plan: `hadron memory export` — local markdown mirror
 
-> **Status: implemented and verified** on branch `feat/memory-export` (not yet
-> merged). This document reflects the design *as built* and is the review
+> **Status: shipped** — merged 2026-06-16 (`e35f605`). This document reflects the design *as built* and is the review
 > artifact for the change.
 
 ## Context

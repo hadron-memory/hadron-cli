@@ -1,7 +1,6 @@
 # Implementation Plan: `hadron org` — organizations & membership
 
-> **Status: implemented and verified** on branch `feat/org-commands` (not yet
-> merged); this reflects the design as built. GH issue
+> **Status: shipped** — merged 2026-06-19 (`466c878`); this reflects the design as built. GH issue
 > [#56](https://github.com/hadron-memory/hadron-cli/issues/56), Tier 1 of the
 > CLI⟷portal parity epic [#67](https://github.com/hadron-memory/hadron-cli/issues/67).
 

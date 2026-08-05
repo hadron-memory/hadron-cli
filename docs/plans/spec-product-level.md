@@ -1,6 +1,6 @@
 # Implementation Plan: product citation level + tiered general-provisions contracts
 
-> **Status: in progress** on branch `feat/spec-product-level`. Resolves
+> **Status: shipped** — merged 2026-06-15 (`6d714b6`). Resolves
 > [#17](https://github.com/hadron-memory/hadron-cli/issues/17) (add a `<product>`
 > top level to the citation scheme) and
 > [#18](https://github.com/hadron-memory/hadron-cli/issues/18) (generalize the

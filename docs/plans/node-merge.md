@@ -1,6 +1,6 @@
 # Implementation Plan: `hadron node merge`
 
-> **Status: implemented and verified** on this branch; reflects the design as
+> **Status: implemented and verified** — merged 2026-07-08 (`28084fe`); reflects the design as
 > built. GH issue
 > [#186](https://github.com/hadron-memory/hadron-cli/issues/186). Part of the
 > CLI⟷portal parity epic [#67](https://github.com/hadron-memory/hadron-cli/issues/67);

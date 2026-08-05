@@ -1,7 +1,6 @@
 # Implementation Plan: `hadron ai-config` — AI service config picker
 
-> **Status: implemented and verified** on branch `feat/ai-config-ls` (not yet
-> merged). This document reflects the design *as built* and is the review
+> **Status: shipped** — merged 2026-06-15 (`2526163`). This document reflects the design *as built* and is the review
 > artifact for the change. Closes
 > [hadron-cli#13](https://github.com/hadron-memory/hadron-cli/issues/13).
 

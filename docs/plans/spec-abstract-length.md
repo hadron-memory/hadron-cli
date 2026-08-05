@@ -1,6 +1,6 @@
 # Implementation Plan: `abstract-length` lint for spec abstracts
 
-> **Status: implemented and verified** on this branch; reflects the design as
+> **Status: implemented and verified** — merged 2026-08-05 (`19c7429`); reflects the design as
 > built. Closes [#347](https://github.com/hadron-memory/hadron-cli/issues/347),
 > which followed from hadron-server
 > [#880](https://github.com/hadron-memory/hadron-server/issues/880).

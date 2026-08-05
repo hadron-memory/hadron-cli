@@ -1,6 +1,6 @@
 # `node ls` — seq flags must page the whole collection (#319)
 
-> **Status: implemented and verified** on this branch. Fixes
+> **Status: implemented and verified** — merged 2026-07-29 (`ad55586`). Fixes
 > [#319](https://github.com/hadron-memory/hadron-cli/issues/319).
 
 ## Bug
