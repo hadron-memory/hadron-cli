@@ -73,6 +73,12 @@ Target (deepest wins):
 Features are numbered in tens (010, 020, …); rules and flows by one. Use
 --dry-run to preview without writing.
 
+The abstract is the spec's vector-search retrieval surface: write it as
+the questions a reader would ask, in your own words rather than a
+restatement of the body. Keep every sentence on the spec's own subject —
+off-topic material is what dilutes the embedding — and stay under ~1600
+characters, which "spec lint" warns above.
+
 --new-path <citation> scaffolds a whole chain at once: it creates the given
 citation and every missing ancestor (each with its tier template and, for the
 roots, their general-provisions contract), so a fresh module + feature + rule

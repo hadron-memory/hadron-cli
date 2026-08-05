@@ -519,7 +519,10 @@ Conventions:
   **re-lints the changed specs** afterward; `spec register` is advisory/read-only (`--check` reports
   ledger drift, exit 5); `spec lint` takes `--product`/`--module`/`--all`,
   flags mixed-arity corpora, names the exact `edge add` remedy for a missing
-  inheritance edge, and warns (rule `vector-index`) when the memory has no
+  inheritance edge, warns (rule `abstract-length`) when a rule-tier abstract
+  runs past ~1600 characters — a ceiling, not a target: retrieval is flat
+  across ~700-1700 chars, and off-topic sentences dilute the embedding far
+  more than length does — and warns (rule `vector-index`) when the memory has no
   vector index so spec abstracts aren't embedded for semantic `find`
   (`--strict` promotes warnings to errors, exit 5); `spec check-tools` scans the
   corpus for `hadron_*` tool references and flags any that aren't a real
