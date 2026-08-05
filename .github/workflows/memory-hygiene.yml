@@ -92,13 +92,20 @@ jobs:
           # Re-run for the machine-readable findings. This also separates a lint
           # failure from an infra one: a transport error leaves no
           # error-severity finding, and no issue is filed for it.
+          #
+          # Every failure mode here has to end in EMPTY rows, not a dead step:
+          # the job runs with `bash -e`, so an unguarded non-zero would abort
+          # before the notice below and swallow the reason. A failed `--json`
+          # read writes nothing to stdout (the structured error goes to stderr),
+          # which jq -s reads as no input — but `|| true` covers a malformed
+          # payload too, which jq exits 5 on.
           ./bin/hadron coding review lint -m "$MEMORY" --json > review.json || true
           ./bin/hadron coding preflight lint -m "$MEMORY" --json > preflight.json || true
           rows=$(jq -r -s '
             (map(select(type == "array")) | add // [])
             | map(select(.severity == "error"))
             | map("| `\(.node)` | \(.rule) | \(.message) |")
-            | join("\n")' review.json preflight.json)
+            | join("\n")' review.json preflight.json || true)
           if [ -z "$rows" ]; then
             echo "::notice::No error-severity findings on re-run — treating the failure as transient."
             exit 0

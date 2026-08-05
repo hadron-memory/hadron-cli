@@ -481,9 +481,11 @@ So the collection step is shared (`collect.go`), and the `STATUS` column is
 `broken` means "the linter reports an error-severity finding for this row". The
 two views cannot disagree.
 
-`list` is read-only and always exits 0 — `lint` carries the exit-code contract.
-Two commands with the same exit semantics would make the linter's 5 meaningless
-in a pipeline.
+`list` is read-only in the sense that matters here: a broken check is a **row**,
+not an exit code, so a listing full of them still exits 0 (usage, auth and
+not-found errors exit non-zero as everywhere else). `lint` is what carries the
+findings→exit-code contract. Two commands with the same exit semantics would
+make the linter's 5 meaningless in a pipeline.
 
 Unreadable endpoints list as `unavailable` for the same reason the linter warns
 on them: the caller asked what the checklist contains, and "something here I

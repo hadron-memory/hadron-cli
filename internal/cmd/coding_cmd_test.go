@@ -529,6 +529,63 @@ func TestCodingReviewCreateWiresParentEdge(t *testing.T) {
 	}
 }
 
+// A --link commonly points at the canonical convention node in ANOTHER memory.
+// -m is required here (it names where the check is created), and ResolveNodeRef
+// reads its ref as a bare loc whenever a memory is given — so a qualified ref
+// must be resolved verbatim, not composed into the check's memory, where it
+// would resolve to nothing (Codex review on #346).
+func TestCodingReviewCreateCrossMemoryLink(t *testing.T) {
+	const linkURN = "hrn:node:hadronmemory.com:dev:conventions:output-contract"
+	newNode := `{"id":"n_new","memoryId":"mem1","loc":"review:linked","name":"linked",
+		"nodeType":"info","tags":["review","review-criteria"],"seq":null,"isRunnable":false,
+		"updatedAt":"2026-08-04T00:00:00Z"}`
+	confirmEdge := `{"id":"e_new","name":"Applies when a thing changes","loc":"l","isRunnable":false,
+		"priority":0,"target":{"id":"root","loc":"review","memoryId":"` + codingMem + `"}}`
+	gql, captured := queueGraphQL(t, map[string][]string{
+		"GetNode": {
+			codingRootJSON("review", "", ""),
+			codingNodeJSON("n_new", "review:linked", "", confirmEdge),
+		},
+		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_link","kind":"node","memoryId":"mem2"}}}`},
+		"CreateNode": {`{"data":{"createNode":` + newNode + `}}`},
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "review", "create", "linked", "-m", codingMem,
+		"--trigger", "a thing changes", "--description", "d",
+		"--link", linkURN, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a cross-memory --link should resolve, got %v", err)
+	}
+
+	if len(captured["ResolveUrn"]) != 1 {
+		t.Fatalf("expected the link to be resolved once, got %d", len(captured["ResolveUrn"]))
+	}
+	var resolved struct {
+		URN string `json:"urn"`
+	}
+	if err := json.Unmarshal(captured["ResolveUrn"][0], &resolved); err != nil {
+		t.Fatalf("decoding ResolveUrn vars: %v", err)
+	}
+	if resolved.URN != linkURN {
+		t.Errorf("the link must resolve verbatim, got %q — a re-scoped ref resolves in the wrong memory", resolved.URN)
+	}
+
+	var got struct {
+		Input struct {
+			Edges []struct {
+				TargetID string `json:"targetId"`
+			} `json:"edges"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(captured["CreateNode"][0], &got); err != nil {
+		t.Fatalf("decoding CreateNode vars: %v", err)
+	}
+	if len(got.Input.Edges) != 2 || got.Input.Edges[1].TargetID != "n_link" {
+		t.Errorf("the link edge should carry the resolved id, got %+v", got.Input.Edges)
+	}
+}
+
 // If the edge did not land, the check exists but is invisible. That is a
 // partial write: report it and exit 1, never 0.
 func TestCodingReviewCreateUnwiredExits1(t *testing.T) {

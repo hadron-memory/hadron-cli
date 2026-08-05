@@ -41,6 +41,26 @@ func IsNodeID(ref string) bool {
 	return reNodeID.MatchString(strings.TrimSpace(ref))
 }
 
+// IsQualifiedNodeRef reports whether ref already names its own memory — a
+// scheme-prefixed URN (hrn:node:/urn:node:) or the legacy fully-qualified
+// <org>::<memory>::<loc>. It is the same grammar ResolveNodeURN accepts, in
+// predicate form.
+//
+// It exists for commands whose -m/--memory is REQUIRED for another reason (it
+// names where a write lands, say) but which also take a node ref that may point
+// at another memory. ResolveNodeRef treats its ref as a bare loc whenever a
+// memory is supplied, so passing a qualified ref through composes it INTO that
+// memory — `hrn:node:acme.com:kb:hrn:node:other.org:dev:x`, which resolves to
+// nothing, or "" for the legacy spelling. Gate on this and pass an empty memory
+// for qualified refs so they resolve where they actually live.
+//
+// A bare node id is NOT covered here and needs no gate: ResolveNodeRef
+// short-circuits on IsNodeID before -m is considered.
+func IsQualifiedNodeRef(ref string) bool {
+	ref = strings.TrimSpace(ref)
+	return urnlib.HasSchemePrefix(ref) || strings.Count(ref, "::") >= 2
+}
+
 // EdgeDisplay is the human handle for an edge: its name, or its loc when the
 // name is empty (spec 037 — an edge's name is optional, its loc is the
 // identity, so a nameless edge still prints something addressable).

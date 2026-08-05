@@ -205,3 +205,33 @@ func TestLocsThatACUIDShapedRuleWouldSwallow(t *testing.T) {
 		}
 	}
 }
+
+// A ref that already names its own memory must be recognizable as such, so a
+// command whose -m is required for another reason doesn't re-scope it. Getting
+// this wrong is silent: NodeURN happily composes a URN INSIDE the wrong
+// memory (hrn:node:acme.com:kb:hrn:node:…), which then resolves to nothing.
+func TestIsQualifiedNodeRef(t *testing.T) {
+	qualified := []string{
+		"hrn:node:hadronmemory.com:dev:conventions:output-contract",
+		"urn:node:hadronmemory.com:dev:conventions:output-contract",
+		"hadronmemory.com::dev::conventions:output-contract",
+		"hadronmemory.com::dev::start-here",
+	}
+	for _, ref := range qualified {
+		if !IsQualifiedNodeRef(ref) {
+			t.Errorf("%q names its own memory and must not be re-scoped", ref)
+		}
+	}
+	bare := []string{
+		"start-here",
+		"conventions:output-contract",
+		"review:thin-resolver-field",
+		"019fce8418e8798285e7fc179f5bc8f4", // an id: handled by IsNodeID, not this
+		"acme.com::kb",                     // a MEMORY ref, not a node ref
+	}
+	for _, ref := range bare {
+		if IsQualifiedNodeRef(ref) {
+			t.Errorf("%q is not a fully-qualified node ref", ref)
+		}
+	}
+}

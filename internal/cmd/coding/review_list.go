@@ -55,8 +55,10 @@ the parent's loc prefix that is neither tagged ` + "`meta`" + ` nor runnable.
 A check whose node cannot be read lists as ` + "`unavailable`" + ` rather than
 being dropped.
 
-This is a read-only view — it always exits 0. Use ` + "`coding review lint`" + `
-for the exit-code contract.`,
+This is a read-only view: a broken check is a row, not an exit code — a
+listing full of them still exits 0. (A usage, auth or not-found error
+exits non-zero as everywhere else.) ` + "`coding review lint`" + ` is the
+command whose exit code reflects findings.`,
 		Example: `  hadron coding review list -m hadronmemory.com::hadron-cli
   hadron coding review list -m micromentor.org::mmdata --broken
   hadron coding review list -m hadronmemory.com::hadron-portal --json`,

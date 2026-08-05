@@ -69,8 +69,9 @@ review:role-vs-group-ident-vocabulary        104  broken  child-of
 review:posthog-backend-vs-app-event-routing  105  broken  child-of
 ```
 
-`list` is read-only and always exits 0; `lint` is what carries the exit-code
-contract.
+`list` is read-only: a broken check is a row, not an exit code, so a listing
+full of them still exits 0 (a usage, auth or not-found error exits non-zero as
+everywhere else). `lint` is the command whose exit code reflects findings.
 
 The router has the same pair:
 

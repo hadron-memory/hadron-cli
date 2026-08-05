@@ -150,7 +150,18 @@ existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + 
 			edges := []*gen.NodeEdgeInput{{TargetId: parent.Node.Id, Name: &label}}
 			outLinks := []linkDTO{}
 			for _, l := range parsedLinks {
-				targetID, rerr := cmdutil.ResolveNodeRef(cmd, client, memory, l.Ref)
+				// A --link commonly points at the canonical convention/finding
+				// node, which often lives in ANOTHER memory (a repo's checks
+				// cross-linking ::dev). -m is required here because it names
+				// where the check is created, and ResolveNodeRef reads its ref
+				// as a bare loc whenever a memory is given — so a qualified ref
+				// must be resolved without it, or it gets composed into the
+				// check's memory and resolves to nothing.
+				linkMemory := memory
+				if cmdutil.IsQualifiedNodeRef(l.Ref) {
+					linkMemory = ""
+				}
+				targetID, rerr := cmdutil.ResolveNodeRef(cmd, client, linkMemory, l.Ref)
 				if rerr != nil {
 					return rerr
 				}
@@ -222,7 +233,8 @@ existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + 
 	cmd.Flags().StringVarP(&content, "content", "c", "", `node body ("-" reads stdin; default: a Scope-first scaffold)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read the node body from a file")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "extra tag (repeatable; review and review-criteria are always set)")
-	cmd.Flags().StringArrayVar(&links, "link", nil, "cross-link to a canonical node: <node-ref>[=<label>] (repeatable)")
+	cmd.Flags().StringArrayVar(&links, "link", nil,
+		"cross-link to a canonical node: <node-ref>[=<label>], a bare loc in this memory or a URN/id anywhere (repeatable)")
 	cmd.Flags().IntVar(&seq, "seq", 0, "explicit sibling ordering")
 	_ = cmd.MarkFlagRequired("trigger")
 	return cmd

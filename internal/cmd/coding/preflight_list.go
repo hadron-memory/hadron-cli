@@ -39,8 +39,10 @@ against the route labels, so this is the router as they see it. A route
 whose target cannot be read lists with status ` + "`broken`" + ` — it sends
 the reader nowhere.
 
-This is a read-only view — it always exits 0. Use ` + "`coding preflight lint`" + `
-for the exit-code contract.`,
+This is a read-only view: a broken route is a row, not an exit code — a
+listing full of them still exits 0. (A usage, auth or not-found error
+exits non-zero as everywhere else.) ` + "`coding preflight lint`" + ` is the
+command whose exit code reflects findings.`,
 		Example: `  hadron coding preflight list -m hadronmemory.com::dev
   hadron coding preflight list -m micromentor.org::mmdata --broken --json`,
 		Args: cobra.NoArgs,
