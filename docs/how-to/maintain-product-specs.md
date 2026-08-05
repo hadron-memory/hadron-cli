@@ -294,6 +294,57 @@ retire the old one (it keeps its number, gains a `superseded` tag and a
 hadron spec supersede cli:cha:010:01 -m $M --title "backpressure v2" --yes
 ```
 
+## Citations in source, and keeping them honest
+
+The authoring workflow tells you to point at a spec from the code it governs —
+`// Spec: <citation>` near the load-bearing constant, query or handler. That
+creates a **second population of citations, outside the graph**, and
+`spec lint` cannot see it. Supersede a rule and every one of those pointers now
+documents a contract that was deliberately replaced.
+
+```sh
+hadron spec citations -m $M --src src/
+```
+
+```
+LOCATION                CITATION        SEVERITY  RULE         MESSAGE
+src/lib/webFetch.ts:4   cor:api:130:02  error     superseded   cites a superseded spec — replaced by cor:api:130:03; …
+src/lib/probe.ts:1      cor:api:999:01  error     unresolved   does not resolve in … — a typo, a spec deleted rather …
+```
+
+- Matching is anchored on the prescribed `Spec:` prefix, and takes **every**
+  citation on that line — real pointers routinely list several
+  (`// Spec: cor:api:080:01 (collide vs relocate), cor:api:080:02 (…)`).
+  `--loose` drops the anchor and scans every line for citation-shaped tokens,
+  which finds pointers written some other way at the cost of prose false
+  positives.
+- Errors exit **5**, like `spec lint`, so this gates CI. `--src` repeats and
+  accepts a file or a directory; `--exclude <glob>` prunes paths (a doc that
+  *shows* the pointer form is a true match and a false alarm).
+- `--stale-abstracts` adds a warning when a cited spec's abstract has drifted
+  from its body. Off by default: that is a property of the **spec**, not of the
+  pointer, and most of a live corpus trips it — see
+  [docs/plans/spec-citations.md](../plans/spec-citations.md).
+
+### Two populations — the second is the expensive one
+
+This check catches citations that **went** stale. It cannot catch a claim that
+was **never** grounded, and those are more common and cost more. Two real
+examples from one client/server pair:
+
+- A comment stated a training's status was "deliberately not bypassable". The
+  ratified rule says withdrawal must never strand a mid-run learner. It survived
+  a merged PR and was then quoted **in review** to defend the bug it described.
+- A comment justified latest-attempt routing as "matching the server, which
+  grades the most recent attempt". The server grades the **best** attempt —
+  behaviour right, stated mechanism wrong, sitting exactly on a deliberate
+  asymmetry.
+
+Neither carried a citation, so no linter would have caught either. That half is
+a review-time rule — *treat any claim about another component as a citation that
+must resolve* — and belongs in a review checklist (`hadron coding review create`),
+not in a scanner.
+
 ## Notes
 
 - A memory's declared scheme lives in its `data` bag under `spec.scheme`
