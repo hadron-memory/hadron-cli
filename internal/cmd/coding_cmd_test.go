@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -12,11 +14,49 @@ const codingMem = "acme.com::kb"
 
 // codingRootJSON is a lint root (review or preflight) carrying the given edges.
 func codingRootJSON(loc, incoming, outgoing string) string {
-	return `{"data":{"node":{"id":"root","memoryId":"mem1","loc":"` + loc + `","name":"` + loc + `",
+	return codingNodeJSON("root", loc, incoming, outgoing)
+}
+
+// codingNodeJSON is one node in the GetNode projection.
+func codingNodeJSON(id, loc, incoming, outgoing string) string {
+	return `{"data":{"node":{"id":"` + id + `","memoryId":"mem1","loc":"` + loc + `","name":"` + loc + `",
 		"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","objectType":null,
 		"tags":[],"content":null,"data":null,"properties":null,"seq":null,"isRunnable":false,
 		"createdAt":"2026-07-30T00:00:00Z","updatedAt":"2026-07-30T00:00:00Z",
 		"outgoingEdges":[` + outgoing + `],"incomingEdges":[` + incoming + `]}}}`
+}
+
+// queueGraphQL serves a SEQUENCE of responses per operation, and captures every
+// request's variables. `coding review create` reads GetNode twice — once to
+// resolve the review parent, once to confirm the new check's edge landed — and
+// those two calls must answer differently, which the operation-keyed fake
+// cannot express. The last response repeats once the queue is drained.
+func queueGraphQL(t *testing.T, responses map[string][]string) (*httptest.Server, map[string][]json.RawMessage) {
+	t.Helper()
+	captured := map[string][]json.RawMessage{}
+	calls := map[string]int{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string          `json:"operationName"`
+			Variables     json.RawMessage `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		captured[body.OperationName] = append(captured[body.OperationName], body.Variables)
+		queue, ok := responses[body.OperationName]
+		if !ok || len(queue) == 0 {
+			t.Errorf("unexpected operation %q", body.OperationName)
+			queue = []string{`{"errors":[{"message":"unexpected operation"}]}`}
+		}
+		i := calls[body.OperationName]
+		calls[body.OperationName]++
+		if i >= len(queue) {
+			i = len(queue) - 1
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, queue[i])))
+	}))
+	t.Cleanup(server.Close)
+	return server, captured
 }
 
 // inEdge is an edge pointing AT the root; its far endpoint is the source.
@@ -338,10 +378,278 @@ func TestCodingReviewFixRequiresYes(t *testing.T) {
 	}
 }
 
+func TestCodingReviewListShowsTriggers(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"GetNode": codingRootJSON("review",
+			inEdge("e1", "Applies when a resolver changes", "review:ok")+","+inEdge("e2", "child-of", "review:bad"), ""),
+		"FindNodes": `{"data":{"nodes":[` + codingListNode("review:ok") + `,` + codingListNode("review:bad") + `]}}`,
+		"NodeBatch": codingBatch([]string{
+			codingBatchNode("review:ok", `"review"`, "d"),
+			codingBatchNode("review:bad", `"review"`, "d"),
+		}, ""),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "review", "list", "-m", codingMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("list is read-only and must exit 0, got %v", err)
+	}
+	s := out.String()
+	if !strings.Contains(s, "Applies when a resolver changes") {
+		t.Errorf("expected the trigger column, got %q", s)
+	}
+	// A broken check still LISTS — the view is "what is in the checklist",
+	// with the linter's verdict as a column.
+	if !strings.Contains(s, "review:bad") || !strings.Contains(s, "broken") {
+		t.Errorf("expected the broken check listed with its status, got %q", s)
+	}
+}
+
+func TestCodingReviewListBrokenJSON(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"GetNode": codingRootJSON("review",
+			inEdge("e1", "Applies when a resolver changes", "review:ok")+","+inEdge("e2", "child-of", "review:bad"), ""),
+		"FindNodes": `{"data":{"nodes":[` + codingListNode("review:ok") + `,` + codingListNode("review:bad") + `]}}`,
+		"NodeBatch": codingBatch([]string{
+			codingBatchNode("review:ok", `"review"`, "d"),
+			codingBatchNode("review:bad", `"review"`, "d"),
+		}, ""),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "review", "list", "-m", codingMem, "--broken", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("list must exit 0 even with broken checks, got %v", err)
+	}
+	var rows []struct {
+		Loc     string   `json:"loc"`
+		Trigger string   `json:"trigger"`
+		Status  string   `json:"status"`
+		Tags    []string `json:"tags"`
+		EdgeID  string   `json:"edgeId"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &rows); err != nil {
+		t.Fatalf("--json must emit a JSON array: %v (%q)", err, out.String())
+	}
+	if len(rows) != 1 || rows[0].Loc != "review:bad" {
+		t.Fatalf("--broken should list only the broken check, got %+v", rows)
+	}
+	if rows[0].Status != "broken" || rows[0].EdgeID != "e2" {
+		t.Errorf("unexpected row: %+v", rows[0])
+	}
+	if rows[0].Tags == nil {
+		t.Error("empty slices must render as [], not null")
+	}
+}
+
+func TestCodingPreflightList(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"GetNode": codingRootJSON("preflight", "",
+			outEdge("e1", "to fix a failing build", "ops:ci")+","+outEdge("e2", "to read the dead one", "findings:gone")),
+		"NodeBatch": codingBatch([]string{codingBatchNode("ops:ci", "", "")}, `"t_e2"`),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "preflight", "list", "-m", codingMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("list is read-only and must exit 0 even with a dead route, got %v", err)
+	}
+	s := out.String()
+	if !strings.Contains(s, "to fix a failing build") || !strings.Contains(s, "ops:ci") {
+		t.Errorf("expected the route label and target, got %q", s)
+	}
+	if !strings.Contains(s, "findings:gone") || !strings.Contains(s, "broken") {
+		t.Errorf("expected the dead route listed as broken, got %q", s)
+	}
+}
+
+// The whole point of `review create`: the node and the edge that makes it
+// discoverable are written together, so there is no window in which the check
+// exists but is invisible.
+func TestCodingReviewCreateWiresParentEdge(t *testing.T) {
+	newNode := `{"id":"n_new","memoryId":"mem1","loc":"review:thin-resolver","name":"thin-resolver",
+		"nodeType":"info","tags":["review","review-criteria"],"seq":null,"isRunnable":false,
+		"updatedAt":"2026-08-04T00:00:00Z"}`
+	confirmEdge := `{"id":"e_new","name":"Applies when a resolver changes","loc":"l","isRunnable":false,
+		"priority":0,"target":{"id":"root","loc":"review","memoryId":"` + codingMem + `"}}`
+	gql, captured := queueGraphQL(t, map[string][]string{
+		"GetNode": {
+			codingRootJSON("review", "", ""),                                 // the parent
+			codingNodeJSON("n_new", "review:thin-resolver", "", confirmEdge), // the confirm read
+		},
+		"CreateNode": {`{"data":{"createNode":` + newNode + `}}`},
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "review", "create", "thin-resolver", "-m", codingMem,
+		"--trigger", "a resolver changes", "--description", "Resolver fields stay thin.", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("create should succeed, got %v", err)
+	}
+
+	var got struct {
+		Input struct {
+			Loc         string   `json:"loc"`
+			Name        string   `json:"name"`
+			Description string   `json:"description"`
+			Content     string   `json:"content"`
+			Tags        []string `json:"tags"`
+			Edges       []struct {
+				TargetID string `json:"targetId"`
+				Name     string `json:"name"`
+			} `json:"edges"`
+		} `json:"input"`
+	}
+	if len(captured["CreateNode"]) != 1 {
+		t.Fatalf("expected exactly one CreateNode, got %d", len(captured["CreateNode"]))
+	}
+	if err := json.Unmarshal(captured["CreateNode"][0], &got); err != nil {
+		t.Fatalf("decoding CreateNode vars: %v", err)
+	}
+	if got.Input.Loc != "review:thin-resolver" {
+		t.Errorf("loc = %q, want the root prefix applied", got.Input.Loc)
+	}
+	if len(got.Input.Edges) != 1 {
+		t.Fatalf("the check must be created WITH its parent edge, got %+v", got.Input.Edges)
+	}
+	if got.Input.Edges[0].TargetID != "root" {
+		t.Errorf("the edge must target the resolved parent id, got %q", got.Input.Edges[0].TargetID)
+	}
+	if got.Input.Edges[0].Name != "Applies when a resolver changes" {
+		t.Errorf("the edge label is the trigger with the stem applied, got %q", got.Input.Edges[0].Name)
+	}
+	if !strings.Contains(got.Input.Content, "> **Scope.**") {
+		t.Errorf("the scaffolded body must open with a Scope blockquote, got %q", got.Input.Content)
+	}
+	if strings.Join(got.Input.Tags, ",") != "review,review-criteria" {
+		t.Errorf("unexpected tags: %v", got.Input.Tags)
+	}
+	if !strings.Contains(out.String(), "review:thin-resolver") {
+		t.Errorf("expected the created loc in the output, got %q", out.String())
+	}
+}
+
+// A --link commonly points at the canonical convention node in ANOTHER memory.
+// -m is required here (it names where the check is created), and ResolveNodeRef
+// reads its ref as a bare loc whenever a memory is given — so a qualified ref
+// must be resolved verbatim, not composed into the check's memory, where it
+// would resolve to nothing (Codex review on #346).
+func TestCodingReviewCreateCrossMemoryLink(t *testing.T) {
+	const linkURN = "hrn:node:hadronmemory.com:dev:conventions:output-contract"
+	newNode := `{"id":"n_new","memoryId":"mem1","loc":"review:linked","name":"linked",
+		"nodeType":"info","tags":["review","review-criteria"],"seq":null,"isRunnable":false,
+		"updatedAt":"2026-08-04T00:00:00Z"}`
+	confirmEdge := `{"id":"e_new","name":"Applies when a thing changes","loc":"l","isRunnable":false,
+		"priority":0,"target":{"id":"root","loc":"review","memoryId":"` + codingMem + `"}}`
+	gql, captured := queueGraphQL(t, map[string][]string{
+		"GetNode": {
+			codingRootJSON("review", "", ""),
+			codingNodeJSON("n_new", "review:linked", "", confirmEdge),
+		},
+		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_link","kind":"node","memoryId":"mem2"}}}`},
+		"CreateNode": {`{"data":{"createNode":` + newNode + `}}`},
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "review", "create", "linked", "-m", codingMem,
+		"--trigger", "a thing changes", "--description", "d",
+		"--link", linkURN, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a cross-memory --link should resolve, got %v", err)
+	}
+
+	if len(captured["ResolveUrn"]) != 1 {
+		t.Fatalf("expected the link to be resolved once, got %d", len(captured["ResolveUrn"]))
+	}
+	var resolved struct {
+		URN string `json:"urn"`
+	}
+	if err := json.Unmarshal(captured["ResolveUrn"][0], &resolved); err != nil {
+		t.Fatalf("decoding ResolveUrn vars: %v", err)
+	}
+	if resolved.URN != linkURN {
+		t.Errorf("the link must resolve verbatim, got %q — a re-scoped ref resolves in the wrong memory", resolved.URN)
+	}
+
+	var got struct {
+		Input struct {
+			Edges []struct {
+				TargetID string `json:"targetId"`
+			} `json:"edges"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(captured["CreateNode"][0], &got); err != nil {
+		t.Fatalf("decoding CreateNode vars: %v", err)
+	}
+	if len(got.Input.Edges) != 2 || got.Input.Edges[1].TargetID != "n_link" {
+		t.Errorf("the link edge should carry the resolved id, got %+v", got.Input.Edges)
+	}
+}
+
+// If the edge did not land, the check exists but is invisible. That is a
+// partial write: report it and exit 1, never 0.
+func TestCodingReviewCreateUnwiredExits1(t *testing.T) {
+	newNode := `{"id":"n_new","memoryId":"mem1","loc":"review:orphan","name":"orphan",
+		"nodeType":"info","tags":["review"],"seq":null,"isRunnable":false,"updatedAt":"2026-08-04T00:00:00Z"}`
+	gql, _ := queueGraphQL(t, map[string][]string{
+		"GetNode": {
+			codingRootJSON("review", "", ""),
+			codingNodeJSON("n_new", "review:orphan", "", ""), // no edge came back
+		},
+		"CreateNode": {`{"data":{"createNode":` + newNode + `}}`},
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "review", "create", "orphan", "-m", codingMem,
+		"--trigger", "a thing changes", "--description", "d", "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Error {
+		t.Errorf("an unwired check is a partial write (exit 1), got %d", got)
+	}
+}
+
+// A missing parent means the check would hang off nothing — fail before
+// writing rather than leaving an orphan behind.
+func TestCodingReviewCreateMissingParent(t *testing.T) {
+	gql, captured := queueGraphQL(t, map[string][]string{
+		"GetNode": {`{"data":{"node":null}}`},
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "review", "create", "x", "-m", codingMem,
+		"--trigger", "a thing changes", "--description", "d", "--server", gql.URL})
+	if got := exitcode.FromError(root.Execute()); got != exitcode.NotFound {
+		t.Errorf("a missing review parent should exit 4, got %d", got)
+	}
+	if _, wrote := captured["CreateNode"]; wrote {
+		t.Error("nothing may be written when the parent does not resolve")
+	}
+}
+
+// Local validation runs before any round trip: a label the linter would reject
+// must never reach the server.
+func TestCodingReviewCreateRejectsBadInput(t *testing.T) {
+	cases := [][]string{
+		{"coding", "review", "create", "x", "-m", codingMem, "--trigger", "Applies when", "--description", "d"},
+		{"coding", "review", "create", "x", "-m", codingMem, "--trigger", "a thing changes"},
+		{"coding", "review", "create", "graphql:x", "-m", codingMem, "--trigger", "a thing changes", "--description", "d"},
+	}
+	for _, args := range cases {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(args, "--server", "http://127.0.0.1:1"))
+		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+			t.Errorf("%v should be a usage error (2), got %d", args[3:], got)
+		}
+	}
+}
+
 func TestCodingLintRequiresMemory(t *testing.T) {
 	for _, args := range [][]string{
 		{"coding", "review", "lint"},
 		{"coding", "preflight", "lint"},
+		{"coding", "review", "list"},
+		{"coding", "preflight", "list"},
+		{"coding", "review", "create", "x", "--trigger", "a thing changes", "--description", "d"},
 	} {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)

@@ -1,0 +1,145 @@
+name: Memory hygiene
+
+# Nightly (and on-demand) detector for a broken coding-workflow graph in this
+# repo's Hadron memory: a review check whose trigger edge no longer carries a
+# condition, or a preflight route whose target can't be read.
+#
+# Why it exists: both are *executable* infrastructure. `tasks:review-changes`
+# discovers a check by reading its "Applies when …" edge label back to the
+# review parent, and preflight routes symptom → finding along its outgoing
+# edges. When one of those edges breaks, the check or route is silently skipped
+# — the node still exists, still looks maintained, and never fires again. That
+# is invisible in a code diff, which is why it needs its own job rather than a
+# CI step (#325).
+#
+# Why nightly and NOT a PR gate: memories are edited out of band from this
+# repo, by agents and people working in other checkouts, so a break rarely
+# coincides with a pull request. A nightly heads-up catches it; a PR gate would
+# mostly no-op, and would fail someone's unrelated PR when it didn't.
+#
+# Severity follows the linters' own contract: errors exit 5 and fail this job;
+# convention warnings (an unlabelled preflight route, a duplicate trigger) exit
+# 0 and stay in the log. A third of a healthy router fails the action-phrasing
+# convention, so warning-as-failure would only train people to ignore the job.
+#
+# Setup: add a repo secret HADRON_TOKEN — a token with read access to the
+# memory (`hadron auth token create`). Optionally set the repo variables
+# HADRON_MEMORY (default hadronmemory.com::hadron-cli) and HADRON_SERVER (the
+# CLI reads that env var directly). Without the secret the job no-ops with a
+# notice, so forks and unconfigured clones stay green.
+#
+# Third-party actions are pinned to a full commit SHA (tag in a trailing
+# comment), matching ci.yml (#119). Bump SHA + comment together when upgrading.
+
+on:
+  schedule:
+    - cron: '43 6 * * *' # 06:43 UTC daily (off the hour, and clear of schema-drift)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write # file a tracking issue when the graph is broken
+
+jobs:
+  memory-hygiene:
+    runs-on: ubuntu-latest
+    env:
+      HADRON_TOKEN: ${{ secrets.HADRON_TOKEN }}
+      HADRON_SERVER: ${{ vars.HADRON_SERVER }}
+      MEMORY: ${{ vars.HADRON_MEMORY || 'hadronmemory.com::hadron-cli' }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+
+      - name: Gate on a Hadron token
+        id: gate
+        run: |
+          if [ -z "$HADRON_TOKEN" ]; then
+            echo "::notice::HADRON_TOKEN not set — skipping the memory-hygiene check."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Built from this checkout rather than downloading a release: the point is
+      # to lint with the linter this branch defines.
+      - name: Build the CLI
+        if: steps.gate.outputs.enabled == 'true'
+        run: make build
+
+      # Both linters run even when the first fails, so one nightly reports
+      # everything that is broken rather than the first thing.
+      - name: Lint the review checklist
+        id: review
+        if: steps.gate.outputs.enabled == 'true'
+        continue-on-error: true
+        run: ./bin/hadron coding review lint -m "$MEMORY"
+
+      - name: Lint the preflight router
+        id: preflight
+        if: steps.gate.outputs.enabled == 'true'
+        continue-on-error: true
+        run: ./bin/hadron coding preflight lint -m "$MEMORY"
+
+      - name: File a hygiene tracking issue
+        if: steps.review.outcome == 'failure' || steps.preflight.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Re-run for the machine-readable findings. This also separates a lint
+          # failure from an infra one: a transport error leaves no
+          # error-severity finding, and no issue is filed for it.
+          #
+          # Every failure mode here has to end in EMPTY rows, not a dead step:
+          # the job runs with `bash -e`, so an unguarded non-zero would abort
+          # before the notice below and swallow the reason. A failed `--json`
+          # read writes nothing to stdout (the structured error goes to stderr),
+          # which jq -s reads as no input — but `|| true` covers a malformed
+          # payload too, which jq exits 5 on.
+          ./bin/hadron coding review lint -m "$MEMORY" --json > review.json || true
+          ./bin/hadron coding preflight lint -m "$MEMORY" --json > preflight.json || true
+          rows=$(jq -r -s '
+            (map(select(type == "array")) | add // [])
+            | map(select(.severity == "error"))
+            | map("| `\(.node)` | \(.rule) | \(.message) |")
+            | join("\n")' review.json preflight.json || true)
+          if [ -z "$rows" ]; then
+            echo "::notice::No error-severity findings on re-run — treating the failure as transient."
+            exit 0
+          fi
+
+          # Written to a file rather than an inline heredoc: a heredoc nested in
+          # this indented `run:` block keeps its leading spaces, and an indented
+          # markdown table renders as a code block.
+          {
+            printf 'The nightly memory-hygiene check found edges in `%s` that make a review check or a preflight route **silently stop firing**.\n\n' "$MEMORY"
+            printf '| Node | Rule | Detail |\n|---|---|---|\n%s\n\n' "$rows"
+            printf 'Reproduce and repair:\n\n```sh\n'
+            printf 'hadron coding review list -m %s --broken   # what is broken, and its trigger\n' "$MEMORY"
+            printf 'hadron coding review lint -m %s --suggest  # each finding, with the body scope quoted\n' "$MEMORY"
+            printf 'hadron coding review lint -m %s --fix      # promote a description into an empty label, where possible\n' "$MEMORY"
+            printf 'hadron edge update <edge-id> --name "Applies when …"   # whatever --fix leaves alone\n'
+            printf '```\n\nFailing run: %s\n' "$RUN_URL"
+          } > hygiene-issue.md
+
+          title="Broken coding-workflow graph in $MEMORY"
+          # De-dupe: don't stack issues if one is already open.
+          existing=$(gh issue list --state open --search "\"$title\" in:title" \
+            --json title,number --jq "[.[] | select(.title==\"$title\")][0].number // empty")
+          if [ -n "$existing" ]; then
+            echo "Hygiene issue already open (#$existing); adding a note instead."
+            gh issue comment "$existing" --body "Still broken as of $RUN_URL"
+            exit 0
+          fi
+          gh issue create --title "$title" --body-file hygiene-issue.md
+
+      # Fail the job if either linter reported an error, so the nightly result
+      # is red and visible.
+      - name: Fail on any error-severity finding
+        if: steps.review.outcome == 'failure' || steps.preflight.outcome == 'failure'
+        run: |
+          echo "Broken review checks and/or preflight routes — see the steps above and any filed issue."
+          exit 1
