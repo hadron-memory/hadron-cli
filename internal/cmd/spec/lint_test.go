@@ -160,6 +160,87 @@ func TestLintNodeReportsAllRubricGapsAtOnce(t *testing.T) {
 	}
 }
 
+// abstractOf returns a spec node whose abstract is exactly n characters long,
+// so the length rule can be probed at and either side of its bound.
+func abstractOf(t *testing.T, loc string, n int) specNode {
+	t.Helper()
+	sn := cleanSpec(t, loc, "W2")
+	abs := strings.Repeat("a", n)
+	sn.Abstract = &abs
+	return sn
+}
+
+func TestLintNodeAbstractLengthWithinBound(t *testing.T) {
+	// The bound is a ceiling, not a target: everything up to and including it
+	// is silent, so the rule can't nudge authors toward needlessly short
+	// abstracts (#347 — retrieval is flat across ~700-1700 chars).
+	for _, n := range []int{1, 800, abstractSoftMax} {
+		if fs := lintNode(abstractOf(t, "msg:010:02", n)); hasRule(fs, "abstract-length") {
+			t.Errorf("a %d-char abstract must not be flagged; got %v", n, fs)
+		}
+	}
+}
+
+func TestLintNodeAbstractLengthOverBound(t *testing.T) {
+	fs := lintNode(abstractOf(t, "msg:010:02", abstractSoftMax+1))
+	var found *lintFindingDTO
+	for i := range fs {
+		if fs[i].Rule == "abstract-length" {
+			found = &fs[i]
+		}
+	}
+	if found == nil {
+		t.Fatalf("an over-long rule abstract should be flagged; got %v", fs)
+	}
+	if found.Severity != sevWarning {
+		t.Errorf("rule-tier abstract-length should warn, got %q", found.Severity)
+	}
+	if !strings.Contains(found.Message, fmt.Sprint(abstractSoftMax+1)) {
+		t.Errorf("message should name the actual length; got %q", found.Message)
+	}
+}
+
+func TestLintNodeAbstractLengthFlowIsAdvisory(t *testing.T) {
+	// Flows are pulled on demand rather than retrieved cold, so the same gap is
+	// informational there — matching how the rest of the rubric tiers down.
+	fs := lintNode(abstractOf(t, "msg:010:02:01", abstractSoftMax+400))
+	for _, f := range fs {
+		if f.Rule == "abstract-length" {
+			if f.Severity != sevInfo {
+				t.Errorf("flow-tier abstract-length should be info, got %q", f.Severity)
+			}
+			return
+		}
+	}
+	t.Fatalf("expected abstract-length finding on a flow; got %v", fs)
+}
+
+func TestLintNodeAbstractLengthCountsCharsNotBytes(t *testing.T) {
+	// Spec prose is full of em-dashes and arrows; counting bytes would flag an
+	// abstract the server (which counts characters) considers well inside its
+	// own cap.
+	sn := cleanSpec(t, "msg:010:02", "W2")
+	abs := strings.Repeat("—", abstractSoftMax) // 3 bytes each, 1 char each
+	sn.Abstract = &abs
+	if fs := lintNode(sn); hasRule(fs, "abstract-length") {
+		t.Errorf("multi-byte characters must count as one each; got %v", fs)
+	}
+}
+
+func TestLintNodeAbstractLengthNotReportedWhenMissing(t *testing.T) {
+	// A missing abstract is already an error; adding a length finding on top
+	// would be noise pointing at a field that doesn't exist yet.
+	n := cleanSpec(t, "msg:010:02", "W2")
+	n.Abstract = nil
+	fs := lintNode(n)
+	if !hasRule(fs, "abstract") {
+		t.Fatalf("missing abstract should still be flagged; got %v", fs)
+	}
+	if hasRule(fs, "abstract-length") {
+		t.Errorf("missing abstract should not also trip abstract-length; got %v", fs)
+	}
+}
+
 func TestLintNodeHeaderLight(t *testing.T) {
 	// A module/feature header (level < 3) only gets the universal checks,
 	// not the spec rubric (no abstract/invalidates requirement).

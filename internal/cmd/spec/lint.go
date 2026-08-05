@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -23,6 +24,16 @@ const (
 	sevInfo    = "info"
 )
 
+// abstractSoftMax is the corpus-convention upper bound on a spec abstract, in
+// characters. It is deliberately well below the server's generic 2000-char cap
+// (spec 031) but far above the 1000 originally proposed in #347: measured
+// against the production embedding model (nomic-embed-text-v1.5), retrieval
+// quality is a broad plateau from roughly 700 to 1700 characters, and only
+// past ~2400 does added length measurably cost anything. 1600 marks the top of
+// that plateau — the point where more text has stopped paying for itself —
+// rather than an optimum. See docs/plans/spec-abstract-length.md.
+const abstractSoftMax = 1600
+
 var (
 	// Matches the "what invalidates" statement whether it's a heading
 	// (## What invalidates …) or inline bold (**What invalidates:** …),
@@ -37,14 +48,19 @@ func newCmdLint(f *cmdutil.Factory) *cobra.Command {
 		Use:     "lint [<citation>]",
 		Aliases: []string{"check", "validate"},
 		Short:   "Validate specs against the rubric and stability rules",
-		Long: `Validate one spec, a subtree, a product, a module, or the whole
+		Long: fmt.Sprintf(`Validate one spec, a subtree, a product, a module, or the whole
 corpus against the loc-as-citation rubric and stability rules.
 
 Scope is one of: a single <citation> argument, --prefix <citation> (that
 node plus its descendants — e.g. one feature and its rules), --product
 <ppp>, --module <mmm> (optionally within --product), or --all. Errors
 (rubric/stability violations) exit with code 5; --strict promotes warnings
-to errors too.`,
+to errors too.
+
+Rule abstract-length warns above ~%d characters. That is a ceiling, not
+a target: retrieval holds up across roughly 700-1700 characters, so a long
+abstract is only worth shortening once it has stopped being about one
+subject. Off-topic sentences dilute the embedding far more than length.`, abstractSoftMax),
 		Example: `  hadron spec lint msg:010:02 -m micromentor.org::platform-specs
   hadron spec lint --prefix cor:api:140 -m hadronmemory.com::specs
   hadron spec lint --module msg -m micromentor.org::platform-specs
@@ -277,7 +293,19 @@ func lintNode(n specNode) []lintFindingDTO {
 		rubricSev = sevWarning
 	}
 	if !abstractPresent(n.Abstract) {
-		add("abstract", rubricSev, "missing abstract — the vector-search retrieval surface (or still a placeholder)")
+		add("abstract", rubricSev, "missing abstract — the vector-search retrieval surface (or still a placeholder); state the questions this spec answers, in your own words, keeping every sentence on its topic")
+	} else if l := abstractLength(n.Abstract); l > abstractSoftMax {
+		// Length itself is a weak lever — an on-topic abstract costs almost
+		// nothing up to the server's cap — so this is advisory even at the
+		// rule tier, and info-level for flows. What actually dilutes the
+		// vector is off-topic material, which the message points at.
+		sev := sevWarning
+		if c.Level() == 4 {
+			sev = sevInfo
+		}
+		add("abstract-length", sev, fmt.Sprintf(
+			"abstract is %d chars — past ~%d added length stops paying for itself; distill it, and check every sentence is still about this spec (off-topic sentences dilute the vector far more than length does)",
+			l, abstractSoftMax))
 	}
 	if n.Content == nil || !reInvalidates.MatchString(*n.Content) {
 		add("invalidates", rubricSev, `body should state what invalidates this spec`)
@@ -417,6 +445,18 @@ func abstractPresent(a *string) bool {
 	}
 	s := strings.TrimSpace(*a)
 	return s != "" && !strings.Contains(s, abstractPlaceholder)
+}
+
+// abstractLength counts the abstract in characters (runes), matching how the
+// server measures its own 2000-char cap for the text a spec corpus actually
+// carries. Trimmed first so trailing editor whitespace never tips the bound.
+// utf8.RuneCountInString rather than len([]rune(…)): a corpus lint scans every
+// node, and this counts without allocating a rune slice per abstract.
+func abstractLength(a *string) int {
+	if a == nil {
+		return 0
+	}
+	return utf8.RuneCountInString(strings.TrimSpace(*a))
 }
 
 // isPlaceholderAbstract reports whether an abstract still carries the scaffold

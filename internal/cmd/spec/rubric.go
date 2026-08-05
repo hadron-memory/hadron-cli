@@ -24,13 +24,26 @@ const abstractPlaceholder = "TODO(abstract):"
 // specDataVersion is the schema version stamped into a new spec's data.
 const specDataVersion = "0.0.1"
 
+// abstractStyleHint is the one-line authoring guidance appended to every
+// scaffolded abstract placeholder. Retrieval measurements (docs/plans/
+// spec-abstract-length.md) put the lever on topical focus, not brevity: an
+// abstract that stays on its own subject holds up to the soft bound, while a
+// few off-topic sentences cost roughly five times as much as the same number
+// of on-topic characters. The bound is stated so authors have a ceiling, but
+// it is framed as a ceiling rather than a target.
+// Derived from abstractSoftMax so the scaffold can never advertise a bound
+// different from the one `spec lint` actually warns at.
+var abstractStyleHint = fmt.Sprintf(
+	"Phrase it as the questions a reader would ask, in your own words rather than the body's; keep every sentence on this subject and the whole thing under ~%d characters.",
+	abstractSoftMax)
+
 // placeholderAbstract is the stand-in abstract a scaffolded spec carries
 // until the author writes a real one. The marker keeps lint reminding the
 // author to replace it at the rule tier, where the abstract is the
 // load-bearing vector-search retrieval surface.
 func placeholderAbstract(c Citation, title string) string {
-	return fmt.Sprintf("%s one paragraph stating what %s — %s governs and the durable contract a reader searches for; this is the vector-search retrieval surface. Replace before publishing.",
-		abstractPlaceholder, c.Format(), title)
+	return fmt.Sprintf("%s one paragraph stating what %s — %s governs and the durable contract a reader searches for; this is the vector-search retrieval surface. %s Replace before publishing.",
+		abstractPlaceholder, c.Format(), title, abstractStyleHint)
 }
 
 // tierAbstract returns a tier-worded placeholder abstract: an orientation
@@ -44,8 +57,8 @@ func tierAbstract(c Citation, title string) string {
 		if p, ok := c.Parent(); ok {
 			parentStr = " in " + p.Format()
 		}
-		return fmt.Sprintf("%s one paragraph stating the general provisions %s sets for every %s%s — the shared definitions and defaults a reader searches for. Replace before publishing.",
-			abstractPlaceholder, c.Format(), tierChildWord(c), parentStr)
+		return fmt.Sprintf("%s one paragraph stating the general provisions %s sets for every %s%s — the shared definitions and defaults a reader searches for. %s Replace before publishing.",
+			abstractPlaceholder, c.Format(), tierChildWord(c), parentStr, abstractStyleHint)
 	case c.Level() == 0:
 		return fmt.Sprintf("%s one paragraph orienting a reader to the %s product — the modules it spans and what to look for here. Replace before publishing.",
 			abstractPlaceholder, c.Format())
@@ -53,8 +66,8 @@ func tierAbstract(c Citation, title string) string {
 		return fmt.Sprintf("%s one paragraph orienting a reader to the %s module — what it covers and where its features live. Replace before publishing.",
 			abstractPlaceholder, c.Format())
 	case c.Level() == 2:
-		return fmt.Sprintf("%s one paragraph stating what feature %s — %s governs and its load-bearing point; this is the vector-search retrieval surface. Replace before publishing.",
-			abstractPlaceholder, c.Format(), title)
+		return fmt.Sprintf("%s one paragraph stating what feature %s — %s governs and its load-bearing point; this is the vector-search retrieval surface. %s Replace before publishing.",
+			abstractPlaceholder, c.Format(), title, abstractStyleHint)
 	default: // rule / flow
 		return placeholderAbstract(c, title)
 	}
