@@ -349,3 +349,41 @@ mutation LinkMemoryToUser(
     updatedAt
   }
 }
+
+# Memory health audit (hadron-server#819) — the GraphQL twin of the MCP-only
+# hadron_validate, wired up for `hadron memory validate` (#352).
+#
+# Two fields exist because `findings` is NOT the answer on its own:
+#   - totalFindings is the true count BEFORE `limit` truncation — gate CI on
+#     this, never on len(findings).
+#   - ok is false when any check was SKIPPED, even with zero findings, so a
+#     clean bill of health can't quietly omit a check. skippedChecks says which
+#     and why (e.g. the stale-abstract check is skipped on encrypted memories:
+#     the validator does not decrypt).
+#
+# The server takes no per-check filter, so --check narrows client-side; the
+# command surfaces the interaction with truncation rather than hiding it.
+query ValidateMemory(
+  $memoryRef: ID!
+  # @genqlient(omitempty: true)
+  $limit: Int
+) {
+  validateMemory(memoryRef: $memoryRef, limit: $limit) {
+    memoryId
+    nodesChecked
+    ok
+    totalFindings
+    truncated
+    findings {
+      kind
+      nodeId
+      nodeLoc
+      nodeUrn
+      detail
+    }
+    skippedChecks {
+      check
+      reason
+    }
+  }
+}
