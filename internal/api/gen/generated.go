@@ -8269,7 +8269,7 @@ type MemoryValidationCheck string
 const (
 	// An edge whose target node is missing OR soft-deleted. A hard-deleted target cannot occur - Edge.target is FK-enforced with onDelete: Cascade - so in practice this means a dangling edge to a tombstone.
 	MemoryValidationCheckBrokenRef MemoryValidationCheck = "BROKEN_REF"
-	// embedding_failed_at is set - transient-awaiting-retry, cap-exhausted, or the #206 permanent class (spec 033). Such a node is absent from vector search, which from outside looks identical to no hits matching.
+	// embedding_failed_at is set - a retryable failure awaiting its backoff, or the permanent class (deterministic 4xx, dimension mismatch, #206 encrypted-no-plaintext) recoverable via retryFailedEmbeddings (spec 033 / #882). Such a node is absent from vector search, which from outside looks identical to no hits matching.
 	MemoryValidationCheckEmbedFailed MemoryValidationCheck = "EMBED_FAILED"
 	// objectType/properties violate the memory declared schema (#725).
 	MemoryValidationCheckSchema MemoryValidationCheck = "SCHEMA"
