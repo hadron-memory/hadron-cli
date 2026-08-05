@@ -301,3 +301,64 @@ func TestMemoryValidateEmptySlicesRenderAsArrays(t *testing.T) {
 		}
 	}
 }
+
+func TestMemoryValidatePreservesNullNodeUrn(t *testing.T) {
+	// The server returns nodeUrn: null when a URN can't be composed for the
+	// node (compound app-memory shapes, unexpected locs). Flattening that to ""
+	// tells a consumer the URN is empty rather than absent, hiding the signal
+	// to fall back to nodeId/nodeLoc.
+	dto, raw, err := runValidate(t, validateResp(2, false, false, findStale+","+findBroken, ""))
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(raw, `"nodeUrn": null`) {
+		t.Errorf("a null nodeUrn must stay null in --json, not become \"\":\n%s", raw)
+	}
+	fs := dto["findings"].([]any)
+	if got := fs[0].(map[string]any)["nodeUrn"]; got != nil {
+		t.Errorf("findStale has a null nodeUrn; got %#v", got)
+	}
+	if got := fs[1].(map[string]any)["nodeUrn"]; got != "hrn:node:o:m:a:b" {
+		t.Errorf("a present nodeUrn must pass through; got %#v", got)
+	}
+}
+
+func TestMemoryValidateSummaryIncludesServerAddedKind(t *testing.T) {
+	// kindName renders a kind this build doesn't know about, so the summary
+	// must list it too — otherwise a new server-side check shows up in the
+	// findings table with nothing above it explaining the count, or produces
+	// an empty summary entirely.
+	const future = `{"kind":"FUTURE_CHECK","nodeId":"n9","nodeLoc":"x:y","nodeUrn":null,"detail":"something new"}`
+	gql := fakeGraphQL(t, map[string]string{
+		"GetMemory":      `{"data":{"memory":{"id":"mem1","urn":"hrn:mem:o:m","name":"M","shortDescription":null,"class":"shared","visibility":"private","organizationId":"org1","isEncrypted":false,"maxRevCount":null,"updatedAt":"2026-08-05T00:00:00Z"}}}`,
+		"ValidateMemory": validateResp(1, false, false, future, ""),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "validate", "o::m", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	s := out.String()
+	if !strings.Contains(s, "future-check") {
+		t.Errorf("an unrecognized kind must appear in the summary; got:\n%s", s)
+	}
+	if !strings.Contains(s, "unknown to this CLI version") {
+		t.Errorf("an unrecognized kind needs a fallback gloss, not a blank cell; got:\n%s", s)
+	}
+}
+
+func TestMemoryValidateUnknownKindCountedInJSON(t *testing.T) {
+	const future = `{"kind":"FUTURE_CHECK","nodeId":"n9","nodeLoc":"x:y","nodeUrn":null,"detail":"something new"}`
+	dto, _, err := runValidate(t, validateResp(2, false, false, future+","+findStale, ""))
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	counts := dto["counts"].(map[string]any)
+	if counts["future-check"] != float64(1) {
+		t.Errorf("unknown kind should be counted under its kebab-case name; got %v", counts)
+	}
+	if got := dto["matchedFindings"].(float64); got != 2 {
+		t.Errorf("unknown kinds must not be dropped from the listing; matchedFindings = %v", got)
+	}
+}

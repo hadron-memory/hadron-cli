@@ -53,12 +53,17 @@ var checkBlurb = map[gen.MemoryValidationCheck]string{
 }
 
 // validateFindingDTO is one audit finding in the stable --json shape.
+//
+// NodeURN is a pointer because the server genuinely returns null for a finding
+// whose URN can't be composed (a compound app-memory shape, an unexpected loc).
+// Flattening that to "" would tell a consumer the URN is empty rather than
+// absent, hiding the signal to fall back to nodeId/nodeLoc.
 type validateFindingDTO struct {
-	Kind    string `json:"kind"`
-	NodeID  string `json:"nodeId"`
-	NodeLoc string `json:"nodeLoc"`
-	NodeURN string `json:"nodeUrn"`
-	Detail  string `json:"detail"`
+	Kind    string  `json:"kind"`
+	NodeID  string  `json:"nodeId"`
+	NodeLoc string  `json:"nodeLoc"`
+	NodeURN *string `json:"nodeUrn"`
+	Detail  string  `json:"detail"`
 }
 
 // validateSkippedDTO is one check the server did not run, and why.
@@ -210,6 +215,25 @@ func parseChecks(vals []string) (map[gen.MemoryValidationCheck]bool, error) {
 	return out, nil
 }
 
+// blurbFor glosses a kind for the summary table. An unrecognized kind is one
+// the server added after this binary was built: say so rather than printing a
+// blank cell, so the reader knows to upgrade instead of wondering what it means.
+func blurbFor(name string) string {
+	if k, ok := checkKinds[name]; ok {
+		return checkBlurb[k]
+	}
+	return "(check unknown to this CLI version — upgrade for a description)"
+}
+
+func sortedKeys(m map[string]int) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
 func sortedCheckNames() []string {
 	names := make([]string, 0, len(checkKinds))
 	for k := range checkKinds {
@@ -255,12 +279,8 @@ func buildValidateDTO(memRef string, r *gen.ValidateMemoryValidateMemoryMemoryVa
 		}
 		name := kindName(fnd.Kind)
 		dto.Counts[name]++
-		urn := ""
-		if fnd.NodeUrn != nil {
-			urn = *fnd.NodeUrn
-		}
 		dto.Findings = append(dto.Findings, validateFindingDTO{
-			Kind: name, NodeID: fnd.NodeId, NodeLoc: fnd.NodeLoc, NodeURN: urn, Detail: fnd.Detail,
+			Kind: name, NodeID: fnd.NodeId, NodeLoc: fnd.NodeLoc, NodeURN: fnd.NodeUrn, Detail: fnd.Detail,
 		})
 	}
 	dto.MatchedFindings = len(dto.Findings)
@@ -295,12 +315,14 @@ func writeValidateText(w io.Writer, dto validateResultDTO) error {
 	if len(dto.Counts) > 0 {
 		fmt.Fprintln(w)
 		t := output.NewTable(w, "KIND", "COUNT", "MEANS")
-		for _, name := range sortedCheckNames() {
-			n, ok := dto.Counts[name]
-			if !ok {
-				continue
-			}
-			t.Row(name, fmt.Sprint(n), checkBlurb[checkKinds[name]])
+		// Iterate the kinds actually present, not the kinds this build knows
+		// about. kindName already renders a server-added kind legibly, so
+		// driving the summary off the known-kind list would drop it here —
+		// and a report whose findings table lists rows the summary omits (or
+		// worse, an empty summary above a full findings table) is how a new
+		// check goes unnoticed by the people who most need to see it.
+		for _, name := range sortedKeys(dto.Counts) {
+			t.Row(name, fmt.Sprint(dto.Counts[name]), blurbFor(name))
 		}
 		if err := t.Flush(); err != nil {
 			return err
