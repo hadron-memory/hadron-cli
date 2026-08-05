@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -47,7 +48,7 @@ func newCmdLint(f *cmdutil.Factory) *cobra.Command {
 		Use:     "lint [<citation>]",
 		Aliases: []string{"check", "validate"},
 		Short:   "Validate specs against the rubric and stability rules",
-		Long: `Validate one spec, a subtree, a product, a module, or the whole
+		Long: fmt.Sprintf(`Validate one spec, a subtree, a product, a module, or the whole
 corpus against the loc-as-citation rubric and stability rules.
 
 Scope is one of: a single <citation> argument, --prefix <citation> (that
@@ -56,10 +57,10 @@ node plus its descendants — e.g. one feature and its rules), --product
 (rubric/stability violations) exit with code 5; --strict promotes warnings
 to errors too.
 
-Rule abstract-length warns above ~1600 characters. That is a ceiling, not
+Rule abstract-length warns above ~%d characters. That is a ceiling, not
 a target: retrieval holds up across roughly 700-1700 characters, so a long
 abstract is only worth shortening once it has stopped being about one
-subject. Off-topic sentences dilute the embedding far more than length.`,
+subject. Off-topic sentences dilute the embedding far more than length.`, abstractSoftMax),
 		Example: `  hadron spec lint msg:010:02 -m micromentor.org::platform-specs
   hadron spec lint --prefix cor:api:140 -m hadronmemory.com::specs
   hadron spec lint --module msg -m micromentor.org::platform-specs
@@ -449,11 +450,13 @@ func abstractPresent(a *string) bool {
 // abstractLength counts the abstract in characters (runes), matching how the
 // server measures its own 2000-char cap for the text a spec corpus actually
 // carries. Trimmed first so trailing editor whitespace never tips the bound.
+// utf8.RuneCountInString rather than len([]rune(…)): a corpus lint scans every
+// node, and this counts without allocating a rune slice per abstract.
 func abstractLength(a *string) int {
 	if a == nil {
 		return 0
 	}
-	return len([]rune(strings.TrimSpace(*a)))
+	return utf8.RuneCountInString(strings.TrimSpace(*a))
 }
 
 // isPlaceholderAbstract reports whether an abstract still carries the scaffold

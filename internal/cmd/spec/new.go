@@ -52,7 +52,7 @@ func newCmdNew(f *cmdutil.Factory) *cobra.Command {
 		Use:     "new",
 		Aliases: []string{"scaffold"},
 		Short:   "Allocate the next citation and scaffold a spec node",
-		Long: `Allocate the next free citation number and create a spec node
+		Long: fmt.Sprintf(`Allocate the next free citation number and create a spec node
 pre-filled with the rubric (abstract + the four mandatory sections) and
 wired with table-of-contents and inheritance edges.
 
@@ -76,13 +76,13 @@ Features are numbered in tens (010, 020, …); rules and flows by one. Use
 The abstract is the spec's vector-search retrieval surface: write it as
 the questions a reader would ask, in your own words rather than a
 restatement of the body. Keep every sentence on the spec's own subject —
-off-topic material is what dilutes the embedding — and stay under ~1600
+off-topic material is what dilutes the embedding — and stay under ~%d
 characters, which "spec lint" warns above.
 
 --new-path <citation> scaffolds a whole chain at once: it creates the given
 citation and every missing ancestor (each with its tier template and, for the
 roots, their general-provisions contract), so a fresh module + feature + rule
-is one call instead of four.`,
+is one call instead of four.`, abstractSoftMax),
 		Example: `  hadron spec new -m micromentor.org::platform-specs --module msg --feature 010 --title "W4 — 7d check-in"
   hadron spec new -m hadronmemory.com::platform-specs --new-product --product cli --title "Hadron CLI"
   hadron spec new -m hadronmemory.com::platform-specs --product cli --new-module --module cha --title "chat command group"

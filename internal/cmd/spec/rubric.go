@@ -31,7 +31,11 @@ const specDataVersion = "0.0.1"
 // few off-topic sentences cost roughly five times as much as the same number
 // of on-topic characters. The bound is stated so authors have a ceiling, but
 // it is framed as a ceiling rather than a target.
-const abstractStyleHint = "Phrase it as the questions a reader would ask, in your own words rather than the body's; keep every sentence on this subject and the whole thing under ~1600 characters."
+// Derived from abstractSoftMax so the scaffold can never advertise a bound
+// different from the one `spec lint` actually warns at.
+var abstractStyleHint = fmt.Sprintf(
+	"Phrase it as the questions a reader would ask, in your own words rather than the body's; keep every sentence on this subject and the whole thing under ~%d characters.",
+	abstractSoftMax)
 
 // placeholderAbstract is the stand-in abstract a scaffolded spec carries
 // until the author writes a real one. The marker keeps lint reminding the
