@@ -45,9 +45,15 @@ schema:
 # for an operation the CLI actually uses (an appId->appRef-style server rename,
 # or a shape change to a type we select). Ignores server-side changes the CLI
 # doesn't touch (genqlient normalizes those away), so it's low-noise. Restores
-# the working tree afterward via a temp backup, so it's safe to run on a clean
-# tree. The schema-drift workflow runs this nightly against a fresh server
+# the working tree afterward via a temp backup, so it's safe to run on a dirty
+# tree too. The schema-drift workflow runs this nightly against a fresh server
 # checkout.
+#
+# The staleness test compares the regenerated client against the temp BACKUP,
+# not against git. Comparing against HEAD would conflate "regeneration changed
+# the client" (real drift) with "you have uncommitted generated code" (the
+# normal state while adding an operation), so the target would cry drift at
+# your own in-progress work until you committed it.
 schema-check:
 	@set -e; \
 	bak=$$(mktemp -d); \
@@ -59,9 +65,9 @@ schema-check:
 	  echo "✗ schema drift: CLI operations no longer typecheck against the server SDL — run 'make schema' and reconcile."; \
 	  exit 1; \
 	fi; \
-	if ! git diff --quiet -- internal/api/gen; then \
+	if ! diff -q $$bak/generated.go internal/api/gen/generated.go >/dev/null 2>&1; then \
 	  echo "✗ schema drift: the generated client is stale for an operation the CLI uses — run 'make schema' and commit."; \
-	  git --no-pager diff --stat -- internal/api/gen; \
+	  echo "  $$(diff $$bak/generated.go internal/api/gen/generated.go | grep -c '^[<>]' || true) changed line(s) in internal/api/gen/generated.go"; \
 	  exit 1; \
 	fi; \
 	echo "✓ generated client in sync with $(HADRON_SERVER_DIR)"
