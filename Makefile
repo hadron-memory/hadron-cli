@@ -67,7 +67,7 @@ schema-check:
 	fi; \
 	if ! diff -q $$bak/generated.go internal/api/gen/generated.go >/dev/null 2>&1; then \
 	  echo "✗ schema drift: the generated client is stale for an operation the CLI uses — run 'make schema' and commit."; \
-	  echo "  $$(diff $$bak/generated.go internal/api/gen/generated.go | grep -c '^[<>]' || true) changed line(s) in internal/api/gen/generated.go"; \
+	  echo "  internal/api/gen/generated.go: $$(diff $$bak/generated.go internal/api/gen/generated.go | grep -c '^<' || true) line(s) removed, $$(diff $$bak/generated.go internal/api/gen/generated.go | grep -c '^>' || true) added"; \
 	  exit 1; \
 	fi; \
 	echo "✓ generated client in sync with $(HADRON_SERVER_DIR)"
