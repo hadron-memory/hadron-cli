@@ -1,6 +1,6 @@
 # Implementation Plan: `hadron user merge`
 
-> **Status: implemented and verified** on this branch; reflects the design as
+> **Status: implemented and verified** — merged 2026-07-13 (`12de1c1`); reflects the design as
 > built. GH issue
 > [#234](https://github.com/hadron-memory/hadron-cli/issues/234). Surfaces the
 > server's `mergeUsers` mutation (shipped in hadron-server

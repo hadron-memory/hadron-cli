@@ -1,7 +1,6 @@
 # Implementation Plan: spec write-side DX + lint hardening
 
-> **Status: implemented and verified** on branch `spec-dx-release` (not yet
-> merged). Design *as built* and the review artifact for the change. Closes
+> **Status: shipped** — merged 2026-06-18 (`a89f67c`). Design *as built* and the review artifact for the change. Closes
 > [hadron-cli#42](https://github.com/hadron-memory/hadron-cli/issues/42) and
 > the [#35](https://github.com/hadron-memory/hadron-cli/issues/35) message
 > remedy; advances

@@ -1,6 +1,6 @@
 # Implementation Plan: `hadron spec grep` + `hadron spec replace`
 
-> **Status: implemented and verified** on this branch; reflects the design as
+> **Status: implemented and verified** — merged 2026-07-14 (`a70f588`); reflects the design as
 > built. Resolves parts **1 & 2** of
 > [#240](https://github.com/hadron-memory/hadron-cli/issues/240) (spec
 > corpus-maintenance friction). Part **3** (a tool-name lint anchored to the real
@@ -94,7 +94,11 @@ non-spec nodes.
   `\bh-read-node\b` regex + content/abstract fields on the wire), a real
   `--yes` run that re-lints, and the non-interactive refusal (no write).
 
-## Follow-up — part 3 (tool-name lint)
+## Follow-up — part 3 (tool-name lint) — shipped
+
+> Delivered as `hadron spec check-tools`; see
+> [spec-check-tools.md](spec-check-tools.md). The design below is what was
+> agreed here, and is what shipped.
 
 A `spec lint` rule that flags any `hadron_*` token in a spec that isn't a real
 registered MCP tool. Deferred to its own PR because the registry lives in

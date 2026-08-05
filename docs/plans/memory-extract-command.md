@@ -1,6 +1,6 @@
 # Implementation Plan: `hadron memory extract`
 
-> **Status: implemented and verified** on this branch; reflects the design as
+> **Status: implemented and verified** — merged 2026-07-12 (`2a076d3`); reflects the design as
 > built. GH issue
 > [#228](https://github.com/hadron-memory/hadron-cli/issues/228), following
 > server change hadron-server#637. Part of the CLI⟷portal parity epic

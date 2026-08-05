@@ -45,7 +45,7 @@ Command tests assert: `node get`/`node ls` surface `isRunnable` in text and
 --runnable` forwards it. `agentic-usage` documents the read fields and the
 tri-state write flag.
 
-## Follow-up — `node ls --runnable` filter
+## Follow-up — `node ls --runnable` filter — shipped
 
 The original change surfaced `isRunnable` on the listing but couldn't filter on
 it. The server's `nodes(isRunnable:)` arg (added after the first schema refresh)

@@ -1,6 +1,6 @@
 # Implementation Plan: client-side URN-slug validation
 
-> **Status: implemented and verified** on this branch; reflects the design as
+> **Status: implemented and verified** — merged 2026-07-08 (`655b38d`); reflects the design as
 > built. GH issue
 > [#189](https://github.com/hadron-memory/hadron-cli/issues/189).
 

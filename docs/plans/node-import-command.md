@@ -1,7 +1,6 @@
 # Implementation Plan: `hadron node import` — single-node import (md + json)
 
-> **Status: implemented and verified** on branch `feat/node-export-import`
-> (not yet merged); this reflects the design as built. GH issue
+> **Status: shipped** — merged 2026-06-17 (`df08548`); this reflects the design as built. GH issue
 > [#33](https://github.com/hadron-memory/hadron-cli/issues/33). Paired with
 > [`hadron node export`](node-export-command.md) (issue #34) — one feature: an
 > export must re-import without loss. The shared `internal/nodedoc` codec this

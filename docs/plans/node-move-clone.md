@@ -1,6 +1,6 @@
 # Implementation Plan: `hadron node move` / `hadron node clone`
 
-> **Status: implemented and verified** on this branch; reflects the design as
+> **Status: implemented and verified** — merged 2026-07-08 (`19b6a33`); reflects the design as
 > built. GH issue
 > [#188](https://github.com/hadron-memory/hadron-cli/issues/188), following
 > server change hadron-server#564 (merged as #565). Part of the CLI⟷portal

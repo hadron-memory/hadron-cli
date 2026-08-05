@@ -1,6 +1,6 @@
 # Implementation Plan: compose grammar-v2 flat URNs
 
-> **Status: implemented and verified** on this branch; reflects the design as
+> **Status: implemented and verified** — merged 2026-07-18 (`412de16`); reflects the design as
 > built. Fallout from hadron-server
 > [#691](https://github.com/hadron-memory/hadron-server/issues/691) (URN grammar
 > v2), child [#699](https://github.com/hadron-memory/hadron-server/issues/699)

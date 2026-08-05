@@ -1,7 +1,6 @@
 # Implementation Plan: `hadron spec edit` — in-place body edit
 
-> **Status: implemented and verified** on branch `feat/spec-edit` (not yet
-> merged). Design *as built* and the review artifact for the change. Closes the
+> **Status: shipped** — merged 2026-06-18 (`815ec30`). Design *as built* and the review artifact for the change. Closes the
 > `$EDITOR` half of item #1 of
 > [hadron-cli#41](https://github.com/hadron-memory/hadron-cli/issues/41)
 > ("No spec-aware edit path"). The agent-friendly half (`spec get --body-only`
@@ -88,4 +87,6 @@ hadron spec edit <citation> -m <memory> [--content -|--content-file <f>] [--dry-
 ## Follow-ups (out of scope for this PR)
 
 - A real before/after diff (line-count delta is the v1 signal).
-- Sharing the spec-tag guard with `spec link` once both branches merge.
+- Sharing the spec-tag guard with `spec link`. Both branches have since merged,
+  so the precondition is met — but as of 2026-08-05 it is still unshared:
+  `link.go` carries its own inline check. Genuinely open, not stale.
