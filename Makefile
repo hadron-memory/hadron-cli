@@ -83,17 +83,22 @@ tools-manifest:
 # Drift detector for the tool manifest: regenerate from the server checkout and
 # fail if the committed internal/cmd/spec/mcp-tools.txt is stale — the tool renamed/added
 # out from under a spec that cites it (the h-* shorthand rot that motivated
-# `spec check-tools`, #240). Restores the working tree afterward. The
-# schema-drift workflow runs this nightly against a fresh server checkout.
+# `spec check-tools`, #240). Restores the working tree afterward, so it is safe
+# to run on a dirty tree too. The schema-drift workflow runs this nightly
+# against a fresh server checkout.
+#
+# Compares against the temp BACKUP rather than git, for the same reason
+# schema-check does: comparing against HEAD would report drift for an
+# uncommitted manifest you had just regenerated yourself.
 tools-manifest-check:
 	@set -e; \
 	bak=$$(mktemp -d); \
 	cp internal/cmd/spec/mcp-tools.txt $$bak/mcp-tools.txt; \
 	trap 'cp $$bak/mcp-tools.txt internal/cmd/spec/mcp-tools.txt; rm -rf $$bak' EXIT; \
 	HADRON_SERVER_DIR=$(HADRON_SERVER_DIR) bash scripts/gen-tools-manifest.sh > internal/cmd/spec/mcp-tools.txt; \
-	if ! git diff --quiet -- internal/cmd/spec/mcp-tools.txt; then \
+	if ! diff -q $$bak/mcp-tools.txt internal/cmd/spec/mcp-tools.txt >/dev/null 2>&1; then \
 	  echo "✗ tool-manifest drift: hadron-server's tool set changed — run 'make tools-manifest' and commit."; \
-	  git --no-pager diff -- internal/cmd/spec/mcp-tools.txt; \
+	  diff -u $$bak/mcp-tools.txt internal/cmd/spec/mcp-tools.txt || true; \
 	  exit 1; \
 	fi; \
 	echo "✓ tool manifest in sync with $(HADRON_SERVER_DIR)"
