@@ -249,7 +249,48 @@ issue asked for is intact; what changed is which rules speak by default. (It is
 arguably a `spec lint` rule — it applies to every spec, cited or not — but that
 is a separate change to a separate command's contract.)
 
-### 3. `generated/` joins the skip-list
+### 3. A match must be the WHOLE token, which the regex cannot say
+
+The token pattern enforced a *leading* boundary only, so it matched a valid
+**prefix** of a malformed pointer and dropped the rest — and since the prefix
+usually resolves, the typo was reported as a healthy citation:
+
+```
+// Spec: msg:0102            → msg:010            ✗ "resolved"
+// Spec: cor:api:130:02:031  → cor:api:130:02:03  ✗
+// Spec: cor:api:130.02      → cor:api:130        ✗ (the dot-for-colon typo
+                                                     the authoring guide warns about)
+```
+
+Silently passing a broken pointer is the exact failure mode this command exists
+to remove, so the boundary is now checked in Go (`wholeToken`) over the match
+indices: a trailing letter, digit, underscore or colon rejects the match, and a
+dot only when a digit follows it, so an ordinary sentence-ending
+`// Spec: cor:api:130.` still matches. A rejected token is not reported as a
+finding — it is not a citation, and manufacturing one for every citation-shaped
+typo in a comment is the false-positive class `--loose` already risks — but it
+can no longer pass as valid. (Codex review on #351.)
+
+### 4. Zero citations short-circuits before the memory is resolved
+
+The memory was resolved before the findings loop, so a repo with **no** pointers
+failed with a usage error about `-m` instead of answering "nothing found".
+Nothing to resolve means nothing to resolve it against: the scan now returns
+early, with no GraphQL client and no memory lookup. (Copilot review on #351.)
+
+### 5. Over-long lines are skipped
+
+Re-running against hadron-docs after the short-circuit landed surfaced a third
+noise source: MkDocs' `site/search/search_index.json` is the **entire docs
+corpus on one line**, prose citations included, and produced dozens of
+`unresolved` findings for text that is not a code pointer at all.
+
+A line longer than 4 KB is therefore skipped. Line length is a property of the
+artifact; a `site/` skip-list entry would have been a guess about somebody's
+directory layout, and a real `// Spec:` comment is never 4 KB wide. hadron-docs
+now reports `no spec citations found in 236 file(s)`.
+
+### 6. `generated/` joins the skip-list
 
 The first live run drowned in `hadron-server/src/generated/prisma/*`, where the
 Prisma client embeds the schema's comments verbatim: 12 of 26 findings, every one

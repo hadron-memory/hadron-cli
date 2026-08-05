@@ -87,14 +87,7 @@ func TestSpecCitationsSupersededExits5(t *testing.T) {
 		t.Errorf("a superseded citation should exit 5, got %d", got)
 	}
 
-	var findings []struct {
-		File        string `json:"file"`
-		Line        int    `json:"line"`
-		Citation    string `json:"citation"`
-		Rule        string `json:"rule"`
-		Severity    string `json:"severity"`
-		Replacement string `json:"replacement"`
-	}
+	var findings []citationFindingJSON
 	if err := json.Unmarshal([]byte(out.String()), &findings); err != nil {
 		t.Fatalf("--json must emit an array: %v (%q)", err, out.String())
 	}
@@ -226,13 +219,53 @@ func TestSpecCitationsBatchReadsEachCitationOnce(t *testing.T) {
 	}
 }
 
+// With nothing to resolve there is nothing to resolve it AGAINST: a repo with
+// no pointers must not fail for want of -m, and must not open a connection.
+// The server address here is dead, so a request would fail the test.
+func TestSpecCitationsNoCitationsNeedsNoMemory(t *testing.T) {
+	src := srcTree(t, map[string]string{"a.go": "const x = 1\n"})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "citations", "--src", src, "--server", "http://127.0.0.1:1"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("no citations must not require a memory, got %v", err)
+	}
+	if !strings.Contains(out.String(), "no spec citations found") {
+		t.Errorf("expected the nothing-found line, got %q", out.String())
+	}
+
+	// --json still emits the array contract, not the prose line.
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"spec", "citations", "--src", src, "--json", "--server", "http://127.0.0.1:1"})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("--json with no citations should exit 0, got %v", err)
+	}
+	var findings []citationFindingJSON
+	if err := json.Unmarshal([]byte(out2.String()), &findings); err != nil {
+		t.Fatalf("--json must emit [] : %v (%q)", err, out2.String())
+	}
+	if len(findings) != 0 {
+		t.Errorf("want an empty array, got %+v", findings)
+	}
+}
+
+// citationFindingJSON is the decoded --json row.
+type citationFindingJSON struct {
+	File        string `json:"file"`
+	Line        int    `json:"line"`
+	Citation    string `json:"citation"`
+	Rule        string `json:"rule"`
+	Severity    string `json:"severity"`
+	Replacement string `json:"replacement"`
+}
+
 // Scanning the wrong path must not look like a clean repo.
 func TestSpecCitationsNoneFound(t *testing.T) {
 	src := srcTree(t, map[string]string{"a.go": "const x = 1\n"})
-	gql := fakeGraphQL(t, map[string]string{})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"spec", "citations", "-m", specMem, "--src", src, "--server", gql.URL})
+	root.SetArgs([]string{"spec", "citations", "-m", specMem, "--src", src, "--server", "http://127.0.0.1:1"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("no citations is not a failure, got %v", err)
 	}

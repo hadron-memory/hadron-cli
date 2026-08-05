@@ -51,6 +51,17 @@ var (
 const (
 	maxFileBytes = 2 << 20 // 2 MiB
 	sniffBytes   = 8 << 10
+
+	// maxLineBytes skips a line too long to be something a person wrote a
+	// pointer in — minified bundles, and generated single-line JSON.
+	//
+	// Found live: hadron-docs' MkDocs `site/search/search_index.json` is the
+	// whole docs corpus on ONE line, prose citations included, and it alone
+	// produced dozens of "unresolved" findings for text that is not a code
+	// pointer at all. A name-based skip (`site/`) would have been a guess about
+	// somebody's directory layout; line length is a property of the thing
+	// itself. A real `// Spec:` comment is never 4 KB wide.
+	maxLineBytes = 4000
 )
 
 // skipDirs are never descended into. Build output and dependency trees carry
@@ -217,6 +228,9 @@ func scanFile(path, display string, opts scanOptions) (refs []citationRef, read 
 	}
 	for i, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSuffix(line, "\r")
+		if len(line) > maxLineBytes {
+			continue // minified or generated — not a maintained pointer
+		}
 		for _, cit := range scanLine(line, opts.Loose) {
 			refs = append(refs, citationRef{
 				Citation: cit, File: display, Line: i + 1, Text: strings.TrimSpace(line),
@@ -231,6 +245,41 @@ func isBinary(data []byte) bool {
 		data = data[:sniffBytes]
 	}
 	return bytes.IndexByte(data, 0) >= 0
+}
+
+// wholeToken reports whether a matched citation ends where the token ends,
+// rather than being the valid PREFIX of a malformed one.
+//
+// The regex enforces a leading boundary only, so it happily matched a prefix
+// and dropped the rest — and since the prefix usually resolves, a typo was
+// reported as a healthy citation (Codex review on #351):
+//
+//	// Spec: msg:0102             → msg:010          ✗ silently "resolved"
+//	// Spec: cor:api:130:02:031   → cor:api:130:02:03 ✗
+//	// Spec: cor:api:130.02       → cor:api:130       ✗ dot-delimited, which the
+//	                                                    authoring guide warns against
+//
+// A trailing letter, digit, underscore or colon means the source token is
+// longer than what matched, so the pointer is malformed and must NOT pass as
+// the prefix it happens to contain. A dot is rejected only when a digit follows
+// it — the dot-for-colon typo — so an ordinary sentence-ending `cor:api:130.`
+// still matches.
+//
+// A rejected token is reported by neither this scan nor the resolver: it is not
+// a citation, and inventing a finding for every citation-shaped typo in a
+// comment is the false-positive class --loose already risks. What it must not
+// do is silently pass as VALID, which is what it did before.
+func wholeToken(text string, end int) bool {
+	if end >= len(text) {
+		return true
+	}
+	switch c := text[end]; {
+	case c >= '0' && c <= '9', c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c == '_', c == ':':
+		return false
+	case c == '.':
+		return end+1 >= len(text) || text[end+1] < '0' || text[end+1] > '9'
+	}
+	return true
 }
 
 // scanLine returns every citation on one line, de-duplicated, in order.
@@ -251,8 +300,14 @@ func scanLine(line string, loose bool) []string {
 	}
 	var out []string
 	seen := map[string]bool{}
-	for _, m := range reCitationToken.FindAllStringSubmatch(text, -1) {
-		tok := m[2]
+	// Indices, not just the submatch: the token's END has to be inspected, and
+	// the regex alone cannot express the boundary (see wholeToken).
+	for _, m := range reCitationToken.FindAllStringSubmatchIndex(text, -1) {
+		start, end := m[4], m[5] // capture group 2 — the citation itself
+		tok := text[start:end]
+		if !wholeToken(text, end) {
+			continue
+		}
 		c, err := ParseCitation(tok)
 		if err != nil {
 			continue // citation-shaped but not a citation (prose, a URL fragment)

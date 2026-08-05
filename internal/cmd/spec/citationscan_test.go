@@ -88,6 +88,39 @@ func TestScanLineTakesEveryCitationOnTheLine(t *testing.T) {
 	}
 }
 
+// A matched citation must be the WHOLE token. The regex enforces only a
+// leading boundary, so a typo used to truncate to a valid prefix — which then
+// resolved, and the malformed pointer passed as healthy.
+func TestScanLineRejectsPartialTokens(t *testing.T) {
+	for _, line := range []string{
+		`// Spec: msg:0102`,             // a digit too many
+		`// Spec: cor:api:1300`,         // ditto, product-rooted
+		`// Spec: cor:api:130:02:031`,   // trailing digit on the flow
+		`// Spec: cor:api:130:02extra`,  // a longer identifier
+		`// Spec: cor:api:130:02:03:04`, // one segment too deep
+		`// Spec: cor:api:130.02`,       // dot-delimited: the typo the guide warns about
+	} {
+		if got := scanLine(line, false); got != nil {
+			t.Errorf("%q must not match a valid PREFIX of a malformed token, got %v", line, got)
+		}
+	}
+
+	// The terminators real pointers actually use still match.
+	for _, tc := range []struct{ line, want string }{
+		{`// Spec: cor:api:130`, "cor:api:130"},
+		{`// Spec: cor:api:130.`, "cor:api:130"},
+		{`// Spec: cor:api:130, and more`, "cor:api:130"},
+		{`// Spec: cor:api:130 (surface contract)`, "cor:api:130"},
+		{` * Spec: cor:api:130:02 — egress`, "cor:api:130:02"},
+		{"// Spec: cor:api:130\t(tab)", "cor:api:130"},
+	} {
+		got := scanLine(tc.line, false)
+		if len(got) != 1 || got[0] != tc.want {
+			t.Errorf("scanLine(%q) = %v, want [%s]", tc.line, got, tc.want)
+		}
+	}
+}
+
 func TestScanLineLoose(t *testing.T) {
 	line := `see cor:api:130:02 for the egress policy`
 	if got := scanLine(line, false); got != nil {
@@ -119,8 +152,15 @@ func TestScanCitationsWalksAndSkips(t *testing.T) {
 		"dist/bundle.js":        "// Spec: cor:api:998\n",
 		".git/COMMIT_EDITMSG":   "// Spec: cor:api:997\n",
 		"docs/notes.md":         "See `// Spec: cor:api:140` for the rule.\n",
-		"src/big.txt":           strings.Repeat("x", 10),
-		"src/binary.bin":        "abc\x00def // Spec: cor:api:996\n",
+		// Genuinely over maxFileBytes, so the oversize skip is actually
+		// exercised: a 10-byte "big" file tested nothing (Copilot review on
+		// #351). Its citation must NOT appear below.
+		"src/big.txt":    "// Spec: cor:api:995\n" + strings.Repeat("x", maxFileBytes),
+		"src/binary.bin": "abc\x00def // Spec: cor:api:996\n",
+		// A generated single-line blob (a MkDocs search index in the live
+		// case): the citation is prose swept into a bundle, not a pointer.
+		"site/search_index.json": `{"text":"see Spec: cor:api:994 for details ` +
+			strings.Repeat("padding ", maxLineBytes/8) + `"}`,
 	})
 
 	res, err := scanCitations(scanOptions{Roots: []string{root}})

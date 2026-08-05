@@ -87,6 +87,21 @@ warnings too.`,
 				return exitcode.Newf(exitcode.Usage, "scanning source: %v", err)
 			}
 
+			// Nothing to resolve ⇒ nothing to resolve it AGAINST. Requiring a
+			// configured memory here failed a repo that simply has no
+			// pointers, with a usage error about -m rather than the honest
+			// answer (Copilot review on #351). Short-circuit before the client
+			// and the memory lookup.
+			if len(scan.Refs) == 0 {
+				return output.Write(f.IOStreams, f.JSON, []citationFindingDTO{}, func(w io.Writer) error {
+					// Reported rather than a checkmark: pointing --src at the
+					// wrong path otherwise looks exactly like a clean repo.
+					fmt.Fprintf(w, "no spec citations found in %d file(s) under %s%s\n",
+						scan.Files, strings.Join(rootsOrDot(srcs), ", "), looseHint(loose))
+					return nil
+				})
+			}
+
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -129,14 +144,6 @@ warnings too.`,
 
 			if err := output.Write(f.IOStreams, f.JSON, findings, func(w io.Writer) error {
 				if len(findings) == 0 {
-					// A run that matched nothing reports THAT, rather than a
-					// checkmark: pointing --src at the wrong path otherwise
-					// looks exactly like a clean repo.
-					if len(scan.Refs) == 0 {
-						fmt.Fprintf(w, "no spec citations found in %d file(s) under %s%s\n",
-							scan.Files, strings.Join(rootsOrDot(srcs), ", "), looseHint(loose))
-						return nil
-					}
 					fmt.Fprintf(w, "✓ %d citation(s) in %d file(s) resolve\n",
 						len(scan.Refs), countFiles(scan.Refs))
 					return nil
