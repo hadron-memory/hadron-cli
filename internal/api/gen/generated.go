@@ -8263,6 +8263,30 @@ type MemorySubscriptionsResponse struct {
 // GetMemory returns MemorySubscriptionsResponse.Memory, and is useful for accessing the field via an interface.
 func (v *MemorySubscriptionsResponse) GetMemory() *MemorySubscriptionsMemory { return v.Memory }
 
+// One health check the validator runs (#819).
+type MemoryValidationCheck string
+
+const (
+	// An edge whose target node is missing OR soft-deleted. A hard-deleted target cannot occur - Edge.target is FK-enforced with onDelete: Cascade - so in practice this means a dangling edge to a tombstone.
+	MemoryValidationCheckBrokenRef MemoryValidationCheck = "BROKEN_REF"
+	// embedding_failed_at is set - transient-awaiting-retry, cap-exhausted, or the #206 permanent class (spec 033). Such a node is absent from vector search, which from outside looks identical to no hits matching.
+	MemoryValidationCheckEmbedFailed MemoryValidationCheck = "EMBED_FAILED"
+	// objectType/properties violate the memory declared schema (#725).
+	MemoryValidationCheckSchema MemoryValidationCheck = "SCHEMA"
+	// A node with no description, content, or abstract.
+	MemoryValidationCheckSparse MemoryValidationCheck = "SPARSE"
+	// The abstract no longer reflects current content (spec 032 FR-011).
+	MemoryValidationCheckStaleAbstract MemoryValidationCheck = "STALE_ABSTRACT"
+)
+
+var AllMemoryValidationCheck = []MemoryValidationCheck{
+	MemoryValidationCheckBrokenRef,
+	MemoryValidationCheckEmbedFailed,
+	MemoryValidationCheckSchema,
+	MemoryValidationCheckSparse,
+	MemoryValidationCheckStaleAbstract,
+}
+
 // 035-visibility-enum-cleanup: meaningful only for knowledge
 // (PUBLIC/ORGANIZATION) and group (GROUP); null otherwise. PERSONAL/PRIVATE
 // were dropped — privacy is the personal/private memory CLASS now.
@@ -14181,6 +14205,134 @@ func (v *UserFields) GetExternalAppId() *string { return v.ExternalAppId }
 // GetLinkedAt returns UserFields.LinkedAt, and is useful for accessing the field via an interface.
 func (v *UserFields) GetLinkedAt() *string { return v.LinkedAt }
 
+// ValidateMemoryResponse is returned by ValidateMemory on success.
+type ValidateMemoryResponse struct {
+	// Memory health audit (#819) — the GraphQL twin of hadron_validate, which was
+	// MCP-only, so the CLI, the portal and CI had no way to answer "is this
+	// memory healthy?".
+	//
+	// Every check is over server-owned state a client cannot compute:
+	// abstractOriginHash vs current content, embedding_failed_at (not projected
+	// on Node at all), and property-schema conformance. So unlike other gaps
+	// there is no slow client-side fallback.
+	//
+	// Returns TYPED findings so a caller can branch and CI can gate on
+	// totalFindings. findings is capped by limit (default 200, max 1000) while
+	// totalFindings reports the true count - so a gate is never fooled by
+	// truncation. Read gate as the rest of the memory reads.
+	ValidateMemory *ValidateMemoryValidateMemoryMemoryValidationResult `json:"validateMemory"`
+}
+
+// GetValidateMemory returns ValidateMemoryResponse.ValidateMemory, and is useful for accessing the field via an interface.
+func (v *ValidateMemoryResponse) GetValidateMemory() *ValidateMemoryValidateMemoryMemoryValidationResult {
+	return v.ValidateMemory
+}
+
+// ValidateMemoryValidateMemoryMemoryValidationResult includes the requested fields of the GraphQL type MemoryValidationResult.
+type ValidateMemoryValidateMemoryMemoryValidationResult struct {
+	MemoryId string `json:"memoryId"`
+	// Nodes scanned. The whole memory in one pass - the checks are cross-referential, so a partial scan would produce false positives rather than fewer findings.
+	NodesChecked int `json:"nodesChecked"`
+	// True only when EVERY check ran and none found anything. A skipped check
+	// makes this false even with zero findings - you cannot claim health for a
+	// check you did not run.
+	Ok bool `json:"ok"`
+	// The TRUE finding count, before any truncation - gate CI on this, not on findings.length.
+	TotalFindings int `json:"totalFindings"`
+	// True when findings was capped and totalFindings is larger.
+	Truncated bool `json:"truncated"`
+	// Findings, capped by the limit argument.
+	Findings      []*ValidateMemoryValidateMemoryMemoryValidationResultFindingsMemoryValidationFinding           `json:"findings"`
+	SkippedChecks []*ValidateMemoryValidateMemoryMemoryValidationResultSkippedChecksMemoryValidationSkippedCheck `json:"skippedChecks"`
+}
+
+// GetMemoryId returns ValidateMemoryValidateMemoryMemoryValidationResult.MemoryId, and is useful for accessing the field via an interface.
+func (v *ValidateMemoryValidateMemoryMemoryValidationResult) GetMemoryId() string { return v.MemoryId }
+
+// GetNodesChecked returns ValidateMemoryValidateMemoryMemoryValidationResult.NodesChecked, and is useful for accessing the field via an interface.
+func (v *ValidateMemoryValidateMemoryMemoryValidationResult) GetNodesChecked() int {
+	return v.NodesChecked
+}
+
+// GetOk returns ValidateMemoryValidateMemoryMemoryValidationResult.Ok, and is useful for accessing the field via an interface.
+func (v *ValidateMemoryValidateMemoryMemoryValidationResult) GetOk() bool { return v.Ok }
+
+// GetTotalFindings returns ValidateMemoryValidateMemoryMemoryValidationResult.TotalFindings, and is useful for accessing the field via an interface.
+func (v *ValidateMemoryValidateMemoryMemoryValidationResult) GetTotalFindings() int {
+	return v.TotalFindings
+}
+
+// GetTruncated returns ValidateMemoryValidateMemoryMemoryValidationResult.Truncated, and is useful for accessing the field via an interface.
+func (v *ValidateMemoryValidateMemoryMemoryValidationResult) GetTruncated() bool { return v.Truncated }
+
+// GetFindings returns ValidateMemoryValidateMemoryMemoryValidationResult.Findings, and is useful for accessing the field via an interface.
+func (v *ValidateMemoryValidateMemoryMemoryValidationResult) GetFindings() []*ValidateMemoryValidateMemoryMemoryValidationResultFindingsMemoryValidationFinding {
+	return v.Findings
+}
+
+// GetSkippedChecks returns ValidateMemoryValidateMemoryMemoryValidationResult.SkippedChecks, and is useful for accessing the field via an interface.
+func (v *ValidateMemoryValidateMemoryMemoryValidationResult) GetSkippedChecks() []*ValidateMemoryValidateMemoryMemoryValidationResultSkippedChecksMemoryValidationSkippedCheck {
+	return v.SkippedChecks
+}
+
+// ValidateMemoryValidateMemoryMemoryValidationResultFindingsMemoryValidationFinding includes the requested fields of the GraphQL type MemoryValidationFinding.
+// The GraphQL type's documentation follows.
+//
+// One finding (#819). nodeUrn is null when the URN could not be composed - a memory URN the flat v2 shape cannot express, or an unexpected/legacy loc - in which case nodeId and nodeLoc still identify the node.
+type ValidateMemoryValidateMemoryMemoryValidationResultFindingsMemoryValidationFinding struct {
+	Kind    MemoryValidationCheck `json:"kind"`
+	NodeId  string                `json:"nodeId"`
+	NodeLoc string                `json:"nodeLoc"`
+	NodeUrn *string               `json:"nodeUrn"`
+	Detail  string                `json:"detail"`
+}
+
+// GetKind returns ValidateMemoryValidateMemoryMemoryValidationResultFindingsMemoryValidationFinding.Kind, and is useful for accessing the field via an interface.
+func (v *ValidateMemoryValidateMemoryMemoryValidationResultFindingsMemoryValidationFinding) GetKind() MemoryValidationCheck {
+	return v.Kind
+}
+
+// GetNodeId returns ValidateMemoryValidateMemoryMemoryValidationResultFindingsMemoryValidationFinding.NodeId, and is useful for accessing the field via an interface.
+func (v *ValidateMemoryValidateMemoryMemoryValidationResultFindingsMemoryValidationFinding) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetNodeLoc returns ValidateMemoryValidateMemoryMemoryValidationResultFindingsMemoryValidationFinding.NodeLoc, and is useful for accessing the field via an interface.
+func (v *ValidateMemoryValidateMemoryMemoryValidationResultFindingsMemoryValidationFinding) GetNodeLoc() string {
+	return v.NodeLoc
+}
+
+// GetNodeUrn returns ValidateMemoryValidateMemoryMemoryValidationResultFindingsMemoryValidationFinding.NodeUrn, and is useful for accessing the field via an interface.
+func (v *ValidateMemoryValidateMemoryMemoryValidationResultFindingsMemoryValidationFinding) GetNodeUrn() *string {
+	return v.NodeUrn
+}
+
+// GetDetail returns ValidateMemoryValidateMemoryMemoryValidationResultFindingsMemoryValidationFinding.Detail, and is useful for accessing the field via an interface.
+func (v *ValidateMemoryValidateMemoryMemoryValidationResultFindingsMemoryValidationFinding) GetDetail() string {
+	return v.Detail
+}
+
+// ValidateMemoryValidateMemoryMemoryValidationResultSkippedChecksMemoryValidationSkippedCheck includes the requested fields of the GraphQL type MemoryValidationSkippedCheck.
+// The GraphQL type's documentation follows.
+//
+// A check that could NOT run (#819). Reported explicitly rather than silently
+// omitted: a clean bill of health that quietly skipped a check is worse than no
+// report at all.
+type ValidateMemoryValidateMemoryMemoryValidationResultSkippedChecksMemoryValidationSkippedCheck struct {
+	Check  MemoryValidationCheck `json:"check"`
+	Reason string                `json:"reason"`
+}
+
+// GetCheck returns ValidateMemoryValidateMemoryMemoryValidationResultSkippedChecksMemoryValidationSkippedCheck.Check, and is useful for accessing the field via an interface.
+func (v *ValidateMemoryValidateMemoryMemoryValidationResultSkippedChecksMemoryValidationSkippedCheck) GetCheck() MemoryValidationCheck {
+	return v.Check
+}
+
+// GetReason returns ValidateMemoryValidateMemoryMemoryValidationResultSkippedChecksMemoryValidationSkippedCheck.Reason, and is useful for accessing the field via an interface.
+func (v *ValidateMemoryValidateMemoryMemoryValidationResultSkippedChecksMemoryValidationSkippedCheck) GetReason() string {
+	return v.Reason
+}
+
 // __AcceptInvitationInput is used internally by genqlient
 type __AcceptInvitationInput struct {
 	Slug string `json:"slug"`
@@ -16020,6 +16172,18 @@ func (v *__UpdateUserRolesInput) GetUserId() string { return v.UserId }
 
 // GetRoles returns __UpdateUserRolesInput.Roles, and is useful for accessing the field via an interface.
 func (v *__UpdateUserRolesInput) GetRoles() []Role { return v.Roles }
+
+// __ValidateMemoryInput is used internally by genqlient
+type __ValidateMemoryInput struct {
+	MemoryRef string `json:"memoryRef"`
+	Limit     *int   `json:"limit,omitempty"`
+}
+
+// GetMemoryRef returns __ValidateMemoryInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__ValidateMemoryInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetLimit returns __ValidateMemoryInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ValidateMemoryInput) GetLimit() *int { return v.Limit }
 
 // The mutation executed by AcceptInvitation.
 const AcceptInvitation_Operation = `
@@ -22278,6 +22442,70 @@ func UpdateUserRoles(
 	}
 
 	data_ = &UpdateUserRolesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ValidateMemory.
+const ValidateMemory_Operation = `
+query ValidateMemory ($memoryRef: ID!, $limit: Int) {
+	validateMemory(memoryRef: $memoryRef, limit: $limit) {
+		memoryId
+		nodesChecked
+		ok
+		totalFindings
+		truncated
+		findings {
+			kind
+			nodeId
+			nodeLoc
+			nodeUrn
+			detail
+		}
+		skippedChecks {
+			check
+			reason
+		}
+	}
+}
+`
+
+// Memory health audit (hadron-server#819) — the GraphQL twin of the MCP-only
+// hadron_validate, wired up for `hadron memory validate` (#352).
+//
+// Two fields exist because `findings` is NOT the answer on its own:
+// - totalFindings is the true count BEFORE `limit` truncation — gate CI on
+// this, never on len(findings).
+// - ok is false when any check was SKIPPED, even with zero findings, so a
+// clean bill of health can't quietly omit a check. skippedChecks says which
+// and why (e.g. the stale-abstract check is skipped on encrypted memories:
+// the validator does not decrypt).
+//
+// The server takes no per-check filter, so --check narrows client-side; the
+// command surfaces the interaction with truncation rather than hiding it.
+func ValidateMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	limit *int,
+) (data_ *ValidateMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ValidateMemory",
+		Query:  ValidateMemory_Operation,
+		Variables: &__ValidateMemoryInput{
+			MemoryRef: memoryRef,
+			Limit:     limit,
+		},
+	}
+
+	data_ = &ValidateMemoryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

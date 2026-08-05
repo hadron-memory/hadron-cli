@@ -74,7 +74,7 @@ node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 
 ```
 hadron auth login | logout | whoami | status | token create|list|validate|revoke <id>
-hadron memory list [--shared-with-me] | get <id-or-urn> | set [<id-or-urn>] [--org <ref> | --owner-me | --app <ref> --agent <ref>] [--class <c>] [--max-rev-count <n>] [--schema <json> | --schema-file <path>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn <org::slug> | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member list|add|set-role|rm <memory> --user <id> [--role <r>] | share list|create|set-role|revoke <memory> --grantee <user-ref> [--role <r>] | subscription list|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key - | link-user <memoryRef> --external-user <id> [--data-key -] --yes
+hadron memory list [--shared-with-me] | get <id-or-urn> | set [<id-or-urn>] [--org <ref> | --owner-me | --app <ref> --agent <ref>] [--class <c>] [--max-rev-count <n>] [--schema <json> | --schema-file <path>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn <org::slug> | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member list|add|set-role|rm <memory> --user <id> [--role <r>] | share list|create|set-role|revoke <memory> --grantee <user-ref> [--role <r>] | subscription list|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key - | link-user <memoryRef> --external-user <id> [--data-key -] --yes | validate <memoryRef> [--check <kind>]... [--limit N] [--fail-on-findings]
 hadron node list [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--sort-seq asc|desc] [--seq-gt N] | get <urn>... | get <loc>... -m <memory> | get --prefix <loc> -m <memory> | add [--type <t>] [--object-type <t>] [--data <json>|--data-file <path>] [--properties <json>|--properties-file <path>] | update <urn> [--type <t>] [--object-type <t>|""] [--data <json>|--data-file <path>|--data-merge <json>|--data-merge-file <path>] [--properties <json>|--properties-file <path>] | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] [--recursive|-r] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
 hadron object create -m <memory> --type <t> --fields <json>|--fields-file <path> [--key <k>] [--name <n>] | get <ref> | update <ref> --fields <json>|--fields-file <path> [--reason <r>] | delete <ref> [--hard] --yes | find -m <memory> --type <t> [--match <json>] [--where <json>] [--sort <json>] [--limit N] [--offset N]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
@@ -178,6 +178,30 @@ Conventions:
   encrypts every node in the same transaction and lands the memory `private` and
   owned by that user — ONE-WAY, like `memory encrypt`. Gated: pass `--yes`
   non-interactively.
+- `memory validate <memoryRef>` runs the server's memory health audit
+  (`validateMemory`) and reports its findings: `broken-ref` (an edge pointing at
+  a missing/soft-deleted node), `embed-failed` (a node absent from the vector
+  index — from the outside indistinguishable from "no hits matched"), `sparse`
+  (no description, content, or abstract), `schema` (objectType/properties
+  violating the memory's declared schema), and `stale-abstract`. Read
+  `stale-abstract` NARROWLY: it compares the abstract's origin hash against the
+  current content hash, so it fires on ANY body edit since the abstract was last
+  written, including one that changed nothing the abstract says — it means "the
+  body moved under this abstract", not "this abstract is wrong" (measured on the
+  live specs corpus it carries essentially no signal about whether the abstract
+  still describes the body; hadron-cli#352). Two counts, deliberately:
+  `totalFindings` is the true count across every check BEFORE truncation — gate
+  on that, never on `findings.length` — while `matchedFindings` counts what was
+  listed after `--limit` and `--check`. `ok` is false whenever a check was
+  SKIPPED even with zero findings (health can't be claimed for a check that
+  didn't run); `skippedChecks` says which and why (stale-abstract is skipped on
+  an encrypted memory — the validator doesn't decrypt). `--check <kind>` filters
+  CLIENT-side, and the server caps `findings` before that filter runs, so
+  `--check` requests the server maximum (1000) unless you pin `--limit`; if the
+  result is still truncated the report says the filtered view may be missing
+  matches. Exits 0 whatever the findings unless `--fail-on-findings` (then exit
+  5 when any LISTED finding matches), because a check that fires on most of a
+  never-audited corpus on day one just teaches people to ignore the report.
 - `memory encrypt <memory> --data-key -` converts a plaintext memory to
   encrypted-at-rest: you provide the data key (read from stdin via `--data-key -`
   so it stays out of shell history) and the server rewrites all node content as
