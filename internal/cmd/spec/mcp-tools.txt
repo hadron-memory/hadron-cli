@@ -21,6 +21,7 @@ hadron_create_edge
 hadron_create_node
 hadron_create_object
 hadron_create_parent_node
+hadron_delete_edge
 hadron_delete_node
 hadron_delete_object
 hadron_end_session
@@ -53,6 +54,7 @@ hadron_start_session
 hadron_store_file
 hadron_sync_graph
 hadron_unlock_memory
+hadron_update_edge
 hadron_update_node
 hadron_update_node_data
 hadron_update_object
