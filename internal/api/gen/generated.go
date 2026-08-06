@@ -2635,6 +2635,78 @@ type AuthContextResponse struct {
 // GetAuthContext returns AuthContextResponse.AuthContext, and is useful for accessing the field via an interface.
 func (v *AuthContextResponse) GetAuthContext() *AuthContextAuthContext { return v.AuthContext }
 
+// BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult includes the requested fields of the GraphQL type BeginAssetUploadResult.
+type BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult struct {
+	UploadId        string                                                                              `json:"uploadId"`
+	PutUrl          string                                                                              `json:"putUrl"`
+	PutHeaders      []*BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResultPutHeadersAssetPutHeader `json:"putHeaders"`
+	StorageKey      string                                                                              `json:"storageKey"`
+	MaxSizeBytes    int                                                                                 `json:"maxSizeBytes"`
+	AllowedMimeType string                                                                              `json:"allowedMimeType"`
+	ExpiresAt       string                                                                              `json:"expiresAt"`
+}
+
+// GetUploadId returns BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult.UploadId, and is useful for accessing the field via an interface.
+func (v *BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult) GetUploadId() string {
+	return v.UploadId
+}
+
+// GetPutUrl returns BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult.PutUrl, and is useful for accessing the field via an interface.
+func (v *BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult) GetPutUrl() string {
+	return v.PutUrl
+}
+
+// GetPutHeaders returns BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult.PutHeaders, and is useful for accessing the field via an interface.
+func (v *BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult) GetPutHeaders() []*BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResultPutHeadersAssetPutHeader {
+	return v.PutHeaders
+}
+
+// GetStorageKey returns BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult.StorageKey, and is useful for accessing the field via an interface.
+func (v *BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult) GetStorageKey() string {
+	return v.StorageKey
+}
+
+// GetMaxSizeBytes returns BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult.MaxSizeBytes, and is useful for accessing the field via an interface.
+func (v *BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult) GetMaxSizeBytes() int {
+	return v.MaxSizeBytes
+}
+
+// GetAllowedMimeType returns BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult.AllowedMimeType, and is useful for accessing the field via an interface.
+func (v *BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult) GetAllowedMimeType() string {
+	return v.AllowedMimeType
+}
+
+// GetExpiresAt returns BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult) GetExpiresAt() string {
+	return v.ExpiresAt
+}
+
+// BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResultPutHeadersAssetPutHeader includes the requested fields of the GraphQL type AssetPutHeader.
+type BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResultPutHeadersAssetPutHeader struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// GetName returns BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResultPutHeadersAssetPutHeader.Name, and is useful for accessing the field via an interface.
+func (v *BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResultPutHeadersAssetPutHeader) GetName() string {
+	return v.Name
+}
+
+// GetValue returns BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResultPutHeadersAssetPutHeader.Value, and is useful for accessing the field via an interface.
+func (v *BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResultPutHeadersAssetPutHeader) GetValue() string {
+	return v.Value
+}
+
+// BeginAssetUploadResponse is returned by BeginAssetUpload on success.
+type BeginAssetUploadResponse struct {
+	BeginAssetUploadV2 *BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult `json:"beginAssetUploadV2"`
+}
+
+// GetBeginAssetUploadV2 returns BeginAssetUploadResponse.BeginAssetUploadV2, and is useful for accessing the field via an interface.
+func (v *BeginAssetUploadResponse) GetBeginAssetUploadV2() *BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult {
+	return v.BeginAssetUploadV2
+}
+
 // CancelAppRunCancelAppRun includes the requested fields of the GraphQL type AppRun.
 type CancelAppRunCancelAppRun struct {
 	AppRunFields `json:"-"`
@@ -3038,6 +3110,69 @@ type CloneNodeResponse struct {
 
 // GetCloneNode returns CloneNodeResponse.CloneNode, and is useful for accessing the field via an interface.
 func (v *CloneNodeResponse) GetCloneNode() *CloneNodeCloneNode { return v.CloneNode }
+
+// CompleteAssetUploadCompleteAssetUploadAsset includes the requested fields of the GraphQL type Asset.
+type CompleteAssetUploadCompleteAssetUploadAsset struct {
+	Id string `json:"id"`
+	// The asset's URN: <memory.urn>:assets:<asset.id>.
+	Urn        string          `json:"urn"`
+	Filename   string          `json:"filename"`
+	MimeType   string          `json:"mimeType"`
+	SizeBytes  int             `json:"sizeBytes"`
+	ScanStatus AssetScanStatus `json:"scanStatus"`
+	UploadedAt string          `json:"uploadedAt"`
+	MemoryId   string          `json:"memoryId"`
+	// Stable, UNAUTHENTICATED hotlink to the bytes (GET /assets/<id>).
+	//
+	// Anyone with this URL can fetch the file — there is no read gate on
+	// it. A deliberate, temporary posture; see src/api/assetPublic.ts. Do
+	// not present it in a UI as though it were access-controlled.
+	//
+	// Null when the server has no BASE_URL configured (no canonical
+	// origin to build an absolute URL from), when the asset is not
+	// CLEAN, or when its memory is encrypted — encrypted memories are
+	// never hotlinkable, since an anonymous request holds no session key.
+	PublicUrl *string `json:"publicUrl"`
+}
+
+// GetId returns CompleteAssetUploadCompleteAssetUploadAsset.Id, and is useful for accessing the field via an interface.
+func (v *CompleteAssetUploadCompleteAssetUploadAsset) GetId() string { return v.Id }
+
+// GetUrn returns CompleteAssetUploadCompleteAssetUploadAsset.Urn, and is useful for accessing the field via an interface.
+func (v *CompleteAssetUploadCompleteAssetUploadAsset) GetUrn() string { return v.Urn }
+
+// GetFilename returns CompleteAssetUploadCompleteAssetUploadAsset.Filename, and is useful for accessing the field via an interface.
+func (v *CompleteAssetUploadCompleteAssetUploadAsset) GetFilename() string { return v.Filename }
+
+// GetMimeType returns CompleteAssetUploadCompleteAssetUploadAsset.MimeType, and is useful for accessing the field via an interface.
+func (v *CompleteAssetUploadCompleteAssetUploadAsset) GetMimeType() string { return v.MimeType }
+
+// GetSizeBytes returns CompleteAssetUploadCompleteAssetUploadAsset.SizeBytes, and is useful for accessing the field via an interface.
+func (v *CompleteAssetUploadCompleteAssetUploadAsset) GetSizeBytes() int { return v.SizeBytes }
+
+// GetScanStatus returns CompleteAssetUploadCompleteAssetUploadAsset.ScanStatus, and is useful for accessing the field via an interface.
+func (v *CompleteAssetUploadCompleteAssetUploadAsset) GetScanStatus() AssetScanStatus {
+	return v.ScanStatus
+}
+
+// GetUploadedAt returns CompleteAssetUploadCompleteAssetUploadAsset.UploadedAt, and is useful for accessing the field via an interface.
+func (v *CompleteAssetUploadCompleteAssetUploadAsset) GetUploadedAt() string { return v.UploadedAt }
+
+// GetMemoryId returns CompleteAssetUploadCompleteAssetUploadAsset.MemoryId, and is useful for accessing the field via an interface.
+func (v *CompleteAssetUploadCompleteAssetUploadAsset) GetMemoryId() string { return v.MemoryId }
+
+// GetPublicUrl returns CompleteAssetUploadCompleteAssetUploadAsset.PublicUrl, and is useful for accessing the field via an interface.
+func (v *CompleteAssetUploadCompleteAssetUploadAsset) GetPublicUrl() *string { return v.PublicUrl }
+
+// CompleteAssetUploadResponse is returned by CompleteAssetUpload on success.
+type CompleteAssetUploadResponse struct {
+	CompleteAssetUpload *CompleteAssetUploadCompleteAssetUploadAsset `json:"completeAssetUpload"`
+}
+
+// GetCompleteAssetUpload returns CompleteAssetUploadResponse.CompleteAssetUpload, and is useful for accessing the field via an interface.
+func (v *CompleteAssetUploadResponse) GetCompleteAssetUpload() *CompleteAssetUploadCompleteAssetUploadAsset {
+	return v.CompleteAssetUpload
+}
 
 // ConnectionGrantFields includes the GraphQL fields of ConnectionGrant requested by the fragment ConnectionGrantFields.
 // The GraphQL type's documentation follows.
@@ -3977,6 +4112,45 @@ type CreateAppResponse struct {
 
 // GetCreateApp returns CreateAppResponse.CreateApp, and is useful for accessing the field via an interface.
 func (v *CreateAppResponse) GetCreateApp() *CreateAppCreateApp { return v.CreateApp }
+
+// CreateAssetReferenceNodeCreateAssetReferenceNode includes the requested fields of the GraphQL type Node.
+type CreateAssetReferenceNodeCreateAssetReferenceNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn      string `json:"urn"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	NodeType string `json:"nodeType"`
+	MemoryId string `json:"memoryId"`
+}
+
+// GetId returns CreateAssetReferenceNodeCreateAssetReferenceNode.Id, and is useful for accessing the field via an interface.
+func (v *CreateAssetReferenceNodeCreateAssetReferenceNode) GetId() string { return v.Id }
+
+// GetUrn returns CreateAssetReferenceNodeCreateAssetReferenceNode.Urn, and is useful for accessing the field via an interface.
+func (v *CreateAssetReferenceNodeCreateAssetReferenceNode) GetUrn() string { return v.Urn }
+
+// GetLoc returns CreateAssetReferenceNodeCreateAssetReferenceNode.Loc, and is useful for accessing the field via an interface.
+func (v *CreateAssetReferenceNodeCreateAssetReferenceNode) GetLoc() string { return v.Loc }
+
+// GetName returns CreateAssetReferenceNodeCreateAssetReferenceNode.Name, and is useful for accessing the field via an interface.
+func (v *CreateAssetReferenceNodeCreateAssetReferenceNode) GetName() string { return v.Name }
+
+// GetNodeType returns CreateAssetReferenceNodeCreateAssetReferenceNode.NodeType, and is useful for accessing the field via an interface.
+func (v *CreateAssetReferenceNodeCreateAssetReferenceNode) GetNodeType() string { return v.NodeType }
+
+// GetMemoryId returns CreateAssetReferenceNodeCreateAssetReferenceNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *CreateAssetReferenceNodeCreateAssetReferenceNode) GetMemoryId() string { return v.MemoryId }
+
+// CreateAssetReferenceNodeResponse is returned by CreateAssetReferenceNode on success.
+type CreateAssetReferenceNodeResponse struct {
+	CreateAssetReferenceNode *CreateAssetReferenceNodeCreateAssetReferenceNode `json:"createAssetReferenceNode"`
+}
+
+// GetCreateAssetReferenceNode returns CreateAssetReferenceNodeResponse.CreateAssetReferenceNode, and is useful for accessing the field via an interface.
+func (v *CreateAssetReferenceNodeResponse) GetCreateAssetReferenceNode() *CreateAssetReferenceNodeCreateAssetReferenceNode {
+	return v.CreateAssetReferenceNode
+}
 
 // CreateConnectionGrantCreateConnectionGrant includes the requested fields of the GraphQL type ConnectionGrant.
 // The GraphQL type's documentation follows.
@@ -10899,6 +11073,35 @@ type ResolveUrnResponse struct {
 // GetResolveUrn returns ResolveUrnResponse.ResolveUrn, and is useful for accessing the field via an interface.
 func (v *ResolveUrnResponse) GetResolveUrn() *ResolveUrnResolveUrnUrnResolution { return v.ResolveUrn }
 
+// RestoreAssetResponse is returned by RestoreAsset on success.
+type RestoreAssetResponse struct {
+	RestoreAsset *RestoreAssetRestoreAsset `json:"restoreAsset"`
+}
+
+// GetRestoreAsset returns RestoreAssetResponse.RestoreAsset, and is useful for accessing the field via an interface.
+func (v *RestoreAssetResponse) GetRestoreAsset() *RestoreAssetRestoreAsset { return v.RestoreAsset }
+
+// RestoreAssetRestoreAsset includes the requested fields of the GraphQL type Asset.
+type RestoreAssetRestoreAsset struct {
+	Id string `json:"id"`
+	// The asset's URN: <memory.urn>:assets:<asset.id>.
+	Urn       string  `json:"urn"`
+	Filename  string  `json:"filename"`
+	DeletedAt *string `json:"deletedAt"`
+}
+
+// GetId returns RestoreAssetRestoreAsset.Id, and is useful for accessing the field via an interface.
+func (v *RestoreAssetRestoreAsset) GetId() string { return v.Id }
+
+// GetUrn returns RestoreAssetRestoreAsset.Urn, and is useful for accessing the field via an interface.
+func (v *RestoreAssetRestoreAsset) GetUrn() string { return v.Urn }
+
+// GetFilename returns RestoreAssetRestoreAsset.Filename, and is useful for accessing the field via an interface.
+func (v *RestoreAssetRestoreAsset) GetFilename() string { return v.Filename }
+
+// GetDeletedAt returns RestoreAssetRestoreAsset.DeletedAt, and is useful for accessing the field via an interface.
+func (v *RestoreAssetRestoreAsset) GetDeletedAt() *string { return v.DeletedAt }
+
 // RestoreNodeRevisionResponse is returned by RestoreNodeRevision on success.
 type RestoreNodeRevisionResponse struct {
 	RestoreNodeRevision *RestoreNodeRevisionRestoreNodeRevisionNode `json:"restoreNodeRevision"`
@@ -11943,6 +12146,37 @@ func (v *ServerInfoServerInfo) GetVersion() string { return v.Version }
 
 // GetBaseUrl returns ServerInfoServerInfo.BaseUrl, and is useful for accessing the field via an interface.
 func (v *ServerInfoServerInfo) GetBaseUrl() string { return v.BaseUrl }
+
+// SoftDeleteAssetResponse is returned by SoftDeleteAsset on success.
+type SoftDeleteAssetResponse struct {
+	SoftDeleteAsset *SoftDeleteAssetSoftDeleteAsset `json:"softDeleteAsset"`
+}
+
+// GetSoftDeleteAsset returns SoftDeleteAssetResponse.SoftDeleteAsset, and is useful for accessing the field via an interface.
+func (v *SoftDeleteAssetResponse) GetSoftDeleteAsset() *SoftDeleteAssetSoftDeleteAsset {
+	return v.SoftDeleteAsset
+}
+
+// SoftDeleteAssetSoftDeleteAsset includes the requested fields of the GraphQL type Asset.
+type SoftDeleteAssetSoftDeleteAsset struct {
+	Id string `json:"id"`
+	// The asset's URN: <memory.urn>:assets:<asset.id>.
+	Urn       string  `json:"urn"`
+	Filename  string  `json:"filename"`
+	DeletedAt *string `json:"deletedAt"`
+}
+
+// GetId returns SoftDeleteAssetSoftDeleteAsset.Id, and is useful for accessing the field via an interface.
+func (v *SoftDeleteAssetSoftDeleteAsset) GetId() string { return v.Id }
+
+// GetUrn returns SoftDeleteAssetSoftDeleteAsset.Urn, and is useful for accessing the field via an interface.
+func (v *SoftDeleteAssetSoftDeleteAsset) GetUrn() string { return v.Urn }
+
+// GetFilename returns SoftDeleteAssetSoftDeleteAsset.Filename, and is useful for accessing the field via an interface.
+func (v *SoftDeleteAssetSoftDeleteAsset) GetFilename() string { return v.Filename }
+
+// GetDeletedAt returns SoftDeleteAssetSoftDeleteAsset.DeletedAt, and is useful for accessing the field via an interface.
+func (v *SoftDeleteAssetSoftDeleteAsset) GetDeletedAt() *string { return v.DeletedAt }
 
 // StartImpersonationResponse is returned by StartImpersonation on success.
 type StartImpersonationResponse struct {
@@ -14280,6 +14514,18 @@ func (v *UpdateUserRolesUpdateUserRolesUser) __premarshalJSON() (*__premarshalUp
 	return &retval, nil
 }
 
+type UploadIntent string
+
+const (
+	UploadIntentAgentRequest UploadIntent = "AGENT_REQUEST"
+	UploadIntentUser         UploadIntent = "USER"
+)
+
+var AllUploadIntent = []UploadIntent{
+	UploadIntentAgentRequest,
+	UploadIntentUser,
+}
+
 // UserApiKeyFields includes the GraphQL fields of UserApiKey requested by the fragment UserApiKeyFields.
 type UserApiKeyFields struct {
 	Id         string  `json:"id"`
@@ -14677,6 +14923,34 @@ func (v *__AttachMemoryToAppInput) GetAppRef() string { return v.AppRef }
 // GetAgentRef returns __AttachMemoryToAppInput.AgentRef, and is useful for accessing the field via an interface.
 func (v *__AttachMemoryToAppInput) GetAgentRef() string { return v.AgentRef }
 
+// __BeginAssetUploadInput is used internally by genqlient
+type __BeginAssetUploadInput struct {
+	MemoryId    string       `json:"memoryId"`
+	Filename    string       `json:"filename"`
+	MimeType    string       `json:"mimeType"`
+	SizeBytes   int          `json:"sizeBytes"`
+	Intent      UploadIntent `json:"intent"`
+	Description *string      `json:"description,omitempty"`
+}
+
+// GetMemoryId returns __BeginAssetUploadInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__BeginAssetUploadInput) GetMemoryId() string { return v.MemoryId }
+
+// GetFilename returns __BeginAssetUploadInput.Filename, and is useful for accessing the field via an interface.
+func (v *__BeginAssetUploadInput) GetFilename() string { return v.Filename }
+
+// GetMimeType returns __BeginAssetUploadInput.MimeType, and is useful for accessing the field via an interface.
+func (v *__BeginAssetUploadInput) GetMimeType() string { return v.MimeType }
+
+// GetSizeBytes returns __BeginAssetUploadInput.SizeBytes, and is useful for accessing the field via an interface.
+func (v *__BeginAssetUploadInput) GetSizeBytes() int { return v.SizeBytes }
+
+// GetIntent returns __BeginAssetUploadInput.Intent, and is useful for accessing the field via an interface.
+func (v *__BeginAssetUploadInput) GetIntent() UploadIntent { return v.Intent }
+
+// GetDescription returns __BeginAssetUploadInput.Description, and is useful for accessing the field via an interface.
+func (v *__BeginAssetUploadInput) GetDescription() *string { return v.Description }
+
 // __CancelAppRunInput is used internally by genqlient
 type __CancelAppRunInput struct {
 	Id string `json:"id"`
@@ -14736,6 +15010,14 @@ func (v *__CloneNodeInput) GetTargetUrn() *string { return v.TargetUrn }
 
 // GetTargetMemoryRef returns __CloneNodeInput.TargetMemoryRef, and is useful for accessing the field via an interface.
 func (v *__CloneNodeInput) GetTargetMemoryRef() *string { return v.TargetMemoryRef }
+
+// __CompleteAssetUploadInput is used internally by genqlient
+type __CompleteAssetUploadInput struct {
+	UploadId string `json:"uploadId"`
+}
+
+// GetUploadId returns __CompleteAssetUploadInput.UploadId, and is useful for accessing the field via an interface.
+func (v *__CompleteAssetUploadInput) GetUploadId() string { return v.UploadId }
 
 // __ConnectionGrantsInput is used internally by genqlient
 type __ConnectionGrantsInput struct {
@@ -14868,6 +15150,26 @@ func (v *__CreateAppInput) GetAppType() *AppType { return v.AppType }
 
 // GetDescription returns __CreateAppInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateAppInput) GetDescription() *string { return v.Description }
+
+// __CreateAssetReferenceNodeInput is used internally by genqlient
+type __CreateAssetReferenceNodeInput struct {
+	AssetRef    string  `json:"assetRef"`
+	NodeUrn     string  `json:"nodeUrn"`
+	Name        *string `json:"name,omitempty"`
+	Description *string `json:"description,omitempty"`
+}
+
+// GetAssetRef returns __CreateAssetReferenceNodeInput.AssetRef, and is useful for accessing the field via an interface.
+func (v *__CreateAssetReferenceNodeInput) GetAssetRef() string { return v.AssetRef }
+
+// GetNodeUrn returns __CreateAssetReferenceNodeInput.NodeUrn, and is useful for accessing the field via an interface.
+func (v *__CreateAssetReferenceNodeInput) GetNodeUrn() string { return v.NodeUrn }
+
+// GetName returns __CreateAssetReferenceNodeInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateAssetReferenceNodeInput) GetName() *string { return v.Name }
+
+// GetDescription returns __CreateAssetReferenceNodeInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateAssetReferenceNodeInput) GetDescription() *string { return v.Description }
 
 // __CreateConnectionGrantInput is used internally by genqlient
 type __CreateConnectionGrantInput struct {
@@ -15845,6 +16147,14 @@ type __ResolveUrnInput struct {
 // GetUrn returns __ResolveUrnInput.Urn, and is useful for accessing the field via an interface.
 func (v *__ResolveUrnInput) GetUrn() string { return v.Urn }
 
+// __RestoreAssetInput is used internally by genqlient
+type __RestoreAssetInput struct {
+	AssetId string `json:"assetId"`
+}
+
+// GetAssetId returns __RestoreAssetInput.AssetId, and is useful for accessing the field via an interface.
+func (v *__RestoreAssetInput) GetAssetId() string { return v.AssetId }
+
 // __RestoreNodeRevisionInput is used internally by genqlient
 type __RestoreNodeRevisionInput struct {
 	RevisionId string `json:"revisionId"`
@@ -15980,6 +16290,14 @@ func (v *__SecretsInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __SecretsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__SecretsInput) GetOffset() *int { return v.Offset }
+
+// __SoftDeleteAssetInput is used internally by genqlient
+type __SoftDeleteAssetInput struct {
+	AssetId string `json:"assetId"`
+}
+
+// GetAssetId returns __SoftDeleteAssetInput.AssetId, and is useful for accessing the field via an interface.
+func (v *__SoftDeleteAssetInput) GetAssetId() string { return v.AssetId }
 
 // __StartImpersonationInput is used internally by genqlient
 type __StartImpersonationInput struct {
@@ -17095,6 +17413,66 @@ func AuthContext(
 	return data_, err_
 }
 
+// The mutation executed by BeginAssetUpload.
+const BeginAssetUpload_Operation = `
+mutation BeginAssetUpload ($memoryId: ID!, $filename: String!, $mimeType: String!, $sizeBytes: Int!, $intent: UploadIntent!, $description: String) {
+	beginAssetUploadV2(input: {memoryId:$memoryId,filename:$filename,mimeType:$mimeType,sizeBytes:$sizeBytes,uploadIntent:$intent,description:$description}) {
+		uploadId
+		putUrl
+		putHeaders {
+			name
+			value
+		}
+		storageKey
+		maxSizeBytes
+		allowedMimeType
+		expiresAt
+	}
+}
+`
+
+// Step 1 of 3. The server reserves the asset row and hands back a presigned PUT
+// plus the exact headers to send with it — sizeBytes and mimeType are declared
+// up front so the size cap and MIME allowlist are enforced BEFORE any bytes
+// move, and the typed rejection comes back here rather than from storage.
+//
+// uploadRequestId is omitted for a CLI-initiated upload; it belongs to the
+// agent-request flow (an agent asking a user for a file).
+func BeginAssetUpload(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId string,
+	filename string,
+	mimeType string,
+	sizeBytes int,
+	intent UploadIntent,
+	description *string,
+) (data_ *BeginAssetUploadResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "BeginAssetUpload",
+		Query:  BeginAssetUpload_Operation,
+		Variables: &__BeginAssetUploadInput{
+			MemoryId:    memoryId,
+			Filename:    filename,
+			MimeType:    mimeType,
+			SizeBytes:   sizeBytes,
+			Intent:      intent,
+			Description: description,
+		},
+	}
+
+	data_ = &BeginAssetUploadResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CancelAppRun.
 const CancelAppRun_Operation = `
 mutation CancelAppRun ($id: ID!) {
@@ -17332,6 +17710,51 @@ func CloneNode(
 	}
 
 	data_ = &CloneNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CompleteAssetUpload.
+const CompleteAssetUpload_Operation = `
+mutation CompleteAssetUpload ($uploadId: ID!) {
+	completeAssetUpload(input: {uploadId:$uploadId}) {
+		id
+		urn
+		filename
+		mimeType
+		sizeBytes
+		scanStatus
+		uploadedAt
+		memoryId
+		publicUrl
+	}
+}
+`
+
+// Step 3 of 3 (step 2 is the PUT, which is plain HTTP against object storage).
+// Until this lands the asset row is reserved but not usable — an upload that
+// dies after the PUT leaves a reservation, not a half-visible asset.
+func CompleteAssetUpload(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	uploadId string,
+) (data_ *CompleteAssetUploadResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CompleteAssetUpload",
+		Query:  CompleteAssetUpload_Operation,
+		Variables: &__CompleteAssetUploadInput{
+			UploadId: uploadId,
+		},
+	}
+
+	data_ = &CompleteAssetUploadResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -17674,6 +18097,56 @@ func CreateApp(
 	}
 
 	data_ = &CreateAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateAssetReferenceNode.
+const CreateAssetReferenceNode_Operation = `
+mutation CreateAssetReferenceNode ($assetRef: String!, $nodeUrn: String!, $name: String, $description: String) {
+	createAssetReferenceNode(input: {assetRef:$assetRef,nodeUrn:$nodeUrn,name:$name,description:$description}) {
+		id
+		urn
+		loc
+		name
+		nodeType
+		memoryId
+	}
+}
+`
+
+// Attach an asset to the graph as a nodeType:reference node whose data.asset
+// points at it — the same shape hadron_store_file writes, so a reader handles
+// both origins identically. There is no schema-level Asset→Node link
+// (cor:dmo:060:10 reserves it); this is a soft reference, and Node.asset
+// resolves to null once the asset is gone.
+func CreateAssetReferenceNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	assetRef string,
+	nodeUrn string,
+	name *string,
+	description *string,
+) (data_ *CreateAssetReferenceNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAssetReferenceNode",
+		Query:  CreateAssetReferenceNode_Operation,
+		Variables: &__CreateAssetReferenceNodeInput{
+			AssetRef:    assetRef,
+			NodeUrn:     nodeUrn,
+			Name:        name,
+			Description: description,
+		},
+	}
+
+	data_ = &CreateAssetReferenceNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -21140,6 +21613,43 @@ func ResolveUrn(
 	return data_, err_
 }
 
+// The mutation executed by RestoreAsset.
+const RestoreAsset_Operation = `
+mutation RestoreAsset ($assetId: ID!) {
+	restoreAsset(assetId: $assetId) {
+		id
+		urn
+		filename
+		deletedAt
+	}
+}
+`
+
+func RestoreAsset(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	assetId string,
+) (data_ *RestoreAssetResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RestoreAsset",
+		Query:  RestoreAsset_Operation,
+		Variables: &__RestoreAssetInput{
+			AssetId: assetId,
+		},
+	}
+
+	data_ = &RestoreAssetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RestoreNodeRevision.
 const RestoreNodeRevision_Operation = `
 mutation RestoreNodeRevision ($revisionId: ID!, $truncate: Boolean) {
@@ -21676,6 +22186,45 @@ func ServerInfo(
 	}
 
 	data_ = &ServerInfoResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SoftDeleteAsset.
+const SoftDeleteAsset_Operation = `
+mutation SoftDeleteAsset ($assetId: ID!) {
+	softDeleteAsset(assetId: $assetId) {
+		id
+		urn
+		filename
+		deletedAt
+	}
+}
+`
+
+// Soft delete: recoverable via restoreAsset within the retention window, which
+// is why the CLI's `rm` does not describe itself as permanent.
+func SoftDeleteAsset(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	assetId string,
+) (data_ *SoftDeleteAssetResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SoftDeleteAsset",
+		Query:  SoftDeleteAsset_Operation,
+		Variables: &__SoftDeleteAssetInput{
+			AssetId: assetId,
+		},
+	}
+
+	data_ = &SoftDeleteAssetResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

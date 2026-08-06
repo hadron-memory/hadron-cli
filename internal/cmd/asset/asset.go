@@ -23,7 +23,7 @@ func NewCmdAsset(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "asset <command>",
 		Aliases: []string{"assets"},
-		Short:   "List, download, and link uploaded files",
+		Short:   "Upload, list, download, link, and delete files",
 		Long: `Work with assets — files uploaded against a memory.
 
 An asset is bytes the graph points at, as opposed to a node, which is text the
@@ -35,11 +35,16 @@ Assets are addressed by id or by URN. The URN carries its memory
 memory can take a URN alone; with a bare id, pass -m.
 
 Downloads are gated on virus scanning: an asset is fetchable only once its
-scan status is CLEAN.`,
+scan status is CLEAN. Deletion is soft — "asset restore" brings an asset back
+within its retention window.`,
 	}
 	cmd.AddCommand(newCmdList(f))
 	cmd.AddCommand(newCmdGet(f))
 	cmd.AddCommand(newCmdURL(f))
+	cmd.AddCommand(newCmdUpload(f))
+	cmd.AddCommand(newCmdRm(f))
+	cmd.AddCommand(newCmdRestore(f))
+	cmd.AddCommand(newCmdLink(f))
 	return cmd
 }
 
