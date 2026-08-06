@@ -43,10 +43,12 @@ Prompts on a terminal; pass --yes to confirm non-interactively.`,
 			if err != nil {
 				return err
 			}
-			// Recoverable, so the prompt says so — an operator who reads
-			// "permanently delete" on a reversible action learns to ignore
-			// the prompts that matter.
-			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes,
+			// Confirm, not ConfirmDeletion: the latter wraps its argument in
+			// "Delete …? This cannot be undone.", which is both garbled here
+			// and false — this delete IS undoable. An operator who reads
+			// "cannot be undone" on a reversible action learns to skim the
+			// prompts that are not.
+			if err := cmdutil.Confirm(f.IOStreams, yes,
 				fmt.Sprintf("Soft-delete asset %s? It stays restorable for the retention window.", ref.ID)); err != nil {
 				return err
 			}

@@ -168,13 +168,32 @@ reversible action learns to skim the prompts that are not. The success line
 names the exact restore command. `restore` is non-destructive and does not
 prompt.
 
-### 8. `link` forwards the ref verbatim
+That required `cmdutil.Confirm`, not `cmdutil.ConfirmDeletion`: the latter wraps
+its argument in `"Delete …? This cannot be undone."`, which review caught
+rendering as a garbled, self-contradicting double question that asserted the
+opposite of the truth. `Confirm` gates identically (`--yes`, TTY check,
+non-interactive refusal) while owning the whole prompt string.
 
-`createAssetReferenceNode` accepts an id or a URN. The command forwards whatever
-the caller passed rather than the parsed bare id, because the URN carries its
-memory qualification — which matters precisely in the case the mutation is
-built for, where the reference node lands in a *different* memory from the
-asset (READ on the asset's, WRITE on the target's).
+### 8. `link --node` names the node to CREATE, not a parent
+
+`CreateAssetReferenceNodeInput.nodeUrn` is *"the fully-qualified node URN for
+the reference node"* — the node being created, not an existing parent to append
+beneath. The first version documented it as a parent, which review caught:
+following the help would have produced a `NodeLocConflictError` rather than an
+append, because `writeNodeCore` in `create` mode rejects a live loc collision
+(spec 039 D1). Not data loss — the server refuses rather than overwrites — but
+the documented invocation could not work.
+
+Placement comes from the loc's colon-separated prefix, so
+`hrn:node:acme.com:kb:designs:logo-v3` lands under `:designs`. The help, flag
+description, examples and missing-flag error all now say so explicitly, since
+"node URN" alone reads as "the node to attach to".
+
+`createAssetReferenceNode` accepts an asset id or a URN. The command forwards
+whatever the caller passed rather than the parsed bare id, because the URN
+carries its memory qualification — which matters precisely in the case the
+mutation is built for, where the reference node lands in a *different* memory
+from the asset (READ on the asset's, WRITE on the target's).
 
 The resulting pointer is a **soft reference**: there is no schema-level
 Asset→Node link (`cor:dmo:060:10` reserves it), so deleting the asset leaves the

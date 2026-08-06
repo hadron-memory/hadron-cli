@@ -280,6 +280,64 @@ func TestAssetLinkForwardsTheRefVerbatim(t *testing.T) {
 	}
 }
 
+func TestAssetLinkTargetsTheNodeToCreateNotAParent(t *testing.T) {
+	// Review on #363: CreateAssetReferenceNodeInput.nodeUrn is the URN of the
+	// node being CREATED. The first version documented it as a parent to
+	// append under, so following the help produced a loc conflict instead of a
+	// reference node. The flag must forward the caller's URN unchanged, and
+	// the help must not describe it as a parent.
+	gql, reqs := captureGraphQL(t, map[string]string{
+		"CreateAssetReferenceNode": `{"data":{"createAssetReferenceNode":{"id":"n1","urn":"hrn:node:acme.com:kb:designs:logo-v3",` +
+			`"loc":"designs:logo-v3","name":"logo.png","nodeType":"reference","memoryId":"mem1"}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	const target = "hrn:node:acme.com:kb:designs:logo-v3"
+	root.SetArgs([]string{"asset", "link", "a1", "--node", target, "--server", gql.URL, "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if got := decodeVars(t, reqs, "CreateAssetReferenceNode")["nodeUrn"]; got != target {
+		t.Errorf("nodeUrn should be the caller's target verbatim; got %v", got)
+	}
+
+	// The help must not tell a reader to pass a parent — that was the bug.
+	help := &strings.Builder{}
+	f2, _ := testFactory(t)
+	h := NewRootCmd(f2)
+	h.SetOut(help)
+	h.SetArgs([]string{"asset", "link", "--help"})
+	if err := h.Execute(); err != nil {
+		t.Fatalf("help: %v", err)
+	}
+	if !strings.Contains(help.String(), "not of a parent") && !strings.Contains(help.String(), "not a parent") {
+		t.Errorf("help must say --node is the node to create, not a parent; got:\n%s", help.String())
+	}
+}
+
+func TestAssetRmPromptDoesNotClaimIrreversibility(t *testing.T) {
+	// Review on #363: ConfirmDeletion wraps its argument in
+	// "Delete …? This cannot be undone." — garbled here, and false, since the
+	// delete is restorable. Non-interactively the refusal must still fire.
+	gql := fakeGraphQL(t, map[string]string{
+		"SoftDeleteAsset": `{"data":{"softDeleteAsset":{"id":"a1","urn":"u","filename":"logo.png","deletedAt":"2026-08-06T00:00:00Z"}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"asset", "rm", "a1", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("rm without --yes must refuse non-interactively")
+	}
+	if strings.Contains(err.Error(), "cannot be undone") {
+		t.Errorf("a soft delete must not claim irreversibility; got %v", err)
+	}
+	stderr, ok := f.IOStreams.ErrOut.(*strings.Builder)
+	if ok && strings.Contains(stderr.String(), "cannot be undone") {
+		t.Errorf("prompt must not claim irreversibility; got %q", stderr.String())
+	}
+}
+
 func TestAssetLinkRequiresNode(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
