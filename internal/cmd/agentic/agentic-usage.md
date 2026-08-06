@@ -77,7 +77,7 @@ hadron auth login | logout | whoami | status | token create|list|validate|revoke
 hadron memory list [--shared-with-me] | get <id-or-urn> | set [<id-or-urn>] [--org <ref> | --owner-me | --app <ref> --agent <ref>] [--class <c>] [--max-rev-count <n>] [--schema <json> | --schema-file <path>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn <org::slug> | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member list|add|set-role|rm <memory> --user <id> [--role <r>] | share list|create|set-role|revoke <memory> --grantee <user-ref> [--role <r>] | subscription list|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key - | link-user <memoryRef> --external-user <id> [--data-key -] --yes | validate <memoryRef> [--check <kind>]... [--limit N] [--fail-on-findings]
 hadron node list [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--sort-seq asc|desc] [--seq-gt N] | get <urn>... | get <loc>... -m <memory> | get --prefix <loc> -m <memory> | add [--type <t>] [--object-type <t>] [--data <json>|--data-file <path>] [--properties <json>|--properties-file <path>] | update <urn> [--type <t>] [--object-type <t>|""] [--data <json>|--data-file <path>|--data-merge <json>|--data-merge-file <path>] [--properties <json>|--properties-file <path>] | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] [--recursive|-r] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
 hadron object create -m <memory> --type <t> --fields <json>|--fields-file <path> [--key <k>] [--name <n>] | get <ref> | update <ref> --fields <json>|--fields-file <path> [--reason <r>] | delete <ref> [--hard] --yes | find -m <memory> --type <t> [--match <json>] [--where <json>] [--sort <json>] [--limit N] [--offset N]
-hadron asset list -m <memory> [--mine] [--mime <type>] [--include-deleted] [--limit N] [--offset N] | get <asset-ref> [-o <path>|-] [--force] | url <asset-ref> [-m <memory>]
+hadron asset list -m <memory> [--mine] [--mime <type>] [--include-deleted] [--limit N] [--offset N] | get <asset-ref> [-o <path>|-] [--force] | url <asset-ref> [-m <memory>] | upload <file> -m <memory> [--mime <t>] [--name <n>] [--description <d>] | rm <asset-ref> [--yes] | restore <asset-ref> | link <asset-ref> --node <new-node-urn> [--name <n>] [--description <d>]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
 hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--reply-to <loc>] [--handle <h>] [--identity <i>] [--role <r>]
 hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--limit N] [--offset N] [-l|--long] [--json]
@@ -198,6 +198,28 @@ Conventions:
   it can fetch the file, there is no read gate, and it is absent (exit 5, with
   the reason) when the asset is not CLEAN, its memory is encrypted, or the
   deployment has no public origin. Never construct that URL yourself.
+  `asset upload <file> -m <memory>` is three steps behind one command: the
+  server reserves the asset and returns a presigned PUT, the bytes go straight
+  to object storage, and a final call marks it usable. Size and MIME are
+  declared UP FRONT, so the size cap and MIME allowlist reject a bad upload
+  before any bytes move — one round-trip, not a wasted transfer. The MIME type
+  comes from the extension, else content sniffing; `--mime` overrides when the
+  extension lies. A failure after the PUT leaves the asset reserved but not
+  completed: it does not appear in `asset list` and can simply be re-uploaded.
+  Fresh uploads are `scanStatus: PENDING` and NOT downloadable until CLEAN.
+  `asset rm` is a SOFT delete — restorable via `asset restore` within the
+  retention window, and visible meanwhile with `asset list --include-deleted` —
+  so it prompts on a TTY and needs `--yes` non-interactively, but says
+  "restorable" rather than "permanent". `asset link <ref> --node <new-node-urn>`
+  creates a `nodeType: reference` node carrying the asset in `data.asset`, the
+  same shape `hadron_store_file` writes. **`--node` is the URN of the node to
+  CREATE, not a parent to append under** — `hrn:node:<root>:<memory>:<loc>`,
+  where the loc's colon prefix places it in the tree (`:designs:logo-v3` lands
+  under `:designs`); naming an existing live node is refused with a loc
+  conflict. The asset and the node need not share a memory (READ on the
+  asset's, WRITE on the target's).
+  The pointer is a SOFT reference — deleting the asset leaves the node with
+  `asset` resolving to null, which is usually the right audit trail.
 - `memory validate <memoryRef>` runs the server's memory health audit
   (`validateMemory`) and reports its findings: `broken-ref` (an edge pointing at
   a missing/soft-deleted node), `embed-failed` (a node absent from the vector

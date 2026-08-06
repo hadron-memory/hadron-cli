@@ -1,9 +1,9 @@
-# Implementation Plan: `hadron asset` — read surface
+# Implementation Plan: `hadron asset`
 
-> **Status: implemented and verified** on this branch; reflects the design as
-> built. First half of [#359](https://github.com/hadron-memory/hadron-cli/issues/359)
-> (`list`, `get`, `url`); the write half (`upload`, `rm`, `restore`, `link`)
-> follows in its own PR.
+> **Status: implemented and verified.** The read half (`list`, `get`, `url`)
+> merged 2026-08-06 (`98c6e94`); this document now also covers the write half
+> (`upload`, `rm`, `restore`, `link`) as built on the follow-up branch.
+> Together they close [#359](https://github.com/hadron-memory/hadron-cli/issues/359).
 
 ## Context
 
@@ -48,9 +48,13 @@ which tracks the uniform cross-memory `assets()` query.
 `internal/cmd/asset/` — the group, plus three commands:
 
 ```
-hadron asset list -m <memory> [--mine] [--mime <t>] [--include-deleted] [--limit N] [--offset N]
-hadron asset get  <asset-ref> [-o <path>|-] [--force]
-hadron asset url  <asset-ref> [-m <memory>]
+hadron asset list    -m <memory> [--mine] [--mime <t>] [--include-deleted] [--limit N] [--offset N]
+hadron asset get     <asset-ref> [-o <path>|-] [--force]
+hadron asset url     <asset-ref> [-m <memory>]
+hadron asset upload  <file> -m <memory> [--mime <t>] [--name <n>] [--description <d>]
+hadron asset rm      <asset-ref> [--yes]
+hadron asset restore <asset-ref>
+hadron asset link    <asset-ref> --node <node-urn> [--name <n>] [--description <d>]
 ```
 
 ## Design decisions
@@ -130,20 +134,92 @@ scan…", for a file that has no hotlink by virtue of being deleted.
 id, paging to exhaustion. That is a real inefficiency, and the honest fix is a
 server-side `asset(id)` query rather than a client-side cache.
 
+### 6. `upload` fails before it transfers, not after
+
+The three-step flow (`beginAssetUploadV2` → presigned PUT → `completeAssetUpload`)
+exists so the size cap and MIME allowlist are enforced on the **reservation**.
+Declaring `sizeBytes` and `mimeType` up front means a rejected upload costs one
+round-trip instead of a full transfer, and the typed rejection comes from
+Hadron rather than as an opaque 4xx from object storage.
+
+The MIME type is derived from the extension, falling back to
+`http.DetectContentType`; `--mime` overrides when the extension lies or is
+absent. `mime.TypeByExtension` appends a charset for text types, which is
+stripped — the server matches on the bare type.
+
+The PUT mirrors the download's posture: no Hadron credentials (the presigned
+URL *is* the authorization), and **only** the headers the server returned —
+inventing or dropping one breaks the signature. `ContentLength` is set
+explicitly because an `*os.File` is not a body type `net/http` can
+length-detect, and a chunked PUT also breaks the signature. All three are
+asserted by tests.
+
+A failure after the PUT leaves the asset **reserved but not completed**: it
+does not appear in `asset list` and the upload can simply be retried. The
+command never completes an upload whose bytes did not land — that would publish
+a listable, downloadable, empty file.
+
+### 7. `rm` is soft, and says so
+
+`softDeleteAsset` is recoverable within a retention window, so the confirmation
+prompt reads *"It stays restorable for the retention window"* rather than
+borrowing the permanent-deletion wording. An operator who reads "permanent" on a
+reversible action learns to skim the prompts that are not. The success line
+names the exact restore command. `restore` is non-destructive and does not
+prompt.
+
+That required `cmdutil.Confirm`, not `cmdutil.ConfirmDeletion`: the latter wraps
+its argument in `"Delete …? This cannot be undone."`, which review caught
+rendering as a garbled, self-contradicting double question that asserted the
+opposite of the truth. `Confirm` gates identically (`--yes`, TTY check,
+non-interactive refusal) while owning the whole prompt string.
+
+### 8. `link --node` names the node to CREATE, not a parent
+
+`CreateAssetReferenceNodeInput.nodeUrn` is *"the fully-qualified node URN for
+the reference node"* — the node being created, not an existing parent to append
+beneath. The first version documented it as a parent, which review caught:
+following the help would have produced a `NodeLocConflictError` rather than an
+append, because `writeNodeCore` in `create` mode rejects a live loc collision
+(spec 039 D1). Not data loss — the server refuses rather than overwrites — but
+the documented invocation could not work.
+
+Placement comes from the loc's colon-separated prefix, so
+`hrn:node:acme.com:kb:designs:logo-v3` lands under `:designs`. The help, flag
+description, examples and missing-flag error all now say so explicitly, since
+"node URN" alone reads as "the node to attach to".
+
+`createAssetReferenceNode` accepts an asset id or a URN. The command forwards
+whatever the caller passed rather than the parsed bare id, because the URN
+carries its memory qualification — which matters precisely in the case the
+mutation is built for, where the reference node lands in a *different* memory
+from the asset (READ on the asset's, WRITE on the target's).
+
+The resulting pointer is a **soft reference**: there is no schema-level
+Asset→Node link (`cor:dmo:060:10` reserves it), so deleting the asset leaves the
+node with its `asset` resolving to null. The help says so, because "the file is
+gone but the node records that one was attached" is usually the desired audit
+trail rather than a bug.
+
 ## Deliberately not done
 
-- **The write half** — `upload`, `rm`, `restore`, `link` — is the follow-up PR.
-  `upload` in particular is a three-step flow (begin → presigned PUT → complete)
-  with typed server errors to surface verbatim, and deserves its own review.
 - **`--org` and unscoped `list`** — no server surface; see above.
 - **`agentAssets`** — the older agent-scoped listing is not wired. `memoryAssets`
   is the v2 surface and the one the issue's shape maps onto.
 
 ## Verification
 
-Against the live server: `asset list -m hadronmemory.com::specs` returns
-cleanly; usage errors exit 2 for a missing `-m`, a bare id without `-m`, and a
-node URN passed as an asset ref.
+Against the live server, **read-only**: `asset list -m hadronmemory.com::specs`
+returns cleanly, and every usage error exits 2 — missing `-m` on `list` and
+`upload`, a bare id without `-m` on `url`, a node URN passed as an asset ref, a
+directory or missing file passed to `upload`, `rm` without `--yes`, and `link`
+without `--node`.
+
+The mutating paths (`upload`, `rm`, `restore`, `link`) were **not** run against
+production data — that would write to a live corpus — so they are covered
+against a fake object store and GraphQL server instead, including the exact PUT
+semantics the presigned signature depends on. Worth an end-to-end run against a
+scratch memory before relying on them.
 
 Unit tests cover ref parsing (including every legacy spelling and the node-URN
 rejection), memory-scope precedence, size formatting and the hotlink-absent

@@ -1,0 +1,102 @@
+# Asset write surface, wired for `hadron asset upload|rm|restore|link` (#359).
+
+# Step 1 of 3. The server reserves the asset row and hands back a presigned PUT
+# plus the exact headers to send with it — sizeBytes and mimeType are declared
+# up front so the size cap and MIME allowlist are enforced BEFORE any bytes
+# move, and the typed rejection comes back here rather than from storage.
+#
+# uploadRequestId is omitted for a CLI-initiated upload; it belongs to the
+# agent-request flow (an agent asking a user for a file).
+mutation BeginAssetUpload(
+  $memoryId: ID!
+  $filename: String!
+  $mimeType: String!
+  $sizeBytes: Int!
+  $intent: UploadIntent!
+  # @genqlient(omitempty: true)
+  $description: String
+) {
+  beginAssetUploadV2(
+    input: {
+      memoryId: $memoryId
+      filename: $filename
+      mimeType: $mimeType
+      sizeBytes: $sizeBytes
+      uploadIntent: $intent
+      description: $description
+    }
+  ) {
+    uploadId
+    putUrl
+    putHeaders {
+      name
+      value
+    }
+    storageKey
+    maxSizeBytes
+    allowedMimeType
+    expiresAt
+  }
+}
+
+# Step 3 of 3 (step 2 is the PUT, which is plain HTTP against object storage).
+# Until this lands the asset row is reserved but not usable — an upload that
+# dies after the PUT leaves a reservation, not a half-visible asset.
+mutation CompleteAssetUpload($uploadId: ID!) {
+  completeAssetUpload(input: { uploadId: $uploadId }) {
+    id
+    urn
+    filename
+    mimeType
+    sizeBytes
+    scanStatus
+    uploadedAt
+    memoryId
+    publicUrl
+  }
+}
+
+# Soft delete: recoverable via restoreAsset within the retention window, which
+# is why the CLI's `rm` does not describe itself as permanent.
+mutation SoftDeleteAsset($assetId: ID!) {
+  softDeleteAsset(assetId: $assetId) {
+    id
+    urn
+    filename
+    deletedAt
+  }
+}
+
+mutation RestoreAsset($assetId: ID!) {
+  restoreAsset(assetId: $assetId) {
+    id
+    urn
+    filename
+    deletedAt
+  }
+}
+
+# Attach an asset to the graph as a nodeType:reference node whose data.asset
+# points at it — the same shape hadron_store_file writes, so a reader handles
+# both origins identically. There is no schema-level Asset→Node link
+# (cor:dmo:060:10 reserves it); this is a soft reference, and Node.asset
+# resolves to null once the asset is gone.
+mutation CreateAssetReferenceNode(
+  $assetRef: String!
+  $nodeUrn: String!
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $description: String
+) {
+  createAssetReferenceNode(
+    input: { assetRef: $assetRef, nodeUrn: $nodeUrn, name: $name, description: $description }
+  ) {
+    id
+    urn
+    loc
+    name
+    nodeType
+    memoryId
+  }
+}
