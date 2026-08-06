@@ -77,6 +77,7 @@ hadron auth login | logout | whoami | status | token create|list|validate|revoke
 hadron memory list [--shared-with-me] | get <id-or-urn> | set [<id-or-urn>] [--org <ref> | --owner-me | --app <ref> --agent <ref>] [--class <c>] [--max-rev-count <n>] [--schema <json> | --schema-file <path>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn <org::slug> | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member list|add|set-role|rm <memory> --user <id> [--role <r>] | share list|create|set-role|revoke <memory> --grantee <user-ref> [--role <r>] | subscription list|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key - | link-user <memoryRef> --external-user <id> [--data-key -] --yes | validate <memoryRef> [--check <kind>]... [--limit N] [--fail-on-findings]
 hadron node list [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--sort-seq asc|desc] [--seq-gt N] | get <urn>... | get <loc>... -m <memory> | get --prefix <loc> -m <memory> | add [--type <t>] [--object-type <t>] [--data <json>|--data-file <path>] [--properties <json>|--properties-file <path>] | update <urn> [--type <t>] [--object-type <t>|""] [--data <json>|--data-file <path>|--data-merge <json>|--data-merge-file <path>] [--properties <json>|--properties-file <path>] | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] [--recursive|-r] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
 hadron object create -m <memory> --type <t> --fields <json>|--fields-file <path> [--key <k>] [--name <n>] | get <ref> | update <ref> --fields <json>|--fields-file <path> [--reason <r>] | delete <ref> [--hard] --yes | find -m <memory> --type <t> [--match <json>] [--where <json>] [--sort <json>] [--limit N] [--offset N]
+hadron asset list -m <memory> [--mine] [--mime <type>] [--include-deleted] [--limit N] [--offset N] | get <asset-ref> [-o <path>|-] [--force] | url <asset-ref> [-m <memory>]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
 hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--reply-to <loc>] [--handle <h>] [--identity <i>] [--role <r>]
 hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--limit N] [--offset N] [-l|--long] [--json]
@@ -178,6 +179,25 @@ Conventions:
   encrypts every node in the same transaction and lands the memory `private` and
   owned by that user — ONE-WAY, like `memory encrypt`. Gated: pass `--yes`
   non-interactively.
+- `hadron asset` is the file surface (spec 006 / cor:dmo:060:10). An asset is
+  bytes held by a memory, as opposed to a node's text; listing and download are
+  gated on the holding memory's READ access, so you see every uploader's assets,
+  not just your own (`--mine` narrows to yours). Assets are addressed by id OR by
+  URN `hrn:asset:<root>:<memory>:assets:<id>` — the URN carries its memory, which
+  is why `asset url` accepts a URN alone but needs `-m` with a bare id.
+  `asset list` REQUIRES `-m`: listing is memory-addressed server-side, there is
+  no "every asset I can read" query, and the CLI deliberately does not fan out
+  across memories to fake one (hadron-server#891). It pages to exhaustion by
+  default; `--limit` fetches one explicit page. `asset get <ref>` mints a
+  short-TTL presigned URL and streams the bytes to the asset's own filename,
+  `-o <path>`, or `-o -` for stdout; it refuses to clobber an existing file
+  without `--force` (the default name comes from server metadata, not from you)
+  and deletes a partial file on failure. Downloads are gated on virus scanning —
+  a PENDING or BLOCKED asset is refused by the server with the reason verbatim.
+  `asset url <ref>` prints the **UNAUTHENTICATED** public hotlink: anyone holding
+  it can fetch the file, there is no read gate, and it is absent (exit 5, with
+  the reason) when the asset is not CLEAN, its memory is encrypted, or the
+  deployment has no public origin. Never construct that URL yourself.
 - `memory validate <memoryRef>` runs the server's memory health audit
   (`validateMemory`) and reports its findings: `broken-ref` (an edge pointing at
   a missing/soft-deleted node), `embed-failed` (a node absent from the vector

@@ -16,6 +16,7 @@ import (
 	aiconfigcmd "github.com/hadron-memory/hadron-cli/internal/cmd/aiconfig"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/apicmd"
 	appcmd "github.com/hadron-memory/hadron-cli/internal/cmd/app"
+	assetcmd "github.com/hadron-memory/hadron-cli/internal/cmd/asset"
 	authcmd "github.com/hadron-memory/hadron-cli/internal/cmd/auth"
 	chatcmd "github.com/hadron-memory/hadron-cli/internal/cmd/chat"
 	codingcmd "github.com/hadron-memory/hadron-cli/internal/cmd/coding"
@@ -66,6 +67,7 @@ func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	root.AddCommand(memorycmd.NewCmdMemory(f))
 	root.AddCommand(nodecmd.NewCmdNode(f))
 	root.AddCommand(objectcmd.NewCmdObject(f))
+	root.AddCommand(assetcmd.NewCmdAsset(f))
 	root.AddCommand(searchcmd.NewCmdSearch(f))
 	root.AddCommand(edgecmd.NewCmdEdge(f))
 	root.AddCommand(taskcmd.NewCmdTask(f))

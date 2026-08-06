@@ -2293,6 +2293,54 @@ type AppsResponse struct {
 // GetApps returns AppsResponse.Apps, and is useful for accessing the field via an interface.
 func (v *AppsResponse) GetApps() *AppsAppsAppsPage { return v.Apps }
 
+// AssetDownloadUrlAssetDownloadUrl includes the requested fields of the GraphQL type AssetDownloadUrl.
+type AssetDownloadUrlAssetDownloadUrl struct {
+	Url       string `json:"url"`
+	Filename  string `json:"filename"`
+	MimeType  string `json:"mimeType"`
+	SizeBytes int    `json:"sizeBytes"`
+	ExpiresAt string `json:"expiresAt"`
+}
+
+// GetUrl returns AssetDownloadUrlAssetDownloadUrl.Url, and is useful for accessing the field via an interface.
+func (v *AssetDownloadUrlAssetDownloadUrl) GetUrl() string { return v.Url }
+
+// GetFilename returns AssetDownloadUrlAssetDownloadUrl.Filename, and is useful for accessing the field via an interface.
+func (v *AssetDownloadUrlAssetDownloadUrl) GetFilename() string { return v.Filename }
+
+// GetMimeType returns AssetDownloadUrlAssetDownloadUrl.MimeType, and is useful for accessing the field via an interface.
+func (v *AssetDownloadUrlAssetDownloadUrl) GetMimeType() string { return v.MimeType }
+
+// GetSizeBytes returns AssetDownloadUrlAssetDownloadUrl.SizeBytes, and is useful for accessing the field via an interface.
+func (v *AssetDownloadUrlAssetDownloadUrl) GetSizeBytes() int { return v.SizeBytes }
+
+// GetExpiresAt returns AssetDownloadUrlAssetDownloadUrl.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *AssetDownloadUrlAssetDownloadUrl) GetExpiresAt() string { return v.ExpiresAt }
+
+// AssetDownloadUrlResponse is returned by AssetDownloadUrl on success.
+type AssetDownloadUrlResponse struct {
+	AssetDownloadUrl *AssetDownloadUrlAssetDownloadUrl `json:"assetDownloadUrl"`
+}
+
+// GetAssetDownloadUrl returns AssetDownloadUrlResponse.AssetDownloadUrl, and is useful for accessing the field via an interface.
+func (v *AssetDownloadUrlResponse) GetAssetDownloadUrl() *AssetDownloadUrlAssetDownloadUrl {
+	return v.AssetDownloadUrl
+}
+
+type AssetScanStatus string
+
+const (
+	AssetScanStatusBlocked AssetScanStatus = "BLOCKED"
+	AssetScanStatusClean   AssetScanStatus = "CLEAN"
+	AssetScanStatusPending AssetScanStatus = "PENDING"
+)
+
+var AllAssetScanStatus = []AssetScanStatus{
+	AssetScanStatusBlocked,
+	AssetScanStatusClean,
+	AssetScanStatusPending,
+}
+
 // AttachMemoryToAppAttachMemoryToAppMemory includes the requested fields of the GraphQL type Memory.
 type AttachMemoryToAppAttachMemoryToAppMemory struct {
 	Id               string            `json:"id"`
@@ -7835,6 +7883,118 @@ type MemoriesSharedWithMeResponse struct {
 // GetMemories returns MemoriesSharedWithMeResponse.Memories, and is useful for accessing the field via an interface.
 func (v *MemoriesSharedWithMeResponse) GetMemories() *MemoriesSharedWithMeMemoriesMemoriesPage {
 	return v.Memories
+}
+
+// MemoryAssetsMemoryAssetsAssetListResult includes the requested fields of the GraphQL type AssetListResult.
+type MemoryAssetsMemoryAssetsAssetListResult struct {
+	Total   int                                                   `json:"total"`
+	HasMore bool                                                  `json:"hasMore"`
+	Assets  []*MemoryAssetsMemoryAssetsAssetListResultAssetsAsset `json:"assets"`
+}
+
+// GetTotal returns MemoryAssetsMemoryAssetsAssetListResult.Total, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResult) GetTotal() int { return v.Total }
+
+// GetHasMore returns MemoryAssetsMemoryAssetsAssetListResult.HasMore, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResult) GetHasMore() bool { return v.HasMore }
+
+// GetAssets returns MemoryAssetsMemoryAssetsAssetListResult.Assets, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResult) GetAssets() []*MemoryAssetsMemoryAssetsAssetListResultAssetsAsset {
+	return v.Assets
+}
+
+// MemoryAssetsMemoryAssetsAssetListResultAssetsAsset includes the requested fields of the GraphQL type Asset.
+type MemoryAssetsMemoryAssetsAssetListResultAssetsAsset struct {
+	Id string `json:"id"`
+	// The asset's URN: <memory.urn>:assets:<asset.id>.
+	Urn         string          `json:"urn"`
+	Filename    string          `json:"filename"`
+	MimeType    string          `json:"mimeType"`
+	SizeBytes   int             `json:"sizeBytes"`
+	Description *string         `json:"description"`
+	ScanStatus  AssetScanStatus `json:"scanStatus"`
+	UploadedAt  string          `json:"uploadedAt"`
+	// Uploader (User id). Null when the asset was created server-side by an app run (hadron_store_file).
+	UploadedBy *string `json:"uploadedBy"`
+	DeletedAt  *string `json:"deletedAt"`
+	MemoryId   string  `json:"memoryId"`
+	// Stable, UNAUTHENTICATED hotlink to the bytes (GET /assets/<id>).
+	//
+	// Anyone with this URL can fetch the file — there is no read gate on
+	// it. A deliberate, temporary posture; see src/api/assetPublic.ts. Do
+	// not present it in a UI as though it were access-controlled.
+	//
+	// Null when the server has no BASE_URL configured (no canonical
+	// origin to build an absolute URL from), when the asset is not
+	// CLEAN, or when its memory is encrypted — encrypted memories are
+	// never hotlinkable, since an anonymous request holds no session key.
+	PublicUrl *string `json:"publicUrl"`
+}
+
+// GetId returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.Id, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetId() string { return v.Id }
+
+// GetUrn returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.Urn, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetUrn() string { return v.Urn }
+
+// GetFilename returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.Filename, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetFilename() string { return v.Filename }
+
+// GetMimeType returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.MimeType, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetMimeType() string { return v.MimeType }
+
+// GetSizeBytes returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.SizeBytes, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetSizeBytes() int { return v.SizeBytes }
+
+// GetDescription returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.Description, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetDescription() *string {
+	return v.Description
+}
+
+// GetScanStatus returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.ScanStatus, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetScanStatus() AssetScanStatus {
+	return v.ScanStatus
+}
+
+// GetUploadedAt returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.UploadedAt, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetUploadedAt() string {
+	return v.UploadedAt
+}
+
+// GetUploadedBy returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.UploadedBy, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetUploadedBy() *string {
+	return v.UploadedBy
+}
+
+// GetDeletedAt returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.DeletedAt, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetDeletedAt() *string {
+	return v.DeletedAt
+}
+
+// GetMemoryId returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.MemoryId, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetMemoryId() string { return v.MemoryId }
+
+// GetPublicUrl returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.PublicUrl, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetPublicUrl() *string {
+	return v.PublicUrl
+}
+
+// MemoryAssetsResponse is returned by MemoryAssets on success.
+type MemoryAssetsResponse struct {
+	// v2 (spec 006) — memory-addressed listing. Returns every asset
+	// attached to the memory; the gate is the memory's read access. The
+	// replacement for agentAssets in the v2 surface.
+	//
+	// Set mine: true to narrow to the caller's own uploads — a filter on
+	// top of the read gate, not a substitute for it.
+	//
+	// Accepts the entity's ID or URN.
+	MemoryAssets *MemoryAssetsMemoryAssetsAssetListResult `json:"memoryAssets"`
+}
+
+// GetMemoryAssets returns MemoryAssetsResponse.MemoryAssets, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsResponse) GetMemoryAssets() *MemoryAssetsMemoryAssetsAssetListResult {
+	return v.MemoryAssets
 }
 
 type MemoryClass string
@@ -14489,6 +14649,18 @@ func (v *__AppsInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __AppsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AppsInput) GetOffset() *int { return v.Offset }
 
+// __AssetDownloadUrlInput is used internally by genqlient
+type __AssetDownloadUrlInput struct {
+	AssetId    string `json:"assetId"`
+	TtlSeconds *int   `json:"ttlSeconds"`
+}
+
+// GetAssetId returns __AssetDownloadUrlInput.AssetId, and is useful for accessing the field via an interface.
+func (v *__AssetDownloadUrlInput) GetAssetId() string { return v.AssetId }
+
+// GetTtlSeconds returns __AssetDownloadUrlInput.TtlSeconds, and is useful for accessing the field via an interface.
+func (v *__AssetDownloadUrlInput) GetTtlSeconds() *int { return v.TtlSeconds }
+
 // __AttachMemoryToAppInput is used internally by genqlient
 type __AttachMemoryToAppInput struct {
 	MemoryRef string `json:"memoryRef"`
@@ -15408,6 +15580,34 @@ func (v *__MemoriesSharedWithMeInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __MemoriesSharedWithMeInput.Offset, and is useful for accessing the field via an interface.
 func (v *__MemoriesSharedWithMeInput) GetOffset() *int { return v.Offset }
+
+// __MemoryAssetsInput is used internally by genqlient
+type __MemoryAssetsInput struct {
+	MemoryId       string  `json:"memoryId"`
+	MimeType       *string `json:"mimeType,omitempty"`
+	Mine           *bool   `json:"mine,omitempty"`
+	IncludeDeleted *bool   `json:"includeDeleted,omitempty"`
+	Skip           *int    `json:"skip,omitempty"`
+	Count          *int    `json:"count,omitempty"`
+}
+
+// GetMemoryId returns __MemoryAssetsInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__MemoryAssetsInput) GetMemoryId() string { return v.MemoryId }
+
+// GetMimeType returns __MemoryAssetsInput.MimeType, and is useful for accessing the field via an interface.
+func (v *__MemoryAssetsInput) GetMimeType() *string { return v.MimeType }
+
+// GetMine returns __MemoryAssetsInput.Mine, and is useful for accessing the field via an interface.
+func (v *__MemoryAssetsInput) GetMine() *bool { return v.Mine }
+
+// GetIncludeDeleted returns __MemoryAssetsInput.IncludeDeleted, and is useful for accessing the field via an interface.
+func (v *__MemoryAssetsInput) GetIncludeDeleted() *bool { return v.IncludeDeleted }
+
+// GetSkip returns __MemoryAssetsInput.Skip, and is useful for accessing the field via an interface.
+func (v *__MemoryAssetsInput) GetSkip() *int { return v.Skip }
+
+// GetCount returns __MemoryAssetsInput.Count, and is useful for accessing the field via an interface.
+func (v *__MemoryAssetsInput) GetCount() *int { return v.Count }
 
 // __MemoryMembersInput is used internally by genqlient
 type __MemoryMembersInput struct {
@@ -16725,6 +16925,49 @@ func Apps(
 	}
 
 	data_ = &AppsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AssetDownloadUrl.
+const AssetDownloadUrl_Operation = `
+query AssetDownloadUrl ($assetId: ID!, $ttlSeconds: Int) {
+	assetDownloadUrl(assetId: $assetId, ttlSeconds: $ttlSeconds) {
+		url
+		filename
+		mimeType
+		sizeBytes
+		expiresAt
+	}
+}
+`
+
+// Short-TTL presigned GET. Returns the metadata needed to write the file
+// without a second round-trip. Gated on the holding memory's read access and on
+// scanStatus — a PENDING or BLOCKED asset is refused with a typed error.
+func AssetDownloadUrl(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	assetId string,
+	ttlSeconds *int,
+) (data_ *AssetDownloadUrlResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AssetDownloadUrl",
+		Query:  AssetDownloadUrl_Operation,
+		Variables: &__AssetDownloadUrlInput{
+			AssetId:    assetId,
+			TtlSeconds: ttlSeconds,
+		},
+	}
+
+	data_ = &AssetDownloadUrlResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -19722,6 +19965,73 @@ func MemoriesSharedWithMe(
 	}
 
 	data_ = &MemoriesSharedWithMeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MemoryAssets.
+const MemoryAssets_Operation = `
+query MemoryAssets ($memoryId: ID!, $mimeType: String, $mine: Boolean, $includeDeleted: Boolean, $skip: Int, $count: Int) {
+	memoryAssets(memoryId: $memoryId, mimeType: $mimeType, mine: $mine, includeDeleted: $includeDeleted, skip: $skip, count: $count) {
+		total
+		hasMore
+		assets {
+			id
+			urn
+			filename
+			mimeType
+			sizeBytes
+			description
+			scanStatus
+			uploadedAt
+			uploadedBy
+			deletedAt
+			memoryId
+			publicUrl
+		}
+	}
+}
+`
+
+// Memory-addressed asset listing (the v2 surface; the older agentAssets is
+// agent-scoped and not wired). Listing is gated on READ access to the holding
+// memory — it used to filter `uploadedBy: caller`, which is why #359 recorded
+// cross-uploader listing as blocked; that widening has since landed.
+//
+// There is deliberately NO unscoped variant: memoryId is required, so "every
+// asset I can read" has no server surface and the CLI does not fake one by
+// fanning out.
+func MemoryAssets(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryId string,
+	mimeType *string,
+	mine *bool,
+	includeDeleted *bool,
+	skip *int,
+	count *int,
+) (data_ *MemoryAssetsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MemoryAssets",
+		Query:  MemoryAssets_Operation,
+		Variables: &__MemoryAssetsInput{
+			MemoryId:       memoryId,
+			MimeType:       mimeType,
+			Mine:           mine,
+			IncludeDeleted: includeDeleted,
+			Skip:           skip,
+			Count:          count,
+		},
+	}
+
+	data_ = &MemoryAssetsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
