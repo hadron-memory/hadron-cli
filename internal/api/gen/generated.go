@@ -14231,7 +14231,7 @@ func (v *ValidateMemoryResponse) GetValidateMemory() *ValidateMemoryValidateMemo
 // ValidateMemoryValidateMemoryMemoryValidationResult includes the requested fields of the GraphQL type MemoryValidationResult.
 type ValidateMemoryValidateMemoryMemoryValidationResult struct {
 	MemoryId string `json:"memoryId"`
-	// Nodes scanned. The whole memory in one pass - the checks are cross-referential, so a partial scan would produce false positives rather than fewer findings.
+	// Live (non-deleted) nodes scanned - soft-deleted tombstones are excluded, since their findings would be unactionable (#884). The whole memory in one pass - the checks are cross-referential, so a partial scan would produce false positives rather than fewer findings.
 	NodesChecked int `json:"nodesChecked"`
 	// True only when EVERY check ran and none found anything. A skipped check
 	// makes this false even with zero findings - you cannot claim health for a

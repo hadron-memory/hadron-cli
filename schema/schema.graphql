@@ -708,6 +708,20 @@ type Asset {
   id: ID!
   memoryId: ID!
   mimeType: String!
+
+  """
+  Stable, UNAUTHENTICATED hotlink to the bytes (GET /assets/<id>).
+  
+  Anyone with this URL can fetch the file — there is no read gate on
+  it. A deliberate, temporary posture; see src/api/assetPublic.ts. Do
+  not present it in a UI as though it were access-controlled.
+  
+  Null when the server has no BASE_URL configured (no canonical
+  origin to build an absolute URL from), when the asset is not
+  CLEAN, or when its memory is encrypted — encrypted memories are
+  never hotlinkable, since an anonymous request holds no session key.
+  """
+  publicUrl: String
   scanStatus: AssetScanStatus!
   sizeBytes: Int!
   uploadedAt: DateTime!
@@ -1029,6 +1043,35 @@ input CreateAgentWebhookInput {
   name: String!
   policy: JSON
   runAsSelf: Boolean
+}
+
+"""
+Attach an existing asset to the graph by creating a reference node
+that points at it.
+
+The node is a nodeType: reference node whose data.asset carries the
+asset's id, urn, filename, mimeType and sizeBytes — the same shape
+hadron_store_file writes for run-created files, so a reader handles
+both origins identically. There is no schema-level Asset-to-Node
+link (cor:dmo:060:10 reserves it); the pointer is a soft reference,
+and Node.asset resolves to null once the asset is gone.
+
+Requires READ access to the asset's holding memory and WRITE access
+to the memory the reference node lands in — which need not be the
+same memory.
+"""
+input CreateAssetReferenceNodeInput {
+  """Asset id, or its URN (<memory.urn>:assets:<asset.id>)."""
+  assetRef: String!
+
+  """Node description. Defaults to the asset's own description."""
+  description: String
+
+  """Node name. Defaults to the asset's filename."""
+  name: String
+
+  """Fully-qualified node URN for the reference node."""
+  nodeUrn: String!
 }
 
 type CreateMemorySharePayload {
@@ -2159,7 +2202,7 @@ type MemoryValidationResult {
   memoryId: ID!
 
   """
-  Nodes scanned. The whole memory in one pass - the checks are cross-referential, so a partial scan would produce false positives rather than fewer findings.
+  Live (non-deleted) nodes scanned - soft-deleted tombstones are excluded, since their findings would be unactionable (#884). The whole memory in one pass - the checks are cross-referential, so a partial scan would produce false positives rather than fewer findings.
   """
   nodesChecked: Int!
 
@@ -2545,6 +2588,7 @@ type Mutation {
   """
   createAppKey(appRef: ID!, label: String): AppKeyCreated!
   createAppUser(email: String, externalId: String!, handle: String, name: String): User!
+  createAssetReferenceNode(input: CreateAssetReferenceNodeInput!): Node!
 
   """
   Grant an App install scoped access to a connection you OWN. scopes must be a
@@ -3715,6 +3759,19 @@ type Node {
   abstractOriginHash: String
   aiAgent: String
   alias: String
+
+  """
+  The asset this node references, for a reference node created by
+  createAssetReferenceNode or hadron_store_file (its data.asset
+  points at one). Null for every ordinary node.
+  
+  Also null when the pointer is DANGLING — the asset was deleted, or
+  is soft-deleted. There is no schema-level Asset-to-Node foreign key
+  (cor:dmo:060:10 reserves it), so data.asset.id is a soft reference
+  and this resolver is what keeps it honest: never assume a node
+  carrying data.asset still has a live asset behind it.
+  """
+  asset: Asset
   content: String
   createdAt: DateTime!
   data: JSON
@@ -3779,6 +3836,17 @@ type Node {
   objectType: String
   outgoingEdges: [Edge!]!
   ownerRepo: String
+
+  """
+  #881 — the portal URL that opens this node, built server-side so no client
+  ever has to construct one (constructing means guessing which URN spelling
+  the /app/u/<urn> route resolves, and the legacy '::' forms in circulation
+  make that guess wrong). Form: <portal-origin>/app/u/<urn>, the portal's
+  stable URN-alias route. NULL when the deployment has no portal origin
+  configured (FRONTEND_URL) — a link to the wrong host is worse than none, so
+  clients render the field only when present.
+  """
+  portalUrl: String
   properties: JSON
   seq: Int
   tags: [String!]!
@@ -4966,13 +5034,16 @@ type Query {
   memory(ref: ID!): Memory
 
   """
-  v2 (spec 006) — memory-addressed listing. Returns assets for a
-  specific memory; caller must have read access. The replacement
-  for agentAssets in the v2 surface.
+  v2 (spec 006) — memory-addressed listing. Returns every asset
+  attached to the memory; the gate is the memory's read access. The
+  replacement for agentAssets in the v2 surface.
+  
+  Set mine: true to narrow to the caller's own uploads — a filter on
+  top of the read gate, not a substitute for it.
   
   Accepts the entity's ID or URN.
   """
-  memoryAssets(count: Int = 20, includeDeleted: Boolean = false, memoryId: ID!, mimeType: String, skip: Int = 0): AssetListResult!
+  memoryAssets(count: Int = 20, includeDeleted: Boolean = false, memoryId: ID!, mimeType: String, mine: Boolean = false, skip: Int = 0): AssetListResult!
 
   """
   Slim, paginated edge list for a memory's graph view (issue #466) — phase two
