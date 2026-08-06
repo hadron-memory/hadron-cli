@@ -233,15 +233,27 @@ func TestAssetURLAbsentIsAnErrorWithAReason(t *testing.T) {
 		"MemoryAssets": assetListResp(1, false,
 			assetJSON("a1", "one.png", "image/png", 10, "PENDING", "null")),
 	})
-	f, _ := testFactory(t)
+	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"asset", "url", "hrn:asset:acme.com:kb:assets:a1", "--server", gql.URL})
 	err := root.Execute()
 	if err == nil {
 		t.Fatal("an absent hotlink must be an error, not empty output")
 	}
-	if !strings.Contains(err.Error(), "scan") {
-		t.Errorf("the error should name the cause; got %v", err)
+	if code := exitcode.FromError(err); code != exitcode.Conflict {
+		t.Errorf("exit code = %d, want %d", code, exitcode.Conflict)
+	}
+	// stdout must stay empty so a `$(hadron asset url …)` capture yields
+	// nothing rather than a blank line that reads as a URL.
+	if strings.TrimSpace(out.String()) != "" {
+		t.Errorf("stdout should be empty when there is no hotlink; got %q", out.String())
+	}
+	stderr, ok := f.IOStreams.ErrOut.(*strings.Builder)
+	if !ok {
+		t.Fatal("expected a capturable stderr")
+	}
+	if !strings.Contains(stderr.String(), "scan") {
+		t.Errorf("the reason should be on stderr; got %q", stderr.String())
 	}
 }
 
@@ -255,5 +267,162 @@ func TestAssetURLBareIDNeedsMemory(t *testing.T) {
 	}
 	if got := exitcode.FromError(err); got != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
+	}
+}
+
+func TestAssetGetForcedFailureLeavesOriginalIntact(t *testing.T) {
+	// Copilot P1 on #361: writing straight to the destination truncates it
+	// before the transfer, so a mid-download failure destroyed the very file
+	// --force was replacing. The download must be atomic — the destination is
+	// either untouched or fully replaced.
+	bytesSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte("expired"))
+	}))
+	defer bytesSrv.Close()
+	dl := `{"data":{"assetDownloadUrl":{"url":"` + bytesSrv.URL + `","filename":"one.png","mimeType":"image/png","sizeBytes":7,"expiresAt":"2026-08-06T00:05:00Z"}}}`
+	gql := fakeGraphQL(t, map[string]string{"AssetDownloadUrl": dl})
+
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "precious.png")
+	if err := os.WriteFile(dest, []byte("ORIGINAL"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"asset", "get", "a1", "-o", dest, "--force", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("a 403 must fail the download")
+	}
+
+	got, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("the original file must survive a failed --force download: %v", err)
+	}
+	if string(got) != "ORIGINAL" {
+		t.Errorf("original contents clobbered: got %q, want %q", got, "ORIGINAL")
+	}
+	// And no .part-* debris left beside it.
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		if strings.Contains(e.Name(), ".part-") {
+			t.Errorf("temp file left behind: %s", e.Name())
+		}
+	}
+}
+
+func TestAssetURLAbsentHotlinkExitsNonZeroInJSONMode(t *testing.T) {
+	// Codex/Copilot on #361: the exit code lived in the human-render callback,
+	// which --json never invokes — so automation saw exit 0 and could treat a
+	// non-hotlinkable asset as a successful URL lookup.
+	gql := fakeGraphQL(t, map[string]string{
+		"GetMemory": assetMemoryResp,
+		"MemoryAssets": assetListResp(1, false,
+			assetJSON("a1", "one.png", "image/png", 10, "PENDING", "null")),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"asset", "url", "hrn:asset:acme.com:kb:assets:a1", "--server", gql.URL, "--json"})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("--json must not exit 0 for an absent hotlink")
+	}
+	if code := exitcode.FromError(err); code != exitcode.Conflict {
+		t.Errorf("exit code = %d, want %d", code, exitcode.Conflict)
+	}
+	// The machine-readable reason still has to reach the caller.
+	var dto struct {
+		PublicURL *string `json:"publicUrl"`
+		Reason    string  `json:"reason"`
+	}
+	if jerr := json.Unmarshal([]byte(out.String()), &dto); jerr != nil {
+		t.Fatalf("--json should still emit the DTO: %v\n%s", jerr, out.String())
+	}
+	if dto.PublicURL != nil || !strings.Contains(dto.Reason, "scan") {
+		t.Errorf("DTO should carry a null url and the reason; got %+v", dto)
+	}
+}
+
+func TestAssetURLDoesNotSearchDeletedAssets(t *testing.T) {
+	// A soft-deleted asset has no hotlink; finding it would turn a clean
+	// "no such asset" into a misleading "no hotlink because its scan…".
+	gql, reqs := captureGraphQL(t, map[string]string{
+		"GetMemory":    assetMemoryResp,
+		"MemoryAssets": assetListResp(0, false),
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"asset", "url", "hrn:asset:acme.com:kb:assets:a1", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("a missing asset should be a not-found error")
+	}
+	vars := decodeVars(t, reqs, "MemoryAssets")
+	if v, present := vars["includeDeleted"]; present && v == true {
+		t.Errorf("url must not search soft-deleted assets; includeDeleted = %v", v)
+	}
+}
+
+func TestAssetListRejectsZeroLimit(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"asset", "list", "-m", "acme.com::kb", "--limit", "0"})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("--limit 0 asks for a zero-row page and must be rejected")
+	}
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d", code, exitcode.Usage)
+	}
+}
+
+func TestAssetListOffsetAloneIsASinglePage(t *testing.T) {
+	// --offset is deliberate user-driven pagination, like `spec list`; paging
+	// on from it would return far more than the caller asked to page through.
+	calls := 0
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		if body.OperationName == "GetMemory" {
+			_, _ = w.Write([]byte(assetMemoryResp))
+			return
+		}
+		calls++
+		_, _ = w.Write([]byte(assetListResp(99, true,
+			assetJSON("a1", "one.png", "image/png", 10, "CLEAN", "null"))))
+	}))
+	defer gql.Close()
+
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"asset", "list", "-m", "acme.com::kb", "--offset", "20", "--server", gql.URL, "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if calls != 1 {
+		t.Errorf("--offset should fetch exactly one page despite hasMore; made %d calls", calls)
+	}
+}
+
+func TestAssetRefAcceptsTheMemPrefixedSpelling(t *testing.T) {
+	// The server emits hrn:asset:…, but the schema documents the shape as
+	// "<memory.urn>:assets:<asset.id>", which reads as though the memory's own
+	// hrn:mem: prefix is carried through. Accept both (#239 is liberal on input).
+	gql := fakeGraphQL(t, map[string]string{
+		"GetMemory": assetMemoryResp,
+		"MemoryAssets": assetListResp(1, false,
+			assetJSON("a1", "one.png", "image/png", 10, "CLEAN", `"https://cdn/one.png"`)),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"asset", "url", "hrn:mem:acme.com:kb:assets:a1", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("the mem:-prefixed spelling should resolve: %v", err)
+	}
+	if !strings.Contains(out.String(), "https://cdn/one.png") {
+		t.Errorf("expected the hotlink; got %q", out.String())
 	}
 }

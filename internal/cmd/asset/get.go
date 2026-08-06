@@ -87,38 +87,21 @@ rather than as a generic failure.`,
 				}
 			}
 
-			var w io.Writer
-			var closer io.Closer
-			switch path {
-			case "-":
-				w = f.IOStreams.Out
-			default:
+			var written int64
+			if path == "-" {
+				if written, err = streamTo(cmd, f.IOStreams.Out, d.Url); err != nil {
+					return err
+				}
+			} else {
 				if !force {
 					if _, serr := os.Stat(path); serr == nil {
 						return exitcode.Newf(exitcode.Conflict,
 							"%s already exists — pass --force to overwrite, or -o <path>", path)
 					}
 				}
-				fh, ferr := os.Create(path)
-				if ferr != nil {
-					return exitcode.Newf(exitcode.Error, "create %s: %v", path, ferr)
+				if written, err = downloadToFile(cmd, path, d.Url); err != nil {
+					return err
 				}
-				w, closer = fh, fh
-			}
-
-			written, derr := streamTo(cmd, w, d.Url)
-			if closer != nil {
-				if cerr := closer.Close(); cerr != nil && derr == nil {
-					derr = cerr
-				}
-			}
-			if derr != nil {
-				// A partial file is worse than none — it looks like a
-				// successful download to everything downstream.
-				if path != "-" {
-					_ = os.Remove(path)
-				}
-				return derr
 			}
 
 			if path == "-" {
@@ -137,6 +120,45 @@ rather than as a generic failure.`,
 	cmd.Flags().StringVarP(&out, "out", "o", "", `write to this path ("-" for stdout; default: the asset's filename)`)
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite the output file if it exists")
 	return cmd
+}
+
+// downloadToFile streams the asset to a sibling temp file and renames it over
+// the destination only once the transfer has fully succeeded.
+//
+// The indirection is the point. Writing straight to the destination means
+// os.Create truncates it up front, so a mid-transfer failure — an expired
+// presigned URL, a dropped connection — leaves the caller with a corrupt file,
+// and cleaning that up destroys the original they were overwriting with
+// --force. Downloading beside it and renaming makes the replacement atomic:
+// the destination is either untouched or completely replaced.
+//
+// The temp file is created in the destination's own directory so the rename
+// stays within one filesystem (os.Rename across devices fails).
+func downloadToFile(cmd *cobra.Command, path, url string) (int64, error) {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".part-*")
+	if err != nil {
+		return 0, exitcode.Newf(exitcode.Error, "create a temporary file next to %s: %v", path, err)
+	}
+	tmpName := tmp.Name()
+	// Belt and braces: on every failure path the partial file goes away, and
+	// the destination is never touched until the rename below.
+	defer func() {
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
+	}()
+
+	written, err := streamTo(cmd, tmp, url)
+	if err != nil {
+		return 0, err
+	}
+	if err := tmp.Close(); err != nil {
+		return 0, exitcode.Newf(exitcode.Error, "finish writing %s: %v", path, err)
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return 0, exitcode.Newf(exitcode.Error, "move the download into place at %s: %v", path, err)
+	}
+	return written, nil
 }
 
 // streamTo fetches the presigned URL and copies it to w.

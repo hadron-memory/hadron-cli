@@ -66,7 +66,7 @@ Listing is gated on READ access to the memory, so it returns every uploader's
 assets, not only your own — pass --mine to narrow to yours.
 
 By default every asset is listed (the query pages to exhaustion). Pass --limit
-(with optional --offset) to fetch a single explicit page instead.`,
+or --offset to fetch a single explicit page instead.`,
 		Example: `  hadron asset list -m acme.com::kb
   hadron asset list -m acme.com::kb --mine --mime image/png
   hadron asset list -m acme.com::kb --include-deleted --json`,
@@ -77,6 +77,11 @@ By default every asset is listed (the query pages to exhaustion). Pass --limit
 			}
 			if limit < 0 || offset < 0 {
 				return exitcode.Newf(exitcode.Usage, "--limit and --offset must not be negative")
+			}
+			// `--limit 0` would ask the server for a zero-row page, which
+			// silently reads as "no assets" rather than as the mistake it is.
+			if cmd.Flags().Changed("limit") && limit == 0 {
+				return exitcode.Newf(exitcode.Usage, "--limit must be at least 1 (omit it to list every asset)")
 			}
 
 			client, err := f.GraphQLClient()
@@ -92,12 +97,15 @@ By default every asset is listed (the query pages to exhaustion). Pass --limit
 				collected []assetDTO
 				total     int
 			)
-			// One explicit page when --limit is given, otherwise page to
-			// exhaustion via the server's hasMore.
+			// Bare `list` lists the whole memory, so page to exhaustion (#23).
+			// An explicit --limit OR --offset is deliberate user-driven
+			// pagination, so it is honored verbatim as a single page —
+			// matching `spec list`. Paging on from an explicit --offset would
+			// quietly return far more than the caller asked to page through.
 			skip := offset
 			pageSize := assetPageSize
-			single := cmd.Flags().Changed("limit")
-			if single {
+			single := limit > 0 || offset > 0
+			if limit > 0 {
 				pageSize = limit
 			}
 			for {
@@ -160,7 +168,7 @@ By default every asset is listed (the query pages to exhaustion). Pass --limit
 	cmd.Flags().BoolVar(&mine, "mine", false, "only assets you uploaded")
 	cmd.Flags().BoolVar(&includeDeleted, "include-deleted", false, "include soft-deleted assets (restorable within the retention window)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "maximum assets to fetch in one page (default: all)")
-	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset")
+	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset (implies a single page)")
 	return cmd
 }
 

@@ -68,12 +68,14 @@ segment is the id. A node URN is rejected rather than silently mis-parsed.
 The marker is located by scanning for it rather than by fixed index, so a root
 or memory slug containing a colon cannot shift the id.
 
-### 2. `list` pages to exhaustion; `--limit` opts into one page
+### 2. `list` pages to exhaustion; `--limit`/`--offset` opt into one page
 
 The server defaults to 20 per page. The command's contract is "the memory's
-assets", so it follows `hasMore` to the end (#23). `--limit` is the explicit
-single-page escape hatch, and it also sets the page size so it means what it
-says.
+assets", so it follows `hasMore` to the end (#23). An explicit `--limit` **or
+`--offset`** is deliberate user-driven pagination and is honored verbatim as a
+single page, matching `spec list` — paging on from a caller's `--offset` would
+return far more than they asked to page through. `--limit 0` is rejected rather
+than sent as a zero-row page that reads as "no assets".
 
 ### 3. The download deliberately carries no Hadron credentials
 
@@ -83,15 +85,21 @@ Authorization header — sending the bearer token to that host would leak it for
 no benefit. A test asserts the absence, because this is the kind of thing a
 later refactor "helpfully" adds.
 
-### 4. `get` will not clobber, and cleans up after itself
+### 4. `get` will not clobber, and the write is atomic
 
 The default output path comes from **server-side metadata** — a filename chosen
 by whoever uploaded the file — not from something the caller typed. So it is
 `filepath.Base`'d (a filename must never escape the working directory) and an
 existing file is refused with exit 5 unless `--force`.
 
-On any failure mid-transfer the partial file is removed. A truncated file looks
-like a successful download to everything downstream, which is worse than none.
+The download goes to a `.part-*` temp file **in the destination's own
+directory**, renamed over the destination only after the transfer fully
+succeeds. The first version wrote straight to the destination, which review
+caught as data loss: `os.Create` truncates up front, so `--force` plus an
+expired presigned URL destroyed the very file the caller was replacing, and the
+cleanup-on-failure then removed it entirely. Renaming makes the replacement
+atomic — the destination is either untouched or completely replaced — and the
+same-directory temp keeps the rename within one filesystem.
 
 `-o -` streams to stdout for piping, and suppresses the completion report —
 the bytes *are* the output.
@@ -106,6 +114,16 @@ A null `publicUrl` is an **error with a reason**, exit 5 — not an empty line a
 script would consume as a URL. The reason distinguishes the causes the caller
 can act on (scan PENDING → wait; BLOCKED → never) from the ones they cannot
 (encrypted memory, no configured origin).
+
+The exit lives **outside** the human-render callback. Review caught that
+`output.Write` never invokes that callback in `--json` mode, so the first
+version exited 0 there — automation would have read "not hotlinkable" as a
+successful lookup. Both modes now emit their reason (stderr for humans, the
+DTO's `reason` field for `--json`) and both exit 5.
+
+`findAsset` searches **live assets only**. Including soft-deleted ones would
+turn a clean "no such asset" into a misleading "no hotlink, because its
+scan…", for a file that has no hotlink by virtue of being deleted.
 
 `url` needs a memory because `publicUrl` is only reachable through the listing
 — there is no single-asset query — so `findAsset` scans the memory's assets by

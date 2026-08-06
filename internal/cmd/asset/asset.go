@@ -71,7 +71,12 @@ func parseAssetRef(ref string) (assetRef, error) {
 	// take the same path (#239 — input stays liberal forever).
 	norm := strings.ReplaceAll(s, "::", ":")
 	norm = strings.TrimPrefix(strings.TrimPrefix(norm, "hrn:"), "urn:")
-	norm = strings.TrimPrefix(norm, "asset:")
+	// The server emits the `asset` type word (emitAssetUrnV2 →
+	// hrn:asset:<root>:<mem>:assets:<id>). `mem:` is accepted too because the
+	// schema documents the shape as "<memory.urn>:assets:<asset.id>", which
+	// reads as though the memory's own hrn:mem: prefix is carried through —
+	// so somebody will paste that form sooner or later.
+	norm = strings.TrimPrefix(strings.TrimPrefix(norm, "asset:"), "mem:")
 
 	parts := strings.Split(norm, ":")
 	if len(parts) == 1 {

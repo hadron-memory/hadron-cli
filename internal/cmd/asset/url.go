@@ -76,15 +76,28 @@ the id; an absent hotlink means there is genuinely nothing safe to hand out.`,
 				dto.Reason = hotlinkAbsentReason(string(found.ScanStatus))
 			}
 
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if dto.PublicURL == nil {
-					return exitcode.Newf(exitcode.Conflict, "no public hotlink for %s — %s", dto.Filename, dto.Reason)
+					fmt.Fprintf(f.IOStreams.ErrOut, "no public hotlink for %s — %s\n", dto.Filename, dto.Reason)
+					return nil
 				}
 				fmt.Fprintln(w, *dto.PublicURL)
 				fmt.Fprintf(f.IOStreams.ErrOut,
 					"warning: this link is NOT access-controlled — anyone who has it can fetch %s\n", dto.Filename)
 				return nil
-			})
+			}); err != nil {
+				return err
+			}
+			// The exit code lives OUT here, not in the human callback: --json
+			// never runs that callback, so an absent hotlink would otherwise
+			// exit 0 and let automation treat "not hotlinkable" as a
+			// successful lookup. Silent because the reason is already on
+			// stderr (human) or in the DTO's `reason` field (--json) — both
+			// modes now report the same failure the same way.
+			if dto.PublicURL == nil {
+				return exitcode.Silent(exitcode.Conflict)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "the memory holding the asset (not needed when the ref is a URN)")
@@ -105,16 +118,21 @@ func hotlinkAbsentReason(scan string) string {
 	}
 }
 
-// findAsset locates one asset in a memory by id, paging to exhaustion.
+// findAsset locates one live asset in a memory by id, paging to exhaustion.
 //
 // There is no single-asset query on the server — publicUrl is only reachable
 // through the listing — so this is a scan rather than a lookup. It pages
 // rather than reading one default page, because the asset being looked up is
 // as likely to be old as recent.
+//
+// Soft-deleted assets are deliberately NOT included: a deleted asset has no
+// hotlink, so including them would turn a clean "no such asset" into a
+// misleading "no hotlink, because its scan…" — and would invite handing out a
+// URL for a deleted file if the server ever loosened that.
 func findAsset(cmd *cobra.Command, client graphql.Client, memID, assetID string) (*assetNode, error) {
 	skip, page := 0, assetPageSize
 	for {
-		resp, err := gen.MemoryAssets(cmd.Context(), client, memID, nil, nil, boolPtr(true), &skip, &page)
+		resp, err := gen.MemoryAssets(cmd.Context(), client, memID, nil, nil, nil, &skip, &page)
 		if err != nil {
 			return nil, api.MapError(err)
 		}
@@ -135,5 +153,3 @@ func findAsset(cmd *cobra.Command, client graphql.Client, memID, assetID string)
 	return nil, exitcode.Newf(exitcode.NotFound,
 		"no asset %q in that memory — check the id, or that you are pointing at the memory that holds it", assetID)
 }
-
-func boolPtr(b bool) *bool { return &b }
