@@ -1,0 +1,65 @@
+# Asset surface (spec 006 / cor:dmo:060:10), wired for `hadron asset …` (#359).
+
+# Memory-addressed asset listing (the v2 surface; the older agentAssets is
+# agent-scoped and not wired). Listing is gated on READ access to the holding
+# memory — it used to filter `uploadedBy: caller`, which is why #359 recorded
+# cross-uploader listing as blocked; that widening has since landed.
+#
+# There is deliberately NO unscoped variant: memoryId is required, so "every
+# asset I can read" has no server surface and the CLI does not fake one by
+# fanning out.
+query MemoryAssets(
+  $memoryId: ID!
+  # @genqlient(omitempty: true)
+  $mimeType: String
+  # @genqlient(omitempty: true)
+  $mine: Boolean
+  # @genqlient(omitempty: true)
+  $includeDeleted: Boolean
+  # @genqlient(omitempty: true)
+  $skip: Int
+  # @genqlient(omitempty: true)
+  $count: Int
+) {
+  memoryAssets(
+    memoryId: $memoryId
+    mimeType: $mimeType
+    mine: $mine
+    includeDeleted: $includeDeleted
+    skip: $skip
+    count: $count
+  ) {
+    total
+    hasMore
+    assets {
+      id
+      urn
+      filename
+      mimeType
+      sizeBytes
+      description
+      scanStatus
+      uploadedAt
+      uploadedBy
+      deletedAt
+      memoryId
+      # The UNAUTHENTICATED hotlink. Null when the server has no BASE_URL, when
+      # the asset is not CLEAN, or when its memory is encrypted. Never build
+      # this client-side — a guessed URL is worse than an absent one.
+      publicUrl
+    }
+  }
+}
+
+# Short-TTL presigned GET. Returns the metadata needed to write the file
+# without a second round-trip. Gated on the holding memory's read access and on
+# scanStatus — a PENDING or BLOCKED asset is refused with a typed error.
+query AssetDownloadUrl($assetId: ID!, $ttlSeconds: Int) {
+  assetDownloadUrl(assetId: $assetId, ttlSeconds: $ttlSeconds) {
+    url
+    filename
+    mimeType
+    sizeBytes
+    expiresAt
+  }
+}
