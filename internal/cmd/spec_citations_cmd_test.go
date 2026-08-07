@@ -139,7 +139,7 @@ func TestSpecCitationsSilentlyMissingRefIsReported(t *testing.T) {
 }
 
 // Staleness is OFF by default: 174 of 271 live specs trip it — and it measures
-// "the body was edited after the abstract was written", not "the abstract is
+// "the body is not the version the abstract was written against", not "the abstract is
 // wrong" (d = 0.01 at the rule tier, #352) — so default-on it would bury the two
 // rules that name an actually-broken pointer.
 func TestSpecCitationsStaleAbstractIsOptIn(t *testing.T) {

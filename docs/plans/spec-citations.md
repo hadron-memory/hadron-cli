@@ -99,7 +99,7 @@ so a citation appearing 20 times costs one read.
 |---|---|---|
 | `unresolved` | error | typo, or a rule deleted rather than superseded |
 | `superseded` | error | code documents a contract deliberately replaced — the message names the replacement |
-| `stale-abstract` | warning, opt-in | the cited spec's body was edited after its abstract was written |
+| `stale-abstract` | warning, opt-in | the cited spec's body is not the version its abstract was written against |
 
 Errors exit **5** (`exitcode.Silent(exitcode.Conflict)`), as `spec lint` and
 `check-tools` do; `--strict` promotes warnings. The issue says "non-zero"; the
@@ -246,9 +246,10 @@ report.
 
 **Later correction — what the flag measures.** The wording above ("64% of the
 corpus is stale") and the rule's original message both overstated it, and #352
-measured the semantic question directly. `abstractOriginHash` fires on ANY body
-edit since the abstract was authored, whether or not the edit touched what the
-abstract says. Against embedding similarity the flagged cohort separates from
+measured the semantic question directly. `abstractOriginHash` fires whenever the
+current body is not the version the abstract was written against — whether or
+not the difference touches what the abstract says, and never on an edit that was
+reverted byte-for-byte. Against embedding similarity the flagged cohort separates from
 the clean one at **d = 0.11 overall and d = 0.01 at the rule tier**, while the
 same metric detects a genuinely mismatched abstract at **d = 3.29**. Real drift
 in that corpus is ~7 nodes, three of them hash-clean.

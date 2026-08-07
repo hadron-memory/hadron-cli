@@ -185,9 +185,10 @@ Conventions:
   (no description, content, or abstract), `schema` (objectType/properties
   violating the memory's declared schema), and `stale-abstract`. Read
   `stale-abstract` NARROWLY: it compares the abstract's origin hash against the
-  current content hash, so it fires on ANY body edit since the abstract was last
-  written, including one that changed nothing the abstract says — it means "the
-  body moved under this abstract", not "this abstract is wrong" (measured on the
+  current content hash, so it fires when the body is not the version the abstract
+  was written against, including when the difference changed nothing the abstract
+  says — it means "the body moved under this abstract", not "this abstract is
+  wrong" (measured on the
   live specs corpus it carries essentially no signal about whether the abstract
   still describes the body; hadron-cli#352). Two counts, deliberately:
   `totalFindings` is the true count across every check BEFORE truncation — gate

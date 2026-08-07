@@ -321,10 +321,10 @@ src/lib/probe.ts:1      cor:api:999:01  error     unresolved   does not resolve 
 - Errors exit **5**, like `spec lint`, so this gates CI. `--src` repeats and
   accepts a file or a directory; `--exclude <glob>` prunes paths (a doc that
   *shows* the pointer form is a true match and a false alarm).
-- `--stale-abstracts` adds a warning when a cited spec's **body was edited after
-  its abstract was written**. Read it narrowly — it is a hash comparison, so it
-  fires on any body edit since the abstract was authored, including one that
-  changed nothing the abstract says. It is *not* evidence the abstract is wrong:
+- `--stale-abstracts` adds a warning when a cited spec's **body differs from the
+  version its abstract was written against**. Read it narrowly — it is a hash
+  comparison, so it fires on a difference that changed nothing the abstract says,
+  and not at all on a body edited and then restored byte-for-byte. It is *not* evidence the abstract is wrong:
   measured against embedding similarity it separates the stale cohort from the
   clean one at Cohen's d = 0.01 at the rule tier, while the same metric detects a
   genuinely mismatched abstract at d = 3.29

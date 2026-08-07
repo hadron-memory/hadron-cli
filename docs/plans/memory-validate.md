@@ -43,7 +43,7 @@ Two consequences for this change:
    report" failure #352 itself warns about.
 2. **The finding is relabelled everywhere the CLI describes it.** Not "the
    abstract no longer reflects current content" (the schema's wording) but
-   "body edited since the abstract was authored".
+   "body differs from the version the abstract was written against".
 
 ## What shipped
 

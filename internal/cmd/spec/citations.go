@@ -67,10 +67,11 @@ Reported: a citation that does not resolve (typo, or a spec deleted rather
 than superseded), and one that resolves to a superseded spec — the message
 names its replacement.
 
---stale-abstracts adds a warning when a cited spec's body was edited after its
-abstract was written. Read it narrowly: it is a hash comparison, so it fires on
-ANY body edit since the abstract was authored — including one that changed
-nothing the abstract says. Measured over hadronmemory.com::specs it separates
+--stale-abstracts adds a warning when a cited spec's body differs from the
+version its abstract was written against. Read it narrowly: it is a hash
+comparison, so it fires whenever the two differ — including on an edit that
+changed nothing the abstract says — and NOT on a body edited and then restored
+byte-for-byte. Measured over hadronmemory.com::specs it separates
 almost nothing (Cohen's d = 0.01 at the rule tier against embedding
 similarity), so it is off by default: it is a property of the SPEC rather than
 of the pointer, and two thirds of a live corpus trips it. For the corpus-wide
@@ -173,7 +174,7 @@ warnings too.`,
 	cmd.Flags().StringArrayVar(&excludes, "exclude", nil, "skip paths matching this glob (repeatable)")
 	cmd.Flags().BoolVar(&loose, "loose", false, "match citation-shaped tokens anywhere, not just after `Spec:`")
 	cmd.Flags().BoolVar(&staleAbstracts, "stale-abstracts", false,
-		"also warn when a cited spec's body was edited after its abstract was written (a hash comparison, not proof the rule changed)")
+		"also warn when a cited spec's body differs from the version its abstract was written against (a hash comparison, not proof the rule changed)")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
 	return cmd
 }
@@ -307,7 +308,7 @@ func judgeCitation(n specNode, checkStale bool) (citationVerdict, bool) {
 	if checkStale && staleAbstract(n) {
 		return citationVerdict{
 			Rule: ruleStaleAbstract, Severity: sevWarning,
-			Message: "the spec's body was edited after its abstract was written — a hash comparison, NOT proof the rule changed; re-read it if your code leans on the detail",
+			Message: "the spec's body differs from the version its abstract was written against — a hash comparison, NOT proof the rule changed; re-read it if your code leans on the detail",
 		}, true
 	}
 	return citationVerdict{}, false
@@ -324,10 +325,11 @@ func supersededByLoc(n specNode) (string, bool) {
 	return "", false
 }
 
-// staleAbstract reports whether the body was edited AFTER the abstract was
-// written. That is all it reports: it is a hash comparison, so it fires on any
-// body edit since the abstract was authored, including one that changed nothing
-// the abstract says. Do not phrase a finding as "the abstract is wrong".
+// staleAbstract reports whether the current body differs from the version the
+// abstract was written against. That is all it reports: it compares content
+// hashes, so it fires on an edit that changed nothing the abstract says, and
+// does NOT fire on a body edited and then restored byte-for-byte. Do not phrase
+// a finding as "the abstract is wrong".
 //
 // The comparison is the server's own, computed client-side: the schema defines
 // abstractOriginHash as "SHA-256 of plaintext content, truncated to 8 hex
@@ -346,8 +348,8 @@ func supersededByLoc(n specNode) (string, bool) {
 //
 // It is kept because "the spec you cite has been edited" is still worth an
 // opt-in warning next to a code pointer. It is a property of the SPEC, not of
-// the citation, so the corpus-wide view belongs to `hadron memory validate
-// --check stale-abstract`.
+// the citation, so the corpus-wide view belongs to
+// `hadron memory validate <memory> --check stale-abstract`.
 //
 // NOT delegated to that server audit, deliberately: validateMemory caps its
 // findings (default 200, max 1000), so on a memory with more findings the stale
