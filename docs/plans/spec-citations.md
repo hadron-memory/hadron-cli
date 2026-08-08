@@ -99,7 +99,7 @@ so a citation appearing 20 times costs one read.
 |---|---|---|
 | `unresolved` | error | typo, or a rule deleted rather than superseded |
 | `superseded` | error | code documents a contract deliberately replaced — the message names the replacement |
-| `stale-abstract` | warning | the spec may have moved under the citation |
+| `stale-abstract` | warning, opt-in | the cited spec's body is not the version its abstract was written against |
 
 Errors exit **5** (`exitcode.Silent(exitcode.Conflict)`), as `spec lint` and
 `check-tools` do; `--strict` promotes warnings. The issue says "non-zero"; the
@@ -113,8 +113,9 @@ replacement citation rather than just condemning the old one.
 `abstractOriginHash` as "SHA-256 of plaintext content, truncated to 8 hex chars",
 compared at read time against the current content — so the CLI can compute the
 same value from the `content` it already batch-read, with no extra query and no
-new server surface. It is a warning because a stale abstract does not make the
-citation wrong, only its retrieval surface unreliable.
+new server surface. It is a warning because it does not make the citation wrong:
+see [Deviation 2](#2-stale-abstract-is-opt-in---stale-abstracts-not-default-on)
+for what it actually measures, which is less than its name suggests.
 
 **`unresolved` deliberately does not distinguish "does not exist" from "exists
 but is not readable by this principal."** `nodeBatch` reports both as
@@ -229,7 +230,7 @@ The issue rates it "softer", and Decision 3 shipped it as a default-on warning.
 The first live run made that untenable: **all 26 citations in the sibling repos
 reported it** — the rule was the entire report.
 
-It is not a false positive. hadron-server's own `computeContentHash` is exactly
+The computation is not wrong. hadron-server's own `computeContentHash` is exactly
 SHA-256-truncated-to-8, the CLI's value matches it, and the server independently
 reports `abstract-stale` for the same nodes. Measured across the whole corpus:
 
@@ -237,17 +238,33 @@ reports `abstract-stale` for the same nodes. Measured across the whole corpus:
 specs=271  fresh=96  stale=174  no hash/content=1
 ```
 
-**64% of the corpus is stale**, so any citation is overwhelmingly likely to point
-at a stale spec. That makes it a property of the **spec**, not of the pointer —
-corpus hygiene, which this command sees only incidentally — and default-on it
-buries `unresolved` and `superseded`, the two rules that name an actually-broken
-pointer. Same reasoning as the coding group's Decision 4: a check that fires on
-everything trains people to ignore the whole report.
+**As built: off by default, `--stale-abstracts` turns it on.** Two thirds of the
+corpus trips it, so default-on it buried `unresolved` and `superseded`, the two
+rules that name an actually-broken pointer — the coding group's Decision 4
+again: a check that fires on everything trains people to ignore the whole
+report.
 
-**As built: off by default, `--stale-abstracts` turns it on.** The capability the
-issue asked for is intact; what changed is which rules speak by default. (It is
-arguably a `spec lint` rule — it applies to every spec, cited or not — but that
-is a separate change to a separate command's contract.)
+**Later correction — what the flag measures.** The wording above ("64% of the
+corpus is stale") and the rule's original message both overstated it, and #352
+measured the semantic question directly. `abstractOriginHash` fires whenever the
+current body is not the version the abstract was written against — whether or
+not the difference touches what the abstract says, and never on an edit that was
+reverted byte-for-byte. Against embedding similarity the flagged cohort separates from
+the clean one at **d = 0.11 overall and d = 0.01 at the rule tier**, while the
+same metric detects a genuinely mismatched abstract at **d = 3.29**. Real drift
+in that corpus is ~7 nodes, three of them hash-clean.
+
+So the honest reading is "the body moved under this abstract", not "this
+abstract is wrong", and every string describing the rule now says that — matching
+`hadron memory validate`, which shipped with the corrected wording
+([#355](https://github.com/hadron-memory/hadron-cli/pull/355)).
+
+**Not delegated to `validateMemory`,** though #352 asked for the dedup once a
+server-backed path existed. That audit caps its findings (default 200, max
+1000), so on a memory with more findings the stale set returns silently
+incomplete and a cited spec reads as fresh. The client-side hash is exact and
+rides a batch read this command already performs; deduplicating onto a capped
+source trades a correct answer for a tidier one.
 
 ### 3. A match must be the WHOLE token, which the regex cannot say
 

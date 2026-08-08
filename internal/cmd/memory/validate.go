@@ -37,9 +37,10 @@ var checkKinds = map[string]gen.MemoryValidationCheck{
 //
 // stale-abstract deliberately does NOT repeat the schema's wording ("the
 // abstract no longer reflects current content"). The check is a hash
-// comparison — abstractOriginHash against the current content hash — so it
-// fires on any body edit since the abstract was last written, whether or not
-// the edit touched anything the abstract says. Measured over the 271-node
+// comparison — abstractOriginHash against the current content hash — so it says
+// the current body is not the one the abstract was written against, whether or
+// not the difference touches anything the abstract says (and it stays silent on
+// a body edited and then restored byte-for-byte). Measured over the 271-node
 // hadronmemory.com::specs corpus, the flag carries essentially no signal about
 // whether the abstract still describes the body (Cohen's d = 0.01 at the rule
 // tier against embedding similarity), so overstating it here would send people
@@ -49,7 +50,7 @@ var checkBlurb = map[gen.MemoryValidationCheck]string{
 	gen.MemoryValidationCheckEmbedFailed:   "node is absent from vector search — indistinguishable from \"no hits matched\"",
 	gen.MemoryValidationCheckSchema:        "objectType/properties violate the memory's declared schema",
 	gen.MemoryValidationCheckSparse:        "node has no description, content, or abstract",
-	gen.MemoryValidationCheckStaleAbstract: "body edited since the abstract was authored (a hash comparison — not proof the abstract is wrong)",
+	gen.MemoryValidationCheckStaleAbstract: "body differs from the version the abstract was written against (a hash comparison — not proof the abstract is wrong)",
 }
 
 // validateFindingDTO is one audit finding in the stable --json shape.
@@ -110,9 +111,10 @@ sparse (a node with no description, content, or abstract), schema
 stale-abstract.
 
 Read stale-abstract narrowly. It compares the abstract's origin hash against
-the current content hash, so it fires on ANY body edit made since the abstract
-was last written — including one that changed nothing the abstract says. It is
-"the body moved under this abstract", not "this abstract is wrong".
+the current content hash, so it says the body is not the version the abstract
+was written against — including when the difference changed nothing the abstract
+says, and not at all when a body was edited and then restored byte-for-byte. It
+is "the body moved under this abstract", not "this abstract is wrong".
 
 Two numbers, deliberately: totalFindings is the true count across every check
 before truncation — gate CI on that — while the listing is capped by --limit

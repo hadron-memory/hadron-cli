@@ -138,8 +138,10 @@ func TestSpecCitationsSilentlyMissingRefIsReported(t *testing.T) {
 	}
 }
 
-// Staleness is OFF by default: 174 of 271 live specs trip it, so a default-on
-// rule would bury the two rules that name an actually-broken pointer.
+// Staleness is OFF by default: 174 of 271 live specs trip it — and it measures
+// "the body is not the version the abstract was written against", not "the abstract is
+// wrong" (d = 0.01 at the rule tier, #352) — so default-on it would bury the two
+// rules that name an actually-broken pointer.
 func TestSpecCitationsStaleAbstractIsOptIn(t *testing.T) {
 	src := srcTree(t, map[string]string{"a.go": "// Spec: msg:010:02\n"})
 	responses := map[string]string{

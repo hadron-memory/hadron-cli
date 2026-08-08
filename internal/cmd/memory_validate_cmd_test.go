@@ -231,7 +231,7 @@ func TestMemoryValidateStaleAbstractDescribedAsHashComparison(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	s := out.String()
-	if !strings.Contains(s, "body edited since the abstract was authored") {
+	if !strings.Contains(s, "body differs from the version the abstract was written against") {
 		t.Errorf("stale-abstract gloss must describe what the check measures; got:\n%s", s)
 	}
 	if strings.Contains(s, "no longer reflects") {

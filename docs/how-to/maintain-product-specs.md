@@ -321,10 +321,17 @@ src/lib/probe.ts:1      cor:api:999:01  error     unresolved   does not resolve 
 - Errors exit **5**, like `spec lint`, so this gates CI. `--src` repeats and
   accepts a file or a directory; `--exclude <glob>` prunes paths (a doc that
   *shows* the pointer form is a true match and a false alarm).
-- `--stale-abstracts` adds a warning when a cited spec's abstract has drifted
-  from its body. Off by default: that is a property of the **spec**, not of the
-  pointer, and most of a live corpus trips it — see
-  [docs/plans/spec-citations.md](../plans/spec-citations.md).
+- `--stale-abstracts` adds a warning when a cited spec's **body differs from the
+  version its abstract was written against**. Read it narrowly — it is a hash
+  comparison, so it fires on a difference that changed nothing the abstract says,
+  and not at all on a body edited and then restored byte-for-byte. It is *not* evidence the abstract is wrong:
+  measured against embedding similarity it separates the stale cohort from the
+  clean one at Cohen's d = 0.01 at the rule tier, while the same metric detects a
+  genuinely mismatched abstract at d = 3.29
+  ([#352](https://github.com/hadron-memory/hadron-cli/issues/352)). Off by
+  default, since two thirds of a live corpus trips it and it is a property of the
+  **spec** rather than of the pointer. For the corpus-wide view use
+  `hadron memory validate <memory> --check stale-abstract`.
 
 ### Two populations — the second is the expensive one
 

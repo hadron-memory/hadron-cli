@@ -65,10 +65,17 @@ number and every pointer to it silently documents a replaced contract.
 
 Reported: a citation that does not resolve (typo, or a spec deleted rather
 than superseded), and one that resolves to a superseded spec — the message
-names its replacement. --stale-abstracts adds a warning when a cited spec's
-abstract has drifted from its body; it is off by default because that is a
-property of the SPEC rather than of the pointer, and most of a live corpus
-trips it.
+names its replacement.
+
+--stale-abstracts adds a warning when a cited spec's body differs from the
+version its abstract was written against. Read it narrowly: it is a hash
+comparison, so it fires whenever the two differ — including on an edit that
+changed nothing the abstract says — and NOT on a body edited and then restored
+byte-for-byte. Measured over hadronmemory.com::specs it separates
+almost nothing (Cohen's d = 0.01 at the rule tier against embedding
+similarity), so it is off by default: it is a property of the SPEC rather than
+of the pointer, and two thirds of a live corpus trips it. For the corpus-wide
+view use ` + "`hadron memory validate <memory> --check stale-abstract`" + `.
 
 Matching is anchored on the prescribed ` + "`Spec:`" + ` prefix, and takes every
 citation on that line — real pointers often list several. --loose drops the
@@ -167,7 +174,7 @@ warnings too.`,
 	cmd.Flags().StringArrayVar(&excludes, "exclude", nil, "skip paths matching this glob (repeatable)")
 	cmd.Flags().BoolVar(&loose, "loose", false, "match citation-shaped tokens anywhere, not just after `Spec:`")
 	cmd.Flags().BoolVar(&staleAbstracts, "stale-abstracts", false,
-		"also warn when a cited spec's abstract has drifted from its body (a corpus-hygiene signal, not a broken pointer)")
+		"also warn when a cited spec's body differs from the version its abstract was written against (a hash comparison, not proof the rule changed)")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
 	return cmd
 }
@@ -301,7 +308,7 @@ func judgeCitation(n specNode, checkStale bool) (citationVerdict, bool) {
 	if checkStale && staleAbstract(n) {
 		return citationVerdict{
 			Rule: ruleStaleAbstract, Severity: sevWarning,
-			Message: "the spec's abstract has drifted from its body — the citation resolves, but what a reader retrieves may not match what it says",
+			Message: "the spec's body differs from the version its abstract was written against — a hash comparison, NOT proof the rule changed; re-read it if your code leans on the detail",
 		}, true
 	}
 	return citationVerdict{}, false
@@ -318,8 +325,11 @@ func supersededByLoc(n specNode) (string, bool) {
 	return "", false
 }
 
-// staleAbstract reports whether the abstract was authored against different
-// content.
+// staleAbstract reports whether the current body differs from the version the
+// abstract was written against. That is all it reports: it compares content
+// hashes, so it fires on an edit that changed nothing the abstract says, and
+// does NOT fire on a body edited and then restored byte-for-byte. Do not phrase
+// a finding as "the abstract is wrong".
 //
 // The comparison is the server's own, computed client-side: the schema defines
 // abstractOriginHash as "SHA-256 of plaintext content, truncated to 8 hex
@@ -327,12 +337,26 @@ func supersededByLoc(n specNode) (string, bool) {
 // hadron-server's computeContentHash is exactly that. So the batch read already
 // carries everything needed and no extra query is required.
 //
-// OFF by default (--stale-abstracts). Measured on the live corpus, 174 of 271
-// specs are stale — and all 26 citations in the sibling repos pointed at one,
-// so a default-on rule buried the two rules that name an actually-broken
-// pointer under a wall of identical warnings. Staleness is a property of the
-// SPEC, not of the citation; it belongs to corpus hygiene, and this command
-// only sees it incidentally.
+// OFF by default (--stale-abstracts), for two reasons that compound. It fires
+// on 174 of 271 live specs — including every one of the 26 citations in the
+// sibling repos — so default-on it buried the two rules that name an
+// actually-broken pointer. And it does not measure what its name suggests:
+// against embedding similarity it separates the stale cohort from the clean one
+// at Cohen's d = 0.11 overall and d = 0.01 at the rule tier, while the same
+// metric detects a genuinely mismatched abstract at d = 3.29 (hadron-cli#352).
+// So most of what it flags is a body edit the abstract never needed to reflect.
+//
+// It is kept because "the spec you cite has been edited" is still worth an
+// opt-in warning next to a code pointer. It is a property of the SPEC, not of
+// the citation, so the corpus-wide view belongs to
+// `hadron memory validate <memory> --check stale-abstract`.
+//
+// NOT delegated to that server audit, deliberately: validateMemory caps its
+// findings (default 200, max 1000), so on a memory with more findings the stale
+// set comes back silently incomplete and a cited spec reads as fresh. This hash
+// is exact and rides a batch read the command already performs — deduplicating
+// onto a capped source would trade a correct answer for a tidier one
+// (hadron-cli#355).
 //
 // Silent unless BOTH values are present: a spec with no abstract, or one whose
 // abstract predates the hash, is a `spec lint` concern, not a citation defect.
