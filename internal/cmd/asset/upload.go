@@ -57,8 +57,15 @@ The MIME type is derived from the file extension, falling back to content
 sniffing. Pass --mime when the file's extension lies or is absent; the server
 rejects a type outside its allowlist and names the type it expected.
 
-If the upload fails after the bytes are sent, the asset is left reserved but
-not completed — it does not appear in "asset list" and can be re-uploaded.`,
+If the upload fails after the bytes are sent, the asset is usually left
+reserved but not completed — it does not appear in "asset list" and can be
+re-uploaded.
+
+The malware scan is the exception, because it runs on that final step. A file
+that fails it leaves a BLOCKED record behind on purpose: the bytes are
+discarded, the row is kept for audit ("asset list --include-deleted" shows it
+with the engine signature), and re-uploading the same file fails the same way
+every time.`,
 		Example: `  hadron asset upload ./logo.png -m acme.com::kb
   hadron asset upload ./notes.md -m acme.com::kb --description "meeting notes"
   hadron asset upload ./data -m acme.com::kb --mime application/json --name data.json`,

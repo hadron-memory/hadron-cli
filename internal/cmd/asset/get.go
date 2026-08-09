@@ -48,9 +48,12 @@ path; -o - streams the bytes to stdout (for piping). An existing file is NOT
 overwritten without --force, because the default path comes from server-side
 metadata rather than from something you typed.
 
-Downloads are gated on virus scanning. An asset whose scan is still PENDING, or
-which was BLOCKED, is refused by the server — the reason comes back verbatim
-rather than as a generic failure.`,
+Downloads are gated on virus scanning, and the two refusals mean different
+things. PENDING is temporary: the upload succeeded but the verdict has not
+settled, and the server's sweep retries on a backoff — try again shortly.
+BLOCKED is permanent: the file failed the scan, its bytes were deleted, and the
+row is kept as an audit record ("asset list --include-deleted" shows it with
+the engine signature). Both exit 1.`,
 		Example: `  hadron asset get 01j2x…
   hadron asset get hrn:asset:acme.com:kb:assets:01j2x… -o ./logo.png
   hadron asset get 01j2x… -o - | file -`,
