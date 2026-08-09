@@ -11,7 +11,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -68,7 +67,7 @@ rather than as a generic failure.`,
 
 			resp, err := gen.AssetDownloadUrl(cmd.Context(), client, ref.ID, nil)
 			if err != nil {
-				return api.MapError(err)
+				return downloadScanError(err, args[0])
 			}
 			d := resp.AssetDownloadUrl
 			if d == nil {

@@ -39,6 +39,10 @@ query MemoryAssets(
       sizeBytes
       description
       scanStatus
+      # Recorded only on a BLOCKED row (#896): the engine signature that
+      # matched, kept as an audit record after the bytes are deleted. Null on
+      # every other row, so it is rendered only where scanStatus is BLOCKED.
+      scanSignature
       uploadedAt
       uploadedBy
       deletedAt

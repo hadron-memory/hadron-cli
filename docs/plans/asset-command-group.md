@@ -227,3 +227,63 @@ reasons. Command tests against the fake GraphQL server cover pagination to
 exhaustion, `--limit` as a single page, null `publicUrl` surviving as null in
 `--json`, the no-credentials assertion on the presigned GET, clobber refusal,
 `--force`, and partial-file cleanup on a 403.
+
+## Increment 2 — malware-scan parity (#364)
+
+hadron-server#896 made uploads malware-scanned inline (spec `cor:dmo:060:12`).
+Three CLI-side gaps followed, per the feature-complete rule.
+
+### 1. `scanSignature` on BLOCKED rows
+
+A BLOCKED asset's **bytes are deleted and the row is kept** as an audit
+tombstone, so the engine signature is the only thing left that says why. It
+joins the `MemoryAssets` selection, the `asset list` table (`BLOCKED
+(Eicar-Signature)`) and the `--json` DTO.
+
+Nullable in the DTO, not flattened to `""`: null means "not blocked", whereas an
+empty string would read as "blocked, matched nothing named". It renders only
+where it is set, so no other row grows a column.
+
+### 2 & 3. The three scan refusals say what to do next
+
+`MALWARE_BLOCKED` on upload, `SCAN_PENDING` and `SCAN_BLOCKED` on download were
+surfacing as raw GraphQL text (`input:3: completeAssetUpload upload rejected:
+file failed the malware scan`). Each now explains itself, and the two that are
+easily confused are pulled apart deliberately:
+
+- **PENDING is not a dead end.** The upload succeeded; the server's sweep
+  retries on a backoff. The message says "try again shortly" and must not
+  mention deleted bytes — a test asserts that, because reading PENDING as
+  terminal is the expensive mistake.
+- **BLOCKED is terminal, and retrying is pointless.** The verdict is a property
+  of the bytes. The message says the record was kept for audit — otherwise a
+  caller goes hunting for an upload to clean up — and a test asserts it never
+  suggests a retry.
+
+### The typed codes do not reach the wire
+
+The issue says to "detect the typed code". There isn't one to detect:
+`AssetUploadError` extends `Error` rather than `GraphQLError`, and
+hadron-server's `formatError` maps only the URN errors and `MemoryUnlockError`,
+so Apollo passes the message through with **no `extensions.code`**. Verified
+against prd with the EICAR test file — `--json` carried a message and exit 1,
+nothing else.
+
+So each refusal is matched **on the typed code first, on the message second**.
+The typed branch costs one line and is not speculative: hadron-server#918 asks
+for the one-branch fix, and the day it lands the CLI switches silently, leaving
+the message match as the compatibility path for older self-hosted servers.
+
+**Exit codes deliberately do not move.** All three are 1 today (no code ⇒
+`codeForExtension`'s default) and stay 1 after #918, because its default is also
+`Error` — so nothing here is a contract that breaks when the server catches up.
+The issue asked only for "non-zero".
+
+### Verification
+
+The malware path was verified end to end against **prd** with the EICAR test
+string — the industry-standard harmless scanner probe — uploading to
+`hadronmemory.com::experiments`. That is what produced the exact wire envelope
+the fakes now replay. `SCAN_PENDING` could not be produced on demand (it needs
+the scanner to be unavailable at upload time), so it is covered by unit and
+command tests only.

@@ -122,7 +122,10 @@ not completed — it does not appear in "asset list" and can be re-uploaded.`,
 			// Step 3 — mark it usable.
 			done, err := gen.CompleteAssetUpload(cmd.Context(), client, b.UploadId)
 			if err != nil {
-				return api.MapError(err)
+				// The malware verdict lands here, on the LAST step — the bytes
+				// are already in storage — so it needs to say what happened to
+				// them rather than read as a transport failure (#364).
+				return uploadScanError(err, filename)
 			}
 			a := done.CompleteAssetUpload
 			if a == nil {

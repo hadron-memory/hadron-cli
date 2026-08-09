@@ -722,6 +722,11 @@ type Asset {
   never hotlinkable, since an anonymous request holds no session key.
   """
   publicUrl: String
+
+  """
+  Engine signature name recorded when the scan verdict was BLOCKED (the row is kept as an audit tombstone; its bytes are deleted). Null otherwise.
+  """
+  scanSignature: String
   scanStatus: AssetScanStatus!
   sizeBytes: Int!
   uploadedAt: DateTime!
@@ -743,6 +748,27 @@ type AssetDownloadUrl {
   url: String!
 }
 
+"""
+Filter for the cross-memory assets() list. Every field narrows the
+caller's accessible set; none of them widens it.
+"""
+input AssetFilter {
+  includeDeleted: Boolean
+
+  """
+  Narrow to these memories (id or fully-qualified URN). Unreadable and
+  unknown refs are silently dropped; a malformed URN is an error. An
+  explicitly EMPTY list is the empty scope, never a fallback to the
+  default scope.
+  """
+  memoryRefs: [ID!]
+  mimeType: String
+
+  """Only the caller's own uploads. Never widens the gate."""
+  mine: Boolean
+  scanStatus: AssetScanStatus
+}
+
 type AssetListResult {
   assets: [Asset!]!
   hasMore: Boolean!
@@ -758,6 +784,12 @@ enum AssetScanStatus {
   BLOCKED
   CLEAN
   PENDING
+}
+
+"""Uniform find-many envelope for assets (spec cor:api:120)."""
+type AssetsPage {
+  items: [Asset!]!
+  total: Int!
 }
 
 type AuthContext {
@@ -4622,6 +4654,17 @@ type Query {
   """
   apps(filter: AppFilter, limit: Int, offset: Int, orgId: ID): AppsPage!
   assetDownloadUrl(assetId: ID!, ttlSeconds: Int = 300): AssetDownloadUrl!
+
+  """
+  Cross-memory asset list (#891) — every file the caller can reach,
+  which is every asset held by a memory they can read. The uniform
+  find-many surface for assets (spec cor:api:120); memoryAssets stays
+  as the per-memory one.
+  
+  The three tabs of a top-level Assets section are filters over this,
+  not separate queries: mine: true, no filter, and orgId respectively.
+  """
+  assets(filter: AssetFilter, limit: Int = 50, offset: Int = 0, orgId: ID): AssetsPage!
 
   """
   The resolved principal for the credential on THIS request (issue #562).

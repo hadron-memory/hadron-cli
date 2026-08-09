@@ -192,8 +192,16 @@ Conventions:
   short-TTL presigned URL and streams the bytes to the asset's own filename,
   `-o <path>`, or `-o -` for stdout; it refuses to clobber an existing file
   without `--force` (the default name comes from server metadata, not from you)
-  and deletes a partial file on failure. Downloads are gated on virus scanning —
-  a PENDING or BLOCKED asset is refused by the server with the reason verbatim.
+  and deletes a partial file on failure. Downloads are gated on virus scanning
+  (server #896): a PENDING asset is refused because the verdict has not settled
+  — that is "not yet", NOT a dead end, since the server's sweep retries on a
+  backoff, so try again shortly — while a BLOCKED asset is refused permanently,
+  its bytes deleted and the row kept as an audit tombstone. `asset list` shows
+  the scan status, and for a BLOCKED row the engine signature that matched
+  (`scanSignature` in `--json`, null on every other row). An upload whose bytes
+  fail the scan fails on the LAST step, after the transfer, with a BLOCKED
+  record left behind on purpose; re-uploading the same file always fails the
+  same way. All three exit 1.
   `asset url <ref>` prints the **UNAUTHENTICATED** public hotlink: anyone holding
   it can fetch the file, there is no read gate, and it is absent (exit 5, with
   the reason) when the asset is not CLEAN, its memory is encrypted, or the

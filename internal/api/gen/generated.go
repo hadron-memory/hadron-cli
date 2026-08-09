@@ -8087,7 +8087,9 @@ type MemoryAssetsMemoryAssetsAssetListResultAssetsAsset struct {
 	SizeBytes   int             `json:"sizeBytes"`
 	Description *string         `json:"description"`
 	ScanStatus  AssetScanStatus `json:"scanStatus"`
-	UploadedAt  string          `json:"uploadedAt"`
+	// Engine signature name recorded when the scan verdict was BLOCKED (the row is kept as an audit tombstone; its bytes are deleted). Null otherwise.
+	ScanSignature *string `json:"scanSignature"`
+	UploadedAt    string  `json:"uploadedAt"`
 	// Uploader (User id). Null when the asset was created server-side by an app run (hadron_store_file).
 	UploadedBy *string `json:"uploadedBy"`
 	DeletedAt  *string `json:"deletedAt"`
@@ -8128,6 +8130,11 @@ func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetDescription() *s
 // GetScanStatus returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.ScanStatus, and is useful for accessing the field via an interface.
 func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetScanStatus() AssetScanStatus {
 	return v.ScanStatus
+}
+
+// GetScanSignature returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.ScanSignature, and is useful for accessing the field via an interface.
+func (v *MemoryAssetsMemoryAssetsAssetListResultAssetsAsset) GetScanSignature() *string {
+	return v.ScanSignature
 }
 
 // GetUploadedAt returns MemoryAssetsMemoryAssetsAssetListResultAssetsAsset.UploadedAt, and is useful for accessing the field via an interface.
@@ -20463,6 +20470,7 @@ query MemoryAssets ($memoryId: ID!, $mimeType: String, $mine: Boolean, $includeD
 			sizeBytes
 			description
 			scanStatus
+			scanSignature
 			uploadedAt
 			uploadedBy
 			deletedAt
