@@ -17,9 +17,15 @@ const assetMemoryResp = `{"data":{"memory":{"id":"mem1","urn":"hrn:mem:acme.com:
 // assetJSON builds one asset row. publicUrl/description are raw so a test can
 // pass null.
 func assetJSON(id, name, mime string, size int, scan, publicURL string) string {
+	// Only a BLOCKED row carries a signature; every other row is null.
+	sig := "null"
+	if scan == "BLOCKED" {
+		sig = `"Eicar-Signature"`
+	}
 	return `{"id":"` + id + `","urn":"hrn:asset:acme.com:kb:assets:` + id + `","filename":"` + name +
 		`","mimeType":"` + mime + `","sizeBytes":` + itoaT(size) + `,"description":null,"scanStatus":"` + scan +
-		`","uploadedAt":"2026-08-06T00:00:00Z","uploadedBy":"u1","deletedAt":null,"memoryId":"mem1","publicUrl":` + publicURL + `}`
+		`","scanSignature":` + sig +
+		`,"uploadedAt":"2026-08-06T00:00:00Z","uploadedBy":"u1","deletedAt":null,"memoryId":"mem1","publicUrl":` + publicURL + `}`
 }
 
 func itoaT(n int) string {
@@ -424,5 +430,64 @@ func TestAssetRefAcceptsTheMemPrefixedSpelling(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "https://cdn/one.png") {
 		t.Errorf("expected the hotlink; got %q", out.String())
+	}
+}
+
+// A BLOCKED row's bytes are gone, so the engine signature is the only thing
+// left that says WHY — it belongs in both the table and the --json contract
+// (#364). Every other row has none, and must not grow an empty one.
+func TestAssetListShowsScanSignatureOnBlockedRows(t *testing.T) {
+	page := `{"data":{"memoryAssets":{"total":2,"hasMore":false,"assets":[` +
+		assetJSON("a1", "logo.png", "image/png", 7, "CLEAN", `"https://cdn/x"`) + `,` +
+		assetJSON("a2", "eicar.txt", "text/plain", 68, "BLOCKED", "null") + `]}}}`
+	gql := fakeGraphQL(t, map[string]string{"GetMemory": assetMemoryResp, "MemoryAssets": page})
+
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"asset", "list", "-m", "acme.com::kb", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("list should succeed: %v", err)
+	}
+	s := out.String()
+	if !strings.Contains(s, "BLOCKED (Eicar-Signature)") {
+		t.Errorf("a BLOCKED row should name the engine signature, got %q", s)
+	}
+	if strings.Contains(s, "CLEAN (") {
+		t.Errorf("a CLEAN row has no signature and must not gain empty parentheses: %q", s)
+	}
+
+	// --json carries it as a nullable field: null is "not blocked", which "" would
+	// blur into "blocked, matched nothing named".
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	gql2 := fakeGraphQL(t, map[string]string{"GetMemory": assetMemoryResp, "MemoryAssets": page})
+	root2.SetArgs([]string{"asset", "list", "-m", "acme.com::kb", "--json", "--server", gql2.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("list --json should succeed: %v", err)
+	}
+	var dto struct {
+		Assets []struct {
+			ID            string  `json:"id"`
+			ScanStatus    string  `json:"scanStatus"`
+			ScanSignature *string `json:"scanSignature"`
+		} `json:"assets"`
+	}
+	if err := json.Unmarshal([]byte(out2.String()), &dto); err != nil {
+		t.Fatalf("decoding --json: %v (%q)", err, out2.String())
+	}
+	if len(dto.Assets) != 2 {
+		t.Fatalf("want 2 rows, got %d", len(dto.Assets))
+	}
+	for _, a := range dto.Assets {
+		switch a.ScanStatus {
+		case "BLOCKED":
+			if a.ScanSignature == nil || *a.ScanSignature != "Eicar-Signature" {
+				t.Errorf("BLOCKED row must carry the signature, got %v", a.ScanSignature)
+			}
+		default:
+			if a.ScanSignature != nil {
+				t.Errorf("%s row must carry null, got %q", a.ScanStatus, *a.ScanSignature)
+			}
+		}
 	}
 }

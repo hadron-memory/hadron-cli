@@ -350,3 +350,85 @@ func TestAssetLinkRequiresNode(t *testing.T) {
 		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
 	}
 }
+
+// The malware verdict lands on the LAST step, after the bytes are already in
+// storage, so the message has to say what happened to them. The fake returns
+// the exact envelope prd sends (captured from an EICAR upload): a message and
+// no extensions.code — which is why the CLI matches on text too (#364).
+func TestAssetUploadMalwareBlockedIsExplained(t *testing.T) {
+	store := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(store.Close)
+	begin := `{"data":{"beginAssetUploadV2":{"uploadId":"up1","putUrl":"` + store.URL +
+		`","putHeaders":[],"storageKey":"k","maxSizeBytes":10485760,` +
+		`"allowedMimeType":"text/plain","expiresAt":"2026-08-09T01:00:00Z"}}}`
+	gql := fakeGraphQL(t, map[string]string{
+		"GetMemory":        assetMemoryResp,
+		"BeginAssetUpload": begin,
+		"CompleteAssetUpload": `{"errors":[{"message":` +
+			`"input:3: completeAssetUpload upload rejected: file failed the malware scan"}]}`,
+	})
+	src := writeTempFile(t, "eicar-test.txt", "harmless test bytes")
+
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"asset", "upload", src, "-m", "acme.com::kb", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("a blocked upload must fail")
+	}
+	msg := err.Error()
+	for _, want := range []string{"eicar-test.txt", "malware scan", "audit"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("want %q in the message, got %q", want, msg)
+		}
+	}
+	// Retrying identical bytes always fails the same way.
+	if strings.Contains(strings.ToLower(msg), "try again") {
+		t.Errorf("must not suggest a retry: %q", msg)
+	}
+	// Non-zero, and stable across the server typing the code later.
+	if got := exitcode.FromError(err); got != exitcode.Error {
+		t.Errorf("exit code = %d, want %d", got, exitcode.Error)
+	}
+}
+
+// A PENDING asset is not a dead end — the server's sweep settles it — so the
+// download refusal has to say "not yet", not "no".
+func TestAssetGetPendingScanSaysRetryShortly(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"AssetDownloadUrl": `{"errors":[{"message":` +
+			`"input:2: assetDownloadUrl asset has not been scanned yet"}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"asset", "get", "a1", "-o", filepath.Join(t.TempDir(), "x"), "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("a PENDING asset cannot be downloaded")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "try again") || !strings.Contains(msg, "malware scan") {
+		t.Errorf("expected a retry-shortly hint, got %q", msg)
+	}
+	if strings.Contains(msg, "deleted") {
+		t.Errorf("PENDING keeps its bytes — must not read like BLOCKED: %q", msg)
+	}
+}
+
+func TestAssetGetBlockedScanExplainsTheTombstone(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"AssetDownloadUrl": `{"errors":[{"message":"input:2: assetDownloadUrl asset blocked by scan"}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"asset", "get", "a1", "-o", filepath.Join(t.TempDir(), "x"), "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("a BLOCKED asset cannot be downloaded")
+	}
+	if msg := err.Error(); !strings.Contains(msg, "failed the malware scan") || !strings.Contains(msg, "audit") {
+		t.Errorf("expected the blocked explanation, got %q", msg)
+	}
+}

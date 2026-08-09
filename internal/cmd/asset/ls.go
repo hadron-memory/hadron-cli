@@ -33,11 +33,16 @@ type assetDTO struct {
 	SizeBytes   int     `json:"sizeBytes"`
 	Description *string `json:"description"`
 	ScanStatus  string  `json:"scanStatus"`
-	UploadedAt  string  `json:"uploadedAt"`
-	UploadedBy  *string `json:"uploadedBy"`
-	DeletedAt   *string `json:"deletedAt"`
-	MemoryID    string  `json:"memoryId"`
-	PublicURL   *string `json:"publicUrl"`
+	// ScanSignature is the engine signature recorded when the verdict was
+	// BLOCKED (#896) — the row is kept as an audit tombstone after its bytes
+	// are deleted. A pointer, and null on every non-BLOCKED row: "" would read
+	// as "scanned, matched nothing named", which is not what a CLEAN row means.
+	ScanSignature *string `json:"scanSignature"`
+	UploadedAt    string  `json:"uploadedAt"`
+	UploadedBy    *string `json:"uploadedBy"`
+	DeletedAt     *string `json:"deletedAt"`
+	MemoryID      string  `json:"memoryId"`
+	PublicURL     *string `json:"publicUrl"`
 }
 
 // assetListDTO is the stable --json shape for a listing.
@@ -126,7 +131,8 @@ or --offset to fetch a single explicit page instead.`,
 					collected = append(collected, assetDTO{
 						ID: a.Id, URN: a.Urn, Filename: a.Filename, MimeType: a.MimeType,
 						SizeBytes: a.SizeBytes, Description: a.Description,
-						ScanStatus: string(a.ScanStatus), UploadedAt: a.UploadedAt,
+						ScanStatus: string(a.ScanStatus), ScanSignature: a.ScanSignature,
+						UploadedAt: a.UploadedAt,
 						UploadedBy: a.UploadedBy, DeletedAt: a.DeletedAt,
 						MemoryID: a.MemoryId, PublicURL: a.PublicUrl,
 					})
@@ -154,6 +160,12 @@ or --offset to fetch a single explicit page instead.`,
 				t := output.NewTable(w, "ID", "FILENAME", "TYPE", "SIZE", "SCAN", "UPLOADED")
 				for _, a := range dto.Assets {
 					scan := a.ScanStatus
+					// The signature is what makes a BLOCKED row actionable —
+					// which engine matched, on a row whose bytes are gone. It
+					// is only ever set there, so nothing else grows a column.
+					if a.ScanSignature != nil && *a.ScanSignature != "" {
+						scan += " (" + *a.ScanSignature + ")"
+					}
 					if a.DeletedAt != nil {
 						scan += " (deleted)"
 					}
