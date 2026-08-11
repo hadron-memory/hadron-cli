@@ -6,6 +6,7 @@ require (
 	github.com/Khan/genqlient v0.8.1
 	github.com/bmatcuk/doublestar/v4 v4.6.1
 	github.com/gofrs/flock v0.13.0
+	github.com/google/uuid v1.6.0
 	github.com/hadron-memory/urn-lib-go v0.0.0-20260717002612-0fac69e13550
 	github.com/mattn/go-isatty v0.0.22
 	github.com/pelletier/go-toml/v2 v2.2.4
@@ -26,7 +27,6 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect

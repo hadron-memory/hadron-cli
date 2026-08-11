@@ -2343,7 +2343,17 @@ var AllAssetScanStatus = []AssetScanStatus{
 
 // AttachMemoryToAppAttachMemoryToAppMemory includes the requested fields of the GraphQL type Memory.
 type AttachMemoryToAppAttachMemoryToAppMemory struct {
-	Id               string            `json:"id"`
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
 	Urn              string            `json:"urn"`
 	Name             string            `json:"name"`
 	ShortDescription *string           `json:"shortDescription"`
@@ -2988,7 +2998,17 @@ func (v *ClearNodeHistoryResponse) GetClearNodeHistory() int { return v.ClearNod
 
 // CloneMemoryCloneMemory includes the requested fields of the GraphQL type Memory.
 type CloneMemoryCloneMemory struct {
-	Id               string            `json:"id"`
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
 	Urn              string            `json:"urn"`
 	Name             string            `json:"name"`
 	ShortDescription *string           `json:"shortDescription"`
@@ -3114,7 +3134,31 @@ func (v *CloneNodeResponse) GetCloneNode() *CloneNodeCloneNode { return v.CloneN
 // CompleteAssetUploadCompleteAssetUploadAsset includes the requested fields of the GraphQL type Asset.
 type CompleteAssetUploadCompleteAssetUploadAsset struct {
 	Id string `json:"id"`
-	// The asset's URN: <memory.urn>:assets:<asset.id>.
+	// The asset's URN, grammar v2 (cor:urn:010:01): hrn:asset:<root>:<mem...>:assets:<asset.id>,
+	// emitted by emitAssetUrnV2 from the holding memory's STORED urn.
+	//
+	// <mem...> is one or more atoms, not always one. A per-user memory urn minted
+	// before the #697 Stage-3 flip is still compound (<root>:<agent>:app-user:<id>
+	// and friends), and each extra memory atom lengthens the asset URN with it —
+	// so the 'assets' marker is not at a fixed offset. A parser recovering the
+	// holding memory must take everything between the type word and that marker,
+	// never a fixed two-atom prefix. Prefer locating the LAST 'assets' atom and
+	// reading the id after it (assetIdFromRef does exactly this).
+	//
+	// Two degraded shapes a parser must tolerate, both of which really occur:
+	// * hrn:asset:unknown:assets:<asset.id> — the holding memory row could not
+	// be loaded. Carries no memory identity at all.
+	// * <memory.urn>:assets:<asset.id> — the pre-#697 shape, with NO hrn:asset:
+	// prefix, served when v2 emission throws (empty, over-length or
+	// charset-invalid atom in the stored memory urn). It interpolates the
+	// stored memory urn verbatim, which is normally bare (<root>:<slug>), so
+	// this shape usually looks like acme.com:docs:assets:<id>.
+	//
+	// A third oddity is reachable through the NORMAL branch, not a fallback: a
+	// legacy memories.urn row that predates the chk_memory_urn_not_prefixed
+	// guardrail can still hold a rendered hrn:mem:-prefixed value, and that
+	// composes into hrn:asset:hrn:mem:<root>:<slug>:assets:<id>. A prefix strip
+	// that assumes one leading type word will mis-read it.
 	Urn        string          `json:"urn"`
 	Filename   string          `json:"filename"`
 	MimeType   string          `json:"mimeType"`
@@ -4475,7 +4519,17 @@ func (v *CreateMcpServerResponse) GetCreateMcpServer() *CreateMcpServerCreateMcp
 
 // CreateMemoryCreateMemory includes the requested fields of the GraphQL type Memory.
 type CreateMemoryCreateMemory struct {
-	Id               string            `json:"id"`
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
 	Urn              string            `json:"urn"`
 	Name             string            `json:"name"`
 	ShortDescription *string           `json:"shortDescription"`
@@ -4521,7 +4575,17 @@ func (v *CreateMemoryCreateMemory) GetUpdatedAt() string { return v.UpdatedAt }
 
 // CreateMemoryInAppCreateMemoryInAppMemory includes the requested fields of the GraphQL type Memory.
 type CreateMemoryInAppCreateMemoryInAppMemory struct {
-	Id               string            `json:"id"`
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
 	Urn              string            `json:"urn"`
 	Name             string            `json:"name"`
 	ShortDescription *string           `json:"shortDescription"`
@@ -5078,6 +5142,133 @@ type CreateOrganizationResponse struct {
 // GetCreateOrganization returns CreateOrganizationResponse.CreateOrganization, and is useful for accessing the field via an interface.
 func (v *CreateOrganizationResponse) GetCreateOrganization() *CreateOrganizationCreateOrganization {
 	return v.CreateOrganization
+}
+
+// CreatePersonaAgentCreateAgent includes the requested fields of the GraphQL type Agent.
+type CreatePersonaAgentCreateAgent struct {
+	PersonaAgentFields `json:"-"`
+}
+
+// GetId returns CreatePersonaAgentCreateAgent.Id, and is useful for accessing the field via an interface.
+func (v *CreatePersonaAgentCreateAgent) GetId() string { return v.PersonaAgentFields.Id }
+
+// GetUrn returns CreatePersonaAgentCreateAgent.Urn, and is useful for accessing the field via an interface.
+func (v *CreatePersonaAgentCreateAgent) GetUrn() string { return v.PersonaAgentFields.Urn }
+
+// GetName returns CreatePersonaAgentCreateAgent.Name, and is useful for accessing the field via an interface.
+func (v *CreatePersonaAgentCreateAgent) GetName() string { return v.PersonaAgentFields.Name }
+
+// GetDescription returns CreatePersonaAgentCreateAgent.Description, and is useful for accessing the field via an interface.
+func (v *CreatePersonaAgentCreateAgent) GetDescription() *string {
+	return v.PersonaAgentFields.Description
+}
+
+// GetOrganizationId returns CreatePersonaAgentCreateAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreatePersonaAgentCreateAgent) GetOrganizationId() *string {
+	return v.PersonaAgentFields.OrganizationId
+}
+
+// GetPersonaName returns CreatePersonaAgentCreateAgent.PersonaName, and is useful for accessing the field via an interface.
+func (v *CreatePersonaAgentCreateAgent) GetPersonaName() *string {
+	return v.PersonaAgentFields.PersonaName
+}
+
+// GetPersonaRole returns CreatePersonaAgentCreateAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *CreatePersonaAgentCreateAgent) GetPersonaRole() *string {
+	return v.PersonaAgentFields.PersonaRole
+}
+
+// GetPersonaPrompt returns CreatePersonaAgentCreateAgent.PersonaPrompt, and is useful for accessing the field via an interface.
+func (v *CreatePersonaAgentCreateAgent) GetPersonaPrompt() *string {
+	return v.PersonaAgentFields.PersonaPrompt
+}
+
+// GetCreatedAt returns CreatePersonaAgentCreateAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreatePersonaAgentCreateAgent) GetCreatedAt() string { return v.PersonaAgentFields.CreatedAt }
+
+func (v *CreatePersonaAgentCreateAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreatePersonaAgentCreateAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreatePersonaAgentCreateAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PersonaAgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreatePersonaAgentCreateAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	PersonaName *string `json:"personaName"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	PersonaPrompt *string `json:"personaPrompt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *CreatePersonaAgentCreateAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreatePersonaAgentCreateAgent) __premarshalJSON() (*__premarshalCreatePersonaAgentCreateAgent, error) {
+	var retval __premarshalCreatePersonaAgentCreateAgent
+
+	retval.Id = v.PersonaAgentFields.Id
+	retval.Urn = v.PersonaAgentFields.Urn
+	retval.Name = v.PersonaAgentFields.Name
+	retval.Description = v.PersonaAgentFields.Description
+	retval.OrganizationId = v.PersonaAgentFields.OrganizationId
+	retval.PersonaName = v.PersonaAgentFields.PersonaName
+	retval.PersonaRole = v.PersonaAgentFields.PersonaRole
+	retval.PersonaPrompt = v.PersonaAgentFields.PersonaPrompt
+	retval.CreatedAt = v.PersonaAgentFields.CreatedAt
+	return &retval, nil
+}
+
+// CreatePersonaAgentResponse is returned by CreatePersonaAgent on success.
+type CreatePersonaAgentResponse struct {
+	// Create an agent. Provide orgId to create an ORG-owned agent (requires org
+	// ADMIN); OMIT orgId to create a USER-OWNED agent owned by the caller — its
+	// URN is rooted on the caller's bare handle (hrn:agent:<handle>:<slug>, grammar
+	// v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
+	// (org XOR user).
+	//
+	// orgId accepts the org's ID or URN.
+	CreateAgent *CreatePersonaAgentCreateAgent `json:"createAgent"`
+}
+
+// GetCreateAgent returns CreatePersonaAgentResponse.CreateAgent, and is useful for accessing the field via an interface.
+func (v *CreatePersonaAgentResponse) GetCreateAgent() *CreatePersonaAgentCreateAgent {
+	return v.CreateAgent
 }
 
 // CreatePrincipalGrantCreatePrincipalGrant includes the requested fields of the GraphQL type PrincipalGrant.
@@ -5937,7 +6128,17 @@ func (v *EffectiveAccessResponse) GetEffectiveAccess() *EffectiveAccessEffective
 
 // EncryptMemoryEncryptMemory includes the requested fields of the GraphQL type Memory.
 type EncryptMemoryEncryptMemory struct {
-	Id          string `json:"id"`
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
 	Urn         string `json:"urn"`
 	Name        string `json:"name"`
 	IsEncrypted bool   `json:"isEncrypted"`
@@ -5973,9 +6174,153 @@ func (v *EncryptMemoryResponse) GetEncryptMemory() *EncryptMemoryEncryptMemory {
 	return v.EncryptMemory
 }
 
+// EndTeamSessionEndSession includes the requested fields of the GraphQL type Session.
+type EndTeamSessionEndSession struct {
+	TeamSessionFields `json:"-"`
+}
+
+// GetId returns EndTeamSessionEndSession.Id, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionEndSession) GetId() string { return v.TeamSessionFields.Id }
+
+// GetAgentId returns EndTeamSessionEndSession.AgentId, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionEndSession) GetAgentId() *string { return v.TeamSessionFields.AgentId }
+
+// GetUserId returns EndTeamSessionEndSession.UserId, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionEndSession) GetUserId() *string { return v.TeamSessionFields.UserId }
+
+// GetType returns EndTeamSessionEndSession.Type, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionEndSession) GetType() string { return v.TeamSessionFields.Type }
+
+// GetRepo returns EndTeamSessionEndSession.Repo, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionEndSession) GetRepo() *string { return v.TeamSessionFields.Repo }
+
+// GetBranch returns EndTeamSessionEndSession.Branch, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionEndSession) GetBranch() *string { return v.TeamSessionFields.Branch }
+
+// GetPrNumber returns EndTeamSessionEndSession.PrNumber, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionEndSession) GetPrNumber() *int { return v.TeamSessionFields.PrNumber }
+
+// GetStartedAt returns EndTeamSessionEndSession.StartedAt, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionEndSession) GetStartedAt() string { return v.TeamSessionFields.StartedAt }
+
+// GetEndedAt returns EndTeamSessionEndSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionEndSession) GetEndedAt() *string { return v.TeamSessionFields.EndedAt }
+
+// GetHost returns EndTeamSessionEndSession.Host, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionEndSession) GetHost() *string { return v.TeamSessionFields.Host }
+
+// GetTool returns EndTeamSessionEndSession.Tool, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionEndSession) GetTool() *string { return v.TeamSessionFields.Tool }
+
+// GetTranscriptPath returns EndTeamSessionEndSession.TranscriptPath, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionEndSession) GetTranscriptPath() *string {
+	return v.TeamSessionFields.TranscriptPath
+}
+
+// GetLlmModel returns EndTeamSessionEndSession.LlmModel, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionEndSession) GetLlmModel() *string { return v.TeamSessionFields.LlmModel }
+
+func (v *EndTeamSessionEndSession) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*EndTeamSessionEndSession
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.EndTeamSessionEndSession = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamSessionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalEndTeamSessionEndSession struct {
+	Id string `json:"id"`
+
+	AgentId *string `json:"agentId"`
+
+	UserId *string `json:"userId"`
+
+	Type string `json:"type"`
+
+	Repo *string `json:"repo"`
+
+	Branch *string `json:"branch"`
+
+	PrNumber *int `json:"prNumber"`
+
+	StartedAt string `json:"startedAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	Host *string `json:"host"`
+
+	Tool *string `json:"tool"`
+
+	TranscriptPath *string `json:"transcriptPath"`
+
+	LlmModel *string `json:"llmModel"`
+}
+
+func (v *EndTeamSessionEndSession) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *EndTeamSessionEndSession) __premarshalJSON() (*__premarshalEndTeamSessionEndSession, error) {
+	var retval __premarshalEndTeamSessionEndSession
+
+	retval.Id = v.TeamSessionFields.Id
+	retval.AgentId = v.TeamSessionFields.AgentId
+	retval.UserId = v.TeamSessionFields.UserId
+	retval.Type = v.TeamSessionFields.Type
+	retval.Repo = v.TeamSessionFields.Repo
+	retval.Branch = v.TeamSessionFields.Branch
+	retval.PrNumber = v.TeamSessionFields.PrNumber
+	retval.StartedAt = v.TeamSessionFields.StartedAt
+	retval.EndedAt = v.TeamSessionFields.EndedAt
+	retval.Host = v.TeamSessionFields.Host
+	retval.Tool = v.TeamSessionFields.Tool
+	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
+	retval.LlmModel = v.TeamSessionFields.LlmModel
+	return &retval, nil
+}
+
+// EndTeamSessionResponse is returned by EndTeamSession on success.
+type EndTeamSessionResponse struct {
+	EndSession *EndTeamSessionEndSession `json:"endSession"`
+}
+
+// GetEndSession returns EndTeamSessionResponse.EndSession, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionResponse) GetEndSession() *EndTeamSessionEndSession { return v.EndSession }
+
 // ExtractParentNodeToMemoryExtractParentNodeToMemory includes the requested fields of the GraphQL type Memory.
 type ExtractParentNodeToMemoryExtractParentNodeToMemory struct {
-	Id               string            `json:"id"`
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
 	Urn              string            `json:"urn"`
 	Name             string            `json:"name"`
 	ShortDescription *string           `json:"shortDescription"`
@@ -6534,7 +6879,17 @@ func (v *GetInvitationResponse) GetInvitation() *GetInvitationInvitationUserInvi
 
 // GetMemoryMemory includes the requested fields of the GraphQL type Memory.
 type GetMemoryMemory struct {
-	Id                 string            `json:"id"`
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
 	Urn                string            `json:"urn"`
 	Name               string            `json:"name"`
 	ShortDescription   *string           `json:"shortDescription"`
@@ -6935,6 +7290,123 @@ func (v *GetOrganizationResponse) GetOrganization() *GetOrganizationOrganization
 	return v.Organization
 }
 
+// GetPersonaAgentAgent includes the requested fields of the GraphQL type Agent.
+type GetPersonaAgentAgent struct {
+	PersonaAgentFields `json:"-"`
+}
+
+// GetId returns GetPersonaAgentAgent.Id, and is useful for accessing the field via an interface.
+func (v *GetPersonaAgentAgent) GetId() string { return v.PersonaAgentFields.Id }
+
+// GetUrn returns GetPersonaAgentAgent.Urn, and is useful for accessing the field via an interface.
+func (v *GetPersonaAgentAgent) GetUrn() string { return v.PersonaAgentFields.Urn }
+
+// GetName returns GetPersonaAgentAgent.Name, and is useful for accessing the field via an interface.
+func (v *GetPersonaAgentAgent) GetName() string { return v.PersonaAgentFields.Name }
+
+// GetDescription returns GetPersonaAgentAgent.Description, and is useful for accessing the field via an interface.
+func (v *GetPersonaAgentAgent) GetDescription() *string { return v.PersonaAgentFields.Description }
+
+// GetOrganizationId returns GetPersonaAgentAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *GetPersonaAgentAgent) GetOrganizationId() *string {
+	return v.PersonaAgentFields.OrganizationId
+}
+
+// GetPersonaName returns GetPersonaAgentAgent.PersonaName, and is useful for accessing the field via an interface.
+func (v *GetPersonaAgentAgent) GetPersonaName() *string { return v.PersonaAgentFields.PersonaName }
+
+// GetPersonaRole returns GetPersonaAgentAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *GetPersonaAgentAgent) GetPersonaRole() *string { return v.PersonaAgentFields.PersonaRole }
+
+// GetPersonaPrompt returns GetPersonaAgentAgent.PersonaPrompt, and is useful for accessing the field via an interface.
+func (v *GetPersonaAgentAgent) GetPersonaPrompt() *string { return v.PersonaAgentFields.PersonaPrompt }
+
+// GetCreatedAt returns GetPersonaAgentAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetPersonaAgentAgent) GetCreatedAt() string { return v.PersonaAgentFields.CreatedAt }
+
+func (v *GetPersonaAgentAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetPersonaAgentAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetPersonaAgentAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PersonaAgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetPersonaAgentAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	PersonaName *string `json:"personaName"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	PersonaPrompt *string `json:"personaPrompt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *GetPersonaAgentAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetPersonaAgentAgent) __premarshalJSON() (*__premarshalGetPersonaAgentAgent, error) {
+	var retval __premarshalGetPersonaAgentAgent
+
+	retval.Id = v.PersonaAgentFields.Id
+	retval.Urn = v.PersonaAgentFields.Urn
+	retval.Name = v.PersonaAgentFields.Name
+	retval.Description = v.PersonaAgentFields.Description
+	retval.OrganizationId = v.PersonaAgentFields.OrganizationId
+	retval.PersonaName = v.PersonaAgentFields.PersonaName
+	retval.PersonaRole = v.PersonaAgentFields.PersonaRole
+	retval.PersonaPrompt = v.PersonaAgentFields.PersonaPrompt
+	retval.CreatedAt = v.PersonaAgentFields.CreatedAt
+	return &retval, nil
+}
+
+// GetPersonaAgentResponse is returned by GetPersonaAgent on success.
+type GetPersonaAgentResponse struct {
+	// The uniform single-agent read (#473) — the first top-level Agent query;
+	// previously Agents were reachable only via Organization.agents /
+	// App.agents nesting. Gate mirrors resolveUrn's agent branch: member of
+	// the Agent's org or platform ADMIN/OWNER; denied throws Forbidden,
+	// missing is null.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Agent *GetPersonaAgentAgent `json:"agent"`
+}
+
+// GetAgent returns GetPersonaAgentResponse.Agent, and is useful for accessing the field via an interface.
+func (v *GetPersonaAgentResponse) GetAgent() *GetPersonaAgentAgent { return v.Agent }
+
 // GetUserResponse is returned by GetUser on success.
 type GetUserResponse struct {
 	// The uniform single-user read (#473). 'ref' accepts a primary key or a
@@ -7261,7 +7733,17 @@ func (v *InvitationFields) GetCreatedAt() string { return v.CreatedAt }
 
 // LinkMemoryToUserLinkMemoryToUserMemory includes the requested fields of the GraphQL type Memory.
 type LinkMemoryToUserLinkMemoryToUserMemory struct {
-	Id               string            `json:"id"`
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
 	Urn              string            `json:"urn"`
 	Name             string            `json:"name"`
 	ShortDescription *string           `json:"shortDescription"`
@@ -7758,7 +8240,17 @@ func (v *MemoriesMemoriesMemoriesPage) GetItems() []*MemoriesMemoriesMemoriesPag
 
 // MemoriesMemoriesMemoriesPageItemsMemory includes the requested fields of the GraphQL type Memory.
 type MemoriesMemoriesMemoriesPageItemsMemory struct {
-	Id               string            `json:"id"`
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
 	Urn              string            `json:"urn"`
 	Name             string            `json:"name"`
 	ShortDescription *string           `json:"shortDescription"`
@@ -7854,7 +8346,17 @@ func (v *MemoriesSharedWithMeMemoriesMemoriesPage) GetItems() []*MemoriesSharedW
 
 // MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory includes the requested fields of the GraphQL type Memory.
 type MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory struct {
-	Id               string            `json:"id"`
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
 	Urn              string            `json:"urn"`
 	Name             string            `json:"name"`
 	ShortDescription *string           `json:"shortDescription"`
@@ -8080,7 +8582,31 @@ func (v *MemoryAssetsMemoryAssetsAssetListResult) GetAssets() []*MemoryAssetsMem
 // MemoryAssetsMemoryAssetsAssetListResultAssetsAsset includes the requested fields of the GraphQL type Asset.
 type MemoryAssetsMemoryAssetsAssetListResultAssetsAsset struct {
 	Id string `json:"id"`
-	// The asset's URN: <memory.urn>:assets:<asset.id>.
+	// The asset's URN, grammar v2 (cor:urn:010:01): hrn:asset:<root>:<mem...>:assets:<asset.id>,
+	// emitted by emitAssetUrnV2 from the holding memory's STORED urn.
+	//
+	// <mem...> is one or more atoms, not always one. A per-user memory urn minted
+	// before the #697 Stage-3 flip is still compound (<root>:<agent>:app-user:<id>
+	// and friends), and each extra memory atom lengthens the asset URN with it —
+	// so the 'assets' marker is not at a fixed offset. A parser recovering the
+	// holding memory must take everything between the type word and that marker,
+	// never a fixed two-atom prefix. Prefer locating the LAST 'assets' atom and
+	// reading the id after it (assetIdFromRef does exactly this).
+	//
+	// Two degraded shapes a parser must tolerate, both of which really occur:
+	// * hrn:asset:unknown:assets:<asset.id> — the holding memory row could not
+	// be loaded. Carries no memory identity at all.
+	// * <memory.urn>:assets:<asset.id> — the pre-#697 shape, with NO hrn:asset:
+	// prefix, served when v2 emission throws (empty, over-length or
+	// charset-invalid atom in the stored memory urn). It interpolates the
+	// stored memory urn verbatim, which is normally bare (<root>:<slug>), so
+	// this shape usually looks like acme.com:docs:assets:<id>.
+	//
+	// A third oddity is reachable through the NORMAL branch, not a fallback: a
+	// legacy memories.urn row that predates the chk_memory_urn_not_prefixed
+	// guardrail can still hold a rendered hrn:mem:-prefixed value, and that
+	// composes into hrn:asset:hrn:mem:<root>:<slug>:assets:<id>. A prefix strip
+	// that assumes one leading type word will mis-read it.
 	Urn         string          `json:"urn"`
 	Filename    string          `json:"filename"`
 	MimeType    string          `json:"mimeType"`
@@ -9392,6 +9918,16 @@ func (v *NodeExportMetaNode) GetMemory() *NodeExportMetaNodeMemory { return v.Me
 
 // NodeExportMetaNodeMemory includes the requested fields of the GraphQL type Memory.
 type NodeExportMetaNodeMemory struct {
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
 	Urn string `json:"urn"`
 }
 
@@ -10211,6 +10747,190 @@ type OrganizationsResponse struct {
 func (v *OrganizationsResponse) GetOrganizations() *OrganizationsOrganizationsOrganizationsPage {
 	return v.Organizations
 }
+
+// PersonaAgentFields includes the GraphQL fields of Agent requested by the fragment PersonaAgentFields.
+type PersonaAgentFields struct {
+	Id             string  `json:"id"`
+	Urn            string  `json:"urn"`
+	Name           string  `json:"name"`
+	Description    *string `json:"description"`
+	OrganizationId *string `json:"organizationId"`
+	// Persona display name ('Iris'). Unique per owner, case-insensitively.
+	PersonaName *string `json:"personaName"`
+	// Persona role - free string with conventions ('backend-engineer').
+	PersonaRole *string `json:"personaRole"`
+	// Persona identity paragraph; clients compose it into systemPrompt.
+	PersonaPrompt *string `json:"personaPrompt"`
+	CreatedAt     string  `json:"createdAt"`
+}
+
+// GetId returns PersonaAgentFields.Id, and is useful for accessing the field via an interface.
+func (v *PersonaAgentFields) GetId() string { return v.Id }
+
+// GetUrn returns PersonaAgentFields.Urn, and is useful for accessing the field via an interface.
+func (v *PersonaAgentFields) GetUrn() string { return v.Urn }
+
+// GetName returns PersonaAgentFields.Name, and is useful for accessing the field via an interface.
+func (v *PersonaAgentFields) GetName() string { return v.Name }
+
+// GetDescription returns PersonaAgentFields.Description, and is useful for accessing the field via an interface.
+func (v *PersonaAgentFields) GetDescription() *string { return v.Description }
+
+// GetOrganizationId returns PersonaAgentFields.OrganizationId, and is useful for accessing the field via an interface.
+func (v *PersonaAgentFields) GetOrganizationId() *string { return v.OrganizationId }
+
+// GetPersonaName returns PersonaAgentFields.PersonaName, and is useful for accessing the field via an interface.
+func (v *PersonaAgentFields) GetPersonaName() *string { return v.PersonaName }
+
+// GetPersonaRole returns PersonaAgentFields.PersonaRole, and is useful for accessing the field via an interface.
+func (v *PersonaAgentFields) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetPersonaPrompt returns PersonaAgentFields.PersonaPrompt, and is useful for accessing the field via an interface.
+func (v *PersonaAgentFields) GetPersonaPrompt() *string { return v.PersonaPrompt }
+
+// GetCreatedAt returns PersonaAgentFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *PersonaAgentFields) GetCreatedAt() string { return v.CreatedAt }
+
+// PersonaAgentsAgentsAgentsPage includes the requested fields of the GraphQL type AgentsPage.
+type PersonaAgentsAgentsAgentsPage struct {
+	Total int                                        `json:"total"`
+	Items []*PersonaAgentsAgentsAgentsPageItemsAgent `json:"items"`
+}
+
+// GetTotal returns PersonaAgentsAgentsAgentsPage.Total, and is useful for accessing the field via an interface.
+func (v *PersonaAgentsAgentsAgentsPage) GetTotal() int { return v.Total }
+
+// GetItems returns PersonaAgentsAgentsAgentsPage.Items, and is useful for accessing the field via an interface.
+func (v *PersonaAgentsAgentsAgentsPage) GetItems() []*PersonaAgentsAgentsAgentsPageItemsAgent {
+	return v.Items
+}
+
+// PersonaAgentsAgentsAgentsPageItemsAgent includes the requested fields of the GraphQL type Agent.
+type PersonaAgentsAgentsAgentsPageItemsAgent struct {
+	PersonaAgentFields `json:"-"`
+}
+
+// GetId returns PersonaAgentsAgentsAgentsPageItemsAgent.Id, and is useful for accessing the field via an interface.
+func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetId() string { return v.PersonaAgentFields.Id }
+
+// GetUrn returns PersonaAgentsAgentsAgentsPageItemsAgent.Urn, and is useful for accessing the field via an interface.
+func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetUrn() string { return v.PersonaAgentFields.Urn }
+
+// GetName returns PersonaAgentsAgentsAgentsPageItemsAgent.Name, and is useful for accessing the field via an interface.
+func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetName() string { return v.PersonaAgentFields.Name }
+
+// GetDescription returns PersonaAgentsAgentsAgentsPageItemsAgent.Description, and is useful for accessing the field via an interface.
+func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetDescription() *string {
+	return v.PersonaAgentFields.Description
+}
+
+// GetOrganizationId returns PersonaAgentsAgentsAgentsPageItemsAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetOrganizationId() *string {
+	return v.PersonaAgentFields.OrganizationId
+}
+
+// GetPersonaName returns PersonaAgentsAgentsAgentsPageItemsAgent.PersonaName, and is useful for accessing the field via an interface.
+func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetPersonaName() *string {
+	return v.PersonaAgentFields.PersonaName
+}
+
+// GetPersonaRole returns PersonaAgentsAgentsAgentsPageItemsAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetPersonaRole() *string {
+	return v.PersonaAgentFields.PersonaRole
+}
+
+// GetPersonaPrompt returns PersonaAgentsAgentsAgentsPageItemsAgent.PersonaPrompt, and is useful for accessing the field via an interface.
+func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetPersonaPrompt() *string {
+	return v.PersonaAgentFields.PersonaPrompt
+}
+
+// GetCreatedAt returns PersonaAgentsAgentsAgentsPageItemsAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetCreatedAt() string {
+	return v.PersonaAgentFields.CreatedAt
+}
+
+func (v *PersonaAgentsAgentsAgentsPageItemsAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PersonaAgentsAgentsAgentsPageItemsAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PersonaAgentsAgentsAgentsPageItemsAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PersonaAgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPersonaAgentsAgentsAgentsPageItemsAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	PersonaName *string `json:"personaName"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	PersonaPrompt *string `json:"personaPrompt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *PersonaAgentsAgentsAgentsPageItemsAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PersonaAgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalPersonaAgentsAgentsAgentsPageItemsAgent, error) {
+	var retval __premarshalPersonaAgentsAgentsAgentsPageItemsAgent
+
+	retval.Id = v.PersonaAgentFields.Id
+	retval.Urn = v.PersonaAgentFields.Urn
+	retval.Name = v.PersonaAgentFields.Name
+	retval.Description = v.PersonaAgentFields.Description
+	retval.OrganizationId = v.PersonaAgentFields.OrganizationId
+	retval.PersonaName = v.PersonaAgentFields.PersonaName
+	retval.PersonaRole = v.PersonaAgentFields.PersonaRole
+	retval.PersonaPrompt = v.PersonaAgentFields.PersonaPrompt
+	retval.CreatedAt = v.PersonaAgentFields.CreatedAt
+	return &retval, nil
+}
+
+// PersonaAgentsResponse is returned by PersonaAgents on success.
+type PersonaAgentsResponse struct {
+	// Uniform paginated agent list (#473). Scope: Agents owned by the caller's
+	// member orgs; platform ADMIN/OWNER unscoped get every live Agent. orgId
+	// follows cor:api:100:01 (member -> scope, non-member -> empty page, no
+	// disclosure, no admin bypass). filter narrows by type / visibility.
+	// filter.ownedByMe (#782) narrows to the caller's own user-owned (org-less)
+	// agents for every caller including platform admins. Name-ascending order
+	// (id tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
+	Agents *PersonaAgentsAgentsAgentsPage `json:"agents"`
+}
+
+// GetAgents returns PersonaAgentsResponse.Agents, and is useful for accessing the field via an interface.
+func (v *PersonaAgentsResponse) GetAgents() *PersonaAgentsAgentsAgentsPage { return v.Agents }
 
 // PrincipalGrantFields includes the GraphQL fields of PrincipalGrant requested by the fragment PrincipalGrantFields.
 // The GraphQL type's documentation follows.
@@ -11091,7 +11811,31 @@ func (v *RestoreAssetResponse) GetRestoreAsset() *RestoreAssetRestoreAsset { ret
 // RestoreAssetRestoreAsset includes the requested fields of the GraphQL type Asset.
 type RestoreAssetRestoreAsset struct {
 	Id string `json:"id"`
-	// The asset's URN: <memory.urn>:assets:<asset.id>.
+	// The asset's URN, grammar v2 (cor:urn:010:01): hrn:asset:<root>:<mem...>:assets:<asset.id>,
+	// emitted by emitAssetUrnV2 from the holding memory's STORED urn.
+	//
+	// <mem...> is one or more atoms, not always one. A per-user memory urn minted
+	// before the #697 Stage-3 flip is still compound (<root>:<agent>:app-user:<id>
+	// and friends), and each extra memory atom lengthens the asset URN with it —
+	// so the 'assets' marker is not at a fixed offset. A parser recovering the
+	// holding memory must take everything between the type word and that marker,
+	// never a fixed two-atom prefix. Prefer locating the LAST 'assets' atom and
+	// reading the id after it (assetIdFromRef does exactly this).
+	//
+	// Two degraded shapes a parser must tolerate, both of which really occur:
+	// * hrn:asset:unknown:assets:<asset.id> — the holding memory row could not
+	// be loaded. Carries no memory identity at all.
+	// * <memory.urn>:assets:<asset.id> — the pre-#697 shape, with NO hrn:asset:
+	// prefix, served when v2 emission throws (empty, over-length or
+	// charset-invalid atom in the stored memory urn). It interpolates the
+	// stored memory urn verbatim, which is normally bare (<root>:<slug>), so
+	// this shape usually looks like acme.com:docs:assets:<id>.
+	//
+	// A third oddity is reachable through the NORMAL branch, not a fallback: a
+	// legacy memories.urn row that predates the chk_memory_urn_not_prefixed
+	// guardrail can still hold a rendered hrn:mem:-prefixed value, and that
+	// composes into hrn:asset:hrn:mem:<root>:<slug>:assets:<id>. A prefix strip
+	// that assumes one leading type word will mis-read it.
 	Urn       string  `json:"urn"`
 	Filename  string  `json:"filename"`
 	DeletedAt *string `json:"deletedAt"`
@@ -12154,6 +12898,69 @@ func (v *ServerInfoServerInfo) GetVersion() string { return v.Version }
 // GetBaseUrl returns ServerInfoServerInfo.BaseUrl, and is useful for accessing the field via an interface.
 func (v *ServerInfoServerInfo) GetBaseUrl() string { return v.BaseUrl }
 
+type SessionInput struct {
+	// #928 / cor:api:140: the Agent (persona) driving this session, as a PK or
+	// URN. Resolves to Session.agentId. The caller must be able to READ the
+	// agent (PUBLIC, or owner / org member) - a session is never attributed to
+	// an agent the caller cannot see.
+	AgentRef        *string `json:"agentRef,omitempty"`
+	Branch          *string `json:"branch,omitempty"`
+	CustomerId      *string `json:"customerId,omitempty"`
+	Host            *string `json:"host,omitempty"`
+	Id              string  `json:"id"`
+	Language        *string `json:"language,omitempty"`
+	LlmModel        *string `json:"llmModel,omitempty"`
+	ParentSessionId *string `json:"parentSessionId,omitempty"`
+	PrNumber        *int    `json:"prNumber,omitempty"`
+	PrevSessionId   *string `json:"prevSessionId,omitempty"`
+	Repo            *string `json:"repo,omitempty"`
+	Tool            *string `json:"tool,omitempty"`
+	TranscriptPath  *string `json:"transcriptPath,omitempty"`
+	Type            *string `json:"type,omitempty"`
+}
+
+// GetAgentRef returns SessionInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetAgentRef() *string { return v.AgentRef }
+
+// GetBranch returns SessionInput.Branch, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetBranch() *string { return v.Branch }
+
+// GetCustomerId returns SessionInput.CustomerId, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetCustomerId() *string { return v.CustomerId }
+
+// GetHost returns SessionInput.Host, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetHost() *string { return v.Host }
+
+// GetId returns SessionInput.Id, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetId() string { return v.Id }
+
+// GetLanguage returns SessionInput.Language, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetLanguage() *string { return v.Language }
+
+// GetLlmModel returns SessionInput.LlmModel, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetLlmModel() *string { return v.LlmModel }
+
+// GetParentSessionId returns SessionInput.ParentSessionId, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetParentSessionId() *string { return v.ParentSessionId }
+
+// GetPrNumber returns SessionInput.PrNumber, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetPrNumber() *int { return v.PrNumber }
+
+// GetPrevSessionId returns SessionInput.PrevSessionId, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetPrevSessionId() *string { return v.PrevSessionId }
+
+// GetRepo returns SessionInput.Repo, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetRepo() *string { return v.Repo }
+
+// GetTool returns SessionInput.Tool, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetTool() *string { return v.Tool }
+
+// GetTranscriptPath returns SessionInput.TranscriptPath, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetTranscriptPath() *string { return v.TranscriptPath }
+
+// GetType returns SessionInput.Type, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetType() *string { return v.Type }
+
 // SoftDeleteAssetResponse is returned by SoftDeleteAsset on success.
 type SoftDeleteAssetResponse struct {
 	SoftDeleteAsset *SoftDeleteAssetSoftDeleteAsset `json:"softDeleteAsset"`
@@ -12167,7 +12974,31 @@ func (v *SoftDeleteAssetResponse) GetSoftDeleteAsset() *SoftDeleteAssetSoftDelet
 // SoftDeleteAssetSoftDeleteAsset includes the requested fields of the GraphQL type Asset.
 type SoftDeleteAssetSoftDeleteAsset struct {
 	Id string `json:"id"`
-	// The asset's URN: <memory.urn>:assets:<asset.id>.
+	// The asset's URN, grammar v2 (cor:urn:010:01): hrn:asset:<root>:<mem...>:assets:<asset.id>,
+	// emitted by emitAssetUrnV2 from the holding memory's STORED urn.
+	//
+	// <mem...> is one or more atoms, not always one. A per-user memory urn minted
+	// before the #697 Stage-3 flip is still compound (<root>:<agent>:app-user:<id>
+	// and friends), and each extra memory atom lengthens the asset URN with it —
+	// so the 'assets' marker is not at a fixed offset. A parser recovering the
+	// holding memory must take everything between the type word and that marker,
+	// never a fixed two-atom prefix. Prefer locating the LAST 'assets' atom and
+	// reading the id after it (assetIdFromRef does exactly this).
+	//
+	// Two degraded shapes a parser must tolerate, both of which really occur:
+	// * hrn:asset:unknown:assets:<asset.id> — the holding memory row could not
+	// be loaded. Carries no memory identity at all.
+	// * <memory.urn>:assets:<asset.id> — the pre-#697 shape, with NO hrn:asset:
+	// prefix, served when v2 emission throws (empty, over-length or
+	// charset-invalid atom in the stored memory urn). It interpolates the
+	// stored memory urn verbatim, which is normally bare (<root>:<slug>), so
+	// this shape usually looks like acme.com:docs:assets:<id>.
+	//
+	// A third oddity is reachable through the NORMAL branch, not a fallback: a
+	// legacy memories.urn row that predates the chk_memory_urn_not_prefixed
+	// guardrail can still hold a rendered hrn:mem:-prefixed value, and that
+	// composes into hrn:asset:hrn:mem:<root>:<slug>:assets:<id>. A prefix strip
+	// that assumes one leading type word will mis-read it.
 	Urn       string  `json:"urn"`
 	Filename  string  `json:"filename"`
 	DeletedAt *string `json:"deletedAt"`
@@ -12286,6 +13117,142 @@ func (v *StartImpersonationStartImpersonationStartImpersonationResultSessionImpe
 	return v.Name
 }
 
+// StartTeamSessionResponse is returned by StartTeamSession on success.
+type StartTeamSessionResponse struct {
+	StartSession *StartTeamSessionStartSession `json:"startSession"`
+}
+
+// GetStartSession returns StartTeamSessionResponse.StartSession, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionResponse) GetStartSession() *StartTeamSessionStartSession {
+	return v.StartSession
+}
+
+// StartTeamSessionStartSession includes the requested fields of the GraphQL type Session.
+type StartTeamSessionStartSession struct {
+	TeamSessionFields `json:"-"`
+}
+
+// GetId returns StartTeamSessionStartSession.Id, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSession) GetId() string { return v.TeamSessionFields.Id }
+
+// GetAgentId returns StartTeamSessionStartSession.AgentId, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSession) GetAgentId() *string { return v.TeamSessionFields.AgentId }
+
+// GetUserId returns StartTeamSessionStartSession.UserId, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSession) GetUserId() *string { return v.TeamSessionFields.UserId }
+
+// GetType returns StartTeamSessionStartSession.Type, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSession) GetType() string { return v.TeamSessionFields.Type }
+
+// GetRepo returns StartTeamSessionStartSession.Repo, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSession) GetRepo() *string { return v.TeamSessionFields.Repo }
+
+// GetBranch returns StartTeamSessionStartSession.Branch, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSession) GetBranch() *string { return v.TeamSessionFields.Branch }
+
+// GetPrNumber returns StartTeamSessionStartSession.PrNumber, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSession) GetPrNumber() *int { return v.TeamSessionFields.PrNumber }
+
+// GetStartedAt returns StartTeamSessionStartSession.StartedAt, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSession) GetStartedAt() string { return v.TeamSessionFields.StartedAt }
+
+// GetEndedAt returns StartTeamSessionStartSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSession) GetEndedAt() *string { return v.TeamSessionFields.EndedAt }
+
+// GetHost returns StartTeamSessionStartSession.Host, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSession) GetHost() *string { return v.TeamSessionFields.Host }
+
+// GetTool returns StartTeamSessionStartSession.Tool, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSession) GetTool() *string { return v.TeamSessionFields.Tool }
+
+// GetTranscriptPath returns StartTeamSessionStartSession.TranscriptPath, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSession) GetTranscriptPath() *string {
+	return v.TeamSessionFields.TranscriptPath
+}
+
+// GetLlmModel returns StartTeamSessionStartSession.LlmModel, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSession) GetLlmModel() *string { return v.TeamSessionFields.LlmModel }
+
+func (v *StartTeamSessionStartSession) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*StartTeamSessionStartSession
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.StartTeamSessionStartSession = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamSessionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalStartTeamSessionStartSession struct {
+	Id string `json:"id"`
+
+	AgentId *string `json:"agentId"`
+
+	UserId *string `json:"userId"`
+
+	Type string `json:"type"`
+
+	Repo *string `json:"repo"`
+
+	Branch *string `json:"branch"`
+
+	PrNumber *int `json:"prNumber"`
+
+	StartedAt string `json:"startedAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	Host *string `json:"host"`
+
+	Tool *string `json:"tool"`
+
+	TranscriptPath *string `json:"transcriptPath"`
+
+	LlmModel *string `json:"llmModel"`
+}
+
+func (v *StartTeamSessionStartSession) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *StartTeamSessionStartSession) __premarshalJSON() (*__premarshalStartTeamSessionStartSession, error) {
+	var retval __premarshalStartTeamSessionStartSession
+
+	retval.Id = v.TeamSessionFields.Id
+	retval.AgentId = v.TeamSessionFields.AgentId
+	retval.UserId = v.TeamSessionFields.UserId
+	retval.Type = v.TeamSessionFields.Type
+	retval.Repo = v.TeamSessionFields.Repo
+	retval.Branch = v.TeamSessionFields.Branch
+	retval.PrNumber = v.TeamSessionFields.PrNumber
+	retval.StartedAt = v.TeamSessionFields.StartedAt
+	retval.EndedAt = v.TeamSessionFields.EndedAt
+	retval.Host = v.TeamSessionFields.Host
+	retval.Tool = v.TeamSessionFields.Tool
+	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
+	retval.LlmModel = v.TeamSessionFields.LlmModel
+	return &retval, nil
+}
+
 // StopImpersonationResponse is returned by StopImpersonation on success.
 type StopImpersonationResponse struct {
 	// Stop an impersonation session (writes endedAt; the audit row is never
@@ -12330,6 +13297,199 @@ var AllSyncStatus = []SyncStatus{
 	SyncStatusOk,
 	SyncStatusPending,
 	SyncStatusSyncing,
+}
+
+// TeamSessionFields includes the GraphQL fields of Session requested by the fragment TeamSessionFields.
+type TeamSessionFields struct {
+	Id        string  `json:"id"`
+	AgentId   *string `json:"agentId"`
+	UserId    *string `json:"userId"`
+	Type      string  `json:"type"`
+	Repo      *string `json:"repo"`
+	Branch    *string `json:"branch"`
+	PrNumber  *int    `json:"prNumber"`
+	StartedAt string  `json:"startedAt"`
+	EndedAt   *string `json:"endedAt"`
+	// #928: machine identifier the session ran on.
+	Host *string `json:"host"`
+	// #928: the tool driving the session ('claude-code', 'codex', ...).
+	Tool *string `json:"tool"`
+	// #928: where the driving tool's transcript lives on 'host'.
+	TranscriptPath *string `json:"transcriptPath"`
+	LlmModel       *string `json:"llmModel"`
+}
+
+// GetId returns TeamSessionFields.Id, and is useful for accessing the field via an interface.
+func (v *TeamSessionFields) GetId() string { return v.Id }
+
+// GetAgentId returns TeamSessionFields.AgentId, and is useful for accessing the field via an interface.
+func (v *TeamSessionFields) GetAgentId() *string { return v.AgentId }
+
+// GetUserId returns TeamSessionFields.UserId, and is useful for accessing the field via an interface.
+func (v *TeamSessionFields) GetUserId() *string { return v.UserId }
+
+// GetType returns TeamSessionFields.Type, and is useful for accessing the field via an interface.
+func (v *TeamSessionFields) GetType() string { return v.Type }
+
+// GetRepo returns TeamSessionFields.Repo, and is useful for accessing the field via an interface.
+func (v *TeamSessionFields) GetRepo() *string { return v.Repo }
+
+// GetBranch returns TeamSessionFields.Branch, and is useful for accessing the field via an interface.
+func (v *TeamSessionFields) GetBranch() *string { return v.Branch }
+
+// GetPrNumber returns TeamSessionFields.PrNumber, and is useful for accessing the field via an interface.
+func (v *TeamSessionFields) GetPrNumber() *int { return v.PrNumber }
+
+// GetStartedAt returns TeamSessionFields.StartedAt, and is useful for accessing the field via an interface.
+func (v *TeamSessionFields) GetStartedAt() string { return v.StartedAt }
+
+// GetEndedAt returns TeamSessionFields.EndedAt, and is useful for accessing the field via an interface.
+func (v *TeamSessionFields) GetEndedAt() *string { return v.EndedAt }
+
+// GetHost returns TeamSessionFields.Host, and is useful for accessing the field via an interface.
+func (v *TeamSessionFields) GetHost() *string { return v.Host }
+
+// GetTool returns TeamSessionFields.Tool, and is useful for accessing the field via an interface.
+func (v *TeamSessionFields) GetTool() *string { return v.Tool }
+
+// GetTranscriptPath returns TeamSessionFields.TranscriptPath, and is useful for accessing the field via an interface.
+func (v *TeamSessionFields) GetTranscriptPath() *string { return v.TranscriptPath }
+
+// GetLlmModel returns TeamSessionFields.LlmModel, and is useful for accessing the field via an interface.
+func (v *TeamSessionFields) GetLlmModel() *string { return v.LlmModel }
+
+// TeamSessionsResponse is returned by TeamSessions on success.
+type TeamSessionsResponse struct {
+	Sessions []*TeamSessionsSessionsSession `json:"sessions"`
+}
+
+// GetSessions returns TeamSessionsResponse.Sessions, and is useful for accessing the field via an interface.
+func (v *TeamSessionsResponse) GetSessions() []*TeamSessionsSessionsSession { return v.Sessions }
+
+// TeamSessionsSessionsSession includes the requested fields of the GraphQL type Session.
+type TeamSessionsSessionsSession struct {
+	TeamSessionFields `json:"-"`
+}
+
+// GetId returns TeamSessionsSessionsSession.Id, and is useful for accessing the field via an interface.
+func (v *TeamSessionsSessionsSession) GetId() string { return v.TeamSessionFields.Id }
+
+// GetAgentId returns TeamSessionsSessionsSession.AgentId, and is useful for accessing the field via an interface.
+func (v *TeamSessionsSessionsSession) GetAgentId() *string { return v.TeamSessionFields.AgentId }
+
+// GetUserId returns TeamSessionsSessionsSession.UserId, and is useful for accessing the field via an interface.
+func (v *TeamSessionsSessionsSession) GetUserId() *string { return v.TeamSessionFields.UserId }
+
+// GetType returns TeamSessionsSessionsSession.Type, and is useful for accessing the field via an interface.
+func (v *TeamSessionsSessionsSession) GetType() string { return v.TeamSessionFields.Type }
+
+// GetRepo returns TeamSessionsSessionsSession.Repo, and is useful for accessing the field via an interface.
+func (v *TeamSessionsSessionsSession) GetRepo() *string { return v.TeamSessionFields.Repo }
+
+// GetBranch returns TeamSessionsSessionsSession.Branch, and is useful for accessing the field via an interface.
+func (v *TeamSessionsSessionsSession) GetBranch() *string { return v.TeamSessionFields.Branch }
+
+// GetPrNumber returns TeamSessionsSessionsSession.PrNumber, and is useful for accessing the field via an interface.
+func (v *TeamSessionsSessionsSession) GetPrNumber() *int { return v.TeamSessionFields.PrNumber }
+
+// GetStartedAt returns TeamSessionsSessionsSession.StartedAt, and is useful for accessing the field via an interface.
+func (v *TeamSessionsSessionsSession) GetStartedAt() string { return v.TeamSessionFields.StartedAt }
+
+// GetEndedAt returns TeamSessionsSessionsSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *TeamSessionsSessionsSession) GetEndedAt() *string { return v.TeamSessionFields.EndedAt }
+
+// GetHost returns TeamSessionsSessionsSession.Host, and is useful for accessing the field via an interface.
+func (v *TeamSessionsSessionsSession) GetHost() *string { return v.TeamSessionFields.Host }
+
+// GetTool returns TeamSessionsSessionsSession.Tool, and is useful for accessing the field via an interface.
+func (v *TeamSessionsSessionsSession) GetTool() *string { return v.TeamSessionFields.Tool }
+
+// GetTranscriptPath returns TeamSessionsSessionsSession.TranscriptPath, and is useful for accessing the field via an interface.
+func (v *TeamSessionsSessionsSession) GetTranscriptPath() *string {
+	return v.TeamSessionFields.TranscriptPath
+}
+
+// GetLlmModel returns TeamSessionsSessionsSession.LlmModel, and is useful for accessing the field via an interface.
+func (v *TeamSessionsSessionsSession) GetLlmModel() *string { return v.TeamSessionFields.LlmModel }
+
+func (v *TeamSessionsSessionsSession) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamSessionsSessionsSession
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamSessionsSessionsSession = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamSessionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamSessionsSessionsSession struct {
+	Id string `json:"id"`
+
+	AgentId *string `json:"agentId"`
+
+	UserId *string `json:"userId"`
+
+	Type string `json:"type"`
+
+	Repo *string `json:"repo"`
+
+	Branch *string `json:"branch"`
+
+	PrNumber *int `json:"prNumber"`
+
+	StartedAt string `json:"startedAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	Host *string `json:"host"`
+
+	Tool *string `json:"tool"`
+
+	TranscriptPath *string `json:"transcriptPath"`
+
+	LlmModel *string `json:"llmModel"`
+}
+
+func (v *TeamSessionsSessionsSession) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamSessionsSessionsSession) __premarshalJSON() (*__premarshalTeamSessionsSessionsSession, error) {
+	var retval __premarshalTeamSessionsSessionsSession
+
+	retval.Id = v.TeamSessionFields.Id
+	retval.AgentId = v.TeamSessionFields.AgentId
+	retval.UserId = v.TeamSessionFields.UserId
+	retval.Type = v.TeamSessionFields.Type
+	retval.Repo = v.TeamSessionFields.Repo
+	retval.Branch = v.TeamSessionFields.Branch
+	retval.PrNumber = v.TeamSessionFields.PrNumber
+	retval.StartedAt = v.TeamSessionFields.StartedAt
+	retval.EndedAt = v.TeamSessionFields.EndedAt
+	retval.Host = v.TeamSessionFields.Host
+	retval.Tool = v.TeamSessionFields.Tool
+	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
+	retval.LlmModel = v.TeamSessionFields.LlmModel
+	return &retval, nil
 }
 
 type TriggerAppRunInput struct {
@@ -13623,7 +14783,17 @@ func (v *UpdateMemorySubscriptionUpdateMemorySubscriptionOrganization) GetUrn() 
 
 // UpdateMemoryUpdateMemory includes the requested fields of the GraphQL type Memory.
 type UpdateMemoryUpdateMemory struct {
-	Id               string            `json:"id"`
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
 	Urn              string            `json:"urn"`
 	Name             string            `json:"name"`
 	ShortDescription *string           `json:"shortDescription"`
@@ -15418,6 +16588,34 @@ func (v *__CreateOrganizationInput) GetName() string { return v.Name }
 // GetUrn returns __CreateOrganizationInput.Urn, and is useful for accessing the field via an interface.
 func (v *__CreateOrganizationInput) GetUrn() string { return v.Urn }
 
+// __CreatePersonaAgentInput is used internally by genqlient
+type __CreatePersonaAgentInput struct {
+	Name          string  `json:"name"`
+	PersonaName   string  `json:"personaName"`
+	OrgId         *string `json:"orgId,omitempty"`
+	Description   *string `json:"description,omitempty"`
+	PersonaRole   *string `json:"personaRole,omitempty"`
+	PersonaPrompt *string `json:"personaPrompt,omitempty"`
+}
+
+// GetName returns __CreatePersonaAgentInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreatePersonaAgentInput) GetName() string { return v.Name }
+
+// GetPersonaName returns __CreatePersonaAgentInput.PersonaName, and is useful for accessing the field via an interface.
+func (v *__CreatePersonaAgentInput) GetPersonaName() string { return v.PersonaName }
+
+// GetOrgId returns __CreatePersonaAgentInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__CreatePersonaAgentInput) GetOrgId() *string { return v.OrgId }
+
+// GetDescription returns __CreatePersonaAgentInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreatePersonaAgentInput) GetDescription() *string { return v.Description }
+
+// GetPersonaRole returns __CreatePersonaAgentInput.PersonaRole, and is useful for accessing the field via an interface.
+func (v *__CreatePersonaAgentInput) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetPersonaPrompt returns __CreatePersonaAgentInput.PersonaPrompt, and is useful for accessing the field via an interface.
+func (v *__CreatePersonaAgentInput) GetPersonaPrompt() *string { return v.PersonaPrompt }
+
 // __CreatePrincipalGrantInput is used internally by genqlient
 type __CreatePrincipalGrantInput struct {
 	OrgRef    string   `json:"orgRef"`
@@ -15670,6 +16868,18 @@ func (v *__EncryptMemoryInput) GetMemoryId() string { return v.MemoryId }
 // GetDataKey returns __EncryptMemoryInput.DataKey, and is useful for accessing the field via an interface.
 func (v *__EncryptMemoryInput) GetDataKey() string { return v.DataKey }
 
+// __EndTeamSessionInput is used internally by genqlient
+type __EndTeamSessionInput struct {
+	Id      string  `json:"id"`
+	Summary *string `json:"summary,omitempty"`
+}
+
+// GetId returns __EndTeamSessionInput.Id, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionInput) GetId() string { return v.Id }
+
+// GetSummary returns __EndTeamSessionInput.Summary, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionInput) GetSummary() *string { return v.Summary }
+
 // __ExtractParentNodeToMemoryInput is used internally by genqlient
 type __ExtractParentNodeToMemoryInput struct {
 	ParentRef string `json:"parentRef"`
@@ -15797,6 +17007,14 @@ type __GetOrganizationInput struct {
 
 // GetRef returns __GetOrganizationInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetOrganizationInput) GetRef() string { return v.Ref }
+
+// __GetPersonaAgentInput is used internally by genqlient
+type __GetPersonaAgentInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetPersonaAgentInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetPersonaAgentInput) GetRef() string { return v.Ref }
 
 // __GetUserInput is used internally by genqlient
 type __GetUserInput struct {
@@ -16066,6 +17284,22 @@ func (v *__OrganizationsInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __OrganizationsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__OrganizationsInput) GetOffset() *int { return v.Offset }
 
+// __PersonaAgentsInput is used internally by genqlient
+type __PersonaAgentsInput struct {
+	OrgId  *string `json:"orgId,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+	Offset *int    `json:"offset,omitempty"`
+}
+
+// GetOrgId returns __PersonaAgentsInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__PersonaAgentsInput) GetOrgId() *string { return v.OrgId }
+
+// GetLimit returns __PersonaAgentsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__PersonaAgentsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __PersonaAgentsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__PersonaAgentsInput) GetOffset() *int { return v.Offset }
+
 // __PrincipalGrantsInput is used internally by genqlient
 type __PrincipalGrantsInput struct {
 	OrgRef  *string `json:"orgRef,omitempty"`
@@ -16322,6 +17556,14 @@ func (v *__StartImpersonationInput) GetUserRef() string { return v.UserRef }
 // GetReason returns __StartImpersonationInput.Reason, and is useful for accessing the field via an interface.
 func (v *__StartImpersonationInput) GetReason() *string { return v.Reason }
 
+// __StartTeamSessionInput is used internally by genqlient
+type __StartTeamSessionInput struct {
+	Input *SessionInput `json:"input,omitempty"`
+}
+
+// GetInput returns __StartTeamSessionInput.Input, and is useful for accessing the field via an interface.
+func (v *__StartTeamSessionInput) GetInput() *SessionInput { return v.Input }
+
 // __StopImpersonationInput is used internally by genqlient
 type __StopImpersonationInput struct {
 	Id *string `json:"id"`
@@ -16329,6 +17571,22 @@ type __StopImpersonationInput struct {
 
 // GetId returns __StopImpersonationInput.Id, and is useful for accessing the field via an interface.
 func (v *__StopImpersonationInput) GetId() *string { return v.Id }
+
+// __TeamSessionsInput is used internally by genqlient
+type __TeamSessionsInput struct {
+	Repo   *string `json:"repo,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+	Offset *int    `json:"offset,omitempty"`
+}
+
+// GetRepo returns __TeamSessionsInput.Repo, and is useful for accessing the field via an interface.
+func (v *__TeamSessionsInput) GetRepo() *string { return v.Repo }
+
+// GetLimit returns __TeamSessionsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamSessionsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __TeamSessionsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__TeamSessionsInput) GetOffset() *int { return v.Offset }
 
 // __TriggerAppRunInput is used internally by genqlient
 type __TriggerAppRunInput struct {
@@ -18688,6 +19946,61 @@ func CreateOrganization(
 	return data_, err_
 }
 
+// The mutation executed by CreatePersonaAgent.
+const CreatePersonaAgent_Operation = `
+mutation CreatePersonaAgent ($name: String!, $personaName: String!, $orgId: ID, $description: String, $personaRole: String, $personaPrompt: String) {
+	createAgent(name: $name, orgId: $orgId, description: $description, personaName: $personaName, personaRole: $personaRole, personaPrompt: $personaPrompt) {
+		... PersonaAgentFields
+	}
+}
+fragment PersonaAgentFields on Agent {
+	id
+	urn
+	name
+	description
+	organizationId
+	personaName
+	personaRole
+	personaPrompt
+	createdAt
+}
+`
+
+func CreatePersonaAgent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	name string,
+	personaName string,
+	orgId *string,
+	description *string,
+	personaRole *string,
+	personaPrompt *string,
+) (data_ *CreatePersonaAgentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreatePersonaAgent",
+		Query:  CreatePersonaAgent_Operation,
+		Variables: &__CreatePersonaAgentInput{
+			Name:          name,
+			PersonaName:   personaName,
+			OrgId:         orgId,
+			Description:   description,
+			PersonaRole:   personaRole,
+			PersonaPrompt: personaPrompt,
+		},
+	}
+
+	data_ = &CreatePersonaAgentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreatePrincipalGrant.
 const CreatePrincipalGrant_Operation = `
 mutation CreatePrincipalGrant ($orgRef: String!, $userRef: String!, $actions: [String!]!, $expiresAt: String) {
@@ -19515,6 +20828,57 @@ func EncryptMemory(
 	return data_, err_
 }
 
+// The mutation executed by EndTeamSession.
+const EndTeamSession_Operation = `
+mutation EndTeamSession ($id: ID!, $summary: String) {
+	endSession(id: $id, summary: $summary) {
+		... TeamSessionFields
+	}
+}
+fragment TeamSessionFields on Session {
+	id
+	agentId
+	userId
+	type
+	repo
+	branch
+	prNumber
+	startedAt
+	endedAt
+	host
+	tool
+	transcriptPath
+	llmModel
+}
+`
+
+func EndTeamSession(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	summary *string,
+) (data_ *EndTeamSessionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EndTeamSession",
+		Query:  EndTeamSession_Operation,
+		Variables: &__EndTeamSessionInput{
+			Id:      id,
+			Summary: summary,
+		},
+	}
+
+	data_ = &EndTeamSessionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by ExtractParentNodeToMemory.
 const ExtractParentNodeToMemory_Operation = `
 mutation ExtractParentNodeToMemory ($parentRef: ID!, $targetUrn: String!, $move: Boolean) {
@@ -19986,6 +21350,51 @@ func GetOrganization(
 	}
 
 	data_ = &GetOrganizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetPersonaAgent.
+const GetPersonaAgent_Operation = `
+query GetPersonaAgent ($ref: ID!) {
+	agent(ref: $ref) {
+		... PersonaAgentFields
+	}
+}
+fragment PersonaAgentFields on Agent {
+	id
+	urn
+	name
+	description
+	organizationId
+	personaName
+	personaRole
+	personaPrompt
+	createdAt
+}
+`
+
+func GetPersonaAgent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetPersonaAgentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetPersonaAgent",
+		Query:  GetPersonaAgent_Operation,
+		Variables: &__GetPersonaAgentInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetPersonaAgentResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -21295,6 +22704,60 @@ func Organizations(
 	return data_, err_
 }
 
+// The query executed by PersonaAgents.
+const PersonaAgents_Operation = `
+query PersonaAgents ($orgId: ID, $limit: Int, $offset: Int) {
+	agents(orgId: $orgId, limit: $limit, offset: $offset) {
+		total
+		items {
+			... PersonaAgentFields
+		}
+	}
+}
+fragment PersonaAgentFields on Agent {
+	id
+	urn
+	name
+	description
+	organizationId
+	personaName
+	personaRole
+	personaPrompt
+	createdAt
+}
+`
+
+// The roster read. AgentFilter has no persona clause, so callers page this
+// to exhaustion and keep the personaName != null rows client-side.
+func PersonaAgents(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId *string,
+	limit *int,
+	offset *int,
+) (data_ *PersonaAgentsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PersonaAgents",
+		Query:  PersonaAgents_Operation,
+		Variables: &__PersonaAgentsInput{
+			OrgId:  orgId,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &PersonaAgentsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by PrincipalGrants.
 const PrincipalGrants_Operation = `
 query PrincipalGrants ($orgRef: String, $userRef: String, $limit: Int, $offset: Int) {
@@ -22298,6 +23761,58 @@ func StartImpersonation(
 	return data_, err_
 }
 
+// The mutation executed by StartTeamSession.
+const StartTeamSession_Operation = `
+mutation StartTeamSession ($input: SessionInput!) {
+	startSession(input: $input) {
+		... TeamSessionFields
+	}
+}
+fragment TeamSessionFields on Session {
+	id
+	agentId
+	userId
+	type
+	repo
+	branch
+	prNumber
+	startedAt
+	endedAt
+	host
+	tool
+	transcriptPath
+	llmModel
+}
+`
+
+// All SessionInput fields except id are optional; omitempty keeps an unset
+// flag off the wire entirely (the create treats null and omitted alike, but
+// the omitted form is the repo-wide convention — see CLAUDE.md).
+func StartTeamSession(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SessionInput,
+) (data_ *StartTeamSessionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "StartTeamSession",
+		Query:  StartTeamSession_Operation,
+		Variables: &__StartTeamSessionInput{
+			Input: input,
+		},
+	}
+
+	data_ = &StartTeamSessionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by StopImpersonation.
 const StopImpersonation_Operation = `
 mutation StopImpersonation ($id: ID) {
@@ -22322,6 +23837,62 @@ func StopImpersonation(
 	}
 
 	data_ = &StopImpersonationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamSessions.
+const TeamSessions_Operation = `
+query TeamSessions ($repo: String, $limit: Int, $offset: Int) {
+	sessions(repo: $repo, limit: $limit, offset: $offset) {
+		... TeamSessionFields
+	}
+}
+fragment TeamSessionFields on Session {
+	id
+	agentId
+	userId
+	type
+	repo
+	branch
+	prNumber
+	startedAt
+	endedAt
+	host
+	tool
+	transcriptPath
+	llmModel
+}
+`
+
+// The sessions list has no agent/active filter server-side, so the presence
+// and takeover checks page this to exhaustion (ordered startedAt desc) and
+// filter client-side.
+func TeamSessions(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	repo *string,
+	limit *int,
+	offset *int,
+) (data_ *TeamSessionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamSessions",
+		Query:  TeamSessions_Operation,
+		Variables: &__TeamSessionsInput{
+			Repo:   repo,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &TeamSessionsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
