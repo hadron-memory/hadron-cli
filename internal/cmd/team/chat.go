@@ -91,20 +91,32 @@ func handleFromPersona(name string) (string, error) {
 func newCmdTeamChatPost(f *cmdutil.Factory) *cobra.Command {
 	var body, bodyFile, replyTo, memory, messagesLoc string
 	cmd := &cobra.Command{
-		Use:   "post (--body <text|-> | --body-file <path>) [--reply-to <seq-or-loc>]",
+		Use:   "post <body|-> [--reply-to <seq-or-loc>]",
 		Short: "Post to the team chat as the bound persona",
 		Long: `Post one message to the team group chat as the persona this worktree is
 driving. The message carries the session id (attribution = the human
 driving the persona) and the session's model as identity; mentions
 (@handle) are extracted automatically.
 
+The body is the positional argument (- reads stdin); --body/--body-file
+are accepted too, matching ` + "`hadron chat post`" + `. Exactly one source.
+
 --reply-to takes the seq of the message being answered (as shown by
 ` + "`team chat read`" + `) — or a message loc, as ` + "`hadron chat post`" + ` accepts.`,
-		Example: `  hadron team chat post --body "@rufus schema is live, over to you"
-  hadron team chat post --reply-to 42 --body "done"`,
-		Args: cobra.NoArgs,
+		Example: `  hadron team chat post "@rufus schema is live, over to you"
+  hadron team chat post --reply-to 42 "done"`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// Exactly one body source: the positional, --body, or --body-file.
+			if len(args) == 1 {
+				if body != "" || bodyFile != "" {
+					return exitcode.Newf(exitcode.Usage, "pass the body either positionally or via --body/--body-file, not both")
+				}
+				body = args[0]
+			} else if body == "" && bodyFile == "" {
+				return exitcode.Newf(exitcode.Usage, "no message body — pass it as the argument (or - for stdin), or via --body/--body-file")
+			}
 			b, _, err := readBinding(ctx)
 			if err != nil {
 				return err
@@ -169,8 +181,9 @@ driving the persona) and the session's model as identity; mentions
 	cmd.Flags().StringVar(&replyTo, "reply-to", "", "seq (or loc) of the message this replies to; adds a reply edge")
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "team App memory override (defaults to the binding's)")
 	cmd.Flags().StringVar(&messagesLoc, "messages-loc", "", "message-parent loc override (default "+defaultMessagesLoc+")")
+	// One body source is enforced in RunE (a cobra flag group can't see the
+	// positional form).
 	cmd.MarkFlagsMutuallyExclusive("body", "body-file")
-	cmd.MarkFlagsOneRequired("body", "body-file")
 	return cmd
 }
 

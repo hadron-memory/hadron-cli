@@ -39,7 +39,17 @@ Extra entries.
   dialect's handle charset (`handleFromPersona`: lowercase, spaces→dashes,
   rest dropped — so `@mentions` of the persona actually match the channel's
   `MENTION_RE`), role = `personaRole`, identity = the session's model (the
-  binding gained a `Model` field), falling back to the tool.
+  binding gained a `Model` field), falling back to the tool. The fold is
+  lossy ("Dev Rufus" and "Dev-Rufus" both answer to `@dev-rufus`), and the
+  server's persona-name uniqueness is pre-fold — so `persona create` skips a
+  candidate whose folded handle collides with an existing persona's, exactly
+  like a taken name (a client-side guard; a concurrent create can race past
+  it, which is accepted — server-side name uniqueness stays the hard gate).
+- **The body is positional** (`team chat post <body|->`, the #369 surface);
+  `--body`/`--body-file` remain as the `hadron chat`-compatible form, one
+  source enforced. `PostInput.Extra` strips the reserved dialect keys, so an
+  Extra entry can never masquerade as author/body/identity/role/mentions —
+  even when the typed field is empty.
 - **`sessionId` in every persona post** (D16): attribution of an agent
   message is the human *driving* the persona — resolved through the session,
   never the persona's creator. `chat.Message` now parses `sessionId` (and

@@ -170,6 +170,13 @@ func PostMessage(ctx context.Context, client graphql.Client, in PostInput) (Post
 
 	data := map[string]any{}
 	for k, v := range in.Extra {
+		// Reserved dialect keys never come from Extra — not even when the
+		// typed input is empty (an empty Identity means "no identity", not
+		// "take Extra's").
+		switch k {
+		case "author", "body", "timestamp", "identity", "role", "mentions":
+			continue
+		}
 		data[k] = v
 	}
 	data["author"] = in.Handle

@@ -25,9 +25,14 @@ const plainAgentJSON = `{"id":"agt2","urn":"hrn:agent:acme.com:support-bot","nam
 
 const rosterJSON = `{"data":{"agents":{"total":2,"items":[` + irisJSON + `,` + plainAgentJSON + `]}}}`
 
+// An empty roster — the create tests' pre-scan (handle-collision guard) must
+// not see the very name being created.
+const emptyRosterJSON = `{"data":{"agents":{"total":0,"items":[]}}}`
+
 func TestTeamPersonaCreate(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"CreatePersonaAgent": `{"data":{"createAgent":` + irisJSON + `}}`,
+		"PersonaAgents":      emptyRosterJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -65,13 +70,18 @@ func TestTeamPersonaCreateRetriesNextName(t *testing.T) {
 	var names []string
 	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			Variables struct {
+			OperationName string `json:"operationName"`
+			Variables     struct {
 				PersonaName string `json:"personaName"`
 			} `json:"variables"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
-		names = append(names, body.Variables.PersonaName)
 		w.Header().Set("Content-Type", "application/json")
+		if body.OperationName == "PersonaAgents" {
+			_, _ = w.Write([]byte(emptyRosterJSON))
+			return
+		}
+		names = append(names, body.Variables.PersonaName)
 		if len(names) == 1 {
 			_, _ = w.Write([]byte(personaTakenJSON))
 			return
@@ -99,6 +109,7 @@ func TestTeamPersonaCreateRetriesNextName(t *testing.T) {
 func TestTeamPersonaCreateAllTakenIsConflict(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"CreatePersonaAgent": personaTakenJSON,
+		"PersonaAgents":      emptyRosterJSON,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -112,6 +123,32 @@ func TestTeamPersonaCreateAllTakenIsConflict(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "forever") {
 		t.Errorf("error should explain the forever-binding: %v", err)
+	}
+}
+
+// A candidate whose FOLDED chat handle collides with an existing persona's is
+// skipped client-side (never sent to the server): "Dev Rufus" and "Dev-Rufus"
+// would both answer to @dev-rufus, making chat attribution ambiguous.
+func TestTeamPersonaCreateSkipsHandleCollision(t *testing.T) {
+	rufusRoster := `{"data":{"agents":{"total":1,"items":[
+		{"id":"agt9","urn":"hrn:agent:acme.com:dev-rufus","name":"Dev-Rufus","description":null,
+		 "organizationId":"o1","personaName":"Dev-Rufus","personaRole":null,"personaPrompt":null,
+		 "createdAt":"2026-08-11T00:00:00Z"}]}}}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"PersonaAgents":      rufusRoster,
+		"CreatePersonaAgent": `{"data":{"createAgent":` + irisJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "persona", "create", "--name", "Dev Rufus", "--name", "Ivy",
+		"--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreatePersonaAgent"], &vars)
+	if vars["personaName"] != "Ivy" {
+		t.Errorf("colliding candidate must be skipped client-side; created: %v", vars)
 	}
 }
 
@@ -1032,6 +1069,54 @@ func TestTeamChatPostAsPersona(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `"sessionId": "s-new"`) {
 		t.Errorf("post output: %s", out.String())
+	}
+}
+
+// The #369 surface takes the body positionally (`team chat post <body|->`);
+// the --body/--body-file flags remain as the hadron-chat-compatible form.
+func TestTeamChatPostPositionalBody(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var lastCreate json.RawMessage
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Variables json.RawMessage `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		lastCreate = body.Variables
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"createNode":{"id":"n1","loc":"chat:messages:x-iris","seq":9}}}`))
+	}))
+	t.Cleanup(gql.Close)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "post", "hello positional", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var msg struct {
+		Input struct {
+			Data json.RawMessage `json:"data"`
+		} `json:"input"`
+	}
+	_ = json.Unmarshal(lastCreate, &msg)
+	var data struct {
+		Body string `json:"body"`
+	}
+	_ = json.Unmarshal(msg.Input.Data, &data)
+	if data.Body != "hello positional" {
+		t.Errorf("positional body: %s", msg.Input.Data)
+	}
+
+	// Both a positional and --body is ambiguous — refused.
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "chat", "post", "x", "--body", "y", "--server", gql.URL})
+	err := root2.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("double body: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 }
 

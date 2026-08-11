@@ -92,7 +92,7 @@ hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZA
 hadron team init -m <team-memory>
 hadron team persona create --name <candidate>... [--role <r>] [--prompt <p>] [--org <ref> | --owner-me] | list [--org <ref>] [--role <r>] | get <name-or-ref> | retire <name-or-ref> --yes
 hadron team session start --as <persona> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--summary <text>] [--session <id>] | list [--active] [--as <persona>] [--repo <r>] [--limit N] [--offset N] | list --pr <ref> [-m <team-memory>]
-hadron team chat post (--body <text|-> | --body-file <path>) [--reply-to <seq-or-loc>] [-m <team-memory>] [--messages-loc <loc>] | read [--since <seq>] [--mentions-me] [-m <team-memory>] [--messages-loc <loc>]
+hadron team chat post <body|-> [--reply-to <seq-or-loc>] [-m <team-memory>] [--messages-loc <loc>] | read [--since <seq>] [--mentions-me] [-m <team-memory>] [--messages-loc <loc>]
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--email <e>] [--handle <h>]
 hadron server-info

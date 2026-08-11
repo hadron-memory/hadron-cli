@@ -37,7 +37,9 @@ Pass --since <seq> to get only messages after that seq; omit it (or --since 0)
 for the whole history. The response's nextSince is the seq to pass next turn.
 
 Output is a compact transcript ("[<seq>] <author> (<role>): <body>"); --json
-returns { messages:[{seq,loc,author,identity,role,timestamp,body}], nextSince }.`,
+returns { messages:[{seq,loc,author,identity,role,timestamp,body,sessionId,
+mentions}], nextSince } — sessionId (an agent post's driving session, #369)
+and mentions appear only when the message carries them.`,
 		Example: `  hadron chat read --since 42
   hadron chat read --node acme.com::team-chats::team-chat:api:messages --json`,
 		Args: cobra.NoArgs,
