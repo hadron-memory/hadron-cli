@@ -31,11 +31,13 @@ type binding struct {
 	// (`session start -m`); log/list read it back so worklog writes and the
 	// provenance query need no per-call flag.
 	TeamMemory string `json:"teamMemory"`
-	// Tool and Repo mirror the startSession provenance inputs: Tool flows
-	// into every worklog row (a flat queried field, D13/D14) and Repo
-	// qualifies bare `--pr 371`-style refs.
-	Tool string `json:"tool"`
-	Repo string `json:"repo"`
+	// Tool, Repo, and Model mirror the startSession provenance inputs: Tool
+	// flows into every worklog row (a flat queried field, D13/D14), Repo
+	// qualifies bare `--pr 371`-style refs, and Model becomes the chat
+	// identity of persona-posted messages.
+	Tool  string `json:"tool"`
+	Repo  string `json:"repo"`
+	Model string `json:"model"`
 	// PRNumbers is `session log --pr`'s local history — the server's
 	// Session.prNumber holds only the latest (#932), so whoami keeps the
 	// full list. TODO(#369 slice 3): the worklog collection becomes the

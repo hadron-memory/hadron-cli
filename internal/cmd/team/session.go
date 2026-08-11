@@ -249,6 +249,7 @@ so the old binding never orphans an active session.`,
 				TeamMemory:  teamMem,
 				Tool:        tool,
 				Repo:        repo,
+				Model:       model,
 			})
 			if err != nil {
 				// The server session already exists; without a binding this

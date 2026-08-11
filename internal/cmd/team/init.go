@@ -10,6 +10,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	chatpkg "github.com/hadron-memory/hadron-cli/internal/cmd/chat"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -39,13 +40,16 @@ func newCmdInit(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init -m <team-memory>",
 		Short: "Declare the team collection schemas in the team App memory",
-		Long: `Declare the worklog collection in the team App memory's property schema.
-Idempotent and convergent: the worklog entry is (re)set to its canonical
-definition; every other collection in the schema is preserved.
+		Long: `Declare the worklog collection in the team App memory's property schema and
+materialize the group-chat parent node (` + defaultMessagesLoc + `). Idempotent and
+convergent: the worklog entry is (re)set to its canonical definition; every
+other collection in the schema is preserved.
 
-The group-chat message collection is deliberately NOT declared yet — its
-shape must stay coordinated with the hadron-client watcher dialect and lands
-with the ` + "`team chat`" + ` slice of #369.`,
+Messages are deliberately NOT a property-schema collection: the group chat
+speaks the message-NODE dialect (payload in each node's data block) that
+` + "`hadron chat`" + ` and the hadron-client push channel already share — moving it
+into the object store would break that coordination for a validation gain
+the dialect doesn't need. See docs/plans/team-chat.md.`,
 		Example: `  hadron team init -m acme.com::eng-team`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -103,13 +107,19 @@ with the ` + "`team chat`" + ` slice of #369.`,
 				}
 			}
 
+			// Materialize the chat parent so the group chat is a real, copyable
+			// node from day one. Best-effort like every EnsureChatParent call —
+			// an existing parent conflicts harmlessly.
+			chatpkg.EnsureChatParent(ctx, client, chatpkg.Coords{Memory: resp.Memory.Id, MessagesLoc: defaultMessagesLoc})
+
 			result := struct {
 				Memory      string   `json:"memory"`
 				Collections []string `json:"collections"`
+				Chat        string   `json:"chat"`
 				Status      string   `json:"status"`
-			}{resp.Memory.Urn, []string{"worklog"}, status}
+			}{resp.Memory.Urn, []string{"worklog"}, defaultMessagesLoc, status}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ worklog collection %s in %s\n", status, resp.Memory.Urn)
+				_, err := fmt.Fprintf(w, "✓ worklog collection %s in %s (chat parent: %s)\n", status, resp.Memory.Urn, defaultMessagesLoc)
 				return err
 			})
 		},

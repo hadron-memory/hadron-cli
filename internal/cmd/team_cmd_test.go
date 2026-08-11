@@ -898,6 +898,8 @@ func TestTeamInit(t *testing.T) {
 		"UpdateMemory": `{"data":{"updateMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team","name":"Eng Team",
 			"shortDescription":null,"class":"app","visibility":"ORGANIZATION","organizationId":"o1",
 			"isEncrypted":false,"maxRevCount":10,"updatedAt":"2026-08-11T00:00:00Z"}}}`,
+		// The best-effort chat-parent materialization (chat:messages).
+		"CreateNode": `{"data":{"createNode":{"id":"n-chat","loc":"chat:messages","seq":null}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -950,6 +952,7 @@ func TestTeamInitIdempotent(t *testing.T) {
 			"vectorIndexEnabled":false,"maxRevCount":10,"data":null,
 			"schema":{"objectTypes":{"worklog":` + worklogDef + `}},
 			"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
+		"CreateNode": `{"data":{"createNode":{"id":"n-chat","loc":"chat:messages","seq":null}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -962,6 +965,173 @@ func TestTeamInitIdempotent(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `"status": "unchanged"`) {
 		t.Errorf("init output: %s", out.String())
+	}
+}
+
+// `team chat post` posts as the bound persona through the SHARED chat
+// dialect: handle from the persona name, role/identity from the binding, and
+// — D16 — the sessionId in the data payload so the message traces to the
+// driving human.
+func TestTeamChatPostAsPersona(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var creates []json.RawMessage
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string          `json:"operationName"`
+			Variables     json.RawMessage `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		if body.OperationName != "CreateNode" {
+			t.Errorf("unexpected operation %q", body.OperationName)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
+			return
+		}
+		creates = append(creates, body.Variables)
+		_, _ = w.Write([]byte(`{"data":{"createNode":{"id":"n1","loc":"chat:messages:x-iris","seq":7}}}`))
+	}))
+	t.Cleanup(gql.Close)
+
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "post", "--body", "@rufus schema is live", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// Two creates: the best-effort chat parent, then the message.
+	if len(creates) != 2 {
+		t.Fatalf("expected parent + message creates, got %d", len(creates))
+	}
+	var msg struct {
+		Input struct {
+			MemoryID string          `json:"memoryId"`
+			Loc      string          `json:"loc"`
+			NodeType string          `json:"nodeType"`
+			Data     json.RawMessage `json:"data"`
+		} `json:"input"`
+	}
+	_ = json.Unmarshal(creates[1], &msg)
+	if msg.Input.MemoryID != "hrn:mem:acme.com:eng-team" || msg.Input.NodeType != "message" ||
+		!strings.HasPrefix(msg.Input.Loc, "chat:messages:") || !strings.HasSuffix(msg.Input.Loc, "-iris") {
+		t.Errorf("message input: %+v", msg.Input)
+	}
+	var data struct {
+		Author    string   `json:"author"`
+		Role      string   `json:"role"`
+		Identity  string   `json:"identity"`
+		SessionID string   `json:"sessionId"`
+		Mentions  []string `json:"mentions"`
+	}
+	_ = json.Unmarshal(msg.Input.Data, &data)
+	if data.Author != "iris" || data.Role != "backend-engineer" || data.SessionID != "s-new" ||
+		data.Identity != "claude-code" || len(data.Mentions) != 1 || data.Mentions[0] != "rufus" {
+		t.Errorf("message data: %+v", data)
+	}
+	if !strings.Contains(out.String(), `"sessionId": "s-new"`) {
+		t.Errorf("post output: %s", out.String())
+	}
+}
+
+func TestTeamChatPostUnboundIsNotFound(t *testing.T) {
+	teamGitDir(t)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.NotFound {
+		t.Errorf("exit code = %d, want %d (NotFound); err: %v", code, exitcode.NotFound, err)
+	}
+}
+
+const teamChatMessagesJSON = `{"data":{"findNodes":{"hits":[
+	{"node":{"loc":"chat:messages:a-rufus","seq":5,
+		"data":{"author":"rufus","body":"@iris ping","timestamp":"t1","mentions":["iris"]}}},
+	{"node":{"loc":"chat:messages:b-holger","seq":6,
+		"data":{"author":"holger","body":"no mention here","timestamp":"t2"}}},
+	{"node":{"loc":"chat:messages:c-rufus","seq":7,
+		"data":{"author":"rufus","body":"also for @iris, no stored mentions","timestamp":"t3"}}}]}}}`
+
+// --reply-to takes the seq readers see; it resolves to the message's loc for
+// the reply edge.
+func TestTeamChatPostReplyToSeq(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var lastCreate json.RawMessage
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string          `json:"operationName"`
+			Variables     json.RawMessage `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "ChatMessages":
+			_, _ = w.Write([]byte(teamChatMessagesJSON))
+		case "CreateNode":
+			lastCreate = body.Variables
+			_, _ = w.Write([]byte(`{"data":{"createNode":{"id":"n1","loc":"chat:messages:x-iris","seq":8}}}`))
+		default:
+			t.Errorf("unexpected operation %q", body.OperationName)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
+		}
+	}))
+	t.Cleanup(gql.Close)
+
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "post", "--body", "done", "--reply-to", "5", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var msg struct {
+		Input struct {
+			Edges []struct {
+				TargetID string `json:"targetId"`
+				Name     string `json:"name"`
+			} `json:"edges"`
+		} `json:"input"`
+	}
+	_ = json.Unmarshal(lastCreate, &msg)
+	if len(msg.Input.Edges) != 1 || msg.Input.Edges[0].TargetID != "chat:messages:a-rufus" || msg.Input.Edges[0].Name != "reply" {
+		t.Errorf("reply edge: %+v", msg.Input.Edges)
+	}
+}
+
+// --mentions-me filters to the persona's @handle (stored mentions OR
+// recomputed from the body) while nextSince still advances past everything
+// read — a mentions-only reader must never re-read skipped messages.
+func TestTeamChatReadMentionsMe(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, _ := captureGraphQL(t, map[string]string{"ChatMessages": teamChatMessagesJSON})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--mentions-me", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Messages []struct {
+			Seq  *int   `json:"seq"`
+			Body string `json:"body"`
+		} `json:"messages"`
+		NextSince int `json:"nextSince"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("json: %v (%s)", err, out.String())
+	}
+	if len(dto.Messages) != 2 || *dto.Messages[0].Seq != 5 || *dto.Messages[1].Seq != 7 {
+		t.Errorf("mention filter: %s", out.String())
+	}
+	if dto.NextSince != 7 {
+		t.Errorf("nextSince must advance past filtered messages too, got %d", dto.NextSince)
 	}
 }
 
