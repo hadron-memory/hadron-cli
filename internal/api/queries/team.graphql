@@ -117,6 +117,21 @@ mutation StartTeamSession(
   }
 }
 
+# #931/#932: set a live session's mutable provenance fields mid-session.
+# `session log --pr` denormalizes the PR number here; any authorized update
+# also bumps updatedAt, which the #930 inactivity reaper counts as liveness.
+mutation UpdateTeamSession(
+  $id: ID!
+  # @genqlient(omitempty: true)
+  $prNumber: Int
+  # @genqlient(omitempty: true)
+  $branch: String
+) {
+  updateSession(id: $id, prNumber: $prNumber, branch: $branch) {
+    ...TeamSessionFields
+  }
+}
+
 mutation EndTeamSession(
   $id: ID!
   # @genqlient(omitempty: true)

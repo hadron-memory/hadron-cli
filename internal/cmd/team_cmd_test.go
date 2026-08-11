@@ -355,26 +355,41 @@ func TestTeamSessionWhoamiUnboundIsNotFound(t *testing.T) {
 	}
 }
 
-// Slice 1: `session log --pr` records locally (the server has no
-// session-update surface yet — worklog + Session.prNumber are slice 3).
-func TestTeamSessionLogRecordsPRLocally(t *testing.T) {
+// `session log --pr` denormalizes onto the Session row (updateSession,
+// hadron-server#932) and keeps the local binding's history for whoami.
+func TestTeamSessionLogRecordsPROnSession(t *testing.T) {
 	dir := teamGitDir(t)
 	path := filepath.Join(dir, "hadron-team-session.json")
 	if err := os.WriteFile(path, []byte(bindingFixture), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--json"})
+	root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateTeamSession"], &vars)
+	if vars["id"] != "s-new" || vars["prNumber"] != float64(371) {
+		t.Errorf("update vars: %v", vars)
+	}
+	// branch unset → omitted, not null (an explicit null would CLEAR it).
+	if _, present := vars["branch"]; present {
+		t.Errorf("unset branch must be omitted, got %v", vars["branch"])
 	}
 	var dto struct {
 		Recorded string `json:"recorded"`
 		PRNumber int    `json:"prNumber"`
 	}
 	_ = json.Unmarshal([]byte(out.String()), &dto)
-	if dto.Recorded != "local" || dto.PRNumber != 371 {
+	if dto.Recorded != "session" || dto.PRNumber != 371 {
 		t.Errorf("log output: %s", out.String())
 	}
 	data, _ := os.ReadFile(path)
@@ -384,6 +399,27 @@ func TestTeamSessionLogRecordsPRLocally(t *testing.T) {
 	_ = json.Unmarshal(data, &b)
 	if len(b.PRNumbers) != 1 || b.PRNumbers[0] != 371 {
 		t.Errorf("binding prNumbers: %s", data)
+	}
+}
+
+// log talks to the server now, so the binding's server guard applies to it
+// exactly as it does to end.
+func TestTeamSessionLogServerMismatch(t *testing.T) {
+	dir := teamGitDir(t)
+	b := strings.Replace(bindingFixture, `"prNumbers":[]`, `"server":"https://other.example","prNumbers":[]`, 1)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(b), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
+	}
+	if _, called := captured["UpdateTeamSession"]; called {
+		t.Error("UpdateTeamSession must not run against the wrong server")
 	}
 }
 

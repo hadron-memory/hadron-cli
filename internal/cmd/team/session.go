@@ -309,8 +309,10 @@ server whether the session is still open.`,
 }
 
 // logResultDTO is the stable --json shape of `session log`. Recorded is
-// "local" while the worklog is not built (#369 slice 3); a server-recorded
-// milestone will use a different value, so agents can branch on it.
+// "session" — the milestone is denormalized onto the Session row
+// (updateSession, hadron-server#932). It was "local" before that mutation
+// existed; a worklog-backed record (#369 slice 3) will use "worklog", so
+// agents can branch on the value.
 type logResultDTO struct {
 	SessionID string `json:"sessionId"`
 	PRNumber  int    `json:"prNumber"`
@@ -321,15 +323,16 @@ func newCmdSessionLog(f *cmdutil.Factory) *cobra.Command {
 	var pr int
 	cmd := &cobra.Command{
 		Use:   "log --pr <number>",
-		Short: "Record a milestone for the current session (slice-1: local only)",
-		Long: `Record a work milestone for this worktree's session. Slice 1 takes a bare
-PR number and records it in the local binding (shown by whoami).
+		Short: "Record a PR milestone for the current session",
+		Long: `Record a work milestone for this worktree's session: the PR number is
+written to the session server-side (Session.prNumber, latest wins — it is
+a display convenience, not the provenance mechanism) and kept in the local
+binding (shown by whoami, which retains every logged number). The update
+also counts as session liveness once the inactivity reaper lands
+(hadron-server#930).
 
-TODO(#369 slice 3): the shared worklog collection and the denormalized
-Session.prNumber replace this local record — the server currently has no
-mutation that updates an existing session, so nothing is written
-server-side yet. Session.prNumber is a display convenience either way;
-provenance queries go through the worklog.`,
+TODO(#369 slice 3): the shared worklog collection — the real provenance
+record (PR → sessions → transcripts) — plus issue/commit refs.`,
 		Example: `  hadron team session log --pr 371`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -344,6 +347,16 @@ provenance queries go through the worklog.`,
 			if b == nil {
 				return exitcode.Newf(exitcode.NotFound, "no active session in this worktree — `hadron team session start --as <name>` first")
 			}
+			if err := checkBindingServer(f, b); err != nil {
+				return err
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, &pr, nil); err != nil {
+				return api.MapError(err)
+			}
 			known := false
 			for _, n := range b.PRNumbers {
 				if n == pr {
@@ -353,12 +366,13 @@ provenance queries go through the worklog.`,
 			}
 			if !known {
 				b.PRNumbers = append(b.PRNumbers, pr)
+				// The server write already succeeded, so a failed local append
+				// only degrades whoami's history — report it, don't fail.
 				if _, err := writeBinding(ctx, b); err != nil {
-					return err
+					fmt.Fprintf(f.IOStreams.ErrOut, "note: recorded server-side, but updating the local binding failed: %v\n", err)
 				}
 			}
-			fmt.Fprintf(f.IOStreams.ErrOut, "note: recorded locally only — the shared worklog and Session.prNumber land with #369 slice 3\n")
-			result := logResultDTO{SessionID: b.SessionID, PRNumber: pr, Recorded: "local"}
+			result := logResultDTO{SessionID: b.SessionID, PRNumber: pr, Recorded: "session"}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ logged PR #%d for session %s\n", pr, b.SessionID)
 				return err
@@ -368,6 +382,20 @@ provenance queries go through the worklog.`,
 	cmd.Flags().IntVar(&pr, "pr", 0, "pull-request number this session worked on")
 	_ = cmd.MarkFlagRequired("pr")
 	return cmd
+}
+
+// checkBindingServer refuses a session mutation when the binding records a
+// different server than this invocation targets: the mutation would miss the
+// real session (or hit an unrelated one) while the real session keeps
+// holding its persona.
+func checkBindingServer(f *cmdutil.Factory, b *binding) error {
+	server, _ := f.Server()
+	if b.Server != "" && server != "" && b.Server != server {
+		return exitcode.Newf(exitcode.Usage,
+			"this worktree's session was started against %s, but the current server is %s — rerun with `--server %s`",
+			b.Server, server, b.Server)
+	}
+	return nil
 }
 
 // endResultDTO is the stable --json shape of `session end`.
@@ -404,15 +432,8 @@ session is still open.`,
 				}
 				id = b.SessionID
 				personaName = b.PersonaName
-				// The binding records which server the session lives on. Ending
-				// it against a different backend would "succeed" in confusion:
-				// the mutation fails to find the session (or worse, finds an
-				// unrelated one) while the real session keeps its persona.
-				server, _ := f.Server()
-				if b.Server != "" && server != "" && b.Server != server {
-					return exitcode.Newf(exitcode.Usage,
-						"this worktree's session was started against %s, but the current server is %s — rerun with `--server %s`",
-						b.Server, server, b.Server)
+				if err := checkBindingServer(f, b); err != nil {
+					return err
 				}
 			}
 			client, err := f.GraphQLClient()

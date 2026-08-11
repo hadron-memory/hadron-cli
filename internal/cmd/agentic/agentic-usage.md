@@ -694,8 +694,12 @@ Conventions:
   one. `session list`
   is the presence/provenance view, newest first, persona names joined in;
   `--active` and `--as` narrow client-side. `session log --pr <n>` records a
-  PR milestone **locally only** in slice 1 (shown by `whoami`; the shared
-  worklog and `Session.prNumber` land with #369 slice 3). The commit trailer
+  PR milestone: it is written to the session server-side (`Session.prNumber`
+  via `updateSession`, latest wins — a display convenience, not the
+  provenance mechanism) and kept in the local binding (`whoami` shows every
+  logged number); the update also counts as session liveness for the coming
+  inactivity reaper. `--json` reports `"recorded": "session"`; the
+  worklog-backed provenance record is #369 slice 3. The commit trailer
   `Persona: <name>` carries the persona name into PRs.
 - `user search <query>` finds users (enumeration-safe: substring on handle /
   GitHub username, exact on email) — the way to resolve a user ID for `org

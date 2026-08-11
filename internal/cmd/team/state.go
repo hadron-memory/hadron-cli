@@ -27,9 +27,10 @@ type binding struct {
 	PersonaRole string `json:"personaRole"`
 	Server      string `json:"server"`
 	StartedAt   string `json:"startedAt"`
-	// PRNumbers is `session log --pr`'s local record. TODO(#369 slice 3):
-	// the shared worklog + Session.prNumber denormalization replace this as
-	// the durable record once the server grows a session-update surface.
+	// PRNumbers is `session log --pr`'s local history — the server's
+	// Session.prNumber holds only the latest (#932), so whoami keeps the
+	// full list. TODO(#369 slice 3): the worklog collection becomes the
+	// durable multi-ref record.
 	PRNumbers []int `json:"prNumbers"`
 }
 
