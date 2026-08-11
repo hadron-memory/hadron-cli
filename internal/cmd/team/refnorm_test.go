@@ -22,6 +22,12 @@ func TestNormalizeArtifactRef(t *testing.T) {
 		{name: "pr url", kind: "pr", raw: "https://github.com/hadron-memory/hadron-cli/pull/371", want: "hadron-memory/hadron-cli#371", wantNumber: 371},
 		{name: "pr url with tail", kind: "pr", raw: "https://github.com/hadron-memory/hadron-cli/pull/371/files", want: "hadron-memory/hadron-cli#371", wantNumber: 371},
 		{name: "pr url schemeless", kind: "pr", raw: "github.com/hadron-memory/hadron-cli/pull/371", want: "hadron-memory/hadron-cli#371", wantNumber: 371},
+		// GitHub repo paths are case-insensitive — every spelling must fold
+		// onto ONE equality key.
+		{name: "pr short form case-folded", kind: "pr", raw: "Acme/Widgets#7", want: "acme/widgets#7", wantNumber: 7},
+		{name: "pr url case-folded", kind: "pr", raw: "https://github.com/Acme/Widgets/pull/7", want: "acme/widgets#7", wantNumber: 7},
+		{name: "pr bare number default repo case-folded", kind: "pr", raw: "7", defaultRepo: "Acme/Widgets", want: "acme/widgets#7", wantNumber: 7},
+		{name: "commit short form repo case-folded", kind: "commit", raw: "Acme/Widgets@DEADBEEF00", want: "acme/widgets@deadbeef00"},
 		{name: "issue url", kind: "issue", raw: "https://github.com/hadron-memory/hadron-cli/issues/362", want: "hadron-memory/hadron-cli#362", wantNumber: 362},
 		{name: "issue short form", kind: "issue", raw: "acme/widgets#12", want: "acme/widgets#12", wantNumber: 12},
 		{name: "pr zero rejected", kind: "pr", raw: "0", defaultRepo: "a/b", wantErr: true},
@@ -59,6 +65,7 @@ func TestNormalizeArtifactRef(t *testing.T) {
 
 func TestRepoFromRemote(t *testing.T) {
 	cases := map[string]string{
+		"git@github.com:Acme/Widgets.git":                 "acme/widgets",
 		"git@github.com:hadron-memory/hadron-cli.git":     "hadron-memory/hadron-cli",
 		"git@github.com:hadron-memory/hadron-cli":         "hadron-memory/hadron-cli",
 		"ssh://git@github.com/hadron-memory/hadron-cli":   "hadron-memory/hadron-cli",

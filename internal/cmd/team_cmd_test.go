@@ -792,6 +792,12 @@ func TestTeamSessionEndServerMismatch(t *testing.T) {
 // silently dropped.
 func TestTeamSessionListProvenanceQuery(t *testing.T) {
 	teamGitDir(t)
+	// The worklog match must page to exhaustion: a full first page of s-done
+	// milestones, then a tail page carrying s-hidden.
+	fullPage := make([]string, 0, 200)
+	for i := 0; i < 200; i++ {
+		fullPage = append(fullPage, fmt.Sprintf(`{"id":"o%d","type":"worklog","sessionId":"s-done","ref":"hadron-memory/hadron-cli#371"}`, i))
+	}
 	var findObjectsVars json.RawMessage
 	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -803,10 +809,19 @@ func TestTeamSessionListProvenanceQuery(t *testing.T) {
 		switch body.OperationName {
 		case "FindObjects":
 			findObjectsVars = body.Variables
-			_, _ = w.Write([]byte(`{"data":{"findObjects":{"total":3,"objects":[
-				{"id":"o1","type":"worklog","sessionId":"s-done","ref":"hadron-memory/hadron-cli#371"},
-				{"id":"o2","type":"worklog","sessionId":"s-done","ref":"hadron-memory/hadron-cli#371"},
-				{"id":"o3","type":"worklog","sessionId":"s-hidden","ref":"hadron-memory/hadron-cli#371"}]}}}`))
+			var vars struct {
+				Offset *int `json:"offset"`
+			}
+			_ = json.Unmarshal(body.Variables, &vars)
+			if vars.Offset == nil || *vars.Offset == 0 {
+				_, _ = w.Write([]byte(`{"data":{"findObjects":{"total":201,"objects":[` + strings.Join(fullPage, ",") + `]}}}`))
+			} else {
+				if *vars.Offset != 200 {
+					t.Errorf("unexpected offset %d", *vars.Offset)
+				}
+				_, _ = w.Write([]byte(`{"data":{"findObjects":{"total":201,"objects":[
+					{"id":"o200","type":"worklog","sessionId":"s-hidden","ref":"hadron-memory/hadron-cli#371"}]}}}`))
+			}
 		case "PersonaAgents":
 			_, _ = w.Write([]byte(rosterJSON))
 		case "GetTeamSession":
@@ -839,7 +854,10 @@ func TestTeamSessionListProvenanceQuery(t *testing.T) {
 		Match     map[string]string `json:"match"`
 	}
 	_ = json.Unmarshal(findObjectsVars, &match)
-	if match.Match["ref"] != "hadron-memory/hadron-cli#371" || match.MemoryRef != "hrn:mem:acme.com:eng-team" {
+	// kind is part of the match — PRs and issues share GitHub's number
+	// space, so ref alone would mix artifact kinds.
+	if match.Match["ref"] != "hadron-memory/hadron-cli#371" || match.Match["kind"] != "pr" ||
+		match.MemoryRef != "hrn:mem:acme.com:eng-team" {
 		t.Errorf("worklog lookup: %+v", match)
 	}
 	var got []struct {
@@ -849,9 +867,21 @@ func TestTeamSessionListProvenanceQuery(t *testing.T) {
 	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
 		t.Fatalf("json: %v (%s)", err, out.String())
 	}
-	// Both sessions list (deduped), the unreadable one as an id-only stub.
+	// Both sessions list (deduped across pages), the unreadable one as an
+	// id-only stub.
 	if len(got) != 2 || got[0].ID != "s-done" || got[1].ID != "s-hidden" || got[1].StartedAt != "" {
 		t.Errorf("provenance rows: %s", out.String())
+	}
+
+	// --pr ignores no flags silently: presence filters and paging are
+	// rejected loudly.
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "session", "list", "--pr", "371", "-m", "acme.com::eng-team",
+		"--limit", "5", "--server", gql.URL})
+	err := root2.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("--pr with --limit: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 }
 

@@ -58,7 +58,7 @@ future lookup.
 
 ### The binding carries the worklog inputs
 
-`session start` gained `-m/--team memory` and now records `teamMemory`,
+`session start` gained `-m/--memory` (the team memory) and now records `teamMemory`,
 `tool`, and `repo` in the worktree binding — so `session log` needs no
 per-call plumbing: `sessionId`/`personaName`/`tool` come from the binding,
 bare refs qualify against its `repo`, and the worklog home is its
@@ -78,9 +78,13 @@ note (tested via the symlink trick).
 
 ### `session list --pr <ref>` — the provenance query
 
-`findObjects(memory, "worklog", match: {ref: <canonical>})` → deduped
-`sessionId`s → `session(id)` each → rows with persona names joined from the
-roster. Several rows per PR are expected and desirable (a PR spanning three
+`findObjects(memory, "worklog", match: {ref: <canonical>, kind: "pr"})` —
+kind is part of the match because PRs and issues share GitHub's number space
+— paged to exhaustion (the issue-#23 rule: `--pr` promises the *complete*
+provenance set) → deduped `sessionId`s → `session(id)` each → rows with
+persona names joined from the roster. Bare `--pr 371` qualifies through the
+same `defaultRepo` fallback as `session log` (binding repo, then the github
+origin remote), so the documented unbound-checkout form works. Several rows per PR are expected and desirable (a PR spanning three
 sessions yields three transcripts — the table surfaces `transcriptPath`,
 `host`, `tool`, `llmModel`). A recorded session the caller cannot read lists
 as an **id-only stub** with a stderr note, per the nodes-list visibility-gap

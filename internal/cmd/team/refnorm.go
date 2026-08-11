@@ -28,6 +28,17 @@ var (
 	shaRE  = regexp.MustCompile(`^[0-9a-f]{7,40}$`)
 )
 
+// canonicalRepo validates and case-folds an owner/repo path. GitHub
+// repository paths are case-insensitive, so `Acme/Widgets` and `acme/widgets`
+// must land on ONE equality key — every composition path (short form, URL,
+// default repo, remote) goes through here.
+func canonicalRepo(repo string) (string, bool) {
+	if !repoRE.MatchString(repo) {
+		return "", false
+	}
+	return strings.ToLower(repo), true
+}
+
 // normalizeArtifactRef canonicalizes raw for the given kind (pr | issue |
 // commit). The returned number is the artifact number for pr/issue (0 for
 // commit). A malformed ref is a loud error naming the accepted forms — never
@@ -61,9 +72,10 @@ func normalizeNumberedRef(kind, raw, defaultRepo string) (string, int, error) {
 		return "", 0, fmt.Errorf("cannot parse a %s number from %q", kind, raw)
 	}
 	// Short form: owner/repo#371.
-	if repo, numStr, ok := strings.Cut(raw, "#"); ok {
+	if rawRepo, numStr, ok := strings.Cut(raw, "#"); ok {
 		n, err := strconv.Atoi(numStr)
-		if err != nil || n <= 0 || !repoRE.MatchString(repo) {
+		repo, repoOK := canonicalRepo(rawRepo)
+		if err != nil || n <= 0 || !repoOK {
 			return "", 0, fmt.Errorf("%q is not a valid %s ref (want owner/repo#N)", raw, kind)
 		}
 		return fmt.Sprintf("%s#%d", repo, n), n, nil
@@ -73,10 +85,11 @@ func normalizeNumberedRef(kind, raw, defaultRepo string) (string, int, error) {
 		if defaultRepo == "" {
 			return "", 0, fmt.Errorf("bare %s number %d needs a repository — pass owner/repo#%d, or record --repo at `session start`", kind, n, n)
 		}
-		if !repoRE.MatchString(defaultRepo) {
+		repo, ok := canonicalRepo(defaultRepo)
+		if !ok {
 			return "", 0, fmt.Errorf("session repo %q is not owner/repo — pass the full ref owner/repo#%d", defaultRepo, n)
 		}
-		return fmt.Sprintf("%s#%d", defaultRepo, n), n, nil
+		return fmt.Sprintf("%s#%d", repo, n), n, nil
 	}
 	return "", 0, fmt.Errorf("%q is not a recognized %s ref (accepted: a number, owner/repo#N, or a GitHub URL)", raw, kind)
 }
@@ -92,9 +105,10 @@ func normalizeCommitRef(raw, defaultRepo string) (string, int, error) {
 		return "", 0, fmt.Errorf("cannot parse a commit sha from %q", raw)
 	}
 	// Short form: owner/repo@sha.
-	if repo, sha, ok := strings.Cut(raw, "@"); ok {
+	if rawRepo, sha, ok := strings.Cut(raw, "@"); ok {
 		sha = strings.ToLower(sha)
-		if !repoRE.MatchString(repo) || !shaRE.MatchString(sha) {
+		repo, repoOK := canonicalRepo(rawRepo)
+		if !repoOK || !shaRE.MatchString(sha) {
 			return "", 0, fmt.Errorf("%q is not a valid commit ref (want owner/repo@sha)", raw)
 		}
 		return repo + "@" + sha, 0, nil
@@ -104,10 +118,11 @@ func normalizeCommitRef(raw, defaultRepo string) (string, int, error) {
 		if defaultRepo == "" {
 			return "", 0, fmt.Errorf("bare commit sha %s needs a repository — pass owner/repo@%s, or record --repo at `session start`", sha, sha)
 		}
-		if !repoRE.MatchString(defaultRepo) {
+		repo, ok := canonicalRepo(defaultRepo)
+		if !ok {
 			return "", 0, fmt.Errorf("session repo %q is not owner/repo — pass the full ref owner/repo@%s", defaultRepo, sha)
 		}
-		return defaultRepo + "@" + sha, 0, nil
+		return repo + "@" + sha, 0, nil
 	}
 	return "", 0, fmt.Errorf("%q is not a recognized commit ref (accepted: a sha, owner/repo@sha, or a GitHub URL)", raw)
 }
@@ -119,7 +134,9 @@ func splitGitHubURL(raw string) (repo, tail string, ok bool) {
 		if strings.HasPrefix(raw, prefix) {
 			parts := strings.SplitN(strings.TrimPrefix(raw, prefix), "/", 3)
 			if len(parts) == 3 && parts[0] != "" && parts[1] != "" {
-				return parts[0] + "/" + parts[1], parts[2], true
+				if r, ok := canonicalRepo(parts[0] + "/" + parts[1]); ok {
+					return r, parts[2], true
+				}
 			}
 			return "", "", false
 		}
@@ -147,8 +164,8 @@ func repoFromRemote(remote string) string {
 		return ""
 	}
 	path = strings.TrimSuffix(strings.TrimSuffix(path, "/"), ".git")
-	if repoRE.MatchString(path) {
-		return path
+	if r, ok := canonicalRepo(path); ok {
+		return r
 	}
 	return ""
 }

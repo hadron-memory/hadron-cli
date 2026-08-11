@@ -467,10 +467,12 @@ Without a team memory, --pr degrades to that denormalization alone.`,
 }
 
 // defaultRepo qualifies bare artifact numbers/shas: the binding's recorded
-// --repo first, else the worktree's github origin remote. The env override
-// (tests, exotic setups) suppresses the git call the same way gitDir's does.
+// --repo first (nil binding tolerated — the provenance query runs from
+// unbound checkouts too), else the worktree's github origin remote. The env
+// override (tests, exotic setups) suppresses the git call the same way
+// gitDir's does.
 func defaultRepo(ctx context.Context, b *binding) string {
-	if b.Repo != "" {
+	if b != nil && b.Repo != "" {
 		return b.Repo
 	}
 	if os.Getenv("HADRON_TEAM_GIT_DIR") != "" {
@@ -598,8 +600,9 @@ silently dropped.`,
 			if limit < 0 || offset < 0 {
 				return exitcode.Newf(exitcode.Usage, "--limit and --offset must be non-negative")
 			}
-			if pr != "" && (active || as != "" || repo != "") {
-				return exitcode.Newf(exitcode.Usage, "--pr is the worklog provenance query — it does not combine with --active/--as/--repo")
+			if pr != "" && (active || as != "" || repo != "" ||
+				cmd.Flags().Changed("limit") || cmd.Flags().Changed("offset")) {
+				return exitcode.Newf(exitcode.Usage, "--pr is the worklog provenance query — it does not combine with --active/--as/--repo/--limit/--offset")
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -725,22 +728,27 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 	if teamMem == "" {
 		return exitcode.Newf(exitcode.Usage, "the provenance query reads the team worklog — pass -m <team-memory> (or record it with `session start -m`)")
 	}
-	repoHint := ""
-	if b != nil {
-		repoHint = b.Repo
-	}
-	canonical, _, err := normalizeArtifactRef("pr", pr, repoHint)
+	canonical, _, err := normalizeArtifactRef("pr", pr, defaultRepo(ctx, b))
 	if err != nil {
 		return exitcode.New(exitcode.Usage, err)
 	}
-	match := json.RawMessage(fmt.Sprintf(`{"ref":%q}`, canonical))
-	resp, err := gen.FindObjects(ctx, client, teamMem, "worklog", &match, nil, nil, nil, nil)
-	if err != nil {
-		return api.MapError(err)
-	}
+	// kind is part of the match: PRs and issues share GitHub's number space,
+	// so ref alone would mix an issue's sessions into a PR's provenance.
+	match := json.RawMessage(fmt.Sprintf(`{"ref":%q,"kind":"pr"}`, canonical))
+	// Page to exhaustion — --pr promises the COMPLETE provenance set, and an
+	// unbounded findObjects call is one default page (the issue-#23 rule).
 	sessionIDs := []string{}
 	seen := map[string]bool{}
-	if resp.FindObjects != nil {
+	pageSize := sessionPageSize
+	for offset := 0; ; {
+		off := offset
+		resp, err := gen.FindObjects(ctx, client, teamMem, "worklog", &match, nil, nil, &pageSize, &off)
+		if err != nil {
+			return api.MapError(err)
+		}
+		if resp.FindObjects == nil {
+			break
+		}
 		for _, obj := range resp.FindObjects.Objects {
 			var row struct {
 				SessionID string `json:"sessionId"`
@@ -752,6 +760,10 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 				seen[row.SessionID] = true
 				sessionIDs = append(sessionIDs, row.SessionID)
 			}
+		}
+		offset += len(resp.FindObjects.Objects)
+		if len(resp.FindObjects.Objects) < pageSize {
+			break
 		}
 	}
 	roster, err := scanPersonaAgents(ctx, client, optStr(org))
