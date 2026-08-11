@@ -29,6 +29,7 @@ different human. A session binds the current git worktree to a persona and
 records provenance (host, tool, transcript path) so a merged PR traces back
 to the session that produced it.`,
 	}
+	cmd.AddCommand(newCmdInit(f))
 	cmd.AddCommand(newCmdPersona(f))
 	cmd.AddCommand(newCmdSession(f))
 	return cmd

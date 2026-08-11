@@ -233,7 +233,8 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "start", "--as", "Iris", "--tool", "claude-code",
-		"--transcript", "/tmp/t.jsonl", "--json", "--server", gql.URL})
+		"--transcript", "/tmp/t.jsonl", "--repo", "hadron-memory/hadron-cli",
+		"-m", "acme.com::eng-team", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -252,7 +253,7 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 		t.Errorf("host must default to the hostname, got %v", vars.Input["host"])
 	}
 	// Unset optional SessionInput fields are OMITTED, never null.
-	for _, k := range []string{"repo", "branch", "llmModel", "prNumber", "type"} {
+	for _, k := range []string{"branch", "llmModel", "prNumber", "type"} {
 		if _, present := vars.Input[k]; present {
 			t.Errorf("unset %q must be omitted from SessionInput, got %v", k, vars.Input[k])
 		}
@@ -265,6 +266,12 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 	_ = json.Unmarshal(data, &b)
 	if b["sessionId"] != "s-new" || b["personaName"] != "Iris" || b["agentId"] != "agt1" {
 		t.Errorf("binding: %s", data)
+	}
+	// The worklog inputs travel through the binding: team memory
+	// (canonicalized), tool, and the repo that qualifies bare refs.
+	if b["teamMemory"] != "hrn:mem:acme.com:eng-team" || b["tool"] != "claude-code" ||
+		b["repo"] != "hadron-memory/hadron-cli" {
+		t.Errorf("binding worklog inputs: %s", data)
 	}
 	if !strings.Contains(out.String(), `"tookOver": false`) {
 		t.Errorf("start output: %s", out.String())
@@ -319,7 +326,13 @@ func TestTeamSessionStartForceTakesOver(t *testing.T) {
 
 const bindingFixture = `{"sessionId":"s-new","agentId":"agt1","agentUrn":"hrn:agent:acme.com:iris",
 	"personaName":"Iris","personaRole":"backend-engineer","startedAt":"2026-08-11T10:00:00Z",
-	"prNumbers":[]}`
+	"repo":"hadron-memory/hadron-cli","prNumbers":[]}`
+
+// A binding whose session was started with -m (team memory) and --tool.
+const bindingWithTeamFixture = `{"sessionId":"s-new","agentId":"agt1","agentUrn":"hrn:agent:acme.com:iris",
+	"personaName":"Iris","personaRole":"backend-engineer","startedAt":"2026-08-11T10:00:00Z",
+	"teamMemory":"hrn:mem:acme.com:eng-team","tool":"claude-code",
+	"repo":"hadron-memory/hadron-cli","prNumbers":[]}`
 
 // whoami is the compaction-recovery read: local only, no server round-trip
 // (no fake server is running here).
@@ -355,12 +368,80 @@ func TestTeamSessionWhoamiUnboundIsNotFound(t *testing.T) {
 	}
 }
 
-// `session log --pr` denormalizes onto the Session row (updateSession,
-// hadron-server#932) and keeps the local binding's history for whoami.
-func TestTeamSessionLogRecordsPROnSession(t *testing.T) {
+// `session log --pr` writes the worklog milestone (canonical normalized ref,
+// flat fields) AND denormalizes onto Session.prNumber, keeping the local
+// binding's history for whoami.
+func TestTeamSessionLogWritesWorklogAndSession(t *testing.T) {
 	dir := teamGitDir(t)
 	path := filepath.Join(dir, "hadron-team-session.json")
-	if err := os.WriteFile(path, []byte(bindingFixture), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+		"CreateObject": `{"data":{"createObject":{"id":"o1"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	// Bare number → qualified by the binding's repo.
+	root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateTeamSession"], &vars)
+	if vars["id"] != "s-new" || vars["prNumber"] != float64(371) {
+		t.Errorf("update vars: %v", vars)
+	}
+	// branch unset → omitted, not null (an explicit null would CLEAR it).
+	if _, present := vars["branch"]; present {
+		t.Errorf("unset branch must be omitted, got %v", vars["branch"])
+	}
+	var objVars struct {
+		MemoryRef  string         `json:"memoryRef"`
+		ObjectType string         `json:"objectType"`
+		Fields     map[string]any `json:"fields"`
+	}
+	_ = json.Unmarshal(captured["CreateObject"], &objVars)
+	if objVars.MemoryRef != "hrn:mem:acme.com:eng-team" || objVars.ObjectType != "worklog" {
+		t.Errorf("worklog target: %+v", objVars)
+	}
+	fld := objVars.Fields
+	if fld["sessionId"] != "s-new" || fld["personaName"] != "Iris" || fld["tool"] != "claude-code" ||
+		fld["kind"] != "pr" || fld["ref"] != "hadron-memory/hadron-cli#371" || fld["action"] != "worked-on" {
+		t.Errorf("worklog fields: %v", fld)
+	}
+	if at, _ := fld["at"].(string); at == "" {
+		t.Errorf("worklog at must be set, got %v", fld["at"])
+	}
+	var dto struct {
+		Recorded string `json:"recorded"`
+		Ref      string `json:"ref"`
+		PRNumber int    `json:"prNumber"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	if dto.Recorded != "worklog" || dto.Ref != "hadron-memory/hadron-cli#371" || dto.PRNumber != 371 {
+		t.Errorf("log output: %s", out.String())
+	}
+	data, _ := os.ReadFile(path)
+	var b struct {
+		PRNumbers []int `json:"prNumbers"`
+	}
+	_ = json.Unmarshal(data, &b)
+	if len(b.PRNumbers) != 1 || b.PRNumbers[0] != 371 {
+		t.Errorf("binding prNumbers: %s", data)
+	}
+}
+
+// Without a team memory, --pr degrades to the Session.prNumber
+// denormalization (recorded: "session", with a note) — but an issue/commit
+// milestone has nowhere durable to go, so it refuses.
+func TestTeamSessionLogWithoutTeamMemory(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingFixture), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
@@ -375,30 +456,19 @@ func TestTeamSessionLogRecordsPROnSession(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var vars map[string]any
-	_ = json.Unmarshal(captured["UpdateTeamSession"], &vars)
-	if vars["id"] != "s-new" || vars["prNumber"] != float64(371) {
-		t.Errorf("update vars: %v", vars)
+	if _, called := captured["CreateObject"]; called {
+		t.Error("no worklog write without a team memory")
 	}
-	// branch unset → omitted, not null (an explicit null would CLEAR it).
-	if _, present := vars["branch"]; present {
-		t.Errorf("unset branch must be omitted, got %v", vars["branch"])
-	}
-	var dto struct {
-		Recorded string `json:"recorded"`
-		PRNumber int    `json:"prNumber"`
-	}
-	_ = json.Unmarshal([]byte(out.String()), &dto)
-	if dto.Recorded != "session" || dto.PRNumber != 371 {
+	if !strings.Contains(out.String(), `"recorded": "session"`) {
 		t.Errorf("log output: %s", out.String())
 	}
-	data, _ := os.ReadFile(path)
-	var b struct {
-		PRNumbers []int `json:"prNumbers"`
-	}
-	_ = json.Unmarshal(data, &b)
-	if len(b.PRNumbers) != 1 || b.PRNumbers[0] != 371 {
-		t.Errorf("binding prNumbers: %s", data)
+
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "session", "log", "--issue", "362", "--server", gql.URL})
+	err := root2.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("issue without team memory: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 }
 
@@ -713,6 +783,155 @@ func TestTeamSessionEndServerMismatch(t *testing.T) {
 	}
 	if _, called := captured["EndTeamSession"]; called {
 		t.Error("EndTeamSession must not run against the wrong server")
+	}
+}
+
+// `session list --pr` is THE provenance query: normalized ref → worklog
+// match → session rows (deduped; several per PR expected). A recorded
+// session the caller cannot read still lists (id only) instead of being
+// silently dropped.
+func TestTeamSessionListProvenanceQuery(t *testing.T) {
+	teamGitDir(t)
+	var findObjectsVars json.RawMessage
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string          `json:"operationName"`
+			Variables     json.RawMessage `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "FindObjects":
+			findObjectsVars = body.Variables
+			_, _ = w.Write([]byte(`{"data":{"findObjects":{"total":3,"objects":[
+				{"id":"o1","type":"worklog","sessionId":"s-done","ref":"hadron-memory/hadron-cli#371"},
+				{"id":"o2","type":"worklog","sessionId":"s-done","ref":"hadron-memory/hadron-cli#371"},
+				{"id":"o3","type":"worklog","sessionId":"s-hidden","ref":"hadron-memory/hadron-cli#371"}]}}}`))
+		case "PersonaAgents":
+			_, _ = w.Write([]byte(rosterJSON))
+		case "GetTeamSession":
+			var vars struct {
+				ID string `json:"id"`
+			}
+			_ = json.Unmarshal(body.Variables, &vars)
+			if vars.ID == "s-done" {
+				_, _ = w.Write([]byte(`{"data":{"session":` + endedSessionJSON + `}}`))
+			} else {
+				// s-hidden: recorded in the worklog but not visible.
+				_, _ = w.Write([]byte(`{"data":{"session":null}}`))
+			}
+		default:
+			t.Errorf("unexpected operation %q", body.OperationName)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
+		}
+	}))
+	t.Cleanup(gql.Close)
+
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "list", "--pr", "hadron-memory/hadron-cli#371",
+		"-m", "acme.com::eng-team", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var match struct {
+		MemoryRef string            `json:"memoryRef"`
+		Match     map[string]string `json:"match"`
+	}
+	_ = json.Unmarshal(findObjectsVars, &match)
+	if match.Match["ref"] != "hadron-memory/hadron-cli#371" || match.MemoryRef != "hrn:mem:acme.com:eng-team" {
+		t.Errorf("worklog lookup: %+v", match)
+	}
+	var got []struct {
+		ID        string `json:"id"`
+		StartedAt string `json:"startedAt"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+		t.Fatalf("json: %v (%s)", err, out.String())
+	}
+	// Both sessions list (deduped), the unreadable one as an id-only stub.
+	if len(got) != 2 || got[0].ID != "s-done" || got[1].ID != "s-hidden" || got[1].StartedAt != "" {
+		t.Errorf("provenance rows: %s", out.String())
+	}
+}
+
+// team init merges the worklog collection into the memory schema without
+// clobbering other collections, and converges idempotently.
+func TestTeamInit(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetMemory": `{"data":{"memory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team","name":"Eng Team",
+			"shortDescription":null,"description":null,"class":"app","visibility":"ORGANIZATION",
+			"organizationId":"o1","isEncrypted":false,"tags":[],"source":null,"syncStatus":"NONE",
+			"vectorIndexEnabled":false,"maxRevCount":10,"data":null,
+			"schema":{"objectTypes":{"competitor":{"fields":{"name":{"type":"text","required":true}}}}},
+			"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
+		"UpdateMemory": `{"data":{"updateMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team","name":"Eng Team",
+			"shortDescription":null,"class":"app","visibility":"ORGANIZATION","organizationId":"o1",
+			"isEncrypted":false,"maxRevCount":10,"updatedAt":"2026-08-11T00:00:00Z"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "init", "-m", "acme.com::eng-team", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Schema struct {
+			ObjectTypes map[string]json.RawMessage `json:"objectTypes"`
+		} `json:"schema"`
+	}
+	_ = json.Unmarshal(captured["UpdateMemory"], &vars)
+	if _, ok := vars.Schema.ObjectTypes["worklog"]; !ok {
+		t.Errorf("worklog collection not declared: %s", captured["UpdateMemory"])
+	}
+	if _, ok := vars.Schema.ObjectTypes["competitor"]; !ok {
+		t.Errorf("existing collection must be preserved: %s", captured["UpdateMemory"])
+	}
+	var worklog struct {
+		Fields map[string]struct {
+			Type     string `json:"type"`
+			Required bool   `json:"required"`
+		} `json:"fields"`
+	}
+	_ = json.Unmarshal(vars.Schema.ObjectTypes["worklog"], &worklog)
+	for _, fname := range []string{"sessionId", "personaName", "tool", "kind", "ref", "action", "at"} {
+		if !worklog.Fields[fname].Required {
+			t.Errorf("worklog field %q must be required: %v", fname, worklog.Fields[fname])
+		}
+	}
+	if !strings.Contains(out.String(), `"status": "created"`) {
+		t.Errorf("init output: %s", out.String())
+	}
+}
+
+// A schema that already carries the canonical worklog definition is left
+// untouched — no UpdateMemory round-trip.
+func TestTeamInitIdempotent(t *testing.T) {
+	// Serve back exactly what init would write, keys deliberately reordered.
+	worklogDef := `{"fields":{"at":{"type":"datetime","required":true},"action":{"type":"text","required":true},
+		"ref":{"type":"text","required":true},"kind":{"type":"enum","required":true,"values":["pr","issue","commit","branch"]},
+		"tool":{"type":"text","required":true},"personaName":{"type":"text","required":true},
+		"sessionId":{"type":"text","required":true}},
+		"description":"Append-only external-artifact milestones per session (hadron-cli#369 D13/D14) - the PR/session provenance join. ref is the canonical normalized artifact string (owner/repo#N, owner/repo@sha)."}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetMemory": `{"data":{"memory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team","name":"Eng Team",
+			"shortDescription":null,"description":null,"class":"app","visibility":"ORGANIZATION",
+			"organizationId":"o1","isEncrypted":false,"tags":[],"source":null,"syncStatus":"NONE",
+			"vectorIndexEnabled":false,"maxRevCount":10,"data":null,
+			"schema":{"objectTypes":{"worklog":` + worklogDef + `}},
+			"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "init", "-m", "acme.com::eng-team", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, called := captured["UpdateMemory"]; called {
+		t.Error("an unchanged schema must not be rewritten")
+	}
+	if !strings.Contains(out.String(), `"status": "unchanged"`) {
+		t.Errorf("init output: %s", out.String())
 	}
 }
 

@@ -136,8 +136,8 @@ worklog record will say `"worklog"`). Per #932's design, any authorized
 update bumps `updatedAt`, which the #930 inactivity reaper counts as
 liveness — so `session log` doubles as the heartbeat that keeps a persona
 "taken" while work is in flight. The binding-server guard applies to `log`
-exactly as to `end`. TODO(#369 slice 3): the worklog collection (PR →
-sessions → transcripts) plus issue/commit refs.
+exactly as to `end`. The worklog collection (PR → sessions → transcripts)
+and issue/commit refs shipped next — see [team-worklog.md](team-worklog.md).
 
 ## GraphQL layer
 

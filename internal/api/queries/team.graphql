@@ -146,6 +146,15 @@ mutation EndTeamSession(
   }
 }
 
+# One session by id — the provenance query resolves worklog sessionIds
+# through this (sessions have no URN; id-only is the cor:api:140 genuine-PK
+# case). Null when not found or not visible.
+query GetTeamSession($id: ID!) {
+  session(id: $id) {
+    ...TeamSessionFields
+  }
+}
+
 # The sessions list has no agent/active filter server-side, so the presence
 # and takeover checks page this to exhaustion (ordered startedAt desc) and
 # filter client-side.

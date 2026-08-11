@@ -2,10 +2,13 @@ package team
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/google/uuid"
@@ -138,7 +141,7 @@ func describeSession(s *gen.TeamSessionFields) string {
 }
 
 func newCmdSessionStart(f *cmdutil.Factory) *cobra.Command {
-	var as, org, repo, branch, transcript, host, tool, model string
+	var as, org, repo, branch, transcript, host, tool, model, teamMemory string
 	var force bool
 	cmd := &cobra.Command{
 		Use:   "start --as <persona> [--transcript <path>] [--tool <t>] [--force]",
@@ -231,6 +234,10 @@ so the old binding never orphans an active session.`,
 			}
 			s := resp.StartSession.TeamSessionFields
 			server, _ := f.Server()
+			teamMem := ""
+			if teamMemory != "" {
+				teamMem = cmdutil.CanonicalMemoryRef(teamMemory)
+			}
 			path, err := writeBinding(ctx, &binding{
 				SessionID:   s.Id,
 				AgentID:     p.Id,
@@ -239,6 +246,9 @@ so the old binding never orphans an active session.`,
 				PersonaRole: strOrEmpty(p.PersonaRole),
 				Server:      server,
 				StartedAt:   s.StartedAt,
+				TeamMemory:  teamMem,
+				Tool:        tool,
+				Repo:        repo,
 			})
 			if err != nil {
 				// The server session already exists; without a binding this
@@ -269,6 +279,7 @@ so the old binding never orphans an active session.`,
 	cmd.Flags().StringVar(&host, "host", "", "machine identifier (defaults to this hostname)")
 	cmd.Flags().StringVar(&tool, "tool", "", "driving tool, e.g. claude-code or codex")
 	cmd.Flags().StringVar(&model, "model", "", "LLM model driving the session")
+	cmd.Flags().StringVarP(&teamMemory, "memory", "m", "", "team App memory (worklog home) — recorded in the binding for `session log`/`list --pr`")
 	_ = cmd.MarkFlagRequired("as")
 	return cmd
 }
@@ -308,37 +319,60 @@ server whether the session is still open.`,
 	}
 }
 
-// logResultDTO is the stable --json shape of `session log`. Recorded is
-// "session" — the milestone is denormalized onto the Session row
-// (updateSession, hadron-server#932). It was "local" before that mutation
-// existed; a worklog-backed record (#369 slice 3) will use "worklog", so
-// agents can branch on the value.
+// logResultDTO is the stable --json shape of `session log`. Recorded says
+// where the milestone durably landed: "worklog" (the object-store row — the
+// real provenance record) or "session" (only the Session.prNumber
+// denormalization, when no team memory is configured). The pre-worklog
+// stopgap value was "local".
 type logResultDTO struct {
 	SessionID string `json:"sessionId"`
-	PRNumber  int    `json:"prNumber"`
-	Recorded  string `json:"recorded"`
+	Kind      string `json:"kind"`
+	Ref       string `json:"ref"`
+	// PRNumber is set for kind "pr" (0 otherwise) — the value denormalized
+	// onto Session.prNumber.
+	PRNumber int    `json:"prNumber"`
+	Recorded string `json:"recorded"`
 }
 
 func newCmdSessionLog(f *cmdutil.Factory) *cobra.Command {
-	var pr int
+	var pr, issue, commit, action, detail, memory string
 	cmd := &cobra.Command{
-		Use:   "log --pr <number>",
-		Short: "Record a PR milestone for the current session",
-		Long: `Record a work milestone for this worktree's session: the PR number is
-written to the session server-side (Session.prNumber, latest wins — it is
-a display convenience, not the provenance mechanism) and kept in the local
-binding (shown by whoami, which retains every logged number). The update
-also counts as session liveness once the inactivity reaper lands
-(hadron-server#930).
+		Use:   "log (--pr | --issue | --commit) <ref> [--action <a>]",
+		Short: "Record an artifact milestone for the current session",
+		Long: `Record an external-artifact milestone for this worktree's session in the
+team worklog — the collection behind the provenance query
+(` + "`session list --pr <ref>`" + `: which sessions produced this PR?). The worklog
+home is the team memory recorded at ` + "`session start -m`" + ` (or --memory here);
+declare its schema once with ` + "`team init`" + `.
 
-TODO(#369 slice 3): the shared worklog collection — the real provenance
-record (PR → sessions → transcripts) — plus issue/commit refs.`,
-		Example: `  hadron team session log --pr 371`,
-		Args:    cobra.NoArgs,
+Refs are normalized to one canonical string per artifact (owner/repo#371,
+owner/repo@sha) — a URL, the short form, or a bare number/sha are all
+accepted; a bare value is qualified by the session's recorded --repo (or
+the git remote). --pr additionally denormalizes the number onto
+Session.prNumber (latest wins; display convenience only) and counts as
+session liveness for the coming inactivity reaper (hadron-server#930).
+Without a team memory, --pr degrades to that denormalization alone.`,
+		Example: `  hadron team session log --pr 371
+  hadron team session log --pr acme/widgets#7 --action merged
+  hadron team session log --commit 93200b2 --action pushed`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			if pr <= 0 {
-				return exitcode.Newf(exitcode.Usage, "--pr must be a positive PR number")
+			kind, raw := "", ""
+			switch {
+			case pr != "":
+				kind, raw = "pr", pr
+			case issue != "":
+				kind, raw = "issue", issue
+			case commit != "":
+				kind, raw = "commit", commit
+			}
+			var detailRaw json.RawMessage
+			if detail != "" {
+				if !json.Valid([]byte(detail)) {
+					return exitcode.Newf(exitcode.Usage, "--detail must be valid JSON")
+				}
+				detailRaw = json.RawMessage(detail)
 			}
 			b, _, err := readBinding(ctx)
 			if err != nil {
@@ -350,38 +384,103 @@ record (PR → sessions → transcripts) — plus issue/commit refs.`,
 			if err := checkBindingServer(f, b); err != nil {
 				return err
 			}
+			canonical, number, err := normalizeArtifactRef(kind, raw, defaultRepo(ctx, b))
+			if err != nil {
+				return exitcode.New(exitcode.Usage, err)
+			}
+			teamMem := b.TeamMemory
+			if memory != "" {
+				teamMem = cmdutil.CanonicalMemoryRef(memory)
+			}
+			if teamMem == "" && kind != "pr" {
+				return exitcode.Newf(exitcode.Usage,
+					"an %s milestone lives only in the team worklog — pass -m <team-memory> (or record it with `session start -m`), after a one-time `hadron team init`", kind)
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, &pr, nil); err != nil {
-				return api.MapError(err)
-			}
-			known := false
-			for _, n := range b.PRNumbers {
-				if n == pr {
-					known = true
-					break
+			// Session.prNumber denormalization (+ the liveness touch) for PRs.
+			if kind == "pr" {
+				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, &number, nil); err != nil {
+					return api.MapError(err)
 				}
 			}
-			if !known {
-				b.PRNumbers = append(b.PRNumbers, pr)
-				// The server write already succeeded, so a failed local append
-				// only degrades whoami's history — report it, don't fail.
-				if _, err := writeBinding(ctx, b); err != nil {
-					fmt.Fprintf(f.IOStreams.ErrOut, "note: recorded server-side, but updating the local binding failed: %v\n", err)
+			recorded := "session"
+			if teamMem != "" {
+				fields := map[string]any{
+					"sessionId":   b.SessionID,
+					"personaName": b.PersonaName,
+					"tool":        b.Tool,
+					"kind":        kind,
+					"ref":         canonical,
+					"action":      action,
+					"at":          time.Now().UTC().Format(time.RFC3339),
+				}
+				if detailRaw != nil {
+					fields["detail"] = detailRaw
+				}
+				fieldsJSON, err := json.Marshal(fields)
+				if err != nil {
+					return err
+				}
+				if _, err := gen.CreateObject(ctx, client, teamMem, "worklog", fieldsJSON, nil, nil); err != nil {
+					return api.MapError(err)
+				}
+				recorded = "worklog"
+			} else {
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: no team memory recorded — only Session.prNumber was set; `hadron team init` + `session start -m <memory>` enable the worklog\n")
+			}
+			if kind == "pr" {
+				known := false
+				for _, n := range b.PRNumbers {
+					if n == number {
+						known = true
+						break
+					}
+				}
+				if !known {
+					b.PRNumbers = append(b.PRNumbers, number)
+					// The server writes already succeeded, so a failed local
+					// append only degrades whoami's history — report, don't fail.
+					if _, err := writeBinding(ctx, b); err != nil {
+						fmt.Fprintf(f.IOStreams.ErrOut, "note: recorded server-side, but updating the local binding failed: %v\n", err)
+					}
 				}
 			}
-			result := logResultDTO{SessionID: b.SessionID, PRNumber: pr, Recorded: "session"}
+			result := logResultDTO{SessionID: b.SessionID, Kind: kind, Ref: canonical, PRNumber: number, Recorded: recorded}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ logged PR #%d for session %s\n", pr, b.SessionID)
+				_, err := fmt.Fprintf(w, "✓ logged %s %s for session %s (%s)\n", kind, canonical, b.SessionID, recorded)
 				return err
 			})
 		},
 	}
-	cmd.Flags().IntVar(&pr, "pr", 0, "pull-request number this session worked on")
-	_ = cmd.MarkFlagRequired("pr")
+	cmd.Flags().StringVar(&pr, "pr", "", "pull-request ref: number, owner/repo#N, or URL")
+	cmd.Flags().StringVar(&issue, "issue", "", "issue ref: number, owner/repo#N, or URL")
+	cmd.Flags().StringVar(&commit, "commit", "", "commit ref: sha, owner/repo@sha, or URL")
+	cmd.Flags().StringVar(&action, "action", "worked-on", "what happened to the artifact (e.g. opened, merged, pushed)")
+	cmd.Flags().StringVar(&detail, "detail", "", "optional JSON bag of display extras stored with the milestone")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "team App memory override (defaults to the binding's)")
+	cmd.MarkFlagsMutuallyExclusive("pr", "issue", "commit")
+	cmd.MarkFlagsOneRequired("pr", "issue", "commit")
 	return cmd
+}
+
+// defaultRepo qualifies bare artifact numbers/shas: the binding's recorded
+// --repo first, else the worktree's github origin remote. The env override
+// (tests, exotic setups) suppresses the git call the same way gitDir's does.
+func defaultRepo(ctx context.Context, b *binding) string {
+	if b.Repo != "" {
+		return b.Repo
+	}
+	if os.Getenv("HADRON_TEAM_GIT_DIR") != "" {
+		return ""
+	}
+	out, err := exec.CommandContext(ctx, "git", "config", "--get", "remote.origin.url").Output()
+	if err != nil {
+		return ""
+	}
+	return repoFromRemote(string(out))
 }
 
 // checkBindingServer refuses a session mutation when the binding records a
@@ -471,11 +570,11 @@ session is still open.`,
 }
 
 func newCmdSessionList(f *cmdutil.Factory) *cobra.Command {
-	var as, org, repo string
+	var as, org, repo, pr, memory string
 	var active bool
 	var limit, offset int
 	cmd := &cobra.Command{
-		Use:     "list [--active] [--as <persona>] [--repo <r>]",
+		Use:     "list [--active] [--as <persona>] [--repo <r>] | --pr <ref> [-m <team-memory>]",
 		Aliases: []string{"ls"},
 		Short:   "List sessions — team presence and session provenance",
 		Long: `List sessions, newest first, with each session's persona joined in.
@@ -484,17 +583,30 @@ there is no stale-session reaper yet, hadron-server#930); --as narrows to
 one persona's sessions. Both narrow client-side over the full list; plain
 listings page server-side.
 
-TODO(#369 slice 3): --pr — the worklog-backed provenance query (PR →
-sessions → transcripts).`,
+--pr <ref> is THE provenance query: which sessions produced this PR? It
+looks the normalized ref up in the team worklog (` + "`session log`" + ` writes it)
+and resolves each recorded session — several rows per PR are expected and
+desirable (a PR spanning three sessions yields three transcripts). The
+worklog home comes from -m or the worktree binding. A recorded session
+that is no longer visible to you still lists (id only), rather than being
+silently dropped.`,
+		Example: `  hadron team session list --active
+  hadron team session list --pr 371 -m acme.com::eng-team`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if limit < 0 || offset < 0 {
 				return exitcode.Newf(exitcode.Usage, "--limit and --offset must be non-negative")
 			}
+			if pr != "" && (active || as != "" || repo != "") {
+				return exitcode.Newf(exitcode.Usage, "--pr is the worklog provenance query — it does not combine with --active/--as/--repo")
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+			if pr != "" {
+				return runProvenanceQuery(cmd, f, client, pr, memory, org)
 			}
 			// One roster read joins personaName onto every row (sessions only
 			// carry agentId) and resolves --as.
@@ -585,9 +697,94 @@ sessions → transcripts).`,
 	cmd.Flags().StringVar(&as, "as", "", "only one persona's sessions (name, agent ID, or agent URN)")
 	cmd.Flags().StringVar(&org, "org", "", "roster scope for the persona join and --as resolution")
 	cmd.Flags().StringVar(&repo, "repo", "", "filter by repository")
+	cmd.Flags().StringVar(&pr, "pr", "", "provenance query: sessions behind this PR (number, owner/repo#N, or URL)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "team App memory holding the worklog (defaults to the binding's)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "max results (server default when unset)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "results to skip")
 	return cmd
+}
+
+// runProvenanceQuery answers "which sessions produced this PR": normalize the
+// ref, equality-match it in the worklog, resolve each recorded session. The
+// worklog is the N:M join (D13/D14) — Session.prNumber is never consulted.
+func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, pr, memory, org string) error {
+	ctx := cmd.Context()
+	// The binding supplies defaults (worklog home, repo for bare numbers)
+	// but the query must also run from an unbound checkout with -m.
+	b, _, err := readBinding(ctx)
+	if err != nil {
+		b = nil
+	}
+	teamMem := ""
+	if b != nil {
+		teamMem = b.TeamMemory
+	}
+	if memory != "" {
+		teamMem = cmdutil.CanonicalMemoryRef(memory)
+	}
+	if teamMem == "" {
+		return exitcode.Newf(exitcode.Usage, "the provenance query reads the team worklog — pass -m <team-memory> (or record it with `session start -m`)")
+	}
+	repoHint := ""
+	if b != nil {
+		repoHint = b.Repo
+	}
+	canonical, _, err := normalizeArtifactRef("pr", pr, repoHint)
+	if err != nil {
+		return exitcode.New(exitcode.Usage, err)
+	}
+	match := json.RawMessage(fmt.Sprintf(`{"ref":%q}`, canonical))
+	resp, err := gen.FindObjects(ctx, client, teamMem, "worklog", &match, nil, nil, nil, nil)
+	if err != nil {
+		return api.MapError(err)
+	}
+	sessionIDs := []string{}
+	seen := map[string]bool{}
+	if resp.FindObjects != nil {
+		for _, obj := range resp.FindObjects.Objects {
+			var row struct {
+				SessionID string `json:"sessionId"`
+			}
+			if err := json.Unmarshal(obj, &row); err != nil {
+				return fmt.Errorf("unparseable worklog object: %w", err)
+			}
+			if row.SessionID != "" && !seen[row.SessionID] {
+				seen[row.SessionID] = true
+				sessionIDs = append(sessionIDs, row.SessionID)
+			}
+		}
+	}
+	roster, err := scanPersonaAgents(ctx, client, optStr(org))
+	if err != nil {
+		return err
+	}
+	nameByAgent := map[string]*string{}
+	for i := range roster {
+		nameByAgent[roster[i].Id] = roster[i].PersonaName
+	}
+	sessions := []sessionDTO{}
+	for _, id := range sessionIDs {
+		resp, err := gen.GetTeamSession(ctx, client, id)
+		if err != nil {
+			return api.MapError(err)
+		}
+		if resp.Session == nil {
+			// The worklog names it but this principal can't read it — surface
+			// the id rather than silently dropping the row (the nodes-list
+			// visibility-gap rule applies to fan-outs like this one).
+			fmt.Fprintf(f.IOStreams.ErrOut, "note: session %s is recorded in the worklog but not visible to you\n", id)
+			sessions = append(sessions, sessionDTO{ID: id})
+			continue
+		}
+		sessions = append(sessions, sessionDTOFromFields(resp.Session.TeamSessionFields, personaNameFor(nameByAgent, resp.Session.AgentId)))
+	}
+	return output.Write(f.IOStreams, f.JSON, sessions, func(w io.Writer) error {
+		t := output.NewTable(w, "SESSION", "PERSONA", "USER", "TOOL", "HOST", "MODEL", "STARTED", "TRANSCRIPT")
+		for _, s := range sessions {
+			t.Row(s.ID, dash(s.PersonaName), dash(s.UserID), dash(s.Tool), dash(s.Host), dash(s.LLMModel), s.StartedAt, dash(s.TranscriptPath))
+		}
+		return t.Flush()
+	})
 }
 
 // personaNameFor joins a session's agentId onto the roster; nil when the

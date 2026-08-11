@@ -7408,6 +7408,140 @@ type GetPersonaAgentResponse struct {
 // GetAgent returns GetPersonaAgentResponse.Agent, and is useful for accessing the field via an interface.
 func (v *GetPersonaAgentResponse) GetAgent() *GetPersonaAgentAgent { return v.Agent }
 
+// GetTeamSessionResponse is returned by GetTeamSession on success.
+type GetTeamSessionResponse struct {
+	Session *GetTeamSessionSession `json:"session"`
+}
+
+// GetSession returns GetTeamSessionResponse.Session, and is useful for accessing the field via an interface.
+func (v *GetTeamSessionResponse) GetSession() *GetTeamSessionSession { return v.Session }
+
+// GetTeamSessionSession includes the requested fields of the GraphQL type Session.
+type GetTeamSessionSession struct {
+	TeamSessionFields `json:"-"`
+}
+
+// GetId returns GetTeamSessionSession.Id, and is useful for accessing the field via an interface.
+func (v *GetTeamSessionSession) GetId() string { return v.TeamSessionFields.Id }
+
+// GetAgentId returns GetTeamSessionSession.AgentId, and is useful for accessing the field via an interface.
+func (v *GetTeamSessionSession) GetAgentId() *string { return v.TeamSessionFields.AgentId }
+
+// GetUserId returns GetTeamSessionSession.UserId, and is useful for accessing the field via an interface.
+func (v *GetTeamSessionSession) GetUserId() *string { return v.TeamSessionFields.UserId }
+
+// GetType returns GetTeamSessionSession.Type, and is useful for accessing the field via an interface.
+func (v *GetTeamSessionSession) GetType() string { return v.TeamSessionFields.Type }
+
+// GetRepo returns GetTeamSessionSession.Repo, and is useful for accessing the field via an interface.
+func (v *GetTeamSessionSession) GetRepo() *string { return v.TeamSessionFields.Repo }
+
+// GetBranch returns GetTeamSessionSession.Branch, and is useful for accessing the field via an interface.
+func (v *GetTeamSessionSession) GetBranch() *string { return v.TeamSessionFields.Branch }
+
+// GetPrNumber returns GetTeamSessionSession.PrNumber, and is useful for accessing the field via an interface.
+func (v *GetTeamSessionSession) GetPrNumber() *int { return v.TeamSessionFields.PrNumber }
+
+// GetStartedAt returns GetTeamSessionSession.StartedAt, and is useful for accessing the field via an interface.
+func (v *GetTeamSessionSession) GetStartedAt() string { return v.TeamSessionFields.StartedAt }
+
+// GetEndedAt returns GetTeamSessionSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *GetTeamSessionSession) GetEndedAt() *string { return v.TeamSessionFields.EndedAt }
+
+// GetHost returns GetTeamSessionSession.Host, and is useful for accessing the field via an interface.
+func (v *GetTeamSessionSession) GetHost() *string { return v.TeamSessionFields.Host }
+
+// GetTool returns GetTeamSessionSession.Tool, and is useful for accessing the field via an interface.
+func (v *GetTeamSessionSession) GetTool() *string { return v.TeamSessionFields.Tool }
+
+// GetTranscriptPath returns GetTeamSessionSession.TranscriptPath, and is useful for accessing the field via an interface.
+func (v *GetTeamSessionSession) GetTranscriptPath() *string {
+	return v.TeamSessionFields.TranscriptPath
+}
+
+// GetLlmModel returns GetTeamSessionSession.LlmModel, and is useful for accessing the field via an interface.
+func (v *GetTeamSessionSession) GetLlmModel() *string { return v.TeamSessionFields.LlmModel }
+
+func (v *GetTeamSessionSession) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetTeamSessionSession
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetTeamSessionSession = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamSessionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetTeamSessionSession struct {
+	Id string `json:"id"`
+
+	AgentId *string `json:"agentId"`
+
+	UserId *string `json:"userId"`
+
+	Type string `json:"type"`
+
+	Repo *string `json:"repo"`
+
+	Branch *string `json:"branch"`
+
+	PrNumber *int `json:"prNumber"`
+
+	StartedAt string `json:"startedAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	Host *string `json:"host"`
+
+	Tool *string `json:"tool"`
+
+	TranscriptPath *string `json:"transcriptPath"`
+
+	LlmModel *string `json:"llmModel"`
+}
+
+func (v *GetTeamSessionSession) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetTeamSessionSession) __premarshalJSON() (*__premarshalGetTeamSessionSession, error) {
+	var retval __premarshalGetTeamSessionSession
+
+	retval.Id = v.TeamSessionFields.Id
+	retval.AgentId = v.TeamSessionFields.AgentId
+	retval.UserId = v.TeamSessionFields.UserId
+	retval.Type = v.TeamSessionFields.Type
+	retval.Repo = v.TeamSessionFields.Repo
+	retval.Branch = v.TeamSessionFields.Branch
+	retval.PrNumber = v.TeamSessionFields.PrNumber
+	retval.StartedAt = v.TeamSessionFields.StartedAt
+	retval.EndedAt = v.TeamSessionFields.EndedAt
+	retval.Host = v.TeamSessionFields.Host
+	retval.Tool = v.TeamSessionFields.Tool
+	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
+	retval.LlmModel = v.TeamSessionFields.LlmModel
+	return &retval, nil
+}
+
 // GetUserResponse is returned by GetUser on success.
 type GetUserResponse struct {
 	// The uniform single-user read (#473). 'ref' accepts a primary key or a
@@ -17160,6 +17294,14 @@ type __GetPersonaAgentInput struct {
 // GetRef returns __GetPersonaAgentInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetPersonaAgentInput) GetRef() string { return v.Ref }
 
+// __GetTeamSessionInput is used internally by genqlient
+type __GetTeamSessionInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __GetTeamSessionInput.Id, and is useful for accessing the field via an interface.
+func (v *__GetTeamSessionInput) GetId() string { return v.Id }
+
 // __GetUserInput is used internally by genqlient
 type __GetUserInput struct {
 	Ref string `json:"ref"`
@@ -21559,6 +21701,58 @@ func GetPersonaAgent(
 	}
 
 	data_ = &GetPersonaAgentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetTeamSession.
+const GetTeamSession_Operation = `
+query GetTeamSession ($id: ID!) {
+	session(id: $id) {
+		... TeamSessionFields
+	}
+}
+fragment TeamSessionFields on Session {
+	id
+	agentId
+	userId
+	type
+	repo
+	branch
+	prNumber
+	startedAt
+	endedAt
+	host
+	tool
+	transcriptPath
+	llmModel
+}
+`
+
+// One session by id — the provenance query resolves worklog sessionIds
+// through this (sessions have no URN; id-only is the cor:api:140 genuine-PK
+// case). Null when not found or not visible.
+func GetTeamSession(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *GetTeamSessionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetTeamSession",
+		Query:  GetTeamSession_Operation,
+		Variables: &__GetTeamSessionInput{
+			Id: id,
+		},
+	}
+
+	data_ = &GetTeamSessionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

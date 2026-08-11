@@ -27,6 +27,15 @@ type binding struct {
 	PersonaRole string `json:"personaRole"`
 	Server      string `json:"server"`
 	StartedAt   string `json:"startedAt"`
+	// TeamMemory is the team App memory holding the worklog collection
+	// (`session start -m`); log/list read it back so worklog writes and the
+	// provenance query need no per-call flag.
+	TeamMemory string `json:"teamMemory"`
+	// Tool and Repo mirror the startSession provenance inputs: Tool flows
+	// into every worklog row (a flat queried field, D13/D14) and Repo
+	// qualifies bare `--pr 371`-style refs.
+	Tool string `json:"tool"`
+	Repo string `json:"repo"`
 	// PRNumbers is `session log --pr`'s local history — the server's
 	// Session.prNumber holds only the latest (#932), so whoami keeps the
 	// full list. TODO(#369 slice 3): the worklog collection becomes the
