@@ -92,6 +92,7 @@ hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZA
 hadron team init -m <team-memory>
 hadron team persona create --name <candidate>... [--role <r>] [--prompt <p>] [--org <ref> | --owner-me] | list [--org <ref>] [--role <r>] | get <name-or-ref> | retire <name-or-ref> --yes
 hadron team session start --as <persona> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--summary <text>] [--session <id>] | list [--active] [--as <persona>] [--repo <r>] [--limit N] [--offset N] | list --pr <ref> [-m <team-memory>]
+hadron team chat post <body|-> [--reply-to <seq-or-loc>] [-m <team-memory>] [--messages-loc <loc>] | read [--since <seq>] [--mentions-me] [-m <team-memory>] [--messages-loc <loc>]
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--email <e>] [--handle <h>]
 hadron server-info
@@ -710,7 +711,18 @@ Conventions:
   `session list --pr <ref>` is THE provenance query: worklog lookup by
   canonical ref → the sessions that produced the PR (several rows expected;
   a recorded session you cannot read lists as an id-only stub rather than
-  disappearing). The commit trailer `Persona: <name>` carries the persona
+  disappearing). **`team chat`** is the group chat as the bound persona — the
+  same message-node dialect as `hadron chat` (one shared implementation, so
+  CLI- and hadron-client-channel posts can't drift; the channel pushes
+  messages into running Claude Code sessions, Codex and humans poll). It
+  lives in the team memory under `chat:messages` (`team init` materializes
+  the parent). `chat post` posts as the persona (handle = the folded persona
+  name, role/model from the binding) and stamps `sessionId` into the payload,
+  so an agent message always traces to the DRIVING human via the session;
+  `--reply-to` takes the seq readers see (or a loc). `chat read [--since
+  <seq>] [--mentions-me]` mirrors `hadron chat read`; `nextSince` advances
+  past mention-filtered messages too, so a mentions-only reader never
+  re-reads. The commit trailer `Persona: <name>` carries the persona
   name into PRs.
 - `user search <query>` finds users (enumeration-safe: substring on handle /
   GitHub username, exact on email) — the way to resolve a user ID for `org

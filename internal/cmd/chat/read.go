@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"sort"
@@ -20,7 +21,7 @@ const chatPageSize = 200
 // readDTO is the stable --json shape: the new messages plus the high-water seq
 // to pass as --since next turn.
 type readDTO struct {
-	Messages  []message `json:"messages"`
+	Messages  []Message `json:"messages"`
 	NextSince int       `json:"nextSince"`
 }
 
@@ -36,7 +37,9 @@ Pass --since <seq> to get only messages after that seq; omit it (or --since 0)
 for the whole history. The response's nextSince is the seq to pass next turn.
 
 Output is a compact transcript ("[<seq>] <author> (<role>): <body>"); --json
-returns { messages:[{seq,loc,author,identity,role,timestamp,body}], nextSince }.`,
+returns { messages:[{seq,loc,author,identity,role,timestamp,body,sessionId,
+mentions}], nextSince } — sessionId (an agent post's driving session, #369)
+and mentions appear only when the message carries them.`,
 		Example: `  hadron chat read --since 42
   hadron chat read --node acme.com::team-chats::team-chat:api:messages --json`,
 		Args: cobra.NoArgs,
@@ -50,7 +53,7 @@ returns { messages:[{seq,loc,author,identity,role,timestamp,body}], nextSince }.
 				return err
 			}
 
-			msgs, err := collectMessages(cmd, client, c, since)
+			msgs, err := CollectMessages(cmd.Context(), client, c, since)
 			if err != nil {
 				return err
 			}
@@ -83,17 +86,18 @@ returns { messages:[{seq,loc,author,identity,role,timestamp,body}], nextSince }.
 	return cmd
 }
 
-// collectMessages drains every message node under the chat prefix (findNodes
+// CollectMessages drains every message node under the chat prefix (findNodes
 // caps a page, so it pages to exhaustion — #23), keeps those with seq > since,
-// and returns them in seq order.
-func collectMessages(cmd *cobra.Command, client graphql.Client, c coords, since int) ([]message, error) {
-	prefix := c.messagesLoc + ":"
-	filter := &gen.NodeFilter{MemoryIds: []string{c.memory}, LocPrefix: &prefix}
+// and returns them in seq order. The read side of the shared message-node
+// dialect (see PostMessage).
+func CollectMessages(ctx context.Context, client graphql.Client, c Coords, since int) ([]Message, error) {
+	prefix := c.MessagesLoc + ":"
+	filter := &gen.NodeFilter{MemoryIds: []string{c.Memory}, LocPrefix: &prefix}
 
-	var msgs []message
+	var msgs []Message
 	for offset := 0; ; offset += chatPageSize {
 		lim, off := chatPageSize, offset
-		resp, err := gen.ChatMessages(cmd.Context(), client, filter, &lim, &off)
+		resp, err := gen.ChatMessages(ctx, client, filter, &lim, &off)
 		if err != nil {
 			return nil, api.MapError(err)
 		}

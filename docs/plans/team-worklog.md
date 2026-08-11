@@ -39,8 +39,11 @@ required so provenance rows need no joins: `sessionId`, `personaName`, `tool`,
 `detail` stays *undeclared* — the schema field-type vocabulary has no JSON
 type, and `strict` defaults to false, so the optional display-extras bag rides
 along unvalidated by design. The group-chat `message` collection is
-deliberately **not** declared here: its shape must stay coordinated with the
-hadron-client watcher dialect and lands with the `team chat` slice.
+deliberately **not** declared here — and the `team chat` slice decided it
+never becomes a property-schema collection: messages speak the node-`data`
+dialect the hadron-client watcher reads (see
+[team-chat.md](team-chat.md)); `team init` materializes the chat parent
+node instead.
 
 ### Ref normalization (`refnorm.go`)
 
@@ -93,7 +96,7 @@ rule (client-side fan-outs must surface unreadable ids, not drop them).
 
 ## Out of scope (remaining #369 work)
 
-`team chat` (+ the message collection in `team init`, coordinated with
-hadron-client #11/#12), `--branch` milestones, richer provenance filters
-(`session list --issue/--commit` generalization), and the role-template/name
-register machinery for `persona create` (D-2026-08-11-007).
+`team chat` (shipped next — see [team-chat.md](team-chat.md)), `--branch`
+milestones, richer provenance filters (`session list --issue/--commit`
+generalization), and the role-template/name-register machinery for
+`persona create` (D-2026-08-11-007).

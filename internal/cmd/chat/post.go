@@ -58,7 +58,7 @@ with just --body.`,
 			if h == "" {
 				return exitcode.Newf(exitcode.Usage, "no handle — pass --handle, set HADRON_CHAT_HANDLE, or add \"handle\" to .hadron/config.json")
 			}
-			text, err := resolveBody(cmd, body, bodyFile, f.IOStreams.In)
+			text, err := ResolveBody(cmd, body, bodyFile, f.IOStreams.In)
 			if err != nil {
 				return err
 			}
@@ -68,60 +68,18 @@ with just --body.`,
 				return err
 			}
 
-			// Loc convention: <messagesLoc>:<compact-ISO>-<handle>. The stamp is
-			// the RFC3339 instant with ':' and '.' stripped (they're loc
-			// separators / illegal), matching the hadron-client channel so
-			// CLI- and channel-posted messages interleave cleanly.
-			ts := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
-			stamp := strings.NewReplacer(":", "", ".", "").Replace(ts)
-			loc := fmt.Sprintf("%s:%s-%s", c.messagesLoc, stamp, h)
-
-			data := map[string]any{"author": h, "body": text, "timestamp": ts}
-			if id := firstNonEmpty(identity, pc.Identity); id != "" {
-				data["identity"] = id
-			}
-			if r := firstNonEmpty(role, pc.Role); r != "" {
-				data["role"] = r
-			}
-			if ms := mentions(text); len(ms) > 0 {
-				data["mentions"] = ms
-			}
-			raw, err := json.Marshal(data)
+			res, err := PostMessage(cmd.Context(), client, PostInput{
+				Coords:   c,
+				Handle:   h,
+				Identity: firstNonEmpty(identity, pc.Identity),
+				Role:     firstNonEmpty(role, pc.Role),
+				Body:     text,
+				ReplyTo:  replyTo,
+			})
 			if err != nil {
 				return err
 			}
-			dataMsg := json.RawMessage(raw)
-
-			// Best-effort: materialize the message-parent as a real "chat" node so
-			// the chat is a copyable node in the portal. Locs don't require the
-			// parent to exist (messages post fine without it), so this is purely
-			// cosmetic — ignore every outcome, including the expected conflict once
-			// it already exists, and never let it block the post.
-			ensureChatParent(cmd.Context(), client, c)
-
-			input := gen.CreateNodeInput{
-				MemoryId: c.memory,
-				Loc:      loc,
-				Name:     "Message from " + h,
-				NodeType: strPtr("message"),
-				Data:     &dataMsg,
-			}
-			// The reply edge goes FROM the new message TO the one it answers; a
-			// short loc resolves within this memory. Minted inline with the node
-			// so a post is a single round-trip.
-			if replyTo != "" {
-				input.Edges = []*gen.NodeEdgeInput{{TargetId: replyTo, Name: strPtr("reply")}}
-			}
-
-			resp, err := gen.CreateNode(cmd.Context(), client, &input)
-			if err != nil {
-				return api.MapError(err)
-			}
-			dto := postDTO{Loc: loc, ReplyTo: replyTo}
-			if resp.CreateNode != nil {
-				dto.Loc = resp.CreateNode.Loc
-				dto.Seq = resp.CreateNode.Seq
-			}
+			dto := postDTO{Loc: res.Loc, Seq: res.Seq, ReplyTo: replyTo}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				fmt.Fprintf(w, "✓ posted %s (seq %s)\n", dto.Loc, seqStr(dto.Seq))
 				return nil
@@ -144,10 +102,10 @@ with just --body.`,
 	return cmd
 }
 
-// resolveBody returns the message text from exactly one source: --body-file (a
+// ResolveBody returns the message text from exactly one source: --body-file (a
 // file), --body - (stdin), or --body <text> (inline). The mutually-exclusive /
 // one-required flag group is enforced by cobra; this reads whichever was set.
-func resolveBody(cmd *cobra.Command, body, bodyFile string, stdin io.Reader) (string, error) {
+func ResolveBody(cmd *cobra.Command, body, bodyFile string, stdin io.Reader) (string, error) {
 	var text string
 	switch {
 	case cmd.Flags().Changed("body-file"):
@@ -173,17 +131,116 @@ func resolveBody(cmd *cobra.Command, body, bodyFile string, stdin io.Reader) (st
 
 func strPtr(s string) *string { return &s }
 
-// ensureChatParent best-effort creates the message-parent node so the chat is a
+// PostInput is one message for PostMessage — the single implementation of
+// the message-node dialect's write side, shared by `hadron chat post` and
+// `hadron team chat post` so the shape can't drift between them (or from the
+// hadron-client push channel it mirrors).
+type PostInput struct {
+	Coords   Coords
+	Handle   string
+	Identity string
+	Role     string
+	Body     string
+	// ReplyTo is the loc (or URN) of the message this answers; adds the
+	// reply edge inline with the create.
+	ReplyTo string
+	// Extra adds additive data fields (e.g. sessionId, #369 D16). Dialect
+	// keys (author/body/timestamp/identity/role/mentions) always win — an
+	// Extra entry never overrides them.
+	Extra map[string]any
+}
+
+// PostResult is the created message's address.
+type PostResult struct {
+	Loc string
+	Seq *int
+}
+
+// PostMessage builds the timestamped colon-safe loc, assembles the data
+// payload, best-effort materializes the message parent, and creates the
+// message node (with the optional reply edge) in one round-trip.
+func PostMessage(ctx context.Context, client graphql.Client, in PostInput) (PostResult, error) {
+	// Loc convention: <messagesLoc>:<compact-ISO>-<handle>. The stamp is
+	// the RFC3339 instant with ':' and '.' stripped (they're loc
+	// separators / illegal), matching the hadron-client channel so
+	// CLI- and channel-posted messages interleave cleanly.
+	ts := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	stamp := strings.NewReplacer(":", "", ".", "").Replace(ts)
+	loc := fmt.Sprintf("%s:%s-%s", in.Coords.MessagesLoc, stamp, in.Handle)
+
+	data := map[string]any{}
+	for k, v := range in.Extra {
+		// Reserved dialect keys never come from Extra — not even when the
+		// typed input is empty (an empty Identity means "no identity", not
+		// "take Extra's").
+		switch k {
+		case "author", "body", "timestamp", "identity", "role", "mentions":
+			continue
+		}
+		data[k] = v
+	}
+	data["author"] = in.Handle
+	data["body"] = in.Body
+	data["timestamp"] = ts
+	if in.Identity != "" {
+		data["identity"] = in.Identity
+	}
+	if in.Role != "" {
+		data["role"] = in.Role
+	}
+	if ms := Mentions(in.Body); len(ms) > 0 {
+		data["mentions"] = ms
+	}
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return PostResult{}, err
+	}
+	dataMsg := json.RawMessage(raw)
+
+	// Best-effort: materialize the message-parent as a real "chat" node so
+	// the chat is a copyable node in the portal. Locs don't require the
+	// parent to exist (messages post fine without it), so this is purely
+	// cosmetic — ignore every outcome, including the expected conflict once
+	// it already exists, and never let it block the post.
+	EnsureChatParent(ctx, client, in.Coords)
+
+	input := gen.CreateNodeInput{
+		MemoryId: in.Coords.Memory,
+		Loc:      loc,
+		Name:     "Message from " + in.Handle,
+		NodeType: strPtr("message"),
+		Data:     &dataMsg,
+	}
+	// The reply edge goes FROM the new message TO the one it answers; a
+	// short loc resolves within this memory. Minted inline with the node
+	// so a post is a single round-trip.
+	if in.ReplyTo != "" {
+		input.Edges = []*gen.NodeEdgeInput{{TargetId: in.ReplyTo, Name: strPtr("reply")}}
+	}
+
+	resp, err := gen.CreateNode(ctx, client, &input)
+	if err != nil {
+		return PostResult{}, api.MapError(err)
+	}
+	res := PostResult{Loc: loc}
+	if resp.CreateNode != nil {
+		res.Loc = resp.CreateNode.Loc
+		res.Seq = resp.CreateNode.Seq
+	}
+	return res, nil
+}
+
+// EnsureChatParent best-effort creates the message-parent node so the chat is a
 // real, copyable node. Create-only, so a re-post conflicts harmlessly; all
 // outcomes are ignored — this must never affect the post.
-func ensureChatParent(ctx context.Context, client graphql.Client, c coords) {
-	name := c.messagesLoc
-	if i := strings.LastIndex(c.messagesLoc, ":"); i >= 0 {
-		name = c.messagesLoc[i+1:]
+func EnsureChatParent(ctx context.Context, client graphql.Client, c Coords) {
+	name := c.MessagesLoc
+	if i := strings.LastIndex(c.MessagesLoc, ":"); i >= 0 {
+		name = c.MessagesLoc[i+1:]
 	}
 	_, _ = gen.CreateNode(ctx, client, &gen.CreateNodeInput{
-		MemoryId: c.memory,
-		Loc:      c.messagesLoc,
+		MemoryId: c.Memory,
+		Loc:      c.MessagesLoc,
 		Name:     name,
 		NodeType: strPtr("chat"),
 	})

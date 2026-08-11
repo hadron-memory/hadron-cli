@@ -50,9 +50,9 @@ top-level "handle" and "chat": { "node" | "memory"+"messagesLoc", "identity",
 // coords is the resolved (memory, messagesLoc) of one chat. messagesLoc is the
 // loc prefix whose direct child nodes are the messages (e.g.
 // "team-chat:academy:chat:messages").
-type coords struct {
-	memory      string
-	messagesLoc string
+type Coords struct {
+	Memory      string
+	MessagesLoc string
 }
 
 // resolveCoords locates the chat. The primary form is a single message-parent
@@ -62,25 +62,25 @@ type coords struct {
 // HADRON_CHAT_MESSAGES_LOC env vars, or chat.memory + chat.messagesLoc — what
 // the push channel uses) is the fallback. All resolve to the same (memory,
 // messagesLoc); messages are direct children of messagesLoc.
-func resolveCoords(pc projectChat, nodeFlag, memoryFlag, messagesLocFlag string) (coords, error) {
+func resolveCoords(pc projectChat, nodeFlag, memoryFlag, messagesLocFlag string) (Coords, error) {
 	if ref := firstNonEmpty(nodeFlag, os.Getenv("HADRON_CHAT_NODE"), pc.Node); ref != "" {
 		memory, loc, err := splitNodeURN(ref)
 		if err != nil {
-			return coords{}, err
+			return Coords{}, err
 		}
-		return coords{memory: memory, messagesLoc: loc}, nil
+		return Coords{Memory: memory, MessagesLoc: loc}, nil
 	}
 	memory := firstNonEmpty(memoryFlag, os.Getenv("HADRON_CHAT_MEMORY"), pc.Memory)
 	if memory == "" {
-		return coords{}, exitcode.Newf(exitcode.Usage, "no chat — pass --node <message-parent-urn>, or -m/--memory + --messages-loc; or set them (chat.node, or chat.memory + chat.messagesLoc) in .hadron/config.json")
+		return Coords{}, exitcode.Newf(exitcode.Usage, "no chat — pass --node <message-parent-urn>, or -m/--memory + --messages-loc; or set them (chat.node, or chat.memory + chat.messagesLoc) in .hadron/config.json")
 	}
 	messagesLoc := firstNonEmpty(messagesLocFlag, os.Getenv("HADRON_CHAT_MESSAGES_LOC"), pc.MessagesLoc)
 	if messagesLoc == "" {
-		return coords{}, exitcode.Newf(exitcode.Usage, "no message location — pass --messages-loc <prefix> (or use --node <urn>), set HADRON_CHAT_MESSAGES_LOC, or add chat.messagesLoc to .hadron/config.json")
+		return Coords{}, exitcode.Newf(exitcode.Usage, "no message location — pass --messages-loc <prefix> (or use --node <urn>), set HADRON_CHAT_MESSAGES_LOC, or add chat.messagesLoc to .hadron/config.json")
 	}
 	// A trailing colon would double against the ":<id>" join; normalize it off.
 	messagesLoc = strings.TrimSuffix(messagesLoc, ":")
-	return coords{memory: memory, messagesLoc: messagesLoc}, nil
+	return Coords{Memory: memory, MessagesLoc: messagesLoc}, nil
 }
 
 // splitNodeURN splits a fully-qualified node URN into its memory (org::memory)
@@ -110,7 +110,7 @@ func splitNodeURN(ref string) (memory, loc string, err error) {
 
 // message is the parsed, chat-shaped view of one message node — only the fields
 // a participant cares about, lifted out of the node's generic `data` block.
-type message struct {
+type Message struct {
 	Seq       *int   `json:"seq"`
 	Loc       string `json:"loc"`
 	Author    string `json:"author"`
@@ -118,23 +118,33 @@ type message struct {
 	Role      string `json:"role,omitempty"`
 	Timestamp string `json:"timestamp,omitempty"`
 	Body      string `json:"body"`
+	// SessionID attributes an agent-posted message to the coding session
+	// driving the persona (#369 D16) — the driver is Session.userId. Absent
+	// on human/channel posts; additive, the push channel ignores it.
+	SessionID string `json:"sessionId,omitempty"`
+	// Mentions as stored by the poster; readers needing them should fall
+	// back to Mentions(Body) when empty (hand-created messages omit them).
+	Mentions []string `json:"mentions,omitempty"`
 }
 
 // parseMessage lifts the chat fields out of a message node's data block. Author
 // falls back to the loc's "<timestamp>-<handle>" suffix when data has none, so
 // hand-created messages still attribute (matching the channel's messageAuthor).
-func parseMessage(loc string, seq *int, data *json.RawMessage) message {
-	m := message{Seq: seq, Loc: loc}
+func parseMessage(loc string, seq *int, data *json.RawMessage) Message {
+	m := Message{Seq: seq, Loc: loc}
 	if data != nil {
 		var d struct {
-			Author    string `json:"author"`
-			Identity  string `json:"identity"`
-			Role      string `json:"role"`
-			Timestamp string `json:"timestamp"`
-			Body      string `json:"body"`
+			Author    string   `json:"author"`
+			Identity  string   `json:"identity"`
+			Role      string   `json:"role"`
+			Timestamp string   `json:"timestamp"`
+			Body      string   `json:"body"`
+			SessionID string   `json:"sessionId"`
+			Mentions  []string `json:"mentions"`
 		}
 		if json.Unmarshal(*data, &d) == nil {
 			m.Author, m.Identity, m.Role, m.Timestamp, m.Body = d.Author, d.Identity, d.Role, d.Timestamp, d.Body
+			m.SessionID, m.Mentions = d.SessionID, d.Mentions
 		}
 	}
 	if m.Author == "" {
@@ -166,7 +176,7 @@ func authorFromLoc(loc string) string {
 var mentionRE = regexp.MustCompile(`(^|[^a-zA-Z0-9._-])@([a-z0-9_-]+)`)
 
 // mentions extracts the distinct @handles from a body, in first-seen order.
-func mentions(body string) []string {
+func Mentions(body string) []string {
 	seen := map[string]bool{}
 	var out []string
 	for _, m := range mentionRE.FindAllStringSubmatch(body, -1) {

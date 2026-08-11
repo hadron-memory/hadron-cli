@@ -32,6 +32,7 @@ to the session that produced it.`,
 	cmd.AddCommand(newCmdInit(f))
 	cmd.AddCommand(newCmdPersona(f))
 	cmd.AddCommand(newCmdSession(f))
+	cmd.AddCommand(newCmdTeamChat(f))
 	return cmd
 }
 

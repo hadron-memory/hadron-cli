@@ -44,6 +44,11 @@ case-insensitively, and NEVER re-minted — a retired persona keeps its name)
 falls through to the next candidate. The first free name wins and becomes
 both the persona name and the agent name.
 
+A candidate whose CHAT HANDLE (the name lowercased/dash-folded — what
+@mentions address) collides with an existing persona's is also skipped:
+persona-name uniqueness is server-enforced, but "Dev Rufus" and "Dev-Rufus"
+would both answer to @dev-rufus, making chat attribution ambiguous.
+
 Pass --org for an org-owned persona, or --owner-me (or neither) for one in
 your own namespace.`,
 		Example: `  hadron team persona create --org acme.com --name Iris --name Ivy --role backend-engineer \
@@ -64,7 +69,39 @@ your own namespace.`,
 			if err != nil {
 				return err
 			}
+			// Folded chat handles of the existing roster: a candidate that
+			// collides is skipped like a taken name — the server enforces
+			// name uniqueness, but only pre-fold, and two personas answering
+			// to one @handle would make chat attribution ambiguous. A
+			// client-side guard, so a concurrent create can still race past
+			// it — the window is accepted (the server-side name uniqueness
+			// stays the hard gate).
+			takenHandles := map[string]bool{}
+			roster, err := scanPersonaAgents(cmd.Context(), client, optStr(org))
+			if err != nil {
+				return err
+			}
+			for _, p := range roster {
+				if p.PersonaName == nil {
+					continue
+				}
+				if h, err := handleFromPersona(*p.PersonaName); err == nil {
+					takenHandles[h] = true
+				}
+			}
+			exhausted := func() error {
+				return exitcode.Newf(exitcode.Conflict,
+					"every candidate name is taken or handle-colliding (%s) — a persona name binds to one persona forever, retired names included; retry with fresh names",
+					strings.Join(candidates, ", "))
+			}
 			for i, cand := range candidates {
+				if h, err := handleFromPersona(cand); err == nil && takenHandles[h] {
+					if i < len(candidates)-1 {
+						fmt.Fprintf(f.IOStreams.ErrOut, "persona name %q folds to chat handle @%s, which an existing persona already answers to — trying %q\n", cand, h, candidates[i+1])
+						continue
+					}
+					return exhausted()
+				}
 				resp, err := gen.CreatePersonaAgent(cmd.Context(), client, cand, cand,
 					optStr(org), optStr(description), optStr(role), optStr(prompt))
 				if err != nil {
@@ -73,9 +110,7 @@ your own namespace.`,
 							fmt.Fprintf(f.IOStreams.ErrOut, "persona name %q is taken — trying %q\n", cand, candidates[i+1])
 							continue
 						}
-						return exitcode.Newf(exitcode.Conflict,
-							"every candidate name is taken (%s) — a persona name binds to one persona forever, retired names included; retry with fresh names",
-							strings.Join(candidates, ", "))
+						return exhausted()
 					}
 					return api.MapError(err)
 				}
