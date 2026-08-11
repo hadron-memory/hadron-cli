@@ -28,16 +28,24 @@ query GetPersonaAgent($ref: ID!) {
 }
 
 # The roster read. AgentFilter has no persona clause, so callers page this
-# to exhaustion and keep the personaName != null rows client-side.
+# to exhaustion and keep the personaName != null rows client-side. The
+# unfiltered list is the caller's MEMBER-ORG scope only; the caller's own
+# user-owned (org-less) agents need a second pass with
+# filter.ownedByMe: true (#782) — scanPersonaAgents merges both.
+# @genqlient(for: "AgentFilter.ownedByMe", omitempty: true)
+# @genqlient(for: "AgentFilter.type", omitempty: true)
+# @genqlient(for: "AgentFilter.visibility", omitempty: true)
 query PersonaAgents(
   # @genqlient(omitempty: true)
   $orgId: ID
+  # @genqlient(omitempty: true)
+  $filter: AgentFilter
   # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  agents(orgId: $orgId, limit: $limit, offset: $offset) {
+  agents(orgId: $orgId, filter: $filter, limit: $limit, offset: $offset) {
     total
     items {
       ...PersonaAgentFields

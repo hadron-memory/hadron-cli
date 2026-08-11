@@ -37,7 +37,9 @@ ref-normalizer (`session log` takes a bare PR number for now; `session list --pr
   Until it lands, a crashed session holds its persona, so `session start` must
   show who last drove the persona and since when, and require `--force` to take
   over. `--force` starts the new session *alongside* the stale one — it does not
-  end another driver's session.
+  end another driver's session. (When `--force` replaces this worktree's *own*
+  binding, though, it first best-effort-ends the session that binding names, so
+  an overwritten binding never orphans an active session.)
 - **`Session.prNumber` is a denormalized display convenience, never the
   provenance mechanism** — provenance is the worklog (slice 3).
 
@@ -74,10 +76,14 @@ register in the Team Agent's system memory, D-2026-08-11-007) arrives with
 `AgentFilter` has no persona clause (metadata, not a server-side kind), so the
 roster is `agents()` paged to exhaustion (issue-#23 rule: an unbounded list is
 one default page) with `personaName != null` kept client-side
-(`scanPersonaAgents`). A persona argument containing `:` goes straight to the
-server as a ref; a bare argument is matched case-insensitively against roster
-persona names, then falls back to an agent-ID lookup. The same name existing
-for two owners is an explicit Conflict asking for `--org` or a URN.
+(`scanPersonaAgents`). The unfiltered `agents()` list is the caller's
+**member-org scope only**, while a persona minted without `--org` is a
+user-owned, org-less agent that only `filter.ownedByMe: true` returns (#782) —
+so without an explicit `--org` the scan reads **both slices** and merges them
+(dedup by id). A persona argument containing `:` goes straight to the server
+as a ref; a bare argument is matched case-insensitively against roster persona
+names, then falls back to an agent-ID lookup. The same name existing for two
+owners is an explicit Conflict asking for `--org` or a URN.
 
 ### Worktree binding
 
@@ -86,8 +92,17 @@ for two owners is an explicit Conflict asking for `--org` or a URN.
 because a linked worktree's `.git` is a file pointing at
 `<main>/.git/worktrees/<name>` and the binding must be per-worktree.
 `HADRON_TEAM_GIT_DIR` overrides the git call (tests; exotic environments).
-`whoami` is the compaction-recovery read: **local only**, no server round-trip.
-`end` calls `endSession` then clears the binding.
+The binding is written atomically (`config.WriteFileAtomic`, same-dir temp +
+rename) — it is the durable recovery record, so a crash mid-write must never
+truncate it. If the binding write fails *after* `startSession` succeeded, the
+CLI compensates by ending the just-created session (an unrecorded session
+would hold the persona with no reaper); `session end --session <id>` is the
+manual recovery path when a binding is lost anyway. `whoami` is the
+compaction-recovery read: **local only**, no server round-trip. `end` calls
+`endSession` then clears the binding; it refuses (exit 2) when the binding
+records a different server than the current one, and its "persona freed"
+claim is deliberately soft — after a forced takeover another active session
+may still hold the persona.
 
 ### Session provenance fields
 

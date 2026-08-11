@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -414,6 +415,223 @@ func TestTeamSessionEndClearsBinding(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `"personaName": "Iris"`) {
 		t.Errorf("end output: %s", out.String())
+	}
+}
+
+// The roster scan must read BOTH slices: the unfiltered member-org list and
+// the caller's own user-owned agents (filter.ownedByMe, #782) — an org-less
+// persona lives only in the second. It must also page each slice to
+// exhaustion (issue #23: the server truncates an unbounded list).
+func TestTeamPersonaListMergesOwnedByMeAndPaginates(t *testing.T) {
+	// Org slice: one full 200-row page (199 fillers + Iris) + a tail page.
+	// OwnedByMe slice: one user-owned persona, absent from the org slice.
+	fullPage := make([]string, 0, 200)
+	for i := 0; i < 199; i++ {
+		fullPage = append(fullPage, fmt.Sprintf(`{"id":"f%d","urn":"hrn:agent:acme.com:f%d","name":"F%d",
+			"description":null,"organizationId":"o1","personaName":null,"personaRole":null,
+			"personaPrompt":null,"createdAt":"2026-08-11T00:00:00Z"}`, i, i, i))
+	}
+	fullPage = append(fullPage, irisJSON)
+	tailRow := `{"id":"agt3","urn":"hrn:agent:acme.com:uma","name":"Uma","description":null,
+		"organizationId":"o1","personaName":"Uma","personaRole":null,"personaPrompt":null,
+		"createdAt":"2026-08-11T00:00:00Z"}`
+	ownedRow := `{"id":"agt4","urn":"hrn:agent:@holger:nadia","name":"Nadia","description":null,
+		"organizationId":null,"personaName":"Nadia","personaRole":null,"personaPrompt":null,
+		"createdAt":"2026-08-11T00:00:00Z"}`
+
+	type call struct {
+		Offset    *int
+		OwnedByMe bool
+	}
+	var calls []call
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Variables struct {
+				Offset *int `json:"offset"`
+				Filter *struct {
+					OwnedByMe *bool `json:"ownedByMe"`
+				} `json:"filter"`
+			} `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		owned := body.Variables.Filter != nil && body.Variables.Filter.OwnedByMe != nil && *body.Variables.Filter.OwnedByMe
+		calls = append(calls, call{body.Variables.Offset, owned})
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case owned:
+			_, _ = w.Write([]byte(`{"data":{"agents":{"total":1,"items":[` + ownedRow + `]}}}`))
+		case body.Variables.Offset == nil || *body.Variables.Offset == 0:
+			_, _ = w.Write([]byte(`{"data":{"agents":{"total":201,"items":[` + strings.Join(fullPage, ",") + `]}}}`))
+		default:
+			if *body.Variables.Offset != 200 {
+				t.Errorf("unexpected offset %d", *body.Variables.Offset)
+			}
+			_, _ = w.Write([]byte(`{"data":{"agents":{"total":201,"items":[` + tailRow + `]}}}`))
+		}
+	}))
+	t.Cleanup(gql.Close)
+
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "persona", "list", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var got []struct {
+		PersonaName string `json:"personaName"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+		t.Fatalf("json: %v (%s)", err, out.String())
+	}
+	names := make([]string, len(got))
+	for i, p := range got {
+		names[i] = p.PersonaName
+	}
+	if len(got) != 3 || names[0] != "Iris" || names[1] != "Uma" || names[2] != "Nadia" {
+		t.Errorf("merged roster: %v", names)
+	}
+	// 2 org pages + 1 ownedByMe page, in that order.
+	if len(calls) != 3 || calls[0].OwnedByMe || calls[1].OwnedByMe || !calls[2].OwnedByMe {
+		t.Errorf("calls: %+v", calls)
+	}
+}
+
+// The occupancy check must read past the first sessions page: an old
+// still-active session can hide behind 200 newer ended ones, and stopping
+// early would report the persona free (the issue-#23 failure mode).
+func TestTeamSessionStartFindsActiveSessionOnLaterPage(t *testing.T) {
+	teamGitDir(t)
+	filler := make([]string, 0, 200)
+	for i := 0; i < 200; i++ {
+		filler = append(filler, fmt.Sprintf(`{"id":"e%d","agentId":"other","userId":"u1","type":"DEVELOPER",
+			"repo":null,"branch":null,"prNumber":null,"startedAt":"2026-08-11T0%d:00:00Z",
+			"endedAt":"2026-08-11T09:00:00Z","host":null,"tool":null,"transcriptPath":null,"llmModel":null}`, i, i%10))
+	}
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+			Variables     struct {
+				Offset *int `json:"offset"`
+			} `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "PersonaAgents":
+			_, _ = w.Write([]byte(rosterJSON))
+		case "TeamSessions":
+			if body.Variables.Offset == nil || *body.Variables.Offset == 0 {
+				_, _ = w.Write([]byte(`{"data":{"sessions":[` + strings.Join(filler, ",") + `]}}`))
+			} else {
+				if *body.Variables.Offset != 200 {
+					t.Errorf("unexpected offset %d", *body.Variables.Offset)
+				}
+				_, _ = w.Write([]byte(`{"data":{"sessions":[` + activeSessionJSON + `]}}`))
+			}
+		default:
+			t.Errorf("unexpected operation %q", body.OperationName)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
+		}
+	}))
+	t.Cleanup(gql.Close)
+
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "Iris", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Conflict {
+		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
+	}
+}
+
+// Without --force an existing worktree binding refuses; with --force the
+// bound session is best-effort ENDED before the new one starts, so the
+// overwritten binding never orphans an active session.
+func TestTeamSessionStartForceEndsPreviouslyBoundSession(t *testing.T) {
+	dir := teamGitDir(t)
+	prev := strings.Replace(bindingFixture, "s-new", "s-prev", 1)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(prev), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Refusal first: no --force.
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "Iris", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Conflict {
+		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
+	}
+
+	gql, captured := captureGraphQL(t, map[string]string{
+		"EndTeamSession": `{"data":{"endSession":{"id":"s-prev","agentId":"agt1","userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":null,
+			"startedAt":"2026-08-11T08:00:00Z","endedAt":"2026-08-11T10:00:00Z","host":null,
+			"tool":null,"transcriptPath":null,"llmModel":null}}}`,
+		"PersonaAgents":    rosterJSON,
+		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
+	})
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "session", "start", "--as", "Iris", "--force", "--json", "--server", gql.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var endVars map[string]any
+	_ = json.Unmarshal(captured["EndTeamSession"], &endVars)
+	if endVars["id"] != "s-prev" {
+		t.Errorf("previously bound session must be ended, got vars: %v", endVars)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "hadron-team-session.json"))
+	if !strings.Contains(string(data), "s-new") {
+		t.Errorf("binding should now name the new session: %s", data)
+	}
+}
+
+// `end --session <id>` is the recovery path when no binding exists.
+func TestTeamSessionEndExplicitSession(t *testing.T) {
+	teamGitDir(t)
+	gql, captured := captureGraphQL(t, map[string]string{
+		"EndTeamSession": `{"data":{"endSession":{"id":"s-orphan","agentId":null,"userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":null,
+			"startedAt":"2026-08-11T08:00:00Z","endedAt":"2026-08-11T10:00:00Z","host":null,
+			"tool":null,"transcriptPath":null,"llmModel":null}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "end", "--session", "s-orphan", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["EndTeamSession"], &vars)
+	if vars["id"] != "s-orphan" {
+		t.Errorf("end vars: %v", vars)
+	}
+}
+
+// A binding started against another server refuses to end against this one —
+// the mutation would miss the real session and leave its persona held.
+func TestTeamSessionEndServerMismatch(t *testing.T) {
+	dir := teamGitDir(t)
+	b := strings.Replace(bindingFixture, `"prNumbers":[]`, `"server":"https://other.example","prNumbers":[]`, 1)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(b), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "end", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
+	}
+	if !strings.Contains(err.Error(), "https://other.example") {
+		t.Errorf("error should name the recorded server: %v", err)
+	}
+	if _, called := captured["EndTeamSession"]; called {
+		t.Error("EndTeamSession must not run against the wrong server")
 	}
 }
 

@@ -152,7 +152,10 @@ A persona with a still-active session is taken: the takeover requires
 --force, and until the server-side stale-session reaper lands
 (hadron-server#930) a crashed session also counts as active — the last
 driver and start time are shown so you can judge staleness yourself.
---force starts your session alongside; it does not end the other one.`,
+--force starts your session alongside the taken-over one; it does not end
+another driver's session. When this worktree already has a binding, --force
+replaces it — first ending the session that binding names (best-effort),
+so the old binding never orphans an active session.`,
 		Example: `  hadron team session start --as Iris --tool claude-code \
       --transcript ~/.claude/projects/x/transcript.jsonl`,
 		Args: cobra.NoArgs,
@@ -170,6 +173,19 @@ driver and start time are shown so you can judge staleness yourself.
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+			// --force over an existing binding: best-effort end the session it
+			// names before replacing it, so the overwritten binding does not
+			// orphan an active session (there is no reaper, #930). Best-effort
+			// because that session may already be ended — or live on another
+			// server, which `session end`'s server guard would catch but a
+			// takeover deliberately steamrolls.
+			if existing != nil {
+				if _, endErr := gen.EndTeamSession(ctx, client, existing.SessionID, nil); endErr != nil {
+					fmt.Fprintf(f.IOStreams.ErrOut, "note: could not end previously bound session %s (%v) — if it is still active, end it manually\n", existing.SessionID, endErr)
+				} else {
+					fmt.Fprintf(f.IOStreams.ErrOut, "ended previously bound session %s (persona %s)\n", existing.SessionID, existing.PersonaName)
+				}
 			}
 			p, err := resolvePersona(ctx, client, optStr(org), as)
 			if err != nil {
@@ -225,7 +241,13 @@ driver and start time are shown so you can judge staleness yourself.
 				StartedAt:   s.StartedAt,
 			})
 			if err != nil {
-				return err
+				// The server session already exists; without a binding this
+				// worktree cannot end it and the persona would stay taken
+				// (no reaper, #930) — so compensate by ending it now.
+				if _, endErr := gen.EndTeamSession(ctx, client, s.Id, nil); endErr != nil {
+					return fmt.Errorf("%w; additionally, rolling back session %s failed (%v) — end it with `hadron team session end --session %s`", err, s.Id, endErr, s.Id)
+				}
+				return fmt.Errorf("%w (session %s was rolled back — persona %s is not held)", err, s.Id, personaName)
 			}
 			result := struct {
 				Session     sessionDTO `json:"session"`
@@ -240,7 +262,7 @@ driver and start time are shown so you can judge staleness yourself.
 	}
 	cmd.Flags().StringVar(&as, "as", "", "persona to drive (name, agent ID, or agent URN)")
 	cmd.Flags().StringVar(&org, "org", "", "disambiguate a persona name that exists in more than one org")
-	cmd.Flags().BoolVar(&force, "force", false, "take over a persona with an active session, and replace an existing worktree binding")
+	cmd.Flags().BoolVar(&force, "force", false, "take over a persona with an active session; also replaces this worktree's binding, ending its session first (best-effort)")
 	cmd.Flags().StringVar(&repo, "repo", "", "repository the session works on, e.g. owner/repo")
 	cmd.Flags().StringVar(&branch, "branch", "", "branch the session works on")
 	cmd.Flags().StringVar(&transcript, "transcript", "", "path of the driving tool's transcript on this host")
@@ -286,6 +308,15 @@ server whether the session is still open.`,
 	}
 }
 
+// logResultDTO is the stable --json shape of `session log`. Recorded is
+// "local" while the worklog is not built (#369 slice 3); a server-recorded
+// milestone will use a different value, so agents can branch on it.
+type logResultDTO struct {
+	SessionID string `json:"sessionId"`
+	PRNumber  int    `json:"prNumber"`
+	Recorded  string `json:"recorded"`
+}
+
 func newCmdSessionLog(f *cmdutil.Factory) *cobra.Command {
 	var pr int
 	cmd := &cobra.Command{
@@ -327,7 +358,7 @@ provenance queries go through the worklog.`,
 				}
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "note: recorded locally only — the shared worklog and Session.prNumber land with #369 slice 3\n")
-			result := map[string]any{"sessionId": b.SessionID, "prNumber": pr, "recorded": "local"}
+			result := logResultDTO{SessionID: b.SessionID, PRNumber: pr, Recorded: "local"}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ logged PR #%d for session %s\n", pr, b.SessionID)
 				return err
@@ -339,44 +370,82 @@ provenance queries go through the worklog.`,
 	return cmd
 }
 
+// endResultDTO is the stable --json shape of `session end`.
+type endResultDTO struct {
+	SessionID   string `json:"sessionId"`
+	PersonaName string `json:"personaName"`
+	EndedAt     string `json:"endedAt"`
+}
+
 func newCmdSessionEnd(f *cmdutil.Factory) *cobra.Command {
-	var summary string
+	var summary, sessionID string
 	cmd := &cobra.Command{
-		Use:   "end [--summary <text>]",
-		Short: "End this worktree's session and free its persona",
-		Args:  cobra.NoArgs,
+		Use:   "end [--summary <text>] [--session <id>]",
+		Short: "End this worktree's session",
+		Long: `End the session this worktree is bound to and clear the binding. Ending a
+session frees its persona — unless another active session still holds it
+(e.g. after a --force takeover; check ` + "`session list --active`" + `).
+
+--session ends an explicit session id instead — the recovery path when the
+binding is gone (a lost worktree, a failed binding write) but the server
+session is still open.`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			b, _, err := readBinding(ctx)
-			if err != nil {
+			if err != nil && sessionID == "" {
 				return err
 			}
-			if b == nil {
-				return exitcode.Newf(exitcode.NotFound, "no active session in this worktree")
+			id := sessionID
+			personaName := ""
+			if id == "" {
+				if b == nil {
+					return exitcode.Newf(exitcode.NotFound, "no active session in this worktree — pass --session <id> to end one without a binding")
+				}
+				id = b.SessionID
+				personaName = b.PersonaName
+				// The binding records which server the session lives on. Ending
+				// it against a different backend would "succeed" in confusion:
+				// the mutation fails to find the session (or worse, finds an
+				// unrelated one) while the real session keeps its persona.
+				server, _ := f.Server()
+				if b.Server != "" && server != "" && b.Server != server {
+					return exitcode.Newf(exitcode.Usage,
+						"this worktree's session was started against %s, but the current server is %s — rerun with `--server %s`",
+						b.Server, server, b.Server)
+				}
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			resp, err := gen.EndTeamSession(ctx, client, b.SessionID, optStr(summary))
+			resp, err := gen.EndTeamSession(ctx, client, id, optStr(summary))
 			if err != nil {
 				return api.MapError(err)
 			}
-			if err := clearBinding(ctx); err != nil {
-				return err
+			// Clear the binding when it names the session we just ended.
+			if b != nil && b.SessionID == id {
+				if err := clearBinding(ctx); err != nil {
+					return err
+				}
 			}
 			var endedAt string
 			if resp.EndSession != nil && resp.EndSession.EndedAt != nil {
 				endedAt = *resp.EndSession.EndedAt
 			}
-			result := map[string]any{"sessionId": b.SessionID, "personaName": b.PersonaName, "endedAt": endedAt}
+			result := endResultDTO{SessionID: id, PersonaName: personaName, EndedAt: endedAt}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ ended session %s — persona %s is free\n", b.SessionID, b.PersonaName)
+				who := ""
+				if personaName != "" {
+					who = " (persona " + personaName + ")"
+				}
+				_, err := fmt.Fprintf(w, "✓ ended session %s%s\n", id, who)
 				return err
 			})
 		},
 	}
 	cmd.Flags().StringVar(&summary, "summary", "", "short summary of what the session did")
+	cmd.Flags().StringVar(&sessionID, "session", "", "end this session id instead of the worktree's bound one (recovery)")
 	return cmd
 }
 

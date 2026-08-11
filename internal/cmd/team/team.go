@@ -66,29 +66,48 @@ const rosterPageSize = 200
 // with a non-empty personaName. AgentFilter has no persona clause, so the
 // narrowing is client-side by design (#928: personas are metadata, not a
 // server-side kind).
+//
+// Two passes: the unfiltered list is the caller's MEMBER-ORG scope only,
+// while a persona minted without --org is a user-owned, org-less agent that
+// only `filter.ownedByMe: true` returns (#782) — so without an explicit org
+// scope both slices are read and merged (dedup by id, defensively; the
+// slices are disjoint by construction).
 func scanPersonaAgents(ctx context.Context, client graphql.Client, orgID *string) ([]gen.PersonaAgentFields, error) {
 	personas := []gen.PersonaAgentFields{}
-	limit := rosterPageSize
-	for offset := 0; ; {
-		off := offset
-		resp, err := gen.PersonaAgents(ctx, client, orgID, &limit, &off)
-		if err != nil {
-			return nil, api.MapError(err)
-		}
-		if resp.Agents == nil {
-			break
-		}
-		for _, item := range resp.Agents.Items {
-			if item == nil {
-				continue
+	seen := map[string]bool{}
+	collect := func(filter *gen.AgentFilter) error {
+		limit := rosterPageSize
+		for offset := 0; ; {
+			off := offset
+			resp, err := gen.PersonaAgents(ctx, client, orgID, filter, &limit, &off)
+			if err != nil {
+				return api.MapError(err)
 			}
-			if item.PersonaName != nil && *item.PersonaName != "" {
-				personas = append(personas, item.PersonaAgentFields)
+			if resp.Agents == nil {
+				return nil
+			}
+			for _, item := range resp.Agents.Items {
+				if item == nil || seen[item.Id] {
+					continue
+				}
+				seen[item.Id] = true
+				if item.PersonaName != nil && *item.PersonaName != "" {
+					personas = append(personas, item.PersonaAgentFields)
+				}
+			}
+			offset += len(resp.Agents.Items)
+			if len(resp.Agents.Items) < rosterPageSize || offset >= resp.Agents.Total {
+				return nil
 			}
 		}
-		offset += len(resp.Agents.Items)
-		if len(resp.Agents.Items) < rosterPageSize || offset >= resp.Agents.Total {
-			break
+	}
+	if err := collect(nil); err != nil {
+		return nil, err
+	}
+	if orgID == nil {
+		ownedByMe := true
+		if err := collect(&gen.AgentFilter{OwnedByMe: &ownedByMe}); err != nil {
+			return nil, err
 		}
 	}
 	return personas, nil

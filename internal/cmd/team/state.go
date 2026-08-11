@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/hadron-memory/hadron-cli/internal/config"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -98,7 +99,9 @@ func writeBinding(ctx context.Context, b *binding) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(path, append(data, '\n'), 0o600); err != nil {
+	// Atomic (same-dir temp + rename): this is the durable recovery record —
+	// a crash mid-write must never leave whoami/end with truncated JSON.
+	if err := config.WriteFileAtomic(path, append(data, '\n'), 0o600); err != nil {
 		return "", fmt.Errorf("writing session binding %s: %w", path, err)
 	}
 	return path, nil

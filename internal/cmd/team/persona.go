@@ -176,6 +176,13 @@ func newCmdPersonaGet(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
+// retireResultDTO is the stable --json shape of `persona retire`.
+type retireResultDTO struct {
+	ID          string `json:"id"`
+	PersonaName string `json:"personaName"`
+	Status      string `json:"status"`
+}
+
 func newCmdPersonaRetire(f *cmdutil.Factory) *cobra.Command {
 	var org string
 	var yes bool
@@ -209,7 +216,7 @@ command is retire, not rm.)`,
 			if !resp.DeleteAgent {
 				return exitcode.Newf(exitcode.Error, "persona %s was not retired", dto.PersonaName)
 			}
-			result := map[string]string{"id": dto.ID, "personaName": dto.PersonaName, "status": "retired"}
+			result := retireResultDTO{ID: dto.ID, PersonaName: dto.PersonaName, Status: "retired"}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ retired persona %s — the name stays bound to it and is never re-minted\n", dto.PersonaName)
 				return err

@@ -17286,13 +17286,17 @@ func (v *__OrganizationsInput) GetOffset() *int { return v.Offset }
 
 // __PersonaAgentsInput is used internally by genqlient
 type __PersonaAgentsInput struct {
-	OrgId  *string `json:"orgId,omitempty"`
-	Limit  *int    `json:"limit,omitempty"`
-	Offset *int    `json:"offset,omitempty"`
+	OrgId  *string      `json:"orgId,omitempty"`
+	Filter *AgentFilter `json:"filter,omitempty"`
+	Limit  *int         `json:"limit,omitempty"`
+	Offset *int         `json:"offset,omitempty"`
 }
 
 // GetOrgId returns __PersonaAgentsInput.OrgId, and is useful for accessing the field via an interface.
 func (v *__PersonaAgentsInput) GetOrgId() *string { return v.OrgId }
+
+// GetFilter returns __PersonaAgentsInput.Filter, and is useful for accessing the field via an interface.
+func (v *__PersonaAgentsInput) GetFilter() *AgentFilter { return v.Filter }
 
 // GetLimit returns __PersonaAgentsInput.Limit, and is useful for accessing the field via an interface.
 func (v *__PersonaAgentsInput) GetLimit() *int { return v.Limit }
@@ -22706,8 +22710,8 @@ func Organizations(
 
 // The query executed by PersonaAgents.
 const PersonaAgents_Operation = `
-query PersonaAgents ($orgId: ID, $limit: Int, $offset: Int) {
-	agents(orgId: $orgId, limit: $limit, offset: $offset) {
+query PersonaAgents ($orgId: ID, $filter: AgentFilter, $limit: Int, $offset: Int) {
+	agents(orgId: $orgId, filter: $filter, limit: $limit, offset: $offset) {
 		total
 		items {
 			... PersonaAgentFields
@@ -22728,11 +22732,15 @@ fragment PersonaAgentFields on Agent {
 `
 
 // The roster read. AgentFilter has no persona clause, so callers page this
-// to exhaustion and keep the personaName != null rows client-side.
+// to exhaustion and keep the personaName != null rows client-side. The
+// unfiltered list is the caller's MEMBER-ORG scope only; the caller's own
+// user-owned (org-less) agents need a second pass with
+// filter.ownedByMe: true (#782) — scanPersonaAgents merges both.
 func PersonaAgents(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	orgId *string,
+	filter *AgentFilter,
 	limit *int,
 	offset *int,
 ) (data_ *PersonaAgentsResponse, err_ error) {
@@ -22741,6 +22749,7 @@ func PersonaAgents(
 		Query:  PersonaAgents_Operation,
 		Variables: &__PersonaAgentsInput{
 			OrgId:  orgId,
+			Filter: filter,
 			Limit:  limit,
 			Offset: offset,
 		},
