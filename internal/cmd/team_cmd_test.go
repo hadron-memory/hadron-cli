@@ -402,6 +402,51 @@ func TestTeamSessionLogRecordsPROnSession(t *testing.T) {
 	}
 }
 
+// The server write cannot be rolled back, so a failed local-binding append
+// afterwards must degrade (stderr note, whoami history only) — the command
+// still succeeds and still reports the server-recorded milestone.
+func TestTeamSessionLogSucceedsWhenLocalWriteFails(t *testing.T) {
+	dir := teamGitDir(t)
+	// readBinding follows the symlink; WriteFileAtomic refuses to write
+	// through one — a deterministic read-ok/write-fails binding.
+	target := filepath.Join(dir, "real-binding.json")
+	if err := os.WriteFile(target, []byte(bindingFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(dir, "hadron-team-session.json")); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+	})
+	f, out := testFactory(t)
+	errOut, ok := f.IOStreams.ErrOut.(*strings.Builder)
+	if !ok {
+		t.Fatal("testFactory ErrOut is not a strings.Builder")
+	}
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute must succeed despite the local write failure: %v", err)
+	}
+	if _, called := captured["UpdateTeamSession"]; !called {
+		t.Error("the server write must have happened")
+	}
+	var dto struct {
+		Recorded string `json:"recorded"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	if dto.Recorded != "session" {
+		t.Errorf("log output: %s", out.String())
+	}
+	if !strings.Contains(errOut.String(), "updating the local binding failed") {
+		t.Errorf("stderr should note the degraded local record: %q", errOut.String())
+	}
+}
+
 // log talks to the server now, so the binding's server guard applies to it
 // exactly as it does to end.
 func TestTeamSessionLogServerMismatch(t *testing.T) {
