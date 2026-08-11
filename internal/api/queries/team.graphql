@@ -32,9 +32,13 @@ query GetPersonaAgent($ref: ID!) {
 # unfiltered list is the caller's MEMBER-ORG scope only; the caller's own
 # user-owned (org-less) agents need a second pass with
 # filter.ownedByMe: true (#782) — scanPersonaAgents merges both.
-# @genqlient(for: "AgentFilter.ownedByMe", omitempty: true)
-# @genqlient(for: "AgentFilter.type", omitempty: true)
-# @genqlient(for: "AgentFilter.visibility", omitempty: true)
+#
+# Deliberately NO `for: "AgentFilter.*"` omitempty directives: agent.graphql
+# uses the same shared input without them, and genqlient resolves per-field
+# omitempty on a shared type non-deterministically when operations disagree
+# (the generated tags flip between runs and red the codegen-freshness gate —
+# the NodeWhereInput saga, see genqlient.yaml). Null filter fields are fine
+# on this read path; the null-clears hazard is mutation-only.
 query PersonaAgents(
   # @genqlient(omitempty: true)
   $orgId: ID

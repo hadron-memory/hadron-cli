@@ -611,9 +611,9 @@ type AgentFilter struct {
 	// admin-bypass surface), mirroring the owner-only personal/private memories
 	// slice. Org-less by definition, so orgId is not consulted. App-key callers
 	// (no user context) get an empty page. Powers the portal's "My agents".
-	OwnedByMe  *bool            `json:"ownedByMe,omitempty"`
-	Type       *AgentType       `json:"type,omitempty"`
-	Visibility *AgentVisibility `json:"visibility,omitempty"`
+	OwnedByMe  *bool            `json:"ownedByMe"`
+	Type       *AgentType       `json:"type"`
+	Visibility *AgentVisibility `json:"visibility"`
 }
 
 // GetOwnedByMe returns AgentFilter.OwnedByMe, and is useful for accessing the field via an interface.
@@ -22896,6 +22896,13 @@ fragment PersonaAgentFields on Agent {
 // unfiltered list is the caller's MEMBER-ORG scope only; the caller's own
 // user-owned (org-less) agents need a second pass with
 // filter.ownedByMe: true (#782) — scanPersonaAgents merges both.
+//
+// Deliberately NO `for: "AgentFilter.*"` omitempty directives: agent.graphql
+// uses the same shared input without them, and genqlient resolves per-field
+// omitempty on a shared type non-deterministically when operations disagree
+// (the generated tags flip between runs and red the codegen-freshness gate —
+// the NodeWhereInput saga, see genqlient.yaml). Null filter fields are fine
+// on this read path; the null-clears hazard is mutation-only.
 func PersonaAgents(
 	ctx_ context.Context,
 	client_ graphql.Client,
