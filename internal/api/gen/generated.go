@@ -6302,6 +6302,7 @@ func (v *EndTeamSessionEndSession) __premarshalJSON() (*__premarshalEndTeamSessi
 
 // EndTeamSessionResponse is returned by EndTeamSession on success.
 type EndTeamSessionResponse struct {
+	// Gate (#931): platform admin, the session's App, or the attributed user (not via impersonation).
 	EndSession *EndTeamSessionEndSession `json:"endSession"`
 }
 
@@ -15563,6 +15564,149 @@ func (v *UpdateOrganizationUpdateOrganization) __premarshalJSON() (*__premarshal
 	return &retval, nil
 }
 
+// UpdateTeamSessionResponse is returned by UpdateTeamSession on success.
+type UpdateTeamSessionResponse struct {
+	// #931: update a live session's mutable provenance fields (a PR is usually
+	// opened after startSession already ran). Explicit null clears; omitted
+	// preserves; an empty update is a valid liveness touch (bumps updatedAt,
+	// which the #930 inactivity reaper counts). id-only - sessions have no URN.
+	// Gate: platform admin, the session's App, or the attributed user (not via
+	// impersonation). Updates on an ended session stay allowed (late PR-merge
+	// attribution).
+	UpdateSession *UpdateTeamSessionUpdateSession `json:"updateSession"`
+}
+
+// GetUpdateSession returns UpdateTeamSessionResponse.UpdateSession, and is useful for accessing the field via an interface.
+func (v *UpdateTeamSessionResponse) GetUpdateSession() *UpdateTeamSessionUpdateSession {
+	return v.UpdateSession
+}
+
+// UpdateTeamSessionUpdateSession includes the requested fields of the GraphQL type Session.
+type UpdateTeamSessionUpdateSession struct {
+	TeamSessionFields `json:"-"`
+}
+
+// GetId returns UpdateTeamSessionUpdateSession.Id, and is useful for accessing the field via an interface.
+func (v *UpdateTeamSessionUpdateSession) GetId() string { return v.TeamSessionFields.Id }
+
+// GetAgentId returns UpdateTeamSessionUpdateSession.AgentId, and is useful for accessing the field via an interface.
+func (v *UpdateTeamSessionUpdateSession) GetAgentId() *string { return v.TeamSessionFields.AgentId }
+
+// GetUserId returns UpdateTeamSessionUpdateSession.UserId, and is useful for accessing the field via an interface.
+func (v *UpdateTeamSessionUpdateSession) GetUserId() *string { return v.TeamSessionFields.UserId }
+
+// GetType returns UpdateTeamSessionUpdateSession.Type, and is useful for accessing the field via an interface.
+func (v *UpdateTeamSessionUpdateSession) GetType() string { return v.TeamSessionFields.Type }
+
+// GetRepo returns UpdateTeamSessionUpdateSession.Repo, and is useful for accessing the field via an interface.
+func (v *UpdateTeamSessionUpdateSession) GetRepo() *string { return v.TeamSessionFields.Repo }
+
+// GetBranch returns UpdateTeamSessionUpdateSession.Branch, and is useful for accessing the field via an interface.
+func (v *UpdateTeamSessionUpdateSession) GetBranch() *string { return v.TeamSessionFields.Branch }
+
+// GetPrNumber returns UpdateTeamSessionUpdateSession.PrNumber, and is useful for accessing the field via an interface.
+func (v *UpdateTeamSessionUpdateSession) GetPrNumber() *int { return v.TeamSessionFields.PrNumber }
+
+// GetStartedAt returns UpdateTeamSessionUpdateSession.StartedAt, and is useful for accessing the field via an interface.
+func (v *UpdateTeamSessionUpdateSession) GetStartedAt() string { return v.TeamSessionFields.StartedAt }
+
+// GetEndedAt returns UpdateTeamSessionUpdateSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *UpdateTeamSessionUpdateSession) GetEndedAt() *string { return v.TeamSessionFields.EndedAt }
+
+// GetHost returns UpdateTeamSessionUpdateSession.Host, and is useful for accessing the field via an interface.
+func (v *UpdateTeamSessionUpdateSession) GetHost() *string { return v.TeamSessionFields.Host }
+
+// GetTool returns UpdateTeamSessionUpdateSession.Tool, and is useful for accessing the field via an interface.
+func (v *UpdateTeamSessionUpdateSession) GetTool() *string { return v.TeamSessionFields.Tool }
+
+// GetTranscriptPath returns UpdateTeamSessionUpdateSession.TranscriptPath, and is useful for accessing the field via an interface.
+func (v *UpdateTeamSessionUpdateSession) GetTranscriptPath() *string {
+	return v.TeamSessionFields.TranscriptPath
+}
+
+// GetLlmModel returns UpdateTeamSessionUpdateSession.LlmModel, and is useful for accessing the field via an interface.
+func (v *UpdateTeamSessionUpdateSession) GetLlmModel() *string { return v.TeamSessionFields.LlmModel }
+
+func (v *UpdateTeamSessionUpdateSession) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateTeamSessionUpdateSession
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateTeamSessionUpdateSession = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamSessionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateTeamSessionUpdateSession struct {
+	Id string `json:"id"`
+
+	AgentId *string `json:"agentId"`
+
+	UserId *string `json:"userId"`
+
+	Type string `json:"type"`
+
+	Repo *string `json:"repo"`
+
+	Branch *string `json:"branch"`
+
+	PrNumber *int `json:"prNumber"`
+
+	StartedAt string `json:"startedAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	Host *string `json:"host"`
+
+	Tool *string `json:"tool"`
+
+	TranscriptPath *string `json:"transcriptPath"`
+
+	LlmModel *string `json:"llmModel"`
+}
+
+func (v *UpdateTeamSessionUpdateSession) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateTeamSessionUpdateSession) __premarshalJSON() (*__premarshalUpdateTeamSessionUpdateSession, error) {
+	var retval __premarshalUpdateTeamSessionUpdateSession
+
+	retval.Id = v.TeamSessionFields.Id
+	retval.AgentId = v.TeamSessionFields.AgentId
+	retval.UserId = v.TeamSessionFields.UserId
+	retval.Type = v.TeamSessionFields.Type
+	retval.Repo = v.TeamSessionFields.Repo
+	retval.Branch = v.TeamSessionFields.Branch
+	retval.PrNumber = v.TeamSessionFields.PrNumber
+	retval.StartedAt = v.TeamSessionFields.StartedAt
+	retval.EndedAt = v.TeamSessionFields.EndedAt
+	retval.Host = v.TeamSessionFields.Host
+	retval.Tool = v.TeamSessionFields.Tool
+	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
+	retval.LlmModel = v.TeamSessionFields.LlmModel
+	return &retval, nil
+}
+
 // UpdateUserRolesResponse is returned by UpdateUserRoles on success.
 type UpdateUserRolesResponse struct {
 	UpdateUserRoles *UpdateUserRolesUpdateUserRolesUser `json:"updateUserRoles"`
@@ -17947,6 +18091,22 @@ func (v *__UpdateOrganizationInput) GetUrn() *string { return v.Urn }
 
 // GetListedOnMarketplace returns __UpdateOrganizationInput.ListedOnMarketplace, and is useful for accessing the field via an interface.
 func (v *__UpdateOrganizationInput) GetListedOnMarketplace() *bool { return v.ListedOnMarketplace }
+
+// __UpdateTeamSessionInput is used internally by genqlient
+type __UpdateTeamSessionInput struct {
+	Id       string  `json:"id"`
+	PrNumber *int    `json:"prNumber,omitempty"`
+	Branch   *string `json:"branch,omitempty"`
+}
+
+// GetId returns __UpdateTeamSessionInput.Id, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamSessionInput) GetId() string { return v.Id }
+
+// GetPrNumber returns __UpdateTeamSessionInput.PrNumber, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamSessionInput) GetPrNumber() *int { return v.PrNumber }
+
+// GetBranch returns __UpdateTeamSessionInput.Branch, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamSessionInput) GetBranch() *string { return v.Branch }
 
 // __UpdateUserRolesInput is used internally by genqlient
 type __UpdateUserRolesInput struct {
@@ -22736,6 +22896,13 @@ fragment PersonaAgentFields on Agent {
 // unfiltered list is the caller's MEMBER-ORG scope only; the caller's own
 // user-owned (org-less) agents need a second pass with
 // filter.ownedByMe: true (#782) — scanPersonaAgents merges both.
+//
+// Deliberately NO `for: "AgentFilter.*"` omitempty directives: agent.graphql
+// uses the same shared input without them, and genqlient resolves per-field
+// omitempty on a shared type non-deterministically when operations disagree
+// (the generated tags flip between runs and red the codegen-freshness gate —
+// the NodeWhereInput saga, see genqlient.yaml). Null filter fields are fine
+// on this read path; the null-clears hazard is mutation-only.
 func PersonaAgents(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -24829,6 +24996,62 @@ func UpdateOrganization(
 	}
 
 	data_ = &UpdateOrganizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateTeamSession.
+const UpdateTeamSession_Operation = `
+mutation UpdateTeamSession ($id: ID!, $prNumber: Int, $branch: String) {
+	updateSession(id: $id, prNumber: $prNumber, branch: $branch) {
+		... TeamSessionFields
+	}
+}
+fragment TeamSessionFields on Session {
+	id
+	agentId
+	userId
+	type
+	repo
+	branch
+	prNumber
+	startedAt
+	endedAt
+	host
+	tool
+	transcriptPath
+	llmModel
+}
+`
+
+// #931/#932: set a live session's mutable provenance fields mid-session.
+// `session log --pr` denormalizes the PR number here; any authorized update
+// also bumps updatedAt, which the #930 inactivity reaper counts as liveness.
+func UpdateTeamSession(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	prNumber *int,
+	branch *string,
+) (data_ *UpdateTeamSessionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateTeamSession",
+		Query:  UpdateTeamSession_Operation,
+		Variables: &__UpdateTeamSessionInput{
+			Id:       id,
+			PrNumber: prNumber,
+			Branch:   branch,
+		},
+	}
+
+	data_ = &UpdateTeamSessionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

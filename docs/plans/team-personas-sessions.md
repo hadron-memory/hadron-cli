@@ -122,14 +122,22 @@ full scan; the scan short-circuits as soon as one active match appears.
 `session list` joins persona names onto rows via one roster read (sessions only
 carry `agentId`).
 
-### `session log`: local-only in slice 1
+### `session log`: denormalizes onto the Session row
 
-The server has **no mutation that updates an existing session** —
-`SessionInput.prNumber` exists only at `startSession`, and `endSession` takes
-no prNumber. Filed as hadron-server #931. Until that lands, `session log --pr <n>`
-records the PR in the local binding (visible via `whoami`), prints a loud note,
-and reports `"recorded": "local"` in `--json`. TODO(#369 slice 3): the worklog
-collection + `Session.prNumber` denormalization replace the local record.
+Shipped initially local-only: the server had **no mutation that updates an
+existing session** (`SessionInput.prNumber` exists only at `startSession`).
+Filed as hadron-server #931; hadron-server PR #932 shipped
+`updateSession(id, prNumber, branch)` the same day, and the CLI now calls it —
+`session log --pr <n>` writes `Session.prNumber` server-side (latest wins; a
+display convenience, never the provenance mechanism) and keeps the full
+number history in the local binding for `whoami`. `--json` reports
+`"recorded": "session"` (the earlier stopgap said `"local"`; the slice-3
+worklog record will say `"worklog"`). Per #932's design, any authorized
+update bumps `updatedAt`, which the #930 inactivity reaper counts as
+liveness — so `session log` doubles as the heartbeat that keeps a persona
+"taken" while work is in flight. The binding-server guard applies to `log`
+exactly as to `end`. TODO(#369 slice 3): the worklog collection (PR →
+sessions → transcripts) plus issue/commit refs.
 
 ## GraphQL layer
 
@@ -153,9 +161,10 @@ temp dir.
 
 ## Deferred / follow-ups
 
-- **hadron-server #931**: a session-update surface (set `prNumber` on a live
-  session) — until then `session log` is local-only.
+- ~~**hadron-server #931**: a session-update surface~~ — shipped (server PR
+  #932); `session log` persists server-side now.
 - **hadron-server #930**: the stale-session reaper; when it lands, `start`'s
-  refusal message can distinguish stale from live.
+  refusal message can distinguish stale from live (`session log` already
+  provides the liveness signal it will consume).
 - Slice 2/3 (#369): `team chat`, `team init` + worklog collection, the
   ref-normalizer (`owner/repo#N` canonical form), `session list --pr`.
