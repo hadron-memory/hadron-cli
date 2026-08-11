@@ -89,6 +89,8 @@ hadron app list --org <org> | install (--org <id> | --owner-me) --agent <ref> --
 hadron ai-config list [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
 hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
+hadron team persona create --name <candidate>... [--role <r>] [--prompt <p>] [--org <ref> | --owner-me] | list [--org <ref>] [--role <r>] | get <name-or-ref> | retire <name-or-ref> --yes
+hadron team session start --as <persona> [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log --pr <number> | end [--summary <text>] [--session <id>] | list [--active] [--as <persona>] [--repo <r>] [--limit N] [--offset N]
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--email <e>] [--handle <h>]
 hadron server-info
@@ -659,6 +661,42 @@ Conventions:
   changes only the fields you pass (`--surface` replaces the set); `agent rm <ref>`
   requires `--yes`. `<ref>` is an agent ID **or** a fully-qualified URN
   (`acme.com::support-bot`) — no need to resolve an ID first. Memory-attach, AI-config wiring, and app-wiring land next.
+- `team` (#369) coordinates a team of humans and AI agents. A **persona** is an
+  Agent with persona metadata (`personaName`/`personaRole`/`personaPrompt`) — a
+  named AI team member ("Iris") re-driven across many sessions, by the same or a
+  different human. `team persona create --name <candidate>...` mints one:
+  `--name` is repeatable and candidates are tried in order — a
+  `PERSONA_NAME_TAKEN` rejection (persona names are unique per owner,
+  case-insensitively) falls through to the next candidate; all taken is exit 5.
+  Names bind **forever**: `persona retire` (requires `--yes`) removes a persona
+  from the roster but never frees its name (PR trailers and chat history
+  reference it), and there is deliberately no `persona rm`. `persona
+  list|get` read the roster (client-side narrowing over the agent list —
+  merging the member-org scope with your own user-owned agents, which the
+  unfiltered list omits; `get`
+  also takes a persona name, resolved case-insensitively — ambiguity across
+  orgs asks for `--org` or a URN). A **session** binds the current git worktree
+  to a persona: `session start --as <persona>` records provenance
+  (repo/branch/host/tool/transcript path/model) server-side and writes a local
+  binding under the worktree's git dir (`git rev-parse --git-dir`), which
+  `session whoami` reads back after a context compaction — local only, no
+  network. A persona with a still-active session is *taken*: `start` refuses
+  (exit 5) showing who is driving it since when, and `--force` takes over
+  (there is no stale-session reaper yet — hadron-server#930 — so a crashed
+  session also holds the persona until takeover or `session end`; a `--force`
+  that replaces this worktree's own binding first ends the session it named,
+  best-effort). `session end [--summary <s>]` ends the bound session — the
+  persona is freed unless another active session still holds it (a forced
+  takeover leaves the taken-over session open; check `session list
+  --active`). `end --session <id>` is the recovery path when the binding is
+  gone but the server session is still open; `end` also refuses (exit 2) when
+  the binding was started against a different `--server` than the current
+  one. `session list`
+  is the presence/provenance view, newest first, persona names joined in;
+  `--active` and `--as` narrow client-side. `session log --pr <n>` records a
+  PR milestone **locally only** in slice 1 (shown by `whoami`; the shared
+  worklog and `Session.prNumber` land with #369 slice 3). The commit trailer
+  `Persona: <name>` carries the persona name into PRs.
 - `user search <query>` finds users (enumeration-safe: substring on handle /
   GitHub username, exact on email) — the way to resolve a user ID for `org
   member`/`memory member`/`memory share`. **Omit the query** (also spelled `user
