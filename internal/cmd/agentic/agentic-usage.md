@@ -692,8 +692,9 @@ Conventions:
   `session whoami` reads back after a context compaction — local only, no
   network. A persona with a still-active session is *taken*: `start` refuses
   (exit 5) showing who is driving it since when, and `--force` takes over
-  (there is no stale-session reaper yet — hadron-server#930 — so a crashed
-  session also holds the persona until takeover or `session end`; a `--force`
+  (stale sessions auto-expire server-side — hard expiry + inactivity, with
+  `session log` counting as activity — so an active session usually means a
+  live driver; a `--force`
   that replaces this worktree's own binding first ends the session it named,
   best-effort). `session end [--summary <s>]` ends the bound session — the
   persona is freed unless another active session still holds it (a forced
@@ -715,7 +716,7 @@ Conventions:
   never owner/repo), with `--action` (default `worked-on`) and an optional
   `--detail` JSON bag. `--pr` and `--branch` additionally denormalize onto
   `Session.prNumber`/`Session.branch` (latest wins — display convenience
-  only) and count as session liveness for the coming inactivity reaper;
+  only) and count as session liveness for the inactivity reaper;
   without a team memory they degrade to that denormalization alone
   (`"recorded": "session"` instead of `"worklog"`), while
   `--issue`/`--commit` refuse. `session list (--pr | --issue | --commit |

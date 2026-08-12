@@ -292,7 +292,7 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 }
 
 // An active session holds the persona: without --force the start refuses
-// (Conflict), names the driver, and points at the missing reaper (#930).
+// (Conflict) and names the driver with the takeover hint.
 func TestTeamSessionStartOccupiedNeedsForce(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
@@ -306,7 +306,7 @@ func TestTeamSessionStartOccupiedNeedsForce(t *testing.T) {
 	if code := exitcode.FromError(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
-	for _, want := range []string{"u-holger", "--force", "hadron-server#930", "2026-08-11T09:00:00Z"} {
+	for _, want := range []string{"u-holger", "--force", "2026-08-11T09:00:00Z"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("refusal should mention %q: %v", want, err)
 		}

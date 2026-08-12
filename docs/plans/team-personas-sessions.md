@@ -179,8 +179,9 @@ temp dir.
 
 - ~~**hadron-server #931**: a session-update surface~~ — shipped (server PR
   #932); `session log` persists server-side now.
-- **hadron-server #930**: the stale-session reaper; when it lands, `start`'s
-  refusal message can distinguish stale from live (`session log` already
-  provides the liveness signal it will consume).
+- ~~**hadron-server #930**: the stale-session reaper~~ — shipped (server PR
+  #933: hard expiry + inactivity, `session log`'s `updateSession` counting
+  as the heartbeat); the "no reaper yet" hedges were removed from the
+  session help texts and refusal messages.
 - Slice 2/3 (#369): `team chat`, `team init` + worklog collection, the
   ref-normalizer (`owner/repo#N` canonical form), `session list --pr`.

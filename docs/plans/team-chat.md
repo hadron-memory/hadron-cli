@@ -105,5 +105,6 @@ hadron-client + CLI + academy-corpus move), the schema entry comes with it.
 - Academy-corpus migration into a team App memory (protocol-compatible
   as-is; a content move, not a CLI feature).
 - The name-register / role-template machinery for `persona create`
-  (D-2026-08-11-007) — the last #369 piece besides server-side reaping
-  (hadron-server#930).
+  (D-2026-08-11-007) — since shipped server-side as `createTeamPersona`
+  (hadron-server#935) with the CLI wrapper in PR #378; server-side reaping
+  (hadron-server#930) shipped as PR #933.
