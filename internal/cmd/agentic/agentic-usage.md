@@ -91,7 +91,7 @@ hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <or
 hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
 hadron team init -m <team-memory>
 hadron team persona create --name <candidate>... [--role <r>] [--prompt <p>] [--org <ref> | --owner-me] | list [--org <ref>] [--role <r>] | get <name-or-ref> | retire <name-or-ref> --yes
-hadron team session start --as <persona> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--summary <text>] [--session <id>] | list [--active] [--as <persona>] [--repo <r>] [--limit N] [--offset N] | list --pr <ref> [-m <team-memory>]
+hadron team session start --as <persona> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--summary <text>] [--session <id>] | list [--active] [--as <persona>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
 hadron team chat post <body|-> [--reply-to <seq-or-loc>] [-m <team-memory>] [--messages-loc <loc>] | read [--since <seq>] [--mentions-me] [-m <team-memory>] [--messages-loc <loc>]
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--email <e>] [--handle <h>]
@@ -699,19 +699,22 @@ Conventions:
   `team init -m <team-memory>` declares its collection schema once (in the
   team App memory; idempotent, preserves other collections), `session start
   -m <team-memory>` records the worklog home in the binding, and `session
-  log (--pr | --issue | --commit) <ref>` appends a milestone — refs
-  normalize to one canonical string per artifact (`owner/repo#371`,
-  `owner/repo@sha`; URLs, short forms, and bare numbers/shas qualified by
-  the session's `--repo` or the git remote are all accepted), with
-  `--action` (default `worked-on`) and an optional `--detail` JSON bag.
-  `--pr` additionally denormalizes onto `Session.prNumber` (latest wins —
-  display convenience only) and counts as session liveness for the coming
-  inactivity reaper; without a team memory it degrades to that
-  denormalization alone (`"recorded": "session"` instead of `"worklog"`).
-  `session list --pr <ref>` is THE provenance query: worklog lookup by
-  canonical ref → the sessions that produced the PR (several rows expected;
-  a recorded session you cannot read lists as an id-only stub rather than
-  disappearing). **`team chat`** is the group chat as the bound persona — the
+  log (--pr | --issue | --commit | --branch) <ref>` appends a milestone —
+  refs normalize to one canonical string per artifact (`owner/repo#371`,
+  `owner/repo@sha`, `owner/repo:branch`; URLs, short forms, and bare
+  numbers/shas/branch-names qualified by the session's `--repo` or the git
+  remote are all accepted; a bare branch value is always a branch name,
+  never owner/repo), with `--action` (default `worked-on`) and an optional
+  `--detail` JSON bag. `--pr` and `--branch` additionally denormalize onto
+  `Session.prNumber`/`Session.branch` (latest wins — display convenience
+  only) and count as session liveness for the coming inactivity reaper;
+  without a team memory they degrade to that denormalization alone
+  (`"recorded": "session"` instead of `"worklog"`), while
+  `--issue`/`--commit` refuse. `session list (--pr | --issue | --commit |
+  --branch) <ref>` is THE provenance query: worklog lookup by canonical
+  (ref, kind) → the sessions that produced the artifact (several rows
+  expected; a recorded session you cannot read lists as an id-only stub
+  rather than disappearing). **`team chat`** is the group chat as the bound persona — the
   same message-node dialect as `hadron chat` (one shared implementation, so
   CLI- and hadron-client-channel posts can't drift; the channel pushes
   messages into running Claude Code sessions, Codex and humans poll). It

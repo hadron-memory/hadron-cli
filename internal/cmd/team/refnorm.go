@@ -16,12 +16,14 @@ import (
 //	pr / issue   owner/repo#371        (GitHub's shared number space; `kind`
 //	                                    distinguishes a PR from an issue)
 //	commit       owner/repo@<full-or-short-sha>
+//	branch       owner/repo:branch     (branch name verbatim — branches are
+//	                                    case-sensitive and may contain slashes)
 //
 // Accepted inputs per kind: the canonical form, a GitHub URL
-// (https://github.com/owner/repo/pull/371, /issues/362, /commit/<sha>), and
-// the bare number / bare sha — which need defaultRepo (owner/repo) to
-// qualify. Pure function; the caller supplies defaultRepo from the session
-// binding or a git-remote lookup.
+// (https://github.com/owner/repo/pull/371, /issues/362, /commit/<sha>,
+// /tree/<branch>), and the bare number / sha / branch name — which need
+// defaultRepo (owner/repo) to qualify. Pure function; the caller supplies
+// defaultRepo from the session binding or a git-remote lookup.
 
 var (
 	repoRE = regexp.MustCompile(`^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$`)
@@ -54,6 +56,8 @@ func normalizeArtifactRef(kind, raw, defaultRepo string) (canonical string, numb
 		return normalizeNumberedRef(kind, raw, defaultRepo)
 	case "commit":
 		return normalizeCommitRef(raw, defaultRepo)
+	case "branch":
+		return normalizeBranchRef(raw, defaultRepo)
 	default:
 		return "", 0, fmt.Errorf("unknown artifact kind %q", kind)
 	}
@@ -125,6 +129,51 @@ func normalizeCommitRef(raw, defaultRepo string) (string, int, error) {
 		return repo + "@" + sha, 0, nil
 	}
 	return "", 0, fmt.Errorf("%q is not a recognized commit ref (accepted: a sha, owner/repo@sha, or a GitHub URL)", raw)
+}
+
+// validBranch rejects the values that cannot be a git branch name and would
+// corrupt the equality key (whitespace, the ref separators used by the other
+// canonical forms). Deliberately permissive otherwise — git's own rules are
+// baroque, and a never-matching key hurts less than a rejected real branch.
+func validBranch(branch string) bool {
+	return branch != "" && !strings.ContainsAny(branch, " \t\n#@:")
+}
+
+// normalizeBranchRef canonicalizes a branch ref onto owner/repo:branch. The
+// branch name is kept VERBATIM (case-sensitive, slashes allowed —
+// feature/foo is a common shape), so a bare value with no colon always reads
+// as a branch name qualified by defaultRepo, never as owner/repo.
+func normalizeBranchRef(raw, defaultRepo string) (string, int, error) {
+	// GitHub URL: https://github.com/owner/repo/tree/<branch...>
+	if repo, tail, ok := splitGitHubURL(raw); ok {
+		part, rest, _ := strings.Cut(tail, "/")
+		branch := strings.TrimSuffix(rest, "/")
+		if part == "tree" && validBranch(branch) {
+			return repo + ":" + branch, 0, nil
+		}
+		return "", 0, fmt.Errorf("cannot parse a branch from %q", raw)
+	}
+	// Short form: owner/repo:branch (split at the FIRST colon; the branch
+	// part may itself contain slashes but not a colon).
+	if rawRepo, branch, ok := strings.Cut(raw, ":"); ok {
+		repo, repoOK := canonicalRepo(rawRepo)
+		if !repoOK || !validBranch(branch) {
+			return "", 0, fmt.Errorf("%q is not a valid branch ref (want owner/repo:branch)", raw)
+		}
+		return repo + ":" + branch, 0, nil
+	}
+	// Bare branch name: needs a repo to qualify.
+	if !validBranch(raw) {
+		return "", 0, fmt.Errorf("%q is not a recognized branch ref (accepted: a branch name, owner/repo:branch, or a GitHub /tree/ URL)", raw)
+	}
+	if defaultRepo == "" {
+		return "", 0, fmt.Errorf("bare branch %q needs a repository — pass owner/repo:%s, or record --repo at `session start`", raw, raw)
+	}
+	repo, ok := canonicalRepo(defaultRepo)
+	if !ok {
+		return "", 0, fmt.Errorf("session repo %q is not owner/repo — pass the full ref owner/repo:%s", defaultRepo, raw)
+	}
+	return repo + ":" + raw, 0, nil
 }
 
 // splitGitHubURL recognizes https://github.com/owner/repo/<tail> (http and a

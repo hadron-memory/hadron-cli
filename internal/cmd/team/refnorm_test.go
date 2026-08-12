@@ -42,7 +42,17 @@ func TestNormalizeArtifactRef(t *testing.T) {
 		{name: "commit url", kind: "commit", raw: "https://github.com/acme/widgets/commit/93200b296ec1e9ae287082744b68fc42efb3277a", want: "acme/widgets@93200b296ec1e9ae287082744b68fc42efb3277a"},
 		{name: "commit sha too short", kind: "commit", raw: "abc123", defaultRepo: "a/b", wantErr: true},
 		{name: "commit non-hex rejected", kind: "commit", raw: "a/b@notahexsha", wantErr: true},
-		{name: "unknown kind", kind: "branch", raw: "a/b:main", wantErr: true},
+		{name: "branch short form", kind: "branch", raw: "acme/widgets:main", want: "acme/widgets:main"},
+		// Branch names are case-sensitive and may contain slashes; only the
+		// repo part folds. A bare value is ALWAYS a branch name, never
+		// owner/repo — feature/foo is a common branch shape.
+		{name: "branch case: repo folds, branch verbatim", kind: "branch", raw: "Acme/Widgets:Feature-X", want: "acme/widgets:Feature-X"},
+		{name: "branch bare with repo", kind: "branch", raw: "team-chat", defaultRepo: "hadron-memory/hadron-cli", want: "hadron-memory/hadron-cli:team-chat"},
+		{name: "branch bare slashed with repo", kind: "branch", raw: "feature/foo", defaultRepo: "a/b", want: "a/b:feature/foo"},
+		{name: "branch bare without repo", kind: "branch", raw: "main", wantErr: true},
+		{name: "branch url", kind: "branch", raw: "https://github.com/acme/widgets/tree/feature/foo", want: "acme/widgets:feature/foo"},
+		{name: "branch with space rejected", kind: "branch", raw: "a/b:not a branch", wantErr: true},
+		{name: "unknown kind", kind: "tag", raw: "a/b:v1", wantErr: true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

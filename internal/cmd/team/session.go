@@ -336,9 +336,9 @@ type logResultDTO struct {
 }
 
 func newCmdSessionLog(f *cmdutil.Factory) *cobra.Command {
-	var pr, issue, commit, action, detail, memory string
+	var pr, issue, commit, branch, action, detail, memory string
 	cmd := &cobra.Command{
-		Use:   "log (--pr | --issue | --commit) <ref> [--action <a>]",
+		Use:   "log (--pr | --issue | --commit | --branch) <ref> [--action <a>]",
 		Short: "Record an artifact milestone for the current session",
 		Long: `Record an external-artifact milestone for this worktree's session in the
 team worklog — the collection behind the provenance query
@@ -347,15 +347,17 @@ home is the team memory recorded at ` + "`session start -m`" + ` (or --memory he
 declare its schema once with ` + "`team init`" + `.
 
 Refs are normalized to one canonical string per artifact (owner/repo#371,
-owner/repo@sha) — a URL, the short form, or a bare number/sha are all
-accepted; a bare value is qualified by the session's recorded --repo (or
-the git remote). --pr additionally denormalizes the number onto
-Session.prNumber (latest wins; display convenience only) and counts as
-session liveness for the coming inactivity reaper (hadron-server#930).
-Without a team memory, --pr degrades to that denormalization alone.`,
+owner/repo@sha, owner/repo:branch) — a URL, the short form, or a bare
+number/sha/branch are all accepted; a bare value is qualified by the
+session's recorded --repo (or the git remote). --pr and --branch
+additionally denormalize onto Session.prNumber / Session.branch (latest
+wins; display convenience only) and count as session liveness for the
+coming inactivity reaper (hadron-server#930). Without a team memory,
+--pr/--branch degrade to that denormalization alone.`,
 		Example: `  hadron team session log --pr 371
   hadron team session log --pr acme/widgets#7 --action merged
-  hadron team session log --commit 93200b2 --action pushed`,
+  hadron team session log --commit 93200b2 --action pushed
+  hadron team session log --branch team-chat --action pushed`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -367,6 +369,8 @@ Without a team memory, --pr degrades to that denormalization alone.`,
 				kind, raw = "issue", issue
 			case commit != "":
 				kind, raw = "commit", commit
+			case branch != "":
+				kind, raw = "branch", branch
 			}
 			var detailRaw json.RawMessage
 			if detail != "" {
@@ -393,7 +397,7 @@ Without a team memory, --pr degrades to that denormalization alone.`,
 			if memory != "" {
 				teamMem = cmdutil.CanonicalMemoryRef(memory)
 			}
-			if teamMem == "" && kind != "pr" {
+			if teamMem == "" && kind != "pr" && kind != "branch" {
 				return exitcode.Newf(exitcode.Usage,
 					"an %s milestone lives only in the team worklog — pass -m <team-memory> (or record it with `session start -m`), after a one-time `hadron team init`", kind)
 			}
@@ -401,9 +405,16 @@ Without a team memory, --pr degrades to that denormalization alone.`,
 			if err != nil {
 				return err
 			}
-			// Session.prNumber denormalization (+ the liveness touch) for PRs.
-			if kind == "pr" {
+			// Session denormalization (+ the liveness touch): prNumber for
+			// PRs, branch (the name, without the repo qualifier) for branches.
+			switch kind {
+			case "pr":
 				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, &number, nil); err != nil {
+					return api.MapError(err)
+				}
+			case "branch":
+				_, branchName, _ := strings.Cut(canonical, ":")
+				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, nil, &branchName); err != nil {
 					return api.MapError(err)
 				}
 			}
@@ -430,7 +441,7 @@ Without a team memory, --pr degrades to that denormalization alone.`,
 				}
 				recorded = "worklog"
 			} else {
-				fmt.Fprintf(f.IOStreams.ErrOut, "note: no team memory recorded — only Session.prNumber was set; `hadron team init` + `session start -m <memory>` enable the worklog\n")
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: no team memory recorded — only the Session field was set; `hadron team init` + `session start -m <memory>` enable the worklog\n")
 			}
 			if kind == "pr" {
 				known := false
@@ -459,11 +470,12 @@ Without a team memory, --pr degrades to that denormalization alone.`,
 	cmd.Flags().StringVar(&pr, "pr", "", "pull-request ref: number, owner/repo#N, or URL")
 	cmd.Flags().StringVar(&issue, "issue", "", "issue ref: number, owner/repo#N, or URL")
 	cmd.Flags().StringVar(&commit, "commit", "", "commit ref: sha, owner/repo@sha, or URL")
+	cmd.Flags().StringVar(&branch, "branch", "", "branch ref: name, owner/repo:branch, or /tree/ URL")
 	cmd.Flags().StringVar(&action, "action", "worked-on", "what happened to the artifact (e.g. opened, merged, pushed)")
 	cmd.Flags().StringVar(&detail, "detail", "", "optional JSON bag of display extras stored with the milestone")
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "team App memory override (defaults to the binding's)")
-	cmd.MarkFlagsMutuallyExclusive("pr", "issue", "commit")
-	cmd.MarkFlagsOneRequired("pr", "issue", "commit")
+	cmd.MarkFlagsMutuallyExclusive("pr", "issue", "commit", "branch")
+	cmd.MarkFlagsOneRequired("pr", "issue", "commit", "branch")
 	return cmd
 }
 
@@ -573,11 +585,11 @@ session is still open.`,
 }
 
 func newCmdSessionList(f *cmdutil.Factory) *cobra.Command {
-	var as, org, repo, pr, memory string
+	var as, org, repo, pr, issue, commit, branch, memory string
 	var active bool
 	var limit, offset int
 	cmd := &cobra.Command{
-		Use:     "list [--active] [--as <persona>] [--repo <r>] | --pr <ref> [-m <team-memory>]",
+		Use:     "list [--active] [--as <persona>] [--repo <r>] | (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]",
 		Aliases: []string{"ls"},
 		Short:   "List sessions — team presence and session provenance",
 		Long: `List sessions, newest first, with each session's persona joined in.
@@ -589,28 +601,41 @@ listings page server-side.
 --pr <ref> is THE provenance query: which sessions produced this PR? It
 looks the normalized ref up in the team worklog (` + "`session log`" + ` writes it)
 and resolves each recorded session — several rows per PR are expected and
-desirable (a PR spanning three sessions yields three transcripts). The
-worklog home comes from -m or the worktree binding. A recorded session
-that is no longer visible to you still lists (id only), rather than being
-silently dropped.`,
+desirable (a PR spanning three sessions yields three transcripts).
+--issue/--commit/--branch ask the same question of the other artifact
+kinds. The worklog home comes from -m or the worktree binding. A recorded
+session that is no longer visible to you still lists (id only), rather
+than being silently dropped.`,
 		Example: `  hadron team session list --active
-  hadron team session list --pr 371 -m acme.com::eng-team`,
+  hadron team session list --pr 371 -m acme.com::eng-team
+  hadron team session list --commit 93200b2`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if limit < 0 || offset < 0 {
 				return exitcode.Newf(exitcode.Usage, "--limit and --offset must be non-negative")
 			}
-			if pr != "" && (active || as != "" || repo != "" ||
+			kind, ref := "", ""
+			switch {
+			case pr != "":
+				kind, ref = "pr", pr
+			case issue != "":
+				kind, ref = "issue", issue
+			case commit != "":
+				kind, ref = "commit", commit
+			case branch != "":
+				kind, ref = "branch", branch
+			}
+			if ref != "" && (active || as != "" || repo != "" ||
 				cmd.Flags().Changed("limit") || cmd.Flags().Changed("offset")) {
-				return exitcode.Newf(exitcode.Usage, "--pr is the worklog provenance query — it does not combine with --active/--as/--repo/--limit/--offset")
+				return exitcode.Newf(exitcode.Usage, "--%s is the worklog provenance query — it does not combine with --active/--as/--repo/--limit/--offset", kind)
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			if pr != "" {
-				return runProvenanceQuery(cmd, f, client, pr, memory, org)
+			if ref != "" {
+				return runProvenanceQuery(cmd, f, client, kind, ref, memory, org)
 			}
 			// One roster read joins personaName onto every row (sessions only
 			// carry agentId) and resolves --as.
@@ -702,16 +727,21 @@ silently dropped.`,
 	cmd.Flags().StringVar(&org, "org", "", "roster scope for the persona join and --as resolution")
 	cmd.Flags().StringVar(&repo, "repo", "", "filter by repository")
 	cmd.Flags().StringVar(&pr, "pr", "", "provenance query: sessions behind this PR (number, owner/repo#N, or URL)")
+	cmd.Flags().StringVar(&issue, "issue", "", "provenance query: sessions behind this issue")
+	cmd.Flags().StringVar(&commit, "commit", "", "provenance query: sessions behind this commit")
+	cmd.Flags().StringVar(&branch, "branch", "", "provenance query: sessions behind this branch")
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "team App memory holding the worklog (defaults to the binding's)")
+	cmd.MarkFlagsMutuallyExclusive("pr", "issue", "commit", "branch")
 	cmd.Flags().IntVar(&limit, "limit", 0, "max results (server default when unset)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "results to skip")
 	return cmd
 }
 
-// runProvenanceQuery answers "which sessions produced this PR": normalize the
-// ref, equality-match it in the worklog, resolve each recorded session. The
-// worklog is the N:M join (D13/D14) — Session.prNumber is never consulted.
-func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, pr, memory, org string) error {
+// runProvenanceQuery answers "which sessions produced this artifact":
+// normalize the ref, equality-match (ref, kind) in the worklog, resolve each
+// recorded session. The worklog is the N:M join (D13/D14) — the denormalized
+// Session columns are never consulted.
+func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, kind, ref, memory, org string) error {
 	ctx := cmd.Context()
 	// The binding supplies defaults (worklog home, repo for bare numbers)
 	// but the query must also run from an unbound checkout with -m.
@@ -729,13 +759,17 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 	if teamMem == "" {
 		return exitcode.Newf(exitcode.Usage, "the provenance query reads the team worklog — pass -m <team-memory> (or record it with `session start -m`)")
 	}
-	canonical, _, err := normalizeArtifactRef("pr", pr, defaultRepo(ctx, b))
+	canonical, _, err := normalizeArtifactRef(kind, ref, defaultRepo(ctx, b))
 	if err != nil {
 		return exitcode.New(exitcode.Usage, err)
 	}
 	// kind is part of the match: PRs and issues share GitHub's number space,
 	// so ref alone would mix an issue's sessions into a PR's provenance.
-	match := json.RawMessage(fmt.Sprintf(`{"ref":%q,"kind":"pr"}`, canonical))
+	matchJSON, err := json.Marshal(map[string]string{"ref": canonical, "kind": kind})
+	if err != nil {
+		return err
+	}
+	match := json.RawMessage(matchJSON)
 	// Page to exhaustion — --pr promises the COMPLETE provenance set, and an
 	// unbounded findObjects call is one default page (the issue-#23 rule).
 	sessionIDs := []string{}

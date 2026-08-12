@@ -94,9 +94,15 @@ as an **id-only stub** with a stderr note, per the nodes-list visibility-gap
 rule (client-side fan-outs must surface unreadable ids, not drop them).
 `--pr` does not combine with `--active`/`--as`/`--repo` (usage error).
 
-## Out of scope (remaining #369 work)
+## Follow-ups (since shipped)
 
-`team chat` (shipped next — see [team-chat.md](team-chat.md)), `--branch`
-milestones, richer provenance filters (`session list --issue/--commit`
-generalization), and the role-template/name-register machinery for
+`team chat` shipped next ([team-chat.md](team-chat.md)). `--branch`
+milestones and the `session list --issue/--commit/--branch` provenance
+generalization shipped after that: `normalizeArtifactRef` gained the
+`branch` kind (canonical `owner/repo:branch`; the branch name stays
+verbatim — case-sensitive, slashes allowed — and a bare value with no
+colon is always a branch name, never owner/repo), `session log --branch`
+denormalizes the bare name onto `Session.branch` via the same
+`updateSession` write, and the provenance query matches any (ref, kind)
+pair. Still out of scope: the role-template/name-register machinery for
 `persona create` (D-2026-08-11-007).
