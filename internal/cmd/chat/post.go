@@ -31,11 +31,16 @@ func newCmdPost(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "post (--body <text|-> | --body-file <path>)",
 		Short: "Post a message to a team chat",
-		Long: `Post one message to a team chat. This builds the timestamped, colon-safe loc,
-assembles the data payload (author/body/timestamp/mentions, plus identity/role
-when set), creates the message node, and — with --reply-to — adds the reply edge,
-all in one call. It also materializes the message-parent node (best-effort) so
-the chat shows up as a real, copyable node in the portal.
+		Long: `Post one message to a team chat, in the canonical chat shape: the body in the
+node's content, the envelope (author/timestamp/mentions, plus identity/role
+when set) in its data, nodeType chat-message. This builds the timestamped,
+colon-safe loc, creates the message node, and — with --reply-to — adds the
+reply edge, all in one call. It also materializes the chat's structure
+best-effort: the chat entity (typed chat) and the messages container (typed
+record), so the chat shows up as a real, copyable node in the portal. A chat
+created by an older CLI keeps its container typed chat until retyped —
+` + "`hadron team init`" + ` converges team chats; for others:
+hadron node update <container-urn> --type record
 
 The body comes from --body <text> (inline), --body - (stdin), or --body-file
 <path> (a file — handy for a composed, multi-line message that would be painful
@@ -264,6 +269,30 @@ func EnsureChatParent(ctx context.Context, client graphql.Client, c Coords) {
 		MemoryId: c.Memory,
 		Loc:      c.MessagesLoc,
 		Name:     name,
+		NodeType: strPtr("record"),
+	})
+}
+
+// ConvergeChatParent retypes an EXISTING chat structure onto the canonical
+// D-2026-08-07-004 types — the migration path for chats materialized before
+// the shape change, whose messages container was created typed `chat`.
+// Deliberately separate from EnsureChatParent: per-post convergence would
+// tax every message with extra write calls forever, so retyping runs from an
+// explicit, idempotent setup step (`hadron team init`; other chats use
+// `hadron node update <container> --type record`). Best-effort like Ensure —
+// a missing node (nothing posted yet) or a permission refusal is ignored.
+func ConvergeChatParent(ctx context.Context, client graphql.Client, c Coords) {
+	if i := strings.LastIndex(c.MessagesLoc, ":"); i >= 0 {
+		chatLoc := c.MessagesLoc[:i]
+		_, _ = gen.UpdateNode(ctx, client, &gen.UpdateNodeInput{
+			MemoryId: &c.Memory,
+			Loc:      &chatLoc,
+			NodeType: strPtr("chat"),
+		})
+	}
+	_, _ = gen.UpdateNode(ctx, client, &gen.UpdateNodeInput{
+		MemoryId: &c.Memory,
+		Loc:      &c.MessagesLoc,
 		NodeType: strPtr("record"),
 	})
 }

@@ -1004,8 +1004,10 @@ func TestTeamInit(t *testing.T) {
 		"UpdateMemory": `{"data":{"updateMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team","name":"Eng Team",
 			"shortDescription":null,"class":"app","visibility":"ORGANIZATION","organizationId":"o1",
 			"isEncrypted":false,"maxRevCount":10,"updatedAt":"2026-08-11T00:00:00Z"}}}`,
-		// The best-effort chat-parent materialization (chat:messages).
+		// The best-effort chat-parent materialization (chat:messages) and the
+		// convergence retype for structures from before the canonical shape.
 		"CreateNode": `{"data":{"createNode":{"id":"n-chat","loc":"chat:messages","seq":null}}}`,
+		"UpdateNode": `{"data":{"updateNode":{"id":"n-chat","memoryId":"m1","loc":"chat:messages","name":"messages","nodeType":"record","tags":[],"isRunnable":false,"updatedAt":"2026-08-11T00:00:00Z"}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1059,6 +1061,7 @@ func TestTeamInitIdempotent(t *testing.T) {
 			"schema":{"objectTypes":{"worklog":` + worklogDef + `}},
 			"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
 		"CreateNode": `{"data":{"createNode":{"id":"n-chat","loc":"chat:messages","seq":null}}}`,
+		"UpdateNode": `{"data":{"updateNode":{"id":"n-chat","memoryId":"m1","loc":"chat:messages","name":"messages","nodeType":"record","tags":[],"isRunnable":false,"updatedAt":"2026-08-11T00:00:00Z"}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1068,6 +1071,18 @@ func TestTeamInitIdempotent(t *testing.T) {
 	}
 	if _, called := captured["UpdateMemory"]; called {
 		t.Error("an unchanged schema must not be rewritten")
+	}
+	// The convergence retype runs even on an unchanged schema — init is the
+	// migration point for pre-canonical chat structures (PR #377 review).
+	var up struct {
+		Input struct {
+			Loc      string `json:"loc"`
+			NodeType string `json:"nodeType"`
+		} `json:"input"`
+	}
+	_ = json.Unmarshal(captured["UpdateNode"], &up)
+	if up.Input.Loc != "chat:messages" || up.Input.NodeType != "record" {
+		t.Errorf("converge retype: %+v", up.Input)
 	}
 	if !strings.Contains(out.String(), `"status": "unchanged"`) {
 		t.Errorf("init output: %s", out.String())

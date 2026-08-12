@@ -109,8 +109,14 @@ formalizes. See docs/plans/team-chat.md.`,
 
 			// Materialize the chat parent so the group chat is a real, copyable
 			// node from day one. Best-effort like every EnsureChatParent call —
-			// an existing parent conflicts harmlessly.
-			chatpkg.EnsureChatParent(ctx, client, chatpkg.Coords{Memory: resp.Memory.Id, MessagesLoc: defaultMessagesLoc})
+			// an existing parent conflicts harmlessly. Converge then retypes a
+			// structure materialized by an older CLI (whose container was
+			// typed `chat`) onto the canonical D-2026-08-07-004 types — init
+			// is the explicit, idempotent migration point, so posts stay one
+			// round-trip.
+			chatCoords := chatpkg.Coords{Memory: resp.Memory.Id, MessagesLoc: defaultMessagesLoc}
+			chatpkg.EnsureChatParent(ctx, client, chatCoords)
+			chatpkg.ConvergeChatParent(ctx, client, chatCoords)
 
 			result := struct {
 				Memory      string   `json:"memory"`
