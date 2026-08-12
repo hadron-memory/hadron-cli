@@ -52,6 +52,16 @@ func TestNormalizeArtifactRef(t *testing.T) {
 		{name: "branch bare without repo", kind: "branch", raw: "main", wantErr: true},
 		{name: "branch url", kind: "branch", raw: "https://github.com/acme/widgets/tree/feature/foo", want: "acme/widgets:feature/foo"},
 		{name: "branch with space rejected", kind: "branch", raw: "a/b:not a branch", wantErr: true},
+		// "#" and "@" are LEGAL in git branch names (check-ref-format passes)
+		// and cannot confuse the parse — dispatch is by kind, not by shape.
+		{name: "branch with hash", kind: "branch", raw: "release#1", defaultRepo: "a/b", want: "a/b:release#1"},
+		{name: "branch with at", kind: "branch", raw: "a/b:user@feature", want: "a/b:user@feature"},
+		// URL paths are percent-encoded; the URL and short form of the same
+		// branch must land on ONE equality key.
+		{name: "branch url percent-decoded", kind: "branch", raw: "https://github.com/acme/widgets/tree/release%25candidate", want: "acme/widgets:release%candidate"},
+		{name: "branch short form percent verbatim", kind: "branch", raw: "acme/widgets:release%candidate", want: "acme/widgets:release%candidate"},
+		{name: "branch url with fragment", kind: "branch", raw: "https://github.com/acme/widgets/tree/main#readme", want: "acme/widgets:main"},
+		{name: "pr url with query", kind: "pr", raw: "https://github.com/acme/widgets/pull/7?diff=split", want: "acme/widgets#7", wantNumber: 7},
 		{name: "unknown kind", kind: "tag", raw: "a/b:v1", wantErr: true},
 	}
 	for _, tc := range cases {

@@ -2,6 +2,7 @@ package team
 
 import (
 	"fmt"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -132,11 +133,14 @@ func normalizeCommitRef(raw, defaultRepo string) (string, int, error) {
 }
 
 // validBranch rejects the values that cannot be a git branch name and would
-// corrupt the equality key (whitespace, the ref separators used by the other
-// canonical forms). Deliberately permissive otherwise — git's own rules are
-// baroque, and a never-matching key hurts less than a rejected real branch.
+// corrupt the equality key: whitespace and ":" (git forbids both in refs,
+// and the first ":" is this canonical form's repo/branch separator).
+// Deliberately permissive otherwise — "#" and "@" ARE legal in branch names
+// (`git check-ref-format --branch 'release#1'` passes), and they cannot
+// confuse the parse: the normalizer dispatches by kind before any parsing,
+// so a branch ref is never read as a PR/commit form.
 func validBranch(branch string) bool {
-	return branch != "" && !strings.ContainsAny(branch, " \t\n#@:")
+	return branch != "" && !strings.ContainsAny(branch, " \t\n:")
 }
 
 // normalizeBranchRef canonicalizes a branch ref onto owner/repo:branch. The
@@ -144,10 +148,17 @@ func validBranch(branch string) bool {
 // feature/foo is a common shape), so a bare value with no colon always reads
 // as a branch name qualified by defaultRepo, never as owner/repo.
 func normalizeBranchRef(raw, defaultRepo string) (string, int, error) {
-	// GitHub URL: https://github.com/owner/repo/tree/<branch...>
+	// GitHub URL: https://github.com/owner/repo/tree/<branch...>. The path
+	// is percent-encoded on the wire (a literal "%" travels as %25), so the
+	// branch is unescaped before validation — otherwise the URL and the
+	// short form of the same branch would produce two different equality
+	// keys and the provenance lookup would silently miss.
 	if repo, tail, ok := splitGitHubURL(raw); ok {
 		part, rest, _ := strings.Cut(tail, "/")
 		branch := strings.TrimSuffix(rest, "/")
+		if unescaped, err := url.PathUnescape(branch); err == nil {
+			branch = unescaped
+		}
 		if part == "tree" && validBranch(branch) {
 			return repo + ":" + branch, 0, nil
 		}
@@ -178,10 +189,16 @@ func normalizeBranchRef(raw, defaultRepo string) (string, int, error) {
 
 // splitGitHubURL recognizes https://github.com/owner/repo/<tail> (http and a
 // trailing slash tolerated) and returns owner/repo plus the tail after it.
+// A query string or fragment is stripped first, so a pasted browser URL
+// (…/pull/371?diff=split, …/tree/main#readme) parses; a literal "#" inside a
+// path element arrives percent-encoded, so the raw-"#" cut is safe.
 func splitGitHubURL(raw string) (repo, tail string, ok bool) {
 	for _, prefix := range []string{"https://github.com/", "http://github.com/", "github.com/"} {
 		if strings.HasPrefix(raw, prefix) {
-			parts := strings.SplitN(strings.TrimPrefix(raw, prefix), "/", 3)
+			rest := strings.TrimPrefix(raw, prefix)
+			rest, _, _ = strings.Cut(rest, "?")
+			rest, _, _ = strings.Cut(rest, "#")
+			parts := strings.SplitN(rest, "/", 3)
 			if len(parts) == 3 && parts[0] != "" && parts[1] != "" {
 				if r, ok := canonicalRepo(parts[0] + "/" + parts[1]); ok {
 					return r, parts[2], true
