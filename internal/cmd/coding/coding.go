@@ -93,8 +93,8 @@ func (e graphEdge) endpointName() string {
 func NewCmdCoding(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "coding <command>",
-		Short: "Lint the coding-workflow graph (review checklist, preflight router)",
-		Long: `Lint the coding-workflow graph in a Hadron memory.
+		Short: "Maintain the coding-workflow graph (review checklist, preflight router)",
+		Long: `Read, extend and lint the coding-workflow graph in a Hadron memory.
 
 The review:* checklist tree and the preflight router are executable
 infrastructure, not prose: ` + "`tasks:review-changes`" + ` triages checks by
@@ -103,8 +103,10 @@ and preflight routes symptom → finding along its outgoing edges. A
 malformed edge label makes the check or route silently stop firing — the
 node still exists and never matches again.
 
-These commands detect that mechanically. Errors exit 5; --strict promotes
-warnings to errors. Every subcommand takes -m/--memory.`,
+` + "`list`" + ` shows the tree or the router as its readers see it; ` + "`create`" + ` adds
+a node with every edge that makes it discoverable, in one run; ` + "`lint`" + `
+detects the silent-skip defects mechanically — lint errors exit 5, and
+--strict promotes warnings to errors. Every subcommand takes -m/--memory.`,
 	}
 	cmd.AddCommand(newCmdReview(f))
 	cmd.AddCommand(newCmdPreflight(f))
@@ -128,6 +130,7 @@ func newCmdPreflight(f *cmdutil.Factory) *cobra.Command {
 		Short: "Work with the preflight router",
 	}
 	cmd.AddCommand(newCmdPreflightList(f))
+	cmd.AddCommand(newCmdPreflightAdd(f))
 	cmd.AddCommand(newCmdPreflightLint(f))
 	return cmd
 }

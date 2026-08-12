@@ -19,7 +19,7 @@ Every subcommand takes `-m/--memory <org::memory>`.
 
 ```
 hadron coding review    list | create | lint
-hadron coding preflight list | lint
+hadron coding preflight list | create | lint
 ```
 
 ## What counts as a check
@@ -110,6 +110,62 @@ hadron coding review create thin-resolver-field -m acme.com::kb \
 - Tags always include `review` and `review-criteria`; `--tag` adds more.
 
 A check created this way passes `coding review lint` as written.
+
+## Add a route
+
+`preflight create` is the router's counterpart: it creates the node a route
+leads to and wires the route in the same run.
+
+```sh
+hadron coding preflight create findings:flaky-otp-timer -m acme.com::kb \
+  --route "fix a flaky OTP countdown test" \
+  --description "The resend countdown must start before the network await, not after"
+```
+
+A node is reachable only when **three** things exist, so the command writes all
+three:
+
+1. the router's **outgoing edge**, labelled `to <action>` — what
+   `coding preflight list|lint` reads;
+2. the mirrored **back-edge**, so the route reads the same when someone lands on
+   the node from search rather than via the index (`--no-back-edge` to skip);
+3. the **routing line in the router's body** —
+   `- **"<symptom>"** → [[<loc>]] — <description>` — which is what a human or an
+   LLM reading `preflight` top to bottom actually scans.
+
+Notes:
+
+- `<loc>` is the target's **full loc**. Route targets live wherever they belong
+  (`findings:…`, `conventions:…`, `ops:…`); there is no `preflight:` prefix rule,
+  unlike a review check's name.
+- `--route` is the action, phrased the way a developer experiences the task.
+  `to` is prepended if you leave it off, and a bare stem is rejected. The
+  resulting label passes `route-label-phrasing`.
+- `--symptom` overrides the quoted trigger in the routing line; by default it is
+  the route itself, sentence-cased.
+- **Where the routing line goes is resolved before anything is written.** A
+  router with one bullet list takes it automatically. One with several headed
+  sections needs `--section <heading>`. A router that routes purely by edge
+  label — `micromentor.org::mm-app` does — needs `--no-body-line`. An ambiguous
+  router is a usage error listing the headings, never a half-finished write.
+- `--dry-run` rehearses all three writes and issues none, printing where the
+  routing line would land. Worth doing against a router you don't know well:
+
+  ```
+  would create  findings:flaky-otp-timer              (to fix a flaky OTP countdown test)
+    route       preflight → findings:flaky-otp-timer
+    back-edge   findings:flaky-otp-timer → preflight
+    body line   under "Tooling and workflow"          **"To fix a flaky OTP countdown test"** → …
+  ```
+
+- Only `content` is sent when the body is updated. `updateNode(edges:)` would
+  **replace the router's entire outgoing edge set**, deleting every other route.
+- If the route edge or the body update fails, the node still exists: the command
+  reports the exact repair (an `hadron edge create` line, or the routing line to
+  paste) and exits 1, never 0.
+- Prefer a `--link` on a review check over a new route when the node explains one
+  check's rule. `preflight` is scanned on every change, so per-check routes bloat
+  it.
 
 ## Lint
 

@@ -1,8 +1,10 @@
 # Implementation Plan: `hadron coding` — lint the review checklist tree and the preflight router
 
-> **Status: implemented**, in two increments — the linters first, then the
+> **Status: implemented**, in three increments — the linters first, then the
 > `list`/`create` surface and the CI gate
-> ([Increment 2](#increment-2--the-readwrite-surface-and-the-ci-gate)).
+> ([Increment 2](#increment-2--the-readwrite-surface-and-the-ci-gate)), then
+> `preflight create`
+> ([Increment 3](#increment-3--preflight-create-and-the-half-of-a-route-that-isnt-an-edge)).
 > Originally a design-ahead doc for
 > [#325](https://github.com/hadron-memory/hadron-cli/issues/325), written to
 > settle the open questions *before* code because the surface as filed produces
@@ -563,8 +565,140 @@ and the partial-write exit; live verification was limited to the read-only
 failure path (a missing `--root` parent exits 4 without writing) rather than
 creating a throwaway check in a shared memory.
 
+## Increment 3 — `preflight create`, and the half of a route that isn't an edge
+
+Increment 2 shipped `review create` but left the router write-only from the
+outside: you could see a broken route and not add a good one. `preflight create`
+closes that, and doing so surfaced something the linters do not model.
+
+```
+hadron coding preflight create <loc> -m <memory> --route <action> --description <d>
+                        [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>]
+                        [--tag <t>]... [--link <ref>[=<label>]]... [--seq N]
+                        [--content <text|-> | --content-file <path>]
+                        [--no-back-edge] [--no-body-line] [--dry-run]
+```
+
+### 1. It is not a copy of `review create` — four things differ
+
+| | `review create` | `preflight create` |
+|---|---|---|
+| Edge direction | check **→** parent (`incomingEdges` on `review`) | router **→** node (`outgoingEdges` on `preflight`) |
+| Loc | a single kebab segment under `review:` | the target's **full** loc — routes point at `findings:`, `conventions:`, `ops:` |
+| Label stem | `Applies when <condition>` | `to <action>` |
+| Writes | one `createNode` | `createNode` + `createEdge` + `updateNode` |
+
+The direction is what forces three writes. `CreateNodeInput.edges` are edges
+**out of the node being created**, so it can carry the back-edge but never the
+route itself. Inverting it — `updateNode(preflight, edges:)` — is the Decision 5
+hazard: that argument **replaces the router's whole outgoing edge set**, which on
+`micromentor.org::mmdata` would delete 71 routes to add one.
+
+### 2. A route is three things, and the linter only sees one of them
+
+`preflight lint` reads outgoing edges. But every live router's **body** carries
+one bullet per route, and that body is how the node is actually consumed —
+`hadronmemory.com::hadron-cli`'s own preflight opens "Read this node, then follow
+the link that matches your task." An edge with no bullet is invisible to the
+reader even though the linter calls it healthy.
+
+So `create` writes all three: the route edge, the mirrored back-edge (the
+`tasks:extend-this-memory` convention — it makes routing work when someone lands
+on the node from search instead of via the index), and the body line.
+
+**The linter was not extended to match.** A `body-line-present` rule would fire
+on every route in `mm-app` (which has none by design) and on 24 in `mmdata`,
+which is Decision 4's failure mode: a rule that is red on a healthy corpus
+teaches people to ignore it. `create` writes the line; nothing enforces it.
+
+### 3. Where the line goes is not guessable, so the planner refuses to guess
+
+The three live routers each resolve differently:
+
+| Router | Body shape | Resolution |
+|---|---|---|
+| `hadronmemory.com::hadron-cli` | one flat bullet list, no headings | automatic |
+| `hadronmemory.com::dev` | ~10 headed sections, most with routing bullets | needs `--section` |
+| `micromentor.org::mm-app` | **no routing bullets at all** — the edge list *is* the router | needs `--no-body-line` |
+
+A heuristic that picked "the first list" would file a GraphQL route under
+`## Database / Prisma` in `dev`, and would invent a routing list in `mm-app` that
+its authors deliberately don't keep. `pickSection` therefore resolves only when
+there is exactly **one** candidate section and otherwise fails with the headings
+to choose between — the same "stay silent when unsure" posture as deviation 4's
+toolchain rule.
+
+Critically, that resolution runs against the router's body **before the first
+write**. An ambiguous router is a usage error with nothing created, not a node
+left half-wired by the tool built to prevent half-wiring.
+
+### 4. Read-modify-write, narrowed
+
+The body update is a read-modify-write on a heavily-read shared node, so:
+
+- the insertion point is validated on the body read to resolve the router, but
+  **applied to a fresh read** taken immediately before the write, so the splice
+  lands on what the router says now rather than on a copy two round trips stale;
+- only `content` is sent — every other field is omitted, which the server reads
+  as "preserve". Sending `edges` here is the 71-routes-deleted bug above;
+- a body that **already links `[[<loc>]]`** is left alone. A hand-written line
+  that preceded the node is not a defect to duplicate.
+
+### 5. Partial writes exit 1, with the repair
+
+Three writes means two ways to land halfway, and both keep the
+`agentic-usage.md` partial-write contract:
+
+| Failure | State | Reported |
+|---|---|---|
+| `createEdge` fails | node exists, nothing routes to it | the exact `hadron edge create` to run |
+| `updateNode` fails | node routed, but invisible to a reader | the routing line to paste |
+
+The DTO is still printed in both cases — the node exists and a caller needs its
+id — and the exit code is 1, never 0.
+
+### 6. `--dry-run`, added during verification
+
+`review create` has no rehearsal because it is one mutation against a node that
+does not exist yet. This one is three writes, one of them a read-modify-write on
+a shared router — and while smoke-testing it, the only paths exercisable against
+a live memory were the *failures*. `--dry-run` resolves the router, the links and
+the routing line's landing spot, prints exactly what the real run prints (with
+`would create` for `✓ created`), and issues no mutation. That made the happy path
+verifiable live, which is why it exists.
+
+Link resolution runs under `--dry-run` too: it is read-only, and a `--link` that
+resolves to nothing is precisely what a rehearsal should catch.
+
+### 7. Verification
+
+`go test ./...` and `make lint` green. A unit test runs `lintPreflight` over what
+`create` composes, so a route created by this command is asserted lint-clean and
+the assertion breaks if the two ever diverge. The three router body shapes above
+are fixtures in `routing_line_test.go`, each asserting its own resolution.
+
+Live verification was read-only, and covers both directions thanks to
+`--dry-run`. Against the real memories:
+
+```
+$ hadron coding preflight create findings:x -m hadronmemory.com::hadron-cli --dry-run …
+  → exit 0; line resolves into the flat list
+$ hadron coding preflight create findings:x -m hadronmemory.com::dev --dry-run …
+  → exit 2; "11 sections with routing lines — pass --section" + the 11 headings
+$ … -m hadronmemory.com::dev --section "GraphQL read and write" --link conventions:urn-format --dry-run --json
+  → exit 0; section resolves by prefix to "GraphQL read and write surfaces", link resolves
+$ … --root nonexistent-router …
+  → exit 4, nothing written
+```
+
+No node was created in a shared memory.
+
 ## Out of scope (follow-ups)
 
+- A `body-line-present` lint rule — see Increment 3 §2 for why it is not
+  mechanically enforceable across the live corpora.
+- `preflight rm` / retiring a route (edge, back-edge and body line together);
+  `edge rm` covers the edge half today.
 - Coding-guidelines cross-link linting (mentioned in the issue's rationale, no
   checks specified).
 - `--fix` for anything beyond description→label promotion.

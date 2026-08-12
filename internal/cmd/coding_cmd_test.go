@@ -643,6 +643,335 @@ func TestCodingReviewCreateRejectsBadInput(t *testing.T) {
 	}
 }
 
+// codingRouterWithBody is a preflight router carrying a body — what the
+// routing-line splice reads and rewrites.
+func codingRouterWithBody(content string) string {
+	return `{"data":{"node":{"id":"root","memoryId":"mem1","loc":"preflight","name":"preflight",
+		"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","objectType":null,
+		"tags":[],"content":` + jsonStr(content) + `,"data":null,"properties":null,"seq":null,"isRunnable":false,
+		"createdAt":"2026-07-30T00:00:00Z","updatedAt":"2026-07-30T00:00:00Z",
+		"outgoingEdges":[],"incomingEdges":[]}}}`
+}
+
+// flatRouterBody is the hadronmemory.com::hadron-cli shape: one bullet list,
+// so the routing line's home is unambiguous.
+const flatRouterBody = "# Preflight\n\nRead this node, then follow the link that matches your task.\n\n" +
+	"- **\"How is the code organized?\"** → [[architecture]] — layering and the command anatomy.\n\n" +
+	"House rule: add a node AND a routing line.\n"
+
+// sectionedRouterBody has two sections carrying routing lines, so the command
+// must refuse to pick one on its own.
+const sectionedRouterBody = "# Preflight\n\n## Database\n\n- **\"P2002\"** → [[findings:p2002]] — upsert races.\n\n" +
+	"## GraphQL\n\n- **\"Renaming an argument\"** → [[conventions:ref-param-naming]] — name it <entity>Ref.\n"
+
+const newRouteNodeJSON = `{"id":"n_new","memoryId":"mem1","loc":"findings:flaky-otp-timer","name":"flaky-otp-timer",
+	"nodeType":"info","tags":[],"seq":null,"isRunnable":false,"updatedAt":"2026-08-12T00:00:00Z"}`
+
+const newRouteEdgeJSON = `{"id":"e_route","name":"to fix a flaky OTP test","loc":"l","isRunnable":false,"priority":0,
+	"source":{"id":"root","loc":"preflight"},"target":{"id":"n_new","loc":"findings:flaky-otp-timer"}}`
+
+func preflightCreateArgs(serverURL string, extra ...string) []string {
+	return append([]string{"coding", "preflight", "create", "findings:flaky-otp-timer", "-m", codingMem,
+		"--route", "fix a flaky OTP test", "--description", "The countdown starts before the await",
+		"--server", serverURL}, extra...)
+}
+
+// The whole point of `preflight create`: a node is reachable only when the
+// route edge, the mirrored back-edge and the router's BODY line all land.
+func TestCodingPreflightCreateWiresRouteAndBody(t *testing.T) {
+	gql, captured := queueGraphQL(t, map[string][]string{
+		"GetNode": {
+			codingRouterWithBody(flatRouterBody), // resolve + plan
+			codingRouterWithBody(flatRouterBody), // re-read before the splice
+		},
+		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
+		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
+		"UpdateNode": {`{"data":{"updateNode":` + newRouteNodeJSON + `}}`},
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(preflightCreateArgs(gql.URL))
+	if err := root.Execute(); err != nil {
+		t.Fatalf("create should succeed, got %v", err)
+	}
+
+	var node struct {
+		Input struct {
+			Loc      string   `json:"loc"`
+			Name     string   `json:"name"`
+			NodeType string   `json:"nodeType"`
+			Content  string   `json:"content"`
+			Tags     []string `json:"tags"`
+			Edges    []struct {
+				TargetID string `json:"targetId"`
+				Name     string `json:"name"`
+			} `json:"edges"`
+		} `json:"input"`
+	}
+	if len(captured["CreateNode"]) != 1 {
+		t.Fatalf("expected exactly one CreateNode, got %d", len(captured["CreateNode"]))
+	}
+	if err := json.Unmarshal(captured["CreateNode"][0], &node); err != nil {
+		t.Fatalf("decoding CreateNode vars: %v", err)
+	}
+	if node.Input.Loc != "findings:flaky-otp-timer" || node.Input.Name != "flaky-otp-timer" {
+		t.Errorf("loc/name = %q/%q, want the full loc and its last segment", node.Input.Loc, node.Input.Name)
+	}
+	if node.Input.NodeType != "info" {
+		t.Errorf("nodeType = %q, want info", node.Input.NodeType)
+	}
+	// The back-edge is the ONLY edge createNode can carry: its edges: are
+	// outgoing from the new node, and the route itself runs the other way.
+	if len(node.Input.Edges) != 1 || node.Input.Edges[0].TargetID != "root" {
+		t.Fatalf("expected the mirrored back-edge to the router, got %+v", node.Input.Edges)
+	}
+	if node.Input.Edges[0].Name != "to fix a flaky OTP test" {
+		t.Errorf("the back-edge must mirror the route label, got %q", node.Input.Edges[0].Name)
+	}
+
+	var edge struct {
+		SourceRef string `json:"sourceRef"`
+		TargetRef string `json:"targetRef"`
+		Name      string `json:"name"`
+	}
+	if len(captured["CreateEdge"]) != 1 {
+		t.Fatalf("expected exactly one CreateEdge, got %d", len(captured["CreateEdge"]))
+	}
+	if err := json.Unmarshal(captured["CreateEdge"][0], &edge); err != nil {
+		t.Fatalf("decoding CreateEdge vars: %v", err)
+	}
+	if edge.SourceRef != "root" || edge.TargetRef != "n_new" {
+		t.Errorf("the route must run router → node, got %s → %s", edge.SourceRef, edge.TargetRef)
+	}
+	if edge.Name != "to fix a flaky OTP test" {
+		t.Errorf("route label = %q, want the stem prepended", edge.Name)
+	}
+
+	var upd struct {
+		Input map[string]json.RawMessage `json:"input"`
+	}
+	if len(captured["UpdateNode"]) != 1 {
+		t.Fatalf("expected exactly one UpdateNode, got %d", len(captured["UpdateNode"]))
+	}
+	if err := json.Unmarshal(captured["UpdateNode"][0], &upd); err != nil {
+		t.Fatalf("decoding UpdateNode vars: %v", err)
+	}
+	// updateNode(edges:) REPLACES the router's whole outgoing edge set — every
+	// other route would be deleted. Only content may be sent.
+	if _, sent := upd.Input["edges"]; sent {
+		t.Error("the body update must never send edges: it would wipe every existing route")
+	}
+	var body string
+	if err := json.Unmarshal(upd.Input["content"], &body); err != nil {
+		t.Fatalf("decoding the new body: %v", err)
+	}
+	want := `- **"To fix a flaky OTP test"** → [[findings:flaky-otp-timer]] — The countdown starts before the await.`
+	if !strings.Contains(body, want) {
+		t.Errorf("the router's body must gain the routing line %q, got:\n%s", want, body)
+	}
+	if !strings.Contains(body, "House rule: add a node AND a routing line.") {
+		t.Error("the splice must preserve the rest of the body")
+	}
+	if !strings.Contains(out.String(), "findings:flaky-otp-timer") {
+		t.Errorf("expected the created loc in the output, got %q", out.String())
+	}
+}
+
+// A router whose body has several routing sections is ambiguous. That is
+// resolved BEFORE the first write, so an unanswerable question never leaves a
+// half-created node behind.
+func TestCodingPreflightCreateAmbiguousBodyWritesNothing(t *testing.T) {
+	gql, captured := queueGraphQL(t, map[string][]string{
+		"GetNode": {codingRouterWithBody(sectionedRouterBody)},
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(preflightCreateArgs(gql.URL))
+	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		t.Errorf("an ambiguous router body is a usage error (2), got %d", got)
+	}
+	if _, wrote := captured["CreateNode"]; wrote {
+		t.Error("nothing may be written before the body's insertion point is settled")
+	}
+
+	// Naming the section resolves it.
+	gql2, captured2 := queueGraphQL(t, map[string][]string{
+		"GetNode": {
+			codingRouterWithBody(sectionedRouterBody),
+			codingRouterWithBody(sectionedRouterBody),
+		},
+		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
+		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
+		"UpdateNode": {`{"data":{"updateNode":` + newRouteNodeJSON + `}}`},
+	})
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs(preflightCreateArgs(gql2.URL, "--section", "GraphQL"))
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("--section should resolve the ambiguity, got %v", err)
+	}
+	var upd struct {
+		Input struct {
+			Content string `json:"content"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(captured2["UpdateNode"][0], &upd); err != nil {
+		t.Fatalf("decoding UpdateNode vars: %v", err)
+	}
+	if !strings.Contains(upd.Input.Content, "ref-param-naming]] — name it <entity>Ref.\n- **\"To fix a flaky OTP test\"") {
+		t.Errorf("the line must land in the named section, got:\n%s", upd.Input.Content)
+	}
+}
+
+// --no-body-line is the escape hatch for a router that routes purely by edge
+// label (micromentor.org::mm-app). It must touch no content at all — an
+// UpdateNode here would be an unexpected operation and fail the fake.
+func TestCodingPreflightCreateNoBodyLine(t *testing.T) {
+	gql, captured := queueGraphQL(t, map[string][]string{
+		"GetNode":    {codingRouterWithBody("# Preflight\n\nMatch your intent to an edge.\n")},
+		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
+		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(preflightCreateArgs(gql.URL, "--no-body-line", "--no-back-edge"))
+	if err := root.Execute(); err != nil {
+		t.Fatalf("--no-body-line should succeed against an edge-only router, got %v", err)
+	}
+	if _, wrote := captured["UpdateNode"]; wrote {
+		t.Error("--no-body-line must leave the router's content alone")
+	}
+	var node struct {
+		Input struct {
+			Edges []json.RawMessage `json:"edges"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(captured["CreateNode"][0], &node); err != nil {
+		t.Fatalf("decoding CreateNode vars: %v", err)
+	}
+	if len(node.Input.Edges) != 0 {
+		t.Errorf("--no-back-edge must drop the mirrored edge, got %v", node.Input.Edges)
+	}
+}
+
+// If the route edge did not land, the node exists but nothing leads to it.
+// That is a partial write: report it and exit 1, never 0.
+func TestCodingPreflightCreateUnroutedExits1(t *testing.T) {
+	gql, _ := queueGraphQL(t, map[string][]string{
+		"GetNode":    {codingRouterWithBody(flatRouterBody)},
+		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
+		"CreateEdge": {`{"errors":[{"message":"edge refused"}]}`},
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(preflightCreateArgs(gql.URL))
+	err := root.Execute()
+	if got := exitcode.FromError(err); got != exitcode.Error {
+		t.Errorf("an unrouted node is a partial write (exit 1), got %d", got)
+	}
+	if !strings.Contains(err.Error(), "hadron edge create") {
+		t.Errorf("the error must name the command that repairs it, got %q", err.Error())
+	}
+}
+
+// The body update is the last step, so its failure still leaves a routed node.
+// It is reported with the exact line to paste, and still exits 1.
+func TestCodingPreflightCreateBodyUpdateFailureExits1(t *testing.T) {
+	gql, _ := queueGraphQL(t, map[string][]string{
+		"GetNode": {
+			codingRouterWithBody(flatRouterBody),
+			codingRouterWithBody(flatRouterBody),
+		},
+		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
+		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
+		"UpdateNode": {`{"errors":[{"message":"write refused"}]}`},
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(preflightCreateArgs(gql.URL))
+	err := root.Execute()
+	if got := exitcode.FromError(err); got != exitcode.Error {
+		t.Errorf("a missing body line is a partial write (exit 1), got %d", got)
+	}
+	if !strings.Contains(err.Error(), "[[findings:flaky-otp-timer]]") {
+		t.Errorf("the error must carry the line to add by hand, got %q", err.Error())
+	}
+}
+
+// --dry-run rehearses all three writes, including WHERE the routing line lands,
+// and issues none of them. Three writes against a shared router is exactly the
+// case worth rehearsing.
+func TestCodingPreflightCreateDryRun(t *testing.T) {
+	gql, captured := queueGraphQL(t, map[string][]string{
+		"GetNode": {codingRouterWithBody(sectionedRouterBody)},
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(preflightCreateArgs(gql.URL, "--section", "GraphQL", "--dry-run"))
+	if err := root.Execute(); err != nil {
+		t.Fatalf("--dry-run should succeed, got %v", err)
+	}
+	for _, op := range []string{"CreateNode", "CreateEdge", "UpdateNode"} {
+		if _, wrote := captured[op]; wrote {
+			t.Errorf("--dry-run issued %s — it must write nothing", op)
+		}
+	}
+	s := out.String()
+	if !strings.Contains(s, "would create") || !strings.Contains(s, "findings:flaky-otp-timer") {
+		t.Errorf("expected the rehearsed node, got %q", s)
+	}
+	if !strings.Contains(s, `"GraphQL"`) {
+		t.Errorf("the rehearsal must name the section the line lands under, got %q", s)
+	}
+
+	// An ambiguous router still refuses under --dry-run: the rehearsal answers
+	// the same question the real run does.
+	gql2, _ := queueGraphQL(t, map[string][]string{"GetNode": {codingRouterWithBody(sectionedRouterBody)}})
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs(preflightCreateArgs(gql2.URL, "--dry-run"))
+	if got := exitcode.FromError(root2.Execute()); got != exitcode.Usage {
+		t.Errorf("--dry-run on an ambiguous router should still exit 2, got %d", got)
+	}
+}
+
+// A missing router means the node would hang off nothing — fail before writing.
+func TestCodingPreflightCreateMissingRouter(t *testing.T) {
+	gql, captured := queueGraphQL(t, map[string][]string{
+		"GetNode": {`{"data":{"node":null}}`},
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(preflightCreateArgs(gql.URL))
+	if got := exitcode.FromError(root.Execute()); got != exitcode.NotFound {
+		t.Errorf("a missing preflight router should exit 4, got %d", got)
+	}
+	if _, wrote := captured["CreateNode"]; wrote {
+		t.Error("nothing may be written when the router does not resolve")
+	}
+}
+
+// Local validation runs before any round trip: a label or loc the linter would
+// reject must never reach the server.
+func TestCodingPreflightCreateRejectsBadInput(t *testing.T) {
+	cases := [][]string{
+		{"coding", "preflight", "create", "findings:x", "-m", codingMem, "--route", "to", "--description", "d"},
+		{"coding", "preflight", "create", "findings:x", "-m", codingMem, "--route", "fix a thing"},
+		{"coding", "preflight", "create", "preflight", "-m", codingMem, "--route", "fix a thing", "--description", "d"},
+		{"coding", "preflight", "create", "findings:Not A Slug", "-m", codingMem, "--route", "fix a thing", "--description", "d"},
+		{"coding", "preflight", "create", "findings:x", "-m", codingMem, "--route", "fix a thing", "--description", "d",
+			"--no-body-line", "--section", "GraphQL"},
+	}
+	for _, args := range cases {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(args, "--server", "http://127.0.0.1:1"))
+		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+			t.Errorf("%v should be a usage error (2), got %d", args[3:], got)
+		}
+	}
+}
+
 func TestCodingLintRequiresMemory(t *testing.T) {
 	for _, args := range [][]string{
 		{"coding", "review", "lint"},
@@ -650,6 +979,7 @@ func TestCodingLintRequiresMemory(t *testing.T) {
 		{"coding", "review", "list"},
 		{"coding", "preflight", "list"},
 		{"coding", "review", "create", "x", "--trigger", "a thing changes", "--description", "d"},
+		{"coding", "preflight", "create", "findings:x", "--route", "fix a thing", "--description", "d"},
 	} {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
