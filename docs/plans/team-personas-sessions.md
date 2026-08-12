@@ -47,6 +47,8 @@ ref-normalizer (`session log` takes a bare PR number for now; `session list --pr
 
 ```
 hadron team persona create --name <candidate>... [--role <r>] [--prompt <p>] [--org <ref> | --owner-me]
+    (SUPERSEDED — now: persona create --role <role> [--name <n>] [--team-agent <ref>], one
+     createTeamPersona call using --app; see the supersession note below)
 hadron team persona list [--org <ref>] [--role <r>]        (`ls` alias)
 hadron team persona get <name-or-ref> [--org <ref>]
 hadron team persona retire <name-or-ref> --yes
@@ -152,9 +154,11 @@ and issue/commit refs shipped next — see [team-worklog.md](team-worklog.md).
 ## GraphQL layer
 
 New `internal/api/queries/team.graphql`: `PersonaAgents` / `GetPersonaAgent` /
-`CreatePersonaAgent` (persona-field selection over the agent surface),
-`StartTeamSession` / `EndTeamSession` / `TeamSessions`. Retire reuses the
-existing `DeleteAgent`. Schema snapshot refreshed from hadron-server main
+`CreatePersonaAgent` (persona-field selection over the agent surface —
+**since replaced by `CreateTeamPersona`**, the #935 platform operation; see
+the supersession note above), `StartTeamSession` / `EndTeamSession` /
+`TeamSessions`. Retire reuses the existing `DeleteAgent`. Schema snapshot
+refreshed from hadron-server main
 (picking up #929). `SessionInput`'s optional fields carry
 `# @genqlient(for: …, omitempty: true)` so unset flags stay off the wire.
 
@@ -162,7 +166,9 @@ existing `DeleteAgent`. Schema snapshot refreshed from hadron-server main
 
 Command-level tests against the fake GraphQL server
 (`internal/cmd/team_cmd_test.go`): the retry-with-next-name contract (stateful
-fake), all-taken → exit 5, roster narrowing, name resolution + NotFound,
+fake — **since replaced** along with the client-side loop; today's create
+tests cover the `createTeamPersona` pass-through and the six typed
+refusals), all-taken → exit 5, roster narrowing, name resolution + NotFound,
 retire confirmation gating and its DeleteAgent wiring, start's binding write /
 occupancy refusal (naming the driver and #930) / `--force` takeover, whoami's
 offline read, log's local record, end's binding clear, and `--active`

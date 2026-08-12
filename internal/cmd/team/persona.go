@@ -78,9 +78,13 @@ The created persona's prompt is its boot briefing — printed on success.`,
 			}
 			dto := personaDTOFromFields(resp.CreateTeamPersona.PersonaAgentFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				fmt.Fprintf(w, "✓ created persona %s%s (%s)\n", dto.PersonaName, roleSuffix(dto.PersonaRole), dto.URN)
+				if _, err := fmt.Fprintf(w, "✓ created persona %s%s (%s)\n", dto.PersonaName, roleSuffix(dto.PersonaRole), dto.URN); err != nil {
+					return err
+				}
 				if dto.PersonaPrompt != nil && *dto.PersonaPrompt != "" {
-					fmt.Fprintf(w, "\n%s\n", *dto.PersonaPrompt)
+					if _, err := fmt.Fprintf(w, "\n%s\n", *dto.PersonaPrompt); err != nil {
+						return err
+					}
 				}
 				return nil
 			})
