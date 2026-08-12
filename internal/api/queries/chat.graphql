@@ -1,10 +1,11 @@
-# Team-chat reads (hadron chat read). Messages are message-type nodes under a
-# `messagesLoc` prefix; the payload (author/body/timestamp/…) lives in each
-# node's `data`. Selecting `data` inline means one findNodes call returns the
-# bodies — no per-message node(ref) fetch. sort: seq gives server-assigned
-# order; the CLI paginates to exhaustion and filters seq>since client-side
-# (there is no server-side seq cursor). Mirrors the hadron-client channel's
-# ChatPoll so CLI and channel reads agree.
+# Team-chat reads (hadron chat read). Messages are chat-message nodes under a
+# `messagesLoc` prefix — canonical shape (D-2026-08-07-001/-004): the body in
+# `content`, the envelope (author/timestamp/…) in `data`. `content` AND `data`
+# are selected so one findNodes call returns everything, and so the legacy
+# academy dialect (body in data.body, `message` nodeType) still reads — accept
+# everything, emit canonical. sort: seq gives server-assigned order; the CLI
+# paginates to exhaustion and filters seq>since client-side (there is no
+# server-side seq cursor).
 #
 # NodeFilter is a SHARED generated struct, and genqlient resolves a shared input
 # type's field-level omitempty per-operation with last-writer-wins (not a merge).
@@ -36,6 +37,7 @@ query ChatMessages(
       node {
         loc
         seq
+        content
         data
       }
     }

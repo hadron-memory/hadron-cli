@@ -46,10 +46,10 @@ convergent: the worklog entry is (re)set to its canonical definition; every
 other collection in the schema is preserved.
 
 Messages are deliberately NOT a property-schema collection: the group chat
-speaks the message-NODE dialect (payload in each node's data block) that
-` + "`hadron chat`" + ` and the hadron-client push channel already share — moving it
-into the object store would break that coordination for a validation gain
-the dialect doesn't need. See docs/plans/team-chat.md.`,
+speaks the canonical chat-NODE shape (body in content, envelope in data,
+chat-message nodeType — D-2026-08-07-004) that ` + "`hadron chat`" + ` shares —
+moving it into the object store would break the storage model #921
+formalizes. See docs/plans/team-chat.md.`,
 		Example: `  hadron team init -m acme.com::eng-team`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -109,8 +109,14 @@ the dialect doesn't need. See docs/plans/team-chat.md.`,
 
 			// Materialize the chat parent so the group chat is a real, copyable
 			// node from day one. Best-effort like every EnsureChatParent call —
-			// an existing parent conflicts harmlessly.
-			chatpkg.EnsureChatParent(ctx, client, chatpkg.Coords{Memory: resp.Memory.Id, MessagesLoc: defaultMessagesLoc})
+			// an existing parent conflicts harmlessly. Converge then retypes a
+			// structure materialized by an older CLI (whose container was
+			// typed `chat`) onto the canonical D-2026-08-07-004 types — init
+			// is the explicit, idempotent migration point, so posts stay one
+			// round-trip.
+			chatCoords := chatpkg.Coords{Memory: resp.Memory.Id, MessagesLoc: defaultMessagesLoc}
+			chatpkg.EnsureChatParent(ctx, client, chatCoords)
+			chatpkg.ConvergeChatParent(ctx, client, chatCoords)
 
 			result := struct {
 				Memory      string   `json:"memory"`

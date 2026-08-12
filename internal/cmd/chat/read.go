@@ -113,7 +113,7 @@ func CollectMessages(ctx context.Context, client graphql.Client, c Coords, since
 			if since > 0 && (n.Seq == nil || *n.Seq <= since) {
 				continue
 			}
-			msgs = append(msgs, parseMessage(n.Loc, n.Seq, n.Data))
+			msgs = append(msgs, parseMessage(n.Loc, n.Seq, n.Content, n.Data))
 		}
 		if len(hits) < chatPageSize {
 			break
