@@ -44,6 +44,22 @@ back to the binding's team memory. Mention teammates as @persona-name /
 	return cmd
 }
 
+// readBindingOrNilWithApp reads the worktree binding, treating "not inside a
+// git worktree" as simply NO binding whenever an App context is available —
+// a human posting with --app (or a configured App) needs no worktree at all
+// (PR #382 review). Without an App context the binding error stands: it is
+// the actionable message.
+func readBindingOrNilWithApp(ctx context.Context, f *cmdutil.Factory) (*binding, error) {
+	b, _, err := readBinding(ctx)
+	if err != nil {
+		if appRef, appErr := f.App(); appErr == nil && appRef != "" {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return b, nil
+}
+
 // resolveTeamChatApp resolves the team App the chat operations address:
 // --app / the configured App context wins; otherwise the binding's team
 // memory is resolved to its App (the team memory IS the App's shared
@@ -143,7 +159,7 @@ matching ` + "`hadron chat post`" + `. Exactly one source.
 				}
 				replyToSeq = &seq
 			}
-			b, _, err := readBinding(ctx)
+			b, err := readBindingOrNilWithApp(ctx, f)
 			if err != nil {
 				return err
 			}
@@ -222,8 +238,12 @@ server-side next turn, which is free and never re-delivers them).`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			b, _, err := readBinding(ctx)
-			if err != nil && f.AppFlag == "" {
+			b, err := readBindingOrNilWithApp(ctx, f)
+			if err != nil {
+				return err
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
 				return err
 			}
 			var mentionsRef *string
@@ -242,13 +262,20 @@ server-side next turn, which is free and never re-delivers them).`,
 					return exitcode.Newf(exitcode.Usage, "the session binding carries no persona agent — re-run `hadron team session start --as <name>`")
 				}
 			case mentions != "":
-				mentionsRef = &mentions
+				ref := strings.TrimSpace(mentions)
+				// A bare, non-URN value may be a persona NAME — resolve it
+				// against the roster so `--mentions Iris` works. Anything the
+				// roster doesn't know passes through raw: the server accepts
+				// agent/user ids, URNs, and bare user HANDLES (but not persona
+				// names, which is why the roster pass runs client-side).
+				if !strings.Contains(ref, ":") {
+					if p, pErr := resolvePersona(ctx, client, nil, ref); pErr == nil {
+						ref = p.Id
+					}
+				}
+				mentionsRef = &ref
 			}
 			appRef, err := resolveTeamChatApp(ctx, f, b)
-			if err != nil {
-				return err
-			}
-			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}

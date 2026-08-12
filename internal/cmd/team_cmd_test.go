@@ -1248,6 +1248,77 @@ func TestTeamChatPostReplyToSeq(t *testing.T) {
 	}
 }
 
+// Outside a git worktree there is no binding to read — with an App context
+// the commands proceed as the unbound-human path instead of failing in
+// `git rev-parse` (PR #382 review); without one, the worktree error stands.
+func TestTeamChatOutsideWorktreeWithApp(t *testing.T) {
+	t.Setenv("HADRON_TEAM_GIT_DIR", "")
+	t.Chdir(t.TempDir()) // no .git anywhere above a fresh temp dir
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateTeamChatMessage": `{"data":{"createTeamChatMessage":` + teamChatHumanMsgJSON + `}}`,
+		"TeamChatMessages":      `{"data":{"teamChatMessages":{"total":0,"items":[]}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--app", "acme.com::eng-team", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("post outside a worktree with --app must work: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateTeamChatMessage"], &vars)
+	if vars["appRef"] != "acme.com::eng-team" {
+		t.Errorf("post vars: %v", vars)
+	}
+	if _, present := vars["sessionRef"]; present {
+		t.Errorf("no worktree means no session binding: %v", vars["sessionRef"])
+	}
+
+	f2, out := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "chat", "read", "--app", "acme.com::eng-team", "--json", "--server", gql.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("read outside a worktree with --app must work: %v", err)
+	}
+	if !strings.Contains(out.String(), `"nextSince": 0`) {
+		t.Errorf("read output: %s", out.String())
+	}
+
+	// No App context: the worktree error is the actionable one.
+	f3, _ := testFactory(t)
+	root3 := NewRootCmd(f3)
+	root3.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--server", gql.URL})
+	err := root3.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
+	}
+}
+
+// `--mentions <bare-name>` resolves persona NAMES through the roster (the
+// server accepts ids, URNs, and bare user handles — but not persona names);
+// an unresolved bare value passes through raw for the server's handle path.
+func TestTeamChatReadMentionsByPersonaName(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{
+		"PersonaAgents":    rosterJSON,
+		"TeamMemoryApp":    `{"data":{"memory":{"id":"mem1","appId":"app-1"}}}`,
+		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":0,"items":[]}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--mentions", "Iris", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["TeamChatMessages"], &vars)
+	if vars["mentionsRef"] != "agt1" {
+		t.Errorf("a bare persona name must resolve to its agent id, got %v", vars["mentionsRef"])
+	}
+}
+
 // The CLI retries NOTHING (thin-CLI directive): the server's typed team-chat
 // refusals map to exit codes and surface verbatim.
 func TestTeamChatPostServerRefusals(t *testing.T) {
