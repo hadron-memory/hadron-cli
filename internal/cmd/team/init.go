@@ -10,7 +10,6 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
-	chatpkg "github.com/hadron-memory/hadron-cli/internal/cmd/chat"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -40,16 +39,17 @@ func newCmdInit(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init -m <team-memory>",
 		Short: "Declare the team collection schemas in the team App memory",
-		Long: `Declare the worklog collection in the team App memory's property schema and
-materialize the group-chat parent node (` + defaultMessagesLoc + `). Idempotent and
-convergent: the worklog entry is (re)set to its canonical definition; every
-other collection in the schema is preserved.
+		Long: `Declare the worklog collection in the team App memory's property schema.
+Idempotent and convergent: the worklog entry is (re)set to its canonical
+definition; every other collection in the schema is preserved.
+
+The team group chat needs no init: it is a platform operation
+(hadron-server#939) that the server bootstraps in the team App's shared
+memory on the first ` + "`team chat post`" + `.
 
 Messages are deliberately NOT a property-schema collection: the group chat
 speaks the canonical chat-NODE shape (body in content, envelope in data,
-chat-message nodeType — D-2026-08-07-004) that ` + "`hadron chat`" + ` shares —
-moving it into the object store would break the storage model #921
-formalizes. See docs/plans/team-chat.md.`,
+chat-message nodeType — D-2026-08-07-004), owned server-side.`,
 		Example: `  hadron team init -m acme.com::eng-team`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -107,25 +107,17 @@ formalizes. See docs/plans/team-chat.md.`,
 				}
 			}
 
-			// Materialize the chat parent so the group chat is a real, copyable
-			// node from day one. Best-effort like every EnsureChatParent call —
-			// an existing parent conflicts harmlessly. Converge then retypes a
-			// structure materialized by an older CLI (whose container was
-			// typed `chat`) onto the canonical D-2026-08-07-004 types — init
-			// is the explicit, idempotent migration point, so posts stay one
-			// round-trip.
-			chatCoords := chatpkg.Coords{Memory: resp.Memory.Id, MessagesLoc: defaultMessagesLoc}
-			chatpkg.EnsureChatParent(ctx, client, chatCoords)
-			chatpkg.ConvergeChatParent(ctx, client, chatCoords)
+			// The group chat needs no materialization here: the server
+			// bootstraps chats:team in the App's shared memory on the first
+			// post (hadron-server#939) and restores a tombstoned root itself.
 
 			result := struct {
 				Memory      string   `json:"memory"`
 				Collections []string `json:"collections"`
-				Chat        string   `json:"chat"`
 				Status      string   `json:"status"`
-			}{resp.Memory.Urn, []string{"worklog"}, defaultMessagesLoc, status}
+			}{resp.Memory.Urn, []string{"worklog"}, status}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ worklog collection %s in %s (chat parent: %s)\n", status, resp.Memory.Urn, defaultMessagesLoc)
+				_, err := fmt.Fprintf(w, "✓ worklog collection %s in %s\n", status, resp.Memory.Urn)
 				return err
 			})
 		},

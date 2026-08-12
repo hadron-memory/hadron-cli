@@ -4,105 +4,139 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"regexp"
 	"strconv"
 	"strings"
 
-	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/chat"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-// defaultMessagesLoc is where the team group chat lives inside the team App
-// memory. One chat per team memory by convention; --messages-loc overrides.
-const defaultMessagesLoc = "chat:messages"
-
-// The team chat commands are a persona-aware layer over the chat package's
-// message-node dialect (chat.PostMessage / chat.CollectMessages — ONE
-// implementation, so CLI- and hadron-client-channel-posted messages can't
-// drift apart, D10). What team adds: coordinates and identity come from the
-// worktree binding (memory = the team memory, handle = the persona name,
-// role = personaRole, identity = the model), and every persona post carries
-// sessionId (D16) — attribution of an agent message is the DRIVING human,
-// resolved via Session.userId, not the persona's creator.
+// The team chat commands are THIN wrappers over the platform operations
+// (hadron-server#939/#941, spec cor:agt:020:04): `createTeamChatMessage` and
+// `teamChatMessages`. The server owns everything that used to live here —
+// placement (chats:team in the Team Agent's shared app memory, bootstrapped
+// on the first post), atomic seq allocation (#919), author derivation
+// (sessionRef → the session's bound persona; the driving session lands in the
+// envelope, D16), and write-time mention extraction. The CLI composes no
+// message node, allocates nothing, and never parses mentions.
 func newCmdTeamChat(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "chat <command>",
-		Short: "The team group chat, as the persona this worktree is driving",
-		Long: `Post to and read the team group chat — message nodes in the team App
-memory, the same dialect ` + "`hadron chat`" + ` speaks and the hadron-client push
-channel delivers into running Claude Code sessions (Codex and humans poll
-via CLI).
+		Short: "The team App's group chat",
+		Long: `Post to and read the team App's group chat — ONE well-known chat per team
+App, owned end-to-end by the server (placement, ordering, authorship,
+mentions). With a worktree session binding (` + "`session start`" + `), posts are
+authored by the bound persona and carry the driving session; without one,
+posts are authored by you.
 
-The worktree binding supplies everything: the chat lives in the bound team
-memory (` + "`session start -m`" + `) under ` + defaultMessagesLoc + `, and messages
-post as the bound persona (handle = the persona name, with the session's
-model as identity) carrying the session id — so a message always traces to
-the human driving the persona. For a chat outside a session binding, use
-` + "`hadron chat`" + ` directly.`,
+The team App resolves from --app (or the configured App context), falling
+back to the binding's team memory. Mention teammates as @persona-name /
+@handle — a multiword name by its slug (@mary-jane).`,
 	}
 	cmd.AddCommand(newCmdTeamChatPost(f))
 	cmd.AddCommand(newCmdTeamChatRead(f))
 	return cmd
 }
 
-// teamChatCoords resolves the chat coordinates from flags and the binding.
-// The binding may be nil when -m names the memory explicitly.
-func teamChatCoords(b *binding, memoryFlag, messagesLocFlag string) (chat.Coords, error) {
-	mem := ""
-	if b != nil {
-		mem = b.TeamMemory
+// readBindingOrNilWithApp reads the worktree binding, treating "not inside a
+// git worktree" as simply NO binding whenever an App context is available —
+// a human posting with --app (or a configured App) needs no worktree at all
+// (PR #382 review). Without an App context the binding error stands: it is
+// the actionable message.
+func readBindingOrNilWithApp(ctx context.Context, f *cmdutil.Factory) (*binding, error) {
+	b, _, err := readBinding(ctx)
+	if err != nil {
+		if appRef, appErr := f.App(); appErr == nil && appRef != "" {
+			return nil, nil
+		}
+		return nil, err
 	}
-	if memoryFlag != "" {
-		mem = cmdutil.CanonicalMemoryRef(memoryFlag)
-	}
-	if mem == "" {
-		return chat.Coords{}, exitcode.Newf(exitcode.Usage,
-			"no team memory — pass -m <team-memory>, or record it with `session start -m` (see `hadron team init`)")
-	}
-	loc := strings.TrimSuffix(messagesLocFlag, ":")
-	if loc == "" {
-		loc = defaultMessagesLoc
-	}
-	return chat.Coords{Memory: mem, MessagesLoc: loc}, nil
+	return b, nil
 }
 
-// handleRE is the chat dialect's handle charset (mirrors the channel's
-// MENTION_RE capture group).
-var handleRE = regexp.MustCompile(`[^a-z0-9_-]+`)
-
-// handleFromPersona folds a persona display name ("Ana María") onto the chat
-// handle charset: lowercased, spaces to dashes, anything else dropped.
-func handleFromPersona(name string) (string, error) {
-	h := strings.ToLower(strings.TrimSpace(name))
-	h = strings.ReplaceAll(h, " ", "-")
-	h = handleRE.ReplaceAllString(h, "")
-	h = strings.Trim(h, "-")
-	if h == "" {
-		return "", exitcode.Newf(exitcode.Error, "persona name %q yields no usable chat handle", name)
+// resolveTeamChatApp resolves the team App the chat operations address:
+// --app / the configured App context wins; otherwise the binding's team
+// memory is resolved to its App (the team memory IS the App's shared
+// app-class memory, so Memory.appId is the team App).
+func resolveTeamChatApp(ctx context.Context, f *cmdutil.Factory, b *binding) (string, error) {
+	appRef, err := f.App()
+	if err != nil {
+		return "", err
 	}
-	return h, nil
+	if appRef != "" {
+		return appRef, nil
+	}
+	if b != nil && b.TeamMemory != "" {
+		client, err := f.GraphQLClient()
+		if err != nil {
+			return "", err
+		}
+		resp, err := gen.TeamMemoryApp(ctx, client, cmdutil.CanonicalMemoryRef(b.TeamMemory))
+		if err != nil {
+			return "", api.MapError(err)
+		}
+		if resp.Memory != nil && resp.Memory.AppId != nil && *resp.Memory.AppId != "" {
+			return *resp.Memory.AppId, nil
+		}
+		return "", exitcode.Newf(exitcode.Usage,
+			"the bound team memory %s is not an App memory — pass --app <team-app>", b.TeamMemory)
+	}
+	return "", exitcode.Newf(exitcode.Usage,
+		"no team App — pass --app <ref>, set an App context, or bind a session with `hadron team session start -m <team-memory>`")
+}
+
+// teamChatMessageDTO is the stable --json shape of one message — the server
+// envelope, verbatim.
+type teamChatMessageDTO struct {
+	NodeID        string   `json:"nodeId"`
+	Seq           int      `json:"seq"`
+	Body          string   `json:"body"`
+	At            string   `json:"at"`
+	AuthorName    *string  `json:"authorName"`
+	AuthorUserID  *string  `json:"authorUserId"`
+	AuthorAgentID *string  `json:"authorAgentId"`
+	SessionID     *string  `json:"sessionId"`
+	ReplyToSeq    *int     `json:"replyToSeq"`
+	Mentions      []string `json:"mentions"`
+}
+
+func teamChatMessageDTOFromFields(m gen.TeamChatMessageFields) teamChatMessageDTO {
+	mentions := m.Mentions
+	if mentions == nil {
+		mentions = []string{}
+	}
+	return teamChatMessageDTO{
+		NodeID: m.NodeId, Seq: m.Seq, Body: m.Body, At: m.At,
+		AuthorName: m.AuthorName, AuthorUserID: m.AuthorUserId, AuthorAgentID: m.AuthorAgentId,
+		SessionID: m.SessionId, ReplyToSeq: m.ReplyToSeq, Mentions: mentions,
+	}
 }
 
 func newCmdTeamChatPost(f *cmdutil.Factory) *cobra.Command {
-	var body, bodyFile, replyTo, memory, messagesLoc string
+	var body, bodyFile, replyTo string
+	var asMe bool
 	cmd := &cobra.Command{
-		Use:   "post <body|-> [--reply-to <seq-or-loc>]",
-		Short: "Post to the team chat as the bound persona",
-		Long: `Post one message to the team group chat as the persona this worktree is
-driving. The message carries the session id (attribution = the human
-driving the persona) and the session's model as identity; mentions
-(@handle) are extracted automatically.
+		Use:   "post <body|-> [--reply-to <seq>]",
+		Short: "Post to the team chat",
+		Long: `Post one message to the team App's chat. With a worktree session binding,
+the message is authored by the bound PERSONA through that session (the
+server verifies the session is yours, active, and of this App, and records
+it — a persona message always traces to the human driving it); without a
+binding — or with --as-me — it is authored by you.
 
-The body is the positional argument (- reads stdin); --body/--body-file
-are accepted too, matching ` + "`hadron chat post`" + `. Exactly one source.
+Mentions (@persona-name / @handle; a multiword name by its slug, e.g.
+@mary-jane) are extracted server-side into the message. The body is the
+positional argument (- reads stdin); --body/--body-file are accepted too,
+matching ` + "`hadron chat post`" + `. Exactly one source.
 
---reply-to takes the seq of the message being answered (as shown by
-` + "`team chat read`" + `) — or a message loc, as ` + "`hadron chat post`" + ` accepts.`,
+--reply-to takes the seq of the message being answered, as shown by
+` + "`team chat read`" + `.`,
 		Example: `  hadron team chat post "@rufus schema is live, over to you"
   hadron team chat post --reply-to 42 "done"`,
 		Args: cobra.MaximumNArgs(1),
@@ -117,21 +151,26 @@ are accepted too, matching ` + "`hadron chat post`" + `. Exactly one source.
 			} else if body == "" && bodyFile == "" {
 				return exitcode.Newf(exitcode.Usage, "no message body — pass it as the argument (or - for stdin), or via --body/--body-file")
 			}
-			b, _, err := readBinding(ctx)
+			var replyToSeq *int
+			if s := strings.TrimSpace(replyTo); s != "" {
+				seq, err := strconv.Atoi(s)
+				if err != nil {
+					return exitcode.Newf(exitcode.Usage, "--reply-to takes the seq shown by `team chat read`, got %q", replyTo)
+				}
+				replyToSeq = &seq
+			}
+			b, err := readBindingOrNilWithApp(ctx, f)
 			if err != nil {
 				return err
 			}
-			if b == nil {
-				return exitcode.Newf(exitcode.NotFound, "no persona bound to this worktree — `hadron team session start --as <name>` first (or post with `hadron chat post`)")
+			var sessionRef *string
+			if b != nil && !asMe {
+				if err := checkBindingServer(f, b); err != nil {
+					return err
+				}
+				sessionRef = optStr(b.SessionID)
 			}
-			if err := checkBindingServer(f, b); err != nil {
-				return err
-			}
-			c, err := teamChatCoords(b, memory, messagesLoc)
-			if err != nil {
-				return err
-			}
-			handle, err := handleFromPersona(b.PersonaName)
+			appRef, err := resolveTeamChatApp(ctx, f, b)
 			if err != nil {
 				return err
 			}
@@ -143,180 +182,154 @@ are accepted too, matching ` + "`hadron chat post`" + `. Exactly one source.
 			if err != nil {
 				return err
 			}
-			target, err := resolveReplyTarget(ctx, client, c, replyTo)
+			resp, err := gen.CreateTeamChatMessage(ctx, client, appRef, text, replyToSeq, sessionRef)
 			if err != nil {
-				return err
+				return api.MapError(err)
 			}
-			identity := b.Model
-			if identity == "" {
-				identity = b.Tool
-			}
-			res, err := chat.PostMessage(ctx, client, chat.PostInput{
-				Coords:   c,
-				Handle:   handle,
-				Identity: identity,
-				Role:     b.PersonaRole,
-				Body:     text,
-				ReplyTo:  target,
-				Extra:    map[string]any{"sessionId": b.SessionID},
-			})
-			if err != nil {
-				return err
-			}
-			result := struct {
-				Loc       string `json:"loc"`
-				Seq       *int   `json:"seq"`
-				Author    string `json:"author"`
-				SessionID string `json:"sessionId"`
-				ReplyTo   string `json:"replyTo,omitempty"`
-			}{res.Loc, res.Seq, handle, b.SessionID, target}
-			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
-				fmt.Fprintf(w, "✓ posted as %s%s (seq %s)\n", handle, roleSuffix(optStr(b.PersonaRole)), seqString(res.Seq))
+			msg := teamChatMessageDTOFromFields(resp.CreateTeamChatMessage.TeamChatMessageFields)
+			return output.Write(f.IOStreams, f.JSON, msg, func(w io.Writer) error {
+				who := "you"
+				if msg.AuthorName != nil {
+					who = *msg.AuthorName
+				}
+				reply := ""
+				if msg.ReplyToSeq != nil {
+					reply = fmt.Sprintf(", reply to %d", *msg.ReplyToSeq)
+				}
+				fmt.Fprintf(w, "✓ posted as %s (seq %d%s)\n", who, msg.Seq, reply)
 				return nil
 			})
 		},
 	}
 	cmd.Flags().StringVar(&body, "body", "", "message body, or - to read from stdin")
 	cmd.Flags().StringVar(&bodyFile, "body-file", "", "read the message body from a file (multi-line safe)")
-	cmd.Flags().StringVar(&replyTo, "reply-to", "", "seq (or loc) of the message this replies to; adds a reply edge")
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "team App memory override (defaults to the binding's)")
-	cmd.Flags().StringVar(&messagesLoc, "messages-loc", "", "message-parent loc override (default "+defaultMessagesLoc+")")
+	cmd.Flags().StringVar(&replyTo, "reply-to", "", "seq of the message this replies to; the server wires a reply edge")
+	cmd.Flags().BoolVar(&asMe, "as-me", false, "post as yourself even when a persona session is bound")
 	// One body source is enforced in RunE (a cobra flag group can't see the
 	// positional form).
 	cmd.MarkFlagsMutuallyExclusive("body", "body-file")
 	return cmd
 }
 
-// resolveReplyTarget turns a --reply-to value into the loc the reply edge
-// targets. A bare number is a seq (the citation primitive readers see) and
-// resolves through the message list; anything else passes through as a loc.
-func resolveReplyTarget(ctx context.Context, client graphql.Client, c chat.Coords, replyTo string) (string, error) {
-	replyTo = strings.TrimSpace(replyTo)
-	if replyTo == "" {
-		return "", nil
-	}
-	seq, err := strconv.Atoi(replyTo)
-	if err != nil {
-		return replyTo, nil
-	}
-	msgs, err := chat.CollectMessages(ctx, client, c, 0)
-	if err != nil {
-		return "", err
-	}
-	for _, m := range msgs {
-		if m.Seq != nil && *m.Seq == seq {
-			return m.Loc, nil
-		}
-	}
-	return "", exitcode.Newf(exitcode.NotFound, "no message with seq %d in this chat — `team chat read` shows the seqs", seq)
-}
+// teamChatPageSize is the server's list cap; reads page with the seq
+// watermark as the cursor (each page's last seq is the next sinceSeq).
+const teamChatPageSize = 200
 
 func newCmdTeamChatRead(f *cmdutil.Factory) *cobra.Command {
-	var memory, messagesLoc string
 	var since int
 	var mentionsMe bool
+	var mentions string
 	cmd := &cobra.Command{
-		Use:     "read [--since <seq>] [--mentions-me]",
+		Use:     "read [--since <seq>] [--mentions-me | --mentions <ref>]",
 		Aliases: []string{"pull"},
 		Short:   "Read the team chat since a seq",
-		Long: `Read team-chat messages, newest-tracking by the server-assigned seq. Pass
+		Long: `Read team-chat messages, oldest first by the server-assigned seq. Pass
 --since <seq> for only newer messages; the response's nextSince is the seq
-to pass next turn — it advances past everything read, INCLUDING messages
---mentions-me filtered out, so a mentions-only reader never re-reads.
+to pass next turn.
 
---mentions-me keeps only messages mentioning the bound persona's @handle
-(stored mentions, else recomputed from the body — hand-created messages
-carry none).`,
+--mentions-me keeps only messages mentioning the bound persona;
+--mentions <ref> filters for any roster member (a persona/agent ref or a
+user handle). The filter matches the mentions the SERVER extracted at
+write time — nothing is re-parsed — and with a filter active, nextSince
+advances only past the messages returned (skipped messages are re-scanned
+server-side next turn, which is free and never re-delivers them).`,
 		Example: `  hadron team chat read --since 42
   hadron team chat read --mentions-me --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			b, _, err := readBinding(ctx)
-			if err != nil && memory == "" {
-				return err
-			}
-			c, err := teamChatCoords(b, memory, messagesLoc)
+			b, err := readBindingOrNilWithApp(ctx, f)
 			if err != nil {
 				return err
-			}
-			var handle string
-			if mentionsMe {
-				if b == nil {
-					return exitcode.Newf(exitcode.Usage, "--mentions-me needs the worktree's persona — `hadron team session start --as <name>` first")
-				}
-				if handle, err = handleFromPersona(b.PersonaName); err != nil {
-					return err
-				}
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			msgs, err := chat.CollectMessages(ctx, client, c, since)
+			var mentionsRef *string
+			switch {
+			case mentionsMe && mentions != "":
+				return exitcode.Newf(exitcode.Usage, "pass --mentions-me or --mentions <ref>, not both")
+			case mentionsMe:
+				if b == nil {
+					return exitcode.Newf(exitcode.Usage, "--mentions-me needs the worktree's persona — `hadron team session start --as <name>` first (or use --mentions <ref>)")
+				}
+				mentionsRef = optStr(b.AgentID)
+				if mentionsRef == nil {
+					mentionsRef = optStr(b.AgentURN)
+				}
+				if mentionsRef == nil {
+					return exitcode.Newf(exitcode.Usage, "the session binding carries no persona agent — re-run `hadron team session start --as <name>`")
+				}
+			case mentions != "":
+				ref := strings.TrimSpace(mentions)
+				// A bare, non-URN value may be a persona NAME — resolve it
+				// against the roster so `--mentions Iris` works. Anything the
+				// roster doesn't know passes through raw: the server accepts
+				// agent/user ids, URNs, and bare user HANDLES (but not persona
+				// names, which is why the roster pass runs client-side).
+				if !strings.Contains(ref, ":") {
+					if p, pErr := resolvePersona(ctx, client, nil, ref); pErr == nil {
+						ref = p.Id
+					}
+				}
+				mentionsRef = &ref
+			}
+			appRef, err := resolveTeamChatApp(ctx, f, b)
 			if err != nil {
 				return err
 			}
-			// nextSince from EVERYTHING read, before any mentions filter.
+			// Page to exhaustion with the watermark as the cursor: items are
+			// seq-ascending and sinceSeq is strictly-greater, so each page's
+			// last seq is the next page's cursor — no offset drift.
+			msgs := []teamChatMessageDTO{}
+			cursor := since
+			for {
+				limit := teamChatPageSize
+				resp, err := gen.TeamChatMessages(ctx, client, appRef, &cursor, mentionsRef, &limit, nil)
+				if err != nil {
+					return api.MapError(err)
+				}
+				page := resp.TeamChatMessages.Items
+				for _, m := range page {
+					if m == nil {
+						continue
+					}
+					msgs = append(msgs, teamChatMessageDTOFromFields(m.TeamChatMessageFields))
+				}
+				if len(page) < teamChatPageSize {
+					break
+				}
+				cursor = msgs[len(msgs)-1].Seq
+			}
 			next := since
 			for _, m := range msgs {
-				if m.Seq != nil && *m.Seq > next {
-					next = *m.Seq
+				if m.Seq > next {
+					next = m.Seq
 				}
-			}
-			if mentionsMe {
-				kept := []chat.Message{}
-				for _, m := range msgs {
-					if mentionsHandle(m, handle) {
-						kept = append(kept, m)
-					}
-				}
-				msgs = kept
-			}
-			if msgs == nil {
-				msgs = []chat.Message{}
 			}
 			result := struct {
-				Messages  []chat.Message `json:"messages"`
-				NextSince int            `json:"nextSince"`
+				Messages  []teamChatMessageDTO `json:"messages"`
+				NextSince int                  `json:"nextSince"`
 			}{msgs, next}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				for _, m := range result.Messages {
-					who := m.Author
-					if m.Role != "" {
-						who = fmt.Sprintf("%s (%s)", m.Author, m.Role)
+					who := "?"
+					if m.AuthorName != nil {
+						who = *m.AuthorName
 					}
-					fmt.Fprintf(w, "[%s] %s: %s\n", seqString(m.Seq), who, m.Body)
+					reply := ""
+					if m.ReplyToSeq != nil {
+						reply = fmt.Sprintf(" (reply to %d)", *m.ReplyToSeq)
+					}
+					fmt.Fprintf(w, "[%d] %s%s: %s\n", m.Seq, who, reply, m.Body)
 				}
 				return nil
 			})
 		},
 	}
 	cmd.Flags().IntVar(&since, "since", 0, "only messages with seq greater than this (0 = whole history)")
-	cmd.Flags().BoolVar(&mentionsMe, "mentions-me", false, "only messages mentioning the bound persona's @handle")
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "team App memory override (defaults to the binding's)")
-	cmd.Flags().StringVar(&messagesLoc, "messages-loc", "", "message-parent loc override (default "+defaultMessagesLoc+")")
+	cmd.Flags().BoolVar(&mentionsMe, "mentions-me", false, "only messages mentioning the bound persona")
+	cmd.Flags().StringVar(&mentions, "mentions", "", "only messages mentioning this roster member (persona/agent ref or user handle)")
 	return cmd
-}
-
-// mentionsHandle reports whether a message mentions the handle — stored
-// mentions when present, else recomputed from the body.
-func mentionsHandle(m chat.Message, handle string) bool {
-	ms := m.Mentions
-	if len(ms) == 0 {
-		ms = chat.Mentions(m.Body)
-	}
-	for _, h := range ms {
-		if strings.EqualFold(h, handle) {
-			return true
-		}
-	}
-	return false
-}
-
-func seqString(seq *int) string {
-	if seq == nil {
-		return "?"
-	}
-	return fmt.Sprintf("%d", *seq)
 }

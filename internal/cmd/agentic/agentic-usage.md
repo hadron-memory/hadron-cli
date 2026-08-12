@@ -92,7 +92,7 @@ hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZA
 hadron team init -m <team-memory>
 hadron team persona create --role <role> [--name <n>] [--team-agent <ref>] (uses --app) | list [--org <ref>] [--role <r>] | get <name-or-ref> | retire <name-or-ref> --yes
 hadron team session start --as <persona> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--summary <text>] [--session <id>] | list [--active] [--as <persona>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
-hadron team chat post <body|-> [--reply-to <seq-or-loc>] [-m <team-memory>] [--messages-loc <loc>] | read [--since <seq>] [--mentions-me] [-m <team-memory>] [--messages-loc <loc>]
+hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--mentions-me | --mentions <ref>] (uses --app or the binding)
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--email <e>] [--handle <h>]
 hadron server-info
@@ -724,19 +724,25 @@ Conventions:
   --branch) <ref>` is THE provenance query: worklog lookup by canonical
   (ref, kind) → the sessions that produced the artifact (several rows
   expected; a recorded session you cannot read lists as an id-only stub
-  rather than disappearing). **`team chat`** is the group chat as the bound persona — the
-  same message-node dialect as `hadron chat` (one shared implementation, so
-  CLI- and hadron-client-channel posts can't drift; the channel pushes
-  messages into running Claude Code sessions, Codex and humans poll). It
-  lives in the team memory under `chat:messages` (`team init` materializes
-  the parent). `chat post` posts as the persona (handle = the folded persona
-  name, role/model from the binding) and stamps `sessionId` into the payload,
-  so an agent message always traces to the DRIVING human via the session;
-  `--reply-to` takes the seq readers see (or a loc). `chat read [--since
-  <seq>] [--mentions-me]` mirrors `hadron chat read`; `nextSince` advances
-  past mention-filtered messages too, so a mentions-only reader never
-  re-reads. The commit trailer `Persona: <name>` carries the persona
-  name into PRs.
+  rather than disappearing). **`team chat`** is the team App's group chat as a
+  THIN wrapper over the platform operations (hadron-server#939, spec
+  cor:agt:020:04): the server owns placement (`chats:team` in the Team
+  Agent's shared app memory, bootstrapped on the first post — no init step),
+  atomic seq allocation, author derivation, and write-time mention
+  extraction. The App resolves from `--app`/the App context, else from the
+  binding's team memory. With a binding, `chat post` is authored by the
+  bound PERSONA through that session (the server verifies it is yours,
+  active, and of this App, and records it — an agent message always traces
+  to the DRIVING human); without one, or with `--as-me`, by you. Mention
+  teammates as `@persona-name`/`@handle` (a multiword name by its slug,
+  `@mary-jane`); `--reply-to` takes the seq readers see (the server wires
+  the reply edge; a missing seq is the typed TEAM_CHAT_REPLY_NOT_FOUND).
+  `chat read [--since <seq>] [--mentions-me | --mentions <ref>]` filters on
+  the SERVER-stored mentions (never re-parsed); `nextSince` is the seq
+  watermark to pass next turn — with a mentions filter it advances only
+  past the returned messages (skipped ones re-scan server-side, free, and
+  are never re-delivered). The commit trailer `Persona: <name>` carries the
+  persona name into PRs.
 - `user search <query>` finds users (enumeration-safe: substring on handle /
   GitHub username, exact on email) — the way to resolve a user ID for `org
   member`/`memory member`/`memory share`. **Omit the query** (also spelled `user
