@@ -30,27 +30,46 @@ import (
 // It runs against the body BEFORE anything is written, so an ambiguous router
 // is a usage error rather than a half-finished write.
 
+// routeArrow separates a routing bullet's trigger from its destination in every
+// live router.
+const routeArrow = "→"
+
 // routingLine renders the bullet a new route contributes to the router's body.
 func routingLine(symptom, loc, description string) string {
 	d := strings.TrimSpace(description)
-	if d != "" && !strings.ContainsRune(".!?", rune(d[len(d)-1])) {
+	if !endsSentence(d) {
 		d += "."
 	}
-	return `- **"` + strings.TrimSpace(symptom) + `"** → [[` + loc + `]] — ` + d
+	return routeBulletStem + strings.TrimSpace(symptom) + `"** ` + routeArrow + ` [[` + loc + `]] — ` + d
+}
+
+// endsSentence reports whether d already carries terminal punctuation. Compared
+// by suffix rather than by last BYTE: a description ending in a multi-byte
+// terminator ("…") would otherwise look unpunctuated and gain a stray period.
+func endsSentence(d string) bool {
+	if d == "" {
+		return true // nothing to punctuate
+	}
+	for _, end := range []string{".", "!", "?", "…", ":"} {
+		if strings.HasSuffix(d, end) {
+			return true
+		}
+	}
+	return false
 }
 
 // bodySection is one markdown section of the router's body: everything from a
 // heading (or the start of the body) up to the next heading.
 type bodySection struct {
-	Heading  string // the heading text; "" for the preamble before the first heading
-	InsertAt int    // line index a new bullet should be spliced in at
-	HasList  bool   // whether the section already contains a top-level bullet list
+	Heading   string // the heading text; "" for the preamble before the first heading
+	InsertAt  int    // line index a new bullet should be spliced in at
+	HasRoutes bool   // whether the section already carries routing bullets
 }
 
 // splitBodySections walks the body once, recording each section's heading and
-// the line index a new bullet belongs at — after the last top-level bullet
-// (and its indented continuation lines) when the section has a list, otherwise
-// at the section's end with its trailing blank lines trimmed.
+// the line index a new bullet belongs at — after the last ROUTING bullet (and
+// its continuation lines) when the section has one, otherwise at the section's
+// end with its trailing blank lines trimmed.
 func splitBodySections(lines []string) []bodySection {
 	var out []bodySection
 	start := 0
@@ -78,21 +97,19 @@ func sectionAt(lines []string, start, end int, heading string) bodySection {
 	sec := bodySection{Heading: heading}
 	last := -1
 	for i := start; i < end; i++ {
-		if isTopLevelBullet(lines[i]) {
+		if isRoutingBullet(lines[i]) {
 			last = i
 		}
 	}
 	if last >= 0 {
-		sec.HasList = true
-		// A bullet may wrap onto indented continuation lines; the insertion
-		// point is after the whole block, not after its first line.
-		i := last + 1
-		for i < end && isContinuation(lines[i]) {
-			i++
-		}
-		sec.InsertAt = i
+		sec.HasRoutes = true
+		sec.InsertAt = endOfBullet(lines, last, end)
 		return sec
 	}
+	// No routing list here. A new line goes at the END of the section, starting
+	// its own list — never appended to whatever ordinary bullets the section
+	// happens to contain (usage instructions, a not-yet-documented backlog),
+	// which would file the route among unrelated items.
 	i := end
 	for i > start && strings.TrimSpace(lines[i-1]) == "" {
 		i--
@@ -101,22 +118,60 @@ func sectionAt(lines []string, start, end int, heading string) bodySection {
 	return sec
 }
 
+// endOfBullet returns the line index just past the bullet starting at `at`,
+// including its continuation lines. A list item may run to several paragraphs,
+// so a blank line ends the item only when what FOLLOWS it is unindented —
+// otherwise the insertion point lands in the middle of the last entry.
+func endOfBullet(lines []string, at, end int) int {
+	i := at + 1
+	for i < end {
+		if isContinuation(lines[i]) {
+			i++
+			continue
+		}
+		if strings.TrimSpace(lines[i]) == "" {
+			j := i
+			for j < end && strings.TrimSpace(lines[j]) == "" {
+				j++
+			}
+			if j < end && isContinuation(lines[j]) {
+				i = j // the item continues past the blank
+				continue
+			}
+		}
+		break
+	}
+	return i
+}
+
 func isHeading(line string) bool {
 	t := strings.TrimLeft(line, "#")
 	return len(t) < len(line) && strings.HasPrefix(t, " ")
 }
 
-// isTopLevelBullet matches an unindented list item — the shape a routing line
-// takes. An indented bullet is a continuation of the one above it.
-func isTopLevelBullet(line string) bool {
-	return strings.HasPrefix(line, "- ") || strings.HasPrefix(line, "* ")
+// routeBulletStem is how every routing bullet opens across the live routers:
+// an unindented item whose trigger is a bold, quoted phrase.
+const routeBulletStem = `- **"`
+
+// isRoutingBullet matches a line shaped like the routing lines this command
+// writes — `- **"<trigger>"** → …`.
+//
+// Membership is deliberately narrow. An earlier version accepted ANY unindented
+// bullet, so a router with one ordinary Markdown list and no routing list at all
+// (mm-app's "How to use this index", a not-yet-documented backlog) read as
+// unambiguous and had a route silently filed among unrelated items. Requiring
+// the routing shape means such a router yields no candidate and is refused with
+// `--section` / `--no-body-line`, which is the posture the planner is for: a
+// list of things shaped like what we are adding, or nothing.
+func isRoutingBullet(line string) bool {
+	return strings.HasPrefix(line, routeBulletStem) && strings.Contains(line, routeArrow)
 }
 
 // isContinuation reports whether a line belongs to the bullet above it: an
-// indented line, blank or not. A blank line followed by an unindented line
-// ends the block, so blanks are not consumed on their own.
+// indented, non-blank line. Blank lines are handled by endOfBullet, which looks
+// past them to decide whether the item continues.
 func isContinuation(line string) bool {
-	return line != "" && (line[0] == ' ' || line[0] == '\t') && strings.TrimSpace(line) != ""
+	return strings.TrimSpace(line) != "" && (line[0] == ' ' || line[0] == '\t')
 }
 
 // routingPlan is where a routing line lands and what the router's body becomes.
@@ -149,7 +204,7 @@ func planRoutingLine(content, section, line, loc string) (routingPlan, error) {
 	// A section with no list yet needs a blank line between the prose above and
 	// the bullet; appending to an existing list must not introduce one, or the
 	// list renders as two.
-	if !target.HasList && at > 0 && strings.TrimSpace(lines[at-1]) != "" {
+	if !target.HasRoutes && at > 0 && strings.TrimSpace(lines[at-1]) != "" {
 		out = append(out, "")
 	}
 	out = append(out, line)
@@ -164,7 +219,7 @@ func pickSection(secs []bodySection, section string) (bodySection, error) {
 	}
 	var candidates []bodySection
 	for _, s := range secs {
-		if s.HasList {
+		if s.HasRoutes {
 			candidates = append(candidates, s)
 		}
 	}

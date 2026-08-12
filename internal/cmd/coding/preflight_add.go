@@ -169,6 +169,7 @@ usage error, not a half-finished write.`,
 				edges = append(edges, &gen.NodeEdgeInput{TargetId: router.Node.Id, Name: &back})
 			}
 			outLinks := []linkDTO{}
+			linkTargetIDs := []string{} // resolved ids, positionally aligned with outLinks
 			for _, l := range parsedLinks {
 				// A qualified ref must be resolved WITHOUT -m: ResolveNodeRef
 				// reads its ref as a bare loc whenever a memory is given, which
@@ -185,6 +186,7 @@ usage error, not a half-finished write.`,
 				lbl := l.Label
 				edges = append(edges, &gen.NodeEdgeInput{TargetId: targetID, Name: &lbl})
 				outLinks = append(outLinks, linkDTO{Target: l.Ref, Label: l.Label})
+				linkTargetIDs = append(linkTargetIDs, targetID)
 			}
 
 			if dryRun {
@@ -231,6 +233,36 @@ usage error, not a half-finished write.`,
 				dto.Tags = []string{}
 			}
 
+			// createNode's response carries no edges, so the embedded ones —
+			// the back-edge and every --link — are unverified. `review create`
+			// re-reads for exactly this reason; without it the DTO would report
+			// `backEdge: true` and a full `links` list for edges that silently
+			// never materialised. The DTO is corrected to what actually landed.
+			landed, err := confirmEmbeddedEdges(ctx, client, resp.CreateNode.Id)
+			if err != nil {
+				return partialRoute(f, dto, err,
+					"created %s but could not read it back to confirm its edges — check it with `hadron node get %s -m %s`",
+					dto.Loc, dto.Loc, mem.raw)
+			}
+			var missing []string
+			if dto.BackEdge && !landed[router.Node.Id] {
+				dto.BackEdge = false
+				missing = append(missing, fmt.Sprintf(
+					"the back-edge to %q (`hadron edge create -m %s --from %s --to %s --name %q`)",
+					root, mem.raw, dto.Loc, root, label))
+			}
+			kept := []linkDTO{}
+			for i, l := range outLinks {
+				if landed[linkTargetIDs[i]] {
+					kept = append(kept, l)
+					continue
+				}
+				missing = append(missing, fmt.Sprintf(
+					"the --link to %q (`hadron edge create -m %s --from %s --to %s --name %q`)",
+					l.Target, mem.raw, dto.Loc, l.Target, l.Label))
+			}
+			dto.Links = kept
+
 			edgeResp, err := gen.CreateEdge(ctx, client, router.Node.Id, resp.CreateNode.Id, label,
 				nil, nil, nil, nil, nil, nil)
 			if err != nil {
@@ -257,9 +289,21 @@ usage error, not a half-finished write.`,
 				}
 			}
 
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				return renderRoutePlan(w, dto)
-			})
+			}); err != nil {
+				return err
+			}
+			if len(missing) > 0 {
+				// The route itself landed, so the node IS reachable — but the
+				// caller asked for edges that are not there, and a partial write
+				// exits 1 so a caller branching on the code never reads it as
+				// complete.
+				return exitcode.Newf(exitcode.Error,
+					"created and routed %s, but %s did not land; add %s",
+					dto.Loc, plural(len(missing), "one edge", "some edges"), strings.Join(missing, ", "))
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to add the node to (org::memory)")
@@ -316,6 +360,34 @@ func partialRoute(f *cmdutil.Factory, dto newRouteDTO, cause error, format strin
 		return t.Flush()
 	})
 	return exitcode.Newf(exitcode.Error, "%s\n  (%v)", fmt.Sprintf(format, a...), cause)
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
+}
+
+// confirmEmbeddedEdges re-reads a just-created node and returns the set of
+// target ids its outgoing edges actually reach. createNode's response selects
+// no edges, so the ones it was asked to embed are otherwise taken on trust —
+// the same gap `review create`'s confirmParentEdge closes.
+func confirmEmbeddedEdges(ctx context.Context, client graphql.Client, nodeID string) (map[string]bool, error) {
+	resp, err := gen.GetNode(ctx, client, nodeID)
+	if err != nil {
+		return nil, api.MapError(err)
+	}
+	landed := map[string]bool{}
+	if resp.Node == nil {
+		return landed, nil // readable-back failure is reported as "nothing landed"
+	}
+	for _, e := range resp.Node.OutgoingEdges {
+		if e != nil && e.Target != nil {
+			landed[e.Target.Id] = true
+		}
+	}
+	return landed, nil
 }
 
 // routeTargetLoc validates the loc a route points at. Unlike a review check

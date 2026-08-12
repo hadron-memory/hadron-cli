@@ -140,6 +140,53 @@ func TestPlanRoutingLineEdgeOnlyRouter(t *testing.T) {
 	}
 }
 
+// A section whose only list is ordinary prose bullets is NOT a routing list.
+// Treating it as one filed a route among unrelated items and reported success
+// — the exact silent-wrong outcome the planner exists to avoid (Codex on #376).
+func TestPlanRoutingLineIgnoresOrdinaryLists(t *testing.T) {
+	body := `# Preflight
+
+This node is a **router**: each outgoing edge is labeled with a planned action.
+
+## How to use this index
+
+- **Match your intent to an edge.** The outgoing edges read as actions.
+- **No matching edge?** Search Hadron with symptom keywords.
+`
+	line := routingLine("To do a thing", "findings:x", "Because")
+	_, err := planRoutingLine(body, "", line, "findings:x")
+	if err == nil {
+		t.Fatal("one ordinary bullet list is not a routing list — the planner must refuse, not append to it")
+	}
+	if !strings.Contains(err.Error(), "--no-body-line") {
+		t.Errorf("want the no-routing-list refusal, got %q", err.Error())
+	}
+
+	// Naming it explicitly starts a NEW list at the section's end rather than
+	// joining the instructions.
+	plan, err := planRoutingLine(body, "How to use this index", line, "findings:x")
+	if err != nil || plan.Skipped {
+		t.Fatalf("--section should still work: %v", err)
+	}
+	if !strings.Contains(plan.Body, "symptom keywords.\n\n- **\"To do a thing\"**") {
+		t.Errorf("the route must start its own list after the ordinary one, got:\n%s", plan.Body)
+	}
+}
+
+// A routing bullet may run to several paragraphs. A blank line inside one does
+// not end it, or the new line lands mid-entry (Copilot on #376).
+func TestPlanRoutingLineMultiParagraphBullet(t *testing.T) {
+	body := "# R\n\n- **\"A\"** → [[a]] — first.\n" +
+		"- **\"B\"** → [[b]] — second:\n  para one.\n\n  para two.\n\nTrailing prose.\n"
+	plan, err := planRoutingLine(body, "", routingLine("C", "c", "third"), "c")
+	if err != nil || plan.Skipped {
+		t.Fatalf("planRoutingLine: %v", err)
+	}
+	if !strings.Contains(plan.Body, "  para two.\n- **\"C\"** → [[c]] — third.") {
+		t.Errorf("the line must follow the WHOLE multi-paragraph entry, got:\n%s", plan.Body)
+	}
+}
+
 // A line written by hand before the node existed is not a defect to duplicate.
 func TestPlanRoutingLineAlreadyLinked(t *testing.T) {
 	line := routingLine("To fix it", "conventions:output-contract", "d")
@@ -196,5 +243,10 @@ func TestRoutingLineFormat(t *testing.T) {
 	}
 	if got := routingLine("S", "x", "A question?"); !strings.HasSuffix(got, "A question?") {
 		t.Errorf("routingLine = %q, want the question mark kept", got)
+	}
+	// A multi-byte terminator: indexing the last BYTE misses it and appends a
+	// stray period (Copilot on #376).
+	if got := routingLine("S", "x", "and so on…"); !strings.HasSuffix(got, "and so on…") {
+		t.Errorf("routingLine = %q, want no period after a multi-byte terminator", got)
 	}
 }

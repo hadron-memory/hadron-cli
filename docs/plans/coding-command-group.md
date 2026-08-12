@@ -617,8 +617,8 @@ The three live routers each resolve differently:
 
 | Router | Body shape | Resolution |
 |---|---|---|
-| `hadronmemory.com::hadron-cli` | one flat bullet list, no headings | automatic |
-| `hadronmemory.com::dev` | ~10 headed sections, most with routing bullets | needs `--section` |
+| `hadronmemory.com::hadron-cli` | one flat routing list, no headings | automatic |
+| `hadronmemory.com::dev` | 11 headed sections carrying routing bullets | needs `--section` |
 | `micromentor.org::mm-app` | **no routing bullets at all** — the edge list *is* the router | needs `--no-body-line` |
 
 A heuristic that picked "the first list" would file a GraphQL route under
@@ -627,6 +627,22 @@ its authors deliberately don't keep. `pickSection` therefore resolves only when
 there is exactly **one** candidate section and otherwise fails with the headings
 to choose between — the same "stay silent when unsure" posture as deviation 4's
 toolchain rule.
+
+**A candidate is a section carrying a *routing* bullet, not any bullet**
+(`- **"<trigger>"** → …` — the shape this command itself writes). The first
+implementation accepted any unindented `- ` item, which Codex caught on
+[#376](https://github.com/hadron-memory/hadron-cli/pull/376): a router whose only
+list is ordinary prose — mm-app's *"How to use this index"*, or its
+*"Not yet documented (expand me)"* backlog — then read as **unambiguous**, and a
+route was silently filed among unrelated items and reported as success. That is
+the precise failure the planner exists to prevent, reintroduced one level down.
+Narrowing membership to the routing shape means such a router yields no candidate
+and is refused. Naming it with `--section` still works, and starts a **new** list
+at the section's end rather than joining the ordinary one.
+
+Relatedly: a routing bullet may run to several paragraphs, so a blank line ends
+it only when the following line is unindented — otherwise the insertion point
+lands mid-entry (Copilot, same PR).
 
 Critically, that resolution runs against the router's body **before the first
 write**. An ambiguous router is a usage error with nothing created, not a node
@@ -651,11 +667,20 @@ Three writes means two ways to land halfway, and both keep the
 
 | Failure | State | Reported |
 |---|---|---|
+| an embedded edge never materialised | node routed, but the back-edge or a `--link` is absent | the `hadron edge create` for each missing edge |
 | `createEdge` fails | node exists, nothing routes to it | the exact `hadron edge create` to run |
 | `updateNode` fails | node routed, but invisible to a reader | the routing line to paste |
 
-The DTO is still printed in both cases — the node exists and a caller needs its
+The DTO is still printed in every case — the node exists and a caller needs its
 id — and the exit code is 1, never 0.
+
+The first row was added from review (Codex on #376). `createNode`'s response
+selects **no edges**, so the back-edge and every `--link` it was asked to embed
+were being reported as present on trust: `backEdge: true` and a full `links`
+array for edges that may never have landed. `review create` already re-reads for
+exactly this reason (`confirmParentEdge`); this command now does the same and
+**corrects the DTO to what actually landed** rather than only appending a
+warning — a caller parsing `--json` gets the truth, not just a non-zero exit.
 
 ### 6. `--dry-run`, added during verification
 

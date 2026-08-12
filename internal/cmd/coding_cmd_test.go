@@ -670,6 +670,17 @@ const newRouteNodeJSON = `{"id":"n_new","memoryId":"mem1","loc":"findings:flaky-
 const newRouteEdgeJSON = `{"id":"e_route","name":"to fix a flaky OTP test","loc":"l","isRunnable":false,"priority":0,
 	"source":{"id":"root","loc":"preflight"},"target":{"id":"n_new","loc":"findings:flaky-otp-timer"}}`
 
+// backEdgeJSON is the new node's outgoing edge to the router, as the confirm
+// read sees it. createNode's response carries no edges, so this read is the
+// only evidence the embedded edges actually landed.
+const backEdgeJSON = `{"id":"e_back","name":"to fix a flaky OTP test","loc":"l","isRunnable":false,"priority":0,
+	"target":{"id":"root","loc":"preflight","memoryId":"mem1"}}`
+
+// newRouteNodeRead is the confirm read of the created node, back-edge present.
+func newRouteNodeRead(outgoing string) string {
+	return codingNodeJSON("n_new", "findings:flaky-otp-timer", "", outgoing)
+}
+
 func preflightCreateArgs(serverURL string, extra ...string) []string {
 	return append([]string{"coding", "preflight", "create", "findings:flaky-otp-timer", "-m", codingMem,
 		"--route", "fix a flaky OTP test", "--description", "The countdown starts before the await",
@@ -681,7 +692,8 @@ func preflightCreateArgs(serverURL string, extra ...string) []string {
 func TestCodingPreflightCreateWiresRouteAndBody(t *testing.T) {
 	gql, captured := queueGraphQL(t, map[string][]string{
 		"GetNode": {
-			codingRouterWithBody(flatRouterBody), // resolve + plan
+			codingRouterWithBody(flatRouterBody), // resolve the router + plan the line
+			newRouteNodeRead(backEdgeJSON),       // confirm the embedded back-edge
 			codingRouterWithBody(flatRouterBody), // re-read before the splice
 		},
 		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
@@ -798,6 +810,7 @@ func TestCodingPreflightCreateAmbiguousBodyWritesNothing(t *testing.T) {
 	gql2, captured2 := queueGraphQL(t, map[string][]string{
 		"GetNode": {
 			codingRouterWithBody(sectionedRouterBody),
+			newRouteNodeRead(backEdgeJSON),
 			codingRouterWithBody(sectionedRouterBody),
 		},
 		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
@@ -828,7 +841,10 @@ func TestCodingPreflightCreateAmbiguousBodyWritesNothing(t *testing.T) {
 // UpdateNode here would be an unexpected operation and fail the fake.
 func TestCodingPreflightCreateNoBodyLine(t *testing.T) {
 	gql, captured := queueGraphQL(t, map[string][]string{
-		"GetNode":    {codingRouterWithBody("# Preflight\n\nMatch your intent to an edge.\n")},
+		"GetNode": {
+			codingRouterWithBody("# Preflight\n\nMatch your intent to an edge.\n"),
+			newRouteNodeRead(""), // no back-edge asked for, none expected
+		},
 		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
 		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
 	})
@@ -858,7 +874,10 @@ func TestCodingPreflightCreateNoBodyLine(t *testing.T) {
 // That is a partial write: report it and exit 1, never 0.
 func TestCodingPreflightCreateUnroutedExits1(t *testing.T) {
 	gql, _ := queueGraphQL(t, map[string][]string{
-		"GetNode":    {codingRouterWithBody(flatRouterBody)},
+		"GetNode": {
+			codingRouterWithBody(flatRouterBody),
+			newRouteNodeRead(backEdgeJSON),
+		},
 		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
 		"CreateEdge": {`{"errors":[{"message":"edge refused"}]}`},
 	})
@@ -880,6 +899,7 @@ func TestCodingPreflightCreateBodyUpdateFailureExits1(t *testing.T) {
 	gql, _ := queueGraphQL(t, map[string][]string{
 		"GetNode": {
 			codingRouterWithBody(flatRouterBody),
+			newRouteNodeRead(backEdgeJSON),
 			codingRouterWithBody(flatRouterBody),
 		},
 		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
@@ -932,6 +952,41 @@ func TestCodingPreflightCreateDryRun(t *testing.T) {
 	root2.SetArgs(preflightCreateArgs(gql2.URL, "--dry-run"))
 	if got := exitcode.FromError(root2.Execute()); got != exitcode.Usage {
 		t.Errorf("--dry-run on an ambiguous router should still exit 2, got %d", got)
+	}
+}
+
+// createNode's response carries no edges, so an embedded edge that never
+// materialised would otherwise be reported as present. The confirm read catches
+// it: the DTO tells the truth and the exit code is 1 (Codex on #376).
+func TestCodingPreflightCreateUnconfirmedBackEdge(t *testing.T) {
+	gql, _ := queueGraphQL(t, map[string][]string{
+		"GetNode": {
+			codingRouterWithBody(flatRouterBody),
+			newRouteNodeRead(""), // the back-edge did not land
+			codingRouterWithBody(flatRouterBody),
+		},
+		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
+		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
+		"UpdateNode": {`{"data":{"updateNode":` + newRouteNodeJSON + `}}`},
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(append(preflightCreateArgs(gql.URL), "--json"))
+	err := root.Execute()
+	if got := exitcode.FromError(err); got != exitcode.Error {
+		t.Errorf("a missing embedded edge is a partial write (exit 1), got %d", got)
+	}
+	if !strings.Contains(err.Error(), "hadron edge create") {
+		t.Errorf("the error must name the repair, got %q", err.Error())
+	}
+	var dto struct {
+		BackEdge bool `json:"backEdge"`
+	}
+	if jerr := json.Unmarshal([]byte(out.String()), &dto); jerr != nil {
+		t.Fatalf("decoding the DTO: %v", jerr)
+	}
+	if dto.BackEdge {
+		t.Error("--json must report backEdge:false when the edge is not actually there")
 	}
 }
 
