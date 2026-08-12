@@ -211,8 +211,11 @@ func codeForExtension(code string) int {
 		return exitcode.Conflict
 	// An ambiguous or unusable reference the caller can fix by passing a more
 	// specific argument (TEAM_AGENT_AMBIGUOUS → --team-agent;
-	// TEAM_AGENT_NOT_INSTALLED → an installed ref) is a usage error.
-	case strings.HasSuffix(code, "_AMBIGUOUS") || strings.HasSuffix(code, "_NOT_INSTALLED"):
+	// TEAM_AGENT_NOT_INSTALLED → an installed ref) is a usage error, and so
+	// is an over-limit input the caller can shrink
+	// (TEAM_CHAT_BODY_TOO_LARGE, #939).
+	case strings.HasSuffix(code, "_AMBIGUOUS") || strings.HasSuffix(code, "_NOT_INSTALLED") ||
+		strings.HasSuffix(code, "_TOO_LARGE"):
 		return exitcode.Usage
 	default:
 		return exitcode.Error

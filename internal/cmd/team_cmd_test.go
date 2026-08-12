@@ -341,6 +341,14 @@ const bindingFixture = `{"sessionId":"s-new","agentId":"agt1","agentUrn":"hrn:ag
 	"personaName":"Iris","personaRole":"backend-engineer","startedAt":"2026-08-11T10:00:00Z",
 	"repo":"hadron-memory/hadron-cli","prNumbers":[]}`
 
+const teamChatMsgJSON = `{"nodeId":"n8","seq":8,"body":"@rufus schema is live","at":"2026-08-12T10:00:00Z",
+	"authorUserId":null,"authorAgentId":"agt1","authorName":"Iris","sessionId":"s-new",
+	"replyToSeq":null,"mentions":["rufus"]}`
+
+const teamChatHumanMsgJSON = `{"nodeId":"n9","seq":1,"body":"hi","at":"2026-08-12T10:00:00Z",
+	"authorUserId":"u1","authorAgentId":null,"authorName":"holger","sessionId":null,
+	"replyToSeq":null,"mentions":[]}`
+
 // A binding whose session was started with -m (team memory) and --tool.
 const bindingWithTeamFixture = `{"sessionId":"s-new","agentId":"agt1","agentUrn":"hrn:agent:acme.com:iris",
 	"personaName":"Iris","personaRole":"backend-engineer","startedAt":"2026-08-11T10:00:00Z",
@@ -1021,10 +1029,6 @@ func TestTeamInit(t *testing.T) {
 		"UpdateMemory": `{"data":{"updateMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team","name":"Eng Team",
 			"shortDescription":null,"class":"app","visibility":"ORGANIZATION","organizationId":"o1",
 			"isEncrypted":false,"maxRevCount":10,"updatedAt":"2026-08-11T00:00:00Z"}}}`,
-		// The best-effort chat-parent materialization (chat:messages) and the
-		// convergence retype for structures from before the canonical shape.
-		"CreateNode": `{"data":{"createNode":{"id":"n-chat","loc":"chat:messages","seq":null}}}`,
-		"UpdateNode": `{"data":{"updateNode":{"id":"n-chat","memoryId":"m1","loc":"chat:messages","name":"messages","nodeType":"record","tags":[],"isRunnable":false,"updatedAt":"2026-08-11T00:00:00Z"}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1077,8 +1081,6 @@ func TestTeamInitIdempotent(t *testing.T) {
 			"vectorIndexEnabled":false,"maxRevCount":10,"data":null,
 			"schema":{"objectTypes":{"worklog":` + worklogDef + `}},
 			"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
-		"CreateNode": `{"data":{"createNode":{"id":"n-chat","loc":"chat:messages","seq":null}}}`,
-		"UpdateNode": `{"data":{"updateNode":{"id":"n-chat","memoryId":"m1","loc":"chat:messages","name":"messages","nodeType":"record","tags":[],"isRunnable":false,"updatedAt":"2026-08-11T00:00:00Z"}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1089,115 +1091,55 @@ func TestTeamInitIdempotent(t *testing.T) {
 	if _, called := captured["UpdateMemory"]; called {
 		t.Error("an unchanged schema must not be rewritten")
 	}
-	// The convergence retype runs even on an unchanged schema — init is the
-	// migration point for pre-canonical chat structures (PR #377 review).
-	var up struct {
-		Input struct {
-			Loc      string `json:"loc"`
-			NodeType string `json:"nodeType"`
-		} `json:"input"`
-	}
-	_ = json.Unmarshal(captured["UpdateNode"], &up)
-	if up.Input.Loc != "chat:messages" || up.Input.NodeType != "record" {
-		t.Errorf("converge retype: %+v", up.Input)
-	}
+	// No chat-node calls: the server bootstraps the team chat on first post
+	// (hadron-server#939), so init touches only the schema.
 	if !strings.Contains(out.String(), `"status": "unchanged"`) {
 		t.Errorf("init output: %s", out.String())
 	}
 }
 
-// `team chat post` posts as the bound persona through the SHARED chat
-// dialect: handle from the persona name, role/identity from the binding, and
-// — D16 — the sessionId in the data payload so the message traces to the
-// driving human.
+// `team chat post` is a THIN wrapper over the platform operation
+// (hadron-server#939): the App resolves from the binding's team memory, the
+// bound session rides as sessionRef (the server derives the persona author
+// and records the driving session, D16), and the CLI composes no node.
 func TestTeamChatPostAsPersona(t *testing.T) {
 	dir := teamGitDir(t)
 	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	var creates []json.RawMessage
-	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			OperationName string          `json:"operationName"`
-			Variables     json.RawMessage `json:"variables"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		w.Header().Set("Content-Type", "application/json")
-		if body.OperationName != "CreateNode" {
-			t.Errorf("unexpected operation %q", body.OperationName)
-			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
-			return
-		}
-		creates = append(creates, body.Variables)
-		_, _ = w.Write([]byte(`{"data":{"createNode":{"id":"n1","loc":"chat:messages:x-iris","seq":7}}}`))
-	}))
-	t.Cleanup(gql.Close)
-
+	gql, captured := captureGraphQL(t, map[string]string{
+		"TeamMemoryApp":         `{"data":{"memory":{"id":"mem1","appId":"app-1"}}}`,
+		"CreateTeamChatMessage": `{"data":{"createTeamChatMessage":` + teamChatMsgJSON + `}}`,
+	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "chat", "post", "--body", "@rufus schema is live", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	// Three creates: the best-effort chat entity (`chat`, at the parent loc)
-	// and messages container (`record`), then the message itself.
-	if len(creates) != 3 {
-		t.Fatalf("expected chat entity + container + message creates, got %d", len(creates))
+	var memVars map[string]any
+	_ = json.Unmarshal(captured["TeamMemoryApp"], &memVars)
+	if memVars["ref"] != "hrn:mem:acme.com:eng-team" {
+		t.Errorf("app resolution must read the binding's team memory: %v", memVars)
 	}
-	var entity struct {
-		Input struct {
-			Loc      string `json:"loc"`
-			NodeType string `json:"nodeType"`
-		} `json:"input"`
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateTeamChatMessage"], &vars)
+	if vars["appRef"] != "app-1" || vars["body"] != "@rufus schema is live" || vars["sessionRef"] != "s-new" {
+		t.Errorf("post vars: %v", vars)
 	}
-	_ = json.Unmarshal(creates[0], &entity)
-	if entity.Input.Loc != "chat" || entity.Input.NodeType != "chat" {
-		t.Errorf("chat entity: %+v", entity.Input)
+	if _, present := vars["replyToSeq"]; present {
+		t.Errorf("unset replyToSeq must be omitted, got %v", vars["replyToSeq"])
 	}
-	var container struct {
-		Input struct {
-			Loc      string `json:"loc"`
-			NodeType string `json:"nodeType"`
-		} `json:"input"`
-	}
-	_ = json.Unmarshal(creates[1], &container)
-	if container.Input.Loc != "chat:messages" || container.Input.NodeType != "record" {
-		t.Errorf("messages container: %+v", container.Input)
-	}
-	var msg struct {
-		Input struct {
-			MemoryID string          `json:"memoryId"`
-			Loc      string          `json:"loc"`
-			NodeType string          `json:"nodeType"`
-			Content  string          `json:"content"`
-			Data     json.RawMessage `json:"data"`
-		} `json:"input"`
-	}
-	_ = json.Unmarshal(creates[2], &msg)
-	if msg.Input.MemoryID != "hrn:mem:acme.com:eng-team" || msg.Input.NodeType != "chat-message" ||
-		!strings.HasPrefix(msg.Input.Loc, "chat:messages:") || !strings.HasSuffix(msg.Input.Loc, "-iris") {
-		t.Errorf("message input: %+v", msg.Input)
-	}
-	if msg.Input.Content != "@rufus schema is live" {
-		t.Errorf("body belongs in content, got %q", msg.Input.Content)
-	}
-	var data struct {
-		Author    string   `json:"author"`
-		Body      *string  `json:"body"`
-		Role      string   `json:"role"`
-		Identity  string   `json:"identity"`
-		SessionID string   `json:"sessionId"`
+	var dto struct {
+		Seq       int      `json:"seq"`
+		SessionID *string  `json:"sessionId"`
 		Mentions  []string `json:"mentions"`
 	}
-	_ = json.Unmarshal(msg.Input.Data, &data)
-	if data.Author != "iris" || data.Role != "backend-engineer" || data.SessionID != "s-new" ||
-		data.Identity != "claude-code" || len(data.Mentions) != 1 || data.Mentions[0] != "rufus" {
-		t.Errorf("message data: %+v", data)
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("json: %v (%s)", err, out.String())
 	}
-	if data.Body != nil {
-		t.Errorf("the retired data.body dialect must not be emitted, got %q", *data.Body)
-	}
-	if !strings.Contains(out.String(), `"sessionId": "s-new"`) {
+	if dto.Seq != 8 || dto.SessionID == nil || *dto.SessionID != "s-new" ||
+		len(dto.Mentions) != 1 || dto.Mentions[0] != "rufus" {
 		t.Errorf("post output: %s", out.String())
 	}
 }
@@ -1209,31 +1151,20 @@ func TestTeamChatPostPositionalBody(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	var lastCreate json.RawMessage
-	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			Variables json.RawMessage `json:"variables"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		lastCreate = body.Variables
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":{"createNode":{"id":"n1","loc":"chat:messages:x-iris","seq":9}}}`))
-	}))
-	t.Cleanup(gql.Close)
+	gql, captured := captureGraphQL(t, map[string]string{
+		"TeamMemoryApp":         `{"data":{"memory":{"id":"mem1","appId":"app-1"}}}`,
+		"CreateTeamChatMessage": `{"data":{"createTeamChatMessage":` + teamChatMsgJSON + `}}`,
+	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "chat", "post", "hello positional", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var msg struct {
-		Input struct {
-			Content string `json:"content"`
-		} `json:"input"`
-	}
-	_ = json.Unmarshal(lastCreate, &msg)
-	if msg.Input.Content != "hello positional" {
-		t.Errorf("positional body: %q", msg.Input.Content)
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateTeamChatMessage"], &vars)
+	if vars["body"] != "hello positional" {
+		t.Errorf("positional body: %v", vars["body"])
 	}
 
 	// Both a positional and --body is ambiguous — refused.
@@ -1246,103 +1177,169 @@ func TestTeamChatPostPositionalBody(t *testing.T) {
 	}
 }
 
-func TestTeamChatPostUnboundIsNotFound(t *testing.T) {
+// Without a binding the post is authored by the calling HUMAN (the server
+// supports both author paths, hadron-server#939) — but the App must then be
+// resolvable, so no binding AND no --app is a usage error.
+func TestTeamChatPostUnbound(t *testing.T) {
 	teamGitDir(t)
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.NotFound {
-		t.Errorf("exit code = %d, want %d (NotFound); err: %v", code, exitcode.NotFound, err)
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("no binding, no app: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
+	}
+
+	// With --app the human post goes through: appRef is the flag value (no
+	// TeamMemoryApp lookup — it is not in the allowed operations) and
+	// sessionRef is OMITTED.
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateTeamChatMessage": `{"data":{"createTeamChatMessage":` + teamChatHumanMsgJSON + `}}`,
+	})
+	f2, out := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--app", "acme.com::eng-team", "--json", "--server", gql.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateTeamChatMessage"], &vars)
+	if vars["appRef"] != "acme.com::eng-team" {
+		t.Errorf("post vars: %v", vars)
+	}
+	if _, present := vars["sessionRef"]; present {
+		t.Errorf("a human post must omit sessionRef, got %v", vars["sessionRef"])
+	}
+	if !strings.Contains(out.String(), `"authorUserId": "u1"`) {
+		t.Errorf("post output: %s", out.String())
 	}
 }
 
-const teamChatMessagesJSON = `{"data":{"findNodes":{"hits":[
-	{"node":{"loc":"chat:messages:a-rufus","seq":5,
-		"data":{"author":"rufus","body":"@iris ping","timestamp":"t1","mentions":["iris"]}}},
-	{"node":{"loc":"chat:messages:b-holger","seq":6,
-		"data":{"author":"holger","body":"no mention here","timestamp":"t2"}}},
-	{"node":{"loc":"chat:messages:c-rufus","seq":7,
-		"data":{"author":"rufus","body":"also for @iris, no stored mentions","timestamp":"t3"}}}]}}}`
-
-// --reply-to takes the seq readers see; it resolves to the message's loc for
-// the reply edge.
+// --reply-to passes the seq straight through — the SERVER validates it
+// (typed TEAM_CHAT_REPLY_NOT_FOUND) and wires the reply edge; the CLI no
+// longer resolves seqs to locs. A non-numeric value is a usage error.
 func TestTeamChatPostReplyToSeq(t *testing.T) {
 	dir := teamGitDir(t)
 	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	var lastCreate json.RawMessage
-	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			OperationName string          `json:"operationName"`
-			Variables     json.RawMessage `json:"variables"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		w.Header().Set("Content-Type", "application/json")
-		switch body.OperationName {
-		case "ChatMessages":
-			_, _ = w.Write([]byte(teamChatMessagesJSON))
-		case "CreateNode":
-			lastCreate = body.Variables
-			_, _ = w.Write([]byte(`{"data":{"createNode":{"id":"n1","loc":"chat:messages:x-iris","seq":8}}}`))
-		default:
-			t.Errorf("unexpected operation %q", body.OperationName)
-			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
-		}
-	}))
-	t.Cleanup(gql.Close)
-
+	gql, captured := captureGraphQL(t, map[string]string{
+		"TeamMemoryApp":         `{"data":{"memory":{"id":"mem1","appId":"app-1"}}}`,
+		"CreateTeamChatMessage": `{"data":{"createTeamChatMessage":` + teamChatMsgJSON + `}}`,
+	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "chat", "post", "--body", "done", "--reply-to", "5", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var msg struct {
-		Input struct {
-			Edges []struct {
-				TargetID string `json:"targetId"`
-				Name     string `json:"name"`
-			} `json:"edges"`
-		} `json:"input"`
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateTeamChatMessage"], &vars)
+	if vars["replyToSeq"] != float64(5) {
+		t.Errorf("replyToSeq: %v", vars["replyToSeq"])
 	}
-	_ = json.Unmarshal(lastCreate, &msg)
-	if len(msg.Input.Edges) != 1 || msg.Input.Edges[0].TargetID != "chat:messages:a-rufus" || msg.Input.Edges[0].Name != "reply" {
-		t.Errorf("reply edge: %+v", msg.Input.Edges)
+
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "chat", "post", "--body", "done", "--reply-to", "chat:messages:a", "--server", gql.URL})
+	err := root2.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("non-numeric reply-to: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 }
 
-// --mentions-me filters to the persona's @handle (stored mentions OR
-// recomputed from the body) while nextSince still advances past everything
-// read — a mentions-only reader must never re-read skipped messages.
+// The CLI retries NOTHING (thin-CLI directive): the server's typed team-chat
+// refusals map to exit codes and surface verbatim.
+func TestTeamChatPostServerRefusals(t *testing.T) {
+	cases := []struct {
+		name string
+		resp string
+		code int
+		want string
+	}{
+		{"body too large is usage",
+			`{"errors":[{"message":"body exceeds the team-chat cap of 65536 characters","extensions":{"code":"TEAM_CHAT_BODY_TOO_LARGE"}}]}`,
+			exitcode.Usage, "65536"},
+		{"missing reply target is not-found",
+			`{"errors":[{"message":"replyToSeq 99 does not name a message in this team chat.","extensions":{"code":"TEAM_CHAT_REPLY_NOT_FOUND"}}]}`,
+			exitcode.NotFound, "replyToSeq 99"},
+		{"cross-app session surfaces verbatim",
+			`{"errors":[{"message":"Session is not a session of this App","extensions":{"code":"SESSION_NOT_IN_APP"}}]}`,
+			exitcode.Error, "not a session of this App"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := teamGitDir(t)
+			if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			gql, _ := captureGraphQL(t, map[string]string{
+				"TeamMemoryApp":         `{"data":{"memory":{"id":"mem1","appId":"app-1"}}}`,
+				"CreateTeamChatMessage": tc.resp,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--server", gql.URL})
+			err := root.Execute()
+			if code := exitcode.FromError(err); code != tc.code {
+				t.Errorf("exit code = %d, want %d; err: %v", code, tc.code, err)
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("message must surface verbatim (want %q): %v", tc.want, err)
+			}
+		})
+	}
+}
+
+// --mentions-me maps to the SERVER-side mentions filter (mentionsRef = the
+// bound persona's agent), matching the tokens extracted at write time — the
+// CLI never re-parses bodies. nextSince advances past the returned messages.
 func TestTeamChatReadMentionsMe(t *testing.T) {
 	dir := teamGitDir(t)
 	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	gql, _ := captureGraphQL(t, map[string]string{"ChatMessages": teamChatMessagesJSON})
+	gql, captured := captureGraphQL(t, map[string]string{
+		"TeamMemoryApp": `{"data":{"memory":{"id":"mem1","appId":"app-1"}}}`,
+		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":2,"items":[
+			{"nodeId":"n5","seq":5,"body":"@iris ping","at":"t1","authorUserId":"u2","authorAgentId":null,"authorName":"rufus","sessionId":null,"replyToSeq":null,"mentions":["iris"]},
+			{"nodeId":"n7","seq":7,"body":"@iris again","at":"t3","authorUserId":"u2","authorAgentId":null,"authorName":"rufus","sessionId":null,"replyToSeq":5,"mentions":["iris"]}]}}}`,
+	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "chat", "read", "--mentions-me", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["TeamChatMessages"], &vars)
+	if vars["appRef"] != "app-1" || vars["mentionsRef"] != "agt1" {
+		t.Errorf("read vars: %v", vars)
+	}
 	var dto struct {
 		Messages []struct {
-			Seq  *int   `json:"seq"`
-			Body string `json:"body"`
+			Seq        int  `json:"seq"`
+			ReplyToSeq *int `json:"replyToSeq"`
 		} `json:"messages"`
 		NextSince int `json:"nextSince"`
 	}
 	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
 		t.Fatalf("json: %v (%s)", err, out.String())
 	}
-	if len(dto.Messages) != 2 || *dto.Messages[0].Seq != 5 || *dto.Messages[1].Seq != 7 {
-		t.Errorf("mention filter: %s", out.String())
+	if len(dto.Messages) != 2 || dto.Messages[0].Seq != 5 || dto.Messages[1].Seq != 7 {
+		t.Errorf("messages: %s", out.String())
 	}
 	if dto.NextSince != 7 {
-		t.Errorf("nextSince must advance past filtered messages too, got %d", dto.NextSince)
+		t.Errorf("nextSince = %d, want 7", dto.NextSince)
+	}
+
+	// --mentions-me and --mentions together is ambiguous.
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "chat", "read", "--mentions-me", "--mentions", "agt9", "--server", gql.URL})
+	err := root2.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("both mention flags: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 }
 

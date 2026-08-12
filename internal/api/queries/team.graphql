@@ -77,6 +77,68 @@ mutation CreateTeamPersona(
   }
 }
 
+# `hadron team chat` (#369 slice 2) — the team group chat as a PLATFORM
+# operation (hadron-server#939/#941, spec cor:agt:020:04): the server owns
+# placement (chats:team in the Team Agent's shared app memory, bootstrapped
+# on first post), atomic seq allocation, author derivation (sessionRef →
+# the session's bound persona), and write-time mention extraction. The CLI
+# composes no node and parses no mentions.
+
+fragment TeamChatMessageFields on TeamChatMessage {
+  nodeId
+  seq
+  body
+  at
+  authorUserId
+  authorAgentId
+  authorName
+  sessionId
+  replyToSeq
+  mentions
+}
+
+mutation CreateTeamChatMessage(
+  $appRef: ID!
+  $body: String!
+  # @genqlient(omitempty: true)
+  $replyToSeq: Int
+  # @genqlient(omitempty: true)
+  $sessionRef: ID
+) {
+  createTeamChatMessage(appRef: $appRef, body: $body, replyToSeq: $replyToSeq, sessionRef: $sessionRef) {
+    ...TeamChatMessageFields
+  }
+}
+
+query TeamChatMessages(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, offset: $offset) {
+    total
+    items {
+      ...TeamChatMessageFields
+    }
+  }
+}
+
+# The binding records the team MEMORY (`session start -m`), while the chat
+# operations address the APP — this resolves one to the other (the team
+# memory is the App's shared app-class memory, so its appId IS the team App).
+query TeamMemoryApp($ref: ID!) {
+  memory(ref: $ref) {
+    id
+    appId
+  }
+}
+
 fragment TeamSessionFields on Session {
   id
   agentId
