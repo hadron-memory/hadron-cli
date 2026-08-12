@@ -1,5 +1,19 @@
 # Implementation Plan: `team chat` — the group chat as the bound persona (#369)
 
+> **Shape migration (2026-08-11 evening, after the directive):** the dialect
+> this doc describes was superseded the same day by the CANONICAL chat shape
+> (D-2026-08-07-001/-004, recorded in the decision-record node): the body
+> moved from `data.body` to **`Node.content`**, the nodeType from `message`
+> to **`chat-message`**, the `chat` type moved up from the messages container
+> (now `record`) to the chat entity, and the academy `data.body` dialect is
+> retired on the write side (still accepted on reads — the corpus and
+> already-posted messages parse forever). The hadron-client watcher gets a
+> coordinated update, not preservation. The "single dialect implementation"
+> rule below survives unchanged — the migration happened in exactly one
+> place (`chat.PostMessage`/`parseMessage`), which is the point. When the
+> #921 storage surface (`createChat`/`createChatMessage`) ships, the write
+> path swaps onto it.
+
 > **Status: implemented** — design as built. The final command slice of
 > [#369](https://github.com/hadron-memory/hadron-cli/issues/369), following
 > [team-personas-sessions.md](team-personas-sessions.md) and

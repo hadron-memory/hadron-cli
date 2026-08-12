@@ -1107,25 +1107,51 @@ func TestTeamChatPostAsPersona(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	// Two creates: the best-effort chat parent, then the message.
-	if len(creates) != 2 {
-		t.Fatalf("expected parent + message creates, got %d", len(creates))
+	// Three creates: the best-effort chat entity (`chat`, at the parent loc)
+	// and messages container (`record`), then the message itself.
+	if len(creates) != 3 {
+		t.Fatalf("expected chat entity + container + message creates, got %d", len(creates))
+	}
+	var entity struct {
+		Input struct {
+			Loc      string `json:"loc"`
+			NodeType string `json:"nodeType"`
+		} `json:"input"`
+	}
+	_ = json.Unmarshal(creates[0], &entity)
+	if entity.Input.Loc != "chat" || entity.Input.NodeType != "chat" {
+		t.Errorf("chat entity: %+v", entity.Input)
+	}
+	var container struct {
+		Input struct {
+			Loc      string `json:"loc"`
+			NodeType string `json:"nodeType"`
+		} `json:"input"`
+	}
+	_ = json.Unmarshal(creates[1], &container)
+	if container.Input.Loc != "chat:messages" || container.Input.NodeType != "record" {
+		t.Errorf("messages container: %+v", container.Input)
 	}
 	var msg struct {
 		Input struct {
 			MemoryID string          `json:"memoryId"`
 			Loc      string          `json:"loc"`
 			NodeType string          `json:"nodeType"`
+			Content  string          `json:"content"`
 			Data     json.RawMessage `json:"data"`
 		} `json:"input"`
 	}
-	_ = json.Unmarshal(creates[1], &msg)
-	if msg.Input.MemoryID != "hrn:mem:acme.com:eng-team" || msg.Input.NodeType != "message" ||
+	_ = json.Unmarshal(creates[2], &msg)
+	if msg.Input.MemoryID != "hrn:mem:acme.com:eng-team" || msg.Input.NodeType != "chat-message" ||
 		!strings.HasPrefix(msg.Input.Loc, "chat:messages:") || !strings.HasSuffix(msg.Input.Loc, "-iris") {
 		t.Errorf("message input: %+v", msg.Input)
 	}
+	if msg.Input.Content != "@rufus schema is live" {
+		t.Errorf("body belongs in content, got %q", msg.Input.Content)
+	}
 	var data struct {
 		Author    string   `json:"author"`
+		Body      *string  `json:"body"`
 		Role      string   `json:"role"`
 		Identity  string   `json:"identity"`
 		SessionID string   `json:"sessionId"`
@@ -1135,6 +1161,9 @@ func TestTeamChatPostAsPersona(t *testing.T) {
 	if data.Author != "iris" || data.Role != "backend-engineer" || data.SessionID != "s-new" ||
 		data.Identity != "claude-code" || len(data.Mentions) != 1 || data.Mentions[0] != "rufus" {
 		t.Errorf("message data: %+v", data)
+	}
+	if data.Body != nil {
+		t.Errorf("the retired data.body dialect must not be emitted, got %q", *data.Body)
 	}
 	if !strings.Contains(out.String(), `"sessionId": "s-new"`) {
 		t.Errorf("post output: %s", out.String())
@@ -1167,16 +1196,12 @@ func TestTeamChatPostPositionalBody(t *testing.T) {
 	}
 	var msg struct {
 		Input struct {
-			Data json.RawMessage `json:"data"`
+			Content string `json:"content"`
 		} `json:"input"`
 	}
 	_ = json.Unmarshal(lastCreate, &msg)
-	var data struct {
-		Body string `json:"body"`
-	}
-	_ = json.Unmarshal(msg.Input.Data, &data)
-	if data.Body != "hello positional" {
-		t.Errorf("positional body: %s", msg.Input.Data)
+	if msg.Input.Content != "hello positional" {
+		t.Errorf("positional body: %q", msg.Input.Content)
 	}
 
 	// Both a positional and --body is ambiguous — refused.

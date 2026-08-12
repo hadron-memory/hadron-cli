@@ -2943,9 +2943,10 @@ func (v *ChatMessagesFindNodesFindNodesResultHitsNodeHit) GetNode() *ChatMessage
 
 // ChatMessagesFindNodesFindNodesResultHitsNodeHitNode includes the requested fields of the GraphQL type Node.
 type ChatMessagesFindNodesFindNodesResultHitsNodeHitNode struct {
-	Loc  string           `json:"loc"`
-	Seq  *int             `json:"seq"`
-	Data *json.RawMessage `json:"data"`
+	Loc     string           `json:"loc"`
+	Seq     *int             `json:"seq"`
+	Content *string          `json:"content"`
+	Data    *json.RawMessage `json:"data"`
 }
 
 // GetLoc returns ChatMessagesFindNodesFindNodesResultHitsNodeHitNode.Loc, and is useful for accessing the field via an interface.
@@ -2953,6 +2954,9 @@ func (v *ChatMessagesFindNodesFindNodesResultHitsNodeHitNode) GetLoc() string { 
 
 // GetSeq returns ChatMessagesFindNodesFindNodesResultHitsNodeHitNode.Seq, and is useful for accessing the field via an interface.
 func (v *ChatMessagesFindNodesFindNodesResultHitsNodeHitNode) GetSeq() *int { return v.Seq }
+
+// GetContent returns ChatMessagesFindNodesFindNodesResultHitsNodeHitNode.Content, and is useful for accessing the field via an interface.
+func (v *ChatMessagesFindNodesFindNodesResultHitsNodeHitNode) GetContent() *string { return v.Content }
 
 // GetData returns ChatMessagesFindNodesFindNodesResultHitsNodeHitNode.Data, and is useful for accessing the field via an interface.
 func (v *ChatMessagesFindNodesFindNodesResultHitsNodeHitNode) GetData() *json.RawMessage {
@@ -19112,6 +19116,7 @@ query ChatMessages ($filter: NodeFilter, $limit: Int, $offset: Int) {
 			node {
 				loc
 				seq
+				content
 				data
 			}
 		}
@@ -19119,13 +19124,14 @@ query ChatMessages ($filter: NodeFilter, $limit: Int, $offset: Int) {
 }
 `
 
-// Team-chat reads (hadron chat read). Messages are message-type nodes under a
-// `messagesLoc` prefix; the payload (author/body/timestamp/…) lives in each
-// node's `data`. Selecting `data` inline means one findNodes call returns the
-// bodies — no per-message node(ref) fetch. sort: seq gives server-assigned
-// order; the CLI paginates to exhaustion and filters seq>since client-side
-// (there is no server-side seq cursor). Mirrors the hadron-client channel's
-// ChatPoll so CLI and channel reads agree.
+// Team-chat reads (hadron chat read). Messages are chat-message nodes under a
+// `messagesLoc` prefix — canonical shape (D-2026-08-07-001/-004): the body in
+// `content`, the envelope (author/timestamp/…) in `data`. `content` AND `data`
+// are selected so one findNodes call returns everything, and so the legacy
+// academy dialect (body in data.body, `message` nodeType) still reads — accept
+// everything, emit canonical. sort: seq gives server-assigned order; the CLI
+// paginates to exhaustion and filters seq>since client-side (there is no
+// server-side seq cursor).
 //
 // NodeFilter is a SHARED generated struct, and genqlient resolves a shared input
 // type's field-level omitempty per-operation with last-writer-wins (not a merge).

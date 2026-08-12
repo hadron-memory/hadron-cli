@@ -10,9 +10,17 @@ import (
 	"testing"
 )
 
-// chatMsg builds one findNodes hit for a ChatMessages response.
+// chatMsg builds one findNodes hit for a ChatMessages response (the legacy
+// data-only shape — the academy dialect the read side must keep accepting).
 func chatMsg(loc string, seq int, data string) string {
 	return `{"node":{"loc":"` + loc + `","seq":` + itoa(seq) + `,"data":` + data + `}}`
+}
+
+// chatMsgCanonical builds a hit in the canonical shape (D-2026-08-07-004):
+// body in content, envelope in data.
+func chatMsgCanonical(loc string, seq int, content, data string) string {
+	c, _ := json.Marshal(content)
+	return `{"node":{"loc":"` + loc + `","seq":` + itoa(seq) + `,"content":` + string(c) + `,"data":` + data + `}}`
 }
 
 func itoa(n int) string { b, _ := json.Marshal(n); return string(b) }
@@ -48,6 +56,41 @@ func TestChatReadAcceptsV2NodeURN(t *testing.T) {
 	}
 	if vars.Filter.LocPrefix != "chats:api:messages:" {
 		t.Errorf("v2 --node loc prefix, got %q", vars.Filter.LocPrefix)
+	}
+}
+
+// The read side accepts BOTH storage shapes in one chat: canonical (body in
+// content — wins even when a legacy data.body is also present) and the
+// retired academy dialect (data.body only).
+func TestChatReadMixedShapes(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ChatMessages": chatMessagesResp(
+			chatMsg("chats:api:messages:t1-iris", 1, `{"author":"iris","body":"legacy body"}`),
+			chatMsgCanonical("chats:api:messages:t2-rufus", 2, "canonical body", `{"author":"rufus","sessionId":"s-1"}`),
+			chatMsgCanonical("chats:api:messages:t3-iris", 3, "content wins", `{"author":"iris","body":"stale copy"}`),
+		),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"chat", "read", "--node", "acme.com::tc::chats:api:messages", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Messages []struct {
+			Body      string `json:"body"`
+			SessionID string `json:"sessionId"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("json: %v (%s)", err, out.String())
+	}
+	if len(dto.Messages) != 3 || dto.Messages[0].Body != "legacy body" ||
+		dto.Messages[1].Body != "canonical body" || dto.Messages[2].Body != "content wins" {
+		t.Errorf("mixed-shape bodies: %s", out.String())
+	}
+	if dto.Messages[1].SessionID != "s-1" {
+		t.Errorf("envelope fields must parse from data: %s", out.String())
 	}
 }
 
@@ -149,13 +192,19 @@ func TestChatPost(t *testing.T) {
 		Input struct {
 			Loc      string          `json:"loc"`
 			NodeType string          `json:"nodeType"`
+			Content  string          `json:"content"`
 			Data     json.RawMessage `json:"data"`
 			Edges    json.RawMessage `json:"edges"`
 		} `json:"input"`
 	}
 	_ = json.Unmarshal(captured["CreateNode"], &vars)
-	if vars.Input.NodeType != "message" {
-		t.Errorf("nodeType should be message, got %q", vars.Input.NodeType)
+	// Canonical shape (D-2026-08-07-001/-004): chat-message type, body in
+	// content, envelope (WITHOUT body) in data.
+	if vars.Input.NodeType != "chat-message" {
+		t.Errorf("nodeType should be chat-message, got %q", vars.Input.NodeType)
+	}
+	if vars.Input.Content != "@rufus schema looks good" {
+		t.Errorf("body belongs in content, got %q", vars.Input.Content)
 	}
 	// loc = <prefix>:<colon/dot-free stamp>-<handle>; the id segment carries no colon.
 	if !strings.HasPrefix(vars.Input.Loc, "chats:api:messages:") || !strings.HasSuffix(vars.Input.Loc, "-iris") {
@@ -165,18 +214,16 @@ func TestChatPost(t *testing.T) {
 	if strings.ContainsAny(idSeg, ".") {
 		t.Errorf("stamp must strip dots, got id segment %q", idSeg)
 	}
-	var data struct {
-		Author   string   `json:"author"`
-		Body     string   `json:"body"`
-		Role     string   `json:"role"`
-		Mentions []string `json:"mentions"`
-	}
+	var data map[string]any
 	_ = json.Unmarshal(vars.Input.Data, &data)
-	if data.Author != "iris" || data.Role != "Backend" || data.Body != "@rufus schema looks good" {
+	if data["author"] != "iris" || data["role"] != "Backend" {
 		t.Errorf("data payload wrong: %+v", data)
 	}
-	if len(data.Mentions) != 1 || data.Mentions[0] != "rufus" {
-		t.Errorf("mentions should be parsed from body, got %v", data.Mentions)
+	if _, present := data["body"]; present {
+		t.Errorf("the retired data.body dialect must not be emitted, got %v", data["body"])
+	}
+	if ms, _ := data["mentions"].([]any); len(ms) != 1 || ms[0] != "rufus" {
+		t.Errorf("mentions should be parsed from body, got %v", data["mentions"])
 	}
 	// No --reply-to: edges omitted entirely.
 	if len(vars.Input.Edges) > 0 && string(vars.Input.Edges) != "null" {
@@ -279,18 +326,18 @@ func TestChatPostBodyFile(t *testing.T) {
 	}
 	var vars struct {
 		Input struct {
-			Data json.RawMessage `json:"data"`
+			Content string          `json:"content"`
+			Data    json.RawMessage `json:"data"`
 		} `json:"input"`
 	}
 	_ = json.Unmarshal(captured["CreateNode"], &vars)
+	if vars.Input.Content != msg {
+		t.Errorf("body should be the file's contents verbatim in content, got %q", vars.Input.Content)
+	}
 	var data struct {
-		Body     string   `json:"body"`
 		Mentions []string `json:"mentions"`
 	}
 	_ = json.Unmarshal(vars.Input.Data, &data)
-	if data.Body != msg {
-		t.Errorf("body should be the file's contents verbatim, got %q", data.Body)
-	}
 	if len(data.Mentions) != 1 || data.Mentions[0] != "rufus" {
 		t.Errorf("mentions parsed from a file body too, got %v", data.Mentions)
 	}

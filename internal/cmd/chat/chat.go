@@ -1,7 +1,8 @@
 // Package chat implements `hadron chat ...` — a token-lean surface for AI agents
 // (and humans) participating in a Hadron team-chat memory (see the how-to guide
 // "Set up an agent team chat"). Messages are message-type nodes under a
-// `messagesLoc` prefix, the payload in each node's `data`; the server assigns an
+// `messagesLoc` prefix, in the CANONICAL chat shape (body in `content`, the
+// envelope in `data` — D-2026-08-07-004); the server assigns an
 // ordering `seq`. `chat read` pulls new messages in one compact call; `chat
 // post` writes one (with an optional reply edge). Both resolve the agent's
 // identity and chat coordinates from flags, env, or the project-local
@@ -47,7 +48,7 @@ top-level "handle" and "chat": { "node" | "memory"+"messagesLoc", "identity",
 	return cmd
 }
 
-// coords is the resolved (memory, messagesLoc) of one chat. messagesLoc is the
+// Coords is the resolved (memory, messagesLoc) of one chat. messagesLoc is the
 // loc prefix whose direct child nodes are the messages (e.g.
 // "team-chat:academy:chat:messages").
 type Coords struct {
@@ -108,7 +109,7 @@ func splitNodeURN(ref string) (memory, loc string, err error) {
 	return mem, strings.TrimSuffix(parts.Loc, ":"), nil
 }
 
-// message is the parsed, chat-shaped view of one message node — only the fields
+// Message is the parsed, chat-shaped view of one message node — only the fields
 // a participant cares about, lifted out of the node's generic `data` block.
 type Message struct {
 	Seq       *int   `json:"seq"`
@@ -127,10 +128,13 @@ type Message struct {
 	Mentions []string `json:"mentions,omitempty"`
 }
 
-// parseMessage lifts the chat fields out of a message node's data block. Author
-// falls back to the loc's "<timestamp>-<handle>" suffix when data has none, so
-// hand-created messages still attribute (matching the channel's messageAuthor).
-func parseMessage(loc string, seq *int, data *json.RawMessage) Message {
+// parseMessage lifts the chat fields out of a message node. The body reads
+// canonical-first (`content`, D-2026-08-07-004) with the retired academy
+// dialect (`data.body`) as fallback — accept everything, emit canonical.
+// Author falls back to the loc's "<timestamp>-<handle>" suffix when data has
+// none, so hand-created messages still attribute (matching the channel's
+// messageAuthor).
+func parseMessage(loc string, seq *int, content *string, data *json.RawMessage) Message {
 	m := Message{Seq: seq, Loc: loc}
 	if data != nil {
 		var d struct {
@@ -146,6 +150,9 @@ func parseMessage(loc string, seq *int, data *json.RawMessage) Message {
 			m.Author, m.Identity, m.Role, m.Timestamp, m.Body = d.Author, d.Identity, d.Role, d.Timestamp, d.Body
 			m.SessionID, m.Mentions = d.SessionID, d.Mentions
 		}
+	}
+	if content != nil && *content != "" {
+		m.Body = *content
 	}
 	if m.Author == "" {
 		m.Author = authorFromLoc(loc)

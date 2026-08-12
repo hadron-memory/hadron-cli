@@ -156,9 +156,12 @@ type PostResult struct {
 	Seq *int
 }
 
-// PostMessage builds the timestamped colon-safe loc, assembles the data
-// payload, best-effort materializes the message parent, and creates the
-// message node (with the optional reply edge) in one round-trip.
+// PostMessage builds the timestamped colon-safe loc, assembles the message in
+// the CANONICAL chat shape (D-2026-08-07-001/-004: body in `content`, the
+// envelope in `data`, nodeType `chat-message` — the academy data.body dialect
+// is retired on the write side, still accepted on reads), best-effort
+// materializes the chat entity + messages container, and creates the message
+// node (with the optional reply edge) in one round-trip.
 func PostMessage(ctx context.Context, client graphql.Client, in PostInput) (PostResult, error) {
 	// Loc convention: <messagesLoc>:<compact-ISO>-<handle>. The stamp is
 	// the RFC3339 instant with ':' and '.' stripped (they're loc
@@ -172,7 +175,9 @@ func PostMessage(ctx context.Context, client graphql.Client, in PostInput) (Post
 	for k, v := range in.Extra {
 		// Reserved dialect keys never come from Extra — not even when the
 		// typed input is empty (an empty Identity means "no identity", not
-		// "take Extra's").
+		// "take Extra's"). "body" stays reserved even though the canonical
+		// shape carries the body in content: an Extra body would shadow it
+		// for legacy readers.
 		switch k {
 		case "author", "body", "timestamp", "identity", "role", "mentions":
 			continue
@@ -180,7 +185,6 @@ func PostMessage(ctx context.Context, client graphql.Client, in PostInput) (Post
 		data[k] = v
 	}
 	data["author"] = in.Handle
-	data["body"] = in.Body
 	data["timestamp"] = ts
 	if in.Identity != "" {
 		data["identity"] = in.Identity
@@ -208,7 +212,10 @@ func PostMessage(ctx context.Context, client graphql.Client, in PostInput) (Post
 		MemoryId: in.Coords.Memory,
 		Loc:      loc,
 		Name:     "Message from " + in.Handle,
-		NodeType: strPtr("message"),
+		// chat-message (D-2026-08-07-001): the dedicated type default search
+		// will exclude; the body lives in content (D-2026-08-07-004).
+		NodeType: strPtr("chat-message"),
+		Content:  &in.Body,
 		Data:     &dataMsg,
 	}
 	// The reply edge goes FROM the new message TO the one it answers; a
@@ -230,18 +237,33 @@ func PostMessage(ctx context.Context, client graphql.Client, in PostInput) (Post
 	return res, nil
 }
 
-// EnsureChatParent best-effort creates the message-parent node so the chat is a
-// real, copyable node. Create-only, so a re-post conflicts harmlessly; all
-// outcomes are ignored — this must never affect the post.
+// EnsureChatParent best-effort creates the chat's structural nodes so the
+// chat is real and copyable in the portal: the CHAT ENTITY (the parent of the
+// messages container) typed `chat`, and the messages container itself as a
+// plain `record` (D-2026-08-07-004 — the chat type belongs to the entity, not
+// the container; a messagesLoc with no parent gets only the container).
+// Create-only, so a re-post conflicts harmlessly; all outcomes are ignored —
+// this must never affect the post.
 func EnsureChatParent(ctx context.Context, client graphql.Client, c Coords) {
 	name := c.MessagesLoc
 	if i := strings.LastIndex(c.MessagesLoc, ":"); i >= 0 {
+		chatLoc := c.MessagesLoc[:i]
 		name = c.MessagesLoc[i+1:]
+		chatName := chatLoc
+		if j := strings.LastIndex(chatLoc, ":"); j >= 0 {
+			chatName = chatLoc[j+1:]
+		}
+		_, _ = gen.CreateNode(ctx, client, &gen.CreateNodeInput{
+			MemoryId: c.Memory,
+			Loc:      chatLoc,
+			Name:     chatName,
+			NodeType: strPtr("chat"),
+		})
 	}
 	_, _ = gen.CreateNode(ctx, client, &gen.CreateNodeInput{
 		MemoryId: c.Memory,
 		Loc:      c.MessagesLoc,
 		Name:     name,
-		NodeType: strPtr("chat"),
+		NodeType: strPtr("record"),
 	})
 }
