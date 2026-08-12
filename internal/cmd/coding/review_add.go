@@ -176,7 +176,7 @@ existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + 
 				Name:        checkName(loc),
 				Description: &description,
 				Content:     &body,
-				Tags:        mergeTags(tags),
+				Tags:        mergeTags(defaultCheckTags, tags),
 				Edges:       edges,
 			}
 			if cmd.Flags().Changed("seq") {
@@ -307,9 +307,10 @@ func parseLinks(raw []string) ([]newLink, error) {
 }
 
 // mergeTags adds the caller's tags to the defaults, de-duplicated
-// case-insensitively and ordered so the defaults come first.
-func mergeTags(extra []string) []string {
-	out := append([]string{}, defaultCheckTags...)
+// case-insensitively and ordered so the defaults come first. A route target
+// has no default tags (they vary by branch), so preflight passes none.
+func mergeTags(defaults, extra []string) []string {
+	out := append([]string{}, defaults...)
 	seen := map[string]bool{}
 	for _, t := range out {
 		seen[strings.ToLower(t)] = true

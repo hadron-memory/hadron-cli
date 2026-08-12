@@ -14,7 +14,7 @@ GraphQL escape hatch), `replace`, `version`, `completion`, `agentic-usage`.
 `spec import spec-kit|code` is reserved as a stable command stub but is not yet
 implemented.
 
-`coding review list|create|lint` and `coding preflight list|lint` maintain the
+`coding review list|create|lint` and `coding preflight list|create|lint` maintain the
 coding-workflow graph — the `review:*` checklist tree an agent triages a diff
 with, and the `preflight` router — where a malformed edge label makes a check
 silently stop firing. See

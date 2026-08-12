@@ -95,7 +95,7 @@ func TestCreatedCheckLintsClean(t *testing.T) {
 	in := reviewInput{
 		Members: map[string]checkNode{loc: {
 			Loc: loc, Name: checkName(loc), Description: desc,
-			Content: scaffoldCheckBody(loc, label, "", desc), Tags: mergeTags(nil),
+			Content: scaffoldCheckBody(loc, label, "", desc), Tags: mergeTags(defaultCheckTags, nil),
 		}},
 		Edges: map[string]graphEdge{loc: {ID: "e1", Label: label, Other: loc}},
 	}
@@ -151,7 +151,7 @@ func TestParseLinks(t *testing.T) {
 }
 
 func TestMergeTags(t *testing.T) {
-	got := mergeTags([]string{"json", "REVIEW", "contract", "  "})
+	got := mergeTags(defaultCheckTags, []string{"json", "REVIEW", "contract", "  "})
 	want := []string{"review", "review-criteria", "contract", "json"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("mergeTags = %v, want %v (defaults first, extras sorted, case-insensitively deduped)", got, want)
