@@ -716,7 +716,8 @@ Conventions:
   never owner/repo), with `--action` (default `worked-on`) and an optional
   `--detail` JSON bag. `--pr` and `--branch` additionally denormalize onto
   `Session.prNumber`/`Session.branch` (latest wins — display convenience
-  only) and count as session liveness for the inactivity reaper;
+  only); every logged milestone — issue and commit included — counts as
+  session liveness for the inactivity reaper;
   without a team memory they degrade to that denormalization alone
   (`"recorded": "session"` instead of `"worklog"`), while
   `--issue`/`--commit` refuse. `session list (--pr | --issue | --commit |

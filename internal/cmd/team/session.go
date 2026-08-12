@@ -353,10 +353,10 @@ owner/repo@sha, owner/repo:branch) — a URL, the short form, or a bare
 number/sha/branch are all accepted; a bare value is qualified by the
 session's recorded --repo (or the git remote). --pr and --branch
 additionally denormalize onto Session.prNumber / Session.branch (latest
-wins; display convenience only) and count as session liveness for the
-inactivity reaper — logging keeps the persona taken while work is in
-flight. Without a team memory, --pr/--branch degrade to that
-denormalization alone.`,
+wins; display convenience only). Every logged milestone — issue and
+commit included — counts as session liveness for the inactivity reaper,
+so logging keeps the persona taken while work is in flight. Without a
+team memory, --pr/--branch degrade to the denormalization alone.`,
 		Example: `  hadron team session log --pr 371
   hadron team session log --pr acme/widgets#7 --action merged
   hadron team session log --commit 93200b2 --action pushed
@@ -408,18 +408,22 @@ denormalization alone.`,
 			if err != nil {
 				return err
 			}
-			// Session denormalization (+ the liveness touch): prNumber for
-			// PRs, branch (the name, without the repo qualifier) for branches.
+			// EVERY milestone touches the session: prNumber for PRs, branch
+			// (the name, without the repo qualifier) for branches, and the
+			// EMPTY update for issue/commit — the #932-designed liveness
+			// touch (any authorized update bumps updatedAt), so a driver
+			// logging only commits is never reaped for inactivity.
+			var prArg *int
+			var branchArg *string
 			switch kind {
 			case "pr":
-				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, &number, nil); err != nil {
-					return api.MapError(err)
-				}
+				prArg = &number
 			case "branch":
 				_, branchName, _ := strings.Cut(canonical, ":")
-				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, nil, &branchName); err != nil {
-					return api.MapError(err)
-				}
+				branchArg = &branchName
+			}
+			if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg); err != nil {
+				return api.MapError(err)
 			}
 			recorded := "session"
 			if teamMem != "" {

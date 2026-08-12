@@ -518,6 +518,47 @@ func TestTeamSessionListProvenanceByCommit(t *testing.T) {
 	}
 }
 
+// An issue milestone sends the EMPTY updateSession — the #932 liveness
+// touch — alongside the worklog write, so a driver logging only
+// issues/commits is never reaped for inactivity; no denormalized field is
+// sent (an explicit null would CLEAR prNumber/branch).
+func TestTeamSessionLogIssueTouchesLiveness(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":null,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+		"CreateObject": `{"data":{"createObject":{"id":"o1"}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "log", "--issue", "362", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateTeamSession"], &vars)
+	if vars["id"] != "s-new" {
+		t.Errorf("liveness touch must target the bound session: %v", vars)
+	}
+	for _, k := range []string{"prNumber", "branch"} {
+		if _, present := vars[k]; present {
+			t.Errorf("an issue milestone must send the EMPTY touch — %q present: %v", k, vars[k])
+		}
+	}
+	var objVars struct {
+		Fields map[string]any `json:"fields"`
+	}
+	_ = json.Unmarshal(captured["CreateObject"], &objVars)
+	if objVars.Fields["kind"] != "issue" || objVars.Fields["ref"] != "hadron-memory/hadron-cli#362" {
+		t.Errorf("worklog fields: %v", objVars.Fields)
+	}
+}
+
 // Without a team memory, --pr degrades to the Session.prNumber
 // denormalization (recorded: "session", with a note) — but an issue/commit
 // milestone has nowhere durable to go, so it refuses.

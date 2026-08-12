@@ -170,7 +170,7 @@ fake — **since replaced** along with the client-side loop; today's create
 tests cover the `createTeamPersona` pass-through and the six typed
 refusals), all-taken → exit 5, roster narrowing, name resolution + NotFound,
 retire confirmation gating and its DeleteAgent wiring, start's binding write /
-occupancy refusal (naming the driver and #930) / `--force` takeover, whoami's
+occupancy refusal (naming the driver) / `--force` takeover, whoami's
 offline read, log's local record, end's binding clear, and `--active`
 filtering with the persona join. `HADRON_TEAM_GIT_DIR` points the binding at a
 temp dir.
