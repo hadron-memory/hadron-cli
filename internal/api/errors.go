@@ -204,8 +204,16 @@ func codeForExtension(code string) int {
 	case code == "BAD_USER_INPUT" || code == "GRAPHQL_VALIDATION_FAILED":
 		return exitcode.Usage
 	case code == "CONFLICT" || strings.HasPrefix(code, "DUPLICATE_") ||
-		strings.HasSuffix(code, "_ALREADY_EXISTS") || strings.HasSuffix(code, "_TAKEN"):
+		strings.HasSuffix(code, "_ALREADY_EXISTS") || strings.HasSuffix(code, "_TAKEN") ||
+		// A drained resource (PERSONA_REGISTER_EXHAUSTED, #935) is a state
+		// conflict: retrying won't help until the state changes.
+		strings.HasSuffix(code, "_EXHAUSTED"):
 		return exitcode.Conflict
+	// An ambiguous or unusable reference the caller can fix by passing a more
+	// specific argument (TEAM_AGENT_AMBIGUOUS → --team-agent;
+	// TEAM_AGENT_NOT_INSTALLED → an installed ref) is a usage error.
+	case strings.HasSuffix(code, "_AMBIGUOUS") || strings.HasSuffix(code, "_NOT_INSTALLED"):
+		return exitcode.Usage
 	default:
 		return exitcode.Error
 	}

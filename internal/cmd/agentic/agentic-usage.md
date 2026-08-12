@@ -90,7 +90,7 @@ hadron ai-config list [--app <id>] [--agent <id>] | create (--app|--agent|--org 
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
 hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
 hadron team init -m <team-memory>
-hadron team persona create --name <candidate>... [--role <r>] [--prompt <p>] [--org <ref> | --owner-me] | list [--org <ref>] [--role <r>] | get <name-or-ref> | retire <name-or-ref> --yes
+hadron team persona create --role <role> [--name <n>] [--team-agent <ref>] (uses --app) | list [--org <ref>] [--role <r>] | get <name-or-ref> | retire <name-or-ref> --yes
 hadron team session start --as <persona> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--summary <text>] [--session <id>] | list [--active] [--as <persona>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
 hadron team chat post <body|-> [--reply-to <seq-or-loc>] [-m <team-memory>] [--messages-loc <loc>] | read [--since <seq>] [--mentions-me] [-m <team-memory>] [--messages-loc <loc>]
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
@@ -666,10 +666,18 @@ Conventions:
 - `team` (#369) coordinates a team of humans and AI agents. A **persona** is an
   Agent with persona metadata (`personaName`/`personaRole`/`personaPrompt`) — a
   named AI team member ("Iris") re-driven across many sessions, by the same or a
-  different human. `team persona create --name <candidate>...` mints one:
-  `--name` is repeatable and candidates are tried in order — a
-  `PERSONA_NAME_TAKEN` rejection (persona names are unique per owner,
-  case-insensitively) falls through to the next candidate; all taken is exit 5.
+  different human. `team persona create --role <role>` mints one in ONE
+  platform call (`createTeamPersona`, spec cor:agt:020:01; the team App comes
+  from `--app`): the server locates the Team Agent, reads the role node
+  (`roles:<role>` in its system memory — prompt template with
+  `{{name}}`/`{{role}}`, name register in `data.names`), allocates a free
+  name, composes the prompt (printed as the boot briefing), creates AND
+  installs — the CLI retries nothing. `--name` overrides the register (only
+  then can `PERSONA_NAME_TAKEN` come back, exit 5); `--team-agent`
+  disambiguates when several installed agents carry roles branches
+  (`TEAM_AGENT_AMBIGUOUS`, exit 2); an unknown role lists the available
+  roles (`PERSONA_ROLE_NOT_FOUND`, exit 4); a drained register is
+  `PERSONA_REGISTER_EXHAUSTED` (exit 5).
   Names bind **forever**: `persona retire` (requires `--yes`) removes a persona
   from the roster but never frees its name (PR trailers and chat history
   reference it), and there is deliberately no `persona rm`. `persona

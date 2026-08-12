@@ -57,26 +57,22 @@ query PersonaAgents(
   }
 }
 
-mutation CreatePersonaAgent(
-  $name: String!
-  $personaName: String!
+# Persona instantiation is a PLATFORM operation (#935/PR #936, spec
+# cor:agt:020:01, the thin-CLI directive): the server locates the Team Agent,
+# reads the role node (roles:<role> in its system memory — template in
+# content, register in data.names), allocates a free name server-side (the
+# loop advances past BOTH uniques a name can collide on), composes the
+# prompt, creates AND installs. The CLI passes four values through and
+# retries nothing.
+mutation CreateTeamPersona(
+  $appRef: ID!
+  $role: String!
   # @genqlient(omitempty: true)
-  $orgId: ID
+  $teamAgentRef: ID
   # @genqlient(omitempty: true)
-  $description: String
-  # @genqlient(omitempty: true)
-  $personaRole: String
-  # @genqlient(omitempty: true)
-  $personaPrompt: String
+  $name: String
 ) {
-  createAgent(
-    name: $name
-    orgId: $orgId
-    description: $description
-    personaName: $personaName
-    personaRole: $personaRole
-    personaPrompt: $personaPrompt
-  ) {
+  createTeamPersona(appRef: $appRef, role: $role, teamAgentRef: $teamAgentRef, name: $name) {
     ...PersonaAgentFields
   }
 }

@@ -25,32 +25,29 @@ const plainAgentJSON = `{"id":"agt2","urn":"hrn:agent:acme.com:support-bot","nam
 
 const rosterJSON = `{"data":{"agents":{"total":2,"items":[` + irisJSON + `,` + plainAgentJSON + `]}}}`
 
-// An empty roster — the create tests' pre-scan (handle-collision guard) must
-// not see the very name being created.
-const emptyRosterJSON = `{"data":{"agents":{"total":0,"items":[]}}}`
-
 func TestTeamPersonaCreate(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"CreatePersonaAgent": `{"data":{"createAgent":` + irisJSON + `}}`,
-		"PersonaAgents":      emptyRosterJSON,
+		"CreateTeamPersona": `{"data":{"createTeamPersona":` + irisJSON + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "persona", "create", "--org", "acme.com", "--name", "Iris",
-		"--role", "backend-engineer", "--prompt", "You are Iris.", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"team", "persona", "create", "--app", "acme.com::eng-team",
+		"--role", "backend-engineer", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(captured["CreatePersonaAgent"], &vars)
-	if vars["name"] != "Iris" || vars["personaName"] != "Iris" ||
-		vars["personaRole"] != "backend-engineer" || vars["personaPrompt"] != "You are Iris." ||
-		vars["orgId"] != "acme.com" {
+	_ = json.Unmarshal(captured["CreateTeamPersona"], &vars)
+	if vars["appRef"] != "acme.com::eng-team" || vars["role"] != "backend-engineer" {
 		t.Errorf("create vars: %v", vars)
 	}
-	// Unset optionals are OMITTED, never null (the repo-wide wire contract).
-	if _, present := vars["description"]; present {
-		t.Errorf("unset description must be omitted, got %v", vars["description"])
+	// Unset optionals are OMITTED, never null: no explicit name means the
+	// SERVER allocates from the register; no team-agent means the
+	// roles-branch marker resolves it.
+	for _, k := range []string{"name", "teamAgentRef"} {
+		if _, present := vars[k]; present {
+			t.Errorf("unset %q must be omitted, got %v", k, vars[k])
+		}
 	}
 	var dto struct {
 		PersonaName string `json:"personaName"`
@@ -61,94 +58,73 @@ func TestTeamPersonaCreate(t *testing.T) {
 	}
 }
 
-const personaTakenJSON = `{"errors":[{"message":"Persona name \"Iris\" is already taken for this owner — pick another name.",
-	"extensions":{"code":"PERSONA_NAME_TAKEN"}}]}`
-
-// The retry-with-next-name contract: a PERSONA_NAME_TAKEN rejection falls
-// through to the next --name candidate.
-func TestTeamPersonaCreateRetriesNextName(t *testing.T) {
-	var names []string
-	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			OperationName string `json:"operationName"`
-			Variables     struct {
-				PersonaName string `json:"personaName"`
-			} `json:"variables"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		w.Header().Set("Content-Type", "application/json")
-		if body.OperationName == "PersonaAgents" {
-			_, _ = w.Write([]byte(emptyRosterJSON))
-			return
-		}
-		names = append(names, body.Variables.PersonaName)
-		if len(names) == 1 {
-			_, _ = w.Write([]byte(personaTakenJSON))
-			return
-		}
-		_, _ = w.Write([]byte(`{"data":{"createAgent":` + irisJSON + `}}`))
-	}))
-	t.Cleanup(gql.Close)
+// --name and --team-agent pass through verbatim; the boot briefing
+// (personaPrompt) prints on the human path.
+func TestTeamPersonaCreateExplicitNameAndBriefing(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateTeamPersona": `{"data":{"createTeamPersona":` + irisJSON + `}}`,
+	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "persona", "create", "--name", "Iris", "--name", "Ivy",
-		"--role", "backend-engineer", "--json", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	if len(names) != 2 || names[0] != "Iris" || names[1] != "Ivy" {
-		t.Errorf("candidates tried: %v", names)
-	}
-	if !strings.Contains(out.String(), `"personaName"`) {
-		t.Errorf("expected the created persona in output, got %s", out.String())
-	}
-}
-
-// Every candidate taken → exit-code Conflict, and the message says why the
-// name can't be freed (names bind forever, retired included).
-func TestTeamPersonaCreateAllTakenIsConflict(t *testing.T) {
-	gql, _ := captureGraphQL(t, map[string]string{
-		"CreatePersonaAgent": personaTakenJSON,
-		"PersonaAgents":      emptyRosterJSON,
-	})
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "persona", "create", "--name", "Iris", "--server", gql.URL})
-	err := root.Execute()
-	if err == nil {
-		t.Fatal("expected an error")
-	}
-	if code := exitcode.FromError(err); code != exitcode.Conflict {
-		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
-	}
-	if !strings.Contains(err.Error(), "forever") {
-		t.Errorf("error should explain the forever-binding: %v", err)
-	}
-}
-
-// A candidate whose FOLDED chat handle collides with an existing persona's is
-// skipped client-side (never sent to the server): "Dev Rufus" and "Dev-Rufus"
-// would both answer to @dev-rufus, making chat attribution ambiguous.
-func TestTeamPersonaCreateSkipsHandleCollision(t *testing.T) {
-	rufusRoster := `{"data":{"agents":{"total":1,"items":[
-		{"id":"agt9","urn":"hrn:agent:acme.com:dev-rufus","name":"Dev-Rufus","description":null,
-		 "organizationId":"o1","personaName":"Dev-Rufus","personaRole":null,"personaPrompt":null,
-		 "createdAt":"2026-08-11T00:00:00Z"}]}}}`
-	gql, captured := captureGraphQL(t, map[string]string{
-		"PersonaAgents":      rufusRoster,
-		"CreatePersonaAgent": `{"data":{"createAgent":` + irisJSON + `}}`,
-	})
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "persona", "create", "--name", "Dev Rufus", "--name", "Ivy",
-		"--json", "--server", gql.URL})
+	root.SetArgs([]string{"team", "persona", "create", "--app", "acme.com::eng-team",
+		"--role", "backend-engineer", "--name", "Iris", "--team-agent", "agt-team", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(captured["CreatePersonaAgent"], &vars)
-	if vars["personaName"] != "Ivy" {
-		t.Errorf("colliding candidate must be skipped client-side; created: %v", vars)
+	_ = json.Unmarshal(captured["CreateTeamPersona"], &vars)
+	if vars["name"] != "Iris" || vars["teamAgentRef"] != "agt-team" {
+		t.Errorf("create vars: %v", vars)
+	}
+	if !strings.Contains(out.String(), "You are Iris.") {
+		t.Errorf("the boot briefing (personaPrompt) must print: %s", out.String())
+	}
+}
+
+// The CLI retries NOTHING (thin-CLI directive): server refusals map to exit
+// codes and surface verbatim — PERSONA_ROLE_NOT_FOUND carries the available
+// roles, TEAM_AGENT_AMBIGUOUS says how to disambiguate.
+func TestTeamPersonaCreateServerRefusals(t *testing.T) {
+	cases := []struct {
+		name string
+		resp string
+		code int
+		want string
+	}{
+		{"role not found lists roles",
+			`{"errors":[{"message":"Role \"backend\" not found - available roles: backend-engineer, qa","extensions":{"code":"PERSONA_ROLE_NOT_FOUND"}}]}`,
+			exitcode.NotFound, "available roles: backend-engineer, qa"},
+		{"register exhausted",
+			`{"errors":[{"message":"every register name is taken","extensions":{"code":"PERSONA_REGISTER_EXHAUSTED"}}]}`,
+			exitcode.Conflict, "register"},
+		{"explicit name taken",
+			`{"errors":[{"message":"Persona name \"Iris\" is already taken for this owner - pick another name.","extensions":{"code":"PERSONA_NAME_TAKEN"}}]}`,
+			exitcode.Conflict, "Iris"},
+		{"team agent ambiguous",
+			`{"errors":[{"message":"several installed agents carry roles - pass teamAgentRef","extensions":{"code":"TEAM_AGENT_AMBIGUOUS"}}]}`,
+			exitcode.Usage, "teamAgentRef"},
+		{"team agent not installed",
+			`{"errors":[{"message":"agent is not installed in this App","extensions":{"code":"TEAM_AGENT_NOT_INSTALLED"}}]}`,
+			exitcode.Usage, "not installed"},
+		{"team agent not found",
+			`{"errors":[{"message":"no installed agent carries a roles branch","extensions":{"code":"TEAM_AGENT_NOT_FOUND"}}]}`,
+			exitcode.NotFound, "roles branch"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, _ := captureGraphQL(t, map[string]string{"CreateTeamPersona": tc.resp})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "persona", "create", "--app", "a::t", "--role", "backend",
+				"--name", "Iris", "--server", gql.URL})
+			err := root.Execute()
+			if code := exitcode.FromError(err); code != tc.code {
+				t.Errorf("exit code = %d, want %d; err: %v", code, tc.code, err)
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("server message must surface verbatim (want %q): %v", tc.want, err)
+			}
+		})
 	}
 }
 
