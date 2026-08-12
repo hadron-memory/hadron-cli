@@ -42,7 +42,27 @@ func TestNormalizeArtifactRef(t *testing.T) {
 		{name: "commit url", kind: "commit", raw: "https://github.com/acme/widgets/commit/93200b296ec1e9ae287082744b68fc42efb3277a", want: "acme/widgets@93200b296ec1e9ae287082744b68fc42efb3277a"},
 		{name: "commit sha too short", kind: "commit", raw: "abc123", defaultRepo: "a/b", wantErr: true},
 		{name: "commit non-hex rejected", kind: "commit", raw: "a/b@notahexsha", wantErr: true},
-		{name: "unknown kind", kind: "branch", raw: "a/b:main", wantErr: true},
+		{name: "branch short form", kind: "branch", raw: "acme/widgets:main", want: "acme/widgets:main"},
+		// Branch names are case-sensitive and may contain slashes; only the
+		// repo part folds. A bare value is ALWAYS a branch name, never
+		// owner/repo — feature/foo is a common branch shape.
+		{name: "branch case: repo folds, branch verbatim", kind: "branch", raw: "Acme/Widgets:Feature-X", want: "acme/widgets:Feature-X"},
+		{name: "branch bare with repo", kind: "branch", raw: "team-chat", defaultRepo: "hadron-memory/hadron-cli", want: "hadron-memory/hadron-cli:team-chat"},
+		{name: "branch bare slashed with repo", kind: "branch", raw: "feature/foo", defaultRepo: "a/b", want: "a/b:feature/foo"},
+		{name: "branch bare without repo", kind: "branch", raw: "main", wantErr: true},
+		{name: "branch url", kind: "branch", raw: "https://github.com/acme/widgets/tree/feature/foo", want: "acme/widgets:feature/foo"},
+		{name: "branch with space rejected", kind: "branch", raw: "a/b:not a branch", wantErr: true},
+		// "#" and "@" are LEGAL in git branch names (check-ref-format passes)
+		// and cannot confuse the parse — dispatch is by kind, not by shape.
+		{name: "branch with hash", kind: "branch", raw: "release#1", defaultRepo: "a/b", want: "a/b:release#1"},
+		{name: "branch with at", kind: "branch", raw: "a/b:user@feature", want: "a/b:user@feature"},
+		// URL paths are percent-encoded; the URL and short form of the same
+		// branch must land on ONE equality key.
+		{name: "branch url percent-decoded", kind: "branch", raw: "https://github.com/acme/widgets/tree/release%25candidate", want: "acme/widgets:release%candidate"},
+		{name: "branch short form percent verbatim", kind: "branch", raw: "acme/widgets:release%candidate", want: "acme/widgets:release%candidate"},
+		{name: "branch url with fragment", kind: "branch", raw: "https://github.com/acme/widgets/tree/main#readme", want: "acme/widgets:main"},
+		{name: "pr url with query", kind: "pr", raw: "https://github.com/acme/widgets/pull/7?diff=split", want: "acme/widgets#7", wantNumber: 7},
+		{name: "unknown kind", kind: "tag", raw: "a/b:v1", wantErr: true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

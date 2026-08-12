@@ -473,6 +473,75 @@ func TestTeamSessionLogWritesWorklogAndSession(t *testing.T) {
 	}
 }
 
+// --branch milestones denormalize the bare branch NAME onto Session.branch
+// while the worklog stores the canonical repo-qualified ref.
+func TestTeamSessionLogBranch(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":"team-chat","prNumber":null,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+		"CreateObject": `{"data":{"createObject":{"id":"o1"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "log", "--branch", "team-chat", "--action", "pushed", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateTeamSession"], &vars)
+	if vars["branch"] != "team-chat" {
+		t.Errorf("branch denormalization: %v", vars)
+	}
+	if _, present := vars["prNumber"]; present {
+		t.Errorf("a branch milestone must not touch prNumber, got %v", vars["prNumber"])
+	}
+	var objVars struct {
+		Fields map[string]any `json:"fields"`
+	}
+	_ = json.Unmarshal(captured["CreateObject"], &objVars)
+	if objVars.Fields["kind"] != "branch" || objVars.Fields["ref"] != "hadron-memory/hadron-cli:team-chat" ||
+		objVars.Fields["action"] != "pushed" {
+		t.Errorf("worklog fields: %v", objVars.Fields)
+	}
+	if !strings.Contains(out.String(), `"recorded": "worklog"`) {
+		t.Errorf("log output: %s", out.String())
+	}
+}
+
+// The provenance query generalizes past --pr: --commit matches kind=commit.
+func TestTeamSessionListProvenanceByCommit(t *testing.T) {
+	teamGitDir(t)
+	gql, captured := captureGraphQL(t, map[string]string{
+		"FindObjects": `{"data":{"findObjects":{"total":1,"objects":[
+			{"id":"o1","type":"worklog","sessionId":"s-done","ref":"hadron-memory/hadron-cli@93200b2"}]}}}`,
+		"GetTeamSession": `{"data":{"session":` + endedSessionJSON + `}}`,
+		"PersonaAgents":  rosterJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "list", "--commit", "hadron-memory/hadron-cli@93200b2",
+		"-m", "acme.com::eng-team", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Match map[string]string `json:"match"`
+	}
+	_ = json.Unmarshal(captured["FindObjects"], &vars)
+	if vars.Match["ref"] != "hadron-memory/hadron-cli@93200b2" || vars.Match["kind"] != "commit" {
+		t.Errorf("worklog match: %v", vars.Match)
+	}
+	if !strings.Contains(out.String(), `"id": "s-done"`) {
+		t.Errorf("provenance rows: %s", out.String())
+	}
+}
+
 // Without a team memory, --pr degrades to the Session.prNumber
 // denormalization (recorded: "session", with a note) — but an issue/commit
 // milestone has nowhere durable to go, so it refuses.
