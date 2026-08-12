@@ -61,6 +61,16 @@ hadron team session list [--active] [--as <persona>] [--repo <r>] [--limit N] [-
 
 ### Persona create: the PERSONA_NAME_TAKEN retry contract
 
+> **Superseded (2026-08-11 evening, the thin-CLI directive):** persona
+> instantiation is now the platform operation `createTeamPersona(appRef,
+> role, teamAgentRef?, name?)` (hadron-server#935/PR #936, spec
+> cor:agt:020:01) and `persona create` thinned to a one-call wrapper — the
+> client-side candidate loop and the folded-handle collision guard below are
+> GONE (allocation, including the two-uniques collision handling, lives in
+> the server's register loop; `PERSONA_NAME_TAKEN` only surfaces on an
+> explicit `--name`, and the CLI retries nothing). The section is kept as
+> the design history of slice 1.
+
 `createAgent` rejects a duplicate persona name (unique per owner,
 case-insensitive) with the typed code `PERSONA_NAME_TAKEN`. `--name` is
 repeatable: candidates are tried in order via `api.HasErrorCode`, each rejection

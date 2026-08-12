@@ -32,108 +32,64 @@ persona rm — only retire.`,
 }
 
 func newCmdPersonaCreate(f *cmdutil.Factory) *cobra.Command {
-	var names []string
-	var role, prompt, description, org string
-	var ownerMe bool
+	var role, name, teamAgent string
 	cmd := &cobra.Command{
-		Use:   "create --name <candidate> [--name <fallback>]... [--role <r>] [--prompt <p>]",
-		Short: "Mint a persona (an Agent with persona metadata)",
-		Long: `Create a persona. --name is repeatable: candidates are tried in order, and
-a name the server rejects as taken (persona names are unique per owner,
-case-insensitively, and NEVER re-minted — a retired persona keeps its name)
-falls through to the next candidate. The first free name wins and becomes
-both the persona name and the agent name.
+		Use:   "create --role <role> [--name <n>] [--team-agent <ref>]",
+		Short: "Mint a persona for a role (server-side allocation and install)",
+		Long: `Mint a persona: ONE platform call (createTeamPersona, spec cor:agt:020:01).
+The server locates the team App's Team Agent, reads the role node
+(roles:<role> in its system memory — prompt template with {{name}}/{{role}}
+placeholders, ordered name register in data.names), allocates a free name,
+composes the persona prompt, creates the Agent, and installs it into the
+App. The CLI passes the arguments through and retries nothing.
 
-A candidate whose CHAT HANDLE (the name lowercased/dash-folded — what
-@mentions address) collides with an existing persona's is also skipped:
-persona-name uniqueness is server-enforced, but "Dev Rufus" and "Dev-Rufus"
-would both answer to @dev-rufus, making chat attribution ambiguous.
+The team App comes from the persistent --app flag (or the configured App
+context). --name overrides the register with an explicit name — only then
+can PERSONA_NAME_TAKEN come back (a register-allocated name is retried
+server-side). --team-agent picks the Team Agent explicitly when the App
+installs several agents with roles branches.
 
-Pass --org for an org-owned persona, or --owner-me (or neither) for one in
-your own namespace.`,
-		Example: `  hadron team persona create --org acme.com --name Iris --name Ivy --role backend-engineer \
-      --prompt "You are Iris, a senior backend engineer ..."`,
+The created persona's prompt is its boot briefing — printed on success.`,
+		Example: `  hadron team persona create --app acme.com::eng-team --role backend-engineer
+  hadron team persona create --app acme.com::eng-team --role qa --name Uma`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if ownerMe && org != "" {
-				return exitcode.Newf(exitcode.Usage, "--owner-me mints the persona in your own namespace; drop --org (or drop --owner-me for an organization persona)")
+			appRef, err := f.App()
+			if err != nil {
+				return err
 			}
-			candidates := []string{}
-			for _, n := range names {
-				if strings.TrimSpace(n) == "" {
-					return exitcode.Newf(exitcode.Usage, "--name must not be empty")
-				}
-				candidates = append(candidates, strings.TrimSpace(n))
+			if appRef == "" {
+				return exitcode.Newf(exitcode.Usage, "no team App — pass --app <ref> (or set a default App context)")
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			// Folded chat handles of the existing roster: a candidate that
-			// collides is skipped like a taken name — the server enforces
-			// name uniqueness, but only pre-fold, and two personas answering
-			// to one @handle would make chat attribution ambiguous. A
-			// client-side guard, so a concurrent create can still race past
-			// it — the window is accepted (the server-side name uniqueness
-			// stays the hard gate).
-			takenHandles := map[string]bool{}
-			roster, err := scanPersonaAgents(cmd.Context(), client, optStr(org))
+			resp, err := gen.CreateTeamPersona(cmd.Context(), client, appRef, role, optStr(teamAgent), optStr(name))
 			if err != nil {
-				return err
+				// Thin by directive: the server's typed errors carry the
+				// guidance (PERSONA_ROLE_NOT_FOUND lists the available roles,
+				// TEAM_AGENT_AMBIGUOUS says to pass teamAgentRef) — map to
+				// exit codes, surface the message verbatim.
+				return api.MapError(err)
 			}
-			for _, p := range roster {
-				if p.PersonaName == nil {
-					continue
-				}
-				if h, err := handleFromPersona(*p.PersonaName); err == nil {
-					takenHandles[h] = true
-				}
+			if resp.CreateTeamPersona == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no persona")
 			}
-			exhausted := func() error {
-				return exitcode.Newf(exitcode.Conflict,
-					"every candidate name is taken or handle-colliding (%s) — a persona name binds to one persona forever, retired names included; retry with fresh names",
-					strings.Join(candidates, ", "))
-			}
-			for i, cand := range candidates {
-				if h, err := handleFromPersona(cand); err == nil && takenHandles[h] {
-					if i < len(candidates)-1 {
-						fmt.Fprintf(f.IOStreams.ErrOut, "persona name %q folds to chat handle @%s, which an existing persona already answers to — trying %q\n", cand, h, candidates[i+1])
-						continue
-					}
-					return exhausted()
+			dto := personaDTOFromFields(resp.CreateTeamPersona.PersonaAgentFields)
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				fmt.Fprintf(w, "✓ created persona %s%s (%s)\n", dto.PersonaName, roleSuffix(dto.PersonaRole), dto.URN)
+				if dto.PersonaPrompt != nil && *dto.PersonaPrompt != "" {
+					fmt.Fprintf(w, "\n%s\n", *dto.PersonaPrompt)
 				}
-				resp, err := gen.CreatePersonaAgent(cmd.Context(), client, cand, cand,
-					optStr(org), optStr(description), optStr(role), optStr(prompt))
-				if err != nil {
-					if api.HasErrorCode(err, "PERSONA_NAME_TAKEN") {
-						if i < len(candidates)-1 {
-							fmt.Fprintf(f.IOStreams.ErrOut, "persona name %q is taken — trying %q\n", cand, candidates[i+1])
-							continue
-						}
-						return exhausted()
-					}
-					return api.MapError(err)
-				}
-				if resp.CreateAgent == nil {
-					return exitcode.Newf(exitcode.Error, "server returned no agent")
-				}
-				dto := personaDTOFromFields(resp.CreateAgent.PersonaAgentFields)
-				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-					_, err := fmt.Fprintf(w, "✓ created persona %s%s (%s)\n", dto.PersonaName, roleSuffix(dto.PersonaRole), dto.URN)
-					return err
-				})
-			}
-			// Unreachable: the loop returns on success and on the last taken name.
-			return exitcode.Newf(exitcode.Error, "no candidate name was tried")
+				return nil
+			})
 		},
 	}
-	cmd.Flags().StringArrayVar(&names, "name", nil, "persona name candidate, tried in order (repeatable)")
-	cmd.Flags().StringVar(&role, "role", "", "persona role, e.g. backend-engineer")
-	cmd.Flags().StringVar(&prompt, "prompt", "", "persona identity paragraph (composed into the system prompt by clients)")
-	cmd.Flags().StringVar(&description, "description", "", "agent description")
-	cmd.Flags().StringVar(&org, "org", "", "owning organization (ID or URN); omit for a persona you own")
-	cmd.Flags().BoolVar(&ownerMe, "owner-me", false, "mint the persona in your own namespace (the default when --org is absent)")
-	_ = cmd.MarkFlagRequired("name")
+	cmd.Flags().StringVar(&role, "role", "", "the role to mint (a roles:<role> node in the Team Agent's system memory)")
+	cmd.Flags().StringVar(&name, "name", "", "explicit persona name (overrides the register; taken-name refusals are yours to handle)")
+	cmd.Flags().StringVar(&teamAgent, "team-agent", "", "Team Agent ref, when the App installs more than one agent with roles")
+	_ = cmd.MarkFlagRequired("role")
 	return cmd
 }
 

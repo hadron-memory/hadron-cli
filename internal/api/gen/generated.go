@@ -5148,133 +5148,6 @@ func (v *CreateOrganizationResponse) GetCreateOrganization() *CreateOrganization
 	return v.CreateOrganization
 }
 
-// CreatePersonaAgentCreateAgent includes the requested fields of the GraphQL type Agent.
-type CreatePersonaAgentCreateAgent struct {
-	PersonaAgentFields `json:"-"`
-}
-
-// GetId returns CreatePersonaAgentCreateAgent.Id, and is useful for accessing the field via an interface.
-func (v *CreatePersonaAgentCreateAgent) GetId() string { return v.PersonaAgentFields.Id }
-
-// GetUrn returns CreatePersonaAgentCreateAgent.Urn, and is useful for accessing the field via an interface.
-func (v *CreatePersonaAgentCreateAgent) GetUrn() string { return v.PersonaAgentFields.Urn }
-
-// GetName returns CreatePersonaAgentCreateAgent.Name, and is useful for accessing the field via an interface.
-func (v *CreatePersonaAgentCreateAgent) GetName() string { return v.PersonaAgentFields.Name }
-
-// GetDescription returns CreatePersonaAgentCreateAgent.Description, and is useful for accessing the field via an interface.
-func (v *CreatePersonaAgentCreateAgent) GetDescription() *string {
-	return v.PersonaAgentFields.Description
-}
-
-// GetOrganizationId returns CreatePersonaAgentCreateAgent.OrganizationId, and is useful for accessing the field via an interface.
-func (v *CreatePersonaAgentCreateAgent) GetOrganizationId() *string {
-	return v.PersonaAgentFields.OrganizationId
-}
-
-// GetPersonaName returns CreatePersonaAgentCreateAgent.PersonaName, and is useful for accessing the field via an interface.
-func (v *CreatePersonaAgentCreateAgent) GetPersonaName() *string {
-	return v.PersonaAgentFields.PersonaName
-}
-
-// GetPersonaRole returns CreatePersonaAgentCreateAgent.PersonaRole, and is useful for accessing the field via an interface.
-func (v *CreatePersonaAgentCreateAgent) GetPersonaRole() *string {
-	return v.PersonaAgentFields.PersonaRole
-}
-
-// GetPersonaPrompt returns CreatePersonaAgentCreateAgent.PersonaPrompt, and is useful for accessing the field via an interface.
-func (v *CreatePersonaAgentCreateAgent) GetPersonaPrompt() *string {
-	return v.PersonaAgentFields.PersonaPrompt
-}
-
-// GetCreatedAt returns CreatePersonaAgentCreateAgent.CreatedAt, and is useful for accessing the field via an interface.
-func (v *CreatePersonaAgentCreateAgent) GetCreatedAt() string { return v.PersonaAgentFields.CreatedAt }
-
-func (v *CreatePersonaAgentCreateAgent) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*CreatePersonaAgentCreateAgent
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.CreatePersonaAgentCreateAgent = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.PersonaAgentFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalCreatePersonaAgentCreateAgent struct {
-	Id string `json:"id"`
-
-	Urn string `json:"urn"`
-
-	Name string `json:"name"`
-
-	Description *string `json:"description"`
-
-	OrganizationId *string `json:"organizationId"`
-
-	PersonaName *string `json:"personaName"`
-
-	PersonaRole *string `json:"personaRole"`
-
-	PersonaPrompt *string `json:"personaPrompt"`
-
-	CreatedAt string `json:"createdAt"`
-}
-
-func (v *CreatePersonaAgentCreateAgent) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *CreatePersonaAgentCreateAgent) __premarshalJSON() (*__premarshalCreatePersonaAgentCreateAgent, error) {
-	var retval __premarshalCreatePersonaAgentCreateAgent
-
-	retval.Id = v.PersonaAgentFields.Id
-	retval.Urn = v.PersonaAgentFields.Urn
-	retval.Name = v.PersonaAgentFields.Name
-	retval.Description = v.PersonaAgentFields.Description
-	retval.OrganizationId = v.PersonaAgentFields.OrganizationId
-	retval.PersonaName = v.PersonaAgentFields.PersonaName
-	retval.PersonaRole = v.PersonaAgentFields.PersonaRole
-	retval.PersonaPrompt = v.PersonaAgentFields.PersonaPrompt
-	retval.CreatedAt = v.PersonaAgentFields.CreatedAt
-	return &retval, nil
-}
-
-// CreatePersonaAgentResponse is returned by CreatePersonaAgent on success.
-type CreatePersonaAgentResponse struct {
-	// Create an agent. Provide orgId to create an ORG-owned agent (requires org
-	// ADMIN); OMIT orgId to create a USER-OWNED agent owned by the caller — its
-	// URN is rooted on the caller's bare handle (hrn:agent:<handle>:<slug>, grammar
-	// v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
-	// (org XOR user).
-	//
-	// orgId accepts the org's ID or URN.
-	CreateAgent *CreatePersonaAgentCreateAgent `json:"createAgent"`
-}
-
-// GetCreateAgent returns CreatePersonaAgentResponse.CreateAgent, and is useful for accessing the field via an interface.
-func (v *CreatePersonaAgentResponse) GetCreateAgent() *CreatePersonaAgentCreateAgent {
-	return v.CreateAgent
-}
-
 // CreatePrincipalGrantCreatePrincipalGrant includes the requested fields of the GraphQL type PrincipalGrant.
 // The GraphQL type's documentation follows.
 //
@@ -5526,6 +5399,155 @@ type CreateSecretResponse struct {
 
 // GetCreateSecret returns CreateSecretResponse.CreateSecret, and is useful for accessing the field via an interface.
 func (v *CreateSecretResponse) GetCreateSecret() *CreateSecretCreateSecret { return v.CreateSecret }
+
+// CreateTeamPersonaCreateTeamPersonaAgent includes the requested fields of the GraphQL type Agent.
+type CreateTeamPersonaCreateTeamPersonaAgent struct {
+	PersonaAgentFields `json:"-"`
+}
+
+// GetId returns CreateTeamPersonaCreateTeamPersonaAgent.Id, and is useful for accessing the field via an interface.
+func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetId() string { return v.PersonaAgentFields.Id }
+
+// GetUrn returns CreateTeamPersonaCreateTeamPersonaAgent.Urn, and is useful for accessing the field via an interface.
+func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetUrn() string { return v.PersonaAgentFields.Urn }
+
+// GetName returns CreateTeamPersonaCreateTeamPersonaAgent.Name, and is useful for accessing the field via an interface.
+func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetName() string { return v.PersonaAgentFields.Name }
+
+// GetDescription returns CreateTeamPersonaCreateTeamPersonaAgent.Description, and is useful for accessing the field via an interface.
+func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetDescription() *string {
+	return v.PersonaAgentFields.Description
+}
+
+// GetOrganizationId returns CreateTeamPersonaCreateTeamPersonaAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetOrganizationId() *string {
+	return v.PersonaAgentFields.OrganizationId
+}
+
+// GetPersonaName returns CreateTeamPersonaCreateTeamPersonaAgent.PersonaName, and is useful for accessing the field via an interface.
+func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetPersonaName() *string {
+	return v.PersonaAgentFields.PersonaName
+}
+
+// GetPersonaRole returns CreateTeamPersonaCreateTeamPersonaAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetPersonaRole() *string {
+	return v.PersonaAgentFields.PersonaRole
+}
+
+// GetPersonaPrompt returns CreateTeamPersonaCreateTeamPersonaAgent.PersonaPrompt, and is useful for accessing the field via an interface.
+func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetPersonaPrompt() *string {
+	return v.PersonaAgentFields.PersonaPrompt
+}
+
+// GetCreatedAt returns CreateTeamPersonaCreateTeamPersonaAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetCreatedAt() string {
+	return v.PersonaAgentFields.CreatedAt
+}
+
+func (v *CreateTeamPersonaCreateTeamPersonaAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateTeamPersonaCreateTeamPersonaAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateTeamPersonaCreateTeamPersonaAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PersonaAgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateTeamPersonaCreateTeamPersonaAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	PersonaName *string `json:"personaName"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	PersonaPrompt *string `json:"personaPrompt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *CreateTeamPersonaCreateTeamPersonaAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateTeamPersonaCreateTeamPersonaAgent) __premarshalJSON() (*__premarshalCreateTeamPersonaCreateTeamPersonaAgent, error) {
+	var retval __premarshalCreateTeamPersonaCreateTeamPersonaAgent
+
+	retval.Id = v.PersonaAgentFields.Id
+	retval.Urn = v.PersonaAgentFields.Urn
+	retval.Name = v.PersonaAgentFields.Name
+	retval.Description = v.PersonaAgentFields.Description
+	retval.OrganizationId = v.PersonaAgentFields.OrganizationId
+	retval.PersonaName = v.PersonaAgentFields.PersonaName
+	retval.PersonaRole = v.PersonaAgentFields.PersonaRole
+	retval.PersonaPrompt = v.PersonaAgentFields.PersonaPrompt
+	retval.CreatedAt = v.PersonaAgentFields.CreatedAt
+	return &retval, nil
+}
+
+// CreateTeamPersonaResponse is returned by CreateTeamPersona on success.
+type CreateTeamPersonaResponse struct {
+	// #935 — mint a team persona: role-template + name-register instantiation as
+	// a platform operation (spec cor:agt:020:01/:02). Locates the Team Agent
+	// among the App's installed Agents (teamAgentRef when given; otherwise the
+	// single installed Agent whose system memory carries a 'roles:' branch —
+	// zero or several candidates is a typed error, never a guess), reads the
+	// role definition node 'roles:<role>' from that system memory (prompt
+	// template in content, name register in data.names), allocates a name (a
+	// caller-supplied name wins; otherwise the register's next free name,
+	// advancing past PERSONA_NAME_TAKEN per the allocation contract), composes
+	// personaPrompt from the template ({{name}} and {{role}} placeholders),
+	// creates the Agent owned by the App's owner with personaRole set, and
+	// installs it into the App (AppAgent row) so the minted persona is on the
+	// roster immediately. Returns the created Agent — clients print its
+	// personaPrompt as the persona's boot briefing.
+	//
+	// Authorization: an org member with CONTRIBUTOR+ on the App's org, an
+	// AppMember of the App whose role is not 'reader', or the owner of a
+	// user-owned App. Pure App-key principals are denied.
+	//
+	// Error codes (extensions.code): TEAM_AGENT_NOT_FOUND, TEAM_AGENT_AMBIGUOUS,
+	// TEAM_AGENT_NOT_INSTALLED, PERSONA_ROLE_NOT_FOUND, PERSONA_ROLE_INVALID,
+	// PERSONA_NAME_TAKEN, PERSONA_REGISTER_EXHAUSTED, AGENT_URN_TAKEN (an
+	// explicit name whose derived slug is occupied by a non-persona Agent or
+	// reserved by a retired persona), SESSION_EXPIRED (encrypted system memory
+	// without an active session key), APP_UNINSTALLED.
+	//
+	// Accepts the entity's ID or URN for appRef and teamAgentRef.
+	CreateTeamPersona *CreateTeamPersonaCreateTeamPersonaAgent `json:"createTeamPersona"`
+}
+
+// GetCreateTeamPersona returns CreateTeamPersonaResponse.CreateTeamPersona, and is useful for accessing the field via an interface.
+func (v *CreateTeamPersonaResponse) GetCreateTeamPersona() *CreateTeamPersonaCreateTeamPersonaAgent {
+	return v.CreateTeamPersona
+}
 
 // CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult includes the requested fields of the GraphQL type UserApiKeyCreateResult.
 type CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult struct {
@@ -16870,34 +16892,6 @@ func (v *__CreateOrganizationInput) GetName() string { return v.Name }
 // GetUrn returns __CreateOrganizationInput.Urn, and is useful for accessing the field via an interface.
 func (v *__CreateOrganizationInput) GetUrn() string { return v.Urn }
 
-// __CreatePersonaAgentInput is used internally by genqlient
-type __CreatePersonaAgentInput struct {
-	Name          string  `json:"name"`
-	PersonaName   string  `json:"personaName"`
-	OrgId         *string `json:"orgId,omitempty"`
-	Description   *string `json:"description,omitempty"`
-	PersonaRole   *string `json:"personaRole,omitempty"`
-	PersonaPrompt *string `json:"personaPrompt,omitempty"`
-}
-
-// GetName returns __CreatePersonaAgentInput.Name, and is useful for accessing the field via an interface.
-func (v *__CreatePersonaAgentInput) GetName() string { return v.Name }
-
-// GetPersonaName returns __CreatePersonaAgentInput.PersonaName, and is useful for accessing the field via an interface.
-func (v *__CreatePersonaAgentInput) GetPersonaName() string { return v.PersonaName }
-
-// GetOrgId returns __CreatePersonaAgentInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__CreatePersonaAgentInput) GetOrgId() *string { return v.OrgId }
-
-// GetDescription returns __CreatePersonaAgentInput.Description, and is useful for accessing the field via an interface.
-func (v *__CreatePersonaAgentInput) GetDescription() *string { return v.Description }
-
-// GetPersonaRole returns __CreatePersonaAgentInput.PersonaRole, and is useful for accessing the field via an interface.
-func (v *__CreatePersonaAgentInput) GetPersonaRole() *string { return v.PersonaRole }
-
-// GetPersonaPrompt returns __CreatePersonaAgentInput.PersonaPrompt, and is useful for accessing the field via an interface.
-func (v *__CreatePersonaAgentInput) GetPersonaPrompt() *string { return v.PersonaPrompt }
-
 // __CreatePrincipalGrantInput is used internally by genqlient
 type __CreatePrincipalGrantInput struct {
 	OrgRef    string   `json:"orgRef"`
@@ -16945,6 +16939,26 @@ func (v *__CreateSecretInput) GetMetadata() *json.RawMessage { return v.Metadata
 
 // GetValue returns __CreateSecretInput.Value, and is useful for accessing the field via an interface.
 func (v *__CreateSecretInput) GetValue() json.RawMessage { return v.Value }
+
+// __CreateTeamPersonaInput is used internally by genqlient
+type __CreateTeamPersonaInput struct {
+	AppRef       string  `json:"appRef"`
+	Role         string  `json:"role"`
+	TeamAgentRef *string `json:"teamAgentRef,omitempty"`
+	Name         *string `json:"name,omitempty"`
+}
+
+// GetAppRef returns __CreateTeamPersonaInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CreateTeamPersonaInput) GetAppRef() string { return v.AppRef }
+
+// GetRole returns __CreateTeamPersonaInput.Role, and is useful for accessing the field via an interface.
+func (v *__CreateTeamPersonaInput) GetRole() string { return v.Role }
+
+// GetTeamAgentRef returns __CreateTeamPersonaInput.TeamAgentRef, and is useful for accessing the field via an interface.
+func (v *__CreateTeamPersonaInput) GetTeamAgentRef() *string { return v.TeamAgentRef }
+
+// GetName returns __CreateTeamPersonaInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateTeamPersonaInput) GetName() *string { return v.Name }
 
 // __CreateUserApiKeyInput is used internally by genqlient
 type __CreateUserApiKeyInput struct {
@@ -20258,61 +20272,6 @@ func CreateOrganization(
 	return data_, err_
 }
 
-// The mutation executed by CreatePersonaAgent.
-const CreatePersonaAgent_Operation = `
-mutation CreatePersonaAgent ($name: String!, $personaName: String!, $orgId: ID, $description: String, $personaRole: String, $personaPrompt: String) {
-	createAgent(name: $name, orgId: $orgId, description: $description, personaName: $personaName, personaRole: $personaRole, personaPrompt: $personaPrompt) {
-		... PersonaAgentFields
-	}
-}
-fragment PersonaAgentFields on Agent {
-	id
-	urn
-	name
-	description
-	organizationId
-	personaName
-	personaRole
-	personaPrompt
-	createdAt
-}
-`
-
-func CreatePersonaAgent(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	name string,
-	personaName string,
-	orgId *string,
-	description *string,
-	personaRole *string,
-	personaPrompt *string,
-) (data_ *CreatePersonaAgentResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "CreatePersonaAgent",
-		Query:  CreatePersonaAgent_Operation,
-		Variables: &__CreatePersonaAgentInput{
-			Name:          name,
-			PersonaName:   personaName,
-			OrgId:         orgId,
-			Description:   description,
-			PersonaRole:   personaRole,
-			PersonaPrompt: personaPrompt,
-		},
-	}
-
-	data_ = &CreatePersonaAgentResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
 // The mutation executed by CreatePrincipalGrant.
 const CreatePrincipalGrant_Operation = `
 mutation CreatePrincipalGrant ($orgRef: String!, $userRef: String!, $actions: [String!]!, $expiresAt: String) {
@@ -20410,6 +20369,64 @@ func CreateSecret(
 	}
 
 	data_ = &CreateSecretResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateTeamPersona.
+const CreateTeamPersona_Operation = `
+mutation CreateTeamPersona ($appRef: ID!, $role: String!, $teamAgentRef: ID, $name: String) {
+	createTeamPersona(appRef: $appRef, role: $role, teamAgentRef: $teamAgentRef, name: $name) {
+		... PersonaAgentFields
+	}
+}
+fragment PersonaAgentFields on Agent {
+	id
+	urn
+	name
+	description
+	organizationId
+	personaName
+	personaRole
+	personaPrompt
+	createdAt
+}
+`
+
+// Persona instantiation is a PLATFORM operation (#935/PR #936, spec
+// cor:agt:020:01, the thin-CLI directive): the server locates the Team Agent,
+// reads the role node (roles:<role> in its system memory — template in
+// content, register in data.names), allocates a free name server-side (the
+// loop advances past BOTH uniques a name can collide on), composes the
+// prompt, creates AND installs. The CLI passes four values through and
+// retries nothing.
+func CreateTeamPersona(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	role string,
+	teamAgentRef *string,
+	name *string,
+) (data_ *CreateTeamPersonaResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateTeamPersona",
+		Query:  CreateTeamPersona_Operation,
+		Variables: &__CreateTeamPersonaInput{
+			AppRef:       appRef,
+			Role:         role,
+			TeamAgentRef: teamAgentRef,
+			Name:         name,
+		},
+	}
+
+	data_ = &CreateTeamPersonaResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
