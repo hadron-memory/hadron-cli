@@ -58,9 +58,9 @@ type sessionDTO struct {
 	Tool           *string `json:"tool"`
 	TranscriptPath *string `json:"transcriptPath"`
 	LLMModel       *string `json:"llmModel"`
-	// Active means "never ended". There is no server-side stale-session
-	// reaper yet (hadron-server#930), so a crashed session stays active
-	// until ended or taken over.
+	// Active means "not ended" (endedAt IS NULL) — an honest liveness
+	// signal since the server-side reaper (hadron-server#930, PR #933)
+	// auto-expires stale sessions on hard expiry and inactivity.
 	Active bool `json:"active"`
 }
 
@@ -152,13 +152,13 @@ model) and the binding is written under this worktree's git dir so
 ` + "`whoami`" + ` can recover it.
 
 A persona with a still-active session is taken: the takeover requires
---force, and until the server-side stale-session reaper lands
-(hadron-server#930) a crashed session also counts as active — the last
-driver and start time are shown so you can judge staleness yourself.
---force starts your session alongside the taken-over one; it does not end
-another driver's session. When this worktree already has a binding, --force
-replaces it — first ending the session that binding names (best-effort),
-so the old binding never orphans an active session.`,
+--force, and the last driver and start time are shown. Stale sessions are
+reaped server-side (hard expiry + inactivity — logging milestones counts
+as activity), so an active session usually means someone is genuinely
+driving. --force starts your session alongside the taken-over one; it does
+not end another driver's session. When this worktree already has a
+binding, --force replaces it — first ending the session that binding names
+(best-effort), so the old binding never leaves a session open.`,
 		Example: `  hadron team session start --as Iris --tool claude-code \
       --transcript ~/.claude/projects/x/transcript.jsonl`,
 		Args: cobra.NoArgs,
@@ -179,7 +179,8 @@ so the old binding never orphans an active session.`,
 			}
 			// --force over an existing binding: best-effort end the session it
 			// names before replacing it, so the overwritten binding does not
-			// orphan an active session (there is no reaper, #930). Best-effort
+			// leave a session open (the #930 reaper would expire it
+			// eventually, but an explicit end is immediate). Best-effort
 			// because that session may already be ended — or live on another
 			// server, which `session end`'s server guard would catch but a
 			// takeover deliberately steamrolls.
@@ -204,7 +205,7 @@ so the old binding never orphans an active session.`,
 			}
 			if active != nil && !force {
 				return exitcode.Newf(exitcode.Conflict,
-					"persona %s is being driven by %s — no stale-session reaper exists yet (hadron-server#930), so a crashed session also holds the persona; --force takes over",
+					"persona %s is being driven by %s — --force takes over (a stale session also auto-expires server-side)",
 					personaName, describeSession(active))
 			}
 			if active != nil {
@@ -254,7 +255,8 @@ so the old binding never orphans an active session.`,
 			if err != nil {
 				// The server session already exists; without a binding this
 				// worktree cannot end it and the persona would stay taken
-				// (no reaper, #930) — so compensate by ending it now.
+				// until the reaper expires it — so compensate by ending it
+				// now.
 				if _, endErr := gen.EndTeamSession(ctx, client, s.Id, nil); endErr != nil {
 					return fmt.Errorf("%w; additionally, rolling back session %s failed (%v) — end it with `hadron team session end --session %s`", err, s.Id, endErr, s.Id)
 				}
@@ -351,9 +353,10 @@ owner/repo@sha, owner/repo:branch) — a URL, the short form, or a bare
 number/sha/branch are all accepted; a bare value is qualified by the
 session's recorded --repo (or the git remote). --pr and --branch
 additionally denormalize onto Session.prNumber / Session.branch (latest
-wins; display convenience only) and count as session liveness for the
-coming inactivity reaper (hadron-server#930). Without a team memory,
---pr/--branch degrade to that denormalization alone.`,
+wins; display convenience only). Every logged milestone — issue and
+commit included — counts as session liveness for the inactivity reaper,
+so logging keeps the persona taken while work is in flight. Without a
+team memory, --pr/--branch degrade to the denormalization alone.`,
 		Example: `  hadron team session log --pr 371
   hadron team session log --pr acme/widgets#7 --action merged
   hadron team session log --commit 93200b2 --action pushed
@@ -405,18 +408,22 @@ coming inactivity reaper (hadron-server#930). Without a team memory,
 			if err != nil {
 				return err
 			}
-			// Session denormalization (+ the liveness touch): prNumber for
-			// PRs, branch (the name, without the repo qualifier) for branches.
+			// EVERY milestone touches the session: prNumber for PRs, branch
+			// (the name, without the repo qualifier) for branches, and the
+			// EMPTY update for issue/commit — the #932-designed liveness
+			// touch (any authorized update bumps updatedAt), so a driver
+			// logging only commits is never reaped for inactivity.
+			var prArg *int
+			var branchArg *string
 			switch kind {
 			case "pr":
-				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, &number, nil); err != nil {
-					return api.MapError(err)
-				}
+				prArg = &number
 			case "branch":
 				_, branchName, _ := strings.Cut(canonical, ":")
-				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, nil, &branchName); err != nil {
-					return api.MapError(err)
-				}
+				branchArg = &branchName
+			}
+			if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg); err != nil {
+				return api.MapError(err)
 			}
 			recorded := "session"
 			if teamMem != "" {
@@ -593,8 +600,8 @@ func newCmdSessionList(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "List sessions — team presence and session provenance",
 		Long: `List sessions, newest first, with each session's persona joined in.
---active narrows to sessions that never ended (team presence — but note
-there is no stale-session reaper yet, hadron-server#930); --as narrows to
+--active narrows to sessions that never ended — team presence, honest
+since stale sessions are auto-expired server-side; --as narrows to
 one persona's sessions. Both narrow client-side over the full list; plain
 listings page server-side.
 

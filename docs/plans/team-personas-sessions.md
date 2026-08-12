@@ -170,7 +170,7 @@ fake — **since replaced** along with the client-side loop; today's create
 tests cover the `createTeamPersona` pass-through and the six typed
 refusals), all-taken → exit 5, roster narrowing, name resolution + NotFound,
 retire confirmation gating and its DeleteAgent wiring, start's binding write /
-occupancy refusal (naming the driver and #930) / `--force` takeover, whoami's
+occupancy refusal (naming the driver) / `--force` takeover, whoami's
 offline read, log's local record, end's binding clear, and `--active`
 filtering with the persona join. `HADRON_TEAM_GIT_DIR` points the binding at a
 temp dir.
@@ -179,8 +179,9 @@ temp dir.
 
 - ~~**hadron-server #931**: a session-update surface~~ — shipped (server PR
   #932); `session log` persists server-side now.
-- **hadron-server #930**: the stale-session reaper; when it lands, `start`'s
-  refusal message can distinguish stale from live (`session log` already
-  provides the liveness signal it will consume).
+- ~~**hadron-server #930**: the stale-session reaper~~ — shipped (server PR
+  #933: hard expiry + inactivity, `session log`'s `updateSession` counting
+  as the heartbeat); the "no reaper yet" hedges were removed from the
+  session help texts and refusal messages.
 - Slice 2/3 (#369): `team chat`, `team init` + worklog collection, the
   ref-normalizer (`owner/repo#N` canonical form), `session list --pr`.

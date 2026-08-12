@@ -292,7 +292,7 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 }
 
 // An active session holds the persona: without --force the start refuses
-// (Conflict), names the driver, and points at the missing reaper (#930).
+// (Conflict) and names the driver with the takeover hint.
 func TestTeamSessionStartOccupiedNeedsForce(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
@@ -306,7 +306,7 @@ func TestTeamSessionStartOccupiedNeedsForce(t *testing.T) {
 	if code := exitcode.FromError(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
-	for _, want := range []string{"u-holger", "--force", "hadron-server#930", "2026-08-11T09:00:00Z"} {
+	for _, want := range []string{"u-holger", "--force", "2026-08-11T09:00:00Z"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("refusal should mention %q: %v", want, err)
 		}
@@ -515,6 +515,47 @@ func TestTeamSessionListProvenanceByCommit(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `"id": "s-done"`) {
 		t.Errorf("provenance rows: %s", out.String())
+	}
+}
+
+// An issue milestone sends the EMPTY updateSession — the #932 liveness
+// touch — alongside the worklog write, so a driver logging only
+// issues/commits is never reaped for inactivity; no denormalized field is
+// sent (an explicit null would CLEAR prNumber/branch).
+func TestTeamSessionLogIssueTouchesLiveness(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":null,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+		"CreateObject": `{"data":{"createObject":{"id":"o1"}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "log", "--issue", "362", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateTeamSession"], &vars)
+	if vars["id"] != "s-new" {
+		t.Errorf("liveness touch must target the bound session: %v", vars)
+	}
+	for _, k := range []string{"prNumber", "branch"} {
+		if _, present := vars[k]; present {
+			t.Errorf("an issue milestone must send the EMPTY touch — %q present: %v", k, vars[k])
+		}
+	}
+	var objVars struct {
+		Fields map[string]any `json:"fields"`
+	}
+	_ = json.Unmarshal(captured["CreateObject"], &objVars)
+	if objVars.Fields["kind"] != "issue" || objVars.Fields["ref"] != "hadron-memory/hadron-cli#362" {
+		t.Errorf("worklog fields: %v", objVars.Fields)
 	}
 }
 
