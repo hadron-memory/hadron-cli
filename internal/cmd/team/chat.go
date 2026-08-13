@@ -95,16 +95,39 @@ func resolveTeamApp(ctx context.Context, f *cmdutil.Factory, b *binding) (string
 // teamChatMessageDTO is the stable --json shape of one message — the server
 // envelope, verbatim.
 type teamChatMessageDTO struct {
-	NodeID        string   `json:"nodeId"`
-	Seq           int      `json:"seq"`
-	Body          string   `json:"body"`
-	At            string   `json:"at"`
+	NodeID string `json:"nodeId"`
+	Seq    int    `json:"seq"`
+	Body   string `json:"body"`
+	At     string `json:"at"`
+	// Author is an ALIAS of AuthorName, carried for the retired academy
+	// dialect (#406). `hadron chat read` names this field `author`, and reads
+	// "accept the retired dialect forever" per the #369 decision record — so a
+	// jq filter or agent that learned `.author` there reported every canonical
+	// message as unauthored. A wrong field name yielding a plausible wrong
+	// answer rather than an error is the dangerous shape; one duplicated
+	// string makes both dialects' readers correct.
+	Author        *string  `json:"author"`
 	AuthorName    *string  `json:"authorName"`
 	AuthorUserID  *string  `json:"authorUserId"`
 	AuthorAgentID *string  `json:"authorAgentId"`
 	SessionID     *string  `json:"sessionId"`
 	ReplyToSeq    *int     `json:"replyToSeq"`
 	Mentions      []string `json:"mentions"`
+}
+
+// authorKind labels a message's author for the human transcript. The canonical
+// envelope distinguishes a human post (authorUserId) from a persona post
+// (authorAgentId) — genuinely better than the old single `author` string, and
+// previously invisible outside --json (#406).
+func (m teamChatMessageDTO) authorKind() string {
+	switch {
+	case m.AuthorAgentID != nil && *m.AuthorAgentID != "":
+		return " (persona)"
+	case m.AuthorUserID != nil && *m.AuthorUserID != "":
+		return " (human)"
+	default:
+		return ""
+	}
 }
 
 func teamChatMessageDTOFromFields(m gen.TeamChatMessageFields) teamChatMessageDTO {
@@ -114,7 +137,8 @@ func teamChatMessageDTOFromFields(m gen.TeamChatMessageFields) teamChatMessageDT
 	}
 	return teamChatMessageDTO{
 		NodeID: m.NodeId, Seq: m.Seq, Body: m.Body, At: m.At,
-		AuthorName: m.AuthorName, AuthorUserID: m.AuthorUserId, AuthorAgentID: m.AuthorAgentId,
+		Author: m.AuthorName, AuthorName: m.AuthorName,
+		AuthorUserID: m.AuthorUserId, AuthorAgentID: m.AuthorAgentId,
 		SessionID: m.SessionId, ReplyToSeq: m.ReplyToSeq, Mentions: mentions,
 	}
 }
@@ -233,7 +257,14 @@ to pass next turn.
 user handle). The filter matches the mentions the SERVER extracted at
 write time — nothing is re-parsed — and with a filter active, nextSince
 advances only past the messages returned (skipped messages are re-scanned
-server-side next turn, which is free and never re-delivers them).`,
+server-side next turn, which is free and never re-delivers them).
+
+--json names the author as BOTH ` + "`authorName`" + ` and ` + "`author`" + ` — the latter is an
+alias for readers written against ` + "`hadron chat read`" + `, the retired academy
+dialect, which calls the field ` + "`author`" + ` (#406). Prefer authorName. Unlike
+that dialect this output also separates authorUserId from authorAgentId, so
+a human post and a persona post are tellable apart; the transcript marks
+them "(human)" / "(persona)".`,
 		Example: `  hadron team chat read --since 42
   hadron team chat read --mentions-me --json`,
 		Args: cobra.NoArgs,
@@ -323,7 +354,7 @@ server-side next turn, which is free and never re-delivers them).`,
 					if m.ReplyToSeq != nil {
 						reply = fmt.Sprintf(" (reply to %d)", *m.ReplyToSeq)
 					}
-					fmt.Fprintf(w, "[%d] %s%s: %s\n", m.Seq, who, reply, m.Body)
+					fmt.Fprintf(w, "[%d] %s%s%s: %s\n", m.Seq, who, m.authorKind(), reply, m.Body)
 				}
 				return nil
 			})
