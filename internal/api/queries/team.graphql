@@ -281,3 +281,72 @@ query TeamSessions(
     ...TeamSessionFields
   }
 }
+
+# ── Worklog (#947) — the dedicated operations. The CLI previously composed
+# worklog records itself and wrote them through the generic object surface,
+# which put the record shape in two places; the server owns it (hadron-cli#396).
+fragment TeamWorkItemFields on TeamWorkItem {
+  nodeId
+  sessionId
+  personaName
+  tool
+  kind
+  ref
+  action
+  at
+  detail
+}
+
+mutation RecordTeamWork(
+  $appRef: ID!
+  $sessionRef: ID!
+  $tool: String!
+  $kind: String!
+  $ref: String!
+  $action: String!
+  # @genqlient(omitempty: true)
+  $detail: JSON
+) {
+  recordTeamWork(
+    appRef: $appRef
+    sessionRef: $sessionRef
+    tool: $tool
+    kind: $kind
+    ref: $ref
+    action: $action
+    detail: $detail
+  ) {
+    ...TeamWorkItemFields
+  }
+}
+
+query TeamWorkItems(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $sessionRef: ID
+  # @genqlient(omitempty: true)
+  $ref: String
+  # @genqlient(omitempty: true)
+  $kind: String
+  # @genqlient(omitempty: true)
+  $tool: String
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  teamWorkItems(
+    appRef: $appRef
+    sessionRef: $sessionRef
+    ref: $ref
+    kind: $kind
+    tool: $tool
+    limit: $limit
+    offset: $offset
+  ) {
+    total
+    items {
+      ...TeamWorkItemFields
+    }
+  }
+}
