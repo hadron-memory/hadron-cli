@@ -90,7 +90,7 @@ hadron ai-config list [--app <id>] [--agent <id>] | create (--app|--agent|--org 
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
 hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
 hadron team init -m <team-memory>
-hadron team persona create --role <role> [--name <n>] [--team-agent <ref>] (uses --app) | list [--org <ref>] [--role <r>] | get <name-or-ref> | retire <name-or-ref> --yes
+hadron team persona create --role <role> [--name <n>] [--team-agent <ref>] (uses --app) | list [--org <ref>] [--role <r>] | get <name-or-ref> | update <name-or-ref> [--role <r>] [--prompt <text|-> | --prompt-file <path>] | retire <name-or-ref> --yes
 hadron team session start --as <persona> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--summary <text>] [--session <id>] | list [--active] [--as <persona>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--mentions-me | --mentions <ref>] (uses --app or the binding)
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
@@ -680,7 +680,17 @@ Conventions:
   `PERSONA_REGISTER_EXHAUSTED` (exit 5).
   Names bind **forever**: `persona retire` (requires `--yes`) removes a persona
   from the roster but never frees its name (PR trailers and chat history
-  reference it), and there is deliberately no `persona rm`. `persona
+  reference it), and there is deliberately no `persona rm` and no rename.
+  Everything else about a persona is refinable: `persona update <name-or-ref>
+  [--role <r>] [--prompt <text|-> | --prompt-file <path>]` sets the role and
+  the identity prompt after minting, which is the point rather than a
+  nicety — `create` composes the prompt from the role TEMPLATE, so a fresh
+  persona is generic by construction and everything distinguishing *this*
+  persona is written afterwards. Only the fields you pass change (an unset
+  flag is omitted, i.e. preserved); an empty prompt is refused rather than
+  sent (it would erase the identity); `--prompt-file`/`--prompt -` exist
+  because identity prompts are multi-paragraph markdown. A ref that is not a
+  persona is refused (exit 2) before any write. `persona
   list|get` read the roster (client-side narrowing over the agent list —
   merging the member-org scope with your own user-owned agents, which the
   unfiltered list omits; `get`

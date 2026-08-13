@@ -3,6 +3,7 @@ package team
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -22,11 +23,16 @@ func newCmdPersona(f *cmdutil.Factory) *cobra.Command {
 		Long: `A persona is an Agent with a persona name ("Iris"), a role, and an identity
 prompt. The name binds to one persona forever: retiring a persona keeps its
 name reserved (PR trailers and chat history reference it), so there is no
-persona rm — only retire.`,
+persona rm — only retire, and no rename.
+
+The role and the identity prompt are not permanent: ` + "`persona update`" + `
+refines them, which is where a persona minted from a generic role template
+becomes a particular one.`,
 	}
 	cmd.AddCommand(newCmdPersonaCreate(f))
 	cmd.AddCommand(newCmdPersonaList(f))
 	cmd.AddCommand(newCmdPersonaGet(f))
+	cmd.AddCommand(newCmdPersonaUpdate(f))
 	cmd.AddCommand(newCmdPersonaRetire(f))
 	return cmd
 }
@@ -168,6 +174,130 @@ func newCmdPersonaGet(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&org, "org", "", "disambiguate a persona name that exists in more than one org")
+	return cmd
+}
+
+// resolvePromptText returns the identity prompt from exactly one source:
+// --prompt-file (a file), --prompt - (stdin), or --prompt <text> inline.
+// Prompts are multi-paragraph markdown, which is why the file form exists at
+// all (same reasoning as `chat post --body-file`); the local copy of
+// chat.ResolveBody's logic is because that one keys off the literal flag name
+// "body-file".
+func resolvePromptText(cmd *cobra.Command, prompt, promptFile string, stdin io.Reader) (string, error) {
+	var text string
+	switch {
+	case cmd.Flags().Changed("prompt-file"):
+		data, err := os.ReadFile(promptFile)
+		if err != nil {
+			// A bad path is user input, so it owes the Usage exit code the
+			// contract documents — a raw os.PathError would surface as the
+			// generic 1 and break scripts branching on it (`node add
+			// --content-file` / `api --input` set the precedent).
+			return "", exitcode.Newf(exitcode.Usage, "reading --prompt-file: %v", err)
+		}
+		text = string(data)
+	case prompt == "-":
+		data, err := io.ReadAll(stdin)
+		if err != nil {
+			return "", err
+		}
+		text = string(data)
+	default:
+		text = prompt
+	}
+	if strings.TrimSpace(text) == "" {
+		// Refused rather than sent: an empty personaPrompt would erase the
+		// persona's identity, and every way to arrive here (an empty file, an
+		// empty stdin, --prompt "") is a mistake rather than a request.
+		return "", exitcode.Newf(exitcode.Usage, "empty persona prompt — nothing to set")
+	}
+	return text, nil
+}
+
+func newCmdPersonaUpdate(f *cmdutil.Factory) *cobra.Command {
+	var org, role, prompt, promptFile string
+	cmd := &cobra.Command{
+		Use:     "update <name-or-ref> [--role <r>] [--prompt <text> | --prompt-file <path>]",
+		Aliases: []string{"edit"},
+		Short:   "Refine a persona's role or identity prompt",
+		Long: `Set a persona's role or identity prompt after minting. Only the fields you
+pass change; everything else is left alone.
+
+This is not a nicety — it is where a persona becomes itself.
+` + "`persona create`" + ` composes the prompt from the ROLE TEMPLATE, so a fresh
+persona is generic by construction: which PRs it shipped, which lineage it
+continues, which habits to keep are all written here, afterwards.
+
+--prompt-file reads the prompt from a file and --prompt - from stdin, since
+identity prompts are multi-paragraph markdown.
+
+There is deliberately no --name: a persona name is permanent
+(cor:agt:020:02). Renaming would free the old name to be re-minted while
+merged PR trailers and chat history still reference it. Use ` + "`agent update`" + `
+for an agent's non-persona fields (--visibility, --description, …).`,
+		Example: `  hadron team persona update Iris --prompt-file iris-identity.md
+  hadron team persona update Iris --role backend-engineer
+  cat prompt.md | hadron team persona update hrn:agent:acme.com:iris --prompt -`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			changed := cmd.Flags().Changed
+			if !changed("role") && !changed("prompt") && !changed("prompt-file") {
+				return exitcode.Newf(exitcode.Usage, "nothing to update — pass --role and/or --prompt/--prompt-file")
+			}
+			var rolePtr, promptPtr *string
+			if changed("role") {
+				if strings.TrimSpace(role) == "" {
+					return exitcode.Newf(exitcode.Usage, "empty --role — a persona's role names its roles:<role> node")
+				}
+				rolePtr = &role
+			}
+			if changed("prompt") || changed("prompt-file") {
+				text, err := resolvePromptText(cmd, prompt, promptFile, f.IOStreams.In)
+				if err != nil {
+					return err
+				}
+				promptPtr = &text
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			// Resolve first so a persona name works as the argument, and so a
+			// plain agent is refused before any write — the failure mode #385
+			// records is a mutation aimed at a live entity.
+			p, err := resolvePersona(cmd.Context(), client, optStr(org), args[0])
+			if err != nil {
+				return err
+			}
+			resp, err := gen.UpdateTeamPersona(cmd.Context(), client, p.Id, rolePtr, promptPtr)
+			if err != nil {
+				return api.MapError(err)
+			}
+			if resp.UpdateAgent == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no persona")
+			}
+			dto := personaDTOFromFields(resp.UpdateAgent.PersonaAgentFields)
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				fields := []string{}
+				if rolePtr != nil {
+					fields = append(fields, "role")
+				}
+				if promptPtr != nil {
+					// The byte count is the receipt that a --prompt-file of
+					// multi-paragraph markdown actually landed.
+					fields = append(fields, fmt.Sprintf("prompt (%d bytes)", len(*promptPtr)))
+				}
+				_, err := fmt.Fprintf(w, "✓ updated persona %s%s (%s) — %s\n",
+					dto.PersonaName, roleSuffix(dto.PersonaRole), dto.URN, strings.Join(fields, ", "))
+				return err
+			})
+		},
+	}
+	cmd.Flags().StringVar(&org, "org", "", "disambiguate a persona name that exists in more than one org")
+	cmd.Flags().StringVar(&role, "role", "", "persona role")
+	cmd.Flags().StringVar(&prompt, "prompt", "", "identity prompt (- reads stdin)")
+	cmd.Flags().StringVar(&promptFile, "prompt-file", "", "read the identity prompt from a file (multi-paragraph markdown)")
+	cmd.MarkFlagsMutuallyExclusive("prompt", "prompt-file")
 	return cmd
 }
 
