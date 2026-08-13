@@ -101,6 +101,29 @@ chat-message nodeType — D-2026-08-07-004), owned server-side.`,
 			if collections == nil {
 				collections = []string{}
 			}
+			// An App may hold several app-class memories, but the collections
+			// belong to its ONE team shared memory — the worklog's home — which
+			// the server resolves from the App. So -m naming some other
+			// app-class memory declares somewhere else than the caller pointed
+			// at (Codex P2 on PR #413). The write is still correct; what would
+			// be wrong is reporting the memory they named. Report where it
+			// actually landed, and say so.
+			target := resp.Memory
+			if converged.UpdateTeamCollections.MemoryId != resp.Memory.Id {
+				actual, aerr := gen.GetMemory(ctx, client, converged.UpdateTeamCollections.MemoryId)
+				if aerr != nil {
+					return api.MapError(aerr)
+				}
+				if actual.Memory == nil {
+					return exitcode.Newf(exitcode.NotFound,
+						"the collections were declared on memory %s, which could not be read back",
+						converged.UpdateTeamCollections.MemoryId)
+				}
+				fmt.Fprintf(f.IOStreams.ErrOut,
+					"note: %s is not this App's team memory — the collections were declared on %s, where the worklog lives\n",
+					resp.Memory.Urn, actual.Memory.Urn)
+				target = actual.Memory
+			}
 
 			// The group chat needs no materialization here: the server
 			// bootstraps chats:team in the App's shared memory on the first
@@ -110,10 +133,10 @@ chat-message nodeType — D-2026-08-07-004), owned server-side.`,
 				Memory      string   `json:"memory"`
 				Collections []string `json:"collections"`
 				Status      string   `json:"status"`
-			}{resp.Memory.Urn, collections, status}
+			}{target.Urn, collections, status}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ %s collection(s) %s in %s\n",
-					strings.Join(collections, ", "), status, resp.Memory.Urn)
+					strings.Join(collections, ", "), status, target.Urn)
 				return err
 			})
 		},

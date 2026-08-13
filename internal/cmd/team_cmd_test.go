@@ -1858,3 +1858,64 @@ func TestTeamSessionLogUnboundSessionExplainsRemedy(t *testing.T) {
 		t.Errorf("the error must name the remedy, got: %v", err)
 	}
 }
+
+// An App may hold several app-class memories, but the collections belong to its
+// ONE team shared memory, which the server resolves from the App. If -m names a
+// different app-class memory, the declaration lands elsewhere — report where it
+// actually landed rather than echoing what was asked for (Codex P2 on PR #413).
+func TestTeamInitReportsWhereTheDeclarationLanded(t *testing.T) {
+	calls := 0
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string          `json:"operationName"`
+			Variables     json.RawMessage `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "GetMemory":
+			calls++
+			var vars struct {
+				Ref string `json:"ref"`
+			}
+			_ = json.Unmarshal(body.Variables, &vars)
+			// First call: the memory named by -m. Second: the one the server
+			// actually declared on, read back by id.
+			id, urn := "m-other", "hrn:mem:acme.com:other-app-mem"
+			if vars.Ref == "m-team" {
+				id, urn = "m-team", "hrn:mem:acme.com:eng-team-shared"
+			}
+			_, _ = w.Write([]byte(`{"data":{"memory":{"id":"` + id + `","urn":"` + urn + `","name":"M",
+				"shortDescription":null,"description":null,"class":"app","visibility":"ORGANIZATION",
+				"organizationId":"o1","isEncrypted":false,"tags":[],"source":null,"syncStatus":"NONE",
+				"vectorIndexEnabled":false,"maxRevCount":10,"data":null,"schema":null,
+				"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`))
+		case "TeamMemoryApp":
+			_, _ = w.Write([]byte(`{"data":{"memory":{"id":"m-other","appId":"app1"}}}`))
+		case "UpdateTeamCollections":
+			_, _ = w.Write([]byte(`{"data":{"updateTeamCollections":{"memoryId":"m-team",
+				"collections":["worklog"],"changed":true}}}`))
+		default:
+			t.Errorf("unexpected operation %q", body.OperationName)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
+		}
+	}))
+	t.Cleanup(gql.Close)
+
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "init", "-m", "acme.com::other-app-mem", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// The reported memory is where the server declared, not what -m named.
+	if !strings.Contains(out.String(), "hrn:mem:acme.com:eng-team-shared") {
+		t.Errorf("must report the memory actually declared on: %s", out.String())
+	}
+	if strings.Contains(out.String(), "other-app-mem") {
+		t.Errorf("must not echo the requested memory as the target: %s", out.String())
+	}
+	if calls != 2 {
+		t.Errorf("expected a read-back of the actual target memory, got %d GetMemory calls", calls)
+	}
+}
