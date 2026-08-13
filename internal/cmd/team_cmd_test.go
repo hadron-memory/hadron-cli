@@ -1098,7 +1098,7 @@ func TestTeamInitIdempotent(t *testing.T) {
 	}
 }
 
-// #384: the worklog lives in the team APP memory (D13/D14). Any other class
+// #384: the worklog lives in the team App's OWN memory (D13/D14). Any other class
 // is refused BEFORE the write — a system memory in particular is read-only
 // from every App that runs it (cor:dmo:050:03), so declaring the collection
 // there reports success on a setup that can never be written.

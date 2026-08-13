@@ -136,8 +136,8 @@ chat-message nodeType — D-2026-08-07-004), owned server-side.`,
 }
 
 // requireAppClass refuses any memory that is not the team App's own
-// app-class memory (#384). The worklog is a collection in the team APP
-// memory (#369 D13/D14), and the mistake this catches is not exotic: on a
+// app-class memory (#384). The worklog is a collection in the team App's
+// OWN memory (#369 D13/D14), and the mistake this catches is not exotic: on a
 // fresh team App the correct memory does not exist yet (created lazily on
 // the first `team chat post`, hadron-server#951), so the Team Agent's
 // system memory is the only team-shaped memory in sight — and a system
