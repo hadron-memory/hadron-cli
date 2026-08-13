@@ -1773,3 +1773,74 @@ func TestTeamSessionStartWithoutMemoryOmitsAppRef(t *testing.T) {
 		t.Errorf("no -m means no App resolution call")
 	}
 }
+
+// `session log -m <memory>` overrides the binding's worklog home, so the App
+// the record lands in must come from THAT memory — not from the binding's, and
+// not from an ambient --app context. Resolving via the App-context helper let
+// an explicit override record against the wrong App (Codex P1 on PR #409).
+func TestTeamSessionLogMemoryOverrideResolvesItsOwnApp(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m2","appId":"other-app"}}}`,
+		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","personaName":"Iris",
+			"tool":"claude-code","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
+			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "log", "--pr", "371", "-m", "acme.com::other-team",
+		"--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var memVars struct {
+		Ref string `json:"ref"`
+	}
+	_ = json.Unmarshal(captured["TeamMemoryApp"], &memVars)
+	if memVars.Ref != "hrn:mem:acme.com:other-team" {
+		t.Errorf("the App must be resolved from the -m memory, got %q", memVars.Ref)
+	}
+	var workVars struct {
+		AppRef string `json:"appRef"`
+	}
+	_ = json.Unmarshal(captured["RecordTeamWork"], &workVars)
+	if workVars.AppRef != "other-app" {
+		t.Errorf("record must target the overridden memory's App, got %q", workVars.AppRef)
+	}
+}
+
+// A session that started before App binding (or without -m) has no appId and
+// can never be bound, so the worklog write refuses. The CLI must say what to do
+// rather than surfacing the bare typed code (Codex P1 on PR #409).
+func TestTeamSessionLogUnboundSessionExplainsRemedy(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, _ := captureGraphQL(t, map[string]string{
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"RecordTeamWork": `{"errors":[{"message":"Session \"s-new\" is not a session of this App",
+			"extensions":{"code":"SESSION_NOT_IN_APP"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("unbound session: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "session start") {
+		t.Errorf("the error must name the remedy, got: %v", err)
+	}
+}

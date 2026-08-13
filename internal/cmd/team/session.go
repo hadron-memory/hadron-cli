@@ -223,15 +223,17 @@ binding, --force replaces it — first ending the session that binding names
 			// memory IS the App's shared memory, so -m determines the App.
 			var appRefArg *string
 			if teamMemory != "" {
-				resp, merr := gen.TeamMemoryApp(ctx, client, cmdutil.CanonicalMemoryRef(teamMemory))
-				if merr != nil {
-					return api.MapError(merr)
+				resolved, aerr := appForTeamMemory(ctx, client, cmdutil.CanonicalMemoryRef(teamMemory))
+				if aerr != nil {
+					return aerr
 				}
-				if resp.Memory == nil || resp.Memory.AppId == nil || *resp.Memory.AppId == "" {
-					return exitcode.Newf(exitcode.Usage,
-						"%s is not an App memory — the worklog lives in a team App's shared memory", teamMemory)
-				}
-				appRefArg = resp.Memory.AppId
+				appRefArg = &resolved
+			} else if ambient, aerr := f.App(); aerr == nil && ambient != "" {
+				// No -m, but an App context is configured — bind to it anyway.
+				// Binding is only possible at start (updateSession cannot set
+				// appId), so an unbound session can NEVER record work: take
+				// every chance not to create one.
+				appRefArg = &ambient
 			}
 			input := &gen.SessionInput{
 				Id:             newSessionID(),
@@ -451,7 +453,7 @@ team memory, --pr/--branch degrade to the denormalization alone.`,
 				// trusting the binding's copy). The CLI used to compose all of that
 				// and write it through the generic object surface, which put the
 				// record shape in two places with nothing keeping them in step.
-				appRef, aerr := resolveTeamApp(ctx, f, b)
+				appRef, aerr := appForTeamMemory(ctx, client, teamMem)
 				if aerr != nil {
 					return aerr
 				}
@@ -463,6 +465,14 @@ team memory, --pr/--branch degrade to the denormalization alone.`,
 					ctx, client, appRef, b.SessionID, b.Tool, kind, canonical, action, detailArg,
 				)
 				if rerr != nil {
+					// A session that started without an App cannot record work, and
+					// no mutation can bind it after the fact — so say what to do
+					// instead of surfacing the bare typed code.
+					if api.HasErrorCode(rerr, "SESSION_NOT_IN_APP") {
+						return exitcode.Newf(exitcode.Usage,
+							"session %s is not bound to this team App, so it cannot record work — a session started before App binding (or without -m) cannot be bound afterwards; run `hadron team session start --as %s -m %s` to start a bound one",
+							b.SessionID, b.PersonaName, teamMem)
+					}
 					return api.MapError(rerr)
 				}
 				// Prefer the server's canonical spelling for display and local state:
@@ -509,6 +519,25 @@ team memory, --pr/--branch degrade to the denormalization alone.`,
 	cmd.MarkFlagsMutuallyExclusive("pr", "issue", "commit", "branch")
 	cmd.MarkFlagsOneRequired("pr", "issue", "commit", "branch")
 	return cmd
+}
+
+// appForTeamMemory resolves the team App from the team MEMORY the caller
+// named. Deliberately NOT resolveTeamApp: that prefers --app / the configured
+// App context, so an explicit `-m <memory>` (on `session log` or the provenance
+// query) could act against a different App than the memory it names — and with
+// the session-to-App gate on the worklog write, fail confusingly as
+// SESSION_NOT_IN_APP rather than honestly as a mismatch. The team memory IS the
+// App's shared app-class memory, so Memory.appId is the answer.
+func appForTeamMemory(ctx context.Context, client graphql.Client, teamMem string) (string, error) {
+	resp, err := gen.TeamMemoryApp(ctx, client, teamMem)
+	if err != nil {
+		return "", api.MapError(err)
+	}
+	if resp.Memory == nil || resp.Memory.AppId == nil || *resp.Memory.AppId == "" {
+		return "", exitcode.Newf(exitcode.Usage,
+			"%s is not an App memory — the worklog lives in a team App's shared memory", teamMem)
+	}
+	return *resp.Memory.AppId, nil
 }
 
 // defaultRepo qualifies bare artifact numbers/shas: the binding's recorded
@@ -800,15 +829,10 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 	// the binding — to its App. Deliberately NOT resolveTeamApp: that prefers
 	// --app / the configured App context, which would let the provenance query
 	// answer for a different App than the team memory it is scoped to.
-	resp, merr := gen.TeamMemoryApp(ctx, client, teamMem)
-	if merr != nil {
-		return api.MapError(merr)
+	appRef, err := appForTeamMemory(ctx, client, teamMem)
+	if err != nil {
+		return err
 	}
-	if resp.Memory == nil || resp.Memory.AppId == nil || *resp.Memory.AppId == "" {
-		return exitcode.Newf(exitcode.Usage,
-			"%s is not an App memory — the worklog lives in a team App's shared memory", teamMem)
-	}
-	appRef := *resp.Memory.AppId
 	// #396: the dedicated provenance read replaces a generic findObjects loop
 	// over the `worklog` collection. kind stays part of the match — PRs and
 	// issues share GitHub's number space, so ref alone would mix an issue's
