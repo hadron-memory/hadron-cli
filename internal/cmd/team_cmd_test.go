@@ -492,8 +492,12 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 	if host, _ := vars.Input["host"].(string); host == "" {
 		t.Errorf("host must default to the hostname, got %v", vars.Input["host"])
 	}
-	// Unset optional SessionInput fields are OMITTED, never null.
-	for _, k := range []string{"branch", "llmModel", "prNumber", "type"} {
+	// Unset optional SessionInput fields are OMITTED, never null. `appRef`
+	// (#943) is in this list because it arrived via a SCHEMA REFRESH, and a
+	// refreshed input field does not inherit the operation's omitempty — the
+	// PR-#139 contentType trap. This assertion is what makes the next refresh
+	// that drops the directive fail loudly instead of silently sending null.
+	for _, k := range []string{"appRef", "branch", "llmModel", "prNumber", "type"} {
 		if _, present := vars.Input[k]; present {
 			t.Errorf("unset %q must be omitted from SessionInput, got %v", k, vars.Input[k])
 		}
