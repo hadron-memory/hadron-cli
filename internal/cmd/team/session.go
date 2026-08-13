@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/google/uuid"
@@ -216,9 +215,30 @@ binding, --force replaces it — first ending the session that binding names
 			if host == "" {
 				host, _ = os.Hostname()
 			}
+			// #396/#391: bind the session to the team App up front. The worklog
+			// write (`recordTeamWork`) refuses a session that is not a session
+			// OF the App — deliberately, since work is recorded THROUGH a
+			// session — and `updateSession` cannot set appId afterwards, so a
+			// session that starts unbound can never record work. The team
+			// memory IS the App's shared memory, so -m determines the App.
+			var appRefArg *string
+			if teamMemory != "" {
+				resolved, aerr := appForTeamMemory(ctx, client, cmdutil.CanonicalMemoryRef(teamMemory))
+				if aerr != nil {
+					return aerr
+				}
+				appRefArg = &resolved
+			} else if ambient, aerr := f.App(); aerr == nil && ambient != "" {
+				// No -m, but an App context is configured — bind to it anyway.
+				// Binding is only possible at start (updateSession cannot set
+				// appId), so an unbound session can NEVER record work: take
+				// every chance not to create one.
+				appRefArg = &ambient
+			}
 			input := &gen.SessionInput{
 				Id:             newSessionID(),
 				AgentRef:       &p.Id,
+				AppRef:         appRefArg,
 				Repo:           optStr(repo),
 				Branch:         optStr(branch),
 				Host:           optStr(host),
@@ -427,24 +447,39 @@ team memory, --pr/--branch degrade to the denormalization alone.`,
 			}
 			recorded := "session"
 			if teamMem != "" {
-				fields := map[string]any{
-					"sessionId":   b.SessionID,
-					"personaName": b.PersonaName,
-					"tool":        b.Tool,
-					"kind":        kind,
-					"ref":         canonical,
-					"action":      action,
-					"at":          time.Now().UTC().Format(time.RFC3339),
+				// #396: the dedicated operation owns the record — its field set, the
+				// `at` stamp, and the persona derivation (the server resolves the
+				// session's persona, or the attributed user's handle, rather than
+				// trusting the binding's copy). The CLI used to compose all of that
+				// and write it through the generic object surface, which put the
+				// record shape in two places with nothing keeping them in step.
+				appRef, aerr := appForTeamMemory(ctx, client, teamMem)
+				if aerr != nil {
+					return aerr
 				}
+				var detailArg *json.RawMessage
 				if detailRaw != nil {
-					fields["detail"] = detailRaw
+					detailArg = &detailRaw
 				}
-				fieldsJSON, err := json.Marshal(fields)
-				if err != nil {
-					return err
+				logged, rerr := gen.RecordTeamWork(
+					ctx, client, appRef, b.SessionID, b.Tool, kind, canonical, action, detailArg,
+				)
+				if rerr != nil {
+					// A session that started without an App cannot record work, and
+					// no mutation can bind it after the fact — so say what to do
+					// instead of surfacing the bare typed code.
+					if api.HasErrorCode(rerr, "SESSION_NOT_IN_APP") {
+						return exitcode.Newf(exitcode.Usage,
+							"session %s is not bound to this team App, so it cannot record work — a session started before App binding (or without -m) cannot be bound afterwards; run `hadron team session start --as %s -m %s` to start a bound one",
+							b.SessionID, b.PersonaName, teamMem)
+					}
+					return api.MapError(rerr)
 				}
-				if _, err := gen.CreateObject(ctx, client, teamMem, "worklog", fieldsJSON, nil, nil); err != nil {
-					return api.MapError(err)
+				// Prefer the server's canonical spelling for display and local state:
+				// it is the equality key the provenance query matches on, so echoing
+				// our own would let the two diverge.
+				if logged.RecordTeamWork.Ref != "" {
+					canonical = logged.RecordTeamWork.Ref
 				}
 				recorded = "worklog"
 			} else {
@@ -484,6 +519,25 @@ team memory, --pr/--branch degrade to the denormalization alone.`,
 	cmd.MarkFlagsMutuallyExclusive("pr", "issue", "commit", "branch")
 	cmd.MarkFlagsOneRequired("pr", "issue", "commit", "branch")
 	return cmd
+}
+
+// appForTeamMemory resolves the team App from the team MEMORY the caller
+// named. Deliberately NOT resolveTeamApp: that prefers --app / the configured
+// App context, so an explicit `-m <memory>` (on `session log` or the provenance
+// query) could act against a different App than the memory it names — and with
+// the session-to-App gate on the worklog write, fail confusingly as
+// SESSION_NOT_IN_APP rather than honestly as a mismatch. The team memory IS the
+// App's shared app-class memory, so Memory.appId is the answer.
+func appForTeamMemory(ctx context.Context, client graphql.Client, teamMem string) (string, error) {
+	resp, err := gen.TeamMemoryApp(ctx, client, teamMem)
+	if err != nil {
+		return "", api.MapError(err)
+	}
+	if resp.Memory == nil || resp.Memory.AppId == nil || *resp.Memory.AppId == "" {
+		return "", exitcode.Newf(exitcode.Usage,
+			"%s is not an App memory — the worklog lives in a team App's shared memory", teamMem)
+	}
+	return *resp.Memory.AppId, nil
 }
 
 // defaultRepo qualifies bare artifact numbers/shas: the binding's recorded
@@ -770,41 +824,43 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 	if err != nil {
 		return exitcode.New(exitcode.Usage, err)
 	}
-	// kind is part of the match: PRs and issues share GitHub's number space,
-	// so ref alone would mix an issue's sessions into a PR's provenance.
-	matchJSON, err := json.Marshal(map[string]string{"ref": canonical, "kind": kind})
+	// The worklog read addresses the APP (the team memory IS its shared
+	// app-class memory), so resolve the memory the caller named — from -m or
+	// the binding — to its App. Deliberately NOT resolveTeamApp: that prefers
+	// --app / the configured App context, which would let the provenance query
+	// answer for a different App than the team memory it is scoped to.
+	appRef, err := appForTeamMemory(ctx, client, teamMem)
 	if err != nil {
 		return err
 	}
-	match := json.RawMessage(matchJSON)
-	// Page to exhaustion — --pr promises the COMPLETE provenance set, and an
-	// unbounded findObjects call is one default page (the issue-#23 rule).
+	// #396: the dedicated provenance read replaces a generic findObjects loop
+	// over the `worklog` collection. kind stays part of the match — PRs and
+	// issues share GitHub's number space, so ref alone would mix an issue's
+	// sessions into a PR's provenance — but the server now normalizes the ref
+	// filter to the same canonical key it stored, so the client no longer has
+	// to agree with it about spelling.
 	sessionIDs := []string{}
 	seen := map[string]bool{}
 	pageSize := sessionPageSize
 	for offset := 0; ; {
 		off := offset
-		resp, err := gen.FindObjects(ctx, client, teamMem, "worklog", &match, nil, nil, &pageSize, &off)
-		if err != nil {
-			return api.MapError(err)
+		resp, werr := gen.TeamWorkItems(
+			ctx, client, appRef, nil, &canonical, &kind, nil, &pageSize, &off,
+		)
+		if werr != nil {
+			return api.MapError(werr)
 		}
-		if resp.FindObjects == nil {
-			break
-		}
-		for _, obj := range resp.FindObjects.Objects {
-			var row struct {
-				SessionID string `json:"sessionId"`
-			}
-			if err := json.Unmarshal(obj, &row); err != nil {
-				return fmt.Errorf("unparseable worklog object: %w", err)
-			}
-			if row.SessionID != "" && !seen[row.SessionID] {
-				seen[row.SessionID] = true
-				sessionIDs = append(sessionIDs, row.SessionID)
+		items := resp.TeamWorkItems.Items
+		for _, it := range items {
+			if it.SessionId != "" && !seen[it.SessionId] {
+				seen[it.SessionId] = true
+				sessionIDs = append(sessionIDs, it.SessionId)
 			}
 		}
-		offset += len(resp.FindObjects.Objects)
-		if len(resp.FindObjects.Objects) < pageSize {
+		// Page to exhaustion — --pr promises the COMPLETE provenance set, and
+		// an unbounded read is one default page (the issue-#23 rule).
+		offset += len(items)
+		if len(items) < pageSize {
 			break
 		}
 	}

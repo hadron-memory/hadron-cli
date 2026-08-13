@@ -468,6 +468,7 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"PersonaAgents":    rosterJSON,
 		"TeamSessions":     `{"data":{"sessions":[` + endedSessionJSON + `]}}`,
+		"TeamMemoryApp":    `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, out := testFactory(t)
@@ -492,12 +493,16 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 	if host, _ := vars.Input["host"].(string); host == "" {
 		t.Errorf("host must default to the hostname, got %v", vars.Input["host"])
 	}
-	// Unset optional SessionInput fields are OMITTED, never null. `appRef`
-	// (#943) is in this list because it arrived via a SCHEMA REFRESH, and a
-	// refreshed input field does not inherit the operation's omitempty — the
-	// PR-#139 contentType trap. This assertion is what makes the next refresh
-	// that drops the directive fail loudly instead of silently sending null.
-	for _, k := range []string{"appRef", "branch", "llmModel", "prNumber", "type"} {
+	// #396/#391: with -m the session is BOUND to the team App. That binding is
+	// what makes the worklog write possible at all — recordTeamWork refuses a
+	// session that is not a session of the App, and updateSession cannot set
+	// appId after the fact, so an unbound session can never record work.
+	if vars.Input["appRef"] != "app1" {
+		t.Errorf("session must be bound to the team App, got appRef=%v", vars.Input["appRef"])
+	}
+	// Unset optional SessionInput fields are OMITTED, never null (`appRef`
+	// without -m is covered by TestTeamSessionStartWithoutMemoryOmitsAppRef).
+	for _, k := range []string{"branch", "llmModel", "prNumber", "type"} {
 		if _, present := vars.Input[k]; present {
 			t.Errorf("unset %q must be omitted from SessionInput, got %v", k, vars.Input[k])
 		}
@@ -634,7 +639,10 @@ func TestTeamSessionLogWritesWorklogAndSession(t *testing.T) {
 			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
 			"transcriptPath":null,"llmModel":null}}}`,
-		"CreateObject": `{"data":{"createObject":{"id":"o1"}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","personaName":"Iris",
+			"tool":"claude-code","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
+			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -652,22 +660,25 @@ func TestTeamSessionLogWritesWorklogAndSession(t *testing.T) {
 	if _, present := vars["branch"]; present {
 		t.Errorf("unset branch must be omitted, got %v", vars["branch"])
 	}
-	var objVars struct {
-		MemoryRef  string         `json:"memoryRef"`
-		ObjectType string         `json:"objectType"`
-		Fields     map[string]any `json:"fields"`
+	// #396: the record goes through the dedicated operation, so the CLI sends
+	// only what it knows (session, tool, kind, ref, action) — the server owns
+	// the record shape, the `at` stamp, and the persona derivation. No
+	// client-composed field map, and no generic object write.
+	var workVars struct {
+		AppRef     string `json:"appRef"`
+		SessionRef string `json:"sessionRef"`
+		Tool       string `json:"tool"`
+		Kind       string `json:"kind"`
+		Ref        string `json:"ref"`
+		Action     string `json:"action"`
 	}
-	_ = json.Unmarshal(captured["CreateObject"], &objVars)
-	if objVars.MemoryRef != "hrn:mem:acme.com:eng-team" || objVars.ObjectType != "worklog" {
-		t.Errorf("worklog target: %+v", objVars)
+	_ = json.Unmarshal(captured["RecordTeamWork"], &workVars)
+	if workVars.AppRef != "app1" || workVars.SessionRef != "s-new" || workVars.Tool != "claude-code" ||
+		workVars.Kind != "pr" || workVars.Ref != "hadron-memory/hadron-cli#371" || workVars.Action != "worked-on" {
+		t.Errorf("recordTeamWork vars: %+v", workVars)
 	}
-	fld := objVars.Fields
-	if fld["sessionId"] != "s-new" || fld["personaName"] != "Iris" || fld["tool"] != "claude-code" ||
-		fld["kind"] != "pr" || fld["ref"] != "hadron-memory/hadron-cli#371" || fld["action"] != "worked-on" {
-		t.Errorf("worklog fields: %v", fld)
-	}
-	if at, _ := fld["at"].(string); at == "" {
-		t.Errorf("worklog at must be set, got %v", fld["at"])
+	if _, wrote := captured["CreateObject"]; wrote {
+		t.Errorf("the worklog must not be hand-written through the generic object surface")
 	}
 	var dto struct {
 		Recorded string `json:"recorded"`
@@ -700,7 +711,10 @@ func TestTeamSessionLogBranch(t *testing.T) {
 			"type":"DEVELOPER","repo":null,"branch":"team-chat","prNumber":null,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
 			"transcriptPath":null,"llmModel":null}}}`,
-		"CreateObject": `{"data":{"createObject":{"id":"o1"}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","personaName":"Iris",
+			"tool":"claude-code","kind":"branch","ref":"hadron-memory/hadron-cli:team-chat","action":"pushed",
+			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -716,13 +730,15 @@ func TestTeamSessionLogBranch(t *testing.T) {
 	if _, present := vars["prNumber"]; present {
 		t.Errorf("a branch milestone must not touch prNumber, got %v", vars["prNumber"])
 	}
-	var objVars struct {
-		Fields map[string]any `json:"fields"`
+	var workVars struct {
+		Kind   string `json:"kind"`
+		Ref    string `json:"ref"`
+		Action string `json:"action"`
 	}
-	_ = json.Unmarshal(captured["CreateObject"], &objVars)
-	if objVars.Fields["kind"] != "branch" || objVars.Fields["ref"] != "hadron-memory/hadron-cli:team-chat" ||
-		objVars.Fields["action"] != "pushed" {
-		t.Errorf("worklog fields: %v", objVars.Fields)
+	_ = json.Unmarshal(captured["RecordTeamWork"], &workVars)
+	if workVars.Kind != "branch" || workVars.Ref != "hadron-memory/hadron-cli:team-chat" ||
+		workVars.Action != "pushed" {
+		t.Errorf("recordTeamWork vars: %+v", workVars)
 	}
 	if !strings.Contains(out.String(), `"recorded": "worklog"`) {
 		t.Errorf("log output: %s", out.String())
@@ -733,8 +749,11 @@ func TestTeamSessionLogBranch(t *testing.T) {
 func TestTeamSessionListProvenanceByCommit(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"FindObjects": `{"data":{"findObjects":{"total":1,"objects":[
-			{"id":"o1","type":"worklog","sessionId":"s-done","ref":"hadron-memory/hadron-cli@93200b2"}]}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"TeamWorkItems": `{"data":{"teamWorkItems":{"total":1,"items":[
+			{"nodeId":"w1","sessionId":"s-done","personaName":"Iris","tool":"github","kind":"commit",
+			 "ref":"hadron-memory/hadron-cli@93200b2","action":"pushed","at":"2026-08-13T10:00:00Z",
+			 "detail":null}]}}}`,
 		"GetTeamSession": `{"data":{"session":` + endedSessionJSON + `}}`,
 		"PersonaAgents":  rosterJSON,
 	})
@@ -746,11 +765,12 @@ func TestTeamSessionListProvenanceByCommit(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars struct {
-		Match map[string]string `json:"match"`
+		Ref  string `json:"ref"`
+		Kind string `json:"kind"`
 	}
-	_ = json.Unmarshal(captured["FindObjects"], &vars)
-	if vars.Match["ref"] != "hadron-memory/hadron-cli@93200b2" || vars.Match["kind"] != "commit" {
-		t.Errorf("worklog match: %v", vars.Match)
+	_ = json.Unmarshal(captured["TeamWorkItems"], &vars)
+	if vars.Ref != "hadron-memory/hadron-cli@93200b2" || vars.Kind != "commit" {
+		t.Errorf("worklog lookup: %+v", vars)
 	}
 	if !strings.Contains(out.String(), `"id": "s-done"`) {
 		t.Errorf("provenance rows: %s", out.String())
@@ -771,7 +791,10 @@ func TestTeamSessionLogIssueTouchesLiveness(t *testing.T) {
 			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":null,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
 			"transcriptPath":null,"llmModel":null}}}`,
-		"CreateObject": `{"data":{"createObject":{"id":"o1"}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","personaName":"Iris",
+			"tool":"claude-code","kind":"issue","ref":"hadron-memory/hadron-cli#362","action":"worked-on",
+			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -789,12 +812,13 @@ func TestTeamSessionLogIssueTouchesLiveness(t *testing.T) {
 			t.Errorf("an issue milestone must send the EMPTY touch — %q present: %v", k, vars[k])
 		}
 	}
-	var objVars struct {
-		Fields map[string]any `json:"fields"`
+	var workVars struct {
+		Kind string `json:"kind"`
+		Ref  string `json:"ref"`
 	}
-	_ = json.Unmarshal(captured["CreateObject"], &objVars)
-	if objVars.Fields["kind"] != "issue" || objVars.Fields["ref"] != "hadron-memory/hadron-cli#362" {
-		t.Errorf("worklog fields: %v", objVars.Fields)
+	_ = json.Unmarshal(captured["RecordTeamWork"], &workVars)
+	if workVars.Kind != "issue" || workVars.Ref != "hadron-memory/hadron-cli#362" {
+		t.Errorf("recordTeamWork vars: %+v", workVars)
 	}
 }
 
@@ -1158,9 +1182,11 @@ func TestTeamSessionListProvenanceQuery(t *testing.T) {
 	// milestones, then a tail page carrying s-hidden.
 	fullPage := make([]string, 0, 200)
 	for i := 0; i < 200; i++ {
-		fullPage = append(fullPage, fmt.Sprintf(`{"id":"o%d","type":"worklog","sessionId":"s-done","ref":"hadron-memory/hadron-cli#371"}`, i))
+		fullPage = append(fullPage, fmt.Sprintf(`{"nodeId":"w%d","sessionId":"s-done","personaName":"Iris",
+			"tool":"github","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"opened",
+			"at":"2026-08-13T10:00:00Z","detail":null}`, i))
 	}
-	var findObjectsVars json.RawMessage
+	var workItemVars json.RawMessage
 	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			OperationName string          `json:"operationName"`
@@ -1169,20 +1195,24 @@ func TestTeamSessionListProvenanceQuery(t *testing.T) {
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		w.Header().Set("Content-Type", "application/json")
 		switch body.OperationName {
-		case "FindObjects":
-			findObjectsVars = body.Variables
+		case "TeamMemoryApp":
+			_, _ = w.Write([]byte(`{"data":{"memory":{"id":"m1","appId":"app1"}}}`))
+		case "TeamWorkItems":
+			workItemVars = body.Variables
 			var vars struct {
 				Offset *int `json:"offset"`
 			}
 			_ = json.Unmarshal(body.Variables, &vars)
 			if vars.Offset == nil || *vars.Offset == 0 {
-				_, _ = w.Write([]byte(`{"data":{"findObjects":{"total":201,"objects":[` + strings.Join(fullPage, ",") + `]}}}`))
+				_, _ = w.Write([]byte(`{"data":{"teamWorkItems":{"total":201,"items":[` + strings.Join(fullPage, ",") + `]}}}`))
 			} else {
 				if *vars.Offset != 200 {
 					t.Errorf("unexpected offset %d", *vars.Offset)
 				}
-				_, _ = w.Write([]byte(`{"data":{"findObjects":{"total":201,"objects":[
-					{"id":"o200","type":"worklog","sessionId":"s-hidden","ref":"hadron-memory/hadron-cli#371"}]}}}`))
+				_, _ = w.Write([]byte(`{"data":{"teamWorkItems":{"total":201,"items":[
+					{"nodeId":"w200","sessionId":"s-hidden","personaName":"Iris","tool":"github","kind":"pr",
+					 "ref":"hadron-memory/hadron-cli#371","action":"opened","at":"2026-08-13T10:00:00Z",
+					 "detail":null}]}}}`))
 			}
 		case "PersonaAgents":
 			_, _ = w.Write([]byte(rosterJSON))
@@ -1211,16 +1241,17 @@ func TestTeamSessionListProvenanceQuery(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var match struct {
-		MemoryRef string            `json:"memoryRef"`
-		Match     map[string]string `json:"match"`
+	var lookup struct {
+		AppRef string `json:"appRef"`
+		Ref    string `json:"ref"`
+		Kind   string `json:"kind"`
 	}
-	_ = json.Unmarshal(findObjectsVars, &match)
-	// kind is part of the match — PRs and issues share GitHub's number
+	_ = json.Unmarshal(workItemVars, &lookup)
+	// #396: the dedicated read addresses the App and filters server-side.
+	// kind stays part of the lookup — PRs and issues share GitHub's number
 	// space, so ref alone would mix artifact kinds.
-	if match.Match["ref"] != "hadron-memory/hadron-cli#371" || match.Match["kind"] != "pr" ||
-		match.MemoryRef != "hrn:mem:acme.com:eng-team" {
-		t.Errorf("worklog lookup: %+v", match)
+	if lookup.Ref != "hadron-memory/hadron-cli#371" || lookup.Kind != "pr" || lookup.AppRef != "app1" {
+		t.Errorf("worklog lookup: %+v", lookup)
 	}
 	var got []struct {
 		ID        string `json:"id"`
@@ -1709,5 +1740,107 @@ func TestTeamSessionListActive(t *testing.T) {
 	}
 	if got[0].PersonaName == nil || *got[0].PersonaName != "Iris" {
 		t.Errorf("persona join: %s", out.String())
+	}
+}
+
+// Without -m there is no team memory, so no App to bind to: `appRef` must be
+// OMITTED, never sent as null. It arrived via a SCHEMA REFRESH, and a refreshed
+// input field does not inherit the operation's omitempty — the PR-#139
+// contentType trap. This assertion is what makes the next refresh that drops
+// the directive fail loudly instead of silently clearing the field.
+func TestTeamSessionStartWithoutMemoryOmitsAppRef(t *testing.T) {
+	teamGitDir(t)
+	gql, captured := captureGraphQL(t, map[string]string{
+		"PersonaAgents":    rosterJSON,
+		"TeamSessions":     `{"data":{"sessions":[` + endedSessionJSON + `]}}`,
+		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "Iris", "--tool", "claude-code",
+		"--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input map[string]any `json:"input"`
+	}
+	_ = json.Unmarshal(captured["StartTeamSession"], &vars)
+	if _, present := vars.Input["appRef"]; present {
+		t.Errorf("unset appRef must be omitted from SessionInput, got %v", vars.Input["appRef"])
+	}
+	if _, called := captured["TeamMemoryApp"]; called {
+		t.Errorf("no -m means no App resolution call")
+	}
+}
+
+// `session log -m <memory>` overrides the binding's worklog home, so the App
+// the record lands in must come from THAT memory — not from the binding's, and
+// not from an ambient --app context. Resolving via the App-context helper let
+// an explicit override record against the wrong App (Codex P1 on PR #409).
+func TestTeamSessionLogMemoryOverrideResolvesItsOwnApp(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m2","appId":"other-app"}}}`,
+		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","personaName":"Iris",
+			"tool":"claude-code","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
+			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "log", "--pr", "371", "-m", "acme.com::other-team",
+		"--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var memVars struct {
+		Ref string `json:"ref"`
+	}
+	_ = json.Unmarshal(captured["TeamMemoryApp"], &memVars)
+	if memVars.Ref != "hrn:mem:acme.com:other-team" {
+		t.Errorf("the App must be resolved from the -m memory, got %q", memVars.Ref)
+	}
+	var workVars struct {
+		AppRef string `json:"appRef"`
+	}
+	_ = json.Unmarshal(captured["RecordTeamWork"], &workVars)
+	if workVars.AppRef != "other-app" {
+		t.Errorf("record must target the overridden memory's App, got %q", workVars.AppRef)
+	}
+}
+
+// A session that started before App binding (or without -m) has no appId and
+// can never be bound, so the worklog write refuses. The CLI must say what to do
+// rather than surfacing the bare typed code (Codex P1 on PR #409).
+func TestTeamSessionLogUnboundSessionExplainsRemedy(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, _ := captureGraphQL(t, map[string]string{
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"RecordTeamWork": `{"errors":[{"message":"Session \"s-new\" is not a session of this App",
+			"extensions":{"code":"SESSION_NOT_IN_APP"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("unbound session: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "session start") {
+		t.Errorf("the error must name the remedy, got: %v", err)
 	}
 }

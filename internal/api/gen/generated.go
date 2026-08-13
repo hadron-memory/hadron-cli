@@ -11929,6 +11929,159 @@ func (v *PublicResourceRefFields) GetUrn() string { return v.Urn }
 // GetDescription returns PublicResourceRefFields.Description, and is useful for accessing the field via an interface.
 func (v *PublicResourceRefFields) GetDescription() *string { return v.Description }
 
+// RecordTeamWorkRecordTeamWorkTeamWorkItem includes the requested fields of the GraphQL type TeamWorkItem.
+// The GraphQL type's documentation follows.
+//
+// One team-worklog record (#947) — an externally visible work milestone (a PR
+// opened, a branch pushed, an issue closed), append-only. The worklog is the
+// AUTHORITATIVE PR-session join (spec cor:agt:020:03); Session.prNumber is a
+// latest-wins display convenience. ref carries the ONE canonical spelling per
+// artifact (github: owner/repo#N, owner/repo@sha, owner/repo:branch,
+// owner/repo; owner/repo lowercased).
+type RecordTeamWorkRecordTeamWorkTeamWorkItem struct {
+	TeamWorkItemFields `json:"-"`
+}
+
+// GetNodeId returns RecordTeamWorkRecordTeamWorkTeamWorkItem.NodeId, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) GetNodeId() string {
+	return v.TeamWorkItemFields.NodeId
+}
+
+// GetSessionId returns RecordTeamWorkRecordTeamWorkTeamWorkItem.SessionId, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) GetSessionId() string {
+	return v.TeamWorkItemFields.SessionId
+}
+
+// GetPersonaName returns RecordTeamWorkRecordTeamWorkTeamWorkItem.PersonaName, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) GetPersonaName() string {
+	return v.TeamWorkItemFields.PersonaName
+}
+
+// GetTool returns RecordTeamWorkRecordTeamWorkTeamWorkItem.Tool, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) GetTool() string { return v.TeamWorkItemFields.Tool }
+
+// GetKind returns RecordTeamWorkRecordTeamWorkTeamWorkItem.Kind, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) GetKind() string { return v.TeamWorkItemFields.Kind }
+
+// GetRef returns RecordTeamWorkRecordTeamWorkTeamWorkItem.Ref, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) GetRef() string { return v.TeamWorkItemFields.Ref }
+
+// GetAction returns RecordTeamWorkRecordTeamWorkTeamWorkItem.Action, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) GetAction() string {
+	return v.TeamWorkItemFields.Action
+}
+
+// GetAt returns RecordTeamWorkRecordTeamWorkTeamWorkItem.At, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) GetAt() string { return v.TeamWorkItemFields.At }
+
+// GetDetail returns RecordTeamWorkRecordTeamWorkTeamWorkItem.Detail, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) GetDetail() *json.RawMessage {
+	return v.TeamWorkItemFields.Detail
+}
+
+func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RecordTeamWorkRecordTeamWorkTeamWorkItem
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RecordTeamWorkRecordTeamWorkTeamWorkItem = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamWorkItemFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRecordTeamWorkRecordTeamWorkTeamWorkItem struct {
+	NodeId string `json:"nodeId"`
+
+	SessionId string `json:"sessionId"`
+
+	PersonaName string `json:"personaName"`
+
+	Tool string `json:"tool"`
+
+	Kind string `json:"kind"`
+
+	Ref string `json:"ref"`
+
+	Action string `json:"action"`
+
+	At string `json:"at"`
+
+	Detail *json.RawMessage `json:"detail"`
+}
+
+func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) __premarshalJSON() (*__premarshalRecordTeamWorkRecordTeamWorkTeamWorkItem, error) {
+	var retval __premarshalRecordTeamWorkRecordTeamWorkTeamWorkItem
+
+	retval.NodeId = v.TeamWorkItemFields.NodeId
+	retval.SessionId = v.TeamWorkItemFields.SessionId
+	retval.PersonaName = v.TeamWorkItemFields.PersonaName
+	retval.Tool = v.TeamWorkItemFields.Tool
+	retval.Kind = v.TeamWorkItemFields.Kind
+	retval.Ref = v.TeamWorkItemFields.Ref
+	retval.Action = v.TeamWorkItemFields.Action
+	retval.At = v.TeamWorkItemFields.At
+	retval.Detail = v.TeamWorkItemFields.Detail
+	return &retval, nil
+}
+
+// RecordTeamWorkResponse is returned by RecordTeamWork on success.
+type RecordTeamWorkResponse struct {
+	// Record an externally visible work milestone into the team App's worklog
+	// (#947) — the append-only, authoritative PR-session join (spec
+	// cor:agt:020:03). The session must be writable by the caller and a session
+	// OF this App (SessionInput.appRef, #944); an ENDED session is accepted —
+	// late attribution (a merge lands after the session ends) is the point.
+	// ref accepts URL and short spellings and is stored in ONE canonical form
+	// (github: owner/repo#N, owner/repo@sha, owner/repo:branch, owner/repo);
+	// a bare number is refused — the server never infers a repo. kind must be
+	// one of pr, issue, commit, branch, repo; action is a free lowercased verb
+	// (opened, merged, claimed, reviewed, closed, pushed, ...). kind: pr also
+	// denormalizes the latest-wins Session.prNumber display convenience.
+	// detail is an optional JSON bag of display extras (title, URL) — stored,
+	// never filtered on. Records are append-only: correct a wrong record by
+	// recording a newer one.
+	//
+	// Authorization: an AppMember of the App (any role), an org member with
+	// CONTRIBUTOR+ on the App's org, or the owner of a user-owned App. A pure
+	// App-key principal may NOT record (read-only on the worklog).
+	//
+	// Typed refusals: WORK_REF_INVALID, SESSION_NOT_FOUND, SESSION_NOT_IN_APP,
+	// SESSION_AGENT_NOT_IN_APP, TEAM_AGENT_NOT_FOUND / TEAM_AGENT_AMBIGUOUS
+	// (first-write bootstrap could not locate the Team Agent),
+	// APP_UNINSTALLED, FORBIDDEN, BAD_USER_INPUT.
+	//
+	// appRef accepts the entity's ID or URN; sessionRef is the session id.
+	RecordTeamWork *RecordTeamWorkRecordTeamWorkTeamWorkItem `json:"recordTeamWork"`
+}
+
+// GetRecordTeamWork returns RecordTeamWorkResponse.RecordTeamWork, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkResponse) GetRecordTeamWork() *RecordTeamWorkRecordTeamWorkTeamWorkItem {
+	return v.RecordTeamWork
+}
+
 // RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload includes the requested fields of the GraphQL type RemoveMemoryMemberPayload.
 type RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload struct {
 	MemoryId string `json:"memoryId"`
@@ -14243,6 +14396,222 @@ func (v *TeamSessionsSessionsSession) __premarshalJSON() (*__premarshalTeamSessi
 	retval.Tool = v.TeamSessionFields.Tool
 	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
 	retval.LlmModel = v.TeamSessionFields.LlmModel
+	return &retval, nil
+}
+
+// ── Worklog (#947) — the dedicated operations. The CLI previously composed
+// worklog records itself and wrote them through the generic object surface,
+// which put the record shape in two places; the server owns it (hadron-cli#396).
+type TeamWorkItemFields struct {
+	// The record node's id.
+	NodeId string `json:"nodeId"`
+	// The session the work is attributed to.
+	SessionId string `json:"sessionId"`
+	// Display convenience, denormalized at write: the session's bound persona name, else the attributed user's handle.
+	PersonaName string `json:"personaName"`
+	// The external tool the artifact lives in ('github', ...). Lowercased.
+	Tool string `json:"tool"`
+	// Artifact kind: pr, issue, commit, branch, or repo.
+	Kind string `json:"kind"`
+	// The canonical artifact ref — the equality-lookup key.
+	Ref string `json:"ref"`
+	// What happened: opened, merged, claimed, reviewed, closed, pushed, ... (free string, lowercased).
+	Action string `json:"action"`
+	// When the record was made (server-stamped).
+	At string `json:"at"`
+	// Optional display extras (title, URL) — never filtered on.
+	Detail *json.RawMessage `json:"detail"`
+}
+
+// GetNodeId returns TeamWorkItemFields.NodeId, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemFields) GetNodeId() string { return v.NodeId }
+
+// GetSessionId returns TeamWorkItemFields.SessionId, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemFields) GetSessionId() string { return v.SessionId }
+
+// GetPersonaName returns TeamWorkItemFields.PersonaName, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemFields) GetPersonaName() string { return v.PersonaName }
+
+// GetTool returns TeamWorkItemFields.Tool, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemFields) GetTool() string { return v.Tool }
+
+// GetKind returns TeamWorkItemFields.Kind, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemFields) GetKind() string { return v.Kind }
+
+// GetRef returns TeamWorkItemFields.Ref, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemFields) GetRef() string { return v.Ref }
+
+// GetAction returns TeamWorkItemFields.Action, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemFields) GetAction() string { return v.Action }
+
+// GetAt returns TeamWorkItemFields.At, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemFields) GetAt() string { return v.At }
+
+// GetDetail returns TeamWorkItemFields.Detail, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemFields) GetDetail() *json.RawMessage { return v.Detail }
+
+// TeamWorkItemsResponse is returned by TeamWorkItems on success.
+type TeamWorkItemsResponse struct {
+	// Read a team App's worklog (#947) — the provenance query: which sessions
+	// (and transcripts) produced this PR? Newest first, as a uniform
+	// { items, total } page. ref accepts ANY accepted spelling (URL, short form,
+	// canonical) and is matched tool-awarely: with tool 'github' (or none) it is
+	// normalized, so 'https://github.com/o/r/pull/371' and 'o/r#371' return the
+	// same records; with another tool it matches the stored verbatim ref; with
+	// no tool it matches either spelling. sessionRef / tool / kind are equality
+	// filters; kind must be one of pr, issue, commit, branch, repo when given.
+	// limit defaults to 50 (cap 200); limit: 0 returns only total.
+	//
+	// Authorization: an AppMember of the App (any role), an org member with
+	// CONTRIBUTOR+ on the App's org, the owner of a user-owned App, or the
+	// App's own key (a pure App-key principal may READ its own App's worklog).
+	//
+	// appRef accepts the entity's ID or URN; sessionRef is the session id.
+	TeamWorkItems *TeamWorkItemsTeamWorkItemsTeamWorkItemsPage `json:"teamWorkItems"`
+}
+
+// GetTeamWorkItems returns TeamWorkItemsResponse.TeamWorkItems, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsResponse) GetTeamWorkItems() *TeamWorkItemsTeamWorkItemsTeamWorkItemsPage {
+	return v.TeamWorkItems
+}
+
+// TeamWorkItemsTeamWorkItemsTeamWorkItemsPage includes the requested fields of the GraphQL type TeamWorkItemsPage.
+type TeamWorkItemsTeamWorkItemsTeamWorkItemsPage struct {
+	Total int                                                             `json:"total"`
+	Items []*TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem `json:"items"`
+}
+
+// GetTotal returns TeamWorkItemsTeamWorkItemsTeamWorkItemsPage.Total, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPage) GetTotal() int { return v.Total }
+
+// GetItems returns TeamWorkItemsTeamWorkItemsTeamWorkItemsPage.Items, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPage) GetItems() []*TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem {
+	return v.Items
+}
+
+// TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem includes the requested fields of the GraphQL type TeamWorkItem.
+// The GraphQL type's documentation follows.
+//
+// One team-worklog record (#947) — an externally visible work milestone (a PR
+// opened, a branch pushed, an issue closed), append-only. The worklog is the
+// AUTHORITATIVE PR-session join (spec cor:agt:020:03); Session.prNumber is a
+// latest-wins display convenience. ref carries the ONE canonical spelling per
+// artifact (github: owner/repo#N, owner/repo@sha, owner/repo:branch,
+// owner/repo; owner/repo lowercased).
+type TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem struct {
+	TeamWorkItemFields `json:"-"`
+}
+
+// GetNodeId returns TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.NodeId, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetNodeId() string {
+	return v.TeamWorkItemFields.NodeId
+}
+
+// GetSessionId returns TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.SessionId, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetSessionId() string {
+	return v.TeamWorkItemFields.SessionId
+}
+
+// GetPersonaName returns TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.PersonaName, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetPersonaName() string {
+	return v.TeamWorkItemFields.PersonaName
+}
+
+// GetTool returns TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.Tool, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetTool() string {
+	return v.TeamWorkItemFields.Tool
+}
+
+// GetKind returns TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.Kind, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetKind() string {
+	return v.TeamWorkItemFields.Kind
+}
+
+// GetRef returns TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.Ref, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetRef() string {
+	return v.TeamWorkItemFields.Ref
+}
+
+// GetAction returns TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.Action, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetAction() string {
+	return v.TeamWorkItemFields.Action
+}
+
+// GetAt returns TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.At, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetAt() string {
+	return v.TeamWorkItemFields.At
+}
+
+// GetDetail returns TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.Detail, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetDetail() *json.RawMessage {
+	return v.TeamWorkItemFields.Detail
+}
+
+func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamWorkItemFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem struct {
+	NodeId string `json:"nodeId"`
+
+	SessionId string `json:"sessionId"`
+
+	PersonaName string `json:"personaName"`
+
+	Tool string `json:"tool"`
+
+	Kind string `json:"kind"`
+
+	Ref string `json:"ref"`
+
+	Action string `json:"action"`
+
+	At string `json:"at"`
+
+	Detail *json.RawMessage `json:"detail"`
+}
+
+func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) __premarshalJSON() (*__premarshalTeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem, error) {
+	var retval __premarshalTeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem
+
+	retval.NodeId = v.TeamWorkItemFields.NodeId
+	retval.SessionId = v.TeamWorkItemFields.SessionId
+	retval.PersonaName = v.TeamWorkItemFields.PersonaName
+	retval.Tool = v.TeamWorkItemFields.Tool
+	retval.Kind = v.TeamWorkItemFields.Kind
+	retval.Ref = v.TeamWorkItemFields.Ref
+	retval.Action = v.TeamWorkItemFields.Action
+	retval.At = v.TeamWorkItemFields.At
+	retval.Detail = v.TeamWorkItemFields.Detail
 	return &retval, nil
 }
 
@@ -18388,6 +18757,38 @@ type __PublicOrganizationInput struct {
 // GetRef returns __PublicOrganizationInput.Ref, and is useful for accessing the field via an interface.
 func (v *__PublicOrganizationInput) GetRef() string { return v.Ref }
 
+// __RecordTeamWorkInput is used internally by genqlient
+type __RecordTeamWorkInput struct {
+	AppRef     string           `json:"appRef"`
+	SessionRef string           `json:"sessionRef"`
+	Tool       string           `json:"tool"`
+	Kind       string           `json:"kind"`
+	Ref        string           `json:"ref"`
+	Action     string           `json:"action"`
+	Detail     *json.RawMessage `json:"detail,omitempty"`
+}
+
+// GetAppRef returns __RecordTeamWorkInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__RecordTeamWorkInput) GetAppRef() string { return v.AppRef }
+
+// GetSessionRef returns __RecordTeamWorkInput.SessionRef, and is useful for accessing the field via an interface.
+func (v *__RecordTeamWorkInput) GetSessionRef() string { return v.SessionRef }
+
+// GetTool returns __RecordTeamWorkInput.Tool, and is useful for accessing the field via an interface.
+func (v *__RecordTeamWorkInput) GetTool() string { return v.Tool }
+
+// GetKind returns __RecordTeamWorkInput.Kind, and is useful for accessing the field via an interface.
+func (v *__RecordTeamWorkInput) GetKind() string { return v.Kind }
+
+// GetRef returns __RecordTeamWorkInput.Ref, and is useful for accessing the field via an interface.
+func (v *__RecordTeamWorkInput) GetRef() string { return v.Ref }
+
+// GetAction returns __RecordTeamWorkInput.Action, and is useful for accessing the field via an interface.
+func (v *__RecordTeamWorkInput) GetAction() string { return v.Action }
+
+// GetDetail returns __RecordTeamWorkInput.Detail, and is useful for accessing the field via an interface.
+func (v *__RecordTeamWorkInput) GetDetail() *json.RawMessage { return v.Detail }
+
 // __RemoveMemoryMemberInput is used internally by genqlient
 type __RemoveMemoryMemberInput struct {
 	MemoryRef string `json:"memoryRef"`
@@ -18671,6 +19072,38 @@ func (v *__TeamSessionsInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __TeamSessionsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__TeamSessionsInput) GetOffset() *int { return v.Offset }
+
+// __TeamWorkItemsInput is used internally by genqlient
+type __TeamWorkItemsInput struct {
+	AppRef     string  `json:"appRef"`
+	SessionRef *string `json:"sessionRef,omitempty"`
+	Ref        *string `json:"ref,omitempty"`
+	Kind       *string `json:"kind,omitempty"`
+	Tool       *string `json:"tool,omitempty"`
+	Limit      *int    `json:"limit,omitempty"`
+	Offset     *int    `json:"offset,omitempty"`
+}
+
+// GetAppRef returns __TeamWorkItemsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsInput) GetAppRef() string { return v.AppRef }
+
+// GetSessionRef returns __TeamWorkItemsInput.SessionRef, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsInput) GetSessionRef() *string { return v.SessionRef }
+
+// GetRef returns __TeamWorkItemsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsInput) GetRef() *string { return v.Ref }
+
+// GetKind returns __TeamWorkItemsInput.Kind, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsInput) GetKind() *string { return v.Kind }
+
+// GetTool returns __TeamWorkItemsInput.Tool, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsInput) GetTool() *string { return v.Tool }
+
+// GetLimit returns __TeamWorkItemsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __TeamWorkItemsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsInput) GetOffset() *int { return v.Offset }
 
 // __TriggerAppRunInput is used internally by genqlient
 type __TriggerAppRunInput struct {
@@ -24167,6 +24600,63 @@ func PublicOrganization(
 	return data_, err_
 }
 
+// The mutation executed by RecordTeamWork.
+const RecordTeamWork_Operation = `
+mutation RecordTeamWork ($appRef: ID!, $sessionRef: ID!, $tool: String!, $kind: String!, $ref: String!, $action: String!, $detail: JSON) {
+	recordTeamWork(appRef: $appRef, sessionRef: $sessionRef, tool: $tool, kind: $kind, ref: $ref, action: $action, detail: $detail) {
+		... TeamWorkItemFields
+	}
+}
+fragment TeamWorkItemFields on TeamWorkItem {
+	nodeId
+	sessionId
+	personaName
+	tool
+	kind
+	ref
+	action
+	at
+	detail
+}
+`
+
+func RecordTeamWork(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	sessionRef string,
+	tool string,
+	kind string,
+	ref string,
+	action string,
+	detail *json.RawMessage,
+) (data_ *RecordTeamWorkResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RecordTeamWork",
+		Query:  RecordTeamWork_Operation,
+		Variables: &__RecordTeamWorkInput{
+			AppRef:     appRef,
+			SessionRef: sessionRef,
+			Tool:       tool,
+			Kind:       kind,
+			Ref:        ref,
+			Action:     action,
+			Detail:     detail,
+		},
+	}
+
+	data_ = &RecordTeamWorkResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RemoveMemoryMember.
 const RemoveMemoryMember_Operation = `
 mutation RemoveMemoryMember ($memoryRef: String!, $userRef: String!) {
@@ -25289,6 +25779,66 @@ func TeamSessions(
 	}
 
 	data_ = &TeamSessionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamWorkItems.
+const TeamWorkItems_Operation = `
+query TeamWorkItems ($appRef: ID!, $sessionRef: ID, $ref: String, $kind: String, $tool: String, $limit: Int, $offset: Int) {
+	teamWorkItems(appRef: $appRef, sessionRef: $sessionRef, ref: $ref, kind: $kind, tool: $tool, limit: $limit, offset: $offset) {
+		total
+		items {
+			... TeamWorkItemFields
+		}
+	}
+}
+fragment TeamWorkItemFields on TeamWorkItem {
+	nodeId
+	sessionId
+	personaName
+	tool
+	kind
+	ref
+	action
+	at
+	detail
+}
+`
+
+func TeamWorkItems(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	sessionRef *string,
+	ref *string,
+	kind *string,
+	tool *string,
+	limit *int,
+	offset *int,
+) (data_ *TeamWorkItemsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamWorkItems",
+		Query:  TeamWorkItems_Operation,
+		Variables: &__TeamWorkItemsInput{
+			AppRef:     appRef,
+			SessionRef: sessionRef,
+			Ref:        ref,
+			Kind:       kind,
+			Tool:       tool,
+			Limit:      limit,
+			Offset:     offset,
+		},
+	}
+
+	data_ = &TeamWorkItemsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
