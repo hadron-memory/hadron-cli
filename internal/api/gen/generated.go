@@ -5589,6 +5589,11 @@ func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetDescription() *string {
 	return v.PersonaAgentFields.Description
 }
 
+// GetVisibility returns CreateTeamPersonaCreateTeamPersonaAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetVisibility() AgentVisibility {
+	return v.PersonaAgentFields.Visibility
+}
+
 // GetOrganizationId returns CreateTeamPersonaCreateTeamPersonaAgent.OrganizationId, and is useful for accessing the field via an interface.
 func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetOrganizationId() *string {
 	return v.PersonaAgentFields.OrganizationId
@@ -5648,6 +5653,8 @@ type __premarshalCreateTeamPersonaCreateTeamPersonaAgent struct {
 
 	Description *string `json:"description"`
 
+	Visibility AgentVisibility `json:"visibility"`
+
 	OrganizationId *string `json:"organizationId"`
 
 	PersonaName *string `json:"personaName"`
@@ -5674,6 +5681,7 @@ func (v *CreateTeamPersonaCreateTeamPersonaAgent) __premarshalJSON() (*__premars
 	retval.Urn = v.PersonaAgentFields.Urn
 	retval.Name = v.PersonaAgentFields.Name
 	retval.Description = v.PersonaAgentFields.Description
+	retval.Visibility = v.PersonaAgentFields.Visibility
 	retval.OrganizationId = v.PersonaAgentFields.OrganizationId
 	retval.PersonaName = v.PersonaAgentFields.PersonaName
 	retval.PersonaRole = v.PersonaAgentFields.PersonaRole
@@ -7514,6 +7522,11 @@ func (v *GetPersonaAgentAgent) GetName() string { return v.PersonaAgentFields.Na
 // GetDescription returns GetPersonaAgentAgent.Description, and is useful for accessing the field via an interface.
 func (v *GetPersonaAgentAgent) GetDescription() *string { return v.PersonaAgentFields.Description }
 
+// GetVisibility returns GetPersonaAgentAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *GetPersonaAgentAgent) GetVisibility() AgentVisibility {
+	return v.PersonaAgentFields.Visibility
+}
+
 // GetOrganizationId returns GetPersonaAgentAgent.OrganizationId, and is useful for accessing the field via an interface.
 func (v *GetPersonaAgentAgent) GetOrganizationId() *string {
 	return v.PersonaAgentFields.OrganizationId
@@ -7565,6 +7578,8 @@ type __premarshalGetPersonaAgentAgent struct {
 
 	Description *string `json:"description"`
 
+	Visibility AgentVisibility `json:"visibility"`
+
 	OrganizationId *string `json:"organizationId"`
 
 	PersonaName *string `json:"personaName"`
@@ -7591,6 +7606,7 @@ func (v *GetPersonaAgentAgent) __premarshalJSON() (*__premarshalGetPersonaAgentA
 	retval.Urn = v.PersonaAgentFields.Urn
 	retval.Name = v.PersonaAgentFields.Name
 	retval.Description = v.PersonaAgentFields.Description
+	retval.Visibility = v.PersonaAgentFields.Visibility
 	retval.OrganizationId = v.PersonaAgentFields.OrganizationId
 	retval.PersonaName = v.PersonaAgentFields.PersonaName
 	retval.PersonaRole = v.PersonaAgentFields.PersonaRole
@@ -11091,11 +11107,12 @@ func (v *OrganizationsResponse) GetOrganizations() *OrganizationsOrganizationsOr
 
 // PersonaAgentFields includes the GraphQL fields of Agent requested by the fragment PersonaAgentFields.
 type PersonaAgentFields struct {
-	Id             string  `json:"id"`
-	Urn            string  `json:"urn"`
-	Name           string  `json:"name"`
-	Description    *string `json:"description"`
-	OrganizationId *string `json:"organizationId"`
+	Id             string          `json:"id"`
+	Urn            string          `json:"urn"`
+	Name           string          `json:"name"`
+	Description    *string         `json:"description"`
+	Visibility     AgentVisibility `json:"visibility"`
+	OrganizationId *string         `json:"organizationId"`
 	// Persona display name ('Iris'). Unique per owner, case-insensitively.
 	PersonaName *string `json:"personaName"`
 	// Persona role - free string with conventions ('backend-engineer').
@@ -11116,6 +11133,9 @@ func (v *PersonaAgentFields) GetName() string { return v.Name }
 
 // GetDescription returns PersonaAgentFields.Description, and is useful for accessing the field via an interface.
 func (v *PersonaAgentFields) GetDescription() *string { return v.Description }
+
+// GetVisibility returns PersonaAgentFields.Visibility, and is useful for accessing the field via an interface.
+func (v *PersonaAgentFields) GetVisibility() AgentVisibility { return v.Visibility }
 
 // GetOrganizationId returns PersonaAgentFields.OrganizationId, and is useful for accessing the field via an interface.
 func (v *PersonaAgentFields) GetOrganizationId() *string { return v.OrganizationId }
@@ -11163,6 +11183,11 @@ func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetName() string { return v.Pe
 // GetDescription returns PersonaAgentsAgentsAgentsPageItemsAgent.Description, and is useful for accessing the field via an interface.
 func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetDescription() *string {
 	return v.PersonaAgentFields.Description
+}
+
+// GetVisibility returns PersonaAgentsAgentsAgentsPageItemsAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetVisibility() AgentVisibility {
+	return v.PersonaAgentFields.Visibility
 }
 
 // GetOrganizationId returns PersonaAgentsAgentsAgentsPageItemsAgent.OrganizationId, and is useful for accessing the field via an interface.
@@ -11224,6 +11249,8 @@ type __premarshalPersonaAgentsAgentsAgentsPageItemsAgent struct {
 
 	Description *string `json:"description"`
 
+	Visibility AgentVisibility `json:"visibility"`
+
 	OrganizationId *string `json:"organizationId"`
 
 	PersonaName *string `json:"personaName"`
@@ -11250,6 +11277,7 @@ func (v *PersonaAgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premars
 	retval.Urn = v.PersonaAgentFields.Urn
 	retval.Name = v.PersonaAgentFields.Name
 	retval.Description = v.PersonaAgentFields.Description
+	retval.Visibility = v.PersonaAgentFields.Visibility
 	retval.OrganizationId = v.PersonaAgentFields.OrganizationId
 	retval.PersonaName = v.PersonaAgentFields.PersonaName
 	retval.PersonaRole = v.PersonaAgentFields.PersonaRole
@@ -14106,6 +14134,11 @@ func (v *TeamRosterAppAgentsAgent) GetName() string { return v.PersonaAgentField
 // GetDescription returns TeamRosterAppAgentsAgent.Description, and is useful for accessing the field via an interface.
 func (v *TeamRosterAppAgentsAgent) GetDescription() *string { return v.PersonaAgentFields.Description }
 
+// GetVisibility returns TeamRosterAppAgentsAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *TeamRosterAppAgentsAgent) GetVisibility() AgentVisibility {
+	return v.PersonaAgentFields.Visibility
+}
+
 // GetOrganizationId returns TeamRosterAppAgentsAgent.OrganizationId, and is useful for accessing the field via an interface.
 func (v *TeamRosterAppAgentsAgent) GetOrganizationId() *string {
 	return v.PersonaAgentFields.OrganizationId
@@ -14159,6 +14192,8 @@ type __premarshalTeamRosterAppAgentsAgent struct {
 
 	Description *string `json:"description"`
 
+	Visibility AgentVisibility `json:"visibility"`
+
 	OrganizationId *string `json:"organizationId"`
 
 	PersonaName *string `json:"personaName"`
@@ -14185,6 +14220,7 @@ func (v *TeamRosterAppAgentsAgent) __premarshalJSON() (*__premarshalTeamRosterAp
 	retval.Urn = v.PersonaAgentFields.Urn
 	retval.Name = v.PersonaAgentFields.Name
 	retval.Description = v.PersonaAgentFields.Description
+	retval.Visibility = v.PersonaAgentFields.Visibility
 	retval.OrganizationId = v.PersonaAgentFields.OrganizationId
 	retval.PersonaName = v.PersonaAgentFields.PersonaName
 	retval.PersonaRole = v.PersonaAgentFields.PersonaRole
@@ -16784,6 +16820,11 @@ func (v *UpdateTeamPersonaUpdateAgent) GetDescription() *string {
 	return v.PersonaAgentFields.Description
 }
 
+// GetVisibility returns UpdateTeamPersonaUpdateAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *UpdateTeamPersonaUpdateAgent) GetVisibility() AgentVisibility {
+	return v.PersonaAgentFields.Visibility
+}
+
 // GetOrganizationId returns UpdateTeamPersonaUpdateAgent.OrganizationId, and is useful for accessing the field via an interface.
 func (v *UpdateTeamPersonaUpdateAgent) GetOrganizationId() *string {
 	return v.PersonaAgentFields.OrganizationId
@@ -16841,6 +16882,8 @@ type __premarshalUpdateTeamPersonaUpdateAgent struct {
 
 	Description *string `json:"description"`
 
+	Visibility AgentVisibility `json:"visibility"`
+
 	OrganizationId *string `json:"organizationId"`
 
 	PersonaName *string `json:"personaName"`
@@ -16867,6 +16910,7 @@ func (v *UpdateTeamPersonaUpdateAgent) __premarshalJSON() (*__premarshalUpdateTe
 	retval.Urn = v.PersonaAgentFields.Urn
 	retval.Name = v.PersonaAgentFields.Name
 	retval.Description = v.PersonaAgentFields.Description
+	retval.Visibility = v.PersonaAgentFields.Visibility
 	retval.OrganizationId = v.PersonaAgentFields.OrganizationId
 	retval.PersonaName = v.PersonaAgentFields.PersonaName
 	retval.PersonaRole = v.PersonaAgentFields.PersonaRole
@@ -19537,9 +19581,11 @@ func (v *__UpdateTeamCollectionsInput) GetAppRef() string { return v.AppRef }
 
 // __UpdateTeamPersonaInput is used internally by genqlient
 type __UpdateTeamPersonaInput struct {
-	Ref           string  `json:"ref"`
-	PersonaRole   *string `json:"personaRole,omitempty"`
-	PersonaPrompt *string `json:"personaPrompt,omitempty"`
+	Ref           string           `json:"ref"`
+	PersonaRole   *string          `json:"personaRole,omitempty"`
+	PersonaPrompt *string          `json:"personaPrompt,omitempty"`
+	Description   *string          `json:"description,omitempty"`
+	Visibility    *AgentVisibility `json:"visibility,omitempty"`
 }
 
 // GetRef returns __UpdateTeamPersonaInput.Ref, and is useful for accessing the field via an interface.
@@ -19550,6 +19596,12 @@ func (v *__UpdateTeamPersonaInput) GetPersonaRole() *string { return v.PersonaRo
 
 // GetPersonaPrompt returns __UpdateTeamPersonaInput.PersonaPrompt, and is useful for accessing the field via an interface.
 func (v *__UpdateTeamPersonaInput) GetPersonaPrompt() *string { return v.PersonaPrompt }
+
+// GetDescription returns __UpdateTeamPersonaInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamPersonaInput) GetDescription() *string { return v.Description }
+
+// GetVisibility returns __UpdateTeamPersonaInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamPersonaInput) GetVisibility() *AgentVisibility { return v.Visibility }
 
 // __UpdateTeamSessionInput is used internally by genqlient
 type __UpdateTeamSessionInput struct {
@@ -21743,6 +21795,7 @@ fragment PersonaAgentFields on Agent {
 	urn
 	name
 	description
+	visibility
 	organizationId
 	personaName
 	personaRole
@@ -23053,6 +23106,7 @@ fragment PersonaAgentFields on Agent {
 	urn
 	name
 	description
+	visibility
 	organizationId
 	personaName
 	personaRole
@@ -24451,6 +24505,7 @@ fragment PersonaAgentFields on Agent {
 	urn
 	name
 	description
+	visibility
 	organizationId
 	personaName
 	personaRole
@@ -25766,6 +25821,7 @@ fragment PersonaAgentFields on Agent {
 	urn
 	name
 	description
+	visibility
 	organizationId
 	personaName
 	personaRole
@@ -26893,8 +26949,8 @@ func UpdateTeamCollections(
 
 // The mutation executed by UpdateTeamPersona.
 const UpdateTeamPersona_Operation = `
-mutation UpdateTeamPersona ($ref: ID!, $personaRole: String, $personaPrompt: String) {
-	updateAgent(ref: $ref, personaRole: $personaRole, personaPrompt: $personaPrompt) {
+mutation UpdateTeamPersona ($ref: ID!, $personaRole: String, $personaPrompt: String, $description: String, $visibility: AgentVisibility) {
+	updateAgent(ref: $ref, personaRole: $personaRole, personaPrompt: $personaPrompt, description: $description, visibility: $visibility) {
 		... PersonaAgentFields
 	}
 }
@@ -26903,6 +26959,7 @@ fragment PersonaAgentFields on Agent {
 	urn
 	name
 	description
+	visibility
 	organizationId
 	personaName
 	personaRole
@@ -26926,12 +26983,20 @@ fragment PersonaAgentFields on Agent {
 // an explicit null would CLEAR the column (CLAUDE.md wire-semantics gotcha), and
 // clearing a persona's identity prompt by forgetting a flag is exactly the
 // failure this command exists to avoid.
+//
+// #405: description and visibility ride here too. They are ordinary Agent
+// columns, but a persona is the noun that OWNS them — the mint derives both
+// (visibility from the team App's owner, description from the role's persona
+// template — #950), so "fix this persona" should not mean knowing which of two
+// command groups holds which field.
 func UpdateTeamPersona(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	ref string,
 	personaRole *string,
 	personaPrompt *string,
+	description *string,
+	visibility *AgentVisibility,
 ) (data_ *UpdateTeamPersonaResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateTeamPersona",
@@ -26940,6 +27005,8 @@ func UpdateTeamPersona(
 			Ref:           ref,
 			PersonaRole:   personaRole,
 			PersonaPrompt: personaPrompt,
+			Description:   description,
+			Visibility:    visibility,
 		},
 	}
 

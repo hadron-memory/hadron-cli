@@ -14,6 +14,12 @@ fragment PersonaAgentFields on Agent {
   urn
   name
   description
+  # #405: visibility is a persona-relevant field, not just an Agent one — the
+  # mint derives it from the team App's owner (#950), and a persona stuck on
+  # PERSONAL is hidden from the very teammates the roster exists to show. It is
+  # selected here so `persona get|list` can surface it and `persona update
+  # --visibility` can confirm the result.
+  visibility
   organizationId
   personaName
   personaRole
@@ -92,14 +98,30 @@ mutation CreateTeamPersona(
 # an explicit null would CLEAR the column (CLAUDE.md wire-semantics gotcha), and
 # clearing a persona's identity prompt by forgetting a flag is exactly the
 # failure this command exists to avoid.
+#
+# #405: description and visibility ride here too. They are ordinary Agent
+# columns, but a persona is the noun that OWNS them — the mint derives both
+# (visibility from the team App's owner, description from the role's persona
+# template — #950), so "fix this persona" should not mean knowing which of two
+# command groups holds which field.
 mutation UpdateTeamPersona(
   $ref: ID!
   # @genqlient(omitempty: true)
   $personaRole: String
   # @genqlient(omitempty: true)
   $personaPrompt: String
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true)
+  $visibility: AgentVisibility
 ) {
-  updateAgent(ref: $ref, personaRole: $personaRole, personaPrompt: $personaPrompt) {
+  updateAgent(
+    ref: $ref
+    personaRole: $personaRole
+    personaPrompt: $personaPrompt
+    description: $description
+    visibility: $visibility
+  ) {
     ...PersonaAgentFields
   }
 }
