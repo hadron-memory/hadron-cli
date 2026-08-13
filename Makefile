@@ -103,5 +103,17 @@ tools-manifest-check:
 	fi; \
 	echo "✓ tool manifest in sync with $(HADRON_SERVER_DIR)"
 
+# Report GraphQL operations hadron-server exposes that no CLI command wraps
+# (#397). The committed baseline turns that inventory into a DIFF: a schema
+# refresh that adds an unbound operation shows up as an added line in review.
+unbound-ops:
+	go run ./scripts/unboundops > internal/api/unbound-ops.txt
+
+# Drift detector for the above — fails when the baseline is stale, i.e. the
+# server shipped an operation no command reaches (or one was just wired up).
+# Cheap and offline: it reads the committed snapshot, not the server checkout.
+unbound-ops-check:
+	@go run ./scripts/unboundops -check
+
 clean:
 	rm -rf bin
