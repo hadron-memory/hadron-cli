@@ -145,6 +145,108 @@ func TestTeamPersonaListKeepsOnlyPersonas(t *testing.T) {
 	}
 }
 
+// #383: THE roster read — the AppAgent join, not a client-side narrowing of
+// everything readable. An installed agent that is not a persona (the Team
+// Agent) is listed rather than hidden: "the Team Agent and no personas yet" is
+// a true answer an empty list would disguise.
+func TestTeamRoster(t *testing.T) {
+	teamGitDir(t)
+	gql, captured := captureGraphQL(t, map[string]string{
+		"TeamRoster": `{"data":{"app":{"id":"app1","urn":"hrn:app:acme.com:eng-team","name":"Eng Team",
+			"agents":[` + irisJSON + `,` + plainAgentJSON + `]}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "roster", "--app", "acme.com::eng-team", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["TeamRoster"], &vars)
+	if vars["appRef"] != "acme.com::eng-team" {
+		t.Errorf("roster vars: %v", vars)
+	}
+	var members []struct {
+		URN         string  `json:"urn"`
+		PersonaName *string `json:"personaName"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &members); err != nil {
+		t.Fatalf("roster --json: %v (%s)", err, out.String())
+	}
+	if len(members) != 2 {
+		t.Fatalf("both installed agents must be listed: %s", out.String())
+	}
+	if members[0].PersonaName == nil || *members[0].PersonaName != "Iris" {
+		t.Errorf("persona row: %s", out.String())
+	}
+	if members[1].PersonaName != nil {
+		t.Errorf("a non-persona install must carry a NULL personaName: %s", out.String())
+	}
+}
+
+// Without an App context and without a binding, the roster says so rather than
+// silently answering about something else.
+func TestTeamRosterNeedsAnApp(t *testing.T) {
+	teamGitDir(t)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "roster", "--server", "http://127.0.0.1:1"})
+	if code := exitcode.FromError(root.Execute()); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want Usage", code)
+	}
+}
+
+// #383: --app is the App-CONTEXT flag, not a filter. `persona list` and
+// `agent list` must keep returning every readable row (that IS their
+// contract) — but say so on stderr, since the silent version reported another
+// org's persona as being on this team.
+func TestAppFlagOnListingsPrintsScopeNote(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		op   string
+		resp string
+	}{
+		{"persona list", []string{"team", "persona", "list"}, "PersonaAgents", rosterJSON},
+		{"agent list", []string{"agent", "list"}, "Agents",
+			`{"data":{"agents":{"total":1,"items":[{"id":"agt1","urn":"hrn:agent:acme.com:iris","name":"Iris",
+				"description":null,"type":"ASSISTANT","visibility":"ORGANIZATION","organizationId":"o1",
+				"surfaces":[],"systemMemoryId":null,"systemPrompt":null,"aiProvider":null,"aiModel":null,
+				"hasAiApiKey":false,"createdAt":"2026-08-11T00:00:00Z"}]}}}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, _ := captureGraphQL(t, map[string]string{tc.op: tc.resp})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{}, tc.args...), "--app", "acme.com::eng-team", "--json", "--server", gql.URL))
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			errOut := f.IOStreams.ErrOut.(*strings.Builder).String()
+			if !strings.Contains(errOut, "does NOT scope this listing") || !strings.Contains(errOut, "team roster") {
+				t.Errorf("stderr must say --app did not scope this and point at the roster: %q", errOut)
+			}
+			// The note is on stderr precisely so --json stays a clean contract.
+			if !strings.HasPrefix(strings.TrimSpace(out.String()), "[") {
+				t.Errorf("--json stdout must stay unpolluted: %s", out.String())
+			}
+
+			// No --app: no note. A configured default App is ambient context
+			// nobody passed expecting a filter, so this must not become noise.
+			f2, _ := testFactory(t)
+			root2 := NewRootCmd(f2)
+			root2.SetArgs(append(append([]string{}, tc.args...), "--json", "--server", gql.URL))
+			if err := root2.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if s := f2.IOStreams.ErrOut.(*strings.Builder).String(); s != "" {
+				t.Errorf("no --app must mean no note, got %q", s)
+			}
+		})
+	}
+}
+
 func TestTeamPersonaGetByName(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{"PersonaAgents": rosterJSON})
 	f, out := testFactory(t)

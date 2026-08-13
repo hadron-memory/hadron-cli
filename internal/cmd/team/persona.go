@@ -108,12 +108,21 @@ func newCmdPersonaList(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list [--org <ref>] [--role <r>]",
 		Aliases: []string{"ls"},
-		Short:   "List the persona roster",
+		Short:   "List every persona you can read (NOT one App's roster)",
 		Long: `List every persona you can read (agents with a persona name). The narrowing
 is client-side — the server's agent filter has no persona clause — so the
-whole agent list is paged through.`,
+whole agent list is paged through.
+
+This is NOT a roster: the scope is every persona you can read, across every
+organization and App. --app does not narrow it either — that flag sets the
+App context for the invocation, it is not a filter — so a persona installed
+in a different App still appears here. To ask who is on one team, use
+` + "`hadron team roster --app <ref>`" + `, which reads the AppAgent join
+(cor:agt:020:01). --org and --role are the narrowings this command does
+have.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			f.NoteAppIsContextOnly("every persona you can read")
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err

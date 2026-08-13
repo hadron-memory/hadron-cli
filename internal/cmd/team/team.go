@@ -30,6 +30,7 @@ records provenance (host, tool, transcript path) so a merged PR traces back
 to the session that produced it.`,
 	}
 	cmd.AddCommand(newCmdInit(f))
+	cmd.AddCommand(newCmdRoster(f))
 	cmd.AddCommand(newCmdPersona(f))
 	cmd.AddCommand(newCmdSession(f))
 	cmd.AddCommand(newCmdTeamChat(f))

@@ -104,6 +104,26 @@ mutation UpdateTeamPersona(
   }
 }
 
+# THE roster read (#383). Under cor:agt:020:01 the roster IS the AppAgent
+# join, and until now only raw GraphQL exposed it: `persona list` / `agent list`
+# narrow the caller's whole readable agent set client-side, so they answer
+# "every persona I can read", not "who is on this team" — and `--app` (the
+# persistent App-CONTEXT flag) doesn't change that, which made them report
+# another App's persona as being on this team.
+#
+# App.agents is the 023-app-shape convenience over App.appAgents, so this needs
+# no paging: an App's installed set is small and bounded, unlike agents().
+query TeamRoster($appRef: ID!) {
+  app(ref: $appRef) {
+    id
+    urn
+    name
+    agents {
+      ...PersonaAgentFields
+    }
+  }
+}
+
 # `hadron team chat` (#369 slice 2) — the team group chat as a PLATFORM
 # operation (hadron-server#939/#941, spec cor:agt:020:04): the server owns
 # placement (chats:team in the Team Agent's shared app memory, bootstrapped
