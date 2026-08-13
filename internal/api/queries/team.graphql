@@ -350,3 +350,15 @@ query TeamWorkItems(
     }
   }
 }
+
+# hadron-cli#401: the worklog collection SCHEMA is the server's (it declares it
+# when provisioning, and converges a drifted declaration here) — the CLI used to
+# ship its own copy as a Go constant, which had already drifted from the server's
+# `kind` enum.
+mutation UpdateTeamCollections($appRef: ID!) {
+  updateTeamCollections(appRef: $appRef) {
+    memoryId
+    collections
+    changed
+  }
+}

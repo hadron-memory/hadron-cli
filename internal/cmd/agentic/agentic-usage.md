@@ -724,10 +724,12 @@ Conventions:
   one. `session list`
   is the presence view, newest first, persona names joined in; `--active`
   and `--as` narrow client-side. **The worklog** is the provenance record:
-  `team init -m <team-memory>` declares its collection schema once (in the
-  team App memory — an `app`-class memory is required and any other class is
-  refused with exit 2, since a system memory is read-only from every App that
-  runs it; idempotent, preserves other collections), `session start
+  `team init -m <team-memory>` asks the server to converge the
+  collections it owns onto their canonical definitions (in the team App
+  memory — an `app`-class memory is required and any other class is refused
+  with exit 2, since a system memory is read-only from every App that runs
+  it; idempotent, preserves other collections, and repairs a declaration
+  written by an older CLI), `session start
   -m <team-memory>` records the worklog home in the binding, and `session
   log (--pr | --issue | --commit | --branch) <ref>` appends a milestone —
   refs normalize to one canonical string per artifact (`owner/repo#371`,

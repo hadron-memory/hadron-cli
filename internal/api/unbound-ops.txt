@@ -67,7 +67,7 @@ slackConnections
 usageActivity
 usageEvents
 
-[Mutation] 88 unbound
+[Mutation] 87 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
@@ -155,4 +155,3 @@ updateNodeProperties
 updateOrgGithubApp
 updateResendSender
 updateSecret
-updateTeamCollections
