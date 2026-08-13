@@ -206,6 +206,12 @@ fragment TeamSessionFields on Session {
 # flag off the wire entirely (the create treats null and omitted alike, but
 # the omitted form is the repo-wide convention — see CLAUDE.md).
 # @genqlient(for: "SessionInput.agentRef", omitempty: true)
+# appRef (#943) arrived with a schema refresh, and a refreshed input field does
+# NOT inherit the surrounding omitempty — without this line every session start
+# would newly put `"appRef": null` on the wire. The CLI does not set it yet;
+# adopting it (so a user-started session can satisfy the team-chat authorship
+# gate, cor:agt:020:04) is #391.
+# @genqlient(for: "SessionInput.appRef", omitempty: true)
 # @genqlient(for: "SessionInput.branch", omitempty: true)
 # @genqlient(for: "SessionInput.customerId", omitempty: true)
 # @genqlient(for: "SessionInput.host", omitempty: true)

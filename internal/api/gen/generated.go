@@ -5699,6 +5699,15 @@ type CreateTeamPersonaResponse struct {
 	// roster immediately. Returns the created Agent — clients print its
 	// personaPrompt as the persona's boot briefing.
 	//
+	// Persona metadata (#950): visibility follows the team App's owner —
+	// ORGANIZATION for an org-owned App (the roster is the team's shared view of
+	// who is on it), PERSONAL for a user-owned one. The Agent's description is
+	// the role node's 'data.personaDescription' template when set (same
+	// {{name}}/{{role}} substitution as the prompt), otherwise the synthesized
+	// 'AI coding agent using <role> role'. It is NEVER the role node's own
+	// description, which describes the role-definition artifact rather than the
+	// persona.
+	//
 	// Authorization: an org member with CONTRIBUTOR+ on the App's org, an
 	// AppMember of the App whose role is not 'reader', or the owner of a
 	// user-owned App. Pure App-key principals are denied.
@@ -13234,7 +13243,24 @@ type SessionInput struct {
 	// URN. Resolves to Session.agentId. The caller must be able to READ the
 	// agent (PUBLIC, or owner / org member) - a session is never attributed to
 	// an agent the caller cannot see.
-	AgentRef        *string `json:"agentRef,omitempty"`
+	AgentRef *string `json:"agentRef,omitempty"`
+	// #943 / cor:api:140: the App this session is a unit of work for, as a PK or
+	// URN. Resolves to Session.appId - the pivot that was previously stamped ONLY
+	// from an App-key credential, which made a user-started session structurally
+	// unable to satisfy the team-chat authorship gate (cor:agt:020:04 condition b,
+	// SESSION_NOT_IN_APP). The caller must be a member of that App: an AppMember
+	// at any role, an org member with CONTRIBUTOR+ on its owning org, or the
+	// owner of a user-owned App. Unknown or deleted App: BAD_USER_INPUT;
+	// non-member: FORBIDDEN. An App-key credential wins - if the caller
+	// authenticated as an App and appRef names a DIFFERENT App, the call is
+	// refused (SESSION_APP_MISMATCH).
+	//
+	// Uninstalled Apps differ by ref form, because App URNs are only unique
+	// among ACTIVE rows (spec 021 FR-027: one live App plus N uninstalled
+	// history rows may share a URN). By URN an uninstalled App is simply not
+	// found - BAD_USER_INPUT - since there is no single row the URN names; by
+	// PK it is found and refused APP_UNINSTALLED.
+	AppRef          *string `json:"appRef,omitempty"`
 	Branch          *string `json:"branch,omitempty"`
 	CustomerId      *string `json:"customerId,omitempty"`
 	Host            *string `json:"host,omitempty"`
@@ -13252,6 +13278,9 @@ type SessionInput struct {
 
 // GetAgentRef returns SessionInput.AgentRef, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetAgentRef() *string { return v.AgentRef }
+
+// GetAppRef returns SessionInput.AppRef, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetAppRef() *string { return v.AppRef }
 
 // GetBranch returns SessionInput.Branch, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetBranch() *string { return v.Branch }
@@ -24995,6 +25024,11 @@ fragment TeamSessionFields on Session {
 // All SessionInput fields except id are optional; omitempty keeps an unset
 // flag off the wire entirely (the create treats null and omitted alike, but
 // the omitted form is the repo-wide convention — see CLAUDE.md).
+// appRef (#943) arrived with a schema refresh, and a refreshed input field does
+// NOT inherit the surrounding omitempty — without this line every session start
+// would newly put `"appRef": null` on the wire. The CLI does not set it yet;
+// adopting it (so a user-started session can satisfy the team-chat authorship
+// gate, cor:agt:020:04) is #391.
 func StartTeamSession(
 	ctx_ context.Context,
 	client_ graphql.Client,
