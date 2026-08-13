@@ -59,6 +59,53 @@ func TestChatReadAcceptsV2NodeURN(t *testing.T) {
 	}
 }
 
+// #412: the prefix filter returns the message-PARENT container alongside the
+// messages. Parsed as a message it reads `seq: null, author: "unknown",
+// body: ""` — indistinguishable from a malformed post, and off-by-one on any
+// count. It must not appear in the result set.
+func TestChatReadExcludesTheMessageParentContainer(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		// The container as the server returns it: the asked-about loc itself,
+		// no seq, no data. Listed last, as observed.
+		"ChatMessages": chatMessagesResp(
+			chatMsg("chats:api:messages:t1-iris", 1, `{"author":"iris","body":"hi"}`),
+			chatMsg("chats:api:messages:t2-rufus", 2, `{"author":"rufus","body":"yo"}`),
+			`{"node":{"loc":"chats:api:messages","seq":null,"data":null}}`,
+		),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	// --since 0 is the full-history read a new session does on its first turn —
+	// the only one that surfaces the container (a nil seq is dropped by
+	// --since <n>, which is why this was easy to miss).
+	root.SetArgs([]string{"chat", "read", "--node", "hrn:node:acme.com:tc:chats:api:messages",
+		"--since", "0", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Messages []struct {
+			Seq    *int   `json:"seq"`
+			Loc    string `json:"loc"`
+			Author string `json:"author"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("read --json: %v (%s)", err, out.String())
+	}
+	if len(dto.Messages) != 2 {
+		t.Fatalf("a 2-message thread must read back as 2 entries, got %d: %s", len(dto.Messages), out.String())
+	}
+	for _, m := range dto.Messages {
+		if m.Seq == nil {
+			t.Errorf("no entry may have a nil seq — consumers sort and cursor on it: %+v", m)
+		}
+		if m.Author == "unknown" || m.Loc == "chats:api:messages" {
+			t.Errorf("the container leaked into the messages: %+v", m)
+		}
+	}
+}
+
 // The read side accepts BOTH storage shapes in one chat: canonical (body in
 // content — wins even when a legacy data.body is also present) and the
 // retired academy dialect (data.body only).
