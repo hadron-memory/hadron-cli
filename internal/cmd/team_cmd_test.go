@@ -162,7 +162,9 @@ func TestTeamRoster(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(captured["TeamRoster"], &vars)
+	if err := json.Unmarshal(captured["TeamRoster"], &vars); err != nil {
+		t.Fatalf("captured TeamRoster vars: %v (%s)", err, captured["TeamRoster"])
+	}
 	if vars["appRef"] != "acme.com::eng-team" {
 		t.Errorf("roster vars: %v", vars)
 	}
