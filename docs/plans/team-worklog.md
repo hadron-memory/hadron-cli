@@ -45,6 +45,20 @@ dialect the hadron-client watcher reads (see
 [team-chat.md](team-chat.md)); `team init` materializes the chat parent
 node instead.
 
+**Class guard (#384).** `-m` is refused unless the memory's class is `app`.
+The worklog belongs in the team App's own shared memory (D13/D14), and the
+mistake this catches is the easy one rather than the exotic one: on a fresh
+team App that memory does not exist yet — the server creates it lazily on the
+first `team chat post` (hadron-server#951) — so the Team Agent's *system*
+memory is the only team-shaped memory in sight. Declaring the collection
+there is unwritable by construction (`cor:dmo:050:03`: an Agent's design is
+read-only from every App that runs it), so `recordWork` could never append a
+row, and the old success message named the memory back, reading as
+confirmation the right one was picked. The refusal is a Usage error naming
+the class it got. (If `recordWork` moves server-side — hadron-server#938 —
+the guard belongs there and `team init` may stop existing; that is the
+thin-client end state, not a reason to leave the hole open now.)
+
 ### Ref normalization (`refnorm.go`)
 
 One pure function with a table test (D14): `normalizeArtifactRef(kind, raw,

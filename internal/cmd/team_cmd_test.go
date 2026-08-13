@@ -1098,6 +1098,44 @@ func TestTeamInitIdempotent(t *testing.T) {
 	}
 }
 
+// #384: the worklog lives in the team App's OWN memory (D13/D14). Any other class
+// is refused BEFORE the write — a system memory in particular is read-only
+// from every App that runs it (cor:dmo:050:03), so declaring the collection
+// there reports success on a setup that can never be written.
+func TestTeamInitRefusesNonAppClassMemory(t *testing.T) {
+	for _, tc := range []struct {
+		class string
+		want  string
+	}{
+		{"system", "read-only from every App"},
+		{"knowledge", `is class "knowledge", not "app"`},
+		{"group", `is class "group", not "app"`},
+	} {
+		t.Run(tc.class, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"GetMemory": `{"data":{"memory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team-system","name":"Eng Team System",
+					"shortDescription":null,"description":null,"class":"` + tc.class + `","visibility":"ORGANIZATION",
+					"organizationId":"o1","isEncrypted":false,"tags":[],"source":null,"syncStatus":"NONE",
+					"vectorIndexEnabled":false,"maxRevCount":10,"data":null,"schema":null,
+					"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "init", "-m", "acme.com::eng-team-system", "--server", gql.URL})
+			err := root.Execute()
+			if code := exitcode.FromError(err); code != exitcode.Usage {
+				t.Errorf("exit code = %d, want Usage; err: %v", code, err)
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("error must name the class it got (want %q): %v", tc.want, err)
+			}
+			if _, called := captured["UpdateMemory"]; called {
+				t.Error("a refused memory must not be written to")
+			}
+		})
+	}
+}
+
 // `team chat post` is a THIN wrapper over the platform operation
 // (hadron-server#939): the App resolves from the binding's team memory, the
 // bound session rides as sessionRef (the server derives the persona author

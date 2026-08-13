@@ -43,6 +43,11 @@ func newCmdInit(f *cmdutil.Factory) *cobra.Command {
 Idempotent and convergent: the worklog entry is (re)set to its canonical
 definition; every other collection in the schema is preserved.
 
+-m must name an ` + "`app`" + `-class memory — the team App's own shared memory.
+Any other class is refused: an Agent's system memory in particular is
+read-only from every App that runs it (cor:dmo:050:03), so a collection
+declared there could never be written through the App (#384).
+
 The team group chat needs no init: it is a platform operation
 (hadron-server#939) that the server bootstraps in the team App's shared
 memory on the first ` + "`team chat post`" + `.
@@ -65,6 +70,9 @@ chat-message nodeType — D-2026-08-07-004), owned server-side.`,
 			}
 			if resp.Memory == nil {
 				return exitcode.Newf(exitcode.NotFound, "memory %q not found", memory)
+			}
+			if err := requireAppClass(resp.Memory.Urn, resp.Memory.Class); err != nil {
+				return err
 			}
 
 			// Merge: preserve every other collection, converge worklog onto
@@ -125,6 +133,28 @@ chat-message nodeType — D-2026-08-07-004), owned server-side.`,
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "the team App memory (ID or URN)")
 	_ = cmd.MarkFlagRequired("memory")
 	return cmd
+}
+
+// requireAppClass refuses any memory that is not the team App's own
+// app-class memory (#384). The worklog is a collection in the team App's
+// OWN memory (#369 D13/D14), and the mistake this catches is not exotic: on a
+// fresh team App the correct memory does not exist yet (created lazily on
+// the first `team chat post`, hadron-server#951), so the Team Agent's
+// system memory is the only team-shaped memory in sight — and a system
+// memory is read-only from every App that runs it (cor:dmo:050:03), which
+// makes a worklog collection declared there permanently unwritable. Writing
+// it anyway and reporting success is the whole defect.
+func requireAppClass(urn string, class gen.MemoryClass) error {
+	if class == gen.MemoryClassApp {
+		return nil
+	}
+	hint := ""
+	if class == gen.MemoryClassSystem {
+		hint = " — a system memory is an Agent's design, read-only from every App that runs it (cor:dmo:050:03), so `recordWork` could never write rows against a collection declared there"
+	}
+	return exitcode.Newf(exitcode.Usage,
+		"memory %s is class %q, not \"app\"%s. Pass the team App's own shared memory; on a brand-new App it is created by the server on the first `hadron team chat post`",
+		urn, string(class), hint)
 }
 
 // normalizeJSON re-marshals raw with sorted keys so semantically equal
