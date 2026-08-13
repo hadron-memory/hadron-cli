@@ -248,6 +248,8 @@ func TestTeamPersonaUpdateRefusalsWriteNothing(t *testing.T) {
 		{"no field flags", []string{"Iris"}, "nothing to update"},
 		{"empty prompt", []string{"Iris", "--prompt", ""}, "empty persona prompt"},
 		{"empty role", []string{"Iris", "--role", "  "}, "empty --role"},
+		// A bad --prompt-file path is user input: Usage (2), not the generic 1.
+		{"unreadable prompt-file", []string{"Iris", "--prompt-file", "/nonexistent/iris.md"}, "reading --prompt-file"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

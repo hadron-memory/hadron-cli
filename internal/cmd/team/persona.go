@@ -189,7 +189,11 @@ func resolvePromptText(cmd *cobra.Command, prompt, promptFile string, stdin io.R
 	case cmd.Flags().Changed("prompt-file"):
 		data, err := os.ReadFile(promptFile)
 		if err != nil {
-			return "", err
+			// A bad path is user input, so it owes the Usage exit code the
+			// contract documents — a raw os.PathError would surface as the
+			// generic 1 and break scripts branching on it (`node add
+			// --content-file` / `api --input` set the precedent).
+			return "", exitcode.Newf(exitcode.Usage, "reading --prompt-file: %v", err)
 		}
 		text = string(data)
 	case prompt == "-":
