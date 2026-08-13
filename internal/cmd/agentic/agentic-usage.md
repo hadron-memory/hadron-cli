@@ -747,7 +747,11 @@ Conventions:
   the binding was started against a different `--server` than the current
   one. `session list`
   is the presence view, newest first, persona names joined in; `--active`
-  and `--as` narrow client-side. **The worklog** is the provenance record:
+  and `--as` narrow client-side. **The worklog** is the provenance record.
+  `session start -m <team-memory>` is the ONLY thing that enables it —
+  `team init` is **not** a precondition for worklog writes (#414), and a
+  session started without `-m` records none, which `start` now warns about
+  up front instead of degrading silently at `log` time (#399). Separately,
   `team init -m <team-memory>` asks the server to converge the
   collections it owns onto their canonical definitions (in the team App
   memory — an `app`-class memory is required and any other class is refused

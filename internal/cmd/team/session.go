@@ -258,6 +258,19 @@ binding, --force replaces it — first ending the session that binding names
 			teamMem := ""
 			if teamMemory != "" {
 				teamMem = cmdutil.CanonicalMemoryRef(teamMemory)
+			} else {
+				// #399: without -m the binding carries no worklog home, so
+				// every later `session log` silently degrades to the Session
+				// field alone. Today that is discovered at LOG time — possibly
+				// many commits in, and unrecoverable for the work already done,
+				// since `log` is the only thing that writes worklog records.
+				// Say it HERE, the one moment the user can still act on it, and
+				// at a cost of one line. (Defaulting -m from the App context is
+				// the real fix and needs App -> shared-memory resolution, which
+				// the server does not expose yet: hadron-server#965.)
+				fmt.Fprintf(f.IOStreams.ErrOut,
+					"note: no -m <team-memory>, so this session records NO worklog — `session log` will only set the Session field, "+
+						"and `session list --pr` will not find this session. Restart with -m to enable it.\n")
 			}
 			path, err := writeBinding(ctx, &binding{
 				SessionID:   s.Id,
@@ -365,8 +378,9 @@ func newCmdSessionLog(f *cmdutil.Factory) *cobra.Command {
 		Long: `Record an external-artifact milestone for this worktree's session in the
 team worklog — the collection behind the provenance query
 (` + "`session list --pr <ref>`" + `: which sessions produced this PR?). The worklog
-home is the team memory recorded at ` + "`session start -m`" + ` (or --memory here);
-declare its schema once with ` + "`team init`" + `.
+home is the team memory recorded at ` + "`session start -m`" + ` (or --memory
+here). That is the ONLY requirement — the collection schema is the server's
+(#401), so no ` + "`team init`" + ` is needed first.
 
 Refs are normalized to one canonical string per artifact (owner/repo#371,
 owner/repo@sha, owner/repo:branch) — a URL, the short form, or a bare
@@ -422,7 +436,7 @@ team memory, --pr/--branch degrade to the denormalization alone.`,
 			}
 			if teamMem == "" && kind != "pr" && kind != "branch" {
 				return exitcode.Newf(exitcode.Usage,
-					"an %s milestone lives only in the team worklog — pass -m <team-memory> (or record it with `session start -m`), after a one-time `hadron team init`", kind)
+					"an %s milestone lives only in the team worklog — pass -m <team-memory> here, or start the session with `session start -m <team-memory>`", kind)
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -483,7 +497,18 @@ team memory, --pr/--branch degrade to the denormalization alone.`,
 				}
 				recorded = "worklog"
 			} else {
-				fmt.Fprintf(f.IOStreams.ErrOut, "note: no team memory recorded — only the Session field was set; `hadron team init` + `session start -m <memory>` enable the worklog\n")
+				// #414: this note is read at the exact moment someone is
+				// debugging a missing worklog row, so it must name the real
+				// cause. It used to say `hadron team init` — which is not a
+				// precondition for worklog writes at all, and since #401 made
+				// the collection schema server-owned it is doubly misleading:
+				// running it changes nothing and appears to have worked,
+				// because the NEXT log with -m succeeds for unrelated reasons.
+				// Wrong remedy, applied under pressure, that looks like it
+				// worked is the worst shape a diagnostic can have.
+				fmt.Fprintf(f.IOStreams.ErrOut,
+					"note: no team memory recorded, so this milestone went only to the Session field — not the worklog. "+
+						"Pass -m <team-memory> to this command, or start the session with `session start -m <team-memory>`.\n")
 			}
 			if kind == "pr" {
 				known := false

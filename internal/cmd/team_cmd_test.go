@@ -618,6 +618,53 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 
 // An active session holds the persona: without --force the start refuses
 // (Conflict) and names the driver with the takeover hint.
+// #399/#414: without -m the session records no worklog, and that used to be
+// discovered at `log` time — many commits in, unrecoverable for work already
+// done. Say it at START, and never name `team init` as the remedy: it is not a
+// precondition for worklog writes, and since #401 the schema is the server's.
+func TestTeamSessionStartWarnsWhenTheWorklogIsOff(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"PersonaAgents":    rosterJSON,
+		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "Iris", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	errOut := f.IOStreams.ErrOut.(*strings.Builder).String()
+	if !strings.Contains(errOut, "NO worklog") || !strings.Contains(errOut, "-m") {
+		t.Errorf("start without -m must say the worklog is off, and how to fix it: %q", errOut)
+	}
+	if strings.Contains(errOut, "team init") {
+		t.Errorf("`team init` is not the remedy — it is not a precondition for worklog writes: %q", errOut)
+	}
+}
+
+// With -m there is nothing to warn about.
+func TestTeamSessionStartWithMemoryIsQuiet(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"PersonaAgents":    rosterJSON,
+		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamMemoryApp":    `{"data":{"memory":{"id":"m1","appId":"app-1"}}}`,
+		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "Iris",
+		"-m", "acme.com::eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if s := f.IOStreams.ErrOut.(*strings.Builder).String(); strings.Contains(s, "NO worklog") {
+		t.Errorf("-m was given — no warning expected: %q", s)
+	}
+}
+
 func TestTeamSessionStartOccupiedNeedsForce(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
