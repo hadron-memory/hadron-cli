@@ -16686,6 +16686,72 @@ func (v *UpdateOrganizationUpdateOrganization) __premarshalJSON() (*__premarshal
 	return &retval, nil
 }
 
+// UpdateTeamCollectionsResponse is returned by UpdateTeamCollections on success.
+type UpdateTeamCollectionsResponse struct {
+	// (Re)declare the server-owned team collections on the team App's shared
+	// memory, converging a drifted declaration to the canonical definition
+	// (hadron-cli#401). Idempotent: 'changed' is false when the declaration
+	// already matched.
+	//
+	// Why this exists as its own operation. recordTeamWork declares the worklog
+	// collection on first write, but deliberately leaves an ALREADY-declared one
+	// untouched — a deployment that tightened it governs that surface too, which
+	// is the point of schema governance. A declaration is not always a
+	// deployment decision though: 'hadron team init' shipped a client-side copy
+	// of this schema that has since drifted from the server's (its kind enum
+	// predates the 'repo' kind), so on a CLI-bootstrapped memory a
+	// recordTeamWork(kind: 'repo') is refused by a rule nobody chose.
+	// Overriding silently would break real governance; this operation makes
+	// convergence an explicit act instead.
+	//
+	// Only the server-owned collections are rewritten — every other collection
+	// on the memory is preserved.
+	//
+	// Authorization: owner or org ADMIN on the memory, the same bar updateMemory
+	// applies to a schema edit. Team participation is deliberately NOT enough:
+	// it lets you record work, not redefine what a record is.
+	//
+	// Typed refusals: APP_UNINSTALLED, UNAUTHENTICATED, TEAM_AGENT_NOT_FOUND /
+	// TEAM_AGENT_AMBIGUOUS (when the App's shared memory must still be
+	// bootstrapped).
+	//
+	// Accepts the entity's ID or URN.
+	UpdateTeamCollections *UpdateTeamCollectionsUpdateTeamCollectionsTeamCollectionsPayload `json:"updateTeamCollections"`
+}
+
+// GetUpdateTeamCollections returns UpdateTeamCollectionsResponse.UpdateTeamCollections, and is useful for accessing the field via an interface.
+func (v *UpdateTeamCollectionsResponse) GetUpdateTeamCollections() *UpdateTeamCollectionsUpdateTeamCollectionsTeamCollectionsPayload {
+	return v.UpdateTeamCollections
+}
+
+// UpdateTeamCollectionsUpdateTeamCollectionsTeamCollectionsPayload includes the requested fields of the GraphQL type TeamCollectionsPayload.
+// The GraphQL type's documentation follows.
+//
+// Result of updateTeamCollections (hadron-cli#401).
+type UpdateTeamCollectionsUpdateTeamCollectionsTeamCollectionsPayload struct {
+	// The team App's shared memory the declaration was written to.
+	MemoryId string `json:"memoryId"`
+	// The server-owned collections declared on it.
+	Collections []string `json:"collections"`
+	// False when the declaration already matched the canonical definition (idempotent no-op).
+	Changed bool `json:"changed"`
+}
+
+// GetMemoryId returns UpdateTeamCollectionsUpdateTeamCollectionsTeamCollectionsPayload.MemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateTeamCollectionsUpdateTeamCollectionsTeamCollectionsPayload) GetMemoryId() string {
+	return v.MemoryId
+}
+
+// GetCollections returns UpdateTeamCollectionsUpdateTeamCollectionsTeamCollectionsPayload.Collections, and is useful for accessing the field via an interface.
+func (v *UpdateTeamCollectionsUpdateTeamCollectionsTeamCollectionsPayload) GetCollections() []string {
+	return v.Collections
+}
+
+// GetChanged returns UpdateTeamCollectionsUpdateTeamCollectionsTeamCollectionsPayload.Changed, and is useful for accessing the field via an interface.
+func (v *UpdateTeamCollectionsUpdateTeamCollectionsTeamCollectionsPayload) GetChanged() bool {
+	return v.Changed
+}
+
 // UpdateTeamPersonaResponse is returned by UpdateTeamPersona on success.
 type UpdateTeamPersonaResponse struct {
 	// Update an Agent.
@@ -19460,6 +19526,14 @@ func (v *__UpdateOrganizationInput) GetUrn() *string { return v.Urn }
 
 // GetListedOnMarketplace returns __UpdateOrganizationInput.ListedOnMarketplace, and is useful for accessing the field via an interface.
 func (v *__UpdateOrganizationInput) GetListedOnMarketplace() *bool { return v.ListedOnMarketplace }
+
+// __UpdateTeamCollectionsInput is used internally by genqlient
+type __UpdateTeamCollectionsInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __UpdateTeamCollectionsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamCollectionsInput) GetAppRef() string { return v.AppRef }
 
 // __UpdateTeamPersonaInput is used internally by genqlient
 type __UpdateTeamPersonaInput struct {
@@ -26766,6 +26840,46 @@ func UpdateOrganization(
 	}
 
 	data_ = &UpdateOrganizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateTeamCollections.
+const UpdateTeamCollections_Operation = `
+mutation UpdateTeamCollections ($appRef: ID!) {
+	updateTeamCollections(appRef: $appRef) {
+		memoryId
+		collections
+		changed
+	}
+}
+`
+
+// hadron-cli#401: the worklog collection SCHEMA is the server's (it declares it
+// when provisioning, and converges a drifted declaration here) — the CLI used to
+// ship its own copy as a Go constant, which had already drifted from the server's
+// `kind` enum.
+func UpdateTeamCollections(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *UpdateTeamCollectionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateTeamCollections",
+		Query:  UpdateTeamCollections_Operation,
+		Variables: &__UpdateTeamCollectionsInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &UpdateTeamCollectionsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -1278,8 +1278,10 @@ func TestTeamSessionListProvenanceQuery(t *testing.T) {
 	}
 }
 
-// team init merges the worklog collection into the memory schema without
-// clobbering other collections, and converges idempotently.
+// #401: `team init` no longer OWNS the collection definition — it asks the
+// server to converge the collections it owns. The CLI must not write the memory
+// schema itself; its own copy of the definition had already drifted (its `kind`
+// enum predated the `repo` kind), silently refusing a kind the server accepts.
 func TestTeamInit(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetMemory": `{"data":{"memory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team","name":"Eng Team",
@@ -1288,9 +1290,9 @@ func TestTeamInit(t *testing.T) {
 			"vectorIndexEnabled":false,"maxRevCount":10,"data":null,
 			"schema":{"objectTypes":{"competitor":{"fields":{"name":{"type":"text","required":true}}}}},
 			"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
-		"UpdateMemory": `{"data":{"updateMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team","name":"Eng Team",
-			"shortDescription":null,"class":"app","visibility":"ORGANIZATION","organizationId":"o1",
-			"isEncrypted":false,"maxRevCount":10,"updatedAt":"2026-08-11T00:00:00Z"}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m1",
+			"collections":["worklog"],"changed":true}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1298,51 +1300,39 @@ func TestTeamInit(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
+	// The declaration goes through the server operation, addressed by App.
 	var vars struct {
-		Schema struct {
-			ObjectTypes map[string]json.RawMessage `json:"objectTypes"`
-		} `json:"schema"`
+		AppRef string `json:"appRef"`
 	}
-	_ = json.Unmarshal(captured["UpdateMemory"], &vars)
-	if _, ok := vars.Schema.ObjectTypes["worklog"]; !ok {
-		t.Errorf("worklog collection not declared: %s", captured["UpdateMemory"])
+	_ = json.Unmarshal(captured["UpdateTeamCollections"], &vars)
+	if vars.AppRef != "app1" {
+		t.Errorf("updateTeamCollections must address the App, got %q", vars.AppRef)
 	}
-	if _, ok := vars.Schema.ObjectTypes["competitor"]; !ok {
-		t.Errorf("existing collection must be preserved: %s", captured["UpdateMemory"])
+	// The CLI must no longer write Memory.schema — that is what carried the
+	// stale definition. Preservation of sibling collections is the server's
+	// invariant now (hadron-server#958), not a client merge.
+	if _, called := captured["UpdateMemory"]; called {
+		t.Error("the CLI must not write the memory schema itself")
 	}
-	var worklog struct {
-		Fields map[string]struct {
-			Type     string `json:"type"`
-			Required bool   `json:"required"`
-		} `json:"fields"`
-	}
-	_ = json.Unmarshal(vars.Schema.ObjectTypes["worklog"], &worklog)
-	for _, fname := range []string{"sessionId", "personaName", "tool", "kind", "ref", "action", "at"} {
-		if !worklog.Fields[fname].Required {
-			t.Errorf("worklog field %q must be required: %v", fname, worklog.Fields[fname])
-		}
-	}
-	if !strings.Contains(out.String(), `"status": "created"`) {
+	// No worklog declared before ⇒ "created"; collections come from the payload.
+	if !strings.Contains(out.String(), `"status": "created"`) ||
+		!strings.Contains(out.String(), `"worklog"`) {
 		t.Errorf("init output: %s", out.String())
 	}
 }
 
-// A schema that already carries the canonical worklog definition is left
-// untouched — no UpdateMemory round-trip.
+// A memory whose declaration already matches reports the idempotent no-op.
 func TestTeamInitIdempotent(t *testing.T) {
-	// Serve back exactly what init would write, keys deliberately reordered.
-	worklogDef := `{"fields":{"at":{"type":"datetime","required":true},"action":{"type":"text","required":true},
-		"ref":{"type":"text","required":true},"kind":{"type":"enum","required":true,"values":["pr","issue","commit","branch"]},
-		"tool":{"type":"text","required":true},"personaName":{"type":"text","required":true},
-		"sessionId":{"type":"text","required":true}},
-		"description":"Append-only external-artifact milestones per session (hadron-cli#369 D13/D14) - the PR/session provenance join. ref is the canonical normalized artifact string (owner/repo#N, owner/repo@sha)."}`
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetMemory": `{"data":{"memory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team","name":"Eng Team",
 			"shortDescription":null,"description":null,"class":"app","visibility":"ORGANIZATION",
 			"organizationId":"o1","isEncrypted":false,"tags":[],"source":null,"syncStatus":"NONE",
 			"vectorIndexEnabled":false,"maxRevCount":10,"data":null,
-			"schema":{"objectTypes":{"worklog":` + worklogDef + `}},
+			"schema":{"objectTypes":{"worklog":{"fields":{"ref":{"type":"text","required":true}}}}},
 			"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m1",
+			"collections":["worklog"],"changed":false}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1353,10 +1343,34 @@ func TestTeamInitIdempotent(t *testing.T) {
 	if _, called := captured["UpdateMemory"]; called {
 		t.Error("an unchanged schema must not be rewritten")
 	}
-	// No chat-node calls: the server bootstraps the team chat on first post
-	// (hadron-server#939), so init touches only the schema.
 	if !strings.Contains(out.String(), `"status": "unchanged"`) {
 		t.Errorf("init output: %s", out.String())
+	}
+}
+
+// The repair case #401 exists for: a declaration written by an older CLI is
+// present but stale, and the server converges it. Reported as "updated", which
+// is what distinguishes it from a first declaration.
+func TestTeamInitConvergesADriftedDeclaration(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetMemory": `{"data":{"memory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team","name":"Eng Team",
+			"shortDescription":null,"description":null,"class":"app","visibility":"ORGANIZATION",
+			"organizationId":"o1","isEncrypted":false,"tags":[],"source":null,"syncStatus":"NONE",
+			"vectorIndexEnabled":false,"maxRevCount":10,"data":null,
+			"schema":{"objectTypes":{"worklog":{"fields":{"kind":{"type":"enum","required":true,"values":["pr","issue","commit","branch"]}}}}},
+			"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m1",
+			"collections":["worklog"],"changed":true}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "init", "-m", "acme.com::eng-team", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), `"status": "updated"`) {
+		t.Errorf("a converged drifted declaration must report updated: %s", out.String())
 	}
 }
 
