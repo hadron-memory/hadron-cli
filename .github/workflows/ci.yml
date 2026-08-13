@@ -30,6 +30,13 @@ jobs:
           go tool genqlient
           git diff --exit-code -- internal/api/gen
 
+      # #397: the server ships an operation, the snapshot is refreshed, and
+      # nothing notices that no command reaches it (installAgentIntoApp sat
+      # unwrapped from spec 023 until #389 was filed as "no surface exists").
+      # The baseline makes that a reviewable line in the diff.
+      - name: Unwrapped server operations
+        run: make unbound-ops-check
+
   lint:
     runs-on: ubuntu-latest
     steps:
