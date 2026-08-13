@@ -16,6 +16,13 @@ const (
 	NotFound     = 4 // requested entity does not exist (or is not visible)
 	Conflict     = 5 // state conflict, e.g. duplicate install
 	Cancelled    = 6 // interrupted or timed out waiting for the user
+	// Unavailable (#394) is the one failure the server never refused: the
+	// request did not reach it, or its answer did not reach us — a gateway
+	// 5xx, a reset connection, a timeout. Separated from Error because it is
+	// the only class that is safe to retry blind, AND the only one after
+	// which a mutation's outcome is genuinely unknown. A script branching on
+	// 1 vs 7 is branching on "the server refused this" vs "ask again".
+	Unavailable = 7
 )
 
 // CodedError carries an exit code alongside an error. The root

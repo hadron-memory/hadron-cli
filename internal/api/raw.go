@@ -49,17 +49,31 @@ func RawGraphQL(ctx context.Context, serverURL, token, query string, variables m
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
+	// #394: `hadron api` is the one path that KNOWS whether a write was at
+	// stake, so its transport failures name it outright rather than hedging.
+	isMutation := DocumentHasMutation(query)
+
 	resp, err := httpClient.Do(req)
 	if err != nil {
+		if f, ok := classifyTransport(err); ok {
+			return nil, transportError(f, isMutation)
+		}
 		return nil, exitcode.New(exitcode.Error, err)
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		// The answer was already lost mid-read; same unknown outcome as a 502.
+		return nil, transportError(transportFailure{
+			what:      "the connection dropped while reading the server's answer",
+			retryHint: "retry shortly",
+		}, isMutation)
 	}
 	if resp.StatusCode == 401 {
 		return nil, exitcode.Newf(exitcode.AuthRequired, "HTTP 401: %s", bytes.TrimSpace(body))
+	}
+	if f, ok := transportStatus(resp.StatusCode, body); ok {
+		return nil, transportError(f, isMutation)
 	}
 	if resp.StatusCode >= 400 {
 		return nil, exitcode.Newf(exitcode.Error, "HTTP %d: %s", resp.StatusCode, bytes.TrimSpace(body))
