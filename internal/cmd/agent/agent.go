@@ -118,9 +118,15 @@ belong to.
 --public instead lists the cross-org marketplace slice: every live PUBLIC
 agent, readable without org membership (a foreign public agent you can grab the
 URN of to subscribe/install). It's a separate surface, so --org and
---visibility don't apply to it; --type still filters.`,
+--visibility don't apply to it; --type still filters.
+
+--app does NOT narrow this listing: it is the persistent App-context flag,
+not a filter, so the same rows come back for any App. For the agents
+installed in one App, use ` + "`hadron team roster --app <ref>`" + `, which reads
+the AppAgent join.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			f.NoteAppIsContextOnly("agents you can read")
 			if limit < 0 || offset < 0 {
 				return exitcode.Newf(exitcode.Usage, "--limit and --offset must be non-negative")
 			}

@@ -60,11 +60,12 @@ func readBindingOrNilWithApp(ctx context.Context, f *cmdutil.Factory) (*binding,
 	return b, nil
 }
 
-// resolveTeamChatApp resolves the team App the chat operations address:
-// --app / the configured App context wins; otherwise the binding's team
-// memory is resolved to its App (the team memory IS the App's shared
-// app-class memory, so Memory.appId is the team App).
-func resolveTeamChatApp(ctx context.Context, f *cmdutil.Factory, b *binding) (string, error) {
+// resolveTeamApp resolves the team App an App-addressed team command works
+// against (the chat operations, and `team roster`): --app / the configured App
+// context wins; otherwise the binding's team memory is resolved to its App
+// (the team memory IS the App's shared app-class memory, so Memory.appId is
+// the team App).
+func resolveTeamApp(ctx context.Context, f *cmdutil.Factory, b *binding) (string, error) {
 	appRef, err := f.App()
 	if err != nil {
 		return "", err
@@ -170,7 +171,7 @@ matching ` + "`hadron chat post`" + `. Exactly one source.
 				}
 				sessionRef = optStr(b.SessionID)
 			}
-			appRef, err := resolveTeamChatApp(ctx, f, b)
+			appRef, err := resolveTeamApp(ctx, f, b)
 			if err != nil {
 				return err
 			}
@@ -275,7 +276,7 @@ server-side next turn, which is free and never re-delivers them).`,
 				}
 				mentionsRef = &ref
 			}
-			appRef, err := resolveTeamChatApp(ctx, f, b)
+			appRef, err := resolveTeamApp(ctx, f, b)
 			if err != nil {
 				return err
 			}

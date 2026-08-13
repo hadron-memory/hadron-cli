@@ -13882,6 +13882,147 @@ type TeamMemoryAppResponse struct {
 // GetMemory returns TeamMemoryAppResponse.Memory, and is useful for accessing the field via an interface.
 func (v *TeamMemoryAppResponse) GetMemory() *TeamMemoryAppMemory { return v.Memory }
 
+// TeamRosterApp includes the requested fields of the GraphQL type App.
+type TeamRosterApp struct {
+	Id   string `json:"id"`
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+	// 023-app-shape: convenience that returns every installed Agent
+	// (equivalent to App.appAgents.map(aa => aa.agent)). Previously was
+	// a soft-deprecated single-element synthesis; now returns the FULL
+	// multi-Agent set per spec 023 US1.
+	Agents []*TeamRosterAppAgentsAgent `json:"agents"`
+}
+
+// GetId returns TeamRosterApp.Id, and is useful for accessing the field via an interface.
+func (v *TeamRosterApp) GetId() string { return v.Id }
+
+// GetUrn returns TeamRosterApp.Urn, and is useful for accessing the field via an interface.
+func (v *TeamRosterApp) GetUrn() string { return v.Urn }
+
+// GetName returns TeamRosterApp.Name, and is useful for accessing the field via an interface.
+func (v *TeamRosterApp) GetName() string { return v.Name }
+
+// GetAgents returns TeamRosterApp.Agents, and is useful for accessing the field via an interface.
+func (v *TeamRosterApp) GetAgents() []*TeamRosterAppAgentsAgent { return v.Agents }
+
+// TeamRosterAppAgentsAgent includes the requested fields of the GraphQL type Agent.
+type TeamRosterAppAgentsAgent struct {
+	PersonaAgentFields `json:"-"`
+}
+
+// GetId returns TeamRosterAppAgentsAgent.Id, and is useful for accessing the field via an interface.
+func (v *TeamRosterAppAgentsAgent) GetId() string { return v.PersonaAgentFields.Id }
+
+// GetUrn returns TeamRosterAppAgentsAgent.Urn, and is useful for accessing the field via an interface.
+func (v *TeamRosterAppAgentsAgent) GetUrn() string { return v.PersonaAgentFields.Urn }
+
+// GetName returns TeamRosterAppAgentsAgent.Name, and is useful for accessing the field via an interface.
+func (v *TeamRosterAppAgentsAgent) GetName() string { return v.PersonaAgentFields.Name }
+
+// GetDescription returns TeamRosterAppAgentsAgent.Description, and is useful for accessing the field via an interface.
+func (v *TeamRosterAppAgentsAgent) GetDescription() *string { return v.PersonaAgentFields.Description }
+
+// GetOrganizationId returns TeamRosterAppAgentsAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *TeamRosterAppAgentsAgent) GetOrganizationId() *string {
+	return v.PersonaAgentFields.OrganizationId
+}
+
+// GetPersonaName returns TeamRosterAppAgentsAgent.PersonaName, and is useful for accessing the field via an interface.
+func (v *TeamRosterAppAgentsAgent) GetPersonaName() *string { return v.PersonaAgentFields.PersonaName }
+
+// GetPersonaRole returns TeamRosterAppAgentsAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *TeamRosterAppAgentsAgent) GetPersonaRole() *string { return v.PersonaAgentFields.PersonaRole }
+
+// GetPersonaPrompt returns TeamRosterAppAgentsAgent.PersonaPrompt, and is useful for accessing the field via an interface.
+func (v *TeamRosterAppAgentsAgent) GetPersonaPrompt() *string {
+	return v.PersonaAgentFields.PersonaPrompt
+}
+
+// GetCreatedAt returns TeamRosterAppAgentsAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamRosterAppAgentsAgent) GetCreatedAt() string { return v.PersonaAgentFields.CreatedAt }
+
+func (v *TeamRosterAppAgentsAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamRosterAppAgentsAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamRosterAppAgentsAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PersonaAgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamRosterAppAgentsAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	PersonaName *string `json:"personaName"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	PersonaPrompt *string `json:"personaPrompt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *TeamRosterAppAgentsAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamRosterAppAgentsAgent) __premarshalJSON() (*__premarshalTeamRosterAppAgentsAgent, error) {
+	var retval __premarshalTeamRosterAppAgentsAgent
+
+	retval.Id = v.PersonaAgentFields.Id
+	retval.Urn = v.PersonaAgentFields.Urn
+	retval.Name = v.PersonaAgentFields.Name
+	retval.Description = v.PersonaAgentFields.Description
+	retval.OrganizationId = v.PersonaAgentFields.OrganizationId
+	retval.PersonaName = v.PersonaAgentFields.PersonaName
+	retval.PersonaRole = v.PersonaAgentFields.PersonaRole
+	retval.PersonaPrompt = v.PersonaAgentFields.PersonaPrompt
+	retval.CreatedAt = v.PersonaAgentFields.CreatedAt
+	return &retval, nil
+}
+
+// TeamRosterResponse is returned by TeamRoster on success.
+type TeamRosterResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *TeamRosterApp `json:"app"`
+}
+
+// GetApp returns TeamRosterResponse.App, and is useful for accessing the field via an interface.
+func (v *TeamRosterResponse) GetApp() *TeamRosterApp { return v.App }
+
 // TeamSessionFields includes the GraphQL fields of Session requested by the fragment TeamSessionFields.
 type TeamSessionFields struct {
 	Id        string  `json:"id"`
@@ -18476,6 +18617,14 @@ type __TeamMemoryAppInput struct {
 
 // GetRef returns __TeamMemoryAppInput.Ref, and is useful for accessing the field via an interface.
 func (v *__TeamMemoryAppInput) GetRef() string { return v.Ref }
+
+// __TeamRosterInput is used internally by genqlient
+type __TeamRosterInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamRosterInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamRosterInput) GetAppRef() string { return v.AppRef }
 
 // __TeamSessionsInput is used internally by genqlient
 type __TeamSessionsInput struct {
@@ -24990,6 +25139,65 @@ func TeamMemoryApp(
 	}
 
 	data_ = &TeamMemoryAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamRoster.
+const TeamRoster_Operation = `
+query TeamRoster ($appRef: ID!) {
+	app(ref: $appRef) {
+		id
+		urn
+		name
+		agents {
+			... PersonaAgentFields
+		}
+	}
+}
+fragment PersonaAgentFields on Agent {
+	id
+	urn
+	name
+	description
+	organizationId
+	personaName
+	personaRole
+	personaPrompt
+	createdAt
+}
+`
+
+// THE roster read (#383). Under cor:agt:020:01 the roster IS the AppAgent
+// join, and until now only raw GraphQL exposed it: `persona list` / `agent list`
+// narrow the caller's whole readable agent set client-side, so they answer
+// "every persona I can read", not "who is on this team" — and `--app` (the
+// persistent App-CONTEXT flag) doesn't change that, which made them report
+// another App's persona as being on this team.
+//
+// App.agents is the 023-app-shape convenience over App.appAgents, so this needs
+// no paging: an App's installed set is small and bounded, unlike agents().
+func TeamRoster(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamRosterResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamRoster",
+		Query:  TeamRoster_Operation,
+		Variables: &__TeamRosterInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamRosterResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

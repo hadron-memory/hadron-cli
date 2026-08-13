@@ -49,6 +49,7 @@ ref-normalizer (`session log` takes a bare PR number for now; `session list --pr
 hadron team persona create --name <candidate>... [--role <r>] [--prompt <p>] [--org <ref> | --owner-me]
     (SUPERSEDED — now: persona create --role <role> [--name <n>] [--team-agent <ref>], one
      createTeamPersona call using --app; see the supersession note below)
+hadron team roster                                         (`members` alias; added #383)
 hadron team persona list [--org <ref>] [--role <r>]        (`ls` alias)
 hadron team persona get <name-or-ref> [--org <ref>]
 hadron team persona update <name-or-ref> [--role <r>] [--prompt <text|-> | --prompt-file <path>]   (`edit` alias; added #385)
@@ -135,6 +136,37 @@ was set to `"x"` this way during the Micromentor bootstrap).
 `agent update` stays free of persona flags and points here instead;
 `--visibility` (relevant once hadron-server#950 fixes the `PERSONAL` default)
 is already reachable there for a persona like any other agent.
+
+### `team roster` — the AppAgent join (#383)
+
+The roster read above answers *"every persona **I** can read"*. That is a
+genuinely useful scope, and it is not the roster: under `cor:agt:020:01` the
+roster **is** the `AppAgent` join. Because `persona list` and `agent list` were
+the only roster-shaped things in the CLI, and because `--app` is the persistent
+App-**context** flag rather than a filter, `persona list --app <A>` returned
+identical rows for every `<A>` — which is the most convincing way to be wrong:
+it names a real persona, with a real URN, that is not on that team. A bootstrap
+session read that as "Ada is already installed here".
+
+`team roster` reads `app(ref:){ agents { … } }` (`TeamRoster`) and needs no
+paging — an App's installed set is small and bounded, unlike `agents()`. The
+App resolves the same way the chat commands resolve it (`resolveTeamApp`,
+renamed from `resolveTeamChatApp`): `--app` / the configured context, else the
+worktree binding's team memory. Installed agents with **no** persona name are
+listed rather than filtered out: "the Team Agent, and no personas yet" is a
+true answer that an empty list would disguise.
+
+The two listings keep their existing scope — narrowing them to the App context
+would silently change what a configured default App means for everyone — but
+they no longer imply otherwise. Both help texts say `--app` does not scope them
+and point here, and passing `--app` explicitly prints a stderr note
+(`Factory.NoteAppIsContextOnly`). Explicitly only: a *configured* default App
+is ambient context nobody passed expecting a filter, so noting it every time
+would be noise. Stderr, so the `--json` stdout contract is untouched.
+
+A server-side `AppAgent` filter on `agents()` (option 1 in #383) would let the
+listings scope honestly and is still worth having; it is a server change, and
+this command does not depend on it.
 
 ### Worktree binding
 
