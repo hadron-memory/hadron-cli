@@ -51,6 +51,7 @@ hadron team persona create --name <candidate>... [--role <r>] [--prompt <p>] [--
      createTeamPersona call using --app; see the supersession note below)
 hadron team persona list [--org <ref>] [--role <r>]        (`ls` alias)
 hadron team persona get <name-or-ref> [--org <ref>]
+hadron team persona update <name-or-ref> [--role <r>] [--prompt <text|-> | --prompt-file <path>]   (`edit` alias; added #385)
 hadron team persona retire <name-or-ref> --yes
 hadron team session start --as <persona> [--repo] [--branch] [--transcript] [--host] [--tool] [--model] [--force]
 hadron team session whoami
@@ -96,6 +97,44 @@ so without an explicit `--org` the scan reads **both slices** and merges them
 as a ref; a bare argument is matched case-insensitively against roster persona
 names, then falls back to an agent-ID lookup. The same name existing for two
 owners is an explicit Conflict asking for `--org` or a URN.
+
+### `persona update` — post-mint refinement (#385)
+
+`createTeamPersona` composes the prompt from the role **template**, so a fresh
+persona is generic *by construction*: everything that distinguishes this
+persona from the next one of the same role — which PRs it shipped, which
+lineage it continues, which habits to keep — is written afterwards. Until
+#385 the CLI had no surface for it at all, so the only path was the raw
+`updateAgent` mutation. That mattered twice over, because GraphQL
+introspection is disabled in the deployment: callers discover a signature by
+probing, and a probe against a live entity **writes** (a real persona's prompt
+was set to `"x"` this way during the Micromentor bootstrap).
+
+`persona update <name-or-ref> [--role <r>] [--prompt <text|-> | --prompt-file
+<path>]` rides `updateAgent`'s persona columns, selecting only them
+(`UpdateTeamPersona`). Decisions:
+
+- **No `--name`.** `cor:agt:020:02` makes a persona name permanent — the
+  uniqueness indexes ignore `deleted_at` precisely so a name is never
+  re-minted — and a rename would free the old name while merged PR trailers
+  and chat history still reference it. A rename flag would need a confirmation
+  and a `PERSONA_NAME_TAKEN` path; not offering it is the spec-aligned answer.
+- **Unset is omitted, never null.** The server reads an omitted field as
+  "preserve" and an explicit null as "clear" (CLAUDE.md wire semantics), so
+  `omitempty` here is what stops `--role` alone from erasing an identity
+  prompt.
+- **An empty prompt is refused, not sent.** Every way to arrive at one (an
+  empty file, empty stdin, `--prompt ""`) is a mistake rather than a request.
+- **`--prompt-file` / `--prompt -`** because identity prompts are
+  multi-paragraph markdown — the same reasoning as `chat post --body-file`.
+  The human output prints the byte count as the receipt that the file landed.
+- **Every refusal precedes the mutation**, including "this ref is not a
+  persona". The failure mode the issue records is a write aimed at a live
+  entity, so nothing reaches `updateAgent` until the target is confirmed.
+
+`agent update` stays free of persona flags and points here instead;
+`--visibility` (relevant once hadron-server#950 fixes the `PERSONAL` default)
+is already reachable there for a persona like any other agent.
 
 ### Worktree binding
 

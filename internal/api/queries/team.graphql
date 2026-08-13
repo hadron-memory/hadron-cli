@@ -77,6 +77,33 @@ mutation CreateTeamPersona(
   }
 }
 
+# Post-mint persona refinement (#385). `createTeamPersona` composes the prompt
+# from the ROLE TEMPLATE, so a fresh persona is generic by construction —
+# everything that distinguishes this persona from the next one of the same role
+# is written afterwards. A persona IS an Agent, so this rides the ordinary
+# `updateAgent` mutation and only widens the selection to the persona columns.
+#
+# personaName is deliberately NOT wired: cor:agt:020:02 makes a persona name
+# permanent (the uniqueness indexes ignore deleted_at precisely so a name is
+# never re-minted), and a rename would free the old name for someone else while
+# merged PR trailers and chat history still reference it.
+#
+# omitempty: an unset flag is OMITTED, which the server reads as "preserve" —
+# an explicit null would CLEAR the column (CLAUDE.md wire-semantics gotcha), and
+# clearing a persona's identity prompt by forgetting a flag is exactly the
+# failure this command exists to avoid.
+mutation UpdateTeamPersona(
+  $ref: ID!
+  # @genqlient(omitempty: true)
+  $personaRole: String
+  # @genqlient(omitempty: true)
+  $personaPrompt: String
+) {
+  updateAgent(ref: $ref, personaRole: $personaRole, personaPrompt: $personaPrompt) {
+    ...PersonaAgentFields
+  }
+}
+
 # `hadron team chat` (#369 slice 2) — the team group chat as a PLATFORM
 # operation (hadron-server#939/#941, spec cor:agt:020:04): the server owns
 # placement (chats:team in the Team Agent's shared app memory, bootstrapped

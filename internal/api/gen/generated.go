@@ -16146,6 +16146,129 @@ func (v *UpdateOrganizationUpdateOrganization) __premarshalJSON() (*__premarshal
 	return &retval, nil
 }
 
+// UpdateTeamPersonaResponse is returned by UpdateTeamPersona on success.
+type UpdateTeamPersonaResponse struct {
+	// Update an Agent.
+	//
+	// Accepts the entity's ID or URN.
+	UpdateAgent *UpdateTeamPersonaUpdateAgent `json:"updateAgent"`
+}
+
+// GetUpdateAgent returns UpdateTeamPersonaResponse.UpdateAgent, and is useful for accessing the field via an interface.
+func (v *UpdateTeamPersonaResponse) GetUpdateAgent() *UpdateTeamPersonaUpdateAgent {
+	return v.UpdateAgent
+}
+
+// UpdateTeamPersonaUpdateAgent includes the requested fields of the GraphQL type Agent.
+type UpdateTeamPersonaUpdateAgent struct {
+	PersonaAgentFields `json:"-"`
+}
+
+// GetId returns UpdateTeamPersonaUpdateAgent.Id, and is useful for accessing the field via an interface.
+func (v *UpdateTeamPersonaUpdateAgent) GetId() string { return v.PersonaAgentFields.Id }
+
+// GetUrn returns UpdateTeamPersonaUpdateAgent.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateTeamPersonaUpdateAgent) GetUrn() string { return v.PersonaAgentFields.Urn }
+
+// GetName returns UpdateTeamPersonaUpdateAgent.Name, and is useful for accessing the field via an interface.
+func (v *UpdateTeamPersonaUpdateAgent) GetName() string { return v.PersonaAgentFields.Name }
+
+// GetDescription returns UpdateTeamPersonaUpdateAgent.Description, and is useful for accessing the field via an interface.
+func (v *UpdateTeamPersonaUpdateAgent) GetDescription() *string {
+	return v.PersonaAgentFields.Description
+}
+
+// GetOrganizationId returns UpdateTeamPersonaUpdateAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *UpdateTeamPersonaUpdateAgent) GetOrganizationId() *string {
+	return v.PersonaAgentFields.OrganizationId
+}
+
+// GetPersonaName returns UpdateTeamPersonaUpdateAgent.PersonaName, and is useful for accessing the field via an interface.
+func (v *UpdateTeamPersonaUpdateAgent) GetPersonaName() *string {
+	return v.PersonaAgentFields.PersonaName
+}
+
+// GetPersonaRole returns UpdateTeamPersonaUpdateAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *UpdateTeamPersonaUpdateAgent) GetPersonaRole() *string {
+	return v.PersonaAgentFields.PersonaRole
+}
+
+// GetPersonaPrompt returns UpdateTeamPersonaUpdateAgent.PersonaPrompt, and is useful for accessing the field via an interface.
+func (v *UpdateTeamPersonaUpdateAgent) GetPersonaPrompt() *string {
+	return v.PersonaAgentFields.PersonaPrompt
+}
+
+// GetCreatedAt returns UpdateTeamPersonaUpdateAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateTeamPersonaUpdateAgent) GetCreatedAt() string { return v.PersonaAgentFields.CreatedAt }
+
+func (v *UpdateTeamPersonaUpdateAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateTeamPersonaUpdateAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateTeamPersonaUpdateAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PersonaAgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateTeamPersonaUpdateAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	PersonaName *string `json:"personaName"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	PersonaPrompt *string `json:"personaPrompt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *UpdateTeamPersonaUpdateAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateTeamPersonaUpdateAgent) __premarshalJSON() (*__premarshalUpdateTeamPersonaUpdateAgent, error) {
+	var retval __premarshalUpdateTeamPersonaUpdateAgent
+
+	retval.Id = v.PersonaAgentFields.Id
+	retval.Urn = v.PersonaAgentFields.Urn
+	retval.Name = v.PersonaAgentFields.Name
+	retval.Description = v.PersonaAgentFields.Description
+	retval.OrganizationId = v.PersonaAgentFields.OrganizationId
+	retval.PersonaName = v.PersonaAgentFields.PersonaName
+	retval.PersonaRole = v.PersonaAgentFields.PersonaRole
+	retval.PersonaPrompt = v.PersonaAgentFields.PersonaPrompt
+	retval.CreatedAt = v.PersonaAgentFields.CreatedAt
+	return &retval, nil
+}
+
 // UpdateTeamSessionResponse is returned by UpdateTeamSession on success.
 type UpdateTeamSessionResponse struct {
 	// #931: update a live session's mutable provenance fields (a PR is usually
@@ -18725,6 +18848,22 @@ func (v *__UpdateOrganizationInput) GetUrn() *string { return v.Urn }
 
 // GetListedOnMarketplace returns __UpdateOrganizationInput.ListedOnMarketplace, and is useful for accessing the field via an interface.
 func (v *__UpdateOrganizationInput) GetListedOnMarketplace() *bool { return v.ListedOnMarketplace }
+
+// __UpdateTeamPersonaInput is used internally by genqlient
+type __UpdateTeamPersonaInput struct {
+	Ref           string  `json:"ref"`
+	PersonaRole   *string `json:"personaRole,omitempty"`
+	PersonaPrompt *string `json:"personaPrompt,omitempty"`
+}
+
+// GetRef returns __UpdateTeamPersonaInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamPersonaInput) GetRef() string { return v.Ref }
+
+// GetPersonaRole returns __UpdateTeamPersonaInput.PersonaRole, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamPersonaInput) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetPersonaPrompt returns __UpdateTeamPersonaInput.PersonaPrompt, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamPersonaInput) GetPersonaPrompt() *string { return v.PersonaPrompt }
 
 // __UpdateTeamSessionInput is used internally by genqlient
 type __UpdateTeamSessionInput struct {
@@ -25834,6 +25973,70 @@ func UpdateOrganization(
 	}
 
 	data_ = &UpdateOrganizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateTeamPersona.
+const UpdateTeamPersona_Operation = `
+mutation UpdateTeamPersona ($ref: ID!, $personaRole: String, $personaPrompt: String) {
+	updateAgent(ref: $ref, personaRole: $personaRole, personaPrompt: $personaPrompt) {
+		... PersonaAgentFields
+	}
+}
+fragment PersonaAgentFields on Agent {
+	id
+	urn
+	name
+	description
+	organizationId
+	personaName
+	personaRole
+	personaPrompt
+	createdAt
+}
+`
+
+// Post-mint persona refinement (#385). `createTeamPersona` composes the prompt
+// from the ROLE TEMPLATE, so a fresh persona is generic by construction —
+// everything that distinguishes this persona from the next one of the same role
+// is written afterwards. A persona IS an Agent, so this rides the ordinary
+// `updateAgent` mutation and only widens the selection to the persona columns.
+//
+// personaName is deliberately NOT wired: cor:agt:020:02 makes a persona name
+// permanent (the uniqueness indexes ignore deleted_at precisely so a name is
+// never re-minted), and a rename would free the old name for someone else while
+// merged PR trailers and chat history still reference it.
+//
+// omitempty: an unset flag is OMITTED, which the server reads as "preserve" —
+// an explicit null would CLEAR the column (CLAUDE.md wire-semantics gotcha), and
+// clearing a persona's identity prompt by forgetting a flag is exactly the
+// failure this command exists to avoid.
+func UpdateTeamPersona(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	personaRole *string,
+	personaPrompt *string,
+) (data_ *UpdateTeamPersonaResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateTeamPersona",
+		Query:  UpdateTeamPersona_Operation,
+		Variables: &__UpdateTeamPersonaInput{
+			Ref:           ref,
+			PersonaRole:   personaRole,
+			PersonaPrompt: personaPrompt,
+		},
+	}
+
+	data_ = &UpdateTeamPersonaResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

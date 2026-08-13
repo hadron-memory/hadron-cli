@@ -302,6 +302,11 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <ref>",
 		Short: "Update an agent by ID or URN (only the fields you pass change)",
+		Long: `Update an agent. Only the fields you pass change.
+
+The persona columns (personaRole, personaPrompt) are not here: they belong
+to the team surface, so refine them with ` + "`hadron team persona update`" + `,
+which resolves a persona by name and refuses a plain agent (#385).`,
 		Example: `  hadron agent update acme.com::support-bot --name "Support Bot v2" --visibility PUBLIC
   hadron agent update agt_123 --description "…"`,
 		Args: cobra.ExactArgs(1),

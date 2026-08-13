@@ -180,6 +180,127 @@ func TestTeamPersonaGetUnknownNameIsNotFound(t *testing.T) {
 
 // Retire prompts like a deletion: non-interactive without --yes is refused
 // before any mutation.
+// #385: post-mint refinement. The prompt comes from a FILE (identity prompts
+// are multi-paragraph markdown), the persona is resolved by name, and the
+// untouched field is OMITTED — an explicit null would clear the column.
+func TestTeamPersonaUpdatePromptFromFile(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"PersonaAgents":     rosterJSON,
+		"UpdateTeamPersona": `{"data":{"updateAgent":` + irisJSON + `}}`,
+	})
+	promptPath := filepath.Join(t.TempDir(), "iris.md")
+	body := "You are Iris.\n\nYou shipped #370 and #382.\n"
+	if err := os.WriteFile(promptPath, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "persona", "update", "Iris", "--prompt-file", promptPath, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateTeamPersona"], &vars)
+	if vars["ref"] != "agt1" {
+		t.Errorf("must address the RESOLVED agent id, got %v", vars["ref"])
+	}
+	if vars["personaPrompt"] != body {
+		t.Errorf("prompt must ride verbatim from the file: %q", vars["personaPrompt"])
+	}
+	if _, present := vars["personaRole"]; present {
+		t.Errorf("an unset field must be OMITTED (preserve), not sent as null: %v", vars)
+	}
+	// The byte count is the receipt that a multi-paragraph file landed.
+	if !strings.Contains(out.String(), fmt.Sprintf("prompt (%d bytes)", len(body))) {
+		t.Errorf("update output: %s", out.String())
+	}
+}
+
+// --prompt - reads stdin; --role rides alongside.
+func TestTeamPersonaUpdateRoleAndStdinPrompt(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetPersonaAgent":   `{"data":{"agent":` + irisJSON + `}}`,
+		"UpdateTeamPersona": `{"data":{"updateAgent":` + irisJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader("piped identity")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "persona", "update", "hrn:agent:acme.com:iris",
+		"--role", "qa", "--prompt", "-", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateTeamPersona"], &vars)
+	if vars["personaRole"] != "qa" || vars["personaPrompt"] != "piped identity" {
+		t.Errorf("update vars: %v", vars)
+	}
+}
+
+// Every refusal happens BEFORE the mutation: #385's hazard is a write aimed at
+// a live entity, so no-op invocations and non-personas must not reach it.
+func TestTeamPersonaUpdateRefusalsWriteNothing(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"no field flags", []string{"Iris"}, "nothing to update"},
+		{"empty prompt", []string{"Iris", "--prompt", ""}, "empty persona prompt"},
+		{"empty role", []string{"Iris", "--role", "  "}, "empty --role"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"PersonaAgents":     rosterJSON,
+				"UpdateTeamPersona": `{"data":{"updateAgent":` + irisJSON + `}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append([]string{"team", "persona", "update"}, append(tc.args, "--server", gql.URL)...))
+			err := root.Execute()
+			if code := exitcode.FromError(err); code != exitcode.Usage {
+				t.Errorf("exit code = %d, want Usage; err: %v", code, err)
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("want %q: %v", tc.want, err)
+			}
+			if _, called := captured["UpdateTeamPersona"]; called {
+				t.Error("a refused update must not reach the mutation")
+			}
+		})
+	}
+}
+
+// A plain agent is not a persona: refused at resolution, before the write.
+func TestTeamPersonaUpdateRefusesPlainAgent(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetPersonaAgent":   `{"data":{"agent":` + plainAgentJSON + `}}`,
+		"UpdateTeamPersona": `{"data":{"updateAgent":` + irisJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "persona", "update", "hrn:agent:acme.com:support-bot",
+		"--prompt", "hi", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want Usage; err: %v", code, err)
+	}
+	if _, called := captured["UpdateTeamPersona"]; called {
+		t.Error("a non-persona must not reach the mutation")
+	}
+}
+
+// A persona name is permanent (cor:agt:020:02) — there is no rename flag.
+func TestTeamPersonaUpdateHasNoNameFlag(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "persona", "update", "Iris", "--name", "Ada"})
+	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "unknown flag") {
+		t.Errorf("--name must not exist on persona update: %v", err)
+	}
+}
+
 func TestTeamPersonaRetireRequiresYes(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{"PersonaAgents": rosterJSON})
 	f, _ := testFactory(t)
