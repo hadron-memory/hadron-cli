@@ -27,7 +27,46 @@ func NewCmdTeam(f *cmdutil.Factory) *cobra.Command {
 member ("Iris") that is re-driven across many sessions — by the same or a
 different human. A session binds the current git worktree to a persona and
 records provenance (host, tool, transcript path) so a merged PR traces back
-to the session that produced it.`,
+to the session that produced it.
+
+GETTING STARTED — standing up a team, in order
+
+Two of the six steps are not in this group, and one has no CLI surface at
+all, so the sequence is not discoverable from ` + "`hadron team --help`" + ` alone
+(#402). Note that ` + "`team init`" + ` — which sounds like step one — is optional
+and near the end.
+
+  1. hadron agent create --org <org> --name "<Team> Eng Team"
+       The TEAM AGENT. Its system memory holds the role definitions, so it
+       must be created under the org that should own them: an Agent's
+       system memory follows the AGENT's owner, and you cannot re-point it
+       afterwards (system-class memories are not mintable).
+
+  2. hadron app install --org <org> --agent <team-agent> --name "<Team>"
+       The team APP. The roster IS the AppAgent join on this one App.
+
+  3. Author roles:<role> nodes in the Team Agent's system memory.
+       NO CLI SURFACE YET (#403 read, #410 register writes; both need
+       hadron-server#960). Each node's CONTENT is the prompt template, with
+       {{name}} and {{role}} placeholders; its data.names is the ordered
+       name register the mint allocates from. Today: hadron node create
+       -m <team-agent-system-memory> --loc roles:<role>.
+
+  4. hadron team persona create --app <app> --role <role>
+       Mints a persona: allocates a free name from the register, composes
+       the prompt, creates and installs the Agent — one platform call.
+       The name is PERMANENT (cor:agt:020:02), so get step 3 right first.
+
+  5. hadron team session start --as <persona> -m <team-app-memory>
+       Binds this worktree. Without -m the session records no worklog.
+
+  6. hadron team init -m <team-app-memory>            (optional)
+       Asks the server to converge the collection schemas it owns. NOT a
+       precondition for anything — useful to repair a memory declared by
+       an older CLI.
+
+Check any of it with ` + "`hadron team roster --app <app>`" + ` (who is installed)
+and ` + "`hadron team persona get <name>`" + ` (what a persona actually carries).`,
 	}
 	cmd.AddCommand(newCmdInit(f))
 	cmd.AddCommand(newCmdRoster(f))
