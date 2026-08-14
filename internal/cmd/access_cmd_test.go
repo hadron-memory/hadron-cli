@@ -18,6 +18,65 @@ func searchUserJSON(id, name, email, handle string) string {
 		`","handle":"` + handle + `","githubUsername":null,"roles":[]}`
 }
 
+// #423: the command printed a resource URN it then refused as input — bare for
+// a memory/agent/app, prefixed for a node, within one command's own output.
+// Every kind must come out canonical v2, in --json and in the human line.
+func TestAccessCheckEmitsCanonicalResourceURN(t *testing.T) {
+	cases := []struct {
+		name, kind, serverUrn, want string
+	}{
+		{"memory", "memory", "hadronmemory.com:dev", "hrn:mem:hadronmemory.com:dev"},
+		{"agent", "agent", "hadronmemory.com:ada", "hrn:agent:hadronmemory.com:ada"},
+		// The node branch already emitted prefixed — it must not be touched.
+		{"node", "node", "hrn:node:hadronmemory.com:dev:preflight", "hrn:node:hadronmemory.com:dev:preflight"},
+		// An AiServiceConfig has no URN: the field carries its id, verbatim.
+		{"config", "aiServiceConfig", "cfg_123", "cfg_123"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, _ := captureGraphQL(t, map[string]string{
+				"SearchUsers": `{"data":{"users":{"total":1,"items":[` +
+					searchUserJSON("u1", "Alice", "alice@acme.com", "alice") + `]}}}`,
+				"EffectiveAccess": `{"data":{"effectiveAccess":{
+					"user":{"id":"u1","name":"Alice","email":"alice@acme.com","handle":"alice"},
+					"resourceUrn":"` + tc.serverUrn + `","resourceKind":"` + tc.kind + `",
+					"canRead":true,"canWrite":false,"canManage":false,"canDelete":false,
+					"role":"reader","grants":[]}}}`,
+			})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"access", "check", "alice@acme.com", "hrn:mem:acme.com:kb",
+				"--json", "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var dto struct {
+				Resource struct {
+					URN  string `json:"urn"`
+					Kind string `json:"kind"`
+				} `json:"resource"`
+			}
+			if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+				t.Fatalf("--json: %v (%s)", err, out.String())
+			}
+			if dto.Resource.URN != tc.want {
+				t.Errorf("resource.urn = %q, want %q", dto.Resource.URN, tc.want)
+			}
+
+			// The human line carries the same value — the issue reports both.
+			f2, out2 := testFactory(t)
+			root2 := NewRootCmd(f2)
+			root2.SetArgs([]string{"access", "check", "alice@acme.com", "hrn:mem:acme.com:kb", "--server", gql.URL})
+			if err := root2.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if !strings.Contains(out2.String(), "Resource: "+tc.want+" ("+tc.kind+")") {
+				t.Errorf("human output should carry the canonical URN: %s", out2.String())
+			}
+		})
+	}
+}
+
 func TestAccessCheckJSON(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"SearchUsers": `{"data":{"users":{"total":1,"items":[` +
