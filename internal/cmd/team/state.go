@@ -27,6 +27,15 @@ type binding struct {
 	PersonaRole string `json:"personaRole"`
 	Server      string `json:"server"`
 	StartedAt   string `json:"startedAt"`
+	// AppBound records whether startSession was given an appRef — from -m, or
+	// from an ambient --app context. It decides which remedy a worklog
+	// diagnostic can honestly offer: `session log -m <mem>` can only work on a
+	// session that IS App-bound (recordTeamWork refuses others with
+	// SESSION_NOT_IN_APP, and no mutation can bind a session after the fact).
+	// Absent on bindings written by older CLIs, where false means "unknown" —
+	// so the diagnostics phrase the unbound branch as a possibility, not a
+	// certainty.
+	AppBound bool `json:"appBound,omitempty"`
 	// TeamMemory is the team App memory holding the worklog collection
 	// (`session start -m`); log/list read it back so worklog writes and the
 	// provenance query need no per-call flag.
