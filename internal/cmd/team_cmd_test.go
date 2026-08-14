@@ -14,13 +14,13 @@ import (
 )
 
 const irisJSON = `{"id":"agt1","urn":"hrn:agent:acme.com:iris","name":"Iris","description":null,
-	"organizationId":"o1","personaName":"Iris","personaRole":"backend-engineer",
+	"visibility":"ORGANIZATION","organizationId":"o1","personaName":"Iris","personaRole":"backend-engineer",
 	"personaPrompt":"You are Iris.","createdAt":"2026-08-11T00:00:00Z"}`
 
 // A plain agent on the same roster page: persona list/get must skip it
 // (personaName null == not a persona).
 const plainAgentJSON = `{"id":"agt2","urn":"hrn:agent:acme.com:support-bot","name":"Support Bot",
-	"description":null,"organizationId":"o1","personaName":null,"personaRole":null,
+	"description":null,"visibility":"PERSONAL","organizationId":"o1","personaName":null,"personaRole":null,
 	"personaPrompt":null,"createdAt":"2026-08-11T00:00:00Z"}`
 
 const rosterJSON = `{"data":{"agents":{"total":2,"items":[` + irisJSON + `,` + plainAgentJSON + `]}}}`
@@ -249,6 +249,38 @@ func TestAppFlagOnListingsPrintsScopeNote(t *testing.T) {
 	}
 }
 
+// PR #418 review: the new visibility column/field was uncovered — a missing
+// JSON field or a broken table column would both have passed.
+func TestTeamPersonaListShowsVisibility(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{"PersonaAgents": rosterJSON})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "persona", "list", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto []struct {
+		PersonaName string `json:"personaName"`
+		Visibility  string `json:"visibility"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("list --json: %v (%s)", err, out.String())
+	}
+	if len(dto) != 1 || dto[0].Visibility != "ORGANIZATION" {
+		t.Errorf("visibility must be in --json: %s", out.String())
+	}
+
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "persona", "list", "--server", gql.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out2.String(), "VISIBILITY") || !strings.Contains(out2.String(), "ORGANIZATION") {
+		t.Errorf("the human table must carry the visibility column: %s", out2.String())
+	}
+}
+
 func TestTeamPersonaGetByName(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{"PersonaAgents": rosterJSON})
 	f, out := testFactory(t)
@@ -352,6 +384,10 @@ func TestTeamPersonaUpdateRefusalsWriteNothing(t *testing.T) {
 		{"no field flags", []string{"Iris"}, "nothing to update"},
 		{"empty prompt", []string{"Iris", "--prompt", ""}, "empty persona prompt"},
 		{"empty role", []string{"Iris", "--role", "  "}, "empty --role"},
+		// An unset shell var must not read as "leave it alone" and report a
+		// successful no-op update (PR #418 review).
+		{"empty visibility", []string{"Iris", "--visibility", ""}, "empty --visibility"},
+		{"whitespace visibility", []string{"Iris", "--visibility", " "}, "empty --visibility"},
 		// A bad --prompt-file path is user input: Usage (2), not the generic 1.
 		{"unreadable prompt-file", []string{"Iris", "--prompt-file", "/nonexistent/iris.md"}, "reading --prompt-file"},
 	}
@@ -394,6 +430,59 @@ func TestTeamPersonaUpdateRefusesPlainAgent(t *testing.T) {
 	}
 	if _, called := captured["UpdateTeamPersona"]; called {
 		t.Error("a non-persona must not reach the mutation")
+	}
+}
+
+// #405: description and visibility are persona-shaped fields (the mint derives
+// both), so they must be reachable from the persona noun — not only from
+// `agent update`, which is a different command group.
+func TestTeamPersonaUpdateDescriptionAndVisibility(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetPersonaAgent":   `{"data":{"agent":` + irisJSON + `}}`,
+		"UpdateTeamPersona": `{"data":{"updateAgent":` + irisJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "persona", "update", "hrn:agent:acme.com:iris",
+		"--description", "AI coding agent using backend engineer role",
+		"--visibility", "ORGANIZATION", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	if err := json.Unmarshal(captured["UpdateTeamPersona"], &vars); err != nil {
+		t.Fatalf("captured vars: %v", err)
+	}
+	if vars["description"] != "AI coding agent using backend engineer role" || vars["visibility"] != "ORGANIZATION" {
+		t.Errorf("update vars: %v", vars)
+	}
+	// The untouched persona fields must stay OMITTED — this command's whole
+	// point is that one flag never clears another field.
+	for _, k := range []string{"personaRole", "personaPrompt"} {
+		if _, present := vars[k]; present {
+			t.Errorf("unset %q must be omitted, got %v", k, vars[k])
+		}
+	}
+	if !strings.Contains(out.String(), "visibility=ORGANIZATION") {
+		t.Errorf("the resulting visibility is the receipt that it landed: %s", out.String())
+	}
+}
+
+func TestTeamPersonaUpdateRejectsBadVisibility(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetPersonaAgent":   `{"data":{"agent":` + irisJSON + `}}`,
+		"UpdateTeamPersona": `{"data":{"updateAgent":` + irisJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "persona", "update", "hrn:agent:acme.com:iris",
+		"--visibility", "TEAM", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want Usage; err: %v", code, err)
+	}
+	if _, called := captured["UpdateTeamPersona"]; called {
+		t.Error("an invalid visibility must be refused before the mutation")
 	}
 }
 
@@ -1022,7 +1111,7 @@ func TestTeamPersonaListMergesOwnedByMeAndPaginates(t *testing.T) {
 	fullPage := make([]string, 0, 200)
 	for i := 0; i < 199; i++ {
 		fullPage = append(fullPage, fmt.Sprintf(`{"id":"f%d","urn":"hrn:agent:acme.com:f%d","name":"F%d",
-			"description":null,"organizationId":"o1","personaName":null,"personaRole":null,
+			"description":null,"visibility":"PERSONAL","organizationId":"o1","personaName":null,"personaRole":null,
 			"personaPrompt":null,"createdAt":"2026-08-11T00:00:00Z"}`, i, i, i))
 	}
 	fullPage = append(fullPage, irisJSON)

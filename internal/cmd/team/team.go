@@ -46,6 +46,7 @@ type personaDTO struct {
 	PersonaRole    *string `json:"personaRole"`
 	PersonaPrompt  *string `json:"personaPrompt"`
 	Description    *string `json:"description"`
+	Visibility     string  `json:"visibility"`
 	OrganizationID *string `json:"organizationId"`
 	CreatedAt      string  `json:"createdAt"`
 }
@@ -58,7 +59,8 @@ func personaDTOFromFields(a gen.PersonaAgentFields) personaDTO {
 	return personaDTO{
 		ID: a.Id, URN: a.Urn, AgentName: a.Name, PersonaName: name,
 		PersonaRole: a.PersonaRole, PersonaPrompt: a.PersonaPrompt,
-		Description: a.Description, OrganizationID: a.OrganizationId, CreatedAt: a.CreatedAt,
+		Description: a.Description, Visibility: string(a.Visibility),
+		OrganizationID: a.OrganizationId, CreatedAt: a.CreatedAt,
 	}
 }
 

@@ -109,7 +109,7 @@ hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <or
 hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
 hadron team init -m <team-memory>
 hadron team roster (uses --app or the binding)
-hadron team persona create --role <role> [--name <n>] [--team-agent <ref>] (uses --app) | list [--org <ref>] [--role <r>] | get <name-or-ref> | update <name-or-ref> [--role <r>] [--prompt <text|-> | --prompt-file <path>] | retire <name-or-ref> --yes
+hadron team persona create --role <role> [--name <n>] [--team-agent <ref>] (uses --app) | list [--org <ref>] [--role <r>] | get <name-or-ref> | update <name-or-ref> [--role <r>] [--prompt <text|-> | --prompt-file <path>] [--description <d>] [--visibility <v>] | retire <name-or-ref> --yes
 hadron team session start --as <persona> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--summary <text>] [--session <id>] | list [--active] [--as <persona>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--mentions-me | --mentions <ref>] (uses --app or the binding)
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
@@ -709,7 +709,13 @@ Conventions:
   flag is omitted, i.e. preserved); an empty prompt is refused rather than
   sent (it would erase the identity); `--prompt-file`/`--prompt -` exist
   because identity prompts are multi-paragraph markdown. A ref that is not a
-  persona is refused (exit 2) before any write. **`team roster`
+  persona is refused (exit 2) before any write. `--description` and
+  `--visibility` are on the persona noun too (#405), not only `agent update`:
+  the mint DERIVES both — visibility from the team App's owner, the
+  description from the role's persona template — so they are persona-shaped,
+  and a persona left on `PERSONAL` is hidden from the teammates the roster
+  exists to show. `persona get|list` surface `visibility` for the same reason.
+  **`team roster`
   is the "who is on this team?" read** — the App's installed agents via the
   AppAgent join (`cor:agt:020:01`), team App from `--app` or the binding;
   rows with a null `personaName` are installed agents that are not personas

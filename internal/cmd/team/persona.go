@@ -10,6 +10,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/agent"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -140,9 +141,9 @@ have.`,
 				personas = append(personas, dto)
 			}
 			return output.Write(f.IOStreams, f.JSON, personas, func(w io.Writer) error {
-				t := output.NewTable(w, "PERSONA", "ROLE", "AGENT URN", "ID")
+				t := output.NewTable(w, "PERSONA", "ROLE", "VISIBILITY", "AGENT URN", "ID")
 				for _, p := range personas {
-					t.Row(p.PersonaName, dash(p.PersonaRole), p.URN, p.ID)
+					t.Row(p.PersonaName, dash(p.PersonaRole), p.Visibility, p.URN, p.ID)
 				}
 				return t.Flush()
 			})
@@ -173,7 +174,7 @@ func newCmdPersonaGet(f *cmdutil.Factory) *cobra.Command {
 			dto := personaDTOFromFields(p)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				fmt.Fprintf(w, "%s%s\n  agent: %s (%s)\n", dto.PersonaName, roleSuffix(dto.PersonaRole), dto.URN, dto.ID)
-				fmt.Fprintf(w, "  description: %s\n", dash(dto.Description))
+				fmt.Fprintf(w, "  description: %s\n  visibility: %s\n", dash(dto.Description), dto.Visibility)
 				if dto.PersonaPrompt != nil && *dto.PersonaPrompt != "" {
 					fmt.Fprintf(w, "  prompt: %s\n", *dto.PersonaPrompt)
 				}
@@ -224,13 +225,13 @@ func resolvePromptText(cmd *cobra.Command, prompt, promptFile string, stdin io.R
 }
 
 func newCmdPersonaUpdate(f *cmdutil.Factory) *cobra.Command {
-	var org, role, prompt, promptFile string
+	var org, role, prompt, promptFile, description, visibility string
 	cmd := &cobra.Command{
-		Use:     "update <name-or-ref> [--role <r>] [--prompt <text> | --prompt-file <path>]",
+		Use:     "update <name-or-ref> [--role <r>] [--prompt <text> | --prompt-file <path>] [--description <d>] [--visibility <v>]",
 		Aliases: []string{"edit"},
-		Short:   "Refine a persona's role or identity prompt",
-		Long: `Set a persona's role or identity prompt after minting. Only the fields you
-pass change; everything else is left alone.
+		Short:   "Refine a persona's role, identity prompt, description or visibility",
+		Long: `Set a persona's role, identity prompt, description or visibility after
+minting. Only the fields you pass change; everything else is left alone.
 
 This is not a nicety — it is where a persona becomes itself.
 ` + "`persona create`" + ` composes the prompt from the ROLE TEMPLATE, so a fresh
@@ -240,18 +241,41 @@ continues, which habits to keep are all written here, afterwards.
 --prompt-file reads the prompt from a file and --prompt - from stdin, since
 identity prompts are multi-paragraph markdown.
 
+--description and --visibility live here, not only on ` + "`agent update`" + ` (#405):
+the mint DERIVES both — visibility from the team App's owner, the
+description from the role's persona template (hadron-server#950) — so they
+are persona-shaped fields, and "fix this persona" should not mean knowing
+which of two command groups owns which field. A persona left on PERSONAL is
+hidden from the teammates the roster exists to show, so ` + "`persona get|list`" + `
+now surface visibility too.
+
 There is deliberately no --name: a persona name is permanent
 (cor:agt:020:02). Renaming would free the old name to be re-minted while
-merged PR trailers and chat history still reference it. Use ` + "`agent update`" + `
-for an agent's non-persona fields (--visibility, --description, …).`,
+merged PR trailers and chat history still reference it.`,
 		Example: `  hadron team persona update Iris --prompt-file iris-identity.md
   hadron team persona update Iris --role backend-engineer
   cat prompt.md | hadron team persona update hrn:agent:acme.com:iris --prompt -`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
-			if !changed("role") && !changed("prompt") && !changed("prompt-file") {
-				return exitcode.Newf(exitcode.Usage, "nothing to update — pass --role and/or --prompt/--prompt-file")
+			if !changed("role") && !changed("prompt") && !changed("prompt-file") &&
+				!changed("description") && !changed("visibility") {
+				return exitcode.Newf(exitcode.Usage,
+					"nothing to update — pass at least one of --role, --prompt/--prompt-file, --description, --visibility")
+			}
+			// An explicitly EMPTY --visibility must not read as "leave it
+			// alone": ParseVisibility maps blank to nil, genqlient then omits
+			// the variable, and `--visibility "$UNSET_VAR"` would report a
+			// successful update that changed nothing — with an empty receipt
+			// when it was the only flag (PR #418 review). Same treatment as
+			// --role, which already refuses blank.
+			if changed("visibility") && strings.TrimSpace(visibility) == "" {
+				return exitcode.Newf(exitcode.Usage,
+					"empty --visibility — pass ORGANIZATION, PERSONAL, or PUBLIC")
+			}
+			vis, err := agent.ParseVisibility(visibility)
+			if err != nil {
+				return err
 			}
 			var rolePtr, promptPtr *string
 			if changed("role") {
@@ -278,7 +302,8 @@ for an agent's non-persona fields (--visibility, --description, …).`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.UpdateTeamPersona(cmd.Context(), client, p.Id, rolePtr, promptPtr)
+			resp, err := gen.UpdateTeamPersona(cmd.Context(), client, p.Id, rolePtr, promptPtr,
+				changedStr(cmd, "description", description), vis)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -296,6 +321,12 @@ for an agent's non-persona fields (--visibility, --description, …).`,
 					// multi-paragraph markdown actually landed.
 					fields = append(fields, fmt.Sprintf("prompt (%d bytes)", len(*promptPtr)))
 				}
+				if changed("description") {
+					fields = append(fields, "description")
+				}
+				if vis != nil {
+					fields = append(fields, "visibility="+dto.Visibility)
+				}
 				_, err := fmt.Fprintf(w, "✓ updated persona %s%s (%s) — %s\n",
 					dto.PersonaName, roleSuffix(dto.PersonaRole), dto.URN, strings.Join(fields, ", "))
 				return err
@@ -306,6 +337,8 @@ for an agent's non-persona fields (--visibility, --description, …).`,
 	cmd.Flags().StringVar(&role, "role", "", "persona role")
 	cmd.Flags().StringVar(&prompt, "prompt", "", "identity prompt (- reads stdin)")
 	cmd.Flags().StringVar(&promptFile, "prompt-file", "", "read the identity prompt from a file (multi-paragraph markdown)")
+	cmd.Flags().StringVar(&description, "description", "", "persona description (the mint derives one; #950)")
+	cmd.Flags().StringVar(&visibility, "visibility", "", "visibility: ORGANIZATION, PERSONAL, or PUBLIC")
 	cmd.MarkFlagsMutuallyExclusive("prompt", "prompt-file")
 	return cmd
 }
@@ -374,4 +407,13 @@ func dash(s *string) string {
 		return "—"
 	}
 	return *s
+}
+
+// changedStr returns a pointer only when the flag was explicitly set, so an
+// unset flag is omitted (preserve) while an explicit "" is sent (clear).
+func changedStr(cmd *cobra.Command, flag, val string) *string {
+	if cmd.Flags().Changed(flag) {
+		return &val
+	}
+	return nil
 }

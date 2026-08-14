@@ -70,7 +70,10 @@ func parseAgentType(s string) (*gen.AgentType, error) {
 	}
 }
 
-func parseAgentVisibility(s string) (*gen.AgentVisibility, error) {
+// ParseVisibility is exported so the team group can offer --visibility on
+// `team persona update` (#405) without a second copy of the enum mapping —
+// one place to change if the enum grows a member.
+func ParseVisibility(s string) (*gen.AgentVisibility, error) {
 	if strings.TrimSpace(s) == "" {
 		return nil, nil
 	}
@@ -137,7 +140,7 @@ the AppAgent join.`,
 			if err != nil {
 				return err
 			}
-			av, err := parseAgentVisibility(vis)
+			av, err := ParseVisibility(vis)
 			if err != nil {
 				return err
 			}
@@ -270,7 +273,7 @@ exclusive.`,
 			if err != nil {
 				return err
 			}
-			av, err := parseAgentVisibility(vis)
+			av, err := ParseVisibility(vis)
 			if err != nil {
 				return err
 			}
@@ -334,7 +337,7 @@ which resolves a persona by name and refuses a plain agent (#385).`,
 			if err != nil {
 				return err
 			}
-			av, err := parseAgentVisibility(vis)
+			av, err := ParseVisibility(vis)
 			if err != nil {
 				return err
 			}
