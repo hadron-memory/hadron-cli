@@ -39,7 +39,15 @@ func canonicalResourceURN(kind, raw string) string {
 	if normalized := urnlib.NormalizeScheme(value); strings.HasPrefix(normalized, "hrn:") {
 		return normalized
 	}
-	atoms := strings.Split(value, ":")
+	// A bare STORED value may be v1-separated (acme.com::kb) — the stored
+	// column keeps whatever grammar it was written in, and the server hands it
+	// back untouched. Splitting that on every single colon yields an empty
+	// atom, ComposeUrnV2 refuses it, and the value would pass through
+	// unprefixed — leaving the round-trip this function exists to restore
+	// broken for exactly the historical rows (PR #424 review). Collapsing "::"
+	// to ":" IS the v1→v2 conversion: in v1 the doubled colon is the only
+	// separator, so no legitimate atom spans one.
+	atoms := strings.Split(strings.ReplaceAll(value, "::", ":"), ":")
 	if len(atoms) < 2 {
 		return raw
 	}

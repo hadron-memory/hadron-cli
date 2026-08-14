@@ -22,6 +22,12 @@ func TestCanonicalResourceURN(t *testing.T) {
 			"hrn:mem:acme.com:kb", "hrn:mem:acme.com:kb"},
 		// A urn: scheme normalizes to hrn:, matching the rest of the CLI.
 		{"urn scheme normalizes", "memory", "urn:mem:acme.com:kb", "hrn:mem:acme.com:kb"},
+		// A bare LEGACY (v1-separated) stored value — the historical rows the
+		// stored column can still hold (PR #424 review).
+		{"legacy bare memory", "memory", "acme.com::kb", "hrn:mem:acme.com:kb"},
+		{"legacy bare agent", "agent", "acme.com::ada", "hrn:agent:acme.com:ada"},
+		{"legacy bare compound memory", "memory",
+			"acme.com::ada::app-user:u1", "hrn:mem:acme.com:ada:app-user:u1"},
 		// A multi-atom slug (a compound per-user memory) keeps every atom.
 		{"compound memory slug survives", "memory",
 			"acme.com:ada:app-user:u1", "hrn:mem:acme.com:ada:app-user:u1"},
@@ -46,7 +52,10 @@ func TestCanonicalResourceURN(t *testing.T) {
 func TestEmittedResourceURNRoundTripsAsInput(t *testing.T) {
 	for _, tc := range []struct{ kind, raw string }{
 		{"memory", "hadronmemory.com:dev"},
+		{"memory", "acme.com::kb"},
+		{"memory", "acme.com::ada::app-user:u1"},
 		{"agent", "hadronmemory.com:ada"},
+		{"agent", "acme.com::ada"},
 		{"app", "acme.com:support"},
 		{"node", "hrn:node:hadronmemory.com:dev:preflight"},
 	} {
