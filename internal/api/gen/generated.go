@@ -6223,9 +6223,9 @@ func (v *DeleteSecretResponse) GetDeleteSecret() bool { return v.DeleteSecret }
 // false and role null) is a first-class 'no access' answer, NOT an error.
 type EffectiveAccessEffectiveAccess struct {
 	User *EffectiveAccessEffectiveAccessUser `json:"user"`
-	// Canonical URN of the resolved resource (the AiServiceConfig id when the resource is a config, which has no URN).
+	// Canonical (grammar-v2, hrn:-prefixed) URN of the resolved resource, emitted the same way the entity's own urn field emits it — so it can be fed straight back into another query or command. Two exceptions have no URN by nature: an AiServiceConfig yields its id, and a user yields hrn:user:<handle>.
 	ResourceUrn string `json:"resourceUrn"`
-	// memory | node | app | agent | aiServiceConfig.
+	// memory | node | app | agent | aiServiceConfig | organization | user.
 	ResourceKind string `json:"resourceKind"`
 	CanRead      bool   `json:"canRead"`
 	CanWrite     bool   `json:"canWrite"`
