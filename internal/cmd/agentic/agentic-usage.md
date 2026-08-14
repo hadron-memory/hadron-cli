@@ -103,7 +103,7 @@ hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--pref
 hadron edge list <node-urn> | <loc> -m <memory> | <node-id> [--direction incoming|outgoing] [--name <substr>] [--to <ref>] [--from <ref>] | add | update <edge-id> | rm <edge-id>
 hadron spec list [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> | import spec-kit|code
 hadron coding review list -m <memory> [--root <loc>] [--broken] [--json] | review create <check-name> -m <memory> --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint -m <memory> [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list -m <memory> [--root <loc>] [--broken] [--json] | preflight create <loc> -m <memory> --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight lint -m <memory> [--root <loc>] [--strict] [--json]
-hadron app agent list [<app-ref>] (uses --app) | list --org <org> | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <id> | use <urn>
+hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | list --org <org> | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <id> | use <urn>
 hadron ai-config list [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
 hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
@@ -682,6 +682,20 @@ Conventions:
   changes only the fields you pass (`--surface` replaces the set); `agent rm <ref>`
   requires `--yes`. `<ref>` is an agent ID **or** a fully-qualified URN
   (`acme.com::support-bot`) — no need to resolve an ID first. Memory-attach, AI-config wiring, and app-wiring land next.
+- `app agent add <app> <agent>` / `remove <app> <agent>` wrap
+  `installAgentIntoApp` / `uninstallAgentFromApp` — the AppAgent join
+  (`cor:dmo:050:03`), and the only way to attach an Agent to an App you
+  ALREADY have (`app install` creates a new App from an Agent). `add` is what
+  makes the retention promise reachable: an uninstalled Agent's
+  per-(App, Agent) memories persist as orphans and become readable again on
+  reinstall, so `remove` is reversible. `remove` is idempotent server-side and
+  still prompts (`--yes` non-interactively), because it changes who is on a
+  roster. `--training-mode` on `add` is PER-APP (spec 023 FR-001) — it is
+  omitted unless passed, since sending it would re-set the flag for every
+  installed Agent. Authorization is CONTRIBUTOR+ on the App's owning org (or
+  ownership of a user-owned App), deliberately NOT plain App membership, since
+  attaching an Agent grants read access to its design; a FORBIDDEN from these
+  two commands says so rather than printing one word.
 - `team` (#369) coordinates a team of humans and AI agents. A **persona** is an
   Agent with persona metadata (`personaName`/`personaRole`/`personaPrompt`) — a
   named AI team member ("Iris") re-driven across many sessions, by the same or a
