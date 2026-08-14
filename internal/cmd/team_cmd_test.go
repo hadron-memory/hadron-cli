@@ -585,6 +585,63 @@ const teamChatHumanMsgJSON = `{"nodeId":"n9","seq":1,"body":"hi","at":"2026-08-1
 	"authorUserId":"u1","authorAgentId":null,"authorName":"holger","sessionId":null,
 	"replyToSeq":null,"mentions":[]}`
 
+// #406: the two chat dialects name the author field differently, and reading
+// with the wrong one returned null rather than erroring — a wrong field name
+// yielding a plausible wrong answer. The canonical output carries BOTH, and
+// separates a human post from a persona post in the transcript too.
+func TestTeamChatReadEmitsAuthorAliasAndKind(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":2,"items":[` +
+			teamChatHumanMsgJSON + `,` + teamChatMsgJSON + `]}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--app", "acme.com::eng-team", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Messages []struct {
+			Author        *string `json:"author"`
+			AuthorName    *string `json:"authorName"`
+			AuthorUserID  *string `json:"authorUserId"`
+			AuthorAgentID *string `json:"authorAgentId"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("read --json: %v (%s)", err, out.String())
+	}
+	if len(dto.Messages) != 2 {
+		t.Fatalf("want 2 messages: %s", out.String())
+	}
+	for i, m := range dto.Messages {
+		if m.Author == nil || m.AuthorName == nil || *m.Author != *m.AuthorName {
+			t.Errorf("message %d: `author` must alias `authorName`, got %v / %v", i, m.Author, m.AuthorName)
+		}
+	}
+	// The canonical envelope distinguishes the two, which the old single
+	// `author` string could not.
+	if dto.Messages[0].AuthorUserID == nil || dto.Messages[1].AuthorAgentID == nil {
+		t.Errorf("human vs persona must stay distinguishable: %s", out.String())
+	}
+
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "chat", "read", "--app", "acme.com::eng-team", "--server", gql.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// Assert each label BESIDE its author — checking only that both strings
+	// appear somewhere would still pass if the two branches were swapped
+	// (PR #417 review). holger is the authorUserId post, Iris the agent one.
+	if !strings.Contains(out2.String(), "holger (human)") {
+		t.Errorf("a user-authored post must be marked (human): %s", out2.String())
+	}
+	if !strings.Contains(out2.String(), "Iris (persona)") {
+		t.Errorf("an agent-authored post must be marked (persona): %s", out2.String())
+	}
+}
+
 // A binding whose session was started with -m (team memory) and --tool.
 const bindingWithTeamFixture = `{"sessionId":"s-new","agentId":"agt1","agentUrn":"hrn:agent:acme.com:iris",
 	"personaName":"Iris","personaRole":"backend-engineer","startedAt":"2026-08-11T10:00:00Z",

@@ -39,7 +39,13 @@ for the whole history. The response's nextSince is the seq to pass next turn.
 Output is a compact transcript ("[<seq>] <author> (<role>): <body>"); --json
 returns { messages:[{seq,loc,author,identity,role,timestamp,body,sessionId,
 mentions}], nextSince } — sessionId (an agent post's driving session, #369)
-and mentions appear only when the message carries them.`,
+and mentions appear only when the message carries them.
+
+This is the retired academy dialect and names the author ` + "`author`" + `. The
+canonical team chat (` + "`hadron team chat read`" + `) names it ` + "`authorName`" + `, and
+also splits authorUserId / authorAgentId. Both commands emit ` + "`author`" + `, so a
+filter written here keeps working there (#406) — but a filter written for
+` + "`authorName`" + ` finds nothing in THIS output.`,
 		Example: `  hadron chat read --since 42
   hadron chat read --node acme.com::team-chats::team-chat:api:messages --json`,
 		Args: cobra.NoArgs,
