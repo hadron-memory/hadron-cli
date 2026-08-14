@@ -49,17 +49,40 @@ func RawGraphQL(ctx context.Context, serverURL, token, query string, variables m
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
+	// #394: `hadron api` is the one path that KNOWS whether a write was at
+	// stake, so its transport failures name it outright rather than hedging.
+	isMutation := DocumentHasMutation(query)
+
 	resp, err := httpClient.Do(req)
 	if err != nil {
+		if f, ok := classifyTransport(err); ok {
+			return nil, transportError(f, isMutation)
+		}
 		return nil, exitcode.New(exitcode.Error, err)
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
+	// A partial body is still returned alongside the error, and the STATUS is
+	// already known — so classify on the status first. A 401/404 whose body was
+	// cut short is still the server refusing (it answered), and relabelling it
+	// as retryable would contradict the 4xx rule this change exists to
+	// establish (PR #415 review).
+	body, readErr := io.ReadAll(resp.Body)
 	if resp.StatusCode == 401 {
 		return nil, exitcode.Newf(exitcode.AuthRequired, "HTTP 401: %s", bytes.TrimSpace(body))
+	}
+	if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+		return nil, exitcode.Newf(exitcode.Error, "HTTP %d: %s", resp.StatusCode, bytes.TrimSpace(body))
+	}
+	if readErr != nil {
+		// 2xx or 5xx with a truncated body: the answer is genuinely lost, so a
+		// mutation's outcome is unknown.
+		return nil, transportError(transportFailure{
+			what:      "the connection dropped while reading the server's answer",
+			retryHint: "retry shortly",
+		}, isMutation)
+	}
+	if f, ok := transportStatus(resp.StatusCode, body); ok {
+		return nil, transportError(f, isMutation)
 	}
 	if resp.StatusCode >= 400 {
 		return nil, exitcode.Newf(exitcode.Error, "HTTP %d: %s", resp.StatusCode, bytes.TrimSpace(body))

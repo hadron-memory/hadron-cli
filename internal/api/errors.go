@@ -37,6 +37,18 @@ func MapError(err error) error {
 		return exitcode.Newf(exitcode.Usage, "%s", msg)
 	}
 
+	// #394: a request that never got an answer is not a refusal. Classified
+	// before the status switch, because it is the ONLY class that is safe to
+	// retry blind — and, after a write, the only one whose outcome is unknown.
+	// Curated commands don't tell MapError whether they sent a mutation, so
+	// the write caveat is stated conditionally rather than omitted; `hadron
+	// api` knows and says it definitely (see RawGraphQL).
+	if f, ok := classifyTransport(err); ok {
+		return exitcode.Newf(exitcode.Unavailable,
+			"%s (%s). If this command performs a write, verify the current state before retrying — it may have been applied",
+			f.what, f.retryHint)
+	}
+
 	var httpErr *graphql.HTTPError
 	if errors.As(err, &httpErr) {
 		switch httpErr.StatusCode {

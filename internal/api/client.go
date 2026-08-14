@@ -75,18 +75,25 @@ func withSecureRedirects(client *http.Client) *http.Client {
 	c := *client
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		if !schemeIsSecure(req.URL) {
-			return fmt.Errorf("refusing to follow a redirect to %s over %s — the bearer token would be sent in cleartext",
-				req.URL.Redacted(), req.URL.Scheme)
+			return fmt.Errorf("%w: refusing to follow a redirect to %s over %s — the bearer token would be sent in cleartext",
+				ErrRedirectPolicy, req.URL.Redacted(), req.URL.Scheme)
 		}
 		// Preserve the net/http default cap of 10 hops (overridden once we set
 		// CheckRedirect ourselves).
 		if len(via) >= 10 {
-			return errors.New("stopped after 10 redirects")
+			return fmt.Errorf("%w: stopped after 10 redirects", ErrRedirectPolicy)
 		}
 		return nil
 	}
 	return &c
 }
+
+// ErrRedirectPolicy marks a refusal WE made about a redirect, as opposed to a
+// network failure. net/http wraps a CheckRedirect error in *url.Error, which
+// satisfies net.Error — so without this sentinel the transport classifier
+// (#394) would read our own HTTPS-downgrade refusal as a lost request and
+// report it as retryable exit 7. The server answered; retrying cannot help.
+var ErrRedirectPolicy = errors.New("redirect refused by policy")
 
 // bearerDoer injects the Authorization header on every request.
 type bearerDoer struct {

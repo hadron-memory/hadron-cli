@@ -55,6 +55,24 @@ self-hosted backend.
 | 4    | not found (or not visible to this principal) |
 | 5    | conflict (e.g. duplicate install) |
 | 6    | cancelled / timed out waiting for the user |
+| 7    | unavailable — the request never got an answer (gateway 5xx, reset, timeout) |
+
+**7 is the only retryable code, and the only one that certifies no usable
+answer arrived** — the request may never have reached the server, *or* it
+arrived and committed while the response was lost. Codes 2–6 are the server's
+opinion. Code 1 stays the generic fallback and is NOT such a certificate: it
+also covers local failures (building a request, an unrecognized error), so
+"not 7" does not by itself mean the server decided. Retry on 7; on 1, read the
+message. A 5xx is only 7 when the body is **not** a GraphQL
+envelope — Apollo answering 500 with a real `errors[]` is an opinion and stays
+1. The usual cause is the server restarting for a deploy, which resolves on its
+own within about a minute.
+
+After a **mutation**, do not treat 7 as "nothing happened": verify current
+state before retrying, or a non-idempotent write can be double-applied.
+`hadron api` knows whether your document was a mutation and says so outright;
+curated commands state the caveat conditionally, since the mapper is shared by
+reads and writes.
 
 An **unknown subcommand** is a usage error (2), at every depth: `hadron spec
 update` exits 2 with `unknown command "update" for "hadron spec"; did you mean
