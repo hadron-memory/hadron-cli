@@ -263,6 +263,16 @@ merged PR trailers and chat history still reference it.`,
 				return exitcode.Newf(exitcode.Usage,
 					"nothing to update — pass at least one of --role, --prompt/--prompt-file, --description, --visibility")
 			}
+			// An explicitly EMPTY --visibility must not read as "leave it
+			// alone": ParseVisibility maps blank to nil, genqlient then omits
+			// the variable, and `--visibility "$UNSET_VAR"` would report a
+			// successful update that changed nothing — with an empty receipt
+			// when it was the only flag (PR #418 review). Same treatment as
+			// --role, which already refuses blank.
+			if changed("visibility") && strings.TrimSpace(visibility) == "" {
+				return exitcode.Newf(exitcode.Usage,
+					"empty --visibility — pass ORGANIZATION, PERSONAL, or PUBLIC")
+			}
 			vis, err := agent.ParseVisibility(visibility)
 			if err != nil {
 				return err

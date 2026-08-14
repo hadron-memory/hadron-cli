@@ -249,6 +249,38 @@ func TestAppFlagOnListingsPrintsScopeNote(t *testing.T) {
 	}
 }
 
+// PR #418 review: the new visibility column/field was uncovered — a missing
+// JSON field or a broken table column would both have passed.
+func TestTeamPersonaListShowsVisibility(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{"PersonaAgents": rosterJSON})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "persona", "list", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto []struct {
+		PersonaName string `json:"personaName"`
+		Visibility  string `json:"visibility"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("list --json: %v (%s)", err, out.String())
+	}
+	if len(dto) != 1 || dto[0].Visibility != "ORGANIZATION" {
+		t.Errorf("visibility must be in --json: %s", out.String())
+	}
+
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "persona", "list", "--server", gql.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out2.String(), "VISIBILITY") || !strings.Contains(out2.String(), "ORGANIZATION") {
+		t.Errorf("the human table must carry the visibility column: %s", out2.String())
+	}
+}
+
 func TestTeamPersonaGetByName(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{"PersonaAgents": rosterJSON})
 	f, out := testFactory(t)
@@ -352,6 +384,10 @@ func TestTeamPersonaUpdateRefusalsWriteNothing(t *testing.T) {
 		{"no field flags", []string{"Iris"}, "nothing to update"},
 		{"empty prompt", []string{"Iris", "--prompt", ""}, "empty persona prompt"},
 		{"empty role", []string{"Iris", "--role", "  "}, "empty --role"},
+		// An unset shell var must not read as "leave it alone" and report a
+		// successful no-op update (PR #418 review).
+		{"empty visibility", []string{"Iris", "--visibility", ""}, "empty --visibility"},
+		{"whitespace visibility", []string{"Iris", "--visibility", " "}, "empty --visibility"},
 		// A bad --prompt-file path is user input: Usage (2), not the generic 1.
 		{"unreadable prompt-file", []string{"Iris", "--prompt-file", "/nonexistent/iris.md"}, "reading --prompt-file"},
 	}
