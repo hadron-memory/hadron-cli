@@ -8036,6 +8036,144 @@ var AllImportNodeStatus = []ImportNodeStatus{
 	ImportNodeStatusStored,
 }
 
+// InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayload includes the requested fields of the GraphQL type InstallAgentIntoAppPayload.
+// The GraphQL type's documentation follows.
+//
+// Return shape for the installAgentIntoApp mutation. Wraps the new
+// AppAgent row so callers can read its audit fields without re-querying.
+type InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayload struct {
+	AppAgent *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgent `json:"appAgent"`
+}
+
+// GetAppAgent returns InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayload.AppAgent, and is useful for accessing the field via an interface.
+func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayload) GetAppAgent() *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgent {
+	return v.AppAgent
+}
+
+// InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgent includes the requested fields of the GraphQL type AppAgent.
+// The GraphQL type's documentation follows.
+//
+// 023-app-shape US1: the App↔Agent N:M join. Reintroduced after spec 008
+// collapsed it; per FR-003 it carries NO role column (system memory is
+// read-only to every App) and per FR-001 it carries NO trainingMode
+// column (training mode is per-App, on App.trainingMode).
+type InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgent struct {
+	CreatedAt string                                                                         `json:"createdAt"`
+	Agent     *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent `json:"agent"`
+	App       *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentApp   `json:"app"`
+}
+
+// GetCreatedAt returns InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgent) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetAgent returns InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgent.Agent, and is useful for accessing the field via an interface.
+func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgent) GetAgent() *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent {
+	return v.Agent
+}
+
+// GetApp returns InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgent.App, and is useful for accessing the field via an interface.
+func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgent) GetApp() *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentApp {
+	return v.App
+}
+
+// InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent includes the requested fields of the GraphQL type Agent.
+type InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent struct {
+	Id   string `json:"id"`
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+	// Persona display name ('Iris'). Unique per owner, case-insensitively.
+	PersonaName *string `json:"personaName"`
+	// Persona role - free string with conventions ('backend-engineer').
+	PersonaRole *string `json:"personaRole"`
+}
+
+// GetId returns InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent.Id, and is useful for accessing the field via an interface.
+func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent) GetId() string {
+	return v.Id
+}
+
+// GetUrn returns InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent.Urn, and is useful for accessing the field via an interface.
+func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent) GetUrn() string {
+	return v.Urn
+}
+
+// GetName returns InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent.Name, and is useful for accessing the field via an interface.
+func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent) GetName() string {
+	return v.Name
+}
+
+// GetPersonaName returns InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent.PersonaName, and is useful for accessing the field via an interface.
+func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent) GetPersonaName() *string {
+	return v.PersonaName
+}
+
+// GetPersonaRole returns InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent) GetPersonaRole() *string {
+	return v.PersonaRole
+}
+
+// InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentApp includes the requested fields of the GraphQL type App.
+type InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentApp struct {
+	Id   string `json:"id"`
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+}
+
+// GetId returns InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentApp.Id, and is useful for accessing the field via an interface.
+func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentApp) GetId() string {
+	return v.Id
+}
+
+// GetUrn returns InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentApp.Urn, and is useful for accessing the field via an interface.
+func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentApp) GetUrn() string {
+	return v.Urn
+}
+
+// GetName returns InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentApp.Name, and is useful for accessing the field via an interface.
+func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentApp) GetName() string {
+	return v.Name
+}
+
+// InstallAgentIntoAppResponse is returned by InstallAgentIntoApp on success.
+type InstallAgentIntoAppResponse struct {
+	// Install an Agent into an App (023-app-shape US1). Creates an AppAgent
+	// row joining the two. An App can have multiple Agents installed; one
+	// credential addresses all of them.
+	//
+	// This is the ONE operation that attaches an EXISTING Agent to an EXISTING
+	// App — distinct from createApp (which makes a NEW App from an Agent) and
+	// createTeamPersona (which installs an Agent it mints in the same call). It
+	// is therefore also the re-attach that cor:dmo:050:03 promises: detaching an
+	// Agent retains the memories accumulated under that App-and-Agent pairing as
+	// orphans, and installing the Agent again is what makes them reachable.
+	// Under cor:agt:020:01 the AppAgent join IS a team's roster, so this is how a
+	// roster is composed: adding an existing persona to a second team App, or
+	// putting back one uninstalled by mistake.
+	//
+	// Rejects with code DUPLICATE_APP_AGENT when the Agent is already
+	// installed in the App.
+	//
+	// Authorization: the owner of a user-owned App, or an org member with
+	// CONTRIBUTOR+ on an org-owned App's org (platform admins included). NOT
+	// plain AppMembers: installing an existing Agent is itself a read grant on
+	// that Agent's design — its system memory becomes readable from every App
+	// context, and the returned Agent carries its systemPrompt — so this gate
+	// stays at the level that can already read the org's Agents.
+	//
+	// Accepts the entity's ID or URN for both appId and agentId. Optional
+	// trainingMode flag updates the per-App training flag (applies to
+	// every installed Agent — training mode is per-App, not per-Agent,
+	// per spec 023 FR-001).
+	InstallAgentIntoApp *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayload `json:"installAgentIntoApp"`
+}
+
+// GetInstallAgentIntoApp returns InstallAgentIntoAppResponse.InstallAgentIntoApp, and is useful for accessing the field via an interface.
+func (v *InstallAgentIntoAppResponse) GetInstallAgentIntoApp() *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayload {
+	return v.InstallAgentIntoApp
+}
+
 // InvitationFields includes the GraphQL fields of UserInvitation requested by the fragment InvitationFields.
 type InvitationFields struct {
 	Id              string  `json:"id"`
@@ -14872,6 +15010,45 @@ func (v *TriggerAppRunTriggerAppRun) __premarshalJSON() (*__premarshalTriggerApp
 	return &retval, nil
 }
 
+// UninstallAgentFromAppResponse is returned by UninstallAgentFromApp on success.
+type UninstallAgentFromAppResponse struct {
+	// Uninstall an Agent from an App. Deletes the AppAgent row. The Agent's
+	// per-(App, Agent, *) memories are NOT cascade-deleted (spec 023 FR-005);
+	// they persist as orphans and become reachable again if the same Agent
+	// is later reinstalled.
+	//
+	// Idempotent — succeeds whether or not the AppAgent row exists.
+	//
+	// Accepts the entity's ID or URN.
+	UninstallAgentFromApp *UninstallAgentFromAppUninstallAgentFromAppUninstallAgentFromAppPayload `json:"uninstallAgentFromApp"`
+}
+
+// GetUninstallAgentFromApp returns UninstallAgentFromAppResponse.UninstallAgentFromApp, and is useful for accessing the field via an interface.
+func (v *UninstallAgentFromAppResponse) GetUninstallAgentFromApp() *UninstallAgentFromAppUninstallAgentFromAppUninstallAgentFromAppPayload {
+	return v.UninstallAgentFromApp
+}
+
+// UninstallAgentFromAppUninstallAgentFromAppUninstallAgentFromAppPayload includes the requested fields of the GraphQL type UninstallAgentFromAppPayload.
+// The GraphQL type's documentation follows.
+//
+// Return shape for the uninstallAgentFromApp mutation. The Agent's
+// per-(App, Agent, *) memories are NOT cascade-deleted (spec 023 FR-005);
+// they persist as orphans on the now-removed AppAgent edge.
+type UninstallAgentFromAppUninstallAgentFromAppUninstallAgentFromAppPayload struct {
+	AgentId string `json:"agentId"`
+	AppId   string `json:"appId"`
+}
+
+// GetAgentId returns UninstallAgentFromAppUninstallAgentFromAppUninstallAgentFromAppPayload.AgentId, and is useful for accessing the field via an interface.
+func (v *UninstallAgentFromAppUninstallAgentFromAppUninstallAgentFromAppPayload) GetAgentId() string {
+	return v.AgentId
+}
+
+// GetAppId returns UninstallAgentFromAppUninstallAgentFromAppUninstallAgentFromAppPayload.AppId, and is useful for accessing the field via an interface.
+func (v *UninstallAgentFromAppUninstallAgentFromAppUninstallAgentFromAppPayload) GetAppId() string {
+	return v.AppId
+}
+
 // UpdateAgentResponse is returned by UpdateAgent on success.
 type UpdateAgentResponse struct {
 	// Update an Agent.
@@ -18551,6 +18728,22 @@ type __ImportNodeInput struct {
 // GetInput returns __ImportNodeInput.Input, and is useful for accessing the field via an interface.
 func (v *__ImportNodeInput) GetInput() *ImportNodeInput { return v.Input }
 
+// __InstallAgentIntoAppInput is used internally by genqlient
+type __InstallAgentIntoAppInput struct {
+	AppRef       string `json:"appRef"`
+	AgentRef     string `json:"agentRef"`
+	TrainingMode *bool  `json:"trainingMode,omitempty"`
+}
+
+// GetAppRef returns __InstallAgentIntoAppInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__InstallAgentIntoAppInput) GetAppRef() string { return v.AppRef }
+
+// GetAgentRef returns __InstallAgentIntoAppInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__InstallAgentIntoAppInput) GetAgentRef() string { return v.AgentRef }
+
+// GetTrainingMode returns __InstallAgentIntoAppInput.TrainingMode, and is useful for accessing the field via an interface.
+func (v *__InstallAgentIntoAppInput) GetTrainingMode() *bool { return v.TrainingMode }
+
 // __LinkMemoryToUserInput is used internally by genqlient
 type __LinkMemoryToUserInput struct {
 	MemoryId       string  `json:"memoryId"`
@@ -19222,6 +19415,18 @@ type __TriggerAppRunInput struct {
 
 // GetInput returns __TriggerAppRunInput.Input, and is useful for accessing the field via an interface.
 func (v *__TriggerAppRunInput) GetInput() *TriggerAppRunInput { return v.Input }
+
+// __UninstallAgentFromAppInput is used internally by genqlient
+type __UninstallAgentFromAppInput struct {
+	AppRef   string `json:"appRef"`
+	AgentRef string `json:"agentRef"`
+}
+
+// GetAppRef returns __UninstallAgentFromAppInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__UninstallAgentFromAppInput) GetAppRef() string { return v.AppRef }
+
+// GetAgentRef returns __UninstallAgentFromAppInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__UninstallAgentFromAppInput) GetAgentRef() string { return v.AgentRef }
 
 // __UpdateAgentInput is used internally by genqlient
 type __UpdateAgentInput struct {
@@ -23293,6 +23498,67 @@ func ImportNode(
 	return data_, err_
 }
 
+// The mutation executed by InstallAgentIntoApp.
+const InstallAgentIntoApp_Operation = `
+mutation InstallAgentIntoApp ($appRef: ID!, $agentRef: ID!, $trainingMode: Boolean) {
+	installAgentIntoApp(appRef: $appRef, agentRef: $agentRef, trainingMode: $trainingMode) {
+		appAgent {
+			createdAt
+			agent {
+				id
+				urn
+				name
+				personaName
+				personaRole
+			}
+			app {
+				id
+				urn
+				name
+			}
+		}
+	}
+}
+`
+
+// #389: attach / detach an existing Agent to an existing App — the AppAgent
+// join (spec 023 US1, cor:dmo:050:03). `createApp` makes a NEW App from an
+// Agent; these two are the only way to compose the roster of one you already
+// have, and until now only raw GraphQL reached them, which is why
+// hadron-server#952 read as "no surface attaches an existing Agent".
+//
+// trainingMode is omitempty because it is PER-APP, not per-Agent (spec 023
+// FR-001): sending it always would silently re-set the flag for every installed
+// Agent on an add that never meant to touch it.
+func InstallAgentIntoApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	agentRef string,
+	trainingMode *bool,
+) (data_ *InstallAgentIntoAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "InstallAgentIntoApp",
+		Query:  InstallAgentIntoApp_Operation,
+		Variables: &__InstallAgentIntoAppInput{
+			AppRef:       appRef,
+			AgentRef:     agentRef,
+			TrainingMode: trainingMode,
+		},
+	}
+
+	data_ = &InstallAgentIntoAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by LinkMemoryToUser.
 const LinkMemoryToUser_Operation = `
 mutation LinkMemoryToUser ($memoryId: ID!, $externalUserId: String!, $dataKey: String) {
@@ -26035,6 +26301,48 @@ func TriggerAppRun(
 	}
 
 	data_ = &TriggerAppRunResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UninstallAgentFromApp.
+const UninstallAgentFromApp_Operation = `
+mutation UninstallAgentFromApp ($appRef: ID!, $agentRef: ID!) {
+	uninstallAgentFromApp(appRef: $appRef, agentRef: $agentRef) {
+		agentId
+		appId
+	}
+}
+`
+
+// Idempotent server-side: succeeds whether or not the AppAgent row exists. The
+// Agent's per-(App, Agent, *) memories are NOT cascade-deleted (spec 023
+// FR-005) — they persist as orphans and become reachable again on reinstall,
+// which is the retention promise cor:dmo:050:03 makes and #389 exists to make
+// reachable.
+func UninstallAgentFromApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	agentRef string,
+) (data_ *UninstallAgentFromAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UninstallAgentFromApp",
+		Query:  UninstallAgentFromApp_Operation,
+		Variables: &__UninstallAgentFromAppInput{
+			AppRef:   appRef,
+			AgentRef: agentRef,
+		},
+	}
+
+	data_ = &UninstallAgentFromAppResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -56,3 +56,49 @@ mutation CreateApp(
 mutation DeleteApp($ref: ID!) {
   deleteApp(ref: $ref)
 }
+
+# #389: attach / detach an existing Agent to an existing App — the AppAgent
+# join (spec 023 US1, cor:dmo:050:03). `createApp` makes a NEW App from an
+# Agent; these two are the only way to compose the roster of one you already
+# have, and until now only raw GraphQL reached them, which is why
+# hadron-server#952 read as "no surface attaches an existing Agent".
+#
+# trainingMode is omitempty because it is PER-APP, not per-Agent (spec 023
+# FR-001): sending it always would silently re-set the flag for every installed
+# Agent on an add that never meant to touch it.
+mutation InstallAgentIntoApp(
+  $appRef: ID!
+  $agentRef: ID!
+  # @genqlient(omitempty: true)
+  $trainingMode: Boolean
+) {
+  installAgentIntoApp(appRef: $appRef, agentRef: $agentRef, trainingMode: $trainingMode) {
+    appAgent {
+      createdAt
+      agent {
+        id
+        urn
+        name
+        personaName
+        personaRole
+      }
+      app {
+        id
+        urn
+        name
+      }
+    }
+  }
+}
+
+# Idempotent server-side: succeeds whether or not the AppAgent row exists. The
+# Agent's per-(App, Agent, *) memories are NOT cascade-deleted (spec 023
+# FR-005) — they persist as orphans and become reachable again on reinstall,
+# which is the retention promise cor:dmo:050:03 makes and #389 exists to make
+# reachable.
+mutation UninstallAgentFromApp($appRef: ID!, $agentRef: ID!) {
+  uninstallAgentFromApp(appRef: $appRef, agentRef: $agentRef) {
+    agentId
+    appId
+  }
+}

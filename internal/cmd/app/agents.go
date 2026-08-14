@@ -23,9 +23,8 @@ import (
 // filter (#383). The discoverability gap routed people at the one command that
 // gives a plausible wrong answer.
 //
-// The write half (`agent add` / `agent remove`) is #389, which needs a server
-// binding to attach an existing Agent to an existing App; this read needs none,
-// so it lands independently.
+// The write half (`agent add` / `agent remove`, #389) wraps the server's
+// installAgentIntoApp / uninstallAgentFromApp — see agent_membership.go.
 func newCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "agent <command>",
@@ -33,6 +32,8 @@ func newCmdAgent(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Agents installed in an App",
 	}
 	cmd.AddCommand(newCmdAgentList(f))
+	cmd.AddCommand(newCmdAgentAdd(f))
+	cmd.AddCommand(newCmdAgentRemove(f))
 	return cmd
 }
 
