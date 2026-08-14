@@ -254,6 +254,27 @@ func TestTeamWorkerGetUnknownIsNotFound(t *testing.T) {
 	}
 }
 
+// A worker-id lookup failure must surface as ITSELF, not as a fabricated
+// not-found: without an App scope the id lookup is the only lookup, so an
+// auth/transport error reading as "no worker" would make an outage look like
+// missing data (PR #431 review).
+func TestTeamWorkerGetByIdPropagatesLookupErrors(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetWorker": `{"errors":[{"message":"token expired","extensions":{"code":"UNAUTHENTICATED"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "get", "wkr1", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.AuthRequired {
+		t.Errorf("exit code = %d, want %d (AuthRequired), not a fabricated NotFound; err: %v", code, exitcode.AuthRequired, err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "token expired") {
+		t.Errorf("the real error must surface: %v", err)
+	}
+}
+
 // Retire prompts: non-interactive without --yes is refused before any mutation.
 func TestTeamWorkerRetireRequiresYes(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{"Workers": staffJSON})
@@ -433,9 +454,7 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 	}
 	// Unset optional SessionInput fields are OMITTED, never null (`appRef`
 	// without -m is covered by TestTeamSessionStartWithoutMemoryOmitsAppRef).
-	// `force` (#940) in particular: without --force it must be absent, not
-	// false and not null — the refreshed-input-field trap.
-	for _, k := range []string{"branch", "llmModel", "prNumber", "type", "force"} {
+	for _, k := range []string{"branch", "llmModel", "prNumber", "type"} {
 		if _, present := vars.Input[k]; present {
 			t.Errorf("unset %q must be omitted from SessionInput, got %v", k, vars.Input[k])
 		}
@@ -594,15 +613,9 @@ func TestTeamSessionStartForceTakesOver(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	// #940: the override rides to the server — the atomic gate is its
-	// WORKER_TAKEN refusal, and force is what waives it, explicitly.
-	var vars struct {
-		Input map[string]any `json:"input"`
-	}
-	_ = json.Unmarshal(captured["StartTeamSession"], &vars)
-	if vars.Input["force"] != true {
-		t.Errorf("--force must ride as SessionInput.force: %v", vars.Input)
-	}
+	// (SessionInput.force is hadron-server#940, unmerged — until it lands the
+	// takeover is client-side only, so nothing extra rides on the wire.)
+	_ = captured
 	if !strings.Contains(out.String(), `"tookOver": true`) {
 		t.Errorf("takeover output: %s", out.String())
 	}
@@ -1818,7 +1831,8 @@ func TestTeamChatReadMentionsMe(t *testing.T) {
 }
 
 // --active filters client-side (no server-side filter exists) and the worker
-// name is joined onto each row via the session's workerId.
+// name is joined via a memoized worker(ref:) per distinct worker (the nested
+// Session.worker is hadron-server#980, unmerged — adopting it is follow-up).
 func TestTeamSessionListActive(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
@@ -1975,6 +1989,40 @@ func TestTeamSessionLogMismatchedMemoryExplainsMismatch(t *testing.T) {
 	}
 	if err == nil || !strings.Contains(err.Error(), "different App") {
 		t.Errorf("the error must name the mismatch, got: %v", err)
+	}
+}
+
+// A binding written by a pre-Worker CLI may name a session that was never
+// App-bound, where `-m` can never work — the remedy is end-and-restart, not
+// "pass the right memory" (PR #431 review).
+func TestTeamSessionLogLegacyBindingNotInAppSaysRestart(t *testing.T) {
+	dir := teamGitDir(t)
+	legacy := `{"sessionId":"s-old-model","agentId":"agt1","personaName":"Iris","startedAt":"2026-08-11T10:00:00Z","prNumbers":[]}`
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, _ := captureGraphQL(t, map[string]string{
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-old-model","agentId":"agt1","workerId":null,"userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"RecordTeamWork": `{"errors":[{"message":"Session is not a session of this App",
+			"extensions":{"code":"SESSION_NOT_IN_APP"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "log", "--pr", "hadron-memory/hadron-cli#371",
+		"-m", "acme.com::eng-team", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "session end") {
+		t.Errorf("a legacy binding's remedy is end-and-restart: %v", err)
+	}
+	if err != nil && strings.Contains(err.Error(), "different App") {
+		t.Errorf("the mismatch message is for worker sessions only: %v", err)
 	}
 }
 

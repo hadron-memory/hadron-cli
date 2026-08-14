@@ -29,7 +29,7 @@ func TestAgentCreate(t *testing.T) {
 		vars["agentType"] != "CHATBOT" || vars["visibility"] != "ORGANIZATION" {
 		t.Errorf("create vars: %v", vars)
 	}
-	for _, k := range []string{"description", "systemPrompt", "systemMemoryId", "surfaces"} {
+	for _, k := range []string{"description", "systemPrompt", "systemMemoryId", "surfaces", "personaRole", "personaPrompt"} {
 		if _, present := vars[k]; present {
 			t.Errorf("unset %q must be omitted, got %v", k, vars[k])
 		}
@@ -40,6 +40,28 @@ func TestAgentCreate(t *testing.T) {
 	_ = json.Unmarshal([]byte(out.String()), &dto)
 	if dto.ID != "agt1" {
 		t.Errorf("dto: %s", out.String())
+	}
+}
+
+// #428 (PR #431 review): the persona dressing rides create too, so the team
+// bootstrap's step 1 is one command — a role agent is born dressed.
+func TestAgentCreateWithPersonaDressing(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateAgent": `{"data":{"createAgent":` + agentJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "create", "--org", "acme.com", "--name", "backend-engineer",
+		"--persona-role", "backend-engineer",
+		"--persona-prompt", "You are {{name}}, a backend engineer.", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateAgent"], &vars)
+	if vars["personaRole"] != "backend-engineer" ||
+		vars["personaPrompt"] != "You are {{name}}, a backend engineer." {
+		t.Errorf("dressing must ride the create: %v", vars)
 	}
 }
 

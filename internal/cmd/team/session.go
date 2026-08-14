@@ -66,6 +66,9 @@ type sessionDTO struct {
 	Active bool `json:"active"`
 }
 
+// sessionDTOFromFields maps a session row; workerName is joined by the
+// caller (sessions carry only workerId until hadron-server#980's nested
+// Session.worker merges — the memoized join below stands in).
 func sessionDTOFromFields(s gen.TeamSessionFields, workerName *string) sessionDTO {
 	return sessionDTO{
 		ID: s.Id, AgentID: s.AgentId, WorkerID: s.WorkerId, WorkerName: workerName,
@@ -74,6 +77,35 @@ func sessionDTOFromFields(s gen.TeamSessionFields, workerName *string) sessionDT
 		StartedAt: s.StartedAt, EndedAt: s.EndedAt, Host: s.Host, Tool: s.Tool,
 		TranscriptPath: s.TranscriptPath, LLMModel: s.LlmModel, Active: s.EndedAt == nil,
 	}
+}
+
+// workerNames memoizes worker-id → name lookups for the session-list join —
+// one worker(ref:) per DISTINCT worker, not per row. A lookup failure
+// resolves to nil and the caller renders the raw id — surfaced, not silently
+// dropped (the visibility-gap rule). Replaced by the nested Session.worker
+// selection once hadron-server#980 merges (tracked follow-up).
+type workerNames struct {
+	client graphql.Client
+	cache  map[string]*string
+}
+
+func newWorkerNames(client graphql.Client) *workerNames {
+	return &workerNames{client: client, cache: map[string]*string{}}
+}
+
+func (n *workerNames) nameFor(ctx context.Context, workerID *string) *string {
+	if workerID == nil || *workerID == "" {
+		return nil
+	}
+	if name, ok := n.cache[*workerID]; ok {
+		return name
+	}
+	var name *string
+	if resp, err := gen.GetWorker(ctx, n.client, *workerID); err == nil && resp.Worker != nil {
+		name = &resp.Worker.Name
+	}
+	n.cache[*workerID] = name
+	return name
 }
 
 const sessionPageSize = 200
@@ -254,13 +286,6 @@ so the old binding never leaves a session open.`,
 				Tool:           optStr(tool),
 				TranscriptPath: optStr(transcript),
 				LlmModel:       optStr(model),
-			}
-			// #940: the server refuses a taken worker atomically (WORKER_TAKEN)
-			// unless force rides along — the client-side activity check above is
-			// the friendly pre-flight, this is the race-safe gate. Sent only on
-			// --force so the override stays explicit.
-			if force {
-				input.Force = &force
 			}
 			resp, err := gen.StartTeamSession(ctx, client, input)
 			if err != nil {
@@ -511,10 +536,19 @@ team memory, --pr/--branch degrade to the denormalization alone.`,
 					ctx, client, appRef, b.SessionID, b.Tool, kind, canonical, action, detailArg,
 				)
 				if rerr != nil {
-					// A worker session binds to the WORKER's App, so this fires
-					// when -m names a different App's memory — a mismatch, not
-					// a rescue candidate.
 					if api.HasErrorCode(rerr, "SESSION_NOT_IN_APP") {
+						// A WORKER session binds to the worker's App, so for one
+						// this means -m named a different App's memory — a
+						// mismatch, not a rescue candidate. A binding written by
+						// a pre-Worker CLI (no workerId) may instead name a
+						// session that was never App-bound at all, and nothing
+						// can bind it afterwards — the old end-and-restart
+						// remedy still applies there.
+						if b.WorkerID == "" {
+							return exitcode.Newf(exitcode.Usage,
+								"session %s is not a session of this App and this binding predates the Worker model, so it may never have been App-bound — nothing can bind it afterwards; `hadron team session end`, then `session start --as <worker> -m %s`",
+								b.SessionID, teamMem)
+						}
 						return exitcode.Newf(exitcode.Usage,
 							"session %s is not a session of %s's App — the -m memory names a different App than the bound worker's; pass the worker's own team memory",
 							b.SessionID, b.WorkerName)
@@ -531,11 +565,20 @@ team memory, --pr/--branch degrade to the denormalization alone.`,
 			} else {
 				// #414: this note is read at the exact moment someone is
 				// debugging a missing worklog row, so it must name the real
-				// cause and the real remedy. A worker session is App-bound by
-				// construction, so `-m` on this command records properly.
-				fmt.Fprintf(f.IOStreams.ErrOut,
-					"note: no team memory recorded, so this milestone went only to the Session field — not the worklog. "+
-						"The session is bound to the worker's App, so `-m <team-memory>` on this command records it properly.\n")
+				// cause and the real remedy. A WORKER session is App-bound by
+				// construction, so `-m` on this command records properly — but
+				// a binding from a pre-Worker CLI may name a session that was
+				// never App-bound, where only end-and-restart helps.
+				if b.WorkerID == "" {
+					fmt.Fprintf(f.IOStreams.ErrOut,
+						"note: no team memory recorded, so this milestone went only to the Session field — not the worklog. "+
+							"This binding predates the Worker model, so its session may not be App-bound at all; if `-m <team-memory>` "+
+							"fails SESSION_NOT_IN_APP, run `hadron team session end`, then `session start --as <worker> -m <team-memory>`.\n")
+				} else {
+					fmt.Fprintf(f.IOStreams.ErrOut,
+						"note: no team memory recorded, so this milestone went only to the Session field — not the worklog. "+
+							"The session is bound to the worker's App, so `-m <team-memory>` on this command records it properly.\n")
+				}
 			}
 			if kind == "pr" {
 				known := false
@@ -695,34 +738,6 @@ binding written by a pre-Worker CLI) but the server session is still open.`,
 	cmd.Flags().StringVar(&summary, "summary", "", "short summary of what the session did")
 	cmd.Flags().StringVar(&sessionID, "session", "", "end this session id instead of the worktree's bound one (recovery)")
 	return cmd
-}
-
-// workerNames memoizes worker-id → name lookups for the session-list join.
-// Sessions carry workerId (cor:agt:020:03); the name lives on the Worker. A
-// worker the caller cannot read resolves to nil and the caller renders the
-// raw id — surfaced, not silently dropped (the visibility-gap rule).
-type workerNames struct {
-	client graphql.Client
-	cache  map[string]*string
-}
-
-func newWorkerNames(client graphql.Client) *workerNames {
-	return &workerNames{client: client, cache: map[string]*string{}}
-}
-
-func (n *workerNames) nameFor(ctx context.Context, workerID *string) *string {
-	if workerID == nil || *workerID == "" {
-		return nil
-	}
-	if name, ok := n.cache[*workerID]; ok {
-		return name
-	}
-	var name *string
-	if resp, err := gen.GetWorker(ctx, n.client, *workerID); err == nil && resp.Worker != nil {
-		name = &resp.Worker.Name
-	}
-	n.cache[*workerID] = name
-	return name
 }
 
 func newCmdSessionList(f *cmdutil.Factory) *cobra.Command {

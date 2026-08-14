@@ -13722,39 +13722,29 @@ type SessionInput struct {
 	// history rows may share a URN). By URN an uninstalled App is simply not
 	// found - BAD_USER_INPUT - since there is no single row the URN names; by
 	// PK it is found and refused APP_UNINSTALLED.
-	AppRef     *string `json:"appRef,omitempty"`
-	Branch     *string `json:"branch,omitempty"`
-	CustomerId *string `json:"customerId,omitempty"`
-	// #940: take over a worker whose binding would otherwise refuse WORKER_TAKEN.
-	// Only meaningful with workerRef. Clients must surface the WORKER_TAKEN
-	// payload (who last drove it, when) before retrying with force - that IS the
-	// informed-takeover contract; force exists so the override is explicit,
-	// never the default.
-	Force           *bool   `json:"force,omitempty"`
+	AppRef          *string `json:"appRef,omitempty"`
+	Branch          *string `json:"branch,omitempty"`
+	CustomerId      *string `json:"customerId,omitempty"`
 	Host            *string `json:"host,omitempty"`
 	Id              string  `json:"id"`
 	Language        *string `json:"language,omitempty"`
 	LlmModel        *string `json:"llmModel,omitempty"`
 	ParentSessionId *string `json:"parentSessionId,omitempty"`
-	// The session's stated intent (Session.plan) - what this session is about. MCP's hadron_start_session description lands here.
-	Plan           *string `json:"plan"`
-	PrNumber       *int    `json:"prNumber,omitempty"`
-	PrevSessionId  *string `json:"prevSessionId,omitempty"`
-	Repo           *string `json:"repo,omitempty"`
-	Tool           *string `json:"tool,omitempty"`
-	TranscriptPath *string `json:"transcriptPath,omitempty"`
-	Type           *string `json:"type,omitempty"`
+	PrNumber        *int    `json:"prNumber,omitempty"`
+	PrevSessionId   *string `json:"prevSessionId,omitempty"`
+	Repo            *string `json:"repo,omitempty"`
+	Tool            *string `json:"tool,omitempty"`
+	TranscriptPath  *string `json:"transcriptPath,omitempty"`
+	Type            *string `json:"type,omitempty"`
 	// #974 / cor:agt:020:03: the Worker (named casting) this session works as -
 	// the worker's id (workers have no URN; names never enter URNs, cor:agt:020:02).
 	// Resolves to Session.workerId, and stamps Session.agentId with the worker's
 	// role-agent. The worker must belong to the session's App: with appRef (or an
 	// App-key credential) it must match the worker's App; without one, the
 	// worker's App becomes the session's, behind the same membership gate as
-	// appRef. A retired worker refuses (WORKER_RETIRED). #940: a worker with an
-	// ACTIVE session refuses WORKER_TAKEN — extensions carry workerId, sessionId,
-	// lastDriver, lastSeenAt, everything the takeover prompt needs — unless
-	// force is true (informed takeover, cor:agt:020:03: show who last drove it,
-	// proceed only on explicit override, never silently).
+	// appRef. A retired worker refuses (WORKER_RETIRED). Binding a worker that
+	// is already driven elsewhere is NOT refused - informed takeover is the
+	// client's contract (show who last drove it, proceed on explicit override).
 	WorkerRef *string `json:"workerRef,omitempty"`
 }
 
@@ -13770,9 +13760,6 @@ func (v *SessionInput) GetBranch() *string { return v.Branch }
 // GetCustomerId returns SessionInput.CustomerId, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetCustomerId() *string { return v.CustomerId }
 
-// GetForce returns SessionInput.Force, and is useful for accessing the field via an interface.
-func (v *SessionInput) GetForce() *bool { return v.Force }
-
 // GetHost returns SessionInput.Host, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetHost() *string { return v.Host }
 
@@ -13787,9 +13774,6 @@ func (v *SessionInput) GetLlmModel() *string { return v.LlmModel }
 
 // GetParentSessionId returns SessionInput.ParentSessionId, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetParentSessionId() *string { return v.ParentSessionId }
-
-// GetPlan returns SessionInput.Plan, and is useful for accessing the field via an interface.
-func (v *SessionInput) GetPlan() *string { return v.Plan }
 
 // GetPrNumber returns SessionInput.PrNumber, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetPrNumber() *int { return v.PrNumber }
@@ -18116,6 +18100,8 @@ type __CreateAgentInput struct {
 	SystemPrompt   *string          `json:"systemPrompt,omitempty"`
 	SystemMemoryId *string          `json:"systemMemoryId,omitempty"`
 	Surfaces       []string         `json:"surfaces,omitempty"`
+	PersonaRole    *string          `json:"personaRole,omitempty"`
+	PersonaPrompt  *string          `json:"personaPrompt,omitempty"`
 }
 
 // GetName returns __CreateAgentInput.Name, and is useful for accessing the field via an interface.
@@ -18141,6 +18127,12 @@ func (v *__CreateAgentInput) GetSystemMemoryId() *string { return v.SystemMemory
 
 // GetSurfaces returns __CreateAgentInput.Surfaces, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetSurfaces() []string { return v.Surfaces }
+
+// GetPersonaRole returns __CreateAgentInput.PersonaRole, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetPersonaPrompt returns __CreateAgentInput.PersonaPrompt, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetPersonaPrompt() *string { return v.PersonaPrompt }
 
 // __CreateAgentScheduleInput is used internally by genqlient
 type __CreateAgentScheduleInput struct {
@@ -21281,8 +21273,8 @@ func ConnectionGrants(
 
 // The mutation executed by CreateAgent.
 const CreateAgent_Operation = `
-mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!]) {
-	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces) {
+mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!], $personaRole: String, $personaPrompt: String) {
+	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole, personaPrompt: $personaPrompt) {
 		... AgentFields
 	}
 }
@@ -21317,6 +21309,8 @@ func CreateAgent(
 	systemPrompt *string,
 	systemMemoryId *string,
 	surfaces []string,
+	personaRole *string,
+	personaPrompt *string,
 ) (data_ *CreateAgentResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateAgent",
@@ -21330,6 +21324,8 @@ func CreateAgent(
 			SystemPrompt:   systemPrompt,
 			SystemMemoryId: systemMemoryId,
 			Surfaces:       surfaces,
+			PersonaRole:    personaRole,
+			PersonaPrompt:  personaPrompt,
 		},
 	}
 
@@ -26202,8 +26198,9 @@ fragment TeamSessionFields on Session {
 // workerRef (#974 / cor:agt:020:03) binds the session to the Worker by ID —
 // Session.agentId is stamped server-side from the casting, so the CLI no
 // longer resolves an agent. Same refresh rule as appRef above.
-// force (#940) is the informed-takeover override: a worker with an ACTIVE
-// session refuses WORKER_TAKEN unless force is true. Sent only on --force.
+// (SessionInput.force — the server-side WORKER_TAKEN takeover gate — is
+// hadron-server#940, unmerged; until it lands the client-side activity check
+// is the only taken-check, and adopting force is tracked follow-up.)
 func StartTeamSession(
 	ctx_ context.Context,
 	client_ graphql.Client,

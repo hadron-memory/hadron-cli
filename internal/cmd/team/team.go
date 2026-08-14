@@ -39,22 +39,26 @@ Two of the steps are not in this group, so the sequence is not discoverable
 from ` + "`hadron team --help`" + ` alone (#402).
 
   1. hadron agent create --org <org> --name backend-engineer \
-       --persona-role backend-engineer
-     hadron agent update <agent> --persona-prompt 'You are {{name}}, ...'
-       The ROLE AGENT, with its persona dressing: a role plus an identity
-       prompt TEMPLATE ({{name}}/{{role}} are bound at casting time). The
-       dressing is reusable — one backend-engineer agent can be cast into
-       many Apps, under many names.
+       --persona-role backend-engineer \
+       --persona-prompt 'You are {{name}}, a backend engineer ...'
+       The ROLE AGENT, born with its persona dressing: a role plus an
+       identity prompt TEMPLATE ({{name}}/{{role}} are bound at casting
+       time; refine later with ` + "`agent update`" + `). The dressing is reusable —
+       one backend-engineer agent can be cast into many Apps, under many
+       names.
 
   2. hadron app install --org <org> --agent <agent> --name "<Team>"
        The team APP. ` + "`app agent add`" + ` installs further role agents into
        it; the AppAgent join is the cast pool (` + "`app agent list`" + `).
 
-  3. hadron team worker cast --app <app> --role <role>   (or --agent <ref>)
-       The named identity. The server resolves the agent, allocates a name
-       (explicit --name, or the Team Agent's cast-list register), binds the
-       template, and provisions the worker's working memory. The name is
-       PERMANENT per App (cor:agt:020:02).
+  3. hadron team worker cast --app <app> --role <role> --name <Name>
+       The named identity. The server resolves the agent (--role picks the
+       single installed agent with that persona role; --agent names one
+       directly), binds the template, and provisions the worker's working
+       memory. Pass --name on a fresh App: omitting it allocates from a
+       Team Agent's cast-list register (a roles:<role> node), which this
+       minimal sequence has not set up. The name is PERMANENT per App
+       (cor:agt:020:02).
 
   4. hadron team session start --as <worker> -m <team-app-memory>
        Binds this worktree. The session is App-bound through the worker;
@@ -160,13 +164,23 @@ func resolveWorker(ctx context.Context, client graphql.Client, appRef, arg strin
 		}
 	}
 	// Not a name in this App (or no App to look in) — try it as a worker id.
-	if resp, err := gen.GetWorker(ctx, client, arg); err == nil && resp.Worker != nil {
+	resp, err := gen.GetWorker(ctx, client, arg)
+	if err == nil && resp.Worker != nil {
 		return resp.Worker.WorkerFields, nil
 	}
 	if appRef == "" {
+		// The id lookup was the ONLY lookup, so its failure is the answer: an
+		// auth or transport error must surface as itself, not as a fabricated
+		// not-found (an outage would read as "the worker does not exist").
+		if err != nil {
+			return zero, api.MapError(err)
+		}
 		return zero, exitcode.Newf(exitcode.NotFound,
 			"no worker %q — a worker NAME resolves within an App, so pass --app <ref> (or set an App context); a worker id works without one", arg)
 	}
+	// With an App scope, the staff scan above already reached the server and
+	// found no such name — the id try was a bonus, and a refusal of a
+	// name-shaped ref (e.g. BAD_USER_INPUT) must not mask the honest answer.
 	return zero, exitcode.Newf(exitcode.NotFound,
 		"no worker %q in this App — `hadron team worker list` shows the staff", arg)
 }

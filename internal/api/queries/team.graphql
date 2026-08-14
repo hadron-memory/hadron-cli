@@ -166,6 +166,10 @@ fragment TeamSessionFields on Session {
   id
   agentId
   workerId
+  # No nested worker yet: Session.worker ships with hadron-server#980
+  # (feat/940-980-934-session-worker, unmerged) — until it lands on main the
+  # session-list name join is a memoized worker(ref:) per DISTINCT worker.
+  # Adopting the nested field (and SessionInput.force) is tracked follow-up.
   userId
   type
   repo
@@ -202,10 +206,10 @@ fragment TeamSessionFields on Session {
 # workerRef (#974 / cor:agt:020:03) binds the session to the Worker by ID —
 # Session.agentId is stamped server-side from the casting, so the CLI no
 # longer resolves an agent. Same refresh rule as appRef above.
+# (SessionInput.force — the server-side WORKER_TAKEN takeover gate — is
+# hadron-server#940, unmerged; until it lands the client-side activity check
+# is the only taken-check, and adopting force is tracked follow-up.)
 # @genqlient(for: "SessionInput.workerRef", omitempty: true)
-# force (#940) is the informed-takeover override: a worker with an ACTIVE
-# session refuses WORKER_TAKEN unless force is true. Sent only on --force.
-# @genqlient(for: "SessionInput.force", omitempty: true)
 mutation StartTeamSession(
   $input: SessionInput!
 ) {

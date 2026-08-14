@@ -244,6 +244,14 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 				if len(dto.Surfaces) > 0 {
 					fmt.Fprintf(w, "  surfaces: %s\n", strings.Join(dto.Surfaces, ", "))
 				}
+				// The persona dressing (#428) — shown only on a dressed agent,
+				// so an undressed one prints exactly what it always did.
+				if dto.PersonaRole != nil || dto.PersonaPrompt != nil {
+					fmt.Fprintf(w, "  persona role: %s\n", dash(dto.PersonaRole))
+					if dto.PersonaPrompt != nil && *dto.PersonaPrompt != "" {
+						fmt.Fprintf(w, "  persona prompt: %s\n", *dto.PersonaPrompt)
+					}
+				}
 				return nil
 			})
 		},
@@ -252,6 +260,7 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 
 func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	var org, name, description, typ, vis, systemPrompt, systemMemory string
+	var personaRole, personaPrompt string
 	var surfaces []string
 	var ownerMe bool
 	cmd := &cobra.Command{
@@ -284,7 +293,8 @@ exclusive.`,
 				return err
 			}
 			resp, err := gen.CreateAgent(cmd.Context(), client, name, optStr(org),
-				optStr(description), at, av, optStr(systemPrompt), optStr(systemMemory), surfaces)
+				optStr(description), at, av, optStr(systemPrompt), optStr(systemMemory), surfaces,
+				optStr(personaRole), optStr(personaPrompt))
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -303,6 +313,8 @@ exclusive.`,
 	cmd.Flags().StringVar(&systemPrompt, "system-prompt", "", "system prompt")
 	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "system memory ID")
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable)")
+	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
+	cmd.Flags().StringVar(&personaPrompt, "persona-prompt", "", "persona dressing: identity prompt TEMPLATE with {{name}}/{{role}} placeholders")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }

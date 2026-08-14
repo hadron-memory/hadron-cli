@@ -106,7 +106,7 @@ hadron coding review list -m <memory> [--root <loc>] [--broken] [--json] | revie
 hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | list --org <org> | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <id> | use <urn>
 hadron ai-config list [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
-hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
+hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] [--persona-prompt <p>] | update <id> [<field flags>] | rm <id> --yes
 hadron team init -m <team-memory>
 hadron team worker cast (--role <role> | --agent <ref>) [--name <n>] [--team-agent <ref>] [--prompt-override <text>] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | retire <name-or-id> --yes | rm <name-or-id> --yes
 hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
@@ -702,8 +702,9 @@ Conventions:
   (`cor:dmo:050:11`): "Iris" is the backend-engineer agent cast into the
   eng-team App, re-driven across many sessions by the same or a different
   human. The agent carries the reusable persona DRESSING — `personaRole` plus
-  a `personaPrompt` TEMPLATE with `{{name}}`/`{{role}}` placeholders, edited
-  via `agent update --persona-role/--persona-prompt`; the name lives on the
+  a `personaPrompt` TEMPLATE with `{{name}}`/`{{role}}` placeholders, set at
+  `agent create` or edited via `agent update`
+  (`--persona-role`/`--persona-prompt`); the name lives on the
   Worker, never the agent, and workers have no URN — commands take the
   worker's name (resolved within the App from `--app`, the App context, or
   the binding) or its id (App-free).
@@ -713,7 +714,9 @@ Conventions:
   exit 4 / `WORKER_AGENT_AMBIGUOUS` exit 2, never a guess), allocates the
   name (`--name` claims one attempt — `WORKER_NAME_TAKEN` exit 5; otherwise
   the Team Agent's cast-list register `roles:<role>` → `data.names` is
-  walked server-side; drained register: `WORKER_REGISTER_EXHAUSTED` exit 5;
+  walked server-side — so a fresh App with no register refuses
+  (`TEAM_AGENT_NOT_FOUND`): pass `--name` there; drained register:
+  `WORKER_REGISTER_EXHAUSTED` exit 5;
   unknown role lists the available roles, `WORKER_ROLE_NOT_FOUND` exit 4),
   binds the template, provisions the worker's working memory, and returns
   the resolved boot briefing (`prompt`), printed on success.

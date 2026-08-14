@@ -54,8 +54,9 @@ allocates the name and provisions the worker's working memory.
 Names (cor:agt:020:02): --name claims an explicit name in one attempt
 (WORKER_NAME_TAKEN is the answer); without it the Team Agent's cast-list
 register for the role (the roles:<role> node's data.names) is walked
-server-side past taken names. Either way the name is PERMANENT for this
-App: retirement and uninstall never free it.
+server-side past taken names — so an App with no cast-list register
+refuses (TEAM_AGENT_NOT_FOUND); pass --name there. Either way the name is
+PERMANENT for this App: retirement and uninstall never free it.
 
 --prompt-override layers per-worker individuality over the agent's prompt
 template; the resolved boot briefing (template with {{name}}/{{role}}
