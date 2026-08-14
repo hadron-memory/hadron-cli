@@ -558,7 +558,11 @@ type AgentFields struct {
 	AiProvider     *string         `json:"aiProvider"`
 	AiModel        *string         `json:"aiModel"`
 	HasAiApiKey    bool            `json:"hasAiApiKey"`
-	CreatedAt      string          `json:"createdAt"`
+	// Persona role - free string with conventions ('backend-engineer').
+	PersonaRole *string `json:"personaRole"`
+	// Persona identity TEMPLATE ('You are {{name}}, ...'); {{name}}/{{role}} are bound at casting time (Worker.prompt returns the bound result).
+	PersonaPrompt *string `json:"personaPrompt"`
+	CreatedAt     string  `json:"createdAt"`
 }
 
 // GetId returns AgentFields.Id, and is useful for accessing the field via an interface.
@@ -599,6 +603,12 @@ func (v *AgentFields) GetAiModel() *string { return v.AiModel }
 
 // GetHasAiApiKey returns AgentFields.HasAiApiKey, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetHasAiApiKey() bool { return v.HasAiApiKey }
+
+// GetPersonaRole returns AgentFields.PersonaRole, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetPersonaPrompt returns AgentFields.PersonaPrompt, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetPersonaPrompt() *string { return v.PersonaPrompt }
 
 // GetCreatedAt returns AgentFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetCreatedAt() string { return v.CreatedAt }
@@ -1455,6 +1465,14 @@ func (v *AgentsAgentsAgentsPageItemsAgent) GetAiModel() *string { return v.Agent
 // GetHasAiApiKey returns AgentsAgentsAgentsPageItemsAgent.HasAiApiKey, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
 
+// GetPersonaRole returns AgentsAgentsAgentsPageItemsAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetPersonaRole() *string { return v.AgentFields.PersonaRole }
+
+// GetPersonaPrompt returns AgentsAgentsAgentsPageItemsAgent.PersonaPrompt, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetPersonaPrompt() *string {
+	return v.AgentFields.PersonaPrompt
+}
+
 // GetCreatedAt returns AgentsAgentsAgentsPageItemsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -1510,6 +1528,10 @@ type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
 
 	HasAiApiKey bool `json:"hasAiApiKey"`
 
+	PersonaRole *string `json:"personaRole"`
+
+	PersonaPrompt *string `json:"personaPrompt"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -1537,6 +1559,8 @@ func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgen
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.PersonaPrompt = v.AgentFields.PersonaPrompt
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -1632,6 +1656,80 @@ func (v *AiServiceConfigFields) GetCreatedAt() string { return v.CreatedAt }
 
 // GetUpdatedAt returns AiServiceConfigFields.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *AiServiceConfigFields) GetUpdatedAt() *string { return v.UpdatedAt }
+
+// AppAgentRosterApp includes the requested fields of the GraphQL type App.
+type AppAgentRosterApp struct {
+	Id   string `json:"id"`
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+	// 023-app-shape: convenience that returns every installed Agent
+	// (equivalent to App.appAgents.map(aa => aa.agent)). Previously was
+	// a soft-deprecated single-element synthesis; now returns the FULL
+	// multi-Agent set per spec 023 US1.
+	Agents []*AppAgentRosterAppAgentsAgent `json:"agents"`
+}
+
+// GetId returns AppAgentRosterApp.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterApp) GetId() string { return v.Id }
+
+// GetUrn returns AppAgentRosterApp.Urn, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterApp) GetUrn() string { return v.Urn }
+
+// GetName returns AppAgentRosterApp.Name, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterApp) GetName() string { return v.Name }
+
+// GetAgents returns AppAgentRosterApp.Agents, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterApp) GetAgents() []*AppAgentRosterAppAgentsAgent { return v.Agents }
+
+// AppAgentRosterAppAgentsAgent includes the requested fields of the GraphQL type Agent.
+type AppAgentRosterAppAgentsAgent struct {
+	Id             string          `json:"id"`
+	Urn            string          `json:"urn"`
+	Name           string          `json:"name"`
+	Description    *string         `json:"description"`
+	Visibility     AgentVisibility `json:"visibility"`
+	OrganizationId *string         `json:"organizationId"`
+	// Persona role - free string with conventions ('backend-engineer').
+	PersonaRole *string `json:"personaRole"`
+	CreatedAt   string  `json:"createdAt"`
+}
+
+// GetId returns AppAgentRosterAppAgentsAgent.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterAppAgentsAgent) GetId() string { return v.Id }
+
+// GetUrn returns AppAgentRosterAppAgentsAgent.Urn, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterAppAgentsAgent) GetUrn() string { return v.Urn }
+
+// GetName returns AppAgentRosterAppAgentsAgent.Name, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterAppAgentsAgent) GetName() string { return v.Name }
+
+// GetDescription returns AppAgentRosterAppAgentsAgent.Description, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterAppAgentsAgent) GetDescription() *string { return v.Description }
+
+// GetVisibility returns AppAgentRosterAppAgentsAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterAppAgentsAgent) GetVisibility() AgentVisibility { return v.Visibility }
+
+// GetOrganizationId returns AppAgentRosterAppAgentsAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterAppAgentsAgent) GetOrganizationId() *string { return v.OrganizationId }
+
+// GetPersonaRole returns AppAgentRosterAppAgentsAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterAppAgentsAgent) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetCreatedAt returns AppAgentRosterAppAgentsAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterAppAgentsAgent) GetCreatedAt() string { return v.CreatedAt }
+
+// AppAgentRosterResponse is returned by AppAgentRoster on success.
+type AppAgentRosterResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *AppAgentRosterApp `json:"app"`
+}
+
+// GetApp returns AppAgentRosterResponse.App, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterResponse) GetApp() *AppAgentRosterApp { return v.App }
 
 // AppRunAppRun includes the requested fields of the GraphQL type AppRun.
 type AppRunAppRun struct {
@@ -2912,6 +3010,179 @@ type CancelAppRunResponse struct {
 // GetCancelAppRun returns CancelAppRunResponse.CancelAppRun, and is useful for accessing the field via an interface.
 func (v *CancelAppRunResponse) GetCancelAppRun() *CancelAppRunCancelAppRun { return v.CancelAppRun }
 
+// CastWorkerCastWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. Workers have no URN.
+type CastWorkerCastWorker struct {
+	WorkerFields `json:"-"`
+}
+
+// GetId returns CastWorkerCastWorker.Id, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetAppId returns CastWorkerCastWorker.AppId, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetAppId() string { return v.WorkerFields.AppId }
+
+// GetAgentId returns CastWorkerCastWorker.AgentId, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetAgentId() string { return v.WorkerFields.AgentId }
+
+// GetName returns CastWorkerCastWorker.Name, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetName() string { return v.WorkerFields.Name }
+
+// GetRole returns CastWorkerCastWorker.Role, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetRole() *string { return v.WorkerFields.Role }
+
+// GetPrompt returns CastWorkerCastWorker.Prompt, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
+
+// GetPromptOverride returns CastWorkerCastWorker.PromptOverride, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
+
+// GetMemoryId returns CastWorkerCastWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
+
+// GetRetiredAt returns CastWorkerCastWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
+
+// GetRetiredBy returns CastWorkerCastWorker.RetiredBy, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetRetiredBy() *string { return v.WorkerFields.RetiredBy }
+
+// GetCreatedAt returns CastWorkerCastWorker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetCreatedAt() string { return v.WorkerFields.CreatedAt }
+
+// GetCreatedBy returns CastWorkerCastWorker.CreatedBy, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetCreatedBy() *string { return v.WorkerFields.CreatedBy }
+
+func (v *CastWorkerCastWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CastWorkerCastWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CastWorkerCastWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCastWorkerCastWorker struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	AgentId string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	Role *string `json:"role"`
+
+	Prompt *string `json:"prompt"`
+
+	PromptOverride *string `json:"promptOverride"`
+
+	MemoryId *string `json:"memoryId"`
+
+	RetiredAt *string `json:"retiredAt"`
+
+	RetiredBy *string `json:"retiredBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *CastWorkerCastWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWorker, error) {
+	var retval __premarshalCastWorkerCastWorker
+
+	retval.Id = v.WorkerFields.Id
+	retval.AppId = v.WorkerFields.AppId
+	retval.AgentId = v.WorkerFields.AgentId
+	retval.Name = v.WorkerFields.Name
+	retval.Role = v.WorkerFields.Role
+	retval.Prompt = v.WorkerFields.Prompt
+	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.RetiredAt = v.WorkerFields.RetiredAt
+	retval.RetiredBy = v.WorkerFields.RetiredBy
+	retval.CreatedAt = v.WorkerFields.CreatedAt
+	retval.CreatedBy = v.WorkerFields.CreatedBy
+	return &retval, nil
+}
+
+// CastWorkerResponse is returned by CastWorker on success.
+type CastWorkerResponse struct {
+	// #974 — cast a Worker (cor:dmo:050:11, cor:agt:020:01/:02): the named
+	// casting of an agent ALREADY INSTALLED in the App, superseding
+	// createTeamPersona's minting semantics (nothing is minted — the agent
+	// carries the persona dressing; the Worker is the local named identity).
+	// Casting is opt-in, never requires a Team Agent (an explicit name skips the
+	// register entirely), and multiple castings of one agent per App are legal
+	// (Iris and Henry, both backend-engineer).
+	//
+	// Agent resolution: agentRef when given (must be installed here —
+	// WORKER_AGENT_NOT_INSTALLED); otherwise role picks the single installed
+	// agent whose personaRole matches (zero / several candidates:
+	// WORKER_AGENT_NOT_FOUND / WORKER_AGENT_AMBIGUOUS, never a guess). The
+	// casting's role defaults to the agent's personaRole when role is omitted.
+	//
+	// Name allocation (cor:agt:020:02): a caller-supplied name wins (one
+	// attempt — WORKER_NAME_TAKEN is the answer); otherwise the Team Agent's
+	// cast-list register for the role (the roles:<role> node's data.names,
+	// located as before: teamAgentRef, or the single installed agent with a
+	// roles: branch) is walked first-to-last, advancing past WORKER_NAME_TAKEN —
+	// the workers_app_name_uniq constraint IS the allocation primitive. Names
+	// are unique per App, case-insensitively, FOREVER (two Apps may each have an
+	// Iris; retirement and uninstall never free a name).
+	//
+	// A worker-scoped working memory is provisioned in the App's container
+	// (Worker.memoryId; best-effort — a failed provision leaves it null for
+	// lazy provisioning).
+	//
+	// Authorization: an org member with CONTRIBUTOR+ on the App's org, an
+	// AppMember of the App whose role is not 'reader', or the owner of a
+	// user-owned App. Pure App-key principals are denied.
+	//
+	// Error codes (extensions.code): WORKER_NAME_TAKEN,
+	// WORKER_REGISTER_EXHAUSTED, WORKER_AGENT_NOT_INSTALLED,
+	// WORKER_AGENT_NOT_FOUND, WORKER_AGENT_AMBIGUOUS, WORKER_ROLE_NOT_FOUND,
+	// TEAM_AGENT_NOT_FOUND, TEAM_AGENT_AMBIGUOUS, TEAM_AGENT_NOT_INSTALLED,
+	// SESSION_EXPIRED (encrypted system memory without an active session key),
+	// APP_UNINSTALLED.
+	//
+	// Accepts the entity's ID or URN for appRef, agentRef, and teamAgentRef.
+	CastWorker *CastWorkerCastWorker `json:"castWorker"`
+}
+
+// GetCastWorker returns CastWorkerResponse.CastWorker, and is useful for accessing the field via an interface.
+func (v *CastWorkerResponse) GetCastWorker() *CastWorkerCastWorker { return v.CastWorker }
+
 // ChatMessagesFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
 // The GraphQL type's documentation follows.
 //
@@ -3455,6 +3726,12 @@ func (v *CreateAgentCreateAgent) GetAiModel() *string { return v.AgentFields.AiM
 // GetHasAiApiKey returns CreateAgentCreateAgent.HasAiApiKey, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
 
+// GetPersonaRole returns CreateAgentCreateAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetPersonaRole() *string { return v.AgentFields.PersonaRole }
+
+// GetPersonaPrompt returns CreateAgentCreateAgent.PersonaPrompt, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetPersonaPrompt() *string { return v.AgentFields.PersonaPrompt }
+
 // GetCreatedAt returns CreateAgentCreateAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -3510,6 +3787,10 @@ type __premarshalCreateAgentCreateAgent struct {
 
 	HasAiApiKey bool `json:"hasAiApiKey"`
 
+	PersonaRole *string `json:"personaRole"`
+
+	PersonaPrompt *string `json:"personaPrompt"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -3537,6 +3818,8 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.PersonaPrompt = v.AgentFields.PersonaPrompt
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -3548,6 +3831,10 @@ type CreateAgentResponse struct {
 	// URN is rooted on the caller's bare handle (hrn:agent:<handle>:<slug>, grammar
 	// v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
 	// (org XOR user).
+	//
+	// personaRole / personaPrompt are the persona dressing (cor:agt:020:01) —
+	// the reusable role plus the '{{name}}'-templated identity prompt. The NAMED
+	// identity is a Worker, cast with castWorker; names never live on agents.
 	//
 	// orgId accepts the org's ID or URN.
 	CreateAgent *CreateAgentCreateAgent `json:"createAgent"`
@@ -5403,11 +5690,12 @@ func (v *CreateSecretResponse) GetCreateSecret() *CreateSecretCreateSecret { ret
 // CreateTeamChatMessageCreateTeamChatMessage includes the requested fields of the GraphQL type TeamChatMessage.
 // The GraphQL type's documentation follows.
 //
-// One message in a team App's chat (#939). Exactly one of authorUserId /
-// authorAgentId is set: a human post carries the user, a persona post carries
-// the persona Agent plus the driving sessionId. mentions holds the lowercased
-// tokens extracted server-side at write time (the '@persona-name / @handle'
-// format, stored without the '@').
+// One message in a team App's chat (#939, Worker envelope since #974). Exactly
+// one of authorUserId / authorWorkerId is set: a human post carries the user, a
+// worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
+// driving sessionId. mentions holds the lowercased tokens extracted
+// server-side at write time (the '@worker-name / @handle' format, stored
+// without the '@').
 type CreateTeamChatMessageCreateTeamChatMessage struct {
 	TeamChatMessageFields `json:"-"`
 }
@@ -5435,9 +5723,9 @@ func (v *CreateTeamChatMessageCreateTeamChatMessage) GetAuthorUserId() *string {
 	return v.TeamChatMessageFields.AuthorUserId
 }
 
-// GetAuthorAgentId returns CreateTeamChatMessageCreateTeamChatMessage.AuthorAgentId, and is useful for accessing the field via an interface.
-func (v *CreateTeamChatMessageCreateTeamChatMessage) GetAuthorAgentId() *string {
-	return v.TeamChatMessageFields.AuthorAgentId
+// GetAuthorWorkerId returns CreateTeamChatMessageCreateTeamChatMessage.AuthorWorkerId, and is useful for accessing the field via an interface.
+func (v *CreateTeamChatMessageCreateTeamChatMessage) GetAuthorWorkerId() *string {
+	return v.TeamChatMessageFields.AuthorWorkerId
 }
 
 // GetAuthorName returns CreateTeamChatMessageCreateTeamChatMessage.AuthorName, and is useful for accessing the field via an interface.
@@ -5496,7 +5784,7 @@ type __premarshalCreateTeamChatMessageCreateTeamChatMessage struct {
 
 	AuthorUserId *string `json:"authorUserId"`
 
-	AuthorAgentId *string `json:"authorAgentId"`
+	AuthorWorkerId *string `json:"authorWorkerId"`
 
 	AuthorName *string `json:"authorName"`
 
@@ -5523,7 +5811,7 @@ func (v *CreateTeamChatMessageCreateTeamChatMessage) __premarshalJSON() (*__prem
 	retval.Body = v.TeamChatMessageFields.Body
 	retval.At = v.TeamChatMessageFields.At
 	retval.AuthorUserId = v.TeamChatMessageFields.AuthorUserId
-	retval.AuthorAgentId = v.TeamChatMessageFields.AuthorAgentId
+	retval.AuthorWorkerId = v.TeamChatMessageFields.AuthorWorkerId
 	retval.AuthorName = v.TeamChatMessageFields.AuthorName
 	retval.SessionId = v.TeamChatMessageFields.SessionId
 	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
@@ -5539,14 +5827,15 @@ type CreateTeamChatMessageResponse struct {
 	// The message is written through the atomic chat-message allocator (#919),
 	// so racing posts get distinct consecutive seqs.
 	//
-	// Author derivation: with sessionRef, the message is authored by that
-	// session's bound persona (the session must be writable by the caller, a
-	// session OF this App, active, and agent-bound) and the envelope records
-	// the driving sessionId; without it, by the calling human. Mentions
-	// ('@persona-name' / '@handle'; a multi-word name is mentioned by its
-	// slug, e.g. '@mary-jane') are extracted server-side at write time into
-	// the envelope. replyToSeq wires a replies-to edge to the cited message.
-	// body is capped at 65536 characters.
+	// Author derivation (#974): with sessionRef, the message is authored by
+	// that session's bound Worker (the session must be writable by the caller, a
+	// session OF this App, active, and bound to a non-retired Worker OF this
+	// App — the worker-App pin, checked at post time so retirement revokes) and
+	// the envelope records the driving sessionId; without it, by the calling
+	// human. Mentions ('@worker-name' / '@handle'; a multi-word name is
+	// mentioned by its slug, e.g. '@mary-jane') are extracted server-side at
+	// write time into the envelope. replyToSeq wires a replies-to edge to the
+	// cited message. body is capped at 65536 characters.
 	//
 	// Authorization: an AppMember of the App (any role — every member of the
 	// host is a participant per cor:acl:030:01), an org member with
@@ -5555,9 +5844,10 @@ type CreateTeamChatMessageResponse struct {
 	//
 	// Error codes (extensions.code): TEAM_CHAT_BODY_TOO_LARGE,
 	// TEAM_CHAT_REPLY_NOT_FOUND, SESSION_NOT_FOUND, SESSION_NOT_IN_APP (the
-	// session belongs to a different App — a persona never authors across
-	// Apps), SESSION_ENDED, SESSION_NOT_PERSONA_BOUND, SESSION_EXPIRED
-	// (encrypted team memory without an active session key),
+	// session belongs to a different App — a worker never authors across
+	// Apps), SESSION_ENDED, SESSION_NOT_WORKER_BOUND,
+	// SESSION_WORKER_NOT_IN_APP (the worker-App pin), WORKER_RETIRED,
+	// SESSION_EXPIRED (encrypted team memory without an active session key),
 	// TEAM_AGENT_NOT_FOUND / TEAM_AGENT_AMBIGUOUS (first-post bootstrap could
 	// not locate the Team Agent), APP_UNINSTALLED, FORBIDDEN.
 	//
@@ -5568,173 +5858,6 @@ type CreateTeamChatMessageResponse struct {
 // GetCreateTeamChatMessage returns CreateTeamChatMessageResponse.CreateTeamChatMessage, and is useful for accessing the field via an interface.
 func (v *CreateTeamChatMessageResponse) GetCreateTeamChatMessage() *CreateTeamChatMessageCreateTeamChatMessage {
 	return v.CreateTeamChatMessage
-}
-
-// CreateTeamPersonaCreateTeamPersonaAgent includes the requested fields of the GraphQL type Agent.
-type CreateTeamPersonaCreateTeamPersonaAgent struct {
-	PersonaAgentFields `json:"-"`
-}
-
-// GetId returns CreateTeamPersonaCreateTeamPersonaAgent.Id, and is useful for accessing the field via an interface.
-func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetId() string { return v.PersonaAgentFields.Id }
-
-// GetUrn returns CreateTeamPersonaCreateTeamPersonaAgent.Urn, and is useful for accessing the field via an interface.
-func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetUrn() string { return v.PersonaAgentFields.Urn }
-
-// GetName returns CreateTeamPersonaCreateTeamPersonaAgent.Name, and is useful for accessing the field via an interface.
-func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetName() string { return v.PersonaAgentFields.Name }
-
-// GetDescription returns CreateTeamPersonaCreateTeamPersonaAgent.Description, and is useful for accessing the field via an interface.
-func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetDescription() *string {
-	return v.PersonaAgentFields.Description
-}
-
-// GetVisibility returns CreateTeamPersonaCreateTeamPersonaAgent.Visibility, and is useful for accessing the field via an interface.
-func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetVisibility() AgentVisibility {
-	return v.PersonaAgentFields.Visibility
-}
-
-// GetOrganizationId returns CreateTeamPersonaCreateTeamPersonaAgent.OrganizationId, and is useful for accessing the field via an interface.
-func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetOrganizationId() *string {
-	return v.PersonaAgentFields.OrganizationId
-}
-
-// GetPersonaName returns CreateTeamPersonaCreateTeamPersonaAgent.PersonaName, and is useful for accessing the field via an interface.
-func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetPersonaName() *string {
-	return v.PersonaAgentFields.PersonaName
-}
-
-// GetPersonaRole returns CreateTeamPersonaCreateTeamPersonaAgent.PersonaRole, and is useful for accessing the field via an interface.
-func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetPersonaRole() *string {
-	return v.PersonaAgentFields.PersonaRole
-}
-
-// GetPersonaPrompt returns CreateTeamPersonaCreateTeamPersonaAgent.PersonaPrompt, and is useful for accessing the field via an interface.
-func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetPersonaPrompt() *string {
-	return v.PersonaAgentFields.PersonaPrompt
-}
-
-// GetCreatedAt returns CreateTeamPersonaCreateTeamPersonaAgent.CreatedAt, and is useful for accessing the field via an interface.
-func (v *CreateTeamPersonaCreateTeamPersonaAgent) GetCreatedAt() string {
-	return v.PersonaAgentFields.CreatedAt
-}
-
-func (v *CreateTeamPersonaCreateTeamPersonaAgent) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*CreateTeamPersonaCreateTeamPersonaAgent
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.CreateTeamPersonaCreateTeamPersonaAgent = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.PersonaAgentFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalCreateTeamPersonaCreateTeamPersonaAgent struct {
-	Id string `json:"id"`
-
-	Urn string `json:"urn"`
-
-	Name string `json:"name"`
-
-	Description *string `json:"description"`
-
-	Visibility AgentVisibility `json:"visibility"`
-
-	OrganizationId *string `json:"organizationId"`
-
-	PersonaName *string `json:"personaName"`
-
-	PersonaRole *string `json:"personaRole"`
-
-	PersonaPrompt *string `json:"personaPrompt"`
-
-	CreatedAt string `json:"createdAt"`
-}
-
-func (v *CreateTeamPersonaCreateTeamPersonaAgent) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *CreateTeamPersonaCreateTeamPersonaAgent) __premarshalJSON() (*__premarshalCreateTeamPersonaCreateTeamPersonaAgent, error) {
-	var retval __premarshalCreateTeamPersonaCreateTeamPersonaAgent
-
-	retval.Id = v.PersonaAgentFields.Id
-	retval.Urn = v.PersonaAgentFields.Urn
-	retval.Name = v.PersonaAgentFields.Name
-	retval.Description = v.PersonaAgentFields.Description
-	retval.Visibility = v.PersonaAgentFields.Visibility
-	retval.OrganizationId = v.PersonaAgentFields.OrganizationId
-	retval.PersonaName = v.PersonaAgentFields.PersonaName
-	retval.PersonaRole = v.PersonaAgentFields.PersonaRole
-	retval.PersonaPrompt = v.PersonaAgentFields.PersonaPrompt
-	retval.CreatedAt = v.PersonaAgentFields.CreatedAt
-	return &retval, nil
-}
-
-// CreateTeamPersonaResponse is returned by CreateTeamPersona on success.
-type CreateTeamPersonaResponse struct {
-	// #935 — mint a team persona: role-template + name-register instantiation as
-	// a platform operation (spec cor:agt:020:01/:02). Locates the Team Agent
-	// among the App's installed Agents (teamAgentRef when given; otherwise the
-	// single installed Agent whose system memory carries a 'roles:' branch —
-	// zero or several candidates is a typed error, never a guess), reads the
-	// role definition node 'roles:<role>' from that system memory (prompt
-	// template in content, name register in data.names), allocates a name (a
-	// caller-supplied name wins; otherwise the register's next free name,
-	// advancing past PERSONA_NAME_TAKEN per the allocation contract), composes
-	// personaPrompt from the template ({{name}} and {{role}} placeholders),
-	// creates the Agent owned by the App's owner with personaRole set, and
-	// installs it into the App (AppAgent row) so the minted persona is on the
-	// roster immediately. Returns the created Agent — clients print its
-	// personaPrompt as the persona's boot briefing.
-	//
-	// Persona metadata (#950): visibility follows the team App's owner —
-	// ORGANIZATION for an org-owned App (the roster is the team's shared view of
-	// who is on it), PERSONAL for a user-owned one. The Agent's description is
-	// the role node's 'data.personaDescription' template when set (same
-	// {{name}}/{{role}} substitution as the prompt, keeping the raw role slug),
-	// otherwise the synthesized 'AI coding agent using <role> role' with the role
-	// slug humanized for prose ('backend-engineer' renders 'backend engineer').
-	// It is NEVER the role node's own description, which describes the
-	// role-definition artifact rather than the persona.
-	//
-	// Authorization: an org member with CONTRIBUTOR+ on the App's org, an
-	// AppMember of the App whose role is not 'reader', or the owner of a
-	// user-owned App. Pure App-key principals are denied.
-	//
-	// Error codes (extensions.code): TEAM_AGENT_NOT_FOUND, TEAM_AGENT_AMBIGUOUS,
-	// TEAM_AGENT_NOT_INSTALLED, PERSONA_ROLE_NOT_FOUND, PERSONA_ROLE_INVALID,
-	// PERSONA_NAME_TAKEN, PERSONA_REGISTER_EXHAUSTED, AGENT_URN_TAKEN (an
-	// explicit name whose derived slug is occupied by a non-persona Agent or
-	// reserved by a retired persona), SESSION_EXPIRED (encrypted system memory
-	// without an active session key), APP_UNINSTALLED.
-	//
-	// Accepts the entity's ID or URN for appRef and teamAgentRef.
-	CreateTeamPersona *CreateTeamPersonaCreateTeamPersonaAgent `json:"createTeamPersona"`
-}
-
-// GetCreateTeamPersona returns CreateTeamPersonaResponse.CreateTeamPersona, and is useful for accessing the field via an interface.
-func (v *CreateTeamPersonaResponse) GetCreateTeamPersona() *CreateTeamPersonaCreateTeamPersonaAgent {
-	return v.CreateTeamPersona
 }
 
 // CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult includes the requested fields of the GraphQL type UserApiKeyCreateResult.
@@ -6215,6 +6338,19 @@ type DeleteSecretResponse struct {
 // GetDeleteSecret returns DeleteSecretResponse.DeleteSecret, and is useful for accessing the field via an interface.
 func (v *DeleteSecretResponse) GetDeleteSecret() bool { return v.DeleteSecret }
 
+// DeleteWorkerResponse is returned by DeleteWorker on success.
+type DeleteWorkerResponse struct {
+	// #974 — hard-delete a NEVER-USED miscast (cor:dmo:050:11's only removal
+	// escape): refused with WORKER_IN_USE unless no session was ever bound and
+	// the worker's working memory holds no content. Anything with history
+	// retires instead — its name is bound to that history forever. Also removes
+	// the empty working memory. Same authorization as castWorker.
+	DeleteWorker bool `json:"deleteWorker"`
+}
+
+// GetDeleteWorker returns DeleteWorkerResponse.DeleteWorker, and is useful for accessing the field via an interface.
+func (v *DeleteWorkerResponse) GetDeleteWorker() bool { return v.DeleteWorker }
+
 // EffectiveAccessEffectiveAccess includes the requested fields of the GraphQL type EffectiveAccess.
 // The GraphQL type's documentation follows.
 //
@@ -6399,6 +6535,9 @@ func (v *EndTeamSessionEndSession) GetId() string { return v.TeamSessionFields.I
 // GetAgentId returns EndTeamSessionEndSession.AgentId, and is useful for accessing the field via an interface.
 func (v *EndTeamSessionEndSession) GetAgentId() *string { return v.TeamSessionFields.AgentId }
 
+// GetWorkerId returns EndTeamSessionEndSession.WorkerId, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionEndSession) GetWorkerId() *string { return v.TeamSessionFields.WorkerId }
+
 // GetUserId returns EndTeamSessionEndSession.UserId, and is useful for accessing the field via an interface.
 func (v *EndTeamSessionEndSession) GetUserId() *string { return v.TeamSessionFields.UserId }
 
@@ -6464,6 +6603,8 @@ type __premarshalEndTeamSessionEndSession struct {
 
 	AgentId *string `json:"agentId"`
 
+	WorkerId *string `json:"workerId"`
+
 	UserId *string `json:"userId"`
 
 	Type string `json:"type"`
@@ -6500,6 +6641,7 @@ func (v *EndTeamSessionEndSession) __premarshalJSON() (*__premarshalEndTeamSessi
 
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
+	retval.WorkerId = v.TeamSessionFields.WorkerId
 	retval.UserId = v.TeamSessionFields.UserId
 	retval.Type = v.TeamSessionFields.Type
 	retval.Repo = v.TeamSessionFields.Repo
@@ -6847,6 +6989,12 @@ func (v *GetAgentAgent) GetAiModel() *string { return v.AgentFields.AiModel }
 // GetHasAiApiKey returns GetAgentAgent.HasAiApiKey, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
 
+// GetPersonaRole returns GetAgentAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetPersonaRole() *string { return v.AgentFields.PersonaRole }
+
+// GetPersonaPrompt returns GetAgentAgent.PersonaPrompt, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetPersonaPrompt() *string { return v.AgentFields.PersonaPrompt }
+
 // GetCreatedAt returns GetAgentAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -6902,6 +7050,10 @@ type __premarshalGetAgentAgent struct {
 
 	HasAiApiKey bool `json:"hasAiApiKey"`
 
+	PersonaRole *string `json:"personaRole"`
+
+	PersonaPrompt *string `json:"personaPrompt"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -6929,6 +7081,8 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.PersonaPrompt = v.AgentFields.PersonaPrompt
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -7505,131 +7659,6 @@ func (v *GetOrganizationResponse) GetOrganization() *GetOrganizationOrganization
 	return v.Organization
 }
 
-// GetPersonaAgentAgent includes the requested fields of the GraphQL type Agent.
-type GetPersonaAgentAgent struct {
-	PersonaAgentFields `json:"-"`
-}
-
-// GetId returns GetPersonaAgentAgent.Id, and is useful for accessing the field via an interface.
-func (v *GetPersonaAgentAgent) GetId() string { return v.PersonaAgentFields.Id }
-
-// GetUrn returns GetPersonaAgentAgent.Urn, and is useful for accessing the field via an interface.
-func (v *GetPersonaAgentAgent) GetUrn() string { return v.PersonaAgentFields.Urn }
-
-// GetName returns GetPersonaAgentAgent.Name, and is useful for accessing the field via an interface.
-func (v *GetPersonaAgentAgent) GetName() string { return v.PersonaAgentFields.Name }
-
-// GetDescription returns GetPersonaAgentAgent.Description, and is useful for accessing the field via an interface.
-func (v *GetPersonaAgentAgent) GetDescription() *string { return v.PersonaAgentFields.Description }
-
-// GetVisibility returns GetPersonaAgentAgent.Visibility, and is useful for accessing the field via an interface.
-func (v *GetPersonaAgentAgent) GetVisibility() AgentVisibility {
-	return v.PersonaAgentFields.Visibility
-}
-
-// GetOrganizationId returns GetPersonaAgentAgent.OrganizationId, and is useful for accessing the field via an interface.
-func (v *GetPersonaAgentAgent) GetOrganizationId() *string {
-	return v.PersonaAgentFields.OrganizationId
-}
-
-// GetPersonaName returns GetPersonaAgentAgent.PersonaName, and is useful for accessing the field via an interface.
-func (v *GetPersonaAgentAgent) GetPersonaName() *string { return v.PersonaAgentFields.PersonaName }
-
-// GetPersonaRole returns GetPersonaAgentAgent.PersonaRole, and is useful for accessing the field via an interface.
-func (v *GetPersonaAgentAgent) GetPersonaRole() *string { return v.PersonaAgentFields.PersonaRole }
-
-// GetPersonaPrompt returns GetPersonaAgentAgent.PersonaPrompt, and is useful for accessing the field via an interface.
-func (v *GetPersonaAgentAgent) GetPersonaPrompt() *string { return v.PersonaAgentFields.PersonaPrompt }
-
-// GetCreatedAt returns GetPersonaAgentAgent.CreatedAt, and is useful for accessing the field via an interface.
-func (v *GetPersonaAgentAgent) GetCreatedAt() string { return v.PersonaAgentFields.CreatedAt }
-
-func (v *GetPersonaAgentAgent) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*GetPersonaAgentAgent
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.GetPersonaAgentAgent = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.PersonaAgentFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalGetPersonaAgentAgent struct {
-	Id string `json:"id"`
-
-	Urn string `json:"urn"`
-
-	Name string `json:"name"`
-
-	Description *string `json:"description"`
-
-	Visibility AgentVisibility `json:"visibility"`
-
-	OrganizationId *string `json:"organizationId"`
-
-	PersonaName *string `json:"personaName"`
-
-	PersonaRole *string `json:"personaRole"`
-
-	PersonaPrompt *string `json:"personaPrompt"`
-
-	CreatedAt string `json:"createdAt"`
-}
-
-func (v *GetPersonaAgentAgent) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *GetPersonaAgentAgent) __premarshalJSON() (*__premarshalGetPersonaAgentAgent, error) {
-	var retval __premarshalGetPersonaAgentAgent
-
-	retval.Id = v.PersonaAgentFields.Id
-	retval.Urn = v.PersonaAgentFields.Urn
-	retval.Name = v.PersonaAgentFields.Name
-	retval.Description = v.PersonaAgentFields.Description
-	retval.Visibility = v.PersonaAgentFields.Visibility
-	retval.OrganizationId = v.PersonaAgentFields.OrganizationId
-	retval.PersonaName = v.PersonaAgentFields.PersonaName
-	retval.PersonaRole = v.PersonaAgentFields.PersonaRole
-	retval.PersonaPrompt = v.PersonaAgentFields.PersonaPrompt
-	retval.CreatedAt = v.PersonaAgentFields.CreatedAt
-	return &retval, nil
-}
-
-// GetPersonaAgentResponse is returned by GetPersonaAgent on success.
-type GetPersonaAgentResponse struct {
-	// The uniform single-agent read (#473) — the first top-level Agent query;
-	// previously Agents were reachable only via Organization.agents /
-	// App.agents nesting. Gate mirrors resolveUrn's agent branch: member of
-	// the Agent's org or platform ADMIN/OWNER; denied throws Forbidden,
-	// missing is null.
-	//
-	// 'ref' accepts the entity's ID or URN.
-	Agent *GetPersonaAgentAgent `json:"agent"`
-}
-
-// GetAgent returns GetPersonaAgentResponse.Agent, and is useful for accessing the field via an interface.
-func (v *GetPersonaAgentResponse) GetAgent() *GetPersonaAgentAgent { return v.Agent }
-
 // GetTeamSessionResponse is returned by GetTeamSession on success.
 type GetTeamSessionResponse struct {
 	Session *GetTeamSessionSession `json:"session"`
@@ -7648,6 +7677,9 @@ func (v *GetTeamSessionSession) GetId() string { return v.TeamSessionFields.Id }
 
 // GetAgentId returns GetTeamSessionSession.AgentId, and is useful for accessing the field via an interface.
 func (v *GetTeamSessionSession) GetAgentId() *string { return v.TeamSessionFields.AgentId }
+
+// GetWorkerId returns GetTeamSessionSession.WorkerId, and is useful for accessing the field via an interface.
+func (v *GetTeamSessionSession) GetWorkerId() *string { return v.TeamSessionFields.WorkerId }
 
 // GetUserId returns GetTeamSessionSession.UserId, and is useful for accessing the field via an interface.
 func (v *GetTeamSessionSession) GetUserId() *string { return v.TeamSessionFields.UserId }
@@ -7714,6 +7746,8 @@ type __premarshalGetTeamSessionSession struct {
 
 	AgentId *string `json:"agentId"`
 
+	WorkerId *string `json:"workerId"`
+
 	UserId *string `json:"userId"`
 
 	Type string `json:"type"`
@@ -7750,6 +7784,7 @@ func (v *GetTeamSessionSession) __premarshalJSON() (*__premarshalGetTeamSessionS
 
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
+	retval.WorkerId = v.TeamSessionFields.WorkerId
 	retval.UserId = v.TeamSessionFields.UserId
 	retval.Type = v.TeamSessionFields.Type
 	retval.Repo = v.TeamSessionFields.Repo
@@ -7887,6 +7922,144 @@ func (v *GetUserUser) __premarshalJSON() (*__premarshalGetUserUser, error) {
 	retval.ExternalId = v.UserFields.ExternalId
 	retval.ExternalAppId = v.UserFields.ExternalAppId
 	retval.LinkedAt = v.UserFields.LinkedAt
+	return &retval, nil
+}
+
+// GetWorkerResponse is returned by GetWorker on success.
+type GetWorkerResponse struct {
+	// One Worker by id (#974; workers have no URN, so ref is the PK only).
+	// Authorization: an AppMember of the worker's App (any role), an org member
+	// with CONTRIBUTOR+ on its org, the owner of a user-owned App, or the App's
+	// own key.
+	Worker *GetWorkerWorker `json:"worker"`
+}
+
+// GetWorker returns GetWorkerResponse.Worker, and is useful for accessing the field via an interface.
+func (v *GetWorkerResponse) GetWorker() *GetWorkerWorker { return v.Worker }
+
+// GetWorkerWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. Workers have no URN.
+type GetWorkerWorker struct {
+	WorkerFields `json:"-"`
+}
+
+// GetId returns GetWorkerWorker.Id, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetAppId returns GetWorkerWorker.AppId, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetAppId() string { return v.WorkerFields.AppId }
+
+// GetAgentId returns GetWorkerWorker.AgentId, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetAgentId() string { return v.WorkerFields.AgentId }
+
+// GetName returns GetWorkerWorker.Name, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetName() string { return v.WorkerFields.Name }
+
+// GetRole returns GetWorkerWorker.Role, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetRole() *string { return v.WorkerFields.Role }
+
+// GetPrompt returns GetWorkerWorker.Prompt, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
+
+// GetPromptOverride returns GetWorkerWorker.PromptOverride, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
+
+// GetMemoryId returns GetWorkerWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
+
+// GetRetiredAt returns GetWorkerWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
+
+// GetRetiredBy returns GetWorkerWorker.RetiredBy, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetRetiredBy() *string { return v.WorkerFields.RetiredBy }
+
+// GetCreatedAt returns GetWorkerWorker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetCreatedAt() string { return v.WorkerFields.CreatedAt }
+
+// GetCreatedBy returns GetWorkerWorker.CreatedBy, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetCreatedBy() *string { return v.WorkerFields.CreatedBy }
+
+func (v *GetWorkerWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetWorkerWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetWorkerWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetWorkerWorker struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	AgentId string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	Role *string `json:"role"`
+
+	Prompt *string `json:"prompt"`
+
+	PromptOverride *string `json:"promptOverride"`
+
+	MemoryId *string `json:"memoryId"`
+
+	RetiredAt *string `json:"retiredAt"`
+
+	RetiredBy *string `json:"retiredBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *GetWorkerWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetWorkerWorker) __premarshalJSON() (*__premarshalGetWorkerWorker, error) {
+	var retval __premarshalGetWorkerWorker
+
+	retval.Id = v.WorkerFields.Id
+	retval.AppId = v.WorkerFields.AppId
+	retval.AgentId = v.WorkerFields.AgentId
+	retval.Name = v.WorkerFields.Name
+	retval.Role = v.WorkerFields.Role
+	retval.Prompt = v.WorkerFields.Prompt
+	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.RetiredAt = v.WorkerFields.RetiredAt
+	retval.RetiredBy = v.WorkerFields.RetiredBy
+	retval.CreatedAt = v.WorkerFields.CreatedAt
+	retval.CreatedBy = v.WorkerFields.CreatedBy
 	return &retval, nil
 }
 
@@ -8083,8 +8256,6 @@ type InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAge
 	Id   string `json:"id"`
 	Urn  string `json:"urn"`
 	Name string `json:"name"`
-	// Persona display name ('Iris'). Unique per owner, case-insensitively.
-	PersonaName *string `json:"personaName"`
 	// Persona role - free string with conventions ('backend-engineer').
 	PersonaRole *string `json:"personaRole"`
 }
@@ -8102,11 +8273,6 @@ func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgen
 // GetName returns InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent.Name, and is useful for accessing the field via an interface.
 func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent) GetName() string {
 	return v.Name
-}
-
-// GetPersonaName returns InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent.PersonaName, and is useful for accessing the field via an interface.
-func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent) GetPersonaName() *string {
-	return v.PersonaName
 }
 
 // GetPersonaRole returns InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent.PersonaRole, and is useful for accessing the field via an interface.
@@ -8143,14 +8309,14 @@ type InstallAgentIntoAppResponse struct {
 	// credential addresses all of them.
 	//
 	// This is the ONE operation that attaches an EXISTING Agent to an EXISTING
-	// App — distinct from createApp (which makes a NEW App from an Agent) and
-	// createTeamPersona (which installs an Agent it mints in the same call). It
+	// App — distinct from createApp (which makes a NEW App from an Agent). It
 	// is therefore also the re-attach that cor:dmo:050:03 promises: detaching an
 	// Agent retains the memories accumulated under that App-and-Agent pairing as
 	// orphans, and installing the Agent again is what makes them reachable.
-	// Under cor:agt:020:01 the AppAgent join IS a team's roster, so this is how a
-	// roster is composed: adding an existing persona to a second team App, or
-	// putting back one uninstalled by mistake.
+	// Under cor:agt:020:01 the AppAgent join is a team's install ROSTER (which
+	// agents are available); the App's STAFF are its Workers, cast from
+	// installed agents with castWorker. Worker rows survive uninstall
+	// (cor:dmo:050:11) — uninstalling severs future casting, not history.
 	//
 	// Rejects with code DUPLICATE_APP_AGENT when the Agent is already
 	// installed in the App.
@@ -11243,202 +11409,6 @@ func (v *OrganizationsResponse) GetOrganizations() *OrganizationsOrganizationsOr
 	return v.Organizations
 }
 
-// PersonaAgentFields includes the GraphQL fields of Agent requested by the fragment PersonaAgentFields.
-type PersonaAgentFields struct {
-	Id             string          `json:"id"`
-	Urn            string          `json:"urn"`
-	Name           string          `json:"name"`
-	Description    *string         `json:"description"`
-	Visibility     AgentVisibility `json:"visibility"`
-	OrganizationId *string         `json:"organizationId"`
-	// Persona display name ('Iris'). Unique per owner, case-insensitively.
-	PersonaName *string `json:"personaName"`
-	// Persona role - free string with conventions ('backend-engineer').
-	PersonaRole *string `json:"personaRole"`
-	// Persona identity paragraph; clients compose it into systemPrompt.
-	PersonaPrompt *string `json:"personaPrompt"`
-	CreatedAt     string  `json:"createdAt"`
-}
-
-// GetId returns PersonaAgentFields.Id, and is useful for accessing the field via an interface.
-func (v *PersonaAgentFields) GetId() string { return v.Id }
-
-// GetUrn returns PersonaAgentFields.Urn, and is useful for accessing the field via an interface.
-func (v *PersonaAgentFields) GetUrn() string { return v.Urn }
-
-// GetName returns PersonaAgentFields.Name, and is useful for accessing the field via an interface.
-func (v *PersonaAgentFields) GetName() string { return v.Name }
-
-// GetDescription returns PersonaAgentFields.Description, and is useful for accessing the field via an interface.
-func (v *PersonaAgentFields) GetDescription() *string { return v.Description }
-
-// GetVisibility returns PersonaAgentFields.Visibility, and is useful for accessing the field via an interface.
-func (v *PersonaAgentFields) GetVisibility() AgentVisibility { return v.Visibility }
-
-// GetOrganizationId returns PersonaAgentFields.OrganizationId, and is useful for accessing the field via an interface.
-func (v *PersonaAgentFields) GetOrganizationId() *string { return v.OrganizationId }
-
-// GetPersonaName returns PersonaAgentFields.PersonaName, and is useful for accessing the field via an interface.
-func (v *PersonaAgentFields) GetPersonaName() *string { return v.PersonaName }
-
-// GetPersonaRole returns PersonaAgentFields.PersonaRole, and is useful for accessing the field via an interface.
-func (v *PersonaAgentFields) GetPersonaRole() *string { return v.PersonaRole }
-
-// GetPersonaPrompt returns PersonaAgentFields.PersonaPrompt, and is useful for accessing the field via an interface.
-func (v *PersonaAgentFields) GetPersonaPrompt() *string { return v.PersonaPrompt }
-
-// GetCreatedAt returns PersonaAgentFields.CreatedAt, and is useful for accessing the field via an interface.
-func (v *PersonaAgentFields) GetCreatedAt() string { return v.CreatedAt }
-
-// PersonaAgentsAgentsAgentsPage includes the requested fields of the GraphQL type AgentsPage.
-type PersonaAgentsAgentsAgentsPage struct {
-	Total int                                        `json:"total"`
-	Items []*PersonaAgentsAgentsAgentsPageItemsAgent `json:"items"`
-}
-
-// GetTotal returns PersonaAgentsAgentsAgentsPage.Total, and is useful for accessing the field via an interface.
-func (v *PersonaAgentsAgentsAgentsPage) GetTotal() int { return v.Total }
-
-// GetItems returns PersonaAgentsAgentsAgentsPage.Items, and is useful for accessing the field via an interface.
-func (v *PersonaAgentsAgentsAgentsPage) GetItems() []*PersonaAgentsAgentsAgentsPageItemsAgent {
-	return v.Items
-}
-
-// PersonaAgentsAgentsAgentsPageItemsAgent includes the requested fields of the GraphQL type Agent.
-type PersonaAgentsAgentsAgentsPageItemsAgent struct {
-	PersonaAgentFields `json:"-"`
-}
-
-// GetId returns PersonaAgentsAgentsAgentsPageItemsAgent.Id, and is useful for accessing the field via an interface.
-func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetId() string { return v.PersonaAgentFields.Id }
-
-// GetUrn returns PersonaAgentsAgentsAgentsPageItemsAgent.Urn, and is useful for accessing the field via an interface.
-func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetUrn() string { return v.PersonaAgentFields.Urn }
-
-// GetName returns PersonaAgentsAgentsAgentsPageItemsAgent.Name, and is useful for accessing the field via an interface.
-func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetName() string { return v.PersonaAgentFields.Name }
-
-// GetDescription returns PersonaAgentsAgentsAgentsPageItemsAgent.Description, and is useful for accessing the field via an interface.
-func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetDescription() *string {
-	return v.PersonaAgentFields.Description
-}
-
-// GetVisibility returns PersonaAgentsAgentsAgentsPageItemsAgent.Visibility, and is useful for accessing the field via an interface.
-func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetVisibility() AgentVisibility {
-	return v.PersonaAgentFields.Visibility
-}
-
-// GetOrganizationId returns PersonaAgentsAgentsAgentsPageItemsAgent.OrganizationId, and is useful for accessing the field via an interface.
-func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetOrganizationId() *string {
-	return v.PersonaAgentFields.OrganizationId
-}
-
-// GetPersonaName returns PersonaAgentsAgentsAgentsPageItemsAgent.PersonaName, and is useful for accessing the field via an interface.
-func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetPersonaName() *string {
-	return v.PersonaAgentFields.PersonaName
-}
-
-// GetPersonaRole returns PersonaAgentsAgentsAgentsPageItemsAgent.PersonaRole, and is useful for accessing the field via an interface.
-func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetPersonaRole() *string {
-	return v.PersonaAgentFields.PersonaRole
-}
-
-// GetPersonaPrompt returns PersonaAgentsAgentsAgentsPageItemsAgent.PersonaPrompt, and is useful for accessing the field via an interface.
-func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetPersonaPrompt() *string {
-	return v.PersonaAgentFields.PersonaPrompt
-}
-
-// GetCreatedAt returns PersonaAgentsAgentsAgentsPageItemsAgent.CreatedAt, and is useful for accessing the field via an interface.
-func (v *PersonaAgentsAgentsAgentsPageItemsAgent) GetCreatedAt() string {
-	return v.PersonaAgentFields.CreatedAt
-}
-
-func (v *PersonaAgentsAgentsAgentsPageItemsAgent) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*PersonaAgentsAgentsAgentsPageItemsAgent
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.PersonaAgentsAgentsAgentsPageItemsAgent = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.PersonaAgentFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalPersonaAgentsAgentsAgentsPageItemsAgent struct {
-	Id string `json:"id"`
-
-	Urn string `json:"urn"`
-
-	Name string `json:"name"`
-
-	Description *string `json:"description"`
-
-	Visibility AgentVisibility `json:"visibility"`
-
-	OrganizationId *string `json:"organizationId"`
-
-	PersonaName *string `json:"personaName"`
-
-	PersonaRole *string `json:"personaRole"`
-
-	PersonaPrompt *string `json:"personaPrompt"`
-
-	CreatedAt string `json:"createdAt"`
-}
-
-func (v *PersonaAgentsAgentsAgentsPageItemsAgent) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *PersonaAgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalPersonaAgentsAgentsAgentsPageItemsAgent, error) {
-	var retval __premarshalPersonaAgentsAgentsAgentsPageItemsAgent
-
-	retval.Id = v.PersonaAgentFields.Id
-	retval.Urn = v.PersonaAgentFields.Urn
-	retval.Name = v.PersonaAgentFields.Name
-	retval.Description = v.PersonaAgentFields.Description
-	retval.Visibility = v.PersonaAgentFields.Visibility
-	retval.OrganizationId = v.PersonaAgentFields.OrganizationId
-	retval.PersonaName = v.PersonaAgentFields.PersonaName
-	retval.PersonaRole = v.PersonaAgentFields.PersonaRole
-	retval.PersonaPrompt = v.PersonaAgentFields.PersonaPrompt
-	retval.CreatedAt = v.PersonaAgentFields.CreatedAt
-	return &retval, nil
-}
-
-// PersonaAgentsResponse is returned by PersonaAgents on success.
-type PersonaAgentsResponse struct {
-	// Uniform paginated agent list (#473). Scope: Agents owned by the caller's
-	// member orgs; platform ADMIN/OWNER unscoped get every live Agent. orgId
-	// follows cor:api:100:01 (member -> scope, non-member -> empty page, no
-	// disclosure, no admin bypass). filter narrows by type / visibility.
-	// filter.ownedByMe (#782) narrows to the caller's own user-owned (org-less)
-	// agents for every caller including platform admins. Name-ascending order
-	// (id tiebreak); limit default 50 / cap 200; limit: 0 -> count only.
-	Agents *PersonaAgentsAgentsAgentsPage `json:"agents"`
-}
-
-// GetAgents returns PersonaAgentsResponse.Agents, and is useful for accessing the field via an interface.
-func (v *PersonaAgentsResponse) GetAgents() *PersonaAgentsAgentsAgentsPage { return v.Agents }
-
 // PrincipalGrantFields includes the GraphQL fields of PrincipalGrant requested by the fragment PrincipalGrantFields.
 // The GraphQL type's documentation follows.
 //
@@ -11735,6 +11705,16 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetHasAiApiKey() bool {
 	return v.AgentFields.HasAiApiKey
 }
 
+// GetPersonaRole returns PublicAgentsPublicAgentsAgentsPageItemsAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetPersonaPrompt returns PublicAgentsPublicAgentsAgentsPageItemsAgent.PersonaPrompt, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetPersonaPrompt() *string {
+	return v.AgentFields.PersonaPrompt
+}
+
 // GetCreatedAt returns PublicAgentsPublicAgentsAgentsPageItemsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetCreatedAt() string {
 	return v.AgentFields.CreatedAt
@@ -11792,6 +11772,10 @@ type __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 
 	HasAiApiKey bool `json:"hasAiApiKey"`
 
+	PersonaRole *string `json:"personaRole"`
+
+	PersonaPrompt *string `json:"personaPrompt"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -11819,6 +11803,8 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) __premarshalJSON() (*__pr
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.PersonaPrompt = v.AgentFields.PersonaPrompt
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -12118,9 +12104,14 @@ func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) GetSessionId() string {
 	return v.TeamWorkItemFields.SessionId
 }
 
-// GetPersonaName returns RecordTeamWorkRecordTeamWorkTeamWorkItem.PersonaName, and is useful for accessing the field via an interface.
-func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) GetPersonaName() string {
-	return v.TeamWorkItemFields.PersonaName
+// GetWorkerId returns RecordTeamWorkRecordTeamWorkTeamWorkItem.WorkerId, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) GetWorkerId() *string {
+	return v.TeamWorkItemFields.WorkerId
+}
+
+// GetWorkerName returns RecordTeamWorkRecordTeamWorkTeamWorkItem.WorkerName, and is useful for accessing the field via an interface.
+func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) GetWorkerName() string {
+	return v.TeamWorkItemFields.WorkerName
 }
 
 // GetTool returns RecordTeamWorkRecordTeamWorkTeamWorkItem.Tool, and is useful for accessing the field via an interface.
@@ -12175,7 +12166,9 @@ type __premarshalRecordTeamWorkRecordTeamWorkTeamWorkItem struct {
 
 	SessionId string `json:"sessionId"`
 
-	PersonaName string `json:"personaName"`
+	WorkerId *string `json:"workerId"`
+
+	WorkerName string `json:"workerName"`
 
 	Tool string `json:"tool"`
 
@@ -12203,7 +12196,8 @@ func (v *RecordTeamWorkRecordTeamWorkTeamWorkItem) __premarshalJSON() (*__premar
 
 	retval.NodeId = v.TeamWorkItemFields.NodeId
 	retval.SessionId = v.TeamWorkItemFields.SessionId
-	retval.PersonaName = v.TeamWorkItemFields.PersonaName
+	retval.WorkerId = v.TeamWorkItemFields.WorkerId
+	retval.WorkerName = v.TeamWorkItemFields.WorkerName
 	retval.Tool = v.TeamWorkItemFields.Tool
 	retval.Kind = v.TeamWorkItemFields.Kind
 	retval.Ref = v.TeamWorkItemFields.Ref
@@ -12234,10 +12228,16 @@ type RecordTeamWorkResponse struct {
 	// CONTRIBUTOR+ on the App's org, or the owner of a user-owned App. A pure
 	// App-key principal may NOT record (read-only on the worklog).
 	//
+	// A worker-bound session records under its Worker's name (#974,
+	// cor:agt:020:05) — the worker must belong to THIS App and not be retired
+	// (SESSION_WORKER_NOT_IN_APP / WORKER_RETIRED — a retired or foreign
+	// worker refuses rather than reshaping the attribution); an unbound
+	// session records under the attributed user's handle.
+	//
 	// Typed refusals: WORK_REF_INVALID, SESSION_NOT_FOUND, SESSION_NOT_IN_APP,
-	// SESSION_AGENT_NOT_IN_APP, TEAM_AGENT_NOT_FOUND / TEAM_AGENT_AMBIGUOUS
-	// (first-write bootstrap could not locate the Team Agent),
-	// APP_UNINSTALLED, FORBIDDEN, BAD_USER_INPUT.
+	// SESSION_WORKER_NOT_IN_APP, WORKER_RETIRED, TEAM_AGENT_NOT_FOUND /
+	// TEAM_AGENT_AMBIGUOUS (first-write bootstrap could not locate the Team
+	// Agent), APP_UNINSTALLED, FORBIDDEN, BAD_USER_INPUT.
 	//
 	// appRef accepts the entity's ID or URN; sessionRef is the session id.
 	RecordTeamWork *RecordTeamWorkRecordTeamWorkTeamWorkItem `json:"recordTeamWork"`
@@ -12550,6 +12550,147 @@ func (v *RestoreNodeRevisionRestoreNodeRevisionNode) GetNodeType() string { retu
 
 // GetUpdatedAt returns RestoreNodeRevisionRestoreNodeRevisionNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *RestoreNodeRevisionRestoreNodeRevisionNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// RetireWorkerResponse is returned by RetireWorker on success.
+type RetireWorkerResponse struct {
+	// #974 — retire a Worker (cor:agt:020:02): end the casting while reserving
+	// its name FOREVER. A retired worker stops authoring team chat at once (the
+	// worker-App pin checks retirement at post time), takes no new work records,
+	// and refuses new session bindings; the row and its name reservation
+	// survive. Idempotent — retiring an already-retired worker returns it
+	// unchanged. Same authorization as castWorker. workerRef is the worker's id
+	// (workers have no URN).
+	RetireWorker *RetireWorkerRetireWorker `json:"retireWorker"`
+}
+
+// GetRetireWorker returns RetireWorkerResponse.RetireWorker, and is useful for accessing the field via an interface.
+func (v *RetireWorkerResponse) GetRetireWorker() *RetireWorkerRetireWorker { return v.RetireWorker }
+
+// RetireWorkerRetireWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. Workers have no URN.
+type RetireWorkerRetireWorker struct {
+	WorkerFields `json:"-"`
+}
+
+// GetId returns RetireWorkerRetireWorker.Id, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetAppId returns RetireWorkerRetireWorker.AppId, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetAppId() string { return v.WorkerFields.AppId }
+
+// GetAgentId returns RetireWorkerRetireWorker.AgentId, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetAgentId() string { return v.WorkerFields.AgentId }
+
+// GetName returns RetireWorkerRetireWorker.Name, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetName() string { return v.WorkerFields.Name }
+
+// GetRole returns RetireWorkerRetireWorker.Role, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetRole() *string { return v.WorkerFields.Role }
+
+// GetPrompt returns RetireWorkerRetireWorker.Prompt, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
+
+// GetPromptOverride returns RetireWorkerRetireWorker.PromptOverride, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
+
+// GetMemoryId returns RetireWorkerRetireWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
+
+// GetRetiredAt returns RetireWorkerRetireWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
+
+// GetRetiredBy returns RetireWorkerRetireWorker.RetiredBy, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetRetiredBy() *string { return v.WorkerFields.RetiredBy }
+
+// GetCreatedAt returns RetireWorkerRetireWorker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetCreatedAt() string { return v.WorkerFields.CreatedAt }
+
+// GetCreatedBy returns RetireWorkerRetireWorker.CreatedBy, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetCreatedBy() *string { return v.WorkerFields.CreatedBy }
+
+func (v *RetireWorkerRetireWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RetireWorkerRetireWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RetireWorkerRetireWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRetireWorkerRetireWorker struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	AgentId string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	Role *string `json:"role"`
+
+	Prompt *string `json:"prompt"`
+
+	PromptOverride *string `json:"promptOverride"`
+
+	MemoryId *string `json:"memoryId"`
+
+	RetiredAt *string `json:"retiredAt"`
+
+	RetiredBy *string `json:"retiredBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *RetireWorkerRetireWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorkerRetireWorker, error) {
+	var retval __premarshalRetireWorkerRetireWorker
+
+	retval.Id = v.WorkerFields.Id
+	retval.AppId = v.WorkerFields.AppId
+	retval.AgentId = v.WorkerFields.AgentId
+	retval.Name = v.WorkerFields.Name
+	retval.Role = v.WorkerFields.Role
+	retval.Prompt = v.WorkerFields.Prompt
+	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.RetiredAt = v.WorkerFields.RetiredAt
+	retval.RetiredBy = v.WorkerFields.RetiredBy
+	retval.CreatedAt = v.WorkerFields.CreatedAt
+	retval.CreatedBy = v.WorkerFields.CreatedBy
+	return &retval, nil
+}
 
 // Shared projection for list / single-snapshot / label reads.
 type RevisionFields struct {
@@ -13559,10 +13700,11 @@ func (v *ServerInfoServerInfo) GetVersion() string { return v.Version }
 func (v *ServerInfoServerInfo) GetBaseUrl() string { return v.BaseUrl }
 
 type SessionInput struct {
-	// #928 / cor:api:140: the Agent (persona) driving this session, as a PK or
-	// URN. Resolves to Session.agentId. The caller must be able to READ the
-	// agent (PUBLIC, or owner / org member) - a session is never attributed to
-	// an agent the caller cannot see.
+	// #928 / cor:api:140: the role-Agent driving this session, as a PK or URN.
+	// Resolves to Session.agentId. The caller must be able to READ the agent
+	// (PUBLIC, or owner / org member) - a session is never attributed to an
+	// agent the caller cannot see. Usually omitted with workerRef, which derives
+	// it from the casting.
 	AgentRef *string `json:"agentRef,omitempty"`
 	// #943 / cor:api:140: the App this session is a unit of work for, as a PK or
 	// URN. Resolves to Session.appId - the pivot that was previously stamped ONLY
@@ -13594,6 +13736,16 @@ type SessionInput struct {
 	Tool            *string `json:"tool,omitempty"`
 	TranscriptPath  *string `json:"transcriptPath,omitempty"`
 	Type            *string `json:"type,omitempty"`
+	// #974 / cor:agt:020:03: the Worker (named casting) this session works as -
+	// the worker's id (workers have no URN; names never enter URNs, cor:agt:020:02).
+	// Resolves to Session.workerId, and stamps Session.agentId with the worker's
+	// role-agent. The worker must belong to the session's App: with appRef (or an
+	// App-key credential) it must match the worker's App; without one, the
+	// worker's App becomes the session's, behind the same membership gate as
+	// appRef. A retired worker refuses (WORKER_RETIRED). Binding a worker that
+	// is already driven elsewhere is NOT refused - informed takeover is the
+	// client's contract (show who last drove it, proceed on explicit override).
+	WorkerRef *string `json:"workerRef,omitempty"`
 }
 
 // GetAgentRef returns SessionInput.AgentRef, and is useful for accessing the field via an interface.
@@ -13640,6 +13792,9 @@ func (v *SessionInput) GetTranscriptPath() *string { return v.TranscriptPath }
 
 // GetType returns SessionInput.Type, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetType() *string { return v.Type }
+
+// GetWorkerRef returns SessionInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetWorkerRef() *string { return v.WorkerRef }
 
 // SoftDeleteAssetResponse is returned by SoftDeleteAsset on success.
 type SoftDeleteAssetResponse struct {
@@ -13818,6 +13973,9 @@ func (v *StartTeamSessionStartSession) GetId() string { return v.TeamSessionFiel
 // GetAgentId returns StartTeamSessionStartSession.AgentId, and is useful for accessing the field via an interface.
 func (v *StartTeamSessionStartSession) GetAgentId() *string { return v.TeamSessionFields.AgentId }
 
+// GetWorkerId returns StartTeamSessionStartSession.WorkerId, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSession) GetWorkerId() *string { return v.TeamSessionFields.WorkerId }
+
 // GetUserId returns StartTeamSessionStartSession.UserId, and is useful for accessing the field via an interface.
 func (v *StartTeamSessionStartSession) GetUserId() *string { return v.TeamSessionFields.UserId }
 
@@ -13883,6 +14041,8 @@ type __premarshalStartTeamSessionStartSession struct {
 
 	AgentId *string `json:"agentId"`
 
+	WorkerId *string `json:"workerId"`
+
 	UserId *string `json:"userId"`
 
 	Type string `json:"type"`
@@ -13919,6 +14079,7 @@ func (v *StartTeamSessionStartSession) __premarshalJSON() (*__premarshalStartTea
 
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
+	retval.WorkerId = v.TeamSessionFields.WorkerId
 	retval.UserId = v.TeamSessionFields.UserId
 	retval.Type = v.TeamSessionFields.Type
 	retval.Repo = v.TeamSessionFields.Repo
@@ -13982,23 +14143,24 @@ var AllSyncStatus = []SyncStatus{
 // TeamChatMessageFields includes the GraphQL fields of TeamChatMessage requested by the fragment TeamChatMessageFields.
 // The GraphQL type's documentation follows.
 //
-// One message in a team App's chat (#939). Exactly one of authorUserId /
-// authorAgentId is set: a human post carries the user, a persona post carries
-// the persona Agent plus the driving sessionId. mentions holds the lowercased
-// tokens extracted server-side at write time (the '@persona-name / @handle'
-// format, stored without the '@').
+// One message in a team App's chat (#939, Worker envelope since #974). Exactly
+// one of authorUserId / authorWorkerId is set: a human post carries the user, a
+// worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
+// driving sessionId. mentions holds the lowercased tokens extracted
+// server-side at write time (the '@worker-name / @handle' format, stored
+// without the '@').
 type TeamChatMessageFields struct {
 	// The message node's id.
 	NodeId string `json:"nodeId"`
 	// Ordering key, unique per chat, allocated atomically (ascending from 1).
-	Seq           int     `json:"seq"`
-	Body          string  `json:"body"`
-	At            string  `json:"at"`
-	AuthorUserId  *string `json:"authorUserId"`
-	AuthorAgentId *string `json:"authorAgentId"`
-	// Display convenience: the persona name or the user handle.
+	Seq            int     `json:"seq"`
+	Body           string  `json:"body"`
+	At             string  `json:"at"`
+	AuthorUserId   *string `json:"authorUserId"`
+	AuthorWorkerId *string `json:"authorWorkerId"`
+	// Display convenience: the worker name or the user handle.
 	AuthorName *string `json:"authorName"`
-	// The session driving the persona author, when posted via sessionRef.
+	// The session driving the worker author, when posted via sessionRef.
 	SessionId *string `json:"sessionId"`
 	// The seq this message replies to, when it is a reply.
 	ReplyToSeq *int     `json:"replyToSeq"`
@@ -14020,8 +14182,8 @@ func (v *TeamChatMessageFields) GetAt() string { return v.At }
 // GetAuthorUserId returns TeamChatMessageFields.AuthorUserId, and is useful for accessing the field via an interface.
 func (v *TeamChatMessageFields) GetAuthorUserId() *string { return v.AuthorUserId }
 
-// GetAuthorAgentId returns TeamChatMessageFields.AuthorAgentId, and is useful for accessing the field via an interface.
-func (v *TeamChatMessageFields) GetAuthorAgentId() *string { return v.AuthorAgentId }
+// GetAuthorWorkerId returns TeamChatMessageFields.AuthorWorkerId, and is useful for accessing the field via an interface.
+func (v *TeamChatMessageFields) GetAuthorWorkerId() *string { return v.AuthorWorkerId }
 
 // GetAuthorName returns TeamChatMessageFields.AuthorName, and is useful for accessing the field via an interface.
 func (v *TeamChatMessageFields) GetAuthorName() *string { return v.AuthorName }
@@ -14041,12 +14203,13 @@ type TeamChatMessagesResponse struct {
 	// { items, total } page. sinceSeq is a watermark cursor: only messages with
 	// seq STRICTLY GREATER than it are returned (pass the last seq you have
 	// seen). mentionsRef filters to messages whose stored envelope mentions the
-	// referenced persona (Agent ref) or user (user ref) — matching runs against
-	// the mention tokens extracted at write time, never by re-parsing bodies.
-	// The ref must name a member of THIS App's roster (an installed Agent, an
-	// AppMember, or the caller); an unresolvable or off-roster mentionsRef
-	// yields the empty page identically (no existence oracle). limit defaults
-	// to 50 (cap 200); limit: 0 returns only total.
+	// referenced worker (a Worker id or name of THIS App, retired included) or
+	// user (handle/id) — matching runs against the mention tokens extracted at
+	// write time, never by re-parsing bodies. The ref must name this App's own
+	// staff or members (a Worker of the App, an AppMember, or the caller); an
+	// unresolvable or foreign mentionsRef yields the empty page identically (no
+	// existence oracle). limit defaults to 50 (cap 200); limit: 0 returns only
+	// total.
 	//
 	// Authorization: an AppMember of the App (any role), an org member with
 	// CONTRIBUTOR+ on the App's org, the owner of a user-owned App, or the
@@ -14078,11 +14241,12 @@ func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPage) GetItems() []*Tea
 // TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage includes the requested fields of the GraphQL type TeamChatMessage.
 // The GraphQL type's documentation follows.
 //
-// One message in a team App's chat (#939). Exactly one of authorUserId /
-// authorAgentId is set: a human post carries the user, a persona post carries
-// the persona Agent plus the driving sessionId. mentions holds the lowercased
-// tokens extracted server-side at write time (the '@persona-name / @handle'
-// format, stored without the '@').
+// One message in a team App's chat (#939, Worker envelope since #974). Exactly
+// one of authorUserId / authorWorkerId is set: a human post carries the user, a
+// worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
+// driving sessionId. mentions holds the lowercased tokens extracted
+// server-side at write time (the '@worker-name / @handle' format, stored
+// without the '@').
 type TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
 	TeamChatMessageFields `json:"-"`
 }
@@ -14112,9 +14276,9 @@ func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessag
 	return v.TeamChatMessageFields.AuthorUserId
 }
 
-// GetAuthorAgentId returns TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorAgentId, and is useful for accessing the field via an interface.
-func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorAgentId() *string {
-	return v.TeamChatMessageFields.AuthorAgentId
+// GetAuthorWorkerId returns TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorWorkerId, and is useful for accessing the field via an interface.
+func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorWorkerId() *string {
+	return v.TeamChatMessageFields.AuthorWorkerId
 }
 
 // GetAuthorName returns TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorName, and is useful for accessing the field via an interface.
@@ -14173,7 +14337,7 @@ type __premarshalTeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamCh
 
 	AuthorUserId *string `json:"authorUserId"`
 
-	AuthorAgentId *string `json:"authorAgentId"`
+	AuthorWorkerId *string `json:"authorWorkerId"`
 
 	AuthorName *string `json:"authorName"`
 
@@ -14200,7 +14364,7 @@ func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessag
 	retval.Body = v.TeamChatMessageFields.Body
 	retval.At = v.TeamChatMessageFields.At
 	retval.AuthorUserId = v.TeamChatMessageFields.AuthorUserId
-	retval.AuthorAgentId = v.TeamChatMessageFields.AuthorAgentId
+	retval.AuthorWorkerId = v.TeamChatMessageFields.AuthorWorkerId
 	retval.AuthorName = v.TeamChatMessageFields.AuthorName
 	retval.SessionId = v.TeamChatMessageFields.SessionId
 	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
@@ -14231,159 +14395,13 @@ type TeamMemoryAppResponse struct {
 // GetMemory returns TeamMemoryAppResponse.Memory, and is useful for accessing the field via an interface.
 func (v *TeamMemoryAppResponse) GetMemory() *TeamMemoryAppMemory { return v.Memory }
 
-// TeamRosterApp includes the requested fields of the GraphQL type App.
-type TeamRosterApp struct {
-	Id   string `json:"id"`
-	Urn  string `json:"urn"`
-	Name string `json:"name"`
-	// 023-app-shape: convenience that returns every installed Agent
-	// (equivalent to App.appAgents.map(aa => aa.agent)). Previously was
-	// a soft-deprecated single-element synthesis; now returns the FULL
-	// multi-Agent set per spec 023 US1.
-	Agents []*TeamRosterAppAgentsAgent `json:"agents"`
-}
-
-// GetId returns TeamRosterApp.Id, and is useful for accessing the field via an interface.
-func (v *TeamRosterApp) GetId() string { return v.Id }
-
-// GetUrn returns TeamRosterApp.Urn, and is useful for accessing the field via an interface.
-func (v *TeamRosterApp) GetUrn() string { return v.Urn }
-
-// GetName returns TeamRosterApp.Name, and is useful for accessing the field via an interface.
-func (v *TeamRosterApp) GetName() string { return v.Name }
-
-// GetAgents returns TeamRosterApp.Agents, and is useful for accessing the field via an interface.
-func (v *TeamRosterApp) GetAgents() []*TeamRosterAppAgentsAgent { return v.Agents }
-
-// TeamRosterAppAgentsAgent includes the requested fields of the GraphQL type Agent.
-type TeamRosterAppAgentsAgent struct {
-	PersonaAgentFields `json:"-"`
-}
-
-// GetId returns TeamRosterAppAgentsAgent.Id, and is useful for accessing the field via an interface.
-func (v *TeamRosterAppAgentsAgent) GetId() string { return v.PersonaAgentFields.Id }
-
-// GetUrn returns TeamRosterAppAgentsAgent.Urn, and is useful for accessing the field via an interface.
-func (v *TeamRosterAppAgentsAgent) GetUrn() string { return v.PersonaAgentFields.Urn }
-
-// GetName returns TeamRosterAppAgentsAgent.Name, and is useful for accessing the field via an interface.
-func (v *TeamRosterAppAgentsAgent) GetName() string { return v.PersonaAgentFields.Name }
-
-// GetDescription returns TeamRosterAppAgentsAgent.Description, and is useful for accessing the field via an interface.
-func (v *TeamRosterAppAgentsAgent) GetDescription() *string { return v.PersonaAgentFields.Description }
-
-// GetVisibility returns TeamRosterAppAgentsAgent.Visibility, and is useful for accessing the field via an interface.
-func (v *TeamRosterAppAgentsAgent) GetVisibility() AgentVisibility {
-	return v.PersonaAgentFields.Visibility
-}
-
-// GetOrganizationId returns TeamRosterAppAgentsAgent.OrganizationId, and is useful for accessing the field via an interface.
-func (v *TeamRosterAppAgentsAgent) GetOrganizationId() *string {
-	return v.PersonaAgentFields.OrganizationId
-}
-
-// GetPersonaName returns TeamRosterAppAgentsAgent.PersonaName, and is useful for accessing the field via an interface.
-func (v *TeamRosterAppAgentsAgent) GetPersonaName() *string { return v.PersonaAgentFields.PersonaName }
-
-// GetPersonaRole returns TeamRosterAppAgentsAgent.PersonaRole, and is useful for accessing the field via an interface.
-func (v *TeamRosterAppAgentsAgent) GetPersonaRole() *string { return v.PersonaAgentFields.PersonaRole }
-
-// GetPersonaPrompt returns TeamRosterAppAgentsAgent.PersonaPrompt, and is useful for accessing the field via an interface.
-func (v *TeamRosterAppAgentsAgent) GetPersonaPrompt() *string {
-	return v.PersonaAgentFields.PersonaPrompt
-}
-
-// GetCreatedAt returns TeamRosterAppAgentsAgent.CreatedAt, and is useful for accessing the field via an interface.
-func (v *TeamRosterAppAgentsAgent) GetCreatedAt() string { return v.PersonaAgentFields.CreatedAt }
-
-func (v *TeamRosterAppAgentsAgent) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*TeamRosterAppAgentsAgent
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.TeamRosterAppAgentsAgent = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.PersonaAgentFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalTeamRosterAppAgentsAgent struct {
-	Id string `json:"id"`
-
-	Urn string `json:"urn"`
-
-	Name string `json:"name"`
-
-	Description *string `json:"description"`
-
-	Visibility AgentVisibility `json:"visibility"`
-
-	OrganizationId *string `json:"organizationId"`
-
-	PersonaName *string `json:"personaName"`
-
-	PersonaRole *string `json:"personaRole"`
-
-	PersonaPrompt *string `json:"personaPrompt"`
-
-	CreatedAt string `json:"createdAt"`
-}
-
-func (v *TeamRosterAppAgentsAgent) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *TeamRosterAppAgentsAgent) __premarshalJSON() (*__premarshalTeamRosterAppAgentsAgent, error) {
-	var retval __premarshalTeamRosterAppAgentsAgent
-
-	retval.Id = v.PersonaAgentFields.Id
-	retval.Urn = v.PersonaAgentFields.Urn
-	retval.Name = v.PersonaAgentFields.Name
-	retval.Description = v.PersonaAgentFields.Description
-	retval.Visibility = v.PersonaAgentFields.Visibility
-	retval.OrganizationId = v.PersonaAgentFields.OrganizationId
-	retval.PersonaName = v.PersonaAgentFields.PersonaName
-	retval.PersonaRole = v.PersonaAgentFields.PersonaRole
-	retval.PersonaPrompt = v.PersonaAgentFields.PersonaPrompt
-	retval.CreatedAt = v.PersonaAgentFields.CreatedAt
-	return &retval, nil
-}
-
-// TeamRosterResponse is returned by TeamRoster on success.
-type TeamRosterResponse struct {
-	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
-	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
-	// list).
-	//
-	// 'ref' accepts the entity's ID or URN.
-	App *TeamRosterApp `json:"app"`
-}
-
-// GetApp returns TeamRosterResponse.App, and is useful for accessing the field via an interface.
-func (v *TeamRosterResponse) GetApp() *TeamRosterApp { return v.App }
-
 // TeamSessionFields includes the GraphQL fields of Session requested by the fragment TeamSessionFields.
 type TeamSessionFields struct {
-	Id        string  `json:"id"`
-	AgentId   *string `json:"agentId"`
+	Id string `json:"id"`
+	// The role-agent driving the session (with workerId set, the agent behind the casting).
+	AgentId *string `json:"agentId"`
+	// #974 / cor:agt:020:03: the Worker (named casting) this session works as.
+	WorkerId  *string `json:"workerId"`
 	UserId    *string `json:"userId"`
 	Type      string  `json:"type"`
 	Repo      *string `json:"repo"`
@@ -14405,6 +14423,9 @@ func (v *TeamSessionFields) GetId() string { return v.Id }
 
 // GetAgentId returns TeamSessionFields.AgentId, and is useful for accessing the field via an interface.
 func (v *TeamSessionFields) GetAgentId() *string { return v.AgentId }
+
+// GetWorkerId returns TeamSessionFields.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamSessionFields) GetWorkerId() *string { return v.WorkerId }
 
 // GetUserId returns TeamSessionFields.UserId, and is useful for accessing the field via an interface.
 func (v *TeamSessionFields) GetUserId() *string { return v.UserId }
@@ -14441,6 +14462,7 @@ func (v *TeamSessionFields) GetLlmModel() *string { return v.LlmModel }
 
 // TeamSessionsResponse is returned by TeamSessions on success.
 type TeamSessionsResponse struct {
+	// workerRef (#974): only sessions bound to that Worker (by id), newest first - the 'taken right now' / 'last driven by' read (cor:agt:020:03).
 	Sessions []*TeamSessionsSessionsSession `json:"sessions"`
 }
 
@@ -14457,6 +14479,9 @@ func (v *TeamSessionsSessionsSession) GetId() string { return v.TeamSessionField
 
 // GetAgentId returns TeamSessionsSessionsSession.AgentId, and is useful for accessing the field via an interface.
 func (v *TeamSessionsSessionsSession) GetAgentId() *string { return v.TeamSessionFields.AgentId }
+
+// GetWorkerId returns TeamSessionsSessionsSession.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamSessionsSessionsSession) GetWorkerId() *string { return v.TeamSessionFields.WorkerId }
 
 // GetUserId returns TeamSessionsSessionsSession.UserId, and is useful for accessing the field via an interface.
 func (v *TeamSessionsSessionsSession) GetUserId() *string { return v.TeamSessionFields.UserId }
@@ -14523,6 +14548,8 @@ type __premarshalTeamSessionsSessionsSession struct {
 
 	AgentId *string `json:"agentId"`
 
+	WorkerId *string `json:"workerId"`
+
 	UserId *string `json:"userId"`
 
 	Type string `json:"type"`
@@ -14559,6 +14586,7 @@ func (v *TeamSessionsSessionsSession) __premarshalJSON() (*__premarshalTeamSessi
 
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
+	retval.WorkerId = v.TeamSessionFields.WorkerId
 	retval.UserId = v.TeamSessionFields.UserId
 	retval.Type = v.TeamSessionFields.Type
 	retval.Repo = v.TeamSessionFields.Repo
@@ -14576,13 +14604,18 @@ func (v *TeamSessionsSessionsSession) __premarshalJSON() (*__premarshalTeamSessi
 // ── Worklog (#947) — the dedicated operations. The CLI previously composed
 // worklog records itself and wrote them through the generic object surface,
 // which put the record shape in two places; the server owns it (hadron-cli#396).
+// Since #974 the record attributes through the Worker: workerName is the
+// denormalized display name (pre-#974 rows surface their stored personaName
+// here), workerId the casting behind it when the session was worker-bound.
 type TeamWorkItemFields struct {
 	// The record node's id.
 	NodeId string `json:"nodeId"`
 	// The session the work is attributed to.
 	SessionId string `json:"sessionId"`
-	// Display convenience, denormalized at write: the session's bound persona name, else the attributed user's handle.
-	PersonaName string `json:"personaName"`
+	// The Worker (named casting) behind the record, when the session was worker-bound.
+	WorkerId *string `json:"workerId"`
+	// Display convenience, denormalized at write: the session's bound worker name, else the attributed user's handle (pre-#974 records surface their stored personaName here).
+	WorkerName string `json:"workerName"`
 	// The external tool the artifact lives in ('github', ...). Lowercased.
 	Tool string `json:"tool"`
 	// Artifact kind: pr, issue, commit, branch, or repo.
@@ -14603,8 +14636,11 @@ func (v *TeamWorkItemFields) GetNodeId() string { return v.NodeId }
 // GetSessionId returns TeamWorkItemFields.SessionId, and is useful for accessing the field via an interface.
 func (v *TeamWorkItemFields) GetSessionId() string { return v.SessionId }
 
-// GetPersonaName returns TeamWorkItemFields.PersonaName, and is useful for accessing the field via an interface.
-func (v *TeamWorkItemFields) GetPersonaName() string { return v.PersonaName }
+// GetWorkerId returns TeamWorkItemFields.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemFields) GetWorkerId() *string { return v.WorkerId }
+
+// GetWorkerName returns TeamWorkItemFields.WorkerName, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemFields) GetWorkerName() string { return v.WorkerName }
 
 // GetTool returns TeamWorkItemFields.Tool, and is useful for accessing the field via an interface.
 func (v *TeamWorkItemFields) GetTool() string { return v.Tool }
@@ -14686,9 +14722,14 @@ func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetSessio
 	return v.TeamWorkItemFields.SessionId
 }
 
-// GetPersonaName returns TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.PersonaName, and is useful for accessing the field via an interface.
-func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetPersonaName() string {
-	return v.TeamWorkItemFields.PersonaName
+// GetWorkerId returns TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetWorkerId() *string {
+	return v.TeamWorkItemFields.WorkerId
+}
+
+// GetWorkerName returns TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.WorkerName, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetWorkerName() string {
+	return v.TeamWorkItemFields.WorkerName
 }
 
 // GetTool returns TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.Tool, and is useful for accessing the field via an interface.
@@ -14751,7 +14792,9 @@ type __premarshalTeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem st
 
 	SessionId string `json:"sessionId"`
 
-	PersonaName string `json:"personaName"`
+	WorkerId *string `json:"workerId"`
+
+	WorkerName string `json:"workerName"`
 
 	Tool string `json:"tool"`
 
@@ -14779,7 +14822,8 @@ func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) __premars
 
 	retval.NodeId = v.TeamWorkItemFields.NodeId
 	retval.SessionId = v.TeamWorkItemFields.SessionId
-	retval.PersonaName = v.TeamWorkItemFields.PersonaName
+	retval.WorkerId = v.TeamWorkItemFields.WorkerId
+	retval.WorkerName = v.TeamWorkItemFields.WorkerName
 	retval.Tool = v.TeamWorkItemFields.Tool
 	retval.Kind = v.TeamWorkItemFields.Kind
 	retval.Ref = v.TeamWorkItemFields.Ref
@@ -15052,6 +15096,11 @@ func (v *UninstallAgentFromAppUninstallAgentFromAppUninstallAgentFromAppPayload)
 // UpdateAgentResponse is returned by UpdateAgent on success.
 type UpdateAgentResponse struct {
 	// Update an Agent.
+	//
+	// urn renames the slug (org-owned agents only). personaRole / personaPrompt
+	// are the persona dressing (cor:agt:020:01); explicit null or blank clears,
+	// omitted preserves. Worker castings referencing this agent are unaffected —
+	// the named identity lives on the Worker.
 	//
 	// Accepts the entity's ID or URN.
 	UpdateAgent *UpdateAgentUpdateAgent `json:"updateAgent"`
@@ -15343,6 +15392,12 @@ func (v *UpdateAgentUpdateAgent) GetAiModel() *string { return v.AgentFields.AiM
 // GetHasAiApiKey returns UpdateAgentUpdateAgent.HasAiApiKey, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
 
+// GetPersonaRole returns UpdateAgentUpdateAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetPersonaRole() *string { return v.AgentFields.PersonaRole }
+
+// GetPersonaPrompt returns UpdateAgentUpdateAgent.PersonaPrompt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetPersonaPrompt() *string { return v.AgentFields.PersonaPrompt }
+
 // GetCreatedAt returns UpdateAgentUpdateAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -15398,6 +15453,10 @@ type __premarshalUpdateAgentUpdateAgent struct {
 
 	HasAiApiKey bool `json:"hasAiApiKey"`
 
+	PersonaRole *string `json:"personaRole"`
+
+	PersonaPrompt *string `json:"personaPrompt"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -15425,6 +15484,8 @@ func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpd
 	retval.AiProvider = v.AgentFields.AiProvider
 	retval.AiModel = v.AgentFields.AiModel
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.PersonaPrompt = v.AgentFields.PersonaPrompt
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -16965,137 +17026,6 @@ func (v *UpdateTeamCollectionsUpdateTeamCollectionsTeamCollectionsPayload) GetCh
 	return v.Changed
 }
 
-// UpdateTeamPersonaResponse is returned by UpdateTeamPersona on success.
-type UpdateTeamPersonaResponse struct {
-	// Update an Agent.
-	//
-	// Accepts the entity's ID or URN.
-	UpdateAgent *UpdateTeamPersonaUpdateAgent `json:"updateAgent"`
-}
-
-// GetUpdateAgent returns UpdateTeamPersonaResponse.UpdateAgent, and is useful for accessing the field via an interface.
-func (v *UpdateTeamPersonaResponse) GetUpdateAgent() *UpdateTeamPersonaUpdateAgent {
-	return v.UpdateAgent
-}
-
-// UpdateTeamPersonaUpdateAgent includes the requested fields of the GraphQL type Agent.
-type UpdateTeamPersonaUpdateAgent struct {
-	PersonaAgentFields `json:"-"`
-}
-
-// GetId returns UpdateTeamPersonaUpdateAgent.Id, and is useful for accessing the field via an interface.
-func (v *UpdateTeamPersonaUpdateAgent) GetId() string { return v.PersonaAgentFields.Id }
-
-// GetUrn returns UpdateTeamPersonaUpdateAgent.Urn, and is useful for accessing the field via an interface.
-func (v *UpdateTeamPersonaUpdateAgent) GetUrn() string { return v.PersonaAgentFields.Urn }
-
-// GetName returns UpdateTeamPersonaUpdateAgent.Name, and is useful for accessing the field via an interface.
-func (v *UpdateTeamPersonaUpdateAgent) GetName() string { return v.PersonaAgentFields.Name }
-
-// GetDescription returns UpdateTeamPersonaUpdateAgent.Description, and is useful for accessing the field via an interface.
-func (v *UpdateTeamPersonaUpdateAgent) GetDescription() *string {
-	return v.PersonaAgentFields.Description
-}
-
-// GetVisibility returns UpdateTeamPersonaUpdateAgent.Visibility, and is useful for accessing the field via an interface.
-func (v *UpdateTeamPersonaUpdateAgent) GetVisibility() AgentVisibility {
-	return v.PersonaAgentFields.Visibility
-}
-
-// GetOrganizationId returns UpdateTeamPersonaUpdateAgent.OrganizationId, and is useful for accessing the field via an interface.
-func (v *UpdateTeamPersonaUpdateAgent) GetOrganizationId() *string {
-	return v.PersonaAgentFields.OrganizationId
-}
-
-// GetPersonaName returns UpdateTeamPersonaUpdateAgent.PersonaName, and is useful for accessing the field via an interface.
-func (v *UpdateTeamPersonaUpdateAgent) GetPersonaName() *string {
-	return v.PersonaAgentFields.PersonaName
-}
-
-// GetPersonaRole returns UpdateTeamPersonaUpdateAgent.PersonaRole, and is useful for accessing the field via an interface.
-func (v *UpdateTeamPersonaUpdateAgent) GetPersonaRole() *string {
-	return v.PersonaAgentFields.PersonaRole
-}
-
-// GetPersonaPrompt returns UpdateTeamPersonaUpdateAgent.PersonaPrompt, and is useful for accessing the field via an interface.
-func (v *UpdateTeamPersonaUpdateAgent) GetPersonaPrompt() *string {
-	return v.PersonaAgentFields.PersonaPrompt
-}
-
-// GetCreatedAt returns UpdateTeamPersonaUpdateAgent.CreatedAt, and is useful for accessing the field via an interface.
-func (v *UpdateTeamPersonaUpdateAgent) GetCreatedAt() string { return v.PersonaAgentFields.CreatedAt }
-
-func (v *UpdateTeamPersonaUpdateAgent) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*UpdateTeamPersonaUpdateAgent
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.UpdateTeamPersonaUpdateAgent = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.PersonaAgentFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalUpdateTeamPersonaUpdateAgent struct {
-	Id string `json:"id"`
-
-	Urn string `json:"urn"`
-
-	Name string `json:"name"`
-
-	Description *string `json:"description"`
-
-	Visibility AgentVisibility `json:"visibility"`
-
-	OrganizationId *string `json:"organizationId"`
-
-	PersonaName *string `json:"personaName"`
-
-	PersonaRole *string `json:"personaRole"`
-
-	PersonaPrompt *string `json:"personaPrompt"`
-
-	CreatedAt string `json:"createdAt"`
-}
-
-func (v *UpdateTeamPersonaUpdateAgent) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *UpdateTeamPersonaUpdateAgent) __premarshalJSON() (*__premarshalUpdateTeamPersonaUpdateAgent, error) {
-	var retval __premarshalUpdateTeamPersonaUpdateAgent
-
-	retval.Id = v.PersonaAgentFields.Id
-	retval.Urn = v.PersonaAgentFields.Urn
-	retval.Name = v.PersonaAgentFields.Name
-	retval.Description = v.PersonaAgentFields.Description
-	retval.Visibility = v.PersonaAgentFields.Visibility
-	retval.OrganizationId = v.PersonaAgentFields.OrganizationId
-	retval.PersonaName = v.PersonaAgentFields.PersonaName
-	retval.PersonaRole = v.PersonaAgentFields.PersonaRole
-	retval.PersonaPrompt = v.PersonaAgentFields.PersonaPrompt
-	retval.CreatedAt = v.PersonaAgentFields.CreatedAt
-	return &retval, nil
-}
-
 // UpdateTeamSessionResponse is returned by UpdateTeamSession on success.
 type UpdateTeamSessionResponse struct {
 	// #931: update a live session's mutable provenance fields (a PR is usually
@@ -17123,6 +17053,9 @@ func (v *UpdateTeamSessionUpdateSession) GetId() string { return v.TeamSessionFi
 
 // GetAgentId returns UpdateTeamSessionUpdateSession.AgentId, and is useful for accessing the field via an interface.
 func (v *UpdateTeamSessionUpdateSession) GetAgentId() *string { return v.TeamSessionFields.AgentId }
+
+// GetWorkerId returns UpdateTeamSessionUpdateSession.WorkerId, and is useful for accessing the field via an interface.
+func (v *UpdateTeamSessionUpdateSession) GetWorkerId() *string { return v.TeamSessionFields.WorkerId }
 
 // GetUserId returns UpdateTeamSessionUpdateSession.UserId, and is useful for accessing the field via an interface.
 func (v *UpdateTeamSessionUpdateSession) GetUserId() *string { return v.TeamSessionFields.UserId }
@@ -17189,6 +17122,8 @@ type __premarshalUpdateTeamSessionUpdateSession struct {
 
 	AgentId *string `json:"agentId"`
 
+	WorkerId *string `json:"workerId"`
+
 	UserId *string `json:"userId"`
 
 	Type string `json:"type"`
@@ -17225,6 +17160,7 @@ func (v *UpdateTeamSessionUpdateSession) __premarshalJSON() (*__premarshalUpdate
 
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
+	retval.WorkerId = v.TeamSessionFields.WorkerId
 	retval.UserId = v.TeamSessionFields.UserId
 	retval.Type = v.TeamSessionFields.Type
 	retval.Repo = v.TeamSessionFields.Repo
@@ -17592,6 +17528,236 @@ func (v *ValidateMemoryValidateMemoryMemoryValidationResultSkippedChecksMemoryVa
 	return v.Reason
 }
 
+// WorkerFields includes the GraphQL fields of Worker requested by the fragment WorkerFields.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. Workers have no URN.
+type WorkerFields struct {
+	Id      string `json:"id"`
+	AppId   string `json:"appId"`
+	AgentId string `json:"agentId"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+	// The cast-list role this filling answers ('backend-engineer').
+	Role *string `json:"role"`
+	// The worker's boot prompt, resolved: the agent's personaPrompt template
+	// with {{name}}/{{role}} bound, then promptOverride appended as its own
+	// paragraph. Null when the agent carries no template and the worker no
+	// override.
+	Prompt *string `json:"prompt"`
+	// Per-worker individuality layered over the agent's template prompt.
+	PromptOverride *string `json:"promptOverride"`
+	// The worker-scoped working memory in the App's container (null until provisioned).
+	MemoryId *string `json:"memoryId"`
+	// Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
+	RetiredAt *string `json:"retiredAt"`
+	RetiredBy *string `json:"retiredBy"`
+	CreatedAt string  `json:"createdAt"`
+	CreatedBy *string `json:"createdBy"`
+}
+
+// GetId returns WorkerFields.Id, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetId() string { return v.Id }
+
+// GetAppId returns WorkerFields.AppId, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetAppId() string { return v.AppId }
+
+// GetAgentId returns WorkerFields.AgentId, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetAgentId() string { return v.AgentId }
+
+// GetName returns WorkerFields.Name, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetName() string { return v.Name }
+
+// GetRole returns WorkerFields.Role, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetRole() *string { return v.Role }
+
+// GetPrompt returns WorkerFields.Prompt, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetPrompt() *string { return v.Prompt }
+
+// GetPromptOverride returns WorkerFields.PromptOverride, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetPromptOverride() *string { return v.PromptOverride }
+
+// GetMemoryId returns WorkerFields.MemoryId, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetMemoryId() *string { return v.MemoryId }
+
+// GetRetiredAt returns WorkerFields.RetiredAt, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetRetiredAt() *string { return v.RetiredAt }
+
+// GetRetiredBy returns WorkerFields.RetiredBy, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetRetiredBy() *string { return v.RetiredBy }
+
+// GetCreatedAt returns WorkerFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetCreatedBy returns WorkerFields.CreatedBy, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetCreatedBy() *string { return v.CreatedBy }
+
+// WorkersResponse is returned by Workers on success.
+type WorkersResponse struct {
+	// A team App's STAFF (#974, cor:agt:020:01 — Workers are the staff; the
+	// AppAgent join is the install roster): the App's castings, oldest first,
+	// as a uniform { items, total } page. Retired castings are hidden unless
+	// includeRetired. Same authorization as worker. appRef accepts the App's
+	// ID or URN.
+	Workers *WorkersWorkersWorkersPage `json:"workers"`
+}
+
+// GetWorkers returns WorkersResponse.Workers, and is useful for accessing the field via an interface.
+func (v *WorkersResponse) GetWorkers() *WorkersWorkersWorkersPage { return v.Workers }
+
+// WorkersWorkersWorkersPage includes the requested fields of the GraphQL type WorkersPage.
+type WorkersWorkersWorkersPage struct {
+	Total int                                     `json:"total"`
+	Items []*WorkersWorkersWorkersPageItemsWorker `json:"items"`
+}
+
+// GetTotal returns WorkersWorkersWorkersPage.Total, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPage) GetTotal() int { return v.Total }
+
+// GetItems returns WorkersWorkersWorkersPage.Items, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPage) GetItems() []*WorkersWorkersWorkersPageItemsWorker {
+	return v.Items
+}
+
+// WorkersWorkersWorkersPageItemsWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. Workers have no URN.
+type WorkersWorkersWorkersPageItemsWorker struct {
+	WorkerFields `json:"-"`
+}
+
+// GetId returns WorkersWorkersWorkersPageItemsWorker.Id, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetAppId returns WorkersWorkersWorkersPageItemsWorker.AppId, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetAppId() string { return v.WorkerFields.AppId }
+
+// GetAgentId returns WorkersWorkersWorkersPageItemsWorker.AgentId, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetAgentId() string { return v.WorkerFields.AgentId }
+
+// GetName returns WorkersWorkersWorkersPageItemsWorker.Name, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetName() string { return v.WorkerFields.Name }
+
+// GetRole returns WorkersWorkersWorkersPageItemsWorker.Role, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetRole() *string { return v.WorkerFields.Role }
+
+// GetPrompt returns WorkersWorkersWorkersPageItemsWorker.Prompt, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
+
+// GetPromptOverride returns WorkersWorkersWorkersPageItemsWorker.PromptOverride, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetPromptOverride() *string {
+	return v.WorkerFields.PromptOverride
+}
+
+// GetMemoryId returns WorkersWorkersWorkersPageItemsWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
+
+// GetRetiredAt returns WorkersWorkersWorkersPageItemsWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetRetiredAt() *string {
+	return v.WorkerFields.RetiredAt
+}
+
+// GetRetiredBy returns WorkersWorkersWorkersPageItemsWorker.RetiredBy, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetRetiredBy() *string {
+	return v.WorkerFields.RetiredBy
+}
+
+// GetCreatedAt returns WorkersWorkersWorkersPageItemsWorker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetCreatedAt() string { return v.WorkerFields.CreatedAt }
+
+// GetCreatedBy returns WorkersWorkersWorkersPageItemsWorker.CreatedBy, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetCreatedBy() *string {
+	return v.WorkerFields.CreatedBy
+}
+
+func (v *WorkersWorkersWorkersPageItemsWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*WorkersWorkersWorkersPageItemsWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.WorkersWorkersWorkersPageItemsWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalWorkersWorkersWorkersPageItemsWorker struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	AgentId string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	Role *string `json:"role"`
+
+	Prompt *string `json:"prompt"`
+
+	PromptOverride *string `json:"promptOverride"`
+
+	MemoryId *string `json:"memoryId"`
+
+	RetiredAt *string `json:"retiredAt"`
+
+	RetiredBy *string `json:"retiredBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *WorkersWorkersWorkersPageItemsWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *WorkersWorkersWorkersPageItemsWorker) __premarshalJSON() (*__premarshalWorkersWorkersWorkersPageItemsWorker, error) {
+	var retval __premarshalWorkersWorkersWorkersPageItemsWorker
+
+	retval.Id = v.WorkerFields.Id
+	retval.AppId = v.WorkerFields.AppId
+	retval.AgentId = v.WorkerFields.AgentId
+	retval.Name = v.WorkerFields.Name
+	retval.Role = v.WorkerFields.Role
+	retval.Prompt = v.WorkerFields.Prompt
+	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.RetiredAt = v.WorkerFields.RetiredAt
+	retval.RetiredBy = v.WorkerFields.RetiredBy
+	retval.CreatedAt = v.WorkerFields.CreatedAt
+	retval.CreatedBy = v.WorkerFields.CreatedBy
+	return &retval, nil
+}
+
 // __AcceptInvitationInput is used internally by genqlient
 type __AcceptInvitationInput struct {
 	Slug string `json:"slug"`
@@ -17699,6 +17865,14 @@ func (v *__AgentsInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __AgentsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AgentsInput) GetOffset() *int { return v.Offset }
+
+// __AppAgentRosterInput is used internally by genqlient
+type __AppAgentRosterInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __AppAgentRosterInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppAgentRosterInput) GetAppRef() string { return v.AppRef }
 
 // __AppRunInput is used internally by genqlient
 type __AppRunInput struct {
@@ -17812,6 +17986,34 @@ type __CancelAppRunInput struct {
 // GetId returns __CancelAppRunInput.Id, and is useful for accessing the field via an interface.
 func (v *__CancelAppRunInput) GetId() string { return v.Id }
 
+// __CastWorkerInput is used internally by genqlient
+type __CastWorkerInput struct {
+	AppRef         string  `json:"appRef"`
+	AgentRef       *string `json:"agentRef,omitempty"`
+	Role           *string `json:"role,omitempty"`
+	Name           *string `json:"name,omitempty"`
+	TeamAgentRef   *string `json:"teamAgentRef,omitempty"`
+	PromptOverride *string `json:"promptOverride,omitempty"`
+}
+
+// GetAppRef returns __CastWorkerInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CastWorkerInput) GetAppRef() string { return v.AppRef }
+
+// GetAgentRef returns __CastWorkerInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__CastWorkerInput) GetAgentRef() *string { return v.AgentRef }
+
+// GetRole returns __CastWorkerInput.Role, and is useful for accessing the field via an interface.
+func (v *__CastWorkerInput) GetRole() *string { return v.Role }
+
+// GetName returns __CastWorkerInput.Name, and is useful for accessing the field via an interface.
+func (v *__CastWorkerInput) GetName() *string { return v.Name }
+
+// GetTeamAgentRef returns __CastWorkerInput.TeamAgentRef, and is useful for accessing the field via an interface.
+func (v *__CastWorkerInput) GetTeamAgentRef() *string { return v.TeamAgentRef }
+
+// GetPromptOverride returns __CastWorkerInput.PromptOverride, and is useful for accessing the field via an interface.
+func (v *__CastWorkerInput) GetPromptOverride() *string { return v.PromptOverride }
+
 // __ChatMessagesInput is used internally by genqlient
 type __ChatMessagesInput struct {
 	Filter *NodeFilter `json:"filter,omitempty"`
@@ -17898,6 +18100,8 @@ type __CreateAgentInput struct {
 	SystemPrompt   *string          `json:"systemPrompt,omitempty"`
 	SystemMemoryId *string          `json:"systemMemoryId,omitempty"`
 	Surfaces       []string         `json:"surfaces,omitempty"`
+	PersonaRole    *string          `json:"personaRole,omitempty"`
+	PersonaPrompt  *string          `json:"personaPrompt,omitempty"`
 }
 
 // GetName returns __CreateAgentInput.Name, and is useful for accessing the field via an interface.
@@ -17923,6 +18127,12 @@ func (v *__CreateAgentInput) GetSystemMemoryId() *string { return v.SystemMemory
 
 // GetSurfaces returns __CreateAgentInput.Surfaces, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetSurfaces() []string { return v.Surfaces }
+
+// GetPersonaRole returns __CreateAgentInput.PersonaRole, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetPersonaPrompt returns __CreateAgentInput.PersonaPrompt, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetPersonaPrompt() *string { return v.PersonaPrompt }
 
 // __CreateAgentScheduleInput is used internally by genqlient
 type __CreateAgentScheduleInput struct {
@@ -18332,26 +18542,6 @@ func (v *__CreateTeamChatMessageInput) GetReplyToSeq() *int { return v.ReplyToSe
 // GetSessionRef returns __CreateTeamChatMessageInput.SessionRef, and is useful for accessing the field via an interface.
 func (v *__CreateTeamChatMessageInput) GetSessionRef() *string { return v.SessionRef }
 
-// __CreateTeamPersonaInput is used internally by genqlient
-type __CreateTeamPersonaInput struct {
-	AppRef       string  `json:"appRef"`
-	Role         string  `json:"role"`
-	TeamAgentRef *string `json:"teamAgentRef,omitempty"`
-	Name         *string `json:"name,omitempty"`
-}
-
-// GetAppRef returns __CreateTeamPersonaInput.AppRef, and is useful for accessing the field via an interface.
-func (v *__CreateTeamPersonaInput) GetAppRef() string { return v.AppRef }
-
-// GetRole returns __CreateTeamPersonaInput.Role, and is useful for accessing the field via an interface.
-func (v *__CreateTeamPersonaInput) GetRole() string { return v.Role }
-
-// GetTeamAgentRef returns __CreateTeamPersonaInput.TeamAgentRef, and is useful for accessing the field via an interface.
-func (v *__CreateTeamPersonaInput) GetTeamAgentRef() *string { return v.TeamAgentRef }
-
-// GetName returns __CreateTeamPersonaInput.Name, and is useful for accessing the field via an interface.
-func (v *__CreateTeamPersonaInput) GetName() *string { return v.Name }
-
 // __CreateUserApiKeyInput is used internally by genqlient
 type __CreateUserApiKeyInput struct {
 	Label *string `json:"label,omitempty"`
@@ -18532,6 +18722,14 @@ type __DeleteSecretInput struct {
 // GetRef returns __DeleteSecretInput.Ref, and is useful for accessing the field via an interface.
 func (v *__DeleteSecretInput) GetRef() string { return v.Ref }
 
+// __DeleteWorkerInput is used internally by genqlient
+type __DeleteWorkerInput struct {
+	WorkerRef string `json:"workerRef"`
+}
+
+// GetWorkerRef returns __DeleteWorkerInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__DeleteWorkerInput) GetWorkerRef() string { return v.WorkerRef }
+
 // __EffectiveAccessInput is used internally by genqlient
 type __EffectiveAccessInput struct {
 	User     string `json:"user"`
@@ -18696,14 +18894,6 @@ type __GetOrganizationInput struct {
 // GetRef returns __GetOrganizationInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetOrganizationInput) GetRef() string { return v.Ref }
 
-// __GetPersonaAgentInput is used internally by genqlient
-type __GetPersonaAgentInput struct {
-	Ref string `json:"ref"`
-}
-
-// GetRef returns __GetPersonaAgentInput.Ref, and is useful for accessing the field via an interface.
-func (v *__GetPersonaAgentInput) GetRef() string { return v.Ref }
-
 // __GetTeamSessionInput is used internally by genqlient
 type __GetTeamSessionInput struct {
 	Id string `json:"id"`
@@ -18719,6 +18909,14 @@ type __GetUserInput struct {
 
 // GetRef returns __GetUserInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetUserInput) GetRef() string { return v.Ref }
+
+// __GetWorkerInput is used internally by genqlient
+type __GetWorkerInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetWorkerInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetWorkerInput) GetRef() string { return v.Ref }
 
 // __ImportNodeInput is used internally by genqlient
 type __ImportNodeInput struct {
@@ -18996,26 +19194,6 @@ func (v *__OrganizationsInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __OrganizationsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__OrganizationsInput) GetOffset() *int { return v.Offset }
 
-// __PersonaAgentsInput is used internally by genqlient
-type __PersonaAgentsInput struct {
-	OrgId  *string      `json:"orgId,omitempty"`
-	Filter *AgentFilter `json:"filter,omitempty"`
-	Limit  *int         `json:"limit,omitempty"`
-	Offset *int         `json:"offset,omitempty"`
-}
-
-// GetOrgId returns __PersonaAgentsInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__PersonaAgentsInput) GetOrgId() *string { return v.OrgId }
-
-// GetFilter returns __PersonaAgentsInput.Filter, and is useful for accessing the field via an interface.
-func (v *__PersonaAgentsInput) GetFilter() *AgentFilter { return v.Filter }
-
-// GetLimit returns __PersonaAgentsInput.Limit, and is useful for accessing the field via an interface.
-func (v *__PersonaAgentsInput) GetLimit() *int { return v.Limit }
-
-// GetOffset returns __PersonaAgentsInput.Offset, and is useful for accessing the field via an interface.
-func (v *__PersonaAgentsInput) GetOffset() *int { return v.Offset }
-
 // __PrincipalGrantsInput is used internally by genqlient
 type __PrincipalGrantsInput struct {
 	OrgRef  *string `json:"orgRef,omitempty"`
@@ -19155,6 +19333,14 @@ func (v *__RestoreNodeRevisionInput) GetRevisionId() string { return v.RevisionI
 
 // GetTruncate returns __RestoreNodeRevisionInput.Truncate, and is useful for accessing the field via an interface.
 func (v *__RestoreNodeRevisionInput) GetTruncate() *bool { return v.Truncate }
+
+// __RetireWorkerInput is used internally by genqlient
+type __RetireWorkerInput struct {
+	WorkerRef string `json:"workerRef"`
+}
+
+// GetWorkerRef returns __RetireWorkerInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__RetireWorkerInput) GetWorkerRef() string { return v.WorkerRef }
 
 // __RevokeConnectionGrantInput is used internally by genqlient
 type __RevokeConnectionGrantInput struct {
@@ -19352,23 +19538,19 @@ type __TeamMemoryAppInput struct {
 // GetRef returns __TeamMemoryAppInput.Ref, and is useful for accessing the field via an interface.
 func (v *__TeamMemoryAppInput) GetRef() string { return v.Ref }
 
-// __TeamRosterInput is used internally by genqlient
-type __TeamRosterInput struct {
-	AppRef string `json:"appRef"`
-}
-
-// GetAppRef returns __TeamRosterInput.AppRef, and is useful for accessing the field via an interface.
-func (v *__TeamRosterInput) GetAppRef() string { return v.AppRef }
-
 // __TeamSessionsInput is used internally by genqlient
 type __TeamSessionsInput struct {
-	Repo   *string `json:"repo,omitempty"`
-	Limit  *int    `json:"limit,omitempty"`
-	Offset *int    `json:"offset,omitempty"`
+	Repo      *string `json:"repo,omitempty"`
+	WorkerRef *string `json:"workerRef,omitempty"`
+	Limit     *int    `json:"limit,omitempty"`
+	Offset    *int    `json:"offset,omitempty"`
 }
 
 // GetRepo returns __TeamSessionsInput.Repo, and is useful for accessing the field via an interface.
 func (v *__TeamSessionsInput) GetRepo() *string { return v.Repo }
+
+// GetWorkerRef returns __TeamSessionsInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__TeamSessionsInput) GetWorkerRef() *string { return v.WorkerRef }
 
 // GetLimit returns __TeamSessionsInput.Limit, and is useful for accessing the field via an interface.
 func (v *__TeamSessionsInput) GetLimit() *int { return v.Limit }
@@ -19439,6 +19621,8 @@ type __UpdateAgentInput struct {
 	SystemMemoryId *string          `json:"systemMemoryId,omitempty"`
 	Surfaces       []string         `json:"surfaces,omitempty"`
 	Urn            *string          `json:"urn,omitempty"`
+	PersonaRole    *string          `json:"personaRole,omitempty"`
+	PersonaPrompt  *string          `json:"personaPrompt,omitempty"`
 }
 
 // GetRef returns __UpdateAgentInput.Ref, and is useful for accessing the field via an interface.
@@ -19467,6 +19651,12 @@ func (v *__UpdateAgentInput) GetSurfaces() []string { return v.Surfaces }
 
 // GetUrn returns __UpdateAgentInput.Urn, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetUrn() *string { return v.Urn }
+
+// GetPersonaRole returns __UpdateAgentInput.PersonaRole, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetPersonaPrompt returns __UpdateAgentInput.PersonaPrompt, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetPersonaPrompt() *string { return v.PersonaPrompt }
 
 // __UpdateAgentScheduleInput is used internally by genqlient
 type __UpdateAgentScheduleInput struct {
@@ -19784,30 +19974,6 @@ type __UpdateTeamCollectionsInput struct {
 // GetAppRef returns __UpdateTeamCollectionsInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__UpdateTeamCollectionsInput) GetAppRef() string { return v.AppRef }
 
-// __UpdateTeamPersonaInput is used internally by genqlient
-type __UpdateTeamPersonaInput struct {
-	Ref           string           `json:"ref"`
-	PersonaRole   *string          `json:"personaRole,omitempty"`
-	PersonaPrompt *string          `json:"personaPrompt,omitempty"`
-	Description   *string          `json:"description,omitempty"`
-	Visibility    *AgentVisibility `json:"visibility,omitempty"`
-}
-
-// GetRef returns __UpdateTeamPersonaInput.Ref, and is useful for accessing the field via an interface.
-func (v *__UpdateTeamPersonaInput) GetRef() string { return v.Ref }
-
-// GetPersonaRole returns __UpdateTeamPersonaInput.PersonaRole, and is useful for accessing the field via an interface.
-func (v *__UpdateTeamPersonaInput) GetPersonaRole() *string { return v.PersonaRole }
-
-// GetPersonaPrompt returns __UpdateTeamPersonaInput.PersonaPrompt, and is useful for accessing the field via an interface.
-func (v *__UpdateTeamPersonaInput) GetPersonaPrompt() *string { return v.PersonaPrompt }
-
-// GetDescription returns __UpdateTeamPersonaInput.Description, and is useful for accessing the field via an interface.
-func (v *__UpdateTeamPersonaInput) GetDescription() *string { return v.Description }
-
-// GetVisibility returns __UpdateTeamPersonaInput.Visibility, and is useful for accessing the field via an interface.
-func (v *__UpdateTeamPersonaInput) GetVisibility() *AgentVisibility { return v.Visibility }
-
 // __UpdateTeamSessionInput is used internally by genqlient
 type __UpdateTeamSessionInput struct {
 	Id       string  `json:"id"`
@@ -19847,6 +20013,26 @@ func (v *__ValidateMemoryInput) GetMemoryRef() string { return v.MemoryRef }
 
 // GetLimit returns __ValidateMemoryInput.Limit, and is useful for accessing the field via an interface.
 func (v *__ValidateMemoryInput) GetLimit() *int { return v.Limit }
+
+// __WorkersInput is used internally by genqlient
+type __WorkersInput struct {
+	AppRef         string `json:"appRef"`
+	IncludeRetired *bool  `json:"includeRetired,omitempty"`
+	Limit          *int   `json:"limit,omitempty"`
+	Offset         *int   `json:"offset,omitempty"`
+}
+
+// GetAppRef returns __WorkersInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__WorkersInput) GetAppRef() string { return v.AppRef }
+
+// GetIncludeRetired returns __WorkersInput.IncludeRetired, and is useful for accessing the field via an interface.
+func (v *__WorkersInput) GetIncludeRetired() *bool { return v.IncludeRetired }
+
+// GetLimit returns __WorkersInput.Limit, and is useful for accessing the field via an interface.
+func (v *__WorkersInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __WorkersInput.Offset, and is useful for accessing the field via an interface.
+func (v *__WorkersInput) GetOffset() *int { return v.Offset }
 
 // The mutation executed by AcceptInvitation.
 const AcceptInvitation_Operation = `
@@ -20183,6 +20369,8 @@ fragment AgentFields on Agent {
 	aiProvider
 	aiModel
 	hasAiApiKey
+	personaRole
+	personaPrompt
 	createdAt
 }
 `
@@ -20207,6 +20395,58 @@ func Agents(
 	}
 
 	data_ = &AgentsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppAgentRoster.
+const AppAgentRoster_Operation = `
+query AppAgentRoster ($appRef: ID!) {
+	app(ref: $appRef) {
+		id
+		urn
+		name
+		agents {
+			id
+			urn
+			name
+			description
+			visibility
+			organizationId
+			personaRole
+			createdAt
+		}
+	}
+}
+`
+
+// The install-roster read (#408, re-homed from team.graphql in #428): the
+// AppAgent join answering "which Agents are installed in this App?". Under the
+// Worker model this is the INSTALL roster only — the App's STAFF (named
+// workers) is the Workers query in team.graphql. App.agents is the
+// 023-app-shape convenience over App.appAgents, so this needs no paging: an
+// App's installed set is small and bounded, unlike agents().
+func AppAgentRoster(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *AppAgentRosterResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppAgentRoster",
+		Query:  AppAgentRoster_Operation,
+		Variables: &__AppAgentRosterInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &AppAgentRosterResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -20678,6 +20918,72 @@ func CancelAppRun(
 	return data_, err_
 }
 
+// The mutation executed by CastWorker.
+const CastWorker_Operation = `
+mutation CastWorker ($appRef: ID!, $agentRef: ID, $role: String, $name: String, $teamAgentRef: ID, $promptOverride: String) {
+	castWorker(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name, teamAgentRef: $teamAgentRef, promptOverride: $promptOverride) {
+		... WorkerFields
+	}
+}
+fragment WorkerFields on Worker {
+	id
+	appId
+	agentId
+	name
+	role
+	prompt
+	promptOverride
+	memoryId
+	retiredAt
+	retiredBy
+	createdAt
+	createdBy
+}
+`
+
+// Casting is ONE platform call (cor:agt:020:01/:02): the server resolves the
+// agent (agentRef, or role → the single installed agent whose personaRole
+// matches — WORKER_AGENT_NOT_FOUND / _AMBIGUOUS, never a guess), allocates the
+// name (explicit name: one attempt, WORKER_NAME_TAKEN is the answer; otherwise
+// the Team Agent's cast-list register is walked server-side past taken names —
+// WORKER_REGISTER_EXHAUSTED when none is free), composes Worker.prompt, and
+// provisions the worker-scoped memory. The CLI passes values through and
+// retries nothing — the retry loops the persona model needed are gone.
+func CastWorker(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	agentRef *string,
+	role *string,
+	name *string,
+	teamAgentRef *string,
+	promptOverride *string,
+) (data_ *CastWorkerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CastWorker",
+		Query:  CastWorker_Operation,
+		Variables: &__CastWorkerInput{
+			AppRef:         appRef,
+			AgentRef:       agentRef,
+			Role:           role,
+			Name:           name,
+			TeamAgentRef:   teamAgentRef,
+			PromptOverride: promptOverride,
+		},
+	}
+
+	data_ = &CastWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by ChatMessages.
 const ChatMessages_Operation = `
 query ChatMessages ($filter: NodeFilter, $limit: Int, $offset: Int) {
@@ -20967,8 +21273,8 @@ func ConnectionGrants(
 
 // The mutation executed by CreateAgent.
 const CreateAgent_Operation = `
-mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!]) {
-	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces) {
+mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!], $personaRole: String, $personaPrompt: String) {
+	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole, personaPrompt: $personaPrompt) {
 		... AgentFields
 	}
 }
@@ -20986,6 +21292,8 @@ fragment AgentFields on Agent {
 	aiProvider
 	aiModel
 	hasAiApiKey
+	personaRole
+	personaPrompt
 	createdAt
 }
 `
@@ -21001,6 +21309,8 @@ func CreateAgent(
 	systemPrompt *string,
 	systemMemoryId *string,
 	surfaces []string,
+	personaRole *string,
+	personaPrompt *string,
 ) (data_ *CreateAgentResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateAgent",
@@ -21014,6 +21324,8 @@ func CreateAgent(
 			SystemPrompt:   systemPrompt,
 			SystemMemoryId: systemMemoryId,
 			Surfaces:       surfaces,
+			PersonaRole:    personaRole,
+			PersonaPrompt:  personaPrompt,
 		},
 	}
 
@@ -21949,7 +22261,7 @@ fragment TeamChatMessageFields on TeamChatMessage {
 	body
 	at
 	authorUserId
-	authorAgentId
+	authorWorkerId
 	authorName
 	sessionId
 	replyToSeq
@@ -21977,65 +22289,6 @@ func CreateTeamChatMessage(
 	}
 
 	data_ = &CreateTeamChatMessageResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
-// The mutation executed by CreateTeamPersona.
-const CreateTeamPersona_Operation = `
-mutation CreateTeamPersona ($appRef: ID!, $role: String!, $teamAgentRef: ID, $name: String) {
-	createTeamPersona(appRef: $appRef, role: $role, teamAgentRef: $teamAgentRef, name: $name) {
-		... PersonaAgentFields
-	}
-}
-fragment PersonaAgentFields on Agent {
-	id
-	urn
-	name
-	description
-	visibility
-	organizationId
-	personaName
-	personaRole
-	personaPrompt
-	createdAt
-}
-`
-
-// Persona instantiation is a PLATFORM operation (#935/PR #936, spec
-// cor:agt:020:01, the thin-CLI directive): the server locates the Team Agent,
-// reads the role node (roles:<role> in its system memory — template in
-// content, register in data.names), allocates a free name server-side (the
-// loop advances past BOTH uniques a name can collide on), composes the
-// prompt, creates AND installs. The CLI passes four values through and
-// retries nothing.
-func CreateTeamPersona(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	appRef string,
-	role string,
-	teamAgentRef *string,
-	name *string,
-) (data_ *CreateTeamPersonaResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "CreateTeamPersona",
-		Query:  CreateTeamPersona_Operation,
-		Variables: &__CreateTeamPersonaInput{
-			AppRef:       appRef,
-			Role:         role,
-			TeamAgentRef: teamAgentRef,
-			Name:         name,
-		},
-	}
-
-	data_ = &CreateTeamPersonaResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -22670,6 +22923,41 @@ func DeleteSecret(
 	return data_, err_
 }
 
+// The mutation executed by DeleteWorker.
+const DeleteWorker_Operation = `
+mutation DeleteWorker ($workerRef: ID!) {
+	deleteWorker(workerRef: $workerRef)
+}
+`
+
+// The one removal escape (cor:dmo:050:11): hard-delete a NEVER-USED miscast.
+// Refused WORKER_IN_USE when any session was ever bound or the working memory
+// holds content — anything with history retires instead.
+func DeleteWorker(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+) (data_ *DeleteWorkerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteWorker",
+		Query:  DeleteWorker_Operation,
+		Variables: &__DeleteWorkerInput{
+			WorkerRef: workerRef,
+		},
+	}
+
+	data_ = &DeleteWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by EffectiveAccess.
 const EffectiveAccess_Operation = `
 query EffectiveAccess ($user: ID!, $resource: ID!) {
@@ -22776,6 +23064,7 @@ mutation EndTeamSession ($id: ID!, $summary: String) {
 fragment TeamSessionFields on Session {
 	id
 	agentId
+	workerId
 	userId
 	type
 	repo
@@ -23016,6 +23305,8 @@ fragment AgentFields on Agent {
 	aiProvider
 	aiModel
 	hasAiApiKey
+	personaRole
+	personaPrompt
 	createdAt
 }
 `
@@ -23299,52 +23590,6 @@ func GetOrganization(
 	return data_, err_
 }
 
-// The query executed by GetPersonaAgent.
-const GetPersonaAgent_Operation = `
-query GetPersonaAgent ($ref: ID!) {
-	agent(ref: $ref) {
-		... PersonaAgentFields
-	}
-}
-fragment PersonaAgentFields on Agent {
-	id
-	urn
-	name
-	description
-	visibility
-	organizationId
-	personaName
-	personaRole
-	personaPrompt
-	createdAt
-}
-`
-
-func GetPersonaAgent(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	ref string,
-) (data_ *GetPersonaAgentResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "GetPersonaAgent",
-		Query:  GetPersonaAgent_Operation,
-		Variables: &__GetPersonaAgentInput{
-			Ref: ref,
-		},
-	}
-
-	data_ = &GetPersonaAgentResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
 // The query executed by GetTeamSession.
 const GetTeamSession_Operation = `
 query GetTeamSession ($id: ID!) {
@@ -23355,6 +23600,7 @@ query GetTeamSession ($id: ID!) {
 fragment TeamSessionFields on Session {
 	id
 	agentId
+	workerId
 	userId
 	type
 	repo
@@ -23448,6 +23694,55 @@ func GetUser(
 	return data_, err_
 }
 
+// The query executed by GetWorker.
+const GetWorker_Operation = `
+query GetWorker ($ref: ID!) {
+	worker(ref: $ref) {
+		... WorkerFields
+	}
+}
+fragment WorkerFields on Worker {
+	id
+	appId
+	agentId
+	name
+	role
+	prompt
+	promptOverride
+	memoryId
+	retiredAt
+	retiredBy
+	createdAt
+	createdBy
+}
+`
+
+// One worker by id (workers have no URN, so ref is the PK only).
+func GetWorker(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetWorkerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetWorker",
+		Query:  GetWorker_Operation,
+		Variables: &__GetWorkerInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by ImportNode.
 const ImportNode_Operation = `
 mutation ImportNode ($input: ImportNodeInput!) {
@@ -23508,7 +23803,6 @@ mutation InstallAgentIntoApp ($appRef: ID!, $agentRef: ID!, $trainingMode: Boole
 				id
 				urn
 				name
-				personaName
 				personaRole
 			}
 			app {
@@ -24756,73 +25050,6 @@ func Organizations(
 	return data_, err_
 }
 
-// The query executed by PersonaAgents.
-const PersonaAgents_Operation = `
-query PersonaAgents ($orgId: ID, $filter: AgentFilter, $limit: Int, $offset: Int) {
-	agents(orgId: $orgId, filter: $filter, limit: $limit, offset: $offset) {
-		total
-		items {
-			... PersonaAgentFields
-		}
-	}
-}
-fragment PersonaAgentFields on Agent {
-	id
-	urn
-	name
-	description
-	visibility
-	organizationId
-	personaName
-	personaRole
-	personaPrompt
-	createdAt
-}
-`
-
-// The roster read. AgentFilter has no persona clause, so callers page this
-// to exhaustion and keep the personaName != null rows client-side. The
-// unfiltered list is the caller's MEMBER-ORG scope only; the caller's own
-// user-owned (org-less) agents need a second pass with
-// filter.ownedByMe: true (#782) — scanPersonaAgents merges both.
-//
-// Deliberately NO `for: "AgentFilter.*"` omitempty directives: agent.graphql
-// uses the same shared input without them, and genqlient resolves per-field
-// omitempty on a shared type non-deterministically when operations disagree
-// (the generated tags flip between runs and red the codegen-freshness gate —
-// the NodeWhereInput saga, see genqlient.yaml). Null filter fields are fine
-// on this read path; the null-clears hazard is mutation-only.
-func PersonaAgents(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	orgId *string,
-	filter *AgentFilter,
-	limit *int,
-	offset *int,
-) (data_ *PersonaAgentsResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "PersonaAgents",
-		Query:  PersonaAgents_Operation,
-		Variables: &__PersonaAgentsInput{
-			OrgId:  orgId,
-			Filter: filter,
-			Limit:  limit,
-			Offset: offset,
-		},
-	}
-
-	data_ = &PersonaAgentsResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
 // The query executed by PrincipalGrants.
 const PrincipalGrants_Operation = `
 query PrincipalGrants ($orgRef: String, $userRef: String, $limit: Int, $offset: Int) {
@@ -24904,6 +25131,8 @@ fragment AgentFields on Agent {
 	aiProvider
 	aiModel
 	hasAiApiKey
+	personaRole
+	personaPrompt
 	createdAt
 }
 `
@@ -25005,7 +25234,8 @@ mutation RecordTeamWork ($appRef: ID!, $sessionRef: ID!, $tool: String!, $kind: 
 fragment TeamWorkItemFields on TeamWorkItem {
 	nodeId
 	sessionId
-	personaName
+	workerId
+	workerName
 	tool
 	kind
 	ref
@@ -25277,6 +25507,57 @@ func RestoreNodeRevision(
 	}
 
 	data_ = &RestoreNodeRevisionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RetireWorker.
+const RetireWorker_Operation = `
+mutation RetireWorker ($workerRef: ID!) {
+	retireWorker(workerRef: $workerRef) {
+		... WorkerFields
+	}
+}
+fragment WorkerFields on Worker {
+	id
+	appId
+	agentId
+	name
+	role
+	prompt
+	promptOverride
+	memoryId
+	retiredAt
+	retiredBy
+	createdAt
+	createdBy
+}
+`
+
+// Idempotent; the name stays reserved forever (cor:agt:020:02 — PR trailers
+// and chat archives reference it). The retired worker stops authoring and
+// takes no new sessions.
+func RetireWorker(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+) (data_ *RetireWorkerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RetireWorker",
+		Query:  RetireWorker_Operation,
+		Variables: &__RetireWorkerInput{
+			WorkerRef: workerRef,
+		},
+	}
+
+	data_ = &RetireWorkerResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -25893,6 +26174,7 @@ mutation StartTeamSession ($input: SessionInput!) {
 fragment TeamSessionFields on Session {
 	id
 	agentId
+	workerId
 	userId
 	type
 	repo
@@ -25912,9 +26194,13 @@ fragment TeamSessionFields on Session {
 // the omitted form is the repo-wide convention — see CLAUDE.md).
 // appRef (#943) arrived with a schema refresh, and a refreshed input field does
 // NOT inherit the surrounding omitempty — without this line every session start
-// would newly put `"appRef": null` on the wire. The CLI does not set it yet;
-// adopting it (so a user-started session can satisfy the team-chat authorship
-// gate, cor:agt:020:04) is #391.
+// would newly put `"appRef": null` on the wire.
+// workerRef (#974 / cor:agt:020:03) binds the session to the Worker by ID —
+// Session.agentId is stamped server-side from the casting, so the CLI no
+// longer resolves an agent. Same refresh rule as appRef above.
+// (SessionInput.force — the server-side WORKER_TAKEN takeover gate — is
+// hadron-server#940, unmerged; until it lands the client-side activity check
+// is the only taken-check, and adopting force is tracked follow-up.)
 func StartTeamSession(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -25991,7 +26277,7 @@ fragment TeamChatMessageFields on TeamChatMessage {
 	body
 	at
 	authorUserId
-	authorAgentId
+	authorWorkerId
 	authorName
 	sessionId
 	replyToSeq
@@ -26070,76 +26356,17 @@ func TeamMemoryApp(
 	return data_, err_
 }
 
-// The query executed by TeamRoster.
-const TeamRoster_Operation = `
-query TeamRoster ($appRef: ID!) {
-	app(ref: $appRef) {
-		id
-		urn
-		name
-		agents {
-			... PersonaAgentFields
-		}
-	}
-}
-fragment PersonaAgentFields on Agent {
-	id
-	urn
-	name
-	description
-	visibility
-	organizationId
-	personaName
-	personaRole
-	personaPrompt
-	createdAt
-}
-`
-
-// THE roster read (#383). Under cor:agt:020:01 the roster IS the AppAgent
-// join, and until now only raw GraphQL exposed it: `persona list` / `agent list`
-// narrow the caller's whole readable agent set client-side, so they answer
-// "every persona I can read", not "who is on this team" — and `--app` (the
-// persistent App-CONTEXT flag) doesn't change that, which made them report
-// another App's persona as being on this team.
-//
-// App.agents is the 023-app-shape convenience over App.appAgents, so this needs
-// no paging: an App's installed set is small and bounded, unlike agents().
-func TeamRoster(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	appRef string,
-) (data_ *TeamRosterResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "TeamRoster",
-		Query:  TeamRoster_Operation,
-		Variables: &__TeamRosterInput{
-			AppRef: appRef,
-		},
-	}
-
-	data_ = &TeamRosterResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
 // The query executed by TeamSessions.
 const TeamSessions_Operation = `
-query TeamSessions ($repo: String, $limit: Int, $offset: Int) {
-	sessions(repo: $repo, limit: $limit, offset: $offset) {
+query TeamSessions ($repo: String, $workerRef: String, $limit: Int, $offset: Int) {
+	sessions(repo: $repo, workerRef: $workerRef, limit: $limit, offset: $offset) {
 		... TeamSessionFields
 	}
 }
 fragment TeamSessionFields on Session {
 	id
 	agentId
+	workerId
 	userId
 	type
 	repo
@@ -26154,13 +26381,15 @@ fragment TeamSessionFields on Session {
 }
 `
 
-// The sessions list has no agent/active filter server-side, so the presence
-// and takeover checks page this to exhaustion (ordered startedAt desc) and
-// filter client-side.
+// workerRef (#974) is the server-side narrowing the taken/last-driven-by check
+// reads: only sessions bound to that Worker (by id), newest first — so the
+// presence check no longer scans the whole list. The plain listing still pages
+// to exhaustion for --active (no active filter server-side).
 func TeamSessions(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	repo *string,
+	workerRef *string,
 	limit *int,
 	offset *int,
 ) (data_ *TeamSessionsResponse, err_ error) {
@@ -26168,9 +26397,10 @@ func TeamSessions(
 		OpName: "TeamSessions",
 		Query:  TeamSessions_Operation,
 		Variables: &__TeamSessionsInput{
-			Repo:   repo,
-			Limit:  limit,
-			Offset: offset,
+			Repo:      repo,
+			WorkerRef: workerRef,
+			Limit:     limit,
+			Offset:    offset,
 		},
 	}
 
@@ -26199,7 +26429,8 @@ query TeamWorkItems ($appRef: ID!, $sessionRef: ID, $ref: String, $kind: String,
 fragment TeamWorkItemFields on TeamWorkItem {
 	nodeId
 	sessionId
-	personaName
+	workerId
+	workerName
 	tool
 	kind
 	ref
@@ -26356,8 +26587,8 @@ func UninstallAgentFromApp(
 
 // The mutation executed by UpdateAgent.
 const UpdateAgent_Operation = `
-mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!], $urn: String) {
-	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn) {
+mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $personaPrompt: String) {
+	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, personaPrompt: $personaPrompt) {
 		... AgentFields
 	}
 }
@@ -26375,6 +26606,8 @@ fragment AgentFields on Agent {
 	aiProvider
 	aiModel
 	hasAiApiKey
+	personaRole
+	personaPrompt
 	createdAt
 }
 `
@@ -26391,6 +26624,8 @@ func UpdateAgent(
 	systemMemoryId *string,
 	surfaces []string,
 	urn *string,
+	personaRole *string,
+	personaPrompt *string,
 ) (data_ *UpdateAgentResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateAgent",
@@ -26405,6 +26640,8 @@ func UpdateAgent(
 			SystemMemoryId: systemMemoryId,
 			Surfaces:       surfaces,
 			Urn:            urn,
+			PersonaRole:    personaRole,
+			PersonaPrompt:  personaPrompt,
 		},
 	}
 
@@ -27255,81 +27492,6 @@ func UpdateTeamCollections(
 	return data_, err_
 }
 
-// The mutation executed by UpdateTeamPersona.
-const UpdateTeamPersona_Operation = `
-mutation UpdateTeamPersona ($ref: ID!, $personaRole: String, $personaPrompt: String, $description: String, $visibility: AgentVisibility) {
-	updateAgent(ref: $ref, personaRole: $personaRole, personaPrompt: $personaPrompt, description: $description, visibility: $visibility) {
-		... PersonaAgentFields
-	}
-}
-fragment PersonaAgentFields on Agent {
-	id
-	urn
-	name
-	description
-	visibility
-	organizationId
-	personaName
-	personaRole
-	personaPrompt
-	createdAt
-}
-`
-
-// Post-mint persona refinement (#385). `createTeamPersona` composes the prompt
-// from the ROLE TEMPLATE, so a fresh persona is generic by construction —
-// everything that distinguishes this persona from the next one of the same role
-// is written afterwards. A persona IS an Agent, so this rides the ordinary
-// `updateAgent` mutation and only widens the selection to the persona columns.
-//
-// personaName is deliberately NOT wired: cor:agt:020:02 makes a persona name
-// permanent (the uniqueness indexes ignore deleted_at precisely so a name is
-// never re-minted), and a rename would free the old name for someone else while
-// merged PR trailers and chat history still reference it.
-//
-// omitempty: an unset flag is OMITTED, which the server reads as "preserve" —
-// an explicit null would CLEAR the column (CLAUDE.md wire-semantics gotcha), and
-// clearing a persona's identity prompt by forgetting a flag is exactly the
-// failure this command exists to avoid.
-//
-// #405: description and visibility ride here too. They are ordinary Agent
-// columns, but a persona is the noun that OWNS them — the mint derives both
-// (visibility from the team App's owner, description from the role's persona
-// template — #950), so "fix this persona" should not mean knowing which of two
-// command groups holds which field.
-func UpdateTeamPersona(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	ref string,
-	personaRole *string,
-	personaPrompt *string,
-	description *string,
-	visibility *AgentVisibility,
-) (data_ *UpdateTeamPersonaResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "UpdateTeamPersona",
-		Query:  UpdateTeamPersona_Operation,
-		Variables: &__UpdateTeamPersonaInput{
-			Ref:           ref,
-			PersonaRole:   personaRole,
-			PersonaPrompt: personaPrompt,
-			Description:   description,
-			Visibility:    visibility,
-		},
-	}
-
-	data_ = &UpdateTeamPersonaResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
 // The mutation executed by UpdateTeamSession.
 const UpdateTeamSession_Operation = `
 mutation UpdateTeamSession ($id: ID!, $prNumber: Int, $branch: String) {
@@ -27340,6 +27502,7 @@ mutation UpdateTeamSession ($id: ID!, $prNumber: Int, $branch: String) {
 fragment TeamSessionFields on Session {
 	id
 	agentId
+	workerId
 	userId
 	type
 	repo
@@ -27499,6 +27662,66 @@ func ValidateMemory(
 	}
 
 	data_ = &ValidateMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by Workers.
+const Workers_Operation = `
+query Workers ($appRef: ID!, $includeRetired: Boolean, $limit: Int, $offset: Int) {
+	workers(appRef: $appRef, includeRetired: $includeRetired, limit: $limit, offset: $offset) {
+		total
+		items {
+			... WorkerFields
+		}
+	}
+}
+fragment WorkerFields on Worker {
+	id
+	appId
+	agentId
+	name
+	role
+	prompt
+	promptOverride
+	memoryId
+	retiredAt
+	retiredBy
+	createdAt
+	createdBy
+}
+`
+
+// The STAFF read (cor:agt:020:01 — Workers are the staff; the AppAgent join is
+// the install roster, `app agent list`). Retired castings are hidden unless
+// includeRetired.
+func Workers(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	includeRetired *bool,
+	limit *int,
+	offset *int,
+) (data_ *WorkersResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "Workers",
+		Query:  Workers_Operation,
+		Variables: &__WorkersInput{
+			AppRef:         appRef,
+			IncludeRetired: includeRetired,
+			Limit:          limit,
+			Offset:         offset,
+		},
+	}
+
+	data_ = &WorkersResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

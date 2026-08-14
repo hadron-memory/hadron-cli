@@ -11,7 +11,7 @@ import (
 const installResp = `{"data":{"installAgentIntoApp":{"appAgent":{
 	"createdAt":"2026-08-14T00:00:00Z",
 	"agent":{"id":"agt1","urn":"hrn:agent:acme.com:iris","name":"Iris",
-	         "personaName":"Iris","personaRole":"backend-engineer"},
+	         "personaRole":"backend-engineer"},
 	"app":{"id":"app1","urn":"hrn:app:acme.com:eng-team","name":"Eng Team"}}}}}`
 
 // #389: `app install` creates a NEW App from an Agent; nothing joined an Agent
@@ -41,7 +41,7 @@ func TestAppAgentAddInstallsIntoAnExistingApp(t *testing.T) {
 	var dto struct {
 		AgentURN    string  `json:"agentUrn"`
 		AppURN      string  `json:"appUrn"`
-		PersonaName *string `json:"personaName"`
+		PersonaRole *string `json:"personaRole"`
 		Status      string  `json:"status"`
 	}
 	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
@@ -50,8 +50,8 @@ func TestAppAgentAddInstallsIntoAnExistingApp(t *testing.T) {
 	if dto.AgentURN != "hrn:agent:acme.com:iris" || dto.AppURN != "hrn:app:acme.com:eng-team" || dto.Status != "installed" {
 		t.Errorf("dto: %s", out.String())
 	}
-	if dto.PersonaName == nil || *dto.PersonaName != "Iris" {
-		t.Errorf("a persona install should carry its persona name: %s", out.String())
+	if dto.PersonaRole == nil || *dto.PersonaRole != "backend-engineer" {
+		t.Errorf("a dressed install should carry its persona role: %s", out.String())
 	}
 }
 

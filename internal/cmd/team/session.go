@@ -27,8 +27,8 @@ func newCmdSession(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "session <command>",
 		Aliases: []string{"sessions"},
-		Short:   "Drive a persona from this worktree",
-		Long: `A session binds the current git worktree to a persona and records who is
+		Short:   "Drive a worker from this worktree",
+		Long: `A session binds the current git worktree to a worker and records who is
 driving it, from where, with which tool. The binding lives under the
 worktree's git dir, so it survives a context compaction — ` + "`whoami`" + ` reads
 it back.`,
@@ -43,9 +43,12 @@ it back.`,
 
 // sessionDTO is the stable --json shape for a session.
 type sessionDTO struct {
-	ID             string  `json:"id"`
+	ID string `json:"id"`
+	// AgentID is the role-agent driving the session; with workerId set it is
+	// the agent behind the casting (stamped server-side, cor:agt:020:03).
 	AgentID        *string `json:"agentId"`
-	PersonaName    *string `json:"personaName"`
+	WorkerID       *string `json:"workerId"`
+	WorkerName     *string `json:"workerName"`
 	UserID         *string `json:"userId"`
 	Type           string  `json:"type"`
 	Repo           *string `json:"repo"`
@@ -63,26 +66,59 @@ type sessionDTO struct {
 	Active bool `json:"active"`
 }
 
-func sessionDTOFromFields(s gen.TeamSessionFields, personaName *string) sessionDTO {
+// sessionDTOFromFields maps a session row; workerName is joined by the
+// caller (sessions carry only workerId until hadron-server#980's nested
+// Session.worker merges — the memoized join below stands in).
+func sessionDTOFromFields(s gen.TeamSessionFields, workerName *string) sessionDTO {
 	return sessionDTO{
-		ID: s.Id, AgentID: s.AgentId, PersonaName: personaName, UserID: s.UserId,
-		Type: s.Type, Repo: s.Repo, Branch: s.Branch, PRNumber: s.PrNumber,
+		ID: s.Id, AgentID: s.AgentId, WorkerID: s.WorkerId, WorkerName: workerName,
+		UserID: s.UserId,
+		Type:   s.Type, Repo: s.Repo, Branch: s.Branch, PRNumber: s.PrNumber,
 		StartedAt: s.StartedAt, EndedAt: s.EndedAt, Host: s.Host, Tool: s.Tool,
 		TranscriptPath: s.TranscriptPath, LLMModel: s.LlmModel, Active: s.EndedAt == nil,
 	}
 }
 
+// workerNames memoizes worker-id → name lookups for the session-list join —
+// one worker(ref:) per DISTINCT worker, not per row. A lookup failure
+// resolves to nil and the caller renders the raw id — surfaced, not silently
+// dropped (the visibility-gap rule). Replaced by the nested Session.worker
+// selection once hadron-server#980 merges (tracked follow-up).
+type workerNames struct {
+	client graphql.Client
+	cache  map[string]*string
+}
+
+func newWorkerNames(client graphql.Client) *workerNames {
+	return &workerNames{client: client, cache: map[string]*string{}}
+}
+
+func (n *workerNames) nameFor(ctx context.Context, workerID *string) *string {
+	if workerID == nil || *workerID == "" {
+		return nil
+	}
+	if name, ok := n.cache[*workerID]; ok {
+		return name
+	}
+	var name *string
+	if resp, err := gen.GetWorker(ctx, n.client, *workerID); err == nil && resp.Worker != nil {
+		name = &resp.Worker.Name
+	}
+	n.cache[*workerID] = name
+	return name
+}
+
 const sessionPageSize = 200
 
 // scanSessions pages the sessions list (ordered startedAt desc; the server
-// has no agent/active filter, issue-#23 style: an unbounded call is one
-// default page) and calls visit per session until visit returns false or the
-// list is exhausted.
-func scanSessions(ctx context.Context, client graphql.Client, repo *string, visit func(gen.TeamSessionFields) bool) error {
+// has no active filter, issue-#23 style: an unbounded call is one default
+// page) and calls visit per session until visit returns false or the list is
+// exhausted. workerRef narrows server-side to one worker's sessions (#974).
+func scanSessions(ctx context.Context, client graphql.Client, repo, workerRef *string, visit func(gen.TeamSessionFields) bool) error {
 	limit := sessionPageSize
 	for offset := 0; ; {
 		off := offset
-		resp, err := gen.TeamSessions(ctx, client, repo, &limit, &off)
+		resp, err := gen.TeamSessions(ctx, client, repo, workerRef, &limit, &off)
 		if err != nil {
 			return api.MapError(err)
 		}
@@ -101,15 +137,13 @@ func scanSessions(ctx context.Context, client graphql.Client, repo *string, visi
 	}
 }
 
-// personaActivity scans for the persona's most recent session and its most
-// recent still-active one. The scan runs to exhaustion unless an active
-// session shows up: active sessions are not necessarily the newest rows, so
-// absence can only be proven by reading the whole list.
-func personaActivity(ctx context.Context, client graphql.Client, agentID string) (last, active *gen.TeamSessionFields, err error) {
-	err = scanSessions(ctx, client, nil, func(s gen.TeamSessionFields) bool {
-		if s.AgentId == nil || *s.AgentId != agentID {
-			return true
-		}
+// workerActivity reads the worker's most recent session and its most recent
+// still-active one — the taken/last-driven-by check, narrowed server-side by
+// sessions(workerRef:) (#974). The scan still runs to exhaustion unless an
+// active session shows up: active sessions are not necessarily the newest
+// rows, so absence can only be proven by reading the worker's whole list.
+func workerActivity(ctx context.Context, client graphql.Client, workerID string) (last, active *gen.TeamSessionFields, err error) {
+	err = scanSessions(ctx, client, nil, &workerID, func(s gen.TeamSessionFields) bool {
 		if last == nil {
 			cp := s
 			last = &cp
@@ -140,24 +174,32 @@ func describeSession(s *gen.TeamSessionFields) string {
 }
 
 func newCmdSessionStart(f *cmdutil.Factory) *cobra.Command {
-	var as, org, repo, branch, transcript, host, tool, model, teamMemory string
+	var as, repo, branch, transcript, host, tool, model, teamMemory string
 	var force bool
 	cmd := &cobra.Command{
-		Use:   "start --as <persona> [--transcript <path>] [--tool <t>] [--force]",
-		Short: "Start a session: bind this worktree to a persona",
-		Long: `Start a coding session as a persona. The session is recorded server-side
+		Use:   "start --as <worker> [--transcript <path>] [--tool <t>] [--force]",
+		Short: "Start a session: bind this worktree to a worker",
+		Long: `Start a coding session as a worker. The session is recorded server-side
 (with the provenance fields: repo, branch, host, tool, transcript path,
 model) and the binding is written under this worktree's git dir so
-` + "`whoami`" + ` can recover it.
+` + "`whoami`" + ` can recover it. The session binds the WORKER (cor:agt:020:03);
+the server stamps the role-agent and the worker's App itself, so every
+worker session is App-bound. On success the worker's resolved boot
+briefing (its prompt) is printed — adopt it.
 
-A persona with a still-active session is taken: the takeover requires
---force, and the last driver and start time are shown. Stale sessions are
-reaped server-side (hard expiry + inactivity — logging milestones counts
-as activity), so an active session usually means someone is genuinely
-driving. --force starts your session alongside the taken-over one; it does
-not end another driver's session. When this worktree already has a
-binding, --force replaces it — first ending the session that binding names
-(best-effort), so the old binding never leaves a session open.`,
+--as takes the worker's name — resolved within the team App, from -m, the
+persistent --app flag, or the configured App context — or the worker's id,
+which needs no App scope at all.
+
+A worker with a still-active session is taken: the takeover requires
+--force, and the last driver and start time are shown (informed override,
+cor:agt:020:03 — never silent). Stale sessions are reaped server-side
+(hard expiry + inactivity — logging milestones counts as activity), so an
+active session usually means someone is genuinely driving. --force starts
+your session alongside the taken-over one; it does not end another
+driver's session. When this worktree already has a binding, --force
+replaces it — first ending the session that binding names (best-effort),
+so the old binding never leaves a session open.`,
 		Example: `  hadron team session start --as Iris --tool claude-code \
       --transcript ~/.claude/projects/x/transcript.jsonl`,
 		Args: cobra.NoArgs,
@@ -169,8 +211,8 @@ binding, --force replaces it — first ending the session that binding names
 			}
 			if existing != nil && !force {
 				return exitcode.Newf(exitcode.Conflict,
-					"this worktree is already bound to persona %s (session %s) — `hadron team session end` first, or --force to replace the binding",
-					existing.PersonaName, existing.SessionID)
+					"this worktree is already bound to worker %s (session %s) — `hadron team session end` first, or --force to replace the binding",
+					existing.WorkerName, existing.SessionID)
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -187,57 +229,56 @@ binding, --force replaces it — first ending the session that binding names
 				if _, endErr := gen.EndTeamSession(ctx, client, existing.SessionID, nil); endErr != nil {
 					fmt.Fprintf(f.IOStreams.ErrOut, "note: could not end previously bound session %s (%v) — if it is still active, end it manually\n", existing.SessionID, endErr)
 				} else {
-					fmt.Fprintf(f.IOStreams.ErrOut, "ended previously bound session %s (persona %s)\n", existing.SessionID, existing.PersonaName)
+					fmt.Fprintf(f.IOStreams.ErrOut, "ended previously bound session %s (worker %s)\n", existing.SessionID, existing.WorkerName)
 				}
 			}
-			p, err := resolvePersona(ctx, client, optStr(org), as)
-			if err != nil {
-				return err
-			}
-			personaName := ""
-			if p.PersonaName != nil {
-				personaName = *p.PersonaName
-			}
-			last, active, err := personaActivity(ctx, client, p.Id)
-			if err != nil {
-				return err
-			}
-			if active != nil && !force {
-				return exitcode.Newf(exitcode.Conflict,
-					"persona %s is being driven by %s — --force takes over (a stale session also auto-expires server-side)",
-					personaName, describeSession(active))
-			}
-			if active != nil {
-				fmt.Fprintf(f.IOStreams.ErrOut, "taking over persona %s from %s\n", personaName, describeSession(active))
-			} else if last != nil {
-				fmt.Fprintf(f.IOStreams.ErrOut, "persona %s was last driven by %s\n", personaName, describeSession(last))
-			}
-			if host == "" {
-				host, _ = os.Hostname()
-			}
-			// #396/#391: bind the session to the team App up front. The worklog
-			// write (`recordTeamWork`) refuses a session that is not a session
-			// OF the App — deliberately, since work is recorded THROUGH a
-			// session — and `updateSession` cannot set appId afterwards, so a
-			// session that starts unbound can never record work. The team
-			// memory IS the App's shared memory, so -m determines the App.
+			// The App scope for resolving a worker NAME: -m names the team
+			// memory (its appId IS the team App), else the ambient --app /
+			// configured context. A worker ID resolves without any of them.
+			appScope := ""
 			var appRefArg *string
 			if teamMemory != "" {
 				resolved, aerr := appForTeamMemory(ctx, client, cmdutil.CanonicalMemoryRef(teamMemory))
 				if aerr != nil {
 					return aerr
 				}
+				appScope = resolved
+				// Passed through to startSession too: the server verifies it
+				// matches the worker's App, so a `-m` naming another team's
+				// memory fails loudly instead of silently binding elsewhere.
 				appRefArg = &resolved
 			} else if ambient, aerr := f.App(); aerr == nil && ambient != "" {
-				// No -m, but an App context is configured — bind to it anyway.
-				// Binding is only possible at start (updateSession cannot set
-				// appId), so an unbound session can NEVER record work: take
-				// every chance not to create one.
-				appRefArg = &ambient
+				appScope = ambient
+			}
+			w, err := resolveWorker(ctx, client, appScope, as)
+			if err != nil {
+				return err
+			}
+			if w.RetiredAt != nil {
+				return exitcode.Newf(exitcode.Usage,
+					"worker %s retired %s — a retired worker takes no new sessions (cast a new worker for the role)", w.Name, *w.RetiredAt)
+			}
+			last, active, err := workerActivity(ctx, client, w.Id)
+			if err != nil {
+				return err
+			}
+			if active != nil && !force {
+				return exitcode.Newf(exitcode.Conflict,
+					"worker %s is being driven by %s — --force takes over (a stale session also auto-expires server-side)",
+					w.Name, describeSession(active))
+			}
+			if active != nil {
+				fmt.Fprintf(f.IOStreams.ErrOut, "taking over worker %s from %s\n", w.Name, describeSession(active))
+			} else if last != nil {
+				// Informational, not a conflict: the last stint ended.
+				fmt.Fprintf(f.IOStreams.ErrOut, "worker %s was last driven by %s\n", w.Name, describeSession(last))
+			}
+			if host == "" {
+				host, _ = os.Hostname()
 			}
 			input := &gen.SessionInput{
 				Id:             newSessionID(),
-				AgentRef:       &p.Id,
+				WorkerRef:      &w.Id,
 				AppRef:         appRefArg,
 				Repo:           optStr(repo),
 				Branch:         optStr(branch),
@@ -258,63 +299,62 @@ binding, --force replaces it — first ending the session that binding names
 			teamMem := ""
 			if teamMemory != "" {
 				teamMem = cmdutil.CanonicalMemoryRef(teamMemory)
-			} else if appRefArg != nil {
-				// #399: no -m, but an ambient App bound the session. The
-				// worklog is off for now, yet RECOVERABLE without restarting:
-				// `session log -m <mem>` works precisely because the session
-				// is App-bound.
+			} else {
+				// #399: the session IS App-bound (the worker's App, stamped
+				// server-side), but without -m the binding records no worklog
+				// home — recoverable per call: `session log -m <mem>` works
+				// precisely because the session is App-bound.
 				fmt.Fprintf(f.IOStreams.ErrOut,
 					"note: no -m <team-memory>, so this session has no worklog home — `session log` will set only the Session field "+
-						"unless you pass -m <team-memory> to it. The session IS bound to an App, so that override works.\n")
-			} else {
-				// No -m and no App context: the session is not App-bound, and
-				// `updateSession` cannot bind it afterwards — so it can NEVER
-				// record work, and `session log -m` would fail
-				// SESSION_NOT_IN_APP. The only fix is a new session, which is
-				// exactly why this belongs at START rather than at log time.
-				fmt.Fprintf(f.IOStreams.ErrOut,
-					"note: no -m <team-memory> and no App context, so this session is NOT bound to a team App and can never record "+
-						"worklog rows — `session log -m` cannot fix it afterwards. To enable the worklog: "+
-						"`hadron team session end`, then `session start --as %s -m <team-memory>`.\n", personaName)
+						"unless you pass -m <team-memory> to it. The session IS bound to the worker's App, so that override works.\n")
 			}
 			path, err := writeBinding(ctx, &binding{
-				AppBound:    appRefArg != nil,
-				SessionID:   s.Id,
-				AgentID:     p.Id,
-				AgentURN:    p.Urn,
-				PersonaName: personaName,
-				PersonaRole: strOrEmpty(p.PersonaRole),
-				Server:      server,
-				StartedAt:   s.StartedAt,
-				TeamMemory:  teamMem,
-				Tool:        tool,
-				Repo:        repo,
-				Model:       model,
+				AppBound:   true, // a worker session is always App-bound (cor:agt:020:03)
+				SessionID:  s.Id,
+				WorkerID:   w.Id,
+				WorkerName: w.Name,
+				WorkerRole: strOrEmpty(w.Role),
+				AgentID:    w.AgentId,
+				Server:     server,
+				StartedAt:  s.StartedAt,
+				TeamMemory: teamMem,
+				Tool:       tool,
+				Repo:       repo,
+				Model:      model,
 			})
 			if err != nil {
 				// The server session already exists; without a binding this
-				// worktree cannot end it and the persona would stay taken
+				// worktree cannot end it and the worker would stay taken
 				// until the reaper expires it — so compensate by ending it
 				// now.
 				if _, endErr := gen.EndTeamSession(ctx, client, s.Id, nil); endErr != nil {
 					return fmt.Errorf("%w; additionally, rolling back session %s failed (%v) — end it with `hadron team session end --session %s`", err, s.Id, endErr, s.Id)
 				}
-				return fmt.Errorf("%w (session %s was rolled back — persona %s is not held)", err, s.Id, personaName)
+				return fmt.Errorf("%w (session %s was rolled back — worker %s is not held)", err, s.Id, w.Name)
 			}
 			result := struct {
 				Session     sessionDTO `json:"session"`
+				Worker      workerDTO  `json:"worker"`
 				BindingPath string     `json:"bindingPath"`
 				TookOver    bool       `json:"tookOver"`
-			}{sessionDTOFromFields(s, &personaName), path, active != nil}
-			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ started session %s as %s%s\n  binding: %s\n", s.Id, personaName, roleSuffix(p.PersonaRole), path)
-				return err
+			}{sessionDTOFromFields(s, &w.Name), workerDTOFromFields(w), path, active != nil}
+			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
+				if _, err := fmt.Fprintf(out, "✓ started session %s as %s%s\n  binding: %s\n", s.Id, w.Name, roleSuffix(w.Role), path); err != nil {
+					return err
+				}
+				// The resolved boot briefing (template bound + override) is
+				// what the driver adopts — print it where they will see it.
+				if w.Prompt != nil && *w.Prompt != "" {
+					if _, err := fmt.Fprintf(out, "\n%s\n", *w.Prompt); err != nil {
+						return err
+					}
+				}
+				return nil
 			})
 		},
 	}
-	cmd.Flags().StringVar(&as, "as", "", "persona to drive (name, agent ID, or agent URN)")
-	cmd.Flags().StringVar(&org, "org", "", "disambiguate a persona name that exists in more than one org")
-	cmd.Flags().BoolVar(&force, "force", false, "take over a persona with an active session; also replaces this worktree's binding, ending its session first (best-effort)")
+	cmd.Flags().StringVar(&as, "as", "", "worker to drive (name within the team App, or worker id)")
+	cmd.Flags().BoolVar(&force, "force", false, "take over a worker with an active session; also replaces this worktree's binding, ending its session first (best-effort)")
 	cmd.Flags().StringVar(&repo, "repo", "", "repository the session works on, e.g. owner/repo")
 	cmd.Flags().StringVar(&branch, "branch", "", "branch the session works on")
 	cmd.Flags().StringVar(&transcript, "transcript", "", "path of the driving tool's transcript on this host")
@@ -329,7 +369,7 @@ binding, --force replaces it — first ending the session that binding names
 func newCmdSessionWhoami(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "whoami",
-		Short: "Show which persona this worktree is bound to",
+		Short: "Show which worker this worktree is bound to",
 		Long: `Read the worktree's session binding back — the compaction-recovery read.
 Local only: it reports what ` + "`session start`" + ` recorded, without asking the
 server whether the session is still open.`,
@@ -340,14 +380,20 @@ server whether the session is still open.`,
 				return err
 			}
 			if b == nil {
-				return exitcode.Newf(exitcode.NotFound, "no persona is bound to this worktree — `hadron team session start --as <name>`")
+				return exitcode.Newf(exitcode.NotFound, "no worker is bound to this worktree — `hadron team session start --as <name>`")
 			}
 			result := struct {
 				*binding
 				BindingPath string `json:"bindingPath"`
 			}{b, path}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
-				fmt.Fprintf(w, "%s%s\n  session: %s (started %s)\n  agent: %s\n", b.PersonaName, roleSuffix(optStr(b.PersonaRole)), b.SessionID, b.StartedAt, b.AgentURN)
+				if b.WorkerID == "" {
+					// A binding written by a pre-Worker CLI: the session id is
+					// still good (and `session end` is the recovery), but the
+					// worker fields are unknown.
+					fmt.Fprintf(w, "(binding predates the Worker model — end it with `hadron team session end` and start a new session)\n")
+				}
+				fmt.Fprintf(w, "%s%s\n  session: %s (started %s)\n  worker: %s\n", b.WorkerName, roleSuffix(optStr(b.WorkerRole)), b.SessionID, b.StartedAt, b.WorkerID)
 				if len(b.PRNumbers) > 0 {
 					prs := make([]string, len(b.PRNumbers))
 					for i, n := range b.PRNumbers {
@@ -389,9 +435,9 @@ here). No ` + "`team init`" + ` is needed first — the collection schema is the
 server's (#401).
 
 --memory here is an override, not a rescue: it only works on a session that
-is already bound to that memory's App (started with -m, or under an --app
-context). A session started with neither is not App-bound, cannot be bound
-afterwards, and must be ended and restarted with -m.
+is bound to that memory's App. A worker session is always bound to the
+worker's App, so this normally just works; it fails SESSION_NOT_IN_APP when
+the memory belongs to a DIFFERENT App than the worker's.
 
 Refs are normalized to one canonical string per artifact (owner/repo#371,
 owner/repo@sha, owner/repo:branch) — a URL, the short form, or a bare
@@ -400,7 +446,7 @@ session's recorded --repo (or the git remote). --pr and --branch
 additionally denormalize onto Session.prNumber / Session.branch (latest
 wins; display convenience only). Every logged milestone — issue and
 commit included — counts as session liveness for the inactivity reaper,
-so logging keeps the persona taken while work is in flight. Without a
+so logging keeps the worker taken while work is in flight. Without a
 team memory, --pr/--branch degrade to the denormalization alone.`,
 		Example: `  hadron team session log --pr 371
   hadron team session log --pr acme/widgets#7 --action merged
@@ -473,8 +519,8 @@ team memory, --pr/--branch degrade to the denormalization alone.`,
 			recorded := "session"
 			if teamMem != "" {
 				// #396: the dedicated operation owns the record — its field set, the
-				// `at` stamp, and the persona derivation (the server resolves the
-				// session's persona, or the attributed user's handle, rather than
+				// `at` stamp, and the worker derivation (the server resolves the
+				// session's worker, or the attributed user's handle, rather than
 				// trusting the binding's copy). The CLI used to compose all of that
 				// and write it through the generic object surface, which put the
 				// record shape in two places with nothing keeping them in step.
@@ -490,13 +536,22 @@ team memory, --pr/--branch degrade to the denormalization alone.`,
 					ctx, client, appRef, b.SessionID, b.Tool, kind, canonical, action, detailArg,
 				)
 				if rerr != nil {
-					// A session that started without an App cannot record work, and
-					// no mutation can bind it after the fact — so say what to do
-					// instead of surfacing the bare typed code.
 					if api.HasErrorCode(rerr, "SESSION_NOT_IN_APP") {
+						// A WORKER session binds to the worker's App, so for one
+						// this means -m named a different App's memory — a
+						// mismatch, not a rescue candidate. A binding written by
+						// a pre-Worker CLI (no workerId) may instead name a
+						// session that was never App-bound at all, and nothing
+						// can bind it afterwards — the old end-and-restart
+						// remedy still applies there.
+						if b.WorkerID == "" {
+							return exitcode.Newf(exitcode.Usage,
+								"session %s is not a session of this App and this binding predates the Worker model, so it may never have been App-bound — nothing can bind it afterwards; `hadron team session end`, then `session start --as <worker> -m %s`",
+								b.SessionID, teamMem)
+						}
 						return exitcode.Newf(exitcode.Usage,
-							"session %s is not bound to this team App, so it cannot record work — a session started before App binding (or without -m) cannot be bound afterwards; run `hadron team session start --as %s -m %s` to start a bound one",
-							b.SessionID, b.PersonaName, teamMem)
+							"session %s is not a session of %s's App — the -m memory names a different App than the bound worker's; pass the worker's own team memory",
+							b.SessionID, b.WorkerName)
 					}
 					return api.MapError(rerr)
 				}
@@ -510,26 +565,19 @@ team memory, --pr/--branch degrade to the denormalization alone.`,
 			} else {
 				// #414: this note is read at the exact moment someone is
 				// debugging a missing worklog row, so it must name the real
-				// cause. It used to say `hadron team init` — which is not a
-				// precondition for worklog writes at all, and since #401 made
-				// the collection schema server-owned it is doubly misleading:
-				// running it changes nothing and appears to have worked,
-				// because the NEXT log with -m succeeds for unrelated reasons.
-				// Wrong remedy, applied under pressure, that looks like it
-				// worked is the worst shape a diagnostic can have.
-				if b.AppBound {
+				// cause and the real remedy. A WORKER session is App-bound by
+				// construction, so `-m` on this command records properly — but
+				// a binding from a pre-Worker CLI may name a session that was
+				// never App-bound, where only end-and-restart helps.
+				if b.WorkerID == "" {
 					fmt.Fprintf(f.IOStreams.ErrOut,
 						"note: no team memory recorded, so this milestone went only to the Session field — not the worklog. "+
-							"This session is App-bound, so `-m <team-memory>` on this command records it properly.\n")
+							"This binding predates the Worker model, so its session may not be App-bound at all; if `-m <team-memory>` "+
+							"fails SESSION_NOT_IN_APP, run `hadron team session end`, then `session start --as <worker> -m <team-memory>`.\n")
 				} else {
-					// Offering `-m` here would be the same kind of wrong
-					// remedy this change removed: without an appRef the write
-					// fails SESSION_NOT_IN_APP, and nothing can bind the
-					// session now (PR #420 review).
 					fmt.Fprintf(f.IOStreams.ErrOut,
 						"note: no team memory recorded, so this milestone went only to the Session field — not the worklog. "+
-							"This session is not bound to a team App, so -m cannot fix it: `hadron team session end`, "+
-							"then `session start --as %s -m <team-memory>`.\n", b.PersonaName)
+							"The session is bound to the worker's App, so `-m <team-memory>` on this command records it properly.\n")
 				}
 			}
 			if kind == "pr" {
@@ -609,7 +657,7 @@ func defaultRepo(ctx context.Context, b *binding) string {
 // checkBindingServer refuses a session mutation when the binding records a
 // different server than this invocation targets: the mutation would miss the
 // real session (or hit an unrelated one) while the real session keeps
-// holding its persona.
+// holding its worker.
 func checkBindingServer(f *cmdutil.Factory, b *binding) error {
 	server, _ := f.Server()
 	if b.Server != "" && server != "" && b.Server != server {
@@ -622,9 +670,9 @@ func checkBindingServer(f *cmdutil.Factory, b *binding) error {
 
 // endResultDTO is the stable --json shape of `session end`.
 type endResultDTO struct {
-	SessionID   string `json:"sessionId"`
-	PersonaName string `json:"personaName"`
-	EndedAt     string `json:"endedAt"`
+	SessionID  string `json:"sessionId"`
+	WorkerName string `json:"workerName"`
+	EndedAt    string `json:"endedAt"`
 }
 
 func newCmdSessionEnd(f *cmdutil.Factory) *cobra.Command {
@@ -633,12 +681,12 @@ func newCmdSessionEnd(f *cmdutil.Factory) *cobra.Command {
 		Use:   "end [--summary <text>] [--session <id>]",
 		Short: "End this worktree's session",
 		Long: `End the session this worktree is bound to and clear the binding. Ending a
-session frees its persona — unless another active session still holds it
+session frees its worker — unless another active session still holds it
 (e.g. after a --force takeover; check ` + "`session list --active`" + `).
 
 --session ends an explicit session id instead — the recovery path when the
-binding is gone (a lost worktree, a failed binding write) but the server
-session is still open.`,
+binding is gone or unusable (a lost worktree, a failed binding write, a
+binding written by a pre-Worker CLI) but the server session is still open.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -647,13 +695,13 @@ session is still open.`,
 				return err
 			}
 			id := sessionID
-			personaName := ""
+			workerName := ""
 			if id == "" {
 				if b == nil {
 					return exitcode.Newf(exitcode.NotFound, "no active session in this worktree — pass --session <id> to end one without a binding")
 				}
 				id = b.SessionID
-				personaName = b.PersonaName
+				workerName = b.WorkerName
 				if err := checkBindingServer(f, b); err != nil {
 					return err
 				}
@@ -676,11 +724,11 @@ session is still open.`,
 			if resp.EndSession != nil && resp.EndSession.EndedAt != nil {
 				endedAt = *resp.EndSession.EndedAt
 			}
-			result := endResultDTO{SessionID: id, PersonaName: personaName, EndedAt: endedAt}
+			result := endResultDTO{SessionID: id, WorkerName: workerName, EndedAt: endedAt}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				who := ""
-				if personaName != "" {
-					who = " (persona " + personaName + ")"
+				if workerName != "" {
+					who = " (worker " + workerName + ")"
 				}
 				_, err := fmt.Fprintf(w, "✓ ended session %s%s\n", id, who)
 				return err
@@ -693,18 +741,19 @@ session is still open.`,
 }
 
 func newCmdSessionList(f *cmdutil.Factory) *cobra.Command {
-	var as, org, repo, pr, issue, commit, branch, memory string
+	var as, repo, pr, issue, commit, branch, memory string
 	var active bool
 	var limit, offset int
 	cmd := &cobra.Command{
-		Use:     "list [--active] [--as <persona>] [--repo <r>] | (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]",
+		Use:     "list [--active] [--as <worker>] [--repo <r>] | (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]",
 		Aliases: []string{"ls"},
 		Short:   "List sessions — team presence and session provenance",
-		Long: `List sessions, newest first, with each session's persona joined in.
+		Long: `List sessions, newest first, with each session's worker joined in.
 --active narrows to sessions that never ended — team presence, honest
-since stale sessions are auto-expired server-side; --as narrows to
-one persona's sessions. Both narrow client-side over the full list; plain
-listings page server-side.
+since stale sessions are auto-expired server-side; --as narrows to one
+worker's sessions (server-side, via the worker binding on the session).
+--active narrows client-side over the full list; plain listings page
+server-side.
 
 --pr <ref> is THE provenance query: which sessions produced this PR? It
 looks the normalized ref up in the team worklog (` + "`session log`" + ` writes it)
@@ -715,7 +764,7 @@ kinds. The worklog home comes from -m or the worktree binding. A recorded
 session that is no longer visible to you still lists (id only), rather
 than being silently dropped.`,
 		Example: `  hadron team session list --active
-  hadron team session list --pr 371 -m acme.com::eng-team
+  hadron team session list --pr 371 -m acme.com:eng-team
   hadron team session list --commit 93200b2`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -743,40 +792,38 @@ than being silently dropped.`,
 				return err
 			}
 			if ref != "" {
-				return runProvenanceQuery(cmd, f, client, kind, ref, memory, org)
+				return runProvenanceQuery(cmd, f, client, kind, ref, memory)
 			}
-			// One roster read joins personaName onto every row (sessions only
-			// carry agentId) and resolves --as.
-			roster, err := scanPersonaAgents(ctx, client, optStr(org))
-			if err != nil {
-				return err
-			}
-			nameByAgent := map[string]*string{}
-			for i := range roster {
-				nameByAgent[roster[i].Id] = roster[i].PersonaName
-			}
-			var asAgentID string
+			names := newWorkerNames(client)
+			var asWorkerRef *string
 			if as != "" {
-				p, err := resolvePersona(ctx, client, optStr(org), as)
-				if err != nil {
-					return err
+				// The App scope for a worker NAME comes from --app / the App
+				// context / the binding, like the other worker-taking commands.
+				b, bErr := readBindingOrNilWithApp(ctx, f)
+				if bErr != nil {
+					b = nil
 				}
-				asAgentID = p.Id
+				appScope, aErr := resolveTeamApp(ctx, f, b)
+				if aErr != nil {
+					appScope = ""
+				}
+				w, wErr := resolveWorker(ctx, client, appScope, as)
+				if wErr != nil {
+					return wErr
+				}
+				asWorkerRef = &w.Id
+				names.cache[w.Id] = &w.Name
 			}
 
 			sessions := []sessionDTO{}
-			filtered := active || as != ""
-			if filtered {
-				// Client-side narrowing needs the whole list; --limit/--offset
-				// then slice the filtered result.
-				err = scanSessions(ctx, client, optStr(repo), func(s gen.TeamSessionFields) bool {
-					if active && s.EndedAt != nil {
+			if active {
+				// The active filter is client-side and needs the whole list;
+				// --limit/--offset then slice the filtered result.
+				err = scanSessions(ctx, client, optStr(repo), asWorkerRef, func(s gen.TeamSessionFields) bool {
+					if s.EndedAt != nil {
 						return true
 					}
-					if asAgentID != "" && (s.AgentId == nil || *s.AgentId != asAgentID) {
-						return true
-					}
-					sessions = append(sessions, sessionDTOFromFields(s, personaNameFor(nameByAgent, s.AgentId)))
+					sessions = append(sessions, sessionDTOFromFields(s, names.nameFor(ctx, s.WorkerId)))
 					return true
 				})
 				if err != nil {
@@ -800,7 +847,7 @@ than being silently dropped.`,
 				if cmd.Flags().Changed("offset") {
 					off = &offset
 				}
-				resp, err := gen.TeamSessions(ctx, client, optStr(repo), lim, off)
+				resp, err := gen.TeamSessions(ctx, client, optStr(repo), asWorkerRef, lim, off)
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -808,31 +855,33 @@ than being silently dropped.`,
 					if s == nil {
 						continue
 					}
-					sessions = append(sessions, sessionDTOFromFields(s.TeamSessionFields, personaNameFor(nameByAgent, s.AgentId)))
+					sessions = append(sessions, sessionDTOFromFields(s.TeamSessionFields, names.nameFor(ctx, s.WorkerId)))
 				}
 			}
 			return output.Write(f.IOStreams, f.JSON, sessions, func(w io.Writer) error {
-				t := output.NewTable(w, "SESSION", "PERSONA", "USER", "REPO", "PR", "STARTED", "ENDED", "TOOL")
+				t := output.NewTable(w, "SESSION", "WORKER", "USER", "REPO", "PR", "STARTED", "ENDED", "TOOL")
 				for _, s := range sessions {
 					pr := "—"
 					if s.PRNumber != nil {
 						pr = fmt.Sprintf("#%d", *s.PRNumber)
 					}
-					// A session by a non-persona (or unreadable) agent shows
-					// the raw agent id rather than nothing.
-					persona := s.PersonaName
-					if persona == nil {
-						persona = s.AgentID
+					// A session whose worker is unreadable (or that predates
+					// worker binding) shows the raw ids rather than nothing.
+					worker := s.WorkerName
+					if worker == nil {
+						worker = s.WorkerID
 					}
-					t.Row(s.ID, dash(persona), dash(s.UserID), dash(s.Repo), pr, s.StartedAt, dash(s.EndedAt), dash(s.Tool))
+					if worker == nil {
+						worker = s.AgentID
+					}
+					t.Row(s.ID, dash(worker), dash(s.UserID), dash(s.Repo), pr, s.StartedAt, dash(s.EndedAt), dash(s.Tool))
 				}
 				return t.Flush()
 			})
 		},
 	}
 	cmd.Flags().BoolVar(&active, "active", false, "only sessions that never ended (presence)")
-	cmd.Flags().StringVar(&as, "as", "", "only one persona's sessions (name, agent ID, or agent URN)")
-	cmd.Flags().StringVar(&org, "org", "", "roster scope for the persona join and --as resolution")
+	cmd.Flags().StringVar(&as, "as", "", "only one worker's sessions (name within the team App, or worker id)")
 	cmd.Flags().StringVar(&repo, "repo", "", "filter by repository")
 	cmd.Flags().StringVar(&pr, "pr", "", "provenance query: sessions behind this PR (number, owner/repo#N, or URL)")
 	cmd.Flags().StringVar(&issue, "issue", "", "provenance query: sessions behind this issue")
@@ -848,8 +897,10 @@ than being silently dropped.`,
 // runProvenanceQuery answers "which sessions produced this artifact":
 // normalize the ref, equality-match (ref, kind) in the worklog, resolve each
 // recorded session. The worklog is the N:M join (D13/D14) — the denormalized
-// Session columns are never consulted.
-func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, kind, ref, memory, org string) error {
+// Session columns are never consulted. Worker names come from the worklog
+// rows themselves (TeamWorkItem.workerName, denormalized at write — #974),
+// so no roster read is needed.
+func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, kind, ref, memory string) error {
 	ctx := cmd.Context()
 	// The binding supplies defaults (worklog home, repo for bare numbers)
 	// but the query must also run from an unbound checkout with -m.
@@ -886,7 +937,12 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 	// sessions into a PR's provenance — but the server now normalizes the ref
 	// filter to the same canonical key it stored, so the client no longer has
 	// to agree with it about spelling.
+	type workerRef struct {
+		id   *string
+		name *string
+	}
 	sessionIDs := []string{}
+	workerBySession := map[string]workerRef{}
 	seen := map[string]bool{}
 	pageSize := sessionPageSize
 	for offset := 0; ; {
@@ -902,6 +958,12 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 			if it.SessionId != "" && !seen[it.SessionId] {
 				seen[it.SessionId] = true
 				sessionIDs = append(sessionIDs, it.SessionId)
+				ref := workerRef{id: it.WorkerId}
+				if it.WorkerName != "" {
+					name := it.WorkerName
+					ref.name = &name
+				}
+				workerBySession[it.SessionId] = ref
 			}
 		}
 		// Page to exhaustion — --pr promises the COMPLETE provenance set, and
@@ -910,14 +972,6 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 		if len(items) < pageSize {
 			break
 		}
-	}
-	roster, err := scanPersonaAgents(ctx, client, optStr(org))
-	if err != nil {
-		return err
-	}
-	nameByAgent := map[string]*string{}
-	for i := range roster {
-		nameByAgent[roster[i].Id] = roster[i].PersonaName
 	}
 	sessions := []sessionDTO{}
 	for _, id := range sessionIDs {
@@ -928,29 +982,22 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 		if resp.Session == nil {
 			// The worklog names it but this principal can't read it — surface
 			// the id rather than silently dropping the row (the nodes-list
-			// visibility-gap rule applies to fan-outs like this one).
+			// visibility-gap rule applies to fan-outs like this one). The
+			// worklog row still supplies the worker id + name, so the stub
+			// keeps the actionable ref alongside the label.
 			fmt.Fprintf(f.IOStreams.ErrOut, "note: session %s is recorded in the worklog but not visible to you\n", id)
-			sessions = append(sessions, sessionDTO{ID: id})
+			sessions = append(sessions, sessionDTO{ID: id, WorkerID: workerBySession[id].id, WorkerName: workerBySession[id].name})
 			continue
 		}
-		sessions = append(sessions, sessionDTOFromFields(resp.Session.TeamSessionFields, personaNameFor(nameByAgent, resp.Session.AgentId)))
+		sessions = append(sessions, sessionDTOFromFields(resp.Session.TeamSessionFields, workerBySession[id].name))
 	}
 	return output.Write(f.IOStreams, f.JSON, sessions, func(w io.Writer) error {
-		t := output.NewTable(w, "SESSION", "PERSONA", "USER", "TOOL", "HOST", "MODEL", "STARTED", "TRANSCRIPT")
+		t := output.NewTable(w, "SESSION", "WORKER", "USER", "TOOL", "HOST", "MODEL", "STARTED", "TRANSCRIPT")
 		for _, s := range sessions {
-			t.Row(s.ID, dash(s.PersonaName), dash(s.UserID), dash(s.Tool), dash(s.Host), dash(s.LLMModel), s.StartedAt, dash(s.TranscriptPath))
+			t.Row(s.ID, dash(s.WorkerName), dash(s.UserID), dash(s.Tool), dash(s.Host), dash(s.LLMModel), s.StartedAt, dash(s.TranscriptPath))
 		}
 		return t.Flush()
 	})
-}
-
-// personaNameFor joins a session's agentId onto the roster; nil when the
-// agent is unknown or not a persona (the caller renders it as the raw id).
-func personaNameFor(nameByAgent map[string]*string, agentID *string) *string {
-	if agentID == nil {
-		return nil
-	}
-	return nameByAgent[*agentID]
 }
 
 func strOrEmpty(s *string) string {

@@ -106,11 +106,10 @@ hadron coding review list -m <memory> [--root <loc>] [--broken] [--json] | revie
 hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | list --org <org> | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <id> | use <urn>
 hadron ai-config list [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
-hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… | update <id> [<field flags>] | rm <id> --yes
+hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] [--persona-prompt <p>] | update <id> [<field flags>] | rm <id> --yes
 hadron team init -m <team-memory>
-hadron team roster (uses --app or the binding)
-hadron team persona create --role <role> [--name <n>] [--team-agent <ref>] (uses --app) | list [--org <ref>] [--role <r>] | get <name-or-ref> | update <name-or-ref> [--role <r>] [--prompt <text|-> | --prompt-file <path>] [--description <d>] [--visibility <v>] | retire <name-or-ref> --yes
-hadron team session start --as <persona> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--summary <text>] [--session <id>] | list [--active] [--as <persona>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
+hadron team worker cast (--role <role> | --agent <ref>) [--name <n>] [--team-agent <ref>] [--prompt-override <text>] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | retire <name-or-id> --yes | rm <name-or-id> --yes
+hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--mentions-me | --mentions <ref>] (uses --app or the binding)
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--email <e>] [--handle <h>]
@@ -696,123 +695,120 @@ Conventions:
   ownership of a user-owned App), deliberately NOT plain App membership, since
   attaching an Agent grants read access to its design; a FORBIDDEN from these
   two commands says so rather than printing one word.
-- `team` (#369) coordinates a team of humans and AI agents. A **persona** is an
-  Agent with persona metadata (`personaName`/`personaRole`/`personaPrompt`) — a
-  named AI team member ("Iris") re-driven across many sessions, by the same or a
-  different human. `team persona create --role <role>` mints one in ONE
-  platform call (`createTeamPersona`, spec cor:agt:020:01; the team App comes
-  from `--app`): the server locates the Team Agent, reads the role node
-  (`roles:<role>` in its system memory — prompt template with
-  `{{name}}`/`{{role}}`, name register in `data.names`), allocates a free
-  name, composes the prompt (printed as the boot briefing), creates AND
-  installs — the CLI retries nothing. `--name` overrides the register (only
-  then can `PERSONA_NAME_TAKEN` come back, exit 5); `--team-agent`
-  disambiguates when several installed agents carry roles branches
-  (`TEAM_AGENT_AMBIGUOUS`, exit 2); an unknown role lists the available
-  roles (`PERSONA_ROLE_NOT_FOUND`, exit 4); a drained register is
-  `PERSONA_REGISTER_EXHAUSTED` (exit 5).
-  Names bind **forever**: `persona retire` (requires `--yes`) removes a persona
-  from the roster but never frees its name (PR trailers and chat history
-  reference it), and there is deliberately no `persona rm` and no rename.
-  Everything else about a persona is refinable: `persona update <name-or-ref>
-  [--role <r>] [--prompt <text|-> | --prompt-file <path>]` sets the role and
-  the identity prompt after minting, which is the point rather than a
-  nicety — `create` composes the prompt from the role TEMPLATE, so a fresh
-  persona is generic by construction and everything distinguishing *this*
-  persona is written afterwards. Only the fields you pass change (an unset
-  flag is omitted, i.e. preserved); an empty prompt is refused rather than
-  sent (it would erase the identity); `--prompt-file`/`--prompt -` exist
-  because identity prompts are multi-paragraph markdown. A ref that is not a
-  persona is refused (exit 2) before any write. `--description` and
-  `--visibility` are on the persona noun too (#405), not only `agent update`:
-  the mint DERIVES both — visibility from the team App's owner, the
-  description from the role's persona template — so they are persona-shaped,
-  and a persona left on `PERSONAL` is hidden from the teammates the roster
-  exists to show. `persona get|list` surface `visibility` for the same reason.
-  **`team roster`
-  is the "who is on this team?" read** — the App's installed agents via the
-  AppAgent join (`cor:agt:020:01`), team App from `--app` or the binding;
-  rows with a null `personaName` are installed agents that are not personas
-  (the Team Agent itself, typically) and are listed rather than hidden.
-  `persona list|get` answer a DIFFERENT question: every persona **you** can
-  read, across every org and App (client-side narrowing over the agent list
-  — merging the member-org scope with your own user-owned agents, which the
-  unfiltered list omits; `get`
-  also takes a persona name, resolved case-insensitively — ambiguity across
-  orgs asks for `--org` or a URN). Do not read `persona list` as a roster:
-  `--app` does **not** scope it, nor `agent list` — that flag sets the App
-  context for the invocation and is not a filter, so the same rows come back
-  for any App (passing it prints a stderr note saying so). A **session** binds the current git worktree
-  to a persona: `session start --as <persona>` records provenance
-  (repo/branch/host/tool/transcript path/model) server-side and writes a local
-  binding under the worktree's git dir (`git rev-parse --git-dir`), which
-  `session whoami` reads back after a context compaction — local only, no
-  network. A persona with a still-active session is *taken*: `start` refuses
-  (exit 5) showing who is driving it since when, and `--force` takes over
-  (stale sessions auto-expire server-side — hard expiry + inactivity, with
-  `session log` counting as activity — so an active session usually means a
-  live driver; a `--force`
-  that replaces this worktree's own binding first ends the session it named,
-  best-effort). `session end [--summary <s>]` ends the bound session — the
-  persona is freed unless another active session still holds it (a forced
-  takeover leaves the taken-over session open; check `session list
+- `team` (#369, Worker model since #428 / hadron-server#974) coordinates a
+  team of humans and AI agents. A team IS an App (`cor:agt:020:01`): the
+  installed agents are its cast pool, and the staff are **workers** — a
+  worker is the NAMED CASTING of an installed agent into the App
+  (`cor:dmo:050:11`): "Iris" is the backend-engineer agent cast into the
+  eng-team App, re-driven across many sessions by the same or a different
+  human. The agent carries the reusable persona DRESSING — `personaRole` plus
+  a `personaPrompt` TEMPLATE with `{{name}}`/`{{role}}` placeholders, set at
+  `agent create` or edited via `agent update`
+  (`--persona-role`/`--persona-prompt`); the name lives on the
+  Worker, never the agent, and workers have no URN — commands take the
+  worker's name (resolved within the App from `--app`, the App context, or
+  the binding) or its id (App-free).
+  `team worker cast` mints one in ONE platform call (`castWorker`): the
+  server resolves the agent (`--agent`, or `--role` picks the single
+  installed agent whose persona role matches — `WORKER_AGENT_NOT_FOUND`
+  exit 4 / `WORKER_AGENT_AMBIGUOUS` exit 2, never a guess), allocates the
+  name (`--name` claims one attempt — `WORKER_NAME_TAKEN` exit 5; otherwise
+  the Team Agent's cast-list register `roles:<role>` → `data.names` is
+  walked server-side — so a fresh App with no register refuses
+  (`TEAM_AGENT_NOT_FOUND`): pass `--name` there; drained register:
+  `WORKER_REGISTER_EXHAUSTED` exit 5;
+  unknown role lists the available roles, `WORKER_ROLE_NOT_FOUND` exit 4),
+  binds the template, provisions the worker's working memory, and returns
+  the resolved boot briefing (`prompt`), printed on success.
+  `--prompt-override` layers per-worker individuality over the template.
+  Names bind **forever** per App (`cor:agt:020:02`, case-insensitive):
+  `worker retire` (requires `--yes`, idempotent) stops the worker and keeps
+  its name reserved — PR trailers and chat history reference it — and there
+  is no rename; `worker rm` is the ONE removal escape, hard-deleting a
+  NEVER-USED miscast (`WORKER_IN_USE` exit 5 otherwise) and freeing its
+  name. **`team worker list` is the "who is on this team?" read** — the
+  App's staff (retired hidden unless `--include-retired`); `hadron app agent
+  list` is the install roster (the cast pool). `agent list` answers a
+  DIFFERENT question — every agent you can read — and `--app` does **not**
+  scope it (that flag sets the App context and is not a filter; passing it
+  prints a stderr note saying so). A **session** binds the current git
+  worktree to a worker: `session start --as <worker>` records provenance
+  (repo/branch/host/tool/transcript path/model) server-side, prints the
+  worker's boot briefing, and writes a local binding under the worktree's
+  git dir (`git rev-parse --git-dir`), which `session whoami` reads back
+  after a context compaction — local only, no network. The session binds the
+  WORKER (`SessionInput.workerRef`, the worker's id); the server stamps the
+  role-agent AND the worker's App itself, so every worker session is
+  App-bound; a retired worker refuses (`WORKER_RETIRED`). A worker with a
+  still-active session is *taken*: `start` refuses (exit 5) showing who is
+  driving it since when, and `--force` takes over — informed and deliberate,
+  never silent (`cor:agt:020:03`; stale sessions auto-expire server-side —
+  hard expiry + inactivity, with `session log` counting as activity — so an
+  active session usually means a live driver; a `--force` that replaces this
+  worktree's own binding first ends the session it named, best-effort).
+  `session end [--summary <s>]` ends the bound session — the worker is freed
+  unless another active session still holds it (check `session list
   --active`). `end --session <id>` is the recovery path when the binding is
-  gone but the server session is still open; `end` also refuses (exit 2) when
-  the binding was started against a different `--server` than the current
-  one. `session list`
-  is the presence view, newest first, persona names joined in; `--active`
-  and `--as` narrow client-side. **The worklog** is the provenance record.
-  `session start -m <team-memory>` is what enables it — `team init` is **not**
-  a precondition for worklog writes (#414). `session log -m` is an override,
-  not a rescue: it works only on a session already bound to that memory's App
-  (started with `-m`, or under an `--app` context). A session started with
-  **neither** is not App-bound, cannot be bound afterwards (`updateSession`
-  cannot set `appId`), and its worklog writes fail `SESSION_NOT_IN_APP` — it
-  must be ended and restarted. `start` now warns about both cases up front,
-  with the remedy that actually applies to each, instead of degrading
-  silently at `log` time (#399). Separately,
-  `team init -m <team-memory>` asks the server to converge the
-  collections it owns onto their canonical definitions (in the team App
-  memory — an `app`-class memory is required and any other class is refused
-  with exit 2, since a system memory is read-only from every App that runs
-  it; idempotent, preserves other collections, and repairs a declaration
-  written by an older CLI), `session start
-  -m <team-memory>` records the worklog home in the binding, and `session
-  log (--pr | --issue | --commit | --branch) <ref>` appends a milestone —
-  refs normalize to one canonical string per artifact (`owner/repo#371`,
-  `owner/repo@sha`, `owner/repo:branch`; URLs, short forms, and bare
-  numbers/shas/branch-names qualified by the session's `--repo` or the git
-  remote are all accepted; a bare branch value is always a branch name,
-  never owner/repo), with `--action` (default `worked-on`) and an optional
-  `--detail` JSON bag. `--pr` and `--branch` additionally denormalize onto
-  `Session.prNumber`/`Session.branch` (latest wins — display convenience
-  only); every logged milestone — issue and commit included — counts as
-  session liveness for the inactivity reaper;
-  without a team memory they degrade to that denormalization alone
-  (`"recorded": "session"` instead of `"worklog"`), while
-  `--issue`/`--commit` refuse. `session list (--pr | --issue | --commit |
-  --branch) <ref>` is THE provenance query: worklog lookup by canonical
-  (ref, kind) → the sessions that produced the artifact (several rows
-  expected; a recorded session you cannot read lists as an id-only stub
-  rather than disappearing). **`team chat`** is the team App's group chat as a
-  THIN wrapper over the platform operations (hadron-server#939, spec
-  cor:agt:020:04): the server owns placement (`chats:team` in the Team
-  Agent's shared app memory, bootstrapped on the first post — no init step),
-  atomic seq allocation, author derivation, and write-time mention
-  extraction. The App resolves from `--app`/the App context, else from the
-  binding's team memory. With a binding, `chat post` is authored by the
-  bound PERSONA through that session (the server verifies it is yours,
-  active, and of this App, and records it — an agent message always traces
-  to the DRIVING human); without one, or with `--as-me`, by you. Mention
-  teammates as `@persona-name`/`@handle` (a multiword name by its slug,
-  `@mary-jane`); `--reply-to` takes the seq readers see (the server wires
-  the reply edge; a missing seq is the typed TEAM_CHAT_REPLY_NOT_FOUND).
-  `chat read [--since <seq>] [--mentions-me | --mentions <ref>]` filters on
-  the SERVER-stored mentions (never re-parsed); `nextSince` is the seq
-  watermark to pass next turn — with a mentions filter it advances only
-  past the returned messages (skipped ones re-scan server-side, free, and
-  are never re-delivered). The commit trailer `Persona: <name>` carries the
-  persona name into PRs.
+  gone or unusable (including one written by a pre-Worker CLI, which whoami
+  reports as a degraded read); `end` also refuses (exit 2) when the binding
+  was started against a different `--server` than the current one.
+  `session list` is the presence view, newest first, worker names joined in;
+  `--as` narrows SERVER-side (`sessions(workerRef:)`), `--active`
+  client-side. **The worklog** is the provenance record. `session start -m
+  <team-memory>` records the worklog home in the binding — `team init` is
+  **not** a precondition for worklog writes (#414). A worker session is
+  always App-bound, so `session log -m` works per-call even when the binding
+  has no home; `SESSION_NOT_IN_APP` on a worklog write means `-m` named a
+  DIFFERENT App's memory than the bound worker's (a mismatch to fix, not a
+  session to restart). Separately, `team init -m <team-memory>` asks the
+  server to converge the collections it owns onto their canonical
+  definitions (in the team App memory — an `app`-class memory is required
+  and any other class is refused with exit 2, since a system memory is
+  read-only from every App that runs it; idempotent, preserves other
+  collections, and repairs a declaration written by an older CLI), and
+  `session log (--pr | --issue | --commit | --branch) <ref>` appends a
+  milestone — refs normalize to one canonical string per artifact
+  (`owner/repo#371`, `owner/repo@sha`, `owner/repo:branch`; URLs, short
+  forms, and bare numbers/shas/branch-names qualified by the session's
+  `--repo` or the git remote are all accepted; a bare branch value is always
+  a branch name, never owner/repo), with `--action` (default `worked-on`)
+  and an optional `--detail` JSON bag. `--pr` and `--branch` additionally
+  denormalize onto `Session.prNumber`/`Session.branch` (latest wins —
+  display convenience only); every logged milestone — issue and commit
+  included — counts as session liveness for the inactivity reaper; without a
+  team memory they degrade to that denormalization alone (`"recorded":
+  "session"` instead of `"worklog"`), while `--issue`/`--commit` refuse.
+  `session list (--pr | --issue | --commit | --branch) <ref>` is THE
+  provenance query: worklog lookup by canonical (ref, kind) → the sessions
+  that produced the artifact (several rows expected; a recorded session you
+  cannot read lists as an id-only stub rather than disappearing, still
+  carrying the worklog's worker name). **`team chat`** is the team App's
+  group chat as a THIN wrapper over the platform operations
+  (hadron-server#939, Worker envelope #974, spec cor:agt:020:04): the server
+  owns placement (`chats:team` in the Team Agent's shared app memory,
+  bootstrapped on the first post — no init step), atomic seq allocation,
+  author derivation, and write-time mention extraction. The App resolves
+  from `--app`/the App context, else from the binding's team memory. With a
+  binding, `chat post` is authored by the bound WORKER through that session
+  (the server verifies it is yours, active, and bound to a non-retired
+  worker OF this App — `SESSION_NOT_WORKER_BOUND` /
+  `SESSION_WORKER_NOT_IN_APP` / `WORKER_RETIRED` — and records it: a worker
+  message always traces to the DRIVING human); without one, or with
+  `--as-me`, by you. Mention teammates as `@worker-name`/`@handle` (a
+  multiword name by its slug, `@mary-jane`); mention tokens carry **no
+  uniqueness** (hadron-server#979) — a token may match several workers, and
+  the filter simply returns every match. `--reply-to` takes the seq readers
+  see (the server wires the reply edge; a missing seq is the typed
+  TEAM_CHAT_REPLY_NOT_FOUND). `chat read [--since <seq>] [--mentions-me |
+  --mentions <ref>]` filters on the SERVER-stored mentions (never
+  re-parsed); `--mentions` passes through raw (a worker name or id of this
+  App, or a user handle/id — the server resolves it against the App's own
+  staff and members only); `nextSince` is the seq watermark to pass next
+  turn — with a mentions filter it advances only past the returned messages
+  (skipped ones re-scan server-side, free, and are never re-delivered). The
+  commit trailer carries the **app-qualified compound** — `Persona:
+  eng-team/Iris` (`cor:agt:020:02/:03`) — because worker names are App-scoped
+  and org-ambiguous bare.
 - `user search <query>` finds users (enumeration-safe: substring on handle /
   GitHub username, exact on email) — the way to resolve a user ID for `org
   member`/`memory member`/`memory share`. **Omit the query** (also spelled `user

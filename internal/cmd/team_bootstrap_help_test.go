@@ -7,7 +7,8 @@ import (
 
 // #402: the bootstrap sequence is order-dependent, and two of its steps are
 // not in the `team` group at all — so `hadron team --help` must carry the
-// order, or the next person rediscovers it from the spec.
+// order, or the next person rediscovers it from the spec. Re-keyed to the
+// Worker model in #428: dressing on the agent, then the App, then the cast.
 func TestTeamHelpCarriesTheBootstrapOrder(t *testing.T) {
 	// Cobra writes help to its own writer, not the Factory's IOStreams.
 	buf := &strings.Builder{}
@@ -20,14 +21,13 @@ func TestTeamHelpCarriesTheBootstrapOrder(t *testing.T) {
 	}
 	help := buf.String()
 
-	// The ORDER is the contract, so assert all six markers appear in
-	// increasing position — checking only init-after-mint would let
-	// App-before-Agent or persona-before-role-authoring pass (PR #421 review).
+	// The ORDER is the contract, so assert all markers appear in increasing
+	// position — checking only init-after-cast would let App-before-Agent or
+	// cast-before-dressing pass (PR #421 review).
 	steps := []string{
 		"hadron agent create",
 		"hadron app install",
-		"roles:<role>",
-		"hadron team persona create",
+		"hadron team worker cast",
 		"hadron team session start",
 		"hadron team init",
 	}
@@ -42,18 +42,16 @@ func TestTeamHelpCarriesTheBootstrapOrder(t *testing.T) {
 		}
 		prev = i
 	}
-	// The interim role-node command must be executable as printed: `node
-	// create` requires --name, and the prompt/register are the whole point
-	// (PR #421 review).
-	if !strings.Contains(help, "--name backend-engineer") || !strings.Contains(help, "--content-file") ||
-		!strings.Contains(help, `"names"`) {
-		t.Errorf("the interim role-node command must be complete (name, content, register):\n%s", help)
+	// The dressing step must show the template placeholders — a persona
+	// prompt without {{name}} addresses nobody.
+	if !strings.Contains(help, "{{name}}") {
+		t.Errorf("the dressing step must show the template placeholder:\n%s", help)
 	}
 	if !strings.Contains(help, "optional") {
 		t.Errorf("`team init` is not a precondition — help should say so: %s", help)
 	}
 	// Name permanence is the irreversible part of the sequence.
 	if !strings.Contains(help, "PERMANENT") {
-		t.Errorf("help should warn that a minted name is permanent: %s", help)
+		t.Errorf("help should warn that a cast name is permanent: %s", help)
 	}
 }

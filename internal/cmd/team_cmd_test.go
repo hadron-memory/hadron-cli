@@ -13,78 +13,82 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-const irisJSON = `{"id":"agt1","urn":"hrn:agent:acme.com:iris","name":"Iris","description":null,
-	"visibility":"ORGANIZATION","organizationId":"o1","personaName":"Iris","personaRole":"backend-engineer",
-	"personaPrompt":"You are Iris.","createdAt":"2026-08-11T00:00:00Z"}`
+const irisWorkerJSON = `{"id":"wkr1","appId":"app1","agentId":"agt1","name":"Iris","role":"backend-engineer",
+	"prompt":"You are Iris.","promptOverride":null,"memoryId":"mw1","retiredAt":null,"retiredBy":null,
+	"createdAt":"2026-08-14T00:00:00Z","createdBy":"u-holger"}`
 
-// A plain agent on the same roster page: persona list/get must skip it
-// (personaName null == not a persona).
-const plainAgentJSON = `{"id":"agt2","urn":"hrn:agent:acme.com:support-bot","name":"Support Bot",
-	"description":null,"visibility":"PERSONAL","organizationId":"o1","personaName":null,"personaRole":null,
-	"personaPrompt":null,"createdAt":"2026-08-11T00:00:00Z"}`
+// A retired casting on the same staff page: hidden by default, listed with
+// --include-retired (its name stays reserved forever).
+const retiredWorkerJSON = `{"id":"wkr2","appId":"app1","agentId":"agt1","name":"Uma","role":"qa",
+	"prompt":null,"promptOverride":null,"memoryId":null,"retiredAt":"2026-08-13T00:00:00Z","retiredBy":"u-holger",
+	"createdAt":"2026-08-12T00:00:00Z","createdBy":null}`
 
-const rosterJSON = `{"data":{"agents":{"total":2,"items":[` + irisJSON + `,` + plainAgentJSON + `]}}}`
+const staffJSON = `{"data":{"workers":{"total":2,"items":[` + irisWorkerJSON + `,` + retiredWorkerJSON + `]}}}`
 
-func TestTeamPersonaCreate(t *testing.T) {
+func TestTeamWorkerCast(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"CreateTeamPersona": `{"data":{"createTeamPersona":` + irisJSON + `}}`,
+		"CastWorker": `{"data":{"castWorker":` + irisWorkerJSON + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "persona", "create", "--app", "acme.com::eng-team",
+	root.SetArgs([]string{"team", "worker", "cast", "--app", "acme.com:eng-team",
 		"--role", "backend-engineer", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(captured["CreateTeamPersona"], &vars)
-	if vars["appRef"] != "acme.com::eng-team" || vars["role"] != "backend-engineer" {
-		t.Errorf("create vars: %v", vars)
+	_ = json.Unmarshal(captured["CastWorker"], &vars)
+	if vars["appRef"] != "acme.com:eng-team" || vars["role"] != "backend-engineer" {
+		t.Errorf("cast vars: %v", vars)
 	}
 	// Unset optionals are OMITTED, never null: no explicit name means the
-	// SERVER allocates from the register; no team-agent means the
-	// roles-branch marker resolves it.
-	for _, k := range []string{"name", "teamAgentRef"} {
+	// SERVER allocates from the cast-list register; no agent means the role
+	// picks it; no team-agent means the roles-branch marker resolves it.
+	for _, k := range []string{"name", "agentRef", "teamAgentRef", "promptOverride"} {
 		if _, present := vars[k]; present {
 			t.Errorf("unset %q must be omitted, got %v", k, vars[k])
 		}
 	}
 	var dto struct {
-		PersonaName string `json:"personaName"`
+		Name string `json:"name"`
+		ID   string `json:"id"`
 	}
 	_ = json.Unmarshal([]byte(out.String()), &dto)
-	if dto.PersonaName != "Iris" {
+	if dto.Name != "Iris" || dto.ID != "wkr1" {
 		t.Errorf("dto: %s", out.String())
 	}
 }
 
-// --name and --team-agent pass through verbatim; the boot briefing
-// (personaPrompt) prints on the human path.
-func TestTeamPersonaCreateExplicitNameAndBriefing(t *testing.T) {
+// --name, --agent, --team-agent, and --prompt-override pass through verbatim;
+// the resolved boot briefing (Worker.prompt) prints on the human path.
+func TestTeamWorkerCastExplicitNameAndBriefing(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"CreateTeamPersona": `{"data":{"createTeamPersona":` + irisJSON + `}}`,
+		"CastWorker": `{"data":{"castWorker":` + irisWorkerJSON + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "persona", "create", "--app", "acme.com::eng-team",
-		"--role", "backend-engineer", "--name", "Iris", "--team-agent", "agt-team", "--server", gql.URL})
+	root.SetArgs([]string{"team", "worker", "cast", "--app", "acme.com:eng-team",
+		"--agent", "hrn:agent:acme.com:backend", "--name", "Iris", "--team-agent", "agt-team",
+		"--prompt-override", "You keep the release calm.", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(captured["CreateTeamPersona"], &vars)
-	if vars["name"] != "Iris" || vars["teamAgentRef"] != "agt-team" {
-		t.Errorf("create vars: %v", vars)
+	_ = json.Unmarshal(captured["CastWorker"], &vars)
+	if vars["agentRef"] != "hrn:agent:acme.com:backend" || vars["name"] != "Iris" ||
+		vars["teamAgentRef"] != "agt-team" || vars["promptOverride"] != "You keep the release calm." {
+		t.Errorf("cast vars: %v", vars)
 	}
 	if !strings.Contains(out.String(), "You are Iris.") {
-		t.Errorf("the boot briefing (personaPrompt) must print: %s", out.String())
+		t.Errorf("the boot briefing (Worker.prompt) must print: %s", out.String())
 	}
 }
 
 // The CLI retries NOTHING (thin-CLI directive): server refusals map to exit
-// codes and surface verbatim — PERSONA_ROLE_NOT_FOUND carries the available
-// roles, TEAM_AGENT_AMBIGUOUS says how to disambiguate.
-func TestTeamPersonaCreateServerRefusals(t *testing.T) {
+// codes and surface verbatim — WORKER_ROLE_NOT_FOUND carries the available
+// roles, WORKER_AGENT_AMBIGUOUS says to pass --agent. The retry loop the
+// persona model needed lives server-side now (#974).
+func TestTeamWorkerCastServerRefusals(t *testing.T) {
 	cases := []struct {
 		name string
 		resp string
@@ -92,30 +96,33 @@ func TestTeamPersonaCreateServerRefusals(t *testing.T) {
 		want string
 	}{
 		{"role not found lists roles",
-			`{"errors":[{"message":"Role \"backend\" not found - available roles: backend-engineer, qa","extensions":{"code":"PERSONA_ROLE_NOT_FOUND"}}]}`,
+			`{"errors":[{"message":"Role \"backend\" not found - available roles: backend-engineer, qa","extensions":{"code":"WORKER_ROLE_NOT_FOUND"}}]}`,
 			exitcode.NotFound, "available roles: backend-engineer, qa"},
 		{"register exhausted",
-			`{"errors":[{"message":"every register name is taken","extensions":{"code":"PERSONA_REGISTER_EXHAUSTED"}}]}`,
+			`{"errors":[{"message":"every register name is taken","extensions":{"code":"WORKER_REGISTER_EXHAUSTED"}}]}`,
 			exitcode.Conflict, "register"},
 		{"explicit name taken",
-			`{"errors":[{"message":"Persona name \"Iris\" is already taken for this owner - pick another name.","extensions":{"code":"PERSONA_NAME_TAKEN"}}]}`,
+			`{"errors":[{"message":"Worker name \"Iris\" is already taken in this App - pick another name.","extensions":{"code":"WORKER_NAME_TAKEN"}}]}`,
 			exitcode.Conflict, "Iris"},
+		{"agent ambiguous",
+			`{"errors":[{"message":"several installed agents carry this persona role - pass agentRef","extensions":{"code":"WORKER_AGENT_AMBIGUOUS"}}]}`,
+			exitcode.Usage, "agentRef"},
+		{"agent not installed",
+			`{"errors":[{"message":"agent is not installed in this App","extensions":{"code":"WORKER_AGENT_NOT_INSTALLED"}}]}`,
+			exitcode.Usage, "not installed"},
+		{"agent not found",
+			`{"errors":[{"message":"no installed agent carries persona role \"backend\"","extensions":{"code":"WORKER_AGENT_NOT_FOUND"}}]}`,
+			exitcode.NotFound, "backend"},
 		{"team agent ambiguous",
 			`{"errors":[{"message":"several installed agents carry roles - pass teamAgentRef","extensions":{"code":"TEAM_AGENT_AMBIGUOUS"}}]}`,
 			exitcode.Usage, "teamAgentRef"},
-		{"team agent not installed",
-			`{"errors":[{"message":"agent is not installed in this App","extensions":{"code":"TEAM_AGENT_NOT_INSTALLED"}}]}`,
-			exitcode.Usage, "not installed"},
-		{"team agent not found",
-			`{"errors":[{"message":"no installed agent carries a roles branch","extensions":{"code":"TEAM_AGENT_NOT_FOUND"}}]}`,
-			exitcode.NotFound, "roles branch"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			gql, _ := captureGraphQL(t, map[string]string{"CreateTeamPersona": tc.resp})
+			gql, _ := captureGraphQL(t, map[string]string{"CastWorker": tc.resp})
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
-			root.SetArgs([]string{"team", "persona", "create", "--app", "a::t", "--role", "backend",
+			root.SetArgs([]string{"team", "worker", "cast", "--app", "a:t", "--role", "backend",
 				"--name", "Iris", "--server", gql.URL})
 			err := root.Execute()
 			if code := exitcode.FromError(err); code != tc.code {
@@ -128,420 +135,273 @@ func TestTeamPersonaCreateServerRefusals(t *testing.T) {
 	}
 }
 
-func TestTeamPersonaListKeepsOnlyPersonas(t *testing.T) {
-	gql, _ := captureGraphQL(t, map[string]string{"PersonaAgents": rosterJSON})
-	f, out := testFactory(t)
+// The server never guesses the agent to cast — and the CLI refuses the
+// unanswerable call before making it.
+func TestTeamWorkerCastRequiresRoleOrAgent(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{})
+	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "persona", "list", "--json", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
+	root.SetArgs([]string{"team", "worker", "cast", "--app", "a:t", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want Usage; err: %v", code, err)
 	}
-	var got []map[string]any
-	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
-		t.Fatalf("json: %v (%s)", err, out.String())
-	}
-	if len(got) != 1 || got[0]["personaName"] != "Iris" {
-		t.Errorf("roster: %s", out.String())
+	if _, called := captured["CastWorker"]; called {
+		t.Error("an unanswerable cast must not reach the mutation")
 	}
 }
 
-// #383: THE roster read — the AppAgent join, not a client-side narrowing of
-// everything readable. An installed agent that is not a persona (the Team
-// Agent) is listed rather than hidden: "the Team Agent and no personas yet" is
-// a true answer an empty list would disguise.
-func TestTeamRoster(t *testing.T) {
-	teamGitDir(t)
-	gql, captured := captureGraphQL(t, map[string]string{
-		"TeamRoster": `{"data":{"app":{"id":"app1","urn":"hrn:app:acme.com:eng-team","name":"Eng Team",
-			"agents":[` + irisJSON + `,` + plainAgentJSON + `]}}}`,
-	})
+// The STAFF read: retired workers hidden by default, listed on request.
+func TestTeamWorkerList(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{"Workers": staffJSON})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "roster", "--app", "acme.com::eng-team", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"team", "worker", "list", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
-	if err := json.Unmarshal(captured["TeamRoster"], &vars); err != nil {
-		t.Fatalf("captured TeamRoster vars: %v (%s)", err, captured["TeamRoster"])
+	_ = json.Unmarshal(captured["Workers"], &vars)
+	// The scan always asks for retired rows (resolution needs them; names
+	// stay bound to history) and filters client-side.
+	if vars["appRef"] != "acme.com:eng-team" || vars["includeRetired"] != true {
+		t.Errorf("workers vars: %v", vars)
 	}
-	if vars["appRef"] != "acme.com::eng-team" {
-		t.Errorf("roster vars: %v", vars)
+	var got []struct {
+		Name    string `json:"name"`
+		Retired bool   `json:"retired"`
 	}
-	var members []struct {
-		URN         string  `json:"urn"`
-		PersonaName *string `json:"personaName"`
+	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+		t.Fatalf("json: %v (%s)", err, out.String())
 	}
-	if err := json.Unmarshal([]byte(out.String()), &members); err != nil {
-		t.Fatalf("roster --json: %v (%s)", err, out.String())
-	}
-	if len(members) != 2 {
-		t.Fatalf("both installed agents must be listed: %s", out.String())
-	}
-	if members[0].PersonaName == nil || *members[0].PersonaName != "Iris" {
-		t.Errorf("persona row: %s", out.String())
-	}
-	if members[1].PersonaName != nil {
-		t.Errorf("a non-persona install must carry a NULL personaName: %s", out.String())
-	}
-}
-
-// Without an App context and without a binding, the roster says so rather than
-// silently answering about something else.
-func TestTeamRosterNeedsAnApp(t *testing.T) {
-	teamGitDir(t)
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "roster", "--server", "http://127.0.0.1:1"})
-	if code := exitcode.FromError(root.Execute()); code != exitcode.Usage {
-		t.Errorf("exit code = %d, want Usage", code)
-	}
-}
-
-// #383: --app is the App-CONTEXT flag, not a filter. `persona list` and
-// `agent list` must keep returning every readable row (that IS their
-// contract) — but say so on stderr, since the silent version reported another
-// org's persona as being on this team.
-func TestAppFlagOnListingsPrintsScopeNote(t *testing.T) {
-	cases := []struct {
-		name string
-		args []string
-		op   string
-		resp string
-	}{
-		{"persona list", []string{"team", "persona", "list"}, "PersonaAgents", rosterJSON},
-		{"agent list", []string{"agent", "list"}, "Agents",
-			`{"data":{"agents":{"total":1,"items":[{"id":"agt1","urn":"hrn:agent:acme.com:iris","name":"Iris",
-				"description":null,"type":"ASSISTANT","visibility":"ORGANIZATION","organizationId":"o1",
-				"surfaces":[],"systemMemoryId":null,"systemPrompt":null,"aiProvider":null,"aiModel":null,
-				"hasAiApiKey":false,"createdAt":"2026-08-11T00:00:00Z"}]}}}`},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			gql, _ := captureGraphQL(t, map[string]string{tc.op: tc.resp})
-			f, out := testFactory(t)
-			root := NewRootCmd(f)
-			root.SetArgs(append(append([]string{}, tc.args...), "--app", "acme.com::eng-team", "--json", "--server", gql.URL))
-			if err := root.Execute(); err != nil {
-				t.Fatalf("execute: %v", err)
-			}
-			errOut := f.IOStreams.ErrOut.(*strings.Builder).String()
-			if !strings.Contains(errOut, "does NOT scope this listing") || !strings.Contains(errOut, "team roster") {
-				t.Errorf("stderr must say --app did not scope this and point at the roster: %q", errOut)
-			}
-			// The note is on stderr precisely so --json stays a clean contract.
-			if !strings.HasPrefix(strings.TrimSpace(out.String()), "[") {
-				t.Errorf("--json stdout must stay unpolluted: %s", out.String())
-			}
-
-			// No --app: no note. A configured default App is ambient context
-			// nobody passed expecting a filter, so this must not become noise.
-			f2, _ := testFactory(t)
-			root2 := NewRootCmd(f2)
-			root2.SetArgs(append(append([]string{}, tc.args...), "--json", "--server", gql.URL))
-			if err := root2.Execute(); err != nil {
-				t.Fatalf("execute: %v", err)
-			}
-			if s := f2.IOStreams.ErrOut.(*strings.Builder).String(); s != "" {
-				t.Errorf("no --app must mean no note, got %q", s)
-			}
-		})
-	}
-}
-
-// PR #418 review: the new visibility column/field was uncovered — a missing
-// JSON field or a broken table column would both have passed.
-func TestTeamPersonaListShowsVisibility(t *testing.T) {
-	gql, _ := captureGraphQL(t, map[string]string{"PersonaAgents": rosterJSON})
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "persona", "list", "--json", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var dto []struct {
-		PersonaName string `json:"personaName"`
-		Visibility  string `json:"visibility"`
-	}
-	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
-		t.Fatalf("list --json: %v (%s)", err, out.String())
-	}
-	if len(dto) != 1 || dto[0].Visibility != "ORGANIZATION" {
-		t.Errorf("visibility must be in --json: %s", out.String())
+	if len(got) != 1 || got[0].Name != "Iris" || got[0].Retired {
+		t.Errorf("retired workers must be hidden by default: %s", out.String())
 	}
 
 	f2, out2 := testFactory(t)
 	root2 := NewRootCmd(f2)
-	root2.SetArgs([]string{"team", "persona", "list", "--server", gql.URL})
+	root2.SetArgs([]string{"team", "worker", "list", "--app", "acme.com:eng-team",
+		"--include-retired", "--json", "--server", gql.URL})
 	if err := root2.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if !strings.Contains(out2.String(), "VISIBILITY") || !strings.Contains(out2.String(), "ORGANIZATION") {
-		t.Errorf("the human table must carry the visibility column: %s", out2.String())
+	var all []struct {
+		Name    string `json:"name"`
+		Retired bool   `json:"retired"`
+	}
+	if err := json.Unmarshal([]byte(out2.String()), &all); err != nil {
+		t.Fatalf("json: %v (%s)", err, out2.String())
+	}
+	if len(all) != 2 || !all[1].Retired {
+		t.Errorf("--include-retired must list the retired casting: %s", out2.String())
 	}
 }
 
-func TestTeamPersonaGetByName(t *testing.T) {
-	gql, _ := captureGraphQL(t, map[string]string{"PersonaAgents": rosterJSON})
+// A worker NAME resolves within the App (case-insensitively, like the
+// server's per-App uniqueness).
+func TestTeamWorkerGetByName(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{"Workers": staffJSON})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	// Case-insensitive: the server's uniqueness is case-insensitive too.
-	root.SetArgs([]string{"team", "persona", "get", "iris", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"team", "worker", "get", "iris", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var dto struct {
-		ID          string `json:"id"`
-		PersonaName string `json:"personaName"`
+		ID   string `json:"id"`
+		Name string `json:"name"`
 	}
 	_ = json.Unmarshal([]byte(out.String()), &dto)
-	if dto.ID != "agt1" || dto.PersonaName != "Iris" {
+	if dto.ID != "wkr1" || dto.Name != "Iris" {
 		t.Errorf("dto: %s", out.String())
 	}
 }
 
-func TestTeamPersonaGetUnknownNameIsNotFound(t *testing.T) {
+// A worker ID needs no App scope at all (workers have no URN — the id is the
+// only App-free spelling).
+func TestTeamWorkerGetByIdWithoutApp(t *testing.T) {
+	teamGitDir(t)
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetWorker": `{"data":{"worker":` + irisWorkerJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "get", "wkr1", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["GetWorker"], &vars)
+	if vars["ref"] != "wkr1" {
+		t.Errorf("get vars: %v", vars)
+	}
+	if !strings.Contains(out.String(), `"name": "Iris"`) {
+		t.Errorf("dto: %s", out.String())
+	}
+}
+
+func TestTeamWorkerGetUnknownIsNotFound(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"PersonaAgents":   rosterJSON,
-		"GetPersonaAgent": `{"data":{"agent":null}}`,
+		"Workers":   staffJSON,
+		"GetWorker": `{"data":{"worker":null}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "persona", "get", "Nadia", "--server", gql.URL})
+	root.SetArgs([]string{"team", "worker", "get", "Nadia", "--app", "acme.com:eng-team", "--server", gql.URL})
 	err := root.Execute()
 	if code := exitcode.FromError(err); code != exitcode.NotFound {
 		t.Errorf("exit code = %d, want %d (NotFound); err: %v", code, exitcode.NotFound, err)
 	}
 }
 
-// Retire prompts like a deletion: non-interactive without --yes is refused
-// before any mutation.
-// #385: post-mint refinement. The prompt comes from a FILE (identity prompts
-// are multi-paragraph markdown), the persona is resolved by name, and the
-// untouched field is OMITTED — an explicit null would clear the column.
-func TestTeamPersonaUpdatePromptFromFile(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{
-		"PersonaAgents":     rosterJSON,
-		"UpdateTeamPersona": `{"data":{"updateAgent":` + irisJSON + `}}`,
-	})
-	promptPath := filepath.Join(t.TempDir(), "iris.md")
-	body := "You are Iris.\n\nYou shipped #370 and #382.\n"
-	if err := os.WriteFile(promptPath, []byte(body), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "persona", "update", "Iris", "--prompt-file", promptPath, "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var vars map[string]any
-	_ = json.Unmarshal(captured["UpdateTeamPersona"], &vars)
-	if vars["ref"] != "agt1" {
-		t.Errorf("must address the RESOLVED agent id, got %v", vars["ref"])
-	}
-	if vars["personaPrompt"] != body {
-		t.Errorf("prompt must ride verbatim from the file: %q", vars["personaPrompt"])
-	}
-	if _, present := vars["personaRole"]; present {
-		t.Errorf("an unset field must be OMITTED (preserve), not sent as null: %v", vars)
-	}
-	// The byte count is the receipt that a multi-paragraph file landed.
-	if !strings.Contains(out.String(), fmt.Sprintf("prompt (%d bytes)", len(body))) {
-		t.Errorf("update output: %s", out.String())
-	}
-}
-
-// --prompt - reads stdin; --role rides alongside.
-func TestTeamPersonaUpdateRoleAndStdinPrompt(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{
-		"GetPersonaAgent":   `{"data":{"agent":` + irisJSON + `}}`,
-		"UpdateTeamPersona": `{"data":{"updateAgent":` + irisJSON + `}}`,
-	})
-	f, _ := testFactory(t)
-	f.IOStreams.In = strings.NewReader("piped identity")
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "persona", "update", "hrn:agent:acme.com:iris",
-		"--role", "qa", "--prompt", "-", "--json", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var vars map[string]any
-	_ = json.Unmarshal(captured["UpdateTeamPersona"], &vars)
-	if vars["personaRole"] != "qa" || vars["personaPrompt"] != "piped identity" {
-		t.Errorf("update vars: %v", vars)
-	}
-}
-
-// Every refusal happens BEFORE the mutation: #385's hazard is a write aimed at
-// a live entity, so no-op invocations and non-personas must not reach it.
-func TestTeamPersonaUpdateRefusalsWriteNothing(t *testing.T) {
-	cases := []struct {
-		name string
-		args []string
-		want string
-	}{
-		{"no field flags", []string{"Iris"}, "nothing to update"},
-		{"empty prompt", []string{"Iris", "--prompt", ""}, "empty persona prompt"},
-		{"empty role", []string{"Iris", "--role", "  "}, "empty --role"},
-		// An unset shell var must not read as "leave it alone" and report a
-		// successful no-op update (PR #418 review).
-		{"empty visibility", []string{"Iris", "--visibility", ""}, "empty --visibility"},
-		{"whitespace visibility", []string{"Iris", "--visibility", " "}, "empty --visibility"},
-		// A bad --prompt-file path is user input: Usage (2), not the generic 1.
-		{"unreadable prompt-file", []string{"Iris", "--prompt-file", "/nonexistent/iris.md"}, "reading --prompt-file"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			gql, captured := captureGraphQL(t, map[string]string{
-				"PersonaAgents":     rosterJSON,
-				"UpdateTeamPersona": `{"data":{"updateAgent":` + irisJSON + `}}`,
-			})
-			f, _ := testFactory(t)
-			root := NewRootCmd(f)
-			root.SetArgs(append([]string{"team", "persona", "update"}, append(tc.args, "--server", gql.URL)...))
-			err := root.Execute()
-			if code := exitcode.FromError(err); code != exitcode.Usage {
-				t.Errorf("exit code = %d, want Usage; err: %v", code, err)
-			}
-			if err == nil || !strings.Contains(err.Error(), tc.want) {
-				t.Errorf("want %q: %v", tc.want, err)
-			}
-			if _, called := captured["UpdateTeamPersona"]; called {
-				t.Error("a refused update must not reach the mutation")
-			}
-		})
-	}
-}
-
-// A plain agent is not a persona: refused at resolution, before the write.
-func TestTeamPersonaUpdateRefusesPlainAgent(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{
-		"GetPersonaAgent":   `{"data":{"agent":` + plainAgentJSON + `}}`,
-		"UpdateTeamPersona": `{"data":{"updateAgent":` + irisJSON + `}}`,
+// A worker-id lookup failure must surface as ITSELF, not as a fabricated
+// not-found: without an App scope the id lookup is the only lookup, so an
+// auth/transport error reading as "no worker" would make an outage look like
+// missing data (PR #431 review).
+func TestTeamWorkerGetByIdPropagatesLookupErrors(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetWorker": `{"errors":[{"message":"token expired","extensions":{"code":"UNAUTHENTICATED"}}]}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "persona", "update", "hrn:agent:acme.com:support-bot",
-		"--prompt", "hi", "--server", gql.URL})
+	root.SetArgs([]string{"team", "worker", "get", "wkr1", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
-		t.Errorf("exit code = %d, want Usage; err: %v", code, err)
+	if code := exitcode.FromError(err); code != exitcode.AuthRequired {
+		t.Errorf("exit code = %d, want %d (AuthRequired), not a fabricated NotFound; err: %v", code, exitcode.AuthRequired, err)
 	}
-	if _, called := captured["UpdateTeamPersona"]; called {
-		t.Error("a non-persona must not reach the mutation")
-	}
-}
-
-// #405: description and visibility are persona-shaped fields (the mint derives
-// both), so they must be reachable from the persona noun — not only from
-// `agent update`, which is a different command group.
-func TestTeamPersonaUpdateDescriptionAndVisibility(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{
-		"GetPersonaAgent":   `{"data":{"agent":` + irisJSON + `}}`,
-		"UpdateTeamPersona": `{"data":{"updateAgent":` + irisJSON + `}}`,
-	})
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "persona", "update", "hrn:agent:acme.com:iris",
-		"--description", "AI coding agent using backend engineer role",
-		"--visibility", "ORGANIZATION", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var vars map[string]any
-	if err := json.Unmarshal(captured["UpdateTeamPersona"], &vars); err != nil {
-		t.Fatalf("captured vars: %v", err)
-	}
-	if vars["description"] != "AI coding agent using backend engineer role" || vars["visibility"] != "ORGANIZATION" {
-		t.Errorf("update vars: %v", vars)
-	}
-	// The untouched persona fields must stay OMITTED — this command's whole
-	// point is that one flag never clears another field.
-	for _, k := range []string{"personaRole", "personaPrompt"} {
-		if _, present := vars[k]; present {
-			t.Errorf("unset %q must be omitted, got %v", k, vars[k])
-		}
-	}
-	if !strings.Contains(out.String(), "visibility=ORGANIZATION") {
-		t.Errorf("the resulting visibility is the receipt that it landed: %s", out.String())
+	if err == nil || !strings.Contains(err.Error(), "token expired") {
+		t.Errorf("the real error must surface: %v", err)
 	}
 }
 
-func TestTeamPersonaUpdateRejectsBadVisibility(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{
-		"GetPersonaAgent":   `{"data":{"agent":` + irisJSON + `}}`,
-		"UpdateTeamPersona": `{"data":{"updateAgent":` + irisJSON + `}}`,
-	})
+// Retire prompts: non-interactive without --yes is refused before any mutation.
+func TestTeamWorkerRetireRequiresYes(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{"Workers": staffJSON})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "persona", "update", "hrn:agent:acme.com:iris",
-		"--visibility", "TEAM", "--server", gql.URL})
-	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
-		t.Errorf("exit code = %d, want Usage; err: %v", code, err)
-	}
-	if _, called := captured["UpdateTeamPersona"]; called {
-		t.Error("an invalid visibility must be refused before the mutation")
-	}
-}
-
-// A persona name is permanent (cor:agt:020:02) — there is no rename flag.
-func TestTeamPersonaUpdateHasNoNameFlag(t *testing.T) {
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "persona", "update", "Iris", "--name", "Ada"})
-	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "unknown flag") {
-		t.Errorf("--name must not exist on persona update: %v", err)
-	}
-}
-
-func TestTeamPersonaRetireRequiresYes(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{"PersonaAgents": rosterJSON})
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "persona", "retire", "Iris", "--server", gql.URL})
+	root.SetArgs([]string{"team", "worker", "retire", "Iris", "--app", "acme.com:eng-team", "--server", gql.URL})
 	err := root.Execute()
 	if code := exitcode.FromError(err); code != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
-	if _, called := captured["DeleteAgent"]; called {
-		t.Error("DeleteAgent must not run without confirmation")
+	if _, called := captured["RetireWorker"]; called {
+		t.Error("RetireWorker must not run without confirmation")
 	}
 }
 
-func TestTeamPersonaRetire(t *testing.T) {
+func TestTeamWorkerRetire(t *testing.T) {
+	retired := strings.Replace(irisWorkerJSON, `"retiredAt":null`, `"retiredAt":"2026-08-14T10:00:00Z"`, 1)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"PersonaAgents": rosterJSON,
-		"DeleteAgent":   `{"data":{"deleteAgent":true}}`,
+		"Workers":      staffJSON,
+		"RetireWorker": `{"data":{"retireWorker":` + retired + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "persona", "retire", "Iris", "--yes", "--server", gql.URL})
+	root.SetArgs([]string{"team", "worker", "retire", "Iris", "--yes", "--app", "acme.com:eng-team", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(captured["DeleteAgent"], &vars)
-	if vars["ref"] != "agt1" {
-		t.Errorf("retire ref: %v", vars)
+	_ = json.Unmarshal(captured["RetireWorker"], &vars)
+	if vars["workerRef"] != "wkr1" {
+		t.Errorf("retire must address the RESOLVED worker id: %v", vars)
 	}
-	if !strings.Contains(out.String(), "never re-minted") {
+	if !strings.Contains(out.String(), "never re-cast") {
 		t.Errorf("retire output should state the name stays bound: %s", out.String())
 	}
 }
 
-const activeSessionJSON = `{"id":"s-old","agentId":"agt1","userId":"u-holger","type":"DEVELOPER",
+// `worker rm` is the hard-delete escape for a NEVER-USED miscast; anything
+// with history refuses WORKER_IN_USE (a state conflict) and retires instead.
+func TestTeamWorkerRm(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"Workers":      staffJSON,
+		"DeleteWorker": `{"data":{"deleteWorker":true}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "rm", "Iris", "--yes", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["DeleteWorker"], &vars)
+	if vars["workerRef"] != "wkr1" {
+		t.Errorf("rm vars: %v", vars)
+	}
+	if !strings.Contains(out.String(), `"status": "deleted"`) {
+		t.Errorf("rm output: %s", out.String())
+	}
+}
+
+func TestTeamWorkerRmInUseIsConflict(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"Workers": staffJSON,
+		"DeleteWorker": `{"errors":[{"message":"Worker \"Iris\" has history - retire it instead",
+			"extensions":{"code":"WORKER_IN_USE"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "rm", "Iris", "--yes", "--app", "acme.com:eng-team", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Conflict {
+		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "retire it instead") {
+		t.Errorf("server message must surface verbatim: %v", err)
+	}
+}
+
+// #383 lineage: --app is the App-CONTEXT flag, not a filter. `agent list`
+// must keep returning every readable row (that IS its contract) — but say so
+// on stderr, pointing at the reads that DO answer per-App questions.
+func TestAppFlagOnListingsPrintsScopeNote(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"Agents": `{"data":{"agents":{"total":1,"items":[{"id":"agt1","urn":"hrn:agent:acme.com:iris","name":"Iris",
+			"description":null,"type":"ASSISTANT","visibility":"ORGANIZATION","organizationId":"o1",
+			"surfaces":[],"systemMemoryId":null,"systemPrompt":null,"aiProvider":null,"aiModel":null,
+			"hasAiApiKey":false,"personaRole":null,"personaPrompt":null,"createdAt":"2026-08-11T00:00:00Z"}]}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "list", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	errOut := f.IOStreams.ErrOut.(*strings.Builder).String()
+	if !strings.Contains(errOut, "does NOT scope this listing") || !strings.Contains(errOut, "app agent list") {
+		t.Errorf("stderr must say --app did not scope this and point at the roster reads: %q", errOut)
+	}
+	// The note is on stderr precisely so --json stays a clean contract.
+	if !strings.HasPrefix(strings.TrimSpace(out.String()), "[") {
+		t.Errorf("--json stdout must stay unpolluted: %s", out.String())
+	}
+
+	// No --app: no note. A configured default App is ambient context nobody
+	// passed expecting a filter, so this must not become noise.
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"agent", "list", "--json", "--server", gql.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if s := f2.IOStreams.ErrOut.(*strings.Builder).String(); s != "" {
+		t.Errorf("no --app must mean no note, got %q", s)
+	}
+}
+
+const activeSessionJSON = `{"id":"s-old","agentId":"agt1","workerId":"wkr1","userId":"u-holger","type":"DEVELOPER",
 	"repo":"hadron-memory/hadron-cli","branch":null,"prNumber":null,
 	"startedAt":"2026-08-11T09:00:00Z","endedAt":null,"host":"mac1","tool":"claude-code",
 	"transcriptPath":null,"llmModel":null}`
 
-const endedSessionJSON = `{"id":"s-done","agentId":"agt1","userId":"u-holger","type":"DEVELOPER",
+const endedSessionJSON = `{"id":"s-done","agentId":"agt1","workerId":"wkr1","userId":"u-holger","type":"DEVELOPER",
 	"repo":"hadron-memory/hadron-cli","branch":null,"prNumber":42,
 	"startedAt":"2026-08-10T09:00:00Z","endedAt":"2026-08-10T18:00:00Z","host":"mac1",
 	"tool":"claude-code","transcriptPath":null,"llmModel":null}`
 
-const startedSessionJSON = `{"id":"s-new","agentId":"agt1","userId":"u-holger","type":"DEVELOPER",
+const startedSessionJSON = `{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u-holger","type":"DEVELOPER",
 	"repo":null,"branch":null,"prNumber":null,"startedAt":"2026-08-11T10:00:00Z","endedAt":null,
 	"host":"mac1","tool":"claude-code","transcriptPath":"/tmp/t.jsonl","llmModel":null}`
 
@@ -555,7 +415,7 @@ func teamGitDir(t *testing.T) string {
 func TestTeamSessionStartWritesBinding(t *testing.T) {
 	dir := teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"PersonaAgents":    rosterJSON,
+		"Workers":          staffJSON,
 		"TeamSessions":     `{"data":{"sessions":[` + endedSessionJSON + `]}}`,
 		"TeamMemoryApp":    `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
@@ -572,9 +432,14 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 		Input map[string]any `json:"input"`
 	}
 	_ = json.Unmarshal(captured["StartTeamSession"], &vars)
-	if vars.Input["agentRef"] != "agt1" || vars.Input["tool"] != "claude-code" ||
+	// The session binds the WORKER (cor:agt:020:03); the agent is stamped
+	// server-side from the casting, so agentRef is never sent.
+	if vars.Input["workerRef"] != "wkr1" || vars.Input["tool"] != "claude-code" ||
 		vars.Input["transcriptPath"] != "/tmp/t.jsonl" {
 		t.Errorf("start vars: %v", vars.Input)
+	}
+	if _, present := vars.Input["agentRef"]; present {
+		t.Errorf("agentRef must not be sent — the server derives it from the worker: %v", vars.Input["agentRef"])
 	}
 	if id, _ := vars.Input["id"].(string); id == "" {
 		t.Errorf("start must mint a session id, got %v", vars.Input["id"])
@@ -582,12 +447,10 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 	if host, _ := vars.Input["host"].(string); host == "" {
 		t.Errorf("host must default to the hostname, got %v", vars.Input["host"])
 	}
-	// #396/#391: with -m the session is BOUND to the team App. That binding is
-	// what makes the worklog write possible at all — recordTeamWork refuses a
-	// session that is not a session of the App, and updateSession cannot set
-	// appId after the fact, so an unbound session can never record work.
+	// With -m the resolved App rides along so the server can verify it
+	// matches the worker's App (a mismatched -m fails loudly).
 	if vars.Input["appRef"] != "app1" {
-		t.Errorf("session must be bound to the team App, got appRef=%v", vars.Input["appRef"])
+		t.Errorf("-m must bind the session to ITS App, got appRef=%v", vars.Input["appRef"])
 	}
 	// Unset optional SessionInput fields are OMITTED, never null (`appRef`
 	// without -m is covered by TestTeamSessionStartWithoutMemoryOmitsAppRef).
@@ -596,13 +459,19 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 			t.Errorf("unset %q must be omitted from SessionInput, got %v", k, vars.Input[k])
 		}
 	}
+	// The taken-check narrows server-side (#974): sessions(workerRef:).
+	var sessVars map[string]any
+	_ = json.Unmarshal(captured["TeamSessions"], &sessVars)
+	if sessVars["workerRef"] != "wkr1" {
+		t.Errorf("the activity check must filter by workerRef: %v", sessVars)
+	}
 	data, err := os.ReadFile(filepath.Join(dir, "hadron-team-session.json"))
 	if err != nil {
 		t.Fatalf("binding not written: %v", err)
 	}
 	var b map[string]any
 	_ = json.Unmarshal(data, &b)
-	if b["sessionId"] != "s-new" || b["personaName"] != "Iris" || b["agentId"] != "agt1" {
+	if b["sessionId"] != "s-new" || b["workerId"] != "wkr1" || b["workerName"] != "Iris" || b["agentId"] != "agt1" {
 		t.Errorf("binding: %s", data)
 	}
 	// The worklog inputs travel through the binding: team memory
@@ -616,63 +485,52 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 	}
 }
 
-// An active session holds the persona: without --force the start refuses
-// (Conflict) and names the driver with the takeover hint.
-// #399/#414: without -m the session records no worklog, and that used to be
-// discovered at `log` time — many commits in, unrecoverable for work already
-// done. Say it at START, and never name `team init` as the remedy: it is not a
-// precondition for worklog writes, and since #401 the schema is the server's.
+// The worker's resolved boot briefing prints on session start (the epic's
+// print-on-cast/start contract) — it is the identity the driver adopts.
+func TestTeamSessionStartPrintsBriefing(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "You are Iris.") {
+		t.Errorf("the boot briefing must print on start: %s", out.String())
+	}
+}
+
+// #399/#414: without -m the binding records no worklog home. Since #974 a
+// worker session is ALWAYS App-bound (the server stamps the worker's App), so
+// the remedy is always the per-call -m override — never end-and-restart, and
+// never `team init` (not a precondition for worklog writes).
 func TestTeamSessionStartWarnsWhenTheWorklogIsOff(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"PersonaAgents":    rosterJSON,
+		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
 		"TeamSessions":     `{"data":{"sessions":[]}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "session", "start", "--as", "Iris", "--server", gql.URL})
+	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	errOut := f.IOStreams.ErrOut.(*strings.Builder).String()
-	// No -m AND no App context: the session is not App-bound at all, so
-	// `session log -m` cannot rescue it — the remedy must be end-and-restart,
-	// not an override that would fail SESSION_NOT_IN_APP (PR #420 review).
-	if !strings.Contains(errOut, "NOT bound to a team App") {
-		t.Errorf("an unbound session must be named as such: %q", errOut)
-	}
-	if !strings.Contains(errOut, "session end") || !strings.Contains(errOut, "session start --as Iris -m") {
-		t.Errorf("the remedy must be executable (end, then restart with -m): %q", errOut)
+	if !strings.Contains(errOut, "no worklog home") || !strings.Contains(errOut, "override works") {
+		t.Errorf("the note must say the worklog home is unset and the -m override works: %q", errOut)
 	}
 	if strings.Contains(errOut, "team init") {
 		t.Errorf("`team init` is not the remedy — it is not a precondition for worklog writes: %q", errOut)
 	}
-}
-
-// With an ambient App the session IS bound, so the worklog is recoverable
-// without restarting — `session log -m` genuinely works. Offering the same
-// remedy in both cases was the review finding.
-func TestTeamSessionStartAppBoundSaysOverrideWorks(t *testing.T) {
-	teamGitDir(t)
-	gql, _ := captureGraphQL(t, map[string]string{
-		"PersonaAgents":    rosterJSON,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
-		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
-	})
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "session", "start", "--as", "Iris",
-		"--app", "acme.com::eng-team", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	errOut := f.IOStreams.ErrOut.(*strings.Builder).String()
-	if !strings.Contains(errOut, "override works") {
-		t.Errorf("an App-bound session should be told the -m override works: %q", errOut)
-	}
 	if strings.Contains(errOut, "session end") {
-		t.Errorf("no need to restart an App-bound session: %q", errOut)
+		t.Errorf("a worker session is App-bound — no restart needed: %q", errOut)
 	}
 }
 
@@ -680,7 +538,7 @@ func TestTeamSessionStartAppBoundSaysOverrideWorks(t *testing.T) {
 func TestTeamSessionStartWithMemoryIsQuiet(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"PersonaAgents":    rosterJSON,
+		"Workers":          staffJSON,
 		"TeamSessions":     `{"data":{"sessions":[]}}`,
 		"TeamMemoryApp":    `{"data":{"memory":{"id":"m1","appId":"app-1"}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
@@ -692,20 +550,42 @@ func TestTeamSessionStartWithMemoryIsQuiet(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if s := f.IOStreams.ErrOut.(*strings.Builder).String(); strings.Contains(s, "NO worklog") {
+	if s := f.IOStreams.ErrOut.(*strings.Builder).String(); strings.Contains(s, "worklog home") {
 		t.Errorf("-m was given — no warning expected: %q", s)
+	}
+}
+
+// A retired worker takes no new sessions — refused before the server call,
+// with the row's own retirement instant.
+func TestTeamSessionStartRefusesRetiredWorker(t *testing.T) {
+	teamGitDir(t)
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetWorker": `{"data":{"worker":` + retiredWorkerJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "wkr2", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "retired") {
+		t.Errorf("the refusal must say the worker is retired: %v", err)
+	}
+	if _, called := captured["StartTeamSession"]; called {
+		t.Error("StartTeamSession must not run for a retired worker")
 	}
 }
 
 func TestTeamSessionStartOccupiedNeedsForce(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"PersonaAgents": rosterJSON,
-		"TeamSessions":  `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+		"GetWorker":    `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "session", "start", "--as", "Iris", "--server", gql.URL})
+	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", gql.URL})
 	err := root.Execute()
 	if code := exitcode.FromError(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
@@ -722,17 +602,20 @@ func TestTeamSessionStartOccupiedNeedsForce(t *testing.T) {
 
 func TestTeamSessionStartForceTakesOver(t *testing.T) {
 	dir := teamGitDir(t)
-	gql, _ := captureGraphQL(t, map[string]string{
-		"PersonaAgents":    rosterJSON,
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
 		"TeamSessions":     `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "session", "start", "--as", "Iris", "--force", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--force", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
+	// (SessionInput.force is hadron-server#940, unmerged — until it lands the
+	// takeover is client-side only, so nothing extra rides on the wire.)
+	_ = captured
 	if !strings.Contains(out.String(), `"tookOver": true`) {
 		t.Errorf("takeover output: %s", out.String())
 	}
@@ -741,22 +624,22 @@ func TestTeamSessionStartForceTakesOver(t *testing.T) {
 	}
 }
 
-const bindingFixture = `{"sessionId":"s-new","agentId":"agt1","agentUrn":"hrn:agent:acme.com:iris",
-	"personaName":"Iris","personaRole":"backend-engineer","startedAt":"2026-08-11T10:00:00Z",
+const bindingFixture = `{"sessionId":"s-new","workerId":"wkr1","workerName":"Iris","workerRole":"backend-engineer",
+	"agentId":"agt1","startedAt":"2026-08-11T10:00:00Z",
 	"repo":"hadron-memory/hadron-cli","prNumbers":[]}`
 
 const teamChatMsgJSON = `{"nodeId":"n8","seq":8,"body":"@rufus schema is live","at":"2026-08-12T10:00:00Z",
-	"authorUserId":null,"authorAgentId":"agt1","authorName":"Iris","sessionId":"s-new",
+	"authorUserId":null,"authorWorkerId":"wkr1","authorName":"Iris","sessionId":"s-new",
 	"replyToSeq":null,"mentions":["rufus"]}`
 
 const teamChatHumanMsgJSON = `{"nodeId":"n9","seq":1,"body":"hi","at":"2026-08-12T10:00:00Z",
-	"authorUserId":"u1","authorAgentId":null,"authorName":"holger","sessionId":null,
+	"authorUserId":"u1","authorWorkerId":null,"authorName":"holger","sessionId":null,
 	"replyToSeq":null,"mentions":[]}`
 
 // #406: the two chat dialects name the author field differently, and reading
 // with the wrong one returned null rather than erroring — a wrong field name
 // yielding a plausible wrong answer. The canonical output carries BOTH, and
-// separates a human post from a persona post in the transcript too.
+// separates a human post from a worker post in the transcript too.
 func TestTeamChatReadEmitsAuthorAliasAndKind(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":2,"items":[` +
@@ -764,16 +647,16 @@ func TestTeamChatReadEmitsAuthorAliasAndKind(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "chat", "read", "--app", "acme.com::eng-team", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"team", "chat", "read", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var dto struct {
 		Messages []struct {
-			Author        *string `json:"author"`
-			AuthorName    *string `json:"authorName"`
-			AuthorUserID  *string `json:"authorUserId"`
-			AuthorAgentID *string `json:"authorAgentId"`
+			Author         *string `json:"author"`
+			AuthorName     *string `json:"authorName"`
+			AuthorUserID   *string `json:"authorUserId"`
+			AuthorWorkerID *string `json:"authorWorkerId"`
 		} `json:"messages"`
 	}
 	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
@@ -787,32 +670,32 @@ func TestTeamChatReadEmitsAuthorAliasAndKind(t *testing.T) {
 			t.Errorf("message %d: `author` must alias `authorName`, got %v / %v", i, m.Author, m.AuthorName)
 		}
 	}
-	// The canonical envelope distinguishes the two, which the old single
+	// The Worker envelope (#974) distinguishes the two, which the old single
 	// `author` string could not.
-	if dto.Messages[0].AuthorUserID == nil || dto.Messages[1].AuthorAgentID == nil {
-		t.Errorf("human vs persona must stay distinguishable: %s", out.String())
+	if dto.Messages[0].AuthorUserID == nil || dto.Messages[1].AuthorWorkerID == nil {
+		t.Errorf("human vs worker must stay distinguishable: %s", out.String())
 	}
 
 	f2, out2 := testFactory(t)
 	root2 := NewRootCmd(f2)
-	root2.SetArgs([]string{"team", "chat", "read", "--app", "acme.com::eng-team", "--server", gql.URL})
+	root2.SetArgs([]string{"team", "chat", "read", "--app", "acme.com:eng-team", "--server", gql.URL})
 	if err := root2.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	// Assert each label BESIDE its author — checking only that both strings
 	// appear somewhere would still pass if the two branches were swapped
-	// (PR #417 review). holger is the authorUserId post, Iris the agent one.
+	// (PR #417 review). holger is the authorUserId post, Iris the worker one.
 	if !strings.Contains(out2.String(), "holger (human)") {
 		t.Errorf("a user-authored post must be marked (human): %s", out2.String())
 	}
-	if !strings.Contains(out2.String(), "Iris (persona)") {
-		t.Errorf("an agent-authored post must be marked (persona): %s", out2.String())
+	if !strings.Contains(out2.String(), "Iris (worker)") {
+		t.Errorf("a worker-authored post must be marked (worker): %s", out2.String())
 	}
 }
 
 // A binding whose session was started with -m (team memory) and --tool.
-const bindingWithTeamFixture = `{"sessionId":"s-new","agentId":"agt1","agentUrn":"hrn:agent:acme.com:iris",
-	"personaName":"Iris","personaRole":"backend-engineer","startedAt":"2026-08-11T10:00:00Z",
+const bindingWithTeamFixture = `{"sessionId":"s-new","workerId":"wkr1","workerName":"Iris","workerRole":"backend-engineer",
+	"agentId":"agt1","startedAt":"2026-08-11T10:00:00Z","appBound":true,
 	"teamMemory":"hrn:mem:acme.com:eng-team","tool":"claude-code",
 	"repo":"hadron-memory/hadron-cli","prNumbers":[]}`
 
@@ -830,12 +713,37 @@ func TestTeamSessionWhoami(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var dto struct {
-		PersonaName string `json:"personaName"`
-		SessionID   string `json:"sessionId"`
+		WorkerName string `json:"workerName"`
+		WorkerID   string `json:"workerId"`
+		SessionID  string `json:"sessionId"`
 	}
 	_ = json.Unmarshal([]byte(out.String()), &dto)
-	if dto.PersonaName != "Iris" || dto.SessionID != "s-new" {
+	if dto.WorkerName != "Iris" || dto.WorkerID != "wkr1" || dto.SessionID != "s-new" {
 		t.Errorf("whoami: %s", out.String())
+	}
+}
+
+// A binding written by a pre-Worker CLI (agentId/personaName keys) is a
+// DEGRADED read, not an error: the session id still resolves (and `session
+// end` is the recovery), and whoami says the binding predates the model.
+func TestTeamSessionWhoamiLegacyBindingDegrades(t *testing.T) {
+	dir := teamGitDir(t)
+	legacy := `{"sessionId":"s-old-model","agentId":"agt1","agentUrn":"hrn:agent:acme.com:iris",
+		"personaName":"Iris","personaRole":"backend-engineer","startedAt":"2026-08-11T10:00:00Z","prNumbers":[]}`
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "whoami"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a legacy binding must degrade, not error: %v", err)
+	}
+	if !strings.Contains(out.String(), "predates the Worker model") {
+		t.Errorf("whoami should say the binding predates the model: %s", out.String())
+	}
+	if !strings.Contains(out.String(), "s-old-model") {
+		t.Errorf("the session id is still good and must show: %s", out.String())
 	}
 }
 
@@ -860,12 +768,12 @@ func TestTeamSessionLogWritesWorklogAndSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
-		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","userId":"u1",
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u1",
 			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
 			"transcriptPath":null,"llmModel":null}}}`,
 		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
-		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","personaName":"Iris",
+		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
 			"tool":"claude-code","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
 			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
 	})
@@ -887,7 +795,7 @@ func TestTeamSessionLogWritesWorklogAndSession(t *testing.T) {
 	}
 	// #396: the record goes through the dedicated operation, so the CLI sends
 	// only what it knows (session, tool, kind, ref, action) — the server owns
-	// the record shape, the `at` stamp, and the persona derivation. No
+	// the record shape, the `at` stamp, and the worker derivation. No
 	// client-composed field map, and no generic object write.
 	var workVars struct {
 		AppRef     string `json:"appRef"`
@@ -924,9 +832,7 @@ func TestTeamSessionLogWritesWorklogAndSession(t *testing.T) {
 	}
 }
 
-// --branch milestones denormalize the bare branch NAME onto Session.branch
-// while the worklog stores the canonical repo-qualified ref.
-// The --issue/--commit refusal is the second log diagnostic that named
+// The --issue/--commit refusal is the second log diagnostic that once named
 // `team init`; it must name only -m (PR #420 review).
 func TestTeamSessionLogIssueWithoutMemoryNamesOnlyM(t *testing.T) {
 	dir := teamGitDir(t)
@@ -954,12 +860,12 @@ func TestTeamSessionLogBranch(t *testing.T) {
 		t.Fatal(err)
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
-		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","userId":"u1",
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u1",
 			"type":"DEVELOPER","repo":null,"branch":"team-chat","prNumber":null,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
 			"transcriptPath":null,"llmModel":null}}}`,
 		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
-		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","personaName":"Iris",
+		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
 			"tool":"claude-code","kind":"branch","ref":"hadron-memory/hadron-cli:team-chat","action":"pushed",
 			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
 	})
@@ -993,16 +899,17 @@ func TestTeamSessionLogBranch(t *testing.T) {
 }
 
 // The provenance query generalizes past --pr: --commit matches kind=commit.
+// The worker name joins from the worklog row itself (workerName, #974) — no
+// roster read.
 func TestTeamSessionListProvenanceByCommit(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
 		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
 		"TeamWorkItems": `{"data":{"teamWorkItems":{"total":1,"items":[
-			{"nodeId":"w1","sessionId":"s-done","personaName":"Iris","tool":"github","kind":"commit",
+			{"nodeId":"w1","sessionId":"s-done","workerId":"wkr1","workerName":"Iris","tool":"github","kind":"commit",
 			 "ref":"hadron-memory/hadron-cli@93200b2","action":"pushed","at":"2026-08-13T10:00:00Z",
 			 "detail":null}]}}}`,
 		"GetTeamSession": `{"data":{"session":` + endedSessionJSON + `}}`,
-		"PersonaAgents":  rosterJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1019,7 +926,8 @@ func TestTeamSessionListProvenanceByCommit(t *testing.T) {
 	if vars.Ref != "hadron-memory/hadron-cli@93200b2" || vars.Kind != "commit" {
 		t.Errorf("worklog lookup: %+v", vars)
 	}
-	if !strings.Contains(out.String(), `"id": "s-done"`) {
+	if !strings.Contains(out.String(), `"id": "s-done"`) ||
+		!strings.Contains(out.String(), `"workerName": "Iris"`) {
 		t.Errorf("provenance rows: %s", out.String())
 	}
 }
@@ -1034,12 +942,12 @@ func TestTeamSessionLogIssueTouchesLiveness(t *testing.T) {
 		t.Fatal(err)
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
-		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","userId":"u1",
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u1",
 			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":null,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
 			"transcriptPath":null,"llmModel":null}}}`,
 		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
-		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","personaName":"Iris",
+		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
 			"tool":"claude-code","kind":"issue","ref":"hadron-memory/hadron-cli#362","action":"worked-on",
 			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
 	})
@@ -1078,7 +986,7 @@ func TestTeamSessionLogWithoutTeamMemory(t *testing.T) {
 		t.Fatal(err)
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
-		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","userId":"u1",
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u1",
 			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
 			"transcriptPath":null,"llmModel":null}}}`,
@@ -1130,7 +1038,7 @@ func TestTeamSessionLogSucceedsWhenLocalWriteFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
-		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","userId":"u1",
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u1",
 			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
 			"transcriptPath":null,"llmModel":null}}}`,
@@ -1188,7 +1096,7 @@ func TestTeamSessionEndClearsBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
-		"EndTeamSession": `{"data":{"endSession":{"id":"s-new","agentId":"agt1","userId":"u-holger",
+		"EndTeamSession": `{"data":{"endSession":{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u-holger",
 			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":null,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":"2026-08-11T12:00:00Z","host":null,
 			"tool":null,"transcriptPath":null,"llmModel":null}}}`,
@@ -1207,97 +1115,20 @@ func TestTeamSessionEndClearsBinding(t *testing.T) {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Errorf("binding should be cleared, stat err: %v", err)
 	}
-	if !strings.Contains(out.String(), `"personaName": "Iris"`) {
+	if !strings.Contains(out.String(), `"workerName": "Iris"`) {
 		t.Errorf("end output: %s", out.String())
-	}
-}
-
-// The roster scan must read BOTH slices: the unfiltered member-org list and
-// the caller's own user-owned agents (filter.ownedByMe, #782) — an org-less
-// persona lives only in the second. It must also page each slice to
-// exhaustion (issue #23: the server truncates an unbounded list).
-func TestTeamPersonaListMergesOwnedByMeAndPaginates(t *testing.T) {
-	// Org slice: one full 200-row page (199 fillers + Iris) + a tail page.
-	// OwnedByMe slice: one user-owned persona, absent from the org slice.
-	fullPage := make([]string, 0, 200)
-	for i := 0; i < 199; i++ {
-		fullPage = append(fullPage, fmt.Sprintf(`{"id":"f%d","urn":"hrn:agent:acme.com:f%d","name":"F%d",
-			"description":null,"visibility":"PERSONAL","organizationId":"o1","personaName":null,"personaRole":null,
-			"personaPrompt":null,"createdAt":"2026-08-11T00:00:00Z"}`, i, i, i))
-	}
-	fullPage = append(fullPage, irisJSON)
-	tailRow := `{"id":"agt3","urn":"hrn:agent:acme.com:uma","name":"Uma","description":null,
-		"organizationId":"o1","personaName":"Uma","personaRole":null,"personaPrompt":null,
-		"createdAt":"2026-08-11T00:00:00Z"}`
-	ownedRow := `{"id":"agt4","urn":"hrn:agent:@holger:nadia","name":"Nadia","description":null,
-		"organizationId":null,"personaName":"Nadia","personaRole":null,"personaPrompt":null,
-		"createdAt":"2026-08-11T00:00:00Z"}`
-
-	type call struct {
-		Offset    *int
-		OwnedByMe bool
-	}
-	var calls []call
-	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			Variables struct {
-				Offset *int `json:"offset"`
-				Filter *struct {
-					OwnedByMe *bool `json:"ownedByMe"`
-				} `json:"filter"`
-			} `json:"variables"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		owned := body.Variables.Filter != nil && body.Variables.Filter.OwnedByMe != nil && *body.Variables.Filter.OwnedByMe
-		calls = append(calls, call{body.Variables.Offset, owned})
-		w.Header().Set("Content-Type", "application/json")
-		switch {
-		case owned:
-			_, _ = w.Write([]byte(`{"data":{"agents":{"total":1,"items":[` + ownedRow + `]}}}`))
-		case body.Variables.Offset == nil || *body.Variables.Offset == 0:
-			_, _ = w.Write([]byte(`{"data":{"agents":{"total":201,"items":[` + strings.Join(fullPage, ",") + `]}}}`))
-		default:
-			if *body.Variables.Offset != 200 {
-				t.Errorf("unexpected offset %d", *body.Variables.Offset)
-			}
-			_, _ = w.Write([]byte(`{"data":{"agents":{"total":201,"items":[` + tailRow + `]}}}`))
-		}
-	}))
-	t.Cleanup(gql.Close)
-
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "persona", "list", "--json", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var got []struct {
-		PersonaName string `json:"personaName"`
-	}
-	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
-		t.Fatalf("json: %v (%s)", err, out.String())
-	}
-	names := make([]string, len(got))
-	for i, p := range got {
-		names[i] = p.PersonaName
-	}
-	if len(got) != 3 || names[0] != "Iris" || names[1] != "Uma" || names[2] != "Nadia" {
-		t.Errorf("merged roster: %v", names)
-	}
-	// 2 org pages + 1 ownedByMe page, in that order.
-	if len(calls) != 3 || calls[0].OwnedByMe || calls[1].OwnedByMe || !calls[2].OwnedByMe {
-		t.Errorf("calls: %+v", calls)
 	}
 }
 
 // The occupancy check must read past the first sessions page: an old
 // still-active session can hide behind 200 newer ended ones, and stopping
-// early would report the persona free (the issue-#23 failure mode).
+// early would report the worker free (the issue-#23 failure mode). The pages
+// are the WORKER's own (sessions(workerRef:), #974), but paging still applies.
 func TestTeamSessionStartFindsActiveSessionOnLaterPage(t *testing.T) {
 	teamGitDir(t)
 	filler := make([]string, 0, 200)
 	for i := 0; i < 200; i++ {
-		filler = append(filler, fmt.Sprintf(`{"id":"e%d","agentId":"other","userId":"u1","type":"DEVELOPER",
+		filler = append(filler, fmt.Sprintf(`{"id":"e%d","agentId":"agt1","workerId":"wkr1","userId":"u1","type":"DEVELOPER",
 			"repo":null,"branch":null,"prNumber":null,"startedAt":"2026-08-11T0%d:00:00Z",
 			"endedAt":"2026-08-11T09:00:00Z","host":null,"tool":null,"transcriptPath":null,"llmModel":null}`, i, i%10))
 	}
@@ -1305,15 +1136,19 @@ func TestTeamSessionStartFindsActiveSessionOnLaterPage(t *testing.T) {
 		var body struct {
 			OperationName string `json:"operationName"`
 			Variables     struct {
-				Offset *int `json:"offset"`
+				Offset    *int    `json:"offset"`
+				WorkerRef *string `json:"workerRef"`
 			} `json:"variables"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		w.Header().Set("Content-Type", "application/json")
 		switch body.OperationName {
-		case "PersonaAgents":
-			_, _ = w.Write([]byte(rosterJSON))
+		case "GetWorker":
+			_, _ = w.Write([]byte(`{"data":{"worker":` + irisWorkerJSON + `}}`))
 		case "TeamSessions":
+			if body.Variables.WorkerRef == nil || *body.Variables.WorkerRef != "wkr1" {
+				t.Errorf("the activity check must filter by workerRef, got %v", body.Variables.WorkerRef)
+			}
 			if body.Variables.Offset == nil || *body.Variables.Offset == 0 {
 				_, _ = w.Write([]byte(`{"data":{"sessions":[` + strings.Join(filler, ",") + `]}}`))
 			} else {
@@ -1331,7 +1166,7 @@ func TestTeamSessionStartFindsActiveSessionOnLaterPage(t *testing.T) {
 
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "session", "start", "--as", "Iris", "--server", gql.URL})
+	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", gql.URL})
 	err := root.Execute()
 	if code := exitcode.FromError(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
@@ -1351,24 +1186,24 @@ func TestTeamSessionStartForceEndsPreviouslyBoundSession(t *testing.T) {
 	// Refusal first: no --force.
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "session", "start", "--as", "Iris", "--server", "http://127.0.0.1:1"})
+	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
 	if code := exitcode.FromError(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
 
 	gql, captured := captureGraphQL(t, map[string]string{
-		"EndTeamSession": `{"data":{"endSession":{"id":"s-prev","agentId":"agt1","userId":"u1",
+		"EndTeamSession": `{"data":{"endSession":{"id":"s-prev","agentId":"agt1","workerId":"wkr1","userId":"u1",
 			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":null,
 			"startedAt":"2026-08-11T08:00:00Z","endedAt":"2026-08-11T10:00:00Z","host":null,
 			"tool":null,"transcriptPath":null,"llmModel":null}}}`,
-		"PersonaAgents":    rosterJSON,
+		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
 		"TeamSessions":     `{"data":{"sessions":[]}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f2, _ := testFactory(t)
 	root2 := NewRootCmd(f2)
-	root2.SetArgs([]string{"team", "session", "start", "--as", "Iris", "--force", "--json", "--server", gql.URL})
+	root2.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--force", "--json", "--server", gql.URL})
 	if err := root2.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1387,7 +1222,7 @@ func TestTeamSessionStartForceEndsPreviouslyBoundSession(t *testing.T) {
 func TestTeamSessionEndExplicitSession(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"EndTeamSession": `{"data":{"endSession":{"id":"s-orphan","agentId":null,"userId":"u1",
+		"EndTeamSession": `{"data":{"endSession":{"id":"s-orphan","agentId":null,"workerId":null,"userId":"u1",
 			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":null,
 			"startedAt":"2026-08-11T08:00:00Z","endedAt":"2026-08-11T10:00:00Z","host":null,
 			"tool":null,"transcriptPath":null,"llmModel":null}}}`,
@@ -1406,7 +1241,7 @@ func TestTeamSessionEndExplicitSession(t *testing.T) {
 }
 
 // A binding started against another server refuses to end against this one —
-// the mutation would miss the real session and leave its persona held.
+// the mutation would miss the real session and leave its worker held.
 func TestTeamSessionEndServerMismatch(t *testing.T) {
 	dir := teamGitDir(t)
 	b := strings.Replace(bindingFixture, `"prNumbers":[]`, `"server":"https://other.example","prNumbers":[]`, 1)
@@ -1432,14 +1267,15 @@ func TestTeamSessionEndServerMismatch(t *testing.T) {
 // `session list --pr` is THE provenance query: normalized ref → worklog
 // match → session rows (deduped; several per PR expected). A recorded
 // session the caller cannot read still lists (id only) instead of being
-// silently dropped.
+// silently dropped. Worker names come from the worklog rows themselves
+// (workerName, #974) — no roster read.
 func TestTeamSessionListProvenanceQuery(t *testing.T) {
 	teamGitDir(t)
 	// The worklog match must page to exhaustion: a full first page of s-done
 	// milestones, then a tail page carrying s-hidden.
 	fullPage := make([]string, 0, 200)
 	for i := 0; i < 200; i++ {
-		fullPage = append(fullPage, fmt.Sprintf(`{"nodeId":"w%d","sessionId":"s-done","personaName":"Iris",
+		fullPage = append(fullPage, fmt.Sprintf(`{"nodeId":"w%d","sessionId":"s-done","workerId":"wkr1","workerName":"Iris",
 			"tool":"github","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"opened",
 			"at":"2026-08-13T10:00:00Z","detail":null}`, i))
 	}
@@ -1467,12 +1303,10 @@ func TestTeamSessionListProvenanceQuery(t *testing.T) {
 					t.Errorf("unexpected offset %d", *vars.Offset)
 				}
 				_, _ = w.Write([]byte(`{"data":{"teamWorkItems":{"total":201,"items":[
-					{"nodeId":"w200","sessionId":"s-hidden","personaName":"Iris","tool":"github","kind":"pr",
+					{"nodeId":"w200","sessionId":"s-hidden","workerId":"wkr2","workerName":"Uma","tool":"github","kind":"pr",
 					 "ref":"hadron-memory/hadron-cli#371","action":"opened","at":"2026-08-13T10:00:00Z",
 					 "detail":null}]}}}`))
 			}
-		case "PersonaAgents":
-			_, _ = w.Write([]byte(rosterJSON))
 		case "GetTeamSession":
 			var vars struct {
 				ID string `json:"id"`
@@ -1511,16 +1345,20 @@ func TestTeamSessionListProvenanceQuery(t *testing.T) {
 		t.Errorf("worklog lookup: %+v", lookup)
 	}
 	var got []struct {
-		ID        string `json:"id"`
-		StartedAt string `json:"startedAt"`
+		ID         string  `json:"id"`
+		StartedAt  string  `json:"startedAt"`
+		WorkerName *string `json:"workerName"`
 	}
 	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
 		t.Fatalf("json: %v (%s)", err, out.String())
 	}
 	// Both sessions list (deduped across pages), the unreadable one as an
-	// id-only stub.
+	// id-only stub — which still carries the worklog's worker name.
 	if len(got) != 2 || got[0].ID != "s-done" || got[1].ID != "s-hidden" || got[1].StartedAt != "" {
 		t.Errorf("provenance rows: %s", out.String())
+	}
+	if got[1].WorkerName == nil || *got[1].WorkerName != "Uma" {
+		t.Errorf("the hidden session still carries the worklog's worker name: %s", out.String())
 	}
 
 	// --pr ignores no flags silently: presence filters and paging are
@@ -1670,10 +1508,11 @@ func TestTeamInitRefusesNonAppClassMemory(t *testing.T) {
 }
 
 // `team chat post` is a THIN wrapper over the platform operation
-// (hadron-server#939): the App resolves from the binding's team memory, the
-// bound session rides as sessionRef (the server derives the persona author
-// and records the driving session, D16), and the CLI composes no node.
-func TestTeamChatPostAsPersona(t *testing.T) {
+// (hadron-server#939, Worker envelope #974): the App resolves from the
+// binding's team memory, the bound session rides as sessionRef (the server
+// derives the worker author and records the driving session, D16), and the
+// CLI composes no node.
+func TestTeamChatPostAsWorker(t *testing.T) {
 	dir := teamGitDir(t)
 	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
 		t.Fatal(err)
@@ -1769,13 +1608,13 @@ func TestTeamChatPostUnbound(t *testing.T) {
 	})
 	f2, out := testFactory(t)
 	root2 := NewRootCmd(f2)
-	root2.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--app", "acme.com::eng-team", "--json", "--server", gql.URL})
+	root2.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
 	if err := root2.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateTeamChatMessage"], &vars)
-	if vars["appRef"] != "acme.com::eng-team" {
+	if vars["appRef"] != "acme.com:eng-team" {
 		t.Errorf("post vars: %v", vars)
 	}
 	if _, present := vars["sessionRef"]; present {
@@ -1831,13 +1670,13 @@ func TestTeamChatOutsideWorktreeWithApp(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--app", "acme.com::eng-team", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("post outside a worktree with --app must work: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateTeamChatMessage"], &vars)
-	if vars["appRef"] != "acme.com::eng-team" {
+	if vars["appRef"] != "acme.com:eng-team" {
 		t.Errorf("post vars: %v", vars)
 	}
 	if _, present := vars["sessionRef"]; present {
@@ -1846,7 +1685,7 @@ func TestTeamChatOutsideWorktreeWithApp(t *testing.T) {
 
 	f2, out := testFactory(t)
 	root2 := NewRootCmd(f2)
-	root2.SetArgs([]string{"team", "chat", "read", "--app", "acme.com::eng-team", "--json", "--server", gql.URL})
+	root2.SetArgs([]string{"team", "chat", "read", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
 	if err := root2.Execute(); err != nil {
 		t.Fatalf("read outside a worktree with --app must work: %v", err)
 	}
@@ -1864,16 +1703,16 @@ func TestTeamChatOutsideWorktreeWithApp(t *testing.T) {
 	}
 }
 
-// `--mentions <bare-name>` resolves persona NAMES through the roster (the
-// server accepts ids, URNs, and bare user handles — but not persona names);
-// an unresolved bare value passes through raw for the server's handle path.
-func TestTeamChatReadMentionsByPersonaName(t *testing.T) {
+// `--mentions <ref>` passes through RAW: the server resolves a worker id or
+// NAME of this App, or a user handle/id, against the App's own staff and
+// members only. No client-side resolution, and no ambiguity UX — mention
+// tokens carry no uniqueness (hadron-server#979).
+func TestTeamChatReadMentionsPassthrough(t *testing.T) {
 	dir := teamGitDir(t)
 	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
-		"PersonaAgents":    rosterJSON,
 		"TeamMemoryApp":    `{"data":{"memory":{"id":"mem1","appId":"app-1"}}}`,
 		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":0,"items":[]}}}`,
 	})
@@ -1885,8 +1724,8 @@ func TestTeamChatReadMentionsByPersonaName(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["TeamChatMessages"], &vars)
-	if vars["mentionsRef"] != "agt1" {
-		t.Errorf("a bare persona name must resolve to its agent id, got %v", vars["mentionsRef"])
+	if vars["mentionsRef"] != "Iris" {
+		t.Errorf("--mentions must pass through raw (the server resolves names): %v", vars["mentionsRef"])
 	}
 }
 
@@ -1905,9 +1744,15 @@ func TestTeamChatPostServerRefusals(t *testing.T) {
 		{"missing reply target is not-found",
 			`{"errors":[{"message":"replyToSeq 99 does not name a message in this team chat.","extensions":{"code":"TEAM_CHAT_REPLY_NOT_FOUND"}}]}`,
 			exitcode.NotFound, "replyToSeq 99"},
-		{"cross-app session surfaces verbatim",
-			`{"errors":[{"message":"Session is not a session of this App","extensions":{"code":"SESSION_NOT_IN_APP"}}]}`,
-			exitcode.Error, "not a session of this App"},
+		{"session not worker-bound surfaces verbatim",
+			`{"errors":[{"message":"Session is not bound to a worker","extensions":{"code":"SESSION_NOT_WORKER_BOUND"}}]}`,
+			exitcode.Error, "not bound to a worker"},
+		{"retired worker is a conflict",
+			`{"errors":[{"message":"Worker \"Iris\" is retired and no longer authors messages","extensions":{"code":"WORKER_RETIRED"}}]}`,
+			exitcode.Conflict, "retired"},
+		{"cross-app worker surfaces verbatim",
+			`{"errors":[{"message":"the session's worker does not belong to this App","extensions":{"code":"SESSION_WORKER_NOT_IN_APP"}}]}`,
+			exitcode.Error, "does not belong"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1934,8 +1779,8 @@ func TestTeamChatPostServerRefusals(t *testing.T) {
 }
 
 // --mentions-me maps to the SERVER-side mentions filter (mentionsRef = the
-// bound persona's agent), matching the tokens extracted at write time — the
-// CLI never re-parses bodies. nextSince advances past the returned messages.
+// bound WORKER's id), matching the tokens extracted at write time — the CLI
+// never re-parses bodies. nextSince advances past the returned messages.
 func TestTeamChatReadMentionsMe(t *testing.T) {
 	dir := teamGitDir(t)
 	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
@@ -1944,8 +1789,8 @@ func TestTeamChatReadMentionsMe(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"TeamMemoryApp": `{"data":{"memory":{"id":"mem1","appId":"app-1"}}}`,
 		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":2,"items":[
-			{"nodeId":"n5","seq":5,"body":"@iris ping","at":"t1","authorUserId":"u2","authorAgentId":null,"authorName":"rufus","sessionId":null,"replyToSeq":null,"mentions":["iris"]},
-			{"nodeId":"n7","seq":7,"body":"@iris again","at":"t3","authorUserId":"u2","authorAgentId":null,"authorName":"rufus","sessionId":null,"replyToSeq":5,"mentions":["iris"]}]}}}`,
+			{"nodeId":"n5","seq":5,"body":"@iris ping","at":"t1","authorUserId":"u2","authorWorkerId":null,"authorName":"rufus","sessionId":null,"replyToSeq":null,"mentions":["iris"]},
+			{"nodeId":"n7","seq":7,"body":"@iris again","at":"t3","authorUserId":"u2","authorWorkerId":null,"authorName":"rufus","sessionId":null,"replyToSeq":5,"mentions":["iris"]}]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1955,7 +1800,7 @@ func TestTeamChatReadMentionsMe(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["TeamChatMessages"], &vars)
-	if vars["appRef"] != "app-1" || vars["mentionsRef"] != "agt1" {
+	if vars["appRef"] != "app-1" || vars["mentionsRef"] != "wkr1" {
 		t.Errorf("read vars: %v", vars)
 	}
 	var dto struct {
@@ -1978,19 +1823,21 @@ func TestTeamChatReadMentionsMe(t *testing.T) {
 	// --mentions-me and --mentions together is ambiguous.
 	f2, _ := testFactory(t)
 	root2 := NewRootCmd(f2)
-	root2.SetArgs([]string{"team", "chat", "read", "--mentions-me", "--mentions", "agt9", "--server", gql.URL})
+	root2.SetArgs([]string{"team", "chat", "read", "--mentions-me", "--mentions", "wkr9", "--server", gql.URL})
 	err := root2.Execute()
 	if code := exitcode.FromError(err); code != exitcode.Usage {
 		t.Errorf("both mention flags: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 }
 
-// --active filters client-side (no server-side filter exists) and the
-// persona name is joined onto each row.
+// --active filters client-side (no server-side filter exists) and the worker
+// name is joined via a memoized worker(ref:) per distinct worker (the nested
+// Session.worker is hadron-server#980, unmerged — adopting it is follow-up).
 func TestTeamSessionListActive(t *testing.T) {
+	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"PersonaAgents": rosterJSON,
-		"TeamSessions":  `{"data":{"sessions":[` + activeSessionJSON + `,` + endedSessionJSON + `]}}`,
+		"GetWorker":    `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `,` + endedSessionJSON + `]}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1999,9 +1846,9 @@ func TestTeamSessionListActive(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var got []struct {
-		ID          string  `json:"id"`
-		PersonaName *string `json:"personaName"`
-		Active      bool    `json:"active"`
+		ID         string  `json:"id"`
+		WorkerName *string `json:"workerName"`
+		Active     bool    `json:"active"`
 	}
 	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
 		t.Fatalf("json: %v (%s)", err, out.String())
@@ -2009,26 +1856,51 @@ func TestTeamSessionListActive(t *testing.T) {
 	if len(got) != 1 || got[0].ID != "s-old" || !got[0].Active {
 		t.Errorf("active list: %s", out.String())
 	}
-	if got[0].PersonaName == nil || *got[0].PersonaName != "Iris" {
-		t.Errorf("persona join: %s", out.String())
+	if got[0].WorkerName == nil || *got[0].WorkerName != "Iris" {
+		t.Errorf("worker join: %s", out.String())
 	}
 }
 
-// Without -m there is no team memory, so no App to bind to: `appRef` must be
-// OMITTED, never sent as null. It arrived via a SCHEMA REFRESH, and a refreshed
-// input field does not inherit the operation's omitempty — the PR-#139
-// contentType trap. This assertion is what makes the next refresh that drops
-// the directive fail loudly instead of silently clearing the field.
+// --as narrows SERVER-side via sessions(workerRef:) (#974) — no client-side
+// scan of the whole list.
+func TestTeamSessionListAsFiltersServerSide(t *testing.T) {
+	teamGitDir(t)
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetWorker":    `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"TeamSessions": `{"data":{"sessions":[` + endedSessionJSON + `]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "list", "--as", "wkr1", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["TeamSessions"], &vars)
+	if vars["workerRef"] != "wkr1" {
+		t.Errorf("--as must ride as the workerRef filter: %v", vars)
+	}
+	if !strings.Contains(out.String(), `"workerName": "Iris"`) {
+		t.Errorf("worker join: %s", out.String())
+	}
+}
+
+// Without -m and without an App context there is no appRef to send: `appRef`
+// must be OMITTED, never sent as null — the server then derives the session's
+// App from the WORKER. workerRef itself arrived via a schema refresh, and a
+// refreshed input field does not inherit the operation's omitempty (the
+// PR-#139 contentType trap); this assertion makes the next refresh that drops
+// the directive fail loudly instead of silently clearing fields.
 func TestTeamSessionStartWithoutMemoryOmitsAppRef(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"PersonaAgents":    rosterJSON,
+		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
 		"TeamSessions":     `{"data":{"sessions":[` + endedSessionJSON + `]}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "session", "start", "--as", "Iris", "--tool", "claude-code",
+	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--tool", "claude-code",
 		"--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -2039,6 +1911,9 @@ func TestTeamSessionStartWithoutMemoryOmitsAppRef(t *testing.T) {
 	_ = json.Unmarshal(captured["StartTeamSession"], &vars)
 	if _, present := vars.Input["appRef"]; present {
 		t.Errorf("unset appRef must be omitted from SessionInput, got %v", vars.Input["appRef"])
+	}
+	if vars.Input["workerRef"] != "wkr1" {
+		t.Errorf("workerRef must be sent: %v", vars.Input)
 	}
 	if _, called := captured["TeamMemoryApp"]; called {
 		t.Errorf("no -m means no App resolution call")
@@ -2055,12 +1930,12 @@ func TestTeamSessionLogMemoryOverrideResolvesItsOwnApp(t *testing.T) {
 		t.Fatal(err)
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
-		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","userId":"u1",
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u1",
 			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
 			"transcriptPath":null,"llmModel":null}}}`,
 		"TeamMemoryApp": `{"data":{"memory":{"id":"m2","appId":"other-app"}}}`,
-		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","personaName":"Iris",
+		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
 			"tool":"claude-code","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
 			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
 	})
@@ -2087,16 +1962,17 @@ func TestTeamSessionLogMemoryOverrideResolvesItsOwnApp(t *testing.T) {
 	}
 }
 
-// A session that started before App binding (or without -m) has no appId and
-// can never be bound, so the worklog write refuses. The CLI must say what to do
-// rather than surfacing the bare typed code (Codex P1 on PR #409).
-func TestTeamSessionLogUnboundSessionExplainsRemedy(t *testing.T) {
+// A worker session binds to the WORKER's App, so SESSION_NOT_IN_APP on the
+// worklog write means -m named a DIFFERENT App's memory — a mismatch to fix,
+// not a session to restart. The CLI must say so rather than surfacing the
+// bare typed code (Codex P1 lineage, PR #409).
+func TestTeamSessionLogMismatchedMemoryExplainsMismatch(t *testing.T) {
 	dir := teamGitDir(t)
 	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	gql, _ := captureGraphQL(t, map[string]string{
-		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","userId":"u1",
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u1",
 			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
 			"transcriptPath":null,"llmModel":null}}}`,
@@ -2109,10 +1985,44 @@ func TestTeamSessionLogUnboundSessionExplainsRemedy(t *testing.T) {
 	root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--json", "--server", gql.URL})
 	err := root.Execute()
 	if code := exitcode.FromError(err); code != exitcode.Usage {
-		t.Errorf("unbound session: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
+		t.Errorf("mismatched memory: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
-	if err == nil || !strings.Contains(err.Error(), "session start") {
-		t.Errorf("the error must name the remedy, got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "different App") {
+		t.Errorf("the error must name the mismatch, got: %v", err)
+	}
+}
+
+// A binding written by a pre-Worker CLI may name a session that was never
+// App-bound, where `-m` can never work — the remedy is end-and-restart, not
+// "pass the right memory" (PR #431 review).
+func TestTeamSessionLogLegacyBindingNotInAppSaysRestart(t *testing.T) {
+	dir := teamGitDir(t)
+	legacy := `{"sessionId":"s-old-model","agentId":"agt1","personaName":"Iris","startedAt":"2026-08-11T10:00:00Z","prNumbers":[]}`
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, _ := captureGraphQL(t, map[string]string{
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-old-model","agentId":"agt1","workerId":null,"userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"RecordTeamWork": `{"errors":[{"message":"Session is not a session of this App",
+			"extensions":{"code":"SESSION_NOT_IN_APP"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "log", "--pr", "hadron-memory/hadron-cli#371",
+		"-m", "acme.com::eng-team", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "session end") {
+		t.Errorf("a legacy binding's remedy is end-and-restart: %v", err)
+	}
+	if err != nil && strings.Contains(err.Error(), "different App") {
+		t.Errorf("the mismatch message is for worker sessions only: %v", err)
 	}
 }
 

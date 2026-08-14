@@ -52,9 +52,10 @@ Note that ` + "`hadron agent list --app <a>`" + ` does NOT answer this: --app is
 persistent App-context flag, not a filter, so it returns every agent you can
 read whichever App you name (#383). This command is the filter.
 
-For a team App the same read is ` + "`hadron team roster`" + `, which adds the
-worktree-binding fallback; the persona columns are blank here for a plain
-single-agent App, which is the honest answer rather than an empty list.`,
+For a team App this is the INSTALL roster — the cast pool. The named staff
+(workers cast from these agents) is ` + "`hadron team worker list`" + ` (#428). The
+ROLE column is blank for an agent without persona dressing, which is the
+honest answer rather than an empty list.`,
 		Example: `  hadron app agent list hrn:app:acme.com:support
   hadron app agent list --app acme.com::eng-team --json`,
 		Args: cobra.MaximumNArgs(1),
