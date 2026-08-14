@@ -92,8 +92,10 @@ func resolveTeamApp(ctx context.Context, f *cmdutil.Factory, b *binding) (string
 		"no team App — pass --app <ref>, set an App context, or bind a session with `hadron team session start -m <team-memory>`")
 }
 
-// teamChatMessageDTO is the stable --json shape of one message — the server
-// envelope, verbatim.
+// teamChatMessageDTO is the stable --json shape of one message: the server
+// envelope, plus ONE CLI-only field — `author`, an alias of the server's
+// `authorName` (see below). It is no longer verbatim, so do not treat every
+// field here as a server field when touching codegen or the schema.
 type teamChatMessageDTO struct {
 	NodeID string `json:"nodeId"`
 	Seq    int    `json:"seq"`

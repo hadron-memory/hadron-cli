@@ -631,8 +631,14 @@ func TestTeamChatReadEmitsAuthorAliasAndKind(t *testing.T) {
 	if err := root2.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if !strings.Contains(out2.String(), "(human)") || !strings.Contains(out2.String(), "(persona)") {
-		t.Errorf("the transcript must say whether an author was a person or a persona: %s", out2.String())
+	// Assert each label BESIDE its author — checking only that both strings
+	// appear somewhere would still pass if the two branches were swapped
+	// (PR #417 review). holger is the authorUserId post, Iris the agent one.
+	if !strings.Contains(out2.String(), "holger (human)") {
+		t.Errorf("a user-authored post must be marked (human): %s", out2.String())
+	}
+	if !strings.Contains(out2.String(), "Iris (persona)") {
+		t.Errorf("an agent-authored post must be marked (persona): %s", out2.String())
 	}
 }
 
