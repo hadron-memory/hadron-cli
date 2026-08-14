@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"strings"
+	"syscall"
 
 	"github.com/Khan/genqlient/graphql"
 
@@ -44,6 +46,28 @@ type transportFailure struct {
 func classifyTransport(err error) (transportFailure, bool) {
 	if err == nil {
 		return transportFailure{}, false
+	}
+
+	// OUR OWN refusal about a redirect is not a transport failure, even though
+	// net/http wraps it in *url.Error (which satisfies net.Error). The server
+	// answered; retrying cannot help. Checked first, since the shapes below
+	// would otherwise swallow it.
+	if errors.Is(err, ErrRedirectPolicy) {
+		return transportFailure{}, false
+	}
+
+	// A response whose BODY was cut short is a lost answer in the strictest
+	// sense: headers arrived, so the request certainly reached the server, and
+	// a mutation may already have committed. genqlient surfaces this as a bare
+	// io.ErrUnexpectedEOF (or a JSON decode error wrapping it) — none of the
+	// shapes below match it, so without this it fell through to exit 1 with no
+	// idempotency warning: the one documented reset case conflated with a
+	// refusal (PR #415 review).
+	if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) || errors.Is(err, syscall.ECONNRESET) {
+		return transportFailure{
+			what:      "the connection dropped while reading the server's answer",
+			retryHint: "retry shortly",
+		}, true
 	}
 
 	// No HTTP response at all: refused, reset, DNS, TLS, timeout.
@@ -149,6 +173,19 @@ func DocumentHasMutation(doc string) bool {
 			}
 			continue
 		}
+		// Block strings ("""…""") may legally contain unescaped quotes, so they
+		// need their own scan: treating them as three single-quoted strings can
+		// leave the scanner mid-string and hide a later `mutation` token —
+		// a FALSE NEGATIVE, the direction this function must not fail in
+		// (PR #415 review).
+		if c == '"' && strings.HasPrefix(doc[i:], `"""`) {
+			if end := strings.Index(doc[i+3:], `"""`); end >= 0 {
+				i += 3 + end + 2
+			} else {
+				i = len(doc) // unterminated block string: nothing left to scan
+			}
+			continue
+		}
 		if c == '"' || c == '\'' {
 			inString = true
 			quote = c
@@ -192,10 +229,22 @@ func isNameByte(c byte) bool {
 // is the whole point: an edge's HTML error page is not a refusal.
 func hasGraphQLErrorsEnvelope(body []byte) bool {
 	var envelope struct {
-		Errors []json.RawMessage `json:"errors"`
+		Errors []struct {
+			Message *string `json:"message"`
+		} `json:"errors"`
 	}
 	if err := json.Unmarshal(body, &envelope); err != nil {
 		return false
 	}
-	return len(envelope.Errors) > 0
+	// At least one entry must be an OBJECT carrying `message` — the field the
+	// GraphQL spec requires on every error. A JSON-producing gateway can emit
+	// `{"errors":["upstream unavailable"]}` or `{"errors":[null]}`, and taking
+	// those as the API's opinion would suppress exit 7 and the mutation
+	// warning on exactly the failure they describe (PR #415 review).
+	for _, e := range envelope.Errors {
+		if e.Message != nil {
+			return true
+		}
+	}
+	return false
 }

@@ -57,11 +57,13 @@ self-hosted backend.
 | 6    | cancelled / timed out waiting for the user |
 | 7    | unavailable — the request never got an answer (gateway 5xx, reset, timeout) |
 
-**7 is the only retryable code, and the only one after which a write's outcome
-is unknown.** Everything else means the server formed an opinion; 7 means it
-did not — the request may never have arrived, *or* it arrived and committed
-while the answer was lost. So: 1 means "it refused, retrying changes nothing";
-7 means "ask again". A 5xx is only 7 when the body is **not** a GraphQL
+**7 is the only retryable code, and the only one that certifies no usable
+answer arrived** — the request may never have reached the server, *or* it
+arrived and committed while the response was lost. Codes 2–6 are the server's
+opinion. Code 1 stays the generic fallback and is NOT such a certificate: it
+also covers local failures (building a request, an unrecognized error), so
+"not 7" does not by itself mean the server decided. Retry on 7; on 1, read the
+message. A 5xx is only 7 when the body is **not** a GraphQL
 envelope — Apollo answering 500 with a real `errors[]` is an opinion and stays
 1. The usual cause is the server restarting for a deploy, which resolves on its
 own within about a minute.

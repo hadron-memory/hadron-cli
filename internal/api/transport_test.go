@@ -3,6 +3,8 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"strings"
@@ -116,6 +118,57 @@ func TestDocumentHasMutation(t *testing.T) {
 		if got := DocumentHasMutation(tc.doc); got != tc.want {
 			t.Errorf("DocumentHasMutation(%q) = %v, want %v", tc.doc, got, tc.want)
 		}
+	}
+}
+
+// PR #415 review: each of these was a way the classifier got it wrong.
+func TestClassifyTransportReviewCases(t *testing.T) {
+	// A truncated response body IS a lost answer — headers arrived, so the
+	// request certainly reached the server and a mutation may have committed.
+	if _, ok := classifyTransport(fmt.Errorf("decoding response: %w", io.ErrUnexpectedEOF)); !ok {
+		t.Error("a truncated body must classify as transport (exit 7), not a refusal")
+	}
+	if code := exitcode.FromError(MapError(io.ErrUnexpectedEOF)); code != exitcode.Unavailable {
+		t.Errorf("truncated body exit = %d, want Unavailable", code)
+	}
+	// OUR OWN redirect refusal is not transport, though net/http wraps it in
+	// *url.Error (which satisfies net.Error). The server answered.
+	policy := &url.Error{Op: "Get", Err: fmt.Errorf("%w: cleartext", ErrRedirectPolicy)}
+	if _, ok := classifyTransport(policy); ok {
+		t.Error("a redirect POLICY refusal must not be reported as retryable")
+	}
+	if code := exitcode.FromError(MapError(policy)); code != exitcode.Error {
+		t.Errorf("redirect policy exit = %d, want Error (retrying cannot help)", code)
+	}
+}
+
+// A gateway that emits JSON must not be able to suppress exit 7 by shipping an
+// `errors` array with no real GraphQL error object in it.
+func TestEnvelopeRequiresARealErrorObject(t *testing.T) {
+	for _, body := range []string{
+		`{"errors":[null]}`,
+		`{"errors":["upstream unavailable"]}`,
+		`{"errors":[{}]}`,
+		`{"errors":[]}`,
+	} {
+		if _, ok := transportStatus(502, []byte(body)); !ok {
+			t.Errorf("%s is not the API's opinion — must stay transport", body)
+		}
+	}
+	if _, ok := transportStatus(502, []byte(`{"errors":[{"message":"boom"}]}`)); ok {
+		t.Error("a real GraphQL error object IS an opinion")
+	}
+}
+
+// Block strings may hold unescaped quotes; mis-scanning one can hide a later
+// `mutation` token, which is the false-negative direction this must not fail in.
+func TestDocumentHasMutationHandlesBlockStrings(t *testing.T) {
+	doc := "query A { x(note: \"\"\"he said \"hi\" to me\"\"\") }\n\nmutation B { y }"
+	if !DocumentHasMutation(doc) {
+		t.Errorf("a block string must not swallow the later mutation: %q", doc)
+	}
+	if DocumentHasMutation(`query { x(note: """not a mutation""") }`) {
+		t.Error("`mutation` inside a block string is not an operation")
 	}
 }
 
