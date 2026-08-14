@@ -636,11 +636,43 @@ func TestTeamSessionStartWarnsWhenTheWorklogIsOff(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	errOut := f.IOStreams.ErrOut.(*strings.Builder).String()
-	if !strings.Contains(errOut, "NO worklog") || !strings.Contains(errOut, "-m") {
-		t.Errorf("start without -m must say the worklog is off, and how to fix it: %q", errOut)
+	// No -m AND no App context: the session is not App-bound at all, so
+	// `session log -m` cannot rescue it — the remedy must be end-and-restart,
+	// not an override that would fail SESSION_NOT_IN_APP (PR #420 review).
+	if !strings.Contains(errOut, "NOT bound to a team App") {
+		t.Errorf("an unbound session must be named as such: %q", errOut)
+	}
+	if !strings.Contains(errOut, "session end") || !strings.Contains(errOut, "session start --as Iris -m") {
+		t.Errorf("the remedy must be executable (end, then restart with -m): %q", errOut)
 	}
 	if strings.Contains(errOut, "team init") {
 		t.Errorf("`team init` is not the remedy — it is not a precondition for worklog writes: %q", errOut)
+	}
+}
+
+// With an ambient App the session IS bound, so the worklog is recoverable
+// without restarting — `session log -m` genuinely works. Offering the same
+// remedy in both cases was the review finding.
+func TestTeamSessionStartAppBoundSaysOverrideWorks(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"PersonaAgents":    rosterJSON,
+		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "Iris",
+		"--app", "acme.com::eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	errOut := f.IOStreams.ErrOut.(*strings.Builder).String()
+	if !strings.Contains(errOut, "override works") {
+		t.Errorf("an App-bound session should be told the -m override works: %q", errOut)
+	}
+	if strings.Contains(errOut, "session end") {
+		t.Errorf("no need to restart an App-bound session: %q", errOut)
 	}
 }
 
@@ -894,6 +926,28 @@ func TestTeamSessionLogWritesWorklogAndSession(t *testing.T) {
 
 // --branch milestones denormalize the bare branch NAME onto Session.branch
 // while the worklog stores the canonical repo-qualified ref.
+// The --issue/--commit refusal is the second log diagnostic that named
+// `team init`; it must name only -m (PR #420 review).
+func TestTeamSessionLogIssueWithoutMemoryNamesOnlyM(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "log", "--issue", "12", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("exit code = %d, want Usage; err: %v", code, err)
+	}
+	if err == nil || strings.Contains(err.Error(), "team init") {
+		t.Errorf("`team init` is not a precondition for worklog writes: %v", err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "-m") {
+		t.Errorf("the refusal must name -m: %v", err)
+	}
+}
+
 func TestTeamSessionLogBranch(t *testing.T) {
 	dir := teamGitDir(t)
 	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingWithTeamFixture), 0o600); err != nil {
@@ -1037,6 +1091,16 @@ func TestTeamSessionLogWithoutTeamMemory(t *testing.T) {
 	}
 	if _, called := captured["CreateObject"]; called {
 		t.Error("no worklog write without a team memory")
+	}
+	// #414: the degraded note must not name `team init` as the remedy — the
+	// original bad advice lived in BOTH log diagnostics, and only the start
+	// warning was covered (PR #420 review).
+	errOut := f.IOStreams.ErrOut.(*strings.Builder).String()
+	if strings.Contains(errOut, "team init") {
+		t.Errorf("`team init` is not what enables the worklog: %q", errOut)
+	}
+	if !strings.Contains(errOut, "-m") {
+		t.Errorf("the note must name -m, the actual requirement: %q", errOut)
 	}
 	if !strings.Contains(out.String(), `"recorded": "session"`) {
 		t.Errorf("log output: %s", out.String())

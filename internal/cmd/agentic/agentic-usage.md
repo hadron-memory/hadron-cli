@@ -748,10 +748,15 @@ Conventions:
   one. `session list`
   is the presence view, newest first, persona names joined in; `--active`
   and `--as` narrow client-side. **The worklog** is the provenance record.
-  `session start -m <team-memory>` is the ONLY thing that enables it —
-  `team init` is **not** a precondition for worklog writes (#414), and a
-  session started without `-m` records none, which `start` now warns about
-  up front instead of degrading silently at `log` time (#399). Separately,
+  `session start -m <team-memory>` is what enables it — `team init` is **not**
+  a precondition for worklog writes (#414). `session log -m` is an override,
+  not a rescue: it works only on a session already bound to that memory's App
+  (started with `-m`, or under an `--app` context). A session started with
+  **neither** is not App-bound, cannot be bound afterwards (`updateSession`
+  cannot set `appId`), and its worklog writes fail `SESSION_NOT_IN_APP` — it
+  must be ended and restarted. `start` now warns about both cases up front,
+  with the remedy that actually applies to each, instead of degrading
+  silently at `log` time (#399). Separately,
   `team init -m <team-memory>` asks the server to converge the
   collections it owns onto their canonical definitions (in the team App
   memory — an `app`-class memory is required and any other class is refused

@@ -258,21 +258,27 @@ binding, --force replaces it — first ending the session that binding names
 			teamMem := ""
 			if teamMemory != "" {
 				teamMem = cmdutil.CanonicalMemoryRef(teamMemory)
-			} else {
-				// #399: without -m the binding carries no worklog home, so
-				// every later `session log` silently degrades to the Session
-				// field alone. Today that is discovered at LOG time — possibly
-				// many commits in, and unrecoverable for the work already done,
-				// since `log` is the only thing that writes worklog records.
-				// Say it HERE, the one moment the user can still act on it, and
-				// at a cost of one line. (Defaulting -m from the App context is
-				// the real fix and needs App -> shared-memory resolution, which
-				// the server does not expose yet: hadron-server#965.)
+			} else if appRefArg != nil {
+				// #399: no -m, but an ambient App bound the session. The
+				// worklog is off for now, yet RECOVERABLE without restarting:
+				// `session log -m <mem>` works precisely because the session
+				// is App-bound.
 				fmt.Fprintf(f.IOStreams.ErrOut,
-					"note: no -m <team-memory>, so this session records NO worklog — `session log` will only set the Session field, "+
-						"and `session list --pr` will not find this session. Restart with -m to enable it.\n")
+					"note: no -m <team-memory>, so this session has no worklog home — `session log` will set only the Session field "+
+						"unless you pass -m <team-memory> to it. The session IS bound to an App, so that override works.\n")
+			} else {
+				// No -m and no App context: the session is not App-bound, and
+				// `updateSession` cannot bind it afterwards — so it can NEVER
+				// record work, and `session log -m` would fail
+				// SESSION_NOT_IN_APP. The only fix is a new session, which is
+				// exactly why this belongs at START rather than at log time.
+				fmt.Fprintf(f.IOStreams.ErrOut,
+					"note: no -m <team-memory> and no App context, so this session is NOT bound to a team App and can never record "+
+						"worklog rows — `session log -m` cannot fix it afterwards. To enable the worklog: "+
+						"`hadron team session end`, then `session start --as %s -m <team-memory>`.\n", personaName)
 			}
 			path, err := writeBinding(ctx, &binding{
+				AppBound:    appRefArg != nil,
 				SessionID:   s.Id,
 				AgentID:     p.Id,
 				AgentURN:    p.Urn,
@@ -379,8 +385,13 @@ func newCmdSessionLog(f *cmdutil.Factory) *cobra.Command {
 team worklog — the collection behind the provenance query
 (` + "`session list --pr <ref>`" + `: which sessions produced this PR?). The worklog
 home is the team memory recorded at ` + "`session start -m`" + ` (or --memory
-here). That is the ONLY requirement — the collection schema is the server's
-(#401), so no ` + "`team init`" + ` is needed first.
+here). No ` + "`team init`" + ` is needed first — the collection schema is the
+server's (#401).
+
+--memory here is an override, not a rescue: it only works on a session that
+is already bound to that memory's App (started with -m, or under an --app
+context). A session started with neither is not App-bound, cannot be bound
+afterwards, and must be ended and restarted with -m.
 
 Refs are normalized to one canonical string per artifact (owner/repo#371,
 owner/repo@sha, owner/repo:branch) — a URL, the short form, or a bare
@@ -506,9 +517,20 @@ team memory, --pr/--branch degrade to the denormalization alone.`,
 				// because the NEXT log with -m succeeds for unrelated reasons.
 				// Wrong remedy, applied under pressure, that looks like it
 				// worked is the worst shape a diagnostic can have.
-				fmt.Fprintf(f.IOStreams.ErrOut,
-					"note: no team memory recorded, so this milestone went only to the Session field — not the worklog. "+
-						"Pass -m <team-memory> to this command, or start the session with `session start -m <team-memory>`.\n")
+				if b.AppBound {
+					fmt.Fprintf(f.IOStreams.ErrOut,
+						"note: no team memory recorded, so this milestone went only to the Session field — not the worklog. "+
+							"This session is App-bound, so `-m <team-memory>` on this command records it properly.\n")
+				} else {
+					// Offering `-m` here would be the same kind of wrong
+					// remedy this change removed: without an appRef the write
+					// fails SESSION_NOT_IN_APP, and nothing can bind the
+					// session now (PR #420 review).
+					fmt.Fprintf(f.IOStreams.ErrOut,
+						"note: no team memory recorded, so this milestone went only to the Session field — not the worklog. "+
+							"This session is not bound to a team App, so -m cannot fix it: `hadron team session end`, "+
+							"then `session start --as %s -m <team-memory>`.\n", b.PersonaName)
+				}
 			}
 			if kind == "pr" {
 				known := false
