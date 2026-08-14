@@ -109,6 +109,31 @@ func TestAppAgentRemove(t *testing.T) {
 	}
 }
 
+// The --json shape is a stable agent-facing contract, so it needs its own
+// assertions — the human path passing says nothing about it (PR #427 review).
+func TestAppAgentRemoveJSON(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"UninstallAgentFromApp": `{"data":{"uninstallAgentFromApp":{"agentId":"agt1","appId":"app1"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"app", "agent", "remove", "app1", "agt1", "--yes", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		AppID   string `json:"appId"`
+		AgentID string `json:"agentId"`
+		Status  string `json:"status"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("remove --json: %v (%s)", err, out.String())
+	}
+	if dto.AppID != "app1" || dto.AgentID != "agt1" || dto.Status != "uninstalled" {
+		t.Errorf("all three fields must be carried: %+v (%s)", dto, out.String())
+	}
+}
+
 // The issue asks for this specifically: a team member who is not an org member
 // hits FORBIDDEN, and a bare "Forbidden" does not explain a gate that is
 // deliberately stricter than App membership.
