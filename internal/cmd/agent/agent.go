@@ -30,6 +30,8 @@ type agentDTO struct {
 	AiProvider     *string  `json:"aiProvider"`
 	AiModel        *string  `json:"aiModel"`
 	HasAiApiKey    bool     `json:"hasAiApiKey"`
+	PersonaRole    *string  `json:"personaRole"`
+	PersonaPrompt  *string  `json:"personaPrompt"`
 	CreatedAt      string   `json:"createdAt"`
 }
 
@@ -42,7 +44,8 @@ func agentDTOFromFields(a gen.AgentFields) agentDTO {
 		ID: a.Id, URN: a.Urn, Name: a.Name, Description: a.Description,
 		Type: string(a.Type), Visibility: string(a.Visibility), OrganizationID: a.OrganizationId,
 		Surfaces: surfaces, SystemMemoryID: a.SystemMemoryId, SystemPrompt: a.SystemPrompt,
-		AiProvider: a.AiProvider, AiModel: a.AiModel, HasAiApiKey: a.HasAiApiKey, CreatedAt: a.CreatedAt,
+		AiProvider: a.AiProvider, AiModel: a.AiModel, HasAiApiKey: a.HasAiApiKey,
+		PersonaRole: a.PersonaRole, PersonaPrompt: a.PersonaPrompt, CreatedAt: a.CreatedAt,
 	}
 }
 
@@ -70,9 +73,8 @@ func parseAgentType(s string) (*gen.AgentType, error) {
 	}
 }
 
-// ParseVisibility is exported so the team group can offer --visibility on
-// `team persona update` (#405) without a second copy of the enum mapping —
-// one place to change if the enum grows a member.
+// ParseVisibility is exported for reuse outside this package (#405 precedent)
+// — one place to change if the enum grows a member.
 func ParseVisibility(s string) (*gen.AgentVisibility, error) {
 	if strings.TrimSpace(s) == "" {
 		return nil, nil
@@ -307,22 +309,27 @@ exclusive.`,
 
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var name, description, typ, vis, systemPrompt, systemMemory, urn string
+	var personaRole, personaPrompt string
 	var surfaces []string
 	cmd := &cobra.Command{
 		Use:   "update <ref>",
 		Short: "Update an agent by ID or URN (only the fields you pass change)",
 		Long: `Update an agent. Only the fields you pass change.
 
-The persona columns (personaRole, personaPrompt) are not here: they belong
-to the team surface, so refine them with ` + "`hadron team persona update`" + `,
-which resolves a persona by name and refuses a plain agent (#385).`,
+--persona-role and --persona-prompt set the agent's persona DRESSING
+(cor:agt:020:01): the role is pure metadata, and the prompt is a TEMPLATE —
+{{name}} and {{role}} are bound when the agent is cast into an App as a
+named Worker (` + "`hadron team worker cast`" + `). Editing the template evolves
+every future casting's boot briefing centrally; existing workers resolve
+their prompt from it too.`,
 		Example: `  hadron agent update acme.com::support-bot --name "Support Bot v2" --visibility PUBLIC
   hadron agent update agt_123 --description "…"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
 			if !changed("name") && !changed("description") && !changed("type") && !changed("visibility") &&
-				!changed("system-prompt") && !changed("system-memory") && !changed("surface") && !changed("urn") {
+				!changed("system-prompt") && !changed("system-memory") && !changed("surface") && !changed("urn") &&
+				!changed("persona-role") && !changed("persona-prompt") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
 			// The server prepends the owner namespace, so --urn is the agent
@@ -352,7 +359,8 @@ which resolves a persona by name and refuses a plain agent (#385).`,
 			resp, err := gen.UpdateAgent(cmd.Context(), client, args[0],
 				changedStr(cmd, "name", name), changedStr(cmd, "description", description),
 				at, av, changedStr(cmd, "system-prompt", systemPrompt),
-				changedStr(cmd, "system-memory", systemMemory), surfacesArg, changedStr(cmd, "urn", urn))
+				changedStr(cmd, "system-memory", systemMemory), surfacesArg, changedStr(cmd, "urn", urn),
+				changedStr(cmd, "persona-role", personaRole), changedStr(cmd, "persona-prompt", personaPrompt))
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -370,6 +378,8 @@ which resolves a persona by name and refuses a plain agent (#385).`,
 	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "system memory ID")
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable; replaces the set)")
 	cmd.Flags().StringVar(&urn, "urn", "", "agent URN path")
+	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
+	cmd.Flags().StringVar(&personaPrompt, "persona-prompt", "", "persona dressing: identity prompt TEMPLATE with {{name}}/{{role}} placeholders")
 	return cmd
 }
 

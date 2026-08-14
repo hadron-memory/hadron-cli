@@ -1,157 +1,111 @@
-# `hadron team` (#369 slice 1) — personas and sessions.
+# `hadron team` — workers and sessions (Worker model, #428 / hadron-server#974).
 #
-# A persona IS an Agent (server #928/#929): personaName/personaRole/
-# personaPrompt are pure metadata columns, so persona CRUD rides the
-# ordinary agent surface — these operations only widen the selection to
-# the persona fields (agent.graphql's AgentFields predates them, and the
-# team commands don't need the AI-config fields it carries). Retire is
-# the existing DeleteAgent mutation: the persona uniqueness indexes
-# deliberately ignore deleted_at, so a soft-deleted agent keeps its name
-# bound forever (D-2026-08-11-006).
+# A persona is pure DRESSING on an Agent (personaRole + a {{name}}-templated
+# personaPrompt — metadata, edited via `agent update`). The named identity
+# ("Iris") is the WORKER: the casting of an installed Agent into an App
+# (cor:dmo:050:11, cor:agt:020:01). Workers have no URN — names never enter
+# URNs (cor:agt:020:02) — so every workerRef on this surface is the worker's id.
 
-fragment PersonaAgentFields on Agent {
+fragment WorkerFields on Worker {
   id
-  urn
+  appId
+  agentId
   name
-  description
-  # #405: visibility is a persona-relevant field, not just an Agent one — the
-  # mint derives it from the team App's owner (#950), and a persona stuck on
-  # PERSONAL is hidden from the very teammates the roster exists to show. It is
-  # selected here so `persona get|list` can surface it and `persona update
-  # --visibility` can confirm the result.
-  visibility
-  organizationId
-  personaName
-  personaRole
-  personaPrompt
+  role
+  # The resolved boot briefing: the agent's personaPrompt template with
+  # {{name}}/{{role}} bound, then promptOverride appended. Printed on cast and
+  # surfaced by `worker get` — it is what a session driver adopts.
+  prompt
+  promptOverride
+  memoryId
+  retiredAt
+  retiredBy
   createdAt
+  createdBy
 }
 
-query GetPersonaAgent($ref: ID!) {
-  agent(ref: $ref) {
-    ...PersonaAgentFields
+# Casting is ONE platform call (cor:agt:020:01/:02): the server resolves the
+# agent (agentRef, or role → the single installed agent whose personaRole
+# matches — WORKER_AGENT_NOT_FOUND / _AMBIGUOUS, never a guess), allocates the
+# name (explicit name: one attempt, WORKER_NAME_TAKEN is the answer; otherwise
+# the Team Agent's cast-list register is walked server-side past taken names —
+# WORKER_REGISTER_EXHAUSTED when none is free), composes Worker.prompt, and
+# provisions the worker-scoped memory. The CLI passes values through and
+# retries nothing — the retry loops the persona model needed are gone.
+mutation CastWorker(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $agentRef: ID
+  # @genqlient(omitempty: true)
+  $role: String
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $teamAgentRef: ID
+  # @genqlient(omitempty: true)
+  $promptOverride: String
+) {
+  castWorker(
+    appRef: $appRef
+    agentRef: $agentRef
+    role: $role
+    name: $name
+    teamAgentRef: $teamAgentRef
+    promptOverride: $promptOverride
+  ) {
+    ...WorkerFields
   }
 }
 
-# The roster read. AgentFilter has no persona clause, so callers page this
-# to exhaustion and keep the personaName != null rows client-side. The
-# unfiltered list is the caller's MEMBER-ORG scope only; the caller's own
-# user-owned (org-less) agents need a second pass with
-# filter.ownedByMe: true (#782) — scanPersonaAgents merges both.
-#
-# Deliberately NO `for: "AgentFilter.*"` omitempty directives: agent.graphql
-# uses the same shared input without them, and genqlient resolves per-field
-# omitempty on a shared type non-deterministically when operations disagree
-# (the generated tags flip between runs and red the codegen-freshness gate —
-# the NodeWhereInput saga, see genqlient.yaml). Null filter fields are fine
-# on this read path; the null-clears hazard is mutation-only.
-query PersonaAgents(
+# Idempotent; the name stays reserved forever (cor:agt:020:02 — PR trailers
+# and chat archives reference it). The retired worker stops authoring and
+# takes no new sessions.
+mutation RetireWorker($workerRef: ID!) {
+  retireWorker(workerRef: $workerRef) {
+    ...WorkerFields
+  }
+}
+
+# The one removal escape (cor:dmo:050:11): hard-delete a NEVER-USED miscast.
+# Refused WORKER_IN_USE when any session was ever bound or the working memory
+# holds content — anything with history retires instead.
+mutation DeleteWorker($workerRef: ID!) {
+  deleteWorker(workerRef: $workerRef)
+}
+
+# One worker by id (workers have no URN, so ref is the PK only).
+query GetWorker($ref: ID!) {
+  worker(ref: $ref) {
+    ...WorkerFields
+  }
+}
+
+# The STAFF read (cor:agt:020:01 — Workers are the staff; the AppAgent join is
+# the install roster, `app agent list`). Retired castings are hidden unless
+# includeRetired.
+query Workers(
+  $appRef: ID!
   # @genqlient(omitempty: true)
-  $orgId: ID
-  # @genqlient(omitempty: true)
-  $filter: AgentFilter
+  $includeRetired: Boolean
   # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  agents(orgId: $orgId, filter: $filter, limit: $limit, offset: $offset) {
+  workers(appRef: $appRef, includeRetired: $includeRetired, limit: $limit, offset: $offset) {
     total
     items {
-      ...PersonaAgentFields
-    }
-  }
-}
-
-# Persona instantiation is a PLATFORM operation (#935/PR #936, spec
-# cor:agt:020:01, the thin-CLI directive): the server locates the Team Agent,
-# reads the role node (roles:<role> in its system memory — template in
-# content, register in data.names), allocates a free name server-side (the
-# loop advances past BOTH uniques a name can collide on), composes the
-# prompt, creates AND installs. The CLI passes four values through and
-# retries nothing.
-mutation CreateTeamPersona(
-  $appRef: ID!
-  $role: String!
-  # @genqlient(omitempty: true)
-  $teamAgentRef: ID
-  # @genqlient(omitempty: true)
-  $name: String
-) {
-  createTeamPersona(appRef: $appRef, role: $role, teamAgentRef: $teamAgentRef, name: $name) {
-    ...PersonaAgentFields
-  }
-}
-
-# Post-mint persona refinement (#385). `createTeamPersona` composes the prompt
-# from the ROLE TEMPLATE, so a fresh persona is generic by construction —
-# everything that distinguishes this persona from the next one of the same role
-# is written afterwards. A persona IS an Agent, so this rides the ordinary
-# `updateAgent` mutation and only widens the selection to the persona columns.
-#
-# personaName is deliberately NOT wired: cor:agt:020:02 makes a persona name
-# permanent (the uniqueness indexes ignore deleted_at precisely so a name is
-# never re-minted), and a rename would free the old name for someone else while
-# merged PR trailers and chat history still reference it.
-#
-# omitempty: an unset flag is OMITTED, which the server reads as "preserve" —
-# an explicit null would CLEAR the column (CLAUDE.md wire-semantics gotcha), and
-# clearing a persona's identity prompt by forgetting a flag is exactly the
-# failure this command exists to avoid.
-#
-# #405: description and visibility ride here too. They are ordinary Agent
-# columns, but a persona is the noun that OWNS them — the mint derives both
-# (visibility from the team App's owner, description from the role's persona
-# template — #950), so "fix this persona" should not mean knowing which of two
-# command groups holds which field.
-mutation UpdateTeamPersona(
-  $ref: ID!
-  # @genqlient(omitempty: true)
-  $personaRole: String
-  # @genqlient(omitempty: true)
-  $personaPrompt: String
-  # @genqlient(omitempty: true)
-  $description: String
-  # @genqlient(omitempty: true)
-  $visibility: AgentVisibility
-) {
-  updateAgent(
-    ref: $ref
-    personaRole: $personaRole
-    personaPrompt: $personaPrompt
-    description: $description
-    visibility: $visibility
-  ) {
-    ...PersonaAgentFields
-  }
-}
-
-# THE roster read (#383). Under cor:agt:020:01 the roster IS the AppAgent
-# join, and until now only raw GraphQL exposed it: `persona list` / `agent list`
-# narrow the caller's whole readable agent set client-side, so they answer
-# "every persona I can read", not "who is on this team" — and `--app` (the
-# persistent App-CONTEXT flag) doesn't change that, which made them report
-# another App's persona as being on this team.
-#
-# App.agents is the 023-app-shape convenience over App.appAgents, so this needs
-# no paging: an App's installed set is small and bounded, unlike agents().
-query TeamRoster($appRef: ID!) {
-  app(ref: $appRef) {
-    id
-    urn
-    name
-    agents {
-      ...PersonaAgentFields
+      ...WorkerFields
     }
   }
 }
 
 # `hadron team chat` (#369 slice 2) — the team group chat as a PLATFORM
-# operation (hadron-server#939/#941, spec cor:agt:020:04): the server owns
-# placement (chats:team in the Team Agent's shared app memory, bootstrapped
-# on first post), atomic seq allocation, author derivation (sessionRef →
-# the session's bound persona), and write-time mention extraction. The CLI
-# composes no node and parses no mentions.
+# operation (hadron-server#939/#941, Worker envelope since #974, spec
+# cor:agt:020:04): the server owns placement (chats:team in the Team Agent's
+# shared app memory, bootstrapped on first post), atomic seq allocation,
+# author derivation (sessionRef → the session's bound worker), and write-time
+# mention extraction. The CLI composes no node and parses no mentions.
 
 fragment TeamChatMessageFields on TeamChatMessage {
   nodeId
@@ -159,7 +113,7 @@ fragment TeamChatMessageFields on TeamChatMessage {
   body
   at
   authorUserId
-  authorAgentId
+  authorWorkerId
   authorName
   sessionId
   replyToSeq
@@ -211,6 +165,7 @@ query TeamMemoryApp($ref: ID!) {
 fragment TeamSessionFields on Session {
   id
   agentId
+  workerId
   userId
   type
   repo
@@ -230,9 +185,7 @@ fragment TeamSessionFields on Session {
 # @genqlient(for: "SessionInput.agentRef", omitempty: true)
 # appRef (#943) arrived with a schema refresh, and a refreshed input field does
 # NOT inherit the surrounding omitempty — without this line every session start
-# would newly put `"appRef": null` on the wire. The CLI does not set it yet;
-# adopting it (so a user-started session can satisfy the team-chat authorship
-# gate, cor:agt:020:04) is #391.
+# would newly put `"appRef": null` on the wire.
 # @genqlient(for: "SessionInput.appRef", omitempty: true)
 # @genqlient(for: "SessionInput.branch", omitempty: true)
 # @genqlient(for: "SessionInput.customerId", omitempty: true)
@@ -246,6 +199,13 @@ fragment TeamSessionFields on Session {
 # @genqlient(for: "SessionInput.tool", omitempty: true)
 # @genqlient(for: "SessionInput.transcriptPath", omitempty: true)
 # @genqlient(for: "SessionInput.type", omitempty: true)
+# workerRef (#974 / cor:agt:020:03) binds the session to the Worker by ID —
+# Session.agentId is stamped server-side from the casting, so the CLI no
+# longer resolves an agent. Same refresh rule as appRef above.
+# @genqlient(for: "SessionInput.workerRef", omitempty: true)
+# force (#940) is the informed-takeover override: a worker with an ACTIVE
+# session refuses WORKER_TAKEN unless force is true. Sent only on --force.
+# @genqlient(for: "SessionInput.force", omitempty: true)
 mutation StartTeamSession(
   $input: SessionInput!
 ) {
@@ -288,18 +248,21 @@ query GetTeamSession($id: ID!) {
   }
 }
 
-# The sessions list has no agent/active filter server-side, so the presence
-# and takeover checks page this to exhaustion (ordered startedAt desc) and
-# filter client-side.
+# workerRef (#974) is the server-side narrowing the taken/last-driven-by check
+# reads: only sessions bound to that Worker (by id), newest first — so the
+# presence check no longer scans the whole list. The plain listing still pages
+# to exhaustion for --active (no active filter server-side).
 query TeamSessions(
   # @genqlient(omitempty: true)
   $repo: String
+  # @genqlient(omitempty: true)
+  $workerRef: String
   # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  sessions(repo: $repo, limit: $limit, offset: $offset) {
+  sessions(repo: $repo, workerRef: $workerRef, limit: $limit, offset: $offset) {
     ...TeamSessionFields
   }
 }
@@ -307,10 +270,14 @@ query TeamSessions(
 # ── Worklog (#947) — the dedicated operations. The CLI previously composed
 # worklog records itself and wrote them through the generic object surface,
 # which put the record shape in two places; the server owns it (hadron-cli#396).
+# Since #974 the record attributes through the Worker: workerName is the
+# denormalized display name (pre-#974 rows surface their stored personaName
+# here), workerId the casting behind it when the session was worker-bound.
 fragment TeamWorkItemFields on TeamWorkItem {
   nodeId
   sessionId
-  personaName
+  workerId
+  workerName
   tool
   kind
   ref

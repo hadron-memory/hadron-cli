@@ -229,6 +229,12 @@ func codeForExtension(code string) int {
 	case strings.HasSuffix(code, "_AMBIGUOUS") || strings.HasSuffix(code, "_NOT_INSTALLED") ||
 		strings.HasSuffix(code, "_TOO_LARGE"):
 		return exitcode.Usage
+	// #428: a worker with history refuses deletion, a retired worker refuses
+	// new sessions/authorship, and a taken worker refuses binding without
+	// force (#940) — state conflicts: retrying blind won't help until the
+	// state changes (cast a new worker, pick another one, or take over).
+	case code == "WORKER_IN_USE" || code == "WORKER_RETIRED" || code == "WORKER_TAKEN":
+		return exitcode.Conflict
 	default:
 		return exitcode.Error
 	}

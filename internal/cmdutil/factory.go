@@ -84,9 +84,9 @@ func (f *Factory) App() (string, error) {
 
 // NoteAppIsContextOnly warns on stderr that an explicitly-passed --app did NOT
 // scope this listing (#383). `--app` is the persistent App-CONTEXT flag, not a
-// filter, so `persona list --app <A>` and `agent list --app <A>` return the
-// same rows for every <A> — which is how a persona installed only in another
-// org's App came to be printed as though it were on this team.
+// filter, so `agent list --app <A>` returns the same rows for every <A> —
+// which is how an agent installed only in another org's App came to be
+// printed as though it were on this team.
 //
 // Only the explicit flag triggers the note: a configured default App is
 // ambient context nobody passed expecting a filter, so noting it on every
@@ -97,8 +97,8 @@ func (f *Factory) NoteAppIsContextOnly(scope string) {
 		return
 	}
 	fmt.Fprintf(f.IOStreams.ErrOut,
-		"note: --app sets the App context and does NOT scope this listing — these are %s, not the App's roster. Use `hadron team roster --app %s` for that.\n",
-		scope, f.AppFlag)
+		"note: --app sets the App context and does NOT scope this listing — these are %s, not the App's roster. Use `hadron app agent list %s` for the installed agents, or `hadron team worker list --app %s` for the staff.\n",
+		scope, f.AppFlag, f.AppFlag)
 }
 
 func (f *Factory) TokenStore() store.Store {

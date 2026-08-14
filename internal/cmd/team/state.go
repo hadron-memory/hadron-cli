@@ -14,19 +14,27 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-// binding is the per-worktree persona↔session binding that `session start`
+// binding is the per-worktree worker↔session binding that `session start`
 // writes and `whoami` reads back after a context compaction. It lives under
 // the worktree's RESOLVED git dir — `git rev-parse --git-dir`, never a
 // literal .git/ path: a linked worktree's .git is a file pointing at
 // <main>/.git/worktrees/<name>, and the binding must be per-worktree.
 type binding struct {
-	SessionID   string `json:"sessionId"`
-	AgentID     string `json:"agentId"`
-	AgentURN    string `json:"agentUrn"`
-	PersonaName string `json:"personaName"`
-	PersonaRole string `json:"personaRole"`
-	Server      string `json:"server"`
-	StartedAt   string `json:"startedAt"`
+	SessionID string `json:"sessionId"`
+	// WorkerID is the bound Worker's id (#428 — workers have no URN). A
+	// binding written by a pre-Worker CLI carries agentId/personaName instead
+	// and unmarshals with WorkerID empty: a DEGRADED read, not an error —
+	// `session end` still works (SessionID is all it needs, and it is the
+	// recovery path), while commands that need the worker (--mentions-me)
+	// say to start a new session.
+	WorkerID   string `json:"workerId"`
+	WorkerName string `json:"workerName"`
+	WorkerRole string `json:"workerRole"`
+	// AgentID is the role-agent behind the casting — informational (the
+	// server stamps Session.agentId itself from the worker).
+	AgentID   string `json:"agentId"`
+	Server    string `json:"server"`
+	StartedAt string `json:"startedAt"`
 	// AppBound records whether startSession was given an appRef — from -m, or
 	// from an ambient --app context. It decides which remedy a worklog
 	// diagnostic can honestly offer: `session log -m <mem>` can only work on a
@@ -43,7 +51,7 @@ type binding struct {
 	// Tool, Repo, and Model mirror the startSession provenance inputs: Tool
 	// flows into every worklog row (a flat queried field, D13/D14), Repo
 	// qualifies bare `--pr 371`-style refs, and Model becomes the chat
-	// identity of persona-posted messages.
+	// identity of worker-posted messages.
 	Tool  string `json:"tool"`
 	Repo  string `json:"repo"`
 	Model string `json:"model"`

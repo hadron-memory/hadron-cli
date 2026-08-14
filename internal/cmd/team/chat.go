@@ -22,9 +22,10 @@ import (
 // `teamChatMessages`. The server owns everything that used to live here —
 // placement (chats:team in the Team Agent's shared app memory, bootstrapped
 // on the first post), atomic seq allocation (#919), author derivation
-// (sessionRef → the session's bound persona; the driving session lands in the
-// envelope, D16), and write-time mention extraction. The CLI composes no
-// message node, allocates nothing, and never parses mentions.
+// (sessionRef → the session's bound worker, the Worker envelope since #974;
+// the driving session lands in the envelope, D16), and write-time mention
+// extraction. The CLI composes no message node, allocates nothing, and never
+// parses mentions.
 func newCmdTeamChat(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "chat <command>",
@@ -32,11 +33,11 @@ func newCmdTeamChat(f *cmdutil.Factory) *cobra.Command {
 		Long: `Post to and read the team App's group chat — ONE well-known chat per team
 App, owned end-to-end by the server (placement, ordering, authorship,
 mentions). With a worktree session binding (` + "`session start`" + `), posts are
-authored by the bound persona and carry the driving session; without one,
+authored by the bound worker and carry the driving session; without one,
 posts are authored by you.
 
 The team App resolves from --app (or the configured App context), falling
-back to the binding's team memory. Mention teammates as @persona-name /
+back to the binding's team memory. Mention teammates as @worker-name /
 @handle — a multiword name by its slug (@mary-jane).`,
 	}
 	cmd.AddCommand(newCmdTeamChatPost(f))
@@ -108,23 +109,23 @@ type teamChatMessageDTO struct {
 	// message as unauthored. A wrong field name yielding a plausible wrong
 	// answer rather than an error is the dangerous shape; one duplicated
 	// string makes both dialects' readers correct.
-	Author        *string  `json:"author"`
-	AuthorName    *string  `json:"authorName"`
-	AuthorUserID  *string  `json:"authorUserId"`
-	AuthorAgentID *string  `json:"authorAgentId"`
-	SessionID     *string  `json:"sessionId"`
-	ReplyToSeq    *int     `json:"replyToSeq"`
-	Mentions      []string `json:"mentions"`
+	Author         *string  `json:"author"`
+	AuthorName     *string  `json:"authorName"`
+	AuthorUserID   *string  `json:"authorUserId"`
+	AuthorWorkerID *string  `json:"authorWorkerId"`
+	SessionID      *string  `json:"sessionId"`
+	ReplyToSeq     *int     `json:"replyToSeq"`
+	Mentions       []string `json:"mentions"`
 }
 
 // authorKind labels a message's author for the human transcript. The canonical
-// envelope distinguishes a human post (authorUserId) from a persona post
-// (authorAgentId) — genuinely better than the old single `author` string, and
-// previously invisible outside --json (#406).
+// envelope distinguishes a human post (authorUserId) from a worker post
+// (authorWorkerId — the Worker envelope, #974) — genuinely better than the old
+// single `author` string, and previously invisible outside --json (#406).
 func (m teamChatMessageDTO) authorKind() string {
 	switch {
-	case m.AuthorAgentID != nil && *m.AuthorAgentID != "":
-		return " (persona)"
+	case m.AuthorWorkerID != nil && *m.AuthorWorkerID != "":
+		return " (worker)"
 	case m.AuthorUserID != nil && *m.AuthorUserID != "":
 		return " (human)"
 	default:
@@ -140,7 +141,7 @@ func teamChatMessageDTOFromFields(m gen.TeamChatMessageFields) teamChatMessageDT
 	return teamChatMessageDTO{
 		NodeID: m.NodeId, Seq: m.Seq, Body: m.Body, At: m.At,
 		Author: m.AuthorName, AuthorName: m.AuthorName,
-		AuthorUserID: m.AuthorUserId, AuthorAgentID: m.AuthorAgentId,
+		AuthorUserID: m.AuthorUserId, AuthorWorkerID: m.AuthorWorkerId,
 		SessionID: m.SessionId, ReplyToSeq: m.ReplyToSeq, Mentions: mentions,
 	}
 }
@@ -152,12 +153,13 @@ func newCmdTeamChatPost(f *cmdutil.Factory) *cobra.Command {
 		Use:   "post <body|-> [--reply-to <seq>]",
 		Short: "Post to the team chat",
 		Long: `Post one message to the team App's chat. With a worktree session binding,
-the message is authored by the bound PERSONA through that session (the
-server verifies the session is yours, active, and of this App, and records
-it — a persona message always traces to the human driving it); without a
-binding — or with --as-me — it is authored by you.
+the message is authored by the bound WORKER through that session (the
+server verifies the session is yours, active, and bound to a non-retired
+worker of this App, and records it — a worker message always traces to the
+human driving it); without a binding — or with --as-me — it is authored by
+you.
 
-Mentions (@persona-name / @handle; a multiword name by its slug, e.g.
+Mentions (@worker-name / @handle; a multiword name by its slug, e.g.
 @mary-jane) are extracted server-side into the message. The body is the
 positional argument (- reads stdin); --body/--body-file are accepted too,
 matching ` + "`hadron chat post`" + `. Exactly one source.
@@ -231,7 +233,7 @@ matching ` + "`hadron chat post`" + `. Exactly one source.
 	cmd.Flags().StringVar(&body, "body", "", "message body, or - to read from stdin")
 	cmd.Flags().StringVar(&bodyFile, "body-file", "", "read the message body from a file (multi-line safe)")
 	cmd.Flags().StringVar(&replyTo, "reply-to", "", "seq of the message this replies to; the server wires a reply edge")
-	cmd.Flags().BoolVar(&asMe, "as-me", false, "post as yourself even when a persona session is bound")
+	cmd.Flags().BoolVar(&asMe, "as-me", false, "post as yourself even when a worker session is bound")
 	// One body source is enforced in RunE (a cobra flag group can't see the
 	// positional form).
 	cmd.MarkFlagsMutuallyExclusive("body", "body-file")
@@ -254,19 +256,23 @@ func newCmdTeamChatRead(f *cmdutil.Factory) *cobra.Command {
 --since <seq> for only newer messages; the response's nextSince is the seq
 to pass next turn.
 
---mentions-me keeps only messages mentioning the bound persona;
---mentions <ref> filters for any roster member (a persona/agent ref or a
-user handle). The filter matches the mentions the SERVER extracted at
-write time — nothing is re-parsed — and with a filter active, nextSince
-advances only past the messages returned (skipped messages are re-scanned
-server-side next turn, which is free and never re-delivers them).
+--mentions-me keeps only messages mentioning the bound worker;
+--mentions <ref> filters for any staff member or App member (a worker name
+or id of this App, or a user handle/id — passed through to the server,
+which resolves it only against the App's own staff and members). The
+filter matches the mentions the SERVER extracted at write time — nothing
+is re-parsed — and with a filter active, nextSince advances only past the
+messages returned (skipped messages are re-scanned server-side next turn,
+which is free and never re-delivers them). Mention tokens carry no
+uniqueness guarantee (hadron-server#979): a token may match more than one
+worker, and the filter simply returns every match.
 
 --json names the author as BOTH ` + "`authorName`" + ` and ` + "`author`" + ` — the latter is an
 alias for readers written against ` + "`hadron chat read`" + `, the retired academy
 dialect, which calls the field ` + "`author`" + ` (#406). Prefer authorName. Unlike
-that dialect this output also separates authorUserId from authorAgentId, so
-a human post and a persona post are tellable apart; the transcript marks
-them "(human)" / "(persona)".`,
+that dialect this output also separates authorUserId from authorWorkerId, so
+a human post and a worker post are tellable apart; the transcript marks
+them "(human)" / "(worker)".`,
 		Example: `  hadron team chat read --since 42
   hadron team chat read --mentions-me --json`,
 		Args: cobra.NoArgs,
@@ -286,27 +292,19 @@ them "(human)" / "(persona)".`,
 				return exitcode.Newf(exitcode.Usage, "pass --mentions-me or --mentions <ref>, not both")
 			case mentionsMe:
 				if b == nil {
-					return exitcode.Newf(exitcode.Usage, "--mentions-me needs the worktree's persona — `hadron team session start --as <name>` first (or use --mentions <ref>)")
+					return exitcode.Newf(exitcode.Usage, "--mentions-me needs the worktree's worker — `hadron team session start --as <name>` first (or use --mentions <ref>)")
 				}
-				mentionsRef = optStr(b.AgentID)
+				mentionsRef = optStr(b.WorkerID)
 				if mentionsRef == nil {
-					mentionsRef = optStr(b.AgentURN)
-				}
-				if mentionsRef == nil {
-					return exitcode.Newf(exitcode.Usage, "the session binding carries no persona agent — re-run `hadron team session start --as <name>`")
+					return exitcode.Newf(exitcode.Usage, "the session binding carries no worker — re-run `hadron team session start --as <name>`")
 				}
 			case mentions != "":
+				// Passed through raw: the server resolves a worker id or NAME
+				// of this App, or a user handle/id, only against the App's own
+				// staff and members (no existence oracle) — so no client-side
+				// resolution, and no ambiguity error: mention tokens carry no
+				// uniqueness (hadron-server#979).
 				ref := strings.TrimSpace(mentions)
-				// A bare, non-URN value may be a persona NAME — resolve it
-				// against the roster so `--mentions Iris` works. Anything the
-				// roster doesn't know passes through raw: the server accepts
-				// agent/user ids, URNs, and bare user HANDLES (but not persona
-				// names, which is why the roster pass runs client-side).
-				if !strings.Contains(ref, ":") {
-					if p, pErr := resolvePersona(ctx, client, nil, ref); pErr == nil {
-						ref = p.Id
-					}
-				}
 				mentionsRef = &ref
 			}
 			appRef, err := resolveTeamApp(ctx, f, b)
@@ -363,7 +361,7 @@ them "(human)" / "(persona)".`,
 		},
 	}
 	cmd.Flags().IntVar(&since, "since", 0, "only messages with seq greater than this (0 = whole history)")
-	cmd.Flags().BoolVar(&mentionsMe, "mentions-me", false, "only messages mentioning the bound persona")
-	cmd.Flags().StringVar(&mentions, "mentions", "", "only messages mentioning this roster member (persona/agent ref or user handle)")
+	cmd.Flags().BoolVar(&mentionsMe, "mentions-me", false, "only messages mentioning the bound worker")
+	cmd.Flags().StringVar(&mentions, "mentions", "", "only messages mentioning this staff/App member (worker name or id, or user handle)")
 	return cmd
 }

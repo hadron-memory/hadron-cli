@@ -1,8 +1,10 @@
 // Package team implements `hadron team ...` — the team-coordination
-// surface (#369): personas and coding sessions. A persona IS an Agent
-// (personaName/personaRole/personaPrompt are pure metadata — no behavior
-// forks on "is a persona"), and "taken right now" derives from an active
-// Session. Group chat and the worklog are later slices of #369.
+// surface (#369, re-keyed to the Worker model in #428 / hadron-server#974).
+// A persona is pure DRESSING on an Agent (personaRole + a {{name}}-templated
+// personaPrompt — no behavior forks on "is a persona"); the named identity
+// ("Iris") is a WORKER, the casting of an installed Agent into an App
+// (cor:dmo:050:11). "Taken right now" derives from an active Session bound
+// to the worker.
 package team
 
 import (
@@ -22,207 +24,165 @@ import (
 func NewCmdTeam(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "team <command>",
-		Short: "Team coordination: personas and coding sessions",
-		Long: `Coordinate a team of humans and AI agents. A persona is a named AI team
-member ("Iris") that is re-driven across many sessions — by the same or a
-different human. A session binds the current git worktree to a persona and
-records provenance (host, tool, transcript path) so a merged PR traces back
-to the session that produced it.
+		Short: "Team coordination: workers and coding sessions",
+		Long: `Coordinate a team of humans and AI agents. A team IS an App
+(cor:agt:020:01): the installed agents are its cast pool, and its staff are
+WORKERS — named castings of an installed agent ("Iris", the backend-engineer
+agent cast into this App). A worker is re-driven across many sessions — by
+the same or a different human; a session binds the current git worktree to a
+worker and records provenance (host, tool, transcript path) so a merged PR
+traces back to the session that produced it.
 
 GETTING STARTED — standing up a team, in order
 
-Two of the six steps are not in this group, and one has no CLI surface at
-all, so the sequence is not discoverable from ` + "`hadron team --help`" + ` alone
-(#402). Note that ` + "`team init`" + ` — which sounds like step one — is optional
-and near the end.
+Two of the steps are not in this group, so the sequence is not discoverable
+from ` + "`hadron team --help`" + ` alone (#402).
 
-  1. hadron agent create --org <org> --name "<Team> Eng Team"
-       The TEAM AGENT. Its system memory holds the role definitions, so it
-       must be created under the org that should own them: an Agent's
-       system memory follows the AGENT's owner, and you cannot re-point it
-       afterwards (system-class memories are not mintable).
+  1. hadron agent create --org <org> --name backend-engineer \
+       --persona-role backend-engineer
+     hadron agent update <agent> --persona-prompt 'You are {{name}}, ...'
+       The ROLE AGENT, with its persona dressing: a role plus an identity
+       prompt TEMPLATE ({{name}}/{{role}} are bound at casting time). The
+       dressing is reusable — one backend-engineer agent can be cast into
+       many Apps, under many names.
 
-  2. hadron app install --org <org> --agent <team-agent> --name "<Team>"
-       The team APP. The roster IS the AppAgent join on this one App.
+  2. hadron app install --org <org> --agent <agent> --name "<Team>"
+       The team APP. ` + "`app agent add`" + ` installs further role agents into
+       it; the AppAgent join is the cast pool (` + "`app agent list`" + `).
 
-  3. Author roles:<role> nodes in the Team Agent's system memory.
-       NO CLI SURFACE YET (#403 read, #410 register writes; both need
-       hadron-server#960). The node's CONTENT is the prompt template, with
-       {{name}} and {{role}} placeholders; data.names is the ordered name
-       register the mint allocates from, in order. Until those land:
+  3. hadron team worker cast --app <app> --role <role>   (or --agent <ref>)
+       The named identity. The server resolves the agent, allocates a name
+       (explicit --name, or the Team Agent's cast-list register), binds the
+       template, and provisions the worker's working memory. The name is
+       PERMANENT per App (cor:agt:020:02).
 
-         hadron node create -m <team-agent-system-memory> \
-           --loc roles:backend-engineer --name backend-engineer \
-           --content-file role-prompt.md \
-           --data '{"names":["Fred","Gwen","Hans","Iris","Joe"]}'
+  4. hadron team session start --as <worker> -m <team-app-memory>
+       Binds this worktree. The session is App-bound through the worker;
+       -m names the worklog home so ` + "`session log`" + ` records milestones.
 
-       Use --data (not --data-merge) only on the FIRST write: it replaces
-       the whole bag, so a later edit that keeps sibling keys wants
-       --data-merge (#410).
-
-  4. hadron team persona create --app <app> --role <role>
-       Mints a persona: allocates a free name from the register, composes
-       the prompt, creates and installs the Agent — one platform call.
-       The name is PERMANENT (cor:agt:020:02), so get step 3 right first.
-
-  5. hadron team session start --as <persona> -m <team-app-memory>
-       Binds this worktree. Without -m the session records no worklog.
-
-  6. hadron team init -m <team-app-memory>            (optional)
+  5. hadron team init -m <team-app-memory>            (optional)
        Asks the server to converge the collection schemas it owns. NOT a
        precondition for anything — useful to repair a memory declared by
        an older CLI.
 
-Check any of it with ` + "`hadron team roster --app <app>`" + ` (who is installed)
-and ` + "`hadron team persona get <name>`" + ` (what a persona actually carries).`,
+Check any of it with ` + "`hadron team worker list --app <app>`" + ` (the staff)
+and ` + "`hadron app agent list <app>`" + ` (the installed cast pool).`,
 	}
 	cmd.AddCommand(newCmdInit(f))
-	cmd.AddCommand(newCmdRoster(f))
-	cmd.AddCommand(newCmdPersona(f))
+	cmd.AddCommand(newCmdWorker(f))
 	cmd.AddCommand(newCmdSession(f))
 	cmd.AddCommand(newCmdTeamChat(f))
 	return cmd
 }
 
-// personaDTO is the stable --json shape for a persona.
-type personaDTO struct {
+// workerDTO is the stable --json shape for a worker.
+type workerDTO struct {
 	ID             string  `json:"id"`
-	URN            string  `json:"urn"`
-	AgentName      string  `json:"agentName"`
-	PersonaName    string  `json:"personaName"`
-	PersonaRole    *string `json:"personaRole"`
-	PersonaPrompt  *string `json:"personaPrompt"`
-	Description    *string `json:"description"`
-	Visibility     string  `json:"visibility"`
-	OrganizationID *string `json:"organizationId"`
+	AppID          string  `json:"appId"`
+	AgentID        string  `json:"agentId"`
+	Name           string  `json:"name"`
+	Role           *string `json:"role"`
+	Prompt         *string `json:"prompt"`
+	PromptOverride *string `json:"promptOverride"`
+	MemoryID       *string `json:"memoryId"`
+	RetiredAt      *string `json:"retiredAt"`
+	RetiredBy      *string `json:"retiredBy"`
 	CreatedAt      string  `json:"createdAt"`
+	CreatedBy      *string `json:"createdBy"`
+	// Retired is the convenience read of retiredAt — a retired worker stops
+	// authoring and takes no new sessions; its name stays reserved forever.
+	Retired bool `json:"retired"`
 }
 
-func personaDTOFromFields(a gen.PersonaAgentFields) personaDTO {
-	name := ""
-	if a.PersonaName != nil {
-		name = *a.PersonaName
-	}
-	return personaDTO{
-		ID: a.Id, URN: a.Urn, AgentName: a.Name, PersonaName: name,
-		PersonaRole: a.PersonaRole, PersonaPrompt: a.PersonaPrompt,
-		Description: a.Description, Visibility: string(a.Visibility),
-		OrganizationID: a.OrganizationId, CreatedAt: a.CreatedAt,
+func workerDTOFromFields(w gen.WorkerFields) workerDTO {
+	return workerDTO{
+		ID: w.Id, AppID: w.AppId, AgentID: w.AgentId, Name: w.Name, Role: w.Role,
+		Prompt: w.Prompt, PromptOverride: w.PromptOverride, MemoryID: w.MemoryId,
+		RetiredAt: w.RetiredAt, RetiredBy: w.RetiredBy,
+		CreatedAt: w.CreatedAt, CreatedBy: w.CreatedBy,
+		Retired: w.RetiredAt != nil,
 	}
 }
 
-const rosterPageSize = 200
+const workerPageSize = 200
 
-// scanPersonaAgents pages the agents list to exhaustion (the server caps an
-// unbounded list at one default page) and returns the persona rows — agents
-// with a non-empty personaName. AgentFilter has no persona clause, so the
-// narrowing is client-side by design (#928: personas are metadata, not a
-// server-side kind).
-//
-// Two passes: the unfiltered list is the caller's MEMBER-ORG scope only,
-// while a persona minted without --org is a user-owned, org-less agent that
-// only `filter.ownedByMe: true` returns (#782) — so without an explicit org
-// scope both slices are read and merged (dedup by id, defensively; the
-// slices are disjoint by construction).
-func scanPersonaAgents(ctx context.Context, client graphql.Client, orgID *string) ([]gen.PersonaAgentFields, error) {
-	personas := []gen.PersonaAgentFields{}
-	seen := map[string]bool{}
-	collect := func(filter *gen.AgentFilter) error {
-		limit := rosterPageSize
-		for offset := 0; ; {
-			off := offset
-			resp, err := gen.PersonaAgents(ctx, client, orgID, filter, &limit, &off)
-			if err != nil {
-				return api.MapError(err)
+// scanWorkers pages one App's staff to exhaustion (the issue-#23 rule: an
+// unbounded list is one default page). includeRetired is always true here —
+// resolution and joins must see retired workers, since their names stay
+// bound to history; commands that hide them filter client-side.
+func scanWorkers(ctx context.Context, client graphql.Client, appRef string) ([]gen.WorkerFields, error) {
+	includeRetired := true
+	workers := []gen.WorkerFields{}
+	limit := workerPageSize
+	for offset := 0; ; {
+		off := offset
+		resp, err := gen.Workers(ctx, client, appRef, &includeRetired, &limit, &off)
+		if err != nil {
+			return nil, api.MapError(err)
+		}
+		if resp.Workers == nil {
+			return workers, nil
+		}
+		for _, w := range resp.Workers.Items {
+			if w == nil {
+				continue
 			}
-			if resp.Agents == nil {
-				return nil
-			}
-			for _, item := range resp.Agents.Items {
-				if item == nil || seen[item.Id] {
-					continue
-				}
-				seen[item.Id] = true
-				if item.PersonaName != nil && *item.PersonaName != "" {
-					personas = append(personas, item.PersonaAgentFields)
-				}
-			}
-			offset += len(resp.Agents.Items)
-			if len(resp.Agents.Items) < rosterPageSize || offset >= resp.Agents.Total {
-				return nil
-			}
+			workers = append(workers, w.WorkerFields)
+		}
+		offset += len(resp.Workers.Items)
+		if len(resp.Workers.Items) < workerPageSize || offset >= resp.Workers.Total {
+			return workers, nil
 		}
 	}
-	if err := collect(nil); err != nil {
-		return nil, err
-	}
-	if orgID == nil {
-		ownedByMe := true
-		if err := collect(&gen.AgentFilter{OwnedByMe: &ownedByMe}); err != nil {
-			return nil, err
-		}
-	}
-	return personas, nil
 }
 
-// resolvePersona turns a persona name or an agent ref (ID / URN) into the
-// persona's agent row. A ref containing ":" goes straight to the server; a
-// bare argument is matched case-insensitively against the roster's persona
-// names first (the server's uniqueness is per owner, so the same name can
-// exist in two orgs — that ambiguity is an error asking for --org or a URN),
-// then falls back to an agent-ID lookup.
-func resolvePersona(ctx context.Context, client graphql.Client, orgID *string, arg string) (gen.PersonaAgentFields, error) {
-	var zero gen.PersonaAgentFields
+// resolveWorker turns a worker name or a worker id into the worker row.
+// Names are App-scoped (unique per App, case-insensitively — cor:agt:020:02),
+// so a name needs an App to resolve in: appRef may be empty, in which case
+// only the id form can succeed (workers have no URN, so the id is the only
+// App-free spelling). The name pass sees retired workers too — retiring must
+// not make `worker get Iris` a not-found.
+func resolveWorker(ctx context.Context, client graphql.Client, appRef, arg string) (gen.WorkerFields, error) {
+	var zero gen.WorkerFields
 	arg = strings.TrimSpace(arg)
 	if arg == "" {
-		return zero, exitcode.Newf(exitcode.Usage, "empty persona reference")
+		return zero, exitcode.Newf(exitcode.Usage, "empty worker reference")
 	}
-	if strings.Contains(arg, ":") {
-		return getPersonaAgent(ctx, client, arg)
-	}
-	personas, err := scanPersonaAgents(ctx, client, orgID)
-	if err != nil {
-		return zero, err
-	}
-	matches := []gen.PersonaAgentFields{}
-	for _, p := range personas {
-		if p.PersonaName != nil && strings.EqualFold(*p.PersonaName, arg) {
-			matches = append(matches, p)
+	if appRef != "" {
+		workers, err := scanWorkers(ctx, client, appRef)
+		if err != nil {
+			return zero, err
+		}
+		for _, w := range workers {
+			if strings.EqualFold(w.Name, arg) || w.Id == arg {
+				return w, nil
+			}
 		}
 	}
-	switch len(matches) {
-	case 1:
-		return matches[0], nil
-	case 0:
-		// Not a known persona name — maybe a bare agent ID.
-		if p, err := getPersonaAgent(ctx, client, arg); err == nil {
-			return p, nil
-		}
-		return zero, exitcode.Newf(exitcode.NotFound, "no persona named %q — `hadron team persona list` shows the roster", arg)
-	default:
-		urns := make([]string, len(matches))
-		for i, m := range matches {
-			urns[i] = m.Urn
-		}
-		return zero, exitcode.Newf(exitcode.Conflict,
-			"persona name %q exists for more than one owner (%s) — pass --org, or the agent URN", arg, strings.Join(urns, ", "))
+	// Not a name in this App (or no App to look in) — try it as a worker id.
+	if resp, err := gen.GetWorker(ctx, client, arg); err == nil && resp.Worker != nil {
+		return resp.Worker.WorkerFields, nil
 	}
+	if appRef == "" {
+		return zero, exitcode.Newf(exitcode.NotFound,
+			"no worker %q — a worker NAME resolves within an App, so pass --app <ref> (or set an App context); a worker id works without one", arg)
+	}
+	return zero, exitcode.Newf(exitcode.NotFound,
+		"no worker %q in this App — `hadron team worker list` shows the staff", arg)
 }
 
-// getPersonaAgent fetches one agent by ref and requires it to be a persona.
-func getPersonaAgent(ctx context.Context, client graphql.Client, ref string) (gen.PersonaAgentFields, error) {
-	var zero gen.PersonaAgentFields
-	resp, err := gen.GetPersonaAgent(ctx, client, ref)
-	if err != nil {
-		return zero, api.MapError(err)
+func roleSuffix(role *string) string {
+	if role == nil || *role == "" {
+		return ""
 	}
-	if resp.Agent == nil {
-		return zero, exitcode.Newf(exitcode.NotFound, "persona %q not found", ref)
+	return " (" + *role + ")"
+}
+
+func dash(s *string) string {
+	if s == nil || *s == "" {
+		return "—"
 	}
-	if resp.Agent.PersonaName == nil || *resp.Agent.PersonaName == "" {
-		return zero, exitcode.Newf(exitcode.Usage, "agent %s has no persona name — not a persona (see `hadron agent get`)", resp.Agent.Urn)
-	}
-	return resp.Agent.PersonaAgentFields, nil
+	return *s
 }
 
 // optStr returns a pointer for a non-empty value, else nil (omitted on the wire).

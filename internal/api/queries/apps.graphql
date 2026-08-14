@@ -79,7 +79,6 @@ mutation InstallAgentIntoApp(
         id
         urn
         name
-        personaName
         personaRole
       }
       app {
@@ -100,5 +99,29 @@ mutation UninstallAgentFromApp($appRef: ID!, $agentRef: ID!) {
   uninstallAgentFromApp(appRef: $appRef, agentRef: $agentRef) {
     agentId
     appId
+  }
+}
+
+# The install-roster read (#408, re-homed from team.graphql in #428): the
+# AppAgent join answering "which Agents are installed in this App?". Under the
+# Worker model this is the INSTALL roster only — the App's STAFF (named
+# workers) is the Workers query in team.graphql. App.agents is the
+# 023-app-shape convenience over App.appAgents, so this needs no paging: an
+# App's installed set is small and bounded, unlike agents().
+query AppAgentRoster($appRef: ID!) {
+  app(ref: $appRef) {
+    id
+    urn
+    name
+    agents {
+      id
+      urn
+      name
+      description
+      visibility
+      organizationId
+      personaRole
+      createdAt
+    }
   }
 }

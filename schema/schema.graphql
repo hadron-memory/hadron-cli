@@ -130,10 +130,9 @@ type Agent {
   orgGrants: [AgentOrgGrant!]!
   organizationId: String
 
-  """Persona display name ('Iris'). Unique per owner, case-insensitively."""
-  personaName: String
-
-  """Persona identity paragraph; clients compose it into systemPrompt."""
+  """
+  Persona identity TEMPLATE ('You are {{name}}, ...'); {{name}}/{{role}} are bound at casting time (Worker.prompt returns the bound result).
+  """
   personaPrompt: String
 
   """Persona role - free string with conventions ('backend-engineer')."""
@@ -2525,6 +2524,49 @@ type Mutation {
   cancelAppRun(id: ID!): AppRun!
 
   """
+  #974 — cast a Worker (cor:dmo:050:11, cor:agt:020:01/:02): the named
+  casting of an agent ALREADY INSTALLED in the App, superseding
+  createTeamPersona's minting semantics (nothing is minted — the agent
+  carries the persona dressing; the Worker is the local named identity).
+  Casting is opt-in, never requires a Team Agent (an explicit name skips the
+  register entirely), and multiple castings of one agent per App are legal
+  (Iris and Henry, both backend-engineer).
+  
+  Agent resolution: agentRef when given (must be installed here —
+  WORKER_AGENT_NOT_INSTALLED); otherwise role picks the single installed
+  agent whose personaRole matches (zero / several candidates:
+  WORKER_AGENT_NOT_FOUND / WORKER_AGENT_AMBIGUOUS, never a guess). The
+  casting's role defaults to the agent's personaRole when role is omitted.
+  
+  Name allocation (cor:agt:020:02): a caller-supplied name wins (one
+  attempt — WORKER_NAME_TAKEN is the answer); otherwise the Team Agent's
+  cast-list register for the role (the roles:<role> node's data.names,
+  located as before: teamAgentRef, or the single installed agent with a
+  roles: branch) is walked first-to-last, advancing past WORKER_NAME_TAKEN —
+  the workers_app_name_uniq constraint IS the allocation primitive. Names
+  are unique per App, case-insensitively, FOREVER (two Apps may each have an
+  Iris; retirement and uninstall never free a name).
+  
+  A worker-scoped working memory is provisioned in the App's container
+  (Worker.memoryId; best-effort — a failed provision leaves it null for
+  lazy provisioning).
+  
+  Authorization: an org member with CONTRIBUTOR+ on the App's org, an
+  AppMember of the App whose role is not 'reader', or the owner of a
+  user-owned App. Pure App-key principals are denied.
+  
+  Error codes (extensions.code): WORKER_NAME_TAKEN,
+  WORKER_REGISTER_EXHAUSTED, WORKER_AGENT_NOT_INSTALLED,
+  WORKER_AGENT_NOT_FOUND, WORKER_AGENT_AMBIGUOUS, WORKER_ROLE_NOT_FOUND,
+  TEAM_AGENT_NOT_FOUND, TEAM_AGENT_AMBIGUOUS, TEAM_AGENT_NOT_INSTALLED,
+  SESSION_EXPIRED (encrypted system memory without an active session key),
+  APP_UNINSTALLED.
+  
+  Accepts the entity's ID or URN for appRef, agentRef, and teamAgentRef.
+  """
+  castWorker(agentRef: ID, appRef: ID!, name: String, promptOverride: String, role: String, teamAgentRef: ID): Worker!
+
+  """
   Clear an Agent's AI provider config.
   
   036-ai-service-config: deletes the Agent's registry config named
@@ -2570,9 +2612,13 @@ type Mutation {
   v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
   (org XOR user).
   
+  personaRole / personaPrompt are the persona dressing (cor:agt:020:01) —
+  the reusable role plus the '{{name}}'-templated identity prompt. The NAMED
+  identity is a Worker, cast with castWorker; names never live on agents.
+  
   orgId accepts the org's ID or URN.
   """
-  createAgent(description: String, name: String!, orgId: ID, personaName: String, personaPrompt: String, personaRole: String, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, visibility: AgentVisibility): Agent!
+  createAgent(description: String, name: String!, orgId: ID, personaPrompt: String, personaRole: String, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, visibility: AgentVisibility): Agent!
 
   """
   Subscribe an organization to a PUBLIC Agent without creating an App.
@@ -2923,14 +2969,15 @@ type Mutation {
   The message is written through the atomic chat-message allocator (#919),
   so racing posts get distinct consecutive seqs.
   
-  Author derivation: with sessionRef, the message is authored by that
-  session's bound persona (the session must be writable by the caller, a
-  session OF this App, active, and agent-bound) and the envelope records
-  the driving sessionId; without it, by the calling human. Mentions
-  ('@persona-name' / '@handle'; a multi-word name is mentioned by its
-  slug, e.g. '@mary-jane') are extracted server-side at write time into
-  the envelope. replyToSeq wires a replies-to edge to the cited message.
-  body is capped at 65536 characters.
+  Author derivation (#974): with sessionRef, the message is authored by
+  that session's bound Worker (the session must be writable by the caller, a
+  session OF this App, active, and bound to a non-retired Worker OF this
+  App — the worker-App pin, checked at post time so retirement revokes) and
+  the envelope records the driving sessionId; without it, by the calling
+  human. Mentions ('@worker-name' / '@handle'; a multi-word name is
+  mentioned by its slug, e.g. '@mary-jane') are extracted server-side at
+  write time into the envelope. replyToSeq wires a replies-to edge to the
+  cited message. body is capped at 65536 characters.
   
   Authorization: an AppMember of the App (any role — every member of the
   host is a participant per cor:acl:030:01), an org member with
@@ -2939,56 +2986,16 @@ type Mutation {
   
   Error codes (extensions.code): TEAM_CHAT_BODY_TOO_LARGE,
   TEAM_CHAT_REPLY_NOT_FOUND, SESSION_NOT_FOUND, SESSION_NOT_IN_APP (the
-  session belongs to a different App — a persona never authors across
-  Apps), SESSION_ENDED, SESSION_NOT_PERSONA_BOUND, SESSION_EXPIRED
-  (encrypted team memory without an active session key),
+  session belongs to a different App — a worker never authors across
+  Apps), SESSION_ENDED, SESSION_NOT_WORKER_BOUND,
+  SESSION_WORKER_NOT_IN_APP (the worker-App pin), WORKER_RETIRED,
+  SESSION_EXPIRED (encrypted team memory without an active session key),
   TEAM_AGENT_NOT_FOUND / TEAM_AGENT_AMBIGUOUS (first-post bootstrap could
   not locate the Team Agent), APP_UNINSTALLED, FORBIDDEN.
   
   appRef accepts the entity's ID or URN; sessionRef is the session id.
   """
   createTeamChatMessage(appRef: ID!, body: String!, replyToSeq: Int, sessionRef: ID): TeamChatMessage!
-
-  """
-  #935 — mint a team persona: role-template + name-register instantiation as
-  a platform operation (spec cor:agt:020:01/:02). Locates the Team Agent
-  among the App's installed Agents (teamAgentRef when given; otherwise the
-  single installed Agent whose system memory carries a 'roles:' branch —
-  zero or several candidates is a typed error, never a guess), reads the
-  role definition node 'roles:<role>' from that system memory (prompt
-  template in content, name register in data.names), allocates a name (a
-  caller-supplied name wins; otherwise the register's next free name,
-  advancing past PERSONA_NAME_TAKEN per the allocation contract), composes
-  personaPrompt from the template ({{name}} and {{role}} placeholders),
-  creates the Agent owned by the App's owner with personaRole set, and
-  installs it into the App (AppAgent row) so the minted persona is on the
-  roster immediately. Returns the created Agent — clients print its
-  personaPrompt as the persona's boot briefing.
-  
-  Persona metadata (#950): visibility follows the team App's owner —
-  ORGANIZATION for an org-owned App (the roster is the team's shared view of
-  who is on it), PERSONAL for a user-owned one. The Agent's description is
-  the role node's 'data.personaDescription' template when set (same
-  {{name}}/{{role}} substitution as the prompt, keeping the raw role slug),
-  otherwise the synthesized 'AI coding agent using <role> role' with the role
-  slug humanized for prose ('backend-engineer' renders 'backend engineer').
-  It is NEVER the role node's own description, which describes the
-  role-definition artifact rather than the persona.
-  
-  Authorization: an org member with CONTRIBUTOR+ on the App's org, an
-  AppMember of the App whose role is not 'reader', or the owner of a
-  user-owned App. Pure App-key principals are denied.
-  
-  Error codes (extensions.code): TEAM_AGENT_NOT_FOUND, TEAM_AGENT_AMBIGUOUS,
-  TEAM_AGENT_NOT_INSTALLED, PERSONA_ROLE_NOT_FOUND, PERSONA_ROLE_INVALID,
-  PERSONA_NAME_TAKEN, PERSONA_REGISTER_EXHAUSTED, AGENT_URN_TAKEN (an
-  explicit name whose derived slug is occupied by a non-persona Agent or
-  reserved by a retired persona), SESSION_EXPIRED (encrypted system memory
-  without an active session key), APP_UNINSTALLED.
-  
-  Accepts the entity's ID or URN for appRef and teamAgentRef.
-  """
-  createTeamPersona(appRef: ID!, name: String, role: String!, teamAgentRef: ID): Agent!
 
   """
   025-oauth-for-mcp FR-004: mint a new user-scoped API key for the
@@ -3170,6 +3177,15 @@ type Mutation {
   """
   deleteUser(userRef: ID): Boolean!
 
+  """
+  #974 — hard-delete a NEVER-USED miscast (cor:dmo:050:11's only removal
+  escape): refused with WORKER_IN_USE unless no session was ever bound and
+  the worker's working memory holds no content. Anything with history
+  retires instead — its name is bound to that history forever. Also removes
+  the empty working memory. Same authorization as castWorker.
+  """
+  deleteWorker(workerRef: ID!): Boolean!
+
   """Set the categories (color labels) on a message. Owner-only."""
   emailCategorizeMessage(categories: [String!]!, connectionRef: ID!, messageId: ID!): Boolean!
 
@@ -3312,14 +3328,14 @@ type Mutation {
   credential addresses all of them.
   
   This is the ONE operation that attaches an EXISTING Agent to an EXISTING
-  App — distinct from createApp (which makes a NEW App from an Agent) and
-  createTeamPersona (which installs an Agent it mints in the same call). It
+  App — distinct from createApp (which makes a NEW App from an Agent). It
   is therefore also the re-attach that cor:dmo:050:03 promises: detaching an
   Agent retains the memories accumulated under that App-and-Agent pairing as
   orphans, and installing the Agent again is what makes them reachable.
-  Under cor:agt:020:01 the AppAgent join IS a team's roster, so this is how a
-  roster is composed: adding an existing persona to a second team App, or
-  putting back one uninstalled by mistake.
+  Under cor:agt:020:01 the AppAgent join is a team's install ROSTER (which
+  agents are available); the App's STAFF are its Workers, cast from
+  installed agents with castWorker. Worker rows survive uninstall
+  (cor:dmo:050:11) — uninstalling severs future casting, not history.
   
   Rejects with code DUPLICATE_APP_AGENT when the Agent is already
   installed in the App.
@@ -3454,10 +3470,16 @@ type Mutation {
   CONTRIBUTOR+ on the App's org, or the owner of a user-owned App. A pure
   App-key principal may NOT record (read-only on the worklog).
   
+  A worker-bound session records under its Worker's name (#974,
+  cor:agt:020:05) — the worker must belong to THIS App and not be retired
+  (SESSION_WORKER_NOT_IN_APP / WORKER_RETIRED — a retired or foreign
+  worker refuses rather than reshaping the attribution); an unbound
+  session records under the attributed user's handle.
+  
   Typed refusals: WORK_REF_INVALID, SESSION_NOT_FOUND, SESSION_NOT_IN_APP,
-  SESSION_AGENT_NOT_IN_APP, TEAM_AGENT_NOT_FOUND / TEAM_AGENT_AMBIGUOUS
-  (first-write bootstrap could not locate the Team Agent),
-  APP_UNINSTALLED, FORBIDDEN, BAD_USER_INPUT.
+  SESSION_WORKER_NOT_IN_APP, WORKER_RETIRED, TEAM_AGENT_NOT_FOUND /
+  TEAM_AGENT_AMBIGUOUS (first-write bootstrap could not locate the Team
+  Agent), APP_UNINSTALLED, FORBIDDEN, BAD_USER_INPUT.
   
   appRef accepts the entity's ID or URN; sessionRef is the session id.
   """
@@ -3597,6 +3619,17 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   restoreRevision(agentId: ID!, revisionLoc: String!): RevisionResult!
+
+  """
+  #974 — retire a Worker (cor:agt:020:02): end the casting while reserving
+  its name FOREVER. A retired worker stops authoring team chat at once (the
+  worker-App pin checks retirement at post time), takes no new work records,
+  and refuses new session bindings; the row and its name reservation
+  survive. Idempotent — retiring an already-retired worker returns it
+  unchanged. Same authorization as castWorker. workerRef is the worker's id
+  (workers have no URN).
+  """
+  retireWorker(workerRef: ID!): Worker!
 
   """
   #882 — re-drive every FAILED embed in a memory (the operator recovery
@@ -3761,9 +3794,14 @@ type Mutation {
   """
   Update an Agent.
   
+  urn renames the slug (org-owned agents only). personaRole / personaPrompt
+  are the persona dressing (cor:agt:020:01); explicit null or blank clears,
+  omitted preserves. Worker castings referencing this agent are unaffected —
+  the named identity lives on the Worker.
+  
   Accepts the entity's ID or URN.
   """
-  updateAgent(description: String, listedOnMarketplace: Boolean, name: String, personaName: String, personaPrompt: String, personaRole: String, ref: ID!, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, urn: String, visibility: AgentVisibility): Agent!
+  updateAgent(description: String, listedOnMarketplace: Boolean, name: String, personaPrompt: String, personaRole: String, ref: ID!, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, urn: String, visibility: AgentVisibility): Agent!
 
   """
   Update an Agent's AI provider config. Key is encrypted at rest.
@@ -5703,7 +5741,11 @@ type Query {
   """
   serverInfo: ServerInfo!
   session(id: ID!): Session
-  sessions(customerId: String, limit: Int, offset: Int, repo: String, type: String): [Session!]!
+
+  """
+  workerRef (#974): only sessions bound to that Worker (by id), newest first - the 'taken right now' / 'last driven by' read (cor:agt:020:03).
+  """
+  sessions(customerId: String, limit: Int, offset: Int, repo: String, type: String, workerRef: String): [Session!]!
 
   """
   Fetch one Slack connection by id (spec 043). Returns null when the row
@@ -5726,12 +5768,13 @@ type Query {
   { items, total } page. sinceSeq is a watermark cursor: only messages with
   seq STRICTLY GREATER than it are returned (pass the last seq you have
   seen). mentionsRef filters to messages whose stored envelope mentions the
-  referenced persona (Agent ref) or user (user ref) — matching runs against
-  the mention tokens extracted at write time, never by re-parsing bodies.
-  The ref must name a member of THIS App's roster (an installed Agent, an
-  AppMember, or the caller); an unresolvable or off-roster mentionsRef
-  yields the empty page identically (no existence oracle). limit defaults
-  to 50 (cap 200); limit: 0 returns only total.
+  referenced worker (a Worker id or name of THIS App, retired included) or
+  user (handle/id) — matching runs against the mention tokens extracted at
+  write time, never by re-parsing bodies. The ref must name this App's own
+  staff or members (a Worker of the App, an AppMember, or the caller); an
+  unresolvable or foreign mentionsRef yields the empty page identically (no
+  existence oracle). limit defaults to 50 (cap 200); limit: 0 returns only
+  total.
   
   Authorization: an AppMember of the App (any role), an org member with
   CONTRIBUTOR+ on the App's org, the owner of a user-owned App, or the
@@ -5838,6 +5881,23 @@ type Query {
   truncation. Read gate as the rest of the memory reads.
   """
   validateMemory(limit: Int, memoryRef: ID!): MemoryValidationResult!
+
+  """
+  One Worker by id (#974; workers have no URN, so ref is the PK only).
+  Authorization: an AppMember of the worker's App (any role), an org member
+  with CONTRIBUTOR+ on its org, the owner of a user-owned App, or the App's
+  own key.
+  """
+  worker(ref: ID!): Worker
+
+  """
+  A team App's STAFF (#974, cor:agt:020:01 — Workers are the staff; the
+  AppAgent join is the install roster): the App's castings, oldest first,
+  as a uniform { items, total } page. Retired castings are hidden unless
+  includeRetired. Same authorization as worker. appRef accepts the App's
+  ID or URN.
+  """
+  workers(appRef: ID!, includeRetired: Boolean, limit: Int, offset: Int): WorkersPage!
 }
 
 """
@@ -6108,6 +6168,9 @@ type ServerInfo {
 }
 
 type Session {
+  """
+  The role-agent driving the session (with workerId set, the agent behind the casting).
+  """
   agentId: String
   appId: String
   autoExpiredAt: DateTime
@@ -6145,14 +6208,31 @@ type Session {
   turnCount: Int
   type: String!
   userId: String
+
+  """
+  #980 / cor:agt:020:02: the Worker behind workerId, nested — so a session
+  list can render the app-qualified compound ('eng-team/Iris') without a
+  per-row worker(ref:) + app(ref:) round trip (Worker carries name and app).
+  Resolves for RETIRED workers too: retirement ends the casting, not the
+  history, so past sessions stay attributable. Worker.app and Worker.agent
+  run their OWN read gates and mask to null on deny (#552), so this nesting
+  never widens what the session read admits.
+  """
+  worker: Worker
+
+  """
+  #974 / cor:agt:020:03: the Worker (named casting) this session works as.
+  """
+  workerId: String
 }
 
 input SessionInput {
   """
-  #928 / cor:api:140: the Agent (persona) driving this session, as a PK or
-  URN. Resolves to Session.agentId. The caller must be able to READ the
-  agent (PUBLIC, or owner / org member) - a session is never attributed to
-  an agent the caller cannot see.
+  #928 / cor:api:140: the role-Agent driving this session, as a PK or URN.
+  Resolves to Session.agentId. The caller must be able to READ the agent
+  (PUBLIC, or owner / org member) - a session is never attributed to an
+  agent the caller cannot see. Usually omitted with workerRef, which derives
+  it from the casting.
   """
   agentRef: String
 
@@ -6177,17 +6257,46 @@ input SessionInput {
   appRef: String
   branch: String
   customerId: String
+
+  """
+  #940: take over a worker whose binding would otherwise refuse WORKER_TAKEN.
+  Only meaningful with workerRef. Clients must surface the WORKER_TAKEN
+  payload (who last drove it, when) before retrying with force - that IS the
+  informed-takeover contract; force exists so the override is explicit,
+  never the default.
+  """
+  force: Boolean
   host: String
   id: String!
   language: String
   llmModel: String
   parentSessionId: String
+
+  """
+  The session's stated intent (Session.plan) - what this session is about. MCP's hadron_start_session description lands here.
+  """
+  plan: String
   prNumber: Int
   prevSessionId: String
   repo: String
   tool: String
   transcriptPath: String
   type: String
+
+  """
+  #974 / cor:agt:020:03: the Worker (named casting) this session works as -
+  the worker's id (workers have no URN; names never enter URNs, cor:agt:020:02).
+  Resolves to Session.workerId, and stamps Session.agentId with the worker's
+  role-agent. The worker must belong to the session's App: with appRef (or an
+  App-key credential) it must match the worker's App; without one, the
+  worker's App becomes the session's, behind the same membership gate as
+  appRef. A retired worker refuses (WORKER_RETIRED). #940: a worker with an
+  ACTIVE session refuses WORKER_TAKEN — extensions carry workerId, sessionId,
+  lastDriver, lastSeenAt, everything the takeover prompt needs — unless
+  force is true (informed takeover, cor:agt:020:03: show who last drove it,
+  proceed only on explicit override, never silently).
+  """
+  workerRef: String
 }
 
 input SetAgentAssetUploadEnabledInput {
@@ -6289,19 +6398,20 @@ enum SyncStatus {
 }
 
 """
-One message in a team App's chat (#939). Exactly one of authorUserId /
-authorAgentId is set: a human post carries the user, a persona post carries
-the persona Agent plus the driving sessionId. mentions holds the lowercased
-tokens extracted server-side at write time (the '@persona-name / @handle'
-format, stored without the '@').
+One message in a team App's chat (#939, Worker envelope since #974). Exactly
+one of authorUserId / authorWorkerId is set: a human post carries the user, a
+worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
+driving sessionId. mentions holds the lowercased tokens extracted
+server-side at write time (the '@worker-name / @handle' format, stored
+without the '@').
 """
 type TeamChatMessage {
   at: DateTime!
-  authorAgentId: ID
 
-  """Display convenience: the persona name or the user handle."""
+  """Display convenience: the worker name or the user handle."""
   authorName: String
   authorUserId: ID
+  authorWorkerId: ID
   body: String!
   mentions: [String!]!
 
@@ -6316,7 +6426,7 @@ type TeamChatMessage {
   """
   seq: Int!
 
-  """The session driving the persona author, when posted via sessionRef."""
+  """The session driving the worker author, when posted via sessionRef."""
   sessionId: ID
 }
 
@@ -6365,11 +6475,6 @@ type TeamWorkItem {
   """The record node's id."""
   nodeId: ID!
 
-  """
-  Display convenience, denormalized at write: the session's bound persona name, else the attributed user's handle.
-  """
-  personaName: String!
-
   """The canonical artifact ref — the equality-lookup key."""
   ref: String!
 
@@ -6378,6 +6483,16 @@ type TeamWorkItem {
 
   """The external tool the artifact lives in ('github', ...). Lowercased."""
   tool: String!
+
+  """
+  The Worker (named casting) behind the record, when the session was worker-bound.
+  """
+  workerId: ID
+
+  """
+  Display convenience, denormalized at write: the session's bound worker name, else the attributed user's handle (pre-#974 records surface their stored personaName here).
+  """
+  workerName: String!
 }
 
 type TeamWorkItemsPage {
@@ -6677,5 +6792,59 @@ type UserInvitation {
 
 type UsersPage {
   items: [User!]!
+  total: Int!
+}
+
+"""
+A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+The Agent carries the reusable persona dressing; the Worker is the local
+named identity that does attributable work. Names are unique per App,
+case-insensitively, forever (retirement and uninstall never free them —
+cor:agt:020:02); rows survive the agent's uninstall. Workers have no URN.
+"""
+type Worker {
+  """The role-agent behind the casting."""
+  agent: Agent
+  agentId: ID!
+
+  """The App whose staff this casting fills."""
+  app: App
+  appId: ID!
+  createdAt: DateTime!
+  createdBy: String
+  id: ID!
+
+  """
+  The worker-scoped working memory in the App's container (null until provisioned).
+  """
+  memoryId: ID
+
+  """The worker's name ('Iris') — the identity every surface renders."""
+  name: String!
+
+  """
+  The worker's boot prompt, resolved: the agent's personaPrompt template
+  with {{name}}/{{role}} bound, then promptOverride appended as its own
+  paragraph. Null when the agent carries no template and the worker no
+  override.
+  """
+  prompt: String
+
+  """Per-worker individuality layered over the agent's template prompt."""
+  promptOverride: String
+
+  """
+  Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
+  """
+  retiredAt: DateTime
+  retiredBy: String
+
+  """The cast-list role this filling answers ('backend-engineer')."""
+  role: String
+}
+
+type WorkersPage {
+  items: [Worker!]!
   total: Int!
 }

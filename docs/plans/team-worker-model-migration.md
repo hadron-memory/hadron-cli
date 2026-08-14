@@ -1,7 +1,8 @@
 # Implementation Plan: adopt the Worker model (#428)
 
-> **Status: not started** — plan written ahead of the work, from the CLI side,
-> to make the migration session efficient. Server side is done:
+> **Status: implemented** — this PR is the migration. The plan was written
+> ahead of the work (originally PR #430); the "Open questions" section below
+> records the decisions as taken. Server side:
 > hadron-server#974 (merged via #978, plus the #979 mention-token reversal),
 > specs `cor:dmo:050:11` and `cor:agt:020` v0.0.3.
 
@@ -84,21 +85,23 @@ grepping. Refresh first, then let the compiler enumerate the work.
   is the hard escape and refuses `WORKER_IN_USE` unless the worker never did
   anything. Keep `retire`'s confirmation copy honest about which is which.
 
-## Open questions — decide before writing code
+## Open questions — as decided in this PR
 
-1. **Do `team persona *` commands survive as aliases?** They shipped days ago
-   with near-zero adoption, which argues for removing them outright rather than
-   carrying a deprecated surface.
-2. **`team roster`'s fate.** Holger's call (2026-08-14) was to retire it in
-   favour of `app agent list` + an App-scoped worker/persona list, on REST-shape
-   grounds. The Worker model makes `team worker list --app` the natural spelling,
-   so this migration is the moment to do it. See #407.
-3. **PR trailer format.** `Persona: eng-team/Iris` — the app-qualified compound.
-   Confirm whether the trailer key stays `Persona:` now that the noun is Worker.
-4. **Re-scoping the sub-issues.** #403 (role list), #404 (dry-run), #407 (per-App
-   list), #410 (register writes) were all written against the persona model.
-   #404's `--dry-run` in particular may be answered by `castWorker` itself
-   rather than needing hadron-server#964.
+1. **`team persona *` removed outright, no aliases.** Shipped days ago with
+   near-zero adoption; carrying a deprecated surface would cost more than it
+   saves. The persona-dressing editor (`personaRole`/`personaPrompt`) moved to
+   `agent update --persona-role/--persona-prompt`, where agent metadata lives.
+2. **`team roster` retired** per Holger's 2026-08-14 call: `app agent list` is
+   the install roster (cast pool), `team worker list --app` the staff. The
+   shared read (`approster`) now serves only the `app` noun, re-pointed at a
+   slimmer `AppAgentRoster` query (no `personaName` — it no longer exists).
+3. **PR trailer key stays `Persona:`**, value becomes the app-qualified
+   compound `Persona: eng-team/Iris` — matching the epic and cor:agt:020:03's
+   own spelling.
+4. **Sub-issue re-scoping** stays follow-up work: #403 (role list), #404
+   (dry-run), #407 (per-App list — partly answered by `team worker list`),
+   #410 (register writes) were written against the persona model and need
+   re-cutting against `castWorker`'s server-side allocation.
 
 ## Not in scope
 

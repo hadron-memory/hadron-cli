@@ -21,7 +21,6 @@ type appAgentDTO struct {
 	AgentID     string  `json:"agentId"`
 	AgentURN    string  `json:"agentUrn"`
 	AgentName   string  `json:"agentName"`
-	PersonaName *string `json:"personaName"`
 	PersonaRole *string `json:"personaRole"`
 	InstalledAt string  `json:"installedAt"`
 	Status      string  `json:"status"`
@@ -73,11 +72,11 @@ func newCmdAgentAdd(f *cmdutil.Factory) *cobra.Command {
 cor:dmo:050:03). Both refs take an ID or a URN.
 
 This is not ` + "`hadron app install`" + `, which creates a NEW App from an Agent.
-This composes the roster of an App you already have: adding a persona to a
-second team App, putting back one uninstalled by mistake, or re-attaching an
-Agent to reach the memories accumulated under it — cor:dmo:050:03 keeps those
-"ready to re-attach if the Agent is installed again", and this is the surface
-that does it.
+This composes the roster of an App you already have: adding a role agent to a
+second team App's cast pool, putting back one uninstalled by mistake, or
+re-attaching an Agent to reach the memories accumulated under it —
+cor:dmo:050:03 keeps those "ready to re-attach if the Agent is installed
+again", and this is the surface that does it.
 
 --training-mode is PER-APP, not per-Agent (spec 023 FR-001), so setting it
 here changes the flag for every Agent installed in this App. It is omitted
@@ -109,17 +108,13 @@ Agent grants read access to its design.`,
 			dto := appAgentDTO{Status: "installed", InstalledAt: row.CreatedAt}
 			if row.Agent != nil {
 				dto.AgentID, dto.AgentURN, dto.AgentName = row.Agent.Id, row.Agent.Urn, row.Agent.Name
-				dto.PersonaName, dto.PersonaRole = row.Agent.PersonaName, row.Agent.PersonaRole
+				dto.PersonaRole = row.Agent.PersonaRole
 			}
 			if row.App != nil {
 				dto.AppID, dto.AppURN = row.App.Id, row.App.Urn
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				who := dto.AgentName
-				if dto.PersonaName != nil && *dto.PersonaName != "" {
-					who = *dto.PersonaName
-				}
-				_, err := fmt.Fprintf(w, "✓ installed %s (%s) into %s\n", who, dto.AgentURN, dto.AppURN)
+				_, err := fmt.Fprintf(w, "✓ installed %s (%s) into %s\n", dto.AgentName, dto.AgentURN, dto.AppURN)
 				return err
 			})
 		},
