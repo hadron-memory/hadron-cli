@@ -110,6 +110,24 @@ func CollectMessages(ctx context.Context, client graphql.Client, c Coords, since
 				continue
 			}
 			n := h.Node
+			// #412: the message-PARENT container comes back from the prefix
+			// filter alongside its children, and parsed as a message it reads
+			// as `seq: null, author: "unknown", body: ""` — indistinguishable
+			// in the JSON from a genuinely malformed post, and off-by-one on
+			// any count. Its nil seq excludes it from `--since <n>` reads,
+			// which is why it only surfaces on a full-history read: the one a
+			// new session does on its first turn.
+			//
+			// Excluded by exact loc, NOT by node type. Type-filtering looks
+			// like the more honest predicate, but this reader exists to serve
+			// the RETIRED academy dialect (kept unmigrated because its seq
+			// numbers are the citation mechanism), whose messages predate the
+			// chat-message nodeType — so filtering on type would drop the very
+			// messages the command is for. The container, by contrast, is
+			// exactly the loc we asked about.
+			if n.Loc == c.MessagesLoc {
+				continue
+			}
 			if since > 0 && (n.Seq == nil || *n.Seq <= since) {
 				continue
 			}
