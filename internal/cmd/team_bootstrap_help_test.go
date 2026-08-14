@@ -20,18 +20,34 @@ func TestTeamHelpCarriesTheBootstrapOrder(t *testing.T) {
 	}
 	help := buf.String()
 
-	// The steps that are NOT in this group are the ones nobody would guess.
-	for _, want := range []string{"agent create", "app install", "roles:<role>", "persona create"} {
-		if !strings.Contains(help, want) {
-			t.Errorf("team --help must name the %q step: %s", want, help)
-		}
+	// The ORDER is the contract, so assert all six markers appear in
+	// increasing position — checking only init-after-mint would let
+	// App-before-Agent or persona-before-role-authoring pass (PR #421 review).
+	steps := []string{
+		"hadron agent create",
+		"hadron app install",
+		"roles:<role>",
+		"hadron team persona create",
+		"hadron team session start",
+		"hadron team init",
 	}
-	// `team init` sounds like step one and is nearly last — say so, since
-	// that specific inversion is what the issue reports.
-	initIdx := strings.Index(help, "hadron team init")
-	mintIdx := strings.Index(help, "hadron team persona create")
-	if initIdx < 0 || mintIdx < 0 || initIdx < mintIdx {
-		t.Errorf("`team init` must appear AFTER minting, not before: init=%d mint=%d", initIdx, mintIdx)
+	prev := -1
+	for _, want := range steps {
+		i := strings.Index(help, want)
+		if i < 0 {
+			t.Fatalf("team --help must name the %q step:\n%s", want, help)
+		}
+		if i <= prev {
+			t.Errorf("step %q is out of order (position %d, previous %d):\n%s", want, i, prev, help)
+		}
+		prev = i
+	}
+	// The interim role-node command must be executable as printed: `node
+	// create` requires --name, and the prompt/register are the whole point
+	// (PR #421 review).
+	if !strings.Contains(help, "--name backend-engineer") || !strings.Contains(help, "--content-file") ||
+		!strings.Contains(help, `"names"`) {
+		t.Errorf("the interim role-node command must be complete (name, content, register):\n%s", help)
 	}
 	if !strings.Contains(help, "optional") {
 		t.Errorf("`team init` is not a precondition — help should say so: %s", help)

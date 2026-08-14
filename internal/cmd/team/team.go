@@ -47,10 +47,18 @@ and near the end.
 
   3. Author roles:<role> nodes in the Team Agent's system memory.
        NO CLI SURFACE YET (#403 read, #410 register writes; both need
-       hadron-server#960). Each node's CONTENT is the prompt template, with
-       {{name}} and {{role}} placeholders; its data.names is the ordered
-       name register the mint allocates from. Today: hadron node create
-       -m <team-agent-system-memory> --loc roles:<role>.
+       hadron-server#960). The node's CONTENT is the prompt template, with
+       {{name}} and {{role}} placeholders; data.names is the ordered name
+       register the mint allocates from, in order. Until those land:
+
+         hadron node create -m <team-agent-system-memory> \
+           --loc roles:backend-engineer --name backend-engineer \
+           --content-file role-prompt.md \
+           --data '{"names":["Fred","Gwen","Hans","Iris","Joe"]}'
+
+       Use --data (not --data-merge) only on the FIRST write: it replaces
+       the whole bag, so a later edit that keeps sibling keys wants
+       --data-merge (#410).
 
   4. hadron team persona create --app <app> --role <role>
        Mints a persona: allocates a free name from the register, composes
