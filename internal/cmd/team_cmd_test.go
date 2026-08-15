@@ -636,6 +636,127 @@ func TestTeamRoleNamesSugarVerbs(t *testing.T) {
 	}
 }
 
+// #442: `names add` splits every argument on commas, like its siblings
+// (`create --names`, `names set`). Before this, the whole string was
+// appended as ONE name — a corrupt entry the range check cannot catch (it
+// inspects only the initial) that would become a PERMANENT worker name on
+// the next register-mode cast.
+func TestTeamRoleNamesAddSplitsCommas(t *testing.T) {
+	updated := `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
+		"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
+		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"comma form", []string{"Gwen,Hans"}},
+		{"space form", []string{"Gwen", "Hans"}},
+		{"mixed, with stray spaces", []string{"Gwen, Hans"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"TeamRoles":           teamRolesJSON,
+				"UpdateTeamRoleNames": updated,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{"team", "role", "names", "add", "backend-engineer"}, tc.args...),
+				"--app", "acme.com:eng-team", "--server", gql.URL))
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var vars struct {
+				Names []string `json:"names"`
+			}
+			_ = json.Unmarshal(captured["UpdateTeamRoleNames"], &vars)
+			// Every form yields the SAME two appended names — never one
+			// composite "Gwen,Hans" entry.
+			if strings.Join(vars.Names, "|") != "Fred|Iris|Joe|Gwen|Hans" {
+				t.Errorf("composed register = %v", vars.Names)
+			}
+		})
+	}
+}
+
+// A name already in the register is skipped rather than re-appended, and an
+// add where EVERY name is already present says so instead of printing a
+// "✓ updated" receipt for a write that changed nothing (#442, lower-severity
+// finding).
+func TestTeamRoleNamesAddSkipsPresentNames(t *testing.T) {
+	updated := `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
+		"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
+		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"TeamRoles":           teamRolesJSON,
+		"UpdateTeamRoleNames": updated,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	// Iris is already in the register (case-insensitively); only Gwen is new.
+	root.SetArgs([]string{"team", "role", "names", "add", "backend-engineer", "iris,Gwen",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Names []string `json:"names"`
+	}
+	_ = json.Unmarshal(captured["UpdateTeamRoleNames"], &vars)
+	if strings.Join(vars.Names, "|") != "Fred|Iris|Joe|Gwen" {
+		t.Errorf("a present name must not be re-appended: %v", vars.Names)
+	}
+
+	// Every name already present: no write at all, and an honest receipt.
+	gql2, captured2 := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesJSON})
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "role", "names", "add", "backend-engineer", "Fred,Iris",
+		"--app", "acme.com:eng-team", "--server", gql2.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, called := captured2["UpdateTeamRoleNames"]; called {
+		t.Error("nothing to add must not reach the mutation")
+	}
+	if strings.Contains(out2.String(), "✓ updated") {
+		t.Errorf("a no-op must not claim an update: %s", out2.String())
+	}
+	if !strings.Contains(out2.String(), "unchanged") {
+		t.Errorf("the receipt must say nothing changed: %s", out2.String())
+	}
+}
+
+// `names rm` deliberately matches LITERALLY — quoting a comma-bearing entry
+// is how a register corrupted by an older CLI is repaired (#442).
+func TestTeamRoleNamesRmMatchesLiterally(t *testing.T) {
+	corrupt := `{"data":{"teamRoles":{"total":1,"items":[
+		{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be","description":null,
+		 "register":[{"name":"Fred","taken":false,"heldBy":null},{"name":"Linn,Mia","taken":false,"heldBy":null}],
+		 "freeCount":2,"exhausted":false,"nameRange":null,"nameConvention":null,
+		 "roleAgent":null,"hasNamePlaceholder":null}]}}}`
+	updated := `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
+		"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
+		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"TeamRoles":           corrupt,
+		"UpdateTeamRoleNames": updated,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "role", "names", "rm", "backend-engineer", "Linn,Mia",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("the recovery path must work: %v", err)
+	}
+	var vars struct {
+		Names []string `json:"names"`
+	}
+	_ = json.Unmarshal(captured["UpdateTeamRoleNames"], &vars)
+	if strings.Join(vars.Names, "|") != "Fred" {
+		t.Errorf("the corrupt entry must be removable as one literal name: %v", vars.Names)
+	}
+}
+
 // A sugar edit from an EMPTY register must still be conditional: the
 // precondition is present-but-empty on the wire ([]), never omitted — a
 // dropped empty precondition would be an unconditional write, reopening the

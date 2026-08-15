@@ -758,8 +758,16 @@ Conventions:
   stderr, and running out surfaces the conflict as exit 5) — two admins
   racing lose nothing. `names set` is the explicit whole-list replacement
   and deliberately carries NO precondition: it asserts the FINAL state
-  (read with `role get`, edit, resubmit). `rm`/`mv` of a name not in the
-  register refuse (exit 2) instead of silently no-opping. Order is
+  (read with `role get`, edit, resubmit). `names add` accepts names as
+  separate arguments, comma-separated, or both — the comma form matches
+  `create --names`/`names set`, and reaching for it appends the names it
+  reads rather than one corrupt composite entry (#442); a name already in
+  the register is skipped, and an add where everything is already present
+  reports `unchanged` instead of a false `✓ updated`. `rm`/`mv` match their
+  arguments LITERALLY (deliberately: quoting a comma-bearing entry, e.g.
+  `names rm <role> "Linn,Mia"`, is how a register corrupted by an older CLI
+  is repaired) and refuse (exit 2) a name not in the register instead of
+  silently no-opping. Order is
   load-bearing (position = allocation order), which is what `mv` is for.
   Clearing a convention is EXPLICIT (`--clear-name-range` /
   `--clear-name-convention` send the null the server reads as "remove");
