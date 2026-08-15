@@ -496,6 +496,58 @@ func splitNames(s string) []string {
 	return out
 }
 
+// notYetInRegister returns the additions not already present in stored,
+// compared case-insensitively (the register's own dedup rule), preserving
+// the caller's order and dropping duplicates within the additions.
+func notYetInRegister(stored, additions []string) []string {
+	seen := map[string]bool{}
+	for _, n := range stored {
+		seen[strings.ToLower(n)] = true
+	}
+	fresh := []string{}
+	for _, n := range additions {
+		k := strings.ToLower(n)
+		if seen[k] {
+			continue
+		}
+		seen[k] = true
+		fresh = append(fresh, n)
+	}
+	return fresh
+}
+
+// equalNames reports whether two registers are identical — same order, same
+// exact spellings (the server compares exactly, so a case difference IS a
+// change).
+func equalNames(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// emitRoleUnchanged is the honest receipt for a write that would change
+// nothing: no mutation is sent, and the output never says "updated".
+func emitRoleUnchanged(f *cmdutil.Factory, r gen.TeamRoleFields, reason string) error {
+	dto := roleDTOFromFields(r)
+	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+		_, err := fmt.Fprintf(w, "· %s unchanged — %s: %s\n", dto.Role, reason, registerLine(dto.Register))
+		return err
+	})
+}
+
+func pluralNames(names []string) string {
+	if len(names) == 1 {
+		return "that name is"
+	}
+	return "those names are"
+}
+
 // writeRoleNames submits a register and prints the receipt. expectedNames
 // nil means unconditional (the `set` path — an explicit wholesale
 // replacement asserts final state); non-nil turns the write into the #987
@@ -531,6 +583,18 @@ func casRoleNames(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client,
 		names, err := recompose(stored)
 		if err != nil {
 			return err
+		}
+		// Nothing to write: the register already reflects the edit. Reached
+		// on a REBASE when a concurrent admin landed the same addition (PR
+		// #444 review), and on the first attempt for an mv to the position a
+		// name already holds. Writing anyway would print "✓ updated" for a
+		// no-op — the false-update behavior #442 exists to remove.
+		if equalNames(names, stored) {
+			row, rerr := resolveRole(cmd.Context(), client, appRef, teamAgentRef, role)
+			if rerr != nil {
+				return rerr
+			}
+			return emitRoleUnchanged(f, row, "the register already matches the requested edit")
 		}
 		err = writeRoleNames(cmd, f, client, appRef, teamAgentRef, role, names, &stored, allowOutOfRange)
 		if err == nil {
@@ -620,18 +684,48 @@ func newCmdRoleNamesAdd(f *cmdutil.Factory) *cobra.Command {
 	var teamAgent string
 	var allowOutOfRange bool
 	cmd := &cobra.Command{
-		Use:     "add <role> <name>...",
-		Short:   "Append names to the register, in order (CAS-safe)",
-		Example: `  hadron team role names add backend-engineer Gwen Hans`,
-		Args:    cobra.MinimumNArgs(2),
+		Use:   "add <role> <name>...",
+		Short: "Append names to the register, in order (CAS-safe)",
+		Long: `Append names to the role's register, in order. Names may be given as
+separate arguments, comma-separated, or both — the comma form matches
+` + "`role create --names`" + ` and ` + "`role names set`" + `, so reaching for it here does
+what you mean instead of appending one corrupt composite entry (#442).
+
+A name already in the register is skipped rather than re-appended, and if
+every name given is already there the command says so instead of claiming
+an update.`,
+		Example: `  hadron team role names add backend-engineer Gwen Hans
+  hadron team role names add backend-engineer Gwen,Hans`,
+		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// #442: split every argument on commas. `create --names` and
+			// `names set` both take the comma form, so a caller reaching for
+			// it here used to append the whole string as ONE name — a corrupt
+			// entry the server's range check cannot catch (it only inspects
+			// the initial), sitting in line for the next register-mode cast,
+			// where the name would become permanent.
+			additions := []string{}
+			for _, a := range args[1:] {
+				additions = append(additions, splitNames(a)...)
+			}
+			if len(additions) == 0 {
+				return exitcode.Newf(exitcode.Usage, "no names to add")
+			}
 			appRef, client, current, err := namesCommandSetup(cmd, f, teamAgent, args[0])
 			if err != nil {
 				return err
 			}
+			// An append of a name already present is a no-op server-side (the
+			// register dedups case-insensitively), which used to print a
+			// "✓ updated" receipt for a write that changed nothing.
+			if fresh := notYetInRegister(registerNames(current), additions); len(fresh) == 0 {
+				return emitRoleUnchanged(f, current, pluralNames(additions)+" already in the register")
+			}
 			return casRoleNames(cmd, f, client, appRef, optStr(teamAgent), current.Role, registerNames(current),
 				func(stored []string) ([]string, error) {
-					return append(append([]string{}, stored...), args[1:]...), nil
+					// Re-filter on every attempt: a rebase may have brought in
+					// a name this command was about to add.
+					return append(append([]string{}, stored...), notYetInRegister(stored, additions)...), nil
 				}, allowOutOfRange)
 		},
 	}
@@ -649,7 +743,11 @@ func newCmdRoleNamesRm(f *cmdutil.Factory) *cobra.Command {
 removed (TEAM_ROLE_NAME_MINTED, server-enforced): keeping Iris in the
 register is what records that the name — and its initial — belongs to this
 role forever. A name not in the register refuses rather than silently
-no-opping.`,
+no-opping.
+
+Each argument is matched LITERALLY — deliberately, unlike ` + "`names add`" + `:
+quoting a comma-bearing entry is how a register corrupted by an older CLI
+(#442) is repaired, e.g. ` + "`names rm <role> \"Linn,Mia\"`" + `.`,
 		Example: `  hadron team role names rm backend-engineer Gwen`,
 		Args:    cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
