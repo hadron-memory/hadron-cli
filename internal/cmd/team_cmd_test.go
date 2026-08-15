@@ -860,6 +860,10 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 	if b["sessionId"] != "s-new" || b["workerId"] != "wkr1" || b["workerName"] != "Iris" || b["agentId"] != "agt1" {
 		t.Errorf("binding: %s", data)
 	}
+	// #399: the worker's App rides into the binding — the worklog home.
+	if b["appId"] != "app1" {
+		t.Errorf("binding must record the worker's App: %s", data)
+	}
 	// The worklog inputs travel through the binding: team memory
 	// (canonicalized), tool, and the repo that qualifies bare refs.
 	if b["teamMemory"] != "hrn:mem:acme.com:eng-team" || b["tool"] != "claude-code" ||
@@ -891,12 +895,11 @@ func TestTeamSessionStartPrintsBriefing(t *testing.T) {
 	}
 }
 
-// #399/#414: without -m the binding records no worklog home. Since #974 a
-// worker session is ALWAYS App-bound (the server stamps the worker's App), so
-// the remedy is always the per-call -m override — never end-and-restart, and
-// never `team init` (not a precondition for worklog writes).
-func TestTeamSessionStartWarnsWhenTheWorklogIsOff(t *testing.T) {
-	teamGitDir(t)
+// #399: the binding records the worker's App, so a start without -m is
+// COMPLETE — no worklog warning of any kind (the condition the old note
+// warned about no longer exists).
+func TestTeamSessionStartWithoutMemoryIsQuiet(t *testing.T) {
+	dir := teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
 		"TeamSessions":     `{"data":{"sessions":[]}}`,
@@ -909,14 +912,14 @@ func TestTeamSessionStartWarnsWhenTheWorklogIsOff(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	errOut := f.IOStreams.ErrOut.(*strings.Builder).String()
-	if !strings.Contains(errOut, "no worklog home") || !strings.Contains(errOut, "override works") {
-		t.Errorf("the note must say the worklog home is unset and the -m override works: %q", errOut)
+	for _, stale := range []string{"worklog home", "team init", "session end"} {
+		if strings.Contains(errOut, stale) {
+			t.Errorf("no worklog warning belongs on start anymore: %q", errOut)
+		}
 	}
-	if strings.Contains(errOut, "team init") {
-		t.Errorf("`team init` is not the remedy — it is not a precondition for worklog writes: %q", errOut)
-	}
-	if strings.Contains(errOut, "session end") {
-		t.Errorf("a worker session is App-bound — no restart needed: %q", errOut)
+	data, _ := os.ReadFile(filepath.Join(dir, "hadron-team-session.json"))
+	if !strings.Contains(string(data), `"appId": "app1"`) {
+		t.Errorf("the binding must carry the worker's App: %s", data)
 	}
 }
 
@@ -1062,7 +1065,14 @@ func TestTeamSessionStartRacedTakenSurfacesForce(t *testing.T) {
 }
 
 const bindingFixture = `{"sessionId":"s-new","workerId":"wkr1","workerName":"Iris","workerRole":"backend-engineer",
-	"agentId":"agt1","startedAt":"2026-08-11T10:00:00Z",
+	"agentId":"agt1","appId":"app1","startedAt":"2026-08-11T10:00:00Z",
+	"repo":"hadron-memory/hadron-cli","prNumbers":[]}`
+
+// A pre-#399 worker binding: no appId, but a recorded team memory — the
+// worklog path falls back to resolving it.
+const bindingPre399Fixture = `{"sessionId":"s-new","workerId":"wkr1","workerName":"Iris","workerRole":"backend-engineer",
+	"agentId":"agt1","startedAt":"2026-08-11T10:00:00Z","appBound":true,
+	"teamMemory":"hrn:mem:acme.com:eng-team","tool":"claude-code",
 	"repo":"hadron-memory/hadron-cli","prNumbers":[]}`
 
 const teamChatMsgJSON = `{"nodeId":"n8","seq":8,"body":"@rufus schema is live","at":"2026-08-12T10:00:00Z",
@@ -1132,7 +1142,7 @@ func TestTeamChatReadEmitsAuthorAliasAndKind(t *testing.T) {
 
 // A binding whose session was started with -m (team memory) and --tool.
 const bindingWithTeamFixture = `{"sessionId":"s-new","workerId":"wkr1","workerName":"Iris","workerRole":"backend-engineer",
-	"agentId":"agt1","startedAt":"2026-08-11T10:00:00Z","appBound":true,
+	"agentId":"agt1","appId":"app1","startedAt":"2026-08-11T10:00:00Z","appBound":true,
 	"teamMemory":"hrn:mem:acme.com:eng-team","tool":"claude-code",
 	"repo":"hadron-memory/hadron-cli","prNumbers":[]}`
 
@@ -1209,14 +1219,15 @@ func TestTeamSessionLogWritesWorklogAndSession(t *testing.T) {
 			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
 			"transcriptPath":null,"llmModel":null}}}`,
-		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
 		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
 			"tool":"claude-code","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
 			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	// Bare number → qualified by the binding's repo.
+	// Bare number → qualified by the binding's repo. No -m and no
+	// TeamMemoryApp in the fake: the binding's appId IS the worklog home
+	// (#399), so any resolution round trip fails the test loudly.
 	root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -1270,10 +1281,13 @@ func TestTeamSessionLogWritesWorklogAndSession(t *testing.T) {
 }
 
 // The --issue/--commit refusal is the second log diagnostic that once named
-// `team init`; it must name only -m (PR #420 review).
+// `team init`; it must name only -m (PR #420 review). Since #399 it is
+// reachable only through a binding that predates the App-recording CLI.
 func TestTeamSessionLogIssueWithoutMemoryNamesOnlyM(t *testing.T) {
 	dir := teamGitDir(t)
-	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingFixture), 0o600); err != nil {
+	legacy := `{"sessionId":"s-new","workerId":"wkr1","workerName":"Iris","workerRole":"backend-engineer",
+		"agentId":"agt1","startedAt":"2026-08-11T10:00:00Z","repo":"hadron-memory/hadron-cli","prNumbers":[]}`
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(legacy), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	f, _ := testFactory(t)
@@ -1301,7 +1315,6 @@ func TestTeamSessionLogBranch(t *testing.T) {
 			"type":"DEVELOPER","repo":null,"branch":"team-chat","prNumber":null,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
 			"transcriptPath":null,"llmModel":null}}}`,
-		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
 		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
 			"tool":"claude-code","kind":"branch","ref":"hadron-memory/hadron-cli:team-chat","action":"pushed",
 			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
@@ -1383,7 +1396,6 @@ func TestTeamSessionLogIssueTouchesLiveness(t *testing.T) {
 			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":null,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
 			"transcriptPath":null,"llmModel":null}}}`,
-		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
 		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
 			"tool":"claude-code","kind":"issue","ref":"hadron-memory/hadron-cli#362","action":"worked-on",
 			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
@@ -1414,12 +1426,50 @@ func TestTeamSessionLogIssueTouchesLiveness(t *testing.T) {
 	}
 }
 
-// Without a team memory, --pr degrades to the Session.prNumber
-// denormalization (recorded: "session", with a note) — but an issue/commit
-// milestone has nowhere durable to go, so it refuses.
-func TestTeamSessionLogWithoutTeamMemory(t *testing.T) {
+// A modern binding needs no -m: the worklog write rides the recorded App.
+// This is the #399 payoff — the degraded "recorded: session" path now needs
+// a binding that predates the App-recording CLI (next test).
+func TestTeamSessionLogPre399BindingResolvesTeamMemory(t *testing.T) {
 	dir := teamGitDir(t)
-	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingFixture), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingPre399Fixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
+			"tool":"claude-code","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
+			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// The pre-#399 binding has no appId, so its recorded team memory is
+	// resolved — back-compat, not the modern path.
+	var memVars map[string]any
+	_ = json.Unmarshal(captured["TeamMemoryApp"], &memVars)
+	if memVars["ref"] != "hrn:mem:acme.com:eng-team" {
+		t.Errorf("a pre-#399 binding must fall back to its team memory: %v", memVars)
+	}
+	if !strings.Contains(out.String(), `"recorded": "worklog"`) {
+		t.Errorf("log output: %s", out.String())
+	}
+}
+
+// Only a binding that predates the App-recording CLI degrades: --pr falls to
+// the Session.prNumber denormalization (recorded: "session", with a note),
+// and an issue/commit milestone has nowhere durable to go, so it refuses.
+func TestTeamSessionLogLegacyBindingDegrades(t *testing.T) {
+	dir := teamGitDir(t)
+	legacy := `{"sessionId":"s-new","workerId":"wkr1","workerName":"Iris","workerRole":"backend-engineer",
+		"agentId":"agt1","startedAt":"2026-08-11T10:00:00Z","repo":"hadron-memory/hadron-cli","prNumbers":[]}`
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(legacy), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
@@ -1479,6 +1529,9 @@ func TestTeamSessionLogSucceedsWhenLocalWriteFails(t *testing.T) {
 			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
 			"transcriptPath":null,"llmModel":null}}}`,
+		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
+			"tool":"","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
+			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
 	})
 	f, out := testFactory(t)
 	errOut, ok := f.IOStreams.ErrOut.(*strings.Builder)
@@ -1497,8 +1550,8 @@ func TestTeamSessionLogSucceedsWhenLocalWriteFails(t *testing.T) {
 		Recorded string `json:"recorded"`
 	}
 	_ = json.Unmarshal([]byte(out.String()), &dto)
-	if dto.Recorded != "session" {
-		t.Errorf("log output: %s", out.String())
+	if dto.Recorded != "worklog" {
+		t.Errorf("the binding's App records to the worklog (#399): %s", out.String())
 	}
 	if !strings.Contains(errOut.String(), "updating the local binding failed") {
 		t.Errorf("stderr should note the degraded local record: %q", errOut.String())
@@ -1810,6 +1863,126 @@ func TestTeamSessionListProvenanceQuery(t *testing.T) {
 	}
 }
 
+// #400: `team init --app` — no -m; the App resolves its own shared memory
+// (App.sharedMemory, hadron-server#965) for the status pre-read, and the
+// declaration lands wherever the server says (read back by id).
+func TestTeamInitAppPath(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetAppSharedMemory": `{"data":{"app":{"id":"app1","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
+			"class":"app","schema":{"objectTypes":{"worklog":{"fields":{"ref":{"type":"text","required":true}}}}}}}}}`,
+		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m1",
+			"collections":["worklog"],"changed":false}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "init", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		AppRef string `json:"appRef"`
+	}
+	_ = json.Unmarshal(captured["UpdateTeamCollections"], &vars)
+	if vars.AppRef != "acme.com:eng-team" {
+		t.Errorf("the App addresses the convergence directly: %v", vars)
+	}
+	// Worklog already declared + unchanged ⇒ the three-value contract holds
+	// on the App path; no memory-resolution round trips.
+	if !strings.Contains(out.String(), `"status": "unchanged"`) {
+		t.Errorf("init output: %s", out.String())
+	}
+	for _, op := range []string{"GetMemory", "TeamMemoryApp"} {
+		if _, called := captured[op]; called {
+			t.Errorf("the App path must not resolve memories via %s", op)
+		}
+	}
+
+	// An App with NO shared memory yet: nothing declared by definition ⇒
+	// status created, and the target is read back from the response.
+	gql2, _ := captureGraphQL(t, map[string]string{
+		"GetAppSharedMemory": `{"data":{"app":{"id":"app1","sharedMemory":null}}}`,
+		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m9",
+			"collections":["worklog"],"changed":true}}}`,
+		"GetMemory": `{"data":{"memory":{"id":"m9","urn":"hrn:mem:acme.com:eng-team","name":"Eng Team",
+			"shortDescription":null,"description":null,"class":"app","visibility":"ORGANIZATION",
+			"organizationId":"o1","isEncrypted":false,"tags":[],"source":null,"syncStatus":"NONE",
+			"vectorIndexEnabled":false,"maxRevCount":10,"data":null,"schema":null,
+			"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
+	})
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "init", "--app", "acme.com:eng-team", "--json", "--server", gql2.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out2.String(), `"status": "created"`) ||
+		!strings.Contains(out2.String(), "hrn:mem:acme.com:eng-team") {
+		t.Errorf("fresh-App init output: %s", out2.String())
+	}
+
+	// Neither -m nor any App scope: an honest usage refusal.
+	teamGitDir(t)
+	f3, _ := testFactory(t)
+	root3 := NewRootCmd(f3)
+	root3.SetArgs([]string{"team", "init", "--server", "http://127.0.0.1:1"})
+	if code := exitcode.FromError(root3.Execute()); code != exitcode.Usage {
+		t.Errorf("no App, no -m: exit %d, want Usage", code)
+	}
+}
+
+// #399: the provenance query from an unbound checkout takes --app as a
+// first-class alternative to -m; from a bound worktree the binding's App is
+// the default and no flag is needed.
+func TestTeamSessionListProvenanceAppSources(t *testing.T) {
+	worklogResp := `{"data":{"teamWorkItems":{"total":1,"items":[
+		{"nodeId":"w1","sessionId":"s-done","workerId":"wkr1","workerName":"Iris","tool":"github","kind":"pr",
+		 "ref":"hadron-memory/hadron-cli#371","action":"opened","at":"2026-08-13T10:00:00Z","detail":null}]}}}`
+
+	// Unbound checkout + explicit --app: no memory resolution at all.
+	teamGitDir(t)
+	gql, captured := captureGraphQL(t, map[string]string{
+		"TeamWorkItems":  worklogResp,
+		"GetTeamSession": `{"data":{"session":` + endedSessionJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "list", "--pr", "hadron-memory/hadron-cli#371",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		AppRef string `json:"appRef"`
+	}
+	_ = json.Unmarshal(captured["TeamWorkItems"], &vars)
+	if vars.AppRef != "acme.com:eng-team" {
+		t.Errorf("--app must scope the worklog read directly: %v", vars)
+	}
+
+	// Bound worktree: the binding's appId is the default — no flags.
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql2, captured2 := captureGraphQL(t, map[string]string{
+		"TeamWorkItems":  worklogResp,
+		"GetTeamSession": `{"data":{"session":` + endedSessionJSON + `}}`,
+	})
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "session", "list", "--pr", "371", "--server", gql2.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars2 struct {
+		AppRef string `json:"appRef"`
+	}
+	_ = json.Unmarshal(captured2["TeamWorkItems"], &vars2)
+	if vars2.AppRef != "app1" {
+		t.Errorf("the binding's App is the default worklog scope: %v", vars2)
+	}
+}
+
 // #401: `team init` no longer OWNS the collection definition — it asks the
 // server to converge the collections it owns. The CLI must not write the memory
 // schema itself; its own copy of the definition had already drifted (its `kind`
@@ -1822,6 +1995,8 @@ func TestTeamInit(t *testing.T) {
 			"vectorIndexEnabled":false,"maxRevCount":10,"data":null,
 			"schema":{"objectTypes":{"competitor":{"fields":{"name":{"type":"text","required":true}}}}},
 			"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
+		"GetAppSharedMemory": `{"data":{"app":{"id":"app1","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
+			"class":"app","schema":null}}}}`,
 		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
 		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m1",
 			"collections":["worklog"],"changed":true}}}`,
@@ -1862,6 +2037,8 @@ func TestTeamInitIdempotent(t *testing.T) {
 			"vectorIndexEnabled":false,"maxRevCount":10,"data":null,
 			"schema":{"objectTypes":{"worklog":{"fields":{"ref":{"type":"text","required":true}}}}},
 			"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
+		"GetAppSharedMemory": `{"data":{"app":{"id":"app1","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
+			"class":"app","schema":{"objectTypes":{"worklog":{"fields":{"ref":{"type":"text","required":true}}}}}}}}}`,
 		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
 		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m1",
 			"collections":["worklog"],"changed":false}}}`,
@@ -1891,6 +2068,8 @@ func TestTeamInitConvergesADriftedDeclaration(t *testing.T) {
 			"vectorIndexEnabled":false,"maxRevCount":10,"data":null,
 			"schema":{"objectTypes":{"worklog":{"fields":{"kind":{"type":"enum","required":true,"values":["pr","issue","commit","branch"]}}}}},
 			"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
+		"GetAppSharedMemory": `{"data":{"app":{"id":"app1","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
+			"class":"app","schema":{"objectTypes":{"worklog":{"fields":{"kind":{"type":"enum","required":true,"values":["pr","issue","commit","branch"]}}}}}}}}}`,
 		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
 		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m1",
 			"collections":["worklog"],"changed":true}}}`,
@@ -1955,7 +2134,6 @@ func TestTeamChatPostAsWorker(t *testing.T) {
 		t.Fatal(err)
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
-		"TeamMemoryApp":         `{"data":{"memory":{"id":"mem1","appId":"app-1"}}}`,
 		"CreateTeamChatMessage": `{"data":{"createTeamChatMessage":` + teamChatMsgJSON + `}}`,
 	})
 	f, out := testFactory(t)
@@ -1964,14 +2142,11 @@ func TestTeamChatPostAsWorker(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var memVars map[string]any
-	_ = json.Unmarshal(captured["TeamMemoryApp"], &memVars)
-	if memVars["ref"] != "hrn:mem:acme.com:eng-team" {
-		t.Errorf("app resolution must read the binding's team memory: %v", memVars)
-	}
+	// #399: the binding's recorded App scopes the post directly — no
+	// TeamMemoryApp in the fake, so a resolution round trip fails loudly.
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateTeamChatMessage"], &vars)
-	if vars["appRef"] != "app-1" || vars["body"] != "@rufus schema is live" || vars["sessionRef"] != "s-new" {
+	if vars["appRef"] != "app1" || vars["body"] != "@rufus schema is live" || vars["sessionRef"] != "s-new" {
 		t.Errorf("post vars: %v", vars)
 	}
 	if _, present := vars["replyToSeq"]; present {
@@ -2224,7 +2399,6 @@ func TestTeamChatReadMentionsMe(t *testing.T) {
 		t.Fatal(err)
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
-		"TeamMemoryApp": `{"data":{"memory":{"id":"mem1","appId":"app-1"}}}`,
 		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":2,"items":[
 			{"nodeId":"n5","seq":5,"body":"@iris ping","at":"t1","authorUserId":"u2","authorWorkerId":null,"authorName":"rufus","sessionId":null,"replyToSeq":null,"mentions":["iris"]},
 			{"nodeId":"n7","seq":7,"body":"@iris again","at":"t3","authorUserId":"u2","authorWorkerId":null,"authorName":"rufus","sessionId":null,"replyToSeq":5,"mentions":["iris"]}]}}}`,
@@ -2237,7 +2411,7 @@ func TestTeamChatReadMentionsMe(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["TeamChatMessages"], &vars)
-	if vars["appRef"] != "app-1" || vars["mentionsRef"] != "wkr1" {
+	if vars["appRef"] != "app1" || vars["mentionsRef"] != "wkr1" {
 		t.Errorf("read vars: %v", vars)
 	}
 	var dto struct {
@@ -2478,21 +2652,17 @@ func TestTeamInitReportsWhereTheDeclarationLanded(t *testing.T) {
 		switch body.OperationName {
 		case "GetMemory":
 			calls++
-			var vars struct {
-				Ref string `json:"ref"`
-			}
-			_ = json.Unmarshal(body.Variables, &vars)
-			// First call: the memory named by -m. Second: the one the server
-			// actually declared on, read back by id.
-			id, urn := "m-other", "hrn:mem:acme.com:other-app-mem"
-			if vars.Ref == "m-team" {
-				id, urn = "m-team", "hrn:mem:acme.com:eng-team-shared"
-			}
-			_, _ = w.Write([]byte(`{"data":{"memory":{"id":"` + id + `","urn":"` + urn + `","name":"M",
+			// Only the -m-named memory is fetched (the class check); the
+			// status pre-read and the target URN come from App.sharedMemory,
+			// so no readback round trip is needed.
+			_, _ = w.Write([]byte(`{"data":{"memory":{"id":"m-other","urn":"hrn:mem:acme.com:other-app-mem","name":"M",
 				"shortDescription":null,"description":null,"class":"app","visibility":"ORGANIZATION",
 				"organizationId":"o1","isEncrypted":false,"tags":[],"source":null,"syncStatus":"NONE",
 				"vectorIndexEnabled":false,"maxRevCount":10,"data":null,"schema":null,
 				"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`))
+		case "GetAppSharedMemory":
+			_, _ = w.Write([]byte(`{"data":{"app":{"id":"app1","sharedMemory":{"id":"m-team",
+				"urn":"hrn:mem:acme.com:eng-team-shared","class":"app","schema":null}}}}`))
 		case "TeamMemoryApp":
 			_, _ = w.Write([]byte(`{"data":{"memory":{"id":"m-other","appId":"app1"}}}`))
 		case "UpdateTeamCollections":
@@ -2518,7 +2688,10 @@ func TestTeamInitReportsWhereTheDeclarationLanded(t *testing.T) {
 	if strings.Contains(out.String(), "other-app-mem") {
 		t.Errorf("must not echo the requested memory as the target: %s", out.String())
 	}
-	if calls != 2 {
-		t.Errorf("expected a read-back of the actual target memory, got %d GetMemory calls", calls)
+	// The status basis and the target URN come from the App's shared memory
+	// (PR #437 review) — the named memory is fetched once, for its class
+	// check, and never read back.
+	if calls != 1 {
+		t.Errorf("expected exactly one GetMemory (the -m class check), got %d", calls)
 	}
 }

@@ -107,7 +107,7 @@ hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--trai
 hadron ai-config list [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
 hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] [--persona-prompt <p>] | update <id> [<field flags>] | rm <id> --yes
-hadron team init -m <team-memory>
+hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
 hadron team worker cast (--role <role> | --agent <ref>) [--name <n>] [--team-agent <ref>] [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | retire <name-or-id> --yes | rm <name-or-id> --yes
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> --names <a,b,c> [--name-range F-J] [--name-convention <text>] [--description <d>] [--allow-out-of-range] [--team-agent <ref>] | update <role> [--name-range <r> | --clear-name-range] [--name-convention <t> | --clear-name-convention] [--description <d>] | names set <role> <n1,n2,...>
 hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
@@ -796,18 +796,26 @@ Conventions:
   was started against a different `--server` than the current one.
   `session list` is the presence view, newest first, worker names joined in;
   `--as` narrows SERVER-side (`sessions(workerRef:)`), `--active`
-  client-side. **The worklog** is the provenance record. `session start -m
-  <team-memory>` records the worklog home in the binding — `team init` is
-  **not** a precondition for worklog writes (#414). A worker session is
-  always App-bound, so `session log -m` works per-call even when the binding
-  has no home; `SESSION_NOT_IN_APP` on a worklog write means `-m` named a
-  DIFFERENT App's memory than the bound worker's (a mismatch to fix, not a
-  session to restart). Separately, `team init -m <team-memory>` asks the
-  server to converge the collections it owns onto their canonical
-  definitions (in the team App memory — an `app`-class memory is required
-  and any other class is refused with exit 2, since a system memory is
-  read-only from every App that runs it; idempotent, preserves other
-  collections, and repairs a declaration written by an older CLI), and
+  client-side. **The worklog** is the provenance record, and it needs NO
+  flag (#399): the binding records the bound worker's App — the worklog
+  home — so `session log` just works, and the provenance query defaults to
+  the binding's App (unbound checkouts pass `--app <ref>` or `-m
+  <team-memory>`; explicit `-m` outranks `--app`). `team init` is **not** a
+  precondition for worklog writes (#414). `-m` everywhere is an explicit
+  OVERRIDE: `SESSION_NOT_IN_APP` on a worklog write means it named a
+  DIFFERENT App's memory than the bound worker's (drop `-m`, or pass the
+  worker's own team memory). Bindings from older CLIs degrade honestly:
+  a pre-#399 worker binding falls back to its recorded team memory; a
+  pre-Worker binding gets the end-and-restart diagnostics. Separately,
+  `team init [--app <ref>]` asks the server to converge the collections it
+  owns onto their canonical definitions — the App resolves its own team
+  shared memory (`App.sharedMemory`, hadron-server#965), so no memory needs
+  naming (#400); `-m` stays as an explicit override (an `app`-class memory
+  is required and any other class is refused with exit 2, since a system
+  memory is read-only from every App that runs it; naming some other
+  app-class memory still declares on the team memory, reported honestly;
+  idempotent, preserves other collections, and repairs a declaration
+  written by an older CLI), and
   `session log (--pr | --issue | --commit | --branch) <ref>` appends a
   milestone — refs normalize to one canonical string per artifact
   (`owner/repo#371`, `owner/repo@sha`, `owner/repo:branch`; URLs, short

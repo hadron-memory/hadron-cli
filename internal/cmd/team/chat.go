@@ -37,7 +37,7 @@ authored by the bound worker and carry the driving session; without one,
 posts are authored by you.
 
 The team App resolves from --app (or the configured App context), falling
-back to the binding's team memory. Mention teammates as @worker-name /
+back to the worktree binding. Mention teammates as @worker-name /
 @handle — a multiword name by its slug (@mary-jane).`,
 	}
 	cmd.AddCommand(newCmdTeamChatPost(f))
@@ -62,10 +62,11 @@ func readBindingOrNilWithApp(ctx context.Context, f *cmdutil.Factory) (*binding,
 }
 
 // resolveTeamApp resolves the team App an App-addressed team command works
-// against (the chat operations, and `team roster`): --app / the configured App
-// context wins; otherwise the binding's team memory is resolved to its App
-// (the team memory IS the App's shared app-class memory, so Memory.appId is
-// the team App).
+// against (chat, worker, role, init): --app / the configured App context
+// wins; otherwise the binding answers — its recorded AppID (#399, the bound
+// worker's App) directly, or a pre-#399 binding's team memory resolved to
+// its App (the team memory IS the App's shared app-class memory, so
+// Memory.appId is the team App).
 func resolveTeamApp(ctx context.Context, f *cmdutil.Factory, b *binding) (string, error) {
 	appRef, err := f.App()
 	if err != nil {
@@ -73,6 +74,9 @@ func resolveTeamApp(ctx context.Context, f *cmdutil.Factory, b *binding) (string
 	}
 	if appRef != "" {
 		return appRef, nil
+	}
+	if b != nil && b.AppID != "" {
+		return b.AppID, nil
 	}
 	if b != nil && b.TeamMemory != "" {
 		client, err := f.GraphQLClient()
@@ -90,7 +94,7 @@ func resolveTeamApp(ctx context.Context, f *cmdutil.Factory, b *binding) (string
 			"the bound team memory %s is not an App memory — pass --app <team-app>", b.TeamMemory)
 	}
 	return "", exitcode.Newf(exitcode.Usage,
-		"no team App — pass --app <ref>, set an App context, or bind a session with `hadron team session start -m <team-memory>`")
+		"no team App — pass --app <ref>, set an App context, or bind a session with `hadron team session start --as <worker>`")
 }
 
 // teamChatMessageDTO is the stable --json shape of one message: the server

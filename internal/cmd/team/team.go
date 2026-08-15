@@ -65,14 +65,15 @@ from ` + "`hadron team --help`" + ` alone (#402).
        working memory. The name is PERMANENT per App (cor:agt:020:02) —
        preview the irreversible part first with worker cast --dry-run.
 
-  5. hadron team session start --as <worker> -m <team-app-memory>
-       Binds this worktree. The session is App-bound through the worker;
-       -m names the worklog home so ` + "`session log`" + ` records milestones.
+  5. hadron team session start --as <worker>
+       Binds this worktree. The session is App-bound through the worker,
+       and the binding records the worker's App as the worklog home — so
+       ` + "`session log`" + ` records milestones with no flags at all (#399).
 
-  6. hadron team init -m <team-app-memory>            (optional)
-       Asks the server to converge the collection schemas it owns. NOT a
-       precondition for anything — useful to repair a memory declared by
-       an older CLI.
+  6. hadron team init                                 (optional)
+       Asks the server to converge the collection schemas it owns — the
+       App resolves its own team memory (#400). NOT a precondition for
+       anything — useful to repair a memory declared by an older CLI.
 
 Check any of it with ` + "`hadron team worker list --app <app>`" + ` (the staff)
 and ` + "`hadron app agent list <app>`" + ` (the installed cast pool).`,
