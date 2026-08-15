@@ -51,22 +51,25 @@ from ` + "`hadron team --help`" + ` alone (#402).
        The team APP. ` + "`app agent add`" + ` installs further role agents into
        it; the AppAgent join is the cast pool (` + "`app agent list`" + `).
 
-  3. hadron team worker cast --app <app> --role <role> --name <Name>
+  3. hadron team role create <role> --names <a,b,c> [--name-range F-J]
+       (optional) The cast-list register: the ordered names the
+       register-mode cast allocates from. Skip it and pass --name at cast
+       time instead; with a register, step 4 needs no --name and
+       team role list shows which names are free.
+
+  4. hadron team worker cast --app <app> --role <role> [--name <Name>]
        The named identity. The server resolves the agent (--role picks the
        single installed agent with that persona role; --agent names one
-       directly), binds the template, and provisions the worker's working
-       memory. Pass --name on a fresh App: omitting it allocates from a
-       Team Agent's cast-list register (a roles:<role> node), which this
-       minimal sequence has not set up. The name is PERMANENT per App
-       (cor:agt:020:02) — preview the irreversible part first with
-       worker cast --dry-run, and check register state with
-       team role list (which names are free, which are held).
+       directly), allocates the name (explicit --name, or the register
+       from step 3), binds the template, and provisions the worker's
+       working memory. The name is PERMANENT per App (cor:agt:020:02) —
+       preview the irreversible part first with worker cast --dry-run.
 
-  4. hadron team session start --as <worker> -m <team-app-memory>
+  5. hadron team session start --as <worker> -m <team-app-memory>
        Binds this worktree. The session is App-bound through the worker;
        -m names the worklog home so ` + "`session log`" + ` records milestones.
 
-  5. hadron team init -m <team-app-memory>            (optional)
+  6. hadron team init -m <team-app-memory>            (optional)
        Asks the server to converge the collection schemas it owns. NOT a
        precondition for anything — useful to repair a memory declared by
        an older CLI.
@@ -208,4 +211,13 @@ func optStr(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// changedStr returns a pointer only when the flag was explicitly set, so an
+// unset flag is omitted (preserve) while an explicit "" is sent (clear).
+func changedStr(cmd *cobra.Command, flag, val string) *string {
+	if cmd.Flags().Changed(flag) {
+		return &val
+	}
+	return nil
 }
