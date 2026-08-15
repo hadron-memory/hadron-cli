@@ -269,6 +269,17 @@ func codeForExtension(code string) int {
 	// new worker, pick another one, or take over with --force).
 	case code == "WORKER_IN_USE" || code == "WORKER_RETIRED" || code == "WORKER_TAKEN":
 		return exitcode.Conflict
+	// #410: register-invariant refusals (hadron-server#960). A minted name
+	// (the register entry records an allocation that exists forever), a
+	// cross-register duplicate, and an already-existing role are state
+	// conflicts (TEAM_ROLE_EXISTS is spelled without the _ALREADY_ the
+	// suffix rule matches); an out-of-range name is an input the caller can
+	// fix (or deliberately override with --allow-out-of-range).
+	case code == "TEAM_ROLE_NAME_MINTED" || code == "TEAM_ROLE_NAME_DUPLICATE" ||
+		code == "TEAM_ROLE_EXISTS":
+		return exitcode.Conflict
+	case code == "TEAM_ROLE_NAME_OUT_OF_RANGE":
+		return exitcode.Usage
 	default:
 		return exitcode.Error
 	}

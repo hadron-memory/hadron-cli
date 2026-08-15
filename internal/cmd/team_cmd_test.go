@@ -447,6 +447,202 @@ func TestTeamRoleGet(t *testing.T) {
 	}
 }
 
+// #410: role create is one server-validated call; the receipt is the
+// resulting register.
+func TestTeamRoleCreate(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateTeamRole": `{"data":{"createTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
+			"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null},{"name":"Gwen","taken":false,"heldBy":null}],
+			"freeCount":2,"exhausted":false,"nameRange":"F-J","nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "role", "create", "backend-engineer", "--names", "Fred, Gwen",
+		"--name-range", "F-J", "--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Role      string   `json:"role"`
+		Names     []string `json:"names"`
+		NameRange string   `json:"nameRange"`
+	}
+	_ = json.Unmarshal(captured["CreateTeamRole"], &vars)
+	if vars.Role != "backend-engineer" || len(vars.Names) != 2 || vars.Names[0] != "Fred" || vars.Names[1] != "Gwen" ||
+		vars.NameRange != "F-J" {
+		t.Errorf("create vars: %+v", vars)
+	}
+	var raw map[string]any
+	_ = json.Unmarshal(captured["CreateTeamRole"], &raw)
+	for _, k := range []string{"nameConvention", "description", "allowOutOfRange", "teamAgentRef"} {
+		if _, present := raw[k]; present {
+			t.Errorf("unset %q must be omitted, got %v", k, raw[k])
+		}
+	}
+	if !strings.Contains(out.String(), "✓ created role backend-engineer — register: Fred, Gwen (2 free)") {
+		t.Errorf("the receipt is the resulting register: %s", out.String())
+	}
+}
+
+// role update read-modify-writes the conventions: an untouched field resends
+// its current value, a --clear-* flag sends the EXPLICIT null the server
+// reads as "remove this key" — and both convention keys are always present
+// on the wire (the operation deliberately has no omitempty on them).
+func TestTeamRoleUpdateSetAndClear(t *testing.T) {
+	updated := `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
+		"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
+		"freeCount":1,"exhausted":false,"nameRange":"F-K","nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"TeamRoles":          teamRolesJSON,
+		"UpdateTeamRoleMeta": updated,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "role", "update", "backend-engineer", "--name-range", "F-K",
+		"--clear-name-convention", "--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateTeamRoleMeta"], &vars)
+	if vars["nameRange"] != "F-K" {
+		t.Errorf("set convention: %v", vars)
+	}
+	v, present := vars["nameConvention"]
+	if !present || v != nil {
+		t.Errorf("--clear-name-convention must send an EXPLICIT null (present, nil), got present=%v v=%v", present, v)
+	}
+	if _, present := vars["description"]; present {
+		t.Errorf("unset description must be omitted, got %v", vars["description"])
+	}
+
+	// Refusals before any write: nothing to update, and value+clear conflict.
+	for _, tc := range [][]string{
+		{"team", "role", "update", "backend-engineer"},
+		{"team", "role", "update", "backend-engineer", "--name-range", "F-K", "--clear-name-range"},
+	} {
+		f2, _ := testFactory(t)
+		root2 := NewRootCmd(f2)
+		root2.SetArgs(append(tc, "--app", "acme.com:eng-team", "--server", gql.URL))
+		if code := exitcode.FromError(root2.Execute()); code != exitcode.Usage {
+			t.Errorf("%v: exit %d, want Usage", tc, code)
+		}
+	}
+}
+
+// The names sugar composes from a FRESH read and submits wholesale; a rm/mv
+// naming something not in the register refuses instead of silently no-opping.
+// (teamRolesJSON's backend register: Fred, Iris, Joe.)
+func TestTeamRoleNamesVerbs(t *testing.T) {
+	updated := `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
+		"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
+		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
+	cases := []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{"add appends in order", []string{"names", "add", "backend-engineer", "Gwen", "Hans"},
+			[]string{"Fred", "Iris", "Joe", "Gwen", "Hans"}},
+		{"rm removes case-insensitively", []string{"names", "rm", "backend-engineer", "fred"},
+			[]string{"Iris", "Joe"}},
+		{"mv repositions", []string{"names", "mv", "backend-engineer", "Joe", "1"},
+			[]string{"Joe", "Fred", "Iris"}},
+		{"set replaces wholesale", []string{"names", "set", "backend-engineer", "Fred,Iris,Joe,Kim"},
+			[]string{"Fred", "Iris", "Joe", "Kim"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"TeamRoles":           teamRolesJSON,
+				"UpdateTeamRoleNames": updated,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{"team", "role"}, tc.args...), "--app", "acme.com:eng-team", "--server", gql.URL))
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var vars struct {
+				Names []string `json:"names"`
+			}
+			_ = json.Unmarshal(captured["UpdateTeamRoleNames"], &vars)
+			if strings.Join(vars.Names, "|") != strings.Join(tc.want, "|") {
+				t.Errorf("composed register = %v, want %v", vars.Names, tc.want)
+			}
+		})
+	}
+
+	for _, tc := range [][]string{
+		{"team", "role", "names", "rm", "backend-engineer", "Nadia"},
+		{"team", "role", "names", "mv", "backend-engineer", "Nadia", "1"},
+		{"team", "role", "names", "mv", "backend-engineer", "Joe", "9"},
+		{"team", "role", "names", "mv", "backend-engineer", "Joe", "zero"},
+	} {
+		gql, captured := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesJSON})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(tc, "--app", "acme.com:eng-team", "--server", gql.URL))
+		if code := exitcode.FromError(root.Execute()); code != exitcode.Usage {
+			t.Errorf("%v: exit %d, want Usage", tc, code)
+		}
+		if _, called := captured["UpdateTeamRoleNames"]; called {
+			t.Errorf("%v: a refused verb must not reach the mutation", tc)
+		}
+	}
+}
+
+// The register invariants are the SERVER's; the CLI maps their typed
+// refusals — minted/duplicate are state conflicts, out-of-range is fixable
+// input, an existing role rides the _EXISTS suffix rule.
+func TestTeamRoleWriteServerRefusals(t *testing.T) {
+	cases := []struct {
+		name string
+		resp string
+		code int
+	}{
+		{"minted name is conflict",
+			`{"errors":[{"message":"\"Iris\" was minted in this App and can never leave the register","extensions":{"code":"TEAM_ROLE_NAME_MINTED"}}]}`,
+			exitcode.Conflict},
+		{"cross-register duplicate is conflict",
+			`{"errors":[{"message":"\"Rufus\" is already in frontend-engineer's register","extensions":{"code":"TEAM_ROLE_NAME_DUPLICATE"}}]}`,
+			exitcode.Conflict},
+		{"out of range is usage",
+			`{"errors":[{"message":"\"Zoe\" falls outside range F-J","extensions":{"code":"TEAM_ROLE_NAME_OUT_OF_RANGE"}}]}`,
+			exitcode.Usage},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, _ := captureGraphQL(t, map[string]string{
+				"TeamRoles":           teamRolesJSON,
+				"UpdateTeamRoleNames": tc.resp,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "role", "names", "set", "backend-engineer", "Fred,Iris,Joe,Zoe",
+				"--app", "acme.com:eng-team", "--server", gql.URL})
+			if code := exitcode.FromError(root.Execute()); code != tc.code {
+				t.Errorf("exit %d, want %d", code, tc.code)
+			}
+		})
+	}
+
+	gql, _ := captureGraphQL(t, map[string]string{
+		"CreateTeamRole": `{"errors":[{"message":"role backend-engineer already exists - updateTeamRole is the edit path","extensions":{"code":"TEAM_ROLE_EXISTS"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "role", "create", "backend-engineer", "--names", "Fred",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Conflict {
+		t.Errorf("existing role: exit %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "updateTeamRole is the edit path") {
+		t.Errorf("server guidance must surface verbatim: %v", err)
+	}
+}
+
 // #404: --dry-run routes to the castWorkerPreview QUERY — the mutation is
 // absent from the fake, so any cast call fails loudly. The receipt carries
 // the not-a-reservation caveat; the preview creates nothing.

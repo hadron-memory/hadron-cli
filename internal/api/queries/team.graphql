@@ -456,3 +456,90 @@ query CastWorkerPreview(
     hasNamePlaceholder
   }
 }
+
+# ── Register writes (#410 / hadron-server#960). The invariants live
+# SERVER-side, in one App-scoped critical section serialized with
+# register-mode casting: a name minted in this App may never be removed
+# (TEAM_ROLE_NAME_MINTED), an added name may not appear in another register
+# (TEAM_ROLE_NAME_DUPLICATE), added names validate against nameRange
+# (TEAM_ROLE_NAME_OUT_OF_RANGE; allowOutOfRange overrides). The CLI is sugar
+# and receipts — client-side composition can never smuggle a violation.
+mutation CreateTeamRole(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $teamAgentRef: ID
+  $role: String!
+  $names: [String!]!
+  # @genqlient(omitempty: true)
+  $nameRange: String
+  # @genqlient(omitempty: true)
+  $nameConvention: String
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true)
+  $allowOutOfRange: Boolean
+) {
+  createTeamRole(
+    appRef: $appRef
+    teamAgentRef: $teamAgentRef
+    role: $role
+    names: $names
+    nameRange: $nameRange
+    nameConvention: $nameConvention
+    description: $description
+    allowOutOfRange: $allowOutOfRange
+  ) {
+    ...TeamRoleFields
+  }
+}
+
+# The names-only write (`role names set|add|rm|mv`): conventions and
+# description are not in the operation at all, so they are structurally
+# preserved — omitted is "preserve" on this server (CLAUDE.md).
+mutation UpdateTeamRoleNames(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $teamAgentRef: ID
+  $role: String!
+  $names: [String!]!
+  # @genqlient(omitempty: true)
+  $allowOutOfRange: Boolean
+) {
+  updateTeamRole(
+    appRef: $appRef
+    teamAgentRef: $teamAgentRef
+    role: $role
+    names: $names
+    allowOutOfRange: $allowOutOfRange
+  ) {
+    ...TeamRoleFields
+  }
+}
+
+# The conventions write (`role update`): nameRange/nameConvention are ALWAYS
+# sent — a value sets, an explicit null CLEARS (the server's convention-key
+# semantics), which is exactly why these two variables carry NO omitempty:
+# the command read-modify-writes, resending the current value for an
+# untouched field. names is absent (structurally preserved); description is
+# set-only (omitempty).
+mutation UpdateTeamRoleMeta(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $teamAgentRef: ID
+  $role: String!
+  $nameRange: String
+  $nameConvention: String
+  # @genqlient(omitempty: true)
+  $description: String
+) {
+  updateTeamRole(
+    appRef: $appRef
+    teamAgentRef: $teamAgentRef
+    role: $role
+    nameRange: $nameRange
+    nameConvention: $nameConvention
+    description: $description
+  ) {
+    ...TeamRoleFields
+  }
+}

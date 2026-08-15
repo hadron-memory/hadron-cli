@@ -67,7 +67,7 @@ slackConnections
 usageActivity
 usageEvents
 
-[Mutation] 87 unbound
+[Mutation] 85 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
@@ -85,7 +85,6 @@ createHomeAssistantInstance
 createResendSender
 createRevision
 createSlackConnection
-createTeamRole
 deleteChat
 deleteDashboardWidgetPreset
 deleteExchangeConnection
@@ -154,4 +153,3 @@ updateNodeProperties
 updateOrgGithubApp
 updateResendSender
 updateSecret
-updateTeamRole

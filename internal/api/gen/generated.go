@@ -5936,6 +5936,158 @@ func (v *CreateTeamChatMessageResponse) GetCreateTeamChatMessage() *CreateTeamCh
 	return v.CreateTeamChatMessage
 }
 
+// CreateTeamRoleCreateTeamRole includes the requested fields of the GraphQL type TeamRole.
+// The GraphQL type's documentation follows.
+//
+// A role definition (#960): the roles:<role> node in the Team Agent's system
+// memory, carrying the name register (data.names) and register conventions.
+// The persona prompt template is NOT here — with the Worker model (#974) it
+// lives on the role-agent as dressing (personaRole + personaPrompt); roleAgent
+// points at it.
+type CreateTeamRoleCreateTeamRole struct {
+	TeamRoleFields `json:"-"`
+}
+
+// GetRole returns CreateTeamRoleCreateTeamRole.Role, and is useful for accessing the field via an interface.
+func (v *CreateTeamRoleCreateTeamRole) GetRole() string { return v.TeamRoleFields.Role }
+
+// GetLoc returns CreateTeamRoleCreateTeamRole.Loc, and is useful for accessing the field via an interface.
+func (v *CreateTeamRoleCreateTeamRole) GetLoc() string { return v.TeamRoleFields.Loc }
+
+// GetNodeId returns CreateTeamRoleCreateTeamRole.NodeId, and is useful for accessing the field via an interface.
+func (v *CreateTeamRoleCreateTeamRole) GetNodeId() string { return v.TeamRoleFields.NodeId }
+
+// GetDescription returns CreateTeamRoleCreateTeamRole.Description, and is useful for accessing the field via an interface.
+func (v *CreateTeamRoleCreateTeamRole) GetDescription() *string { return v.TeamRoleFields.Description }
+
+// GetRegister returns CreateTeamRoleCreateTeamRole.Register, and is useful for accessing the field via an interface.
+func (v *CreateTeamRoleCreateTeamRole) GetRegister() []*TeamRoleFieldsRegisterTeamRoleName {
+	return v.TeamRoleFields.Register
+}
+
+// GetFreeCount returns CreateTeamRoleCreateTeamRole.FreeCount, and is useful for accessing the field via an interface.
+func (v *CreateTeamRoleCreateTeamRole) GetFreeCount() int { return v.TeamRoleFields.FreeCount }
+
+// GetExhausted returns CreateTeamRoleCreateTeamRole.Exhausted, and is useful for accessing the field via an interface.
+func (v *CreateTeamRoleCreateTeamRole) GetExhausted() bool { return v.TeamRoleFields.Exhausted }
+
+// GetNameRange returns CreateTeamRoleCreateTeamRole.NameRange, and is useful for accessing the field via an interface.
+func (v *CreateTeamRoleCreateTeamRole) GetNameRange() *string { return v.TeamRoleFields.NameRange }
+
+// GetNameConvention returns CreateTeamRoleCreateTeamRole.NameConvention, and is useful for accessing the field via an interface.
+func (v *CreateTeamRoleCreateTeamRole) GetNameConvention() *string {
+	return v.TeamRoleFields.NameConvention
+}
+
+// GetRoleAgent returns CreateTeamRoleCreateTeamRole.RoleAgent, and is useful for accessing the field via an interface.
+func (v *CreateTeamRoleCreateTeamRole) GetRoleAgent() *TeamRoleFieldsRoleAgent {
+	return v.TeamRoleFields.RoleAgent
+}
+
+// GetHasNamePlaceholder returns CreateTeamRoleCreateTeamRole.HasNamePlaceholder, and is useful for accessing the field via an interface.
+func (v *CreateTeamRoleCreateTeamRole) GetHasNamePlaceholder() *bool {
+	return v.TeamRoleFields.HasNamePlaceholder
+}
+
+func (v *CreateTeamRoleCreateTeamRole) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateTeamRoleCreateTeamRole
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateTeamRoleCreateTeamRole = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamRoleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateTeamRoleCreateTeamRole struct {
+	Role string `json:"role"`
+
+	Loc string `json:"loc"`
+
+	NodeId string `json:"nodeId"`
+
+	Description *string `json:"description"`
+
+	Register []*TeamRoleFieldsRegisterTeamRoleName `json:"register"`
+
+	FreeCount int `json:"freeCount"`
+
+	Exhausted bool `json:"exhausted"`
+
+	NameRange *string `json:"nameRange"`
+
+	NameConvention *string `json:"nameConvention"`
+
+	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
+
+	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
+}
+
+func (v *CreateTeamRoleCreateTeamRole) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateTeamRoleCreateTeamRole) __premarshalJSON() (*__premarshalCreateTeamRoleCreateTeamRole, error) {
+	var retval __premarshalCreateTeamRoleCreateTeamRole
+
+	retval.Role = v.TeamRoleFields.Role
+	retval.Loc = v.TeamRoleFields.Loc
+	retval.NodeId = v.TeamRoleFields.NodeId
+	retval.Description = v.TeamRoleFields.Description
+	retval.Register = v.TeamRoleFields.Register
+	retval.FreeCount = v.TeamRoleFields.FreeCount
+	retval.Exhausted = v.TeamRoleFields.Exhausted
+	retval.NameRange = v.TeamRoleFields.NameRange
+	retval.NameConvention = v.TeamRoleFields.NameConvention
+	retval.RoleAgent = v.TeamRoleFields.RoleAgent
+	retval.HasNamePlaceholder = v.TeamRoleFields.HasNamePlaceholder
+	return &retval, nil
+}
+
+// CreateTeamRoleResponse is returned by CreateTeamRole on success.
+type CreateTeamRoleResponse struct {
+	// #960 — mint a roles:<role> definition in the Team Agent's system memory.
+	// Owns the spec knowledge a hand-authoring caller had to carry: the loc is
+	// roles:<role> (single atom), the register goes in data.names (ordered),
+	// and the write runs the register invariants — an added name may not appear
+	// in another of this App's registers (TEAM_ROLE_NAME_DUPLICATE) and must
+	// fall inside nameRange when one is set (TEAM_ROLE_NAME_OUT_OF_RANGE,
+	// override with allowOutOfRange; a supplied nameRange must parse as an
+	// initial-letter range like 'F-J'). Register checks and the write run in
+	// one App-scoped critical section, serialized with register-mode casting.
+	// Refuses an existing role
+	// (TEAM_ROLE_EXISTS — updateTeamRole is the edit path). Authorization is
+	// the Team Agent's definition-edit gate: whoever may write the agent's
+	// system memory through the generic node surface may write roles — the
+	// write delegates to that same seam (encryption, revision snapshot, git
+	// mirror included).
+	CreateTeamRole *CreateTeamRoleCreateTeamRole `json:"createTeamRole"`
+}
+
+// GetCreateTeamRole returns CreateTeamRoleResponse.CreateTeamRole, and is useful for accessing the field via an interface.
+func (v *CreateTeamRoleResponse) GetCreateTeamRole() *CreateTeamRoleCreateTeamRole {
+	return v.CreateTeamRole
+}
+
 // CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult includes the requested fields of the GraphQL type UserApiKeyCreateResult.
 type CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResult struct {
 	RawKey     string                                                            `json:"rawKey"`
@@ -17488,6 +17640,306 @@ func (v *UpdateTeamCollectionsUpdateTeamCollectionsTeamCollectionsPayload) GetCh
 	return v.Changed
 }
 
+// UpdateTeamRoleMetaResponse is returned by UpdateTeamRoleMeta on success.
+type UpdateTeamRoleMetaResponse struct {
+	// #960 — edit a roles:<role> definition. names is WHOLESALE (the natural
+	// fit for 'team role names set') but the invariants run against the DIFF
+	// between stored and submitted, so add/rm/mv sugar can never smuggle a
+	// violation: a name MINTED in this App may never be removed
+	// (TEAM_ROLE_NAME_MINTED — the register entry records the allocation), an
+	// added name may not appear in another register (TEAM_ROLE_NAME_DUPLICATE),
+	// and added names validate against nameRange (allowOutOfRange overrides).
+	// Omitted fields preserve; explicit null clears a convention key. Sibling
+	// data keys always survive (the single --data clobber hazard is unreachable
+	// through this surface). Unknown role: WORKER_ROLE_NOT_FOUND. Same
+	// authorization as createTeamRole.
+	UpdateTeamRole *UpdateTeamRoleMetaUpdateTeamRole `json:"updateTeamRole"`
+}
+
+// GetUpdateTeamRole returns UpdateTeamRoleMetaResponse.UpdateTeamRole, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleMetaResponse) GetUpdateTeamRole() *UpdateTeamRoleMetaUpdateTeamRole {
+	return v.UpdateTeamRole
+}
+
+// UpdateTeamRoleMetaUpdateTeamRole includes the requested fields of the GraphQL type TeamRole.
+// The GraphQL type's documentation follows.
+//
+// A role definition (#960): the roles:<role> node in the Team Agent's system
+// memory, carrying the name register (data.names) and register conventions.
+// The persona prompt template is NOT here — with the Worker model (#974) it
+// lives on the role-agent as dressing (personaRole + personaPrompt); roleAgent
+// points at it.
+type UpdateTeamRoleMetaUpdateTeamRole struct {
+	TeamRoleFields `json:"-"`
+}
+
+// GetRole returns UpdateTeamRoleMetaUpdateTeamRole.Role, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleMetaUpdateTeamRole) GetRole() string { return v.TeamRoleFields.Role }
+
+// GetLoc returns UpdateTeamRoleMetaUpdateTeamRole.Loc, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleMetaUpdateTeamRole) GetLoc() string { return v.TeamRoleFields.Loc }
+
+// GetNodeId returns UpdateTeamRoleMetaUpdateTeamRole.NodeId, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleMetaUpdateTeamRole) GetNodeId() string { return v.TeamRoleFields.NodeId }
+
+// GetDescription returns UpdateTeamRoleMetaUpdateTeamRole.Description, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleMetaUpdateTeamRole) GetDescription() *string {
+	return v.TeamRoleFields.Description
+}
+
+// GetRegister returns UpdateTeamRoleMetaUpdateTeamRole.Register, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleMetaUpdateTeamRole) GetRegister() []*TeamRoleFieldsRegisterTeamRoleName {
+	return v.TeamRoleFields.Register
+}
+
+// GetFreeCount returns UpdateTeamRoleMetaUpdateTeamRole.FreeCount, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleMetaUpdateTeamRole) GetFreeCount() int { return v.TeamRoleFields.FreeCount }
+
+// GetExhausted returns UpdateTeamRoleMetaUpdateTeamRole.Exhausted, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleMetaUpdateTeamRole) GetExhausted() bool { return v.TeamRoleFields.Exhausted }
+
+// GetNameRange returns UpdateTeamRoleMetaUpdateTeamRole.NameRange, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleMetaUpdateTeamRole) GetNameRange() *string { return v.TeamRoleFields.NameRange }
+
+// GetNameConvention returns UpdateTeamRoleMetaUpdateTeamRole.NameConvention, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleMetaUpdateTeamRole) GetNameConvention() *string {
+	return v.TeamRoleFields.NameConvention
+}
+
+// GetRoleAgent returns UpdateTeamRoleMetaUpdateTeamRole.RoleAgent, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleMetaUpdateTeamRole) GetRoleAgent() *TeamRoleFieldsRoleAgent {
+	return v.TeamRoleFields.RoleAgent
+}
+
+// GetHasNamePlaceholder returns UpdateTeamRoleMetaUpdateTeamRole.HasNamePlaceholder, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleMetaUpdateTeamRole) GetHasNamePlaceholder() *bool {
+	return v.TeamRoleFields.HasNamePlaceholder
+}
+
+func (v *UpdateTeamRoleMetaUpdateTeamRole) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateTeamRoleMetaUpdateTeamRole
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateTeamRoleMetaUpdateTeamRole = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamRoleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateTeamRoleMetaUpdateTeamRole struct {
+	Role string `json:"role"`
+
+	Loc string `json:"loc"`
+
+	NodeId string `json:"nodeId"`
+
+	Description *string `json:"description"`
+
+	Register []*TeamRoleFieldsRegisterTeamRoleName `json:"register"`
+
+	FreeCount int `json:"freeCount"`
+
+	Exhausted bool `json:"exhausted"`
+
+	NameRange *string `json:"nameRange"`
+
+	NameConvention *string `json:"nameConvention"`
+
+	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
+
+	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
+}
+
+func (v *UpdateTeamRoleMetaUpdateTeamRole) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateTeamRoleMetaUpdateTeamRole) __premarshalJSON() (*__premarshalUpdateTeamRoleMetaUpdateTeamRole, error) {
+	var retval __premarshalUpdateTeamRoleMetaUpdateTeamRole
+
+	retval.Role = v.TeamRoleFields.Role
+	retval.Loc = v.TeamRoleFields.Loc
+	retval.NodeId = v.TeamRoleFields.NodeId
+	retval.Description = v.TeamRoleFields.Description
+	retval.Register = v.TeamRoleFields.Register
+	retval.FreeCount = v.TeamRoleFields.FreeCount
+	retval.Exhausted = v.TeamRoleFields.Exhausted
+	retval.NameRange = v.TeamRoleFields.NameRange
+	retval.NameConvention = v.TeamRoleFields.NameConvention
+	retval.RoleAgent = v.TeamRoleFields.RoleAgent
+	retval.HasNamePlaceholder = v.TeamRoleFields.HasNamePlaceholder
+	return &retval, nil
+}
+
+// UpdateTeamRoleNamesResponse is returned by UpdateTeamRoleNames on success.
+type UpdateTeamRoleNamesResponse struct {
+	// #960 — edit a roles:<role> definition. names is WHOLESALE (the natural
+	// fit for 'team role names set') but the invariants run against the DIFF
+	// between stored and submitted, so add/rm/mv sugar can never smuggle a
+	// violation: a name MINTED in this App may never be removed
+	// (TEAM_ROLE_NAME_MINTED — the register entry records the allocation), an
+	// added name may not appear in another register (TEAM_ROLE_NAME_DUPLICATE),
+	// and added names validate against nameRange (allowOutOfRange overrides).
+	// Omitted fields preserve; explicit null clears a convention key. Sibling
+	// data keys always survive (the single --data clobber hazard is unreachable
+	// through this surface). Unknown role: WORKER_ROLE_NOT_FOUND. Same
+	// authorization as createTeamRole.
+	UpdateTeamRole *UpdateTeamRoleNamesUpdateTeamRole `json:"updateTeamRole"`
+}
+
+// GetUpdateTeamRole returns UpdateTeamRoleNamesResponse.UpdateTeamRole, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleNamesResponse) GetUpdateTeamRole() *UpdateTeamRoleNamesUpdateTeamRole {
+	return v.UpdateTeamRole
+}
+
+// UpdateTeamRoleNamesUpdateTeamRole includes the requested fields of the GraphQL type TeamRole.
+// The GraphQL type's documentation follows.
+//
+// A role definition (#960): the roles:<role> node in the Team Agent's system
+// memory, carrying the name register (data.names) and register conventions.
+// The persona prompt template is NOT here — with the Worker model (#974) it
+// lives on the role-agent as dressing (personaRole + personaPrompt); roleAgent
+// points at it.
+type UpdateTeamRoleNamesUpdateTeamRole struct {
+	TeamRoleFields `json:"-"`
+}
+
+// GetRole returns UpdateTeamRoleNamesUpdateTeamRole.Role, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleNamesUpdateTeamRole) GetRole() string { return v.TeamRoleFields.Role }
+
+// GetLoc returns UpdateTeamRoleNamesUpdateTeamRole.Loc, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleNamesUpdateTeamRole) GetLoc() string { return v.TeamRoleFields.Loc }
+
+// GetNodeId returns UpdateTeamRoleNamesUpdateTeamRole.NodeId, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleNamesUpdateTeamRole) GetNodeId() string { return v.TeamRoleFields.NodeId }
+
+// GetDescription returns UpdateTeamRoleNamesUpdateTeamRole.Description, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleNamesUpdateTeamRole) GetDescription() *string {
+	return v.TeamRoleFields.Description
+}
+
+// GetRegister returns UpdateTeamRoleNamesUpdateTeamRole.Register, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleNamesUpdateTeamRole) GetRegister() []*TeamRoleFieldsRegisterTeamRoleName {
+	return v.TeamRoleFields.Register
+}
+
+// GetFreeCount returns UpdateTeamRoleNamesUpdateTeamRole.FreeCount, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleNamesUpdateTeamRole) GetFreeCount() int { return v.TeamRoleFields.FreeCount }
+
+// GetExhausted returns UpdateTeamRoleNamesUpdateTeamRole.Exhausted, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleNamesUpdateTeamRole) GetExhausted() bool { return v.TeamRoleFields.Exhausted }
+
+// GetNameRange returns UpdateTeamRoleNamesUpdateTeamRole.NameRange, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleNamesUpdateTeamRole) GetNameRange() *string { return v.TeamRoleFields.NameRange }
+
+// GetNameConvention returns UpdateTeamRoleNamesUpdateTeamRole.NameConvention, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleNamesUpdateTeamRole) GetNameConvention() *string {
+	return v.TeamRoleFields.NameConvention
+}
+
+// GetRoleAgent returns UpdateTeamRoleNamesUpdateTeamRole.RoleAgent, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleNamesUpdateTeamRole) GetRoleAgent() *TeamRoleFieldsRoleAgent {
+	return v.TeamRoleFields.RoleAgent
+}
+
+// GetHasNamePlaceholder returns UpdateTeamRoleNamesUpdateTeamRole.HasNamePlaceholder, and is useful for accessing the field via an interface.
+func (v *UpdateTeamRoleNamesUpdateTeamRole) GetHasNamePlaceholder() *bool {
+	return v.TeamRoleFields.HasNamePlaceholder
+}
+
+func (v *UpdateTeamRoleNamesUpdateTeamRole) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateTeamRoleNamesUpdateTeamRole
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateTeamRoleNamesUpdateTeamRole = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamRoleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateTeamRoleNamesUpdateTeamRole struct {
+	Role string `json:"role"`
+
+	Loc string `json:"loc"`
+
+	NodeId string `json:"nodeId"`
+
+	Description *string `json:"description"`
+
+	Register []*TeamRoleFieldsRegisterTeamRoleName `json:"register"`
+
+	FreeCount int `json:"freeCount"`
+
+	Exhausted bool `json:"exhausted"`
+
+	NameRange *string `json:"nameRange"`
+
+	NameConvention *string `json:"nameConvention"`
+
+	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
+
+	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
+}
+
+func (v *UpdateTeamRoleNamesUpdateTeamRole) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateTeamRoleNamesUpdateTeamRole) __premarshalJSON() (*__premarshalUpdateTeamRoleNamesUpdateTeamRole, error) {
+	var retval __premarshalUpdateTeamRoleNamesUpdateTeamRole
+
+	retval.Role = v.TeamRoleFields.Role
+	retval.Loc = v.TeamRoleFields.Loc
+	retval.NodeId = v.TeamRoleFields.NodeId
+	retval.Description = v.TeamRoleFields.Description
+	retval.Register = v.TeamRoleFields.Register
+	retval.FreeCount = v.TeamRoleFields.FreeCount
+	retval.Exhausted = v.TeamRoleFields.Exhausted
+	retval.NameRange = v.TeamRoleFields.NameRange
+	retval.NameConvention = v.TeamRoleFields.NameConvention
+	retval.RoleAgent = v.TeamRoleFields.RoleAgent
+	retval.HasNamePlaceholder = v.TeamRoleFields.HasNamePlaceholder
+	return &retval, nil
+}
+
 // UpdateTeamSessionResponse is returned by UpdateTeamSession on success.
 type UpdateTeamSessionResponse struct {
 	// #931: update a live session's mutable provenance fields (a PR is usually
@@ -19040,6 +19492,42 @@ func (v *__CreateTeamChatMessageInput) GetReplyToSeq() *int { return v.ReplyToSe
 // GetSessionRef returns __CreateTeamChatMessageInput.SessionRef, and is useful for accessing the field via an interface.
 func (v *__CreateTeamChatMessageInput) GetSessionRef() *string { return v.SessionRef }
 
+// __CreateTeamRoleInput is used internally by genqlient
+type __CreateTeamRoleInput struct {
+	AppRef          string   `json:"appRef"`
+	TeamAgentRef    *string  `json:"teamAgentRef,omitempty"`
+	Role            string   `json:"role"`
+	Names           []string `json:"names"`
+	NameRange       *string  `json:"nameRange,omitempty"`
+	NameConvention  *string  `json:"nameConvention,omitempty"`
+	Description     *string  `json:"description,omitempty"`
+	AllowOutOfRange *bool    `json:"allowOutOfRange,omitempty"`
+}
+
+// GetAppRef returns __CreateTeamRoleInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CreateTeamRoleInput) GetAppRef() string { return v.AppRef }
+
+// GetTeamAgentRef returns __CreateTeamRoleInput.TeamAgentRef, and is useful for accessing the field via an interface.
+func (v *__CreateTeamRoleInput) GetTeamAgentRef() *string { return v.TeamAgentRef }
+
+// GetRole returns __CreateTeamRoleInput.Role, and is useful for accessing the field via an interface.
+func (v *__CreateTeamRoleInput) GetRole() string { return v.Role }
+
+// GetNames returns __CreateTeamRoleInput.Names, and is useful for accessing the field via an interface.
+func (v *__CreateTeamRoleInput) GetNames() []string { return v.Names }
+
+// GetNameRange returns __CreateTeamRoleInput.NameRange, and is useful for accessing the field via an interface.
+func (v *__CreateTeamRoleInput) GetNameRange() *string { return v.NameRange }
+
+// GetNameConvention returns __CreateTeamRoleInput.NameConvention, and is useful for accessing the field via an interface.
+func (v *__CreateTeamRoleInput) GetNameConvention() *string { return v.NameConvention }
+
+// GetDescription returns __CreateTeamRoleInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateTeamRoleInput) GetDescription() *string { return v.Description }
+
+// GetAllowOutOfRange returns __CreateTeamRoleInput.AllowOutOfRange, and is useful for accessing the field via an interface.
+func (v *__CreateTeamRoleInput) GetAllowOutOfRange() *bool { return v.AllowOutOfRange }
+
 // __CreateUserApiKeyInput is used internally by genqlient
 type __CreateUserApiKeyInput struct {
 	Label *string `json:"label,omitempty"`
@@ -20491,6 +20979,58 @@ type __UpdateTeamCollectionsInput struct {
 
 // GetAppRef returns __UpdateTeamCollectionsInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__UpdateTeamCollectionsInput) GetAppRef() string { return v.AppRef }
+
+// __UpdateTeamRoleMetaInput is used internally by genqlient
+type __UpdateTeamRoleMetaInput struct {
+	AppRef         string  `json:"appRef"`
+	TeamAgentRef   *string `json:"teamAgentRef,omitempty"`
+	Role           string  `json:"role"`
+	NameRange      *string `json:"nameRange"`
+	NameConvention *string `json:"nameConvention"`
+	Description    *string `json:"description,omitempty"`
+}
+
+// GetAppRef returns __UpdateTeamRoleMetaInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamRoleMetaInput) GetAppRef() string { return v.AppRef }
+
+// GetTeamAgentRef returns __UpdateTeamRoleMetaInput.TeamAgentRef, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamRoleMetaInput) GetTeamAgentRef() *string { return v.TeamAgentRef }
+
+// GetRole returns __UpdateTeamRoleMetaInput.Role, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamRoleMetaInput) GetRole() string { return v.Role }
+
+// GetNameRange returns __UpdateTeamRoleMetaInput.NameRange, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamRoleMetaInput) GetNameRange() *string { return v.NameRange }
+
+// GetNameConvention returns __UpdateTeamRoleMetaInput.NameConvention, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamRoleMetaInput) GetNameConvention() *string { return v.NameConvention }
+
+// GetDescription returns __UpdateTeamRoleMetaInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamRoleMetaInput) GetDescription() *string { return v.Description }
+
+// __UpdateTeamRoleNamesInput is used internally by genqlient
+type __UpdateTeamRoleNamesInput struct {
+	AppRef          string   `json:"appRef"`
+	TeamAgentRef    *string  `json:"teamAgentRef,omitempty"`
+	Role            string   `json:"role"`
+	Names           []string `json:"names"`
+	AllowOutOfRange *bool    `json:"allowOutOfRange,omitempty"`
+}
+
+// GetAppRef returns __UpdateTeamRoleNamesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamRoleNamesInput) GetAppRef() string { return v.AppRef }
+
+// GetTeamAgentRef returns __UpdateTeamRoleNamesInput.TeamAgentRef, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamRoleNamesInput) GetTeamAgentRef() *string { return v.TeamAgentRef }
+
+// GetRole returns __UpdateTeamRoleNamesInput.Role, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamRoleNamesInput) GetRole() string { return v.Role }
+
+// GetNames returns __UpdateTeamRoleNamesInput.Names, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamRoleNamesInput) GetNames() []string { return v.Names }
+
+// GetAllowOutOfRange returns __UpdateTeamRoleNamesInput.AllowOutOfRange, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamRoleNamesInput) GetAllowOutOfRange() *bool { return v.AllowOutOfRange }
 
 // __UpdateTeamSessionInput is used internally by genqlient
 type __UpdateTeamSessionInput struct {
@@ -22865,6 +23405,86 @@ func CreateTeamChatMessage(
 	}
 
 	data_ = &CreateTeamChatMessageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateTeamRole.
+const CreateTeamRole_Operation = `
+mutation CreateTeamRole ($appRef: ID!, $teamAgentRef: ID, $role: String!, $names: [String!]!, $nameRange: String, $nameConvention: String, $description: String, $allowOutOfRange: Boolean) {
+	createTeamRole(appRef: $appRef, teamAgentRef: $teamAgentRef, role: $role, names: $names, nameRange: $nameRange, nameConvention: $nameConvention, description: $description, allowOutOfRange: $allowOutOfRange) {
+		... TeamRoleFields
+	}
+}
+fragment TeamRoleFields on TeamRole {
+	role
+	loc
+	nodeId
+	description
+	register {
+		name
+		taken
+		heldBy {
+			id
+			name
+		}
+	}
+	freeCount
+	exhausted
+	nameRange
+	nameConvention
+	roleAgent {
+		id
+		urn
+		name
+		personaRole
+	}
+	hasNamePlaceholder
+}
+`
+
+// ── Register writes (#410 / hadron-server#960). The invariants live
+// SERVER-side, in one App-scoped critical section serialized with
+// register-mode casting: a name minted in this App may never be removed
+// (TEAM_ROLE_NAME_MINTED), an added name may not appear in another register
+// (TEAM_ROLE_NAME_DUPLICATE), added names validate against nameRange
+// (TEAM_ROLE_NAME_OUT_OF_RANGE; allowOutOfRange overrides). The CLI is sugar
+// and receipts — client-side composition can never smuggle a violation.
+func CreateTeamRole(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	teamAgentRef *string,
+	role string,
+	names []string,
+	nameRange *string,
+	nameConvention *string,
+	description *string,
+	allowOutOfRange *bool,
+) (data_ *CreateTeamRoleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateTeamRole",
+		Query:  CreateTeamRole_Operation,
+		Variables: &__CreateTeamRoleInput{
+			AppRef:          appRef,
+			TeamAgentRef:    teamAgentRef,
+			Role:            role,
+			Names:           names,
+			NameRange:       nameRange,
+			NameConvention:  nameConvention,
+			Description:     description,
+			AllowOutOfRange: allowOutOfRange,
+		},
+	}
+
+	data_ = &CreateTeamRoleResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -28147,6 +28767,151 @@ func UpdateTeamCollections(
 	}
 
 	data_ = &UpdateTeamCollectionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateTeamRoleMeta.
+const UpdateTeamRoleMeta_Operation = `
+mutation UpdateTeamRoleMeta ($appRef: ID!, $teamAgentRef: ID, $role: String!, $nameRange: String, $nameConvention: String, $description: String) {
+	updateTeamRole(appRef: $appRef, teamAgentRef: $teamAgentRef, role: $role, nameRange: $nameRange, nameConvention: $nameConvention, description: $description) {
+		... TeamRoleFields
+	}
+}
+fragment TeamRoleFields on TeamRole {
+	role
+	loc
+	nodeId
+	description
+	register {
+		name
+		taken
+		heldBy {
+			id
+			name
+		}
+	}
+	freeCount
+	exhausted
+	nameRange
+	nameConvention
+	roleAgent {
+		id
+		urn
+		name
+		personaRole
+	}
+	hasNamePlaceholder
+}
+`
+
+// The conventions write (`role update`): nameRange/nameConvention are ALWAYS
+// sent — a value sets, an explicit null CLEARS (the server's convention-key
+// semantics), which is exactly why these two variables carry NO omitempty:
+// the command read-modify-writes, resending the current value for an
+// untouched field. names is absent (structurally preserved); description is
+// set-only (omitempty).
+func UpdateTeamRoleMeta(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	teamAgentRef *string,
+	role string,
+	nameRange *string,
+	nameConvention *string,
+	description *string,
+) (data_ *UpdateTeamRoleMetaResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateTeamRoleMeta",
+		Query:  UpdateTeamRoleMeta_Operation,
+		Variables: &__UpdateTeamRoleMetaInput{
+			AppRef:         appRef,
+			TeamAgentRef:   teamAgentRef,
+			Role:           role,
+			NameRange:      nameRange,
+			NameConvention: nameConvention,
+			Description:    description,
+		},
+	}
+
+	data_ = &UpdateTeamRoleMetaResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateTeamRoleNames.
+const UpdateTeamRoleNames_Operation = `
+mutation UpdateTeamRoleNames ($appRef: ID!, $teamAgentRef: ID, $role: String!, $names: [String!]!, $allowOutOfRange: Boolean) {
+	updateTeamRole(appRef: $appRef, teamAgentRef: $teamAgentRef, role: $role, names: $names, allowOutOfRange: $allowOutOfRange) {
+		... TeamRoleFields
+	}
+}
+fragment TeamRoleFields on TeamRole {
+	role
+	loc
+	nodeId
+	description
+	register {
+		name
+		taken
+		heldBy {
+			id
+			name
+		}
+	}
+	freeCount
+	exhausted
+	nameRange
+	nameConvention
+	roleAgent {
+		id
+		urn
+		name
+		personaRole
+	}
+	hasNamePlaceholder
+}
+`
+
+// The names-only write (`role names set|add|rm|mv`): conventions and
+// description are not in the operation at all, so they are structurally
+// preserved — omitted is "preserve" on this server (CLAUDE.md).
+func UpdateTeamRoleNames(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	teamAgentRef *string,
+	role string,
+	names []string,
+	allowOutOfRange *bool,
+) (data_ *UpdateTeamRoleNamesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateTeamRoleNames",
+		Query:  UpdateTeamRoleNames_Operation,
+		Variables: &__UpdateTeamRoleNamesInput{
+			AppRef:          appRef,
+			TeamAgentRef:    teamAgentRef,
+			Role:            role,
+			Names:           names,
+			AllowOutOfRange: allowOutOfRange,
+		},
+	}
+
+	data_ = &UpdateTeamRoleNamesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
