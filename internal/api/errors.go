@@ -175,6 +175,39 @@ func extensionCode(e *gqlerror.Error) string {
 	return ""
 }
 
+// TakenDetail is the informed-takeover payload a WORKER_TAKEN error carries
+// (hadron-server#940): everything the takeover prompt needs, in one round
+// trip. Fields are empty when the server omitted them (lastDriver is null
+// for an unattributed session).
+type TakenDetail struct {
+	WorkerID   string
+	SessionID  string
+	LastDriver string
+	LastSeenAt string
+}
+
+// WorkerTakenDetail extracts the WORKER_TAKEN payload from err's
+// extensions; ok is false when err is not that error. The MESSAGE also
+// narrates the payload today, but the extensions are the documented
+// contract (cor:agt:020:03) — render from these, not from message wording.
+// Call it BEFORE MapError wraps the error.
+func WorkerTakenDetail(err error) (TakenDetail, bool) {
+	for _, e := range graphQLErrors(err) {
+		if e == nil || extensionCode(e) != "WORKER_TAKEN" {
+			continue
+		}
+		d := TakenDetail{}
+		if e.Extensions != nil {
+			d.WorkerID, _ = e.Extensions["workerId"].(string)
+			d.SessionID, _ = e.Extensions["sessionId"].(string)
+			d.LastDriver, _ = e.Extensions["lastDriver"].(string)
+			d.LastSeenAt, _ = e.Extensions["lastSeenAt"].(string)
+		}
+		return d, true
+	}
+	return TakenDetail{}, false
+}
+
 // DescendantCount returns the descendant count carried by a
 // NODE_HAS_DESCENDANTS error (server #661: its extensions.count), or -1 when err
 // is not that error or carries no non-negative numeric count. JSON numbers decode

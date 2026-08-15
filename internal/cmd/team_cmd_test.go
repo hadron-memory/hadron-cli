@@ -636,16 +636,18 @@ func TestTeamSessionStartForceTakesOver(t *testing.T) {
 }
 
 // The race the client pre-flight cannot close: the worker was free at the
-// check and taken by the time startSession ran. The server's atomic
-// WORKER_TAKEN refusal (#940/#432) surfaces with its payload and the --force
-// override, as a Conflict.
+// check and taken by the time startSession ran. The refusal renders from the
+// WORKER_TAKEN EXTENSIONS payload (#940/#432 — the documented contract), so
+// the fake carries a deliberately GENERIC message: driver/time/session must
+// come from extensions alone (PR #433 review).
 func TestTeamSessionStartRacedTakenSurfacesForce(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetWorker":    `{"data":{"worker":` + irisWorkerJSON + `}}`,
 		"TeamSessions": `{"data":{"sessions":[]}}`,
-		"StartTeamSession": `{"errors":[{"message":"Worker \"Iris\" is being driven by u-rufus since 2026-08-15T09:00:00Z",
-			"extensions":{"code":"WORKER_TAKEN"}}]}`,
+		"StartTeamSession": `{"errors":[{"message":"This worker is taken.",
+			"extensions":{"code":"WORKER_TAKEN","workerId":"wkr1","sessionId":"s-race",
+			"lastDriver":"u-rufus","lastSeenAt":"2026-08-15T09:00:00Z"}}]}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -654,10 +656,27 @@ func TestTeamSessionStartRacedTakenSurfacesForce(t *testing.T) {
 	if code := exitcode.FromError(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
-	for _, want := range []string{"u-rufus", "--force"} {
+	for _, want := range []string{"u-rufus", "2026-08-15T09:00:00Z", "s-race", "--force"} {
 		if err == nil || !strings.Contains(err.Error(), want) {
-			t.Errorf("the refusal must carry %q (payload + override): %v", want, err)
+			t.Errorf("the refusal must carry %q from the extensions payload: %v", want, err)
 		}
+	}
+
+	// A null lastDriver (unattributed session) must not render as an empty
+	// hole — the payload's absent fields degrade to honest placeholders.
+	gql2, _ := captureGraphQL(t, map[string]string{
+		"GetWorker":    `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"TeamSessions": `{"data":{"sessions":[]}}`,
+		"StartTeamSession": `{"errors":[{"message":"This worker is taken.",
+			"extensions":{"code":"WORKER_TAKEN","workerId":"wkr1","sessionId":"s-race",
+			"lastDriver":null,"lastSeenAt":"2026-08-15T09:00:00Z"}}]}`,
+	})
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", gql2.URL})
+	err2 := root2.Execute()
+	if err2 == nil || !strings.Contains(err2.Error(), "an unknown driver") {
+		t.Errorf("a null lastDriver must degrade honestly: %v", err2)
 	}
 }
 

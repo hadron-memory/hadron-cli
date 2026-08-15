@@ -275,14 +275,22 @@ so the old binding never leaves a session open.`,
 			resp, err := gen.StartTeamSession(ctx, client, input)
 			if err != nil {
 				// The race the pre-flight can't close: the worker was free a
-				// moment ago and another driver bound it first. The server's
-				// WORKER_TAKEN payload says who/when (#940 — surface it, per
-				// the informed-takeover contract); add the override the
-				// pre-flight refusal already offers.
-				if api.HasErrorCode(err, "WORKER_TAKEN") {
-					mapped := api.MapError(err)
-					return exitcode.Newf(exitcode.FromError(mapped),
-						"%v — --force takes over (informed override, cor:agt:020:03)", mapped)
+				// moment ago and another driver bound it first. Render the
+				// refusal from the WORKER_TAKEN EXTENSIONS payload (#940 —
+				// the documented contract; the message narration is not),
+				// with the override the pre-flight refusal already offers.
+				if detail, taken := api.WorkerTakenDetail(err); taken {
+					who := detail.LastDriver
+					if who == "" {
+						who = "an unknown driver"
+					}
+					seen := detail.LastSeenAt
+					if seen == "" {
+						seen = "unknown"
+					}
+					return exitcode.Newf(exitcode.Conflict,
+						"worker %s is being driven by %s, last seen %s (session %s) — --force takes over (informed override, cor:agt:020:03)",
+						w.Name, who, seen, detail.SessionID)
 				}
 				return api.MapError(err)
 			}
