@@ -678,6 +678,65 @@ func TestTeamRoleNamesAddSplitsCommas(t *testing.T) {
 	}
 }
 
+// PR #444 review: the rebase path had its own false-update hole — when a
+// concurrent admin adds the very names this command was adding, the
+// recomposed register equals the stored one, and the loop used to submit it
+// anyway and print "✓ updated". It must detect the no-op, skip the write,
+// and report unchanged.
+func TestTeamRoleNamesAddStaleRebaseToNoOpReportsUnchanged(t *testing.T) {
+	var updateCalls int
+	roleCalls := 0
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "TeamRoles":
+			roleCalls++
+			if roleCalls == 1 {
+				_, _ = w.Write([]byte(teamRolesJSON)) // register: Fred, Iris, Joe
+				return
+			}
+			// The re-read behind the unchanged receipt sees the concurrent add.
+			_, _ = w.Write([]byte(`{"data":{"teamRoles":{"total":1,"items":[
+				{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be","description":null,
+				 "register":[{"name":"Fred","taken":false,"heldBy":null},{"name":"Iris","taken":true,"heldBy":{"id":"wkr1","name":"Iris"}},
+				   {"name":"Joe","taken":false,"heldBy":null},{"name":"Hans","taken":false,"heldBy":null}],
+				 "freeCount":3,"exhausted":false,"nameRange":null,"nameConvention":null,
+				 "roleAgent":null,"hasNamePlaceholder":null}]}}}`))
+		case "UpdateTeamRoleNames":
+			updateCalls++
+			// A concurrent admin already added Hans — exactly what we wanted.
+			_, _ = w.Write([]byte(`{"errors":[{"message":"the register changed",
+				"extensions":{"code":"TEAM_ROLE_STALE","storedNames":["Fred","Iris","Joe","Hans"]}}]}`))
+		default:
+			t.Errorf("unexpected operation %q", body.OperationName)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
+		}
+	}))
+	t.Cleanup(gql.Close)
+
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "role", "names", "add", "backend-engineer", "Hans",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// Exactly ONE write attempt: the retry recomposed to a no-op and stopped.
+	if updateCalls != 1 {
+		t.Errorf("the rebased no-op must not re-submit, got %d update calls", updateCalls)
+	}
+	if strings.Contains(out.String(), "✓ updated") {
+		t.Errorf("a rebased no-op must not claim an update: %s", out.String())
+	}
+	if !strings.Contains(out.String(), "unchanged") || !strings.Contains(out.String(), "Hans") {
+		t.Errorf("the receipt must report unchanged and show the current register: %s", out.String())
+	}
+}
+
 // A name already in the register is skipped rather than re-appended, and an
 // add where EVERY name is already present says so instead of printing a
 // "✓ updated" receipt for a write that changed nothing (#442, lower-severity

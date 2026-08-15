@@ -516,6 +516,31 @@ func notYetInRegister(stored, additions []string) []string {
 	return fresh
 }
 
+// equalNames reports whether two registers are identical — same order, same
+// exact spellings (the server compares exactly, so a case difference IS a
+// change).
+func equalNames(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// emitRoleUnchanged is the honest receipt for a write that would change
+// nothing: no mutation is sent, and the output never says "updated".
+func emitRoleUnchanged(f *cmdutil.Factory, r gen.TeamRoleFields, reason string) error {
+	dto := roleDTOFromFields(r)
+	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+		_, err := fmt.Fprintf(w, "· %s unchanged — %s: %s\n", dto.Role, reason, registerLine(dto.Register))
+		return err
+	})
+}
+
 func pluralNames(names []string) string {
 	if len(names) == 1 {
 		return "that name is"
@@ -558,6 +583,18 @@ func casRoleNames(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client,
 		names, err := recompose(stored)
 		if err != nil {
 			return err
+		}
+		// Nothing to write: the register already reflects the edit. Reached
+		// on a REBASE when a concurrent admin landed the same addition (PR
+		// #444 review), and on the first attempt for an mv to the position a
+		// name already holds. Writing anyway would print "✓ updated" for a
+		// no-op — the false-update behavior #442 exists to remove.
+		if equalNames(names, stored) {
+			row, rerr := resolveRole(cmd.Context(), client, appRef, teamAgentRef, role)
+			if rerr != nil {
+				return rerr
+			}
+			return emitRoleUnchanged(f, row, "the register already matches the requested edit")
 		}
 		err = writeRoleNames(cmd, f, client, appRef, teamAgentRef, role, names, &stored, allowOutOfRange)
 		if err == nil {
@@ -682,11 +719,7 @@ an update.`,
 			// register dedups case-insensitively), which used to print a
 			// "✓ updated" receipt for a write that changed nothing.
 			if fresh := notYetInRegister(registerNames(current), additions); len(fresh) == 0 {
-				return output.Write(f.IOStreams, f.JSON, roleDTOFromFields(current), func(w io.Writer) error {
-					_, werr := fmt.Fprintf(w, "· %s unchanged — %s already in the register: %s\n",
-						current.Role, pluralNames(additions), registerLine(roleDTOFromFields(current).Register))
-					return werr
-				})
+				return emitRoleUnchanged(f, current, pluralNames(additions)+" already in the register")
 			}
 			return casRoleNames(cmd, f, client, appRef, optStr(teamAgent), current.Role, registerNames(current),
 				func(stored []string) ([]string, error) {
