@@ -530,71 +530,70 @@ func TestTeamRoleUpdateSetAndClear(t *testing.T) {
 	}
 }
 
-// The names sugar composes from a FRESH read and submits wholesale; a rm/mv
-// naming something not in the register refuses instead of silently no-opping.
-// (teamRolesJSON's backend register: Fred, Iris, Joe.)
-func TestTeamRoleNamesVerbs(t *testing.T) {
+// `names set` is the ONLY register verb — the explicit whole-list
+// replacement, the honest model of the wholesale mutation (add/rm/mv sugar
+// over a read-modify-write invites lost updates; the user-set-roles
+// precedent — a delta surface is hadron-cli#436). The operation carries only
+// names, so conventions are structurally preserved.
+func TestTeamRoleNamesSet(t *testing.T) {
 	updated := `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
 		"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
 		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
-	cases := []struct {
-		name string
-		args []string
-		want []string
-	}{
-		{"add appends in order", []string{"names", "add", "backend-engineer", "Gwen", "Hans"},
-			[]string{"Fred", "Iris", "Joe", "Gwen", "Hans"}},
-		{"rm removes case-insensitively", []string{"names", "rm", "backend-engineer", "fred"},
-			[]string{"Iris", "Joe"}},
-		{"mv repositions", []string{"names", "mv", "backend-engineer", "Joe", "1"},
-			[]string{"Joe", "Fred", "Iris"}},
-		{"set replaces wholesale", []string{"names", "set", "backend-engineer", "Fred,Iris,Joe,Kim"},
-			[]string{"Fred", "Iris", "Joe", "Kim"}},
+	gql, captured := captureGraphQL(t, map[string]string{
+		"TeamRoles":           teamRolesJSON,
+		"UpdateTeamRoleNames": updated,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "role", "names", "set", "backend-engineer", "Fred,Iris,Joe,Kim",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
 	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			gql, captured := captureGraphQL(t, map[string]string{
-				"TeamRoles":           teamRolesJSON,
-				"UpdateTeamRoleNames": updated,
-			})
-			f, _ := testFactory(t)
-			root := NewRootCmd(f)
-			root.SetArgs(append(append([]string{"team", "role"}, tc.args...), "--app", "acme.com:eng-team", "--server", gql.URL))
-			if err := root.Execute(); err != nil {
-				t.Fatalf("execute: %v", err)
-			}
-			var vars struct {
-				Names []string `json:"names"`
-			}
-			_ = json.Unmarshal(captured["UpdateTeamRoleNames"], &vars)
-			if strings.Join(vars.Names, "|") != strings.Join(tc.want, "|") {
-				t.Errorf("composed register = %v, want %v", vars.Names, tc.want)
-			}
-		})
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateTeamRoleNames"], &vars)
+	names, _ := vars["names"].([]any)
+	if len(names) != 4 || names[0] != "Fred" || names[3] != "Kim" {
+		t.Errorf("set must submit the exact ordered list: %v", vars["names"])
+	}
+	// Conventions are structurally preserved: the names operation cannot
+	// carry them at all.
+	for _, k := range []string{"nameRange", "nameConvention", "description"} {
+		if _, present := vars[k]; present {
+			t.Errorf("%q must be absent from the names-only operation, got %v", k, vars[k])
+		}
 	}
 
-	for _, tc := range [][]string{
-		{"team", "role", "names", "rm", "backend-engineer", "Nadia"},
-		{"team", "role", "names", "mv", "backend-engineer", "Nadia", "1"},
-		{"team", "role", "names", "mv", "backend-engineer", "Joe", "9"},
-		{"team", "role", "names", "mv", "backend-engineer", "Joe", "zero"},
-	} {
-		gql, captured := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesJSON})
-		f, _ := testFactory(t)
-		root := NewRootCmd(f)
-		root.SetArgs(append(tc, "--app", "acme.com:eng-team", "--server", gql.URL))
-		if code := exitcode.FromError(root.Execute()); code != exitcode.Usage {
-			t.Errorf("%v: exit %d, want Usage", tc, code)
+	// Sugar verbs deliberately do not exist (lost-update hazard): the only
+	// registered names subcommand is set. (The unknown-subcommand refusal
+	// itself is entry-point behavior, #232 — asserted structurally here.)
+	verbs := []string{}
+	for _, c := range NewRootCmd(f).Commands() {
+		if c.Name() != "team" {
+			continue
 		}
-		if _, called := captured["UpdateTeamRoleNames"]; called {
-			t.Errorf("%v: a refused verb must not reach the mutation", tc)
+		for _, sub := range c.Commands() {
+			if sub.Name() != "role" {
+				continue
+			}
+			for _, rsub := range sub.Commands() {
+				if rsub.Name() == "names" {
+					for _, v := range rsub.Commands() {
+						verbs = append(verbs, v.Name())
+					}
+				}
+			}
 		}
+	}
+	if len(verbs) != 1 || verbs[0] != "set" {
+		t.Errorf("names must offer ONLY set until the server grows a delta surface (hadron-cli#436), got %v", verbs)
 	}
 }
 
 // The register invariants are the SERVER's; the CLI maps their typed
-// refusals — minted/duplicate are state conflicts, out-of-range is fixable
-// input, an existing role rides the _EXISTS suffix rule.
+// refusals — minted/duplicate/exists are state conflicts (TEAM_ROLE_EXISTS
+// needs its explicit mapping: the generic suffix rule matches
+// _ALREADY_EXISTS, not _EXISTS), out-of-range is fixable input.
 func TestTeamRoleWriteServerRefusals(t *testing.T) {
 	cases := []struct {
 		name string

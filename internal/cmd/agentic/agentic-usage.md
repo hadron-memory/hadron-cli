@@ -109,7 +109,7 @@ hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <or
 hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] [--persona-prompt <p>] | update <id> [<field flags>] | rm <id> --yes
 hadron team init -m <team-memory>
 hadron team worker cast (--role <role> | --agent <ref>) [--name <n>] [--team-agent <ref>] [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | retire <name-or-id> --yes | rm <name-or-id> --yes
-hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> --names <a,b,c> [--name-range F-J] [--name-convention <text>] [--description <d>] [--allow-out-of-range] [--team-agent <ref>] | update <role> [--name-range <r> | --clear-name-range] [--name-convention <t> | --clear-name-convention] [--description <d>] | names set <role> <n1,n2,...> | names add <role> <name>... | names rm <role> <name>... | names mv <role> <name> <pos>
+hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> --names <a,b,c> [--name-range F-J] [--name-convention <text>] [--description <d>] [--allow-out-of-range] [--team-agent <ref>] | update <role> [--name-range <r> | --clear-name-range] [--name-convention <t> | --clear-name-convention] [--description <d>] | names set <role> <n1,n2,...>
 hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--mentions-me | --mentions <ref>] (uses --app or the binding)
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
@@ -750,13 +750,16 @@ Conventions:
   exit 5), and added names validate against the range
   (`TEAM_ROLE_NAME_OUT_OF_RANGE`, exit 2; `--allow-out-of-range` overrides
   deliberately); an existing role refuses `create` (`TEAM_ROLE_EXISTS`,
-  exit 5 — `update`/`names` are the edit paths). The `names` verbs compose
-  the new ordered list from a fresh read and submit WHOLESALE; the server
-  validates the DIFF, so sugar can never smuggle a violation and a stale
-  read fails typed rather than clobbering. `names rm`/`mv` of a name not in
-  the register refuse (exit 2) instead of silently no-opping; order is
-  load-bearing (position = allocation order), which is what `mv` is for.
-  Clearing a convention is EXPLICIT (`--clear-name-range` /
+  exit 5 — `update`/`names` are the edit paths). `names set` is the ONLY
+  register verb — the explicit whole-list replacement, the honest model of
+  the wholesale mutation: read (`role get`), edit, resubmit, and the
+  server's diff validation catches a typo that would drop a minted name.
+  There is deliberately no add/rm/mv sugar — composing client-side over a
+  wholesale write is a lost-update race (the diff checks protect only
+  MINTED names, so a concurrent free-name edit would be clobbered
+  silently); it returns when the server grows a delta surface
+  (hadron-cli#436 / hadron-server#987). Order is load-bearing (position =
+  allocation order). Clearing a convention is EXPLICIT (`--clear-name-range` /
   `--clear-name-convention` send the null the server reads as "remove");
   sibling `data` keys always survive. Every write prints the resulting
   register with taken markers — the receipt, no follow-up read needed.

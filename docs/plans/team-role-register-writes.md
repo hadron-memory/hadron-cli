@@ -24,8 +24,9 @@ invariants are re-implemented here.
   [--description] [--allow-out-of-range]` → `createTeamRole`. Refuses an
   existing role (`TEAM_ROLE_EXISTS`) — update/names are the edit paths.
 - `role update <role>` — conventions and description only; the register has
-  its own verbs.
-- `role names set|add|rm|mv` — the register verbs.
+  its own verb.
+- `role names set` — the ONE register verb (see below for why the sugar
+  was cut in review).
 
 ## The three wire-semantics decisions
 
@@ -48,16 +49,33 @@ invariants are re-implemented here.
    writes are rare and reviewed — the alternative (four single-field
    operations) buys atomicity nobody asked for at twice the surface.
 
-## The sugar verbs
+## The register verb — and the sugar cut in review
 
-`set` is the wholesale replace (explicit, matching the server's own shape).
-`add`/`rm`/`mv` compose the new ordered list from a **fresh `teamRoles`
-read** and submit wholesale; the server's diff validation is the safety net
-when that read goes stale — a conflict fails typed rather than clobbering.
-`rm`/`mv` of a name not in the register refuse (`Usage`) instead of
-silently no-opping: a typo'd rm must not leave the caller believing the
-register shrank. `mv` is 1-based and bounds-checked, because order is
-load-bearing — position IS allocation order.
+`set` is the wholesale replace, explicit by design: read (`role get`),
+edit, resubmit — the honest model of the server's own mutation shape.
+
+`add`/`rm`/`mv` were implemented and then **removed before merge**. Both
+review bots flagged the same defect in the initial revision: the sugar
+composed the new list from a fresh read and submitted wholesale, on the
+claim that "the server's diff validation is the safety net when that read
+goes stale — a conflict fails typed rather than clobbering." That claim is
+wrong for the case that matters: the diff checks protect only **minted**
+names, so removing an unminted name is legal by design, and two admins
+racing `names add` have the later wholesale write silently drop the
+earlier one's free-name addition. No client-side fix exists — there is no
+revision/precondition on `updateTeamRole` to hang a compare-and-swap on,
+and the loss is invisible post-hoc (the response is exactly the list we
+submitted).
+
+The repo had already made this call once: `docs/plans/user-set-roles.md`
+refused `--add`/`--remove` over the wholesale `setUserRoles` for the same
+lost-update hazard — *"revisit only if the server grows a delta-based
+surface."* Following that precedent: hadron-server#987 asks for delta
+operations (or an `expectedNames` precondition), and hadron-cli#436 tracks
+the sugar's return on top of it. What `set` retains from the original
+issue's motivation: the retype-all-five typo hazard is now largely defused
+by the server's diff validation — a typo that would drop a minted name
+refuses instead of silently un-recording an allocation.
 
 ## Receipts and exit codes
 
