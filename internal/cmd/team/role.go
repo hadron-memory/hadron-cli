@@ -204,7 +204,7 @@ one installed agent carries a roles: branch.`,
 func newCmdRoleGet(f *cmdutil.Factory) *cobra.Command {
 	var teamAgent string
 	cmd := &cobra.Command{
-		Use:   "get <role>",
+		Use:   "get <role> [--team-agent <ref>]",
 		Short: "Show one role: register with holders, conventions, role agent",
 		Long: `Show one role definition. The register lists every name in allocation
 order with its holder (retired workers hold their names forever); the

@@ -481,6 +481,43 @@ func TestTeamWorkerCastDryRun(t *testing.T) {
 	if _, called := captured["CastWorker"]; called {
 		t.Error("a dry run must never reach the mutation")
 	}
+
+	// The --json contract (PR #434 review): the actionable ids beside the
+	// names, the nullable fields present, and the explicit always-false
+	// reserved signal — so machine consumers cannot misread a preview as a
+	// reservation.
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "worker", "cast", "--dry-run", "--app", "acme.com:eng-team",
+		"--role", "backend-engineer", "--json", "--server", gql.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Name               string  `json:"name"`
+		Role               *string `json:"role"`
+		AgentID            string  `json:"agentId"`
+		TeamAgentID        *string `json:"teamAgentId"`
+		Prompt             *string `json:"prompt"`
+		HasNamePlaceholder *bool   `json:"hasNamePlaceholder"`
+		Reserved           bool    `json:"reserved"`
+	}
+	if err := json.Unmarshal([]byte(out2.String()), &dto); err != nil {
+		t.Fatalf("--json: %v (%s)", err, out2.String())
+	}
+	if dto.Name != "Joe" || dto.AgentID != "agt1" ||
+		dto.TeamAgentID == nil || *dto.TeamAgentID != "agt-team" ||
+		dto.Role == nil || *dto.Role != "backend-engineer" ||
+		dto.Prompt == nil || *dto.Prompt != "You are Joe." ||
+		dto.HasNamePlaceholder == nil || !*dto.HasNamePlaceholder {
+		t.Errorf("preview --json contract: %s", out2.String())
+	}
+	if dto.Reserved {
+		t.Errorf("reserved must be explicitly false — the preview holds nothing: %s", out2.String())
+	}
+	if !strings.Contains(out2.String(), `"reserved": false`) {
+		t.Errorf("the reserved key must be present, not omitted: %s", out2.String())
+	}
 }
 
 // A dry-run refusal IS the answer: the preview runs the cast's exact

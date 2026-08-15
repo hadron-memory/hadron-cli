@@ -739,8 +739,8 @@ Conventions:
   `{{name}}`-placeholder check. Registers and free/taken are SERVER truths
   judged against the App's full roster — never recompute them. The prompt
   TEMPLATE lives on the role AGENT (`agent get`), not the role node;
-  register writes are #410. `--team-agent` disambiguates multiple roles:
-  branches (`TEAM_AGENT_AMBIGUOUS`, exit 2).
+  register writes are #410. `--team-agent` disambiguates when several
+  installed agents carry a `roles:` branch (`TEAM_AGENT_AMBIGUOUS`, exit 2).
   Names bind **forever** per App (`cor:agt:020:02`, case-insensitive):
   `worker retire` (requires `--yes`, idempotent) stops the worker and keeps
   its name reserved — PR trailers and chat history reference it — and there
