@@ -1995,6 +1995,8 @@ func TestTeamInit(t *testing.T) {
 			"vectorIndexEnabled":false,"maxRevCount":10,"data":null,
 			"schema":{"objectTypes":{"competitor":{"fields":{"name":{"type":"text","required":true}}}}},
 			"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
+		"GetAppSharedMemory": `{"data":{"app":{"id":"app1","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
+			"class":"app","schema":null}}}}`,
 		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
 		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m1",
 			"collections":["worklog"],"changed":true}}}`,
@@ -2035,6 +2037,8 @@ func TestTeamInitIdempotent(t *testing.T) {
 			"vectorIndexEnabled":false,"maxRevCount":10,"data":null,
 			"schema":{"objectTypes":{"worklog":{"fields":{"ref":{"type":"text","required":true}}}}},
 			"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
+		"GetAppSharedMemory": `{"data":{"app":{"id":"app1","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
+			"class":"app","schema":{"objectTypes":{"worklog":{"fields":{"ref":{"type":"text","required":true}}}}}}}}}`,
 		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
 		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m1",
 			"collections":["worklog"],"changed":false}}}`,
@@ -2064,6 +2068,8 @@ func TestTeamInitConvergesADriftedDeclaration(t *testing.T) {
 			"vectorIndexEnabled":false,"maxRevCount":10,"data":null,
 			"schema":{"objectTypes":{"worklog":{"fields":{"kind":{"type":"enum","required":true,"values":["pr","issue","commit","branch"]}}}}},
 			"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
+		"GetAppSharedMemory": `{"data":{"app":{"id":"app1","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
+			"class":"app","schema":{"objectTypes":{"worklog":{"fields":{"kind":{"type":"enum","required":true,"values":["pr","issue","commit","branch"]}}}}}}}}}`,
 		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
 		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m1",
 			"collections":["worklog"],"changed":true}}}`,
@@ -2128,7 +2134,6 @@ func TestTeamChatPostAsWorker(t *testing.T) {
 		t.Fatal(err)
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
-		"TeamMemoryApp":         `{"data":{"memory":{"id":"mem1","appId":"app-1"}}}`,
 		"CreateTeamChatMessage": `{"data":{"createTeamChatMessage":` + teamChatMsgJSON + `}}`,
 	})
 	f, out := testFactory(t)
@@ -2137,14 +2142,11 @@ func TestTeamChatPostAsWorker(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var memVars map[string]any
-	_ = json.Unmarshal(captured["TeamMemoryApp"], &memVars)
-	if memVars["ref"] != "hrn:mem:acme.com:eng-team" {
-		t.Errorf("app resolution must read the binding's team memory: %v", memVars)
-	}
+	// #399: the binding's recorded App scopes the post directly — no
+	// TeamMemoryApp in the fake, so a resolution round trip fails loudly.
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateTeamChatMessage"], &vars)
-	if vars["appRef"] != "app-1" || vars["body"] != "@rufus schema is live" || vars["sessionRef"] != "s-new" {
+	if vars["appRef"] != "app1" || vars["body"] != "@rufus schema is live" || vars["sessionRef"] != "s-new" {
 		t.Errorf("post vars: %v", vars)
 	}
 	if _, present := vars["replyToSeq"]; present {
@@ -2397,7 +2399,6 @@ func TestTeamChatReadMentionsMe(t *testing.T) {
 		t.Fatal(err)
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
-		"TeamMemoryApp": `{"data":{"memory":{"id":"mem1","appId":"app-1"}}}`,
 		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":2,"items":[
 			{"nodeId":"n5","seq":5,"body":"@iris ping","at":"t1","authorUserId":"u2","authorWorkerId":null,"authorName":"rufus","sessionId":null,"replyToSeq":null,"mentions":["iris"]},
 			{"nodeId":"n7","seq":7,"body":"@iris again","at":"t3","authorUserId":"u2","authorWorkerId":null,"authorName":"rufus","sessionId":null,"replyToSeq":5,"mentions":["iris"]}]}}}`,
@@ -2410,7 +2411,7 @@ func TestTeamChatReadMentionsMe(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["TeamChatMessages"], &vars)
-	if vars["appRef"] != "app-1" || vars["mentionsRef"] != "wkr1" {
+	if vars["appRef"] != "app1" || vars["mentionsRef"] != "wkr1" {
 		t.Errorf("read vars: %v", vars)
 	}
 	var dto struct {
@@ -2651,21 +2652,17 @@ func TestTeamInitReportsWhereTheDeclarationLanded(t *testing.T) {
 		switch body.OperationName {
 		case "GetMemory":
 			calls++
-			var vars struct {
-				Ref string `json:"ref"`
-			}
-			_ = json.Unmarshal(body.Variables, &vars)
-			// First call: the memory named by -m. Second: the one the server
-			// actually declared on, read back by id.
-			id, urn := "m-other", "hrn:mem:acme.com:other-app-mem"
-			if vars.Ref == "m-team" {
-				id, urn = "m-team", "hrn:mem:acme.com:eng-team-shared"
-			}
-			_, _ = w.Write([]byte(`{"data":{"memory":{"id":"` + id + `","urn":"` + urn + `","name":"M",
+			// Only the -m-named memory is fetched (the class check); the
+			// status pre-read and the target URN come from App.sharedMemory,
+			// so no readback round trip is needed.
+			_, _ = w.Write([]byte(`{"data":{"memory":{"id":"m-other","urn":"hrn:mem:acme.com:other-app-mem","name":"M",
 				"shortDescription":null,"description":null,"class":"app","visibility":"ORGANIZATION",
 				"organizationId":"o1","isEncrypted":false,"tags":[],"source":null,"syncStatus":"NONE",
 				"vectorIndexEnabled":false,"maxRevCount":10,"data":null,"schema":null,
 				"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`))
+		case "GetAppSharedMemory":
+			_, _ = w.Write([]byte(`{"data":{"app":{"id":"app1","sharedMemory":{"id":"m-team",
+				"urn":"hrn:mem:acme.com:eng-team-shared","class":"app","schema":null}}}}`))
 		case "TeamMemoryApp":
 			_, _ = w.Write([]byte(`{"data":{"memory":{"id":"m-other","appId":"app1"}}}`))
 		case "UpdateTeamCollections":
@@ -2691,7 +2688,10 @@ func TestTeamInitReportsWhereTheDeclarationLanded(t *testing.T) {
 	if strings.Contains(out.String(), "other-app-mem") {
 		t.Errorf("must not echo the requested memory as the target: %s", out.String())
 	}
-	if calls != 2 {
-		t.Errorf("expected a read-back of the actual target memory, got %d GetMemory calls", calls)
+	// The status basis and the target URN come from the App's shared memory
+	// (PR #437 review) — the named memory is fetched once, for its class
+	// check, and never read back.
+	if calls != 1 {
+		t.Errorf("expected exactly one GetMemory (the -m class check), got %d", calls)
 	}
 }

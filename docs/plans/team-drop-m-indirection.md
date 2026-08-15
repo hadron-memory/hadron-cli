@@ -41,13 +41,22 @@ dereferenced back to an App they are already bound to was ceremony.
 ## #400 — `team init --app`
 
 - The App resolves like the rest of the group (`--app` / context /
-  binding); `updateTeamCollections(appRef)` was always App-addressed.
+  binding); `updateTeamCollections(appRef)` was always App-addressed. The
+  shared `resolveTeamApp` learned the binding's `appId` (review catch: the
+  initial revision left the resolver on ambient-context + `teamMemory`
+  only, which would have broken the advertised flag-free flow for every
+  binding-scoped command — init, chat, worker, role — whenever no ambient
+  App was configured).
 - **The three-value status contract** (`created`/`updated`/`unchanged`)
-  needs to know whether a worklog declaration existed before the write. On
-  the `-m` path the named memory's schema answers, as before. On the App
-  path, `App.sharedMemory` (#965) answers read-only — and a null
-  `sharedMemory` IS the answer ("nothing declared": the server provisions
-  on write), which is why the field's never-provisions semantics matter.
+  needs to know whether a worklog declaration existed before the write —
+  and the pre-read must describe the memory the write LANDS ON, which is
+  always the App's canonical shared memory (`App.sharedMemory`, #965; a
+  null `sharedMemory` IS the "fresh App, nothing declared" answer). Both
+  paths read it: basing `declared` on the `-m`-named memory (the initial
+  revision) lies whenever `-m` names some other app-class memory — an
+  already-correct target reporting `created`, a fresh one `updated`
+  (review catch). The named memory contributes only its class check and
+  the where-it-landed note, and is never read back.
 - `-m` survives as the explicit override with its #384 class prechecks (a
   system memory would make the collection permanently unwritable) and the
   PR #413 where-it-landed honesty note (an `-m` naming some other app-class

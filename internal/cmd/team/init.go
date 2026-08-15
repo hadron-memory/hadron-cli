@@ -2,6 +2,7 @@ package team
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -66,28 +67,11 @@ chat-message nodeType — D-2026-08-07-004), owned server-side.`,
 			if err != nil {
 				return err
 			}
-			// The three-value status contract needs to know whether a worklog
-			// declaration EXISTED before the write. App.sharedMemory (#965) is
-			// the read-only resolver — null means the App has no shared memory
-			// yet (nothing declared by definition; the server provisions on
-			// write).
-			pre, err := gen.GetAppSharedMemory(ctx, client, appRef)
+			declared, preID, preURN, err := sharedMemoryStatus(ctx, client, appRef)
 			if err != nil {
-				return api.MapError(err)
+				return err
 			}
-			if pre.App == nil {
-				return exitcode.Newf(exitcode.NotFound, "App %q not found", appRef)
-			}
-			declared := false
-			preID, preURN := "", ""
-			if pre.App.SharedMemory != nil {
-				preID, preURN = pre.App.SharedMemory.Id, pre.App.SharedMemory.Urn
-				declared, err = worklogDeclared(preURN, pre.App.SharedMemory.Schema)
-				if err != nil {
-					return err
-				}
-			}
-			return convergeAndReport(cmd, f, client, appRef, declared, preID, preURN, false)
+			return convergeAndReport(cmd, f, client, appRef, declared, preID, preURN, "", "")
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "explicit team App memory override (ID or URN); defaults to the App's own shared memory")
@@ -97,6 +81,13 @@ chat-message nodeType — D-2026-08-07-004), owned server-side.`,
 // initViaMemory is the -m override path: precheck the named memory's class,
 // then converge via its App. Kept because an explicit memory deserves the
 // early, specific refusals (#384) — the App path needs none of them.
+//
+// The STATUS pre-read deliberately does NOT come from the named memory: the
+// write always lands on the App's canonical shared memory, and when -m names
+// some other app-class memory a `declared` verdict read from IT would lie
+// (an already-correct target reporting "created", a fresh one "updated" —
+// PR #437 review). The named memory contributes only the class check and
+// the where-it-landed note.
 func initViaMemory(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, memRef, asTyped string) error {
 	ctx := cmd.Context()
 	resp, err := gen.GetMemory(ctx, client, memRef)
@@ -109,15 +100,34 @@ func initViaMemory(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client
 	if err := requireAppClass(resp.Memory.Urn, resp.Memory.Class); err != nil {
 		return err
 	}
-	declared, err := worklogDeclared(resp.Memory.Urn, resp.Memory.Schema)
-	if err != nil {
-		return err
-	}
 	appRef, err := appForTeamMemory(ctx, client, memRef)
 	if err != nil {
 		return err
 	}
-	return convergeAndReport(cmd, f, client, appRef, declared, resp.Memory.Id, resp.Memory.Urn, true)
+	declared, preID, preURN, err := sharedMemoryStatus(ctx, client, appRef)
+	if err != nil {
+		return err
+	}
+	return convergeAndReport(cmd, f, client, appRef, declared, preID, preURN, resp.Memory.Id, resp.Memory.Urn)
+}
+
+// sharedMemoryStatus pre-reads the App's canonical shared memory — the
+// memory the convergence writes to — for the three-value status contract. A
+// null sharedMemory IS the answer: nothing declared (the server provisions
+// on write).
+func sharedMemoryStatus(ctx context.Context, client graphql.Client, appRef string) (declared bool, preID, preURN string, err error) {
+	pre, err := gen.GetAppSharedMemory(ctx, client, appRef)
+	if err != nil {
+		return false, "", "", api.MapError(err)
+	}
+	if pre.App == nil {
+		return false, "", "", exitcode.Newf(exitcode.NotFound, "App %q not found", appRef)
+	}
+	if pre.App.SharedMemory == nil {
+		return false, "", "", nil
+	}
+	declared, err = worklogDeclared(pre.App.SharedMemory.Urn, pre.App.SharedMemory.Schema)
+	return declared, pre.App.SharedMemory.Id, pre.App.SharedMemory.Urn, err
 }
 
 // worklogDeclared reports whether the schema already carries a worklog
@@ -139,12 +149,12 @@ func worklogDeclared(urn string, schema *json.RawMessage) (bool, error) {
 }
 
 // convergeAndReport runs the convergence and reports where the declaration
-// actually landed. preID/preURN identify the memory the pre-read saw (the -m
-// memory, or the App's shared memory; both empty on a fresh App); explicitMem
-// marks the -m path — an -m naming some other app-class memory still declares
-// on the team memory, and reporting the named one would be the lie (Codex P2
-// on PR #413), so that path gets the note.
-func convergeAndReport(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, appRef string, declared bool, preID, preURN string, explicitMem bool) error {
+// actually landed. preID/preURN identify the App's shared memory as
+// pre-read (empty on a fresh App); namedID/namedURN identify the -m memory
+// when one was given — an -m naming some other app-class memory still
+// declares on the team memory, and reporting the named one would be the lie
+// (Codex P2 on PR #413), so that mismatch gets the note.
+func convergeAndReport(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, appRef string, declared bool, preID, preURN, namedID, namedURN string) error {
 	ctx := cmd.Context()
 	converged, err := gen.UpdateTeamCollections(ctx, client, appRef)
 	if err != nil {
@@ -172,12 +182,12 @@ func convergeAndReport(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Cl
 				"the collections were declared on memory %s, which could not be read back",
 				converged.UpdateTeamCollections.MemoryId)
 		}
-		if explicitMem {
-			fmt.Fprintf(f.IOStreams.ErrOut,
-				"note: %s is not this App's team memory — the collections were declared on %s, where the worklog lives\n",
-				preURN, actual.Memory.Urn)
-		}
 		targetURN = actual.Memory.Urn
+	}
+	if namedURN != "" && converged.UpdateTeamCollections.MemoryId != namedID {
+		fmt.Fprintf(f.IOStreams.ErrOut,
+			"note: %s is not this App's team memory — the collections were declared on %s, where the worklog lives\n",
+			namedURN, targetURN)
 	}
 
 	result := struct {

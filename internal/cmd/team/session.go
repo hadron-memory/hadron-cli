@@ -432,17 +432,18 @@ func newCmdSessionLog(f *cmdutil.Factory) *cobra.Command {
 		Short: "Record an artifact milestone for the current session",
 		Long: `Record an external-artifact milestone for this worktree's session in the
 team worklog — the collection behind the provenance query
-(` + "`session list --pr <ref>`" + `: which sessions produced this PR?). The worklog
-home is the team memory recorded at ` + "`session start -m`" + ` (or --memory
-here). No ` + "`team init`" + ` is needed first — the collection schema is the
-server's (#401).
+(` + "`session list --pr <ref>`" + `: which sessions produced this PR?).
 
-No flag is needed (#399): the binding records the bound worker's App, and
-the worklog is App-addressed — the team memory was only ever an indirection
-back to it. --memory stays as an explicit override; it fails
-SESSION_NOT_IN_APP when it names a DIFFERENT App's memory than the bound
-worker's. Bindings written by older CLIs fall back to their recorded team
-memory, or degrade with an honest note.
+No flag is needed (#399): the binding records the bound worker's App, the
+worklog is App-addressed, and the collection schema is the server's — no
+` + "`team init`" + ` first (#401), no -m. --memory stays as an explicit override;
+it fails SESSION_NOT_IN_APP when it names a DIFFERENT App's memory than
+the bound worker's (drop -m, or pass the worker's own team memory). Only
+bindings written by OLDER CLIs differ: a pre-#399 worker binding falls
+back to its recorded team memory and behaves as before; a pre-Worker
+binding (no App recorded at all) degrades — --pr/--branch write only the
+Session denormalization, --issue/--commit refuse — with a note naming the
+remedy.
 
 Refs are normalized to one canonical string per artifact (owner/repo#371,
 owner/repo@sha, owner/repo:branch) — a URL, the short form, or a bare
@@ -451,8 +452,7 @@ session's recorded --repo (or the git remote). --pr and --branch
 additionally denormalize onto Session.prNumber / Session.branch (latest
 wins; display convenience only). Every logged milestone — issue and
 commit included — counts as session liveness for the inactivity reaper,
-so logging keeps the worker taken while work is in flight. Without a
-team memory, --pr/--branch degrade to the denormalization alone.`,
+so logging keeps the worker taken while work is in flight.`,
 		Example: `  hadron team session log --pr 371
   hadron team session log --pr acme/widgets#7 --action merged
   hadron team session log --commit 93200b2 --action pushed
