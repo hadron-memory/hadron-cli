@@ -302,15 +302,11 @@ so the old binding never leaves a session open.`,
 			teamMem := ""
 			if teamMemory != "" {
 				teamMem = cmdutil.CanonicalMemoryRef(teamMemory)
-			} else {
-				// #399: the session IS App-bound (the worker's App, stamped
-				// server-side), but without -m the binding records no worklog
-				// home — recoverable per call: `session log -m <mem>` works
-				// precisely because the session is App-bound.
-				fmt.Fprintf(f.IOStreams.ErrOut,
-					"note: no -m <team-memory>, so this session has no worklog home — `session log` will set only the Session field "+
-						"unless you pass -m <team-memory> to it. The session IS bound to the worker's App, so that override works.\n")
 			}
+			// #399: the binding records the worker's App — the worklog home.
+			// The worklog surface is App-addressed, so `session log` and the
+			// provenance query need no -m at all; the old "no worklog home"
+			// warning is gone because the condition it warned about is gone.
 			path, err := writeBinding(ctx, &binding{
 				AppBound:   true, // a worker session is always App-bound (cor:agt:020:03)
 				SessionID:  s.Id,
@@ -318,6 +314,7 @@ so the old binding never leaves a session open.`,
 				WorkerName: w.Name,
 				WorkerRole: strOrEmpty(w.Role),
 				AgentID:    w.AgentId,
+				AppID:      w.AppId,
 				Server:     server,
 				StartedAt:  s.StartedAt,
 				TeamMemory: teamMem,
@@ -364,7 +361,7 @@ so the old binding never leaves a session open.`,
 	cmd.Flags().StringVar(&host, "host", "", "machine identifier (defaults to this hostname)")
 	cmd.Flags().StringVar(&tool, "tool", "", "driving tool, e.g. claude-code or codex")
 	cmd.Flags().StringVar(&model, "model", "", "LLM model driving the session")
-	cmd.Flags().StringVarP(&teamMemory, "memory", "m", "", "team App memory (worklog home) — recorded in the binding for `session log`/`list --pr`")
+	cmd.Flags().StringVarP(&teamMemory, "memory", "m", "", "explicit team memory (optional since #399 — the worker's App is recorded as the worklog home; -m also cross-checks the App at start)")
 	_ = cmd.MarkFlagRequired("as")
 	return cmd
 }
@@ -397,6 +394,9 @@ server whether the session is still open.`,
 					fmt.Fprintf(w, "(binding predates the Worker model — end it with `hadron team session end` and start a new session)\n")
 				}
 				fmt.Fprintf(w, "%s%s\n  session: %s (started %s)\n  worker: %s\n", b.WorkerName, roleSuffix(optStr(b.WorkerRole)), b.SessionID, b.StartedAt, b.WorkerID)
+				if b.AppID != "" {
+					fmt.Fprintf(w, "  app: %s (the worklog home — `session log` needs no -m)\n", b.AppID)
+				}
 				if len(b.PRNumbers) > 0 {
 					prs := make([]string, len(b.PRNumbers))
 					for i, n := range b.PRNumbers {
@@ -437,10 +437,12 @@ home is the team memory recorded at ` + "`session start -m`" + ` (or --memory
 here). No ` + "`team init`" + ` is needed first — the collection schema is the
 server's (#401).
 
---memory here is an override, not a rescue: it only works on a session that
-is bound to that memory's App. A worker session is always bound to the
-worker's App, so this normally just works; it fails SESSION_NOT_IN_APP when
-the memory belongs to a DIFFERENT App than the worker's.
+No flag is needed (#399): the binding records the bound worker's App, and
+the worklog is App-addressed — the team memory was only ever an indirection
+back to it. --memory stays as an explicit override; it fails
+SESSION_NOT_IN_APP when it names a DIFFERENT App's memory than the bound
+worker's. Bindings written by older CLIs fall back to their recorded team
+memory, or degrade with an honest note.
 
 Refs are normalized to one canonical string per artifact (owner/repo#371,
 owner/repo@sha, owner/repo:branch) — a URL, the short form, or a bare
@@ -490,17 +492,30 @@ team memory, --pr/--branch degrade to the denormalization alone.`,
 			if err != nil {
 				return exitcode.New(exitcode.Usage, err)
 			}
-			teamMem := b.TeamMemory
-			if memory != "" {
-				teamMem = cmdutil.CanonicalMemoryRef(memory)
-			}
-			if teamMem == "" && kind != "pr" && kind != "branch" {
-				return exitcode.Newf(exitcode.Usage,
-					"an %s milestone lives only in the team worklog — pass -m <team-memory> here, or start the session with `session start -m <team-memory>`", kind)
-			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+			// #399: the worklog surface is App-addressed, and the binding
+			// carries the bound worker's App — so no flag is needed at all.
+			// Explicit -m stays as the override (resolved to ITS App, so a
+			// mismatch fails honestly); a pre-#399 binding falls back to its
+			// recorded team memory, and a pre-Worker binding has neither.
+			appRef := ""
+			switch {
+			case memory != "":
+				appRef, err = appForTeamMemory(ctx, client, cmdutil.CanonicalMemoryRef(memory))
+			case b.AppID != "":
+				appRef = b.AppID
+			case b.TeamMemory != "":
+				appRef, err = appForTeamMemory(ctx, client, b.TeamMemory)
+			}
+			if err != nil {
+				return err
+			}
+			if appRef == "" && kind != "pr" && kind != "branch" {
+				return exitcode.Newf(exitcode.Usage,
+					"an %s milestone lives only in the team worklog, and this binding predates the App-recording CLI — pass -m <team-memory> here, or `hadron team session end` and start a fresh session", kind)
 			}
 			// EVERY milestone touches the session: prNumber for PRs, branch
 			// (the name, without the repo qualifier) for branches, and the
@@ -520,17 +535,13 @@ team memory, --pr/--branch degrade to the denormalization alone.`,
 				return api.MapError(err)
 			}
 			recorded := "session"
-			if teamMem != "" {
+			if appRef != "" {
 				// #396: the dedicated operation owns the record — its field set, the
 				// `at` stamp, and the worker derivation (the server resolves the
 				// session's worker, or the attributed user's handle, rather than
 				// trusting the binding's copy). The CLI used to compose all of that
 				// and write it through the generic object surface, which put the
 				// record shape in two places with nothing keeping them in step.
-				appRef, aerr := appForTeamMemory(ctx, client, teamMem)
-				if aerr != nil {
-					return aerr
-				}
 				var detailArg *json.RawMessage
 				if detailRaw != nil {
 					detailArg = &detailRaw
@@ -549,11 +560,11 @@ team memory, --pr/--branch degrade to the denormalization alone.`,
 						// remedy still applies there.
 						if b.WorkerID == "" {
 							return exitcode.Newf(exitcode.Usage,
-								"session %s is not a session of this App and this binding predates the Worker model, so it may never have been App-bound — nothing can bind it afterwards; `hadron team session end`, then `session start --as <worker> -m %s`",
-								b.SessionID, teamMem)
+								"session %s is not a session of this App and this binding predates the Worker model, so it may never have been App-bound — nothing can bind it afterwards; `hadron team session end`, then `session start --as <worker>`",
+								b.SessionID)
 						}
 						return exitcode.Newf(exitcode.Usage,
-							"session %s is not a session of %s's App — the -m memory names a different App than the bound worker's; pass the worker's own team memory",
+							"session %s is not a session of %s's App — the -m memory names a different App than the bound worker's; drop -m (the binding's App is the worklog home) or pass the worker's own team memory",
 							b.SessionID, b.WorkerName)
 					}
 					return api.MapError(rerr)
@@ -566,21 +577,21 @@ team memory, --pr/--branch degrade to the denormalization alone.`,
 				}
 				recorded = "worklog"
 			} else {
-				// #414: this note is read at the exact moment someone is
-				// debugging a missing worklog row, so it must name the real
-				// cause and the real remedy. A WORKER session is App-bound by
-				// construction, so `-m` on this command records properly — but
-				// a binding from a pre-Worker CLI may name a session that was
-				// never App-bound, where only end-and-restart helps.
+				// #414/#399: reachable only by a binding that predates the
+				// App-recording CLI (no appId, no teamMemory). The note must
+				// name the real cause and the real remedy — for a pre-Worker
+				// binding the session may not be App-bound at all, where only
+				// end-and-restart helps.
 				if b.WorkerID == "" {
 					fmt.Fprintf(f.IOStreams.ErrOut,
-						"note: no team memory recorded, so this milestone went only to the Session field — not the worklog. "+
+						"note: this milestone went only to the Session field — not the worklog. "+
 							"This binding predates the Worker model, so its session may not be App-bound at all; if `-m <team-memory>` "+
-							"fails SESSION_NOT_IN_APP, run `hadron team session end`, then `session start --as <worker> -m <team-memory>`.\n")
+							"fails SESSION_NOT_IN_APP, run `hadron team session end`, then `session start --as <worker>`.\n")
 				} else {
 					fmt.Fprintf(f.IOStreams.ErrOut,
-						"note: no team memory recorded, so this milestone went only to the Session field — not the worklog. "+
-							"The session is bound to the worker's App, so `-m <team-memory>` on this command records it properly.\n")
+						"note: this milestone went only to the Session field — not the worklog. "+
+							"This binding predates the App-recording CLI: pass `-m <team-memory>` here, or `hadron team session end` "+
+							"and start a fresh session (new bindings need no -m).\n")
 				}
 			}
 			if kind == "pr" {
@@ -613,7 +624,7 @@ team memory, --pr/--branch degrade to the denormalization alone.`,
 	cmd.Flags().StringVar(&branch, "branch", "", "branch ref: name, owner/repo:branch, or /tree/ URL")
 	cmd.Flags().StringVar(&action, "action", "worked-on", "what happened to the artifact (e.g. opened, merged, pushed)")
 	cmd.Flags().StringVar(&detail, "detail", "", "optional JSON bag of display extras stored with the milestone")
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "team App memory override (defaults to the binding's)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "explicit team-memory override (the binding's App is the default worklog home)")
 	cmd.MarkFlagsMutuallyExclusive("pr", "issue", "commit", "branch")
 	cmd.MarkFlagsOneRequired("pr", "issue", "commit", "branch")
 	return cmd
@@ -763,9 +774,10 @@ looks the normalized ref up in the team worklog (` + "`session log`" + ` writes 
 and resolves each recorded session — several rows per PR are expected and
 desirable (a PR spanning three sessions yields three transcripts).
 --issue/--commit/--branch ask the same question of the other artifact
-kinds. The worklog home comes from -m or the worktree binding. A recorded
-session that is no longer visible to you still lists (id only), rather
-than being silently dropped.`,
+kinds. The worklog's App comes from the worktree binding, or from --app /
+-m when running unbound (#399). A recorded session that is no longer
+visible to you still lists (id only), rather than being silently
+dropped.`,
 		Example: `  hadron team session list --active
   hadron team session list --pr 371 -m acme.com:eng-team
   hadron team session list --commit 93200b2`,
@@ -888,7 +900,7 @@ than being silently dropped.`,
 	cmd.Flags().StringVar(&issue, "issue", "", "provenance query: sessions behind this issue")
 	cmd.Flags().StringVar(&commit, "commit", "", "provenance query: sessions behind this commit")
 	cmd.Flags().StringVar(&branch, "branch", "", "provenance query: sessions behind this branch")
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "team App memory holding the worklog (defaults to the binding's)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "explicit team-memory override for the provenance query (binding/--app are the defaults)")
 	cmd.MarkFlagsMutuallyExclusive("pr", "issue", "commit", "branch")
 	cmd.Flags().IntVar(&limit, "limit", 0, "max results (server default when unset)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "results to skip")
@@ -903,34 +915,43 @@ than being silently dropped.`,
 // so no roster read is needed.
 func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, kind, ref, memory string) error {
 	ctx := cmd.Context()
-	// The binding supplies defaults (worklog home, repo for bare numbers)
-	// but the query must also run from an unbound checkout with -m.
+	// The binding supplies defaults (the worker's App, repo for bare numbers)
+	// but the query must also run from an unbound checkout with -m or --app.
 	b, _, err := readBinding(ctx)
 	if err != nil {
 		b = nil
 	}
-	teamMem := ""
-	if b != nil {
-		teamMem = b.TeamMemory
+	// #399: the worklog read addresses the APP, and the binding records the
+	// bound worker's App — so a bound worktree needs no flag. Precedence is
+	// specificity: an explicit -m (resolved to ITS App — deliberately not
+	// resolveTeamApp, which would let an ambient App context override the
+	// memory the caller named, the Codex P1 on PR #409), then the explicit
+	// --app flag, then the binding (appId, or a pre-#399 binding's team
+	// memory), then the ambient App context.
+	appRef := ""
+	switch {
+	case memory != "":
+		appRef, err = appForTeamMemory(ctx, client, cmdutil.CanonicalMemoryRef(memory))
+	case f.AppFlag != "":
+		appRef = f.AppFlag
+	case b != nil && b.AppID != "":
+		appRef = b.AppID
+	case b != nil && b.TeamMemory != "":
+		appRef, err = appForTeamMemory(ctx, client, b.TeamMemory)
+	default:
+		if ambient, aerr := f.App(); aerr == nil && ambient != "" {
+			appRef = ambient
+		}
 	}
-	if memory != "" {
-		teamMem = cmdutil.CanonicalMemoryRef(memory)
+	if err != nil {
+		return err
 	}
-	if teamMem == "" {
-		return exitcode.Newf(exitcode.Usage, "the provenance query reads the team worklog — pass -m <team-memory> (or record it with `session start -m`)")
+	if appRef == "" {
+		return exitcode.Newf(exitcode.Usage, "the provenance query reads a team App's worklog — pass --app <ref> or -m <team-memory> (or run it from a bound worktree)")
 	}
 	canonical, _, err := normalizeArtifactRef(kind, ref, defaultRepo(ctx, b))
 	if err != nil {
 		return exitcode.New(exitcode.Usage, err)
-	}
-	// The worklog read addresses the APP (the team memory IS its shared
-	// app-class memory), so resolve the memory the caller named — from -m or
-	// the binding — to its App. Deliberately NOT resolveTeamApp: that prefers
-	// --app / the configured App context, which would let the provenance query
-	// answer for a different App than the team memory it is scoped to.
-	appRef, err := appForTeamMemory(ctx, client, teamMem)
-	if err != nil {
-		return err
 	}
 	// #396: the dedicated provenance read replaces a generic findObjects loop
 	// over the `worklog` collection. kind stays part of the match — PRs and

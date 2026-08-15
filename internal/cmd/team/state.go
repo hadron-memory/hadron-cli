@@ -30,6 +30,12 @@ type binding struct {
 	WorkerID   string `json:"workerId"`
 	WorkerName string `json:"workerName"`
 	WorkerRole string `json:"workerRole"`
+	// AppID is the bound worker's App (#399) — the worklog home. It is what
+	// lets `session log` and the provenance query run with no -m at all: the
+	// worklog surface is App-addressed, and the team memory was only ever an
+	// indirection back to this value. Absent on bindings written before #399
+	// (those fall back to TeamMemory, then to the degraded diagnostics).
+	AppID string `json:"appId,omitempty"`
 	// AgentID is the role-agent behind the casting — informational (the
 	// server stamps Session.agentId itself from the worker).
 	AgentID   string `json:"agentId"`

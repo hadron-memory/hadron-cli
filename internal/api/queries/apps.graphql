@@ -125,3 +125,20 @@ query AppAgentRoster($appRef: ID!) {
     }
   }
 }
+
+# #400: `team init --app` — the App resolves its own team shared memory
+# (hadron-server#965: read-only, never provisions; the memory holding the
+# App's worklog root wins, mirroring the worklog locator). The schema rides
+# along so init can keep its three-value status contract (created / updated /
+# unchanged) without the caller naming the memory.
+query GetAppSharedMemory($appRef: ID!) {
+  app(ref: $appRef) {
+    id
+    sharedMemory {
+      id
+      urn
+      class
+      schema
+    }
+  }
+}

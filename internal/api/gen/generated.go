@@ -7338,6 +7338,76 @@ type GetAgentResponse struct {
 // GetAgent returns GetAgentResponse.Agent, and is useful for accessing the field via an interface.
 func (v *GetAgentResponse) GetAgent() *GetAgentAgent { return v.Agent }
 
+// GetAppSharedMemoryApp includes the requested fields of the GraphQL type App.
+type GetAppSharedMemoryApp struct {
+	Id string `json:"id"`
+	// The App's SHARED app-class memory (#965) — the team space the shared/team
+	// chat and the worklog live in, provisioned at install since #951. This is
+	// the App → memory hop clients need to default a team-memory argument
+	// (hadron-cli#399) instead of scanning every readable memory for
+	// Memory.appId. Read-only resolution, never provisions: the memory holding
+	// the App's 'worklog' root wins (the ledger home — oldest, mirroring the
+	// worklog locator), else the oldest agent-keyed shared row
+	// (sharedMemoryOfAgentId set; Worker working memories are also app-class
+	// rows under this App and are never this answer). Null when nothing has
+	// provisioned a shared memory yet (an App predating #951 with no team
+	// activity), or when the caller cannot read the memory record (the ordinary
+	// record read gate — denied and missing are indistinguishable).
+	SharedMemory *GetAppSharedMemoryAppSharedMemory `json:"sharedMemory"`
+}
+
+// GetId returns GetAppSharedMemoryApp.Id, and is useful for accessing the field via an interface.
+func (v *GetAppSharedMemoryApp) GetId() string { return v.Id }
+
+// GetSharedMemory returns GetAppSharedMemoryApp.SharedMemory, and is useful for accessing the field via an interface.
+func (v *GetAppSharedMemoryApp) GetSharedMemory() *GetAppSharedMemoryAppSharedMemory {
+	return v.SharedMemory
+}
+
+// GetAppSharedMemoryAppSharedMemory includes the requested fields of the GraphQL type Memory.
+type GetAppSharedMemoryAppSharedMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn   string      `json:"urn"`
+	Class MemoryClass `json:"class"`
+	// #725 — opt-in per-memory property schema (declared collections + typed fields). NULL = unstructured. Authored via updateMemory; well-formedness validated server-side.
+	Schema *json.RawMessage `json:"schema"`
+}
+
+// GetId returns GetAppSharedMemoryAppSharedMemory.Id, and is useful for accessing the field via an interface.
+func (v *GetAppSharedMemoryAppSharedMemory) GetId() string { return v.Id }
+
+// GetUrn returns GetAppSharedMemoryAppSharedMemory.Urn, and is useful for accessing the field via an interface.
+func (v *GetAppSharedMemoryAppSharedMemory) GetUrn() string { return v.Urn }
+
+// GetClass returns GetAppSharedMemoryAppSharedMemory.Class, and is useful for accessing the field via an interface.
+func (v *GetAppSharedMemoryAppSharedMemory) GetClass() MemoryClass { return v.Class }
+
+// GetSchema returns GetAppSharedMemoryAppSharedMemory.Schema, and is useful for accessing the field via an interface.
+func (v *GetAppSharedMemoryAppSharedMemory) GetSchema() *json.RawMessage { return v.Schema }
+
+// GetAppSharedMemoryResponse is returned by GetAppSharedMemory on success.
+type GetAppSharedMemoryResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *GetAppSharedMemoryApp `json:"app"`
+}
+
+// GetApp returns GetAppSharedMemoryResponse.App, and is useful for accessing the field via an interface.
+func (v *GetAppSharedMemoryResponse) GetApp() *GetAppSharedMemoryApp { return v.App }
+
 // GetInvitationInvitationUserInvitation includes the requested fields of the GraphQL type UserInvitation.
 type GetInvitationInvitationUserInvitation struct {
 	InvitationFields `json:"-"`
@@ -19840,6 +19910,14 @@ type __GetAgentInput struct {
 // GetRef returns __GetAgentInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetAgentInput) GetRef() string { return v.Ref }
 
+// __GetAppSharedMemoryInput is used internally by genqlient
+type __GetAppSharedMemoryInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __GetAppSharedMemoryInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__GetAppSharedMemoryInput) GetAppRef() string { return v.AppRef }
+
 // __GetInvitationInput is used internally by genqlient
 type __GetInvitationInput struct {
 	Slug string `json:"slug"`
@@ -24526,6 +24604,51 @@ func GetAgent(
 	}
 
 	data_ = &GetAgentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetAppSharedMemory.
+const GetAppSharedMemory_Operation = `
+query GetAppSharedMemory ($appRef: ID!) {
+	app(ref: $appRef) {
+		id
+		sharedMemory {
+			id
+			urn
+			class
+			schema
+		}
+	}
+}
+`
+
+// #400: `team init --app` — the App resolves its own team shared memory
+// (hadron-server#965: read-only, never provisions; the memory holding the
+// App's worklog root wins, mirroring the worklog locator). The schema rides
+// along so init can keep its three-value status contract (created / updated /
+// unchanged) without the caller naming the memory.
+func GetAppSharedMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *GetAppSharedMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetAppSharedMemory",
+		Query:  GetAppSharedMemory_Operation,
+		Variables: &__GetAppSharedMemoryInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &GetAppSharedMemoryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
