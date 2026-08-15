@@ -208,6 +208,31 @@ func WorkerTakenDetail(err error) (TakenDetail, bool) {
 	return TakenDetail{}, false
 }
 
+// TeamRoleStaleNames extracts the current stored register carried by a
+// TEAM_ROLE_STALE refusal (hadron-server#987: extensions.storedNames) — what
+// lets a CAS caller rebase its edit without a second read. ok is false when
+// err is not that error; a stale error without the payload returns ok=true
+// with nil names (the caller re-reads instead). Call BEFORE MapError.
+func TeamRoleStaleNames(err error) ([]string, bool) {
+	for _, e := range graphQLErrors(err) {
+		if e == nil || extensionCode(e) != "TEAM_ROLE_STALE" {
+			continue
+		}
+		if e.Extensions == nil {
+			return nil, true
+		}
+		raw, _ := e.Extensions["storedNames"].([]any)
+		names := make([]string, 0, len(raw))
+		for _, v := range raw {
+			if s, ok := v.(string); ok {
+				names = append(names, s)
+			}
+		}
+		return names, true
+	}
+	return nil, false
+}
+
 // DescendantCount returns the descendant count carried by a
 // NODE_HAS_DESCENDANTS error (server #661: its extensions.count), or -1 when err
 // is not that error or carries no non-negative numeric count. JSON numbers decode
@@ -276,7 +301,10 @@ func codeForExtension(code string) int {
 	// suffix rule matches); an out-of-range name is an input the caller can
 	// fix (or deliberately override with --allow-out-of-range).
 	case code == "TEAM_ROLE_NAME_MINTED" || code == "TEAM_ROLE_NAME_DUPLICATE" ||
-		code == "TEAM_ROLE_EXISTS":
+		code == "TEAM_ROLE_EXISTS" ||
+		// #436: a CAS refusal is by definition a state conflict — the sugar
+		// rebases and retries; a caller seeing it surfaced ran out of retries.
+		code == "TEAM_ROLE_STALE":
 		return exitcode.Conflict
 	case code == "TEAM_ROLE_NAME_OUT_OF_RANGE":
 		return exitcode.Usage

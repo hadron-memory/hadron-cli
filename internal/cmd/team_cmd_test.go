@@ -530,11 +530,9 @@ func TestTeamRoleUpdateSetAndClear(t *testing.T) {
 	}
 }
 
-// `names set` is the ONLY register verb — the explicit whole-list
-// replacement, the honest model of the wholesale mutation (add/rm/mv sugar
-// over a read-modify-write invites lost updates; the user-set-roles
-// precedent — a delta surface is hadron-cli#436). The operation carries only
-// names, so conventions are structurally preserved.
+// `names set` is the explicit whole-list replacement: no CAS precondition
+// (it asserts final state). The operation carries only names, so
+// conventions are structurally preserved.
 func TestTeamRoleNamesSet(t *testing.T) {
 	updated := `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
 		"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
@@ -564,29 +562,140 @@ func TestTeamRoleNamesSet(t *testing.T) {
 		}
 	}
 
-	// Sugar verbs deliberately do not exist (lost-update hazard): the only
-	// registered names subcommand is set. (The unknown-subcommand refusal
-	// itself is entry-point behavior, #232 — asserted structurally here.)
-	verbs := []string{}
-	for _, c := range NewRootCmd(f).Commands() {
-		if c.Name() != "team" {
-			continue
+	// set carries NO precondition: an explicit wholesale replacement asserts
+	// the final state (the sugar verbs are the CAS path, below).
+	if _, present := vars["expectedNames"]; present {
+		t.Errorf("set must not send expectedNames, got %v", vars["expectedNames"])
+	}
+}
+
+// #436: the sugar verbs are back, CAS-safe (hadron-server#987) — each write
+// carries expectedNames = the register as read, so a concurrent edit refuses
+// TEAM_ROLE_STALE instead of being clobbered.
+// (teamRolesJSON's backend register: Fred, Iris, Joe.)
+func TestTeamRoleNamesSugarVerbs(t *testing.T) {
+	updated := `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
+		"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
+		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
+	cases := []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{"add appends in order", []string{"names", "add", "backend-engineer", "Gwen", "Hans"},
+			[]string{"Fred", "Iris", "Joe", "Gwen", "Hans"}},
+		{"rm removes case-insensitively", []string{"names", "rm", "backend-engineer", "fred"},
+			[]string{"Iris", "Joe"}},
+		{"mv repositions", []string{"names", "mv", "backend-engineer", "Joe", "1"},
+			[]string{"Joe", "Fred", "Iris"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"TeamRoles":           teamRolesJSON,
+				"UpdateTeamRoleNames": updated,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{"team", "role"}, tc.args...), "--app", "acme.com:eng-team", "--server", gql.URL))
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var vars struct {
+				Names         []string `json:"names"`
+				ExpectedNames []string `json:"expectedNames"`
+			}
+			_ = json.Unmarshal(captured["UpdateTeamRoleNames"], &vars)
+			if strings.Join(vars.Names, "|") != strings.Join(tc.want, "|") {
+				t.Errorf("composed register = %v, want %v", vars.Names, tc.want)
+			}
+			// The CAS precondition: the register exactly as read.
+			if strings.Join(vars.ExpectedNames, "|") != "Fred|Iris|Joe" {
+				t.Errorf("expectedNames must be the register as read: %v", vars.ExpectedNames)
+			}
+		})
+	}
+
+	// rm/mv of an absent name refuse before any write.
+	for _, tc := range [][]string{
+		{"team", "role", "names", "rm", "backend-engineer", "Nadia"},
+		{"team", "role", "names", "mv", "backend-engineer", "Nadia", "1"},
+		{"team", "role", "names", "mv", "backend-engineer", "Joe", "9"},
+		{"team", "role", "names", "mv", "backend-engineer", "Joe", "zero"},
+	} {
+		gql, captured := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesJSON})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(tc, "--app", "acme.com:eng-team", "--server", gql.URL))
+		if code := exitcode.FromError(root.Execute()); code != exitcode.Usage {
+			t.Errorf("%v: exit %d, want Usage", tc, code)
 		}
-		for _, sub := range c.Commands() {
-			if sub.Name() != "role" {
-				continue
-			}
-			for _, rsub := range sub.Commands() {
-				if rsub.Name() == "names" {
-					for _, v := range rsub.Commands() {
-						verbs = append(verbs, v.Name())
-					}
-				}
-			}
+		if _, called := captured["UpdateTeamRoleNames"]; called {
+			t.Errorf("%v: a refused verb must not reach the mutation", tc)
 		}
 	}
-	if len(verbs) != 1 || verbs[0] != "set" {
-		t.Errorf("names must offer ONLY set until the server grows a delta surface (hadron-cli#436), got %v", verbs)
+}
+
+// The CAS loop rebases on TEAM_ROLE_STALE: the refusal's storedNames become
+// the new base AND the new precondition, and the edit is recomposed — the
+// concurrent addition (Gwen) survives the retry.
+func TestTeamRoleNamesAddRebasesOnStale(t *testing.T) {
+	updated := `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
+		"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
+		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
+	var updateCalls []json.RawMessage
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string          `json:"operationName"`
+			Variables     json.RawMessage `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "TeamRoles":
+			_, _ = w.Write([]byte(teamRolesJSON))
+		case "UpdateTeamRoleNames":
+			updateCalls = append(updateCalls, body.Variables)
+			if len(updateCalls) == 1 {
+				// A concurrent edit added Gwen since the read.
+				_, _ = w.Write([]byte(`{"errors":[{"message":"the register changed",
+					"extensions":{"code":"TEAM_ROLE_STALE","storedNames":["Fred","Iris","Joe","Gwen"]}}]}`))
+				return
+			}
+			_, _ = w.Write([]byte(updated))
+		default:
+			t.Errorf("unexpected operation %q", body.OperationName)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
+		}
+	}))
+	t.Cleanup(gql.Close)
+
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "role", "names", "add", "backend-engineer", "Hans",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(updateCalls) != 2 {
+		t.Fatalf("expected refuse-then-retry, got %d update calls", len(updateCalls))
+	}
+	var second struct {
+		Names         []string `json:"names"`
+		ExpectedNames []string `json:"expectedNames"`
+	}
+	_ = json.Unmarshal(updateCalls[1], &second)
+	// The retry is rebased: the concurrent Gwen survives, Hans lands after,
+	// and the precondition is the storedNames the refusal carried.
+	if strings.Join(second.Names, "|") != "Fred|Iris|Joe|Gwen|Hans" {
+		t.Errorf("rebased submission = %v", second.Names)
+	}
+	if strings.Join(second.ExpectedNames, "|") != "Fred|Iris|Joe|Gwen" {
+		t.Errorf("rebased precondition = %v", second.ExpectedNames)
+	}
+	errOut := f.IOStreams.ErrOut.(*strings.Builder).String()
+	if !strings.Contains(errOut, "rebasing") {
+		t.Errorf("the rebase should be narrated: %q", errOut)
 	}
 }
 

@@ -496,6 +496,13 @@ mutation CreateTeamRole(
 # The names-only write (`role names set|add|rm|mv`): conventions and
 # description are not in the operation at all, so they are structurally
 # preserved — omitted is "preserve" on this server (CLAUDE.md).
+#
+# expectedNames (#987 / hadron-cli#436) turns the wholesale write into
+# COMPARE-AND-SWAP: the write refuses TEAM_ROLE_STALE (extensions carry the
+# current storedNames) unless the stored register still equals it. The sugar
+# verbs always send it — that is what makes their read-modify-write safe —
+# while `set` deliberately omits it: an explicit whole-list replacement is
+# the caller asserting the final state, not an edit of the observed one.
 mutation UpdateTeamRoleNames(
   $appRef: ID!
   # @genqlient(omitempty: true)
@@ -504,6 +511,8 @@ mutation UpdateTeamRoleNames(
   $names: [String!]!
   # @genqlient(omitempty: true)
   $allowOutOfRange: Boolean
+  # @genqlient(omitempty: true)
+  $expectedNames: [String!]
 ) {
   updateTeamRole(
     appRef: $appRef
@@ -511,6 +520,7 @@ mutation UpdateTeamRoleNames(
     role: $role
     names: $names
     allowOutOfRange: $allowOutOfRange
+    expectedNames: $expectedNames
   ) {
     ...TeamRoleFields
   }
