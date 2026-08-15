@@ -17723,6 +17723,18 @@ type UpdateTeamRoleMetaResponse struct {
 	// data keys always survive (the single --data clobber hazard is unreachable
 	// through this surface). Unknown role: WORKER_ROLE_NOT_FOUND. Same
 	// authorization as createTeamRole.
+	//
+	// #987 — expectedNames turns the wholesale write into COMPARE-AND-SWAP:
+	// when supplied, the write refuses TEAM_ROLE_STALE unless the STORED
+	// register still equals it (ordered, exact spellings, after the same
+	// trim/dedup canonicalization the register itself gets — pass back the
+	// register exactly as teamRoles returned it). The refusal's extensions
+	// carry the current storedNames, so a client rebases its edit without a
+	// second read. This is what makes read-modify-write sugar (names
+	// add/rm/mv) safe: the diff invariants deliberately protect only MINTED
+	// names, so without the precondition two concurrent composed writes
+	// silently drop each other's newly added FREE names — no refusal fires,
+	// because removing an unminted name is legal by design.
 	UpdateTeamRole *UpdateTeamRoleMetaUpdateTeamRole `json:"updateTeamRole"`
 }
 
@@ -17873,6 +17885,18 @@ type UpdateTeamRoleNamesResponse struct {
 	// data keys always survive (the single --data clobber hazard is unreachable
 	// through this surface). Unknown role: WORKER_ROLE_NOT_FOUND. Same
 	// authorization as createTeamRole.
+	//
+	// #987 — expectedNames turns the wholesale write into COMPARE-AND-SWAP:
+	// when supplied, the write refuses TEAM_ROLE_STALE unless the STORED
+	// register still equals it (ordered, exact spellings, after the same
+	// trim/dedup canonicalization the register itself gets — pass back the
+	// register exactly as teamRoles returned it). The refusal's extensions
+	// carry the current storedNames, so a client rebases its edit without a
+	// second read. This is what makes read-modify-write sugar (names
+	// add/rm/mv) safe: the diff invariants deliberately protect only MINTED
+	// names, so without the precondition two concurrent composed writes
+	// silently drop each other's newly added FREE names — no refusal fires,
+	// because removing an unminted name is legal by design.
 	UpdateTeamRole *UpdateTeamRoleNamesUpdateTeamRole `json:"updateTeamRole"`
 }
 
@@ -21088,11 +21112,12 @@ func (v *__UpdateTeamRoleMetaInput) GetDescription() *string { return v.Descript
 
 // __UpdateTeamRoleNamesInput is used internally by genqlient
 type __UpdateTeamRoleNamesInput struct {
-	AppRef          string   `json:"appRef"`
-	TeamAgentRef    *string  `json:"teamAgentRef,omitempty"`
-	Role            string   `json:"role"`
-	Names           []string `json:"names"`
-	AllowOutOfRange *bool    `json:"allowOutOfRange,omitempty"`
+	AppRef          string    `json:"appRef"`
+	TeamAgentRef    *string   `json:"teamAgentRef,omitempty"`
+	Role            string    `json:"role"`
+	Names           []string  `json:"names"`
+	AllowOutOfRange *bool     `json:"allowOutOfRange,omitempty"`
+	ExpectedNames   *[]string `json:"expectedNames,omitempty"`
 }
 
 // GetAppRef returns __UpdateTeamRoleNamesInput.AppRef, and is useful for accessing the field via an interface.
@@ -21109,6 +21134,9 @@ func (v *__UpdateTeamRoleNamesInput) GetNames() []string { return v.Names }
 
 // GetAllowOutOfRange returns __UpdateTeamRoleNamesInput.AllowOutOfRange, and is useful for accessing the field via an interface.
 func (v *__UpdateTeamRoleNamesInput) GetAllowOutOfRange() *bool { return v.AllowOutOfRange }
+
+// GetExpectedNames returns __UpdateTeamRoleNamesInput.ExpectedNames, and is useful for accessing the field via an interface.
+func (v *__UpdateTeamRoleNamesInput) GetExpectedNames() *[]string { return v.ExpectedNames }
 
 // __UpdateTeamSessionInput is used internally by genqlient
 type __UpdateTeamSessionInput struct {
@@ -28978,8 +29006,8 @@ func UpdateTeamRoleMeta(
 
 // The mutation executed by UpdateTeamRoleNames.
 const UpdateTeamRoleNames_Operation = `
-mutation UpdateTeamRoleNames ($appRef: ID!, $teamAgentRef: ID, $role: String!, $names: [String!]!, $allowOutOfRange: Boolean) {
-	updateTeamRole(appRef: $appRef, teamAgentRef: $teamAgentRef, role: $role, names: $names, allowOutOfRange: $allowOutOfRange) {
+mutation UpdateTeamRoleNames ($appRef: ID!, $teamAgentRef: ID, $role: String!, $names: [String!]!, $allowOutOfRange: Boolean, $expectedNames: [String!]) {
+	updateTeamRole(appRef: $appRef, teamAgentRef: $teamAgentRef, role: $role, names: $names, allowOutOfRange: $allowOutOfRange, expectedNames: $expectedNames) {
 		... TeamRoleFields
 	}
 }
@@ -29013,6 +29041,13 @@ fragment TeamRoleFields on TeamRole {
 // The names-only write (`role names set|add|rm|mv`): conventions and
 // description are not in the operation at all, so they are structurally
 // preserved — omitted is "preserve" on this server (CLAUDE.md).
+//
+// expectedNames (#987 / hadron-cli#436) turns the wholesale write into
+// COMPARE-AND-SWAP: the write refuses TEAM_ROLE_STALE (extensions carry the
+// current storedNames) unless the stored register still equals it. The sugar
+// verbs always send it — that is what makes their read-modify-write safe —
+// while `set` deliberately omits it: an explicit whole-list replacement is
+// the caller asserting the final state, not an edit of the observed one.
 func UpdateTeamRoleNames(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -29021,6 +29056,7 @@ func UpdateTeamRoleNames(
 	role string,
 	names []string,
 	allowOutOfRange *bool,
+	expectedNames *[]string,
 ) (data_ *UpdateTeamRoleNamesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateTeamRoleNames",
@@ -29031,6 +29067,7 @@ func UpdateTeamRoleNames(
 			Role:            role,
 			Names:           names,
 			AllowOutOfRange: allowOutOfRange,
+			ExpectedNames:   expectedNames,
 		},
 	}
 

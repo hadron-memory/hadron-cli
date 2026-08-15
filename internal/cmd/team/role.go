@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
@@ -461,22 +462,26 @@ func newCmdRoleNames(f *cmdutil.Factory) *cobra.Command {
 		Short: "Maintain a role's name register (ordered — position is allocation order)",
 		Long: `Edit a role's name register. The register is an ORDERED list: the
 register-mode ` + "`worker cast`" + ` walks it first-to-last, so position determines
-who is cast next.
+who is cast next — which is why mv exists.
 
-There is deliberately only ` + "`set`" + ` — the explicit whole-list replacement,
-the honest model of the server's wholesale updateTeamRole (the
-user-set-roles precedent: add/rm/mv sugar over a read-modify-write invites
-a lost update between the read and the write, and returns only if the
-server grows a delta surface — hadron-cli#436). The server validates the
-DIFF between stored and submitted, so a typo cannot smuggle a violation:
-a name minted in this App may never be removed (TEAM_ROLE_NAME_MINTED —
-the entry records the allocation forever), an added name may not appear
-in another register (TEAM_ROLE_NAME_DUPLICATE), and added names validate
-against the range (TEAM_ROLE_NAME_OUT_OF_RANGE; --allow-out-of-range
-overrides). Conventions and sibling data are untouched by construction.
-Every write prints the resulting register.`,
+The sugar verbs (add/rm/mv) are CAS-safe (#436, hadron-server#987): each
+submits with the expectedNames precondition, and on a concurrent edit the
+server refuses TEAM_ROLE_STALE with the current register, onto which the
+edit is rebased and retried — two admins racing lose nothing. ` + "`set`" + ` is
+the explicit whole-list replacement and deliberately carries NO
+precondition: it asserts the final state, not an edit of the observed one.
+Either way the server validates the DIFF, so nothing can smuggle a
+violation: a name minted in this App may never be removed
+(TEAM_ROLE_NAME_MINTED — the entry records the allocation forever), an
+added name may not appear in another register (TEAM_ROLE_NAME_DUPLICATE),
+and added names validate against the range (TEAM_ROLE_NAME_OUT_OF_RANGE;
+--allow-out-of-range overrides). Conventions and sibling data are
+untouched by construction. Every write prints the resulting register.`,
 	}
 	cmd.AddCommand(newCmdRoleNamesSet(f))
+	cmd.AddCommand(newCmdRoleNamesAdd(f))
+	cmd.AddCommand(newCmdRoleNamesRm(f))
+	cmd.AddCommand(newCmdRoleNamesMv(f))
 	return cmd
 }
 
@@ -491,20 +496,73 @@ func splitNames(s string) []string {
 	return out
 }
 
-// writeRoleNames submits the composed register and prints the receipt.
-func writeRoleNames(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, appRef string, teamAgentRef *string, role string, names []string, allowOutOfRange bool) error {
+// writeRoleNames submits a register and prints the receipt. expectedNames
+// nil means unconditional (the `set` path — an explicit wholesale
+// replacement asserts final state); non-nil turns the write into the #987
+// compare-and-swap the sugar verbs ride. A POINTER so a present-but-empty
+// precondition (a sugar edit from an empty register) survives the wire —
+// omitempty on a plain slice would drop it (PR #440 review).
+func writeRoleNames(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, appRef string, teamAgentRef *string, role string, names []string, expectedNames *[]string, allowOutOfRange bool) error {
 	var allow *bool
 	if allowOutOfRange {
 		allow = &allowOutOfRange
 	}
-	resp, err := gen.UpdateTeamRoleNames(cmd.Context(), client, appRef, teamAgentRef, role, names, allow)
+	resp, err := gen.UpdateTeamRoleNames(cmd.Context(), client, appRef, teamAgentRef, role, names, allow, expectedNames)
 	if err != nil {
-		return api.MapError(err)
+		return err // callers map (the CAS loop branches on TEAM_ROLE_STALE first)
 	}
 	if resp.UpdateTeamRole == nil {
 		return exitcode.Newf(exitcode.Error, "server returned no role")
 	}
 	return emitRoleReceipt(f, resp.UpdateTeamRole.TeamRoleFields, "updated")
+}
+
+// casRoleNames runs a sugar verb's edit as compare-and-swap (#436 /
+// hadron-server#987): recompose derives the submission from the CURRENT
+// stored register, the write carries it as expectedNames, and a
+// TEAM_ROLE_STALE refusal rebases onto the refusal's storedNames and
+// retries — so two admins racing edits lose nothing; each retry re-derives
+// from fresher state, and a target that vanished meanwhile fails honestly
+// inside recompose. Bounded: a register that will not hold still long
+// enough is surfaced as the conflict it is.
+func casRoleNames(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, appRef string, teamAgentRef *string, role string, stored []string, recompose func(stored []string) ([]string, error), allowOutOfRange bool) error {
+	const casAttempts = 4
+	for attempt := 1; ; attempt++ {
+		names, err := recompose(stored)
+		if err != nil {
+			return err
+		}
+		err = writeRoleNames(cmd, f, client, appRef, teamAgentRef, role, names, &stored, allowOutOfRange)
+		if err == nil {
+			return nil
+		}
+		current, stale := api.TeamRoleStaleNames(err)
+		if !stale || attempt >= casAttempts {
+			return api.MapError(err)
+		}
+		if current == nil {
+			// A stale refusal without the payload: re-read instead.
+			row, rerr := resolveRole(cmd.Context(), client, appRef, teamAgentRef, role)
+			if rerr != nil {
+				return rerr
+			}
+			current = registerNames(row)
+		}
+		fmt.Fprintf(f.IOStreams.ErrOut,
+			"note: the register changed concurrently — rebasing the edit onto the current one and retrying\n")
+		stored = current
+	}
+}
+
+// registerNames extracts the current register's names, in order.
+func registerNames(r gen.TeamRoleFields) []string {
+	names := []string{}
+	for _, n := range r.Register {
+		if n != nil {
+			names = append(names, n.Name)
+		}
+	}
+	return names
 }
 
 // namesCommandSetup resolves the App scope and the current role row (an
@@ -529,11 +587,13 @@ func newCmdRoleNamesSet(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set <role> <n1,n2,...>",
 		Short: "Replace the register wholesale (explicit)",
-		Long: `Replace the role's register with exactly this ordered list — read it
-first (` + "`role get`" + `), edit, resubmit. The server validates the DIFF against
-the stored register, so a minted name missing from the new list refuses
-(TEAM_ROLE_NAME_MINTED) rather than silently un-recording an allocation;
-out-of-range and cross-register-duplicate additions refuse typed too.`,
+		Long: `Replace the role's register with exactly this ordered list. Unlike the
+add/rm/mv sugar, set carries NO compare-and-swap precondition: it asserts
+the FINAL state, not an edit of the observed one. The server still
+validates the DIFF against the stored register, so a minted name missing
+from the new list refuses (TEAM_ROLE_NAME_MINTED) rather than silently
+un-recording an allocation; out-of-range and cross-register-duplicate
+additions refuse typed too.`,
 		Example: `  hadron team role names set backend-engineer Fred,Gwen,Hans,Iris,Joe`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -545,10 +605,133 @@ out-of-range and cross-register-duplicate additions refuse typed too.`,
 			if err != nil {
 				return err
 			}
-			return writeRoleNames(cmd, f, client, appRef, optStr(teamAgent), current.Role, names, allowOutOfRange)
+			if err := writeRoleNames(cmd, f, client, appRef, optStr(teamAgent), current.Role, names, nil, allowOutOfRange); err != nil {
+				return api.MapError(err)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&teamAgent, "team-agent", "", "Team Agent holding the roles branch, when the App installs more than one")
 	cmd.Flags().BoolVar(&allowOutOfRange, "allow-out-of-range", false, "deliberately admit a name outside the role's range")
+	return cmd
+}
+
+func newCmdRoleNamesAdd(f *cmdutil.Factory) *cobra.Command {
+	var teamAgent string
+	var allowOutOfRange bool
+	cmd := &cobra.Command{
+		Use:     "add <role> <name>...",
+		Short:   "Append names to the register, in order (CAS-safe)",
+		Example: `  hadron team role names add backend-engineer Gwen Hans`,
+		Args:    cobra.MinimumNArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			appRef, client, current, err := namesCommandSetup(cmd, f, teamAgent, args[0])
+			if err != nil {
+				return err
+			}
+			return casRoleNames(cmd, f, client, appRef, optStr(teamAgent), current.Role, registerNames(current),
+				func(stored []string) ([]string, error) {
+					return append(append([]string{}, stored...), args[1:]...), nil
+				}, allowOutOfRange)
+		},
+	}
+	cmd.Flags().StringVar(&teamAgent, "team-agent", "", "Team Agent holding the roles branch, when the App installs more than one")
+	cmd.Flags().BoolVar(&allowOutOfRange, "allow-out-of-range", false, "deliberately admit a name outside the role's range")
+	return cmd
+}
+
+func newCmdRoleNamesRm(f *cmdutil.Factory) *cobra.Command {
+	var teamAgent string
+	cmd := &cobra.Command{
+		Use:   "rm <role> <name>...",
+		Short: "Remove free names from the register (minted names refuse; CAS-safe)",
+		Long: `Remove names from the register. A name minted in this App can never be
+removed (TEAM_ROLE_NAME_MINTED, server-enforced): keeping Iris in the
+register is what records that the name — and its initial — belongs to this
+role forever. A name not in the register refuses rather than silently
+no-opping.`,
+		Example: `  hadron team role names rm backend-engineer Gwen`,
+		Args:    cobra.MinimumNArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			appRef, client, current, err := namesCommandSetup(cmd, f, teamAgent, args[0])
+			if err != nil {
+				return err
+			}
+			role := current.Role
+			return casRoleNames(cmd, f, client, appRef, optStr(teamAgent), role, registerNames(current),
+				func(stored []string) ([]string, error) {
+					drop := map[string]bool{}
+					for _, n := range args[1:] {
+						drop[strings.ToLower(strings.TrimSpace(n))] = false
+					}
+					names := []string{}
+					for _, n := range stored {
+						if _, listed := drop[strings.ToLower(n)]; listed {
+							drop[strings.ToLower(n)] = true
+							continue
+						}
+						names = append(names, n)
+					}
+					for arg, found := range drop {
+						if !found {
+							// A typo'd rm must not silently no-op — and on a CAS
+							// retry this also catches a name a concurrent edit
+							// removed first.
+							return nil, exitcode.Newf(exitcode.Usage, "%q is not in %s's register — `hadron team role get %s` shows it", arg, role, role)
+						}
+					}
+					return names, nil
+				}, false)
+		},
+	}
+	cmd.Flags().StringVar(&teamAgent, "team-agent", "", "Team Agent holding the roles branch, when the App installs more than one")
+	return cmd
+}
+
+func newCmdRoleNamesMv(f *cmdutil.Factory) *cobra.Command {
+	var teamAgent string
+	cmd := &cobra.Command{
+		Use:   "mv <role> <name> <position>",
+		Short: "Reorder a register name (1-based; position is allocation order; CAS-safe)",
+		Long: `Move a name to a new 1-based position. Order is load-bearing: the
+register-mode cast walks the list first-to-last, so position determines
+who is cast next.`,
+		Example: `  hadron team role names mv backend-engineer Joe 1`,
+		Args:    cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			pos, perr := strconv.Atoi(args[2])
+			if perr != nil || pos < 1 {
+				return exitcode.Newf(exitcode.Usage, "position is 1-based, got %q", args[2])
+			}
+			appRef, client, current, err := namesCommandSetup(cmd, f, teamAgent, args[0])
+			if err != nil {
+				return err
+			}
+			role := current.Role
+			return casRoleNames(cmd, f, client, appRef, optStr(teamAgent), role, registerNames(current),
+				func(stored []string) ([]string, error) {
+					from := -1
+					for i, n := range stored {
+						if strings.EqualFold(n, args[1]) {
+							from = i
+							break
+						}
+					}
+					if from < 0 {
+						return nil, exitcode.Newf(exitcode.Usage, "%q is not in %s's register — `hadron team role get %s` shows it", args[1], role, role)
+					}
+					if pos > len(stored) {
+						return nil, exitcode.Newf(exitcode.Usage, "position %d is past the end — the register has %d names", pos, len(stored))
+					}
+					names := append([]string{}, stored...)
+					moved := names[from]
+					names = append(names[:from], names[from+1:]...)
+					rest := append([]string{}, names[pos-1:]...)
+					names = append(append(names[:pos-1], moved), rest...)
+					return names, nil
+				}, false)
+		},
+	}
+	cmd.Flags().StringVar(&teamAgent, "team-agent", "", "Team Agent holding the roles branch, when the App installs more than one")
 	return cmd
 }
