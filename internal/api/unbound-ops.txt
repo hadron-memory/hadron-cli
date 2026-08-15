@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 60 unbound
+[Query] 61 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -64,10 +64,11 @@ resolveAIConfig
 secret
 slackConnection
 slackConnections
+teamRoles
 usageActivity
 usageEvents
 
-[Mutation] 85 unbound
+[Mutation] 87 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
@@ -85,6 +86,7 @@ createHomeAssistantInstance
 createResendSender
 createRevision
 createSlackConnection
+createTeamRole
 deleteChat
 deleteDashboardWidgetPreset
 deleteExchangeConnection
@@ -153,3 +155,4 @@ updateNodeProperties
 updateOrgGithubApp
 updateResendSender
 updateSecret
+updateTeamRole

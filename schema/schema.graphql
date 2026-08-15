@@ -442,6 +442,22 @@ type App {
   policy: JSON
   role: AppMembershipRole!
   sessionTimeoutSeconds: Int!
+
+  """
+  The App's SHARED app-class memory (#965) — the team space the shared/team
+  chat and the worklog live in, provisioned at install since #951. This is
+  the App → memory hop clients need to default a team-memory argument
+  (hadron-cli#399) instead of scanning every readable memory for
+  Memory.appId. Read-only resolution, never provisions: the memory holding
+  the App's 'worklog' root wins (the ledger home — oldest, mirroring the
+  worklog locator), else the oldest agent-keyed shared row
+  (sharedMemoryOfAgentId set; Worker working memories are also app-class
+  rows under this App and are never this answer). Null when nothing has
+  provisioned a shared memory yet (an App predating #951 with no team
+  activity), or when the caller cannot read the memory record (the ordinary
+  record read gate — denied and missing are indistinguishable).
+  """
+  sharedMemory: Memory
   surfaces: [String!]!
   systemPrompt: String
   trainingMode: Boolean!
@@ -2998,6 +3014,25 @@ type Mutation {
   createTeamChatMessage(appRef: ID!, body: String!, replyToSeq: Int, sessionRef: ID): TeamChatMessage!
 
   """
+  #960 — mint a roles:<role> definition in the Team Agent's system memory.
+  Owns the spec knowledge a hand-authoring caller had to carry: the loc is
+  roles:<role> (single atom), the register goes in data.names (ordered),
+  and the write runs the register invariants — an added name may not appear
+  in another of this App's registers (TEAM_ROLE_NAME_DUPLICATE) and must
+  fall inside nameRange when one is set (TEAM_ROLE_NAME_OUT_OF_RANGE,
+  override with allowOutOfRange; a supplied nameRange must parse as an
+  initial-letter range like 'F-J'). Register checks and the write run in
+  one App-scoped critical section, serialized with register-mode casting.
+  Refuses an existing role
+  (TEAM_ROLE_EXISTS — updateTeamRole is the edit path). Authorization is
+  the Team Agent's definition-edit gate: whoever may write the agent's
+  system memory through the generic node surface may write roles — the
+  write delegates to that same seam (encryption, revision snapshot, git
+  mirror included).
+  """
+  createTeamRole(allowOutOfRange: Boolean, appRef: ID!, description: String, nameConvention: String, nameRange: String, names: [String!]!, role: String!, teamAgentRef: ID): TeamRole!
+
+  """
   025-oauth-for-mcp FR-004: mint a new user-scoped API key for the
   calling User. Returns the raw key exactly once (the server stores
   only the SHA-256 hash). Rejected with UNAUTHENTICATED for AppKey-
@@ -4057,6 +4092,21 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   updateTeamCollections(appRef: ID!): TeamCollectionsPayload!
+
+  """
+  #960 — edit a roles:<role> definition. names is WHOLESALE (the natural
+  fit for 'team role names set') but the invariants run against the DIFF
+  between stored and submitted, so add/rm/mv sugar can never smuggle a
+  violation: a name MINTED in this App may never be removed
+  (TEAM_ROLE_NAME_MINTED — the register entry records the allocation), an
+  added name may not appear in another register (TEAM_ROLE_NAME_DUPLICATE),
+  and added names validate against nameRange (allowOutOfRange overrides).
+  Omitted fields preserve; explicit null clears a convention key. Sibling
+  data keys always survive (the single --data clobber hazard is unreachable
+  through this surface). Unknown role: WORKER_ROLE_NOT_FOUND. Same
+  authorization as createTeamRole.
+  """
+  updateTeamRole(allowOutOfRange: Boolean, appRef: ID!, description: String, nameConvention: String, nameRange: String, names: [String!], role: String!, teamAgentRef: ID): TeamRole!
   updateUserRoles(roles: [Role!]!, userId: ID!): User!
 }
 
@@ -5785,6 +5835,18 @@ type Query {
   teamChatMessages(appRef: ID!, limit: Int, mentionsRef: ID, offset: Int, sinceSeq: Int): TeamChatMessagesPage!
 
   """
+  An App's role definitions (#960): every roles:<role> node in the Team
+  Agent's system memory, projected with the one answer a client cannot
+  compute — which register names are still FREE, judged against the App's
+  full worker roster (names are unique per App, case-insensitively, forever
+  — cor:agt:020:02). Ordered by role slug. Same read authorization as
+  workers. teamAgentRef disambiguates when more than one installed agent
+  carries a roles: branch (TEAM_AGENT_AMBIGUOUS otherwise); an encrypted
+  system memory without an active session key refuses SESSION_EXPIRED.
+  """
+  teamRoles(appRef: ID!, limit: Int, offset: Int, teamAgentRef: ID): TeamRolesPage!
+
+  """
   Read a team App's worklog (#947) — the provenance query: which sessions
   (and transcripts) produced this PR? Newest first, as a uniform
   { items, total } page. ref accepts ANY accepted spelling (URL, short form,
@@ -6210,6 +6272,17 @@ type Session {
   userId: String
 
   """
+  #980 / cor:agt:020:02: the Worker behind workerId, nested — so a session
+  list can render the app-qualified compound ('eng-team/Iris') without a
+  per-row worker(ref:) + app(ref:) round trip (Worker carries name and app).
+  Resolves for RETIRED workers too: retirement ends the casting, not the
+  history, so past sessions stay attributable. Worker.app and Worker.agent
+  run their OWN read gates and mask to null on deny (#552), so this nesting
+  never widens what the session read admits.
+  """
+  worker: Worker
+
+  """
   #974 / cor:agt:020:03: the Worker (named casting) this session works as.
   """
   workerId: String
@@ -6246,11 +6319,25 @@ input SessionInput {
   appRef: String
   branch: String
   customerId: String
+
+  """
+  #940: take over a worker whose binding would otherwise refuse WORKER_TAKEN.
+  Only meaningful with workerRef. Clients must surface the WORKER_TAKEN
+  payload (who last drove it, when) before retrying with force - that IS the
+  informed-takeover contract; force exists so the override is explicit,
+  never the default.
+  """
+  force: Boolean
   host: String
   id: String!
   language: String
   llmModel: String
   parentSessionId: String
+
+  """
+  The session's stated intent (Session.plan) - what this session is about. MCP's hadron_start_session description lands here.
+  """
+  plan: String
   prNumber: Int
   prevSessionId: String
   repo: String
@@ -6265,9 +6352,11 @@ input SessionInput {
   role-agent. The worker must belong to the session's App: with appRef (or an
   App-key credential) it must match the worker's App; without one, the
   worker's App becomes the session's, behind the same membership gate as
-  appRef. A retired worker refuses (WORKER_RETIRED). Binding a worker that
-  is already driven elsewhere is NOT refused - informed takeover is the
-  client's contract (show who last drove it, proceed on explicit override).
+  appRef. A retired worker refuses (WORKER_RETIRED). #940: a worker with an
+  ACTIVE session refuses WORKER_TAKEN — extensions carry workerId, sessionId,
+  lastDriver, lastSeenAt, everything the takeover prompt needs — unless
+  force is true (informed takeover, cor:agt:020:03: show who last drove it,
+  proceed only on explicit override, never silently).
   """
   workerRef: String
 }
@@ -6420,6 +6509,82 @@ type TeamCollectionsPayload {
 
   """The team App's shared memory the declaration was written to."""
   memoryId: ID!
+}
+
+"""
+A role definition (#960): the roles:<role> node in the Team Agent's system
+memory, carrying the name register (data.names) and register conventions.
+The persona prompt template is NOT here — with the Worker model (#974) it
+lives on the role-agent as dressing (personaRole + personaPrompt); roleAgent
+points at it.
+"""
+type TeamRole {
+  description: String
+
+  """
+  True when no register name is free (empty registers included) — the next register-mode cast refuses WORKER_REGISTER_EXHAUSTED.
+  """
+  exhausted: Boolean!
+  freeCount: Int!
+
+  """
+  Whether the role-agent's personaPrompt binds {{name}} — the check that
+  finds templates which silently produce nameless workers (role-agents
+  authored before any guard existed). Null when no single role-agent
+  resolves. Computed even when roleAgent itself is masked: it discloses one
+  boolean about the caller's own App's casting default.
+  """
+  hasNamePlaceholder: Boolean
+
+  """The node loc: roles:<role>."""
+  loc: String!
+
+  """Register convention prose (data.nameConvention)."""
+  nameConvention: String
+
+  """
+  Register convention: initial-letter range like 'F-J' (data.nameRange). Writes validate added names against it.
+  """
+  nameRange: String
+  nodeId: ID!
+
+  """
+  Ordered register = allocation order (trimmed, case-insensitive dedup, first spelling wins).
+  """
+  register: [TeamRoleName!]!
+
+  """The role slug, e.g. backend-engineer."""
+  role: String!
+
+  """
+  The single installed agent whose personaRole matches this role — exactly
+  the agent a role-mode castWorker would use (null when zero or ambiguous).
+  Runs Query.agent's own read gate and masks to null on deny (the #552
+  posture), like Worker.agent.
+  """
+  roleAgent: Agent
+}
+
+"""
+One entry of a role's name register (#960, cor:agt:020:02). Order is
+allocation order — castWorker walks the register first-to-last.
+"""
+type TeamRoleName {
+  """The Worker holding the name, when taken."""
+  heldBy: Worker
+  name: String!
+
+  """
+  True when a Worker holds this name in the App (case-insensitive, retired
+  included — retirement never frees a name). Judged against the App's FULL
+  roster server-side, which is why a client cannot compute this column.
+  """
+  taken: Boolean!
+}
+
+type TeamRolesPage {
+  items: [TeamRole!]!
+  total: Int!
 }
 
 """

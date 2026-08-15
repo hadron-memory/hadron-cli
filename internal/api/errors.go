@@ -175,6 +175,39 @@ func extensionCode(e *gqlerror.Error) string {
 	return ""
 }
 
+// TakenDetail is the informed-takeover payload a WORKER_TAKEN error carries
+// (hadron-server#940): everything the takeover prompt needs, in one round
+// trip. Fields are empty when the server omitted them (lastDriver is null
+// for an unattributed session).
+type TakenDetail struct {
+	WorkerID   string
+	SessionID  string
+	LastDriver string
+	LastSeenAt string
+}
+
+// WorkerTakenDetail extracts the WORKER_TAKEN payload from err's
+// extensions; ok is false when err is not that error. The MESSAGE also
+// narrates the payload today, but the extensions are the documented
+// contract (cor:agt:020:03) — render from these, not from message wording.
+// Call it BEFORE MapError wraps the error.
+func WorkerTakenDetail(err error) (TakenDetail, bool) {
+	for _, e := range graphQLErrors(err) {
+		if e == nil || extensionCode(e) != "WORKER_TAKEN" {
+			continue
+		}
+		d := TakenDetail{}
+		if e.Extensions != nil {
+			d.WorkerID, _ = e.Extensions["workerId"].(string)
+			d.SessionID, _ = e.Extensions["sessionId"].(string)
+			d.LastDriver, _ = e.Extensions["lastDriver"].(string)
+			d.LastSeenAt, _ = e.Extensions["lastSeenAt"].(string)
+		}
+		return d, true
+	}
+	return TakenDetail{}, false
+}
+
 // DescendantCount returns the descendant count carried by a
 // NODE_HAS_DESCENDANTS error (server #661: its extensions.count), or -1 when err
 // is not that error or carries no non-negative numeric count. JSON numbers decode
@@ -229,11 +262,11 @@ func codeForExtension(code string) int {
 	case strings.HasSuffix(code, "_AMBIGUOUS") || strings.HasSuffix(code, "_NOT_INSTALLED") ||
 		strings.HasSuffix(code, "_TOO_LARGE"):
 		return exitcode.Usage
-	// #428: a worker with history refuses deletion and a retired worker
-	// refuses new sessions/authorship — state conflicts: retrying blind won't
-	// help until the state changes (cast a new worker, or pick another one).
-	// WORKER_TAKEN is mapped ahead of hadron-server#940 (the server-side
-	// takeover gate, unmerged): same class, and inert until it ships.
+	// #428/#432: a worker with history refuses deletion, a retired worker
+	// refuses new sessions/authorship, and a taken worker refuses binding
+	// without force (hadron-server#940, the atomic takeover gate) — state
+	// conflicts: retrying blind won't help until the state changes (cast a
+	// new worker, pick another one, or take over with --force).
 	case code == "WORKER_IN_USE" || code == "WORKER_RETIRED" || code == "WORKER_TAKEN":
 		return exitcode.Conflict
 	default:
