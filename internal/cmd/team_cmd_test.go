@@ -13,13 +13,15 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-const irisWorkerJSON = `{"id":"wkr1","appId":"app1","agentId":"agt1","name":"Iris","role":"backend-engineer",
+const irisWorkerJSON = `{"id":"wkr1","urn":"hrn:worker:acme.com:eng-team:iris","slug":"iris",
+	"appId":"app1","agentId":"agt1","name":"Iris","role":"backend-engineer",
 	"prompt":"You are Iris.","promptOverride":null,"memoryId":"mw1","retiredAt":null,"retiredBy":null,
 	"createdAt":"2026-08-14T00:00:00Z","createdBy":"u-holger"}`
 
 // A retired casting on the same staff page: hidden by default, listed with
 // --include-retired (its name stays reserved forever).
-const retiredWorkerJSON = `{"id":"wkr2","appId":"app1","agentId":"agt1","name":"Uma","role":"qa",
+const retiredWorkerJSON = `{"id":"wkr2","urn":"hrn:worker:acme.com:eng-team:uma","slug":"uma",
+	"appId":"app1","agentId":"agt1","name":"Uma","role":"qa",
 	"prompt":null,"promptOverride":null,"memoryId":null,"retiredAt":"2026-08-13T00:00:00Z","retiredBy":"u-holger",
 	"createdAt":"2026-08-12T00:00:00Z","createdBy":null}`
 
@@ -217,8 +219,35 @@ func TestTeamWorkerGetByName(t *testing.T) {
 	}
 }
 
-// A worker ID needs no App scope at all (workers have no URN — the id is the
-// only App-free spelling).
+// The App-free spellings: a worker id, or its URN (#991/#445 — keyed on the
+// permanent derived slug, so it addresses one casting without App context).
+// Both ride `worker(ref:)` straight through.
+func TestTeamWorkerGetByRefWithoutApp(t *testing.T) {
+	teamGitDir(t)
+	for _, ref := range []string{"wkr1", "hrn:worker:acme.com:eng-team:iris"} {
+		gql, captured := captureGraphQL(t, map[string]string{
+			"GetWorker": `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "worker", "get", ref, "--json", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%s: execute: %v", ref, err)
+		}
+		var vars map[string]any
+		_ = json.Unmarshal(captured["GetWorker"], &vars)
+		if vars["ref"] != ref {
+			t.Errorf("%s must pass through verbatim, got %v", ref, vars["ref"])
+		}
+		// The URN is part of the --json contract now — it is the portable
+		// ref a script hands back.
+		if !strings.Contains(out.String(), `"urn": "hrn:worker:acme.com:eng-team:iris"`) ||
+			!strings.Contains(out.String(), `"slug": "iris"`) {
+			t.Errorf("%s: the worker's address must be in --json: %s", ref, out.String())
+		}
+	}
+}
+
 func TestTeamWorkerGetByIdWithoutApp(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{

@@ -29,8 +29,12 @@ The worker carries the identity; the agent carries the reusable persona
 dressing (role + prompt template, edited with ` + "`agent update`" + `). One agent
 can be cast many times — Iris and Henry can both be the backend-engineer.
 
-Workers have no URN. Commands take the worker's name (resolved within the
-App from --app, the App context, or the worktree binding) or its id.`,
+Commands take the worker's name (resolved within the App from --app, the
+App context, or the worktree binding), its URN, or its id. The URN
+(hrn:worker:<root>:<app-slug>:<slug>, #991) keys on a permanent DERIVED
+slug — never on the name, since two names may legally slugify to one token
+— and needs no App context, which makes it the portable way to name a
+worker in scripts.`,
 	}
 	cmd.AddCommand(newCmdWorkerCast(f))
 	cmd.AddCommand(newCmdWorkerList(f))
@@ -270,6 +274,9 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 			dto := workerDTOFromFields(w)
 			return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
 				fmt.Fprintf(out, "%s%s\n  worker: %s (app %s)\n  agent: %s\n", dto.Name, roleSuffix(dto.Role), dto.ID, dto.AppID, dto.AgentID)
+				if dto.URN != nil && *dto.URN != "" {
+					fmt.Fprintf(out, "  urn: %s\n", *dto.URN)
+				}
 				if dto.MemoryID != nil {
 					fmt.Fprintf(out, "  memory: %s\n", *dto.MemoryID)
 				}

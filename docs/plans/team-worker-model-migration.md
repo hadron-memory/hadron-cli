@@ -50,9 +50,16 @@ grepping. Refresh first, then let the compiler enumerate the work.
 3. **`team worker` command group** — `cast`, `retire`, `list`, `get`. Keep
    `team persona` as deprecated aliases for one release, or remove outright
    (decide; see open questions).
-4. **Session binding** — `SessionInput.workerRef` takes the worker's **id**
-   (workers have no URN). `Session.agentId` is stamped server-side from the
-   casting, so the CLI stops resolving an agent.
+4. **Session binding** — `SessionInput.workerRef` takes the worker's **id**.
+   `Session.agentId` is stamped server-side from the casting, so the CLI
+   stops resolving an agent.
+   > **Superseded 2026-08-15 (hadron-cli#445).** Workers gained URNs —
+   > `hrn:worker:<root>:<app-slug>:<slug>` (hadron-server#991) — keyed on a
+   > permanent DERIVED slug. The claim "workers have no URN" is retired;
+   > "the NAME never enters a URN" is what remains durable law
+   > (`cor:agt:020:02`, v0.0.4). `workerRef` also accepts a worker NAME
+   > since hadron-server#990, which the CLI deliberately does not use — see
+   > that issue for why.
 5. **Chat + worklog field renames** — `authorWorkerId`, `workerName`/`workerId`,
    and the new error codes.
 6. **Docs** — `agentic-usage.md` surface lines and prose; the `team --help`

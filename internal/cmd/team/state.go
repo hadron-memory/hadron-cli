@@ -21,7 +21,7 @@ import (
 // <main>/.git/worktrees/<name>, and the binding must be per-worktree.
 type binding struct {
 	SessionID string `json:"sessionId"`
-	// WorkerID is the bound Worker's id (#428 — workers have no URN). A
+	// WorkerID is the bound Worker's id (#428). A
 	// binding written by a pre-Worker CLI carries agentId/personaName instead
 	// and unmarshals with WorkerID empty: a DEGRADED read, not an error —
 	// `session end` still works (SessionID is all it needs, and it is the
