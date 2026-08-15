@@ -66,46 +66,24 @@ type sessionDTO struct {
 	Active bool `json:"active"`
 }
 
-// sessionDTOFromFields maps a session row; workerName is joined by the
-// caller (sessions carry only workerId until hadron-server#980's nested
-// Session.worker merges — the memoized join below stands in).
-func sessionDTOFromFields(s gen.TeamSessionFields, workerName *string) sessionDTO {
+// sessionDTOFromFields maps a session row. The worker name comes from the
+// nested Session.worker (#980 / #432 — resolves for retired workers too, no
+// per-row round trip); fallbackName covers rows where the server nested none
+// (a provenance stub's worklog name). A session whose worker is unreadable
+// keeps a nil name and the caller renders the raw id — surfaced, not
+// silently dropped (the visibility-gap rule).
+func sessionDTOFromFields(s gen.TeamSessionFields, fallbackName *string) sessionDTO {
+	name := fallbackName
+	if s.Worker != nil {
+		name = &s.Worker.Name
+	}
 	return sessionDTO{
-		ID: s.Id, AgentID: s.AgentId, WorkerID: s.WorkerId, WorkerName: workerName,
+		ID: s.Id, AgentID: s.AgentId, WorkerID: s.WorkerId, WorkerName: name,
 		UserID: s.UserId,
 		Type:   s.Type, Repo: s.Repo, Branch: s.Branch, PRNumber: s.PrNumber,
 		StartedAt: s.StartedAt, EndedAt: s.EndedAt, Host: s.Host, Tool: s.Tool,
 		TranscriptPath: s.TranscriptPath, LLMModel: s.LlmModel, Active: s.EndedAt == nil,
 	}
-}
-
-// workerNames memoizes worker-id → name lookups for the session-list join —
-// one worker(ref:) per DISTINCT worker, not per row. A lookup failure
-// resolves to nil and the caller renders the raw id — surfaced, not silently
-// dropped (the visibility-gap rule). Replaced by the nested Session.worker
-// selection once hadron-server#980 merges (tracked follow-up).
-type workerNames struct {
-	client graphql.Client
-	cache  map[string]*string
-}
-
-func newWorkerNames(client graphql.Client) *workerNames {
-	return &workerNames{client: client, cache: map[string]*string{}}
-}
-
-func (n *workerNames) nameFor(ctx context.Context, workerID *string) *string {
-	if workerID == nil || *workerID == "" {
-		return nil
-	}
-	if name, ok := n.cache[*workerID]; ok {
-		return name
-	}
-	var name *string
-	if resp, err := gen.GetWorker(ctx, n.client, *workerID); err == nil && resp.Worker != nil {
-		name = &resp.Worker.Name
-	}
-	n.cache[*workerID] = name
-	return name
 }
 
 const sessionPageSize = 200
@@ -287,8 +265,25 @@ so the old binding never leaves a session open.`,
 				TranscriptPath: optStr(transcript),
 				LlmModel:       optStr(model),
 			}
+			// #940/#432: the server refuses a taken worker atomically
+			// (WORKER_TAKEN) unless force rides along — the activity check
+			// above is the friendly pre-flight, this is the race-safe gate.
+			// Sent only on --force so the override stays explicit.
+			if force {
+				input.Force = &force
+			}
 			resp, err := gen.StartTeamSession(ctx, client, input)
 			if err != nil {
+				// The race the pre-flight can't close: the worker was free a
+				// moment ago and another driver bound it first. The server's
+				// WORKER_TAKEN payload says who/when (#940 — surface it, per
+				// the informed-takeover contract); add the override the
+				// pre-flight refusal already offers.
+				if api.HasErrorCode(err, "WORKER_TAKEN") {
+					mapped := api.MapError(err)
+					return exitcode.Newf(exitcode.FromError(mapped),
+						"%v — --force takes over (informed override, cor:agt:020:03)", mapped)
+				}
 				return api.MapError(err)
 			}
 			if resp.StartSession == nil {
@@ -794,7 +789,6 @@ than being silently dropped.`,
 			if ref != "" {
 				return runProvenanceQuery(cmd, f, client, kind, ref, memory)
 			}
-			names := newWorkerNames(client)
 			var asWorkerRef *string
 			if as != "" {
 				// The App scope for a worker NAME comes from --app / the App
@@ -812,7 +806,6 @@ than being silently dropped.`,
 					return wErr
 				}
 				asWorkerRef = &w.Id
-				names.cache[w.Id] = &w.Name
 			}
 
 			sessions := []sessionDTO{}
@@ -823,7 +816,7 @@ than being silently dropped.`,
 					if s.EndedAt != nil {
 						return true
 					}
-					sessions = append(sessions, sessionDTOFromFields(s, names.nameFor(ctx, s.WorkerId)))
+					sessions = append(sessions, sessionDTOFromFields(s, nil))
 					return true
 				})
 				if err != nil {
@@ -855,7 +848,7 @@ than being silently dropped.`,
 					if s == nil {
 						continue
 					}
-					sessions = append(sessions, sessionDTOFromFields(s.TeamSessionFields, names.nameFor(ctx, s.WorkerId)))
+					sessions = append(sessions, sessionDTOFromFields(s.TeamSessionFields, nil))
 				}
 			}
 			return output.Write(f.IOStreams, f.JSON, sessions, func(w io.Writer) error {

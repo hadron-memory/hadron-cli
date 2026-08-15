@@ -391,17 +391,20 @@ func TestAppFlagOnListingsPrintsScopeNote(t *testing.T) {
 	}
 }
 
-const activeSessionJSON = `{"id":"s-old","agentId":"agt1","workerId":"wkr1","userId":"u-holger","type":"DEVELOPER",
+const activeSessionJSON = `{"id":"s-old","agentId":"agt1","workerId":"wkr1",
+	"worker":{"id":"wkr1","name":"Iris","role":"backend-engineer"},"userId":"u-holger","type":"DEVELOPER",
 	"repo":"hadron-memory/hadron-cli","branch":null,"prNumber":null,
 	"startedAt":"2026-08-11T09:00:00Z","endedAt":null,"host":"mac1","tool":"claude-code",
 	"transcriptPath":null,"llmModel":null}`
 
-const endedSessionJSON = `{"id":"s-done","agentId":"agt1","workerId":"wkr1","userId":"u-holger","type":"DEVELOPER",
+const endedSessionJSON = `{"id":"s-done","agentId":"agt1","workerId":"wkr1",
+	"worker":{"id":"wkr1","name":"Iris","role":"backend-engineer"},"userId":"u-holger","type":"DEVELOPER",
 	"repo":"hadron-memory/hadron-cli","branch":null,"prNumber":42,
 	"startedAt":"2026-08-10T09:00:00Z","endedAt":"2026-08-10T18:00:00Z","host":"mac1",
 	"tool":"claude-code","transcriptPath":null,"llmModel":null}`
 
-const startedSessionJSON = `{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u-holger","type":"DEVELOPER",
+const startedSessionJSON = `{"id":"s-new","agentId":"agt1","workerId":"wkr1",
+	"worker":{"id":"wkr1","name":"Iris","role":"backend-engineer"},"userId":"u-holger","type":"DEVELOPER",
 	"repo":null,"branch":null,"prNumber":null,"startedAt":"2026-08-11T10:00:00Z","endedAt":null,
 	"host":"mac1","tool":"claude-code","transcriptPath":"/tmp/t.jsonl","llmModel":null}`
 
@@ -454,7 +457,9 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 	}
 	// Unset optional SessionInput fields are OMITTED, never null (`appRef`
 	// without -m is covered by TestTeamSessionStartWithoutMemoryOmitsAppRef).
-	for _, k := range []string{"branch", "llmModel", "prNumber", "type"} {
+	// `force` and `plan` (#940/#934) in particular: refreshed input fields do
+	// not inherit omitempty, so their absence here is the loud check.
+	for _, k := range []string{"branch", "llmModel", "prNumber", "type", "force", "plan"} {
 		if _, present := vars.Input[k]; present {
 			t.Errorf("unset %q must be omitted from SessionInput, got %v", k, vars.Input[k])
 		}
@@ -613,14 +618,46 @@ func TestTeamSessionStartForceTakesOver(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	// (SessionInput.force is hadron-server#940, unmerged — until it lands the
-	// takeover is client-side only, so nothing extra rides on the wire.)
-	_ = captured
+	// #940/#432: the override rides to the server — the atomic gate is its
+	// WORKER_TAKEN refusal, and force is what waives it, explicitly.
+	var vars struct {
+		Input map[string]any `json:"input"`
+	}
+	_ = json.Unmarshal(captured["StartTeamSession"], &vars)
+	if vars.Input["force"] != true {
+		t.Errorf("--force must ride as SessionInput.force: %v", vars.Input)
+	}
 	if !strings.Contains(out.String(), `"tookOver": true`) {
 		t.Errorf("takeover output: %s", out.String())
 	}
 	if _, err := os.Stat(filepath.Join(dir, "hadron-team-session.json")); err != nil {
 		t.Errorf("binding not written: %v", err)
+	}
+}
+
+// The race the client pre-flight cannot close: the worker was free at the
+// check and taken by the time startSession ran. The server's atomic
+// WORKER_TAKEN refusal (#940/#432) surfaces with its payload and the --force
+// override, as a Conflict.
+func TestTeamSessionStartRacedTakenSurfacesForce(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetWorker":    `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"TeamSessions": `{"data":{"sessions":[]}}`,
+		"StartTeamSession": `{"errors":[{"message":"Worker \"Iris\" is being driven by u-rufus since 2026-08-15T09:00:00Z",
+			"extensions":{"code":"WORKER_TAKEN"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Conflict {
+		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
+	}
+	for _, want := range []string{"u-rufus", "--force"} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("the refusal must carry %q (payload + override): %v", want, err)
+		}
 	}
 }
 
@@ -1831,12 +1868,11 @@ func TestTeamChatReadMentionsMe(t *testing.T) {
 }
 
 // --active filters client-side (no server-side filter exists) and the worker
-// name is joined via a memoized worker(ref:) per distinct worker (the nested
-// Session.worker is hadron-server#980, unmerged — adopting it is follow-up).
+// name is joined from the NESTED Session.worker (#980/#432) — no per-row
+// GetWorker fan-out (its absence from the fake makes any lookup call fail).
 func TestTeamSessionListActive(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + irisWorkerJSON + `}}`,
 		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `,` + endedSessionJSON + `]}}`,
 	})
 	f, out := testFactory(t)

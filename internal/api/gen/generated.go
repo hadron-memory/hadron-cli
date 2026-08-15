@@ -6538,6 +6538,11 @@ func (v *EndTeamSessionEndSession) GetAgentId() *string { return v.TeamSessionFi
 // GetWorkerId returns EndTeamSessionEndSession.WorkerId, and is useful for accessing the field via an interface.
 func (v *EndTeamSessionEndSession) GetWorkerId() *string { return v.TeamSessionFields.WorkerId }
 
+// GetWorker returns EndTeamSessionEndSession.Worker, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionEndSession) GetWorker() *TeamSessionFieldsWorker {
+	return v.TeamSessionFields.Worker
+}
+
 // GetUserId returns EndTeamSessionEndSession.UserId, and is useful for accessing the field via an interface.
 func (v *EndTeamSessionEndSession) GetUserId() *string { return v.TeamSessionFields.UserId }
 
@@ -6605,6 +6610,8 @@ type __premarshalEndTeamSessionEndSession struct {
 
 	WorkerId *string `json:"workerId"`
 
+	Worker *TeamSessionFieldsWorker `json:"worker"`
+
 	UserId *string `json:"userId"`
 
 	Type string `json:"type"`
@@ -6642,6 +6649,7 @@ func (v *EndTeamSessionEndSession) __premarshalJSON() (*__premarshalEndTeamSessi
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
 	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Worker = v.TeamSessionFields.Worker
 	retval.UserId = v.TeamSessionFields.UserId
 	retval.Type = v.TeamSessionFields.Type
 	retval.Repo = v.TeamSessionFields.Repo
@@ -7681,6 +7689,11 @@ func (v *GetTeamSessionSession) GetAgentId() *string { return v.TeamSessionField
 // GetWorkerId returns GetTeamSessionSession.WorkerId, and is useful for accessing the field via an interface.
 func (v *GetTeamSessionSession) GetWorkerId() *string { return v.TeamSessionFields.WorkerId }
 
+// GetWorker returns GetTeamSessionSession.Worker, and is useful for accessing the field via an interface.
+func (v *GetTeamSessionSession) GetWorker() *TeamSessionFieldsWorker {
+	return v.TeamSessionFields.Worker
+}
+
 // GetUserId returns GetTeamSessionSession.UserId, and is useful for accessing the field via an interface.
 func (v *GetTeamSessionSession) GetUserId() *string { return v.TeamSessionFields.UserId }
 
@@ -7748,6 +7761,8 @@ type __premarshalGetTeamSessionSession struct {
 
 	WorkerId *string `json:"workerId"`
 
+	Worker *TeamSessionFieldsWorker `json:"worker"`
+
 	UserId *string `json:"userId"`
 
 	Type string `json:"type"`
@@ -7785,6 +7800,7 @@ func (v *GetTeamSessionSession) __premarshalJSON() (*__premarshalGetTeamSessionS
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
 	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Worker = v.TeamSessionFields.Worker
 	retval.UserId = v.TeamSessionFields.UserId
 	retval.Type = v.TeamSessionFields.Type
 	retval.Repo = v.TeamSessionFields.Repo
@@ -13722,29 +13738,39 @@ type SessionInput struct {
 	// history rows may share a URN). By URN an uninstalled App is simply not
 	// found - BAD_USER_INPUT - since there is no single row the URN names; by
 	// PK it is found and refused APP_UNINSTALLED.
-	AppRef          *string `json:"appRef,omitempty"`
-	Branch          *string `json:"branch,omitempty"`
-	CustomerId      *string `json:"customerId,omitempty"`
+	AppRef     *string `json:"appRef,omitempty"`
+	Branch     *string `json:"branch,omitempty"`
+	CustomerId *string `json:"customerId,omitempty"`
+	// #940: take over a worker whose binding would otherwise refuse WORKER_TAKEN.
+	// Only meaningful with workerRef. Clients must surface the WORKER_TAKEN
+	// payload (who last drove it, when) before retrying with force - that IS the
+	// informed-takeover contract; force exists so the override is explicit,
+	// never the default.
+	Force           *bool   `json:"force,omitempty"`
 	Host            *string `json:"host,omitempty"`
 	Id              string  `json:"id"`
 	Language        *string `json:"language,omitempty"`
 	LlmModel        *string `json:"llmModel,omitempty"`
 	ParentSessionId *string `json:"parentSessionId,omitempty"`
-	PrNumber        *int    `json:"prNumber,omitempty"`
-	PrevSessionId   *string `json:"prevSessionId,omitempty"`
-	Repo            *string `json:"repo,omitempty"`
-	Tool            *string `json:"tool,omitempty"`
-	TranscriptPath  *string `json:"transcriptPath,omitempty"`
-	Type            *string `json:"type,omitempty"`
+	// The session's stated intent (Session.plan) - what this session is about. MCP's hadron_start_session description lands here.
+	Plan           *string `json:"plan,omitempty"`
+	PrNumber       *int    `json:"prNumber,omitempty"`
+	PrevSessionId  *string `json:"prevSessionId,omitempty"`
+	Repo           *string `json:"repo,omitempty"`
+	Tool           *string `json:"tool,omitempty"`
+	TranscriptPath *string `json:"transcriptPath,omitempty"`
+	Type           *string `json:"type,omitempty"`
 	// #974 / cor:agt:020:03: the Worker (named casting) this session works as -
 	// the worker's id (workers have no URN; names never enter URNs, cor:agt:020:02).
 	// Resolves to Session.workerId, and stamps Session.agentId with the worker's
 	// role-agent. The worker must belong to the session's App: with appRef (or an
 	// App-key credential) it must match the worker's App; without one, the
 	// worker's App becomes the session's, behind the same membership gate as
-	// appRef. A retired worker refuses (WORKER_RETIRED). Binding a worker that
-	// is already driven elsewhere is NOT refused - informed takeover is the
-	// client's contract (show who last drove it, proceed on explicit override).
+	// appRef. A retired worker refuses (WORKER_RETIRED). #940: a worker with an
+	// ACTIVE session refuses WORKER_TAKEN — extensions carry workerId, sessionId,
+	// lastDriver, lastSeenAt, everything the takeover prompt needs — unless
+	// force is true (informed takeover, cor:agt:020:03: show who last drove it,
+	// proceed only on explicit override, never silently).
 	WorkerRef *string `json:"workerRef,omitempty"`
 }
 
@@ -13760,6 +13786,9 @@ func (v *SessionInput) GetBranch() *string { return v.Branch }
 // GetCustomerId returns SessionInput.CustomerId, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetCustomerId() *string { return v.CustomerId }
 
+// GetForce returns SessionInput.Force, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetForce() *bool { return v.Force }
+
 // GetHost returns SessionInput.Host, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetHost() *string { return v.Host }
 
@@ -13774,6 +13803,9 @@ func (v *SessionInput) GetLlmModel() *string { return v.LlmModel }
 
 // GetParentSessionId returns SessionInput.ParentSessionId, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetParentSessionId() *string { return v.ParentSessionId }
+
+// GetPlan returns SessionInput.Plan, and is useful for accessing the field via an interface.
+func (v *SessionInput) GetPlan() *string { return v.Plan }
 
 // GetPrNumber returns SessionInput.PrNumber, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetPrNumber() *int { return v.PrNumber }
@@ -13976,6 +14008,11 @@ func (v *StartTeamSessionStartSession) GetAgentId() *string { return v.TeamSessi
 // GetWorkerId returns StartTeamSessionStartSession.WorkerId, and is useful for accessing the field via an interface.
 func (v *StartTeamSessionStartSession) GetWorkerId() *string { return v.TeamSessionFields.WorkerId }
 
+// GetWorker returns StartTeamSessionStartSession.Worker, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSession) GetWorker() *TeamSessionFieldsWorker {
+	return v.TeamSessionFields.Worker
+}
+
 // GetUserId returns StartTeamSessionStartSession.UserId, and is useful for accessing the field via an interface.
 func (v *StartTeamSessionStartSession) GetUserId() *string { return v.TeamSessionFields.UserId }
 
@@ -14043,6 +14080,8 @@ type __premarshalStartTeamSessionStartSession struct {
 
 	WorkerId *string `json:"workerId"`
 
+	Worker *TeamSessionFieldsWorker `json:"worker"`
+
 	UserId *string `json:"userId"`
 
 	Type string `json:"type"`
@@ -14080,6 +14119,7 @@ func (v *StartTeamSessionStartSession) __premarshalJSON() (*__premarshalStartTea
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
 	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Worker = v.TeamSessionFields.Worker
 	retval.UserId = v.TeamSessionFields.UserId
 	retval.Type = v.TeamSessionFields.Type
 	retval.Repo = v.TeamSessionFields.Repo
@@ -14401,14 +14441,22 @@ type TeamSessionFields struct {
 	// The role-agent driving the session (with workerId set, the agent behind the casting).
 	AgentId *string `json:"agentId"`
 	// #974 / cor:agt:020:03: the Worker (named casting) this session works as.
-	WorkerId  *string `json:"workerId"`
-	UserId    *string `json:"userId"`
-	Type      string  `json:"type"`
-	Repo      *string `json:"repo"`
-	Branch    *string `json:"branch"`
-	PrNumber  *int    `json:"prNumber"`
-	StartedAt string  `json:"startedAt"`
-	EndedAt   *string `json:"endedAt"`
+	WorkerId *string `json:"workerId"`
+	// #980 / cor:agt:020:02: the Worker behind workerId, nested — so a session
+	// list can render the app-qualified compound ('eng-team/Iris') without a
+	// per-row worker(ref:) + app(ref:) round trip (Worker carries name and app).
+	// Resolves for RETIRED workers too: retirement ends the casting, not the
+	// history, so past sessions stay attributable. Worker.app and Worker.agent
+	// run their OWN read gates and mask to null on deny (#552), so this nesting
+	// never widens what the session read admits.
+	Worker    *TeamSessionFieldsWorker `json:"worker"`
+	UserId    *string                  `json:"userId"`
+	Type      string                   `json:"type"`
+	Repo      *string                  `json:"repo"`
+	Branch    *string                  `json:"branch"`
+	PrNumber  *int                     `json:"prNumber"`
+	StartedAt string                   `json:"startedAt"`
+	EndedAt   *string                  `json:"endedAt"`
 	// #928: machine identifier the session ran on.
 	Host *string `json:"host"`
 	// #928: the tool driving the session ('claude-code', 'codex', ...).
@@ -14426,6 +14474,9 @@ func (v *TeamSessionFields) GetAgentId() *string { return v.AgentId }
 
 // GetWorkerId returns TeamSessionFields.WorkerId, and is useful for accessing the field via an interface.
 func (v *TeamSessionFields) GetWorkerId() *string { return v.WorkerId }
+
+// GetWorker returns TeamSessionFields.Worker, and is useful for accessing the field via an interface.
+func (v *TeamSessionFields) GetWorker() *TeamSessionFieldsWorker { return v.Worker }
 
 // GetUserId returns TeamSessionFields.UserId, and is useful for accessing the field via an interface.
 func (v *TeamSessionFields) GetUserId() *string { return v.UserId }
@@ -14460,6 +14511,32 @@ func (v *TeamSessionFields) GetTranscriptPath() *string { return v.TranscriptPat
 // GetLlmModel returns TeamSessionFields.LlmModel, and is useful for accessing the field via an interface.
 func (v *TeamSessionFields) GetLlmModel() *string { return v.LlmModel }
 
+// TeamSessionFieldsWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. Workers have no URN.
+type TeamSessionFieldsWorker struct {
+	Id string `json:"id"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+	// The cast-list role this filling answers ('backend-engineer').
+	Role *string `json:"role"`
+}
+
+// GetId returns TeamSessionFieldsWorker.Id, and is useful for accessing the field via an interface.
+func (v *TeamSessionFieldsWorker) GetId() string { return v.Id }
+
+// GetName returns TeamSessionFieldsWorker.Name, and is useful for accessing the field via an interface.
+func (v *TeamSessionFieldsWorker) GetName() string { return v.Name }
+
+// GetRole returns TeamSessionFieldsWorker.Role, and is useful for accessing the field via an interface.
+func (v *TeamSessionFieldsWorker) GetRole() *string { return v.Role }
+
 // TeamSessionsResponse is returned by TeamSessions on success.
 type TeamSessionsResponse struct {
 	// workerRef (#974): only sessions bound to that Worker (by id), newest first - the 'taken right now' / 'last driven by' read (cor:agt:020:03).
@@ -14482,6 +14559,11 @@ func (v *TeamSessionsSessionsSession) GetAgentId() *string { return v.TeamSessio
 
 // GetWorkerId returns TeamSessionsSessionsSession.WorkerId, and is useful for accessing the field via an interface.
 func (v *TeamSessionsSessionsSession) GetWorkerId() *string { return v.TeamSessionFields.WorkerId }
+
+// GetWorker returns TeamSessionsSessionsSession.Worker, and is useful for accessing the field via an interface.
+func (v *TeamSessionsSessionsSession) GetWorker() *TeamSessionFieldsWorker {
+	return v.TeamSessionFields.Worker
+}
 
 // GetUserId returns TeamSessionsSessionsSession.UserId, and is useful for accessing the field via an interface.
 func (v *TeamSessionsSessionsSession) GetUserId() *string { return v.TeamSessionFields.UserId }
@@ -14550,6 +14632,8 @@ type __premarshalTeamSessionsSessionsSession struct {
 
 	WorkerId *string `json:"workerId"`
 
+	Worker *TeamSessionFieldsWorker `json:"worker"`
+
 	UserId *string `json:"userId"`
 
 	Type string `json:"type"`
@@ -14587,6 +14671,7 @@ func (v *TeamSessionsSessionsSession) __premarshalJSON() (*__premarshalTeamSessi
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
 	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Worker = v.TeamSessionFields.Worker
 	retval.UserId = v.TeamSessionFields.UserId
 	retval.Type = v.TeamSessionFields.Type
 	retval.Repo = v.TeamSessionFields.Repo
@@ -17057,6 +17142,11 @@ func (v *UpdateTeamSessionUpdateSession) GetAgentId() *string { return v.TeamSes
 // GetWorkerId returns UpdateTeamSessionUpdateSession.WorkerId, and is useful for accessing the field via an interface.
 func (v *UpdateTeamSessionUpdateSession) GetWorkerId() *string { return v.TeamSessionFields.WorkerId }
 
+// GetWorker returns UpdateTeamSessionUpdateSession.Worker, and is useful for accessing the field via an interface.
+func (v *UpdateTeamSessionUpdateSession) GetWorker() *TeamSessionFieldsWorker {
+	return v.TeamSessionFields.Worker
+}
+
 // GetUserId returns UpdateTeamSessionUpdateSession.UserId, and is useful for accessing the field via an interface.
 func (v *UpdateTeamSessionUpdateSession) GetUserId() *string { return v.TeamSessionFields.UserId }
 
@@ -17124,6 +17214,8 @@ type __premarshalUpdateTeamSessionUpdateSession struct {
 
 	WorkerId *string `json:"workerId"`
 
+	Worker *TeamSessionFieldsWorker `json:"worker"`
+
 	UserId *string `json:"userId"`
 
 	Type string `json:"type"`
@@ -17161,6 +17253,7 @@ func (v *UpdateTeamSessionUpdateSession) __premarshalJSON() (*__premarshalUpdate
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
 	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Worker = v.TeamSessionFields.Worker
 	retval.UserId = v.TeamSessionFields.UserId
 	retval.Type = v.TeamSessionFields.Type
 	retval.Repo = v.TeamSessionFields.Repo
@@ -23065,6 +23158,11 @@ fragment TeamSessionFields on Session {
 	id
 	agentId
 	workerId
+	worker {
+		id
+		name
+		role
+	}
 	userId
 	type
 	repo
@@ -23601,6 +23699,11 @@ fragment TeamSessionFields on Session {
 	id
 	agentId
 	workerId
+	worker {
+		id
+		name
+		role
+	}
 	userId
 	type
 	repo
@@ -26175,6 +26278,11 @@ fragment TeamSessionFields on Session {
 	id
 	agentId
 	workerId
+	worker {
+		id
+		name
+		role
+	}
 	userId
 	type
 	repo
@@ -26198,9 +26306,11 @@ fragment TeamSessionFields on Session {
 // workerRef (#974 / cor:agt:020:03) binds the session to the Worker by ID —
 // Session.agentId is stamped server-side from the casting, so the CLI no
 // longer resolves an agent. Same refresh rule as appRef above.
-// (SessionInput.force — the server-side WORKER_TAKEN takeover gate — is
-// hadron-server#940, unmerged; until it lands the client-side activity check
-// is the only taken-check, and adopting force is tracked follow-up.)
+// force (#940 / hadron-cli#432) is the informed-takeover override: a worker
+// with an ACTIVE session refuses WORKER_TAKEN atomically unless force rides
+// along. Sent only on --force, so the override stays explicit.
+// plan (#934) arrived in the same refresh; the CLI does not drive it yet, but
+// the refreshed field still needs its omitempty line (the #139 trap).
 func StartTeamSession(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -26367,6 +26477,11 @@ fragment TeamSessionFields on Session {
 	id
 	agentId
 	workerId
+	worker {
+		id
+		name
+		role
+	}
 	userId
 	type
 	repo
@@ -27503,6 +27618,11 @@ fragment TeamSessionFields on Session {
 	id
 	agentId
 	workerId
+	worker {
+		id
+		name
+		role
+	}
 	userId
 	type
 	repo
