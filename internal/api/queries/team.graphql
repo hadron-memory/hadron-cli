@@ -365,3 +365,94 @@ mutation UpdateTeamCollections($appRef: ID!) {
     changed
   }
 }
+
+# ── Role definitions (#403 / hadron-server#960) — the pre-cast read. The
+# server projects the one answer a client cannot compute: which register
+# names are still FREE, judged against the App's FULL worker roster (names
+# are unique per App, case-insensitively, forever — cor:agt:020:02).
+fragment TeamRoleFields on TeamRole {
+  role
+  loc
+  nodeId
+  description
+  register {
+    name
+    taken
+    # The entity behind a taken name — id AND name, so --json keeps the
+    # actionable ref (entity-fields-not-display-labels).
+    heldBy {
+      id
+      name
+    }
+  }
+  freeCount
+  exhausted
+  nameRange
+  nameConvention
+  # The single installed agent a role-mode cast would use (null when zero or
+  # ambiguous; masks to null on read-deny — the #552 posture). Under the
+  # Worker model the prompt TEMPLATE lives here, not on the role node.
+  roleAgent {
+    id
+    urn
+    name
+    personaRole
+  }
+  hasNamePlaceholder
+}
+
+query TeamRoles(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $teamAgentRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  teamRoles(appRef: $appRef, teamAgentRef: $teamAgentRef, limit: $limit, offset: $offset) {
+    total
+    items {
+      ...TeamRoleFields
+    }
+  }
+}
+
+# ── Cast preview (#404 / hadron-server#964) — dry-run the irreversible cast.
+# A QUERY, deliberately: previewing must not need mutation permissions or a
+# fake Worker row. It runs the cast's exact resolution — same arguments, same
+# typed refusals, same mint gate — up to but not including the writes. THE
+# PREVIEW RESERVES NOTHING (no lease by law, cor:agt:020:03): a previewed
+# name may be gone at cast time; the cast's uniqueness constraint stays the
+# only allocation primitive.
+query CastWorkerPreview(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $agentRef: ID
+  # @genqlient(omitempty: true)
+  $role: String
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $teamAgentRef: ID
+  # @genqlient(omitempty: true)
+  $promptOverride: String
+) {
+  castWorkerPreview(
+    appRef: $appRef
+    agentRef: $agentRef
+    role: $role
+    name: $name
+    teamAgentRef: $teamAgentRef
+    promptOverride: $promptOverride
+  ) {
+    name
+    role
+    agentId
+    agentName
+    teamAgentId
+    teamAgentName
+    prompt
+    hasNamePlaceholder
+  }
+}

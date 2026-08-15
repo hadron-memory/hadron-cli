@@ -353,6 +353,192 @@ func TestTeamWorkerRmInUseIsConflict(t *testing.T) {
 	}
 }
 
+const teamRolesJSON = `{"data":{"teamRoles":{"total":2,"items":[
+	{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be","description":"Backend role",
+	 "register":[
+	   {"name":"Fred","taken":false,"heldBy":null},
+	   {"name":"Iris","taken":true,"heldBy":{"id":"wkr1","name":"Iris"}},
+	   {"name":"Joe","taken":true,"heldBy":null}],
+	 "freeCount":1,"exhausted":false,"nameRange":"F-J","nameConvention":"initial = role",
+	 "roleAgent":{"id":"agt1","urn":"hrn:agent:acme.com:backend","name":"backend-engineer","personaRole":"backend-engineer"},
+	 "hasNamePlaceholder":true},
+	{"role":"qa","loc":"roles:qa","nodeId":"n-qa","description":null,
+	 "register":[{"name":"Uma","taken":true,"heldBy":{"id":"wkr2","name":"Uma"}}],
+	 "freeCount":0,"exhausted":true,"nameRange":null,"nameConvention":null,
+	 "roleAgent":null,"hasNamePlaceholder":false}]}}}`
+
+// #403: the pre-cast read — registers with server-computed taken/free, in
+// allocation order. The free/taken verdicts are server truths (judged
+// against the App's FULL roster), never recomputed client-side.
+func TestTeamRoleList(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesJSON})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "role", "list", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["TeamRoles"], &vars)
+	if vars["appRef"] != "acme.com:eng-team" {
+		t.Errorf("teamRoles vars: %v", vars)
+	}
+	var got []struct {
+		Role      string `json:"role"`
+		FreeCount int    `json:"freeCount"`
+		Exhausted bool   `json:"exhausted"`
+		Register  []struct {
+			Name     string  `json:"name"`
+			Taken    bool    `json:"taken"`
+			HeldByID *string `json:"heldById"`
+		} `json:"register"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+		t.Fatalf("json: %v (%s)", err, out.String())
+	}
+	if len(got) != 2 || got[0].Role != "backend-engineer" || got[0].FreeCount != 1 || !got[1].Exhausted {
+		t.Errorf("roles: %s", out.String())
+	}
+	// Allocation order preserved; the held name carries the worker id (the
+	// actionable ref), and a taken-but-unreadable holder stays taken.
+	r := got[0].Register
+	if len(r) != 3 || r[0].Name != "Fred" || r[0].Taken ||
+		r[1].HeldByID == nil || *r[1].HeldByID != "wkr1" ||
+		!r[2].Taken || r[2].HeldByID != nil {
+		t.Errorf("register: %s", out.String())
+	}
+
+	// Human table: taken marker + exhausted + the nameless-template warning.
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "role", "list", "--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	for _, want := range []string{"Iris✓", "0 (exhausted)", "never binds {{name}}"} {
+		if !strings.Contains(out2.String(), want) {
+			t.Errorf("table must carry %q: %s", want, out2.String())
+		}
+	}
+}
+
+func TestTeamRoleGet(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesJSON})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	// Case-insensitive, like the server's own name matching.
+	root.SetArgs([]string{"team", "role", "get", "Backend-Engineer", "--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	for _, want := range []string{"held by Iris (wkr1)", "Fred — free", "Joe — taken (holder not visible to you)",
+		"range F-J", "backend-engineer (hrn:agent:acme.com:backend)"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("get output must carry %q: %s", want, out.String())
+		}
+	}
+
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "role", "get", "nope", "--app", "acme.com:eng-team", "--server", gql.URL})
+	err := root2.Execute()
+	if code := exitcode.FromError(err); code != exitcode.NotFound {
+		t.Errorf("unknown role: exit %d, want %d (NotFound); err: %v", code, exitcode.NotFound, err)
+	}
+}
+
+// #404: --dry-run routes to the castWorkerPreview QUERY — the mutation is
+// absent from the fake, so any cast call fails loudly. The receipt carries
+// the not-a-reservation caveat; the preview creates nothing.
+func TestTeamWorkerCastDryRun(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CastWorkerPreview": `{"data":{"castWorkerPreview":{"name":"Joe","role":"backend-engineer",
+			"agentId":"agt1","agentName":"backend-engineer","teamAgentId":"agt-team","teamAgentName":"Eng Team Agent",
+			"prompt":"You are Joe.","hasNamePlaceholder":true}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "cast", "--dry-run", "--app", "acme.com:eng-team",
+		"--role", "backend-engineer", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CastWorkerPreview"], &vars)
+	if vars["appRef"] != "acme.com:eng-team" || vars["role"] != "backend-engineer" {
+		t.Errorf("preview vars: %v", vars)
+	}
+	for _, k := range []string{"name", "agentRef", "teamAgentRef", "promptOverride"} {
+		if _, present := vars[k]; present {
+			t.Errorf("unset %q must be omitted, got %v", k, vars[k])
+		}
+	}
+	for _, want := range []string{"would cast Joe", "You are Joe.", "register of Eng Team Agent", "NOT reserved"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("dry-run output must carry %q: %s", want, out.String())
+		}
+	}
+	if _, called := captured["CastWorker"]; called {
+		t.Error("a dry run must never reach the mutation")
+	}
+
+	// The --json contract (PR #434 review): the actionable ids beside the
+	// names, the nullable fields present, and the explicit always-false
+	// reserved signal — so machine consumers cannot misread a preview as a
+	// reservation.
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "worker", "cast", "--dry-run", "--app", "acme.com:eng-team",
+		"--role", "backend-engineer", "--json", "--server", gql.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		Name               string  `json:"name"`
+		Role               *string `json:"role"`
+		AgentID            string  `json:"agentId"`
+		TeamAgentID        *string `json:"teamAgentId"`
+		Prompt             *string `json:"prompt"`
+		HasNamePlaceholder *bool   `json:"hasNamePlaceholder"`
+		Reserved           bool    `json:"reserved"`
+	}
+	if err := json.Unmarshal([]byte(out2.String()), &dto); err != nil {
+		t.Fatalf("--json: %v (%s)", err, out2.String())
+	}
+	if dto.Name != "Joe" || dto.AgentID != "agt1" ||
+		dto.TeamAgentID == nil || *dto.TeamAgentID != "agt-team" ||
+		dto.Role == nil || *dto.Role != "backend-engineer" ||
+		dto.Prompt == nil || *dto.Prompt != "You are Joe." ||
+		dto.HasNamePlaceholder == nil || !*dto.HasNamePlaceholder {
+		t.Errorf("preview --json contract: %s", out2.String())
+	}
+	if dto.Reserved {
+		t.Errorf("reserved must be explicitly false — the preview holds nothing: %s", out2.String())
+	}
+	if !strings.Contains(out2.String(), `"reserved": false`) {
+		t.Errorf("the reserved key must be present, not omitted: %s", out2.String())
+	}
+}
+
+// A dry-run refusal IS the answer: the preview runs the cast's exact
+// resolution, so its typed refusals surface exactly like the cast's.
+func TestTeamWorkerCastDryRunRefusalIsTheAnswer(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"CastWorkerPreview": `{"errors":[{"message":"Worker name \"Iris\" is already taken in this App","extensions":{"code":"WORKER_NAME_TAKEN"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "cast", "--dry-run", "--app", "a:t",
+		"--role", "backend-engineer", "--name", "Iris", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Conflict {
+		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "Iris") {
+		t.Errorf("the refusal must surface verbatim: %v", err)
+	}
+}
+
 // #383 lineage: --app is the App-CONTEXT flag, not a filter. `agent list`
 // must keep returning every readable row (that IS its contract) — but say so
 // on stderr, pointing at the reads that DO answer per-App questions.

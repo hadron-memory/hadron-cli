@@ -40,10 +40,26 @@ App from --app, the App context, or the worktree binding) or its id.`,
 	return cmd
 }
 
+// castPreviewDTO is the stable --json shape of `worker cast --dry-run` —
+// scalars plus the ids behind each name (the actionable refs). Reserved is
+// always false: the preview holds nothing (cor:agt:020:03 — no lease by law).
+type castPreviewDTO struct {
+	Name               string  `json:"name"`
+	Role               *string `json:"role"`
+	AgentID            string  `json:"agentId"`
+	AgentName          string  `json:"agentName"`
+	TeamAgentID        *string `json:"teamAgentId"`
+	TeamAgentName      *string `json:"teamAgentName"`
+	Prompt             *string `json:"prompt"`
+	HasNamePlaceholder *bool   `json:"hasNamePlaceholder"`
+	Reserved           bool    `json:"reserved"`
+}
+
 func newCmdWorkerCast(f *cmdutil.Factory) *cobra.Command {
 	var role, name, agentRef, teamAgent, promptOverride string
+	var dryRun bool
 	cmd := &cobra.Command{
-		Use:   "cast (--role <role> | --agent <ref>) [--name <n>] [--prompt-override <text>]",
+		Use:   "cast (--role <role> | --agent <ref>) [--name <n>] [--prompt-override <text>] [--dry-run]",
 		Short: "Cast an installed agent as a named worker (server-side allocation)",
 		Long: `Cast a worker: ONE platform call (castWorker, cor:agt:020:01). The server
 resolves the agent — --agent names it directly (it must be installed in
@@ -61,6 +77,13 @@ PERMANENT for this App: retirement and uninstall never free it.
 --prompt-override layers per-worker individuality over the agent's prompt
 template; the resolved boot briefing (template with {{name}}/{{role}}
 bound, then the override) is printed on success.
+
+--dry-run (#404, castWorkerPreview) runs the cast's EXACT resolution —
+same arguments, same typed refusals, same mint gate — up to but not
+including the writes, and shows what would be created: the name, the
+agent, the composed prompt. A refusal on the dry run IS the answer that
+the real cast would refuse the same way. THE PREVIEW RESERVES NOTHING:
+no lease exists, so a previewed name may be gone at cast time.
 
 The team App comes from the persistent --app flag (or the configured App
 context). --team-agent picks the cast-list holder explicitly when the App
@@ -82,6 +105,40 @@ installs several agents with roles branches.`,
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+			if dryRun {
+				// A Query, not a dryRun flag on the mutation (#964): previewing
+				// needs no mutation permission and mints no fake Worker row.
+				// Same typed refusals as the cast — surfaced verbatim, because
+				// a refusal here IS the dry-run's answer.
+				preview, perr := gen.CastWorkerPreview(cmd.Context(), client, appRef,
+					optStr(agentRef), optStr(role), optStr(name), optStr(teamAgent), optStr(promptOverride))
+				if perr != nil {
+					return api.MapError(perr)
+				}
+				if preview.CastWorkerPreview == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no preview")
+				}
+				p := preview.CastWorkerPreview
+				dto := castPreviewDTO{
+					Name: p.Name, Role: p.Role, AgentID: p.AgentId, AgentName: p.AgentName,
+					TeamAgentID: p.TeamAgentId, TeamAgentName: p.TeamAgentName,
+					Prompt: p.Prompt, HasNamePlaceholder: p.HasNamePlaceholder,
+				}
+				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+					fmt.Fprintf(w, "would cast %s%s — agent %s (%s)\n", dto.Name, roleSuffix(dto.Role), dto.AgentName, dto.AgentID)
+					if dto.TeamAgentName != nil {
+						fmt.Fprintf(w, "  name allocated by the cast-list register of %s\n", *dto.TeamAgentName)
+					}
+					if dto.HasNamePlaceholder != nil && !*dto.HasNamePlaceholder {
+						fmt.Fprintf(w, "  ! the agent's prompt template never binds {{name}} — this worker would be nameless in its own briefing\n")
+					}
+					if dto.Prompt != nil && *dto.Prompt != "" {
+						fmt.Fprintf(w, "\n%s\n", *dto.Prompt)
+					}
+					fmt.Fprintf(w, "\nnothing was created, and %q is NOT reserved — it may be gone at cast time\n", dto.Name)
+					return nil
+				})
 			}
 			resp, err := gen.CastWorker(cmd.Context(), client, appRef,
 				optStr(agentRef), optStr(role), optStr(name), optStr(teamAgent), optStr(promptOverride))
@@ -114,6 +171,7 @@ installs several agents with roles branches.`,
 	cmd.Flags().StringVar(&name, "name", "", "explicit worker name (overrides the register; taken-name refusals are yours to handle)")
 	cmd.Flags().StringVar(&teamAgent, "team-agent", "", "Team Agent holding the cast-list roles, when the App installs more than one")
 	cmd.Flags().StringVar(&promptOverride, "prompt-override", "", "per-worker individuality appended to the agent's prompt template")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview the cast (name, agent, composed prompt) without creating anything; reserves nothing")
 	return cmd
 }
 

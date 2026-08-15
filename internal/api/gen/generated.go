@@ -3136,6 +3136,82 @@ func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWo
 	return &retval, nil
 }
 
+// CastWorkerPreviewCastWorkerPreview includes the requested fields of the GraphQL type CastWorkerPreview.
+// The GraphQL type's documentation follows.
+//
+// What castWorker WOULD do (#964) — an unsaved projection, deliberately not a
+// Worker (no fake id to mistake for a real row). Scalars only: the ids/names
+// here are attribution-level facts the mint-gate audience already sees, so no
+// nested entity hands out its field resolvers.
+type CastWorkerPreviewCastWorkerPreview struct {
+	// The name the cast would allocate: the explicit name, or the first register entry free against the App's FULL roster (retired names stay taken).
+	Name string `json:"name"`
+	// The casting's role: explicit, else the agent's personaRole dressing.
+	Role *string `json:"role"`
+	// The role-agent the casting would bind.
+	AgentId   string `json:"agentId"`
+	AgentName string `json:"agentName"`
+	// The Team Agent whose register resolved the name (register mode only; null with an explicit name).
+	TeamAgentId   *string `json:"teamAgentId"`
+	TeamAgentName *string `json:"teamAgentName"`
+	// The composed boot prompt, post {{name}}/{{role}} substitution with
+	// promptOverride appended — the same composition Worker.prompt performs,
+	// reviewable BEFORE the name is permanent. Null when the agent carries no
+	// template and no override was given.
+	Prompt *string `json:"prompt"`
+	// Whether the agent's personaPrompt binds {{name}} — a nameless template silently produces workers whose prompt never names them. Null when the agent has no template.
+	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
+}
+
+// GetName returns CastWorkerPreviewCastWorkerPreview.Name, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewCastWorkerPreview) GetName() string { return v.Name }
+
+// GetRole returns CastWorkerPreviewCastWorkerPreview.Role, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewCastWorkerPreview) GetRole() *string { return v.Role }
+
+// GetAgentId returns CastWorkerPreviewCastWorkerPreview.AgentId, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewCastWorkerPreview) GetAgentId() string { return v.AgentId }
+
+// GetAgentName returns CastWorkerPreviewCastWorkerPreview.AgentName, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewCastWorkerPreview) GetAgentName() string { return v.AgentName }
+
+// GetTeamAgentId returns CastWorkerPreviewCastWorkerPreview.TeamAgentId, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewCastWorkerPreview) GetTeamAgentId() *string { return v.TeamAgentId }
+
+// GetTeamAgentName returns CastWorkerPreviewCastWorkerPreview.TeamAgentName, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewCastWorkerPreview) GetTeamAgentName() *string { return v.TeamAgentName }
+
+// GetPrompt returns CastWorkerPreviewCastWorkerPreview.Prompt, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewCastWorkerPreview) GetPrompt() *string { return v.Prompt }
+
+// GetHasNamePlaceholder returns CastWorkerPreviewCastWorkerPreview.HasNamePlaceholder, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewCastWorkerPreview) GetHasNamePlaceholder() *bool {
+	return v.HasNamePlaceholder
+}
+
+// CastWorkerPreviewResponse is returned by CastWorkerPreview on success.
+type CastWorkerPreviewResponse struct {
+	// Dry-run castWorker (#964): run the cast's exact resolution — same
+	// arguments, same typed refusals (WORKER_AGENT_NOT_FOUND / _AMBIGUOUS /
+	// _NOT_INSTALLED, WORKER_ROLE_NOT_FOUND, WORKER_REGISTER_EXHAUSTED,
+	// WORKER_NAME_TAKEN, APP_UNINSTALLED, TEAM_AGENT_NOT_FOUND /
+	// _NOT_INSTALLED / _AMBIGUOUS, and SESSION_EXPIRED for an encrypted
+	// register without an active session key), same MINT gate — up to but not
+	// including the writes, and return what would be created. A Query, not a
+	// dryRun flag: casting a name is the one irreversible act in the team
+	// feature (cor:agt:020:02 — permanence), and previewing it must not need a
+	// mutation permission model or a fake Worker row. THE PREVIEW RESERVES
+	// NOTHING: no lease exists by law (cor:agt:020:03), so a previewed name may
+	// be gone at cast time — by design; the cast's uniqueness constraint
+	// remains the only allocation primitive.
+	CastWorkerPreview *CastWorkerPreviewCastWorkerPreview `json:"castWorkerPreview"`
+}
+
+// GetCastWorkerPreview returns CastWorkerPreviewResponse.CastWorkerPreview, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewResponse) GetCastWorkerPreview() *CastWorkerPreviewCastWorkerPreview {
+	return v.CastWorkerPreview
+}
+
 // CastWorkerResponse is returned by CastWorker on success.
 type CastWorkerResponse struct {
 	// #974 — cast a Worker (cor:dmo:050:11, cor:agt:020:01/:02): the named
@@ -14435,6 +14511,307 @@ type TeamMemoryAppResponse struct {
 // GetMemory returns TeamMemoryAppResponse.Memory, and is useful for accessing the field via an interface.
 func (v *TeamMemoryAppResponse) GetMemory() *TeamMemoryAppMemory { return v.Memory }
 
+// ── Role definitions (#403 / hadron-server#960) — the pre-cast read. The
+// server projects the one answer a client cannot compute: which register
+// names are still FREE, judged against the App's FULL worker roster (names
+// are unique per App, case-insensitively, forever — cor:agt:020:02).
+type TeamRoleFields struct {
+	// The role slug, e.g. backend-engineer.
+	Role string `json:"role"`
+	// The node loc: roles:<role>.
+	Loc         string  `json:"loc"`
+	NodeId      string  `json:"nodeId"`
+	Description *string `json:"description"`
+	// Ordered register = allocation order (trimmed, case-insensitive dedup, first spelling wins).
+	Register  []*TeamRoleFieldsRegisterTeamRoleName `json:"register"`
+	FreeCount int                                   `json:"freeCount"`
+	// True when no register name is free (empty registers included) — the next register-mode cast refuses WORKER_REGISTER_EXHAUSTED.
+	Exhausted bool `json:"exhausted"`
+	// Register convention: initial-letter range like 'F-J' (data.nameRange). Writes validate added names against it.
+	NameRange *string `json:"nameRange"`
+	// Register convention prose (data.nameConvention).
+	NameConvention *string `json:"nameConvention"`
+	// The single installed agent whose personaRole matches this role — exactly
+	// the agent a role-mode castWorker would use (null when zero or ambiguous).
+	// Runs Query.agent's own read gate and masks to null on deny (the #552
+	// posture), like Worker.agent.
+	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
+	// Whether the role-agent's personaPrompt binds {{name}} — the check that
+	// finds templates which silently produce nameless workers (role-agents
+	// authored before any guard existed). Null when no single role-agent
+	// resolves. Computed even when roleAgent itself is masked: it discloses one
+	// boolean about the caller's own App's casting default.
+	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
+}
+
+// GetRole returns TeamRoleFields.Role, and is useful for accessing the field via an interface.
+func (v *TeamRoleFields) GetRole() string { return v.Role }
+
+// GetLoc returns TeamRoleFields.Loc, and is useful for accessing the field via an interface.
+func (v *TeamRoleFields) GetLoc() string { return v.Loc }
+
+// GetNodeId returns TeamRoleFields.NodeId, and is useful for accessing the field via an interface.
+func (v *TeamRoleFields) GetNodeId() string { return v.NodeId }
+
+// GetDescription returns TeamRoleFields.Description, and is useful for accessing the field via an interface.
+func (v *TeamRoleFields) GetDescription() *string { return v.Description }
+
+// GetRegister returns TeamRoleFields.Register, and is useful for accessing the field via an interface.
+func (v *TeamRoleFields) GetRegister() []*TeamRoleFieldsRegisterTeamRoleName { return v.Register }
+
+// GetFreeCount returns TeamRoleFields.FreeCount, and is useful for accessing the field via an interface.
+func (v *TeamRoleFields) GetFreeCount() int { return v.FreeCount }
+
+// GetExhausted returns TeamRoleFields.Exhausted, and is useful for accessing the field via an interface.
+func (v *TeamRoleFields) GetExhausted() bool { return v.Exhausted }
+
+// GetNameRange returns TeamRoleFields.NameRange, and is useful for accessing the field via an interface.
+func (v *TeamRoleFields) GetNameRange() *string { return v.NameRange }
+
+// GetNameConvention returns TeamRoleFields.NameConvention, and is useful for accessing the field via an interface.
+func (v *TeamRoleFields) GetNameConvention() *string { return v.NameConvention }
+
+// GetRoleAgent returns TeamRoleFields.RoleAgent, and is useful for accessing the field via an interface.
+func (v *TeamRoleFields) GetRoleAgent() *TeamRoleFieldsRoleAgent { return v.RoleAgent }
+
+// GetHasNamePlaceholder returns TeamRoleFields.HasNamePlaceholder, and is useful for accessing the field via an interface.
+func (v *TeamRoleFields) GetHasNamePlaceholder() *bool { return v.HasNamePlaceholder }
+
+// TeamRoleFieldsRegisterTeamRoleName includes the requested fields of the GraphQL type TeamRoleName.
+// The GraphQL type's documentation follows.
+//
+// One entry of a role's name register (#960, cor:agt:020:02). Order is
+// allocation order — castWorker walks the register first-to-last.
+type TeamRoleFieldsRegisterTeamRoleName struct {
+	Name string `json:"name"`
+	// True when a Worker holds this name in the App (case-insensitive, retired
+	// included — retirement never frees a name). Judged against the App's FULL
+	// roster server-side, which is why a client cannot compute this column.
+	Taken bool `json:"taken"`
+	// The Worker holding the name, when taken.
+	HeldBy *TeamRoleFieldsRegisterTeamRoleNameHeldByWorker `json:"heldBy"`
+}
+
+// GetName returns TeamRoleFieldsRegisterTeamRoleName.Name, and is useful for accessing the field via an interface.
+func (v *TeamRoleFieldsRegisterTeamRoleName) GetName() string { return v.Name }
+
+// GetTaken returns TeamRoleFieldsRegisterTeamRoleName.Taken, and is useful for accessing the field via an interface.
+func (v *TeamRoleFieldsRegisterTeamRoleName) GetTaken() bool { return v.Taken }
+
+// GetHeldBy returns TeamRoleFieldsRegisterTeamRoleName.HeldBy, and is useful for accessing the field via an interface.
+func (v *TeamRoleFieldsRegisterTeamRoleName) GetHeldBy() *TeamRoleFieldsRegisterTeamRoleNameHeldByWorker {
+	return v.HeldBy
+}
+
+// TeamRoleFieldsRegisterTeamRoleNameHeldByWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. Workers have no URN.
+type TeamRoleFieldsRegisterTeamRoleNameHeldByWorker struct {
+	Id string `json:"id"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+}
+
+// GetId returns TeamRoleFieldsRegisterTeamRoleNameHeldByWorker.Id, and is useful for accessing the field via an interface.
+func (v *TeamRoleFieldsRegisterTeamRoleNameHeldByWorker) GetId() string { return v.Id }
+
+// GetName returns TeamRoleFieldsRegisterTeamRoleNameHeldByWorker.Name, and is useful for accessing the field via an interface.
+func (v *TeamRoleFieldsRegisterTeamRoleNameHeldByWorker) GetName() string { return v.Name }
+
+// TeamRoleFieldsRoleAgent includes the requested fields of the GraphQL type Agent.
+type TeamRoleFieldsRoleAgent struct {
+	Id   string `json:"id"`
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+	// Persona role - free string with conventions ('backend-engineer').
+	PersonaRole *string `json:"personaRole"`
+}
+
+// GetId returns TeamRoleFieldsRoleAgent.Id, and is useful for accessing the field via an interface.
+func (v *TeamRoleFieldsRoleAgent) GetId() string { return v.Id }
+
+// GetUrn returns TeamRoleFieldsRoleAgent.Urn, and is useful for accessing the field via an interface.
+func (v *TeamRoleFieldsRoleAgent) GetUrn() string { return v.Urn }
+
+// GetName returns TeamRoleFieldsRoleAgent.Name, and is useful for accessing the field via an interface.
+func (v *TeamRoleFieldsRoleAgent) GetName() string { return v.Name }
+
+// GetPersonaRole returns TeamRoleFieldsRoleAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *TeamRoleFieldsRoleAgent) GetPersonaRole() *string { return v.PersonaRole }
+
+// TeamRolesResponse is returned by TeamRoles on success.
+type TeamRolesResponse struct {
+	// An App's role definitions (#960): every roles:<role> node in the Team
+	// Agent's system memory, projected with the one answer a client cannot
+	// compute — which register names are still FREE, judged against the App's
+	// full worker roster (names are unique per App, case-insensitively, forever
+	// — cor:agt:020:02). Ordered by role slug. Same read authorization as
+	// workers. teamAgentRef disambiguates when more than one installed agent
+	// carries a roles: branch (TEAM_AGENT_AMBIGUOUS otherwise); an encrypted
+	// system memory without an active session key refuses SESSION_EXPIRED.
+	TeamRoles *TeamRolesTeamRolesTeamRolesPage `json:"teamRoles"`
+}
+
+// GetTeamRoles returns TeamRolesResponse.TeamRoles, and is useful for accessing the field via an interface.
+func (v *TeamRolesResponse) GetTeamRoles() *TeamRolesTeamRolesTeamRolesPage { return v.TeamRoles }
+
+// TeamRolesTeamRolesTeamRolesPage includes the requested fields of the GraphQL type TeamRolesPage.
+type TeamRolesTeamRolesTeamRolesPage struct {
+	Total int                                             `json:"total"`
+	Items []*TeamRolesTeamRolesTeamRolesPageItemsTeamRole `json:"items"`
+}
+
+// GetTotal returns TeamRolesTeamRolesTeamRolesPage.Total, and is useful for accessing the field via an interface.
+func (v *TeamRolesTeamRolesTeamRolesPage) GetTotal() int { return v.Total }
+
+// GetItems returns TeamRolesTeamRolesTeamRolesPage.Items, and is useful for accessing the field via an interface.
+func (v *TeamRolesTeamRolesTeamRolesPage) GetItems() []*TeamRolesTeamRolesTeamRolesPageItemsTeamRole {
+	return v.Items
+}
+
+// TeamRolesTeamRolesTeamRolesPageItemsTeamRole includes the requested fields of the GraphQL type TeamRole.
+// The GraphQL type's documentation follows.
+//
+// A role definition (#960): the roles:<role> node in the Team Agent's system
+// memory, carrying the name register (data.names) and register conventions.
+// The persona prompt template is NOT here — with the Worker model (#974) it
+// lives on the role-agent as dressing (personaRole + personaPrompt); roleAgent
+// points at it.
+type TeamRolesTeamRolesTeamRolesPageItemsTeamRole struct {
+	TeamRoleFields `json:"-"`
+}
+
+// GetRole returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.Role, and is useful for accessing the field via an interface.
+func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetRole() string { return v.TeamRoleFields.Role }
+
+// GetLoc returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.Loc, and is useful for accessing the field via an interface.
+func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetLoc() string { return v.TeamRoleFields.Loc }
+
+// GetNodeId returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.NodeId, and is useful for accessing the field via an interface.
+func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetNodeId() string {
+	return v.TeamRoleFields.NodeId
+}
+
+// GetDescription returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.Description, and is useful for accessing the field via an interface.
+func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetDescription() *string {
+	return v.TeamRoleFields.Description
+}
+
+// GetRegister returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.Register, and is useful for accessing the field via an interface.
+func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetRegister() []*TeamRoleFieldsRegisterTeamRoleName {
+	return v.TeamRoleFields.Register
+}
+
+// GetFreeCount returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.FreeCount, and is useful for accessing the field via an interface.
+func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetFreeCount() int {
+	return v.TeamRoleFields.FreeCount
+}
+
+// GetExhausted returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.Exhausted, and is useful for accessing the field via an interface.
+func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetExhausted() bool {
+	return v.TeamRoleFields.Exhausted
+}
+
+// GetNameRange returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.NameRange, and is useful for accessing the field via an interface.
+func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetNameRange() *string {
+	return v.TeamRoleFields.NameRange
+}
+
+// GetNameConvention returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.NameConvention, and is useful for accessing the field via an interface.
+func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetNameConvention() *string {
+	return v.TeamRoleFields.NameConvention
+}
+
+// GetRoleAgent returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.RoleAgent, and is useful for accessing the field via an interface.
+func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetRoleAgent() *TeamRoleFieldsRoleAgent {
+	return v.TeamRoleFields.RoleAgent
+}
+
+// GetHasNamePlaceholder returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.HasNamePlaceholder, and is useful for accessing the field via an interface.
+func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetHasNamePlaceholder() *bool {
+	return v.TeamRoleFields.HasNamePlaceholder
+}
+
+func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamRolesTeamRolesTeamRolesPageItemsTeamRole
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamRolesTeamRolesTeamRolesPageItemsTeamRole = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamRoleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamRolesTeamRolesTeamRolesPageItemsTeamRole struct {
+	Role string `json:"role"`
+
+	Loc string `json:"loc"`
+
+	NodeId string `json:"nodeId"`
+
+	Description *string `json:"description"`
+
+	Register []*TeamRoleFieldsRegisterTeamRoleName `json:"register"`
+
+	FreeCount int `json:"freeCount"`
+
+	Exhausted bool `json:"exhausted"`
+
+	NameRange *string `json:"nameRange"`
+
+	NameConvention *string `json:"nameConvention"`
+
+	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
+
+	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
+}
+
+func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) __premarshalJSON() (*__premarshalTeamRolesTeamRolesTeamRolesPageItemsTeamRole, error) {
+	var retval __premarshalTeamRolesTeamRolesTeamRolesPageItemsTeamRole
+
+	retval.Role = v.TeamRoleFields.Role
+	retval.Loc = v.TeamRoleFields.Loc
+	retval.NodeId = v.TeamRoleFields.NodeId
+	retval.Description = v.TeamRoleFields.Description
+	retval.Register = v.TeamRoleFields.Register
+	retval.FreeCount = v.TeamRoleFields.FreeCount
+	retval.Exhausted = v.TeamRoleFields.Exhausted
+	retval.NameRange = v.TeamRoleFields.NameRange
+	retval.NameConvention = v.TeamRoleFields.NameConvention
+	retval.RoleAgent = v.TeamRoleFields.RoleAgent
+	retval.HasNamePlaceholder = v.TeamRoleFields.HasNamePlaceholder
+	return &retval, nil
+}
+
 // TeamSessionFields includes the GraphQL fields of Session requested by the fragment TeamSessionFields.
 type TeamSessionFields struct {
 	Id string `json:"id"`
@@ -18107,6 +18484,34 @@ func (v *__CastWorkerInput) GetTeamAgentRef() *string { return v.TeamAgentRef }
 // GetPromptOverride returns __CastWorkerInput.PromptOverride, and is useful for accessing the field via an interface.
 func (v *__CastWorkerInput) GetPromptOverride() *string { return v.PromptOverride }
 
+// __CastWorkerPreviewInput is used internally by genqlient
+type __CastWorkerPreviewInput struct {
+	AppRef         string  `json:"appRef"`
+	AgentRef       *string `json:"agentRef,omitempty"`
+	Role           *string `json:"role,omitempty"`
+	Name           *string `json:"name,omitempty"`
+	TeamAgentRef   *string `json:"teamAgentRef,omitempty"`
+	PromptOverride *string `json:"promptOverride,omitempty"`
+}
+
+// GetAppRef returns __CastWorkerPreviewInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CastWorkerPreviewInput) GetAppRef() string { return v.AppRef }
+
+// GetAgentRef returns __CastWorkerPreviewInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__CastWorkerPreviewInput) GetAgentRef() *string { return v.AgentRef }
+
+// GetRole returns __CastWorkerPreviewInput.Role, and is useful for accessing the field via an interface.
+func (v *__CastWorkerPreviewInput) GetRole() *string { return v.Role }
+
+// GetName returns __CastWorkerPreviewInput.Name, and is useful for accessing the field via an interface.
+func (v *__CastWorkerPreviewInput) GetName() *string { return v.Name }
+
+// GetTeamAgentRef returns __CastWorkerPreviewInput.TeamAgentRef, and is useful for accessing the field via an interface.
+func (v *__CastWorkerPreviewInput) GetTeamAgentRef() *string { return v.TeamAgentRef }
+
+// GetPromptOverride returns __CastWorkerPreviewInput.PromptOverride, and is useful for accessing the field via an interface.
+func (v *__CastWorkerPreviewInput) GetPromptOverride() *string { return v.PromptOverride }
+
 // __ChatMessagesInput is used internally by genqlient
 type __ChatMessagesInput struct {
 	Filter *NodeFilter `json:"filter,omitempty"`
@@ -19631,6 +20036,26 @@ type __TeamMemoryAppInput struct {
 // GetRef returns __TeamMemoryAppInput.Ref, and is useful for accessing the field via an interface.
 func (v *__TeamMemoryAppInput) GetRef() string { return v.Ref }
 
+// __TeamRolesInput is used internally by genqlient
+type __TeamRolesInput struct {
+	AppRef       string  `json:"appRef"`
+	TeamAgentRef *string `json:"teamAgentRef,omitempty"`
+	Limit        *int    `json:"limit,omitempty"`
+	Offset       *int    `json:"offset,omitempty"`
+}
+
+// GetAppRef returns __TeamRolesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamRolesInput) GetAppRef() string { return v.AppRef }
+
+// GetTeamAgentRef returns __TeamRolesInput.TeamAgentRef, and is useful for accessing the field via an interface.
+func (v *__TeamRolesInput) GetTeamAgentRef() *string { return v.TeamAgentRef }
+
+// GetLimit returns __TeamRolesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamRolesInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __TeamRolesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__TeamRolesInput) GetOffset() *int { return v.Offset }
+
 // __TeamSessionsInput is used internally by genqlient
 type __TeamSessionsInput struct {
 	Repo      *string `json:"repo,omitempty"`
@@ -21066,6 +21491,64 @@ func CastWorker(
 	}
 
 	data_ = &CastWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CastWorkerPreview.
+const CastWorkerPreview_Operation = `
+query CastWorkerPreview ($appRef: ID!, $agentRef: ID, $role: String, $name: String, $teamAgentRef: ID, $promptOverride: String) {
+	castWorkerPreview(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name, teamAgentRef: $teamAgentRef, promptOverride: $promptOverride) {
+		name
+		role
+		agentId
+		agentName
+		teamAgentId
+		teamAgentName
+		prompt
+		hasNamePlaceholder
+	}
+}
+`
+
+// ── Cast preview (#404 / hadron-server#964) — dry-run the irreversible cast.
+// A QUERY, deliberately: previewing must not need mutation permissions or a
+// fake Worker row. It runs the cast's exact resolution — same arguments, same
+// typed refusals, same mint gate — up to but not including the writes. THE
+// PREVIEW RESERVES NOTHING (no lease by law, cor:agt:020:03): a previewed
+// name may be gone at cast time; the cast's uniqueness constraint stays the
+// only allocation primitive.
+func CastWorkerPreview(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	agentRef *string,
+	role *string,
+	name *string,
+	teamAgentRef *string,
+	promptOverride *string,
+) (data_ *CastWorkerPreviewResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CastWorkerPreview",
+		Query:  CastWorkerPreview_Operation,
+		Variables: &__CastWorkerPreviewInput{
+			AppRef:         appRef,
+			AgentRef:       agentRef,
+			Role:           role,
+			Name:           name,
+			TeamAgentRef:   teamAgentRef,
+			PromptOverride: promptOverride,
+		},
+	}
+
+	data_ = &CastWorkerPreviewResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -26455,6 +26938,74 @@ func TeamMemoryApp(
 	}
 
 	data_ = &TeamMemoryAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamRoles.
+const TeamRoles_Operation = `
+query TeamRoles ($appRef: ID!, $teamAgentRef: ID, $limit: Int, $offset: Int) {
+	teamRoles(appRef: $appRef, teamAgentRef: $teamAgentRef, limit: $limit, offset: $offset) {
+		total
+		items {
+			... TeamRoleFields
+		}
+	}
+}
+fragment TeamRoleFields on TeamRole {
+	role
+	loc
+	nodeId
+	description
+	register {
+		name
+		taken
+		heldBy {
+			id
+			name
+		}
+	}
+	freeCount
+	exhausted
+	nameRange
+	nameConvention
+	roleAgent {
+		id
+		urn
+		name
+		personaRole
+	}
+	hasNamePlaceholder
+}
+`
+
+func TeamRoles(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	teamAgentRef *string,
+	limit *int,
+	offset *int,
+) (data_ *TeamRolesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamRoles",
+		Query:  TeamRoles_Operation,
+		Variables: &__TeamRolesInput{
+			AppRef:       appRef,
+			TeamAgentRef: teamAgentRef,
+			Limit:        limit,
+			Offset:       offset,
+		},
+	}
+
+	data_ = &TeamRolesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
