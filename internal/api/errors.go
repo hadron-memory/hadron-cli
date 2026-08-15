@@ -218,15 +218,22 @@ func TeamRoleStaleNames(err error) ([]string, bool) {
 		if e == nil || extensionCode(e) != "TEAM_ROLE_STALE" {
 			continue
 		}
-		if e.Extensions == nil {
+		// Extensions is non-nil whenever the code matched (the code came
+		// from it), so ABSENCE of the key — or a malformed value — must be
+		// distinguished from a legitimately EMPTY register: fabricating []
+		// here would make the CAS caller "rebase" onto a register that was
+		// never observed (PR #440 review, P2). nil = no payload, re-read.
+		raw, ok := e.Extensions["storedNames"].([]any)
+		if !ok {
 			return nil, true
 		}
-		raw, _ := e.Extensions["storedNames"].([]any)
 		names := make([]string, 0, len(raw))
 		for _, v := range raw {
-			if s, ok := v.(string); ok {
-				names = append(names, s)
+			s, ok := v.(string)
+			if !ok {
+				return nil, true // malformed entry: treat the whole payload as missing
 			}
+			names = append(names, s)
 		}
 		return names, true
 	}

@@ -26,8 +26,16 @@ closed by construction, because each retry re-derives from fresher state.
   attempts fails as the same honest Usage error a typo gets — a concurrent
   removal is indistinguishable from naming something that was never there,
   and both deserve "not in the register".
-- **A stale refusal without the payload** (defensive) falls back to one
-  re-read.
+- **A stale refusal without the payload** falls back to one re-read —
+  and the extractor distinguishes an ABSENT/malformed `storedNames` from a
+  legitimately empty register (review catch: fabricating `[]` there would
+  rebase onto a register never observed).
+- **`expectedNames` is bound `*[]string`** (review catch, P1): omitempty on
+  a plain slice drops a present-but-EMPTY precondition, silently turning a
+  sugar edit from an empty register into an unconditional write — the
+  exact race this PR closes. The pointer keeps `[]` on the wire; nil (the
+  `set` path) stays omitted. Same binding precedent as
+  `UpdateMemory.tags`.
 
 ## What deliberately has no precondition
 

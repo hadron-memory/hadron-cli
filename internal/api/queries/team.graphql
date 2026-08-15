@@ -511,7 +511,12 @@ mutation UpdateTeamRoleNames(
   $names: [String!]!
   # @genqlient(omitempty: true)
   $allowOutOfRange: Boolean
-  # @genqlient(omitempty: true)
+  # bound to *[]string so a present-but-EMPTY precondition still serializes
+  # as [] — omitempty on a plain slice would drop it, silently turning a
+  # sugar edit from an EMPTY register into an unconditional write and
+  # reopening the exact race the CAS closes (PR #440 review, P1). nil (the
+  # set path) is still omitted.
+  # @genqlient(omitempty: true, bind: "*[]string")
   $expectedNames: [String!]
 ) {
   updateTeamRole(

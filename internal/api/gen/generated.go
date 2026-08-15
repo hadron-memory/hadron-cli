@@ -21112,12 +21112,12 @@ func (v *__UpdateTeamRoleMetaInput) GetDescription() *string { return v.Descript
 
 // __UpdateTeamRoleNamesInput is used internally by genqlient
 type __UpdateTeamRoleNamesInput struct {
-	AppRef          string   `json:"appRef"`
-	TeamAgentRef    *string  `json:"teamAgentRef,omitempty"`
-	Role            string   `json:"role"`
-	Names           []string `json:"names"`
-	AllowOutOfRange *bool    `json:"allowOutOfRange,omitempty"`
-	ExpectedNames   []string `json:"expectedNames,omitempty"`
+	AppRef          string    `json:"appRef"`
+	TeamAgentRef    *string   `json:"teamAgentRef,omitempty"`
+	Role            string    `json:"role"`
+	Names           []string  `json:"names"`
+	AllowOutOfRange *bool     `json:"allowOutOfRange,omitempty"`
+	ExpectedNames   *[]string `json:"expectedNames,omitempty"`
 }
 
 // GetAppRef returns __UpdateTeamRoleNamesInput.AppRef, and is useful for accessing the field via an interface.
@@ -21136,7 +21136,7 @@ func (v *__UpdateTeamRoleNamesInput) GetNames() []string { return v.Names }
 func (v *__UpdateTeamRoleNamesInput) GetAllowOutOfRange() *bool { return v.AllowOutOfRange }
 
 // GetExpectedNames returns __UpdateTeamRoleNamesInput.ExpectedNames, and is useful for accessing the field via an interface.
-func (v *__UpdateTeamRoleNamesInput) GetExpectedNames() []string { return v.ExpectedNames }
+func (v *__UpdateTeamRoleNamesInput) GetExpectedNames() *[]string { return v.ExpectedNames }
 
 // __UpdateTeamSessionInput is used internally by genqlient
 type __UpdateTeamSessionInput struct {
@@ -29056,7 +29056,7 @@ func UpdateTeamRoleNames(
 	role string,
 	names []string,
 	allowOutOfRange *bool,
-	expectedNames []string,
+	expectedNames *[]string,
 ) (data_ *UpdateTeamRoleNamesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateTeamRoleNames",

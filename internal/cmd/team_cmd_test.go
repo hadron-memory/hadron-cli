@@ -636,6 +636,94 @@ func TestTeamRoleNamesSugarVerbs(t *testing.T) {
 	}
 }
 
+// A sugar edit from an EMPTY register must still be conditional: the
+// precondition is present-but-empty on the wire ([]), never omitted — a
+// dropped empty precondition would be an unconditional write, reopening the
+// race (PR #440 review, P1). The *[]string binding is what keeps [] alive.
+func TestTeamRoleNamesAddFromEmptyRegisterKeepsCAS(t *testing.T) {
+	emptyRole := `{"data":{"teamRoles":{"total":1,"items":[
+		{"role":"qa","loc":"roles:qa","nodeId":"n-qa","description":null,"register":[],
+		 "freeCount":0,"exhausted":true,"nameRange":null,"nameConvention":null,
+		 "roleAgent":null,"hasNamePlaceholder":null}]}}}`
+	updated := `{"data":{"updateTeamRole":{"role":"qa","loc":"roles:qa","nodeId":"n-qa",
+		"description":null,"register":[{"name":"Uma","taken":false,"heldBy":null}],
+		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"TeamRoles":           emptyRole,
+		"UpdateTeamRoleNames": updated,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "role", "names", "add", "qa", "Uma",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateTeamRoleNames"], &vars)
+	raw, present := vars["expectedNames"]
+	if !present {
+		t.Fatalf("expectedNames must be PRESENT (empty, not omitted) — an omitted precondition is an unconditional write: %v", vars)
+	}
+	if arr, _ := raw.([]any); len(arr) != 0 {
+		t.Errorf("the empty register's precondition is []: %v", raw)
+	}
+}
+
+// A TEAM_ROLE_STALE refusal WITHOUT the storedNames payload must not rebase
+// onto a fabricated empty register (PR #440 review, P2) — the loop re-reads
+// instead, and the retry's precondition comes from that re-read.
+func TestTeamRoleNamesStaleWithoutPayloadRereads(t *testing.T) {
+	updated := `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
+		"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
+		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
+	teamRolesCalls := 0
+	var updateCalls []json.RawMessage
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string          `json:"operationName"`
+			Variables     json.RawMessage `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "TeamRoles":
+			teamRolesCalls++
+			_, _ = w.Write([]byte(teamRolesJSON))
+		case "UpdateTeamRoleNames":
+			updateCalls = append(updateCalls, body.Variables)
+			if len(updateCalls) == 1 {
+				_, _ = w.Write([]byte(`{"errors":[{"message":"the register changed",
+					"extensions":{"code":"TEAM_ROLE_STALE"}}]}`))
+				return
+			}
+			_, _ = w.Write([]byte(updated))
+		default:
+			t.Errorf("unexpected operation %q", body.OperationName)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
+		}
+	}))
+	t.Cleanup(gql.Close)
+
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "role", "names", "add", "backend-engineer", "Hans",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if teamRolesCalls != 2 {
+		t.Errorf("a payload-less stale refusal must trigger a re-read, got %d TeamRoles calls", teamRolesCalls)
+	}
+	var second struct {
+		ExpectedNames []string `json:"expectedNames"`
+	}
+	_ = json.Unmarshal(updateCalls[1], &second)
+	if strings.Join(second.ExpectedNames, "|") != "Fred|Iris|Joe" {
+		t.Errorf("the retry's precondition must come from the re-read, not a fabricated empty register: %v", second.ExpectedNames)
+	}
+}
+
 // The CAS loop rebases on TEAM_ROLE_STALE: the refusal's storedNames become
 // the new base AND the new precondition, and the edit is recomposed — the
 // concurrent addition (Gwen) survives the retry.

@@ -499,8 +499,10 @@ func splitNames(s string) []string {
 // writeRoleNames submits a register and prints the receipt. expectedNames
 // nil means unconditional (the `set` path — an explicit wholesale
 // replacement asserts final state); non-nil turns the write into the #987
-// compare-and-swap the sugar verbs ride.
-func writeRoleNames(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, appRef string, teamAgentRef *string, role string, names, expectedNames []string, allowOutOfRange bool) error {
+// compare-and-swap the sugar verbs ride. A POINTER so a present-but-empty
+// precondition (a sugar edit from an empty register) survives the wire —
+// omitempty on a plain slice would drop it (PR #440 review).
+func writeRoleNames(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, appRef string, teamAgentRef *string, role string, names []string, expectedNames *[]string, allowOutOfRange bool) error {
 	var allow *bool
 	if allowOutOfRange {
 		allow = &allowOutOfRange
@@ -530,7 +532,7 @@ func casRoleNames(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client,
 		if err != nil {
 			return err
 		}
-		err = writeRoleNames(cmd, f, client, appRef, teamAgentRef, role, names, stored, allowOutOfRange)
+		err = writeRoleNames(cmd, f, client, appRef, teamAgentRef, role, names, &stored, allowOutOfRange)
 		if err == nil {
 			return nil
 		}
