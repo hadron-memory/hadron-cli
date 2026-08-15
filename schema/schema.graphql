@@ -978,6 +978,45 @@ type CalendarPerson {
   name: String
 }
 
+"""
+What castWorker WOULD do (#964) — an unsaved projection, deliberately not a
+Worker (no fake id to mistake for a real row). Scalars only: the ids/names
+here are attribution-level facts the mint-gate audience already sees, so no
+nested entity hands out its field resolvers.
+"""
+type CastWorkerPreview {
+  """The role-agent the casting would bind."""
+  agentId: ID!
+  agentName: String!
+
+  """
+  Whether the agent's personaPrompt binds {{name}} — a nameless template silently produces workers whose prompt never names them. Null when the agent has no template.
+  """
+  hasNamePlaceholder: Boolean
+
+  """
+  The name the cast would allocate: the explicit name, or the first register entry free against the App's FULL roster (retired names stay taken).
+  """
+  name: String!
+
+  """
+  The composed boot prompt, post {{name}}/{{role}} substitution with
+  promptOverride appended — the same composition Worker.prompt performs,
+  reviewable BEFORE the name is permanent. Null when the agent carries no
+  template and no override was given.
+  """
+  prompt: String
+
+  """The casting's role: explicit, else the agent's personaRole dressing."""
+  role: String
+
+  """
+  The Team Agent whose register resolved the name (register mode only; null with an explicit name).
+  """
+  teamAgentId: ID
+  teamAgentName: String
+}
+
 type Chat {
   conversationName: String
   createdAt: DateTime!
@@ -5036,6 +5075,23 @@ type Query {
 
   """Calendars the connected account can see. Grant scope: calendar.read."""
   calendars(connectionRef: ID!): [CalendarInfo!]!
+
+  """
+  Dry-run castWorker (#964): run the cast's exact resolution — same
+  arguments, same typed refusals (WORKER_AGENT_NOT_FOUND / _AMBIGUOUS /
+  _NOT_INSTALLED, WORKER_ROLE_NOT_FOUND, WORKER_REGISTER_EXHAUSTED,
+  WORKER_NAME_TAKEN, APP_UNINSTALLED, TEAM_AGENT_NOT_FOUND /
+  _NOT_INSTALLED / _AMBIGUOUS, and SESSION_EXPIRED for an encrypted
+  register without an active session key), same MINT gate — up to but not
+  including the writes, and return what would be created. A Query, not a
+  dryRun flag: casting a name is the one irreversible act in the team
+  feature (cor:agt:020:02 — permanence), and previewing it must not need a
+  mutation permission model or a fake Worker row. THE PREVIEW RESERVES
+  NOTHING: no lease exists by law (cor:agt:020:03), so a previewed name may
+  be gone at cast time — by design; the cast's uniqueness constraint
+  remains the only allocation primitive.
+  """
+  castWorkerPreview(agentRef: ID, appRef: ID!, name: String, promptOverride: String, role: String, teamAgentRef: ID): CastWorkerPreview!
   chatHistory(chatId: String!, limit: Int): [ChatMessage!]!
 
   """

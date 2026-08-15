@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 61 unbound
+[Query] 60 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -64,7 +64,6 @@ resolveAIConfig
 secret
 slackConnection
 slackConnections
-teamRoles
 usageActivity
 usageEvents
 

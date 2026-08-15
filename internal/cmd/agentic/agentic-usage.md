@@ -108,7 +108,8 @@ hadron ai-config list [--app <id>] [--agent <id>] | create (--app|--agent|--org 
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
 hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] [--persona-prompt <p>] | update <id> [<field flags>] | rm <id> --yes
 hadron team init -m <team-memory>
-hadron team worker cast (--role <role> | --agent <ref>) [--name <n>] [--team-agent <ref>] [--prompt-override <text>] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | retire <name-or-id> --yes | rm <name-or-id> --yes
+hadron team worker cast (--role <role> | --agent <ref>) [--name <n>] [--team-agent <ref>] [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | retire <name-or-id> --yes | rm <name-or-id> --yes
+hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>]
 hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--mentions-me | --mentions <ref>] (uses --app or the binding)
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
@@ -721,6 +722,25 @@ Conventions:
   binds the template, provisions the worker's working memory, and returns
   the resolved boot briefing (`prompt`), printed on success.
   `--prompt-override` layers per-worker individuality over the template.
+  **`worker cast --dry-run`** (#404, `castWorkerPreview`) runs the cast's
+  EXACT resolution — same arguments, same typed refusals, same mint gate —
+  up to but not including the writes, and shows what would be created: the
+  allocated name, the resolved agent (ids in `--json`), the composed boot
+  prompt, and a warning when the template never binds `{{name}}`. A refusal
+  on the dry run IS the answer that the real cast would refuse the same
+  way. The preview RESERVES NOTHING (no lease exists): a previewed name may
+  be gone at cast time — the cast's uniqueness constraint stays the only
+  allocation primitive.
+  **`team role list|get`** (#403, `teamRoles`) is the pre-cast read: the
+  App's role definitions with their ordered registers, taken names marked
+  (retired workers hold names forever; `heldBy` carries the worker id in
+  `--json`), server-computed `freeCount`/`exhausted`, the conventions
+  (`nameRange`/`nameConvention`), the resolved role agent, and the
+  `{{name}}`-placeholder check. Registers and free/taken are SERVER truths
+  judged against the App's full roster — never recompute them. The prompt
+  TEMPLATE lives on the role AGENT (`agent get`), not the role node;
+  register writes are #410. `--team-agent` disambiguates multiple roles:
+  branches (`TEAM_AGENT_AMBIGUOUS`, exit 2).
   Names bind **forever** per App (`cor:agt:020:02`, case-insensitive):
   `worker retire` (requires `--yes`, idempotent) stops the worker and keeps
   its name reserved — PR trailers and chat history reference it — and there

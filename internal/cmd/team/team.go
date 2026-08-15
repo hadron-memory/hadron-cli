@@ -58,7 +58,9 @@ from ` + "`hadron team --help`" + ` alone (#402).
        memory. Pass --name on a fresh App: omitting it allocates from a
        Team Agent's cast-list register (a roles:<role> node), which this
        minimal sequence has not set up. The name is PERMANENT per App
-       (cor:agt:020:02).
+       (cor:agt:020:02) — preview the irreversible part first with
+       worker cast --dry-run, and check register state with
+       team role list (which names are free, which are held).
 
   4. hadron team session start --as <worker> -m <team-app-memory>
        Binds this worktree. The session is App-bound through the worker;
@@ -74,6 +76,7 @@ and ` + "`hadron app agent list <app>`" + ` (the installed cast pool).`,
 	}
 	cmd.AddCommand(newCmdInit(f))
 	cmd.AddCommand(newCmdWorker(f))
+	cmd.AddCommand(newCmdRole(f))
 	cmd.AddCommand(newCmdSession(f))
 	cmd.AddCommand(newCmdTeamChat(f))
 	return cmd
