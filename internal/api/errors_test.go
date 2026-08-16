@@ -28,6 +28,9 @@ func TestMapError(t *testing.T) {
 		{"bad input", gqlErr("BAD_USER_INPUT"), exitcode.Usage},
 		{"validation", gqlErr("GRAPHQL_VALIDATION_FAILED"), exitcode.Usage},
 		{"duplicate", gqlErr("DUPLICATE_APP_AGENT"), exitcode.Conflict},
+		// #441: the minted-names refusal on a bare `role rm` — a state
+		// conflict, and documented as exit 5 in the agent contract.
+		{"role in use", gqlErr("TEAM_ROLE_IN_USE"), exitcode.Conflict},
 		{"forbidden", gqlErr("FORBIDDEN"), exitcode.Error},
 		{"no extension", gqlerror.List{{Message: "boom"}}, exitcode.Error},
 		{"plain", errors.New("network down"), exitcode.Error},

@@ -109,7 +109,7 @@ hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <or
 hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] [--persona-prompt <p>] | update <id> [<field flags>] | rm <id> --yes
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
 hadron team worker cast (--role <role> | --agent <ref>) [--name <n>] [--team-agent <ref>] [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | retire <name-or-id> --yes | rm <name-or-id> --yes
-hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> --names <a,b,c> [--name-range F-J] [--name-convention <text>] [--description <d>] [--allow-out-of-range] [--team-agent <ref>] | update <role> [--name-range <r> | --clear-name-range] [--name-convention <t> | --clear-name-convention] [--description <d>] | names set <role> <n1,n2,...> | names add <role> <name>... | names rm <role> <name>... | names mv <role> <name> <pos>
+hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> --names <a,b,c> [--name-range F-J] [--name-convention <text>] [--description <d>] [--allow-out-of-range] [--team-agent <ref>] | update <role> [--name-range <r> | --clear-name-range] [--name-convention <t> | --clear-name-convention] [--description <d>] | names set <role> <n1,n2,...> | names add <role> <name>... | names rm <role> <name>... | names mv <role> <name> <pos> | rm <role> [--transfer-register-to <successor>] [--yes]
 hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--mentions-me | --mentions <ref>] (uses --app or the binding)
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
@@ -779,23 +779,30 @@ Conventions:
   `--clear-name-convention` send the null the server reads as "remove");
   sibling `data` keys always survive. Every write prints the resulting
   register with taken markers — the receipt, no follow-up read needed.
-  **There is NO `role rm`** (no `deleteTeamRole` — hadron-server#1002), so
-  retiring a role means deleting its node past this group, and handing its
-  register to a successor is ORDER-DEPENDENT (#441): `role get <old> --json`
-  to capture the register FIRST (the definition is content in the Team
-  Agent's system memory, so the delete destroys the only copy), then
-  `node rm hrn:node:<org>:<team-agent>-system:roles:<old> --yes` (this is
-  what frees the names), then `role update <new> --name-range <old range>`,
-  then `role names add <new> <old register>` (**add**, never `set`: the
-  successor usually has its own register and `set` replaces wholesale —
-  dropping its free names silently and refusing `TEAM_ROLE_NAME_MINTED` on a
-  minted one, with the old definition already gone), and only last
-  `app agent remove <app> <old-agent> --yes` + `agent rm <old-agent> --yes`
-  (both are confirmation-gated and refuse off a TTY). Names before the
-  range fails `TEAM_ROLE_NAME_OUT_OF_RANGE`; either before the delete fails
-  `TEAM_ROLE_NAME_DUPLICATE`. Minted names survive the move — a worker's
-  name lives on the WORKER — and reappear marked taken in the successor's
-  register. `team role --help` carries the sequence.
+  **`team role rm`** (#441, `deleteTeamRole`) retires a definition, and with
+  `--transfer-register-to <successor>` performs a SUPERSEDE as ONE call: the
+  old definition is tombstoned and its whole register appended to the
+  successor's, in the same App-scoped critical section, preserving order and
+  skipping spellings the successor already lists. Do NOT hand-run this as
+  node-delete + `role names add` — a name may not sit in two of an App's
+  registers, so the intermediate states such a sequence passes through are
+  exactly what `TEAM_ROLE_NAME_DUPLICATE` refuses. Transferred names are
+  EXEMPT from the successor's `nameRange` (re-homed allocations, not new
+  ones), and the successor's own conventions are untouched (`role update`
+  changes those). Without `--transfer-register-to`, a role holding MINTED
+  names refuses `TEAM_ROLE_IN_USE` (exit 5) — a taken entry is the ledger of
+  an allocation; a fully free register retires with no ceremony. When the
+  pre-read already shows minted names the CLI raises that same code and exit
+  BEFORE the wire, so a refusal you can see coming never reaches the server. The delete
+  is SOFT (the `roles:<role>` node and its sub-nodes are tombstoned,
+  recoverable) and `--yes` is required off a TTY. **Retiring never frees a
+  name for re-casting**: names are permanent per App against the whole
+  roster (`cor:agt:020:02`) irrespective of any register — the register
+  governs ALLOCATION, the roster governs IDENTITY, which is precisely why
+  moving a register between roles is safe. The payload carries the
+  successor's resulting register, so `--json` renders a supersede with no
+  second read. The role AGENT is NOT touched: `app agent remove <app>
+  <agent> --yes`, then `agent rm <agent> --yes`.
   Names bind **forever** per App (`cor:agt:020:02`, case-insensitive):
   `worker retire` (requires `--yes`, idempotent) stops the worker and keeps
   its name reserved — PR trailers and chat history reference it — and there

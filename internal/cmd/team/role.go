@@ -35,56 +35,50 @@ The writes (#410) ride createTeamRole/updateTeamRole, whose invariants run
 server-side in one App-scoped critical section serialized with
 register-mode casting.
 
-SUPERSEDING A ROLE — no rm verb yet, and the order is load-bearing
+SUPERSEDING A ROLE — one call, not a sequence
 
-Retiring a role definition has no platform surface (there is no
-deleteTeamRole — hadron-server#1002), so it means deleting the node
-directly, past this group. That delete knows NONE of the register
-invariants, and handing a superseded role's names to its successor is
-order-dependent: a name may not sit in two of one App's registers
-(TEAM_ROLE_NAME_DUPLICATE) and added names are range-checked
-(TEAM_ROLE_NAME_OUT_OF_RANGE). The sequence is exactly (#441):
+  hadron team role rm <old> --transfer-register-to <new> --yes
 
-  0. hadron team role get <old> --json                  DO THIS FIRST
-       Capture the old register, its order, and its range. Step 1 is what
-       destroys them — the definition is CONTENT in the Team Agent's system
-       memory (cor:agt:020:01), so nothing else holds a copy.
+retires a definition and hands its whole register to the successor inside
+one App-scoped critical section (#441, hadron-server#1002). This used to be
+a four-step dance whose ORDER was load-bearing and invisible until it
+failed — a name may not sit in two of one App's registers, so the old role
+had to be gone BEFORE the successor could claim its names — and that trap
+is now the server's problem rather than the caller's. Order within the
+register is preserved, spellings the successor already lists are skipped,
+and transferred names are exempt from its range (re-homed allocations, not
+new ones).
 
-  1. hadron node rm hrn:node:<org>:<team-agent>-system:roles:<old> --yes
-       Deleting the old definition is what FREES its names.
+Without --transfer-register-to a role holding MINTED names refuses
+TEAM_ROLE_IN_USE: a taken entry records that the name was allocated here,
+and dropping it would erase that ledger. A register that is entirely free
+retires with no ceremony.
 
-  2. hadron team role update <new> --name-range <old range>
-       Widen the successor's range BEFORE its names arrive, or step 3's
-       additions fall outside it.
-
-  3. hadron team role names add <new> <the old register>
-       ADD, never ` + "`set`" + `: the successor usually carries a register of its
-       own, and set REPLACES wholesale — its own free names would vanish
-       silently, and a minted one would refuse TEAM_ROLE_NAME_MINTED with
-       the old definition already deleted. add merges, skips names already
-       present, and is CAS-safe. It appends, so if the inherited names
-       should be allocated first, ` + "`role names mv`" + ` puts them there.
-
-  4. hadron app agent remove <app> <old-agent> --yes
-     hadron agent rm <old-agent> --yes
-       Last, and only once nothing else needs the old role agent. Both
-       prompt without --yes and REFUSE off a TTY; ` + "`agent rm`" + ` cascades to
-       that agent's system memory.
-
-Step 3 before 2 fails TEAM_ROLE_NAME_OUT_OF_RANGE; either before 1 fails
-TEAM_ROLE_NAME_DUPLICATE.
-
-Names already MINTED under the old role are not lost: a worker's name lives
-on the WORKER, not the register, and free/taken is judged against the App's
-whole roster — so they reappear marked ✓ in the successor's register, still
-held by their existing workers.`,
+What retiring does NOT do: free a name for re-casting (permanent per App,
+enforced against the whole roster — the register governs ALLOCATION, the
+roster governs IDENTITY), change the successor's conventions (that is
+` + "`role update`" + `), or touch the role AGENT (` + "`app agent remove`" + ` then ` + "`agent rm`" + `).`,
 	}
 	cmd.AddCommand(newCmdRoleList(f))
 	cmd.AddCommand(newCmdRoleGet(f))
 	cmd.AddCommand(newCmdRoleCreate(f))
 	cmd.AddCommand(newCmdRoleUpdate(f))
 	cmd.AddCommand(newCmdRoleNames(f))
+	cmd.AddCommand(newCmdRoleRm(f))
 	return cmd
+}
+
+// The retirement payload's generated name is deeply nested; alias it.
+type deletedRolePayload = gen.DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload
+
+// roleDeletedDTO is the stable --json shape for `role rm`. TransferredTo
+// carries the successor's WHOLE new register (the server returns it so a
+// supersede renders without a second read), not just its name.
+type roleDeletedDTO struct {
+	Role             string   `json:"role"`
+	NodesDeleted     int      `json:"nodesDeleted"`
+	TransferredNames []string `json:"transferredNames"`
+	TransferredTo    *roleDTO `json:"transferredTo"`
 }
 
 // roleNameDTO is one register entry in the stable --json shape. HeldBy keeps
@@ -331,18 +325,12 @@ func suffixIf(s *string) string {
 // server's diff validation is the safety net when that state goes stale
 // between read and write.
 func resolveRole(ctx context.Context, client graphql.Client, appRef string, teamAgentRef *string, arg string) (gen.TeamRoleFields, error) {
-	var zero gen.TeamRoleFields
 	rows, err := scanTeamRoles(ctx, client, appRef, teamAgentRef)
 	if err != nil {
+		var zero gen.TeamRoleFields
 		return zero, err
 	}
-	for _, r := range rows {
-		if strings.EqualFold(r.Role, arg) {
-			return r, nil
-		}
-	}
-	return zero, exitcode.Newf(exitcode.NotFound,
-		"no role %q in this App — `hadron team role list` shows the definitions", arg)
+	return pickRole(rows, arg)
 }
 
 // emitRoleReceipt prints the write's receipt: the resulting register in
@@ -876,4 +864,200 @@ who is cast next.`,
 	}
 	cmd.Flags().StringVar(&teamAgent, "team-agent", "", "Team Agent holding the roles branch, when the App installs more than one")
 	return cmd
+}
+
+// mintedNames returns the register entries already allocated to a worker —
+// what makes a bare retirement refuse, and what a transfer exists to rehome.
+func mintedNames(r gen.TeamRoleFields) []string {
+	taken := []string{}
+	for _, n := range r.Register {
+		if n != nil && n.Taken {
+			taken = append(taken, n.Name)
+		}
+	}
+	return taken
+}
+
+func newCmdRoleRm(f *cmdutil.Factory) *cobra.Command {
+	var teamAgent, transferTo string
+	var yes bool
+	cmd := &cobra.Command{
+		Use:     "rm <role> [--transfer-register-to <successor>]",
+		Aliases: []string{"delete"},
+		Short:   "Retire a role definition — or supersede it in one step",
+		Long: `Retire a roles:<role> definition (deleteTeamRole, hadron-server#1002).
+The delete is SOFT — the role node and anything under it (a
+roles:<role>:notes is content OF the role) are tombstoned, so the subtree
+is recoverable — and runs in the same App-scoped critical section as
+createTeamRole, so a retirement serializes with register-mode casting.
+
+MINTED names decide whether a bare retirement is allowed. A register entry
+that is taken records that the name was allocated to this role; dropping
+it would erase that ledger, so a role holding minted names refuses
+TEAM_ROLE_IN_USE unless --transfer-register-to names a successor. A role
+whose register is entirely free retires with no ceremony.
+
+Retiring NEVER frees a name for re-casting: a worker's name is permanent
+per App (cor:agt:020:02), enforced against the whole roster irrespective
+of any register. The register governs ALLOCATION, the roster governs
+IDENTITY — which is exactly why moving a register between roles is safe.
+
+--transfer-register-to performs a SUPERSEDE as one step: the old
+definition is retired and its whole register appended to the successor's,
+preserving order and skipping spellings the successor already lists. This
+is the operation people are actually performing, and doing it in one call
+removes an ordering trap a hand-run sequence had to rediscover — a name
+may not sit in two of an App's registers, so the old role must be gone
+BEFORE the successor can claim its names (TEAM_ROLE_NAME_DUPLICATE
+otherwise). Transferred names are EXEMPT from the successor's name range:
+they are re-homed allocations, not new ones. The successor's own
+conventions are untouched — changing them is ` + "`role update`" + `'s job, not a
+side effect of a retirement.
+
+The role AGENT is a separate object and is NOT touched: retire it with
+` + "`app agent remove <app> <agent> --yes`" + ` and ` + "`agent rm <agent> --yes`" + ` once
+nothing else needs it.`,
+		Example: `  hadron team role rm frontend-engineer --transfer-register-to svelte-app-engineer --yes
+  hadron team role rm typo-role --yes`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("transfer-register-to") && strings.TrimSpace(transferTo) == "" {
+				return exitcode.Newf(exitcode.Usage, "--transfer-register-to needs a successor role — omit it for a bare retirement")
+			}
+			appRef, err := roleAppScope(cmd, f)
+			if err != nil {
+				return err
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			// One scan resolves both roles: an unknown role — or a typo'd
+			// SUCCESSOR — becomes an honest NotFound before anything is
+			// deleted. The server compensates a failed transfer by restoring
+			// the source, but not reaching that state at all is better.
+			rows, err := scanTeamRoles(cmd.Context(), client, appRef, optStr(teamAgent))
+			if err != nil {
+				return err
+			}
+			current, err := pickRole(rows, args[0])
+			if err != nil {
+				return err
+			}
+			successorArg := optStr(transferTo)
+			if successorArg != nil {
+				successor, serr := pickRole(rows, transferTo)
+				if serr != nil {
+					return serr
+				}
+				if strings.EqualFold(successor.Role, current.Role) {
+					return exitcode.Newf(exitcode.Usage,
+						"cannot transfer %s's register to itself", current.Role)
+				}
+				// Send the role as the server spells it, not as it was typed.
+				successorArg = &successor.Role
+			}
+			// A bare retirement of a register holding minted names is refused
+			// server-side (TEAM_ROLE_IN_USE). Refusing HERE — before the
+			// prompt — is the difference between naming the remedy and asking
+			// someone to confirm a destructive action already known to fail.
+			if successorArg == nil {
+				if minted := mintedNames(current); len(minted) > 0 {
+					// Naming the server's code keeps the documented contract
+					// true whichever side refuses — an agent matching on
+					// TEAM_ROLE_IN_USE sees it either way, at the same exit 5.
+					return exitcode.Newf(exitcode.Conflict,
+						"TEAM_ROLE_IN_USE: role %s holds %d minted name(s) (%s) — a taken entry records an allocation that exists forever, so retiring it needs a successor: --transfer-register-to <role>",
+						current.Role, len(minted), strings.Join(minted, ", "))
+				}
+			}
+			// Confirm, not ConfirmDeletion: the latter appends "This cannot be
+			// undone", which is false here — the delete is SOFT and the
+			// subtree stays recoverable (same reasoning as `asset rm`).
+			if err := cmdutil.Confirm(f.IOStreams, yes, describeRetirement(current, successorArg)); err != nil {
+				return err
+			}
+			resp, err := gen.DeleteTeamRole(cmd.Context(), client, appRef, optStr(teamAgent), current.Role, successorArg)
+			if err != nil {
+				return api.MapError(err)
+			}
+			if resp.DeleteTeamRole == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no result")
+			}
+			return emitRoleRetired(f, resp.DeleteTeamRole)
+		},
+	}
+	cmd.Flags().StringVar(&transferTo, "transfer-register-to", "", "successor role to hand this role's register to (required when any name is minted)")
+	cmd.Flags().StringVar(&teamAgent, "team-agent", "", "Team Agent holding the roles branch, when the App installs more than one")
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
+	return cmd
+}
+
+// pickRole finds a role in an already-scanned page, matching case-insensitively
+// like the server does.
+func pickRole(rows []gen.TeamRoleFields, arg string) (gen.TeamRoleFields, error) {
+	for _, r := range rows {
+		if strings.EqualFold(r.Role, arg) {
+			return r, nil
+		}
+	}
+	var zero gen.TeamRoleFields
+	return zero, exitcode.Newf(exitcode.NotFound,
+		"no role %q in this App — `hadron team role list` shows the definitions", arg)
+}
+
+// describeRetirement is the confirmation QUESTION (Confirm takes the whole
+// prompt). It names what is actually at stake, which differs by mode: a
+// transfer moves a ledger to a named successor, a bare retirement discards a
+// register — which is why the caller has already been refused if it holds
+// anything minted. Both say the delete is recoverable, because it is.
+func describeRetirement(r gen.TeamRoleFields, transferTo *string) string {
+	names := strings.Join(registerNames(r), ", ")
+	if transferTo != nil {
+		return fmt.Sprintf("Retire role %s and move its register (%s) to %s? The definition is soft-deleted and stays recoverable.",
+			r.Role, names, *transferTo)
+	}
+	return fmt.Sprintf("Retire role %s and its register (%s — none minted)? The definition is soft-deleted and stays recoverable.",
+		r.Role, names)
+}
+
+// emitRoleRetired prints the receipt. A supersede shows the SUCCESSOR's
+// resulting register, since that — not the tombstone — is what the caller
+// needs to see to know the move landed.
+func emitRoleRetired(f *cmdutil.Factory, p *deletedRolePayload) error {
+	dto := roleDeletedDTO{Role: p.Role, NodesDeleted: p.NodesDeleted, TransferredNames: []string{}}
+	dto.TransferredNames = append(dto.TransferredNames, p.TransferredNames...)
+	if p.TransferredTo != nil {
+		successor := roleDTOFromFields(p.TransferredTo.TeamRoleFields)
+		dto.TransferredTo = &successor
+	}
+	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+		if dto.TransferredTo == nil {
+			_, err := fmt.Fprintf(w, "✓ retired role %s — %s tombstoned (soft, recoverable)\n",
+				dto.Role, pluralNodes(dto.NodesDeleted))
+			return err
+		}
+		s := dto.TransferredTo
+		fmt.Fprintf(w, "✓ retired role %s → %s — %s tombstoned (soft, recoverable)\n",
+			dto.Role, s.Role, pluralNodes(dto.NodesDeleted))
+		if len(dto.TransferredNames) == 0 {
+			// Every name was already in the successor's register.
+			fmt.Fprintf(w, "  no names moved — %s already listed them all\n", s.Role)
+		} else {
+			fmt.Fprintf(w, "  moved: %s\n", strings.Join(dto.TransferredNames, ", "))
+		}
+		free := fmt.Sprintf("%d free", s.FreeCount)
+		if s.Exhausted {
+			free = "EXHAUSTED"
+		}
+		_, err := fmt.Fprintf(w, "  %s register: %s (%s)\n", s.Role, registerLine(s.Register), free)
+		return err
+	})
+}
+
+func pluralNodes(n int) string {
+	if n == 1 {
+		return "1 node"
+	}
+	return fmt.Sprintf("%d nodes", n)
 }

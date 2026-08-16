@@ -106,8 +106,15 @@ tools-manifest-check:
 # Report GraphQL operations hadron-server exposes that no CLI command wraps
 # (#397). The committed baseline turns that inventory into a DIFF: a schema
 # refresh that adds an unbound operation shows up as an added line in review.
+#
+# Via a TEMP file, not a redirect onto the baseline: the generator harvests the
+# existing `# reason` annotations out of that same file to carry them across a
+# regen, and `> internal/api/unbound-ops.txt` truncates it before the program
+# ever runs — so a plain redirect silently dropped every reason it was supposed
+# to preserve.
 unbound-ops:
-	go run ./scripts/unboundops > internal/api/unbound-ops.txt
+	go run ./scripts/unboundops > internal/api/unbound-ops.txt.tmp
+	mv internal/api/unbound-ops.txt.tmp internal/api/unbound-ops.txt
 
 # Drift detector for the above — fails when the baseline is stale, i.e. the
 # server shipped an operation no command reaches (or one was just wired up).

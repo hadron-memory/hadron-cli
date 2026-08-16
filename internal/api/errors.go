@@ -311,7 +311,12 @@ func codeForExtension(code string) int {
 		code == "TEAM_ROLE_EXISTS" ||
 		// #436: a CAS refusal is by definition a state conflict — the sugar
 		// rebases and retries; a caller seeing it surfaced ran out of retries.
-		code == "TEAM_ROLE_STALE":
+		code == "TEAM_ROLE_STALE" ||
+		// #441: a bare retirement of a role holding minted names
+		// (hadron-server#1002). The exact parallel of WORKER_IN_USE above —
+		// retrying blind won't help until the state changes, and the state
+		// change is naming a successor with --transfer-register-to.
+		code == "TEAM_ROLE_IN_USE":
 		return exitcode.Conflict
 	case code == "TEAM_ROLE_NAME_OUT_OF_RANGE":
 		return exitcode.Usage
