@@ -779,6 +779,23 @@ Conventions:
   `--clear-name-convention` send the null the server reads as "remove");
   sibling `data` keys always survive. Every write prints the resulting
   register with taken markers — the receipt, no follow-up read needed.
+  **There is NO `role rm`** (no `deleteTeamRole` — hadron-server#1002), so
+  retiring a role means deleting its node past this group, and handing its
+  register to a successor is ORDER-DEPENDENT (#441): `role get <old> --json`
+  to capture the register FIRST (the definition is content in the Team
+  Agent's system memory, so the delete destroys the only copy), then
+  `node rm hrn:node:<org>:<team-agent>-system:roles:<old> --yes` (this is
+  what frees the names), then `role update <new> --name-range <old range>`,
+  then `role names add <new> <old register>` (**add**, never `set`: the
+  successor usually has its own register and `set` replaces wholesale —
+  dropping its free names silently and refusing `TEAM_ROLE_NAME_MINTED` on a
+  minted one, with the old definition already gone), and only last
+  `app agent remove <app> <old-agent> --yes` + `agent rm <old-agent> --yes`
+  (both are confirmation-gated and refuse off a TTY). Names before the
+  range fails `TEAM_ROLE_NAME_OUT_OF_RANGE`; either before the delete fails
+  `TEAM_ROLE_NAME_DUPLICATE`. Minted names survive the move — a worker's
+  name lives on the WORKER — and reappear marked taken in the successor's
+  register. `team role --help` carries the sequence.
   Names bind **forever** per App (`cor:agt:020:02`, case-insensitive):
   `worker retire` (requires `--yes`, idempotent) stops the worker and keeps
   its name reserved — PR trailers and chat history reference it — and there

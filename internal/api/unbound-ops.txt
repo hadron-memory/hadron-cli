@@ -54,7 +54,7 @@ myAgentSubscriptions
 myApp
 myChats
 nextNode
-nodeUsage
+nodeUsage  # deprecated by server #986 — never wrap it; usageEvents(loc:) is the migration target
 principalGrant
 quotaCounters
 renderRunNode
@@ -65,7 +65,7 @@ secret
 slackConnection
 slackConnections
 usageActivity
-usageEvents
+usageEvents  # cli#439: no usage command group yet — when one lands, filter a loc with loc:, NEVER nodeId: (shape-classified, swallows any >=3-segment loc as a node URN)
 
 [Mutation] 85 unbound
 acquireEditorLock

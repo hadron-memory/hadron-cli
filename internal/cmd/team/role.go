@@ -33,7 +33,51 @@ register names are still FREE, judged against the App's full worker roster
 (names are unique per App, case-insensitively, forever — cor:agt:020:02).
 The writes (#410) ride createTeamRole/updateTeamRole, whose invariants run
 server-side in one App-scoped critical section serialized with
-register-mode casting.`,
+register-mode casting.
+
+SUPERSEDING A ROLE — no rm verb yet, and the order is load-bearing
+
+Retiring a role definition has no platform surface (there is no
+deleteTeamRole — hadron-server#1002), so it means deleting the node
+directly, past this group. That delete knows NONE of the register
+invariants, and handing a superseded role's names to its successor is
+order-dependent: a name may not sit in two of one App's registers
+(TEAM_ROLE_NAME_DUPLICATE) and added names are range-checked
+(TEAM_ROLE_NAME_OUT_OF_RANGE). The sequence is exactly (#441):
+
+  0. hadron team role get <old> --json                  DO THIS FIRST
+       Capture the old register, its order, and its range. Step 1 is what
+       destroys them — the definition is CONTENT in the Team Agent's system
+       memory (cor:agt:020:01), so nothing else holds a copy.
+
+  1. hadron node rm hrn:node:<org>:<team-agent>-system:roles:<old> --yes
+       Deleting the old definition is what FREES its names.
+
+  2. hadron team role update <new> --name-range <old range>
+       Widen the successor's range BEFORE its names arrive, or step 3's
+       additions fall outside it.
+
+  3. hadron team role names add <new> <the old register>
+       ADD, never ` + "`set`" + `: the successor usually carries a register of its
+       own, and set REPLACES wholesale — its own free names would vanish
+       silently, and a minted one would refuse TEAM_ROLE_NAME_MINTED with
+       the old definition already deleted. add merges, skips names already
+       present, and is CAS-safe. It appends, so if the inherited names
+       should be allocated first, ` + "`role names mv`" + ` puts them there.
+
+  4. hadron app agent remove <app> <old-agent> --yes
+     hadron agent rm <old-agent> --yes
+       Last, and only once nothing else needs the old role agent. Both
+       prompt without --yes and REFUSE off a TTY; ` + "`agent rm`" + ` cascades to
+       that agent's system memory.
+
+Step 3 before 2 fails TEAM_ROLE_NAME_OUT_OF_RANGE; either before 1 fails
+TEAM_ROLE_NAME_DUPLICATE.
+
+Names already MINTED under the old role are not lost: a worker's name lives
+on the WORKER, not the register, and free/taken is judged against the App's
+whole roster — so they reappear marked ✓ in the successor's register, still
+held by their existing workers.`,
 	}
 	cmd.AddCommand(newCmdRoleList(f))
 	cmd.AddCommand(newCmdRoleGet(f))
