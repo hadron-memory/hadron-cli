@@ -574,3 +574,37 @@ mutation UpdateTeamRoleMeta(
     ...TeamRoleFields
   }
 }
+
+# The retirement (`role rm`, #441 / hadron-server#1002). transferTo is what
+# makes this ONE call instead of the four-step sequence a hand-run supersede
+# had to get right: the old definition is retired and its register appended to
+# the successor's, inside the same App-scoped critical section, so nothing can
+# observe the window where a name sits in two registers (or in neither).
+#
+# omitempty on transferTo is load-bearing beyond the usual preserve/clear rule:
+# a bare delete and a transfer are DIFFERENT operations server-side — a role
+# holding minted names refuses TEAM_ROLE_IN_USE without it — so sending an
+# explicit null would have to mean "no successor", and omitting is the only
+# spelling that reliably says so.
+mutation DeleteTeamRole(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $teamAgentRef: ID
+  $role: String!
+  # @genqlient(omitempty: true)
+  $transferTo: String
+) {
+  deleteTeamRole(
+    appRef: $appRef
+    teamAgentRef: $teamAgentRef
+    role: $role
+    transferTo: $transferTo
+  ) {
+    role
+    nodesDeleted
+    transferredNames
+    transferredTo {
+      ...TeamRoleFields
+    }
+  }
+}

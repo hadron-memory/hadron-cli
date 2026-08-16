@@ -96,6 +96,8 @@ suffix rule covered it was wrong).
 - Deleting a role definition: the server offers no `deleteTeamRole`; a
   register with minted names must survive regardless. If a genuine
   never-used-role cleanup need appears, it starts as a hadron-server issue.
-  *(It appeared — superseding a role in a live team, #441 — and is filed as
-  hadron-server#1002. Until it ships, the node-delete workaround and the
-  order it has to run in are documented in `team role --help`.)*
+  *(It appeared — superseding a role in a live team, #441 — was filed as
+  hadron-server#1002, and shipped there as `deleteTeamRole`. `role rm` now
+  covers it; see [team-role-retirement.md](team-role-retirement.md). The
+  prediction held: a register with minted names does survive, by moving to
+  the successor rather than by refusing outright.)*

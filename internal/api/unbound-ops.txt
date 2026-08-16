@@ -67,7 +67,7 @@ slackConnections
 usageActivity
 usageEvents  # cli#439: no usage command group yet — when one lands, filter a loc with loc:, NEVER nodeId: (shape-classified, swallows any >=3-segment loc as a node URN)
 
-[Mutation] 85 unbound
+[Mutation] 86 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
@@ -153,3 +153,4 @@ updateNodeProperties
 updateOrgGithubApp
 updateResendSender
 updateSecret
+updateWorker  # arrived with this refresh (server #1010) — amends a casting's promptOverride; no `team worker update` verb yet

@@ -6579,6 +6579,231 @@ type DeleteSecretResponse struct {
 // GetDeleteSecret returns DeleteSecretResponse.DeleteSecret, and is useful for accessing the field via an interface.
 func (v *DeleteSecretResponse) GetDeleteSecret() bool { return v.DeleteSecret }
 
+// DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload includes the requested fields of the GraphQL type DeleteTeamRolePayload.
+// The GraphQL type's documentation follows.
+//
+// Result of deleteTeamRole (#1002).
+type DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload struct {
+	// The role slug that was retired.
+	Role string `json:"role"`
+	// Nodes tombstoned — the roles:<role> definition plus any sub-nodes under it
+	// (a roles:<role>:notes is content OF the role and retires with it). Soft,
+	// so the subtree is recoverable.
+	NodesDeleted int `json:"nodesDeleted"`
+	// Register spellings handed to the successor, in the order they were added to
+	// it. Empty when no transferTo was given.
+	TransferredNames []string `json:"transferredNames"`
+	// The successor role AFTER the transfer, so a client can render the new
+	// register without a second read. Null when no transferTo was given.
+	TransferredTo *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole `json:"transferredTo"`
+}
+
+// GetRole returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload.Role, and is useful for accessing the field via an interface.
+func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload) GetRole() string { return v.Role }
+
+// GetNodesDeleted returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload.NodesDeleted, and is useful for accessing the field via an interface.
+func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload) GetNodesDeleted() int {
+	return v.NodesDeleted
+}
+
+// GetTransferredNames returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload.TransferredNames, and is useful for accessing the field via an interface.
+func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload) GetTransferredNames() []string {
+	return v.TransferredNames
+}
+
+// GetTransferredTo returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload.TransferredTo, and is useful for accessing the field via an interface.
+func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload) GetTransferredTo() *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole {
+	return v.TransferredTo
+}
+
+// DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole includes the requested fields of the GraphQL type TeamRole.
+// The GraphQL type's documentation follows.
+//
+// A role definition (#960): the roles:<role> node in the Team Agent's system
+// memory, carrying the name register (data.names) and register conventions.
+// The persona prompt template is NOT here — with the Worker model (#974) it
+// lives on the role-agent as dressing (personaRole + personaPrompt); roleAgent
+// points at it.
+type DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole struct {
+	TeamRoleFields `json:"-"`
+}
+
+// GetRole returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.Role, and is useful for accessing the field via an interface.
+func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetRole() string {
+	return v.TeamRoleFields.Role
+}
+
+// GetLoc returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.Loc, and is useful for accessing the field via an interface.
+func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetLoc() string {
+	return v.TeamRoleFields.Loc
+}
+
+// GetNodeId returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.NodeId, and is useful for accessing the field via an interface.
+func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetNodeId() string {
+	return v.TeamRoleFields.NodeId
+}
+
+// GetDescription returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.Description, and is useful for accessing the field via an interface.
+func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetDescription() *string {
+	return v.TeamRoleFields.Description
+}
+
+// GetRegister returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.Register, and is useful for accessing the field via an interface.
+func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetRegister() []*TeamRoleFieldsRegisterTeamRoleName {
+	return v.TeamRoleFields.Register
+}
+
+// GetFreeCount returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.FreeCount, and is useful for accessing the field via an interface.
+func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetFreeCount() int {
+	return v.TeamRoleFields.FreeCount
+}
+
+// GetExhausted returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.Exhausted, and is useful for accessing the field via an interface.
+func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetExhausted() bool {
+	return v.TeamRoleFields.Exhausted
+}
+
+// GetNameRange returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.NameRange, and is useful for accessing the field via an interface.
+func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetNameRange() *string {
+	return v.TeamRoleFields.NameRange
+}
+
+// GetNameConvention returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.NameConvention, and is useful for accessing the field via an interface.
+func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetNameConvention() *string {
+	return v.TeamRoleFields.NameConvention
+}
+
+// GetRoleAgent returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.RoleAgent, and is useful for accessing the field via an interface.
+func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetRoleAgent() *TeamRoleFieldsRoleAgent {
+	return v.TeamRoleFields.RoleAgent
+}
+
+// GetHasNamePlaceholder returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.HasNamePlaceholder, and is useful for accessing the field via an interface.
+func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetHasNamePlaceholder() *bool {
+	return v.TeamRoleFields.HasNamePlaceholder
+}
+
+func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamRoleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalDeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole struct {
+	Role string `json:"role"`
+
+	Loc string `json:"loc"`
+
+	NodeId string `json:"nodeId"`
+
+	Description *string `json:"description"`
+
+	Register []*TeamRoleFieldsRegisterTeamRoleName `json:"register"`
+
+	FreeCount int `json:"freeCount"`
+
+	Exhausted bool `json:"exhausted"`
+
+	NameRange *string `json:"nameRange"`
+
+	NameConvention *string `json:"nameConvention"`
+
+	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
+
+	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
+}
+
+func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) __premarshalJSON() (*__premarshalDeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole, error) {
+	var retval __premarshalDeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole
+
+	retval.Role = v.TeamRoleFields.Role
+	retval.Loc = v.TeamRoleFields.Loc
+	retval.NodeId = v.TeamRoleFields.NodeId
+	retval.Description = v.TeamRoleFields.Description
+	retval.Register = v.TeamRoleFields.Register
+	retval.FreeCount = v.TeamRoleFields.FreeCount
+	retval.Exhausted = v.TeamRoleFields.Exhausted
+	retval.NameRange = v.TeamRoleFields.NameRange
+	retval.NameConvention = v.TeamRoleFields.NameConvention
+	retval.RoleAgent = v.TeamRoleFields.RoleAgent
+	retval.HasNamePlaceholder = v.TeamRoleFields.HasNamePlaceholder
+	return &retval, nil
+}
+
+// DeleteTeamRoleResponse is returned by DeleteTeamRole on success.
+type DeleteTeamRoleResponse struct {
+	// #1002 — retire a roles:<role> definition. Soft-deletes the role node and
+	// any sub-nodes under it (roles:<role>:notes is content OF the role), so the
+	// subtree is recoverable. Unknown role: WORKER_ROLE_NOT_FOUND. Same
+	// authorization and same App-scoped critical section as createTeamRole, so a
+	// retirement serializes with register-mode casting.
+	//
+	// MINTED names decide whether a bare delete is allowed. A minted register
+	// entry is what records that a name was allocated to this role; dropping the
+	// register without rehoming it would erase that ledger, so a role holding
+	// minted names refuses TEAM_ROLE_IN_USE unless transferTo names a successor.
+	// A role whose register is entirely free deletes with no ceremony.
+	//
+	// Note this does NOT free the names themselves: a Worker's name is permanent
+	// per App (cor:agt:020:02, enforced by workers_app_name_uniq irrespective of
+	// any register), so retiring a role can never make a taken name castable
+	// again. The register is bookkeeping about ALLOCATION, not identity — which
+	// is exactly why moving it between roles is safe.
+	//
+	// transferTo performs the supersede as ONE step: the old definition is
+	// retired and its whole register is appended to the successor's, preserving
+	// order and skipping spellings the successor already lists. This removes the
+	// ordering trap a hand-run sequence has to rediscover (a name may not sit in
+	// two of an App's registers, so the old role must be gone BEFORE the
+	// successor can claim its names — TEAM_ROLE_NAME_DUPLICATE otherwise).
+	// Transferred names are EXEMPT from the successor's nameRange: they are
+	// re-homed allocations, not new ones, and the range governs what may be
+	// allocated next. The successor's own conventions are left untouched —
+	// changing them is updateTeamRole's job, not a side effect of a delete.
+	//
+	// The delete and the transfer are two operations that cannot share one
+	// transaction, so the source role is RESTORED if the transfer fails — the
+	// delete is soft, and the tombstone still holds the register verbatim. The
+	// minted check is also re-run AFTER the delete, because an explicit-name
+	// castWorker mints without taking the register lock and could otherwise slip
+	// a freshly minted name past the pre-check. Should the restore itself fail,
+	// TEAM_ROLE_DELETE_NOT_COMPENSATED reports the loc to recover by hand rather
+	// than leaving the caller to retry against a role that is silently gone.
+	DeleteTeamRole *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload `json:"deleteTeamRole"`
+}
+
+// GetDeleteTeamRole returns DeleteTeamRoleResponse.DeleteTeamRole, and is useful for accessing the field via an interface.
+func (v *DeleteTeamRoleResponse) GetDeleteTeamRole() *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload {
+	return v.DeleteTeamRole
+}
+
 // DeleteWorkerResponse is returned by DeleteWorker on success.
 type DeleteWorkerResponse struct {
 	// #974 — hard-delete a NEVER-USED miscast (cor:dmo:050:11's only removal
@@ -8254,10 +8479,22 @@ func (v *GetUserUser) __premarshalJSON() (*__premarshalGetUserUser, error) {
 
 // GetWorkerResponse is returned by GetWorker on success.
 type GetWorkerResponse struct {
-	// One Worker by ref (#974) — its id, or its URN (#991).
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
 	// Authorization: an AppMember of the worker's App (any role), an org member
 	// with CONTRIBUTOR+ on its org, the owner of a user-owned App, or the App's
-	// own key.
+	// own key. For the NAME form the gate runs BEFORE the lookup and a denial is
+	// reported as WORKER_NOT_FOUND, so the roster is not an existence oracle.
 	Worker *GetWorkerWorker `json:"worker"`
 }
 
@@ -19899,6 +20136,26 @@ type __DeleteSecretInput struct {
 // GetRef returns __DeleteSecretInput.Ref, and is useful for accessing the field via an interface.
 func (v *__DeleteSecretInput) GetRef() string { return v.Ref }
 
+// __DeleteTeamRoleInput is used internally by genqlient
+type __DeleteTeamRoleInput struct {
+	AppRef       string  `json:"appRef"`
+	TeamAgentRef *string `json:"teamAgentRef,omitempty"`
+	Role         string  `json:"role"`
+	TransferTo   *string `json:"transferTo,omitempty"`
+}
+
+// GetAppRef returns __DeleteTeamRoleInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__DeleteTeamRoleInput) GetAppRef() string { return v.AppRef }
+
+// GetTeamAgentRef returns __DeleteTeamRoleInput.TeamAgentRef, and is useful for accessing the field via an interface.
+func (v *__DeleteTeamRoleInput) GetTeamAgentRef() *string { return v.TeamAgentRef }
+
+// GetRole returns __DeleteTeamRoleInput.Role, and is useful for accessing the field via an interface.
+func (v *__DeleteTeamRoleInput) GetRole() string { return v.Role }
+
+// GetTransferTo returns __DeleteTeamRoleInput.TransferTo, and is useful for accessing the field via an interface.
+func (v *__DeleteTeamRoleInput) GetTransferTo() *string { return v.TransferTo }
+
 // __DeleteWorkerInput is used internally by genqlient
 type __DeleteWorkerInput struct {
 	WorkerRef string `json:"workerRef"`
@@ -24313,6 +24570,87 @@ func DeleteSecret(
 	}
 
 	data_ = &DeleteSecretResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteTeamRole.
+const DeleteTeamRole_Operation = `
+mutation DeleteTeamRole ($appRef: ID!, $teamAgentRef: ID, $role: String!, $transferTo: String) {
+	deleteTeamRole(appRef: $appRef, teamAgentRef: $teamAgentRef, role: $role, transferTo: $transferTo) {
+		role
+		nodesDeleted
+		transferredNames
+		transferredTo {
+			... TeamRoleFields
+		}
+	}
+}
+fragment TeamRoleFields on TeamRole {
+	role
+	loc
+	nodeId
+	description
+	register {
+		name
+		taken
+		heldBy {
+			id
+			name
+		}
+	}
+	freeCount
+	exhausted
+	nameRange
+	nameConvention
+	roleAgent {
+		id
+		urn
+		name
+		personaRole
+	}
+	hasNamePlaceholder
+}
+`
+
+// The retirement (`role rm`, #441 / hadron-server#1002). transferTo is what
+// makes this ONE call instead of the four-step sequence a hand-run supersede
+// had to get right: the old definition is retired and its register appended to
+// the successor's, inside the same App-scoped critical section, so nothing can
+// observe the window where a name sits in two registers (or in neither).
+//
+// omitempty on transferTo is load-bearing beyond the usual preserve/clear rule:
+// a bare delete and a transfer are DIFFERENT operations server-side — a role
+// holding minted names refuses TEAM_ROLE_IN_USE without it — so sending an
+// explicit null would have to mean "no successor", and omitting is the only
+// spelling that reliably says so.
+func DeleteTeamRole(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	teamAgentRef *string,
+	role string,
+	transferTo *string,
+) (data_ *DeleteTeamRoleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteTeamRole",
+		Query:  DeleteTeamRole_Operation,
+		Variables: &__DeleteTeamRoleInput{
+			AppRef:       appRef,
+			TeamAgentRef: teamAgentRef,
+			Role:         role,
+			TransferTo:   transferTo,
+		},
+	}
+
+	data_ = &DeleteTeamRoleResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
