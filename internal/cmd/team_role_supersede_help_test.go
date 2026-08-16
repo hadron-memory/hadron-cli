@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // #441 / hadron-server#1002: `role rm --transfer-register-to` collapses a
@@ -235,3 +237,30 @@ const teamRolesRmJSON = `{"data":{"teamRoles":{"total":3,"items":[
 	 "register":[{"name":"Zed","taken":false,"heldBy":null}],
 	 "freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,
 	 "roleAgent":null,"hasNamePlaceholder":null}]}}}`
+
+// A bare retirement of a register holding MINTED names is refused before the
+// prompt and before the wire: the server would refuse it TEAM_ROLE_IN_USE, and
+// asking someone to confirm a destructive action already known to fail is
+// worse than refusing with the remedy. Exit 5 either way (PR #451 review).
+func TestTeamRoleRmBareWithMintedNamesRefusesLocally(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesRmJSON})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "role", "rm", "frontend-engineer", "--yes",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("a bare retirement of a minted register must refuse")
+	}
+	if got := exitcode.FromError(err); got != exitcode.Conflict {
+		t.Errorf("exit code = %d, want %d (Conflict): %v", got, exitcode.Conflict, err)
+	}
+	for _, want := range []string{"TEAM_ROLE_IN_USE", "Kai", "--transfer-register-to"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("refusal must carry %q: %v", want, err)
+		}
+	}
+	if _, sent := captured["DeleteTeamRole"]; sent {
+		t.Error("a refusal known in advance must not reach the server")
+	}
+}

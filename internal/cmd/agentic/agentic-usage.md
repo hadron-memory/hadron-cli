@@ -791,7 +791,9 @@ Conventions:
   ones), and the successor's own conventions are untouched (`role update`
   changes those). Without `--transfer-register-to`, a role holding MINTED
   names refuses `TEAM_ROLE_IN_USE` (exit 5) — a taken entry is the ledger of
-  an allocation; a fully free register retires with no ceremony. The delete
+  an allocation; a fully free register retires with no ceremony. When the
+  pre-read already shows minted names the CLI raises that same code and exit
+  BEFORE the wire, so a refusal you can see coming never reaches the server. The delete
   is SOFT (the `roles:<role>` node and its sub-nodes are tombstoned,
   recoverable) and `--yes` is required off a TTY. **Retiring never frees a
   name for re-casting**: names are permanent per App against the whole

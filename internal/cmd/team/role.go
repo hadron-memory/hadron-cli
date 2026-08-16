@@ -957,7 +957,24 @@ nothing else needs it.`,
 				// Send the role as the server spells it, not as it was typed.
 				successorArg = &successor.Role
 			}
-			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, describeRetirement(current, successorArg)); err != nil {
+			// A bare retirement of a register holding minted names is refused
+			// server-side (TEAM_ROLE_IN_USE). Refusing HERE — before the
+			// prompt — is the difference between naming the remedy and asking
+			// someone to confirm a destructive action already known to fail.
+			if successorArg == nil {
+				if minted := mintedNames(current); len(minted) > 0 {
+					// Naming the server's code keeps the documented contract
+					// true whichever side refuses — an agent matching on
+					// TEAM_ROLE_IN_USE sees it either way, at the same exit 5.
+					return exitcode.Newf(exitcode.Conflict,
+						"TEAM_ROLE_IN_USE: role %s holds %d minted name(s) (%s) — a taken entry records an allocation that exists forever, so retiring it needs a successor: --transfer-register-to <role>",
+						current.Role, len(minted), strings.Join(minted, ", "))
+				}
+			}
+			// Confirm, not ConfirmDeletion: the latter appends "This cannot be
+			// undone", which is false here — the delete is SOFT and the
+			// subtree stays recoverable (same reasoning as `asset rm`).
+			if err := cmdutil.Confirm(f.IOStreams, yes, describeRetirement(current, successorArg)); err != nil {
 				return err
 			}
 			resp, err := gen.DeleteTeamRole(cmd.Context(), client, appRef, optStr(teamAgent), current.Role, successorArg)
@@ -989,22 +1006,19 @@ func pickRole(rows []gen.TeamRoleFields, arg string) (gen.TeamRoleFields, error)
 		"no role %q in this App — `hadron team role list` shows the definitions", arg)
 }
 
-// describeRetirement is the confirmation prompt's subject. It names what is
-// actually at stake, which differs by mode: a transfer moves a ledger, a bare
-// retirement discards a register that must therefore hold nothing minted.
+// describeRetirement is the confirmation QUESTION (Confirm takes the whole
+// prompt). It names what is actually at stake, which differs by mode: a
+// transfer moves a ledger to a named successor, a bare retirement discards a
+// register — which is why the caller has already been refused if it holds
+// anything minted. Both say the delete is recoverable, because it is.
 func describeRetirement(r gen.TeamRoleFields, transferTo *string) string {
-	names := registerNames(r)
+	names := strings.Join(registerNames(r), ", ")
 	if transferTo != nil {
-		return fmt.Sprintf("role %s — its register (%s) moves to %s, and the definition is tombstoned",
-			r.Role, strings.Join(names, ", "), *transferTo)
+		return fmt.Sprintf("Retire role %s and move its register (%s) to %s? The definition is soft-deleted and stays recoverable.",
+			r.Role, names, *transferTo)
 	}
-	if minted := mintedNames(r); len(minted) > 0 {
-		// The server will refuse this; saying so up front beats prompting for
-		// a destructive confirmation and then failing anyway.
-		return fmt.Sprintf("role %s — %d of its names are already minted (%s), so this will refuse without --transfer-register-to",
-			r.Role, len(minted), strings.Join(minted, ", "))
-	}
-	return fmt.Sprintf("role %s and its register (%s — none minted)", r.Role, strings.Join(names, ", "))
+	return fmt.Sprintf("Retire role %s and its register (%s — none minted)? The definition is soft-deleted and stays recoverable.",
+		r.Role, names)
 }
 
 // emitRoleRetired prints the receipt. A supersede shows the SUCCESSOR's
