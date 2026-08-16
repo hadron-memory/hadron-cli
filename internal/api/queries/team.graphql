@@ -7,7 +7,14 @@
 # (#991) — but the URN keys on a DERIVED, permanent slug, never on the name:
 # two names may legally slugify to one token ("Mary Jane"/"Mary-Jane"), so a
 # name-keyed URN would not resolve to exactly one casting (cor:agt:020:02,
-# still durable law). So a workerRef here is the worker's id or its URN.
+# still durable law).
+#
+# What a workerRef ACCEPTS varies by operation, so read each one: worker(ref:)
+# takes an id or a URN, while SessionInput.workerRef additionally takes an
+# App-scoped NAME (#990). The CLI resolves session names to ids client-side
+# anyway — `session start` needs the row for the boot briefing and the
+# retired-worker refusal — but that is this client's choice, not the surface's
+# contract.
 
 fragment WorkerFields on Worker {
   id

@@ -165,6 +165,21 @@ func resolveWorker(ctx context.Context, client graphql.Client, appRef, arg strin
 	if arg == "" {
 		return zero, exitcode.Newf(exitcode.Usage, "empty worker reference")
 	}
+	// A worker URN addresses ONE casting App-independently (#991/#445), so it
+	// dispatches FIRST — before any ambient App scope. Scanning an App's staff
+	// ahead of it would let a stale, uninstalled or unreadable --app/context
+	// break a ref that is by construction self-contained, and would then bury
+	// the real error under "no worker … in this App" (PR #446 review).
+	if strings.HasPrefix(strings.ToLower(arg), "hrn:worker:") {
+		resp, err := gen.GetWorker(ctx, client, arg)
+		if err != nil {
+			return zero, api.MapError(err)
+		}
+		if resp.Worker == nil {
+			return zero, exitcode.Newf(exitcode.NotFound, "no worker %q", arg)
+		}
+		return resp.Worker.WorkerFields, nil
+	}
 	if appRef != "" {
 		workers, err := scanWorkers(ctx, client, appRef)
 		if err != nil {
