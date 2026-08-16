@@ -153,4 +153,4 @@ updateNodeProperties
 updateOrgGithubApp
 updateResendSender
 updateSecret
-updateWorker  # arrived with this refresh (server #1010) — amends a casting's promptOverride; no `team worker update` verb yet
+updateWorker  # server #1010 — amends a casting's promptOverride; no `team worker update` verb yet, tracked in #452
