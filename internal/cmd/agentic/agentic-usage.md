@@ -706,9 +706,15 @@ Conventions:
   a `personaPrompt` TEMPLATE with `{{name}}`/`{{role}}` placeholders, set at
   `agent create` or edited via `agent update`
   (`--persona-role`/`--persona-prompt`); the name lives on the
-  Worker, never the agent, and workers have no URN — commands take the
-  worker's name (resolved within the App from `--app`, the App context, or
-  the binding) or its id (App-free).
+  Worker, never the agent. Commands take the worker's name (resolved within
+  the App from `--app`, the App context, or the binding), its URN, or its
+  id. The URN — `hrn:worker:<root>:<app-slug>:<slug>` (hadron-server#991) —
+  keys on a permanent DERIVED slug, never on the name (two names may legally
+  slugify to one token, so a name-keyed URN would not resolve to exactly one
+  casting — `cor:agt:020:02`); it needs no App context, which makes it the
+  portable ref for scripts, and it is null only when the App's URN predates
+  the flat grammar-v2 arity. `--json` carries `urn` and `slug` alongside the
+  worker's id.
   `team worker cast` mints one in ONE platform call (`castWorker`): the
   server resolves the agent (`--agent`, or `--role` picks the single
   installed agent whose persona role matches — `WORKER_AGENT_NOT_FOUND`

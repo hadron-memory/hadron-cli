@@ -3018,13 +3018,20 @@ func (v *CancelAppRunResponse) GetCancelAppRun() *CancelAppRunCancelAppRun { ret
 // The Agent carries the reusable persona dressing; the Worker is the local
 // named identity that does attributable work. Names are unique per App,
 // case-insensitively, forever (retirement and uninstall never free them —
-// cor:agt:020:02); rows survive the agent's uninstall. Workers have no URN.
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
 type CastWorkerCastWorker struct {
 	WorkerFields `json:"-"`
 }
 
 // GetId returns CastWorkerCastWorker.Id, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetUrn returns CastWorkerCastWorker.Urn, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetUrn() *string { return v.WorkerFields.Urn }
+
+// GetSlug returns CastWorkerCastWorker.Slug, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetSlug() string { return v.WorkerFields.Slug }
 
 // GetAppId returns CastWorkerCastWorker.AppId, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetAppId() string { return v.WorkerFields.AppId }
@@ -3087,6 +3094,10 @@ func (v *CastWorkerCastWorker) UnmarshalJSON(b []byte) error {
 type __premarshalCastWorkerCastWorker struct {
 	Id string `json:"id"`
 
+	Urn *string `json:"urn"`
+
+	Slug string `json:"slug"`
+
 	AppId string `json:"appId"`
 
 	AgentId string `json:"agentId"`
@@ -3122,6 +3133,8 @@ func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWo
 	var retval __premarshalCastWorkerCastWorker
 
 	retval.Id = v.WorkerFields.Id
+	retval.Urn = v.WorkerFields.Urn
+	retval.Slug = v.WorkerFields.Slug
 	retval.AppId = v.WorkerFields.AppId
 	retval.AgentId = v.WorkerFields.AgentId
 	retval.Name = v.WorkerFields.Name
@@ -8241,7 +8254,7 @@ func (v *GetUserUser) __premarshalJSON() (*__premarshalGetUserUser, error) {
 
 // GetWorkerResponse is returned by GetWorker on success.
 type GetWorkerResponse struct {
-	// One Worker by id (#974; workers have no URN, so ref is the PK only).
+	// One Worker by ref (#974) — its id, or its URN (#991).
 	// Authorization: an AppMember of the worker's App (any role), an org member
 	// with CONTRIBUTOR+ on its org, the owner of a user-owned App, or the App's
 	// own key.
@@ -8259,13 +8272,20 @@ func (v *GetWorkerResponse) GetWorker() *GetWorkerWorker { return v.Worker }
 // The Agent carries the reusable persona dressing; the Worker is the local
 // named identity that does attributable work. Names are unique per App,
 // case-insensitively, forever (retirement and uninstall never free them —
-// cor:agt:020:02); rows survive the agent's uninstall. Workers have no URN.
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
 type GetWorkerWorker struct {
 	WorkerFields `json:"-"`
 }
 
 // GetId returns GetWorkerWorker.Id, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetUrn returns GetWorkerWorker.Urn, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetUrn() *string { return v.WorkerFields.Urn }
+
+// GetSlug returns GetWorkerWorker.Slug, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetSlug() string { return v.WorkerFields.Slug }
 
 // GetAppId returns GetWorkerWorker.AppId, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetAppId() string { return v.WorkerFields.AppId }
@@ -8328,6 +8348,10 @@ func (v *GetWorkerWorker) UnmarshalJSON(b []byte) error {
 type __premarshalGetWorkerWorker struct {
 	Id string `json:"id"`
 
+	Urn *string `json:"urn"`
+
+	Slug string `json:"slug"`
+
 	AppId string `json:"appId"`
 
 	AgentId string `json:"agentId"`
@@ -8363,6 +8387,8 @@ func (v *GetWorkerWorker) __premarshalJSON() (*__premarshalGetWorkerWorker, erro
 	var retval __premarshalGetWorkerWorker
 
 	retval.Id = v.WorkerFields.Id
+	retval.Urn = v.WorkerFields.Urn
+	retval.Slug = v.WorkerFields.Slug
 	retval.AppId = v.WorkerFields.AppId
 	retval.AgentId = v.WorkerFields.AgentId
 	retval.Name = v.WorkerFields.Name
@@ -12733,10 +12759,12 @@ func (v *ResolveAiServiceConfigsResponse) GetResolveAiServiceConfigs() []*Resolv
 // the resource's canonical page. Powers the portal's /app/u/<urn> redirect
 // route (hadron-portal#262).
 //
-// `kind` is the URN's type segment: memory | node | agent | org | app | user.
+// `kind` is the URN's type segment: memory | node | agent | org | app | user |
+// apprun | worker | noderev.
 // `id` is the resolved entity's primary id. `memoryId` is set only for
-// nodes (their owning memory), `organizationId` only for apps (their owning
-// org) — both are the extra ids those resources' canonical routes require.
+// nodes (their owning memory), `organizationId` for apps, app runs, and
+// workers (their owning org) — both are the extra ids those resources'
+// canonical routes require.
 type ResolveUrnResolveUrnUrnResolution struct {
 	Id       string  `json:"id"`
 	Kind     string  `json:"kind"`
@@ -12873,7 +12901,7 @@ type RetireWorkerResponse struct {
 	// and refuses new session bindings; the row and its name reservation
 	// survive. Idempotent — retiring an already-retired worker returns it
 	// unchanged. Same authorization as castWorker. workerRef is the worker's id
-	// (workers have no URN).
+	// or its URN (#991).
 	RetireWorker *RetireWorkerRetireWorker `json:"retireWorker"`
 }
 
@@ -12888,13 +12916,20 @@ func (v *RetireWorkerResponse) GetRetireWorker() *RetireWorkerRetireWorker { ret
 // The Agent carries the reusable persona dressing; the Worker is the local
 // named identity that does attributable work. Names are unique per App,
 // case-insensitively, forever (retirement and uninstall never free them —
-// cor:agt:020:02); rows survive the agent's uninstall. Workers have no URN.
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
 type RetireWorkerRetireWorker struct {
 	WorkerFields `json:"-"`
 }
 
 // GetId returns RetireWorkerRetireWorker.Id, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetUrn returns RetireWorkerRetireWorker.Urn, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetUrn() *string { return v.WorkerFields.Urn }
+
+// GetSlug returns RetireWorkerRetireWorker.Slug, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetSlug() string { return v.WorkerFields.Slug }
 
 // GetAppId returns RetireWorkerRetireWorker.AppId, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetAppId() string { return v.WorkerFields.AppId }
@@ -12957,6 +12992,10 @@ func (v *RetireWorkerRetireWorker) UnmarshalJSON(b []byte) error {
 type __premarshalRetireWorkerRetireWorker struct {
 	Id string `json:"id"`
 
+	Urn *string `json:"urn"`
+
+	Slug string `json:"slug"`
+
 	AppId string `json:"appId"`
 
 	AgentId string `json:"agentId"`
@@ -12992,6 +13031,8 @@ func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorker
 	var retval __premarshalRetireWorkerRetireWorker
 
 	retval.Id = v.WorkerFields.Id
+	retval.Urn = v.WorkerFields.Urn
+	retval.Slug = v.WorkerFields.Slug
 	retval.AppId = v.WorkerFields.AppId
 	retval.AgentId = v.WorkerFields.AgentId
 	retval.Name = v.WorkerFields.Name
@@ -14058,8 +14099,30 @@ type SessionInput struct {
 	Tool           *string `json:"tool,omitempty"`
 	TranscriptPath *string `json:"transcriptPath,omitempty"`
 	Type           *string `json:"type,omitempty"`
-	// #974 / cor:agt:020:03: the Worker (named casting) this session works as -
-	// the worker's id (workers have no URN; names never enter URNs, cor:agt:020:02).
+	// #974 / cor:agt:020:03: the Worker (named casting) this session works as.
+	// Three forms resolve, told apart by SHAPE (never by trying each in turn, so
+	// a typo'd URN can't silently fall through to a roster search):
+	//
+	// - the worker's NAME ("Iris") — #990. Unique per App, case-insensitively,
+	// matched with the DATABASE's lower(), the expression
+	// workers_app_name_uniq indexes. Requires App context (appRef, an App-key
+	// credential, or an MCP active-App selection): a name means nothing without
+	// one, so a nameless-App call refuses SESSION_WORKER_NAME_NEEDS_APP rather
+	// than guessing across the caller's Apps. Gated on the STAFF READ GATE
+	// before the lookup runs — resolving a name discloses roster membership,
+	// which the id/URN forms never do.
+	//
+	// Which refusal you get depends on WHERE the denial happens, and clients
+	// should not assume one code covers both: a caller who supplied appRef has
+	// already been checked against the same participant predicate, so an
+	// outsider is refused FORBIDDEN there, before any name is read. Only a
+	// denial at the in-branch staff gate — reachable when the App came from an
+	// App-key credential rather than appRef — is masked as WORKER_NOT_FOUND,
+	// indistinguishable from an App with no such worker.
+	// - the worker's URN (hrn:worker:<root>:<app-slug>:<slug>, #991); the URN's
+	// leaf is the derived slug, never the display name (cor:agt:020:02).
+	// - the worker's id.
+	//
 	// Resolves to Session.workerId, and stamps Session.agentId with the worker's
 	// role-agent. The worker must belong to the session's App: with appRef (or an
 	// App-key credential) it must match the worker's App; without one, the
@@ -14833,7 +14896,8 @@ func (v *TeamRoleFieldsRegisterTeamRoleName) GetHeldBy() *TeamRoleFieldsRegister
 // The Agent carries the reusable persona dressing; the Worker is the local
 // named identity that does attributable work. Names are unique per App,
 // case-insensitively, forever (retirement and uninstall never free them —
-// cor:agt:020:02); rows survive the agent's uninstall. Workers have no URN.
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
 type TeamRoleFieldsRegisterTeamRoleNameHeldByWorker struct {
 	Id string `json:"id"`
 	// The worker's name ('Iris') — the identity every surface renders.
@@ -15118,7 +15182,8 @@ func (v *TeamSessionFields) GetLlmModel() *string { return v.LlmModel }
 // The Agent carries the reusable persona dressing; the Worker is the local
 // named identity that does attributable work. Names are unique per App,
 // case-insensitively, forever (retirement and uninstall never free them —
-// cor:agt:020:02); rows survive the agent's uninstall. Workers have no URN.
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
 type TeamSessionFieldsWorker struct {
 	Id string `json:"id"`
 	// The worker's name ('Iris') — the identity every surface renders.
@@ -18552,9 +18617,22 @@ func (v *ValidateMemoryValidateMemoryMemoryValidationResultSkippedChecksMemoryVa
 // The Agent carries the reusable persona dressing; the Worker is the local
 // named identity that does attributable work. Names are unique per App,
 // case-insensitively, forever (retirement and uninstall never free them —
-// cor:agt:020:02); rows survive the agent's uninstall. Workers have no URN.
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
 type WorkerFields struct {
-	Id      string `json:"id"`
+	Id string `json:"id"`
+	// hrn:worker:<root>:<app-slug>:<slug> (#991) — computed from the App's URN
+	// plus `slug`, not stored. Accepted anywhere a workerRef is taken, and
+	// resolvable via Query.resolveUrn, so a client can address a worker without
+	// holding its id. Null only when the App's URN predates the flat grammar-v2
+	// shape this arity requires.
+	Urn *string `json:"urn"`
+	// The URN atom, derived from the name at cast time and permanent thereafter
+	// (#991). Lowercased, sanitized to the URN slug charset, and iterated
+	// ('iris', 'iris-2', …) until free within the App — so deriving it NEVER
+	// refuses a cast, and the name collision stays the only allocation failure a
+	// caller sees (cor:agt:020:02).
+	Slug    string `json:"slug"`
 	AppId   string `json:"appId"`
 	AgentId string `json:"agentId"`
 	// The worker's name ('Iris') — the identity every surface renders.
@@ -18579,6 +18657,12 @@ type WorkerFields struct {
 
 // GetId returns WorkerFields.Id, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetId() string { return v.Id }
+
+// GetUrn returns WorkerFields.Urn, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetUrn() *string { return v.Urn }
+
+// GetSlug returns WorkerFields.Slug, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetSlug() string { return v.Slug }
 
 // GetAppId returns WorkerFields.AppId, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetAppId() string { return v.AppId }
@@ -18648,13 +18732,20 @@ func (v *WorkersWorkersWorkersPage) GetItems() []*WorkersWorkersWorkersPageItems
 // The Agent carries the reusable persona dressing; the Worker is the local
 // named identity that does attributable work. Names are unique per App,
 // case-insensitively, forever (retirement and uninstall never free them —
-// cor:agt:020:02); rows survive the agent's uninstall. Workers have no URN.
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
 type WorkersWorkersWorkersPageItemsWorker struct {
 	WorkerFields `json:"-"`
 }
 
 // GetId returns WorkersWorkersWorkersPageItemsWorker.Id, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetUrn returns WorkersWorkersWorkersPageItemsWorker.Urn, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetUrn() *string { return v.WorkerFields.Urn }
+
+// GetSlug returns WorkersWorkersWorkersPageItemsWorker.Slug, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetSlug() string { return v.WorkerFields.Slug }
 
 // GetAppId returns WorkersWorkersWorkersPageItemsWorker.AppId, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetAppId() string { return v.WorkerFields.AppId }
@@ -18725,6 +18816,10 @@ func (v *WorkersWorkersWorkersPageItemsWorker) UnmarshalJSON(b []byte) error {
 type __premarshalWorkersWorkersWorkersPageItemsWorker struct {
 	Id string `json:"id"`
 
+	Urn *string `json:"urn"`
+
+	Slug string `json:"slug"`
+
 	AppId string `json:"appId"`
 
 	AgentId string `json:"agentId"`
@@ -18760,6 +18855,8 @@ func (v *WorkersWorkersWorkersPageItemsWorker) __premarshalJSON() (*__premarshal
 	var retval __premarshalWorkersWorkersWorkersPageItemsWorker
 
 	retval.Id = v.WorkerFields.Id
+	retval.Urn = v.WorkerFields.Urn
+	retval.Slug = v.WorkerFields.Slug
 	retval.AppId = v.WorkerFields.AppId
 	retval.AgentId = v.WorkerFields.AgentId
 	retval.Name = v.WorkerFields.Name
@@ -22091,6 +22188,8 @@ mutation CastWorker ($appRef: ID!, $agentRef: ID, $role: String, $name: String, 
 }
 fragment WorkerFields on Worker {
 	id
+	urn
+	slug
 	appId
 	agentId
 	name
@@ -25060,6 +25159,8 @@ query GetWorker ($ref: ID!) {
 }
 fragment WorkerFields on Worker {
 	id
+	urn
+	slug
 	appId
 	agentId
 	name
@@ -25074,7 +25175,8 @@ fragment WorkerFields on Worker {
 }
 `
 
-// One worker by id (workers have no URN, so ref is the PK only).
+// One worker by ref — its id, or its URN (#991); both resolve here, which is
+// what lets a caller address a worker without holding its id.
 func GetWorker(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -26884,6 +26986,8 @@ mutation RetireWorker ($workerRef: ID!) {
 }
 fragment WorkerFields on Worker {
 	id
+	urn
+	slug
 	appId
 	agentId
 	name
@@ -29281,6 +29385,8 @@ query Workers ($appRef: ID!, $includeRetired: Boolean, $limit: Int, $offset: Int
 }
 fragment WorkerFields on Worker {
 	id
+	urn
+	slug
 	appId
 	agentId
 	name

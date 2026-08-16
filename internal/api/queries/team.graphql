@@ -3,11 +3,26 @@
 # A persona is pure DRESSING on an Agent (personaRole + a {{name}}-templated
 # personaPrompt — metadata, edited via `agent update`). The named identity
 # ("Iris") is the WORKER: the casting of an installed Agent into an App
-# (cor:dmo:050:11, cor:agt:020:01). Workers have no URN — names never enter
-# URNs (cor:agt:020:02) — so every workerRef on this surface is the worker's id.
+# (cor:dmo:050:11, cor:agt:020:01). A worker IS addressable — hrn:worker:<root>:<app-slug>:<slug>
+# (#991) — but the URN keys on a DERIVED, permanent slug, never on the name:
+# two names may legally slugify to one token ("Mary Jane"/"Mary-Jane"), so a
+# name-keyed URN would not resolve to exactly one casting (cor:agt:020:02,
+# still durable law).
+#
+# What a workerRef ACCEPTS varies by operation, so read each one: worker(ref:)
+# takes an id or a URN, while SessionInput.workerRef additionally takes an
+# App-scoped NAME (#990). The CLI resolves session names to ids client-side
+# anyway — `session start` needs the row for the boot briefing and the
+# retired-worker refusal — but that is this client's choice, not the surface's
+# contract.
 
 fragment WorkerFields on Worker {
   id
+  # The address (#991): derived from the App's URN plus the permanent slug,
+  # computed rather than stored. Null only when the App's URN predates the
+  # flat grammar-v2 shape this arity needs — so never render it unguarded.
+  urn
+  slug
   appId
   agentId
   name
@@ -73,7 +88,8 @@ mutation DeleteWorker($workerRef: ID!) {
   deleteWorker(workerRef: $workerRef)
 }
 
-# One worker by id (workers have no URN, so ref is the PK only).
+# One worker by ref — its id, or its URN (#991); both resolve here, which is
+# what lets a caller address a worker without holding its id.
 query GetWorker($ref: ID!) {
   worker(ref: $ref) {
     ...WorkerFields

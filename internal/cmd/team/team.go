@@ -88,7 +88,12 @@ and ` + "`hadron app agent list <app>`" + ` (the installed cast pool).`,
 
 // workerDTO is the stable --json shape for a worker.
 type workerDTO struct {
-	ID             string  `json:"id"`
+	ID string `json:"id"`
+	// URN is the worker's address (#991), keyed on the permanent derived
+	// slug. Null when the App's URN predates the flat grammar-v2 arity it
+	// needs, so consumers must tolerate its absence.
+	URN            *string `json:"urn"`
+	Slug           string  `json:"slug"`
 	AppID          string  `json:"appId"`
 	AgentID        string  `json:"agentId"`
 	Name           string  `json:"name"`
@@ -107,7 +112,7 @@ type workerDTO struct {
 
 func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 	return workerDTO{
-		ID: w.Id, AppID: w.AppId, AgentID: w.AgentId, Name: w.Name, Role: w.Role,
+		ID: w.Id, URN: w.Urn, Slug: w.Slug, AppID: w.AppId, AgentID: w.AgentId, Name: w.Name, Role: w.Role,
 		Prompt: w.Prompt, PromptOverride: w.PromptOverride, MemoryID: w.MemoryId,
 		RetiredAt: w.RetiredAt, RetiredBy: w.RetiredBy,
 		CreatedAt: w.CreatedAt, CreatedBy: w.CreatedBy,
@@ -150,14 +155,30 @@ func scanWorkers(ctx context.Context, client graphql.Client, appRef string) ([]g
 // resolveWorker turns a worker name or a worker id into the worker row.
 // Names are App-scoped (unique per App, case-insensitively — cor:agt:020:02),
 // so a name needs an App to resolve in: appRef may be empty, in which case
-// only the id form can succeed (workers have no URN, so the id is the only
-// App-free spelling). The name pass sees retired workers too — retiring must
-// not make `worker get Iris` a not-found.
+// only the App-free spellings can succeed: the worker's URN (#991 — keyed on
+// its derived permanent slug) or its id, both of which `worker(ref:)` takes.
+// The name pass sees retired workers too — retiring must not make
+// `worker get Iris` a not-found.
 func resolveWorker(ctx context.Context, client graphql.Client, appRef, arg string) (gen.WorkerFields, error) {
 	var zero gen.WorkerFields
 	arg = strings.TrimSpace(arg)
 	if arg == "" {
 		return zero, exitcode.Newf(exitcode.Usage, "empty worker reference")
+	}
+	// A worker URN addresses ONE casting App-independently (#991/#445), so it
+	// dispatches FIRST — before any ambient App scope. Scanning an App's staff
+	// ahead of it would let a stale, uninstalled or unreadable --app/context
+	// break a ref that is by construction self-contained, and would then bury
+	// the real error under "no worker … in this App" (PR #446 review).
+	if strings.HasPrefix(strings.ToLower(arg), "hrn:worker:") {
+		resp, err := gen.GetWorker(ctx, client, arg)
+		if err != nil {
+			return zero, api.MapError(err)
+		}
+		if resp.Worker == nil {
+			return zero, exitcode.Newf(exitcode.NotFound, "no worker %q", arg)
+		}
+		return resp.Worker.WorkerFields, nil
 	}
 	if appRef != "" {
 		workers, err := scanWorkers(ctx, client, appRef)
@@ -183,7 +204,7 @@ func resolveWorker(ctx context.Context, client graphql.Client, appRef, arg strin
 			return zero, api.MapError(err)
 		}
 		return zero, exitcode.Newf(exitcode.NotFound,
-			"no worker %q — a worker NAME resolves within an App, so pass --app <ref> (or set an App context); a worker id works without one", arg)
+			"no worker %q — a worker NAME resolves within an App, so pass --app <ref> (or set an App context); a worker URN (hrn:worker:…) or id works without one", arg)
 	}
 	// With an App scope, the staff scan above already reached the server and
 	// found no such name — the id try was a bonus, and a refusal of a

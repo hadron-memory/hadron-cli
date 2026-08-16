@@ -13,13 +13,15 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-const irisWorkerJSON = `{"id":"wkr1","appId":"app1","agentId":"agt1","name":"Iris","role":"backend-engineer",
+const irisWorkerJSON = `{"id":"wkr1","urn":"hrn:worker:acme.com:eng-team:iris","slug":"iris",
+	"appId":"app1","agentId":"agt1","name":"Iris","role":"backend-engineer",
 	"prompt":"You are Iris.","promptOverride":null,"memoryId":"mw1","retiredAt":null,"retiredBy":null,
 	"createdAt":"2026-08-14T00:00:00Z","createdBy":"u-holger"}`
 
 // A retired casting on the same staff page: hidden by default, listed with
 // --include-retired (its name stays reserved forever).
-const retiredWorkerJSON = `{"id":"wkr2","appId":"app1","agentId":"agt1","name":"Uma","role":"qa",
+const retiredWorkerJSON = `{"id":"wkr2","urn":"hrn:worker:acme.com:eng-team:uma","slug":"uma",
+	"appId":"app1","agentId":"agt1","name":"Uma","role":"qa",
 	"prompt":null,"promptOverride":null,"memoryId":null,"retiredAt":"2026-08-13T00:00:00Z","retiredBy":"u-holger",
 	"createdAt":"2026-08-12T00:00:00Z","createdBy":null}`
 
@@ -217,8 +219,111 @@ func TestTeamWorkerGetByName(t *testing.T) {
 	}
 }
 
-// A worker ID needs no App scope at all (workers have no URN — the id is the
-// only App-free spelling).
+// The App-free spellings: a worker id, or its URN (#991/#445 — keyed on the
+// permanent derived slug, so it addresses one casting without App context).
+// Both ride `worker(ref:)` straight through.
+func TestTeamWorkerGetByRefWithoutApp(t *testing.T) {
+	teamGitDir(t)
+	for _, ref := range []string{"wkr1", "hrn:worker:acme.com:eng-team:iris"} {
+		gql, captured := captureGraphQL(t, map[string]string{
+			"GetWorker": `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "worker", "get", ref, "--json", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%s: execute: %v", ref, err)
+		}
+		var vars map[string]any
+		_ = json.Unmarshal(captured["GetWorker"], &vars)
+		if vars["ref"] != ref {
+			t.Errorf("%s must pass through verbatim, got %v", ref, vars["ref"])
+		}
+		// The URN is part of the --json contract now — it is the portable
+		// ref a script hands back.
+		if !strings.Contains(out.String(), `"urn": "hrn:worker:acme.com:eng-team:iris"`) ||
+			!strings.Contains(out.String(), `"slug": "iris"`) {
+			t.Errorf("%s: the worker's address must be in --json: %s", ref, out.String())
+		}
+	}
+}
+
+// PR #446 review: a worker URN is App-independent by construction, so it
+// must dispatch BEFORE any ambient App scope — otherwise a stale,
+// uninstalled or unreadable --app/context breaks a self-contained ref, and
+// buries the real error under "no worker … in this App". The fake omits
+// Workers entirely, so a staff scan would fail the test loudly.
+func TestTeamWorkerGetByURNIgnoresAmbientApp(t *testing.T) {
+	teamGitDir(t)
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetWorker": `{"data":{"worker":` + irisWorkerJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "get", "hrn:worker:acme.com:eng-team:iris",
+		"--app", "acme.com:some-other-app", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a URN must resolve regardless of the ambient App: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["GetWorker"], &vars)
+	if vars["ref"] != "hrn:worker:acme.com:eng-team:iris" {
+		t.Errorf("the URN must go straight to worker(ref:): %v", vars)
+	}
+	if _, scanned := captured["Workers"]; scanned {
+		t.Error("a URN must not trigger an App staff scan")
+	}
+
+	// And its lookup failure surfaces as ITSELF, not as "no worker in this App".
+	gql2, _ := captureGraphQL(t, map[string]string{
+		"GetWorker": `{"errors":[{"message":"token expired","extensions":{"code":"UNAUTHENTICATED"}}]}`,
+	})
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "worker", "get", "hrn:worker:acme.com:eng-team:iris",
+		"--app", "acme.com:some-other-app", "--server", gql2.URL})
+	err := root2.Execute()
+	if code := exitcode.FromError(err); code != exitcode.AuthRequired {
+		t.Errorf("exit code = %d, want %d (AuthRequired); err: %v", code, exitcode.AuthRequired, err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "token expired") {
+		t.Errorf("the real error must not be buried under an App-scoped not-found: %v", err)
+	}
+}
+
+// The documented legacy case (PR #446 review): an App whose URN predates the
+// flat grammar-v2 arity yields a NULL worker URN. Neither output mode may
+// choke — the human branch simply omits the line, and --json preserves null.
+func TestTeamWorkerGetTolueratesNullURN(t *testing.T) {
+	teamGitDir(t)
+	legacy := strings.Replace(irisWorkerJSON, `"urn":"hrn:worker:acme.com:eng-team:iris"`, `"urn":null`, 1)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetWorker": `{"data":{"worker":` + legacy + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "get", "wkr1", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a null URN must not break the read: %v", err)
+	}
+	if strings.Contains(out.String(), "urn:") {
+		t.Errorf("no urn line belongs on a worker without one: %s", out.String())
+	}
+	if !strings.Contains(out.String(), "Iris") {
+		t.Errorf("the rest of the receipt must still render: %s", out.String())
+	}
+
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "worker", "get", "wkr1", "--json", "--server", gql.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out2.String(), `"urn": null`) {
+		t.Errorf("--json must preserve the null address: %s", out2.String())
+	}
+}
+
 func TestTeamWorkerGetByIdWithoutApp(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
