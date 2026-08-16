@@ -21,21 +21,21 @@ func newCmdClone(f *cmdutil.Factory) *cobra.Command {
 		Use:   "clone <node-urn> | <loc> -m <memory> (--to-urn <urn> | --to-memory <memory>)",
 		Short: "Copy a node to a new loc and/or memory",
 		Long: `Copy a node to a new location, returning the NEW node (a fresh id). Name
-the source by its fully-qualified URN (<org>::<memory>::<loc>) or by a
+the source by its fully-qualified URN (hrn:node:<root>:<slug>:<loc>) or by a
 bare <loc> with -m/--memory.
 
 Give the destination exactly one of:
 
-  --to-urn <org>::<memory>::<loc>   the clone's full URN (new memory
+  --to-urn hrn:node:<root>:<slug>:<loc>   the clone's full URN (new memory
                                     and/or loc).
-  --to-memory <org::memory>         a destination memory; the clone keeps the
+  --to-memory hrn:mem:<root>:<slug>         a destination memory; the clone keeps the
                                     source's loc, only its memory changes.
 
 Copies the node's own fields plus the outgoing edges that naturally resolve
 at the destination; incoming edges are not copied. Fails loudly if a node
 already occupies the destination loc.`,
-		Example: `  hadron node clone acme.com::kb::templates:base --to-urn acme.com::kb::findings:new
-  hadron node clone templates:base -m acme.com::kb --to-memory acme.com::sandbox`,
+		Example: `  hadron node clone hrn:node:acme.com:kb:templates:base --to-urn hrn:node:acme.com:kb:findings:new
+  hadron node clone templates:base -m hrn:mem:acme.com:kb --to-memory hrn:mem:acme.com:sandbox`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Validate the destination flags before touching the network, so a
@@ -64,9 +64,9 @@ already occupies the destination loc.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org::memory) to resolve a bare <loc> source against")
-	cmd.Flags().StringVar(&toURN, "to-urn", "", "destination node URN <org>::<memory>::<loc> (new memory and/or loc)")
-	cmd.Flags().StringVar(&toMemory, "to-memory", "", "destination memory (org::memory); keeps the source's loc")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> source against")
+	cmd.Flags().StringVar(&toURN, "to-urn", "", "destination node URN hrn:node:<root>:<slug>:<loc> (new memory and/or loc)")
+	cmd.Flags().StringVar(&toMemory, "to-memory", "", "destination memory (hrn:mem:<root>:<slug>); keeps the source's loc")
 	return cmd
 }
 

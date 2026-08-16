@@ -30,7 +30,7 @@ for a server-generated id. --name overrides the auto-derived node name.
 
 id and type are reserved and cannot be field names. On a schema-governed memory
 the fields are validated against the collection.`,
-		Example: `  hadron object create -m acme.com::market --type competitor \
+		Example: `  hadron object create -m hrn:mem:acme.com:market --type competitor \
     --fields '{"name":"Letta","stage":"series-a","fundingUsd":12000000}' --key letta`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

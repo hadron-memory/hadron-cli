@@ -138,13 +138,13 @@ and reported. Import is create-only: an existing loc is an error unless
 --exclude globs, --hidden, and --max-file-size filter the walk; --dry-run prints
 the plan without writing.`,
 		Example: `  hadron node import flaky.md                        # restore a node-export file
-  hadron node export acme.com::kb::x | hadron node import -m acme.com::kb2 -
-  hadron node import paper.pdf -m acme.com::kb --loc papers:attention
-  hadron node import --url https://example.com/post -m acme.com::kb --loc clips:post
-  hadron node import notes.md --as-content -m acme.com::kb --loc notes:today
-  hadron node import --url https://ex.com/p -m acme.com::kb --loc clips:p --task acme.com::kb::tasks:distill --app acme.com:ops
-  hadron node import -r ./docs -m acme.com::kb --dry-run        # preview the tree it would create
-  hadron node import -r ./docs -m acme.com::kb --under manuals --exclude '**/*.tmp'`,
+  hadron node export hrn:node:acme.com:kb:x | hadron node import -m hrn:mem:acme.com:kb2 -
+  hadron node import paper.pdf -m hrn:mem:acme.com:kb --loc papers:attention
+  hadron node import --url https://example.com/post -m hrn:mem:acme.com:kb --loc clips:post
+  hadron node import notes.md --as-content -m hrn:mem:acme.com:kb --loc notes:today
+  hadron node import --url https://ex.com/p -m hrn:mem:acme.com:kb --loc clips:p --task hrn:node:acme.com:kb:tasks:distill --app acme.com:ops
+  hadron node import -r ./docs -m hrn:mem:acme.com:kb --dry-run        # preview the tree it would create
+  hadron node import -r ./docs -m hrn:mem:acme.com:kb --under manuals --exclude '**/*.tmp'`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var srcPath string

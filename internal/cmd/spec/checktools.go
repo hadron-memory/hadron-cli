@@ -70,8 +70,8 @@ non-tool ` + "`hadron_*`" + ` identifiers that legitimately appear in prose (e.g
 Exits 5 when any unregistered token is found (like ` + "`spec lint`" + `), so it can
 gate CI; ` + "`--json`" + ` emits the findings. A clean corpus prints a one-line OK and
 exits 0.`,
-		Example: `  hadron spec check-tools -m hadronmemory.com::specs
-  hadron spec check-tools -m hadronmemory.com::specs --prefix cor:api --json`,
+		Example: `  hadron spec check-tools -m hrn:mem:hadronmemory.com:specs
+  hadron spec check-tools -m hrn:mem:hadronmemory.com:specs --prefix cor:api --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			registered := parseToolList(toolManifestRaw)

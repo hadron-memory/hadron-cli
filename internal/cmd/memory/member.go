@@ -71,8 +71,8 @@ func newCmdMemberAdd(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add <memoryRef> --user <user> --role <owner|writer|reader>",
 		Short: "Add (or upsert) a member on a memory",
-		Example: `  hadron memory member add acme.com::kb --user jane@acme.com --role writer
-  hadron memory member add acme.com::kb --user jane --role reader`,
+		Example: `  hadron memory member add hrn:mem:acme.com:kb --user jane@acme.com --role writer
+  hadron memory member add hrn:mem:acme.com:kb --user jane --role reader`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseMemberRole(role)
@@ -110,7 +110,7 @@ func newCmdMemberSetRole(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "set-role <memoryRef> --user <user> --role <owner|writer|reader>",
 		Short:   "Change a member's role",
-		Example: `  hadron memory member set-role acme.com::kb --user jane --role reader`,
+		Example: `  hadron memory member set-role hrn:mem:acme.com:kb --user jane --role reader`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseMemberRole(role)
@@ -150,7 +150,7 @@ func newCmdMemberRm(f *cmdutil.Factory) *cobra.Command {
 		Use:     "rm <memoryRef> --user <user>",
 		Aliases: []string{"remove"},
 		Short:   "Remove a member from a memory",
-		Example: `  hadron memory member rm acme.com::kb --user jane --yes`,
+		Example: `  hadron memory member rm hrn:mem:acme.com:kb --user jane --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

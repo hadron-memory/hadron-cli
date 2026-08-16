@@ -29,7 +29,7 @@ Scopes are drawn from mail.read, mail.send, calendar.freebusy, calendar.read
 an optional ISO-8601 timestamp with timezone and must be in the future; omit it
 for a perpetual grant (until revoked).`,
 		Example: `  hadron connection grant create --connection conn_123 --app acme.com:inbox-bot --scopes mail.read
-  hadron connection grant create --connection conn_123 --app hrn:app:acme.com::inbox-bot \
+  hadron connection grant create --connection conn_123 --app hrn:app:acme.com:inbox-bot \
     --scopes mail.read,mail.send --expires-at 2027-01-01T00:00:00Z`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

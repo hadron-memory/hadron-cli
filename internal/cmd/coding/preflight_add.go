@@ -84,10 +84,10 @@ resolved BEFORE anything is written: a router with one bullet list takes it
 automatically, one with several sections needs --section, and a router that
 routes purely by edge label needs --no-body-line. An ambiguous router is a
 usage error, not a half-finished write.`,
-		Example: `  hadron coding preflight create findings:flaky-otp-timer -m acme.com::kb \
+		Example: `  hadron coding preflight create findings:flaky-otp-timer -m hrn:mem:acme.com:kb \
     --route "fix a flaky OTP countdown test" \
     --description "The resend countdown must start before the network await, not after"
-  hadron coding preflight create conventions:ref-param-naming -m acme.com::kb \
+  hadron coding preflight create conventions:ref-param-naming -m hrn:mem:acme.com:kb \
     --route "add or rename a GraphQL argument that identifies an entity" \
     --description "Name it <entity>Ref and resolve through resolve<Entity>Ref" \
     --section "GraphQL read and write surfaces" --tag conventions`,
@@ -306,7 +306,7 @@ usage error, not a half-finished write.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to add the node to (org::memory)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to add the node to (hrn:mem:<root>:<slug>)")
 	cmd.Flags().StringVar(&root, "root", preflightRootLoc, "loc of the preflight router node")
 	cmd.Flags().StringVar(&route, "route", "", `the action the route fires on ("to" is prepended if absent)`)
 	cmd.Flags().StringVar(&description, "description", "", "one-line description; also the routing line's text")

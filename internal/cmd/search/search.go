@@ -74,8 +74,8 @@ prints abstracts in the text output too.
 a path plus one of eq|ne|in|lt|lte|gt|gte|between|exists|contains; branch with
 and/or/not). --object-type filters the objectType collection facet.
 --sort-property orders by a properties/data JSON path (overrides relevance).`,
-		Example: `  hadron search "how do users report a bad actor" -m micromentor.org::mmdata
-  hadron search "rate limiting" -m acme.com::kb -m acme.com::ops --mode keyword --json
+		Example: `  hadron search "how do users report a bad actor" -m hrn:mem:micromentor.org:mmdata
+  hadron search "rate limiting" -m hrn:mem:acme.com:kb -m hrn:mem:acme.com:ops --mode keyword --json
   hadron search "(auth OR login) AND token" --mode keyword --prefix findings:
   hadron search 'reportUser|contentConcern' --mode regex --limit 30
   hadron search "pricing" --object-type insight --where '{"path":["source"],"eq":"substack"}'

@@ -98,13 +98,13 @@ write if more than N nodes would change — a guard against a whole-memory
 rewrite from a wrong --memory URN or a forgotten --prefix. Every change is
 saved to version history, so replacements are undoable.`,
 		Example: `  # Preview only
-  hadron replace text oldtext newtext -m acme.com::kb --field content --dry-run
+  hadron replace text oldtext newtext -m hrn:mem:acme.com:kb --field content --dry-run
 
   # Apply across a subtree, two fields (prompts before writing)
-  hadron replace text foo bar -m acme.com::kb --prefix services: --field content --field description
+  hadron replace text foo bar -m hrn:mem:acme.com:kb --prefix services: --field content --field description
 
   # Regex with a backreference on specific nodes, no prompt
-  hadron replace text '(\w+)@old\.com' '$1@new.com' --node acme.com::kb::contacts:bob --field content --regex --yes`,
+  hadron replace text '(\w+)@old\.com' '$1@new.com' --node hrn:node:acme.com:kb:contacts:bob --field content --regex --yes`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			oldText, newText := args[0], args[1]

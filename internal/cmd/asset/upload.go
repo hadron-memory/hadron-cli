@@ -66,9 +66,9 @@ that fails it leaves a BLOCKED record behind on purpose: the bytes are
 discarded, the row is kept for audit ("asset list --include-deleted" shows it
 with the engine signature), and re-uploading the same file fails the same way
 every time.`,
-		Example: `  hadron asset upload ./logo.png -m acme.com::kb
-  hadron asset upload ./notes.md -m acme.com::kb --description "meeting notes"
-  hadron asset upload ./data -m acme.com::kb --mime application/json --name data.json`,
+		Example: `  hadron asset upload ./logo.png -m hrn:mem:acme.com:kb
+  hadron asset upload ./notes.md -m hrn:mem:acme.com:kb --description "meeting notes"
+  hadron asset upload ./data -m hrn:mem:acme.com:kb --mime application/json --name data.json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if memory == "" {

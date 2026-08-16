@@ -43,8 +43,8 @@ This is a read-only view: a broken route is a row, not an exit code — a
 listing full of them still exits 0. (A usage, auth or not-found error
 exits non-zero as everywhere else.) ` + "`coding preflight lint`" + ` is the
 command whose exit code reflects findings.`,
-		Example: `  hadron coding preflight list -m hadronmemory.com::dev
-  hadron coding preflight list -m micromentor.org::mmdata --broken --json`,
+		Example: `  hadron coding preflight list -m hrn:mem:hadronmemory.com:dev
+  hadron coding preflight list -m hrn:mem:micromentor.org:mmdata --broken --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mem, err := codingMemoryURN(memory)
@@ -78,7 +78,7 @@ command whose exit code reflects findings.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to list (org::memory)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to list (hrn:mem:<root>:<slug>)")
 	cmd.Flags().StringVar(&root, "root", preflightRootLoc, "loc of the preflight router node")
 	cmd.Flags().BoolVar(&brokenOnly, "broken", false, "only routes whose target could not be read")
 	return cmd

@@ -50,7 +50,7 @@ Identity resolves from flags, then HADRON_CHAT_HANDLE, then .hadron/config.json
 (top-level "handle"; chat.identity / chat.role), so a configured agent posts
 with just --body.`,
 		Example: `  hadron chat post --body "@rufus schema looks good, shipping it"
-  hadron chat post --node acme.com::team-chats::team-chat:api:messages --handle iris \
+  hadron chat post --node hrn:node:acme.com:team-chats:team-chat:api:messages --handle iris \
     --role "Backend Engineer" --body "done" --reply-to team-chat:api:messages:...-rufus`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -91,8 +91,8 @@ with just --body.`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&node, "node", "", "message-parent node URN (org::memory::loc); packs memory + message location")
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "chat memory (org::memory); the two-field form with --messages-loc")
+	cmd.Flags().StringVar(&node, "node", "", "message-parent node URN (hrn:node:<root>:<slug>:<loc>); packs memory + message location")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "chat memory (hrn:mem:<root>:<slug>); the two-field form with --messages-loc")
 	cmd.Flags().StringVar(&messagesLoc, "messages-loc", "", "message-parent loc prefix; the two-field form with -m")
 	cmd.MarkFlagsMutuallyExclusive("node", "memory")
 	cmd.MarkFlagsMutuallyExclusive("node", "messages-loc")

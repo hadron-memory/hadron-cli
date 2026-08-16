@@ -83,10 +83,10 @@ characters, which "spec lint" warns above.
 citation and every missing ancestor (each with its tier template and, for the
 roots, their general-provisions contract), so a fresh module + feature + rule
 is one call instead of four.`, abstractSoftMax),
-		Example: `  hadron spec new -m micromentor.org::platform-specs --module msg --feature 010 --title "W4 — 7d check-in"
-  hadron spec new -m hadronmemory.com::platform-specs --new-product --product cli --title "Hadron CLI"
-  hadron spec new -m hadronmemory.com::platform-specs --product cli --new-module --module cha --title "chat command group"
-  hadron spec new -m hadronmemory.com::platform-specs cli:cha:010:01 --new-path --title "send a message"`,
+		Example: `  hadron spec new -m hrn:mem:micromentor.org:platform-specs --module msg --feature 010 --title "W4 — 7d check-in"
+  hadron spec new -m hrn:mem:hadronmemory.com:platform-specs --new-product --product cli --title "Hadron CLI"
+  hadron spec new -m hrn:mem:hadronmemory.com:platform-specs --product cli --new-module --module cha --title "chat command group"
+  hadron spec new -m hrn:mem:hadronmemory.com:platform-specs cli:cha:010:01 --new-path --title "send a message"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if product != "" && !reModule.MatchString(product) {

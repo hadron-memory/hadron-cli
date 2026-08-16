@@ -71,7 +71,7 @@ names its replacement.
 version its abstract was written against. Read it narrowly: it is a hash
 comparison, so it fires whenever the two differ — including on an edit that
 changed nothing the abstract says — and NOT on a body edited and then restored
-byte-for-byte. Measured over hadronmemory.com::specs it separates
+byte-for-byte. Measured over hrn:mem:hadronmemory.com:specs it separates
 almost nothing (Cohen's d = 0.01 at the rule tier against embedding
 similarity), so it is off by default: it is a property of the SPEC rather than
 of the pointer, and two thirds of a live corpus trips it. For the corpus-wide
@@ -84,8 +84,8 @@ written some other way at the cost of false positives in prose.
 
 Errors exit 5 (like ` + "`spec lint`" + `), so this can gate CI; --strict promotes
 warnings too.`,
-		Example: `  hadron spec citations -m hadronmemory.com::specs --src src/
-  hadron spec citations -m micromentor.org::platform-specs --src . --exclude '*_test.go' --json
+		Example: `  hadron spec citations -m hrn:mem:hadronmemory.com:specs --src src/
+  hadron spec citations -m hrn:mem:micromentor.org:platform-specs --src . --exclude '*_test.go' --json
   hadron spec citations --src src/ --loose --strict`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

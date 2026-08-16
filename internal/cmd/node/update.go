@@ -40,7 +40,7 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		Use:   "update <node-urn> | <loc> -m <memory>",
 		Short: "Update a node",
 		Long: `Update an existing node by its fully-qualified URN
-(<org>::<memory>::<loc>), or by a bare <loc> with -m/--memory. Only the
+(hrn:node:<root>:<slug>:<loc>), or by a bare <loc> with -m/--memory. Only the
 fields you pass change; everything else is preserved (pass an explicit
 empty string, e.g. --description "", to clear a field).
 
@@ -64,9 +64,9 @@ REPLACE the typed properties bag the schema governs (pass "null" to clear) —
 distinct from --data. (There is no --properties-merge yet; a shallow merge needs
 the server-side updateNodeProperties mutation, tracked as hadron-server#742. On a
 schema-governed memory the server validates the result and rejects a violation.)`,
-		Example: `  hadron node update acme.com::kb::findings:flaky-ci --name "Flaky CI (resolved)"
-  cat updated.md | hadron node update findings:flaky-ci -m acme.com::kb --content -
-  hadron node update acme.com::kb::findings:flaky-ci --data-merge '{"status":"closed"}'`,
+		Example: `  hadron node update hrn:node:acme.com:kb:findings:flaky-ci --name "Flaky CI (resolved)"
+  cat updated.md | hadron node update findings:flaky-ci -m hrn:mem:acme.com:kb --content -
+  hadron node update hrn:node:acme.com:kb:findings:flaky-ci --data-merge '{"status":"closed"}'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
@@ -224,7 +224,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org::memory) to resolve a bare <loc> against")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
 	cmd.Flags().StringVar(&name, "name", "", "new node name")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `new content ("-" reads stdin)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read new content from a file")

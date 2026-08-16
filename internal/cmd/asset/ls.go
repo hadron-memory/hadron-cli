@@ -72,9 +72,9 @@ assets, not only your own — pass --mine to narrow to yours.
 
 By default every asset is listed (the query pages to exhaustion). Pass --limit
 or --offset to fetch a single explicit page instead.`,
-		Example: `  hadron asset list -m acme.com::kb
-  hadron asset list -m acme.com::kb --mine --mime image/png
-  hadron asset list -m acme.com::kb --include-deleted --json`,
+		Example: `  hadron asset list -m hrn:mem:acme.com:kb
+  hadron asset list -m hrn:mem:acme.com:kb --mine --mime image/png
+  hadron asset list -m hrn:mem:acme.com:kb --include-deleted --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if memory == "" {

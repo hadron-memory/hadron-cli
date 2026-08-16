@@ -23,7 +23,7 @@ func newCmdDelete(f *cmdutil.Factory) *cobra.Command {
 from reads but the row is retained); --hard removes the row permanently. Object
 deletion is non-recursive — an object is a single record.`,
 		Example: `  hadron object delete 019f7d… --yes
-  hadron object rm acme.com::market::competitor:letta --hard --yes`,
+  hadron object rm hrn:node:acme.com:market:competitor:letta --hard --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

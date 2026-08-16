@@ -61,11 +61,11 @@ Rule abstract-length warns above ~%d characters. That is a ceiling, not
 a target: retrieval holds up across roughly 700-1700 characters, so a long
 abstract is only worth shortening once it has stopped being about one
 subject. Off-topic sentences dilute the embedding far more than length.`, abstractSoftMax),
-		Example: `  hadron spec lint msg:010:02 -m micromentor.org::platform-specs
-  hadron spec lint --prefix cor:api:140 -m hadronmemory.com::specs
-  hadron spec lint --module msg -m micromentor.org::platform-specs
-  hadron spec lint --product cli -m hadronmemory.com::platform-specs
-  hadron spec lint --all -m micromentor.org::platform-specs --strict`,
+		Example: `  hadron spec lint msg:010:02 -m hrn:mem:micromentor.org:platform-specs
+  hadron spec lint --prefix cor:api:140 -m hrn:mem:hadronmemory.com:specs
+  hadron spec lint --module msg -m hrn:mem:micromentor.org:platform-specs
+  hadron spec lint --product cli -m hrn:mem:hadronmemory.com:platform-specs
+  hadron spec lint --all -m hrn:mem:micromentor.org:platform-specs --strict`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := lintScopeError(len(args) == 1, prefixFlag, product, module, all); err != nil {

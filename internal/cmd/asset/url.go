@@ -46,7 +46,7 @@ its memory is encrypted (an anonymous request holds no session key, so an
 encrypted memory is never hotlinkable). Never construct the URL yourself from
 the id; an absent hotlink means there is genuinely nothing safe to hand out.`,
 		Example: `  hadron asset url hrn:asset:acme.com:kb:assets:01j2x…
-  hadron asset url 01j2x… -m acme.com::kb`,
+  hadron asset url 01j2x… -m hrn:mem:acme.com:kb`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := parseAssetRef(args[0])

@@ -20,8 +20,8 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <node-urn>... | <loc>... -m <memory> | --prefix <loc> -m <memory>",
 		Short: "Show one or more nodes, including content and edges",
-		Long: `Show a node by its fully-qualified URN: <org>::<memory>::<loc>
-(e.g. hadronmemory.com::dev::start-here). The hrn:node: prefix is
+		Long: `Show a node by its fully-qualified URN: hrn:node:<root>:<slug>:<loc>
+(e.g. hrn:node:hadronmemory.com:dev:start-here). The hrn:node: prefix is
 optional (legacy urn:node: also accepted). Pass -m/--memory to name a
 node by a bare <loc> within that memory instead; without -m a bare loc
 is rejected, since the same loc can exist in several memories.
@@ -51,10 +51,10 @@ templates left uncompiled, while a single-ref read compiles them. That is the
 server's design — the batch is a bulk SOURCE read for lint/audit/migration, and
 compiling per node would reintroduce the N+1 it removes. Identical for a node
 without templates; for a template node the batch gives you the source.`,
-		Example: `  hadron node get hadronmemory.com::dev::start-here
-  hadron node get start-here -m hadronmemory.com::dev --json
-  hadron node get start-here preflight instructions -m hadronmemory.com::dev --json
-  hadron node get --prefix findings: -m hadronmemory.com::dev --json`,
+		Example: `  hadron node get hrn:node:hadronmemory.com:dev:start-here
+  hadron node get start-here -m hrn:mem:hadronmemory.com:dev --json
+  hadron node get start-here preflight instructions -m hrn:mem:hadronmemory.com:dev --json
+  hadron node get --prefix findings: -m hrn:mem:hadronmemory.com:dev --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			prefixMode := cmd.Flags().Changed("prefix")
 			// The two forms are mutually exclusive server-side, so reject the
@@ -65,7 +65,7 @@ without templates; for a template node the batch gives you the source.`,
 					"--prefix reads a subtree and cannot be combined with explicit node refs — drop one")
 			}
 			if prefixMode && strings.TrimSpace(memory) == "" {
-				return exitcode.Newf(exitcode.Usage, "--prefix needs -m/--memory <org::memory> to scope the subtree")
+				return exitcode.Newf(exitcode.Usage, "--prefix needs -m/--memory hrn:mem:<root>:<slug> to scope the subtree")
 			}
 			if !prefixMode && len(args) == 0 {
 				return exitcode.Newf(exitcode.Usage,
@@ -106,7 +106,7 @@ without templates; for a template node the batch gives you the source.`,
 			return emitNodeBatch(f, dto)
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org::memory) to resolve a bare <loc> against")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
 	cmd.Flags().StringVar(&locPrefix, "prefix", "", "read every node under this loc prefix in one call (needs -m; empty means the whole memory)")
 	return cmd
 }

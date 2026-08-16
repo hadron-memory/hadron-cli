@@ -136,14 +136,14 @@ printf '%s' "$ANTHROPIC_KEY" | hadron ai-config create --app acme.com:ops \
   --name default --provider anthropic --model claude-opus-4-8 --api-key -
 
 # 2. The entry node — an ordinary prompt/task node in one of the App's memories.
-hadron node add -m acme.com::ops --loc tasks:nightly-digest --type task \
+hadron node add -m hrn:mem:acme.com:ops --loc tasks:nightly-digest --type task \
   --name 'Nightly digest' --content 'Summarize today's incidents and email the team.'
 
 # 3. Schedule it. --as-self runs on behalf of you, so it can reach your
 #    personal memories (an App-key caller cannot use --as-self).
 hadron schedule create --app acme.com:ops --name nightly-digest \
   --cron '0 6 * * *' --tz America/New_York \
-  --entry acme.com::ops::tasks:nightly-digest --as-self
+  --entry hrn:node:acme.com:ops:tasks:nightly-digest --as-self
 
 # 4. Mint the outbound-comms budget the runs consume (org ADMIN).
 hadron ticket mint --org acme.com --action comm.outbound --count 100 \
@@ -151,7 +151,7 @@ hadron ticket mint --org acme.com --action comm.outbound --count 100 \
 
 # 5. Trigger one now to test, waiting for the terminal status; then audit.
 hadron run trigger --app acme.com:ops \
-  --entry acme.com::ops::tasks:nightly-digest --as-self --wait --json
+  --entry hrn:node:acme.com:ops:tasks:nightly-digest --as-self --wait --json
 hadron run list --app acme.com:ops --status FAILED --json
 hadron run get <run-id> --json          # budgets, policy, failure payload
 ```

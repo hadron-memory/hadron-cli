@@ -15,7 +15,7 @@ condition, the check is **silently skipped**. The node still exists, still looks
 maintained, and never fires again. Nothing in a code diff shows it. That is what
 this command group detects, reports, and (for the mechanical subset) repairs.
 
-Every subcommand takes `-m/--memory <org::memory>`.
+Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
 
 ```
 hadron coding review    list | create | lint
@@ -42,7 +42,7 @@ membership prefix follows it.
 ## See the checklist
 
 ```sh
-hadron coding review list -m hadronmemory.com::hadron-cli
+hadron coding review list -m hrn:mem:hadronmemory.com:hadron-cli
 ```
 
 ```
@@ -59,7 +59,7 @@ could not be read — surfaced rather than dropped).
 `--broken` narrows to what needs attention, which is the triage view:
 
 ```sh
-hadron coding review list -m micromentor.org::mmdata --broken
+hadron coding review list -m hrn:mem:micromentor.org:mmdata --broken
 ```
 
 ```
@@ -76,14 +76,14 @@ everywhere else). `lint` is the command whose exit code reflects findings.
 The router has the same pair:
 
 ```sh
-hadron coding preflight list -m hadronmemory.com::dev
-hadron coding preflight list -m hadronmemory.com::dev --broken   # dead routes only
+hadron coding preflight list -m hrn:mem:hadronmemory.com:dev
+hadron coding preflight list -m hrn:mem:hadronmemory.com:dev --broken   # dead routes only
 ```
 
 ## Add a check
 
 ```sh
-hadron coding review create thin-resolver-field -m acme.com::kb \
+hadron coding review create thin-resolver-field -m hrn:mem:acme.com:kb \
   --trigger "adding or modifying a GraphQL resolver" \
   --description "Resolver fields stay thin — applies when adding or modifying a resolver." \
   --link conventions:graphql-codegen \
@@ -117,7 +117,7 @@ A check created this way passes `coding review lint` as written.
 leads to and wires the route in the same run.
 
 ```sh
-hadron coding preflight create findings:flaky-otp-timer -m acme.com::kb \
+hadron coding preflight create findings:flaky-otp-timer -m hrn:mem:acme.com:kb \
   --route "fix a flaky OTP countdown test" \
   --description "The resend countdown must start before the network await, not after"
 ```
@@ -146,7 +146,7 @@ Notes:
 - **Where the routing line goes is resolved before anything is written.** A
   router with one bullet list takes it automatically. One with several headed
   sections needs `--section <heading>`. A router that routes purely by edge
-  label — `micromentor.org::mm-app` does — needs `--no-body-line`. An ambiguous
+  label — `hrn:mem:micromentor.org:mm-app` does — needs `--no-body-line`. An ambiguous
   router is a usage error listing the headings, never a half-finished write.
 - `--dry-run` rehearses all three writes and issues none, printing where the
   routing line would land. Worth doing against a router you don't know well:
@@ -170,8 +170,8 @@ Notes:
 ## Lint
 
 ```sh
-hadron coding review lint -m acme.com::kb
-hadron coding preflight lint -m acme.com::kb
+hadron coding review lint -m hrn:mem:acme.com:kb
+hadron coding preflight lint -m hrn:mem:acme.com:kb
 ```
 
 | Rule | Severity | Catches |
@@ -205,7 +205,7 @@ Useful knobs:
 ## Repair
 
 ```sh
-hadron coding review lint -m acme.com::kb --fix --yes
+hadron coding review lint -m hrn:mem:acme.com:kb --fix --yes
 ```
 
 `--fix` handles exactly one mechanical case: **promote the check's description

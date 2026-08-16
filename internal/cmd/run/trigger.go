@@ -39,8 +39,8 @@ string). --ai-config selects a named AI config for the run (spec-036 walk
 override). --wait polls the run to a terminal status before returning, then
 exits non-zero if it ended in a non-COMPLETED status (FAILED/TIMED_OUT/CANCELLED),
 so a script can branch on the run's outcome.`,
-		Example: `  hadron run trigger --app acme.com:ops --entry acme.com::ops::tasks:nightly-digest
-  hadron run trigger --app acme.com:ops --entry acme.com::ops::tasks:brief \
+		Example: `  hadron run trigger --app acme.com:ops --entry hrn:node:acme.com:ops:tasks:nightly-digest
+  hadron run trigger --app acme.com:ops --entry hrn:node:acme.com:ops:tasks:brief \
     --arg topic=security --as-self --wait --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, cmdArgs []string) error {

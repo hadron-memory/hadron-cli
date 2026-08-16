@@ -60,13 +60,13 @@ chunk out of it. --strip-source also removes the chunk from the source body,
 but only when it matches verbatim (exactly once) — a reformatted or absent
 chunk leaves the source alone with a warning.`,
 		Example: `  # Carve the "Node type" field out of the Node entity spec into feature 020.
-  hadron spec get cor:dmo:060:02 -m hadronmemory.com::specs --body-only \
+  hadron spec get cor:dmo:060:02 -m hrn:mem:hadronmemory.com:specs --body-only \
     | sed -n '/## Node type/,/## /p' \
-    | hadron spec extract cor:dmo:060:02 -m hadronmemory.com::specs \
+    | hadron spec extract cor:dmo:060:02 -m hrn:mem:hadronmemory.com:specs \
         --to-feature 020 --title "Node type" --content - --strip-source \
         --ref-label "documents the nodeType field of Node"
 
-  hadron spec extract cor:dmo:060:02 -m hadronmemory.com::specs --to-feature 020 --rule 04 --title "Node type" --dry-run`,
+  hadron spec extract cor:dmo:060:02 -m hrn:mem:hadronmemory.com:specs --to-feature 020 --rule 04 --title "Node type" --dry-run`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			source, err := ParseCitation(args[0])

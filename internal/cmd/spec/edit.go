@@ -73,10 +73,10 @@ field non-interactively (and skip the editor); supply both kinds to update body
 and abstract in one call. A field whose flag is omitted is preserved untouched,
 and a field that didn't actually change is not rewritten. Nothing changed writes
 nothing.`,
-		Example: `  hadron spec edit cor:dmo:060:02 -m hadronmemory.com::specs
-  hadron spec edit msg:010:02 -m micromentor.org::platform-specs --dry-run
-  cat rewrite.md | hadron spec edit msg:010:02 -m micromentor.org::platform-specs --content -
-  hadron spec edit msg:010:02 -m micromentor.org::platform-specs --abstract-file abstract.md`,
+		Example: `  hadron spec edit cor:dmo:060:02 -m hrn:mem:hadronmemory.com:specs
+  hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --dry-run
+  cat rewrite.md | hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content -
+  hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --abstract-file abstract.md`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if _, err := ParseCitation(args[0]); err != nil {

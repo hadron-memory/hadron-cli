@@ -43,8 +43,8 @@ worse than missing routing. That is the one error here; the labelling and
 lifecycle conventions are warnings.
 
 Errors exit 5; --strict promotes warnings to errors too.`,
-		Example: `  hadron coding preflight lint -m micromentor.org::mmdata
-  hadron coding preflight lint -m hadronmemory.com::dev --json --strict`,
+		Example: `  hadron coding preflight lint -m hrn:mem:micromentor.org:mmdata
+  hadron coding preflight lint -m hrn:mem:hadronmemory.com:dev --json --strict`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mem, err := codingMemoryURN(memory)
@@ -96,7 +96,7 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to lint (org::memory)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to lint (hrn:mem:<root>:<slug>)")
 	cmd.Flags().StringVar(&root, "root", preflightRootLoc, "loc of the preflight router node")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
 	return cmd

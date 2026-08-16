@@ -47,7 +47,7 @@ also splits authorUserId / authorAgentId. Both commands emit ` + "`author`" + `,
 filter written here keeps working there (#406) — but a filter written for
 ` + "`authorName`" + ` finds nothing in THIS output.`,
 		Example: `  hadron chat read --since 42
-  hadron chat read --node acme.com::team-chats::team-chat:api:messages --json`,
+  hadron chat read --node hrn:node:acme.com:team-chats:team-chat:api:messages --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := resolveCoords(loadProjectChat(), node, memory, messagesLoc)
@@ -83,8 +83,8 @@ filter written here keeps working there (#406) — but a filter written for
 			})
 		},
 	}
-	cmd.Flags().StringVar(&node, "node", "", "message-parent node URN (org::memory::loc); packs memory + message location")
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "chat memory (org::memory); the two-field form with --messages-loc")
+	cmd.Flags().StringVar(&node, "node", "", "message-parent node URN (hrn:node:<root>:<slug>:<loc>); packs memory + message location")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "chat memory (hrn:mem:<root>:<slug>); the two-field form with --messages-loc")
 	cmd.Flags().StringVar(&messagesLoc, "messages-loc", "", "message-parent loc prefix; the two-field form with -m")
 	cmd.Flags().IntVar(&since, "since", 0, "only messages with seq greater than this (0 = whole history)")
 	cmd.MarkFlagsMutuallyExclusive("node", "memory")

@@ -57,7 +57,7 @@ For a team App this is the INSTALL roster — the cast pool. The named staff
 ROLE column is blank for an agent without persona dressing, which is the
 honest answer rather than an empty list.`,
 		Example: `  hadron app agent list hrn:app:acme.com:support
-  hadron app agent list --app acme.com::eng-team --json`,
+  hadron app agent list --app hrn:app:acme.com:eng-team --json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			appRef := ""

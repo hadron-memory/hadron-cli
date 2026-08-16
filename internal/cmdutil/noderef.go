@@ -87,7 +87,7 @@ func ResolveNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref strin
 	if memory = strings.TrimSpace(memory); memory != "" {
 		loc := strings.TrimSpace(ref)
 		if loc == "" {
-			return "", exitcode.Newf(exitcode.Usage, "a bare node loc is required with -m/--memory <org::memory>")
+			return "", exitcode.Newf(exitcode.Usage, "a bare node loc is required with -m/--memory hrn:mem:<root>:<slug>")
 		}
 		// A simple <org>::<slug> memory + a bare loc composes a canonical
 		// grammar-v2 flat node URN (hrn:node:<root>:<slug>:<loc…>) in one step. A
@@ -131,7 +131,7 @@ func BatchNodeRef(memory, ref string) (string, error) {
 	}
 	if memory = strings.TrimSpace(memory); memory != "" {
 		if ref == "" {
-			return "", exitcode.Newf(exitcode.Usage, "a bare node loc is required with -m/--memory <org::memory>")
+			return "", exitcode.Newf(exitcode.Usage, "a bare node loc is required with -m/--memory hrn:mem:<root>:<slug>")
 		}
 		// Mirrors ResolveNodeRef: a simple <org>::<slug> memory + a bare loc
 		// composes a canonical flat v2 node URN; a COMPOUND app-mem memory
@@ -161,7 +161,7 @@ func BatchNodeRef(memory, ref string) (string, error) {
 		// where the memory ends and the loc begins.
 		if urnlib.AssertFullyQualifiedUrn(ref, "node") != nil {
 			return "", exitcode.Newf(exitcode.Usage,
-				"%q is not a fully-qualified node URN — expected <org>::<memory>::<loc>, optionally hrn:node:/urn:node:-prefixed", ref)
+				"%q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc>", ref)
 		}
 		return ref, nil
 	}
@@ -170,7 +170,7 @@ func BatchNodeRef(memory, ref string) (string, error) {
 	// already returned above, before -m composition.)
 	if strings.Count(ref, "::") < 2 || urnlib.AssertFullyQualifiedUrn(ref, "node") != nil {
 		return "", exitcode.Newf(exitcode.Usage,
-			"%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (e.g. hadronmemory.com::dev::start-here), or pass -m <org::memory> (single-colon <org:memory> also accepted) with a bare loc", ref)
+			"%q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc> (e.g. hrn:node:hadronmemory.com:dev:start-here), or pass -m hrn:mem:<root>:<slug> with a bare loc", ref)
 	}
 	return "hrn:node:" + ref, nil
 }
@@ -220,7 +220,7 @@ func ResolveNodeURN(cmd *cobra.Command, client graphql.Client, ref string) (stri
 		// be rejected as the ambiguous form it is, not passed to the server.
 		if strings.Count(urn, "::") < 2 || urnlib.AssertFullyQualifiedUrn(urn, "node") != nil {
 			return "", exitcode.Newf(exitcode.Usage,
-				"%q is not a fully-qualified node URN — expected <org>::<memory>::<loc> (e.g. hadronmemory.com::dev::start-here), or pass -m <org::memory> (single-colon <org:memory> also accepted) with a bare loc", ref)
+				"%q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc> (e.g. hrn:node:hadronmemory.com:dev:start-here), or pass -m hrn:mem:<root>:<slug> with a bare loc", ref)
 		}
 		urn = "hrn:node:" + urn
 	}
@@ -233,7 +233,7 @@ func ResolveNodeURN(cmd *cobra.Command, client graphql.Client, ref string) (stri
 		// point at the canonical grammar so a spelling slip isn't read as a
 		// genuinely-absent node (#138).
 		return "", exitcode.Newf(exitcode.NotFound,
-			"node %q not found — verify it exists; the URN form is <org>::<memory>::<loc>, optionally hrn:node:/urn:node:-prefixed", ref)
+			"node %q not found — verify it exists; the URN form is hrn:node:<root>:<slug>:<loc>", ref)
 	}
 	if resp.ResolveUrn.Kind != "node" {
 		return "", exitcode.Newf(exitcode.Usage, "%q resolves to a %s, not a node", ref, resp.ResolveUrn.Kind)

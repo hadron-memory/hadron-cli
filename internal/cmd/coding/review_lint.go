@@ -54,9 +54,9 @@ meta backlog, pattern nodes, and findings — all of which legitimately hang
 off the same parent, some of them carrying a ` + "`review`" + ` tag.
 
 Errors exit 5; --strict promotes warnings to errors too.`,
-		Example: `  hadron coding review lint -m micromentor.org::mmdata
-  hadron coding review lint -m hadronmemory.com::hadron-portal --json
-  hadron coding review lint -m micromentor.org::mmdata --fix --yes`,
+		Example: `  hadron coding review lint -m hrn:mem:micromentor.org:mmdata
+  hadron coding review lint -m hrn:mem:hadronmemory.com:hadron-portal --json
+  hadron coding review lint -m hrn:mem:micromentor.org:mmdata --fix --yes`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if yes && !fix {
@@ -131,7 +131,7 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to lint (org::memory)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to lint (hrn:mem:<root>:<slug>)")
 	cmd.Flags().StringVar(&root, "root", reviewRootLoc, "loc of the review parent node")
 	cmd.Flags().StringVar(&toolchain, "toolchain", "", `the memory's toolchain for the foreign-toolchain check (e.g. "ts"; "-" disables; default: inferred)`)
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")

@@ -59,9 +59,9 @@ This is a read-only view: a broken check is a row, not an exit code — a
 listing full of them still exits 0. (A usage, auth or not-found error
 exits non-zero as everywhere else.) ` + "`coding review lint`" + ` is the
 command whose exit code reflects findings.`,
-		Example: `  hadron coding review list -m hadronmemory.com::hadron-cli
-  hadron coding review list -m micromentor.org::mmdata --broken
-  hadron coding review list -m hadronmemory.com::hadron-portal --json`,
+		Example: `  hadron coding review list -m hrn:mem:hadronmemory.com:hadron-cli
+  hadron coding review list -m hrn:mem:micromentor.org:mmdata --broken
+  hadron coding review list -m hrn:mem:hadronmemory.com:hadron-portal --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mem, err := codingMemoryURN(memory)
@@ -95,7 +95,7 @@ command whose exit code reflects findings.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to list (org::memory)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to list (hrn:mem:<root>:<slug>)")
 	cmd.Flags().StringVar(&root, "root", reviewRootLoc, "loc of the review parent node")
 	cmd.Flags().BoolVar(&brokenOnly, "broken", false, "only checks that are not ok (broken or unavailable)")
 	return cmd

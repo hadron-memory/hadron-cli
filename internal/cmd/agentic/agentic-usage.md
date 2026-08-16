@@ -92,7 +92,7 @@ node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
 
 ```
 hadron auth login | logout | whoami | status | token create|list|validate|revoke <id>
-hadron memory list [--shared-with-me] | get <id-or-urn> | set [<id-or-urn>] [--org <ref> | --owner-me | --app <ref> --agent <ref>] [--class <c>] [--max-rev-count <n>] [--schema <json> | --schema-file <path>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn <org::slug> | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member list|add|set-role|rm <memory> --user <id> [--role <r>] | share list|create|set-role|revoke <memory> --grantee <user-ref> [--role <r>] | subscription list|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key - | link-user <memoryRef> --external-user <id> [--data-key -] --yes | validate <memoryRef> [--check <kind>]... [--limit N] [--fail-on-findings]
+hadron memory list [--shared-with-me] | get <id-or-urn> | set [<id-or-urn>] [--org <ref> | --owner-me | --app <ref> --agent <ref>] [--class <c>] [--max-rev-count <n>] [--schema <json> | --schema-file <path>] | attach <memory> --app <ref> --agent <ref> | set-active <id-or-urn> | rm <id-or-urn> | clone <id-or-urn> --target-urn hrn:mem:<root>:<slug> | extract <parentRef> <targetUrn> [--move] | export <id-or-urn> [--out <dir>] | member list|add|set-role|rm <memory> --user <id> [--role <r>] | share list|create|set-role|revoke <memory> --grantee <user-ref> [--role <r>] | subscription list|create|set-role|rm <memory> --org <id> [--role <r>] | encrypt <memory> --data-key - | link-user <memoryRef> --external-user <id> [--data-key -] --yes | validate <memoryRef> [--check <kind>]... [--limit N] [--fail-on-findings]
 hadron node list [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--sort-seq asc|desc] [--seq-gt N] | get <urn>... | get <loc>... -m <memory> | get --prefix <loc> -m <memory> | add [--type <t>] [--object-type <t>] [--data <json>|--data-file <path>] [--properties <json>|--properties-file <path>] | update <urn> [--type <t>] [--object-type <t>|""] [--data <json>|--data-file <path>|--data-merge <json>|--data-merge-file <path>] [--properties <json>|--properties-file <path>] | move <urn> (--to-urn <urn> | --to-memory <memory>) | clone <urn> (--to-urn <urn> | --to-memory <memory>) | merge <urn> --into <urn> [--field <f>]... [--delete-source] --yes | rm <urn> [--hard] [--recursive|-r] | export <urn> [-o <file>] [--format md|json|pdf] | import <file|-|--url <u>> [-m <memory>] [--with-edges] [--task <ref> [--task-args <json>] [--app <ref>]] | revision list <node-ref> [-m <memory>] [--limit N] | revision get <revision-id> | revision restore <revision-id> [--truncate [--yes]] | revision label <revision-id> --label <text> | revision delete <revision-id> [--yes] | revision clear <node-ref> [-m <memory>] [--yes]
 hadron object create -m <memory> --type <t> --fields <json>|--fields-file <path> [--key <k>] [--name <n>] | get <ref> | update <ref> --fields <json>|--fields-file <path> [--reason <r>] | delete <ref> [--hard] --yes | find -m <memory> --type <t> [--match <json>] [--where <json>] [--sort <json>] [--limit N] [--offset N]
 hadron asset list -m <memory> [--mine] [--mime <type>] [--include-deleted] [--limit N] [--offset N] | get <asset-ref> [-o <path>|-] [--force] | url <asset-ref> [-m <memory>] | upload <file> -m <memory> [--mime <t>] [--name <n>] [--description <d>] | rm <asset-ref> [--yes] | restore <asset-ref> | link <asset-ref> --node <new-node-urn> [--name <n>] [--description <d>]
@@ -161,24 +161,24 @@ Conventions:
   `memory get|set|attach|rm|member|share|export`.
 - Node references are fully-qualified URNs. Either the canonical flat v2 form
   `hrn:node:<root>:<slug>:<loc…>`, or the scheme-less
-  `<org>::<memory>::<loc>` (double-colon between segments — e.g.
-  `hadronmemory.com::dev::start-here`), optionally `hrn:node:`-prefixed (legacy
+  `<org>::<memory>::<loc>` (legacy; double-colon between segments — e.g.
+  `hrn:node:hadronmemory.com:dev:start-here`), optionally `hrn:node:`-prefixed (legacy
   `urn:node:` also accepted). Scheme-less single-colon `<org>:<memory>:<loc>` is
   **not** a valid full URN — a loc itself contains single colons
   (`services:secureid:user-reporting`), so it's ambiguous; the `hrn:node:` prefix
   is what removes that ambiguity for the flat v2 form. A bare loc is rejected
-  (exit 2) *unless* you pass `-m/--memory <org::memory>` (single-colon
-  `<org>:<memory>` also accepted) to name the memory — then
+  (exit 2) *unless* you pass `-m/--memory hrn:mem:<root>:<slug>` (the short
+  `<org>:<slug>` / `<org>::<slug>` forms also accepted) to name the memory — then
   `node get|update|move|clone|rm|export` and `edge add|list` take a bare `<loc>`
-  (e.g. `node get start-here -m hadronmemory.com::dev`; `edge add -m a::m --from
-  x --to y …` applies the memory to both endpoints). For `node move|clone`, `-m`
+  (e.g. `node get start-here -m hrn:mem:hadronmemory.com:dev`; `edge add -m
+  hrn:mem:a:m --from x --to y …` applies the memory to both endpoints). For `node move|clone`, `-m`
   scopes only the source `<loc>`; the destination is always the explicit
   `--to-urn`/`--to-memory`.
   Without `-m`, the URN must name the memory — the same loc can exist in
   several memories.
 - Edges are directed, first-class entities (spec 037): each carries an
   optional `name` (the relationship — was `label`) and a `loc` that is its
-  identity (`hrn:edge:<org>::<memory>::<loc>`). `edge add --from <node> --to
+  identity (`hrn:edge:<root>:<memory>:<loc>`). `edge add --from <node> --to
   <node> --name <rel>` creates one (plus optional `--loc`/`--description`/
   `--runnable`); `edge update`/`edge rm` address it by its edge ID (shown by
   `edge list` and in `node get --json`). A nameless edge prints its loc instead.
@@ -320,8 +320,8 @@ Conventions:
   `data` in the text view (and the `data` field in `--json`).
 - `node move` relocates a node and `node clone` copies it. Both name the source
   by URN (or a bare `<loc>` with `-m`) and take **exactly one** destination:
-  `--to-urn <org>::<memory>::<loc>` (a full destination URN — new memory and/or
-  loc) or `--to-memory <org::memory>` (keep the loc, change the memory). `move`
+  `--to-urn hrn:node:<root>:<slug>:<loc>` (a full destination URN — new memory
+  and/or loc) or `--to-memory hrn:mem:<root>:<slug>` (keep the loc, change the memory). `move`
   relocates the node **together with its whole subtree** (descendants come
   along) and keeps each node's id so edges stay valid; `clone` returns a **new**
   node (fresh id) and copies only the outgoing edges that resolve at the
@@ -494,9 +494,9 @@ Conventions:
     resolved is listed under `unresolved[]` (its parent edge is dropped). `--json`
     is `{mode:"tree", root, created[], existing[], unresolved[], skipped[],
     collisions[], edgesWired, nodesCreated}`.
-- `memory clone <id-or-urn> --target-urn <org::slug>` deep-copies a memory
+- `memory clone <id-or-urn> --target-urn hrn:mem:<root>:<slug>` deep-copies a memory
   (nodes, edges, pending edges) into a new memory named by `--target-urn`
-  (a fully-qualified "org::slug" URN) and rewrites references to the source
+  (a fully-qualified `hrn:mem:<root>:<slug>` URN) and rewrites references to the source
   memory's URN inside node content and abstracts. The target org MAY differ
   from the source's, cloning into another org — you must be a non-reader
   member of that target org. Version history, shares/subscriptions, assets,
@@ -504,10 +504,10 @@ Conventions:
   app memories cannot be cloned.
 - `memory extract <parentRef> <targetUrn> [--move]` extracts a parent node and
   its loc-subtree into a NEW memory named by `<targetUrn>` (a fully-qualified
-  "org::slug" URN, org MAY differ), making the parent the memory's root — locs
+  `hrn:mem:<root>:<slug>` URN, root MAY differ), making the parent the memory's root — locs
   are rebased (`findings:auth`→`<slug>`, `findings:auth:oauth`→`<slug>:oauth`).
-  `<parentRef>` is a node id or fully-qualified `<org>::<memory>::<loc>` URN;
-  pass `-m <org::memory>` with a bare loc instead. Default COPIES (source
+  `<parentRef>` is a node id or fully-qualified `hrn:node:<root>:<slug>:<loc>`
+  URN; pass `-m hrn:mem:<root>:<slug>` with a bare loc instead. Default COPIES (source
   intact); `--move` relocates it, soft-deleting the source subtree (needs
   source write access, cannot target the source root). The new memory preserves
   the source's class. v1 limitation: node content is copied verbatim, so URN
@@ -681,7 +681,7 @@ Conventions:
   `--system-memory`/`--surface` (repeatable); `agent update <ref> [<field flags>]`
   changes only the fields you pass (`--surface` replaces the set); `agent rm <ref>`
   requires `--yes`. `<ref>` is an agent ID **or** a fully-qualified URN
-  (`acme.com::support-bot`) — no need to resolve an ID first. Memory-attach, AI-config wiring, and app-wiring land next.
+  (`hrn:agent:acme.com:support-bot`) — no need to resolve an ID first. Memory-attach, AI-config wiring, and app-wiring land next.
 - `app agent add <app> <agent>` / `remove <app> <agent>` wrap
   `installAgentIntoApp` / `uninstallAgentFromApp` — the AppAgent join
   (`cor:dmo:050:03`), and the only way to attach an Agent to an App you
@@ -923,7 +923,7 @@ Conventions:
   rights on the resource (platform admin, the owning org's ADMIN/OWNER, or a
   strict-owner memory's principal) — otherwise the server's `FORBIDDEN` surfaces
   as exit 1. An unresolvable resource is exit 4; an under-qualified resource ref
-  (e.g. `acme.com::kb` with no `hrn:` prefix) is a usage error (exit 2).
+  (e.g. `acme.com:kb` with no `hrn:` prefix) is a usage error (exit 2).
 - **Headless runs** (spec-040, `cor:agt:010`) drive an App off any interactive
   session — the open-source counterpart to the portal's run surface. A *run*
   executes an entry (prompt) node under an App's identity; `run`, `schedule`, and
@@ -970,7 +970,7 @@ Conventions:
     (self-audit is never gated); org ADMINs pass `--org` for the whole org,
     optionally `--user` to narrow. `grant revoke <id> --yes` soft-deletes;
     takes effect at the next gate check.
-  - Every entry node is a fully-qualified node URN (`<org>::<memory>::<loc>`,
+  - Every entry node is a fully-qualified node URN (`hrn:node:<root>:<slug>:<loc>`,
     optionally `hrn:node:`-prefixed) — a bare loc is rejected (exit 2). `--app`
     defaults to the App context (`hadron app use` / `--app`) when omitted.
 
@@ -1016,26 +1016,26 @@ hadron memory get acme.com:project-memory --json
 hadron memory export acme.com:project-memory --out ./kb --json
 
 # List nodes in a memory
-hadron node list --memory acme.com::kb --json
+hadron node list --memory hrn:mem:acme.com:kb --json
 
 # Read one node's content and edges
-hadron node get acme.com::kb::findings:flaky-ci --json
+hadron node get hrn:node:acme.com:kb:findings:flaky-ci --json
 
 # Create a node from stdin
-cat finding.md | hadron node add -m acme.com::kb --loc findings:flaky-ci \
+cat finding.md | hadron node add -m hrn:mem:acme.com:kb --loc findings:flaky-ci \
   --name "Flaky CI" --content -
 
 # Update just the name (other fields preserved)
-hadron node update acme.com::kb::findings:flaky-ci --name "Flaky CI (resolved)"
+hadron node update hrn:node:acme.com:kb:findings:flaky-ci --name "Flaky CI (resolved)"
 
 # Author structured storage (#725, the write half of the --where/--object-type
 # query surface). Define a memory's property schema (declared collections +
 # typed fields), then write conforming records — the server validates
 # objectType + properties against the schema. `node get` reads them back.
-hadron memory set acme.com::research --schema-file schema.json
-hadron node add -m acme.com::research --loc competitors:acme --name Acme \
+hadron memory set hrn:mem:acme.com:research --schema-file schema.json
+hadron node add -m hrn:mem:acme.com:research --loc competitors:acme --name Acme \
   --object-type competitor --properties '{"tier":"enterprise","seats":50}'
-hadron node update acme.com::research::competitors:acme --properties '{"tier":"pro","seats":12}'
+hadron node update hrn:node:acme.com:research:competitors:acme --properties '{"tier":"pro","seats":12}'
 # --properties REPLACES the bag (like --data, not --data-merge); pass "null" to
 # clear it, --object-type "" to make a node ordinary again. There is no
 # --properties-merge yet (blocked on the server-side updateNodeProperties
@@ -1048,19 +1048,19 @@ hadron node update acme.com::research::competitors:acme --properties '{"tier":"p
 # create validates against the schema; update is an atomic shallow MERGE (unlike
 # node --properties, which replaces); find desugars --match/--sort to the
 # where/sort-property grammar. Use it when you want records, not graph nodes.
-hadron object create -m acme.com::research --type competitor \
+hadron object create -m hrn:mem:acme.com:research --type competitor \
   --fields '{"name":"Letta","stage":"series-a","fundingUsd":12000000}' --key letta
-hadron object update acme.com::research::competitor:letta --fields '{"stage":"series-b"}'
-hadron object find -m acme.com::research --type competitor \
+hadron object update hrn:node:acme.com:research:competitor:letta --fields '{"stage":"series-b"}'
+hadron object find -m hrn:mem:acme.com:research --type competitor \
   --match '{"stage":"series-b"}' --sort '{"fundingUsd":"desc"}' --json
-hadron object get acme.com::research::competitor:letta   # flat { id, type, ...fields }
+hadron object get hrn:node:acme.com:research:competitor:letta   # flat { id, type, ...fields }
 
 # Move a node (keeps its id + edges); clone it to a new memory (new id)
-hadron node move acme.com::kb::findings:flaky-ci --to-urn acme.com::kb::archive:flaky-ci
-hadron node clone acme.com::kb::templates:base --to-memory acme.com::sandbox --json
+hadron node move hrn:node:acme.com:kb:findings:flaky-ci --to-urn hrn:node:acme.com:kb:archive:flaky-ci
+hadron node clone hrn:node:acme.com:kb:templates:base --to-memory hrn:mem:acme.com:sandbox --json
 
 # Fold a duplicate node into the canonical one (agents must pass --yes)
-hadron node merge acme.com::kb::findings:dup --into acme.com::kb::findings:canonical \
+hadron node merge hrn:node:acme.com:kb:findings:dup --into hrn:node:acme.com:kb:findings:canonical \
   --field CONTENT --field EDGES --delete-source --yes
 
 # Bulk search-and-replace across a memory. A real run previews + prompts;
@@ -1069,14 +1069,14 @@ hadron node merge acme.com::kb::findings:dup --into acme.com::kb::findings:canon
 # --max-nodes N refuses the write if more than N nodes would change (a guard
 # against a whole-memory rewrite from a wrong -m URN or a forgotten --prefix).
 hadron replace text "old-url.com" "new-url.com" \
-  -m acme.com::kb --field content --field description --dry-run
+  -m hrn:mem:acme.com:kb --field content --field description --dry-run
 
 # Connect two nodes
-hadron edge add --from acme.com::kb::findings:flaky-ci \
-  --to acme.com::kb::start-here --label routes-to
+hadron edge add --from hrn:node:acme.com:kb:findings:flaky-ci \
+  --to hrn:node:acme.com:kb:start-here --label routes-to
 
 # List a node's edges, delete one (agents must pass --yes)
-hadron edge list acme.com::kb::findings:flaky-ci --json
+hadron edge list hrn:node:acme.com:kb:findings:flaky-ci --json
 hadron edge rm <edge-id> --yes
 
 # Delete a node (agents must pass --yes). Soft by default (recoverable from
@@ -1084,22 +1084,22 @@ hadron edge rm <edge-id> --yes
 # irreversibly. Deleting a node that HAS descendants is refused (exit 2,
 # NODE_HAS_DESCENDANTS naming the count) unless you pass --recursive/-r, which
 # deletes the whole subtree under its loc.
-hadron node rm acme.com::kb::findings:flaky-ci --yes
-hadron node rm acme.com::kb::data:stale --hard --yes
-hadron node rm acme.com::kb::findings --recursive --yes    # the branch + all children
+hadron node rm hrn:node:acme.com:kb:findings:flaky-ci --yes
+hadron node rm hrn:node:acme.com:kb:data:stale --hard --yes
+hadron node rm hrn:node:acme.com:kb:findings --recursive --yes    # the branch + all children
 
 # Revision history: list a node's snapshots, then inspect, label, or restore one.
 # restore is undoable by default; --truncate discards newer history (needs --yes).
 # Pass a bare node id to reach a soft-deleted node's history for cleanup.
-hadron node revision list acme.com::kb::findings:flaky-ci --json
+hadron node revision list hrn:node:acme.com:kb:findings:flaky-ci --json
 hadron node revision get <revision-id>
 hadron node revision label <revision-id> --label "before the auth refactor"
 hadron node revision restore <revision-id>
 hadron node revision restore <revision-id> --truncate --yes
-hadron node revision clear acme.com::kb::findings:flaky-ci --yes
+hadron node revision clear hrn:node:acme.com:kb:findings:flaky-ci --yes
 
 # Ranked search (hybrid semantic+keyword by default; scores + abstracts in --json)
-hadron search "how do users report a bad actor" -m micromentor.org::mmdata --json
+hadron search "how do users report a bad actor" -m hrn:mem:micromentor.org:mmdata --json
 
 # Structured property/attribute queries (parity with the server #719 `where`
 # predicate). --where is a raw-JSON predicate over the node's properties/data
@@ -1109,7 +1109,7 @@ hadron search "how do users report a bad actor" -m micromentor.org::mmdata --jso
 # BRANCH is {"and"|"or":[...]} or {"not":{...}}. --object-type filters the
 # objectType collection facet; --sort-property orders by a JSON path (overrides
 # relevance/loc sort). Available on both `node list` (browse) and `search` (ranked).
-hadron node list -m acme.com::kb --object-type insight \
+hadron node list -m hrn:mem:acme.com:kb --object-type insight \
   --where '{"and":[{"path":["source"],"eq":"substack"},{"path":["capturedAt"],"as":"datetime","gte":"2026-07-04"}]}' \
   --sort-property '{"path":["capturedAt"],"as":"datetime","direction":"desc"}' --json
 hadron search "pricing" --object-type competitor --where '{"path":["tier"],"eq":"enterprise"}' --json
@@ -1119,12 +1119,12 @@ hadron api 'query($q: String!) { findNodes(query: $q) { hits { node { loc name }
 
 # Drive a headless run: fire an entry node now and wait for the result
 hadron run trigger --app acme.com:ops \
-  --entry acme.com::ops::tasks:nightly-digest --arg topic=security --wait --json
+  --entry hrn:node:acme.com:ops:tasks:nightly-digest --arg topic=security --wait --json
 
 # Schedule it nightly (on behalf of you, so it can reach your personal memories)
 hadron schedule create --app acme.com:ops --name nightly-digest \
   --cron '0 6 * * *' --tz America/New_York \
-  --entry acme.com::ops::tasks:nightly-digest --as-self
+  --entry hrn:node:acme.com:ops:tasks:nightly-digest --as-self
 
 # Inspect what ran and why (the audit surface)
 hadron run list --app acme.com:ops --status FAILED --json

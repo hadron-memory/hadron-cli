@@ -482,11 +482,11 @@ func canonicalMemoryURN(s string) string {
 // requires the fully-qualified form for node-ref FQNs and the nodes filter.
 func memoryURNFromFlag(m string) (string, error) {
 	if strings.TrimSpace(m) == "" {
-		return "", exitcode.Newf(exitcode.Usage, "a memory is required: pass -m/--memory <org::memory>")
+		return "", exitcode.Newf(exitcode.Usage, "a memory is required: pass -m/--memory hrn:mem:<root>:<slug>")
 	}
 	canon := memoryRefV1(m)
 	if !isFullyQualifiedMemoryURN(canon) {
-		return "", exitcode.Newf(exitcode.Usage, "invalid memory ref %q: use <org::memory>, <org:memory>, or hrn:memory:<org::memory>", m)
+		return "", exitcode.Newf(exitcode.Usage, "invalid memory ref %q: use hrn:mem:<root>:<slug>", m)
 	}
 	return stripMemoryScheme(canon), nil
 }
@@ -513,11 +513,11 @@ func resolveSpecMemoryURN(cmd *cobra.Command, client graphql.Client, ref string)
 	canon := memoryRefV1(ref)
 	norm := stripMemoryScheme(canon)
 	if norm == "" {
-		return "", exitcode.Newf(exitcode.Usage, "a memory is required: pass -m/--memory <org::memory>")
+		return "", exitcode.Newf(exitcode.Usage, "a memory is required: pass -m/--memory hrn:mem:<root>:<slug>")
 	}
 	if strings.Contains(norm, ":") {
 		if !isFullyQualifiedMemoryURN(canon) {
-			return "", exitcode.Newf(exitcode.Usage, "invalid memory ref %q: use <org::memory>, <org:memory>, or hrn:memory:<org::memory>", ref)
+			return "", exitcode.Newf(exitcode.Usage, "invalid memory ref %q: use hrn:mem:<root>:<slug>", ref)
 		}
 		return norm, nil // already fully-qualified — no lookup needed
 	}
@@ -568,7 +568,7 @@ func effectiveSpecMemory(f *cmdutil.Factory, flagVal string) (string, error) {
 	}
 	if ref == "" {
 		return "", exitcode.Newf(exitcode.Usage,
-			"a memory is required: pass -m/--memory, or set a spec default with `hadron spec use <org::memory>`")
+			"a memory is required: pass -m/--memory, or set a spec default with `hadron spec use hrn:mem:<root>:<slug>`")
 	}
 	if note != "" {
 		fmt.Fprintln(f.IOStreams.ErrOut, note)
@@ -758,7 +758,7 @@ func lookupSpecMemory(cmd *cobra.Command, client graphql.Client, ref string) (id
 	if norm == "" {
 		// Empty, or a bare scheme prefix like "hrn:memory:" — nothing to match
 		// (and an empty want must not collide with an empty-urn memory).
-		return "", "", exitcode.Newf(exitcode.Usage, "a memory is required: pass -m/--memory <org::memory>")
+		return "", "", exitcode.Newf(exitcode.Usage, "a memory is required: pass -m/--memory hrn:mem:<root>:<slug>")
 	}
 	want := collapseColons(norm)
 	// Every class, system included (memories() hides system by default), paged

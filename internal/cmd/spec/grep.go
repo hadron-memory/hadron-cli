@@ -45,9 +45,9 @@ abstract are searched; restrict with --field content|abstract.
 grep is deliberately broad (no word-boundary): use it to discover every place a
 token appears — including inside longer tokens — then rewrite precisely with
 ` + "`hadron spec replace`" + `, which is word-boundary-aware by default.`,
-		Example: `  hadron spec grep h-read-node -m hadronmemory.com::specs
-  hadron spec grep 'hadron_[a-z_]+' -m hadronmemory.com::specs --regex --json
-  hadron spec grep TODO -m hadronmemory.com::specs --prefix cor:api --field content`,
+		Example: `  hadron spec grep h-read-node -m hrn:mem:hadronmemory.com:specs
+  hadron spec grep 'hadron_[a-z_]+' -m hrn:mem:hadronmemory.com:specs --regex --json
+  hadron spec grep TODO -m hrn:mem:hadronmemory.com:specs --prefix cor:api --field content`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pattern := args[0]

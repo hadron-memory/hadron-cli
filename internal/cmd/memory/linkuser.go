@@ -60,8 +60,8 @@ history.
 
 Because the promotion is irreversible, this prompts on a terminal and requires
 --yes when run non-interactively.`,
-		Example: `  hadron memory link-user acme.com::anon-7f3 --external-user auth0|abc123 --yes
-  printf '%s' "$DATA_KEY" | hadron memory link-user acme.com::anon-7f3 \
+		Example: `  hadron memory link-user hrn:mem:acme.com:anon-7f3 --external-user auth0|abc123 --yes
+  printf '%s' "$DATA_KEY" | hadron memory link-user hrn:mem:acme.com:anon-7f3 \
     --external-user auth0|abc123 --data-key - --yes --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
