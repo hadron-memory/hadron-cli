@@ -786,8 +786,12 @@ Conventions:
   Agent's system memory, so the delete destroys the only copy), then
   `node rm hrn:node:<org>:<team-agent>-system:roles:<old> --yes` (this is
   what frees the names), then `role update <new> --name-range <old range>`,
-  then `role names set <new> <old register>`, and only last
-  `app agent remove` + `agent rm` on the old role agent. Names before the
+  then `role names add <new> <old register>` (**add**, never `set`: the
+  successor usually has its own register and `set` replaces wholesale —
+  dropping its free names silently and refusing `TEAM_ROLE_NAME_MINTED` on a
+  minted one, with the old definition already gone), and only last
+  `app agent remove <app> <old-agent> --yes` + `agent rm <old-agent> --yes`
+  (both are confirmation-gated and refuse off a TTY). Names before the
   range fails `TEAM_ROLE_NAME_OUT_OF_RANGE`; either before the delete fails
   `TEAM_ROLE_NAME_DUPLICATE`. Minted names survive the move — a worker's
   name lives on the WORKER — and reappear marked taken in the successor's

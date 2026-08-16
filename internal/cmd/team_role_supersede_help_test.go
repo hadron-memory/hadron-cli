@@ -28,8 +28,16 @@ func TestRoleHelpCarriesTheSupersedeOrder(t *testing.T) {
 		"hadron team role get <old> --json", // capture, before the delete destroys it
 		"hadron node rm",                    // frees the names
 		"hadron team role update <new> --name-range",
-		"hadron team role names set <new>",
-		"hadron app agent remove",
+		// `add`, not `set`: set replaces the successor's register wholesale,
+		// which drops its own free names and refuses on a minted one — at the
+		// one point in the sequence where the old definition is already gone
+		// (PR #447 review).
+		"hadron team role names add <new>",
+		"hadron app agent remove <app> <old-agent> --yes",
+		// The cleanup is TWO commands, and both are confirmation-gated: an
+		// agent running this sequence off a TTY stalls on the last step
+		// without --yes. Asserting the flag inside the marker covers both.
+		"hadron agent rm <old-agent> --yes",
 	}
 	prev := -1
 	for _, want := range steps {

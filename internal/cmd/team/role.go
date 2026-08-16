@@ -57,13 +57,19 @@ order-dependent: a name may not sit in two of one App's registers
        Widen the successor's range BEFORE its names arrive, or step 3's
        additions fall outside it.
 
-  3. hadron team role names set <new> <the old register>
-       Position is allocation order — preserve it.
+  3. hadron team role names add <new> <the old register>
+       ADD, never ` + "`set`" + `: the successor usually carries a register of its
+       own, and set REPLACES wholesale — its own free names would vanish
+       silently, and a minted one would refuse TEAM_ROLE_NAME_MINTED with
+       the old definition already deleted. add merges, skips names already
+       present, and is CAS-safe. It appends, so if the inherited names
+       should be allocated first, ` + "`role names mv`" + ` puts them there.
 
-  4. hadron app agent remove <app> <old-agent>
-     hadron agent rm <old-agent>
-       Last, and only once nothing else needs the old role agent. ` + "`agent rm`" + `
-       cascades to that agent's system memory.
+  4. hadron app agent remove <app> <old-agent> --yes
+     hadron agent rm <old-agent> --yes
+       Last, and only once nothing else needs the old role agent. Both
+       prompt without --yes and REFUSE off a TTY; ` + "`agent rm`" + ` cascades to
+       that agent's system memory.
 
 Step 3 before 2 fails TEAM_ROLE_NAME_OUT_OF_RANGE; either before 1 fails
 TEAM_ROLE_NAME_DUPLICATE.
