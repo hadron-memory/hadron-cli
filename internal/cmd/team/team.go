@@ -247,6 +247,24 @@ func describeApp(ctx context.Context, f *cmdutil.Factory, ref string) string {
 	return readable
 }
 
+// lazyAppLabel renders a resolved App scope as "<readable app> (<source>)",
+// on first call only, and caches it (#468).
+//
+// Every site that prints this is GUARDED: `--json` never runs the human
+// branch, and `--yes` skips a confirmation prompt entirely. So the read must
+// not fire until a site that actually prints it fires — an agent running
+// `role rm --yes --json` should pay nothing — and must not fire twice when a
+// command both prompts and prints a receipt.
+func lazyAppLabel(ctx context.Context, f *cmdutil.Factory, scope appScope) func() string {
+	var cached string
+	return func() string {
+		if cached == "" {
+			cached = describeApp(ctx, f, scope.Ref) + " (" + scope.Source + ")"
+		}
+		return cached
+	}
+}
+
 func roleSuffix(role *string) string {
 	if role == nil || *role == "" {
 		return ""

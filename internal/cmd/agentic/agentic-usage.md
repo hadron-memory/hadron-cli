@@ -748,6 +748,14 @@ Conventions:
   TEMPLATE lives on the role AGENT (`agent get`), not the role node;
   `--team-agent` disambiguates when several
   installed agents carry a `roles:` branch (`TEAM_AGENT_AMBIGUOUS`, exit 2).
+  The whole group's team App resolves ambiently (`--app` → App context →
+  the worktree binding), so every command says which App it acted on and
+  **which of those answered** (#468): the reads open with it, the writes
+  carry it in the receipt, `role rm` puts it in the confirmation. It
+  matters more here than on a listing — register order decides who the
+  register-mode cast allocates next, so an edit landing in the wrong team
+  changes who gets cast there. Render-only: `--json` shapes are unchanged
+  and the decorating read is not issued under `--json`.
   **`team role create/update/names`** (#410) are the register WRITES, thin
   over `createTeamRole`/`updateTeamRole` — the invariants run SERVER-side in
   one App-scoped critical section serialized with register-mode casting: a
