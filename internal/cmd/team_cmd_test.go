@@ -27,6 +27,10 @@ const retiredWorkerJSON = `{"id":"wkr2","urn":"hrn:worker:acme.com:eng-team:uma"
 
 const staffJSON = `{"data":{"workers":{"total":2,"items":[` + irisWorkerJSON + `,` + retiredWorkerJSON + `]}}}`
 
+// The readable identity of the team App (#458) — what turns the `app1` the
+// ambient resolution hands back into something a reader can act on.
+const teamAppIdentityJSON = `{"data":{"app":{"id":"app1","urn":"hrn:app:acme.com:eng-team","name":"Eng Team"}}}`
+
 func TestTeamWorkerCast(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"CastWorker": `{"data":{"castWorker":` + irisWorkerJSON + `}}`,
@@ -199,6 +203,137 @@ func TestTeamWorkerList(t *testing.T) {
 	}
 }
 
+// #458: the staff table names the App it is listing AND where that scope came
+// from. The source is the load-bearing half — the fallback chain is silent, so
+// the same bare command in two worktrees bound to different teams prints
+// different staff with visually identical output.
+func TestTeamWorkerListNamesTheResolvedAppAndItsSource(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"Workers":         staffJSON,
+		"TeamAppIdentity": teamAppIdentityJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "list", "--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "app: hrn:app:acme.com:eng-team — Eng Team (from --app)") {
+		t.Errorf("the scope line must name the App and its source: %s", out.String())
+	}
+	var idVars map[string]any
+	_ = json.Unmarshal(captured["TeamAppIdentity"], &idVars)
+	if idVars["appRef"] != "acme.com:eng-team" {
+		t.Errorf("the identity read must use the resolved ref: %v", idVars)
+	}
+	// The worker URN replaces AGENT ID: addressable and readable (the App slug
+	// is in it), where AGENT ID was an opaque id nobody acts on.
+	if !strings.Contains(out.String(), "URN") ||
+		!strings.Contains(out.String(), "hrn:worker:acme.com:eng-team:iris") {
+		t.Errorf("the staff table must carry each worker's URN: %s", out.String())
+	}
+	if strings.Contains(out.String(), "AGENT ID") {
+		t.Errorf("AGENT ID was the weakest column and is dropped: %s", out.String())
+	}
+
+	// An EMPTY staff is the sharpest case for the scope line: "no workers" and
+	// "pointed at the wrong App" look identical without it.
+	gql2, _ := captureGraphQL(t, map[string]string{
+		"Workers":         `{"data":{"workers":{"total":0,"items":[]}}}`,
+		"TeamAppIdentity": teamAppIdentityJSON,
+	})
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "worker", "list", "--app", "acme.com:eng-team", "--server", gql2.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out2.String(), "app: hrn:app:acme.com:eng-team — Eng Team (from --app)") {
+		t.Errorf("an empty staff must still say which App it found nobody in: %s", out2.String())
+	}
+}
+
+// The hazard case: no --app, so the scope came from the worktree binding —
+// which is exactly the resolution a reader cannot see. It reports itself, and
+// the binding's raw AppID renders as the App's URN rather than a UUID.
+func TestTeamWorkerListReportsBindingAsTheAppSource(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingFixture), 0o600); err != nil {
+		t.Fatalf("write binding: %v", err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{
+		"Workers":         staffJSON,
+		"TeamAppIdentity": teamAppIdentityJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "list", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "app: hrn:app:acme.com:eng-team — Eng Team (from the worktree binding)") {
+		t.Errorf("an ambient binding scope must say so: %s", out.String())
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["Workers"], &vars)
+	if vars["appRef"] != "app1" {
+		t.Errorf("the staff scan still uses the binding's AppID: %v", vars)
+	}
+}
+
+// The scope line is a RENDER, so it stays out of --json: the shape is the bare
+// array it has always been, every documented key intact, and the decorating
+// read is not even issued (--json carries appId; a consumer resolves it).
+func TestTeamWorkerListJSONShapeUnchangedByScopeLine(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"Workers":         staffJSON,
+		"TeamAppIdentity": teamAppIdentityJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "list", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, called := captured["TeamAppIdentity"]; called {
+		t.Error("--json must not pay for a render-only identity read")
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &rows); err != nil {
+		t.Fatalf("--json must stay a bare array: %v (%s)", err, out.String())
+	}
+	if len(rows) != 1 {
+		t.Fatalf("rows: %s", out.String())
+	}
+	for _, k := range []string{"id", "urn", "slug", "appId", "agentId", "name", "role"} {
+		if _, ok := rows[0][k]; !ok {
+			t.Errorf("--json key %q must survive the render change: %s", k, out.String())
+		}
+	}
+}
+
+// describeApp decorates a render; it never gates one. An App record the caller
+// cannot read must not turn a working staff listing into an error — the line
+// degrades to the ref already in hand.
+func TestTeamWorkerListSurvivesUnreadableApp(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"Workers":         staffJSON,
+		"TeamAppIdentity": `{"errors":[{"message":"forbidden","extensions":{"code":"FORBIDDEN"}}]}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "list", "--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("an unreadable App record must not fail the staff read: %v", err)
+	}
+	if !strings.Contains(out.String(), "app: acme.com:eng-team (from --app)") {
+		t.Errorf("the scope line must fall back to the raw ref: %s", out.String())
+	}
+	if !strings.Contains(out.String(), "Iris") {
+		t.Errorf("the staff must still render: %s", out.String())
+	}
+}
+
 // A worker NAME resolves within the App (case-insensitively, like the
 // server's per-App uniqueness).
 func TestTeamWorkerGetByName(t *testing.T) {
@@ -298,7 +433,8 @@ func TestTeamWorkerGetTolueratesNullURN(t *testing.T) {
 	teamGitDir(t)
 	legacy := strings.Replace(irisWorkerJSON, `"urn":"hrn:worker:acme.com:eng-team:iris"`, `"urn":null`, 1)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetWorker": `{"data":{"worker":` + legacy + `}}`,
+		"GetWorker":       `{"data":{"worker":` + legacy + `}}`,
+		"TeamAppIdentity": teamAppIdentityJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -321,6 +457,34 @@ func TestTeamWorkerGetTolueratesNullURN(t *testing.T) {
 	}
 	if !strings.Contains(out2.String(), `"urn": null`) {
 		t.Errorf("--json must preserve the null address: %s", out2.String())
+	}
+}
+
+// #458: `worker get` named its App as a UUID in parentheses. It gets its own
+// line, rendered readably — and no source phrase, because this App is the
+// WORKER's own off the row, not an ambient scope that could have been wrong.
+func TestTeamWorkerGetNamesTheApp(t *testing.T) {
+	teamGitDir(t)
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetWorker":       `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"TeamAppIdentity": teamAppIdentityJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "get", "wkr1", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "\n  app: hrn:app:acme.com:eng-team — Eng Team\n") {
+		t.Errorf("the App must be named, not spelled as its UUID: %s", out.String())
+	}
+	if strings.Contains(out.String(), "(app app1)") {
+		t.Errorf("the old parenthesised UUID is gone: %s", out.String())
+	}
+	var idVars map[string]any
+	_ = json.Unmarshal(captured["TeamAppIdentity"], &idVars)
+	if idVars["appRef"] != "app1" {
+		t.Errorf("the identity read must use the worker's own appId: %v", idVars)
 	}
 }
 

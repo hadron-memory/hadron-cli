@@ -178,6 +178,19 @@ query TeamMemoryApp($ref: ID!) {
   }
 }
 
+# #458: the READABLE identity of a team App. The ambient App resolution hands
+# back whatever ref answered — often the binding's raw AppID — so a human read
+# that names its App has only a UUID to print. Deliberately three scalars: this
+# runs to decorate a render, never to gate one, so the call site treats a
+# failure as "no readable name" and falls back to the raw ref.
+query TeamAppIdentity($appRef: ID!) {
+  app(ref: $appRef) {
+    id
+    urn
+    name
+  }
+}
+
 fragment TeamSessionFields on Session {
   id
   agentId

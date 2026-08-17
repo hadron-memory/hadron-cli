@@ -190,6 +190,11 @@ AppAgent join is the install roster, ` + "`hadron app agent list`" + `). The tea
 App resolves from --app (or the configured App context), falling back to
 the worktree binding's team memory.
 
+That resolution is ambient, so the human output opens with the App it
+landed on AND where that came from (#458) — the same bare command in two
+worktrees bound to different teams lists different staff, and without the
+scope line the two outputs look identical.
+
 Retired workers are hidden unless --include-retired — their names stay
 bound to them forever, so the retired list is also the reserved-name list.`,
 		Example: `  hadron team worker list --app acme.com:eng-team
@@ -201,7 +206,7 @@ bound to them forever, so the retired list is also the reserved-name list.`,
 			if err != nil {
 				return err
 			}
-			appRef, err := resolveTeamApp(ctx, f, b)
+			scope, err := resolveTeamAppScope(ctx, f, b)
 			if err != nil {
 				return err
 			}
@@ -209,7 +214,7 @@ bound to them forever, so the retired list is also the reserved-name list.`,
 			if err != nil {
 				return err
 			}
-			rows, err := scanWorkers(ctx, client, appRef)
+			rows, err := scanWorkers(ctx, client, scope.Ref)
 			if err != nil {
 				return err
 			}
@@ -222,13 +227,25 @@ bound to them forever, so the retired list is also the reserved-name list.`,
 				workers = append(workers, dto)
 			}
 			return output.Write(f.IOStreams, f.JSON, workers, func(w io.Writer) error {
-				t := output.NewTable(w, "WORKER", "ROLE", "RETIRED", "AGENT ID", "ID")
+				// Whose staff, and why this App — the scope line runs BEFORE the
+				// table and on an empty staff too, which is exactly the moment
+				// "did I point this at the right team?" is worth answering.
+				// Human branch only: the --json shape stays the bare array it has
+				// always been, and already carries appId on every row.
+				if _, err := fmt.Fprintf(w, "app: %s (%s)\n", describeApp(ctx, f, scope.Ref), scope.Source); err != nil {
+					return err
+				}
+				// The worker URN replaces AGENT ID: it is the addressable handle
+				// (the one #1008 signs with), and it is readable — the App slug is
+				// in it. AGENT ID was the weakest column, an opaque id nobody acts
+				// on; `worker get` still shows it.
+				t := output.NewTable(w, "WORKER", "ROLE", "RETIRED", "URN", "ID")
 				for _, wk := range workers {
 					retired := "—"
 					if wk.RetiredAt != nil {
 						retired = *wk.RetiredAt
 					}
-					t.Row(wk.Name, dash(wk.Role), retired, wk.AgentID, wk.ID)
+					t.Row(wk.Name, dash(wk.Role), retired, dash(wk.URN), wk.ID)
 				}
 				return t.Flush()
 			})
@@ -273,7 +290,12 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 			}
 			dto := workerDTOFromFields(w)
 			return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
-				fmt.Fprintf(out, "%s%s\n  worker: %s (app %s)\n  agent: %s\n", dto.Name, roleSuffix(dto.Role), dto.ID, dto.AppID, dto.AgentID)
+				// The App gets its own line, named rather than spelled as the
+				// UUID it was parenthesised as (#458). No source phrase here: this
+				// is the WORKER's own App off the row, not an ambient scope that
+				// might have been the wrong one.
+				fmt.Fprintf(out, "%s%s\n  worker: %s\n  app: %s\n  agent: %s\n",
+					dto.Name, roleSuffix(dto.Role), dto.ID, describeApp(cmd.Context(), f, dto.AppID), dto.AgentID)
 				if dto.URN != nil && *dto.URN != "" {
 					fmt.Fprintf(out, "  urn: %s\n", *dto.URN)
 				}

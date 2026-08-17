@@ -61,39 +61,69 @@ func readBindingOrNilWithApp(ctx context.Context, f *cmdutil.Factory) (*binding,
 	return b, nil
 }
 
+// appScope is a resolved team App plus the branch of resolveTeamAppScope that
+// answered. The SOURCE is the load-bearing half (#458): the fallback chain is
+// silent, so the same bare command run in two worktrees bound to different
+// teams prints different staff with visually identical output. There is no
+// wrong-looking result to notice — unless the render says where the scope
+// came from.
+type appScope struct {
+	Ref string
+	// Source is a human phrase for the winning branch, e.g. "from --app".
+	Source string
+}
+
 // resolveTeamApp resolves the team App an App-addressed team command works
-// against (chat, worker, role, init): --app / the configured App context
-// wins; otherwise the binding answers — its recorded AppID (#399, the bound
-// worker's App) directly, or a pre-#399 binding's team memory resolved to
-// its App (the team memory IS the App's shared app-class memory, so
-// Memory.appId is the team App).
+// against (chat, worker, role, init). Callers that RENDER the scope want
+// resolveTeamAppScope instead — this is the shorthand for the ones that only
+// need the ref.
 func resolveTeamApp(ctx context.Context, f *cmdutil.Factory, b *binding) (string, error) {
+	scope, err := resolveTeamAppScope(ctx, f, b)
+	return scope.Ref, err
+}
+
+// resolveTeamAppScope resolves the team App and names the branch that
+// answered: --app / the configured App context wins; otherwise the binding
+// answers — its recorded AppID (#399, the bound worker's App) directly, or a
+// pre-#399 binding's team memory resolved to its App (the team memory IS the
+// App's shared app-class memory, so Memory.appId is the team App).
+func resolveTeamAppScope(ctx context.Context, f *cmdutil.Factory, b *binding) (appScope, error) {
 	appRef, err := f.App()
 	if err != nil {
-		return "", err
+		return appScope{}, err
 	}
 	if appRef != "" {
-		return appRef, nil
+		// f.App() merges the two, and they are worth telling apart: --app is
+		// something the reader just typed, a configured context is ambient and
+		// as forgettable as a binding.
+		source := "from the App context"
+		if f.AppFlag != "" {
+			source = "from --app"
+		}
+		return appScope{Ref: appRef, Source: source}, nil
 	}
 	if b != nil && b.AppID != "" {
-		return b.AppID, nil
+		return appScope{Ref: b.AppID, Source: "from the worktree binding"}, nil
 	}
 	if b != nil && b.TeamMemory != "" {
 		client, err := f.GraphQLClient()
 		if err != nil {
-			return "", err
+			return appScope{}, err
 		}
 		resp, err := gen.TeamMemoryApp(ctx, client, cmdutil.CanonicalMemoryRef(b.TeamMemory))
 		if err != nil {
-			return "", api.MapError(err)
+			return appScope{}, api.MapError(err)
 		}
 		if resp.Memory != nil && resp.Memory.AppId != nil && *resp.Memory.AppId != "" {
-			return *resp.Memory.AppId, nil
+			return appScope{
+				Ref:    *resp.Memory.AppId,
+				Source: "from the worktree binding's team memory " + b.TeamMemory,
+			}, nil
 		}
-		return "", exitcode.Newf(exitcode.Usage,
+		return appScope{}, exitcode.Newf(exitcode.Usage,
 			"the bound team memory %s is not an App memory — pass --app <team-app>", b.TeamMemory)
 	}
-	return "", exitcode.Newf(exitcode.Usage,
+	return appScope{}, exitcode.Newf(exitcode.Usage,
 		"no team App — pass --app <ref>, set an App context, or bind a session with `hadron team session start --as <worker>`")
 }
 
