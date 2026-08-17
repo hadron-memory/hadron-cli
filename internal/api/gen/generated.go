@@ -14778,6 +14778,35 @@ var AllSyncStatus = []SyncStatus{
 	SyncStatusSyncing,
 }
 
+// TeamAppIdentityApp includes the requested fields of the GraphQL type App.
+type TeamAppIdentityApp struct {
+	Id   string `json:"id"`
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+}
+
+// GetId returns TeamAppIdentityApp.Id, and is useful for accessing the field via an interface.
+func (v *TeamAppIdentityApp) GetId() string { return v.Id }
+
+// GetUrn returns TeamAppIdentityApp.Urn, and is useful for accessing the field via an interface.
+func (v *TeamAppIdentityApp) GetUrn() string { return v.Urn }
+
+// GetName returns TeamAppIdentityApp.Name, and is useful for accessing the field via an interface.
+func (v *TeamAppIdentityApp) GetName() string { return v.Name }
+
+// TeamAppIdentityResponse is returned by TeamAppIdentity on success.
+type TeamAppIdentityResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *TeamAppIdentityApp `json:"app"`
+}
+
+// GetApp returns TeamAppIdentityResponse.App, and is useful for accessing the field via an interface.
+func (v *TeamAppIdentityResponse) GetApp() *TeamAppIdentityApp { return v.App }
+
 // TeamChatMessageFields includes the GraphQL fields of TeamChatMessage requested by the fragment TeamChatMessageFields.
 // The GraphQL type's documentation follows.
 //
@@ -20947,6 +20976,14 @@ type __StopImpersonationInput struct {
 
 // GetId returns __StopImpersonationInput.Id, and is useful for accessing the field via an interface.
 func (v *__StopImpersonationInput) GetId() *string { return v.Id }
+
+// __TeamAppIdentityInput is used internally by genqlient
+type __TeamAppIdentityInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamAppIdentityInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamAppIdentityInput) GetAppRef() string { return v.AppRef }
 
 // __TeamChatMessagesInput is used internally by genqlient
 type __TeamChatMessagesInput struct {
@@ -28056,6 +28093,47 @@ func StopImpersonation(
 	}
 
 	data_ = &StopImpersonationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamAppIdentity.
+const TeamAppIdentity_Operation = `
+query TeamAppIdentity ($appRef: ID!) {
+	app(ref: $appRef) {
+		id
+		urn
+		name
+	}
+}
+`
+
+// #458: the READABLE identity of a team App. The ambient App resolution hands
+// back whatever ref answered — often the binding's raw AppID — so a human read
+// that names its App has only a UUID to print. Deliberately three scalars: this
+// runs to decorate a render, never to gate one, so the call site treats a
+// failure as "no readable name" and falls back to the raw ref.
+func TeamAppIdentity(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamAppIdentityResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamAppIdentity",
+		Query:  TeamAppIdentity_Operation,
+		Variables: &__TeamAppIdentityInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamAppIdentityResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

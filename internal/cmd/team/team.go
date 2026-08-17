@@ -213,6 +213,40 @@ func resolveWorker(ctx context.Context, client graphql.Client, appRef, arg strin
 		"no worker %q in this App — `hadron team worker list` shows the staff", arg)
 }
 
+// describeApp renders a team App the way a reader can act on it: its URN,
+// which carries the App slug in readable form, plus its display name. The
+// ambient resolution answers with whatever ref won — often the binding's raw
+// AppID — so the readable form takes one extra read.
+//
+// BEST-EFFORT BY DESIGN: this decorates a render, it never gates one. A
+// failed or unreadable App lookup degrades to the ref we already have rather
+// than turning a working `worker list` into an error, and callers pass a ref
+// they have already used successfully, so a failure here means the App RECORD
+// is unreadable, not that the scope was wrong.
+func describeApp(ctx context.Context, f *cmdutil.Factory, ref string) string {
+	if ref == "" {
+		return "—"
+	}
+	client, err := f.GraphQLClient()
+	if err != nil {
+		return ref
+	}
+	resp, err := gen.TeamAppIdentity(ctx, client, ref)
+	if err != nil || resp.App == nil {
+		return ref
+	}
+	readable := resp.App.Urn
+	if readable == "" {
+		readable = ref
+	}
+	if resp.App.Name != "" {
+		// An em dash, not parentheses: the list's scope line already ends in a
+		// parenthesised source, and two bracketed groups in a row read as noise.
+		return readable + " — " + resp.App.Name
+	}
+	return readable
+}
+
 func roleSuffix(role *string) string {
 	if role == nil || *role == "" {
 		return ""
