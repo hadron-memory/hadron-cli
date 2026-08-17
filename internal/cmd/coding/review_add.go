@@ -89,10 +89,10 @@ reviewer skip the check without reading it, then TODO sections to fill in.
 A check created this way passes ` + "`coding review lint`" + ` as written.
 Creating a check that already exists fails rather than overwriting it — edit an
 existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + `.`,
-		Example: `  hadron coding review create thin-resolver-field -m acme.com::kb \
+		Example: `  hadron coding review create thin-resolver-field -m hrn:mem:acme.com:kb \
     --trigger "adding or modifying a GraphQL resolver" \
     --description "Resolver fields stay thin — applies when adding or modifying a resolver."
-  hadron coding review create stable-json-dto -m acme.com::kb --trigger "a command's --json output changes" \
+  hadron coding review create stable-json-dto -m hrn:mem:acme.com:kb --trigger "a command's --json output changes" \
     --description "Commands marshal explicit DTOs — applies when --json output changes." \
     --link conventions:output-contract --tag json`,
 		Args: cobra.ExactArgs(1),
@@ -225,7 +225,7 @@ existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + 
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to add the check to (org::memory)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to add the check to (hrn:mem:<root>:<slug>)")
 	cmd.Flags().StringVar(&root, "root", reviewRootLoc, "loc of the review parent node")
 	cmd.Flags().StringVar(&trigger, "trigger", "", `the condition the check fires on ("Applies when" is prepended if absent)`)
 	cmd.Flags().StringVar(&description, "description", "", "one-line description (what it checks — applies when …)")

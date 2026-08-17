@@ -2536,3 +2536,77 @@ func TestNodeGetBareLocStillRejected(t *testing.T) {
 		t.Errorf("the error should still point at -m, got %q", err.Error())
 	}
 }
+
+// #372: `--target-urn` used to gate on strings.Contains(ref, "::"), a v1-ONLY
+// check that rejected the canonical hrn:mem:<root>:<slug> the server itself
+// documents for targetUrn — so a caller held to fully-qualified refs
+// (hadron-portal#728) could not clone at all. Every spelling must now reach the
+// mutation, and the wire value stays the legacy "::" shape the server has
+// always been handed here (deliberate; see docs/plans/urn-v2-help-text.md).
+func TestMemoryCloneAcceptsEverySpellingOfTargetURN(t *testing.T) {
+	cloneJSON := `{"id":"m2","urn":"acme.com:kb-fork","name":"kb-fork","shortDescription":null,
+		"class":"knowledge","visibility":"ORGANIZATION","organizationId":"org1",
+		"isEncrypted":false,"updatedAt":"2026-06-12T00:00:00Z"}`
+	for _, target := range []string{
+		"hrn:mem:acme.com:kb-fork", // canonical v2 — the form that used to be refused
+		"acme.com:kb-fork",         // short single-colon
+		"acme.com::kb-fork",        // legacy
+	} {
+		t.Run(target, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"CloneMemory": `{"data":{"cloneMemory":` + cloneJSON + `}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"memory", "clone", "acme.com::kb", "--target-urn", target,
+				"--server", gql.URL, "--json"})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			raw, sent := captured["CloneMemory"]
+			if !sent {
+				t.Fatal("the mutation was never reached — the client-side gate refused a valid target")
+			}
+			var vars map[string]any
+			_ = json.Unmarshal(raw, &vars)
+			if vars["targetUrn"] != "acme.com::kb-fork" {
+				t.Errorf("wire targetUrn = %v, want the normalized legacy shape", vars["targetUrn"])
+			}
+		})
+	}
+}
+
+// The same widening on `memory extract`'s positional targetUrn.
+func TestMemoryExtractAcceptsEverySpellingOfTargetURN(t *testing.T) {
+	memJSON := `{"id":"m3","urn":"acme.com:auth-kb","name":"auth-kb","shortDescription":null,
+		"class":"knowledge","visibility":"ORGANIZATION","organizationId":"org1",
+		"isEncrypted":false,"updatedAt":"2026-06-12T00:00:00Z"}`
+	for _, target := range []string{
+		"hrn:mem:acme.com:auth-kb",
+		"acme.com:auth-kb",
+		"acme.com::auth-kb",
+	} {
+		t.Run(target, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"ResolveUrn":                `{"data":{"resolveUrn":{"id":"n1","kind":"node"}}}`,
+				"ExtractParentNodeToMemory": `{"data":{"extractParentNodeToMemory":` + memJSON + `}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"memory", "extract", "hrn:node:acme.com:kb:findings:auth", target,
+				"--server", gql.URL, "--json"})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			raw, sent := captured["ExtractParentNodeToMemory"]
+			if !sent {
+				t.Fatal("the mutation was never reached — the client-side gate refused a valid target")
+			}
+			var vars map[string]any
+			_ = json.Unmarshal(raw, &vars)
+			if vars["targetUrn"] != "acme.com::auth-kb" {
+				t.Errorf("wire targetUrn = %v, want the normalized legacy shape", vars["targetUrn"])
+			}
+		})
+	}
+}

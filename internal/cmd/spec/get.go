@@ -35,10 +35,10 @@ spec under the prefix is fetched (the listing is paged to exhaustion); pass
 just the raw markdown body of a single spec (no metadata) — pipe it into
 ` + "`hadron node update --content -`" + ` for a clean edit round-trip. --json emits
 one object for a single citation, an array for --prefix.`,
-		Example: `  hadron spec get msg:010:02 -m micromentor.org::platform-specs
-  hadron spec get cor:dmo:060:02 -m hadronmemory.com::platform-specs --body-only
-  hadron spec get --prefix cor:cht -m hadronmemory.com::platform-specs
-  hadron spec get --prefix cor:dmo -m hadronmemory.com::platform-specs --abstract-only --json`,
+		Example: `  hadron spec get msg:010:02 -m hrn:mem:micromentor.org:platform-specs
+  hadron spec get cor:dmo:060:02 -m hrn:mem:hadronmemory.com:platform-specs --body-only
+  hadron spec get --prefix cor:cht -m hrn:mem:hadronmemory.com:platform-specs
+  hadron spec get --prefix cor:dmo -m hrn:mem:hadronmemory.com:platform-specs --abstract-only --json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Exactly one of <citation> or --prefix.

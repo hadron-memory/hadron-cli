@@ -147,7 +147,7 @@ type codingMemory struct {
 
 func codingMemoryURN(memory string) (codingMemory, error) {
 	if strings.TrimSpace(memory) == "" {
-		return codingMemory{}, exitcode.Newf(exitcode.Usage, "-m/--memory is required (org::memory)")
+		return codingMemory{}, exitcode.Newf(exitcode.Usage, "-m/--memory is required (hrn:mem:<root>:<slug>)")
 	}
 	return codingMemory{Ref: cmdutil.CanonicalMemoryRef(memory), raw: strings.TrimSpace(memory)}, nil
 }
@@ -158,7 +158,7 @@ func (m codingMemory) nodeRef(loc string) (string, error) {
 		return u, nil
 	}
 	return "", exitcode.Newf(exitcode.Usage,
-		"-m/--memory %q must be an <org>::<memory> pair to address nodes by bare loc", m.raw)
+		"-m/--memory %q must name a memory as hrn:mem:<root>:<slug> to address nodes by bare loc", m.raw)
 }
 
 // fetchRootEdges reads a lint root and projects the edges on the requested

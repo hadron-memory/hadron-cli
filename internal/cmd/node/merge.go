@@ -27,7 +27,7 @@ func newCmdMerge(f *cmdutil.Factory) *cobra.Command {
 		Use:   "merge <source-urn> | <loc> -m <memory> --into <target>",
 		Short: "Merge (fold) one node into another",
 		Long: `Fold a source node into a target node, returning the surviving target.
-Name each node by its fully-qualified URN (<org>::<memory>::<loc>) or by a
+Name each node by its fully-qualified URN (hrn:node:<root>:<slug>:<loc>) or by a
 bare <loc> with -m/--memory (which scopes BOTH the source and --into target).
 
 By default every mergeable field folds in; restrict with repeated --field:
@@ -44,9 +44,9 @@ The source node is left in place unless you pass --delete-source, which
 hard-removes it after a successful merge. The merge mutates the target (and,
 with EDGES, re-points relationships), so it prompts for confirmation on a
 terminal and requires --yes non-interactively.`,
-		Example: `  hadron node merge acme.com::kb::findings:dup --into acme.com::kb::findings:canonical --yes
-  hadron node merge findings:dup -m acme.com::kb --into findings:canonical --field CONTENT --field EDGES --yes
-  hadron node merge acme.com::kb::findings:dup --into acme.com::kb::findings:canonical --delete-source --yes`,
+		Example: `  hadron node merge hrn:node:acme.com:kb:findings:dup --into hrn:node:acme.com:kb:findings:canonical --yes
+  hadron node merge findings:dup -m hrn:mem:acme.com:kb --into findings:canonical --field CONTENT --field EDGES --yes
+  hadron node merge hrn:node:acme.com:kb:findings:dup --into hrn:node:acme.com:kb:findings:canonical --delete-source --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Validate flags before any network/auth so a bad combo is a usage
@@ -113,7 +113,7 @@ terminal and requires --yes non-interactively.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org::memory) to resolve bare <loc> source/target against")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve bare <loc> source/target against")
 	cmd.Flags().StringVar(&into, "into", "", "the surviving target node (URN, or <loc> with -m)")
 	cmd.Flags().StringArrayVar(&fields, "field", nil, "field to fold in (repeatable): CONTENT|ABSTRACT|DESCRIPTION|TAGS|DATA|PROPERTIES|EDGES (default: all)")
 	cmd.Flags().BoolVar(&deleteSource, "delete-source", false, "hard-delete the source node after a successful merge")

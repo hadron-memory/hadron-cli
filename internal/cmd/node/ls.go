@@ -57,7 +57,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Short:   "List nodes",
 		Long: `List nodes you can access, optionally scoped to a memory.
 
--m/--memory takes a memory ID or fully-qualified URN (org::memory) and
+-m/--memory takes a memory ID or fully-qualified URN (hrn:mem:<root>:<slug>) and
 scopes the listing to that memory. --prefix filters on the node loc
 (e.g. --prefix findings: lists one branch).
 
@@ -71,11 +71,11 @@ page boundary; with --sort-seq, --limit then means "the top N by seq".
 a path plus one of eq|ne|in|lt|lte|gt|gte|between|exists|contains; branch with
 and/or/not). --object-type filters the objectType collection facet.
 --sort-property orders by a properties/data JSON path.`,
-		Example: `  hadron node list --memory hadronmemory.com::dev
-  hadron node list -m hadronmemory.com::dev --prefix findings: --json
-  hadron node list -m hadronmemory.com::dev --seq-gt 42 --sort-seq asc
-  hadron node list -m acme.com::kb --object-type insight --where '{"path":["source"],"eq":"substack"}'
-  hadron node list -m acme.com::kb --sort-property '{"path":["rank"],"as":"number","direction":"desc"}'`,
+		Example: `  hadron node list --memory hrn:mem:hadronmemory.com:dev
+  hadron node list -m hrn:mem:hadronmemory.com:dev --prefix findings: --json
+  hadron node list -m hrn:mem:hadronmemory.com:dev --seq-gt 42 --sort-seq asc
+  hadron node list -m hrn:mem:acme.com:kb --object-type insight --where '{"path":["source"],"eq":"substack"}'
+  hadron node list -m hrn:mem:acme.com:kb --sort-property '{"path":["rank"],"as":"number","direction":"desc"}'`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			whereArg, err := cmdutil.ParseNodeWhere(where)

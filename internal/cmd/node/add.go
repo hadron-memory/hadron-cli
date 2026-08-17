@@ -49,8 +49,8 @@ e.g. competitor), orthogonal to --type (nodeType). --properties /
 governs and --where / --sort-property target) — distinct from --data. On a
 schema-governed memory the server validates objectType + properties against the
 schema and rejects a violation.`,
-		Example: `  hadron node add -m acme.com::kb --loc findings:flaky-ci --name "Flaky CI" --content "..."
-  cat finding.md | hadron node add -m acme.com::kb --loc findings:flaky-ci --name "Flaky CI" --content -`,
+		Example: `  hadron node add -m hrn:mem:acme.com:kb --loc findings:flaky-ci --name "Flaky CI" --content "..."
+  cat finding.md | hadron node add -m hrn:mem:acme.com:kb --loc findings:flaky-ci --name "Flaky CI" --content -`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := cmdutil.ValidateURNPath("--loc", loc); err != nil {

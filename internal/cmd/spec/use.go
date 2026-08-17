@@ -27,7 +27,7 @@ Resolution order for a spec command's memory: the -m/--memory flag, then
 HADRON_SPEC_MEMORY / this spec_memory default, then the global active memory
 (hadron memory set-active). This is separate from the global default so
 switching your working memory does not change your spec corpus.`,
-		Example: `  hadron spec use hadronmemory.com::specs
+		Example: `  hadron spec use hrn:mem:hadronmemory.com:specs
   hadron spec use ""  # clear the spec default`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

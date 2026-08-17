@@ -28,7 +28,7 @@ never queryable again. --name is lowercase alphanumeric/dash, 1-64 chars, and is
 part of the URL. --args-schema stores a JSON Schema for POST args (enforcement is
 follow-on). --as-self runs on behalf of you (authenticated user only).`,
 		Example: `  hadron webhook create --app acme.com:ops --name deploy-notify \
-    --entry acme.com::ops::tasks:on-deploy`,
+    --entry hrn:node:acme.com:ops:tasks:on-deploy`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, cmdArgs []string) error {
 			appRef, err := cmdutil.ResolveAppRef(f, app)

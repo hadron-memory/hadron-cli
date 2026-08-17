@@ -36,7 +36,7 @@ func newCmdRun(f *cmdutil.Factory) *cobra.Command {
 arguments. Task nodes can define the arguments they accept via Node.data.args,
 enabling discovery and validation of inputs.
 
-Pass the task as a fully-qualified URN (org::memory::loc) or as a bare loc
+Pass the task as a fully-qualified URN (hrn:node:<root>:<slug>:<loc>) or as a bare loc
 with -m/--memory to name a single memory instead.
 
 By default this renders and prints the compiled prompt. With --app <ref> it
@@ -44,9 +44,9 @@ instead EXECUTES the task server-side — minting a headless run under that App
 (a real LLM run, cor:agt:010:02) — and prints the run id; follow it with
 'hadron run get <id>'. --as-self runs on behalf of you (reaches your personal
 memories; authenticated user only).`,
-		Example: `  hadron task run hadronmemory.com::experiments::email:send --arg to=user@example.com --arg subject="Hello"
-  hadron task run send -m hadronmemory.com::experiments --arg to=user@example.com
-  hadron task run acme.com::ops::tasks:brief --app acme.com:ops --arg topic=security --as-self`,
+		Example: `  hadron task run hrn:node:hadronmemory.com:experiments:email:send --arg to=user@example.com --arg subject="Hello"
+  hadron task run send -m hrn:mem:hadronmemory.com:experiments --arg to=user@example.com
+  hadron task run hrn:node:acme.com:ops:tasks:brief --app acme.com:ops --arg topic=security --as-self`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, cmdArgs []string) error {
 			// runAsSelf only affects the identity of an executed run, so it's
@@ -120,7 +120,7 @@ memories; authenticated user only).`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org::memory) to resolve bare <loc> against")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve bare <loc> against")
 	cmd.Flags().StringArrayVar(&args, "arg", nil, "task argument in key=value format (repeatable)")
 	cmd.Flags().StringVar(&app, "app", "", "execute server-side under this App (ID or URN) and print the run id, instead of rendering the prompt")
 	cmd.Flags().BoolVar(&asSelf, "as-self", false, "with --app: run on behalf of you (reaches your personal memories; authenticated user only)")

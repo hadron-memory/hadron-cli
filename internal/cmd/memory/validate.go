@@ -130,10 +130,10 @@ Exits 0 whatever the findings unless --fail-on-findings is passed. A corpus
 that has never been audited will light up, and a check that fires on most of
 the memory on day one teaches people to ignore the whole report — so gate CI
 deliberately, and preferably on a narrowed --check.`,
-		Example: `  hadron memory validate hadronmemory.com::specs
-  hadron memory validate hadronmemory.com::specs --check broken-ref --check embed-failed
-  hadron memory validate hadronmemory.com::specs --json
-  hadron memory validate hadronmemory.com::specs --check broken-ref --fail-on-findings`,
+		Example: `  hadron memory validate hrn:mem:hadronmemory.com:specs
+  hadron memory validate hrn:mem:hadronmemory.com:specs --check broken-ref --check embed-failed
+  hadron memory validate hrn:mem:hadronmemory.com:specs --json
+  hadron memory validate hrn:mem:hadronmemory.com:specs --check broken-ref --fail-on-findings`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			want, err := parseChecks(checks)

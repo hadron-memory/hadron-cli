@@ -70,7 +70,7 @@ applied in a follow-up update.)`,
   hadron memory set --org acme.com --name "Hadron PDF Tool" --slug hadrontool-pdf
   hadron memory set --org acme.com --name "Notes" --class personal
   hadron memory set --owner-me --name "Jens" --class personal
-  hadron memory set --app acme.com::coach --agent acme.com::agent --class app --name "Runbook"
+  hadron memory set --app hrn:app:acme.com:coach --agent hrn:agent:acme.com:agent --class app --name "Runbook"
   hadron memory set acme.com:project-kb --description "Long-form description"
   hadron memory set acme.com:research --schema-file schema.json`,
 		Args: cobra.MaximumNArgs(1),

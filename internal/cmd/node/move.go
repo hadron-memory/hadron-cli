@@ -25,13 +25,13 @@ func newCmdMove(f *cmdutil.Factory) *cobra.Command {
 		Long: `Relocate a node — together with its whole subtree, so every descendant moves
 with it — keeping each node's id, so every incoming and outgoing edge reference
 stays valid. Name the source by its fully-qualified URN
-(<org>::<memory>::<loc>) or by a bare <loc> with -m/--memory.
+(hrn:node:<root>:<slug>:<loc>) or by a bare <loc> with -m/--memory.
 
 Give the destination exactly one of:
 
-  --to-urn <org>::<memory>::<loc>   the node's new full URN (new memory
+  --to-urn hrn:node:<root>:<slug>:<loc>   the node's new full URN (new memory
                                     and/or loc).
-  --to-memory <org::memory>         a destination memory; the node keeps its
+  --to-memory hrn:mem:<root>:<slug>         a destination memory; the node keeps its
                                     current loc, only its memory changes.
 
 A CROSS-MEMORY move (a different destination memory) is refused for a safe
@@ -44,8 +44,8 @@ A same-memory move is not subject to these refusals.
 Any move — same-memory or cross-memory — is a conflict (exit 5) if a live node
 already occupies the destination, or if the source changes concurrently while
 the move is in flight.`,
-		Example: `  hadron node move acme.com::kb::findings:flaky-ci --to-urn acme.com::kb::archive:flaky-ci
-  hadron node move findings:flaky-ci -m acme.com::kb --to-memory acme.com::archive`,
+		Example: `  hadron node move hrn:node:acme.com:kb:findings:flaky-ci --to-urn hrn:node:acme.com:kb:archive:flaky-ci
+  hadron node move findings:flaky-ci -m hrn:mem:acme.com:kb --to-memory hrn:mem:acme.com:archive`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Validate the destination flags before touching the network, so a
@@ -74,9 +74,9 @@ the move is in flight.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org::memory) to resolve a bare <loc> source against")
-	cmd.Flags().StringVar(&toURN, "to-urn", "", "destination node URN <org>::<memory>::<loc> (new memory and/or loc)")
-	cmd.Flags().StringVar(&toMemory, "to-memory", "", "destination memory (org::memory); keeps the current loc")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> source against")
+	cmd.Flags().StringVar(&toURN, "to-urn", "", "destination node URN hrn:node:<root>:<slug>:<loc> (new memory and/or loc)")
+	cmd.Flags().StringVar(&toMemory, "to-memory", "", "destination memory (hrn:mem:<root>:<slug>); keeps the current loc")
 	return cmd
 }
 
@@ -94,7 +94,7 @@ func relocationDestination(toURN, toMemory string) (*string, *string, error) {
 	case toURN != "" && toMemory != "":
 		return nil, nil, exitcode.Newf(exitcode.Usage, "--to-urn and --to-memory are mutually exclusive")
 	case toURN == "" && toMemory == "":
-		return nil, nil, exitcode.Newf(exitcode.Usage, "specify a destination: --to-urn <org>::<memory>::<loc> or --to-memory <org>::<memory>")
+		return nil, nil, exitcode.Newf(exitcode.Usage, "specify a destination: --to-urn hrn:node:<root>:<slug>:<loc> or --to-memory hrn:mem:<root>:<slug>")
 	}
 	if toURN != "" {
 		urn, err := cmdutil.CanonicalNodeURN(toURN)

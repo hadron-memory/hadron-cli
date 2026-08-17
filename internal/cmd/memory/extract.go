@@ -33,8 +33,8 @@ Edges wholly inside the subtree carry over; boundary-crossing edges and
 unresolved pending edges are dropped.
 
 <parentRef> is the parent node's ID or fully-qualified URN
-(<org>::<memory>::<loc>); pass -m <org::memory> with a bare loc instead.
-<targetUrn> is a fully-qualified "<org>::<slug>" URN naming the new
+(hrn:node:<root>:<slug>:<loc>); pass -m hrn:mem:<root>:<slug> with a bare loc instead.
+<targetUrn> is a fully-qualified "hrn:mem:<root>:<slug>" URN naming the new
 memory — its org may differ from the source's, dropping the extract into
 another organization.
 
@@ -48,17 +48,22 @@ personal/private source stays owner-owned).
 
 v1 limitation: node content is copied verbatim — because both the slug
 and node locs change, URN references among the moved nodes will break.`,
-		Example: `  hadron memory extract acme.com::kb::findings:auth acme.com::auth-kb
-  hadron memory extract -m acme.com::kb findings:auth other-org::auth-kb --move`,
+		Example: `  hadron memory extract hrn:node:acme.com:kb:findings:auth hrn:mem:acme.com:auth-kb
+  hadron memory extract -m hrn:mem:acme.com:kb findings:auth hrn:mem:other-org:auth-kb --move`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			parentRef, targetURN := args[0], args[1]
-			// Coarse client-side gate: a fully-qualified memory URN carries the
-			// canonical "::" org→slug separator. Reject an obviously-relative
-			// value before the round-trip; the server does the full validation.
-			if !strings.Contains(targetURN, "::") {
-				return errors.New("<targetUrn> must be a fully-qualified \"org::slug\" memory URN")
+			// Same widening as `memory clone` (#372): the old
+			// `strings.Contains(targetURN, "::")` gate rejected the canonical
+			// hrn:mem:<root>:<slug> the server documents for targetUrn, locking
+			// out any caller held to fully-qualified refs (hadron-portal#728).
+			root, slug, ok := cmdutil.MemoryParts(targetURN)
+			if !ok {
+				return exitcode.Newf(exitcode.Usage,
+					"<targetUrn> must be a fully-qualified memory URN, hrn:mem:<root>:<slug>")
 			}
+			// Legacy "::" on the wire, as before — see clone.go.
+			targetURN = root + "::" + slug
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -102,7 +107,7 @@ and node locs change, URN references among the moved nodes will break.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memoryRef, "memory", "m", "", "memory (org::memory) for a bare-loc <parentRef>")
+	cmd.Flags().StringVarP(&memoryRef, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) for a bare-loc <parentRef>")
 	cmd.Flags().BoolVar(&move, "move", false, "relocate the subtree (soft-delete the source) instead of copying")
 	return cmd
 }
@@ -124,7 +129,7 @@ func resolveExtractParentRef(cmd *cobra.Command, client graphql.Client, memory, 
 		!strings.HasPrefix(ref, "urn:") {
 		if strings.Contains(ref, ":") {
 			return "", exitcode.Newf(exitcode.Usage,
-				"%q is not a fully-qualified node URN — expected <org>::<memory>::<loc>, or pass -m <org::memory> with a bare loc (or a node id)", ref)
+				"%q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc>, or pass -m hrn:mem:<root>:<slug> with a bare loc (or a node id)", ref)
 		}
 		return ref, nil
 	}

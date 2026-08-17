@@ -222,7 +222,7 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:     "get <ref>",
 		Short:   "Show an agent (by ID or URN)",
-		Example: `  hadron agent get acme.com::support-bot --json`,
+		Example: `  hadron agent get hrn:agent:acme.com:support-bot --json`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
@@ -334,7 +334,7 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 named Worker (` + "`hadron team worker cast`" + `). Editing the template evolves
 every future casting's boot briefing centrally; existing workers resolve
 their prompt from it too.`,
-		Example: `  hadron agent update acme.com::support-bot --name "Support Bot v2" --visibility PUBLIC
+		Example: `  hadron agent update hrn:agent:acme.com:support-bot --name "Support Bot v2" --visibility PUBLIC
   hadron agent update agt_123 --description "…"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -401,7 +401,7 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 		Use:     "rm <ref>",
 		Aliases: []string{"delete"},
 		Short:   "Delete an agent by ID or URN",
-		Example: `  hadron agent rm acme.com::support-bot --yes`,
+		Example: `  hadron agent rm hrn:agent:acme.com:support-bot --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

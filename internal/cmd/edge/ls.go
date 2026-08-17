@@ -139,11 +139,11 @@ run is a subset of an unfiltered one.
 --to and --from are directional: --to names a node this one points AT
 (outgoing), --from a node pointing at THIS one (incoming). Either takes the
 far endpoint's loc or its id.`,
-		Example: `  hadron edge list hadronmemory.com::dev::start-here
-  hadron edge list start-here -m hadronmemory.com::dev
-  hadron edge list review -m micromentor.org::mmdata --direction incoming
-  hadron edge list preflight -m hadronmemory.com::dev --name routes-to
-  hadron edge list preflight -m hadronmemory.com::dev --to findings:prisma-upsert-not-race-safe`,
+		Example: `  hadron edge list hrn:node:hadronmemory.com:dev:start-here
+  hadron edge list start-here -m hrn:mem:hadronmemory.com:dev
+  hadron edge list review -m hrn:mem:micromentor.org:mmdata --direction incoming
+  hadron edge list preflight -m hrn:mem:hadronmemory.com:dev --name routes-to
+  hadron edge list preflight -m hrn:mem:hadronmemory.com:dev --to findings:prisma-upsert-not-race-safe`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			provided := map[string]bool{}
@@ -207,7 +207,7 @@ far endpoint's loc or its id.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org::memory) to resolve a bare <loc> against")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
 	cmd.Flags().StringVar(&fl.Direction, "direction", "", `only "incoming" or only "outgoing" edges`)
 	cmd.Flags().StringVar(&fl.Name, "name", "", "only edges whose label contains this (case-insensitive)")
 	cmd.Flags().StringVar(&fl.To, "to", "", "only outgoing edges whose target is this loc or id")

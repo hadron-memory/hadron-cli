@@ -64,7 +64,7 @@ admin, an ADMIN/OWNER of the resource's owning org, or (for a strict-
 owner memory) the memory's principal.`,
 		Example: `  hadron access check alice@acme.com hrn:mem:acme.com:kb
   hadron access check @alice hrn:node:acme.com:kb:start-here
-  hadron access check usr_123 hrn:app:acme.com::support --json`,
+  hadron access check usr_123 hrn:app:acme.com:support --json`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

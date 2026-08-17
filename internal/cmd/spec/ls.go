@@ -25,8 +25,8 @@ module, --prefix msg:010 one feature and its rules/flows.
 By default every matching spec is listed (the query is paged to
 exhaustion). Pass --limit (with optional --offset) to fetch a single
 explicit page instead.`,
-		Example: `  hadron spec list -m micromentor.org::platform-specs
-  hadron spec list -m micromentor.org::platform-specs --prefix msg:010 --json`,
+		Example: `  hadron spec list -m hrn:mem:micromentor.org:platform-specs
+  hadron spec list -m hrn:mem:micromentor.org:platform-specs --prefix msg:010 --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

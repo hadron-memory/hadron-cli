@@ -30,7 +30,7 @@ args merged into each run (repeatable). --policy is a trigger-layer allow-list
 { "allow": [...] } (cor:acl:040). --ai-config selects a named AI config.`,
 		Example: `  hadron schedule create --app acme.com:ops --name nightly-digest \
     --cron '0 6 * * *' --tz America/New_York \
-    --entry acme.com::ops::tasks:nightly-digest --as-self`,
+    --entry hrn:node:acme.com:ops:tasks:nightly-digest --as-self`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, cmdArgs []string) error {
 			appRef, err := cmdutil.ResolveAppRef(f, app)

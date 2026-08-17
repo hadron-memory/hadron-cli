@@ -34,7 +34,7 @@ func newCmdExport(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "export <node-urn> | <loc> -m <memory>",
 		Short: "Export a single node to a portable file (markdown, JSON, or PDF)",
-		Long: `Export one node by its fully-qualified URN (<org>::<memory>::<loc>) to a
+		Long: `Export one node by its fully-qualified URN (hrn:node:<root>:<slug>:<loc>) to a
 self-contained file you can review, edit, move, and import back with
 ` + "`hadron node import`" + ` — into the same memory, a different memory, or a
 fresh server.
@@ -55,11 +55,11 @@ server-side export (hadron-server #386).
 Writes to stdout by default (so it composes in a pipe with node import);
 -o <file> writes a file instead. When --out ends in .md, .json, or .pdf and
 --format is unset, the format is inferred from the extension.`,
-		Example: `  hadron node export acme.com::kb::findings:flaky-ci            # markdown to stdout
-  hadron node export acme.com::kb::findings:flaky-ci -o flaky.md
-  hadron node export acme.com::kb::findings:flaky-ci --format json -o flaky.json
-  hadron node export acme.com::kb::findings:flaky-ci --format pdf -o flaky.pdf
-  hadron node export acme.com::kb::x | hadron node import -m acme.com::kb2 -`,
+		Example: `  hadron node export hrn:node:acme.com:kb:findings:flaky-ci            # markdown to stdout
+  hadron node export hrn:node:acme.com:kb:findings:flaky-ci -o flaky.md
+  hadron node export hrn:node:acme.com:kb:findings:flaky-ci --format json -o flaky.json
+  hadron node export hrn:node:acme.com:kb:findings:flaky-ci --format pdf -o flaky.pdf
+  hadron node export hrn:node:acme.com:kb:x | hadron node import -m hrn:mem:acme.com:kb2 -`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmtName, err := resolveDocFormat(format, outFile, cmd.Flags().Changed("format"))
@@ -167,7 +167,7 @@ Writes to stdout by default (so it composes in a pipe with node import);
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org::memory) to resolve a bare <loc> against")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
 	cmd.Flags().StringVarP(&outFile, "out", "o", "", `output file ("-" or unset writes to stdout)`)
 	cmd.Flags().StringVar(&format, "format", "md", "output format: md, json, or pdf (pdf requires -o)")
 	return cmd

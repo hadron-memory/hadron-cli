@@ -27,8 +27,8 @@ numbers) derived from the live spec nodes.
 The register node is treated as advisory and is never modified. With
 --check, the live nodes are diffed against the register node's
 hand-written ledger and any drift is reported (exit 5 if drift is found).`,
-		Example: `  hadron spec register -m micromentor.org::platform-specs
-  hadron spec register -m micromentor.org::platform-specs --check`,
+		Example: `  hadron spec register -m hrn:mem:micromentor.org:platform-specs
+  hadron spec register -m hrn:mem:micromentor.org:platform-specs --check`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

@@ -40,10 +40,10 @@ prompts with a distinct warning (still gated by --yes non-interactively).
 Without it, deleting a node that has descendants is refused (so a subtree is
 never silently orphaned) — the error names the descendant count and points you
 at --recursive.`,
-		Example: `  hadron node rm acme.com::kb::findings:flaky-ci --yes
-  hadron node rm findings:flaky-ci -m acme.com::kb --yes
-  hadron node rm acme.com::kb::data:stale --hard --yes
-  hadron node rm acme.com::kb::findings --recursive --yes`,
+		Example: `  hadron node rm hrn:node:acme.com:kb:findings:flaky-ci --yes
+  hadron node rm findings:flaky-ci -m hrn:mem:acme.com:kb --yes
+  hadron node rm hrn:node:acme.com:kb:data:stale --hard --yes
+  hadron node rm hrn:node:acme.com:kb:findings --recursive --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
@@ -117,7 +117,7 @@ at --recursive.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org::memory) to resolve a bare <loc> against")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	cmd.Flags().BoolVar(&hard, "hard", false, "permanently remove the row (cascades edges + version history; irreversible)")
 	cmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "also delete every descendant under the node's loc (required to delete a node that has children)")

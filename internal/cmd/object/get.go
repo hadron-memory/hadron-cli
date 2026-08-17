@@ -17,7 +17,7 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 print the flat record { id, type, ...fields }. Exits 4 (not found) when the ref
 names nothing readable or a node that isn't an object.`,
 		Example: `  hadron object get 019f7d…            # by object id
-  hadron object get acme.com::market::competitor:letta --json`,
+  hadron object get hrn:node:acme.com:market:competitor:letta --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

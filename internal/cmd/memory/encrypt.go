@@ -37,7 +37,7 @@ so it never lands in your shell history.
 
 Because it rewrites all content irreversibly, this prompts on a terminal and
 requires --yes when run non-interactively.`,
-		Example: `  printf '%s' "$DATA_KEY" | hadron memory encrypt acme.com::kb --data-key - --yes`,
+		Example: `  printf '%s' "$DATA_KEY" | hadron memory encrypt hrn:mem:acme.com:kb --data-key - --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if dataKey == "" {

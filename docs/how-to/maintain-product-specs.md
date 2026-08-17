@@ -5,7 +5,7 @@ citation, each colon level is a real parent/child node, numbers are never
 renumbered (to replace a spec you `supersede` it), and a fixed rubric (abstract
 + a "what invalidates this spec" statement) is enforced by `lint`.
 
-Every subcommand takes `-m/--memory <org::memory>`.
+Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
 
 ## Two citation schemes
 
@@ -36,17 +36,23 @@ own `cli` / `srv` / `por`).
 ### See (or declare) what scheme a memory uses
 
 ```sh
-hadron spec describe -m hadronmemory.com::platform-specs
+hadron spec describe -m hrn:mem:hadronmemory.com:platform-specs
 ```
 
 ```
-Spec scheme — hadronmemory.com::platform-specs
+Spec scheme — hadronmemory.com::platform-specs        # legacy form: see note below
   scheme:    product  (declared)
   products:  cli, srv
   modules:   cli:cha, srv:gql
   counts:    2 products, 2 modules, 12 features, 40 rules, 8 flows, 5 contracts
   contracts: product <p>:gen · module <m>:000 · feature <m>:<f>:00
 ```
+
+> The memory line above is real output. The `spec` group composes the
+> legacy `<org>::<slug>` form internally on purpose — a fixed-arity flat v2 node URN
+> cannot round-trip a COMPOUND app-mem memory (see CLAUDE.md) — so `describe`
+> still prints it. Input accepts every spelling, which is why the invocation
+> uses `hrn:mem:`. Do not "correct" the transcript to match.
 
 The scheme is **derived** from the live nodes, and can also be **declared** in
 the memory's data (`{"spec":{"scheme":"product"}}`) so an empty memory can
@@ -55,7 +61,7 @@ announce its arity before it has any specs. A declaration is authoritative;
 once, up front:
 
 ```sh
-hadron spec describe -m hadronmemory.com::platform-specs --declare product
+hadron spec describe -m hrn:mem:hadronmemory.com:platform-specs --declare product
 ```
 
 ## General-provisions contracts
@@ -97,7 +103,7 @@ its general-provisions contract. Use `--dry-run` to preview any step without
 writing.
 
 ```sh
-M=hadronmemory.com::platform-specs
+M=hrn:mem:hadronmemory.com:platform-specs
 
 hadron spec new -m $M cli:cha:010:01 --new-path --title "backpressure"
 ```
@@ -152,7 +158,7 @@ A flat corpus is identical without the `--product` flag (and `--new-module`
 creates a top-level module):
 
 ```sh
-hadron spec new -m micromentor.org::platform-specs --module msg --feature 010 --title "W4 — 7d check-in"
+hadron spec new -m hrn:mem:micromentor.org:platform-specs --module msg --feature 010 --title "W4 — 7d check-in"
 ```
 
 ## The rule rubric
@@ -221,7 +227,7 @@ returns rows that look identical. Two things keep that straight:
   machine-global user config, so two concurrent sessions would fight over it.
   Whenever a default answers, the command notes which one on stderr.
 - **Read the MEMORY column.** When results *do* span several memories, `list`
-  and `find` add a `MEMORY` column naming each hit's `<org>::<memory>`; scoped
+  and `find` add a `MEMORY` column naming each hit's memory; scoped
   output stays narrow. In `--json`, every row carries `memoryId` (the PK) and
   `memoryUrn` (the readable form) regardless of scope.
 

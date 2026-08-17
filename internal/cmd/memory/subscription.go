@@ -82,7 +82,7 @@ func newCmdSubscriptionCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "create <memoryRef> --org <org> --role <owner|admin|contributor|reader>",
 		Short:   "Subscribe an organization to a memory (or update its role)",
-		Example: `  hadron memory subscription create acme.com::kb --org partnerco.com --role reader`,
+		Example: `  hadron memory subscription create hrn:mem:acme.com:kb --org partnerco.com --role reader`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseSubscriptionRole(role)
@@ -123,7 +123,7 @@ func newCmdSubscriptionSetRole(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "set-role <memoryRef> --org <org> --role <owner|admin|contributor|reader>",
 		Short:   "Change an organization subscription's role",
-		Example: `  hadron memory subscription set-role acme.com::kb --org partnerco.com --role contributor`,
+		Example: `  hadron memory subscription set-role hrn:mem:acme.com:kb --org partnerco.com --role contributor`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseSubscriptionRole(role)
@@ -166,7 +166,7 @@ func newCmdSubscriptionRm(f *cmdutil.Factory) *cobra.Command {
 		Use:     "rm <memoryRef> --org <org>",
 		Aliases: []string{"delete", "unsubscribe"},
 		Short:   "Remove an organization's subscription to a memory",
-		Example: `  hadron memory subscription rm acme.com::kb --org partnerco.com --yes`,
+		Example: `  hadron memory subscription rm hrn:mem:acme.com:kb --org partnerco.com --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

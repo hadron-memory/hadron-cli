@@ -71,9 +71,9 @@ func newCmdShareCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create <memoryRef> --grantee <user> --role <writer|reader>",
 		Short: "Share a memory with a user (or update their share role)",
-		Example: `  hadron memory share create acme.com::kb --grantee usr_789 --role reader
-  hadron memory share create acme.com::kb --grantee jane@acme.com --role writer
-  hadron memory share create acme.com::kb --grantee @jane --role reader`,
+		Example: `  hadron memory share create hrn:mem:acme.com:kb --grantee usr_789 --role reader
+  hadron memory share create hrn:mem:acme.com:kb --grantee jane@acme.com --role writer
+  hadron memory share create hrn:mem:acme.com:kb --grantee @jane --role reader`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseShareRole(role)
@@ -115,7 +115,7 @@ func newCmdShareSetRole(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "set-role <memoryRef> --grantee <user> --role <writer|reader>",
 		Short:   "Change a share's role",
-		Example: `  hadron memory share set-role acme.com::kb --grantee usr_789 --role writer`,
+		Example: `  hadron memory share set-role hrn:mem:acme.com:kb --grantee usr_789 --role writer`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseShareRole(role)
@@ -164,8 +164,8 @@ func newCmdShareRm(f *cmdutil.Factory) *cobra.Command {
 With --grantee, the memory's owner removes that user's share. Without it, you
 remove YOUR OWN share of a memory someone shared with you (leave) — that path
 needs no ownership, only that the share is yours.`,
-		Example: `  hadron memory share rm acme.com::kb --grantee usr_789 --yes
-  hadron memory share rm acme.com::kb --yes   # leave a memory shared with you`,
+		Example: `  hadron memory share rm hrn:mem:acme.com:kb --grantee usr_789 --yes
+  hadron memory share rm hrn:mem:acme.com:kb --yes   # leave a memory shared with you`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

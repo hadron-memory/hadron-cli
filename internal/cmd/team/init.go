@@ -48,7 +48,7 @@ Messages are deliberately NOT a property-schema collection: the group chat
 speaks the canonical chat-NODE shape (body in content, envelope in data,
 chat-message nodeType — D-2026-08-07-004), owned server-side.`,
 		Example: `  hadron team init --app acme.com:eng-team
-  hadron team init -m acme.com::eng-team`,
+  hadron team init -m hrn:mem:acme.com:eng-team`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()

@@ -70,13 +70,13 @@ specs. Every change is saved to version history. After a real run the changed
 specs are re-linted and any findings are reported — a bulk body rewrite can, for
 example, leave an abstract out of sync with its content.`,
 		Example: `  # Preview a corpus-wide rename
-  hadron spec replace h-read-node hadron_get_node -m hadronmemory.com::specs --dry-run
+  hadron spec replace h-read-node hadron_get_node -m hrn:mem:hadronmemory.com:specs --dry-run
 
   # Apply it (whole-token only), across one module
-  hadron spec replace h-read-node hadron_get_node -m hadronmemory.com::specs --prefix cor:api --yes
+  hadron spec replace h-read-node hadron_get_node -m hrn:mem:hadronmemory.com:specs --prefix cor:api --yes
 
   # Regex with a backref
-  hadron spec replace 'h-chat-(\w+)' 'hadron_chatbot_$1' -m hadronmemory.com::specs --regex --yes`,
+  hadron spec replace 'h-chat-(\w+)' 'hadron_chatbot_$1' -m hrn:mem:hadronmemory.com:specs --regex --yes`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pattern, replacement := args[0], args[1]

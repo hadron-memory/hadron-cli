@@ -35,8 +35,8 @@ matches (e.g. a citation), since keyword search is now FTS-ranked/stemmed
 rather than substring.
 
 Results are filtered to spec nodes.`,
-		Example: `  hadron spec find "win back users who never engaged" -m micromentor.org::platform-specs
-  hadron spec find "msg:010" -m micromentor.org::platform-specs --match-exactly`,
+		Example: `  hadron spec find "win back users who never engaged" -m hrn:mem:micromentor.org:platform-specs
+  hadron spec find "msg:010" -m hrn:mem:micromentor.org:platform-specs --match-exactly`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			query := args[0]

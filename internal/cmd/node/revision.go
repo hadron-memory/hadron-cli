@@ -65,7 +65,7 @@ func newCmdRevision(f *cmdutil.Factory) *cobra.Command {
 commands list that history, display, label, or restore a revision, and prune it.
 
 A revision is addressed by its revision id (from ` + "`revision list`" + `). A node is
-addressed the same way as elsewhere — a fully-qualified <org>::<memory>::<loc>
+addressed the same way as elsewhere — a fully-qualified hrn:node:<root>:<slug>:<loc>
 URN, or a bare <loc> with -m/--memory — plus a bare node id, which is the only
 way to reach a soft-deleted node's history for cleanup.`,
 	}
@@ -85,8 +85,8 @@ func newCmdRevisionList(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list <node-urn> | <loc> -m <memory> | <node-id>",
 		Aliases: []string{"ls"},
 		Short:   "List a node's revision history, most recent first",
-		Example: `  hadron node revision list hadronmemory.com::dev::start-here
-  hadron node revision list start-here -m hadronmemory.com::dev --limit 5 --json`,
+		Example: `  hadron node revision list hrn:node:hadronmemory.com:dev:start-here
+  hadron node revision list start-here -m hrn:mem:hadronmemory.com:dev --limit 5 --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if limit < 0 {
@@ -121,7 +121,7 @@ func newCmdRevisionList(f *cmdutil.Factory) *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org::memory) to resolve a bare <loc> against")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
 	cmd.Flags().IntVar(&limit, "limit", 0, "max revisions to return (server default when unset)")
 	return cmd
 }
@@ -300,7 +300,7 @@ func newCmdRevisionClear(f *cmdutil.Factory) *cobra.Command {
 		Long: `Delete every revision in a node's history, printing the count removed.
 Reachable on a soft-deleted node (cleanup) by passing its node id, since the
 read surfaces no longer resolve its URN.`,
-		Example: `  hadron node revision clear hadronmemory.com::dev::start-here --yes
+		Example: `  hadron node revision clear hrn:node:hadronmemory.com:dev:start-here --yes
   hadron node revision clear clr8x2k9p0000 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -326,7 +326,7 @@ read surfaces no longer resolve its URN.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (org::memory) to resolve a bare <loc> against")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	return cmd
 }
@@ -350,7 +350,7 @@ func revisionNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref stri
 		!strings.HasPrefix(ref, "urn:") {
 		if strings.Contains(ref, ":") {
 			return "", exitcode.Newf(exitcode.Usage,
-				"%q is not a fully-qualified node URN — expected <org>::<memory>::<loc>, or pass -m <org::memory> with a bare loc (or a node id to reach a soft-deleted node)", ref)
+				"%q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc>, or pass -m hrn:mem:<root>:<slug> with a bare loc (or a node id to reach a soft-deleted node)", ref)
 		}
 		return ref, nil
 	}

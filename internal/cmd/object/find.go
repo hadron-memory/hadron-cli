@@ -42,8 +42,8 @@ an eq predicate per field (comparison type inferred from the schema).
 --where is the full structured predicate (the same JSON grammar as
 'search --where'), AND-combined with --match.
 --sort is a single-field shorthand: { "<field>": "asc" | "desc" }.`,
-		Example: `  hadron object find -m acme.com::market --type competitor --match '{"stage":"series-a"}'
-  hadron object find -m acme.com::market --type competitor \
+		Example: `  hadron object find -m hrn:mem:acme.com:market --type competitor --match '{"stage":"series-a"}'
+  hadron object find -m hrn:mem:acme.com:market --type competitor \
     --where '{"path":["fundingUsd"],"as":"number","gt":10000000}' \
     --sort '{"fundingUsd":"desc"}' --json`,
 		Args: cobra.NoArgs,

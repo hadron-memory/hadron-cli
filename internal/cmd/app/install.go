@@ -30,7 +30,7 @@ must be an org ADMIN), or --owner-me to create a user-owned (personal) App in
 your own @handle namespace (spec 047). A personal App can install a PUBLIC
 (marketplace) agent or your own user-owned agent.`,
 		Example: `  hadron app install --org acme.com --agent agent_123 --name "Support Bot"
-  hadron app install --owner-me --agent acme.com::support-bot --name "My Bot"`,
+  hadron app install --owner-me --agent hrn:agent:acme.com:support-bot --name "My Bot"`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// spec 047: an App is owned by EXACTLY ONE of an org or the caller.

@@ -63,8 +63,8 @@ and linked to the replacement with a "superseded-by" edge. The new spec
 gets the next free number (in the same feature by default; --feature
 relocates it to another existing feature). Update the register ledger
 afterward (the tool prints a reminder; it never edits the register).`,
-		Example: `  hadron spec supersede msg:010:02 -m micromentor.org::platform-specs --title "W2 v2" --yes
-  hadron spec supersede msg:010:02 -m micromentor.org::platform-specs --title "W2 v2" --copy-body --dry-run`,
+		Example: `  hadron spec supersede msg:010:02 -m hrn:mem:micromentor.org:platform-specs --title "W2 v2" --yes
+  hadron spec supersede msg:010:02 -m hrn:mem:micromentor.org:platform-specs --title "W2 v2" --copy-body --dry-run`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if title == "" {

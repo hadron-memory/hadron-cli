@@ -62,9 +62,9 @@ The scheme can be declared in the memory's data (so an empty memory can
 announce its intended arity); when declared it is authoritative and any
 disagreement with the live nodes is flagged. --declare flat|product
 writes that declaration.`,
-		Example: `  hadron spec describe -m hadronmemory.com::platform-specs
-  hadron spec describe -m hadronmemory.com::platform-specs --declare product
-  hadron spec describe -m micromentor.org::platform-specs --json`,
+		Example: `  hadron spec describe -m hrn:mem:hadronmemory.com:platform-specs
+  hadron spec describe -m hrn:mem:hadronmemory.com:platform-specs --declare product
+  hadron spec describe -m hrn:mem:micromentor.org:platform-specs --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if declare != "" && declare != "flat" && declare != "product" {

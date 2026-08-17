@@ -39,7 +39,7 @@ For --kind webfetch-auth, pass --type bearer|basic|header and --url-prefix.
 The secret material is the bearer token, basic password, or header value; the
 server derives metadata.type from the payload.`,
 		Example: `  printf '%s' "$TOKEN" | hadron secret create --name github-token --scope user --kind generic --value-file -
-  hadron secret create --name poll-auth --scope app --owner acme.com::monitor \
+  hadron secret create --name poll-auth --scope app --owner hrn:app:acme.com:monitor \
     --kind webfetch-auth --type bearer --url-prefix https://api.example.com/`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

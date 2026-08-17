@@ -21,7 +21,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 half — name, kind, metadata, and audit fields. Secret values are never returned
 by the API and never printed by the CLI.`,
 		Example: `  hadron secret list --scope user
-  hadron secret list --scope app --owner acme.com::monitor --json`,
+  hadron secret list --scope app --owner hrn:app:acme.com:monitor --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ownerType, ownerRef, err := validateOwner(scope, owner)
