@@ -38,7 +38,16 @@ posts are authored by you.
 
 The team App resolves from --app (or the configured App context), falling
 back to the worktree binding. Mention teammates as @worker-name /
-@handle — a multiword name by its slug (@mary-jane).`,
+@handle — a multiword name by its slug (@mary-jane).
+
+WHICH CHAT (#470). That resolution is ambient, so ` + "`read`" + ` opens with the
+App it landed on and where the scope came from — including when there is
+nothing new, which is the usual case and was previously indistinguishable
+from reading another team. ` + "`post`" + ` names the chat in its receipt, and warns
+on stderr BEFORE writing when the App came from a context or binding you
+did not name AND no worker session is bound. A post cannot be recalled and
+its mentions notify people on write, so that one signal comes early rather
+than in the receipt.`,
 	}
 	cmd.AddCommand(newCmdTeamChatPost(f))
 	cmd.AddCommand(newCmdTeamChatRead(f))
@@ -71,6 +80,14 @@ type appScope struct {
 	Ref string
 	// Source is a human phrase for the winning branch, e.g. "from --app".
 	Source string
+	// Ambient is true when nobody named this App on THIS invocation — it came
+	// from a configured context or a worktree binding rather than --app.
+	//
+	// A separate field rather than a comparison against Source: a gate that
+	// matched the phrase would silently stop firing the day someone reworded
+	// it, and the thing it gates (#470's pre-flight before an unrecallable
+	// write) fails silent by nature.
+	Ambient bool
 }
 
 // resolveTeamApp resolves the team App an App-addressed team command works
@@ -96,14 +113,13 @@ func resolveTeamAppScope(ctx context.Context, f *cmdutil.Factory, b *binding) (a
 		// f.App() merges the two, and they are worth telling apart: --app is
 		// something the reader just typed, a configured context is ambient and
 		// as forgettable as a binding.
-		source := "from the App context"
 		if f.AppFlag != "" {
-			source = "from --app"
+			return appScope{Ref: appRef, Source: "from --app"}, nil
 		}
-		return appScope{Ref: appRef, Source: source}, nil
+		return appScope{Ref: appRef, Source: "from the App context", Ambient: true}, nil
 	}
 	if b != nil && b.AppID != "" {
-		return appScope{Ref: b.AppID, Source: "from the worktree binding"}, nil
+		return appScope{Ref: b.AppID, Source: "from the worktree binding", Ambient: true}, nil
 	}
 	if b != nil && b.TeamMemory != "" {
 		client, err := f.GraphQLClient()
@@ -116,8 +132,9 @@ func resolveTeamAppScope(ctx context.Context, f *cmdutil.Factory, b *binding) (a
 		}
 		if resp.Memory != nil && resp.Memory.AppId != nil && *resp.Memory.AppId != "" {
 			return appScope{
-				Ref:    *resp.Memory.AppId,
-				Source: "from the worktree binding's team memory " + b.TeamMemory,
+				Ref:     *resp.Memory.AppId,
+				Source:  "from the worktree binding's team memory " + b.TeamMemory,
+				Ambient: true,
 			}, nil
 		}
 		return appScope{}, exitcode.Newf(exitcode.Usage,
@@ -233,10 +250,11 @@ matching ` + "`hadron chat post`" + `. Exactly one source.
 				}
 				sessionRef = optStr(b.SessionID)
 			}
-			appRef, err := resolveTeamApp(ctx, f, b)
+			scope, err := resolveTeamAppScope(ctx, f, b)
 			if err != nil {
 				return err
 			}
+			appLabel := lazyAppLabel(ctx, f, scope)
 			text, err := chat.ResolveBody(cmd, body, bodyFile, f.IOStreams.In)
 			if err != nil {
 				return err
@@ -245,7 +263,27 @@ matching ` + "`hadron chat post`" + `. Exactly one source.
 			if err != nil {
 				return err
 			}
-			resp, err := gen.CreateTeamChatMessage(ctx, client, appRef, text, replyToSeq, sessionRef)
+			// PRE-FLIGHT, before the write (#470). A receipt can only diagnose
+			// this one: the message is live, and the mentions have already
+			// notified people on a team the author may not have meant to
+			// address. There is no removal surface here, so unlike a register
+			// edit it cannot be taken back.
+			//
+			// Gated on ambient-AND-unbound, which is what makes it free rather
+			// than noise: with a worker session bound, the App comes from the
+			// same binding that supplies sessionRef, so scope and authorship
+			// agree by construction and there is nothing to warn about. It
+			// fires for the case that is actually exposed — a configured App
+			// context, no binding, and no --app to say otherwise.
+			//
+			// stderr, so the --json stdout contract is untouched; and NOT
+			// suppressed under --json, because an agent posting from an
+			// ambient context is precisely the exposed caller.
+			if scope.Ambient && b == nil {
+				fmt.Fprintf(f.IOStreams.ErrOut,
+					"note: no --app and no worker session binding — posting to %s\n", appLabel())
+			}
+			resp, err := gen.CreateTeamChatMessage(ctx, client, scope.Ref, text, replyToSeq, sessionRef)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -259,8 +297,16 @@ matching ` + "`hadron chat post`" + `. Exactly one source.
 				if msg.ReplyToSeq != nil {
 					reply = fmt.Sprintf(", reply to %d", *msg.ReplyToSeq)
 				}
-				fmt.Fprintf(w, "✓ posted as %s (seq %d%s)\n", who, msg.Seq, reply)
-				return nil
+				// The old receipt named the author and the seq — the two facts
+				// never in doubt — and not the chat. Posting into the wrong
+				// team returned that line with a ✓ on it, which does not merely
+				// fail to warn: it reads as confirmation the post went where
+				// it was meant to.
+				if _, err := fmt.Fprintf(w, "✓ posted as %s (seq %d%s)\n", who, msg.Seq, reply); err != nil {
+					return err
+				}
+				_, err := fmt.Fprintf(w, "  app: %s\n", appLabel())
+				return err
 			})
 		},
 	}
@@ -341,10 +387,11 @@ them "(human)" / "(worker)".`,
 				ref := strings.TrimSpace(mentions)
 				mentionsRef = &ref
 			}
-			appRef, err := resolveTeamApp(ctx, f, b)
+			scope, err := resolveTeamAppScope(ctx, f, b)
 			if err != nil {
 				return err
 			}
+			appRef, appLabel := scope.Ref, lazyAppLabel(ctx, f, scope)
 			// Page to exhaustion with the watermark as the cursor: items are
 			// seq-ascending and sinceSeq is strictly-greater, so each page's
 			// last seq is the next page's cursor — no offset drift.
@@ -379,6 +426,15 @@ them "(human)" / "(worker)".`,
 				NextSince int                  `json:"nextSince"`
 			}{msgs, next}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
+				// UNCONDITIONALLY, and before the messages. Zero messages is the
+				// normal steady state of `chat read --since <watermark>`, and
+				// the render is otherwise a bare loop — so "nobody has posted
+				// since seq N" and "you are reading a team you are not on" were
+				// the same empty output. The failure hid inside the expected
+				// case, which is what makes this the sharper half of #470.
+				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
+					return err
+				}
 				for _, m := range result.Messages {
 					who := "?"
 					if m.AuthorName != nil {
