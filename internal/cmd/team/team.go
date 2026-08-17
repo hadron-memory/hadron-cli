@@ -247,6 +247,36 @@ func describeApp(ctx context.Context, f *cmdutil.Factory, ref string) string {
 	return readable
 }
 
+// lazyAppLabel renders a resolved App scope as "<readable app> (<source>)",
+// on first call only, and caches it (#468).
+//
+// Every site that prints this is GUARDED: `--json` never runs the human
+// branch, and `--yes` skips a confirmation prompt entirely. So the read must
+// not fire until a site that actually prints it fires — an agent running
+// `role rm --yes --json` should pay nothing — and must not fire twice when a
+// command both prompts and prints a receipt.
+func lazyAppLabel(ctx context.Context, f *cmdutil.Factory, scope appScope) func() string {
+	return lazyOnce(func() string {
+		return describeApp(ctx, f, scope.Ref) + " (" + scope.Source + ")"
+	})
+}
+
+// lazyOnce defers read until the first call and caches the result. Extracted
+// from lazyAppLabel so the laziness itself is testable without a Factory or a
+// GraphQL stub (PR #471 review): the test that used to cover this
+// reimplemented the caching inline, so it would have passed even if the real
+// helper stopped caching.
+func lazyOnce(read func() string) func() string {
+	var cached string
+	var done bool
+	return func() string {
+		if !done {
+			cached, done = read(), true
+		}
+		return cached
+	}
+}
+
 func roleSuffix(role *string) string {
 	if role == nil || *role == "" {
 		return ""

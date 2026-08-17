@@ -85,8 +85,9 @@ const supersededRoleJSON = `{"data":{"deleteTeamRole":{
 // register — the thing the caller needs to see to know the move landed.
 func TestTeamRoleRmTransfersRegister(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"TeamRoles":      teamRolesRmJSON,
-		"DeleteTeamRole": supersededRoleJSON,
+		"TeamRoles":       teamRolesRmJSON,
+		"TeamAppIdentity": teamAppIdentityJSON,
+		"DeleteTeamRole":  supersededRoleJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -122,8 +123,9 @@ func TestTeamRoleRmTransfersRegister(t *testing.T) {
 // The --json contract, including the successor's whole register.
 func TestTeamRoleRmJSONShape(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"TeamRoles":      teamRolesRmJSON,
-		"DeleteTeamRole": supersededRoleJSON,
+		"TeamRoles":       teamRolesRmJSON,
+		"TeamAppIdentity": teamAppIdentityJSON,
+		"DeleteTeamRole":  supersededRoleJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -165,7 +167,8 @@ func TestTeamRoleRmJSONShape(t *testing.T) {
 // A bare retirement of a free register: no transferTo on the wire at all.
 func TestTeamRoleRmBareOmitsTransferTo(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"TeamRoles": teamRolesRmJSON,
+		"TeamRoles":       teamRolesRmJSON,
+		"TeamAppIdentity": teamAppIdentityJSON,
 		"DeleteTeamRole": `{"data":{"deleteTeamRole":{"role":"unused-role","nodesDeleted":1,
 			"transferredNames":[],"transferredTo":null}}}`,
 	})

@@ -35,6 +35,15 @@ The writes (#410) ride createTeamRole/updateTeamRole, whose invariants run
 server-side in one App-scoped critical section serialized with
 register-mode casting.
 
+WHICH APP — every command here says so (#468). The team App resolves
+ambiently (--app, the configured App context, then the worktree binding),
+so each read opens with the App it landed on AND where that scope came
+from, each write names it in the receipt, and ` + "`role rm`" + ` names it in
+the confirmation. That matters more here than on a listing: register order
+decides who the register-mode cast allocates NEXT, so an edit landing in
+another team changes who gets cast there, with nothing wrong-looking to
+notice.
+
 SUPERSEDING A ROLE — one call, not a sequence
 
   hadron team role rm <old> --transfer-register-to <new> --yes
@@ -178,14 +187,18 @@ func scanTeamRoles(ctx context.Context, client graphql.Client, appRef string, te
 }
 
 // roleAppScope resolves the App a role command works against, the group
-// convention: --app / the configured context / the worktree binding.
-func roleAppScope(cmd *cobra.Command, f *cmdutil.Factory) (string, error) {
+// convention: --app / the configured context / the worktree binding. It
+// returns the SCOPE rather than the bare ref (#468) — five of this group's
+// seven call sites write, and a register edit landing in another team changes
+// who `castWorker` allocates next there, so every surface has to be able to
+// say which branch answered.
+func roleAppScope(cmd *cobra.Command, f *cmdutil.Factory) (appScope, error) {
 	ctx := cmd.Context()
 	b, err := readBindingOrNilWithApp(ctx, f)
 	if err != nil {
-		return "", err
+		return appScope{}, err
 	}
-	return resolveTeamApp(ctx, f, b)
+	return resolveTeamAppScope(ctx, f, b)
 }
 
 func newCmdRoleList(f *cmdutil.Factory) *cobra.Command {
@@ -204,15 +217,16 @@ one installed agent carries a roles: branch.`,
   hadron team role list --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			appRef, err := roleAppScope(cmd, f)
+			scope, err := roleAppScope(cmd, f)
 			if err != nil {
 				return err
 			}
+			appLabel := lazyAppLabel(cmd.Context(), f, scope)
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			rows, err := scanTeamRoles(cmd.Context(), client, appRef, optStr(teamAgent))
+			rows, err := scanTeamRoles(cmd.Context(), client, scope.Ref, optStr(teamAgent))
 			if err != nil {
 				return err
 			}
@@ -221,6 +235,12 @@ one installed agent carries a roles: branch.`,
 				roles = append(roles, roleDTOFromFields(r))
 			}
 			return output.Write(f.IOStreams, f.JSON, roles, func(w io.Writer) error {
+				// Whose registers, and why this App — before the table, and on
+				// an empty App too, since that is where "no roles defined" and
+				// "wrong team" look identical.
+				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
+					return err
+				}
 				t := output.NewTable(w, "ROLE", "REGISTER (✓ = taken)", "FREE", "RANGE", "AGENT")
 				for _, r := range roles {
 					free := fmt.Sprintf("%d", r.FreeCount)
@@ -258,15 +278,16 @@ shows it.`,
 		Example: `  hadron team role get backend-engineer --app acme.com:eng-team`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			appRef, err := roleAppScope(cmd, f)
+			scope, err := roleAppScope(cmd, f)
 			if err != nil {
 				return err
 			}
+			appLabel := lazyAppLabel(cmd.Context(), f, scope)
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			rows, err := scanTeamRoles(cmd.Context(), client, appRef, optStr(teamAgent))
+			rows, err := scanTeamRoles(cmd.Context(), client, scope.Ref, optStr(teamAgent))
 			if err != nil {
 				return err
 			}
@@ -278,6 +299,9 @@ shows it.`,
 				}
 				dto := roleDTOFromFields(r)
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+					if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
+						return err
+					}
 					fmt.Fprintf(w, "%s (%s)\n  description: %s\n", dto.Role, dto.Loc, dash(dto.Description))
 					fmt.Fprintf(w, "  register (%d free%s):\n", dto.FreeCount, map[bool]string{true: " — EXHAUSTED", false: ""}[dto.Exhausted])
 					for _, n := range dto.Register {
@@ -334,15 +358,21 @@ func resolveRole(ctx context.Context, client graphql.Client, appRef string, team
 }
 
 // emitRoleReceipt prints the write's receipt: the resulting register in
-// allocation order with taken markers — visible outcome, no follow-up read.
-func emitRoleReceipt(f *cmdutil.Factory, r gen.TeamRoleFields, verb string) error {
+// allocation order with taken markers — visible outcome, no follow-up read —
+// and WHERE it landed (#468). A register edit is only re-editable if you
+// notice it went to the wrong team, and the receipt was the one thing the
+// operator was guaranteed to read.
+func emitRoleReceipt(f *cmdutil.Factory, r gen.TeamRoleFields, verb string, appLabel func() string) error {
 	dto := roleDTOFromFields(r)
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 		free := fmt.Sprintf("%d free", dto.FreeCount)
 		if dto.Exhausted {
 			free = "EXHAUSTED"
 		}
-		_, err := fmt.Fprintf(w, "✓ %s role %s — register: %s (%s)\n", verb, dto.Role, registerLine(dto.Register), free)
+		if _, err := fmt.Fprintf(w, "✓ %s role %s — register: %s (%s)\n", verb, dto.Role, registerLine(dto.Register), free); err != nil {
+			return err
+		}
+		_, err := fmt.Fprintf(w, "  app: %s\n", appLabel())
 		return err
 	})
 }
@@ -370,10 +400,11 @@ Agent's definition-edit gate — whoever may write its system memory.`,
       --name-range F-J --app acme.com:eng-team`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			appRef, err := roleAppScope(cmd, f)
+			scope, err := roleAppScope(cmd, f)
 			if err != nil {
 				return err
 			}
+			appRef, appLabel := scope.Ref, lazyAppLabel(cmd.Context(), f, scope)
 			list := splitNames(names)
 			if len(list) == 0 {
 				return exitcode.Newf(exitcode.Usage, "--names is required — the ordered register the register-mode cast allocates from")
@@ -394,7 +425,7 @@ Agent's definition-edit gate — whoever may write its system memory.`,
 			if resp.CreateTeamRole == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no role")
 			}
-			return emitRoleReceipt(f, resp.CreateTeamRole.TeamRoleFields, "created")
+			return emitRoleReceipt(f, resp.CreateTeamRole.TeamRoleFields, "created", appLabel)
 		},
 	}
 	cmd.Flags().StringVar(&names, "names", "", "the ordered name register, comma-separated (position = allocation order)")
@@ -440,10 +471,11 @@ hazard is unreachable through this surface).`,
 			if changed("name-convention") && strings.TrimSpace(nameConvention) == "" {
 				return exitcode.Newf(exitcode.Usage, "empty --name-convention — to remove it, use --clear-name-convention")
 			}
-			appRef, err := roleAppScope(cmd, f)
+			scope, err := roleAppScope(cmd, f)
 			if err != nil {
 				return err
 			}
+			appRef, appLabel := scope.Ref, lazyAppLabel(cmd.Context(), f, scope)
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -476,7 +508,7 @@ hazard is unreachable through this surface).`,
 			if resp.UpdateTeamRole == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no role")
 			}
-			return emitRoleReceipt(f, resp.UpdateTeamRole.TeamRoleFields, "updated")
+			return emitRoleReceipt(f, resp.UpdateTeamRole.TeamRoleFields, "updated", appLabel)
 		},
 	}
 	cmd.Flags().StringVar(&nameRange, "name-range", "", "initial-letter range, e.g. F-J")
@@ -565,10 +597,18 @@ func equalNames(a, b []string) bool {
 
 // emitRoleUnchanged is the honest receipt for a write that would change
 // nothing: no mutation is sent, and the output never says "updated".
-func emitRoleUnchanged(f *cmdutil.Factory, r gen.TeamRoleFields, reason string) error {
+//
+// It names the App for the same reason the changed receipt does (PR #471
+// review). "Nothing to do" and "nothing to do HERE, because you are pointed at
+// the wrong team" are the same sentence otherwise — and a no-op receipt is
+// exactly the one a reader skims.
+func emitRoleUnchanged(f *cmdutil.Factory, r gen.TeamRoleFields, reason string, appLabel func() string) error {
 	dto := roleDTOFromFields(r)
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-		_, err := fmt.Fprintf(w, "· %s unchanged — %s: %s\n", dto.Role, reason, registerLine(dto.Register))
+		if _, err := fmt.Fprintf(w, "· %s unchanged — %s: %s\n", dto.Role, reason, registerLine(dto.Register)); err != nil {
+			return err
+		}
+		_, err := fmt.Fprintf(w, "  app: %s\n", appLabel())
 		return err
 	})
 }
@@ -586,7 +626,7 @@ func pluralNames(names []string) string {
 // compare-and-swap the sugar verbs ride. A POINTER so a present-but-empty
 // precondition (a sugar edit from an empty register) survives the wire —
 // omitempty on a plain slice would drop it (PR #440 review).
-func writeRoleNames(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, appRef string, teamAgentRef *string, role string, names []string, expectedNames *[]string, allowOutOfRange bool) error {
+func writeRoleNames(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, appRef string, appLabel func() string, teamAgentRef *string, role string, names []string, expectedNames *[]string, allowOutOfRange bool) error {
 	var allow *bool
 	if allowOutOfRange {
 		allow = &allowOutOfRange
@@ -598,7 +638,7 @@ func writeRoleNames(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clien
 	if resp.UpdateTeamRole == nil {
 		return exitcode.Newf(exitcode.Error, "server returned no role")
 	}
-	return emitRoleReceipt(f, resp.UpdateTeamRole.TeamRoleFields, "updated")
+	return emitRoleReceipt(f, resp.UpdateTeamRole.TeamRoleFields, "updated", appLabel)
 }
 
 // casRoleNames runs a sugar verb's edit as compare-and-swap (#436 /
@@ -609,7 +649,7 @@ func writeRoleNames(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clien
 // from fresher state, and a target that vanished meanwhile fails honestly
 // inside recompose. Bounded: a register that will not hold still long
 // enough is surfaced as the conflict it is.
-func casRoleNames(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, appRef string, teamAgentRef *string, role string, stored []string, recompose func(stored []string) ([]string, error), allowOutOfRange bool) error {
+func casRoleNames(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, appRef string, appLabel func() string, teamAgentRef *string, role string, stored []string, recompose func(stored []string) ([]string, error), allowOutOfRange bool) error {
 	const casAttempts = 4
 	for attempt := 1; ; attempt++ {
 		names, err := recompose(stored)
@@ -626,9 +666,9 @@ func casRoleNames(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client,
 			if rerr != nil {
 				return rerr
 			}
-			return emitRoleUnchanged(f, row, "the register already matches the requested edit")
+			return emitRoleUnchanged(f, row, "the register already matches the requested edit", appLabel)
 		}
-		err = writeRoleNames(cmd, f, client, appRef, teamAgentRef, role, names, &stored, allowOutOfRange)
+		err = writeRoleNames(cmd, f, client, appRef, appLabel, teamAgentRef, role, names, &stored, allowOutOfRange)
 		if err == nil {
 			return nil
 		}
@@ -663,17 +703,18 @@ func registerNames(r gen.TeamRoleFields) []string {
 
 // namesCommandSetup resolves the App scope and the current role row (an
 // unknown role becomes an honest NotFound before any write).
-func namesCommandSetup(cmd *cobra.Command, f *cmdutil.Factory, teamAgent, roleArg string) (appRef string, client graphql.Client, current gen.TeamRoleFields, err error) {
-	appRef, err = roleAppScope(cmd, f)
+func namesCommandSetup(cmd *cobra.Command, f *cmdutil.Factory, teamAgent, roleArg string) (appRef string, appLabel func() string, client graphql.Client, current gen.TeamRoleFields, err error) {
+	scope, err := roleAppScope(cmd, f)
 	if err != nil {
-		return "", nil, current, err
+		return "", nil, nil, current, err
 	}
+	appRef, appLabel = scope.Ref, lazyAppLabel(cmd.Context(), f, scope)
 	client, err = f.GraphQLClient()
 	if err != nil {
-		return "", nil, current, err
+		return "", nil, nil, current, err
 	}
 	current, err = resolveRole(cmd.Context(), client, appRef, optStr(teamAgent), roleArg)
-	return appRef, client, current, err
+	return appRef, appLabel, client, current, err
 }
 
 // registerNames extracts the current register's names, in order.
@@ -697,11 +738,11 @@ additions refuse typed too.`,
 			if len(names) == 0 {
 				return exitcode.Newf(exitcode.Usage, "empty register — pass an ordered comma-separated list of names")
 			}
-			appRef, client, current, err := namesCommandSetup(cmd, f, teamAgent, args[0])
+			appRef, appLabel, client, current, err := namesCommandSetup(cmd, f, teamAgent, args[0])
 			if err != nil {
 				return err
 			}
-			if err := writeRoleNames(cmd, f, client, appRef, optStr(teamAgent), current.Role, names, nil, allowOutOfRange); err != nil {
+			if err := writeRoleNames(cmd, f, client, appRef, appLabel, optStr(teamAgent), current.Role, names, nil, allowOutOfRange); err != nil {
 				return api.MapError(err)
 			}
 			return nil
@@ -743,7 +784,7 @@ an update.`,
 			if len(additions) == 0 {
 				return exitcode.Newf(exitcode.Usage, "no names to add")
 			}
-			appRef, client, current, err := namesCommandSetup(cmd, f, teamAgent, args[0])
+			appRef, appLabel, client, current, err := namesCommandSetup(cmd, f, teamAgent, args[0])
 			if err != nil {
 				return err
 			}
@@ -751,9 +792,9 @@ an update.`,
 			// register dedups case-insensitively), which used to print a
 			// "✓ updated" receipt for a write that changed nothing.
 			if fresh := notYetInRegister(registerNames(current), additions); len(fresh) == 0 {
-				return emitRoleUnchanged(f, current, pluralNames(additions)+" already in the register")
+				return emitRoleUnchanged(f, current, pluralNames(additions)+" already in the register", appLabel)
 			}
-			return casRoleNames(cmd, f, client, appRef, optStr(teamAgent), current.Role, registerNames(current),
+			return casRoleNames(cmd, f, client, appRef, appLabel, optStr(teamAgent), current.Role, registerNames(current),
 				func(stored []string) ([]string, error) {
 					// Re-filter on every attempt: a rebase may have brought in
 					// a name this command was about to add.
@@ -783,12 +824,12 @@ quoting a comma-bearing entry is how a register corrupted by an older CLI
 		Example: `  hadron team role names rm backend-engineer Gwen`,
 		Args:    cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			appRef, client, current, err := namesCommandSetup(cmd, f, teamAgent, args[0])
+			appRef, appLabel, client, current, err := namesCommandSetup(cmd, f, teamAgent, args[0])
 			if err != nil {
 				return err
 			}
 			role := current.Role
-			return casRoleNames(cmd, f, client, appRef, optStr(teamAgent), role, registerNames(current),
+			return casRoleNames(cmd, f, client, appRef, appLabel, optStr(teamAgent), role, registerNames(current),
 				func(stored []string) ([]string, error) {
 					drop := map[string]bool{}
 					for _, n := range args[1:] {
@@ -833,12 +874,12 @@ who is cast next.`,
 			if perr != nil || pos < 1 {
 				return exitcode.Newf(exitcode.Usage, "position is 1-based, got %q", args[2])
 			}
-			appRef, client, current, err := namesCommandSetup(cmd, f, teamAgent, args[0])
+			appRef, appLabel, client, current, err := namesCommandSetup(cmd, f, teamAgent, args[0])
 			if err != nil {
 				return err
 			}
 			role := current.Role
-			return casRoleNames(cmd, f, client, appRef, optStr(teamAgent), role, registerNames(current),
+			return casRoleNames(cmd, f, client, appRef, appLabel, optStr(teamAgent), role, registerNames(current),
 				func(stored []string) ([]string, error) {
 					from := -1
 					for i, n := range stored {
@@ -891,6 +932,11 @@ roles:<role>:notes is content OF the role) are tombstoned, so the subtree
 is recoverable — and runs in the same App-scoped critical section as
 createTeamRole, so a retirement serializes with register-mode casting.
 
+The confirmation names the APP before the role (#468) — an ambient scope
+is the mistake this prompt is best placed to catch, and the role name only
+confirms what you just typed. --yes skips the prompt, so a non-interactive
+caller gets the App in the receipt instead.
+
 MINTED names decide whether a bare retirement is allowed. A register entry
 that is taken records that the name was allocated to this role; dropping
 it would erase that ledger, so a role holding minted names refuses
@@ -924,10 +970,11 @@ nothing else needs it.`,
 			if cmd.Flags().Changed("transfer-register-to") && strings.TrimSpace(transferTo) == "" {
 				return exitcode.Newf(exitcode.Usage, "--transfer-register-to needs a successor role — omit it for a bare retirement")
 			}
-			appRef, err := roleAppScope(cmd, f)
+			scope, err := roleAppScope(cmd, f)
 			if err != nil {
 				return err
 			}
+			appRef, appLabel := scope.Ref, lazyAppLabel(cmd.Context(), f, scope)
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -974,7 +1021,16 @@ nothing else needs it.`,
 			// Confirm, not ConfirmDeletion: the latter appends "This cannot be
 			// undone", which is false here — the delete is SOFT and the
 			// subtree stays recoverable (same reasoning as `asset rm`).
-			if err := cmdutil.Confirm(f.IOStreams, yes, describeRetirement(current, successorArg)); err != nil {
+			// Build the prompt only when one can be shown. describeRetirement
+			// renders the App, which costs a read, and the prompt is an
+			// ARGUMENT — so composing it unconditionally would make
+			// `role rm --yes --json` pay for a string Confirm discards, which
+			// is exactly what lazyAppLabel exists to prevent.
+			prompt := ""
+			if !yes {
+				prompt = describeRetirement(current, successorArg, appLabel)
+			}
+			if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
 				return err
 			}
 			resp, err := gen.DeleteTeamRole(cmd.Context(), client, appRef, optStr(teamAgent), current.Role, successorArg)
@@ -984,7 +1040,7 @@ nothing else needs it.`,
 			if resp.DeleteTeamRole == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no result")
 			}
-			return emitRoleRetired(f, resp.DeleteTeamRole)
+			return emitRoleRetired(f, resp.DeleteTeamRole, appLabel)
 		},
 	}
 	cmd.Flags().StringVar(&transferTo, "transfer-register-to", "", "successor role to hand this role's register to (required when any name is minted)")
@@ -1011,20 +1067,25 @@ func pickRole(rows []gen.TeamRoleFields, arg string) (gen.TeamRoleFields, error)
 // transfer moves a ledger to a named successor, a bare retirement discards a
 // register — which is why the caller has already been refused if it holds
 // anything minted. Both say the delete is recoverable, because it is.
-func describeRetirement(r gen.TeamRoleFields, transferTo *string) string {
+// The App leads the sentence (#468). The prompt is the ONE moment a user is
+// reading carefully before something irreversible, and the App is the fact
+// most likely to reveal that the ambient scope picked the wrong team — naming
+// the role alone confirms only what they already typed. Only rendered when a
+// prompt is actually shown, so `--yes` pays nothing for it.
+func describeRetirement(r gen.TeamRoleFields, transferTo *string, appLabel func() string) string {
 	names := strings.Join(registerNames(r), ", ")
 	if transferTo != nil {
-		return fmt.Sprintf("Retire role %s and move its register (%s) to %s? The definition is soft-deleted and stays recoverable.",
-			r.Role, names, *transferTo)
+		return fmt.Sprintf("In %s: retire role %s and move its register (%s) to %s? The definition is soft-deleted and stays recoverable.",
+			appLabel(), r.Role, names, *transferTo)
 	}
-	return fmt.Sprintf("Retire role %s and its register (%s — none minted)? The definition is soft-deleted and stays recoverable.",
-		r.Role, names)
+	return fmt.Sprintf("In %s: retire role %s and its register (%s — none minted)? The definition is soft-deleted and stays recoverable.",
+		appLabel(), r.Role, names)
 }
 
 // emitRoleRetired prints the receipt. A supersede shows the SUCCESSOR's
 // resulting register, since that — not the tombstone — is what the caller
 // needs to see to know the move landed.
-func emitRoleRetired(f *cmdutil.Factory, p *deletedRolePayload) error {
+func emitRoleRetired(f *cmdutil.Factory, p *deletedRolePayload, appLabel func() string) error {
 	dto := roleDeletedDTO{Role: p.Role, NodesDeleted: p.NodesDeleted, TransferredNames: []string{}}
 	dto.TransferredNames = append(dto.TransferredNames, p.TransferredNames...)
 	if p.TransferredTo != nil {
@@ -1033,8 +1094,11 @@ func emitRoleRetired(f *cmdutil.Factory, p *deletedRolePayload) error {
 	}
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 		if dto.TransferredTo == nil {
-			_, err := fmt.Fprintf(w, "✓ retired role %s — %s tombstoned (soft, recoverable)\n",
-				dto.Role, pluralNodes(dto.NodesDeleted))
+			if _, err := fmt.Fprintf(w, "✓ retired role %s — %s tombstoned (soft, recoverable)\n",
+				dto.Role, pluralNodes(dto.NodesDeleted)); err != nil {
+				return err
+			}
+			_, err := fmt.Fprintf(w, "  app: %s\n", appLabel())
 			return err
 		}
 		s := dto.TransferredTo
@@ -1050,7 +1114,10 @@ func emitRoleRetired(f *cmdutil.Factory, p *deletedRolePayload) error {
 		if s.Exhausted {
 			free = "EXHAUSTED"
 		}
-		_, err := fmt.Fprintf(w, "  %s register: %s (%s)\n", s.Role, registerLine(s.Register), free)
+		if _, err := fmt.Fprintf(w, "  %s register: %s (%s)\n", s.Role, registerLine(s.Register), free); err != nil {
+			return err
+		}
+		_, err := fmt.Fprintf(w, "  app: %s\n", appLabel())
 		return err
 	})
 }

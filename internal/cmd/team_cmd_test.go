@@ -640,7 +640,7 @@ const teamRolesJSON = `{"data":{"teamRoles":{"total":2,"items":[
 // allocation order. The free/taken verdicts are server truths (judged
 // against the App's FULL roster), never recomputed client-side.
 func TestTeamRoleList(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesJSON})
+	gql, captured := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "role", "list", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
@@ -692,7 +692,7 @@ func TestTeamRoleList(t *testing.T) {
 }
 
 func TestTeamRoleGet(t *testing.T) {
-	gql, _ := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesJSON})
+	gql, _ := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	// Case-insensitive, like the server's own name matching.
@@ -720,6 +720,7 @@ func TestTeamRoleGet(t *testing.T) {
 // resulting register.
 func TestTeamRoleCreate(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
+		"TeamAppIdentity": teamAppIdentityJSON,
 		"CreateTeamRole": `{"data":{"createTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
 			"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null},{"name":"Gwen","taken":false,"heldBy":null}],
 			"freeCount":2,"exhausted":false,"nameRange":"F-J","nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`,
@@ -763,6 +764,7 @@ func TestTeamRoleUpdateSetAndClear(t *testing.T) {
 		"freeCount":1,"exhausted":false,"nameRange":"F-K","nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
 	gql, captured := captureGraphQL(t, map[string]string{
 		"TeamRoles":          teamRolesJSON,
+		"TeamAppIdentity":    teamAppIdentityJSON,
 		"UpdateTeamRoleMeta": updated,
 	})
 	f, _ := testFactory(t)
@@ -808,6 +810,7 @@ func TestTeamRoleNamesSet(t *testing.T) {
 		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
 	gql, captured := captureGraphQL(t, map[string]string{
 		"TeamRoles":           teamRolesJSON,
+		"TeamAppIdentity":     teamAppIdentityJSON,
 		"UpdateTeamRoleNames": updated,
 	})
 	f, _ := testFactory(t)
@@ -862,6 +865,7 @@ func TestTeamRoleNamesSugarVerbs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{
 				"TeamRoles":           teamRolesJSON,
+				"TeamAppIdentity":     teamAppIdentityJSON,
 				"UpdateTeamRoleNames": updated,
 			})
 			f, _ := testFactory(t)
@@ -892,7 +896,7 @@ func TestTeamRoleNamesSugarVerbs(t *testing.T) {
 		{"team", "role", "names", "mv", "backend-engineer", "Joe", "9"},
 		{"team", "role", "names", "mv", "backend-engineer", "Joe", "zero"},
 	} {
-		gql, captured := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesJSON})
+		gql, captured := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON})
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs(append(tc, "--app", "acme.com:eng-team", "--server", gql.URL))
@@ -925,6 +929,7 @@ func TestTeamRoleNamesAddSplitsCommas(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{
 				"TeamRoles":           teamRolesJSON,
+				"TeamAppIdentity":     teamAppIdentityJSON,
 				"UpdateTeamRoleNames": updated,
 			})
 			f, _ := testFactory(t)
@@ -980,6 +985,8 @@ func TestTeamRoleNamesAddStaleRebaseToNoOpReportsUnchanged(t *testing.T) {
 			// A concurrent admin already added Hans — exactly what we wanted.
 			_, _ = w.Write([]byte(`{"errors":[{"message":"the register changed",
 				"extensions":{"code":"TEAM_ROLE_STALE","storedNames":["Fred","Iris","Joe","Hans"]}}]}`))
+		case "TeamAppIdentity":
+			_, _ = w.Write([]byte(teamAppIdentityJSON))
 		default:
 			t.Errorf("unexpected operation %q", body.OperationName)
 			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
@@ -1016,6 +1023,7 @@ func TestTeamRoleNamesAddSkipsPresentNames(t *testing.T) {
 		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
 	gql, captured := captureGraphQL(t, map[string]string{
 		"TeamRoles":           teamRolesJSON,
+		"TeamAppIdentity":     teamAppIdentityJSON,
 		"UpdateTeamRoleNames": updated,
 	})
 	f, _ := testFactory(t)
@@ -1035,7 +1043,7 @@ func TestTeamRoleNamesAddSkipsPresentNames(t *testing.T) {
 	}
 
 	// Every name already present: no write at all, and an honest receipt.
-	gql2, captured2 := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesJSON})
+	gql2, captured2 := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON})
 	f2, out2 := testFactory(t)
 	root2 := NewRootCmd(f2)
 	root2.SetArgs([]string{"team", "role", "names", "add", "backend-engineer", "Fred,Iris",
@@ -1052,10 +1060,149 @@ func TestTeamRoleNamesAddSkipsPresentNames(t *testing.T) {
 	if !strings.Contains(out2.String(), "unchanged") {
 		t.Errorf("the receipt must say nothing changed: %s", out2.String())
 	}
+	// The no-op receipt names the App too (PR #471 review). "Nothing to do"
+	// and "nothing to do HERE, because you are pointed at the wrong team" are
+	// otherwise the same sentence — and a no-op receipt is the one a reader
+	// skims hardest.
+	if !strings.Contains(out2.String(), "  app: hrn:app:acme.com:eng-team — Eng Team (from --app)") {
+		t.Errorf("the unchanged receipt must name the App: %s", out2.String())
+	}
 }
 
 // `names rm` deliberately matches LITERALLY — quoting a comma-bearing entry
 // is how a register corrupted by an older CLI is repaired (#442).
+// #468: the role group resolves its App through the same silent chain as the
+// worker surfaces did — but five of its seven call sites WRITE, so both the
+// reads and the receipts have to say which team they landed in.
+func TestTeamRoleScopeLineOnReadsAndReceipts(t *testing.T) {
+	const wantApp = "hrn:app:acme.com:eng-team — Eng Team (from --app)"
+
+	t.Run("list opens with the App and its source", func(t *testing.T) {
+		gql, _ := captureGraphQL(t, map[string]string{
+			"TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON,
+		})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "role", "list", "--app", "acme.com:eng-team", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if !strings.HasPrefix(out.String(), "app: "+wantApp+"\n") {
+			t.Errorf("the scope line must lead the table: %s", out.String())
+		}
+	})
+
+	t.Run("an empty App still says which App is empty", func(t *testing.T) {
+		gql, _ := captureGraphQL(t, map[string]string{
+			"TeamRoles":       `{"data":{"teamRoles":{"total":0,"items":[]}}}`,
+			"TeamAppIdentity": teamAppIdentityJSON,
+		})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "role", "list", "--app", "acme.com:eng-team", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if !strings.Contains(out.String(), "app: "+wantApp) {
+			t.Errorf("no roles and wrong team must not look identical: %q", out.String())
+		}
+	})
+
+	t.Run("get names the App", func(t *testing.T) {
+		gql, _ := captureGraphQL(t, map[string]string{
+			"TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON,
+		})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "role", "get", "backend-engineer", "--app", "acme.com:eng-team", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if !strings.Contains(out.String(), "app: "+wantApp) {
+			t.Errorf("role get must name the App: %s", out.String())
+		}
+	})
+
+	t.Run("a register write's receipt names where it landed", func(t *testing.T) {
+		gql, _ := captureGraphQL(t, map[string]string{
+			"TeamRoles":       teamRolesJSON,
+			"TeamAppIdentity": teamAppIdentityJSON,
+			"UpdateTeamRoleNames": `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer",
+				"nodeId":"n-be","description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
+				"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,
+				"roleAgent":null,"hasNamePlaceholder":null}}}`,
+		})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "role", "names", "set", "backend-engineer", "Fred",
+			"--app", "acme.com:eng-team", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		// Register order decides who castWorker allocates next, so "which team
+		// did this land in" is the receipt's load-bearing half.
+		if !strings.Contains(out.String(), "  app: "+wantApp) {
+			t.Errorf("the write receipt must name the App: %s", out.String())
+		}
+		if !strings.Contains(out.String(), "✓ updated role backend-engineer") {
+			t.Errorf("the existing receipt must survive: %s", out.String())
+		}
+	})
+}
+
+// The scope line is render-only, so an agent path pays nothing for it: no
+// human branch runs and no identity read is issued. `role rm --yes --json` is
+// the strict case — the prompt is skipped too, and composing it eagerly (it is
+// an ARGUMENT to Confirm) would fire the read anyway.
+func TestTeamRoleJSONIssuesNoIdentityRead(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"list", []string{"team", "role", "list"}},
+		{"rm --yes", []string{"team", "role", "rm", "unused-role", "--yes"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"TeamRoles":       teamRolesRmJSON,
+				"TeamAppIdentity": teamAppIdentityJSON,
+				"DeleteTeamRole": `{"data":{"deleteTeamRole":{"role":"unused-role","nodesDeleted":1,
+					"transferredNames":[],"transferredTo":null}}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(tc.args, "--app", "acme.com:eng-team", "--json", "--server", gql.URL))
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if _, called := captured["TeamAppIdentity"]; called {
+				t.Error("--json must not pay for a render-only identity read")
+			}
+		})
+	}
+}
+
+// describeApp decorates a render and never gates one: an App record the caller
+// cannot read must not turn a working role listing into an error.
+func TestTeamRoleListSurvivesUnreadableApp(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"TeamRoles":       teamRolesJSON,
+		"TeamAppIdentity": `{"errors":[{"message":"forbidden","extensions":{"code":"FORBIDDEN"}}]}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "role", "list", "--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("an unreadable App record must not fail the role read: %v", err)
+	}
+	if !strings.Contains(out.String(), "app: acme.com:eng-team (from --app)") {
+		t.Errorf("the scope line must fall back to the raw ref: %s", out.String())
+	}
+	if !strings.Contains(out.String(), "backend-engineer") {
+		t.Errorf("the roles must still render: %s", out.String())
+	}
+}
+
 func TestTeamRoleNamesRmMatchesLiterally(t *testing.T) {
 	corrupt := `{"data":{"teamRoles":{"total":1,"items":[
 		{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be","description":null,
@@ -1067,6 +1214,7 @@ func TestTeamRoleNamesRmMatchesLiterally(t *testing.T) {
 		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
 	gql, captured := captureGraphQL(t, map[string]string{
 		"TeamRoles":           corrupt,
+		"TeamAppIdentity":     teamAppIdentityJSON,
 		"UpdateTeamRoleNames": updated,
 	})
 	f, _ := testFactory(t)
@@ -1099,6 +1247,7 @@ func TestTeamRoleNamesAddFromEmptyRegisterKeepsCAS(t *testing.T) {
 		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
 	gql, captured := captureGraphQL(t, map[string]string{
 		"TeamRoles":           emptyRole,
+		"TeamAppIdentity":     teamAppIdentityJSON,
 		"UpdateTeamRoleNames": updated,
 	})
 	f, _ := testFactory(t)
@@ -1147,6 +1296,8 @@ func TestTeamRoleNamesStaleWithoutPayloadRereads(t *testing.T) {
 				return
 			}
 			_, _ = w.Write([]byte(updated))
+		case "TeamAppIdentity":
+			_, _ = w.Write([]byte(teamAppIdentityJSON))
 		default:
 			t.Errorf("unexpected operation %q", body.OperationName)
 			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
@@ -1200,6 +1351,8 @@ func TestTeamRoleNamesAddRebasesOnStale(t *testing.T) {
 				return
 			}
 			_, _ = w.Write([]byte(updated))
+		case "TeamAppIdentity":
+			_, _ = w.Write([]byte(teamAppIdentityJSON))
 		default:
 			t.Errorf("unexpected operation %q", body.OperationName)
 			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
@@ -1260,6 +1413,7 @@ func TestTeamRoleWriteServerRefusals(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gql, _ := captureGraphQL(t, map[string]string{
 				"TeamRoles":           teamRolesJSON,
+				"TeamAppIdentity":     teamAppIdentityJSON,
 				"UpdateTeamRoleNames": tc.resp,
 			})
 			f, _ := testFactory(t)
@@ -1273,7 +1427,8 @@ func TestTeamRoleWriteServerRefusals(t *testing.T) {
 	}
 
 	gql, _ := captureGraphQL(t, map[string]string{
-		"CreateTeamRole": `{"errors":[{"message":"role backend-engineer already exists - updateTeamRole is the edit path","extensions":{"code":"TEAM_ROLE_EXISTS"}}]}`,
+		"TeamAppIdentity": teamAppIdentityJSON,
+		"CreateTeamRole":  `{"errors":[{"message":"role backend-engineer already exists - updateTeamRole is the edit path","extensions":{"code":"TEAM_ROLE_EXISTS"}}]}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -2293,6 +2448,8 @@ func TestTeamSessionStartFindsActiveSessionOnLaterPage(t *testing.T) {
 				}
 				_, _ = w.Write([]byte(`{"data":{"sessions":[` + activeSessionJSON + `]}}`))
 			}
+		case "TeamAppIdentity":
+			_, _ = w.Write([]byte(teamAppIdentityJSON))
 		default:
 			t.Errorf("unexpected operation %q", body.OperationName)
 			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
@@ -2454,6 +2611,8 @@ func TestTeamSessionListProvenanceQuery(t *testing.T) {
 				// s-hidden: recorded in the worklog but not visible.
 				_, _ = w.Write([]byte(`{"data":{"session":null}}`))
 			}
+		case "TeamAppIdentity":
+			_, _ = w.Write([]byte(teamAppIdentityJSON))
 		default:
 			t.Errorf("unexpected operation %q", body.OperationName)
 			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
@@ -3314,6 +3473,8 @@ func TestTeamInitReportsWhereTheDeclarationLanded(t *testing.T) {
 		case "UpdateTeamCollections":
 			_, _ = w.Write([]byte(`{"data":{"updateTeamCollections":{"memoryId":"m-team",
 				"collections":["worklog"],"changed":true}}}`))
+		case "TeamAppIdentity":
+			_, _ = w.Write([]byte(teamAppIdentityJSON))
 		default:
 			t.Errorf("unexpected operation %q", body.OperationName)
 			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
