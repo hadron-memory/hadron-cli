@@ -54,7 +54,7 @@ Match your intent to an edge, then follow it.
 
 func TestPlanRoutingLineFlatRouter(t *testing.T) {
 	line := routingLine("To fix a flaky test", "findings:flaky", "The countdown starts before the await")
-	plan, err := planRoutingLine(flatRouter, "", line, "findings:flaky")
+	plan, err := planRoutingLine(flatRouter, "", line, wikiLink("findings:flaky"))
 	if err != nil {
 		t.Fatalf("an unambiguous router needs no --section: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestPlanRoutingLineFlatRouter(t *testing.T) {
 
 func TestPlanRoutingLineSectionedRouter(t *testing.T) {
 	line := routingLine("To do a thing", "findings:x", "Because")
-	_, err := planRoutingLine(sectionedRouter, "", line, "findings:x")
+	_, err := planRoutingLine(sectionedRouter, "", line, wikiLink("findings:x"))
 	if err == nil {
 		t.Fatal("a router with several routing sections must refuse to guess")
 	}
@@ -96,7 +96,7 @@ func TestPlanRoutingLineSectionedRouter(t *testing.T) {
 		t.Errorf("the error must name the headings to choose between, got %q", err.Error())
 	}
 
-	plan, err := planRoutingLine(sectionedRouter, "mcp", line, "findings:x")
+	plan, err := planRoutingLine(sectionedRouter, "mcp", line, wikiLink("findings:x"))
 	if err != nil || plan.Skipped {
 		t.Fatalf("--section should match a heading case-insensitively by substring: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestPlanRoutingLineSectionedRouter(t *testing.T) {
 
 func TestPlanRoutingLineEdgeOnlyRouter(t *testing.T) {
 	line := routingLine("To do a thing", "findings:x", "Because")
-	_, err := planRoutingLine(edgeOnlyRouter, "", line, "findings:x")
+	_, err := planRoutingLine(edgeOnlyRouter, "", line, wikiLink("findings:x"))
 	if err == nil {
 		t.Fatal("a router with no routing list must refuse rather than invent one")
 	}
@@ -130,7 +130,7 @@ func TestPlanRoutingLineEdgeOnlyRouter(t *testing.T) {
 	}
 
 	// Naming a section explicitly starts a list there.
-	plan, err := planRoutingLine(edgeOnlyRouter, "How to use this index", line, "findings:x")
+	plan, err := planRoutingLine(edgeOnlyRouter, "How to use this index", line, wikiLink("findings:x"))
 	if err != nil || plan.Skipped {
 		t.Fatalf("--section should start a list in a section that has none: %v", err)
 	}
@@ -154,7 +154,7 @@ This node is a **router**: each outgoing edge is labeled with a planned action.
 - **No matching edge?** Search Hadron with symptom keywords.
 `
 	line := routingLine("To do a thing", "findings:x", "Because")
-	_, err := planRoutingLine(body, "", line, "findings:x")
+	_, err := planRoutingLine(body, "", line, wikiLink("findings:x"))
 	if err == nil {
 		t.Fatal("one ordinary bullet list is not a routing list — the planner must refuse, not append to it")
 	}
@@ -164,7 +164,7 @@ This node is a **router**: each outgoing edge is labeled with a planned action.
 
 	// Naming it explicitly starts a NEW list at the section's end rather than
 	// joining the instructions.
-	plan, err := planRoutingLine(body, "How to use this index", line, "findings:x")
+	plan, err := planRoutingLine(body, "How to use this index", line, wikiLink("findings:x"))
 	if err != nil || plan.Skipped {
 		t.Fatalf("--section should still work: %v", err)
 	}
@@ -178,7 +178,7 @@ This node is a **router**: each outgoing edge is labeled with a planned action.
 func TestPlanRoutingLineMultiParagraphBullet(t *testing.T) {
 	body := "# R\n\n- **\"A\"** → [[a]] — first.\n" +
 		"- **\"B\"** → [[b]] — second:\n  para one.\n\n  para two.\n\nTrailing prose.\n"
-	plan, err := planRoutingLine(body, "", routingLine("C", "c", "third"), "c")
+	plan, err := planRoutingLine(body, "", routingLine("C", "c", "third"), wikiLink("c"))
 	if err != nil || plan.Skipped {
 		t.Fatalf("planRoutingLine: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestPlanRoutingLineMultiParagraphBullet(t *testing.T) {
 // A line written by hand before the node existed is not a defect to duplicate.
 func TestPlanRoutingLineAlreadyLinked(t *testing.T) {
 	line := routingLine("To fix it", "conventions:output-contract", "d")
-	plan, err := planRoutingLine(flatRouter, "", line, "conventions:output-contract")
+	plan, err := planRoutingLine(flatRouter, "", line, wikiLink("conventions:output-contract"))
 	if err != nil {
 		t.Fatalf("an existing link is not an error: %v", err)
 	}
@@ -205,14 +205,14 @@ func TestPlanRoutingLineAlreadyLinked(t *testing.T) {
 func TestPlanRoutingLineAmbiguousSection(t *testing.T) {
 	// "database" is a substring of both "Database / Prisma" and "When in doubt
 	// about the database".
-	_, err := planRoutingLine(sectionedRouter, "database", routingLine("s", "findings:x", "d"), "findings:x")
+	_, err := planRoutingLine(sectionedRouter, "database", routingLine("s", "findings:x", "d"), wikiLink("findings:x"))
 	if err == nil {
 		t.Fatal("a --section matching two headings must be rejected, not silently resolved")
 	}
 	if !strings.Contains(err.Error(), "ambiguous") {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if _, err := planRoutingLine(sectionedRouter, "nope", routingLine("s", "findings:x", "d"), "findings:x"); err == nil {
+	if _, err := planRoutingLine(sectionedRouter, "nope", routingLine("s", "findings:x", "d"), wikiLink("findings:x")); err == nil {
 		t.Fatal("a --section matching nothing must be rejected")
 	}
 }
@@ -221,7 +221,7 @@ func TestPlanRoutingLineAmbiguousSection(t *testing.T) {
 // block, not spliced into the middle of the last entry.
 func TestPlanRoutingLineWrappedBullet(t *testing.T) {
 	body := "# R\n\n- **\"A\"** → [[a]] — first.\n- **\"B\"** → [[b]] — second,\n  which continues here.\n\nTrailing prose.\n"
-	plan, err := planRoutingLine(body, "", routingLine("C", "c", "third"), "c")
+	plan, err := planRoutingLine(body, "", routingLine("C", "c", "third"), wikiLink("c"))
 	if err != nil || plan.Skipped {
 		t.Fatalf("planRoutingLine: %v", err)
 	}

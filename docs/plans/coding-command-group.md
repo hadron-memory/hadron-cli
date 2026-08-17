@@ -1,10 +1,12 @@
 # Implementation Plan: `hadron coding` — lint the review checklist tree and the preflight router
 
-> **Status: implemented**, in three increments — the linters first, then the
+> **Status: implemented**, in four increments — the linters first, then the
 > `list`/`create` surface and the CI gate
 > ([Increment 2](#increment-2--the-readwrite-surface-and-the-ci-gate)), then
 > `preflight create`
-> ([Increment 3](#increment-3--preflight-create-and-the-half-of-a-route-that-isnt-an-edge)).
+> ([Increment 3](#increment-3--preflight-create-and-the-half-of-a-route-that-isnt-an-edge)),
+> then `preflight route` for nodes that already exist
+> ([Increment 4](#increment-4--preflight-route-for-the-node-that-already-exists)).
 > Originally a design-ahead doc for
 > [#325](https://github.com/hadron-memory/hadron-cli/issues/325), written to
 > settle the open questions *before* code because the surface as filed produces
@@ -717,6 +719,106 @@ $ … --root nonexistent-router …
 ```
 
 No node was created in a shared memory.
+
+## Increment 4 — `preflight route`, for the node that already exists
+
+Increment 3 shipped `preflight create`, which mints a node **and** wires it.
+Using it immediately exposed the gap: the thing most worth routing to usually
+**already exists** — a finding or task somebody else wrote, frequently in
+another memory. `dev`'s router points into `hadron-server`, `hadron-portal` and
+`core`; none of those targets was created by whoever routed to them.
+
+Wiring one by hand is three writes, and the third — the body line — is the one
+people forget. That is exactly the half-wired route this group was built to
+detect, so leaving it to hand-work was the wrong shape.
+
+```
+hadron coding preflight route <node-ref> -m <memory> --route <action>
+                        [--description <d>] [--symptom <s>] [--section <heading>]
+                        [--no-back-edge] [--no-body-line] [--dry-run]
+```
+
+### 1. It shares `create`'s machinery and differs in three places
+
+Same three writes, same before-anything-is-written body planning, same
+partial-write-exits-1 contract, same `--dry-run`. What differs:
+
+- **It never creates a node**, and a test asserts `CreateNode` is never issued.
+  Both edges go through `createEdge`, which is idempotent on the derived loc, so
+  re-running is safe; an already-present route is reported rather than rewritten.
+- **`--description` is optional.** The target is already authored, so its own
+  description becomes the routing line's text. Supplying one overrides it; a
+  target with no description at all is a usage error naming the flag, because a
+  routing line with no text is not worth writing.
+- **A cross-memory target is referenced differently** — see below.
+
+### 2. A cross-memory route cannot use a wikilink
+
+`create`'s target is in `-m` by construction, so `[[loc]]` always resolves.
+`route`'s target usually is **not**: routing an existing node is the
+cross-memory case. Per [`cor:urn:020:01`](hrn:node:hadronmemory.com:specs:cor:urn:020:01)
+a bare wikilink resolves within the *containing* node's memory — so a bare
+`[[loc]]` in the router would point at nothing in the router's own memory and
+render as a dead link, silently.
+
+The routing line therefore uses `` `<loc>` in `<memory>` `` when the target's
+memory differs from the router's — which is what `dev`'s body already does by
+hand for its cross-memory entries. The memory label is derived from the **ref
+the caller typed**, not from the projection: the projection carries an opaque
+memory id, which tells a reader nothing. It is emitted as grammar v2 regardless
+of which spelling was supplied.
+
+That same rendered reference doubles as the already-linked key, so
+`planRoutingLine` takes a `linkKey` rather than a bare loc — the one signature
+change this increment made to Increment 3's code.
+
+**The memory label is looked up, not parsed** — a correction from review. The
+first version split the caller's ref itself and got two accepted spellings
+wrong: a prefixed legacy ref (`hrn:node:acme.com::specs::tasks:x`) split on
+single colons to an empty atom and emitted the malformed `hrn:mem:acme.com:`,
+and the `urn:node:` scheme the CLI also accepts fell through to the opaque id.
+Input here is Postel-liberal by design, so parsing it means handling *every*
+accepted spelling forever — while the server already knows the answer and emits
+it canonically. `memoryLabel` reads the memory and uses its `urn`, falling back
+to the id if that read fails, because the label is decoration and must never
+gate the route.
+
+### 3. Honesty of the partial-write DTO
+
+Three review findings shared one root: output that asserted more than had
+happened.
+
+- `bodyLine`/`section` were filled from the **plan**, before any write. A
+  failure between the forward edge and the body update then serialized a DTO
+  claiming a body line that was never written — so a caller reading `--json`
+  would skip the repair it actually needed. They are now filled from the plan
+  only for a rehearsal, and otherwise only once `appendRoutingLine` lands.
+- `partialRoute` printed a hardcoded `✓ created`, which `route` — a command
+  that never creates anything — inherited as a false claim on every partial
+  write. It now renders through `renderRoutePlan`, so the partial and success
+  paths cannot drift apart, and takes the verb from its caller.
+- The forward `createEdge` failure collapsed every cause to exit 1 and asserted
+  the write had not occurred. A transport failure has an **unknown** outcome, so
+  it now classifies through `api.MapError` (preserving auth / not-found /
+  unavailable) and says the route *may* not have been written, naming the
+  command that checks.
+
+A fourth, narrower one: an existing edge to the target counted as "already
+routed" regardless of its **label**. A differently-labelled edge is a different
+route, so the id reported was the wrong one while `createEdge` went on to add a
+second edge. The scan now matches the label too.
+
+### 4. Verification
+
+`go test ./...` and `make lint` green. Unit tests cover the two link forms and
+the memory-label derivation (v2 URN, deep loc, case-insensitive prefix, legacy
+`::` normalized to v2, unparseable falling back to the id). Command tests assert
+both edge directions, that no node is created, and that an omitted
+`--description` picks up the target's own.
+
+Live, read-only via `--dry-run`, against the real cross-memory case that
+motivated the command — `dev`'s router pointing at `core:tasks:mint-spec` —
+confirming the `` `loc` in `memory` `` rendering and the inherited description.
 
 ## Out of scope (follow-ups)
 

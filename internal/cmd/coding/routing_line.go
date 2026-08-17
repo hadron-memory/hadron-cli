@@ -34,13 +34,32 @@ import (
 // live router.
 const routeArrow = "→"
 
-// routingLine renders the bullet a new route contributes to the router's body.
+// routingLine renders the bullet a new route contributes to the router's body,
+// pointing at a target in the router's OWN memory.
 func routingLine(symptom, loc, description string) string {
+	return routingLineTo(symptom, wikiLink(loc), description)
+}
+
+// routingLineTo is the same bullet with the target reference already rendered,
+// for a route whose target lives elsewhere.
+func routingLineTo(symptom, target, description string) string {
 	d := strings.TrimSpace(description)
 	if !endsSentence(d) {
 		d += "."
 	}
-	return routeBulletStem + strings.TrimSpace(symptom) + `"** ` + routeArrow + ` [[` + loc + `]] — ` + d
+	return routeBulletStem + strings.TrimSpace(symptom) + `"** ` + routeArrow + ` ` + target + ` — ` + d
+}
+
+// wikiLink is the same-memory reference form: a bare [[loc]], which resolves
+// within the containing node's own memory (cor:urn:020:01).
+func wikiLink(loc string) string { return "[[" + loc + "]]" }
+
+// crossMemoryLink is the reference form for a target in ANOTHER memory. A bare
+// wikilink would resolve against the ROUTER's memory and find nothing, so the
+// live routers spell these as `<loc>` in `<memory>` — followed by a human,
+// unambiguous to a reader, and not a link that silently goes nowhere.
+func crossMemoryLink(loc, memory string) string {
+	return "`" + loc + "` in `" + memory + "`"
 }
 
 // endsSentence reports whether d already carries terminal punctuation. Compared
@@ -181,13 +200,14 @@ type routingPlan struct {
 	Skipped bool   // the body already links the loc, so nothing was added
 }
 
-// planRoutingLine splices line into content and returns the new body.
+// planRoutingLine splices line into content and returns the new body. linkKey is
+// the rendered target reference (wikiLink or crossMemoryLink) whose presence
+// means the body already points at this node.
 //
-// A body that already links the loc is returned unchanged and Skipped: the line
-// was written by hand before the node existed, and a second identical bullet is
-// noise, not a fix.
-func planRoutingLine(content, section, line, loc string) (routingPlan, error) {
-	if strings.Contains(content, "[["+loc+"]]") {
+// A body that already carries the link is returned unchanged and Skipped: the
+// line was written by hand, and a second identical bullet is noise, not a fix.
+func planRoutingLine(content, section, line, linkKey string) (routingPlan, error) {
+	if strings.Contains(content, linkKey) {
 		return routingPlan{Body: content, Skipped: true}, nil
 	}
 	lines := strings.Split(content, "\n")
