@@ -1590,6 +1590,123 @@ const startedSessionJSON = `{"id":"s-new","agentId":"agt1","workerId":"wkr1",
 	"repo":null,"branch":null,"prNumber":null,"startedAt":"2026-08-11T10:00:00Z","endedAt":null,
 	"host":"mac1","tool":"claude-code","transcriptPath":"/tmp/t.jsonl","llmModel":null}`
 
+// #472: one worktree per worker. The already-bound guard was always right;
+// the remedy was not. Which remedy is correct depends entirely on whether the
+// bound session is still ALIVE — for a live one, --force relabels who gets
+// blamed while leaving two agents on one index, and clears the only signal
+// that anything was wrong.
+func TestTeamSessionStartAlreadyBoundPicksTheRemedyByLiveness(t *testing.T) {
+	bind := func(t *testing.T) {
+		t.Helper()
+		dir := teamGitDir(t)
+		if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingFixture), 0o600); err != nil {
+			t.Fatalf("write binding: %v", err)
+		}
+	}
+
+	for _, tc := range []struct {
+		name           string
+		session        string
+		wantContains   []string
+		wantNotContain []string
+	}{
+		{
+			name:    "live session leads with a separate worktree",
+			session: `{"data":{"session":` + startedSessionJSON + `}}`,
+			wantContains: []string{
+				"still active",
+				"git worktree add -b <new-branch> ../<name>",
+				// --force is named only so the reader knows it is the WRONG
+				// tool here, never as the remedy.
+				"WITHOUT separating the working trees",
+				"only to take over an abandoned binding",
+			},
+			wantNotContain: []string{"--force to replace the binding"},
+		},
+		{
+			name:    "an ended session is exactly what --force is for",
+			session: `{"data":{"session":` + endedSessionJSON + `}}`,
+			wantContains: []string{
+				"whose session ended",
+				"--force replaces the abandoned binding",
+			},
+			// The worktree advice would be noise: nobody is driving.
+			wantNotContain: []string{"git worktree add"},
+		},
+		{
+			name:    "unknown liveness leads with the safe remedy, not the convenient one",
+			session: `{"data":{"session":null}}`,
+			wantContains: []string{
+				"could not be checked",
+				"git worktree add -b <new-branch> ../<name>",
+				"does NOT separate the working trees",
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			bind(t)
+			gql, captured := captureGraphQL(t, map[string]string{"GetTeamSession": tc.session})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "session", "start", "--as", "Dara", "--server", gql.URL})
+			err := root.Execute()
+			if code := exitcode.FromError(err); code != exitcode.Conflict {
+				t.Fatalf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
+			}
+			for _, want := range tc.wantContains {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("message missing %q:\n%s", want, err)
+				}
+			}
+			for _, not := range tc.wantNotContain {
+				if strings.Contains(err.Error(), not) {
+					t.Errorf("message must not contain %q:\n%s", not, err)
+				}
+			}
+			// The refusal happens before anything is bound or started.
+			if _, started := captured["StartTeamSession"]; started {
+				t.Error("a refused start must not reach the mutation")
+			}
+			var vars map[string]any
+			_ = json.Unmarshal(captured["GetTeamSession"], &vars)
+			if vars["id"] != "s-new" {
+				t.Errorf("liveness must be checked on the BOUND session, got %v", vars)
+			}
+		})
+	}
+}
+
+// PR #478 review (Codex P2). Liveness needs a GraphQL client, but the REFUSAL
+// must not: before #472 this guard ran before any client construction, so it
+// answered for a signed-out caller too. Hoisting the client above it would
+// swap the documented exit-5 conflict for an auth error — and drop the safe
+// worktree remedy at exactly the moment the caller cannot resolve the
+// situation any other way. A client that cannot be built is unknown liveness.
+func TestTeamSessionStartAlreadyBoundStillRefusesWhenSignedOut(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingFixture), 0o600); err != nil {
+		t.Fatalf("write binding: %v", err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{})
+	f, _ := testFactory(t)
+	t.Setenv("HADRON_TOKEN", "") // signed out: GraphQLClient() fails before any request
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "Dara", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Conflict {
+		t.Fatalf("exit code = %d, want %d (Conflict) — the binding conflict outranks the auth error here; err: %v",
+			code, exitcode.Conflict, err)
+	}
+	for _, want := range []string{"could not be checked", "git worktree add -b <new-branch> ../<name>"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("a signed-out caller must still get the safe remedy, missing %q:\n%s", want, err)
+		}
+	}
+	if len(captured) != 0 {
+		t.Errorf("nothing should have reached the server: %v", captured)
+	}
+}
+
 // configuredApp writes an App into the (temp-dir) config, producing the one
 // scope that is ambient WITHOUT a worktree binding. Must run after
 // testFactory, which is what points XDG_CONFIG_HOME at the temp dir.

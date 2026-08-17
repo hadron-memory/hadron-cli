@@ -284,6 +284,12 @@ matching ` + "`hadron chat post`" + `. Exactly one source.
 			// stderr, so the --json stdout contract is untouched; and NOT
 			// suppressed under --json, because an agent posting from an
 			// ambient context is precisely the exposed caller.
+			//
+			// DO NOT "fix" this to match the reads. The rule that --json skips
+			// the App identity read (#465, #468) governs DECORATION only — a
+			// label nobody needs when a machine is parsing. A safety signal
+			// before a write with no undo is not decoration, and the agent
+			// path is the one that most needs it. Ruled explicitly, PR #473.
 			if scope.Ambient && sessionRef == nil {
 				fmt.Fprintf(f.IOStreams.ErrOut,
 					"note: no --app and no worker session binding — posting to %s\n", appLabel())
