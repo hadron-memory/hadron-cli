@@ -161,10 +161,11 @@ Conventions:
   `memory get|set|attach|rm|member|share|export`.
 - Node references are fully-qualified URNs. Either the canonical flat v2 form
   `hrn:node:<root>:<slug>:<loc…>`, or the scheme-less
-  `<org>::<memory>::<loc>` (legacy; double-colon between segments — e.g.
-  `hrn:node:hadronmemory.com:dev:start-here`), optionally `hrn:node:`-prefixed (legacy
-  `urn:node:` also accepted). Scheme-less single-colon `<org>:<memory>:<loc>` is
-  **not** a valid full URN — a loc itself contains single colons
+  `<org>::<memory>::<loc>` (double-colon between segments), e.g. the legacy
+  `hadronmemory.com::dev::start-here` — still accepted, and it may also carry
+  the `hrn:node:` prefix (legacy `urn:node:` too). The prefix is REQUIRED for
+  the flat v2 form. A scheme-less single-colon `<org>:<memory>:<loc>` is invalid
+  — **not** a full URN, because a loc itself contains single colons
   (`services:secureid:user-reporting`), so it's ambiguous; the `hrn:node:` prefix
   is what removes that ambiguity for the flat v2 form. A bare loc is rejected
   (exit 2) *unless* you pass `-m/--memory hrn:mem:<root>:<slug>` (the short
@@ -971,7 +972,7 @@ Conventions:
     optionally `--user` to narrow. `grant revoke <id> --yes` soft-deletes;
     takes effect at the next gate check.
   - Every entry node is a fully-qualified node URN (`hrn:node:<root>:<slug>:<loc>`,
-    optionally `hrn:node:`-prefixed) — a bare loc is rejected (exit 2). `--app`
+    or the legacy `<org>::<memory>::<loc>`) — a bare loc is rejected (exit 2). `--app`
     defaults to the App context (`hadron app use` / `--app`) when omitted.
 
 ## The escape hatch: hadron api
@@ -1073,7 +1074,7 @@ hadron replace text "old-url.com" "new-url.com" \
 
 # Connect two nodes
 hadron edge add --from hrn:node:acme.com:kb:findings:flaky-ci \
-  --to hrn:node:acme.com:kb:start-here --label routes-to
+  --to hrn:node:acme.com:kb:start-here --name routes-to
 
 # List a node's edges, delete one (agents must pass --yes)
 hadron edge list hrn:node:acme.com:kb:findings:flaky-ci --json

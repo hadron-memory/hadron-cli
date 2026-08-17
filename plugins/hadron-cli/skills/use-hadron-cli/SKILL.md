@@ -30,9 +30,12 @@ humans only). Ask the user to log in, or use a token:
 2. **Always pass `--yes` on destructive commands** (`memory rm`, `node rm`,
    `edge rm`, `app uninstall`). Without it they exit 2 when non-interactive.
    Confirm with the user before deleting anything you did not create.
-3. **Node references are always fully-qualified URNs**: `<org>:<memory>:<loc>`
-   (e.g. `acme.com:kb:findings:flaky-ci`), optionally `hrn:node:`-prefixed
-   (legacy `urn:node:` also accepted).
+3. **Node references are always fully-qualified URNs**:
+   `hrn:node:<root>:<slug>:<loc>` (e.g. `hrn:node:acme.com:kb:findings:flaky-ci`).
+   The `hrn:node:` prefix is REQUIRED for this flat form — a scheme-less
+   `acme.com:kb:findings:flaky-ci` is ambiguous (a loc carries its own single
+   colons) and is rejected with exit 2. The legacy scheme-less
+   `<org>::<memory>::<loc>` and `urn:node:` spellings remain accepted.
    Bare locs are rejected (exit 2) — the same loc can exist in many memories.
 4. **Exit codes are contract**: 0 success, 1 failure, 2 usage error,
    3 auth required, 4 not found, 5 conflict, 6 cancelled/timeout. Branch on
@@ -43,11 +46,11 @@ humans only). Ask the user to log in, or use a token:
 ```sh
 hadron memory list --json                     # list memories
 hadron node list -m acme.com:kb --json        # list nodes in a memory
-hadron node get acme.com:kb:start-here --json # content + edges
+hadron node get hrn:node:acme.com:kb:start-here --json  # content + edges
 hadron node add -m acme.com:kb --loc findings:x --name "X" --content-file note.md --json
-hadron node update acme.com:kb:findings:x --name "X (resolved)" --json  # unset fields preserved
-hadron edge add --from acme.com:kb:a --to acme.com:kb:b --label routes-to --json
-hadron edge list acme.com:kb:a --json
+hadron node update hrn:node:acme.com:kb:findings:x --name "X (resolved)" --json  # unset fields preserved
+hadron edge add --from hrn:node:acme.com:kb:a --to hrn:node:acme.com:kb:b --name routes-to --json
+hadron edge list hrn:node:acme.com:kb:a --json
 hadron spec list -m acme.com:specs --json                     # list specs (loc IS the citation)
 hadron spec find "win back users" -m acme.com:specs --json    # semantic; --match-exactly for keyword
 hadron spec new -m acme.com:specs --module msg --feature 010 --title "W4" --dry-run --json  # scaffold (preview)

@@ -21,8 +21,10 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 		Use:   "get <node-urn>... | <loc>... -m <memory> | --prefix <loc> -m <memory>",
 		Short: "Show one or more nodes, including content and edges",
 		Long: `Show a node by its fully-qualified URN: hrn:node:<root>:<slug>:<loc>
-(e.g. hrn:node:hadronmemory.com:dev:start-here). The hrn:node: prefix is
-optional (legacy urn:node: also accepted). Pass -m/--memory to name a
+(e.g. hrn:node:hadronmemory.com:dev:start-here). The prefix is REQUIRED for
+this flat form — scheme-less <org>:<memory>:<loc> is ambiguous, since a loc
+carries its own single colons. The legacy scheme-less <org>::<memory>::<loc>
+(and urn:node:) remain accepted. Pass -m/--memory to name a
 node by a bare <loc> within that memory instead; without -m a bare loc
 is rejected, since the same loc can exist in several memories.
 

@@ -32,15 +32,28 @@ var (
 			// a concrete legacy example: acme.com::kb
 			`|\b[a-z0-9-]+\.[a-z]{2,}::` +
 			// mixed grammar — a v2 scheme with a v1 separator, which is simply invalid
-			`|hrn:(?:mem|node|app|agent|edge|worker|org):[^\s` + "`" + `]*::`)
-	// A line that marks the form as legacy is documenting acceptance, not teaching it.
-	marksAsLegacy = regexp.MustCompile(`(?i)legacy|also accepted|still accepted|accepted (?:forever|indefinitely)`)
+			`|hrn:(?:mem|node|app|agent|edge|worker|org):[^\s` + "`" + `]*::` +
+			// The scheme-less single-colon NODE form. Not legacy — invalid: a loc
+			// carries its own single colons, so <org>:<memory>:<loc> is ambiguous
+			// and refused (exit 2). It shipped in the use-hadron-cli skill as THE
+			// advertised node reference, so every example an agent copied from it
+			// failed (PR #454 review). Three atoms with a dotted root and no
+			// hrn:/urn: prefix is the signature; two atoms are a legal memory ref.
+			`|(?:^|[\s(` + "`" + `])<org>:<memory>:<loc>` +
+			`|(?:^|[\s(` + "`" + `])[a-z0-9-]+\.[a-z]{2,}:[a-z0-9_-]+:[a-z0-9_:-]+`)
+	// Two kinds of line legitimately SHOW a non-canonical form: one documenting
+	// a legacy spelling as legacy (the acceptance promise is real and worth
+	// stating), and one warning that a form is ambiguous or refused. Both are
+	// teaching the reader something true; neither presents v1 as the spelling
+	// to use. Each says so in words, which is what exempts it.
+	marksAsNonCanonical = regexp.MustCompile(
+		`(?i)legacy|accepted|ambiguous|rejected|refused|invalid|not a valid|exit 2`)
 )
 
 func v1Offenders(text string) []string {
 	var out []string
 	for _, line := range strings.Split(text, "\n") {
-		if v1Grammar.MatchString(line) && !marksAsLegacy.MatchString(line) {
+		if v1Grammar.MatchString(line) && !marksAsNonCanonical.MatchString(line) {
 			out = append(out, strings.TrimSpace(line))
 		}
 	}
@@ -109,7 +122,7 @@ func TestShippedDocsUseV2UrnGrammar(t *testing.T) {
 			t.Fatalf("reading %s: %v", path, err)
 		}
 		for i, line := range strings.Split(string(body), "\n") {
-			if v1Grammar.MatchString(line) && !marksAsLegacy.MatchString(line) {
+			if v1Grammar.MatchString(line) && !marksAsNonCanonical.MatchString(line) {
 				t.Errorf("%s:%d advertises v1 URN grammar:\n\t%s", path, i+1, strings.TrimSpace(line))
 			}
 		}

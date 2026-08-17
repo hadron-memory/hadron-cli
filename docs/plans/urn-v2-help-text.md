@@ -107,7 +107,26 @@ banning v1 anywhere it would read as the expected spelling.
 when written, not instructions to follow.
 
 The guard paid for itself immediately — categories 3 and 4 above were found by
-it, not by the grep that started the work.
+it, not by the grep that started the work. Review then found the gap it still
+had: it caught v1 `::` but not the scheme-less single-colon **node** form,
+which is not legacy but *invalid* (a loc carries its own colons, so
+`<org>:<memory>:<loc>` is ambiguous and refused with exit 2). The shipped
+`use-hadron-cli` skill advertised exactly that as THE node reference, so every
+node example an agent copied from it failed. The detector now covers it, and
+the skill is corrected — along with an `edge add --label` example there and in
+`agentic-usage.md`, for a flag that does not exist (`edge add` takes `--name`).
+
+The exemption widened with it: a line may also show a non-canonical form when
+it is *warning* about one ("ambiguous", "rejected", "invalid", "exit 2"). Both
+exemption classes teach the reader something true; neither presents v1 as the
+spelling to use.
+
+One transcript is deliberately left in v1. `docs/how-to/maintain-product-specs.md`
+shows `spec describe` printing `hadronmemory.com::platform-specs`, which is what
+it really prints — `canonicalMemoryURN` → `memoryRefV1`, the documented
+exception in CLAUDE.md (a flat v2 node URN cannot round-trip a COMPOUND app-mem
+memory). Rewriting the transcript would have made the doc lie. That the `spec`
+group still *emits* v1 to the user is a separate question, noted for follow-up.
 
 ## Acceptance, re-verified live
 

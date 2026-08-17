@@ -40,13 +40,19 @@ hadron spec describe -m hrn:mem:hadronmemory.com:platform-specs
 ```
 
 ```
-Spec scheme — hrn:mem:hadronmemory.com:platform-specs
+Spec scheme — hadronmemory.com::platform-specs        # legacy form: see note below
   scheme:    product  (declared)
   products:  cli, srv
   modules:   cli:cha, srv:gql
   counts:    2 products, 2 modules, 12 features, 40 rules, 8 flows, 5 contracts
   contracts: product <p>:gen · module <m>:000 · feature <m>:<f>:00
 ```
+
+> The memory line above is real output. The `spec` group composes the
+> legacy `<org>::<slug>` form internally on purpose — a fixed-arity flat v2 node URN
+> cannot round-trip a COMPOUND app-mem memory (see CLAUDE.md) — so `describe`
+> still prints it. Input accepts every spelling, which is why the invocation
+> uses `hrn:mem:`. Do not "correct" the transcript to match.
 
 The scheme is **derived** from the live nodes, and can also be **declared** in
 the memory's data (`{"spec":{"scheme":"product"}}`) so an empty memory can
