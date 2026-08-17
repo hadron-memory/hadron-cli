@@ -67,27 +67,37 @@ func TestDescribeRetirementRendersTheLabelOnce(t *testing.T) {
 	}
 }
 
-// lazyAppLabel is what makes the guard above affordable: the sites that print
-// the App are all conditional, so the read must not fire until one does, and
-// must not fire twice when a command both prompts and prints a receipt.
-func TestLazyAppLabelReadsOnceAndOnlyWhenUsed(t *testing.T) {
+// lazyOnce is what makes the guard above affordable: the sites that print the
+// App are all conditional, so the read must not fire until one does, and must
+// not fire twice when a command both prompts and prints a receipt.
+//
+// This exercises the REAL helper. The first version of this test reimplemented
+// the caching inline and would have passed even if lazyAppLabel stopped being
+// lazy — caught in PR #471 review, and the reason the primitive was extracted
+// from lazyAppLabel in the first place.
+func TestLazyOnceReadsOnceAndOnlyWhenUsed(t *testing.T) {
 	reads := 0
-	// Stand in for describeApp: lazyAppLabel's contract is the caching and the
-	// laziness, not the rendering, so the read is injected.
-	label := func() func() string {
-		var cached string
-		return func() string {
-			if cached == "" {
-				reads++
-				cached = "hrn:app:acme.com:eng-team (from --app)"
-			}
-			return cached
-		}
-	}()
+	label := lazyOnce(func() string {
+		reads++
+		return "hrn:app:acme.com:eng-team (from --app)"
+	})
 	if reads != 0 {
 		t.Fatalf("constructing the label must not read: %d", reads)
 	}
 	if a, b := label(), label(); a != b || reads != 1 {
 		t.Errorf("two calls must share one read: %d reads, %q vs %q", reads, a, b)
+	}
+}
+
+// An empty read result must still be cached — otherwise describeApp returning
+// "" (or a legitimately blank label) would re-read on every call, which is the
+// bug a `cached == ""` sentinel would have shipped.
+func TestLazyOnceCachesAnEmptyResult(t *testing.T) {
+	reads := 0
+	label := lazyOnce(func() string { reads++; return "" })
+	label()
+	label()
+	if reads != 1 {
+		t.Errorf("an empty result must still count as read: %d reads", reads)
 	}
 }

@@ -1060,6 +1060,13 @@ func TestTeamRoleNamesAddSkipsPresentNames(t *testing.T) {
 	if !strings.Contains(out2.String(), "unchanged") {
 		t.Errorf("the receipt must say nothing changed: %s", out2.String())
 	}
+	// The no-op receipt names the App too (PR #471 review). "Nothing to do"
+	// and "nothing to do HERE, because you are pointed at the wrong team" are
+	// otherwise the same sentence — and a no-op receipt is the one a reader
+	// skims hardest.
+	if !strings.Contains(out2.String(), "  app: hrn:app:acme.com:eng-team — Eng Team (from --app)") {
+		t.Errorf("the unchanged receipt must name the App: %s", out2.String())
+	}
 }
 
 // `names rm` deliberately matches LITERALLY — quoting a comma-bearing entry

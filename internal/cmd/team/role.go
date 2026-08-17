@@ -299,7 +299,9 @@ shows it.`,
 				}
 				dto := roleDTOFromFields(r)
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-					fmt.Fprintf(w, "app: %s\n", appLabel())
+					if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
+						return err
+					}
 					fmt.Fprintf(w, "%s (%s)\n  description: %s\n", dto.Role, dto.Loc, dash(dto.Description))
 					fmt.Fprintf(w, "  register (%d free%s):\n", dto.FreeCount, map[bool]string{true: " — EXHAUSTED", false: ""}[dto.Exhausted])
 					for _, n := range dto.Register {
@@ -595,10 +597,18 @@ func equalNames(a, b []string) bool {
 
 // emitRoleUnchanged is the honest receipt for a write that would change
 // nothing: no mutation is sent, and the output never says "updated".
-func emitRoleUnchanged(f *cmdutil.Factory, r gen.TeamRoleFields, reason string) error {
+//
+// It names the App for the same reason the changed receipt does (PR #471
+// review). "Nothing to do" and "nothing to do HERE, because you are pointed at
+// the wrong team" are the same sentence otherwise — and a no-op receipt is
+// exactly the one a reader skims.
+func emitRoleUnchanged(f *cmdutil.Factory, r gen.TeamRoleFields, reason string, appLabel func() string) error {
 	dto := roleDTOFromFields(r)
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-		_, err := fmt.Fprintf(w, "· %s unchanged — %s: %s\n", dto.Role, reason, registerLine(dto.Register))
+		if _, err := fmt.Fprintf(w, "· %s unchanged — %s: %s\n", dto.Role, reason, registerLine(dto.Register)); err != nil {
+			return err
+		}
+		_, err := fmt.Fprintf(w, "  app: %s\n", appLabel())
 		return err
 	})
 }
@@ -656,7 +666,7 @@ func casRoleNames(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client,
 			if rerr != nil {
 				return rerr
 			}
-			return emitRoleUnchanged(f, row, "the register already matches the requested edit")
+			return emitRoleUnchanged(f, row, "the register already matches the requested edit", appLabel)
 		}
 		err = writeRoleNames(cmd, f, client, appRef, appLabel, teamAgentRef, role, names, &stored, allowOutOfRange)
 		if err == nil {
@@ -782,7 +792,7 @@ an update.`,
 			// register dedups case-insensitively), which used to print a
 			// "✓ updated" receipt for a write that changed nothing.
 			if fresh := notYetInRegister(registerNames(current), additions); len(fresh) == 0 {
-				return emitRoleUnchanged(f, current, pluralNames(additions)+" already in the register")
+				return emitRoleUnchanged(f, current, pluralNames(additions)+" already in the register", appLabel)
 			}
 			return casRoleNames(cmd, f, client, appRef, appLabel, optStr(teamAgent), current.Role, registerNames(current),
 				func(stored []string) ([]string, error) {
