@@ -2037,7 +2037,10 @@ func TestMemoryClone(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CloneMemory"], &vars)
-	if vars["ref"] != "acme.com::kb" || vars["targetUrn"] != "acme.com::kb-fork" {
+	// The SOURCE ref passes through as typed (the server resolves every
+	// spelling); the TARGET is normalized to the canonical v2 URN, which
+	// cloneMemory accepts and mints verbatim (#372 follow-up, verified live).
+	if vars["ref"] != "acme.com::kb" || vars["targetUrn"] != "hrn:mem:acme.com:kb-fork" {
 		t.Errorf("unexpected clone vars: %v", vars)
 	}
 	var dto map[string]any
@@ -2089,7 +2092,8 @@ func TestMemoryExtract(t *testing.T) {
 	if vars["parentRef"] != "n1" {
 		t.Errorf("parentRef = %v, want n1", vars["parentRef"])
 	}
-	if vars["targetUrn"] != "acme.com::auth-kb" {
+	// Normalized to the canonical v2 URN, as on `memory clone`.
+	if vars["targetUrn"] != "hrn:mem:acme.com:auth-kb" {
 		t.Errorf("targetUrn = %v", vars["targetUrn"])
 	}
 	// move is omitted (not sent as null/false) so the server keeps its default.
@@ -2569,8 +2573,8 @@ func TestMemoryCloneAcceptsEverySpellingOfTargetURN(t *testing.T) {
 			}
 			var vars map[string]any
 			_ = json.Unmarshal(raw, &vars)
-			if vars["targetUrn"] != "acme.com::kb-fork" {
-				t.Errorf("wire targetUrn = %v, want the normalized legacy shape", vars["targetUrn"])
+			if vars["targetUrn"] != "hrn:mem:acme.com:kb-fork" {
+				t.Errorf("wire targetUrn = %v, want the canonical v2 URN", vars["targetUrn"])
 			}
 		})
 	}
@@ -2604,8 +2608,8 @@ func TestMemoryExtractAcceptsEverySpellingOfTargetURN(t *testing.T) {
 			}
 			var vars map[string]any
 			_ = json.Unmarshal(raw, &vars)
-			if vars["targetUrn"] != "acme.com::auth-kb" {
-				t.Errorf("wire targetUrn = %v, want the normalized legacy shape", vars["targetUrn"])
+			if vars["targetUrn"] != "hrn:mem:acme.com:auth-kb" {
+				t.Errorf("wire targetUrn = %v, want the canonical v2 URN", vars["targetUrn"])
 			}
 		})
 	}

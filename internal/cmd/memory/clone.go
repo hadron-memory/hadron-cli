@@ -50,10 +50,10 @@ Encrypted memories and agent system / app memories cannot be cloned.`,
 				return exitcode.Newf(exitcode.Usage,
 					"--target-urn must be a fully-qualified memory URN, hrn:mem:<root>:<slug>")
 			}
-			// Sent in the legacy "::" shape the server has always been handed
-			// here. Widening the INPUT is what #372 needs; changing the wire
-			// value is a separate, verifiable step (see docs/plans/urn-v2-help-text.md).
-			targetURN = root + "::" + slug
+			// Emit the canonical flat v2 URN, per the group-wide rule (#697) —
+			// verified live against cloneMemory, which parses v1 and v2 targetUrn
+			// identically and mints exactly this URN (#372 follow-up).
+			targetURN = cmdutil.CanonicalMemoryRef(root + ":" + slug)
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err

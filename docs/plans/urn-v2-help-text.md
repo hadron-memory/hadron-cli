@@ -73,12 +73,29 @@ would have shipped a documented example that fails.
 Both now gate on `cmdutil.MemoryParts`, which accepts every spelling and still
 rejects a genuinely relative value (the only thing the gate was ever for).
 
-**Deliberately not changed: the wire value.** Both still send `<root>::<slug>`,
-the shape the server has always been handed here. Widening the *input* is what
-unblocks the caller; flipping what goes over the wire is a separate step that
-wants live verification of `cloneMemory`/`extractParentNodeToMemory` against a
-v2 `targetUrn`, and creating memories on a live server was out of scope for a
-help-text change. Tracked as a follow-up.
+**The wire value, verified and flipped.** Both now emit the canonical
+`hrn:mem:<root>:<slug>` via `cmdutil.CanonicalMemoryRef`. This shipped in two
+steps on purpose: #454 widened the *input* (the part that unblocks callers) and
+left the wire shape alone, because changing what goes over the wire without
+evidence would have risked breaking `memory clone` outright. The evidence was
+then gathered against the live server, using `hadron api` to send each mutation
+directly — no patched binary, no guessing:
+
+| probe | result |
+|---|---|
+| `cloneMemory(targetUrn: "hrn:mem:holger:urn-probe-v2")` | `ORGANIZATION_NOT_FOUND: hrn:org:holger` |
+| `cloneMemory(targetUrn: "holger::urn-probe-v1")` | `ORGANIZATION_NOT_FOUND: hrn:org:holger` |
+| `cloneMemory(targetUrn: "hrn:mem:hadronmemory.com:urn-probe-clone-v2")` | minted `hrn:mem:hadronmemory.com:urn-probe-clone-v2` |
+| `extractParentNodeToMemory(targetUrn: "hrn:mem:hadronmemory.com:urn-probe-extract-v2")` | minted `hrn:mem:hadronmemory.com:urn-probe-extract-v2` |
+
+The first two rows are the load-bearing ones: v1 and v2 fail *identically* on a
+handle-rooted target, which shows the server parses both spellings the same way
+and that the refusal is semantic (clone targets must be org-rooted), not
+grammatical. The last two confirm the canonical form end to end — the minted URN
+is exactly the string sent. All four probe memories were deleted afterwards.
+
+The SOURCE ref is still passed through as typed; the server resolves every
+spelling, and normalizing it would be a change with no evidence behind it.
 
 ## The guard
 
