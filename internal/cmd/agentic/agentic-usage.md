@@ -893,6 +893,17 @@ Conventions:
   bootstrapped on the first post — no init step), atomic seq allocation,
   author derivation, and write-time mention extraction. The App resolves
   from `--app`/the App context, else from the binding's team memory. With a
+  Both resolve the team App ambiently (`--app` → App context → the worktree
+  binding), so `chat read` opens with the App and **which of those
+  answered** — unconditionally, including at zero messages, since an empty
+  incremental read is the normal steady state and was otherwise identical
+  to reading another team (#470). `chat post` names the chat in its receipt
+  and, when the scope is ambient AND no worker session is bound, writes a
+  `note:` to **stderr before posting** — a post cannot be recalled and its
+  mentions fire on write, so that signal cannot wait for the receipt. It is
+  a warning, never a refusal, and it is NOT suppressed by `--json` (stderr,
+  so the stdout contract is untouched). The `--json` shapes are unchanged
+  and the reads issue no extra call under `--json`.
   binding, `chat post` is authored by the bound WORKER through that session
   (the server verifies it is yours, active, and bound to a non-retired
   worker OF this App — `SESSION_NOT_WORKER_BOUND` /
