@@ -1615,7 +1615,7 @@ func TestTeamSessionStartAlreadyBoundPicksTheRemedyByLiveness(t *testing.T) {
 			session: `{"data":{"session":` + startedSessionJSON + `}}`,
 			wantContains: []string{
 				"still active",
-				"git worktree add ../<name> <branch>",
+				"git worktree add -b <new-branch> ../<name>",
 				// --force is named only so the reader knows it is the WRONG
 				// tool here, never as the remedy.
 				"WITHOUT separating the working trees",
@@ -1638,7 +1638,7 @@ func TestTeamSessionStartAlreadyBoundPicksTheRemedyByLiveness(t *testing.T) {
 			session: `{"data":{"session":null}}`,
 			wantContains: []string{
 				"could not be checked",
-				"git worktree add ../<name> <branch>",
+				"git worktree add -b <new-branch> ../<name>",
 				"does NOT separate the working trees",
 			},
 		},
@@ -1673,6 +1673,37 @@ func TestTeamSessionStartAlreadyBoundPicksTheRemedyByLiveness(t *testing.T) {
 				t.Errorf("liveness must be checked on the BOUND session, got %v", vars)
 			}
 		})
+	}
+}
+
+// PR #478 review (Codex P2). Liveness needs a GraphQL client, but the REFUSAL
+// must not: before #472 this guard ran before any client construction, so it
+// answered for a signed-out caller too. Hoisting the client above it would
+// swap the documented exit-5 conflict for an auth error — and drop the safe
+// worktree remedy at exactly the moment the caller cannot resolve the
+// situation any other way. A client that cannot be built is unknown liveness.
+func TestTeamSessionStartAlreadyBoundStillRefusesWhenSignedOut(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingFixture), 0o600); err != nil {
+		t.Fatalf("write binding: %v", err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{})
+	f, _ := testFactory(t)
+	t.Setenv("HADRON_TOKEN", "") // signed out: GraphQLClient() fails before any request
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "Dara", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Conflict {
+		t.Fatalf("exit code = %d, want %d (Conflict) — the binding conflict outranks the auth error here; err: %v",
+			code, exitcode.Conflict, err)
+	}
+	for _, want := range []string{"could not be checked", "git worktree add -b <new-branch> ../<name>"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("a signed-out caller must still get the safe remedy, missing %q:\n%s", want, err)
+		}
+	}
+	if len(captured) != 0 {
+		t.Errorf("nothing should have reached the server: %v", captured)
 	}
 }
 

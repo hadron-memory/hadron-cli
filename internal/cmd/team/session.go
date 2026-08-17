@@ -164,8 +164,17 @@ func describeSession(s *gen.TeamSessionFields) string {
 // Scope, stated honestly because the message cannot: this catches a second
 // BINDING. A second agent working UNBOUND in the same checkout does identical
 // damage and nothing here fires. That is why hadron-docs#233 exists.
-func alreadyBoundError(ctx context.Context, client graphql.Client, existing *binding) error {
-	const separate = "give this worker its own checkout:\n    git worktree add ../<name> <branch>\n" +
+// Takes the FACTORY, not a client, and builds the client itself (PR #478
+// review). Before #472 this guard ran before any client construction, so it
+// answered for a signed-out caller too. Hoisting f.GraphQLClient() above it
+// would have replaced the documented exit-5 conflict with an auth or config
+// error — losing the safe worktree remedy at exactly the moment the caller
+// cannot fix the situation any other way. A client that cannot be built is
+// simply unknown liveness, which already leads with that remedy.
+func alreadyBoundError(ctx context.Context, f *cmdutil.Factory, existing *binding) error {
+	const separate = "give this worker its own checkout:\n" +
+		"    git worktree add -b <new-branch> ../<name>     # new branch\n" +
+		"    git worktree add ../<name> <existing-branch>   # a branch that already exists\n" +
 		"Two agents in one worktree share an index and a working tree: whichever commits with `git add -A`\n" +
 		"absorbs the other's in-flight edits, and Session.branch is captured once at bind and never revisited,\n" +
 		"so the provenance record goes false with no signal. A merged PR stops tracing back to the work that\n" +
@@ -174,9 +183,13 @@ func alreadyBoundError(ctx context.Context, client graphql.Client, existing *bin
 	// One read, only on a path that is already refusing. `session start` has
 	// to know whether the bound session is live to answer at all, and guessing
 	// would pick the wrong remedy half the time.
-	resp, err := gen.GetTeamSession(ctx, client, existing.SessionID)
+	var resp *gen.GetTeamSessionResponse
+	client, err := f.GraphQLClient()
+	if err == nil {
+		resp, err = gen.GetTeamSession(ctx, client, existing.SessionID)
+	}
 	switch {
-	case err != nil || resp.Session == nil:
+	case err != nil || resp == nil || resp.Session == nil:
 		// Cannot tell. Lead with the safe remedy rather than the convenient
 		// one: separating the trees is never wrong, and --force is only right
 		// for a binding nobody is driving.
@@ -226,7 +239,8 @@ keeps reporting a branch it left hours ago. Both failures are silent, and
 the one that matters is the provenance: a merged PR stops tracing back to
 the work that produced it, which is the whole reason binding a worker
 exists. Give each worker its own tree with
-` + "`git worktree add ../<name> <branch>`" + ` — the binding lives under the
+` + "`git worktree add -b <new-branch> ../<name>`" + ` (or a bare
+<existing-branch> in place of -b) — the binding lives under the
 worktree's own git dir, so linked worktrees are already independent.
 
 A worker with a still-active session is taken: the takeover requires
@@ -249,12 +263,12 @@ it just relabels which worker the shared tree is blamed on.`,
 			if err != nil {
 				return err
 			}
+			if existing != nil && !force {
+				return alreadyBoundError(ctx, f, existing)
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
-			}
-			if existing != nil && !force {
-				return alreadyBoundError(ctx, client, existing)
 			}
 			// --force over an existing binding: best-effort end the session it
 			// names before replacing it, so the overwritten binding does not
