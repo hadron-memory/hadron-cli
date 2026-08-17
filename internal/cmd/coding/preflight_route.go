@@ -1,9 +1,11 @@
 package coding
 
 import (
+	"context"
 	"io"
 	"strings"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -131,9 +133,8 @@ that already references the target is left alone.`,
 
 			// Cross-memory targets cannot use a bare wikilink (cor:urn:020:01).
 			link := wikiLink(target.Node.Loc)
-			crossMemory := target.Node.MemoryId != router.Node.MemoryId
-			if crossMemory {
-				link = crossMemoryLink(target.Node.Loc, targetMemoryLabel(target.Node.MemoryId, args[0]))
+			if target.Node.MemoryId != router.Node.MemoryId {
+				link = crossMemoryLink(target.Node.Loc, memoryLabel(ctx, client, target.Node.MemoryId))
 			}
 			line := routingLineTo(routeSymptom(symptom, label), link, text)
 
@@ -152,15 +153,23 @@ that already references the target is left alone.`,
 			if dto.Tags == nil {
 				dto.Tags = []string{}
 			}
-			if !plan.Skipped {
+			// BodyLine/Section describe the line ACTUALLY written, so they are
+			// filled from the plan only for a rehearsal, and otherwise only
+			// once appendRoutingLine has landed. Populating them up front made
+			// a partial write report a body repair that had not happened.
+			if dryRun && !plan.Skipped {
 				dto.BodyLine, dto.Section = line, plan.Section
 			}
 
-			// Already-routed is reported, not re-written. createEdge is
-			// idempotent on the derived loc, but saying so is more useful than
-			// a silent no-op.
+			// Already-routed is reported, not re-written: createEdge is
+			// idempotent on the derived loc, but saying so beats a silent
+			// no-op. The LABEL has to match too — a differently-labelled edge
+			// to the same node is a DIFFERENT route, and naming its id here
+			// would report the wrong edge while createEdge went on to add a
+			// second one.
 			for _, e := range router.Node.OutgoingEdges {
-				if e != nil && e.Target != nil && e.Target.Id == targetID {
+				if e != nil && e.Target != nil && e.Target.Id == targetID &&
+					e.Name != nil && *e.Name == label {
 					dto.EdgeID = e.Id
 				}
 			}
@@ -173,8 +182,15 @@ that already references the target is left alone.`,
 
 			fwd, err := gen.CreateEdge(ctx, client, router.Node.Id, targetID, label, nil, nil, nil, nil, nil, nil)
 			if err != nil {
-				return exitcode.Newf(exitcode.Error,
-					"the route from %q to %s was not written: %v", root, dto.Loc, err)
+				// Classify through api.MapError so auth, not-found and
+				// transport keep their own exit codes — a script must be able
+				// to tell a retryable outage from an ordinary failure. The
+				// wording stays agnostic about whether the edge landed:
+				// a transport failure has an UNKNOWN outcome.
+				mapped := api.MapError(err)
+				return exitcode.Newf(exitcode.FromError(mapped),
+					"the route from %q to %s may not have been written — check with `hadron coding preflight list -m %s`: %v",
+					root, dto.Loc, mem.raw, mapped)
 			}
 			if fwd.CreateEdge != nil {
 				dto.EdgeID = fwd.CreateEdge.Id
@@ -184,7 +200,7 @@ that already references the target is left alone.`,
 				if _, err := gen.CreateEdge(ctx, client, targetID, router.Node.Id, label,
 					nil, nil, nil, nil, nil, nil); err != nil {
 					dto.BackEdge = false
-					return partialRoute(f, dto, err,
+					return partialRoute(f, dto, false, err,
 						"routed %s, but its back-edge to %q did not land — the route only works from the index; add it with `hadron edge create --from %s --to %s --name %q`",
 						dto.Loc, root, dto.Loc, root, label)
 				}
@@ -193,7 +209,7 @@ that already references the target is left alone.`,
 			if !noBodyLine {
 				written, err := appendRoutingLine(ctx, client, routerRef, section, line, link)
 				if err != nil {
-					return partialRoute(f, dto, err,
+					return partialRoute(f, dto, false, err,
 						"routed %s, but the router's body was not updated — the route is invisible to anyone READING %q; add this line yourself:\n  %s",
 						dto.Loc, root, line)
 				}
@@ -220,33 +236,22 @@ that already references the target is left alone.`,
 	return cmd
 }
 
-// targetMemoryLabel is what the routing line calls the target's memory.
+// memoryLabel is what the routing line calls a cross-memory target's memory.
 //
-// It is derived from the ref the CALLER typed, not from the projection: the
-// projection carries an opaque memory id, which tells a human reading the
-// router nothing. A cross-memory route is only reachable via a qualified ref
-// (a bare loc composes into -m, which is the router's own memory), so one of
-// the two qualified spellings always parses; the id is a defensive fallback.
-// Emitted canonically as grammar v2, per this repo's emit-v2/accept-everything
-// rule.
-func targetMemoryLabel(memoryID, ref string) string {
-	r := strings.TrimSpace(ref)
-	if rest, ok := cutPrefixFold(r, "hrn:node:"); ok {
-		// hrn:node:<root>:<memory>:<loc…> — the memory is the first two atoms.
-		if parts := strings.Split(rest, ":"); len(parts) >= 3 {
-			return "hrn:mem:" + parts[0] + ":" + parts[1]
-		}
+// It is LOOKED UP, not parsed out of the ref the caller typed. An earlier
+// version split the ref itself and got two spellings wrong: a prefixed legacy
+// ref (`hrn:node:acme.com::specs::tasks:x`) split on single colons to an empty
+// atom and emitted `hrn:mem:acme.com:`, and the `urn:node:` scheme the CLI also
+// accepts fell through to the opaque id. Since input is Postel-liberal by
+// design, every accepted spelling would have to be handled — whereas the server
+// already knows the answer and emits it canonically.
+//
+// Decoration, never a gate: a memory the caller cannot read falls back to the
+// id rather than failing the command, because the route itself is fine.
+func memoryLabel(ctx context.Context, client graphql.Client, memoryID string) string {
+	resp, err := gen.GetMemory(ctx, client, memoryID)
+	if err != nil || resp.Memory == nil || resp.Memory.Urn == "" {
+		return memoryID
 	}
-	if segs := strings.Split(r, "::"); len(segs) >= 3 {
-		// <org>::<memory>::<loc> — normalize the legacy spelling to v2.
-		return cmdutil.CanonicalMemoryRef(segs[0] + "::" + segs[1])
-	}
-	return memoryID
-}
-
-func cutPrefixFold(s, prefix string) (string, bool) {
-	if len(s) >= len(prefix) && strings.EqualFold(s[:len(prefix)], prefix) {
-		return s[len(prefix):], true
-	}
-	return "", false
+	return resp.Memory.Urn
 }

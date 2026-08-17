@@ -1156,3 +1156,75 @@ func TestCodingPreflightRouteUsesTargetDescription(t *testing.T) {
 		t.Errorf("expected the target's description in the routing line, got %q", out.String())
 	}
 }
+
+// A partial write must not claim a body line it never wrote, and `route` must
+// not print the create verb (Codex P1 + P2, Copilot, on #460).
+func TestCodingPreflightRoutePartialWriteIsHonest(t *testing.T) {
+	target := codingNodeJSON("n_target", "findings:flaky-otp-timer", "", "")
+	gql, _ := queueGraphQL(t, map[string][]string{
+		"GetNode":    {codingRouterWithBody(flatRouterBody), target},
+		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem1"}}}`},
+		"CreateEdge": {
+			`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`, // forward route lands
+			`{"errors":[{"message":"back-edge refused"}]}`,     // back-edge does not
+		},
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "preflight", "route", "findings:flaky-otp-timer",
+		"-m", codingMem, "--route", "fix a flaky OTP test",
+		"--description", "d", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if got := exitcode.FromError(err); got != exitcode.Error {
+		t.Errorf("a missing back-edge is a partial write (exit 1), got %d", got)
+	}
+	var dto struct {
+		BodyLine string `json:"bodyLine"`
+		Section  string `json:"section"`
+		BackEdge bool   `json:"backEdge"`
+	}
+	if jerr := json.Unmarshal([]byte(out.String()), &dto); jerr != nil {
+		t.Fatalf("decoding the DTO: %v", jerr)
+	}
+	if dto.BodyLine != "" || dto.Section != "" {
+		t.Errorf("the body write never ran, so bodyLine/section must be empty; got %q / %q",
+			dto.BodyLine, dto.Section)
+	}
+	if dto.BackEdge {
+		t.Error("backEdge must report false when the back-edge did not land")
+	}
+	if strings.Contains(out.String(), "created") {
+		t.Errorf("`route` creates nothing — its partial output must not say created: %q", out.String())
+	}
+}
+
+// An existing edge to the same target under a DIFFERENT label is a different
+// route, and must not be reported as this one (Copilot on #460).
+func TestCodingPreflightRouteIgnoresDifferentlyLabelledEdge(t *testing.T) {
+	other := `{"id":"e_other","name":"routes-to","loc":"l","isRunnable":false,"priority":0,
+		"target":{"id":"n_target","loc":"findings:flaky-otp-timer","memoryId":"mem1"}}`
+	routerWithOther := `{"data":{"node":{"id":"root","memoryId":"mem1","loc":"preflight","name":"preflight",
+		"description":null,"abstract":null,"abstractOriginHash":null,"nodeType":"info","objectType":null,
+		"tags":[],"content":` + jsonStr(flatRouterBody) + `,"data":null,"properties":null,"seq":null,
+		"isRunnable":false,"createdAt":"2026-07-30T00:00:00Z","updatedAt":"2026-07-30T00:00:00Z",
+		"outgoingEdges":[` + other + `],"incomingEdges":[]}}}`
+	gql, _ := queueGraphQL(t, map[string][]string{
+		"GetNode":    {routerWithOther, codingNodeJSON("n_target", "findings:flaky-otp-timer", "", "")},
+		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem1"}}}`},
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "preflight", "route", "findings:flaky-otp-timer",
+		"-m", codingMem, "--route", "fix a flaky OTP test", "--description", "d",
+		"--dry-run", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("dry-run should succeed, got %v", err)
+	}
+	var dto struct {
+		EdgeID string `json:"edgeId"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	if dto.EdgeID == "e_other" {
+		t.Error("an edge with a different label is a different route — it must not be reported as this one")
+	}
+}

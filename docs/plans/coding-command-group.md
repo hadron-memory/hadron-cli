@@ -772,7 +772,43 @@ That same rendered reference doubles as the already-linked key, so
 `planRoutingLine` takes a `linkKey` rather than a bare loc — the one signature
 change this increment made to Increment 3's code.
 
-### 3. Verification
+**The memory label is looked up, not parsed** — a correction from review. The
+first version split the caller's ref itself and got two accepted spellings
+wrong: a prefixed legacy ref (`hrn:node:acme.com::specs::tasks:x`) split on
+single colons to an empty atom and emitted the malformed `hrn:mem:acme.com:`,
+and the `urn:node:` scheme the CLI also accepts fell through to the opaque id.
+Input here is Postel-liberal by design, so parsing it means handling *every*
+accepted spelling forever — while the server already knows the answer and emits
+it canonically. `memoryLabel` reads the memory and uses its `urn`, falling back
+to the id if that read fails, because the label is decoration and must never
+gate the route.
+
+### 3. Honesty of the partial-write DTO
+
+Three review findings shared one root: output that asserted more than had
+happened.
+
+- `bodyLine`/`section` were filled from the **plan**, before any write. A
+  failure between the forward edge and the body update then serialized a DTO
+  claiming a body line that was never written — so a caller reading `--json`
+  would skip the repair it actually needed. They are now filled from the plan
+  only for a rehearsal, and otherwise only once `appendRoutingLine` lands.
+- `partialRoute` printed a hardcoded `✓ created`, which `route` — a command
+  that never creates anything — inherited as a false claim on every partial
+  write. It now renders through `renderRoutePlan`, so the partial and success
+  paths cannot drift apart, and takes the verb from its caller.
+- The forward `createEdge` failure collapsed every cause to exit 1 and asserted
+  the write had not occurred. A transport failure has an **unknown** outcome, so
+  it now classifies through `api.MapError` (preserving auth / not-found /
+  unavailable) and says the route *may* not have been written, naming the
+  command that checks.
+
+A fourth, narrower one: an existing edge to the target counted as "already
+routed" regardless of its **label**. A differently-labelled edge is a different
+route, so the id reported was the wrong one while `createEdge` went on to add a
+second edge. The scan now matches the label too.
+
+### 4. Verification
 
 `go test ./...` and `make lint` green. Unit tests cover the two link forms and
 the memory-label derivation (v2 URN, deep loc, case-insensitive prefix, legacy

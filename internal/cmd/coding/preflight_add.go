@@ -240,7 +240,7 @@ usage error, not a half-finished write.`,
 			// never materialised. The DTO is corrected to what actually landed.
 			landed, err := confirmEmbeddedEdges(ctx, client, resp.CreateNode.Id)
 			if err != nil {
-				return partialRoute(f, dto, err,
+				return partialRoute(f, dto, true, err,
 					"created %s but could not read it back to confirm its edges — check it with `hadron node get %s -m %s`",
 					dto.Loc, dto.Loc, mem.raw)
 			}
@@ -269,7 +269,7 @@ usage error, not a half-finished write.`,
 				// The node exists but nothing routes to it — a partial write,
 				// which exits 1 by contract so a caller branching on the exit
 				// code never reads an unreachable node as done.
-				return partialRoute(f, dto, err,
+				return partialRoute(f, dto, true, err,
 					"created %s but the route from %q was not written — nothing leads to it; wire it with `hadron edge create -m %s --from %s --to %s --name %q`",
 					dto.Loc, root, mem.raw, root, dto.Loc, label)
 			}
@@ -280,7 +280,7 @@ usage error, not a half-finished write.`,
 			if !noBodyLine {
 				written, err := appendRoutingLine(ctx, client, routerRef, section, line, wikiLink(loc))
 				if err != nil {
-					return partialRoute(f, dto, err,
+					return partialRoute(f, dto, true, err,
 						"created and routed %s, but the router's body was not updated — the route is invisible to anyone READING %q; add this line yourself:\n  %s",
 						dto.Loc, root, line)
 				}
@@ -355,11 +355,14 @@ func renderRoutePlan(w io.Writer, dto newRouteDTO, created bool) error {
 
 // partialRoute reports a write that landed halfway. The DTO is still emitted —
 // the node exists and a caller needs its id — but the exit code is 1, never 0.
-func partialRoute(f *cmdutil.Factory, dto newRouteDTO, cause error, format string, a ...any) error {
+//
+// It renders through renderRoutePlan rather than its own table so the partial
+// output cannot drift from the success output. It previously printed a
+// hardcoded "✓ created", which `route` — a command that never creates
+// anything — inherited as a false claim on every partial write.
+func partialRoute(f *cmdutil.Factory, dto newRouteDTO, created bool, cause error, format string, a ...any) error {
 	_ = output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-		t := output.NewTable(w)
-		t.Row("✓ created", dto.Loc, "("+dto.Route+")")
-		return t.Flush()
+		return renderRoutePlan(w, dto, created)
 	})
 	return exitcode.Newf(exitcode.Error, "%s\n  (%v)", fmt.Sprintf(format, a...), cause)
 }

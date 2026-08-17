@@ -8,6 +8,10 @@ import (
 // A cross-memory route cannot use a bare wikilink: it would resolve against the
 // ROUTER's memory and find nothing (cor:urn:020:01). The line must name the
 // target's memory instead.
+//
+// The memory label is looked up from the server rather than parsed out of the
+// caller's ref — see memoryLabel for why the parsing version was wrong — so the
+// only thing to pin here is the rendered shape.
 func TestCrossMemoryLinkForm(t *testing.T) {
 	if got := wikiLink("findings:x"); got != "[[findings:x]]" {
 		t.Errorf("wikiLink = %q", got)
@@ -23,21 +27,17 @@ func TestCrossMemoryLinkForm(t *testing.T) {
 	}
 }
 
-// The memory label comes from the ref the caller typed — the projection carries
-// an opaque id, which tells a reader nothing — and is emitted as grammar v2.
-func TestTargetMemoryLabel(t *testing.T) {
-	cases := []struct{ name, ref, want string }{
-		{"v2 node urn", "hrn:node:acme.com:specs:tasks:create-platform-spec", "hrn:mem:acme.com:specs"},
-		{"v2 deep loc", "hrn:node:acme.com:dev:ops:incidents:20260517-x", "hrn:mem:acme.com:dev"},
-		{"case-insensitive prefix", "HRN:NODE:acme.com:specs:tasks:x", "hrn:mem:acme.com:specs"},
-		{"legacy v1 normalizes to v2", "acme.com::specs::tasks:x", "hrn:mem:acme.com:specs"},
-		{"unparseable falls back to the id", "0199aabbccdd", "mem_id_fallback"},
+// The two link forms must be distinguishable as already-linked keys, or
+// planRoutingLine's duplicate check would match the wrong one.
+func TestLinkFormsAreDistinctKeys(t *testing.T) {
+	body := "# R\n\n- **\"A\"** → `findings:x` in `hrn:mem:other.org:kb` — elsewhere.\n"
+	// The same loc in the ROUTER's memory is a different target, so the
+	// cross-memory bullet must not suppress it.
+	plan, err := planRoutingLine(body, "", routingLine("B", "findings:x", "here"), wikiLink("findings:x"))
+	if err != nil {
+		t.Fatalf("planRoutingLine: %v", err)
 	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := targetMemoryLabel("mem_id_fallback", tc.ref); got != tc.want {
-				t.Errorf("targetMemoryLabel(%q) = %q, want %q", tc.ref, got, tc.want)
-			}
-		})
+	if plan.Skipped {
+		t.Error("a cross-memory bullet for the same loc must not count as already-linked for the local one")
 	}
 }
