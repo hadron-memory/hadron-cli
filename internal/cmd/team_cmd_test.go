@@ -1974,7 +1974,7 @@ func TestTeamChatPostPreflightOnlyWhenScopeIsAmbientAndUnbound(t *testing.T) {
 		}
 	})
 
-	t.Run("a bound worktree agrees with itself, so no pre-flight", func(t *testing.T) {
+	t.Run("a session on the wire lets the server check, so no pre-flight", func(t *testing.T) {
 		dir := teamGitDir(t)
 		if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingFixture), 0o600); err != nil {
 			t.Fatalf("write binding: %v", err)
@@ -1988,7 +1988,37 @@ func TestTeamChatPostPreflightOnlyWhenScopeIsAmbientAndUnbound(t *testing.T) {
 			t.Fatalf("execute: %v", err)
 		}
 		if strings.Contains(errOut.String(), "note:") {
-			t.Errorf("a bound worktree posts to its own team — no warning: %q", errOut.String())
+			t.Errorf("a session-bound post is server-checked — no warning: %q", errOut.String())
+		}
+	})
+
+	// PR #473 review (Codex P1). Gating on "a binding file exists" was wrong:
+	// --as-me deliberately drops the session, and an ambient App CONTEXT
+	// overrides the binding's App — so the post lands irreversibly in an App
+	// nobody named, with the session that would have let the server catch it
+	// deliberately withheld. The binding's existence proves nothing here.
+	t.Run("--as-me drops the session, so the pre-flight returns", func(t *testing.T) {
+		dir := teamGitDir(t)
+		if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingFixture), 0o600); err != nil {
+			t.Fatalf("write binding: %v", err)
+		}
+		gql, captured := captureGraphQL(t, post)
+		f, _ := testFactory(t)
+		configuredApp(t, "acme.com:eng-team")
+		errOut := f.IOStreams.ErrOut.(*strings.Builder)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "chat", "post", "hello", "--as-me", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if !strings.Contains(errOut.String(), "note: no --app and no worker session") {
+			t.Errorf("a binding that is not on the wire must not suppress the warning: %q", errOut.String())
+		}
+		// And the session really is absent — the premise of the warning.
+		var vars map[string]any
+		_ = json.Unmarshal(captured["CreateTeamChatMessage"], &vars)
+		if _, sent := vars["sessionRef"]; sent {
+			t.Errorf("--as-me must send no sessionRef: %v", vars)
 		}
 	})
 }
