@@ -2023,7 +2023,14 @@ func TestMemoryRm(t *testing.T) {
 }
 
 func TestMemoryClone(t *testing.T) {
-	cloneJSON := `{"id":"m2","urn":"acme.com:kb-fork","name":"kb-fork","shortDescription":null,
+	// The fixture ECHOES the targetUrn the command sends. Minting verbatim is
+	// the live-verified behaviour this change rests on (see the commit and
+	// docs/plans/urn-v2-help-text.md), so a fixture answering with a different
+	// spelling would quietly model the opposite of what we believe (PR #457
+	// review). Note what this test does and does not prove: it pins the WIRE
+	// value and the DTO passthrough — the minting itself was verified live,
+	// not here, because a fake can only return what it is told to.
+	cloneJSON := `{"id":"m2","urn":"hrn:mem:acme.com:kb-fork","name":"kb-fork","shortDescription":null,
 		"class":"knowledge","visibility":"ORGANIZATION","organizationId":"org1",
 		"isEncrypted":false,"updatedAt":"2026-06-12T00:00:00Z"}`
 	gql, captured := captureGraphQL(t, map[string]string{
@@ -2038,8 +2045,8 @@ func TestMemoryClone(t *testing.T) {
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CloneMemory"], &vars)
 	// The SOURCE ref passes through as typed (the server resolves every
-	// spelling); the TARGET is normalized to the canonical v2 URN, which
-	// cloneMemory accepts and mints verbatim (#372 follow-up, verified live).
+	// spelling); the TARGET is normalized to the canonical v2 URN
+	// (#372 follow-up).
 	if vars["ref"] != "acme.com::kb" || vars["targetUrn"] != "hrn:mem:acme.com:kb-fork" {
 		t.Errorf("unexpected clone vars: %v", vars)
 	}
@@ -2047,7 +2054,9 @@ func TestMemoryClone(t *testing.T) {
 	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
 		t.Fatalf("output not JSON: %v\n%s", err, out.String())
 	}
-	if dto["urn"] != "acme.com:kb-fork" {
+	// The DTO carries the server's urn through unchanged — the round trip a
+	// caller scripting `memory clone --json` actually observes.
+	if dto["urn"] != "hrn:mem:acme.com:kb-fork" {
 		t.Errorf("unexpected output dto: %v", dto)
 	}
 }
