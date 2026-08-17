@@ -104,9 +104,11 @@ malformed edge label makes the check or route silently stop firing — the
 node still exists and never matches again.
 
 ` + "`list`" + ` shows the tree or the router as its readers see it; ` + "`create`" + ` adds
-a node with every edge that makes it discoverable, in one run; ` + "`lint`" + `
-detects the silent-skip defects mechanically — lint errors exit 5, and
---strict promotes warnings to errors. Every subcommand takes -m/--memory.`,
+a node with every edge that makes it discoverable, in one run; ` + "`preflight route`" + `
+does the same wiring for a node that already exists, including one in another
+memory; ` + "`lint`" + ` detects the silent-skip defects mechanically — lint errors
+exit 5, and --strict promotes warnings to errors. Every subcommand takes
+-m/--memory.`,
 	}
 	cmd.AddCommand(newCmdReview(f))
 	cmd.AddCommand(newCmdPreflight(f))
@@ -131,6 +133,7 @@ func newCmdPreflight(f *cmdutil.Factory) *cobra.Command {
 	}
 	cmd.AddCommand(newCmdPreflightList(f))
 	cmd.AddCommand(newCmdPreflightAdd(f))
+	cmd.AddCommand(newCmdPreflightRoute(f))
 	cmd.AddCommand(newCmdPreflightLint(f))
 	return cmd
 }

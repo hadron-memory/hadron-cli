@@ -19,7 +19,7 @@ Every subcommand takes `-m/--memory hrn:mem:<root>:<slug>`.
 
 ```
 hadron coding review    list | create | lint
-hadron coding preflight list | create | lint
+hadron coding preflight list | create | route | lint
 ```
 
 ## What counts as a check
@@ -163,6 +163,29 @@ Notes:
 - If the route edge or the body update fails, the node still exists: the command
   reports the exact repair (an `hadron edge create` line, or the routing line to
   paste) and exits 1, never 0.
+### Routing at a node that already exists
+
+`preflight create` mints a node and routes to it. When the node is already
+there — usually a finding or task somebody else wrote, often in **another
+memory** — use `route`:
+
+```sh
+hadron coding preflight route hrn:node:acme.com:specs:tasks:create-platform-spec \
+  -m hrn:mem:acme.com:dev --route "add or change a spec in the law corpus" \
+  --section "Maintaining the memories themselves"
+```
+
+It writes the same three things and never creates a node. Two differences:
+
+- **`--description` is optional** — the target already describes itself, so its
+  own description becomes the routing line's text unless you override it.
+- **A cross-memory target is referenced as `` `<loc>` in `<memory>` ``**, not as
+  a bare `[[loc]]`. A wikilink resolves against the *router's* memory
+  (`cor:urn:020:01`), so a bare one would silently point at nothing.
+
+Re-running is safe: an existing edge is not duplicated and a body that already
+references the target is left alone.
+
 - Prefer a `--link` on a review check over a new route when the node explains one
   check's rule. `preflight` is scanned on every change, so per-check routes bloat
   it.

@@ -1077,3 +1077,82 @@ func TestCodingFetchNodesContentIsOptIn(t *testing.T) {
 		t.Errorf("preflight lint must not surface node bodies, got %q", out2.String())
 	}
 }
+
+// `preflight route` wires an EXISTING node: two edges plus the body line, and
+// it must not create a node. The target here is same-memory, so the body line
+// uses a bare wikilink.
+func TestCodingPreflightRouteExistingNode(t *testing.T) {
+	target := codingNodeJSON("n_target", "findings:flaky-otp-timer", "", "")
+	gql, captured := queueGraphQL(t, map[string][]string{
+		"GetNode": {
+			codingRouterWithBody(flatRouterBody), // the router + plan
+			target,                               // the target read
+			codingRouterWithBody(flatRouterBody), // fresh re-read before the splice
+		},
+		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem1"}}}`},
+		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
+		"UpdateNode": {`{"data":{"updateNode":` + newRouteNodeJSON + `}}`},
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "preflight", "route", "findings:flaky-otp-timer",
+		"-m", codingMem, "--route", "fix a flaky OTP test",
+		"--description", "The countdown starts before the await", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("route should succeed, got %v", err)
+	}
+	if _, made := captured["CreateNode"]; made {
+		t.Error("route must never create a node — that is what `create` is for")
+	}
+	if n := len(captured["CreateEdge"]); n != 2 {
+		t.Fatalf("expected the route edge AND the back-edge, got %d CreateEdge calls", n)
+	}
+	var fwd, back struct {
+		SourceRef string `json:"sourceRef"`
+		TargetRef string `json:"targetRef"`
+	}
+	_ = json.Unmarshal(captured["CreateEdge"][0], &fwd)
+	_ = json.Unmarshal(captured["CreateEdge"][1], &back)
+	if fwd.SourceRef != "root" || fwd.TargetRef != "n_target" {
+		t.Errorf("forward route must run router → target, got %s → %s", fwd.SourceRef, fwd.TargetRef)
+	}
+	if back.SourceRef != "n_target" || back.TargetRef != "root" {
+		t.Errorf("back-edge must run target → router, got %s → %s", back.SourceRef, back.TargetRef)
+	}
+	var upd struct {
+		Input struct {
+			Content string `json:"content"`
+		} `json:"input"`
+	}
+	_ = json.Unmarshal(captured["UpdateNode"][0], &upd)
+	if !strings.Contains(upd.Input.Content, "[[findings:flaky-otp-timer]]") {
+		t.Errorf("a same-memory target uses a bare wikilink, got:\n%s", upd.Input.Content)
+	}
+	if !strings.Contains(out.String(), "findings:flaky-otp-timer") {
+		t.Errorf("expected the routed loc in the output, got %q", out.String())
+	}
+}
+
+// The target's own description is the routing line's text when --description is
+// omitted — the node is already authored, so it already describes itself.
+func TestCodingPreflightRouteUsesTargetDescription(t *testing.T) {
+	target := `{"data":{"node":{"id":"n_target","memoryId":"mem1","loc":"findings:x","name":"x",
+		"description":"Its own one-liner","abstract":null,"abstractOriginHash":null,"nodeType":"info",
+		"objectType":null,"tags":[],"content":null,"data":null,"properties":null,"seq":null,
+		"isRunnable":false,"createdAt":"2026-07-30T00:00:00Z","updatedAt":"2026-07-30T00:00:00Z",
+		"outgoingEdges":[],"incomingEdges":[]}}}`
+	gql, _ := queueGraphQL(t, map[string][]string{
+		"GetNode":    {codingRouterWithBody(flatRouterBody), target},
+		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem1"}}}`},
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "preflight", "route", "findings:x", "-m", codingMem,
+		"--route", "do a thing", "--dry-run", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("dry-run should succeed, got %v", err)
+	}
+	if !strings.Contains(out.String(), "Its own one-liner") {
+		t.Errorf("expected the target's description in the routing line, got %q", out.String())
+	}
+}

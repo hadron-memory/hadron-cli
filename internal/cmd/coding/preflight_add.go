@@ -153,7 +153,7 @@ usage error, not a half-finished write.`,
 			}
 			plan := routingPlan{Skipped: true}
 			if !noBodyLine {
-				if plan, err = planRoutingLine(routerBody(router.Node.Content), section, line, loc); err != nil {
+				if plan, err = planRoutingLine(routerBody(router.Node.Content), section, line, wikiLink(loc)); err != nil {
 					return err
 				}
 			}
@@ -198,7 +198,7 @@ usage error, not a half-finished write.`,
 					dto.BodyLine, dto.Section = line, plan.Section
 				}
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-					return renderRoutePlan(w, dto)
+					return renderRoutePlan(w, dto, true)
 				})
 			}
 
@@ -278,7 +278,7 @@ usage error, not a half-finished write.`,
 			}
 
 			if !noBodyLine {
-				written, err := appendRoutingLine(ctx, client, routerRef, section, line, loc)
+				written, err := appendRoutingLine(ctx, client, routerRef, section, line, wikiLink(loc))
 				if err != nil {
 					return partialRoute(f, dto, err,
 						"created and routed %s, but the router's body was not updated — the route is invisible to anyone READING %q; add this line yourself:\n  %s",
@@ -290,7 +290,7 @@ usage error, not a half-finished write.`,
 			}
 
 			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				return renderRoutePlan(w, dto)
+				return renderRoutePlan(w, dto, true)
 			}); err != nil {
 				return err
 			}
@@ -330,11 +330,13 @@ usage error, not a half-finished write.`,
 // renderRoutePlan is the human branch for both the rehearsal and the result.
 // They print the same four lines on purpose: a --dry-run is only useful if what
 // it shows is what you get.
-func renderRoutePlan(w io.Writer, dto newRouteDTO) error {
-	verb := "✓ created"
-	if dto.DryRun {
-		verb = "would create"
-	}
+func renderRoutePlan(w io.Writer, dto newRouteDTO, created bool) error {
+	verb := map[[2]bool]string{
+		{true, false}:  "✓ created",
+		{true, true}:   "would create",
+		{false, false}: "✓ routed",
+		{false, true}:  "would route",
+	}[[2]bool{created, dto.DryRun}]
 	t := output.NewTable(w)
 	t.Row(verb, dto.Loc, "("+dto.Route+")")
 	t.Row("  route", dto.Router+" → "+dto.Loc, dto.EdgeID)
@@ -462,7 +464,7 @@ func routerBody(content *string) string {
 // Only `content` is sent. Every other field is omitted, which the server reads
 // as "preserve" — in particular `edges`, which would otherwise REPLACE the
 // router's whole outgoing edge set and delete every route it has.
-func appendRoutingLine(ctx context.Context, client graphql.Client, routerRef, section, line, loc string) (routingPlan, error) {
+func appendRoutingLine(ctx context.Context, client graphql.Client, routerRef, section, line, linkKey string) (routingPlan, error) {
 	fresh, err := gen.GetNode(ctx, client, routerRef)
 	if err != nil {
 		return routingPlan{}, api.MapError(err)
@@ -470,7 +472,7 @@ func appendRoutingLine(ctx context.Context, client graphql.Client, routerRef, se
 	if fresh.Node == nil {
 		return routingPlan{}, exitcode.Newf(exitcode.NotFound, "the router disappeared between the create and the body update")
 	}
-	plan, err := planRoutingLine(routerBody(fresh.Node.Content), section, line, loc)
+	plan, err := planRoutingLine(routerBody(fresh.Node.Content), section, line, linkKey)
 	if err != nil || plan.Skipped {
 		return plan, err // Skipped: already linked by hand, nothing to add
 	}
