@@ -175,6 +175,7 @@ func alreadyBoundError(ctx context.Context, f *cmdutil.Factory, existing *bindin
 	const separate = "give this worker its own checkout:\n" +
 		"    git worktree add -b <new-branch> ../<name>     # new branch\n" +
 		"    git worktree add ../<name> <existing-branch>   # a branch that already exists\n" +
+		"(-b is load-bearing: a bare fresh name fails, and a tag or sha gives a detached HEAD.)\n" +
 		"Two agents in one worktree share an index and a working tree: whichever commits with `git add -A`\n" +
 		"absorbs the other's in-flight edits, and Session.branch is captured once at bind and never revisited,\n" +
 		"so the provenance record goes false with no signal. A merged PR stops tracing back to the work that\n" +

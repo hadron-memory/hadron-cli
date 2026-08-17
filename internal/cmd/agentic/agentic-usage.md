@@ -845,8 +845,9 @@ Conventions:
   **One worktree per worker** (#472): binding a worktree that is already bound
   refuses (exit 5) and picks its remedy by whether that session is still
   ALIVE — live, it points at `git worktree add -b <new-branch> ../<name>`
-  (the `-b` matters: the bare `<commit-ish>` form only works for a branch
-  that already exists), because
+  (the `-b` matters: the bare `<commit-ish>` form takes an EXISTING ref — a
+  fresh name fails `invalid reference`, and a tag or sha silently gives a
+  detached HEAD), because
   `--force` replaces the binding without separating two agents from one index
   and one working tree; ended, `--force` is exactly right. Two agents in one
   checkout is the hazard: `git add -A` sweeps the other's in-flight edits and
