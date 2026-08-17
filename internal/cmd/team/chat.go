@@ -45,9 +45,10 @@ App it landed on and where the scope came from — including when there is
 nothing new, which is the usual case and was previously indistinguishable
 from reading another team. ` + "`post`" + ` names the chat in its receipt, and warns
 on stderr BEFORE writing when the App came from a context or binding you
-did not name AND no worker session is bound. A post cannot be recalled and
-its mentions notify people on write, so that one signal comes early rather
-than in the receipt.`,
+did not name AND no session goes on the wire (no binding, or --as-me).
+With a session the server checks it against the App and refuses a mismatch;
+without one nothing does, and a post can neither be recalled nor its
+mentions unfired — so that signal comes early rather than in the receipt.`,
 	}
 	cmd.AddCommand(newCmdTeamChatPost(f))
 	cmd.AddCommand(newCmdTeamChatRead(f))
@@ -269,17 +270,21 @@ matching ` + "`hadron chat post`" + `. Exactly one source.
 			// address. There is no removal surface here, so unlike a register
 			// edit it cannot be taken back.
 			//
-			// Gated on ambient-AND-unbound, which is what makes it free rather
-			// than noise: with a worker session bound, the App comes from the
-			// same binding that supplies sessionRef, so scope and authorship
-			// agree by construction and there is nothing to warn about. It
-			// fires for the case that is actually exposed — a configured App
-			// context, no binding, and no --app to say otherwise.
+			// Gated on ambient scope AND no session on the wire. The test is
+			// sessionRef, not "is there a binding file" (PR #473 review): with
+			// a real sessionRef the SERVER verifies the session belongs to
+			// this App and refuses a mismatch, so an ambient scope that
+			// disagrees cannot land silently. Without one — no binding at all,
+			// or --as-me, which deliberately drops the session — nothing
+			// checks the two against each other, and an ambient App context
+			// overrides the binding's App, so the post lands irreversibly in
+			// an App nobody named. The binding file's mere existence proves
+			// none of that.
 			//
 			// stderr, so the --json stdout contract is untouched; and NOT
 			// suppressed under --json, because an agent posting from an
 			// ambient context is precisely the exposed caller.
-			if scope.Ambient && b == nil {
+			if scope.Ambient && sessionRef == nil {
 				fmt.Fprintf(f.IOStreams.ErrOut,
 					"note: no --app and no worker session binding — posting to %s\n", appLabel())
 			}

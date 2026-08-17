@@ -893,17 +893,6 @@ Conventions:
   bootstrapped on the first post — no init step), atomic seq allocation,
   author derivation, and write-time mention extraction. The App resolves
   from `--app`/the App context, else from the binding's team memory. With a
-  Both resolve the team App ambiently (`--app` → App context → the worktree
-  binding), so `chat read` opens with the App and **which of those
-  answered** — unconditionally, including at zero messages, since an empty
-  incremental read is the normal steady state and was otherwise identical
-  to reading another team (#470). `chat post` names the chat in its receipt
-  and, when the scope is ambient AND no worker session is bound, writes a
-  `note:` to **stderr before posting** — a post cannot be recalled and its
-  mentions fire on write, so that signal cannot wait for the receipt. It is
-  a warning, never a refusal, and it is NOT suppressed by `--json` (stderr,
-  so the stdout contract is untouched). The `--json` shapes are unchanged
-  and the reads issue no extra call under `--json`.
   binding, `chat post` is authored by the bound WORKER through that session
   (the server verifies it is yours, active, and bound to a non-retired
   worker OF this App — `SESSION_NOT_WORKER_BOUND` /
@@ -923,7 +912,18 @@ Conventions:
   (skipped ones re-scan server-side, free, and are never re-delivered). The
   commit trailer carries the **app-qualified compound** — `Persona:
   eng-team/Iris` (`cor:agt:020:02/:03`) — because worker names are App-scoped
-  and org-ambiguous bare.
+  and org-ambiguous bare. That App resolution is ambient, so **`chat read`
+  opens with the App and which branch answered** — unconditionally,
+  including at zero messages, since an empty incremental read is the normal
+  steady state and was otherwise byte-identical to reading another team
+  (#470). `chat post` names the chat in its receipt, and writes a `note:` to
+  **stderr before posting** when the scope is ambient AND no session goes on
+  the wire (no binding, or `--as-me`) — with a sessionRef the server checks
+  session against App and refuses a mismatch, so only the sessionless case
+  can land silently, and a post can neither be recalled nor its mentions
+  unfired. Warning, never refusal; NOT suppressed by `--json`, since stderr
+  leaves the stdout contract untouched. The `--json` shapes are unchanged
+  and the reads issue no extra call under `--json`.
 - `user search <query>` finds users (enumeration-safe: substring on handle /
   GitHub username, exact on email) — the way to resolve a user ID for `org
   member`/`memory member`/`memory share`. **Omit the query** (also spelled `user
