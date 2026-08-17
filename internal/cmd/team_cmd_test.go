@@ -1590,6 +1590,20 @@ const startedSessionJSON = `{"id":"s-new","agentId":"agt1","workerId":"wkr1",
 	"repo":null,"branch":null,"prNumber":null,"startedAt":"2026-08-11T10:00:00Z","endedAt":null,
 	"host":"mac1","tool":"claude-code","transcriptPath":"/tmp/t.jsonl","llmModel":null}`
 
+// configuredApp writes an App into the (temp-dir) config, producing the one
+// scope that is ambient WITHOUT a worktree binding. Must run after
+// testFactory, which is what points XDG_CONFIG_HOME at the temp dir.
+func configuredApp(t *testing.T, ref string) {
+	t.Helper()
+	dir := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "hadron")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatalf("config dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte("app = \""+ref+"\"\n"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+}
+
 func teamGitDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -1888,10 +1902,186 @@ const teamChatHumanMsgJSON = `{"nodeId":"n9","seq":1,"body":"hi","at":"2026-08-1
 // with the wrong one returned null rather than erroring — a wrong field name
 // yielding a plausible wrong answer. The canonical output carries BOTH, and
 // separates a human post from a worker post in the transcript too.
+// #470: an empty `chat read` was byte-identical to reading the wrong team.
+// The render is a bare loop, so zero messages printed nothing at all — and
+// `--since <watermark>` returning nothing is the NORMAL steady state, so the
+// failure hid inside the expected case. The header is unconditional.
+func TestTeamChatReadNamesTheAppEvenWhenEmpty(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":0,"items":[]}}}`,
+		"TeamAppIdentity":  teamAppIdentityJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--since", "42",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.HasPrefix(out.String(), "app: hrn:app:acme.com:eng-team — Eng Team (from --app)\n") {
+		t.Errorf("an empty read must still say which chat was empty: %q", out.String())
+	}
+}
+
+// The pre-flight (#470, @Ada's call: options 1+3). A receipt can only diagnose
+// a bad post — the message is live and the mentions have fired — and there is
+// no removal surface, so the signal has to come BEFORE the write. It is gated
+// on ambient-AND-unbound: with a binding, the App comes from the same binding
+// that supplies sessionRef, so scope and authorship agree by construction.
+func TestTeamChatPostPreflightOnlyWhenScopeIsAmbientAndUnbound(t *testing.T) {
+	post := map[string]string{
+		"CreateTeamChatMessage": `{"data":{"createTeamChatMessage":` + teamChatMsgJSON + `}}`,
+		"TeamAppIdentity":       teamAppIdentityJSON,
+	}
+
+	t.Run("--app names it, so no pre-flight", func(t *testing.T) {
+		teamGitDir(t) // no binding file written
+		gql, _ := captureGraphQL(t, post)
+		f, _ := testFactory(t)
+		errOut := f.IOStreams.ErrOut.(*strings.Builder)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "chat", "post", "hello",
+			"--app", "acme.com:eng-team", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if strings.Contains(errOut.String(), "note:") {
+			t.Errorf("an explicitly named App needs no warning: %q", errOut.String())
+		}
+	})
+
+	t.Run("an ambient App context with no binding DOES warn, before the write", func(t *testing.T) {
+		teamGitDir(t)
+		gql, captured := captureGraphQL(t, post)
+		f, _ := testFactory(t)
+		configuredApp(t, "acme.com:eng-team")
+		errOut := f.IOStreams.ErrOut.(*strings.Builder)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "chat", "post", "hello", "--json", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		// Named, sourced, and on stderr — so --json stdout is untouched. NOT
+		// suppressed by --json: an agent posting from an ambient context is
+		// exactly the exposed caller.
+		want := "note: no --app and no worker session binding — posting to " +
+			"hrn:app:acme.com:eng-team — Eng Team (from the App context)"
+		if !strings.Contains(errOut.String(), want) {
+			t.Errorf("want the pre-flight on stderr, got %q", errOut.String())
+		}
+		if _, posted := captured["CreateTeamChatMessage"]; !posted {
+			t.Error("the pre-flight warns, it never refuses — the post must still go out")
+		}
+	})
+
+	t.Run("a session on the wire lets the server check, so no pre-flight", func(t *testing.T) {
+		dir := teamGitDir(t)
+		if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingFixture), 0o600); err != nil {
+			t.Fatalf("write binding: %v", err)
+		}
+		gql, _ := captureGraphQL(t, post)
+		f, _ := testFactory(t)
+		errOut := f.IOStreams.ErrOut.(*strings.Builder)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "chat", "post", "hello", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if strings.Contains(errOut.String(), "note:") {
+			t.Errorf("a session-bound post is server-checked — no warning: %q", errOut.String())
+		}
+	})
+
+	// PR #473 review (Codex P1). Gating on "a binding file exists" was wrong:
+	// --as-me deliberately drops the session, and an ambient App CONTEXT
+	// overrides the binding's App — so the post lands irreversibly in an App
+	// nobody named, with the session that would have let the server catch it
+	// deliberately withheld. The binding's existence proves nothing here.
+	t.Run("--as-me drops the session, so the pre-flight returns", func(t *testing.T) {
+		dir := teamGitDir(t)
+		if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingFixture), 0o600); err != nil {
+			t.Fatalf("write binding: %v", err)
+		}
+		gql, captured := captureGraphQL(t, post)
+		f, _ := testFactory(t)
+		configuredApp(t, "acme.com:eng-team")
+		errOut := f.IOStreams.ErrOut.(*strings.Builder)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "chat", "post", "hello", "--as-me", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if !strings.Contains(errOut.String(), "note: no --app and no worker session") {
+			t.Errorf("a binding that is not on the wire must not suppress the warning: %q", errOut.String())
+		}
+		// And the session really is absent — the premise of the warning.
+		var vars map[string]any
+		_ = json.Unmarshal(captured["CreateTeamChatMessage"], &vars)
+		if _, sent := vars["sessionRef"]; sent {
+			t.Errorf("--as-me must send no sessionRef: %v", vars)
+		}
+	})
+}
+
+// The receipt named the author and the seq — the two facts never in doubt —
+// and not the chat, so a post into the wrong team came back with a ✓ on it.
+func TestTeamChatPostReceiptNamesTheChat(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"CreateTeamChatMessage": `{"data":{"createTeamChatMessage":` + teamChatMsgJSON + `}}`,
+		"TeamAppIdentity":       teamAppIdentityJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "post", "hello",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "✓ posted as Iris (seq 8)") {
+		t.Errorf("the existing receipt must survive: %s", out.String())
+	}
+	if !strings.Contains(out.String(), "  app: hrn:app:acme.com:eng-team — Eng Team (from --app)") {
+		t.Errorf("the receipt must name the chat it landed in: %s", out.String())
+	}
+}
+
+// The read header and the post receipt are renders, so `--json` keeps its
+// shape and pays for no identity read. The PRE-FLIGHT is deliberately NOT
+// suppressed under --json — it is a safety signal on an unrecallable write,
+// and an agent posting from an ambient context is the exposed caller — but it
+// goes to stderr, so the --json stdout contract is untouched either way.
+func TestTeamChatJSONKeepsItsShape(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":1,"items":[` + teamChatMsgJSON + `]}}}`,
+		"TeamAppIdentity":  teamAppIdentityJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, called := captured["TeamAppIdentity"]; called {
+		t.Error("a read under --json must not pay for a render-only identity read")
+	}
+	var result struct {
+		Messages  []map[string]any `json:"messages"`
+		NextSince int              `json:"nextSince"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &result); err != nil {
+		t.Fatalf("--json must stay {messages, nextSince}: %v (%s)", err, out.String())
+	}
+	if len(result.Messages) != 1 || result.NextSince != 8 {
+		t.Errorf("the documented shape must not move: %s", out.String())
+	}
+}
+
 func TestTeamChatReadEmitsAuthorAliasAndKind(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":2,"items":[` +
 			teamChatHumanMsgJSON + `,` + teamChatMsgJSON + `]}}}`,
+		"TeamAppIdentity": teamAppIdentityJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
