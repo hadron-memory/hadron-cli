@@ -62,8 +62,9 @@ and node locs change, URN references among the moved nodes will break.`,
 				return exitcode.Newf(exitcode.Usage,
 					"<targetUrn> must be a fully-qualified memory URN, hrn:mem:<root>:<slug>")
 			}
-			// Legacy "::" on the wire, as before — see clone.go.
-			targetURN = root + "::" + slug
+			// Canonical flat v2 on the wire — see clone.go; verified live against
+			// extractParentNodeToMemory the same way.
+			targetURN = cmdutil.CanonicalMemoryRef(root + ":" + slug)
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
