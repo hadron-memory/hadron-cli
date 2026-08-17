@@ -151,6 +151,55 @@ func describeSession(s *gen.TeamSessionFields) string {
 	return fmt.Sprintf("%s since %s (session %s)", strings.Join(parts, " "), s.StartedAt, s.Id)
 }
 
+// alreadyBoundError refuses a second binding in one worktree, and picks the
+// remedy by whether the bound session is still ALIVE (#472).
+//
+// The guard itself was always right; the remedy was not. Offering --force for
+// a LIVE binding answers the wrong problem: it replaces the binding and
+// relabels which worker gets blamed, while leaving two agents editing one
+// index and one working tree. It is worse than neutral, because afterwards the
+// second agent believes it is correctly bound — the one signal that something
+// was off has been cleared.
+//
+// Scope, stated honestly because the message cannot: this catches a second
+// BINDING. A second agent working UNBOUND in the same checkout does identical
+// damage and nothing here fires. That is why hadron-docs#233 exists.
+func alreadyBoundError(ctx context.Context, client graphql.Client, existing *binding) error {
+	const separate = "give this worker its own checkout:\n    git worktree add ../<name> <branch>\n" +
+		"Two agents in one worktree share an index and a working tree: whichever commits with `git add -A`\n" +
+		"absorbs the other's in-flight edits, and Session.branch is captured once at bind and never revisited,\n" +
+		"so the provenance record goes false with no signal. A merged PR stops tracing back to the work that\n" +
+		"produced it — which is the whole reason the binding exists."
+
+	// One read, only on a path that is already refusing. `session start` has
+	// to know whether the bound session is live to answer at all, and guessing
+	// would pick the wrong remedy half the time.
+	resp, err := gen.GetTeamSession(ctx, client, existing.SessionID)
+	switch {
+	case err != nil || resp.Session == nil:
+		// Cannot tell. Lead with the safe remedy rather than the convenient
+		// one: separating the trees is never wrong, and --force is only right
+		// for a binding nobody is driving.
+		return exitcode.Newf(exitcode.Conflict,
+			"this worktree is already bound to worker %s (session %s), and whether that session is still active could not be checked — %s\n"+
+				"If you are certain the binding is abandoned, --force replaces it; it does NOT separate the working trees.",
+			existing.WorkerName, existing.SessionID, separate)
+	case resp.Session.EndedAt == nil:
+		// LIVE. The worktree is the answer; --force is named only so the
+		// reader knows it is the wrong tool here rather than wondering.
+		return exitcode.Newf(exitcode.Conflict,
+			"this worktree is already bound to worker %s (session %s, started %s and still active) — if another agent is working here, %s\n"+
+				"`--force` replaces the binding WITHOUT separating the working trees; use it only to take over an abandoned binding.",
+			existing.WorkerName, existing.SessionID, resp.Session.StartedAt, separate)
+	default:
+		// Ended: nobody is driving, so replacing the binding is exactly right
+		// and the worktree advice would be noise.
+		return exitcode.Newf(exitcode.Conflict,
+			"this worktree is already bound to worker %s (session %s), whose session ended %s — --force replaces the abandoned binding.",
+			existing.WorkerName, existing.SessionID, *resp.Session.EndedAt)
+	}
+}
+
 func newCmdSessionStart(f *cmdutil.Factory) *cobra.Command {
 	var as, repo, branch, transcript, host, tool, model, teamMemory string
 	var force bool
@@ -169,6 +218,17 @@ briefing (its prompt) is printed — adopt it.
 persistent --app flag, or the configured App context — or the worker's id,
 which needs no App scope at all.
 
+ONE WORKTREE PER WORKER (#472). Do not drive two workers from one
+checkout. Two agents there share an index and a working tree: whichever
+commits with ` + "`git add -A`" + ` absorbs the other's in-flight edits, and
+Session.branch is captured once here and never revisited, so a session
+keeps reporting a branch it left hours ago. Both failures are silent, and
+the one that matters is the provenance: a merged PR stops tracing back to
+the work that produced it, which is the whole reason binding a worker
+exists. Give each worker its own tree with
+` + "`git worktree add ../<name> <branch>`" + ` — the binding lives under the
+worktree's own git dir, so linked worktrees are already independent.
+
 A worker with a still-active session is taken: the takeover requires
 --force, and the last driver and start time are shown (informed override,
 cor:agt:020:03 — never silent). Stale sessions are reaped server-side
@@ -177,7 +237,9 @@ active session usually means someone is genuinely driving. --force starts
 your session alongside the taken-over one; it does not end another
 driver's session. When this worktree already has a binding, --force
 replaces it — first ending the session that binding names (best-effort),
-so the old binding never leaves a session open.`,
+so the old binding never leaves a session open. That makes --force the
+remedy for an ABANDONED binding only: it never separates two live agents,
+it just relabels which worker the shared tree is blamed on.`,
 		Example: `  hadron team session start --as Iris --tool claude-code \
       --transcript ~/.claude/projects/x/transcript.jsonl`,
 		Args: cobra.NoArgs,
@@ -187,14 +249,12 @@ so the old binding never leaves a session open.`,
 			if err != nil {
 				return err
 			}
-			if existing != nil && !force {
-				return exitcode.Newf(exitcode.Conflict,
-					"this worktree is already bound to worker %s (session %s) — `hadron team session end` first, or --force to replace the binding",
-					existing.WorkerName, existing.SessionID)
-			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+			if existing != nil && !force {
+				return alreadyBoundError(ctx, client, existing)
 			}
 			// --force over an existing binding: best-effort end the session it
 			// names before replacing it, so the overwritten binding does not
