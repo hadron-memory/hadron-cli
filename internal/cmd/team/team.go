@@ -197,10 +197,20 @@ func resolveWorker(ctx context.Context, client graphql.Client, appRef, arg strin
 		return resp.Worker.WorkerFields, nil
 	}
 	if appRef == "" {
-		// The id lookup was the ONLY lookup, so its failure is the answer: an
-		// auth or transport error must surface as itself, not as a fabricated
-		// not-found (an outage would read as "the worker does not exist").
-		if err != nil {
+		// The id lookup was the ONLY lookup, so its failure is the answer — but
+		// WHICH failure decides what to say, so branch on the CODE rather than
+		// on err != nil (#464). A name-shaped argument is never a valid id, so
+		// this lookup always errors for the very input the message below was
+		// written for; keying on presence made that message unreachable and
+		// leaked `input:3: worker Worker not found.` instead.
+		//
+		// WORKER_NOT_FOUND is what the server returns for every "cannot resolve
+		// this ref" shape — verified live against a bare name, a malformed ref,
+		// and a well-formed URN that does not exist. Anything else (auth,
+		// transport, 5xx) still surfaces as itself, which is the outage-honesty
+		// the original comment protects: an outage must not read as "the worker
+		// does not exist".
+		if err != nil && !api.HasErrorCode(err, "WORKER_NOT_FOUND") {
 			return zero, api.MapError(err)
 		}
 		return zero, exitcode.Newf(exitcode.NotFound,
