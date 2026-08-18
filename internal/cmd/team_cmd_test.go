@@ -543,10 +543,17 @@ func TestTeamWorkerGetByNameWithoutAppNamesTheRemedy(t *testing.T) {
 	if code := exitcode.FromError(err); code != exitcode.NotFound {
 		t.Fatalf("exit code = %d, want %d (NotFound); err: %v", code, exitcode.NotFound, err)
 	}
-	// Names what was typed, and the remedy. The old output did neither — the
-	// server echoed its own TYPE name, so a reader who typed "Jonas" saw
-	// "Worker".
-	for _, want := range []string{`no worker "Jonas"`, "pass --app <ref>", "hrn:worker:"} {
+	// Names what was typed, and covers BOTH readings of the argument. A stale
+	// id returns the same WORKER_NOT_FOUND as a name with no scope, and --app
+	// cannot make a nonexistent id resolve — so advising only --app would
+	// misdirect every id-based caller of this shared helper (PR #483 review).
+	for _, want := range []string{
+		`no worker "Jonas"`,
+		"if that is a NAME", // the name reading: pass --app
+		"pass --app <ref>",
+		"an id or URN", // the id reading: scope will not help
+		"nothing by that ref exists",
+	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("message missing %q:\n%s", want, err)
 		}
