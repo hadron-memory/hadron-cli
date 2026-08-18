@@ -1,6 +1,9 @@
 package cmdutil
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestValidateURNSlug(t *testing.T) {
 	valid := []string{
@@ -140,6 +143,18 @@ func TestCanonicalizeURNSpec047GoldenSet(t *testing.T) {
 			input: "hrn:agent:@holger::@holger:triage",
 			want:  "hrn:agent:@holger::triage",
 		},
+		// Grammar-v2 flat forms (#480). The golden set had only v1 spellings,
+		// so it could not tell "we track urn-lib-go" from "we track the copy we
+		// happen to be pinned to" — and the pin was a month stale, predating the
+		// only tagged release. These pin the v2 side of the parity claim.
+		{
+			input: "hrn:mem:acme.com:kb",
+			want:  "hrn:mem:acme.com:kb",
+		},
+		{
+			input: "hrn:node:acme.com:kb:findings:flaky-ci",
+			want:  "hrn:node:acme.com:kb:findings:flaky-ci",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -149,6 +164,39 @@ func TestCanonicalizeURNSpec047GoldenSet(t *testing.T) {
 			}
 			if got != tt.want {
 				t.Fatalf("CanonicalizeURN() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// v2-ONLY types are rejected here ON PURPOSE, and that is a boundary worth
+// pinning rather than leaving incidental (#480).
+//
+// CanonicalizeURN routes through ToParserCanonical -> ParseUrn, whose
+// v2ToV1Type map covers only the types that had a v1 equivalent (mem->memory,
+// org, user, agent, app, node, edge, asset, secret). A type that never existed
+// in the v1 surface — worker, apprun, noderev, appkey — deliberately keeps the
+// v1 unknown-type error rather than gaining a partial parse. urn-lib-go says so
+// in that map's own comment.
+//
+// So this is NOT a bug to fix by widening the map locally, and NOT evidence the
+// dependency is stale: v0.0.13 knows `worker` perfectly well (V2URNTypes,
+// ComposeWorkerUrnV2) and still refuses it here. If the CLI ever needs to
+// validate a worker URN — #1008 has us publishing them everywhere — the answer
+// is a v2 entry point, not this one. Asserted so the next bump surfaces a
+// change in that contract instead of hiding it.
+func TestCanonicalizeURNRejectsV2OnlyTypes(t *testing.T) {
+	for _, input := range []string{
+		"hrn:worker:hadronmemory.com:hadron-dev-team:jonas",
+		"hrn:apprun:acme.com:app:run1",
+	} {
+		t.Run(input, func(t *testing.T) {
+			got, err := CanonicalizeURN("--urn", input)
+			if err == nil {
+				t.Fatalf("CanonicalizeURN() = %q, want the deliberate v2-only refusal", got)
+			}
+			if !strings.Contains(err.Error(), "unknown-type") {
+				t.Fatalf("want the unknown-type refusal, got %v", err)
 			}
 		})
 	}
