@@ -85,8 +85,17 @@ chat-message nodeType — D-2026-08-07-004), owned server-side.`,
 			// Only this path. The -m override resolves its App from the named
 			// memory (appForTeamMemory), not from the ambient chain, so a
 			// "from …" phrase there would be answering a question nobody asked.
+			//
+			// The write error is RETURNED, not discarded (PR #488 review). This
+			// line's whole contract is that it precedes the mutation; if it
+			// silently fails to land — a broken pipe, an embedded caller's
+			// failing writer — converging anyway would perform the write with
+			// the signal absent, which is the exact failure this family of
+			// changes exists to remove, in a new costume.
 			if !f.JSON {
-				fmt.Fprintf(f.IOStreams.Out, "app: %s\n", lazyAppLabel(ctx, f, scope)())
+				if _, werr := fmt.Fprintf(f.IOStreams.Out, "app: %s\n", lazyAppLabel(ctx, f, scope)()); werr != nil {
+					return werr
+				}
 			}
 			declared, preID, preURN, err := sharedMemoryStatus(ctx, client, appRef)
 			if err != nil {

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -1762,6 +1763,12 @@ func configuredApp(t *testing.T, ref string) {
 	}
 }
 
+// failingWriter rejects every write — stands in for a broken pipe or an
+// embedded caller's failing writer.
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("write failed") }
+
 func teamGitDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -3070,6 +3077,30 @@ func TestTeamInitNamesTheAppBeforeConverging(t *testing.T) {
 		if _, ok := dto[k]; !ok {
 			t.Errorf("--json key %q must survive: %s", k, out2.String())
 		}
+	}
+}
+
+// The scope line's contract is that it PRECEDES the mutation, so a failure to
+// write it must stop the converge rather than proceed without it (PR #488
+// review). Otherwise the App is mutated with the signal absent — which is the
+// failure this whole family exists to remove, wearing a new costume.
+func TestTeamInitDoesNotConvergeIfTheScopeLineCannotBeWritten(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetAppSharedMemory": `{"data":{"app":{"id":"app1","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
+			"class":"app","schema":{"objectTypes":{"worklog":{"fields":{"ref":{"type":"text","required":true}}}}}}}}}`,
+		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m1",
+			"collections":["worklog"],"changed":false}}}`,
+		"TeamAppIdentity": teamAppIdentityJSON,
+	})
+	f, _ := testFactory(t)
+	f.IOStreams.Out = failingWriter{}
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "init", "--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("a failed scope-line write must surface, not be swallowed")
+	}
+	if _, converged := captured["UpdateTeamCollections"]; converged {
+		t.Error("the App must NOT be mutated when the line that should precede the mutation never landed")
 	}
 }
 
