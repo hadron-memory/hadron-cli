@@ -160,7 +160,7 @@ func TestTeamWorkerCastRequiresRoleOrAgent(t *testing.T) {
 
 // The STAFF read: retired workers hidden by default, listed on request.
 func TestTeamWorkerList(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{"Workers": staffJSON})
+	gql, captured := captureGraphQL(t, map[string]string{"WorkersRoster": staffJSON})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "worker", "list", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
@@ -168,7 +168,9 @@ func TestTeamWorkerList(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(captured["Workers"], &vars)
+	// The ROSTER operation, not Workers (#459) — worker list stopped pulling
+	// every worker's briefing, and this is the assertion that says so.
+	_ = json.Unmarshal(captured["WorkersRoster"], &vars)
 	// The scan always asks for retired rows (resolution needs them; names
 	// stay bound to history) and filters client-side.
 	if vars["appRef"] != "acme.com:eng-team" || vars["includeRetired"] != true {
@@ -211,6 +213,7 @@ func TestTeamWorkerList(t *testing.T) {
 func TestTeamWorkerListNamesTheResolvedAppAndItsSource(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"Workers":         staffJSON,
+		"WorkersRoster":   staffJSON,
 		"TeamAppIdentity": teamAppIdentityJSON,
 	})
 	f, out := testFactory(t)
@@ -241,6 +244,7 @@ func TestTeamWorkerListNamesTheResolvedAppAndItsSource(t *testing.T) {
 	// "pointed at the wrong App" look identical without it.
 	gql2, _ := captureGraphQL(t, map[string]string{
 		"Workers":         `{"data":{"workers":{"total":0,"items":[]}}}`,
+		"WorkersRoster":   `{"data":{"workers":{"total":0,"items":[]}}}`,
 		"TeamAppIdentity": teamAppIdentityJSON,
 	})
 	f2, out2 := testFactory(t)
@@ -264,6 +268,7 @@ func TestTeamWorkerListReportsBindingAsTheAppSource(t *testing.T) {
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
 		"Workers":         staffJSON,
+		"WorkersRoster":   staffJSON,
 		"TeamAppIdentity": teamAppIdentityJSON,
 	})
 	f, out := testFactory(t)
@@ -276,7 +281,7 @@ func TestTeamWorkerListReportsBindingAsTheAppSource(t *testing.T) {
 		t.Errorf("an ambient binding scope must say so: %s", out.String())
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(captured["Workers"], &vars)
+	_ = json.Unmarshal(captured["WorkersRoster"], &vars)
 	if vars["appRef"] != "app1" {
 		t.Errorf("the staff scan still uses the binding's AppID: %v", vars)
 	}
@@ -288,6 +293,7 @@ func TestTeamWorkerListReportsBindingAsTheAppSource(t *testing.T) {
 func TestTeamWorkerListJSONShapeUnchangedByScopeLine(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"Workers":         staffJSON,
+		"WorkersRoster":   staffJSON,
 		"TeamAppIdentity": teamAppIdentityJSON,
 	})
 	f, out := testFactory(t)
@@ -319,6 +325,7 @@ func TestTeamWorkerListJSONShapeUnchangedByScopeLine(t *testing.T) {
 func TestTeamWorkerListSurvivesUnreadableApp(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"Workers":         staffJSON,
+		"WorkersRoster":   staffJSON,
 		"TeamAppIdentity": `{"errors":[{"message":"forbidden","extensions":{"code":"FORBIDDEN"}}]}`,
 	})
 	f, out := testFactory(t)
@@ -332,6 +339,64 @@ func TestTeamWorkerListSurvivesUnreadableApp(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "Iris") {
 		t.Errorf("the staff must still render: %s", out.String())
+	}
+}
+
+// #459: the roster stops carrying every worker's resolved briefing. This is a
+// BREAKING --json change, taken deliberately while the surface is young, so it
+// is pinned from three sides: the key is gone from list, still present on get,
+// and the boot-briefing path is untouched.
+func TestTeamWorkerListOmitsThePromptButGetKeepsIt(t *testing.T) {
+	teamGitDir(t) // isolate from the developer's real worktree binding
+	gql, captured := captureGraphQL(t, map[string]string{
+		"WorkersRoster": staffJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "list", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &rows); err != nil {
+		t.Fatalf("json: %v (%s)", err, out.String())
+	}
+	if len(rows) != 1 {
+		t.Fatalf("rows: %s", out.String())
+	}
+	// OMITTED, not nulled. A null would preserve the shape while handing a
+	// reader who wanted the briefing nothing — a wrong answer that looks like
+	// an answer, which the issue called out as worse than an honest break.
+	if _, present := rows[0]["prompt"]; present {
+		t.Errorf("`prompt` must be ABSENT from a roster row, not null: %s", out.String())
+	}
+	// Everything else a roster reader needs survives, promptOverride included:
+	// it is the short per-worker individuality, not the composed briefing.
+	for _, k := range []string{"id", "urn", "slug", "appId", "agentId", "name", "role",
+		"promptOverride", "memoryId", "retiredAt", "retiredBy", "createdAt", "createdBy", "retired"} {
+		if _, ok := rows[0][k]; !ok {
+			t.Errorf("roster key %q must survive the trim: %s", k, out.String())
+		}
+	}
+	// And the roster never asks the server for the prompt in the first place —
+	// the saving is on the wire, not just in the render.
+	if body := string(captured["WorkersRoster"]); strings.Contains(body, "prompt") {
+		t.Errorf("the roster query must not request prompt: %s", body)
+	}
+
+	// `worker get` is the prompt surface, unchanged.
+	gql2, _ := captureGraphQL(t, map[string]string{
+		"GetWorker":       `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"TeamAppIdentity": teamAppIdentityJSON,
+	})
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "worker", "get", "wkr1", "--json", "--server", gql2.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out2.String(), `"prompt": "You are Iris."`) {
+		t.Errorf("worker get must still carry the resolved briefing: %s", out2.String())
 	}
 }
 
@@ -512,8 +577,9 @@ func TestTeamWorkerGetByIdWithoutApp(t *testing.T) {
 
 func TestTeamWorkerGetUnknownIsNotFound(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"Workers":   staffJSON,
-		"GetWorker": `{"data":{"worker":null}}`,
+		"Workers":       staffJSON,
+		"WorkersRoster": staffJSON,
+		"GetWorker":     `{"data":{"worker":null}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -604,8 +670,9 @@ func TestTeamWorkerRetireRequiresYes(t *testing.T) {
 func TestTeamWorkerRetire(t *testing.T) {
 	retired := strings.Replace(irisWorkerJSON, `"retiredAt":null`, `"retiredAt":"2026-08-14T10:00:00Z"`, 1)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"Workers":      staffJSON,
-		"RetireWorker": `{"data":{"retireWorker":` + retired + `}}`,
+		"Workers":       staffJSON,
+		"WorkersRoster": staffJSON,
+		"RetireWorker":  `{"data":{"retireWorker":` + retired + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -627,8 +694,9 @@ func TestTeamWorkerRetire(t *testing.T) {
 // with history refuses WORKER_IN_USE (a state conflict) and retires instead.
 func TestTeamWorkerRm(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"Workers":      staffJSON,
-		"DeleteWorker": `{"data":{"deleteWorker":true}}`,
+		"Workers":       staffJSON,
+		"WorkersRoster": staffJSON,
+		"DeleteWorker":  `{"data":{"deleteWorker":true}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -648,7 +716,8 @@ func TestTeamWorkerRm(t *testing.T) {
 
 func TestTeamWorkerRmInUseIsConflict(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"Workers": staffJSON,
+		"Workers":       staffJSON,
+		"WorkersRoster": staffJSON,
 		"DeleteWorker": `{"errors":[{"message":"Worker \"Iris\" has history - retire it instead",
 			"extensions":{"code":"WORKER_IN_USE"}}]}`,
 	})
@@ -1780,6 +1849,7 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 	dir := teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
 		"Workers":          staffJSON,
+		"WorkersRoster":    staffJSON,
 		"TeamSessions":     `{"data":{"sessions":[` + endedSessionJSON + `]}}`,
 		"TeamMemoryApp":    `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
@@ -1875,6 +1945,40 @@ func TestTeamSessionStartPrintsBriefing(t *testing.T) {
 	}
 }
 
+// The NAME path's briefing, pinned separately from the id path's (#459).
+//
+// `--as wkr1` resolves through GetWorker; `--as Iris` resolves through the
+// shared Workers scan, which is the projection `worker list` stopped using.
+// Trimming `prompt` from THAT scan — the obvious next "optimisation" — would
+// leave a bound session with no briefing and nothing failing, so the two paths
+// need separate assertions. Ada's issue named this as a done-criterion: the
+// session-start briefing path must be unaffected.
+func TestTeamSessionStartByNameStillPrintsBriefing(t *testing.T) {
+	teamGitDir(t)
+	gql, captured := captureGraphQL(t, map[string]string{
+		"Workers":          staffJSON,
+		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "Iris", "--tool", "claude-code",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "You are Iris.") {
+		t.Errorf("a name-resolved start must still print the briefing: %s", out.String())
+	}
+	// It came from the prompt-BEARING scan, not the roster one.
+	if _, roster := captured["WorkersRoster"]; roster {
+		t.Error("session start must not resolve through the roster projection — it needs the prompt")
+	}
+	if _, full := captured["Workers"]; !full {
+		t.Error("session start resolves through the prompt-bearing Workers scan")
+	}
+}
+
 // #399: the binding records the worker's App, so a start without -m is
 // COMPLETE — no worklog warning of any kind (the condition the old note
 // warned about no longer exists).
@@ -1908,6 +2012,7 @@ func TestTeamSessionStartWithMemoryIsQuiet(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"Workers":          staffJSON,
+		"WorkersRoster":    staffJSON,
 		"TeamSessions":     `{"data":{"sessions":[]}}`,
 		"TeamMemoryApp":    `{"data":{"memory":{"id":"m1","appId":"app-1"}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,

@@ -96,6 +96,57 @@ query GetWorker($ref: ID!) {
   }
 }
 
+# The ROSTER projection (#459): WorkerFields minus `prompt`.
+#
+# `prompt` is the resolved boot briefing — multi-KB per worker. It is a detail
+# of ONE worker, not something you scan a roster for, and the primary consumer
+# of `worker list --json` is an agent piping the output into context. Seven
+# workers meant seven briefings to answer "who is on staff".
+#
+# This mirrors TeamSessionFields, which already refuses ...WorkerFields for the
+# same reason and says so in its own comment. `worker get` remains the prompt
+# surface, which is what the shipped task nodes already tell readers.
+#
+# Deliberately KEEPS promptOverride: it is the short per-worker individuality
+# (#1010), not the composed briefing, and dropping it would widen the contract
+# break for no stated benefit.
+fragment WorkerRosterFields on Worker {
+  id
+  urn
+  slug
+  appId
+  agentId
+  name
+  role
+  promptOverride
+  memoryId
+  retiredAt
+  retiredBy
+  createdAt
+  createdBy
+}
+
+# The roster read used by `worker list`. Same arguments and paging as Workers;
+# only the projection differs. Workers itself stays prompt-bearing because
+# resolveWorker rides it — `session start`'s boot briefing, `worker get <name>`,
+# retire and rm all resolve through that scan and legitimately need the prompt.
+query WorkersRoster(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $includeRetired: Boolean
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  workers(appRef: $appRef, includeRetired: $includeRetired, limit: $limit, offset: $offset) {
+    total
+    items {
+      ...WorkerRosterFields
+    }
+  }
+}
+
 # The STAFF read (cor:agt:020:01 — Workers are the staff; the AppAgent join is
 # the install roster, `app agent list`). Retired castings are hidden unless
 # includeRetired.

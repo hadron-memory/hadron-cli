@@ -214,13 +214,17 @@ bound to them forever, so the retired list is also the reserved-name list.`,
 			if err != nil {
 				return err
 			}
-			rows, err := scanWorkers(ctx, client, scope.Ref)
+			// The ROSTER projection, not the prompt-bearing one (#459): this
+			// answers "who is on staff", and the resolved briefing is a detail
+			// of one worker. `scanWorkers` stays as it is because resolveWorker
+			// rides it — session start's boot briefing needs the prompt.
+			rows, err := scanWorkerRoster(ctx, client, scope.Ref)
 			if err != nil {
 				return err
 			}
-			workers := []workerDTO{}
+			workers := []workerRosterDTO{}
 			for _, w := range rows {
-				dto := workerDTOFromFields(w)
+				dto := workerRosterDTOFromFields(w)
 				if dto.Retired && !includeRetired {
 					continue
 				}

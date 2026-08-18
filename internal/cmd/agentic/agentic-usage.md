@@ -718,7 +718,14 @@ Conventions:
   casting — `cor:agt:020:02`); it needs no App context, which makes it the
   portable ref for scripts, and it is null only when the App's URN predates
   the flat grammar-v2 arity. `--json` carries `urn` and `slug` alongside the
-  worker's id.
+  worker's id. **`worker list --json` does NOT carry `prompt`** (#459): the
+  resolved briefing is multi-KB per worker and a roster read is not where you
+  want it, so the key is OMITTED — not nulled, because a null would hand a
+  reader who wanted the briefing nothing while looking like an answer.
+  `worker get <ref>` is the prompt surface and is unchanged. This is a
+  deliberate breaking change to a documented `--json` key, taken while the
+  surface is young; `promptOverride` stays on the roster, being the short
+  per-worker override rather than the composed briefing.
   `team worker cast` mints one in ONE platform call (`castWorker`): the
   server resolves the agent (`--agent`, or `--role` picks the single
   installed agent whose persona role matches — `WORKER_AGENT_NOT_FOUND`
