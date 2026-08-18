@@ -63,9 +63,30 @@ chat-message nodeType — D-2026-08-07-004), owned server-side.`,
 			if berr != nil {
 				return berr
 			}
-			appRef, err := resolveTeamApp(ctx, f, b)
+			scope, err := resolveTeamAppScope(ctx, f, b)
 			if err != nil {
 				return err
+			}
+			appRef := scope.Ref
+			// BEFORE the converge, not in the receipt (#469). `team init`
+			// writes, and the receipt names the target memory only after the
+			// schemas have landed — so the one moment a reader could catch a
+			// wrong ambient App is the moment that has already passed. The
+			// converge is idempotent and non-destructive, which is why this is
+			// a line rather than the stderr pre-flight `chat post` gets: there
+			// the write cannot be recalled.
+			//
+			// Explicitly guarded on --json rather than living in an
+			// output.Write human branch, because it has to print before the
+			// operation the receipt describes. Same contract either way: the
+			// scope line is a render, and --json neither shows it nor pays for
+			// the identity read behind it.
+			//
+			// Only this path. The -m override resolves its App from the named
+			// memory (appForTeamMemory), not from the ambient chain, so a
+			// "from …" phrase there would be answering a question nobody asked.
+			if !f.JSON {
+				fmt.Fprintf(f.IOStreams.Out, "app: %s\n", lazyAppLabel(ctx, f, scope)())
 			}
 			declared, preID, preURN, err := sharedMemoryStatus(ctx, client, appRef)
 			if err != nil {

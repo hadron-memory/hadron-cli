@@ -887,7 +887,11 @@ Conventions:
   `team init [--app <ref>]` asks the server to converge the collections it
   owns onto their canonical definitions — the App resolves its own team
   shared memory (`App.sharedMemory`, hadron-server#965), so no memory needs
-  naming (#400); `-m` stays as an explicit override (an `app`-class memory
+  naming (#400). Because it WRITES and its receipt names the target memory
+  only afterwards, the human render prints the resolved App and where the
+  scope came from **before** converging (#469) — render-only, so `--json`
+  is unchanged and issues no extra call. The `-m` path prints no source: it
+  resolves from the named memory, not the ambient chain. `-m` stays as an explicit override (an `app`-class memory
   is required and any other class is refused with exit 2, since a system
   memory is read-only from every App that runs it; naming some other
   app-class memory still declares on the team memory, reported honestly;
