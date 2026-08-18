@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -1762,6 +1763,12 @@ func configuredApp(t *testing.T, ref string) {
 	}
 }
 
+// failingWriter rejects every write — stands in for a broken pipe or an
+// embedded caller's failing writer.
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("write failed") }
+
 func teamGitDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -3019,6 +3026,84 @@ func TestTeamSessionListProvenanceQuery(t *testing.T) {
 // #400: `team init --app` — no -m; the App resolves its own shared memory
 // (App.sharedMemory, hadron-server#965) for the status pre-read, and the
 // declaration lands wherever the server says (read back by id).
+// #469: `team init` WRITES, and its receipt names the target memory only after
+// the schemas have landed — so the one moment a reader could catch a wrong
+// ambient App was the moment that had already passed. The scope line comes
+// BEFORE the converge, and carries where the scope came from.
+func TestTeamInitNamesTheAppBeforeConverging(t *testing.T) {
+	shared := `{"data":{"app":{"id":"app1","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
+		"class":"app","schema":{"objectTypes":{"worklog":{"fields":{"ref":{"type":"text","required":true}}}}}}}}}`
+	converged := `{"data":{"updateTeamCollections":{"memoryId":"m1","collections":["worklog"],"changed":false}}}`
+
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetAppSharedMemory": shared, "UpdateTeamCollections": converged,
+		"TeamAppIdentity": teamAppIdentityJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "init", "--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// Leads the output: it has to be readable before the receipt, not with it.
+	if !strings.HasPrefix(out.String(), "app: hrn:app:acme.com:eng-team — Eng Team (from --app)\n") {
+		t.Errorf("the scope line must come first: %q", out.String())
+	}
+	// And the existing receipt still answers its own, different question —
+	// WHICH MEMORY the collections landed in, which can differ from the App's.
+	if !strings.Contains(out.String(), "collection(s) unchanged in hrn:mem:acme.com:eng-team") {
+		t.Errorf("the receipt must survive: %s", out.String())
+	}
+
+	// Render-only: --json keeps its shape and pays for no identity read.
+	gql2, captured2 := captureGraphQL(t, map[string]string{
+		"GetAppSharedMemory": shared, "UpdateTeamCollections": converged,
+		"TeamAppIdentity": teamAppIdentityJSON,
+	})
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "init", "--app", "acme.com:eng-team", "--json", "--server", gql2.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, called := captured2["TeamAppIdentity"]; called {
+		t.Error("--json must not pay for a render-only identity read")
+	}
+	var dto map[string]any
+	if err := json.Unmarshal([]byte(out2.String()), &dto); err != nil {
+		t.Fatalf("--json must stay parseable — the scope line must not leak into stdout: %v (%s)", err, out2.String())
+	}
+	for _, k := range []string{"memory", "collections", "status"} {
+		if _, ok := dto[k]; !ok {
+			t.Errorf("--json key %q must survive: %s", k, out2.String())
+		}
+	}
+}
+
+// The scope line's contract is that it PRECEDES the mutation, so a failure to
+// write it must stop the converge rather than proceed without it (PR #488
+// review). Otherwise the App is mutated with the signal absent — which is the
+// failure this whole family exists to remove, wearing a new costume.
+func TestTeamInitDoesNotConvergeIfTheScopeLineCannotBeWritten(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetAppSharedMemory": `{"data":{"app":{"id":"app1","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
+			"class":"app","schema":{"objectTypes":{"worklog":{"fields":{"ref":{"type":"text","required":true}}}}}}}}}`,
+		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m1",
+			"collections":["worklog"],"changed":false}}}`,
+		"TeamAppIdentity": teamAppIdentityJSON,
+	})
+	f, _ := testFactory(t)
+	f.IOStreams.Out = failingWriter{}
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "init", "--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("a failed scope-line write must surface, not be swallowed")
+	}
+	if _, converged := captured["UpdateTeamCollections"]; converged {
+		t.Error("the App must NOT be mutated when the line that should precede the mutation never landed")
+	}
+}
+
 func TestTeamInitAppPath(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetAppSharedMemory": `{"data":{"app":{"id":"app1","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
