@@ -523,10 +523,51 @@ func TestTeamWorkerGetUnknownIsNotFound(t *testing.T) {
 	}
 }
 
+// #464: a NAME with no App scope must get the designed remedy, not the raw
+// wire error. The id lookup is the only lookup available, and a name-shaped
+// argument is never a valid id, so the server always errors — which made the
+// helpful message unreachable in exactly the case it was written for, and
+// leaked `input:3: worker Worker not found.` instead. Onboarding path: a shell
+// in the wrong directory is the permanent state of someone who has set nothing
+// up yet.
+func TestTeamWorkerGetByNameWithoutAppNamesTheRemedy(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetWorker": `{"errors":[{"message":"Worker not found.",
+			"extensions":{"code":"WORKER_NOT_FOUND","workerRef":"Jonas"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "get", "Jonas", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.NotFound {
+		t.Fatalf("exit code = %d, want %d (NotFound); err: %v", code, exitcode.NotFound, err)
+	}
+	// Names what was typed, and covers BOTH readings of the argument. A stale
+	// id returns the same WORKER_NOT_FOUND as a name with no scope, and --app
+	// cannot make a nonexistent id resolve — so advising only --app would
+	// misdirect every id-based caller of this shared helper (PR #483 review).
+	for _, want := range []string{
+		`no worker "Jonas"`,
+		"if that is a NAME", // the name reading: pass --app
+		"pass --app <ref>",
+		"an id or URN", // the id reading: scope will not help
+		"nothing by that ref exists",
+	} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("message missing %q:\n%s", want, err)
+		}
+	}
+	if strings.Contains(err.Error(), "input:3") || strings.Contains(err.Error(), "Worker not found.") {
+		t.Errorf("the raw wire error must not leak:\n%s", err)
+	}
+}
+
 // A worker-id lookup failure must surface as ITSELF, not as a fabricated
 // not-found: without an App scope the id lookup is the only lookup, so an
 // auth/transport error reading as "no worker" would make an outage look like
-// missing data (PR #431 review).
+// missing data (PR #431 review). #464 narrowed the passthrough to non-
+// WORKER_NOT_FOUND codes; this is the case that must still pass through.
 func TestTeamWorkerGetByIdPropagatesLookupErrors(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{

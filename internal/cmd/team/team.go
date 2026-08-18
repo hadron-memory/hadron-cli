@@ -197,14 +197,35 @@ func resolveWorker(ctx context.Context, client graphql.Client, appRef, arg strin
 		return resp.Worker.WorkerFields, nil
 	}
 	if appRef == "" {
-		// The id lookup was the ONLY lookup, so its failure is the answer: an
-		// auth or transport error must surface as itself, not as a fabricated
-		// not-found (an outage would read as "the worker does not exist").
-		if err != nil {
+		// The id lookup was the ONLY lookup, so its failure is the answer — but
+		// WHICH failure decides what to say, so branch on the CODE rather than
+		// on err != nil (#464). A name-shaped argument is never a valid id, so
+		// this lookup always errors for the very input the message below was
+		// written for; keying on presence made that message unreachable and
+		// leaked `input:3: worker Worker not found.` instead.
+		//
+		// WORKER_NOT_FOUND is what the server returns for every "cannot resolve
+		// this ref" shape — verified live against a bare name, a malformed ref,
+		// and a well-formed URN that does not exist. Anything else (auth,
+		// transport, 5xx) still surfaces as itself, which is the outage-honesty
+		// the original comment protects: an outage must not read as "the worker
+		// does not exist".
+		if err != nil && !api.HasErrorCode(err, "WORKER_NOT_FOUND") {
 			return zero, api.MapError(err)
 		}
+		// Covers BOTH readings of the argument rather than guessing which was
+		// meant (PR #483 review). An id that does not exist returns the same
+		// WORKER_NOT_FOUND as a name with no scope, and --app cannot make a
+		// nonexistent id resolve — so advising it alone would misdirect every
+		// id-based caller. resolveWorker is shared by worker get/retire/rm and
+		// `session start --as`, all of which take name-or-id, so one message
+		// serves all of them.
+		//
+		// Deliberately NOT shape-sniffing the argument to pick a branch: worker
+		// names are free-form, so no name-vs-id test is safe, and guessing is
+		// the smell review:no-hand-parsed-ref-labels exists to catch.
 		return zero, exitcode.Newf(exitcode.NotFound,
-			"no worker %q — a worker NAME resolves within an App, so pass --app <ref> (or set an App context); a worker URN (hrn:worker:…) or id works without one", arg)
+			"no worker %q — if that is a NAME it resolves only within an App, so pass --app <ref> (or set an App context); an id or URN (hrn:worker:…) needs no App scope, so if you passed one, nothing by that ref exists", arg)
 	}
 	// With an App scope, the staff scan above already reached the server and
 	// found no such name — the id try was a bonus, and a refusal of a

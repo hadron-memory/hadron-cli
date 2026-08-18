@@ -709,7 +709,10 @@ Conventions:
   (`--persona-role`/`--persona-prompt`); the name lives on the
   Worker, never the agent. Commands take the worker's name (resolved within
   the App from `--app`, the App context, or the binding), its URN, or its
-  id. The URN — `hrn:worker:<root>:<app-slug>:<slug>` (hadron-server#991) —
+  id. A NAME with no App scope at all — outside a worktree, no `--app`, no
+  App context — refuses **exit 4** naming the remedy (`#464`); before that it
+  leaked the raw wire error, which named neither what you typed nor the fix.
+  The URN — `hrn:worker:<root>:<app-slug>:<slug>` (hadron-server#991) —
   keys on a permanent DERIVED slug, never on the name (two names may legally
   slugify to one token, so a name-keyed URN would not resolve to exactly one
   casting — `cor:agt:020:02`); it needs no App context, which makes it the
