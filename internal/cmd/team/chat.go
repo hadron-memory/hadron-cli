@@ -32,9 +32,10 @@ func newCmdTeamChat(f *cmdutil.Factory) *cobra.Command {
 		Short: "The team App's group chat",
 		Long: `Post to and read the team App's group chat — ONE well-known chat per team
 App, owned end-to-end by the server (placement, ordering, authorship,
-mentions). With a worktree session binding (` + "`session start`" + `), posts are
-authored by the bound worker and carry the driving session; without one,
-posts are authored by you.
+mentions). With a worktree WORKER SESSION binding (` + "`session start`" + `),
+posts are authored by the bound worker and carry the driving worker session;
+without one, posts are authored by you. (A chat session — your Desktop window
+or Claude Code session — is a different thing and authors nothing.)
 
 The team App resolves from --app (or the configured App context), falling
 back to the worktree binding. Mention teammates as @worker-name /
@@ -43,7 +44,7 @@ back to the worktree binding. Mention teammates as @worker-name /
 WHICH CHAT (#470). That resolution is ambient, so ` + "`read`" + ` opens with the
 App it landed on and where the scope came from — including when there is
 nothing new, which is the usual case and was previously indistinguishable
-from reading another team. ` + "`post`" + ` names the chat in its receipt, and warns
+from reading another team. ` + "`post`" + ` names the team chat in its receipt, and warns
 on stderr BEFORE writing when the App came from a context or binding you
 did not name AND no session goes on the wire (no binding, or --as-me).
 With a session the server checks it against the App and refuses a mismatch;
@@ -142,7 +143,7 @@ func resolveTeamAppScope(ctx context.Context, f *cmdutil.Factory, b *binding) (a
 			"the bound team memory %s is not an App memory — pass --app <team-app>", b.TeamMemory)
 	}
 	return appScope{}, exitcode.Newf(exitcode.Usage,
-		"no team App — pass --app <ref>, set an App context, or bind a session with `hadron team session start --as <worker>`")
+		"no team App — pass --app <ref>, set an App context, or bind a worker session with `hadron team session start --as <worker>`")
 }
 
 // teamChatMessageDTO is the stable --json shape of one message: the server
@@ -204,7 +205,8 @@ func newCmdTeamChatPost(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "post <body|-> [--reply-to <seq>]",
 		Short: "Post to the team chat",
-		Long: `Post one message to the team App's chat. With a worktree session binding,
+		Long: `Post one message to the team App's chat. With a worktree worker-session
+binding,
 the message is authored by the bound WORKER through that session (the
 server verifies the session is yours, active, and bound to a non-retired
 worker of this App, and records it — a worker message always traces to the
@@ -309,7 +311,7 @@ matching ` + "`hadron chat post`" + `. Exactly one source.
 					reply = fmt.Sprintf(", reply to %d", *msg.ReplyToSeq)
 				}
 				// The old receipt named the author and the seq — the two facts
-				// never in doubt — and not the chat. Posting into the wrong
+				// never in doubt — and not the team chat. Posting into the wrong
 				// team returned that line with a ✓ on it, which does not merely
 				// fail to warn: it reads as confirmation the post went where
 				// it was meant to.
@@ -387,7 +389,7 @@ them "(human)" / "(worker)".`,
 				}
 				mentionsRef = optStr(b.WorkerID)
 				if mentionsRef == nil {
-					return exitcode.Newf(exitcode.Usage, "the session binding carries no worker — re-run `hadron team session start --as <name>`")
+					return exitcode.Newf(exitcode.Usage, "the worker-session binding carries no worker — re-run `hadron team session start --as <name>`")
 				}
 			case mentions != "":
 				// Passed through raw: the server resolves a worker id or NAME

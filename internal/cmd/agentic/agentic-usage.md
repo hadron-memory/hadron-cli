@@ -830,7 +830,14 @@ Conventions:
   and already carries `appId` (and `urn`) on every row. `agent list` answers a
   DIFFERENT question — every agent you can read — and `--app` does **not**
   scope it (that flag sets the App context and is not a filter; passing it
-  prints a stderr note saying so). A **session** binds the current git
+  prints a stderr note saying so). **Two things are called a session and
+  ending one does not end the other** (hadron-server#1034): a **worker
+  session** is the Hadron binding below, and a **chat session** is the
+  conversation the human is in — the Desktop window, the Claude Code session.
+  Closing a chat session does NOT release the worker; only `session end`
+  does, so a worker left bound stays taken until that or the server reap.
+  Never shorten "chat session" to "chat" — in this team the chat is the TEAM
+  chat. A **worker session** binds the current git
   worktree to a worker: `session start --as <worker>` records provenance
   (repo/branch/host/tool/transcript path/model) server-side, prints the
   worker's boot briefing, and writes a local binding under the worktree's
@@ -858,7 +865,7 @@ Conventions:
   provenance a merged PR traces back through goes false silently. The guard
   catches a second BINDING only — a second agent working unbound in the same
   checkout does identical damage and nothing fires.
-  `session end [--summary <s>]` ends the bound session — the worker is freed
+  `session end [--summary <s>]` ends the bound worker session — the worker is freed
   unless another active session still holds it (check `session list
   --active`). `end --session <id>` is the recovery path when the binding is
   gone or unusable (including one written by a pre-Worker CLI, which whoami
@@ -932,7 +939,7 @@ Conventions:
   opens with the App and which branch answered** — unconditionally,
   including at zero messages, since an empty incremental read is the normal
   steady state and was otherwise byte-identical to reading another team
-  (#470). `chat post` names the chat in its receipt, and writes a `note:` to
+  (#470). `chat post` names the team chat in its receipt, and writes a `note:` to
   **stderr before posting** when the scope is ambient AND no session goes on
   the wire (no binding, or `--as-me`) — with a sessionRef the server checks
   session against App and refuses a mismatch, so only the sessionless case

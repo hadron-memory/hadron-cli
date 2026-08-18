@@ -163,3 +163,78 @@ func TestRefTakingCommandsAdvertiseRef(t *testing.T) {
 		}
 	}
 }
+
+// TestTeamSessionVocabularyIsQualified pins the worker-session / chat-session
+// distinction in the surfaces a confused human actually reads (#467,
+// hadron-server#1034).
+//
+// "Session" names two independent things: the WORKER SESSION is the Hadron
+// binding that holds the worker; the CHAT SESSION is the conversation the human
+// is in. Ending the second does not end the first, and the failure is silent —
+// someone archives their window, assumes the worker is free, and the next
+// driver meets a takeover prompt they cannot interpret. This App has already
+// lost a worker to it for 19 hours.
+//
+// Prose is the one part of a command that can rot without anything going red,
+// so this is a guard rather than a nicety: the distinction has to survive every
+// future edit to these help texts.
+func TestTeamSessionVocabularyIsQualified(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+
+	find := func(path ...string) *cobra.Command {
+		t.Helper()
+		cur := root
+		for _, name := range path {
+			var next *cobra.Command
+			for _, c := range cur.Commands() {
+				if c.Name() == name {
+					next = c
+					break
+				}
+			}
+			if next == nil {
+				t.Fatalf("command %v not found", path)
+			}
+			cur = next
+		}
+		return cur
+	}
+
+	// Both surfaces must state that the two are different AND that closing one
+	// does not end the other — the second half is the load-bearing one.
+	for _, tc := range []struct {
+		path  []string
+		wants []string
+	}{
+		{[]string{"team", "session"}, []string{"worker session", "chat session", "does not release the worker"}},
+		{[]string{"team", "session", "end"}, []string{"WORKER SESSION", "CHAT SESSION", "does not do this"}},
+	} {
+		cmd := find(tc.path...)
+		help := cmd.Long + " " + cmd.Short
+		for _, want := range tc.wants {
+			if !strings.Contains(help, want) {
+				t.Errorf("`%s` help must carry %q — the distinction is the whole point of #467:\n%s",
+					strings.Join(tc.path, " "), want, cmd.Long)
+			}
+		}
+	}
+
+	// Copy rule 2 (hadron-server#1034): in this team "the chat" is the TEAM
+	// chat, so a bare "the chat" in team help is ambiguous with a chat session.
+	// Checked across the whole team tree rather than the files touched here, so
+	// a future command cannot reintroduce it.
+	var walk func(*cobra.Command)
+	walk = func(c *cobra.Command) {
+		for _, phrase := range []string{"close the chat", "end the chat", "closing the chat."} {
+			if strings.Contains(strings.ToLower(c.Long), phrase) {
+				t.Errorf("`%s` help says %q — always qualify: \"team chat\" or \"chat session\"",
+					c.CommandPath(), phrase)
+			}
+		}
+		for _, sub := range c.Commands() {
+			walk(sub)
+		}
+	}
+	walk(find("team"))
+}
