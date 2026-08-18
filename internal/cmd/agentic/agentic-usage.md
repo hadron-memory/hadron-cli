@@ -835,7 +835,7 @@ Conventions:
   session** is the Hadron binding below, and a **chat session** is the
   conversation the human is in — the Desktop window, the Claude Code session.
   Closing a chat session does NOT release the worker; only `session end`
-  does, so a worker left bound stays taken until that or the server reap.
+  does, so a worker left bound stays taken until that or the server reaps it.
   Never shorten "chat session" to "chat" — in this team the chat is the TEAM
   chat. A **worker session** binds the current git
   worktree to a worker: `session start --as <worker>` records provenance
@@ -866,7 +866,7 @@ Conventions:
   catches a second BINDING only — a second agent working unbound in the same
   checkout does identical damage and nothing fires.
   `session end [--summary <s>]` ends the bound worker session — the worker is freed
-  unless another active session still holds it (check `session list
+  unless another active worker session still holds it (check `session list
   --active`). `end --session <id>` is the recovery path when the binding is
   gone or unusable (including one written by a pre-Worker CLI, which whoami
   reports as a degraded read); `end` also refuses (exit 2) when the binding

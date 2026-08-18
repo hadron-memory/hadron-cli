@@ -205,7 +205,7 @@ func newCmdTeamChatPost(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "post <body|-> [--reply-to <seq>]",
 		Short: "Post to the team chat",
-		Long: `Post one message to the team App's chat. With a worktree worker-session
+		Long: `Post one message to the team App's chat. With a worktree worker session
 binding,
 the message is authored by the bound WORKER through that session (the
 server verifies the session is yours, active, and bound to a non-retired
@@ -389,7 +389,7 @@ them "(human)" / "(worker)".`,
 				}
 				mentionsRef = optStr(b.WorkerID)
 				if mentionsRef == nil {
-					return exitcode.Newf(exitcode.Usage, "the worker-session binding carries no worker — re-run `hadron team session start --as <name>`")
+					return exitcode.Newf(exitcode.Usage, "the worker session binding carries no worker — re-run `hadron team session start --as <name>`")
 				}
 			case mentions != "":
 				// Passed through raw: the server resolves a worker id or NAME

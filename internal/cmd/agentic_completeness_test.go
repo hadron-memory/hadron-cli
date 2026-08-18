@@ -226,8 +226,11 @@ func TestTeamSessionVocabularyIsQualified(t *testing.T) {
 	// a future command cannot reintroduce it.
 	var walk func(*cobra.Command)
 	walk = func(c *cobra.Command) {
+		// Short as well as Long: the guard's stated intent is "no team help
+		// reintroduces this", and Short is help (PR #485 review).
+		help := strings.ToLower(c.Long + " " + c.Short)
 		for _, phrase := range []string{"close the chat", "end the chat", "closing the chat."} {
-			if strings.Contains(strings.ToLower(c.Long), phrase) {
+			if strings.Contains(help, phrase) {
 				t.Errorf("`%s` help says %q — always qualify: \"team chat\" or \"chat session\"",
 					c.CommandPath(), phrase)
 			}
