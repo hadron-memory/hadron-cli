@@ -27,11 +27,24 @@ func newCmdSession(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "session <command>",
 		Aliases: []string{"sessions"},
-		Short:   "Drive a worker from this worktree",
-		Long: `A session binds the current git worktree to a worker and records who is
-driving it, from where, with which tool. The binding lives under the
+		Short:   "Drive a worker from this worktree — worker sessions",
+		Long: `A WORKER SESSION binds the current git worktree to a worker and records
+who is driving it, from where, with which tool. The binding lives under the
 worktree's git dir, so it survives a context compaction — ` + "`whoami`" + ` reads
-it back.`,
+it back.
+
+TWO THINGS ARE CALLED A SESSION, AND ENDING ONE DOES NOT END THE OTHER
+(hadron-server#1034). This group manages the first:
+
+  worker session   the Hadron binding above — what makes your work
+                   attributable, and what holds the worker
+  chat session     the conversation you are in — the Claude Desktop window,
+                   the Claude Code session, the IDE chat
+
+Closing your CHAT SESSION does not release the worker. The worker session
+outlives it and keeps the worker taken until you run ` + "`session end`" + ` or the
+server reaps it, so the next driver meets a takeover prompt rather than a
+free worker. End the worker session deliberately when you stop.`,
 	}
 	cmd.AddCommand(newCmdSessionStart(f))
 	cmd.AddCommand(newCmdSessionWhoami(f))
@@ -219,7 +232,7 @@ func newCmdSessionStart(f *cmdutil.Factory) *cobra.Command {
 	var force bool
 	cmd := &cobra.Command{
 		Use:   "start --as <worker> [--transcript <path>] [--tool <t>] [--force]",
-		Short: "Start a session: bind this worktree to a worker",
+		Short: "Start a worker session: bind this worktree to a worker",
 		Long: `Start a coding session as a worker. The session is recorded server-side
 (with the provenance fields: repo, branch, host, tool, transcript path,
 model) and the binding is written under this worktree's git dir so
@@ -317,7 +330,7 @@ it just relabels which worker the shared tree is blamed on.`,
 			}
 			if active != nil && !force {
 				return exitcode.Newf(exitcode.Conflict,
-					"worker %s is being driven by %s — --force takes over (a stale session also auto-expires server-side)",
+					"worker %s is being driven by %s — its worker session is still open, which a closed chat session does not end; --force takes over (a stale worker session also auto-expires server-side)",
 					w.Name, describeSession(active))
 			}
 			if active != nil {
@@ -364,7 +377,7 @@ it just relabels which worker the shared tree is blamed on.`,
 						seen = "unknown"
 					}
 					return exitcode.Newf(exitcode.Conflict,
-						"worker %s is being driven by %s, last seen %s (session %s) — --force takes over (informed override, cor:agt:020:03)",
+						"worker %s is being driven by %s, last seen %s (worker session %s) — that session is still open, which closing a chat session does not do; --force takes over (informed override, cor:agt:020:03)",
 						w.Name, who, seen, detail.SessionID)
 				}
 				return api.MapError(err)
@@ -444,10 +457,14 @@ it just relabels which worker the shared tree is blamed on.`,
 func newCmdSessionWhoami(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "whoami",
-		Short: "Show which worker this worktree is bound to",
-		Long: `Read the worktree's session binding back — the compaction-recovery read.
-Local only: it reports what ` + "`session start`" + ` recorded, without asking the
-server whether the session is still open.`,
+		Short: "Show which worker this worktree is bound to (worker session)",
+		Long: `Read the worktree's WORKER SESSION binding back — the compaction-recovery
+read. Local only: it reports what ` + "`session start`" + ` recorded, without asking
+the server whether the worker session is still open.
+
+If you are here because a chat session ended and you are not sure what you
+are still driving: the worker session survived it. This tells you which
+worker, and ` + "`session end`" + ` is what releases it.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			b, path, err := readBinding(cmd.Context())
@@ -455,7 +472,7 @@ server whether the session is still open.`,
 				return err
 			}
 			if b == nil {
-				return exitcode.Newf(exitcode.NotFound, "no worker is bound to this worktree — `hadron team session start --as <name>`")
+				return exitcode.Newf(exitcode.NotFound, "no worker is bound to this worktree — `hadron team session start --as <name>` opens a worker session")
 			}
 			result := struct {
 				*binding
@@ -466,9 +483,9 @@ server whether the session is still open.`,
 					// A binding written by a pre-Worker CLI: the session id is
 					// still good (and `session end` is the recovery), but the
 					// worker fields are unknown.
-					fmt.Fprintf(w, "(binding predates the Worker model — end it with `hadron team session end` and start a new session)\n")
+					fmt.Fprintf(w, "(binding predates the Worker model — end it with `hadron team session end` and start a new worker session)\n")
 				}
-				fmt.Fprintf(w, "%s%s\n  session: %s (started %s)\n  worker: %s\n", b.WorkerName, roleSuffix(optStr(b.WorkerRole)), b.SessionID, b.StartedAt, b.WorkerID)
+				fmt.Fprintf(w, "%s%s\n  worker session: %s (started %s)\n  worker: %s\n", b.WorkerName, roleSuffix(optStr(b.WorkerRole)), b.SessionID, b.StartedAt, b.WorkerID)
 				if b.AppID != "" {
 					fmt.Fprintf(w, "  app: %s (the worklog home — `session log` needs no -m)\n", b.AppID)
 				}
@@ -504,7 +521,7 @@ func newCmdSessionLog(f *cmdutil.Factory) *cobra.Command {
 	var pr, issue, commit, branch, action, detail, memory string
 	cmd := &cobra.Command{
 		Use:   "log (--pr | --issue | --commit | --branch) <ref> [--action <a>]",
-		Short: "Record an artifact milestone for the current session",
+		Short: "Record an artifact milestone for the current worker session",
 		Long: `Record an external-artifact milestone for this worktree's session in the
 team worklog — the collection behind the provenance query
 (` + "`session list --pr <ref>`" + `: which sessions produced this PR?).
@@ -768,14 +785,21 @@ func newCmdSessionEnd(f *cmdutil.Factory) *cobra.Command {
 	var summary, sessionID string
 	cmd := &cobra.Command{
 		Use:   "end [--summary <text>] [--session <id>]",
-		Short: "End this worktree's session",
-		Long: `End the session this worktree is bound to and clear the binding. Ending a
-session frees its worker — unless another active session still holds it
-(e.g. after a --force takeover; check ` + "`session list --active`" + `).
+		Short: "End this worktree's worker session — this is what releases the worker",
+		Long: `End the WORKER SESSION this worktree is bound to and clear the binding.
+This is the only thing that frees the worker — unless another active worker
+session still holds it (e.g. after a --force takeover; check
+` + "`session list --active`" + `).
 
---session ends an explicit session id instead — the recovery path when the
-binding is gone or unusable (a lost worktree, a failed binding write, a
-binding written by a pre-Worker CLI) but the server session is still open.`,
+Closing your CHAT SESSION does not do this. Archive the Desktop window or
+quit the Claude Code session and the worker session stays open, holding the
+worker until you end it here or the server reaps it (hadron-server#1034).
+So end it deliberately when you stop working, not when you close the window.
+
+--session ends an explicit worker session id instead — the recovery path
+when the binding is gone or unusable (a lost worktree, a failed binding
+write, a binding written by a pre-Worker CLI) but the server-side worker
+session is still open.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -836,7 +860,7 @@ func newCmdSessionList(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list [--active] [--as <worker>] [--repo <r>] | (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]",
 		Aliases: []string{"ls"},
-		Short:   "List sessions — team presence and session provenance",
+		Short:   "List worker sessions — team presence and provenance",
 		Long: `List sessions, newest first, with each session's worker joined in.
 --active narrows to sessions that never ended — team presence, honest
 since stale sessions are auto-expired server-side; --as narrows to one
