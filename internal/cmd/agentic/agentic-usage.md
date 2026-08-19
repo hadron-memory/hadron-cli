@@ -872,6 +872,16 @@ Conventions:
   provenance a merged PR traces back through goes false silently. The guard
   catches a second BINDING only — a second agent working unbound in the same
   checkout does identical damage and nothing fires.
+  `session log` additionally prints a **stderr** note counting team-chat
+  messages since you last ran `chat read`, and how many mention you (#474) —
+  the moment before you publish something durable is the last point a missed
+  decision can still change what you do. `chat read` records that watermark on
+  the binding; never having read is reported as its own state rather than as a
+  count, since it is the louder one. Best-effort: the milestone is already
+  recorded when it runs, so a failed or unreadable chat never fails the log,
+  and `session log --json` is untouched. `whoami --json` gains one optional
+  key, `chatSeenSeq` — additive and `omitempty`, so it is simply absent on a
+  binding that has never read.
   `session end [--summary <s>]` ends the bound worker session — the worker is freed
   unless another active worker session still holds it (check `session list
   --active`). `end --session <id>` is the recovery path when the binding is

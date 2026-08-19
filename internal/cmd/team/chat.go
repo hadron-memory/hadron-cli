@@ -360,6 +360,10 @@ which is free and never re-delivers them). Mention tokens carry no
 uniqueness guarantee (hadron-server#979): a token may match more than one
 worker, and the filter simply returns every match.
 
+Reading records a WATERMARK on the worktree binding (#474), which is what
+lets ` + "`session log`" + ` tell you how much has landed since. Nothing to pass:
+it is the seq this command just returned.
+
 --json names the author as BOTH ` + "`authorName`" + ` and ` + "`author`" + ` — the latter is an
 alias for readers written against ` + "`hadron chat read`" + `, the retired academy
 dialect, which calls the field ` + "`author`" + ` (#406). Prefer authorName. Unlike
@@ -433,6 +437,19 @@ them "(human)" / "(worker)".`,
 				if m.Seq > next {
 					next = m.Seq
 				}
+			}
+			// Record the watermark on the binding (#474), so `session log` can
+			// say how much landed while you were heads-down. Best-effort and
+			// deliberately silent: a read that succeeded must not fail because
+			// the bookkeeping did, and a reader with no binding (--app only) is
+			// an ordinary case, not an error.
+			//
+			// Recorded even when nothing new arrived — that is what advances a
+			// caller polling `--since <nextSince>` and keeps "you have never
+			// read" distinguishable from "you are caught up".
+			if b != nil && next > b.ChatSeenSeq {
+				b.ChatSeenSeq = next
+				_, _ = writeBinding(ctx, b)
 			}
 			result := struct {
 				Messages  []teamChatMessageDTO `json:"messages"`

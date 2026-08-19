@@ -517,6 +517,81 @@ type logResultDTO struct {
 	Recorded string `json:"recorded"`
 }
 
+// noteUnreadTeamChat tells a heads-down worker what landed in the team chat
+// while they were not looking (#474, @Ada's option 2).
+//
+// WHY HERE. The role prompts already say "read everything, not just what
+// mentions you" — the rule existed and did not hold, because nothing
+// interrupts a focused worker to apply it. `session log` fires at exactly the
+// moments a worker is about to publish something durable, and it already talks
+// to the server, so it is the one place a signal costs nothing to deliver and
+// arrives when it still changes a decision. That is the same argument as
+// #468/#469/#470: put it in the reader's path.
+//
+// STDERR, always: the --json stdout contract is untouched, and an agent piping
+// a milestone write is exactly the caller most likely to have missed a ruling.
+//
+// BEST-EFFORT, always: a milestone is already recorded server-side by the time
+// this runs. A courtesy read that fails, or a worktree with no App, must not
+// turn a successful write into a failure — so every path here returns silently.
+func noteUnreadTeamChat(ctx context.Context, f *cmdutil.Factory, b *binding) {
+	if b == nil || b.AppID == "" {
+		return // pre-#399 binding: no App to address the chat with.
+	}
+	client, err := f.GraphQLClient()
+	if err != nil {
+		return
+	}
+	// Never read through this binding is a LOUDER state than "nothing new", and
+	// a distinct one: it is what Gil was in when a ratified commit-trailer
+	// change had been in the chat four hours before he merged with the retired
+	// form. Say so plainly rather than reporting a count against seq 0, which
+	// would read as ordinary backlog.
+	if b.ChatSeenSeq == 0 {
+		fmt.Fprintf(f.IOStreams.ErrOut,
+			"note: you have not read the team chat in this worker session — `hadron team chat read --since 0`\n")
+		return
+	}
+	one := 1
+	resp, err := gen.TeamChatMessages(ctx, client, b.AppID, &b.ChatSeenSeq, nil, &one, nil)
+	if err != nil || resp.TeamChatMessages == nil || resp.TeamChatMessages.Total == 0 {
+		return // caught up, or unreadable — either way, nothing useful to say.
+	}
+	total := resp.TeamChatMessages.Total
+
+	// The mentions count is a SECOND query rather than a client-side filter,
+	// because the server owns mention resolution (hadron-server#979: a token
+	// may match several workers, and matching is not ours to reimplement).
+	// Cheap: total is exact under limit 1, verified against the live server.
+	mentions := 0
+	if b.WorkerID != "" {
+		if m, merr := gen.TeamChatMessages(ctx, client, b.AppID, &b.ChatSeenSeq, &b.WorkerID, &one, nil); merr == nil && m.TeamChatMessages != nil {
+			mentions = m.TeamChatMessages.Total
+		}
+	}
+	fmt.Fprintf(f.IOStreams.ErrOut,
+		"note: %s in the team chat since you last read (%s) — `hadron team chat read --since %d`\n",
+		pluralMessages(total), pluralMentions(mentions), b.ChatSeenSeq)
+}
+
+func pluralMessages(n int) string {
+	if n == 1 {
+		return "1 new message"
+	}
+	return fmt.Sprintf("%d new messages", n)
+}
+
+func pluralMentions(n int) string {
+	switch n {
+	case 0:
+		return "none mentioning you"
+	case 1:
+		return "1 mentioning you"
+	default:
+		return fmt.Sprintf("%d mentioning you", n)
+	}
+}
+
 func newCmdSessionLog(f *cmdutil.Factory) *cobra.Command {
 	var pr, issue, commit, branch, action, detail, memory string
 	cmd := &cobra.Command{
@@ -544,7 +619,15 @@ session's recorded --repo (or the git remote). --pr and --branch
 additionally denormalize onto Session.prNumber / Session.branch (latest
 wins; display convenience only). Every logged milestone — issue and
 commit included — counts as session liveness for the inactivity reaper,
-so logging keeps the worker taken while work is in flight.`,
+so logging keeps the worker taken while work is in flight.
+
+It also tells you what landed in the TEAM CHAT while you were heads-down
+(#474): a stderr note counting messages since you last ran
+` + "`chat read`" + `, and how many mention you. This fires here because it is
+the moment before you publish something durable, which is the last point a
+decision you missed can still change what you do. Best-effort and on
+stderr: the milestone is already recorded by the time it runs, so it never
+fails the write, and --json is untouched.`,
 		Example: `  hadron team session log --pr 371
   hadron team session log --pr acme/widgets#7 --action merged
   hadron team session log --commit 93200b2 --action pushed
@@ -703,6 +786,10 @@ so logging keeps the worker taken while work is in flight.`,
 					}
 				}
 			}
+			// #474: say what landed in the team chat while you were heads-down.
+			// AFTER the milestone is recorded — this is a courtesy, and it must
+			// never sit between the caller and their write.
+			noteUnreadTeamChat(ctx, f, b)
 			result := logResultDTO{SessionID: b.SessionID, Kind: kind, Ref: canonical, PRNumber: number, Recorded: recorded}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ logged %s %s for session %s (%s)\n", kind, canonical, b.SessionID, recorded)

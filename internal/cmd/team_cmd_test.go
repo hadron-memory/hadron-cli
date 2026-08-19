@@ -2483,6 +2483,168 @@ func TestTeamSessionWhoamiUnboundIsNotFound(t *testing.T) {
 // `session log --pr` writes the worklog milestone (canonical normalized ref,
 // flat fields) AND denormalizes onto Session.prNumber, keeping the local
 // binding's history for whoami.
+// A binding that HAS read the team chat, watermark at seq 90.
+const bindingChatSeenFixture = `{"sessionId":"s-new","workerId":"wkr1","workerName":"Iris","workerRole":"backend-engineer",
+	"agentId":"agt1","appId":"app1","startedAt":"2026-08-11T10:00:00Z","appBound":true,
+	"teamMemory":"hrn:mem:acme.com:eng-team","tool":"claude-code","chatSeenSeq":90,
+	"repo":"hadron-memory/hadron-cli","prNumbers":[]}`
+
+// #474: `session log` fires right before a worker publishes something durable,
+// so it is where a missed decision can still change what they do. The role
+// prompts already say "read everything" — the rule existed and did not hold,
+// because nothing interrupts a focused worker to apply it.
+// The other half of #474's loop: `chat read` records the watermark, or
+// `session log` has nothing to compare against and the signal never advances
+// past "you have not read".
+func TestTeamChatReadRecordsTheWatermark(t *testing.T) {
+	dir := teamGitDir(t)
+	path := filepath.Join(dir, "hadron-team-session.json")
+	if err := os.WriteFile(path, []byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, _ := captureGraphQL(t, map[string]string{
+		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":1,"items":[` + teamChatMsgJSON + `]}}}`,
+		"TeamAppIdentity":  teamAppIdentityJSON,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read binding: %v", err)
+	}
+	var b struct {
+		ChatSeenSeq int `json:"chatSeenSeq"`
+	}
+	if err := json.Unmarshal(data, &b); err != nil {
+		t.Fatalf("binding: %v", err)
+	}
+	// teamChatMsgJSON is seq 8 — the watermark is what was actually returned.
+	if b.ChatSeenSeq != 8 {
+		t.Errorf("chat read must record the watermark it returned, got %d", b.ChatSeenSeq)
+	}
+}
+
+func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
+	logStubs := map[string]string{
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
+			"tool":"claude-code","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
+			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
+	}
+	bind := func(t *testing.T, fixture string) {
+		t.Helper()
+		dir := teamGitDir(t)
+		if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(fixture), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	stubs := func(extra map[string]string) map[string]string {
+		m := map[string]string{}
+		for k, v := range logStubs {
+			m[k] = v
+		}
+		for k, v := range extra {
+			m[k] = v
+		}
+		return m
+	}
+
+	t.Run("never read is a louder state than nothing new", func(t *testing.T) {
+		bind(t, bindingWithTeamFixture) // no chatSeenSeq
+		gql, captured := captureGraphQL(t, stubs(nil))
+		f, _ := testFactory(t)
+		errOut := f.IOStreams.ErrOut.(*strings.Builder)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if !strings.Contains(errOut.String(), "you have not read the team chat in this worker session") {
+			t.Errorf("want the never-read note, got %q", errOut.String())
+		}
+		// And it costs nothing: no count query is worth issuing for that answer.
+		if _, called := captured["TeamChatMessages"]; called {
+			t.Error("the never-read branch must not query the chat")
+		}
+	})
+
+	t.Run("counts what landed since the watermark", func(t *testing.T) {
+		bind(t, bindingChatSeenFixture)
+		gql, captured := captureGraphQL(t, stubs(map[string]string{
+			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":8,"items":[]}}}`,
+		}))
+		f, out := testFactory(t)
+		errOut := f.IOStreams.ErrOut.(*strings.Builder)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--json", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if !strings.Contains(errOut.String(), "8 new messages in the team chat since you last read") {
+			t.Errorf("want the count, got %q", errOut.String())
+		}
+		if !strings.Contains(errOut.String(), "chat read --since 90") {
+			t.Errorf("the remedy must carry the watermark: %q", errOut.String())
+		}
+		// Counted FROM the watermark, not from zero.
+		var vars map[string]any
+		_ = json.Unmarshal(captured["TeamChatMessages"], &vars)
+		if vars["sinceSeq"] != float64(90) {
+			t.Errorf("must count since the read watermark: %v", vars)
+		}
+		// stderr only — the --json stdout contract is untouched.
+		var dto map[string]any
+		if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+			t.Fatalf("--json must stay parseable: %v (%s)", err, out.String())
+		}
+		if dto["ref"] != "hadron-memory/hadron-cli#371" {
+			t.Errorf("the receipt must survive: %s", out.String())
+		}
+	})
+
+	t.Run("silent when caught up", func(t *testing.T) {
+		bind(t, bindingChatSeenFixture)
+		gql, _ := captureGraphQL(t, stubs(map[string]string{
+			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":0,"items":[]}}}`,
+		}))
+		f, _ := testFactory(t)
+		errOut := f.IOStreams.ErrOut.(*strings.Builder)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if strings.Contains(errOut.String(), "team chat") {
+			t.Errorf("nothing new must say nothing: %q", errOut.String())
+		}
+	})
+
+	// The milestone is already recorded server-side by the time this runs, so a
+	// failed courtesy read must never turn a successful write into a failure.
+	t.Run("a failing chat read does not fail the log", func(t *testing.T) {
+		bind(t, bindingChatSeenFixture)
+		gql, _ := captureGraphQL(t, stubs(map[string]string{
+			"TeamChatMessages": `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`,
+		}))
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("the milestone was already recorded — the note must not fail it: %v", err)
+		}
+		if !strings.Contains(out.String(), "✓ logged pr") {
+			t.Errorf("the receipt must still print: %s", out.String())
+		}
+	})
+}
+
 func TestTeamSessionLogWritesWorklogAndSession(t *testing.T) {
 	dir := teamGitDir(t)
 	path := filepath.Join(dir, "hadron-team-session.json")

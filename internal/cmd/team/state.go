@@ -61,6 +61,16 @@ type binding struct {
 	Tool  string `json:"tool"`
 	Repo  string `json:"repo"`
 	Model string `json:"model"`
+	// ChatSeenSeq is the team-chat watermark this worktree has actually READ
+	// (#474): `chat read` records the seq it returned, `session log` compares
+	// against it to say how much landed while you were heads-down.
+	//
+	// Zero means never read through THIS binding, which is a distinct and
+	// louder signal than "nothing new" — it is the state Gil was in when a
+	// ratified commit-trailer change reached the chat four hours before he
+	// merged with the retired form. So callers must branch on it rather than
+	// treating it as seq 0.
+	ChatSeenSeq int `json:"chatSeenSeq,omitempty"`
 	// PRNumbers is `session log --pr`'s local history — the server's
 	// Session.prNumber holds only the latest (#932), so whoami keeps the
 	// full list. TODO(#369 slice 3): the worklog collection becomes the
