@@ -18963,6 +18963,90 @@ func (v *WorkerFields) GetCreatedAt() string { return v.CreatedAt }
 // GetCreatedBy returns WorkerFields.CreatedBy, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetCreatedBy() *string { return v.CreatedBy }
 
+// The ROSTER projection (#459): WorkerFields minus `prompt`.
+//
+// `prompt` is the resolved boot briefing — multi-KB per worker. It is a detail
+// of ONE worker, not something you scan a roster for, and the primary consumer
+// of `worker list --json` is an agent piping the output into context. Seven
+// workers meant seven briefings to answer "who is on staff".
+//
+// This mirrors TeamSessionFields, which already refuses ...WorkerFields for the
+// same reason and says so in its own comment. `worker get` remains the prompt
+// surface, which is what the shipped task nodes already tell readers.
+//
+// Deliberately KEEPS promptOverride: it is the short per-worker individuality
+// (#1010), not the composed briefing, and dropping it would widen the contract
+// break for no stated benefit.
+type WorkerRosterFields struct {
+	Id string `json:"id"`
+	// hrn:worker:<root>:<app-slug>:<slug> (#991) — computed from the App's URN
+	// plus `slug`, not stored. Accepted anywhere a workerRef is taken, and
+	// resolvable via Query.resolveUrn, so a client can address a worker without
+	// holding its id. Null only when the App's URN predates the flat grammar-v2
+	// shape this arity requires.
+	Urn *string `json:"urn"`
+	// The URN atom, derived from the name at cast time and permanent thereafter
+	// (#991). Lowercased, sanitized to the URN slug charset, and iterated
+	// ('iris', 'iris-2', …) until free within the App — so deriving it NEVER
+	// refuses a cast, and the name collision stays the only allocation failure a
+	// caller sees (cor:agt:020:02).
+	Slug    string `json:"slug"`
+	AppId   string `json:"appId"`
+	AgentId string `json:"agentId"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+	// The cast-list role this filling answers ('backend-engineer').
+	Role *string `json:"role"`
+	// Per-worker individuality layered over the agent's template prompt.
+	PromptOverride *string `json:"promptOverride"`
+	// The worker-scoped working memory in the App's container (null until provisioned).
+	MemoryId *string `json:"memoryId"`
+	// Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
+	RetiredAt *string `json:"retiredAt"`
+	RetiredBy *string `json:"retiredBy"`
+	CreatedAt string  `json:"createdAt"`
+	CreatedBy *string `json:"createdBy"`
+}
+
+// GetId returns WorkerRosterFields.Id, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetId() string { return v.Id }
+
+// GetUrn returns WorkerRosterFields.Urn, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetUrn() *string { return v.Urn }
+
+// GetSlug returns WorkerRosterFields.Slug, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetSlug() string { return v.Slug }
+
+// GetAppId returns WorkerRosterFields.AppId, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetAppId() string { return v.AppId }
+
+// GetAgentId returns WorkerRosterFields.AgentId, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetAgentId() string { return v.AgentId }
+
+// GetName returns WorkerRosterFields.Name, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetName() string { return v.Name }
+
+// GetRole returns WorkerRosterFields.Role, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetRole() *string { return v.Role }
+
+// GetPromptOverride returns WorkerRosterFields.PromptOverride, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetPromptOverride() *string { return v.PromptOverride }
+
+// GetMemoryId returns WorkerRosterFields.MemoryId, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetMemoryId() *string { return v.MemoryId }
+
+// GetRetiredAt returns WorkerRosterFields.RetiredAt, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetRetiredAt() *string { return v.RetiredAt }
+
+// GetRetiredBy returns WorkerRosterFields.RetiredBy, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetRetiredBy() *string { return v.RetiredBy }
+
+// GetCreatedAt returns WorkerRosterFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetCreatedBy returns WorkerRosterFields.CreatedBy, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetCreatedBy() *string { return v.CreatedBy }
+
 // WorkersResponse is returned by Workers on success.
 type WorkersResponse struct {
 	// A team App's STAFF (#974, cor:agt:020:01 — Workers are the staff; the
@@ -18975,6 +19059,190 @@ type WorkersResponse struct {
 
 // GetWorkers returns WorkersResponse.Workers, and is useful for accessing the field via an interface.
 func (v *WorkersResponse) GetWorkers() *WorkersWorkersWorkersPage { return v.Workers }
+
+// WorkersRosterResponse is returned by WorkersRoster on success.
+type WorkersRosterResponse struct {
+	// A team App's STAFF (#974, cor:agt:020:01 — Workers are the staff; the
+	// AppAgent join is the install roster): the App's castings, oldest first,
+	// as a uniform { items, total } page. Retired castings are hidden unless
+	// includeRetired. Same authorization as worker. appRef accepts the App's
+	// ID or URN.
+	Workers *WorkersRosterWorkersWorkersPage `json:"workers"`
+}
+
+// GetWorkers returns WorkersRosterResponse.Workers, and is useful for accessing the field via an interface.
+func (v *WorkersRosterResponse) GetWorkers() *WorkersRosterWorkersWorkersPage { return v.Workers }
+
+// WorkersRosterWorkersWorkersPage includes the requested fields of the GraphQL type WorkersPage.
+type WorkersRosterWorkersWorkersPage struct {
+	Total int                                           `json:"total"`
+	Items []*WorkersRosterWorkersWorkersPageItemsWorker `json:"items"`
+}
+
+// GetTotal returns WorkersRosterWorkersWorkersPage.Total, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPage) GetTotal() int { return v.Total }
+
+// GetItems returns WorkersRosterWorkersWorkersPage.Items, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPage) GetItems() []*WorkersRosterWorkersWorkersPageItemsWorker {
+	return v.Items
+}
+
+// WorkersRosterWorkersWorkersPageItemsWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type WorkersRosterWorkersWorkersPageItemsWorker struct {
+	WorkerRosterFields `json:"-"`
+}
+
+// GetId returns WorkersRosterWorkersWorkersPageItemsWorker.Id, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetId() string { return v.WorkerRosterFields.Id }
+
+// GetUrn returns WorkersRosterWorkersWorkersPageItemsWorker.Urn, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetUrn() *string {
+	return v.WorkerRosterFields.Urn
+}
+
+// GetSlug returns WorkersRosterWorkersWorkersPageItemsWorker.Slug, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetSlug() string {
+	return v.WorkerRosterFields.Slug
+}
+
+// GetAppId returns WorkersRosterWorkersWorkersPageItemsWorker.AppId, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetAppId() string {
+	return v.WorkerRosterFields.AppId
+}
+
+// GetAgentId returns WorkersRosterWorkersWorkersPageItemsWorker.AgentId, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetAgentId() string {
+	return v.WorkerRosterFields.AgentId
+}
+
+// GetName returns WorkersRosterWorkersWorkersPageItemsWorker.Name, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetName() string {
+	return v.WorkerRosterFields.Name
+}
+
+// GetRole returns WorkersRosterWorkersWorkersPageItemsWorker.Role, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetRole() *string {
+	return v.WorkerRosterFields.Role
+}
+
+// GetPromptOverride returns WorkersRosterWorkersWorkersPageItemsWorker.PromptOverride, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetPromptOverride() *string {
+	return v.WorkerRosterFields.PromptOverride
+}
+
+// GetMemoryId returns WorkersRosterWorkersWorkersPageItemsWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetMemoryId() *string {
+	return v.WorkerRosterFields.MemoryId
+}
+
+// GetRetiredAt returns WorkersRosterWorkersWorkersPageItemsWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetRetiredAt() *string {
+	return v.WorkerRosterFields.RetiredAt
+}
+
+// GetRetiredBy returns WorkersRosterWorkersWorkersPageItemsWorker.RetiredBy, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetRetiredBy() *string {
+	return v.WorkerRosterFields.RetiredBy
+}
+
+// GetCreatedAt returns WorkersRosterWorkersWorkersPageItemsWorker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetCreatedAt() string {
+	return v.WorkerRosterFields.CreatedAt
+}
+
+// GetCreatedBy returns WorkersRosterWorkersWorkersPageItemsWorker.CreatedBy, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetCreatedBy() *string {
+	return v.WorkerRosterFields.CreatedBy
+}
+
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*WorkersRosterWorkersWorkersPageItemsWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.WorkersRosterWorkersWorkersPageItemsWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerRosterFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalWorkersRosterWorkersWorkersPageItemsWorker struct {
+	Id string `json:"id"`
+
+	Urn *string `json:"urn"`
+
+	Slug string `json:"slug"`
+
+	AppId string `json:"appId"`
+
+	AgentId string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	Role *string `json:"role"`
+
+	PromptOverride *string `json:"promptOverride"`
+
+	MemoryId *string `json:"memoryId"`
+
+	RetiredAt *string `json:"retiredAt"`
+
+	RetiredBy *string `json:"retiredBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) __premarshalJSON() (*__premarshalWorkersRosterWorkersWorkersPageItemsWorker, error) {
+	var retval __premarshalWorkersRosterWorkersWorkersPageItemsWorker
+
+	retval.Id = v.WorkerRosterFields.Id
+	retval.Urn = v.WorkerRosterFields.Urn
+	retval.Slug = v.WorkerRosterFields.Slug
+	retval.AppId = v.WorkerRosterFields.AppId
+	retval.AgentId = v.WorkerRosterFields.AgentId
+	retval.Name = v.WorkerRosterFields.Name
+	retval.Role = v.WorkerRosterFields.Role
+	retval.PromptOverride = v.WorkerRosterFields.PromptOverride
+	retval.MemoryId = v.WorkerRosterFields.MemoryId
+	retval.RetiredAt = v.WorkerRosterFields.RetiredAt
+	retval.RetiredBy = v.WorkerRosterFields.RetiredBy
+	retval.CreatedAt = v.WorkerRosterFields.CreatedAt
+	retval.CreatedBy = v.WorkerRosterFields.CreatedBy
+	return &retval, nil
+}
 
 // WorkersWorkersWorkersPage includes the requested fields of the GraphQL type WorkersPage.
 type WorkersWorkersWorkersPage struct {
@@ -21588,6 +21856,26 @@ func (v *__WorkersInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __WorkersInput.Offset, and is useful for accessing the field via an interface.
 func (v *__WorkersInput) GetOffset() *int { return v.Offset }
+
+// __WorkersRosterInput is used internally by genqlient
+type __WorkersRosterInput struct {
+	AppRef         string `json:"appRef"`
+	IncludeRetired *bool  `json:"includeRetired,omitempty"`
+	Limit          *int   `json:"limit,omitempty"`
+	Offset         *int   `json:"offset,omitempty"`
+}
+
+// GetAppRef returns __WorkersRosterInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__WorkersRosterInput) GetAppRef() string { return v.AppRef }
+
+// GetIncludeRetired returns __WorkersRosterInput.IncludeRetired, and is useful for accessing the field via an interface.
+func (v *__WorkersRosterInput) GetIncludeRetired() *bool { return v.IncludeRetired }
+
+// GetLimit returns __WorkersRosterInput.Limit, and is useful for accessing the field via an interface.
+func (v *__WorkersRosterInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __WorkersRosterInput.Offset, and is useful for accessing the field via an interface.
+func (v *__WorkersRosterInput) GetOffset() *int { return v.Offset }
 
 // The mutation executed by AcceptInvitation.
 const AcceptInvitation_Operation = `
@@ -29840,6 +30128,68 @@ func Workers(
 	}
 
 	data_ = &WorkersResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by WorkersRoster.
+const WorkersRoster_Operation = `
+query WorkersRoster ($appRef: ID!, $includeRetired: Boolean, $limit: Int, $offset: Int) {
+	workers(appRef: $appRef, includeRetired: $includeRetired, limit: $limit, offset: $offset) {
+		total
+		items {
+			... WorkerRosterFields
+		}
+	}
+}
+fragment WorkerRosterFields on Worker {
+	id
+	urn
+	slug
+	appId
+	agentId
+	name
+	role
+	promptOverride
+	memoryId
+	retiredAt
+	retiredBy
+	createdAt
+	createdBy
+}
+`
+
+// The roster read used by `worker list`. Same arguments and paging as Workers;
+// only the projection differs. Workers itself stays prompt-bearing because
+// resolveWorker rides it — `session start`'s boot briefing, `worker get <name>`,
+// retire and rm all resolve through that scan and legitimately need the prompt.
+func WorkersRoster(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	includeRetired *bool,
+	limit *int,
+	offset *int,
+) (data_ *WorkersRosterResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "WorkersRoster",
+		Query:  WorkersRoster_Operation,
+		Variables: &__WorkersRosterInput{
+			AppRef:         appRef,
+			IncludeRetired: includeRetired,
+			Limit:          limit,
+			Offset:         offset,
+		},
+	}
+
+	data_ = &WorkersRosterResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

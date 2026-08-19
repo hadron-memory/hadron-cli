@@ -120,6 +120,40 @@ func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 	}
 }
 
+// workerRosterDTO is the stable --json shape of `worker list` (#459): every
+// workerDTO field EXCEPT prompt.
+//
+// The key is OMITTED, not nulled. Nulling it would preserve the shape while
+// silently handing a reader who wanted the briefing nothing at all — a wrong
+// answer that looks like an answer, which is worse than an honest absence.
+// `worker get` is the prompt surface, as the shipped task nodes already say.
+type workerRosterDTO struct {
+	ID             string  `json:"id"`
+	URN            *string `json:"urn"`
+	Slug           string  `json:"slug"`
+	AppID          string  `json:"appId"`
+	AgentID        string  `json:"agentId"`
+	Name           string  `json:"name"`
+	Role           *string `json:"role"`
+	PromptOverride *string `json:"promptOverride"`
+	MemoryID       *string `json:"memoryId"`
+	RetiredAt      *string `json:"retiredAt"`
+	RetiredBy      *string `json:"retiredBy"`
+	CreatedAt      string  `json:"createdAt"`
+	CreatedBy      *string `json:"createdBy"`
+	Retired        bool    `json:"retired"`
+}
+
+func workerRosterDTOFromFields(w gen.WorkerRosterFields) workerRosterDTO {
+	return workerRosterDTO{
+		ID: w.Id, URN: w.Urn, Slug: w.Slug, AppID: w.AppId, AgentID: w.AgentId,
+		Name: w.Name, Role: w.Role, PromptOverride: w.PromptOverride,
+		MemoryID: w.MemoryId, RetiredAt: w.RetiredAt, RetiredBy: w.RetiredBy,
+		CreatedAt: w.CreatedAt, CreatedBy: w.CreatedBy,
+		Retired: w.RetiredAt != nil,
+	}
+}
+
 const workerPageSize = 200
 
 // scanWorkers pages one App's staff to exhaustion (the issue-#23 rule: an
@@ -144,6 +178,38 @@ func scanWorkers(ctx context.Context, client graphql.Client, appRef string) ([]g
 				continue
 			}
 			workers = append(workers, w.WorkerFields)
+		}
+		offset += len(resp.Workers.Items)
+		if len(resp.Workers.Items) < workerPageSize || offset >= resp.Workers.Total {
+			return workers, nil
+		}
+	}
+}
+
+// scanWorkerRoster is scanWorkers' projection twin for `worker list` (#459) —
+// same App, same includeRetired posture, same exhaustion loop, no prompt.
+// Kept separate rather than parameterised: the two return different generated
+// types, and a shared helper would have to erase that difference to a
+// lowest-common shape, which is what dragged the prompt into the roster in the
+// first place.
+func scanWorkerRoster(ctx context.Context, client graphql.Client, appRef string) ([]gen.WorkerRosterFields, error) {
+	includeRetired := true
+	workers := []gen.WorkerRosterFields{}
+	limit := workerPageSize
+	for offset := 0; ; {
+		off := offset
+		resp, err := gen.WorkersRoster(ctx, client, appRef, &includeRetired, &limit, &off)
+		if err != nil {
+			return nil, api.MapError(err)
+		}
+		if resp.Workers == nil {
+			return workers, nil
+		}
+		for _, w := range resp.Workers.Items {
+			if w == nil {
+				continue
+			}
+			workers = append(workers, w.WorkerRosterFields)
 		}
 		offset += len(resp.Workers.Items)
 		if len(resp.Workers.Items) < workerPageSize || offset >= resp.Workers.Total {
