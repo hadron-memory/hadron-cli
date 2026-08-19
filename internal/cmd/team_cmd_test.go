@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -348,7 +349,7 @@ func TestTeamWorkerListSurvivesUnreadableApp(t *testing.T) {
 // and the boot-briefing path is untouched.
 func TestTeamWorkerListOmitsThePromptButGetKeepsIt(t *testing.T) {
 	teamGitDir(t) // isolate from the developer's real worktree binding
-	gql, captured := captureGraphQL(t, map[string]string{
+	gql, _ := captureGraphQL(t, map[string]string{
 		"WorkersRoster": staffJSON,
 	})
 	f, out := testFactory(t)
@@ -380,8 +381,21 @@ func TestTeamWorkerListOmitsThePromptButGetKeepsIt(t *testing.T) {
 	}
 	// And the roster never asks the server for the prompt in the first place —
 	// the saving is on the wire, not just in the render.
-	if body := string(captured["WorkersRoster"]); strings.Contains(body, "prompt") {
-		t.Errorf("the roster query must not request prompt: %s", body)
+	//
+	// Asserted against the GENERATED OPERATION, not captured["WorkersRoster"]
+	// (PR #491 review, found independently by both bots). captureGraphQL
+	// records only the request VARIABLES — it discards the query document — so
+	// searching it for "prompt" could never fail, whatever the projection
+	// selected. That is a guard that cannot fail, dressed as the central
+	// regression test for this change.
+	//
+	// Field-exact, not substring: `promptOverride` legitimately stays on the
+	// roster and contains "prompt", so a Contains check would now false-POSITIVE
+	// where it used to false-negative.
+	for _, line := range strings.Split(gen.WorkersRoster_Operation, "\n") {
+		if strings.TrimSpace(line) == "prompt" {
+			t.Errorf("the roster query must not select prompt:\n%s", gen.WorkersRoster_Operation)
+		}
 	}
 
 	// `worker get` is the prompt surface, unchanged.
