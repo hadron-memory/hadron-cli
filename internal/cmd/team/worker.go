@@ -124,7 +124,17 @@ context).`,
 			// `cast --role <r>` and nothing else (hadron-cli#496). Someone
 			// hitting this is following instructions that were correct last
 			// week, so the message has to say what to type now.
-			if strings.TrimSpace(name) == "" {
+			// NORMALIZED, not just validated (PR #500 review). Checking
+			// TrimSpace while sending the raw value let `--name " Iris "` past
+			// the guard and cast a worker whose name literally carries the
+			// spaces — and that name is PERMANENT for the App
+			// (cor:agt:020:02), so there is no rename and `worker rm` only
+			// helps while the worker has never been used. Treating whitespace
+			// as non-semantic for the check and as semantic on the wire is the
+			// worst of both: it also produces a WORKER_NAME_TAKEN nobody can
+			// explain, since the roster shows the trimmed spelling.
+			name = strings.TrimSpace(name)
+			if name == "" {
 				// --include-retired, deliberately (PR #500 review). A retired
 				// worker keeps its name FOREVER, and `worker list` hides
 				// retired staff by default — so the plain listing under-reports

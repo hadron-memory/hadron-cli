@@ -220,3 +220,58 @@ func TestCastNamelessRemedyNamesTheCompleteListing(t *testing.T) {
 		t.Errorf("the remedy must say why --include-retired matters: %v", err)
 	}
 }
+
+// A worker's name is PERMANENT for its App (cor:agt:020:02) — no rename, and
+// `worker rm` only helps while the worker has never been used. So a name that
+// reaches the server carrying stray whitespace is an unfixable mistake, and
+// `--name " Iris "` is one keystroke away in any shell.
+//
+// The guard validated `strings.TrimSpace(name)` and then sent the RAW value,
+// which is the worst of both: whitespace non-semantic for the check, semantic
+// on the wire. It also produced a WORKER_NAME_TAKEN nobody could explain,
+// since the roster shows the trimmed spelling (PR #500 review).
+func TestCastNormalizesTheNameBeforeTheWire(t *testing.T) {
+	for _, tc := range []struct{ name, args string }{
+		{"cast", "CastWorker"},
+		{"dry-run", "CastWorkerPreview"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"CastWorker": `{"data":{"castWorker":` + irisWorkerJSON + `}}`,
+				"CastWorkerPreview": `{"data":{"castWorkerPreview":{"name":"Iris","role":"backend-engineer",
+					"agentId":"agt1","agentName":"backend-engineer","prompt":null,"hasNamePlaceholder":true}}}`,
+			})
+			argv := []string{"team", "worker", "cast", "--app", "acme.com:eng-team",
+				"--role", "backend-engineer", "--name", "  Iris  ", "--server", gql.URL}
+			if tc.name == "dry-run" {
+				argv = append(argv, "--dry-run")
+			}
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(argv)
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var vars map[string]any
+			_ = json.Unmarshal(captured[tc.args], &vars)
+			if vars["name"] != "Iris" {
+				t.Errorf("the permanent name must reach the server trimmed, got %q", vars["name"])
+			}
+		})
+	}
+
+	// And a name that is ONLY whitespace is still the missing-name case, not a
+	// cast of "" — the remedy has to fire.
+	gql, captured := captureGraphQL(t, map[string]string{})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "cast", "--app", "acme.com:eng-team",
+		"--role", "backend-engineer", "--name", "   ", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("a whitespace-only name is no name: exit %d, want %d", code, exitcode.Usage)
+	}
+	if _, called := captured["CastWorker"]; called {
+		t.Error("a whitespace-only name must not reach the server")
+	}
+}
