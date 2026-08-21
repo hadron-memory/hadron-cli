@@ -41,12 +41,17 @@ fragment WorkerFields on Worker {
 
 # Casting is ONE platform call (cor:agt:020:01/:02): the server resolves the
 # agent (agentRef, or role → the single installed agent whose personaRole
-# matches — WORKER_AGENT_NOT_FOUND / _AMBIGUOUS, never a guess), allocates the
-# name (explicit name: one attempt, WORKER_NAME_TAKEN is the answer; otherwise
-# the Team Agent's cast-list register is walked server-side past taken names —
-# WORKER_REGISTER_EXHAUSTED when none is free), composes Worker.prompt, and
-# provisions the worker-scoped memory. The CLI passes values through and
-# retries nothing — the retry loops the persona model needed are gone.
+# matches — WORKER_AGENT_NOT_FOUND / _AMBIGUOUS, never a guess), takes the
+# name, composes Worker.prompt, and provisions the worker-scoped memory. The
+# CLI passes values through and retries nothing.
+#
+# The NAME IS REQUIRED (hadron-server#1050): there is no register to walk, and
+# a name is permanent within the App (cor:agt:020:02), so it is chosen and
+# never derived — the server will not invent a permanent identifier nobody
+# picked. A cast without one refuses WORKER_NAME_REQUIRED.
+#
+# teamAgentRef is gone from both operations too: casting no longer reads any
+# system memory, so it had become accepted-and-ignored.
 mutation CastWorker(
   $appRef: ID!
   # @genqlient(omitempty: true)
@@ -56,8 +61,6 @@ mutation CastWorker(
   # @genqlient(omitempty: true)
   $name: String
   # @genqlient(omitempty: true)
-  $teamAgentRef: ID
-  # @genqlient(omitempty: true)
   $promptOverride: String
 ) {
   castWorker(
@@ -65,7 +68,6 @@ mutation CastWorker(
     agentRef: $agentRef
     role: $role
     name: $name
-    teamAgentRef: $teamAgentRef
     promptOverride: $promptOverride
   ) {
     ...WorkerFields
@@ -446,29 +448,18 @@ mutation UpdateTeamCollections($appRef: ID!) {
   }
 }
 
-# ── Role definitions (#403 / hadron-server#960) — the pre-cast read. The
-# server projects the one answer a client cannot compute: which register
-# names are still FREE, judged against the App's FULL worker roster (names
-# are unique per App, case-insensitively, forever — cor:agt:020:02).
+# ── Role definitions (#403 / hadron-server#960) — the pre-cast read.
+#
+# The register projection this fragment was built around (register / freeCount
+# / exhausted / nameRange / nameConvention) is GONE — hadron-server#1050
+# removed the worker name register outright, and cor:agt:020:07 is withdrawn
+# rather than superseded. What remains is the role's identity, its description,
+# and the agent a role-mode cast would resolve.
 fragment TeamRoleFields on TeamRole {
   role
   loc
   nodeId
   description
-  register {
-    name
-    taken
-    # The entity behind a taken name — id AND name, so --json keeps the
-    # actionable ref (entity-fields-not-display-labels).
-    heldBy {
-      id
-      name
-    }
-  }
-  freeCount
-  exhausted
-  nameRange
-  nameConvention
   # The single installed agent a role-mode cast would use (null when zero or
   # ambiguous; masks to null on read-deny — the #552 posture). Under the
   # Worker model the prompt TEMPLATE lives here, not on the role node.
@@ -514,8 +505,6 @@ query CastWorkerPreview(
   # @genqlient(omitempty: true)
   $name: String
   # @genqlient(omitempty: true)
-  $teamAgentRef: ID
-  # @genqlient(omitempty: true)
   $promptOverride: String
 ) {
   castWorkerPreview(
@@ -523,107 +512,47 @@ query CastWorkerPreview(
     agentRef: $agentRef
     role: $role
     name: $name
-    teamAgentRef: $teamAgentRef
     promptOverride: $promptOverride
   ) {
     name
     role
     agentId
     agentName
-    teamAgentId
-    teamAgentName
     prompt
     hasNamePlaceholder
   }
 }
 
-# ── Register writes (#410 / hadron-server#960). The invariants live
-# SERVER-side, in one App-scoped critical section serialized with
-# register-mode casting: a name minted in this App may never be removed
-# (TEAM_ROLE_NAME_MINTED), an added name may not appear in another register
-# (TEAM_ROLE_NAME_DUPLICATE), added names validate against nameRange
-# (TEAM_ROLE_NAME_OUT_OF_RANGE; allowOutOfRange overrides). The CLI is sugar
-# and receipts — client-side composition can never smuggle a violation.
+# ── Role writes. Once the register went (hadron-server#1050), a role
+# definition carries a role, a description, and nothing else that a client can
+# set — so create and update are the same two fields, and the CAS, the
+# range/convention keys and the whole `names` sugar went with the register.
 mutation CreateTeamRole(
   $appRef: ID!
   # @genqlient(omitempty: true)
   $teamAgentRef: ID
   $role: String!
-  $names: [String!]!
-  # @genqlient(omitempty: true)
-  $nameRange: String
-  # @genqlient(omitempty: true)
-  $nameConvention: String
   # @genqlient(omitempty: true)
   $description: String
-  # @genqlient(omitempty: true)
-  $allowOutOfRange: Boolean
 ) {
   createTeamRole(
     appRef: $appRef
     teamAgentRef: $teamAgentRef
     role: $role
-    names: $names
-    nameRange: $nameRange
-    nameConvention: $nameConvention
     description: $description
-    allowOutOfRange: $allowOutOfRange
   ) {
     ...TeamRoleFields
   }
 }
 
-# The names-only write (`role names set|add|rm|mv`): conventions and
-# description are not in the operation at all, so they are structurally
-# preserved — omitted is "preserve" on this server (CLAUDE.md).
-#
-# expectedNames (#987 / hadron-cli#436) turns the wholesale write into
-# COMPARE-AND-SWAP: the write refuses TEAM_ROLE_STALE (extensions carry the
-# current storedNames) unless the stored register still equals it. The sugar
-# verbs always send it — that is what makes their read-modify-write safe —
-# while `set` deliberately omits it: an explicit whole-list replacement is
-# the caller asserting the final state, not an edit of the observed one.
-mutation UpdateTeamRoleNames(
-  $appRef: ID!
-  # @genqlient(omitempty: true)
-  $teamAgentRef: ID
-  $role: String!
-  $names: [String!]!
-  # @genqlient(omitempty: true)
-  $allowOutOfRange: Boolean
-  # bound to *[]string so a present-but-EMPTY precondition still serializes
-  # as [] — omitempty on a plain slice would drop it, silently turning a
-  # sugar edit from an EMPTY register into an unconditional write and
-  # reopening the exact race the CAS closes (PR #440 review, P1). nil (the
-  # set path) is still omitted.
-  # @genqlient(omitempty: true, bind: "*[]string")
-  $expectedNames: [String!]
-) {
-  updateTeamRole(
-    appRef: $appRef
-    teamAgentRef: $teamAgentRef
-    role: $role
-    names: $names
-    allowOutOfRange: $allowOutOfRange
-    expectedNames: $expectedNames
-  ) {
-    ...TeamRoleFields
-  }
-}
-
-# The conventions write (`role update`): nameRange/nameConvention are ALWAYS
-# sent — a value sets, an explicit null CLEARS (the server's convention-key
-# semantics), which is exactly why these two variables carry NO omitempty:
-# the command read-modify-writes, resending the current value for an
-# untouched field. names is absent (structurally preserved); description is
-# set-only (omitempty).
+# `role update` now sets exactly one field. description keeps its omitempty
+# (omitted is "preserve" on this server, CLAUDE.md), so an update that names
+# nothing is a no-op rather than a clear.
 mutation UpdateTeamRoleMeta(
   $appRef: ID!
   # @genqlient(omitempty: true)
   $teamAgentRef: ID
   $role: String!
-  $nameRange: String
-  $nameConvention: String
   # @genqlient(omitempty: true)
   $description: String
 ) {
@@ -631,44 +560,24 @@ mutation UpdateTeamRoleMeta(
     appRef: $appRef
     teamAgentRef: $teamAgentRef
     role: $role
-    nameRange: $nameRange
-    nameConvention: $nameConvention
     description: $description
   ) {
     ...TeamRoleFields
   }
 }
 
-# The retirement (`role rm`, #441 / hadron-server#1002). transferTo is what
-# makes this ONE call instead of the four-step sequence a hand-run supersede
-# had to get right: the old definition is retired and its register appended to
-# the successor's, inside the same App-scoped critical section, so nothing can
-# observe the window where a name sits in two registers (or in neither).
-#
-# omitempty on transferTo is load-bearing beyond the usual preserve/clear rule:
-# a bare delete and a transfer are DIFFERENT operations server-side — a role
-# holding minted names refuses TEAM_ROLE_IN_USE without it — so sending an
-# explicit null would have to mean "no successor", and omitting is the only
-# spelling that reliably says so.
+# The retirement (`role rm`, #441 / hadron-server#1002). Now UNCONDITIONAL:
+# the minted-name gate and the register hand-off (transferTo) both went with
+# the register itself (hadron-server#1050), so there is no state a successor
+# could inherit and nothing for a bare delete to refuse over.
 mutation DeleteTeamRole(
   $appRef: ID!
   # @genqlient(omitempty: true)
   $teamAgentRef: ID
   $role: String!
-  # @genqlient(omitempty: true)
-  $transferTo: String
 ) {
-  deleteTeamRole(
-    appRef: $appRef
-    teamAgentRef: $teamAgentRef
-    role: $role
-    transferTo: $transferTo
-  ) {
+  deleteTeamRole(appRef: $appRef, teamAgentRef: $teamAgentRef, role: $role) {
     role
     nodesDeleted
-    transferredNames
-    transferredTo {
-      ...TeamRoleFields
-    }
   }
 }

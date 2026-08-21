@@ -1,5 +1,18 @@
 # Design as built: the register writes — `team role create/update/names` (#410)
 
+> **SUPERSEDED — the surface described here no longer exists.**
+> hadron-server#1050 removed the worker name register outright, and
+> hadron-cli#496 removed the CLI surface over it: `team role names
+> set|add|rm|mv`, `--names`, `--name-range`, `--name-convention`,
+> `--allow-out-of-range`, `--transfer-register-to`, and the `expectedNames`
+> CAS. `cor:agt:020:07` is WITHDRAWN rather than superseded — nothing
+> replaces the mechanism, and `worker cast` now takes an explicit `--name`.
+>
+> This document is kept as the record of what was built and WHY, which is
+> still the fastest way to understand what the register was for and why
+> removing it did not weaken name permanence. See
+> [docs/plans/remove-name-register.md](remove-name-register.md).
+
 > **Status: shipped with this PR.** Server half: hadron-server#960
 > (`createTeamRole`/`updateTeamRole`, merged via hadron-server#984). The
 > issue was re-cut against that surface on 2026-08-15; the reads landed

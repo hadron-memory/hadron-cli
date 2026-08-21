@@ -7,19 +7,14 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
-// roleWithRegister builds the minimum TeamRoleFields the retirement prompt reads.
-func roleWithRegister(role string, names ...string) gen.TeamRoleFields {
-	r := gen.TeamRoleFields{Role: role}
-	for _, n := range names {
-		r.Register = append(r.Register, &gen.TeamRoleFieldsRegisterTeamRoleName{Name: n})
-	}
-	return r
-}
-
 // #468: the retirement prompt is the ONE moment a user reads carefully before
-// something irreversible, and the App is the fact most likely to reveal that
+// something destructive, and the App is the fact most likely to reveal that
 // the ambient scope picked the wrong team. Naming only the role confirms what
 // they already typed.
+//
+// The prompt used to have two shapes — a supersede naming the successor, and a
+// bare retirement listing the register it was about to discard. hadron#1050
+// removed the register, so there is one shape and nothing to enumerate.
 //
 // Unit-tested here rather than through the command: IOStreams.inIsTerminal has
 // no setter, so a command-level test can never reach the prompt branch of
@@ -27,30 +22,23 @@ func roleWithRegister(role string, names ...string) gen.TeamRoleFields {
 func TestDescribeRetirementNamesTheApp(t *testing.T) {
 	const label = "hrn:app:acme.com:eng-team — Eng Team (from the worktree binding)"
 	appLabel := func() string { return label }
-	successor := "svelte-app-engineer"
 
-	for _, tc := range []struct {
-		name       string
-		transferTo *string
-		wants      []string
-	}{
-		{"bare retirement", nil, []string{"none minted"}},
-		{"supersede", &successor, []string{"to " + successor}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			got := describeRetirement(roleWithRegister("frontend-engineer", "Fred", "Gwen"), tc.transferTo, appLabel)
-			// The App LEADS: a prompt is read left to right, and the reader
-			// decides whether to keep reading in the first few words.
-			if !strings.HasPrefix(got, "In "+label+": retire role frontend-engineer") {
-				t.Errorf("the App must lead the prompt, got:\n%s", got)
-			}
-			// Everything the prompt already promised is still there.
-			for _, want := range append(tc.wants, "Fred, Gwen", "soft-deleted and stays recoverable") {
-				if !strings.Contains(got, want) {
-					t.Errorf("prompt lost %q:\n%s", want, got)
-				}
-			}
-		})
+	got := describeRetirement(gen.TeamRoleFields{Role: "frontend-engineer"}, appLabel)
+	// The App LEADS: a prompt is read left to right, and the reader decides
+	// whether to keep reading in the first few words.
+	if !strings.HasPrefix(got, "In "+label+": retire role frontend-engineer") {
+		t.Errorf("the App must lead the prompt, got:\n%s", got)
+	}
+	// The delete is SOFT, and saying so is why this uses Confirm rather than
+	// ConfirmDeletion (which would append "This cannot be undone").
+	if !strings.Contains(got, "soft-deleted and stays recoverable") {
+		t.Errorf("prompt must say the delete is recoverable:\n%s", got)
+	}
+	// Nothing may promise a hand-off that no longer exists.
+	for _, gone := range []string{"minted", "register", "to svelte-app-engineer"} {
+		if strings.Contains(got, gone) {
+			t.Errorf("prompt still mentions the removed register (%q):\n%s", gone, got)
+		}
 	}
 }
 
@@ -61,7 +49,7 @@ func TestDescribeRetirementNamesTheApp(t *testing.T) {
 func TestDescribeRetirementRendersTheLabelOnce(t *testing.T) {
 	calls := 0
 	appLabel := func() string { calls++; return "hrn:app:acme.com:eng-team" }
-	describeRetirement(roleWithRegister("qa", "Uma"), nil, appLabel)
+	describeRetirement(gen.TeamRoleFields{Role: "qa"}, appLabel)
 	if calls != 1 {
 		t.Errorf("label rendered %d times, want exactly 1", calls)
 	}

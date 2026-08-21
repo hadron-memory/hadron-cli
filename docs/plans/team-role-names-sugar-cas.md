@@ -1,5 +1,18 @@
 # Design as built: the register sugar returns, CAS-safe — `role names add/rm/mv` (#436)
 
+> **SUPERSEDED — the surface described here no longer exists.**
+> hadron-server#1050 removed the worker name register outright, and
+> hadron-cli#496 removed the CLI surface over it: `team role names
+> set|add|rm|mv`, `--names`, `--name-range`, `--name-convention`,
+> `--allow-out-of-range`, `--transfer-register-to`, and the `expectedNames`
+> CAS. `cor:agt:020:07` is WITHDRAWN rather than superseded — nothing
+> replaces the mechanism, and `worker cast` now takes an explicit `--name`.
+>
+> This document is kept as the record of what was built and WHY, which is
+> still the fastest way to understand what the register was for and why
+> removing it did not weaken name permanence. See
+> [docs/plans/remove-name-register.md](remove-name-register.md).
+
 > **Status: shipped with this PR.** Server half: hadron-server#987 (merged
 > via hadron-server#989) — `updateTeamRole(expectedNames:)`, the
 > compare-and-swap precondition filed from PR #435's review, which chose
