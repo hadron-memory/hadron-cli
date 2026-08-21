@@ -876,9 +876,13 @@ Conventions:
   messages since you last ran `chat read`, and how many mention you (#474) —
   the moment before you publish something durable is the last point a missed
   decision can still change what you do. `chat read` records that watermark on
-  the binding, but ONLY for an unfiltered read of the binding's own App: a
-  `--mentions`/`--mentions-me` read skips the messages in between, and a
-  `--app <other>` read is not this binding's cursor. Never having read is
+  the binding, but ONLY for an unfiltered read of the binding's own App that
+  rendered successfully: a `--mentions`/`--mentions-me` read skips the
+  messages in between, a `--app <other>` read is not this binding's cursor,
+  and output that never reached you was not read. It is also NOT `nextSince`
+  — that is a paging cursor and falls back to whatever you passed, so the
+  watermark advances only to a seq the server actually returned (a `--since`
+  past the end of the chat records nothing). Never having read is
   reported as its own state rather than as a count, since it is the louder one
   — and phrased as what THIS WORKTREE knows, because the watermark is
   binding-local and a read made through the MCP tools never reaches it (a nudge

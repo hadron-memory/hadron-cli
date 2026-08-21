@@ -365,8 +365,11 @@ binding (#474), which is what lets ` + "`session log`" + ` tell you how much has
 landed since. Nothing to pass: it is the seq this command just returned.
 Both qualifiers matter — a filtered read skips the messages in between (see
 nextSince above), and another team's seq is not this binding's cursor — so
-those reads deliberately leave the watermark where it was. Reading a chat
-that is EMPTY still counts as having read it.
+those reads deliberately leave the watermark where it was, as does a read
+whose output could not be written. The watermark is NOT nextSince: it only
+advances to a seq the server actually returned, so a --since past the end of
+the chat records nothing. Reading a chat that is EMPTY still counts as
+having read it.
 
 --json names the author as BOTH ` + "`authorName`" + ` and ` + "`author`" + ` — the latter is an
 alias for readers written against ` + "`hadron chat read`" + `, the retired academy
@@ -442,34 +445,50 @@ them "(human)" / "(worker)".`,
 					next = m.Seq
 				}
 			}
-			// Record the watermark on the binding (#474), so `session log` can
-			// say how much landed while you were heads-down. Best-effort and
-			// deliberately silent: a read that succeeded must not fail because
-			// the bookkeeping did, and a reader with no binding (--app only) is
-			// an ordinary case, not an error.
+			// The watermark the binding records is NOT `next`. `next` is a PAGING
+			// cursor — it falls back to whatever the caller passed, which is the
+			// right answer for "where do I resume" and the wrong one for "how far
+			// have I actually seen". `--since 999999` on a 100-message chat returns
+			// nothing, and recording 999999 would mark every message the team
+			// posts for the rest of the year as already read (PR #493 review, P1).
 			//
-			// Recorded even when nothing new arrived — that is what advances a
-			// caller polling `--since <nextSince>`, and what lets a read of an
-			// EMPTY chat be recorded at all (watermark 0, distinct from the nil
-			// "never read"; see the binding field).
+			// So the watermark only ever advances to a seq the SERVER returned…
+			verified, ok := 0, false
+			for _, m := range msgs {
+				if !ok || m.Seq > verified {
+					verified, ok = m.Seq, true
+				}
+			}
+			// …with one addition: asking from the very beginning and being handed
+			// nothing means the chat is genuinely empty, which is read-through-0
+			// rather than never-read. `--since 50` coming back empty says nothing
+			// about seqs at or below 50, so it records nothing at all.
+			if !ok && since == 0 {
+				ok = true
+			}
+			// Two more conditions, both from the same review, both P1:
 			//
-			// TWO conditions, both from the PR #493 review, both P1:
-			//
-			// 1. UNFILTERED reads only. --mentions-me/--mentions advances `next`
-			//    past matching messages only, so storing it as the ALL-messages
-			//    watermark permanently skips everything in between — the reader
-			//    is then told they are caught up on messages they never saw,
-			//    which is worse than the nag this feature replaces.
+			// 1. UNFILTERED reads only. --mentions-me/--mentions returns only
+			//    matching messages, so its highest seq says nothing about the ones
+			//    in between — storing it as the ALL-messages watermark skips them
+			//    permanently, and the reader is then told they are caught up on
+			//    messages they were never shown.
 			//
 			// 2. The resolved App must BE the binding's. Reading App B from a
-			//    worktree bound to App A would write B's cursor into A's
-			//    binding. The comparison is deliberately conservative: a --app
-			//    spelled differently from the stored id simply does not record,
-			//    which costs a nudge rather than skipping real messages.
+			//    worktree bound to App A would write B's cursor into A's binding.
+			//    The comparison is deliberately conservative: a --app spelled
+			//    differently from the stored id simply does not record, which
+			//    costs a nudge rather than skipping real messages.
 			unfiltered := mentionsRef == nil
-			if b != nil && unfiltered && b.AppID != "" && scope.Ref == b.AppID {
-				if b.ChatSeenSeq == nil || next > *b.ChatSeenSeq {
-					seen := next
+			recordWatermark := func() {
+				// Best-effort and deliberately silent: a read that succeeded must
+				// not fail because the bookkeeping did, and a reader with no
+				// binding (--app only) is an ordinary case, not an error.
+				if b == nil || !ok || !unfiltered || b.AppID == "" || scope.Ref != b.AppID {
+					return
+				}
+				if b.ChatSeenSeq == nil || verified > *b.ChatSeenSeq {
+					seen := verified
 					b.ChatSeenSeq = &seen
 					_, _ = writeBinding(ctx, b)
 				}
@@ -478,7 +497,12 @@ them "(human)" / "(worker)".`,
 				Messages  []teamChatMessageDTO `json:"messages"`
 				NextSince int                  `json:"nextSince"`
 			}{msgs, next}
-			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
+			// AFTER the render, and only if it succeeded (PR #493 review). The
+			// watermark claims the reader has seen these messages; a closed pipe
+			// or a full disk means they have not, and marking them read would
+			// bury them. `next` still goes out as the paging cursor regardless —
+			// that one is about the wire, not about what was read.
+			if err := output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				// UNCONDITIONALLY, and before the messages. Zero messages is the
 				// normal steady state of `chat read --since <watermark>`, and
 				// the render is otherwise a bare loop — so "nobody has posted
@@ -500,7 +524,11 @@ them "(human)" / "(worker)".`,
 					fmt.Fprintf(w, "[%d] %s%s%s: %s\n", m.Seq, who, m.authorKind(), reply, m.Body)
 				}
 				return nil
-			})
+			}); err != nil {
+				return err
+			}
+			recordWatermark()
+			return nil
 		},
 	}
 	cmd.Flags().IntVar(&since, "since", 0, "only messages with seq greater than this (0 = whole history)")

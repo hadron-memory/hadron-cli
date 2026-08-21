@@ -2614,6 +2614,51 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 		}
 	})
 
+	// `nextSince` is a PAGING cursor and falls back to whatever the caller
+	// passed; the watermark is a claim about what was SEEN. Conflating them let
+	// a typo'd or stale `--since` mark the team's next year of messages read.
+	t.Run("a --since past the end records nothing", func(t *testing.T) {
+		path := bind(t)
+		read(t, map[string]string{
+			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":0,"items":[]}}}`,
+			"TeamAppIdentity":  teamAppIdentityJSON,
+		}, "--since", "999")
+		if got := watermark(t, path); got != -1 {
+			t.Errorf("the server returned no seq 999 — nothing was seen, got watermark %d", got)
+		}
+	})
+	t.Run("a --since past the end does not move an existing watermark", func(t *testing.T) {
+		dir := teamGitDir(t)
+		path := filepath.Join(dir, "hadron-team-session.json")
+		if err := os.WriteFile(path, []byte(bindingChatSeenFixture), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		read(t, map[string]string{
+			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":0,"items":[]}}}`,
+			"TeamAppIdentity":  teamAppIdentityJSON,
+		}, "--since", "999")
+		if got := watermark(t, path); got != 90 {
+			t.Errorf("want the watermark left at 90, got %d", got)
+		}
+	})
+
+	// The watermark says the reader HAS SEEN these messages. A closed pipe or a
+	// full disk means they have not, and marking them read would bury them.
+	t.Run("a failed render records nothing", func(t *testing.T) {
+		path := bind(t)
+		gql, _ := captureGraphQL(t, oneMessage)
+		f, _ := testFactory(t)
+		f.IOStreams.Out = brokenWriter{}
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "chat", "read", "--server", gql.URL})
+		if err := root.Execute(); err == nil {
+			t.Fatal("a failed render must surface as an error")
+		}
+		if got := watermark(t, path); got != -1 {
+			t.Errorf("the messages were never delivered — got watermark %d", got)
+		}
+	})
+
 	// An empty chat is READ, not unread. On a bare int, 0 meant both, so a team
 	// whose chat had nothing in it yet could never be marked read and every
 	// later `session log` nagged about it.
@@ -4408,3 +4453,8 @@ func TestTeamInitReportsWhereTheDeclarationLanded(t *testing.T) {
 		t.Errorf("expected exactly one GetMemory (the -m class check), got %d", calls)
 	}
 }
+
+// brokenWriter is stdout that cannot be written — a closed pipe, a full disk.
+type brokenWriter struct{}
+
+func (brokenWriter) Write([]byte) (int, error) { return 0, errors.New("broken pipe") }
