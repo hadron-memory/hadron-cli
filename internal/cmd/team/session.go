@@ -41,10 +41,14 @@ TWO THINGS ARE CALLED A SESSION, AND ENDING ONE DOES NOT END THE OTHER
   chat session     the conversation you are in — the Claude Desktop window,
                    the Claude Code session, the IDE chat
 
-Closing your CHAT SESSION does not release the worker. The worker session
-outlives it and keeps the worker taken until you run ` + "`session end`" + ` or the
-server reaps it, so the next driver meets a takeover prompt rather than a
-free worker. End the worker session deliberately when you stop.`,
+Closing your CHAT SESSION does not end the worker session. It outlives the
+chat and keeps the worker TAKEN until you run ` + "`session end`" + ` or the server
+reaps it, so the next driver meets a takeover prompt rather than a free
+worker. End the worker session deliberately when you stop.
+
+TAKEN is not HELD. Ending the session frees the SESSION; the worker's name
+stays HELD by you until you run ` + "`worker release`" + ` — no session end, idle
+window, expiry or reap ever clears a hold (cor:agt:020:09).`,
 	}
 	cmd.AddCommand(newCmdSessionStart(f))
 	cmd.AddCommand(newCmdSessionWhoami(f))

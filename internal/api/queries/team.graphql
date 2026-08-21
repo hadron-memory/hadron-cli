@@ -33,6 +33,20 @@ fragment WorkerFields on Worker {
   prompt
   promptOverride
   memoryId
+  # The HOLD (hadron-server#1050, cor:agt:020:09): whose name this is, and
+  # since when. A name is held by a PERSON and only an explicit release frees
+  # one — no session end, idle window, expiry or reap does.
+  #
+  # Both are MASKED TO NULL ON DENY, like prompt/promptOverride/memoryId. So a
+  # null means "unheld OR not visible to you" and must never be rendered as a
+  # bare "free"; `worker release` is the one place that ambiguity legitimately
+  # collapses, and it says why at the site.
+  #
+  # NOT added to WorkerRosterFields: which surface shows who is driving is
+  # hadron-cli#487's design question, and a column added in passing here would
+  # pre-empt it.
+  heldByUserId
+  heldAt
   retiredAt
   retiredBy
   createdAt
@@ -70,6 +84,25 @@ mutation CastWorker(
     name: $name
     promptOverride: $promptOverride
   ) {
+    ...WorkerFields
+  }
+}
+
+# Release the HOLD on a name (hadron-server#1050, cor:agt:020:09) — the ONLY
+# thing that frees one. Two principals, and the SERVER gates both: the HOLDER
+# releasing their own, owing nobody notice; or an App/org ADMIN force-releasing
+# somebody else's, which POSTS TO THE TEAM CHAT, because the incident this
+# model answers is one where notice was owed and there was no way to give it.
+#
+# The CLI does not reimplement that gate — a client-side authority check would
+# be a second, drifting copy of an access rule. It reads the hold only to say
+# WHICH act the caller is about to perform.
+#
+# Idempotent: releasing an unheld worker returns it unchanged, which is why the
+# receipt distinguishes "released" from "was not held" instead of printing a
+# success for a no-op.
+mutation ReleaseWorker($workerRef: ID!) {
+  releaseWorker(workerRef: $workerRef) {
     ...WorkerFields
   }
 }
