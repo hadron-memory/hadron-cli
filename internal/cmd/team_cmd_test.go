@@ -2336,6 +2336,12 @@ func TestTeamChatPostReceiptNamesTheChat(t *testing.T) {
 // and an agent posting from an ambient context is the exposed caller — but it
 // goes to stderr, so the --json stdout contract is untouched either way.
 func TestTeamChatJSONKeepsItsShape(t *testing.T) {
+	// SANDBOXED even though this test writes no binding: without it the command
+	// reads whatever binding the developer's own checkout happens to hold, and
+	// `chat read` behaves differently bound than unbound. It passed on CI and
+	// failed on a bound worktree — the worst way round, since CI is the copy
+	// nobody watches for false greens (found while fixing PR #493).
+	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
 		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":1,"items":[` + teamChatMsgJSON + `]}}}`,
 		"TeamAppIdentity":  teamAppIdentityJSON,
@@ -2599,7 +2605,13 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 	// same worktree would file that team's seq under this one.
 	t.Run("another App's read stays out of this binding", func(t *testing.T) {
 		path := bind(t)
-		read(t, oneMessage, "--app", "app2")
+		read(t, map[string]string{
+			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":1,"items":[` + teamChatMsgJSON + `]}}}`,
+			// Resolves to a DIFFERENT id than the binding's app1 — the whole
+			// question the guard asks. A fixture that resolved everything to
+			// app1 would pass no matter what the guard did.
+			"TeamAppIdentity": `{"data":{"app":{"id":"app2","urn":"hrn:app:acme.com:other-team","name":"Other Team"}}}`,
+		}, "--app", "app2")
 		if got := watermark(t, path); got != -1 {
 			t.Errorf("app2's seq must not land in app1's binding, got %d", got)
 		}
@@ -2611,6 +2623,19 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 		read(t, oneMessage, "--app", "app1")
 		if got := watermark(t, path); got != 8 {
 			t.Errorf("--app app1 is the bound App — want watermark 8, got %d", got)
+		}
+	})
+	// The same App SPELLED differently is still the same App. `--app <urn>` and
+	// `hadron app set-active <app-urn>` are the documented ways to name one, and
+	// a raw string compare against the binding's server id calls them a
+	// different team — pinning the watermark forever, so `session log` claims on
+	// every run that this worktree has never read the chat. A nudge that is
+	// always wrong is ignored, which costs more than the case it guards.
+	t.Run("the bound App named by URN still records", func(t *testing.T) {
+		path := bind(t)
+		read(t, oneMessage, "--app", "hrn:app:acme.com:eng-team")
+		if got := watermark(t, path); got != 8 {
+			t.Errorf("that URN resolves to app1, the bound App — want 8, got %d", got)
 		}
 	})
 
@@ -2653,6 +2678,24 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 		root.SetArgs([]string{"team", "chat", "read", "--server", gql.URL})
 		if err := root.Execute(); err == nil {
 			t.Fatal("a failed render must surface as an error")
+		}
+		if got := watermark(t, path); got != -1 {
+			t.Errorf("the messages were never delivered — got watermark %d", got)
+		}
+	})
+
+	// …and a render that gets PART way is the same story. The header write was
+	// checked; the message loop discarded its error, so a pipe closing after the
+	// first line left `output.Write` returning nil and the messages marked read.
+	t.Run("a render that fails mid-way records nothing", func(t *testing.T) {
+		path := bind(t)
+		gql, _ := captureGraphQL(t, oneMessage)
+		f, _ := testFactory(t)
+		f.IOStreams.Out = &flakyWriter{ok: 1} // the "app:" header lands, the message does not
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "chat", "read", "--server", gql.URL})
+		if err := root.Execute(); err == nil {
+			t.Fatal("a message that could not be written must surface as an error")
 		}
 		if got := watermark(t, path); got != -1 {
 			t.Errorf("the messages were never delivered — got watermark %d", got)
@@ -4458,3 +4501,15 @@ func TestTeamInitReportsWhereTheDeclarationLanded(t *testing.T) {
 type brokenWriter struct{}
 
 func (brokenWriter) Write([]byte) (int, error) { return 0, errors.New("broken pipe") }
+
+// flakyWriter accepts `ok` writes, then fails — a pipe that closes partway
+// through a render, which is not the same case as one that was never open.
+type flakyWriter struct{ ok int }
+
+func (w *flakyWriter) Write(p []byte) (int, error) {
+	if w.ok <= 0 {
+		return 0, errors.New("broken pipe")
+	}
+	w.ok--
+	return len(p), nil
+}

@@ -334,6 +334,39 @@ func describeApp(ctx context.Context, f *cmdutil.Factory, ref string) string {
 	return readable
 }
 
+// isBindingsApp answers "is the App this command resolved to the SAME App the
+// worktree is bound to?" — the question a per-binding cursor has to get right
+// before it writes (PR #493 review).
+//
+// A raw `scope.Ref == b.AppID` is not that question. `--app <urn>` and the
+// documented `hadron app set-active <app-urn>` both put a URN in scope.Ref
+// while the binding stores the server id, so the strings differ for the same
+// App. Answering "different team" there is not a safe conservative default: it
+// pins the watermark forever, and `session log` then claims on every run that
+// this worktree has never read the chat. A nudge that is always wrong is
+// ignored, which costs more than the case it was guarding.
+//
+// One round trip, and only in the ambiguous case — the ids match outright for
+// a binding-sourced scope and for `--app <id>`. Unresolvable means unknown,
+// and unknown must not write.
+func isBindingsApp(ctx context.Context, f *cmdutil.Factory, ref, bindingAppID string) bool {
+	if ref == "" || bindingAppID == "" {
+		return false
+	}
+	if ref == bindingAppID {
+		return true
+	}
+	client, err := f.GraphQLClient()
+	if err != nil {
+		return false
+	}
+	resp, err := gen.TeamAppIdentity(ctx, client, ref)
+	if err != nil || resp.App == nil {
+		return false
+	}
+	return resp.App.Id == bindingAppID
+}
+
 // lazyAppLabel renders a resolved App scope as "<readable app> (<source>)",
 // on first call only, and caches it (#468).
 //

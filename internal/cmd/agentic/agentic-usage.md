@@ -878,8 +878,10 @@ Conventions:
   decision can still change what you do. `chat read` records that watermark on
   the binding, but ONLY for an unfiltered read of the binding's own App that
   rendered successfully: a `--mentions`/`--mentions-me` read skips the
-  messages in between, a `--app <other>` read is not this binding's cursor,
-  and output that never reached you was not read. It is also NOT `nextSince`
+  messages in between, a `--app <other>` read is not this binding's cursor
+  (compared by canonical App id, so the same App named as a URN still counts),
+  and output that never reached you — a closed pipe, a full disk, at any point
+  in the render — was not read. It is also NOT `nextSince`
   — that is a paging cursor and falls back to whatever you passed, so the
   watermark advances only to a seq the server actually returned (a `--since`
   past the end of the chat records nothing). Never having read is

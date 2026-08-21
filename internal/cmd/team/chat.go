@@ -366,7 +366,8 @@ landed since. Nothing to pass: it is the seq this command just returned.
 Both qualifiers matter — a filtered read skips the messages in between (see
 nextSince above), and another team's seq is not this binding's cursor — so
 those reads deliberately leave the watermark where it was, as does a read
-whose output could not be written. The watermark is NOT nextSince: it only
+whose output could not be written. "Another team" is decided on canonical App
+ids, so naming your own team by URN still counts as reading it. The watermark is NOT nextSince: it only
 advances to a seq the server actually returned, so a --since past the end of
 the chat records nothing. Reading a chat that is EMPTY still counts as
 having read it.
@@ -476,15 +477,22 @@ them "(human)" / "(worker)".`,
 			//
 			// 2. The resolved App must BE the binding's. Reading App B from a
 			//    worktree bound to App A would write B's cursor into A's binding.
-			//    The comparison is deliberately conservative: a --app spelled
-			//    differently from the stored id simply does not record, which
-			//    costs a nudge rather than skipping real messages.
+			//    isBindingsApp compares canonical ids rather than raw refs — the
+			//    same App named as a URN is still the same App, and treating it
+			//    as another team would pin the watermark forever.
 			unfiltered := mentionsRef == nil
 			recordWatermark := func() {
 				// Best-effort and deliberately silent: a read that succeeded must
 				// not fail because the bookkeeping did, and a reader with no
 				// binding (--app only) is an ordinary case, not an error.
-				if b == nil || !ok || !unfiltered || b.AppID == "" || scope.Ref != b.AppID {
+				//
+				// ORDER MATTERS: every local, free predicate is checked before
+				// isBindingsApp, which may cost a round trip. A read with no
+				// binding must stay as cheap as it was.
+				if b == nil || !ok || !unfiltered {
+					return
+				}
+				if !isBindingsApp(ctx, f, scope.Ref, b.AppID) {
 					return
 				}
 				if b.ChatSeenSeq == nil || verified > *b.ChatSeenSeq {
@@ -521,7 +529,13 @@ them "(human)" / "(worker)".`,
 					if m.ReplyToSeq != nil {
 						reply = fmt.Sprintf(" (reply to %d)", *m.ReplyToSeq)
 					}
-					fmt.Fprintf(w, "[%d] %s%s%s: %s\n", m.Seq, who, m.authorKind(), reply, m.Body)
+					// Checked, like the header above it: the watermark that follows a
+					// successful render claims the reader SAW these messages, and a
+					// pipe that closes partway through means they saw only some
+					// (PR #493 review).
+					if _, err := fmt.Fprintf(w, "[%d] %s%s%s: %s\n", m.Seq, who, m.authorKind(), reply, m.Body); err != nil {
+						return err
+					}
 				}
 				return nil
 			}); err != nil {
