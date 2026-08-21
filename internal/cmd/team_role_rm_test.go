@@ -196,3 +196,27 @@ const teamRolesRmJSON = `{"data":{"teamRoles":{"total":2,"items":[
 	 "description":null,"roleAgent":null,"hasNamePlaceholder":null},
 	{"role":"svelte-app-engineer","loc":"roles:svelte-app-engineer","nodeId":"n-svelte",
 	 "description":null,"roleAgent":null,"hasNamePlaceholder":null}]}}}`
+
+// The nameless-cast remedy must point at a listing that is actually COMPLETE.
+// `worker list` hides retired staff by default, and a retired worker keeps its
+// name forever — so the plain listing under-reports what is taken, and a
+// reader picking an apparently-free name from it gets WORKER_NAME_TAKEN.
+// A remedy naming an incomplete answer is the failure the message exists to
+// prevent (PR #500 review).
+func TestCastNamelessRemedyNamesTheCompleteListing(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "cast", "--role", "cli-engineer",
+		"--app", "acme.com:eng-team"})
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Fatalf("a nameless cast must be Usage, got exit %d (err: %v)", code, err)
+	}
+	if !strings.Contains(err.Error(), "worker list --include-retired") {
+		t.Errorf("the remedy must name the complete listing: %v", err)
+	}
+	// And it must say WHY, or the flag reads as noise and gets dropped.
+	if !strings.Contains(err.Error(), "retired workers keep theirs") {
+		t.Errorf("the remedy must say why --include-retired matters: %v", err)
+	}
+}

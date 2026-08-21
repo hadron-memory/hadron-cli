@@ -79,7 +79,8 @@ the name, and provisions the worker's working memory.
 chosen, never derived: the server will not invent a permanent identifier
 nobody picked. A cast without one refuses WORKER_NAME_REQUIRED. The claim
 is one attempt, and WORKER_NAME_TAKEN is the answer rather than a retry;
-` + "`worker list`" + ` shows what is already taken.
+` + "`worker list --include-retired`" + ` shows what is already taken —
+retired workers keep their names, so the default listing under-reports it.
 
 This used to allocate for you, walking the role's cast-list register past
 taken names. That register is gone, so a bare --role no longer casts.
@@ -124,8 +125,15 @@ context).`,
 			// hitting this is following instructions that were correct last
 			// week, so the message has to say what to type now.
 			if strings.TrimSpace(name) == "" {
+				// --include-retired, deliberately (PR #500 review). A retired
+				// worker keeps its name FOREVER, and `worker list` hides
+				// retired staff by default — so the plain listing under-reports
+				// what is taken, and a reader picking an apparently-free name
+				// from it gets WORKER_NAME_TAKEN. A remedy that points at an
+				// incomplete answer is the failure this whole message exists to
+				// avoid.
 				return exitcode.Newf(exitcode.Usage,
-					"--name is required: a worker name is permanent for this App, so it is chosen rather than derived — pass --name <n> (`hadron team worker list` shows the names already taken)")
+					"--name is required: a worker name is permanent for this App, so it is chosen rather than derived — pass --name <n> (`hadron team worker list --include-retired` shows the names already taken; retired workers keep theirs)")
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {

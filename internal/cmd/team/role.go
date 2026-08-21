@@ -145,7 +145,8 @@ one installed agent carries a roles: branch.
 This used to answer "which names are still free", the question to ask
 immediately before casting. There is no register to answer it from
 (hadron-server#1050) — a cast now takes an explicit --name, and the roster
-(` + "`worker list`" + `) is what says whether one is already taken.`,
+(` + "`worker list --include-retired`" + `, since retired workers keep their
+names) is what says whether one is already taken.`,
 		Example: `  hadron team role list --app acme.com:eng-team
   hadron team role list --json`,
 		Args: cobra.NoArgs,

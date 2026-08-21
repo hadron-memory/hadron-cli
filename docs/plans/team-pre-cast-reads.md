@@ -1,6 +1,20 @@
 # Design as built: the pre-cast reads — `team role list/get` + `worker cast --dry-run` (#403, #404)
 
-> **Status: shipped with this PR.** Server halves: hadron-server#960
+> **PARTLY SUPERSEDED — the register half of these reads is gone.**
+> hadron-server#1050 removed the worker name register and hadron-cli#496
+> removed the CLI surface over it, so `role list/get` no longer project
+> `register[]`, `freeCount`, `exhausted`, `nameRange` or `nameConvention`,
+> the dry-run JSON no longer carries `teamAgentId`/`teamAgentName`, and
+> `worker cast` takes an explicit `--name` instead of allocating one.
+> `cor:agt:020:07` is WITHDRAWN rather than superseded.
+>
+> What SURVIVES is the other half and still describes current behaviour: the
+> dry-run preview reserves nothing (`cor:agt:020:03` — no lease by law), the
+> preview is a Query rather than a `dryRun` flag, and its typed refusals are
+> the cast's own. See
+> [docs/plans/remove-name-register.md](remove-name-register.md).
+
+> **Status: shipped (2026-08-15); register half since removed — see above.** Server halves: hadron-server#960
 > (`teamRoles`, merged via hadron-server#984) and hadron-server#964
 > (`castWorkerPreview`, merged via hadron-server#985). Both issues were
 > re-cut against these surfaces on 2026-08-15 before implementation.

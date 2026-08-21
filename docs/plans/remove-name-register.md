@@ -93,7 +93,11 @@ This one gets a local refusal anyway, because of who hits it. `cast --role <r>`
 with no name was the NORMAL way to cast: it is what every task node, every doc,
 and every operator's muscle memory still says. Someone reaching this refusal is
 following instructions that were correct last week. The message has to say what
-to type now, and point at `worker list` for what is already taken.
+to type now, and point at `worker list --include-retired` for what is already
+taken — `--include-retired` is load-bearing, since retired workers keep their
+names forever and the default listing under-reports what is taken. A remedy
+naming an incomplete answer is the failure the message exists to prevent
+(caught in review).
 
 That is a deliberate exception, noted at the call site so the next reader does
 not "fix" it back into a passthrough.
@@ -108,14 +112,24 @@ now is not.
 
 ### The superseded plan docs keep their content
 
-`team-role-register-writes.md`, `team-role-names-sugar-cas.md` and
-`team-role-retirement.md` describe a surface that no longer exists. They carry
-a SUPERSEDED banner rather than being deleted or rewritten: they remain the
+`team-role-register-writes.md`, `team-role-names-sugar-cas.md`,
+`team-role-retirement.md` and `team-pre-cast-reads.md` describe a surface that
+no longer exists — the last of those only PARTLY, so its banner says which half
+still holds (the dry-run reserves nothing; the preview is a Query, not a
+`dryRun` flag). They carry a banner rather than being deleted or rewritten: they remain the
 fastest way to understand what the register was for, and — for
 `team-role-names-sugar-cas.md` especially — why a read-modify-write over a
 wholesale server field needs a precondition. That reasoning outlived its
 subject and is still cited by
 `hadron-cli:review:no-rmw-sugar-over-wholesale-writes`.
+
+`team-pre-cast-reads.md` was MISSED on the first pass and caught in review. The
+sweep that found the other three grepped for the flags and phrases being
+removed (`--names`, `role names`, "name register"); that doc names none of
+them, because it describes the READ side in terms of its `--json` fields.
+Sweeping instead for the **identifiers the change removes** — `freeCount`,
+`teamAgentId`, `nameRange`, `exhausted`, `transferredTo`, `expectedNames` —
+finds all four. Prose describing a thing varies; the field name is the thing.
 
 ## Schema refresh, and a trap in it
 

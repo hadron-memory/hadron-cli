@@ -737,8 +737,10 @@ Conventions:
   will not invent a permanent identifier nobody picked. The CLI refuses a
   nameless cast with exit 2 and the remedy; the server's own
   `WORKER_NAME_REQUIRED` also maps to exit 2. The claim is ONE attempt and
-  `WORKER_NAME_TAKEN` (exit 5) is the answer, not a retry — `worker list`
-  shows what is taken. A bare `--role` used to allocate from the role's
+  `WORKER_NAME_TAKEN` (exit 5) is the answer, not a retry — `worker list
+  --include-retired` shows what is taken, and the `--include-retired` is
+  load-bearing: retired workers keep their names forever, so the default
+  listing under-reports it. A bare `--role` used to allocate from the role's
   cast-list register; **that register is gone**, so it no longer casts.
   Two consequences of the same removal: `--team-agent` is gone from `cast`
   (casting reads no system memory now, so the flag had become
