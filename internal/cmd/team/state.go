@@ -175,7 +175,10 @@ func writeBinding(ctx context.Context, b *binding) (string, error) {
 // So: re-read, confirm it is still the same session, set the one field, write.
 // This narrows the race to the gap between this read and this write rather
 // than closing it — there is no lock on the binding file, and giving it one is
-// a change for every writer, not this one. Best-effort throughout: the caller
+// a change for EVERY writer including clearBinding (a lock three of four
+// writers respect is not a lock), with stale-lock and timeout policy of its
+// own. Tracked as #499; the CAS sketch there is probably the better fit.
+// Best-effort throughout: the caller
 // has already delivered the messages, and a failed bookkeeping write must not
 // turn that into an error.
 func recordChatWatermark(ctx context.Context, sessionID string, seq int) {
