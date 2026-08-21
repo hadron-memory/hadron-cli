@@ -877,7 +877,10 @@ Conventions:
   the moment before you publish something durable is the last point a missed
   decision can still change what you do. `chat read` records that watermark on
   the binding; never having read is reported as its own state rather than as a
-  count, since it is the louder one. Best-effort: the milestone is already
+  count, since it is the louder one — and phrased as what THIS WORKTREE knows,
+  because the watermark is binding-local and a read made through the MCP tools
+  never reaches it (a nudge that is sometimes wrong trains people to ignore the
+  one that is right). Best-effort: the milestone is already
   recorded when it runs, so a failed or unreadable chat never fails the log,
   and `session log --json` is untouched. `whoami --json` gains one optional
   key, `chatSeenSeq` — additive and `omitempty`, so it is simply absent on a

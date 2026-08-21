@@ -548,8 +548,19 @@ func noteUnreadTeamChat(ctx context.Context, f *cmdutil.Factory, b *binding) {
 	// form. Say so plainly rather than reporting a count against seq 0, which
 	// would read as ordinary backlog.
 	if b.ChatSeenSeq == 0 {
+		// Says only what the CLI KNOWS. The watermark lives in this worktree's
+		// binding, so a read performed through the MCP tools — the surface this
+		// team predominantly works from — never reaches it, and asserting "you
+		// have not read" to a worker who just did is a FALSE nudge. Reported
+		// live against this feature before it merged (team chat seq 102) by a
+		// worker in exactly that mixed mode.
+		//
+		// The distinction is not pedantry: a nudge that is sometimes wrong
+		// trains people to ignore the one that is right, which is the whole
+		// value being built here.
 		fmt.Fprintf(f.IOStreams.ErrOut,
-			"note: you have not read the team chat in this worker session — `hadron team chat read --since 0`\n")
+			"note: this worktree has no record of reading the team chat — `hadron team chat read --since 0` "+
+				"(a read made through the MCP tools is not visible here)\n")
 		return
 	}
 	one := 1
@@ -627,7 +638,11 @@ It also tells you what landed in the TEAM CHAT while you were heads-down
 the moment before you publish something durable, which is the last point a
 decision you missed can still change what you do. Best-effort and on
 stderr: the milestone is already recorded by the time it runs, so it never
-fails the write, and --json is untouched.`,
+fails the write, and --json is untouched.
+
+The watermark is this WORKTREE's: a read made through the MCP tools does
+not reach it, so the note reports what this worktree knows rather than
+what you have read. A cross-surface watermark is a server-side question.`,
 		Example: `  hadron team session log --pr 371
   hadron team session log --pr acme/widgets#7 --action merged
   hadron team session log --commit 93200b2 --action pushed

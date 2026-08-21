@@ -2528,6 +2528,49 @@ func TestTeamChatReadRecordsTheWatermark(t *testing.T) {
 	}
 }
 
+// The SEAM between the two halves (#474, reported live at team-chat seq 102 by
+// a worker who read the chat and was then told it had not). Both halves were
+// tested in isolation; the handover between them was not, which is exactly
+// where the reported failure lives.
+func TestTeamChatReadThenSessionLogSeesTheWatermark(t *testing.T) {
+	dir := teamGitDir(t)
+	path := filepath.Join(dir, "hadron-team-session.json")
+	if err := os.WriteFile(path, []byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, _ := captureGraphQL(t, map[string]string{
+		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":1,"items":[` + teamChatMsgJSON + `]}}}`,
+		"TeamAppIdentity":  teamAppIdentityJSON,
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
+			"tool":"claude-code","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
+			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
+	})
+
+	// 1. read the chat, exactly as the procedure's step 4 says
+	f1, _ := testFactory(t)
+	r1 := NewRootCmd(f1)
+	r1.SetArgs([]string{"team", "chat", "read", "--since", "0", "--server", gql.URL})
+	if err := r1.Execute(); err != nil {
+		t.Fatalf("chat read: %v", err)
+	}
+
+	// 2. log a milestone in the SAME binding
+	f2, _ := testFactory(t)
+	errOut := f2.IOStreams.ErrOut.(*strings.Builder)
+	r2 := NewRootCmd(f2)
+	r2.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
+	if err := r2.Execute(); err != nil {
+		t.Fatalf("session log: %v", err)
+	}
+	if strings.Contains(errOut.String(), "no record of reading the team chat") {
+		t.Errorf("a read in this same worker session must count — false nudge:\n%s", errOut.String())
+	}
+}
+
 func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
 	logStubs := map[string]string{
 		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u1",
@@ -2566,8 +2609,13 @@ func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
 		if err := root.Execute(); err != nil {
 			t.Fatalf("execute: %v", err)
 		}
-		if !strings.Contains(errOut.String(), "you have not read the team chat in this worker session") {
+		if !strings.Contains(errOut.String(), "this worktree has no record of reading the team chat") {
 			t.Errorf("want the never-read note, got %q", errOut.String())
+		}
+		// Claims only what the CLI knows — an MCP-side read is invisible here,
+		// so asserting the worker never read would be a false nudge (seq 102).
+		if !strings.Contains(errOut.String(), "MCP tools is not visible here") {
+			t.Errorf("the note must name its own blind spot: %q", errOut.String())
 		}
 		// And it costs nothing: no count query is worth issuing for that answer.
 		if _, called := captured["TeamChatMessages"]; called {
