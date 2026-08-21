@@ -872,6 +872,37 @@ Conventions:
   provenance a merged PR traces back through goes false silently. The guard
   catches a second BINDING only — a second agent working unbound in the same
   checkout does identical damage and nothing fires.
+  `session log` additionally prints a **stderr** note counting team-chat
+  messages since you last ran `chat read`, and how many mention you (#474) —
+  the moment before you publish something durable is the last point a missed
+  decision can still change what you do. `chat read` records that watermark on
+  the binding, but ONLY for an unfiltered read of the binding's own App that
+  rendered successfully: a `--mentions`/`--mentions-me` read skips the
+  messages in between, a `--app <other>` read is not this binding's cursor
+  (compared by canonical App id, so the same App named as a URN still counts —
+  paired with a server check, since App ids are unique within a deployment and
+  not across them),
+  and output that never reached you — a closed pipe, a full disk, at any point
+  in the render — was not read. It is also NOT `nextSince`
+  — that is a paging cursor, answering "where do I resume"; the watermark is a
+  claim about what you have SEEN. It advances only when the read was
+  CONTIGUOUS with what the binding already holds (starting at or before the
+  current watermark, or at 0 when there is none) and only to a seq the server
+  actually returned. So `--since` ahead of the watermark reads a window rather
+  than a prefix and records nothing — it would otherwise bury the gap it
+  skipped while reporting you as caught up. Never having read is
+  reported as its own state rather than as a count, since it is the louder one
+  — and phrased as what THIS WORKTREE knows, because the watermark is
+  binding-local and a read made through the MCP tools never reaches it (a nudge
+  that is sometimes wrong trains people to ignore the one that is right). For
+  the same reason the note omits the mentions clause when that query fails —
+  or returns a count EXCEEDING the total, which two round trips against an
+  append-only sequence can produce and which is impossible rather than merely
+  stale — rather than reporting the unknown as "none". Best-effort: the milestone is
+  already recorded when it runs, so a failed or unreadable chat never fails the
+  log, and `session log --json` is untouched. `whoami --json` gains one optional
+  key, `chatSeenSeq` — additive and `omitempty`, so it is absent on a binding
+  that has never read, and `0` on one that read a chat with nothing in it.
   `session end [--summary <s>]` ends the bound worker session — the worker is freed
   unless another active worker session still holds it (check `session list
   --active`). `end --session <id>` is the recovery path when the binding is

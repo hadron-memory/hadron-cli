@@ -2336,6 +2336,12 @@ func TestTeamChatPostReceiptNamesTheChat(t *testing.T) {
 // and an agent posting from an ambient context is the exposed caller — but it
 // goes to stderr, so the --json stdout contract is untouched either way.
 func TestTeamChatJSONKeepsItsShape(t *testing.T) {
+	// SANDBOXED even though this test writes no binding: without it the command
+	// reads whatever binding the developer's own checkout happens to hold, and
+	// `chat read` behaves differently bound than unbound. It passed on CI and
+	// failed on a bound worktree — the worst way round, since CI is the copy
+	// nobody watches for false greens (found while fixing PR #493).
+	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
 		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":1,"items":[` + teamChatMsgJSON + `]}}}`,
 		"TeamAppIdentity":  teamAppIdentityJSON,
@@ -2483,6 +2489,604 @@ func TestTeamSessionWhoamiUnboundIsNotFound(t *testing.T) {
 // `session log --pr` writes the worklog milestone (canonical normalized ref,
 // flat fields) AND denormalizes onto Session.prNumber, keeping the local
 // binding's history for whoami.
+// A binding that HAS read the team chat, watermark at seq 90.
+const bindingChatSeenFixture = `{"sessionId":"s-new","workerId":"wkr1","workerName":"Iris","workerRole":"backend-engineer",
+	"agentId":"agt1","appId":"app1","startedAt":"2026-08-11T10:00:00Z","appBound":true,
+	"teamMemory":"hrn:mem:acme.com:eng-team","tool":"claude-code","chatSeenSeq":90,
+	"repo":"hadron-memory/hadron-cli","prNumbers":[]}`
+
+// #474: `session log` fires right before a worker publishes something durable,
+// so it is where a missed decision can still change what they do. The role
+// prompts already say "read everything" — the rule existed and did not hold,
+// because nothing interrupts a focused worker to apply it.
+// The other half of #474's loop: `chat read` records the watermark, or
+// `session log` has nothing to compare against and the signal never advances
+// past "you have not read".
+func TestTeamChatReadRecordsTheWatermark(t *testing.T) {
+	dir := teamGitDir(t)
+	path := filepath.Join(dir, "hadron-team-session.json")
+	if err := os.WriteFile(path, []byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, _ := captureGraphQL(t, map[string]string{
+		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":1,"items":[` + teamChatMsgJSON + `]}}}`,
+		"TeamAppIdentity":  teamAppIdentityJSON,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read binding: %v", err)
+	}
+	var b struct {
+		ChatSeenSeq int `json:"chatSeenSeq"`
+	}
+	if err := json.Unmarshal(data, &b); err != nil {
+		t.Fatalf("binding: %v", err)
+	}
+	// teamChatMsgJSON is seq 8 — the watermark is what was actually returned.
+	if b.ChatSeenSeq != 8 {
+		t.Errorf("chat read must record the watermark it returned, got %d", b.ChatSeenSeq)
+	}
+}
+
+// The watermark is a claim about what the reader has SEEN, and three ways of
+// getting it wrong survived the first round of #474 (PR #493 review). Each
+// subtest below fails if its guard is removed — the whole value of the nudge
+// is that it is never wrong, so a watermark that overstates is worse than none.
+func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
+	bind := func(t *testing.T) string {
+		t.Helper()
+		dir := teamGitDir(t)
+		path := filepath.Join(dir, "hadron-team-session.json")
+		if err := os.WriteFile(path, []byte(bindingWithTeamFixture), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	// seq, or -1 for "absent" — the two are different answers (never read vs
+	// read a chat that was empty) and the field is a pointer to keep them apart.
+	watermark := func(t *testing.T, path string) int {
+		t.Helper()
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read binding: %v", err)
+		}
+		var b struct {
+			ChatSeenSeq *int `json:"chatSeenSeq"`
+		}
+		if err := json.Unmarshal(data, &b); err != nil {
+			t.Fatalf("binding: %v", err)
+		}
+		if b.ChatSeenSeq == nil {
+			return -1
+		}
+		return *b.ChatSeenSeq
+	}
+	oneMessage := map[string]string{
+		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":1,"items":[` + teamChatMsgJSON + `]}}}`,
+		"TeamAppIdentity":  teamAppIdentityJSON,
+	}
+	read := func(t *testing.T, stubs map[string]string, args ...string) {
+		t.Helper()
+		gql, _ := captureGraphQL(t, stubs)
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"team", "chat", "read", "--server", gql.URL}, args...))
+		if err := root.Execute(); err != nil {
+			t.Fatalf("chat read: %v", err)
+		}
+	}
+
+	// A FILTERED read sees only matching messages, so its highest seq says
+	// nothing about the ones in between. Recording it would mark them read
+	// forever — the reader is then told they are caught up on messages they
+	// were never shown, which is the one failure this feature exists to prevent.
+	t.Run("a mentions-filtered read records nothing", func(t *testing.T) {
+		path := bind(t)
+		read(t, oneMessage, "--mentions-me")
+		if got := watermark(t, path); got != -1 {
+			t.Errorf("a --mentions-me read must not claim the whole chat, got watermark %d", got)
+		}
+	})
+	t.Run("an explicit --mentions read records nothing", func(t *testing.T) {
+		path := bind(t)
+		read(t, oneMessage, "--mentions", "wkr9")
+		if got := watermark(t, path); got != -1 {
+			t.Errorf("a --mentions read must not claim the whole chat, got watermark %d", got)
+		}
+	})
+
+	// The binding holds ONE App's cursor. Reading a different team through the
+	// same worktree would file that team's seq under this one.
+	t.Run("another App's read stays out of this binding", func(t *testing.T) {
+		path := bind(t)
+		read(t, map[string]string{
+			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":1,"items":[` + teamChatMsgJSON + `]}}}`,
+			// Resolves to a DIFFERENT id than the binding's app1 — the whole
+			// question the guard asks. A fixture that resolved everything to
+			// app1 would pass no matter what the guard did.
+			"TeamAppIdentity": `{"data":{"app":{"id":"app2","urn":"hrn:app:acme.com:other-team","name":"Other Team"}}}`,
+		}, "--app", "app2")
+		if got := watermark(t, path); got != -1 {
+			t.Errorf("app2's seq must not land in app1's binding, got %d", got)
+		}
+	})
+	// ...and the guard is "a DIFFERENT App", not "any --app": naming the
+	// binding's own App explicitly is the same read and must still record.
+	t.Run("naming the bound App explicitly still records", func(t *testing.T) {
+		path := bind(t)
+		read(t, oneMessage, "--app", "app1")
+		if got := watermark(t, path); got != 8 {
+			t.Errorf("--app app1 is the bound App — want watermark 8, got %d", got)
+		}
+	})
+	// The same App SPELLED differently is still the same App. `--app <urn>` and
+	// `hadron app set-active <app-urn>` are the documented ways to name one, and
+	// a raw string compare against the binding's server id calls them a
+	// different team — pinning the watermark forever, so `session log` claims on
+	// every run that this worktree has never read the chat. A nudge that is
+	// always wrong is ignored, which costs more than the case it guards.
+	t.Run("the bound App named by URN still records", func(t *testing.T) {
+		path := bind(t)
+		read(t, oneMessage, "--app", "hrn:app:acme.com:eng-team")
+		if got := watermark(t, path); got != 8 {
+			t.Errorf("that URN resolves to app1, the bound App — want 8, got %d", got)
+		}
+	})
+
+	// `nextSince` is a PAGING cursor and falls back to whatever the caller
+	// passed; the watermark is a claim about what was SEEN. Conflating them let
+	// a typo'd or stale `--since` mark the team's next year of messages read.
+	t.Run("a --since past the end records nothing", func(t *testing.T) {
+		path := bind(t)
+		read(t, map[string]string{
+			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":0,"items":[]}}}`,
+			"TeamAppIdentity":  teamAppIdentityJSON,
+		}, "--since", "999")
+		if got := watermark(t, path); got != -1 {
+			t.Errorf("the server returned no seq 999 — nothing was seen, got watermark %d", got)
+		}
+	})
+	t.Run("a --since past the end does not move an existing watermark", func(t *testing.T) {
+		dir := teamGitDir(t)
+		path := filepath.Join(dir, "hadron-team-session.json")
+		if err := os.WriteFile(path, []byte(bindingChatSeenFixture), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		read(t, map[string]string{
+			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":0,"items":[]}}}`,
+			"TeamAppIdentity":  teamAppIdentityJSON,
+		}, "--since", "999")
+		if got := watermark(t, path); got != 90 {
+			t.Errorf("want the watermark left at 90, got %d", got)
+		}
+	})
+
+	// The watermark says the reader HAS SEEN these messages. A closed pipe or a
+	// full disk means they have not, and marking them read would bury them.
+	t.Run("a failed render records nothing", func(t *testing.T) {
+		path := bind(t)
+		gql, _ := captureGraphQL(t, oneMessage)
+		f, _ := testFactory(t)
+		f.IOStreams.Out = brokenWriter{}
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "chat", "read", "--server", gql.URL})
+		if err := root.Execute(); err == nil {
+			t.Fatal("a failed render must surface as an error")
+		}
+		if got := watermark(t, path); got != -1 {
+			t.Errorf("the messages were never delivered — got watermark %d", got)
+		}
+	})
+
+	// A `--since` AHEAD of the watermark is a window, not a prefix. The seqs it
+	// returns are real, which is what makes this one slip past a
+	// "server-verified" rule — but everything between the old watermark and the
+	// --since was never rendered, and recording the top of the window buries it
+	// while reporting the reader as caught up.
+	t.Run("a --since ahead of the watermark does not jump the gap", func(t *testing.T) {
+		dir := teamGitDir(t)
+		path := filepath.Join(dir, "hadron-team-session.json")
+		if err := os.WriteFile(path, []byte(bindingChatSeenFixture), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		// Watermark 90, reading from 100: seq 101 comes back, 91–100 never do.
+		read(t, map[string]string{
+			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":1,"items":[` +
+				strings.Replace(teamChatMsgJSON, `"seq":8`, `"seq":101`, 1) + `]}}}`,
+			"TeamAppIdentity": teamAppIdentityJSON,
+		}, "--since", "100")
+		if got := watermark(t, path); got != 90 {
+			t.Errorf("91-100 were never shown — the watermark must stay at 90, got %d", got)
+		}
+	})
+	// …but a --since BEHIND the watermark is a prefix: it re-reads ground already
+	// claimed, so what it returns above the watermark really has been seen.
+	t.Run("a --since behind the watermark still advances", func(t *testing.T) {
+		dir := teamGitDir(t)
+		path := filepath.Join(dir, "hadron-team-session.json")
+		if err := os.WriteFile(path, []byte(bindingChatSeenFixture), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		read(t, map[string]string{
+			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":1,"items":[` +
+				strings.Replace(teamChatMsgJSON, `"seq":8`, `"seq":95`, 1) + `]}}}`,
+			"TeamAppIdentity": teamAppIdentityJSON,
+		}, "--since", "50")
+		if got := watermark(t, path); got != 95 {
+			t.Errorf("50 is behind the watermark, so 95 was genuinely seen — got %d", got)
+		}
+	})
+
+	// App ids are unique WITHIN a deployment, not across them — a clone or a
+	// restore carries them over — so the id check alone lets a second server's
+	// seq into this binding. Reading another deployment is legitimate (`chat
+	// post` and the session mutations refuse it; a read does not), so it is only
+	// the bookkeeping that has to stay out.
+	t.Run("a cross-server read stays out of this binding", func(t *testing.T) {
+		dir := teamGitDir(t)
+		path := filepath.Join(dir, "hadron-team-session.json")
+		// Bound to a server that is NOT the fake this read will target.
+		bound := strings.Replace(bindingWithTeamFixture, `"appBound":true`,
+			`"appBound":true,"server":"https://elsewhere.example"`, 1)
+		if err := os.WriteFile(path, []byte(bound), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		read(t, oneMessage)
+		if got := watermark(t, path); got != -1 {
+			t.Errorf("another deployment's seq must not land here, got %d", got)
+		}
+	})
+
+	// The watermark write lands AFTER a paginated fetch and a full render, so
+	// the snapshot it started from can be seconds old — and two agents in one
+	// worktree is the normal case here. Writing the whole snapshot back would
+	// undo whatever landed in between. These two interleave a real concurrent
+	// mutation by mutating the binding from inside the GraphQL handler, which is
+	// exactly the window that matters.
+	concurrently := func(t *testing.T, during func()) {
+		t.Helper()
+		gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				OperationName string `json:"operationName"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			during() // another agent, mid-fetch
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(oneMessage[body.OperationName]))
+		}))
+		t.Cleanup(gql.Close)
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "chat", "read", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("chat read: %v", err)
+		}
+	}
+
+	t.Run("a concurrent binding edit is not clobbered", func(t *testing.T) {
+		path := bind(t)
+		concurrently(t, func() {
+			// A `session log --pr` in the sibling agent's session.
+			edited := strings.Replace(bindingWithTeamFixture, `"prNumbers":[]`, `"prNumbers":[371]`, 1)
+			_ = os.WriteFile(path, []byte(edited), 0o600)
+		})
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got struct {
+			ChatSeenSeq *int  `json:"chatSeenSeq"`
+			PRNumbers   []int `json:"prNumbers"`
+		}
+		if err := json.Unmarshal(data, &got); err != nil {
+			t.Fatal(err)
+		}
+		if got.ChatSeenSeq == nil || *got.ChatSeenSeq != 8 {
+			t.Errorf("the watermark must still land: %v", got.ChatSeenSeq)
+		}
+		if len(got.PRNumbers) != 1 || got.PRNumbers[0] != 371 {
+			t.Errorf("the concurrent PR number must survive, got %v", got.PRNumbers)
+		}
+	})
+
+	// The worse half: a wholesale write would RESURRECT a binding that
+	// `session end` removed, leaving a worktree bound to a closed session.
+	t.Run("a binding ended mid-read is not resurrected", func(t *testing.T) {
+		path := bind(t)
+		concurrently(t, func() { _ = os.Remove(path) })
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Errorf("`session end` removed this binding — it must stay removed (stat err: %v)", err)
+		}
+	})
+
+	// …and a render that gets PART way is the same story. The header write was
+	// checked; the message loop discarded its error, so a pipe closing after the
+	// first line left `output.Write` returning nil and the messages marked read.
+	t.Run("a render that fails mid-way records nothing", func(t *testing.T) {
+		path := bind(t)
+		gql, _ := captureGraphQL(t, oneMessage)
+		f, _ := testFactory(t)
+		f.IOStreams.Out = &flakyWriter{ok: 1} // the "app:" header lands, the message does not
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "chat", "read", "--server", gql.URL})
+		if err := root.Execute(); err == nil {
+			t.Fatal("a message that could not be written must surface as an error")
+		}
+		if got := watermark(t, path); got != -1 {
+			t.Errorf("the messages were never delivered — got watermark %d", got)
+		}
+	})
+
+	// An empty chat is READ, not unread. On a bare int, 0 meant both, so a team
+	// whose chat had nothing in it yet could never be marked read and every
+	// later `session log` nagged about it.
+	t.Run("reading an empty chat is recorded as seq 0", func(t *testing.T) {
+		path := bind(t)
+		read(t, map[string]string{
+			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":0,"items":[]}}}`,
+			"TeamAppIdentity":  teamAppIdentityJSON,
+		})
+		if got := watermark(t, path); got != 0 {
+			t.Errorf("an empty chat was still read — want recorded 0, got %d", got)
+		}
+	})
+}
+
+// The SEAM between the two halves (#474, reported live at team-chat seq 102 by
+// a worker who read the chat and was then told it had not). Both halves were
+// tested in isolation; the handover between them was not, which is exactly
+// where the reported failure lives.
+func TestTeamChatReadThenSessionLogSeesTheWatermark(t *testing.T) {
+	dir := teamGitDir(t)
+	path := filepath.Join(dir, "hadron-team-session.json")
+	if err := os.WriteFile(path, []byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, _ := captureGraphQL(t, map[string]string{
+		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":1,"items":[` + teamChatMsgJSON + `]}}}`,
+		"TeamAppIdentity":  teamAppIdentityJSON,
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
+			"tool":"claude-code","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
+			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
+	})
+
+	// 1. read the chat, exactly as the procedure's step 4 says
+	f1, _ := testFactory(t)
+	r1 := NewRootCmd(f1)
+	r1.SetArgs([]string{"team", "chat", "read", "--since", "0", "--server", gql.URL})
+	if err := r1.Execute(); err != nil {
+		t.Fatalf("chat read: %v", err)
+	}
+
+	// 2. log a milestone in the SAME binding
+	f2, _ := testFactory(t)
+	errOut := f2.IOStreams.ErrOut.(*strings.Builder)
+	r2 := NewRootCmd(f2)
+	r2.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
+	if err := r2.Execute(); err != nil {
+		t.Fatalf("session log: %v", err)
+	}
+	if strings.Contains(errOut.String(), "no record of reading the team chat") {
+		t.Errorf("a read in this same worker session must count — false nudge:\n%s", errOut.String())
+	}
+}
+
+func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
+	logStubs := map[string]string{
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
+			"tool":"claude-code","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
+			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
+	}
+	bind := func(t *testing.T, fixture string) {
+		t.Helper()
+		dir := teamGitDir(t)
+		if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(fixture), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	stubs := func(extra map[string]string) map[string]string {
+		m := map[string]string{}
+		for k, v := range logStubs {
+			m[k] = v
+		}
+		for k, v := range extra {
+			m[k] = v
+		}
+		return m
+	}
+
+	t.Run("never read is a louder state than nothing new", func(t *testing.T) {
+		bind(t, bindingWithTeamFixture) // no chatSeenSeq
+		gql, captured := captureGraphQL(t, stubs(nil))
+		f, _ := testFactory(t)
+		errOut := f.IOStreams.ErrOut.(*strings.Builder)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if !strings.Contains(errOut.String(), "this worktree has no record of reading the team chat") {
+			t.Errorf("want the never-read note, got %q", errOut.String())
+		}
+		// Claims only what the CLI knows — an MCP-side read is invisible here,
+		// so asserting the worker never read would be a false nudge (seq 102).
+		if !strings.Contains(errOut.String(), "MCP tools is not visible here") {
+			t.Errorf("the note must name its own blind spot: %q", errOut.String())
+		}
+		// And it costs nothing: no count query is worth issuing for that answer.
+		if _, called := captured["TeamChatMessages"]; called {
+			t.Error("the never-read branch must not query the chat")
+		}
+	})
+
+	t.Run("counts what landed since the watermark", func(t *testing.T) {
+		bind(t, bindingChatSeenFixture)
+		gql, captured := captureGraphQL(t, stubs(map[string]string{
+			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":8,"items":[]}}}`,
+		}))
+		f, out := testFactory(t)
+		errOut := f.IOStreams.ErrOut.(*strings.Builder)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--json", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if !strings.Contains(errOut.String(), "8 new messages in the team chat since you last read") {
+			t.Errorf("want the count, got %q", errOut.String())
+		}
+		if !strings.Contains(errOut.String(), "chat read --since 90") {
+			t.Errorf("the remedy must carry the watermark: %q", errOut.String())
+		}
+		// Counted FROM the watermark, not from zero.
+		var vars map[string]any
+		_ = json.Unmarshal(captured["TeamChatMessages"], &vars)
+		if vars["sinceSeq"] != float64(90) {
+			t.Errorf("must count since the read watermark: %v", vars)
+		}
+		// stderr only — the --json stdout contract is untouched.
+		var dto map[string]any
+		if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+			t.Fatalf("--json must stay parseable: %v (%s)", err, out.String())
+		}
+		if dto["ref"] != "hadron-memory/hadron-cli#371" {
+			t.Errorf("the receipt must survive: %s", out.String())
+		}
+	})
+
+	t.Run("silent when caught up", func(t *testing.T) {
+		bind(t, bindingChatSeenFixture)
+		gql, _ := captureGraphQL(t, stubs(map[string]string{
+			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":0,"items":[]}}}`,
+		}))
+		f, _ := testFactory(t)
+		errOut := f.IOStreams.ErrOut.(*strings.Builder)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if strings.Contains(errOut.String(), "team chat") {
+			t.Errorf("nothing new must say nothing: %q", errOut.String())
+		}
+	})
+
+	// "none mentioning you" is the clause that decides whether the reader stops
+	// to look. If the mentions query FAILED, the honest answer is "unknown", and
+	// stating the reassuring one as fact is how a worker walks past the message
+	// addressed to them (PR #493 review). The count query succeeded, so the
+	// count is still worth saying — the clause is dropped, not the note.
+	t.Run("a failed mentions query says nothing rather than none", func(t *testing.T) {
+		bind(t, bindingChatSeenFixture)
+		// Both halves are the same operation, so this fake keys on the variable
+		// that tells them apart rather than on the operation name.
+		gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				OperationName string `json:"operationName"`
+				Variables     struct {
+					MentionsRef *string `json:"mentionsRef"`
+				} `json:"variables"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			w.Header().Set("Content-Type", "application/json")
+			switch {
+			case body.OperationName != "TeamChatMessages":
+				_, _ = w.Write([]byte(logStubs[body.OperationName]))
+			case body.Variables.MentionsRef != nil:
+				_, _ = w.Write([]byte(`{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`))
+			default:
+				_, _ = w.Write([]byte(`{"data":{"teamChatMessages":{"total":8,"items":[]}}}`))
+			}
+		}))
+		t.Cleanup(gql.Close)
+		f, _ := testFactory(t)
+		errOut := f.IOStreams.ErrOut.(*strings.Builder)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if !strings.Contains(errOut.String(), "8 new messages in the team chat since you last read") {
+			t.Errorf("the count query succeeded — its answer must survive: %q", errOut.String())
+		}
+		if strings.Contains(errOut.String(), "mentioning you") {
+			t.Errorf("the mentions query failed — the answer is unknown, not none: %q", errOut.String())
+		}
+	})
+
+	// The two counts are separate round trips against an append-only sequence,
+	// so a message arriving between them can make the mentions count exceed the
+	// total. "1 new message (2 mentioning you)" is not merely stale — it is
+	// impossible, and an impossible receipt is the kind readers stop believing.
+	t.Run("an impossible pair of counts drops the clause", func(t *testing.T) {
+		bind(t, bindingChatSeenFixture)
+		gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				OperationName string `json:"operationName"`
+				Variables     struct {
+					MentionsRef *string `json:"mentionsRef"`
+				} `json:"variables"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			w.Header().Set("Content-Type", "application/json")
+			switch {
+			case body.OperationName != "TeamChatMessages":
+				_, _ = w.Write([]byte(logStubs[body.OperationName]))
+			case body.Variables.MentionsRef != nil:
+				// Two mentions, against a total of one taken a moment earlier.
+				_, _ = w.Write([]byte(`{"data":{"teamChatMessages":{"total":2,"items":[]}}}`))
+			default:
+				_, _ = w.Write([]byte(`{"data":{"teamChatMessages":{"total":1,"items":[]}}}`))
+			}
+		}))
+		t.Cleanup(gql.Close)
+		f, _ := testFactory(t)
+		errOut := f.IOStreams.ErrOut.(*strings.Builder)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if !strings.Contains(errOut.String(), "1 new message in the team chat") {
+			t.Errorf("the total still stands: %q", errOut.String())
+		}
+		if strings.Contains(errOut.String(), "mentioning you") {
+			t.Errorf("2 of 1 is impossible — say nothing rather than nonsense: %q", errOut.String())
+		}
+	})
+
+	// The milestone is already recorded server-side by the time this runs, so a
+	// failed courtesy read must never turn a successful write into a failure.
+	t.Run("a failing chat read does not fail the log", func(t *testing.T) {
+		bind(t, bindingChatSeenFixture)
+		gql, _ := captureGraphQL(t, stubs(map[string]string{
+			"TeamChatMessages": `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`,
+		}))
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("the milestone was already recorded — the note must not fail it: %v", err)
+		}
+		if !strings.Contains(out.String(), "✓ logged pr") {
+			t.Errorf("the receipt must still print: %s", out.String())
+		}
+	})
+}
+
 func TestTeamSessionLogWritesWorklogAndSession(t *testing.T) {
 	dir := teamGitDir(t)
 	path := filepath.Join(dir, "hadron-team-session.json")
@@ -4053,4 +4657,21 @@ func TestTeamInitReportsWhereTheDeclarationLanded(t *testing.T) {
 	if calls != 1 {
 		t.Errorf("expected exactly one GetMemory (the -m class check), got %d", calls)
 	}
+}
+
+// brokenWriter is stdout that cannot be written — a closed pipe, a full disk.
+type brokenWriter struct{}
+
+func (brokenWriter) Write([]byte) (int, error) { return 0, errors.New("broken pipe") }
+
+// flakyWriter accepts `ok` writes, then fails — a pipe that closes partway
+// through a render, which is not the same case as one that was never open.
+type flakyWriter struct{ ok int }
+
+func (w *flakyWriter) Write(p []byte) (int, error) {
+	if w.ok <= 0 {
+		return 0, errors.New("broken pipe")
+	}
+	w.ok--
+	return len(p), nil
 }

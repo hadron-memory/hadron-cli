@@ -517,6 +517,111 @@ type logResultDTO struct {
 	Recorded string `json:"recorded"`
 }
 
+// noteUnreadTeamChat tells a heads-down worker what landed in the team chat
+// while they were not looking (#474, @Ada's option 2).
+//
+// WHY HERE. The role prompts already say "read everything, not just what
+// mentions you" — the rule existed and did not hold, because nothing
+// interrupts a focused worker to apply it. `session log` fires at exactly the
+// moments a worker is about to publish something durable, and it already talks
+// to the server, so it is the one place a signal costs nothing to deliver and
+// arrives when it still changes a decision. That is the same argument as
+// #468/#469/#470: put it in the reader's path.
+//
+// STDERR, always: the --json stdout contract is untouched, and an agent piping
+// a milestone write is exactly the caller most likely to have missed a ruling.
+//
+// BEST-EFFORT, always: a milestone is already recorded server-side by the time
+// this runs. A courtesy read that fails, or a worktree with no App, must not
+// turn a successful write into a failure — so every path here returns silently.
+func noteUnreadTeamChat(ctx context.Context, f *cmdutil.Factory, b *binding) {
+	if b == nil || b.AppID == "" {
+		return // pre-#399 binding: no App to address the chat with.
+	}
+	client, err := f.GraphQLClient()
+	if err != nil {
+		return
+	}
+	// Never read through this binding is a LOUDER state than "nothing new", and
+	// a distinct one: it is what Gil was in when a ratified commit-trailer
+	// change had been in the chat four hours before he merged with the retired
+	// form. Say so plainly rather than reporting a count against seq 0, which
+	// would read as ordinary backlog.
+	if b.ChatSeenSeq == nil {
+		// Says only what the CLI KNOWS. The watermark lives in this worktree's
+		// binding, so a read performed through the MCP tools — the surface this
+		// team predominantly works from — never reaches it, and asserting "you
+		// have not read" to a worker who just did is a FALSE nudge. Reported
+		// live against this feature before it merged (team chat seq 102) by a
+		// worker in exactly that mixed mode.
+		//
+		// The distinction is not pedantry: a nudge that is sometimes wrong
+		// trains people to ignore the one that is right, which is the whole
+		// value being built here.
+		fmt.Fprintf(f.IOStreams.ErrOut,
+			"note: this worktree has no record of reading the team chat — `hadron team chat read --since 0` "+
+				"(a read made through the MCP tools is not visible here)\n")
+		return
+	}
+	seen := *b.ChatSeenSeq
+	one := 1
+	resp, err := gen.TeamChatMessages(ctx, client, b.AppID, &seen, nil, &one, nil)
+	if err != nil || resp.TeamChatMessages == nil || resp.TeamChatMessages.Total == 0 {
+		return // caught up, or unreadable — either way, nothing useful to say.
+	}
+	total := resp.TeamChatMessages.Total
+
+	// The mentions count is a SECOND query rather than a client-side filter,
+	// because the server owns mention resolution (hadron-server#979: a token
+	// may match several workers, and matching is not ours to reimplement).
+	// Cheap: total is exact under limit 1, verified against the live server —
+	// and asked only once the total says there is something to qualify, so the
+	// steady state (caught up) stays one round trip.
+	//
+	// Two ways the answer can be wrong, and both resolve to the same thing:
+	//
+	//   - the query FAILED, so the count is unknown;
+	//   - the query SUCCEEDED but a message arrived between the two round
+	//     trips, so mentions can exceed the earlier total — "1 new message
+	//     (2 mentioning you)" is not merely stale, it is impossible, and an
+	//     impossible receipt is the kind readers stop believing.
+	//
+	// Both print the count without the clause. "none mentioning you" is the
+	// phrase that decides whether the reader stops to look, so it is only ever
+	// said when it is actually known (PR #493 review).
+	mentions, mentionsKnown := 0, false
+	if b.WorkerID != "" {
+		if m, merr := gen.TeamChatMessages(ctx, client, b.AppID, &seen, &b.WorkerID, &one, nil); merr == nil && m.TeamChatMessages != nil {
+			mentions, mentionsKnown = m.TeamChatMessages.Total, m.TeamChatMessages.Total <= total
+		}
+	}
+	detail := ""
+	if mentionsKnown {
+		detail = " (" + pluralMentions(mentions) + ")"
+	}
+	fmt.Fprintf(f.IOStreams.ErrOut,
+		"note: %s in the team chat since you last read%s — `hadron team chat read --since %d`\n",
+		pluralMessages(total), detail, seen)
+}
+
+func pluralMessages(n int) string {
+	if n == 1 {
+		return "1 new message"
+	}
+	return fmt.Sprintf("%d new messages", n)
+}
+
+func pluralMentions(n int) string {
+	switch n {
+	case 0:
+		return "none mentioning you"
+	case 1:
+		return "1 mentioning you"
+	default:
+		return fmt.Sprintf("%d mentioning you", n)
+	}
+}
+
 func newCmdSessionLog(f *cmdutil.Factory) *cobra.Command {
 	var pr, issue, commit, branch, action, detail, memory string
 	cmd := &cobra.Command{
@@ -544,7 +649,19 @@ session's recorded --repo (or the git remote). --pr and --branch
 additionally denormalize onto Session.prNumber / Session.branch (latest
 wins; display convenience only). Every logged milestone — issue and
 commit included — counts as session liveness for the inactivity reaper,
-so logging keeps the worker taken while work is in flight.`,
+so logging keeps the worker taken while work is in flight.
+
+It also tells you what landed in the TEAM CHAT while you were heads-down
+(#474): a stderr note counting messages since you last ran
+` + "`chat read`" + `, and how many mention you. This fires here because it is
+the moment before you publish something durable, which is the last point a
+decision you missed can still change what you do. Best-effort and on
+stderr: the milestone is already recorded by the time it runs, so it never
+fails the write, and --json is untouched.
+
+The watermark is this WORKTREE's: a read made through the MCP tools does
+not reach it, so the note reports what this worktree knows rather than
+what you have read. A cross-surface watermark is a server-side question.`,
 		Example: `  hadron team session log --pr 371
   hadron team session log --pr acme/widgets#7 --action merged
   hadron team session log --commit 93200b2 --action pushed
@@ -703,6 +820,10 @@ so logging keeps the worker taken while work is in flight.`,
 					}
 				}
 			}
+			// #474: say what landed in the team chat while you were heads-down.
+			// AFTER the milestone is recorded — this is a courtesy, and it must
+			// never sit between the caller and their write.
+			noteUnreadTeamChat(ctx, f, b)
 			result := logResultDTO{SessionID: b.SessionID, Kind: kind, Ref: canonical, PRNumber: number, Recorded: recorded}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ logged %s %s for session %s (%s)\n", kind, canonical, b.SessionID, recorded)
@@ -765,13 +886,27 @@ func defaultRepo(ctx context.Context, b *binding) string {
 // real session (or hit an unrelated one) while the real session keeps
 // holding its worker.
 func checkBindingServer(f *cmdutil.Factory, b *binding) error {
-	server, _ := f.Server()
-	if b.Server != "" && server != "" && b.Server != server {
-		return exitcode.Newf(exitcode.Usage,
-			"this worktree's session was started against %s, but the current server is %s — rerun with `--server %s`",
-			b.Server, server, b.Server)
+	if bindingServerMatches(f, b) {
+		return nil
 	}
-	return nil
+	server, _ := f.Server()
+	return exitcode.Newf(exitcode.Usage,
+		"this worktree's session was started against %s, but the current server is %s — rerun with `--server %s`",
+		b.Server, server, b.Server)
+}
+
+// bindingServerMatches is the same comparison as a predicate, for the caller
+// that must not REFUSE a cross-server invocation but must not act on it either
+// (PR #493 review). `chat read --server <other>` against a second deployment is
+// a legitimate read; writing that deployment's seq into this binding is not.
+// App ids are not globally unique across deployments — a clone or a restore
+// carries them over — so the id comparison alone cannot catch this.
+func bindingServerMatches(f *cmdutil.Factory, b *binding) bool {
+	if b == nil {
+		return false
+	}
+	server, _ := f.Server()
+	return b.Server == "" || server == "" || b.Server == server
 }
 
 // endResultDTO is the stable --json shape of `session end`.
