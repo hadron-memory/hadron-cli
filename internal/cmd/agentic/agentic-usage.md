@@ -108,8 +108,8 @@ hadron ai-config list [--app <id>] [--agent <id>] | create (--app|--agent|--org 
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
 hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] [--persona-prompt <p>] | update <id> [<field flags>] | rm <id> --yes
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
-hadron team worker cast (--role <role> | --agent <ref>) [--name <n>] [--team-agent <ref>] [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | retire <name-or-id> --yes | rm <name-or-id> --yes
-hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> --names <a,b,c> [--name-range F-J] [--name-convention <text>] [--description <d>] [--allow-out-of-range] [--team-agent <ref>] | update <role> [--name-range <r> | --clear-name-range] [--name-convention <t> | --clear-name-convention] [--description <d>] | names set <role> <n1,n2,...> | names add <role> <name>... | names rm <role> <name>... | names mv <role> <name> <pos> | rm <role> [--transfer-register-to <successor>] [--yes]
+hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | retire <name-or-id> --yes | rm <name-or-id> --yes
+hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
 hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--mentions-me | --mentions <ref>] (uses --app or the binding)
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
@@ -729,99 +729,81 @@ Conventions:
   `team worker cast` mints one in ONE platform call (`castWorker`): the
   server resolves the agent (`--agent`, or `--role` picks the single
   installed agent whose persona role matches — `WORKER_AGENT_NOT_FOUND`
-  exit 4 / `WORKER_AGENT_AMBIGUOUS` exit 2, never a guess), allocates the
-  name (`--name` claims one attempt — `WORKER_NAME_TAKEN` exit 5; otherwise
-  the Team Agent's cast-list register `roles:<role>` → `data.names` is
-  walked server-side — so a fresh App with no register refuses
-  (`TEAM_AGENT_NOT_FOUND`): pass `--name` there; drained register:
-  `WORKER_REGISTER_EXHAUSTED` exit 5;
-  unknown role lists the available roles, `WORKER_ROLE_NOT_FOUND` exit 4),
+  exit 4 / `WORKER_AGENT_AMBIGUOUS` exit 2, never a guess), takes the name,
   binds the template, provisions the worker's working memory, and returns
   the resolved boot briefing (`prompt`), printed on success.
+  **`--name` IS REQUIRED** (hadron-server#1050): a name is permanent for the
+  App (`cor:agt:020:02`), so it is chosen and never derived — the server
+  will not invent a permanent identifier nobody picked. The CLI refuses a
+  nameless cast with exit 2 and the remedy; the server's own
+  `WORKER_NAME_REQUIRED` also maps to exit 2. The claim is ONE attempt and
+  `WORKER_NAME_TAKEN` (exit 5) is the answer, not a retry — `worker list
+  --include-retired` shows what is taken, and the `--include-retired` is
+  load-bearing: retired workers keep their names forever, so the default
+  listing under-reports it. A bare `--role` used to allocate from the role's
+  cast-list register; **that register is gone**, so it no longer casts.
+  Two consequences of the same removal: `--team-agent` is gone from `cast`
+  (casting reads no system memory now, so the flag had become
+  accepted-and-ignored), and `--role` is NO LONGER VALIDATED against defined
+  roles (`cor:agt:020:00` §1 — cast lists are ergonomics, never a gate). An
+  unrecognized role resolves no agent (`WORKER_AGENT_NOT_FOUND`); with an
+  explicit `--agent` it is simply the casting's label.
   `--prompt-override` layers per-worker individuality over the template.
   **`worker cast --dry-run`** (#404, `castWorkerPreview`) runs the cast's
-  EXACT resolution — same arguments, same typed refusals, same mint gate —
-  up to but not including the writes, and shows what would be created: the
-  allocated name, the resolved agent (ids in `--json`), the composed boot
+  EXACT resolution — same arguments, same typed refusals — up to but not
+  including the writes, and shows what would be created: the
+  name, the resolved agent (ids in `--json`), the composed boot
   prompt, and a warning when the template never binds `{{name}}`. A refusal
   on the dry run IS the answer that the real cast would refuse the same
   way. The preview RESERVES NOTHING (no lease exists): a previewed name may
   be gone at cast time — the cast's uniqueness constraint stays the only
   allocation primitive.
-  **`team role list|get`** (#403, `teamRoles`) is the pre-cast read: the
-  App's role definitions with their ordered registers, taken names marked
-  (retired workers hold names forever; `heldBy` carries the worker id in
-  `--json`), server-computed `freeCount`/`exhausted`, the conventions
-  (`nameRange`/`nameConvention`), the resolved role agent, and the
-  `{{name}}`-placeholder check. Registers and free/taken are SERVER truths
-  judged against the App's full roster — never recompute them. The prompt
+  **`team role list|get`** (#403, `teamRoles`) reads the App's role
+  definitions: the role, its loc/nodeId, the description, the resolved role
+  agent, and the `{{name}}`-placeholder check. **The register projection is
+  GONE** (hadron-server#1050): `register`, `freeCount`, `exhausted`,
+  `nameRange` and `nameConvention` are removed from the `--json` shape
+  rather than emitted empty, because a permanent `[]`/0 would keep promising
+  an allocation surface the server no longer has. "Which names are free" is
+  no longer a question this answers — `worker list` is the roster, and a
+  cast names its worker explicitly. The prompt
   TEMPLATE lives on the role AGENT (`agent get`), not the role node;
   `--team-agent` disambiguates when several
   installed agents carry a `roles:` branch (`TEAM_AGENT_AMBIGUOUS`, exit 2).
   The whole group's team App resolves ambiently (`--app` → App context →
   the worktree binding), so every command says which App it acted on and
   **which of those answered** (#468): the reads open with it, the writes
-  carry it in the receipt, `role rm` puts it in the confirmation. It
-  matters more here than on a listing — register order decides who the
-  register-mode cast allocates next, so an edit landing in the wrong team
-  changes who gets cast there. Render-only: `--json` shapes are unchanged
-  and the decorating read is not issued under `--json`.
-  **`team role create/update/names`** (#410) are the register WRITES, thin
-  over `createTeamRole`/`updateTeamRole` — the invariants run SERVER-side in
-  one App-scoped critical section serialized with register-mode casting: a
-  name minted in this App may never be removed (`TEAM_ROLE_NAME_MINTED`,
-  exit 5 — the entry records the allocation forever), an added name may not
-  appear in another of the App's registers (`TEAM_ROLE_NAME_DUPLICATE`,
-  exit 5), and added names validate against the range
-  (`TEAM_ROLE_NAME_OUT_OF_RANGE`, exit 2; `--allow-out-of-range` overrides
-  deliberately); an existing role refuses `create` (`TEAM_ROLE_EXISTS`,
-  exit 5 — `update`/`names` are the edit paths). The `names` sugar
-  (add/rm/mv) is CAS-safe (#436, hadron-server#987): each write carries
-  `expectedNames` (the register as read), a concurrent edit refuses
-  `TEAM_ROLE_STALE` with the current register in extensions, and the CLI
-  rebases the edit onto it and retries (bounded; the retry is narrated on
-  stderr, and running out surfaces the conflict as exit 5) — two admins
-  racing lose nothing. `names set` is the explicit whole-list replacement
-  and deliberately carries NO precondition: it asserts the FINAL state
-  (read with `role get`, edit, resubmit). `names add` accepts names as
-  separate arguments, comma-separated, or both — the comma form matches
-  `create --names`/`names set`, and reaching for it appends the names it
-  reads rather than one corrupt composite entry (#442); a name already in
-  the register is skipped, and an add where everything is already present
-  reports `unchanged` instead of a false `✓ updated`. `rm`/`mv` match their
-  arguments LITERALLY (deliberately: quoting a comma-bearing entry, e.g.
-  `names rm <role> "Linn,Mia"`, is how a register corrupted by an older CLI
-  is repaired) and refuse (exit 2) a name not in the register instead of
-  silently no-opping. Order is
-  load-bearing (position = allocation order), which is what `mv` is for.
-  Clearing a convention is EXPLICIT (`--clear-name-range` /
-  `--clear-name-convention` send the null the server reads as "remove");
-  sibling `data` keys always survive. Every write prints the resulting
-  register with taken markers — the receipt, no follow-up read needed.
-  **`team role rm`** (#441, `deleteTeamRole`) retires a definition, and with
-  `--transfer-register-to <successor>` performs a SUPERSEDE as ONE call: the
-  old definition is tombstoned and its whole register appended to the
-  successor's, in the same App-scoped critical section, preserving order and
-  skipping spellings the successor already lists. Do NOT hand-run this as
-  node-delete + `role names add` — a name may not sit in two of an App's
-  registers, so the intermediate states such a sequence passes through are
-  exactly what `TEAM_ROLE_NAME_DUPLICATE` refuses. Transferred names are
-  EXEMPT from the successor's `nameRange` (re-homed allocations, not new
-  ones), and the successor's own conventions are untouched (`role update`
-  changes those). Without `--transfer-register-to`, a role holding MINTED
-  names refuses `TEAM_ROLE_IN_USE` (exit 5) — a taken entry is the ledger of
-  an allocation; a fully free register retires with no ceremony. When the
-  pre-read already shows minted names the CLI raises that same code and exit
-  BEFORE the wire, so a refusal you can see coming never reaches the server. The delete
-  is SOFT (the `roles:<role>` node and its sub-nodes are tombstoned,
-  recoverable) and `--yes` is required off a TTY. **Retiring never frees a
-  name for re-casting**: names are permanent per App against the whole
-  roster (`cor:agt:020:02`) irrespective of any register — the register
-  governs ALLOCATION, the roster governs IDENTITY, which is precisely why
-  moving a register between roles is safe. The payload carries the
-  successor's resulting register, so `--json` renders a supersede with no
-  second read. The role AGENT is NOT touched: `app agent remove <app>
-  <agent> --yes`, then `agent rm <agent> --yes`.
+  carry it in the receipt, `role rm` puts it in the confirmation.
+  Render-only: `--json` shapes are unaffected by the scope line and the
+  decorating read is not issued under `--json`.
+  **`team role create/update`** are thin over `createTeamRole`/`updateTeamRole`.
+  A role definition now carries a role and a description, and nothing else a
+  client can set, so `create <role> [--description]` and `update <role>
+  --description` are the whole write surface. An existing role refuses
+  `create` (`TEAM_ROLE_EXISTS`, exit 5 — `update` is the edit path); an
+  `update` naming no field is refused exit 2 rather than sent, since omitted
+  is "preserve" and the write would be a no-op reporting success.
+  **REMOVED with the name register** (hadron-server#1050, `cor:agt:020:07`
+  WITHDRAWN — nothing replaces the mechanism): the whole `team role names
+  set|add|rm|mv` group, `--names`, `--name-range`, `--name-convention`,
+  `--clear-name-range`, `--clear-name-convention`, `--allow-out-of-range`,
+  and the `expectedNames` CAS behind the sugar. Their refusals
+  (`TEAM_ROLE_NAME_MINTED`, `TEAM_ROLE_NAME_DUPLICATE`,
+  `TEAM_ROLE_NAME_OUT_OF_RANGE`, `TEAM_ROLE_STALE`, `TEAM_ROLE_IN_USE`) are
+  unreachable and no longer mapped — the server cannot produce them.
+  **`team role rm`** (`deleteTeamRole`) retires a definition, and is now
+  UNCONDITIONAL: the minted-name gate and `--transfer-register-to` both went
+  with the register, so there is no allocation ledger left to preserve and
+  nothing for a bare retirement to refuse over. `transferredNames` and
+  `transferredTo` are gone from the `--json` payload for the same reason.
+  The delete is SOFT (the `roles:<role>` node and its sub-nodes are
+  tombstoned, recoverable) and `--yes` is required off a TTY.
+  **Retiring never frees a name for re-casting**: names are permanent per
+  App against the whole roster (`cor:agt:020:02`), and that was as true with
+  the register as without it — which is the evidence the register was
+  bookkeeping about ALLOCATION rather than identity. The role AGENT is NOT
+  touched: `app agent remove <app> <agent> --yes`, then `agent rm <agent>
+  --yes`.
   Names bind **forever** per App (`cor:agt:020:02`, case-insensitive):
   `worker retire` (requires `--yes`, idempotent) stops the worker and keeps
   its name reserved — PR trailers and chat history reference it — and there

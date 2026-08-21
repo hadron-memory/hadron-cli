@@ -3,6 +3,7 @@ package team
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -47,52 +48,62 @@ worker in scripts.`,
 // castPreviewDTO is the stable --json shape of `worker cast --dry-run` —
 // scalars plus the ids behind each name (the actionable refs). Reserved is
 // always false: the preview holds nothing (cor:agt:020:03 — no lease by law).
+//
+// `teamAgentId`/`teamAgentName` are GONE (hadron-cli#496): they named the Team
+// Agent whose register resolved the name, and there is no register. Casting
+// reads no system memory at all now, so there is nothing to report.
 type castPreviewDTO struct {
 	Name               string  `json:"name"`
 	Role               *string `json:"role"`
 	AgentID            string  `json:"agentId"`
 	AgentName          string  `json:"agentName"`
-	TeamAgentID        *string `json:"teamAgentId"`
-	TeamAgentName      *string `json:"teamAgentName"`
 	Prompt             *string `json:"prompt"`
 	HasNamePlaceholder *bool   `json:"hasNamePlaceholder"`
 	Reserved           bool    `json:"reserved"`
 }
 
 func newCmdWorkerCast(f *cmdutil.Factory) *cobra.Command {
-	var role, name, agentRef, teamAgent, promptOverride string
+	var role, name, agentRef, promptOverride string
 	var dryRun bool
 	cmd := &cobra.Command{
-		Use:   "cast (--role <role> | --agent <ref>) [--name <n>] [--prompt-override <text>] [--dry-run]",
-		Short: "Cast an installed agent as a named worker (server-side allocation)",
+		Use:   "cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run]",
+		Short: "Cast an installed agent as a named worker",
 		Long: `Cast a worker: ONE platform call (castWorker, cor:agt:020:01). The server
 resolves the agent — --agent names it directly (it must be installed in
 this App), or --role picks the single installed agent whose persona role
-matches (zero or several candidates refuse typed, never a guess) — then
-allocates the name and provisions the worker's working memory.
+matches (zero or several candidates refuse typed, never a guess) — takes
+the name, and provisions the worker's working memory.
 
-Names (cor:agt:020:02): --name claims an explicit name in one attempt
-(WORKER_NAME_TAKEN is the answer); without it the Team Agent's cast-list
-register for the role (the roles:<role> node's data.names) is walked
-server-side past taken names — so an App with no cast-list register
-refuses (TEAM_AGENT_NOT_FOUND); pass --name there. Either way the name is
-PERMANENT for this App: retirement and uninstall never free it.
+--name IS REQUIRED (hadron-server#1050). A name is PERMANENT for this App
+— retirement and uninstall never free it (cor:agt:020:02) — so it is
+chosen, never derived: the server will not invent a permanent identifier
+nobody picked. A cast without one refuses WORKER_NAME_REQUIRED. The claim
+is one attempt, and WORKER_NAME_TAKEN is the answer rather than a retry;
+` + "`worker list --include-retired`" + ` shows what is already taken —
+retired workers keep their names, so the default listing under-reports it.
+
+This used to allocate for you, walking the role's cast-list register past
+taken names. That register is gone, so a bare --role no longer casts.
+
+--role is also no longer validated against defined roles (cor:agt:020:00
+§1 — cast lists are ergonomics, never a gate). An unrecognized role simply
+resolves no agent (WORKER_AGENT_NOT_FOUND); with an explicit --agent it is
+just the casting's label.
 
 --prompt-override layers per-worker individuality over the agent's prompt
 template; the resolved boot briefing (template with {{name}}/{{role}}
 bound, then the override) is printed on success.
 
 --dry-run (#404, castWorkerPreview) runs the cast's EXACT resolution —
-same arguments, same typed refusals, same mint gate — up to but not
+same arguments, same typed refusals — up to but not
 including the writes, and shows what would be created: the name, the
 agent, the composed prompt. A refusal on the dry run IS the answer that
 the real cast would refuse the same way. THE PREVIEW RESERVES NOTHING:
 no lease exists, so a previewed name may be gone at cast time.
 
 The team App comes from the persistent --app flag (or the configured App
-context). --team-agent picks the cast-list holder explicitly when the App
-installs several agents with roles branches.`,
-		Example: `  hadron team worker cast --app acme.com:eng-team --role backend-engineer
+context).`,
+		Example: `  hadron team worker cast --app acme.com:eng-team --role backend-engineer --name Iris
   hadron team worker cast --app acme.com:eng-team --agent hrn:agent:acme.com:qa --name Uma`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -106,6 +117,34 @@ installs several agents with roles branches.`,
 			if role == "" && agentRef == "" {
 				return exitcode.Newf(exitcode.Usage, "pass --role <role> or --agent <ref> — the server never guesses the agent to cast")
 			}
+			// Refused HERE rather than relayed. The server's
+			// WORKER_NAME_REQUIRED carries the reason but not the remedy, and
+			// this is the flag whose absence used to be the NORMAL way to cast
+			// — every doc, task node and muscle memory in the team says
+			// `cast --role <r>` and nothing else (hadron-cli#496). Someone
+			// hitting this is following instructions that were correct last
+			// week, so the message has to say what to type now.
+			// NORMALIZED, not just validated (PR #500 review). Checking
+			// TrimSpace while sending the raw value let `--name " Iris "` past
+			// the guard and cast a worker whose name literally carries the
+			// spaces — and that name is PERMANENT for the App
+			// (cor:agt:020:02), so there is no rename and `worker rm` only
+			// helps while the worker has never been used. Treating whitespace
+			// as non-semantic for the check and as semantic on the wire is the
+			// worst of both: it also produces a WORKER_NAME_TAKEN nobody can
+			// explain, since the roster shows the trimmed spelling.
+			name = strings.TrimSpace(name)
+			if name == "" {
+				// --include-retired, deliberately (PR #500 review). A retired
+				// worker keeps its name FOREVER, and `worker list` hides
+				// retired staff by default — so the plain listing under-reports
+				// what is taken, and a reader picking an apparently-free name
+				// from it gets WORKER_NAME_TAKEN. A remedy that points at an
+				// incomplete answer is the failure this whole message exists to
+				// avoid.
+				return exitcode.Newf(exitcode.Usage,
+					"--name is required: a worker name is permanent for this App, so it is chosen rather than derived — pass --name <n> (`hadron team worker list --include-retired` shows the names already taken; retired workers keep theirs)")
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -116,7 +155,7 @@ installs several agents with roles branches.`,
 				// Same typed refusals as the cast — surfaced verbatim, because
 				// a refusal here IS the dry-run's answer.
 				preview, perr := gen.CastWorkerPreview(cmd.Context(), client, appRef,
-					optStr(agentRef), optStr(role), optStr(name), optStr(teamAgent), optStr(promptOverride))
+					optStr(agentRef), optStr(role), optStr(name), optStr(promptOverride))
 				if perr != nil {
 					return api.MapError(perr)
 				}
@@ -126,14 +165,10 @@ installs several agents with roles branches.`,
 				p := preview.CastWorkerPreview
 				dto := castPreviewDTO{
 					Name: p.Name, Role: p.Role, AgentID: p.AgentId, AgentName: p.AgentName,
-					TeamAgentID: p.TeamAgentId, TeamAgentName: p.TeamAgentName,
 					Prompt: p.Prompt, HasNamePlaceholder: p.HasNamePlaceholder,
 				}
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					fmt.Fprintf(w, "would cast %s%s — agent %s (%s)\n", dto.Name, roleSuffix(dto.Role), dto.AgentName, dto.AgentID)
-					if dto.TeamAgentName != nil {
-						fmt.Fprintf(w, "  name allocated by the cast-list register of %s\n", *dto.TeamAgentName)
-					}
 					if dto.HasNamePlaceholder != nil && !*dto.HasNamePlaceholder {
 						fmt.Fprintf(w, "  ! the agent's prompt template never binds {{name}} — this worker would be nameless in its own briefing\n")
 					}
@@ -145,12 +180,14 @@ installs several agents with roles branches.`,
 				})
 			}
 			resp, err := gen.CastWorker(cmd.Context(), client, appRef,
-				optStr(agentRef), optStr(role), optStr(name), optStr(teamAgent), optStr(promptOverride))
+				optStr(agentRef), optStr(role), optStr(name), optStr(promptOverride))
 			if err != nil {
 				// Thin by directive: the server's typed errors carry the
-				// guidance (WORKER_ROLE_NOT_FOUND lists the available roles,
-				// WORKER_AGENT_AMBIGUOUS says to pass --agent) — map to exit
-				// codes, surface the message verbatim.
+				// guidance (WORKER_AGENT_AMBIGUOUS says to pass --agent) — map
+				// to exit codes, surface the message verbatim. The one
+				// exception is WORKER_NAME_REQUIRED, refused above, because it
+				// is the refusal a reader following last week's instructions
+				// will hit.
 				return api.MapError(err)
 			}
 			if resp.CastWorker == nil {
@@ -172,8 +209,7 @@ installs several agents with roles branches.`,
 	}
 	cmd.Flags().StringVar(&role, "role", "", "cast by role: the single installed agent whose persona role matches")
 	cmd.Flags().StringVar(&agentRef, "agent", "", "cast this agent (ID or URN; must be installed in the App)")
-	cmd.Flags().StringVar(&name, "name", "", "explicit worker name (overrides the register; taken-name refusals are yours to handle)")
-	cmd.Flags().StringVar(&teamAgent, "team-agent", "", "Team Agent holding the cast-list roles, when the App installs more than one")
+	cmd.Flags().StringVar(&name, "name", "", "the worker's name — REQUIRED, and permanent for this App")
 	cmd.Flags().StringVar(&promptOverride, "prompt-override", "", "per-worker individuality appended to the agent's prompt template")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview the cast (name, agent, composed prompt) without creating anything; reserves nothing")
 	return cmd

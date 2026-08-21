@@ -3157,16 +3157,13 @@ func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWo
 // here are attribution-level facts the mint-gate audience already sees, so no
 // nested entity hands out its field resolvers.
 type CastWorkerPreviewCastWorkerPreview struct {
-	// The name the cast would allocate: the explicit name, or the first register entry free against the App's FULL roster (retired names stay taken).
+	// The name the cast would take — the caller's, checked free against the App's FULL roster (retired names stay taken). Required since #1050; a nameless preview refuses exactly where the cast would.
 	Name string `json:"name"`
 	// The casting's role: explicit, else the agent's personaRole dressing.
 	Role *string `json:"role"`
 	// The role-agent the casting would bind.
 	AgentId   string `json:"agentId"`
 	AgentName string `json:"agentName"`
-	// The Team Agent whose register resolved the name (register mode only; null with an explicit name).
-	TeamAgentId   *string `json:"teamAgentId"`
-	TeamAgentName *string `json:"teamAgentName"`
 	// The composed boot prompt, post {{name}}/{{role}} substitution with
 	// promptOverride appended — the same composition Worker.prompt performs,
 	// reviewable BEFORE the name is permanent. Null when the agent carries no
@@ -3188,12 +3185,6 @@ func (v *CastWorkerPreviewCastWorkerPreview) GetAgentId() string { return v.Agen
 // GetAgentName returns CastWorkerPreviewCastWorkerPreview.AgentName, and is useful for accessing the field via an interface.
 func (v *CastWorkerPreviewCastWorkerPreview) GetAgentName() string { return v.AgentName }
 
-// GetTeamAgentId returns CastWorkerPreviewCastWorkerPreview.TeamAgentId, and is useful for accessing the field via an interface.
-func (v *CastWorkerPreviewCastWorkerPreview) GetTeamAgentId() *string { return v.TeamAgentId }
-
-// GetTeamAgentName returns CastWorkerPreviewCastWorkerPreview.TeamAgentName, and is useful for accessing the field via an interface.
-func (v *CastWorkerPreviewCastWorkerPreview) GetTeamAgentName() *string { return v.TeamAgentName }
-
 // GetPrompt returns CastWorkerPreviewCastWorkerPreview.Prompt, and is useful for accessing the field via an interface.
 func (v *CastWorkerPreviewCastWorkerPreview) GetPrompt() *string { return v.Prompt }
 
@@ -3206,10 +3197,8 @@ func (v *CastWorkerPreviewCastWorkerPreview) GetHasNamePlaceholder() *bool {
 type CastWorkerPreviewResponse struct {
 	// Dry-run castWorker (#964): run the cast's exact resolution — same
 	// arguments, same typed refusals (WORKER_AGENT_NOT_FOUND / _AMBIGUOUS /
-	// _NOT_INSTALLED, WORKER_ROLE_NOT_FOUND, WORKER_REGISTER_EXHAUSTED,
-	// WORKER_NAME_TAKEN, APP_UNINSTALLED, TEAM_AGENT_NOT_FOUND /
-	// _NOT_INSTALLED / _AMBIGUOUS, and SESSION_EXPIRED for an encrypted
-	// register without an active session key), same MINT gate — up to but not
+	// _NOT_INSTALLED, WORKER_NAME_REQUIRED, WORKER_NAME_TAKEN, APP_UNINSTALLED),
+	// same MINT gate — up to but not
 	// including the writes, and return what would be created. A Query, not a
 	// dryRun flag: casting a name is the one irreversible act in the team
 	// feature (cor:agt:020:02 — permanence), and previewing it must not need a
@@ -3241,14 +3230,13 @@ type CastWorkerResponse struct {
 	// WORKER_AGENT_NOT_FOUND / WORKER_AGENT_AMBIGUOUS, never a guess). The
 	// casting's role defaults to the agent's personaRole when role is omitted.
 	//
-	// Name allocation (cor:agt:020:02): a caller-supplied name wins (one
-	// attempt — WORKER_NAME_TAKEN is the answer); otherwise the Team Agent's
-	// cast-list register for the role (the roles:<role> node's data.names,
-	// located as before: teamAgentRef, or the single installed agent with a
-	// roles: branch) is walked first-to-last, advancing past WORKER_NAME_TAKEN —
-	// the workers_app_name_uniq constraint IS the allocation primitive. Names
-	// are unique per App, case-insensitively, FOREVER (two Apps may each have an
-	// Iris; retirement and uninstall never free a name).
+	// The name (cor:agt:020:02) is REQUIRED since #1050 — one attempt, and
+	// WORKER_NAME_TAKEN is the answer. There is no register to fall back to: a
+	// name is permanent within the App, so it is chosen and never derived, and a
+	// nameless cast refuses WORKER_NAME_REQUIRED rather than minting a permanent
+	// identifier nobody picked. The workers_app_name_uniq constraint IS the
+	// arbiter. Names are unique per App, case-insensitively, FOREVER (two Apps
+	// may each have an Iris; retirement and uninstall never free a name).
 	//
 	// A worker-scoped working memory is provisioned in the App's container
 	// (Worker.memoryId; best-effort — a failed provision leaves it null for
@@ -3259,13 +3247,21 @@ type CastWorkerResponse struct {
 	// user-owned App. Pure App-key principals are denied.
 	//
 	// Error codes (extensions.code): WORKER_NAME_TAKEN,
-	// WORKER_REGISTER_EXHAUSTED, WORKER_AGENT_NOT_INSTALLED,
-	// WORKER_AGENT_NOT_FOUND, WORKER_AGENT_AMBIGUOUS, WORKER_ROLE_NOT_FOUND,
-	// TEAM_AGENT_NOT_FOUND, TEAM_AGENT_AMBIGUOUS, TEAM_AGENT_NOT_INSTALLED,
-	// SESSION_EXPIRED (encrypted system memory without an active session key),
-	// APP_UNINSTALLED.
+	// WORKER_NAME_REQUIRED, WORKER_AGENT_NOT_INSTALLED,
+	// WORKER_AGENT_NOT_FOUND, WORKER_AGENT_AMBIGUOUS, APP_UNINSTALLED.
 	//
-	// Accepts the entity's ID or URN for appRef, agentRef, and teamAgentRef.
+	// #1050 also removed WORKER_ROLE_NOT_FOUND from this mutation: it fired only
+	// because a nameless cast had to find a roles:<role> node to read a register.
+	// An unrecognized role now resolves no agent (WORKER_AGENT_NOT_FOUND) or, with
+	// an explicit agentRef, is simply the casting's label.
+	//
+	// #1050: the TEAM_AGENT_* and SESSION_EXPIRED refusals are gone from this
+	// mutation. They were reachable only because a nameless cast had to locate a
+	// Team Agent and read its (possibly encrypted) system memory to find a
+	// register. Casting now touches no system memory at all, so teamAgentRef is
+	// gone too rather than left accepted-and-ignored.
+	//
+	// Accepts the entity's ID or URN for appRef and agentRef.
 	CastWorker *CastWorkerCastWorker `json:"castWorker"`
 }
 
@@ -5953,7 +5949,8 @@ func (v *CreateTeamChatMessageResponse) GetCreateTeamChatMessage() *CreateTeamCh
 // The GraphQL type's documentation follows.
 //
 // A role definition (#960): the roles:<role> node in the Team Agent's system
-// memory, carrying the name register (data.names) and register conventions.
+// memory. #1050: it carries no name register — a role is a definition, not an
+// allocation pool.
 // The persona prompt template is NOT here — with the Worker model (#974) it
 // lives on the role-agent as dressing (personaRole + personaPrompt); roleAgent
 // points at it.
@@ -5972,25 +5969,6 @@ func (v *CreateTeamRoleCreateTeamRole) GetNodeId() string { return v.TeamRoleFie
 
 // GetDescription returns CreateTeamRoleCreateTeamRole.Description, and is useful for accessing the field via an interface.
 func (v *CreateTeamRoleCreateTeamRole) GetDescription() *string { return v.TeamRoleFields.Description }
-
-// GetRegister returns CreateTeamRoleCreateTeamRole.Register, and is useful for accessing the field via an interface.
-func (v *CreateTeamRoleCreateTeamRole) GetRegister() []*TeamRoleFieldsRegisterTeamRoleName {
-	return v.TeamRoleFields.Register
-}
-
-// GetFreeCount returns CreateTeamRoleCreateTeamRole.FreeCount, and is useful for accessing the field via an interface.
-func (v *CreateTeamRoleCreateTeamRole) GetFreeCount() int { return v.TeamRoleFields.FreeCount }
-
-// GetExhausted returns CreateTeamRoleCreateTeamRole.Exhausted, and is useful for accessing the field via an interface.
-func (v *CreateTeamRoleCreateTeamRole) GetExhausted() bool { return v.TeamRoleFields.Exhausted }
-
-// GetNameRange returns CreateTeamRoleCreateTeamRole.NameRange, and is useful for accessing the field via an interface.
-func (v *CreateTeamRoleCreateTeamRole) GetNameRange() *string { return v.TeamRoleFields.NameRange }
-
-// GetNameConvention returns CreateTeamRoleCreateTeamRole.NameConvention, and is useful for accessing the field via an interface.
-func (v *CreateTeamRoleCreateTeamRole) GetNameConvention() *string {
-	return v.TeamRoleFields.NameConvention
-}
 
 // GetRoleAgent returns CreateTeamRoleCreateTeamRole.RoleAgent, and is useful for accessing the field via an interface.
 func (v *CreateTeamRoleCreateTeamRole) GetRoleAgent() *TeamRoleFieldsRoleAgent {
@@ -6036,16 +6014,6 @@ type __premarshalCreateTeamRoleCreateTeamRole struct {
 
 	Description *string `json:"description"`
 
-	Register []*TeamRoleFieldsRegisterTeamRoleName `json:"register"`
-
-	FreeCount int `json:"freeCount"`
-
-	Exhausted bool `json:"exhausted"`
-
-	NameRange *string `json:"nameRange"`
-
-	NameConvention *string `json:"nameConvention"`
-
 	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
 
 	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
@@ -6066,11 +6034,6 @@ func (v *CreateTeamRoleCreateTeamRole) __premarshalJSON() (*__premarshalCreateTe
 	retval.Loc = v.TeamRoleFields.Loc
 	retval.NodeId = v.TeamRoleFields.NodeId
 	retval.Description = v.TeamRoleFields.Description
-	retval.Register = v.TeamRoleFields.Register
-	retval.FreeCount = v.TeamRoleFields.FreeCount
-	retval.Exhausted = v.TeamRoleFields.Exhausted
-	retval.NameRange = v.TeamRoleFields.NameRange
-	retval.NameConvention = v.TeamRoleFields.NameConvention
 	retval.RoleAgent = v.TeamRoleFields.RoleAgent
 	retval.HasNamePlaceholder = v.TeamRoleFields.HasNamePlaceholder
 	return &retval, nil
@@ -6080,19 +6043,17 @@ func (v *CreateTeamRoleCreateTeamRole) __premarshalJSON() (*__premarshalCreateTe
 type CreateTeamRoleResponse struct {
 	// #960 — mint a roles:<role> definition in the Team Agent's system memory.
 	// Owns the spec knowledge a hand-authoring caller had to carry: the loc is
-	// roles:<role> (single atom), the register goes in data.names (ordered),
-	// and the write runs the register invariants — an added name may not appear
-	// in another of this App's registers (TEAM_ROLE_NAME_DUPLICATE) and must
-	// fall inside nameRange when one is set (TEAM_ROLE_NAME_OUT_OF_RANGE,
-	// override with allowOutOfRange; a supplied nameRange must parse as an
-	// initial-letter range like 'F-J'). Register checks and the write run in
-	// one App-scoped critical section, serialized with register-mode casting.
-	// Refuses an existing role
-	// (TEAM_ROLE_EXISTS — updateTeamRole is the edit path). Authorization is
-	// the Team Agent's definition-edit gate: whoever may write the agent's
-	// system memory through the generic node surface may write roles — the
-	// write delegates to that same seam (encryption, revision snapshot, git
-	// mirror included).
+	// roles:<role> (single atom). Refuses an existing role (TEAM_ROLE_EXISTS —
+	// updateTeamRole is the edit path). Authorization is the Team Agent's
+	// definition-edit gate: whoever may write the agent's system memory through
+	// the generic node surface may write roles — the write delegates to that same
+	// seam (encryption, revision snapshot, git mirror included).
+	//
+	// #1050: a role definition no longer carries a NAME REGISTER. There is no
+	// names / nameRange / nameConvention / allowOutOfRange, and no register
+	// invariants to run, because names are not allocated — a cast supplies its
+	// own and workers_app_name_uniq is the sole arbiter. Any data.names left on
+	// an existing node is historical and is neither read nor rewritten.
 	CreateTeamRole *CreateTeamRoleCreateTeamRole `json:"createTeamRole"`
 }
 
@@ -6590,12 +6551,6 @@ type DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload struct {
 	// (a roles:<role>:notes is content OF the role and retires with it). Soft,
 	// so the subtree is recoverable.
 	NodesDeleted int `json:"nodesDeleted"`
-	// Register spellings handed to the successor, in the order they were added to
-	// it. Empty when no transferTo was given.
-	TransferredNames []string `json:"transferredNames"`
-	// The successor role AFTER the transfer, so a client can render the new
-	// register without a second read. Null when no transferTo was given.
-	TransferredTo *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole `json:"transferredTo"`
 }
 
 // GetRole returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload.Role, and is useful for accessing the field via an interface.
@@ -6606,196 +6561,25 @@ func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload) GetNodesDeleted() in
 	return v.NodesDeleted
 }
 
-// GetTransferredNames returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload.TransferredNames, and is useful for accessing the field via an interface.
-func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload) GetTransferredNames() []string {
-	return v.TransferredNames
-}
-
-// GetTransferredTo returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload.TransferredTo, and is useful for accessing the field via an interface.
-func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload) GetTransferredTo() *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole {
-	return v.TransferredTo
-}
-
-// DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole includes the requested fields of the GraphQL type TeamRole.
-// The GraphQL type's documentation follows.
-//
-// A role definition (#960): the roles:<role> node in the Team Agent's system
-// memory, carrying the name register (data.names) and register conventions.
-// The persona prompt template is NOT here — with the Worker model (#974) it
-// lives on the role-agent as dressing (personaRole + personaPrompt); roleAgent
-// points at it.
-type DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole struct {
-	TeamRoleFields `json:"-"`
-}
-
-// GetRole returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.Role, and is useful for accessing the field via an interface.
-func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetRole() string {
-	return v.TeamRoleFields.Role
-}
-
-// GetLoc returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.Loc, and is useful for accessing the field via an interface.
-func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetLoc() string {
-	return v.TeamRoleFields.Loc
-}
-
-// GetNodeId returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.NodeId, and is useful for accessing the field via an interface.
-func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetNodeId() string {
-	return v.TeamRoleFields.NodeId
-}
-
-// GetDescription returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.Description, and is useful for accessing the field via an interface.
-func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetDescription() *string {
-	return v.TeamRoleFields.Description
-}
-
-// GetRegister returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.Register, and is useful for accessing the field via an interface.
-func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetRegister() []*TeamRoleFieldsRegisterTeamRoleName {
-	return v.TeamRoleFields.Register
-}
-
-// GetFreeCount returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.FreeCount, and is useful for accessing the field via an interface.
-func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetFreeCount() int {
-	return v.TeamRoleFields.FreeCount
-}
-
-// GetExhausted returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.Exhausted, and is useful for accessing the field via an interface.
-func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetExhausted() bool {
-	return v.TeamRoleFields.Exhausted
-}
-
-// GetNameRange returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.NameRange, and is useful for accessing the field via an interface.
-func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetNameRange() *string {
-	return v.TeamRoleFields.NameRange
-}
-
-// GetNameConvention returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.NameConvention, and is useful for accessing the field via an interface.
-func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetNameConvention() *string {
-	return v.TeamRoleFields.NameConvention
-}
-
-// GetRoleAgent returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.RoleAgent, and is useful for accessing the field via an interface.
-func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetRoleAgent() *TeamRoleFieldsRoleAgent {
-	return v.TeamRoleFields.RoleAgent
-}
-
-// GetHasNamePlaceholder returns DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole.HasNamePlaceholder, and is useful for accessing the field via an interface.
-func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) GetHasNamePlaceholder() *bool {
-	return v.TeamRoleFields.HasNamePlaceholder
-}
-
-func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.TeamRoleFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalDeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole struct {
-	Role string `json:"role"`
-
-	Loc string `json:"loc"`
-
-	NodeId string `json:"nodeId"`
-
-	Description *string `json:"description"`
-
-	Register []*TeamRoleFieldsRegisterTeamRoleName `json:"register"`
-
-	FreeCount int `json:"freeCount"`
-
-	Exhausted bool `json:"exhausted"`
-
-	NameRange *string `json:"nameRange"`
-
-	NameConvention *string `json:"nameConvention"`
-
-	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
-
-	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
-}
-
-func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole) __premarshalJSON() (*__premarshalDeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole, error) {
-	var retval __premarshalDeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayloadTransferredToTeamRole
-
-	retval.Role = v.TeamRoleFields.Role
-	retval.Loc = v.TeamRoleFields.Loc
-	retval.NodeId = v.TeamRoleFields.NodeId
-	retval.Description = v.TeamRoleFields.Description
-	retval.Register = v.TeamRoleFields.Register
-	retval.FreeCount = v.TeamRoleFields.FreeCount
-	retval.Exhausted = v.TeamRoleFields.Exhausted
-	retval.NameRange = v.TeamRoleFields.NameRange
-	retval.NameConvention = v.TeamRoleFields.NameConvention
-	retval.RoleAgent = v.TeamRoleFields.RoleAgent
-	retval.HasNamePlaceholder = v.TeamRoleFields.HasNamePlaceholder
-	return &retval, nil
-}
-
 // DeleteTeamRoleResponse is returned by DeleteTeamRole on success.
 type DeleteTeamRoleResponse struct {
 	// #1002 — retire a roles:<role> definition. Soft-deletes the role node and
 	// any sub-nodes under it (roles:<role>:notes is content OF the role), so the
 	// subtree is recoverable. Unknown role: WORKER_ROLE_NOT_FOUND. Same
-	// authorization and same App-scoped critical section as createTeamRole, so a
-	// retirement serializes with register-mode casting.
+	// authorization as createTeamRole.
 	//
-	// MINTED names decide whether a bare delete is allowed. A minted register
-	// entry is what records that a name was allocated to this role; dropping the
-	// register without rehoming it would erase that ledger, so a role holding
-	// minted names refuses TEAM_ROLE_IN_USE unless transferTo names a successor.
-	// A role whose register is entirely free deletes with no ceremony.
+	// #1050: unconditional. The minted-name check, TEAM_ROLE_IN_USE, transferTo's
+	// one-step supersede, the post-delete recheck and the restore compensation
+	// all existed to protect the REGISTER as a ledger of which names had been
+	// allocated to this role; with no register there is no ledger to protect and
+	// no second write to compensate for.
 	//
-	// Note this does NOT free the names themselves: a Worker's name is permanent
-	// per App (cor:agt:020:02, enforced by workers_app_name_uniq irrespective of
-	// any register), so retiring a role can never make a taken name castable
-	// again. The register is bookkeeping about ALLOCATION, not identity — which
-	// is exactly why moving it between roles is safe.
-	//
-	// transferTo performs the supersede as ONE step: the old definition is
-	// retired and its whole register is appended to the successor's, preserving
-	// order and skipping spellings the successor already lists. This removes the
-	// ordering trap a hand-run sequence has to rediscover (a name may not sit in
-	// two of an App's registers, so the old role must be gone BEFORE the
-	// successor can claim its names — TEAM_ROLE_NAME_DUPLICATE otherwise).
-	// Transferred names are EXEMPT from the successor's nameRange: they are
-	// re-homed allocations, not new ones, and the range governs what may be
-	// allocated next. The successor's own conventions are left untouched —
-	// changing them is updateTeamRole's job, not a side effect of a delete.
-	//
-	// The delete and the transfer are two operations that cannot share one
-	// transaction, so the source role is RESTORED if the transfer fails — the
-	// delete is soft, and the tombstone still holds the register verbatim. The
-	// minted check is also re-run AFTER the delete, because an explicit-name
-	// castWorker mints without taking the register lock and could otherwise slip
-	// a freshly minted name past the pre-check. Should the restore itself fail,
-	// TEAM_ROLE_DELETE_NOT_COMPENSATED reports the loc to recover by hand rather
-	// than leaving the caller to retry against a role that is silently gone.
+	// What that machinery protected is unchanged, and was never the register's
+	// doing: a Worker's name is permanent per App (cor:agt:020:02, enforced by
+	// workers_app_name_uniq irrespective of any role), so deleting a role can no
+	// more free a taken name than it could before. Superseding a role is now
+	// create-the-successor then delete-the-old; the names were never the thing
+	// being moved.
 	DeleteTeamRole *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload `json:"deleteTeamRole"`
 }
 
@@ -6991,6 +6775,25 @@ func (v *EncryptMemoryResponse) GetEncryptMemory() *EncryptMemoryEncryptMemory {
 }
 
 // EndTeamSessionEndSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open, and
+// its worker taken, until endSession or the #930 reaper. Do not use "chat
+// session" for a Chat (the agent conversation entity) — that is an **agent
+// chat**, a third concept.
 type EndTeamSessionEndSession struct {
 	TeamSessionFields `json:"-"`
 }
@@ -7132,7 +6935,34 @@ func (v *EndTeamSessionEndSession) __premarshalJSON() (*__premarshalEndTeamSessi
 
 // EndTeamSessionResponse is returned by EndTeamSession on success.
 type EndTeamSessionResponse struct {
-	// Gate (#931): platform admin, the session's App, or the attributed user (not via impersonation).
+	// End a session, and — for a worker-bound one — write its closing handoff
+	// (#1029). This is the CLIENT operation that ends a worker session — the #930
+	// reaper ends one too, without a client. A client's chat session ending **does
+	// not end a worker session**, and never reaches this server (#1034).
+	//
+	// It ends the SESSION, not any HOLD. Where a person bound the worker the name
+	// stays theirs until explicitly released (#1050,
+	// [`cor:agt:020:09`](hrn:node:hadronmemory.com:specs:cor:agt:020:09)), so
+	// only that holder can bind it again. A pure App-key **bind takes no hold** —
+	// which is a fact about the bind, not a promise about the worker's state when
+	// this returns: an eligible user may have forced a binding meanwhile and taken
+	// the name, and ending the App-key session leaves that hold and that session
+	// untouched.
+	//
+	// Gate (#931): platform admin, the session's App, or the attributed user
+	// (not via impersonation).
+	//
+	// `handoff` is agent-composed prose: what landed, what is open, what is
+	// blocked, what the next driver should not repeat. The server owns where it
+	// goes (the worker's working memory, under the `handoffs` parent, at a
+	// lexically-ordered loc), so no client re-derives the convention.
+	//
+	// Written BEFORE the session ends, and a failed write REFUSES the end
+	// (HANDOFF_WRITE_FAILED) rather than ending anyway: a still-bound worker is
+	// recoverable — retry, or end without a handoff deliberately — while an ended
+	// session whose handoff evaporated is not, because the context that composed
+	// it is gone. Passing `handoff` on a session with no worker is refused rather
+	// than dropped; there is no sequence to write it to.
 	EndSession *EndTeamSessionEndSession `json:"endSession"`
 }
 
@@ -8212,6 +8042,25 @@ type GetTeamSessionResponse struct {
 func (v *GetTeamSessionResponse) GetSession() *GetTeamSessionSession { return v.Session }
 
 // GetTeamSessionSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open, and
+// its worker taken, until endSession or the #930 reaper. Do not use "chat
+// session" for a Chat (the agent conversation entity) — that is an **agent
+// chat**, a third concept.
 type GetTeamSessionSession struct {
 	TeamSessionFields `json:"-"`
 }
@@ -14584,6 +14433,15 @@ func (v *StartImpersonationStartImpersonationStartImpersonationResultSessionImpe
 
 // StartTeamSessionResponse is returned by StartTeamSession on success.
 type StartTeamSessionResponse struct {
+	// Open a session — and, when `input.workerRef` is given, a WORKER SESSION:
+	// the binding that makes the work attributable to that named teammate.
+	//
+	// The binding is held server-side and is independent of the caller's CHAT
+	// SESSION (the human's Desktop window, Claude Code session or IDE chat).
+	// **Ending your chat session does not end a worker session** (#1034): a chat
+	// session that closes leaves this session open and its worker taken until
+	// endSession or the #930 reaper. A client that ties its lifetime to a conversation must call
+	// endSession itself; nothing about closing a window reaches this server.
 	StartSession *StartTeamSessionStartSession `json:"startSession"`
 }
 
@@ -14593,6 +14451,25 @@ func (v *StartTeamSessionResponse) GetStartSession() *StartTeamSessionStartSessi
 }
 
 // StartTeamSessionStartSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open, and
+// its worker taken, until endSession or the #930 reaper. Do not use "chat
+// session" for a Chat (the agent conversation entity) — that is an **agent
+// chat**, a third concept.
 type StartTeamSessionStartSession struct {
 	TeamSessionFields `json:"-"`
 }
@@ -15062,10 +14939,13 @@ type TeamMemoryAppResponse struct {
 // GetMemory returns TeamMemoryAppResponse.Memory, and is useful for accessing the field via an interface.
 func (v *TeamMemoryAppResponse) GetMemory() *TeamMemoryAppMemory { return v.Memory }
 
-// ── Role definitions (#403 / hadron-server#960) — the pre-cast read. The
-// server projects the one answer a client cannot compute: which register
-// names are still FREE, judged against the App's FULL worker roster (names
-// are unique per App, case-insensitively, forever — cor:agt:020:02).
+// ── Role definitions (#403 / hadron-server#960) — the pre-cast read.
+//
+// The register projection this fragment was built around (register / freeCount
+// / exhausted / nameRange / nameConvention) is GONE — hadron-server#1050
+// removed the worker name register outright, and cor:agt:020:07 is withdrawn
+// rather than superseded. What remains is the role's identity, its description,
+// and the agent a role-mode cast would resolve.
 type TeamRoleFields struct {
 	// The role slug, e.g. backend-engineer.
 	Role string `json:"role"`
@@ -15073,15 +14953,6 @@ type TeamRoleFields struct {
 	Loc         string  `json:"loc"`
 	NodeId      string  `json:"nodeId"`
 	Description *string `json:"description"`
-	// Ordered register = allocation order (trimmed, case-insensitive dedup, first spelling wins).
-	Register  []*TeamRoleFieldsRegisterTeamRoleName `json:"register"`
-	FreeCount int                                   `json:"freeCount"`
-	// True when no register name is free (empty registers included) — the next register-mode cast refuses WORKER_REGISTER_EXHAUSTED.
-	Exhausted bool `json:"exhausted"`
-	// Register convention: initial-letter range like 'F-J' (data.nameRange). Writes validate added names against it.
-	NameRange *string `json:"nameRange"`
-	// Register convention prose (data.nameConvention).
-	NameConvention *string `json:"nameConvention"`
 	// The single installed agent whose personaRole matches this role — exactly
 	// the agent a role-mode castWorker would use (null when zero or ambiguous).
 	// Runs Query.agent's own read gate and masks to null on deny (the #552
@@ -15107,74 +14978,11 @@ func (v *TeamRoleFields) GetNodeId() string { return v.NodeId }
 // GetDescription returns TeamRoleFields.Description, and is useful for accessing the field via an interface.
 func (v *TeamRoleFields) GetDescription() *string { return v.Description }
 
-// GetRegister returns TeamRoleFields.Register, and is useful for accessing the field via an interface.
-func (v *TeamRoleFields) GetRegister() []*TeamRoleFieldsRegisterTeamRoleName { return v.Register }
-
-// GetFreeCount returns TeamRoleFields.FreeCount, and is useful for accessing the field via an interface.
-func (v *TeamRoleFields) GetFreeCount() int { return v.FreeCount }
-
-// GetExhausted returns TeamRoleFields.Exhausted, and is useful for accessing the field via an interface.
-func (v *TeamRoleFields) GetExhausted() bool { return v.Exhausted }
-
-// GetNameRange returns TeamRoleFields.NameRange, and is useful for accessing the field via an interface.
-func (v *TeamRoleFields) GetNameRange() *string { return v.NameRange }
-
-// GetNameConvention returns TeamRoleFields.NameConvention, and is useful for accessing the field via an interface.
-func (v *TeamRoleFields) GetNameConvention() *string { return v.NameConvention }
-
 // GetRoleAgent returns TeamRoleFields.RoleAgent, and is useful for accessing the field via an interface.
 func (v *TeamRoleFields) GetRoleAgent() *TeamRoleFieldsRoleAgent { return v.RoleAgent }
 
 // GetHasNamePlaceholder returns TeamRoleFields.HasNamePlaceholder, and is useful for accessing the field via an interface.
 func (v *TeamRoleFields) GetHasNamePlaceholder() *bool { return v.HasNamePlaceholder }
-
-// TeamRoleFieldsRegisterTeamRoleName includes the requested fields of the GraphQL type TeamRoleName.
-// The GraphQL type's documentation follows.
-//
-// One entry of a role's name register (#960, cor:agt:020:02). Order is
-// allocation order — castWorker walks the register first-to-last.
-type TeamRoleFieldsRegisterTeamRoleName struct {
-	Name string `json:"name"`
-	// True when a Worker holds this name in the App (case-insensitive, retired
-	// included — retirement never frees a name). Judged against the App's FULL
-	// roster server-side, which is why a client cannot compute this column.
-	Taken bool `json:"taken"`
-	// The Worker holding the name, when taken.
-	HeldBy *TeamRoleFieldsRegisterTeamRoleNameHeldByWorker `json:"heldBy"`
-}
-
-// GetName returns TeamRoleFieldsRegisterTeamRoleName.Name, and is useful for accessing the field via an interface.
-func (v *TeamRoleFieldsRegisterTeamRoleName) GetName() string { return v.Name }
-
-// GetTaken returns TeamRoleFieldsRegisterTeamRoleName.Taken, and is useful for accessing the field via an interface.
-func (v *TeamRoleFieldsRegisterTeamRoleName) GetTaken() bool { return v.Taken }
-
-// GetHeldBy returns TeamRoleFieldsRegisterTeamRoleName.HeldBy, and is useful for accessing the field via an interface.
-func (v *TeamRoleFieldsRegisterTeamRoleName) GetHeldBy() *TeamRoleFieldsRegisterTeamRoleNameHeldByWorker {
-	return v.HeldBy
-}
-
-// TeamRoleFieldsRegisterTeamRoleNameHeldByWorker includes the requested fields of the GraphQL type Worker.
-// The GraphQL type's documentation follows.
-//
-// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
-// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
-// The Agent carries the reusable persona dressing; the Worker is the local
-// named identity that does attributable work. Names are unique per App,
-// case-insensitively, forever (retirement and uninstall never free them —
-// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
-// by its id or by the computed `urn` below (#991).
-type TeamRoleFieldsRegisterTeamRoleNameHeldByWorker struct {
-	Id string `json:"id"`
-	// The worker's name ('Iris') — the identity every surface renders.
-	Name string `json:"name"`
-}
-
-// GetId returns TeamRoleFieldsRegisterTeamRoleNameHeldByWorker.Id, and is useful for accessing the field via an interface.
-func (v *TeamRoleFieldsRegisterTeamRoleNameHeldByWorker) GetId() string { return v.Id }
-
-// GetName returns TeamRoleFieldsRegisterTeamRoleNameHeldByWorker.Name, and is useful for accessing the field via an interface.
-func (v *TeamRoleFieldsRegisterTeamRoleNameHeldByWorker) GetName() string { return v.Name }
 
 // TeamRoleFieldsRoleAgent includes the requested fields of the GraphQL type Agent.
 type TeamRoleFieldsRoleAgent struct {
@@ -15200,11 +15008,13 @@ func (v *TeamRoleFieldsRoleAgent) GetPersonaRole() *string { return v.PersonaRol
 // TeamRolesResponse is returned by TeamRoles on success.
 type TeamRolesResponse struct {
 	// An App's role definitions (#960): every roles:<role> node in the Team
-	// Agent's system memory, projected with the one answer a client cannot
-	// compute — which register names are still FREE, judged against the App's
-	// full worker roster (names are unique per App, case-insensitively, forever
-	// — cor:agt:020:02). Ordered by role slug. Same read authorization as
-	// workers. teamAgentRef disambiguates when more than one installed agent
+	// Agent's system memory. Ordered by role slug. Same read authorization as
+	// workers.
+	//
+	// #1050: no register projection. This once existed chiefly to answer "which
+	// names are still free", which needed the App's FULL roster and so could not
+	// be computed client-side — with names no longer allocated from a pool there
+	// is no such question, and the read is a plain list of definitions. teamAgentRef disambiguates when more than one installed agent
 	// carries a roles: branch (TEAM_AGENT_AMBIGUOUS otherwise); an encrypted
 	// system memory without an active session key refuses SESSION_EXPIRED.
 	TeamRoles *TeamRolesTeamRolesTeamRolesPage `json:"teamRoles"`
@@ -15231,7 +15041,8 @@ func (v *TeamRolesTeamRolesTeamRolesPage) GetItems() []*TeamRolesTeamRolesTeamRo
 // The GraphQL type's documentation follows.
 //
 // A role definition (#960): the roles:<role> node in the Team Agent's system
-// memory, carrying the name register (data.names) and register conventions.
+// memory. #1050: it carries no name register — a role is a definition, not an
+// allocation pool.
 // The persona prompt template is NOT here — with the Worker model (#974) it
 // lives on the role-agent as dressing (personaRole + personaPrompt); roleAgent
 // points at it.
@@ -15253,31 +15064,6 @@ func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetNodeId() string {
 // GetDescription returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.Description, and is useful for accessing the field via an interface.
 func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetDescription() *string {
 	return v.TeamRoleFields.Description
-}
-
-// GetRegister returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.Register, and is useful for accessing the field via an interface.
-func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetRegister() []*TeamRoleFieldsRegisterTeamRoleName {
-	return v.TeamRoleFields.Register
-}
-
-// GetFreeCount returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.FreeCount, and is useful for accessing the field via an interface.
-func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetFreeCount() int {
-	return v.TeamRoleFields.FreeCount
-}
-
-// GetExhausted returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.Exhausted, and is useful for accessing the field via an interface.
-func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetExhausted() bool {
-	return v.TeamRoleFields.Exhausted
-}
-
-// GetNameRange returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.NameRange, and is useful for accessing the field via an interface.
-func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetNameRange() *string {
-	return v.TeamRoleFields.NameRange
-}
-
-// GetNameConvention returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.NameConvention, and is useful for accessing the field via an interface.
-func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetNameConvention() *string {
-	return v.TeamRoleFields.NameConvention
 }
 
 // GetRoleAgent returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.RoleAgent, and is useful for accessing the field via an interface.
@@ -15324,16 +15110,6 @@ type __premarshalTeamRolesTeamRolesTeamRolesPageItemsTeamRole struct {
 
 	Description *string `json:"description"`
 
-	Register []*TeamRoleFieldsRegisterTeamRoleName `json:"register"`
-
-	FreeCount int `json:"freeCount"`
-
-	Exhausted bool `json:"exhausted"`
-
-	NameRange *string `json:"nameRange"`
-
-	NameConvention *string `json:"nameConvention"`
-
 	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
 
 	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
@@ -15354,17 +15130,31 @@ func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) __premarshalJSON() (*__pr
 	retval.Loc = v.TeamRoleFields.Loc
 	retval.NodeId = v.TeamRoleFields.NodeId
 	retval.Description = v.TeamRoleFields.Description
-	retval.Register = v.TeamRoleFields.Register
-	retval.FreeCount = v.TeamRoleFields.FreeCount
-	retval.Exhausted = v.TeamRoleFields.Exhausted
-	retval.NameRange = v.TeamRoleFields.NameRange
-	retval.NameConvention = v.TeamRoleFields.NameConvention
 	retval.RoleAgent = v.TeamRoleFields.RoleAgent
 	retval.HasNamePlaceholder = v.TeamRoleFields.HasNamePlaceholder
 	return &retval, nil
 }
 
 // TeamSessionFields includes the GraphQL fields of Session requested by the fragment TeamSessionFields.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open, and
+// its worker taken, until endSession or the #930 reaper. Do not use "chat
+// session" for a Chat (the agent conversation entity) — that is an **agent
+// chat**, a third concept.
 type TeamSessionFields struct {
 	Id string `json:"id"`
 	// The role-agent driving the session (with workerId set, the agent behind the casting).
@@ -15378,14 +15168,15 @@ type TeamSessionFields struct {
 	// history, so past sessions stay attributable. Worker.app and Worker.agent
 	// run their OWN read gates and mask to null on deny (#552), so this nesting
 	// never widens what the session read admits.
-	Worker    *TeamSessionFieldsWorker `json:"worker"`
-	UserId    *string                  `json:"userId"`
-	Type      string                   `json:"type"`
-	Repo      *string                  `json:"repo"`
-	Branch    *string                  `json:"branch"`
-	PrNumber  *int                     `json:"prNumber"`
-	StartedAt string                   `json:"startedAt"`
-	EndedAt   *string                  `json:"endedAt"`
+	Worker *TeamSessionFieldsWorker `json:"worker"`
+	UserId *string                  `json:"userId"`
+	// Which kind of session this is: DEVELOPER, CHATBOT, AUTOMATION or EDGE.
+	Type      string  `json:"type"`
+	Repo      *string `json:"repo"`
+	Branch    *string `json:"branch"`
+	PrNumber  *int    `json:"prNumber"`
+	StartedAt string  `json:"startedAt"`
+	EndedAt   *string `json:"endedAt"`
 	// #928: machine identifier the session ran on.
 	Host *string `json:"host"`
 	// #928: the tool driving the session ('claude-code', 'codex', ...).
@@ -15469,7 +15260,20 @@ func (v *TeamSessionFieldsWorker) GetRole() *string { return v.Role }
 
 // TeamSessionsResponse is returned by TeamSessions on success.
 type TeamSessionsResponse struct {
-	// workerRef (#974): only sessions bound to that Worker (by id), newest first - the 'taken right now' / 'last driven by' read (cor:agt:020:03).
+	// Sessions VISIBLE to the caller, newest first — not only the caller's own.
+	// The scope is authorization-derived (`sessionScopeFilter`): a platform
+	// ADMIN/OWNER sees every session, an App key sees its own App's, and an
+	// ordinary user sees those of Apps in any org they belong to **plus** every
+	// session attributed to them (the self branch is identity-scoped, so it does
+	// not apply through impersonation). So a client must not present these as "my
+	// activity" — many rows may be attributed to other users or Apps.
+	//
+	// Unfiltered, this is also the GENERAL row of every `type`, worker-bound or
+	// not (#1034), so it is equally not a list of worker sessions.
+	//
+	// workerRef (#974): only sessions bound to that Worker (by id), newest first
+	// - the 'taken right now' / 'last driven by' read (cor:agt:020:03). That
+	// filter is what narrows this to worker sessions.
 	Sessions []*TeamSessionsSessionsSession `json:"sessions"`
 }
 
@@ -15477,6 +15281,25 @@ type TeamSessionsResponse struct {
 func (v *TeamSessionsResponse) GetSessions() []*TeamSessionsSessionsSession { return v.Sessions }
 
 // TeamSessionsSessionsSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open, and
+// its worker taken, until endSession or the #930 reaper. Do not use "chat
+// session" for a Chat (the agent conversation entity) — that is an **agent
+// chat**, a third concept.
 type TeamSessionsSessionsSession struct {
 	TeamSessionFields `json:"-"`
 }
@@ -18043,29 +17866,15 @@ func (v *UpdateTeamCollectionsUpdateTeamCollectionsTeamCollectionsPayload) GetCh
 
 // UpdateTeamRoleMetaResponse is returned by UpdateTeamRoleMeta on success.
 type UpdateTeamRoleMetaResponse struct {
-	// #960 — edit a roles:<role> definition. names is WHOLESALE (the natural
-	// fit for 'team role names set') but the invariants run against the DIFF
-	// between stored and submitted, so add/rm/mv sugar can never smuggle a
-	// violation: a name MINTED in this App may never be removed
-	// (TEAM_ROLE_NAME_MINTED — the register entry records the allocation), an
-	// added name may not appear in another register (TEAM_ROLE_NAME_DUPLICATE),
-	// and added names validate against nameRange (allowOutOfRange overrides).
-	// Omitted fields preserve; explicit null clears a convention key. Sibling
-	// data keys always survive (the single --data clobber hazard is unreachable
-	// through this surface). Unknown role: WORKER_ROLE_NOT_FOUND. Same
-	// authorization as createTeamRole.
+	// #960 — edit a roles:<role> definition. Omitted fields preserve. Unknown
+	// role: WORKER_ROLE_NOT_FOUND. Same authorization as createTeamRole.
 	//
-	// #987 — expectedNames turns the wholesale write into COMPARE-AND-SWAP:
-	// when supplied, the write refuses TEAM_ROLE_STALE unless the STORED
-	// register still equals it (ordered, exact spellings, after the same
-	// trim/dedup canonicalization the register itself gets — pass back the
-	// register exactly as teamRoles returned it). The refusal's extensions
-	// carry the current storedNames, so a client rebases its edit without a
-	// second read. This is what makes read-modify-write sugar (names
-	// add/rm/mv) safe: the diff invariants deliberately protect only MINTED
-	// names, so without the precondition two concurrent composed writes
-	// silently drop each other's newly added FREE names — no refusal fires,
-	// because removing an unminted name is legal by design.
+	// #1050: with the register gone this edits the description and nothing else,
+	// so the #987 expectedNames compare-and-swap is gone too — it existed solely
+	// to stop two concurrent wholesale register writes silently dropping each
+	// other's newly added FREE names, a hazard that cannot arise when the write
+	// owns no list. That closes #1028 (the client-side register CAS arithmetic)
+	// outright rather than by implementing it.
 	UpdateTeamRole *UpdateTeamRoleMetaUpdateTeamRole `json:"updateTeamRole"`
 }
 
@@ -18078,7 +17887,8 @@ func (v *UpdateTeamRoleMetaResponse) GetUpdateTeamRole() *UpdateTeamRoleMetaUpda
 // The GraphQL type's documentation follows.
 //
 // A role definition (#960): the roles:<role> node in the Team Agent's system
-// memory, carrying the name register (data.names) and register conventions.
+// memory. #1050: it carries no name register — a role is a definition, not an
+// allocation pool.
 // The persona prompt template is NOT here — with the Worker model (#974) it
 // lives on the role-agent as dressing (personaRole + personaPrompt); roleAgent
 // points at it.
@@ -18098,25 +17908,6 @@ func (v *UpdateTeamRoleMetaUpdateTeamRole) GetNodeId() string { return v.TeamRol
 // GetDescription returns UpdateTeamRoleMetaUpdateTeamRole.Description, and is useful for accessing the field via an interface.
 func (v *UpdateTeamRoleMetaUpdateTeamRole) GetDescription() *string {
 	return v.TeamRoleFields.Description
-}
-
-// GetRegister returns UpdateTeamRoleMetaUpdateTeamRole.Register, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleMetaUpdateTeamRole) GetRegister() []*TeamRoleFieldsRegisterTeamRoleName {
-	return v.TeamRoleFields.Register
-}
-
-// GetFreeCount returns UpdateTeamRoleMetaUpdateTeamRole.FreeCount, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleMetaUpdateTeamRole) GetFreeCount() int { return v.TeamRoleFields.FreeCount }
-
-// GetExhausted returns UpdateTeamRoleMetaUpdateTeamRole.Exhausted, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleMetaUpdateTeamRole) GetExhausted() bool { return v.TeamRoleFields.Exhausted }
-
-// GetNameRange returns UpdateTeamRoleMetaUpdateTeamRole.NameRange, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleMetaUpdateTeamRole) GetNameRange() *string { return v.TeamRoleFields.NameRange }
-
-// GetNameConvention returns UpdateTeamRoleMetaUpdateTeamRole.NameConvention, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleMetaUpdateTeamRole) GetNameConvention() *string {
-	return v.TeamRoleFields.NameConvention
 }
 
 // GetRoleAgent returns UpdateTeamRoleMetaUpdateTeamRole.RoleAgent, and is useful for accessing the field via an interface.
@@ -18163,16 +17954,6 @@ type __premarshalUpdateTeamRoleMetaUpdateTeamRole struct {
 
 	Description *string `json:"description"`
 
-	Register []*TeamRoleFieldsRegisterTeamRoleName `json:"register"`
-
-	FreeCount int `json:"freeCount"`
-
-	Exhausted bool `json:"exhausted"`
-
-	NameRange *string `json:"nameRange"`
-
-	NameConvention *string `json:"nameConvention"`
-
 	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
 
 	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
@@ -18193,173 +17974,6 @@ func (v *UpdateTeamRoleMetaUpdateTeamRole) __premarshalJSON() (*__premarshalUpda
 	retval.Loc = v.TeamRoleFields.Loc
 	retval.NodeId = v.TeamRoleFields.NodeId
 	retval.Description = v.TeamRoleFields.Description
-	retval.Register = v.TeamRoleFields.Register
-	retval.FreeCount = v.TeamRoleFields.FreeCount
-	retval.Exhausted = v.TeamRoleFields.Exhausted
-	retval.NameRange = v.TeamRoleFields.NameRange
-	retval.NameConvention = v.TeamRoleFields.NameConvention
-	retval.RoleAgent = v.TeamRoleFields.RoleAgent
-	retval.HasNamePlaceholder = v.TeamRoleFields.HasNamePlaceholder
-	return &retval, nil
-}
-
-// UpdateTeamRoleNamesResponse is returned by UpdateTeamRoleNames on success.
-type UpdateTeamRoleNamesResponse struct {
-	// #960 — edit a roles:<role> definition. names is WHOLESALE (the natural
-	// fit for 'team role names set') but the invariants run against the DIFF
-	// between stored and submitted, so add/rm/mv sugar can never smuggle a
-	// violation: a name MINTED in this App may never be removed
-	// (TEAM_ROLE_NAME_MINTED — the register entry records the allocation), an
-	// added name may not appear in another register (TEAM_ROLE_NAME_DUPLICATE),
-	// and added names validate against nameRange (allowOutOfRange overrides).
-	// Omitted fields preserve; explicit null clears a convention key. Sibling
-	// data keys always survive (the single --data clobber hazard is unreachable
-	// through this surface). Unknown role: WORKER_ROLE_NOT_FOUND. Same
-	// authorization as createTeamRole.
-	//
-	// #987 — expectedNames turns the wholesale write into COMPARE-AND-SWAP:
-	// when supplied, the write refuses TEAM_ROLE_STALE unless the STORED
-	// register still equals it (ordered, exact spellings, after the same
-	// trim/dedup canonicalization the register itself gets — pass back the
-	// register exactly as teamRoles returned it). The refusal's extensions
-	// carry the current storedNames, so a client rebases its edit without a
-	// second read. This is what makes read-modify-write sugar (names
-	// add/rm/mv) safe: the diff invariants deliberately protect only MINTED
-	// names, so without the precondition two concurrent composed writes
-	// silently drop each other's newly added FREE names — no refusal fires,
-	// because removing an unminted name is legal by design.
-	UpdateTeamRole *UpdateTeamRoleNamesUpdateTeamRole `json:"updateTeamRole"`
-}
-
-// GetUpdateTeamRole returns UpdateTeamRoleNamesResponse.UpdateTeamRole, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleNamesResponse) GetUpdateTeamRole() *UpdateTeamRoleNamesUpdateTeamRole {
-	return v.UpdateTeamRole
-}
-
-// UpdateTeamRoleNamesUpdateTeamRole includes the requested fields of the GraphQL type TeamRole.
-// The GraphQL type's documentation follows.
-//
-// A role definition (#960): the roles:<role> node in the Team Agent's system
-// memory, carrying the name register (data.names) and register conventions.
-// The persona prompt template is NOT here — with the Worker model (#974) it
-// lives on the role-agent as dressing (personaRole + personaPrompt); roleAgent
-// points at it.
-type UpdateTeamRoleNamesUpdateTeamRole struct {
-	TeamRoleFields `json:"-"`
-}
-
-// GetRole returns UpdateTeamRoleNamesUpdateTeamRole.Role, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleNamesUpdateTeamRole) GetRole() string { return v.TeamRoleFields.Role }
-
-// GetLoc returns UpdateTeamRoleNamesUpdateTeamRole.Loc, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleNamesUpdateTeamRole) GetLoc() string { return v.TeamRoleFields.Loc }
-
-// GetNodeId returns UpdateTeamRoleNamesUpdateTeamRole.NodeId, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleNamesUpdateTeamRole) GetNodeId() string { return v.TeamRoleFields.NodeId }
-
-// GetDescription returns UpdateTeamRoleNamesUpdateTeamRole.Description, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleNamesUpdateTeamRole) GetDescription() *string {
-	return v.TeamRoleFields.Description
-}
-
-// GetRegister returns UpdateTeamRoleNamesUpdateTeamRole.Register, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleNamesUpdateTeamRole) GetRegister() []*TeamRoleFieldsRegisterTeamRoleName {
-	return v.TeamRoleFields.Register
-}
-
-// GetFreeCount returns UpdateTeamRoleNamesUpdateTeamRole.FreeCount, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleNamesUpdateTeamRole) GetFreeCount() int { return v.TeamRoleFields.FreeCount }
-
-// GetExhausted returns UpdateTeamRoleNamesUpdateTeamRole.Exhausted, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleNamesUpdateTeamRole) GetExhausted() bool { return v.TeamRoleFields.Exhausted }
-
-// GetNameRange returns UpdateTeamRoleNamesUpdateTeamRole.NameRange, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleNamesUpdateTeamRole) GetNameRange() *string { return v.TeamRoleFields.NameRange }
-
-// GetNameConvention returns UpdateTeamRoleNamesUpdateTeamRole.NameConvention, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleNamesUpdateTeamRole) GetNameConvention() *string {
-	return v.TeamRoleFields.NameConvention
-}
-
-// GetRoleAgent returns UpdateTeamRoleNamesUpdateTeamRole.RoleAgent, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleNamesUpdateTeamRole) GetRoleAgent() *TeamRoleFieldsRoleAgent {
-	return v.TeamRoleFields.RoleAgent
-}
-
-// GetHasNamePlaceholder returns UpdateTeamRoleNamesUpdateTeamRole.HasNamePlaceholder, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleNamesUpdateTeamRole) GetHasNamePlaceholder() *bool {
-	return v.TeamRoleFields.HasNamePlaceholder
-}
-
-func (v *UpdateTeamRoleNamesUpdateTeamRole) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*UpdateTeamRoleNamesUpdateTeamRole
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.UpdateTeamRoleNamesUpdateTeamRole = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.TeamRoleFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalUpdateTeamRoleNamesUpdateTeamRole struct {
-	Role string `json:"role"`
-
-	Loc string `json:"loc"`
-
-	NodeId string `json:"nodeId"`
-
-	Description *string `json:"description"`
-
-	Register []*TeamRoleFieldsRegisterTeamRoleName `json:"register"`
-
-	FreeCount int `json:"freeCount"`
-
-	Exhausted bool `json:"exhausted"`
-
-	NameRange *string `json:"nameRange"`
-
-	NameConvention *string `json:"nameConvention"`
-
-	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
-
-	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
-}
-
-func (v *UpdateTeamRoleNamesUpdateTeamRole) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *UpdateTeamRoleNamesUpdateTeamRole) __premarshalJSON() (*__premarshalUpdateTeamRoleNamesUpdateTeamRole, error) {
-	var retval __premarshalUpdateTeamRoleNamesUpdateTeamRole
-
-	retval.Role = v.TeamRoleFields.Role
-	retval.Loc = v.TeamRoleFields.Loc
-	retval.NodeId = v.TeamRoleFields.NodeId
-	retval.Description = v.TeamRoleFields.Description
-	retval.Register = v.TeamRoleFields.Register
-	retval.FreeCount = v.TeamRoleFields.FreeCount
-	retval.Exhausted = v.TeamRoleFields.Exhausted
-	retval.NameRange = v.TeamRoleFields.NameRange
-	retval.NameConvention = v.TeamRoleFields.NameConvention
 	retval.RoleAgent = v.TeamRoleFields.RoleAgent
 	retval.HasNamePlaceholder = v.TeamRoleFields.HasNamePlaceholder
 	return &retval, nil
@@ -18383,6 +17997,25 @@ func (v *UpdateTeamSessionResponse) GetUpdateSession() *UpdateTeamSessionUpdateS
 }
 
 // UpdateTeamSessionUpdateSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open, and
+// its worker taken, until endSession or the #930 reaper. Do not use "chat
+// session" for a Chat (the agent conversation entity) — that is an **agent
+// chat**, a third concept.
 type UpdateTeamSessionUpdateSession struct {
 	TeamSessionFields `json:"-"`
 }
@@ -19639,7 +19272,6 @@ type __CastWorkerInput struct {
 	AgentRef       *string `json:"agentRef,omitempty"`
 	Role           *string `json:"role,omitempty"`
 	Name           *string `json:"name,omitempty"`
-	TeamAgentRef   *string `json:"teamAgentRef,omitempty"`
 	PromptOverride *string `json:"promptOverride,omitempty"`
 }
 
@@ -19655,9 +19287,6 @@ func (v *__CastWorkerInput) GetRole() *string { return v.Role }
 // GetName returns __CastWorkerInput.Name, and is useful for accessing the field via an interface.
 func (v *__CastWorkerInput) GetName() *string { return v.Name }
 
-// GetTeamAgentRef returns __CastWorkerInput.TeamAgentRef, and is useful for accessing the field via an interface.
-func (v *__CastWorkerInput) GetTeamAgentRef() *string { return v.TeamAgentRef }
-
 // GetPromptOverride returns __CastWorkerInput.PromptOverride, and is useful for accessing the field via an interface.
 func (v *__CastWorkerInput) GetPromptOverride() *string { return v.PromptOverride }
 
@@ -19667,7 +19296,6 @@ type __CastWorkerPreviewInput struct {
 	AgentRef       *string `json:"agentRef,omitempty"`
 	Role           *string `json:"role,omitempty"`
 	Name           *string `json:"name,omitempty"`
-	TeamAgentRef   *string `json:"teamAgentRef,omitempty"`
 	PromptOverride *string `json:"promptOverride,omitempty"`
 }
 
@@ -19682,9 +19310,6 @@ func (v *__CastWorkerPreviewInput) GetRole() *string { return v.Role }
 
 // GetName returns __CastWorkerPreviewInput.Name, and is useful for accessing the field via an interface.
 func (v *__CastWorkerPreviewInput) GetName() *string { return v.Name }
-
-// GetTeamAgentRef returns __CastWorkerPreviewInput.TeamAgentRef, and is useful for accessing the field via an interface.
-func (v *__CastWorkerPreviewInput) GetTeamAgentRef() *string { return v.TeamAgentRef }
 
 // GetPromptOverride returns __CastWorkerPreviewInput.PromptOverride, and is useful for accessing the field via an interface.
 func (v *__CastWorkerPreviewInput) GetPromptOverride() *string { return v.PromptOverride }
@@ -20219,14 +19844,10 @@ func (v *__CreateTeamChatMessageInput) GetSessionRef() *string { return v.Sessio
 
 // __CreateTeamRoleInput is used internally by genqlient
 type __CreateTeamRoleInput struct {
-	AppRef          string   `json:"appRef"`
-	TeamAgentRef    *string  `json:"teamAgentRef,omitempty"`
-	Role            string   `json:"role"`
-	Names           []string `json:"names"`
-	NameRange       *string  `json:"nameRange,omitempty"`
-	NameConvention  *string  `json:"nameConvention,omitempty"`
-	Description     *string  `json:"description,omitempty"`
-	AllowOutOfRange *bool    `json:"allowOutOfRange,omitempty"`
+	AppRef       string  `json:"appRef"`
+	TeamAgentRef *string `json:"teamAgentRef,omitempty"`
+	Role         string  `json:"role"`
+	Description  *string `json:"description,omitempty"`
 }
 
 // GetAppRef returns __CreateTeamRoleInput.AppRef, and is useful for accessing the field via an interface.
@@ -20238,20 +19859,8 @@ func (v *__CreateTeamRoleInput) GetTeamAgentRef() *string { return v.TeamAgentRe
 // GetRole returns __CreateTeamRoleInput.Role, and is useful for accessing the field via an interface.
 func (v *__CreateTeamRoleInput) GetRole() string { return v.Role }
 
-// GetNames returns __CreateTeamRoleInput.Names, and is useful for accessing the field via an interface.
-func (v *__CreateTeamRoleInput) GetNames() []string { return v.Names }
-
-// GetNameRange returns __CreateTeamRoleInput.NameRange, and is useful for accessing the field via an interface.
-func (v *__CreateTeamRoleInput) GetNameRange() *string { return v.NameRange }
-
-// GetNameConvention returns __CreateTeamRoleInput.NameConvention, and is useful for accessing the field via an interface.
-func (v *__CreateTeamRoleInput) GetNameConvention() *string { return v.NameConvention }
-
 // GetDescription returns __CreateTeamRoleInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateTeamRoleInput) GetDescription() *string { return v.Description }
-
-// GetAllowOutOfRange returns __CreateTeamRoleInput.AllowOutOfRange, and is useful for accessing the field via an interface.
-func (v *__CreateTeamRoleInput) GetAllowOutOfRange() *bool { return v.AllowOutOfRange }
 
 // __CreateUserApiKeyInput is used internally by genqlient
 type __CreateUserApiKeyInput struct {
@@ -20438,7 +20047,6 @@ type __DeleteTeamRoleInput struct {
 	AppRef       string  `json:"appRef"`
 	TeamAgentRef *string `json:"teamAgentRef,omitempty"`
 	Role         string  `json:"role"`
-	TransferTo   *string `json:"transferTo,omitempty"`
 }
 
 // GetAppRef returns __DeleteTeamRoleInput.AppRef, and is useful for accessing the field via an interface.
@@ -20449,9 +20057,6 @@ func (v *__DeleteTeamRoleInput) GetTeamAgentRef() *string { return v.TeamAgentRe
 
 // GetRole returns __DeleteTeamRoleInput.Role, and is useful for accessing the field via an interface.
 func (v *__DeleteTeamRoleInput) GetRole() string { return v.Role }
-
-// GetTransferTo returns __DeleteTeamRoleInput.TransferTo, and is useful for accessing the field via an interface.
-func (v *__DeleteTeamRoleInput) GetTransferTo() *string { return v.TransferTo }
 
 // __DeleteWorkerInput is used internally by genqlient
 type __DeleteWorkerInput struct {
@@ -21743,12 +21348,10 @@ func (v *__UpdateTeamCollectionsInput) GetAppRef() string { return v.AppRef }
 
 // __UpdateTeamRoleMetaInput is used internally by genqlient
 type __UpdateTeamRoleMetaInput struct {
-	AppRef         string  `json:"appRef"`
-	TeamAgentRef   *string `json:"teamAgentRef,omitempty"`
-	Role           string  `json:"role"`
-	NameRange      *string `json:"nameRange"`
-	NameConvention *string `json:"nameConvention"`
-	Description    *string `json:"description,omitempty"`
+	AppRef       string  `json:"appRef"`
+	TeamAgentRef *string `json:"teamAgentRef,omitempty"`
+	Role         string  `json:"role"`
+	Description  *string `json:"description,omitempty"`
 }
 
 // GetAppRef returns __UpdateTeamRoleMetaInput.AppRef, and is useful for accessing the field via an interface.
@@ -21760,42 +21363,8 @@ func (v *__UpdateTeamRoleMetaInput) GetTeamAgentRef() *string { return v.TeamAge
 // GetRole returns __UpdateTeamRoleMetaInput.Role, and is useful for accessing the field via an interface.
 func (v *__UpdateTeamRoleMetaInput) GetRole() string { return v.Role }
 
-// GetNameRange returns __UpdateTeamRoleMetaInput.NameRange, and is useful for accessing the field via an interface.
-func (v *__UpdateTeamRoleMetaInput) GetNameRange() *string { return v.NameRange }
-
-// GetNameConvention returns __UpdateTeamRoleMetaInput.NameConvention, and is useful for accessing the field via an interface.
-func (v *__UpdateTeamRoleMetaInput) GetNameConvention() *string { return v.NameConvention }
-
 // GetDescription returns __UpdateTeamRoleMetaInput.Description, and is useful for accessing the field via an interface.
 func (v *__UpdateTeamRoleMetaInput) GetDescription() *string { return v.Description }
-
-// __UpdateTeamRoleNamesInput is used internally by genqlient
-type __UpdateTeamRoleNamesInput struct {
-	AppRef          string    `json:"appRef"`
-	TeamAgentRef    *string   `json:"teamAgentRef,omitempty"`
-	Role            string    `json:"role"`
-	Names           []string  `json:"names"`
-	AllowOutOfRange *bool     `json:"allowOutOfRange,omitempty"`
-	ExpectedNames   *[]string `json:"expectedNames,omitempty"`
-}
-
-// GetAppRef returns __UpdateTeamRoleNamesInput.AppRef, and is useful for accessing the field via an interface.
-func (v *__UpdateTeamRoleNamesInput) GetAppRef() string { return v.AppRef }
-
-// GetTeamAgentRef returns __UpdateTeamRoleNamesInput.TeamAgentRef, and is useful for accessing the field via an interface.
-func (v *__UpdateTeamRoleNamesInput) GetTeamAgentRef() *string { return v.TeamAgentRef }
-
-// GetRole returns __UpdateTeamRoleNamesInput.Role, and is useful for accessing the field via an interface.
-func (v *__UpdateTeamRoleNamesInput) GetRole() string { return v.Role }
-
-// GetNames returns __UpdateTeamRoleNamesInput.Names, and is useful for accessing the field via an interface.
-func (v *__UpdateTeamRoleNamesInput) GetNames() []string { return v.Names }
-
-// GetAllowOutOfRange returns __UpdateTeamRoleNamesInput.AllowOutOfRange, and is useful for accessing the field via an interface.
-func (v *__UpdateTeamRoleNamesInput) GetAllowOutOfRange() *bool { return v.AllowOutOfRange }
-
-// GetExpectedNames returns __UpdateTeamRoleNamesInput.ExpectedNames, and is useful for accessing the field via an interface.
-func (v *__UpdateTeamRoleNamesInput) GetExpectedNames() *[]string { return v.ExpectedNames }
 
 // __UpdateTeamSessionInput is used internally by genqlient
 type __UpdateTeamSessionInput struct {
@@ -22763,8 +22332,8 @@ func CancelAppRun(
 
 // The mutation executed by CastWorker.
 const CastWorker_Operation = `
-mutation CastWorker ($appRef: ID!, $agentRef: ID, $role: String, $name: String, $teamAgentRef: ID, $promptOverride: String) {
-	castWorker(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name, teamAgentRef: $teamAgentRef, promptOverride: $promptOverride) {
+mutation CastWorker ($appRef: ID!, $agentRef: ID, $role: String, $name: String, $promptOverride: String) {
+	castWorker(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name, promptOverride: $promptOverride) {
 		... WorkerFields
 	}
 }
@@ -22788,12 +22357,17 @@ fragment WorkerFields on Worker {
 
 // Casting is ONE platform call (cor:agt:020:01/:02): the server resolves the
 // agent (agentRef, or role → the single installed agent whose personaRole
-// matches — WORKER_AGENT_NOT_FOUND / _AMBIGUOUS, never a guess), allocates the
-// name (explicit name: one attempt, WORKER_NAME_TAKEN is the answer; otherwise
-// the Team Agent's cast-list register is walked server-side past taken names —
-// WORKER_REGISTER_EXHAUSTED when none is free), composes Worker.prompt, and
-// provisions the worker-scoped memory. The CLI passes values through and
-// retries nothing — the retry loops the persona model needed are gone.
+// matches — WORKER_AGENT_NOT_FOUND / _AMBIGUOUS, never a guess), takes the
+// name, composes Worker.prompt, and provisions the worker-scoped memory. The
+// CLI passes values through and retries nothing.
+//
+// The NAME IS REQUIRED (hadron-server#1050): there is no register to walk, and
+// a name is permanent within the App (cor:agt:020:02), so it is chosen and
+// never derived — the server will not invent a permanent identifier nobody
+// picked. A cast without one refuses WORKER_NAME_REQUIRED.
+//
+// teamAgentRef is gone from both operations too: casting no longer reads any
+// system memory, so it had become accepted-and-ignored.
 func CastWorker(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -22801,7 +22375,6 @@ func CastWorker(
 	agentRef *string,
 	role *string,
 	name *string,
-	teamAgentRef *string,
 	promptOverride *string,
 ) (data_ *CastWorkerResponse, err_ error) {
 	req_ := &graphql.Request{
@@ -22812,7 +22385,6 @@ func CastWorker(
 			AgentRef:       agentRef,
 			Role:           role,
 			Name:           name,
-			TeamAgentRef:   teamAgentRef,
 			PromptOverride: promptOverride,
 		},
 	}
@@ -22831,14 +22403,12 @@ func CastWorker(
 
 // The query executed by CastWorkerPreview.
 const CastWorkerPreview_Operation = `
-query CastWorkerPreview ($appRef: ID!, $agentRef: ID, $role: String, $name: String, $teamAgentRef: ID, $promptOverride: String) {
-	castWorkerPreview(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name, teamAgentRef: $teamAgentRef, promptOverride: $promptOverride) {
+query CastWorkerPreview ($appRef: ID!, $agentRef: ID, $role: String, $name: String, $promptOverride: String) {
+	castWorkerPreview(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name, promptOverride: $promptOverride) {
 		name
 		role
 		agentId
 		agentName
-		teamAgentId
-		teamAgentName
 		prompt
 		hasNamePlaceholder
 	}
@@ -22859,7 +22429,6 @@ func CastWorkerPreview(
 	agentRef *string,
 	role *string,
 	name *string,
-	teamAgentRef *string,
 	promptOverride *string,
 ) (data_ *CastWorkerPreviewResponse, err_ error) {
 	req_ := &graphql.Request{
@@ -22870,7 +22439,6 @@ func CastWorkerPreview(
 			AgentRef:       agentRef,
 			Role:           role,
 			Name:           name,
-			TeamAgentRef:   teamAgentRef,
 			PromptOverride: promptOverride,
 		},
 	}
@@ -24205,8 +23773,8 @@ func CreateTeamChatMessage(
 
 // The mutation executed by CreateTeamRole.
 const CreateTeamRole_Operation = `
-mutation CreateTeamRole ($appRef: ID!, $teamAgentRef: ID, $role: String!, $names: [String!]!, $nameRange: String, $nameConvention: String, $description: String, $allowOutOfRange: Boolean) {
-	createTeamRole(appRef: $appRef, teamAgentRef: $teamAgentRef, role: $role, names: $names, nameRange: $nameRange, nameConvention: $nameConvention, description: $description, allowOutOfRange: $allowOutOfRange) {
+mutation CreateTeamRole ($appRef: ID!, $teamAgentRef: ID, $role: String!, $description: String) {
+	createTeamRole(appRef: $appRef, teamAgentRef: $teamAgentRef, role: $role, description: $description) {
 		... TeamRoleFields
 	}
 }
@@ -24215,18 +23783,6 @@ fragment TeamRoleFields on TeamRole {
 	loc
 	nodeId
 	description
-	register {
-		name
-		taken
-		heldBy {
-			id
-			name
-		}
-	}
-	freeCount
-	exhausted
-	nameRange
-	nameConvention
 	roleAgent {
 		id
 		urn
@@ -24237,37 +23793,26 @@ fragment TeamRoleFields on TeamRole {
 }
 `
 
-// ── Register writes (#410 / hadron-server#960). The invariants live
-// SERVER-side, in one App-scoped critical section serialized with
-// register-mode casting: a name minted in this App may never be removed
-// (TEAM_ROLE_NAME_MINTED), an added name may not appear in another register
-// (TEAM_ROLE_NAME_DUPLICATE), added names validate against nameRange
-// (TEAM_ROLE_NAME_OUT_OF_RANGE; allowOutOfRange overrides). The CLI is sugar
-// and receipts — client-side composition can never smuggle a violation.
+// ── Role writes. Once the register went (hadron-server#1050), a role
+// definition carries a role, a description, and nothing else that a client can
+// set — so create and update are the same two fields, and the CAS, the
+// range/convention keys and the whole `names` sugar went with the register.
 func CreateTeamRole(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
 	teamAgentRef *string,
 	role string,
-	names []string,
-	nameRange *string,
-	nameConvention *string,
 	description *string,
-	allowOutOfRange *bool,
 ) (data_ *CreateTeamRoleResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateTeamRole",
 		Query:  CreateTeamRole_Operation,
 		Variables: &__CreateTeamRoleInput{
-			AppRef:          appRef,
-			TeamAgentRef:    teamAgentRef,
-			Role:            role,
-			Names:           names,
-			NameRange:       nameRange,
-			NameConvention:  nameConvention,
-			Description:     description,
-			AllowOutOfRange: allowOutOfRange,
+			AppRef:       appRef,
+			TeamAgentRef: teamAgentRef,
+			Role:         role,
+			Description:  description,
 		},
 	}
 
@@ -24908,61 +24453,24 @@ func DeleteSecret(
 
 // The mutation executed by DeleteTeamRole.
 const DeleteTeamRole_Operation = `
-mutation DeleteTeamRole ($appRef: ID!, $teamAgentRef: ID, $role: String!, $transferTo: String) {
-	deleteTeamRole(appRef: $appRef, teamAgentRef: $teamAgentRef, role: $role, transferTo: $transferTo) {
+mutation DeleteTeamRole ($appRef: ID!, $teamAgentRef: ID, $role: String!) {
+	deleteTeamRole(appRef: $appRef, teamAgentRef: $teamAgentRef, role: $role) {
 		role
 		nodesDeleted
-		transferredNames
-		transferredTo {
-			... TeamRoleFields
-		}
 	}
-}
-fragment TeamRoleFields on TeamRole {
-	role
-	loc
-	nodeId
-	description
-	register {
-		name
-		taken
-		heldBy {
-			id
-			name
-		}
-	}
-	freeCount
-	exhausted
-	nameRange
-	nameConvention
-	roleAgent {
-		id
-		urn
-		name
-		personaRole
-	}
-	hasNamePlaceholder
 }
 `
 
-// The retirement (`role rm`, #441 / hadron-server#1002). transferTo is what
-// makes this ONE call instead of the four-step sequence a hand-run supersede
-// had to get right: the old definition is retired and its register appended to
-// the successor's, inside the same App-scoped critical section, so nothing can
-// observe the window where a name sits in two registers (or in neither).
-//
-// omitempty on transferTo is load-bearing beyond the usual preserve/clear rule:
-// a bare delete and a transfer are DIFFERENT operations server-side — a role
-// holding minted names refuses TEAM_ROLE_IN_USE without it — so sending an
-// explicit null would have to mean "no successor", and omitting is the only
-// spelling that reliably says so.
+// The retirement (`role rm`, #441 / hadron-server#1002). Now UNCONDITIONAL:
+// the minted-name gate and the register hand-off (transferTo) both went with
+// the register itself (hadron-server#1050), so there is no state a successor
+// could inherit and nothing for a bare delete to refuse over.
 func DeleteTeamRole(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
 	teamAgentRef *string,
 	role string,
-	transferTo *string,
 ) (data_ *DeleteTeamRoleResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteTeamRole",
@@ -24971,7 +24479,6 @@ func DeleteTeamRole(
 			AppRef:       appRef,
 			TeamAgentRef: teamAgentRef,
 			Role:         role,
-			TransferTo:   transferTo,
 		},
 	}
 
@@ -28543,18 +28050,6 @@ fragment TeamRoleFields on TeamRole {
 	loc
 	nodeId
 	description
-	register {
-		name
-		taken
-		heldBy {
-			id
-			name
-		}
-	}
-	freeCount
-	exhausted
-	nameRange
-	nameConvention
 	roleAgent {
 		id
 		urn
@@ -29739,8 +29234,8 @@ func UpdateTeamCollections(
 
 // The mutation executed by UpdateTeamRoleMeta.
 const UpdateTeamRoleMeta_Operation = `
-mutation UpdateTeamRoleMeta ($appRef: ID!, $teamAgentRef: ID, $role: String!, $nameRange: String, $nameConvention: String, $description: String) {
-	updateTeamRole(appRef: $appRef, teamAgentRef: $teamAgentRef, role: $role, nameRange: $nameRange, nameConvention: $nameConvention, description: $description) {
+mutation UpdateTeamRoleMeta ($appRef: ID!, $teamAgentRef: ID, $role: String!, $description: String) {
+	updateTeamRole(appRef: $appRef, teamAgentRef: $teamAgentRef, role: $role, description: $description) {
 		... TeamRoleFields
 	}
 }
@@ -29749,18 +29244,6 @@ fragment TeamRoleFields on TeamRole {
 	loc
 	nodeId
 	description
-	register {
-		name
-		taken
-		heldBy {
-			id
-			name
-		}
-	}
-	freeCount
-	exhausted
-	nameRange
-	nameConvention
 	roleAgent {
 		id
 		urn
@@ -29771,115 +29254,29 @@ fragment TeamRoleFields on TeamRole {
 }
 `
 
-// The conventions write (`role update`): nameRange/nameConvention are ALWAYS
-// sent — a value sets, an explicit null CLEARS (the server's convention-key
-// semantics), which is exactly why these two variables carry NO omitempty:
-// the command read-modify-writes, resending the current value for an
-// untouched field. names is absent (structurally preserved); description is
-// set-only (omitempty).
+// `role update` now sets exactly one field. description keeps its omitempty
+// (omitted is "preserve" on this server, CLAUDE.md), so an update that names
+// nothing is a no-op rather than a clear.
 func UpdateTeamRoleMeta(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
 	teamAgentRef *string,
 	role string,
-	nameRange *string,
-	nameConvention *string,
 	description *string,
 ) (data_ *UpdateTeamRoleMetaResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateTeamRoleMeta",
 		Query:  UpdateTeamRoleMeta_Operation,
 		Variables: &__UpdateTeamRoleMetaInput{
-			AppRef:         appRef,
-			TeamAgentRef:   teamAgentRef,
-			Role:           role,
-			NameRange:      nameRange,
-			NameConvention: nameConvention,
-			Description:    description,
+			AppRef:       appRef,
+			TeamAgentRef: teamAgentRef,
+			Role:         role,
+			Description:  description,
 		},
 	}
 
 	data_ = &UpdateTeamRoleMetaResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
-// The mutation executed by UpdateTeamRoleNames.
-const UpdateTeamRoleNames_Operation = `
-mutation UpdateTeamRoleNames ($appRef: ID!, $teamAgentRef: ID, $role: String!, $names: [String!]!, $allowOutOfRange: Boolean, $expectedNames: [String!]) {
-	updateTeamRole(appRef: $appRef, teamAgentRef: $teamAgentRef, role: $role, names: $names, allowOutOfRange: $allowOutOfRange, expectedNames: $expectedNames) {
-		... TeamRoleFields
-	}
-}
-fragment TeamRoleFields on TeamRole {
-	role
-	loc
-	nodeId
-	description
-	register {
-		name
-		taken
-		heldBy {
-			id
-			name
-		}
-	}
-	freeCount
-	exhausted
-	nameRange
-	nameConvention
-	roleAgent {
-		id
-		urn
-		name
-		personaRole
-	}
-	hasNamePlaceholder
-}
-`
-
-// The names-only write (`role names set|add|rm|mv`): conventions and
-// description are not in the operation at all, so they are structurally
-// preserved — omitted is "preserve" on this server (CLAUDE.md).
-//
-// expectedNames (#987 / hadron-cli#436) turns the wholesale write into
-// COMPARE-AND-SWAP: the write refuses TEAM_ROLE_STALE (extensions carry the
-// current storedNames) unless the stored register still equals it. The sugar
-// verbs always send it — that is what makes their read-modify-write safe —
-// while `set` deliberately omits it: an explicit whole-list replacement is
-// the caller asserting the final state, not an edit of the observed one.
-func UpdateTeamRoleNames(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	appRef string,
-	teamAgentRef *string,
-	role string,
-	names []string,
-	allowOutOfRange *bool,
-	expectedNames *[]string,
-) (data_ *UpdateTeamRoleNamesResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "UpdateTeamRoleNames",
-		Query:  UpdateTeamRoleNames_Operation,
-		Variables: &__UpdateTeamRoleNamesInput{
-			AppRef:          appRef,
-			TeamAgentRef:    teamAgentRef,
-			Role:            role,
-			Names:           names,
-			AllowOutOfRange: allowOutOfRange,
-			ExpectedNames:   expectedNames,
-		},
-	}
-
-	data_ = &UpdateTeamRoleNamesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -208,38 +208,6 @@ func WorkerTakenDetail(err error) (TakenDetail, bool) {
 	return TakenDetail{}, false
 }
 
-// TeamRoleStaleNames extracts the current stored register carried by a
-// TEAM_ROLE_STALE refusal (hadron-server#987: extensions.storedNames) — what
-// lets a CAS caller rebase its edit without a second read. ok is false when
-// err is not that error; a stale error without the payload returns ok=true
-// with nil names (the caller re-reads instead). Call BEFORE MapError.
-func TeamRoleStaleNames(err error) ([]string, bool) {
-	for _, e := range graphQLErrors(err) {
-		if e == nil || extensionCode(e) != "TEAM_ROLE_STALE" {
-			continue
-		}
-		// Extensions is non-nil whenever the code matched (the code came
-		// from it), so ABSENCE of the key — or a malformed value — must be
-		// distinguished from a legitimately EMPTY register: fabricating []
-		// here would make the CAS caller "rebase" onto a register that was
-		// never observed (PR #440 review, P2). nil = no payload, re-read.
-		raw, ok := e.Extensions["storedNames"].([]any)
-		if !ok {
-			return nil, true
-		}
-		names := make([]string, 0, len(raw))
-		for _, v := range raw {
-			s, ok := v.(string)
-			if !ok {
-				return nil, true // malformed entry: treat the whole payload as missing
-			}
-			names = append(names, s)
-		}
-		return names, true
-	}
-	return nil, false
-}
-
 // DescendantCount returns the descendant count carried by a
 // NODE_HAS_DESCENDANTS error (server #661: its extensions.count), or -1 when err
 // is not that error or carries no non-negative numeric count. JSON numbers decode
@@ -291,8 +259,13 @@ func codeForExtension(code string) int {
 	// TEAM_AGENT_NOT_INSTALLED → an installed ref) is a usage error, and so
 	// is an over-limit input the caller can shrink
 	// (TEAM_CHAT_BODY_TOO_LARGE, #939).
+	// A missing required argument (WORKER_NAME_REQUIRED, hadron-server#1050)
+	// is the same shape: the caller fixes it by passing the flag. `worker
+	// cast` refuses this one locally with the remedy, so the mapping is for
+	// the paths that do not — an exit 1 for a plainly-fixable input would
+	// read as a server fault.
 	case strings.HasSuffix(code, "_AMBIGUOUS") || strings.HasSuffix(code, "_NOT_INSTALLED") ||
-		strings.HasSuffix(code, "_TOO_LARGE"):
+		strings.HasSuffix(code, "_TOO_LARGE") || strings.HasSuffix(code, "_REQUIRED"):
 		return exitcode.Usage
 	// #428/#432: a worker with history refuses deletion, a retired worker
 	// refuses new sessions/authorship, and a taken worker refuses binding
@@ -301,25 +274,16 @@ func codeForExtension(code string) int {
 	// new worker, pick another one, or take over with --force).
 	case code == "WORKER_IN_USE" || code == "WORKER_RETIRED" || code == "WORKER_TAKEN":
 		return exitcode.Conflict
-	// #410: register-invariant refusals (hadron-server#960). A minted name
-	// (the register entry records an allocation that exists forever), a
-	// cross-register duplicate, and an already-existing role are state
-	// conflicts (TEAM_ROLE_EXISTS is spelled without the _ALREADY_ the
-	// suffix rule matches); an out-of-range name is an input the caller can
-	// fix (or deliberately override with --allow-out-of-range).
-	case code == "TEAM_ROLE_NAME_MINTED" || code == "TEAM_ROLE_NAME_DUPLICATE" ||
-		code == "TEAM_ROLE_EXISTS" ||
-		// #436: a CAS refusal is by definition a state conflict — the sugar
-		// rebases and retries; a caller seeing it surfaced ran out of retries.
-		code == "TEAM_ROLE_STALE" ||
-		// #441: a bare retirement of a role holding minted names
-		// (hadron-server#1002). The exact parallel of WORKER_IN_USE above —
-		// retrying blind won't help until the state changes, and the state
-		// change is naming a successor with --transfer-register-to.
-		code == "TEAM_ROLE_IN_USE":
+	// An already-existing role is a state conflict (TEAM_ROLE_EXISTS is
+	// spelled without the _ALREADY_ the suffix rule matches).
+	//
+	// The register-invariant codes that used to live here —
+	// TEAM_ROLE_NAME_MINTED, TEAM_ROLE_NAME_DUPLICATE, TEAM_ROLE_STALE,
+	// TEAM_ROLE_IN_USE, TEAM_ROLE_NAME_OUT_OF_RANGE — went with the register
+	// (hadron-server#1050). The server cannot return them, so a case here
+	// would document an exit code no caller can ever observe.
+	case code == "TEAM_ROLE_EXISTS":
 		return exitcode.Conflict
-	case code == "TEAM_ROLE_NAME_OUT_OF_RANGE":
-		return exitcode.Usage
 	default:
 		return exitcode.Error
 	}

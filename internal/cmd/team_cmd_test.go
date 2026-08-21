@@ -40,19 +40,19 @@ func TestTeamWorkerCast(t *testing.T) {
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "worker", "cast", "--app", "acme.com:eng-team",
-		"--role", "backend-engineer", "--json", "--server", gql.URL})
+		"--role", "backend-engineer", "--name", "Iris", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CastWorker"], &vars)
-	if vars["appRef"] != "acme.com:eng-team" || vars["role"] != "backend-engineer" {
+	if vars["appRef"] != "acme.com:eng-team" || vars["role"] != "backend-engineer" || vars["name"] != "Iris" {
 		t.Errorf("cast vars: %v", vars)
 	}
-	// Unset optionals are OMITTED, never null: no explicit name means the
-	// SERVER allocates from the cast-list register; no agent means the role
-	// picks it; no team-agent means the roles-branch marker resolves it.
-	for _, k := range []string{"name", "agentRef", "teamAgentRef", "promptOverride"} {
+	// Unset optionals are OMITTED, never null: no agent means the role picks
+	// it. teamAgentRef is not in the operation at all now (hadron-cli#496), so
+	// its presence would mean the removed argument came back.
+	for _, k := range []string{"agentRef", "teamAgentRef", "promptOverride"} {
 		if _, present := vars[k]; present {
 			t.Errorf("unset %q must be omitted, got %v", k, vars[k])
 		}
@@ -67,8 +67,8 @@ func TestTeamWorkerCast(t *testing.T) {
 	}
 }
 
-// --name, --agent, --team-agent, and --prompt-override pass through verbatim;
-// the resolved boot briefing (Worker.prompt) prints on the human path.
+// --name, --agent and --prompt-override pass through verbatim; the resolved
+// boot briefing (Worker.prompt) prints on the human path.
 func TestTeamWorkerCastExplicitNameAndBriefing(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"CastWorker": `{"data":{"castWorker":` + irisWorkerJSON + `}}`,
@@ -76,7 +76,7 @@ func TestTeamWorkerCastExplicitNameAndBriefing(t *testing.T) {
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "worker", "cast", "--app", "acme.com:eng-team",
-		"--agent", "hrn:agent:acme.com:backend", "--name", "Iris", "--team-agent", "agt-team",
+		"--agent", "hrn:agent:acme.com:backend", "--name", "Iris",
 		"--prompt-override", "You keep the release calm.", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -84,7 +84,7 @@ func TestTeamWorkerCastExplicitNameAndBriefing(t *testing.T) {
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CastWorker"], &vars)
 	if vars["agentRef"] != "hrn:agent:acme.com:backend" || vars["name"] != "Iris" ||
-		vars["teamAgentRef"] != "agt-team" || vars["promptOverride"] != "You keep the release calm." {
+		vars["promptOverride"] != "You keep the release calm." {
 		t.Errorf("cast vars: %v", vars)
 	}
 	if !strings.Contains(out.String(), "You are Iris.") {
@@ -749,16 +749,9 @@ func TestTeamWorkerRmInUseIsConflict(t *testing.T) {
 
 const teamRolesJSON = `{"data":{"teamRoles":{"total":2,"items":[
 	{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be","description":"Backend role",
-	 "register":[
-	   {"name":"Fred","taken":false,"heldBy":null},
-	   {"name":"Iris","taken":true,"heldBy":{"id":"wkr1","name":"Iris"}},
-	   {"name":"Joe","taken":true,"heldBy":null}],
-	 "freeCount":1,"exhausted":false,"nameRange":"F-J","nameConvention":"initial = role",
 	 "roleAgent":{"id":"agt1","urn":"hrn:agent:acme.com:backend","name":"backend-engineer","personaRole":"backend-engineer"},
 	 "hasNamePlaceholder":true},
 	{"role":"qa","loc":"roles:qa","nodeId":"n-qa","description":null,
-	 "register":[{"name":"Uma","taken":true,"heldBy":{"id":"wkr2","name":"Uma"}}],
-	 "freeCount":0,"exhausted":true,"nameRange":null,"nameConvention":null,
 	 "roleAgent":null,"hasNamePlaceholder":false}]}}}`
 
 // #403: the pre-cast read — registers with server-computed taken/free, in
@@ -778,40 +771,46 @@ func TestTeamRoleList(t *testing.T) {
 		t.Errorf("teamRoles vars: %v", vars)
 	}
 	var got []struct {
-		Role      string `json:"role"`
-		FreeCount int    `json:"freeCount"`
-		Exhausted bool   `json:"exhausted"`
-		Register  []struct {
-			Name     string  `json:"name"`
-			Taken    bool    `json:"taken"`
-			HeldByID *string `json:"heldById"`
-		} `json:"register"`
+		Role          string  `json:"role"`
+		Description   *string `json:"description"`
+		RoleAgentName *string `json:"roleAgentName"`
 	}
 	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
 		t.Fatalf("json: %v (%s)", err, out.String())
 	}
-	if len(got) != 2 || got[0].Role != "backend-engineer" || got[0].FreeCount != 1 || !got[1].Exhausted {
+	if len(got) != 2 || got[0].Role != "backend-engineer" || got[1].Role != "qa" {
 		t.Errorf("roles: %s", out.String())
 	}
-	// Allocation order preserved; the held name carries the worker id (the
-	// actionable ref), and a taken-but-unreadable holder stays taken.
-	r := got[0].Register
-	if len(r) != 3 || r[0].Name != "Fred" || r[0].Taken ||
-		r[1].HeldByID == nil || *r[1].HeldByID != "wkr1" ||
-		!r[2].Taken || r[2].HeldByID != nil {
-		t.Errorf("register: %s", out.String())
+	if got[0].RoleAgentName == nil || *got[0].RoleAgentName != "backend-engineer" {
+		t.Errorf("the role agent is what a role-mode cast resolves: %s", out.String())
+	}
+	// The register keys are GONE rather than emitted empty (hadron-cli#496):
+	// a permanent `[]`/0 would keep promising an allocation surface the server
+	// no longer has, which is a worse contract than a breaking change.
+	var raw []map[string]any
+	_ = json.Unmarshal([]byte(out.String()), &raw)
+	for _, gone := range []string{"register", "freeCount", "exhausted", "nameRange", "nameConvention"} {
+		if _, present := raw[0][gone]; present {
+			t.Errorf("%q describes the removed name register: %s", gone, out.String())
+		}
 	}
 
-	// Human table: taken marker + exhausted + the nameless-template warning.
+	// Human table, and the nameless-template warning that survived.
 	f2, out2 := testFactory(t)
 	root2 := NewRootCmd(f2)
 	root2.SetArgs([]string{"team", "role", "list", "--app", "acme.com:eng-team", "--server", gql.URL})
 	if err := root2.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	for _, want := range []string{"Iris✓", "0 (exhausted)", "never binds {{name}}"} {
+	for _, want := range []string{"ROLE", "backend-engineer", "never binds {{name}}"} {
 		if !strings.Contains(out2.String(), want) {
 			t.Errorf("table must carry %q: %s", want, out2.String())
+		}
+	}
+	// The register columns are gone from the table too.
+	for _, gone := range []string{"REGISTER", "FREE", "RANGE", "exhausted", "Iris✓"} {
+		if strings.Contains(out2.String(), gone) {
+			t.Errorf("the table still renders the removed register (%q): %s", gone, out2.String())
 		}
 	}
 }
@@ -825,10 +824,20 @@ func TestTeamRoleGet(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	for _, want := range []string{"held by Iris (wkr1)", "Fred — free", "Joe — taken (holder not visible to you)",
-		"range F-J", "backend-engineer (hrn:agent:acme.com:backend)"} {
+	for _, want := range []string{
+		"backend-engineer (roles:backend-engineer)",
+		"description: Backend role",
+		"backend-engineer (hrn:agent:acme.com:backend)",
+	} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("get output must carry %q: %s", want, out.String())
+		}
+	}
+	// The register block is gone (hadron-cli#496), including the conventions
+	// it was validated against.
+	for _, gone := range []string{"register (", "held by", "— free", "conventions:", "range F-J"} {
+		if strings.Contains(out.String(), gone) {
+			t.Errorf("get still renders the removed register (%q): %s", gone, out.String())
 		}
 	}
 
@@ -841,356 +850,104 @@ func TestTeamRoleGet(t *testing.T) {
 	}
 }
 
-// #410: role create is one server-validated call; the receipt is the
-// resulting register.
+// role create is one server-validated call. Once the register went
+// (hadron-server#1050) the only field a client sets is the description, so the
+// flags that carried the register — --names, --name-range, --name-convention,
+// --allow-out-of-range — are gone with it.
 func TestTeamRoleCreate(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"TeamAppIdentity": teamAppIdentityJSON,
 		"CreateTeamRole": `{"data":{"createTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
-			"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null},{"name":"Gwen","taken":false,"heldBy":null}],
-			"freeCount":2,"exhausted":false,"nameRange":"F-J","nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`,
+			"description":"Go services","roleAgent":null,"hasNamePlaceholder":null}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "role", "create", "backend-engineer", "--names", "Fred, Gwen",
-		"--name-range", "F-J", "--app", "acme.com:eng-team", "--server", gql.URL})
+	root.SetArgs([]string{"team", "role", "create", "backend-engineer", "--description", "Go services",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var vars struct {
-		Role      string   `json:"role"`
-		Names     []string `json:"names"`
-		NameRange string   `json:"nameRange"`
-	}
-	_ = json.Unmarshal(captured["CreateTeamRole"], &vars)
-	if vars.Role != "backend-engineer" || len(vars.Names) != 2 || vars.Names[0] != "Fred" || vars.Names[1] != "Gwen" ||
-		vars.NameRange != "F-J" {
-		t.Errorf("create vars: %+v", vars)
-	}
 	var raw map[string]any
 	_ = json.Unmarshal(captured["CreateTeamRole"], &raw)
-	for _, k := range []string{"nameConvention", "description", "allowOutOfRange", "teamAgentRef"} {
+	if raw["role"] != "backend-engineer" || raw["description"] != "Go services" {
+		t.Errorf("create vars: %v", raw)
+	}
+	// An unset optional is OMITTED, never null (CLAUDE.md wire semantics). The
+	// register arguments are not in the operation at all now; their presence
+	// would mean the removed surface came back.
+	for _, k := range []string{"teamAgentRef", "names", "nameRange", "nameConvention", "allowOutOfRange"} {
 		if _, present := raw[k]; present {
-			t.Errorf("unset %q must be omitted, got %v", k, raw[k])
+			t.Errorf("%q must not be on the wire, got %v", k, raw[k])
 		}
 	}
-	if !strings.Contains(out.String(), "✓ created role backend-engineer — register: Fred, Gwen (2 free)") {
-		t.Errorf("the receipt is the resulting register: %s", out.String())
+	if !strings.Contains(out.String(), "✓ created role backend-engineer — Go services") {
+		t.Errorf("receipt: %s", out.String())
+	}
+	// A create with no description is legal — the role name is the whole
+	// definition — so description must be omitted rather than sent empty.
+	gql2, captured2 := captureGraphQL(t, map[string]string{
+		"TeamAppIdentity": teamAppIdentityJSON,
+		"CreateTeamRole": `{"data":{"createTeamRole":{"role":"qa","loc":"roles:qa","nodeId":"n-qa",
+			"description":null,"roleAgent":null,"hasNamePlaceholder":null}}}`,
+	})
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "role", "create", "qa", "--app", "acme.com:eng-team", "--server", gql2.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var raw2 map[string]any
+	_ = json.Unmarshal(captured2["CreateTeamRole"], &raw2)
+	if _, present := raw2["description"]; present {
+		t.Errorf("unset description must be omitted, got %v", raw2["description"])
 	}
 }
 
-// role update read-modify-writes the conventions: an untouched field resends
-// its current value, a --clear-* flag sends the EXPLICIT null the server
-// reads as "remove this key" — and both convention keys are always present
-// on the wire (the operation deliberately has no omitempty on them).
-func TestTeamRoleUpdateSetAndClear(t *testing.T) {
+// role update sets the description and nothing else. An update that names no
+// field is refused rather than sent: omitted is "preserve" on this server, so
+// the write would be a no-op reporting success.
+func TestTeamRoleUpdateDescription(t *testing.T) {
 	updated := `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
-		"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
-		"freeCount":1,"exhausted":false,"nameRange":"F-K","nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
+		"description":"Go services and the GraphQL API","roleAgent":null,"hasNamePlaceholder":null}}}`
 	gql, captured := captureGraphQL(t, map[string]string{
 		"TeamRoles":          teamRolesJSON,
 		"TeamAppIdentity":    teamAppIdentityJSON,
 		"UpdateTeamRoleMeta": updated,
 	})
-	f, _ := testFactory(t)
+	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "role", "update", "backend-engineer", "--name-range", "F-K",
-		"--clear-name-convention", "--app", "acme.com:eng-team", "--server", gql.URL})
+	// Case-insensitive on the way in; the SERVER's spelling on the wire.
+	root.SetArgs([]string{"team", "role", "update", "Backend-Engineer",
+		"--description", "Go services and the GraphQL API", "--app", "acme.com:eng-team", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["UpdateTeamRoleMeta"], &vars)
-	if vars["nameRange"] != "F-K" {
-		t.Errorf("set convention: %v", vars)
+	if vars["role"] != "backend-engineer" || vars["description"] != "Go services and the GraphQL API" {
+		t.Errorf("update vars: %v", vars)
 	}
-	v, present := vars["nameConvention"]
-	if !present || v != nil {
-		t.Errorf("--clear-name-convention must send an EXPLICIT null (present, nil), got present=%v v=%v", present, v)
-	}
-	if _, present := vars["description"]; present {
-		t.Errorf("unset description must be omitted, got %v", vars["description"])
-	}
-
-	// Refusals before any write: nothing to update, and value+clear conflict.
-	for _, tc := range [][]string{
-		{"team", "role", "update", "backend-engineer"},
-		{"team", "role", "update", "backend-engineer", "--name-range", "F-K", "--clear-name-range"},
-	} {
-		f2, _ := testFactory(t)
-		root2 := NewRootCmd(f2)
-		root2.SetArgs(append(tc, "--app", "acme.com:eng-team", "--server", gql.URL))
-		if code := exitcode.FromError(root2.Execute()); code != exitcode.Usage {
-			t.Errorf("%v: exit %d, want Usage", tc, code)
+	for _, gone := range []string{"names", "nameRange", "nameConvention", "expectedNames", "allowOutOfRange"} {
+		if _, present := vars[gone]; present {
+			t.Errorf("%q must not be on the wire, got %v", gone, vars[gone])
 		}
 	}
-}
+	if !strings.Contains(out.String(), "✓ updated role backend-engineer") {
+		t.Errorf("receipt: %s", out.String())
+	}
 
-// `names set` is the explicit whole-list replacement: no CAS precondition
-// (it asserts final state). The operation carries only names, so
-// conventions are structurally preserved.
-func TestTeamRoleNamesSet(t *testing.T) {
-	updated := `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
-		"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
-		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
-	gql, captured := captureGraphQL(t, map[string]string{
-		"TeamRoles":           teamRolesJSON,
-		"TeamAppIdentity":     teamAppIdentityJSON,
-		"UpdateTeamRoleNames": updated,
+	// Nothing to update is refused BEFORE the wire.
+	gql2, captured2 := captureGraphQL(t, map[string]string{
+		"TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON,
 	})
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "role", "names", "set", "backend-engineer", "Fred,Iris,Joe,Kim",
-		"--app", "acme.com:eng-team", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var vars map[string]any
-	_ = json.Unmarshal(captured["UpdateTeamRoleNames"], &vars)
-	names, _ := vars["names"].([]any)
-	if len(names) != 4 || names[0] != "Fred" || names[3] != "Kim" {
-		t.Errorf("set must submit the exact ordered list: %v", vars["names"])
-	}
-	// Conventions are structurally preserved: the names operation cannot
-	// carry them at all.
-	for _, k := range []string{"nameRange", "nameConvention", "description"} {
-		if _, present := vars[k]; present {
-			t.Errorf("%q must be absent from the names-only operation, got %v", k, vars[k])
-		}
-	}
-
-	// set carries NO precondition: an explicit wholesale replacement asserts
-	// the final state (the sugar verbs are the CAS path, below).
-	if _, present := vars["expectedNames"]; present {
-		t.Errorf("set must not send expectedNames, got %v", vars["expectedNames"])
-	}
-}
-
-// #436: the sugar verbs are back, CAS-safe (hadron-server#987) — each write
-// carries expectedNames = the register as read, so a concurrent edit refuses
-// TEAM_ROLE_STALE instead of being clobbered.
-// (teamRolesJSON's backend register: Fred, Iris, Joe.)
-func TestTeamRoleNamesSugarVerbs(t *testing.T) {
-	updated := `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
-		"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
-		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
-	cases := []struct {
-		name string
-		args []string
-		want []string
-	}{
-		{"add appends in order", []string{"names", "add", "backend-engineer", "Gwen", "Hans"},
-			[]string{"Fred", "Iris", "Joe", "Gwen", "Hans"}},
-		{"rm removes case-insensitively", []string{"names", "rm", "backend-engineer", "fred"},
-			[]string{"Iris", "Joe"}},
-		{"mv repositions", []string{"names", "mv", "backend-engineer", "Joe", "1"},
-			[]string{"Joe", "Fred", "Iris"}},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			gql, captured := captureGraphQL(t, map[string]string{
-				"TeamRoles":           teamRolesJSON,
-				"TeamAppIdentity":     teamAppIdentityJSON,
-				"UpdateTeamRoleNames": updated,
-			})
-			f, _ := testFactory(t)
-			root := NewRootCmd(f)
-			root.SetArgs(append(append([]string{"team", "role"}, tc.args...), "--app", "acme.com:eng-team", "--server", gql.URL))
-			if err := root.Execute(); err != nil {
-				t.Fatalf("execute: %v", err)
-			}
-			var vars struct {
-				Names         []string `json:"names"`
-				ExpectedNames []string `json:"expectedNames"`
-			}
-			_ = json.Unmarshal(captured["UpdateTeamRoleNames"], &vars)
-			if strings.Join(vars.Names, "|") != strings.Join(tc.want, "|") {
-				t.Errorf("composed register = %v, want %v", vars.Names, tc.want)
-			}
-			// The CAS precondition: the register exactly as read.
-			if strings.Join(vars.ExpectedNames, "|") != "Fred|Iris|Joe" {
-				t.Errorf("expectedNames must be the register as read: %v", vars.ExpectedNames)
-			}
-		})
-	}
-
-	// rm/mv of an absent name refuse before any write.
-	for _, tc := range [][]string{
-		{"team", "role", "names", "rm", "backend-engineer", "Nadia"},
-		{"team", "role", "names", "mv", "backend-engineer", "Nadia", "1"},
-		{"team", "role", "names", "mv", "backend-engineer", "Joe", "9"},
-		{"team", "role", "names", "mv", "backend-engineer", "Joe", "zero"},
-	} {
-		gql, captured := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON})
-		f, _ := testFactory(t)
-		root := NewRootCmd(f)
-		root.SetArgs(append(tc, "--app", "acme.com:eng-team", "--server", gql.URL))
-		if code := exitcode.FromError(root.Execute()); code != exitcode.Usage {
-			t.Errorf("%v: exit %d, want Usage", tc, code)
-		}
-		if _, called := captured["UpdateTeamRoleNames"]; called {
-			t.Errorf("%v: a refused verb must not reach the mutation", tc)
-		}
-	}
-}
-
-// #442: `names add` splits every argument on commas, like its siblings
-// (`create --names`, `names set`). Before this, the whole string was
-// appended as ONE name — a corrupt entry the range check cannot catch (it
-// inspects only the initial) that would become a PERMANENT worker name on
-// the next register-mode cast.
-func TestTeamRoleNamesAddSplitsCommas(t *testing.T) {
-	updated := `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
-		"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
-		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
-	for _, tc := range []struct {
-		name string
-		args []string
-	}{
-		{"comma form", []string{"Gwen,Hans"}},
-		{"space form", []string{"Gwen", "Hans"}},
-		{"mixed, with stray spaces", []string{"Gwen, Hans"}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			gql, captured := captureGraphQL(t, map[string]string{
-				"TeamRoles":           teamRolesJSON,
-				"TeamAppIdentity":     teamAppIdentityJSON,
-				"UpdateTeamRoleNames": updated,
-			})
-			f, _ := testFactory(t)
-			root := NewRootCmd(f)
-			root.SetArgs(append(append([]string{"team", "role", "names", "add", "backend-engineer"}, tc.args...),
-				"--app", "acme.com:eng-team", "--server", gql.URL))
-			if err := root.Execute(); err != nil {
-				t.Fatalf("execute: %v", err)
-			}
-			var vars struct {
-				Names []string `json:"names"`
-			}
-			_ = json.Unmarshal(captured["UpdateTeamRoleNames"], &vars)
-			// Every form yields the SAME two appended names — never one
-			// composite "Gwen,Hans" entry.
-			if strings.Join(vars.Names, "|") != "Fred|Iris|Joe|Gwen|Hans" {
-				t.Errorf("composed register = %v", vars.Names)
-			}
-		})
-	}
-}
-
-// PR #444 review: the rebase path had its own false-update hole — when a
-// concurrent admin adds the very names this command was adding, the
-// recomposed register equals the stored one, and the loop used to submit it
-// anyway and print "✓ updated". It must detect the no-op, skip the write,
-// and report unchanged.
-func TestTeamRoleNamesAddStaleRebaseToNoOpReportsUnchanged(t *testing.T) {
-	var updateCalls int
-	roleCalls := 0
-	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			OperationName string `json:"operationName"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		w.Header().Set("Content-Type", "application/json")
-		switch body.OperationName {
-		case "TeamRoles":
-			roleCalls++
-			if roleCalls == 1 {
-				_, _ = w.Write([]byte(teamRolesJSON)) // register: Fred, Iris, Joe
-				return
-			}
-			// The re-read behind the unchanged receipt sees the concurrent add.
-			_, _ = w.Write([]byte(`{"data":{"teamRoles":{"total":1,"items":[
-				{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be","description":null,
-				 "register":[{"name":"Fred","taken":false,"heldBy":null},{"name":"Iris","taken":true,"heldBy":{"id":"wkr1","name":"Iris"}},
-				   {"name":"Joe","taken":false,"heldBy":null},{"name":"Hans","taken":false,"heldBy":null}],
-				 "freeCount":3,"exhausted":false,"nameRange":null,"nameConvention":null,
-				 "roleAgent":null,"hasNamePlaceholder":null}]}}}`))
-		case "UpdateTeamRoleNames":
-			updateCalls++
-			// A concurrent admin already added Hans — exactly what we wanted.
-			_, _ = w.Write([]byte(`{"errors":[{"message":"the register changed",
-				"extensions":{"code":"TEAM_ROLE_STALE","storedNames":["Fred","Iris","Joe","Hans"]}}]}`))
-		case "TeamAppIdentity":
-			_, _ = w.Write([]byte(teamAppIdentityJSON))
-		default:
-			t.Errorf("unexpected operation %q", body.OperationName)
-			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
-		}
-	}))
-	t.Cleanup(gql.Close)
-
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "role", "names", "add", "backend-engineer", "Hans",
-		"--app", "acme.com:eng-team", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	// Exactly ONE write attempt: the retry recomposed to a no-op and stopped.
-	if updateCalls != 1 {
-		t.Errorf("the rebased no-op must not re-submit, got %d update calls", updateCalls)
-	}
-	if strings.Contains(out.String(), "✓ updated") {
-		t.Errorf("a rebased no-op must not claim an update: %s", out.String())
-	}
-	if !strings.Contains(out.String(), "unchanged") || !strings.Contains(out.String(), "Hans") {
-		t.Errorf("the receipt must report unchanged and show the current register: %s", out.String())
-	}
-}
-
-// A name already in the register is skipped rather than re-appended, and an
-// add where EVERY name is already present says so instead of printing a
-// "✓ updated" receipt for a write that changed nothing (#442, lower-severity
-// finding).
-func TestTeamRoleNamesAddSkipsPresentNames(t *testing.T) {
-	updated := `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
-		"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
-		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
-	gql, captured := captureGraphQL(t, map[string]string{
-		"TeamRoles":           teamRolesJSON,
-		"TeamAppIdentity":     teamAppIdentityJSON,
-		"UpdateTeamRoleNames": updated,
-	})
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	// Iris is already in the register (case-insensitively); only Gwen is new.
-	root.SetArgs([]string{"team", "role", "names", "add", "backend-engineer", "iris,Gwen",
-		"--app", "acme.com:eng-team", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var vars struct {
-		Names []string `json:"names"`
-	}
-	_ = json.Unmarshal(captured["UpdateTeamRoleNames"], &vars)
-	if strings.Join(vars.Names, "|") != "Fred|Iris|Joe|Gwen" {
-		t.Errorf("a present name must not be re-appended: %v", vars.Names)
-	}
-
-	// Every name already present: no write at all, and an honest receipt.
-	gql2, captured2 := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON})
-	f2, out2 := testFactory(t)
+	f2, _ := testFactory(t)
 	root2 := NewRootCmd(f2)
-	root2.SetArgs([]string{"team", "role", "names", "add", "backend-engineer", "Fred,Iris",
-		"--app", "acme.com:eng-team", "--server", gql2.URL})
-	if err := root2.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
+	root2.SetArgs([]string{"team", "role", "update", "backend-engineer", "--app", "acme.com:eng-team", "--server", gql2.URL})
+	if code := exitcode.FromError(root2.Execute()); code != exitcode.Usage {
+		t.Errorf("a no-field update must be Usage, got exit %d", code)
 	}
-	if _, called := captured2["UpdateTeamRoleNames"]; called {
-		t.Error("nothing to add must not reach the mutation")
-	}
-	if strings.Contains(out2.String(), "✓ updated") {
-		t.Errorf("a no-op must not claim an update: %s", out2.String())
-	}
-	if !strings.Contains(out2.String(), "unchanged") {
-		t.Errorf("the receipt must say nothing changed: %s", out2.String())
-	}
-	// The no-op receipt names the App too (PR #471 review). "Nothing to do"
-	// and "nothing to do HERE, because you are pointed at the wrong team" are
-	// otherwise the same sentence — and a no-op receipt is the one a reader
-	// skims hardest.
-	if !strings.Contains(out2.String(), "  app: hrn:app:acme.com:eng-team — Eng Team (from --app)") {
-		t.Errorf("the unchanged receipt must name the App: %s", out2.String())
+	if _, called := captured2["UpdateTeamRoleMeta"]; called {
+		t.Error("a no-field update must not reach the server")
 	}
 }
 
@@ -1248,24 +1005,22 @@ func TestTeamRoleScopeLineOnReadsAndReceipts(t *testing.T) {
 		}
 	})
 
-	t.Run("a register write's receipt names where it landed", func(t *testing.T) {
+	t.Run("a write's receipt names where it landed", func(t *testing.T) {
 		gql, _ := captureGraphQL(t, map[string]string{
 			"TeamRoles":       teamRolesJSON,
 			"TeamAppIdentity": teamAppIdentityJSON,
-			"UpdateTeamRoleNames": `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer",
-				"nodeId":"n-be","description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
-				"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,
-				"roleAgent":null,"hasNamePlaceholder":null}}}`,
+			"UpdateTeamRoleMeta": `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer",
+				"nodeId":"n-be","description":"Go services","roleAgent":null,"hasNamePlaceholder":null}}}`,
 		})
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
-		root.SetArgs([]string{"team", "role", "names", "set", "backend-engineer", "Fred",
+		root.SetArgs([]string{"team", "role", "update", "backend-engineer", "--description", "Go services",
 			"--app", "acme.com:eng-team", "--server", gql.URL})
 		if err := root.Execute(); err != nil {
 			t.Fatalf("execute: %v", err)
 		}
-		// Register order decides who castWorker allocates next, so "which team
-		// did this land in" is the receipt's load-bearing half.
+		// An edit landing in another team is invisible without this, and the
+		// receipt is the one thing the operator is guaranteed to read.
 		if !strings.Contains(out.String(), "  app: "+wantApp) {
 			t.Errorf("the write receipt must name the App: %s", out.String())
 		}
@@ -1285,14 +1040,13 @@ func TestTeamRoleJSONIssuesNoIdentityRead(t *testing.T) {
 		args []string
 	}{
 		{"list", []string{"team", "role", "list"}},
-		{"rm --yes", []string{"team", "role", "rm", "unused-role", "--yes"}},
+		{"rm --yes", []string{"team", "role", "rm", "svelte-app-engineer", "--yes"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{
 				"TeamRoles":       teamRolesRmJSON,
 				"TeamAppIdentity": teamAppIdentityJSON,
-				"DeleteTeamRole": `{"data":{"deleteTeamRole":{"role":"unused-role","nodesDeleted":1,
-					"transferredNames":[],"transferredTo":null}}}`,
+				"DeleteTeamRole":  `{"data":{"deleteTeamRole":{"role":"svelte-app-engineer","nodesDeleted":1}}}`,
 			})
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
@@ -1328,243 +1082,29 @@ func TestTeamRoleListSurvivesUnreadableApp(t *testing.T) {
 	}
 }
 
-func TestTeamRoleNamesRmMatchesLiterally(t *testing.T) {
-	corrupt := `{"data":{"teamRoles":{"total":1,"items":[
-		{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be","description":null,
-		 "register":[{"name":"Fred","taken":false,"heldBy":null},{"name":"Linn,Mia","taken":false,"heldBy":null}],
-		 "freeCount":2,"exhausted":false,"nameRange":null,"nameConvention":null,
-		 "roleAgent":null,"hasNamePlaceholder":null}]}}}`
-	updated := `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
-		"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
-		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
-	gql, captured := captureGraphQL(t, map[string]string{
-		"TeamRoles":           corrupt,
-		"TeamAppIdentity":     teamAppIdentityJSON,
-		"UpdateTeamRoleNames": updated,
-	})
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "role", "names", "rm", "backend-engineer", "Linn,Mia",
-		"--app", "acme.com:eng-team", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("the recovery path must work: %v", err)
-	}
-	var vars struct {
-		Names []string `json:"names"`
-	}
-	_ = json.Unmarshal(captured["UpdateTeamRoleNames"], &vars)
-	if strings.Join(vars.Names, "|") != "Fred" {
-		t.Errorf("the corrupt entry must be removable as one literal name: %v", vars.Names)
-	}
-}
-
-// A sugar edit from an EMPTY register must still be conditional: the
-// precondition is present-but-empty on the wire ([]), never omitted — a
-// dropped empty precondition would be an unconditional write, reopening the
-// race (PR #440 review, P1). The *[]string binding is what keeps [] alive.
-func TestTeamRoleNamesAddFromEmptyRegisterKeepsCAS(t *testing.T) {
-	emptyRole := `{"data":{"teamRoles":{"total":1,"items":[
-		{"role":"qa","loc":"roles:qa","nodeId":"n-qa","description":null,"register":[],
-		 "freeCount":0,"exhausted":true,"nameRange":null,"nameConvention":null,
-		 "roleAgent":null,"hasNamePlaceholder":null}]}}}`
-	updated := `{"data":{"updateTeamRole":{"role":"qa","loc":"roles:qa","nodeId":"n-qa",
-		"description":null,"register":[{"name":"Uma","taken":false,"heldBy":null}],
-		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
-	gql, captured := captureGraphQL(t, map[string]string{
-		"TeamRoles":           emptyRole,
-		"TeamAppIdentity":     teamAppIdentityJSON,
-		"UpdateTeamRoleNames": updated,
-	})
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "role", "names", "add", "qa", "Uma",
-		"--app", "acme.com:eng-team", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var vars map[string]any
-	_ = json.Unmarshal(captured["UpdateTeamRoleNames"], &vars)
-	raw, present := vars["expectedNames"]
-	if !present {
-		t.Fatalf("expectedNames must be PRESENT (empty, not omitted) — an omitted precondition is an unconditional write: %v", vars)
-	}
-	if arr, _ := raw.([]any); len(arr) != 0 {
-		t.Errorf("the empty register's precondition is []: %v", raw)
-	}
-}
-
-// A TEAM_ROLE_STALE refusal WITHOUT the storedNames payload must not rebase
-// onto a fabricated empty register (PR #440 review, P2) — the loop re-reads
-// instead, and the retry's precondition comes from that re-read.
-func TestTeamRoleNamesStaleWithoutPayloadRereads(t *testing.T) {
-	updated := `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
-		"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
-		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
-	teamRolesCalls := 0
-	var updateCalls []json.RawMessage
-	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			OperationName string          `json:"operationName"`
-			Variables     json.RawMessage `json:"variables"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		w.Header().Set("Content-Type", "application/json")
-		switch body.OperationName {
-		case "TeamRoles":
-			teamRolesCalls++
-			_, _ = w.Write([]byte(teamRolesJSON))
-		case "UpdateTeamRoleNames":
-			updateCalls = append(updateCalls, body.Variables)
-			if len(updateCalls) == 1 {
-				_, _ = w.Write([]byte(`{"errors":[{"message":"the register changed",
-					"extensions":{"code":"TEAM_ROLE_STALE"}}]}`))
-				return
-			}
-			_, _ = w.Write([]byte(updated))
-		case "TeamAppIdentity":
-			_, _ = w.Write([]byte(teamAppIdentityJSON))
-		default:
-			t.Errorf("unexpected operation %q", body.OperationName)
-			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
-		}
-	}))
-	t.Cleanup(gql.Close)
-
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "role", "names", "add", "backend-engineer", "Hans",
-		"--app", "acme.com:eng-team", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	if teamRolesCalls != 2 {
-		t.Errorf("a payload-less stale refusal must trigger a re-read, got %d TeamRoles calls", teamRolesCalls)
-	}
-	var second struct {
-		ExpectedNames []string `json:"expectedNames"`
-	}
-	_ = json.Unmarshal(updateCalls[1], &second)
-	if strings.Join(second.ExpectedNames, "|") != "Fred|Iris|Joe" {
-		t.Errorf("the retry's precondition must come from the re-read, not a fabricated empty register: %v", second.ExpectedNames)
-	}
-}
-
-// The CAS loop rebases on TEAM_ROLE_STALE: the refusal's storedNames become
-// the new base AND the new precondition, and the edit is recomposed — the
-// concurrent addition (Gwen) survives the retry.
-func TestTeamRoleNamesAddRebasesOnStale(t *testing.T) {
-	updated := `{"data":{"updateTeamRole":{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be",
-		"description":null,"register":[{"name":"Fred","taken":false,"heldBy":null}],
-		"freeCount":1,"exhausted":false,"nameRange":null,"nameConvention":null,"roleAgent":null,"hasNamePlaceholder":null}}}`
-	var updateCalls []json.RawMessage
-	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			OperationName string          `json:"operationName"`
-			Variables     json.RawMessage `json:"variables"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		w.Header().Set("Content-Type", "application/json")
-		switch body.OperationName {
-		case "TeamRoles":
-			_, _ = w.Write([]byte(teamRolesJSON))
-		case "UpdateTeamRoleNames":
-			updateCalls = append(updateCalls, body.Variables)
-			if len(updateCalls) == 1 {
-				// A concurrent edit added Gwen since the read.
-				_, _ = w.Write([]byte(`{"errors":[{"message":"the register changed",
-					"extensions":{"code":"TEAM_ROLE_STALE","storedNames":["Fred","Iris","Joe","Gwen"]}}]}`))
-				return
-			}
-			_, _ = w.Write([]byte(updated))
-		case "TeamAppIdentity":
-			_, _ = w.Write([]byte(teamAppIdentityJSON))
-		default:
-			t.Errorf("unexpected operation %q", body.OperationName)
-			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected"}]}`))
-		}
-	}))
-	t.Cleanup(gql.Close)
-
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "role", "names", "add", "backend-engineer", "Hans",
-		"--app", "acme.com:eng-team", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	if len(updateCalls) != 2 {
-		t.Fatalf("expected refuse-then-retry, got %d update calls", len(updateCalls))
-	}
-	var second struct {
-		Names         []string `json:"names"`
-		ExpectedNames []string `json:"expectedNames"`
-	}
-	_ = json.Unmarshal(updateCalls[1], &second)
-	// The retry is rebased: the concurrent Gwen survives, Hans lands after,
-	// and the precondition is the storedNames the refusal carried.
-	if strings.Join(second.Names, "|") != "Fred|Iris|Joe|Gwen|Hans" {
-		t.Errorf("rebased submission = %v", second.Names)
-	}
-	if strings.Join(second.ExpectedNames, "|") != "Fred|Iris|Joe|Gwen" {
-		t.Errorf("rebased precondition = %v", second.ExpectedNames)
-	}
-	errOut := f.IOStreams.ErrOut.(*strings.Builder).String()
-	if !strings.Contains(errOut, "rebasing") {
-		t.Errorf("the rebase should be narrated: %q", errOut)
-	}
-}
-
 // The register invariants are the SERVER's; the CLI maps their typed
 // refusals — minted/duplicate/exists are state conflicts (TEAM_ROLE_EXISTS
 // needs its explicit mapping: the generic suffix rule matches
-// _ALREADY_EXISTS, not _EXISTS), out-of-range is fixable input.
+// The register-invariant refusals this used to cover — TEAM_ROLE_NAME_MINTED,
+// TEAM_ROLE_NAME_DUPLICATE, TEAM_ROLE_NAME_OUT_OF_RANGE, TEAM_ROLE_STALE,
+// TEAM_ROLE_IN_USE — are all unreachable: hadron-server#1050 removed the
+// register that produced them, so a case for any of them would pin an exit
+// code no caller can observe. TEAM_ROLE_EXISTS is the one that survived.
 func TestTeamRoleWriteServerRefusals(t *testing.T) {
-	cases := []struct {
-		name string
-		resp string
-		code int
-	}{
-		{"minted name is conflict",
-			`{"errors":[{"message":"\"Iris\" was minted in this App and can never leave the register","extensions":{"code":"TEAM_ROLE_NAME_MINTED"}}]}`,
-			exitcode.Conflict},
-		{"cross-register duplicate is conflict",
-			`{"errors":[{"message":"\"Rufus\" is already in frontend-engineer's register","extensions":{"code":"TEAM_ROLE_NAME_DUPLICATE"}}]}`,
-			exitcode.Conflict},
-		{"out of range is usage",
-			`{"errors":[{"message":"\"Zoe\" falls outside range F-J","extensions":{"code":"TEAM_ROLE_NAME_OUT_OF_RANGE"}}]}`,
-			exitcode.Usage},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			gql, _ := captureGraphQL(t, map[string]string{
-				"TeamRoles":           teamRolesJSON,
-				"TeamAppIdentity":     teamAppIdentityJSON,
-				"UpdateTeamRoleNames": tc.resp,
-			})
-			f, _ := testFactory(t)
-			root := NewRootCmd(f)
-			root.SetArgs([]string{"team", "role", "names", "set", "backend-engineer", "Fred,Iris,Joe,Zoe",
-				"--app", "acme.com:eng-team", "--server", gql.URL})
-			if code := exitcode.FromError(root.Execute()); code != tc.code {
-				t.Errorf("exit %d, want %d", code, tc.code)
-			}
-		})
-	}
-
 	gql, _ := captureGraphQL(t, map[string]string{
 		"TeamAppIdentity": teamAppIdentityJSON,
 		"CreateTeamRole":  `{"errors":[{"message":"role backend-engineer already exists - updateTeamRole is the edit path","extensions":{"code":"TEAM_ROLE_EXISTS"}}]}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "role", "create", "backend-engineer", "--names", "Fred",
+	root.SetArgs([]string{"team", "role", "create", "backend-engineer",
 		"--app", "acme.com:eng-team", "--server", gql.URL})
 	err := root.Execute()
 	if code := exitcode.FromError(err); code != exitcode.Conflict {
 		t.Errorf("existing role: exit %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
 	if err == nil || !strings.Contains(err.Error(), "updateTeamRole is the edit path") {
-		t.Errorf("server guidance must surface verbatim: %v", err)
+		t.Errorf("server message must surface verbatim: %v", err)
 	}
 }
 
@@ -1574,27 +1114,28 @@ func TestTeamRoleWriteServerRefusals(t *testing.T) {
 func TestTeamWorkerCastDryRun(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"CastWorkerPreview": `{"data":{"castWorkerPreview":{"name":"Joe","role":"backend-engineer",
-			"agentId":"agt1","agentName":"backend-engineer","teamAgentId":"agt-team","teamAgentName":"Eng Team Agent",
+			"agentId":"agt1","agentName":"backend-engineer",
 			"prompt":"You are Joe.","hasNamePlaceholder":true}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "worker", "cast", "--dry-run", "--app", "acme.com:eng-team",
-		"--role", "backend-engineer", "--server", gql.URL})
+		"--role", "backend-engineer", "--name", "Joe", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CastWorkerPreview"], &vars)
-	if vars["appRef"] != "acme.com:eng-team" || vars["role"] != "backend-engineer" {
+	if vars["appRef"] != "acme.com:eng-team" || vars["role"] != "backend-engineer" || vars["name"] != "Joe" {
 		t.Errorf("preview vars: %v", vars)
 	}
-	for _, k := range []string{"name", "agentRef", "teamAgentRef", "promptOverride"} {
+	// teamAgentRef is not in the operation at all now (hadron-cli#496).
+	for _, k := range []string{"agentRef", "teamAgentRef", "promptOverride"} {
 		if _, present := vars[k]; present {
 			t.Errorf("unset %q must be omitted, got %v", k, vars[k])
 		}
 	}
-	for _, want := range []string{"would cast Joe", "You are Joe.", "register of Eng Team Agent", "NOT reserved"} {
+	for _, want := range []string{"would cast Joe", "You are Joe.", "NOT reserved"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("dry-run output must carry %q: %s", want, out.String())
 		}
@@ -1610,7 +1151,7 @@ func TestTeamWorkerCastDryRun(t *testing.T) {
 	f2, out2 := testFactory(t)
 	root2 := NewRootCmd(f2)
 	root2.SetArgs([]string{"team", "worker", "cast", "--dry-run", "--app", "acme.com:eng-team",
-		"--role", "backend-engineer", "--json", "--server", gql.URL})
+		"--role", "backend-engineer", "--name", "Joe", "--json", "--server", gql.URL})
 	if err := root2.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1618,7 +1159,6 @@ func TestTeamWorkerCastDryRun(t *testing.T) {
 		Name               string  `json:"name"`
 		Role               *string `json:"role"`
 		AgentID            string  `json:"agentId"`
-		TeamAgentID        *string `json:"teamAgentId"`
 		Prompt             *string `json:"prompt"`
 		HasNamePlaceholder *bool   `json:"hasNamePlaceholder"`
 		Reserved           bool    `json:"reserved"`
@@ -1627,7 +1167,6 @@ func TestTeamWorkerCastDryRun(t *testing.T) {
 		t.Fatalf("--json: %v (%s)", err, out2.String())
 	}
 	if dto.Name != "Joe" || dto.AgentID != "agt1" ||
-		dto.TeamAgentID == nil || *dto.TeamAgentID != "agt-team" ||
 		dto.Role == nil || *dto.Role != "backend-engineer" ||
 		dto.Prompt == nil || *dto.Prompt != "You are Joe." ||
 		dto.HasNamePlaceholder == nil || !*dto.HasNamePlaceholder {
@@ -1638,6 +1177,15 @@ func TestTeamWorkerCastDryRun(t *testing.T) {
 	}
 	if !strings.Contains(out2.String(), `"reserved": false`) {
 		t.Errorf("the reserved key must be present, not omitted: %s", out2.String())
+	}
+	// The Team Agent keys are gone: they named the register holder, and casting
+	// reads no system memory now (hadron-cli#496).
+	var raw map[string]any
+	_ = json.Unmarshal([]byte(out2.String()), &raw)
+	for _, gone := range []string{"teamAgentId", "teamAgentName"} {
+		if _, present := raw[gone]; present {
+			t.Errorf("%q named the removed register holder: %s", gone, out2.String())
+		}
 	}
 }
 

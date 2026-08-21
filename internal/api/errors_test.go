@@ -28,9 +28,17 @@ func TestMapError(t *testing.T) {
 		{"bad input", gqlErr("BAD_USER_INPUT"), exitcode.Usage},
 		{"validation", gqlErr("GRAPHQL_VALIDATION_FAILED"), exitcode.Usage},
 		{"duplicate", gqlErr("DUPLICATE_APP_AGENT"), exitcode.Conflict},
-		// #441: the minted-names refusal on a bare `role rm` — a state
-		// conflict, and documented as exit 5 in the agent contract.
-		{"role in use", gqlErr("TEAM_ROLE_IN_USE"), exitcode.Conflict},
+		// TEAM_ROLE_EXISTS is spelled without the _ALREADY_ the suffix rule
+		// matches, so it needs the explicit case. Its register-invariant
+		// siblings (TEAM_ROLE_IN_USE, _NAME_MINTED, _NAME_DUPLICATE,
+		// _NAME_OUT_OF_RANGE, _STALE) went with the register itself
+		// (hadron-server#1050) — pinning an exit code for a refusal the server
+		// cannot produce documents a contract nobody can exercise.
+		{"role exists", gqlErr("TEAM_ROLE_EXISTS"), exitcode.Conflict},
+		// hadron-server#1050: a nameless cast. `worker cast` refuses this
+		// locally with the remedy, so the mapping covers the paths that do not
+		// — exit 1 for a plainly-fixable input would read as a server fault.
+		{"name required", gqlErr("WORKER_NAME_REQUIRED"), exitcode.Usage},
 		{"forbidden", gqlErr("FORBIDDEN"), exitcode.Error},
 		{"no extension", gqlerror.List{{Message: "boom"}}, exitcode.Error},
 		{"plain", errors.New("network down"), exitcode.Error},

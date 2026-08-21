@@ -51,18 +51,18 @@ from ` + "`hadron team --help`" + ` alone (#402).
        The team APP. ` + "`app agent add`" + ` installs further role agents into
        it; the AppAgent join is the cast pool (` + "`app agent list`" + `).
 
-  3. hadron team role create <role> --names <a,b,c> [--name-range F-J]
-       (optional) The cast-list register: the ordered names the
-       register-mode cast allocates from. Skip it and pass --name at cast
-       time instead; with a register, step 4 needs no --name and
-       team role list shows which names are free.
+  3. hadron team role create <role> [--description <d>]
+       (optional) A role definition — a label and a description. It used
+       to carry a name register the cast allocated from; that is gone
+       (hadron-server#1050), so this step no longer affects step 4 and is
+       purely documentation of what the role is for.
 
-  4. hadron team worker cast --app <app> --role <role> [--name <Name>]
+  4. hadron team worker cast --app <app> --role <role> --name <Name>
        The named identity. The server resolves the agent (--role picks the
        single installed agent with that persona role; --agent names one
-       directly), allocates the name (explicit --name, or the register
-       from step 3), binds the template, and provisions the worker's
-       working memory. The name is PERMANENT per App (cor:agt:020:02) —
+       directly), takes the name, binds the template, and provisions the
+       worker's working memory. --name is REQUIRED: the name is PERMANENT
+       per App (cor:agt:020:02), so it is chosen rather than derived —
        preview the irreversible part first with worker cast --dry-run.
 
   5. hadron team session start --as <worker>
@@ -417,13 +417,4 @@ func optStr(s string) *string {
 		return nil
 	}
 	return &s
-}
-
-// changedStr returns a pointer only when the flag was explicitly set, so an
-// unset flag is omitted (preserve) while an explicit "" is sent (clear).
-func changedStr(cmd *cobra.Command, flag, val string) *string {
-	if cmd.Flags().Changed(flag) {
-		return &val
-	}
-	return nil
 }
