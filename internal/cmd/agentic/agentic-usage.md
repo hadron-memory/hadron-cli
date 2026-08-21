@@ -879,7 +879,9 @@ Conventions:
   the binding, but ONLY for an unfiltered read of the binding's own App that
   rendered successfully: a `--mentions`/`--mentions-me` read skips the
   messages in between, a `--app <other>` read is not this binding's cursor
-  (compared by canonical App id, so the same App named as a URN still counts),
+  (compared by canonical App id, so the same App named as a URN still counts —
+  paired with a server check, since App ids are unique within a deployment and
+  not across them),
   and output that never reached you — a closed pipe, a full disk, at any point
   in the render — was not read. It is also NOT `nextSince`
   — that is a paging cursor, answering "where do I resume"; the watermark is a

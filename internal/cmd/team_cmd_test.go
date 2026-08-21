@@ -2723,6 +2723,26 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 		}
 	})
 
+	// App ids are unique WITHIN a deployment, not across them — a clone or a
+	// restore carries them over — so the id check alone lets a second server's
+	// seq into this binding. Reading another deployment is legitimate (`chat
+	// post` and the session mutations refuse it; a read does not), so it is only
+	// the bookkeeping that has to stay out.
+	t.Run("a cross-server read stays out of this binding", func(t *testing.T) {
+		dir := teamGitDir(t)
+		path := filepath.Join(dir, "hadron-team-session.json")
+		// Bound to a server that is NOT the fake this read will target.
+		bound := strings.Replace(bindingWithTeamFixture, `"appBound":true`,
+			`"appBound":true,"server":"https://elsewhere.example"`, 1)
+		if err := os.WriteFile(path, []byte(bound), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		read(t, oneMessage)
+		if got := watermark(t, path); got != -1 {
+			t.Errorf("another deployment's seq must not land here, got %d", got)
+		}
+	})
+
 	// …and a render that gets PART way is the same story. The header write was
 	// checked; the message loop discarded its error, so a pipe closing after the
 	// first line left `output.Write` returning nil and the messages marked read.

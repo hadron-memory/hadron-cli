@@ -367,7 +367,8 @@ Both qualifiers matter — a filtered read skips the messages in between (see
 nextSince above), and another team's seq is not this binding's cursor — so
 those reads deliberately leave the watermark where it was, as does a read
 whose output could not be written. "Another team" is decided on canonical App
-ids, so naming your own team by URN still counts as reading it. The watermark is NOT nextSince: it advances
+ids, so naming your own team by URN still counts as reading it — and on the
+server too, since an App id is unique within a deployment and not across them. The watermark is NOT nextSince: it advances
 only on a read CONTIGUOUS with what the binding already holds, and only to a
 seq the server actually returned — so a --since ahead of the watermark (or
 past the end of the chat) reads a window rather than a prefix and records
@@ -492,7 +493,13 @@ them "(human)" / "(worker)".`,
 			//    worktree bound to App A would write B's cursor into A's binding.
 			//    isBindingsApp compares canonical ids rather than raw refs — the
 			//    same App named as a URN is still the same App, and treating it
-			//    as another team would pin the watermark forever.
+			//    as another team would pin the watermark forever. It is paired
+			//    with bindingServerMatches, because an App id is unique within a
+			//    deployment and not across them: a clone or a restore carries the
+			//    id over, so `--server <other>` can satisfy the id check while
+			//    holding an unrelated chat. `chat post` and the session mutations
+			//    already REFUSE on that mismatch; a read is legitimate, so only
+			//    the bookkeeping is skipped.
 			unfiltered := mentionsRef == nil
 			recordWatermark := func() {
 				// Best-effort and deliberately silent: a read that succeeded must
@@ -502,7 +509,7 @@ them "(human)" / "(worker)".`,
 				// ORDER MATTERS: every local, free predicate is checked before
 				// isBindingsApp, which may cost a round trip. A read with no
 				// binding must stay as cheap as it was.
-				if b == nil || !ok || !unfiltered || !contiguous {
+				if b == nil || !ok || !unfiltered || !contiguous || !bindingServerMatches(f, b) {
 					return
 				}
 				if !isBindingsApp(ctx, f, scope.Ref, b.AppID) {

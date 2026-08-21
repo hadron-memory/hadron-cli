@@ -878,13 +878,27 @@ func defaultRepo(ctx context.Context, b *binding) string {
 // real session (or hit an unrelated one) while the real session keeps
 // holding its worker.
 func checkBindingServer(f *cmdutil.Factory, b *binding) error {
-	server, _ := f.Server()
-	if b.Server != "" && server != "" && b.Server != server {
-		return exitcode.Newf(exitcode.Usage,
-			"this worktree's session was started against %s, but the current server is %s — rerun with `--server %s`",
-			b.Server, server, b.Server)
+	if bindingServerMatches(f, b) {
+		return nil
 	}
-	return nil
+	server, _ := f.Server()
+	return exitcode.Newf(exitcode.Usage,
+		"this worktree's session was started against %s, but the current server is %s — rerun with `--server %s`",
+		b.Server, server, b.Server)
+}
+
+// bindingServerMatches is the same comparison as a predicate, for the caller
+// that must not REFUSE a cross-server invocation but must not act on it either
+// (PR #493 review). `chat read --server <other>` against a second deployment is
+// a legitimate read; writing that deployment's seq into this binding is not.
+// App ids are not globally unique across deployments — a clone or a restore
+// carries them over — so the id comparison alone cannot catch this.
+func bindingServerMatches(f *cmdutil.Factory, b *binding) bool {
+	if b == nil {
+		return false
+	}
+	server, _ := f.Server()
+	return b.Server == "" || server == "" || b.Server == server
 }
 
 // endResultDTO is the stable --json shape of `session end`.
