@@ -2528,6 +2528,107 @@ func TestTeamChatReadRecordsTheWatermark(t *testing.T) {
 	}
 }
 
+// The watermark is a claim about what the reader has SEEN, and three ways of
+// getting it wrong survived the first round of #474 (PR #493 review). Each
+// subtest below fails if its guard is removed — the whole value of the nudge
+// is that it is never wrong, so a watermark that overstates is worse than none.
+func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
+	bind := func(t *testing.T) string {
+		t.Helper()
+		dir := teamGitDir(t)
+		path := filepath.Join(dir, "hadron-team-session.json")
+		if err := os.WriteFile(path, []byte(bindingWithTeamFixture), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	// seq, or -1 for "absent" — the two are different answers (never read vs
+	// read a chat that was empty) and the field is a pointer to keep them apart.
+	watermark := func(t *testing.T, path string) int {
+		t.Helper()
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read binding: %v", err)
+		}
+		var b struct {
+			ChatSeenSeq *int `json:"chatSeenSeq"`
+		}
+		if err := json.Unmarshal(data, &b); err != nil {
+			t.Fatalf("binding: %v", err)
+		}
+		if b.ChatSeenSeq == nil {
+			return -1
+		}
+		return *b.ChatSeenSeq
+	}
+	oneMessage := map[string]string{
+		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":1,"items":[` + teamChatMsgJSON + `]}}}`,
+		"TeamAppIdentity":  teamAppIdentityJSON,
+	}
+	read := func(t *testing.T, stubs map[string]string, args ...string) {
+		t.Helper()
+		gql, _ := captureGraphQL(t, stubs)
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"team", "chat", "read", "--server", gql.URL}, args...))
+		if err := root.Execute(); err != nil {
+			t.Fatalf("chat read: %v", err)
+		}
+	}
+
+	// A FILTERED read sees only matching messages, so its highest seq says
+	// nothing about the ones in between. Recording it would mark them read
+	// forever — the reader is then told they are caught up on messages they
+	// were never shown, which is the one failure this feature exists to prevent.
+	t.Run("a mentions-filtered read records nothing", func(t *testing.T) {
+		path := bind(t)
+		read(t, oneMessage, "--mentions-me")
+		if got := watermark(t, path); got != -1 {
+			t.Errorf("a --mentions-me read must not claim the whole chat, got watermark %d", got)
+		}
+	})
+	t.Run("an explicit --mentions read records nothing", func(t *testing.T) {
+		path := bind(t)
+		read(t, oneMessage, "--mentions", "wkr9")
+		if got := watermark(t, path); got != -1 {
+			t.Errorf("a --mentions read must not claim the whole chat, got watermark %d", got)
+		}
+	})
+
+	// The binding holds ONE App's cursor. Reading a different team through the
+	// same worktree would file that team's seq under this one.
+	t.Run("another App's read stays out of this binding", func(t *testing.T) {
+		path := bind(t)
+		read(t, oneMessage, "--app", "app2")
+		if got := watermark(t, path); got != -1 {
+			t.Errorf("app2's seq must not land in app1's binding, got %d", got)
+		}
+	})
+	// ...and the guard is "a DIFFERENT App", not "any --app": naming the
+	// binding's own App explicitly is the same read and must still record.
+	t.Run("naming the bound App explicitly still records", func(t *testing.T) {
+		path := bind(t)
+		read(t, oneMessage, "--app", "app1")
+		if got := watermark(t, path); got != 8 {
+			t.Errorf("--app app1 is the bound App — want watermark 8, got %d", got)
+		}
+	})
+
+	// An empty chat is READ, not unread. On a bare int, 0 meant both, so a team
+	// whose chat had nothing in it yet could never be marked read and every
+	// later `session log` nagged about it.
+	t.Run("reading an empty chat is recorded as seq 0", func(t *testing.T) {
+		path := bind(t)
+		read(t, map[string]string{
+			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":0,"items":[]}}}`,
+			"TeamAppIdentity":  teamAppIdentityJSON,
+		})
+		if got := watermark(t, path); got != 0 {
+			t.Errorf("an empty chat was still read — want recorded 0, got %d", got)
+		}
+	})
+}
+
 // The SEAM between the two halves (#474, reported live at team-chat seq 102 by
 // a worker who read the chat and was then told it had not). Both halves were
 // tested in isolation; the handover between them was not, which is exactly
@@ -2671,6 +2772,49 @@ func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
 		}
 		if strings.Contains(errOut.String(), "team chat") {
 			t.Errorf("nothing new must say nothing: %q", errOut.String())
+		}
+	})
+
+	// "none mentioning you" is the clause that decides whether the reader stops
+	// to look. If the mentions query FAILED, the honest answer is "unknown", and
+	// stating the reassuring one as fact is how a worker walks past the message
+	// addressed to them (PR #493 review). The count query succeeded, so the
+	// count is still worth saying — the clause is dropped, not the note.
+	t.Run("a failed mentions query says nothing rather than none", func(t *testing.T) {
+		bind(t, bindingChatSeenFixture)
+		// Both halves are the same operation, so this fake keys on the variable
+		// that tells them apart rather than on the operation name.
+		gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				OperationName string `json:"operationName"`
+				Variables     struct {
+					MentionsRef *string `json:"mentionsRef"`
+				} `json:"variables"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			w.Header().Set("Content-Type", "application/json")
+			switch {
+			case body.OperationName != "TeamChatMessages":
+				_, _ = w.Write([]byte(logStubs[body.OperationName]))
+			case body.Variables.MentionsRef != nil:
+				_, _ = w.Write([]byte(`{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`))
+			default:
+				_, _ = w.Write([]byte(`{"data":{"teamChatMessages":{"total":8,"items":[]}}}`))
+			}
+		}))
+		t.Cleanup(gql.Close)
+		f, _ := testFactory(t)
+		errOut := f.IOStreams.ErrOut.(*strings.Builder)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if !strings.Contains(errOut.String(), "8 new messages in the team chat since you last read") {
+			t.Errorf("the count query succeeded — its answer must survive: %q", errOut.String())
+		}
+		if strings.Contains(errOut.String(), "mentioning you") {
+			t.Errorf("the mentions query failed — the answer is unknown, not none: %q", errOut.String())
 		}
 	})
 

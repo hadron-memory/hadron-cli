@@ -360,9 +360,13 @@ which is free and never re-delivers them). Mention tokens carry no
 uniqueness guarantee (hadron-server#979): a token may match more than one
 worker, and the filter simply returns every match.
 
-Reading records a WATERMARK on the worktree binding (#474), which is what
-lets ` + "`session log`" + ` tell you how much has landed since. Nothing to pass:
-it is the seq this command just returned.
+An UNFILTERED read of the worktree's OWN team App records a WATERMARK on the
+binding (#474), which is what lets ` + "`session log`" + ` tell you how much has
+landed since. Nothing to pass: it is the seq this command just returned.
+Both qualifiers matter — a filtered read skips the messages in between (see
+nextSince above), and another team's seq is not this binding's cursor — so
+those reads deliberately leave the watermark where it was. Reading a chat
+that is EMPTY still counts as having read it.
 
 --json names the author as BOTH ` + "`authorName`" + ` and ` + "`author`" + ` — the latter is an
 alias for readers written against ` + "`hadron chat read`" + `, the retired academy
@@ -445,11 +449,30 @@ them "(human)" / "(worker)".`,
 			// an ordinary case, not an error.
 			//
 			// Recorded even when nothing new arrived — that is what advances a
-			// caller polling `--since <nextSince>` and keeps "you have never
-			// read" distinguishable from "you are caught up".
-			if b != nil && next > b.ChatSeenSeq {
-				b.ChatSeenSeq = next
-				_, _ = writeBinding(ctx, b)
+			// caller polling `--since <nextSince>`, and what lets a read of an
+			// EMPTY chat be recorded at all (watermark 0, distinct from the nil
+			// "never read"; see the binding field).
+			//
+			// TWO conditions, both from the PR #493 review, both P1:
+			//
+			// 1. UNFILTERED reads only. --mentions-me/--mentions advances `next`
+			//    past matching messages only, so storing it as the ALL-messages
+			//    watermark permanently skips everything in between — the reader
+			//    is then told they are caught up on messages they never saw,
+			//    which is worse than the nag this feature replaces.
+			//
+			// 2. The resolved App must BE the binding's. Reading App B from a
+			//    worktree bound to App A would write B's cursor into A's
+			//    binding. The comparison is deliberately conservative: a --app
+			//    spelled differently from the stored id simply does not record,
+			//    which costs a nudge rather than skipping real messages.
+			unfiltered := mentionsRef == nil
+			if b != nil && unfiltered && b.AppID != "" && scope.Ref == b.AppID {
+				if b.ChatSeenSeq == nil || next > *b.ChatSeenSeq {
+					seen := next
+					b.ChatSeenSeq = &seen
+					_, _ = writeBinding(ctx, b)
+				}
 			}
 			result := struct {
 				Messages  []teamChatMessageDTO `json:"messages"`

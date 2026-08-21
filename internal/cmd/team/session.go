@@ -547,7 +547,7 @@ func noteUnreadTeamChat(ctx context.Context, f *cmdutil.Factory, b *binding) {
 	// change had been in the chat four hours before he merged with the retired
 	// form. Say so plainly rather than reporting a count against seq 0, which
 	// would read as ordinary backlog.
-	if b.ChatSeenSeq == 0 {
+	if b.ChatSeenSeq == nil {
 		// Says only what the CLI KNOWS. The watermark lives in this worktree's
 		// binding, so a read performed through the MCP tools — the surface this
 		// team predominantly works from — never reaches it, and asserting "you
@@ -563,8 +563,9 @@ func noteUnreadTeamChat(ctx context.Context, f *cmdutil.Factory, b *binding) {
 				"(a read made through the MCP tools is not visible here)\n")
 		return
 	}
+	seen := *b.ChatSeenSeq
 	one := 1
-	resp, err := gen.TeamChatMessages(ctx, client, b.AppID, &b.ChatSeenSeq, nil, &one, nil)
+	resp, err := gen.TeamChatMessages(ctx, client, b.AppID, &seen, nil, &one, nil)
 	if err != nil || resp.TeamChatMessages == nil || resp.TeamChatMessages.Total == 0 {
 		return // caught up, or unreadable — either way, nothing useful to say.
 	}
@@ -574,15 +575,25 @@ func noteUnreadTeamChat(ctx context.Context, f *cmdutil.Factory, b *binding) {
 	// because the server owns mention resolution (hadron-server#979: a token
 	// may match several workers, and matching is not ours to reimplement).
 	// Cheap: total is exact under limit 1, verified against the live server.
-	mentions := 0
+	//
+	// A FAILED second query is "unknown", not "none" (PR #493 review). Printing
+	// "none mentioning you" when the query erred states as fact the one thing
+	// that decides whether the reader stops to look — so the clause is dropped
+	// entirely instead. The first query already succeeded, so the count it
+	// carries is still worth saying.
+	mentions, mentionsKnown := 0, false
 	if b.WorkerID != "" {
-		if m, merr := gen.TeamChatMessages(ctx, client, b.AppID, &b.ChatSeenSeq, &b.WorkerID, &one, nil); merr == nil && m.TeamChatMessages != nil {
-			mentions = m.TeamChatMessages.Total
+		if m, merr := gen.TeamChatMessages(ctx, client, b.AppID, &seen, &b.WorkerID, &one, nil); merr == nil && m.TeamChatMessages != nil {
+			mentions, mentionsKnown = m.TeamChatMessages.Total, true
 		}
 	}
+	detail := ""
+	if mentionsKnown {
+		detail = " (" + pluralMentions(mentions) + ")"
+	}
 	fmt.Fprintf(f.IOStreams.ErrOut,
-		"note: %s in the team chat since you last read (%s) — `hadron team chat read --since %d`\n",
-		pluralMessages(total), pluralMentions(mentions), b.ChatSeenSeq)
+		"note: %s in the team chat since you last read%s — `hadron team chat read --since %d`\n",
+		pluralMessages(total), detail, seen)
 }
 
 func pluralMessages(n int) string {

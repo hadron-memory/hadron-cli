@@ -65,12 +65,19 @@ type binding struct {
 	// (#474): `chat read` records the seq it returned, `session log` compares
 	// against it to say how much landed while you were heads-down.
 	//
-	// Zero means never read through THIS binding, which is a distinct and
+	// NIL means never read through THIS binding, which is a distinct and
 	// louder signal than "nothing new" — it is the state Gil was in when a
 	// ratified commit-trailer change reached the chat four hours before he
 	// merged with the retired form. So callers must branch on it rather than
 	// treating it as seq 0.
-	ChatSeenSeq int `json:"chatSeenSeq,omitempty"`
+	//
+	// A POINTER for exactly that reason (PR #493 review): on a bare int, 0 had
+	// to mean both "never read" and "read a chat that was empty", so reading an
+	// empty team chat could never be recorded and every later `session log`
+	// nagged forever. Only an unfiltered read of the binding's OWN App records
+	// here — see the write site in chat.go for why both qualifiers are load-
+	// bearing.
+	ChatSeenSeq *int `json:"chatSeenSeq,omitempty"`
 	// PRNumbers is `session log --pr`'s local history — the server's
 	// Session.prNumber holds only the latest (#932), so whoami keeps the
 	// full list. TODO(#369 slice 3): the worklog collection becomes the
