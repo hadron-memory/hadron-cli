@@ -882,9 +882,13 @@ Conventions:
   (compared by canonical App id, so the same App named as a URN still counts),
   and output that never reached you — a closed pipe, a full disk, at any point
   in the render — was not read. It is also NOT `nextSince`
-  — that is a paging cursor and falls back to whatever you passed, so the
-  watermark advances only to a seq the server actually returned (a `--since`
-  past the end of the chat records nothing). Never having read is
+  — that is a paging cursor, answering "where do I resume"; the watermark is a
+  claim about what you have SEEN. It advances only when the read was
+  CONTIGUOUS with what the binding already holds (starting at or before the
+  current watermark, or at 0 when there is none) and only to a seq the server
+  actually returned. So `--since` ahead of the watermark reads a window rather
+  than a prefix and records nothing — it would otherwise bury the gap it
+  skipped while reporting you as caught up. Never having read is
   reported as its own state rather than as a count, since it is the louder one
   — and phrased as what THIS WORKTREE knows, because the watermark is
   binding-local and a read made through the MCP tools never reaches it (a nudge

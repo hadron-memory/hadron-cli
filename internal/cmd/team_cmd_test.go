@@ -2684,6 +2684,45 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 		}
 	})
 
+	// A `--since` AHEAD of the watermark is a window, not a prefix. The seqs it
+	// returns are real, which is what makes this one slip past a
+	// "server-verified" rule — but everything between the old watermark and the
+	// --since was never rendered, and recording the top of the window buries it
+	// while reporting the reader as caught up.
+	t.Run("a --since ahead of the watermark does not jump the gap", func(t *testing.T) {
+		dir := teamGitDir(t)
+		path := filepath.Join(dir, "hadron-team-session.json")
+		if err := os.WriteFile(path, []byte(bindingChatSeenFixture), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		// Watermark 90, reading from 100: seq 101 comes back, 91–100 never do.
+		read(t, map[string]string{
+			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":1,"items":[` +
+				strings.Replace(teamChatMsgJSON, `"seq":8`, `"seq":101`, 1) + `]}}}`,
+			"TeamAppIdentity": teamAppIdentityJSON,
+		}, "--since", "100")
+		if got := watermark(t, path); got != 90 {
+			t.Errorf("91-100 were never shown — the watermark must stay at 90, got %d", got)
+		}
+	})
+	// …but a --since BEHIND the watermark is a prefix: it re-reads ground already
+	// claimed, so what it returns above the watermark really has been seen.
+	t.Run("a --since behind the watermark still advances", func(t *testing.T) {
+		dir := teamGitDir(t)
+		path := filepath.Join(dir, "hadron-team-session.json")
+		if err := os.WriteFile(path, []byte(bindingChatSeenFixture), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		read(t, map[string]string{
+			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":1,"items":[` +
+				strings.Replace(teamChatMsgJSON, `"seq":8`, `"seq":95`, 1) + `]}}}`,
+			"TeamAppIdentity": teamAppIdentityJSON,
+		}, "--since", "50")
+		if got := watermark(t, path); got != 95 {
+			t.Errorf("50 is behind the watermark, so 95 was genuinely seen — got %d", got)
+		}
+	})
+
 	// …and a render that gets PART way is the same story. The header write was
 	// checked; the message loop discarded its error, so a pipe closing after the
 	// first line left `output.Write` returning nil and the messages marked read.

@@ -367,9 +367,11 @@ Both qualifiers matter — a filtered read skips the messages in between (see
 nextSince above), and another team's seq is not this binding's cursor — so
 those reads deliberately leave the watermark where it was, as does a read
 whose output could not be written. "Another team" is decided on canonical App
-ids, so naming your own team by URN still counts as reading it. The watermark is NOT nextSince: it only
-advances to a seq the server actually returned, so a --since past the end of
-the chat records nothing. Reading a chat that is EMPTY still counts as
+ids, so naming your own team by URN still counts as reading it. The watermark is NOT nextSince: it advances
+only on a read CONTIGUOUS with what the binding already holds, and only to a
+seq the server actually returned — so a --since ahead of the watermark (or
+past the end of the chat) reads a window rather than a prefix and records
+nothing. Reading a chat that is EMPTY still counts as
 having read it.
 
 --json names the author as BOTH ` + "`authorName`" + ` and ` + "`author`" + ` — the latter is an
@@ -447,23 +449,34 @@ them "(human)" / "(worker)".`,
 				}
 			}
 			// The watermark the binding records is NOT `next`. `next` is a PAGING
-			// cursor — it falls back to whatever the caller passed, which is the
-			// right answer for "where do I resume" and the wrong one for "how far
-			// have I actually seen". `--since 999999` on a 100-message chat returns
-			// nothing, and recording 999999 would mark every message the team
-			// posts for the rest of the year as already read (PR #493 review, P1).
+			// cursor: it answers "where do I resume", falls back to whatever the
+			// caller passed, and is the right value to hand back on the wire. The
+			// watermark answers "how far have I actually SEEN", which is a claim
+			// about coverage, and the two come apart in both directions.
 			//
-			// So the watermark only ever advances to a seq the SERVER returned…
+			// It advances only when the read was CONTIGUOUS with what the binding
+			// already claims — starting at or before the existing watermark, or at
+			// zero when there is none. An arbitrary `--since` is a window, not a
+			// prefix: `--since 100` from a watermark of 90 renders 101 onward and
+			// never shows 91–100, so recording 101 would bury exactly ten messages
+			// while reporting the reader as caught up (PR #493 review, P1).
+			//
+			// This subsumes the unverified-cursor case: `--since 999999` on a
+			// hundred-message chat is not contiguous either, so it cannot mark the
+			// team's next year of messages read on a typo.
+			contiguous := (b == nil) ||
+				(b.ChatSeenSeq == nil && since == 0) ||
+				(b.ChatSeenSeq != nil && since <= *b.ChatSeenSeq)
+			// …and only ever TO a seq the server actually returned, with one
+			// addition: asking from the very beginning and being handed nothing
+			// means the chat is genuinely empty, which is read-through-0 rather
+			// than never-read.
 			verified, ok := 0, false
 			for _, m := range msgs {
 				if !ok || m.Seq > verified {
 					verified, ok = m.Seq, true
 				}
 			}
-			// …with one addition: asking from the very beginning and being handed
-			// nothing means the chat is genuinely empty, which is read-through-0
-			// rather than never-read. `--since 50` coming back empty says nothing
-			// about seqs at or below 50, so it records nothing at all.
 			if !ok && since == 0 {
 				ok = true
 			}
@@ -489,7 +502,7 @@ them "(human)" / "(worker)".`,
 				// ORDER MATTERS: every local, free predicate is checked before
 				// isBindingsApp, which may cost a round trip. A read with no
 				// binding must stay as cheap as it was.
-				if b == nil || !ok || !unfiltered {
+				if b == nil || !ok || !unfiltered || !contiguous {
 					return
 				}
 				if !isBindingsApp(ctx, f, scope.Ref, b.AppID) {
