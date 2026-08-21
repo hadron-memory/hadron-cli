@@ -159,6 +159,40 @@ func writeBinding(ctx context.Context, b *binding) (string, error) {
 	return path, nil
 }
 
+// recordChatWatermark stores the team-chat watermark WITHOUT rewriting the
+// rest of the binding from a stale snapshot (PR #493 review).
+//
+// Every other binding write follows a user action that just read the file.
+// This one does not: it lands after a paginated fetch and a full render, so
+// the snapshot it started from can be seconds old — and a worktree with two
+// agents in it is the normal case here, not a hypothetical
+// (dev:findings:concurrent-agent-sessions-share-one-worktree). Writing the
+// whole snapshot back would silently undo whatever landed in between: a
+// `session log --pr` that appended a PR number, or worse, a `session end` that
+// removed the file, which a wholesale write would RESURRECT — leaving a
+// binding for a session the server has already closed.
+//
+// So: re-read, confirm it is still the same session, set the one field, write.
+// This narrows the race to the gap between this read and this write rather
+// than closing it — there is no lock on the binding file, and giving it one is
+// a change for every writer, not this one. Best-effort throughout: the caller
+// has already delivered the messages, and a failed bookkeeping write must not
+// turn that into an error.
+func recordChatWatermark(ctx context.Context, sessionID string, seq int) {
+	fresh, _, err := readBinding(ctx)
+	if err != nil || fresh == nil {
+		return // gone (a concurrent `session end`), or unreadable — do not recreate it.
+	}
+	if fresh.SessionID != sessionID {
+		return // a different session owns this worktree now.
+	}
+	if fresh.ChatSeenSeq != nil && seq <= *fresh.ChatSeenSeq {
+		return // someone read further while we were rendering.
+	}
+	fresh.ChatSeenSeq = &seq
+	_, _ = writeBinding(ctx, fresh)
+}
+
 func clearBinding(ctx context.Context) error {
 	path, err := bindingPath(ctx)
 	if err != nil {

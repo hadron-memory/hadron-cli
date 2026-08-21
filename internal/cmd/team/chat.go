@@ -367,8 +367,7 @@ Both qualifiers matter — a filtered read skips the messages in between (see
 nextSince above), and another team's seq is not this binding's cursor — so
 those reads deliberately leave the watermark where it was, as does a read
 whose output could not be written. "Another team" is decided on canonical App
-ids, so naming your own team by URN still counts as reading it — and on the
-server too, since an App id is unique within a deployment and not across them. The watermark is NOT nextSince: it advances
+ids, so naming your own team by URN still counts as reading it. The watermark is NOT nextSince: it advances
 only on a read CONTIGUOUS with what the binding already holds, and only to a
 seq the server actually returned — so a --since ahead of the watermark (or
 past the end of the chat) reads a window rather than a prefix and records
@@ -516,9 +515,7 @@ them "(human)" / "(worker)".`,
 					return
 				}
 				if b.ChatSeenSeq == nil || verified > *b.ChatSeenSeq {
-					seen := verified
-					b.ChatSeenSeq = &seen
-					_, _ = writeBinding(ctx, b)
+					recordChatWatermark(ctx, b.SessionID, verified)
 				}
 			}
 			result := struct {

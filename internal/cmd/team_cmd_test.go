@@ -2743,6 +2743,68 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 		}
 	})
 
+	// The watermark write lands AFTER a paginated fetch and a full render, so
+	// the snapshot it started from can be seconds old — and two agents in one
+	// worktree is the normal case here. Writing the whole snapshot back would
+	// undo whatever landed in between. These two interleave a real concurrent
+	// mutation by mutating the binding from inside the GraphQL handler, which is
+	// exactly the window that matters.
+	concurrently := func(t *testing.T, during func()) {
+		t.Helper()
+		gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				OperationName string `json:"operationName"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			during() // another agent, mid-fetch
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(oneMessage[body.OperationName]))
+		}))
+		t.Cleanup(gql.Close)
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "chat", "read", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("chat read: %v", err)
+		}
+	}
+
+	t.Run("a concurrent binding edit is not clobbered", func(t *testing.T) {
+		path := bind(t)
+		concurrently(t, func() {
+			// A `session log --pr` in the sibling agent's session.
+			edited := strings.Replace(bindingWithTeamFixture, `"prNumbers":[]`, `"prNumbers":[371]`, 1)
+			_ = os.WriteFile(path, []byte(edited), 0o600)
+		})
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got struct {
+			ChatSeenSeq *int  `json:"chatSeenSeq"`
+			PRNumbers   []int `json:"prNumbers"`
+		}
+		if err := json.Unmarshal(data, &got); err != nil {
+			t.Fatal(err)
+		}
+		if got.ChatSeenSeq == nil || *got.ChatSeenSeq != 8 {
+			t.Errorf("the watermark must still land: %v", got.ChatSeenSeq)
+		}
+		if len(got.PRNumbers) != 1 || got.PRNumbers[0] != 371 {
+			t.Errorf("the concurrent PR number must survive, got %v", got.PRNumbers)
+		}
+	})
+
+	// The worse half: a wholesale write would RESURRECT a binding that
+	// `session end` removed, leaving a worktree bound to a closed session.
+	t.Run("a binding ended mid-read is not resurrected", func(t *testing.T) {
+		path := bind(t)
+		concurrently(t, func() { _ = os.Remove(path) })
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Errorf("`session end` removed this binding — it must stay removed (stat err: %v)", err)
+		}
+	})
+
 	// …and a render that gets PART way is the same story. The header write was
 	// checked; the message loop discarded its error, so a pipe closing after the
 	// first line left `output.Write` returning nil and the messages marked read.
@@ -2962,6 +3024,47 @@ func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
 		}
 		if strings.Contains(errOut.String(), "mentioning you") {
 			t.Errorf("the mentions query failed — the answer is unknown, not none: %q", errOut.String())
+		}
+	})
+
+	// The two counts are separate round trips against an append-only sequence,
+	// so a message arriving between them can make the mentions count exceed the
+	// total. "1 new message (2 mentioning you)" is not merely stale — it is
+	// impossible, and an impossible receipt is the kind readers stop believing.
+	t.Run("an impossible pair of counts drops the clause", func(t *testing.T) {
+		bind(t, bindingChatSeenFixture)
+		gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				OperationName string `json:"operationName"`
+				Variables     struct {
+					MentionsRef *string `json:"mentionsRef"`
+				} `json:"variables"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			w.Header().Set("Content-Type", "application/json")
+			switch {
+			case body.OperationName != "TeamChatMessages":
+				_, _ = w.Write([]byte(logStubs[body.OperationName]))
+			case body.Variables.MentionsRef != nil:
+				// Two mentions, against a total of one taken a moment earlier.
+				_, _ = w.Write([]byte(`{"data":{"teamChatMessages":{"total":2,"items":[]}}}`))
+			default:
+				_, _ = w.Write([]byte(`{"data":{"teamChatMessages":{"total":1,"items":[]}}}`))
+			}
+		}))
+		t.Cleanup(gql.Close)
+		f, _ := testFactory(t)
+		errOut := f.IOStreams.ErrOut.(*strings.Builder)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if !strings.Contains(errOut.String(), "1 new message in the team chat") {
+			t.Errorf("the total still stands: %q", errOut.String())
+		}
+		if strings.Contains(errOut.String(), "mentioning you") {
+			t.Errorf("2 of 1 is impossible — say nothing rather than nonsense: %q", errOut.String())
 		}
 	})
 

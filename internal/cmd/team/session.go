@@ -574,17 +574,25 @@ func noteUnreadTeamChat(ctx context.Context, f *cmdutil.Factory, b *binding) {
 	// The mentions count is a SECOND query rather than a client-side filter,
 	// because the server owns mention resolution (hadron-server#979: a token
 	// may match several workers, and matching is not ours to reimplement).
-	// Cheap: total is exact under limit 1, verified against the live server.
+	// Cheap: total is exact under limit 1, verified against the live server —
+	// and asked only once the total says there is something to qualify, so the
+	// steady state (caught up) stays one round trip.
 	//
-	// A FAILED second query is "unknown", not "none" (PR #493 review). Printing
-	// "none mentioning you" when the query erred states as fact the one thing
-	// that decides whether the reader stops to look — so the clause is dropped
-	// entirely instead. The first query already succeeded, so the count it
-	// carries is still worth saying.
+	// Two ways the answer can be wrong, and both resolve to the same thing:
+	//
+	//   - the query FAILED, so the count is unknown;
+	//   - the query SUCCEEDED but a message arrived between the two round
+	//     trips, so mentions can exceed the earlier total — "1 new message
+	//     (2 mentioning you)" is not merely stale, it is impossible, and an
+	//     impossible receipt is the kind readers stop believing.
+	//
+	// Both print the count without the clause. "none mentioning you" is the
+	// phrase that decides whether the reader stops to look, so it is only ever
+	// said when it is actually known (PR #493 review).
 	mentions, mentionsKnown := 0, false
 	if b.WorkerID != "" {
 		if m, merr := gen.TeamChatMessages(ctx, client, b.AppID, &seen, &b.WorkerID, &one, nil); merr == nil && m.TeamChatMessages != nil {
-			mentions, mentionsKnown = m.TeamChatMessages.Total, true
+			mentions, mentionsKnown = m.TeamChatMessages.Total, m.TeamChatMessages.Total <= total
 		}
 	}
 	detail := ""
