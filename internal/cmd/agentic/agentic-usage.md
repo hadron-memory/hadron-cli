@@ -895,8 +895,10 @@ Conventions:
   — and phrased as what THIS WORKTREE knows, because the watermark is
   binding-local and a read made through the MCP tools never reaches it (a nudge
   that is sometimes wrong trains people to ignore the one that is right). For
-  the same reason the note omits the mentions clause when that query fails,
-  rather than reporting the unknown as "none". Best-effort: the milestone is
+  the same reason the note omits the mentions clause when that query fails —
+  or returns a count EXCEEDING the total, which two round trips against an
+  append-only sequence can produce and which is impossible rather than merely
+  stale — rather than reporting the unknown as "none". Best-effort: the milestone is
   already recorded when it runs, so a failed or unreadable chat never fails the
   log, and `session log --json` is untouched. `whoami --json` gains one optional
   key, `chatSeenSeq` — additive and `omitempty`, so it is absent on a binding
