@@ -1046,7 +1046,7 @@ func TestTeamRoleJSONIssuesNoIdentityRead(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{
 				"TeamRoles":       teamRolesRmJSON,
 				"TeamAppIdentity": teamAppIdentityJSON,
-				"DeleteTeamRole":  `{"data":{"deleteTeamRole":{"role":"unused-role","nodesDeleted":1}}}`,
+				"DeleteTeamRole":  `{"data":{"deleteTeamRole":{"role":"svelte-app-engineer","nodesDeleted":1}}}`,
 			})
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
