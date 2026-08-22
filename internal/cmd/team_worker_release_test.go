@@ -599,3 +599,42 @@ func TestWorkerReleaseHelpCoversTheRetiredCase(t *testing.T) {
 		}
 	}
 }
+
+// `session start` CLAIMS the hold for a person, but builds its --json worker
+// from the PRE-mutation read — so including the hold there reports
+// `heldByUserId: null` immediately after the bind that set it (PR #504 review).
+//
+// Omitted rather than nulled: a null asserts "unheld", which is the claim this
+// command spent a review learning not to make.
+func TestSessionStartDoesNotReportAStaleHold(t *testing.T) {
+	teamGitDir(t)
+	// The fixture must CARRY a hold, or `omitempty` hides the difference and
+	// this test cannot fail — which is what the first version of it did.
+	gql, _ := captureGraphQL(t, map[string]string{
+		"Workers":          `{"data":{"workers":{"total":1,"items":[` + heldBy("u-dara") + `]}}}`,
+		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
+		"TeamSessions":     `{"data":{"sessions":[]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "Iris", "--json",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var res struct {
+		Worker map[string]any `json:"worker"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &res); err != nil {
+		t.Fatalf("--json must parse: %v (%s)", err, out.String())
+	}
+	if res.Worker["name"] != "Iris" {
+		t.Fatalf("the worker must still be reported: %s", out.String())
+	}
+	for _, gone := range []string{"heldByUserId", "heldAt"} {
+		if _, present := res.Worker[gone]; present {
+			t.Errorf("%q here is the hold BEFORE the bind that claimed it — omit rather than mislead: %s",
+				gone, out.String())
+		}
+	}
+}

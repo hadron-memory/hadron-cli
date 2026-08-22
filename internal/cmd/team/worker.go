@@ -494,15 +494,15 @@ type releaseResultDTO struct {
 	ID   string  `json:"id"`
 	Name string  `json:"name"`
 	URN  *string `json:"urn"`
-	// WasHeld is false for the idempotent no-op — releasing a name nobody
-	// held. Distinguishing it is the point: `✓ released` on a no-op is a
-	// receipt for something that did not happen.
+	// WasHeld is TRUE when a prior holder was visible, and NULL otherwise. It
+	// is never false — that is the contract, not an oversight.
 	//
-	// NULLABLE for the same reason as Forced: heldByUserId masks to null on
-	// DENY, so a nil hold can also mean "held, but not visible to you". Null
-	// says exactly that. `false` there would read as "this name is free to
-	// bind", and a caller acting on it meets WORKER_HELD at the next
-	// `session start` (PR #504 review).
+	// heldByUserId masks to null on DENY, so a nil hold means "unheld OR held
+	// and invisible to you", and there is no visibility signal on Worker to
+	// tell them apart. `false` would read as "this name is free to bind", and
+	// a caller acting on it meets WORKER_HELD at the next `session start`
+	// (PR #504 review — twice: once for an argument that the ambiguity
+	// collapsed, once for a probe that resolved it; neither held).
 	WasHeld *bool `json:"wasHeld"`
 	// ReleasedFromUserID is the prior holder, null on a no-op. The ID, not a
 	// name (review:entity-fields-not-display-labels) — it addresses a person

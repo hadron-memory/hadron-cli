@@ -110,8 +110,8 @@ type workerDTO struct {
 	// to you". There is deliberately NO `held bool` convenience field beside
 	// them: it would read as a settled fact and silently answer "no" to a
 	// caller who simply cannot see.
-	HeldByUserID *string `json:"heldByUserId"`
-	HeldAt       *string `json:"heldAt"`
+	HeldByUserID *string `json:"heldByUserId,omitempty"`
+	HeldAt       *string `json:"heldAt,omitempty"`
 	RetiredAt    *string `json:"retiredAt"`
 	RetiredBy    *string `json:"retiredBy"`
 	CreatedAt    string  `json:"createdAt"`

@@ -46,9 +46,11 @@ chat and keeps the worker TAKEN until you run ` + "`session end`" + ` or the ser
 reaps it, so the next driver meets a takeover prompt rather than a free
 worker. End the worker session deliberately when you stop.
 
-TAKEN is not HELD. Ending the session frees the SESSION; the worker's name
-stays HELD by you until you run ` + "`worker release`" + ` — no session end, idle
-window, expiry or reap ever clears a hold (cor:agt:020:09).`,
+TAKEN is not HELD. Ending the session frees the SESSION; a PERSON binding a
+worker also claims its name, and that hold stays yours until you run
+` + "`worker release`" + ` — no session end, idle window, expiry or reap ever
+clears one (cor:agt:020:09). An APP-KEY session claims no hold (an App key
+holds nothing), so it has nothing to release.`,
 	}
 	cmd.AddCommand(newCmdSessionStart(f))
 	cmd.AddCommand(newCmdSessionWhoami(f))
@@ -429,7 +431,7 @@ it just relabels which worker the shared tree is blamed on.`,
 				Worker      workerDTO  `json:"worker"`
 				BindingPath string     `json:"bindingPath"`
 				TookOver    bool       `json:"tookOver"`
-			}{sessionDTOFromFields(s, &w.Name), workerDTOFromFields(w), path, active != nil}
+			}{sessionDTOFromFields(s, &w.Name), sessionStartWorkerDTO(w), path, active != nil}
 			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
 				if _, err := fmt.Fprintf(out, "✓ started session %s as %s%s\n  binding: %s\n", s.Id, w.Name, roleSuffix(w.Role), path); err != nil {
 					return err
@@ -1265,4 +1267,24 @@ func strOrEmpty(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// sessionStartWorkerDTO is the worker as `session start` reports it: everything
+// workerDTO carries EXCEPT the hold.
+//
+// startSession CLAIMS the hold for a person (cor:agt:020:09 — "casting does not
+// hold; binding claims"), but this response is built from the PRE-mutation read,
+// so heldByUserId/heldAt there describe the moment before the bind. Reporting
+// them would tell a caller `heldByUserId: null` immediately after the bind that
+// set it (PR #504 review).
+//
+// Omitted rather than re-read: `session start` reports the session it just
+// created, not current staffing, and a round trip on the hot path to decorate a
+// field nobody asked for is the wrong trade. `worker get` is the staffing read.
+// Omitted rather than nulled, too — a null asserts "unheld", which is the exact
+// claim this command has spent a review learning not to make.
+func sessionStartWorkerDTO(w gen.WorkerFields) workerDTO {
+	dto := workerDTOFromFields(w)
+	dto.HeldByUserID, dto.HeldAt = nil, nil
+	return dto
 }

@@ -827,9 +827,8 @@ Conventions:
   the strong wording, because warning what an act IS before you consent errs
   toward caution while reporting what happened errs toward accuracy.
   The CLI reads the hold only to say which act it is, never to decide who may
-  perform it. Idempotent — releasing an unheld name reports `not-held` rather
-  than a success. But `heldByUserId` is masked to null on deny, so a nil hold
-  ALWAYS means "unheld OR held and invisible to you" — there is no visibility
+  perform it. Idempotent, and it never claims the name was free: `heldByUserId` is
+  masked to null on deny, so a nil hold ALWAYS means "unheld OR held and invisible to you" — there is no visibility
   signal on `Worker` to tell them apart. So a nil hold reports
   `status: "no-visible-hold"` with `wasHeld` and `forced` both **null** rather
   than claiming the name is free: a caller acting on `wasHeld: false` meets

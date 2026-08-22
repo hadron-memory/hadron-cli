@@ -104,12 +104,14 @@ to report whether it posted, which would let the CLI stop hedging and say.
 
 ## Decisions worth the words
 
-### "Was not held" is reported, not swallowed
+### The no-op is reported, but not as "not held"
 
 The mutation is idempotent, so releasing an unheld worker succeeds. Printing
-`✓ released` there would be a false receipt for a no-op. It reports **`was not
-held`** instead — the same rule the retired `role names add` sugar followed
-when its edit turned out to be a no-op.
+`✓ released` there would be a false receipt for a no-op — the same rule the
+retired `role names add` sugar followed when its edit turned out to be a no-op.
+
+It does not say "was not held" either; see the ambiguity section below. The
+receipt is *"no hold on X was visible to you"*, `status: "no-visible-hold"`.
 
 ### The nil-holder ambiguity does not collapse, and cannot be probed either
 
@@ -209,8 +211,8 @@ Against `srv.hadronmemory.com` on the real team App:
 - `worker get --json` carries `heldByUserId`/`heldAt` — Jonas reads as held
   since 2026-08-19.
 - The **no-op** branch end to end, on two genuinely unheld workers: `· Mira was
-  not held — nothing to release`, `--json` `status: "not-held"`,
-  `wasHeld: false`, and Mira unchanged afterwards.
+  hold on Mira was visible to you`, `--json` `status: "no-visible-hold"`, and
+  Mira unchanged afterwards.
 - `make unbound-ops` drops `releaseWorker` from the unwrapped list (87 → 86),
   which is the gate that surfaced this gap recording it closed.
 
@@ -226,6 +228,21 @@ Both are covered by tests, and every guard is mutation-checked. Saying which
 paths the live run did and did not cover matters more than the count: "verified
 against the live server" would otherwise imply the mutation's interesting
 branches were exercised, and they were not.
+
+### `session start` does not report the hold at all
+
+`startSession` **claims** the hold for a person, but `session start --json`
+builds its worker object from the PRE-mutation read — so carrying the hold
+there reports `heldByUserId: null` immediately after the bind that set it.
+
+Omitted rather than re-read: `session start` reports the session it just
+created, not current staffing, and a round trip on the hot path to decorate a
+field nobody asked for is the wrong trade. Omitted rather than **nulled**, too
+— a null asserts "unheld", which is the claim this command spent a review
+learning not to make. `worker get` is the staffing read.
+
+The same reasoning gives `heldByUserId`/`heldAt` `omitempty` on `workerDTO`:
+absence uniformly means *not asserted*.
 
 ## Not done here
 
