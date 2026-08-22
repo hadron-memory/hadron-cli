@@ -626,19 +626,23 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 			// post-release, where it is null by construction, so this is the
 			// only moment the prior state is knowable.
 			priorHolder := w.HeldByUserId
-			// Can we SEE holds on this worker at all? heldByUserId masks to
-			// null on deny TOGETHER WITH prompt/promptOverride/memoryId, so any
-			// of those being readable proves the gate is open and a nil hold is
-			// genuinely nil.
+			// NO VISIBILITY PROBE. An earlier version inferred one from
+			// prompt/promptOverride/memoryId being readable, since heldByUserId
+			// is masked alongside them. That is UNSOUND: all three are
+			// legitimately nullable — an agent with no template, no per-worker
+			// override, and a best-effort memory provision that failed — so a
+			// real, visible, unheld worker read as "cannot see" and got hedged
+			// output plus a spurious prompt. The repo's own retiredWorkerJSON
+			// fixture has exactly that shape (PR #504 review).
 			//
-			// This replaces an argument that was WRONG (PR #504 review). I had
-			// reasoned the ambiguity collapsed: a successful release implies the
-			// caller was the holder or an admin, and both can read the field.
-			// The schema says the mask exists so a FORMER App member cannot read
-			// staffing — and a former member can still BE the holder. They pass
-			// the release gate, fail the read gate, and get told their own name
-			// "was not held".
-			holdVisible := w.MemoryId != nil || w.PromptOverride != nil || w.Prompt != nil
+			// There is no explicit "can you read working state" signal on
+			// Worker, so a nil hold is IRREDUCIBLY ambiguous: unheld, or held
+			// and masked from you. The command therefore never claims which,
+			// and does not prompt — prompting on every idempotent no-op would
+			// spend the case #495 asked to keep quiet in exchange for a guess.
+			// hadron-server#1073 asks for the prior holder in the payload,
+			// which resolves this outright: the receipt could report what
+			// happened rather than predict it.
 			me, meKnown := currentUserID(ctx, client)
 			// A THREE-state answer: yes, no, or "cannot tell". Nil only when
 			// the identity lookup failed against a HELD name — the one case
@@ -646,18 +650,14 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 			// is treated as force for the PROMPT (conservative) and as unknown
 			// in the RECEIPT (honest); those are different jobs.
 			var forced, wasHeld *bool
-			switch {
-			case priorHolder != nil:
+			if priorHolder != nil {
 				wasHeld = boolPtr(true)
 				if meKnown {
 					forced = boolPtr(*priorHolder != me)
 				}
-			case holdVisible:
-				wasHeld, forced = boolPtr(false), boolPtr(false)
 			}
-			// Both stay nil otherwise: a hold may exist and be masked. That is
-			// the one case where an unheld-LOOKING release could still be a
-			// force-release with a chat post, so it prompts.
+			// Both stay nil on a nil hold, and stay nil HONESTLY: unheld and
+			// masked-from-you are indistinguishable here.
 
 			// Only the force branch prompts. A self-release loses nothing and
 			// notifies nobody, and a prompt on the ordinary end-of-work step
@@ -667,33 +667,21 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 			// Confirm, not ConfirmDeletion: nothing is destroyed, and "This
 			// cannot be undone" would be false — the next holder can release
 			// it back.
-			if (forced == nil || *forced) && !yes {
+			if priorHolder != nil && (forced == nil || *forced) && !yes {
 				// Built only when a prompt can be shown: describeHolder costs
 				// a read, and the prompt is an ARGUMENT to Confirm, so
 				// composing it unconditionally would make --yes pay for a
 				// string Confirm discards.
-				// Three reasons to ask, and the prompt says which — one that
-				// cannot explain itself reads as boilerplate and gets --yes'd
-				// past, including on the run where it mattered.
-				var lead string
-				switch {
-				case priorHolder == nil:
-					lead = fmt.Sprintf("Whether %s is held is not visible to you, so releasing it may take "+
-						"somebody else's name rather than be a no-op.", w.Name)
-				case forced == nil:
-					lead = fmt.Sprintf("%s is held by %s, and this CLI could not read your own identity "+
-						"to tell whether that is you.", w.Name, describeHolder(ctx, client, *priorHolder))
-				default:
-					lead = fmt.Sprintf("%s is held by %s.", w.Name, describeHolder(ctx, client, *priorHolder))
-				}
-				// The transfer clause is INSTANCE-specific, so it has to hold for
-				// this worker: nobody takes a retired name (WORKER_RETIRED), so
-				// promising a next holder there is the same false promise the
-				// receipt already avoids. Caught in review — I had swept the
-				// receipts for it and not the prompt, which is the narrow fix
-				// the commit before this one was about not making.
-				prompt := lead + " If it is not, releasing it POSTS TO THE TEAM CHAT naming you and them, " +
-					releasePromptTransferClause(w.RetiredAt) + " Continue?"
+				// The KNOWN force branch states it flatly. Reusing the "if it
+				// is not" hedge there — written for the unknown-identity branch
+				// — made the one case we are CERTAIN about sound conditional,
+				// which is backwards (PR #504 review).
+				//
+				// The transfer clause is instance-specific either way: nobody
+				// takes a retired name, so promising a next holder there is the
+				// same false promise the receipt avoids.
+				prompt := releasePrompt(w.Name, describeHolder(ctx, client, *priorHolder),
+					w.RetiredAt, forced != nil)
 				if err := cmdutil.Confirm(f.IOStreams, false, prompt); err != nil {
 					return err
 				}
@@ -726,6 +714,20 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 						"described; re-run to see the current state",
 					w.Name, holderPhrase(ctx, client, fresh.Worker.HeldByUserId))
 			}
+			// RETIREMENT too, not only the holder. The confirmation's transfer
+			// clause branches on it — "to whoever takes the name next" versus
+			// "stays with the name" — so a retirement landing between the
+			// prompt and the call leaves the caller having approved a
+			// description that no longer fits (PR #504 review).
+			if (w.RetiredAt == nil) != (fresh.Worker.RetiredAt == nil) {
+				state := "retired"
+				if fresh.Worker.RetiredAt == nil {
+					state = "un-retired"
+				}
+				return exitcode.Newf(exitcode.Conflict,
+					"%s was %s while this ran, which changes what releasing it means; re-run to see the current state",
+					w.Name, state)
+			}
 
 			resp, err := gen.ReleaseWorker(ctx, client, w.Id)
 			if err != nil {
@@ -740,37 +742,23 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 				WasHeld: wasHeld, ReleasedFromUserID: priorHolder,
 				Forced: forced, Status: "released",
 			}
-			switch {
-			case priorHolder != nil:
-				// released
-			case holdVisible:
-				result.Status = "not-held"
-			default:
-				result.Status = "unknown-hold"
+			if priorHolder == nil {
+				result.Status = "no-visible-hold"
 			}
 			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
-				// The no-op case is reported, not dressed as a success.
+				// The nil-hold case is reported as what it IS: no hold was
+				// visible. Not "was not held" — heldByUserId masks to null on
+				// deny, so nil means "unheld OR held and invisible to you", and
+				// there is no sound way to tell them apart from here.
 				//
-				// Saying "was not held" from a null pre-read would normally be
-				// a claim outrunning its evidence — heldByUserId masks to null
-				// on DENY, so a null read means "unheld OR invisible to you".
-				// It is sound HERE, and only because of the order: this prints
-				// after a SUCCESSFUL release, and a success means the caller
-				// was the holder or an admin, both of whom can read the field.
-				// A null that survives a successful release is genuinely
-				// unheld. Stated here rather than hedged in the message,
-				// because a hedge on the common path is how a nudge gets
-				// ignored.
+				// The distinction matters because of what a reader DOES with
+				// it: "was not held" reads as "this name is free to bind", and
+				// a caller acting on that meets WORKER_HELD at the next
+				// `session start`. One extra word buys the difference between
+				// an honest report and a confident wrong one.
 				if priorHolder == nil {
-					if result.Status == "unknown-hold" {
-						// Do NOT say "was not held". A caller reads that as
-						// "this name is free" and meets WORKER_HELD at the next
-						// `session start`.
-						_, err := fmt.Fprintf(out,
-							"· released %s if it was held — whether it was is not visible to you\n", dto.Name)
-						return err
-					}
-					_, err := fmt.Fprintf(out, "· %s was not held — nothing to release\n", dto.Name)
+					_, err := fmt.Fprintf(out,
+						"· no hold on %s was visible to you — nothing was released that you could see\n", dto.Name)
 					return err
 				}
 				switch {
@@ -846,6 +834,26 @@ func holderPhrase(ctx context.Context, client graphql.Client, userID *string) st
 		return "unheld"
 	}
 	return "held by " + describeHolder(ctx, client, *userID)
+}
+
+// releasePrompt is the whole confirmation shown before a release that may not
+// be the caller's own. Extracted for the same reason as its transfer clause:
+// cmdutil.Confirm's prompt branch is unreachable without a TTY, so nothing
+// could otherwise read the string it builds — and BOTH halves of it have now
+// been wrong in review.
+//
+// classified=false is the unknown-identity branch and keeps a conditional. The
+// KNOWN force branch states it flatly: reusing "if it is not" there made the
+// one case we are certain about sound uncertain, which is backwards for a
+// warning that a public act is about to happen (PR #504 review).
+func releasePrompt(name, holder string, retiredAt *string, classified bool) string {
+	if !classified {
+		return fmt.Sprintf("%s is held by %s, and this CLI could not read your own identity to tell whether "+
+			"that is you. If it is not, releasing it POSTS TO THE TEAM CHAT naming you and them, %s Continue?",
+			name, holder, releasePromptTransferClause(retiredAt))
+	}
+	return fmt.Sprintf("%s is held by %s, not you. Releasing it POSTS TO THE TEAM CHAT naming you and them, "+
+		"%s Continue?", name, holder, releasePromptTransferClause(retiredAt))
 }
 
 // releasePromptTransferClause is the half of the force prompt that says where

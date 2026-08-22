@@ -111,35 +111,44 @@ The mutation is idempotent, so releasing an unheld worker succeeds. Printing
 held`** instead — the same rule the retired `role names add` sugar followed
 when its edit turned out to be a no-op.
 
-### The nil-holder ambiguity does NOT collapse — I argued that it did, and was wrong
+### The nil-holder ambiguity does not collapse, and cannot be probed either
 
-`heldByUserId` is **masked to null on deny**, so a nil pre-read means either
-"unheld" or "you may not see the holder".
+`heldByUserId` is **masked to null on deny**, so a nil pre-read means "unheld"
+or "held, and not visible to you".
 
-The first version of this document argued the ambiguity collapsed: the receipt
-prints after a *successful* release, and a success means the caller was the
-holder or an admin, both of whom can read the field. It was a tidy argument and
-it is false. The schema says the mask exists so **a former App member cannot
-read current staffing** — and a former member can still BE the holder. They
-pass the release gate and fail the read gate, and get told their own name "was
-not held". Caught in review (@copilot, PR #504); I had built the confident half
-of the design on an assumption I never checked against the schema comment two
-lines below the field.
+Two attempts to resolve that, both wrong, both caught in review:
 
-The fix is a **visibility probe**, not an assumption. `heldByUserId` is masked
-*together with* `prompt`/`promptOverride`/`memoryId`, so any of those being
-readable proves the gate is open and a nil hold is genuinely nil:
+1. **An argument.** The receipt prints after a *successful* release, and a
+   success means the caller was the holder or an admin — both of whom can read
+   the field. False: the mask exists so a **former App member** cannot read
+   staffing, and a former member can still BE the holder. They pass the release
+   gate and fail the read gate.
+2. **A probe.** `heldByUserId` is masked alongside
+   `prompt`/`promptOverride`/`memoryId`, so any of those being readable proves
+   the gate is open. Also false: all three are legitimately nullable — an agent
+   with no template, no per-worker override, and a best-effort memory provision
+   that failed. The repo's own `retiredWorkerJSON` fixture has exactly that
+   shape, so a real, visible, unheld worker read as "cannot see" and got hedged
+   output plus a spurious prompt.
 
-| pre-read | meaning | behaviour |
-|---|---|---|
-| holder set | held | classify; prompt if not me |
-| nil, co-masked fields visible | genuinely unheld | no prompt, `not-held` |
-| nil, all co-masked fields null | **cannot tell** | prompt; `status: "unknown-hold"`, `wasHeld: null` |
+There is **no explicit visibility signal on `Worker`**, so the ambiguity is
+irreducible from here. The command therefore stops trying to resolve it and
+reports what it knows:
 
-`wasHeld` is nullable for the same reason `forced` is. A `false` there would
-read as *"this name is free to bind"* — and a caller acting on that meets
-`WORKER_HELD` at the next `session start`. The third row is rare; the point is
-that it no longer produces a confident falsehood.
+- human: *"no hold on Iris was visible to you — nothing was released that you
+  could see"*
+- `--json`: `status: "no-visible-hold"`, with `wasHeld` and `forced` both
+  **null** rather than a guessed `false`
+- **no prompt** — prompting on every idempotent no-op would spend the case #495
+  asked to keep quiet, in exchange for a guess
+
+The distinction earns its extra words because of what a reader *does* with it:
+"was not held" reads as *"this name is free to bind"*, and a caller acting on
+that meets `WORKER_HELD` at the next `session start`.
+
+hadron-server#1073 asks for the prior holder in the release payload, which
+resolves this outright — the receipt could then report what happened instead of
+predicting it.
 
 ### "Cannot tell" is a third answer, not a `false`
 

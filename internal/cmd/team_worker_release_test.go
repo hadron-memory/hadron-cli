@@ -148,21 +148,45 @@ func TestWorkerReleaseSurvivesUnreadableHolder(t *testing.T) {
 
 // Idempotent: releasing a name nobody holds succeeds server-side. Printing
 // "✓ released" there would be a receipt for something that did not happen.
-func TestWorkerReleaseUnheldReportsTheNoOp(t *testing.T) {
-	gql, _ := captureGraphQL(t, releaseStubs(irisWorkerJSON, nil)) // no hold
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "worker", "release", "Iris",
-		"--app", "acme.com:eng-team", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	got := out.String()
-	if !strings.Contains(got, "was not held — nothing to release") {
-		t.Errorf("a no-op must say so: %s", got)
-	}
-	if strings.Contains(got, "✓ released") {
-		t.Errorf("a no-op must not print a success receipt: %s", got)
+//
+// It does NOT say "was not held" either. heldByUserId masks to null on deny, so
+// nil means "unheld OR held and invisible to you", and an earlier version that
+// tried to tell them apart — probing the fields masked alongside it — was
+// unsound: all of those are legitimately nullable too (PR #504 review). So the
+// receipt reports what it actually knows.
+func TestWorkerReleaseNilHoldClaimsNothing(t *testing.T) {
+	for _, tc := range []struct{ name, worker string }{
+		{"genuinely unheld", irisWorkerJSON},
+		{"held but masked from the caller", maskedWorkerJSON},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stubs := releaseStubs(tc.worker, nil)
+			stubs["GetWorker"] = `{"data":{"worker":` + tc.worker + `}}`
+			gql, _ := captureGraphQL(t, stubs)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			// No --yes and no TTY: a prompt here would refuse. Both cases must
+			// stay quiet — prompting on every no-op is the cost #495 asked us
+			// not to pay, and the two are indistinguishable anyway.
+			root.SetArgs([]string{"team", "worker", "release", "Iris",
+				"--app", "acme.com:eng-team", "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("a nil hold must not prompt: %v", err)
+			}
+			got := out.String()
+			if !strings.Contains(got, "no hold on Iris was visible to you") {
+				t.Errorf("report what is known: %s", got)
+			}
+			// The two claims it must never make: that something was released,
+			// and that the name is free. A reader acting on the second meets
+			// WORKER_HELD at the next `session start`.
+			if strings.Contains(got, "✓ released") {
+				t.Errorf("a no-op must not print a success receipt: %s", got)
+			}
+			if strings.Contains(got, "was not held") {
+				t.Errorf("nil is not proof the name is free: %s", got)
+			}
+		})
 	}
 }
 
@@ -179,7 +203,7 @@ func TestWorkerReleaseJSONShape(t *testing.T) {
 	}{
 		{"self", heldBy("u-holger"), true, false, "released"},
 		{"forced", heldBy("u-dara"), true, true, "released"},
-		{"unheld", irisWorkerJSON, false, false, "not-held"},
+		{"unheld", irisWorkerJSON, false, false, "no-visible-hold"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			gql, _ := captureGraphQL(t, releaseStubs(tc.worker, map[string]string{
@@ -197,22 +221,36 @@ func TestWorkerReleaseJSONShape(t *testing.T) {
 			var dto struct {
 				ID                 string  `json:"id"`
 				Name               string  `json:"name"`
-				WasHeld            bool    `json:"wasHeld"`
+				WasHeld            *bool   `json:"wasHeld"`
 				ReleasedFromUserID *string `json:"releasedFromUserId"`
-				Forced             bool    `json:"forced"`
+				Forced             *bool   `json:"forced"`
 				Status             string  `json:"status"`
 			}
 			if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
 				t.Fatalf("--json must parse: %v (%s)", err, out.String())
 			}
-			if dto.WasHeld != tc.wasHeld || dto.Forced != tc.forced || dto.Status != tc.status {
-				t.Errorf("shape: %s", out.String())
+			if dto.Status != tc.status {
+				t.Errorf("status: %s", out.String())
 			}
-			if tc.wasHeld && dto.ReleasedFromUserID == nil {
-				t.Errorf("the prior holder is the one fact only the pre-read has: %s", out.String())
-			}
-			if !tc.wasHeld && dto.ReleasedFromUserID != nil {
-				t.Errorf("a no-op released nobody: %s", out.String())
+			if tc.wasHeld {
+				if dto.WasHeld == nil || !*dto.WasHeld {
+					t.Errorf("a held name must report wasHeld true: %s", out.String())
+				}
+				if dto.ReleasedFromUserID == nil {
+					t.Errorf("the prior holder is the one fact only the pre-read has: %s", out.String())
+				}
+				if dto.Forced == nil || *dto.Forced != tc.forced {
+					t.Errorf("forced: %s", out.String())
+				}
+			} else {
+				// A nil hold is ambiguous, so BOTH booleans stay null rather
+				// than encoding a guess as false.
+				if dto.WasHeld != nil || dto.Forced != nil {
+					t.Errorf("a nil hold must not be reported as a known false: %s", out.String())
+				}
+				if dto.ReleasedFromUserID != nil {
+					t.Errorf("no visible holder means none to report: %s", out.String())
+				}
 			}
 		})
 	}
@@ -256,6 +294,32 @@ func TestWorkerReleaseAppKeyCallerIsNeverTheHolder(t *testing.T) {
 // server-side) but it narrows it to one round trip and refuses rather than
 // guessing. These two pin the refusal (PR #504 review, P1).
 func TestWorkerReleaseRefusesWhenTheHoldChanged(t *testing.T) {
+	// RETIREMENT is part of "the act just described" too: the confirmation's
+	// transfer clause branches on it, so a retirement landing between the
+	// prompt and the call leaves the caller having approved wording that no
+	// longer fits (PR #504 review).
+	t.Run("retired between the prompt and the call", func(t *testing.T) {
+		nowRetired := strings.Replace(heldBy("u-dara"), `"retiredAt":null`,
+			`"retiredAt":"2026-08-21T00:00:00Z"`, 1)
+		gql, captured := captureGraphQL(t, releaseStubs(heldBy("u-dara"), map[string]string{
+			"GetWorker": `{"data":{"worker":` + nowRetired + `}}`,
+			"GetUser": `{"data":{"user":{"id":"u-dara","name":"Dara","email":null,"handle":"dara",
+				"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
+				"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
+		}))
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
+			"--app", "acme.com:eng-team", "--server", gql.URL})
+		err := root.Execute()
+		if code := exitcode.FromError(err); code != exitcode.Conflict {
+			t.Errorf("a retirement mid-flight changes what release MEANS: exit %d; err: %v", code, err)
+		}
+		if _, called := captured["ReleaseWorker"]; called {
+			t.Error("must not perform an act whose description has gone stale")
+		}
+	})
+
 	t.Run("prompted case: a different holder by the time we call", func(t *testing.T) {
 		gql, captured := captureGraphQL(t, releaseStubs(heldBy("u-dara"), map[string]string{
 			"GetWorker": `{"data":{"worker":` + heldBy("u-gil") + `}}`,
@@ -428,88 +492,6 @@ const maskedWorkerJSON = `{"id":"wkr1","urn":"hrn:worker:acme.com:eng-team:iris"
 	"appId":"app1","agentId":"agt1","name":"Iris","role":"backend-engineer",
 	"prompt":null,"promptOverride":null,"memoryId":null,"heldByUserId":null,"heldAt":null,
 	"retiredAt":null,"retiredBy":null,"createdAt":"2026-08-14T00:00:00Z","createdBy":"u-holger"}`
-
-// A nil hold means "unheld OR masked on deny" — heldByUserId is gated exactly
-// like prompt/promptOverride/memoryId. My first version asserted the ambiguity
-// collapsed, reasoning that a successful release implies the caller could read
-// the field. It does not: the mask exists so a FORMER App member cannot read
-// staffing, and a former member can still BE the holder — passing the release
-// gate while failing the read gate (PR #504 review, @copilot).
-//
-// So the co-masked fields are the probe. Visible ⇒ the gate is open ⇒ a nil
-// hold is real. All null ⇒ we cannot tell, and must not claim.
-func TestWorkerReleaseDoesNotClaimUnheldWhenItCannotSee(t *testing.T) {
-	masked := func(extra map[string]string) map[string]string {
-		m := releaseStubs(maskedWorkerJSON, extra)
-		m["GetWorker"] = `{"data":{"worker":` + maskedWorkerJSON + `}}`
-		return m
-	}
-
-	// It PROMPTS: an unheld-looking release could still take somebody's name
-	// and post to the team chat.
-	gql, captured := captureGraphQL(t, masked(nil))
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "worker", "release", "Iris",
-		"--app", "acme.com:eng-team", "--server", gql.URL})
-	if err := root.Execute(); err == nil {
-		t.Fatal("an invisible hold must be asked about, not assumed absent")
-	}
-	if _, called := captured["ReleaseWorker"]; called {
-		t.Error("refused prompt must not reach the mutation")
-	}
-
-	// And with --yes it never claims the name was free.
-	gql2, _ := captureGraphQL(t, masked(nil))
-	f2, out2 := testFactory(t)
-	root2 := NewRootCmd(f2)
-	root2.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
-		"--app", "acme.com:eng-team", "--server", gql2.URL})
-	if err := root2.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	if strings.Contains(out2.String(), "was not held") {
-		t.Errorf("must not assert the name was free — a reader binds on that: %s", out2.String())
-	}
-	if !strings.Contains(out2.String(), "not visible to you") {
-		t.Errorf("must say the hold was not visible: %s", out2.String())
-	}
-
-	// --json says it too, rather than encoding the guess.
-	gql3, _ := captureGraphQL(t, masked(nil))
-	f3, out3 := testFactory(t)
-	root3 := NewRootCmd(f3)
-	root3.SetArgs([]string{"team", "worker", "release", "Iris", "--yes", "--json",
-		"--app", "acme.com:eng-team", "--server", gql3.URL})
-	if err := root3.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var raw map[string]any
-	if err := json.Unmarshal([]byte(out3.String()), &raw); err != nil {
-		t.Fatalf("--json must parse: %v", err)
-	}
-	if raw["status"] != "unknown-hold" {
-		t.Errorf(`status must be "unknown-hold", got %v: %s`, raw["status"], out3.String())
-	}
-	if v, present := raw["wasHeld"]; !present || v != nil {
-		t.Errorf("wasHeld must be null when the hold is not visible, got %v", v)
-	}
-
-	// The control: the SAME nil hold, but with co-masked fields visible, is a
-	// genuine no-op — no prompt, and it does say "was not held". Without this
-	// the guard could be "always prompt", which would ruin the common case.
-	gql4, _ := captureGraphQL(t, releaseStubs(irisWorkerJSON, nil))
-	f4, out4 := testFactory(t)
-	root4 := NewRootCmd(f4)
-	root4.SetArgs([]string{"team", "worker", "release", "Iris",
-		"--app", "acme.com:eng-team", "--server", gql4.URL})
-	if err := root4.Execute(); err != nil {
-		t.Fatalf("a visible-and-unheld release must not prompt: %v", err)
-	}
-	if !strings.Contains(out4.String(), "was not held") {
-		t.Errorf("a genuinely unheld name still says so plainly: %s", out4.String())
-	}
-}
 
 // "anyone may bind it now" is the natural thing to say after a release, and it
 // is FALSE for a retired worker: startSession refuses one (WORKER_RETIRED)

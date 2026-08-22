@@ -120,3 +120,33 @@ func TestReleasePromptTransferClauseMatchesRetirement(t *testing.T) {
 		t.Errorf("say why: %q", retired)
 	}
 }
+
+// The force confirmation, exercised directly — Confirm's prompt branch is
+// unreachable without a TTY, and both halves of this string have now been
+// wrong in review (a next holder promised for a retired worker; a hedge on the
+// branch we are certain about).
+func TestReleasePromptStatesAKnownForceFlatly(t *testing.T) {
+	known := releasePrompt("Iris", "Dara (@dara)", nil, true)
+	unknown := releasePrompt("Iris", "Dara (@dara)", nil, false)
+
+	// The one branch where the public act is a FACT must not sound conditional.
+	if strings.Contains(known, "If it is not") {
+		t.Errorf("a known force-release is certain — do not hedge it: %q", known)
+	}
+	if !strings.Contains(known, "not you") {
+		t.Errorf("say plainly whose name it is: %q", known)
+	}
+	// The unknown branch keeps the conditional, because it IS conditional.
+	if !strings.Contains(unknown, "If it is not") {
+		t.Errorf("an unclassified release must stay conditional: %q", unknown)
+	}
+	if !strings.Contains(unknown, "could not read your own identity") {
+		t.Errorf("say why it is asking: %q", unknown)
+	}
+	// Both warn that it is public — that is the point of asking at all.
+	for _, p := range []string{known, unknown} {
+		if !strings.Contains(p, "POSTS TO THE TEAM CHAT") {
+			t.Errorf("every force prompt warns the act is public: %q", p)
+		}
+	}
+}
