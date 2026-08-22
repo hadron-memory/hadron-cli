@@ -680,8 +680,14 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 				default:
 					lead = fmt.Sprintf("%s is held by %s.", w.Name, describeHolder(ctx, client, *priorHolder))
 				}
+				// The transfer clause is INSTANCE-specific, so it has to hold for
+				// this worker: nobody takes a retired name (WORKER_RETIRED), so
+				// promising a next holder there is the same false promise the
+				// receipt already avoids. Caught in review — I had swept the
+				// receipts for it and not the prompt, which is the narrow fix
+				// the commit before this one was about not making.
 				prompt := lead + " If it is not, releasing it POSTS TO THE TEAM CHAT naming you and them, " +
-					"and hands that worker's working memory and handoff history to whoever takes the name next. Continue?"
+					releasePromptTransferClause(w.RetiredAt) + " Continue?"
 				if err := cmdutil.Confirm(f.IOStreams, false, prompt); err != nil {
 					return err
 				}
@@ -834,4 +840,21 @@ func holderPhrase(ctx context.Context, client graphql.Client, userID *string) st
 		return "unheld"
 	}
 	return "held by " + describeHolder(ctx, client, *userID)
+}
+
+// releasePromptTransferClause is the half of the force prompt that says where
+// the worker's notes go. Extracted so it is testable: cmdutil.Confirm's prompt
+// branch is unreachable without a TTY, so a command-level test can never read
+// the string it builds.
+//
+// The clause is INSTANCE-specific and must hold for THIS worker. Nobody takes a
+// retired name (startSession refuses WORKER_RETIRED), so promising a next
+// holder there is the same false promise the receipt avoids — caught in review
+// after I fixed the receipts and not the prompt.
+func releasePromptTransferClause(retiredAt *string) string {
+	if retiredAt != nil {
+		return "and its working memory and handoff history stay with the name — the worker is retired, " +
+			"so nobody can bind it."
+	}
+	return "and hands that worker's working memory and handoff history to whoever takes the name next."
 }

@@ -554,3 +554,38 @@ func TestWorkerReleaseDoesNotPromiseBindingARetiredWorker(t *testing.T) {
 		t.Errorf("a live worker's release should say the name is available: %s", out2.String())
 	}
 }
+
+// The force PROMPT makes the same transfer promise the receipt does, and it is
+// equally false for a retired worker — nobody takes a retired name. Caught in
+// review AFTER the receipt was fixed: I swept the receipts and not the prompt,
+// which is precisely the narrow fix the preceding commit was about not making.
+//
+// Unit-tested through the command's refusal path rather than by reading the
+// string, because cmdutil.Confirm's prompt branch is unreachable without a TTY
+// — the assertion is on what a non-interactive run REFUSES, plus the retired
+// receipt, so the two stay consistent.
+func TestWorkerReleasePromptDoesNotPromiseANextHolderForARetiredWorker(t *testing.T) {
+	retiredHeld := strings.Replace(heldBy("u-dara"), `"retiredAt":null`,
+		`"retiredAt":"2026-08-15T00:00:00Z"`, 1)
+	stubs := releaseStubs(retiredHeld, map[string]string{
+		"GetUser": `{"data":{"user":{"id":"u-dara","name":"Dara","email":null,"handle":"dara",
+			"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
+			"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
+	})
+	stubs["GetWorker"] = `{"data":{"worker":` + retiredHeld + `}}`
+	stubs["ReleaseWorker"] = `{"data":{"releaseWorker":` + retiredHeld + `}}`
+
+	gql, _ := captureGraphQL(t, stubs)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// A forced release of a RETIRED worker: the receipt must not send anyone
+	// off to bind it either.
+	if strings.Contains(out.String(), "anyone may bind") {
+		t.Errorf("nobody can bind a retired worker: %s", out.String())
+	}
+}

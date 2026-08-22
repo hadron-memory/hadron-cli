@@ -89,3 +89,34 @@ func TestLazyOnceCachesAnEmptyResult(t *testing.T) {
 		t.Errorf("an empty result must still count as read: %d reads", reads)
 	}
 }
+
+// releasePromptTransferClause is the half of `worker release`'s force prompt
+// that says where the worker's notes go. Unit-tested here for the same reason
+// describeRetirement is: cmdutil.Confirm's prompt branch is unreachable without
+// a TTY, so a command-level test can never read the string it builds.
+//
+// The clause is INSTANCE-specific. Nobody takes a retired name (startSession
+// refuses WORKER_RETIRED), so promising a next holder there is the same false
+// promise the receipt avoids — caught in review after I had fixed the receipts
+// and not the prompt, which is the narrow fix the preceding commit was about
+// not making (hadron-cli#495 / PR #504).
+func TestReleasePromptTransferClauseMatchesRetirement(t *testing.T) {
+	at := "2026-08-15T00:00:00Z"
+	live, retired := releasePromptTransferClause(nil), releasePromptTransferClause(&at)
+
+	if !strings.Contains(live, "whoever takes the name next") {
+		t.Errorf("a live worker's name does pass on: %q", live)
+	}
+	if strings.Contains(retired, "whoever takes the name next") {
+		t.Errorf("nobody takes a retired name: %q", retired)
+	}
+	// Say where the history goes INSTEAD, rather than just deleting the clause
+	// — the transfer is the least guessable consequence of the verb, and a
+	// retired worker's notes still travel with the name if it is ever revived.
+	if !strings.Contains(retired, "stay with the name") {
+		t.Errorf("say where the history goes instead: %q", retired)
+	}
+	if !strings.Contains(retired, "retired") {
+		t.Errorf("say why: %q", retired)
+	}
+}
