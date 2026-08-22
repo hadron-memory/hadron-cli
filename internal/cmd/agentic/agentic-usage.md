@@ -821,6 +821,11 @@ Conventions:
   ACTS, gated server-side: releasing your OWN name notifies nobody and does
   not prompt; releasing SOMEONE ELSE'S is an admin force-release, which
   **posts to the team chat** naming both parties and prompts unless `--yes`.
+  That post is BEST-EFFORT server-side (an unreachable chat never blocks the
+  release) and the payload carries no delivery signal, so the receipt says the
+  server posts a notice rather than asserting one appeared — the prompt keeps
+  the strong wording, because warning what an act IS before you consent errs
+  toward caution while reporting what happened errs toward accuracy.
   The CLI reads the hold only to say which act it is, never to decide who may
   perform it. Idempotent — releasing an unheld name reports `not-held` rather
   than a success. But `heldByUserId` is masked to null on deny, so a nil hold

@@ -769,12 +769,22 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 					// nothing would conceal one that did.
 					if _, err := fmt.Fprintf(out,
 						"✓ released %s (previously held by %s) — your own identity could not be read, so if that "+
-							"was not you, the server has announced this in the team chat\n",
+							"was not you, the server will have posted a notice to the team chat\n",
 						dto.Name, describeHolder(ctx, client, *priorHolder)); err != nil {
 						return err
 					}
 				case *result.Forced:
-					if _, err := fmt.Fprintf(out, "✓ force-released %s from %s — announced in the team chat\n",
+					// "posts", not "announced". The notification is BEST-EFFORT
+					// server-side — an unreachable chat never blocks the release
+					// — and the payload carries no delivery signal, so asserting
+					// the notice appeared is a third claim this command cannot
+					// verify (PR #504 review). The PROMPT still says POSTS TO
+					// THE TEAM CHAT in the strong form: that is a warning about
+					// what the act IS, before you consent to it, and overstating
+					// there errs toward caution. This is a report of what
+					// happened, and errs toward accuracy.
+					if _, err := fmt.Fprintf(out,
+						"✓ force-released %s from %s — the server posts a notice to the team chat (best-effort)\n",
 						dto.Name, describeHolder(ctx, client, *priorHolder)); err != nil {
 						return err
 					}

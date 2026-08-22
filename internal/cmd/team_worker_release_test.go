@@ -112,10 +112,18 @@ func TestWorkerReleaseForcedNamesTheHolderAndTheChatPost(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	got := out.String()
-	for _, want := range []string{"force-released Iris", "Dara (@dara)", "announced in the team chat"} {
+	for _, want := range []string{"force-released Iris", "Dara (@dara)", "posts a notice to the team chat"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the force receipt must carry %q: %s", want, got)
 		}
+	}
+	// The notification is BEST-EFFORT server-side and the payload carries no
+	// delivery signal, so the receipt must not assert the notice appeared.
+	if strings.Contains(got, "announced in the team chat") {
+		t.Errorf("claims a delivery it cannot verify: %s", got)
+	}
+	if !strings.Contains(got, "best-effort") {
+		t.Errorf("must say the announcement is best-effort: %s", got)
 	}
 }
 

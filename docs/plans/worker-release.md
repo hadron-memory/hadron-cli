@@ -88,6 +88,20 @@ precondition (the `expectedNames` shape, and what
 the payload. The first prevents; the second at least stops the client asserting
 a falsehood.
 
+### The receipt does not claim the announcement landed
+
+The notification is **best-effort** server-side — *"an unreachable chat never
+blocks the release"* — and the payload carries no delivery signal. So the
+receipt says the server *posts* a notice, not that one *appeared*.
+
+The PROMPT keeps the strong wording (`POSTS TO THE TEAM CHAT`). The two have
+different jobs: a warning about what an act **is**, before you consent, errs
+toward caution; a report of what **happened** errs toward accuracy.
+
+This was the third instance of the same rule on one PR — after the nil-holder
+claim and the `forced` classification. hadron-server#1073 also asks the server
+to report whether it posted, which would let the CLI stop hedging and say.
+
 ## Decisions worth the words
 
 ### "Was not held" is reported, not swallowed
