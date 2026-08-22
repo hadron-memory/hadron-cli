@@ -825,8 +825,16 @@ Conventions:
   perform it. Idempotent — releasing an unheld name reports `not-held` rather
   than a success, and `--json` carries `wasHeld`/`releasedFromUserId`/`forced`
   describing the state BEFORE the call, since the returned worker is
-  post-release by construction. `worker get --json` also gains
-  `heldByUserId`/`heldAt` (additive); both are masked to null on deny, so
+  post-release by construction. **`forced` is nullable**: null means the
+  caller's own identity could not be read against a held name, so the act could
+  not be classified — `false` would claim a private act and `true` an
+  announcement, and neither is knowable there. The hold is re-read immediately
+  before the mutation and a change refuses **exit 5**: `releaseWorker` has no
+  precondition (hadron-server#1073), so without that a hold taken between the
+  classifying read and the call would be force-released silently while the
+  receipt called it routine. `worker get` shows the holder (and `--json` gains
+  `heldByUserId`/`heldAt`, additive) — the line is omitted rather than dashed
+  when there is no visible hold; both are masked to null on deny, so
   absence means "unheld OR not visible to you" — there is deliberately no
   `held` boolean, which would answer "no" to a caller who merely cannot see.
   `worker list` is unchanged; which surface shows who is driving is

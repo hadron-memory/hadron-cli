@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // `worker release` clears the HOLD (hadron-cli#495, cor:agt:020:09) — the only
@@ -27,8 +29,11 @@ const authContextHolgerJSON = `{"data":{"authContext":{"principalType":"USER","a
 
 func releaseStubs(worker string, extra map[string]string) map[string]string {
 	m := map[string]string{
-		"Workers":       `{"data":{"workers":{"total":1,"items":[` + worker + `]}}}`,
-		"AuthContext":   authContextHolgerJSON,
+		"Workers":     `{"data":{"workers":{"total":1,"items":[` + worker + `]}}}`,
+		"AuthContext": authContextHolgerJSON,
+		// The re-read immediately before the mutation. By default it answers
+		// with the SAME worker, i.e. the hold did not change.
+		"GetWorker":     `{"data":{"worker":` + worker + `}}`,
 		"ReleaseWorker": `{"data":{"releaseWorker":` + irisWorkerJSON + `}}`,
 	}
 	for k, v := range extra {
@@ -227,5 +232,183 @@ func TestWorkerReleaseAppKeyCallerIsNeverTheHolder(t *testing.T) {
 	}
 	if _, called := captured["ReleaseWorker"]; called {
 		t.Error("the mutation must not run when the force confirmation was refused")
+	}
+}
+
+// `releaseWorker` takes no precondition and does not return the prior holder,
+// so the hold can change between the pre-read that CLASSIFIED the act and the
+// call that performs it. Two bad outcomes, and the second is the dangerous one:
+//
+//   - an admin approves a prompt naming Dara and releases whoever holds it now;
+//   - a pre-read showing "unheld" or "me" skips the prompt ENTIRELY, so a hold
+//     taken in between is force-released silently while the receipt reports a
+//     self-release — the act performed differing from the act described.
+//
+// The re-read cannot close the race (that needs an expectedHolder precondition
+// server-side) but it narrows it to one round trip and refuses rather than
+// guessing. These two pin the refusal (PR #504 review, P1).
+func TestWorkerReleaseRefusesWhenTheHoldChanged(t *testing.T) {
+	t.Run("prompted case: a different holder by the time we call", func(t *testing.T) {
+		gql, captured := captureGraphQL(t, releaseStubs(heldBy("u-dara"), map[string]string{
+			"GetWorker": `{"data":{"worker":` + heldBy("u-gil") + `}}`,
+			"GetUser": `{"data":{"user":{"id":"u-gil","name":"Gil","email":null,"handle":"gil",
+				"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
+				"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
+		}))
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
+			"--app", "acme.com:eng-team", "--server", gql.URL})
+		err := root.Execute()
+		if code := exitcode.FromError(err); code != exitcode.Conflict {
+			t.Errorf("a changed hold is a state conflict: exit %d, want %d; err: %v", code, exitcode.Conflict, err)
+		}
+		if _, called := captured["ReleaseWorker"]; called {
+			t.Error("the release must not run against a holder the caller never saw")
+		}
+	})
+
+	// The silent one: nothing to release at pre-read time, so no prompt — and
+	// then somebody claims it. Without the re-read this force-releases them and
+	// prints "was not held".
+	t.Run("unprompted case: a hold appears after an unheld pre-read", func(t *testing.T) {
+		gql, captured := captureGraphQL(t, releaseStubs(irisWorkerJSON, map[string]string{
+			"GetWorker": `{"data":{"worker":` + heldBy("u-gil") + `}}`,
+			"GetUser": `{"data":{"user":{"id":"u-gil","name":"Gil","email":null,"handle":"gil",
+				"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
+				"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
+		}))
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "worker", "release", "Iris",
+			"--app", "acme.com:eng-team", "--server", gql.URL})
+		err := root.Execute()
+		if code := exitcode.FromError(err); code != exitcode.Conflict {
+			t.Errorf("a hold appearing after an unheld read must refuse, not silently force: exit %d; err: %v", code, err)
+		}
+		if _, called := captured["ReleaseWorker"]; called {
+			t.Error("this is the SILENT force-release the re-read exists to prevent")
+		}
+	})
+}
+
+// A FAILED identity lookup is "unknown", not "you are not the holder"
+// (PR #504 review). Collapsing them reclassifies a legitimate self-release as
+// a force-release: refused non-interactively, and — worse — reported with
+// `forced: true` and a team-chat announcement the server never made.
+func TestWorkerReleaseUnknownIdentityIsNotAForceRelease(t *testing.T) {
+	stubs := releaseStubs(heldBy("u-holger"), map[string]string{
+		"AuthContext": `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`,
+		"GetUser": `{"data":{"user":{"id":"u-holger","name":"Holger","email":null,"handle":"holger",
+			"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
+			"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
+	})
+
+	// It still asks, because it cannot rule out a public act — but the prompt
+	// says WHY rather than asserting the name is someone else's.
+	gql, captured := captureGraphQL(t, stubs)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "release", "Iris",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("an unclassifiable release must ask before acting")
+	}
+	if _, called := captured["ReleaseWorker"]; called {
+		t.Error("refused prompt must not reach the mutation")
+	}
+
+	// With --yes it proceeds, and reports `forced: null` — not false (which
+	// would claim a private act) and not true (which would claim an
+	// announcement). The human line says the same thing in words.
+	gql2, _ := captureGraphQL(t, stubs)
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "worker", "release", "Iris", "--yes", "--json",
+		"--app", "acme.com:eng-team", "--server", gql2.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(out2.String()), &raw); err != nil {
+		t.Fatalf("--json must parse: %v (%s)", err, out2.String())
+	}
+	if v, present := raw["forced"]; !present || v != nil {
+		t.Errorf("forced must be null when the act could not be classified, got %v: %s", v, out2.String())
+	}
+
+	f3, out3 := testFactory(t)
+	root3 := NewRootCmd(f3)
+	gql3, _ := captureGraphQL(t, stubs)
+	root3.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
+		"--app", "acme.com:eng-team", "--server", gql3.URL})
+	if err := root3.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out3.String(), "identity could not be read") {
+		t.Errorf("the receipt must say it could not classify the act: %s", out3.String())
+	}
+}
+
+// `worker get` is the detail surface, and "whose name is this" is a question
+// people ask of it before asking a colleague for a name. Rendered only when
+// KNOWN: heldByUserId masks to null on deny, so printing "held by: —" would
+// answer "nobody" to a caller who merely cannot see (PR #504 review — the plan
+// doc claimed this render before it existed).
+func TestWorkerGetRendersTheHolder(t *testing.T) {
+	held := map[string]string{
+		"Workers":         `{"data":{"workers":{"total":1,"items":[` + heldBy("u-dara") + `]}}}`,
+		"TeamAppIdentity": teamAppIdentityJSON,
+		"GetUser": `{"data":{"user":{"id":"u-dara","name":"Dara","email":null,"handle":"dara",
+			"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
+			"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
+	}
+	gql, _ := captureGraphQL(t, held)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "get", "Iris", "--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	for _, want := range []string{"held by: Dara (@dara)", "since 2026-08-20T09:00:00Z"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("get must render the hold (%q): %s", want, out.String())
+		}
+	}
+
+	// An UNHELD (or unreadable) worker renders no hold line at all, rather than
+	// an empty one that would read as a settled "nobody".
+	gql2, captured2 := captureGraphQL(t, map[string]string{
+		"Workers":         `{"data":{"workers":{"total":1,"items":[` + irisWorkerJSON + `]}}}`,
+		"TeamAppIdentity": teamAppIdentityJSON,
+	})
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "worker", "get", "Iris", "--app", "acme.com:eng-team", "--server", gql2.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Contains(out2.String(), "held by") {
+		t.Errorf("an absent hold must render nothing, not an empty claim: %s", out2.String())
+	}
+	// And it costs no user lookup — absence is known without asking.
+	if _, called := captured2["GetUser"]; called {
+		t.Error("no holder means no holder read")
+	}
+
+	// --json is unaffected by the render and carries the actionable id.
+	gql3, _ := captureGraphQL(t, held)
+	f3, out3 := testFactory(t)
+	root3 := NewRootCmd(f3)
+	root3.SetArgs([]string{"team", "worker", "get", "Iris", "--json", "--app", "acme.com:eng-team", "--server", gql3.URL})
+	if err := root3.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto map[string]any
+	if err := json.Unmarshal([]byte(out3.String()), &dto); err != nil {
+		t.Fatalf("--json must parse: %v", err)
+	}
+	if dto["heldByUserId"] != "u-dara" || dto["heldAt"] == nil {
+		t.Errorf("--json must carry the hold: %s", out3.String())
 	}
 }

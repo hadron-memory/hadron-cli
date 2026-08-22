@@ -331,6 +331,10 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
 			dto := workerDTOFromFields(w)
 			return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
 				// The App gets its own line, named rather than spelled as the
@@ -344,6 +348,19 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 				}
 				if dto.MemoryID != nil {
 					fmt.Fprintf(out, "  memory: %s\n", *dto.MemoryID)
+				}
+				// The HOLD (cor:agt:020:09) — whose name this is, which is a
+				// different question from whether a session is live. Rendered
+				// only when known: heldByUserId masks to null on deny, so
+				// printing "held by: —" would answer "nobody" to a caller who
+				// merely cannot see, and this is the surface someone checks
+				// before asking for a name.
+				if dto.HeldByUserID != nil {
+					fmt.Fprintf(out, "  held by: %s", describeHolder(cmd.Context(), client, *dto.HeldByUserID))
+					if dto.HeldAt != nil {
+						fmt.Fprintf(out, " (since %s)", *dto.HeldAt)
+					}
+					fmt.Fprintln(out)
 				}
 				if dto.Retired {
 					fmt.Fprintf(out, "  retired: %s\n", *dto.RetiredAt)
@@ -488,25 +505,39 @@ type releaseResultDTO struct {
 	// Forced is true when the caller was NOT the prior holder — an admin
 	// force-release, which the server announces in the team chat. Surfaced so
 	// a scripted caller can tell a routine hand-back from a visible override.
-	Forced bool   `json:"forced"`
+	//
+	// NULLABLE, and only ever null when the caller's own identity could not be
+	// read against a held name (PR #504 review). `false` would claim a private
+	// act and `true` an announcement, and both are assertions the CLI cannot
+	// make there — the same reason workerDTO has no `held` boolean.
+	Forced *bool  `json:"forced"`
 	Status string `json:"status"`
 }
 
-// currentUserID reads the caller's own user id, or "" when there is none.
+// currentUserID reads the caller's own user id. THREE states, not two
+// (PR #504 review): the id; "" with known=true for a caller that definitively
+// has no user; and known=false when the lookup itself FAILED.
+//
+// Collapsing the last two is the "unknown is not none" mistake
+// (review:a-claim-must-not-outrun-its-evidence). A failed AuthContext read is
+// not evidence that the caller is somebody else — treating it as such
+// reclassifies a legitimate self-release as a force-release, refuses it
+// non-interactively, and then claims a team-chat announcement the server never
+// made.
 //
 // authContext rather than `me` on purpose: it is credential-agnostic, so an
-// App-key caller resolves to a null user instead of an error. That is the
-// right answer rather than a failure — per cor:agt:020:09 an App key holds
-// nothing, so such a caller is never the holder.
-//
-// Best-effort: a failure here must not block the release. It only decides how
-// the act is DESCRIBED, and the server gates who may perform it.
-func currentUserID(ctx context.Context, client graphql.Client) string {
+// App-key caller resolves to a null user rather than an error. That IS an
+// answer — per cor:agt:020:09 an App key holds nothing, so such a caller is
+// never the holder.
+func currentUserID(ctx context.Context, client graphql.Client) (id string, known bool) {
 	resp, err := gen.AuthContext(ctx, client)
-	if err != nil || resp.AuthContext == nil || resp.AuthContext.User == nil {
-		return ""
+	if err != nil || resp.AuthContext == nil {
+		return "", false
 	}
-	return resp.AuthContext.User.Id
+	if resp.AuthContext.User == nil {
+		return "", true // an App key holds nothing: definitively not the holder
+	}
+	return resp.AuthContext.User.Id, true
 }
 
 // describeHolder renders a prior holder for a human prompt: their name when it
@@ -583,7 +614,19 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 			// post-release, where it is null by construction, so this is the
 			// only moment the prior state is knowable.
 			priorHolder := w.HeldByUserId
-			forced := priorHolder != nil && *priorHolder != currentUserID(ctx, client)
+			me, meKnown := currentUserID(ctx, client)
+			// A THREE-state answer: yes, no, or "cannot tell". Nil only when
+			// the identity lookup failed against a HELD name — the one case
+			// where we genuinely do not know whether this is a public act. It
+			// is treated as force for the PROMPT (conservative) and as unknown
+			// in the RECEIPT (honest); those are different jobs.
+			var forced *bool
+			switch {
+			case priorHolder == nil:
+				forced = boolPtr(false)
+			case meKnown:
+				forced = boolPtr(*priorHolder != me)
+			}
 
 			// Only the force branch prompts. A self-release loses nothing and
 			// notifies nobody, and a prompt on the ordinary end-of-work step
@@ -593,18 +636,52 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 			// Confirm, not ConfirmDeletion: nothing is destroyed, and "This
 			// cannot be undone" would be false — the next holder can release
 			// it back.
-			if forced && !yes {
+			if (forced == nil || *forced) && !yes {
 				// Built only when a prompt can be shown: describeHolder costs
 				// a read, and the prompt is an ARGUMENT to Confirm, so
 				// composing it unconditionally would make --yes pay for a
 				// string Confirm discards.
-				prompt := fmt.Sprintf(
-					"%s is held by %s. Force-releasing it POSTS TO THE TEAM CHAT naming you and them, "+
-						"and hands their worker's working memory and handoff history to whoever takes the name next. Continue?",
-					w.Name, describeHolder(ctx, client, *priorHolder))
+				who := describeHolder(ctx, client, *priorHolder)
+				lead := fmt.Sprintf("%s is held by %s.", w.Name, who)
+				if forced == nil {
+					// Say WHY we are asking. A prompt that cannot explain
+					// itself reads as boilerplate and gets --yes'd.
+					lead = fmt.Sprintf("%s is held by %s, and this CLI could not read your own "+
+						"identity to tell whether that is you.", w.Name, who)
+				}
+				prompt := lead + " If it is not, releasing it POSTS TO THE TEAM CHAT naming you and them, " +
+					"and hands that worker's working memory and handoff history to whoever takes the name next. Continue?"
 				if err := cmdutil.Confirm(f.IOStreams, false, prompt); err != nil {
 					return err
 				}
+			}
+
+			// RE-READ the hold immediately before mutating (PR #504 review, P1).
+			//
+			// releaseWorker takes no precondition and does not return the prior
+			// holder, so the hold can change between the pre-read and the call.
+			// An admin could approve a prompt naming one person and release
+			// another — and worse, a pre-read showing "unheld" or "me" skips the
+			// prompt, so a hold taken in between would be force-released
+			// SILENTLY while the receipt reported a self-release. The act
+			// performed would differ from the act described.
+			//
+			// This does NOT close the race. It narrows it from human thinking
+			// time at a prompt to one round trip, and turns the silent-force
+			// case into a refusal. Closing it needs an expectedHolder
+			// precondition or the prior holder in the payload — hadron-server#1073.
+			fresh, ferr := gen.GetWorker(ctx, client, w.Id)
+			if ferr != nil {
+				return api.MapError(ferr)
+			}
+			if fresh.Worker == nil {
+				return exitcode.Newf(exitcode.NotFound, "no worker %q", w.Id)
+			}
+			if !sameHolder(priorHolder, fresh.Worker.HeldByUserId) {
+				return exitcode.Newf(exitcode.Conflict,
+					"the hold on %s changed while this ran — it is %s now, so releasing it would not be the act just "+
+						"described; re-run to see the current state",
+					w.Name, holderPhrase(ctx, client, fresh.Worker.HeldByUserId))
 			}
 
 			resp, err := gen.ReleaseWorker(ctx, client, w.Id)
@@ -640,13 +717,27 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 					_, err := fmt.Fprintf(out, "· %s was not held — nothing to release\n", dto.Name)
 					return err
 				}
-				if result.Forced {
+				switch {
+				case result.Forced == nil:
+					// Never claim an announcement we cannot verify, and never
+					// hide one that may have happened. Saying "announced" would
+					// assert a public act that may not have occurred; saying
+					// nothing would conceal one that did.
+					if _, err := fmt.Fprintf(out,
+						"✓ released %s (previously held by %s) — your own identity could not be read, so if that "+
+							"was not you, the server has announced this in the team chat\n",
+						dto.Name, describeHolder(ctx, client, *priorHolder)); err != nil {
+						return err
+					}
+				case *result.Forced:
 					if _, err := fmt.Fprintf(out, "✓ force-released %s from %s — announced in the team chat\n",
 						dto.Name, describeHolder(ctx, client, *priorHolder)); err != nil {
 						return err
 					}
-				} else if _, err := fmt.Fprintf(out, "✓ released %s — anyone may bind it now\n", dto.Name); err != nil {
-					return err
+				default:
+					if _, err := fmt.Fprintf(out, "✓ released %s — anyone may bind it now\n", dto.Name); err != nil {
+						return err
+					}
 				}
 				_, err := fmt.Fprintf(out,
 					"  its working memory and handoff history go with the name, not with you\n")
@@ -656,4 +747,27 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation on an admin force-release (a self-release never prompts)")
 	return cmd
+}
+
+func boolPtr(b bool) *bool { return &b }
+
+// sameHolder compares two optional holder ids — nil-safe, since "unheld" is a
+// legitimate value on both sides.
+func sameHolder(a, b *string) bool {
+	switch {
+	case a == nil && b == nil:
+		return true
+	case a == nil || b == nil:
+		return false
+	default:
+		return *a == *b
+	}
+}
+
+// holderPhrase renders an optional holder for the changed-hold refusal.
+func holderPhrase(ctx context.Context, client graphql.Client, userID *string) string {
+	if userID == nil {
+		return "unheld"
+	}
+	return "held by " + describeHolder(ctx, client, *userID)
 }

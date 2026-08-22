@@ -61,6 +61,33 @@ invisible from the verb:
    giving something up, not like handing someone your notes. It applies to a
    self-release too, so the receipt says it there as well.
 
+## The race the CLI cannot close (hadron-server#1073)
+
+`releaseWorker` takes no precondition and returns the worker **post**-release,
+so `heldByUserId` is null by construction. The act therefore has to be
+classified from a **pre-read**, and the hold can change in between:
+
+- an admin approves a prompt naming Dara and releases whoever holds it now;
+- worse, a pre-read showing *unheld* or *me* skips the prompt **entirely**, so a
+  hold taken in the interval is force-released **silently** — the team chat
+  records a public act the caller was never asked about, and the receipt calls
+  it routine.
+
+The act performed differs from the act described, which is the failure this
+whole command exists to avoid.
+
+**Mitigation, not a fix.** The hold is re-read immediately before the mutation
+and a change refuses (exit 5). That narrows the window from human thinking time
+at a prompt to one round trip, and turns the silent force-release into a
+visible refusal. It cannot close the race — nothing outside the server can make
+the check and the write atomic.
+
+Filed as hadron-server#1073, asking for either an `expectedHolderUserId`
+precondition (the `expectedNames` shape, and what
+`review:no-rmw-sugar-over-wholesale-writes` prescribes) or the prior holder in
+the payload. The first prevents; the second at least stops the client asserting
+a falsehood.
+
 ## Decisions worth the words
 
 ### "Was not held" is reported, not swallowed
@@ -85,6 +112,23 @@ successful mutation is genuinely unheld.
 That reasoning lives in a comment at the site rather than as a hedge in the
 message. A hedge on the common path is how a nudge trains people to ignore it.
 
+### "Cannot tell" is a third answer, not a `false`
+
+`currentUserID` returns three states: the id, "" for a caller that
+**definitively** has no user (an App key — which per the spec holds nothing),
+and *unknown* when the AuthContext read itself failed.
+
+Collapsing the last two was the first version, and it is the "unknown is not
+none" mistake again: a failed identity read is not evidence that the caller is
+somebody else. It reclassified a legitimate self-release as a force-release —
+refusing it non-interactively, and then reporting `forced: true` plus a
+team-chat announcement the server never made.
+
+So `forced` is `*bool`. Null propagates to `--json`, and the human receipt says
+in words that the act could not be classified. The prompt still fires (we
+cannot rule out a public act) but explains *why* it is asking, because a prompt
+that cannot justify itself is one people learn to `--yes` past.
+
 ### No `--yes` on a self-release
 
 `--yes` gates the force branch only. A self-release loses nothing and notifies
@@ -98,7 +142,9 @@ They are added to `WorkerFields` and to `workerDTO` — **additive** `--json`
 keys, not a break — because `release` needs the pre-read and the data is what
 #487 wants.
 
-`worker get` renders the holder; **`worker list` is deliberately untouched.**
+`worker get` renders the holder — only when it is KNOWN, since a `held by: —`
+line would answer "nobody" to a caller who merely cannot see. **`worker list` is
+deliberately untouched.**
 The table has column pressure, and "which worker surface shows who is driving"
 is #487's design question. Adding a column here would pre-empt it with a choice
 made in passing.
