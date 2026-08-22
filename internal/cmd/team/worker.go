@@ -590,10 +590,16 @@ its history; the name is not freed for a different casting (it stays
 permanently allotted to this one, cor:agt:020:02). All that changes is who
 may bind it next. To stop a worker instead, use ` + "`worker retire`" + `.
 
+A RETIRED worker can be released — the call succeeds — but nobody can bind
+it afterwards either way (` + "`session start`" + ` refuses WORKER_RETIRED whether or
+not the name is held). Releasing one clears the hold and nothing else; the
+receipt and the confirmation say so for the worker in front of you.
+
 WHAT GOES WITH IT: the worker's working memory and handoff history follow
 the NAME, not the holder — so releasing hands your notes to whoever takes
 it next. That is the intended transfer, and the reason nothing private
-belongs in a worker memory.
+belongs in a worker memory. (For a retired worker there is no next holder,
+so they simply stay with the name.)
 
 TWO ACTS, and the server decides which you may perform. Releasing YOUR OWN
 name owes nobody notice. Releasing SOMEONE ELSE'S is an admin

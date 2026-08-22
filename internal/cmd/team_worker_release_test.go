@@ -589,3 +589,31 @@ func TestWorkerReleasePromptDoesNotPromiseANextHolderForARetiredWorker(t *testin
 		t.Errorf("nobody can bind a retired worker: %s", out.String())
 	}
 }
+
+// The command HELP is where a reader forms their model of the verb, and
+// "releasing frees the name for the next person" is the model they carry away.
+// It is incomplete rather than wrong for a retired worker — the release
+// succeeds; it is the later bind that refuses — so the help completes the
+// model rather than hedging the verb (PR #504 review).
+func TestWorkerReleaseHelpCoversTheRetiredCase(t *testing.T) {
+	buf := &strings.Builder{}
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetOut(buf)
+	root.SetArgs([]string{"team", "worker", "release", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	help := buf.String()
+	for _, want := range []string{"RETIRED worker can be released", "WORKER_RETIRED", "no next holder"} {
+		if !strings.Contains(help, want) {
+			t.Errorf("release help must complete the model for a retired worker (%q):\n%s", want, help)
+		}
+	}
+	// And it must NOT imply the release itself fails — it does not.
+	for _, wrong := range []string{"cannot be released", "release will fail", "refuses to release"} {
+		if strings.Contains(help, wrong) {
+			t.Errorf("releasing a retired worker succeeds; help must not say otherwise (%q)", wrong)
+		}
+	}
+}
