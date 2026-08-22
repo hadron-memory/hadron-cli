@@ -331,10 +331,6 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			client, err := f.GraphQLClient()
-			if err != nil {
-				return err
-			}
 			dto := workerDTOFromFields(w)
 			return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
 				// The App gets its own line, named rather than spelled as the
@@ -356,6 +352,14 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 				// merely cannot see, and this is the surface someone checks
 				// before asking for a name.
 				if dto.HeldByUserID != nil {
+					// The client is acquired HERE, not in RunE: this callback
+					// does not run under --json, so an agent path paid for a
+					// client it never used and gained a failure point for a
+					// decoration it never renders (PR #504 review, suppressed).
+					client, cerr := f.GraphQLClient()
+					if cerr != nil {
+						return cerr
+					}
 					fmt.Fprintf(out, "  held by: %s", describeHolder(cmd.Context(), client, *dto.HeldByUserID))
 					if dto.HeldAt != nil {
 						fmt.Fprintf(out, " (since %s)", *dto.HeldAt)

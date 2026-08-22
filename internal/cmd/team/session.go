@@ -436,10 +436,28 @@ it just relabels which worker the shared tree is blamed on.`,
 				// somebody else's hold is a force-release with a chat post.
 				// Naming the condition costs one clause and cannot misdirect
 				// (PR #504 review, twice).
-				return fmt.Errorf("%w (session %s was rolled back; if you bound as a person, %s is now HELD "+
-					"by you — ending a session never clears a hold, so release it with "+
-					"`hadron team worker release %s`. An App-key bind claims no hold and needs nothing.)",
-					err, s.Id, w.Name, w.Name)
+				// DISCLOSE, do not prescribe — the third revision of this
+				// sentence, and each earlier one was confidently wrong:
+				//
+				//   1. "worker %s is not held"      — ending a session never
+				//      clears a hold, so this stranded one silently.
+				//   2. "%s is now HELD by you, run worker release" — an App key
+				//      claims no hold, so that sent it to release somebody
+				//      else's name (a force-release, with a chat post).
+				//   3. still prescribing release — but a person who ALREADY
+				//      held this name and bound a second session acquired
+				//      nothing new here, and releasing would discard the hold
+				//      they had all along, handing the worker's memory and
+				//      history to whoever takes the name next.
+				//
+				// This path cannot tell which of the three it is in without
+				// reads it has no business making while reporting a failure. So
+				// it states what is certain — the SESSION is gone, a hold is
+				// not — and leaves the remedy to a caller who knows.
+				return fmt.Errorf("%w (session %s was rolled back. Ending a session never clears a name HOLD, "+
+					"so if this bind claimed one it is still yours — `hadron team worker get %s` shows the "+
+					"current holder, and `worker release` gives the name up if that is what you want.)",
+					err, s.Id, w.Name)
 			}
 			result := struct {
 				Session     sessionDTO `json:"session"`

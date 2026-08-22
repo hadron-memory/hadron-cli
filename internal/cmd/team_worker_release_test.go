@@ -696,19 +696,20 @@ func TestSessionStartRollbackSaysTheHoldRemains(t *testing.T) {
 	if strings.Contains(err.Error(), "is not held") {
 		t.Errorf("ending a session does not clear a hold — do not claim it did: %v", err)
 	}
-	for _, want := range []string{"HELD by you", "worker release"} {
-		if !strings.Contains(err.Error(), want) {
-			t.Errorf("the error must name the stranded hold and its remedy (%q): %v", want, err)
-		}
+	// It must DISCLOSE that a hold may remain — the failure mode of the
+	// original wording was a hold stranded in silence.
+	if !strings.Contains(err.Error(), "never clears a name HOLD") {
+		t.Errorf("the error must disclose that the hold outlives the session: %v", err)
 	}
-	// CONDITIONALLY, though: only a person's bind claims a name. Telling an
-	// App-key caller its name is "HELD by you" would send it to release one it
-	// never took — a force-release, with a chat post, on somebody else's hold.
-	if !strings.Contains(err.Error(), "if you bound as a person") {
-		t.Errorf("the hold claim must be conditional on the credential: %v", err)
+	// …without PRESCRIBING release. Three callers reach this line and only one
+	// of them should release: a person whose bind claimed the name. An App key
+	// claimed nothing, and a person who ALREADY held the name acquired nothing
+	// new — for them, releasing discards a hold they had all along.
+	if strings.Contains(err.Error(), "release it with") || strings.Contains(err.Error(), "so release it") {
+		t.Errorf("must not instruct a release it cannot know is right: %v", err)
 	}
-	if !strings.Contains(err.Error(), "App-key bind claims no hold") {
-		t.Errorf("say which credential needs nothing: %v", err)
+	if !strings.Contains(err.Error(), "worker get") {
+		t.Errorf("point at the read that answers it instead: %v", err)
 	}
 }
 
