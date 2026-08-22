@@ -27218,9 +27218,11 @@ fragment WorkerFields on Worker {
 // be a second, drifting copy of an access rule. It reads the hold only to say
 // WHICH act the caller is about to perform.
 //
-// Idempotent: releasing an unheld worker returns it unchanged, which is why the
-// receipt distinguishes "released" from "was not held" instead of printing a
-// success for a no-op.
+// Idempotent: releasing an unheld worker returns it unchanged. The CLI reports
+// that as "no hold was visible to you" rather than "not held" — heldByUserId is
+// masked to null on DENY, so a nil hold cannot be distinguished from one the
+// caller may not see, and claiming the name is free is what sends a reader into
+// WORKER_HELD at the next session start.
 func ReleaseWorker(
 	ctx_ context.Context,
 	client_ graphql.Client,
