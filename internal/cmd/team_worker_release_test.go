@@ -412,3 +412,93 @@ func TestWorkerGetRendersTheHolder(t *testing.T) {
 		t.Errorf("--json must carry the hold: %s", out3.String())
 	}
 }
+
+// maskedWorker is what a caller who may NOT read working state sees: the hold
+// is null, and so are the fields masked alongside it (prompt, promptOverride,
+// memoryId). Indistinguishable from "unheld" on heldByUserId alone.
+const maskedWorkerJSON = `{"id":"wkr1","urn":"hrn:worker:acme.com:eng-team:iris","slug":"iris",
+	"appId":"app1","agentId":"agt1","name":"Iris","role":"backend-engineer",
+	"prompt":null,"promptOverride":null,"memoryId":null,"heldByUserId":null,"heldAt":null,
+	"retiredAt":null,"retiredBy":null,"createdAt":"2026-08-14T00:00:00Z","createdBy":"u-holger"}`
+
+// A nil hold means "unheld OR masked on deny" — heldByUserId is gated exactly
+// like prompt/promptOverride/memoryId. My first version asserted the ambiguity
+// collapsed, reasoning that a successful release implies the caller could read
+// the field. It does not: the mask exists so a FORMER App member cannot read
+// staffing, and a former member can still BE the holder — passing the release
+// gate while failing the read gate (PR #504 review, @copilot).
+//
+// So the co-masked fields are the probe. Visible ⇒ the gate is open ⇒ a nil
+// hold is real. All null ⇒ we cannot tell, and must not claim.
+func TestWorkerReleaseDoesNotClaimUnheldWhenItCannotSee(t *testing.T) {
+	masked := func(extra map[string]string) map[string]string {
+		m := releaseStubs(maskedWorkerJSON, extra)
+		m["GetWorker"] = `{"data":{"worker":` + maskedWorkerJSON + `}}`
+		return m
+	}
+
+	// It PROMPTS: an unheld-looking release could still take somebody's name
+	// and post to the team chat.
+	gql, captured := captureGraphQL(t, masked(nil))
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "release", "Iris",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("an invisible hold must be asked about, not assumed absent")
+	}
+	if _, called := captured["ReleaseWorker"]; called {
+		t.Error("refused prompt must not reach the mutation")
+	}
+
+	// And with --yes it never claims the name was free.
+	gql2, _ := captureGraphQL(t, masked(nil))
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
+		"--app", "acme.com:eng-team", "--server", gql2.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Contains(out2.String(), "was not held") {
+		t.Errorf("must not assert the name was free — a reader binds on that: %s", out2.String())
+	}
+	if !strings.Contains(out2.String(), "not visible to you") {
+		t.Errorf("must say the hold was not visible: %s", out2.String())
+	}
+
+	// --json says it too, rather than encoding the guess.
+	gql3, _ := captureGraphQL(t, masked(nil))
+	f3, out3 := testFactory(t)
+	root3 := NewRootCmd(f3)
+	root3.SetArgs([]string{"team", "worker", "release", "Iris", "--yes", "--json",
+		"--app", "acme.com:eng-team", "--server", gql3.URL})
+	if err := root3.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(out3.String()), &raw); err != nil {
+		t.Fatalf("--json must parse: %v", err)
+	}
+	if raw["status"] != "unknown-hold" {
+		t.Errorf(`status must be "unknown-hold", got %v: %s`, raw["status"], out3.String())
+	}
+	if v, present := raw["wasHeld"]; !present || v != nil {
+		t.Errorf("wasHeld must be null when the hold is not visible, got %v", v)
+	}
+
+	// The control: the SAME nil hold, but with co-masked fields visible, is a
+	// genuine no-op — no prompt, and it does say "was not held". Without this
+	// the guard could be "always prompt", which would ruin the common case.
+	gql4, _ := captureGraphQL(t, releaseStubs(irisWorkerJSON, nil))
+	f4, out4 := testFactory(t)
+	root4 := NewRootCmd(f4)
+	root4.SetArgs([]string{"team", "worker", "release", "Iris",
+		"--app", "acme.com:eng-team", "--server", gql4.URL})
+	if err := root4.Execute(); err != nil {
+		t.Fatalf("a visible-and-unheld release must not prompt: %v", err)
+	}
+	if !strings.Contains(out4.String(), "was not held") {
+		t.Errorf("a genuinely unheld name still says so plainly: %s", out4.String())
+	}
+}

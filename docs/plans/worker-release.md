@@ -97,20 +97,35 @@ The mutation is idempotent, so releasing an unheld worker succeeds. Printing
 held`** instead — the same rule the retired `role names add` sugar followed
 when its edit turned out to be a no-op.
 
-### The nil-holder ambiguity collapses, and the argument is in a comment
+### The nil-holder ambiguity does NOT collapse — I argued that it did, and was wrong
 
 `heldByUserId` is **masked to null on deny**, so a nil pre-read means either
-"unheld" or "you may not see the holder". Reporting "was not held" from an
-ambiguous read is exactly the failure
-`review:a-claim-must-not-outrun-its-evidence` describes.
+"unheld" or "you may not see the holder".
 
-It is sound here, and only because of the ORDER: the message is printed after a
-**successful** release, and a success means the caller was either the holder or
-an admin — both of whom can read the field. A nil pre-read that survives a
-successful mutation is genuinely unheld.
+The first version of this document argued the ambiguity collapsed: the receipt
+prints after a *successful* release, and a success means the caller was the
+holder or an admin, both of whom can read the field. It was a tidy argument and
+it is false. The schema says the mask exists so **a former App member cannot
+read current staffing** — and a former member can still BE the holder. They
+pass the release gate and fail the read gate, and get told their own name "was
+not held". Caught in review (@copilot, PR #504); I had built the confident half
+of the design on an assumption I never checked against the schema comment two
+lines below the field.
 
-That reasoning lives in a comment at the site rather than as a hedge in the
-message. A hedge on the common path is how a nudge trains people to ignore it.
+The fix is a **visibility probe**, not an assumption. `heldByUserId` is masked
+*together with* `prompt`/`promptOverride`/`memoryId`, so any of those being
+readable proves the gate is open and a nil hold is genuinely nil:
+
+| pre-read | meaning | behaviour |
+|---|---|---|
+| holder set | held | classify; prompt if not me |
+| nil, co-masked fields visible | genuinely unheld | no prompt, `not-held` |
+| nil, all co-masked fields null | **cannot tell** | prompt; `status: "unknown-hold"`, `wasHeld: null` |
+
+`wasHeld` is nullable for the same reason `forced` is. A `false` there would
+read as *"this name is free to bind"* — and a caller acting on that meets
+`WORKER_HELD` at the next `session start`. The third row is rare; the point is
+that it no longer produces a confident falsehood.
 
 ### "Cannot tell" is a third answer, not a `false`
 

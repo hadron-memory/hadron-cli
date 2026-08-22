@@ -823,7 +823,12 @@ Conventions:
   **posts to the team chat** naming both parties and prompts unless `--yes`.
   The CLI reads the hold only to say which act it is, never to decide who may
   perform it. Idempotent — releasing an unheld name reports `not-held` rather
-  than a success, and `--json` carries `wasHeld`/`releasedFromUserId`/`forced`
+  than a success. But `heldByUserId` is masked to null on deny, so a nil hold
+  can also mean "held, not visible to you": when the fields masked ALONGSIDE it
+  (`prompt`/`promptOverride`/`memoryId`) are also null the CLI cannot tell, and
+  it prompts and reports `status: "unknown-hold"` with `wasHeld: null` rather
+  than claiming the name is free — a caller acting on a false `wasHeld: false`
+  meets `WORKER_HELD` at the next `session start`. and `--json` carries `wasHeld`/`releasedFromUserId`/`forced`
   describing the state BEFORE the call, since the returned worker is
   post-release by construction. **`forced` is nullable**: null means the
   caller's own identity could not be read against a held name, so the act could

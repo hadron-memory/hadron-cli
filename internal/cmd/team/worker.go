@@ -497,7 +497,13 @@ type releaseResultDTO struct {
 	// WasHeld is false for the idempotent no-op — releasing a name nobody
 	// held. Distinguishing it is the point: `✓ released` on a no-op is a
 	// receipt for something that did not happen.
-	WasHeld bool `json:"wasHeld"`
+	//
+	// NULLABLE for the same reason as Forced: heldByUserId masks to null on
+	// DENY, so a nil hold can also mean "held, but not visible to you". Null
+	// says exactly that. `false` there would read as "this name is free to
+	// bind", and a caller acting on it meets WORKER_HELD at the next
+	// `session start` (PR #504 review).
+	WasHeld *bool `json:"wasHeld"`
 	// ReleasedFromUserID is the prior holder, null on a no-op. The ID, not a
 	// name (review:entity-fields-not-display-labels) — it addresses a person
 	// the caller may need to contact.
@@ -614,19 +620,38 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 			// post-release, where it is null by construction, so this is the
 			// only moment the prior state is knowable.
 			priorHolder := w.HeldByUserId
+			// Can we SEE holds on this worker at all? heldByUserId masks to
+			// null on deny TOGETHER WITH prompt/promptOverride/memoryId, so any
+			// of those being readable proves the gate is open and a nil hold is
+			// genuinely nil.
+			//
+			// This replaces an argument that was WRONG (PR #504 review). I had
+			// reasoned the ambiguity collapsed: a successful release implies the
+			// caller was the holder or an admin, and both can read the field.
+			// The schema says the mask exists so a FORMER App member cannot read
+			// staffing — and a former member can still BE the holder. They pass
+			// the release gate, fail the read gate, and get told their own name
+			// "was not held".
+			holdVisible := w.MemoryId != nil || w.PromptOverride != nil || w.Prompt != nil
 			me, meKnown := currentUserID(ctx, client)
 			// A THREE-state answer: yes, no, or "cannot tell". Nil only when
 			// the identity lookup failed against a HELD name — the one case
 			// where we genuinely do not know whether this is a public act. It
 			// is treated as force for the PROMPT (conservative) and as unknown
 			// in the RECEIPT (honest); those are different jobs.
-			var forced *bool
+			var forced, wasHeld *bool
 			switch {
-			case priorHolder == nil:
-				forced = boolPtr(false)
-			case meKnown:
-				forced = boolPtr(*priorHolder != me)
+			case priorHolder != nil:
+				wasHeld = boolPtr(true)
+				if meKnown {
+					forced = boolPtr(*priorHolder != me)
+				}
+			case holdVisible:
+				wasHeld, forced = boolPtr(false), boolPtr(false)
 			}
+			// Both stay nil otherwise: a hold may exist and be masked. That is
+			// the one case where an unheld-LOOKING release could still be a
+			// force-release with a chat post, so it prompts.
 
 			// Only the force branch prompts. A self-release loses nothing and
 			// notifies nobody, and a prompt on the ordinary end-of-work step
@@ -641,13 +666,19 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 				// a read, and the prompt is an ARGUMENT to Confirm, so
 				// composing it unconditionally would make --yes pay for a
 				// string Confirm discards.
-				who := describeHolder(ctx, client, *priorHolder)
-				lead := fmt.Sprintf("%s is held by %s.", w.Name, who)
-				if forced == nil {
-					// Say WHY we are asking. A prompt that cannot explain
-					// itself reads as boilerplate and gets --yes'd.
-					lead = fmt.Sprintf("%s is held by %s, and this CLI could not read your own "+
-						"identity to tell whether that is you.", w.Name, who)
+				// Three reasons to ask, and the prompt says which — one that
+				// cannot explain itself reads as boilerplate and gets --yes'd
+				// past, including on the run where it mattered.
+				var lead string
+				switch {
+				case priorHolder == nil:
+					lead = fmt.Sprintf("Whether %s is held is not visible to you, so releasing it may take "+
+						"somebody else's name rather than be a no-op.", w.Name)
+				case forced == nil:
+					lead = fmt.Sprintf("%s is held by %s, and this CLI could not read your own identity "+
+						"to tell whether that is you.", w.Name, describeHolder(ctx, client, *priorHolder))
+				default:
+					lead = fmt.Sprintf("%s is held by %s.", w.Name, describeHolder(ctx, client, *priorHolder))
 				}
 				prompt := lead + " If it is not, releasing it POSTS TO THE TEAM CHAT naming you and them, " +
 					"and hands that worker's working memory and handoff history to whoever takes the name next. Continue?"
@@ -694,11 +725,16 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 			dto := workerDTOFromFields(resp.ReleaseWorker.WorkerFields)
 			result := releaseResultDTO{
 				ID: dto.ID, Name: dto.Name, URN: dto.URN,
-				WasHeld: priorHolder != nil, ReleasedFromUserID: priorHolder,
+				WasHeld: wasHeld, ReleasedFromUserID: priorHolder,
 				Forced: forced, Status: "released",
 			}
-			if priorHolder == nil {
+			switch {
+			case priorHolder != nil:
+				// released
+			case holdVisible:
 				result.Status = "not-held"
+			default:
+				result.Status = "unknown-hold"
 			}
 			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
 				// The no-op case is reported, not dressed as a success.
@@ -713,7 +749,15 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 				// unheld. Stated here rather than hedged in the message,
 				// because a hedge on the common path is how a nudge gets
 				// ignored.
-				if !result.WasHeld {
+				if priorHolder == nil {
+					if result.Status == "unknown-hold" {
+						// Do NOT say "was not held". A caller reads that as
+						// "this name is free" and meets WORKER_HELD at the next
+						// `session start`.
+						_, err := fmt.Fprintf(out,
+							"· released %s if it was held — whether it was is not visible to you\n", dto.Name)
+						return err
+					}
 					_, err := fmt.Fprintf(out, "· %s was not held — nothing to release\n", dto.Name)
 					return err
 				}
