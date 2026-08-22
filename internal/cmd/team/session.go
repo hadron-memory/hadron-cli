@@ -424,14 +424,21 @@ it just relabels which worker the shared tree is blamed on.`,
 				if _, endErr := gen.EndTeamSession(ctx, client, s.Id, nil); endErr != nil {
 					return fmt.Errorf("%w; additionally, rolling back session %s failed (%v) — end it with `hadron team session end --session %s`", err, s.Id, endErr, s.Id)
 				}
-				// NOT "is not held". startSession CLAIMS the hold for a person,
-				// and ending a session never clears one (cor:agt:020:09) — so
-				// the rollback frees the SESSION and leaves the name claimed.
-				// Saying otherwise strands a hold the caller does not know they
-				// took, on the exact path where they believe nothing happened
-				// (PR #504 review).
-				return fmt.Errorf("%w (session %s was rolled back, but %s is now HELD by you — "+
-					"ending a session never clears a hold; run `hadron team worker release %s`)",
+				// NOT "is not held": ending a session never clears a hold
+				// (cor:agt:020:09), so the rollback frees the SESSION and
+				// leaves any name this bind claimed.
+				//
+				// CONDITIONAL, though, and that is the second correction here:
+				// only a PERSON's bind claims a name — an App key holds nothing
+				// — and this error path has no cheap way to know which
+				// credential it ran under. Asserting "HELD by you" would send an
+				// App-key caller to release a name it never took, which for
+				// somebody else's hold is a force-release with a chat post.
+				// Naming the condition costs one clause and cannot misdirect
+				// (PR #504 review, twice).
+				return fmt.Errorf("%w (session %s was rolled back; if you bound as a person, %s is now HELD "+
+					"by you — ending a session never clears a hold, so release it with "+
+					"`hadron team worker release %s`. An App-key bind claims no hold and needs nothing.)",
 					err, s.Id, w.Name, w.Name)
 			}
 			result := struct {

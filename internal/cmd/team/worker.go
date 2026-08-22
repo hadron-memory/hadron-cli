@@ -579,8 +579,11 @@ func describeHolder(ctx context.Context, client graphql.Client, userID string) s
 func newCmdWorkerRelease(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "release <name-or-id>",
-		Short: "Release the hold on a worker name, so somebody else can take it",
+		Use: "release <name-or-id>",
+		// Short is rendered ALONE on `worker --help`, without the Long that
+		// qualifies it — so it must not promise a next holder either
+		// (PR #504 review).
+		Short: "Clear the hold on a worker name",
 		Long: `Release the HOLD on a worker name (cor:agt:020:09). A name is held by a
 PERSON, and this is the ONLY thing that frees one — not ` + "`session end`" + `, not
 an idle window, not an expiry, not a reap, not closing your chat session.

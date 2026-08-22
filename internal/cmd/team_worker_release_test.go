@@ -701,4 +701,37 @@ func TestSessionStartRollbackSaysTheHoldRemains(t *testing.T) {
 			t.Errorf("the error must name the stranded hold and its remedy (%q): %v", want, err)
 		}
 	}
+	// CONDITIONALLY, though: only a person's bind claims a name. Telling an
+	// App-key caller its name is "HELD by you" would send it to release one it
+	// never took — a force-release, with a chat post, on somebody else's hold.
+	if !strings.Contains(err.Error(), "if you bound as a person") {
+		t.Errorf("the hold claim must be conditional on the credential: %v", err)
+	}
+	if !strings.Contains(err.Error(), "App-key bind claims no hold") {
+		t.Errorf("say which credential needs nothing: %v", err)
+	}
+}
+
+// `worker --help` renders each subcommand's Short ALONE, without the Long that
+// qualifies it — so the summary must not promise a next holder either
+// (PR #504 review).
+func TestWorkerGroupHelpSummaryDoesNotPromiseANextHolder(t *testing.T) {
+	buf := &strings.Builder{}
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetOut(buf)
+	root.SetArgs([]string{"team", "worker", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	help := buf.String()
+	if !strings.Contains(help, "release") {
+		t.Fatalf("the release verb must be listed: %s", help)
+	}
+	for _, promise := range []string{"somebody else can take it", "so someone else can take"} {
+		if strings.Contains(help, promise) {
+			t.Errorf("the group summary must not promise a next holder (%q) — a retired worker has none:\n%s",
+				promise, help)
+		}
+	}
 }
