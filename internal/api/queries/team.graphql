@@ -33,6 +33,23 @@ fragment WorkerFields on Worker {
   prompt
   promptOverride
   memoryId
+  # The HOLD (hadron-server#1050, cor:agt:020:09): whose name this is, and
+  # since when. A name is held by a PERSON and only an explicit release frees
+  # one — no session end, idle window, expiry or reap does.
+  #
+  # Both are MASKED TO NULL ON DENY, like prompt/promptOverride/memoryId. So a
+  # null means "unheld OR not visible to you" and must never be rendered as a
+  # bare "free". That ambiguity is IRREDUCIBLE client-side — there is no
+  # visibility signal on Worker — so no caller may resolve it; `worker release`
+  # reports "no hold was visible to you" rather than guessing. An earlier
+  # version of this comment claimed the ambiguity collapsed in release. It does
+  # not (hadron-cli PR #504).
+  #
+  # NOT added to WorkerRosterFields: which surface shows who is driving is
+  # hadron-cli#487's design question, and a column added in passing here would
+  # pre-empt it.
+  heldByUserId
+  heldAt
   retiredAt
   retiredBy
   createdAt
@@ -70,6 +87,27 @@ mutation CastWorker(
     name: $name
     promptOverride: $promptOverride
   ) {
+    ...WorkerFields
+  }
+}
+
+# Release the HOLD on a name (hadron-server#1050, cor:agt:020:09) — the ONLY
+# thing that frees one. Two principals, and the SERVER gates both: the HOLDER
+# releasing their own, owing nobody notice; or an App/org ADMIN force-releasing
+# somebody else's, which POSTS TO THE TEAM CHAT, because the incident this
+# model answers is one where notice was owed and there was no way to give it.
+#
+# The CLI does not reimplement that gate — a client-side authority check would
+# be a second, drifting copy of an access rule. It reads the hold only to say
+# WHICH act the caller is about to perform.
+#
+# Idempotent: releasing an unheld worker returns it unchanged. The CLI reports
+# that as "no hold was visible to you" rather than "not held" — heldByUserId is
+# masked to null on DENY, so a nil hold cannot be distinguished from one the
+# caller may not see, and claiming the name is free is what sends a reader into
+# WORKER_HELD at the next session start.
+mutation ReleaseWorker($workerRef: ID!) {
+  releaseWorker(workerRef: $workerRef) {
     ...WorkerFields
   }
 }

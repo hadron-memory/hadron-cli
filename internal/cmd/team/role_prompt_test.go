@@ -89,3 +89,64 @@ func TestLazyOnceCachesAnEmptyResult(t *testing.T) {
 		t.Errorf("an empty result must still count as read: %d reads", reads)
 	}
 }
+
+// releasePromptTransferClause is the half of `worker release`'s force prompt
+// that says where the worker's notes go. Unit-tested here for the same reason
+// describeRetirement is: cmdutil.Confirm's prompt branch is unreachable without
+// a TTY, so a command-level test can never read the string it builds.
+//
+// The clause is INSTANCE-specific. Nobody takes a retired name (startSession
+// refuses WORKER_RETIRED), so promising a next holder there is the same false
+// promise the receipt avoids — caught in review after I had fixed the receipts
+// and not the prompt, which is the narrow fix the preceding commit was about
+// not making (hadron-cli#495 / PR #504).
+func TestReleasePromptTransferClauseMatchesRetirement(t *testing.T) {
+	at := "2026-08-15T00:00:00Z"
+	live, retired := releasePromptTransferClause(nil), releasePromptTransferClause(&at)
+
+	if !strings.Contains(live, "whoever takes the name next") {
+		t.Errorf("a live worker's name does pass on: %q", live)
+	}
+	if strings.Contains(retired, "whoever takes the name next") {
+		t.Errorf("nobody takes a retired name: %q", retired)
+	}
+	// Say where the history goes INSTEAD, rather than just deleting the clause
+	// — the transfer is the least guessable consequence of the verb, and a
+	// retired worker's notes still travel with the name if it is ever revived.
+	if !strings.Contains(retired, "stay with the name") {
+		t.Errorf("say where the history goes instead: %q", retired)
+	}
+	if !strings.Contains(retired, "retired") {
+		t.Errorf("say why: %q", retired)
+	}
+}
+
+// The force confirmation, exercised directly — Confirm's prompt branch is
+// unreachable without a TTY, and both halves of this string have now been
+// wrong in review (a next holder promised for a retired worker; a hedge on the
+// branch we are certain about).
+func TestReleasePromptStatesAKnownForceFlatly(t *testing.T) {
+	known := releasePrompt("Iris", "Dara (@dara)", nil, true)
+	unknown := releasePrompt("Iris", "Dara (@dara)", nil, false)
+
+	// The one branch where the public act is a FACT must not sound conditional.
+	if strings.Contains(known, "If it is not") {
+		t.Errorf("a known force-release is certain — do not hedge it: %q", known)
+	}
+	if !strings.Contains(known, "not you") {
+		t.Errorf("say plainly whose name it is: %q", known)
+	}
+	// The unknown branch keeps the conditional, because it IS conditional.
+	if !strings.Contains(unknown, "If it is not") {
+		t.Errorf("an unclassified release must stay conditional: %q", unknown)
+	}
+	if !strings.Contains(unknown, "could not read your own identity") {
+		t.Errorf("say why it is asking: %q", unknown)
+	}
+	// Both warn that it is public — that is the point of asking at all.
+	for _, p := range []string{known, unknown} {
+		if !strings.Contains(p, "POSTS TO THE TEAM CHAT") {
+			t.Errorf("every force prompt warns the act is public: %q", p)
+		}
+	}
+}

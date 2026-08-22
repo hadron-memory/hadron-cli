@@ -41,10 +41,16 @@ TWO THINGS ARE CALLED A SESSION, AND ENDING ONE DOES NOT END THE OTHER
   chat session     the conversation you are in — the Claude Desktop window,
                    the Claude Code session, the IDE chat
 
-Closing your CHAT SESSION does not release the worker. The worker session
-outlives it and keeps the worker taken until you run ` + "`session end`" + ` or the
-server reaps it, so the next driver meets a takeover prompt rather than a
-free worker. End the worker session deliberately when you stop.`,
+Closing your CHAT SESSION does not end the worker session. It outlives the
+chat and keeps the worker TAKEN until you run ` + "`session end`" + ` or the server
+reaps it, so the next driver meets a takeover prompt rather than a free
+worker. End the worker session deliberately when you stop.
+
+TAKEN is not HELD. Ending the session frees the SESSION; a PERSON binding a
+worker also claims its name, and that hold stays yours until you run
+` + "`worker release`" + ` — no session end, idle window, expiry or reap ever
+clears one (cor:agt:020:09). An APP-KEY session claims no hold (an App key
+holds nothing), so it has nothing to release.`,
 	}
 	cmd.AddCommand(newCmdSessionStart(f))
 	cmd.AddCommand(newCmdSessionWhoami(f))
@@ -418,14 +424,47 @@ it just relabels which worker the shared tree is blamed on.`,
 				if _, endErr := gen.EndTeamSession(ctx, client, s.Id, nil); endErr != nil {
 					return fmt.Errorf("%w; additionally, rolling back session %s failed (%v) — end it with `hadron team session end --session %s`", err, s.Id, endErr, s.Id)
 				}
-				return fmt.Errorf("%w (session %s was rolled back — worker %s is not held)", err, s.Id, w.Name)
+				// NOT "is not held": ending a session never clears a hold
+				// (cor:agt:020:09), so the rollback frees the SESSION and
+				// leaves any name this bind claimed.
+				//
+				// CONDITIONAL, though, and that is the second correction here:
+				// only a PERSON's bind claims a name — an App key holds nothing
+				// — and this error path has no cheap way to know which
+				// credential it ran under. Asserting "HELD by you" would send an
+				// App-key caller to release a name it never took, which for
+				// somebody else's hold is a force-release with a chat post.
+				// Naming the condition costs one clause and cannot misdirect
+				// (PR #504 review, twice).
+				// DISCLOSE, do not prescribe — the third revision of this
+				// sentence, and each earlier one was confidently wrong:
+				//
+				//   1. "worker %s is not held"      — ending a session never
+				//      clears a hold, so this stranded one silently.
+				//   2. "%s is now HELD by you, run worker release" — an App key
+				//      claims no hold, so that sent it to release somebody
+				//      else's name (a force-release, with a chat post).
+				//   3. still prescribing release — but a person who ALREADY
+				//      held this name and bound a second session acquired
+				//      nothing new here, and releasing would discard the hold
+				//      they had all along, handing the worker's memory and
+				//      history to whoever takes the name next.
+				//
+				// This path cannot tell which of the three it is in without
+				// reads it has no business making while reporting a failure. So
+				// it states what is certain — the SESSION is gone, a hold is
+				// not — and leaves the remedy to a caller who knows.
+				return fmt.Errorf("%w (session %s was rolled back. Ending a session never clears a name HOLD, "+
+					"so if this bind claimed one it is still yours — `hadron team worker get %s` shows the "+
+					"current holder, and `worker release` gives the name up if that is what you want.)",
+					err, s.Id, w.Name)
 			}
 			result := struct {
 				Session     sessionDTO `json:"session"`
 				Worker      workerDTO  `json:"worker"`
 				BindingPath string     `json:"bindingPath"`
 				TookOver    bool       `json:"tookOver"`
-			}{sessionDTOFromFields(s, &w.Name), workerDTOFromFields(w), path, active != nil}
+			}{sessionDTOFromFields(s, &w.Name), sessionStartWorkerDTO(w), path, active != nil}
 			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
 				if _, err := fmt.Fprintf(out, "✓ started session %s as %s%s\n  binding: %s\n", s.Id, w.Name, roleSuffix(w.Role), path); err != nil {
 					return err
@@ -464,7 +503,9 @@ the server whether the worker session is still open.
 
 If you are here because a chat session ended and you are not sure what you
 are still driving: the worker session survived it. This tells you which
-worker, and ` + "`session end`" + ` is what releases it.`,
+worker, and ` + "`session end`" + ` is what ends it. Ending the session does NOT
+release the NAME: a person who binds a worker holds its name until
+` + "`worker release`" + ` (cor:agt:020:09).`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			b, path, err := readBinding(cmd.Context())
@@ -920,11 +961,16 @@ func newCmdSessionEnd(f *cmdutil.Factory) *cobra.Command {
 	var summary, sessionID string
 	cmd := &cobra.Command{
 		Use:   "end [--summary <text>] [--session <id>]",
-		Short: "End this worktree's worker session — this is what releases the worker",
+		Short: "End this worktree's worker session — the session, not the name",
 		Long: `End the WORKER SESSION this worktree is bound to and clear the binding.
-This is the only thing that frees the worker — unless another active worker
-session still holds it (e.g. after a --force takeover; check
+This is the only thing that ends the session — unless another active worker
+session still has the worker (e.g. after a --force takeover; check
 ` + "`session list --active`" + `).
+
+IT DOES NOT RELEASE THE NAME. A person who binds a worker claims its name,
+and no session end, idle window, expiry or reap ever clears that hold
+(cor:agt:020:09) — only ` + "`worker release`" + ` does. So ending here frees the
+worker to be BOUND by you again; it does not hand the name to anyone else.
 
 Closing your CHAT SESSION does not do this. Archive the Desktop window or
 quit the Claude Code session and the worker session stays open, holding the
@@ -1261,4 +1307,24 @@ func strOrEmpty(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// sessionStartWorkerDTO is the worker as `session start` reports it: everything
+// workerDTO carries EXCEPT the hold.
+//
+// startSession CLAIMS the hold for a person (cor:agt:020:09 — "casting does not
+// hold; binding claims"), but this response is built from the PRE-mutation read,
+// so heldByUserId/heldAt there describe the moment before the bind. Reporting
+// them would tell a caller `heldByUserId: null` immediately after the bind that
+// set it (PR #504 review).
+//
+// Omitted rather than re-read: `session start` reports the session it just
+// created, not current staffing, and a round trip on the hot path to decorate a
+// field nobody asked for is the wrong trade. `worker get` is the staffing read.
+// Omitted rather than nulled, too — a null asserts "unheld", which is the exact
+// claim this command has spent a review learning not to make.
+func sessionStartWorkerDTO(w gen.WorkerFields) workerDTO {
+	dto := workerDTOFromFields(w)
+	dto.HeldByUserID, dto.HeldAt = nil, nil
+	return dto
 }

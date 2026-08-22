@@ -108,7 +108,7 @@ hadron ai-config list [--app <id>] [--agent <id>] | create (--app|--agent|--org 
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
 hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] [--persona-prompt <p>] | update <id> [<field flags>] | rm <id> --yes
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
-hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | retire <name-or-id> --yes | rm <name-or-id> --yes
+hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
 hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--mentions-me | --mentions <ref>] (uses --app or the binding)
@@ -809,7 +809,49 @@ Conventions:
   its name reserved — PR trailers and chat history reference it — and there
   is no rename; `worker rm` is the ONE removal escape, hard-deleting a
   NEVER-USED miscast (`WORKER_IN_USE` exit 5 otherwise) and freeing its
-  name. **`team worker list` is the "who is on this team?" read** — the
+  name.
+  **`team worker release <name-or-id>`** clears the HOLD (`releaseWorker`,
+  `cor:agt:020:09`) and is the ONLY thing that frees one — not `session end`,
+  not an idle window, not an expiry, not a reap, not a closed chat session.
+  **Release is not retire**: the worker keeps working, keeps its name and its
+  history, and the name is never freed for a different casting; only who may
+  BIND it changes. The worker's working memory and handoff history follow the
+  NAME, so a release hands them to whoever takes it next — the intended
+  transfer, and the reason nothing private belongs in a worker memory. For a
+  RETIRED worker there is no next holder (`session start` refuses one), so
+  releasing clears the hold and nothing else and the history stays with the
+  name; the receipt and confirmation say so for the worker in hand. TWO
+  ACTS, gated server-side: releasing your OWN name notifies nobody and does
+  not prompt; releasing SOMEONE ELSE'S is an admin force-release, which
+  **posts to the team chat** naming both parties and prompts unless `--yes`.
+  That post is BEST-EFFORT server-side (an unreachable chat never blocks the
+  release) and the payload carries no delivery signal, so the receipt says the
+  server posts a notice rather than asserting one appeared — the prompt keeps
+  the strong wording, because warning what an act IS before you consent errs
+  toward caution while reporting what happened errs toward accuracy.
+  The CLI reads the hold only to say which act it is, never to decide who may
+  perform it. Idempotent, and it never claims the name was free: `heldByUserId` is
+  masked to null on deny, so a nil hold ALWAYS means "unheld OR held and invisible to you" — there is no visibility
+  signal on `Worker` to tell them apart. So a nil hold reports
+  `status: "no-visible-hold"` with `wasHeld` and `forced` both **null** rather
+  than claiming the name is free: a caller acting on `wasHeld: false` meets
+  `WORKER_HELD` at the next `session start`. It does not prompt, since every
+  idempotent no-op would otherwise; `--json` carries `wasHeld`/`releasedFromUserId`/`forced`
+  describing the state BEFORE the call, since the returned worker is
+  post-release by construction. **`forced` is nullable**: null means the
+  caller's own identity could not be read against a held name, so the act could
+  not be classified — `false` would claim a private act and `true` an
+  announcement, and neither is knowable there. The hold is re-read immediately
+  before the mutation and a change refuses **exit 5**: `releaseWorker` has no
+  precondition (hadron-server#1073), so without that a hold taken between the
+  classifying read and the call would be force-released silently while the
+  receipt called it routine. `worker get` shows the holder (and `--json` gains
+  `heldByUserId`/`heldAt`, additive) — the line is omitted rather than dashed
+  when there is no visible hold; both are masked to null on deny, so
+  absence means "unheld OR not visible to you" — there is deliberately no
+  `held` boolean, which would answer "no" to a caller who merely cannot see.
+  `worker list` is unchanged; which surface shows who is driving is
+  hadron-cli#487. **`team worker list` is the "who is on this team?" read** — the
   App's staff (retired hidden unless `--include-retired`); `hadron app agent
   list` is the install roster (the cast pool). Its team App resolves
   ambiently (`--app` → App context → the worktree binding), so the human
@@ -823,8 +865,15 @@ Conventions:
   ending one does not end the other** (hadron-server#1034): a **worker
   session** is the Hadron binding below, and a **chat session** is the
   conversation the human is in — the Desktop window, the Claude Code session.
-  Closing a chat session does NOT release the worker; only `session end`
-  does, so a worker left bound stays taken until that or the server reaps it.
+  Closing a chat session does NOT end the worker session; only `session end`
+  does, so a worker left bound stays TAKEN until that or the server reaps it.
+  And `session end` frees the SESSION, never the NAME: a person who binds a
+  worker holds its name until `worker release` (`cor:agt:020:09`).
+  Note "taken", not "released": since hadron-server#1050 **release** is a term
+  of art for clearing the HOLD, and no session-lifecycle event clears one —
+  see `worker release` (`cor:agt:020:09`). "Taken" covering both states is
+  hadron-cli#487; this sentence is precise about which it means, which is not
+  the same as fixing that.
   Never shorten "chat session" to "chat" — in this team the chat is the TEAM
   chat. A **worker session** binds the current git
   worktree to a worker: `session start --as <worker>` records provenance

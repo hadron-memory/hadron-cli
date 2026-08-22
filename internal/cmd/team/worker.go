@@ -1,10 +1,12 @@
 package team
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -40,6 +42,7 @@ worker in scripts.`,
 	cmd.AddCommand(newCmdWorkerCast(f))
 	cmd.AddCommand(newCmdWorkerList(f))
 	cmd.AddCommand(newCmdWorkerGet(f))
+	cmd.AddCommand(newCmdWorkerRelease(f))
 	cmd.AddCommand(newCmdWorkerRetire(f))
 	cmd.AddCommand(newCmdWorkerRm(f))
 	return cmd
@@ -342,6 +345,27 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 				if dto.MemoryID != nil {
 					fmt.Fprintf(out, "  memory: %s\n", *dto.MemoryID)
 				}
+				// The HOLD (cor:agt:020:09) — whose name this is, which is a
+				// different question from whether a session is live. Rendered
+				// only when known: heldByUserId masks to null on deny, so
+				// printing "held by: —" would answer "nobody" to a caller who
+				// merely cannot see, and this is the surface someone checks
+				// before asking for a name.
+				if dto.HeldByUserID != nil {
+					// The client is acquired HERE, not in RunE: this callback
+					// does not run under --json, so an agent path paid for a
+					// client it never used and gained a failure point for a
+					// decoration it never renders (PR #504 review, suppressed).
+					client, cerr := f.GraphQLClient()
+					if cerr != nil {
+						return cerr
+					}
+					fmt.Fprintf(out, "  held by: %s", describeHolder(cmd.Context(), client, *dto.HeldByUserID))
+					if dto.HeldAt != nil {
+						fmt.Fprintf(out, " (since %s)", *dto.HeldAt)
+					}
+					fmt.Fprintln(out)
+				}
 				if dto.Retired {
 					fmt.Fprintf(out, "  retired: %s\n", *dto.RetiredAt)
 				}
@@ -461,4 +485,405 @@ empty working memory, and — unlike retiring — frees the name.`,
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	return cmd
+}
+
+// releaseResultDTO is the stable --json shape of `worker release`.
+//
+// `wasHeld` + `releasedFromUserId` describe the state BEFORE the call, because
+// that is the only place the answer exists: the mutation returns the worker
+// post-release, where the hold is null by definition. A consumer that wanted
+// to know whether anything happened could not compute it from the payload
+// otherwise.
+type releaseResultDTO struct {
+	ID   string  `json:"id"`
+	Name string  `json:"name"`
+	URN  *string `json:"urn"`
+	// WasHeld is TRUE when a prior holder was visible, and NULL otherwise. It
+	// is never false — that is the contract, not an oversight.
+	//
+	// heldByUserId masks to null on DENY, so a nil hold means "unheld OR held
+	// and invisible to you", and there is no visibility signal on Worker to
+	// tell them apart. `false` would read as "this name is free to bind", and
+	// a caller acting on it meets WORKER_HELD at the next `session start`
+	// (PR #504 review — twice: once for an argument that the ambiguity
+	// collapsed, once for a probe that resolved it; neither held).
+	WasHeld *bool `json:"wasHeld"`
+	// ReleasedFromUserID is the prior holder, null on a no-op. The ID, not a
+	// name (review:entity-fields-not-display-labels) — it addresses a person
+	// the caller may need to contact.
+	ReleasedFromUserID *string `json:"releasedFromUserId"`
+	// Forced is true when the caller was NOT the prior holder — an admin
+	// force-release, which the server announces in the team chat. Surfaced so
+	// a scripted caller can tell a routine hand-back from a visible override.
+	//
+	// NULLABLE, and only ever null when the caller's own identity could not be
+	// read against a held name (PR #504 review). `false` would claim a private
+	// act and `true` an announcement, and both are assertions the CLI cannot
+	// make there — the same reason workerDTO has no `held` boolean.
+	Forced *bool  `json:"forced"`
+	Status string `json:"status"`
+}
+
+// currentUserID reads the caller's own user id. THREE states, not two
+// (PR #504 review): the id; "" with known=true for a caller that definitively
+// has no user; and known=false when the lookup itself FAILED.
+//
+// Collapsing the last two is the "unknown is not none" mistake
+// (review:a-claim-must-not-outrun-its-evidence). A failed AuthContext read is
+// not evidence that the caller is somebody else — treating it as such
+// reclassifies a legitimate self-release as a force-release, refuses it
+// non-interactively, and then claims a team-chat announcement the server never
+// made.
+//
+// authContext rather than `me` on purpose: it is credential-agnostic, so an
+// App-key caller resolves to a null user rather than an error. That IS an
+// answer — per cor:agt:020:09 an App key holds nothing, so such a caller is
+// never the holder.
+func currentUserID(ctx context.Context, client graphql.Client) (id string, known bool) {
+	resp, err := gen.AuthContext(ctx, client)
+	if err != nil || resp.AuthContext == nil {
+		return "", false
+	}
+	if resp.AuthContext.User == nil {
+		return "", true // an App key holds nothing: definitively not the holder
+	}
+	return resp.AuthContext.User.Id, true
+}
+
+// describeHolder renders a prior holder for a human prompt: their name when it
+// can be read, the raw id when it cannot.
+//
+// Decoration, never a gate — the same posture as describeApp. A caller
+// entitled to release a name may not be entitled to read the holder's user
+// record, and failing the release over a display label would be absurd.
+func describeHolder(ctx context.Context, client graphql.Client, userID string) string {
+	resp, err := gen.GetUser(ctx, client, userID)
+	if err != nil || resp.User == nil {
+		return userID
+	}
+	name, handle := "", ""
+	if resp.User.Name != nil {
+		name = *resp.User.Name
+	}
+	if resp.User.Handle != nil {
+		handle = *resp.User.Handle
+	}
+	switch {
+	case name != "" && handle != "":
+		return fmt.Sprintf("%s (@%s)", name, handle)
+	case handle != "":
+		return "@" + handle
+	case name != "":
+		return fmt.Sprintf("%s (%s)", name, userID)
+	default:
+		return userID
+	}
+}
+
+func newCmdWorkerRelease(f *cmdutil.Factory) *cobra.Command {
+	var yes bool
+	cmd := &cobra.Command{
+		Use: "release <name-or-id>",
+		// Short is rendered ALONE on `worker --help`, without the Long that
+		// qualifies it — so it must not promise a next holder either
+		// (PR #504 review).
+		Short: "Clear the hold on a worker name",
+		Long: `Release the HOLD on a worker name (cor:agt:020:09). A name is held by a
+PERSON, and this is the ONLY thing that frees one — not ` + "`session end`" + `, not
+an idle window, not an expiry, not a reap, not closing your chat session.
+
+RELEASING IS NOT RETIRING. The worker keeps working, keeps its name, keeps
+its history; the name is not freed for a different casting (it stays
+permanently allotted to this one, cor:agt:020:02). All that changes is who
+may bind it next. To stop a worker instead, use ` + "`worker retire`" + `.
+
+A RETIRED worker can be released — the call succeeds — but nobody can bind
+it afterwards either way (` + "`session start`" + ` refuses WORKER_RETIRED whether or
+not the name is held). Releasing one clears the hold and nothing else; the
+receipt and the confirmation say so for the worker in front of you.
+
+WHAT GOES WITH IT: the worker's working memory and handoff history follow
+the NAME, not the holder — so releasing hands your notes to whoever takes
+it next. That is the intended transfer, and the reason nothing private
+belongs in a worker memory. (For a retired worker there is no next holder,
+so they simply stay with the name.)
+
+TWO ACTS, and the server decides which you may perform. Releasing YOUR OWN
+name owes nobody notice. Releasing SOMEONE ELSE'S is an admin
+force-release: it exists so a departed colleague's names are not held
+forever, and it ANNOUNCES ITSELF IN THE TEAM CHAT, naming you and them.
+This command tells you which one you are about to do, and asks first when
+it is the second.
+
+Idempotent: releasing a name nobody holds changes nothing and says so.`,
+		Example: `  hadron team worker release Iris
+  hadron team worker release hrn:worker:acme.com:eng-team:iris --yes`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			w, err := workerForArg(cmd, f, args[0])
+			if err != nil {
+				return err
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			// The hold BEFORE the call. The mutation returns the worker
+			// post-release, where it is null by construction, so this is the
+			// only moment the prior state is knowable.
+			priorHolder := w.HeldByUserId
+			// NO VISIBILITY PROBE. An earlier version inferred one from
+			// prompt/promptOverride/memoryId being readable, since heldByUserId
+			// is masked alongside them. That is UNSOUND: all three are
+			// legitimately nullable — an agent with no template, no per-worker
+			// override, and a best-effort memory provision that failed — so a
+			// real, visible, unheld worker read as "cannot see" and got hedged
+			// output plus a spurious prompt. The repo's own retiredWorkerJSON
+			// fixture has exactly that shape (PR #504 review).
+			//
+			// There is no explicit "can you read working state" signal on
+			// Worker, so a nil hold is IRREDUCIBLY ambiguous: unheld, or held
+			// and masked from you. The command therefore never claims which,
+			// and does not prompt — prompting on every idempotent no-op would
+			// spend the case #495 asked to keep quiet in exchange for a guess.
+			// hadron-server#1073 asks for the prior holder in the payload,
+			// which resolves this outright: the receipt could report what
+			// happened rather than predict it.
+			me, meKnown := currentUserID(ctx, client)
+			// A THREE-state answer: yes, no, or "cannot tell". Nil only when
+			// the identity lookup failed against a HELD name — the one case
+			// where we genuinely do not know whether this is a public act. It
+			// is treated as force for the PROMPT (conservative) and as unknown
+			// in the RECEIPT (honest); those are different jobs.
+			var forced, wasHeld *bool
+			if priorHolder != nil {
+				wasHeld = boolPtr(true)
+				if meKnown {
+					forced = boolPtr(*priorHolder != me)
+				}
+			}
+			// Both stay nil on a nil hold, and stay nil HONESTLY: unheld and
+			// masked-from-you are indistinguishable here.
+
+			// Only the force branch prompts. A self-release loses nothing and
+			// notifies nobody, and a prompt on the ordinary end-of-work step
+			// is the kind people learn to --yes past reflexively — which would
+			// then also skip the prompt that matters.
+			//
+			// Confirm, not ConfirmDeletion: nothing is destroyed, and "This
+			// cannot be undone" would be false — the next holder can release
+			// it back.
+			if priorHolder != nil && (forced == nil || *forced) && !yes {
+				// Built only when a prompt can be shown: describeHolder costs
+				// a read, and the prompt is an ARGUMENT to Confirm, so
+				// composing it unconditionally would make --yes pay for a
+				// string Confirm discards.
+				// The KNOWN force branch states it flatly. Reusing the "if it
+				// is not" hedge there — written for the unknown-identity branch
+				// — made the one case we are CERTAIN about sound conditional,
+				// which is backwards (PR #504 review).
+				//
+				// The transfer clause is instance-specific either way: nobody
+				// takes a retired name, so promising a next holder there is the
+				// same false promise the receipt avoids.
+				// Confirm refuses outright without a TTY, so resolving the
+				// holder there is a GetUser round trip — and an audit event —
+				// spent on a string nobody will read. The comment above claimed
+				// the prompt is built only when it can be shown; this makes it
+				// true (PR #504 review).
+				if !f.IOStreams.IsInputTerminal() {
+					return cmdutil.Confirm(f.IOStreams, false, "")
+				}
+				prompt := releasePrompt(w.Name, describeHolder(ctx, client, *priorHolder),
+					w.RetiredAt, forced != nil)
+				if err := cmdutil.Confirm(f.IOStreams, false, prompt); err != nil {
+					return err
+				}
+			}
+
+			// RE-READ the hold immediately before mutating (PR #504 review, P1).
+			//
+			// releaseWorker takes no precondition and does not return the prior
+			// holder, so the hold can change between the pre-read and the call.
+			// An admin could approve a prompt naming one person and release
+			// another — and worse, a pre-read showing "unheld" or "me" skips the
+			// prompt, so a hold taken in between would be force-released
+			// SILENTLY while the receipt reported a self-release. The act
+			// performed would differ from the act described.
+			//
+			// This does NOT close the race. It narrows it from human thinking
+			// time at a prompt to one round trip, and turns the silent-force
+			// case into a refusal. Closing it needs an expectedHolder
+			// precondition or the prior holder in the payload — hadron-server#1073.
+			fresh, ferr := gen.GetWorker(ctx, client, w.Id)
+			if ferr != nil {
+				return api.MapError(ferr)
+			}
+			if fresh.Worker == nil {
+				return exitcode.Newf(exitcode.NotFound, "no worker %q", w.Id)
+			}
+			if !sameHolder(priorHolder, fresh.Worker.HeldByUserId) {
+				return exitcode.Newf(exitcode.Conflict,
+					"the hold on %s changed while this ran — it is %s now, so releasing it would not be the act just "+
+						"described; re-run to see the current state",
+					w.Name, holderPhrase(ctx, client, fresh.Worker.HeldByUserId))
+			}
+			// RETIREMENT too, not only the holder. The confirmation's transfer
+			// clause branches on it — "to whoever takes the name next" versus
+			// "stays with the name" — so a retirement landing between the
+			// prompt and the call leaves the caller having approved a
+			// description that no longer fits (PR #504 review).
+			if (w.RetiredAt == nil) != (fresh.Worker.RetiredAt == nil) {
+				state := "retired"
+				if fresh.Worker.RetiredAt == nil {
+					state = "un-retired"
+				}
+				return exitcode.Newf(exitcode.Conflict,
+					"%s was %s while this ran, which changes what releasing it means; re-run to see the current state",
+					w.Name, state)
+			}
+
+			resp, err := gen.ReleaseWorker(ctx, client, w.Id)
+			if err != nil {
+				return api.MapError(err)
+			}
+			if resp.ReleaseWorker == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no worker")
+			}
+			dto := workerDTOFromFields(resp.ReleaseWorker.WorkerFields)
+			result := releaseResultDTO{
+				ID: dto.ID, Name: dto.Name, URN: dto.URN,
+				WasHeld: wasHeld, ReleasedFromUserID: priorHolder,
+				Forced: forced, Status: "released",
+			}
+			if priorHolder == nil {
+				result.Status = "no-visible-hold"
+			}
+			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
+				// The nil-hold case is reported as what it IS: no hold was
+				// visible. Not "was not held" — heldByUserId masks to null on
+				// deny, so nil means "unheld OR held and invisible to you", and
+				// there is no sound way to tell them apart from here.
+				//
+				// The distinction matters because of what a reader DOES with
+				// it: "was not held" reads as "this name is free to bind", and
+				// a caller acting on that meets WORKER_HELD at the next
+				// `session start`. One extra word buys the difference between
+				// an honest report and a confident wrong one.
+				if priorHolder == nil {
+					_, err := fmt.Fprintf(out,
+						"· no hold on %s was visible to you — nothing was released that you could see\n", dto.Name)
+					return err
+				}
+				switch {
+				case result.Forced == nil:
+					// Never claim an announcement we cannot verify, and never
+					// hide one that may have happened. Saying "announced" would
+					// assert a public act that may not have occurred; saying
+					// nothing would conceal one that did.
+					if _, err := fmt.Fprintf(out,
+						"✓ released %s (previously held by %s) — your own identity could not be read, so if that "+
+							"was not you, the server posts a notice to the team chat (best-effort)\n",
+						dto.Name, describeHolder(ctx, client, *priorHolder)); err != nil {
+						return err
+					}
+				case *result.Forced:
+					// "posts", not "announced". The notification is BEST-EFFORT
+					// server-side — an unreachable chat never blocks the release
+					// — and the payload carries no delivery signal, so asserting
+					// the notice appeared is a third claim this command cannot
+					// verify (PR #504 review). The PROMPT still says POSTS TO
+					// THE TEAM CHAT in the strong form: that is a warning about
+					// what the act IS, before you consent to it, and overstating
+					// there errs toward caution. This is a report of what
+					// happened, and errs toward accuracy.
+					if _, err := fmt.Fprintf(out,
+						"✓ force-released %s from %s — the server posts a notice to the team chat (best-effort)\n",
+						dto.Name, describeHolder(ctx, client, *priorHolder)); err != nil {
+						return err
+					}
+				default:
+					// "anyone may bind it now" is FALSE for a retired worker —
+					// startSession refuses one (WORKER_RETIRED) whether or not
+					// its name is held, so releasing the hold frees nothing a
+					// caller can use. Found by sweeping every sentence this
+					// command prints and asking what proves each, after the
+					// third unverifiable claim in one review (PR #504).
+					next := "anyone may bind it now"
+					if dto.Retired {
+						next = "the worker is retired, so nobody can bind it — the name is simply no longer held"
+					}
+					if _, err := fmt.Fprintf(out, "✓ released %s — %s\n", dto.Name, next); err != nil {
+						return err
+					}
+				}
+				_, err := fmt.Fprintf(out,
+					"  its working memory and handoff history go with the name, not with you\n")
+				return err
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation on an admin force-release (a self-release never prompts)")
+	return cmd
+}
+
+func boolPtr(b bool) *bool { return &b }
+
+// sameHolder compares two optional holder ids — nil-safe, since "unheld" is a
+// legitimate value on both sides.
+func sameHolder(a, b *string) bool {
+	switch {
+	case a == nil && b == nil:
+		return true
+	case a == nil || b == nil:
+		return false
+	default:
+		return *a == *b
+	}
+}
+
+// holderPhrase renders an optional holder for the changed-hold refusal.
+func holderPhrase(ctx context.Context, client graphql.Client, userID *string) string {
+	if userID == nil {
+		return "unheld"
+	}
+	return "held by " + describeHolder(ctx, client, *userID)
+}
+
+// releasePrompt is the whole confirmation shown before a release that may not
+// be the caller's own. Extracted for the same reason as its transfer clause:
+// cmdutil.Confirm's prompt branch is unreachable without a TTY, so nothing
+// could otherwise read the string it builds — and BOTH halves of it have now
+// been wrong in review.
+//
+// classified=false is the unknown-identity branch and keeps a conditional. The
+// KNOWN force branch states it flatly: reusing "if it is not" there made the
+// one case we are certain about sound uncertain, which is backwards for a
+// warning that a public act is about to happen (PR #504 review).
+func releasePrompt(name, holder string, retiredAt *string, classified bool) string {
+	if !classified {
+		return fmt.Sprintf("%s is held by %s, and this CLI could not read your own identity to tell whether "+
+			"that is you. If it is not, releasing it POSTS TO THE TEAM CHAT naming you and them, %s Continue?",
+			name, holder, releasePromptTransferClause(retiredAt))
+	}
+	return fmt.Sprintf("%s is held by %s, not you. Releasing it POSTS TO THE TEAM CHAT naming you and them, "+
+		"%s Continue?", name, holder, releasePromptTransferClause(retiredAt))
+}
+
+// releasePromptTransferClause is the half of the force prompt that says where
+// the worker's notes go. Extracted so it is testable: cmdutil.Confirm's prompt
+// branch is unreachable without a TTY, so a command-level test can never read
+// the string it builds.
+//
+// The clause is INSTANCE-specific and must hold for THIS worker. Nobody takes a
+// retired name (startSession refuses WORKER_RETIRED), so promising a next
+// holder there is the same false promise the receipt avoids — caught in review
+// after I fixed the receipts and not the prompt.
+func releasePromptTransferClause(retiredAt *string) string {
+	if retiredAt != nil {
+		return "and its working memory and handoff history stay with the name — the worker is retired, " +
+			"so nobody can bind it."
+	}
+	return "and hands that worker's working memory and handoff history to whoever takes the name next."
 }

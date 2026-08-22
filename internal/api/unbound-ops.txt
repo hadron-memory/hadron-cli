@@ -67,7 +67,7 @@ slackConnections
 usageActivity
 usageEvents  # cli#439: no usage command group yet — when one lands, filter a loc with loc:, NEVER nodeId: (shape-classified, swallows any >=3-segment loc as a node URN)
 
-[Mutation] 87 unbound
+[Mutation] 86 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
@@ -118,7 +118,6 @@ pushMemoryToGit
 recordUsage
 regenerateAppKey
 releaseEditorLock
-releaseWorker  # cli#495: hadron-server#1050 shipped the holding model alongside the register removal; nothing else frees a held name, so an unwrapped mutation means a held worker cannot be released from the CLI at all (nor from MCP)
 removeAgentFromApp
 removeAgentImport
 removeAppMember

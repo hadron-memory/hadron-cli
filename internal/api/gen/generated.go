@@ -3054,6 +3054,12 @@ func (v *CastWorkerCastWorker) GetPromptOverride() *string { return v.WorkerFiel
 // GetMemoryId returns CastWorkerCastWorker.MemoryId, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
 
+// GetHeldByUserId returns CastWorkerCastWorker.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetHeldByUserId() *string { return v.WorkerFields.HeldByUserId }
+
+// GetHeldAt returns CastWorkerCastWorker.HeldAt, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
+
 // GetRetiredAt returns CastWorkerCastWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
 
@@ -3112,6 +3118,10 @@ type __premarshalCastWorkerCastWorker struct {
 
 	MemoryId *string `json:"memoryId"`
 
+	HeldByUserId *string `json:"heldByUserId"`
+
+	HeldAt *string `json:"heldAt"`
+
 	RetiredAt *string `json:"retiredAt"`
 
 	RetiredBy *string `json:"retiredBy"`
@@ -3142,6 +3152,8 @@ func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWo
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.HeldByUserId = v.WorkerFields.HeldByUserId
+	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.RetiredAt = v.WorkerFields.RetiredAt
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
@@ -8394,6 +8406,12 @@ func (v *GetWorkerWorker) GetPromptOverride() *string { return v.WorkerFields.Pr
 // GetMemoryId returns GetWorkerWorker.MemoryId, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
 
+// GetHeldByUserId returns GetWorkerWorker.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetHeldByUserId() *string { return v.WorkerFields.HeldByUserId }
+
+// GetHeldAt returns GetWorkerWorker.HeldAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
+
 // GetRetiredAt returns GetWorkerWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
 
@@ -8452,6 +8470,10 @@ type __premarshalGetWorkerWorker struct {
 
 	MemoryId *string `json:"memoryId"`
 
+	HeldByUserId *string `json:"heldByUserId"`
+
+	HeldAt *string `json:"heldAt"`
+
 	RetiredAt *string `json:"retiredAt"`
 
 	RetiredBy *string `json:"retiredBy"`
@@ -8482,6 +8504,8 @@ func (v *GetWorkerWorker) __premarshalJSON() (*__premarshalGetWorkerWorker, erro
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.HeldByUserId = v.WorkerFields.HeldByUserId
+	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.RetiredAt = v.WorkerFields.RetiredAt
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
@@ -12674,6 +12698,188 @@ func (v *RecordTeamWorkResponse) GetRecordTeamWork() *RecordTeamWorkRecordTeamWo
 	return v.RecordTeamWork
 }
 
+// ReleaseWorkerReleaseWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type ReleaseWorkerReleaseWorker struct {
+	WorkerFields `json:"-"`
+}
+
+// GetId returns ReleaseWorkerReleaseWorker.Id, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetUrn returns ReleaseWorkerReleaseWorker.Urn, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetUrn() *string { return v.WorkerFields.Urn }
+
+// GetSlug returns ReleaseWorkerReleaseWorker.Slug, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetSlug() string { return v.WorkerFields.Slug }
+
+// GetAppId returns ReleaseWorkerReleaseWorker.AppId, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetAppId() string { return v.WorkerFields.AppId }
+
+// GetAgentId returns ReleaseWorkerReleaseWorker.AgentId, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetAgentId() string { return v.WorkerFields.AgentId }
+
+// GetName returns ReleaseWorkerReleaseWorker.Name, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetName() string { return v.WorkerFields.Name }
+
+// GetRole returns ReleaseWorkerReleaseWorker.Role, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetRole() *string { return v.WorkerFields.Role }
+
+// GetPrompt returns ReleaseWorkerReleaseWorker.Prompt, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
+
+// GetPromptOverride returns ReleaseWorkerReleaseWorker.PromptOverride, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetPromptOverride() *string {
+	return v.WorkerFields.PromptOverride
+}
+
+// GetMemoryId returns ReleaseWorkerReleaseWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
+
+// GetHeldByUserId returns ReleaseWorkerReleaseWorker.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetHeldByUserId() *string { return v.WorkerFields.HeldByUserId }
+
+// GetHeldAt returns ReleaseWorkerReleaseWorker.HeldAt, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
+
+// GetRetiredAt returns ReleaseWorkerReleaseWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
+
+// GetRetiredBy returns ReleaseWorkerReleaseWorker.RetiredBy, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetRetiredBy() *string { return v.WorkerFields.RetiredBy }
+
+// GetCreatedAt returns ReleaseWorkerReleaseWorker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetCreatedAt() string { return v.WorkerFields.CreatedAt }
+
+// GetCreatedBy returns ReleaseWorkerReleaseWorker.CreatedBy, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetCreatedBy() *string { return v.WorkerFields.CreatedBy }
+
+func (v *ReleaseWorkerReleaseWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ReleaseWorkerReleaseWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ReleaseWorkerReleaseWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalReleaseWorkerReleaseWorker struct {
+	Id string `json:"id"`
+
+	Urn *string `json:"urn"`
+
+	Slug string `json:"slug"`
+
+	AppId string `json:"appId"`
+
+	AgentId string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	Role *string `json:"role"`
+
+	Prompt *string `json:"prompt"`
+
+	PromptOverride *string `json:"promptOverride"`
+
+	MemoryId *string `json:"memoryId"`
+
+	HeldByUserId *string `json:"heldByUserId"`
+
+	HeldAt *string `json:"heldAt"`
+
+	RetiredAt *string `json:"retiredAt"`
+
+	RetiredBy *string `json:"retiredBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *ReleaseWorkerReleaseWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ReleaseWorkerReleaseWorker) __premarshalJSON() (*__premarshalReleaseWorkerReleaseWorker, error) {
+	var retval __premarshalReleaseWorkerReleaseWorker
+
+	retval.Id = v.WorkerFields.Id
+	retval.Urn = v.WorkerFields.Urn
+	retval.Slug = v.WorkerFields.Slug
+	retval.AppId = v.WorkerFields.AppId
+	retval.AgentId = v.WorkerFields.AgentId
+	retval.Name = v.WorkerFields.Name
+	retval.Role = v.WorkerFields.Role
+	retval.Prompt = v.WorkerFields.Prompt
+	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.HeldByUserId = v.WorkerFields.HeldByUserId
+	retval.HeldAt = v.WorkerFields.HeldAt
+	retval.RetiredAt = v.WorkerFields.RetiredAt
+	retval.RetiredBy = v.WorkerFields.RetiredBy
+	retval.CreatedAt = v.WorkerFields.CreatedAt
+	retval.CreatedBy = v.WorkerFields.CreatedBy
+	return &retval, nil
+}
+
+// ReleaseWorkerResponse is returned by ReleaseWorker on success.
+type ReleaseWorkerResponse struct {
+	// #1050 — release a HELD name, so somebody else can hold it.
+	//
+	// A name is held by a person until released; nothing else frees one, which
+	// is what makes availability a fact rather than a judgement about whether an
+	// idle driver is really gone. Two principals may call this, and they are
+	// different acts: the HOLDER, releasing their own name and owing nobody
+	// notice; or an App/org ADMIN, force-releasing somebody else's — the path
+	// that exists so a departed colleague's names are not held forever.
+	//
+	// An admin force-release POSTS TO THE TEAM CHAT, naming who released what
+	// and from whom, because the incident this model answers is exactly the one
+	// where notice was owed and there was no way to give it. Best-effort: an
+	// unreachable chat never blocks the release.
+	//
+	// Releasing does NOT retire the worker, free the name for a different
+	// casting, or touch its history — the name stays permanently allocated to
+	// this casting, and the handoff sequence and worklog travel with the worker
+	// to whoever holds it next. Idempotent: releasing an unheld worker returns
+	// it unchanged.
+	ReleaseWorker *ReleaseWorkerReleaseWorker `json:"releaseWorker"`
+}
+
+// GetReleaseWorker returns ReleaseWorkerResponse.ReleaseWorker, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerResponse) GetReleaseWorker() *ReleaseWorkerReleaseWorker {
+	return v.ReleaseWorker
+}
+
 // RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload includes the requested fields of the GraphQL type RemoveMemoryMemberPayload.
 type RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload struct {
 	MemoryId string `json:"memoryId"`
@@ -13038,6 +13244,12 @@ func (v *RetireWorkerRetireWorker) GetPromptOverride() *string { return v.Worker
 // GetMemoryId returns RetireWorkerRetireWorker.MemoryId, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
 
+// GetHeldByUserId returns RetireWorkerRetireWorker.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetHeldByUserId() *string { return v.WorkerFields.HeldByUserId }
+
+// GetHeldAt returns RetireWorkerRetireWorker.HeldAt, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
+
 // GetRetiredAt returns RetireWorkerRetireWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
 
@@ -13096,6 +13308,10 @@ type __premarshalRetireWorkerRetireWorker struct {
 
 	MemoryId *string `json:"memoryId"`
 
+	HeldByUserId *string `json:"heldByUserId"`
+
+	HeldAt *string `json:"heldAt"`
+
 	RetiredAt *string `json:"retiredAt"`
 
 	RetiredBy *string `json:"retiredBy"`
@@ -13126,6 +13342,8 @@ func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorker
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.HeldByUserId = v.WorkerFields.HeldByUserId
+	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.RetiredAt = v.WorkerFields.RetiredAt
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
@@ -18547,6 +18765,26 @@ type WorkerFields struct {
 	PromptOverride *string `json:"promptOverride"`
 	// The worker-scoped working memory in the App's container (null until provisioned).
 	MemoryId *string `json:"memoryId"`
+	// #1050 — the human HOLDING this name, or null when nobody does.
+	//
+	// A name is held by a person, not by a live session: expiry, a reap, or a
+	// closed chat session never free it, and only an explicit release does. This
+	// is what separates the two meanings of "taken" — HELD is whose name it is,
+	// while a live session is only ever a question about your own worker.
+	//
+	// WORKING-STATE field, behind the worker read gate and masked to null on
+	// deny — like promptOverride and memoryId, and NOT like name/role/urn.
+	// Session.worker reaches a Worker row through a wider gate that admits any
+	// org member and survives a user leaving the App, so an ungated holder would
+	// let a former member read current staffing off a historical session.
+	HeldByUserId *string `json:"heldByUserId"`
+	// When the current hold was taken. Null exactly when heldByUserId is — and
+	// likewise masked on deny.
+	//
+	// #1034: "taken" here is the HOLD's timestamp, unrelated to `WORKER_TAKEN`
+	// (a live worker session) and to `TeamRoleName.taken` (a name allocated in
+	// the register). Three senses of one word across two types.
+	HeldAt *string `json:"heldAt"`
 	// Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
 	RetiredAt *string `json:"retiredAt"`
 	RetiredBy *string `json:"retiredBy"`
@@ -18583,6 +18821,12 @@ func (v *WorkerFields) GetPromptOverride() *string { return v.PromptOverride }
 
 // GetMemoryId returns WorkerFields.MemoryId, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetMemoryId() *string { return v.MemoryId }
+
+// GetHeldByUserId returns WorkerFields.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetHeldByUserId() *string { return v.HeldByUserId }
+
+// GetHeldAt returns WorkerFields.HeldAt, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetHeldAt() *string { return v.HeldAt }
 
 // GetRetiredAt returns WorkerFields.RetiredAt, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetRetiredAt() *string { return v.RetiredAt }
@@ -18937,6 +19181,14 @@ func (v *WorkersWorkersWorkersPageItemsWorker) GetPromptOverride() *string {
 // GetMemoryId returns WorkersWorkersWorkersPageItemsWorker.MemoryId, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
 
+// GetHeldByUserId returns WorkersWorkersWorkersPageItemsWorker.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetHeldByUserId() *string {
+	return v.WorkerFields.HeldByUserId
+}
+
+// GetHeldAt returns WorkersWorkersWorkersPageItemsWorker.HeldAt, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
+
 // GetRetiredAt returns WorkersWorkersWorkersPageItemsWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetRetiredAt() *string {
 	return v.WorkerFields.RetiredAt
@@ -19001,6 +19253,10 @@ type __premarshalWorkersWorkersWorkersPageItemsWorker struct {
 
 	MemoryId *string `json:"memoryId"`
 
+	HeldByUserId *string `json:"heldByUserId"`
+
+	HeldAt *string `json:"heldAt"`
+
 	RetiredAt *string `json:"retiredAt"`
 
 	RetiredBy *string `json:"retiredBy"`
@@ -19031,6 +19287,8 @@ func (v *WorkersWorkersWorkersPageItemsWorker) __premarshalJSON() (*__premarshal
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.HeldByUserId = v.WorkerFields.HeldByUserId
+	retval.HeldAt = v.WorkerFields.HeldAt
 	retval.RetiredAt = v.WorkerFields.RetiredAt
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
@@ -20613,6 +20871,14 @@ func (v *__RecordTeamWorkInput) GetAction() string { return v.Action }
 
 // GetDetail returns __RecordTeamWorkInput.Detail, and is useful for accessing the field via an interface.
 func (v *__RecordTeamWorkInput) GetDetail() *json.RawMessage { return v.Detail }
+
+// __ReleaseWorkerInput is used internally by genqlient
+type __ReleaseWorkerInput struct {
+	WorkerRef string `json:"workerRef"`
+}
+
+// GetWorkerRef returns __ReleaseWorkerInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__ReleaseWorkerInput) GetWorkerRef() string { return v.WorkerRef }
 
 // __RemoveMemoryMemberInput is used internally by genqlient
 type __RemoveMemoryMemberInput struct {
@@ -22348,6 +22614,8 @@ fragment WorkerFields on Worker {
 	prompt
 	promptOverride
 	memoryId
+	heldByUserId
+	heldAt
 	retiredAt
 	retiredBy
 	createdAt
@@ -25338,6 +25606,8 @@ fragment WorkerFields on Worker {
 	prompt
 	promptOverride
 	memoryId
+	heldByUserId
+	heldAt
 	retiredAt
 	retiredBy
 	createdAt
@@ -26911,6 +27181,73 @@ func RecordTeamWork(
 	return data_, err_
 }
 
+// The mutation executed by ReleaseWorker.
+const ReleaseWorker_Operation = `
+mutation ReleaseWorker ($workerRef: ID!) {
+	releaseWorker(workerRef: $workerRef) {
+		... WorkerFields
+	}
+}
+fragment WorkerFields on Worker {
+	id
+	urn
+	slug
+	appId
+	agentId
+	name
+	role
+	prompt
+	promptOverride
+	memoryId
+	heldByUserId
+	heldAt
+	retiredAt
+	retiredBy
+	createdAt
+	createdBy
+}
+`
+
+// Release the HOLD on a name (hadron-server#1050, cor:agt:020:09) — the ONLY
+// thing that frees one. Two principals, and the SERVER gates both: the HOLDER
+// releasing their own, owing nobody notice; or an App/org ADMIN force-releasing
+// somebody else's, which POSTS TO THE TEAM CHAT, because the incident this
+// model answers is one where notice was owed and there was no way to give it.
+//
+// The CLI does not reimplement that gate — a client-side authority check would
+// be a second, drifting copy of an access rule. It reads the hold only to say
+// WHICH act the caller is about to perform.
+//
+// Idempotent: releasing an unheld worker returns it unchanged. The CLI reports
+// that as "no hold was visible to you" rather than "not held" — heldByUserId is
+// masked to null on DENY, so a nil hold cannot be distinguished from one the
+// caller may not see, and claiming the name is free is what sends a reader into
+// WORKER_HELD at the next session start.
+func ReleaseWorker(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+) (data_ *ReleaseWorkerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ReleaseWorker",
+		Query:  ReleaseWorker_Operation,
+		Variables: &__ReleaseWorkerInput{
+			WorkerRef: workerRef,
+		},
+	}
+
+	data_ = &ReleaseWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RemoveMemoryMember.
 const RemoveMemoryMember_Operation = `
 mutation RemoveMemoryMember ($memoryRef: String!, $userRef: String!) {
@@ -27165,6 +27502,8 @@ fragment WorkerFields on Worker {
 	prompt
 	promptOverride
 	memoryId
+	heldByUserId
+	heldAt
 	retiredAt
 	retiredBy
 	createdAt
@@ -29495,6 +29834,8 @@ fragment WorkerFields on Worker {
 	prompt
 	promptOverride
 	memoryId
+	heldByUserId
+	heldAt
 	retiredAt
 	retiredBy
 	createdAt

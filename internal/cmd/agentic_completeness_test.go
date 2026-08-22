@@ -203,12 +203,24 @@ func TestTeamSessionVocabularyIsQualified(t *testing.T) {
 
 	// Both surfaces must state that the two are different AND that closing one
 	// does not end the other — the second half is the load-bearing one.
+	//
+	// This used to pin the literal phrase "does not release the worker", which
+	// hadron-server#1050 made WRONG: `release` is now a term of art for
+	// clearing the HOLD, and closing a chat session does not end the SESSION
+	// either — a stronger and more accurate claim. Pinning the intent ("ending
+	// one does not end the other") rather than the sentence, because the
+	// sentence was overtaken by a model change and the guard should survive the
+	// next one (hadron-cli#495).
 	for _, tc := range []struct {
 		path  []string
 		wants []string
 	}{
-		{[]string{"team", "session"}, []string{"worker session", "chat session", "does not release the worker"}},
+		{[]string{"team", "session"}, []string{"worker session", "chat session", "does not end the worker session"}},
 		{[]string{"team", "session", "end"}, []string{"WORKER SESSION", "CHAT SESSION", "does not do this"}},
+		// The new half: ending a session frees the SESSION, never the HOLD.
+		// Without this, "taken" and "held" collapse back into one word — the
+		// conflation hadron-cli#487 tracks and #492 was caused by.
+		{[]string{"team", "session"}, []string{"TAKEN is not HELD", "worker release"}},
 	} {
 		cmd := find(tc.path...)
 		help := cmd.Long + " " + cmd.Short

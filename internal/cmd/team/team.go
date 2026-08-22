@@ -101,12 +101,25 @@ type workerDTO struct {
 	Prompt         *string `json:"prompt"`
 	PromptOverride *string `json:"promptOverride"`
 	MemoryID       *string `json:"memoryId"`
-	RetiredAt      *string `json:"retiredAt"`
-	RetiredBy      *string `json:"retiredBy"`
-	CreatedAt      string  `json:"createdAt"`
-	CreatedBy      *string `json:"createdBy"`
+	// HeldByUserID / HeldAt are the HOLD (cor:agt:020:09): whose name this is.
+	// The user ID rather than a rendered name, per
+	// review:entity-fields-not-display-labels — a label drops the actionable
+	// ref, and this one addresses a person a caller may need to contact.
+	//
+	// Both are masked to null on deny, so absence means "unheld OR not visible
+	// to you". There is deliberately NO `held bool` convenience field beside
+	// them: it would read as a settled fact and silently answer "no" to a
+	// caller who simply cannot see.
+	HeldByUserID *string `json:"heldByUserId,omitempty"`
+	HeldAt       *string `json:"heldAt,omitempty"`
+	RetiredAt    *string `json:"retiredAt"`
+	RetiredBy    *string `json:"retiredBy"`
+	CreatedAt    string  `json:"createdAt"`
+	CreatedBy    *string `json:"createdBy"`
 	// Retired is the convenience read of retiredAt — a retired worker stops
 	// authoring and takes no new sessions; its name stays reserved forever.
+	// (Contrast HeldByUserID above, which gets no such convenience and says
+	// why: retiredAt is never masked, so its absence is unambiguous.)
 	Retired bool `json:"retired"`
 }
 
@@ -114,6 +127,7 @@ func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 	return workerDTO{
 		ID: w.Id, URN: w.Urn, Slug: w.Slug, AppID: w.AppId, AgentID: w.AgentId, Name: w.Name, Role: w.Role,
 		Prompt: w.Prompt, PromptOverride: w.PromptOverride, MemoryID: w.MemoryId,
+		HeldByUserID: w.HeldByUserId, HeldAt: w.HeldAt,
 		RetiredAt: w.RetiredAt, RetiredBy: w.RetiredBy,
 		CreatedAt: w.CreatedAt, CreatedBy: w.CreatedBy,
 		Retired: w.RetiredAt != nil,
