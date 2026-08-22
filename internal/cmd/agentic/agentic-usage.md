@@ -817,7 +817,10 @@ Conventions:
   history, and the name is never freed for a different casting; only who may
   BIND it changes. The worker's working memory and handoff history follow the
   NAME, so a release hands them to whoever takes it next — the intended
-  transfer, and the reason nothing private belongs in a worker memory. TWO
+  transfer, and the reason nothing private belongs in a worker memory. For a
+  RETIRED worker there is no next holder (`session start` refuses one), so
+  releasing clears the hold and nothing else and the history stays with the
+  name; the receipt and confirmation say so for the worker in hand. TWO
   ACTS, gated server-side: releasing your OWN name notifies nobody and does
   not prompt; releasing SOMEONE ELSE'S is an admin force-release, which
   **posts to the team chat** naming both parties and prompts unless `--yes`.
@@ -864,6 +867,8 @@ Conventions:
   conversation the human is in — the Desktop window, the Claude Code session.
   Closing a chat session does NOT end the worker session; only `session end`
   does, so a worker left bound stays TAKEN until that or the server reaps it.
+  And `session end` frees the SESSION, never the NAME: a person who binds a
+  worker holds its name until `worker release` (`cor:agt:020:09`).
   Note "taken", not "released": since hadron-server#1050 **release** is a term
   of art for clearing the HOLD, and no session-lifecycle event clears one —
   see `worker release` (`cor:agt:020:09`). "Taken" covering both states is

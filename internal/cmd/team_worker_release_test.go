@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -105,6 +106,12 @@ func TestWorkerReleaseForcedRefusesWithoutYes(t *testing.T) {
 	}
 	if _, called := captured["ReleaseWorker"]; called {
 		t.Error("the mutation must not run when the confirmation was refused")
+	}
+	// Confirm refuses outright without a TTY, so resolving the holder's NAME
+	// here is a round trip — and an audit event — spent on a string nobody can
+	// read (PR #504 review, suppressed).
+	if _, called := captured["GetUser"]; called {
+		t.Error("no prompt can be shown, so do not pay to decorate one")
 	}
 }
 
@@ -651,6 +658,47 @@ func TestSessionStartDoesNotReportAStaleHold(t *testing.T) {
 		if _, present := res.Worker[gone]; present {
 			t.Errorf("%q here is the hold BEFORE the bind that claimed it — omit rather than mislead: %s",
 				gone, out.String())
+		}
+	}
+}
+
+// Ending a session never clears a hold (cor:agt:020:09), so the session-start
+// ROLLBACK — server session created, local binding write failed — leaves a hold
+// the caller does not know they took. Reporting "worker X is not held" there
+// strands it on the one path where they believe nothing happened
+// (PR #504 review).
+func TestSessionStartRollbackSaysTheHoldRemains(t *testing.T) {
+	dir := teamGitDir(t)
+	// The READ must succeed (no binding) and the WRITE must fail, so make the
+	// directory unwritable rather than putting something in the file's place —
+	// a bad file fails the read first and never reaches the rollback.
+	if err := os.Chmod(dir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+	gql, captured := captureGraphQL(t, map[string]string{
+		"Workers":          `{"data":{"workers":{"total":1,"items":[` + irisWorkerJSON + `]}}}`,
+		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
+		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"EndTeamSession":   `{"data":{"endSession":` + startedSessionJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "Iris",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("a failed binding write must fail the command")
+	}
+	if _, called := captured["EndTeamSession"]; !called {
+		t.Error("the server session must still be rolled back")
+	}
+	if strings.Contains(err.Error(), "is not held") {
+		t.Errorf("ending a session does not clear a hold — do not claim it did: %v", err)
+	}
+	for _, want := range []string{"HELD by you", "worker release"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the error must name the stranded hold and its remedy (%q): %v", want, err)
 		}
 	}
 }

@@ -680,6 +680,14 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 				// The transfer clause is instance-specific either way: nobody
 				// takes a retired name, so promising a next holder there is the
 				// same false promise the receipt avoids.
+				// Confirm refuses outright without a TTY, so resolving the
+				// holder there is a GetUser round trip — and an audit event —
+				// spent on a string nobody will read. The comment above claimed
+				// the prompt is built only when it can be shown; this makes it
+				// true (PR #504 review).
+				if !f.IOStreams.IsInputTerminal() {
+					return cmdutil.Confirm(f.IOStreams, false, "")
+				}
 				prompt := releasePrompt(w.Name, describeHolder(ctx, client, *priorHolder),
 					w.RetiredAt, forced != nil)
 				if err := cmdutil.Confirm(f.IOStreams, false, prompt); err != nil {
@@ -769,7 +777,7 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 					// nothing would conceal one that did.
 					if _, err := fmt.Fprintf(out,
 						"✓ released %s (previously held by %s) — your own identity could not be read, so if that "+
-							"was not you, the server will have posted a notice to the team chat\n",
+							"was not you, the server posts a notice to the team chat (best-effort)\n",
 						dto.Name, describeHolder(ctx, client, *priorHolder)); err != nil {
 						return err
 					}

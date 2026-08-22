@@ -424,7 +424,15 @@ it just relabels which worker the shared tree is blamed on.`,
 				if _, endErr := gen.EndTeamSession(ctx, client, s.Id, nil); endErr != nil {
 					return fmt.Errorf("%w; additionally, rolling back session %s failed (%v) — end it with `hadron team session end --session %s`", err, s.Id, endErr, s.Id)
 				}
-				return fmt.Errorf("%w (session %s was rolled back — worker %s is not held)", err, s.Id, w.Name)
+				// NOT "is not held". startSession CLAIMS the hold for a person,
+				// and ending a session never clears one (cor:agt:020:09) — so
+				// the rollback frees the SESSION and leaves the name claimed.
+				// Saying otherwise strands a hold the caller does not know they
+				// took, on the exact path where they believe nothing happened
+				// (PR #504 review).
+				return fmt.Errorf("%w (session %s was rolled back, but %s is now HELD by you — "+
+					"ending a session never clears a hold; run `hadron team worker release %s`)",
+					err, s.Id, w.Name, w.Name)
 			}
 			result := struct {
 				Session     sessionDTO `json:"session"`
@@ -470,7 +478,9 @@ the server whether the worker session is still open.
 
 If you are here because a chat session ended and you are not sure what you
 are still driving: the worker session survived it. This tells you which
-worker, and ` + "`session end`" + ` is what releases it.`,
+worker, and ` + "`session end`" + ` is what ends it. Ending the session does NOT
+release the NAME: a person who binds a worker holds its name until
+` + "`worker release`" + ` (cor:agt:020:09).`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			b, path, err := readBinding(cmd.Context())
@@ -926,11 +936,16 @@ func newCmdSessionEnd(f *cmdutil.Factory) *cobra.Command {
 	var summary, sessionID string
 	cmd := &cobra.Command{
 		Use:   "end [--summary <text>] [--session <id>]",
-		Short: "End this worktree's worker session — this is what releases the worker",
+		Short: "End this worktree's worker session — the session, not the name",
 		Long: `End the WORKER SESSION this worktree is bound to and clear the binding.
-This is the only thing that frees the worker — unless another active worker
-session still holds it (e.g. after a --force takeover; check
+This is the only thing that ends the session — unless another active worker
+session still has the worker (e.g. after a --force takeover; check
 ` + "`session list --active`" + `).
+
+IT DOES NOT RELEASE THE NAME. A person who binds a worker claims its name,
+and no session end, idle window, expiry or reap ever clears that hold
+(cor:agt:020:09) — only ` + "`worker release`" + ` does. So ending here frees the
+worker to be BOUND by you again; it does not hand the name to anyone else.
 
 Closing your CHAT SESSION does not do this. Archive the Desktop window or
 quit the Claude Code session and the worker session stays open, holding the
