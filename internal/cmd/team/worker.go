@@ -789,7 +789,17 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 						return err
 					}
 				default:
-					if _, err := fmt.Fprintf(out, "✓ released %s — anyone may bind it now\n", dto.Name); err != nil {
+					// "anyone may bind it now" is FALSE for a retired worker —
+					// startSession refuses one (WORKER_RETIRED) whether or not
+					// its name is held, so releasing the hold frees nothing a
+					// caller can use. Found by sweeping every sentence this
+					// command prints and asking what proves each, after the
+					// third unverifiable claim in one review (PR #504).
+					next := "anyone may bind it now"
+					if dto.Retired {
+						next = "the worker is retired, so nobody can bind it — the name is simply no longer held"
+					}
+					if _, err := fmt.Fprintf(out, "✓ released %s — %s\n", dto.Name, next); err != nil {
 						return err
 					}
 				}

@@ -510,3 +510,47 @@ func TestWorkerReleaseDoesNotClaimUnheldWhenItCannotSee(t *testing.T) {
 		t.Errorf("a genuinely unheld name still says so plainly: %s", out4.String())
 	}
 }
+
+// "anyone may bind it now" is the natural thing to say after a release, and it
+// is FALSE for a retired worker: startSession refuses one (WORKER_RETIRED)
+// regardless of the hold, so releasing frees nothing a caller can use.
+//
+// Found by sweeping every sentence the command prints and asking what proves
+// each — the pass I should have run after the FIRST unverifiable claim in this
+// PR's review rather than the third.
+func TestWorkerReleaseDoesNotPromiseBindingARetiredWorker(t *testing.T) {
+	retiredHeld := strings.Replace(heldBy("u-holger"), `"retiredAt":null`,
+		`"retiredAt":"2026-08-15T00:00:00Z"`, 1)
+	stubs := releaseStubs(retiredHeld, nil)
+	stubs["GetWorker"] = `{"data":{"worker":` + retiredHeld + `}}`
+	stubs["ReleaseWorker"] = `{"data":{"releaseWorker":` + retiredHeld + `}}`
+
+	gql, _ := captureGraphQL(t, stubs)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "release", "Iris",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	got := out.String()
+	if strings.Contains(got, "anyone may bind it now") {
+		t.Errorf("a retired worker cannot be bound by anyone — the release frees nothing usable: %s", got)
+	}
+	if !strings.Contains(got, "retired") {
+		t.Errorf("say why the released name is still unbindable: %s", got)
+	}
+
+	// Control: a LIVE worker still gets the plain, useful sentence.
+	gql2, _ := captureGraphQL(t, releaseStubs(heldBy("u-holger"), nil))
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "worker", "release", "Iris",
+		"--app", "acme.com:eng-team", "--server", gql2.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out2.String(), "anyone may bind it now") {
+		t.Errorf("a live worker's release should say the name is available: %s", out2.String())
+	}
+}
