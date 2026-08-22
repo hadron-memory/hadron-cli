@@ -39,8 +39,11 @@ fragment WorkerFields on Worker {
   #
   # Both are MASKED TO NULL ON DENY, like prompt/promptOverride/memoryId. So a
   # null means "unheld OR not visible to you" and must never be rendered as a
-  # bare "free"; `worker release` is the one place that ambiguity legitimately
-  # collapses, and it says why at the site.
+  # bare "free". That ambiguity is IRREDUCIBLE client-side — there is no
+  # visibility signal on Worker — so no caller may resolve it; `worker release`
+  # reports "no hold was visible to you" rather than guessing. An earlier
+  # version of this comment claimed the ambiguity collapsed in release. It does
+  # not (hadron-cli PR #504).
   #
   # NOT added to WorkerRosterFields: which surface shows who is driving is
   # hadron-cli#487's design question, and a column added in passing here would

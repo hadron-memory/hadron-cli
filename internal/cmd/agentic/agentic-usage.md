@@ -833,7 +833,7 @@ Conventions:
   `status: "no-visible-hold"` with `wasHeld` and `forced` both **null** rather
   than claiming the name is free: a caller acting on `wasHeld: false` meets
   `WORKER_HELD` at the next `session start`. It does not prompt, since every
-  idempotent no-op would otherwise. and `--json` carries `wasHeld`/`releasedFromUserId`/`forced`
+  idempotent no-op would otherwise; `--json` carries `wasHeld`/`releasedFromUserId`/`forced`
   describing the state BEFORE the call, since the returned worker is
   post-release by construction. **`forced` is nullable**: null means the
   caller's own identity could not be read against a held name, so the act could

@@ -210,9 +210,9 @@ Against `srv.hadronmemory.com` on the real team App:
 
 - `worker get --json` carries `heldByUserId`/`heldAt` — Jonas reads as held
   since 2026-08-19.
-- The **no-op** branch end to end, on two genuinely unheld workers: `· Mira was
-  hold on Mira was visible to you`, `--json` `status: "no-visible-hold"`, and
-  Mira unchanged afterwards.
+- The **no-op** branch end to end, on two genuinely unheld workers:
+  `· no hold on Mira was visible to you — nothing was released that you could
+  see`, `--json` `status: "no-visible-hold"`, and Mira unchanged afterwards.
 - `make unbound-ops` drops `releaseWorker` from the unwrapped list (87 → 86),
   which is the gate that surfaced this gap recording it closed.
 

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -15,6 +16,15 @@ import (
 //
 // The worker fixtures below carry an explicit hold, since the shared
 // irisWorkerJSON is unheld.
+
+// released is the POST-release shape of a worker fixture: the hold cleared, as
+// releaseWorker returns it by construction. Stubbing a still-held worker there
+// contradicts the contract and can hide a regression that reads the prior
+// holder off the response rather than the pre-read (PR #504 review).
+func released(worker string) string {
+	out := regexp.MustCompile(`"heldByUserId":"[^"]*"`).ReplaceAllString(worker, `"heldByUserId":null`)
+	return regexp.MustCompile(`"heldAt":"[^"]*"`).ReplaceAllString(out, `"heldAt":null`)
+}
 
 // heldBy returns irisWorkerJSON with the hold set to a given user.
 func heldBy(userID string) string {
@@ -33,7 +43,9 @@ func releaseStubs(worker string, extra map[string]string) map[string]string {
 		"AuthContext": authContextHolgerJSON,
 		// The re-read immediately before the mutation. By default it answers
 		// with the SAME worker, i.e. the hold did not change.
-		"GetWorker":     `{"data":{"worker":` + worker + `}}`,
+		"GetWorker": `{"data":{"worker":` + worker + `}}`,
+		// POST-release by construction: irisWorkerJSON carries no hold, which
+		// is what releaseWorker returns. Do not swap in a held fixture here.
 		"ReleaseWorker": `{"data":{"releaseWorker":` + irisWorkerJSON + `}}`,
 	}
 	for k, v := range extra {
@@ -505,7 +517,11 @@ func TestWorkerReleaseDoesNotPromiseBindingARetiredWorker(t *testing.T) {
 		`"retiredAt":"2026-08-15T00:00:00Z"`, 1)
 	stubs := releaseStubs(retiredHeld, nil)
 	stubs["GetWorker"] = `{"data":{"worker":` + retiredHeld + `}}`
-	stubs["ReleaseWorker"] = `{"data":{"releaseWorker":` + retiredHeld + `}}`
+	// POST-release: releaseWorker returns the worker with the hold cleared, by
+	// construction. A stub that hands back a still-held worker is inconsistent
+	// with the contract and can mask a regression that reads the hold from the
+	// response instead of the pre-read (PR #504 review).
+	stubs["ReleaseWorker"] = `{"data":{"releaseWorker":` + released(retiredHeld) + `}}`
 
 	gql, _ := captureGraphQL(t, stubs)
 	f, out := testFactory(t)
@@ -555,7 +571,7 @@ func TestWorkerReleasePromptDoesNotPromiseANextHolderForARetiredWorker(t *testin
 			"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
 	})
 	stubs["GetWorker"] = `{"data":{"worker":` + retiredHeld + `}}`
-	stubs["ReleaseWorker"] = `{"data":{"releaseWorker":` + retiredHeld + `}}`
+	stubs["ReleaseWorker"] = `{"data":{"releaseWorker":` + released(retiredHeld) + `}}`
 
 	gql, _ := captureGraphQL(t, stubs)
 	f, out := testFactory(t)
