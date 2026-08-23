@@ -169,10 +169,10 @@ warnings too.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to `hadron spec use`, then the active memory)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
 	cmd.Flags().StringArrayVar(&srcs, "src", nil, "file or directory to scan (repeatable; default \".\")")
 	cmd.Flags().StringArrayVar(&excludes, "exclude", nil, "skip paths matching this glob (repeatable)")
-	cmd.Flags().BoolVar(&loose, "loose", false, "match citation-shaped tokens anywhere, not just after `Spec:`")
+	cmd.Flags().BoolVar(&loose, "loose", false, "match citation-shaped tokens anywhere, not just after a Spec: anchor")
 	cmd.Flags().BoolVar(&staleAbstracts, "stale-abstracts", false,
 		"also warn when a cited spec's body differs from the version its abstract was written against (a hash comparison, not proof the rule changed)")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")

@@ -115,7 +115,7 @@ convention ("documents <from> on the <to> entity"); refine it with
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to `hadron spec use`, then the active memory)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
 	cmd.Flags().StringVar(&label, "label", "", "edge label (default: synthesized from the two titles)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the planned edge without writing anything")
 	return cmd

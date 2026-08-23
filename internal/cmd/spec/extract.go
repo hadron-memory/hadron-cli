@@ -268,7 +268,7 @@ chunk leaves the source alone with a warning.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to `hadron spec use`, then the active memory)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
 	cmd.Flags().StringVar(&toFeature, "to-feature", "", "existing feature the extracted rule lands under (3 digits, required)")
 	cmd.Flags().StringVar(&rule, "rule", "", "create this exact rule number (2 digits; default: allocate the next)")
 	cmd.Flags().StringVar(&title, "title", "", "human title for the extracted spec (required)")

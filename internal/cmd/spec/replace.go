@@ -206,7 +206,7 @@ example, leave an abstract out of sync with its content.`,
 			return writeSpecReplaceReport(f, dto)
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to `hadron spec use`, then the active memory)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "restrict to a citation prefix (that node + its descendants)")
 	cmd.Flags().StringVar(&field, "field", "", "restrict to one field: content or abstract (default: both)")
 	cmd.Flags().BoolVar(&useRegex, "regex", false, "treat <pattern> as a regular expression and <replacement> as a pattern ($1/$&)")

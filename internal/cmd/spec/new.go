@@ -350,7 +350,7 @@ is one call instead of four.`, abstractSoftMax),
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to `hadron spec use`, then the active memory)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
 	cmd.Flags().StringVar(&product, "product", "", "3-letter product code (product-rooted corpora)")
 	cmd.Flags().StringVar(&module, "module", "", "3-letter module code")
 	cmd.Flags().StringVar(&title, "title", "", "human title for the spec (required)")
