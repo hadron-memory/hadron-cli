@@ -279,6 +279,23 @@ func classifyHold(ctx context.Context, client graphql.Client, w gen.WorkerFields
 	}
 }
 
+// appIndependentRef picks the spelling of a worker that resolves with NO App
+// scope: its URN, or its id when the App's URN predates the grammar-v2 arity
+// a worker URN needs and there is none.
+//
+// Never the NAME. A name resolves only within an App (cor:agt:020:02), so a
+// remedy command spelled with one fails not-found for precisely the caller
+// most likely to be reading it — whoever reached this refusal through
+// `--as hrn:worker:…` with no ambient App, which is a supported path and the
+// one `--as`'s own help now recommends for scripts. (PR #511 review, Codex
+// P2 + Copilot, independently.)
+func appIndependentRef(w gen.WorkerFields) string {
+	if w.Urn != nil && *w.Urn != "" {
+		return *w.Urn
+	}
+	return w.Id
+}
+
 // heldRefusal is the WORKER_HELD refusal, in one place because two paths
 // reach it — the pre-flight that reads the hold off the worker row, and the
 // server's own refusal, which is the authority and also covers the race the
@@ -290,7 +307,11 @@ func classifyHold(ctx context.Context, client graphql.Client, w gen.WorkerFields
 // refusal was left with no remedy at all. cor:agt:020:09 supplies the real
 // one: cast your own worker. Naming the holder is what makes the other route —
 // ask them to release — actionable rather than theoretical.
-func heldRefusal(name, holder string, heldAt *string) error {
+// A remedy is only a remedy if the caller can run it as written, so BOTH
+// commands here name their App scope: `release` through an App-independent
+// ref, and `cast`, which has no such spelling — a worker that does not exist
+// yet cannot be addressed — through an explicit --app placeholder.
+func heldRefusal(name, ref, holder string, heldAt *string) error {
 	who := holder
 	if who == "" {
 		// Reached when the server sent no heldByName and no heldBy, or when
@@ -304,8 +325,8 @@ func heldRefusal(name, holder string, heldAt *string) error {
 	}
 	return exitcode.Newf(exitcode.Conflict,
 		"the name %s is held by %s%s — a HELD name is not a TAKEN one: no session ending, idle window, expiry or reap frees it, and --force does NOT apply (cor:agt:020:09). "+
-			"Cast your own worker for the role (`hadron team worker cast --name <n> --role <role>`), or ask the holder — or an App/org admin — to run `hadron team worker release %s`",
-		name, who, since, name)
+			"Cast your own worker for the role (`hadron team worker cast --app <app> --name <n> --role <role>`), or ask the holder — or an App/org admin — to run `hadron team worker release %s`",
+		name, who, since, ref)
 }
 
 func newCmdSessionStart(f *cmdutil.Factory) *cobra.Command {
@@ -447,7 +468,7 @@ holds nothing).`,
 				// advice rather than as vocabulary.
 				switch holder, verdict := classifyHold(ctx, client, w); verdict {
 				case holdByOther:
-					return heldRefusal(w.Name, holder, w.HeldAt)
+					return heldRefusal(w.Name, appIndependentRef(w), holder, w.HeldAt)
 				case holdUnknownWhose:
 					return exitcode.Newf(exitcode.Conflict,
 						"worker %s is being driven by %s, and the name is held by %s — this CLI could not read your own identity to tell whether that is you. If it is, --force takes over; if it is not, nothing does: a held name is not forceable, and the remedy is to cast your own worker (cor:agt:020:09)",
@@ -497,7 +518,7 @@ holds nothing).`,
 				// takeover would be the exact misdirection this branch exists
 				// to remove.
 				if detail, held := api.WorkerHeldDetail(err); held {
-					return heldRefusal(w.Name, detail.Holder(), optStr(detail.HeldAt))
+					return heldRefusal(w.Name, appIndependentRef(w), detail.Holder(), optStr(detail.HeldAt))
 				}
 				if detail, taken := api.WorkerTakenDetail(err); taken {
 					who := detail.LastDriver

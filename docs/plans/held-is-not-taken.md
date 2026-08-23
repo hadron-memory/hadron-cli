@@ -155,12 +155,38 @@ proving nothing. The mutation has to be *seen* to land.
 | `HeldDetail.Holder()` fallback removed | `TestWorkerHeldDetail` |
 | "since" clause rendered unconditionally | `…ServerHeldReducedPayloadDegrades` |
 | unknown identity collapsed into `holdByOther` | `…HeldUnknownWhoseHedges` |
+| remedy ref falls back to the NAME | `…HeldRemedyFallsBackToIDWhenURNIsNull` |
+| nil-only URN guard (empty string slips through) | `…HeldRemedyFallsBackToIDWhenURNIsNull` |
+| `--app <app>` dropped from the cast remedy | `…HeldRemedyIsRunnableWithoutAppScope` |
 
 The fixtures carry an **explicit** hold (`heldBy("u-dara")`). The shared
 `irisWorkerJSON` has no `heldByUserId` at all, so a test built on it would
 exercise the unheld branch while appearing to test holding — the same shape
 as the omitempty fixture that made six of the previous stint's guards unable
 to fail.
+
+## Review round: the remedy was not runnable
+
+Both bots landed independently on the same defect, which is the signal worth
+recording: **a remedy is only a remedy if the caller can run it as written.**
+
+The refusal told the holder to run `hadron team worker release <name>` and
+told the reader to `hadron team worker cast --name … --role …`. A bare name
+resolves only within an App (`cor:agt:020:02`), and `cast` requires an App
+context outright. So for a caller who arrived via `--as hrn:worker:…` with no
+ambient App — a supported path, and the one `--as`'s own help had just started
+recommending for scripts — `release` answers not-found and `cast` refuses
+"no team App". **The advice failed exactly the reader most likely to be
+reading it**, and the same PR that documented the App-free spelling was
+handing out App-dependent remedies.
+
+Fixed by `appIndependentRef` (URN, falling back to the id) for `release`, and
+an explicit `--app <app>` in the `cast` shape, since a worker that does not
+exist yet has no App-independent spelling.
+
+The general form is worth carrying: **when a message names a command, check it
+against the narrowest context that reaches the message**, not the one you had
+in mind while writing it.
 
 ## Platform specs: no citation proposed
 

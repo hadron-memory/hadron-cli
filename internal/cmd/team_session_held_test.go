@@ -70,6 +70,97 @@ func TestTeamSessionStartHeldByAnotherRefusesWithoutOfferingForce(t *testing.T) 
 	}
 }
 
+// PR #511 review, Codex P2 and Copilot independently: a remedy is only a
+// remedy if the caller can RUN it as written. `--as hrn:worker:…` with no
+// ambient App is a supported path — the one `--as`'s own help recommends for
+// scripts — and in it a bare NAME resolves to nothing (cor:agt:020:02), so
+// `worker release <name>` would answer not-found and `worker cast` would
+// refuse "no team App". The reader most likely to hit this refusal is the
+// one the advice would have failed.
+func TestTeamSessionStartHeldRemedyIsRunnableWithoutAppScope(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetWorker":    `{"data":{"worker":` + heldBy("u-dara") + `}}`,
+		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+		"AuthContext":  authContextHolgerJSON,
+		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "hrn:worker:acme.com:eng-team:iris", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("a name held by someone else must refuse")
+	}
+	// The release command carries the App-independent URN, never the name.
+	if !strings.Contains(err.Error(), "worker release hrn:worker:acme.com:eng-team:iris") {
+		t.Errorf("release must be spelled with an App-independent ref: %v", err)
+	}
+	if strings.Contains(err.Error(), "worker release Iris") {
+		t.Errorf("release must not be spelled with a bare name: %v", err)
+	}
+	// `cast` has no App-independent spelling — a worker that does not exist
+	// yet cannot be addressed — so it must name --app explicitly instead.
+	if !strings.Contains(err.Error(), "worker cast --app <app>") {
+		t.Errorf("cast must name the App scope it requires: %v", err)
+	}
+}
+
+// A worker whose App URN predates grammar v2 has NO urn, and the remedy still
+// has to be runnable — so the ref falls back to the id, which also resolves
+// with no App scope. Without this the nil URN would render "release <nil>" or
+// silently fall back to the name the case above rules out.
+func TestTeamSessionStartHeldRemedyFallsBackToIDWhenURNIsNull(t *testing.T) {
+	teamGitDir(t)
+	noURN := strings.Replace(heldBy("u-dara"),
+		`"urn":"hrn:worker:acme.com:eng-team:iris"`, `"urn":null`, 1)
+	if !strings.Contains(noURN, `"urn":null`) {
+		t.Fatal("fixture did not lose its urn — the test would prove nothing")
+	}
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetWorker":    `{"data":{"worker":` + noURN + `}}`,
+		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+		"AuthContext":  authContextHolgerJSON,
+		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("a name held by someone else must refuse")
+	}
+	if !strings.Contains(err.Error(), "worker release wkr1") {
+		t.Errorf("a URN-less worker must fall back to its id: %v", err)
+	}
+
+	// An EMPTY urn is the other absent shape, and it needs its own case: a
+	// nil-only guard passes the null test above and then renders
+	// "worker release " — a remedy with no argument. Absent is absent
+	// whichever way the server spells it.
+	emptyURN := strings.Replace(heldBy("u-dara"),
+		`"urn":"hrn:worker:acme.com:eng-team:iris"`, `"urn":""`, 1)
+	if !strings.Contains(emptyURN, `"urn":""`) {
+		t.Fatal("fixture did not get an empty urn — the test would prove nothing")
+	}
+	gql2, _ := captureGraphQL(t, map[string]string{
+		"GetWorker":    `{"data":{"worker":` + emptyURN + `}}`,
+		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+		"AuthContext":  authContextHolgerJSON,
+		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),
+	})
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", gql2.URL})
+	err2 := root2.Execute()
+	if err2 == nil {
+		t.Fatal("a name held by someone else must refuse")
+	}
+	if !strings.Contains(err2.Error(), "worker release wkr1") {
+		t.Errorf("an empty urn must fall back to the id, not render a bare command: %v", err2)
+	}
+}
+
 // The other side of the same branch, and the reason classifyHold is not a
 // bool: a hold that is YOUR OWN leaves --force exactly as correct as it was.
 // Without this, "never mention --force when heldByUserId is set" would pass
