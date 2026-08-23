@@ -39,19 +39,30 @@ var metavar = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 
 func TestFlagUsagePlaceholdersAreDeliberate(t *testing.T) {
 	f, _ := testFactory(t)
-	checked, seen := 0, map[string]bool{}
+	// TWO counters, measuring two different things — conflating them was the
+	// last defect here (PR #509 review, both bots).
+	//
+	// `seen` dedupes REPORTS by the flag's identity, so one mistake in a usage
+	// string shared by thirteen subcommands is reported once. Keying it by
+	// CommandPath did the opposite: an inherited persistent flag is unique per
+	// path, so nothing deduped.
+	//
+	// `commands` floors COVERAGE, because "did the walk reach the tree" is a
+	// question about commands, not flags. Counting flag visits made the floor
+	// unfailable: root's three persistent flags across 33 direct children clear
+	// 100 on their own, so a walk that stopped one level down still passed.
+	commands := 0
+	seen := map[string]bool{}
 
 	var walk func(*cobra.Command)
 	walk = func(c *cobra.Command) {
+		commands++
 		check := func(fl *pflag.Flag) {
-			// A persistent flag is visited once per command that inherits it;
-			// dedupe so one mistake is not reported thirty times.
-			key := c.CommandPath() + " --" + fl.Name
+			key := fl.Name + "\x00" + fl.Value.Type() + "\x00" + fl.Usage
 			if seen[key] {
 				return
 			}
 			seen[key] = true
-			checked++
 
 			m := backquoted.FindStringSubmatch(fl.Usage)
 			if m == nil {
@@ -94,7 +105,11 @@ func TestFlagUsagePlaceholdersAreDeliberate(t *testing.T) {
 	// The walk silently checks nothing if the command tree stops being
 	// reachable this way, so floor it — the same reason the agentic-usage
 	// synopsis guard counts what it matched.
-	if checked < 100 {
-		t.Errorf("only %d flags checked — the walk has stopped reaching the command tree", checked)
+	//
+	// Floored on COMMANDS. The tree is ~200 commands deep in groups; a walk
+	// that reached only root and its direct children would see ~34 and fail
+	// here, which is exactly the failure the floor exists for.
+	if commands < 150 {
+		t.Errorf("only %d commands walked — the walk has stopped reaching the command tree", commands)
 	}
 }
