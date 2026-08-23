@@ -20352,6 +20352,7 @@ func (v *__EncryptMemoryInput) GetDataKey() string { return v.DataKey }
 type __EndTeamSessionInput struct {
 	Id      string  `json:"id"`
 	Summary *string `json:"summary,omitempty"`
+	Handoff *string `json:"handoff,omitempty"`
 }
 
 // GetId returns __EndTeamSessionInput.Id, and is useful for accessing the field via an interface.
@@ -20359,6 +20360,9 @@ func (v *__EndTeamSessionInput) GetId() string { return v.Id }
 
 // GetSummary returns __EndTeamSessionInput.Summary, and is useful for accessing the field via an interface.
 func (v *__EndTeamSessionInput) GetSummary() *string { return v.Summary }
+
+// GetHandoff returns __EndTeamSessionInput.Handoff, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionInput) GetHandoff() *string { return v.Handoff }
 
 // __ExtractParentNodeToMemoryInput is used internally by genqlient
 type __ExtractParentNodeToMemoryInput struct {
@@ -24895,8 +24899,8 @@ func EncryptMemory(
 
 // The mutation executed by EndTeamSession.
 const EndTeamSession_Operation = `
-mutation EndTeamSession ($id: ID!, $summary: String) {
-	endSession(id: $id, summary: $summary) {
+mutation EndTeamSession ($id: ID!, $summary: String, $handoff: String) {
+	endSession(id: $id, summary: $summary, handoff: $handoff) {
 		... TeamSessionFields
 	}
 }
@@ -24923,11 +24927,27 @@ fragment TeamSessionFields on Session {
 }
 `
 
+// `handoff` is the #1029 CONTINUITY RECORD, and the reason this mutation is not
+// just a state flip: agent-composed prose about what landed, what is open, what
+// is blocked, and what the next driver should not repeat. The server owns where
+// it goes (the worker's working memory, under `handoffs`, at a lexically-ordered
+// loc), so the CLI composes no node and derives no convention.
+//
+// It is written BEFORE the session ends, and a failed write REFUSES the end
+// (HANDOFF_WRITE_FAILED) rather than ending anyway — a still-bound worker is
+// recoverable, an ended session whose handoff evaporated is not, because the
+// context that composed it is gone. Passing it on a session with no worker is
+// refused rather than dropped: there is no sequence to write it to.
+//
+// `summary` is a DIFFERENT field and the next driver never sees it (#1029 — it
+// is the write-only field that feature was filed to fix). Both are kept because
+// collapsing them is a decision about #1029's shape, not about this operation.
 func EndTeamSession(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	id string,
 	summary *string,
+	handoff *string,
 ) (data_ *EndTeamSessionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "EndTeamSession",
@@ -24935,6 +24955,7 @@ func EndTeamSession(
 		Variables: &__EndTeamSessionInput{
 			Id:      id,
 			Summary: summary,
+			Handoff: handoff,
 		},
 	}
 

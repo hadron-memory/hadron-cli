@@ -298,7 +298,11 @@ it just relabels which worker the shared tree is blamed on.`,
 			// server, which `session end`'s server guard would catch but a
 			// takeover deliberately steamrolls.
 			if existing != nil {
-				if _, endErr := gen.EndTeamSession(ctx, client, existing.SessionID, nil); endErr != nil {
+				// No handoff: this ends SOMEBODY ELSE'S abandoned session, and a
+				// continuity record is the departing driver's account of their
+				// own work. Composing one on their behalf would put words in
+				// the worker's handoff sequence that nobody wrote.
+				if _, endErr := gen.EndTeamSession(ctx, client, existing.SessionID, nil, nil); endErr != nil {
 					fmt.Fprintf(f.IOStreams.ErrOut, "note: could not end previously bound session %s (%v) — if it is still active, end it manually\n", existing.SessionID, endErr)
 				} else {
 					fmt.Fprintf(f.IOStreams.ErrOut, "ended previously bound session %s (worker %s)\n", existing.SessionID, existing.WorkerName)
@@ -421,7 +425,7 @@ it just relabels which worker the shared tree is blamed on.`,
 				// worktree cannot end it and the worker would stay taken
 				// until the reaper expires it — so compensate by ending it
 				// now.
-				if _, endErr := gen.EndTeamSession(ctx, client, s.Id, nil); endErr != nil {
+				if _, endErr := gen.EndTeamSession(ctx, client, s.Id, nil, nil); endErr != nil {
 					return fmt.Errorf("%w; additionally, rolling back session %s failed (%v) — end it with `hadron team session end --session %s`", err, s.Id, endErr, s.Id)
 				}
 				// NOT "is not held": ending a session never clears a hold
@@ -958,9 +962,9 @@ type endResultDTO struct {
 }
 
 func newCmdSessionEnd(f *cmdutil.Factory) *cobra.Command {
-	var summary, sessionID string
+	var summary, sessionID, handoff, handoffFile string
 	cmd := &cobra.Command{
-		Use:   "end [--summary <text>] [--session <id>]",
+		Use:   "end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>]",
 		Short: "End this worktree's worker session — the session, not the name",
 		Long: `End the WORKER SESSION this worktree is bound to and clear the binding.
 This is the only thing that ends the session — unless another active worker
@@ -976,6 +980,29 @@ Closing your CHAT SESSION does not do this. Archive the Desktop window or
 quit the Claude Code session and the worker session stays open, holding the
 worker until you end it here or the server reaps it (hadron-server#1034).
 So end it deliberately when you stop working, not when you close the window.
+
+--handoff IS WHAT THE NEXT DRIVER READS (hadron-server#1029). Prose about
+what landed, what is open, what is blocked, and what they should not
+repeat — the server files it in the worker's own memory, and the next bind
+hands it over. Because handoffs follow the NAME rather than the holder
+(cor:agt:020:09), it may well be a colleague who receives it.
+
+Written BEFORE the session ends, and a failed write REFUSES the end
+(HANDOFF_WRITE_FAILED, exit 1) rather than ending anyway: a still-bound
+worker is recoverable — retry, or end without a handoff deliberately —
+while an ended session whose handoff evaporated is not, because the
+context that composed it is gone. A session with no worker has no sequence
+to write to, so passing --handoff there is refused rather than dropped.
+
+--handoff-file reads it from a file, and ` + "`--handoff -`" + ` from stdin. A
+handoff is prose of real length, and putting a paragraph through shell
+quoting is its own hazard.
+
+--SUMMARY IS A DIFFERENT FIELD AND THE NEXT DRIVER NEVER SEES IT. It is a
+short label on the session row; nothing reads it back, which is the gap
+#1029 was filed to close. Both are kept because collapsing them is a
+decision about that feature's shape rather than about this flag — but if
+you are writing one thing for whoever comes next, write --handoff.
 
 --session ends an explicit worker session id instead — the recovery path
 when the binding is gone or unusable (a lost worktree, a failed binding
@@ -1000,11 +1027,15 @@ session is still open.`,
 					return err
 				}
 			}
+			text, err := resolveHandoff(cmd, handoff, handoffFile, f.IOStreams.In)
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			resp, err := gen.EndTeamSession(ctx, client, id, optStr(summary))
+			resp, err := gen.EndTeamSession(ctx, client, id, optStr(summary), optStr(text))
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -1029,7 +1060,10 @@ session is still open.`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&summary, "summary", "", "short summary of what the session did")
+	cmd.Flags().StringVar(&handoff, "handoff", "", "continuity record for the next driver — what landed, what is open, what is blocked (a lone - reads stdin)")
+	cmd.Flags().StringVar(&handoffFile, "handoff-file", "", "read the handoff from a file (multi-line safe)")
+	cmd.Flags().StringVar(&summary, "summary", "", "short session label — DISPLAY ONLY, the next driver never sees it (use --handoff for that)")
+	cmd.MarkFlagsMutuallyExclusive("handoff", "handoff-file")
 	cmd.Flags().StringVar(&sessionID, "session", "", "end this session id instead of the worktree's bound one (recovery)")
 	return cmd
 }
@@ -1327,4 +1361,45 @@ func sessionStartWorkerDTO(w gen.WorkerFields) workerDTO {
 	dto := workerDTOFromFields(w)
 	dto.HeldByUserID, dto.HeldAt = nil, nil
 	return dto
+}
+
+// resolveHandoff reads the continuity record from --handoff, --handoff-file, or
+// stdin (`--handoff -`), returning "" when none was asked for.
+//
+// It deliberately does NOT reuse chat.ResolveBody, which the flag shape is
+// modelled on: a chat body is REQUIRED and an empty one is an error, while a
+// handoff is optional — ending a session without one is a normal thing to do,
+// and the server treats an omitted handoff as "no continuity record" rather
+// than a failure.
+//
+// What it keeps from that precedent is refusing an EXPLICIT empty: someone who
+// typed --handoff "" or pointed at an empty file meant to write something, and
+// silently ending with no record is the outcome #1029 exists to prevent.
+func resolveHandoff(cmd *cobra.Command, handoff, handoffFile string, stdin io.Reader) (string, error) {
+	changed := cmd.Flags().Changed
+	if !changed("handoff") && !changed("handoff-file") {
+		return "", nil
+	}
+	var text string
+	switch {
+	case changed("handoff-file"):
+		data, err := os.ReadFile(handoffFile) // #nosec G304 — an operator-supplied path is the point
+		if err != nil {
+			return "", exitcode.Newf(exitcode.Usage, "reading --handoff-file: %v", err)
+		}
+		text = string(data)
+	case handoff == "-":
+		data, err := io.ReadAll(stdin)
+		if err != nil {
+			return "", exitcode.Newf(exitcode.Usage, "reading the handoff from stdin: %v", err)
+		}
+		text = string(data)
+	default:
+		text = handoff
+	}
+	if strings.TrimSpace(text) == "" {
+		return "", exitcode.Newf(exitcode.Usage,
+			"the handoff is empty — write what the next driver needs, or omit --handoff to end without a continuity record")
+	}
+	return text, nil
 }
