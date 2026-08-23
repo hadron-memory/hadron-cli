@@ -208,6 +208,59 @@ func WorkerTakenDetail(err error) (TakenDetail, bool) {
 	return TakenDetail{}, false
 }
 
+// HeldDetail is the payload a WORKER_HELD error carries
+// (hadron-server#1050): whose name it is, and since when.
+//
+// TWO server paths raise this code and they do NOT carry the same fields.
+// The pre-transaction check resolves the holder and sends workerId, heldBy,
+// heldByName and heldAt; the compare-and-set inside the session-creating
+// transaction — the one that refuses the loser of a race — sends only
+// workerId and heldBy, because it has no holder read to spare. So HolderName
+// and HeldAt are absent on a perfectly ordinary refusal, and a caller that
+// renders them unconditionally prints a half-empty sentence on the path a
+// concurrent bind takes. Every field is best-effort; only ok is a promise.
+type HeldDetail struct {
+	WorkerID   string
+	HolderID   string
+	HolderName string
+	HeldAt     string
+}
+
+// WorkerHeldDetail extracts the WORKER_HELD payload from err's extensions;
+// ok is false when err is not that error. Rendered from the extensions, not
+// the message wording (cor:agt:020:09 is the contract). Call it BEFORE
+// MapError wraps the error.
+//
+// HELD is not TAKEN and the difference is the whole point: a held name is
+// somebody's until they release it, so this refusal has no --force. Never
+// pair it with a takeover suggestion.
+func WorkerHeldDetail(err error) (HeldDetail, bool) {
+	for _, e := range graphQLErrors(err) {
+		if e == nil || extensionCode(e) != "WORKER_HELD" {
+			continue
+		}
+		d := HeldDetail{}
+		if e.Extensions != nil {
+			d.WorkerID, _ = e.Extensions["workerId"].(string)
+			d.HolderID, _ = e.Extensions["heldBy"].(string)
+			d.HolderName, _ = e.Extensions["heldByName"].(string)
+			d.HeldAt, _ = e.Extensions["heldAt"].(string)
+		}
+		return d, true
+	}
+	return HeldDetail{}, false
+}
+
+// Holder names the person holding the name, preferring the handle the server
+// resolved and falling back to the raw user id — which is what the race path
+// leaves us with. Empty only when the server sent neither.
+func (d HeldDetail) Holder() string {
+	if d.HolderName != "" {
+		return d.HolderName
+	}
+	return d.HolderID
+}
+
 // DescendantCount returns the descendant count carried by a
 // NODE_HAS_DESCENDANTS error (server #661: its extensions.count), or -1 when err
 // is not that error or carries no non-negative numeric count. JSON numbers decode
@@ -272,7 +325,14 @@ func codeForExtension(code string) int {
 	// without force (hadron-server#940, the atomic takeover gate) — state
 	// conflicts: retrying blind won't help until the state changes (cast a
 	// new worker, pick another one, or take over with --force).
-	case code == "WORKER_IN_USE" || code == "WORKER_RETIRED" || code == "WORKER_TAKEN":
+	// WORKER_HELD (hadron-server#1050) joins them: a name held by another
+	// person refuses every binder but its holder, and retrying — with or
+	// without --force — cannot change that. It is a Conflict for the same
+	// reason its neighbours are, and it must NOT ride in on the `_TAKEN`
+	// suffix rule above, which is the conflation cor:agt:020:09 names: a
+	// held name is not a taken one, and only one of the two is forceable.
+	case code == "WORKER_IN_USE" || code == "WORKER_RETIRED" || code == "WORKER_TAKEN" ||
+		code == "WORKER_HELD":
 		return exitcode.Conflict
 	// An already-existing role is a state conflict (TEAM_ROLE_EXISTS is
 	// spelled without the _ALREADY_ the suffix rule matches).

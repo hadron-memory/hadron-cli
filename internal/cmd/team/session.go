@@ -233,6 +233,102 @@ func alreadyBoundError(ctx context.Context, f *cmdutil.Factory, existing *bindin
 	}
 }
 
+// holdVerdict is what the CLI can honestly say about whose name this is
+// (cor:agt:020:09). It has four values rather than a bool because
+// `heldByUserId` masks to null on deny, so "no hold visible" is NOT "unheld",
+// and a failed identity read is NOT "held by somebody else" — the two
+// unknowns fall on opposite sides and collapsing either one produces a
+// confident wrong sentence (review:a-claim-must-not-outrun-its-evidence).
+type holdVerdict int
+
+const (
+	// holdNoneVisible — no hold on the row. Either nobody holds the name or
+	// the caller cannot see who does; the CLI must not assert which, so it
+	// asserts nothing and lets the server be the gate.
+	holdNoneVisible holdVerdict = iota
+	// holdByMe — the caller's own name. TAKEN is forceable here, and only
+	// here, because the driver deciding is the driver affected.
+	holdByMe
+	// holdByOther — provably somebody else's. --force cannot help.
+	holdByOther
+	// holdUnknownWhose — held, but this CLI could not read its own identity
+	// to say by whom. Held is a FACT; whether it is yours is the open part.
+	holdUnknownWhose
+)
+
+// classifyHold answers "whose name is this?" for a worker row, returning the
+// holder as a human label alongside the verdict. Best-effort by construction:
+// both reads it makes are decoration-or-classification, never gates, and a
+// failure downgrades the verdict rather than failing the command.
+func classifyHold(ctx context.Context, client graphql.Client, w gen.WorkerFields) (string, holdVerdict) {
+	if w.HeldByUserId == nil {
+		return "", holdNoneVisible
+	}
+	holder := describeHolder(ctx, client, *w.HeldByUserId)
+	me, known := currentUserID(ctx, client)
+	switch {
+	case !known:
+		return holder, holdUnknownWhose
+	case me == *w.HeldByUserId:
+		// me == "" is an App-key caller, which never equals a real user id —
+		// correct, since per cor:agt:020:09 an App key holds nothing and so
+		// is never the holder.
+		return holder, holdByMe
+	default:
+		return holder, holdByOther
+	}
+}
+
+// appIndependentRef picks the spelling of a worker that resolves with NO App
+// scope: its URN, or its id when the App's URN predates the grammar-v2 arity
+// a worker URN needs and there is none.
+//
+// Never the NAME. A name resolves only within an App (cor:agt:020:02), so a
+// remedy command spelled with one fails not-found for precisely the caller
+// most likely to be reading it — whoever reached this refusal through
+// `--as hrn:worker:…` with no ambient App, which is a supported path and the
+// one `--as`'s own help now recommends for scripts. (PR #511 review, Codex
+// P2 + Copilot, independently.)
+func appIndependentRef(w gen.WorkerFields) string {
+	if w.Urn != nil && *w.Urn != "" {
+		return *w.Urn
+	}
+	return w.Id
+}
+
+// heldRefusal is the WORKER_HELD refusal, in one place because two paths
+// reach it — the pre-flight that reads the hold off the worker row, and the
+// server's own refusal, which is the authority and also covers the race the
+// pre-flight cannot close.
+//
+// The remedy is the load-bearing half. #492 recorded a driver meeting a
+// refusal whose only advertised way forward was `--force`; the answer then was
+// "the register holds a free name", and when the register went (#500) the
+// refusal was left with no remedy at all. cor:agt:020:09 supplies the real
+// one: cast your own worker. Naming the holder is what makes the other route —
+// ask them to release — actionable rather than theoretical.
+// A remedy is only a remedy if the caller can run it as written, so BOTH
+// commands here name their App scope: `release` through an App-independent
+// ref, and `cast`, which has no such spelling — a worker that does not exist
+// yet cannot be addressed — through an explicit --app placeholder.
+func heldRefusal(name, ref, holder string, heldAt *string) error {
+	who := holder
+	if who == "" {
+		// Reached when the server sent no heldByName and no heldBy, or when
+		// the holder's user record is unreadable. The refusal still stands;
+		// only the label is missing.
+		who = "another person"
+	}
+	since := ""
+	if heldAt != nil && *heldAt != "" {
+		since = fmt.Sprintf(" since %s", *heldAt)
+	}
+	return exitcode.Newf(exitcode.Conflict,
+		"the name %s is held by %s%s — a HELD name is not a TAKEN one: no session ending, idle window, expiry or reap frees it, and --force does NOT apply (cor:agt:020:09). "+
+			"Cast your own worker for the role (`hadron team worker cast --app <app> --name <n> --role <role>`), or ask the holder — or an App/org admin — to run `hadron team worker release %s`",
+		name, who, since, ref)
+}
+
 func newCmdSessionStart(f *cmdutil.Factory) *cobra.Command {
 	var as, repo, branch, transcript, host, tool, model, teamMemory string
 	var force bool
@@ -247,9 +343,12 @@ the server stamps the role-agent and the worker's App itself, so every
 worker session is App-bound. On success the worker's resolved boot
 briefing (its prompt) is printed — adopt it.
 
---as takes the worker's name — resolved within the team App, from -m, the
-persistent --app flag, or the configured App context — or the worker's id,
-which needs no App scope at all.
+--as takes three spellings. The worker's NAME resolves within the team App,
+from -m, the persistent --app flag, or the configured App context. Its URN
+(` + "`hrn:worker:<root>:<app-slug>:<slug>`" + `) and its id need no App scope at all —
+and the URN is tried FIRST, before any ambient App is even consulted, so it
+is the spelling that still works when the App context is wrong, stale or
+missing. Prefer it in anything scripted.
 
 ONE WORKTREE PER WORKER (#472). Do not drive two workers from one
 checkout. Two agents there share an index and a working tree: whichever
@@ -263,6 +362,21 @@ exists. Give each worker its own tree with
 <existing-branch> in place of -b) — the binding lives under the
 worktree's own git dir, so linked worktrees are already independent.
 
+TWO REFUSALS, AND ONLY ONE OF THEM IS FORCEABLE (cor:agt:020:09). Read
+this before reaching for --force, because the flag answers exactly one of
+them:
+
+  HELD    whose name it is. A PERSON holds a name from the moment they
+          bind it, and only an explicit ` + "`worker release`" + ` ends the hold —
+          no session end, idle window, expiry or reap ever does. NOT
+          forceable, by design: the person who would force is not the
+          person who would lose, so consent cannot be given by the party
+          doing the taking. The remedy is to CAST YOUR OWN WORKER for the
+          role, or to ask the holder (or an App/org admin) to release it.
+  TAKEN   a live worker session already exists. Forceable — because a
+          hold means this is now only ever a question about your OWN
+          name, so the driver deciding is the driver affected.
+
 A worker with a still-active session is taken: the takeover requires
 --force, and the last driver and start time are shown (informed override,
 cor:agt:020:03 — never silent). Stale sessions are reaped server-side
@@ -273,7 +387,12 @@ driver's session. When this worktree already has a binding, --force
 replaces it — first ending the session that binding names (best-effort),
 so the old binding never leaves a session open. That makes --force the
 remedy for an ABANDONED binding only: it never separates two live agents,
-it just relabels which worker the shared tree is blamed on.`,
+it just relabels which worker the shared tree is blamed on.
+
+Binding a worker CLAIMS its name for you. Casting one does not: a roster
+staffed by a coordinator is unheld until each person binds their own, and
+an APP-KEY session claims nothing at all (an App key is not a person and
+holds nothing).`,
 		Example: `  hadron team session start --as Iris --tool claude-code \
       --transcript ~/.claude/projects/x/transcript.jsonl`,
 		Args: cobra.NoArgs,
@@ -339,6 +458,22 @@ it just relabels which worker the shared tree is blamed on.`,
 				return err
 			}
 			if active != nil && !force {
+				// --force is the remedy for a TAKEN worker, and cor:agt:020:09
+				// says TAKEN is only ever a question about your OWN name: the
+				// driver deciding is the driver affected. When the name is HELD
+				// by somebody else the server refuses WORKER_HELD *before* it
+				// weighs liveness at all, and no --force gets past it — so
+				// offering the flag here would send the driver at the one door
+				// the spec says is locked. That is #487's conflation arriving as
+				// advice rather than as vocabulary.
+				switch holder, verdict := classifyHold(ctx, client, w); verdict {
+				case holdByOther:
+					return heldRefusal(w.Name, appIndependentRef(w), holder, w.HeldAt)
+				case holdUnknownWhose:
+					return exitcode.Newf(exitcode.Conflict,
+						"worker %s is being driven by %s, and the name is held by %s — this CLI could not read your own identity to tell whether that is you. If it is, --force takes over; if it is not, nothing does: a held name is not forceable, and the remedy is to cast your own worker (cor:agt:020:09)",
+						w.Name, describeSession(active), holder)
+				}
 				return exitcode.Newf(exitcode.Conflict,
 					"worker %s is being driven by %s — its worker session is still open, which a closed chat session does not end; --force takes over (a stale worker session also auto-expires server-side)",
 					w.Name, describeSession(active))
@@ -377,6 +512,14 @@ it just relabels which worker the shared tree is blamed on.`,
 				// refusal from the WORKER_TAKEN EXTENSIONS payload (#940 —
 				// the documented contract; the message narration is not),
 				// with the override the pre-flight refusal already offers.
+				// HELD is checked first because the server raises it first
+				// (and harder): a name held by another person refuses every
+				// binder but its holder, force or not. Rendering it as a
+				// takeover would be the exact misdirection this branch exists
+				// to remove.
+				if detail, held := api.WorkerHeldDetail(err); held {
+					return heldRefusal(w.Name, appIndependentRef(w), detail.Holder(), optStr(detail.HeldAt))
+				}
 				if detail, taken := api.WorkerTakenDetail(err); taken {
 					who := detail.LastDriver
 					if who == "" {
@@ -484,8 +627,8 @@ it just relabels which worker the shared tree is blamed on.`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&as, "as", "", "worker to drive (name within the team App, or worker id)")
-	cmd.Flags().BoolVar(&force, "force", false, "take over a worker with an active session; also replaces this worktree's binding, ending its session first (best-effort)")
+	cmd.Flags().StringVar(&as, "as", "", "worker to drive: its URN or id (no App scope needed), or its name within the team App")
+	cmd.Flags().BoolVar(&force, "force", false, "take over a worker with an active session (never a name HELD by someone else); also replaces this worktree's binding, ending its session first (best-effort)")
 	cmd.Flags().StringVar(&repo, "repo", "", "repository the session works on, e.g. owner/repo")
 	cmd.Flags().StringVar(&branch, "branch", "", "branch the session works on")
 	cmd.Flags().StringVar(&transcript, "transcript", "", "path of the driving tool's transcript on this host")
