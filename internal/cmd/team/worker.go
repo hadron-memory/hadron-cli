@@ -93,6 +93,15 @@ taken names. That register is gone, so a bare --role no longer casts.
 resolves no agent (WORKER_AGENT_NOT_FOUND); with an explicit --agent it is
 just the casting's label.
 
+CASTING DOES NOT HOLD THE NAME (cor:agt:020:09). A name is held by whoever
+WORKS AS it — the person who binds it in ` + "`session start`" + ` — not by whoever
+created the row. So staffing a roster for other people to pick up is the
+ordinary flow and leaves every one of those names unheld, which is the
+honest state: nobody has claimed them yet. A caster-holds rule would
+instead block each of your colleagues on a release they should never have
+needed. It also means casting a worker does not reserve it for you: if you
+intend to drive it, bind it.
+
 --prompt-override layers per-worker individuality over the agent's prompt
 template; the resolved boot briefing (template with {{name}}/{{role}}
 bound, then the override) is printed on success.

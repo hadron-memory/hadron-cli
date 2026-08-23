@@ -890,6 +890,21 @@ Conventions:
   hard expiry + inactivity, with `session log` counting as activity — so an
   active session usually means a live driver; a `--force` that replaces this
   worktree's own binding first ends the session it named, best-effort).
+  **HELD is not TAKEN, and only TAKEN is forceable** (`cor:agt:020:09`, #487).
+  A name is held by the PERSON who binds it, and nothing about a session
+  frees one — not an end, an idle window, an expiry or a reap, only
+  `worker release`. Binding a name held by somebody else refuses
+  `WORKER_HELD` (exit 5) whether or not `--force` rides along, and the
+  remedy is to **cast your own worker** for the role, or to ask the holder
+  (or an App/org admin) to release it — never to retry with the flag. `start`
+  refuses this before it reaches the server when the hold is visibly
+  another's, and renders the server's refusal when the hold is claimed in
+  the race the pre-flight cannot close. Two server paths raise the code and
+  they carry different payloads (`workerId`+`heldBy` always; `heldByName`
+  and `heldAt` only on the non-race path), so the holder degrades to a raw
+  user id rather than going blank. Casting does NOT hold: a roster staffed
+  for other people is unheld until each of them binds, and an App-key
+  session holds nothing at all.
   **One worktree per worker** (#472): binding a worktree that is already bound
   refuses (exit 5) and picks its remedy by whether that session is still
   ALIVE — live, it points at `git worktree add -b <new-branch> ../<name>`

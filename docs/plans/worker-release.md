@@ -246,9 +246,12 @@ absence uniformly means *not asserted*.
 
 ## Not done here
 
-- **`session start --help`** presents `--force` as *the* takeover tool while
+- ~~**`session start --help`** presents `--force` as *the* takeover tool while
   `WORKER_HELD` is not forceable, and nothing says casting does not hold.
-  That is #487's, and wants its design rather than a patch.
+  That is #487's, and wants its design rather than a patch.~~
+  **Done** — [held-is-not-taken.md](held-is-not-taken.md) (#487). It did want
+  its design: the refusal itself was unwired end to end, not just undescribed.
+  #487 stays open for its other half, the `worker list` columns.
 - **An MCP `release` tool.** Server-side, and the team-features rule says the
   logic belongs there so MCP and the portal get it too — the CLI wrapping a
   mutation does not give MCP a verb.
