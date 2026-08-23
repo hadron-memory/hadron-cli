@@ -87,7 +87,7 @@ hand-written ledger and any drift is reported (exit 5 if drift is found).`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to `hadron spec use`, then the active memory)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
 	cmd.Flags().BoolVar(&check, "check", false, "diff the register ledger against live nodes (exit 5 on drift)")
 	return cmd
 }
