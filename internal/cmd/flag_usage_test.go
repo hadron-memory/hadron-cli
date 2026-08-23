@@ -22,16 +22,18 @@ import (
 // anyone who has not hit this, so the mistake looks correct where it is made.
 // The only check that works is the rendered shape.
 
-// backquoted finds the placeholder cobra would take from a usage string: the
-// first back-quoted run, per pflag's own scan.
+// backquoted DETECTS whether the author wrote a placeholder — a matched pair of
+// backticks. It deliberately does not extract the name: pflag.UnquoteUsage
+// does that, so the value judged here is always the value cobra renders and
+// cannot drift from upstream if pflag's scan changes (PR #509 review,
+// @copilot, suppressed).
 //
-// It exists instead of comparing pflag.UnquoteUsage's result to the flag's
-// type, which was the first version and had a hole: UnquoteUsage returns the
-// TYPE NAME when no backticks are present, so a usage that back-quotes
-// `stringArray` on a stringArray flag produced a name equal to the type and
-// skipped every check (PR #509 review, @codex). The question is whether the
-// author WROTE a placeholder, not whether the result happens to look like one.
-var backquoted = regexp.MustCompile("`([^`]*)`")
+// Detection and extraction are separate because UnquoteUsage cannot answer the
+// detection question: it returns the TYPE NAME when no backticks are present,
+// so comparing its result to the type — the first version of this guard —
+// silently exempted a usage that back-quoted `stringSlice` on a stringSlice
+// flag (@codex).
+var backquoted = regexp.MustCompile("`[^`]*`")
 
 // A metavariable: a lowercase word naming the argument. Permits the hyphen in
 // `data-key`; rejects `-`, `Spec:`, and anything capitalised or punctuated.
@@ -64,11 +66,11 @@ func TestFlagUsagePlaceholdersAreDeliberate(t *testing.T) {
 			}
 			seen[key] = true
 
-			m := backquoted.FindStringSubmatch(fl.Usage)
-			if m == nil {
+			if !backquoted.MatchString(fl.Usage) {
 				return // no placeholder written, nothing to judge
 			}
-			name := m[1]
+			// Upstream's own extraction, so this judges what cobra renders.
+			name, _ := pflag.UnquoteUsage(fl)
 
 			// A BOOL takes no argument, so any placeholder on one is a backtick
 			// meant as emphasis. `--loose Spec:` told the reader to pass
