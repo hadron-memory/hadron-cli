@@ -363,12 +363,29 @@ mutation UpdateTeamSession(
   }
 }
 
+# `handoff` is the #1029 CONTINUITY RECORD, and the reason this mutation is not
+# just a state flip: agent-composed prose about what landed, what is open, what
+# is blocked, and what the next driver should not repeat. The server owns where
+# it goes (the worker's working memory, under `handoffs`, at a lexically-ordered
+# loc), so the CLI composes no node and derives no convention.
+#
+# It is written BEFORE the session ends, and a failed write REFUSES the end
+# (HANDOFF_WRITE_FAILED) rather than ending anyway — a still-bound worker is
+# recoverable, an ended session whose handoff evaporated is not, because the
+# context that composed it is gone. Passing it on a session with no worker is
+# refused rather than dropped: there is no sequence to write it to.
+#
+# `summary` is a DIFFERENT field and the next driver never sees it (#1029 — it
+# is the write-only field that feature was filed to fix). Both are kept because
+# collapsing them is a decision about #1029's shape, not about this operation.
 mutation EndTeamSession(
   $id: ID!
   # @genqlient(omitempty: true)
   $summary: String
+  # @genqlient(omitempty: true)
+  $handoff: String
 ) {
-  endSession(id: $id, summary: $summary) {
+  endSession(id: $id, summary: $summary, handoff: $handoff) {
     ...TeamSessionFields
   }
 }

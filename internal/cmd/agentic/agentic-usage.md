@@ -110,7 +110,7 @@ hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZA
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
 hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
-hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
+hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--mentions-me | --mentions <ref>] (uses --app or the binding)
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--email <e>] [--handle <h>]
@@ -934,9 +934,27 @@ Conventions:
   log, and `session log --json` is untouched. `whoami --json` gains one optional
   key, `chatSeenSeq` — additive and `omitempty`, so it is absent on a binding
   that has never read, and `0` on one that read a chat with nothing in it.
-  `session end [--summary <s>]` ends the bound worker session — the worker is freed
-  unless another active worker session still holds it (check `session list
-  --active`). `end --session <id>` is the recovery path when the binding is
+  `session end` ends the bound worker session — the SESSION, never the name
+  hold (`worker release` does that) — unless another active worker session
+  still has it (check `session list --active`).
+  **`--handoff <text>` is the #1029 continuity record and the thing the next
+  driver actually reads**: prose about what landed, what is open, what is
+  blocked, what not to repeat. The server files it in the worker's own memory
+  and the next bind hands it over — and since handoffs follow the NAME
+  (`cor:agt:020:09`), that may be a colleague. `--handoff-file <path>` reads it
+  from a file and `--handoff -` from stdin, because a paragraph through shell
+  quoting is its own hazard. It is written BEFORE the session ends and a failed
+  write REFUSES the end (`HANDOFF_WRITE_FAILED`, exit 1) rather than ending
+  anyway: a still-bound worker is recoverable, an ended session whose handoff
+  evaporated is not. Passing it on a session with no worker is refused — there
+  is no sequence to write to. An EXPLICIT empty handoff is refused exit 2
+  (somebody meant to write something); omitting it entirely is the normal way
+  to end without a record.
+  **`--summary <s>` is a different field and the next driver never sees it** —
+  a display-only label on the session row, the write-only field #1029 was filed
+  to fix. Both are kept because collapsing them is a decision about that
+  feature's shape, not this flag's; if you are writing one thing for whoever
+  comes next, write `--handoff`. `end --session <id>` is the recovery path when the binding is
   gone or unusable (including one written by a pre-Worker CLI, which whoami
   reports as a degraded read); `end` also refuses (exit 2) when the binding
   was started against a different `--server` than the current one.
