@@ -116,7 +116,25 @@ without templates; for a template node the batch gives you the source.`,
 // renderNodeDetail prints one node in the human layout. Shared so a node read
 // on its own and the same node read in a batch look identical.
 func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
-	fmt.Fprintf(w, "%s\n  loc: %s\n  type: %s\n", dto.Name, dto.Loc, dto.NodeType)
+	fmt.Fprintf(w, "%s\n  loc: %s\n", dto.Name, dto.Loc)
+	// The fully-qualified URN, then the link that opens it, in that order and
+	// adjacent (#515). This is the framing the MCP node read already uses, and
+	// what every role-agent briefing means by "never hand-build a portal link —
+	// copy the URL line a node read prints". Until now the CLI's node read
+	// printed neither, so that instruction was unsatisfiable here.
+	//
+	// Each is printed only when the server sent it. No placeholder, no dash,
+	// and above all no locally-composed fallback: a link to a guessed origin
+	// fails silently for whoever clicks it (cor:api:230:01). The URN survives
+	// the link's absence — they are independent answers, and losing the link
+	// must not cost the caller the reference.
+	if dto.URN != "" {
+		fmt.Fprintf(w, "  urn: %s\n", dto.URN)
+	}
+	if dto.PortalURL != "" {
+		fmt.Fprintf(w, "  URL: %s\n", dto.PortalURL)
+	}
+	fmt.Fprintf(w, "  type: %s\n", dto.NodeType)
 	if dto.ObjectType != nil && *dto.ObjectType != "" {
 		fmt.Fprintf(w, "  object-type: %s\n", *dto.ObjectType)
 	}
@@ -194,7 +212,11 @@ func edgeRefOf(edgeID string, name *string, edgeLoc string, isRunnable *bool, pr
 func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 	dto := nodeDetailDTO{
 		nodeDTO: nodeDTO{
-			ID:         n.Id,
+			ID: n.Id,
+			// Both nullable server-side; strVal keeps an absent one out of the
+			// --json shape (omitempty) rather than emitting "".
+			URN:        n.Urn,
+			PortalURL:  strVal(n.PortalUrl),
 			MemoryID:   n.MemoryId,
 			Loc:        n.Loc,
 			Name:       n.Name,

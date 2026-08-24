@@ -382,6 +382,18 @@ Conventions:
   means it sits behind a proxy without its public base URL configured, so every
   absolute URL it emits points somewhere wrong. `hadron version` reports the CLI
   build instead and needs no network.
+- **A single-ref `node get` prints the node's `urn:` and, under it, a `URL:`
+  line — the SERVER-BUILT portal link that opens it** (#515,
+  `cor:api:230:01`). That is the line to COPY when citing a node to a human,
+  rather than assembling `<origin>/app/u/<urn>` yourself: the canonical
+  spelling, the resolver route and the deployment origin are all the
+  platform's, and a composed link resolves to nothing while looking right.
+  The link is **nullable for two unrelated reasons** — no usable web origin on
+  the deployment, or no canonical identifier to build from — and both render as
+  NOTHING: no line, no placeholder, and never a locally-composed fallback. The
+  `urn` is unaffected by the link's absence and still addresses the node. Under
+  `--json` both are `omitempty`, so a surface that does not select them leaves
+  the keys out rather than asserting null.
 - `node get` reads MANY nodes at once. With one ref the output is the node
   object, unchanged. With several refs, or with `--prefix <loc> -m <memory>`,
   it is `{nodes, unavailable}`. Several refs are sent as one batched read —
