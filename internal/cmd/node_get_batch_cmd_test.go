@@ -7,12 +7,15 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // batchNodeJSON is one node in the nodeBatch projection.
 func batchNodeJSON(id, loc string) string {
-	return `{"id":"` + id + `","memoryId":"mem1","loc":"` + loc + `","name":"` + loc + `",
+	return `{"id":"` + id + `","urn":"hrn:node:acme.com:kb:` + loc + `",
+		"portalUrl":"https://hadronmemory.com/app/u/hrn:node:acme.com:kb:` + loc + `",
+		"memoryId":"mem1","loc":"` + loc + `","name":"` + loc + `",
 		"alias":null,"nodeType":"info","objectType":null,"isRunnable":false,"description":null,
 		"abstract":null,"abstractOriginHash":null,"tags":[],"seq":null,"data":null,"properties":null,
 		"content":"body of ` + loc + `","createdAt":"2026-07-27T00:00:00Z","updatedAt":"2026-07-27T00:00:00Z",
@@ -287,5 +290,47 @@ func TestNodeGetBatchDedupesRefs(t *testing.T) {
 	}
 	if len(vars.Refs) != 1 {
 		t.Errorf("refs = %v, want the repeated ref collapsed to one", vars.Refs)
+	}
+}
+
+// #515 — `renderNodeDetail` is shared between the single-ref read and the
+// batched one, so selecting urn/portalUrl in GetNode and not in NodeBatch
+// would make `node get <ref>` and `node get <ref> <ref>` print DIFFERENT
+// shapes for the same node. Caught by @copilot on PR #520; nothing tested it.
+func TestNodeGetBatchCarriesURNAndPortalURL(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"NodeBatch": nodeBatchResult([]string{batchNodeJSON("n1", "alpha"), batchNodeJSON("n2", "beta")}, ""),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", "alpha", "beta", "-m", "acme.com::kb", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	for _, want := range []string{
+		"urn: hrn:node:acme.com:kb:alpha",
+		"URL: https://hadronmemory.com/app/u/hrn:node:acme.com:kb:alpha",
+		"urn: hrn:node:acme.com:kb:beta",
+	} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("the batched read must print %q, same as a single-ref read:\n%s", want, out.String())
+		}
+	}
+}
+
+// And the wire half: the two queries must select the same pair, or the shapes
+// diverge again the next time one of them is edited.
+func TestNodeBatchSelectsURNAndPortalURL(t *testing.T) {
+	for _, field := range []string{"urn", "portalUrl"} {
+		var found bool
+		for _, line := range strings.Split(gen.NodeBatch_Operation, "\n") {
+			if strings.TrimSpace(line) == field {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("NodeBatch must select %q on the wire, as GetNode does", field)
+		}
 	}
 }

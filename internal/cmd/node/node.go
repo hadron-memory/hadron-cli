@@ -12,12 +12,22 @@ import (
 
 // nodeDTO is the stable --json shape for a node in list output.
 //
-// URN is the fully-qualified node URN the server composes (hrn:node:<org>::
-// <memory>::<loc>). It's omitempty because only the surfaces that select `urn`
-// populate it (today: move/clone); others leave the key out rather than emit "".
+// URN is the fully-qualified node URN the server composes. It's omitempty
+// because only the surfaces that select `urn` populate it (move/clone, and
+// since #515 `node get`); others leave the key out rather than emit "".
 type nodeDTO struct {
-	ID         string   `json:"id"`
-	URN        string   `json:"urn,omitempty"`
+	ID  string `json:"id"`
+	URN string `json:"urn,omitempty"`
+	// PortalURL is the server-built link that opens this node
+	// (hadron-server#881, cor:api:230:01) — the one to COPY when citing a node
+	// to a human, rather than assembling <origin>/app/u/<urn> yourself, which
+	// is the composition the field exists to remove.
+	//
+	// Nullable for two unrelated reasons — no usable web origin on the
+	// deployment, or no canonical identifier to build from — and both render
+	// as nothing. omitempty for the same reason as URN: a surface that does not
+	// select it leaves the key out rather than asserting null.
+	PortalURL  string   `json:"portalUrl,omitempty"`
 	MemoryID   string   `json:"memoryId"`
 	Loc        string   `json:"loc"`
 	Name       string   `json:"name"`
@@ -109,4 +119,14 @@ func mergeDTO(n *gen.UpdateNodeDataUpdateNodeDataNode) nodeDTO {
 // (the server treats a null isRunnable as "not runnable").
 func boolVal(b *bool) bool {
 	return b != nil && *b
+}
+
+// strVal flattens a nullable server string. Absent becomes "", which the
+// omitempty DTO fields then leave out of --json entirely rather than emitting
+// an empty string that reads like a value.
+func strVal(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

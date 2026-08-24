@@ -116,6 +116,8 @@ func batchDetailDTO(n *batchNode) nodeDetailDTO {
 	dto := nodeDetailDTO{
 		nodeDTO: nodeDTO{
 			ID:         n.Id,
+			URN:        n.Urn,
+			PortalURL:  strVal(n.PortalUrl),
 			MemoryID:   n.MemoryId,
 			Loc:        n.Loc,
 			Name:       n.Name,

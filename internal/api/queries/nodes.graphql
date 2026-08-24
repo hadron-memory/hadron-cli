@@ -110,6 +110,12 @@ query NodeBatch(
     unavailable
     nodes {
       id
+      # Same two as GetNode (#515): a batched read must not print a different
+      # shape from a single-ref read of the same node. renderNodeDetail is
+      # shared between them, so selecting these in one query and not the other
+      # is how `node get <ref>` and `node get <ref> <ref>` start disagreeing.
+      urn
+      portalUrl
       memoryId
       loc
       name
@@ -164,6 +170,22 @@ query NodeBatch(
 query GetNode($ref: ID!) {
   node(ref: $ref) {
     id
+    # The fully-qualified URN and the portal link that opens it (#515).
+    #
+    # BOTH, from the one read, because cor:api:230:01 requires it: the surface
+    # prints an identifier and a link that opens it, and they derive from the
+    # same composition so they cannot disagree about what they address. Two
+    # independent composers is how a surface starts printing a link to a
+    # resource other than the one it just named.
+    #
+    # portalUrl is SERVER-BUILT and nullable, for two unrelated reasons — the
+    # deployment has no usable web origin, or the resource has no canonical
+    # identifier to build one from — and both render as nothing. Never a
+    # locally-composed fallback: a link to a guessed origin fails silently for
+    # whoever clicks it, which is worse than the caller seeing none. The urn
+    # beside it is unaffected by the link's absence.
+    urn
+    portalUrl
     memoryId
     loc
     name
