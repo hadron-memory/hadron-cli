@@ -10761,12 +10761,22 @@ func (v *NodeBatchNodeBatchNodeBatchResult) GetNodes() []*NodeBatchNodeBatchNode
 
 // NodeBatchNodeBatchNodeBatchResultNodesNode includes the requested fields of the GraphQL type Node.
 type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
-	Id       string  `json:"id"`
-	MemoryId string  `json:"memoryId"`
-	Loc      string  `json:"loc"`
-	Name     string  `json:"name"`
-	Alias    *string `json:"alias"`
-	NodeType string  `json:"nodeType"`
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn string `json:"urn"`
+	// #881 — the portal URL that opens this node, built server-side so no client
+	// ever has to construct one (constructing means guessing which URN spelling
+	// the /app/u/<urn> route resolves, and the legacy '::' forms in circulation
+	// make that guess wrong). Form: <portal-origin>/app/u/<urn>, the portal's
+	// stable URN-alias route. NULL when the deployment has no portal origin
+	// configured (FRONTEND_URL) — a link to the wrong host is worse than none, so
+	// clients render the field only when present.
+	PortalUrl *string `json:"portalUrl"`
+	MemoryId  string  `json:"memoryId"`
+	Loc       string  `json:"loc"`
+	Name      string  `json:"name"`
+	Alias     *string `json:"alias"`
+	NodeType  string  `json:"nodeType"`
 	// #725 — collection discriminator (which domain object this node is, e.g. "competitor"). NULL for an ordinary node.
 	ObjectType  *string `json:"objectType"`
 	IsRunnable  *bool   `json:"isRunnable"`
@@ -10788,6 +10798,12 @@ type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
 
 // GetId returns NodeBatchNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetId() string { return v.Id }
+
+// GetUrn returns NodeBatchNodeBatchNodeBatchResultNodesNode.Urn, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetUrn() string { return v.Urn }
+
+// GetPortalUrl returns NodeBatchNodeBatchNodeBatchResultNodesNode.PortalUrl, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetPortalUrl() *string { return v.PortalUrl }
 
 // GetMemoryId returns NodeBatchNodeBatchNodeBatchResultNodesNode.MemoryId, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetMemoryId() string { return v.MemoryId }
@@ -26757,6 +26773,8 @@ query NodeBatch ($refs: [ID!], $memory: ID, $locPrefix: String) {
 		unavailable
 		nodes {
 			id
+			urn
+			portalUrl
 			memoryId
 			loc
 			name

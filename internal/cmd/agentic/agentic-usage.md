@@ -738,11 +738,9 @@ Conventions:
   spelling, the resolver route and the deployment origin are all the
   platform's. `worker get` prints it as a `URL:` line under `urn:` — the
   framing the MCP node read already uses — and `session start`'s receipt
-  carries it at the bind, matching `hadron_start_session`. Note the CLI's own
-  `node get` does NOT print one yet (it does not select `Node.portalUrl`,
-  though the server has emitted it since #881) — tracked as #515, and until it
-  lands the copy-the-URL-line instruction is satisfiable on worker reads and
-  on the MCP node read, not on `hadron node get`. It is **nullable, for two unrelated
+  carries it at the bind, matching `hadron_start_session`. `hadron node get`
+  carries the same `urn:`/`URL:` pair since #515, so the copy-the-URL-line
+  instruction is satisfiable on every read that prints a URN. It is **nullable, for two unrelated
   reasons** (the deployment has no usable web origin, or there is no URN to
   build one from) and both render as NOTHING: no line, no placeholder, and
   never a locally-composed fallback, since a link to a guessed origin fails

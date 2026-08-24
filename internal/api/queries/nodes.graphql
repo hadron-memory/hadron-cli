@@ -110,6 +110,12 @@ query NodeBatch(
     unavailable
     nodes {
       id
+      # Same two as GetNode (#515): a batched read must not print a different
+      # shape from a single-ref read of the same node. renderNodeDetail is
+      # shared between them, so selecting these in one query and not the other
+      # is how `node get <ref>` and `node get <ref> <ref>` start disagreeing.
+      urn
+      portalUrl
       memoryId
       loc
       name

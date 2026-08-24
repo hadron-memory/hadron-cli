@@ -213,8 +213,9 @@ func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 	dto := nodeDetailDTO{
 		nodeDTO: nodeDTO{
 			ID: n.Id,
-			// Both nullable server-side; strVal keeps an absent one out of the
-			// --json shape (omitempty) rather than emitting "".
+			// urn is non-nullable server-side; portalUrl is not, and strVal
+			// keeps an absent one out of the --json shape (omitempty) rather
+			// than emitting "".
 			URN:        n.Urn,
 			PortalURL:  strVal(n.PortalUrl),
 			MemoryID:   n.MemoryId,
