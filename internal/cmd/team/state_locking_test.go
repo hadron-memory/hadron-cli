@@ -2,6 +2,7 @@ package team
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -238,5 +239,48 @@ func TestUpdateBindingDoesNotAliasTheCallersSlice(t *testing.T) {
 	after, _, _ := readBinding(ctx)
 	if len(after.PRNumbers) != len(before.PRNumbers) {
 		t.Errorf("an aborted mutation leaked into the stored binding: %v → %v", before.PRNumbers, after.PRNumbers)
+	}
+}
+
+// A mutation must be able to refuse when the worktree has been REBOUND under
+// it. `session log --pr` reads its binding, talks to the server, and only then
+// appends; a concurrent `session start` in that gap replaces the binding, and
+// appending anyway files the PR under a session that never logged it —
+// contaminating the new session's history with the old one's work.
+//
+// Found by @codex on PR #519. The watermark path had this guard from the
+// start; the append did not, and nothing tested it.
+func TestUpdateBindingMutationCanRefuseARebind(t *testing.T) {
+	casGitDir(t)
+	seedBinding(t)
+	ctx := context.Background()
+
+	// The snapshot a command would have read before talking to the server.
+	before, _, _ := readBinding(ctx)
+
+	// A concurrent `session start` rebinds the worktree to another session.
+	if _, err := writeBinding(ctx, &binding{
+		SessionID: "s2-different", WorkerID: "wkr2", WorkerName: "Jonas",
+		StartedAt: "2026-08-24T01:00:00Z", PRNumbers: []int{},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	err := updateBinding(ctx, func(cur *binding) error {
+		if cur.SessionID != before.SessionID {
+			return errBindingChangedSession
+		}
+		cur.PRNumbers = append(cur.PRNumbers, 371)
+		return nil
+	})
+	if !errors.Is(err, errBindingChangedSession) {
+		t.Fatalf("the mutation must see the rebind and refuse, got %v", err)
+	}
+	got, _, _ := readBinding(ctx)
+	if len(got.PRNumbers) != 0 {
+		t.Errorf("the new session's history was contaminated: %v", got.PRNumbers)
+	}
+	if got.SessionID != "s2-different" {
+		t.Errorf("the rebind must stand: %s", got.SessionID)
 	}
 }

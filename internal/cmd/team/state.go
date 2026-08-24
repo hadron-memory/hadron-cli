@@ -227,7 +227,7 @@ func withBindingLock(ctx context.Context, fn func() error) error {
 	}
 	defer func() { _ = f.Close() }() // closing releases the lock even if unlock below is skipped
 	if err := lockFile(f); err != nil {
-		return fmt.Errorf("locking session binding %s: %w", path, err)
+		return fmt.Errorf("acquiring the session binding lock %s: %w", path, err)
 	}
 	defer func() { _ = unlockFile(f) }()
 	return fn()
@@ -282,9 +282,9 @@ func updateBinding(ctx context.Context, mutate func(*binding) error) error {
 	})
 }
 
-// marshalBinding is the ONE encoder both the writer and its verification read
-// go through. Two spellings would make the comparison fail on formatting and
-// retry forever.
+// marshalBinding is the one encoder every binding write goes through: stable
+// JSON formatting, and a non-nil PRNumbers so the --json contract renders []
+// rather than null.
 func marshalBinding(b *binding) ([]byte, error) {
 	if b.PRNumbers == nil {
 		b.PRNumbers = []int{}
@@ -308,9 +308,10 @@ func marshalBinding(b *binding) ([]byte, error) {
 // refuses a write it did not produce and reapplies to the winner's state, and
 // it never recreates a binding a concurrent `session end` removed.
 //
-// The session check stays INSIDE the mutation, where it is re-evaluated on
-// every attempt: a retry re-reads, and by then the worktree may belong to a
-// different session, in which case this watermark is not ours to record.
+// The session check stays INSIDE the mutation, which runs under the lock
+// against a fresh read: by then the worktree may belong to a different session
+// — `session start` may have replaced the binding while this command was
+// rendering — in which case this watermark is not ours to record.
 //
 // Best-effort throughout: the caller has already delivered the messages, and a
 // failed bookkeeping write must not turn that into an error.
@@ -335,6 +336,11 @@ var errWatermarkNotOurs = errors.New("watermark not applicable to the current bi
 // errPRAlreadyKnown aborts the PR append when the number is already on the
 // binding — checked inside the mutation, against what is on disk now.
 var errPRAlreadyKnown = errors.New("pr already recorded on this binding")
+
+// errBindingChangedSession aborts a mutation when the worktree is no longer
+// bound to the session the command acted for — a concurrent `session start`
+// replaced it while the command was talking to the server.
+var errBindingChangedSession = errors.New("the worktree is bound to a different session now")
 
 func clearBinding(ctx context.Context) error {
 	path, err := bindingPath(ctx)

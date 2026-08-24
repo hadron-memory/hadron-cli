@@ -1,4 +1,7 @@
-//go:build !windows
+//go:build unix
+
+// The `unix` constraint, not `!windows`: the latter also selects plan9 and
+// js/wasm, where syscall.Flock does not exist (PR #519 review, @copilot).
 
 package team
 
