@@ -56,7 +56,19 @@ notarize:
         key_id: '{{ envOrDefault "MACOS_NOTARY_KEY_ID" "" }}'
         key: '{{ envOrDefault "MACOS_NOTARY_KEY" "" }}'
         wait: true
-        timeout: 30m
+        # 20m is the CEILING, not a preference: Apple rejects notarization
+        # tokens with a longer lifetime, so the 30m this used to say was never
+        # honoured — it just went unvalidated. goreleaser 2.18.0 started
+        # checking it, which turned a config that had always been wrong into a
+        # hard `goreleaser check` failure.
+        #
+        # Nothing in this repo changed to cause that. The action pins
+        # `version: ~> v2`, so it floats: the same file passed on main at
+        # 2026-08-23T19:55Z and failed on a PR at 06:39Z the next morning. Worth
+        # knowing because `release-check` is a PR gate AND the Release workflow
+        # runs the same binary — so this would have failed the next TAG, not
+        # merely the next PR. v0.11.0 shipped hours before it landed.
+        timeout: 20m
 
 checksum:
   name_template: checksums.txt
