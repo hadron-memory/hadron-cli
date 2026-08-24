@@ -351,6 +351,30 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 				if dto.URN != nil && *dto.URN != "" {
 					fmt.Fprintf(out, "  urn: %s\n", *dto.URN)
 				}
+				// The portal link, immediately under the urn it opens and
+				// labelled `URL:` — the framing the MCP node read
+				// (`hadron_get_node`) already uses, so the standing instruction
+				// every role agent carries ("never hand-build a portal link —
+				// copy the URL line") reads the same wherever it is met.
+				// Before this, worker reads printed no such line, which is why
+				// the briefings needed an explicit carve-out permitting the one
+				// link a worker composes by hand: its own signature
+				// (hadron-server#1008).
+				//
+				// NOT the CLI's own `node get`, which prints no URL line: it
+				// does not select Node.portalUrl, though the server has emitted
+				// it since #881. That is the same parity gap this fixes for
+				// workers, one surface over — filed as #515 rather than widened
+				// into here (PR #513 review, Codex P2 + Copilot).
+				//
+				// Printed only when the server sent one. There is deliberately
+				// no else-branch: no placeholder, no dash, and above all no
+				// locally-composed fallback — a link to a guessed origin fails
+				// silently for whoever clicks it, which is worse than the
+				// caller seeing nothing (cor:api:230:01).
+				if dto.PortalURL != nil && *dto.PortalURL != "" {
+					fmt.Fprintf(out, "  URL: %s\n", *dto.PortalURL)
+				}
 				if dto.MemoryID != nil {
 					fmt.Fprintf(out, "  memory: %s\n", *dto.MemoryID)
 				}

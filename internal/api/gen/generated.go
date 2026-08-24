@@ -3030,6 +3030,9 @@ func (v *CastWorkerCastWorker) GetId() string { return v.WorkerFields.Id }
 // GetUrn returns CastWorkerCastWorker.Urn, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetUrn() *string { return v.WorkerFields.Urn }
 
+// GetPortalUrl returns CastWorkerCastWorker.PortalUrl, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetPortalUrl() *string { return v.WorkerFields.PortalUrl }
+
 // GetSlug returns CastWorkerCastWorker.Slug, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetSlug() string { return v.WorkerFields.Slug }
 
@@ -3102,6 +3105,8 @@ type __premarshalCastWorkerCastWorker struct {
 
 	Urn *string `json:"urn"`
 
+	PortalUrl *string `json:"portalUrl"`
+
 	Slug string `json:"slug"`
 
 	AppId string `json:"appId"`
@@ -3144,6 +3149,7 @@ func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWo
 
 	retval.Id = v.WorkerFields.Id
 	retval.Urn = v.WorkerFields.Urn
+	retval.PortalUrl = v.WorkerFields.PortalUrl
 	retval.Slug = v.WorkerFields.Slug
 	retval.AppId = v.WorkerFields.AppId
 	retval.AgentId = v.WorkerFields.AgentId
@@ -6061,6 +6067,14 @@ type CreateTeamRoleResponse struct {
 	// the generic node surface may write roles — the write delegates to that same
 	// seam (encryption, revision snapshot, git mirror included).
 	//
+	// #1024 deliberately does NOT take `repos` here — set it with
+	// updateTeamRole. A create that also wrote data could not be made atomic: the
+	// write resurrects a tombstone through an unguarded upsert branch, and
+	// splitting it into create-then-guarded-update introduced a partial failure
+	// between the halves (the role lands, the repo write refuses). Two explicit
+	// calls put that seam where the caller can see and retry it, instead of hiding
+	// a non-atomic pair inside one mutation.
+	//
 	// #1050: a role definition no longer carries a NAME REGISTER. There is no
 	// names / nameRange / nameConvention / allowOutOfRange, and no register
 	// invariants to run, because names are not allocated — a cast supplies its
@@ -8382,6 +8396,9 @@ func (v *GetWorkerWorker) GetId() string { return v.WorkerFields.Id }
 // GetUrn returns GetWorkerWorker.Urn, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetUrn() *string { return v.WorkerFields.Urn }
 
+// GetPortalUrl returns GetWorkerWorker.PortalUrl, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetPortalUrl() *string { return v.WorkerFields.PortalUrl }
+
 // GetSlug returns GetWorkerWorker.Slug, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetSlug() string { return v.WorkerFields.Slug }
 
@@ -8454,6 +8471,8 @@ type __premarshalGetWorkerWorker struct {
 
 	Urn *string `json:"urn"`
 
+	PortalUrl *string `json:"portalUrl"`
+
 	Slug string `json:"slug"`
 
 	AppId string `json:"appId"`
@@ -8496,6 +8515,7 @@ func (v *GetWorkerWorker) __premarshalJSON() (*__premarshalGetWorkerWorker, erro
 
 	retval.Id = v.WorkerFields.Id
 	retval.Urn = v.WorkerFields.Urn
+	retval.PortalUrl = v.WorkerFields.PortalUrl
 	retval.Slug = v.WorkerFields.Slug
 	retval.AppId = v.WorkerFields.AppId
 	retval.AgentId = v.WorkerFields.AgentId
@@ -12718,6 +12738,9 @@ func (v *ReleaseWorkerReleaseWorker) GetId() string { return v.WorkerFields.Id }
 // GetUrn returns ReleaseWorkerReleaseWorker.Urn, and is useful for accessing the field via an interface.
 func (v *ReleaseWorkerReleaseWorker) GetUrn() *string { return v.WorkerFields.Urn }
 
+// GetPortalUrl returns ReleaseWorkerReleaseWorker.PortalUrl, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetPortalUrl() *string { return v.WorkerFields.PortalUrl }
+
 // GetSlug returns ReleaseWorkerReleaseWorker.Slug, and is useful for accessing the field via an interface.
 func (v *ReleaseWorkerReleaseWorker) GetSlug() string { return v.WorkerFields.Slug }
 
@@ -12792,6 +12815,8 @@ type __premarshalReleaseWorkerReleaseWorker struct {
 
 	Urn *string `json:"urn"`
 
+	PortalUrl *string `json:"portalUrl"`
+
 	Slug string `json:"slug"`
 
 	AppId string `json:"appId"`
@@ -12834,6 +12859,7 @@ func (v *ReleaseWorkerReleaseWorker) __premarshalJSON() (*__premarshalReleaseWor
 
 	retval.Id = v.WorkerFields.Id
 	retval.Urn = v.WorkerFields.Urn
+	retval.PortalUrl = v.WorkerFields.PortalUrl
 	retval.Slug = v.WorkerFields.Slug
 	retval.AppId = v.WorkerFields.AppId
 	retval.AgentId = v.WorkerFields.AgentId
@@ -13220,6 +13246,9 @@ func (v *RetireWorkerRetireWorker) GetId() string { return v.WorkerFields.Id }
 // GetUrn returns RetireWorkerRetireWorker.Urn, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetUrn() *string { return v.WorkerFields.Urn }
 
+// GetPortalUrl returns RetireWorkerRetireWorker.PortalUrl, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetPortalUrl() *string { return v.WorkerFields.PortalUrl }
+
 // GetSlug returns RetireWorkerRetireWorker.Slug, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetSlug() string { return v.WorkerFields.Slug }
 
@@ -13292,6 +13321,8 @@ type __premarshalRetireWorkerRetireWorker struct {
 
 	Urn *string `json:"urn"`
 
+	PortalUrl *string `json:"portalUrl"`
+
 	Slug string `json:"slug"`
 
 	AppId string `json:"appId"`
@@ -13334,6 +13365,7 @@ func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorker
 
 	retval.Id = v.WorkerFields.Id
 	retval.Urn = v.WorkerFields.Urn
+	retval.PortalUrl = v.WorkerFields.PortalUrl
 	retval.Slug = v.WorkerFields.Slug
 	retval.AppId = v.WorkerFields.AppId
 	retval.AgentId = v.WorkerFields.AgentId
@@ -18087,7 +18119,18 @@ type UpdateTeamRoleMetaResponse struct {
 	// #960 — edit a roles:<role> definition. Omitted fields preserve. Unknown
 	// role: WORKER_ROLE_NOT_FOUND. Same authorization as createTeamRole.
 	//
-	// #1050: with the register gone this edits the description and nothing else,
+	// #1024: `repos` sets the role's repo affinity. Omitted PRESERVES; an empty
+	// array CLEARS; explicit `null` is treated as OMITTED, not as a clear — worth
+	// stating because a client whose variables default to null would otherwise
+	// have to guess, and the two readings differ (preserve vs wipe). Pass `[]`
+	// to clear deliberately. It is merged into the node's `data` rather than replacing it,
+	// and the write is guarded on the row's revision — a concurrent generic node
+	// write (updateNode, hadron_update_node_data) refuses TEAM_ROLE_DATA_CONFLICT
+	// rather than silently reverting, since those surfaces do not take this one's
+	// lock. Retry after re-reading. A description-only edit carries no data and
+	// takes no guard.
+	//
+	// #1050: with the register gone this otherwise edits the description alone,
 	// so the #987 expectedNames compare-and-swap is gone too — it existed solely
 	// to stop two concurrent wholesale register writes silently dropping each
 	// other's newly added FREE names, a hazard that cannot arise when the write
@@ -18744,6 +18787,16 @@ type WorkerFields struct {
 	// holding its id. Null only when the App's URN predates the flat grammar-v2
 	// shape this arity requires.
 	Urn *string `json:"urn"`
+	// #1026 — the portal link that opens this worker, mirroring Node.portalUrl
+	// (#881), so a worker signing an artifact under #1008 hands over a URL
+	// instead of assembling one out of a URN spelling the /app/u route may not
+	// resolve.
+	//
+	// Built from the SAME URN the urn field returns, so the two cannot diverge.
+	// Null on both arms and neither is an error: no configured portal origin
+	// means no link (a link to the wrong host is worse than none), and an App URN
+	// the fixed arity cannot take means no URN to build one from.
+	PortalUrl *string `json:"portalUrl"`
 	// The URN atom, derived from the name at cast time and permanent thereafter
 	// (#991). Lowercased, sanitized to the URN slug charset, and iterated
 	// ('iris', 'iris-2', …) until free within the App — so deriving it NEVER
@@ -18797,6 +18850,9 @@ func (v *WorkerFields) GetId() string { return v.Id }
 
 // GetUrn returns WorkerFields.Urn, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetUrn() *string { return v.Urn }
+
+// GetPortalUrl returns WorkerFields.PortalUrl, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetPortalUrl() *string { return v.PortalUrl }
 
 // GetSlug returns WorkerFields.Slug, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetSlug() string { return v.Slug }
@@ -18862,6 +18918,16 @@ type WorkerRosterFields struct {
 	// holding its id. Null only when the App's URN predates the flat grammar-v2
 	// shape this arity requires.
 	Urn *string `json:"urn"`
+	// #1026 — the portal link that opens this worker, mirroring Node.portalUrl
+	// (#881), so a worker signing an artifact under #1008 hands over a URL
+	// instead of assembling one out of a URN spelling the /app/u route may not
+	// resolve.
+	//
+	// Built from the SAME URN the urn field returns, so the two cannot diverge.
+	// Null on both arms and neither is an error: no configured portal origin
+	// means no link (a link to the wrong host is worse than none), and an App URN
+	// the fixed arity cannot take means no URN to build one from.
+	PortalUrl *string `json:"portalUrl"`
 	// The URN atom, derived from the name at cast time and permanent thereafter
 	// (#991). Lowercased, sanitized to the URN slug charset, and iterated
 	// ('iris', 'iris-2', …) until free within the App — so deriving it NEVER
@@ -18890,6 +18956,9 @@ func (v *WorkerRosterFields) GetId() string { return v.Id }
 
 // GetUrn returns WorkerRosterFields.Urn, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetUrn() *string { return v.Urn }
+
+// GetPortalUrl returns WorkerRosterFields.PortalUrl, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetPortalUrl() *string { return v.PortalUrl }
 
 // GetSlug returns WorkerRosterFields.Slug, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetSlug() string { return v.Slug }
@@ -18986,6 +19055,11 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetUrn() *string {
 	return v.WorkerRosterFields.Urn
 }
 
+// GetPortalUrl returns WorkersRosterWorkersWorkersPageItemsWorker.PortalUrl, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetPortalUrl() *string {
+	return v.WorkerRosterFields.PortalUrl
+}
+
 // GetSlug returns WorkersRosterWorkersWorkersPageItemsWorker.Slug, and is useful for accessing the field via an interface.
 func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetSlug() string {
 	return v.WorkerRosterFields.Slug
@@ -19071,6 +19145,8 @@ type __premarshalWorkersRosterWorkersWorkersPageItemsWorker struct {
 
 	Urn *string `json:"urn"`
 
+	PortalUrl *string `json:"portalUrl"`
+
 	Slug string `json:"slug"`
 
 	AppId string `json:"appId"`
@@ -19107,6 +19183,7 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) __premarshalJSON() (*__prem
 
 	retval.Id = v.WorkerRosterFields.Id
 	retval.Urn = v.WorkerRosterFields.Urn
+	retval.PortalUrl = v.WorkerRosterFields.PortalUrl
 	retval.Slug = v.WorkerRosterFields.Slug
 	retval.AppId = v.WorkerRosterFields.AppId
 	retval.AgentId = v.WorkerRosterFields.AgentId
@@ -19154,6 +19231,11 @@ func (v *WorkersWorkersWorkersPageItemsWorker) GetId() string { return v.WorkerF
 
 // GetUrn returns WorkersWorkersWorkersPageItemsWorker.Urn, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetUrn() *string { return v.WorkerFields.Urn }
+
+// GetPortalUrl returns WorkersWorkersWorkersPageItemsWorker.PortalUrl, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetPortalUrl() *string {
+	return v.WorkerFields.PortalUrl
+}
 
 // GetSlug returns WorkersWorkersWorkersPageItemsWorker.Slug, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetSlug() string { return v.WorkerFields.Slug }
@@ -19237,6 +19319,8 @@ type __premarshalWorkersWorkersWorkersPageItemsWorker struct {
 
 	Urn *string `json:"urn"`
 
+	PortalUrl *string `json:"portalUrl"`
+
 	Slug string `json:"slug"`
 
 	AppId string `json:"appId"`
@@ -19279,6 +19363,7 @@ func (v *WorkersWorkersWorkersPageItemsWorker) __premarshalJSON() (*__premarshal
 
 	retval.Id = v.WorkerFields.Id
 	retval.Urn = v.WorkerFields.Urn
+	retval.PortalUrl = v.WorkerFields.PortalUrl
 	retval.Slug = v.WorkerFields.Slug
 	retval.AppId = v.WorkerFields.AppId
 	retval.AgentId = v.WorkerFields.AgentId
@@ -22610,6 +22695,7 @@ mutation CastWorker ($appRef: ID!, $agentRef: ID, $role: String, $name: String, 
 fragment WorkerFields on Worker {
 	id
 	urn
+	portalUrl
 	slug
 	appId
 	agentId
@@ -25619,6 +25705,7 @@ query GetWorker ($ref: ID!) {
 fragment WorkerFields on Worker {
 	id
 	urn
+	portalUrl
 	slug
 	appId
 	agentId
@@ -27212,6 +27299,7 @@ mutation ReleaseWorker ($workerRef: ID!) {
 fragment WorkerFields on Worker {
 	id
 	urn
+	portalUrl
 	slug
 	appId
 	agentId
@@ -27515,6 +27603,7 @@ mutation RetireWorker ($workerRef: ID!) {
 fragment WorkerFields on Worker {
 	id
 	urn
+	portalUrl
 	slug
 	appId
 	agentId
@@ -29847,6 +29936,7 @@ query Workers ($appRef: ID!, $includeRetired: Boolean, $limit: Int, $offset: Int
 fragment WorkerFields on Worker {
 	id
 	urn
+	portalUrl
 	slug
 	appId
 	agentId
@@ -29911,6 +30001,7 @@ query WorkersRoster ($appRef: ID!, $includeRetired: Boolean, $limit: Int, $offse
 fragment WorkerRosterFields on Worker {
 	id
 	urn
+	portalUrl
 	slug
 	appId
 	agentId

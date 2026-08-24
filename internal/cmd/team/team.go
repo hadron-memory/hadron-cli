@@ -92,7 +92,14 @@ type workerDTO struct {
 	// URN is the worker's address (#991), keyed on the permanent derived
 	// slug. Null when the App's URN predates the flat grammar-v2 arity it
 	// needs, so consumers must tolerate its absence.
-	URN            *string `json:"urn"`
+	URN *string `json:"urn"`
+	// PortalURL is the server-built link that opens this worker
+	// (hadron-server#1026, cor:api:230:01) — the one to COPY when signing
+	// anything published outside the team, rather than assembling
+	// <origin>/app/u/<urn> by hand. Null means the deployment has no usable web
+	// origin, or there is no URN to build from; both render as nothing and
+	// neither is a cue to compose one.
+	PortalURL      *string `json:"portalUrl"`
 	Slug           string  `json:"slug"`
 	AppID          string  `json:"appId"`
 	AgentID        string  `json:"agentId"`
@@ -125,7 +132,8 @@ type workerDTO struct {
 
 func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 	return workerDTO{
-		ID: w.Id, URN: w.Urn, Slug: w.Slug, AppID: w.AppId, AgentID: w.AgentId, Name: w.Name, Role: w.Role,
+		ID: w.Id, URN: w.Urn, PortalURL: w.PortalUrl, Slug: w.Slug, AppID: w.AppId, AgentID: w.AgentId,
+		Name: w.Name, Role: w.Role,
 		Prompt: w.Prompt, PromptOverride: w.PromptOverride, MemoryID: w.MemoryId,
 		HeldByUserID: w.HeldByUserId, HeldAt: w.HeldAt,
 		RetiredAt: w.RetiredAt, RetiredBy: w.RetiredBy,
@@ -142,8 +150,14 @@ func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 // answer that looks like an answer, which is worse than an honest absence.
 // `worker get` is the prompt surface, as the shipped task nodes already say.
 type workerRosterDTO struct {
-	ID             string  `json:"id"`
-	URN            *string `json:"urn"`
+	ID  string  `json:"id"`
+	URN *string `json:"urn"`
+	// PortalURL is the server-built link that opens this worker
+	// (cor:api:230:01). Null is a defined answer — no usable web origin on the
+	// deployment, or no URN to build one from — and it stays null: the CLI
+	// never composes a replacement, which is the defect the field exists to
+	// remove. URN beside it is unaffected by the link's absence.
+	PortalURL      *string `json:"portalUrl"`
 	Slug           string  `json:"slug"`
 	AppID          string  `json:"appId"`
 	AgentID        string  `json:"agentId"`
@@ -160,7 +174,7 @@ type workerRosterDTO struct {
 
 func workerRosterDTOFromFields(w gen.WorkerRosterFields) workerRosterDTO {
 	return workerRosterDTO{
-		ID: w.Id, URN: w.Urn, Slug: w.Slug, AppID: w.AppId, AgentID: w.AgentId,
+		ID: w.Id, URN: w.Urn, PortalURL: w.PortalUrl, Slug: w.Slug, AppID: w.AppId, AgentID: w.AgentId,
 		Name: w.Name, Role: w.Role, PromptOverride: w.PromptOverride,
 		MemoryID: w.MemoryId, RetiredAt: w.RetiredAt, RetiredBy: w.RetiredBy,
 		CreatedAt: w.CreatedAt, CreatedBy: w.CreatedBy,
