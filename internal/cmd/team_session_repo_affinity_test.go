@@ -58,7 +58,7 @@ func TestSessionStartWarnsOnRepoAffinityMismatch(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, startWithAffinityStubs(
 		withRepos("hadron-memory/hadron-server"),
-		map[string]string{"Workers": `{"data":{"workers":{"total":0,"items":[]}}}`},
+		map[string]string{"WorkersRoster": `{"data":{"workers":{"total":0,"items":[]}}}`},
 	))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -94,7 +94,7 @@ func TestSessionStartWarningComesAfterTheBootBriefing(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, startWithAffinityStubs(
 		withRepos("hadron-memory/hadron-server"),
-		map[string]string{"Workers": `{"data":{"workers":{"total":0,"items":[]}}}`},
+		map[string]string{"WorkersRoster": `{"data":{"workers":{"total":0,"items":[]}}}`},
 	))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -127,7 +127,7 @@ func TestSessionStartWarningIsSequencedAfterTheBriefingOnOneStream(t *testing.T)
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, startWithAffinityStubs(
 		withRepos("hadron-memory/hadron-server"),
-		map[string]string{"Workers": `{"data":{"workers":{"total":0,"items":[]}}}`},
+		map[string]string{"WorkersRoster": `{"data":{"workers":{"total":0,"items":[]}}}`},
 	))
 	f, _ := testFactory(t)
 	// One buffer for both, as a terminal interleaves them.
@@ -207,7 +207,7 @@ func TestSessionStartSuggestsTheSoleWorkerForTheRepo(t *testing.T) {
 
 	gql, _ := captureGraphQL(t, startWithAffinityStubs(
 		withRepos("hadron-memory/hadron-server"),
-		map[string]string{"Workers": `{"data":{"workers":{"total":1,"items":[` + jonas + `]}}}`},
+		map[string]string{"WorkersRoster": `{"data":{"workers":{"total":1,"items":[` + jonas + `]}}}`},
 	))
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -246,7 +246,7 @@ func TestSessionStartSuggestsNothingWhenAmbiguousOrRetired(t *testing.T) {
 			mk("wkr8", "Kira", "cli-engineer", "kira", false)
 		gql, _ := captureGraphQL(t, startWithAffinityStubs(
 			withRepos("hadron-memory/hadron-server"),
-			map[string]string{"Workers": `{"data":{"workers":{"total":2,"items":[` + roster + `]}}}`},
+			map[string]string{"WorkersRoster": `{"data":{"workers":{"total":2,"items":[` + roster + `]}}}`},
 		))
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
@@ -267,7 +267,7 @@ func TestSessionStartSuggestsNothingWhenAmbiguousOrRetired(t *testing.T) {
 		teamGitDir(t)
 		gql, _ := captureGraphQL(t, startWithAffinityStubs(
 			withRepos("hadron-memory/hadron-server"),
-			map[string]string{"Workers": `{"data":{"workers":{"total":1,"items":[` +
+			map[string]string{"WorkersRoster": `{"data":{"workers":{"total":1,"items":[` +
 				mk("wkr9", "Jonas", "cli-engineer", "jonas", true) + `]}}}`},
 		))
 		f, _ := testFactory(t)
@@ -289,7 +289,7 @@ func TestSessionStartWarnsEvenWhenTheRosterReadFails(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, startWithAffinityStubs(
 		withRepos("hadron-memory/hadron-server"),
-		map[string]string{"Workers": `{"errors":[{"message":"boom"}]}`},
+		map[string]string{"WorkersRoster": `{"errors":[{"message":"boom"}]}`},
 	))
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -313,7 +313,7 @@ func TestSessionStartAffinityWarningStaysOutOfJSON(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, startWithAffinityStubs(
 		withRepos("hadron-memory/hadron-server"),
-		map[string]string{"Workers": `{"data":{"workers":{"total":0,"items":[]}}}`},
+		map[string]string{"WorkersRoster": `{"data":{"workers":{"total":0,"items":[]}}}`},
 	))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -353,5 +353,51 @@ func TestWorkerReposRendersAsEmptyArrayNotNull(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `"repos": []`) {
 		t.Errorf("an absent affinity must render as [], not null:\n%s", out.String())
+	}
+}
+
+// `worker list --json` is one of the two promised affinity surfaces, and until
+// this test it had NO coverage: the existing list tests use fixtures without
+// `repos` and decode only name/retired, so dropping `repos` from
+// WorkerRosterFields or from workerRosterDTO would have stayed green
+// (PR #516 review, Copilot).
+//
+// Both values are asserted, because they are different claims: a non-empty
+// affinity proves the mapping carries data, and [] proves the meaningful
+// empty case is not rendered as null.
+func TestWorkerListJSONCarriesRepos(t *testing.T) {
+	teamGitDir(t)
+	withAffinity := withRepos("hadron-memory/hadron-cli")
+	noAffinity := strings.Replace(irisWorkerJSON, `"id":"wkr1"`, `"id":"wkr2"`, 1)
+
+	gql, _ := captureGraphQL(t, map[string]string{
+		"WorkersRoster": `{"data":{"workers":{"total":2,"items":[` +
+			withAffinity + `,` + noAffinity + `]}}}`,
+		"TeamAppIdentity": teamAppIdentityJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "list", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var workers []map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &workers); err != nil {
+		t.Fatalf("unmarshal: %v\n%s", err, out.String())
+	}
+	if len(workers) != 2 {
+		t.Fatalf("want 2 workers, got %d: %s", len(workers), out.String())
+	}
+	got, _ := workers[0]["repos"].([]any)
+	if len(got) != 1 || got[0] != "hadron-memory/hadron-cli" {
+		t.Errorf("the roster --json must carry the affinity: %v", workers[0]["repos"])
+	}
+	// The empty case must be [] and PRESENT — not null, and not absent.
+	empty, ok := workers[1]["repos"].([]any)
+	if !ok || len(empty) != 0 {
+		t.Errorf("an absent affinity must render as [], got %#v", workers[1]["repos"])
+	}
+	if !strings.Contains(out.String(), `"repos": []`) {
+		t.Errorf("the empty affinity must serialize as [], not null:\n%s", out.String())
 	}
 }
