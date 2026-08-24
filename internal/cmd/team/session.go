@@ -1191,7 +1191,7 @@ func defaultRepo(ctx context.Context, b *binding) string {
 	if b != nil && b.Repo != "" {
 		return b.Repo
 	}
-	if os.Getenv("HADRON_TEAM_GIT_DIR") != "" {
+	if os.Getenv(GitDirEnv) != "" {
 		return ""
 	}
 	out, err := exec.CommandContext(ctx, "git", "config", "--get", "remote.origin.url").Output()

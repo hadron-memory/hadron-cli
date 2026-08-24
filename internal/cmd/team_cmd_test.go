@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -1403,7 +1404,7 @@ func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("write fa
 func teamGitDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	t.Setenv("HADRON_TEAM_GIT_DIR", dir)
+	t.Setenv(team.GitDirEnv, dir)
 	return dir
 }
 

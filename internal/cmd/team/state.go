@@ -87,10 +87,17 @@ type binding struct {
 
 const bindingFileName = "hadron-team-session.json"
 
-// gitDir resolves the current worktree's git dir. HADRON_TEAM_GIT_DIR
-// overrides the git call (tests, and environments without a git binary).
+// GitDirEnv overrides the git call that locates the worktree binding — for
+// tests, and for environments with no git binary. Exported so the test
+// sandbox names the same string this reads rather than a copy of it: two
+// spellings of one well-known key is how a sandbox silently stops sandboxing
+// (hadron-cli#498).
+const GitDirEnv = "HADRON_TEAM_GIT_DIR"
+
+// gitDir resolves the current worktree's git dir. GitDirEnv overrides the git
+// call (tests, and environments without a git binary).
 func gitDir(ctx context.Context) (string, error) {
-	if d := os.Getenv("HADRON_TEAM_GIT_DIR"); d != "" {
+	if d := os.Getenv(GitDirEnv); d != "" {
 		return d, nil
 	}
 	out, err := exec.CommandContext(ctx, "git", "rev-parse", "--git-dir").Output()
