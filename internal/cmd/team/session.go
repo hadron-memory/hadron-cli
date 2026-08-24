@@ -3,6 +3,7 @@ package team
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -1124,20 +1125,34 @@ what you have read. A cross-surface watermark is a server-side question.`,
 				}
 			}
 			if kind == "pr" {
-				known := false
-				for _, n := range b.PRNumbers {
-					if n == number {
-						known = true
-						break
+				// #499: append under compare-and-swap, and re-check membership
+				// INSIDE the mutation. `b` is the snapshot this command read
+				// before it talked to the server; by now a concurrent agent may
+				// have appended this very number, or others. updateBinding
+				// re-reads on every attempt, so the dedupe has to run against
+				// what is on disk NOW rather than against that snapshot —
+				// otherwise the CAS faithfully preserves a duplicate.
+				//
+				// The server writes already succeeded, so a failed local append
+				// only degrades whoami's history — report, don't fail. A
+				// binding removed by a concurrent `session end` is the ordinary
+				// shape of that, not an anomaly: the milestone is recorded
+				// server-side either way.
+				err := updateBinding(ctx, func(cur *binding) error {
+					for _, n := range cur.PRNumbers {
+						if n == number {
+							return errPRAlreadyKnown
+						}
 					}
-				}
-				if !known {
-					b.PRNumbers = append(b.PRNumbers, number)
-					// The server writes already succeeded, so a failed local
-					// append only degrades whoami's history — report, don't fail.
-					if _, err := writeBinding(ctx, b); err != nil {
-						fmt.Fprintf(f.IOStreams.ErrOut, "note: recorded server-side, but updating the local binding failed: %v\n", err)
-					}
+					cur.PRNumbers = append(cur.PRNumbers, number)
+					return nil
+				})
+				switch {
+				case err == nil, errors.Is(err, errPRAlreadyKnown):
+				case errors.Is(err, errNoBinding):
+					fmt.Fprintf(f.IOStreams.ErrOut, "note: recorded server-side, but this worktree's binding is gone — a concurrent `session end`?\n")
+				default:
+					fmt.Fprintf(f.IOStreams.ErrOut, "note: recorded server-side, but updating the local binding failed: %v\n", err)
 				}
 			}
 			// #474: say what landed in the team chat while you were heads-down.
