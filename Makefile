@@ -20,7 +20,11 @@ SDL_EXPORT ?= pnpm -s tsx scripts/export-graphql-sdl.mjs
 # checkout is dirty somewhere most of the time, and a guard that fires on the
 # happy path only teaches people to bypass it.
 SDL_SOURCES   ?= src/api/graphql/schema/typeDefs.ts scripts/export-graphql-sdl.mjs
-TOOLS_SOURCES ?= src/mcp/server.ts
+# BOTH registries gen-tools-manifest.sh reads: the MCP server.tool() calls and
+# the RunToolDef names under the runner-tools directory. Listing only the first
+# left uncommitted runner tools slipping past the gate — the guard not covering
+# its generator's real inputs (PR #517 review, Codex P2 + Copilot).
+TOOLS_SOURCES ?= src/mcp/server.ts src/lib/runner/tools
 
 .PHONY: build test lint fmt generate schema schema-check tools-manifest tools-manifest-check clean
 
