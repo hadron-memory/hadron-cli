@@ -37,10 +37,16 @@ func TestMain(m *testing.M) {
 	// teamGitDir(t) for a private one — t.Setenv overrides this and restores
 	// it afterwards — so nothing shares state through here; this directory
 	// exists to be reliably EMPTY for everyone else.
-	os.Setenv(team.GitDirEnv, dir)
+	if err := os.Setenv(team.GitDirEnv, dir); err != nil {
+		// Refuse to run rather than run unsandboxed: an unsandboxed suite is
+		// precisely the false-green this exists to remove, and it would look
+		// like a normal green.
+		fmt.Fprintf(os.Stderr, "sandbox: %v\n", err)
+		os.Exit(1)
+	}
 
 	code := m.Run()
-	os.RemoveAll(dir)
+	_ = os.RemoveAll(dir) // best-effort: a leftover temp dir is not worth failing a green suite over
 	os.Exit(code)
 }
 
