@@ -740,6 +740,20 @@ Conventions:
   beside it is unaffected — losing the link never costs you the ref. Carried
   on BOTH `worker get --json` and `worker list --json`; the roster TABLE
   deliberately has no URL column, since a full URL per row is wide.
+  **`repos` is the ROLE's repo affinity, resolved onto the worker** (#456,
+  hadron-server#1024) — a SOFT signal, carried on both worker surfaces. At
+  `session start`, a `--repo` outside it prints a warning to **stderr** (after
+  the boot briefing, where it can still be read) naming the mismatch and, when
+  exactly one non-retired teammate claims that repo, suggesting them. It is
+  **never a refusal**: the exit code is unchanged, the session starts and the
+  binding is written, because cross-repo work is legitimate — a coordinator
+  does it by definition and sibling repos share code. The warning prints under
+  `--json` too, on stderr, so it never enters the parsed document.
+  **EMPTY MEANS "NEVER WARN", and it is the answer to every uncertainty**: no
+  role, a role with no definition, an unreadable system memory, and a denied
+  read all return `[]`. So there is no unconfigured-vs-spans-everything
+  distinction to draw — both mean do-not-warn, and telling them apart would
+  make an unconfigured team look misconfigured. Renders as `[]`, never `null`.
   **`worker list --json` does NOT carry `prompt`** (#459): the
   resolved briefing is multi-KB per worker and a roster read is not where you
   want it, so the key is OMITTED — not nulled, because a null would hand a
