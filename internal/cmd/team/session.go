@@ -3,6 +3,7 @@ package team
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -1124,20 +1125,49 @@ what you have read. A cross-surface watermark is a server-side question.`,
 				}
 			}
 			if kind == "pr" {
-				known := false
-				for _, n := range b.PRNumbers {
-					if n == number {
-						known = true
-						break
+				// #499: append under the binding lock, with BOTH checks INSIDE
+				// the mutation. `b` is the snapshot this command read before it
+				// talked to the server; the mutation runs later, under the
+				// lock, against a fresh read — so anything decided from `b`
+				// alone is stale by construction.
+				//
+				// SESSION FIRST (PR #519 review, @codex P2). A concurrent
+				// `session start` can replace the binding in that gap, and
+				// appending then would file this PR under a session that never
+				// logged it — contaminating the NEW session's whoami history
+				// with the old one's work. The watermark mutation already
+				// guarded this; the append did not.
+				//
+				// Then membership, also against what is on disk now: a
+				// concurrent agent may have appended this very number since,
+				// and a dedupe checked against `b` would let the serialized
+				// write faithfully preserve a duplicate.
+				//
+				// The server writes already succeeded, so a failed local append
+				// only degrades whoami's history — report, don't fail. A
+				// binding removed by a concurrent `session end` is the ordinary
+				// shape of that, not an anomaly: the milestone is recorded
+				// server-side either way.
+				err := updateBinding(ctx, func(cur *binding) error {
+					if cur.SessionID != b.SessionID {
+						return errBindingChangedSession
 					}
-				}
-				if !known {
-					b.PRNumbers = append(b.PRNumbers, number)
-					// The server writes already succeeded, so a failed local
-					// append only degrades whoami's history — report, don't fail.
-					if _, err := writeBinding(ctx, b); err != nil {
-						fmt.Fprintf(f.IOStreams.ErrOut, "note: recorded server-side, but updating the local binding failed: %v\n", err)
+					for _, n := range cur.PRNumbers {
+						if n == number {
+							return errPRAlreadyKnown
+						}
 					}
+					cur.PRNumbers = append(cur.PRNumbers, number)
+					return nil
+				})
+				switch {
+				case err == nil, errors.Is(err, errPRAlreadyKnown):
+				case errors.Is(err, errBindingChangedSession):
+					fmt.Fprintf(f.IOStreams.ErrOut, "note: recorded server-side for session %s, but this worktree is now bound to a different one — not adding it to that session's local history\n", b.SessionID)
+				case errors.Is(err, errNoBinding):
+					fmt.Fprintf(f.IOStreams.ErrOut, "note: recorded server-side, but this worktree's binding is gone — a concurrent `session end`?\n")
+				default:
+					fmt.Fprintf(f.IOStreams.ErrOut, "note: recorded server-side, but updating the local binding failed: %v\n", err)
 				}
 			}
 			// #474: say what landed in the team chat while you were heads-down.
