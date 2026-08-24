@@ -616,6 +616,27 @@ holds nothing).`,
 				if _, err := fmt.Fprintf(out, "✓ started session %s as %s%s\n  binding: %s\n", s.Id, w.Name, roleSuffix(w.Role), path); err != nil {
 					return err
 				}
+				// The worker's portal link, at the bind (#510, beyond that
+				// issue's literal list of worker get/list — say so and it comes
+				// out). Two reasons it belongs here more than anywhere:
+				//
+				// PARITY: hadron_start_session already returns this line, so a
+				// desktop-track worker is handed its link at bind and a CLI
+				// one was not — the same surface, two answers.
+				//
+				// ADJACENCY: the boot briefing printed immediately below tells
+				// this worker to sign whatever it publishes with a CLICKABLE
+				// URN (hadron-server#1008). This is the one place where that
+				// instruction and the string it needs are on the same screen,
+				// which is what lets the briefing's "the ONE portal link you
+				// may construct yourself" carve-out be retired.
+				//
+				// Absent stays absent, as everywhere else (cor:api:230:01).
+				if w.PortalUrl != nil && *w.PortalUrl != "" {
+					if _, err := fmt.Fprintf(out, "  URL: %s\n", *w.PortalUrl); err != nil {
+						return err
+					}
+				}
 				// The resolved boot briefing (template bound + override) is
 				// what the driver adopts — print it where they will see it.
 				if w.Prompt != nil && *w.Prompt != "" {

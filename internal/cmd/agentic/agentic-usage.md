@@ -718,7 +718,25 @@ Conventions:
   casting — `cor:agt:020:02`); it needs no App context, which makes it the
   portable ref for scripts, and it is null only when the App's URN predates
   the flat grammar-v2 arity. `--json` carries `urn` and `slug` alongside the
-  worker's id. **`worker list --json` does NOT carry `prompt`** (#459): the
+  worker's id.
+  **`portalUrl` is the link that opens the worker in the portal** (#510,
+  `cor:api:230:01`) — SERVER-BUILT, and the one to COPY when signing anything
+  published outside the team rather than assembling `<origin>/app/u/<urn>`
+  yourself, which is the composition the field exists to remove: the canonical
+  spelling, the resolver route and the deployment origin are all the
+  platform's. `worker get` prints it as a `URL:` line under `urn:` — the same
+  framing `node get` uses — and `session start`'s receipt carries it at the
+  bind, matching `hadron_start_session`. It is **nullable, for two unrelated
+  reasons** (the deployment has no usable web origin, or there is no URN to
+  build one from) and both render as NOTHING: no line, no placeholder, and
+  never a locally-composed fallback, since a link to a guessed origin fails
+  silently for whoever clicks it. Under `--json` the key is present as `null`
+  rather than omitted, so "this deployment emits no links" is
+  distinguishable from an older CLI that does not know the key. The `urn`
+  beside it is unaffected — losing the link never costs you the ref. Carried
+  on BOTH `worker get --json` and `worker list --json`; the roster TABLE
+  deliberately has no URL column, since a full URL per row is wide.
+  **`worker list --json` does NOT carry `prompt`** (#459): the
   resolved briefing is multi-KB per worker and a roster read is not where you
   want it, so the key is OMITTED — not nulled, because a null would hand a
   reader who wanted the briefing nothing while looking like an answer.

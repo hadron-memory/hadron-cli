@@ -22,6 +22,17 @@ fragment WorkerFields on Worker {
   # computed rather than stored. Null only when the App's URN predates the
   # flat grammar-v2 shape this arity needs — so never render it unguarded.
   urn
+  # The portal link that opens this worker (hadron-server#1026, cor:api:230:01).
+  # SERVER-BUILT, and a client never composes one: the canonical spelling, the
+  # resolver route and the deployment origin are all the platform's, so a guess
+  # produces a URL that looks right and resolves to nothing.
+  #
+  # Nullable for two unrelated reasons — the deployment has no usable web
+  # origin, or the App's URN predates the arity a worker URN needs — and BOTH
+  # render as nothing. Absence is a defined answer, never an error, and never a
+  # cue to fall back to composing one. `urn` beside it is unaffected: losing the
+  # link must not cost the caller the reference.
+  portalUrl
   slug
   appId
   agentId
@@ -153,6 +164,12 @@ query GetWorker($ref: ID!) {
 fragment WorkerRosterFields on Worker {
   id
   urn
+  # Carried here too, unlike `prompt`: the trim this projection exists for was
+  # about a multi-KB briefing per row, and a link is one short string. Keeping
+  # it means `--json` answers the same shape on `worker list` as on
+  # `worker get` — a key that appears on one surface and not the other for the
+  # same entity is the kind of thing an agent has to special-case.
+  portalUrl
   slug
   appId
   agentId
