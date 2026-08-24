@@ -1,8 +1,12 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
@@ -58,11 +62,84 @@ func TestMain(m *testing.M) {
 // exercises, which is the shape this repo keeps finding
 // (review:a-mutation-check-can-itself-be-a-no-op).
 func TestPackageSandboxIsInEffect(t *testing.T) {
-	dir := os.Getenv(team.GitDirEnv)
+	if err := sandboxProblem(os.Getenv(team.GitDirEnv)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// sandboxProblem reports why dir is not a usable binding sandbox, or nil.
+//
+// Extracted from the test above so each branch can be EXERCISED. It cannot be
+// driven through the environment any more: TestMain overrides
+// HADRON_TEAM_GIT_DIR for the whole package, which is the point of it — so a
+// guard that only reads that variable has branches nothing can reach, which is
+// the defect this file exists to remove, one level up.
+func sandboxProblem(dir string) error {
 	if dir == "" {
-		t.Fatal("the worktree binding is NOT sandboxed — tests would read the developer's real binding locally and nothing on CI, which is a false green")
+		return errors.New("the worktree binding is NOT sandboxed — tests would read the developer's real binding locally and nothing on CI, which is a false green")
 	}
-	if _, err := os.Stat(dir + "/hadron-team-session.json"); err == nil {
-		t.Fatalf("the sandbox at %s already holds a binding — tests that assert the UNBOUND path would take the bound one", dir)
+	// filepath.Join, not a hard-coded separator: this repo ships a Windows
+	// binary, so its tests are expected to run there too.
+	_, err := os.Stat(filepath.Join(dir, "hadron-team-session.json"))
+	switch {
+	case err == nil:
+		return fmt.Errorf("the sandbox at %s already holds a binding — tests that assert the UNBOUND path would take the bound one", dir)
+	case !errors.Is(err, fs.ErrNotExist):
+		// UNKNOWN IS NOT NONE. A Stat that fails for any other reason —
+		// permissions, an unusable path — leaves "is this directory empty of
+		// bindings?" unanswered, and passing on an unanswered question is the
+		// same false green this change exists to remove
+		// (review:a-claim-must-not-outrun-its-evidence). Caught by @copilot on
+		// PR #518, in the guard written to enforce exactly that rule.
+		return fmt.Errorf("cannot tell whether the sandbox at %s is clean: %w", dir, err)
 	}
+	return nil
+}
+
+// Each branch of the guard, driven directly — the env var cannot reach it.
+func TestSandboxProblemDetectsEachFailure(t *testing.T) {
+	t.Run("unset", func(t *testing.T) {
+		if err := sandboxProblem(""); err == nil {
+			t.Error("an unset sandbox must be reported")
+		}
+	})
+	t.Run("clean", func(t *testing.T) {
+		if err := sandboxProblem(t.TempDir()); err != nil {
+			t.Errorf("an empty temp dir is a valid sandbox: %v", err)
+		}
+	})
+	t.Run("already holds a binding", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte("{}"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		err := sandboxProblem(dir)
+		if err == nil {
+			t.Fatal("a sandbox holding a binding must be reported")
+		}
+		// WHICH error, not merely that there is one. Without this the
+		// already-holds branch can be deleted and the unknown branch below
+		// catches the fall-through with a different message — so the subtest
+		// passes while the case it names is gone. Found by mutating it.
+		if !strings.Contains(err.Error(), "already holds a binding") {
+			t.Errorf("it must name the binding, not report an unanswered question: %v", err)
+		}
+	})
+	t.Run("unreadable is UNKNOWN, not clean", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("root reads anything, so the permission case cannot be staged")
+		}
+		dir := t.TempDir()
+		if err := os.Chmod(dir, 0o000); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+		err := sandboxProblem(dir)
+		if err == nil {
+			t.Fatal("an unreadable sandbox is UNKNOWN, and unknown must not pass as clean")
+		}
+		if !strings.Contains(err.Error(), "cannot tell") {
+			t.Errorf("it must say the question is unanswered, not that a binding exists: %v", err)
+		}
+	})
 }
