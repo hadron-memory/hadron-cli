@@ -107,7 +107,15 @@ type workerDTO struct {
 	Role           *string `json:"role"`
 	Prompt         *string `json:"prompt"`
 	PromptOverride *string `json:"promptOverride"`
-	MemoryID       *string `json:"memoryId"`
+	// Repos is the ROLE's repo affinity, resolved (#1024). A SOFT signal —
+	// `session start` warns on a mismatch and never refuses. Empty is the
+	// answer to every uncertainty (no role, no definition, unreadable memory,
+	// or a denied read), so it means "never warn" and NOT "unconfigured";
+	// there is deliberately no way to tell those apart, since both mean the
+	// same thing to a caller. Initialized to []string{} so it renders as []
+	// rather than null.
+	Repos    []string `json:"repos"`
+	MemoryID *string  `json:"memoryId"`
 	// HeldByUserID / HeldAt are the HOLD (cor:agt:020:09): whose name this is.
 	// The user ID rather than a rendered name, per
 	// review:entity-fields-not-display-labels — a label drops the actionable
@@ -134,7 +142,8 @@ func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 	return workerDTO{
 		ID: w.Id, URN: w.Urn, PortalURL: w.PortalUrl, Slug: w.Slug, AppID: w.AppId, AgentID: w.AgentId,
 		Name: w.Name, Role: w.Role,
-		Prompt: w.Prompt, PromptOverride: w.PromptOverride, MemoryID: w.MemoryId,
+		Prompt: w.Prompt, PromptOverride: w.PromptOverride,
+		Repos: nonNilRepos(w.Repos), MemoryID: w.MemoryId,
 		HeldByUserID: w.HeldByUserId, HeldAt: w.HeldAt,
 		RetiredAt: w.RetiredAt, RetiredBy: w.RetiredBy,
 		CreatedAt: w.CreatedAt, CreatedBy: w.CreatedBy,
@@ -164,18 +173,21 @@ type workerRosterDTO struct {
 	Name           string  `json:"name"`
 	Role           *string `json:"role"`
 	PromptOverride *string `json:"promptOverride"`
-	MemoryID       *string `json:"memoryId"`
-	RetiredAt      *string `json:"retiredAt"`
-	RetiredBy      *string `json:"retiredBy"`
-	CreatedAt      string  `json:"createdAt"`
-	CreatedBy      *string `json:"createdBy"`
-	Retired        bool    `json:"retired"`
+	// Same field and same [] semantics as workerDTO.Repos.
+	Repos     []string `json:"repos"`
+	MemoryID  *string  `json:"memoryId"`
+	RetiredAt *string  `json:"retiredAt"`
+	RetiredBy *string  `json:"retiredBy"`
+	CreatedAt string   `json:"createdAt"`
+	CreatedBy *string  `json:"createdBy"`
+	Retired   bool     `json:"retired"`
 }
 
 func workerRosterDTOFromFields(w gen.WorkerRosterFields) workerRosterDTO {
 	return workerRosterDTO{
 		ID: w.Id, URN: w.Urn, PortalURL: w.PortalUrl, Slug: w.Slug, AppID: w.AppId, AgentID: w.AgentId,
 		Name: w.Name, Role: w.Role, PromptOverride: w.PromptOverride,
+		Repos:    nonNilRepos(w.Repos),
 		MemoryID: w.MemoryId, RetiredAt: w.RetiredAt, RetiredBy: w.RetiredBy,
 		CreatedAt: w.CreatedAt, CreatedBy: w.CreatedBy,
 		Retired: w.RetiredAt != nil,
@@ -423,6 +435,17 @@ func lazyOnce(read func() string) func() string {
 		}
 		return cached
 	}
+}
+
+// nonNilRepos keeps an absent affinity rendering as [] rather than null — the
+// slice rule from conventions:output-contract. It matters more than usual
+// here: [] is the field's MEANINGFUL value ("never warn"), so a null would
+// read as a third state the contract does not have.
+func nonNilRepos(r []string) []string {
+	if r == nil {
+		return []string{}
+	}
+	return r
 }
 
 func roleSuffix(role *string) string {

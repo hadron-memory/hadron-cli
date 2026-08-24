@@ -3054,6 +3054,9 @@ func (v *CastWorkerCastWorker) GetPrompt() *string { return v.WorkerFields.Promp
 // GetPromptOverride returns CastWorkerCastWorker.PromptOverride, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
 
+// GetRepos returns CastWorkerCastWorker.Repos, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetRepos() []string { return v.WorkerFields.Repos }
+
 // GetMemoryId returns CastWorkerCastWorker.MemoryId, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
 
@@ -3121,6 +3124,8 @@ type __premarshalCastWorkerCastWorker struct {
 
 	PromptOverride *string `json:"promptOverride"`
 
+	Repos []string `json:"repos"`
+
 	MemoryId *string `json:"memoryId"`
 
 	HeldByUserId *string `json:"heldByUserId"`
@@ -3157,6 +3162,7 @@ func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWo
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
@@ -8420,6 +8426,9 @@ func (v *GetWorkerWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
 // GetPromptOverride returns GetWorkerWorker.PromptOverride, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
 
+// GetRepos returns GetWorkerWorker.Repos, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetRepos() []string { return v.WorkerFields.Repos }
+
 // GetMemoryId returns GetWorkerWorker.MemoryId, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
 
@@ -8487,6 +8496,8 @@ type __premarshalGetWorkerWorker struct {
 
 	PromptOverride *string `json:"promptOverride"`
 
+	Repos []string `json:"repos"`
+
 	MemoryId *string `json:"memoryId"`
 
 	HeldByUserId *string `json:"heldByUserId"`
@@ -8523,6 +8534,7 @@ func (v *GetWorkerWorker) __premarshalJSON() (*__premarshalGetWorkerWorker, erro
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
@@ -12764,6 +12776,9 @@ func (v *ReleaseWorkerReleaseWorker) GetPromptOverride() *string {
 	return v.WorkerFields.PromptOverride
 }
 
+// GetRepos returns ReleaseWorkerReleaseWorker.Repos, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetRepos() []string { return v.WorkerFields.Repos }
+
 // GetMemoryId returns ReleaseWorkerReleaseWorker.MemoryId, and is useful for accessing the field via an interface.
 func (v *ReleaseWorkerReleaseWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
 
@@ -12831,6 +12846,8 @@ type __premarshalReleaseWorkerReleaseWorker struct {
 
 	PromptOverride *string `json:"promptOverride"`
 
+	Repos []string `json:"repos"`
+
 	MemoryId *string `json:"memoryId"`
 
 	HeldByUserId *string `json:"heldByUserId"`
@@ -12867,6 +12884,7 @@ func (v *ReleaseWorkerReleaseWorker) __premarshalJSON() (*__premarshalReleaseWor
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
@@ -13270,6 +13288,9 @@ func (v *RetireWorkerRetireWorker) GetPrompt() *string { return v.WorkerFields.P
 // GetPromptOverride returns RetireWorkerRetireWorker.PromptOverride, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
 
+// GetRepos returns RetireWorkerRetireWorker.Repos, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetRepos() []string { return v.WorkerFields.Repos }
+
 // GetMemoryId returns RetireWorkerRetireWorker.MemoryId, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
 
@@ -13337,6 +13358,8 @@ type __premarshalRetireWorkerRetireWorker struct {
 
 	PromptOverride *string `json:"promptOverride"`
 
+	Repos []string `json:"repos"`
+
 	MemoryId *string `json:"memoryId"`
 
 	HeldByUserId *string `json:"heldByUserId"`
@@ -13373,6 +13396,7 @@ func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorker
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
@@ -18816,6 +18840,22 @@ type WorkerFields struct {
 	Prompt *string `json:"prompt"`
 	// Per-worker individuality layered over the agent's template prompt.
 	PromptOverride *string `json:"promptOverride"`
+	// #1024 — the repo affinity of this worker's ROLE, resolved so a client that
+	// already holds the worker needs no second round-trip to teamRoles. The CLI
+	// warns on a role/repo mismatch at session start (hadron-cli#456).
+	//
+	// WORKING-STATE field: behind the worker read gate and masked to [] on deny,
+	// like promptOverride and the holder — Session.worker reaches a Worker
+	// through a wider gate that admits any org member and survives a user leaving
+	// the App, so an ungated field would publish a team's repo list through any
+	// historical session.
+	//
+	// Masking to [] costs nothing, because empty already means "no affinity,
+	// never warn": a denied caller simply gets no warning, which is the safe
+	// direction for a signal that must never become a refusal. Same reason a
+	// worker with no role, a role with no definition, or an unreadable system
+	// memory all answer [] rather than erroring.
+	Repos []string `json:"repos"`
 	// The worker-scoped working memory in the App's container (null until provisioned).
 	MemoryId *string `json:"memoryId"`
 	// #1050 — the human HOLDING this name, or null when nobody does.
@@ -18874,6 +18914,9 @@ func (v *WorkerFields) GetPrompt() *string { return v.Prompt }
 
 // GetPromptOverride returns WorkerFields.PromptOverride, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetPromptOverride() *string { return v.PromptOverride }
+
+// GetRepos returns WorkerFields.Repos, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetRepos() []string { return v.Repos }
 
 // GetMemoryId returns WorkerFields.MemoryId, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetMemoryId() *string { return v.MemoryId }
@@ -18942,6 +18985,22 @@ type WorkerRosterFields struct {
 	Role *string `json:"role"`
 	// Per-worker individuality layered over the agent's template prompt.
 	PromptOverride *string `json:"promptOverride"`
+	// #1024 — the repo affinity of this worker's ROLE, resolved so a client that
+	// already holds the worker needs no second round-trip to teamRoles. The CLI
+	// warns on a role/repo mismatch at session start (hadron-cli#456).
+	//
+	// WORKING-STATE field: behind the worker read gate and masked to [] on deny,
+	// like promptOverride and the holder — Session.worker reaches a Worker
+	// through a wider gate that admits any org member and survives a user leaving
+	// the App, so an ungated field would publish a team's repo list through any
+	// historical session.
+	//
+	// Masking to [] costs nothing, because empty already means "no affinity,
+	// never warn": a denied caller simply gets no warning, which is the safe
+	// direction for a signal that must never become a refusal. Same reason a
+	// worker with no role, a role with no definition, or an unreadable system
+	// memory all answer [] rather than erroring.
+	Repos []string `json:"repos"`
 	// The worker-scoped working memory in the App's container (null until provisioned).
 	MemoryId *string `json:"memoryId"`
 	// Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
@@ -18977,6 +19036,9 @@ func (v *WorkerRosterFields) GetRole() *string { return v.Role }
 
 // GetPromptOverride returns WorkerRosterFields.PromptOverride, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetPromptOverride() *string { return v.PromptOverride }
+
+// GetRepos returns WorkerRosterFields.Repos, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetRepos() []string { return v.Repos }
 
 // GetMemoryId returns WorkerRosterFields.MemoryId, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetMemoryId() *string { return v.MemoryId }
@@ -19090,6 +19152,11 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetPromptOverride() *string
 	return v.WorkerRosterFields.PromptOverride
 }
 
+// GetRepos returns WorkersRosterWorkersWorkersPageItemsWorker.Repos, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetRepos() []string {
+	return v.WorkerRosterFields.Repos
+}
+
 // GetMemoryId returns WorkersRosterWorkersWorkersPageItemsWorker.MemoryId, and is useful for accessing the field via an interface.
 func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetMemoryId() *string {
 	return v.WorkerRosterFields.MemoryId
@@ -19159,6 +19226,8 @@ type __premarshalWorkersRosterWorkersWorkersPageItemsWorker struct {
 
 	PromptOverride *string `json:"promptOverride"`
 
+	Repos []string `json:"repos"`
+
 	MemoryId *string `json:"memoryId"`
 
 	RetiredAt *string `json:"retiredAt"`
@@ -19190,6 +19259,7 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) __premarshalJSON() (*__prem
 	retval.Name = v.WorkerRosterFields.Name
 	retval.Role = v.WorkerRosterFields.Role
 	retval.PromptOverride = v.WorkerRosterFields.PromptOverride
+	retval.Repos = v.WorkerRosterFields.Repos
 	retval.MemoryId = v.WorkerRosterFields.MemoryId
 	retval.RetiredAt = v.WorkerRosterFields.RetiredAt
 	retval.RetiredBy = v.WorkerRosterFields.RetiredBy
@@ -19259,6 +19329,9 @@ func (v *WorkersWorkersWorkersPageItemsWorker) GetPrompt() *string { return v.Wo
 func (v *WorkersWorkersWorkersPageItemsWorker) GetPromptOverride() *string {
 	return v.WorkerFields.PromptOverride
 }
+
+// GetRepos returns WorkersWorkersWorkersPageItemsWorker.Repos, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetRepos() []string { return v.WorkerFields.Repos }
 
 // GetMemoryId returns WorkersWorkersWorkersPageItemsWorker.MemoryId, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
@@ -19335,6 +19408,8 @@ type __premarshalWorkersWorkersWorkersPageItemsWorker struct {
 
 	PromptOverride *string `json:"promptOverride"`
 
+	Repos []string `json:"repos"`
+
 	MemoryId *string `json:"memoryId"`
 
 	HeldByUserId *string `json:"heldByUserId"`
@@ -19371,6 +19446,7 @@ func (v *WorkersWorkersWorkersPageItemsWorker) __premarshalJSON() (*__premarshal
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.Repos = v.WorkerFields.Repos
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
@@ -22703,6 +22779,7 @@ fragment WorkerFields on Worker {
 	role
 	prompt
 	promptOverride
+	repos
 	memoryId
 	heldByUserId
 	heldAt
@@ -25713,6 +25790,7 @@ fragment WorkerFields on Worker {
 	role
 	prompt
 	promptOverride
+	repos
 	memoryId
 	heldByUserId
 	heldAt
@@ -27307,6 +27385,7 @@ fragment WorkerFields on Worker {
 	role
 	prompt
 	promptOverride
+	repos
 	memoryId
 	heldByUserId
 	heldAt
@@ -27611,6 +27690,7 @@ fragment WorkerFields on Worker {
 	role
 	prompt
 	promptOverride
+	repos
 	memoryId
 	heldByUserId
 	heldAt
@@ -29944,6 +30024,7 @@ fragment WorkerFields on Worker {
 	role
 	prompt
 	promptOverride
+	repos
 	memoryId
 	heldByUserId
 	heldAt
@@ -30008,6 +30089,7 @@ fragment WorkerRosterFields on Worker {
 	name
 	role
 	promptOverride
+	repos
 	memoryId
 	retiredAt
 	retiredBy

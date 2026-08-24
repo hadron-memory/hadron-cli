@@ -279,6 +279,93 @@ func classifyHold(ctx context.Context, client graphql.Client, w gen.WorkerFields
 	}
 }
 
+// repoInAffinity reports whether repo is one of the affinity entries.
+//
+// Case-insensitive, because GitHub repository paths are: `Acme/Widgets` and
+// `acme/widgets` are one repo, and treating them as two would fire a mismatch
+// warning at somebody who typed their own repo correctly. That is the rule
+// canonicalRepo already applies to every artifact ref, applied here too rather
+// than invented separately — but WITHOUT its validation, since an affinity
+// entry the server stored is not ours to reject and a --repo we cannot parse
+// should silently not match rather than error out of a nudge.
+func repoInAffinity(repo string, affinity []string) bool {
+	want := strings.ToLower(strings.TrimSpace(repo))
+	for _, r := range affinity {
+		if strings.ToLower(strings.TrimSpace(r)) == want {
+			return true
+		}
+	}
+	return false
+}
+
+// warnRepoAffinity prints the #456 nudge when --repo sits outside the bound
+// worker's role affinity. Best-effort and side-effect-free by construction:
+// every uncertainty resolves to SILENCE, never to a warning and never to an
+// error, because the one thing a soft signal must not do is cost somebody a
+// session they legitimately started.
+//
+// Silent when:
+//   - --repo was not passed (nothing to compare);
+//   - the affinity is empty, which per the server's contract is the answer to
+//     "no role", "role has no definition", "system memory unreadable" AND
+//     "you may not read this field" alike — so a denied caller simply gets no
+//     warning, which is the safe direction;
+//   - the repo IS in the affinity, the ordinary case.
+func warnRepoAffinity(ctx context.Context, f *cmdutil.Factory, client graphql.Client, w gen.WorkerFields, repo string) {
+	if strings.TrimSpace(repo) == "" || len(w.Repos) == 0 || repoInAffinity(repo, w.Repos) {
+		return
+	}
+	fmt.Fprintf(f.IOStreams.ErrOut, "! %s%s normally works in %s, but --repo is %s\n",
+		w.Name, roleSuffix(w.Role), strings.Join(w.Repos, ", "), repo)
+	// The suggestion is the part that makes this actionable rather than
+	// merely correct, and it is deliberately only offered when it is
+	// UNAMBIGUOUS: exactly one non-retired teammate claims this repo. Two
+	// candidates and a guess would be worse than none, since the whole nudge
+	// rests on the reader trusting it.
+	//
+	// Reached only on the mismatch path, so the roster read costs nothing in
+	// the ordinary case; and its failure is swallowed, because a decoration
+	// that cannot be computed must not turn into noise on a session that
+	// started fine.
+	if name := soleWorkerForRepo(ctx, client, w, repo); name != "" {
+		fmt.Fprintf(f.IOStreams.ErrOut, "  bind %s if that is what you meant.\n", name)
+	}
+	fmt.Fprintf(f.IOStreams.ErrOut, "  `hadron team worker list` shows the roster. The session started; this is a nudge, not a refusal.\n")
+}
+
+// soleWorkerForRepo returns the name of the ONE non-retired worker in this
+// App whose role claims repo, or "" when there is no such worker or more than
+// one. Errors resolve to "" — see warnRepoAffinity on why silence is the only
+// safe failure here.
+// scanWorkerRoster, NOT scanWorkers: the roster projection exists precisely to
+// leave the resolved multi-KB boot briefing on the server (#459), and `repos`
+// was added to it in this change FOR this lookup — then the first draft called
+// the prompt-bearing scan anyway, which on a name-based start repeats a roster
+// read `resolveWorker` has already done, briefings and all (PR #516 review,
+// Codex P2 + Copilot). Everything this needs — id, name, role, repos,
+// retiredAt — is in the trimmed projection.
+func soleWorkerForRepo(ctx context.Context, client graphql.Client, bound gen.WorkerFields, repo string) string {
+	workers, err := scanWorkerRoster(ctx, client, bound.AppId)
+	if err != nil {
+		return ""
+	}
+	found := ""
+	for _, cand := range workers {
+		// Never suggest a retired worker: `session start` refuses one
+		// outright (WORKER_RETIRED), so naming it would hand the reader a
+		// remedy that cannot be run — the same defect the held refusal had
+		// before #511.
+		if cand.RetiredAt != nil || cand.Id == bound.Id || !repoInAffinity(repo, cand.Repos) {
+			continue
+		}
+		if found != "" {
+			return "" // ambiguous: name the mismatch, suggest nothing
+		}
+		found = cand.Name + roleSuffix(cand.Role)
+	}
+	return found
+}
+
 // appIndependentRef picks the spelling of a worker that resolves with NO App
 // scope: its URN, or its id when the App's URN predates the grammar-v2 arity
 // a worker URN needs and there is none.
@@ -612,7 +699,7 @@ holds nothing).`,
 				BindingPath string     `json:"bindingPath"`
 				TookOver    bool       `json:"tookOver"`
 			}{sessionDTOFromFields(s, &w.Name), sessionStartWorkerDTO(w), path, active != nil}
-			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
+			if err := output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
 				if _, err := fmt.Fprintf(out, "✓ started session %s as %s%s\n  binding: %s\n", s.Id, w.Name, roleSuffix(w.Role), path); err != nil {
 					return err
 				}
@@ -645,7 +732,31 @@ holds nothing).`,
 					}
 				}
 				return nil
-			})
+			}); err != nil {
+				return err
+			}
+			// #456 — the role/repo mismatch nudge, and its PLACEMENT is the
+			// feature. The bind receipt has always printed the role
+			// (`roleSuffix`), so the information was never missing; it is
+			// missable, because the several-hundred-word boot briefing prints
+			// directly after it and pushes it off screen. A warning emitted
+			// before the briefing would land in exactly the spot the issue
+			// exists because nobody reads, which is why this sits AFTER
+			// output.Write rather than inside its callback.
+			//
+			// stderr, not stdout: it is a nudge about the invocation rather
+			// than part of the session record, so it must not enter a --json
+			// consumer's parse. It still prints under --json for the same
+			// reason — a wrong binding is worth telling an agent about too, and
+			// stderr is not the JSON channel.
+			//
+			// WARN, NEVER REFUSE (cor:agt:020 / the server's own SDL note):
+			// cross-repo work is legitimate — a coordinator does it by
+			// definition and sibling repos share code — so the exit code is
+			// untouched, the session is already started and the binding
+			// already written by the time this runs.
+			warnRepoAffinity(cmd.Context(), f, client, w, repo)
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&as, "as", "", "worker to drive: its URN or id (no App scope needed), or its name within the team App")

@@ -43,6 +43,16 @@ fragment WorkerFields on Worker {
   # surfaced by `worker get` — it is what a session driver adopts.
   prompt
   promptOverride
+  # #1024 — the repo affinity of this worker's ROLE, resolved server-side so a
+  # caller already holding the worker needs no second trip to teamRoles.
+  #
+  # EMPTY MEANS "NEVER WARN", and it is the answer to every uncertainty rather
+  # than one case among several: no role, a role with no definition, an
+  # unreadable system memory, and a DENIED read all return []. So there is no
+  # unconfigured-vs-spans-everything distinction for a client to draw — which
+  # is deliberate, since both mean do-not-warn and telling them apart would
+  # make an unconfigured team look misconfigured.
+  repos
   memoryId
   # The HOLD (hadron-server#1050, cor:agt:020:09): whose name this is, and
   # since when. A name is held by a PERSON and only an explicit release frees
@@ -176,6 +186,9 @@ fragment WorkerRosterFields on Worker {
   name
   role
   promptOverride
+  # Carried on the roster too, so the mismatch warning can name the worker the
+  # caller probably meant without a third query. Same [] semantics as above.
+  repos
   memoryId
   retiredAt
   retiredBy
