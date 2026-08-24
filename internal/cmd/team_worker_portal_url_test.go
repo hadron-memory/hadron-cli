@@ -25,9 +25,10 @@ func withPortalURL(url string) string {
 }
 
 // The line `worker get` prints, and the framing is the point: `URL:` directly
-// under `urn:`, exactly as `node get` renders it, so the standing instruction
-// in every role-agent briefing — never hand-build a portal link, copy the URL
-// line — reads identically on both surfaces.
+// under `urn:`, as the MCP node read already renders it, so the standing
+// instruction in every role-agent briefing — never hand-build a portal link,
+// copy the URL line — reads the same wherever it is met. (The CLI's own
+// `node get` prints no URL line yet; that gap is #515.)
 func TestTeamWorkerGetPrintsPortalURL(t *testing.T) {
 	teamGitDir(t)
 	const url = "https://hadronmemory.com/app/u/hrn:worker:acme.com:eng-team:iris"
