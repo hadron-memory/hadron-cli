@@ -38,20 +38,24 @@ func TestSessionListLeadsWithTheWorkerAndItsRole(t *testing.T) {
 	if !strings.Contains(header, "ROLE") {
 		t.Errorf("the role column must be present:\n%s", header)
 	}
-	workerAt := strings.Index(header, "WORKER")
-	roleAt := strings.Index(header, "ROLE")
-	sessionAt := strings.Index(header, "SESSION")
-	if workerAt != 0 {
-		t.Errorf("WORKER must anchor the row, not an id:\n%s", header)
+	// POSITIONS, not relative order (PR #521 review, @copilot): "SESSION comes
+	// after ROLE" is satisfied by SESSION sitting third, which is most of the
+	// defect still present.
+	cols := strings.Fields(header)
+	if len(cols) < 3 {
+		t.Fatalf("unexpected header: %q", header)
 	}
-	if roleAt < workerAt {
-		t.Errorf("ROLE belongs beside WORKER:\n%s", header)
+	if cols[0] != "WORKER" {
+		t.Errorf("WORKER must anchor the row, not an id: %v", cols)
+	}
+	if cols[1] != "ROLE" {
+		t.Errorf("ROLE must sit immediately after WORKER: %v", cols)
 	}
 	// SESSION last: it cannot be dropped — `session end --session <id>` and the
 	// worklog join need it — but it does not belong in the position that
 	// anchors the reader's eye, which is the whole complaint.
-	if sessionAt < roleAt {
-		t.Errorf("SESSION must move to the end:\n%s", header)
+	if cols[len(cols)-1] != "SESSION" {
+		t.Errorf("SESSION must be the LAST column: %v", cols)
 	}
 	if !strings.Contains(out.String(), "backend-engineer") {
 		t.Errorf("the role must render:\n%s", out.String())
@@ -105,15 +109,15 @@ func TestSessionListProvenanceTableAlsoLeadsWithTheWorker(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	header := strings.SplitN(out.String(), "\n", 2)[0]
-	if !strings.Contains(header, "ROLE") {
-		t.Errorf("the provenance table must carry ROLE too:\n%s", header)
+	cols := strings.Fields(strings.SplitN(out.String(), "\n", 2)[0])
+	if len(cols) < 3 {
+		t.Fatalf("unexpected header: %v", cols)
 	}
-	if strings.Index(header, "WORKER") != 0 {
-		t.Errorf("WORKER must anchor the provenance row as well:\n%s", header)
+	if cols[0] != "WORKER" || cols[1] != "ROLE" {
+		t.Errorf("the provenance table must lead WORKER ROLE too: %v", cols)
 	}
-	if strings.Index(header, "SESSION") < strings.Index(header, "ROLE") {
-		t.Errorf("SESSION must move to the end here too:\n%s", header)
+	if cols[len(cols)-1] != "SESSION" {
+		t.Errorf("SESSION must be LAST here too: %v", cols)
 	}
 	if !strings.Contains(out.String(), "s-old") {
 		t.Errorf("the full session id must survive here too:\n%s", out.String())
@@ -134,13 +138,33 @@ func TestSessionListDashesAnAbsentRole(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if !strings.Contains(out.String(), "—") {
-		t.Errorf("an absent role must render as a dash:\n%s", out.String())
+	// The ROLE CELL of that row, not "a dash appears somewhere in the output"
+	// (PR #521 review, @copilot): PR and ENDED are dashes on this fixture too,
+	// so the loose assertion passed whatever the role column did.
+	lines := strings.Split(strings.TrimRight(out.String(), "\n"), "\n")
+	cols := strings.Fields(lines[0])
+	roleAt := -1
+	for i, c := range cols {
+		if c == "ROLE" {
+			roleAt = i
+		}
 	}
-	// And the row still appears — a session without a worker is surfaced, not
-	// dropped (the visibility-gap rule).
-	if !strings.Contains(out.String(), "s-bare") {
-		t.Errorf("a worker-less session must still be listed:\n%s", out.String())
+	if roleAt < 0 {
+		t.Fatalf("no ROLE column: %v", cols)
+	}
+	var row []string
+	for _, l := range lines[1:] {
+		if strings.Contains(l, "s-bare") {
+			row = strings.Fields(l)
+		}
+	}
+	if row == nil {
+		// A session without a worker is surfaced, not dropped — the
+		// visibility-gap rule.
+		t.Fatalf("a worker-less session must still be listed:\n%s", out.String())
+	}
+	if roleAt >= len(row) || row[roleAt] != "—" {
+		t.Errorf("the ROLE cell must be a dash, got %v (row %v)", row[min(roleAt, len(row)-1)], row)
 	}
 }
 

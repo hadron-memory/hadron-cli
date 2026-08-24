@@ -74,9 +74,11 @@ type sessionDTO struct {
 	// TeamSessionFields and discarded here until now, so it costs no query
 	// change and no round trip.
 	//
-	// Nil for a session whose worker is unreadable, and for one that predates
-	// worker binding — the same rows where WorkerName is nil. Rendered as a
-	// dash rather than guessed at.
+	// Nil whenever the NESTED worker is absent — unreadable, or a session that
+	// predates worker binding. Deliberately not phrased in terms of WorkerName,
+	// which can be populated from fallbackName (a provenance stub's worklog
+	// name) on exactly those rows, so the two are not nil together (PR #521
+	// review, @copilot). Rendered as a dash rather than guessed at.
 	WorkerRole     *string `json:"workerRole"`
 	UserID         *string `json:"userId"`
 	Type           string  `json:"type"`
