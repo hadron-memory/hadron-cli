@@ -15,6 +15,13 @@ HADRON_SERVER_DIR ?= ../hadron-server
 # (typeDefs.ts is a self-contained SDL string, so those are the only deps).
 SDL_EXPORT ?= pnpm -s tsx scripts/export-graphql-sdl.mjs
 
+# The files in HADRON_SERVER_DIR each sibling-reading target actually consumes.
+# scripts/sibling-source.sh reports uncommitted changes to THESE only: a shared
+# checkout is dirty somewhere most of the time, and a guard that fires on the
+# happy path only teaches people to bypass it.
+SDL_SOURCES   ?= src/api/graphql/schema/typeDefs.ts scripts/export-graphql-sdl.mjs
+TOOLS_SOURCES ?= src/mcp/server.ts
+
 .PHONY: build test lint fmt generate schema schema-check tools-manifest tools-manifest-check clean
 
 build:
@@ -37,6 +44,7 @@ generate:
 # Refresh the schema snapshot from the hadron-server checkout, then
 # regenerate. Requires hadron-server#259 (schema:export script).
 schema:
+	@MAKECMDGOALS_HINT=schema bash scripts/sibling-source.sh "schema" $(SDL_SOURCES)
 	cd $(HADRON_SERVER_DIR) && $(SDL_EXPORT) > $(abspath schema/schema.graphql)
 	$(MAKE) generate
 
@@ -55,6 +63,7 @@ schema:
 # normal state while adding an operation), so the target would cry drift at
 # your own in-progress work until you committed it.
 schema-check:
+	@MAKECMDGOALS_HINT=schema-check bash scripts/sibling-source.sh "schema-check" $(SDL_SOURCES)
 	@set -e; \
 	bak=$$(mktemp -d); \
 	cp schema/schema.graphql $$bak/schema.graphql; \
@@ -78,6 +87,7 @@ schema-check:
 # removed, or renamed. The hand-maintained internal/cmd/spec/mcp-tools-ignore.txt
 # (known non-tool hadron_* identifiers) is separate and NOT touched here.
 tools-manifest:
+	@MAKECMDGOALS_HINT=tools-manifest bash scripts/sibling-source.sh "tools-manifest" $(TOOLS_SOURCES)
 	HADRON_SERVER_DIR=$(HADRON_SERVER_DIR) bash scripts/gen-tools-manifest.sh > internal/cmd/spec/mcp-tools.txt
 
 # Drift detector for the tool manifest: regenerate from the server checkout and
@@ -91,6 +101,7 @@ tools-manifest:
 # schema-check does: comparing against HEAD would report drift for an
 # uncommitted manifest you had just regenerated yourself.
 tools-manifest-check:
+	@MAKECMDGOALS_HINT=tools-manifest-check bash scripts/sibling-source.sh "tools-manifest-check" $(TOOLS_SOURCES)
 	@set -e; \
 	bak=$$(mktemp -d); \
 	cp internal/cmd/spec/mcp-tools.txt $$bak/mcp-tools.txt; \
