@@ -1021,7 +1021,13 @@ Conventions:
   was started against a different `--server` than the current one.
   `session list` is the presence view, newest first, worker names joined in;
   `--as` narrows SERVER-side (`sessions(workerRef:)`), `--active`
-  client-side. **The worklog** is the provenance record, and it needs NO
+  client-side. **Both its tables lead with `WORKER  ROLE …` and carry
+  `SESSION` last** (#486): the role says what a worker IS and was already on
+  the wire, while the id is the one value a human cannot act on. The id is
+  never truncated — it is the handle `session end --session <id>` takes, so a
+  shortened one would break copy-paste. `--json` carries `workerRole`
+  alongside `workerName`/`workerId`, present as `null` on a session with no
+  readable worker rather than omitted, so the shape stays uniform across rows. **The worklog** is the provenance record, and it needs NO
   flag (#399): the binding records the bound worker's App — the worklog
   home — so `session log` just works, and the provenance query defaults to
   the binding's App (unbound checkouts pass `--app <ref>` or `-m

@@ -66,9 +66,20 @@ type sessionDTO struct {
 	ID string `json:"id"`
 	// AgentID is the role-agent driving the session; with workerId set it is
 	// the agent behind the casting (stamped server-side, cor:agt:020:03).
-	AgentID        *string `json:"agentId"`
-	WorkerID       *string `json:"workerId"`
-	WorkerName     *string `json:"workerName"`
+	AgentID    *string `json:"agentId"`
+	WorkerID   *string `json:"workerId"`
+	WorkerName *string `json:"workerName"`
+	// WorkerRole is the cast-list role behind the name — what a worker IS,
+	// as opposed to what it is called (#486). Already nested on
+	// TeamSessionFields and discarded here until now, so it costs no query
+	// change and no round trip.
+	//
+	// Nil whenever the NESTED worker is absent — unreadable, or a session that
+	// predates worker binding. Deliberately not phrased in terms of WorkerName,
+	// which can be populated from fallbackName (a provenance stub's worklog
+	// name) on exactly those rows, so the two are not nil together (PR #521
+	// review, @copilot). Rendered as a dash rather than guessed at.
+	WorkerRole     *string `json:"workerRole"`
 	UserID         *string `json:"userId"`
 	Type           string  `json:"type"`
 	Repo           *string `json:"repo"`
@@ -94,11 +105,15 @@ type sessionDTO struct {
 // silently dropped (the visibility-gap rule).
 func sessionDTOFromFields(s gen.TeamSessionFields, fallbackName *string) sessionDTO {
 	name := fallbackName
+	var role *string
 	if s.Worker != nil {
 		name = &s.Worker.Name
+		// No fallback for the role: unlike the name, nothing else on the wire
+		// carries it, so absent stays absent rather than being inferred.
+		role = s.Worker.Role
 	}
 	return sessionDTO{
-		ID: s.Id, AgentID: s.AgentId, WorkerID: s.WorkerId, WorkerName: name,
+		ID: s.Id, AgentID: s.AgentId, WorkerID: s.WorkerId, WorkerName: name, WorkerRole: role,
 		UserID: s.UserId,
 		Type:   s.Type, Repo: s.Repo, Branch: s.Branch, PRNumber: s.PrNumber,
 		StartedAt: s.StartedAt, EndedAt: s.EndedAt, Host: s.Host, Tool: s.Tool,
@@ -1491,7 +1506,14 @@ dropped.`,
 				}
 			}
 			return output.Write(f.IOStreams, f.JSON, sessions, func(w io.Writer) error {
-				t := output.NewTable(w, "SESSION", "WORKER", "USER", "REPO", "PR", "STARTED", "ENDED", "TOOL")
+				// WORKER first, ROLE beside it, SESSION last (#486). The id
+				// anchored the reader's eye while being the one value a human
+				// cannot act on; it stays because `session end --session <id>`
+				// and the worklog join need it, and stays FULL because a
+				// truncated id breaks copy-paste into that flag — shortening is
+				// only safe once --session learns prefix resolution, which is a
+				// deliberate change rather than an assumption.
+				t := output.NewTable(w, "WORKER", "ROLE", "USER", "REPO", "PR", "STARTED", "ENDED", "TOOL", "SESSION")
 				for _, s := range sessions {
 					pr := "—"
 					if s.PRNumber != nil {
@@ -1506,7 +1528,7 @@ dropped.`,
 					if worker == nil {
 						worker = s.AgentID
 					}
-					t.Row(s.ID, dash(worker), dash(s.UserID), dash(s.Repo), pr, s.StartedAt, dash(s.EndedAt), dash(s.Tool))
+					t.Row(dash(worker), dash(s.WorkerRole), dash(s.UserID), dash(s.Repo), pr, s.StartedAt, dash(s.EndedAt), dash(s.Tool), s.ID)
 				}
 				return t.Flush()
 			})
@@ -1633,9 +1655,10 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 		sessions = append(sessions, sessionDTOFromFields(resp.Session.TeamSessionFields, workerBySession[id].name))
 	}
 	return output.Write(f.IOStreams, f.JSON, sessions, func(w io.Writer) error {
-		t := output.NewTable(w, "SESSION", "WORKER", "USER", "TOOL", "HOST", "MODEL", "STARTED", "TRANSCRIPT")
+		// Same treatment as the listing table above (#486).
+		t := output.NewTable(w, "WORKER", "ROLE", "USER", "TOOL", "HOST", "MODEL", "STARTED", "TRANSCRIPT", "SESSION")
 		for _, s := range sessions {
-			t.Row(s.ID, dash(s.WorkerName), dash(s.UserID), dash(s.Tool), dash(s.Host), dash(s.LLMModel), s.StartedAt, dash(s.TranscriptPath))
+			t.Row(dash(s.WorkerName), dash(s.WorkerRole), dash(s.UserID), dash(s.Tool), dash(s.Host), dash(s.LLMModel), s.StartedAt, dash(s.TranscriptPath), s.ID)
 		}
 		return t.Flush()
 	})
