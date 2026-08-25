@@ -179,6 +179,60 @@ func TestTeamWorkerListTellsTheFourStatesApart(t *testing.T) {
 	}
 }
 
+// `session start --json` must not report the activity pair AT ALL.
+//
+// PR #523 review, @codex P1. That whole response is built from the PRE-mutation
+// read, so `hasLiveSession` off `w` says `false` immediately after the call that
+// made it true — the NEGATION of the operation being reported, inside the
+// document reporting its success — and `lastActiveAt` predates the stint. The
+// helper already stripped the hold pair for exactly this reason (PR #504) and
+// the new pair walked straight past it.
+//
+// Replayed as REPORTED rather than reconstructed (review:mutate-with-the-
+// original-input): an idle worker, a successful bind, `--json`.
+//
+// OMITTED, not nulled, and that distinction is the fiddly half. `null` on these
+// two is load-bearing on `worker list` — it is the signal that the read was
+// gated — so publishing null here would give a false account of WHY the value
+// is missing. The keys are dropped instead, which is why sessionStartWorker
+// shadows them with omitempty; this test is what proves the shadowing works,
+// since a struct that embedded them plainly would emit `null` and still look
+// fixed.
+func TestTeamSessionStartOmitsTheActivityPairItCannotKnow(t *testing.T) {
+	teamGitDir(t)
+	// The worker as it is read BEFORE the bind: idle, and never driven.
+	idle := workerWith("Iris", "wkr1", "", "", "false")
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetWorker":        `{"data":{"worker":` + idle + `}}`,
+		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--tool", "claude-code",
+		"--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var result struct {
+		Worker map[string]json.RawMessage `json:"worker"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &result); err != nil {
+		t.Fatalf("unmarshal: %v\n%s", err, out.String())
+	}
+	for _, k := range []string{"hasLiveSession", "lastActiveAt", "heldByUserId", "heldAt"} {
+		if raw, present := result.Worker[k]; present {
+			t.Errorf("session start reports %q from a PRE-bind read; it must be omitted, got %s",
+				k, string(raw))
+		}
+	}
+	// A positive control: the response is a real worker document, not an empty
+	// object that would satisfy every assertion above for the wrong reason.
+	if got := string(result.Worker["name"]); got != `"Iris"` {
+		t.Fatalf("fixture check: the worker document must still be rendered, got name=%s", got)
+	}
+}
+
 // The degenerate holder: a user whose display fields are ALL null.
 //
 // review:entity-fields-not-display-labels asks for this row explicitly, and it

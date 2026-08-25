@@ -710,10 +710,13 @@ holds nothing).`,
 					err, s.Id, w.Name)
 			}
 			result := struct {
-				Session     sessionDTO `json:"session"`
-				Worker      workerDTO  `json:"worker"`
-				BindingPath string     `json:"bindingPath"`
-				TookOver    bool       `json:"tookOver"`
+				Session sessionDTO `json:"session"`
+				// sessionStartWorker, not workerDTO: this response is built from
+				// the PRE-mutation read, so the fields the bind itself changes
+				// are omitted rather than reported stale. See its doc.
+				Worker      sessionStartWorker `json:"worker"`
+				BindingPath string             `json:"bindingPath"`
+				TookOver    bool               `json:"tookOver"`
 			}{sessionDTOFromFields(s, &w.Name), sessionStartWorkerDTO(w), path, active != nil}
 			if err := output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
 				if _, err := fmt.Fprintf(out, "✓ started session %s as %s%s\n  binding: %s\n", s.Id, w.Name, roleSuffix(w.Role), path); err != nil {
@@ -1671,24 +1674,48 @@ func strOrEmpty(s *string) string {
 	return *s
 }
 
-// sessionStartWorkerDTO is the worker as `session start` reports it: everything
-// workerDTO carries EXCEPT the hold.
+// sessionStartWorker is the worker as `session start` reports it: everything
+// workerDTO carries EXCEPT the four fields the bind itself invalidates.
 //
-// startSession CLAIMS the hold for a person (cor:agt:020:09 — "casting does not
-// hold; binding claims"), but this response is built from the PRE-mutation read,
-// so heldByUserId/heldAt there describe the moment before the bind. Reporting
-// them would tell a caller `heldByUserId: null` immediately after the bind that
-// set it (PR #504 review).
+// This whole response is built from the PRE-MUTATION read, so every
+// working-state field on it describes the moment BEFORE the bind:
+//
+//   - startSession CLAIMS the hold for a person (cor:agt:020:09 — "casting does
+//     not hold; binding claims"), so heldByUserId/heldAt would tell a caller
+//     `heldByUserId: null` immediately after the bind that set it (PR #504).
+//   - startSession OPENS a session, so hasLiveSession would report `false`
+//     immediately after the call that made it true, and lastActiveAt would
+//     predate the stint being reported (PR #523 review, Codex P1). That one is
+//     worse than stale: it is the NEGATION of the operation that just
+//     succeeded, in the same document that reports its success.
 //
 // Omitted rather than re-read: `session start` reports the session it just
-// created, not current staffing, and a round trip on the hot path to decorate a
-// field nobody asked for is the wrong trade. `worker get` is the staffing read.
-// Omitted rather than nulled, too — a null asserts "unheld", which is the exact
-// claim this command has spent a review learning not to make.
-func sessionStartWorkerDTO(w gen.WorkerFields) workerDTO {
+// created, not current staffing, and a round trip on the hot path to decorate
+// fields nobody asked for is the wrong trade. `worker get` is the staffing read.
+//
+// Omitted rather than NULLED, and the four need different machinery to achieve
+// that. The hold pair carries `omitempty` on workerDTO, so nil omits. The
+// activity pair deliberately does NOT — a null there is load-bearing on
+// `worker list`, where it is the signal that the read was gated — so nilling
+// them here would publish `hasLiveSession: null`, i.e. "you are not permitted
+// to know", which is a false account of why the value is missing. They are
+// shadowed with omitempty instead: the outer fields sit at depth 0 and win over
+// the embedded ones, so a nil drops the key entirely.
+type sessionStartWorker struct {
+	workerDTO
+	// Shadowing workerDTO's fields of the same name. Always nil in practice;
+	// present only so encoding/json takes THESE tags rather than the embedded
+	// ones. If either is ever populated here, it must come from a post-bind
+	// read, not from `w`.
+	HasLiveSession *bool   `json:"hasLiveSession,omitempty"`
+	LastActiveAt   *string `json:"lastActiveAt,omitempty"`
+}
+
+func sessionStartWorkerDTO(w gen.WorkerFields) sessionStartWorker {
 	dto := workerDTOFromFields(w)
 	dto.HeldByUserID, dto.HeldAt = nil, nil
-	return dto
+	dto.HasLiveSession, dto.LastActiveAt = nil, nil
+	return sessionStartWorker{workerDTO: dto}
 }
 
 // resolveHandoff reads the continuity record from --handoff, --handoff-file, or

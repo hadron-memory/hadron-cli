@@ -187,6 +187,42 @@ than a rendered label, matching the spelling `worker get` has emitted since
 #504 — and widening it to a user DTO now would break that surface's contract
 and split the two apart.
 
+## What the PR review found
+
+**@codex, P1, and it was mine.** `session start --json` embeds the worker built
+from the **pre-mutation** read. Adding the activity pair to `workerDTO` meant a
+successful bind reported `hasLiveSession: false` — **the negation of the
+operation that just succeeded, inside the document reporting its success** — and
+a `lastActiveAt` predating the stint.
+
+`sessionStartWorkerDTO` already stripped the hold pair for exactly this reason
+(#504), and its doc comment says so at length. **I added two fields with the
+same hazard directly beneath a comment explaining the hazard.** The other four
+`workerDTO` call sites are fine — `cast`, `retire` and `release` all report
+post-mutation rows, and `get` is a fresh read — so the finding is precisely one
+site wide.
+
+Fixed by omitting the pair, not nulling it: `null` on these two is load-bearing
+on `worker list` (it is the gated-read signal), so publishing null here would
+give a **false account of why the value is missing**. The keys are dropped via a
+`sessionStartWorker` struct that shadows them with `omitempty`.
+
+**And the fix's own mutation run found a dead line.** Reverting the reported bug
+— removing `dto.HasLiveSession = nil` — reds *nothing*, because the shadowed
+outer fields decide the JSON by themselves. The nilling is invisible to every
+wire assertion.
+
+It is kept rather than deleted, because the two mechanisms answer different
+questions — the **shadow** decides omitted-vs-null, the **nilling** decides
+null-vs-a-stale-value that a Go caller reading the embedded struct would see —
+but keeping it required making it falsifiable, so there is now a package-level
+test asserting the embedded fields directly. All three mutations red:
+bug-reverted, shadow-removed, hold-nilling-removed.
+
+That is the second instance in this PR of the same shape: **a guard whose
+failing input cannot be constructed is a line of setup.** The first was
+`selfKnown`. Neither was found by reading the code.
+
 ## Prose swept
 
 Three caveats expired in this commit, each written as *"not yet — tracked as
