@@ -892,12 +892,44 @@ Conventions:
   precondition (hadron-server#1073), so without that a hold taken between the
   classifying read and the call would be force-released silently while the
   receipt called it routine. `worker get` shows the holder (and `--json` gains
-  `heldByUserId`/`heldAt`, additive) — the line is omitted rather than dashed
-  when there is no visible hold; both are masked to null on deny, so
-  absence means "unheld OR not visible to you" — there is deliberately no
+  `heldByUserId`/`heldAt`, additive); both are masked to null on deny, so a
+  bare absence means "unheld OR not visible to you" — there is deliberately no
   `held` boolean, which would answer "no" to a caller who merely cannot see.
-  `worker list` is unchanged; which surface shows who is driving is
-  hadron-cli#487. **`team worker list` is the "who is on this team?" read** — the
+  Since #487 that read also prints `held by: nobody — binding it holds it`
+  and a `driven:` line, but **only when `hasLiveSession` is non-null** (below);
+  a caller who cannot see the working state gets NEITHER line rather than a
+  dashed one, because a dash there would answer a question the server refused.
+  **`worker list` now carries the hold too, alongside liveness** (#487,
+  hadron-server#1086): the table gains `HELD BY` and `LAST DRIVEN` after
+  `ROLE`, and `--json` gains `heldByUserId`/`heldAt`/`hasLiveSession`/
+  `lastActiveAt` on every row, additive. **The two columns answer different
+  questions and must not be collapsed** (`cor:agt:020:09`). `HELD BY` is whose
+  name it is — what decides whether you may bind, freed only by an explicit
+  `worker release`, and `--force` does not help against someone else's hold.
+  `LAST DRIVEN` is whether a worker session is open (`live`) and otherwise how
+  long since the name was driven (`3d ago`), or `never` for a casting nobody
+  has ever bound — the state the issue was filed for, since a worker nobody
+  picked up otherwise renders exactly like one worked yesterday. **`live` is
+  not a claim that anyone is at the keyboard**: a worker session outlives the
+  chat session that started it. There is deliberately no age beside `live`,
+  because an age there reads as presence.
+  **`hasLiveSession` is also the VISIBILITY SIGNAL for this row's working
+  state.** It is `null` only when the read gate masked it — the same gate that
+  masks `heldByUserId`/`heldAt`/`memoryId`/`promptOverride` — and otherwise
+  `true`/`false`. So `hasLiveSession: null` means every other working-state
+  null on that row is a mask and both columns render **`?`** — "not available
+  to you", never "nobody" and never "idle". `?` rather than the `—` this table
+  uses elsewhere, deliberately: the adjacent `RETIRED` cell renders `—` for a
+  DEFINITE no, so a masked row spelled with dashes would read as three settled
+  facts, two of which the server refused to state. With `hasLiveSession`
+  non-null, `heldByUserId: null` genuinely means unheld and `lastActiveAt:
+  null` genuinely means never driven. Both keys are always PRESENT under
+  `--json`, never omitted, because an absent key cannot carry that
+  distinction. **An age can under-report on a
+  reaped session**: the reaper overwrites the last heartbeat, so the
+  derivation falls back to the session's start and the worker reads as MORE
+  idle than it was — never less.
+  **`team worker list` is the "who is on this team?" read** — the
   App's staff (retired hidden unless `--include-retired`); `hadron app agent
   list` is the install roster (the cast pool). Its team App resolves
   ambiently (`--app` → App context → the worktree binding), so the human

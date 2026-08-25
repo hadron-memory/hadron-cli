@@ -3663,8 +3663,37 @@ type Mutation {
   this casting, and the handoff sequence and worklog travel with the worker
   to whoever holds it next. Idempotent: releasing an unheld worker returns
   it unchanged.
+  
+  #1073 — OPTIONAL PRECONDITION. The two release paths are different acts:
+  the holder's own release notifies nobody, an admin force-release announces
+  itself in the team chat. A client that wants to tell its user which one it
+  is about to perform can only classify from a pre-read, and the hold can
+  change in between — so the act performed differs from the act described,
+  and a hold taken in that interval is force-released silently.
+  
+  State what you expect and the server refuses instead. Pass
+  expectedHolderUserId to assert a specific holder, or expectUnheld: true to
+  assert there is none; a mismatch refuses WORKER_HOLD_STALE carrying the
+  holder actually found. Passing neither keeps the unconditional behaviour,
+  so this is additive. Passing both is BAD_USER_INPUT.
+  
+  Two arguments rather than one nullable id on purpose: distinguishing
+  "expect nobody" from "no expectation" through a nullable argument would
+  rest on KEY PRESENCE, and any layer that forwards the argument
+  unconditionally sends undefined — present, and read as an assertion nobody
+  made. That is a live hazard in this codebase, so a safety precondition does
+  not lean on it.
   """
-  releaseWorker(workerRef: ID!): Worker!
+  releaseWorker(
+    """Assert the name is held by nobody. Mismatch refuses WORKER_HOLD_STALE."""
+    expectUnheld: Boolean
+
+    """
+    Assert the name is held by exactly this user. Mismatch refuses WORKER_HOLD_STALE.
+    """
+    expectedHolderUserId: ID
+    workerRef: ID!
+  ): Worker!
 
   """
   DEPRECATED: use uninstallAgentFromApp. Carried for source-compat
@@ -7248,6 +7277,24 @@ type Worker {
   createdBy: String
 
   """
+  hadron-cli#487 — whether a worker session is OPEN on this name right now.
+  
+  Not availability: availability is the HOLD above (`cor:agt:020:09`), and an
+  ended, idle or reaped session never frees a name. This says only whether
+  someone is mid-stint, which is the question a coordinator asks about a name
+  already theirs. Conflating the two is the CLI bug this field exists for.
+  
+  Derived from the session lifecycle with no lease (`cor:agt:020:03`), using
+  the SAME predicate startSession refuses WORKER_TAKEN on — a reader must not
+  be told a worker is busy that a binder can take.
+  
+  Nullable BECAUSE of the read gate, not because the answer is unknown: this
+  is a working-state field like heldByUserId, masked to null on deny rather
+  than answering false, which would state a fact the server never computed.
+  """
+  hasLiveSession: Boolean
+
+  """
   When the current hold was taken. Null exactly when heldByUserId is — and
   likewise masked on deny.
   
@@ -7273,6 +7320,20 @@ type Worker {
   """
   heldByUserId: ID
   id: ID!
+
+  """
+  hadron-cli#487 — when this worker was last DRIVEN, over every session it has
+  ever had. Null for a worker nobody has ever bound, and that null is the
+  point: a casting nobody picked up renders identically to one worked
+  yesterday on every surface today, so a coordinator can dispatch into a
+  channel no one reads and get no signal at all.
+  
+  The instant is the platform's one derivation of session activity — the
+  greatest of startedAt, updatedAt, and the newest attributed usage event — so
+  it agrees with the takeover prompt and with the idle window the reaper acts
+  on. Masked to null on deny, like heldByUserId.
+  """
+  lastActiveAt: DateTime
 
   """
   The worker-scoped working memory in the App's container (null until provisioned).

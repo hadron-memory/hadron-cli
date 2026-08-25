@@ -59,18 +59,55 @@ fragment WorkerFields on Worker {
   # one — no session end, idle window, expiry or reap does.
   #
   # Both are MASKED TO NULL ON DENY, like prompt/promptOverride/memoryId. So a
-  # null means "unheld OR not visible to you" and must never be rendered as a
-  # bare "free". That ambiguity is IRREDUCIBLE client-side — there is no
-  # visibility signal on Worker — so no caller may resolve it; `worker release`
-  # reports "no hold was visible to you" rather than guessing. An earlier
-  # version of this comment claimed the ambiguity collapsed in release. It does
-  # not (hadron-cli PR #504).
-  #
-  # NOT added to WorkerRosterFields: which surface shows who is driving is
-  # hadron-cli#487's design question, and a column added in passing here would
-  # pre-empt it.
+  # bare null means "unheld OR not visible to you" and must never be rendered
+  # as "free" on its own. `hasLiveSession` below is what tells the two apart —
+  # see the note there, and note that `worker release` still hedges, because
+  # collapsing its classification is a separate change from rendering a column
+  # (hadron-cli PR #504 retracted two designs in that area).
   heldByUserId
   heldAt
+  # hadron-server#1086 (hadron-cli#487) — is a session OPEN on this name right
+  # now, and when was the name last DRIVEN.
+  #
+  # Three things about these that decide every render, all of them the server
+  # engineer's (issue #487, 2026-08-25) rather than inferred here:
+  #
+  # 1. `hasLiveSession` IS NOT AVAILABILITY. Availability is the HOLD above
+  #    (cor:agt:020:09). Liveness only says a session is open — and a worker
+  #    session outlives the chat session that started it, so "live" never means
+  #    somebody is at the keyboard. Conflating the two IS #487; a column that
+  #    lets liveness read as availability would re-file the issue it closes.
+  # 2. `lastActiveAt: null` ON A PERMITTED READ MEANS NEVER DRIVEN. That is the
+  #    state the whole issue is about: a casting nobody picked up currently
+  #    renders identically to one worked yesterday, so a coordinator dispatches
+  #    into a channel no one reads and gets no signal at all.
+  # 3. The instant DELIBERATELY UNDER-REPORTS on a reaped session. The reaper
+  #    ends an idle session with an updateMany and Prisma's @updatedAt moves to
+  #    the reaping instant, so that heartbeat is overwritten and unrecoverable;
+  #    the derivation drops it and falls back to startedAt, and caps everything
+  #    at endedAt. An age that looks older than expected is this, and it is the
+  #    safe direction — abandoned reads as MORE idle, never less.
+  #
+  # NOTE (3) is read from `src/lib/sessionActivityAt.ts` and the server
+  # engineer's own comment on #487, NOT from the SDL description of
+  # `lastActiveAt`, which omits both guards and closes with a clause that is
+  # wrong on exactly the reaped case ("agrees with the idle window the reaper
+  # acts on"). hadron-docs found that first (@Tove, team chat seq 273) and it is
+  # hadron-server's to fix; the snapshot in schema/ carries the stale text
+  # because it is generated. Do not write help text from it.
+  #
+  # `hasLiveSession` IS ALSO THE VISIBILITY SIGNAL for every working-state field
+  # on this type, which is what makes (2) renderable at all. Its resolver masks
+  # to null on deny and otherwise coalesces to `false` — a worker with no
+  # sessions answers false, never null — so the ONLY null path is the read gate,
+  # and it is the same `maySeeWorkerInternals(appId)` predicate that masks
+  # heldByUserId/heldAt/memoryId/promptOverride, memoized per request per App.
+  # Therefore, on a row where `hasLiveSession != null`, every other null here is
+  # a genuine absence rather than a mask. Verified against
+  # resolvers.worker.ts on hadron-server main @ e5c6ff2, and NOT yet stated as a
+  # contract anywhere — asked of hadron-server rather than assumed permanent.
+  hasLiveSession
+  lastActiveAt
   retiredAt
   retiredBy
   createdAt
@@ -190,6 +227,20 @@ fragment WorkerRosterFields on Worker {
   # caller probably meant without a third query. Same [] semantics as above.
   repos
   memoryId
+  # hadron-cli#487 — the roster is the surface that answers "who is on this
+  # team and is anyone actually driving them", so these four belong here and
+  # not only on the single read. An earlier revision of the WorkerFields
+  # comment said the opposite ("NOT added to WorkerRosterFields ... a column
+  # added in passing would pre-empt #487's design question"); that caveat was a
+  # promise to come back and delete it when #487 landed, and this is that.
+  #
+  # All four carry the semantics documented on WorkerFields — in particular
+  # `hasLiveSession` is the visibility signal that makes a null in the other
+  # three a genuine absence rather than a mask. Do not read one without it.
+  heldByUserId
+  heldAt
+  hasLiveSession
+  lastActiveAt
   retiredAt
   retiredBy
   createdAt

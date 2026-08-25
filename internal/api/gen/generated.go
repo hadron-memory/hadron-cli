@@ -3066,6 +3066,12 @@ func (v *CastWorkerCastWorker) GetHeldByUserId() *string { return v.WorkerFields
 // GetHeldAt returns CastWorkerCastWorker.HeldAt, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
 
+// GetHasLiveSession returns CastWorkerCastWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetHasLiveSession() *bool { return v.WorkerFields.HasLiveSession }
+
+// GetLastActiveAt returns CastWorkerCastWorker.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetLastActiveAt() *string { return v.WorkerFields.LastActiveAt }
+
 // GetRetiredAt returns CastWorkerCastWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
 
@@ -3132,6 +3138,10 @@ type __premarshalCastWorkerCastWorker struct {
 
 	HeldAt *string `json:"heldAt"`
 
+	HasLiveSession *bool `json:"hasLiveSession"`
+
+	LastActiveAt *string `json:"lastActiveAt"`
+
 	RetiredAt *string `json:"retiredAt"`
 
 	RetiredBy *string `json:"retiredBy"`
@@ -3166,6 +3176,8 @@ func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWo
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
+	retval.HasLiveSession = v.WorkerFields.HasLiveSession
+	retval.LastActiveAt = v.WorkerFields.LastActiveAt
 	retval.RetiredAt = v.WorkerFields.RetiredAt
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
@@ -8454,6 +8466,12 @@ func (v *GetWorkerWorker) GetHeldByUserId() *string { return v.WorkerFields.Held
 // GetHeldAt returns GetWorkerWorker.HeldAt, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
 
+// GetHasLiveSession returns GetWorkerWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetHasLiveSession() *bool { return v.WorkerFields.HasLiveSession }
+
+// GetLastActiveAt returns GetWorkerWorker.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetLastActiveAt() *string { return v.WorkerFields.LastActiveAt }
+
 // GetRetiredAt returns GetWorkerWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
 
@@ -8520,6 +8538,10 @@ type __premarshalGetWorkerWorker struct {
 
 	HeldAt *string `json:"heldAt"`
 
+	HasLiveSession *bool `json:"hasLiveSession"`
+
+	LastActiveAt *string `json:"lastActiveAt"`
+
 	RetiredAt *string `json:"retiredAt"`
 
 	RetiredBy *string `json:"retiredBy"`
@@ -8554,6 +8576,8 @@ func (v *GetWorkerWorker) __premarshalJSON() (*__premarshalGetWorkerWorker, erro
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
+	retval.HasLiveSession = v.WorkerFields.HasLiveSession
+	retval.LastActiveAt = v.WorkerFields.LastActiveAt
 	retval.RetiredAt = v.WorkerFields.RetiredAt
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
@@ -12820,6 +12844,12 @@ func (v *ReleaseWorkerReleaseWorker) GetHeldByUserId() *string { return v.Worker
 // GetHeldAt returns ReleaseWorkerReleaseWorker.HeldAt, and is useful for accessing the field via an interface.
 func (v *ReleaseWorkerReleaseWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
 
+// GetHasLiveSession returns ReleaseWorkerReleaseWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetHasLiveSession() *bool { return v.WorkerFields.HasLiveSession }
+
+// GetLastActiveAt returns ReleaseWorkerReleaseWorker.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorker) GetLastActiveAt() *string { return v.WorkerFields.LastActiveAt }
+
 // GetRetiredAt returns ReleaseWorkerReleaseWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *ReleaseWorkerReleaseWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
 
@@ -12886,6 +12916,10 @@ type __premarshalReleaseWorkerReleaseWorker struct {
 
 	HeldAt *string `json:"heldAt"`
 
+	HasLiveSession *bool `json:"hasLiveSession"`
+
+	LastActiveAt *string `json:"lastActiveAt"`
+
 	RetiredAt *string `json:"retiredAt"`
 
 	RetiredBy *string `json:"retiredBy"`
@@ -12920,6 +12954,8 @@ func (v *ReleaseWorkerReleaseWorker) __premarshalJSON() (*__premarshalReleaseWor
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
+	retval.HasLiveSession = v.WorkerFields.HasLiveSession
+	retval.LastActiveAt = v.WorkerFields.LastActiveAt
 	retval.RetiredAt = v.WorkerFields.RetiredAt
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
@@ -12948,6 +12984,26 @@ type ReleaseWorkerResponse struct {
 	// this casting, and the handoff sequence and worklog travel with the worker
 	// to whoever holds it next. Idempotent: releasing an unheld worker returns
 	// it unchanged.
+	//
+	// #1073 — OPTIONAL PRECONDITION. The two release paths are different acts:
+	// the holder's own release notifies nobody, an admin force-release announces
+	// itself in the team chat. A client that wants to tell its user which one it
+	// is about to perform can only classify from a pre-read, and the hold can
+	// change in between — so the act performed differs from the act described,
+	// and a hold taken in that interval is force-released silently.
+	//
+	// State what you expect and the server refuses instead. Pass
+	// expectedHolderUserId to assert a specific holder, or expectUnheld: true to
+	// assert there is none; a mismatch refuses WORKER_HOLD_STALE carrying the
+	// holder actually found. Passing neither keeps the unconditional behaviour,
+	// so this is additive. Passing both is BAD_USER_INPUT.
+	//
+	// Two arguments rather than one nullable id on purpose: distinguishing
+	// "expect nobody" from "no expectation" through a nullable argument would
+	// rest on KEY PRESENCE, and any layer that forwards the argument
+	// unconditionally sends undefined — present, and read as an assertion nobody
+	// made. That is a live hazard in this codebase, so a safety precondition does
+	// not lean on it.
 	ReleaseWorker *ReleaseWorkerReleaseWorker `json:"releaseWorker"`
 }
 
@@ -13332,6 +13388,12 @@ func (v *RetireWorkerRetireWorker) GetHeldByUserId() *string { return v.WorkerFi
 // GetHeldAt returns RetireWorkerRetireWorker.HeldAt, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
 
+// GetHasLiveSession returns RetireWorkerRetireWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetHasLiveSession() *bool { return v.WorkerFields.HasLiveSession }
+
+// GetLastActiveAt returns RetireWorkerRetireWorker.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetLastActiveAt() *string { return v.WorkerFields.LastActiveAt }
+
 // GetRetiredAt returns RetireWorkerRetireWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
 
@@ -13398,6 +13460,10 @@ type __premarshalRetireWorkerRetireWorker struct {
 
 	HeldAt *string `json:"heldAt"`
 
+	HasLiveSession *bool `json:"hasLiveSession"`
+
+	LastActiveAt *string `json:"lastActiveAt"`
+
 	RetiredAt *string `json:"retiredAt"`
 
 	RetiredBy *string `json:"retiredBy"`
@@ -13432,6 +13498,8 @@ func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorker
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
+	retval.HasLiveSession = v.WorkerFields.HasLiveSession
+	retval.LastActiveAt = v.WorkerFields.LastActiveAt
 	retval.RetiredAt = v.WorkerFields.RetiredAt
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
@@ -18910,6 +18978,32 @@ type WorkerFields struct {
 	// (a live worker session) and to `TeamRoleName.taken` (a name allocated in
 	// the register). Three senses of one word across two types.
 	HeldAt *string `json:"heldAt"`
+	// hadron-cli#487 — whether a worker session is OPEN on this name right now.
+	//
+	// Not availability: availability is the HOLD above (`cor:agt:020:09`), and an
+	// ended, idle or reaped session never frees a name. This says only whether
+	// someone is mid-stint, which is the question a coordinator asks about a name
+	// already theirs. Conflating the two is the CLI bug this field exists for.
+	//
+	// Derived from the session lifecycle with no lease (`cor:agt:020:03`), using
+	// the SAME predicate startSession refuses WORKER_TAKEN on — a reader must not
+	// be told a worker is busy that a binder can take.
+	//
+	// Nullable BECAUSE of the read gate, not because the answer is unknown: this
+	// is a working-state field like heldByUserId, masked to null on deny rather
+	// than answering false, which would state a fact the server never computed.
+	HasLiveSession *bool `json:"hasLiveSession"`
+	// hadron-cli#487 — when this worker was last DRIVEN, over every session it has
+	// ever had. Null for a worker nobody has ever bound, and that null is the
+	// point: a casting nobody picked up renders identically to one worked
+	// yesterday on every surface today, so a coordinator can dispatch into a
+	// channel no one reads and get no signal at all.
+	//
+	// The instant is the platform's one derivation of session activity — the
+	// greatest of startedAt, updatedAt, and the newest attributed usage event — so
+	// it agrees with the takeover prompt and with the idle window the reaper acts
+	// on. Masked to null on deny, like heldByUserId.
+	LastActiveAt *string `json:"lastActiveAt"`
 	// Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
 	RetiredAt *string `json:"retiredAt"`
 	RetiredBy *string `json:"retiredBy"`
@@ -18958,6 +19052,12 @@ func (v *WorkerFields) GetHeldByUserId() *string { return v.HeldByUserId }
 
 // GetHeldAt returns WorkerFields.HeldAt, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetHeldAt() *string { return v.HeldAt }
+
+// GetHasLiveSession returns WorkerFields.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetHasLiveSession() *bool { return v.HasLiveSession }
+
+// GetLastActiveAt returns WorkerFields.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetLastActiveAt() *string { return v.LastActiveAt }
 
 // GetRetiredAt returns WorkerFields.RetiredAt, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetRetiredAt() *string { return v.RetiredAt }
@@ -19035,6 +19135,52 @@ type WorkerRosterFields struct {
 	Repos []string `json:"repos"`
 	// The worker-scoped working memory in the App's container (null until provisioned).
 	MemoryId *string `json:"memoryId"`
+	// #1050 — the human HOLDING this name, or null when nobody does.
+	//
+	// A name is held by a person, not by a live session: expiry, a reap, or a
+	// closed chat session never free it, and only an explicit release does. This
+	// is what separates the two meanings of "taken" — HELD is whose name it is,
+	// while a live session is only ever a question about your own worker.
+	//
+	// WORKING-STATE field, behind the worker read gate and masked to null on
+	// deny — like promptOverride and memoryId, and NOT like name/role/urn.
+	// Session.worker reaches a Worker row through a wider gate that admits any
+	// org member and survives a user leaving the App, so an ungated holder would
+	// let a former member read current staffing off a historical session.
+	HeldByUserId *string `json:"heldByUserId"`
+	// When the current hold was taken. Null exactly when heldByUserId is — and
+	// likewise masked on deny.
+	//
+	// #1034: "taken" here is the HOLD's timestamp, unrelated to `WORKER_TAKEN`
+	// (a live worker session) and to `TeamRoleName.taken` (a name allocated in
+	// the register). Three senses of one word across two types.
+	HeldAt *string `json:"heldAt"`
+	// hadron-cli#487 — whether a worker session is OPEN on this name right now.
+	//
+	// Not availability: availability is the HOLD above (`cor:agt:020:09`), and an
+	// ended, idle or reaped session never frees a name. This says only whether
+	// someone is mid-stint, which is the question a coordinator asks about a name
+	// already theirs. Conflating the two is the CLI bug this field exists for.
+	//
+	// Derived from the session lifecycle with no lease (`cor:agt:020:03`), using
+	// the SAME predicate startSession refuses WORKER_TAKEN on — a reader must not
+	// be told a worker is busy that a binder can take.
+	//
+	// Nullable BECAUSE of the read gate, not because the answer is unknown: this
+	// is a working-state field like heldByUserId, masked to null on deny rather
+	// than answering false, which would state a fact the server never computed.
+	HasLiveSession *bool `json:"hasLiveSession"`
+	// hadron-cli#487 — when this worker was last DRIVEN, over every session it has
+	// ever had. Null for a worker nobody has ever bound, and that null is the
+	// point: a casting nobody picked up renders identically to one worked
+	// yesterday on every surface today, so a coordinator can dispatch into a
+	// channel no one reads and get no signal at all.
+	//
+	// The instant is the platform's one derivation of session activity — the
+	// greatest of startedAt, updatedAt, and the newest attributed usage event — so
+	// it agrees with the takeover prompt and with the idle window the reaper acts
+	// on. Masked to null on deny, like heldByUserId.
+	LastActiveAt *string `json:"lastActiveAt"`
 	// Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
 	RetiredAt *string `json:"retiredAt"`
 	RetiredBy *string `json:"retiredBy"`
@@ -19074,6 +19220,18 @@ func (v *WorkerRosterFields) GetRepos() []string { return v.Repos }
 
 // GetMemoryId returns WorkerRosterFields.MemoryId, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetMemoryId() *string { return v.MemoryId }
+
+// GetHeldByUserId returns WorkerRosterFields.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetHeldByUserId() *string { return v.HeldByUserId }
+
+// GetHeldAt returns WorkerRosterFields.HeldAt, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetHeldAt() *string { return v.HeldAt }
+
+// GetHasLiveSession returns WorkerRosterFields.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetHasLiveSession() *bool { return v.HasLiveSession }
+
+// GetLastActiveAt returns WorkerRosterFields.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetLastActiveAt() *string { return v.LastActiveAt }
 
 // GetRetiredAt returns WorkerRosterFields.RetiredAt, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetRetiredAt() *string { return v.RetiredAt }
@@ -19194,6 +19352,26 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetMemoryId() *string {
 	return v.WorkerRosterFields.MemoryId
 }
 
+// GetHeldByUserId returns WorkersRosterWorkersWorkersPageItemsWorker.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetHeldByUserId() *string {
+	return v.WorkerRosterFields.HeldByUserId
+}
+
+// GetHeldAt returns WorkersRosterWorkersWorkersPageItemsWorker.HeldAt, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetHeldAt() *string {
+	return v.WorkerRosterFields.HeldAt
+}
+
+// GetHasLiveSession returns WorkersRosterWorkersWorkersPageItemsWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetHasLiveSession() *bool {
+	return v.WorkerRosterFields.HasLiveSession
+}
+
+// GetLastActiveAt returns WorkersRosterWorkersWorkersPageItemsWorker.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetLastActiveAt() *string {
+	return v.WorkerRosterFields.LastActiveAt
+}
+
 // GetRetiredAt returns WorkersRosterWorkersWorkersPageItemsWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetRetiredAt() *string {
 	return v.WorkerRosterFields.RetiredAt
@@ -19262,6 +19440,14 @@ type __premarshalWorkersRosterWorkersWorkersPageItemsWorker struct {
 
 	MemoryId *string `json:"memoryId"`
 
+	HeldByUserId *string `json:"heldByUserId"`
+
+	HeldAt *string `json:"heldAt"`
+
+	HasLiveSession *bool `json:"hasLiveSession"`
+
+	LastActiveAt *string `json:"lastActiveAt"`
+
 	RetiredAt *string `json:"retiredAt"`
 
 	RetiredBy *string `json:"retiredBy"`
@@ -19293,6 +19479,10 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) __premarshalJSON() (*__prem
 	retval.PromptOverride = v.WorkerRosterFields.PromptOverride
 	retval.Repos = v.WorkerRosterFields.Repos
 	retval.MemoryId = v.WorkerRosterFields.MemoryId
+	retval.HeldByUserId = v.WorkerRosterFields.HeldByUserId
+	retval.HeldAt = v.WorkerRosterFields.HeldAt
+	retval.HasLiveSession = v.WorkerRosterFields.HasLiveSession
+	retval.LastActiveAt = v.WorkerRosterFields.LastActiveAt
 	retval.RetiredAt = v.WorkerRosterFields.RetiredAt
 	retval.RetiredBy = v.WorkerRosterFields.RetiredBy
 	retval.CreatedAt = v.WorkerRosterFields.CreatedAt
@@ -19376,6 +19566,16 @@ func (v *WorkersWorkersWorkersPageItemsWorker) GetHeldByUserId() *string {
 // GetHeldAt returns WorkersWorkersWorkersPageItemsWorker.HeldAt, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
 
+// GetHasLiveSession returns WorkersWorkersWorkersPageItemsWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetHasLiveSession() *bool {
+	return v.WorkerFields.HasLiveSession
+}
+
+// GetLastActiveAt returns WorkersWorkersWorkersPageItemsWorker.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *WorkersWorkersWorkersPageItemsWorker) GetLastActiveAt() *string {
+	return v.WorkerFields.LastActiveAt
+}
+
 // GetRetiredAt returns WorkersWorkersWorkersPageItemsWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetRetiredAt() *string {
 	return v.WorkerFields.RetiredAt
@@ -19448,6 +19648,10 @@ type __premarshalWorkersWorkersWorkersPageItemsWorker struct {
 
 	HeldAt *string `json:"heldAt"`
 
+	HasLiveSession *bool `json:"hasLiveSession"`
+
+	LastActiveAt *string `json:"lastActiveAt"`
+
 	RetiredAt *string `json:"retiredAt"`
 
 	RetiredBy *string `json:"retiredBy"`
@@ -19482,6 +19686,8 @@ func (v *WorkersWorkersWorkersPageItemsWorker) __premarshalJSON() (*__premarshal
 	retval.MemoryId = v.WorkerFields.MemoryId
 	retval.HeldByUserId = v.WorkerFields.HeldByUserId
 	retval.HeldAt = v.WorkerFields.HeldAt
+	retval.HasLiveSession = v.WorkerFields.HasLiveSession
+	retval.LastActiveAt = v.WorkerFields.LastActiveAt
 	retval.RetiredAt = v.WorkerFields.RetiredAt
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
@@ -22815,6 +23021,8 @@ fragment WorkerFields on Worker {
 	memoryId
 	heldByUserId
 	heldAt
+	hasLiveSession
+	lastActiveAt
 	retiredAt
 	retiredBy
 	createdAt
@@ -25828,6 +26036,8 @@ fragment WorkerFields on Worker {
 	memoryId
 	heldByUserId
 	heldAt
+	hasLiveSession
+	lastActiveAt
 	retiredAt
 	retiredBy
 	createdAt
@@ -27425,6 +27635,8 @@ fragment WorkerFields on Worker {
 	memoryId
 	heldByUserId
 	heldAt
+	hasLiveSession
+	lastActiveAt
 	retiredAt
 	retiredBy
 	createdAt
@@ -27730,6 +27942,8 @@ fragment WorkerFields on Worker {
 	memoryId
 	heldByUserId
 	heldAt
+	hasLiveSession
+	lastActiveAt
 	retiredAt
 	retiredBy
 	createdAt
@@ -30064,6 +30278,8 @@ fragment WorkerFields on Worker {
 	memoryId
 	heldByUserId
 	heldAt
+	hasLiveSession
+	lastActiveAt
 	retiredAt
 	retiredBy
 	createdAt
@@ -30127,6 +30343,10 @@ fragment WorkerRosterFields on Worker {
 	promptOverride
 	repos
 	memoryId
+	heldByUserId
+	heldAt
+	hasLiveSession
+	lastActiveAt
 	retiredAt
 	retiredBy
 	createdAt

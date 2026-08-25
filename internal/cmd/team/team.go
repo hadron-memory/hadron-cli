@@ -3,8 +3,17 @@
 // A persona is pure DRESSING on an Agent (personaRole + a {{name}}-templated
 // personaPrompt — no behavior forks on "is a persona"); the named identity
 // ("Iris") is a WORKER, the casting of an installed Agent into an App
-// (cor:dmo:050:11). "Taken right now" derives from an active Session bound
-// to the worker.
+// (cor:dmo:050:11).
+//
+// TWO facts about a name, and they are not the same one (cor:agt:020:09,
+// hadron-cli#487). HELD is whose name it is: held by a PERSON, freed only by
+// an explicit release, and what decides whether you may bind. LIVE is whether
+// a worker session is open on it right now — derived from an unended Session,
+// only ever a question about a name already yours, and never a claim that
+// anybody is at the keyboard, since a worker session outlives the chat session
+// that started it. An earlier version of this comment called the second one
+// "taken right now"; that word named both facts at once, which is the defect
+// #487 was filed for.
 package team
 
 import (
@@ -127,6 +136,24 @@ type workerDTO struct {
 	// caller who simply cannot see.
 	HeldByUserID *string `json:"heldByUserId,omitempty"`
 	HeldAt       *string `json:"heldAt,omitempty"`
+	// hadron-cli#487 / hadron-server#1086. NOT omitempty, deliberately, and
+	// unlike the two above: null on hasLiveSession is the load-bearing answer
+	// on this type — it is the signal that says every other working-state null
+	// on the row is a mask rather than an absence. A key that vanishes cannot
+	// carry that, because an absent key is indistinguishable from a client that
+	// did not ask. lastActiveAt keeps its company for the same reason: the pair
+	// is read together or not at all.
+	//
+	// null      → not permitted to know (the read gate masked it)
+	// false     → no worker session is open on this name right now
+	// true      → one is; which is NOT a claim that anyone is at the keyboard
+	HasLiveSession *bool `json:"hasLiveSession"`
+	// null on a PERMITTED read (hasLiveSession != null) means never driven —
+	// the state hadron-cli#487 was filed for. Under-reports on a reaped
+	// session, on purpose and in the safe direction; see the fragment comment
+	// in team.graphql, which is read from the resolver rather than from the
+	// field's SDL description.
+	LastActiveAt *string `json:"lastActiveAt"`
 	RetiredAt    *string `json:"retiredAt"`
 	RetiredBy    *string `json:"retiredBy"`
 	CreatedAt    string  `json:"createdAt"`
@@ -145,6 +172,7 @@ func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 		Prompt: w.Prompt, PromptOverride: w.PromptOverride,
 		Repos: nonNilRepos(w.Repos), MemoryID: w.MemoryId,
 		HeldByUserID: w.HeldByUserId, HeldAt: w.HeldAt,
+		HasLiveSession: w.HasLiveSession, LastActiveAt: w.LastActiveAt,
 		RetiredAt: w.RetiredAt, RetiredBy: w.RetiredBy,
 		CreatedAt: w.CreatedAt, CreatedBy: w.CreatedBy,
 		Retired: w.RetiredAt != nil,
@@ -174,21 +202,36 @@ type workerRosterDTO struct {
 	Role           *string `json:"role"`
 	PromptOverride *string `json:"promptOverride"`
 	// Same field and same [] semantics as workerDTO.Repos.
-	Repos     []string `json:"repos"`
-	MemoryID  *string  `json:"memoryId"`
-	RetiredAt *string  `json:"retiredAt"`
-	RetiredBy *string  `json:"retiredBy"`
-	CreatedAt string   `json:"createdAt"`
-	CreatedBy *string  `json:"createdBy"`
-	Retired   bool     `json:"retired"`
+	Repos    []string `json:"repos"`
+	MemoryID *string  `json:"memoryId"`
+	// hadron-cli#487 — the four the roster needs to answer "is anyone actually
+	// driving these names". Same keys, same spellings and same semantics as
+	// workerDTO above, including the omitempty split: an entity that answers
+	// one shape on `worker get` and another on `worker list` is what an agent
+	// has to special-case, which is the rule this projection already follows
+	// for portalUrl.
+	HeldByUserID   *string `json:"heldByUserId,omitempty"`
+	HeldAt         *string `json:"heldAt,omitempty"`
+	HasLiveSession *bool   `json:"hasLiveSession"`
+	LastActiveAt   *string `json:"lastActiveAt"`
+	RetiredAt      *string `json:"retiredAt"`
+	RetiredBy      *string `json:"retiredBy"`
+	CreatedAt      string  `json:"createdAt"`
+	CreatedBy      *string `json:"createdBy"`
+	Retired        bool    `json:"retired"`
 }
 
 func workerRosterDTOFromFields(w gen.WorkerRosterFields) workerRosterDTO {
 	return workerRosterDTO{
 		ID: w.Id, URN: w.Urn, PortalURL: w.PortalUrl, Slug: w.Slug, AppID: w.AppId, AgentID: w.AgentId,
 		Name: w.Name, Role: w.Role, PromptOverride: w.PromptOverride,
-		Repos:    nonNilRepos(w.Repos),
-		MemoryID: w.MemoryId, RetiredAt: w.RetiredAt, RetiredBy: w.RetiredBy,
+		Repos:          nonNilRepos(w.Repos),
+		MemoryID:       w.MemoryId,
+		HeldByUserID:   w.HeldByUserId,
+		HeldAt:         w.HeldAt,
+		HasLiveSession: w.HasLiveSession,
+		LastActiveAt:   w.LastActiveAt,
+		RetiredAt:      w.RetiredAt, RetiredBy: w.RetiredBy,
 		CreatedAt: w.CreatedAt, CreatedBy: w.CreatedBy,
 		Retired: w.RetiredAt != nil,
 	}
