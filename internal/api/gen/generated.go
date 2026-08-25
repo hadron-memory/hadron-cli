@@ -27656,9 +27656,18 @@ fragment WorkerFields on Worker {
 //
 // Idempotent: releasing an unheld worker returns it unchanged. The CLI reports
 // that as "no hold was visible to you" rather than "not held" — heldByUserId is
-// masked to null on DENY, so a nil hold cannot be distinguished from one the
-// caller may not see, and claiming the name is free is what sends a reader into
-// WORKER_HELD at the next session start.
+// masked to null on DENY, so a nil hold READ ON ITS OWN does not distinguish an
+// unheld name from one the caller may not see, and claiming the name is free is
+// what sends a reader into WORKER_HELD at the next session start.
+//
+// That hedge is now a CHOICE, not a limit, and the distinction matters to
+// whoever edits this next. Since #487 this operation selects hasLiveSession
+// (via WorkerFields), which IS a sound visibility signal — sound for the exact
+// reason #504's retracted probe was not, since that one read fields that are
+// legitimately nullable while this one is never legitimately null on a
+// permitted read. Release still does not consult it: a rendered cell and a
+// refusal-shaped classification are different risks, and #504 retracted two
+// designs in this spot. Adopting it is hadron-cli#522.
 func ReleaseWorker(
 	ctx_ context.Context,
 	client_ graphql.Client,

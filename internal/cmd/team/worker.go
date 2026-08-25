@@ -607,12 +607,25 @@ type releaseResultDTO struct {
 	// WasHeld is TRUE when a prior holder was visible, and NULL otherwise. It
 	// is never false — that is the contract, not an oversight.
 	//
-	// heldByUserId masks to null on DENY, so a nil hold means "unheld OR held
-	// and invisible to you", and there is no visibility signal on Worker to
-	// tell them apart. `false` would read as "this name is free to bind", and
-	// a caller acting on it meets WORKER_HELD at the next `session start`
-	// (PR #504 review — twice: once for an argument that the ambiguity
-	// collapsed, once for a probe that resolved it; neither held).
+	// heldByUserId masks to null on DENY, so a nil hold READ ON ITS OWN means
+	// "unheld OR held and invisible to you". `false` would read as "this name
+	// is free to bind", and a caller acting on it meets WORKER_HELD at the next
+	// `session start` (PR #504 review — twice: once for an argument that the
+	// ambiguity collapsed, once for a probe that resolved it; neither held).
+	//
+	// #487 changed what is POSSIBLE here without changing what this command
+	// does, and the difference is worth stating so the next reader does not
+	// mistake a choice for a limit. `Worker.hasLiveSession` IS a sound
+	// visibility signal (see workingStateVisible) — and it is sound for the
+	// exact reason #504's probe was not: that probe read fields masked
+	// ALONGSIDE the hold, all of which are legitimately nullable, so a null
+	// proved nothing. hasLiveSession coalesces to false and is never
+	// legitimately null on a permitted read, so its non-nullness is evidence.
+	//
+	// This command still does not use it, deliberately: `worker list` renders a
+	// cell, while wasHeld feeds a REFUSAL-shaped classification, and #504
+	// retracted two designs in this exact spot. Adopting it here is #522, not a
+	// drive-by.
 	WasHeld *bool `json:"wasHeld"`
 	// ReleasedFromUserID is the prior holder, null on a no-op. The ID, not a
 	// name (review:entity-fields-not-display-labels) — it addresses a person
@@ -869,8 +882,10 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
 				// The nil-hold case is reported as what it IS: no hold was
 				// visible. Not "was not held" — heldByUserId masks to null on
-				// deny, so nil means "unheld OR held and invisible to you", and
-				// there is no sound way to tell them apart from here.
+				// deny, so nil READ ON ITS OWN means "unheld OR held and
+				// invisible to you", and this command does not consult the one
+				// field that could tell them apart (see wasHeld's doc: the
+				// signal exists since #487, using it here is #522).
 				//
 				// The distinction matters because of what a reader DOES with
 				// it: "was not held" reads as "this name is free to bind", and
