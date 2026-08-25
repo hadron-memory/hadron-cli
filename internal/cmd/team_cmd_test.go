@@ -216,6 +216,7 @@ func TestTeamWorkerListNamesTheResolvedAppAndItsSource(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"Workers":         staffJSON,
 		"WorkersRoster":   staffJSON,
+		"AuthContext":     authContextHolgerJSON,
 		"TeamAppIdentity": teamAppIdentityJSON,
 	})
 	f, out := testFactory(t)
@@ -247,6 +248,7 @@ func TestTeamWorkerListNamesTheResolvedAppAndItsSource(t *testing.T) {
 	gql2, _ := captureGraphQL(t, map[string]string{
 		"Workers":         `{"data":{"workers":{"total":0,"items":[]}}}`,
 		"WorkersRoster":   `{"data":{"workers":{"total":0,"items":[]}}}`,
+		"AuthContext":     authContextHolgerJSON,
 		"TeamAppIdentity": teamAppIdentityJSON,
 	})
 	f2, out2 := testFactory(t)
@@ -271,6 +273,7 @@ func TestTeamWorkerListReportsBindingAsTheAppSource(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"Workers":         staffJSON,
 		"WorkersRoster":   staffJSON,
+		"AuthContext":     authContextHolgerJSON,
 		"TeamAppIdentity": teamAppIdentityJSON,
 	})
 	f, out := testFactory(t)
@@ -296,6 +299,7 @@ func TestTeamWorkerListJSONShapeUnchangedByScopeLine(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"Workers":         staffJSON,
 		"WorkersRoster":   staffJSON,
+		"AuthContext":     authContextHolgerJSON,
 		"TeamAppIdentity": teamAppIdentityJSON,
 	})
 	f, out := testFactory(t)
@@ -328,6 +332,7 @@ func TestTeamWorkerListSurvivesUnreadableApp(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"Workers":         staffJSON,
 		"WorkersRoster":   staffJSON,
+		"AuthContext":     authContextHolgerJSON,
 		"TeamAppIdentity": `{"errors":[{"message":"forbidden","extensions":{"code":"FORBIDDEN"}}]}`,
 	})
 	f, out := testFactory(t)

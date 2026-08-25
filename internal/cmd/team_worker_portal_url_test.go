@@ -165,10 +165,10 @@ func TestTeamWorkerPortalURLInJSONOnBothSurfaces(t *testing.T) {
 	})
 }
 
-// The table deliberately gains NO column: a full URL per row is wide, and that
-// table is the one #487's remaining half still wants HELD and LAST DRIVEN
-// columns in. This pins the decision so it is revisited on purpose rather than
-// drifted into.
+// The table deliberately gains NO column: a full URL per row is wide, and the
+// column budget it was competing for went to #487's HELD BY and LAST DRIVEN,
+// which have now landed. This pins the decision so it is revisited on purpose
+// rather than drifted into.
 func TestTeamWorkerListTableHasNoURLColumn(t *testing.T) {
 	teamGitDir(t)
 	const url = "https://hadronmemory.com/app/u/hrn:worker:acme.com:eng-team:iris"
@@ -176,6 +176,7 @@ func TestTeamWorkerListTableHasNoURLColumn(t *testing.T) {
 		"WorkersRoster": `{"data":{"workers":{"total":1,"items":[` +
 			withPortalURL(url) + `]}}}`,
 		"TeamAppIdentity": teamAppIdentityJSON,
+		"AuthContext":     authContextHolgerJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)

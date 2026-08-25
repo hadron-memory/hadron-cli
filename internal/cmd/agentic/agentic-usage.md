@@ -876,9 +876,16 @@ Conventions:
   the strong wording, because warning what an act IS before you consent errs
   toward caution while reporting what happened errs toward accuracy.
   The CLI reads the hold only to say which act it is, never to decide who may
-  perform it. Idempotent, and it never claims the name was free: `heldByUserId` is
-  masked to null on deny, so a nil hold ALWAYS means "unheld OR held and invisible to you" — there is no visibility
-  signal on `Worker` to tell them apart. So a nil hold reports
+  perform it. Idempotent, and it never claims the name was free: `heldByUserId`
+  is masked to null on deny, so a nil hold read ON ITS OWN means "unheld OR held
+  and invisible to you". **`release` does not disambiguate it, and that is now a
+  CHOICE rather than an impossibility.** Since #487 there IS a signal that would
+  tell the two apart — `hasLiveSession`, masked by the same gate (below) — but
+  this command deliberately does not use it: collapsing a refusal-shaped
+  classification is a different change from rendering a column, and the two
+  wrong designs PR #504 retracted were both in this classification. Track it as
+  part of #522 rather than reading the hedge as a statement that the ambiguity
+  is irreducible. So a nil hold reports
   `status: "no-visible-hold"` with `wasHeld` and `forced` both **null** rather
   than claiming the name is free: a caller acting on `wasHeld: false` meets
   `WORKER_HELD` at the next `session start`. It does not prompt, since every
@@ -888,16 +895,53 @@ Conventions:
   caller's own identity could not be read against a held name, so the act could
   not be classified — `false` would claim a private act and `true` an
   announcement, and neither is knowable there. The hold is re-read immediately
-  before the mutation and a change refuses **exit 5**: `releaseWorker` has no
-  precondition (hadron-server#1073), so without that a hold taken between the
-  classifying read and the call would be force-released silently while the
-  receipt called it routine. `worker get` shows the holder (and `--json` gains
-  `heldByUserId`/`heldAt`, additive) — the line is omitted rather than dashed
-  when there is no visible hold; both are masked to null on deny, so
-  absence means "unheld OR not visible to you" — there is deliberately no
+  before the mutation and a change refuses **exit 5**: without that, a hold
+  taken between the classifying read and the call would be force-released
+  silently while the receipt called it routine. That re-read is a MITIGATION,
+  not a fix — it narrows the window rather than closing it. `releaseWorker`
+  gained a real precondition server-side in hadron-server#1084
+  (`expectedHolderUserId` / `expectUnheld: true`, refusing `WORKER_HOLD_STALE`,
+  enforced by the guarded write so there is no check-then-write window at all);
+  **this CLI has not adopted it yet — hadron-cli#522** — so the client-side
+  re-read is still what runs today. `worker get` shows the holder (and `--json` gains
+  `heldByUserId`/`heldAt`, additive); both are masked to null on deny, so a
+  bare absence means "unheld OR not visible to you" — there is deliberately no
   `held` boolean, which would answer "no" to a caller who merely cannot see.
-  `worker list` is unchanged; which surface shows who is driving is
-  hadron-cli#487. **`team worker list` is the "who is on this team?" read** — the
+  Since #487 that read also prints `held by: nobody — binding it holds it`
+  and a `driven:` line, but **only when `hasLiveSession` is non-null** (below);
+  a caller who cannot see the working state gets NEITHER line rather than a
+  dashed one, because a dash there would answer a question the server refused.
+  **`worker list` now carries the hold too, alongside liveness** (#487,
+  hadron-server#1086): the table gains `HELD BY` and `LAST DRIVEN` after
+  `ROLE`, and `--json` gains `heldByUserId`/`heldAt`/`hasLiveSession`/
+  `lastActiveAt` on every row, additive. **The two columns answer different
+  questions and must not be collapsed** (`cor:agt:020:09`). `HELD BY` is whose
+  name it is — what decides whether you may bind, freed only by an explicit
+  `worker release`, and `--force` does not help against someone else's hold.
+  `LAST DRIVEN` is whether a worker session is open (`live`) and otherwise how
+  long since the name was driven (`3d ago`), or `never` for a casting nobody
+  has ever bound — the state the issue was filed for, since a worker nobody
+  picked up otherwise renders exactly like one worked yesterday. **`live` is
+  not a claim that anyone is at the keyboard**: a worker session outlives the
+  chat session that started it. There is deliberately no age beside `live`,
+  because an age there reads as presence.
+  **`hasLiveSession` is also the VISIBILITY SIGNAL for this row's working
+  state.** It is `null` only when the read gate masked it — the same gate that
+  masks `heldByUserId`/`heldAt`/`memoryId`/`promptOverride` — and otherwise
+  `true`/`false`. So `hasLiveSession: null` means every other working-state
+  null on that row is a mask and both columns render **`?`** — "not available
+  to you", never "nobody" and never "idle". `?` rather than the `—` this table
+  uses elsewhere, deliberately: the adjacent `RETIRED` cell renders `—` for a
+  DEFINITE no, so a masked row spelled with dashes would read as three settled
+  facts, two of which the server refused to state. With `hasLiveSession`
+  non-null, `heldByUserId: null` genuinely means unheld and `lastActiveAt:
+  null` genuinely means never driven. Both keys are always PRESENT under
+  `--json`, never omitted, because an absent key cannot carry that
+  distinction. **An age can under-report on a
+  reaped session**: the reaper overwrites the last heartbeat, so the
+  derivation falls back to the session's start and the worker reads as MORE
+  idle than it was — never less.
+  **`team worker list` is the "who is on this team?" read** — the
   App's staff (retired hidden unless `--include-retired`); `hadron app agent
   list` is the install roster (the cast pool). Its team App resolves
   ambiently (`--app` → App context → the worktree binding), so the human

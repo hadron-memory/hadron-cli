@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -244,7 +245,31 @@ worktrees bound to different teams lists different staff, and without the
 scope line the two outputs look identical.
 
 Retired workers are hidden unless --include-retired — their names stay
-bound to them forever, so the retired list is also the reserved-name list.`,
+bound to them forever, so the retired list is also the reserved-name list.
+
+HELD BY and LAST DRIVEN answer two DIFFERENT questions (cor:agt:020:09),
+and reading one as the other is the mistake this table exists to stop.
+
+  HELD BY      whose name it is. A name is held by a PERSON, and only an
+               explicit ` + "`worker release`" + ` frees one — no session end, idle
+               window, expiry or reap does. This is what decides whether
+               you may bind: a name someone else holds is not yours to
+               take however idle it looks, and --force will not help.
+               "nobody" means binding it holds it.
+
+  LAST DRIVEN  whether a worker session is open, and if not, how long
+               since this name was last driven. "live" is NOT a claim
+               that anyone is at the keyboard — a worker session outlives
+               the chat session that started it — and it is only ever a
+               question about a name that is already yours.
+               "never" means cast and never bound by anyone.
+
+Both read "?" when this account may not see the App's working state — not
+"—", which this table uses for a definite no (RETIRED). "?" is "not
+available to you": never "nobody", and never "idle". An age can
+under-report on a session the server reaped rather than one that was
+ended deliberately: the reap overwrites the last heartbeat, so the worker
+reads as MORE idle than it was, never less.`,
 		Example: `  hadron team worker list --app acme.com:eng-team
   hadron team worker list --include-retired --json`,
 		Args: cobra.NoArgs,
@@ -291,13 +316,43 @@ bound to them forever, so the retired list is also the reserved-name list.`,
 				// (the one #1008 signs with), and it is readable — the App slug is
 				// in it. AGENT ID was the weakest column, an opaque id nobody acts
 				// on; `worker get` still shows it.
-				t := output.NewTable(w, "WORKER", "ROLE", "RETIRED", "URN", "ID")
+				//
+				// HELD BY and LAST DRIVEN sit immediately after ROLE (#487),
+				// ahead of RETIRED/URN/ID: this table's reader is a coordinator
+				// asking "who is on this team, and is anyone actually driving
+				// them", and before now it answered neither. The two are
+				// adjacent and separate on purpose — they are the two facts the
+				// word "taken" used to blur, and the whole issue is that a
+				// reader who has met only one of them reads the other as it.
+				//
+				// The caller's own id is resolved ONCE for the whole table, in
+				// this callback rather than in RunE: --json does not run this
+				// branch, so an agent path must not pay for a round trip it
+				// never renders (the PR #504 rule, applied one command over).
+				// Its three-state result is passed through rather than
+				// collapsed — an unknown caller is not evidence the holder is
+				// somebody else.
+				client, cerr := f.GraphQLClient()
+				if cerr != nil {
+					return cerr
+				}
+				// Only the id is used here; see renderHeldBy for why the three-state
+				// result collapses safely on a display cell but must not in release.
+				selfID, _ := currentUserID(ctx, client)
+				label := holderLabeller(func(id string) string {
+					return describeHolder(ctx, client, id)
+				})
+				now := time.Now()
+				t := output.NewTable(w, "WORKER", "ROLE", "HELD BY", "LAST DRIVEN", "RETIRED", "URN", "ID")
 				for _, wk := range workers {
 					retired := "—"
 					if wk.RetiredAt != nil {
 						retired = *wk.RetiredAt
 					}
-					t.Row(wk.Name, dash(wk.Role), retired, dash(wk.URN), wk.ID)
+					t.Row(wk.Name, dash(wk.Role),
+						renderHeldBy(wk.HeldByUserID, wk.HasLiveSession, selfID, label),
+						renderLastDriven(wk.HasLiveSession, wk.LastActiveAt, now),
+						retired, dash(wk.URN), wk.ID)
 				}
 				return t.Flush()
 			})
@@ -398,6 +453,24 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 						fmt.Fprintf(out, " (since %s)", *dto.HeldAt)
 					}
 					fmt.Fprintln(out)
+				} else if workingStateVisible(dto.HasLiveSession) {
+					// #487 — sayable here for the first time. The read was
+					// permitted, so this null is an absence rather than a mask,
+					// and the reader gets the answer they came for instead of
+					// silence they have to interpret. Without the discriminator
+					// this branch could not exist: it would tell a caller who
+					// merely cannot see that the name is free, which is the one
+					// thing it must never do.
+					fmt.Fprintln(out, "  held by: nobody — binding it holds it")
+				}
+				// Liveness and last-driven, on their own line and never merged
+				// into the hold above: they are the two facts "taken" used to
+				// blur (#487). Printed only when the working state is visible —
+				// a "driven: —" line would answer a question the server refused
+				// to answer, and the hold branch above stays silent for exactly
+				// the same reason.
+				if workingStateVisible(dto.HasLiveSession) {
+					fmt.Fprintf(out, "  driven: %s\n", renderLastDriven(dto.HasLiveSession, dto.LastActiveAt, time.Now()))
 				}
 				if dto.Retired {
 					fmt.Fprintf(out, "  retired: %s\n", *dto.RetiredAt)
@@ -534,12 +607,25 @@ type releaseResultDTO struct {
 	// WasHeld is TRUE when a prior holder was visible, and NULL otherwise. It
 	// is never false — that is the contract, not an oversight.
 	//
-	// heldByUserId masks to null on DENY, so a nil hold means "unheld OR held
-	// and invisible to you", and there is no visibility signal on Worker to
-	// tell them apart. `false` would read as "this name is free to bind", and
-	// a caller acting on it meets WORKER_HELD at the next `session start`
-	// (PR #504 review — twice: once for an argument that the ambiguity
-	// collapsed, once for a probe that resolved it; neither held).
+	// heldByUserId masks to null on DENY, so a nil hold READ ON ITS OWN means
+	// "unheld OR held and invisible to you". `false` would read as "this name
+	// is free to bind", and a caller acting on it meets WORKER_HELD at the next
+	// `session start` (PR #504 review — twice: once for an argument that the
+	// ambiguity collapsed, once for a probe that resolved it; neither held).
+	//
+	// #487 changed what is POSSIBLE here without changing what this command
+	// does, and the difference is worth stating so the next reader does not
+	// mistake a choice for a limit. `Worker.hasLiveSession` IS a sound
+	// visibility signal (see workingStateVisible) — and it is sound for the
+	// exact reason #504's probe was not: that probe read fields masked
+	// ALONGSIDE the hold, all of which are legitimately nullable, so a null
+	// proved nothing. hasLiveSession coalesces to false and is never
+	// legitimately null on a permitted read, so its non-nullness is evidence.
+	//
+	// This command still does not use it, deliberately: `worker list` renders a
+	// cell, while wasHeld feeds a REFUSAL-shaped classification, and #504
+	// retracted two designs in this exact spot. Adopting it here is #522, not a
+	// drive-by.
 	WasHeld *bool `json:"wasHeld"`
 	// ReleasedFromUserID is the prior holder, null on a no-op. The ID, not a
 	// name (review:entity-fields-not-display-labels) — it addresses a person
@@ -796,8 +882,10 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
 				// The nil-hold case is reported as what it IS: no hold was
 				// visible. Not "was not held" — heldByUserId masks to null on
-				// deny, so nil means "unheld OR held and invisible to you", and
-				// there is no sound way to tell them apart from here.
+				// deny, so nil READ ON ITS OWN means "unheld OR held and
+				// invisible to you", and this command does not consult the one
+				// field that could tell them apart (see wasHeld's doc: the
+				// signal exists since #487, using it here is #522).
 				//
 				// The distinction matters because of what a reader DOES with
 				// it: "was not held" reads as "this name is free to bind", and

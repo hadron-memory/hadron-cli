@@ -169,10 +169,16 @@ func TestWorkerReleaseSurvivesUnreadableHolder(t *testing.T) {
 // "✓ released" there would be a receipt for something that did not happen.
 //
 // It does NOT say "was not held" either. heldByUserId masks to null on deny, so
-// nil means "unheld OR held and invisible to you", and an earlier version that
-// tried to tell them apart — probing the fields masked alongside it — was
-// unsound: all of those are legitimately nullable too (PR #504 review). So the
-// receipt reports what it actually knows.
+// nil read on its own means "unheld OR held and invisible to you", and an
+// earlier version that tried to tell them apart — probing the fields masked
+// alongside it — was unsound: all of those are legitimately nullable too
+// (PR #504 review). So the receipt reports what it actually knows.
+//
+// #487 added a field that IS sound for this — hasLiveSession, which unlike
+// those probes is never legitimately null on a permitted read — so the receipt
+// COULD now classify. It deliberately does not yet (#522), which is why this
+// test still pins the hedge: the behaviour under test is a choice, and a test
+// that stopped asserting it would let the choice be reversed silently.
 func TestWorkerReleaseNilHoldClaimsNothing(t *testing.T) {
 	for _, tc := range []struct{ name, worker string }{
 		{"genuinely unheld", irisWorkerJSON},
