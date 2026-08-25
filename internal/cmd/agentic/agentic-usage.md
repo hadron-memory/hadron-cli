@@ -876,9 +876,16 @@ Conventions:
   the strong wording, because warning what an act IS before you consent errs
   toward caution while reporting what happened errs toward accuracy.
   The CLI reads the hold only to say which act it is, never to decide who may
-  perform it. Idempotent, and it never claims the name was free: `heldByUserId` is
-  masked to null on deny, so a nil hold ALWAYS means "unheld OR held and invisible to you" — there is no visibility
-  signal on `Worker` to tell them apart. So a nil hold reports
+  perform it. Idempotent, and it never claims the name was free: `heldByUserId`
+  is masked to null on deny, so a nil hold read ON ITS OWN means "unheld OR held
+  and invisible to you". **`release` does not disambiguate it, and that is now a
+  CHOICE rather than an impossibility.** Since #487 there IS a signal that would
+  tell the two apart — `hasLiveSession`, masked by the same gate (below) — but
+  this command deliberately does not use it: collapsing a refusal-shaped
+  classification is a different change from rendering a column, and the two
+  wrong designs PR #504 retracted were both in this classification. Track it as
+  part of #522 rather than reading the hedge as a statement that the ambiguity
+  is irreducible. So a nil hold reports
   `status: "no-visible-hold"` with `wasHeld` and `forced` both **null** rather
   than claiming the name is free: a caller acting on `wasHeld: false` meets
   `WORKER_HELD` at the next `session start`. It does not prompt, since every
@@ -888,10 +895,15 @@ Conventions:
   caller's own identity could not be read against a held name, so the act could
   not be classified — `false` would claim a private act and `true` an
   announcement, and neither is knowable there. The hold is re-read immediately
-  before the mutation and a change refuses **exit 5**: `releaseWorker` has no
-  precondition (hadron-server#1073), so without that a hold taken between the
-  classifying read and the call would be force-released silently while the
-  receipt called it routine. `worker get` shows the holder (and `--json` gains
+  before the mutation and a change refuses **exit 5**: without that, a hold
+  taken between the classifying read and the call would be force-released
+  silently while the receipt called it routine. That re-read is a MITIGATION,
+  not a fix — it narrows the window rather than closing it. `releaseWorker`
+  gained a real precondition server-side in hadron-server#1084
+  (`expectedHolderUserId` / `expectUnheld: true`, refusing `WORKER_HOLD_STALE`,
+  enforced by the guarded write so there is no check-then-write window at all);
+  **this CLI has not adopted it yet — hadron-cli#522** — so the client-side
+  re-read is still what runs today. `worker get` shows the holder (and `--json` gains
   `heldByUserId`/`heldAt`, additive); both are masked to null on deny, so a
   bare absence means "unheld OR not visible to you" — there is deliberately no
   `held` boolean, which would answer "no" to a caller who merely cannot see.

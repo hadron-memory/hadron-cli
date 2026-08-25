@@ -27,20 +27,45 @@ var columnGap = regexp.MustCompile(`  +|\t`)
 // fixtures document one file over.
 
 // workerWith stamps the working-state quartet onto the shared iris fixture.
-// held/lastActive are emitted as JSON null when empty, since null is a real
-// answer on both and not an absence of one.
-func workerWith(name, id, held, lastActive string, live string) string {
-	jsonOrNull := func(s string) string {
+// `live` is the raw JSON for hasLiveSession — "true", "false" or "null".
+//
+// It enforces the server's own invariants rather than taking the arguments at
+// face value (PR #523 review, @copilot), because a fixture that describes a row
+// the server cannot emit is worse than no fixture: it looks like coverage.
+//
+//  1. The working-state group is masked TOGETHER. `hasLiveSession: null` means
+//     the read gate refused, and it refuses the whole group — so a masked row
+//     cannot carry a hold or a timestamp.
+//  2. `heldAt` is null EXACTLY when `heldByUserId` is (the schema states this as
+//     an API invariant enforced in the resolver).
+//
+// A caller asking for a combination that violates either gets a FAILURE, not a
+// silent correction. Silently fixing it would leave a test author believing
+// they had covered "held but masked" while the fixture tested something else —
+// which is the exact hiding this review finding is about.
+func workerWith(t *testing.T, name, id, held, lastActive string, live string) string {
+	t.Helper()
+	visible := live != "null"
+	if !visible && (held != "" || lastActive != "") {
+		t.Fatalf("impossible fixture for %s: hasLiveSession null means the read gate refused, "+
+			"so heldByUserId/lastActiveAt are masked too — got held=%q lastActive=%q", name, held, lastActive)
+	}
+	quoteOrNull := func(s string) string {
 		if s == "" {
 			return "null"
 		}
 		return `"` + s + `"`
 	}
+	// heldAt travels with heldByUserId or not at all.
+	heldAt := "null"
+	if held != "" {
+		heldAt = `"2026-08-20T09:00:00Z"`
+	}
 	w := strings.Replace(irisWorkerJSON, `"memoryId":"mw1"`,
-		`"memoryId":"mw1","heldByUserId":`+jsonOrNull(held)+
-			`,"heldAt":`+jsonOrNull("2026-08-20T09:00:00Z")+
+		`"memoryId":"mw1","heldByUserId":`+quoteOrNull(held)+
+			`,"heldAt":`+heldAt+
 			`,"hasLiveSession":`+live+
-			`,"lastActiveAt":`+jsonOrNull(lastActive), 1)
+			`,"lastActiveAt":`+quoteOrNull(lastActive), 1)
 	w = strings.Replace(w, `"name":"Iris"`, `"name":"`+name+`"`, 1)
 	w = strings.Replace(w, `"id":"wkr1"`, `"id":"`+id+`"`, 1)
 	return strings.Replace(w, `:iris"`, `:`+strings.ToLower(name)+`"`, 1)
@@ -48,24 +73,26 @@ func workerWith(name, id, held, lastActive string, live string) string {
 
 // A roster covering every state the columns can be in at once — which is also
 // the fixture that proves they are told apart rather than rendered alike.
-func activityRosterJSON() string {
+func activityRosterJSON(t *testing.T) string {
+	t.Helper()
 	rows := []string{
 		// held by me, and a session is open
-		workerWith("Iris", "wkr1", "u-holger", "2026-08-25T11:00:00Z", "true"),
+		workerWith(t, "Iris", "wkr1", "u-holger", "2026-08-25T11:00:00Z", "true"),
 		// held by someone else, idle
-		workerWith("Dara", "wkr2", "u-dara", "2026-08-22T12:00:00Z", "false"),
+		workerWith(t, "Dara", "wkr2", "u-dara", "2026-08-22T12:00:00Z", "false"),
 		// unheld and NEVER DRIVEN — the state the issue was filed for
-		workerWith("Mira", "wkr3", "", "", "false"),
+		workerWith(t, "Mira", "wkr3", "", "", "false"),
 		// masked: the caller may not read this App's working state
-		workerWith("Pia", "wkr4", "", "", "null"),
+		workerWith(t, "Pia", "wkr4", "", "", "null"),
 	}
 	return `{"data":{"workers":{"total":4,"items":[` + strings.Join(rows, ",") + `]}}}`
 }
 
-func activityStubs() map[string]string {
+func activityStubs(t *testing.T) map[string]string {
+	t.Helper()
 	return map[string]string{
-		"WorkersRoster":   activityRosterJSON(),
-		"Workers":         activityRosterJSON(),
+		"WorkersRoster":   activityRosterJSON(t),
+		"Workers":         activityRosterJSON(t),
 		"TeamAppIdentity": teamAppIdentityJSON,
 		"AuthContext":     authContextHolgerJSON,
 		"GetUser":         heldHolderUserJSON("u-dara", "Dara Holt", "dara"),
@@ -75,7 +102,7 @@ func activityStubs() map[string]string {
 func runWorkerList(t *testing.T, args ...string) string {
 	t.Helper()
 	teamGitDir(t)
-	gql, _ := captureGraphQL(t, activityStubs())
+	gql, _ := captureGraphQL(t, activityStubs(t))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"team", "worker", "list", "--app", "acme.com:eng-team", "--server", gql.URL}, args...))
@@ -201,7 +228,7 @@ func TestTeamWorkerListTellsTheFourStatesApart(t *testing.T) {
 func TestTeamSessionStartOmitsTheActivityPairItCannotKnow(t *testing.T) {
 	teamGitDir(t)
 	// The worker as it is read BEFORE the bind: idle, and never driven.
-	idle := workerWith("Iris", "wkr1", "", "", "false")
+	idle := workerWith(t, "Iris", "wkr1", "", "", "false")
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + idle + `}}`,
 		"TeamSessions":     `{"data":{"sessions":[]}}`,
@@ -243,7 +270,7 @@ func TestTeamSessionStartOmitsTheActivityPairItCannotKnow(t *testing.T) {
 // free name, which is the one thing this table must never say.
 func TestTeamWorkerListHolderWithNoDisplayFieldsStillRendersTheID(t *testing.T) {
 	teamGitDir(t)
-	stubs := activityStubs()
+	stubs := activityStubs(t)
 	stubs["GetUser"] = `{"data":{"user":{"id":"u-dara","name":null,"email":null,` +
 		`"handle":null,"githubUsername":null,"roles":["MEMBER"]}}}`
 	gql, _ := captureGraphQL(t, stubs)
@@ -335,7 +362,7 @@ func TestTeamWorkerGetSaysNobodyOnlyWhenItMayKnow(t *testing.T) {
 		return out.String()
 	}
 
-	permitted := get(workerWith("Mira", "wkr3", "", "", "false"))
+	permitted := get(workerWith(t, "Mira", "wkr3", "", "", "false"))
 	if !strings.Contains(permitted, "held by: nobody") {
 		t.Errorf("a permitted read of an unheld worker must say so: %s", permitted)
 	}
@@ -343,7 +370,7 @@ func TestTeamWorkerGetSaysNobodyOnlyWhenItMayKnow(t *testing.T) {
 		t.Errorf("a permitted read of an undriven worker must say so: %s", permitted)
 	}
 
-	masked := get(workerWith("Mira", "wkr3", "", "", "null"))
+	masked := get(workerWith(t, "Mira", "wkr3", "", "", "null"))
 	if strings.Contains(masked, "held by:") {
 		t.Errorf("a MASKED read must not speak about the hold at all: %s", masked)
 	}

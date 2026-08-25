@@ -223,6 +223,45 @@ That is the second instance in this PR of the same shape: **a guard whose
 failing input cannot be constructed is a line of setup.** The first was
 `selfKnown`. Neither was found by reading the code.
 
+### Round two: three findings, two real
+
+**@codex P2 — the agent contract contradicted itself,** and it was my own
+expired-caveat trap firing on me. `agentic-usage.md` still said *"there is no
+visibility signal on `Worker`"* in the `worker release` section while the
+section I added said `hasLiveSession` is exactly that. Two mutually exclusive
+instructions in one document that agents act on. The fix is the honest
+distinction: `release` **chooses** not to disambiguate; the ambiguity is no
+longer intrinsic.
+
+Reading that paragraph to fix it turned up a **second** false sentence I had
+not been told about: *"`releaseWorker` has no precondition (hadron-server#1073)"*
+stopped being true when #1084 merged. The server has one; this CLI has not
+adopted it (#522). Corrected in the same pass rather than left because nobody
+flagged it.
+
+**@copilot — the fixture emitted a row the server cannot.** `workerWith` always
+stamped a non-null `heldAt`, including on the unheld and masked rows, against a
+documented invariant (*"`heldAt` is null exactly when `heldByUserId` is"*, and
+the whole working-state group masks together). Nothing depended on it today,
+which is precisely why it was worth fixing: it looked like coverage.
+
+The helper now **refuses** an impossible combination rather than silently
+correcting it — a silent correction would leave a future author believing they
+had covered "held but masked" while the fixture tested something else, which is
+the same hiding the finding is about. Proven by asking for the impossible shape
+and watching it fail.
+
+**@copilot on `time.RFC3339` — declined, in writing.** The claim was that the
+layout's missing fractional part makes `...:05.123Z` fall through to the raw
+string. Go's parser accepts a fractional second even when the layout omits one;
+measured on go1.26.4 across `Z`, an offset, and 1–6 digit fractions, with
+`RFC3339Nano` returning identical instants. The suggested swap changes nothing.
+
+But the finding was **right about the stake and nothing pinned it**: the
+fallback path is real, and if parsing ever narrowed, every age would quietly
+become a raw timestamp with no test to notice. So it bought a test rather than
+the edit — and the mutation that simulates its premise reds it.
+
 ## Prose swept
 
 Three caveats expired in this commit, each written as *"not yet — tracked as

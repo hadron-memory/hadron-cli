@@ -101,6 +101,45 @@ func TestALiveSessionPrintsNoAge(t *testing.T) {
 	}
 }
 
+// FRACTIONAL SECONDS parse, and this pins it.
+//
+// PR #523 review, @copilot: `time.RFC3339`'s layout has no fractional part, so
+// a timestamp like `...:05.123Z` was reported as falling through to the raw
+// string and losing the age — the column's primary output.
+//
+// The claim is WRONG, and measured rather than argued: Go's parser accepts a
+// fractional second immediately after the seconds field even when the layout
+// does not signify one ("When parsing (only), the input may contain a
+// fractional second field...", `time` package docs). Verified on go1.26.4
+// across `Z`, offset, and 1-to-6-digit fractions; `RFC3339Nano` returns the
+// same instants, so the suggested swap would change nothing.
+//
+// The finding was right about the STAKE, though, and nothing pinned it: the
+// fallback path exists, and if this ever stopped parsing, every age would
+// quietly become a raw timestamp with no test to notice. So the fix is a test
+// rather than the suggested edit.
+func TestFractionalSecondsStillRenderAnAge(t *testing.T) {
+	base := fixedNow().Add(-72 * time.Hour).UTC()
+	for _, layout := range []string{
+		"2006-01-02T15:04:05Z07:00",        // no fraction
+		"2006-01-02T15:04:05.000Z07:00",    // milliseconds
+		"2006-01-02T15:04:05.000000Z07:00", // microseconds
+	} {
+		at := base.Format(layout)
+		if got := renderLastDriven(ptrBool(false), &at, fixedNow()); got != "3d ago" {
+			t.Errorf("%s -> %q, want %q (a fractional second must not fall through to the raw value)",
+				at, got, "3d ago")
+		}
+	}
+	// A non-UTC offset too, since the DateTime scalar is documented as
+	// Date.parse-able rather than canonical ISO UTC — a value passed through
+	// from an external provider keeps that provider's offset.
+	offset := base.In(time.FixedZone("CET", 2*3600)).Format("2006-01-02T15:04:05.000-07:00")
+	if got := renderLastDriven(ptrBool(false), &offset, fixedNow()); got != "3d ago" {
+		t.Errorf("%s -> %q, want %q (instants are compared, not strings)", offset, got, "3d ago")
+	}
+}
+
 func TestRenderHeldBy(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
