@@ -1117,13 +1117,18 @@ Conventions:
   process can apply survives both `cmd.exe`'s `%VAR%` and PowerShell's `$var`
   expansion, and it cannot tell which it is talking to, so presenting a command
   line there would advertise a guarantee that does not hold.
-  **The wording distinguishes what the CLI KNOWS.** A refusal the server
-  answered means nothing was committed, and it says `was NOT recorded`. A
-  TRANSPORT failure means the end may have succeeded with only the reply lost,
-  and it says `may not have been recorded` — asserting otherwise would be a
-  claim about server state the client cannot see, and would make a later retry
-  failure look like confirmation of data loss. The remedy is identical either
-  way, because one stint records one handoff.
+  **The wording distinguishes what the CLI KNOWS, and it knows less than you
+  might expect.** It says `was NOT recorded` for exactly ONE outcome:
+  `HANDOFF_WRITE_FAILED`, because `cor:agt:020:10` guarantees a failed handoff
+  write refuses the end. **Every other failure says `may not have been
+  recorded`** — including other GraphQL errors, because an answered refusal does
+  NOT prove nothing committed: a resolver can fail AFTER the write, GraphQL can
+  return data alongside errors, and null-bubbling can empty the payload on a run
+  that succeeded. A transport failure is unknowable for the same reason. So do
+  not read a generic error as proof the handoff was lost. The remedy is
+  identical either way, because one stint records one handoff — the asymmetry is
+  deliberate: overstating certainty here would make a later retry failure look
+  like confirmation of data loss.
   **If the local save ALSO fails**, the handoff is printed to stderr between
   `----- handoff begins/ends -----` markers. That is the last resort and it is
   not decoration: a piped handoff went from the pipe into memory and was never
