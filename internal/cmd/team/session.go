@@ -1419,11 +1419,24 @@ session is still open.`,
 			resp, err := gen.EndTeamSession(ctx, client, id, optStr(summary), optStr(text))
 			if err != nil {
 				// The handoff does not evaporate with the call that carried it.
+				// Only THIS path can be ambiguous: everything above either never
+				// reached the server or was refused locally.
+				//
+				// "Refused" needs BOTH halves (PR #528 review, Codex). An answer
+				// alone is not one: GraphQL permits partial success, and this
+				// operation selects a nullable nested `worker`, so the end can
+				// COMMIT and a later field resolver still error. Reading any
+				// GraphQL error as "nothing happened" would then state the exact
+				// opposite of the truth — and it is the handoff-was-lost claim,
+				// so it would be the worst sentence to be wrong about.
+				//
+				// A returned payload means the mutation ran. Per
+				// `cor:agt:020:10` the handoff is written BEFORE endedAt is
+				// stamped, so a payload implies the prose landed.
+				committed := resp != nil && resp.EndSession != nil
 				return rescueHandoff(f, handoffRescue{
 					text: text, sessionID: id, summary: summary,
-					// Only THIS path can be ambiguous: everything above either
-					// never reached the server or was refused locally.
-					answered: api.ServerAnswered(err),
+					answered: api.ServerAnswered(err) && !committed,
 				}, api.MapError(err))
 			}
 			// Clear the binding when it names the session we just ended.
@@ -1838,9 +1851,12 @@ type handoffRescue struct {
 	// it would let a pasted command succeed while silently leaving a label the
 	// caller explicitly asked for unset (PR #528 review, Codex).
 	summary string
-	// answered: the server RESPONDED and refused, so the handoff is definitely
-	// not recorded. False for a transport failure, where the request may have
-	// been applied and only the reply lost — see rescueHandoff.
+	// answered: the server responded AND committed nothing, so the handoff is
+	// definitely not recorded. False for a transport failure (the request may
+	// have been applied and only the reply lost) and for a PARTIAL SUCCESS —
+	// GraphQL returns data plus errors when a nested resolver fails after the
+	// mutation ran, and this operation selects a nullable nested worker, so an
+	// answer alone does not mean a refusal. See rescueHandoff.
 	answered bool
 }
 

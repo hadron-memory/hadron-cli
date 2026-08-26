@@ -694,3 +694,39 @@ func TestSessionEndRetryCarriesTheSummary(t *testing.T) {
 		t.Errorf("a summary with spaces must be quoted: %s", msg)
 	}
 }
+
+// PARTIAL SUCCESS is not a refusal (PR #528 review, @codex).
+//
+// GraphQL permits `data` AND `errors` in one envelope: the mutation commits and
+// a later nested field resolver still errors. EndTeamSession selects a nullable
+// nested `worker`, so this is reachable — and reading any GraphQL error as
+// "nothing happened" would state the exact opposite of the truth, on the one
+// sentence it is worst to be wrong about.
+//
+// The discriminator is the PAYLOAD, not the code: a returned endSession means
+// the mutation ran, and per cor:agt:020:10 the handoff is written before
+// endedAt is stamped, so the prose landed.
+func TestSessionEndPartialSuccessIsNotReportedAsALostHandoff(t *testing.T) {
+	bindWorktree(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		// Committed, and then a nested field failed.
+		"EndTeamSession": `{"data":{"endSession":` + endedSessionJSON + `},` +
+			`"errors":[{"message":"worker resolver blew up","path":["endSession","worker"]}]}`,
+	})
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader("prose that DID land")
+	errOut := captureErrOut(f)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "end", "--handoff", "-", "--server", gql.URL})
+
+	if err := root.Execute(); err == nil {
+		t.Fatal("the field error still surfaces as a failure")
+	}
+	msg := errOut()
+	if strings.Contains(msg, "was NOT recorded") {
+		t.Errorf("the mutation COMMITTED — claiming the handoff was lost is the opposite of the truth: %s", msg)
+	}
+	if !strings.Contains(msg, "may not have been recorded") {
+		t.Errorf("a partial success is ambiguous from here and must be said as such: %s", msg)
+	}
+}
