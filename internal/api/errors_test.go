@@ -46,6 +46,20 @@ func TestMapError(t *testing.T) {
 		// not taken.
 		{"held", gqlErr("WORKER_HELD"), exitcode.Conflict},
 		{"taken", gqlErr("WORKER_TAKEN"), exitcode.Conflict},
+		// hadron-cli#522 / hadron-server#1084: the hold is not what the caller
+		// asserted, so the release they described is not the one that would
+		// happen. A state conflict like its neighbours, and it needs the
+		// EXPLICIT case — there is no _STALE suffix rule, deliberately, since
+		// inventing that family would map codes nobody has defined.
+		//
+		// Pinned HERE rather than through a command, because `worker release`
+		// intercepts this code before MapError ever sees it — it turns the
+		// refusal into an informed retry. A mutation run showed the mapping
+		// survives being deleted with every command-level test still green, so
+		// without this row it is a line of setup rather than a guard. It earns
+		// its place as the general contract: exit codes are documented, and a
+		// future caller that does NOT intercept must still get 5 rather than 1.
+		{"hold stale", gqlErr("WORKER_HOLD_STALE"), exitcode.Conflict},
 		{"forbidden", gqlErr("FORBIDDEN"), exitcode.Error},
 		{"no extension", gqlerror.List{{Message: "boom"}}, exitcode.Error},
 		{"plain", errors.New("network down"), exitcode.Error},
@@ -207,5 +221,70 @@ func TestWorkerHeldDetail(t *testing.T) {
 	}
 	if d, ok := WorkerHeldDetail(gqlErr("WORKER_HELD")); !ok || d.Holder() != "" {
 		t.Errorf("a bare code carries no holder, and must not fabricate one: %+v %v", d, ok)
+	}
+}
+
+// WORKER_HOLD_STALE's extensions, and the one distinction that decides whether
+// the CLI offers a retry or reports the name already free.
+//
+// `heldByUserId: null` is a REAL ANSWER — the name is held by nobody now —
+// and it must not read as a holder whose id happens to be empty. Both decode
+// to "" through a bare type assertion, which is why Held is a separate field.
+func TestWorkerHoldStaleDetail(t *testing.T) {
+	held := gqlerror.List{{
+		Message:    "stale",
+		Extensions: map[string]any{"code": "WORKER_HOLD_STALE", "workerId": "wkr1", "heldByUserId": "u-gil"},
+	}}
+	d, ok := WorkerHoldStaleDetail(held)
+	if !ok || d.WorkerID != "wkr1" || d.HolderID != "u-gil" || !d.Held {
+		t.Errorf("a named holder must come through: %+v ok=%v", d, ok)
+	}
+
+	// Present-and-null: unheld NOW. The caller asserted a holder and that hold
+	// was released underneath them, so there is nothing left to release.
+	unheld := gqlerror.List{{
+		Message:    "stale",
+		Extensions: map[string]any{"code": "WORKER_HOLD_STALE", "workerId": "wkr1", "heldByUserId": nil},
+	}}
+	d, ok = WorkerHoldStaleDetail(unheld)
+	if !ok {
+		t.Fatal("a null holder is still a WORKER_HOLD_STALE")
+	}
+	if d.Held || d.HolderID != "" {
+		t.Errorf("null means unheld now, not a holder: %+v", d)
+	}
+
+	// An ABSENT key is not a null one (PR #524 review, Copilot). Both fail a
+	// bare type assertion, and they mean opposite things: null is a definite
+	// "held by nobody now" that sends the caller down the
+	// nothing-left-to-release path, while absent means the payload cannot be
+	// read at all. Answering false there would state a fact nobody sent.
+	//
+	// ok=false drops the caller into ordinary error handling, where MapError
+	// turns the code into a Conflict carrying the server's own message — which
+	// is the path the WORKER_HOLD_STALE row in TestMapError above pins.
+	missing := gqlerror.List{{
+		Message:    "stale",
+		Extensions: map[string]any{"code": "WORKER_HOLD_STALE", "workerId": "wkr1"},
+	}}
+	if d, ok := WorkerHoldStaleDetail(missing); ok {
+		t.Errorf("an absent heldByUserId is uninterpretable, not 'unheld now': %+v", d)
+	}
+	// A wrong TYPE is the same class — a number or an object is not an answer.
+	wrongType := gqlerror.List{{
+		Message:    "stale",
+		Extensions: map[string]any{"code": "WORKER_HOLD_STALE", "workerId": "wkr1", "heldByUserId": 42},
+	}}
+	if d, ok := WorkerHoldStaleDetail(wrongType); ok {
+		t.Errorf("a non-string heldByUserId is uninterpretable: %+v", d)
+	}
+
+	// A different code must not be read as this one — the mistake that maps a
+	// refusal onto the wrong remedy.
+	if _, ok := WorkerHoldStaleDetail(gqlErr("WORKER_HELD")); ok {
+		t.Error("WORKER_HELD must not read as WORKER_HOLD_STALE — different refusals, different remedies")
+	}
+	if _, ok := WorkerHoldStaleDetail(errors.New("network down")); ok {
+		t.Error("a plain error is not a typed refusal")
 	}
 }

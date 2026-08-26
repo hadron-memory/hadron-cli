@@ -699,6 +699,203 @@ func describeHolder(ctx context.Context, client graphql.Client, userID string) s
 	}
 }
 
+// releaseWithPrecondition sends the release with EXACTLY ONE assertion about
+// the hold — the holder the caller classified against, or that there is none.
+//
+// Never both: the server refuses BAD_USER_INPUT for that, and the two arguments
+// exist as a pair rather than as one nullable id precisely so "expect nobody"
+// and "no expectation" cannot collapse into each other through key presence
+// (hadron-server#1084; findings:optional-arg-meets-presence-semantics).
+//
+// Never NEITHER, either — that is the old unconditional behaviour, and it is
+// the thing #522 removes. A nil holder means "assert unheld", not "assert
+// nothing"; reading it as the latter is how the silent force-release came back.
+func releaseWithPrecondition(
+	ctx context.Context, client graphql.Client, workerID string, priorHolder *string,
+) (*gen.ReleaseWorkerResponse, error) {
+	if priorHolder != nil {
+		return gen.ReleaseWorker(ctx, client, workerID, priorHolder, nil)
+	}
+	return gen.ReleaseWorker(ctx, client, workerID, nil, boolPtr(true))
+}
+
+// assertRetirementUnchanged re-reads the worker and refuses if its RETIREMENT
+// state moved since w was read.
+//
+// The hold's race is closed by the precondition; this one is not, and cannot be
+// from here — `releaseWorker` asserts who holds the name, not whether the
+// worker is still working. Retirement decides what releasing MEANS: whether the
+// working memory and handoff history pass to a next holder, or simply stay with
+// the name because nobody can bind a retired one. Both the confirmation and the
+// receipt say which, so a retirement landing mid-flight leaves the caller having
+// been told the wrong thing.
+//
+// Called before EVERY release, including each retry (PR #524 review, Codex P2).
+// The retry path has the longest window in the command — a refused round trip
+// plus, on the interactive branch, however long someone reads a prompt — and it
+// was the one path that had no re-read at all.
+func assertRetirementUnchanged(ctx context.Context, client graphql.Client, w gen.WorkerFields) error {
+	fresh, err := gen.GetWorker(ctx, client, w.Id)
+	if err != nil {
+		return api.MapError(err)
+	}
+	if fresh.Worker == nil {
+		return exitcode.Newf(exitcode.NotFound, "no worker %q", w.Id)
+	}
+	if (w.RetiredAt == nil) != (fresh.Worker.RetiredAt == nil) {
+		state := "retired"
+		if fresh.Worker.RetiredAt == nil {
+			state = "un-retired"
+		}
+		return exitcode.Newf(exitcode.Conflict,
+			"%s was %s while this ran, which changes what releasing it means; re-run to see the current state",
+			w.Name, state)
+	}
+	return nil
+}
+
+// informedRelease is what a retry after WORKER_HOLD_STALE produced.
+type informedRelease struct {
+	resp   *gen.ReleaseWorkerResponse
+	holder *string
+	forced *bool
+}
+
+// offerInformedRelease turns a refused assertion into a second, TRUTHFUL offer,
+// and performs it at most once.
+//
+// The refusal carries the hold found now, which is strictly better information
+// than the caller had: it comes from inside the guarded write, and it is
+// visible even to a caller who cannot READ heldByUserId — the server says so
+// explicitly, since reaching this resolver already required the read gate the
+// masking rule applies to. So this is the one place the command can speak about
+// a hold it could not otherwise see.
+//
+// One retry, never a loop. If the hold moves again the caller is told and the
+// command stops: a loop here would be a client racing a human.
+func offerInformedRelease(
+	ctx context.Context, f *cmdutil.Factory, client graphql.Client,
+	w gen.WorkerFields, stale api.HoldStaleDetail, me string, meKnown, yes bool,
+) (informedRelease, error) {
+	var zero informedRelease
+	// The name is held by NOBODY now — so the caller asserted a holder and that
+	// hold was released underneath them. There is nothing to release, and the
+	// act they approved is not available to perform.
+	//
+	// Refused rather than reported as a success: the outcome they wanted does
+	// hold (the name is free), but a "released" receipt would claim this
+	// command did it, and a force-release receipt would claim a team-chat
+	// notice that never happened.
+	if !stale.Held {
+		return zero, exitcode.Newf(exitcode.Conflict,
+			"the hold on %s was released while this ran, so there is nothing left to release — "+
+				"nothing was changed; re-run to see the current state", w.Name)
+	}
+	// Somebody holds it. Whether that is a force-release depends on WHO, and
+	// the server does not say — deliberately, since it throws before comparing
+	// the holder to the caller and the holder may BE the caller.
+	mine := meKnown && me != "" && stale.HolderID == me
+	if mine {
+		// It is my own name after all — the classification was wrong, not the
+		// intent. A self-release owes nobody notice and no confirmation, so
+		// this proceeds without asking, exactly as it would have if the hold
+		// had been readable in the first place.
+		//
+		// Still re-reads retirement: no prompt was shown here, but the RECEIPT
+		// still describes the transfer, and a round trip has passed since the
+		// only previous check.
+		if err := assertRetirementUnchanged(ctx, client, w); err != nil {
+			return zero, err
+		}
+		resp, err := gen.ReleaseWorker(ctx, client, w.Id, &stale.HolderID, nil)
+		if err != nil {
+			return zero, api.MapError(err)
+		}
+		return informedRelease{resp: resp, holder: &stale.HolderID, forced: boolPtr(false)}, nil
+	}
+	// A force-release, and one the caller has NOT been asked about — either no
+	// prompt was shown (the hold was invisible or absent when classified), or
+	// the prompt named somebody else. Consent has to be re-taken against the
+	// truth, which is the whole point of the server returning the holder.
+	if !yes {
+		if !f.IOStreams.IsInputTerminal() {
+			// Hedged on the same condition as the prompt below, and for the
+			// same reason: with meKnown false the holder may BE the caller, so
+			// asserting a force-release and a chat notice describes an act that
+			// may not happen. Codex flagged the prompt; this refusal had the
+			// identical defect one line up, and a message that is wrong is
+			// worse here than in the prompt — a refusal is what someone pastes
+			// into an issue.
+			act := "releasing it now would be an admin force-release and would post to the team chat"
+			if !meKnown {
+				act = "this CLI could not read your own identity to tell whether that is you, and if it is not, " +
+					"releasing it posts to the team chat"
+			}
+			return zero, exitcode.Newf(exitcode.Conflict,
+				"%s is held by %s, which this could not see when it started — %s, so it is refused without --yes; "+
+					"nothing was changed",
+				w.Name, holderPhrase(ctx, client, &stale.HolderID), act)
+		}
+		// releasePrompt, NOT a second prompt of its own (PR #524 review, Codex
+		// P2). Two things follow from reusing it.
+		//
+		// It carries the UNKNOWN-IDENTITY hedge, which a hand-rolled prompt
+		// here did not: when the AuthContext read failed, `mine` is false
+		// because it could not be established — NOT because the holder is
+		// somebody else — and the holder may well be the caller. Asserting a
+		// force-release and a team-chat notice there describes a public act
+		// that may not happen, which is #504's "unknown is not none" in the one
+		// place it had not yet been fixed. `classified` is meKnown, so the
+		// wording hedges exactly when the classification does.
+		//
+		// And it keeps ONE description of this act. Two prompt builders for the
+		// same operation drift, and the retirement transfer clause is precisely
+		// the kind of detail that would drift out of the copy.
+		prompt := staleReleasePrompt(w.Name, describeHolder(ctx, client, stale.HolderID), w.RetiredAt, meKnown)
+		if err := cmdutil.Confirm(f.IOStreams, false, prompt); err != nil {
+			return zero, err
+		}
+	}
+	// The retirement the PROMPT just described, re-checked before acting on the
+	// consent it obtained. This is the longest window in the command — a
+	// refused round trip plus however long someone reads a confirmation — and
+	// the prompt's transfer clause is exactly what a retirement invalidates.
+	if err := assertRetirementUnchanged(ctx, client, w); err != nil {
+		return zero, err
+	}
+	// Asserted against the holder the caller was just shown, so the act
+	// performed is the act consented to — and if the hold moves AGAIN in this
+	// window, the server refuses a second time and this stops rather than
+	// retrying into a race.
+	resp, err := gen.ReleaseWorker(ctx, client, w.Id, &stale.HolderID, nil)
+	if err != nil {
+		if again, ok := api.WorkerHoldStaleDetail(err); ok {
+			return zero, exitcode.Newf(exitcode.Conflict,
+				"the hold on %s changed again while this ran — it is %s now; nothing was changed, re-run to see "+
+					"the current state",
+				w.Name, holderPhrase(ctx, client, staleHolderPtr(again)))
+		}
+		return zero, api.MapError(err)
+	}
+	// forced is KNOWN here, not guessed: the server named the holder and the
+	// caller is not them (or their own identity could not be read, which is the
+	// one case that stays honestly nil).
+	var forced *bool
+	if meKnown {
+		forced = boolPtr(true)
+	}
+	return informedRelease{resp: resp, holder: &stale.HolderID, forced: forced}, nil
+}
+
+// staleHolderPtr renders a HoldStaleDetail's holder for holderPhrase, which
+// takes the same nil-means-no-hold shape the Worker field uses.
+func staleHolderPtr(d api.HoldStaleDetail) *string {
+	if !d.Held {
+		return nil
+	}
+	return &d.HolderID
+}
+
 func newCmdWorkerRelease(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
@@ -733,6 +930,19 @@ force-release: it exists so a departed colleague's names are not held
 forever, and it ANNOUNCES ITSELF IN THE TEAM CHAT, naming you and them.
 This command tells you which one you are about to do, and asks first when
 it is the second.
+
+THE ACT PERFORMED IS THE ACT DESCRIBED. The release states the hold it was
+classified against, and the server refuses if that is not the hold it is
+about to write — so a hold taken, moved or released while you were reading
+the prompt cannot turn a routine hand-back into a force-release. This is
+enforced by the write itself, not by a check before it, so there is no
+window between the two.
+
+If the hold turns out to be something else, you are TOLD WHO and asked
+again against the truth, rather than refused outright — including when the
+hold was never visible to you in the first place. Nothing is changed
+before you answer. Without a terminal, that second question is a refusal
+unless --yes.
 
 Idempotent: releasing a name nobody holds changes nothing and says so.`,
 		Example: `  hadron team worker release Iris
@@ -821,51 +1031,70 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 				}
 			}
 
-			// RE-READ the hold immediately before mutating (PR #504 review, P1).
+			// RETIREMENT re-read — KEPT, and deliberately not narrowed (#522).
 			//
-			// releaseWorker takes no precondition and does not return the prior
-			// holder, so the hold can change between the pre-read and the call.
-			// An admin could approve a prompt naming one person and release
-			// another — and worse, a pre-read showing "unheld" or "me" skips the
-			// prompt, so a hold taken in between would be force-released
-			// SILENTLY while the receipt reported a self-release. The act
-			// performed would differ from the act described.
+			// The HOLD's race is closed by the precondition below, and the
+			// re-read that used to guard it is gone. This half stays, because
+			// the precondition says nothing about retirement: it asserts who
+			// holds the name, not whether the worker is still working. A
+			// retirement landing mid-flight changes what releasing MEANS —
+			// whether the working memory and handoff history pass to a next
+			// holder or simply stay with the name — and #504's review added
+			// this guard for that.
 			//
-			// This does NOT close the race. It narrows it from human thinking
-			// time at a prompt to one round trip, and turns the silent-force
-			// case into a refusal. Closing it needs an expectedHolder
-			// precondition or the prior holder in the payload — hadron-server#1073.
-			fresh, ferr := gen.GetWorker(ctx, client, w.Id)
-			if ferr != nil {
-				return api.MapError(ferr)
-			}
-			if fresh.Worker == nil {
-				return exitcode.Newf(exitcode.NotFound, "no worker %q", w.Id)
-			}
-			if !sameHolder(priorHolder, fresh.Worker.HeldByUserId) {
-				return exitcode.Newf(exitcode.Conflict,
-					"the hold on %s changed while this ran — it is %s now, so releasing it would not be the act just "+
-						"described; re-run to see the current state",
-					w.Name, holderPhrase(ctx, client, fresh.Worker.HeldByUserId))
-			}
-			// RETIREMENT too, not only the holder. The confirmation's transfer
-			// clause branches on it — "to whoever takes the name next" versus
-			// "stays with the name" — so a retirement landing between the
-			// prompt and the call leaves the caller having approved a
-			// description that no longer fits (PR #504 review).
-			if (w.RetiredAt == nil) != (fresh.Worker.RetiredAt == nil) {
-				state := "retired"
-				if fresh.Worker.RetiredAt == nil {
-					state = "un-retired"
-				}
-				return exitcode.Newf(exitcode.Conflict,
-					"%s was %s while this ran, which changes what releasing it means; re-run to see the current state",
-					w.Name, state)
+			// An earlier draft of #522 scoped it to the prompted path, on the
+			// reasoning that only a shown confirmation can be invalidated. The
+			// repo's own test refused that: it pins the refusal under --yes,
+			// where no prompt is shown at all. Waiving the QUESTION is not
+			// waiving the ACT's meaning, and #522 was asked to remove the hold
+			// mitigation — not to quietly weaken a neighbouring guard while
+			// nobody was looking at it.
+			if err := assertRetirementUnchanged(ctx, client, w); err != nil {
+				return err
 			}
 
-			resp, err := gen.ReleaseWorker(ctx, client, w.Id)
+			// THE PRECONDITION (hadron-server#1084) — this is what #522 is for.
+			//
+			// The old code re-read the hold and refused on a change. That only
+			// ever NARROWED the race to one round trip; it could not close it,
+			// because no client can. The assertion below is enforced by the
+			// guarded write itself, so between the classification and the
+			// release there is no window at all.
+			//
+			// The assertion states exactly what the caller was told: the holder
+			// the prompt named, or — when no hold was visible and so no prompt
+			// was shown — that there is nobody to release. That second one is
+			// the case worth having. Before this, a nil hold meant the CLI
+			// asked NOTHING and released unconditionally, so a hold taken in
+			// the interval, or one merely masked from this caller, was
+			// force-released in silence and announced in the team chat for an
+			// act nobody was asked about.
+			resp, err := releaseWithPrecondition(ctx, client, w.Id, priorHolder)
 			if err != nil {
-				return api.MapError(err)
+				stale, isStale := api.WorkerHoldStaleDetail(err)
+				if !isStale {
+					return api.MapError(err)
+				}
+				// The assertion was wrong. The server refused rather than
+				// performing an act nobody described — now decide what the
+				// caller is actually being offered, from the hold it found NOW.
+				//
+				// This is also the branch that keeps a legitimate operation
+				// possible. A caller who cannot READ the hold classifies it as
+				// nil and asserts "unheld"; without a retry they would be
+				// refused forever, since re-running re-derives the same wrong
+				// assertion. So the refusal is turned into an informed offer
+				// exactly once.
+				retry, rerr := offerInformedRelease(ctx, f, client, w, stale, me, meKnown, yes)
+				if rerr != nil {
+					return rerr
+				}
+				resp = retry.resp
+				// The receipt now reports what the server SAW, not what this
+				// command guessed. That is strictly more honest than the old
+				// output: on this path wasHeld/forced were previously nil or
+				// wrong, and the prior holder was unknown.
+				priorHolder, wasHeld, forced = retry.holder, boolPtr(true), retry.forced
 			}
 			if resp.ReleaseWorker == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no worker")
@@ -951,20 +1180,14 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 
 func boolPtr(b bool) *bool { return &b }
 
-// sameHolder compares two optional holder ids — nil-safe, since "unheld" is a
-// legitimate value on both sides.
-func sameHolder(a, b *string) bool {
-	switch {
-	case a == nil && b == nil:
-		return true
-	case a == nil || b == nil:
-		return false
-	default:
-		return *a == *b
-	}
-}
+// sameHolder is GONE with the re-read it served (#522). It compared the
+// pre-read hold against a fresh one; the server now compares the asserted hold
+// against the row it is writing, inside the guarded write, so there is nothing
+// left for a client-side comparison to do. Left as a note rather than silently
+// deleted, because the mechanism is what a reader of PR #504 will come looking
+// for (review:removing-a-mechanism-leaves-prose-describing-it).
 
-// holderPhrase renders an optional holder for the changed-hold refusal.
+// holderPhrase renders an optional holder for a changed-hold refusal.
 func holderPhrase(ctx context.Context, client graphql.Client, userID *string) string {
 	if userID == nil {
 		return "unheld"
@@ -982,6 +1205,25 @@ func holderPhrase(ctx context.Context, client graphql.Client, userID *string) st
 // KNOWN force branch states it flatly: reusing "if it is not" there made the
 // one case we are certain about sound uncertain, which is backwards for a
 // warning that a public act is about to happen (PR #504 review).
+// staleReleasePrompt is the confirmation for a retry after WORKER_HOLD_STALE:
+// the retry's own context, then releasePrompt's description of the act.
+//
+// EXTRACTED so it can be driven (#524 review). The prompt itself only renders
+// on a TTY, so a command-level test cannot reach it — `Confirm` refuses first —
+// and a mutation flipping `meKnown` to `true` here passed the entire suite.
+// That is a guard with no constructible failing input, which is this repo's
+// review:a-mutation-check-can-itself-be-a-no-op; the composition is pure, so
+// the fix is to test it as such rather than to leave the branch unreachable.
+//
+// `meKnown` rather than a computed "forced": with the identity unreadable the
+// stale holder may BE the caller, and releasePrompt already hedges for exactly
+// that. Passing true here would assert a public act that may not happen.
+func staleReleasePrompt(name, holder string, retiredAt *string, meKnown bool) string {
+	return fmt.Sprintf("The hold on %s is not what this command classified when it started, "+
+		"and nothing has been changed yet.\n%s",
+		name, releasePrompt(name, holder, retiredAt, meKnown))
+}
+
 func releasePrompt(name, holder string, retiredAt *string, classified bool) string {
 	if !classified {
 		return fmt.Sprintf("%s is held by %s, and this CLI could not read your own identity to tell whether "+

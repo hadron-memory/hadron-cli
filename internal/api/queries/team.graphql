@@ -173,8 +173,32 @@ mutation CastWorker(
 # permitted read. Release still does not consult it: a rendered cell and a
 # refusal-shaped classification are different risks, and #504 retracted two
 # designs in this spot. Adopting it is hadron-cli#522.
-mutation ReleaseWorker($workerRef: ID!) {
-  releaseWorker(workerRef: $workerRef) {
+# The PRECONDITION (hadron-server#1084, hadron-cli#522) replaces the re-read
+# this command used to do. State the hold you classified against and the server
+# refuses WORKER_HOLD_STALE if it is not that — enforced BY THE GUARDED WRITE,
+# which takes the asserted value, so there is no check-then-write window left
+# for a client to narrow. The re-read only ever shrank the race to one round
+# trip; this closes it.
+#
+# Exactly one of the two is ever sent. Both together is BAD_USER_INPUT, and
+# neither is the old unconditional behaviour — which is why both carry
+# omitempty: a nil that went as an explicit `null` would be PRESENT, and
+# `expectUnheld: null` is a different request from omitting it. That is
+# findings:optional-arg-meets-presence-semantics, and the server engineer chose
+# two arguments over one nullable id precisely because presence semantics are a
+# live hazard in this codebase.
+mutation ReleaseWorker(
+  $workerRef: ID!
+  # @genqlient(omitempty: true)
+  $expectedHolderUserId: ID
+  # @genqlient(omitempty: true)
+  $expectUnheld: Boolean
+) {
+  releaseWorker(
+    workerRef: $workerRef
+    expectedHolderUserId: $expectedHolderUserId
+    expectUnheld: $expectUnheld
+  ) {
     ...WorkerFields
   }
 }

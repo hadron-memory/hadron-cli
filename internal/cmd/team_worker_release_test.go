@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"regexp"
 	"strings"
@@ -306,18 +308,26 @@ func TestWorkerReleaseAppKeyCallerIsNeverTheHolder(t *testing.T) {
 	}
 }
 
-// `releaseWorker` takes no precondition and does not return the prior holder,
-// so the hold can change between the pre-read that CLASSIFIED the act and the
-// call that performs it. Two bad outcomes, and the second is the dangerous one:
+// What is left of this test is the RETIREMENT half, and only that.
 //
-//   - an admin approves a prompt naming Dara and releases whoever holds it now;
-//   - a pre-read showing "unheld" or "me" skips the prompt ENTIRELY, so a hold
-//     taken in between is force-released silently while the receipt reports a
-//     self-release — the act performed differing from the act described.
+// It used to guard the hold as well, by re-reading it before the call: the
+// hold could change between the pre-read that CLASSIFIED the act and the call
+// that performed it, so an admin could approve a prompt naming Dara and release
+// whoever held it now — or, worse, a pre-read showing "unheld" skipped the
+// prompt entirely and a hold taken in between was force-released silently.
 //
-// The re-read cannot close the race (that needs an expectedHolder precondition
-// server-side) but it narrows it to one round trip and refuses rather than
-// guessing. These two pin the refusal (PR #504 review, P1).
+// That re-read is GONE (#522). `releaseWorker` gained a precondition
+// (hadron-server#1084) which the release now states, enforced by the guarded
+// write, so the window is closed rather than narrowed. The hold's coverage
+// moved to TestWorkerReleaseAssertsTheHoldItClassifiedAgainst and
+// TestWorkerReleaseHandlesAStaleHold.
+//
+// Retirement stays here because the precondition does NOT cover it: it asserts
+// who holds the name, not whether the worker is still working, and the
+// confirmation's transfer clause branches on retirement. Note it is pinned
+// under --yes, where no prompt is shown — waiving the QUESTION is not waiving
+// the ACT's meaning, which is why #522 did not narrow this guard to the
+// prompted path.
 func TestWorkerReleaseRefusesWhenTheHoldChanged(t *testing.T) {
 	// RETIREMENT is part of "the act just described" too: the confirmation's
 	// transfer clause branches on it, so a retirement landing between the
@@ -345,48 +355,462 @@ func TestWorkerReleaseRefusesWhenTheHoldChanged(t *testing.T) {
 		}
 	})
 
-	t.Run("prompted case: a different holder by the time we call", func(t *testing.T) {
-		gql, captured := captureGraphQL(t, releaseStubs(heldBy("u-dara"), map[string]string{
-			"GetWorker": `{"data":{"worker":` + heldBy("u-gil") + `}}`,
-			"GetUser": `{"data":{"user":{"id":"u-gil","name":"Gil","email":null,"handle":"gil",
-				"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
-				"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
-		}))
-		f, _ := testFactory(t)
-		root := NewRootCmd(f)
-		root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
-			"--app", "acme.com:eng-team", "--server", gql.URL})
-		err := root.Execute()
-		if code := exitcode.FromError(err); code != exitcode.Conflict {
-			t.Errorf("a changed hold is a state conflict: exit %d, want %d; err: %v", code, exitcode.Conflict, err)
-		}
-		if _, called := captured["ReleaseWorker"]; called {
-			t.Error("the release must not run against a holder the caller never saw")
-		}
-	})
+	// THE HOLD's half of this test moved (#522). It used to live here as two
+	// subtests asserting a client-side refusal when a re-read disagreed with
+	// the pre-read. That mechanism is GONE: the assertion now travels with the
+	// mutation and the server refuses, which closes the window rather than
+	// narrowing it. The contract those subtests encoded — an act must not be
+	// performed against a hold the caller never saw — is unchanged and is
+	// pinned below by TestWorkerReleaseAssertsTheHoldItClassifiedAgainst and
+	// TestWorkerReleaseHandlesAStaleHold. Deleting them outright would have
+	// dropped the coverage; they were rewritten against the new mechanism.
+}
 
-	// The silent one: nothing to release at pre-read time, so no prompt — and
-	// then somebody claims it. Without the re-read this force-releases them and
-	// prints "was not held".
-	t.Run("unprompted case: a hold appears after an unheld pre-read", func(t *testing.T) {
-		gql, captured := captureGraphQL(t, releaseStubs(irisWorkerJSON, map[string]string{
-			"GetWorker": `{"data":{"worker":` + heldBy("u-gil") + `}}`,
-			"GetUser": `{"data":{"user":{"id":"u-gil","name":"Gil","email":null,"handle":"gil",
-				"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
-				"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
-		}))
+// releaseVars is what the CLI asserts about the hold on the wire.
+//
+// `raw` is carried alongside the typed fields because THE TYPED FIELDS CANNOT
+// SEE THE BUG THIS COMMAND IS MOST EXPOSED TO. `expectUnheld: null` and an
+// omitted `expectUnheld` both decode to a nil *bool — while on the wire they
+// are different requests: the server reads an omitted field as "no assertion"
+// and a present null as an assertion nobody made. That is
+// findings:optional-arg-meets-presence-semantics, it is a real incident in this
+// codebase, and it is exactly what the omitempty annotations exist to prevent.
+// A test that could not distinguish them would let a dropped omitempty pass.
+type releaseVars struct {
+	WorkerRef            string  `json:"workerRef"`
+	ExpectedHolderUserID *string `json:"expectedHolderUserId"`
+	ExpectUnheld         *bool   `json:"expectUnheld"`
+	raw                  map[string]json.RawMessage
+}
+
+// sent reports whether a variable was PRESENT on the wire at all.
+func (v releaseVars) sent(key string) bool {
+	_, present := v.raw[key]
+	return present
+}
+
+// releaseSequence serves the ordinary stubs but answers ReleaseWorker from a
+// QUEUE, so a test can stage the refuse-then-retry path that #522 introduces.
+// captureGraphQL keeps only the last call of an operation and cannot vary its
+// response, and both matter here: the retry is a SECOND call whose variables
+// differ from the first, and the whole point is that the first one is refused.
+//
+// Follows the recording-handler pattern the replace tests already use for a
+// two-call sequence.
+// getWorkers, when supplied, answers successive GetWorker reads in order and
+// then repeats the last — which is what makes the RETRY WINDOW reachable. The
+// retirement guard runs before every release, so a test that wants "retired
+// while the confirmation was open" needs the first read to say active and the
+// second to say retired; a single stub can only say one of them.
+func releaseSequence(t *testing.T, worker string, releases []string, extra map[string]string, getWorkers ...string) (*httptest.Server, *[]releaseVars) {
+	t.Helper()
+	stubs := releaseStubs(worker, extra)
+	seen := &[]releaseVars{}
+	reads := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string          `json:"operationName"`
+			Variables     json.RawMessage `json:"variables"`
+		}
+		// Decode errors are REPORTED, not swallowed (PR #524 review, Copilot).
+		// A silently-dropped decode leaves OperationName empty, which then
+		// fails in the stub dispatch below as "unexpected operation" — a
+		// misleading message pointing at the wrong thing. The failure a broken
+		// request shape deserves is the one that names it.
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decoding the request body failed: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"undecodable request"}]}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if body.OperationName == "ReleaseWorker" {
+			var v releaseVars
+			if err := json.Unmarshal(body.Variables, &v); err != nil {
+				t.Errorf("decoding ReleaseWorker variables failed: %v (raw: %s)", err, body.Variables)
+			}
+			if err := json.Unmarshal(body.Variables, &v.raw); err != nil {
+				t.Errorf("capturing raw ReleaseWorker variables failed: %v (raw: %s)", err, body.Variables)
+			}
+			*seen = append(*seen, v)
+			if len(*seen) > len(releases) {
+				t.Errorf("ReleaseWorker called %d times, only %d staged — a retry loop is the one thing "+
+					"this path must not do", len(*seen), len(releases))
+				_, _ = w.Write([]byte(`{"errors":[{"message":"too many calls"}]}`))
+				return
+			}
+			_, _ = w.Write([]byte(releases[len(*seen)-1]))
+			return
+		}
+		if body.OperationName == "GetWorker" && len(getWorkers) > 0 {
+			i := reads
+			if i >= len(getWorkers) {
+				i = len(getWorkers) - 1 // repeat the last read
+			}
+			reads++
+			_, _ = w.Write([]byte(getWorkers[i]))
+			return
+		}
+		resp, ok := stubs[body.OperationName]
+		if !ok {
+			t.Errorf("unexpected operation %q", body.OperationName)
+			resp = `{"errors":[{"message":"unexpected operation"}]}`
+		}
+		_, _ = w.Write([]byte(resp))
+	}))
+	t.Cleanup(srv.Close)
+	return srv, seen
+}
+
+func holdStale(heldByUserID string) string {
+	holder := "null"
+	if heldByUserID != "" {
+		holder = `"` + heldByUserID + `"`
+	}
+	return `{"errors":[{"message":"The hold is not what you asserted.","extensions":{` +
+		`"code":"WORKER_HOLD_STALE","workerId":"wkr1","heldByUserId":` + holder + `}}]}`
+}
+
+const releasedOK = `{"data":{"releaseWorker":` + irisWorkerJSON + `}}`
+
+// EXACTLY ONE assertion travels with every release, and which one is the whole
+// safety property (#522, hadron-server#1084).
+//
+// The unheld case is the one worth having. Before this, a nil hold meant the
+// CLI asserted NOTHING and released unconditionally — so a hold taken in the
+// interval, or one merely masked from this caller, was force-released in
+// silence and announced in the team chat for an act nobody was asked about.
+func TestWorkerReleaseAssertsTheHoldItClassifiedAgainst(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		worker     string
+		wantHolder *string
+		wantUnheld *bool
+	}{
+		{"held: assert that holder", heldBy("u-dara"), strPtr("u-dara"), nil},
+		{"my own hold: assert me", heldBy("u-holger"), strPtr("u-holger"), nil},
+		{"no visible hold: assert unheld", irisWorkerJSON, nil, boolPtrT(true)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, seen := releaseSequence(t, tc.worker, []string{releasedOK}, map[string]string{
+				"GetUser": `{"data":{"user":{"id":"u-dara","name":"Dara","email":null,"handle":"dara",
+					"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
+					"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
+				"--app", "acme.com:eng-team", "--server", srv.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if len(*seen) != 1 {
+				t.Fatalf("want exactly one release call, got %d", len(*seen))
+			}
+			got := (*seen)[0]
+			if !eqStrPtr(got.ExpectedHolderUserID, tc.wantHolder) {
+				t.Errorf("expectedHolderUserId = %v, want %v", deref(got.ExpectedHolderUserID), deref(tc.wantHolder))
+			}
+			if (got.ExpectUnheld == nil) != (tc.wantUnheld == nil) {
+				t.Errorf("expectUnheld = %v, want %v", got.ExpectUnheld, tc.wantUnheld)
+			}
+			// PRESENCE, not just value. The unused argument must be ABSENT
+			// from the request, never present-as-null: the server reads an
+			// omitted field as "no assertion" and a present null as an
+			// assertion nobody made, so a dropped omitempty turns every
+			// release into a malformed one — invisibly to a typed decode,
+			// which renders both as nil.
+			wantHolderSent, wantUnheldSent := tc.wantHolder != nil, tc.wantUnheld != nil
+			if got.sent("expectedHolderUserId") != wantHolderSent {
+				t.Errorf("expectedHolderUserId present=%v, want %v (raw: %s)",
+					got.sent("expectedHolderUserId"), wantHolderSent, got.raw["expectedHolderUserId"])
+			}
+			if got.sent("expectUnheld") != wantUnheldSent {
+				t.Errorf("expectUnheld present=%v, want %v (raw: %s)",
+					got.sent("expectUnheld"), wantUnheldSent, got.raw["expectUnheld"])
+			}
+			// NEVER BOTH — the server refuses BAD_USER_INPUT for that, and the
+			// two arguments exist as a pair precisely so "expect nobody" and
+			// "no expectation" cannot collapse into each other.
+			if got.sent("expectedHolderUserId") && got.sent("expectUnheld") {
+				t.Error("both assertions sent; the server refuses that as BAD_USER_INPUT")
+			}
+			// NEVER NEITHER — that is the old unconditional release, which is
+			// the behaviour #522 exists to remove.
+			if !got.sent("expectedHolderUserId") && !got.sent("expectUnheld") {
+				t.Error("no assertion sent — this is the unconditional release #522 removes")
+			}
+		})
+	}
+}
+
+// A refused assertion is turned into a TRUTHFUL second offer, exactly once.
+//
+// Refusing outright would be the safe-looking answer and it would break a
+// legitimate operation: a caller who cannot READ the hold classifies it as nil
+// and asserts "unheld", so re-running re-derives the same wrong assertion and
+// they are refused forever. The retry is what keeps an admin force-release
+// possible while making it INFORMED — which is the thing that was silent before.
+func TestWorkerReleaseHandlesAStaleHold(t *testing.T) {
+	gilUser := map[string]string{
+		"GetUser": `{"data":{"user":{"id":"u-gil","name":"Gil","email":null,"handle":"gil",
+			"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
+			"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
+	}
+
+	// Non-interactive and without --yes: a force-release nobody consented to is
+	// refused, and NOTHING is changed. The second call must not happen.
+	t.Run("someone else holds it, no --yes and no TTY: refuse", func(t *testing.T) {
+		srv, seen := releaseSequence(t, irisWorkerJSON, []string{holdStale("u-gil")}, gilUser)
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs([]string{"team", "worker", "release", "Iris",
-			"--app", "acme.com:eng-team", "--server", gql.URL})
+			"--app", "acme.com:eng-team", "--server", srv.URL})
 		err := root.Execute()
 		if code := exitcode.FromError(err); code != exitcode.Conflict {
-			t.Errorf("a hold appearing after an unheld read must refuse, not silently force: exit %d; err: %v", code, err)
+			t.Errorf("exit %d, want %d; err: %v", code, exitcode.Conflict, err)
 		}
-		if _, called := captured["ReleaseWorker"]; called {
-			t.Error("this is the SILENT force-release the re-read exists to prevent")
+		if len(*seen) != 1 {
+			t.Errorf("the release must not be retried without consent, got %d calls", len(*seen))
+		}
+		// The refusal names WHO, which the caller could not otherwise learn —
+		// and says nothing was changed, because nothing was.
+		if !strings.Contains(err.Error(), "Gil") || !strings.Contains(err.Error(), "nothing was changed") {
+			t.Errorf("the refusal must name the holder and say nothing changed: %v", err)
 		}
 	})
+
+	// With --yes the caller has pre-consented to a force-release, so the retry
+	// proceeds — against the holder the SERVER named, not the CLI's guess.
+	t.Run("someone else holds it, --yes: retry against the true holder", func(t *testing.T) {
+		srv, seen := releaseSequence(t, irisWorkerJSON,
+			[]string{holdStale("u-gil"), releasedOK}, gilUser)
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes", "--json",
+			"--app", "acme.com:eng-team", "--server", srv.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if len(*seen) != 2 {
+			t.Fatalf("want a refusal then one retry, got %d calls", len(*seen))
+		}
+		if got := deref((*seen)[0].ExpectUnheld); got != "true" {
+			t.Errorf("the first attempt must assert unheld, got %v", got)
+		}
+		if got := deref((*seen)[1].ExpectedHolderUserID); got != "u-gil" {
+			t.Errorf("the retry must assert the holder the SERVER named, got %q", got)
+		}
+		// The receipt reports what the server SAW. Before #522 this path
+		// produced wasHeld/forced nil and no prior holder at all, because the
+		// CLI had classified against a hold it could not see.
+		var dto struct {
+			WasHeld            *bool   `json:"wasHeld"`
+			ReleasedFromUserID *string `json:"releasedFromUserId"`
+			Forced             *bool   `json:"forced"`
+			Status             string  `json:"status"`
+		}
+		if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+			t.Fatalf("unmarshal: %v\n%s", err, out.String())
+		}
+		if dto.WasHeld == nil || !*dto.WasHeld {
+			t.Errorf("wasHeld must be true — the server proved it was held: %v", dto.WasHeld)
+		}
+		if deref(dto.ReleasedFromUserID) != "u-gil" {
+			t.Errorf("releasedFromUserId = %v, want u-gil", deref(dto.ReleasedFromUserID))
+		}
+		if dto.Forced == nil || !*dto.Forced {
+			t.Errorf("forced must be true — a known holder who is not me: %v", dto.Forced)
+		}
+		if dto.Status != "released" {
+			t.Errorf("status = %q, want released", dto.Status)
+		}
+	})
+
+	// The hold turns out to be MINE. A self-release owes nobody notice and no
+	// confirmation, so this proceeds without asking even without --yes — as it
+	// would have if the hold had been readable in the first place.
+	t.Run("it is my own hold after all: no prompt, not forced", func(t *testing.T) {
+		srv, seen := releaseSequence(t, irisWorkerJSON,
+			[]string{holdStale("u-holger"), releasedOK}, nil)
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		// No --yes and no TTY: a prompt here would refuse as non-interactive,
+		// so reaching a successful release IS the assertion that none was shown.
+		root.SetArgs([]string{"team", "worker", "release", "Iris", "--json",
+			"--app", "acme.com:eng-team", "--server", srv.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("a self-release must not prompt, even when discovered late: %v", err)
+		}
+		if len(*seen) != 2 {
+			t.Fatalf("want a refusal then one retry, got %d calls", len(*seen))
+		}
+		var dto struct {
+			Forced             *bool   `json:"forced"`
+			ReleasedFromUserID *string `json:"releasedFromUserId"`
+		}
+		_ = json.Unmarshal([]byte(out.String()), &dto)
+		if dto.Forced == nil || *dto.Forced {
+			t.Errorf("releasing my own name is not a force-release: %v", dto.Forced)
+		}
+		if deref(dto.ReleasedFromUserID) != "u-holger" {
+			t.Errorf("releasedFromUserId = %v, want u-holger", deref(dto.ReleasedFromUserID))
+		}
+	})
+
+	// The hold was RELEASED underneath us. There is nothing left to release, so
+	// the act the caller approved is not available to perform — and reporting
+	// "released" would claim this command did it.
+	t.Run("unheld by the time we call: refuse rather than claim a release", func(t *testing.T) {
+		srv, seen := releaseSequence(t, heldBy("u-dara"), []string{holdStale("")}, map[string]string{
+			"GetUser": `{"data":{"user":{"id":"u-dara","name":"Dara","email":null,"handle":"dara",
+				"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
+				"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
+			"--app", "acme.com:eng-team", "--server", srv.URL})
+		err := root.Execute()
+		if code := exitcode.FromError(err); code != exitcode.Conflict {
+			t.Errorf("exit %d, want %d; err: %v", code, exitcode.Conflict, err)
+		}
+		if len(*seen) != 1 {
+			t.Errorf("nothing to retry when the name is already free, got %d calls", len(*seen))
+		}
+		if !strings.Contains(err.Error(), "nothing left to release") {
+			t.Errorf("the refusal must say the name is already free: %v", err)
+		}
+	})
+
+	// A FAILED identity lookup is "unknown", not "you are not the holder", and
+	// the retry path had not learned that yet (PR #524 review, @codex P2).
+	//
+	// With meKnown false the stale holder may BE the caller, so a message
+	// asserting an admin force-release and a team-chat notice describes a
+	// public act that may not happen — #504's lesson arriving in the one place
+	// it had not been applied. The receipt was already honest here (`forced`
+	// stays null); the WORDING was not.
+	t.Run("unknown identity: the refusal must hedge, not assert a public act", func(t *testing.T) {
+		srv, seen := releaseSequence(t, irisWorkerJSON, []string{holdStale("u-gil")}, map[string]string{
+			"AuthContext": `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`,
+			"GetUser": `{"data":{"user":{"id":"u-gil","name":"Gil","email":null,"handle":"gil",
+				"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
+				"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "worker", "release", "Iris",
+			"--app", "acme.com:eng-team", "--server", srv.URL})
+		err := root.Execute()
+		if code := exitcode.FromError(err); code != exitcode.Conflict {
+			t.Fatalf("exit %d, want %d; err: %v", code, exitcode.Conflict, err)
+		}
+		if len(*seen) != 1 {
+			t.Errorf("no consent, no retry: got %d calls", len(*seen))
+		}
+		msg := err.Error()
+		// It must state the UNCERTAINTY rather than the classification.
+		if !strings.Contains(msg, "could not read your own identity") {
+			t.Errorf("an unreadable identity must be said out loud: %v", msg)
+		}
+		// And it must NOT assert the act it cannot classify. "would be an admin
+		// force-release" is the exact phrase the known branch uses, so its
+		// absence here is what separates the two.
+		if strings.Contains(msg, "would be an admin force-release") {
+			t.Errorf("this asserts a classification it does not have: %v", msg)
+		}
+	})
+
+	// RETIREMENT is re-checked before the RETRY, not only before the first call
+	// (PR #524 review, @codex P2).
+	//
+	// The retry has the longest window in the command — a refused round trip
+	// plus, interactively, however long someone reads a prompt — and it was the
+	// one path with no re-read at all. A worker retired in that window would be
+	// released having been described as active, promising its working memory
+	// and handoff history to a next holder that a retired name cannot have.
+	//
+	// The first read says active, so the pre-call guard passes and the retry is
+	// reached; the second says retired. That ordering is the whole test — a
+	// single always-retired stub would be caught by the FIRST guard and prove
+	// nothing about the second.
+	t.Run("retired inside the retry window: refuse before acting on the consent", func(t *testing.T) {
+		nowRetired := strings.Replace(irisWorkerJSON, `"retiredAt":null`,
+			`"retiredAt":"2026-08-21T00:00:00Z"`, 1)
+		srv, seen := releaseSequence(t, irisWorkerJSON,
+			[]string{holdStale("u-gil"), releasedOK}, gilUser,
+			`{"data":{"worker":`+irisWorkerJSON+`}}`, // pre-call: still active
+			`{"data":{"worker":`+nowRetired+`}}`,     // inside the retry window
+		)
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
+			"--app", "acme.com:eng-team", "--server", srv.URL})
+		err := root.Execute()
+		if code := exitcode.FromError(err); code != exitcode.Conflict {
+			t.Fatalf("exit %d, want %d; err: %v", code, exitcode.Conflict, err)
+		}
+		if !strings.Contains(err.Error(), "retired while this ran") {
+			t.Errorf("the refusal must name what changed: %v", err)
+		}
+		// The refused first attempt happened; the RETRY must not have.
+		if len(*seen) != 1 {
+			t.Errorf("the retry must not run against a description that no longer fits, got %d calls", len(*seen))
+		}
+	})
+
+	// The hold moves AGAIN inside the retry window. One retry, never a loop —
+	// a client racing a human is not a fix.
+	t.Run("the hold moves again: stop, do not loop", func(t *testing.T) {
+		srv, seen := releaseSequence(t, irisWorkerJSON,
+			[]string{holdStale("u-gil"), holdStale("u-dara")}, gilUser)
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
+			"--app", "acme.com:eng-team", "--server", srv.URL})
+		err := root.Execute()
+		if code := exitcode.FromError(err); code != exitcode.Conflict {
+			t.Errorf("exit %d, want %d; err: %v", code, exitcode.Conflict, err)
+		}
+		if len(*seen) != 2 {
+			t.Errorf("want exactly two attempts and no third, got %d", len(*seen))
+		}
+		if !strings.Contains(err.Error(), "changed again") {
+			t.Errorf("the second refusal must say so: %v", err)
+		}
+	})
+}
+
+func strPtr(s string) *string { return &s }
+func boolPtrT(b bool) *bool   { return &b }
+
+func eqStrPtr(a, b *string) bool {
+	if (a == nil) != (b == nil) {
+		return false
+	}
+	return a == nil || *a == *b
+}
+
+// deref renders an optional for an error message — "<nil>" rather than a panic,
+// and the value's own spelling otherwise.
+func deref(v any) string {
+	switch p := v.(type) {
+	case *string:
+		if p == nil {
+			return "<nil>"
+		}
+		return *p
+	case *bool:
+		if p == nil {
+			return "<nil>"
+		}
+		if *p {
+			return "true"
+		}
+		return "false"
+	}
+	return "<nil>"
 }
 
 // A FAILED identity lookup is "unknown", not "you are not the holder"
