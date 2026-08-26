@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -302,4 +303,134 @@ func captureErrOut(f *cmdutil.Factory) func() string {
 	b := &strings.Builder{}
 	f.IOStreams.ErrOut = b
 	return b.String
+}
+
+// A SIGNED-OUT CALLER MUST BE TOLD BEFORE THEIR PIPE IS DRAINED
+// (PR #528 review, @codex P1).
+//
+// `--handoff -` consumes stdin. Anything that can fail between that drain and
+// the rescue destroys the only copy — and `GraphQLClient()` sat in exactly that
+// window, so a missing or expired credential (far commoner than
+// HANDOFF_WRITE_FAILED) lost the prose through the very command that had just
+// been fixed not to.
+//
+// The assertion is that stdin is STILL READABLE afterwards: the CLI never took
+// custody of prose it could not deliver, which is better than rescuing it,
+// because whatever produced it still has it.
+func TestSessionEndDoesNotDrainStdinWhenItCannotSend(t *testing.T) {
+	const prose = "Shipped #528. Do not re-run the register sweep."
+	bindWorktree(t)
+	t.Setenv("HADRON_TOKEN", "") // signed out: GraphQLClient() fails before any request
+	gql, _ := captureGraphQL(t, endStubs())
+	f, _ := testFactory(t)
+	t.Setenv("HADRON_TOKEN", "") // testFactory re-sets it; this must win
+	stdin := strings.NewReader(prose)
+	f.IOStreams.In = stdin
+	errOut := captureErrOut(f)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "end", "--handoff", "-", "--server", gql.URL})
+
+	if err := root.Execute(); err == nil {
+		t.Fatal("a signed-out end must fail")
+	}
+	// The prose is untouched: nothing read it, so the caller still has it.
+	left, _ := io.ReadAll(stdin)
+	if string(left) != prose {
+		t.Errorf("stdin must not be consumed when the CLI cannot send it; %d of %d bytes left",
+			len(left), len(prose))
+	}
+	// And no rescue file, because nothing was taken.
+	if msg := errOut(); strings.Contains(msg, "Saved it to") {
+		t.Errorf("nothing was consumed, so nothing needs rescuing: %s", msg)
+	}
+}
+
+// The retry line advertises itself as ready-to-run, so a temp directory with a
+// space in it must not split it into extra arguments (PR #528 review, @codex P2
+// + @copilot). TMPDIR is what os.CreateTemp honours, so the hazard is drivable.
+func TestSessionEndRetryCommandSurvivesASpacyTempDir(t *testing.T) {
+	spacy := filepath.Join(t.TempDir(), "Application Support")
+	if err := os.MkdirAll(spacy, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TMPDIR", spacy)
+	bindWorktree(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"EndTeamSession": `{"errors":[{"message":"nope","extensions":{"code":"HANDOFF_WRITE_FAILED"}}]}`,
+	})
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader("prose")
+	errOut := captureErrOut(f)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "end", "--handoff", "-", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("the end still failed")
+	}
+	msg := errOut()
+	if !strings.Contains(msg, spacy) {
+		t.Fatalf("the spill must land in TMPDIR for this test to mean anything: %s", msg)
+	}
+	// The retry's --handoff-file argument must be ONE argument. Quoted is the
+	// only way that is true for a path containing a space.
+	retry := ""
+	for _, line := range strings.Split(msg, "\n") {
+		if strings.Contains(line, "--handoff-file") {
+			retry = line
+		}
+	}
+	if retry == "" {
+		t.Fatalf("no retry line: %s", msg)
+	}
+	if !strings.Contains(retry, "--handoff-file '") {
+		t.Errorf("a path with a space must be quoted or the retry is not runnable: %s", retry)
+	}
+}
+
+// When the spill ITSELF fails, the rescue must report that and still return the
+// original error (PR #528 review, @copilot's cleanup point taken one step out).
+//
+// Swapping the server's refusal for a local file-write error would hide the
+// thing the caller has to act on — and telling them nothing at all would leave
+// them believing the prose was saved somewhere. The one thing that must survive
+// is the instruction to copy it out of the terminal while they still can.
+func TestSessionEndSaysSoWhenItCannotEvenSaveTheHandoff(t *testing.T) {
+	// An unwritable TMPDIR: os.CreateTemp fails, so there is no file and no
+	// path to print.
+	blocked := filepath.Join(t.TempDir(), "no-writing-here")
+	if err := os.MkdirAll(blocked, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(blocked, 0o700) })
+	t.Setenv("TMPDIR", blocked)
+	bindWorktree(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"EndTeamSession": `{"errors":[{"message":"handoff write failed upstream",` +
+			`"extensions":{"code":"HANDOFF_WRITE_FAILED"}}]}`,
+	})
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader("prose that is about to be lost")
+	errOut := captureErrOut(f)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "end", "--handoff", "-", "--server", gql.URL})
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("the end failed and must still fail")
+	}
+	// The ORIGINAL cause survives — not a file-write error the caller cannot
+	// act on.
+	if !strings.Contains(err.Error(), "handoff write failed upstream") {
+		t.Errorf("the local failure must not mask the server's: %v", err)
+	}
+	msg := errOut()
+	if !strings.Contains(msg, "could not be saved locally") {
+		t.Errorf("a failed rescue must say so rather than stay quiet: %s", msg)
+	}
+	if !strings.Contains(msg, "Copy it out of your terminal") {
+		t.Errorf("the only remaining remedy must be stated: %s", msg)
+	}
+	// It must NOT print a path, since there is no file at one.
+	if strings.Contains(msg, "Saved it to") {
+		t.Errorf("nothing was saved; claiming a path is the worst outcome here: %s", msg)
+	}
 }

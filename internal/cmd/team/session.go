@@ -1367,13 +1367,27 @@ session is still open.`,
 					return err
 				}
 			}
-			text, err := resolveHandoff(cmd, handoff, handoffFile, f.IOStreams.In)
-			if err != nil {
-				return err
-			}
+			// The client is built BEFORE the handoff is read, and that ordering
+			// is load-bearing (PR #528 review, Codex P1).
+			//
+			// `--handoff -` DRAINS STDIN. Anything that can fail between that
+			// drain and the rescue below destroys the only copy of the prose —
+			// which is the whole defect this command was just fixed for, and
+			// `GraphQLClient()` was sitting in exactly that window. A missing or
+			// expired credential is far commoner than HANDOFF_WRITE_FAILED, so
+			// the gap was wider than the hole it was patching.
+			//
+			// INVARIANT: nothing between resolveHandoff and the rescued call may
+			// return an error. Failing here instead means a signed-out caller is
+			// told so BEFORE their pipe is consumed, and the CLI never takes
+			// custody of prose it cannot deliver.
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+			text, err := resolveHandoff(cmd, handoff, handoffFile, f.IOStreams.In)
+			if err != nil {
+				return err // the drain itself failed; there is nothing to rescue
 			}
 			resp, err := gen.EndTeamSession(ctx, client, id, optStr(summary), optStr(text))
 			if err != nil {
@@ -1788,21 +1802,55 @@ func rescueHandoff(f *cmdutil.Factory, text, sessionID string, cause error) erro
 		"! the handoff was NOT recorded. Saved it to %s\n"+
 			"  retry:  hadron team session end --session %s --handoff-file %s\n"+
 			"  (safe to retry — one stint records one handoff, so this cannot double-write.)\n",
-		path, sessionID, path)
+		path, shellQuote(sessionID), shellQuote(path))
 	return cause
 }
 
+// shellQuote makes an argument safe to paste into a POSIX shell.
+//
+// The retry line above advertises itself as ready-to-run, so it has to BE
+// runnable (PR #528 review, Codex P2 + Copilot). `os.CreateTemp` returns
+// whatever `TMPDIR` points at, and a temp directory containing a space is
+// ordinary rather than exotic — it is the default shape on Windows and a
+// one-character mistake away on any Unix. An unquoted path splits into extra
+// arguments and the recovery command fails at exactly the moment recovery is
+// the only thing left.
+//
+// Quotes only when needed, so the common case stays copy-pasteable and legible.
+// Single quotes rather than backslashes: inside them every character except `'`
+// is literal, so there is one escape rule instead of a list to keep in sync
+// with a shell's metacharacters.
+func shellQuote(s string) string {
+	if s != "" && !strings.ContainsAny(s, " \t\n\r\v\"'\\$`&;|<>()*?[]{}#~!=") {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
 // spillHandoff writes the prose somewhere the caller can get it back.
+//
+// Cleans up after itself on failure and CHECKS Close (PR #528 review, Copilot).
+// Close is part of the write, not a formality: a deferred, ignored Close can
+// swallow a flush error, and this function's whole contract is that the path it
+// returns holds the prose. Returning a path to a truncated file would be the
+// reassurance-without-the-thing failure, in the one place a caller has nothing
+// else left to fall back on.
 func spillHandoff(text string) (string, error) {
 	f, err := os.CreateTemp("", "hadron-handoff-*.md")
 	if err != nil {
 		return "", err
 	}
-	defer func() { _ = f.Close() }()
+	name := f.Name()
 	if _, err := f.WriteString(text); err != nil {
+		_ = f.Close()
+		_ = os.Remove(name) // no half-written file left claiming to be a handoff
 		return "", err
 	}
-	return f.Name(), nil
+	if err := f.Close(); err != nil {
+		_ = os.Remove(name)
+		return "", err
+	}
+	return name, nil
 }
 
 func resolveHandoff(cmd *cobra.Command, handoff, handoffFile string, stdin io.Reader) (string, error) {
