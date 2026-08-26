@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
@@ -1945,21 +1946,38 @@ func retryLine(f *cmdutil.Factory, r handoffRescue, path string) string {
 		" --handoff-file " + shellQuote(path)
 }
 
-// shellQuote makes an argument safe to paste into a POSIX shell.
+// shellQuote makes an argument safe to paste into THIS PLATFORM's shell.
 //
-// The retry line above advertises itself as ready-to-run, so it has to BE
-// runnable (PR #528 review, Codex P2 + Copilot). `os.CreateTemp` returns
-// whatever `TMPDIR` points at, and a temp directory containing a space is
-// ordinary rather than exotic — it is the default shape on Windows and a
-// one-character mistake away on any Unix. An unquoted path splits into extra
-// arguments and the recovery command fails at exactly the moment recovery is
-// the only thing left.
+// The retry line advertises itself as ready-to-run, so it has to BE runnable
+// (PR #528 review, Codex, twice). `os.CreateTemp` returns whatever TMPDIR
+// points at, and a temp directory containing a space is ordinary rather than
+// exotic — it is the default shape on Windows.
 //
-// Quotes only when needed, so the common case stays copy-pasteable and legible.
-// Single quotes rather than backslashes: inside them every character except `'`
-// is literal, so there is one escape rule instead of a list to keep in sync
-// with a shell's metacharacters.
-func shellQuote(s string) string {
+// PLATFORM-AWARE, because a single rule cannot serve both and goreleaser
+// publishes a native Windows binary. POSIX single-quoting is actively wrong
+// there: every ordinary Windows path contains backslashes, `cmd.exe` treats
+// single quotes as LITERAL characters, and the advertised command would pass a
+// quoted, nonexistent filename to --handoff-file. A backslash is a
+// metacharacter on one platform and a path separator on the other, so the
+// character set has to differ too.
+func shellQuote(s string) string { return quoteForShell(s, runtime.GOOS == "windows") }
+
+// quoteForShell is shellQuote with the platform injected, so both branches are
+// reachable from a test on either host.
+func quoteForShell(s string, windows bool) string {
+	if windows {
+		// cmd.exe and PowerShell both take double quotes; a literal `"` cannot
+		// occur in a Windows path, and doubling is what both accept if one
+		// somehow does. Backslashes are left alone — they are the separator.
+		if s != "" && !strings.ContainsAny(s, " \t\n\r\v\"&|<>^%!()") {
+			return s
+		}
+		return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
+	}
+	// Quotes only when needed, so the common case stays copy-pasteable and
+	// legible. Single quotes rather than backslashes: inside them every
+	// character except `'` is literal, so there is one escape rule instead of a
+	// list to keep in sync with a shell's metacharacters.
 	if s != "" && !strings.ContainsAny(s, " \t\n\r\v\"'\\$`&;|<>()*?[]{}#~!=") {
 		return s
 	}
