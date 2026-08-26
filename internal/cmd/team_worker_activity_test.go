@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Column padding in the rendered table: two or more spaces. Single spaces are
@@ -71,15 +72,32 @@ func workerWith(t *testing.T, name, id, held, lastActive string, live string) st
 	return strings.Replace(w, `:iris"`, `:`+strings.ToLower(name)+`"`, 1)
 }
 
+// agoRFC3339 is a timestamp a given duration BEFORE NOW.
+//
+// The command renders ages against `time.Now()`, so a fixture with a literal
+// date does not describe a fixed age — it describes one that DECAYS. The
+// original of this file pinned "2026-08-22T12:00:00Z" and asserted "3d ago";
+// it passed for seventeen hours and then went red at 2026-08-26T12:00:00Z on
+// the wall clock alone, with no commit in between, on `main`, where it read as
+// whoever pushed next having broken it.
+//
+// That is the sharpest kind of flake: green when written, deterministic
+// afterwards, and wrong. A relative fixture cannot decay, and the floor in
+// workerActivityAge gives a whole day of headroom in the only direction elapsed
+// time moves during a run.
+func agoRFC3339(d time.Duration) string {
+	return time.Now().Add(-d).UTC().Format(time.RFC3339)
+}
+
 // A roster covering every state the columns can be in at once — which is also
 // the fixture that proves they are told apart rather than rendered alike.
 func activityRosterJSON(t *testing.T) string {
 	t.Helper()
 	rows := []string{
 		// held by me, and a session is open
-		workerWith(t, "Iris", "wkr1", "u-holger", "2026-08-25T11:00:00Z", "true"),
+		workerWith(t, "Iris", "wkr1", "u-holger", agoRFC3339(4*time.Hour), "true"),
 		// held by someone else, idle
-		workerWith(t, "Dara", "wkr2", "u-dara", "2026-08-22T12:00:00Z", "false"),
+		workerWith(t, "Dara", "wkr2", "u-dara", agoRFC3339(72*time.Hour), "false"),
 		// unheld and NEVER DRIVEN — the state the issue was filed for
 		workerWith(t, "Mira", "wkr3", "", "", "false"),
 		// masked: the caller may not read this App's working state
