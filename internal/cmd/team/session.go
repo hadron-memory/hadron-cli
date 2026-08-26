@@ -1367,27 +1367,41 @@ session is still open.`,
 					return err
 				}
 			}
-			// The client is built BEFORE the handoff is read, and that ordering
-			// is load-bearing (PR #528 review, Codex P1).
+			// THE HANDOFF IS TAKEN FIRST, AND EVERY LATER ERROR IS RESCUED.
 			//
-			// `--handoff -` DRAINS STDIN. Anything that can fail between that
-			// drain and the rescue below destroys the only copy of the prose —
-			// which is the whole defect this command was just fixed for, and
-			// `GraphQLClient()` was sitting in exactly that window. A missing or
-			// expired credential is far commoner than HANDOFF_WRITE_FAILED, so
-			// the gap was wider than the hole it was patching.
+			// An earlier revision built the client first instead, so a
+			// signed-out caller would be refused before their pipe was read —
+			// "never take custody of prose we cannot deliver". Two review
+			// rounds killed that (PR #528, Codex P1 + P2), and both objections
+			// are worth keeping:
 			//
-			// INVARIANT: nothing between resolveHandoff and the rescued call may
-			// return an error. Failing here instead means a signed-out caller is
-			// told so BEFORE their pipe is consumed, and the CLI never takes
-			// custody of prose it cannot deliver.
-			client, err := f.GraphQLClient()
-			if err != nil {
-				return err
-			}
+			//  1. NOT READING IS NOT THE SAME AS NOT LOSING. On a real pipe,
+			//     returning without reading closes the consumer end: buffered
+			//     prose is discarded and the producer can take SIGPIPE. "The
+			//     caller still has it" was an assumption about the producer,
+			//     not a property of the pipe — and `echo … |` has already
+			//     written and exited.
+			//  2. IT MOVED THE EXIT CODES. Validation lives in resolveHandoff,
+			//     so authenticating first meant an explicit empty --handoff or
+			//     an unreadable --handoff-file reported AuthRequired instead of
+			//     the documented Usage (exit 2) — a contract agents branch on,
+			//     and invisible to a suite whose factory is always signed in.
+			//
+			// So: resolve first (usage errors surface as usage errors, and the
+			// prose is in hand), then let EVERY subsequent failure go through
+			// rescueHandoff. One guarantee, stated once: if you gave us a
+			// handoff and we did not record it, we saved it and said where.
+			//
+			// INVARIANT: past this point, every error return carries the text
+			// through rescueHandoff. Adding a bare `return err` below silently
+			// re-opens the hole this whole command exists to close.
 			text, err := resolveHandoff(cmd, handoff, handoffFile, f.IOStreams.In)
 			if err != nil {
-				return err // the drain itself failed; there is nothing to rescue
+				return err // nothing was successfully taken; there is nothing to rescue
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return rescueHandoff(f, text, id, err)
 			}
 			resp, err := gen.EndTeamSession(ctx, client, id, optStr(summary), optStr(text))
 			if err != nil {

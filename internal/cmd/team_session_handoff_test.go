@@ -305,43 +305,96 @@ func captureErrOut(f *cmdutil.Factory) func() string {
 	return b.String
 }
 
-// A SIGNED-OUT CALLER MUST BE TOLD BEFORE THEIR PIPE IS DRAINED
-// (PR #528 review, @codex P1).
+// A SIGNED-OUT CALLER'S PIPED HANDOFF IS STILL RESCUED (PR #528 review,
+// @codex P1, second round).
 //
-// `--handoff -` consumes stdin. Anything that can fail between that drain and
-// the rescue destroys the only copy — and `GraphQLClient()` sat in exactly that
-// window, so a missing or expired credential (far commoner than
-// HANDOFF_WRITE_FAILED) lost the prose through the very command that had just
-// been fixed not to.
+// An earlier revision built the client first so a signed-out caller was refused
+// BEFORE their pipe was read — on the reasoning that not taking custody beats
+// rescuing. Two things killed it, and the first is why this test now uses a
+// REAL os.Pipe:
 //
-// The assertion is that stdin is STILL READABLE afterwards: the CLI never took
-// custody of prose it could not deliver, which is better than rescuing it,
-// because whatever produced it still has it.
-func TestSessionEndDoesNotDrainStdinWhenItCannotSend(t *testing.T) {
+//   - Not reading is not the same as not losing. Returning without reading
+//     closes the consumer end, so buffered prose is discarded and the producer
+//     can take SIGPIPE. The previous version of this test asserted that a
+//     strings.Reader's offset was unchanged, which proves an in-process reader
+//     was not advanced and says NOTHING about pipeline teardown — a test
+//     asserting less than it appeared to.
+//   - It moved the exit codes (see the sibling test below).
+//
+// So the guarantee is now uniform: if you gave us a handoff and we did not
+// record it, we saved it and said where — whatever failed.
+func TestSessionEndRescuesAPipedHandoffWhenSignedOut(t *testing.T) {
 	const prose = "Shipped #528. Do not re-run the register sweep."
 	bindWorktree(t)
-	t.Setenv("HADRON_TOKEN", "") // signed out: GraphQLClient() fails before any request
 	gql, _ := captureGraphQL(t, endStubs())
 	f, _ := testFactory(t)
-	t.Setenv("HADRON_TOKEN", "") // testFactory re-sets it; this must win
-	stdin := strings.NewReader(prose)
-	f.IOStreams.In = stdin
+	t.Setenv("HADRON_TOKEN", "") // signed out: GraphQLClient() fails before any request
+
+	// A real OS pipe, not a strings.Reader: this is the shape the finding is
+	// about, and the one where "the producer still has it" is not a property
+	// anyone can rely on.
+	r, w, perr := os.Pipe()
+	if perr != nil {
+		t.Fatal(perr)
+	}
+	go func() {
+		_, _ = io.WriteString(w, prose)
+		_ = w.Close()
+	}()
+	f.IOStreams.In = r
+	t.Cleanup(func() { _ = r.Close() })
+
 	errOut := captureErrOut(f)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "end", "--handoff", "-", "--server", gql.URL})
 
-	if err := root.Execute(); err == nil {
+	err := root.Execute()
+	if err == nil {
 		t.Fatal("a signed-out end must fail")
 	}
-	// The prose is untouched: nothing read it, so the caller still has it.
-	left, _ := io.ReadAll(stdin)
-	if string(left) != prose {
-		t.Errorf("stdin must not be consumed when the CLI cannot send it; %d of %d bytes left",
-			len(left), len(prose))
+	// The auth failure is what the caller is told — the rescue must not
+	// replace the cause with something local.
+	if code := exitcode.FromError(err); code == exitcode.Usage {
+		t.Errorf("a signed-out failure is not a usage error: exit %d (%v)", code, err)
 	}
-	// And no rescue file, because nothing was taken.
+	msg := errOut()
+	path := handoffSpillPath(t, msg)
+	saved, rerr := os.ReadFile(path) // #nosec G304 — path came from our own output
+	if rerr != nil {
+		t.Fatalf("the piped handoff must survive a pre-request failure: %v", rerr)
+	}
+	if string(saved) != prose {
+		t.Errorf("rescued prose:\n got: %q\nwant: %q", saved, prose)
+	}
+	t.Cleanup(func() { _ = os.Remove(path) })
+}
+
+// …but a LOCAL usage error must still be a usage error, signed out or not
+// (PR #528 review, @codex P2).
+//
+// Validation lives in resolveHandoff, so authenticating first reported
+// AuthRequired for an explicit empty --handoff — regressing a documented exit
+// code that agents branch on. The suite could not see it, because testFactory
+// is always signed in: the regression only existed on the path where the auth
+// preflight failed.
+func TestSessionEndEmptyHandoffIsUsageEvenWhenSignedOut(t *testing.T) {
+	bindWorktree(t)
+	gql, _ := captureGraphQL(t, endStubs())
+	f, _ := testFactory(t)
+	t.Setenv("HADRON_TOKEN", "") // signed out, and it must NOT be what we report
+	errOut := captureErrOut(f)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "end", "--handoff", "", "--server", gql.URL})
+
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("an explicit empty handoff is a usage error (exit %d), got exit %d: %v",
+			exitcode.Usage, code, err)
+	}
+	// Nothing was taken, so nothing is rescued — a spill here would litter a
+	// file for prose that never existed.
 	if msg := errOut(); strings.Contains(msg, "Saved it to") {
-		t.Errorf("nothing was consumed, so nothing needs rescuing: %s", msg)
+		t.Errorf("there was no handoff to rescue: %s", msg)
 	}
 }
 
