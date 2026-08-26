@@ -549,3 +549,54 @@ func TestSessionEndSaysSoWhenItCannotEvenSaveTheHandoff(t *testing.T) {
 		t.Errorf("nothing was saved; claiming a path is the worst outcome here: %s", msg)
 	}
 }
+
+// A SERVER MISMATCH MUST NOT PRINT A RETRY THAT PERFORMS THE REFUSED ACT
+// (PR #528 review, @codex, fourth round).
+//
+// checkBindingServer refuses when the binding belongs to server A and this
+// invocation resolved server B. The rescue then prints a retry — and that retry
+// carries an explicit --session, which BYPASSES this very check on the next
+// run. Composed from the invocation, it would name server B: pasting it would
+// send the handoff to the wrong deployment, and to an unrelated session there
+// if ids overlap, which is exactly what the refusal existed to stop.
+//
+// A consequence of the --server fix one round earlier, not of the original
+// defect: adding the server to the retry is what made naming the WRONG one
+// possible.
+func TestSessionEndMismatchRetryNamesTheBindingsServer(t *testing.T) {
+	const bindingServer = "https://hadron.example.invalid"
+	// A binding that names a DIFFERENT server, written explicitly: the shared
+	// fixture carries none, and a test that skipped when no mismatch occurred
+	// would assert nothing while looking covered.
+	dir := teamGitDir(t)
+	mismatched := strings.Replace(bindingWithTeamFixture, `"appBound":true,`,
+		`"appBound":true,"server":"`+bindingServer+`",`, 1)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"),
+		[]byte(mismatched), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, _ := captureGraphQL(t, endStubs())
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader("prose worth keeping")
+	errOut := captureErrOut(f)
+	root := NewRootCmd(f)
+	// --server is the OTHER one: this is the mismatch checkBindingServer refuses.
+	root.SetArgs([]string{"team", "session", "end", "--handoff", "-", "--server", gql.URL})
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("a binding/server mismatch must be refused")
+	}
+	msg := errOut()
+	if !strings.Contains(msg, "Saved it to") {
+		t.Fatalf("a refused mismatch must still rescue the prose: %s\n%v", msg, err)
+	}
+	// The rejected server must NOT be the one the retry hands back...
+	if strings.Contains(msg, gql.URL) {
+		t.Errorf("the retry names the server that was just refused, and --session bypasses the check: %s", msg)
+	}
+	// ...and the BINDING's server must be.
+	if !strings.Contains(msg, bindingServer) {
+		t.Errorf("the retry must target the binding's own server: %s", msg)
+	}
+}

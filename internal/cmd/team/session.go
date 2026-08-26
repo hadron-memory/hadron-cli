@@ -1372,19 +1372,23 @@ session is still open.`,
 			}
 			b, _, err := readBinding(ctx)
 			if err != nil && sessionID == "" {
-				return rescueHandoff(f, text, sessionID, err)
+				return rescueHandoff(f, text, sessionID, "", err)
 			}
 			id := sessionID
 			workerName := ""
 			if id == "" {
 				if b == nil {
-					return rescueHandoff(f, text, "", exitcode.Newf(exitcode.NotFound,
+					return rescueHandoff(f, text, "", "", exitcode.Newf(exitcode.NotFound,
 						"no active session in this worktree — pass --session <id> to end one without a binding"))
 				}
 				id = b.SessionID
 				workerName = b.WorkerName
 				if err := checkBindingServer(f, b); err != nil {
-					return rescueHandoff(f, text, id, err)
+					// The BINDING's server, not this invocation's: the retry
+					// carries an explicit --session, which bypasses this very
+					// check, so printing the rejected server would hand the
+					// caller a command that does the thing just refused.
+					return rescueHandoff(f, text, id, b.Server, err)
 				}
 			}
 			// Why the ordering above is what it is (PR #528, Codex P1 + P2).
@@ -1409,12 +1413,12 @@ session is still open.`,
 			// re-opens the hole this whole command exists to close.
 			client, err := f.GraphQLClient()
 			if err != nil {
-				return rescueHandoff(f, text, id, err)
+				return rescueHandoff(f, text, id, "", err)
 			}
 			resp, err := gen.EndTeamSession(ctx, client, id, optStr(summary), optStr(text))
 			if err != nil {
 				// The handoff does not evaporate with the call that carried it.
-				return rescueHandoff(f, text, id, api.MapError(err))
+				return rescueHandoff(f, text, id, "", api.MapError(err))
 			}
 			// Clear the binding when it names the session we just ended.
 			if b != nil && b.SessionID == id {
@@ -1806,7 +1810,15 @@ func sessionStartWorkerDTO(w gen.WorkerFields) sessionStartWorker {
 // BEST EFFORT, and never masks the real error. A failure to spill is reported
 // and the original error still returns — swapping the server's refusal for a
 // local file-write error would hide the thing the caller has to act on.
-func rescueHandoff(f *cmdutil.Factory, text, sessionID string, cause error) error {
+// server, when non-empty, OVERRIDES the invocation's own --server in the printed
+// retry. Exactly one caller needs that and the reason is sharp (PR #528 review,
+// Codex): on a binding/server MISMATCH the invocation resolved the WRONG
+// deployment — that is what was refused — so composing the retry from it would
+// print a command carrying the rejected server plus an explicit --session,
+// which bypasses the very check that refused. Pasting it would send the handoff
+// to the wrong deployment, and to an unrelated session there if ids overlap.
+// The recovery command has to name the BINDING's server.
+func rescueHandoff(f *cmdutil.Factory, text, sessionID, server string, cause error) error {
 	if strings.TrimSpace(text) == "" {
 		return cause // nothing was at risk
 	}
@@ -1824,7 +1836,7 @@ func rescueHandoff(f *cmdutil.Factory, text, sessionID string, cause error) erro
 		"! the handoff was NOT recorded. Saved it to %s\n"+
 			"  %s\n"+
 			"  (safe to retry — one stint records one handoff, so this cannot double-write.)\n",
-		path, retryLine(f, sessionID, path))
+		path, retryLine(f, sessionID, server, path))
 	return cause
 }
 
@@ -1842,9 +1854,12 @@ func rescueHandoff(f *cmdutil.Factory, text, sessionID string, cause error) erro
 // Printing a quoted empty --session argument would be a command that cannot
 // work, so it names the flag as the thing the caller must supply instead of
 // pretending to know it.
-func retryLine(f *cmdutil.Factory, sessionID, path string) string {
+func retryLine(f *cmdutil.Factory, sessionID, server, path string) string {
 	args := "hadron team session end"
-	if server, err := f.Server(); err == nil && server != "" {
+	if server == "" {
+		server, _ = f.Server()
+	}
+	if server != "" {
 		args += " --server " + shellQuote(server)
 	}
 	if sessionID == "" {
