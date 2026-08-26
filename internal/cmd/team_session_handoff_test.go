@@ -730,3 +730,24 @@ func TestSessionEndPartialSuccessIsNotReportedAsALostHandoff(t *testing.T) {
 		t.Errorf("a partial success is ambiguous from here and must be said as such: %s", msg)
 	}
 }
+
+// --json is carried into the retry (PR #528 review, @codex). An agent chose
+// that flag; a retry that succeeds with human-readable output breaks the parser
+// waiting on the other end, which is the consumer this whole rescue is for.
+func TestSessionEndRetryCarriesJSON(t *testing.T) {
+	bindWorktree(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"EndTeamSession": `{"errors":[{"message":"nope","extensions":{"code":"HANDOFF_WRITE_FAILED"}}]}`,
+	})
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader("prose")
+	errOut := captureErrOut(f)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "end", "--handoff", "-", "--json", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("the end failed")
+	}
+	if msg := errOut(); !strings.Contains(msg, "--json") {
+		t.Errorf("the retry must reproduce the output mode the caller selected: %s", msg)
+	}
+}

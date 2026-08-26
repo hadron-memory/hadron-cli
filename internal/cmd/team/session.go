@@ -1415,7 +1415,19 @@ session is still open.`,
 			// re-opens the hole this whole command exists to close.
 			client, err := f.GraphQLClient()
 			if err != nil {
-				return rescueHandoff(f, handoffRescue{text: text, sessionID: id, summary: summary, answered: true}, err)
+				// The BINDING's server, when this session came from one (PR #528
+				// review, Codex). If the config cannot be loaded and no --server
+				// was passed, f.Server() fails the same way inside retryLine and
+				// the printed command would omit --server entirely — repeating
+				// the configuration failure, while the binding held the
+				// deployment to use all along.
+				bound := ""
+				if b != nil && b.SessionID == id {
+					bound = b.Server
+				}
+				return rescueHandoff(f, handoffRescue{
+					text: text, sessionID: id, server: bound, summary: summary, answered: true,
+				}, err)
 			}
 			resp, err := gen.EndTeamSession(ctx, client, id, optStr(summary), optStr(text))
 			if err != nil {
@@ -1952,6 +1964,12 @@ func retryLine(f *cmdutil.Factory, r handoffRescue, path string) string {
 		if server != "" {
 			out += "\n            --server        " + server
 		}
+		// --json is carried because an agent chose it: a retry that succeeds
+		// with human output breaks the parser waiting on the other end (PR #528
+		// review, Codex).
+		if f.JSON {
+			out += "\n            --json"
+		}
 		if r.summary != "" {
 			out += "\n            --summary       " + r.summary
 		}
@@ -1966,6 +1984,9 @@ func retryLine(f *cmdutil.Factory, r handoffRescue, path string) string {
 	args := "hadron team session end"
 	if server != "" {
 		args += " --server " + shellQuote(server)
+	}
+	if f.JSON {
+		args += " --json"
 	}
 	if r.summary != "" {
 		args += " --summary " + shellQuote(r.summary)
