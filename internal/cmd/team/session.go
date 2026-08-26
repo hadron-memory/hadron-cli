@@ -1422,21 +1422,18 @@ session is still open.`,
 				// Only THIS path can be ambiguous: everything above either never
 				// reached the server or was refused locally.
 				//
-				// "Refused" needs BOTH halves (PR #528 review, Codex). An answer
-				// alone is not one: GraphQL permits partial success, and this
-				// operation selects a nullable nested `worker`, so the end can
-				// COMMIT and a later field resolver still error. Reading any
-				// GraphQL error as "nothing happened" would then state the exact
-				// opposite of the truth — and it is the handoff-was-lost claim,
-				// so it would be the worst sentence to be wrong about.
-				//
-				// A returned payload means the mutation ran. Per
-				// `cor:agt:020:10` the handoff is written BEFORE endedAt is
-				// stamped, so a payload implies the prose landed.
-				committed := resp != nil && resp.EndSession != nil
+				// The definite wording is earned by a SPEC GUARANTEE, not
+				// inferred from the response shape (PR #528 review, Codex,
+				// twice). `cor:agt:020:10` says a failed handoff write refuses
+				// the end, so HANDOFF_WRITE_FAILED proves nothing committed.
+				// Nothing else does: GraphQL returns data AND errors when a
+				// nested resolver fails after the mutation ran, and null-
+				// bubbling from a non-null child nulls the payload even though
+				// the write happened — so neither an error's presence nor a
+				// payload's absence is proof.
 				return rescueHandoff(f, handoffRescue{
 					text: text, sessionID: id, summary: summary,
-					answered: api.ServerAnswered(err) && !committed,
+					answered: api.EndRefusedBeforeCommit(err),
 				}, api.MapError(err))
 			}
 			// Clear the binding when it names the session we just ended.

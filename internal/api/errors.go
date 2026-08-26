@@ -251,24 +251,44 @@ func WorkerHeldDetail(err error) (HeldDetail, bool) {
 	return HeldDetail{}, false
 }
 
-// ServerAnswered reports whether the server RESPONDED, as opposed to the
-// request failing in transit.
+// EndRefusedBeforeCommit reports whether an endSession failure PROVABLY changed
+// nothing — the only case in which a client may tell its caller that a handoff
+// was definitely not recorded.
 //
-// AN ANSWER IS NOT A REFUSAL, and conflating the two is a live hazard rather
-// than pedantry (PR #528 review, Codex). GraphQL permits PARTIAL SUCCESS: a
-// mutation can commit and a later nested field resolver can still error, so the
-// envelope carries `data` AND `errors`. A caller that reads any GraphQL error as
-// "nothing happened" will state the opposite of the truth on exactly that path.
+// It is deliberately ONE code, and not a taxonomy. `cor:agt:020:10` guarantees
+// that a failed handoff write REFUSES the end, so `HANDOFF_WRITE_FAILED` is a
+// SPEC-BACKED statement that nothing committed. Every other outcome is treated
+// as unknown, including other GraphQL errors, because there is no way from here
+// to tell a pre-commit refusal from a post-commit one:
 //
-// So this answers only the transport question — did a reply come back at all —
-// and a caller deciding whether anything COMMITTED must additionally look at
-// whether the response carried a payload. A transport failure (a timeout, a
-// dropped connection, a proxy giving up) means the request may have been
-// applied and only the answer lost, which nothing on the client can tell apart
-// (review:a-claim-must-not-outrun-its-evidence).
+//   - GraphQL returns `data` AND `errors` when a nested resolver fails after
+//     the mutation ran, and
+//   - null-bubbling from a non-null child NULLS `data.endSession` even though
+//     the write happened,
+//
+// so neither the presence of an error nor the absence of a payload proves a
+// refusal (PR #528 review, Codex, twice).
+//
+// The asymmetry is the whole design. Saying "may not have been recorded" when
+// it definitely was not is harmless — the remedy is identical, since one stint
+// records one handoff. Saying "was NOT recorded" when it WAS is the worst
+// sentence this command can print, and it would make a later retry failure look
+// like confirmation of data loss. So the definite wording is earned by a
+// guarantee, not inferred from a shape.
 //
 // Call it BEFORE MapError wraps.
-func ServerAnswered(err error) bool { return len(graphQLErrors(err)) > 0 }
+func EndRefusedBeforeCommit(err error) bool {
+	list := graphQLErrors(err)
+	if len(list) == 0 {
+		return false // transport failure: the outcome is unknowable from here
+	}
+	for _, e := range list {
+		if e == nil || extensionCode(e) != "HANDOFF_WRITE_FAILED" {
+			return false // anything unrecognized keeps the whole answer ambiguous
+		}
+	}
+	return true
+}
 
 // HoldStaleDetail is the payload a WORKER_HOLD_STALE error carries
 // (hadron-server#1084): the hold found NOW, at the moment the guarded write
