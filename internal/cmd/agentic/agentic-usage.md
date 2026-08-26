@@ -1100,7 +1100,8 @@ Conventions:
   so a crash between the handoff and the close does not leave a second attempt
   appending a duplicate (`cor:agt:020:10`).
   **IF THE END FAILS WHILE CARRYING A HANDOFF, THE CLI SAVES THE PROSE** to a
-  temp file and prints the path on **stderr** with a ready-to-run retry, so a
+  temp file and prints the path on **stderr** with the retry that recovers it
+  (ready-to-run on POSIX; raw argument values on Windows — see below), so a
   `--json` document stays parseable. The guarantee above protects the SESSION;
   it cannot protect text that only ever existed in this process, which is
   exactly the case for `--handoff -` once the pipe has been drained. This holds

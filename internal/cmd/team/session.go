@@ -1326,7 +1326,10 @@ happened — so a crash between the handoff and the close does not leave a
 second attempt appending a duplicate.
 
 IF THE END FAILS WHILE CARRYING A HANDOFF, THIS SAVES THE PROSE. It is
-written to a temp file and the path printed with a ready-to-run retry.
+written to a temp file and the path printed with the retry that recovers
+it — a ready-to-run command line on POSIX, where single-quoting makes
+every argument literal, and the same arguments listed as raw values on
+Windows, where no quoting survives both cmd.exe and PowerShell.
 The guarantee above protects the SESSION; it cannot protect text that
 only ever existed in this process, which is the case whenever the handoff
 came from stdin and the pipe has already been drained.
