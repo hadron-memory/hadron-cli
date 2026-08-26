@@ -878,14 +878,15 @@ Conventions:
   The CLI reads the hold only to say which act it is, never to decide who may
   perform it. Idempotent, and it never claims the name was free: `heldByUserId`
   is masked to null on deny, so a nil hold read ON ITS OWN means "unheld OR held
-  and invisible to you". **`release` does not disambiguate it, and that is now a
-  CHOICE rather than an impossibility.** Since #487 there IS a signal that would
-  tell the two apart — `hasLiveSession`, masked by the same gate (below) — but
-  this command deliberately does not use it: collapsing a refusal-shaped
-  classification is a different change from rendering a column, and the two
-  wrong designs PR #504 retracted were both in this classification. Track it as
-  part of #522 rather than reading the hedge as a statement that the ambiguity
-  is irreducible. So a nil hold reports
+  and invisible to you". **`release` does not disambiguate it, and since #522 it
+  does not need to.** It asserts what it classified — see the precondition
+  below — so a nil hold that is actually somebody's is refused by the server and
+  turned into an informed offer, rather than resolved by a client-side guess.
+  (A signal that WOULD tell the two apart exists since #487 — `hasLiveSession`,
+  masked by the same gate, below — and this command still does not use it:
+  making the ambiguity HARMLESS is a better answer than resolving it, and the
+  two designs PR #504 retracted were both attempts at resolving it.) So a nil
+  hold reports
   `status: "no-visible-hold"` with `wasHeld` and `forced` both **null** rather
   than claiming the name is free: a caller acting on `wasHeld: false` meets
   `WORKER_HELD` at the next `session start`. It does not prompt, since every
@@ -894,16 +895,33 @@ Conventions:
   post-release by construction. **`forced` is nullable**: null means the
   caller's own identity could not be read against a held name, so the act could
   not be classified — `false` would claim a private act and `true` an
-  announcement, and neither is knowable there. The hold is re-read immediately
-  before the mutation and a change refuses **exit 5**: without that, a hold
-  taken between the classifying read and the call would be force-released
-  silently while the receipt called it routine. That re-read is a MITIGATION,
-  not a fix — it narrows the window rather than closing it. `releaseWorker`
-  gained a real precondition server-side in hadron-server#1084
-  (`expectedHolderUserId` / `expectUnheld: true`, refusing `WORKER_HOLD_STALE`,
-  enforced by the guarded write so there is no check-then-write window at all);
-  **this CLI has not adopted it yet — hadron-cli#522** — so the client-side
-  re-read is still what runs today. `worker get` shows the holder (and `--json` gains
+  announcement, and neither is knowable there.
+  **THE RELEASE STATES THE HOLD IT CLASSIFIED AGAINST** (#522,
+  hadron-server#1084). Exactly one assertion travels with every call —
+  `expectedHolderUserId: <the holder>` when one was visible, `expectUnheld:
+  true` when none was — and the server refuses **`WORKER_HOLD_STALE`, exit 5**
+  if that is not the hold it is about to write. It is enforced BY THE GUARDED
+  WRITE, so there is no check-then-write window: the act performed is the act
+  described. This replaced a client-side re-read that could only NARROW the
+  race. The unheld assertion is the one that matters most — before it, a nil
+  hold meant the CLI asserted nothing and released unconditionally, so a hold
+  taken in the interval or merely masked from the caller was force-released in
+  silence and announced in the team chat for an act nobody was asked about.
+  **A refused assertion becomes an informed retry, ONCE.** The refusal carries
+  the holder found now (`heldByUserId` in extensions; `null` there means the
+  name is unheld now), which is information the caller could not otherwise
+  have — so instead of failing, the command re-asks against the truth: it
+  proceeds silently if that holder turns out to be YOU (a self-release owes no
+  confirmation), prompts if it is somebody else, and refuses **exit 5** when
+  there is no TTY and no `--yes`. A second stale answer stops rather than
+  retrying — one retry, never a loop. Nothing is changed before you answer, and
+  the receipt then reports what the SERVER saw: on that path `wasHeld`,
+  `releasedFromUserId` and `forced` are known rather than guessed. When the
+  refusal says the name is unheld NOW, the command refuses rather than claiming
+  a release it did not perform. Retirement is still re-read before the call —
+  the precondition covers the hold, not whether the worker is still working,
+  and a retirement mid-flight changes what releasing MEANS.
+  `worker get` shows the holder (and `--json` gains
   `heldByUserId`/`heldAt`, additive); both are masked to null on deny, so a
   bare absence means "unheld OR not visible to you" — there is deliberately no
   `held` boolean, which would answer "no" to a caller who merely cannot see.

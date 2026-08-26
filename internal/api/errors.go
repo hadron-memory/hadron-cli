@@ -251,6 +251,52 @@ func WorkerHeldDetail(err error) (HeldDetail, bool) {
 	return HeldDetail{}, false
 }
 
+// HoldStaleDetail is the payload a WORKER_HOLD_STALE error carries
+// (hadron-server#1084): the hold found NOW, at the moment the guarded write
+// refused the caller's assertion.
+//
+// HolderID is EMPTY when the name is currently held by NOBODY — the server
+// sends `heldByUserId: null` for that, and it is a real answer rather than a
+// missing field: it is what a caller who asserted a specific holder gets when
+// the name was released underneath them. `Held` reports which of the two it is,
+// because "" alone cannot: a JSON null and an absent key both decode to "".
+//
+// The server deliberately does NOT say whose hold it is relative to the caller,
+// nor whether releasing would be a force-release. It throws before comparing
+// the holder to the caller, and the account now holding the name may well BE
+// the caller — a caller asserting expectUnheld who turns out to hold it
+// themselves is the plain case. The client knows its own id and can decide;
+// rendering the server's neutrality as an accusation is the mistake this
+// comment exists to prevent.
+type HoldStaleDetail struct {
+	WorkerID string
+	HolderID string
+	Held     bool
+}
+
+// WorkerHoldStaleDetail extracts the WORKER_HOLD_STALE payload from err's
+// extensions; ok is false when err is not that error. Call it BEFORE MapError
+// wraps the error, like WorkerHeldDetail.
+func WorkerHoldStaleDetail(err error) (HoldStaleDetail, bool) {
+	for _, e := range graphQLErrors(err) {
+		if e == nil || extensionCode(e) != "WORKER_HOLD_STALE" {
+			continue
+		}
+		d := HoldStaleDetail{}
+		if e.Extensions != nil {
+			d.WorkerID, _ = e.Extensions["workerId"].(string)
+			// Present-and-null is "unheld now"; a non-empty string is a holder.
+			// The type assertion fails on nil, leaving HolderID "" and Held
+			// false, which is exactly right for the null case.
+			if id, ok := e.Extensions["heldByUserId"].(string); ok && id != "" {
+				d.HolderID, d.Held = id, true
+			}
+		}
+		return d, true
+	}
+	return HoldStaleDetail{}, false
+}
+
 // Holder names the person holding the name, preferring the handle the server
 // resolved and falling back to the raw user id — which is what the race path
 // leaves us with. Empty only when the server sent neither.
@@ -331,8 +377,18 @@ func codeForExtension(code string) int {
 	// reason its neighbours are, and it must NOT ride in on the `_TAKEN`
 	// suffix rule above, which is the conflation cor:agt:020:09 names: a
 	// held name is not a taken one, and only one of the two is forceable.
+	// WORKER_HOLD_STALE (hadron-server#1084) joins them: the hold is not what
+	// the caller asserted, so the release they described is not the release
+	// that would happen. A state conflict, and it maps to the SAME exit code
+	// the client-side re-read used to refuse with — deliberately, so the
+	// contract `worker release` publishes does not move when the mechanism
+	// behind it gets stronger (hadron-cli#522).
+	//
+	// It must NOT ride the `_STALE` shape into anything else: there is no
+	// suffix rule here, because a code ending in _STALE is not automatically a
+	// conflict and inventing the family would map codes nobody has defined.
 	case code == "WORKER_IN_USE" || code == "WORKER_RETIRED" || code == "WORKER_TAKEN" ||
-		code == "WORKER_HELD":
+		code == "WORKER_HELD" || code == "WORKER_HOLD_STALE":
 		return exitcode.Conflict
 	// An already-existing role is a state conflict (TEAM_ROLE_EXISTS is
 	// spelled without the _ALREADY_ the suffix rule matches).

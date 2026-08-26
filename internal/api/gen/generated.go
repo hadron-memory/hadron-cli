@@ -21277,11 +21277,19 @@ func (v *__RecordTeamWorkInput) GetDetail() *json.RawMessage { return v.Detail }
 
 // __ReleaseWorkerInput is used internally by genqlient
 type __ReleaseWorkerInput struct {
-	WorkerRef string `json:"workerRef"`
+	WorkerRef            string  `json:"workerRef"`
+	ExpectedHolderUserId *string `json:"expectedHolderUserId,omitempty"`
+	ExpectUnheld         *bool   `json:"expectUnheld,omitempty"`
 }
 
 // GetWorkerRef returns __ReleaseWorkerInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *__ReleaseWorkerInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetExpectedHolderUserId returns __ReleaseWorkerInput.ExpectedHolderUserId, and is useful for accessing the field via an interface.
+func (v *__ReleaseWorkerInput) GetExpectedHolderUserId() *string { return v.ExpectedHolderUserId }
+
+// GetExpectUnheld returns __ReleaseWorkerInput.ExpectUnheld, and is useful for accessing the field via an interface.
+func (v *__ReleaseWorkerInput) GetExpectUnheld() *bool { return v.ExpectUnheld }
 
 // __RemoveMemoryMemberInput is used internally by genqlient
 type __RemoveMemoryMemberInput struct {
@@ -27615,8 +27623,8 @@ func RecordTeamWork(
 
 // The mutation executed by ReleaseWorker.
 const ReleaseWorker_Operation = `
-mutation ReleaseWorker ($workerRef: ID!) {
-	releaseWorker(workerRef: $workerRef) {
+mutation ReleaseWorker ($workerRef: ID!, $expectedHolderUserId: ID, $expectUnheld: Boolean) {
+	releaseWorker(workerRef: $workerRef, expectedHolderUserId: $expectedHolderUserId, expectUnheld: $expectUnheld) {
 		... WorkerFields
 	}
 }
@@ -27668,16 +27676,34 @@ fragment WorkerFields on Worker {
 // permitted read. Release still does not consult it: a rendered cell and a
 // refusal-shaped classification are different risks, and #504 retracted two
 // designs in this spot. Adopting it is hadron-cli#522.
+// The PRECONDITION (hadron-server#1084, hadron-cli#522) replaces the re-read
+// this command used to do. State the hold you classified against and the server
+// refuses WORKER_HOLD_STALE if it is not that — enforced BY THE GUARDED WRITE,
+// which takes the asserted value, so there is no check-then-write window left
+// for a client to narrow. The re-read only ever shrank the race to one round
+// trip; this closes it.
+//
+// Exactly one of the two is ever sent. Both together is BAD_USER_INPUT, and
+// neither is the old unconditional behaviour — which is why both carry
+// omitempty: a nil that went as an explicit `null` would be PRESENT, and
+// `expectUnheld: null` is a different request from omitting it. That is
+// findings:optional-arg-meets-presence-semantics, and the server engineer chose
+// two arguments over one nullable id precisely because presence semantics are a
+// live hazard in this codebase.
 func ReleaseWorker(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	workerRef string,
+	expectedHolderUserId *string,
+	expectUnheld *bool,
 ) (data_ *ReleaseWorkerResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "ReleaseWorker",
 		Query:  ReleaseWorker_Operation,
 		Variables: &__ReleaseWorkerInput{
-			WorkerRef: workerRef,
+			WorkerRef:            workerRef,
+			ExpectedHolderUserId: expectedHolderUserId,
+			ExpectUnheld:         expectUnheld,
 		},
 	}
 
