@@ -1089,15 +1089,29 @@ Conventions:
   quoting is its own hazard. It is written BEFORE the session ends and a failed
   write REFUSES the end (`HANDOFF_WRITE_FAILED`, exit 1) rather than ending
   anyway: a still-bound worker is recoverable, an ended session whose handoff
-  evaporated is not. Passing it on a session with no worker is refused — there
-  is no sequence to write to. An EXPLICIT empty handoff is refused exit 2
-  (somebody meant to write something); omitting it entirely is the normal way
-  to end without a record.
+  evaporated is not. **That ordering is a platform guarantee**
+  (`cor:agt:020:10`), not this client's choice. Passing it on a session with no
+  worker is refused — there is no sequence to write to. An EXPLICIT empty
+  handoff is refused exit 2 (somebody meant to write something); omitting it
+  entirely is the normal way to end without a record, and the next bind is told
+  a stint ended without one rather than being left to read silence.
+  **RETRY IS SAFE and cannot double-write.** One stint records one handoff, and
+  that is keyed on the STINT rather than on whether a write already happened —
+  so a crash between the handoff and the close does not leave a second attempt
+  appending a duplicate (`cor:agt:020:10`).
+  **IF THE END FAILS WHILE CARRYING A HANDOFF, THE CLI SAVES THE PROSE** to a
+  temp file and prints the path on **stderr** with a ready-to-run retry, so a
+  `--json` document stays parseable. The guarantee above protects the SESSION;
+  it cannot protect text that only ever existed in this process, which is
+  exactly the case for `--handoff -` once the pipe has been drained.
   **`--summary <s>` is a different field and the next driver never sees it** —
-  a display-only label on the session row, the write-only field #1029 was filed
-  to fix. Both are kept because collapsing them is a decision about that
-  feature's shape, not this flag's; if you are writing one thing for whoever
-  comes next, write `--handoff`. `end --session <id>` is the recovery path when the binding is
+  a display-only label on the session row. Not a quirk of today's build:
+  `cor:agt:020:10` makes `--handoff` the ONE field carrying continuity and any
+  other free-text field on a session display-only unless the corpus says
+  otherwise, so **writing continuity into `--summary` is a contract violation
+  rather than a naming preference — and it fails silently, producing no error
+  and no record.** Both are kept deliberately; if you are writing one thing for
+  whoever comes next, write `--handoff`. `end --session <id>` is the recovery path when the binding is
   gone or unusable (including one written by a pre-Worker CLI, which whoami
   reports as a degraded read); `end` also refuses (exit 2) when the binding
   was started against a different `--server` than the current one.

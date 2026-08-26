@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -198,4 +199,107 @@ func TestSessionEndHelpSaysWhichOneTheNextDriverSees(t *testing.T) {
 			t.Errorf("session end help must carry %q:\n%s", want, help)
 		}
 	}
+}
+
+// A REFUSED END MUST NOT TAKE THE PROSE WITH IT (cor:agt:020:10).
+//
+// The spec refuses the END when the handoff write fails, precisely so a
+// transient failure cannot destroy "prose that exists nowhere else … at the
+// moment its author has stopped working and cannot be asked to retype it".
+// That protects the SESSION. It does not protect the PROSE — and this client
+// was the destroyer on one path: `--handoff -` drains stdin into memory, so a
+// refused end discarded the only copy while the pipe was already consumed.
+//
+// The stdin case is therefore the one that matters, and it is the one driven
+// here: after the failure there is nowhere else the text could have come from.
+func TestSessionEndRescuesTheHandoffWhenTheEndFails(t *testing.T) {
+	const prose = "Shipped #522. #489 is next. Do NOT re-run the register sweep."
+	bindWorktree(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"EndTeamSession": `{"errors":[{"message":"The handoff could not be written, so the session was NOT ended.",` +
+			`"extensions":{"code":"HANDOFF_WRITE_FAILED","sessionId":"ses_1"}}]}`,
+	})
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader(prose)
+	errOut := captureErrOut(f)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "end", "--handoff", "-", "--server", gql.URL})
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("a failed end must still fail — rescuing the prose is not succeeding")
+	}
+	msg := errOut()
+
+	// The path, and the prose actually at it. Printing a path to an empty or
+	// absent file would be the reassurance-without-the-thing failure.
+	path := handoffSpillPath(t, msg)
+	saved, rerr := os.ReadFile(path) // #nosec G304 — path came from our own output
+	if rerr != nil {
+		t.Fatalf("the rescued handoff must exist at the path printed: %v", rerr)
+	}
+	if string(saved) != prose {
+		t.Errorf("the rescued handoff must be the prose verbatim:\n got: %q\nwant: %q", saved, prose)
+	}
+	t.Cleanup(func() { _ = os.Remove(path) })
+
+	// A ready-to-run retry, not an instruction to reconstruct one.
+	if !strings.Contains(msg, "--handoff-file "+path) {
+		t.Errorf("the retry must name the rescued file: %s", msg)
+	}
+	if !strings.Contains(msg, "session end --session ") {
+		t.Errorf("the retry must be runnable as printed: %s", msg)
+	}
+	// Someone who has just been refused will hesitate to retry unless told.
+	if !strings.Contains(msg, "cannot double-write") {
+		t.Errorf("the retry-safety guarantee is the reason they will actually retry: %s", msg)
+	}
+	// And it must not claim the handoff landed.
+	if strings.Contains(msg, "✓") {
+		t.Errorf("nothing succeeded here: %s", msg)
+	}
+}
+
+// No handoff, nothing at risk: a failing end must not litter a temp file or
+// print a rescue nobody needs.
+func TestSessionEndWithoutAHandoffRescuesNothing(t *testing.T) {
+	bindWorktree(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"EndTeamSession": `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`,
+	})
+	f, _ := testFactory(t)
+	errOut := captureErrOut(f)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "end", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("the end still failed")
+	}
+	if msg := errOut(); strings.Contains(msg, "Saved it to") {
+		t.Errorf("there was no handoff to rescue: %s", msg)
+	}
+}
+
+// handoffSpillPath pulls the rescued file's path out of the message.
+func handoffSpillPath(t *testing.T, msg string) string {
+	t.Helper()
+	const marker = "Saved it to "
+	i := strings.Index(msg, marker)
+	if i < 0 {
+		t.Fatalf("no rescue line in:\n%s", msg)
+	}
+	rest := msg[i+len(marker):]
+	if j := strings.IndexAny(rest, "\n"); j >= 0 {
+		rest = rest[:j]
+	}
+	return strings.TrimSpace(rest)
+}
+
+// captureErrOut swaps in a capturable stderr. testFactory keeps its own and
+// returns only stdout, and the rescue notice is a DIAGNOSTIC accompanying an
+// error — it belongs on stderr, so a --json consumer's document stays parseable
+// while a human still sees where the prose went.
+func captureErrOut(f *cmdutil.Factory) func() string {
+	b := &strings.Builder{}
+	f.IOStreams.ErrOut = b
+	return b.String
 }

@@ -1316,16 +1316,33 @@ worker is recoverable — retry, or end without a handoff deliberately —
 while an ended session whose handoff evaporated is not, because the
 context that composed it is gone. A session with no worker has no sequence
 to write to, so passing --handoff there is refused rather than dropped.
+That ordering is a platform guarantee, not this client's choice
+(cor:agt:020:10).
+
+RETRY IS SAFE, and cannot double-write. One stint records one handoff,
+and that is keyed on the STINT rather than on whether a write already
+happened — so a crash between the handoff and the close does not leave a
+second attempt appending a duplicate.
+
+IF THE END FAILS WHILE CARRYING A HANDOFF, THIS SAVES THE PROSE. It is
+written to a temp file and the path printed with a ready-to-run retry.
+The guarantee above protects the SESSION; it cannot protect text that
+only ever existed in this process, which is the case whenever the handoff
+came from stdin and the pipe has already been drained.
 
 --handoff-file reads it from a file, and ` + "`--handoff -`" + ` from stdin. A
 handoff is prose of real length, and putting a paragraph through shell
 quoting is its own hazard.
 
 --SUMMARY IS A DIFFERENT FIELD AND THE NEXT DRIVER NEVER SEES IT. It is a
-short label on the session row; nothing reads it back, which is the gap
-#1029 was filed to close. Both are kept because collapsing them is a
-decision about that feature's shape rather than about this flag — but if
-you are writing one thing for whoever comes next, write --handoff.
+short label on the session row; nothing reads it back. That is not a
+quirk of today's build: cor:agt:020:10 makes --handoff the ONE field
+carrying continuity, and any other free-text field on a session
+display-only unless the corpus says otherwise — so writing continuity
+into --summary is a contract violation rather than a naming preference,
+and it fails silently, producing no error and no record. Both flags are
+kept deliberately; if you are writing one thing for whoever comes next,
+write --handoff.
 
 --session ends an explicit worker session id instead — the recovery path
 when the binding is gone or unusable (a lost worktree, a failed binding
@@ -1360,7 +1377,8 @@ session is still open.`,
 			}
 			resp, err := gen.EndTeamSession(ctx, client, id, optStr(summary), optStr(text))
 			if err != nil {
-				return api.MapError(err)
+				// The handoff does not evaporate with the call that carried it.
+				return rescueHandoff(f, text, id, api.MapError(err))
 			}
 			// Clear the binding when it names the session we just ended.
 			if b != nil && b.SessionID == id {
@@ -1730,6 +1748,63 @@ func sessionStartWorkerDTO(w gen.WorkerFields) sessionStartWorker {
 // What it keeps from that precedent is refusing an EXPLICIT empty: someone who
 // typed --handoff "" or pointed at an empty file meant to write something, and
 // silently ending with no record is the outcome #1029 exists to prevent.
+// rescueHandoff spills a handoff the server did not accept, and tells the
+// caller where it went and how to retry with it.
+//
+// `cor:agt:020:10` refuses the END when the handoff write fails, precisely so a
+// transient failure cannot destroy "prose that exists nowhere else … at the
+// moment its author has stopped working and cannot be asked to retype it".
+// That protects the SESSION. It does not protect the PROSE, and this client had
+// a path where the client itself was the destroyer: `--handoff -` drains stdin
+// into memory, so a refused end discarded the only copy and the pipe was
+// already consumed. The spec's own rationale, one layer below the layer it
+// governs.
+//
+// Spills on ANY end failure, not only HANDOFF_WRITE_FAILED. A transport error
+// leaves us unable to tell whether the handoff was written, and a spare file is
+// cheap while retyping a stint's closing prose is not. Retrying against it is
+// safe either way: the sequence is append-only per STINT, not per write, so a
+// handoff already recorded is not duplicated by a second attempt
+// (`cor:agt:020:10`).
+//
+// BEST EFFORT, and never masks the real error. A failure to spill is reported
+// and the original error still returns — swapping the server's refusal for a
+// local file-write error would hide the thing the caller has to act on.
+func rescueHandoff(f *cmdutil.Factory, text, sessionID string, cause error) error {
+	if strings.TrimSpace(text) == "" {
+		return cause // nothing was at risk
+	}
+	path, werr := spillHandoff(text)
+	if werr != nil {
+		fmt.Fprintf(f.IOStreams.ErrOut,
+			"! the handoff was NOT recorded, and could not be saved locally either (%v).\n"+
+				"  Copy it out of your terminal before you lose the scrollback.\n", werr)
+		return cause
+	}
+	// The exact command, with --session spelled out: the binding may be intact,
+	// but a caller who has just been refused should not have to work out
+	// whether it is.
+	fmt.Fprintf(f.IOStreams.ErrOut,
+		"! the handoff was NOT recorded. Saved it to %s\n"+
+			"  retry:  hadron team session end --session %s --handoff-file %s\n"+
+			"  (safe to retry — one stint records one handoff, so this cannot double-write.)\n",
+		path, sessionID, path)
+	return cause
+}
+
+// spillHandoff writes the prose somewhere the caller can get it back.
+func spillHandoff(text string) (string, error) {
+	f, err := os.CreateTemp("", "hadron-handoff-*.md")
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = f.Close() }()
+	if _, err := f.WriteString(text); err != nil {
+		return "", err
+	}
+	return f.Name(), nil
+}
+
 func resolveHandoff(cmd *cobra.Command, handoff, handoffFile string, stdin io.Reader) (string, error) {
 	changed := cmd.Flags().Changed
 	if !changed("handoff") && !changed("handoff-file") {
