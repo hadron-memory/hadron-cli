@@ -1103,7 +1103,21 @@ Conventions:
   temp file and prints the path on **stderr** with a ready-to-run retry, so a
   `--json` document stays parseable. The guarantee above protects the SESSION;
   it cannot protect text that only ever existed in this process, which is
-  exactly the case for `--handoff -` once the pipe has been drained.
+  exactly the case for `--handoff -` once the pipe has been drained. This holds
+  for EVERY failure that can happen once the handoff has been taken — no
+  binding, an unreadable one, a server mismatch, missing credentials, the
+  mutation itself — not only for `HANDOFF_WRITE_FAILED`. The retry reproduces
+  the original invocation, carrying `--server` and `--summary` so a pasted
+  command targets the same deployment and asks for the same outcome; on a
+  binding/server mismatch it names the BINDING's server, since the retry's
+  explicit `--session` bypasses the check that refused.
+  **The wording distinguishes what the CLI KNOWS.** A refusal the server
+  answered means nothing was committed, and it says `was NOT recorded`. A
+  TRANSPORT failure means the end may have succeeded with only the reply lost,
+  and it says `may not have been recorded` — asserting otherwise would be a
+  claim about server state the client cannot see, and would make a later retry
+  failure look like confirmation of data loss. The remedy is identical either
+  way, because one stint records one handoff.
   **`--summary <s>` is a different field and the next driver never sees it** —
   a display-only label on the session row. Not a quirk of today's build:
   `cor:agt:020:10` makes `--handoff` the ONE field carrying continuity and any

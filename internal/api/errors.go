@@ -251,6 +251,20 @@ func WorkerHeldDetail(err error) (HeldDetail, bool) {
 	return HeldDetail{}, false
 }
 
+// ServerAnswered reports whether the server RESPONDED and refused, as opposed
+// to the request failing in transit.
+//
+// The distinction is about what a caller may be TOLD. A GraphQL error means the
+// server processed the request and declined it, so nothing was committed. A
+// transport failure — a timeout, a dropped connection, a proxy giving up —
+// means the request may have been applied and only the answer lost, and a
+// client that reports "it did not happen" there is stating a fact about server
+// state it does not have (review:a-claim-must-not-outrun-its-evidence).
+//
+// Deliberately a question about the ENVELOPE, not the code: any GraphQL error
+// implies an answer, whatever it says. Call it BEFORE MapError wraps.
+func ServerAnswered(err error) bool { return len(graphQLErrors(err)) > 0 }
+
 // HoldStaleDetail is the payload a WORKER_HOLD_STALE error carries
 // (hadron-server#1084): the hold found NOW, at the moment the guarded write
 // refused the caller's assertion.

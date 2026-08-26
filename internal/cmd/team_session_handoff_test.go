@@ -600,3 +600,89 @@ func TestSessionEndMismatchRetryNamesTheBindingsServer(t *testing.T) {
 		t.Errorf("the retry must target the binding's own server: %s", msg)
 	}
 }
+
+// The rescue must not claim what it cannot know (PR #528 review, @codex).
+//
+// A refusal the server ANSWERED means nothing was committed. A TRANSPORT
+// failure means the end may have succeeded with only the reply lost — so
+// "was NOT recorded" there is a claim about server state the client does not
+// have, and it is worse than vague: a later retry failing would look like
+// confirmation of data loss.
+//
+// The remedy is identical either way (one stint, one record), so only the
+// wording moves. The comment acknowledging this ambiguity was already two lines
+// above the message asserting the opposite.
+func TestSessionEndRescueDoesNotClaimMoreThanItKnows(t *testing.T) {
+	prose := "prose whose fate is genuinely unknown"
+
+	t.Run("server answered: the refusal is a fact", func(t *testing.T) {
+		bindWorktree(t)
+		gql, _ := captureGraphQL(t, map[string]string{
+			"EndTeamSession": `{"errors":[{"message":"refused","extensions":{"code":"HANDOFF_WRITE_FAILED"}}]}`,
+		})
+		f, _ := testFactory(t)
+		f.IOStreams.In = strings.NewReader(prose)
+		errOut := captureErrOut(f)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "session", "end", "--handoff", "-", "--server", gql.URL})
+		if err := root.Execute(); err == nil {
+			t.Fatal("the end failed")
+		}
+		if msg := errOut(); !strings.Contains(msg, "was NOT recorded") {
+			t.Errorf("an answered refusal IS a fact and should be stated as one: %s", msg)
+		}
+	})
+
+	t.Run("transport failure: the outcome is unknown", func(t *testing.T) {
+		bindWorktree(t)
+		f, _ := testFactory(t)
+		f.IOStreams.In = strings.NewReader(prose)
+		errOut := captureErrOut(f)
+		root := NewRootCmd(f)
+		// A server that is not there: the request never gets an answer, so
+		// whether it was applied is unknowable from here.
+		root.SetArgs([]string{"team", "session", "end", "--handoff", "-", "--server", "http://127.0.0.1:1"})
+		if err := root.Execute(); err == nil {
+			t.Fatal("the end failed")
+		}
+		msg := errOut()
+		if !strings.Contains(msg, "may not have been recorded") {
+			t.Errorf("a lost reply is not proof of a lost write: %s", msg)
+		}
+		if strings.Contains(msg, "was NOT recorded") {
+			t.Errorf("this asserts server state the client cannot see: %s", msg)
+		}
+		// The prose is still rescued, and retrying is still safe — only the
+		// claim changed.
+		if !strings.Contains(msg, "Saved it to") || !strings.Contains(msg, "cannot double-write") {
+			t.Errorf("the remedy is the same whether or not the outcome is known: %s", msg)
+		}
+	})
+}
+
+// A --summary the caller explicitly asked for must survive into the retry
+// (PR #528 review, @codex). Dropping it lets a pasted command succeed while
+// silently leaving the label unset.
+func TestSessionEndRetryCarriesTheSummary(t *testing.T) {
+	bindWorktree(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"EndTeamSession": `{"errors":[{"message":"nope","extensions":{"code":"HANDOFF_WRITE_FAILED"}}]}`,
+	})
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader("prose")
+	errOut := captureErrOut(f)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "end", "--handoff", "-",
+		"--summary", "closed out #522", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("the end failed")
+	}
+	msg := errOut()
+	if !strings.Contains(msg, "--summary ") {
+		t.Errorf("the retry must reproduce the whole invocation: %s", msg)
+	}
+	// Quoted, because it contains spaces — otherwise the retry is not runnable.
+	if !strings.Contains(msg, "--summary 'closed out #522'") {
+		t.Errorf("a summary with spaces must be quoted: %s", msg)
+	}
+}

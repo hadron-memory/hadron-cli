@@ -1372,14 +1372,15 @@ session is still open.`,
 			}
 			b, _, err := readBinding(ctx)
 			if err != nil && sessionID == "" {
-				return rescueHandoff(f, text, sessionID, "", err)
+				return rescueHandoff(f, handoffRescue{text: text, sessionID: sessionID, summary: summary, answered: true}, err)
 			}
 			id := sessionID
 			workerName := ""
 			if id == "" {
 				if b == nil {
-					return rescueHandoff(f, text, "", "", exitcode.Newf(exitcode.NotFound,
-						"no active session in this worktree — pass --session <id> to end one without a binding"))
+					return rescueHandoff(f, handoffRescue{text: text, summary: summary, answered: true},
+						exitcode.Newf(exitcode.NotFound,
+							"no active session in this worktree — pass --session <id> to end one without a binding"))
 				}
 				id = b.SessionID
 				workerName = b.WorkerName
@@ -1388,7 +1389,7 @@ session is still open.`,
 					// carries an explicit --session, which bypasses this very
 					// check, so printing the rejected server would hand the
 					// caller a command that does the thing just refused.
-					return rescueHandoff(f, text, id, b.Server, err)
+					return rescueHandoff(f, handoffRescue{text: text, sessionID: id, server: b.Server, summary: summary, answered: true}, err)
 				}
 			}
 			// Why the ordering above is what it is (PR #528, Codex P1 + P2).
@@ -1413,12 +1414,17 @@ session is still open.`,
 			// re-opens the hole this whole command exists to close.
 			client, err := f.GraphQLClient()
 			if err != nil {
-				return rescueHandoff(f, text, id, "", err)
+				return rescueHandoff(f, handoffRescue{text: text, sessionID: id, summary: summary, answered: true}, err)
 			}
 			resp, err := gen.EndTeamSession(ctx, client, id, optStr(summary), optStr(text))
 			if err != nil {
 				// The handoff does not evaporate with the call that carried it.
-				return rescueHandoff(f, text, id, "", api.MapError(err))
+				return rescueHandoff(f, handoffRescue{
+					text: text, sessionID: id, summary: summary,
+					// Only THIS path can be ambiguous: everything above either
+					// never reached the server or was refused locally.
+					answered: api.ServerAnswered(err),
+				}, api.MapError(err))
 			}
 			// Clear the binding when it names the session we just ended.
 			if b != nil && b.SessionID == id {
@@ -1810,63 +1816,107 @@ func sessionStartWorkerDTO(w gen.WorkerFields) sessionStartWorker {
 // BEST EFFORT, and never masks the real error. A failure to spill is reported
 // and the original error still returns — swapping the server's refusal for a
 // local file-write error would hide the thing the caller has to act on.
-// server, when non-empty, OVERRIDES the invocation's own --server in the printed
-// retry. Exactly one caller needs that and the reason is sharp (PR #528 review,
-// Codex): on a binding/server MISMATCH the invocation resolved the WRONG
-// deployment — that is what was refused — so composing the retry from it would
-// print a command carrying the rejected server plus an explicit --session,
-// which bypasses the very check that refused. Pasting it would send the handoff
-// to the wrong deployment, and to an unrelated session there if ids overlap.
-// The recovery command has to name the BINDING's server.
-func rescueHandoff(f *cmdutil.Factory, text, sessionID, server string, cause error) error {
-	if strings.TrimSpace(text) == "" {
+// handoffRescue is what a failed end was carrying, and what a retry needs to
+// reproduce the SAME invocation.
+//
+// A struct rather than five positional arguments: the two booleans-and-strings
+// nearest each other (server, summary) are both "carry this across to the
+// retry", and getting them the wrong way round would compile.
+type handoffRescue struct {
+	text      string
+	sessionID string
+	// server OVERRIDES the invocation's own --server in the printed retry.
+	// Exactly one caller needs that and the reason is sharp (PR #528 review,
+	// Codex): on a binding/server MISMATCH the invocation resolved the WRONG
+	// deployment — that is what was refused — so composing the retry from it
+	// would print a command carrying the rejected server plus an explicit
+	// --session, which bypasses the very check that refused. Pasting it would
+	// send the handoff to the wrong deployment, and to an unrelated session
+	// there if ids overlap.
+	server string
+	// summary is carried so a retry reproduces the whole invocation. Dropping
+	// it would let a pasted command succeed while silently leaving a label the
+	// caller explicitly asked for unset (PR #528 review, Codex).
+	summary string
+	// answered: the server RESPONDED and refused, so the handoff is definitely
+	// not recorded. False for a transport failure, where the request may have
+	// been applied and only the reply lost — see rescueHandoff.
+	answered bool
+}
+
+// rescueHandoff spills a handoff the server did not record, and tells the
+// caller where it went and how to retry with it.
+//
+// `cor:agt:020:10` refuses the END when the handoff write fails, precisely so a
+// transient failure cannot destroy "prose that exists nowhere else … at the
+// moment its author has stopped working and cannot be asked to retype it".
+// That protects the SESSION. It does not protect the PROSE, and this client had
+// a path where the client itself was the destroyer: `--handoff -` drains stdin
+// into memory, so a refused end discarded the only copy and the pipe was
+// already consumed. The spec's own rationale, one layer below the layer it
+// governs.
+//
+// WHAT IT CLAIMS DEPENDS ON WHAT IT KNOWS (PR #528 review, Codex). A refusal
+// the server ANSWERED means nothing was committed, and saying so is a fact. A
+// transport failure means the end may have succeeded with only the reply lost,
+// and asserting "NOT recorded" there is a claim about server state the client
+// does not have — the more so because a later retry failing would then look
+// like confirmation of data loss. The REMEDY is identical either way, because
+// one stint records one handoff and a duplicate cannot be appended, so only the
+// wording changes.
+//
+// BEST EFFORT, and never masks the real error. A failure to spill is reported
+// and the original error still returns — swapping the server's refusal for a
+// local file-write error would hide the thing the caller has to act on.
+func rescueHandoff(f *cmdutil.Factory, r handoffRescue, cause error) error {
+	if strings.TrimSpace(r.text) == "" {
 		return cause // nothing was at risk
 	}
-	path, werr := spillHandoff(text)
+	outcome := "may not have been recorded"
+	if r.answered {
+		outcome = "was NOT recorded"
+	}
+	path, werr := spillHandoff(r.text)
 	if werr != nil {
 		fmt.Fprintf(f.IOStreams.ErrOut,
-			"! the handoff was NOT recorded, and could not be saved locally either (%v).\n"+
-				"  Copy it out of your terminal before you lose the scrollback.\n", werr)
+			"! the handoff %s, and could not be saved locally either (%v).\n"+
+				"  Copy it out of your terminal before you lose the scrollback.\n", outcome, werr)
 		return cause
 	}
-	// The exact command, with --session spelled out: the binding may be intact,
-	// but a caller who has just been refused should not have to work out
-	// whether it is.
 	fmt.Fprintf(f.IOStreams.ErrOut,
-		"! the handoff was NOT recorded. Saved it to %s\n"+
+		"! the handoff %s. Saved it to %s\n"+
 			"  %s\n"+
 			"  (safe to retry — one stint records one handoff, so this cannot double-write.)\n",
-		path, retryLine(f, sessionID, server, path))
+		outcome, path, retryLine(f, r, path))
 	return cause
 }
 
 // retryLine composes the recovery command, carrying enough of the ORIGINAL
-// invocation that running it targets the same thing.
-//
-// --server is included when one was resolved (PR #528 review, Codex P2). A
-// retry that silently falls back to the default backend can fail against the
-// wrong deployment, or — worse, and the reason this is not cosmetic — act on an
-// unrelated session if ids overlap between deployments. The failed invocation
-// knew which server it meant; the printed command has to say so.
+// invocation that running it targets the same thing and asks for the same
+// outcome.
 //
 // Without a session id there is no full command to give: the failure happened
 // before one was resolved (no binding in this worktree, or an unreadable one).
 // Printing a quoted empty --session argument would be a command that cannot
 // work, so it names the flag as the thing the caller must supply instead of
 // pretending to know it.
-func retryLine(f *cmdutil.Factory, sessionID, server, path string) string {
+func retryLine(f *cmdutil.Factory, r handoffRescue, path string) string {
 	args := "hadron team session end"
+	server := r.server
 	if server == "" {
 		server, _ = f.Server()
 	}
 	if server != "" {
 		args += " --server " + shellQuote(server)
 	}
-	if sessionID == "" {
+	if r.summary != "" {
+		args += " --summary " + shellQuote(r.summary)
+	}
+	if r.sessionID == "" {
 		return "retry:  " + args + " --session <id> --handoff-file " + shellQuote(path) +
 			"\n          (this failed before a session was resolved, so supply the id)"
 	}
-	return "retry:  " + args + " --session " + shellQuote(sessionID) +
+	return "retry:  " + args + " --session " + shellQuote(r.sessionID) +
 		" --handoff-file " + shellQuote(path)
 }
 
