@@ -915,8 +915,12 @@ Conventions:
   confirmation), prompts if it is somebody else, and refuses **exit 5** when
   there is no TTY and no `--yes`. A second stale answer stops rather than
   retrying — one retry, never a loop. Nothing is changed before you answer, and
-  the receipt then reports what the SERVER saw: on that path `wasHeld`,
-  `releasedFromUserId` and `forced` are known rather than guessed. When the
+  the receipt then reports what the SERVER saw: on that path `wasHeld` and
+  `releasedFromUserId` are known rather than guessed. **`forced` is NOT** — it
+  keeps the nullable contract above: when the caller's own identity could not be
+  read, the newly-reported holder may BE the caller, so the act still cannot be
+  classified and `forced` stays null. The retry learns WHO holds the name, never
+  who you are. When the
   refusal says the name is unheld NOW, the command refuses rather than claiming
   a release it did not perform. Retirement is still re-read before the call —
   the precondition covers the hold, not whether the worker is still working,

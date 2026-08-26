@@ -254,6 +254,31 @@ func TestWorkerHoldStaleDetail(t *testing.T) {
 		t.Errorf("null means unheld now, not a holder: %+v", d)
 	}
 
+	// An ABSENT key is not a null one (PR #524 review, Copilot). Both fail a
+	// bare type assertion, and they mean opposite things: null is a definite
+	// "held by nobody now" that sends the caller down the
+	// nothing-left-to-release path, while absent means the payload cannot be
+	// read at all. Answering false there would state a fact nobody sent.
+	//
+	// ok=false drops the caller into ordinary error handling, where MapError
+	// turns the code into a Conflict carrying the server's own message — which
+	// is the path the WORKER_HOLD_STALE row in TestMapError above pins.
+	missing := gqlerror.List{{
+		Message:    "stale",
+		Extensions: map[string]any{"code": "WORKER_HOLD_STALE", "workerId": "wkr1"},
+	}}
+	if d, ok := WorkerHoldStaleDetail(missing); ok {
+		t.Errorf("an absent heldByUserId is uninterpretable, not 'unheld now': %+v", d)
+	}
+	// A wrong TYPE is the same class — a number or an object is not an answer.
+	wrongType := gqlerror.List{{
+		Message:    "stale",
+		Extensions: map[string]any{"code": "WORKER_HOLD_STALE", "workerId": "wkr1", "heldByUserId": 42},
+	}}
+	if d, ok := WorkerHoldStaleDetail(wrongType); ok {
+		t.Errorf("a non-string heldByUserId is uninterpretable: %+v", d)
+	}
+
 	// A different code must not be read as this one — the mistake that maps a
 	// refusal onto the wrong remedy.
 	if _, ok := WorkerHoldStaleDetail(gqlErr("WORKER_HELD")); ok {

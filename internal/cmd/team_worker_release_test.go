@@ -397,21 +397,41 @@ func (v releaseVars) sent(key string) bool {
 //
 // Follows the recording-handler pattern the replace tests already use for a
 // two-call sequence.
-func releaseSequence(t *testing.T, worker string, releases []string, extra map[string]string) (*httptest.Server, *[]releaseVars) {
+// getWorkers, when supplied, answers successive GetWorker reads in order and
+// then repeats the last — which is what makes the RETRY WINDOW reachable. The
+// retirement guard runs before every release, so a test that wants "retired
+// while the confirmation was open" needs the first read to say active and the
+// second to say retired; a single stub can only say one of them.
+func releaseSequence(t *testing.T, worker string, releases []string, extra map[string]string, getWorkers ...string) (*httptest.Server, *[]releaseVars) {
 	t.Helper()
 	stubs := releaseStubs(worker, extra)
 	seen := &[]releaseVars{}
+	reads := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			OperationName string          `json:"operationName"`
 			Variables     json.RawMessage `json:"variables"`
 		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		// Decode errors are REPORTED, not swallowed (PR #524 review, Copilot).
+		// A silently-dropped decode leaves OperationName empty, which then
+		// fails in the stub dispatch below as "unexpected operation" — a
+		// misleading message pointing at the wrong thing. The failure a broken
+		// request shape deserves is the one that names it.
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decoding the request body failed: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"undecodable request"}]}`))
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		if body.OperationName == "ReleaseWorker" {
 			var v releaseVars
-			_ = json.Unmarshal(body.Variables, &v)
-			_ = json.Unmarshal(body.Variables, &v.raw)
+			if err := json.Unmarshal(body.Variables, &v); err != nil {
+				t.Errorf("decoding ReleaseWorker variables failed: %v (raw: %s)", err, body.Variables)
+			}
+			if err := json.Unmarshal(body.Variables, &v.raw); err != nil {
+				t.Errorf("capturing raw ReleaseWorker variables failed: %v (raw: %s)", err, body.Variables)
+			}
 			*seen = append(*seen, v)
 			if len(*seen) > len(releases) {
 				t.Errorf("ReleaseWorker called %d times, only %d staged — a retry loop is the one thing "+
@@ -420,6 +440,15 @@ func releaseSequence(t *testing.T, worker string, releases []string, extra map[s
 				return
 			}
 			_, _ = w.Write([]byte(releases[len(*seen)-1]))
+			return
+		}
+		if body.OperationName == "GetWorker" && len(getWorkers) > 0 {
+			i := reads
+			if i >= len(getWorkers) {
+				i = len(getWorkers) - 1 // repeat the last read
+			}
+			reads++
+			_, _ = w.Write([]byte(getWorkers[i]))
 			return
 		}
 		resp, ok := stubs[body.OperationName]
@@ -690,6 +719,44 @@ func TestWorkerReleaseHandlesAStaleHold(t *testing.T) {
 		// absence here is what separates the two.
 		if strings.Contains(msg, "would be an admin force-release") {
 			t.Errorf("this asserts a classification it does not have: %v", msg)
+		}
+	})
+
+	// RETIREMENT is re-checked before the RETRY, not only before the first call
+	// (PR #524 review, @codex P2).
+	//
+	// The retry has the longest window in the command — a refused round trip
+	// plus, interactively, however long someone reads a prompt — and it was the
+	// one path with no re-read at all. A worker retired in that window would be
+	// released having been described as active, promising its working memory
+	// and handoff history to a next holder that a retired name cannot have.
+	//
+	// The first read says active, so the pre-call guard passes and the retry is
+	// reached; the second says retired. That ordering is the whole test — a
+	// single always-retired stub would be caught by the FIRST guard and prove
+	// nothing about the second.
+	t.Run("retired inside the retry window: refuse before acting on the consent", func(t *testing.T) {
+		nowRetired := strings.Replace(irisWorkerJSON, `"retiredAt":null`,
+			`"retiredAt":"2026-08-21T00:00:00Z"`, 1)
+		srv, seen := releaseSequence(t, irisWorkerJSON,
+			[]string{holdStale("u-gil"), releasedOK}, gilUser,
+			`{"data":{"worker":`+irisWorkerJSON+`}}`, // pre-call: still active
+			`{"data":{"worker":`+nowRetired+`}}`,     // inside the retry window
+		)
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
+			"--app", "acme.com:eng-team", "--server", srv.URL})
+		err := root.Execute()
+		if code := exitcode.FromError(err); code != exitcode.Conflict {
+			t.Fatalf("exit %d, want %d; err: %v", code, exitcode.Conflict, err)
+		}
+		if !strings.Contains(err.Error(), "retired while this ran") {
+			t.Errorf("the refusal must name what changed: %v", err)
+		}
+		// The refused first attempt happened; the RETRY must not have.
+		if len(*seen) != 1 {
+			t.Errorf("the retry must not run against a description that no longer fits, got %d calls", len(*seen))
 		}
 	})
 

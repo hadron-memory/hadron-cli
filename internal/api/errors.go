@@ -283,14 +283,30 @@ func WorkerHoldStaleDetail(err error) (HoldStaleDetail, bool) {
 			continue
 		}
 		d := HoldStaleDetail{}
-		if e.Extensions != nil {
-			d.WorkerID, _ = e.Extensions["workerId"].(string)
-			// Present-and-null is "unheld now"; a non-empty string is a holder.
-			// The type assertion fails on nil, leaving HolderID "" and Held
-			// false, which is exactly right for the null case.
-			if id, ok := e.Extensions["heldByUserId"].(string); ok && id != "" {
-				d.HolderID, d.Held = id, true
-			}
+		d.WorkerID, _ = e.Extensions["workerId"].(string)
+		// PRESENCE first, then type (PR #524 review, Copilot). A bare type
+		// assertion cannot tell `heldByUserId: null` from an ABSENT key — both
+		// fail it — and the two mean opposite things here: null is a definite
+		// "held by nobody now", which sends the caller down the
+		// nothing-left-to-release path, while absent means the payload cannot
+		// be interpreted at all.
+		//
+		// So an uninterpretable payload returns ok=false rather than a
+		// confident Held=false, and the caller falls through to ordinary error
+		// handling — where MapError turns the code into a Conflict carrying the
+		// server's own message. Refusing to read a payload is always available;
+		// guessing at one is what produces a claim nobody can back.
+		raw, present := e.Extensions["heldByUserId"]
+		if !present {
+			return HoldStaleDetail{}, false
+		}
+		switch v := raw.(type) {
+		case nil:
+			// Explicit null — the name is held by nobody now.
+		case string:
+			d.HolderID, d.Held = v, v != ""
+		default:
+			return HoldStaleDetail{}, false
 		}
 		return d, true
 	}

@@ -112,6 +112,32 @@ test asserted values where the hazard is PRESENCE. It now captures the raw
 variables and asserts key presence; dropping either `omitempty` reds it with
 `raw: null`.
 
+## Round two: four findings, four real
+
+** P2 — the retry had no retirement guard.** The re-read ran once, before
+the first call; both retry paths sit after it, one behind a human-length
+confirmation. A worker retired in that window would have been released having
+been described as active, promising its memory and handoff history to a next
+holder a retired name cannot have. That is #504's own guard, missing from the
+prompt I added. The check is extracted and now runs before EVERY release.
+
+** — an absent `heldByUserId` read as "unheld now".** A bare type
+assertion cannot tell a present null from a missing key, and the two mean
+opposite things: null is a definite "held by nobody", which sends the caller
+down the nothing-left-to-release path. Presence is checked first now, and an
+uninterpretable payload returns ok=false — which drops through to `MapError`,
+**making the exit-code mapping reachable after all**. The mutation run had
+called it unreachable; one round later it has a caller.
+
+** P3 — the contract overclaimed.** I wrote that `wasHeld`,
+`releasedFromUserId` and `forced` are all known after a retry. `forced` is not:
+when the identity lookup failed the newly-reported holder may BE the caller, so
+it stays null. The retry learns who holds the name, never who you are.
+
+** — the test server swallowed decode errors**, so a broken request
+shape would have surfaced as "unexpected operation" pointing at the wrong
+thing.
+
 ## Reasoned NOs
 
 - **No spec citation.** This implements `cor:agt:020:09` and hadron-server#1084's

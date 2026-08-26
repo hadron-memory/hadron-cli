@@ -719,6 +719,41 @@ func releaseWithPrecondition(
 	return gen.ReleaseWorker(ctx, client, workerID, nil, boolPtr(true))
 }
 
+// assertRetirementUnchanged re-reads the worker and refuses if its RETIREMENT
+// state moved since w was read.
+//
+// The hold's race is closed by the precondition; this one is not, and cannot be
+// from here — `releaseWorker` asserts who holds the name, not whether the
+// worker is still working. Retirement decides what releasing MEANS: whether the
+// working memory and handoff history pass to a next holder, or simply stay with
+// the name because nobody can bind a retired one. Both the confirmation and the
+// receipt say which, so a retirement landing mid-flight leaves the caller having
+// been told the wrong thing.
+//
+// Called before EVERY release, including each retry (PR #524 review, Codex P2).
+// The retry path has the longest window in the command — a refused round trip
+// plus, on the interactive branch, however long someone reads a prompt — and it
+// was the one path that had no re-read at all.
+func assertRetirementUnchanged(ctx context.Context, client graphql.Client, w gen.WorkerFields) error {
+	fresh, err := gen.GetWorker(ctx, client, w.Id)
+	if err != nil {
+		return api.MapError(err)
+	}
+	if fresh.Worker == nil {
+		return exitcode.Newf(exitcode.NotFound, "no worker %q", w.Id)
+	}
+	if (w.RetiredAt == nil) != (fresh.Worker.RetiredAt == nil) {
+		state := "retired"
+		if fresh.Worker.RetiredAt == nil {
+			state = "un-retired"
+		}
+		return exitcode.Newf(exitcode.Conflict,
+			"%s was %s while this ran, which changes what releasing it means; re-run to see the current state",
+			w.Name, state)
+	}
+	return nil
+}
+
 // informedRelease is what a retry after WORKER_HOLD_STALE produced.
 type informedRelease struct {
 	resp   *gen.ReleaseWorkerResponse
@@ -765,6 +800,13 @@ func offerInformedRelease(
 		// intent. A self-release owes nobody notice and no confirmation, so
 		// this proceeds without asking, exactly as it would have if the hold
 		// had been readable in the first place.
+		//
+		// Still re-reads retirement: no prompt was shown here, but the RECEIPT
+		// still describes the transfer, and a round trip has passed since the
+		// only previous check.
+		if err := assertRetirementUnchanged(ctx, client, w); err != nil {
+			return zero, err
+		}
 		resp, err := gen.ReleaseWorker(ctx, client, w.Id, &stale.HolderID, nil)
 		if err != nil {
 			return zero, api.MapError(err)
@@ -813,6 +855,13 @@ func offerInformedRelease(
 		if err := cmdutil.Confirm(f.IOStreams, false, prompt); err != nil {
 			return zero, err
 		}
+	}
+	// The retirement the PROMPT just described, re-checked before acting on the
+	// consent it obtained. This is the longest window in the command — a
+	// refused round trip plus however long someone reads a confirmation — and
+	// the prompt's transfer clause is exactly what a retirement invalidates.
+	if err := assertRetirementUnchanged(ctx, client, w); err != nil {
+		return zero, err
 	}
 	// Asserted against the holder the caller was just shown, so the act
 	// performed is the act consented to — and if the hold moves AGAIN in this
@@ -1000,21 +1049,8 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 			// waiving the ACT's meaning, and #522 was asked to remove the hold
 			// mitigation — not to quietly weaken a neighbouring guard while
 			// nobody was looking at it.
-			fresh, ferr := gen.GetWorker(ctx, client, w.Id)
-			if ferr != nil {
-				return api.MapError(ferr)
-			}
-			if fresh.Worker == nil {
-				return exitcode.Newf(exitcode.NotFound, "no worker %q", w.Id)
-			}
-			if (w.RetiredAt == nil) != (fresh.Worker.RetiredAt == nil) {
-				state := "retired"
-				if fresh.Worker.RetiredAt == nil {
-					state = "un-retired"
-				}
-				return exitcode.Newf(exitcode.Conflict,
-					"%s was %s while this ran, which changes what releasing it means; re-run to see the current state",
-					w.Name, state)
+			if err := assertRetirementUnchanged(ctx, client, w); err != nil {
+				return err
 			}
 
 			// THE PRECONDITION (hadron-server#1084) — this is what #522 is for.
