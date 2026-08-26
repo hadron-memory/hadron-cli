@@ -62,10 +62,15 @@ required the read gate the masking rule applies to.
   human is not a fix.
 
 **The receipt gets more honest as a side effect.** On the previously-silent path
-`wasHeld` and `forced` were nil and the prior holder unknown, because the CLI
-had classified against a hold it could not see. After a retry all three are
-*known* — from the refusal payload. That is most of hadron-server#1073's ask (2)
-obtained without the breaking payload type it needs.
+`wasHeld` and the prior holder were unknown, because the CLI had classified
+against a hold it could not see. After a retry both are *known* — from the
+refusal payload. That is most of hadron-server#1073's ask (2) obtained without
+the breaking payload type it needs.
+
+**`forced` is the exception, and stays nullable.** The retry learns who holds
+the name; it learns nothing about who the caller is. So when the identity lookup
+failed, the newly-reported holder may BE the caller and the act still cannot be
+classified.
 
 ## What did NOT change, and why
 
@@ -114,14 +119,14 @@ variables and asserts key presence; dropping either `omitempty` reds it with
 
 ## Round two: four findings, four real
 
-** P2 — the retry had no retirement guard.** The re-read ran once, before
+**@codex P2 — the retry had no retirement guard.** The re-read ran once, before
 the first call; both retry paths sit after it, one behind a human-length
 confirmation. A worker retired in that window would have been released having
 been described as active, promising its memory and handoff history to a next
 holder a retired name cannot have. That is #504's own guard, missing from the
 prompt I added. The check is extracted and now runs before EVERY release.
 
-** — an absent `heldByUserId` read as "unheld now".** A bare type
+**@copilot — an absent `heldByUserId` read as "unheld now".** A bare type
 assertion cannot tell a present null from a missing key, and the two mean
 opposite things: null is a definite "held by nobody", which sends the caller
 down the nothing-left-to-release path. Presence is checked first now, and an
@@ -129,12 +134,12 @@ uninterpretable payload returns ok=false — which drops through to `MapError`,
 **making the exit-code mapping reachable after all**. The mutation run had
 called it unreachable; one round later it has a caller.
 
-** P3 — the contract overclaimed.** I wrote that `wasHeld`,
+**@codex P3 — the contract overclaimed.** I wrote that `wasHeld`,
 `releasedFromUserId` and `forced` are all known after a retry. `forced` is not:
 when the identity lookup failed the newly-reported holder may BE the caller, so
 it stays null. The retry learns who holds the name, never who you are.
 
-** — the test server swallowed decode errors**, so a broken request
+**@copilot — the test server swallowed decode errors**, so a broken request
 shape would have surfaced as "unexpected operation" pointing at the wrong
 thing.
 
