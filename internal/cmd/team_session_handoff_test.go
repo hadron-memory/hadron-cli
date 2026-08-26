@@ -248,8 +248,14 @@ func TestSessionEndRescuesTheHandoffWhenTheEndFails(t *testing.T) {
 	if !strings.Contains(msg, "--handoff-file "+path) {
 		t.Errorf("the retry must name the rescued file: %s", msg)
 	}
-	if !strings.Contains(msg, "session end --session ") {
-		t.Errorf("the retry must be runnable as printed: %s", msg)
+	if !strings.Contains(msg, "--session ") {
+		t.Errorf("the retry must name the session: %s", msg)
+	}
+	// The ORIGINAL server is carried. A retry that falls back to the default
+	// backend can fail against the wrong deployment — or act on an unrelated
+	// session if ids overlap between deployments.
+	if !strings.Contains(msg, "--server ") {
+		t.Errorf("the retry must target the same server the failed call did: %s", msg)
 	}
 	// Someone who has just been refused will hesitate to retry unless told.
 	if !strings.Contains(msg, "cannot double-write") {
@@ -398,6 +404,59 @@ func TestSessionEndEmptyHandoffIsUsageEvenWhenSignedOut(t *testing.T) {
 	}
 }
 
+// The rescue must survive the failures that happen BEFORE a session is even
+// resolved (PR #528 review, @codex, third round).
+//
+// `readBinding` and `checkBindingServer` return for ordinary reasons — no
+// binding in this worktree, an unreadable one, a binding whose server disagrees
+// with --server — and all three sat ABOVE the drain. On a real pipe each closes
+// the consumer end with the prose still in it, so the invariant written one
+// commit earlier ("if you gave us a handoff and we did not record it, we saved
+// it and said where") was untrue for three returns above the line that stated
+// it.
+func TestSessionEndRescuesAHandoffWhenThereIsNoBinding(t *testing.T) {
+	const prose = "Everything that mattered this stint, and no binding to end."
+	teamGitDir(t) // a worktree with NO binding written
+	gql, _ := captureGraphQL(t, endStubs())
+	f, _ := testFactory(t)
+	r, w, perr := os.Pipe()
+	if perr != nil {
+		t.Fatal(perr)
+	}
+	go func() {
+		_, _ = io.WriteString(w, prose)
+		_ = w.Close()
+	}()
+	f.IOStreams.In = r
+	t.Cleanup(func() { _ = r.Close() })
+	errOut := captureErrOut(f)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "end", "--handoff", "-", "--server", gql.URL})
+
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("there is no session to end")
+	}
+	msg := errOut()
+	path := handoffSpillPath(t, msg)
+	saved, rerr := os.ReadFile(path) // #nosec G304 — path came from our own output
+	if rerr != nil {
+		t.Fatalf("the prose must survive a failure that precedes the session: %v", rerr)
+	}
+	if string(saved) != prose {
+		t.Errorf("rescued prose:\n got: %q\nwant: %q", saved, prose)
+	}
+	t.Cleanup(func() { _ = os.Remove(path) })
+	// No session id was ever resolved, so the retry must SAY the caller has to
+	// supply one rather than printing a command that cannot work.
+	if !strings.Contains(msg, "--session <id>") {
+		t.Errorf("with no session resolved the retry must ask for the id: %s", msg)
+	}
+	if strings.Contains(msg, "--session ''") {
+		t.Errorf("a quoted empty session id is a command that cannot run: %s", msg)
+	}
+}
+
 // The retry line advertises itself as ready-to-run, so a temp directory with a
 // space in it must not split it into extra arguments (PR #528 review, @codex P2
 // + @copilot). TMPDIR is what os.CreateTemp honours, so the hazard is drivable.
@@ -447,14 +506,17 @@ func TestSessionEndRetryCommandSurvivesASpacyTempDir(t *testing.T) {
 // them believing the prose was saved somewhere. The one thing that must survive
 // is the instruction to copy it out of the terminal while they still can.
 func TestSessionEndSaysSoWhenItCannotEvenSaveTheHandoff(t *testing.T) {
-	// An unwritable TMPDIR: os.CreateTemp fails, so there is no file and no
-	// path to print.
-	blocked := filepath.Join(t.TempDir(), "no-writing-here")
-	if err := os.MkdirAll(blocked, 0o500); err != nil {
+	// TMPDIR pointed at a child of a regular FILE, so os.CreateTemp fails with
+	// ENOTDIR. Deliberately not a 0500 directory (PR #528 review, @codex):
+	// root ignores permission bits, so under a root-run container CreateTemp
+	// would succeed, the rescue would work, and this test would fail claiming
+	// the diagnostics were missing — a fixture that cannot produce the
+	// condition it is named for. ENOTDIR is privilege-independent.
+	notADir := filepath.Join(t.TempDir(), "regular-file")
+	if err := os.WriteFile(notADir, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(blocked, 0o700) })
-	t.Setenv("TMPDIR", blocked)
+	t.Setenv("TMPDIR", filepath.Join(notADir, "nope"))
 	bindWorktree(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"EndTeamSession": `{"errors":[{"message":"handoff write failed upstream",` +

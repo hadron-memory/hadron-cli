@@ -1351,29 +1351,46 @@ session is still open.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// THE HANDOFF IS TAKEN FIRST — before the binding preflight, not
+			// merely before the client (PR #528 review, Codex, third round).
+			//
+			// The previous revision put this below `readBinding` and
+			// `checkBindingServer`, and those return for the ordinary reasons:
+			// no binding in this worktree, an unreadable one, a binding whose
+			// server disagrees with --server. On a real pipe each of those
+			// closes the consumer end with the prose still in it.
+			//
+			// So the invariant written one commit ago — "if you gave us a
+			// handoff and we did not record it, we saved it and said where" —
+			// was already untrue for three returns sitting above it. Taking the
+			// text first is what makes it true, and it costs nothing: reading
+			// stdin cannot fail in a way the binding preflight would have
+			// prevented.
+			text, err := resolveHandoff(cmd, handoff, handoffFile, f.IOStreams.In)
+			if err != nil {
+				return err // nothing was successfully taken; there is nothing to rescue
+			}
 			b, _, err := readBinding(ctx)
 			if err != nil && sessionID == "" {
-				return err
+				return rescueHandoff(f, text, sessionID, err)
 			}
 			id := sessionID
 			workerName := ""
 			if id == "" {
 				if b == nil {
-					return exitcode.Newf(exitcode.NotFound, "no active session in this worktree — pass --session <id> to end one without a binding")
+					return rescueHandoff(f, text, "", exitcode.Newf(exitcode.NotFound,
+						"no active session in this worktree — pass --session <id> to end one without a binding"))
 				}
 				id = b.SessionID
 				workerName = b.WorkerName
 				if err := checkBindingServer(f, b); err != nil {
-					return err
+					return rescueHandoff(f, text, id, err)
 				}
 			}
-			// THE HANDOFF IS TAKEN FIRST, AND EVERY LATER ERROR IS RESCUED.
-			//
-			// An earlier revision built the client first instead, so a
-			// signed-out caller would be refused before their pipe was read —
-			// "never take custody of prose we cannot deliver". Two review
-			// rounds killed that (PR #528, Codex P1 + P2), and both objections
-			// are worth keeping:
+			// Why the ordering above is what it is (PR #528, Codex P1 + P2).
+			// An earlier revision authenticated first, so a signed-out caller
+			// was refused before their pipe was read — "never take custody of
+			// prose we cannot deliver". Two objections killed it:
 			//
 			//  1. NOT READING IS NOT THE SAME AS NOT LOSING. On a real pipe,
 			//     returning without reading closes the consumer end: buffered
@@ -1387,18 +1404,9 @@ session is still open.`,
 			//     the documented Usage (exit 2) — a contract agents branch on,
 			//     and invisible to a suite whose factory is always signed in.
 			//
-			// So: resolve first (usage errors surface as usage errors, and the
-			// prose is in hand), then let EVERY subsequent failure go through
-			// rescueHandoff. One guarantee, stated once: if you gave us a
-			// handoff and we did not record it, we saved it and said where.
-			//
-			// INVARIANT: past this point, every error return carries the text
-			// through rescueHandoff. Adding a bare `return err` below silently
+			// INVARIANT: past resolveHandoff, every error return carries the
+			// text through rescueHandoff. A bare `return err` below silently
 			// re-opens the hole this whole command exists to close.
-			text, err := resolveHandoff(cmd, handoff, handoffFile, f.IOStreams.In)
-			if err != nil {
-				return err // nothing was successfully taken; there is nothing to rescue
-			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return rescueHandoff(f, text, id, err)
@@ -1814,10 +1822,37 @@ func rescueHandoff(f *cmdutil.Factory, text, sessionID string, cause error) erro
 	// whether it is.
 	fmt.Fprintf(f.IOStreams.ErrOut,
 		"! the handoff was NOT recorded. Saved it to %s\n"+
-			"  retry:  hadron team session end --session %s --handoff-file %s\n"+
+			"  %s\n"+
 			"  (safe to retry — one stint records one handoff, so this cannot double-write.)\n",
-		path, shellQuote(sessionID), shellQuote(path))
+		path, retryLine(f, sessionID, path))
 	return cause
+}
+
+// retryLine composes the recovery command, carrying enough of the ORIGINAL
+// invocation that running it targets the same thing.
+//
+// --server is included when one was resolved (PR #528 review, Codex P2). A
+// retry that silently falls back to the default backend can fail against the
+// wrong deployment, or — worse, and the reason this is not cosmetic — act on an
+// unrelated session if ids overlap between deployments. The failed invocation
+// knew which server it meant; the printed command has to say so.
+//
+// Without a session id there is no full command to give: the failure happened
+// before one was resolved (no binding in this worktree, or an unreadable one).
+// Printing a quoted empty --session argument would be a command that cannot
+// work, so it names the flag as the thing the caller must supply instead of
+// pretending to know it.
+func retryLine(f *cmdutil.Factory, sessionID, path string) string {
+	args := "hadron team session end"
+	if server, err := f.Server(); err == nil && server != "" {
+		args += " --server " + shellQuote(server)
+	}
+	if sessionID == "" {
+		return "retry:  " + args + " --session <id> --handoff-file " + shellQuote(path) +
+			"\n          (this failed before a session was resolved, so supply the id)"
+	}
+	return "retry:  " + args + " --session " + shellQuote(sessionID) +
+		" --handoff-file " + shellQuote(path)
 }
 
 // shellQuote makes an argument safe to paste into a POSIX shell.
