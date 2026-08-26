@@ -1110,7 +1110,12 @@ Conventions:
   the original invocation, carrying `--server` and `--summary` so a pasted
   command targets the same deployment and asks for the same outcome; on a
   binding/server mismatch it names the BINDING's server, since the retry's
-  explicit `--session` bypasses the check that refused.
+  explicit `--session` bypasses the check that refused. **On POSIX the retry is
+  a pasteable command line** (single-quoted, so every argument is literal). **On
+  Windows the arguments are listed as raw values instead** — no quoting a
+  process can apply survives both `cmd.exe`'s `%VAR%` and PowerShell's `$var`
+  expansion, and it cannot tell which it is talking to, so presenting a command
+  line there would advertise a guarantee that does not hold.
   **The wording distinguishes what the CLI KNOWS.** A refusal the server
   answered means nothing was committed, and it says `was NOT recorded`. A
   TRANSPORT failure means the end may have succeeded with only the reply lost,

@@ -1,6 +1,9 @@
 package team
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // The retry line printed by rescueHandoff advertises itself as ready-to-run, so
 // it has to BE runnable (PR #528 review, @codex P2 + @copilot).
@@ -26,47 +29,37 @@ func TestShellQuote(t *testing.T) {
 		// silently drop an argument.
 		{"", "''"},
 	} {
-		if got := quoteForShell(tc.in, false); got != tc.want {
-			t.Errorf("quoteForShell(%q, posix) = %q, want %q", tc.in, got, tc.want)
+		if got := shellQuote(tc.in); got != tc.want {
+			t.Errorf("shellQuote(%q) = %q, want %q", tc.in, got, tc.want)
 		}
 	}
 }
 
-// WINDOWS needs a different rule, not the same one applied harder (PR #528
-// review, @codex). goreleaser publishes a native Windows binary, and POSIX
-// single-quoting is actively WRONG there: every ordinary Windows path contains
-// backslashes, cmd.exe treats single quotes as LITERAL characters, and the
-// advertised ready-to-run retry would pass a quoted, nonexistent filename to
-// --handoff-file.
+// Windows gets NO quoting from this function, and that is the point.
 //
-// A backslash is a metacharacter on one platform and the path separator on the
-// other, which is why the character sets differ rather than the quoting style
-// alone.
-func TestQuoteForShellWindows(t *testing.T) {
-	for _, tc := range []struct{ in, want string }{
-		// The ordinary case: backslashes must NOT trigger quoting.
-		{`C:\Users\me\AppData\Local\Temp\hadron-handoff-1.md`,
-			`C:\Users\me\AppData\Local\Temp\hadron-handoff-1.md`},
-		{"ses_01a03a33", "ses_01a03a33"},
-		// A space still does, and with DOUBLE quotes, which cmd.exe honours.
-		{`C:\Program Files\x.md`, `"C:\Program Files\x.md"`},
-		// cmd metacharacters.
-		{`C:\a&b`, `"C:\a&b"`},
-		{`C:\a%PATH%`, `"C:\a%PATH%"`},
-		{"", `""`},
-	} {
-		if got := quoteForShell(tc.in, true); got != tc.want {
-			t.Errorf("quoteForShell(%q, windows) = %q, want %q", tc.in, got, tc.want)
-		}
+// Three attempts failed here (PR #528 review, @codex, three times): POSIX
+// single quotes are literal characters to cmd.exe and backslashes are its path
+// separator; double quotes still let cmd.exe expand %VAR% and PowerShell expand
+// $var, so a summary containing either is silently altered by the command that
+// promised to reproduce the invocation; and a Go process cannot tell which of
+// the two shells the text will be pasted into.
+//
+// There is no rule that serves both, so the fix is not better escaping — it is
+// not claiming to have escaped. retryLine prints the arguments as DATA on
+// Windows rather than as a command line, and this function stays honestly
+// POSIX-only. Its doc comment carries the reasoning so the next person does not
+// re-derive the double-quote idea and ship it.
+func TestShellQuoteIsPOSIXOnlyByDesign(t *testing.T) {
+	// A value that BOTH Windows shells would mangle inside double quotes. If
+	// someone reintroduces a Windows branch here, this is the case to think
+	// about first.
+	const hostile = `fixed %PATH% and $env:HOME handling`
+	got := shellQuote(hostile)
+	if got != `'`+hostile+`'` {
+		t.Errorf("POSIX single-quoting must make it literal: %q", got)
 	}
-
-	// The cross-check that names the bug: a real Windows path must come out
-	// UNQUOTED on Windows and would have been POSIX-quoted into nonsense.
-	const winPath = `C:\Users\me\AppData\Local\Temp\h.md`
-	if posix := quoteForShell(winPath, false); posix == winPath {
-		t.Errorf("fixture check: this path must be one POSIX quoting would mangle, got %q", posix)
-	}
-	if win := quoteForShell(winPath, true); win != winPath {
-		t.Errorf("an ordinary Windows path must not be quoted on Windows: %q", win)
+	// Single quotes are what make that true, and nothing else would.
+	if !strings.HasPrefix(got, "'") || !strings.HasSuffix(got, "'") {
+		t.Errorf("the POSIX guarantee rests on single quotes: %q", got)
 	}
 }

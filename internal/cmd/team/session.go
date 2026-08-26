@@ -1917,67 +1917,86 @@ func rescueHandoff(f *cmdutil.Factory, r handoffRescue, cause error) error {
 	return cause
 }
 
-// retryLine composes the recovery command, carrying enough of the ORIGINAL
+// retryLine renders the recovery command, carrying enough of the ORIGINAL
 // invocation that running it targets the same thing and asks for the same
 // outcome.
 //
+// TWO SHAPES, because "ready-to-run" is only a promise that can be kept on
+// POSIX (PR #528 review, Codex). There, single-quoting makes every argument
+// literal and the line is pasteable as printed. On Windows the arguments are
+// listed as DATA instead: no quoting a Go process can apply survives both
+// cmd.exe's %VAR% and PowerShell's $var expansion, and it cannot tell which it
+// is talking to — so printing a command line there would be advertising a
+// guarantee that does not hold, which is the defect this whole command exists
+// to stop, applied to its own output.
+//
 // Without a session id there is no full command to give: the failure happened
 // before one was resolved (no binding in this worktree, or an unreadable one).
-// Printing a quoted empty --session argument would be a command that cannot
-// work, so it names the flag as the thing the caller must supply instead of
-// pretending to know it.
+// It names the flag as the thing the caller must supply instead of pretending
+// to know it.
 func retryLine(f *cmdutil.Factory, r handoffRescue, path string) string {
-	args := "hadron team session end"
 	server := r.server
 	if server == "" {
 		server, _ = f.Server()
 	}
+	// The placeholder is NOT quoted: it is a slot for the reader to fill, and
+	// `'<id>'` reads like a value they should paste verbatim. Kept out of
+	// shellQuote rather than special-cased inside it, so that function keeps
+	// one job.
+	session := "<id>"
+	if r.sessionID != "" {
+		session = shellQuote(r.sessionID)
+	}
+	if runtime.GOOS == "windows" {
+		out := "retry `hadron team session end` with:"
+		if server != "" {
+			out += "\n            --server        " + server
+		}
+		if r.summary != "" {
+			out += "\n            --summary       " + r.summary
+		}
+		out += "\n            --session       " + session +
+			"\n            --handoff-file  " + path +
+			"\n          (values shown raw — quote them as your shell requires)"
+		if r.sessionID == "" {
+			out += "\n          (this failed before a session was resolved, so supply the id)"
+		}
+		return out
+	}
+	args := "hadron team session end"
 	if server != "" {
 		args += " --server " + shellQuote(server)
 	}
 	if r.summary != "" {
 		args += " --summary " + shellQuote(r.summary)
 	}
+	args += " --session " + session + " --handoff-file " + shellQuote(path)
 	if r.sessionID == "" {
-		return "retry:  " + args + " --session <id> --handoff-file " + shellQuote(path) +
+		return "retry:  " + args +
 			"\n          (this failed before a session was resolved, so supply the id)"
 	}
-	return "retry:  " + args + " --session " + shellQuote(r.sessionID) +
-		" --handoff-file " + shellQuote(path)
+	return "retry:  " + args
 }
 
-// shellQuote makes an argument safe to paste into THIS PLATFORM's shell.
+// shellQuote makes an argument safe to paste into a POSIX shell.
 //
-// The retry line advertises itself as ready-to-run, so it has to BE runnable
-// (PR #528 review, Codex, twice). `os.CreateTemp` returns whatever TMPDIR
-// points at, and a temp directory containing a space is ordinary rather than
-// exotic — it is the default shape on Windows.
+// POSIX ONLY, deliberately, and the retry rendering below is what makes that
+// honest: on Windows the command is not presented as pasteable at all.
 //
-// PLATFORM-AWARE, because a single rule cannot serve both and goreleaser
-// publishes a native Windows binary. POSIX single-quoting is actively wrong
-// there: every ordinary Windows path contains backslashes, `cmd.exe` treats
-// single quotes as LITERAL characters, and the advertised command would pass a
-// quoted, nonexistent filename to --handoff-file. A backslash is a
-// metacharacter on one platform and a path separator on the other, so the
-// character set has to differ too.
-func shellQuote(s string) string { return quoteForShell(s, runtime.GOOS == "windows") }
-
-// quoteForShell is shellQuote with the platform injected, so both branches are
-// reachable from a test on either host.
-func quoteForShell(s string, windows bool) string {
-	if windows {
-		// cmd.exe and PowerShell both take double quotes; a literal `"` cannot
-		// occur in a Windows path, and doubling is what both accept if one
-		// somehow does. Backslashes are left alone — they are the separator.
-		if s != "" && !strings.ContainsAny(s, " \t\n\r\v\"&|<>^%!()") {
-			return s
-		}
-		return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
-	}
-	// Quotes only when needed, so the common case stays copy-pasteable and
-	// legible. Single quotes rather than backslashes: inside them every
-	// character except `'` is literal, so there is one escape rule instead of a
-	// list to keep in sync with a shell's metacharacters.
+// The history is worth keeping, because the second attempt looked right (PR
+// #528 review, Codex, three times). Single-quoting is wrong on Windows —
+// backslashes are the path separator, and cmd.exe reads single quotes as
+// literal characters. Double quotes are ALSO wrong: cmd.exe still expands
+// %VAR% inside them and PowerShell still expands $var, so a summary containing
+// either is silently altered by the command that promised to reproduce the
+// invocation. And a Go process cannot reliably tell which of the two shells it
+// would be pasted into.
+//
+// So there is no double-quote rule that serves both, which means the fix is not
+// better escaping — it is not claiming to have escaped. Inside single quotes on
+// POSIX every character except `'` is literal, so that promise IS keepable
+// there, and it is kept.
+func shellQuote(s string) string {
 	if s != "" && !strings.ContainsAny(s, " \t\n\r\v\"'\\$`&;|<>()*?[]{}#~!=") {
 		return s
 	}
