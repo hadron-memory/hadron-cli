@@ -1878,9 +1878,21 @@ func rescueHandoff(f *cmdutil.Factory, r handoffRescue, cause error) error {
 	}
 	path, werr := spillHandoff(r.text)
 	if werr != nil {
+		// PRINT IT (PR #528 review, Codex). The previous version said "copy it
+		// out of your terminal" — impossible for the case this whole feature
+		// exists for: `--handoff -` came from a pipe into memory and was never
+		// displayed, so there is no scrollback holding it. An instruction the
+		// caller cannot follow is the same as no instruction, and the prose is
+		// gone the moment this process exits.
+		//
+		// Delimited, because a handoff is multi-line prose that has to be
+		// separable from the diagnostics around it by eye and by script. On
+		// stderr like the rest, so a --json document stays parseable.
 		fmt.Fprintf(f.IOStreams.ErrOut,
 			"! the handoff %s, and could not be saved locally either (%v).\n"+
-				"  Copy it out of your terminal before you lose the scrollback.\n", outcome, werr)
+				"  It is printed below because there is nowhere else it survives — copy it now.\n"+
+				"----- handoff begins -----\n%s\n----- handoff ends -----\n",
+			outcome, werr, r.text)
 		return cause
 	}
 	fmt.Fprintf(f.IOStreams.ErrOut,

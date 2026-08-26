@@ -1118,6 +1118,11 @@ Conventions:
   claim about server state the client cannot see, and would make a later retry
   failure look like confirmation of data loss. The remedy is identical either
   way, because one stint records one handoff.
+  **If the local save ALSO fails**, the handoff is printed to stderr between
+  `----- handoff begins/ends -----` markers. That is the last resort and it is
+  not decoration: a piped handoff went from the pipe into memory and was never
+  displayed, so there is no scrollback holding it and telling you to copy it
+  from your terminal would be an instruction you could not follow.
   **`--summary <s>` is a different field and the next driver never sees it** —
   a display-only label on the session row. Not a quirk of today's build:
   `cor:agt:020:10` makes `--handoff` the ONE field carrying continuity and any

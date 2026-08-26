@@ -541,8 +541,16 @@ func TestSessionEndSaysSoWhenItCannotEvenSaveTheHandoff(t *testing.T) {
 	if !strings.Contains(msg, "could not be saved locally") {
 		t.Errorf("a failed rescue must say so rather than stay quiet: %s", msg)
 	}
-	if !strings.Contains(msg, "Copy it out of your terminal") {
-		t.Errorf("the only remaining remedy must be stated: %s", msg)
+	// THE PROSE ITSELF, because for a piped handoff there is no scrollback
+	// holding it — it went from the pipe into memory and was never displayed.
+	// "Copy it from your terminal" was an instruction the caller could not
+	// follow, which is the same as none.
+	if !strings.Contains(msg, "prose that is about to be lost") {
+		t.Errorf("the last-resort path must PRINT the handoff, not point at a scrollback "+
+			"that never held it: %s", msg)
+	}
+	if !strings.Contains(msg, "handoff begins") || !strings.Contains(msg, "handoff ends") {
+		t.Errorf("multi-line prose must be delimited to be separable by eye or script: %s", msg)
 	}
 	// It must NOT print a path, since there is no file at one.
 	if strings.Contains(msg, "Saved it to") {
