@@ -777,17 +777,39 @@ func offerInformedRelease(
 	// truth, which is the whole point of the server returning the holder.
 	if !yes {
 		if !f.IOStreams.IsInputTerminal() {
+			// Hedged on the same condition as the prompt below, and for the
+			// same reason: with meKnown false the holder may BE the caller, so
+			// asserting a force-release and a chat notice describes an act that
+			// may not happen. Codex flagged the prompt; this refusal had the
+			// identical defect one line up, and a message that is wrong is
+			// worse here than in the prompt — a refusal is what someone pastes
+			// into an issue.
+			act := "releasing it now would be an admin force-release and would post to the team chat"
+			if !meKnown {
+				act = "this CLI could not read your own identity to tell whether that is you, and if it is not, " +
+					"releasing it posts to the team chat"
+			}
 			return zero, exitcode.Newf(exitcode.Conflict,
-				"%s is held by %s, which this could not see when it started — releasing it now would be an admin "+
-					"force-release and would post to the team chat, so it is refused without --yes; "+
+				"%s is held by %s, which this could not see when it started — %s, so it is refused without --yes; "+
 					"nothing was changed",
-				w.Name, holderPhrase(ctx, client, &stale.HolderID))
+				w.Name, holderPhrase(ctx, client, &stale.HolderID), act)
 		}
-		prompt := fmt.Sprintf(
-			"%s is held by %s — not what this command classified when it started.\n"+
-				"Releasing it is an ADMIN FORCE-RELEASE: the server posts a notice to the team chat naming you and them.\n"+
-				"Nothing has been changed yet. Release it anyway?",
-			w.Name, describeHolder(ctx, client, stale.HolderID))
+		// releasePrompt, NOT a second prompt of its own (PR #524 review, Codex
+		// P2). Two things follow from reusing it.
+		//
+		// It carries the UNKNOWN-IDENTITY hedge, which a hand-rolled prompt
+		// here did not: when the AuthContext read failed, `mine` is false
+		// because it could not be established — NOT because the holder is
+		// somebody else — and the holder may well be the caller. Asserting a
+		// force-release and a team-chat notice there describes a public act
+		// that may not happen, which is #504's "unknown is not none" in the one
+		// place it had not yet been fixed. `classified` is meKnown, so the
+		// wording hedges exactly when the classification does.
+		//
+		// And it keeps ONE description of this act. Two prompt builders for the
+		// same operation drift, and the retirement transfer clause is precisely
+		// the kind of detail that would drift out of the copy.
+		prompt := staleReleasePrompt(w.Name, describeHolder(ctx, client, stale.HolderID), w.RetiredAt, meKnown)
 		if err := cmdutil.Confirm(f.IOStreams, false, prompt); err != nil {
 			return zero, err
 		}
@@ -1147,6 +1169,25 @@ func holderPhrase(ctx context.Context, client graphql.Client, userID *string) st
 // KNOWN force branch states it flatly: reusing "if it is not" there made the
 // one case we are certain about sound uncertain, which is backwards for a
 // warning that a public act is about to happen (PR #504 review).
+// staleReleasePrompt is the confirmation for a retry after WORKER_HOLD_STALE:
+// the retry's own context, then releasePrompt's description of the act.
+//
+// EXTRACTED so it can be driven (#524 review). The prompt itself only renders
+// on a TTY, so a command-level test cannot reach it — `Confirm` refuses first —
+// and a mutation flipping `meKnown` to `true` here passed the entire suite.
+// That is a guard with no constructible failing input, which is this repo's
+// review:a-mutation-check-can-itself-be-a-no-op; the composition is pure, so
+// the fix is to test it as such rather than to leave the branch unreachable.
+//
+// `meKnown` rather than a computed "forced": with the identity unreadable the
+// stale holder may BE the caller, and releasePrompt already hedges for exactly
+// that. Passing true here would assert a public act that may not happen.
+func staleReleasePrompt(name, holder string, retiredAt *string, meKnown bool) string {
+	return fmt.Sprintf("The hold on %s is not what this command classified when it started, "+
+		"and nothing has been changed yet.\n%s",
+		name, releasePrompt(name, holder, retiredAt, meKnown))
+}
+
 func releasePrompt(name, holder string, retiredAt *string, classified bool) string {
 	if !classified {
 		return fmt.Sprintf("%s is held by %s, and this CLI could not read your own identity to tell whether "+

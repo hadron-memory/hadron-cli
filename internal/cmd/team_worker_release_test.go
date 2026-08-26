@@ -654,6 +654,45 @@ func TestWorkerReleaseHandlesAStaleHold(t *testing.T) {
 		}
 	})
 
+	// A FAILED identity lookup is "unknown", not "you are not the holder", and
+	// the retry path had not learned that yet (PR #524 review, @codex P2).
+	//
+	// With meKnown false the stale holder may BE the caller, so a message
+	// asserting an admin force-release and a team-chat notice describes a
+	// public act that may not happen — #504's lesson arriving in the one place
+	// it had not been applied. The receipt was already honest here (`forced`
+	// stays null); the WORDING was not.
+	t.Run("unknown identity: the refusal must hedge, not assert a public act", func(t *testing.T) {
+		srv, seen := releaseSequence(t, irisWorkerJSON, []string{holdStale("u-gil")}, map[string]string{
+			"AuthContext": `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`,
+			"GetUser": `{"data":{"user":{"id":"u-gil","name":"Gil","email":null,"handle":"gil",
+				"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
+				"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "worker", "release", "Iris",
+			"--app", "acme.com:eng-team", "--server", srv.URL})
+		err := root.Execute()
+		if code := exitcode.FromError(err); code != exitcode.Conflict {
+			t.Fatalf("exit %d, want %d; err: %v", code, exitcode.Conflict, err)
+		}
+		if len(*seen) != 1 {
+			t.Errorf("no consent, no retry: got %d calls", len(*seen))
+		}
+		msg := err.Error()
+		// It must state the UNCERTAINTY rather than the classification.
+		if !strings.Contains(msg, "could not read your own identity") {
+			t.Errorf("an unreadable identity must be said out loud: %v", msg)
+		}
+		// And it must NOT assert the act it cannot classify. "would be an admin
+		// force-release" is the exact phrase the known branch uses, so its
+		// absence here is what separates the two.
+		if strings.Contains(msg, "would be an admin force-release") {
+			t.Errorf("this asserts a classification it does not have: %v", msg)
+		}
+	})
+
 	// The hold moves AGAIN inside the retry window. One retry, never a loop —
 	// a client racing a human is not a fix.
 	t.Run("the hold moves again: stop, do not loop", func(t *testing.T) {
