@@ -1100,9 +1100,13 @@ Conventions:
   so a crash between the handoff and the close does not leave a second attempt
   appending a duplicate (`cor:agt:020:10`).
   **IF THE END FAILS WHILE CARRYING A HANDOFF, THE CLI SAVES THE PROSE** to a
-  temp file and prints the path on **stderr** with the retry that recovers it
-  (ready-to-run on POSIX; raw argument values on Windows — see below), so a
-  `--json` document stays parseable. The guarantee above protects the SESSION;
+  temp file and reports the path with the retry that recovers it (ready-to-run
+  on POSIX; raw argument values on Windows — see below). **Under `--json` those
+  details are folded into the error's `message`**, not printed beside it: in
+  JSON mode the `{"error":{…}}` envelope is written to STDERR, so a plain-text
+  notice on the same stream would leave stderr unparseable on exactly the
+  recovery path an agent needs to read. Without `--json` it goes to stderr as
+  human text. The guarantee above protects the SESSION;
   it cannot protect text that only ever existed in this process, which is
   exactly the case for `--handoff -` once the pipe has been drained. This holds
   for EVERY failure that can happen once the handoff has been taken — no

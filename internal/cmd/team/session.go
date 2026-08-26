@@ -1906,8 +1906,33 @@ func rescueHandoff(f *cmdutil.Factory, r handoffRescue, cause error) error {
 		outcome = "was NOT recorded"
 	}
 	path, werr := spillHandoff(r.text)
+
+	// JSON MODE PUTS THIS INSIDE THE ERROR, NOT BESIDE IT (PR #528 review,
+	// Codex P1). Under --json the error envelope `{"error":{…}}` is written to
+	// STDERR, so a plain-text notice on the same stream leaves stderr
+	// unparseable — and it would do so on precisely the recovery path an agent
+	// most needs to read. The human branch prints separately because there
+	// stderr carries no document.
+	//
+	// Folded into the message rather than added as a new key: the `--json`
+	// error shape is `{code, message}` for every command, and widening it from
+	// one command's rescue path would be a contract change made in the wrong
+	// place.
+	if f.JSON {
+		if werr != nil {
+			return exitcode.New(exitcode.FromError(cause),
+				fmt.Errorf("%w — the handoff %s and could not be saved locally either (%v); "+
+					"it is reproduced here because there is nowhere else it survives: %s",
+					cause, outcome, werr, r.text))
+		}
+		return exitcode.New(exitcode.FromError(cause),
+			fmt.Errorf("%w — the handoff %s and was saved to %s; %s (safe to retry: one stint "+
+				"records one handoff, so this cannot double-write)",
+				cause, outcome, path, retryLine(f, r, path)))
+	}
+
 	if werr != nil {
-		// PRINT IT (PR #528 review, Codex). The previous version said "copy it
+		// PRINT IT (PR #528 review, Codex). An earlier version said "copy it
 		// out of your terminal" — impossible for the case this whole feature
 		// exists for: `--handoff -` came from a pipe into memory and was never
 		// displayed, so there is no scrollback holding it. An instruction the
@@ -1915,8 +1940,7 @@ func rescueHandoff(f *cmdutil.Factory, r handoffRescue, cause error) error {
 		// gone the moment this process exits.
 		//
 		// Delimited, because a handoff is multi-line prose that has to be
-		// separable from the diagnostics around it by eye and by script. On
-		// stderr like the rest, so a --json document stays parseable.
+		// separable from the diagnostics around it by eye and by script.
 		fmt.Fprintf(f.IOStreams.ErrOut,
 			"! the handoff %s, and could not be saved locally either (%v).\n"+
 				"  It is printed below because there is nowhere else it survives — copy it now.\n"+

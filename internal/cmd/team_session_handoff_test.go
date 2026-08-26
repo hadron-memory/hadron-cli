@@ -731,10 +731,18 @@ func TestSessionEndPartialSuccessIsNotReportedAsALostHandoff(t *testing.T) {
 	}
 }
 
-// --json is carried into the retry (PR #528 review, @codex). An agent chose
-// that flag; a retry that succeeds with human-readable output breaks the parser
-// waiting on the other end, which is the consumer this whole rescue is for.
-func TestSessionEndRetryCarriesJSON(t *testing.T) {
+// UNDER --json THE RESCUE GOES INSIDE THE ERROR, NOT BESIDE IT (PR #528
+// review, @codex P1).
+//
+// In JSON mode the error envelope `{"error":{…}}` is written to STDERR, so a
+// plain-text notice on the same stream leaves stderr unparseable — on precisely
+// the recovery path an agent most needs to read. This is the feature's own
+// audience, so corrupting it there is worse than not having the feature.
+//
+// Two assertions, and the second is the one that would have caught it: the
+// rescue details must reach the caller, AND stderr must carry nothing that
+// breaks the document.
+func TestSessionEndJSONKeepsStderrParseable(t *testing.T) {
 	bindWorktree(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"EndTeamSession": `{"errors":[{"message":"nope","extensions":{"code":"HANDOFF_WRITE_FAILED"}}]}`,
@@ -744,10 +752,22 @@ func TestSessionEndRetryCarriesJSON(t *testing.T) {
 	errOut := captureErrOut(f)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "end", "--handoff", "-", "--json", "--server", gql.URL})
-	if err := root.Execute(); err == nil {
+
+	err := root.Execute()
+	if err == nil {
 		t.Fatal("the end failed")
 	}
-	if msg := errOut(); !strings.Contains(msg, "--json") {
-		t.Errorf("the retry must reproduce the output mode the caller selected: %s", msg)
+	// The rescue reaches the caller through the ERROR, which is what renderError
+	// serializes into the envelope.
+	msg := err.Error()
+	for _, want := range []string{"saved to", "--handoff-file", "--json", "cannot double-write"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("the JSON-mode error must carry %q: %s", want, msg)
+		}
+	}
+	// And NOTHING was written beside it. renderError owns stderr in JSON mode;
+	// anything this command adds there is what breaks the parse.
+	if got := errOut(); got != "" {
+		t.Errorf("JSON mode must leave stderr to the error envelope, got: %q", got)
 	}
 }
