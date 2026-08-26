@@ -1370,19 +1370,19 @@ session is still open.`,
 			// text first is what makes it true, and it costs nothing: reading
 			// stdin cannot fail in a way the binding preflight would have
 			// prevented.
-			text, err := resolveHandoff(cmd, handoff, handoffFile, f.IOStreams.In)
+			text, src, err := resolveHandoff(cmd, handoff, handoffFile, f.IOStreams.In)
 			if err != nil {
 				return err // nothing was successfully taken; there is nothing to rescue
 			}
 			b, _, err := readBinding(ctx)
 			if err != nil && sessionID == "" {
-				return rescueHandoff(f, handoffRescue{text: text, sessionID: sessionID, summary: summary, answered: true}, err)
+				return rescueHandoff(f, handoffRescue{text: text, src: src, sessionID: sessionID, summary: summary, answered: true}, err)
 			}
 			id := sessionID
 			workerName := ""
 			if id == "" {
 				if b == nil {
-					return rescueHandoff(f, handoffRescue{text: text, summary: summary, answered: true},
+					return rescueHandoff(f, handoffRescue{text: text, src: src, summary: summary, answered: true},
 						exitcode.Newf(exitcode.NotFound,
 							"no active session in this worktree — pass --session <id> to end one without a binding"))
 				}
@@ -1393,7 +1393,7 @@ session is still open.`,
 					// carries an explicit --session, which bypasses this very
 					// check, so printing the rejected server would hand the
 					// caller a command that does the thing just refused.
-					return rescueHandoff(f, handoffRescue{text: text, sessionID: id, server: b.Server, summary: summary, answered: true}, err)
+					return rescueHandoff(f, handoffRescue{text: text, src: src, sessionID: id, server: b.Server, summary: summary, answered: true}, err)
 				}
 			}
 			// Why the ordering above is what it is (PR #528, Codex P1 + P2).
@@ -1429,7 +1429,7 @@ session is still open.`,
 					bound = b.Server
 				}
 				return rescueHandoff(f, handoffRescue{
-					text: text, sessionID: id, server: bound, summary: summary, answered: true,
+					text: text, src: src, sessionID: id, server: bound, summary: summary, answered: true,
 				}, err)
 			}
 			resp, err := gen.EndTeamSession(ctx, client, id, optStr(summary), optStr(text))
@@ -1448,7 +1448,7 @@ session is still open.`,
 				// the write happened — so neither an error's presence nor a
 				// payload's absence is proof.
 				return rescueHandoff(f, handoffRescue{
-					text: text, sessionID: id, summary: summary,
+					text: text, src: src, sessionID: id, summary: summary,
 					answered: api.EndRefusedBeforeCommit(err),
 				}, api.MapError(err))
 			}
@@ -1849,7 +1849,10 @@ func sessionStartWorkerDTO(w gen.WorkerFields) sessionStartWorker {
 // nearest each other (server, summary) are both "carry this across to the
 // retry", and getting them the wrong way round would compile.
 type handoffRescue struct {
-	text      string
+	text string
+	// src is where the prose came from, and it decides what the last-resort
+	// branch may PRINT. Only a consumed stdin has no other copy.
+	src       handoffSource
 	sessionID string
 	// server OVERRIDES the invocation's own --server in the printed retry.
 	// Exactly one caller needs that and the reason is sharp (PR #528 review,
@@ -1921,9 +1924,8 @@ func rescueHandoff(f *cmdutil.Factory, r handoffRescue, cause error) error {
 	if f.JSON {
 		if werr != nil {
 			return exitcode.New(exitcode.FromError(cause),
-				fmt.Errorf("%w — the handoff %s and could not be saved locally either (%v); "+
-					"it is reproduced here because there is nowhere else it survives: %s",
-					cause, outcome, werr, r.text))
+				fmt.Errorf("%w — the handoff %s and could not be saved locally either (%v). %s",
+					cause, outcome, werr, strings.TrimSpace(lastResort(r))))
 		}
 		return exitcode.New(exitcode.FromError(cause),
 			fmt.Errorf("%w — the handoff %s and was saved to %s; %s (safe to retry: one stint "+
@@ -1932,20 +1934,9 @@ func rescueHandoff(f *cmdutil.Factory, r handoffRescue, cause error) error {
 	}
 
 	if werr != nil {
-		// PRINT IT (PR #528 review, Codex). An earlier version said "copy it
-		// out of your terminal" — impossible for the case this whole feature
-		// exists for: `--handoff -` came from a pipe into memory and was never
-		// displayed, so there is no scrollback holding it. An instruction the
-		// caller cannot follow is the same as no instruction, and the prose is
-		// gone the moment this process exits.
-		//
-		// Delimited, because a handoff is multi-line prose that has to be
-		// separable from the diagnostics around it by eye and by script.
 		fmt.Fprintf(f.IOStreams.ErrOut,
-			"! the handoff %s, and could not be saved locally either (%v).\n"+
-				"  It is printed below because there is nowhere else it survives — copy it now.\n"+
-				"----- handoff begins -----\n%s\n----- handoff ends -----\n",
-			outcome, werr, r.text)
+			"! the handoff %s, and could not be saved locally either (%v).\n%s",
+			outcome, werr, lastResort(r))
 		return cause
 	}
 	fmt.Fprintf(f.IOStreams.ErrOut,
@@ -1954,6 +1945,48 @@ func rescueHandoff(f *cmdutil.Factory, r handoffRescue, cause error) error {
 			"  (safe to retry — one stint records one handoff, so this cannot double-write.)\n",
 		outcome, path, retryLine(f, r, path))
 	return cause
+}
+
+// lastResort says how to recover the prose when even the spill failed.
+//
+// PRINTING IT IS THE LAST OPTION, not the first (PR #528 review, Codex). A
+// handoff is a stint's working notes — what is blocked, what is half-done, which
+// customer — and stderr is retained in CI logs and agent transcripts. Dumping it
+// there when a perfectly good copy already exists is needless exposure of
+// exactly the content this team is careful about elsewhere.
+//
+// So it is printed only when the prose genuinely has nowhere else to be: a
+// CONSUMED STDIN. A --handoff-file still has its file (checked, not assumed —
+// the spill may have failed because the disk filled, which could equally have
+// truncated something else), and an inline --handoff was typed as an argument,
+// so the caller's shell history or the agent's own context still holds it.
+func lastResort(r handoffRescue) string {
+	if r.src.path != "" {
+		if _, err := os.Stat(r.src.path); err == nil {
+			return "  Your handoff is unchanged at " + r.src.path + " — retry with --handoff-file.\n"
+		}
+		// The source is GONE, so the in-memory copy is now the only one. Checked
+		// rather than assumed for exactly this reason: the spill may have failed
+		// because the disk filled or the volume went away, and either could have
+		// taken the source with it. Pointing at a file that is not there would
+		// be the most confident possible way to lose the prose.
+		return printableHandoff(r.text)
+	}
+	if !r.src.fromStdin {
+		// Passed as an argument: the caller's shell history or the calling
+		// process still has it, so print the remedy rather than the content.
+		return "  Re-run with --handoff-file, or pass the same --handoff text again.\n"
+	}
+	// Consumed from a pipe and never displayed: there is no scrollback holding
+	// it and it is gone when this process exits.
+	return printableHandoff(r.text)
+}
+
+// printableHandoff renders the prose itself, delimited so multi-line text is
+// separable from the diagnostics around it by eye and by script.
+func printableHandoff(text string) string {
+	return "  It is printed below because there is nowhere else it survives — copy it now.\n" +
+		"----- handoff begins -----\n" + text + "\n----- handoff ends -----\n"
 }
 
 // retryLine renders the recovery command, carrying enough of the ORIGINAL
@@ -2077,31 +2110,39 @@ func spillHandoff(text string) (string, error) {
 	return name, nil
 }
 
-func resolveHandoff(cmd *cobra.Command, handoff, handoffFile string, stdin io.Reader) (string, error) {
+// handoffSource says where the prose came from, which decides what the
+// last-resort branch may print (PR #528 review, Codex).
+type handoffSource struct {
+	path      string // non-empty when it came from --handoff-file
+	fromStdin bool   // `--handoff -`: consumed, and held nowhere else
+}
+
+func resolveHandoff(cmd *cobra.Command, handoff, handoffFile string, stdin io.Reader) (string, handoffSource, error) {
 	changed := cmd.Flags().Changed
 	if !changed("handoff") && !changed("handoff-file") {
-		return "", nil
+		return "", handoffSource{}, nil
 	}
 	var text string
+	var src handoffSource
 	switch {
 	case changed("handoff-file"):
 		data, err := os.ReadFile(handoffFile) // #nosec G304 — an operator-supplied path is the point
 		if err != nil {
-			return "", exitcode.Newf(exitcode.Usage, "reading --handoff-file: %v", err)
+			return "", handoffSource{}, exitcode.Newf(exitcode.Usage, "reading --handoff-file: %v", err)
 		}
-		text = string(data)
+		text, src.path = string(data), handoffFile
 	case handoff == "-":
 		data, err := io.ReadAll(stdin)
 		if err != nil {
-			return "", exitcode.Newf(exitcode.Usage, "reading the handoff from stdin: %v", err)
+			return "", handoffSource{}, exitcode.Newf(exitcode.Usage, "reading the handoff from stdin: %v", err)
 		}
-		text = string(data)
+		text, src.fromStdin = string(data), true
 	default:
 		text = handoff
 	}
 	if strings.TrimSpace(text) == "" {
-		return "", exitcode.Newf(exitcode.Usage,
+		return "", handoffSource{}, exitcode.Newf(exitcode.Usage,
 			"the handoff is empty — write what the next driver needs, or omit --handoff to end without a continuity record")
 	}
-	return text, nil
+	return text, src, nil
 }

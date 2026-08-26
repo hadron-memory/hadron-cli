@@ -771,3 +771,77 @@ func TestSessionEndJSONKeepsStderrParseable(t *testing.T) {
 		t.Errorf("JSON mode must leave stderr to the error envelope, got: %q", got)
 	}
 }
+
+// The last-resort branch must not DUMP prose that is already safe
+// (PR #528 review, @codex).
+//
+// A handoff is a stint's working notes — what is blocked, what is half-done,
+// which customer — and stderr is retained in CI logs and agent transcripts.
+// Printing it when a perfectly good copy exists is needless exposure. So the
+// content is printed only for a CONSUMED STDIN, which is the one source with
+// nowhere else to be.
+func TestSessionEndLastResortPrintsOnlyWhatHasNowhereElse(t *testing.T) {
+	const prose = "blocked on the vendor key; do not re-run the migration"
+	// TMPDIR under a regular file: CreateTemp fails regardless of privilege.
+	spillBlocked := func(t *testing.T) {
+		t.Helper()
+		notADir := filepath.Join(t.TempDir(), "regular-file")
+		if err := os.WriteFile(notADir, []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("TMPDIR", filepath.Join(notADir, "nope"))
+	}
+	run := func(t *testing.T, args ...string) string {
+		t.Helper()
+		gql, _ := captureGraphQL(t, map[string]string{
+			"EndTeamSession": `{"errors":[{"message":"nope","extensions":{"code":"HANDOFF_WRITE_FAILED"}}]}`,
+		})
+		f, _ := testFactory(t)
+		f.IOStreams.In = strings.NewReader(prose)
+		errOut := captureErrOut(f)
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"team", "session", "end", "--server", gql.URL}, args...))
+		if err := root.Execute(); err == nil {
+			t.Fatal("the end failed")
+		}
+		return errOut()
+	}
+
+	t.Run("from a file: point at the file, do not reprint it", func(t *testing.T) {
+		dir := t.TempDir()
+		src := filepath.Join(dir, "handoff.md")
+		if err := os.WriteFile(src, []byte(prose), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		bindWorktree(t)
+		spillBlocked(t)
+		msg := run(t, "--handoff-file", src)
+		if !strings.Contains(msg, src) {
+			t.Errorf("it must name the file that still holds it: %s", msg)
+		}
+		if strings.Contains(msg, prose) {
+			t.Errorf("the prose is already safe on disk; reprinting it into a log is needless exposure: %s", msg)
+		}
+	})
+
+	t.Run("from stdin: print it, because nothing else has it", func(t *testing.T) {
+		bindWorktree(t)
+		spillBlocked(t)
+		msg := run(t, "--handoff", "-")
+		if !strings.Contains(msg, prose) {
+			t.Errorf("a consumed pipe has no other copy — this is the one case that must print: %s", msg)
+		}
+	})
+
+	t.Run("inline: the caller still has the argument", func(t *testing.T) {
+		bindWorktree(t)
+		spillBlocked(t)
+		msg := run(t, "--handoff", prose)
+		if strings.Contains(msg, "handoff begins") {
+			t.Errorf("it was passed as an argument; the shell history or calling process holds it: %s", msg)
+		}
+		if !strings.Contains(msg, "--handoff-file") {
+			t.Errorf("it must still say how to recover: %s", msg)
+		}
+	})
+}

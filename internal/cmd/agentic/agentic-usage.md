@@ -1133,11 +1133,17 @@ Conventions:
   identical either way, because one stint records one handoff — the asymmetry is
   deliberate: overstating certainty here would make a later retry failure look
   like confirmation of data loss.
-  **If the local save ALSO fails**, the handoff is printed to stderr between
-  `----- handoff begins/ends -----` markers. That is the last resort and it is
-  not decoration: a piped handoff went from the pipe into memory and was never
-  displayed, so there is no scrollback holding it and telling you to copy it
-  from your terminal would be an instruction you could not follow.
+  **If the local save ALSO fails**, what happens depends on WHERE the handoff
+  came from, because printing it is the last option rather than the first — a
+  handoff is a stint's working notes and stderr is retained in CI logs and agent
+  transcripts. `--handoff-file` is pointed back at its own file (checked, not
+  assumed: the spill may have failed for a reason that took the source too, and
+  then it IS printed). An inline `--handoff <text>` is not reprinted, since the
+  shell history or the calling process still holds it. **A consumed `--handoff -`
+  IS printed**, between `----- handoff begins/ends -----` markers, because it
+  went from the pipe into memory and was never displayed: there is no scrollback
+  holding it, and telling you to copy it from your terminal would be an
+  instruction you could not follow.
   **`--summary <s>` is a different field and the next driver never sees it** —
   a display-only label on the session row. Not a quirk of today's build:
   `cor:agt:020:10` makes `--handoff` the ONE field carrying continuity and any
