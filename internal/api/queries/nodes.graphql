@@ -178,12 +178,16 @@ query GetNode($ref: ID!) {
     # independent composers is how a surface starts printing a link to a
     # resource other than the one it just named.
     #
-    # portalUrl is SERVER-BUILT and nullable, for two unrelated reasons — the
-    # deployment has no usable web origin, or the resource has no canonical
-    # identifier to build one from — and both render as nothing. Never a
-    # locally-composed fallback: a link to a guessed origin fails silently for
-    # whoever clicks it, which is worse than the caller seeing none. The urn
-    # beside it is unaffected by the link's absence.
+    # portalUrl is SERVER-BUILT and nullable, and on a NODE for exactly ONE
+    # reason: the deployment has no usable web origin. It renders as nothing.
+    # Never a locally-composed fallback: a link to a guessed origin fails
+    # silently for whoever clicks it, which is worse than the caller seeing
+    # none. The urn beside it is unaffected by the link's absence.
+    #
+    # The "or there is no identifier to build one from" arm belongs to WORKERS,
+    # not here — `Worker.urn` is nullable, `Node.urn` is `String!`. Stating the
+    # worker's reason on a node is how a reader inherits a nullability that
+    # cannot occur; it had leaked into three places before PR #526 swept it.
     urn
     portalUrl
     memoryId

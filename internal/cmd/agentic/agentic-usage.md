@@ -382,18 +382,32 @@ Conventions:
   means it sits behind a proxy without its public base URL configured, so every
   absolute URL it emits points somewhere wrong. `hadron version` reports the CLI
   build instead and needs no network.
-- **A single-ref `node get` prints the node's `urn:` and, under it, a `URL:`
-  line — the SERVER-BUILT portal link that opens it** (#515,
-  `cor:api:230:01`). That is the line to COPY when citing a node to a human,
+- **`node get` prints the node's `urn:` and, under it, a `URL:` line — the
+  SERVER-BUILT portal link that opens it** (#515, `cor:api:230:01`), on the
+  BATCHED read as well as the single-ref one; #520 pins both queries to the
+  same field set precisely so the two do not print different shapes for the
+  same node. That is the line to COPY when citing a node to a human,
   rather than assembling `<origin>/app/u/<urn>` yourself: the canonical
   spelling, the resolver route and the deployment origin are all the
   platform's, and a composed link resolves to nothing while looking right.
-  The link is **nullable for two unrelated reasons** — no usable web origin on
-  the deployment, or no canonical identifier to build from — and both render as
-  NOTHING: no line, no placeholder, and never a locally-composed fallback. The
+  The link is **nullable for ONE reason here** — the deployment has no usable
+  web origin — and renders as NOTHING: no line, no placeholder, and never a
+  locally-composed fallback. **Do not carry the WORKER's second reason across
+  to a node.** `Node.urn` is `String!`, so "no canonical identifier to build
+  from" cannot occur; `Worker.urn` is nullable (an App URN predating the arity
+  a worker URN needs), which is why the worker section below says two and this
+  one says one. The
   `urn` is unaffected by the link's absence and still addresses the node. Under
   `--json` both are `omitempty`, so a surface that does not select them leaves
   the keys out rather than asserting null.
+  **The NODE and WORKER `--json` shapes differ here, and a consumer must branch
+  on it.** A node's `portalUrl` is `omitempty` — the key VANISHES when there is
+  no link — while a worker's is a nullable pointer, so the key is PRESENT as
+  `null`. Both are stated correctly in their own sections, three hundred lines
+  apart, and neither used to say "unlike the other one": that is exactly how a
+  consumer writes `if (d.portalUrl === null)` and has it silently never fire on
+  nodes. Test for ABSENCE on a node and for `null` on a worker, or test for
+  falsiness and cover both.
 - `node get` reads MANY nodes at once. With one ref the output is the node
   object, unchanged. With several refs, or with `--prefix <loc> -m <memory>`,
   it is `{nodes, unavailable}`. Several refs are sent as one batched read —
@@ -746,7 +760,9 @@ Conventions:
   never a locally-composed fallback, since a link to a guessed origin fails
   silently for whoever clicks it. Under `--json` the key is present as `null`
   rather than omitted, so "this deployment emits no links" is
-  distinguishable from an older CLI that does not know the key. The `urn`
+  distinguishable from an older CLI that does not know the key — **unlike a
+  NODE's `portalUrl`, which is `omitempty` and whose key vanishes instead. Do
+  not reuse one null-check across the two.** The `urn`
   beside it is unaffected — losing the link never costs you the ref. Carried
   on BOTH `worker get --json` and `worker list --json`; the roster TABLE
   deliberately has no URL column, since a full URL per row is wide.

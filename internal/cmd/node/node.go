@@ -23,10 +23,22 @@ type nodeDTO struct {
 	// to a human, rather than assembling <origin>/app/u/<urn> yourself, which
 	// is the composition the field exists to remove.
 	//
-	// Nullable for two unrelated reasons — no usable web origin on the
-	// deployment, or no canonical identifier to build from — and both render
-	// as nothing. omitempty for the same reason as URN: a surface that does not
-	// select it leaves the key out rather than asserting null.
+	// Nullable for ONE reason on a node: the deployment has no usable web
+	// origin. It renders as nothing — never a locally-composed fallback, since
+	// a link to a guessed origin fails silently for whoever clicks it.
+	//
+	// NOT the worker's second reason. `Worker.portalUrl` is additionally null
+	// when there is no URN to build one from, because `Worker.urn` is nullable
+	// (an App URN predating the arity a worker URN needs). `Node.urn` is
+	// `String!`, so that arm cannot occur here. The two stories sat in adjacent
+	// DTOs with the worker's copied onto the node, and a hadron-docs reader took
+	// it as authoritative and inherited a nullability that does not exist
+	// (PR #526, and hadron-docs#266's review before it).
+	//
+	// omitempty for the same reason as URN: a surface that does not select it
+	// leaves the key out rather than asserting null. That differs from
+	// `workerDTO.PortalURL`, which is a pointer and stays PRESENT as null —
+	// do not reuse one null-check across the two.
 	PortalURL  string   `json:"portalUrl,omitempty"`
 	MemoryID   string   `json:"memoryId"`
 	Loc        string   `json:"loc"`
