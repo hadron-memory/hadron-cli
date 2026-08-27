@@ -66,6 +66,22 @@ type castPreviewDTO struct {
 	Reserved           bool    `json:"reserved"`
 }
 
+// The Long text names ALL THREE agent-resolution refusals with their exit
+// codes. It used to name only WORKER_AGENT_NOT_FOUND, and hadron-docs's
+// reference/hadron-cli.md consequently published "the CLI does not map it to a
+// dedicated exit code the way it does the two role-resolution refusals above."
+// It does: WORKER_AGENT_NOT_INSTALLED is exit 2, via the `_NOT_INSTALLED`
+// suffix rule in internal/api/errors.go, and TestTeamWorkerCastServerRefusals
+// has pinned that all along. So the BEHAVIOUR was right and only this
+// enumeration was short — which is the part worth naming: an incomplete
+// enumeration reads as a complete one, so the reader who consulted our
+// authoritative surface got a WORSE answer than one who guessed, and the docs
+// inherited it by copying us faithfully.
+//
+// `not installed` is the entry a reader most needs stated, because its name
+// argues for the wrong code: it sounds like NOT_FOUND (4) and is a usage error
+// (2) — the ref resolves, the install is what is missing, and the caller fixes
+// it by passing an installed ref.
 func newCmdWorkerCast(f *cmdutil.Factory) *cobra.Command {
 	var role, name, agentRef, promptOverride string
 	var dryRun bool
@@ -73,10 +89,13 @@ func newCmdWorkerCast(f *cmdutil.Factory) *cobra.Command {
 		Use:   "cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run]",
 		Short: "Cast an installed agent as a named worker",
 		Long: `Cast a worker: ONE platform call (castWorker, cor:agt:020:01). The server
-resolves the agent — --agent names it directly (it must be installed in
-this App), or --role picks the single installed agent whose persona role
-matches (zero or several candidates refuse typed, never a guess) — takes
-the name, and provisions the worker's working memory.
+resolves the agent — --agent names it directly and it must be installed
+in THIS App (WORKER_AGENT_NOT_INSTALLED, exit 2 and NOT 4: the ref
+resolves, it is the install that is missing, so the remedy is to pass an
+installed ref), or --role picks the single installed agent whose persona
+role matches (zero candidates: WORKER_AGENT_NOT_FOUND, exit 4; several:
+WORKER_AGENT_AMBIGUOUS, exit 2 — never a guess) — takes the name, and
+provisions the worker's working memory.
 
 --name IS REQUIRED (hadron-server#1050). A name is PERMANENT for this App
 — retirement and uninstall never free it (cor:agt:020:02) — so it is

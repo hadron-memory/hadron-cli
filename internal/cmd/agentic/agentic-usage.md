@@ -789,7 +789,10 @@ Conventions:
   surface is young; `promptOverride` stays on the roster, being the short
   per-worker override rather than the composed briefing.
   `team worker cast` mints one in ONE platform call (`castWorker`): the
-  server resolves the agent (`--agent`, or `--role` picks the single
+  server resolves the agent (`--agent`, which must name an agent installed
+  in THIS App — `WORKER_AGENT_NOT_INSTALLED` **exit 2, not 4**: the ref
+  resolves and it is the install that is missing, so the caller fixes it by
+  passing an installed ref; or `--role` picks the single
   installed agent whose persona role matches — `WORKER_AGENT_NOT_FOUND`
   exit 4 / `WORKER_AGENT_AMBIGUOUS` exit 2, never a guess), takes the name,
   binds the template, provisions the worker's working memory, and returns
