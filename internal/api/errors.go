@@ -251,6 +251,45 @@ func WorkerHeldDetail(err error) (HeldDetail, bool) {
 	return HeldDetail{}, false
 }
 
+// EndRefusedBeforeCommit reports whether an endSession failure PROVABLY changed
+// nothing — the only case in which a client may tell its caller that a handoff
+// was definitely not recorded.
+//
+// It is deliberately ONE code, and not a taxonomy. `cor:agt:020:10` guarantees
+// that a failed handoff write REFUSES the end, so `HANDOFF_WRITE_FAILED` is a
+// SPEC-BACKED statement that nothing committed. Every other outcome is treated
+// as unknown, including other GraphQL errors, because there is no way from here
+// to tell a pre-commit refusal from a post-commit one:
+//
+//   - GraphQL returns `data` AND `errors` when a nested resolver fails after
+//     the mutation ran, and
+//   - null-bubbling from a non-null child NULLS `data.endSession` even though
+//     the write happened,
+//
+// so neither the presence of an error nor the absence of a payload proves a
+// refusal (PR #528 review, Codex, twice).
+//
+// The asymmetry is the whole design. Saying "may not have been recorded" when
+// it definitely was not is harmless — the remedy is identical, since one stint
+// records one handoff. Saying "was NOT recorded" when it WAS is the worst
+// sentence this command can print, and it would make a later retry failure look
+// like confirmation of data loss. So the definite wording is earned by a
+// guarantee, not inferred from a shape.
+//
+// Call it BEFORE MapError wraps.
+func EndRefusedBeforeCommit(err error) bool {
+	list := graphQLErrors(err)
+	if len(list) == 0 {
+		return false // transport failure: the outcome is unknowable from here
+	}
+	for _, e := range list {
+		if e == nil || extensionCode(e) != "HANDOFF_WRITE_FAILED" {
+			return false // anything unrecognized keeps the whole answer ambiguous
+		}
+	}
+	return true
+}
+
 // HoldStaleDetail is the payload a WORKER_HOLD_STALE error carries
 // (hadron-server#1084): the hold found NOW, at the moment the guarded write
 // refused the caller's assertion.

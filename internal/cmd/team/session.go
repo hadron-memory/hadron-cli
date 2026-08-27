@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
@@ -1316,16 +1317,36 @@ worker is recoverable — retry, or end without a handoff deliberately —
 while an ended session whose handoff evaporated is not, because the
 context that composed it is gone. A session with no worker has no sequence
 to write to, so passing --handoff there is refused rather than dropped.
+That ordering is a platform guarantee, not this client's choice
+(cor:agt:020:10).
+
+RETRY IS SAFE, and cannot double-write. One stint records one handoff,
+and that is keyed on the STINT rather than on whether a write already
+happened — so a crash between the handoff and the close does not leave a
+second attempt appending a duplicate.
+
+IF THE END FAILS WHILE CARRYING A HANDOFF, THIS SAVES THE PROSE. It is
+written to a temp file and the path printed with the retry that recovers
+it — a ready-to-run command line on POSIX, where single-quoting makes
+every argument literal, and the same arguments listed as raw values on
+Windows, where no quoting survives both cmd.exe and PowerShell.
+The guarantee above protects the SESSION; it cannot protect text that
+only ever existed in this process, which is the case whenever the handoff
+came from stdin and the pipe has already been drained.
 
 --handoff-file reads it from a file, and ` + "`--handoff -`" + ` from stdin. A
 handoff is prose of real length, and putting a paragraph through shell
 quoting is its own hazard.
 
 --SUMMARY IS A DIFFERENT FIELD AND THE NEXT DRIVER NEVER SEES IT. It is a
-short label on the session row; nothing reads it back, which is the gap
-#1029 was filed to close. Both are kept because collapsing them is a
-decision about that feature's shape rather than about this flag — but if
-you are writing one thing for whoever comes next, write --handoff.
+short label on the session row; nothing reads it back. That is not a
+quirk of today's build: cor:agt:020:10 makes --handoff the ONE field
+carrying continuity, and any other free-text field on a session
+display-only unless the corpus says otherwise — so writing continuity
+into --summary is a contract violation rather than a naming preference,
+and it fails silently, producing no error and no record. Both flags are
+kept deliberately; if you are writing one thing for whoever comes next,
+write --handoff.
 
 --session ends an explicit worker session id instead — the recovery path
 when the binding is gone or unusable (a lost worktree, a failed binding
@@ -1334,33 +1355,102 @@ session is still open.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// THE HANDOFF IS TAKEN FIRST — before the binding preflight, not
+			// merely before the client (PR #528 review, Codex, third round).
+			//
+			// The previous revision put this below `readBinding` and
+			// `checkBindingServer`, and those return for the ordinary reasons:
+			// no binding in this worktree, an unreadable one, a binding whose
+			// server disagrees with --server. On a real pipe each of those
+			// closes the consumer end with the prose still in it.
+			//
+			// So the invariant written one commit ago — "if you gave us a
+			// handoff and we did not record it, we saved it and said where" —
+			// was already untrue for three returns sitting above it. Taking the
+			// text first is what makes it true, and it costs nothing: reading
+			// stdin cannot fail in a way the binding preflight would have
+			// prevented.
+			text, src, err := resolveHandoff(cmd, handoff, handoffFile, f.IOStreams.In)
+			if err != nil {
+				return err // nothing was successfully taken; there is nothing to rescue
+			}
 			b, _, err := readBinding(ctx)
 			if err != nil && sessionID == "" {
-				return err
+				return rescueHandoff(f, handoffRescue{text: text, src: src, sessionID: sessionID, summary: summary, answered: true}, err)
 			}
 			id := sessionID
 			workerName := ""
 			if id == "" {
 				if b == nil {
-					return exitcode.Newf(exitcode.NotFound, "no active session in this worktree — pass --session <id> to end one without a binding")
+					return rescueHandoff(f, handoffRescue{text: text, src: src, summary: summary, answered: true},
+						exitcode.Newf(exitcode.NotFound,
+							"no active session in this worktree — pass --session <id> to end one without a binding"))
 				}
 				id = b.SessionID
 				workerName = b.WorkerName
 				if err := checkBindingServer(f, b); err != nil {
-					return err
+					// The BINDING's server, not this invocation's: the retry
+					// carries an explicit --session, which bypasses this very
+					// check, so printing the rejected server would hand the
+					// caller a command that does the thing just refused.
+					return rescueHandoff(f, handoffRescue{text: text, src: src, sessionID: id, server: b.Server, summary: summary, answered: true}, err)
 				}
 			}
-			text, err := resolveHandoff(cmd, handoff, handoffFile, f.IOStreams.In)
-			if err != nil {
-				return err
-			}
+			// Why the ordering above is what it is (PR #528, Codex P1 + P2).
+			// An earlier revision authenticated first, so a signed-out caller
+			// was refused before their pipe was read — "never take custody of
+			// prose we cannot deliver". Two objections killed it:
+			//
+			//  1. NOT READING IS NOT THE SAME AS NOT LOSING. On a real pipe,
+			//     returning without reading closes the consumer end: buffered
+			//     prose is discarded and the producer can take SIGPIPE. "The
+			//     caller still has it" was an assumption about the producer,
+			//     not a property of the pipe — and `echo … |` has already
+			//     written and exited.
+			//  2. IT MOVED THE EXIT CODES. Validation lives in resolveHandoff,
+			//     so authenticating first meant an explicit empty --handoff or
+			//     an unreadable --handoff-file reported AuthRequired instead of
+			//     the documented Usage (exit 2) — a contract agents branch on,
+			//     and invisible to a suite whose factory is always signed in.
+			//
+			// INVARIANT: past resolveHandoff, every error return carries the
+			// text through rescueHandoff. A bare `return err` below silently
+			// re-opens the hole this whole command exists to close.
 			client, err := f.GraphQLClient()
 			if err != nil {
-				return err
+				// The BINDING's server, when this session came from one (PR #528
+				// review, Codex). If the config cannot be loaded and no --server
+				// was passed, f.Server() fails the same way inside retryLine and
+				// the printed command would omit --server entirely — repeating
+				// the configuration failure, while the binding held the
+				// deployment to use all along.
+				bound := ""
+				if b != nil && b.SessionID == id {
+					bound = b.Server
+				}
+				return rescueHandoff(f, handoffRescue{
+					text: text, src: src, sessionID: id, server: bound, summary: summary, answered: true,
+				}, err)
 			}
 			resp, err := gen.EndTeamSession(ctx, client, id, optStr(summary), optStr(text))
 			if err != nil {
-				return api.MapError(err)
+				// The handoff does not evaporate with the call that carried it.
+				// Only THIS path can be ambiguous: everything above either never
+				// reached the server or was refused locally.
+				//
+				// The definite wording is earned by a SPEC GUARANTEE, not
+				// inferred from the response shape (PR #528 review, Codex,
+				// twice). `cor:agt:020:10` says a failed handoff write refuses
+				// the end, so HANDOFF_WRITE_FAILED proves nothing committed.
+				// Nothing else does: GraphQL returns data AND errors when a
+				// nested resolver fails after the mutation ran, and null-
+				// bubbling from a non-null child nulls the payload even though
+				// the write happened — so neither an error's presence nor a
+				// payload's absence is proof.
+				return rescueHandoff(f, handoffRescue{
+					text: text, src: src, sessionID: id, summary: summary,
+					answered: api.EndRefusedBeforeCommit(err),
+				}, api.MapError(err))
 			}
 			// Clear the binding when it names the session we just ended.
 			if b != nil && b.SessionID == id {
@@ -1730,31 +1820,329 @@ func sessionStartWorkerDTO(w gen.WorkerFields) sessionStartWorker {
 // What it keeps from that precedent is refusing an EXPLICIT empty: someone who
 // typed --handoff "" or pointed at an empty file meant to write something, and
 // silently ending with no record is the outcome #1029 exists to prevent.
-func resolveHandoff(cmd *cobra.Command, handoff, handoffFile string, stdin io.Reader) (string, error) {
+// rescueHandoff spills a handoff the server did not accept, and tells the
+// caller where it went and how to retry with it.
+//
+// `cor:agt:020:10` refuses the END when the handoff write fails, precisely so a
+// transient failure cannot destroy "prose that exists nowhere else … at the
+// moment its author has stopped working and cannot be asked to retype it".
+// That protects the SESSION. It does not protect the PROSE, and this client had
+// a path where the client itself was the destroyer: `--handoff -` drains stdin
+// into memory, so a refused end discarded the only copy and the pipe was
+// already consumed. The spec's own rationale, one layer below the layer it
+// governs.
+//
+// Spills on ANY end failure, not only HANDOFF_WRITE_FAILED. A transport error
+// leaves us unable to tell whether the handoff was written, and a spare file is
+// cheap while retyping a stint's closing prose is not. Retrying against it is
+// safe either way: the sequence is append-only per STINT, not per write, so a
+// handoff already recorded is not duplicated by a second attempt
+// (`cor:agt:020:10`).
+//
+// BEST EFFORT, and never masks the real error. A failure to spill is reported
+// and the original error still returns — swapping the server's refusal for a
+// local file-write error would hide the thing the caller has to act on.
+// handoffRescue is what a failed end was carrying, and what a retry needs to
+// reproduce the SAME invocation.
+//
+// A struct rather than five positional arguments: the two booleans-and-strings
+// nearest each other (server, summary) are both "carry this across to the
+// retry", and getting them the wrong way round would compile.
+type handoffRescue struct {
+	text string
+	// src is where the prose came from, and it decides what the last-resort
+	// branch may PRINT. Only a consumed stdin has no other copy.
+	src       handoffSource
+	sessionID string
+	// server OVERRIDES the invocation's own --server in the printed retry.
+	// Exactly one caller needs that and the reason is sharp (PR #528 review,
+	// Codex): on a binding/server MISMATCH the invocation resolved the WRONG
+	// deployment — that is what was refused — so composing the retry from it
+	// would print a command carrying the rejected server plus an explicit
+	// --session, which bypasses the very check that refused. Pasting it would
+	// send the handoff to the wrong deployment, and to an unrelated session
+	// there if ids overlap.
+	server string
+	// summary is carried so a retry reproduces the whole invocation. Dropping
+	// it would let a pasted command succeed while silently leaving a label the
+	// caller explicitly asked for unset (PR #528 review, Codex).
+	summary string
+	// answered: the server responded AND committed nothing, so the handoff is
+	// definitely not recorded. False for a transport failure (the request may
+	// have been applied and only the reply lost) and for a PARTIAL SUCCESS —
+	// GraphQL returns data plus errors when a nested resolver fails after the
+	// mutation ran, and this operation selects a nullable nested worker, so an
+	// answer alone does not mean a refusal. See rescueHandoff.
+	answered bool
+}
+
+// rescueHandoff spills a handoff the server did not record, and tells the
+// caller where it went and how to retry with it.
+//
+// `cor:agt:020:10` refuses the END when the handoff write fails, precisely so a
+// transient failure cannot destroy "prose that exists nowhere else … at the
+// moment its author has stopped working and cannot be asked to retype it".
+// That protects the SESSION. It does not protect the PROSE, and this client had
+// a path where the client itself was the destroyer: `--handoff -` drains stdin
+// into memory, so a refused end discarded the only copy and the pipe was
+// already consumed. The spec's own rationale, one layer below the layer it
+// governs.
+//
+// WHAT IT CLAIMS DEPENDS ON WHAT IT KNOWS (PR #528 review, Codex). A refusal
+// the server ANSWERED means nothing was committed, and saying so is a fact. A
+// transport failure means the end may have succeeded with only the reply lost,
+// and asserting "NOT recorded" there is a claim about server state the client
+// does not have — the more so because a later retry failing would then look
+// like confirmation of data loss. The REMEDY is identical either way, because
+// one stint records one handoff and a duplicate cannot be appended, so only the
+// wording changes.
+//
+// BEST EFFORT, and never masks the real error. A failure to spill is reported
+// and the original error still returns — swapping the server's refusal for a
+// local file-write error would hide the thing the caller has to act on.
+func rescueHandoff(f *cmdutil.Factory, r handoffRescue, cause error) error {
+	if strings.TrimSpace(r.text) == "" {
+		return cause // nothing was at risk
+	}
+	outcome := "may not have been recorded"
+	if r.answered {
+		outcome = "was NOT recorded"
+	}
+	path, werr := spillHandoff(r.text)
+
+	// JSON MODE PUTS THIS INSIDE THE ERROR, NOT BESIDE IT (PR #528 review,
+	// Codex P1). Under --json the error envelope `{"error":{…}}` is written to
+	// STDERR, so a plain-text notice on the same stream leaves stderr
+	// unparseable — and it would do so on precisely the recovery path an agent
+	// most needs to read. The human branch prints separately because there
+	// stderr carries no document.
+	//
+	// Folded into the message rather than added as a new key: the `--json`
+	// error shape is `{code, message}` for every command, and widening it from
+	// one command's rescue path would be a contract change made in the wrong
+	// place.
+	if f.JSON {
+		if werr != nil {
+			return exitcode.New(exitcode.FromError(cause),
+				fmt.Errorf("%w — the handoff %s and could not be saved locally either (%v). %s",
+					cause, outcome, werr, strings.TrimSpace(lastResort(r))))
+		}
+		return exitcode.New(exitcode.FromError(cause),
+			fmt.Errorf("%w — the handoff %s and was saved to %s; %s (safe to retry: one stint "+
+				"records one handoff, so this cannot double-write)",
+				cause, outcome, path, retryLine(f, r, path)))
+	}
+
+	if werr != nil {
+		fmt.Fprintf(f.IOStreams.ErrOut,
+			"! the handoff %s, and could not be saved locally either (%v).\n%s",
+			outcome, werr, lastResort(r))
+		return cause
+	}
+	fmt.Fprintf(f.IOStreams.ErrOut,
+		"! the handoff %s. Saved it to %s\n"+
+			"  %s\n"+
+			"  (safe to retry — one stint records one handoff, so this cannot double-write.)\n",
+		outcome, path, retryLine(f, r, path))
+	return cause
+}
+
+// lastResort says how to recover the prose when even the spill failed.
+//
+// PRINTING IT IS THE LAST OPTION, not the first (PR #528 review, Codex). A
+// handoff is a stint's working notes — what is blocked, what is half-done, which
+// customer — and stderr is retained in CI logs and agent transcripts. Dumping it
+// there when a perfectly good copy already exists is needless exposure of
+// exactly the content this team is careful about elsewhere.
+//
+// So it is printed only when the prose genuinely has nowhere else to be: a
+// CONSUMED STDIN. A --handoff-file still has its file (checked, not assumed —
+// the spill may have failed because the disk filled, which could equally have
+// truncated something else), and an inline --handoff was typed as an argument,
+// so the caller's shell history or the agent's own context still holds it.
+func lastResort(r handoffRescue) string {
+	if r.src.path != "" {
+		if _, err := os.Stat(r.src.path); err == nil {
+			return "  Your handoff is unchanged at " + r.src.path + " — retry with --handoff-file.\n"
+		}
+		// The source is GONE, so the in-memory copy is now the only one. Checked
+		// rather than assumed for exactly this reason: the spill may have failed
+		// because the disk filled or the volume went away, and either could have
+		// taken the source with it. Pointing at a file that is not there would
+		// be the most confident possible way to lose the prose.
+		return printableHandoff(r.text)
+	}
+	if !r.src.fromStdin {
+		// Passed as an argument: the caller's shell history or the calling
+		// process still has it, so print the remedy rather than the content.
+		return "  Re-run with --handoff-file, or pass the same --handoff text again.\n"
+	}
+	// Consumed from a pipe and never displayed: there is no scrollback holding
+	// it and it is gone when this process exits.
+	return printableHandoff(r.text)
+}
+
+// printableHandoff renders the prose itself, delimited so multi-line text is
+// separable from the diagnostics around it by eye and by script.
+func printableHandoff(text string) string {
+	return "  It is printed below because there is nowhere else it survives — copy it now.\n" +
+		"----- handoff begins -----\n" + text + "\n----- handoff ends -----\n"
+}
+
+// retryLine renders the recovery command, carrying enough of the ORIGINAL
+// invocation that running it targets the same thing and asks for the same
+// outcome.
+//
+// TWO SHAPES, because "ready-to-run" is only a promise that can be kept on
+// POSIX (PR #528 review, Codex). There, single-quoting makes every argument
+// literal and the line is pasteable as printed. On Windows the arguments are
+// listed as DATA instead: no quoting a Go process can apply survives both
+// cmd.exe's %VAR% and PowerShell's $var expansion, and it cannot tell which it
+// is talking to — so printing a command line there would be advertising a
+// guarantee that does not hold, which is the defect this whole command exists
+// to stop, applied to its own output.
+//
+// Without a session id there is no full command to give: the failure happened
+// before one was resolved (no binding in this worktree, or an unreadable one).
+// It names the flag as the thing the caller must supply instead of pretending
+// to know it.
+func retryLine(f *cmdutil.Factory, r handoffRescue, path string) string {
+	server := r.server
+	if server == "" {
+		server, _ = f.Server()
+	}
+	// The placeholder is NOT quoted: it is a slot for the reader to fill, and
+	// `'<id>'` reads like a value they should paste verbatim. Kept out of
+	// shellQuote rather than special-cased inside it, so that function keeps
+	// one job.
+	session := "<id>"
+	if r.sessionID != "" {
+		session = shellQuote(r.sessionID)
+	}
+	if runtime.GOOS == "windows" {
+		out := "retry `hadron team session end` with:"
+		if server != "" {
+			out += "\n            --server        " + server
+		}
+		// --json is carried because an agent chose it: a retry that succeeds
+		// with human output breaks the parser waiting on the other end (PR #528
+		// review, Codex).
+		if f.JSON {
+			out += "\n            --json"
+		}
+		if r.summary != "" {
+			out += "\n            --summary       " + r.summary
+		}
+		out += "\n            --session       " + session +
+			"\n            --handoff-file  " + path +
+			"\n          (values shown raw — quote them as your shell requires)"
+		if r.sessionID == "" {
+			out += "\n          (this failed before a session was resolved, so supply the id)"
+		}
+		return out
+	}
+	args := "hadron team session end"
+	if server != "" {
+		args += " --server " + shellQuote(server)
+	}
+	if f.JSON {
+		args += " --json"
+	}
+	if r.summary != "" {
+		args += " --summary " + shellQuote(r.summary)
+	}
+	args += " --session " + session + " --handoff-file " + shellQuote(path)
+	if r.sessionID == "" {
+		return "retry:  " + args +
+			"\n          (this failed before a session was resolved, so supply the id)"
+	}
+	return "retry:  " + args
+}
+
+// shellQuote makes an argument safe to paste into a POSIX shell.
+//
+// POSIX ONLY, deliberately, and the retry rendering below is what makes that
+// honest: on Windows the command is not presented as pasteable at all.
+//
+// The history is worth keeping, because the second attempt looked right (PR
+// #528 review, Codex, three times). Single-quoting is wrong on Windows —
+// backslashes are the path separator, and cmd.exe reads single quotes as
+// literal characters. Double quotes are ALSO wrong: cmd.exe still expands
+// %VAR% inside them and PowerShell still expands $var, so a summary containing
+// either is silently altered by the command that promised to reproduce the
+// invocation. And a Go process cannot reliably tell which of the two shells it
+// would be pasted into.
+//
+// So there is no double-quote rule that serves both, which means the fix is not
+// better escaping — it is not claiming to have escaped. Inside single quotes on
+// POSIX every character except `'` is literal, so that promise IS keepable
+// there, and it is kept.
+func shellQuote(s string) string {
+	if s != "" && !strings.ContainsAny(s, " \t\n\r\v\"'\\$`&;|<>()*?[]{}#~!=") {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// spillHandoff writes the prose somewhere the caller can get it back.
+//
+// Cleans up after itself on failure and CHECKS Close (PR #528 review, Copilot).
+// Close is part of the write, not a formality: a deferred, ignored Close can
+// swallow a flush error, and this function's whole contract is that the path it
+// returns holds the prose. Returning a path to a truncated file would be the
+// reassurance-without-the-thing failure, in the one place a caller has nothing
+// else left to fall back on.
+func spillHandoff(text string) (string, error) {
+	f, err := os.CreateTemp("", "hadron-handoff-*.md")
+	if err != nil {
+		return "", err
+	}
+	name := f.Name()
+	if _, err := f.WriteString(text); err != nil {
+		_ = f.Close()
+		_ = os.Remove(name) // no half-written file left claiming to be a handoff
+		return "", err
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(name)
+		return "", err
+	}
+	return name, nil
+}
+
+// handoffSource says where the prose came from, which decides what the
+// last-resort branch may print (PR #528 review, Codex).
+type handoffSource struct {
+	path      string // non-empty when it came from --handoff-file
+	fromStdin bool   // `--handoff -`: consumed, and held nowhere else
+}
+
+func resolveHandoff(cmd *cobra.Command, handoff, handoffFile string, stdin io.Reader) (string, handoffSource, error) {
 	changed := cmd.Flags().Changed
 	if !changed("handoff") && !changed("handoff-file") {
-		return "", nil
+		return "", handoffSource{}, nil
 	}
 	var text string
+	var src handoffSource
 	switch {
 	case changed("handoff-file"):
 		data, err := os.ReadFile(handoffFile) // #nosec G304 — an operator-supplied path is the point
 		if err != nil {
-			return "", exitcode.Newf(exitcode.Usage, "reading --handoff-file: %v", err)
+			return "", handoffSource{}, exitcode.Newf(exitcode.Usage, "reading --handoff-file: %v", err)
 		}
-		text = string(data)
+		text, src.path = string(data), handoffFile
 	case handoff == "-":
 		data, err := io.ReadAll(stdin)
 		if err != nil {
-			return "", exitcode.Newf(exitcode.Usage, "reading the handoff from stdin: %v", err)
+			return "", handoffSource{}, exitcode.Newf(exitcode.Usage, "reading the handoff from stdin: %v", err)
 		}
-		text = string(data)
+		text, src.fromStdin = string(data), true
 	default:
 		text = handoff
 	}
 	if strings.TrimSpace(text) == "" {
-		return "", exitcode.Newf(exitcode.Usage,
+		return "", handoffSource{}, exitcode.Newf(exitcode.Usage,
 			"the handoff is empty — write what the next driver needs, or omit --handoff to end without a continuity record")
 	}
-	return text, nil
+	return text, src, nil
 }

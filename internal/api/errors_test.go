@@ -288,3 +288,41 @@ func TestWorkerHoldStaleDetail(t *testing.T) {
 		t.Error("a plain error is not a typed refusal")
 	}
 }
+
+// EndRefusedBeforeCommit is deliberately ONE code, and the asymmetry is the
+// design (PR #528 review, Codex, twice).
+//
+// Saying "may not have been recorded" when it definitely was not is harmless —
+// the remedy is identical, since one stint records one handoff. Saying "was NOT
+// recorded" when it WAS is the worst sentence the command can print, and would
+// make a later retry failure look like confirmation of data loss.
+//
+// So: only a spec-backed guarantee earns the definite wording. cor:agt:020:10
+// says a failed handoff write refuses the end; nothing else here proves a
+// refusal, because GraphQL can return data with errors after a commit, and
+// null-bubbling can null the payload after one too.
+func TestEndRefusedBeforeCommit(t *testing.T) {
+	if !EndRefusedBeforeCommit(gqlErr("HANDOFF_WRITE_FAILED")) {
+		t.Error("the one spec-backed refusal must earn the definite wording")
+	}
+	// A transport failure is the case the ambiguity exists for.
+	if EndRefusedBeforeCommit(errors.New("connection reset")) {
+		t.Error("a lost reply proves nothing about what committed")
+	}
+	// Any other code stays ambiguous: it may have been raised AFTER the write.
+	for _, code := range []string{"INTERNAL_SERVER_ERROR", "UNAUTHENTICATED", "NOT_FOUND", ""} {
+		if EndRefusedBeforeCommit(gqlErr(code)) {
+			t.Errorf("%q is not a proof of pre-commit refusal", code)
+		}
+	}
+	// A MIXED envelope keeps the whole answer ambiguous: one unrecognized error
+	// beside the known one means something else also went wrong, and the "one
+	// recognized code" reasoning no longer covers the response.
+	mixed := gqlerror.List{
+		{Message: "handoff", Extensions: map[string]any{"code": "HANDOFF_WRITE_FAILED"}},
+		{Message: "and something else", Extensions: map[string]any{"code": "INTERNAL_SERVER_ERROR"}},
+	}
+	if EndRefusedBeforeCommit(mixed) {
+		t.Error("an unrecognized error beside the known one must not be read as a clean refusal")
+	}
+}

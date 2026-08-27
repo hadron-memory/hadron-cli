@@ -1089,15 +1089,69 @@ Conventions:
   quoting is its own hazard. It is written BEFORE the session ends and a failed
   write REFUSES the end (`HANDOFF_WRITE_FAILED`, exit 1) rather than ending
   anyway: a still-bound worker is recoverable, an ended session whose handoff
-  evaporated is not. Passing it on a session with no worker is refused — there
-  is no sequence to write to. An EXPLICIT empty handoff is refused exit 2
-  (somebody meant to write something); omitting it entirely is the normal way
-  to end without a record.
+  evaporated is not. **That ordering is a platform guarantee**
+  (`cor:agt:020:10`), not this client's choice. Passing it on a session with no
+  worker is refused — there is no sequence to write to. An EXPLICIT empty
+  handoff is refused exit 2 (somebody meant to write something); omitting it
+  entirely is the normal way to end without a record, and the next bind is told
+  a stint ended without one rather than being left to read silence.
+  **RETRY IS SAFE and cannot double-write.** One stint records one handoff, and
+  that is keyed on the STINT rather than on whether a write already happened —
+  so a crash between the handoff and the close does not leave a second attempt
+  appending a duplicate (`cor:agt:020:10`).
+  **IF THE END FAILS WHILE CARRYING A HANDOFF, THE CLI SAVES THE PROSE** to a
+  temp file and reports the path with the retry that recovers it (ready-to-run
+  on POSIX; raw argument values on Windows — see below). **Under `--json` those
+  details are folded into the error's `message`**, not printed beside it: in
+  JSON mode the `{"error":{…}}` envelope is written to STDERR, so a plain-text
+  notice on the same stream would leave stderr unparseable on exactly the
+  recovery path an agent needs to read. Without `--json` it goes to stderr as
+  human text. The guarantee above protects the SESSION;
+  it cannot protect text that only ever existed in this process, which is
+  exactly the case for `--handoff -` once the pipe has been drained. This holds
+  for EVERY failure that can happen once the handoff has been taken — no
+  binding, an unreadable one, a server mismatch, missing credentials, the
+  mutation itself — not only for `HANDOFF_WRITE_FAILED`. The retry reproduces
+  the original invocation, carrying `--server` and `--summary` so a pasted
+  command targets the same deployment and asks for the same outcome; on a
+  binding/server mismatch it names the BINDING's server, since the retry's
+  explicit `--session` bypasses the check that refused. **On POSIX the retry is
+  a pasteable command line** (single-quoted, so every argument is literal). **On
+  Windows the arguments are listed as raw values instead** — no quoting a
+  process can apply survives both `cmd.exe`'s `%VAR%` and PowerShell's `$var`
+  expansion, and it cannot tell which it is talking to, so presenting a command
+  line there would advertise a guarantee that does not hold.
+  **The wording distinguishes what the CLI KNOWS, and it knows less than you
+  might expect.** It says `was NOT recorded` for exactly ONE outcome:
+  `HANDOFF_WRITE_FAILED`, because `cor:agt:020:10` guarantees a failed handoff
+  write refuses the end. **Every other failure says `may not have been
+  recorded`** — including other GraphQL errors, because an answered refusal does
+  NOT prove nothing committed: a resolver can fail AFTER the write, GraphQL can
+  return data alongside errors, and null-bubbling can empty the payload on a run
+  that succeeded. A transport failure is unknowable for the same reason. So do
+  not read a generic error as proof the handoff was lost. The remedy is
+  identical either way, because one stint records one handoff — the asymmetry is
+  deliberate: overstating certainty here would make a later retry failure look
+  like confirmation of data loss.
+  **If the local save ALSO fails**, what happens depends on WHERE the handoff
+  came from, because printing it is the last option rather than the first — a
+  handoff is a stint's working notes and stderr is retained in CI logs and agent
+  transcripts. `--handoff-file` is pointed back at its own file (checked, not
+  assumed: the spill may have failed for a reason that took the source too, and
+  then it IS printed). An inline `--handoff <text>` is not reprinted, since the
+  shell history or the calling process still holds it. **A consumed `--handoff -`
+  IS printed**, between `----- handoff begins/ends -----` markers, because it
+  went from the pipe into memory and was never displayed: there is no scrollback
+  holding it, and telling you to copy it from your terminal would be an
+  instruction you could not follow.
   **`--summary <s>` is a different field and the next driver never sees it** —
-  a display-only label on the session row, the write-only field #1029 was filed
-  to fix. Both are kept because collapsing them is a decision about that
-  feature's shape, not this flag's; if you are writing one thing for whoever
-  comes next, write `--handoff`. `end --session <id>` is the recovery path when the binding is
+  a display-only label on the session row. Not a quirk of today's build:
+  `cor:agt:020:10` makes `--handoff` the ONE field carrying continuity and any
+  other free-text field on a session display-only unless the corpus says
+  otherwise, so **writing continuity into `--summary` is a contract violation
+  rather than a naming preference — and it fails silently, producing no error
+  and no record.** Both are kept deliberately; if you are writing one thing for
+  whoever comes next, write `--handoff`. `end --session <id>` is the recovery path when the binding is
   gone or unusable (including one written by a pre-Worker CLI, which whoami
   reports as a degraded read); `end` also refuses (exit 2) when the binding
   was started against a different `--server` than the current one.
