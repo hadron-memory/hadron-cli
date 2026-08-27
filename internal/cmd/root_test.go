@@ -128,6 +128,24 @@ func testFactory(t *testing.T) (*cmdutil.Factory, *strings.Builder) {
 	return f, out
 }
 
+// testFactoryTTY is testFactory with an ANSWERABLE stdin, so a test can reach
+// the prompt branch of cmdutil.Confirm / ConfirmDeletion (#525) instead of its
+// non-interactive refusal. `answers` is what a person would type, one line per
+// prompt — "y\n" to consent, "n\n" to decline.
+//
+// It returns STDERR as well as stdout, which testFactory does not, because that
+// is where a prompt renders: asserting on stdout alone would find an empty
+// string and read as "no prompt shown".
+func testFactoryTTY(t *testing.T, answers string) (*cmdutil.Factory, *strings.Builder, *strings.Builder) {
+	t.Helper()
+	f, out := testFactory(t)
+	errOut := &strings.Builder{}
+	tty, _, _ := output.TestTTY(answers)
+	tty.Out, tty.ErrOut = out, errOut
+	f.IOStreams = tty
+	return f, out, errOut
+}
+
 func TestMemoryLsJSON(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
 		"Memories": `{"data":{"memories":{"total":1,"items":[
