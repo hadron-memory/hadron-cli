@@ -1054,6 +1054,49 @@ func TestNodeRmRequiresYesNonInteractive(t *testing.T) {
 	}
 }
 
+// ConfirmDeletion's prompt branch, reached for the first time (#525).
+//
+// The test below asserts the confirmation's TARGET through the non-interactive
+// refusal, because that was the only surface a test could read: ConfirmDeletion
+// refuses before composing the prompt, so "refusing to delete <what>" was a
+// proxy for a sentence nobody could see. The proxy shares the `what` argument
+// but not the sentence around it — "This cannot be undone." is the part that
+// makes a caller stop, and it appeared in no test at all.
+//
+// This is also the reach check for the seam: `worker release` is Confirm, this
+// is ConfirmDeletion, and the same seam drives both — so the other 40-odd
+// destructive call sites are now testable by construction rather than by
+// someone repeating this work per command.
+func TestNodeRmPromptSaysItCannotBeUndoneAndDeclineChangesNothing(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"DeleteNode": `{"data":{"deleteNode":true}}`,
+	})
+	f, _, errOut := testFactoryTTY(t, "n\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "rm", nodeURN, "--recursive", "--hard", "--server", gql.URL})
+
+	err := root.Execute()
+	if code := exitcode.FromError(err); code != exitcode.Cancelled {
+		t.Errorf("declining must exit Cancelled, got %d (err: %v)", code, err)
+	}
+	if _, called := captured["DeleteNode"]; called {
+		t.Error("the delete ran after the confirmation was declined")
+	}
+	prompt := errOut.String()
+	if !strings.Contains(prompt, "This cannot be undone.") {
+		t.Errorf("a deletion prompt must say it is irreversible: %q", prompt)
+	}
+	// The blast radius the sibling test can only observe via the refusal.
+	if !strings.Contains(prompt, "subtree") || !strings.Contains(prompt, "HARD") {
+		t.Errorf("the prompt must name the subtree and HARD blast radius: %q", prompt)
+	}
+	if !strings.Contains(prompt, "Aborted.") {
+		t.Errorf("declining must say so rather than exiting silently: %q", prompt)
+	}
+}
+
 // The confirmation target names the subtree + hard blast radius, surfaced here
 // via the non-interactive "refusing to delete <what>" message (#239).
 func TestNodeRmRecursiveHardPromptWording(t *testing.T) {
