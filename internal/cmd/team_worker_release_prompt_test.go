@@ -180,6 +180,52 @@ func TestWorkerReleaseStalePromptHedgesWhenIdentityIsUnreadable(t *testing.T) {
 	}
 }
 
+// The TWO-CONFIRMATION path: `worker release` asks for the force-release, the
+// server then answers WORKER_HOLD_STALE, and it asks again. One command, two
+// prompts, two answers.
+//
+// This is the case @codex found the seam could not serve on PR #531 — a
+// strings.Reader hands the whole script to the FIRST prompt's scanner, so the
+// second saw EOF and returned Cancelled: a decline nobody wrote, wearing the
+// face of a prompt working correctly. Pinned at the command level rather than
+// only on the reader, because "both prompts got their own answer" is the
+// property that matters and the reader is only how it is achieved.
+func TestWorkerReleaseAnswersBothPromptsInOneRun(t *testing.T) {
+	srv, seen := releaseSequence(t, heldBy("u-dara"),
+		[]string{holdStale("u-gil"), releasedOK}, map[string]string{
+			"GetUser": `{"data":{"user":{"id":"u-gil","name":"Gil","email":null,"handle":"gil",
+				"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
+				"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
+		})
+	f, out, errOut := testFactoryTTY(t, "y\ny\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "release", "Iris",
+		"--app", "acme.com:eng-team", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("both prompts were answered yes — the release must complete: %v", err)
+	}
+
+	prompt := errOut.String()
+	// The force prompt…
+	if !strings.Contains(prompt, "POSTS TO THE TEAM CHAT") {
+		t.Errorf("the first prompt is missing: %q", prompt)
+	}
+	// …and then the retry's own, which only renders if the second answer
+	// arrived. Before the fix this run died at Cancelled with one prompt shown.
+	if !strings.Contains(prompt, "not what this command classified") {
+		t.Errorf("the second prompt never got its answer: %q", prompt)
+	}
+	if len(*seen) != 2 {
+		t.Fatalf("want the refused call and the consented retry, got %d", len(*seen))
+	}
+	// FORCE-released, not merely released: the name was held by someone else,
+	// which is what both prompts warned about. The receipt must say the act the
+	// caller consented to, not a milder one.
+	if receipt := out.String(); !strings.Contains(receipt, "✓ force-released Iris from Gil") {
+		t.Errorf("a doubly-consented force-release must report what it did: %q", receipt)
+	}
+}
+
 // Declining the retry stops after the refused call. The prompt's whole purpose
 // is that a force-release the caller did not consent to does not happen, and
 // "the second call is absent" is the only evidence of that.

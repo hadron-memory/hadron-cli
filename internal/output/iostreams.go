@@ -39,40 +39,67 @@ func Test() (*IOStreams, *bytes.Buffer, *bytes.Buffer) {
 	return &IOStreams{In: &bytes.Buffer{}, Out: out, ErrOut: errOut}, out, errOut
 }
 
-// TestTTY returns IOStreams whose STDIN is an answerable terminal, with
-// `answers` standing in for what a person would type — one line per prompt.
+// TestTTY returns IOStreams whose stdin is an answerable terminal (#525), with
+// `answers` standing in for what a person types — one line per prompt, in
+// order. Stdout is left non-terminal. Returns the stdout and stderr buffers;
+// a prompt renders on stderr.
 //
-// This is the seam for hadron-cli#525. Test() leaves inIsTerminal false and
-// there is no setter, so cmdutil.Confirm and ConfirmDeletion refuse as
-// non-interactive BEFORE composing their prompt — putting every confirmation in
-// the CLI beyond the reach of a command-level test. Not one untested guard: a
-// door with no handle, which every future confirmation inherits. The concrete
-// cost was a mutation flipping `staleReleasePrompt`'s meKnown argument to true
-// and passing the entire suite (PR #524), because the call site behind Confirm
-// could not be driven. Extracting the composition pins the STRING; only this
-// pins the CHOICE OF ARGUMENTS.
+// Why it exists: cmdutil.Confirm and ConfirmDeletion refuse as non-interactive
+// BEFORE composing their prompt, and Test() has no way to say otherwise, so
+// every confirmation in the CLI was beyond the reach of a command-level test —
+// a door with no handle that each new confirmation inherits.
 //
-// The answers are a CONSTRUCTOR ARGUMENT rather than a field a caller sets
-// afterwards, because the half-configured state is a trap that looks like a
-// result. Test()'s In is an empty buffer, so flipping the TTY bit alone makes
-// scanner.Scan() return false and Confirm returns Cancelled — a DIFFERENT
-// unreachable branch, and one indistinguishable from a person answering "no".
-// Requiring the answers up front means the seam cannot be half-used.
+// Three properties, each load-bearing:
 //
-// Stdout is deliberately NOT marked a terminal. Confirm reads stdin only, and
-// interactive-stdin-with-redirected-stdout is a real configuration a user has
-// (`hadron … | less` from a shell), so this is an honest process state rather
-// than a shape that exists only in tests. Widen it when something needs the
-// stdout branch, not before.
+//   - The answers are a CONSTRUCTOR argument, not a field set afterwards.
+//     Test()'s In is an empty buffer, so flipping the TTY bit alone makes
+//     scanner.Scan() return false and Confirm returns Cancelled — a different
+//     unreachable branch, indistinguishable from a person answering "no". A
+//     seam that can be half-used yields a green test proving nothing.
+//   - One line PER READ, via lineReader rather than strings.NewReader. See
+//     lineReader for why; a command that prompts twice is the case.
+//   - Stdout stays non-terminal. Confirm reads stdin only, and interactive
+//     stdin with redirected stdout is a real process state (`hadron … | less`),
+//     so this is an honest configuration rather than a test-only shape. Widen
+//     it when something needs the stdout branch, not before.
 func TestTTY(answers string) (*IOStreams, *bytes.Buffer, *bytes.Buffer) {
 	out := &bytes.Buffer{}
 	errOut := &bytes.Buffer{}
 	return &IOStreams{
-		In:           strings.NewReader(answers),
+		In:           &lineReader{rest: answers},
 		Out:          out,
 		ErrOut:       errOut,
 		inIsTerminal: true,
 	}, out, errOut
+}
+
+// lineReader hands over at most ONE line per Read, which is what lets a script
+// of answers survive more than one prompt.
+//
+// Each cmdutil.Confirm builds its own bufio.Scanner, and a scanner fills a
+// private buffer on its first Read. Given a strings.Reader the first scanner
+// therefore takes the WHOLE script, returns line 1, and discards the rest when
+// it goes out of scope — so a command that asks twice (`worker release` prompts
+// for the force-release, then again on WORKER_HOLD_STALE) sees EOF on the
+// second prompt and returns Cancelled. That is a decline nobody wrote, and it
+// looks exactly like the prompt working: the seam's own failure mode is the one
+// it was built to eliminate. Found by @codex on PR #531.
+//
+// Stopping at the newline keeps each scanner's buffered read to a single
+// answer, so the reader's position is where the next Confirm expects it.
+type lineReader struct{ rest string }
+
+func (r *lineReader) Read(p []byte) (int, error) {
+	if r.rest == "" {
+		return 0, io.EOF
+	}
+	line := r.rest
+	if i := strings.IndexByte(line, '\n'); i >= 0 {
+		line = line[:i+1]
+	}
+	n := copy(p, line)
+	r.rest = r.rest[n:]
+	return n, nil
 }
 
 // IsTerminal reports whether stdout is a TTY.
