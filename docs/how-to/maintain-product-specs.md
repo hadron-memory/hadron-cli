@@ -290,6 +290,51 @@ hadron spec link cli:cha:010:04 cli:cha:010:01 -m $M --dry-run
 hadron spec link cli:cha:010:04 cli:cha:010:01 -m $M --label "documents retry timing"
 ```
 
+## Checking a URN you wrote into a spec
+
+A worked example is the one part of a spec a reader *executes*, so when the
+prose and the example disagree, **the example wins in practice and the prose
+rots unread**. That is not hypothetical: `cor:urn:010:04` stated an App-scoped
+memory shape one way and its own example decomposed another way, forty lines
+apart, and nothing caught it — nobody diffs a spec against itself.
+
+**Decomposition happens BEFORE lookup, so a failing read names the memory it
+tried.** That makes a not-found error a free parser oracle: no fixture, no
+library, no checkout, and it works against any deployment.
+
+```
+hadron_get_node hrn:node:acme.com::mmdata::services::query   # legacy :: chain, accepted forever
+  → Memory not found: "acme.com:mmdata:services".        ← the boundary, stated
+
+hadron_get_node hrn:node:acme.com:mmdata:services:query      # the v2 form we emit
+  → Memory not found: "acme.com:mmdata".
+```
+
+Both spellings are legal and they address **different memories** — the v1 `::`
+chain uses the *last-segment* reading (the memory is everything but the final
+segment), while flat v2 is fixed-arity (the first two atoms). So collapsing the
+doubled colons is not a spelling change; it moves the boundary. Run the probe
+on every URN literal you put in a spec, and paste the answer beside the prose
+before deciding which of the two is wrong.
+
+Three traps, all of them load-bearing:
+
+- **The probe needs the MCP surface, not the CLI.** `hadron node get` renders
+  its own not-found message, and GraphQL `resolveUrn` / `node(ref:)` return a
+  bare `null` — neither reports the memory that was attempted. Only
+  `hadron_get_node` surfaces it (hadron-server `src/mcp/server.ts`, which
+  splits and then names what it looked up).
+- **Do not substitute a local library for the probe.** `urn-lib-go`'s
+  `SplitNodeUrn` applies the flat-v2 rule to `::` chains too, so it disagrees
+  with the platform from the fourth segment on — including on `cor:urn:010:04`'s
+  own example. A decomposition you did not get from the platform is a guess that
+  looks like a measurement. See
+  `findings:splitnodeurn-disagrees-with-the-server-on-deep-chains`.
+- **A bare citation is decomposable-looking.** `cor:urn:010:04` splits happily
+  into memory `cor:urn` + loc `010:04` with no error. When you are checking by
+  eye or by script, key on URN *shape* — a scheme prefix, or a `::` chain —
+  never on "it parsed".
+
 ## Replacing a spec
 
 Numbers are never reused. To change a binding rule, mint a replacement and
