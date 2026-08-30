@@ -304,11 +304,15 @@ library, no checkout, and it works against any deployment.
 
 ```
 hadron_get_node hrn:node:acme.com::mmdata::services::query   # legacy :: chain, accepted forever
-  → Memory not found: "acme.com:mmdata:services".        ← the boundary, stated
+  Memory not found: "acme.com:mmdata:services".
 
 hadron_get_node hrn:node:acme.com:mmdata:services:query      # the v2 form we emit
-  → Memory not found: "acme.com:mmdata".
+  Memory not found: "acme.com:mmdata".
 ```
+
+The quoted name in each answer **is the boundary** — everything the platform
+read as the memory, so whatever remains is the loc. Reproduce it verbatim,
+trailing period included; that is the message as the server emits it.
 
 Both spellings are legal and they address **different memories** — the v1 `::`
 chain uses the *last-segment* reading (the memory is everything but the final
