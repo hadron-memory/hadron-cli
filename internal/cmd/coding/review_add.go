@@ -225,10 +225,10 @@ existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + 
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to add the check to (hrn:mem:<root>:<slug>)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to add the check to, hrn:mem:<root>:<slug> (required)")
 	cmd.Flags().StringVar(&root, "root", reviewRootLoc, "loc of the review parent node")
-	cmd.Flags().StringVar(&trigger, "trigger", "", `the condition the check fires on ("Applies when" is prepended if absent)`)
-	cmd.Flags().StringVar(&description, "description", "", "one-line description (what it checks — applies when …)")
+	cmd.Flags().StringVar(&trigger, "trigger", "", `the condition the check fires on ("Applies when" is prepended if absent) (required)`)
+	cmd.Flags().StringVar(&description, "description", "", "one-line description (what it checks — applies when …) (required)")
 	cmd.Flags().StringVar(&scope, "scope", "", "the Scope blockquote's condition (default: the trigger)")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `node body ("-" reads stdin; default: a Scope-first scaffold)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read the node body from a file")
@@ -236,7 +236,28 @@ existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + 
 	cmd.Flags().StringArrayVar(&links, "link", nil,
 		"cross-link to a canonical node: <node-ref>[=<label>], a bare loc in this memory or a URN/id anywhere (repeatable)")
 	cmd.Flags().IntVar(&seq, "seq", 0, "explicit sibling ordering")
+	// EVERY genuinely-required flag is marked, so cobra reports the whole set in
+	// one message (hadron-cli#533). Marking only some serialises the failures:
+	// the parser rejects the unmarked-but-required ones only after the marked
+	// ones are satisfied, so a caller fixes one, re-runs, and hits the next.
+	// That is worst for the caller this command exists for — an agent composing
+	// a long invocation with --content-file, where each rejection costs a turn
+	// and the body has to be re-staged.
+	//
+	// The "(required)" in each usage string is NOT redundant with these calls.
+	// Cobra's default help template does not annotate required flags at all —
+	// measured on --trigger, which has been marked since this command shipped
+	// and still renders identically to the optional ones. So MarkFlagRequired
+	// buys batching and nothing else; discoverability has to be written by hand,
+	// and the parenthetical is this repo's existing convention for it.
+	//
+	// The hand-rolled emptiness checks in the RunE stay, and are not duplicates:
+	// MarkFlagRequired asserts the flag was SET, never that it is non-empty, so
+	// `--description ""` passes the parser and only the check refuses it. They
+	// also carry the REASON, which cobra's generic text cannot.
+	_ = cmd.MarkFlagRequired("memory")
 	_ = cmd.MarkFlagRequired("trigger")
+	_ = cmd.MarkFlagRequired("description")
 	return cmd
 }
 

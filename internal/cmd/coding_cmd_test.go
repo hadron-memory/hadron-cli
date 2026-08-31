@@ -637,7 +637,11 @@ func TestCodingReviewCreateRejectsBadInput(t *testing.T) {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs(append(args, "--server", "http://127.0.0.1:1"))
-		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		// exitCodeFor, not exitcode.FromError: cobra's own refusals (a missing
+		// required flag among them) are plain errors that only become exit 2 in
+		// the binary's classification step, so FromError alone measures a value
+		// no user ever sees (#533).
+		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 			t.Errorf("%v should be a usage error (2), got %d", args[3:], got)
 		}
 	}
@@ -1021,7 +1025,11 @@ func TestCodingPreflightCreateRejectsBadInput(t *testing.T) {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs(append(args, "--server", "http://127.0.0.1:1"))
-		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		// exitCodeFor, not exitcode.FromError: cobra's own refusals (a missing
+		// required flag among them) are plain errors that only become exit 2 in
+		// the binary's classification step, so FromError alone measures a value
+		// no user ever sees (#533).
+		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 			t.Errorf("%v should be a usage error (2), got %d", args[3:], got)
 		}
 	}
@@ -1039,7 +1047,7 @@ func TestCodingLintRequiresMemory(t *testing.T) {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs(append(args, "--server", "http://127.0.0.1:1"))
-		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 			t.Errorf("%v without -m should be a usage error, got %d", args, got)
 		}
 	}
@@ -1226,5 +1234,50 @@ func TestCodingPreflightRouteIgnoresDifferentlyLabelledEdge(t *testing.T) {
 	_ = json.Unmarshal([]byte(out.String()), &dto)
 	if dto.EdgeID == "e_other" {
 		t.Error("an edge with a different label is a different route — it must not be reported as this one")
+	}
+}
+
+// #533: every genuinely-required flag on the `coding` writers is marked, so
+// cobra reports the WHOLE missing set in one message instead of one per re-run.
+//
+// This pins the batching, which nothing else does. The hand-rolled emptiness
+// checks in each RunE already refuse a missing --description or -m with a
+// better message, so deleting a MarkFlagRequired call leaves every other test
+// green and silently restores the serialised failures the issue was filed
+// about — a guard with no constructible failing input
+// (review:a-mutation-check-can-itself-be-a-no-op). Asserting on the COUNT of
+// names in one refusal is what makes the mutation detectable.
+//
+// It deliberately asserts the flag NAMES rather than the exact sentence: the
+// wording is cobra's and may change under us, while "all of them, at once" is
+// the property #533 asked for.
+func TestCodingWritersReportEveryMissingRequiredFlagAtOnce(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		want []string
+	}{
+		{[]string{"coding", "review", "create", "x"}, []string{"description", "memory", "trigger"}},
+		{[]string{"coding", "preflight", "create", "findings:x"}, []string{"description", "memory", "route"}},
+	} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(tc.args, "--server", "http://127.0.0.1:1"))
+		err := root.Execute()
+		if err == nil {
+			t.Fatalf("%v: expected a refusal", tc.args)
+		}
+		msg := err.Error()
+		for _, name := range tc.want {
+			if !strings.Contains(msg, name) {
+				t.Errorf("%v: refusal must name every missing required flag; %q is absent from %q",
+					tc.args, name, msg)
+			}
+		}
+		// One round trip, not three: the caller must not have to fix one flag,
+		// re-run, and discover the next. That is the whole cost the issue
+		// measured, and it is worst for an agent re-staging --content-file.
+		if got := exitCodeFor(err); got != exitcode.Usage {
+			t.Errorf("%v: a missing required flag is a usage error (2), got %d", tc.args, got)
+		}
 	}
 }
