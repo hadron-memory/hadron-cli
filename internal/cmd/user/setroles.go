@@ -149,7 +149,7 @@ updateUserRoles takes a raw id and does no ref resolution of its own.`,
 		},
 	}
 	cmd.Flags().StringArrayVar(&roles, "role", nil,
-		"a role to set (repeatable): owner, admin, contributor, or reader — the flags together REPLACE the user's roles")
+		"a role to set (repeatable): owner, admin, contributor, or reader — the flags together REPLACE the user's roles (required)")
 	_ = cmd.MarkFlagRequired("role")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	return cmd

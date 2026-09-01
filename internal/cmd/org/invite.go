@@ -73,8 +73,8 @@ The returned "slug" is the acceptance token — the invitee redeems it with
 			return emitInvitation(f, invDTOFromFields(resp.CreateUserInvitation.InvitationFields), "✓ invited")
 		},
 	}
-	cmd.Flags().StringVar(&org, "org", "", "organization ID or URN")
-	cmd.Flags().StringVar(&role, "role", "", "member role: OWNER, ADMIN, CONTRIBUTOR, or READER")
+	cmd.Flags().StringVar(&org, "org", "", "organization ID or URN (required)")
+	cmd.Flags().StringVar(&role, "role", "", "member role: OWNER, ADMIN, CONTRIBUTOR, or READER (required)")
 	cmd.Flags().StringVar(&name, "name", "", "invitee display name (optional)")
 	cmd.Flags().StringVar(&github, "github", "", "invitee GitHub username (optional)")
 	cmd.Flags().IntVar(&expiresDays, "expires-days", 0, "days until the invitation expires (server default when unset)")

@@ -153,7 +153,7 @@ checks. Spec cor:api:010:02.`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&into, "into", "", "the surviving target user (id, handle, or hrn:user:<handle>)")
+	cmd.Flags().StringVar(&into, "into", "", "the surviving target user (id, handle, or hrn:user:<handle>) (required)")
 	_ = cmd.MarkFlagRequired("into")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	return cmd

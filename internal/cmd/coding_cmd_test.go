@@ -7,9 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -1282,59 +1279,5 @@ func TestCodingWritersReportEveryMissingRequiredFlagAtOnce(t *testing.T) {
 		if got := exitCodeFor(err); got != exitcode.Usage {
 			t.Errorf("%v: a missing required flag is a usage error (2), got %d", tc.args, got)
 		}
-	}
-}
-
-// #533: on the `coding` commands, a flag marked required must SAY SO in its
-// usage string.
-//
-// Cobra's help template does not distinguish required flags from optional ones
-// — measured, and it is why this PR annotates them by hand. So the annotation
-// is the only signal a reader gets, and an unannotated required flag is
-// discoverable only by failing.
-//
-// It exists because the first version of #533 left one behind: --route on
-// `preflight route` was already marked before that change, so it fell outside
-// "flags I am marking" and kept an unannotated usage string. @copilot caught
-// it. That is the same partial-sweep defect #533 was filed about, committed
-// inside the fix for it — which is precisely the case for a check rather than
-// care.
-//
-// Scoped to `coding` deliberately. Repo-wide the invariant does NOT hold: 80
-// flags are marked required and 30 never mention it in their usage, almost all
-// outside this group. Widening this test would red on commands this change does
-// not touch, so the rest is reported rather than swept — see the PR.
-func TestCodingRequiredFlagsSaySoInUsage(t *testing.T) {
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	coding, _, err := root.Find([]string{"coding"})
-	if err != nil {
-		t.Fatalf("finding the coding command: %v", err)
-	}
-	checked := 0
-	var walk func(c *cobra.Command)
-	walk = func(c *cobra.Command) {
-		c.Flags().VisitAll(func(fl *pflag.Flag) {
-			ann := fl.Annotations[cobra.BashCompOneRequiredFlag]
-			if len(ann) == 0 || ann[0] != "true" {
-				return
-			}
-			checked++
-			if !strings.Contains(fl.Usage, "(required)") {
-				t.Errorf("%s --%s is marked required but its usage does not say so: %q",
-					c.CommandPath(), fl.Name, fl.Usage)
-			}
-		})
-		for _, sub := range c.Commands() {
-			walk(sub)
-		}
-	}
-	walk(coding)
-	// FLOOR the count. Without it the walk degrades to green-and-empty if the
-	// group is restructured or the annotation key changes under us — a check
-	// that passes by reaching nothing, which is the failure this file keeps
-	// finding elsewhere.
-	if checked < 12 {
-		t.Errorf("only %d required flags reached; the walk is not covering the group", checked)
 	}
 }

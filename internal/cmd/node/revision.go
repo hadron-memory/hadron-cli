@@ -249,7 +249,7 @@ The label also captures the reason supplied with the edit that took the snapshot
 			})
 		},
 	}
-	cmd.Flags().StringVar(&label, "label", "", `revision label (pass "" to clear)`)
+	cmd.Flags().StringVar(&label, "label", "", `revision label (pass "" to clear) (required)`)
 	_ = cmd.MarkFlagRequired("label")
 	return cmd
 }

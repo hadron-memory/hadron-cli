@@ -94,8 +94,8 @@ func newCmdMemberAdd(f *cmdutil.Factory) *cobra.Command {
 			return emitMember(f, "✓ added", resp.AddOrgMember.Id, roleString(resp.AddOrgMember.Role), resp.AddOrgMember.User.UserFields)
 		},
 	}
-	cmd.Flags().StringVar(&user, "user", "", "user ID to add")
-	cmd.Flags().StringVar(&role, "role", "", "role: OWNER, ADMIN, CONTRIBUTOR, or READER")
+	cmd.Flags().StringVar(&user, "user", "", "user ID to add (required)")
+	cmd.Flags().StringVar(&role, "role", "", "role: OWNER, ADMIN, CONTRIBUTOR, or READER (required)")
 	_ = cmd.MarkFlagRequired("user")
 	_ = cmd.MarkFlagRequired("role")
 	return cmd
@@ -127,8 +127,8 @@ func newCmdMemberSetRole(f *cmdutil.Factory) *cobra.Command {
 			return emitMember(f, "✓ set", resp.UpdateOrgMember.Id, roleString(resp.UpdateOrgMember.Role), resp.UpdateOrgMember.User.UserFields)
 		},
 	}
-	cmd.Flags().StringVar(&user, "user", "", "user ID")
-	cmd.Flags().StringVar(&role, "role", "", "new role: OWNER, ADMIN, CONTRIBUTOR, or READER")
+	cmd.Flags().StringVar(&user, "user", "", "user ID (required)")
+	cmd.Flags().StringVar(&role, "role", "", "new role: OWNER, ADMIN, CONTRIBUTOR, or READER (required)")
 	_ = cmd.MarkFlagRequired("user")
 	_ = cmd.MarkFlagRequired("role")
 	return cmd
@@ -161,7 +161,7 @@ func newCmdMemberRm(f *cmdutil.Factory) *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVar(&user, "user", "", "user ID to remove")
+	cmd.Flags().StringVar(&user, "user", "", "user ID to remove (required)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	_ = cmd.MarkFlagRequired("user")
 	return cmd

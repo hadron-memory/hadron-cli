@@ -103,8 +103,8 @@ func newCmdShareCreate(f *cmdutil.Factory) *cobra.Command {
 			return emitShare(f, "✓ shared with", shareDTO{Role: string(s.Role), Grantee: userFromMemFields(s.Grantee.MemUserFields)})
 		},
 	}
-	cmd.Flags().StringVar(&grantee, "grantee", "", "user to share with (ID, email, handle, or hrn:user:<handle>)")
-	cmd.Flags().StringVar(&role, "role", "", "role: writer or reader")
+	cmd.Flags().StringVar(&grantee, "grantee", "", "user to share with (ID, email, handle, or hrn:user:<handle>) (required)")
+	cmd.Flags().StringVar(&role, "role", "", "role: writer or reader (required)")
 	_ = cmd.MarkFlagRequired("grantee")
 	_ = cmd.MarkFlagRequired("role")
 	return cmd
@@ -145,8 +145,8 @@ func newCmdShareSetRole(f *cmdutil.Factory) *cobra.Command {
 			return emitShare(f, "✓ set", shareDTO{Role: string(s.Role), Grantee: userFromMemFields(s.Grantee.MemUserFields)})
 		},
 	}
-	cmd.Flags().StringVar(&grantee, "grantee", "", "grantee user (ID, email, handle, or hrn:user:<handle>)")
-	cmd.Flags().StringVar(&role, "role", "", "new role: writer or reader")
+	cmd.Flags().StringVar(&grantee, "grantee", "", "grantee user (ID, email, handle, or hrn:user:<handle>) (required)")
+	cmd.Flags().StringVar(&role, "role", "", "new role: writer or reader (required)")
 	_ = cmd.MarkFlagRequired("grantee")
 	_ = cmd.MarkFlagRequired("role")
 	return cmd
