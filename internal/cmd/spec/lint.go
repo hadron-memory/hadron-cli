@@ -736,46 +736,79 @@ var scaffoldFillers = []string{
 // withoutCode removes the places a spec may legitimately QUOTE a marker: a
 // fenced block, or an inline code span.
 //
-// This is the self-reference guard, and it is not hypothetical — a spec
-// documenting this very leak would otherwise be reported as corrupted by the
-// rule that documents it, which is the closing-keyword shape from
-// `conventions`: quoting the thing re-triggers it. Stripping is worth doing on
-// its own merits too, since a fenced example is content ABOUT markup rather
-// than markup that leaked into content.
+// This is the self-reference guard — a spec documenting this very leak would
+// otherwise be reported as corrupted by the rule that documents it, the
+// closing-keyword shape from `conventions` where quoting the thing re-triggers
+// it.
 //
-// SCANNED, not regexed (@codex on PR #547). The first version matched only
-// single-backtick spans and exactly-triple-backtick fences, so a double-backtick
-// span or a ~~~ fence — both ordinary Markdown, and a double-backtick span is
-// what you reach for when the quoted text itself contains a backtick — produced
-// a false serialization-leak. At ERROR severity that fails a corpus run, so the
-// rule would have broken the very spec that explained it.
+// THE GOVERNING RULE, and it is what stopped three review rounds of chasing
+// CommonMark: this function may cause a FALSE POSITIVE, and must never cause a
+// FALSE NEGATIVE. serialization-leak is an error-severity check on content that
+// may be the only copy of itself. A spurious finding is loud, cheap and fixed
+// in a minute; a suppressed one hides the corruption the rule exists to catch,
+// and nothing will ever say so.
 //
-// It cannot be a regexp: the closing delimiter must match the opening RUN
-// LENGTH, and Go's RE2 has no backreferences. A scanner is the honest shape
-// rather than a cleverer pattern.
+// So every ambiguity resolves toward SCANNING rather than stripping:
+//
+//   - an UNCLOSED fence restores its lines as prose. We do not know where the
+//     code ended, and assuming "everything after it" blinds the rule for the
+//     rest of the document — measured, that swallowed a real leak whole.
+//   - an indented code block is NOT stripped. A ≥4-space line merely cannot
+//     OPEN a fence (CommonMark allows at most 3), which was the actual defect;
+//     stripping such blocks as well would add a hiding place to fix a case the
+//     corpus does not have.
+//   - an unterminated backtick run stays literal text, so a stray backtick
+//     cannot swallow the rest of a line.
+//
+// It is a scanner rather than a regexp because a closing delimiter must match
+// the opening RUN LENGTH, and Go's RE2 has no backreferences.
 func withoutCode(s string) string {
-	var b strings.Builder
-	open := ""
-	for _, line := range strings.Split(s, "\n") {
-		trimmed := strings.TrimLeft(line, " \t")
-		if open != "" {
-			// A closing fence is a run of the SAME char, at least as long as
-			// the opening one (CommonMark); anything else is fenced content.
-			if run := fenceRun(trimmed); run != "" && run[0] == open[0] && len(run) >= len(open) {
+	lines := strings.Split(s, "\n")
+	kept := make([]string, len(lines))
+	open, openAt := "", -1
+	for i, line := range lines {
+		indent, trimmed := splitIndent(line)
+		switch {
+		case open != "":
+			// A closing fence carries ONLY whitespace after its run
+			// (CommonMark); ```not-a-close is fenced content, not a close.
+			if run := fenceRun(trimmed); indent <= 3 && run != "" && run[0] == open[0] &&
+				len(run) >= len(open) && strings.TrimSpace(trimmed[len(run):]) == "" {
 				open = ""
 			}
-			b.WriteString(" \n")
-			continue
+			kept[i] = ""
+		case indent <= 3 && fenceRun(trimmed) != "":
+			open, openAt = fenceRun(trimmed), i
+			kept[i] = ""
+		default:
+			kept[i] = line
 		}
-		if run := fenceRun(trimmed); run != "" {
-			open = run
-			b.WriteString(" \n")
-			continue
-		}
-		b.WriteString(stripInlineCode(line))
-		b.WriteString("\n")
 	}
-	return b.String()
+	if open != "" {
+		// Never blind: restore from the opening fence onward and scan it.
+		copy(kept[openAt:], lines[openAt:])
+	}
+	// Spans are stripped over the WHOLE remaining text rather than per line: a
+	// CommonMark code span may cross a newline, and a per-line pass leaves the
+	// marker on the far side of the break visible.
+	return stripInlineCode(strings.Join(kept, "\n"))
+}
+
+// splitIndent returns the line's indentation width (a tab counting as 4, per
+// CommonMark) and the line with that indentation removed.
+func splitIndent(line string) (int, string) {
+	w := 0
+	for i := 0; i < len(line); i++ {
+		switch line[i] {
+		case ' ':
+			w++
+		case '\t':
+			w += 4
+		default:
+			return w, line[i:]
+		}
+	}
+	return w, ""
 }
 
 // fenceRun returns the leading delimiter run when the line opens or closes a
@@ -799,29 +832,28 @@ func fenceRun(trimmed string) string {
 }
 
 // stripInlineCode removes CommonMark code spans: a run of N backticks opens
-// one, and the next run of EXACTLY N backticks closes it. An unterminated run
-// is literal text and is kept, so a stray backtick cannot swallow the rest of
-// the line and hide a real leak behind it.
-func stripInlineCode(line string) string {
+// one, and the next run of EXACTLY N backticks closes it — across newlines,
+// which spans may cross. An unterminated run is literal text and is kept.
+func stripInlineCode(text string) string {
 	var b strings.Builder
-	for i := 0; i < len(line); {
-		if line[i] != '`' {
-			b.WriteByte(line[i])
+	for i := 0; i < len(text); {
+		if text[i] != '`' {
+			b.WriteByte(text[i])
 			i++
 			continue
 		}
 		n := 0
-		for i+n < len(line) && line[i+n] == '`' {
+		for i+n < len(text) && text[i+n] == '`' {
 			n++
 		}
 		closed := false
-		for j := i + n; j < len(line); {
-			if line[j] != '`' {
+		for j := i + n; j < len(text); {
+			if text[j] != '`' {
 				j++
 				continue
 			}
 			m := 0
-			for j+m < len(line) && line[j+m] == '`' {
+			for j+m < len(text) && text[j+m] == '`' {
 				m++
 			}
 			if m == n {
@@ -833,7 +865,7 @@ func stripInlineCode(line string) string {
 			j += m
 		}
 		if !closed {
-			b.WriteString(line[i : i+n])
+			b.WriteString(text[i : i+n])
 			i += n
 		}
 	}

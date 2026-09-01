@@ -583,32 +583,50 @@ func TestLintSerializationLeak(t *testing.T) {
 	}
 }
 
-// THE SELF-REFERENCE GUARD. A spec documenting this leak — or explaining the
-// rule — quotes the markers, and quoting the thing must not re-trigger it.
-// Same shape as the closing-keyword trap: the explanation is indistinguishable
-// from the defect unless the scan knows where quoting lives.
-func TestLintSerializationLeakIgnoresQuotedMarkers(t *testing.T) {
-	for _, tc := range []struct{ name, text string }{
-		{"inline backticks", "A leak looks like `</abstract>` in the prose."},
-		{"fenced block", "Example:\n\n```\n</abstract>\n<parameter name=\"content\">\n```\n\nThat is the shape."},
-		{"grammar placeholders", "Addressed as <org>:<slug> by an <actor>."},
-		// @codex on PR #547: the first version recognised only single-backtick
-		// spans and exactly-triple-backtick fences, so each of these was a false
-		// serialization-leak — at ERROR severity, which fails a corpus run. The
-		// double-backtick span is the one that matters most: it is what an author
-		// reaches for when the quoted text itself contains a backtick, so the rule
-		// would have broken precisely the spec that documented it.
-		{"double-backtick span", "A leak looks like ``</abstract>`` in prose."},
-		{"tilde fence", "Example:\n\n~~~\n</abstract>\n~~~\n\nThat is the shape."},
-		{"four-backtick fence", "Example:\n\n````\n</abstract>\n````\n\nok."},
-		{"indented fence", "Example:\n\n  ```\n  </abstract>\n  ```\n\nok."},
+// THE SELF-REFERENCE GUARD, and its inverse — one table, because the two
+// directions are the same decision and splitting them let the second lag.
+//
+// A spec documenting this leak quotes the markers, and quoting must not
+// re-trigger the rule. But making the guard generous risks turning it into a
+// HIDING PLACE, which is worse: serialization-leak is an error-severity check
+// on content that may be the only copy of itself, so a false positive is loud
+// and cheap while a false negative is silent and permanent.
+//
+// Hence the governing rule in withoutCode — may false-positive, must never
+// false-negative — and hence the `leak: true` rows here. @codex took three
+// rounds on PR #547 to find the CommonMark forms the first two versions missed;
+// the rows are kept together so the next form added has to answer both
+// directions at once.
+func TestLintSerializationLeakQuotingAndHiding(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		text string
+		leak bool
+	}{
+		// Quoted — must NOT be reported.
+		{"single-backtick span", "quoted `</abstract>` here", false},
+		{"double-backtick span", "quoted ``</abstract>`` here", false},
+		{"triple fence", "```\n</abstract>\n```\n", false},
+		{"tilde fence", "~~~\n</abstract>\n~~~\n", false},
+		{"four-backtick fence", "````\n</abstract>\n````\n", false},
+		{"three-space indented fence", "   ```\n   </abstract>\n   ```\n", false},
+		{"suffixed line is not a close", "```\n```not-a-close\n</abstract>\n```\n", false},
+		{"span crossing a newline", "a `code\n</abstract>` b", false},
+		{"grammar placeholders", "<org>:<slug> and <actor>", false},
+
+		// Real — must STILL be reported. Each of these was a false negative in
+		// some version of the scanner, i.e. the rule going blind.
+		{"four-space line cannot open a fence", "    ```\ntext\n\nreal </abstract> leak\n", true},
+		{"an unclosed fence must not blind the rest", "```\ncode\n\nreal </abstract> leak\n", true},
+		{"a stray backtick opens nothing", "unclosed ` then </abstract> leaked", true},
+		{"the plain case", "provisions</abstract>\n<parameter name=\"content\">", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			n := cleanSpec(t, "msg:010:02", "W2")
 			abs := tc.text
 			n.Abstract = &abs
-			if fs := lintNode(n); hasRule(fs, "serialization-leak") {
-				t.Errorf("a quoted or placeholder marker is not a leak, got %v", fs)
+			if got := hasRule(lintNode(n), "serialization-leak"); got != tc.leak {
+				t.Errorf("serialization-leak = %v, want %v, for %q", got, tc.leak, tc.text)
 			}
 		})
 	}
@@ -651,26 +669,5 @@ func TestLintUntouchedContractIsNotAlsoScaffoldBody(t *testing.T) {
 	}
 	if hasRule(fs, "scaffold-body") {
 		t.Errorf("an untouched contract must not be double-reported, got %v", fs)
-	}
-}
-
-// The guard must not become a hiding place. An UNTERMINATED backtick run is
-// literal text, not an open code span — if it swallowed the rest of the line,
-// a corrupted spec could conceal a real leak behind one stray backtick, and the
-// self-reference guard would have created a way to defeat the rule it protects.
-func TestLintSerializationLeakSurvivesAStrayBacktick(t *testing.T) {
-	for _, tc := range []struct{ name, text string }{
-		{"stray backtick before a leak", "an unclosed ` then </abstract> leaked here"},
-		{"leak after a closed span", "quoted `fine` then a real </abstract> leak"},
-		{"leak inside an unterminated fence-looking run", "``not a span </abstract>"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			n := cleanSpec(t, "msg:010:02", "W2")
-			abs := tc.text
-			n.Abstract = &abs
-			if !hasRule(lintNode(n), "serialization-leak") {
-				t.Errorf("a real leak must still be reported: %q", tc.text)
-			}
-		})
 	}
 }
