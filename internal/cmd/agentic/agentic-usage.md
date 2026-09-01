@@ -1031,10 +1031,13 @@ Conventions:
   App-bound; a retired worker refuses (`WORKER_RETIRED`). A worker with a
   still-active session is *taken*: `start` refuses (exit 5) showing who is
   driving it since when, and `--force` takes over — informed and deliberate,
-  never silent (`cor:agt:020:03`; stale sessions auto-expire server-side —
-  hard expiry + inactivity, with `session log` counting as activity — so an
-  active session usually means a live driver; a `--force` that replaces this
-  worktree's own binding first ends the session it named, best-effort).
+  never silent (`cor:agt:020:03`). **Live is DERIVED, not stored**
+  (hadron-server#1114): the server computes it at read time from when the
+  session was last driven, so a name whose driver stopped stops being taken on
+  its own — and nothing ends the session to achieve that, so the handoff it
+  never wrote survives. An OPEN session is therefore **not** evidence of a live
+  driver; `worker list`'s LAST DRIVEN is. A `--force` that replaces this
+  worktree's own binding first ends the session it named, best-effort.
   **HELD is not TAKEN, and only TAKEN is forceable** (`cor:agt:020:09`, #487).
   A name is held by the PERSON who binds it, and nothing about a session
   frees one — not an end, an idle window, an expiry or a reap, only
@@ -1213,7 +1216,7 @@ Conventions:
   and an optional `--detail` JSON bag. `--pr` and `--branch` additionally
   denormalize onto `Session.prNumber`/`Session.branch` (latest wins —
   display convenience only); every logged milestone — issue and commit
-  included — counts as session liveness for the inactivity reaper; without a
+  included — is a heartbeat feeding the server's liveness derivation; without a
   team memory they degrade to that denormalization alone (`"recorded":
   "session"` instead of `"worklog"`), while `--issue`/`--commit` refuse.
   `session list (--pr | --issue | --commit | --branch) <ref>` is THE
