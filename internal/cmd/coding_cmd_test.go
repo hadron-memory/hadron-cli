@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -637,7 +640,11 @@ func TestCodingReviewCreateRejectsBadInput(t *testing.T) {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs(append(args, "--server", "http://127.0.0.1:1"))
-		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		// exitCodeFor, not exitcode.FromError: cobra's own refusals (a missing
+		// required flag among them) are plain errors that only become exit 2 in
+		// the binary's classification step, so FromError alone measures a value
+		// no user ever sees (#533).
+		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 			t.Errorf("%v should be a usage error (2), got %d", args[3:], got)
 		}
 	}
@@ -1021,7 +1028,11 @@ func TestCodingPreflightCreateRejectsBadInput(t *testing.T) {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs(append(args, "--server", "http://127.0.0.1:1"))
-		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		// exitCodeFor, not exitcode.FromError: cobra's own refusals (a missing
+		// required flag among them) are plain errors that only become exit 2 in
+		// the binary's classification step, so FromError alone measures a value
+		// no user ever sees (#533).
+		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 			t.Errorf("%v should be a usage error (2), got %d", args[3:], got)
 		}
 	}
@@ -1039,7 +1050,7 @@ func TestCodingLintRequiresMemory(t *testing.T) {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs(append(args, "--server", "http://127.0.0.1:1"))
-		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 			t.Errorf("%v without -m should be a usage error, got %d", args, got)
 		}
 	}
@@ -1226,5 +1237,104 @@ func TestCodingPreflightRouteIgnoresDifferentlyLabelledEdge(t *testing.T) {
 	_ = json.Unmarshal([]byte(out.String()), &dto)
 	if dto.EdgeID == "e_other" {
 		t.Error("an edge with a different label is a different route — it must not be reported as this one")
+	}
+}
+
+// #533: every genuinely-required flag on the `coding` writers is marked, so
+// cobra reports the WHOLE missing set in one message instead of one per re-run.
+//
+// This pins the batching, which nothing else does. The hand-rolled emptiness
+// checks in each RunE already refuse a missing --description or -m with a
+// better message, so deleting a MarkFlagRequired call leaves every other test
+// green and silently restores the serialised failures the issue was filed
+// about — a guard with no constructible failing input
+// (review:a-mutation-check-can-itself-be-a-no-op). Asserting on the COUNT of
+// names in one refusal is what makes the mutation detectable.
+//
+// It deliberately asserts the flag NAMES rather than the exact sentence: the
+// wording is cobra's and may change under us, while "all of them, at once" is
+// the property #533 asked for.
+func TestCodingWritersReportEveryMissingRequiredFlagAtOnce(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		want []string
+	}{
+		{[]string{"coding", "review", "create", "x"}, []string{"description", "memory", "trigger"}},
+		{[]string{"coding", "preflight", "create", "findings:x"}, []string{"description", "memory", "route"}},
+	} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(tc.args, "--server", "http://127.0.0.1:1"))
+		err := root.Execute()
+		if err == nil {
+			t.Fatalf("%v: expected a refusal", tc.args)
+		}
+		msg := err.Error()
+		for _, name := range tc.want {
+			if !strings.Contains(msg, name) {
+				t.Errorf("%v: refusal must name every missing required flag; %q is absent from %q",
+					tc.args, name, msg)
+			}
+		}
+		// One round trip, not three: the caller must not have to fix one flag,
+		// re-run, and discover the next. That is the whole cost the issue
+		// measured, and it is worst for an agent re-staging --content-file.
+		if got := exitCodeFor(err); got != exitcode.Usage {
+			t.Errorf("%v: a missing required flag is a usage error (2), got %d", tc.args, got)
+		}
+	}
+}
+
+// #533: on the `coding` commands, a flag marked required must SAY SO in its
+// usage string.
+//
+// Cobra's help template does not distinguish required flags from optional ones
+// — measured, and it is why this PR annotates them by hand. So the annotation
+// is the only signal a reader gets, and an unannotated required flag is
+// discoverable only by failing.
+//
+// It exists because the first version of #533 left one behind: --route on
+// `preflight route` was already marked before that change, so it fell outside
+// "flags I am marking" and kept an unannotated usage string. @copilot caught
+// it. That is the same partial-sweep defect #533 was filed about, committed
+// inside the fix for it — which is precisely the case for a check rather than
+// care.
+//
+// Scoped to `coding` deliberately. Repo-wide the invariant does NOT hold: 80
+// flags are marked required and 30 never mention it in their usage, almost all
+// outside this group. Widening this test would red on commands this change does
+// not touch, so the rest is reported rather than swept — see the PR.
+func TestCodingRequiredFlagsSaySoInUsage(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	coding, _, err := root.Find([]string{"coding"})
+	if err != nil {
+		t.Fatalf("finding the coding command: %v", err)
+	}
+	checked := 0
+	var walk func(c *cobra.Command)
+	walk = func(c *cobra.Command) {
+		c.Flags().VisitAll(func(fl *pflag.Flag) {
+			ann := fl.Annotations[cobra.BashCompOneRequiredFlag]
+			if len(ann) == 0 || ann[0] != "true" {
+				return
+			}
+			checked++
+			if !strings.Contains(fl.Usage, "(required)") {
+				t.Errorf("%s --%s is marked required but its usage does not say so: %q",
+					c.CommandPath(), fl.Name, fl.Usage)
+			}
+		})
+		for _, sub := range c.Commands() {
+			walk(sub)
+		}
+	}
+	walk(coding)
+	// FLOOR the count. Without it the walk degrades to green-and-empty if the
+	// group is restructured or the annotation key changes under us — a check
+	// that passes by reaching nothing, which is the failure this file keeps
+	// finding elsewhere.
+	if checked < 12 {
+		t.Errorf("only %d required flags reached; the walk is not covering the group", checked)
 	}
 }

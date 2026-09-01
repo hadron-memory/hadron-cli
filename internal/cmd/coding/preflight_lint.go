@@ -96,9 +96,13 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to lint (hrn:mem:<root>:<slug>)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to lint, hrn:mem:<root>:<slug> (required)")
 	cmd.Flags().StringVar(&root, "root", preflightRootLoc, "loc of the preflight router node")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
+	// -m is required on every command in this group (hadron-cli#533):
+	// codingMemoryURN refuses an empty one and there is no fallback, so marking
+	// it lets cobra report it alongside the other missing flags in one message.
+	_ = cmd.MarkFlagRequired("memory")
 	return cmd
 }
 

@@ -223,9 +223,9 @@ that already references the target is left alone.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory holding the router (hrn:mem:<root>:<slug>)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory holding the router, hrn:mem:<root>:<slug> (required)")
 	cmd.Flags().StringVar(&root, "root", preflightRootLoc, "loc of the preflight router node")
-	cmd.Flags().StringVar(&route, "route", "", `the action the route fires on ("to" is prepended if absent)`)
+	cmd.Flags().StringVar(&route, "route", "", `the action the route fires on ("to" is prepended if absent) (required)`)
 	cmd.Flags().StringVar(&description, "description", "", "routing line text (default: the target node's own description)")
 	cmd.Flags().StringVar(&symptom, "symptom", "", "the routing line's quoted trigger (default: the route)")
 	cmd.Flags().StringVar(&section, "section", "", "heading in the router's body to add the routing line under")
@@ -233,6 +233,10 @@ that already references the target is left alone.`,
 	cmd.Flags().BoolVar(&noBodyLine, "no-body-line", false, "wire the edges only; leave the router's body alone")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be written, including where the routing line lands, without writing it")
 	_ = cmd.MarkFlagRequired("route")
+	// -m is required on every command in this group (hadron-cli#533):
+	// codingMemoryURN refuses an empty one and there is no fallback, so marking
+	// it lets cobra report it alongside the other missing flags in one message.
+	_ = cmd.MarkFlagRequired("memory")
 	return cmd
 }
 

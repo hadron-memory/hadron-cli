@@ -125,12 +125,7 @@ func Execute() int {
 // renderError maps err to an exit code and writes it to stderr in the
 // format the --json contract requires.
 func renderError(f *cmdutil.Factory, err error) int {
-	code := exitcode.FromError(err)
-	// Cobra reports unknown commands/arguments as plain errors;
-	// classify them as usage errors so exit code 2 stays meaningful.
-	if code == exitcode.Error && isUsageError(err) {
-		code = exitcode.Usage
-	}
+	code := exitCodeFor(err)
 
 	if !errors.Is(err, exitcode.ErrSilent) {
 		if f.JSON {
@@ -140,6 +135,31 @@ func renderError(f *cmdutil.Factory, err error) int {
 		} else {
 			fmt.Fprintf(f.IOStreams.ErrOut, "hadron: %s\n", err.Error())
 		}
+	}
+	return code
+}
+
+// exitCodeFor is THE mapping from a command error to the process exit code, and
+// it is extracted so a test can measure what a user actually gets
+// (hadron-cli#533).
+//
+// The classification below is not reachable from `exitcode.FromError` alone:
+// cobra's own refusals are plain errors carrying no exit code, so they read as
+// the generic 1 until this runs. A command-level test calling
+// `exitcode.FromError(root.Execute())` therefore measures a DIFFERENT value
+// from the binary — and silently, since both are ints and the test's answer is
+// only wrong for the errors cobra raises itself.
+//
+// That bit on #533: marking flags required moved three refusals from a
+// hand-rolled `exitcode.Usage` to cobra's `required flag(s) … not set`. The
+// user-visible exit code stayed 2 throughout, and three tests went red anyway,
+// because they were asserting the pre-classification value.
+func exitCodeFor(err error) int {
+	code := exitcode.FromError(err)
+	// Cobra reports unknown commands/arguments as plain errors;
+	// classify them as usage errors so exit code 2 stays meaningful.
+	if code == exitcode.Error && isUsageError(err) {
+		return exitcode.Usage
 	}
 	return code
 }

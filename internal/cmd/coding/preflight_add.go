@@ -306,10 +306,10 @@ usage error, not a half-finished write.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to add the node to (hrn:mem:<root>:<slug>)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to add the node to, hrn:mem:<root>:<slug> (required)")
 	cmd.Flags().StringVar(&root, "root", preflightRootLoc, "loc of the preflight router node")
-	cmd.Flags().StringVar(&route, "route", "", `the action the route fires on ("to" is prepended if absent)`)
-	cmd.Flags().StringVar(&description, "description", "", "one-line description; also the routing line's text")
+	cmd.Flags().StringVar(&route, "route", "", `the action the route fires on ("to" is prepended if absent) (required)`)
+	cmd.Flags().StringVar(&description, "description", "", "one-line description; also the routing line's text (required)")
 	cmd.Flags().StringVar(&name, "name", "", "node name (default: the loc's last segment)")
 	cmd.Flags().StringVar(&symptom, "symptom", "", "the routing line's quoted trigger (default: the route)")
 	cmd.Flags().StringVar(&section, "section", "", "heading in the router's body to add the routing line under")
@@ -323,7 +323,15 @@ usage error, not a half-finished write.`,
 	cmd.Flags().BoolVar(&noBackEdge, "no-back-edge", false, "skip the mirrored back-edge to the router")
 	cmd.Flags().BoolVar(&noBodyLine, "no-body-line", false, "wire the edges only; leave the router's body alone")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be written — including where the routing line lands — without writing it")
+	// The same set as `review create` (hadron-cli#533): every genuinely-required
+	// flag marked, so cobra reports them together instead of one per re-run.
+	// --description is required HERE and optional on `preflight route`, where it
+	// defaults to the target node's own description — so this is a per-command
+	// fact, not a group-wide one, and marking it there would refuse a call that
+	// works today.
+	_ = cmd.MarkFlagRequired("memory")
 	_ = cmd.MarkFlagRequired("route")
+	_ = cmd.MarkFlagRequired("description")
 	return cmd
 }
 
