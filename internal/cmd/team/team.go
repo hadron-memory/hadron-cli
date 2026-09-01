@@ -56,6 +56,10 @@ from ` + "`hadron team --help`" + ` alone (#402).
        one backend-engineer agent can be cast into many Apps, under many
        names.
 
+       Adding a role to a team App you ALREADY have? Pass
+       --install-into <app> here and skip step 2 — a new agent is in no
+       App's cast pool, so without an install step 4 cannot reach it.
+
   2. hadron app install --org <org> --agent <agent> --name "<Team>"
        The team APP. ` + "`app agent add`" + ` installs further role agents into
        it; the AppAgent join is the cast pool (` + "`app agent list`" + `).

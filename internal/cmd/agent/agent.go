@@ -2,10 +2,12 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -260,20 +262,42 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 
 func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	var org, name, description, typ, vis, systemPrompt, systemMemory string
-	var personaRole, personaPrompt string
+	var personaRole, personaPrompt, installInto string
 	var surfaces []string
 	var ownerMe bool
 	cmd := &cobra.Command{
-		Use:   "create --name <n> [--org <id> | --owner-me]",
+		Use:   "create --name <n> [--org <id> | --owner-me] [--install-into <app>]",
 		Short: "Create an agent (org-owned, or user-owned with --owner-me)",
 		Long: `Create an agent. Pass --org to create an org-owned agent (you must be an org
 ADMIN). Otherwise the agent is user-owned, in your own @handle namespace (spec
 047) — pass --owner-me to say so explicitly, or just omit --org. A user-owned
 agent is PERSONAL/owner-only in v1: the server derives the @handle:<slug> URN
 and rejects a non-PERSONAL --visibility. --org and --owner-me are mutually
-exclusive.`,
+exclusive.
+
+A NEW AGENT IS IN NO APP'S CAST POOL, so it cannot be cast as a worker yet
+(#535). --install-into <app> does that second step in the same run — the
+common case when the agent is a role agent for a team you already have:
+
+  hadron agent create --org acme.com --name "DevOps Engineer" \
+      --persona-role devops-engineer --persona-prompt '…' \
+      --install-into hrn:app:acme.com:eng-team
+
+It is deliberately NOT spelled --app: that is the persistent App-CONTEXT flag,
+which never acts on an App (see the note ` + "`agent list --app`" + ` prints, #383).
+--install-into names a target and has an effect, so it gets its own name.
+
+The two steps are not atomic — nothing on the server side spans them. If the
+install fails the agent still EXISTS, and the failure says so and prints the
+` + "`hadron app agent add`" + ` needed to finish; it is never silently rolled back,
+because deleting an agent you asked to create is the more destructive repair.
+
+Authorization for the install is CONTRIBUTOR+ on the App's owning org (or
+ownership of a user-owned App) — a stricter gate than creating the agent, so
+it can refuse after the create succeeds.`,
 		Example: `  hadron agent create --owner-me --name "My Agent" --type ASSISTANT
-  hadron agent create --org acme.com --name "Support Bot" --type CHATBOT --visibility ORGANIZATION`,
+  hadron agent create --org acme.com --name "Support Bot" --type CHATBOT --visibility ORGANIZATION
+  hadron agent create --org acme.com --name "DevOps Engineer" --persona-role devops-engineer --install-into hrn:app:acme.com:eng-team`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// spec 047: an agent is owned by EXACTLY ONE of an org or the caller.
@@ -301,7 +325,23 @@ exclusive.`,
 			if resp.CreateAgent == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no agent")
 			}
-			return emitAgent(f, agentDTOFromFields(resp.CreateAgent.AgentFields), "✓ created")
+			created := agentCreateDTO{agentDTO: agentDTOFromFields(resp.CreateAgent.AgentFields)}
+
+			if installInto == "" {
+				// #535: "✓ created" reads as done, but the agent is inert until it
+				// is in some App's cast pool. Stderr keeps the --json contract clean.
+				defer f.NoteAgentNotInstalled(created.URN)
+				return emitAgent(f, created.agentDTO, "✓ created")
+			}
+
+			inst, installErr := installCreatedAgent(cmd.Context(), client, installInto, created.ID)
+			created.Install = inst
+			// The agent exists either way, so it is always emitted — losing the URN
+			// of a just-created agent is the one outcome with no cheap recovery.
+			if emitErr := emitCreatedAgent(f, created); emitErr != nil {
+				return emitErr
+			}
+			return installErr
 		},
 	}
 	cmd.Flags().StringVar(&org, "org", "", "owning organization (ID); omit (or use --owner-me) for a user-owned agent")
@@ -315,6 +355,7 @@ exclusive.`,
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable)")
 	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
 	cmd.Flags().StringVar(&personaPrompt, "persona-prompt", "", "persona dressing: identity prompt TEMPLATE with {{name}}/{{role}} placeholders")
+	cmd.Flags().StringVar(&installInto, "install-into", "", "App (ID or URN) to install the new agent into, so it is castable in one run")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
@@ -432,6 +473,74 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 func emitAgent(f *cmdutil.Factory, dto agentDTO, verb string) error {
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 		_, err := fmt.Fprintf(w, "%s agent %s (%s)\n", verb, dto.Name, dto.URN)
+		return err
+	})
+}
+
+// agentInstallDTO reports the --install-into outcome. Status is "installed" or
+// "failed"; on failure Error carries the server's sentence so a --json caller
+// can branch without parsing stderr.
+type agentInstallDTO struct {
+	AppID  string `json:"appId"`
+	AppURN string `json:"appUrn"`
+	Status string `json:"status"`
+	Error  string `json:"error,omitempty"`
+}
+
+// agentCreateDTO is `agent create`'s --json shape: the agent, plus an install
+// report ONLY when --install-into was passed. The embedded agentDTO inlines its
+// fields, and the omitempty pointer means a plain create emits byte-identical
+// JSON to before — the existing contract is extended, never changed.
+type agentCreateDTO struct {
+	agentDTO
+	Install *agentInstallDTO `json:"install,omitempty"`
+}
+
+// installCreatedAgent runs the second half of `agent create --install-into`.
+// It always returns a DTO — a failed install is a reported outcome, not a
+// missing one — alongside the error that should become the exit code.
+func installCreatedAgent(ctx context.Context, client graphql.Client, appRef, agentID string) (*agentInstallDTO, error) {
+	resp, err := gen.InstallAgentIntoApp(ctx, client, appRef, agentID, nil)
+	if err != nil {
+		mapped := cmdutil.InstallForbiddenGuidance(err)
+		return &agentInstallDTO{AppURN: appRef, Status: "failed", Error: mapped.Error()},
+			installIncompleteError(mapped, appRef, agentID)
+	}
+	if resp.InstallAgentIntoApp == nil || resp.InstallAgentIntoApp.AppAgent == nil {
+		err := exitcode.Newf(exitcode.Error, "server returned no AppAgent row")
+		return &agentInstallDTO{AppURN: appRef, Status: "failed", Error: err.Error()},
+			installIncompleteError(err, appRef, agentID)
+	}
+	dto := &agentInstallDTO{AppURN: appRef, Status: "installed"}
+	if app := resp.InstallAgentIntoApp.AppAgent.App; app != nil {
+		dto.AppID, dto.AppURN = app.Id, app.Urn
+	}
+	return dto, nil
+}
+
+// installIncompleteError states plainly that the create SUCCEEDED and only the
+// install failed, and prints the command that finishes the job. Without this the
+// natural reading of a failed `agent create` is that nothing was created, and
+// the user's next move is to re-run it — which would create a second agent.
+func installIncompleteError(cause error, appRef, agentID string) error {
+	return exitcode.Newf(exitcode.FromError(cause),
+		"agent was CREATED but NOT installed into %s: %v\n"+
+			"The agent exists — do not re-run `agent create`, it would make a second one.\n"+
+			"Finish with: hadron app agent add %s %s",
+		appRef, cause, appRef, agentID)
+}
+
+// emitCreatedAgent renders the create+install result: the agent line first
+// (so the URN is on screen even when the install failed), then the install.
+func emitCreatedAgent(f *cmdutil.Factory, dto agentCreateDTO) error {
+	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+		if _, err := fmt.Fprintf(w, "✓ created agent %s (%s)\n", dto.Name, dto.URN); err != nil {
+			return err
+		}
+		if dto.Install == nil || dto.Install.Status != "installed" {
+			return nil
+		}
+		_, err := fmt.Fprintf(w, "✓ installed into %s\n", dto.Install.AppURN)
 		return err
 	})
 }

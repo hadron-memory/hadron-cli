@@ -703,7 +703,17 @@ Conventions:
   user-owned agent — pass `--owner-me` to say so explicitly, or `--org <id>`
   for an org-owned agent (the two are mutually exclusive). A user-owned agent is
   PERSONAL/owner-only in v1 (spec 047; the server derives the `@handle:<slug>`
-  URN and rejects a non-PERSONAL visibility). Optional
+  URN and rejects a non-PERSONAL visibility). A new agent is in NO App's cast
+  pool, so it cannot be cast as a worker until it is installed somewhere —
+  `agent create --install-into <app>` does that second step in the same run
+  (#535), and without it the create notes on **stderr** that the agent is not
+  yet installed. It is deliberately not spelled `--app`: that is the persistent
+  App-CONTEXT flag, which never acts on an App. The two calls are NOT atomic —
+  if the install fails the agent still exists, and the error says so and prints
+  the `app agent add` that finishes it rather than rolling the agent back. In
+  `--json` the create gains an `install` object (`status` `installed`/`failed`,
+  plus `error` on failure) **only** when `--install-into` is passed, so the
+  existing shape is unchanged otherwise. Optional
   `--type`/`--visibility`/`--description`/`--system-prompt`/
   `--system-memory`/`--surface` (repeatable); `agent update <ref> [<field flags>]`
   changes only the fields you pass (`--surface` replaces the set); `agent rm <ref>`
