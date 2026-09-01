@@ -292,6 +292,10 @@ install fails the agent still EXISTS, and the failure says so and prints the
 ` + "`hadron app agent add`" + ` needed to finish; it is never silently rolled back,
 because deleting an agent you asked to create is the more destructive repair.
 
+A lost connection is reported as UNKNOWN, not failed (exit 7, #394): the
+install may have committed before the answer went missing, so the remedy is
+to check ` + "`app agent list`" + ` rather than to retry blind into a duplicate.
+
 Authorization for the install is CONTRIBUTOR+ on the App's owning org (or
 ownership of a user-owned App) — a stricter gate than creating the agent, so
 it can refuse after the create succeeds.`,
@@ -477,14 +481,32 @@ func emitAgent(f *cmdutil.Factory, dto agentDTO, verb string) error {
 	})
 }
 
-// agentInstallDTO reports the --install-into outcome. Status is "installed" or
-// "failed"; on failure Error carries the server's sentence so a --json caller
-// can branch without parsing stderr.
+// agentInstallDTO reports the --install-into outcome.
+//
+// Status is "installed", "failed", or "unknown" — the last for exit-code 7
+// (#394), where the request never reached the server or its answer never came
+// back, so whether the install committed is genuinely not known. Error carries
+// the server's sentence so a --json caller can branch without parsing stderr.
+//
+// AppRef echoes what the caller passed, which is an App ID *or* a URN;
+// appId/appUrn are the server's resolved values and are therefore present only
+// on success. Putting the raw ref in appUrn would let that field carry a
+// non-URN, which is worse than omitting it.
 type agentInstallDTO struct {
-	AppID  string `json:"appId"`
-	AppURN string `json:"appUrn"`
+	AppRef string `json:"appRef"`
+	AppID  string `json:"appId,omitempty"`
+	AppURN string `json:"appUrn,omitempty"`
 	Status string `json:"status"`
 	Error  string `json:"error,omitempty"`
+}
+
+// installStatusFor distinguishes a refusal from an unknown outcome. Only
+// exitcode.Unavailable means the mutation may in fact have committed.
+func installStatusFor(err error) string {
+	if exitcode.FromError(err) == exitcode.Unavailable {
+		return "unknown"
+	}
+	return "failed"
 }
 
 // agentCreateDTO is `agent create`'s --json shape: the agent, plus an install
@@ -503,26 +525,42 @@ func installCreatedAgent(ctx context.Context, client graphql.Client, appRef, age
 	resp, err := gen.InstallAgentIntoApp(ctx, client, appRef, agentID, nil)
 	if err != nil {
 		mapped := cmdutil.InstallForbiddenGuidance(err)
-		return &agentInstallDTO{AppURN: appRef, Status: "failed", Error: mapped.Error()},
+		return &agentInstallDTO{AppRef: appRef, Status: installStatusFor(mapped), Error: mapped.Error()},
 			installIncompleteError(mapped, appRef, agentID)
 	}
 	if resp.InstallAgentIntoApp == nil || resp.InstallAgentIntoApp.AppAgent == nil {
 		err := exitcode.Newf(exitcode.Error, "server returned no AppAgent row")
-		return &agentInstallDTO{AppURN: appRef, Status: "failed", Error: err.Error()},
+		return &agentInstallDTO{AppRef: appRef, Status: "failed", Error: err.Error()},
 			installIncompleteError(err, appRef, agentID)
 	}
-	dto := &agentInstallDTO{AppURN: appRef, Status: "installed"}
+	dto := &agentInstallDTO{AppRef: appRef, Status: "installed"}
 	if app := resp.InstallAgentIntoApp.AppAgent.App; app != nil {
 		dto.AppID, dto.AppURN = app.Id, app.Urn
 	}
 	return dto, nil
 }
 
-// installIncompleteError states plainly that the create SUCCEEDED and only the
-// install failed, and prints the command that finishes the job. Without this the
-// natural reading of a failed `agent create` is that nothing was created, and
-// the user's next move is to re-run it — which would create a second agent.
+// installIncompleteError states plainly that the create SUCCEEDED, and names the
+// right next move for the two very different failures underneath.
+//
+// Without it, the natural reading of a failed `agent create` is that nothing was
+// created, and the user's next move is to re-run it — making a second agent.
+//
+// The two cases must not be collapsed. A refusal is definite: the install did
+// NOT happen, so `app agent add` finishes the job. Exit-code 7 (#394) is not a
+// refusal — the request may have reached the server and committed — so telling
+// the caller to run `app agent add` would invite a Conflict (exit 5, "duplicate
+// install") on an install that actually succeeded. There, the honest
+// instruction is to look before acting.
 func installIncompleteError(cause error, appRef, agentID string) error {
+	if exitcode.FromError(cause) == exitcode.Unavailable {
+		return exitcode.Newf(exitcode.Unavailable,
+			"agent was CREATED; whether it was installed into %s is UNKNOWN: %v\n"+
+				"The agent exists — do not re-run `agent create`, it would make a second one.\n"+
+				"Check before retrying: hadron app agent list %s\n"+
+				"If it is not there: hadron app agent add %s %s",
+			appRef, cause, appRef, appRef, agentID)
+	}
 	return exitcode.Newf(exitcode.FromError(cause),
 		"agent was CREATED but NOT installed into %s: %v\n"+
 			"The agent exists — do not re-run `agent create`, it would make a second one.\n"+
@@ -538,6 +576,8 @@ func emitCreatedAgent(f *cmdutil.Factory, dto agentCreateDTO) error {
 			return err
 		}
 		if dto.Install == nil || dto.Install.Status != "installed" {
+			// A failed or unknown install is reported by the returned error, which
+			// carries the remedy; repeating it here would say it twice.
 			return nil
 		}
 		_, err := fmt.Fprintf(w, "✓ installed into %s\n", dto.Install.AppURN)

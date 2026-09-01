@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -48,6 +50,7 @@ func TestAgentCreateInstallInto(t *testing.T) {
 		ID      string `json:"id"`
 		URN     string `json:"urn"`
 		Install *struct {
+			AppRef string `json:"appRef"`
 			AppID  string `json:"appId"`
 			AppURN string `json:"appUrn"`
 			Status string `json:"status"`
@@ -67,8 +70,46 @@ func TestAgentCreateInstallInto(t *testing.T) {
 		dto.Install.AppURN != "hrn:app:acme.com:eng-team" {
 		t.Errorf("install report: %+v", dto.Install)
 	}
+	if dto.Install.AppRef != "hrn:app:acme.com:eng-team" {
+		t.Errorf("appRef echoes what the caller passed: %+v", dto.Install)
+	}
 	if dto.Install.Error != "" {
 		t.Errorf("a successful install carries no error: %+v", dto.Install)
+	}
+}
+
+// PR #543 review (Copilot): --install-into takes an App ID *or* a URN, so
+// putting the raw ref in appUrn would let that field carry a non-URN. appId and
+// appUrn are the SERVER's resolved values and are omitted when there are none;
+// appRef is the echo of what was passed.
+func TestAgentCreateInstallIntoFailureOmitsResolvedAppFields(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"CreateAgent": `{"data":{"createAgent":` + agentJSON + `}}`,
+		"InstallAgentIntoApp": `{"errors":[{"message":"nope",
+			"extensions":{"code":"FORBIDDEN"}}]}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	// An App ID, deliberately not a URN.
+	root.SetArgs([]string{"agent", "create", "--org", "acme.com", "--name", "Support Bot",
+		"--install-into", "app1", "--json", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatalf("expected a non-zero exit")
+	}
+	var raw struct {
+		Install map[string]any `json:"install"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &raw); err != nil {
+		t.Fatalf("unmarshal: %v (%s)", err, out.String())
+	}
+	if _, present := raw.Install["appUrn"]; present {
+		t.Errorf("appUrn must be omitted on failure — it would carry the ID %q: %s", "app1", out.String())
+	}
+	if _, present := raw.Install["appId"]; present {
+		t.Errorf("appId must be omitted on failure (nothing resolved it): %s", out.String())
+	}
+	if raw.Install["appRef"] != "app1" {
+		t.Errorf("appRef must echo what was passed: %s", out.String())
 	}
 }
 
@@ -212,6 +253,65 @@ func TestAgentCreateInstallIntoSuppressesTheNote(t *testing.T) {
 	}
 	if note := f.IOStreams.ErrOut.(*strings.Builder).String(); strings.Contains(note, "not yet installed") {
 		t.Errorf("the note is wrong when the install happened: %q", note)
+	}
+}
+
+// PR #543 review (Codex, P1): a lost answer is NOT a refusal. If the install
+// commits and the response never arrives, exitcode.Unavailable (#394) says the
+// outcome is unknown — so claiming "NOT installed" and sending the caller to
+// `app agent add` would invite a Conflict (exit 5, "duplicate install") on an
+// install that actually succeeded. Report unknown and say to look first.
+func TestAgentCreateInstallIntoLostAnswerIsUnknownNotFailed(t *testing.T) {
+	// The connection is dropped without an answer — the strictest lost-answer
+	// case (api/transport.go: headers never arrive, so the request may well
+	// have reached the server and the mutation may already have committed).
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body.OperationName == "InstallAgentIntoApp" {
+			conn, _, err := w.(http.Hijacker).Hijack()
+			if err != nil {
+				t.Fatalf("hijack: %v", err)
+			}
+			_ = conn.Close()
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{"createAgent":` + agentJSON + `}}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "create", "--org", "acme.com", "--name", "Support Bot",
+		"--install-into", "hrn:app:acme.com:eng-team", "--json", "--server", srv.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatalf("expected a non-zero exit")
+	}
+	if got := exitcode.FromError(err); got != exitcode.Unavailable {
+		t.Errorf("a lost answer must stay exit %d (Unavailable), got %d", exitcode.Unavailable, got)
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "UNKNOWN") {
+		t.Errorf("the message must say the outcome is unknown, got: %s", msg)
+	}
+	if !strings.Contains(msg, "hadron app agent list") {
+		t.Errorf("the remedy must be to LOOK first, got: %s", msg)
+	}
+	if strings.Contains(msg, "NOT installed") {
+		t.Errorf("must not assert the install did not happen, got: %s", msg)
+	}
+	var raw struct {
+		Install map[string]any `json:"install"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &raw); err != nil {
+		t.Fatalf("unmarshal: %v (%s)", err, out.String())
+	}
+	if raw.Install["status"] != "unknown" {
+		t.Errorf("status must be \"unknown\", got %v: %s", raw.Install["status"], out.String())
 	}
 }
 

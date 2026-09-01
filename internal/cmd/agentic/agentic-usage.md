@@ -710,10 +710,14 @@ Conventions:
   yet installed. It is deliberately not spelled `--app`: that is the persistent
   App-CONTEXT flag, which never acts on an App. The two calls are NOT atomic —
   if the install fails the agent still exists, and the error says so and prints
-  the `app agent add` that finishes it rather than rolling the agent back. In
-  `--json` the create gains an `install` object (`status` `installed`/`failed`,
-  plus `error` on failure) **only** when `--install-into` is passed, so the
-  existing shape is unchanged otherwise. Optional
+  the `app agent add` that finishes it rather than rolling the agent back. A
+  LOST ANSWER (exit 7, #394) is reported as `unknown`, not `failed` — the
+  install may have committed, so the remedy is to check `app agent list` before
+  retrying rather than to retry into a duplicate. In `--json` the create gains
+  an `install` object **only** when `--install-into` is passed, so the existing
+  shape is unchanged otherwise: `appRef` (what you passed, an ID or a URN),
+  `status` (`installed`/`failed`/`unknown`), `error` on the latter two, and the
+  server-resolved `appId`/`appUrn` on success only. Optional
   `--type`/`--visibility`/`--description`/`--system-prompt`/
   `--system-memory`/`--surface` (repeatable); `agent update <ref> [<field flags>]`
   changes only the fields you pass (`--surface` replaces the set); `agent rm <ref>`
