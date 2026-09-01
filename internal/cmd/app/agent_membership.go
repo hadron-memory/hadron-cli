@@ -1,13 +1,11 @@
 package app
 
 import (
-	"errors"
 	"fmt"
 	"io"
 
 	"github.com/spf13/cobra"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -32,34 +30,6 @@ type appAgentRemovedDTO struct {
 	AppID   string `json:"appId"`
 	AgentID string `json:"agentId"`
 	Status  string `json:"status"`
-}
-
-// forbiddenGuidance turns the server's bare FORBIDDEN into the actual rule
-// (#389). The gate here is NOT App membership: installing an existing Agent is
-// itself a read grant on that Agent's design — its system memory becomes
-// readable from every App context and the returned Agent carries its
-// systemPrompt — so it sits at the level that can already read the org's
-// Agents. hadron-server#952 proposed admitting non-reader AppMembers and that
-// was declined for exactly this reason, which means a team member who is not an
-// org member will hit this and deserves better than one word.
-func forbiddenGuidance(err error) error {
-	if !api.HasErrorCode(err, "FORBIDDEN") {
-		return api.MapError(err)
-	}
-	mapped := api.MapError(err)
-	return exitcode.Newf(exitcode.FromError(mapped),
-		"%v — installing or removing an Agent needs CONTRIBUTOR+ on the App's owning org "+
-			"(or ownership of a user-owned App). App membership is deliberately not enough: "+
-			"attaching an Agent grants read access to its design, including its system prompt",
-		unwrapMessage(mapped))
-}
-
-func unwrapMessage(err error) error {
-	var coded *exitcode.CodedError
-	if errors.As(err, &coded) {
-		return coded.Err
-	}
-	return err
 }
 
 func newCmdAgentAdd(f *cmdutil.Factory) *cobra.Command {
@@ -99,7 +69,7 @@ Agent grants read access to its design.`,
 			}
 			resp, err := gen.InstallAgentIntoApp(cmd.Context(), client, args[0], args[1], training)
 			if err != nil {
-				return forbiddenGuidance(err)
+				return cmdutil.InstallForbiddenGuidance(err)
 			}
 			if resp.InstallAgentIntoApp == nil || resp.InstallAgentIntoApp.AppAgent == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no AppAgent row")
@@ -157,7 +127,7 @@ user-owned App.`,
 			}
 			resp, err := gen.UninstallAgentFromApp(cmd.Context(), client, args[0], args[1])
 			if err != nil {
-				return forbiddenGuidance(err)
+				return cmdutil.InstallForbiddenGuidance(err)
 			}
 			if resp.UninstallAgentFromApp == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no result")
