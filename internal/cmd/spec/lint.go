@@ -270,6 +270,29 @@ func lintNode(n specNode) []lintFindingDTO {
 		add("tag-spec", sevError, `missing "spec" tag`)
 	}
 
+	// #545. A UNIVERSAL check, above the tier early-returns: one field having
+	// absorbed another is corruption at any level, and a header node can be
+	// corrupted exactly as a rule can. Error, not warning — the absorbed field
+	// may be the only copy of what it held, so this must fail a corpus run
+	// rather than accumulate in a warning list somebody skims.
+	//
+	// Reported per FIELD: knowing it is the abstract rather than the body is
+	// what tells an author which one swallowed the other, and it is the first
+	// thing they need before touching either.
+	for _, field := range []struct {
+		name string
+		text *string
+	}{{"abstract", n.Abstract}, {"body", n.Content}} {
+		if field.text == nil {
+			continue
+		}
+		if leaked := leakedMarkers(*field.text); len(leaked) > 0 {
+			add("serialization-leak", sevError, fmt.Sprintf(
+				"%s contains writing-tool markup (%s) — a field has absorbed another, and the absorbed one may be the only copy; recover it before editing, and do NOT truncate at the marker",
+				field.name, strings.Join(leaked, ", ")))
+		}
+	}
+
 	if err != nil || c.Level() < 3 {
 		return fs
 	}
@@ -283,6 +306,25 @@ func lintNode(n specNode) []lintFindingDTO {
 	if c.IsContract() && isPlaceholderAbstract(n.Abstract) {
 		add("placeholder-contract", sevInfo, "untouched placeholder contract — exempt from the rubric until a rule needs its shared provisions and you author it")
 		return fs
+	}
+
+	// #545. Below the placeholder early-return ON PURPOSE: a genuinely untouched
+	// contract returns above and is reported once, as placeholder-contract.
+	// Reaching here with a scaffold body therefore means the INTERESTING case —
+	// an authored abstract over a body nobody wrote, which is exactly what
+	// cor:api:090:00 was after its provisions leaked into the abstract.
+	//
+	// This is the gap that let an unauthored spec look authored: the one rubric
+	// check that reads the body tests for a "what invalidates" heading, and the
+	// scaffold SHIPS with that heading, so a never-written body passes it.
+	//
+	// Warning rather than error, and a regression guard rather than a cleanup
+	// driver: the blast radius across the corpus was ZERO when this shipped,
+	// because both scaffold bodies belong to the two exempt contracts above. It
+	// earns its place by catching the next one.
+	if isScaffoldBody(n.Content) {
+		add("scaffold-body", sevWarning,
+			"body is still the `spec new` scaffold — its filler prose is unreplaced, so this spec is unauthored even though its abstract reads otherwise")
 	}
 
 	// Rubric proper. Top-level specs (rules) are the compliance-loadable
@@ -656,4 +698,86 @@ func unavailableSpecNodes(list []*api.ListNode, unavailable []string) []specNode
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Loc < out[j].Loc })
 	return out
+}
+
+// serializationMarkers are field delimiters of the WRITING TOOL, never spec
+// content (#545). Their presence means one field has absorbed another — and the
+// absorbed one may be the only copy of it, which is what happened to
+// cor:api:090:00: its provisions ended up inside its own abstract while its
+// body stayed an unfilled scaffold. The obvious fix for the resulting
+// abstract-length warning, truncating at the stray tag, would have destroyed
+// them.
+//
+// Measured at zero occurrences across all 305 specs when this shipped. The
+// corpus's legitimate angle brackets are grammar placeholders (<org>:<slug>,
+// <actor>) and share no token with this list.
+var serializationMarkers = []string{
+	"</abstract>", "<abstract>",
+	"</content>", "<content>",
+	"<parameter name=", "</parameter>",
+	"<function_calls>", "</function_calls>",
+	"<invoke name=", "</invoke>",
+}
+
+// scaffoldFillers are sentences `spec new` emits and an author is expected to
+// replace. Finding one means the body was never written.
+//
+// Matched on the FILLER PROSE rather than a sentinel, deliberately: a
+// TODO(body:) marker would only cover specs created after it shipped, and the
+// corpus this rule protects is the one that already exists. See scaffoldBody.
+var scaffoldFillers = []string{
+	"State the shared rules and defaults.",
+	"The changes that repeal or supersede these general provisions. (Mandatory.)",
+	"The specific changes that repeal or supersede this spec. (Mandatory.)",
+	"One-line definition of what this spec governs.",
+	"State the rule precisely. Give concrete examples and edge cases.",
+}
+
+// reFenced and reInlineCode strip the two places a spec may legitimately QUOTE
+// a marker: a fenced block or inline backticks.
+//
+// This is the self-reference trap, and it is not hypothetical — a spec
+// documenting this very leak would otherwise be reported as corrupted by the
+// rule that documents it, which is the closing-keyword shape from
+// `conventions`: quoting the thing re-triggers it. Stripping is worth doing on
+// its own merits too, since a fenced example is content ABOUT markup rather
+// than markup that leaked into content.
+var (
+	reFenced     = regexp.MustCompile("(?s)```.*?```")
+	reInlineCode = regexp.MustCompile("`[^`\n]*`")
+)
+
+// withoutCode removes fenced blocks and inline code so a quoted marker does not
+// read as a leaked one. Fenced first: a fence may contain backticks, and
+// stripping inline spans first would leave its delimiters orphaned.
+func withoutCode(s string) string {
+	return reInlineCode.ReplaceAllString(reFenced.ReplaceAllString(s, " "), " ")
+}
+
+// leakedMarkers returns the serialization markers present in s outside code.
+func leakedMarkers(s string) []string {
+	prose := withoutCode(s)
+	var found []string
+	for _, m := range serializationMarkers {
+		if strings.Contains(prose, m) {
+			found = append(found, m)
+		}
+	}
+	return found
+}
+
+// isScaffoldBody reports whether the body is still `spec new`'s output — the
+// gap that let an unauthored spec look authored. The rubric's one body-reading
+// check tests for a "what invalidates" heading, and the scaffold SHIPS with
+// that heading, so a never-written body passes it.
+func isScaffoldBody(content *string) bool {
+	if content == nil {
+		return false
+	}
+	for _, f := range scaffoldFillers {
+		if strings.Contains(*content, f) {
+			return true
+		}
+	}
+	return false
 }
