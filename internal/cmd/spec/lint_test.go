@@ -592,6 +592,16 @@ func TestLintSerializationLeakIgnoresQuotedMarkers(t *testing.T) {
 		{"inline backticks", "A leak looks like `</abstract>` in the prose."},
 		{"fenced block", "Example:\n\n```\n</abstract>\n<parameter name=\"content\">\n```\n\nThat is the shape."},
 		{"grammar placeholders", "Addressed as <org>:<slug> by an <actor>."},
+		// @codex on PR #547: the first version recognised only single-backtick
+		// spans and exactly-triple-backtick fences, so each of these was a false
+		// serialization-leak — at ERROR severity, which fails a corpus run. The
+		// double-backtick span is the one that matters most: it is what an author
+		// reaches for when the quoted text itself contains a backtick, so the rule
+		// would have broken precisely the spec that documented it.
+		{"double-backtick span", "A leak looks like ``</abstract>`` in prose."},
+		{"tilde fence", "Example:\n\n~~~\n</abstract>\n~~~\n\nThat is the shape."},
+		{"four-backtick fence", "Example:\n\n````\n</abstract>\n````\n\nok."},
+		{"indented fence", "Example:\n\n  ```\n  </abstract>\n  ```\n\nok."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			n := cleanSpec(t, "msg:010:02", "W2")
@@ -641,5 +651,26 @@ func TestLintUntouchedContractIsNotAlsoScaffoldBody(t *testing.T) {
 	}
 	if hasRule(fs, "scaffold-body") {
 		t.Errorf("an untouched contract must not be double-reported, got %v", fs)
+	}
+}
+
+// The guard must not become a hiding place. An UNTERMINATED backtick run is
+// literal text, not an open code span — if it swallowed the rest of the line,
+// a corrupted spec could conceal a real leak behind one stray backtick, and the
+// self-reference guard would have created a way to defeat the rule it protects.
+func TestLintSerializationLeakSurvivesAStrayBacktick(t *testing.T) {
+	for _, tc := range []struct{ name, text string }{
+		{"stray backtick before a leak", "an unclosed ` then </abstract> leaked here"},
+		{"leak after a closed span", "quoted `fine` then a real </abstract> leak"},
+		{"leak inside an unterminated fence-looking run", "``not a span </abstract>"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			n := cleanSpec(t, "msg:010:02", "W2")
+			abs := tc.text
+			n.Abstract = &abs
+			if !hasRule(lintNode(n), "serialization-leak") {
+				t.Errorf("a real leak must still be reported: %q", tc.text)
+			}
+		})
 	}
 }

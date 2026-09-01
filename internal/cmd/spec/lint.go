@@ -733,25 +733,111 @@ var scaffoldFillers = []string{
 	"State the rule precisely. Give concrete examples and edge cases.",
 }
 
-// reFenced and reInlineCode strip the two places a spec may legitimately QUOTE
-// a marker: a fenced block or inline backticks.
+// withoutCode removes the places a spec may legitimately QUOTE a marker: a
+// fenced block, or an inline code span.
 //
-// This is the self-reference trap, and it is not hypothetical — a spec
+// This is the self-reference guard, and it is not hypothetical — a spec
 // documenting this very leak would otherwise be reported as corrupted by the
 // rule that documents it, which is the closing-keyword shape from
 // `conventions`: quoting the thing re-triggers it. Stripping is worth doing on
 // its own merits too, since a fenced example is content ABOUT markup rather
 // than markup that leaked into content.
-var (
-	reFenced     = regexp.MustCompile("(?s)```.*?```")
-	reInlineCode = regexp.MustCompile("`[^`\n]*`")
-)
-
-// withoutCode removes fenced blocks and inline code so a quoted marker does not
-// read as a leaked one. Fenced first: a fence may contain backticks, and
-// stripping inline spans first would leave its delimiters orphaned.
+//
+// SCANNED, not regexed (@codex on PR #547). The first version matched only
+// single-backtick spans and exactly-triple-backtick fences, so a double-backtick
+// span or a ~~~ fence — both ordinary Markdown, and a double-backtick span is
+// what you reach for when the quoted text itself contains a backtick — produced
+// a false serialization-leak. At ERROR severity that fails a corpus run, so the
+// rule would have broken the very spec that explained it.
+//
+// It cannot be a regexp: the closing delimiter must match the opening RUN
+// LENGTH, and Go's RE2 has no backreferences. A scanner is the honest shape
+// rather than a cleverer pattern.
 func withoutCode(s string) string {
-	return reInlineCode.ReplaceAllString(reFenced.ReplaceAllString(s, " "), " ")
+	var b strings.Builder
+	open := ""
+	for _, line := range strings.Split(s, "\n") {
+		trimmed := strings.TrimLeft(line, " \t")
+		if open != "" {
+			// A closing fence is a run of the SAME char, at least as long as
+			// the opening one (CommonMark); anything else is fenced content.
+			if run := fenceRun(trimmed); run != "" && run[0] == open[0] && len(run) >= len(open) {
+				open = ""
+			}
+			b.WriteString(" \n")
+			continue
+		}
+		if run := fenceRun(trimmed); run != "" {
+			open = run
+			b.WriteString(" \n")
+			continue
+		}
+		b.WriteString(stripInlineCode(line))
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+// fenceRun returns the leading delimiter run when the line opens or closes a
+// fence — three or more backticks or tildes — and "" otherwise.
+func fenceRun(trimmed string) string {
+	if trimmed == "" {
+		return ""
+	}
+	c := trimmed[0]
+	if c != '`' && c != '~' {
+		return ""
+	}
+	n := 0
+	for n < len(trimmed) && trimmed[n] == c {
+		n++
+	}
+	if n < 3 {
+		return ""
+	}
+	return trimmed[:n]
+}
+
+// stripInlineCode removes CommonMark code spans: a run of N backticks opens
+// one, and the next run of EXACTLY N backticks closes it. An unterminated run
+// is literal text and is kept, so a stray backtick cannot swallow the rest of
+// the line and hide a real leak behind it.
+func stripInlineCode(line string) string {
+	var b strings.Builder
+	for i := 0; i < len(line); {
+		if line[i] != '`' {
+			b.WriteByte(line[i])
+			i++
+			continue
+		}
+		n := 0
+		for i+n < len(line) && line[i+n] == '`' {
+			n++
+		}
+		closed := false
+		for j := i + n; j < len(line); {
+			if line[j] != '`' {
+				j++
+				continue
+			}
+			m := 0
+			for j+m < len(line) && line[j+m] == '`' {
+				m++
+			}
+			if m == n {
+				b.WriteByte(' ')
+				i = j + m
+				closed = true
+				break
+			}
+			j += m
+		}
+		if !closed {
+			b.WriteString(line[i : i+n])
+			i += n
+		}
+	}
+	return b.String()
 }
 
 // leakedMarkers returns the serialization markers present in s outside code.
