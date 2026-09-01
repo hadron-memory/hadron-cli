@@ -733,35 +733,34 @@ var scaffoldFillers = []string{
 	"State the rule precisely. Give concrete examples and edge cases.",
 }
 
-// withoutCode removes the places a spec may legitimately QUOTE a marker: a
-// fenced block, or an inline code span.
+// withoutCode removes FENCED CODE BLOCKS, and nothing else.
 //
-// This is the self-reference guard — a spec documenting this very leak would
-// otherwise be reported as corrupted by the rule that documents it, the
-// closing-keyword shape from `conventions` where quoting the thing re-triggers
-// it.
+// This is the self-reference guard: a spec documenting this very leak would
+// otherwise be reported as corrupted by the rule that documents it — the
+// closing-keyword shape where quoting the thing re-triggers it.
 //
-// THE GOVERNING RULE, and it is what stopped three review rounds of chasing
-// CommonMark: this function may cause a FALSE POSITIVE, and must never cause a
-// FALSE NEGATIVE. serialization-leak is an error-severity check on content that
-// may be the only copy of itself. A spurious finding is loud, cheap and fixed
-// in a minute; a suppressed one hides the corruption the rule exists to catch,
-// and nothing will ever say so.
+// THE GOVERNING PROPERTY: this may cause a false positive, and must never cause
+// a false negative. serialization-leak is an error-severity check on content
+// that may be the only copy of itself. A spurious finding is loud, cheap and
+// fixed in a minute; a suppressed one hides the corruption the rule exists to
+// catch, and nothing ever says so.
 //
-// So every ambiguity resolves toward SCANNING rather than stripping:
+// INLINE CODE SPANS ARE DELIBERATELY NOT STRIPPED, and that is the conclusion
+// of five review rounds rather than an omission. Every false negative found in
+// them came from pairing backticks: spans crossing newlines swallowed prose
+// lines apart; a backtick inside a fence info string opened a fence that ate
+// the marker; an escaped backtick opened a span that was never there. Each fix
+// was correct about CommonMark and produced another hiding place, because a
+// partial Markdown implementation cannot guarantee the property above — it can
+// only be wrong in a new way.
 //
-//   - an UNCLOSED fence restores its lines as prose. We do not know where the
-//     code ended, and assuming "everything after it" blinds the rule for the
-//     rest of the document — measured, that swallowed a real leak whole.
-//   - an indented code block is NOT stripped. A ≥4-space line merely cannot
-//     OPEN a fence (CommonMark allows at most 3), which was the actual defect;
-//     stripping such blocks as well would add a hiding place to fix a case the
-//     corpus does not have.
-//   - an unterminated backtick run stays literal text, so a stray backtick
-//     cannot swallow the rest of a line.
+// So the promise is smaller and keepable: a FENCED example is not scanned; an
+// inline-quoted marker IS reported, and the remedy is to fence it. Fences are
+// line-based, and an unclosed one restores its lines as prose rather than
+// assuming everything after it is code, so no input can blind the rule.
 //
-// It is a scanner rather than a regexp because a closing delimiter must match
-// the opening RUN LENGTH, and Go's RE2 has no backreferences.
+// A four-space-indented line cannot OPEN a fence (CommonMark allows at most
+// three); indented blocks are not stripped either, for the same reason.
 func withoutCode(s string) string {
 	lines := strings.Split(s, "\n")
 	kept := make([]string, len(lines))
@@ -770,8 +769,8 @@ func withoutCode(s string) string {
 		indent, trimmed := splitIndent(line)
 		switch {
 		case open != "":
-			// A closing fence carries ONLY whitespace after its run
-			// (CommonMark); ```not-a-close is fenced content, not a close.
+			// A closing fence carries only whitespace after its run
+			// (CommonMark), so a suffixed line is content, not a close.
 			if run := fenceRun(trimmed); indent <= 3 && run != "" && run[0] == open[0] &&
 				len(run) >= len(open) && strings.TrimSpace(trimmed[len(run):]) == "" {
 				open = ""
@@ -787,20 +786,6 @@ func withoutCode(s string) string {
 	if open != "" {
 		// Never blind: restore from the opening fence onward and scan it.
 		copy(kept[openAt:], lines[openAt:])
-	}
-	// Spans are stripped PER LINE, and that is a deliberate reversal.
-	//
-	// Round 2 of this review made them cross newlines, because CommonMark spans
-	// may — a correct observation about Markdown, and the wrong call here. A
-	// cross-line span pairs the delimiters of fence-looking prose several lines
-	// apart and swallows everything between them, which is how a real marker
-	// disappeared. It traded an ACCEPTABLE failure (a span crossing a newline is
-	// reported, spuriously) for a FORBIDDEN one (a marker silently unseen).
-	//
-	// The property decides it: prefer the false positive. A marker quoted across
-	// a line break is reported, and the remedy is to fence the example.
-	for i, line := range kept {
-		kept[i] = stripInlineCode(line)
 	}
 	return strings.Join(kept, "\n")
 }
@@ -858,48 +843,6 @@ func fenceOpener(trimmed string) string {
 		return ""
 	}
 	return run
-}
-
-// stripInlineCode removes CommonMark code spans: a run of N backticks opens
-// one, and the next run of EXACTLY N backticks closes it WITHIN THE LINE. An
-// unterminated run is literal text and is kept, so a stray backtick cannot
-// swallow the rest of a line.
-func stripInlineCode(text string) string {
-	var b strings.Builder
-	for i := 0; i < len(text); {
-		if text[i] != '`' {
-			b.WriteByte(text[i])
-			i++
-			continue
-		}
-		n := 0
-		for i+n < len(text) && text[i+n] == '`' {
-			n++
-		}
-		closed := false
-		for j := i + n; j < len(text); {
-			if text[j] != '`' {
-				j++
-				continue
-			}
-			m := 0
-			for j+m < len(text) && text[j+m] == '`' {
-				m++
-			}
-			if m == n {
-				b.WriteByte(' ')
-				i = j + m
-				closed = true
-				break
-			}
-			j += m
-		}
-		if !closed {
-			b.WriteString(text[i : i+n])
-			i += n
-		}
-	}
-	return b.String()
 }
 
 // leakedMarkers returns the serialization markers present in s outside code.

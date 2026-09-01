@@ -603,9 +603,11 @@ func TestLintSerializationLeakQuotingAndHiding(t *testing.T) {
 		text string
 		leak bool
 	}{
-		// Quoted — must NOT be reported.
-		{"single-backtick span", "quoted `</abstract>` here", false},
-		{"double-backtick span", "quoted ``</abstract>`` here", false},
+		// FENCED — must NOT be reported. A fence is the only exemption, and
+		// that is the settled scope after five review rounds: every false
+		// negative came from pairing backticks for inline spans, so spans are
+		// not stripped at all. An inline-quoted marker IS reported, and the
+		// remedy is to fence the example.
 		{"triple fence", "```\n</abstract>\n```\n", false},
 		{"tilde fence", "~~~\n</abstract>\n~~~\n", false},
 		{"four-backtick fence", "````\n</abstract>\n````\n", false},
@@ -625,7 +627,13 @@ func TestLintSerializationLeakQuotingAndHiding(t *testing.T) {
 		// delimiters of fence-looking prose lines apart and swallowed a real
 		// marker. The property decides it: a spurious finding is permitted, going
 		// blind is not. The remedy for an author is to fence the example.
-		{"a span crossing a newline is reported, not followed", "a `code\n</abstract>` b", true},
+		{"a span crossing a newline is reported", "a `code\n</abstract>` b", true},
+		{"an inline span is reported; fence it instead", "quoted `</abstract>` here", true},
+		{"a double-backtick span likewise", "quoted ``</abstract>`` here", true},
+		// CommonMark makes \` a LITERAL backtick, so no span exists and the
+		// marker is prose. Pairing backticks would have hidden it — the third
+		// distinct way span logic went blind, and the reason there is none.
+		{"escaped backticks open nothing", "prose \\`literal </abstract> tail\\` more", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			n := cleanSpec(t, "msg:010:02", "W2")
