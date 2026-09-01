@@ -769,10 +769,17 @@ func withoutCode(s string) string {
 		indent, trimmed := splitIndent(line)
 		switch {
 		case open != "":
-			// A closing fence carries only whitespace after its run
-			// (CommonMark), so a suffixed line is content, not a close.
+			// A closing fence carries only SPACES OR TABS after its run — not
+			// "whitespace" generally (CommonMark). strings.TrimSpace also trims
+			// Unicode blanks such as NBSP, which closed a fence CommonMark
+			// leaves open and reported its contents (@codex, PR #547).
+			//
+			// That direction is a false positive, which the property permits —
+			// taken anyway because the fix is one argument and cannot introduce
+			// blinding: a stricter close means a fence stays open, and an
+			// unclosed fence is restored as prose below rather than suppressed.
 			if run := fenceRun(trimmed); indent <= 3 && run != "" && run[0] == open[0] &&
-				len(run) >= len(open) && strings.TrimSpace(trimmed[len(run):]) == "" {
+				len(run) >= len(open) && strings.Trim(trimmed[len(run):], " \t") == "" {
 				open = ""
 			}
 			kept[i] = ""

@@ -613,6 +613,9 @@ func TestLintSerializationLeakQuotingAndHiding(t *testing.T) {
 		{"four-backtick fence", "````\n</abstract>\n````\n", false},
 		{"three-space indented fence", "   ```\n   </abstract>\n   ```\n", false},
 		{"suffixed line is not a close", "```\n```not-a-close\n</abstract>\n```\n", false},
+		// Only spaces and tabs may follow a closing run; TrimSpace also trimmed
+		// NBSP, closing a fence CommonMark leaves open.
+		{"a non-breaking space does not close a fence", "```\ncode\n```\u00a0\n</abstract> still fenced\n```\n", false},
 		{"grammar placeholders", "<org>:<slug> and <actor>", false},
 
 		// Real — must STILL be reported. Each of these was a false negative in
