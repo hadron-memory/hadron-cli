@@ -334,3 +334,73 @@ func TestAgentCreateInstallIntoFailurePreservesExitCode(t *testing.T) {
 		t.Errorf("a failed install must not exit OK, got %v", got)
 	}
 }
+
+// #543 review (@codex P2): an EXPLICIT `--install-into=` is a usage error, not
+// an absent flag — and it is refused BEFORE the create, so no orphan agent is
+// left behind by a pure usage mistake.
+//
+// The real invocation is `--install-into="$APP"` with an unset variable, which
+// cobra records as Changed-but-empty. Before this guard the command created the
+// agent, took the flag-ABSENT branch, printed "✓ created" and exited 0 — having
+// silently skipped the install the caller asked for. Under --json the `install`
+// key is simply omitted, which is indistinguishable from never having asked, so
+// nothing downstream could detect it either.
+func TestAgentCreateRejectsEmptyInstallInto(t *testing.T) {
+	for _, arg := range []string{"--install-into=", "--install-into=   "} {
+		gql, captured := captureGraphQL(t, map[string]string{
+			"CreateAgent":         `{"data":{"createAgent":` + agentJSON + `}}`,
+			"InstallAgentIntoApp": installResp,
+		})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"agent", "create", "--org", "acme.com", "--name", "Support Bot",
+			arg, "--json", "--server", gql.URL})
+
+		err := root.Execute()
+		if got := exitCodeFor(err); got != exitcode.Usage {
+			t.Errorf("%q: an empty install target is a usage error (2), got %d (err: %v)", arg, got, err)
+		}
+		// NOTHING may have been created. This is the assertion that matters:
+		// the guard's whole point is that it runs before the mutation, and a
+		// version placed after it would satisfy the exit code above while
+		// leaving an agent behind.
+		if _, called := captured["CreateAgent"]; called {
+			t.Errorf("%q: the agent must not be created — a usage error must not leave an orphan", arg)
+		}
+		if _, called := captured["InstallAgentIntoApp"]; called {
+			t.Errorf("%q: nothing may be installed", arg)
+		}
+		if out.String() != "" {
+			t.Errorf("%q: a refused create emits no document, got %q", arg, out.String())
+		}
+		// The message must name the likely cause. "requires a value" would be
+		// true and useless; an unset shell variable is what actually produces
+		// this, and saying so is the difference between a fix and a puzzle.
+		if err == nil || !strings.Contains(err.Error(), "unset variable") {
+			t.Errorf("%q: the refusal should name the usual cause, got %v", arg, err)
+		}
+	}
+}
+
+// …and the flag being ABSENT stays a success: the agent is created, and the
+// stderr note says it is not installed. Pinned beside the refusal so a guard
+// that over-fires — refusing whenever installInto is empty, Changed or not —
+// cannot pass. That mutation is the obvious "simplification" of the pair.
+func TestAgentCreateWithoutInstallIntoStillSucceeds(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateAgent": `{"data":{"createAgent":` + agentJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "create", "--org", "acme.com", "--name", "Support Bot",
+		"--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("an absent --install-into must still create: %v", err)
+	}
+	if _, called := captured["CreateAgent"]; !called {
+		t.Error("the agent must be created when the flag is absent")
+	}
+	if !strings.Contains(out.String(), `"urn"`) {
+		t.Errorf("the created agent must still be emitted: %s", out.String())
+	}
+}

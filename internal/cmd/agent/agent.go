@@ -308,6 +308,28 @@ it can refuse after the create succeeds.`,
 			if ownerMe && org != "" {
 				return exitcode.Newf(exitcode.Usage, "--owner-me creates an agent you own in your own namespace; drop --org (or drop --owner-me to create an organization agent)")
 			}
+			// #543 review (@codex P2). An EXPLICIT `--install-into=` is a usage
+			// error, not an absent flag. `--install-into="$APP"` with an unset
+			// variable arrives here as Changed-but-empty, and the emptiness test
+			// further down is the FLAG-ABSENT path — so without this the agent is
+			// created, "✓ created" is printed, and the command exits 0 having
+			// silently skipped the install the caller asked for. Under --json the
+			// `install` key is simply omitted, which is indistinguishable from
+			// never having asked.
+			//
+			// Refused HERE, before CreateAgent, deliberately: refusing after the
+			// create would leave an orphan agent behind on a pure usage error,
+			// trading a silent no-op for a messier one.
+			//
+			// NORMALIZED, not just validated: `--install-into=" "` is checked and
+			// forwarded as the same trimmed value. Testing TrimSpace while sending
+			// the raw string is the worst of both — it admits a target the server
+			// then fails to resolve, in a message naming a ref nobody typed.
+			installInto = strings.TrimSpace(installInto)
+			if cmd.Flags().Changed("install-into") && installInto == "" {
+				return exitcode.Newf(exitcode.Usage,
+					"--install-into needs an App (ID or URN); it was passed empty, which usually means an unset variable — drop the flag to create an agent without installing it")
+			}
 			at, err := parseAgentType(typ)
 			if err != nil {
 				return err
@@ -331,6 +353,11 @@ it can refuse after the create succeeds.`,
 			}
 			created := agentCreateDTO{agentDTO: agentDTOFromFields(resp.CreateAgent.AgentFields)}
 
+			// Reaching here with an empty installInto now means ONE thing — the
+			// flag was not passed. "Asked for nothing" was refused above, so do
+			// not collapse that guard into this test on the grounds that both
+			// look at the same emptiness: this branch is only unambiguous
+			// BECAUSE the other one runs first.
 			if installInto == "" {
 				// #535: "✓ created" reads as done, but the agent is inert until it
 				// is in some App's cast pool. Stderr keeps the --json contract clean.
