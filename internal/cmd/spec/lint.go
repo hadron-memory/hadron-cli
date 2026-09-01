@@ -777,8 +777,8 @@ func withoutCode(s string) string {
 				open = ""
 			}
 			kept[i] = ""
-		case indent <= 3 && fenceRun(trimmed) != "":
-			open, openAt = fenceRun(trimmed), i
+		case indent <= 3 && fenceOpener(trimmed) != "":
+			open, openAt = fenceOpener(trimmed), i
 			kept[i] = ""
 		default:
 			kept[i] = line
@@ -788,10 +788,21 @@ func withoutCode(s string) string {
 		// Never blind: restore from the opening fence onward and scan it.
 		copy(kept[openAt:], lines[openAt:])
 	}
-	// Spans are stripped over the WHOLE remaining text rather than per line: a
-	// CommonMark code span may cross a newline, and a per-line pass leaves the
-	// marker on the far side of the break visible.
-	return stripInlineCode(strings.Join(kept, "\n"))
+	// Spans are stripped PER LINE, and that is a deliberate reversal.
+	//
+	// Round 2 of this review made them cross newlines, because CommonMark spans
+	// may — a correct observation about Markdown, and the wrong call here. A
+	// cross-line span pairs the delimiters of fence-looking prose several lines
+	// apart and swallows everything between them, which is how a real marker
+	// disappeared. It traded an ACCEPTABLE failure (a span crossing a newline is
+	// reported, spuriously) for a FORBIDDEN one (a marker silently unseen).
+	//
+	// The property decides it: prefer the false positive. A marker quoted across
+	// a line break is reported, and the remedy is to fence the example.
+	for i, line := range kept {
+		kept[i] = stripInlineCode(line)
+	}
+	return strings.Join(kept, "\n")
 }
 
 // splitIndent returns the line's indentation width (a tab counting as 4, per
@@ -831,9 +842,28 @@ func fenceRun(trimmed string) string {
 	return trimmed[:n]
 }
 
+// fenceOpener returns the run when the line OPENS a fence, and "" otherwise.
+//
+// Distinct from fenceRun because opening is stricter than closing: a BACKTICK
+// fence's info string may not contain a backtick (CommonMark), so such a line
+// is not a fence at all. Accepting it opened a fence that the next ``` closed,
+// stripping the prose between them — and a marker in that prose vanished
+// (@codex, PR #547). A tilde fence has no such restriction.
+func fenceOpener(trimmed string) string {
+	run := fenceRun(trimmed)
+	if run == "" {
+		return ""
+	}
+	if run[0] == '`' && strings.Contains(trimmed[len(run):], "`") {
+		return ""
+	}
+	return run
+}
+
 // stripInlineCode removes CommonMark code spans: a run of N backticks opens
-// one, and the next run of EXACTLY N backticks closes it — across newlines,
-// which spans may cross. An unterminated run is literal text and is kept.
+// one, and the next run of EXACTLY N backticks closes it WITHIN THE LINE. An
+// unterminated run is literal text and is kept, so a stray backtick cannot
+// swallow the rest of a line.
 func stripInlineCode(text string) string {
 	var b strings.Builder
 	for i := 0; i < len(text); {
@@ -892,8 +922,14 @@ func isScaffoldBody(content *string) bool {
 	if content == nil {
 		return false
 	}
+	// withoutCode for the same reason rule A uses it: a spec DOCUMENTING
+	// `spec new` quotes its filler in an example, and matching that would call
+	// an authored spec unauthored. Rule A had this guard from the start and
+	// rule B did not — an inconsistency in my own implementation rather than a
+	// new case (@codex, PR #547).
+	prose := withoutCode(*content)
 	for _, f := range scaffoldFillers {
-		if strings.Contains(*content, f) {
+		if strings.Contains(prose, f) {
 			return true
 		}
 	}

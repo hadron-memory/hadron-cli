@@ -611,7 +611,6 @@ func TestLintSerializationLeakQuotingAndHiding(t *testing.T) {
 		{"four-backtick fence", "````\n</abstract>\n````\n", false},
 		{"three-space indented fence", "   ```\n   </abstract>\n   ```\n", false},
 		{"suffixed line is not a close", "```\n```not-a-close\n</abstract>\n```\n", false},
-		{"span crossing a newline", "a `code\n</abstract>` b", false},
 		{"grammar placeholders", "<org>:<slug> and <actor>", false},
 
 		// Real — must STILL be reported. Each of these was a false negative in
@@ -620,6 +619,13 @@ func TestLintSerializationLeakQuotingAndHiding(t *testing.T) {
 		{"an unclosed fence must not blind the rest", "```\ncode\n\nreal </abstract> leak\n", true},
 		{"a stray backtick opens nothing", "unclosed ` then </abstract> leaked", true},
 		{"the plain case", "provisions</abstract>\n<parameter name=\"content\">", true},
+		{"a backtick in a fence's info string is not an opener", "```foo`bar\nreal </abstract> leak\n```\n", true},
+		// REPORTED on purpose. A CommonMark span may cross a newline, and round 2
+		// of this review made the stripper follow it there — which then paired the
+		// delimiters of fence-looking prose lines apart and swallowed a real
+		// marker. The property decides it: a spurious finding is permitted, going
+		// blind is not. The remedy for an author is to fence the example.
+		{"a span crossing a newline is reported, not followed", "a `code\n</abstract>` b", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			n := cleanSpec(t, "msg:010:02", "W2")
@@ -669,5 +675,26 @@ func TestLintUntouchedContractIsNotAlsoScaffoldBody(t *testing.T) {
 	}
 	if hasRule(fs, "scaffold-body") {
 		t.Errorf("an untouched contract must not be double-reported, got %v", fs)
+	}
+}
+
+// #545 rule B carries the SAME self-reference guard as rule A — a spec
+// documenting `spec new` quotes its filler in an example, and matching that
+// would call an authored spec unauthored. Rule A had the guard from the start
+// and rule B did not; that was an inconsistency in the implementation rather
+// than a case nobody had thought of (@codex, PR #547).
+func TestLintScaffoldBodyIgnoresQuotedFiller(t *testing.T) {
+	n := cleanSpec(t, "msg:010:02", "W2")
+	quoted := "# msg:010:02 — W2\n\n## Rule\n\n`spec new` emits:\n\n```\nState the shared rules and defaults.\n```\n\nAuthored prose.\n\n## What invalidates this spec\n\nx\n"
+	n.Content = &quoted
+	if hasRule(lintNode(n), "scaffold-body") {
+		t.Error("filler quoted in an example is documentation, not an unauthored body")
+	}
+
+	// …and the genuine article still fires, so the guard has not disarmed it.
+	real := "# msg:010:02 — W2\n\n## Provisions\n\nState the shared rules and defaults.\n\n## What invalidates this spec\n\nx\n"
+	n.Content = &real
+	if !hasRule(lintNode(n), "scaffold-body") {
+		t.Error("an unreplaced scaffold body must still be reported")
 	}
 }
