@@ -19,7 +19,19 @@ func cleanSpec(t *testing.T, loc, title string) specNode {
 	t.Helper()
 	c := mustCit(t, loc)
 	abs := "Abstract describing " + loc + " for semantic search."
-	content := rubricBody(c, title)
+	// AUTHORED, not the scaffold. This used to be rubricBody(c, title) — the
+	// generator's own output — which #545's scaffold-body rule correctly reports
+	// as unauthored. That the linter's fixture for "a clean spec" was a spec
+	// nobody had written is the issue's point arriving in its own test suite:
+	// before that rule, an unauthored body was indistinguishable from an
+	// authored one, here as much as in the corpus.
+	//
+	// It keeps the "what invalidates" heading, because the rubric requires it
+	// and this fixture must still satisfy every OTHER rule.
+	content := "# " + c.Format() + " — " + title + "\n\n" +
+		"## Definition\n\nWhat " + loc + " governs, stated in one line.\n\n" +
+		"## Rule\n\nThe rule, with an example and its edge cases.\n\n" +
+		"## What invalidates this spec\n\nA change to the behaviour above.\n"
 	sn := specNode{
 		Loc:         loc,
 		Name:        specName(c, title),
@@ -515,5 +527,185 @@ func TestCollectSpecDetailBatchRequeuesTruncatedAndUnavailable(t *testing.T) {
 	}
 	if calls != 2 {
 		t.Fatalf("calls = %d, want 2", calls)
+	}
+}
+
+// #545: a writing-tool field delimiter inside a spec means one field has
+// ABSORBED another, and the absorbed one may be the only copy of what it held.
+//
+// The incident: cor:api:090:00's provisions ended up inside its own abstract
+// while its body stayed an unfilled scaffold. The only finding it produced was
+// abstract-length — incidentally, because the swallowed body pushed it past the
+// ceiling — and the obvious fix for THAT, truncating at the stray tag, would
+// have destroyed the provisions.
+func TestLintSerializationLeak(t *testing.T) {
+	leakInAbstract := cleanSpec(t, "msg:010:02", "W2")
+	abs := "Node search's general provisions — the shared contract.</abstract>\n<parameter name=\"content\">## Provisions"
+	leakInAbstract.Abstract = &abs
+
+	leakInBody := cleanSpec(t, "msg:010:03", "W3")
+	body := "# msg:010:03\n\n<parameter name=\"content\">\n\n## What invalidates this spec\n\nnothing\n"
+	leakInBody.Content = &body
+
+	for _, tc := range []struct {
+		name  string
+		node  specNode
+		field string
+	}{
+		{"abstract", leakInAbstract, "abstract"},
+		{"body", leakInBody, "body"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fs := lintNode(tc.node)
+			if !hasRule(fs, "serialization-leak") {
+				t.Fatalf("a leaked marker in the %s must be reported, got %v", tc.field, fs)
+			}
+			for _, f := range fs {
+				if f.Rule != "serialization-leak" {
+					continue
+				}
+				// ERROR, not warning: it must fail a corpus run rather than
+				// accumulate in a list somebody skims.
+				if f.Severity != sevError {
+					t.Errorf("severity = %q, want %q", f.Severity, sevError)
+				}
+				// The message must name WHICH field absorbed the other — that is
+				// the first thing an author needs before touching either — and
+				// must warn against the destructive obvious fix.
+				if !strings.Contains(f.Message, tc.field) {
+					t.Errorf("message must name the field, got %q", f.Message)
+				}
+				if !strings.Contains(f.Message, "truncate") {
+					t.Errorf("message must warn against truncating at the marker, got %q", f.Message)
+				}
+			}
+		})
+	}
+}
+
+// THE SELF-REFERENCE GUARD, and its inverse — one table, because the two
+// directions are the same decision and splitting them let the second lag.
+//
+// A spec documenting this leak quotes the markers, and quoting must not
+// re-trigger the rule. But making the guard generous risks turning it into a
+// HIDING PLACE, which is worse: serialization-leak is an error-severity check
+// on content that may be the only copy of itself, so a false positive is loud
+// and cheap while a false negative is silent and permanent.
+//
+// Hence the governing rule in withoutCode — may false-positive, must never
+// false-negative — and hence the `leak: true` rows here. @codex took three
+// rounds on PR #547 to find the CommonMark forms the first two versions missed;
+// the rows are kept together so the next form added has to answer both
+// directions at once.
+func TestLintSerializationLeakQuotingAndHiding(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		text string
+		leak bool
+	}{
+		// FENCED — must NOT be reported. A fence is the only exemption, and
+		// that is the settled scope after five review rounds: every false
+		// negative came from pairing backticks for inline spans, so spans are
+		// not stripped at all. An inline-quoted marker IS reported, and the
+		// remedy is to fence the example.
+		{"triple fence", "```\n</abstract>\n```\n", false},
+		{"tilde fence", "~~~\n</abstract>\n~~~\n", false},
+		{"four-backtick fence", "````\n</abstract>\n````\n", false},
+		{"three-space indented fence", "   ```\n   </abstract>\n   ```\n", false},
+		{"suffixed line is not a close", "```\n```not-a-close\n</abstract>\n```\n", false},
+		// Only spaces and tabs may follow a closing run; TrimSpace also trimmed
+		// NBSP, closing a fence CommonMark leaves open.
+		{"a non-breaking space does not close a fence", "```\ncode\n```\u00a0\n</abstract> still fenced\n```\n", false},
+		{"grammar placeholders", "<org>:<slug> and <actor>", false},
+
+		// Real — must STILL be reported. Each of these was a false negative in
+		// some version of the scanner, i.e. the rule going blind.
+		{"four-space line cannot open a fence", "    ```\ntext\n\nreal </abstract> leak\n", true},
+		{"an unclosed fence must not blind the rest", "```\ncode\n\nreal </abstract> leak\n", true},
+		{"a stray backtick opens nothing", "unclosed ` then </abstract> leaked", true},
+		{"the plain case", "provisions</abstract>\n<parameter name=\"content\">", true},
+		{"a backtick in a fence's info string is not an opener", "```foo`bar\nreal </abstract> leak\n```\n", true},
+		// REPORTED on purpose. A CommonMark span may cross a newline, and round 2
+		// of this review made the stripper follow it there — which then paired the
+		// delimiters of fence-looking prose lines apart and swallowed a real
+		// marker. The property decides it: a spurious finding is permitted, going
+		// blind is not. The remedy for an author is to fence the example.
+		{"a span crossing a newline is reported", "a `code\n</abstract>` b", true},
+		{"an inline span is reported; fence it instead", "quoted `</abstract>` here", true},
+		{"a double-backtick span likewise", "quoted ``</abstract>`` here", true},
+		// CommonMark makes \` a LITERAL backtick, so no span exists and the
+		// marker is prose. Pairing backticks would have hidden it — the third
+		// distinct way span logic went blind, and the reason there is none.
+		{"escaped backticks open nothing", "prose \\`literal </abstract> tail\\` more", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			n := cleanSpec(t, "msg:010:02", "W2")
+			abs := tc.text
+			n.Abstract = &abs
+			if got := hasRule(lintNode(n), "serialization-leak"); got != tc.leak {
+				t.Errorf("serialization-leak = %v, want %v, for %q", got, tc.leak, tc.text)
+			}
+		})
+	}
+}
+
+// #545 rule B: the scaffold body. The rubric's one body-reading check tests for
+// a "what invalidates" heading, and the scaffold SHIPS with that heading — so a
+// never-authored body passed it, and an unauthored spec was indistinguishable
+// from an authored one.
+func TestLintScaffoldBody(t *testing.T) {
+	n := cleanSpec(t, "msg:010:02", "W2")
+	scaffold := rubricBody(mustCit(t, "msg:010:02"), "W2")
+	n.Content = &scaffold
+
+	fs := lintNode(n)
+	if !hasRule(fs, "scaffold-body") {
+		t.Fatalf("an unreplaced scaffold body must be reported, got %v", fs)
+	}
+	// The rubric's invalidates check must NOT fire — that is the whole point:
+	// the scaffold satisfies it, which is why this rule had to exist.
+	if hasRule(fs, "invalidates") {
+		t.Error("the scaffold satisfies the invalidates check; if that fires, this test is not exercising the gap")
+	}
+}
+
+// …and an UNTOUCHED contract is reported once, as placeholder-contract, not
+// twice. placeholder-contract returns early precisely so a spec nobody has
+// started is not also accused of having an unwritten body — which is true but
+// not the finding its author needs.
+func TestLintUntouchedContractIsNotAlsoScaffoldBody(t *testing.T) {
+	c := mustCit(t, "msg:010:00")
+	n := cleanSpec(t, "msg:010:00", "General provisions")
+	placeholder := "TODO(abstract): describe what this contract sets."
+	scaffold := rubricBody(c, "General provisions")
+	n.Abstract, n.Content = &placeholder, &scaffold
+
+	fs := lintNode(n)
+	if !hasRule(fs, "placeholder-contract") {
+		t.Fatalf("an untouched contract must be reported as such, got %v", fs)
+	}
+	if hasRule(fs, "scaffold-body") {
+		t.Errorf("an untouched contract must not be double-reported, got %v", fs)
+	}
+}
+
+// #545 rule B carries the SAME self-reference guard as rule A — a spec
+// documenting `spec new` quotes its filler in an example, and matching that
+// would call an authored spec unauthored. Rule A had the guard from the start
+// and rule B did not; that was an inconsistency in the implementation rather
+// than a case nobody had thought of (@codex, PR #547).
+func TestLintScaffoldBodyIgnoresQuotedFiller(t *testing.T) {
+	n := cleanSpec(t, "msg:010:02", "W2")
+	quoted := "# msg:010:02 — W2\n\n## Rule\n\n`spec new` emits:\n\n```\nState the shared rules and defaults.\n```\n\nAuthored prose.\n\n## What invalidates this spec\n\nx\n"
+	n.Content = &quoted
+	if hasRule(lintNode(n), "scaffold-body") {
+		t.Error("filler quoted in an example is documentation, not an unauthored body")
+	}
+
+	// …and the genuine article still fires, so the guard has not disarmed it.
+	real := "# msg:010:02 — W2\n\n## Provisions\n\nState the shared rules and defaults.\n\n## What invalidates this spec\n\nx\n"
+	n.Content = &real
+	if !hasRule(lintNode(n), "scaffold-body") {
+		t.Error("an unreplaced scaffold body must still be reported")
 	}
 }

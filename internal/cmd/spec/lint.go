@@ -270,6 +270,29 @@ func lintNode(n specNode) []lintFindingDTO {
 		add("tag-spec", sevError, `missing "spec" tag`)
 	}
 
+	// #545. A UNIVERSAL check, above the tier early-returns: one field having
+	// absorbed another is corruption at any level, and a header node can be
+	// corrupted exactly as a rule can. Error, not warning — the absorbed field
+	// may be the only copy of what it held, so this must fail a corpus run
+	// rather than accumulate in a warning list somebody skims.
+	//
+	// Reported per FIELD: knowing it is the abstract rather than the body is
+	// what tells an author which one swallowed the other, and it is the first
+	// thing they need before touching either.
+	for _, field := range []struct {
+		name string
+		text *string
+	}{{"abstract", n.Abstract}, {"body", n.Content}} {
+		if field.text == nil {
+			continue
+		}
+		if leaked := leakedMarkers(*field.text); len(leaked) > 0 {
+			add("serialization-leak", sevError, fmt.Sprintf(
+				"%s contains writing-tool markup (%s) — a field has absorbed another, and the absorbed one may be the only copy; recover it before editing, and do NOT truncate at the marker",
+				field.name, strings.Join(leaked, ", ")))
+		}
+	}
+
 	if err != nil || c.Level() < 3 {
 		return fs
 	}
@@ -283,6 +306,25 @@ func lintNode(n specNode) []lintFindingDTO {
 	if c.IsContract() && isPlaceholderAbstract(n.Abstract) {
 		add("placeholder-contract", sevInfo, "untouched placeholder contract — exempt from the rubric until a rule needs its shared provisions and you author it")
 		return fs
+	}
+
+	// #545. Below the placeholder early-return ON PURPOSE: a genuinely untouched
+	// contract returns above and is reported once, as placeholder-contract.
+	// Reaching here with a scaffold body therefore means the INTERESTING case —
+	// an authored abstract over a body nobody wrote, which is exactly what
+	// cor:api:090:00 was after its provisions leaked into the abstract.
+	//
+	// This is the gap that let an unauthored spec look authored: the one rubric
+	// check that reads the body tests for a "what invalidates" heading, and the
+	// scaffold SHIPS with that heading, so a never-written body passes it.
+	//
+	// Warning rather than error, and a regression guard rather than a cleanup
+	// driver: the blast radius across the corpus was ZERO when this shipped,
+	// because both scaffold bodies belong to the two exempt contracts above. It
+	// earns its place by catching the next one.
+	if isScaffoldBody(n.Content) {
+		add("scaffold-body", sevWarning,
+			"body is still the `spec new` scaffold — its filler prose is unreplaced, so this spec is unauthored even though its abstract reads otherwise")
 	}
 
 	// Rubric proper. Top-level specs (rules) are the compliance-loadable
@@ -656,4 +698,190 @@ func unavailableSpecNodes(list []*api.ListNode, unavailable []string) []specNode
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Loc < out[j].Loc })
 	return out
+}
+
+// serializationMarkers are field delimiters of the WRITING TOOL, never spec
+// content (#545). Their presence means one field has absorbed another — and the
+// absorbed one may be the only copy of it, which is what happened to
+// cor:api:090:00: its provisions ended up inside its own abstract while its
+// body stayed an unfilled scaffold. The obvious fix for the resulting
+// abstract-length warning, truncating at the stray tag, would have destroyed
+// them.
+//
+// Measured at zero occurrences across all 305 specs when this shipped. The
+// corpus's legitimate angle brackets are grammar placeholders (<org>:<slug>,
+// <actor>) and share no token with this list.
+var serializationMarkers = []string{
+	"</abstract>", "<abstract>",
+	"</content>", "<content>",
+	"<parameter name=", "</parameter>",
+	"<function_calls>", "</function_calls>",
+	"<invoke name=", "</invoke>",
+}
+
+// scaffoldFillers are sentences `spec new` emits and an author is expected to
+// replace. Finding one means the body was never written.
+//
+// Matched on the FILLER PROSE rather than a sentinel, deliberately: a
+// TODO(body:) marker would only cover specs created after it shipped, and the
+// corpus this rule protects is the one that already exists. See scaffoldBody.
+var scaffoldFillers = []string{
+	"State the shared rules and defaults.",
+	"The changes that repeal or supersede these general provisions. (Mandatory.)",
+	"The specific changes that repeal or supersede this spec. (Mandatory.)",
+	"One-line definition of what this spec governs.",
+	"State the rule precisely. Give concrete examples and edge cases.",
+}
+
+// withoutCode removes FENCED CODE BLOCKS, and nothing else.
+//
+// This is the self-reference guard: a spec documenting this very leak would
+// otherwise be reported as corrupted by the rule that documents it — the
+// closing-keyword shape where quoting the thing re-triggers it.
+//
+// THE GOVERNING PROPERTY: this may cause a false positive, and must never cause
+// a false negative. serialization-leak is an error-severity check on content
+// that may be the only copy of itself. A spurious finding is loud, cheap and
+// fixed in a minute; a suppressed one hides the corruption the rule exists to
+// catch, and nothing ever says so.
+//
+// INLINE CODE SPANS ARE DELIBERATELY NOT STRIPPED, and that is the conclusion
+// of five review rounds rather than an omission. Every false negative found in
+// them came from pairing backticks: spans crossing newlines swallowed prose
+// lines apart; a backtick inside a fence info string opened a fence that ate
+// the marker; an escaped backtick opened a span that was never there. Each fix
+// was correct about CommonMark and produced another hiding place, because a
+// partial Markdown implementation cannot guarantee the property above — it can
+// only be wrong in a new way.
+//
+// So the promise is smaller and keepable: a FENCED example is not scanned; an
+// inline-quoted marker IS reported, and the remedy is to fence it. Fences are
+// line-based, and an unclosed one restores its lines as prose rather than
+// assuming everything after it is code, so no input can blind the rule.
+//
+// A four-space-indented line cannot OPEN a fence (CommonMark allows at most
+// three); indented blocks are not stripped either, for the same reason.
+func withoutCode(s string) string {
+	lines := strings.Split(s, "\n")
+	kept := make([]string, len(lines))
+	open, openAt := "", -1
+	for i, line := range lines {
+		indent, trimmed := splitIndent(line)
+		switch {
+		case open != "":
+			// A closing fence carries only SPACES OR TABS after its run — not
+			// "whitespace" generally (CommonMark). strings.TrimSpace also trims
+			// Unicode blanks such as NBSP, which closed a fence CommonMark
+			// leaves open and reported its contents (@codex, PR #547).
+			//
+			// That direction is a false positive, which the property permits —
+			// taken anyway because the fix is one argument and cannot introduce
+			// blinding: a stricter close means a fence stays open, and an
+			// unclosed fence is restored as prose below rather than suppressed.
+			if run := fenceRun(trimmed); indent <= 3 && run != "" && run[0] == open[0] &&
+				len(run) >= len(open) && strings.Trim(trimmed[len(run):], " \t") == "" {
+				open = ""
+			}
+			kept[i] = ""
+		case indent <= 3 && fenceOpener(trimmed) != "":
+			open, openAt = fenceOpener(trimmed), i
+			kept[i] = ""
+		default:
+			kept[i] = line
+		}
+	}
+	if open != "" {
+		// Never blind: restore from the opening fence onward and scan it.
+		copy(kept[openAt:], lines[openAt:])
+	}
+	return strings.Join(kept, "\n")
+}
+
+// splitIndent returns the line's indentation width (a tab counting as 4, per
+// CommonMark) and the line with that indentation removed.
+func splitIndent(line string) (int, string) {
+	w := 0
+	for i := 0; i < len(line); i++ {
+		switch line[i] {
+		case ' ':
+			w++
+		case '\t':
+			w += 4
+		default:
+			return w, line[i:]
+		}
+	}
+	return w, ""
+}
+
+// fenceRun returns the leading delimiter run when the line opens or closes a
+// fence — three or more backticks or tildes — and "" otherwise.
+func fenceRun(trimmed string) string {
+	if trimmed == "" {
+		return ""
+	}
+	c := trimmed[0]
+	if c != '`' && c != '~' {
+		return ""
+	}
+	n := 0
+	for n < len(trimmed) && trimmed[n] == c {
+		n++
+	}
+	if n < 3 {
+		return ""
+	}
+	return trimmed[:n]
+}
+
+// fenceOpener returns the run when the line OPENS a fence, and "" otherwise.
+//
+// Distinct from fenceRun because opening is stricter than closing: a BACKTICK
+// fence's info string may not contain a backtick (CommonMark), so such a line
+// is not a fence at all. Accepting it opened a fence that the next ``` closed,
+// stripping the prose between them — and a marker in that prose vanished
+// (@codex, PR #547). A tilde fence has no such restriction.
+func fenceOpener(trimmed string) string {
+	run := fenceRun(trimmed)
+	if run == "" {
+		return ""
+	}
+	if run[0] == '`' && strings.Contains(trimmed[len(run):], "`") {
+		return ""
+	}
+	return run
+}
+
+// leakedMarkers returns the serialization markers present in s outside code.
+func leakedMarkers(s string) []string {
+	prose := withoutCode(s)
+	var found []string
+	for _, m := range serializationMarkers {
+		if strings.Contains(prose, m) {
+			found = append(found, m)
+		}
+	}
+	return found
+}
+
+// isScaffoldBody reports whether the body is still `spec new`'s output — the
+// gap that let an unauthored spec look authored. The rubric's one body-reading
+// check tests for a "what invalidates" heading, and the scaffold SHIPS with
+// that heading, so a never-written body passes it.
+func isScaffoldBody(content *string) bool {
+	if content == nil {
+		return false
+	}
+	// withoutCode for the same reason rule A uses it: a spec DOCUMENTING
+	// `spec new` quotes its filler in an example, and matching that would call
+	// an authored spec unauthored. Rule A had this guard from the start and
+	// rule B did not — an inconsistency in my own implementation rather than a
+	// new case (@codex, PR #547).
+	prose := withoutCode(*content)
+	for _, f := range scaffoldFillers {
+		if strings.Contains(prose, f) {
+			return true
+		}
+	}
+	return false
 }
