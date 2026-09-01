@@ -43,7 +43,7 @@ func TestNodeMoveSurfacesServerRefusals(t *testing.T) {
 			if err == nil {
 				t.Fatalf("%s should be an error", tc.code)
 			}
-			if got := exitcode.FromError(err); got != tc.want {
+			if got := exitCodeFor(err); got != tc.want {
 				t.Errorf("%s: exit code = %d, want %d", tc.code, got, tc.want)
 			}
 			if !strings.Contains(err.Error(), tc.msg) {

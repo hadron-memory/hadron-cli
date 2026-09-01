@@ -320,7 +320,7 @@ func TestNodeImportContentOverwriteRefusedWithoutYes(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"node", "import", "--url", "https://example.com/post", "-m", "acme.com:kb", "--loc", "clips:post", "--server", gql.URL})
 	err := root.Execute()
-	if err == nil || exitcode.FromError(err) != exitcode.Usage {
+	if err == nil || exitCodeFor(err) != exitcode.Usage {
 		t.Fatalf("content overwrite without --yes should be a usage error, got %v", err)
 	}
 	if captured["ImportNode"] != nil {

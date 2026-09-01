@@ -83,7 +83,7 @@ func TestSpecCitationsSupersededExits5(t *testing.T) {
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "citations", "-m", specMem, "--src", src, "--json", "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Conflict {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Conflict {
 		t.Errorf("a superseded citation should exit 5, got %d", got)
 	}
 
@@ -115,7 +115,7 @@ func TestSpecCitationsUnresolvedExits5(t *testing.T) {
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "citations", "-m", specMem, "--src", src, "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Conflict {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Conflict {
 		t.Errorf("an unresolved citation should exit 5, got %d", got)
 	}
 	if s := out.String(); !strings.Contains(s, "unresolved") || !strings.Contains(s, "msg:010:99") {
@@ -133,7 +133,7 @@ func TestSpecCitationsSilentlyMissingRefIsReported(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "citations", "-m", specMem, "--src", src, "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Conflict {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Conflict {
 		t.Errorf("a silently-missing citation should still fail, got %d", got)
 	}
 }
@@ -176,7 +176,7 @@ func TestSpecCitationsStaleAbstractIsOptIn(t *testing.T) {
 	f2, _ := testFactory(t)
 	root2 := NewRootCmd(f2)
 	root2.SetArgs([]string{"spec", "citations", "-m", specMem, "--src", src, "--stale-abstracts", "--strict", "--server", gql2.URL})
-	if got := exitcode.FromError(root2.Execute()); got != exitcode.Conflict {
+	if got := exitCodeFor(root2.Execute()); got != exitcode.Conflict {
 		t.Errorf("--strict should promote the warning to an error (exit 5), got %d", got)
 	}
 }
@@ -285,7 +285,7 @@ func TestSpecCitationsBadSrcIsUsageError(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "citations", "-m", specMem, "--src", filepath.Join(t.TempDir(), "missing"),
 		"--server", "http://127.0.0.1:1"})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 		t.Errorf("a nonexistent --src should be a usage error (2), got %d", got)
 	}
 }

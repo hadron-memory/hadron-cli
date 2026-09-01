@@ -291,7 +291,7 @@ func TestAgentCreateInstallIntoLostAnswerIsUnknownNotFailed(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected a non-zero exit")
 	}
-	if got := exitcode.FromError(err); got != exitcode.Unavailable {
+	if got := exitCodeFor(err); got != exitcode.Unavailable {
 		t.Errorf("a lost answer must stay exit %d (Unavailable), got %d", exitcode.Unavailable, got)
 	}
 	msg := err.Error()
@@ -330,7 +330,7 @@ func TestAgentCreateInstallIntoFailurePreservesExitCode(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected an error")
 	}
-	if got := exitcode.FromError(err); got == exitcode.OK {
+	if got := exitCodeFor(err); got == exitcode.OK {
 		t.Errorf("a failed install must not exit OK, got %v", got)
 	}
 }

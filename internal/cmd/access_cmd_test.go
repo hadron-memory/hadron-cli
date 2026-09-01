@@ -155,7 +155,7 @@ func TestAccessCheckUnderQualifiedResource(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for under-qualified resource")
 	}
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("expected usage exit code, got %d (%v)", code, err)
 	}
 }
@@ -206,7 +206,7 @@ func TestAccessCheckAmbiguousUser(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected ambiguity error")
 	}
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("expected usage exit code, got %d (%v)", code, err)
 	}
 }

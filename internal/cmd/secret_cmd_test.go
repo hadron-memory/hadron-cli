@@ -158,7 +158,7 @@ func TestSecretCreateValidation(t *testing.T) {
 			root := NewRootCmd(f)
 			root.SetArgs(append(tc.args, "--server", "http://127.0.0.1:1"))
 			err := root.Execute()
-			if got := exitcode.FromError(err); got != exitcode.Usage {
+			if got := exitCodeFor(err); got != exitcode.Usage {
 				t.Fatalf("exit code = %d, err=%v; want Usage", got, err)
 			}
 			if err == nil || !strings.Contains(err.Error(), tc.want) {

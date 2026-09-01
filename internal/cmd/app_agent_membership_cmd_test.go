@@ -162,7 +162,7 @@ func TestAppAgentAddDuplicateIsConflict(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"app", "agent", "add", "app1", "agt1", "--server", gql.URL})
-	if code := exitcode.FromError(root.Execute()); code != exitcode.Conflict {
+	if code := exitCodeFor(root.Execute()); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want Conflict", code)
 	}
 }

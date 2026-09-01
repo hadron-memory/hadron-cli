@@ -58,7 +58,7 @@ func TestAssetListRequiresMemory(t *testing.T) {
 	if err == nil {
 		t.Fatal("asset list without -m must be a usage error")
 	}
-	if got := exitcode.FromError(err); got != exitcode.Usage {
+	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
 	}
 }
@@ -172,7 +172,7 @@ func TestAssetGetWritesFileAndRefusesToClobber(t *testing.T) {
 	if err == nil {
 		t.Fatal("an existing output file must not be clobbered without --force")
 	}
-	if code := exitcode.FromError(err); code != exitcode.Conflict {
+	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d", code, exitcode.Conflict)
 	}
 
@@ -246,7 +246,7 @@ func TestAssetURLAbsentIsAnErrorWithAReason(t *testing.T) {
 	if err == nil {
 		t.Fatal("an absent hotlink must be an error, not empty output")
 	}
-	if code := exitcode.FromError(err); code != exitcode.Conflict {
+	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d", code, exitcode.Conflict)
 	}
 	// stdout must stay empty so a `$(hadron asset url …)` capture yields
@@ -271,7 +271,7 @@ func TestAssetURLBareIDNeedsMemory(t *testing.T) {
 	if err == nil {
 		t.Fatal("a bare id with no -m must be a usage error")
 	}
-	if got := exitcode.FromError(err); got != exitcode.Usage {
+	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
 	}
 }
@@ -334,7 +334,7 @@ func TestAssetURLAbsentHotlinkExitsNonZeroInJSONMode(t *testing.T) {
 	if err == nil {
 		t.Fatal("--json must not exit 0 for an absent hotlink")
 	}
-	if code := exitcode.FromError(err); code != exitcode.Conflict {
+	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d", code, exitcode.Conflict)
 	}
 	// The machine-readable reason still has to reach the caller.
@@ -377,7 +377,7 @@ func TestAssetListRejectsZeroLimit(t *testing.T) {
 	if err == nil {
 		t.Fatal("--limit 0 asks for a zero-row page and must be rejected")
 	}
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d", code, exitcode.Usage)
 	}
 }

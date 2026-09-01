@@ -78,7 +78,7 @@ func TestRoleRemovedFlagsAreRejected(t *testing.T) {
 			t.Errorf("%v: the removed surface must refuse, not silently ignore", args)
 			continue
 		}
-		if code := exitcode.FromError(err); code != exitcode.Usage {
+		if code := exitCodeFor(err); code != exitcode.Usage {
 			t.Errorf("%v: exit %d, want %d (Usage) — err: %v", args, code, exitcode.Usage, err)
 		}
 	}
@@ -183,7 +183,7 @@ func TestTeamRoleRmUnknownRoleDeletesNothing(t *testing.T) {
 	root.SetArgs([]string{"team", "role", "rm", "nope", "--yes",
 		"--app", "acme.com:eng-team", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.NotFound {
+	if code := exitCodeFor(err); code != exitcode.NotFound {
 		t.Errorf("exit %d, want %d (NotFound); err: %v", code, exitcode.NotFound, err)
 	}
 	if _, called := captured["DeleteTeamRole"]; called {
@@ -209,7 +209,7 @@ func TestCastNamelessRemedyNamesTheCompleteListing(t *testing.T) {
 	root.SetArgs([]string{"team", "worker", "cast", "--role", "cli-engineer",
 		"--app", "acme.com:eng-team"})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Fatalf("a nameless cast must be Usage, got exit %d (err: %v)", code, err)
 	}
 	if !strings.Contains(err.Error(), "worker list --include-retired") {
@@ -268,7 +268,7 @@ func TestCastNormalizesTheNameBeforeTheWire(t *testing.T) {
 	root.SetArgs([]string{"team", "worker", "cast", "--app", "acme.com:eng-team",
 		"--role", "backend-engineer", "--name", "   ", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("a whitespace-only name is no name: exit %d, want %d", code, exitcode.Usage)
 	}
 	if _, called := captured["CastWorker"]; called {

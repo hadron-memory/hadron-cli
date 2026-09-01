@@ -71,7 +71,7 @@ func TestSessionStartWarnsOnRepoAffinityMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a mismatch must not fail the command: %v", err)
 	}
-	if code := exitcode.FromError(err); code != exitcode.OK {
+	if code := exitCodeFor(err); code != exitcode.OK {
 		t.Errorf("exit code = %d, want OK", code)
 	}
 	if !strings.Contains(stderrOf(t, f), "hadron-memory/hadron-server") ||

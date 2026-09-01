@@ -259,7 +259,7 @@ func TestEdgeListRejectsContradictoryFilters(t *testing.T) {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs(append([]string{"edge", "list", nodeURN, "--server", "http://127.0.0.1:1"}, extra...))
-		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 			t.Errorf("%v should be a usage error, got %d", extra, got)
 		}
 	}
@@ -278,7 +278,7 @@ func TestEdgeListRejectsEmptyFilterValue(t *testing.T) {
 		root := NewRootCmd(f)
 		root.SetArgs(append([]string{"edge", "list", nodeURN, "--server", "http://127.0.0.1:1"}, extra...))
 		err := root.Execute()
-		if got := exitcode.FromError(err); got != exitcode.Usage {
+		if got := exitCodeFor(err); got != exitcode.Usage {
 			t.Errorf("%v should be a usage error, got %d", extra, got)
 		}
 		if err != nil && !strings.Contains(err.Error(), "empty value") {

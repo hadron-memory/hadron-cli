@@ -46,7 +46,7 @@ func TestWorkerReleaseForcePromptIsShownAndDeclineChangesNothing(t *testing.T) {
 		"--app", "acme.com:eng-team", "--server", gql.URL})
 
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Cancelled {
+	if code := exitCodeFor(err); code != exitcode.Cancelled {
 		t.Errorf("declining must exit Cancelled, got %d (err: %v)", code, err)
 	}
 	if _, called := captured["ReleaseWorker"]; called {
@@ -242,7 +242,7 @@ func TestWorkerReleaseStalePromptDeclineStopsAfterTheRefusal(t *testing.T) {
 		"--app", "acme.com:eng-team", "--server", srv.URL})
 
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Cancelled {
+	if code := exitCodeFor(err); code != exitcode.Cancelled {
 		t.Errorf("declining the retry must exit Cancelled, got %d (err: %v)", code, err)
 	}
 	if len(*seen) != 1 {

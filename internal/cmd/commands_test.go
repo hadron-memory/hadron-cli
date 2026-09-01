@@ -771,7 +771,7 @@ func TestNodeLsWhereMalformedIsUsageError(t *testing.T) {
 		root := NewRootCmd(f)
 		root.SetArgs(append([]string{"node", "ls", "-m", "acme.com::kb"}, arg...))
 		err := root.Execute()
-		if err == nil || exitcode.FromError(err) != exitcode.Usage {
+		if err == nil || exitCodeFor(err) != exitcode.Usage {
 			t.Errorf("%v should be a usage error, got %v", arg, err)
 		}
 	}
@@ -1078,7 +1078,7 @@ func TestNodeRmPromptSaysItCannotBeUndoneAndDeclineChangesNothing(t *testing.T) 
 	root.SetArgs([]string{"node", "rm", nodeURN, "--recursive", "--hard", "--server", gql.URL})
 
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Cancelled {
+	if code := exitCodeFor(err); code != exitcode.Cancelled {
 		t.Errorf("declining must exit Cancelled, got %d (err: %v)", code, err)
 	}
 	if _, called := captured["DeleteNode"]; called {
@@ -1257,8 +1257,8 @@ func TestNodeRmDescendantsRefusalIsActionable(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected the descendants refusal")
 	}
-	if exitcode.FromError(err) != exitcode.Usage {
-		t.Errorf("NODE_HAS_DESCENDANTS should be a usage error, got exit %d", exitcode.FromError(err))
+	if exitCodeFor(err) != exitcode.Usage {
+		t.Errorf("NODE_HAS_DESCENDANTS should be a usage error, got exit %d", exitCodeFor(err))
 	}
 	msg := err.Error()
 	if !strings.Contains(msg, "3 descendant") || !strings.Contains(msg, "--recursive") {
@@ -2585,7 +2585,7 @@ func TestNodeGetBareLocStillRejected(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"node", "get", "start-here", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
-	if got := exitcode.FromError(err); got != exitcode.Usage {
+	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Fatalf("a bare loc without -m should be a usage error, got %d", got)
 	}
 	if !strings.Contains(err.Error(), "-m") {

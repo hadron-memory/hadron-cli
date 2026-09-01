@@ -171,7 +171,7 @@ func TestSpecGetRejectsMalformedCitation(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "get", "register", "-m", specMem, "--server", "http://127.0.0.1:1"})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 		t.Fatalf("malformed spec citation should be Usage, got %d", got)
 	}
 }
@@ -185,7 +185,7 @@ func TestSpecGetRejectsNonSpecNode(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "get", "msg:010:02", "-m", specMem, "--server", gql.URL})
 	err := root.Execute()
-	if got := exitcode.FromError(err); got != exitcode.Usage {
+	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Fatalf("non-spec node through spec get should be Usage, got %d", got)
 	}
 	if strings.Contains(err.Error(), "edge add") {
@@ -491,8 +491,8 @@ func TestSpecRegisterCheckDrift(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "register", "-m", specMem, "--check", "--server", gql.URL})
 	err := root.Execute()
-	if exitcode.FromError(err) != exitcode.Conflict {
-		t.Fatalf("expected Conflict exit on drift, got err=%v code=%d", err, exitcode.FromError(err))
+	if exitCodeFor(err) != exitcode.Conflict {
+		t.Fatalf("expected Conflict exit on drift, got err=%v code=%d", err, exitCodeFor(err))
 	}
 	if !strings.Contains(out.String(), "Drift") {
 		t.Errorf("expected drift report:\n%s", out.String())
@@ -692,7 +692,7 @@ func TestSpecMemoryUnknownRefStillNotFound(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "describe", "-m", "hadronmemory.com::platfrm-specs", "--json", "--server", gql.URL})
 	err := root.Execute()
-	if got := exitcode.FromError(err); got != exitcode.NotFound {
+	if got := exitCodeFor(err); got != exitcode.NotFound {
 		t.Fatalf("an unknown memory should exit %d (not found), got %d (%v)", exitcode.NotFound, got, err)
 	}
 	if !strings.Contains(err.Error(), "platform-specs") {
@@ -709,7 +709,7 @@ func TestSpecNewRejectsAbstractAndAbstractFile(t *testing.T) {
 		root := NewRootCmd(f)
 		root.SetArgs([]string{"spec", "new", "-m", specMem, "--module", "msg", "--feature", "010", "--title", "T",
 			"--abstract", abstract, "--abstract-file", "/tmp/x.md", "--server", "http://127.0.0.1:1"})
-		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 			t.Fatalf("--abstract %q + --abstract-file should be Usage, got %d", abstract, got)
 		}
 	}
@@ -778,8 +778,8 @@ func TestSpecNewMissingParent(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "new", "-m", specMem, "--module", "msg", "--feature", "010", "--title", "Test", "--server", gql.URL})
 	err := root.Execute()
-	if exitcode.FromError(err) != exitcode.NotFound {
-		t.Fatalf("expected NotFound for missing feature, got err=%v code=%d", err, exitcode.FromError(err))
+	if exitCodeFor(err) != exitcode.NotFound {
+		t.Fatalf("expected NotFound for missing feature, got err=%v code=%d", err, exitCodeFor(err))
 	}
 }
 
@@ -992,7 +992,7 @@ func TestSpecNewPathRejectsTierFlags(t *testing.T) {
 		args := append([]string{"spec", "new", "msg:010:01", "--new-path", "--title", "x", "-m", specMem, "--server", "http://127.0.0.1:1"}, tc.extra...)
 		root.SetArgs(args)
 		err := root.Execute()
-		if got := exitcode.FromError(err); got != exitcode.Usage {
+		if got := exitCodeFor(err); got != exitcode.Usage {
 			t.Errorf("--new-path + %v should be Usage, got %d", tc.extra, got)
 			continue
 		}
@@ -1008,7 +1008,7 @@ func TestSpecNewPathTargetExists(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "new", "msg:010:01", "--new-path", "--title", "x", "-m", specMem, "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Conflict {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Conflict {
 		t.Fatalf("an existing target should be Conflict, got %d", got)
 	}
 }
@@ -1225,7 +1225,7 @@ func TestSpecNewReservedGenModule(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "new", "-m", specProductMem, "--product", "cli", "--new-module", "--module", "gen", "--title", "nope"})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 		t.Fatalf("--module gen in a product corpus should be Usage, got %d", got)
 	}
 }
@@ -1262,7 +1262,7 @@ func TestSpecLintCitationAndFlags(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "lint", "msg:010:02", "--all", "-m", specMem, "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 		t.Fatalf("citation + --all should be Usage, got %d", got)
 	}
 }
@@ -1276,7 +1276,7 @@ func TestSpecLintScopeNoMatch(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "lint", "--module", "zzz", "-m", specProductMem, "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.NotFound {
+	if got := exitCodeFor(root.Execute()); got != exitcode.NotFound {
 		t.Fatalf("a --module scope matching nothing should be NotFound, got %d", got)
 	}
 }
@@ -1321,7 +1321,7 @@ func TestSpecLintScopedRootParentAboveScope(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "lint", "--product", "cor", "--module", "acl", "-m", specProductMem, "--strict", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
-		t.Fatalf("scoped lint should pass, got err=%v code=%d\n%s", err, exitcode.FromError(err), out.String())
+		t.Fatalf("scoped lint should pass, got err=%v code=%d\n%s", err, exitCodeFor(err), out.String())
 	}
 	if strings.Contains(out.String(), "parent-exists") {
 		t.Errorf("must not emit a parent-exists finding for the scope root; got:\n%s", out.String())
@@ -1341,8 +1341,8 @@ func TestSpecLintErrorsExitConflict(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "lint", "msg:010:02", "-m", specMem, "--json", "--server", gql.URL})
 	err := root.Execute()
-	if exitcode.FromError(err) != exitcode.Conflict {
-		t.Fatalf("expected Conflict for a non-compliant spec, got err=%v code=%d", err, exitcode.FromError(err))
+	if exitCodeFor(err) != exitcode.Conflict {
+		t.Fatalf("expected Conflict for a non-compliant spec, got err=%v code=%d", err, exitCodeFor(err))
 	}
 	if !strings.Contains(out.String(), "invalidates") {
 		t.Errorf("expected the invalidates finding in output:\n%s", out.String())
@@ -1361,7 +1361,7 @@ func TestSpecLintAllReportsUntaggedCitation(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "lint", "--all", "-m", specMem, "--json", "--server", gql.URL})
 	err := root.Execute()
-	if got := exitcode.FromError(err); got != exitcode.Conflict {
+	if got := exitCodeFor(err); got != exitcode.Conflict {
 		t.Fatalf("expected Conflict for missing spec tag, got err=%v code=%d\n%s", err, got, out.String())
 	}
 	if !strings.Contains(out.String(), `"rule": "tag-spec"`) {
@@ -1385,7 +1385,7 @@ func TestSpecLintAllUnavailableListedNode(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "lint", "--all", "-m", specMem, "--json", "--server", gql.URL})
 	err := root.Execute()
-	if got := exitcode.FromError(err); got != exitcode.Conflict {
+	if got := exitCodeFor(err); got != exitcode.Conflict {
 		t.Fatalf("expected Conflict for unavailable listed node, got err=%v code=%d\n%s", err, got, out.String())
 	}
 	if !strings.Contains(out.String(), `"citation": "msg:010:02"`) || !strings.Contains(out.String(), `"rule": "unavailable"`) {
@@ -1402,7 +1402,7 @@ func TestSpecLintScopeConflictsCommand(t *testing.T) {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs(args)
-		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 			t.Fatalf("args %v: expected usage error, got %d", args, got)
 		}
 	}
@@ -1457,7 +1457,7 @@ func TestSpecLintNoVectorIndexStrictFails(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "lint", "msg:010:02", "-m", specProductMem, "--strict", "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Conflict {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Conflict {
 		t.Fatalf("--strict should promote the vector-index warning to an error, got %d", got)
 	}
 }
@@ -1585,7 +1585,7 @@ func TestSpecGetBodyOnlyRejectsPrefixAndAbstractOnly(t *testing.T) {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs(append(args, "--server", "http://127.0.0.1:1"))
-		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 			t.Errorf("args %v: expected a Usage error, got %d", args, got)
 		}
 	}
@@ -1601,8 +1601,8 @@ func TestSpecSupersedeRequiresYes(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--server", gql.URL})
 	err := root.Execute()
-	if exitcode.FromError(err) != exitcode.Usage {
-		t.Fatalf("non-interactive supersede without --yes should be Usage, got err=%v code=%d", err, exitcode.FromError(err))
+	if exitCodeFor(err) != exitcode.Usage {
+		t.Fatalf("non-interactive supersede without --yes should be Usage, got err=%v code=%d", err, exitCodeFor(err))
 	}
 }
 
@@ -1614,7 +1614,7 @@ func TestSpecSupersedeRejectsNonSpecSource(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 		t.Fatalf("non-spec supersede source should be Usage, got %d", got)
 	}
 }
@@ -1730,7 +1730,7 @@ func TestSpecSupersedeOrphanedEdgeFailsLoud(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "orphaned") {
 		t.Fatalf("a supersede that can't wire its ToC edge must fail loudly, got %v", err)
 	}
-	if code := exitcode.FromError(err); code != exitcode.Error {
+	if code := exitCodeFor(err); code != exitcode.Error {
 		t.Errorf("orphaned-edge exit code = %d, want %d (Error)", code, exitcode.Error)
 	}
 	// The JSON still reports each edge's REAL status: ToC/inheritance skipped, the
@@ -1774,7 +1774,7 @@ func TestSpecSupersedeRetirementEdgeFailureEmitsResult(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
 	err := root.Execute()
-	if got := exitcode.FromError(err); got != exitcode.Error {
+	if got := exitCodeFor(err); got != exitcode.Error {
 		t.Fatalf("retirement-edge failure should be Error, got err=%v code=%d", err, got)
 	}
 	var dto struct {
@@ -1815,7 +1815,7 @@ func TestSpecSupersedeRetireUpdateFailureEmitsRecoverableResult(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
 	err := root.Execute()
-	if got := exitcode.FromError(err); got != exitcode.Error {
+	if got := exitCodeFor(err); got != exitcode.Error {
 		t.Fatalf("retire update failure should be Error, got err=%v code=%d", err, got)
 	}
 	if !strings.Contains(err.Error(), "finish the retirement update") {
@@ -1970,8 +1970,8 @@ func TestSpecImportStub(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "import", "spec-kit", "/tmp/specs", "-m", specMem})
 	err := root.Execute()
-	if exitcode.FromError(err) != exitcode.Usage {
-		t.Fatalf("import stub should exit Usage (not yet implemented), got err=%v code=%d", err, exitcode.FromError(err))
+	if exitCodeFor(err) != exitcode.Usage {
+		t.Fatalf("import stub should exit Usage (not yet implemented), got err=%v code=%d", err, exitCodeFor(err))
 	}
 }
 
@@ -2132,7 +2132,7 @@ func TestSpecExtractFailsLoudOnEdgeFailure(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "could not be wired") {
 		t.Fatalf("an extract that can't wire its edge(s) must fail loudly, got %v", err)
 	}
-	if code := exitcode.FromError(err); code != exitcode.Error {
+	if code := exitCodeFor(err); code != exitcode.Error {
 		t.Errorf("orphaned-edge exit code = %d, want %d (Error)", code, exitcode.Error)
 	}
 	// The created spec is still reported on stdout before the error.
@@ -2246,7 +2246,7 @@ func TestSpecExtractStripNeedsChunk(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "extract", "cor:dmo:060:02", "-m", specMem,
 		"--to-feature", "020", "--title", "T", "--strip-source", "--server", "http://127.0.0.1:1"})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 		t.Fatalf("--strip-source without a chunk should be Usage, got %d", got)
 	}
 }
@@ -2260,7 +2260,7 @@ func TestSpecExtractSourceNotFound(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "extract", "cor:dmo:060:99", "-m", specMem,
 		"--to-feature", "020", "--title", "T", "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.NotFound {
+	if got := exitCodeFor(root.Execute()); got != exitcode.NotFound {
 		t.Fatalf("missing source should be NotFound, got %d", got)
 	}
 }
@@ -2274,7 +2274,7 @@ func TestSpecExtractRejectsNonSpecSource(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "extract", "cor:dmo:060:02", "-m", specMem,
 		"--to-feature", "020", "--title", "T", "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 		t.Fatalf("non-spec extract source should be Usage, got %d", got)
 	}
 }
@@ -2284,7 +2284,7 @@ func TestSpecExtractRejectsAbstractAndAbstractFile(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "extract", "cor:dmo:060:02", "-m", specMem, "--to-feature", "020", "--title", "T",
 		"--abstract", "x", "--abstract-file", "/tmp/x.md", "--server", "http://127.0.0.1:1"})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 		t.Fatalf("--abstract + --abstract-file should be Usage, got %d", got)
 	}
 }
@@ -2408,7 +2408,7 @@ func TestSpecLinkNonSpecEndpoint(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "link", "cor:dmo:020:04", "cor:dmo:060:02", "-m", specMem, "--server", gql.URL})
 	err := root.Execute()
-	if got := exitcode.FromError(err); got != exitcode.Usage {
+	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Fatalf("a non-spec endpoint should be Usage, got %d", got)
 	}
 	if !strings.Contains(err.Error(), "hadron edge add") {
@@ -2421,7 +2421,7 @@ func TestSpecLinkSelf(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "link", "cor:dmo:060:02", "cor:dmo:060:02", "-m", specMem, "--server", "http://127.0.0.1:1"})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 		t.Fatalf("self-link should be Usage, got %d", got)
 	}
 }
@@ -2434,7 +2434,7 @@ func TestSpecLinkEndpointNotFound(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "link", "cor:dmo:020:04", "cor:dmo:060:02", "-m", specMem, "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.NotFound {
+	if got := exitCodeFor(root.Execute()); got != exitcode.NotFound {
 		t.Fatalf("missing endpoint should be NotFound, got %d", got)
 	}
 }
@@ -2597,7 +2597,7 @@ func TestSpecEditContentAndFileExclusive(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem,
 		"--content", "x", "--content-file", "/tmp/x.md", "--server", "http://127.0.0.1:1"})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 		t.Fatalf("--content + --content-file should be Usage, got %d", got)
 	}
 }
@@ -2714,7 +2714,7 @@ func TestSpecEditInteractiveDividerRemoved(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem, "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 		t.Fatalf("a removed body divider should be Usage, got %d", got)
 	}
 	if _, ok := captured["UpdateNode"]; ok {
@@ -2727,7 +2727,7 @@ func TestSpecEditAbstractAndFileExclusive(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem,
 		"--abstract", "x", "--abstract-file", "/tmp/x.md", "--server", "http://127.0.0.1:1"})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 		t.Fatalf("--abstract + --abstract-file should be Usage, got %d", got)
 	}
 }
@@ -2737,7 +2737,7 @@ func TestSpecEditDualStdin(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem,
 		"--content", "-", "--abstract", "-", "--server", "http://127.0.0.1:1"})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 		t.Fatalf("--content - with --abstract - should be Usage, got %d", got)
 	}
 }
@@ -2751,7 +2751,7 @@ func TestSpecEditNonSpec(t *testing.T) {
 	f.IOStreams.In = strings.NewReader("anything\n")
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem, "--content", "-", "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 		t.Fatalf("editing a non-spec node should be Usage, got %d", got)
 	}
 }
@@ -2832,7 +2832,7 @@ func TestSpecGrepRejectsBadArgs(t *testing.T) {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs(args)
-		if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 			t.Errorf("args %v: want Usage exit, got %d", args, got)
 		}
 	}
@@ -2928,7 +2928,7 @@ func TestSpecReplaceRequiresYesNonInteractive(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "replace", "h-read-node", "hadron_get_node", "-m", specMem, "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 		t.Fatalf("want Usage refusal without --yes, got %d", got)
 	}
 	if _, ok := captured["SearchReplaceInNodes"]; ok {
@@ -2958,7 +2958,7 @@ func TestSpecCheckToolsFlagsUnknown(t *testing.T) {
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "check-tools", "-m", specMem, "--json", "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Conflict {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Conflict {
 		t.Fatalf("an unregistered tool token should exit %d (conflict), got %d", exitcode.Conflict, got)
 	}
 	var findings []struct {
@@ -3002,7 +3002,7 @@ func TestSpecCheckToolsUnavailableFails(t *testing.T) {
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "check-tools", "-m", specMem, "--json", "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Conflict {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Conflict {
 		t.Fatalf("an unavailable spec should exit %d (conflict), got %d", exitcode.Conflict, got)
 	}
 	var findings []struct {

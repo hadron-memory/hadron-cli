@@ -69,7 +69,7 @@ func TestAppAgentListNeedsAnApp(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"app", "agent", "list", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("exit code = %d, want Usage; err: %v", code, err)
 	}
 	if err == nil || !strings.Contains(err.Error(), "no App") {

@@ -277,7 +277,7 @@ func TestAuthStatusSurfacesSchemaSkew(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"auth", "status", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Fatalf("schema skew should exit %d (usage), got %d (err=%v)", exitcode.Usage, code, err)
 	}
 	if strings.Contains(out.String(), "rejected") {

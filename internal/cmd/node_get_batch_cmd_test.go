@@ -167,7 +167,7 @@ func TestNodeGetBatchSurfacesUnavailable(t *testing.T) {
 	if err == nil {
 		t.Fatal("an unavailable ref must not exit 0 — a partial read is not a complete one")
 	}
-	if got := exitcode.FromError(err); got != exitcode.NotFound {
+	if got := exitCodeFor(err); got != exitcode.NotFound {
 		t.Errorf("exit code = %d, want %d (not found)", got, exitcode.NotFound)
 	}
 	var dto struct {
@@ -209,7 +209,7 @@ func TestNodeGetBatchPropagatesNonRefErrors(t *testing.T) {
 	if err == nil {
 		t.Fatal("an auth failure must not be reported as a partial read")
 	}
-	if got := exitcode.FromError(err); got == exitcode.NotFound {
+	if got := exitCodeFor(err); got == exitcode.NotFound {
 		t.Errorf("exit code = %d — an auth failure must not be laundered into not-found", got)
 	}
 }
@@ -232,7 +232,7 @@ func TestNodeGetBatchMalformedRefIsLoud(t *testing.T) {
 	}
 	// Exit 2 (caller mistake), NOT 4 (absent/denied) — that distinction is the
 	// whole point.
-	if got := exitcode.FromError(err); got != exitcode.Usage {
+	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d (usage) — a typo must not read as not-found", got, exitcode.Usage)
 	}
 	if !strings.Contains(err.Error(), "bare-loc") {
@@ -263,7 +263,7 @@ func TestNodeGetBatchRejectsBadCombinations(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected a usage error")
 			}
-			if got := exitcode.FromError(err); got != exitcode.Usage {
+			if got := exitCodeFor(err); got != exitcode.Usage {
 				t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
 			}
 		})

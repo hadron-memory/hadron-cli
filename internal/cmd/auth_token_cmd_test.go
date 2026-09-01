@@ -179,7 +179,7 @@ func TestAuthTokenValidateInvalid(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"auth", "token", "validate", "--json", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.AuthRequired {
+	if code := exitCodeFor(err); code != exitcode.AuthRequired {
 		t.Fatalf("expected exit %d, got %d (err=%v)", exitcode.AuthRequired, code, err)
 	}
 	var dto struct {
@@ -206,7 +206,7 @@ func TestAuthTokenValidateEmptyStdin(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"auth", "token", "validate", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Fatalf("expected a usage error, got code %d (err=%v)", code, err)
 	}
 }

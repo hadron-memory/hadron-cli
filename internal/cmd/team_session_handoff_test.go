@@ -146,7 +146,7 @@ func TestSessionEndRefusesAnEmptyHandoff(t *testing.T) {
 			root := NewRootCmd(f)
 			root.SetArgs(append([]string{"team", "session", "end"}, append(args, "--server", gql.URL)...))
 			err := root.Execute()
-			if code := exitcode.FromError(err); code != exitcode.Usage {
+			if code := exitCodeFor(err); code != exitcode.Usage {
 				t.Errorf("exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 			}
 			// It must refuse BEFORE ending the session — otherwise the caller
@@ -169,7 +169,7 @@ func TestSessionEndUnreadableHandoffFileIsUsage(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "end", "--handoff-file", "/nope/missing.md", "--server", gql.URL})
-	if code := exitcode.FromError(root.Execute()); code != exitcode.Usage {
+	if code := exitCodeFor(root.Execute()); code != exitcode.Usage {
 		t.Errorf("a missing file is a usage error, got exit %d", code)
 	}
 	if _, called := captured["EndTeamSession"]; called {
@@ -360,7 +360,7 @@ func TestSessionEndRescuesAPipedHandoffWhenSignedOut(t *testing.T) {
 	}
 	// The auth failure is what the caller is told — the rescue must not
 	// replace the cause with something local.
-	if code := exitcode.FromError(err); code == exitcode.Usage {
+	if code := exitCodeFor(err); code == exitcode.Usage {
 		t.Errorf("a signed-out failure is not a usage error: exit %d (%v)", code, err)
 	}
 	msg := errOut()
@@ -393,7 +393,7 @@ func TestSessionEndEmptyHandoffIsUsageEvenWhenSignedOut(t *testing.T) {
 	root.SetArgs([]string{"team", "session", "end", "--handoff", "", "--server", gql.URL})
 
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("an explicit empty handoff is a usage error (exit %d), got exit %d: %v",
 			exitcode.Usage, code, err)
 	}

@@ -68,7 +68,7 @@ func TestObjectCreateFieldValidation(t *testing.T) {
 		root := NewRootCmd(f)
 		root.SetArgs(args)
 		err := root.Execute()
-		if err == nil || exitcode.FromError(err) != exitcode.Usage {
+		if err == nil || exitCodeFor(err) != exitcode.Usage {
 			t.Errorf("%v should be a usage error, got %v", args[2:], err)
 		}
 	}
@@ -81,7 +81,7 @@ func TestObjectCreateEmptyFieldsIsNotRequiredMessage(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"object", "create", "-m", "acme.com::m", "--type", "t", "--fields", ""})
 	err := root.Execute()
-	if err == nil || exitcode.FromError(err) != exitcode.Usage {
+	if err == nil || exitCodeFor(err) != exitcode.Usage {
 		t.Fatalf("empty --fields should be a usage error, got %v", err)
 	}
 	msg := err.Error()
@@ -123,7 +123,7 @@ func TestObjectGetNotFound(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"object", "get", "01missing", "--server", gql.URL})
 	err := root.Execute()
-	if err == nil || exitcode.FromError(err) != exitcode.NotFound {
+	if err == nil || exitCodeFor(err) != exitcode.NotFound {
 		t.Fatalf("a null object should be exit 4 not-found, got %v", err)
 	}
 }
@@ -185,7 +185,7 @@ func TestObjectDeleteFalseIsNotFound(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"object", "delete", "01missing", "--yes", "--server", gql.URL})
 	err := root.Execute()
-	if err == nil || exitcode.FromError(err) != exitcode.NotFound {
+	if err == nil || exitCodeFor(err) != exitcode.NotFound {
 		t.Fatalf("deleteObject:false should be exit 4 not-found, got %v", err)
 	}
 	if strings.Contains(out.String(), "Deleted") {
@@ -261,7 +261,7 @@ func TestObjectCreateConformanceErrorSurfaced(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), msg) {
 		t.Errorf("server BAD_USER_INPUT should surface verbatim, got %v", err)
 	}
-	if exitcode.FromError(err) != exitcode.Usage {
-		t.Errorf("BAD_USER_INPUT should be a usage error, got exit %d", exitcode.FromError(err))
+	if exitCodeFor(err) != exitcode.Usage {
+		t.Errorf("BAD_USER_INPUT should be a usage error, got exit %d", exitCodeFor(err))
 	}
 }

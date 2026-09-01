@@ -497,7 +497,7 @@ func TestUserSetRolesRejectsUnknownRole(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected a usage error for an unknown role")
 	}
-	if got := exitcode.FromError(err); got != exitcode.Usage {
+	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
 	}
 	// The message must name the valid set — that's the whole point of
@@ -516,7 +516,7 @@ func TestUserSetRolesRejectsEmptyRole(t *testing.T) {
 	root.SetArgs([]string{"user", "set-roles", "usr1", "--role", "", "--yes", "--json"})
 	if err := root.Execute(); err == nil {
 		t.Fatal("expected a usage error for an empty role")
-	} else if got := exitcode.FromError(err); got != exitcode.Usage {
+	} else if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
 	}
 }
@@ -541,7 +541,7 @@ func TestUserSetRolesRequiresYesNonInteractive(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected a refusal without --yes in non-interactive mode")
 	}
-	if got := exitcode.FromError(err); got != exitcode.Usage {
+	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
 	}
 	// The refusal is up front: a caller that could never answer the prompt
@@ -627,7 +627,7 @@ func TestUserSetRolesRejectsFuzzyMatch(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected a usage error for a partial match")
 	}
-	if got := exitcode.FromError(err); got != exitcode.Usage {
+	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
 	}
 	// The error must name what it DID match, so the operator can retype it.
