@@ -585,7 +585,7 @@ holds nothing).`,
 						w.Name, describeSession(active), holder)
 				}
 				return exitcode.Newf(exitcode.Conflict,
-					"worker %s is being driven by %s — its worker session is still open, which a closed chat session does not end; --force takes over, or wait, since a name whose driver has stopped stops being live on its own (hadron-server#1114)",
+					"worker %s is being driven by %s — its worker session is still open, which a closed chat session does not end; --force takes over",
 					w.Name, describeSession(active))
 			}
 			if active != nil {

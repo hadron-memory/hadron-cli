@@ -30134,7 +30134,9 @@ fragment TeamSessionFields on Session {
 
 // #931/#932: set a live session's mutable provenance fields mid-session.
 // `session log --pr` denormalizes the PR number here; any authorized update
-// also bumps updatedAt, which the #930 inactivity reaper counts as liveness.
+// also bumps updatedAt, one of the three inputs the server derives liveness
+// from (hadron-server#1114 retired the inactivity reaper; liveness is computed
+// at read time now, and nothing ends a developer session but an explicit end).
 func UpdateTeamSession(
 	ctx_ context.Context,
 	client_ graphql.Client,
