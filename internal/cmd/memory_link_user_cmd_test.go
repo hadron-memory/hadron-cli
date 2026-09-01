@@ -183,7 +183,7 @@ func TestMemoryLinkUserRequiresYesNonInteractive(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected a refusal without --yes in non-interactive mode")
 	}
-	if got := exitcode.FromError(err); got != exitcode.Usage {
+	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
 	}
 	if _, called := captured["LinkMemoryToUser"]; called {
@@ -225,7 +225,7 @@ func TestMemoryLinkUserRejectsEmptyDataKey(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected a usage error for an explicitly empty --data-key")
 	}
-	if got := exitcode.FromError(err); got != exitcode.Usage {
+	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
 	}
 	// Critically, the irreversible promotion must not have run.

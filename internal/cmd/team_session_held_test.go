@@ -42,7 +42,7 @@ func TestTeamSessionStartHeldByAnotherRefusesWithoutOfferingForce(t *testing.T) 
 	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", gql.URL})
 	err := root.Execute()
 
-	if code := exitcode.FromError(err); code != exitcode.Conflict {
+	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
 	if err == nil {
@@ -178,7 +178,7 @@ func TestTeamSessionStartHeldByMeStillOffersForce(t *testing.T) {
 	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", gql.URL})
 	err := root.Execute()
 
-	if code := exitcode.FromError(err); code != exitcode.Conflict {
+	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
 	if err == nil || !strings.Contains(err.Error(), "--force takes over") {
@@ -212,7 +212,7 @@ func TestTeamSessionStartHeldUnknownWhoseHedges(t *testing.T) {
 	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", gql.URL})
 	err := root.Execute()
 
-	if code := exitcode.FromError(err); code != exitcode.Conflict {
+	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
 	if err == nil {
@@ -242,7 +242,7 @@ func TestTeamSessionStartServerHeldRefusalRenders(t *testing.T) {
 	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", gql.URL})
 	err := root.Execute()
 
-	if code := exitcode.FromError(err); code != exitcode.Conflict {
+	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
 	if err == nil {
@@ -272,7 +272,7 @@ func TestTeamSessionStartServerHeldReducedPayloadDegrades(t *testing.T) {
 	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", gql.URL})
 	err := root.Execute()
 
-	if code := exitcode.FromError(err); code != exitcode.Conflict {
+	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
 	if err == nil {
@@ -310,7 +310,7 @@ func TestTeamSessionStartForceDoesNotDefeatAHold(t *testing.T) {
 	if _, called := captured["StartTeamSession"]; !called {
 		t.Fatal("--force must still reach the server, which is the authority on a hold")
 	}
-	if code := exitcode.FromError(err); code != exitcode.Conflict {
+	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
 	if err == nil || !strings.Contains(err.Error(), "Cast your own worker") {

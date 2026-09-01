@@ -256,7 +256,7 @@ func TestMemoryValidateFailOnFindingsGate(t *testing.T) {
 			_, _, err := runValidate(t, validateResp(tc.total, false, false, tc.findings, ""), tc.args...)
 			code := 0
 			if err != nil {
-				code = exitcode.FromError(err)
+				code = exitCodeFor(err)
 			}
 			if code != tc.wantCode {
 				t.Errorf("exit code = %d, want %d (err=%v)", code, tc.wantCode, err)
@@ -270,7 +270,7 @@ func TestMemoryValidateRejectsUnknownCheck(t *testing.T) {
 	if err == nil {
 		t.Fatal("an unknown --check must be a usage error")
 	}
-	if got := exitcode.FromError(err); got != exitcode.Usage {
+	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
 	}
 	if !strings.Contains(err.Error(), "stale-abstract") {

@@ -127,7 +127,7 @@ func TestAssetUploadRejectsADirectory(t *testing.T) {
 	if err == nil {
 		t.Fatal("uploading a directory must be a usage error")
 	}
-	if got := exitcode.FromError(err); got != exitcode.Usage {
+	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
 	}
 }
@@ -141,7 +141,7 @@ func TestAssetUploadRequiresMemory(t *testing.T) {
 	if err == nil {
 		t.Fatal("upload without -m must be a usage error")
 	}
-	if got := exitcode.FromError(err); got != exitcode.Usage {
+	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
 	}
 }
@@ -207,7 +207,7 @@ func TestAssetRmRequiresConfirmation(t *testing.T) {
 	if err == nil {
 		t.Fatal("rm without --yes must not delete non-interactively")
 	}
-	if got := exitcode.FromError(err); got != exitcode.Usage {
+	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
 	}
 }
@@ -346,7 +346,7 @@ func TestAssetLinkRequiresNode(t *testing.T) {
 	if err == nil {
 		t.Fatal("link without --node must be a usage error")
 	}
-	if got := exitcode.FromError(err); got != exitcode.Usage {
+	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d", got, exitcode.Usage)
 	}
 }
@@ -389,7 +389,7 @@ func TestAssetUploadMalwareBlockedIsExplained(t *testing.T) {
 		t.Errorf("must not suggest a retry: %q", msg)
 	}
 	// Non-zero, and stable across the server typing the code later.
-	if got := exitcode.FromError(err); got != exitcode.Error {
+	if got := exitCodeFor(err); got != exitcode.Error {
 		t.Errorf("exit code = %d, want %d", got, exitcode.Error)
 	}
 }

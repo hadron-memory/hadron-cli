@@ -134,7 +134,7 @@ func TestTeamWorkerCastServerRefusals(t *testing.T) {
 			root.SetArgs([]string{"team", "worker", "cast", "--app", "a:t", "--role", "backend",
 				"--name", "Iris", "--server", gql.URL})
 			err := root.Execute()
-			if code := exitcode.FromError(err); code != tc.code {
+			if code := exitCodeFor(err); code != tc.code {
 				t.Errorf("exit code = %d, want %d; err: %v", code, tc.code, err)
 			}
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
@@ -152,7 +152,7 @@ func TestTeamWorkerCastRequiresRoleOrAgent(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "worker", "cast", "--app", "a:t", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("exit code = %d, want Usage; err: %v", code, err)
 	}
 	if _, called := captured["CastWorker"]; called {
@@ -504,7 +504,7 @@ func TestTeamWorkerGetByURNIgnoresAmbientApp(t *testing.T) {
 	root2.SetArgs([]string{"team", "worker", "get", "hrn:worker:acme.com:eng-team:iris",
 		"--app", "acme.com:some-other-app", "--server", gql2.URL})
 	err := root2.Execute()
-	if code := exitcode.FromError(err); code != exitcode.AuthRequired {
+	if code := exitCodeFor(err); code != exitcode.AuthRequired {
 		t.Errorf("exit code = %d, want %d (AuthRequired); err: %v", code, exitcode.AuthRequired, err)
 	}
 	if err == nil || !strings.Contains(err.Error(), "token expired") {
@@ -605,7 +605,7 @@ func TestTeamWorkerGetUnknownIsNotFound(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "worker", "get", "Nadia", "--app", "acme.com:eng-team", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.NotFound {
+	if code := exitCodeFor(err); code != exitcode.NotFound {
 		t.Errorf("exit code = %d, want %d (NotFound); err: %v", code, exitcode.NotFound, err)
 	}
 }
@@ -627,7 +627,7 @@ func TestTeamWorkerGetByNameWithoutAppNamesTheRemedy(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "worker", "get", "Jonas", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.NotFound {
+	if code := exitCodeFor(err); code != exitcode.NotFound {
 		t.Fatalf("exit code = %d, want %d (NotFound); err: %v", code, exitcode.NotFound, err)
 	}
 	// Names what was typed, and covers BOTH readings of the argument. A stale
@@ -664,7 +664,7 @@ func TestTeamWorkerGetByIdPropagatesLookupErrors(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "worker", "get", "wkr1", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.AuthRequired {
+	if code := exitCodeFor(err); code != exitcode.AuthRequired {
 		t.Errorf("exit code = %d, want %d (AuthRequired), not a fabricated NotFound; err: %v", code, exitcode.AuthRequired, err)
 	}
 	if err == nil || !strings.Contains(err.Error(), "token expired") {
@@ -679,7 +679,7 @@ func TestTeamWorkerRetireRequiresYes(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "worker", "retire", "Iris", "--app", "acme.com:eng-team", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 	if _, called := captured["RetireWorker"]; called {
@@ -745,7 +745,7 @@ func TestTeamWorkerRmInUseIsConflict(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "worker", "rm", "Iris", "--yes", "--app", "acme.com:eng-team", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Conflict {
+	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
 	if err == nil || !strings.Contains(err.Error(), "retire it instead") {
@@ -851,7 +851,7 @@ func TestTeamRoleGet(t *testing.T) {
 	root2 := NewRootCmd(f2)
 	root2.SetArgs([]string{"team", "role", "get", "nope", "--app", "acme.com:eng-team", "--server", gql.URL})
 	err := root2.Execute()
-	if code := exitcode.FromError(err); code != exitcode.NotFound {
+	if code := exitCodeFor(err); code != exitcode.NotFound {
 		t.Errorf("unknown role: exit %d, want %d (NotFound); err: %v", code, exitcode.NotFound, err)
 	}
 }
@@ -949,7 +949,7 @@ func TestTeamRoleUpdateDescription(t *testing.T) {
 	f2, _ := testFactory(t)
 	root2 := NewRootCmd(f2)
 	root2.SetArgs([]string{"team", "role", "update", "backend-engineer", "--app", "acme.com:eng-team", "--server", gql2.URL})
-	if code := exitcode.FromError(root2.Execute()); code != exitcode.Usage {
+	if code := exitCodeFor(root2.Execute()); code != exitcode.Usage {
 		t.Errorf("a no-field update must be Usage, got exit %d", code)
 	}
 	if _, called := captured2["UpdateTeamRoleMeta"]; called {
@@ -1106,7 +1106,7 @@ func TestTeamRoleWriteServerRefusals(t *testing.T) {
 	root.SetArgs([]string{"team", "role", "create", "backend-engineer",
 		"--app", "acme.com:eng-team", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Conflict {
+	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Errorf("existing role: exit %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
 	if err == nil || !strings.Contains(err.Error(), "updateTeamRole is the edit path") {
@@ -1206,7 +1206,7 @@ func TestTeamWorkerCastDryRunRefusalIsTheAnswer(t *testing.T) {
 	root.SetArgs([]string{"team", "worker", "cast", "--dry-run", "--app", "a:t",
 		"--role", "backend-engineer", "--name", "Iris", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Conflict {
+	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
 	if err == nil || !strings.Contains(err.Error(), "Iris") {
@@ -1329,7 +1329,7 @@ func TestTeamSessionStartAlreadyBoundPicksTheRemedyByLiveness(t *testing.T) {
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"team", "session", "start", "--as", "Dara", "--server", gql.URL})
 			err := root.Execute()
-			if code := exitcode.FromError(err); code != exitcode.Conflict {
+			if code := exitCodeFor(err); code != exitcode.Conflict {
 				t.Fatalf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 			}
 			for _, want := range tc.wantContains {
@@ -1372,7 +1372,7 @@ func TestTeamSessionStartAlreadyBoundStillRefusesWhenSignedOut(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "start", "--as", "Dara", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Conflict {
+	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Fatalf("exit code = %d, want %d (Conflict) — the binding conflict outranks the auth error here; err: %v",
 			code, exitcode.Conflict, err)
 	}
@@ -1608,7 +1608,7 @@ func TestTeamSessionStartRefusesRetiredWorker(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "start", "--as", "wkr2", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 	if err == nil || !strings.Contains(err.Error(), "retired") {
@@ -1629,7 +1629,7 @@ func TestTeamSessionStartOccupiedNeedsForce(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Conflict {
+	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
 	for _, want := range []string{"u-holger", "--force", "2026-08-11T09:00:00Z"} {
@@ -1690,7 +1690,7 @@ func TestTeamSessionStartRacedTakenSurfacesForce(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Conflict {
+	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
 	for _, want := range []string{"u-rufus", "2026-08-15T09:00:00Z", "s-race", "--force"} {
@@ -2035,7 +2035,7 @@ func TestTeamSessionWhoamiUnboundIsNotFound(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "whoami"})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.NotFound {
+	if code := exitCodeFor(err); code != exitcode.NotFound {
 		t.Errorf("exit code = %d, want %d (NotFound); err: %v", code, exitcode.NotFound, err)
 	}
 }
@@ -2727,7 +2727,7 @@ func TestTeamSessionLogIssueWithoutMemoryNamesOnlyM(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "log", "--issue", "12", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("exit code = %d, want Usage; err: %v", code, err)
 	}
 	if err == nil || strings.Contains(err.Error(), "team init") {
@@ -2938,7 +2938,7 @@ func TestTeamSessionLogLegacyBindingDegrades(t *testing.T) {
 	root2 := NewRootCmd(f2)
 	root2.SetArgs([]string{"team", "session", "log", "--issue", "362", "--server", gql.URL})
 	err := root2.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("issue without team memory: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 }
@@ -3004,7 +3004,7 @@ func TestTeamSessionLogServerMismatch(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 	if _, called := captured["UpdateTeamSession"]; called {
@@ -3093,7 +3093,7 @@ func TestTeamSessionStartFindsActiveSessionOnLaterPage(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Conflict {
+	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
 }
@@ -3113,7 +3113,7 @@ func TestTeamSessionStartForceEndsPreviouslyBoundSession(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Conflict {
+	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
 
@@ -3178,7 +3178,7 @@ func TestTeamSessionEndServerMismatch(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "end", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 	if !strings.Contains(err.Error(), "https://other.example") {
@@ -3295,7 +3295,7 @@ func TestTeamSessionListProvenanceQuery(t *testing.T) {
 	root2.SetArgs([]string{"team", "session", "list", "--pr", "371", "-m", "acme.com::eng-team",
 		"--limit", "5", "--server", gql.URL})
 	err := root2.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("--pr with --limit: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 }
@@ -3440,7 +3440,7 @@ func TestTeamInitAppPath(t *testing.T) {
 	f3, _ := testFactory(t)
 	root3 := NewRootCmd(f3)
 	root3.SetArgs([]string{"team", "init", "--server", "http://127.0.0.1:1"})
-	if code := exitcode.FromError(root3.Execute()); code != exitcode.Usage {
+	if code := exitCodeFor(root3.Execute()); code != exitcode.Usage {
 		t.Errorf("no App, no -m: exit %d, want Usage", code)
 	}
 }
@@ -3625,7 +3625,7 @@ func TestTeamInitRefusesNonAppClassMemory(t *testing.T) {
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"team", "init", "-m", "acme.com::eng-team-system", "--server", gql.URL})
 			err := root.Execute()
-			if code := exitcode.FromError(err); code != exitcode.Usage {
+			if code := exitCodeFor(err); code != exitcode.Usage {
 				t.Errorf("exit code = %d, want Usage; err: %v", code, err)
 			}
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
@@ -3709,7 +3709,7 @@ func TestTeamChatPostPositionalBody(t *testing.T) {
 	root2 := NewRootCmd(f2)
 	root2.SetArgs([]string{"team", "chat", "post", "x", "--body", "y", "--server", gql.URL})
 	err := root2.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("double body: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 }
@@ -3723,7 +3723,7 @@ func TestTeamChatPostUnbound(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("no binding, no app: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 
@@ -3780,7 +3780,7 @@ func TestTeamChatPostReplyToSeq(t *testing.T) {
 	root2 := NewRootCmd(f2)
 	root2.SetArgs([]string{"team", "chat", "post", "--body", "done", "--reply-to", "chat:messages:a", "--server", gql.URL})
 	err := root2.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("non-numeric reply-to: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 }
@@ -3825,7 +3825,7 @@ func TestTeamChatOutsideWorktreeWithApp(t *testing.T) {
 	root3 := NewRootCmd(f3)
 	root3.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--server", gql.URL})
 	err := root3.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 }
@@ -3895,7 +3895,7 @@ func TestTeamChatPostServerRefusals(t *testing.T) {
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"team", "chat", "post", "--body", "hi", "--server", gql.URL})
 			err := root.Execute()
-			if code := exitcode.FromError(err); code != tc.code {
+			if code := exitCodeFor(err); code != tc.code {
 				t.Errorf("exit code = %d, want %d; err: %v", code, tc.code, err)
 			}
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
@@ -3951,7 +3951,7 @@ func TestTeamChatReadMentionsMe(t *testing.T) {
 	root2 := NewRootCmd(f2)
 	root2.SetArgs([]string{"team", "chat", "read", "--mentions-me", "--mentions", "wkr9", "--server", gql.URL})
 	err := root2.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("both mention flags: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 }
@@ -4109,7 +4109,7 @@ func TestTeamSessionLogMismatchedMemoryExplainsMismatch(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--json", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("mismatched memory: exit %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 	if err == nil || !strings.Contains(err.Error(), "different App") {
@@ -4140,7 +4140,7 @@ func TestTeamSessionLogLegacyBindingNotInAppSaysRestart(t *testing.T) {
 	root.SetArgs([]string{"team", "session", "log", "--pr", "hadron-memory/hadron-cli#371",
 		"-m", "acme.com::eng-team", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
 	}
 	if err == nil || !strings.Contains(err.Error(), "session end") {

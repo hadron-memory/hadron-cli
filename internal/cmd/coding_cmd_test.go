@@ -138,7 +138,7 @@ func TestCodingReviewLintErrorsExit5(t *testing.T) {
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"coding", "review", "lint", "-m", codingMem, "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Conflict {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Conflict {
 		t.Errorf("errors should exit 5 (Conflict), got %d", got)
 	}
 	s := out.String()
@@ -170,7 +170,7 @@ func TestCodingReviewLintStrict(t *testing.T) {
 	f2, _ := testFactory(t)
 	root2 := NewRootCmd(f2)
 	root2.SetArgs([]string{"coding", "review", "lint", "-m", codingMem, "--strict", "--server", gql2.URL})
-	if got := exitcode.FromError(root2.Execute()); got != exitcode.Conflict {
+	if got := exitCodeFor(root2.Execute()); got != exitcode.Conflict {
 		t.Errorf("--strict should promote warnings to errors (exit 5), got %d", got)
 	}
 }
@@ -271,7 +271,7 @@ func TestCodingPreflightLintDeadRouteExit5(t *testing.T) {
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"coding", "preflight", "lint", "-m", codingMem, "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Conflict {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Conflict {
 		t.Errorf("a dead route should exit 5, got %d", got)
 	}
 	if !strings.Contains(out.String(), "route-target-resolves") {
@@ -356,7 +356,7 @@ func TestCodingReviewFixSkipsUnfixable(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"coding", "review", "lint", "-m", codingMem, "--fix", "--yes", "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Conflict {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Conflict {
 		t.Errorf("the unfixable error should still be reported, got exit %d", got)
 	}
 	if _, bad := captured["UpdateEdge"]; bad {
@@ -602,7 +602,7 @@ func TestCodingReviewCreateUnwiredExits1(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"coding", "review", "create", "orphan", "-m", codingMem,
 		"--trigger", "a thing changes", "--description", "d", "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Error {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Error {
 		t.Errorf("an unwired check is a partial write (exit 1), got %d", got)
 	}
 }
@@ -617,7 +617,7 @@ func TestCodingReviewCreateMissingParent(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"coding", "review", "create", "x", "-m", codingMem,
 		"--trigger", "a thing changes", "--description", "d", "--server", gql.URL})
-	if got := exitcode.FromError(root.Execute()); got != exitcode.NotFound {
+	if got := exitCodeFor(root.Execute()); got != exitcode.NotFound {
 		t.Errorf("a missing review parent should exit 4, got %d", got)
 	}
 	if _, wrote := captured["CreateNode"]; wrote {
@@ -803,7 +803,7 @@ func TestCodingPreflightCreateAmbiguousBodyWritesNothing(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs(preflightCreateArgs(gql.URL))
-	if got := exitcode.FromError(root.Execute()); got != exitcode.Usage {
+	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 		t.Errorf("an ambiguous router body is a usage error (2), got %d", got)
 	}
 	if _, wrote := captured["CreateNode"]; wrote {
@@ -889,7 +889,7 @@ func TestCodingPreflightCreateUnroutedExits1(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs(preflightCreateArgs(gql.URL))
 	err := root.Execute()
-	if got := exitcode.FromError(err); got != exitcode.Error {
+	if got := exitCodeFor(err); got != exitcode.Error {
 		t.Errorf("an unrouted node is a partial write (exit 1), got %d", got)
 	}
 	if !strings.Contains(err.Error(), "hadron edge create") {
@@ -914,7 +914,7 @@ func TestCodingPreflightCreateBodyUpdateFailureExits1(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs(preflightCreateArgs(gql.URL))
 	err := root.Execute()
-	if got := exitcode.FromError(err); got != exitcode.Error {
+	if got := exitCodeFor(err); got != exitcode.Error {
 		t.Errorf("a missing body line is a partial write (exit 1), got %d", got)
 	}
 	if !strings.Contains(err.Error(), "[[findings:flaky-otp-timer]]") {
@@ -954,7 +954,7 @@ func TestCodingPreflightCreateDryRun(t *testing.T) {
 	f2, _ := testFactory(t)
 	root2 := NewRootCmd(f2)
 	root2.SetArgs(preflightCreateArgs(gql2.URL, "--dry-run"))
-	if got := exitcode.FromError(root2.Execute()); got != exitcode.Usage {
+	if got := exitCodeFor(root2.Execute()); got != exitcode.Usage {
 		t.Errorf("--dry-run on an ambiguous router should still exit 2, got %d", got)
 	}
 }
@@ -977,7 +977,7 @@ func TestCodingPreflightCreateUnconfirmedBackEdge(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs(append(preflightCreateArgs(gql.URL), "--json"))
 	err := root.Execute()
-	if got := exitcode.FromError(err); got != exitcode.Error {
+	if got := exitCodeFor(err); got != exitcode.Error {
 		t.Errorf("a missing embedded edge is a partial write (exit 1), got %d", got)
 	}
 	if !strings.Contains(err.Error(), "hadron edge create") {
@@ -1002,7 +1002,7 @@ func TestCodingPreflightCreateMissingRouter(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs(preflightCreateArgs(gql.URL))
-	if got := exitcode.FromError(root.Execute()); got != exitcode.NotFound {
+	if got := exitCodeFor(root.Execute()); got != exitcode.NotFound {
 		t.Errorf("a missing preflight router should exit 4, got %d", got)
 	}
 	if _, wrote := captured["CreateNode"]; wrote {
@@ -1183,7 +1183,7 @@ func TestCodingPreflightRoutePartialWriteIsHonest(t *testing.T) {
 		"-m", codingMem, "--route", "fix a flaky OTP test",
 		"--description", "d", "--json", "--server", gql.URL})
 	err := root.Execute()
-	if got := exitcode.FromError(err); got != exitcode.Error {
+	if got := exitCodeFor(err); got != exitcode.Error {
 		t.Errorf("a missing back-edge is a partial write (exit 1), got %d", got)
 	}
 	var dto struct {

@@ -420,7 +420,7 @@ func TestNodeImportOverwriteRefusedWithoutYes(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"node", "import", file, "--server", gql.URL})
 	err := root.Execute()
-	if err == nil || exitcode.FromError(err) != exitcode.Usage {
+	if err == nil || exitCodeFor(err) != exitcode.Usage {
 		t.Fatalf("overwrite without --yes should be a usage error, got %v", err)
 	}
 	if !strings.Contains(err.Error(), "--yes") {
@@ -629,7 +629,7 @@ func TestNodeImportWithEdgesUnwiredTarget(t *testing.T) {
 	if err == nil {
 		t.Fatal("an import that leaves edges unwired must exit non-zero")
 	}
-	if code := exitcode.FromError(err); code != exitcode.Error {
+	if code := exitCodeFor(err); code != exitcode.Error {
 		t.Errorf("unwired-edge exit code = %d, want %d (Error)", code, exitcode.Error)
 	}
 	if captured["CreateEdge"] != nil {
@@ -678,7 +678,7 @@ func TestNodeImportWithEdgesRejectedReason(t *testing.T) {
 	// The node exists (probe resolves it), so overwriting is gated — --yes bypasses.
 	root.SetArgs([]string{"node", "import", file, "--with-edges", "--yes", "--json", "--server", gql.URL})
 	err := root.Execute()
-	if code := exitcode.FromError(err); code != exitcode.Error {
+	if code := exitCodeFor(err); code != exitcode.Error {
 		t.Fatalf("a rejected edge is a partial failure — exit %d, want %d (Error): %v", code, exitcode.Error, err)
 	}
 	var summary struct {

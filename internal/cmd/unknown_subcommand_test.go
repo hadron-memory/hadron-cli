@@ -97,7 +97,7 @@ func TestCheckUnknownSubcommand(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected an unknown-command error, got nil")
 			}
-			if got := exitcode.FromError(err); got != exitcode.Usage {
+			if got := exitCodeFor(err); got != exitcode.Usage {
 				t.Errorf("exit code = %d, want %d (usage)", got, exitcode.Usage)
 			}
 			for _, want := range tt.contains {

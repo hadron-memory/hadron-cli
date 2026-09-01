@@ -143,7 +143,7 @@ func TestSearchInvalidModeIsUsageError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected usage error")
 	}
-	if exitcode.FromError(err) != exitcode.Usage {
+	if exitCodeFor(err) != exitcode.Usage {
 		t.Errorf("invalid --mode should be a usage error, got %v", err)
 	}
 }
@@ -210,7 +210,7 @@ func TestSearchWhereMalformedIsUsageError(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"search", "x", "--where", `{"path":["x"],`})
 	err := root.Execute()
-	if err == nil || exitcode.FromError(err) != exitcode.Usage {
+	if err == nil || exitCodeFor(err) != exitcode.Usage {
 		t.Fatalf("malformed --where should be a usage error, got %v", err)
 	}
 }
@@ -220,7 +220,7 @@ func TestSearchEmptyQueryIsUsageError(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"search", "   "})
 	err := root.Execute()
-	if err == nil || exitcode.FromError(err) != exitcode.Usage {
+	if err == nil || exitCodeFor(err) != exitcode.Usage {
 		t.Fatalf("whitespace-only query should be a usage error, got %v", err)
 	}
 }
@@ -231,7 +231,7 @@ func TestSearchNegativeLimitOffsetAreUsageErrors(t *testing.T) {
 		root := NewRootCmd(f)
 		root.SetArgs(append([]string{"search", "x"}, arg...))
 		err := root.Execute()
-		if err == nil || exitcode.FromError(err) != exitcode.Usage {
+		if err == nil || exitCodeFor(err) != exitcode.Usage {
 			t.Errorf("%v should be a usage error, got %v", arg, err)
 		}
 	}

@@ -347,7 +347,7 @@ func TestWorkerReleaseRefusesWhenTheHoldChanged(t *testing.T) {
 		root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
 			"--app", "acme.com:eng-team", "--server", gql.URL})
 		err := root.Execute()
-		if code := exitcode.FromError(err); code != exitcode.Conflict {
+		if code := exitCodeFor(err); code != exitcode.Conflict {
 			t.Errorf("a retirement mid-flight changes what release MEANS: exit %d; err: %v", code, err)
 		}
 		if _, called := captured["ReleaseWorker"]; called {
@@ -567,7 +567,7 @@ func TestWorkerReleaseHandlesAStaleHold(t *testing.T) {
 		root.SetArgs([]string{"team", "worker", "release", "Iris",
 			"--app", "acme.com:eng-team", "--server", srv.URL})
 		err := root.Execute()
-		if code := exitcode.FromError(err); code != exitcode.Conflict {
+		if code := exitCodeFor(err); code != exitcode.Conflict {
 			t.Errorf("exit %d, want %d; err: %v", code, exitcode.Conflict, err)
 		}
 		if len(*seen) != 1 {
@@ -672,7 +672,7 @@ func TestWorkerReleaseHandlesAStaleHold(t *testing.T) {
 		root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
 			"--app", "acme.com:eng-team", "--server", srv.URL})
 		err := root.Execute()
-		if code := exitcode.FromError(err); code != exitcode.Conflict {
+		if code := exitCodeFor(err); code != exitcode.Conflict {
 			t.Errorf("exit %d, want %d; err: %v", code, exitcode.Conflict, err)
 		}
 		if len(*seen) != 1 {
@@ -703,7 +703,7 @@ func TestWorkerReleaseHandlesAStaleHold(t *testing.T) {
 		root.SetArgs([]string{"team", "worker", "release", "Iris",
 			"--app", "acme.com:eng-team", "--server", srv.URL})
 		err := root.Execute()
-		if code := exitcode.FromError(err); code != exitcode.Conflict {
+		if code := exitCodeFor(err); code != exitcode.Conflict {
 			t.Fatalf("exit %d, want %d; err: %v", code, exitcode.Conflict, err)
 		}
 		if len(*seen) != 1 {
@@ -748,7 +748,7 @@ func TestWorkerReleaseHandlesAStaleHold(t *testing.T) {
 		root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
 			"--app", "acme.com:eng-team", "--server", srv.URL})
 		err := root.Execute()
-		if code := exitcode.FromError(err); code != exitcode.Conflict {
+		if code := exitCodeFor(err); code != exitcode.Conflict {
 			t.Fatalf("exit %d, want %d; err: %v", code, exitcode.Conflict, err)
 		}
 		if !strings.Contains(err.Error(), "retired while this ran") {
@@ -770,7 +770,7 @@ func TestWorkerReleaseHandlesAStaleHold(t *testing.T) {
 		root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
 			"--app", "acme.com:eng-team", "--server", srv.URL})
 		err := root.Execute()
-		if code := exitcode.FromError(err); code != exitcode.Conflict {
+		if code := exitCodeFor(err); code != exitcode.Conflict {
 			t.Errorf("exit %d, want %d; err: %v", code, exitcode.Conflict, err)
 		}
 		if len(*seen) != 2 {

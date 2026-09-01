@@ -112,7 +112,7 @@ func TestNodeAddPropertiesInvalidJSONIsUsageError(t *testing.T) {
 	root.SetArgs([]string{"node", "add", "-m", "acme.com::kb", "--loc", "x", "--name", "X",
 		"--properties", `{bad json`, "--server", gql.URL})
 	err := root.Execute()
-	if err == nil || exitcode.FromError(err) != exitcode.Usage {
+	if err == nil || exitCodeFor(err) != exitcode.Usage {
 		t.Fatalf("malformed --properties should be a usage error, got %v", err)
 	}
 	if _, ok := captured["CreateNode"]; ok {
@@ -130,7 +130,7 @@ func TestNodeAddPropertiesFlagsMutuallyExclusive(t *testing.T) {
 		root.SetArgs([]string{"node", "add", "-m", "acme.com::kb", "--loc", "x", "--name", "X",
 			"--properties", inline, "--properties-file", "/tmp/x.json"})
 		err := root.Execute()
-		if err == nil || exitcode.FromError(err) != exitcode.Usage {
+		if err == nil || exitCodeFor(err) != exitcode.Usage {
 			t.Errorf("--properties %q + --properties-file should be a usage error, got %v", inline, err)
 		}
 	}
@@ -148,7 +148,7 @@ func TestNodeAddEmptyPropertiesIsUsageError(t *testing.T) {
 	root.SetArgs([]string{"node", "add", "-m", "acme.com::kb", "--loc", "x", "--name", "X",
 		"--properties", "", "--server", gql.URL})
 	err := root.Execute()
-	if err == nil || exitcode.FromError(err) != exitcode.Usage {
+	if err == nil || exitCodeFor(err) != exitcode.Usage {
 		t.Fatalf("--properties \"\" should be a usage error (invalid JSON), got %v", err)
 	}
 	if _, ok := captured["CreateNode"]; ok {
@@ -233,7 +233,7 @@ func TestMemorySetSchemaMalformedIsUsageError(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"memory", "set", "m1", "--schema", `{"objectTypes":`, "--server", gql.URL})
 	err := root.Execute()
-	if err == nil || exitcode.FromError(err) != exitcode.Usage {
+	if err == nil || exitCodeFor(err) != exitcode.Usage {
 		t.Fatalf("malformed --schema should be a usage error, got %v", err)
 	}
 	if _, ok := captured["UpdateMemory"]; ok {
