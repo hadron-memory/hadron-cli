@@ -779,7 +779,7 @@ holds nothing).`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&as, "as", "", "worker to drive: its URN or id (no App scope needed), or its name within the team App")
+	cmd.Flags().StringVar(&as, "as", "", "worker to drive: its URN or id (no App scope needed), or its name within the team App (required)")
 	cmd.Flags().BoolVar(&force, "force", false, "take over a worker with an active session (never a name HELD by someone else); also replaces this worktree's binding, ending its session first (best-effort)")
 	cmd.Flags().StringVar(&repo, "repo", "", "repository the session works on, e.g. owner/repo")
 	cmd.Flags().StringVar(&branch, "branch", "", "branch the session works on")

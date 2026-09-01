@@ -111,8 +111,8 @@ func newCmdSubscriptionCreate(f *cmdutil.Factory) *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVar(&org, "org", "", "organization to subscribe (ID, slug, or hrn:org:<slug> URN)")
-	cmd.Flags().StringVar(&role, "role", "", "role: owner, admin, contributor, or reader")
+	cmd.Flags().StringVar(&org, "org", "", "organization to subscribe (ID, slug, or hrn:org:<slug> URN) (required)")
+	cmd.Flags().StringVar(&role, "role", "", "role: owner, admin, contributor, or reader (required)")
 	_ = cmd.MarkFlagRequired("org")
 	_ = cmd.MarkFlagRequired("role")
 	return cmd
@@ -152,8 +152,8 @@ func newCmdSubscriptionSetRole(f *cmdutil.Factory) *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVar(&org, "org", "", "subscribed organization (ID, slug, or hrn:org:<slug> URN)")
-	cmd.Flags().StringVar(&role, "role", "", "new role: owner, admin, contributor, or reader")
+	cmd.Flags().StringVar(&org, "org", "", "subscribed organization (ID, slug, or hrn:org:<slug> URN) (required)")
+	cmd.Flags().StringVar(&role, "role", "", "new role: owner, admin, contributor, or reader (required)")
 	_ = cmd.MarkFlagRequired("org")
 	_ = cmd.MarkFlagRequired("role")
 	return cmd
@@ -190,7 +190,7 @@ func newCmdSubscriptionRm(f *cmdutil.Factory) *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVar(&org, "org", "", "subscribed organization (ID, slug, or hrn:org:<slug> URN)")
+	cmd.Flags().StringVar(&org, "org", "", "subscribed organization (ID, slug, or hrn:org:<slug> URN) (required)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	_ = cmd.MarkFlagRequired("org")
 	return cmd

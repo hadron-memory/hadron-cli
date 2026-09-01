@@ -159,7 +159,7 @@ Because the promotion is irreversible, this prompts on a terminal and requires
 			})
 		},
 	}
-	cmd.Flags().StringVar(&externalUser, "external-user", "", "the App's own identifier for the end user (not a Hadron user id)")
+	cmd.Flags().StringVar(&externalUser, "external-user", "", "the App's own identifier for the end user (not a Hadron user id) (required)")
 	_ = cmd.MarkFlagRequired("external-user")
 	cmd.Flags().StringVar(&dataKey, "data-key", "", `also encrypt the memory at rest with this key ("-" reads stdin, recommended)`)
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
