@@ -225,7 +225,7 @@ that already references the target is left alone.`,
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory holding the router, hrn:mem:<root>:<slug> (required)")
 	cmd.Flags().StringVar(&root, "root", preflightRootLoc, "loc of the preflight router node")
-	cmd.Flags().StringVar(&route, "route", "", `the action the route fires on ("to" is prepended if absent)`)
+	cmd.Flags().StringVar(&route, "route", "", `the action the route fires on ("to" is prepended if absent) (required)`)
 	cmd.Flags().StringVar(&description, "description", "", "routing line text (default: the target node's own description)")
 	cmd.Flags().StringVar(&symptom, "symptom", "", "the routing line's quoted trigger (default: the route)")
 	cmd.Flags().StringVar(&section, "section", "", "heading in the router's body to add the routing line under")
