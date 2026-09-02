@@ -490,8 +490,8 @@ at read time from when the session was last driven, so a name whose
 driver stopped stops being taken on its own. Nothing ends the session to
 make that happen — it stays open, and the handoff it never wrote survives
 for whoever picks the name up. So an OPEN session is not evidence anyone
-is present; only liveness is, and ` + "`worker list`" + `'s LAST
-DRIVEN column is where to read it. --force starts
+is present; only liveness is, and ` + "`worker list`'s" + ` LAST DRIVEN
+column is where to read it. --force starts
 your session alongside the taken-over one; it does not end another
 driver's session. When this worktree already has a binding, --force
 replaces it — first ending the session that binding names (best-effort),
@@ -1499,7 +1499,7 @@ func newCmdSessionList(f *cmdutil.Factory) *cobra.Command {
 --active narrows to sessions that never ENDED, which is not the same as
 team presence: since hadron-server#1114 nothing ends a developer session
 but an explicit ` + "`session end`" + `, so an abandoned one stays listed
-indefinitely. For "is anyone driving this", read ` + "`worker list`" + `'s
+indefinitely. For "is anyone driving this", read ` + "`worker list`'s" + `
 LAST DRIVEN, which the server derives from recency. --as narrows to one
 worker's sessions (server-side, via the worker binding on the session).
 --active narrows client-side over the full list; plain listings page
