@@ -1505,7 +1505,7 @@ func newCmdSessionList(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list [--active] [--as <worker>] [--repo <r>] | (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]",
 		Aliases: []string{"ls"},
-		Short:   "List worker sessions — team presence and provenance",
+		Short:   "List worker sessions — open sessions and provenance",
 		Long: `List sessions, newest first, with each session's worker joined in.
 --active narrows to sessions that never ENDED, which is not the same as
 team presence: since hadron-server#1114 nothing ends a developer session
@@ -1647,7 +1647,11 @@ dropped.`,
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&active, "active", false, "only sessions that never ended (presence)")
+	// NO BACKTICKS: cobra reads a backticked word in a usage string as the
+	// flag's PLACEHOLDER name, so "see `worker list`" rendered the flag as
+	// "--active worker list" (review:backticks-in-flag-usage-become-the-placeholder,
+	// caught by TestFlagUsagePlaceholdersAreDeliberate).
+	cmd.Flags().BoolVar(&active, "active", false, "only sessions that never ENDED — not presence; see worker list's LAST DRIVEN")
 	cmd.Flags().StringVar(&as, "as", "", "only one worker's sessions (name within the team App, or worker id)")
 	cmd.Flags().StringVar(&repo, "repo", "", "filter by repository")
 	cmd.Flags().StringVar(&pr, "pr", "", "provenance query: sessions behind this PR (number, owner/repo#N, or URL)")
