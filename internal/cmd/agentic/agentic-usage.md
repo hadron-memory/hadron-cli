@@ -1011,7 +1011,10 @@ Conventions:
   session** is the Hadron binding below, and a **chat session** is the
   conversation the human is in — the Desktop window, the Claude Code session.
   Closing a chat session does NOT end the worker session; only `session end`
-  does, so a worker left bound stays TAKEN until that or the server reaps it.
+  does — since hadron-server#1114 nothing else ends a developer session, no
+  idle window and no reap. Being TAKEN is separate and DOES clear on its own,
+  because the server derives it from recent driving rather than from the row
+  being open.
   And `session end` frees the SESSION, never the NAME: a person who binds a
   worker holds its name until `worker release` (`cor:agt:020:09`).
   Note "taken", not "released": since hadron-server#1050 **release** is a term

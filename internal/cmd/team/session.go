@@ -44,9 +44,11 @@ TWO THINGS ARE CALLED A SESSION, AND ENDING ONE DOES NOT END THE OTHER
                    the Claude Code session, the IDE chat
 
 Closing your CHAT SESSION does not end the worker session. It outlives the
-chat and keeps the worker TAKEN until you run ` + "`session end`" + ` or the server
-reaps it, so the next driver meets a takeover prompt rather than a free
-worker. End the worker session deliberately when you stop.
+chat, and since hadron-server#1114 NOTHING else ends it — no idle window,
+no reap — so it stays open until you run ` + "`session end`" + `. Being TAKEN is
+separate and does clear on its own: the server derives it from recent
+driving. End the worker session deliberately when you stop, because that
+is the only thing that ends it and the only chance to leave a handoff.
 
 TAKEN is not HELD. Ending the session frees the SESSION; a PERSON binding a
 worker also claims its name, and that hold stays yours until you run
@@ -93,8 +95,9 @@ type sessionDTO struct {
 	TranscriptPath *string `json:"transcriptPath"`
 	LLMModel       *string `json:"llmModel"`
 	// Active means "not ended" (endedAt IS NULL) — an honest liveness
-	// signal since the server-side reaper (hadron-server#930, PR #933)
-	// auto-expires stale sessions on hard expiry and inactivity.
+	// signal: hadron-server#1114 retired the inactivity reaper, so a
+	// developer session ends only on an explicit endSession (hard expiry
+	// still applies to the CHATBOT path, which stamps expiresAt).
 	Active bool `json:"active"`
 }
 
@@ -488,8 +491,10 @@ cor:agt:020:03 — never silent).
 Live is DERIVED, not stored (hadron-server#1114): the server computes it
 at read time from when the session was last driven, so a name whose
 driver stopped stops being taken on its own. Nothing ends the session to
-make that happen — it stays open, and the handoff it never wrote survives
-for whoever picks the name up. So an OPEN session is not evidence anyone
+make that happen — it stays open, so the CHANCE to write a handoff is still
+there for its driver to take. (There is no handoff until somebody writes
+one: leaving the row open preserves the opportunity the old reaper
+foreclosed, not a record that does not exist.) So an OPEN session is not evidence anyone
 is present; only liveness is, and ` + "`worker list`'s" + ` LAST DRIVEN
 column is where to read it. --force starts
 your session alongside the taken-over one; it does not end another
@@ -521,8 +526,10 @@ holds nothing).`,
 			}
 			// --force over an existing binding: best-effort end the session it
 			// names before replacing it, so the overwritten binding does not
-			// leave a session open (the #930 reaper would expire it
-			// eventually, but an explicit end is immediate). Best-effort
+			// leave a session open. Since hadron-server#1114 there is no
+			// backstop at all — nothing expires it, ever — so this end is
+			// the ONLY thing that closes it, not merely the faster of two
+			// routes. Do not read it as an optimisation. Best-effort
 			// because that session may already be ended — or live on another
 			// server, which `session end`'s server guard would catch but a
 			// takeover deliberately steamrolls.
@@ -675,9 +682,10 @@ holds nothing).`,
 			})
 			if err != nil {
 				// The server session already exists; without a binding this
-				// worktree cannot end it and the worker would stay taken
-				// until the reaper expires it — so compensate by ending it
-				// now.
+				// worktree cannot end it, and since hadron-server#1114
+				// nothing else will — it would stay open indefinitely, with
+				// its handoff unwritable. Compensating here is mandatory,
+				// not tidy.
 				if _, endErr := gen.EndTeamSession(ctx, client, s.Id, nil, nil); endErr != nil {
 					return fmt.Errorf("%w; additionally, rolling back session %s failed (%v) — end it with `hadron team session end --session %s`", err, s.Id, endErr, s.Id)
 				}
@@ -1075,8 +1083,10 @@ what you have read. A cross-surface watermark is a server-side question.`,
 			// EVERY milestone touches the session: prNumber for PRs, branch
 			// (the name, without the repo qualifier) for branches, and the
 			// EMPTY update for issue/commit — the #932-designed liveness
-			// touch (any authorized update bumps updatedAt), so a driver
-			// logging only commits is never reaped for inactivity.
+			// touch (any authorized update bumps updatedAt), which is one of
+			// the three inputs the server derives liveness from — so a
+			// driver logging only commits keeps reading as live, and the
+			// worker stays taken while the work is in flight.
 			var prArg *int
 			var branchArg *string
 			switch kind {
@@ -1308,7 +1318,7 @@ worker to be BOUND by you again; it does not hand the name to anyone else.
 
 Closing your CHAT SESSION does not do this. Archive the Desktop window or
 quit the Claude Code session and the worker session stays open, holding the
-worker until you end it here or the server reaps it (hadron-server#1034).
+worker until you end it here — since hadron-server#1114 nothing else does.
 So end it deliberately when you stop working, not when you close the window.
 
 --handoff IS WHAT THE NEXT DRIVER READS (hadron-server#1029). Prose about
