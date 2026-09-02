@@ -1041,9 +1041,12 @@ Conventions:
   never silent (`cor:agt:020:03`). **Live is DERIVED, not stored**
   (hadron-server#1114): the server computes it at read time from when the
   session was last driven, so a name whose driver stopped stops being taken on
-  its own — and nothing ends the session to achieve that, so the handoff it
-  never wrote survives. An OPEN session is therefore **not** evidence of a live
-  driver; `worker list`'s LAST DRIVEN is. A `--force` that replaces this
+  its own — and nothing ends the session to achieve that, so the CHANCE to
+  write a handoff is still there for its driver to take. There is no handoff
+  until somebody writes one: leaving the row open preserves the opportunity the
+  old reaper foreclosed, not a record that does not exist. An OPEN session
+  therefore tells you nothing about whether the name is taken; liveness does,
+  and it means DRIVEN RECENTLY rather than that somebody is at the keyboard. A `--force` that replaces this
   worktree's own binding first ends the session it named, best-effort.
   **HELD is not TAKEN, and only TAKEN is forceable** (`cor:agt:020:09`, #487).
   A name is held by the PERSON who binds it, and nothing about a session

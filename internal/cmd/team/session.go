@@ -94,10 +94,13 @@ type sessionDTO struct {
 	Tool           *string `json:"tool"`
 	TranscriptPath *string `json:"transcriptPath"`
 	LLMModel       *string `json:"llmModel"`
-	// Active means "not ended" (endedAt IS NULL) — an honest liveness
-	// signal: hadron-server#1114 retired the inactivity reaper, so a
-	// developer session ends only on an explicit endSession (hard expiry
-	// still applies to the CHATBOT path, which stamps expiresAt).
+	// Active means "not ended" (endedAt IS NULL) and NOTHING MORE. It is not
+	// a liveness signal, and since hadron-server#1114 it is not even a proxy
+	// for one: a developer session ends only on an explicit endSession, so an
+	// abandoned one stays Active indefinitely while the server's DERIVED
+	// liveness goes false. Liveness is Worker.hasLiveSession — not ended AND
+	// driven inside the idle window. (Hard expiry still applies to the
+	// CHATBOT path, which stamps expiresAt.)
 	Active bool `json:"active"`
 }
 
