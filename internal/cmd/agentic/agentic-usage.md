@@ -1186,8 +1186,9 @@ Conventions:
   **It is NOT a presence view**: `--active` narrows to sessions that never
   ENDED, and since hadron-server#1114 nothing ends a developer session but an
   explicit `session end`, so an abandoned one stays listed indefinitely. For
-  "who is driving this", read `worker list`'s LAST DRIVEN, which the server
-  derives from recent driving. `--as` narrows SERVER-side
+  "was this name driven recently, and does the server still count it as
+  taken", read `worker list`'s LAST DRIVEN. Neither view answers "is somebody
+  at the keyboard" — nothing here does. `--as` narrows SERVER-side
   (`sessions(workerRef:)`), `--active` client-side. **Both its tables lead with `WORKER  ROLE …` and carry
   `SESSION` last** (#486): the role says what a worker IS and was already on
   the wire, while the id is the one value a human cannot act on. The id is
