@@ -491,12 +491,13 @@ cor:agt:020:03 — never silent).
 Live is DERIVED, not stored (hadron-server#1114): the server computes it
 at read time from when the session was last driven, so a name whose
 driver stopped stops being taken on its own. Nothing ends the session to
-make that happen — it stays open, so the CHANCE to write a handoff is still
-there for its driver to take. (There is no handoff until somebody writes
-one: leaving the row open preserves the opportunity the old reaper
-foreclosed, not a record that does not exist.) So an OPEN session is not evidence anyone
-is present; only liveness is, and ` + "`worker list`'s" + ` LAST DRIVEN
-column is where to read it. --force starts
+make that happen — it stays open, so the CHANCE to write a handoff is
+still there for its driver to take. There is no handoff until somebody
+writes one: leaving the row open preserves the opportunity the old
+reaper foreclosed, not a record that does not exist.
+
+So an OPEN session is not evidence anyone is present; only liveness is,
+and ` + "`worker list`'s" + ` LAST DRIVEN column is where to read it. --force starts
 your session alongside the taken-over one; it does not end another
 driver's session. When this worktree already has a binding, --force
 replaces it — first ending the session that binding names (best-effort),
