@@ -973,13 +973,17 @@ Conventions:
   questions and must not be collapsed** (`cor:agt:020:09`). `HELD BY` is whose
   name it is — what decides whether you may bind, freed only by an explicit
   `worker release`, and `--force` does not help against someone else's hold.
-  `LAST DRIVEN` is whether a worker session is open (`live`) and otherwise how
-  long since the name was driven (`3d ago`), or `never` for a casting nobody
-  has ever bound — the state the issue was filed for, since a worker nobody
-  picked up otherwise renders exactly like one worked yesterday. **`live` is
-  not a claim that anyone is at the keyboard**: a worker session outlives the
-  chat session that started it. There is deliberately no age beside `live`,
-  because an age there reads as presence.
+  `LAST DRIVEN` is whether a session on this name was DRIVEN inside its idle
+  window (`live`) and otherwise how long since it was driven (`3d ago`), or
+  `never` for a casting nobody has ever bound — the state the issue was filed
+  for, since a worker nobody picked up otherwise renders exactly like one
+  worked yesterday. **Since hadron-server#1114 liveness is DERIVED at read
+  time** — not ended AND driven recently — so it is no longer the same
+  question as "is a session row open": an abandoned session stays open
+  indefinitely and stops reading as live. **`live` is still not a claim that
+  anyone is at the keyboard**: the window is generous, and a worker session
+  outlives the chat session that started it. There is deliberately no age
+  beside `live`, because an age there reads as presence.
   **`hasLiveSession` is also the VISIBILITY SIGNAL for this row's working
   state.** It is `null` only when the read gate masked it — the same gate that
   masks `heldByUserId`/`heldAt`/`memoryId`/`promptOverride` — and otherwise
@@ -1011,7 +1015,10 @@ Conventions:
   session** is the Hadron binding below, and a **chat session** is the
   conversation the human is in — the Desktop window, the Claude Code session.
   Closing a chat session does NOT end the worker session; only `session end`
-  does, so a worker left bound stays TAKEN until that or the server reaps it.
+  does — since hadron-server#1114 nothing else ends a developer session, no
+  idle window and no reap. Being TAKEN is separate and DOES clear on its own,
+  because the server derives it from recent driving rather than from the row
+  being open.
   And `session end` frees the SESSION, never the NAME: a person who binds a
   worker holds its name until `worker release` (`cor:agt:020:09`).
   Note "taken", not "released": since hadron-server#1050 **release** is a term
@@ -1031,10 +1038,16 @@ Conventions:
   App-bound; a retired worker refuses (`WORKER_RETIRED`). A worker with a
   still-active session is *taken*: `start` refuses (exit 5) showing who is
   driving it since when, and `--force` takes over — informed and deliberate,
-  never silent (`cor:agt:020:03`; stale sessions auto-expire server-side —
-  hard expiry + inactivity, with `session log` counting as activity — so an
-  active session usually means a live driver; a `--force` that replaces this
-  worktree's own binding first ends the session it named, best-effort).
+  never silent (`cor:agt:020:03`). **Live is DERIVED, not stored**
+  (hadron-server#1114): the server computes it at read time from when the
+  session was last driven, so a name whose driver stopped stops being taken on
+  its own — and nothing ends the session to achieve that, so the CHANCE to
+  write a handoff is still there for its driver to take. There is no handoff
+  until somebody writes one: leaving the row open preserves the opportunity the
+  old reaper foreclosed, not a record that does not exist. An OPEN session
+  therefore tells you nothing about whether the name is taken; liveness does,
+  and it means DRIVEN RECENTLY rather than that somebody is at the keyboard. A `--force` that replaces this
+  worktree's own binding first ends the session it named, best-effort.
   **HELD is not TAKEN, and only TAKEN is forceable** (`cor:agt:020:09`, #487).
   A name is held by the PERSON who binds it, and nothing about a session
   frees one — not an end, an idle window, an expiry or a reap, only
@@ -1172,9 +1185,14 @@ Conventions:
   gone or unusable (including one written by a pre-Worker CLI, which whoami
   reports as a degraded read); `end` also refuses (exit 2) when the binding
   was started against a different `--server` than the current one.
-  `session list` is the presence view, newest first, worker names joined in;
-  `--as` narrows SERVER-side (`sessions(workerRef:)`), `--active`
-  client-side. **Both its tables lead with `WORKER  ROLE …` and carry
+  `session list` lists sessions newest first, worker names joined in.
+  **It is NOT a presence view**: `--active` narrows to sessions that never
+  ENDED, and since hadron-server#1114 nothing ends a developer session but an
+  explicit `session end`, so an abandoned one stays listed indefinitely. For
+  "was this name driven recently, and does the server still count it as
+  taken", read `worker list`'s LAST DRIVEN. Neither view answers "is somebody
+  at the keyboard" — nothing here does. `--as` narrows SERVER-side
+  (`sessions(workerRef:)`), `--active` client-side. **Both its tables lead with `WORKER  ROLE …` and carry
   `SESSION` last** (#486): the role says what a worker IS and was already on
   the wire, while the id is the one value a human cannot act on. The id is
   never truncated — it is the handle `session end --session <id>` takes, so a
@@ -1213,7 +1231,7 @@ Conventions:
   and an optional `--detail` JSON bag. `--pr` and `--branch` additionally
   denormalize onto `Session.prNumber`/`Session.branch` (latest wins —
   display convenience only); every logged milestone — issue and commit
-  included — counts as session liveness for the inactivity reaper; without a
+  included — is a heartbeat feeding the server's liveness derivation; without a
   team memory they degrade to that denormalization alone (`"recorded":
   "session"` instead of `"worklog"`), while `--issue`/`--commit` refuse.
   `session list (--pr | --issue | --commit | --branch) <ref>` is THE

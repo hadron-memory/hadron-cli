@@ -73,10 +73,14 @@ fragment WorkerFields on Worker {
   # engineer's (issue #487, 2026-08-25) rather than inferred here:
   #
   # 1. `hasLiveSession` IS NOT AVAILABILITY. Availability is the HOLD above
-  #    (cor:agt:020:09). Liveness only says a session is open — and a worker
-  #    session outlives the chat session that started it, so "live" never means
-  #    somebody is at the keyboard. Conflating the two IS #487; a column that
-  #    lets liveness read as availability would re-file the issue it closes.
+  #    (cor:agt:020:09). Since hadron-server#1114 liveness is DERIVED at read
+  #    time — not ended AND driven inside the session type's idle window — so
+  #    it is no longer "a session row is open": an abandoned session stays open
+  #    indefinitely and stops reading as live. It is still not presence, since
+  #    the window is generous and a worker session outlives the chat session
+  #    that started it. Conflating liveness with availability IS #487; a column
+  #    that lets liveness read as availability would re-file the issue it
+  #    closes.
   # 2. `lastActiveAt: null` ON A PERMITTED READ MEANS NEVER DRIVEN. That is the
   #    state the whole issue is about: a casting nobody picked up currently
   #    renders identically to one worked yesterday, so a coordinator dispatches
@@ -464,7 +468,9 @@ mutation StartTeamSession(
 
 # #931/#932: set a live session's mutable provenance fields mid-session.
 # `session log --pr` denormalizes the PR number here; any authorized update
-# also bumps updatedAt, which the #930 inactivity reaper counts as liveness.
+# also bumps updatedAt, one of the three inputs the server derives liveness
+# from (hadron-server#1114 retired the inactivity reaper; liveness is computed
+# at read time now, and nothing ends a developer session but an explicit end).
 mutation UpdateTeamSession(
   $id: ID!
   # @genqlient(omitempty: true)

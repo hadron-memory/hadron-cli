@@ -276,11 +276,16 @@ and reading one as the other is the mistake this table exists to stop.
                take however idle it looks, and --force will not help.
                "nobody" means binding it holds it.
 
-  LAST DRIVEN  whether a worker session is open, and if not, how long
-               since this name was last driven. "live" is NOT a claim
-               that anyone is at the keyboard — a worker session outlives
-               the chat session that started it — and it is only ever a
-               question about a name that is already yours.
+  LAST DRIVEN  whether a session on this name was DRIVEN inside its idle
+               window ("live"), and otherwise how long since it was last
+               driven. Since hadron-server#1114 this is DERIVED at read
+               time — not ended AND driven recently — so it is no longer
+               the same question as "is a session row open": an abandoned
+               session stays open forever and stops reading as live.
+               "live" is still NOT a claim that anyone is at the keyboard:
+               the window is generous, and a worker session outlives the
+               chat session that started it. It is only ever a question
+               about a name that is already yours.
                "never" means cast and never bound by anyone.
 
 Both read "?" when this account may not see the App's working state — not

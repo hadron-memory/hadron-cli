@@ -44,9 +44,11 @@ TWO THINGS ARE CALLED A SESSION, AND ENDING ONE DOES NOT END THE OTHER
                    the Claude Code session, the IDE chat
 
 Closing your CHAT SESSION does not end the worker session. It outlives the
-chat and keeps the worker TAKEN until you run ` + "`session end`" + ` or the server
-reaps it, so the next driver meets a takeover prompt rather than a free
-worker. End the worker session deliberately when you stop.
+chat, and since hadron-server#1114 NOTHING else ends it — no idle window,
+no reap — so it stays open until you run ` + "`session end`" + `. Being TAKEN is
+separate and does clear on its own: the server derives it from recent
+driving. End the worker session deliberately when you stop, because that
+is the only thing that ends it and the only chance to leave a handoff.
 
 TAKEN is not HELD. Ending the session frees the SESSION; a PERSON binding a
 worker also claims its name, and that hold stays yours until you run
@@ -92,9 +94,13 @@ type sessionDTO struct {
 	Tool           *string `json:"tool"`
 	TranscriptPath *string `json:"transcriptPath"`
 	LLMModel       *string `json:"llmModel"`
-	// Active means "not ended" (endedAt IS NULL) — an honest liveness
-	// signal since the server-side reaper (hadron-server#930, PR #933)
-	// auto-expires stale sessions on hard expiry and inactivity.
+	// Active means "not ended" (endedAt IS NULL) and NOTHING MORE. It is not
+	// a liveness signal, and since hadron-server#1114 it is not even a proxy
+	// for one: a developer session ends only on an explicit endSession, so an
+	// abandoned one stays Active indefinitely while the server's DERIVED
+	// liveness goes false. Liveness is Worker.hasLiveSession — not ended AND
+	// driven inside the idle window. (Hard expiry still applies to the
+	// CHATBOT path, which stamps expiresAt.)
 	Active bool `json:"active"`
 }
 
@@ -481,11 +487,22 @@ them:
           hold means this is now only ever a question about your OWN
           name, so the driver deciding is the driver affected.
 
-A worker with a still-active session is taken: the takeover requires
---force, and the last driver and start time are shown (informed override,
-cor:agt:020:03 — never silent). Stale sessions are reaped server-side
-(hard expiry + inactivity — logging milestones counts as activity), so an
-active session usually means someone is genuinely driving. --force starts
+A worker with a LIVE session is taken: the takeover requires --force, and
+the last driver and start time are shown (informed override,
+cor:agt:020:03 — never silent).
+
+Live is DERIVED, not stored (hadron-server#1114): the server computes it
+at read time from when the session was last driven, so a name whose
+driver stopped stops being taken on its own. Nothing ends the session to
+make that happen — it stays open, so the CHANCE to write a handoff is
+still there for its driver to take. There is no handoff until somebody
+writes one: leaving the row open preserves the opportunity the old
+reaper foreclosed, not a record that does not exist.
+
+So an OPEN session tells you nothing about whether the name is taken.
+Liveness does — and it means DRIVEN RECENTLY, not that somebody is at the
+keyboard: the window is generous. ` + "`worker list`'s" + ` LAST DRIVEN
+column is where to read it. --force starts
 your session alongside the taken-over one; it does not end another
 driver's session. When this worktree already has a binding, --force
 replaces it — first ending the session that binding names (best-effort),
@@ -515,8 +532,10 @@ holds nothing).`,
 			}
 			// --force over an existing binding: best-effort end the session it
 			// names before replacing it, so the overwritten binding does not
-			// leave a session open (the #930 reaper would expire it
-			// eventually, but an explicit end is immediate). Best-effort
+			// leave a session open. Since hadron-server#1114 there is no
+			// backstop at all — nothing expires it, ever — so this end is
+			// the ONLY thing that closes it, not merely the faster of two
+			// routes. Do not read it as an optimisation. Best-effort
 			// because that session may already be ended — or live on another
 			// server, which `session end`'s server guard would catch but a
 			// takeover deliberately steamrolls.
@@ -579,7 +598,7 @@ holds nothing).`,
 						w.Name, describeSession(active), holder)
 				}
 				return exitcode.Newf(exitcode.Conflict,
-					"worker %s is being driven by %s — its worker session is still open, which a closed chat session does not end; --force takes over (a stale worker session also auto-expires server-side)",
+					"worker %s is being driven by %s — its worker session is still open, which a closed chat session does not end; --force takes over",
 					w.Name, describeSession(active))
 			}
 			if active != nil {
@@ -669,9 +688,10 @@ holds nothing).`,
 			})
 			if err != nil {
 				// The server session already exists; without a binding this
-				// worktree cannot end it and the worker would stay taken
-				// until the reaper expires it — so compensate by ending it
-				// now.
+				// worktree cannot end it, and since hadron-server#1114
+				// nothing else will — it would stay open indefinitely, with
+				// its handoff unwritable. Compensating here is mandatory,
+				// not tidy.
 				if _, endErr := gen.EndTeamSession(ctx, client, s.Id, nil, nil); endErr != nil {
 					return fmt.Errorf("%w; additionally, rolling back session %s failed (%v) — end it with `hadron team session end --session %s`", err, s.Id, endErr, s.Id)
 				}
@@ -988,8 +1008,8 @@ number/sha/branch are all accepted; a bare value is qualified by the
 session's recorded --repo (or the git remote). --pr and --branch
 additionally denormalize onto Session.prNumber / Session.branch (latest
 wins; display convenience only). Every logged milestone — issue and
-commit included — counts as session liveness for the inactivity reaper,
-so logging keeps the worker taken while work is in flight.
+commit included — is a heartbeat feeding the server's liveness
+derivation, so logging keeps the worker taken while work is in flight.
 
 It also tells you what landed in the TEAM CHAT while you were heads-down
 (#474): a stderr note counting messages since you last ran
@@ -1069,8 +1089,10 @@ what you have read. A cross-surface watermark is a server-side question.`,
 			// EVERY milestone touches the session: prNumber for PRs, branch
 			// (the name, without the repo qualifier) for branches, and the
 			// EMPTY update for issue/commit — the #932-designed liveness
-			// touch (any authorized update bumps updatedAt), so a driver
-			// logging only commits is never reaped for inactivity.
+			// touch (any authorized update bumps updatedAt), which is one of
+			// the three inputs the server derives liveness from — so a
+			// driver logging only commits keeps reading as live, and the
+			// worker stays taken while the work is in flight.
 			var prArg *int
 			var branchArg *string
 			switch kind {
@@ -1302,7 +1324,7 @@ worker to be BOUND by you again; it does not hand the name to anyone else.
 
 Closing your CHAT SESSION does not do this. Archive the Desktop window or
 quit the Claude Code session and the worker session stays open, holding the
-worker until you end it here or the server reaps it (hadron-server#1034).
+worker until you end it here — since hadron-server#1114 nothing else does.
 So end it deliberately when you stop working, not when you close the window.
 
 --handoff IS WHAT THE NEXT DRIVER READS (hadron-server#1029). Prose about
@@ -1488,10 +1510,13 @@ func newCmdSessionList(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list [--active] [--as <worker>] [--repo <r>] | (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]",
 		Aliases: []string{"ls"},
-		Short:   "List worker sessions — team presence and provenance",
+		Short:   "List worker sessions — open sessions and provenance",
 		Long: `List sessions, newest first, with each session's worker joined in.
---active narrows to sessions that never ended — team presence, honest
-since stale sessions are auto-expired server-side; --as narrows to one
+--active narrows to sessions that never ENDED, which is not the same as
+team presence: since hadron-server#1114 nothing ends a developer session
+but an explicit ` + "`session end`" + `, so an abandoned one stays listed
+indefinitely. For "was this name driven recently, and does the server still
+count it as taken", read ` + "`worker list`'s" + ` LAST DRIVEN. --as narrows to one
 worker's sessions (server-side, via the worker binding on the session).
 --active narrows client-side over the full list; plain listings page
 server-side.
@@ -1627,7 +1652,11 @@ dropped.`,
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&active, "active", false, "only sessions that never ended (presence)")
+	// NO BACKTICKS: cobra reads a backticked word in a usage string as the
+	// flag's PLACEHOLDER name, so "see `worker list`" rendered the flag as
+	// "--active worker list" (review:backticks-in-flag-usage-become-the-placeholder,
+	// caught by TestFlagUsagePlaceholdersAreDeliberate).
+	cmd.Flags().BoolVar(&active, "active", false, "only sessions that never ENDED — not presence; see worker list's LAST DRIVEN")
 	cmd.Flags().StringVar(&as, "as", "", "only one worker's sessions (name within the team App, or worker id)")
 	cmd.Flags().StringVar(&repo, "repo", "", "filter by repository")
 	cmd.Flags().StringVar(&pr, "pr", "", "provenance query: sessions behind this PR (number, owner/repo#N, or URL)")
