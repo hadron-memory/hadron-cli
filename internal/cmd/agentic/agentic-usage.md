@@ -973,13 +973,17 @@ Conventions:
   questions and must not be collapsed** (`cor:agt:020:09`). `HELD BY` is whose
   name it is — what decides whether you may bind, freed only by an explicit
   `worker release`, and `--force` does not help against someone else's hold.
-  `LAST DRIVEN` is whether a worker session is open (`live`) and otherwise how
-  long since the name was driven (`3d ago`), or `never` for a casting nobody
-  has ever bound — the state the issue was filed for, since a worker nobody
-  picked up otherwise renders exactly like one worked yesterday. **`live` is
-  not a claim that anyone is at the keyboard**: a worker session outlives the
-  chat session that started it. There is deliberately no age beside `live`,
-  because an age there reads as presence.
+  `LAST DRIVEN` is whether a session on this name was DRIVEN inside its idle
+  window (`live`) and otherwise how long since it was driven (`3d ago`), or
+  `never` for a casting nobody has ever bound — the state the issue was filed
+  for, since a worker nobody picked up otherwise renders exactly like one
+  worked yesterday. **Since hadron-server#1114 liveness is DERIVED at read
+  time** — not ended AND driven recently — so it is no longer the same
+  question as "is a session row open": an abandoned session stays open
+  indefinitely and stops reading as live. **`live` is still not a claim that
+  anyone is at the keyboard**: the window is generous, and a worker session
+  outlives the chat session that started it. There is deliberately no age
+  beside `live`, because an age there reads as presence.
   **`hasLiveSession` is also the VISIBILITY SIGNAL for this row's working
   state.** It is `null` only when the read gate masked it — the same gate that
   masks `heldByUserId`/`heldAt`/`memoryId`/`promptOverride` — and otherwise
