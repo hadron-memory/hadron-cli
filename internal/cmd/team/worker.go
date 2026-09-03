@@ -643,6 +643,24 @@ type releaseResultDTO struct {
 	// of from a read that could be masked. **A consumer branching on `null`
 	// here will no longer see one** — that branch detected a condition that no
 	// longer exists.
+	//
+	// KEPT DEFINITE over @codex's P1, which asked for the documented
+	// true-or-null domain back on the grounds that an agent switching on those
+	// two values silently takes neither branch. Real, and outweighed here —
+	// deliberately, and NOT the way the `status` literal went in the same
+	// review (Holger, 2026-09-03):
+	//
+	//   - a RENAME leaves a consumer no way to reach the old branch; a WIDENED
+	//     domain leaves `if (wasHeld)` working and only the strict `=== null`
+	//     test stranded, on the one path where the answer is now knowable;
+	//   - the improved evidence here is NOT reachable without re-reading this
+	//     key, because `releasedFrom` and `notified` are new keys a consumer
+	//     must adopt anyway — so keeping the hedge costs an update and buys
+	//     nothing, where keeping the status literal cost nothing and bought
+	//     compatibility;
+	//   - and publishing `null` now would mean saying "I could not tell" on a
+	//     path where the server just told us, which is precisely the hedge
+	//     outliving its premise that this change exists to retire.
 	WasHeld bool `json:"wasHeld"`
 	// ReleasedFromUserID is the holder the WRITE ended, null on the idempotent
 	// path. The ID, not a display label (review:entity-fields-not-display-labels)
