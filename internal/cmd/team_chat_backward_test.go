@@ -201,10 +201,16 @@ func TestTeamChatReadBeforeEndsOnAnEmptyPage(t *testing.T) {
 // the server would reject: the SDL gives it a MEANING — return only `total` —
 // so it SUCCEEDS, returns nothing, and is indistinguishable from the end.
 func TestTeamChatReadRefusesCursorsThatCanOnlyBeEmpty(t *testing.T) {
+	// The cap comes from the CONSTANT, not from a literal (@copilot). The
+	// message is formatted from team.TeamChatPageSize, so a hard-coded "200"
+	// would red this test the day the cap moves while the behaviour stayed
+	// correct — and the constant was exported in this very PR to stop exactly
+	// that in the exhaustion test.
+	overCap := fmt.Sprintf("at most %d", team.TeamChatPageSize)
 	for _, tc := range []struct{ name, flag, value, want string }{
 		{"limit zero", "--limit", "0", "at least 1"},
 		{"limit negative", "--limit", "-1", "must not be negative"},
-		{"limit above the server cap", "--limit", "500", "at most 200"},
+		{"limit above the server cap", "--limit", fmt.Sprint(team.TeamChatPageSize + 1), overCap},
 		{"before zero", "--before", "0", "at least 1"},
 		{"before negative", "--before", "-5", "at least 1"},
 	} {
@@ -227,6 +233,39 @@ func TestTeamChatReadRefusesCursorsThatCanOnlyBeEmpty(t *testing.T) {
 				t.Errorf("a refused cursor must not reach the server, got %d calls", len(*seen))
 			}
 		})
+	}
+}
+
+// …AND A SIGNED-OUT CALLER GETS THE SAME ANSWER (@codex P2).
+//
+// The validation used to run AFTER `f.GraphQLClient()`, so somebody who typed
+// `--limit 0` without credentials was told AuthRequired — an answer about their
+// session for a mistake in their arguments, sending them to fix the wrong
+// thing. These flags are wrong whatever your credentials are.
+//
+// This is the mirror of the reasoning `alreadyBoundError` records in
+// session.go, where hoisting the client ABOVE a guard would have replaced a
+// documented conflict with an auth error. A guard that can answer before a
+// client exists must.
+func TestTeamChatReadRefusesBadCursorsWhenSignedOut(t *testing.T) {
+	t.Setenv("HADRON_TOKEN", "")
+	srv, seen := chatServer(t)
+	f, _ := testFactory(t)
+	// testFactory sets a token; clear it AFTER, since it is what makes this
+	// caller signed out and the fixture would otherwise mask the branch.
+	t.Setenv("HADRON_TOKEN", "")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--app", "acme.com:eng-team",
+		"--limit", "0", "--server", srv.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Usage {
+		t.Fatalf("a bad flag is a USAGE error signed out too, got exit %d: %v", code, err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "--limit must be at least 1") {
+		t.Errorf("the refusal must be about the flag, not the session: %v", err)
+	}
+	if len(*seen) != 0 {
+		t.Errorf("nothing should reach the server, got %d calls", len(*seen))
 	}
 }
 

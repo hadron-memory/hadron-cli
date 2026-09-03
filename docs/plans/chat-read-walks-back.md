@@ -136,8 +136,29 @@ cursor*, still printed oldest-first. The Long text was already right; only the
 one-line usage string was wrong — **readers scan labels**, which is the same
 miss `--force`'s usage string had in #552.
 
-Three more mutations, each confirmed to have landed, each redding exactly its
-own case.
+**Second round, and both findings are about WHERE rather than what.**
+
+**@codex P2 — the validation ran after `f.GraphQLClient()`**, so a signed-out
+caller who typed `--limit 0` was told **AuthRequired**: an answer about their
+session for a mistake in their arguments, sending them to fix the wrong thing.
+These flags are wrong whatever your credentials are.
+
+It is the mirror of the reasoning `alreadyBoundError` already records in
+`session.go`, where hoisting the client ABOVE a guard would have replaced a
+documented conflict with an auth error. **A guard that can answer before a
+client exists must.** The `--mentions-me`/`--mentions` mutual-exclusion clause
+moved up with it — pure flag validation, identical defect, one line away.
+
+**@copilot — the test hard-coded `200`** in the expected error substring, while
+the message is formatted from `team.TeamChatPageSize`. It would have gone red
+the day the cap moved with the behaviour still correct — and the constant was
+exported *in this PR* to stop exactly that in the exhaustion test. Derived from
+the constant now.
+
+Five more mutations across the two rounds, each confirmed to have landed, each
+redding exactly its own case — including the over-strict `before < 2`, which
+reds the `--before 1` control, and moving the validation back below the client
+build, which reds the signed-out test.
 
 ## Propagation
 

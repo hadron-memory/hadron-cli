@@ -414,6 +414,47 @@ them "(human)" / "(worker)".`,
   hadron team chat read --mentions-me --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// FLAG VALIDATION FIRST — above the binding read and above
+			// `f.GraphQLClient()` (@codex P2). These are wrong whatever your
+			// credentials are, and a signed-out caller who typed `--limit 0`
+			// was getting AuthRequired: an answer about their session for a
+			// mistake in their arguments, which sends them to fix the wrong
+			// thing. Same reasoning `alreadyBoundError` records in session.go
+			// for the opposite move — a guard that can answer before a client
+			// exists must.
+			//
+			// REFUSED, not clamped: every value here produces an EMPTY page,
+			// and an empty page is this command's end-of-history signal, so a
+			// permissive parse answers "you have reached the beginning" to a
+			// caller with the whole chat still ahead of them. The contract's
+			// one guarantee, broken by a typo.
+			//
+			// `--limit 0` is the sharpest, because the server does NOT reject
+			// it: the SDL gives it a meaning (return only `total`), so it
+			// succeeds, returns nothing, and looks exactly like the end. Same
+			// shape as `asset ls`, which already refuses it.
+			switch {
+			case mentionsMe && mentions != "":
+				return exitcode.Newf(exitcode.Usage, "pass --mentions-me or --mentions <ref>, not both")
+			case cmd.Flags().Changed("limit") && limit == 0:
+				return exitcode.Newf(exitcode.Usage,
+					"--limit must be at least 1 (the server reads 0 as \"count only\", which returns an empty page and is indistinguishable from the end of the chat)")
+			case limit < 0:
+				return exitcode.Newf(exitcode.Usage, "--limit must not be negative")
+			case limit > TeamChatPageSize:
+				// Refused rather than silently capped. The server caps it
+				// anyway, so a bounded read would quietly return 200 for a
+				// request of 500 — not wrong, but it leaves the caller
+				// believing they hold a page they do not.
+				return exitcode.Newf(exitcode.Usage,
+					"--limit must be at most %d (the server's page cap) — walk with --before to read more", TeamChatPageSize)
+			case cmd.Flags().Changed("before") && before < 1:
+				// seqs start at 1, so a cursor at or below it can only ever be
+				// empty. `--before 1` IS legal and means "nothing older", the
+				// honest end-of-history answer rather than a mistake.
+				return exitcode.Newf(exitcode.Usage,
+					"--before must be at least 1 — seq numbers start at 1, so a cursor below it can only return nothing")
+			}
 			ctx := cmd.Context()
 			b, err := readBindingOrNilWithApp(ctx, f)
 			if err != nil {
@@ -423,10 +464,11 @@ them "(human)" / "(worker)".`,
 			if err != nil {
 				return err
 			}
+			// The mutual-exclusion clause moved UP with the paging checks: it
+			// is pure flag validation too and had the identical defect. What
+			// stays here needs the binding.
 			var mentionsRef *string
 			switch {
-			case mentionsMe && mentions != "":
-				return exitcode.Newf(exitcode.Usage, "pass --mentions-me or --mentions <ref>, not both")
 			case mentionsMe:
 				if b == nil {
 					return exitcode.Newf(exitcode.Usage, "--mentions-me needs the worktree's worker — `hadron team session start --as <name>` first (or use --mentions <ref>)")
@@ -465,37 +507,6 @@ them "(human)" / "(worker)".`,
 			// would be a flag with no effect. A flag whose effect depends on
 			// another flag being present is the shape this repo has already
 			// filed twice; each of these means something on its own.
-			// REFUSED BEFORE THE QUERY, not clamped after it (@codex P2,
-			// @copilot). Every one of these produces an EMPTY page, and an
-			// empty page is this command's end-of-history signal — so a
-			// permissive parse would answer "you have reached the beginning"
-			// to a caller with the whole chat still ahead of them. The
-			// contract's one guarantee, broken by a typo.
-			//
-			// `--limit 0` is the sharpest: the SDL gives it a MEANING (return
-			// only `total`), so it is not a nonsense value the server rejects
-			// — it succeeds, returns nothing, and looks exactly like the end.
-			// Same shape as `asset ls`, which already refuses it.
-			switch {
-			case cmd.Flags().Changed("limit") && limit == 0:
-				return exitcode.Newf(exitcode.Usage,
-					"--limit must be at least 1 (the server reads 0 as \"count only\", which returns an empty page and is indistinguishable from the end of the chat)")
-			case limit < 0:
-				return exitcode.Newf(exitcode.Usage, "--limit must not be negative")
-			case limit > TeamChatPageSize:
-				// Refused rather than silently capped. The server caps it
-				// anyway, so a bounded read would quietly return 200 for a
-				// request of 500 — which is not wrong, but leaves the caller
-				// believing they hold a page they do not.
-				return exitcode.Newf(exitcode.Usage,
-					"--limit must be at most %d (the server's page cap) — walk with --before to read more", TeamChatPageSize)
-			case cmd.Flags().Changed("before") && before < 1:
-				// seqs start at 1, so a cursor at or below it can only ever be
-				// empty. `--before 1` IS legal and means "nothing older", which
-				// is the honest end-of-history answer rather than a mistake.
-				return exitcode.Newf(exitcode.Usage,
-					"--before must be at least 1 — seq numbers start at 1, so a cursor below it can only return nothing")
-			}
 			bounded := cmd.Flags().Changed("before") || cmd.Flags().Changed("limit")
 			pageSize := TeamChatPageSize
 			if cmd.Flags().Changed("limit") {
