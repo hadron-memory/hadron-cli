@@ -122,7 +122,14 @@ if [ ! -s "$tmp" ]; then
   exit 1
 fi
 
+# MODE FIRST, THEN PUBLISH (@codex P2). The chmod used to follow the `mv`,
+# which undid the point of staging: the publish was atomic and then had a
+# second step bolted after it, so a failed chmod — or a signal in the gap —
+# left the destination already replaced and at mktemp's 0600. `make schema`
+# would then skip generation while the artifact HAD changed, which is the
+# half-done state this script exists to make impossible.
+#
+# Setting the mode on the temp file makes the rename the only thing that
+# touches the destination, and a rename is all-or-nothing.
+chmod 644 "$tmp"
 mv "$tmp" "$dest"
-# mktemp's 0600 is not what a committed file wants; the destination is read by
-# everything and written by this script alone.
-chmod 644 "$dest"

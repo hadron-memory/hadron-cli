@@ -58,6 +58,14 @@ func asExitError(err error, target **exec.ExitError) bool {
 	return ok
 }
 
+// shellQuote wraps a path for a shell fragment (@copilot). t.TempDir() is
+// space-free on the usual runners, but TMPDIR is a user's to set: a test that
+// fails because of a space in a path fails for a reason unrelated to the
+// behaviour under test, which is worse than no test.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
 // seed writes a destination file with known content and returns its path.
 func seed(t *testing.T, content string) string {
 	t.Helper()
@@ -247,7 +255,7 @@ func TestStagesTheTempFileBesideTheDestination(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Runs while the temp file exists, and reports what is next to the target.
-	out, code := run(t, "ls -a "+dir, dest)
+	out, code := run(t, "ls -a "+shellQuote(dir), dest)
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, out)
 	}
@@ -263,7 +271,7 @@ func TestStagesTheTempFileBesideTheDestination(t *testing.T) {
 	}
 	cmd := exec.Command("bash", script(t), dest2)
 	cmd.Env = append(os.Environ(),
-		"WRITE_IF_PRODUCED_CMD=ls -a "+dir2,
+		"WRITE_IF_PRODUCED_CMD=ls -a "+shellQuote(dir2),
 		"TMPDIR="+t.TempDir())
 	if b, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("run: %v (%s)", err, b)
