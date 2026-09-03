@@ -1314,6 +1314,13 @@ Conventions:
   all of it at once. **Either `--before` or `--limit` makes the read ONE PAGE**;
   with neither it pages to exhaustion as before, so this is additive. They
   compose: `--since 300 --before 340` reads a bounded slice.
+  A cursor that could only return nothing is **refused** (exit 2) rather than
+  answered: `--limit 0` (the SDL gives it a meaning — count only — so it
+  SUCCEEDS and returns an empty page), a negative limit, a limit above the
+  server's 200 cap, and `--before` below 1. Each would otherwise produce the
+  end-of-history signal below for a caller with the whole chat ahead of them.
+  `--before 1` stays legal: it means "nothing older", which is the honest end of
+  a walk.
   **`prevBefore` is null when the page came back EMPTY, and that is the only
   end-of-history signal.** Do NOT derive "is there more" from a count: the
   server's `total` is scoped to the CURSOR, not the collection, whenever

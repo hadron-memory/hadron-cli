@@ -465,6 +465,37 @@ them "(human)" / "(worker)".`,
 			// would be a flag with no effect. A flag whose effect depends on
 			// another flag being present is the shape this repo has already
 			// filed twice; each of these means something on its own.
+			// REFUSED BEFORE THE QUERY, not clamped after it (@codex P2,
+			// @copilot). Every one of these produces an EMPTY page, and an
+			// empty page is this command's end-of-history signal — so a
+			// permissive parse would answer "you have reached the beginning"
+			// to a caller with the whole chat still ahead of them. The
+			// contract's one guarantee, broken by a typo.
+			//
+			// `--limit 0` is the sharpest: the SDL gives it a MEANING (return
+			// only `total`), so it is not a nonsense value the server rejects
+			// — it succeeds, returns nothing, and looks exactly like the end.
+			// Same shape as `asset ls`, which already refuses it.
+			switch {
+			case cmd.Flags().Changed("limit") && limit == 0:
+				return exitcode.Newf(exitcode.Usage,
+					"--limit must be at least 1 (the server reads 0 as \"count only\", which returns an empty page and is indistinguishable from the end of the chat)")
+			case limit < 0:
+				return exitcode.Newf(exitcode.Usage, "--limit must not be negative")
+			case limit > TeamChatPageSize:
+				// Refused rather than silently capped. The server caps it
+				// anyway, so a bounded read would quietly return 200 for a
+				// request of 500 — which is not wrong, but leaves the caller
+				// believing they hold a page they do not.
+				return exitcode.Newf(exitcode.Usage,
+					"--limit must be at most %d (the server's page cap) — walk with --before to read more", TeamChatPageSize)
+			case cmd.Flags().Changed("before") && before < 1:
+				// seqs start at 1, so a cursor at or below it can only ever be
+				// empty. `--before 1` IS legal and means "nothing older", which
+				// is the honest end-of-history answer rather than a mistake.
+				return exitcode.Newf(exitcode.Usage,
+					"--before must be at least 1 — seq numbers start at 1, so a cursor below it can only return nothing")
+			}
 			bounded := cmd.Flags().Changed("before") || cmd.Flags().Changed("limit")
 			pageSize := TeamChatPageSize
 			if cmd.Flags().Changed("limit") {
@@ -658,7 +689,11 @@ them "(human)" / "(worker)".`,
 		},
 	}
 	cmd.Flags().IntVar(&since, "since", 0, "only messages with seq greater than this (0 = whole history)")
-	cmd.Flags().IntVar(&before, "before", 0, "only messages with seq LESS than this, newest first — one page, for walking back through history")
+	// "the newest of those" describes WHICH messages, not what order they
+	// print in — the page is still rendered oldest-first like every other read
+	// (@copilot: the first wording said "newest first", which reads as
+	// ordering and contradicts the paragraph above it).
+	cmd.Flags().IntVar(&before, "before", 0, "one page of the messages just before this seq — the newest of those, still printed oldest-first")
 	cmd.Flags().IntVar(&limit, "limit", TeamChatPageSize, "messages per page; giving it makes the read ONE page instead of the whole history")
 	cmd.Flags().BoolVar(&mentionsMe, "mentions-me", false, "only messages mentioning the bound worker")
 	cmd.Flags().StringVar(&mentions, "mentions", "", "only messages mentioning this staff/App member (worker name or id, or user handle)")

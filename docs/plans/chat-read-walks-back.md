@@ -107,6 +107,38 @@ the ordinary case for a reader walking real history, not an edge one. Without
 the bound it walks the whole chat: exactly what #548 exists to stop. Covered
 now, and the mutation reds it.
 
+## Review: a cursor that can only be empty is refused, not answered
+
+Three findings, all valid, and the first is the design's own guarantee broken by
+a typo.
+
+**@codex P2 — `--limit 0`.** The SDL gives it a MEANING: *return only `total`*.
+So it is not a nonsense value the server rejects — it **succeeds**, returns an
+empty page, and is indistinguishable from the end of history. A caller walking
+back with `--limit 0` would be told they had reached the beginning with the
+whole chat still ahead of them. `asset ls` already refuses it, so the precedent
+was in the repo.
+
+**@copilot — the rest of the family**: a negative limit, and `--before` at or
+below zero. Plus a limit above the server's 200 cap, which the server silently
+caps — not wrong, but it leaves the caller believing they hold a page they do
+not. All refused (exit 2) **before the query**.
+
+**`--before 1` stays legal**, and there is a positive control for it: it means
+*"nothing older"*, which is the honest end of a walk and where every backward
+reader arrives naturally. A guard refusing it would break the last step of every
+walk — and the over-strict mutation (`before < 2`) reds that control, so both
+directions are pinned rather than only the permissive one.
+
+**@copilot — the flag's help said "newest first"**, which reads as ordering and
+contradicts the paragraph above it: the page is the *newest of those before the
+cursor*, still printed oldest-first. The Long text was already right; only the
+one-line usage string was wrong — **readers scan labels**, which is the same
+miss `--force`'s usage string had in #552.
+
+Three more mutations, each confirmed to have landed, each redding exactly its
+own case.
+
 ## Propagation
 
 - **No spec.** The cursor contract is the server's (#1116); this is a client

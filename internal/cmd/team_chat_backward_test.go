@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // #548 — `team chat read` gains a BACKWARD cursor.
@@ -185,6 +186,65 @@ func TestTeamChatReadBeforeEndsOnAnEmptyPage(t *testing.T) {
 	}
 	if dto.PrevBefore != nil {
 		t.Errorf("nothing older means no cursor to continue from, got %v", *dto.PrevBefore)
+	}
+}
+
+// A CURSOR THAT CAN ONLY RETURN NOTHING IS REFUSED, before the query
+// (@codex P2, @copilot).
+//
+// Every value here yields an EMPTY page — and an empty page is this command's
+// end-of-history signal, so a permissive parse answers "you have reached the
+// beginning" to a caller with the whole chat still ahead of them. The contract's
+// one guarantee, broken by a typo.
+//
+// `--limit 0` is the sharpest, and the reason it is not merely a nonsense value
+// the server would reject: the SDL gives it a MEANING — return only `total` —
+// so it SUCCEEDS, returns nothing, and is indistinguishable from the end.
+func TestTeamChatReadRefusesCursorsThatCanOnlyBeEmpty(t *testing.T) {
+	for _, tc := range []struct{ name, flag, value, want string }{
+		{"limit zero", "--limit", "0", "at least 1"},
+		{"limit negative", "--limit", "-1", "must not be negative"},
+		{"limit above the server cap", "--limit", "500", "at most 200"},
+		{"before zero", "--before", "0", "at least 1"},
+		{"before negative", "--before", "-5", "at least 1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// No pages queued: reaching the server at all is the failure, and
+			// chatServer says so loudly rather than answering empty.
+			srv, seen := chatServer(t)
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "chat", "read", "--app", "acme.com:eng-team",
+				tc.flag, tc.value, "--server", srv.URL})
+			err := root.Execute()
+			if code := exitCodeFor(err); code != exitcode.Usage {
+				t.Fatalf("exit code = %d, want %d (Usage); err: %v", code, exitcode.Usage, err)
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("the refusal must say %q: %v", tc.want, err)
+			}
+			if len(*seen) != 0 {
+				t.Errorf("a refused cursor must not reach the server, got %d calls", len(*seen))
+			}
+		})
+	}
+}
+
+// …and `--before 1` STAYS LEGAL. It means "nothing older", which is the honest
+// end-of-history answer rather than a mistake — and it is what a reader walking
+// back arrives at naturally. A guard that refused it would break the last step
+// of every backward walk.
+func TestTeamChatReadBeforeOneIsLegal(t *testing.T) {
+	srv, seen := chatServer(t, teamChatPage(0))
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--app", "acme.com:eng-team",
+		"--before", "1", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("--before 1 is the end of a walk, not a usage error: %v", err)
+	}
+	if len(*seen) != 1 {
+		t.Errorf("it must still ask the server, got %d calls", len(*seen))
 	}
 }
 
