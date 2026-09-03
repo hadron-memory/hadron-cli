@@ -230,6 +230,70 @@ func TestPreservesQuotesInsideTheFragment(t *testing.T) {
 	}
 }
 
+// THE TEMP FILE IS STAGED BESIDE THE DESTINATION (@codex P2 + @copilot,
+// independently), so the final `mv` is a same-filesystem rename.
+//
+// From $TMPDIR it can be a cross-device copy-then-unlink, and a copy failing
+// partway leaves the destination truncated — the guard against a zero-byte
+// artifact producing one itself, on exactly the machines least like a
+// developer laptop.
+//
+// Driven rather than asserted about the source: the generator lists its own
+// destination directory, so the file it sees IS the staging file.
+func TestStagesTheTempFileBesideTheDestination(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "committed.txt")
+	if err := os.WriteFile(dest, []byte("old\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Runs while the temp file exists, and reports what is next to the target.
+	out, code := run(t, "ls -a "+dir, dest)
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, out)
+	}
+	if got := mustRead(t, dest); !strings.Contains(got, ".write-if-produced.") {
+		t.Errorf("the staging file must live in the destination's directory, listing was:\n%s", got)
+	}
+	// And a TMPDIR far from the destination must not change that — the choice
+	// has to come from the destination, not from the environment.
+	dir2 := t.TempDir()
+	dest2 := filepath.Join(dir2, "committed.txt")
+	if err := os.WriteFile(dest2, []byte("old\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", script(t), dest2)
+	cmd.Env = append(os.Environ(),
+		"WRITE_IF_PRODUCED_CMD=ls -a "+dir2,
+		"TMPDIR="+t.TempDir())
+	if b, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("run: %v (%s)", err, b)
+	}
+	if got := mustRead(t, dest2); !strings.Contains(got, ".write-if-produced.") {
+		t.Errorf("TMPDIR must not move the staging file, listing was:\n%s", got)
+	}
+}
+
+// Nothing is left behind — a crash-leftover in `schema/` would show up in
+// `git status` and read as a stray file nobody can explain.
+func TestLeavesNoStagingFileBehind(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "committed.txt")
+	for _, fragment := range []string{`printf "ok\n"`, "exit 1", "true"} {
+		if _, code := run(t, fragment, dest); code > 2 {
+			t.Fatalf("unexpected exit for %q: %d", fragment, code)
+		}
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range entries {
+			if strings.HasPrefix(e.Name(), ".write-if-produced.") {
+				t.Errorf("after %q the staging file %s was left behind", fragment, e.Name())
+			}
+		}
+	}
+}
+
 // A destination that does not exist yet is created — the first refresh in a
 // fresh checkout must not need the file to already be there.
 func TestCreatesAMissingDestination(t *testing.T) {

@@ -80,7 +80,28 @@ fi
 cmd=${WRITE_IF_PRODUCED_CMD:-}
 [ -n "$cmd" ] || usage
 
-tmp=$(mktemp "${TMPDIR:-/tmp}/write-if-produced.XXXXXXXX")
+# STAGED BESIDE THE DESTINATION, not in $TMPDIR (@codex P2 and @copilot,
+# independently) — and this one goes to the script's core promise.
+#
+# From $TMPDIR the final `mv` can be a CROSS-FILESYSTEM move: a bind-mounted
+# workspace, a tmpfs /tmp, a container volume. Cross-device, `mv` is not a
+# rename but a copy-then-unlink, and a copy that fails partway — ENOSPC, a size
+# limit, an interrupt — leaves the destination TRUNCATED or half-written before
+# returning non-zero.
+#
+# Which is to say: the guard against a zero-byte snapshot could have produced
+# one itself, on exactly the machines least like a developer laptop. Same
+# directory makes the `mv` a rename on one filesystem, which is atomic — the
+# destination is either the old file or the whole new one, never a prefix.
+#
+# The dotted prefix keeps a crash-leftover visually out of the way; the EXIT
+# trap removes it on every ordinary path.
+#
+# An explicit template rather than a bare `mktemp` as well. It works bare on
+# this macOS (measured: /usr/bin/mktemp, BSD, returns a path), so @copilot's
+# premise that it fails there is not true today — but the template costs
+# nothing and older BSD userlands did require one.
+tmp=$(mktemp "$(dirname "$dest")/.write-if-produced.XXXXXXXX")
 # Cleans up on every exit path INCLUDING the success one, where the file has
 # already been moved and `rm -f` is simply a no-op.
 trap 'rm -f "$tmp"' EXIT
