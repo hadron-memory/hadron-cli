@@ -106,9 +106,21 @@ tmp=$(mktemp "$(dirname "$dest")/.write-if-produced.XXXXXXXX")
 # already been moved and `rm -f` is simply a no-op.
 trap 'rm -f "$tmp"' EXIT
 
+# `cd … || exit 1`, EXPLICITLY (@codex P2). `set -e` does not apply inside a
+# command tested by `if`, so a bare `cd` that fails is IGNORED and `eval` then
+# runs in the CALLER's directory — measured:
+#
+#   if ! ( cd /definitely/not/here; pwd ) > out; then …   # prints /tmp, exit 0
+#
+# For `make schema` that means a wrong or vanished HADRON_SERVER_DIR runs the
+# exporter inside hadron-cli instead, and if it happens to produce anything the
+# wrapper publishes it: a plausible artifact generated from the wrong place,
+# which is worse than the empty one this script was written to stop.
+#
 # The subshell keeps the `cd` from leaking, and `set -e` is deliberately NOT
-# relied on here: the point is to catch the failure rather than to inherit it.
-if ! ( if [ -n "$workdir" ]; then cd "$workdir"; fi; eval "$cmd" ) > "$tmp"; then
+# relied on for the generator itself: the point is to CATCH its failure rather
+# than to inherit it.
+if ! ( if [ -n "$workdir" ]; then cd "$workdir" || exit 1; fi; eval "$cmd" ) > "$tmp"; then
   echo "✗ $dest: the generator failed — the file is UNCHANGED." >&2
   printf '  command: %s%s\n' "${workdir:+(in $workdir) }" "$cmd" >&2
   echo "  Run it by hand to see why; a silenced runner (pnpm -s) can exit non-zero with no output at all." >&2

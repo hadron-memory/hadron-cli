@@ -281,6 +281,29 @@ func TestStagesTheTempFileBesideTheDestination(t *testing.T) {
 	}
 }
 
+// A -C DIRECTORY THAT CANNOT BE ENTERED STOPS THE RUN (@codex P2).
+//
+// `set -e` does not apply inside a command tested by `if`, so a bare `cd` that
+// fails is ignored and the generator runs in the CALLER's directory instead.
+// For `make schema` that means a wrong HADRON_SERVER_DIR exports from
+// hadron-cli — and if the command produces anything there, the wrapper
+// publishes it: a plausible artifact from the wrong place, which is worse than
+// the empty one this script exists to stop.
+//
+// The fragment below SUCCEEDS anywhere, so only the failed `cd` can stop it.
+func TestRefusesWhenTheWorkingDirectoryCannotBeEntered(t *testing.T) {
+	const before = "the real snapshot\n"
+	dest := seed(t, before)
+	out, code := run(t, `printf "generated from the wrong place\n"`, dest,
+		"-C", filepath.Join(t.TempDir(), "definitely-not-here"))
+	if code != 1 {
+		t.Fatalf("an unusable -C must stop the run, got exit %d: %s", code, out)
+	}
+	if got := mustRead(t, dest); got != before {
+		t.Errorf("the destination must be UNCHANGED, got %q", got)
+	}
+}
+
 // Nothing is left behind — a crash-leftover in `schema/` would show up in
 // `git status` and read as a stray file nobody can explain.
 func TestLeavesNoStagingFileBehind(t *testing.T) {
