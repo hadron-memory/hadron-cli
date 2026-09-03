@@ -333,21 +333,51 @@ matching ` + "`hadron chat post`" + `. Exactly one source.
 	return cmd
 }
 
-// teamChatPageSize is the server's list cap; reads page with the seq
-// watermark as the cursor (each page's last seq is the next sinceSeq).
-const teamChatPageSize = 200
+// TeamChatPageSize is the server's list cap and the default page size; an
+// unbounded read pages with the seq watermark as the cursor (each page's last
+// seq is the next sinceSeq).
+//
+// EXPORTED for the command tests, which need a FULL page to drive the
+// exhaustive loop past its first iteration — the loop stops on a short page, so
+// a test hard-coding 200 would silently stop exercising exhaustion the day this
+// changes.
+const TeamChatPageSize = 200
 
 func newCmdTeamChatRead(f *cmdutil.Factory) *cobra.Command {
-	var since int
+	var since, before, limit int
 	var mentionsMe bool
 	var mentions string
 	cmd := &cobra.Command{
-		Use:     "read [--since <seq>] [--mentions-me | --mentions <ref>]",
+		Use:     "read [--since <seq>] [--before <seq>] [--limit <n>] [--mentions-me | --mentions <ref>]",
 		Aliases: []string{"pull"},
-		Short:   "Read the team chat since a seq",
+		Short:   "Read the team chat, forwards from a seq or backwards from one",
 		Long: `Read team-chat messages, oldest first by the server-assigned seq. Pass
 --since <seq> for only newer messages; the response's nextSince is the seq
 to pass next turn.
+
+TWO CURSORS, IN OPPOSITE DIRECTIONS. --since walks FORWARD and, on its own,
+reads to the end of the chat. --before <seq> walks BACK: it returns the page
+immediately before that seq — the newest messages preceding it, still
+oldest-first — and the response's prevBefore is what to pass next. That is how
+you walk a long history without asking for all of it at once, which on a chat
+with real history is the difference between a read you can hold and one you
+cannot.
+
+EITHER --before OR --limit MAKES THE READ ONE PAGE. With neither, the command
+pages to exhaustion from --since, exactly as it always has. --limit sets how
+big that page is (default 200, the server's cap). They compose, so
+` + "`--since 300 --before 340`" + ` reads a bounded slice in the middle.
+
+prevBefore is NULL when the page came back EMPTY, and that is the ONLY
+end-of-history signal — walk back until you get one. Do not try to compute
+"is there more" from a count: the server's total is scoped to the cursor,
+not to the chat (hadron-server#1121), so on the second page back it reports
+fewer messages than exist and a reader trusting it stops early.
+
+A --before read never advances the watermark below, and cannot: it returns
+the newest messages before a cursor, so everything between --since and that
+page is unread by construction. The gap is in the MIDDLE, where a
+start-of-read check cannot see it.
 
 --mentions-me keeps only messages mentioning the bound worker;
 --mentions <ref> filters for any staff member or App member (a worker name
@@ -384,6 +414,47 @@ them "(human)" / "(worker)".`,
   hadron team chat read --mentions-me --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// FLAG VALIDATION FIRST — above the binding read and above
+			// `f.GraphQLClient()` (@codex P2). These are wrong whatever your
+			// credentials are, and a signed-out caller who typed `--limit 0`
+			// was getting AuthRequired: an answer about their session for a
+			// mistake in their arguments, which sends them to fix the wrong
+			// thing. Same reasoning `alreadyBoundError` records in session.go
+			// for the opposite move — a guard that can answer before a client
+			// exists must.
+			//
+			// REFUSED, not clamped: every value here produces an EMPTY page,
+			// and an empty page is this command's end-of-history signal, so a
+			// permissive parse answers "you have reached the beginning" to a
+			// caller with the whole chat still ahead of them. The contract's
+			// one guarantee, broken by a typo.
+			//
+			// `--limit 0` is the sharpest, because the server does NOT reject
+			// it: the SDL gives it a meaning (return only `total`), so it
+			// succeeds, returns nothing, and looks exactly like the end. Same
+			// shape as `asset ls`, which already refuses it.
+			switch {
+			case mentionsMe && mentions != "":
+				return exitcode.Newf(exitcode.Usage, "pass --mentions-me or --mentions <ref>, not both")
+			case cmd.Flags().Changed("limit") && limit == 0:
+				return exitcode.Newf(exitcode.Usage,
+					"--limit must be at least 1 (the server reads 0 as \"count only\", which returns an empty page and is indistinguishable from the end of the chat)")
+			case limit < 0:
+				return exitcode.Newf(exitcode.Usage, "--limit must not be negative")
+			case limit > TeamChatPageSize:
+				// Refused rather than silently capped. The server caps it
+				// anyway, so a bounded read would quietly return 200 for a
+				// request of 500 — not wrong, but it leaves the caller
+				// believing they hold a page they do not.
+				return exitcode.Newf(exitcode.Usage,
+					"--limit must be at most %d (the server's page cap) — walk with --before to read more", TeamChatPageSize)
+			case cmd.Flags().Changed("before") && before < 1:
+				// seqs start at 1, so a cursor at or below it can only ever be
+				// empty. `--before 1` IS legal and means "nothing older", the
+				// honest end-of-history answer rather than a mistake.
+				return exitcode.Newf(exitcode.Usage,
+					"--before must be at least 1 — seq numbers start at 1, so a cursor below it can only return nothing")
+			}
 			ctx := cmd.Context()
 			b, err := readBindingOrNilWithApp(ctx, f)
 			if err != nil {
@@ -393,10 +464,11 @@ them "(human)" / "(worker)".`,
 			if err != nil {
 				return err
 			}
+			// The mutual-exclusion clause moved UP with the paging checks: it
+			// is pure flag validation too and had the identical defect. What
+			// stays here needs the binding.
 			var mentionsRef *string
 			switch {
-			case mentionsMe && mentions != "":
-				return exitcode.Newf(exitcode.Usage, "pass --mentions-me or --mentions <ref>, not both")
 			case mentionsMe:
 				if b == nil {
 					return exitcode.Newf(exitcode.Usage, "--mentions-me needs the worktree's worker — `hadron team session start --as <name>` first (or use --mentions <ref>)")
@@ -419,14 +491,37 @@ them "(human)" / "(worker)".`,
 				return err
 			}
 			appRef, appLabel := scope.Ref, lazyAppLabel(ctx, f, scope)
-			// Page to exhaustion with the watermark as the cursor: items are
-			// seq-ascending and sinceSeq is strictly-greater, so each page's
-			// last seq is the next page's cursor — no offset drift.
+			// BOUNDED OR EXHAUSTIVE, and exactly one flag decides which
+			// (#548). Either cursor-bound makes this a SINGLE PAGE:
+			//
+			//   --before  the page immediately BEFORE a seq — the backward
+			//             mirror, and the only way to walk history without
+			//             asking for all of it at once;
+			//   --limit   how big a page is.
+			//
+			// Neither: the historical behaviour, unchanged — page forward to
+			// exhaustion from --since. That is what makes this additive rather
+			// than a break, and it is why `--limit` bounds the read instead of
+			// merely sizing a page nobody sees: an exhaustive read has no page
+			// size a caller could observe, so a `--limit` that only tuned it
+			// would be a flag with no effect. A flag whose effect depends on
+			// another flag being present is the shape this repo has already
+			// filed twice; each of these means something on its own.
+			bounded := cmd.Flags().Changed("before") || cmd.Flags().Changed("limit")
+			pageSize := TeamChatPageSize
+			if cmd.Flags().Changed("limit") {
+				pageSize = limit
+			}
 			msgs := []teamChatMessageDTO{}
 			cursor := since
 			for {
-				limit := teamChatPageSize
-				resp, err := gen.TeamChatMessages(ctx, client, appRef, &cursor, mentionsRef, &limit, nil)
+				size := pageSize
+				var beforeArg *int
+				if cmd.Flags().Changed("before") {
+					b := before
+					beforeArg = &b
+				}
+				resp, err := gen.TeamChatMessages(ctx, client, appRef, &cursor, mentionsRef, &size, nil, beforeArg)
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -437,7 +532,10 @@ them "(human)" / "(worker)".`,
 					}
 					msgs = append(msgs, teamChatMessageDTOFromFields(m.TeamChatMessageFields))
 				}
-				if len(page) < teamChatPageSize {
+				// A bounded read is ONE page by definition; looping here would
+				// be the caller's job done wrongly, since only they know which
+				// direction they are walking.
+				if bounded || len(page) < pageSize {
 					break
 				}
 				cursor = msgs[len(msgs)-1].Seq
@@ -508,7 +606,24 @@ them "(human)" / "(worker)".`,
 				// ORDER MATTERS: every local, free predicate is checked before
 				// isBindingsApp, which may cost a round trip. A read with no
 				// binding must stay as cheap as it was.
-				if b == nil || !ok || !unfiltered || !contiguous || !bindingServerMatches(f, b) {
+				// A --before READ NEVER ADVANCES IT (#548), and this is the
+				// same rule as `--since 100` from a watermark of 90 rather than
+				// a new one: a backward page is the NEWEST messages before the
+				// cursor, so everything between `since` and that page is
+				// unread by construction. The start being contiguous is not
+				// enough — the hole is in the MIDDLE, which `contiguous` cannot
+				// see because it only looks at where the read began.
+				//
+				// "A window is not a prefix" (review:a-claim-must-not-outrun-
+				// its-evidence, finding 8), and this is the first surface that
+				// can produce a window whose start looks perfectly contiguous.
+				//
+				// --limit alone is NOT excluded, and that asymmetry is the
+				// point: a bounded FORWARD read from the watermark is a genuine
+				// prefix — seqs 1..30 of a chat, with nothing skipped — so
+				// recording 30 claims exactly what was seen.
+				if b == nil || !ok || !unfiltered || !contiguous || cmd.Flags().Changed("before") ||
+					!bindingServerMatches(f, b) {
 					return
 				}
 				if !isBindingsApp(ctx, f, scope.Ref, b.AppID) {
@@ -518,10 +633,32 @@ them "(human)" / "(worker)".`,
 					recordChatWatermark(ctx, b.SessionID, verified)
 				}
 			}
+			// prevBefore is nextSince's mirror: the cursor for the page BEFORE
+			// this one, i.e. the lowest seq returned. Pass it as --before to
+			// keep walking back.
+			//
+			// NULL when the page was empty, and that is the ONLY end-of-history
+			// signal this command offers — deliberately. The obvious
+			// alternative, comparing against `total`, is wrong on exactly the
+			// pages where it matters: total is cursor-scoped under beforeSeq
+			// (hadron-server#1121, measured by @Gil), so a reader adopting it
+			// would conclude it had reached the beginning while messages
+			// remained. An empty page cannot be scoped wrong.
+			var prevBefore *int
+			for i := range msgs {
+				if prevBefore == nil || msgs[i].Seq < *prevBefore {
+					s := msgs[i].Seq
+					prevBefore = &s
+				}
+			}
 			result := struct {
 				Messages  []teamChatMessageDTO `json:"messages"`
 				NextSince int                  `json:"nextSince"`
-			}{msgs, next}
+				// ADDED, never replacing nextSince: the two answer opposite
+				// questions and a reader walking forward must not have to learn
+				// a new key.
+				PrevBefore *int `json:"prevBefore"`
+			}{msgs, next, prevBefore}
 			// AFTER the render, and only if it succeeded (PR #493 review). The
 			// watermark claims the reader has seen these messages; a closed pipe
 			// or a full disk means they have not, and marking them read would
@@ -563,6 +700,12 @@ them "(human)" / "(worker)".`,
 		},
 	}
 	cmd.Flags().IntVar(&since, "since", 0, "only messages with seq greater than this (0 = whole history)")
+	// "the newest of those" describes WHICH messages, not what order they
+	// print in — the page is still rendered oldest-first like every other read
+	// (@copilot: the first wording said "newest first", which reads as
+	// ordering and contradicts the paragraph above it).
+	cmd.Flags().IntVar(&before, "before", 0, "one page of the messages just before this seq — the newest of those, still printed oldest-first")
+	cmd.Flags().IntVar(&limit, "limit", TeamChatPageSize, "messages per page; giving it makes the read ONE page instead of the whole history")
 	cmd.Flags().BoolVar(&mentionsMe, "mentions-me", false, "only messages mentioning the bound worker")
 	cmd.Flags().StringVar(&mentions, "mentions", "", "only messages mentioning this staff/App member (worker name or id, or user handle)")
 	return cmd

@@ -400,8 +400,40 @@ query TeamChatMessages(
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
+  # The BACKWARD mirror of sinceSeq (hadron-server#1116): only messages with
+  # seq strictly LESS are considered, and the NEWEST `limit` of those come
+  # back — still ascending. The two cursors COMPOSE, per the SDL, so passing
+  # both reads a bounded slice.
+  #
+  # `offset` is IGNORED by the server when this is given, deliberately: a
+  # cursor exists because a position is unstable while workers keep posting.
+  # This client passes no offset anyway.
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
 ) {
-  teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, offset: $offset) {
+  teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, offset: $offset, beforeSeq: $beforeSeq) {
+    # `total` IS CURSOR-SCOPED WHEN beforeSeq IS GIVEN, and the SDL does not
+    # say so. @Gil found it on hadron-portal #799 (filed as hadron-server
+    # #1121); MEASURED AGAIN HERE against this surface rather than inherited,
+    # on the hadron-dev-team chat at 435 messages:
+    #
+    #   no cursor       → total 435
+    #   beforeSeq: 400  → total 399
+    #   beforeSeq: 394  → total 393
+    #
+    # The doc block documents the SELECTION precisely and says nothing about
+    # the COUNT, so the obvious reading — "how many exist" — is wrong on any
+    # cursored page, and a client adopting it silently truncates its own
+    # history.
+    #
+    # Kept, because it is sound in the direction that uses it: the unread-count
+    # nudge (`sessionChatNudge`) passes sinceSeq ONLY, where total is the count
+    # of everything after the watermark, verified live. `chat read` does not
+    # publish it and does not decide anything with it — an EMPTY page is its
+    # end-of-history signal, and that one cannot be scoped wrong.
+    #
+    # So the rule for any new caller: total answers "how many match this
+    # query", never "how many exist". With beforeSeq those differ.
     total
     items {
       ...TeamChatMessageFields

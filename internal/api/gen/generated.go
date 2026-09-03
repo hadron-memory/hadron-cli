@@ -21765,6 +21765,7 @@ type __TeamChatMessagesInput struct {
 	MentionsRef *string `json:"mentionsRef,omitempty"`
 	Limit       *int    `json:"limit,omitempty"`
 	Offset      *int    `json:"offset,omitempty"`
+	BeforeSeq   *int    `json:"beforeSeq,omitempty"`
 }
 
 // GetAppRef returns __TeamChatMessagesInput.AppRef, and is useful for accessing the field via an interface.
@@ -21781,6 +21782,9 @@ func (v *__TeamChatMessagesInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __TeamChatMessagesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__TeamChatMessagesInput) GetOffset() *int { return v.Offset }
+
+// GetBeforeSeq returns __TeamChatMessagesInput.BeforeSeq, and is useful for accessing the field via an interface.
+func (v *__TeamChatMessagesInput) GetBeforeSeq() *int { return v.BeforeSeq }
 
 // __TeamMemoryAppInput is used internally by genqlient
 type __TeamMemoryAppInput struct {
@@ -28989,8 +28993,8 @@ func TeamAppIdentity(
 
 // The query executed by TeamChatMessages.
 const TeamChatMessages_Operation = `
-query TeamChatMessages ($appRef: ID!, $sinceSeq: Int, $mentionsRef: ID, $limit: Int, $offset: Int) {
-	teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, offset: $offset) {
+query TeamChatMessages ($appRef: ID!, $sinceSeq: Int, $mentionsRef: ID, $limit: Int, $offset: Int, $beforeSeq: Int) {
+	teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, offset: $offset, beforeSeq: $beforeSeq) {
 		total
 		items {
 			... TeamChatMessageFields
@@ -29019,6 +29023,7 @@ func TeamChatMessages(
 	mentionsRef *string,
 	limit *int,
 	offset *int,
+	beforeSeq *int,
 ) (data_ *TeamChatMessagesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "TeamChatMessages",
@@ -29029,6 +29034,7 @@ func TeamChatMessages(
 			MentionsRef: mentionsRef,
 			Limit:       limit,
 			Offset:      offset,
+			BeforeSeq:   beforeSeq,
 		},
 	}
 
