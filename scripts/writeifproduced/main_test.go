@@ -1,4 +1,4 @@
-// Package main holds no command — only the test that drives
+// Package writeifproduced holds no code — only the test that drives
 // scripts/write-if-produced.sh (hadron-cli#555).
 //
 // A Go test rather than a shell harness because the repo has one test runner
@@ -6,7 +6,18 @@
 // package under scripts/. The script is the deliverable, and its whole promise
 // is about what it does NOT do to a file — a promise no caller can observe
 // until the day it matters, which is precisely when nobody is looking.
-package main
+//
+// TEST-ONLY, and deliberately so. @copilot read this as a build hazard —
+// "go test ./... typically fails with no non-test Go files" — which is not
+// true for a package whose ONLY files are tests: Go builds it as a test
+// binary and nothing asks for a library. Measured on go1.26.6: `go build
+// ./...`, `go vet` and `go test ./...` are all clean, and CI has been green on
+// this layout every round. So no placeholder doc.go, which would exist purely
+// to answer a question the toolchain does not ask.
+//
+// The name IS worth taking from that finding: `package main` for something
+// that is not a command was a copy of unboundops' shape without its reason.
+package writeifproduced
 
 import (
 	"os"
