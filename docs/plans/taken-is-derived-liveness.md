@@ -91,8 +91,13 @@ the name was live and `--force` took it, `false` when it provably was not,
 evidence behind it. That is the shape `releaseResultDTO`'s `wasHeld` and
 `forced` already have, for the same reason.
 
-`null` degrades where `false` did: falsy in jq and in JS, and `encoding/json`
-drops it into a plain `bool` without erroring. It is a deliberate change to a
+`null` degrades where `false` did: falsy in jq and in JS, and a Go consumer
+decoding into a plain `bool` is unaffected — **measured**, because a review pass
+read it the other way. Go's `encoding/json` treats `null` as *"not present"*: no
+error, and the value is **left unchanged**, so a freshly-decoded struct reads
+the zero value `false`. A type mismatch does error (`"yes"` into a `bool`
+fails), which is what makes the null case a defined no-op rather than a
+swallowed error. It is a deliberate change to a
 documented key, taken because the old value was not merely imprecise but false.
 
 **The refusal's own sentence.** It explained itself with *"its worker session is

@@ -896,7 +896,13 @@ holds nothing).`,
 				// wrong fact as the refusal, in the --json contract.
 				//
 				// `null` degrades where `false` did: falsy in jq and in JS, and
-				// encoding/json drops it into a plain `bool` without erroring.
+				// a Go consumer decoding into a plain `bool` is unaffected —
+				// MEASURED, since @copilot read it the other way. Go's
+				// encoding/json treats null as "not present": it produces no
+				// error and LEAVES THE VALUE UNCHANGED, so a freshly-decoded
+				// struct reads the zero value, false. (A type mismatch does
+				// error — `"yes"` into a bool fails — so the null case is a
+				// defined no-op, not a swallowed error.)
 				TookOver *bool `json:"tookOver"`
 			}{sessionDTOFromFields(s, &w.Name), sessionStartWorkerDTO(w), path, tookOver(live)}
 			if err := output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
