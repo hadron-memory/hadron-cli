@@ -158,10 +158,18 @@ func scanSessions(ctx context.Context, client graphql.Client, repo, workerRef *s
 }
 
 // workerActivity reads the worker's most recent session and its most recent
-// still-active one — the taken/last-driven-by check, narrowed server-side by
-// sessions(workerRef:) (#974). The scan still runs to exhaustion unless an
-// active session shows up: active sessions are not necessarily the newest
-// rows, so absence can only be proven by reading the worker's whole list.
+// still-open one, narrowed server-side by sessions(workerRef:) (#974). The scan
+// runs to exhaustion unless an open session shows up: open sessions are not
+// necessarily the newest rows, so absence can only be proven by reading the
+// worker's whole list.
+//
+// NARRATION, NOT THE TAKEN CHECK — it used to be both, and #550 is what that
+// cost. What these rows supply is the driver, tool, host and session id a
+// takeover has to show (`cor:agt:020:03`: informed, never silent). Whether the
+// name is taken is `workerLiveness`, off the worker row. Do not reintroduce a
+// decision here: an OPEN session is permanent for an abandoned worker since
+// hadron-server#1114, so anything gated on one is gated on a condition that
+// never clears.
 func workerActivity(ctx context.Context, client graphql.Client, workerID string) (last, active *gen.TeamSessionFields, err error) {
 	err = scanSessions(ctx, client, nil, &workerID, func(s gen.TeamSessionFields) bool {
 		if last == nil {
@@ -176,6 +184,76 @@ func workerActivity(ctx context.Context, client graphql.Client, workerID string)
 		return true
 	})
 	return last, active, err
+}
+
+// liveness is what this CLI may honestly say about whether a worker is being
+// driven — THREE values, because the answer can be withheld.
+//
+// #550: the TAKEN pre-flight used to read `endedAt == nil` off a session row.
+// Since hadron-server#1114 nothing ends an abandoned DEVELOPER session, so that
+// condition is PERMANENT: the refusal could never clear, waiting could never
+// help, and the server's own derived gate — which would have allowed the bind,
+// because the name is no longer live — was never reached, since the client
+// returned first. A refusal that cannot be satisfied by doing the thing it
+// implies is not a guard, it is a wall.
+//
+// Liveness is `Worker.hasLiveSession`: not ended AND driven inside the window,
+// computed server-side by the same predicate the bind gate applies
+// (cor:agt:020:11). It rides on WorkerFields, so reading it costs no round trip.
+type liveness int
+
+const (
+	// liveUnknown — the working-state group was masked, i.e. the caller did not
+	// pass the worker read gate. NOT a synonym for "not live": the server
+	// declined to answer, and absence of evidence is not evidence of absence.
+	liveUnknown liveness = iota
+	// liveNo — provably not being driven. An OPEN session may still exist and
+	// says nothing (that is #1114's whole point).
+	liveNo
+	// liveYes — provably being driven, in the derived sense: recently, not
+	// necessarily this minute and never "somebody is at the keyboard".
+	liveYes
+)
+
+// workerLiveness reads the derived answer off the worker row.
+//
+// Deliberately NOT a bool with a separate ok: every caller here has to treat
+// unknown as its own case, and a `(bool, bool)` pair is exactly the shape that
+// invites `if live` and silently collapses masked into false — which would
+// refuse a caller the server would have admitted, on a fact it was not shown.
+func workerLiveness(w gen.WorkerFields) liveness {
+	if !workingStateVisible(w.HasLiveSession) {
+		return liveUnknown
+	}
+	if *w.HasLiveSession {
+		return liveYes
+	}
+	return liveNo
+}
+
+// tookOver renders liveness as the nullable `tookOver` key: a takeover happened
+// iff the name was live, and stays UNKNOWN when liveness was masked.
+func tookOver(live liveness) *bool {
+	if live == liveUnknown {
+		return nil
+	}
+	took := live == liveYes
+	return &took
+}
+
+// drivenBy names the driver in a TAKEN refusal or a takeover note.
+//
+// The session row is NARRATION; the DECISION is workerLiveness above, and the
+// two are separate reads. So a name the server calls live whose session list is
+// unreadable — or whose row ended between the two reads — must still refuse,
+// with the clause it can honestly fill rather than a nil deref. "an unknown
+// driver" is the server's own wording for this on the WORKER_TAKEN path, used
+// here so the two refusals do not describe one situation two ways.
+func drivenBy(active *gen.TeamSessionFields) string {
+	if active == nil {
+		return "an unknown driver"
+	}
+	return describeSession(active)
 }
 
 func describeSession(s *gen.TeamSessionFields) string {
@@ -502,7 +580,16 @@ reaper foreclosed, not a record that does not exist.
 So an OPEN session tells you nothing about whether the name is taken.
 Liveness does — and it means DRIVEN RECENTLY, not that somebody is at the
 keyboard: the window is generous. ` + "`worker list`'s" + ` LAST DRIVEN
-column is where to read it. --force starts
+column is where to read it, and binding a name whose session is open but
+no longer live is NOT a takeover: it needs no --force, and it does not end
+that session, so its driver's handoff stays theirs to write.
+
+WHEN LIVENESS IS NOT VISIBLE TO YOU, THE SERVER DECIDES. Liveness rides on
+the worker's working-state fields, which are gated: a caller outside that
+gate is shown null rather than an answer, and null is withheld, not "no".
+This command does not refuse on it — it binds, and the server applies the
+same rule atomically and refuses TAKEN or HELD if it must. In ` + "`--json`" + `
+that case is ` + "`tookOver: null`" + `, distinct from ` + "`false`" + `. --force starts
 your session alongside the taken-over one; it does not end another
 driver's session. When this worktree already has a binding, --force
 replaces it — first ending the session that binding names (best-effort),
@@ -580,7 +667,21 @@ holds nothing).`,
 			if err != nil {
 				return err
 			}
-			if active != nil && !force {
+			// TAKEN is DERIVED liveness, never an open session row (#550).
+			//
+			// MASKED DEFERS TO THE SERVER, deliberately, and this is the one
+			// place that decides it. A caller outside the worker read gate is
+			// not shown liveness; refusing them on that absence would refuse
+			// somebody the server would have admitted, and would make --force
+			// the routine path for everyone outside the gate — which is how an
+			// override stops meaning anything. The bind that follows is not
+			// unguarded: startSession applies this same predicate atomically
+			// and refuses WORKER_TAKEN / WORKER_HELD, whose extensions payloads
+			// this command already renders below. So the loosening costs one
+			// round trip on the refusal path and gives up no safety.
+			// (Decision: Holger, 2026-09-03.)
+			live := workerLiveness(w)
+			if live == liveYes && !force {
 				// --force is the remedy for a TAKEN worker, and cor:agt:020:09
 				// says TAKEN is only ever a question about your OWN name: the
 				// driver deciding is the driver affected. When the name is HELD
@@ -589,21 +690,46 @@ holds nothing).`,
 				// offering the flag here would send the driver at the one door
 				// the spec says is locked. That is #487's conflation arriving as
 				// advice rather than as vocabulary.
+				//
+				// This classification stays INSIDE the liveness gate on purpose,
+				// which #550 asked about. HELD and TAKEN are independent
+				// (cor:agt:020:09) and the server checks HELD first — but the
+				// server is also the authority on it, and the WORKER_HELD branch
+				// below renders the SAME refusal from its extensions. So a hold
+				// on a name that is not live already reaches the identical
+				// sentence one round trip later, while hoisting this out would
+				// spend two extra reads (holder + identity) on every ordinary
+				// bind — every one of which holds its own name. What the
+				// pre-flight buys is message quality on the path that was going
+				// to refuse anyway; it is not, and must not become, the gate.
 				switch holder, verdict := classifyHold(ctx, client, w); verdict {
 				case holdByOther:
 					return heldRefusal(w.Name, appIndependentRef(w), holder, w.HeldAt)
 				case holdUnknownWhose:
 					return exitcode.Newf(exitcode.Conflict,
-						"worker %s is being driven by %s, and the name is held by %s — this CLI could not read your own identity to tell whether that is you. If it is, --force takes over; if it is not, nothing does: a held name is not forceable, and the remedy is to cast your own worker (cor:agt:020:09)",
-						w.Name, describeSession(active), holder)
+						"worker %s is live — being driven by %s — and the name is held by %s: this CLI could not read your own identity to tell whether that is you. If it is, --force takes over; if it is not, nothing does: a held name is not forceable, and the remedy is to cast your own worker (cor:agt:020:09)",
+						w.Name, drivenBy(active), holder)
 				}
 				return exitcode.Newf(exitcode.Conflict,
-					"worker %s is being driven by %s — its worker session is still open, which a closed chat session does not end; --force takes over",
-					w.Name, describeSession(active))
+					"worker %s is live — being driven by %s. Live means DRIVEN RECENTLY (the server derives it; an open session row is not it), so nothing frees this name by waiting; --force takes over",
+					w.Name, drivenBy(active))
 			}
-			if active != nil {
-				fmt.Fprintf(f.IOStreams.ErrOut, "taking over worker %s from %s\n", w.Name, describeSession(active))
-			} else if last != nil {
+			switch {
+			case live == liveYes:
+				// Reached only under --force: the gate above refuses otherwise.
+				fmt.Fprintf(f.IOStreams.ErrOut, "taking over worker %s from %s\n", w.Name, drivenBy(active))
+			case live == liveNo && active != nil:
+				// The ordinary post-#1114 shape, and worth naming rather than
+				// calling a takeover: the name is free, and the open row is
+				// somebody's unfinished stint. Binding here takes nothing from
+				// them and does not end it — their handoff stays theirs to
+				// write, which is exactly what leaving the row open preserves.
+				fmt.Fprintf(f.IOStreams.ErrOut, "worker %s is not live; an earlier session is still open (%s) and this bind does not end it\n", w.Name, describeSession(active))
+			case active != nil:
+				// live == liveUnknown. State the row, claim nothing about it:
+				// "not live" would be a fact the server declined to show us.
+				fmt.Fprintf(f.IOStreams.ErrOut, "worker %s has an open session (%s); whether the name is live is not visible to you, so the server decides at bind\n", w.Name, describeSession(active))
+			case last != nil:
 				// Informational, not a conflict: the last stint ended.
 				fmt.Fprintf(f.IOStreams.ErrOut, "worker %s was last driven by %s\n", w.Name, describeSession(last))
 			}
@@ -737,8 +863,25 @@ holds nothing).`,
 				// are omitted rather than reported stale. See its doc.
 				Worker      sessionStartWorker `json:"worker"`
 				BindingPath string             `json:"bindingPath"`
-				TookOver    bool               `json:"tookOver"`
-			}{sessionDTOFromFields(s, &w.Name), sessionStartWorkerDTO(w), path, active != nil}
+				// TookOver: did this bind displace a driver?
+				//
+				// NULLABLE since #550, for the reason releaseResultDTO's
+				// WasHeld and Forced are: the answer can be WITHHELD. It is
+				// derived liveness — true when the name was live and --force
+				// took it, false when it provably was not live, and NULL when
+				// the working-state group was masked, where the CLI cannot
+				// tell and `false` would be a claim with no evidence behind it.
+				//
+				// It used to be `active != nil` — an OPEN session row — which
+				// since hadron-server#1114 answers a different question:
+				// nothing ends an abandoned session, so binding over one
+				// displaces nobody while this reported a takeover anyway. Same
+				// wrong fact as the refusal, in the --json contract.
+				//
+				// `null` degrades where `false` did: falsy in jq and in JS, and
+				// encoding/json drops it into a plain `bool` without erroring.
+				TookOver *bool `json:"tookOver"`
+			}{sessionDTOFromFields(s, &w.Name), sessionStartWorkerDTO(w), path, tookOver(live)}
 			if err := output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
 				if _, err := fmt.Fprintf(out, "✓ started session %s as %s%s\n  binding: %s\n", s.Id, w.Name, roleSuffix(w.Role), path); err != nil {
 					return err
@@ -800,7 +943,11 @@ holds nothing).`,
 		},
 	}
 	cmd.Flags().StringVar(&as, "as", "", "worker to drive: its URN or id (no App scope needed), or its name within the team App (required)")
-	cmd.Flags().BoolVar(&force, "force", false, "take over a worker with an active session (never a name HELD by someone else); also replaces this worktree's binding, ending its session first (best-effort)")
+	// LIVE, not "active": the gate is derived liveness, and an ACTIVE session
+	// is precisely the thing that no longer decides it (#550). Readers scan
+	// labels, so a corrected paragraph over a stale one-liner is the miss this
+	// repo's review:sweep-the-subject-not-the-removed-rule was written for.
+	cmd.Flags().BoolVar(&force, "force", false, "take over a worker with a LIVE session (never a name HELD by someone else); also replaces this worktree's binding, ending its session first (best-effort)")
 	cmd.Flags().StringVar(&repo, "repo", "", "repository the session works on, e.g. owner/repo")
 	cmd.Flags().StringVar(&branch, "branch", "", "branch the session works on")
 	cmd.Flags().StringVar(&transcript, "transcript", "", "path of the driving tool's transcript on this host")
