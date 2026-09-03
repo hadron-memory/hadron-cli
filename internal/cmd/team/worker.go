@@ -628,43 +628,123 @@ type releaseResultDTO struct {
 	ID   string  `json:"id"`
 	Name string  `json:"name"`
 	URN  *string `json:"urn"`
-	// WasHeld is TRUE when a prior holder was visible, and NULL otherwise. It
-	// is never false — that is the contract, not an oversight.
+	// WasHeld says whether this call ENDED a hold. Definite since
+	// hadron-server#1073 — `releasedFrom` is non-null exactly when the write
+	// released something, so `false` is now a fact rather than a guess.
 	//
-	// heldByUserId masks to null on DENY, so a nil hold READ ON ITS OWN means
-	// "unheld OR held and invisible to you". `false` would read as "this name
-	// is free to bind", and a caller acting on it meets WORKER_HELD at the next
-	// `session start` (PR #504 review — twice: once for an argument that the
-	// ambiguity collapsed, once for a probe that resolved it; neither held).
+	// It used to be TRUE-or-NULL and never false, because the only evidence was
+	// the client's own pre-read of `heldByUserId`, which masks to null on deny:
+	// nil READ ON ITS OWN meant "unheld OR held and invisible to you", and
+	// emitting `false` would have told a caller the name was free to bind when
+	// the next `session start` would answer WORKER_HELD (PR #504 review, twice).
 	//
-	// #487 changed what is POSSIBLE here without changing what this command
-	// does, and the difference is worth stating so the next reader does not
-	// mistake a choice for a limit. `Worker.hasLiveSession` IS a sound
-	// visibility signal (see workingStateVisible) — and it is sound for the
-	// exact reason #504's probe was not: that probe read fields masked
-	// ALONGSIDE the hold, all of which are legitimately nullable, so a null
-	// proved nothing. hasLiveSession coalesces to false and is never
-	// legitimately null on a permitted read, so its non-nullness is evidence.
+	// The hedge is retired because the ambiguity is, not because we decided to
+	// live with it: the answer now comes from inside the guarded write instead
+	// of from a read that could be masked. **A consumer branching on `null`
+	// here will no longer see one** — that branch detected a condition that no
+	// longer exists.
+	WasHeld bool `json:"wasHeld"`
+	// ReleasedFromUserID is the holder the WRITE ended, null on the idempotent
+	// path. The ID, not a display label (review:entity-fields-not-display-labels)
+	// — it addresses a person the caller may need to contact.
 	//
-	// This command still does not use it, deliberately: `worker list` renders a
-	// cell, while wasHeld feeds a REFUSAL-shaped classification, and #504
-	// retracted two designs in this exact spot. Adopting it here is #522, not a
-	// drive-by.
-	WasHeld *bool `json:"wasHeld"`
-	// ReleasedFromUserID is the prior holder, null on a no-op. The ID, not a
-	// name (review:entity-fields-not-display-labels) — it addresses a person
-	// the caller may need to contact.
+	// KEPT at its old name and shape rather than folded into ReleasedFrom
+	// below: agents parse this, and its meaning did not change — only its
+	// PROVENANCE, from this command's pre-read to the server's answer, which is
+	// strictly more correct on the retry path where the pre-read was wrong.
+	// It mirrors `releasedFrom.id`.
 	ReleasedFromUserID *string `json:"releasedFromUserId"`
-	// Forced is true when the caller was NOT the prior holder — an admin
-	// force-release, which the server announces in the team chat. Surfaced so
-	// a scripted caller can tell a routine hand-back from a visible override.
+	// ReleasedFrom is the sanitized identity of that holder (#1073) — id,
+	// handle, URN, and a gated display name. Null on the idempotent path.
 	//
-	// NULLABLE, and only ever null when the caller's own identity could not be
-	// read against a held name (PR #504 review). `false` would claim a private
-	// act and `true` an announcement, and both are assertions the CLI cannot
-	// make there — the same reason workerDTO has no `held` boolean.
-	Forced *bool  `json:"forced"`
-	Status string `json:"status"`
+	// A PROJECTION rather than a `User`, which is the whole point: the admin
+	// path exists for a departed colleague, and `leaveApp` deletes the
+	// AppMember row while the hold survives, so this is often the caller's ONLY
+	// route to that person's identity. It is also why `name` may be null while
+	// `handle` is not — render the handle, never a dash.
+	ReleasedFrom *releasedFromDTO `json:"releasedFrom"`
+	// Forced is true when the caller was NOT the prior holder — an admin
+	// force-release, the one act that takes a name without its holder acting,
+	// and the one that posts to the team chat.
+	//
+	// SERVER-COMPUTED since #1073, and that is what makes it definite. This
+	// command used to classify it by comparing the holder against its own
+	// identity read, and emitted NULL when that read failed — because `false`
+	// would have claimed a private act and `true` an announcement, neither of
+	// which it could support. The server compares the authenticated principal
+	// against the hold the write ended, in the same transaction, so `false` now
+	// means the holder was YOU or nothing was released — never "could not
+	// tell". **The `null` a consumer used to handle can no longer occur.**
+	Forced bool `json:"forced"`
+	// Notified is whether the team-chat notice was posted, and it has THREE
+	// states on purpose (#1073):
+	//
+	//   null   no notice was owed — a self-release, or nothing released
+	//   true   owed and posted
+	//   false  OWED AND FAILED, with the release still done
+	//
+	// The last one is why this is not a plain bool: an unreachable chat must
+	// never block an admin recovering a departed colleague's names, so the
+	// notice can fail while the act succeeds. Collapsing null and false would
+	// leave a client unable to say "this may have gone unannounced" — and the
+	// only honest UI for a claim you cannot make is silence, which throws the
+	// field away.
+	Notified *bool  `json:"notified"`
+	Status   string `json:"status"`
+}
+
+// releasedFromDTO is the `releasedFrom` projection, mirrored as an explicit DTO
+// so `--json` stays put across regenerations.
+//
+// Four fields, and no more, deliberately. The server made this a separate type
+// from `User` precisely so a client cannot reach the ungated tail
+// (`policy`, `identityProvider`, `externalId`, `githubId`, `roles`,
+// `maxReferrals`) by selecting further — mirroring it wider here would be
+// asking for that door to be reopened.
+type releasedFromDTO struct {
+	ID string `json:"id"`
+	// Handle is the one identifier always present for a real user; it is what
+	// a receipt falls back to when Name is withheld.
+	Handle *string `json:"handle"`
+	// URN is hrn:user:<handle>, null for a handle-less user.
+	URN *string `json:"urn"`
+	// Name is withheld (null) from a viewer who is not the user themselves, a
+	// platform admin, or a co-member of one of their orgs — the same gate it
+	// carries on `User`. An admin releasing a colleague who has LEFT the org
+	// sees null here, which is the ordinary case for this command, not an edge.
+	Name *string `json:"name"`
+}
+
+// releasedFromDTOFrom maps the projection, preserving absent-vs-empty.
+func releasedFromDTOFrom(r *gen.ReleaseWorkerReleaseWorkerReleaseWorkerPayloadReleasedFromReleasedFromUser) *releasedFromDTO {
+	if r == nil {
+		return nil
+	}
+	return &releasedFromDTO{ID: r.Id, Handle: r.Handle, URN: r.Urn, Name: r.Name}
+}
+
+// releasedFromLabel renders the projection for a human receipt.
+//
+// Name first, handle second, id last — and the FALLBACK is the point rather
+// than defensiveness. `name` is gated, and the population this command's admin
+// path serves (a colleague who has left the org) is exactly the one for whom it
+// resolves null, so "released from —" would be the ordinary output rather than
+// a rare one. `@handle` is always there for a real user.
+//
+// It also replaces a `describeHolder` round trip per receipt line: the whole
+// reason the payload carries an identity is that the caller may have no other
+// route to it.
+func releasedFromLabel(r *releasedFromDTO) string {
+	switch {
+	case r == nil:
+		return "nobody"
+	case r.Name != nil && *r.Name != "":
+		return *r.Name
+	case r.Handle != nil && *r.Handle != "":
+		return "@" + *r.Handle
+	default:
+		return r.ID
+	}
 }
 
 // currentUserID reads the caller's own user id. THREE states, not two
@@ -778,12 +858,14 @@ func assertRetirementUnchanged(ctx context.Context, client graphql.Client, w gen
 	return nil
 }
 
-// informedRelease is what a retry after WORKER_HOLD_STALE produced.
-type informedRelease struct {
-	resp   *gen.ReleaseWorkerResponse
-	holder *string
-	forced *bool
-}
+// informedRelease is GONE with #1073, and it is worth saying why rather than
+// just deleting it. It carried `holder` and `forced` back from the retry
+// because the caller had no other way to describe an act it had mis-classified
+// — the pre-read that classified it was, on this path, by construction the
+// thing the server had just refused. The payload now answers both from inside
+// the guarded write, so the retry returns only the response and the receipt
+// reads the same fields it reads on the ordinary path. ONE description of the
+// outcome instead of two that had to agree.
 
 // offerInformedRelease turns a refused assertion into a second, TRUTHFUL offer,
 // and performs it at most once.
@@ -800,8 +882,8 @@ type informedRelease struct {
 func offerInformedRelease(
 	ctx context.Context, f *cmdutil.Factory, client graphql.Client,
 	w gen.WorkerFields, stale api.HoldStaleDetail, me string, meKnown, yes bool,
-) (informedRelease, error) {
-	var zero informedRelease
+) (*gen.ReleaseWorkerResponse, error) {
+	var zero *gen.ReleaseWorkerResponse
 	// The name is held by NOBODY now — so the caller asserted a holder and that
 	// hold was released underneath them. There is nothing to release, and the
 	// act they approved is not available to perform.
@@ -835,7 +917,11 @@ func offerInformedRelease(
 		if err != nil {
 			return zero, api.MapError(err)
 		}
-		return informedRelease{resp: resp, holder: &stale.HolderID, forced: boolPtr(false)}, nil
+		// No holder or forced carried back: the payload states both, and the
+		// `boolPtr(false)` that used to ride along here was this command
+		// asserting a self-release from an identity read that had already
+		// proved unreliable on this path.
+		return resp, nil
 	}
 	// A force-release, and one the caller has NOT been asked about — either no
 	// prompt was shown (the hold was invisible or absent when classified), or
@@ -901,14 +987,13 @@ func offerInformedRelease(
 		}
 		return zero, api.MapError(err)
 	}
-	// forced is KNOWN here, not guessed: the server named the holder and the
-	// caller is not them (or their own identity could not be read, which is the
-	// one case that stays honestly nil).
-	var forced *bool
-	if meKnown {
-		forced = boolPtr(true)
-	}
-	return informedRelease{resp: resp, holder: &stale.HolderID, forced: forced}, nil
+	// No classification carried back. This used to compute `forced` — true when
+	// the identity read worked, honestly nil when it did not — and that nil was
+	// the last surviving "we cannot tell" in the receipt. The payload's `forced`
+	// is computed against the authenticated principal server-side, so the one
+	// path where this client could never answer is the one where the server
+	// always can.
+	return resp, nil
 }
 
 // staleHolderPtr renders a HoldStaleDetail's holder for holderPhrase, which
@@ -968,7 +1053,21 @@ hold was never visible to you in the first place. Nothing is changed
 before you answer. Without a terminal, that second question is a refusal
 unless --yes.
 
-Idempotent: releasing a name nobody holds changes nothing and says so.`,
+Idempotent: releasing a name nobody holds changes nothing and says so.
+
+THE RECEIPT REPORTS WHAT THE SERVER DID, not what this command predicted
+(hadron-server#1073). It names the holder the WRITE ended — including one
+you were never permitted to see — says whether the act was a
+force-release, and says whether the team-chat notice was posted. The
+notice is best-effort, so it can FAIL while the release stands: when that
+happens you are told, because you are then the only person who knows the
+team was not informed.
+
+The person is named from the release itself rather than looked up, so a
+holder whose user record you may not read is still named. Their display
+name may be withheld — an admin releasing a colleague who has LEFT the
+org is the ordinary case — and the receipt falls back to their @handle,
+which is always there.`,
 		Example: `  hadron team worker release Iris
   hadron team worker release hrn:worker:acme.com:eng-team:iris --yes`,
 		Args: cobra.ExactArgs(1),
@@ -1006,18 +1105,19 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 			me, meKnown := currentUserID(ctx, client)
 			// A THREE-state answer: yes, no, or "cannot tell". Nil only when
 			// the identity lookup failed against a HELD name — the one case
-			// where we genuinely do not know whether this is a public act. It
-			// is treated as force for the PROMPT (conservative) and as unknown
-			// in the RECEIPT (honest); those are different jobs.
-			var forced, wasHeld *bool
-			if priorHolder != nil {
-				wasHeld = boolPtr(true)
-				if meKnown {
-					forced = boolPtr(*priorHolder != me)
-				}
+			// where we genuinely do not know whether this is a public act.
+			//
+			// SINCE #1073 THIS PREDICTION HAS EXACTLY ONE JOB: deciding whether
+			// to ASK. It no longer reaches the receipt, which reports the
+			// server's own `forced` — so the honest-unknown that used to be
+			// published is gone, and what remains here is a conservative guess
+			// about consent, where treating "cannot tell" as force is right.
+			// Predicting an act and reporting one are different jobs, and the
+			// nil was only ever unavoidable in the second.
+			var forced *bool
+			if priorHolder != nil && meKnown {
+				forced = boolPtr(*priorHolder != me)
 			}
-			// Both stay nil on a nil hold, and stay nil HONESTLY: unheld and
-			// masked-from-you are indistinguishable here.
 
 			// Only the force branch prompts. A self-release loses nothing and
 			// notifies nobody, and a prompt on the ordinary end-of-work step
@@ -1113,68 +1213,89 @@ Idempotent: releasing a name nobody holds changes nothing and says so.`,
 				if rerr != nil {
 					return rerr
 				}
-				resp = retry.resp
-				// The receipt now reports what the server SAW, not what this
-				// command guessed. That is strictly more honest than the old
-				// output: on this path wasHeld/forced were previously nil or
-				// wrong, and the prior holder was unknown.
-				priorHolder, wasHeld, forced = retry.holder, boolPtr(true), retry.forced
+				resp = retry
 			}
-			if resp.ReleaseWorker == nil {
+			if resp.ReleaseWorker == nil || resp.ReleaseWorker.Worker == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no worker")
 			}
-			dto := workerDTOFromFields(resp.ReleaseWorker.WorkerFields)
+			payload := resp.ReleaseWorker
+			// EVERYTHING THE RECEIPT ASSERTS NOW COMES OFF THE PAYLOAD (#1073).
+			//
+			// This is the adoption, and it is a deletion rather than an
+			// addition. The command used to derive `wasHeld` from its own
+			// pre-read of a maskable field and `forced` by comparing the holder
+			// against its own identity read — two client-side classifications
+			// that were wrong in the same place: the retry path, where the
+			// pre-read was by construction the thing the server had just
+			// refused. Both now come from inside the guarded write.
+			//
+			// So the local `priorHolder`, `wasHeld` and `forced` keep exactly
+			// one job between them — deciding what to ASK before the act. What
+			// happened is the server's to report.
+			releasedFrom := releasedFromDTOFrom(payload.ReleasedFrom)
+			dto := workerDTOFromFields(payload.Worker.WorkerFields)
 			result := releaseResultDTO{
 				ID: dto.ID, Name: dto.Name, URN: dto.URN,
-				WasHeld: wasHeld, ReleasedFromUserID: priorHolder,
-				Forced: forced, Status: "released",
+				WasHeld:      releasedFrom != nil,
+				ReleasedFrom: releasedFrom,
+				Forced:       payload.Forced,
+				Notified:     payload.Notified,
+				Status:       "released",
 			}
-			if priorHolder == nil {
-				result.Status = "no-visible-hold"
+			if releasedFrom != nil {
+				result.ReleasedFromUserID = &releasedFrom.ID
+			}
+			// "nothing-released", not "no-visible-hold". The old name hedged
+			// about VISIBILITY because a nil pre-read could not tell an unheld
+			// name from one masked from the caller. `releasedFrom` is null
+			// exactly when the write ended nothing, so this status is now a
+			// statement about the ACT rather than about what the caller could
+			// see. Keeping the old spelling would leave the hedge as a label
+			// after the evidence for it stopped being the evidence we use.
+			if releasedFrom == nil {
+				result.Status = "nothing-released"
 			}
 			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
-				// The nil-hold case is reported as what it IS: no hold was
-				// visible. Not "was not held" — heldByUserId masks to null on
-				// deny, so nil READ ON ITS OWN means "unheld OR held and
-				// invisible to you", and this command does not consult the one
-				// field that could tell them apart (see wasHeld's doc: the
-				// signal exists since #487, using it here is #522).
+				// NOTHING WAS RELEASED, and that is now sayable flatly.
 				//
-				// The distinction matters because of what a reader DOES with
-				// it: "was not held" reads as "this name is free to bind", and
-				// a caller acting on that meets WORKER_HELD at the next
-				// `session start`. One extra word buys the difference between
-				// an honest report and a confident wrong one.
-				if priorHolder == nil {
+				// This used to read "no hold was visible to you", hedged
+				// because the only evidence was a pre-read of a field that
+				// masks on deny — nil meant "unheld OR held and invisible to
+				// you", and "was not held" would have told a caller the name
+				// was free to bind when the next `session start` answers
+				// WORKER_HELD. The server now says whether the write ended a
+				// hold, so the ambiguity the hedge existed for is gone.
+				if releasedFrom == nil {
 					_, err := fmt.Fprintf(out,
-						"· no hold on %s was visible to you — nothing was released that you could see\n", dto.Name)
+						"· %s was not held — nothing to release\n", dto.Name)
 					return err
 				}
+				who := releasedFromLabel(releasedFrom)
 				switch {
-				case result.Forced == nil:
-					// Never claim an announcement we cannot verify, and never
-					// hide one that may have happened. Saying "announced" would
-					// assert a public act that may not have occurred; saying
-					// nothing would conceal one that did.
-					if _, err := fmt.Fprintf(out,
-						"✓ released %s (previously held by %s) — your own identity could not be read, so if that "+
-							"was not you, the server posts a notice to the team chat (best-effort)\n",
-						dto.Name, describeHolder(ctx, client, *priorHolder)); err != nil {
-						return err
+				case result.Forced:
+					// The notice is BEST-EFFORT server-side — an unreachable
+					// chat must never block an admin recovering a departed
+					// colleague's names — and #1073 finally reports which
+					// happened, so this no longer has to hedge ("the server
+					// posts a notice…") about an act it could not observe.
+					//
+					// THREE outcomes, because `notified` has three states and
+					// collapsing them is what the field exists to prevent: a
+					// posted notice, one that was OWED AND FAILED — which the
+					// reader must be told, since they are now the only person
+					// who knows the team was not informed — and, on the
+					// null that should not occur for a force-release, silence
+					// about delivery rather than a guess.
+					line := "✓ force-released %s from %s"
+					switch {
+					case result.Notified == nil:
+						line += " — the server reported nothing about the team-chat notice\n"
+					case *result.Notified:
+						line += " — a notice was posted to the team chat\n"
+					default:
+						line += " — the team-chat notice FAILED to post; the release stands, so tell the team yourself\n"
 					}
-				case *result.Forced:
-					// "posts", not "announced". The notification is BEST-EFFORT
-					// server-side — an unreachable chat never blocks the release
-					// — and the payload carries no delivery signal, so asserting
-					// the notice appeared is a third claim this command cannot
-					// verify (PR #504 review). The PROMPT still says POSTS TO
-					// THE TEAM CHAT in the strong form: that is a warning about
-					// what the act IS, before you consent to it, and overstating
-					// there errs toward caution. This is a report of what
-					// happened, and errs toward accuracy.
-					if _, err := fmt.Fprintf(out,
-						"✓ force-released %s from %s — the server posts a notice to the team chat (best-effort)\n",
-						dto.Name, describeHolder(ctx, client, *priorHolder)); err != nil {
+					if _, err := fmt.Fprintf(out, line, dto.Name, who); err != nil {
 						return err
 					}
 				default:

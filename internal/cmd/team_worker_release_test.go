@@ -52,16 +52,87 @@ const authContextHolgerJSON = `{"data":{"authContext":{"principalType":"USER","a
 	        "githubUsername":null,"roles":["ADMIN"]},
 	"apiKey":null,"impersonation":null}}}`
 
+// holdOf reads the holder out of a worker fixture, "" when unheld.
+//
+// It exists so releaseStubs can derive a payload that AGREES with the worker it
+// is stubbed beside. A fixture whose pre-state says "held by Dara" and whose
+// payload says "released nobody" describes a server that cannot exist, and
+// hadron-cli#550 is a whole PR about what that costs.
+func holdOf(worker string) string {
+	m := regexp.MustCompile(`"heldByUserId":"([^"]*)"`).FindStringSubmatch(worker)
+	if m == nil {
+		return ""
+	}
+	return m[1]
+}
+
+// releasePayload builds a ReleaseWorkerPayload (hadron-server#1073).
+//
+// `notified` is RAW JSON — "true", "false" or "null" — because the field is
+// three-valued on purpose and a Go bool parameter could not express the one
+// state the CLI most has to render: a notice that was OWED AND FAILED.
+func releasePayload(worker, releasedFrom string, forced bool, notified string) string {
+	switch notified {
+	case "true", "false", "null":
+	default:
+		panic("releasePayload: notified must be raw JSON true/false/null, got " + notified)
+	}
+	from := "null"
+	if releasedFrom != "" {
+		// handle + urn are always present for a real user; `name` carries the
+		// #384 gate. The default here is the VISIBLE case — releasing a
+		// colleague who is still a co-member — because that is the ordinary
+		// one. `nameWithheld` produces the other, which is what an admin
+		// releasing someone who has LEFT the org actually receives.
+		handle := strings.TrimPrefix(releasedFrom, "u-")
+		name := `"` + strings.ToUpper(handle[:1]) + handle[1:] + `"`
+		from = `{"id":"` + releasedFrom + `","handle":"` + handle +
+			`","urn":"hrn:user:` + handle + `","name":` + name + `}`
+	}
+	return `{"data":{"releaseWorker":{"worker":` + worker +
+		`,"releasedFrom":` + from +
+		`,"forced":` + map[bool]string{true: "true", false: "false"}[forced] +
+		`,"notified":` + notified + `}}}`
+}
+
+// nameWithheld nulls `releasedFrom.name` in a payload — the shape an admin gets
+// when releasing someone OUTSIDE the #384 gate.
+//
+// Not an edge case worth a footnote: `leaveApp` deletes the AppMember row while
+// the hold survives, so the departed colleague this force-release path exists
+// FOR is precisely the person whose name is withheld. A receipt that rendered a
+// dash there would be its ordinary output.
+func nameWithheld(payload string) string {
+	out := regexp.MustCompile(`("urn":"hrn:user:[^"]*","name"):"[^"]*"`).
+		ReplaceAllString(payload, `$1:null`)
+	if out == payload {
+		panic("nameWithheld: no releasedFrom.name to withhold — the fixture would prove nothing")
+	}
+	return out
+}
+
 func releaseStubs(worker string, extra map[string]string) map[string]string {
+	// The payload is DERIVED from the worker being released, so the default
+	// stub cannot contradict its own pre-state: whoever the fixture says holds
+	// the name is whom the release ends, and `forced` follows from whether that
+	// is the authenticated caller (u-holger). A notice is owed exactly on the
+	// force path, and posts.
+	holder := holdOf(worker)
+	forced := holder != "" && holder != "u-holger"
+	notified := "null"
+	if forced {
+		notified = "true"
+	}
 	m := map[string]string{
 		"Workers":     `{"data":{"workers":{"total":1,"items":[` + worker + `]}}}`,
 		"AuthContext": authContextHolgerJSON,
 		// The re-read immediately before the mutation. By default it answers
 		// with the SAME worker, i.e. the hold did not change.
 		"GetWorker": `{"data":{"worker":` + worker + `}}`,
-		// POST-release by construction: irisWorkerJSON carries no hold, which
-		// is what releaseWorker returns. Do not swap in a held fixture here.
-		"ReleaseWorker": `{"data":{"releaseWorker":` + irisWorkerJSON + `}}`,
+		// The worker inside the payload is POST-release by construction — the
+		// hold cleared, which is what releaseWorker returns. Do not swap in a
+		// held fixture here.
+		"ReleaseWorker": releasePayload(released(worker), holder, forced, notified),
 	}
 	for k, v := range extra {
 		m[k] = v
@@ -132,7 +203,7 @@ func TestWorkerReleaseForcedRefusesWithoutYes(t *testing.T) {
 // …and with --yes it proceeds, names the prior holder as a PERSON, and says the
 // chat post happened rather than leaving the caller to discover it there.
 func TestWorkerReleaseForcedNamesTheHolderAndTheChatPost(t *testing.T) {
-	gql, _ := captureGraphQL(t, releaseStubs(heldBy("u-dara"), map[string]string{
+	gql, captured := captureGraphQL(t, releaseStubs(heldBy("u-dara"), map[string]string{
 		"GetUser": `{"data":{"user":{"id":"u-dara","name":"Dara","email":null,"handle":"dara",
 			"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
 			"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
@@ -145,26 +216,128 @@ func TestWorkerReleaseForcedNamesTheHolderAndTheChatPost(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	got := out.String()
-	for _, want := range []string{"force-released Iris", "Dara (@dara)", "posts a notice to the team chat"} {
+	// The receipt now REPORTS the notice rather than hedging about it. The
+	// hedge ("the server posts a notice … best-effort") existed because the old
+	// payload carried no delivery signal, so asserting the post was a claim
+	// this command could not support. #1073's `notified` is that signal.
+	for _, want := range []string{"force-released Iris", "Dara", "a notice was posted to the team chat"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("the force receipt must carry %q: %s", want, got)
 		}
 	}
-	// The notification is BEST-EFFORT server-side and the payload carries no
-	// delivery signal, so the receipt must not assert the notice appeared.
-	if strings.Contains(got, "announced in the team chat") {
-		t.Errorf("claims a delivery it cannot verify: %s", got)
+	if strings.Contains(got, "best-effort") {
+		t.Errorf("the delivery is now REPORTED, so do not hedge about it: %s", got)
 	}
-	if !strings.Contains(got, "best-effort") {
-		t.Errorf("must say the announcement is best-effort: %s", got)
+	// It must not read the holder's user record to say this. The projection is
+	// carried precisely so the caller needs no second route to that identity —
+	// and on the path this command exists for, they have none.
+	if _, called := captured["GetUser"]; called {
+		t.Error("the receipt must name the holder from the payload, not a GetUser round trip")
 	}
 }
 
-// A holder whose user record the caller may not read must not fail the release
+// A notice that was OWED AND FAILED. The release stands, and the reader is now
+// the only person who knows the team was not told — so this is the one
+// `notified` state the receipt must never render as silence.
+func TestWorkerReleaseReportsAFailedTeamChatNotice(t *testing.T) {
+	stubs := releaseStubs(heldBy("u-dara"), nil)
+	stubs["ReleaseWorker"] = releasePayload(released(heldBy("u-dara")), "u-dara", true, "false")
+	gql, _ := captureGraphQL(t, stubs)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a failed notice must not fail the release: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "force-released Iris") {
+		t.Errorf("the release still happened and the receipt must say so: %s", got)
+	}
+	for _, want := range []string{"FAILED", "tell the team yourself"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("a failed notice must be surfaced with a remedy (%q): %s", want, got)
+		}
+	}
+	// The exact inversion this guards: reporting an undelivered notice as a
+	// delivered one, which leaves the caller believing the team was informed.
+	if strings.Contains(got, "a notice was posted") {
+		t.Errorf("a FAILED notice must not read as a posted one: %s", got)
+	}
+}
+
+// The gated half of the projection: `name` withheld, `handle` always there.
+// Rendering a dash — or an empty "released from " — would be this command's
+// ORDINARY output for the population its admin path serves.
+func TestWorkerReleaseFallsBackToTheHandleWhenTheNameIsWithheld(t *testing.T) {
+	stubs := releaseStubs(heldBy("u-dara"), nil)
+	stubs["ReleaseWorker"] = nameWithheld(releasePayload(released(heldBy("u-dara")), "u-dara", true, "true"))
+	gql, _ := captureGraphQL(t, stubs)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes", "--json",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		ReleasedFrom *struct {
+			ID     string  `json:"id"`
+			Handle *string `json:"handle"`
+			URN    *string `json:"urn"`
+			Name   *string `json:"name"`
+		} `json:"releasedFrom"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("--json must parse: %v (%s)", err, out.String())
+	}
+	if dto.ReleasedFrom == nil {
+		t.Fatalf("releasedFrom must survive a withheld name: %s", out.String())
+	}
+	// --json passes the withholding THROUGH rather than substituting: a
+	// consumer must be able to tell "not permitted to see the name" from a name
+	// that happens to equal the handle.
+	if dto.ReleasedFrom.Name != nil {
+		t.Errorf("a withheld name must stay null in --json: %s", out.String())
+	}
+	if dto.ReleasedFrom.Handle == nil || *dto.ReleasedFrom.Handle != "dara" {
+		t.Errorf("the handle is what survives the gate: %s", out.String())
+	}
+	if dto.ReleasedFrom.URN == nil || *dto.ReleasedFrom.URN != "hrn:user:dara" {
+		t.Errorf("the URN addresses the person a caller may need to contact: %s", out.String())
+	}
+
+	// AND THE HUMAN RECEIPT FALLS BACK, which is a separate branch from the
+	// --json pass-through above and was uncovered until a mutation said so:
+	// deleting the handle case from releasedFromLabel left the whole suite
+	// green, because every other fixture has a visible name.
+	//
+	// The failure it would have shipped is "force-released Iris from " — a
+	// sentence with a hole where the person goes, on the path this command
+	// exists for.
+	gql2, _ := captureGraphQL(t, stubs)
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
+		"--app", "acme.com:eng-team", "--server", gql2.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out2.String(), "force-released Iris from @dara") {
+		t.Errorf("a withheld name must render the handle, not a gap: %q", out2.String())
+	}
+}
+
+// A holder whose USER RECORD the caller may not read must not fail the release
 // — the name is decoration, and gating an operation on a display label is the
-// describeApp lesson. It falls back to the id.
+// describeApp lesson.
+//
+// Since #1073 the receipt does not read that record at all: the payload carries
+// the identity, which is the point of carrying it. So the case this test was
+// written for can no longer arise on the receipt path, and what it pins now is
+// STRONGER — a forbidden `GetUser` is not merely survived, it is not consulted.
 func TestWorkerReleaseSurvivesUnreadableHolder(t *testing.T) {
-	gql, _ := captureGraphQL(t, releaseStubs(heldBy("u-dara"), map[string]string{
+	gql, captured := captureGraphQL(t, releaseStubs(heldBy("u-dara"), map[string]string{
 		"GetUser": `{"errors":[{"message":"forbidden","extensions":{"code":"FORBIDDEN"}}]}`,
 	}))
 	f, out := testFactory(t)
@@ -174,8 +347,11 @@ func TestWorkerReleaseSurvivesUnreadableHolder(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("an unreadable holder must not fail the release: %v", err)
 	}
-	if !strings.Contains(out.String(), "u-dara") {
-		t.Errorf("it must fall back to the holder's id: %s", out.String())
+	if !strings.Contains(out.String(), "force-released Iris from Dara") {
+		t.Errorf("the holder is named from the payload, not from GetUser: %s", out.String())
+	}
+	if _, called := captured["GetUser"]; called {
+		t.Error("the receipt must not spend a user read it no longer needs")
 	}
 }
 
@@ -188,15 +364,20 @@ func TestWorkerReleaseSurvivesUnreadableHolder(t *testing.T) {
 // alongside it — was unsound: all of those are legitimately nullable too
 // (PR #504 review). So the receipt reports what it actually knows.
 //
-// #487 added a field that IS sound for this — hasLiveSession, which unlike
-// those probes is never legitimately null on a permitted read — so the receipt
-// COULD now classify. It deliberately does not yet (#522), which is why this
-// test still pins the hedge: the behaviour under test is a choice, and a test
-// that stopped asserting it would let the choice be reversed silently.
-func TestWorkerReleaseNilHoldClaimsNothing(t *testing.T) {
+// THE HEDGE IS RETIRED, and this test now pins its replacement (#1073). The
+// receipt used to say "no hold was visible to you" because the only evidence
+// was a pre-read of a maskable field. `releasedFrom` comes from inside the
+// guarded write, so "nothing was released" is a fact about the ACT and the
+// visibility caveat has no subject left.
+func TestWorkerReleaseNothingReleasedSaysSoPlainly(t *testing.T) {
 	for _, tc := range []struct{ name, worker string }{
 		{"genuinely unheld", irisWorkerJSON},
-		{"held but masked from the caller", maskedWorkerJSON},
+		// The caller cannot READ the hold — and the answer is the server's
+		// either way, which is the whole point. Before #1073 this row and the
+		// one above were indistinguishable to the receipt; they still produce
+		// the same output, but now because the server said the same thing about
+		// both, rather than because the client could not tell them apart.
+		{"the caller cannot read the hold", maskedWorkerJSON},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			stubs := releaseStubs(tc.worker, nil)
@@ -206,26 +387,78 @@ func TestWorkerReleaseNilHoldClaimsNothing(t *testing.T) {
 			root := NewRootCmd(f)
 			// No --yes and no TTY: a prompt here would refuse. Both cases must
 			// stay quiet — prompting on every no-op is the cost #495 asked us
-			// not to pay, and the two are indistinguishable anyway.
+			// not to pay.
 			root.SetArgs([]string{"team", "worker", "release", "Iris",
 				"--app", "acme.com:eng-team", "--server", gql.URL})
 			if err := root.Execute(); err != nil {
-				t.Fatalf("a nil hold must not prompt: %v", err)
+				t.Fatalf("a no-op release must not prompt: %v", err)
 			}
 			got := out.String()
-			if !strings.Contains(got, "no hold on Iris was visible to you") {
-				t.Errorf("report what is known: %s", got)
+			if !strings.Contains(got, "Iris was not held — nothing to release") {
+				t.Errorf("report the server's answer: %s", got)
 			}
-			// The two claims it must never make: that something was released,
-			// and that the name is free. A reader acting on the second meets
-			// WORKER_HELD at the next `session start`.
 			if strings.Contains(got, "✓ released") {
 				t.Errorf("a no-op must not print a success receipt: %s", got)
 			}
-			if strings.Contains(got, "was not held") {
-				t.Errorf("nil is not proof the name is free: %s", got)
+			// The retired sentence, pinned out: it hedged about a visibility
+			// ambiguity the server has now resolved, and leaving it would teach
+			// a reader to distrust an answer that is no longer a guess.
+			if strings.Contains(got, "visible to you") {
+				t.Errorf("the visibility hedge has no subject any more: %s", got)
 			}
 		})
+	}
+}
+
+// THE ADOPTION IN ONE TEST: the caller cannot see the hold, and the receipt
+// names the person anyway, because the server does.
+//
+// Before #1073 this was unreachable — the pre-read was the only source, so a
+// masked hold produced a receipt that could name nobody. It is also the case
+// where the old client-side classification was WORST: on a masked hold it
+// asserted "unheld", and everything downstream was derived from that.
+func TestWorkerReleaseReportsAHolderTheCallerCouldNotSee(t *testing.T) {
+	stubs := releaseStubs(maskedWorkerJSON, nil)
+	stubs["GetWorker"] = `{"data":{"worker":` + maskedWorkerJSON + `}}`
+	// The server released a hold this caller was never shown.
+	stubs["ReleaseWorker"] = releasePayload(irisWorkerJSON, "u-dara", true, "true")
+	gql, captured := captureGraphQL(t, stubs)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes", "--json",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		WasHeld            bool    `json:"wasHeld"`
+		ReleasedFromUserID *string `json:"releasedFromUserId"`
+		Forced             bool    `json:"forced"`
+		Status             string  `json:"status"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("--json must parse: %v (%s)", err, out.String())
+	}
+	// Every one of these was previously derived from a pre-read that saw
+	// nothing, and every one of them was therefore wrong on this path.
+	if !dto.WasHeld {
+		t.Errorf("the server released a hold, so wasHeld is true: %s", out.String())
+	}
+	if dto.ReleasedFromUserID == nil || *dto.ReleasedFromUserID != "u-dara" {
+		t.Errorf("the holder comes from the payload, not the pre-read: %s", out.String())
+	}
+	if !dto.Forced {
+		t.Errorf("the server computed forced; the client could not have: %s", out.String())
+	}
+	if dto.Status != "released" {
+		t.Errorf("status: %s", out.String())
+	}
+	// And it did not go looking: no identity read is needed to classify, and no
+	// user read is needed to name the holder.
+	for _, op := range []string{"AuthContext", "GetUser"} {
+		if _, called := captured[op]; called && op == "GetUser" {
+			t.Errorf("%s must not be needed — the payload carries the identity", op)
+		}
 	}
 }
 
@@ -242,7 +475,7 @@ func TestWorkerReleaseJSONShape(t *testing.T) {
 	}{
 		{"self", heldBy("u-holger"), true, false, "released"},
 		{"forced", heldBy("u-dara"), true, true, "released"},
-		{"unheld", irisWorkerJSON, false, false, "no-visible-hold"},
+		{"unheld", irisWorkerJSON, false, false, "nothing-released"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			gql, _ := captureGraphQL(t, releaseStubs(tc.worker, map[string]string{
@@ -257,13 +490,22 @@ func TestWorkerReleaseJSONShape(t *testing.T) {
 			if err := root.Execute(); err != nil {
 				t.Fatalf("execute: %v", err)
 			}
+			// DEFINITE bools since #1073, decoded as bools rather than
+			// pointers — which is itself the assertion: a `null` would fail to
+			// round-trip into these and the old contract emitted one.
 			var dto struct {
 				ID                 string  `json:"id"`
 				Name               string  `json:"name"`
-				WasHeld            *bool   `json:"wasHeld"`
+				WasHeld            bool    `json:"wasHeld"`
 				ReleasedFromUserID *string `json:"releasedFromUserId"`
-				Forced             *bool   `json:"forced"`
-				Status             string  `json:"status"`
+				ReleasedFrom       *struct {
+					ID     string  `json:"id"`
+					Handle *string `json:"handle"`
+					Name   *string `json:"name"`
+				} `json:"releasedFrom"`
+				Forced   bool   `json:"forced"`
+				Notified *bool  `json:"notified"`
+				Status   string `json:"status"`
 			}
 			if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
 				t.Fatalf("--json must parse: %v (%s)", err, out.String())
@@ -271,24 +513,32 @@ func TestWorkerReleaseJSONShape(t *testing.T) {
 			if dto.Status != tc.status {
 				t.Errorf("status: %s", out.String())
 			}
+			if dto.WasHeld != tc.wasHeld || dto.Forced != tc.forced {
+				t.Errorf("wasHeld/forced: %s", out.String())
+			}
 			if tc.wasHeld {
-				if dto.WasHeld == nil || !*dto.WasHeld {
-					t.Errorf("a held name must report wasHeld true: %s", out.String())
-				}
 				if dto.ReleasedFromUserID == nil {
-					t.Errorf("the prior holder is the one fact only the pre-read has: %s", out.String())
+					t.Errorf("the holder the WRITE ended must be reported: %s", out.String())
 				}
-				if dto.Forced == nil || *dto.Forced != tc.forced {
-					t.Errorf("forced: %s", out.String())
+				// The projection rides alongside, and its id MIRRORS the flat
+				// key rather than replacing it — the old key keeps its name
+				// because agents parse it.
+				if dto.ReleasedFrom == nil || dto.ReleasedFrom.ID != *dto.ReleasedFromUserID {
+					t.Errorf("releasedFrom must mirror releasedFromUserId: %s", out.String())
+				}
+				if dto.ReleasedFrom.Handle == nil {
+					t.Errorf("the handle is the always-present identifier: %s", out.String())
 				}
 			} else {
-				// A nil hold is ambiguous, so BOTH booleans stay null rather
-				// than encoding a guess as false.
-				if dto.WasHeld != nil || dto.Forced != nil {
-					t.Errorf("a nil hold must not be reported as a known false: %s", out.String())
+				// Nothing released: every derived key is absent rather than
+				// zero-valued, so "no holder" cannot be read as a holder.
+				if dto.ReleasedFromUserID != nil || dto.ReleasedFrom != nil {
+					t.Errorf("nothing released means no holder to report: %s", out.String())
 				}
-				if dto.ReleasedFromUserID != nil {
-					t.Errorf("no visible holder means none to report: %s", out.String())
+				// notified is NULL, not false: no notice was OWED, which is a
+				// different fact from one that was owed and failed.
+				if dto.Notified != nil {
+					t.Errorf("no notice was owed, so notified must be null: %s", out.String())
 				}
 			}
 		})
@@ -483,7 +733,21 @@ func holdStale(heldByUserID string) string {
 		`"code":"WORKER_HOLD_STALE","workerId":"wkr1","heldByUserId":` + holder + `}}]}`
 }
 
-const releasedOK = `{"data":{"releaseWorker":` + irisWorkerJSON + `}}`
+// releasedFromOK is the payload for a release that ENDED a hold — built per
+// scenario, because the payload is now what the receipt reports and a fixture
+// that names a different holder than the scenario set up would let the receipt
+// disagree with the story the test is telling.
+//
+// `forced` follows from the holder, since the authenticated caller in these
+// tests is u-holger; a notice is owed exactly on the force path.
+func releasedFromOK(holder string) string {
+	forced := holder != "u-holger"
+	notified := "null"
+	if forced {
+		notified = "true"
+	}
+	return releasePayload(irisWorkerJSON, holder, forced, notified)
+}
 
 // EXACTLY ONE assertion travels with every release, and which one is the whole
 // safety property (#522, hadron-server#1084).
@@ -504,7 +768,7 @@ func TestWorkerReleaseAssertsTheHoldItClassifiedAgainst(t *testing.T) {
 		{"no visible hold: assert unheld", irisWorkerJSON, nil, boolPtrT(true)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			srv, seen := releaseSequence(t, tc.worker, []string{releasedOK}, map[string]string{
+			srv, seen := releaseSequence(t, tc.worker, []string{releasedFromOK(holdOf(tc.worker))}, map[string]string{
 				"GetUser": `{"data":{"user":{"id":"u-dara","name":"Dara","email":null,"handle":"dara",
 					"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
 					"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
@@ -596,7 +860,7 @@ func TestWorkerReleaseHandlesAStaleHold(t *testing.T) {
 	// proceeds — against the holder the SERVER named, not the CLI's guess.
 	t.Run("someone else holds it, --yes: retry against the true holder", func(t *testing.T) {
 		srv, seen := releaseSequence(t, irisWorkerJSON,
-			[]string{holdStale("u-gil"), releasedOK}, gilUser)
+			[]string{holdStale("u-gil"), releasedFromOK("u-gil")}, gilUser)
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes", "--json",
@@ -644,7 +908,7 @@ func TestWorkerReleaseHandlesAStaleHold(t *testing.T) {
 	// would have if the hold had been readable in the first place.
 	t.Run("it is my own hold after all: no prompt, not forced", func(t *testing.T) {
 		srv, seen := releaseSequence(t, irisWorkerJSON,
-			[]string{holdStale("u-holger"), releasedOK}, nil)
+			[]string{holdStale("u-holger"), releasedFromOK("u-holger")}, nil)
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
 		// No --yes and no TTY: a prompt here would refuse as non-interactive,
@@ -751,7 +1015,7 @@ func TestWorkerReleaseHandlesAStaleHold(t *testing.T) {
 		nowRetired := strings.Replace(irisWorkerJSON, `"retiredAt":null`,
 			`"retiredAt":"2026-08-21T00:00:00Z"`, 1)
 		srv, seen := releaseSequence(t, irisWorkerJSON,
-			[]string{holdStale("u-gil"), releasedOK}, gilUser,
+			[]string{holdStale("u-gil"), releasedFromOK("u-gil")}, gilUser,
 			`{"data":{"worker":`+irisWorkerJSON+`}}`, // pre-call: still active
 			`{"data":{"worker":`+nowRetired+`}}`,     // inside the retry window
 		)
@@ -851,9 +1115,16 @@ func TestWorkerReleaseUnknownIdentityIsNotAForceRelease(t *testing.T) {
 		t.Error("refused prompt must not reach the mutation")
 	}
 
-	// With --yes it proceeds, and reports `forced: null` — not false (which
-	// would claim a private act) and not true (which would claim an
-	// announcement). The human line says the same thing in words.
+	// THE PROMPT STILL HEDGES; THE RECEIPT NO LONGER HAS TO (#1073).
+	//
+	// This is the split the adoption makes, and it is worth being explicit
+	// about because the two used to share one nullable value. PREDICTING the
+	// act — deciding whether to ask — must still be conservative when the CLI
+	// cannot read its own identity: the holder may be somebody else, so it
+	// asks. REPORTING the act is now the server's answer, computed against the
+	// authenticated principal inside the write, so `forced: null` has nothing
+	// left to mean. The path where this client could never classify is exactly
+	// the path where the server always can.
 	gql2, _ := captureGraphQL(t, stubs)
 	f2, out2 := testFactory(t)
 	root2 := NewRootCmd(f2)
@@ -866,8 +1137,22 @@ func TestWorkerReleaseUnknownIdentityIsNotAForceRelease(t *testing.T) {
 	if err := json.Unmarshal([]byte(out2.String()), &raw); err != nil {
 		t.Fatalf("--json must parse: %v (%s)", err, out2.String())
 	}
-	if v, present := raw["forced"]; !present || v != nil {
-		t.Errorf("forced must be null when the act could not be classified, got %v: %s", v, out2.String())
+	// The hold is the CALLER'S OWN, and the server says so — `forced: false`,
+	// definitively, while this CLI cannot read its own identity to check.
+	//
+	// That is the original defect solved rather than hedged. This test was
+	// written because collapsing "unknown" into "not you" would report
+	// `forced: true` and a team-chat announcement the server never made; the
+	// old fix was to publish a null. #1073 gives the answer instead, and it is
+	// the RIGHT one — a self-release, on the exact path the client is blind.
+	if raw["forced"] != false {
+		t.Errorf("the server classifies this as the caller's own release, got %v: %s",
+			raw["forced"], out2.String())
+	}
+	// And no notice was OWED, which is the null — distinct from one that was
+	// owed and failed. A self-release announces nothing.
+	if v, present := raw["notified"]; !present || v != nil {
+		t.Errorf("a self-release owes no notice, so notified must be null, got %v: %s", v, out2.String())
 	}
 
 	f3, out3 := testFactory(t)
@@ -878,8 +1163,23 @@ func TestWorkerReleaseUnknownIdentityIsNotAForceRelease(t *testing.T) {
 	if err := root3.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if !strings.Contains(out3.String(), "identity could not be read") {
-		t.Errorf("the receipt must say it could not classify the act: %s", out3.String())
+	if !strings.Contains(out3.String(), "✓ released Iris") {
+		t.Errorf("the receipt reports the act the server performed: %s", out3.String())
+	}
+	// Never the force wording, and never a chat post: the server said this was
+	// the caller's own name. Asserting a public act that did not happen is the
+	// failure this test was filed for.
+	for _, forbidden := range []string{"force-released", "team chat"} {
+		if strings.Contains(out3.String(), forbidden) {
+			t.Errorf("a self-release must not claim %q: %s", forbidden, out3.String())
+		}
+	}
+	// The retired sentence. It was honest when the CLI was the classifier; kept
+	// now, it would hedge about a fact the server states — which is worse than
+	// the hedge it replaced, because a reader would discount an answer that is
+	// no longer a guess.
+	if strings.Contains(out3.String(), "identity could not be read") {
+		t.Errorf("the receipt no longer classifies, so it must not apologise for failing to: %s", out3.String())
 	}
 }
 
@@ -970,7 +1270,7 @@ func TestWorkerReleaseDoesNotPromiseBindingARetiredWorker(t *testing.T) {
 	// construction. A stub that hands back a still-held worker is inconsistent
 	// with the contract and can mask a regression that reads the hold from the
 	// response instead of the pre-read (PR #504 review).
-	stubs["ReleaseWorker"] = `{"data":{"releaseWorker":` + released(retiredHeld) + `}}`
+	stubs["ReleaseWorker"] = releasePayload(released(retiredHeld), holdOf(retiredHeld), holdOf(retiredHeld) != "u-holger", "true")
 
 	gql, _ := captureGraphQL(t, stubs)
 	f, out := testFactory(t)
@@ -1020,7 +1320,7 @@ func TestWorkerReleasePromptDoesNotPromiseANextHolderForARetiredWorker(t *testin
 			"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
 	})
 	stubs["GetWorker"] = `{"data":{"worker":` + retiredHeld + `}}`
-	stubs["ReleaseWorker"] = `{"data":{"releaseWorker":` + released(retiredHeld) + `}}`
+	stubs["ReleaseWorker"] = releasePayload(released(retiredHeld), holdOf(retiredHeld), holdOf(retiredHeld) != "u-holger", "true")
 
 	gql, _ := captureGraphQL(t, stubs)
 	f, out := testFactory(t)
