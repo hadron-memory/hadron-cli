@@ -54,7 +54,7 @@ generate:
 # that is SUPPOSED to write had no guard at all.
 schema:
 	@MAKECMDGOALS_HINT=schema bash scripts/sibling-source.sh "schema" $(SDL_SOURCES)
-	@bash scripts/write-if-produced.sh schema/schema.graphql -C $(HADRON_SERVER_DIR) -- $(SDL_EXPORT)
+	@bash scripts/write-if-produced.sh schema/schema.graphql -C $(HADRON_SERVER_DIR) -- "$(SDL_EXPORT)"
 	$(MAKE) generate
 
 # Drift detector: rebuild the SDL from the server checkout and fail if the
@@ -84,7 +84,7 @@ schema-check:
 	cp schema/schema.graphql $$bak/schema.graphql; \
 	cp internal/api/gen/generated.go $$bak/generated.go; \
 	trap 'cp $$bak/schema.graphql schema/schema.graphql; cp $$bak/generated.go internal/api/gen/generated.go; rm -rf $$bak' EXIT; \
-	bash scripts/write-if-produced.sh schema/schema.graphql -C $(HADRON_SERVER_DIR) -- $(SDL_EXPORT); \
+	bash scripts/write-if-produced.sh schema/schema.graphql -C $(HADRON_SERVER_DIR) -- "$(SDL_EXPORT)"; \
 	if ! go tool genqlient; then \
 	  echo "✗ schema drift: CLI operations no longer typecheck against the server SDL — run 'make schema' and reconcile."; \
 	  exit 1; \
@@ -106,7 +106,7 @@ schema-check:
 # embeds, which would then report every server tool as missing.
 tools-manifest:
 	@MAKECMDGOALS_HINT=tools-manifest bash scripts/sibling-source.sh "tools-manifest" $(TOOLS_SOURCES)
-	@HADRON_SERVER_DIR=$(HADRON_SERVER_DIR) bash scripts/write-if-produced.sh internal/cmd/spec/mcp-tools.txt -- bash scripts/gen-tools-manifest.sh
+	@HADRON_SERVER_DIR=$(HADRON_SERVER_DIR) bash scripts/write-if-produced.sh internal/cmd/spec/mcp-tools.txt -- "bash scripts/gen-tools-manifest.sh"
 
 # Drift detector for the tool manifest: regenerate from the server checkout and
 # fail if the committed internal/cmd/spec/mcp-tools.txt is stale — the tool renamed/added
@@ -128,7 +128,7 @@ tools-manifest-check:
 	bak=$$(mktemp -d); \
 	cp internal/cmd/spec/mcp-tools.txt $$bak/mcp-tools.txt; \
 	trap 'cp $$bak/mcp-tools.txt internal/cmd/spec/mcp-tools.txt; rm -rf $$bak' EXIT; \
-	HADRON_SERVER_DIR=$(HADRON_SERVER_DIR) bash scripts/write-if-produced.sh internal/cmd/spec/mcp-tools.txt -- bash scripts/gen-tools-manifest.sh; \
+	HADRON_SERVER_DIR=$(HADRON_SERVER_DIR) bash scripts/write-if-produced.sh internal/cmd/spec/mcp-tools.txt -- "bash scripts/gen-tools-manifest.sh"; \
 	if ! diff -q $$bak/mcp-tools.txt internal/cmd/spec/mcp-tools.txt >/dev/null 2>&1; then \
 	  echo "✗ tool-manifest drift: hadron-server's tool set changed — run 'make tools-manifest' and commit."; \
 	  diff -u $$bak/mcp-tools.txt internal/cmd/spec/mcp-tools.txt || true; \

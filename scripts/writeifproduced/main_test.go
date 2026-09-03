@@ -76,7 +76,7 @@ func mustRead(t *testing.T, p string) string {
 // The happy path: output replaces the destination.
 func TestWritesWhenTheGeneratorProduces(t *testing.T) {
 	dest := seed(t, "old snapshot\n")
-	out, code := run(t, dest, "--", "printf", "new snapshot\n")
+	out, code := run(t, dest, "--", `printf "new snapshot\n"`)
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, out)
 	}
@@ -91,7 +91,7 @@ func TestWritesWhenTheGeneratorProduces(t *testing.T) {
 func TestLeavesTheFileAloneWhenTheGeneratorFails(t *testing.T) {
 	const before = "the real snapshot\n"
 	dest := seed(t, before)
-	out, code := run(t, dest, "--", "bash", "-c", "exit 1")
+	out, code := run(t, dest, "--", "exit 1")
 	if code != 1 {
 		t.Fatalf("a failing generator must exit 1, got %d: %s", code, out)
 	}
@@ -142,11 +142,56 @@ func TestRunsTheGeneratorInAnotherDirectory(t *testing.T) {
 	}
 }
 
+// THE COMMAND IS A SHELL FRAGMENT, and this pins the exact shape that broke
+// (@codex P1).
+//
+// `SDL_EXPORT` has always been shell-expanded, and the nightly schema-drift
+// workflow passes `npm install --silent … 1>&2 && node_modules/.bin/tsx …`.
+// The first draft ran the arguments as an argv list, so `1>&2` and `&&` became
+// literal arguments to `npm`: the exporter never ran, the wrapper saw empty
+// output, and every scheduled drift check would have failed for a reason
+// unrelated to drift — on a `continue-on-error` job, so quietly.
+//
+// The two operators are tested together because that is how they arrive.
+func TestRunsTheCommandThroughAShell(t *testing.T) {
+	dest := seed(t, "old\n")
+	// Faithful to the workflow: noise to stderr, `&&`, then the real producer.
+	out, code := run(t, dest, "--", `printf "install chatter\n" 1>&2 && printf "REAL SDL\n"`)
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, out)
+	}
+	got := mustRead(t, dest)
+	if got != "REAL SDL\n" {
+		t.Errorf("only the producer's STDOUT belongs in the file, got %q", got)
+	}
+	// The chatter must not land in the artifact — that is the other half of the
+	// failure @codex described: if npm printed anything, its text replaced the
+	// schema while the real SDL went to the job log.
+	if strings.Contains(got, "install chatter") {
+		t.Errorf("stderr must not reach the destination: %q", got)
+	}
+}
+
+// …and a shell fragment that FAILS mid-pipeline still leaves the file alone.
+// `&&` short-circuiting is the realistic failure: the install fails, the
+// exporter never runs, and the old argv form could not even express this.
+func TestShellFailureMidFragmentLeavesTheFileAlone(t *testing.T) {
+	const before = "the real snapshot\n"
+	dest := seed(t, before)
+	out, code := run(t, dest, "--", `false && printf "never\n"`)
+	if code != 1 {
+		t.Fatalf("exit %d: %s", code, out)
+	}
+	if got := mustRead(t, dest); got != before {
+		t.Errorf("destination must be UNCHANGED, got %q", got)
+	}
+}
+
 // A destination that does not exist yet is created — the first refresh in a
 // fresh checkout must not need the file to already be there.
 func TestCreatesAMissingDestination(t *testing.T) {
 	dest := filepath.Join(t.TempDir(), "fresh.txt")
-	if _, code := run(t, dest, "--", "printf", "x\n"); code != 0 {
+	if _, code := run(t, dest, "--", `printf "x\n"`); code != 0 {
 		t.Fatalf("exit %d", code)
 	}
 	if got := mustRead(t, dest); got != "x\n" {
@@ -173,7 +218,7 @@ func TestRejectsMalformedInvocations(t *testing.T) {
 	}{
 		{"no arguments at all", nil},
 		{"destination but no command", []string{dest}},
-		{"missing the -- separator", []string{dest, "printf", "x"}},
+		{"missing the -- separator", []string{dest, "printf x"}},
 		{"-C with no directory", []string{dest, "-C"}},
 		{"separator but no command", []string{dest, "--"}},
 	} {

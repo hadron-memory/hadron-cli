@@ -23,12 +23,25 @@
 # `schema-check` already got this right with a mktemp backup and an EXIT trap.
 # The targets that are SUPPOSED to write are the ones that had no guard at all.
 #
+# THE COMMAND IS A SHELL FRAGMENT, NOT AN ARGV LIST, and that is load-bearing
+# (@codex P1). `SDL_EXPORT` has always been shell-expanded — the nightly
+# schema-drift workflow passes
+#
+#     npm install --silent tsx graphql@16 1>&2 && node_modules/.bin/tsx ...
+#
+# where `1>&2` and `&&` are SHELL SYNTAX. The first draft of this script ran
+# "$@" directly, which made them literal arguments to `npm`: the exporter never
+# ran, the wrapper saw empty output, and every scheduled drift check would have
+# failed for a reason unrelated to drift — on a `continue-on-error` job, i.e.
+# quietly. Preserving an interface means preserving how its values are PARSED,
+# not only what they are named.
+#
 # Usage:
-#   write-if-produced.sh <destination> [-C <dir>] -- <command> [args...]
+#   write-if-produced.sh <destination> [-C <dir>] -- <shell command>
 set -euo pipefail
 
 usage() {
-  echo "usage: write-if-produced.sh <destination> [-C <dir>] -- <command> [args...]" >&2
+  echo "usage: write-if-produced.sh <destination> [-C <dir>] -- <shell command>" >&2
   exit 2
 }
 
@@ -47,23 +60,33 @@ fi
 shift
 [ "$#" -ge 1 ] || usage
 
-tmp=$(mktemp)
+# An explicit template rather than a bare `mktemp`. It works bare on this
+# macOS (measured: /usr/bin/mktemp, BSD, returns a path) so @copilot's premise
+# that it fails there is not true today — but the template costs nothing, and
+# older BSD userlands did require one. A free guard against a question nobody
+# should have to re-ask.
+tmp=$(mktemp "${TMPDIR:-/tmp}/write-if-produced.XXXXXXXX")
 # Cleans up on every exit path INCLUDING the success one, where the file has
 # already been moved and `rm -f` is simply a no-op.
 trap 'rm -f "$tmp"' EXIT
 
+# Joined back into one string, so an UNQUOTED `$(SDL_EXPORT)` in a recipe still
+# arrives whole — make word-splits it either way, and the old bare redirect
+# re-parsed exactly this text through a shell.
+cmd="$*"
+
 # The subshell keeps the `cd` from leaking, and `set -e` is deliberately NOT
 # relied on here: the point is to catch the failure rather than to inherit it.
-if ! ( if [ -n "$workdir" ]; then cd "$workdir"; fi; "$@" ) > "$tmp"; then
+if ! ( if [ -n "$workdir" ]; then cd "$workdir"; fi; eval "$cmd" ) > "$tmp"; then
   echo "✗ $dest: the generator failed — the file is UNCHANGED." >&2
-  echo "  command: ${workdir:+(in $workdir) }$*" >&2
+  printf '  command: %s%s\n' "${workdir:+(in $workdir) }" "$cmd" >&2
   echo "  Run it by hand to see why; a silenced runner (pnpm -s) can exit non-zero with no output at all." >&2
   exit 1
 fi
 
 if [ ! -s "$tmp" ]; then
   echo "✗ $dest: the generator SUCCEEDED but produced nothing — the file is UNCHANGED." >&2
-  echo "  command: ${workdir:+(in $workdir) }$*" >&2
+  printf '  command: %s%s\n' "${workdir:+(in $workdir) }" "$cmd" >&2
   echo "  An empty artifact is worse than a failed one: it is committable, and it breaks somewhere else." >&2
   exit 1
 fi
