@@ -1095,7 +1095,10 @@ func noteUnreadTeamChat(ctx context.Context, f *cmdutil.Factory, b *binding) {
 	}
 	seen := *b.ChatSeenSeq
 	one := 1
-	resp, err := gen.TeamChatMessages(ctx, client, b.AppID, &seen, nil, &one, nil)
+	// No beforeSeq: this asks "how many since the watermark", and `total` is
+	// the count of everything matching — collection-scoped precisely BECAUSE
+	// there is no backward cursor here (see the operation's note on #1121).
+	resp, err := gen.TeamChatMessages(ctx, client, b.AppID, &seen, nil, &one, nil, nil)
 	if err != nil || resp.TeamChatMessages == nil || resp.TeamChatMessages.Total == 0 {
 		return // caught up, or unreadable — either way, nothing useful to say.
 	}
@@ -1121,7 +1124,7 @@ func noteUnreadTeamChat(ctx context.Context, f *cmdutil.Factory, b *binding) {
 	// said when it is actually known (PR #493 review).
 	mentions, mentionsKnown := 0, false
 	if b.WorkerID != "" {
-		if m, merr := gen.TeamChatMessages(ctx, client, b.AppID, &seen, &b.WorkerID, &one, nil); merr == nil && m.TeamChatMessages != nil {
+		if m, merr := gen.TeamChatMessages(ctx, client, b.AppID, &seen, &b.WorkerID, &one, nil, nil); merr == nil && m.TeamChatMessages != nil {
 			mentions, mentionsKnown = m.TeamChatMessages.Total, m.TeamChatMessages.Total <= total
 		}
 	}
