@@ -302,6 +302,16 @@ func TestRefusesWhenTheWorkingDirectoryCannotBeEntered(t *testing.T) {
 	if got := mustRead(t, dest); got != before {
 		t.Errorf("the destination must be UNCHANGED, got %q", got)
 	}
+	// And the message must name the ACTUAL problem (@copilot). Falling through
+	// to "the generator failed" sends the reader to debug the exporter instead
+	// of their HADRON_SERVER_DIR — a misattributed diagnostic, which is the
+	// same failure as a misattributed drift report.
+	if !strings.Contains(out, "cannot enter") {
+		t.Errorf("the refusal must name the directory, not blame the generator: %s", out)
+	}
+	if strings.Contains(out, "the generator failed") {
+		t.Errorf("the generator never ran — do not say it failed: %s", out)
+	}
 }
 
 // Nothing is left behind — a crash-leftover in `schema/` would show up in

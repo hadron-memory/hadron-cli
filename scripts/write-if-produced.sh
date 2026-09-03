@@ -80,6 +80,20 @@ fi
 cmd=${WRITE_IF_PRODUCED_CMD:-}
 [ -n "$cmd" ] || usage
 
+# CHECKED UP FRONT, so the message names the actual problem (@copilot). An
+# unusable -C used to fall through to the generic "the generator failed" path,
+# which is misleading in the way this whole PR is about: the generator may never
+# have run, and a reader told it failed goes to debug the exporter instead of
+# their HADRON_SERVER_DIR.
+#
+# The `|| exit 1` inside the subshell below STAYS. This check is about the
+# message; that one is about the race, since a directory can vanish between the
+# two — and it is the one that stops a wrong-place artifact.
+if [ -n "$workdir" ] && ! (cd "$workdir") 2>/dev/null; then
+  echo "✗ $dest: cannot enter $workdir — the generator did NOT run, and the file is UNCHANGED." >&2
+  exit 1
+fi
+
 # STAGED BESIDE THE DESTINATION, not in $TMPDIR (@codex P2 and @copilot,
 # independently) — and this one goes to the script's core promise.
 #
