@@ -8,6 +8,9 @@ LDFLAGS    := -s -w \
   -X github.com/hadron-memory/hadron-cli/internal/build.Date=$(DATE)
 
 # Sibling checkout of hadron-server, used to refresh the schema snapshot.
+# QUOTED at every use (@copilot): it is user-overridable, and an unquoted path
+# containing a space word-splits — the export would then run in the wrong
+# directory, or fail for a reason that names neither.
 HADRON_SERVER_DIR ?= ../hadron-server
 # Command (run inside HADRON_SERVER_DIR) that prints the server's GraphQL SDL to
 # stdout. Overridable so CI can export without a full server install — the
@@ -47,9 +50,24 @@ generate:
 
 # Refresh the schema snapshot from the hadron-server checkout, then
 # regenerate. Requires hadron-server#259 (schema:export script).
+# The export goes through write-if-produced.sh rather than a bare `>` redirect:
+# the shell opens a redirect BEFORE the command runs, so a failing exporter left
+# the committed snapshot at zero bytes while make reported only `Error 1`
+# (hadron-cli#555). schema-check already had a backup and a trap; the target
+# that is SUPPOSED to write had no guard at all.
+#
+# SDL_EXPORT reaches the script through a target-specific `export`, NOT as an
+# argument, and that is load-bearing. It is a SHELL FRAGMENT — the drift
+# workflow passes `npm install … 1>&2 && node_modules/.bin/tsx …`, and an
+# exporter may contain quotes. Passed as `-- "$(SDL_EXPORT)"` the recipe's
+# shell reparses it and strips the inner quotes before the script sees them
+# (measured on GNU Make 3.81). The environment hands it over untouched, and the
+# script's single `eval` then parses it exactly once — which is what the bare
+# redirect did all along.
+schema: export WRITE_IF_PRODUCED_CMD := $(SDL_EXPORT)
 schema:
 	@MAKECMDGOALS_HINT=schema bash scripts/sibling-source.sh "schema" $(SDL_SOURCES)
-	cd $(HADRON_SERVER_DIR) && $(SDL_EXPORT) > $(abspath schema/schema.graphql)
+	@bash scripts/write-if-produced.sh schema/schema.graphql -C "$(HADRON_SERVER_DIR)"
 	$(MAKE) generate
 
 # Drift detector: rebuild the SDL from the server checkout and fail if the
@@ -61,11 +79,18 @@ schema:
 # tree too. The schema-drift workflow runs this nightly against a fresh server
 # checkout.
 #
+# The export goes through write-if-produced.sh as well (#555), even though the
+# trap already restores the snapshot: a generator that SUCCEEDS and prints
+# nothing would otherwise empty the file, and the emptiness would then be
+# reported as DRIFT — "CLI operations no longer typecheck" — which sends the
+# reader to reconcile a schema change that never happened.
+#
 # The staleness test compares the regenerated client against the temp BACKUP,
 # not against git. Comparing against HEAD would conflate "regeneration changed
 # the client" (real drift) with "you have uncommitted generated code" (the
 # normal state while adding an operation), so the target would cry drift at
 # your own in-progress work until you committed it.
+schema-check: export WRITE_IF_PRODUCED_CMD := $(SDL_EXPORT)
 schema-check:
 	@MAKECMDGOALS_HINT=schema-check bash scripts/sibling-source.sh "schema-check" $(SDL_SOURCES)
 	@set -e; \
@@ -73,7 +98,7 @@ schema-check:
 	cp schema/schema.graphql $$bak/schema.graphql; \
 	cp internal/api/gen/generated.go $$bak/generated.go; \
 	trap 'cp $$bak/schema.graphql schema/schema.graphql; cp $$bak/generated.go internal/api/gen/generated.go; rm -rf $$bak' EXIT; \
-	( cd $(HADRON_SERVER_DIR) && $(SDL_EXPORT) ) > schema/schema.graphql; \
+	bash scripts/write-if-produced.sh schema/schema.graphql -C "$(HADRON_SERVER_DIR)"; \
 	if ! go tool genqlient; then \
 	  echo "✗ schema drift: CLI operations no longer typecheck against the server SDL — run 'make schema' and reconcile."; \
 	  exit 1; \
@@ -90,9 +115,13 @@ schema-check:
 # `hadron spec check-tools` embeds. Regenerate whenever server tools are added,
 # removed, or renamed. The hand-maintained internal/cmd/spec/mcp-tools-ignore.txt
 # (known non-tool hadron_* identifiers) is separate and NOT touched here.
+# Same redirect hazard as `schema`, and found by looking rather than by being
+# bitten: a failing generator here emptied the manifest `spec check-tools`
+# embeds, which would then report every server tool as missing.
+tools-manifest: export WRITE_IF_PRODUCED_CMD := bash scripts/gen-tools-manifest.sh
 tools-manifest:
 	@MAKECMDGOALS_HINT=tools-manifest bash scripts/sibling-source.sh "tools-manifest" $(TOOLS_SOURCES)
-	HADRON_SERVER_DIR=$(HADRON_SERVER_DIR) bash scripts/gen-tools-manifest.sh > internal/cmd/spec/mcp-tools.txt
+	@HADRON_SERVER_DIR="$(HADRON_SERVER_DIR)" bash scripts/write-if-produced.sh internal/cmd/spec/mcp-tools.txt
 
 # Drift detector for the tool manifest: regenerate from the server checkout and
 # fail if the committed internal/cmd/spec/mcp-tools.txt is stale — the tool renamed/added
@@ -101,16 +130,21 @@ tools-manifest:
 # to run on a dirty tree too. The schema-drift workflow runs this nightly
 # against a fresh server checkout.
 #
+# Routed through write-if-produced.sh for the same reason schema-check is (#555):
+# a silent-empty generator would otherwise be reported as "hadron-server's tool
+# set changed", i.e. as every tool having been removed.
+#
 # Compares against the temp BACKUP rather than git, for the same reason
 # schema-check does: comparing against HEAD would report drift for an
 # uncommitted manifest you had just regenerated yourself.
+tools-manifest-check: export WRITE_IF_PRODUCED_CMD := bash scripts/gen-tools-manifest.sh
 tools-manifest-check:
 	@MAKECMDGOALS_HINT=tools-manifest-check bash scripts/sibling-source.sh "tools-manifest-check" $(TOOLS_SOURCES)
 	@set -e; \
 	bak=$$(mktemp -d); \
 	cp internal/cmd/spec/mcp-tools.txt $$bak/mcp-tools.txt; \
 	trap 'cp $$bak/mcp-tools.txt internal/cmd/spec/mcp-tools.txt; rm -rf $$bak' EXIT; \
-	HADRON_SERVER_DIR=$(HADRON_SERVER_DIR) bash scripts/gen-tools-manifest.sh > internal/cmd/spec/mcp-tools.txt; \
+	HADRON_SERVER_DIR="$(HADRON_SERVER_DIR)" bash scripts/write-if-produced.sh internal/cmd/spec/mcp-tools.txt; \
 	if ! diff -q $$bak/mcp-tools.txt internal/cmd/spec/mcp-tools.txt >/dev/null 2>&1; then \
 	  echo "✗ tool-manifest drift: hadron-server's tool set changed — run 'make tools-manifest' and commit."; \
 	  diff -u $$bak/mcp-tools.txt internal/cmd/spec/mcp-tools.txt || true; \
