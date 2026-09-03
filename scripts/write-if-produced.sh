@@ -23,25 +23,42 @@
 # `schema-check` already got this right with a mktemp backup and an EXIT trap.
 # The targets that are SUPPOSED to write are the ones that had no guard at all.
 #
-# THE COMMAND IS A SHELL FRAGMENT, NOT AN ARGV LIST, and that is load-bearing
-# (@codex P1). `SDL_EXPORT` has always been shell-expanded — the nightly
-# schema-drift workflow passes
+# THE COMMAND ARRIVES IN THE ENVIRONMENT, NOT IN ARGV, and that is the whole
+# interface (@codex P1 then P2, two rounds).
+#
+# `SDL_EXPORT` has always been a SHELL FRAGMENT. The nightly schema-drift
+# workflow passes
 #
 #     npm install --silent tsx graphql@16 1>&2 && node_modules/.bin/tsx ...
 #
-# where `1>&2` and `&&` are SHELL SYNTAX. The first draft of this script ran
-# "$@" directly, which made them literal arguments to `npm`: the exporter never
-# ran, the wrapper saw empty output, and every scheduled drift check would have
-# failed for a reason unrelated to drift — on a `continue-on-error` job, i.e.
-# quietly. Preserving an interface means preserving how its values are PARSED,
-# not only what they are named.
+# where `1>&2` and `&&` are shell syntax, and an exporter may legitimately
+# contain quotes: `printf "%s\n" "type Query { … }"`.
+#
+# Two drafts got this wrong in two different ways, and both were the SAME
+# mistake — changing how a value is PARSED while keeping its name, meaning and
+# position:
+#
+#   1. `-- $cmd` run as "$@": `1>&2` and `&&` became literal arguments to npm,
+#      so the exporter never ran and the drift job failed for a reason that had
+#      nothing to do with drift — on a continue-on-error job, silently.
+#   2. `-- "$(SDL_EXPORT)"` in the recipe: make expands, then the SHELL reparses,
+#      and inner quotes are stripped before the script ever sees them. Measured
+#      with GNU Make 3.81: `printf "%s\n" "type Query { quoted: String }"`
+#      arrives as `printf %sn type Query { quoted: String }` and produces
+#      `typenQueryn{nquoted:nStringn}n`.
+#
+# A target-specific `export` hands the fragment over UNTOUCHED by any shell, and
+# `eval` then parses it exactly once — which is precisely what the original bare
+# `cmd > file` redirect did. There is deliberately no argv form: a second way to
+# pass the command is a second way to get it silently wrong.
 #
 # Usage:
-#   write-if-produced.sh <destination> [-C <dir>] -- <shell command>
+#   WRITE_IF_PRODUCED_CMD='<shell fragment>' \
+#     write-if-produced.sh <destination> [-C <dir>]
 set -euo pipefail
 
 usage() {
-  echo "usage: write-if-produced.sh <destination> [-C <dir>] -- <shell command>" >&2
+  echo "usage: WRITE_IF_PRODUCED_CMD='<shell fragment>' write-if-produced.sh <destination> [-C <dir>]" >&2
   exit 2
 }
 
@@ -55,25 +72,18 @@ if [ "${1:-}" = "-C" ]; then
   workdir=$2
   shift 2
 fi
+# Nothing else is accepted. A stray `--` or a command in argv is a caller still
+# using the shape that lost the quotes, and answering it would be worse than
+# refusing: it would produce a plausible wrong artifact.
+[ "$#" -eq 0 ] || usage
 
-[ "${1:-}" = "--" ] || usage
-shift
-[ "$#" -ge 1 ] || usage
+cmd=${WRITE_IF_PRODUCED_CMD:-}
+[ -n "$cmd" ] || usage
 
-# An explicit template rather than a bare `mktemp`. It works bare on this
-# macOS (measured: /usr/bin/mktemp, BSD, returns a path) so @copilot's premise
-# that it fails there is not true today — but the template costs nothing, and
-# older BSD userlands did require one. A free guard against a question nobody
-# should have to re-ask.
 tmp=$(mktemp "${TMPDIR:-/tmp}/write-if-produced.XXXXXXXX")
 # Cleans up on every exit path INCLUDING the success one, where the file has
 # already been moved and `rm -f` is simply a no-op.
 trap 'rm -f "$tmp"' EXIT
-
-# Joined back into one string, so an UNQUOTED `$(SDL_EXPORT)` in a recipe still
-# arrives whole — make word-splits it either way, and the old bare redirect
-# re-parsed exactly this text through a shell.
-cmd="$*"
 
 # The subshell keeps the `cd` from leaking, and `set -e` is deliberately NOT
 # relied on here: the point is to catch the failure rather than to inherit it.

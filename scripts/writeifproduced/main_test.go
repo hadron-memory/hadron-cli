@@ -30,10 +30,14 @@ func script(t *testing.T) string {
 	return p
 }
 
-// run invokes the script and returns combined output plus the exit code.
-func run(t *testing.T, args ...string) (string, int) {
+// run invokes the script with the command in the ENVIRONMENT — the only way it
+// accepts one — and returns combined output plus the exit code.
+//
+// `fragment` is the shell text; pass "" to test the missing-command refusal.
+func run(t *testing.T, fragment string, args ...string) (string, int) {
 	t.Helper()
 	cmd := exec.Command("bash", append([]string{script(t)}, args...)...)
+	cmd.Env = append(os.Environ(), "WRITE_IF_PRODUCED_CMD="+fragment)
 	out, err := cmd.CombinedOutput()
 	code := 0
 	var ee *exec.ExitError
@@ -76,7 +80,7 @@ func mustRead(t *testing.T, p string) string {
 // The happy path: output replaces the destination.
 func TestWritesWhenTheGeneratorProduces(t *testing.T) {
 	dest := seed(t, "old snapshot\n")
-	out, code := run(t, dest, "--", `printf "new snapshot\n"`)
+	out, code := run(t, `printf "new snapshot\n"`, dest)
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, out)
 	}
@@ -91,7 +95,7 @@ func TestWritesWhenTheGeneratorProduces(t *testing.T) {
 func TestLeavesTheFileAloneWhenTheGeneratorFails(t *testing.T) {
 	const before = "the real snapshot\n"
 	dest := seed(t, before)
-	out, code := run(t, dest, "--", "exit 1")
+	out, code := run(t, "exit 1", dest)
 	if code != 1 {
 		t.Fatalf("a failing generator must exit 1, got %d: %s", code, out)
 	}
@@ -112,7 +116,7 @@ func TestLeavesTheFileAloneWhenTheGeneratorFails(t *testing.T) {
 func TestRefusesAnEmptyResultEvenOnSuccess(t *testing.T) {
 	const before = "the real snapshot\n"
 	dest := seed(t, before)
-	out, code := run(t, dest, "--", "true")
+	out, code := run(t, "true", dest)
 	if code != 1 {
 		t.Fatalf("an empty result must be refused, got exit %d: %s", code, out)
 	}
@@ -130,7 +134,7 @@ func TestRefusesAnEmptyResultEvenOnSuccess(t *testing.T) {
 func TestRunsTheGeneratorInAnotherDirectory(t *testing.T) {
 	dest := seed(t, "old\n")
 	dir := t.TempDir()
-	out, code := run(t, dest, "-C", dir, "--", "pwd")
+	out, code := run(t, "pwd", dest, "-C", dir)
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, out)
 	}
@@ -156,7 +160,7 @@ func TestRunsTheGeneratorInAnotherDirectory(t *testing.T) {
 func TestRunsTheCommandThroughAShell(t *testing.T) {
 	dest := seed(t, "old\n")
 	// Faithful to the workflow: noise to stderr, `&&`, then the real producer.
-	out, code := run(t, dest, "--", `printf "install chatter\n" 1>&2 && printf "REAL SDL\n"`)
+	out, code := run(t, `printf "install chatter\n" 1>&2 && printf "REAL SDL\n"`, dest)
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, out)
 	}
@@ -178,7 +182,7 @@ func TestRunsTheCommandThroughAShell(t *testing.T) {
 func TestShellFailureMidFragmentLeavesTheFileAlone(t *testing.T) {
 	const before = "the real snapshot\n"
 	dest := seed(t, before)
-	out, code := run(t, dest, "--", `false && printf "never\n"`)
+	out, code := run(t, `false && printf "never\n"`, dest)
 	if code != 1 {
 		t.Fatalf("exit %d: %s", code, out)
 	}
@@ -187,11 +191,50 @@ func TestShellFailureMidFragmentLeavesTheFileAlone(t *testing.T) {
 	}
 }
 
+// No command in the environment is a USAGE error, not an empty write. This is
+// the shape a caller hits after the argv form was retired, so it has to say
+// what to do rather than silently produce nothing.
+func TestRefusesWhenNoCommandIsGiven(t *testing.T) {
+	dest := seed(t, "keep\n")
+	out, code := run(t, "", dest)
+	if code != 2 {
+		t.Fatalf("a missing command is a usage error, got exit %d: %s", code, out)
+	}
+	if !strings.Contains(out, "WRITE_IF_PRODUCED_CMD") {
+		t.Errorf("the usage must name the variable that carries the command: %s", out)
+	}
+	if got := mustRead(t, dest); got != "keep\n" {
+		t.Errorf("destination must be untouched, got %q", got)
+	}
+}
+
+// QUOTES INSIDE THE FRAGMENT SURVIVE (@codex P2, second round).
+//
+// The previous draft passed the command as `-- "$(SDL_EXPORT)"` in the recipe:
+// make expands, then the SHELL reparses and strips the inner quotes. Measured
+// with GNU Make 3.81 —
+// `printf "%s\n" "type Query { quoted: String }"` arrived as
+// `printf %sn type Query { quoted: String }` and wrote
+// `typenQueryn{nquoted:nStringn}n` into the snapshot.
+//
+// A plausible-looking, wrong artifact: exactly what this script exists to
+// prevent, produced by the script itself.
+func TestPreservesQuotesInsideTheFragment(t *testing.T) {
+	dest := seed(t, "old\n")
+	out, code := run(t, `printf "%s\n" "type Query { quoted: String }"`, dest)
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, out)
+	}
+	if got := mustRead(t, dest); got != "type Query { quoted: String }\n" {
+		t.Errorf("inner quotes and backslashes must survive verbatim, got %q", got)
+	}
+}
+
 // A destination that does not exist yet is created — the first refresh in a
 // fresh checkout must not need the file to already be there.
 func TestCreatesAMissingDestination(t *testing.T) {
 	dest := filepath.Join(t.TempDir(), "fresh.txt")
-	if _, code := run(t, dest, "--", `printf "x\n"`); code != 0 {
+	if _, code := run(t, `printf "x\n"`, dest); code != 0 {
 		t.Fatalf("exit %d", code)
 	}
 	if got := mustRead(t, dest); got != "x\n" {
@@ -216,14 +259,17 @@ func TestRejectsMalformedInvocations(t *testing.T) {
 		name string
 		args []string
 	}{
-		{"no arguments at all", nil},
-		{"destination but no command", []string{dest}},
-		{"missing the -- separator", []string{dest, "printf x"}},
+		{"no destination", nil},
 		{"-C with no directory", []string{dest, "-C"}},
-		{"separator but no command", []string{dest, "--"}},
+		// The retired argv shapes. Both are a caller still using the form that
+		// LOST the quotes, so answering them would produce a plausible wrong
+		// artifact — the failure this whole script exists to prevent.
+		{"the retired -- separator", []string{dest, "--"}},
+		{"a command in argv", []string{dest, "--", "printf x"}},
+		{"a stray trailing argument", []string{dest, "extra"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			out, code := run(t, tc.args...)
+			out, code := run(t, `printf "x\n"`, tc.args...)
 			if code != 2 {
 				t.Errorf("usage errors exit 2, got %d: %s", code, out)
 			}
