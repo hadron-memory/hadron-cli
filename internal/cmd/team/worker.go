@@ -703,8 +703,13 @@ type releaseResultDTO struct {
 // asking for that door to be reopened.
 type releasedFromDTO struct {
 	ID string `json:"id"`
-	// Handle is the one identifier always present for a real user; it is what
-	// a receipt falls back to when Name is withheld.
+	// Handle is what a receipt falls back to when Name is withheld — the
+	// identifier that survives the #384 gate, since only `name` carries it.
+	//
+	// NULLABLE, and not claimed otherwise (@copilot). The schema models it as
+	// `String`, and `urn` documents its own null as "a handle-less user" — so
+	// surviving the GATE is what this field is good for, not existence. The
+	// receipt therefore falls back again, to the id.
 	Handle *string `json:"handle"`
 	// URN is hrn:user:<handle>, null for a handle-less user.
 	URN *string `json:"urn"`
@@ -729,7 +734,10 @@ func releasedFromDTOFrom(r *gen.ReleaseWorkerReleaseWorkerReleaseWorkerPayloadRe
 // than defensiveness. `name` is gated, and the population this command's admin
 // path serves (a colleague who has left the org) is exactly the one for whom it
 // resolves null, so "released from —" would be the ordinary output rather than
-// a rare one. `@handle` is always there for a real user.
+// a rare one. `@handle` is the next rung, and it is NULLABLE too (@copilot) —
+// the schema says `String`, and a handle-less user would render a bare "@" —
+// so there is a third: the id, which is not a good label and is not meant to
+// be. It is the one that cannot be absent.
 //
 // It also replaces a `describeHolder` round trip per receipt line: the whole
 // reason the payload carries an identity is that the caller may have no other
@@ -1067,7 +1075,7 @@ The person is named from the release itself rather than looked up, so a
 holder whose user record you may not read is still named. Their display
 name may be withheld — an admin releasing a colleague who has LEFT the
 org is the ordinary case — and the receipt falls back to their @handle,
-which is always there.`,
+then to their id.`,
 		Example: `  hadron team worker release Iris
   hadron team worker release hrn:worker:acme.com:eng-team:iris --yes`,
 		Args: cobra.ExactArgs(1),
@@ -1245,15 +1253,27 @@ which is always there.`,
 			if releasedFrom != nil {
 				result.ReleasedFromUserID = &releasedFrom.ID
 			}
-			// "nothing-released", not "no-visible-hold". The old name hedged
-			// about VISIBILITY because a nil pre-read could not tell an unheld
-			// name from one masked from the caller. `releasedFrom` is null
-			// exactly when the write ended nothing, so this status is now a
-			// statement about the ACT rather than about what the caller could
-			// see. Keeping the old spelling would leave the hedge as a label
-			// after the evidence for it stopped being the evidence we use.
+			// "no-visible-hold" — the PUBLISHED literal, kept (@codex P1).
+			//
+			// Its MEANING got stronger and its spelling did not, deliberately.
+			// The name dates from when the only evidence was a pre-read of a
+			// maskable field, so it hedged about visibility; `releasedFrom` is
+			// null exactly when the write ended nothing, so this branch is now a
+			// statement about the ACT. An earlier revision renamed it to match.
+			//
+			// That was wrong, and the argument against it is the one this repo
+			// already makes about `--json`: a status is a BRANCH KEY, and an
+			// agent matching the documented literal would silently fall through
+			// to no branch at all — a rename is the one change that fails
+			// without erroring anywhere. The improved evidence is already
+			// exposed through `wasHeld`, `releasedFrom` and `notified`, which
+			// are new keys nobody is matching yet, so the rename bought nothing
+			// a consumer could not already read.
+			//
+			// The two breaks in this change are the ones that could not be
+			// avoided — a `null` that can no longer occur. This one could.
 			if releasedFrom == nil {
-				result.Status = "nothing-released"
+				result.Status = "no-visible-hold"
 			}
 			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
 				// NOTHING WAS RELEASED, and that is now sayable flatly.
@@ -1305,9 +1325,35 @@ which is always there.`,
 					// caller can use. Found by sweeping every sentence this
 					// command prints and asking what proves each, after the
 					// third unverifiable claim in one review (PR #504).
-					next := "anyone may bind it now"
-					if dto.Retired {
+					//
+					// And FALSE AGAIN when somebody has already re-bound it
+					// (@codex P2). The payload's worker is re-read after the
+					// write and before the notice, so its hold is CURRENT
+					// STATE: a non-null holder there is a LATER hold, never a
+					// failed release. My own query comment says exactly that,
+					// and this sentence promised availability anyway — a claim
+					// the response in hand contradicts.
+					//
+					// Only the NON-NULL direction is actionable. A nil hold
+					// still means "unheld OR masked from you", so it keeps the
+					// existing wording rather than gaining a second hedge.
+					// Two independent facts, so two independent tests rather
+					// than a precedence order between them. Ordering them would
+					// make the retired branch assert "no longer held" while the
+					// payload in hand said otherwise — swapping one false
+					// promise for another, which is the shape this whole
+					// sentence has already been corrected for twice.
+					reHeld := payload.Worker.HeldByUserId != nil
+					var next string
+					switch {
+					case dto.Retired && reHeld:
+						next = "the worker is retired, so nobody can bind it — and the name is held again already"
+					case dto.Retired:
 						next = "the worker is retired, so nobody can bind it — the name is simply no longer held"
+					case reHeld:
+						next = "somebody has already claimed it since — your release went through, and the name is held again"
+					default:
+						next = "anyone may bind it now"
 					}
 					if _, err := fmt.Fprintf(out, "✓ released %s — %s\n", dto.Name, next); err != nil {
 						return err

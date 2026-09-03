@@ -56,7 +56,7 @@ decided to live with it. The adoption is:
 - `forced` → a definite `bool` (the server's)
 - `releasedFromUserId` → same key, same meaning, new **provenance**
 - `+ releasedFrom`, `+ notified`
-- `status: "no-visible-hold"` → **`"nothing-released"`**
+- `status` — **unchanged**, and see below
 - `informedRelease` → **deleted**; the retry returns only the response
 
 ### The client still predicts — for one job only
@@ -73,19 +73,28 @@ The prompt keeps its hedge. The receipt no longer has one.
 
 ## Breaking `--json` changes, stated rather than buried
 
-Three, all in one PR deliberately — the adoption is where a break belongs, and
-dribbling them across releases is worse:
+**TWO, and only the two that could not be avoided:**
 
 1. `wasHeld`: `true | null` → `true | false`
 2. `forced`: `true | false | null` → `true | false`
-3. `status`: `"no-visible-hold"` → `"nothing-released"`
 
-For (1) and (2) the `null` a consumer handled **can no longer occur** — that
-branch detected an ambiguity that no longer exists. (3) is the weakest of the
-three and the one I would revert on request: the old value was not false, it
-hedged about VISIBILITY when the answer is now about the ACT, and leaving a
-label that names the retired criterion is the stale-label failure
-`review:sweep-the-subject-not-the-removed-rule` is about.
+For both, the `null` a consumer handled **can no longer occur** — that branch
+detected an ambiguity that no longer exists.
+
+**A third was proposed and withdrawn**: renaming `status` from
+`"no-visible-hold"` to `"nothing-released"`, because the old name hedges about
+VISIBILITY while the answer is now about the ACT. @codex filed it P1 and was
+right. A status is a **branch key**, so a rename is the one change that fails
+without erroring anywhere — an agent matching the documented literal silently
+takes no branch. And the improved evidence was already exposed through
+`wasHeld`, `releasedFrom` and `notified`, which are *new* keys nobody is
+matching yet, so the rename bought a consumer nothing it could not already read.
+The literal stays; its meaning got stronger and its spelling did not.
+
+That is the counterweight to `review:sweep-the-subject-not-the-removed-rule`,
+which says a stale LABEL misleads. It does — and for a label that is also a
+machine contract, the cost of correcting it lands on a different party than the
+cost of leaving it. Prose gets corrected; identifiers get versioned or kept.
 
 `releasedFromUserId` was deliberately **not** folded into `releasedFrom`: agents
 parse it, its meaning did not change, and it mirrors `releasedFrom.id`.
@@ -104,9 +113,10 @@ those. Selecting further would ask for the door to be reopened from this side.
 **`name` is gated and its absence is the ORDINARY case here**, not an edge:
 `leaveApp` deletes the AppMember row while the hold survives, so the departed
 colleague this admin path exists for is precisely the person whose name is
-withheld. The receipt falls back to `@handle`; `--json` passes the null
-through, so a consumer can tell "not permitted" from a name that happens to
-equal the handle.
+withheld. The receipt falls back to `@handle` — and then to the **id**, because
+`handle` is nullable too and a bare `@` reads as a rendering bug rather than as
+missing data. `--json` passes every null through, so a consumer can tell "not
+permitted" from a name that happens to equal the handle.
 
 ## Fewer round trips, as a consequence rather than a goal
 
@@ -138,8 +148,8 @@ read the hold and the receipt names the person anyway. That case was
 
 ### Mutations, and the green that was a finding
 
-Five, each confirmed to have applied by reading the mutated lines back before
-the result:
+Seven, each confirmed to have applied by reading the mutated lines back before
+the result (the last two added in review):
 
 | mutation | reds |
 | --- | --- |
@@ -148,6 +158,8 @@ the result:
 | `releasedFrom` from the pre-read | 8 |
 | `notified` collapsed to "posted" | 1 — precisely the failed-notice test |
 | **handle fallback deleted** | **0 — GREEN** |
+| the re-hold branch deleted | 1 |
+| the id rung deleted | 1 |
 
 The last one **landed and passed**, which is a finding rather than a formality:
 every other fixture has a visible name, so the human receipt's fallback had no
@@ -159,6 +171,44 @@ Worth noting the first row too: reverting the core of the adoption reds only ONE
 test, because in every ordinary fixture the client's prediction and the server's
 answer **agree**. The tests that can tell the two apart are the ones where the
 client is blind — which is also the only place the old code was wrong.
+
+## Review
+
+Three findings, all valid, and two of them corrections to claims I had written
+into the diff.
+
+**@codex P1 — the `status` rename.** Withdrawn; see above. I had flagged it in
+the PR body as the weakest of the three breaks and said I would revert it on
+request. This was the request, better argued than my own hedge.
+
+**@codex P2 — the receipt promised availability after a re-bind.** The payload's
+worker is re-read *after* the write and *before* the notice, so its hold is
+current state: a non-null holder there is a LATER hold, never a failed release.
+**My own query comment says exactly that**, four lines from the code that then
+printed *"anyone may bind it now"* regardless. The response in hand contradicted
+the sentence.
+
+That is the **third** correction to this one clause — it over-promised for a
+retired worker (PR #504) and before that claimed a chat post it could not
+observe. Every unverifiable claim this command has shipped has been in the part
+that tells the reader what to do NEXT, which is worth knowing as a place to look
+rather than as three separate fixes.
+
+Handled as two independent tests rather than a precedence order, because
+retirement and a re-hold are independent facts: ordering them would have made
+the retired branch assert *"the name is simply no longer held"* while the
+payload said otherwise — one false promise swapped for another.
+
+**@copilot — `handle` is nullable and I claimed it was not.** The comment said
+*"the one identifier always present for a real user"*; the schema says `String`,
+and `urn` documents its own null as *"a handle-less user"*. What `handle`
+actually survives is the **#384 name gate**, not existence — so the fallback has
+**three** rungs, and the id is the one that cannot be absent. A bare `@` would
+have read as a rendering bug rather than as missing data. Corrected in all three
+copies plus the agent contract.
+
+Two more mutations, each confirmed to have landed, each redding exactly its own
+test: dropping the re-hold branch, and dropping the id rung.
 
 ## Propagation
 

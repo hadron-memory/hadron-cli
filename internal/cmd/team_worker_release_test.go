@@ -79,7 +79,7 @@ func releasePayload(worker, releasedFrom string, forced bool, notified string) s
 	}
 	from := "null"
 	if releasedFrom != "" {
-		// handle + urn are always present for a real user; `name` carries the
+		// handle + urn are populated here; `name` carries the
 		// #384 gate. The default here is the VISIBLE case — releasing a
 		// colleague who is still a co-member — because that is the ordinary
 		// one. `nameWithheld` produces the other, which is what an admin
@@ -266,7 +266,7 @@ func TestWorkerReleaseReportsAFailedTeamChatNotice(t *testing.T) {
 	}
 }
 
-// The gated half of the projection: `name` withheld, `handle` always there.
+// The gated half of the projection: `name` withheld, `handle` surviving.
 // Rendering a dash — or an empty "released from " — would be this command's
 // ORDINARY output for the population its admin path serves.
 func TestWorkerReleaseFallsBackToTheHandleWhenTheNameIsWithheld(t *testing.T) {
@@ -410,6 +410,71 @@ func TestWorkerReleaseNothingReleasedSaysSoPlainly(t *testing.T) {
 	}
 }
 
+// A RE-HOLD BETWEEN THE WRITE AND THE RE-READ (@codex P2 on PR #554).
+//
+// The payload's worker is re-read after the guarded release and before the
+// notice, so its hold is CURRENT STATE: a non-null holder there is a LATER hold
+// somebody else took, never a failed release. The query's own doc comment says
+// so — and the receipt promised "anyone may bind it now" regardless, which the
+// response in hand contradicts.
+//
+// Third correction to this one sentence: it also over-promised for a retired
+// worker (PR #504), and before that claimed a chat post it could not observe.
+// Every unverifiable claim this command has shipped has been in the clause that
+// tells the reader what to do NEXT.
+func TestWorkerReleaseDoesNotPromiseAvailabilityAfterARebind(t *testing.T) {
+	stubs := releaseStubs(heldBy("u-holger"), nil)
+	// Released mine; somebody bound it in the interval.
+	stubs["ReleaseWorker"] = releasePayload(heldBy("u-gil"), "u-holger", false, "null")
+	gql, _ := captureGraphQL(t, stubs)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "release", "Iris",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a re-hold is not an error — the release still happened: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "✓ released Iris") {
+		t.Errorf("the release went through and the receipt must say so: %s", got)
+	}
+	if strings.Contains(got, "anyone may bind it now") {
+		t.Errorf("the payload says the name is held again — do not promise availability: %s", got)
+	}
+	if !strings.Contains(got, "held again") {
+		t.Errorf("the reader must be told the name was taken in the interval: %s", got)
+	}
+}
+
+// THE THIRD RUNG. `handle` is nullable too (@copilot), so a name-withheld,
+// handle-less holder would render a bare "@" — a label with nothing in it,
+// which is the same hole as the empty fallback one rung up.
+func TestWorkerReleaseFallsBackToTheIDWhenNeitherNameNorHandleIsThere(t *testing.T) {
+	payload := nameWithheld(releasePayload(released(heldBy("u-dara")), "u-dara", true, "true"))
+	payload = strings.Replace(payload, `"handle":"dara"`, `"handle":null`, 1)
+	if !strings.Contains(payload, `"handle":null`) {
+		t.Fatal("fixture kept its handle — the test would prove nothing")
+	}
+	stubs := releaseStubs(heldBy("u-dara"), nil)
+	stubs["ReleaseWorker"] = payload
+	gql, _ := captureGraphQL(t, stubs)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
+		"--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "force-released Iris from u-dara") {
+		t.Errorf("with no name and no handle the id is the label: %q", out.String())
+	}
+	// The failure this rules out is a bare sigil, which reads as a rendering
+	// bug rather than as missing data.
+	if strings.Contains(out.String(), "from @\n") || strings.Contains(out.String(), "from @ ") {
+		t.Errorf("a null handle must not render a bare @: %q", out.String())
+	}
+}
+
 // THE ADOPTION IN ONE TEST: the caller cannot see the hold, and the receipt
 // names the person anyway, because the server does.
 //
@@ -475,7 +540,7 @@ func TestWorkerReleaseJSONShape(t *testing.T) {
 	}{
 		{"self", heldBy("u-holger"), true, false, "released"},
 		{"forced", heldBy("u-dara"), true, true, "released"},
-		{"unheld", irisWorkerJSON, false, false, "nothing-released"},
+		{"unheld", irisWorkerJSON, false, false, "no-visible-hold"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			gql, _ := captureGraphQL(t, releaseStubs(tc.worker, map[string]string{
@@ -527,7 +592,7 @@ func TestWorkerReleaseJSONShape(t *testing.T) {
 					t.Errorf("releasedFrom must mirror releasedFromUserId: %s", out.String())
 				}
 				if dto.ReleasedFrom.Handle == nil {
-					t.Errorf("the handle is the always-present identifier: %s", out.String())
+					t.Errorf("the handle is what survives the name gate: %s", out.String())
 				}
 			} else {
 				// Nothing released: every derived key is absent rather than

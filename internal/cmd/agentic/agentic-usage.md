@@ -931,9 +931,10 @@ Conventions:
   caller's own identity could not be read and is now a definite **bool**
   computed against the authenticated principal inside the write. **A consumer
   branching on `null` for either will no longer see one** — that branch detected
-  an ambiguity that no longer exists. `status` is `"nothing-released"` where it
-  was `"no-visible-hold"`: the old name hedged about VISIBILITY, and the answer
-  is now about the ACT.
+  an ambiguity that no longer exists. `status` **keeps its published literal `"no-visible-hold"`** even though its
+  meaning is now stronger (the write ended nothing, rather than nothing being
+  visible): a status is a branch key, and renaming one is the change that fails
+  silently for an agent matching it. The improved evidence is in the new keys.
   `--json` carries `wasHeld`/`releasedFromUserId`/`forced`/`notified` plus
   `releasedFrom { id, handle, urn, name }`. `releasedFromUserId` keeps its name
   and mirrors `releasedFrom.id` — only its provenance moved, from a client
@@ -941,7 +942,9 @@ Conventions:
   path. `releasedFrom.name` is **gated** and null for a viewer outside it (an
   admin releasing a colleague who has LEFT the org is the ordinary case, since
   `leaveApp` deletes the membership while the hold survives) — fall back to
-  `handle`, never to a dash. It is a PROJECTION rather than a `User`, so do not
+  `handle`, and then to `id`, never to a dash. **`handle` and `urn` are
+  nullable too** (a handle-less user), so `id` is the only rung that cannot be
+  absent; the CLI's receipt walks all three. It is a PROJECTION rather than a `User`, so do not
   expect to select further.
   **`notified` is three-valued and the third state is the point**: `null` = no
   notice was owed (a self-release, or nothing released), `true` = owed and
