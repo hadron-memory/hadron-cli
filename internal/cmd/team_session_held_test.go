@@ -32,7 +32,7 @@ func heldHolderUserJSON(id, name, handle string) string {
 func TestTeamSessionStartHeldByAnotherRefusesWithoutOfferingForce(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + heldBy("u-dara") + `}}`,
+		"GetWorker":    `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
 		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
 		"AuthContext":  authContextHolgerJSON, // I am u-holger; the hold is u-dara's
 		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),
@@ -80,7 +80,7 @@ func TestTeamSessionStartHeldByAnotherRefusesWithoutOfferingForce(t *testing.T) 
 func TestTeamSessionStartHeldRemedyIsRunnableWithoutAppScope(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + heldBy("u-dara") + `}}`,
+		"GetWorker":    `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
 		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
 		"AuthContext":  authContextHolgerJSON,
 		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),
@@ -112,7 +112,7 @@ func TestTeamSessionStartHeldRemedyIsRunnableWithoutAppScope(t *testing.T) {
 // silently fall back to the name the case above rules out.
 func TestTeamSessionStartHeldRemedyFallsBackToIDWhenURNIsNull(t *testing.T) {
 	teamGitDir(t)
-	noURN := strings.Replace(heldBy("u-dara"),
+	noURN := strings.Replace(withLiveness(heldBy("u-dara"), "true"),
 		`"urn":"hrn:worker:acme.com:eng-team:iris"`, `"urn":null`, 1)
 	if !strings.Contains(noURN, `"urn":null`) {
 		t.Fatal("fixture did not lose its urn — the test would prove nothing")
@@ -138,7 +138,7 @@ func TestTeamSessionStartHeldRemedyFallsBackToIDWhenURNIsNull(t *testing.T) {
 	// nil-only guard passes the null test above and then renders
 	// "worker release " — a remedy with no argument. Absent is absent
 	// whichever way the server spells it.
-	emptyURN := strings.Replace(heldBy("u-dara"),
+	emptyURN := strings.Replace(withLiveness(heldBy("u-dara"), "true"),
 		`"urn":"hrn:worker:acme.com:eng-team:iris"`, `"urn":""`, 1)
 	if !strings.Contains(emptyURN, `"urn":""`) {
 		t.Fatal("fixture did not get an empty urn — the test would prove nothing")
@@ -168,7 +168,7 @@ func TestTeamSessionStartHeldRemedyFallsBackToIDWhenURNIsNull(t *testing.T) {
 func TestTeamSessionStartHeldByMeStillOffersForce(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + heldBy("u-holger") + `}}`,
+		"GetWorker":    `{"data":{"worker":` + withLiveness(heldBy("u-holger"), "true") + `}}`,
 		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
 		"AuthContext":  authContextHolgerJSON, // the hold is mine
 		"GetUser":      heldHolderUserJSON("u-holger", "Holger", "holger"),
@@ -202,7 +202,7 @@ func TestTeamSessionStartHeldByMeStillOffersForce(t *testing.T) {
 func TestTeamSessionStartHeldUnknownWhoseHedges(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + heldBy("u-dara") + `}}`,
+		"GetWorker":    `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
 		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
 		"AuthContext":  `{"errors":[{"message":"nope"}]}`,
 		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),
@@ -295,7 +295,7 @@ func TestTeamSessionStartServerHeldReducedPayloadDegrades(t *testing.T) {
 func TestTeamSessionStartForceDoesNotDefeatAHold(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + heldBy("u-dara") + `}}`,
+		"GetWorker":    `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
 		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
 		"AuthContext":  authContextHolgerJSON,
 		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),

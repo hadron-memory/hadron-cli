@@ -1036,9 +1036,12 @@ Conventions:
   WORKER (`SessionInput.workerRef`, the worker's id); the server stamps the
   role-agent AND the worker's App itself, so every worker session is
   App-bound; a retired worker refuses (`WORKER_RETIRED`). A worker with a
-  still-active session is *taken*: `start` refuses (exit 5) showing who is
+  LIVE session is *taken*: `start` refuses (exit 5) showing who is
   driving it since when, and `--force` takes over — informed and deliberate,
-  never silent (`cor:agt:020:03`). **Live is DERIVED, not stored**
+  never silent (`cor:agt:020:03`). **Live, not merely open** (#550): binding a
+  name whose session is open but no longer live is not a takeover, needs no
+  `--force`, and does not end that session — the note on stderr says so, and
+  `--json` reports `tookOver: false`. **Live is DERIVED, not stored**
   (hadron-server#1114): the server computes it at read time from when the
   session was last driven, so a name whose driver stopped stops being taken on
   its own — and nothing ends the session to achieve that, so the CHANCE to
@@ -1046,7 +1049,14 @@ Conventions:
   until somebody writes one: leaving the row open preserves the opportunity the
   old reaper foreclosed, not a record that does not exist. An OPEN session
   therefore tells you nothing about whether the name is taken; liveness does,
-  and it means DRIVEN RECENTLY rather than that somebody is at the keyboard. A `--force` that replaces this
+  and it means DRIVEN RECENTLY rather than that somebody is at the keyboard.
+  **When liveness is not visible to you, the server decides** (#550): it rides
+  on the worker's gated working-state fields, so a caller outside that gate
+  reads `null` — WITHHELD, not "no" — and `start` binds rather than refusing,
+  leaving the same rule to the server's atomic gate. `tookOver` is `null` in
+  that case, distinct from `false`; it is the one `--json` key on this command
+  that is nullable, for the reason `worker release`'s `wasHeld`/`forced` are.
+  A `--force` that replaces this
   worktree's own binding first ends the session it named, best-effort.
   **HELD is not TAKEN, and only TAKEN is forceable** (`cor:agt:020:09`, #487).
   A name is held by the PERSON who binds it, and nothing about a session
@@ -1056,8 +1066,11 @@ Conventions:
   remedy is to **cast your own worker** for the role, or to ask the holder
   (or an App/org admin) to release it — never to retry with the flag. `start`
   refuses this before it reaches the server when the hold is visibly
-  another's, and renders the server's refusal when the hold is claimed in
-  the race the pre-flight cannot close. Two server paths raise the code and
+  another's AND the name is live; otherwise the server refuses it and the CLI
+  renders that — same sentence, one round trip later. The server is the
+  authority on a hold either way, which is also what closes the race the
+  pre-flight cannot: the hold can be claimed between the worker read and
+  the bind. Two server paths raise the code and
   they carry different payloads (`workerId`+`heldBy` always; `heldByName`
   and `heldAt` only on the non-race path), so the holder degrades to a raw
   user id rather than going blank. Casting does NOT hold: a roster staffed

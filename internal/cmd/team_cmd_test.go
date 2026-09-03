@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -20,6 +21,53 @@ const irisWorkerJSON = `{"id":"wkr1","urn":"hrn:worker:acme.com:eng-team:iris","
 	"appId":"app1","agentId":"agt1","name":"Iris","role":"backend-engineer",
 	"prompt":"You are Iris.","promptOverride":null,"memoryId":"mw1","retiredAt":null,"retiredBy":null,
 	"createdAt":"2026-08-14T00:00:00Z","createdBy":"u-holger"}`
+
+// withLiveness stamps DERIVED LIVENESS onto a worker fixture — the fact
+// `session start`'s TAKEN pre-flight reads since #550. `live` is the raw JSON:
+// "true", "false" or "null", the same three-valued spelling
+// team_worker_activity_test.go's workerWith uses, because it is the same field
+// and one vocabulary is the point.
+//
+// It has to be said EXPLICITLY wherever liveness decides the outcome, because
+// irisWorkerJSON carries no `hasLiveSession` at all and an absent field
+// unmarshals to nil — which is MASKED, not "not live". A test built on the bare
+// fixture and expecting a TAKEN refusal was exercising the masked branch while
+// appearing to test the columns: the trap that file documents, and the reason
+// #550 broke seven tests rather than none. It broke them in the SAFE direction
+// — masked now defers to the server, so they failed loudly rather than passing
+// on the wrong branch.
+//
+// It SETS an existing key rather than inserting a second one, since it composes
+// over heldBy (which stamps "false"): Go's decoder takes the LAST of two
+// duplicate keys, so an insert would make `withLiveness(heldBy(…), "true")`
+// quietly mean the opposite of what it says.
+func withLiveness(worker, live string) string {
+	switch live {
+	case "true", "false", "null":
+	default:
+		panic("withLiveness: live must be the raw JSON true/false/null, got " + live)
+	}
+	// Whitespace-tolerant, and the REPLACEMENT is checked as well as the
+	// insertion (@copilot). The first draft matched `"hasLiveSession":(true|
+	// false|null)` and returned the result unchecked — so a fixture spelled
+	// `"hasLiveSession": false` would enter this branch, match nothing, and
+	// hand back the ORIGINAL row while the test believed it had set liveness.
+	// A helper that silently declines to act is the fixture-shaped version of
+	// review:a-mutation-check-can-itself-be-a-no-op, in the PR whose whole
+	// subject is fixtures that test a branch they do not name.
+	set := regexp.MustCompile(`"hasLiveSession":\s*(true|false|null)`)
+	if set.MatchString(worker) {
+		return set.ReplaceAllString(worker, `"hasLiveSession":`+live)
+	}
+	if strings.Contains(worker, `"hasLiveSession"`) {
+		panic("withLiveness: fixture spells hasLiveSession in a shape this helper cannot set — it would have returned the row unchanged")
+	}
+	out := strings.Replace(worker, `"memoryId":"mw1"`, `"memoryId":"mw1","hasLiveSession":`+live, 1)
+	if out == worker {
+		panic("withLiveness: fixture did not gain hasLiveSession — the test would prove nothing")
+	}
+	return out
+}
 
 // A retired casting on the same staff page: hidden by default, listed with
 // --include-retired (its name stays reserved forever).
@@ -1415,9 +1463,14 @@ func teamGitDir(t *testing.T) string {
 
 func TestTeamSessionStartWritesBinding(t *testing.T) {
 	dir := teamGitDir(t)
+	// NOT LIVE, said explicitly: the ordinary bind of a free name. The shared
+	// staffJSON is masked, and `tookOver` asserted below is null there rather
+	// than false — the CLI declining to claim a fact it was not shown (#550).
+	freeStaffJSON := `{"data":{"workers":{"total":2,"items":[` +
+		withLiveness(irisWorkerJSON, "false") + `,` + retiredWorkerJSON + `]}}}`
 	gql, captured := captureGraphQL(t, map[string]string{
-		"Workers":          staffJSON,
-		"WorkersRoster":    staffJSON,
+		"Workers":          freeStaffJSON,
+		"WorkersRoster":    freeStaffJSON,
 		"TeamSessions":     `{"data":{"sessions":[` + endedSessionJSON + `]}}`,
 		"TeamMemoryApp":    `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
@@ -1622,7 +1675,9 @@ func TestTeamSessionStartRefusesRetiredWorker(t *testing.T) {
 func TestTeamSessionStartOccupiedNeedsForce(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		// LIVE, said explicitly: the refusal keys on derived liveness (#550),
+		// and the bare fixture would be a MASKED row, which now defers.
+		"GetWorker":    `{"data":{"worker":` + withLiveness(irisWorkerJSON, "true") + `}}`,
 		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
 	})
 	f, _ := testFactory(t)
@@ -1645,7 +1700,10 @@ func TestTeamSessionStartOccupiedNeedsForce(t *testing.T) {
 func TestTeamSessionStartForceTakesOver(t *testing.T) {
 	dir := teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		// LIVE, so this is a real takeover — which is what `tookOver` claims
+		// below, and since #550 it claims it from liveness rather than from an
+		// open session row.
+		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "true") + `}}`,
 		"TeamSessions":     `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
@@ -3067,7 +3125,7 @@ func TestTeamSessionStartFindsActiveSessionOnLaterPage(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch body.OperationName {
 		case "GetWorker":
-			_, _ = w.Write([]byte(`{"data":{"worker":` + irisWorkerJSON + `}}`))
+			_, _ = w.Write([]byte(`{"data":{"worker":` + withLiveness(irisWorkerJSON, "true") + `}}`))
 		case "TeamSessions":
 			if body.Variables.WorkerRef == nil || *body.Variables.WorkerRef != "wkr1" {
 				t.Errorf("the activity check must filter by workerRef, got %v", body.Variables.WorkerRef)

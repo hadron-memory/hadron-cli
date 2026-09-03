@@ -30,9 +30,21 @@ func released(worker string) string {
 }
 
 // heldBy returns irisWorkerJSON with the hold set to a given user.
+//
+// It carries `hasLiveSession: false` because a row with a VISIBLE hold and no
+// liveness answer is one the server cannot emit: the working-state group masks
+// together, so a readable `heldByUserId` proves the caller passed the gate and
+// therefore that `hasLiveSession` is non-null (it coalesces to false, never null,
+// on a permitted read). Before #550 nothing read the field here and the
+// impossible row went unnoticed — which is precisely how a fixture stops
+// describing the server and starts describing the test.
+//
+// FALSE, not true: held and being driven are independent (cor:agt:020:09), and
+// this fixture is about the HOLD. A case that means "taken as well" says so with
+// liveWorker.
 func heldBy(userID string) string {
 	return strings.Replace(irisWorkerJSON, `"memoryId":"mw1"`,
-		`"memoryId":"mw1","heldByUserId":"`+userID+`","heldAt":"2026-08-20T09:00:00Z"`, 1)
+		`"memoryId":"mw1","heldByUserId":"`+userID+`","heldAt":"2026-08-20T09:00:00Z","hasLiveSession":false`, 1)
 }
 
 const authContextHolgerJSON = `{"data":{"authContext":{"principalType":"USER","appId":null,"agentId":null,
