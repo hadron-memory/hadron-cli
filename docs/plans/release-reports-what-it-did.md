@@ -207,8 +207,26 @@ actually survives is the **#384 name gate**, not existence — so the fallback h
 have read as a rendering bug rather than as missing data. Corrected in all three
 copies plus the agent contract.
 
-Two more mutations, each confirmed to have landed, each redding exactly its own
-test: dropping the re-hold branch, and dropping the id rung.
+**Second round: both bots, independently, on the fix itself.** The re-hold fix
+handled only the NON-NULL direction, on the reasoning that a nil hold still
+means *"unheld OR masked from you"* so a hedge would cost the ordinary case.
+
+That reasoning is **pre-#487**. `hasLiveSession` has been the visibility signal
+for this whole field group since then — masked to null on deny, coalesced to
+false otherwise — so masked and unheld *are* distinguishable, and the hedge is
+paid only where it is owed. I wrote a constraint from the world before the field
+that removes it: `review:a-gate-can-outlive-its-premise` applied to a claim
+rather than to a gate, and the second time in two PRs that a sentence of mine
+carried a retired premise forward.
+
+The clause now composes three independent facts rather than ordering them:
+**retirement** decides whether anyone CAN bind, the **hold** whether anyone HAS,
+and **visibility** which of those two we are entitled to say at all. Ordering
+them is what made the previous round's fix assert *"the name is simply no longer
+held"* while the payload said otherwise.
+
+Three more mutations, each confirmed to have landed, each redding exactly its
+own test: the re-hold branch, the id rung, and the visibility gate.
 
 ## Propagation
 

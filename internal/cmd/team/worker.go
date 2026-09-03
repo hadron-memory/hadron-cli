@@ -1337,23 +1337,49 @@ then to their id.`,
 					// Only the NON-NULL direction is actionable. A nil hold
 					// still means "unheld OR masked from you", so it keeps the
 					// existing wording rather than gaining a second hedge.
-					// Two independent facts, so two independent tests rather
-					// than a precedence order between them. Ordering them would
-					// make the retired branch assert "no longer held" while the
-					// payload in hand said otherwise — swapping one false
-					// promise for another, which is the shape this whole
-					// sentence has already been corrected for twice.
+					// THREE facts, and the availability clause needs all three
+					// (@codex P2 + @copilot, independently, second round).
+					//
+					// A previous revision here handled only the NON-NULL
+					// direction, on the reasoning that a nil hold still means
+					// "unheld OR masked from you" so a hedge would cost the
+					// ordinary case. That reasoning is PRE-#487: since then
+					// `hasLiveSession` is the visibility signal for this whole
+					// group — masked to null on deny, coalesced to false
+					// otherwise — so masked and unheld ARE distinguishable, and
+					// I wrote a constraint from the world before the field that
+					// removes it. The same shape as this repo's
+					// review:a-gate-can-outlive-its-premise, applied to a claim
+					// rather than a gate.
+					//
+					// So: retirement decides whether anyone CAN bind; the hold
+					// decides whether anyone HAS; and visibility decides which
+					// of those two we are entitled to say at all. Composed
+					// rather than ordered, because they are independent —
+					// ordering them made the retired branch assert "no longer
+					// held" while the payload said otherwise, which is how the
+					// last round's fix introduced its own false promise.
 					reHeld := payload.Worker.HeldByUserId != nil
+					holdVisible := workingStateVisible(payload.Worker.HasLiveSession)
 					var next string
 					switch {
-					case dto.Retired && reHeld:
-						next = "the worker is retired, so nobody can bind it — and the name is held again already"
 					case dto.Retired:
-						next = "the worker is retired, so nobody can bind it — the name is simply no longer held"
+						// Retirement is NOT working state, so this half is
+						// always sayable. The hold clause is only appended when
+						// there is something provable to append.
+						next = "the worker is retired, so nobody can bind it"
+						switch {
+						case reHeld:
+							next += " — and the name is held again already"
+						case holdVisible:
+							next += " — the name is simply no longer held"
+						}
 					case reHeld:
 						next = "somebody has already claimed it since — your release went through, and the name is held again"
-					default:
+					case holdVisible:
 						next = "anyone may bind it now"
+					default:
+						next = "your release went through; whether the name is held again is not visible to you"
 					}
 					if _, err := fmt.Fprintf(out, "✓ released %s — %s\n", dto.Name, next); err != nil {
 						return err

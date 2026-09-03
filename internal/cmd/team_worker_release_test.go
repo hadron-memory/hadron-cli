@@ -446,6 +446,66 @@ func TestWorkerReleaseDoesNotPromiseAvailabilityAfterARebind(t *testing.T) {
 	}
 }
 
+// AVAILABILITY NEEDS VISIBILITY, not just a null hold (@codex P2 + @copilot,
+// independently).
+//
+// `heldByUserId` masks to null on deny, so nil alone cannot carry "nobody holds
+// it". An earlier revision handled only the non-null direction, reasoning that a
+// hedge would cost the ordinary case — which is PRE-#487 reasoning:
+// `hasLiveSession` has been the visibility signal for this group since then, so
+// masked and unheld are distinguishable and the hedge is only paid where it is
+// owed.
+//
+// Both rows below run the same command over the same nil hold. The only
+// difference is whether the server was willing to say so.
+func TestWorkerReleaseClaimsAvailabilityOnlyWhenTheHoldIsVisible(t *testing.T) {
+	for _, tc := range []struct {
+		name, payloadWorker, want, forbidden string
+	}{
+		{
+			// hasLiveSession: false — the read was permitted, so a null hold
+			// really is "nobody holds it".
+			name:          "visible and unheld",
+			payloadWorker: released(heldBy("u-holger")),
+			want:          "anyone may bind it now",
+			forbidden:     "not visible to you",
+		},
+		{
+			// hasLiveSession absent — the whole working-state group was masked,
+			// so the null says nothing at all.
+			name:          "masked",
+			payloadWorker: maskedWorkerJSON,
+			want:          "whether the name is held again is not visible to you",
+			forbidden:     "anyone may bind it now",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stubs := releaseStubs(heldBy("u-holger"), nil)
+			stubs["ReleaseWorker"] = releasePayload(tc.payloadWorker, "u-holger", false, "null")
+			gql, _ := captureGraphQL(t, stubs)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "worker", "release", "Iris",
+				"--app", "acme.com:eng-team", "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			got := out.String()
+			// The release itself is reported either way — visibility limits
+			// what can be said about what happens NEXT, not about what was done.
+			if !strings.Contains(got, "✓ released Iris") {
+				t.Errorf("the release happened and must be reported: %s", got)
+			}
+			if !strings.Contains(got, tc.want) {
+				t.Errorf("want %q: %s", tc.want, got)
+			}
+			if strings.Contains(got, tc.forbidden) {
+				t.Errorf("must not say %q: %s", tc.forbidden, got)
+			}
+		})
+	}
+}
+
 // THE THIRD RUNG. `handle` is nullable too (@copilot), so a name-withheld,
 // handle-less holder would render a bare "@" — a label with nothing in it,
 // which is the same hole as the empty fallback one rung up.

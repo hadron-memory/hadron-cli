@@ -939,7 +939,11 @@ Conventions:
   `releasedFrom { id, handle, urn, name }`. `releasedFromUserId` keeps its name
   and mirrors `releasedFrom.id` — only its provenance moved, from a client
   pre-read to the server's answer, which is strictly more correct on the retry
-  path. `releasedFrom.name` is **gated** and null for a viewer outside it (an
+  path. The receipt's "what happens next" clause is gated on **visibility**, not just on
+  a null hold: `heldByUserId` masks to null on deny, so availability is claimed
+  only when `hasLiveSession` is non-null on the returned worker, and a re-hold
+  taken between the write and the re-read is reported rather than papered over.
+  `releasedFrom.name` is **gated** and null for a viewer outside it (an
   admin releasing a colleague who has LEFT the org is the ordinary case, since
   `leaveApp` deletes the membership while the hold survives) — fall back to
   `handle`, and then to `id`, never to a dash. **`handle` and `urn` are
