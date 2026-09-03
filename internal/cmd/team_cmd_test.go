@@ -47,9 +47,20 @@ func withLiveness(worker, live string) string {
 	default:
 		panic("withLiveness: live must be the raw JSON true/false/null, got " + live)
 	}
-	if strings.Contains(worker, `"hasLiveSession":`) {
-		return regexp.MustCompile(`"hasLiveSession":(true|false|null)`).
-			ReplaceAllString(worker, `"hasLiveSession":`+live)
+	// Whitespace-tolerant, and the REPLACEMENT is checked as well as the
+	// insertion (@copilot). The first draft matched `"hasLiveSession":(true|
+	// false|null)` and returned the result unchecked — so a fixture spelled
+	// `"hasLiveSession": false` would enter this branch, match nothing, and
+	// hand back the ORIGINAL row while the test believed it had set liveness.
+	// A helper that silently declines to act is the fixture-shaped version of
+	// review:a-mutation-check-can-itself-be-a-no-op, in the PR whose whole
+	// subject is fixtures that test a branch they do not name.
+	set := regexp.MustCompile(`"hasLiveSession":\s*(true|false|null)`)
+	if set.MatchString(worker) {
+		return set.ReplaceAllString(worker, `"hasLiveSession":`+live)
+	}
+	if strings.Contains(worker, `"hasLiveSession"`) {
+		panic("withLiveness: fixture spells hasLiveSession in a shape this helper cannot set — it would have returned the row unchanged")
 	}
 	out := strings.Replace(worker, `"memoryId":"mw1"`, `"memoryId":"mw1","hasLiveSession":`+live, 1)
 	if out == worker {

@@ -710,8 +710,15 @@ holds nothing).`,
 						"worker %s is live — being driven by %s — and the name is held by %s: this CLI could not read your own identity to tell whether that is you. If it is, --force takes over; if it is not, nothing does: a held name is not forceable, and the remedy is to cast your own worker (cor:agt:020:09)",
 						w.Name, drivenBy(active), holder)
 				}
+				// "clears on its own", NOT "nothing frees it by waiting"
+				// (@codex, P2). The first draft said the second, which is the
+				// pre-#1114 conclusion about an OPEN session row attached to
+				// LIVENESS, where the opposite holds: liveness is derived from
+				// recent driving, so it lapses when the driver stops. Waiting is
+				// a real remedy here and the sentence sent readers at --force
+				// instead. #550's own defect, in the message announcing the fix.
 				return exitcode.Newf(exitcode.Conflict,
-					"worker %s is live — being driven by %s. Live means DRIVEN RECENTLY (the server derives it; an open session row is not it), so nothing frees this name by waiting; --force takes over",
+					"worker %s is live — being driven by %s. Live means DRIVEN RECENTLY (the server derives it; an open session row is not it), so it lapses on its own once nobody is driving; --force takes over now",
 					w.Name, drivenBy(active))
 			}
 			switch {
@@ -778,8 +785,18 @@ holds nothing).`,
 					if seen == "" {
 						seen = "unknown"
 					}
+					// The server's TAKEN refusal, and it must say what the
+					// client's says (@codex, P2). It explained itself by the
+					// session being OPEN — the conflation this change removes —
+					// and #550 made this path NEWLY REACHABLE, since a masked
+					// liveness now defers here rather than refusing above. So
+					// the one wording left teaching open-equals-taken would have
+					// been the one a caller outside the read gate always gets.
+					//
+					// Round 6 of #549 in miniature: one explanation in two
+					// places, edited in one.
 					return exitcode.Newf(exitcode.Conflict,
-						"worker %s is being driven by %s, last seen %s (worker session %s) — that session is still open, which closing a chat session does not do; --force takes over (informed override, cor:agt:020:03)",
+						"worker %s is live — being driven by %s, last seen %s (worker session %s). Live means DRIVEN RECENTLY, derived server-side, not merely a session left open; it lapses on its own once nobody is driving. --force takes over now (informed override, cor:agt:020:03)",
 						w.Name, who, seen, detail.SessionID)
 				}
 				return api.MapError(err)

@@ -25,6 +25,65 @@ import (
 // Three cases, and they are three because liveness has three answers. The
 // third is the one that needed deciding rather than coding.
 
+// withLiveness's own contract, pinned (@copilot): it SETS liveness or it
+// panics — it never hands back a row it failed to change.
+//
+// A fixture helper earns a test when a silent no-op in it would make other
+// tests assert the wrong branch, which is this whole PR's subject. The
+// whitespace case is the one that was live: `"hasLiveSession": false` contains
+// the key, so the helper entered its replace path, matched nothing, and
+// returned the original.
+func TestWithLivenessSetsOrPanics(t *testing.T) {
+	for _, tc := range []struct {
+		name, in, live, want, gone string
+	}{
+		{"inserts into a fixture without the key", irisWorkerJSON, "true", `"hasLiveSession":true`, ""},
+		{"overwrites an existing value", heldBy("u-dara"), "true", `"hasLiveSession":true`, `"hasLiveSession":false`},
+		{"overwrites through whitespace", `{"memoryId":"mw1","hasLiveSession": false}`, "null", `"hasLiveSession":null`, `"hasLiveSession": false`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := withLiveness(tc.in, tc.live)
+			if !strings.Contains(got, tc.want) {
+				t.Errorf("withLiveness did not set %s: %s", tc.want, got)
+			}
+			// SET, not add. Presence alone cannot tell overwriting from
+			// inserting a SECOND key, and Go's decoder takes the LAST — so a
+			// helper that fell through to the insert path would satisfy the
+			// assertion above while the fixture meant the opposite. Found by
+			// mutating this test's own subject: dropping the whitespace
+			// tolerance left this case green.
+			if tc.gone != "" && strings.Contains(got, tc.gone) {
+				t.Errorf("withLiveness left the old value in place — a duplicate key, and the decoder takes the last: %s", got)
+			}
+		})
+	}
+
+	// The two shapes it must refuse rather than pass through.
+	for _, tc := range []struct{ name, in string }{
+		{"a key it cannot set", `{"memoryId":"mw1","hasLiveSession":"yes"}`},
+		{"nowhere to insert", `{"id":"wkr1"}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			defer func() {
+				if recover() == nil {
+					t.Error("withLiveness must panic rather than return the row unchanged")
+				}
+			}()
+			_ = withLiveness(tc.in, "true")
+		})
+	}
+
+	// And an unusable `live` argument is refused, not written into the JSON.
+	t.Run("rejects a non-JSON liveness value", func(t *testing.T) {
+		defer func() {
+			if recover() == nil {
+				t.Error("withLiveness must panic on a live value that is not true/false/null")
+			}
+		}()
+		_ = withLiveness(irisWorkerJSON, "TRUE")
+	})
+}
+
 // LIVE → refuse, and say LIVE.
 //
 // The wording is asserted, not just the exit code, because the wording is half
@@ -51,11 +110,23 @@ func TestTeamSessionStartLiveRefusesAndNamesLiveness(t *testing.T) {
 			t.Errorf("the refusal must carry %q: %v", want, err)
 		}
 	}
-	// The retired justification, in the two spellings it had. Neither may come
-	// back: both explain the refusal by the fact that no longer causes it.
-	for _, forbidden := range []string{"still open, which a closed chat session", "worker session is still open"} {
+	// LIVENESS LAPSES, and the refusal must say so (@codex P2 on this PR).
+	// Derived liveness is recency of driving, so waiting for the window IS a
+	// remedy — the opposite of the open-session row, which nothing clears. The
+	// first draft carried the row's conclusion over to liveness and told the
+	// reader waiting could not help, pushing them at an unnecessary takeover.
+	if !strings.Contains(err.Error(), "lapses on its own") {
+		t.Errorf("the refusal must say liveness clears by itself: %v", err)
+	}
+	// Every retired justification, in the spellings it has had. None may come
+	// back: each explains the refusal by something that no longer causes it.
+	for _, forbidden := range []string{
+		"still open, which a closed chat session",
+		"worker session is still open",
+		"nothing frees this name by waiting",
+	} {
 		if strings.Contains(err.Error(), forbidden) {
-			t.Errorf("the refusal must not explain itself with an OPEN session (%q): %v", forbidden, err)
+			t.Errorf("the refusal must not carry the retired claim %q: %v", forbidden, err)
 		}
 	}
 	if _, called := captured["StartTeamSession"]; called {
@@ -89,10 +160,21 @@ func TestTeamSessionStartNotLiveBindsOverAnOpenSession(t *testing.T) {
 	// NO force in the input. Binding a free name is not an override, and
 	// sending one would relabel the ordinary case as a takeover in the
 	// provenance record — the server reads this field, not our narration.
+	//
+	// The decode error is CHECKED, unlike the repo's usual `_ = json.Unmarshal`
+	// (@copilot). The idiom is safe for a positive assertion — a nil map fails
+	// it — and unsafe for this one, which asserts an ABSENCE: a decode that
+	// stopped working would leave `Input` nil, the key absent, and the test
+	// green on a payload nobody read. A guard whose failure mode is passing.
 	var vars struct {
 		Input map[string]any `json:"input"`
 	}
-	_ = json.Unmarshal(raw, &vars)
+	if err := json.Unmarshal(raw, &vars); err != nil {
+		t.Fatalf("decoding the captured StartTeamSession variables: %v (raw: %s)", err, raw)
+	}
+	if vars.Input == nil {
+		t.Fatalf("no input variable captured — the absence check below would pass vacuously: %s", raw)
+	}
 	if _, present := vars.Input["force"]; present {
 		t.Errorf("binding a name that is not live must not send force: %v", vars.Input)
 	}
@@ -188,6 +270,20 @@ func TestTeamSessionStartMaskedLivenessRendersServerTakenRefusal(t *testing.T) {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("the server's refusal must carry %q: %v", want, err)
 		}
+	}
+	// AND IT MUST SAY THE SAME THING THE CLIENT'S DOES (@codex P2 on this PR).
+	// This path is NEWLY REACHABLE because masked liveness defers here, so a
+	// caller outside the worker read gate meets this wording every time — and
+	// it was the one refusal left explaining itself by the session being OPEN,
+	// which is the conflation the change exists to remove. One explanation in
+	// two places, edited in one: #549's round 6, inside the PR that cites it.
+	for _, want := range []string{"is live", "DRIVEN RECENTLY", "lapses on its own"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the server's refusal must be phrased in liveness too (%q): %v", want, err)
+		}
+	}
+	if strings.Contains(err.Error(), "still open, which closing a chat session") {
+		t.Errorf("the server's refusal must not explain itself with an OPEN session: %v", err)
 	}
 }
 

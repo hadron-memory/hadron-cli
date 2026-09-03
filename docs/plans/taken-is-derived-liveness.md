@@ -163,6 +163,50 @@ server and starts describing the test.
 site where liveness decides the outcome, in the same three-valued spelling
 `workerWith` already uses for the same field.
 
+## Review, and the two findings that were this bug again
+
+Four findings, all valid. **Two of them were this PR committing the error it
+exists to remove**, which is worth recording rather than quietly fixing.
+
+**1. The refusal claimed waiting could not help (@codex, P2).** It said *"nothing
+frees this name by waiting"* — the pre-#1114 conclusion about an OPEN session
+row, attached to LIVENESS, where **the opposite holds**: derived liveness is
+recency of driving, so it lapses when the driver stops. Waiting is a real remedy
+here, and the sentence sent readers at an unnecessary `--force`. The general
+shape is the one #549 named — *a conclusion outliving the premise that made it
+true* — and the carry-over went in the direction nobody checks, from the fact
+being retired to the fact replacing it.
+
+**2. The SERVER's TAKEN refusal still explained itself by openness (@codex, P2).**
+One explanation in two places, edited in one: #549's round 6, inside the PR that
+cites it. Sharper here than there, because **#550 made that path newly
+reachable** — a masked liveness now defers to the server, so the one wording
+left teaching open-equals-taken was the one a caller outside the read gate gets
+*every time*.
+
+**3. `withLiveness` could return a row it had failed to change (@copilot).** The
+replace path was unchecked, so `"hasLiveSession": false` — the key present, the
+regex not matching — would enter that branch and hand back the original while
+the test believed it had set liveness. A fixture helper that silently declines
+to act, in the PR whose subject is fixtures testing a branch they do not name.
+Now whitespace-tolerant, and it panics rather than passing through.
+
+**4. An absence assertion over an ignored decode error (@copilot).** `_ =
+json.Unmarshal` is safe for a POSITIVE assertion — a nil map fails it — and
+unsafe for *"force is not present"*, which a nil map satisfies vacuously.
+Checked, plus an explicit `Input != nil`.
+
+**The mutation run on fix 3 found a weakness in its own new test**, which is the
+reason to run them: with the whitespace tolerance dropped, the case still passed
+— the helper fell through to the INSERT path and produced a **duplicate**
+`hasLiveSession` key, which `strings.Contains` was happy with while Go's decoder
+takes the last. The test now asserts the old value is GONE, not merely that the
+new one is present, and reds under the exact reported defect.
+
+Honest exception: **fix 4's guard has no constructible failing input** through
+the current harness — the capture cannot hold invalid JSON. It is the
+landed-mutation-uncovered-branch case, reported rather than counted as proven.
+
 ## Propagation
 
 - **No spec.** `cor:agt:020:03`/`:09`/`:11` already state that liveness is
