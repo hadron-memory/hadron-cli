@@ -203,7 +203,39 @@ mutation ReleaseWorker(
     expectedHolderUserId: $expectedHolderUserId
     expectUnheld: $expectUnheld
   ) {
-    ...WorkerFields
+    # The worker, re-read AFTER the guarded release and BEFORE the notice — so
+    # this is CURRENT STATE, not a snapshot of the write. A non-null
+    # heldByUserId here is a LATER hold somebody else took, never a failed
+    # release; releasedFrom below is what attests the release happened.
+    worker {
+      ...WorkerFields
+    }
+    # The holder the WRITE ended, null on the idempotent (already-unheld) path.
+    #
+    # A PROJECTION, not `User` (hadron-server#1073, cor:acl:080:02 precedent):
+    # a field returning another entity's object hands over that entity's field
+    # resolvers, and User's default-resolved tail carries no gate of its own.
+    # Select the four; never reach for more because they would resolve.
+    #
+    # `name` is null for a viewer outside the #384 gate — an admin releasing a
+    # colleague who has LEFT the org is the ordinary case, not an edge one, so
+    # render `handle` rather than a dash. `urn` is null for a handle-less user.
+    releasedFrom {
+      id
+      handle
+      urn
+      name
+    }
+    # SERVER-COMPUTED (#1073), and the reason the client no longer classifies:
+    # a client would have to compare the holder it was given against one it had
+    # to fetch, and that fetch fails on exactly the path where the answer
+    # matters. false always means the holder was YOU, or that nothing was
+    # released — never "could not tell".
+    forced
+    # THREE states: null = no notice was owed (self-release, or nothing
+    # released); true = owed and posted; false = OWED AND FAILED, with the
+    # release still done. A bool would collapse the first and last.
+    notified
   }
 }
 

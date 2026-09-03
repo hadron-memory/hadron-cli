@@ -136,7 +136,7 @@ func TestWorkerReleaseForcePromptStatesTheForceFlatlyWhenKnown(t *testing.T) {
 // bearing if something reads the result.
 func TestWorkerReleaseStalePromptHedgesWhenIdentityIsUnreadable(t *testing.T) {
 	srv, seen := releaseSequence(t, irisWorkerJSON,
-		[]string{holdStale("u-gil"), releasedOK}, map[string]string{
+		[]string{holdStale("u-gil"), releasedFromOK("u-gil")}, map[string]string{
 			"AuthContext": authContextUnreadableJSON,
 			"GetUser": `{"data":{"user":{"id":"u-gil","name":"Gil","email":null,"handle":"gil",
 				"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
@@ -175,7 +175,11 @@ func TestWorkerReleaseStalePromptHedgesWhenIdentityIsUnreadable(t *testing.T) {
 	// asserting only on the prompt would leave the branch half-driven — the
 	// same "green result, mechanism never ran" shape as the refusal-only
 	// coverage this test exists to replace.
-	if receipt := out.String(); !strings.Contains(receipt, "✓ released Iris") {
+	// FORCE-released, and named. The PROMPT above hedges because this CLI could
+	// not read its own identity; the RECEIPT does not, because #1073 has the
+	// server classify the act. Two different jobs that used to share one
+	// nullable answer — and the hedge belonged to only one of them.
+	if receipt := out.String(); !strings.Contains(receipt, "✓ force-released Iris from Gil") {
 		t.Errorf("a consented retry must report what it did: %q", receipt)
 	}
 }
@@ -192,7 +196,7 @@ func TestWorkerReleaseStalePromptHedgesWhenIdentityIsUnreadable(t *testing.T) {
 // property that matters and the reader is only how it is achieved.
 func TestWorkerReleaseAnswersBothPromptsInOneRun(t *testing.T) {
 	srv, seen := releaseSequence(t, heldBy("u-dara"),
-		[]string{holdStale("u-gil"), releasedOK}, map[string]string{
+		[]string{holdStale("u-gil"), releasedFromOK("u-gil")}, map[string]string{
 			"GetUser": `{"data":{"user":{"id":"u-gil","name":"Gil","email":null,"handle":"gil",
 				"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
 				"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
@@ -231,7 +235,7 @@ func TestWorkerReleaseAnswersBothPromptsInOneRun(t *testing.T) {
 // "the second call is absent" is the only evidence of that.
 func TestWorkerReleaseStalePromptDeclineStopsAfterTheRefusal(t *testing.T) {
 	srv, seen := releaseSequence(t, irisWorkerJSON,
-		[]string{holdStale("u-gil"), releasedOK}, map[string]string{
+		[]string{holdStale("u-gil"), releasedFromOK("u-gil")}, map[string]string{
 			"GetUser": `{"data":{"user":{"id":"u-gil","name":"Gil","email":null,"handle":"gil",
 				"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
 				"externalId":null,"externalAppId":null,"linkedAt":null}}}`,

@@ -1090,7 +1090,7 @@ type ConnectionGrant {
   id: ID!
 
   """
-  Covered scopes: mail.read, mail.send, calendar.freebusy, calendar.read.
+  Covered scopes: mail.read, mail.send, calendar.freebusy, calendar.read, drive.read.
   """
   scopes: [String!]!
 }
@@ -2793,8 +2793,9 @@ type Mutation {
 
   """
   Grant an App install scoped access to a connection you OWN. scopes must be a
-  subset of {mail.read, mail.send, calendar.freebusy, calendar.read}; expiresAt
-  (ISO-8601) is optional and must be in the future. appRef is a PK or App URN.
+  subset of {mail.read, mail.send, calendar.freebusy, calendar.read, drive.read};
+  expiresAt (ISO-8601) is optional and must be in the future. appRef is a PK or
+  App URN.
   """
   createConnectionGrant(appRef: String!, connectionRef: String!, expiresAt: String, scopes: [String!]!): ConnectionGrant!
 
@@ -3343,9 +3344,11 @@ type Mutation {
 
   """
   End a session, and — for a worker-bound one — write its closing handoff
-  (#1029). This is the CLIENT operation that ends a worker session — the #930
-  reaper ends one too, without a client. A client's chat session ending **does
-  not end a worker session**, and never reaches this server (#1034).
+  (#1029). This is the CLIENT operation that ends a worker session. Since
+  #1114 it is very nearly the ONLY one: the reaper ends a session only when a
+  hard expiresAt promised at session start has passed, never for going
+  quiet. A client's chat session ending **does not end a worker session**, and
+  never reaches this server (#1034).
   
   It ends the SESSION, not any HOLD. Where a person bound the worker the name
   stays theirs until explicitly released (#1050,
@@ -3693,7 +3696,7 @@ type Mutation {
     """
     expectedHolderUserId: ID
     workerRef: ID!
-  ): Worker!
+  ): ReleaseWorkerPayload!
 
   """
   DEPRECATED: use uninstallAgentFromApp. Carried for source-compat
@@ -3953,9 +3956,13 @@ type Mutation {
   The binding is held server-side and is independent of the caller's CHAT
   SESSION (the human's Desktop window, Claude Code session or IDE chat).
   **Ending your chat session does not end a worker session** (#1034): a chat
-  session that closes leaves this session open and its worker taken until
-  endSession or the #930 reaper. A client that ties its lifetime to a conversation must call
-  endSession itself; nothing about closing a window reaches this server.
+  session that closes leaves this session open until endSession — #1114
+  removed inactivity as a reason to end one, so nothing else will. The worker
+  stops reading as LIVE once its idle window passes without a drive, which is
+  what lets an abandoned name be bound again; the session itself, and any
+  handoff still unwritten, survive. A client that ties its lifetime to a
+  conversation must call endSession itself; nothing about closing a window
+  reaches this server.
   """
   startSession(input: SessionInput!): Session!
 
@@ -4229,7 +4236,7 @@ type Mutation {
   #931: update a live session's mutable provenance fields (a PR is usually
   opened after startSession already ran). Explicit null clears; omitted
   preserves; an empty update is a valid liveness touch (bumps updatedAt,
-  which the #930 inactivity reaper counts). id-only - sessions have no URN.
+  which liveness counts — #1114). id-only - sessions have no URN.
   Gate: platform admin, the session's App, or the attributed user (not via
   impersonation). Updates on an ended session stay allowed (late PR-merge
   attribution).
@@ -5258,7 +5265,7 @@ type Query {
   remains the only allocation primitive.
   """
   castWorkerPreview(agentRef: ID, appRef: ID!, name: String, promptOverride: String, role: String): CastWorkerPreview!
-  chatHistory(chatId: String!, limit: Int): [ChatMessage!]!
+  chatHistory(beforeSeq: Int, chatId: String!, limit: Int): [ChatMessage!]!
 
   """
   One connection grant the caller created, by ID; null if not theirs (no existence oracle).
@@ -6062,7 +6069,13 @@ type Query {
   Read a team App's chat (#939), seq-ordered ascending, as a uniform
   { items, total } page. sinceSeq is a watermark cursor: only messages with
   seq STRICTLY GREATER than it are returned (pass the last seq you have
-  seen). mentionsRef filters to messages whose stored envelope mentions the
+  seen). beforeSeq (#1116) is its BACKWARD mirror for scroll-up paging: only
+  messages with seq STRICTLY LESS than it are considered, and the NEWEST
+  limit of those come back -- the page immediately before the cursor, still
+  ascending. The two compose, so passing both reads a bounded slice.
+  offset is IGNORED when beforeSeq is given: a cursor exists precisely
+  because a position is unstable while workers keep posting, and honouring
+  both would put that race back. mentionsRef filters to messages whose stored envelope mentions the
   referenced worker (a Worker id or name of THIS App, retired included) or
   user (handle/id) — matching runs against the mention tokens extracted at
   write time, never by re-parsing bodies. The ref must name this App's own
@@ -6077,7 +6090,7 @@ type Query {
   
   appRef and mentionsRef accept the entity's ID or URN.
   """
-  teamChatMessages(appRef: ID!, limit: Int, mentionsRef: ID, offset: Int, sinceSeq: Int): TeamChatMessagesPage!
+  teamChatMessages(appRef: ID!, beforeSeq: Int, limit: Int, mentionsRef: ID, offset: Int, sinceSeq: Int): TeamChatMessagesPage!
 
   """
   An App's role definitions (#960): every roles:<role> node in the Team
@@ -6263,6 +6276,109 @@ type QuotaCounter {
   Window kind (day). The row rolls in place at UTC midnight - used resets, limit persists.
   """
   window: String!
+}
+
+"""
+#1073 — what a releaseWorker call actually DID, rather than what the caller
+predicted it would do.
+
+releaseWorker used to return the post-release Worker, whose
+heldByUserId is null by construction — so a client could report only who
+held the name when it last looked. Per cor:agt:020:09 the two release
+paths are different ACTS: the holder's own release notifies nobody, an admin
+force-release must announce itself in the team chat. A receipt that cannot
+tell them apart describes an act that may not have happened.
+"""
+type ReleaseWorkerPayload {
+  """
+  True when the caller released SOMEBODY ELSE'S hold — the admin
+  force-release path, the one act that takes a name without its holder
+  acting, and the one that posts to the team chat.
+  
+  Computed server-side, from the authenticated principal and the hold the
+  write ended in the same transaction. A client computing it would have to
+  compare a value it was given against one it had to fetch, and that fetch
+  fails on exactly the path where the answer matters.
+  
+  false always means the holder was YOU, or that nothing was released
+  (releasedFrom null) — never "the server could not tell".
+  """
+  forced: Boolean!
+
+  """
+  Whether the team-chat notice was posted. THREE states, deliberately:
+  
+  - null — no notice was owed. A self-release, or nothing released.
+  - true — a notice was owed and posted.
+  - false — a notice was OWED AND FAILED. The release still happened; an
+    unreachable chat must not stop an admin recovering a departed
+    colleague's names.
+  
+  A plain boolean would collapse the first and last, and a client cannot
+  render "we may have silently failed to announce this" honestly — so the
+  only truthful UI would be to say nothing, throwing the field away.
+  """
+  notified: Boolean
+
+  """
+  The holder the WRITE ended — not the one a pre-read saw. Null when nothing
+  was released, i.e. the name was already unheld (the idempotent path).
+  
+  This is the value the authorization decision was made against AND the value
+  the guarded write matched on; #1084 made those the same user by
+  construction, so this cannot name somebody other than whoever actually
+  lost the name.
+  """
+  releasedFrom: ReleasedFromUser
+
+  """
+  The worker, re-read immediately after the guarded release and BEFORE the
+  team-chat notice — so the interval in which another caller could bind is as
+  narrow as it can be made. It is NOT zero, and this is a re-read rather than
+  a snapshot of the write.
+  
+  So a non-null heldByUserId here is a LATER hold somebody else took, never a
+  failed release. releasedFrom is what says the release happened; this field
+  is current state, and the two answer different questions.
+  """
+  worker: Worker!
+}
+
+"""
+#1073 — a sanitized identity for the person a release took a name FROM.
+
+Deliberately a SEPARATE type from User, on the cor:acl:080:02 /
+PublicOrganization precedent: a field returning another entity's object hands
+the caller that entity's field resolvers, and User's default-resolved tail
+(policy, identityProvider, externalId, githubId, roles, maxReferrals) carries
+no gate of its own — it relies on the surface that returned it.
+
+releaseWorker cannot lean on that. Its admin path exists for the departed
+colleague, and leaveApp DELETES the AppMember row while the hold survives —
+so the very case this path serves is the one where the caller has no other
+route to that User. Worker itself only ever exposed heldByUserId, a bare id,
+so a full User here would be a NEW disclosure rather than an inherited one.
+
+Exposes what answers "who did I release", and nothing that grows back toward
+User. name keeps the same #384 gate it has on User rather than a second copy
+of the rule; the rest is public identity a URN already discloses.
+"""
+type ReleasedFromUser {
+  handle: String
+  id: ID!
+
+  """
+  Withheld (null) from a viewer who is not the user themselves, a platform
+  admin, or a co-member of one of their orgs — the SAME #384 gate as
+  User.name, reused rather than restated. An admin releasing a colleague who
+  has left the org sees null here, and still gets id/handle/urn.
+  """
+  name: String
+
+  """
+  Canonical hrn:user:<handle> URN (cor:urn:010:01). Null for a handle-less user.
+  """
+  urn: String
 }
 
 type RemoveMemoryMemberPayload {
@@ -6525,8 +6641,11 @@ read `workerId` per row rather than assuming either way.
 A **chat session** is NOT one of these and has no row here: it is the
 conversation a human is in — the Claude Desktop window, the Claude Code
 session, the IDE chat. The two are independent and **ending one does not end
-the other**: a chat session that closes leaves its worker session open, and
-its worker taken, until endSession or the #930 reaper. Do not use "chat
+the other**: a chat session that closes leaves its worker session open
+until endSession. Since #1114 nothing ends it for inactivity — silence is not
+evidence of abandonment — but it stops reading as LIVE once nobody has driven
+it inside its idle window, so an abandoned name frees itself for binding
+without the session being ended or its unwritten handoff lost. Do not use "chat
 session" for a Chat (the agent conversation entity) — that is an **agent
 chat**, a third concept.
 """
@@ -7277,16 +7396,30 @@ type Worker {
   createdBy: String
 
   """
-  hadron-cli#487 — whether a worker session is OPEN on this name right now.
+  hadron-cli#487 — whether anyone is DRIVING this name right now.
   
   Not availability: availability is the HOLD above (`cor:agt:020:09`), and an
-  ended, idle or reaped session never frees a name. This says only whether
-  someone is mid-stint, which is the question a coordinator asks about a name
-  already theirs. Conflating the two is the CLI bug this field exists for.
+  ended or idle session never frees a name. This says only whether someone is
+  mid-stint, which is the question a coordinator asks about a name already
+  theirs. Conflating the two is the CLI bug this field exists for.
   
-  Derived from the session lifecycle with no lease (`cor:agt:020:03`), using
-  the SAME predicate startSession refuses WORKER_TAKEN on — a reader must not
-  be told a worker is busy that a binder can take.
+  #1114 — COMPUTED, never stored. It is "the session has not ended AND it was
+  driven inside its type's idle window", not "a row is open". Nothing ends a
+  session for inactivity any more, because silence is not evidence of
+  abandonment — an agent used once a year is not abandoned in month two — so
+  an open row proves only that nobody closed it. Deriving the answer at read
+  time says exactly what the evidence supports; the previous design expressed
+  the same judgement by ENDING the session, which wrote a guess into the
+  record as a fact and destroyed the handoff that stint had not written yet.
+  
+  A worker that reads false is not gone: its session is untouched, and it
+  reads true again the moment it is driven.
+  
+  Uses the SAME predicate startSession refuses WORKER_TAKEN on
+  (`cor:agt:020:11`) — a reader must not be told a worker is busy that a
+  binder can take, and since #1114 that is load-bearing rather than tidy:
+  with nothing ending abandoned sessions, an `endedAt IS NULL` gate would
+  refuse a bind forever and leave force as the only route.
   
   Nullable BECAUSE of the read gate, not because the answer is unknown: this
   is a working-state field like heldByUserId, masked to null on deny rather
@@ -7330,8 +7463,9 @@ type Worker {
   
   The instant is the platform's one derivation of session activity — the
   greatest of startedAt, updatedAt, and the newest attributed usage event — so
-  it agrees with the takeover prompt and with the idle window the reaper acts
-  on. Masked to null on deny, like heldByUserId.
+  it agrees with the takeover prompt and with the idle window hasLiveSession
+  is derived from (#1114: that window DESCRIBES a session, it no longer ends
+  one). Masked to null on deny, like heldByUserId.
   """
   lastActiveAt: DateTime
 

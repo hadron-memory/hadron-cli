@@ -3630,7 +3630,7 @@ type ConnectionGrantFields struct {
 	GranteeAppName *string `json:"granteeAppName"`
 	// Canonical URN of the grantee App (hrn:app:<root>:<slug>), or null if unresolvable.
 	GranteeAppUrn *string `json:"granteeAppUrn"`
-	// Covered scopes: mail.read, mail.send, calendar.freebusy, calendar.read.
+	// Covered scopes: mail.read, mail.send, calendar.freebusy, calendar.read, drive.read.
 	Scopes []string `json:"scopes"`
 	// ISO-8601 expiry, or null for perpetual (until revoked).
 	ExpiresAt *string `json:"expiresAt"`
@@ -4728,8 +4728,9 @@ func (v *CreateConnectionGrantCreateConnectionGrant) __premarshalJSON() (*__prem
 // CreateConnectionGrantResponse is returned by CreateConnectionGrant on success.
 type CreateConnectionGrantResponse struct {
 	// Grant an App install scoped access to a connection you OWN. scopes must be a
-	// subset of {mail.read, mail.send, calendar.freebusy, calendar.read}; expiresAt
-	// (ISO-8601) is optional and must be in the future. appRef is a PK or App URN.
+	// subset of {mail.read, mail.send, calendar.freebusy, calendar.read, drive.read};
+	// expiresAt (ISO-8601) is optional and must be in the future. appRef is a PK or
+	// App URN.
 	CreateConnectionGrant *CreateConnectionGrantCreateConnectionGrant `json:"createConnectionGrant"`
 }
 
@@ -6834,8 +6835,11 @@ func (v *EncryptMemoryResponse) GetEncryptMemory() *EncryptMemoryEncryptMemory {
 // A **chat session** is NOT one of these and has no row here: it is the
 // conversation a human is in — the Claude Desktop window, the Claude Code
 // session, the IDE chat. The two are independent and **ending one does not end
-// the other**: a chat session that closes leaves its worker session open, and
-// its worker taken, until endSession or the #930 reaper. Do not use "chat
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so an abandoned name frees itself for binding
+// without the session being ended or its unwritten handoff lost. Do not use "chat
 // session" for a Chat (the agent conversation entity) — that is an **agent
 // chat**, a third concept.
 type EndTeamSessionEndSession struct {
@@ -6980,9 +6984,11 @@ func (v *EndTeamSessionEndSession) __premarshalJSON() (*__premarshalEndTeamSessi
 // EndTeamSessionResponse is returned by EndTeamSession on success.
 type EndTeamSessionResponse struct {
 	// End a session, and — for a worker-bound one — write its closing handoff
-	// (#1029). This is the CLIENT operation that ends a worker session — the #930
-	// reaper ends one too, without a client. A client's chat session ending **does
-	// not end a worker session**, and never reaches this server (#1034).
+	// (#1029). This is the CLIENT operation that ends a worker session. Since
+	// #1114 it is very nearly the ONLY one: the reaper ends a session only when a
+	// hard expiresAt promised at session start has passed, never for going
+	// quiet. A client's chat session ending **does not end a worker session**, and
+	// never reaches this server (#1034).
 	//
 	// It ends the SESSION, not any HOLD. Where a person bound the worker the name
 	// stays theirs until explicitly released (#1050,
@@ -8117,8 +8123,11 @@ func (v *GetTeamSessionResponse) GetSession() *GetTeamSessionSession { return v.
 // A **chat session** is NOT one of these and has no row here: it is the
 // conversation a human is in — the Claude Desktop window, the Claude Code
 // session, the IDE chat. The two are independent and **ending one does not end
-// the other**: a chat session that closes leaves its worker session open, and
-// its worker taken, until endSession or the #930 reaper. Do not use "chat
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so an abandoned name frees itself for binding
+// without the session being ended or its unwritten handoff lost. Do not use "chat
 // session" for a Chat (the agent conversation entity) — that is an **agent
 // chat**, a third concept.
 type GetTeamSessionSession struct {
@@ -12786,7 +12795,131 @@ func (v *RecordTeamWorkResponse) GetRecordTeamWork() *RecordTeamWorkRecordTeamWo
 	return v.RecordTeamWork
 }
 
-// ReleaseWorkerReleaseWorker includes the requested fields of the GraphQL type Worker.
+// ReleaseWorkerReleaseWorkerReleaseWorkerPayload includes the requested fields of the GraphQL type ReleaseWorkerPayload.
+// The GraphQL type's documentation follows.
+//
+// #1073 — what a releaseWorker call actually DID, rather than what the caller
+// predicted it would do.
+//
+// releaseWorker used to return the post-release Worker, whose
+// heldByUserId is null by construction — so a client could report only who
+// held the name when it last looked. Per cor:agt:020:09 the two release
+// paths are different ACTS: the holder's own release notifies nobody, an admin
+// force-release must announce itself in the team chat. A receipt that cannot
+// tell them apart describes an act that may not have happened.
+type ReleaseWorkerReleaseWorkerReleaseWorkerPayload struct {
+	// The worker, re-read immediately after the guarded release and BEFORE the
+	// team-chat notice — so the interval in which another caller could bind is as
+	// narrow as it can be made. It is NOT zero, and this is a re-read rather than
+	// a snapshot of the write.
+	//
+	// So a non-null heldByUserId here is a LATER hold somebody else took, never a
+	// failed release. releasedFrom is what says the release happened; this field
+	// is current state, and the two answer different questions.
+	Worker *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker `json:"worker"`
+	// The holder the WRITE ended — not the one a pre-read saw. Null when nothing
+	// was released, i.e. the name was already unheld (the idempotent path).
+	//
+	// This is the value the authorization decision was made against AND the value
+	// the guarded write matched on; #1084 made those the same user by
+	// construction, so this cannot name somebody other than whoever actually
+	// lost the name.
+	ReleasedFrom *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadReleasedFromReleasedFromUser `json:"releasedFrom"`
+	// True when the caller released SOMEBODY ELSE'S hold — the admin
+	// force-release path, the one act that takes a name without its holder
+	// acting, and the one that posts to the team chat.
+	//
+	// Computed server-side, from the authenticated principal and the hold the
+	// write ended in the same transaction. A client computing it would have to
+	// compare a value it was given against one it had to fetch, and that fetch
+	// fails on exactly the path where the answer matters.
+	//
+	// false always means the holder was YOU, or that nothing was released
+	// (releasedFrom null) — never "the server could not tell".
+	Forced bool `json:"forced"`
+	// Whether the team-chat notice was posted. THREE states, deliberately:
+	//
+	// - null — no notice was owed. A self-release, or nothing released.
+	// - true — a notice was owed and posted.
+	// - false — a notice was OWED AND FAILED. The release still happened; an
+	// unreachable chat must not stop an admin recovering a departed
+	// colleague's names.
+	//
+	// A plain boolean would collapse the first and last, and a client cannot
+	// render "we may have silently failed to announce this" honestly — so the
+	// only truthful UI would be to say nothing, throwing the field away.
+	Notified *bool `json:"notified"`
+}
+
+// GetWorker returns ReleaseWorkerReleaseWorkerReleaseWorkerPayload.Worker, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayload) GetWorker() *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker {
+	return v.Worker
+}
+
+// GetReleasedFrom returns ReleaseWorkerReleaseWorkerReleaseWorkerPayload.ReleasedFrom, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayload) GetReleasedFrom() *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadReleasedFromReleasedFromUser {
+	return v.ReleasedFrom
+}
+
+// GetForced returns ReleaseWorkerReleaseWorkerReleaseWorkerPayload.Forced, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayload) GetForced() bool { return v.Forced }
+
+// GetNotified returns ReleaseWorkerReleaseWorkerReleaseWorkerPayload.Notified, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayload) GetNotified() *bool { return v.Notified }
+
+// ReleaseWorkerReleaseWorkerReleaseWorkerPayloadReleasedFromReleasedFromUser includes the requested fields of the GraphQL type ReleasedFromUser.
+// The GraphQL type's documentation follows.
+//
+// #1073 — a sanitized identity for the person a release took a name FROM.
+//
+// Deliberately a SEPARATE type from User, on the cor:acl:080:02 /
+// PublicOrganization precedent: a field returning another entity's object hands
+// the caller that entity's field resolvers, and User's default-resolved tail
+// (policy, identityProvider, externalId, githubId, roles, maxReferrals) carries
+// no gate of its own — it relies on the surface that returned it.
+//
+// releaseWorker cannot lean on that. Its admin path exists for the departed
+// colleague, and leaveApp DELETES the AppMember row while the hold survives —
+// so the very case this path serves is the one where the caller has no other
+// route to that User. Worker itself only ever exposed heldByUserId, a bare id,
+// so a full User here would be a NEW disclosure rather than an inherited one.
+//
+// Exposes what answers "who did I release", and nothing that grows back toward
+// User. name keeps the same #384 gate it has on User rather than a second copy
+// of the rule; the rest is public identity a URN already discloses.
+type ReleaseWorkerReleaseWorkerReleaseWorkerPayloadReleasedFromReleasedFromUser struct {
+	Id     string  `json:"id"`
+	Handle *string `json:"handle"`
+	// Canonical hrn:user:<handle> URN (cor:urn:010:01). Null for a handle-less user.
+	Urn *string `json:"urn"`
+	// Withheld (null) from a viewer who is not the user themselves, a platform
+	// admin, or a co-member of one of their orgs — the SAME #384 gate as
+	// User.name, reused rather than restated. An admin releasing a colleague who
+	// has left the org sees null here, and still gets id/handle/urn.
+	Name *string `json:"name"`
+}
+
+// GetId returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadReleasedFromReleasedFromUser.Id, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadReleasedFromReleasedFromUser) GetId() string {
+	return v.Id
+}
+
+// GetHandle returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadReleasedFromReleasedFromUser.Handle, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadReleasedFromReleasedFromUser) GetHandle() *string {
+	return v.Handle
+}
+
+// GetUrn returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadReleasedFromReleasedFromUser.Urn, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadReleasedFromReleasedFromUser) GetUrn() *string {
+	return v.Urn
+}
+
+// GetName returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadReleasedFromReleasedFromUser.Name, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadReleasedFromReleasedFromUser) GetName() *string {
+	return v.Name
+}
+
+// ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker includes the requested fields of the GraphQL type Worker.
 // The GraphQL type's documentation follows.
 //
 // A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
@@ -12796,83 +12929,121 @@ func (v *RecordTeamWorkResponse) GetRecordTeamWork() *RecordTeamWorkRecordTeamWo
 // case-insensitively, forever (retirement and uninstall never free them —
 // cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
 // by its id or by the computed `urn` below (#991).
-type ReleaseWorkerReleaseWorker struct {
+type ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker struct {
 	WorkerFields `json:"-"`
 }
 
-// GetId returns ReleaseWorkerReleaseWorker.Id, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetId() string { return v.WorkerFields.Id }
+// GetId returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.Id, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetId() string {
+	return v.WorkerFields.Id
+}
 
-// GetUrn returns ReleaseWorkerReleaseWorker.Urn, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetUrn() *string { return v.WorkerFields.Urn }
+// GetUrn returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.Urn, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetUrn() *string {
+	return v.WorkerFields.Urn
+}
 
-// GetPortalUrl returns ReleaseWorkerReleaseWorker.PortalUrl, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetPortalUrl() *string { return v.WorkerFields.PortalUrl }
+// GetPortalUrl returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.PortalUrl, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetPortalUrl() *string {
+	return v.WorkerFields.PortalUrl
+}
 
-// GetSlug returns ReleaseWorkerReleaseWorker.Slug, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetSlug() string { return v.WorkerFields.Slug }
+// GetSlug returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.Slug, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetSlug() string {
+	return v.WorkerFields.Slug
+}
 
-// GetAppId returns ReleaseWorkerReleaseWorker.AppId, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetAppId() string { return v.WorkerFields.AppId }
+// GetAppId returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.AppId, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetAppId() string {
+	return v.WorkerFields.AppId
+}
 
-// GetAgentId returns ReleaseWorkerReleaseWorker.AgentId, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetAgentId() string { return v.WorkerFields.AgentId }
+// GetAgentId returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.AgentId, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetAgentId() string {
+	return v.WorkerFields.AgentId
+}
 
-// GetName returns ReleaseWorkerReleaseWorker.Name, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetName() string { return v.WorkerFields.Name }
+// GetName returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.Name, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetName() string {
+	return v.WorkerFields.Name
+}
 
-// GetRole returns ReleaseWorkerReleaseWorker.Role, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetRole() *string { return v.WorkerFields.Role }
+// GetRole returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.Role, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetRole() *string {
+	return v.WorkerFields.Role
+}
 
-// GetPrompt returns ReleaseWorkerReleaseWorker.Prompt, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
+// GetPrompt returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.Prompt, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetPrompt() *string {
+	return v.WorkerFields.Prompt
+}
 
-// GetPromptOverride returns ReleaseWorkerReleaseWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetPromptOverride() *string {
+// GetPromptOverride returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.PromptOverride, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetPromptOverride() *string {
 	return v.WorkerFields.PromptOverride
 }
 
-// GetRepos returns ReleaseWorkerReleaseWorker.Repos, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetRepos() []string { return v.WorkerFields.Repos }
+// GetRepos returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.Repos, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetRepos() []string {
+	return v.WorkerFields.Repos
+}
 
-// GetMemoryId returns ReleaseWorkerReleaseWorker.MemoryId, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
+// GetMemoryId returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetMemoryId() *string {
+	return v.WorkerFields.MemoryId
+}
 
-// GetHeldByUserId returns ReleaseWorkerReleaseWorker.HeldByUserId, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetHeldByUserId() *string { return v.WorkerFields.HeldByUserId }
+// GetHeldByUserId returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetHeldByUserId() *string {
+	return v.WorkerFields.HeldByUserId
+}
 
-// GetHeldAt returns ReleaseWorkerReleaseWorker.HeldAt, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
+// GetHeldAt returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.HeldAt, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetHeldAt() *string {
+	return v.WorkerFields.HeldAt
+}
 
-// GetHasLiveSession returns ReleaseWorkerReleaseWorker.HasLiveSession, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetHasLiveSession() *bool { return v.WorkerFields.HasLiveSession }
+// GetHasLiveSession returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetHasLiveSession() *bool {
+	return v.WorkerFields.HasLiveSession
+}
 
-// GetLastActiveAt returns ReleaseWorkerReleaseWorker.LastActiveAt, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetLastActiveAt() *string { return v.WorkerFields.LastActiveAt }
+// GetLastActiveAt returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetLastActiveAt() *string {
+	return v.WorkerFields.LastActiveAt
+}
 
-// GetRetiredAt returns ReleaseWorkerReleaseWorker.RetiredAt, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
+// GetRetiredAt returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetRetiredAt() *string {
+	return v.WorkerFields.RetiredAt
+}
 
-// GetRetiredBy returns ReleaseWorkerReleaseWorker.RetiredBy, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetRetiredBy() *string { return v.WorkerFields.RetiredBy }
+// GetRetiredBy returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.RetiredBy, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetRetiredBy() *string {
+	return v.WorkerFields.RetiredBy
+}
 
-// GetCreatedAt returns ReleaseWorkerReleaseWorker.CreatedAt, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetCreatedAt() string { return v.WorkerFields.CreatedAt }
+// GetCreatedAt returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetCreatedAt() string {
+	return v.WorkerFields.CreatedAt
+}
 
-// GetCreatedBy returns ReleaseWorkerReleaseWorker.CreatedBy, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorker) GetCreatedBy() *string { return v.WorkerFields.CreatedBy }
+// GetCreatedBy returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.CreatedBy, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetCreatedBy() *string {
+	return v.WorkerFields.CreatedBy
+}
 
-func (v *ReleaseWorkerReleaseWorker) UnmarshalJSON(b []byte) error {
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*ReleaseWorkerReleaseWorker
+		*ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.ReleaseWorkerReleaseWorker = v
+	firstPass.ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -12887,7 +13058,7 @@ func (v *ReleaseWorkerReleaseWorker) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalReleaseWorkerReleaseWorker struct {
+type __premarshalReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker struct {
 	Id string `json:"id"`
 
 	Urn *string `json:"urn"`
@@ -12929,7 +13100,7 @@ type __premarshalReleaseWorkerReleaseWorker struct {
 	CreatedBy *string `json:"createdBy"`
 }
 
-func (v *ReleaseWorkerReleaseWorker) MarshalJSON() ([]byte, error) {
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -12937,8 +13108,8 @@ func (v *ReleaseWorkerReleaseWorker) MarshalJSON() ([]byte, error) {
 	return json.Marshal(premarshaled)
 }
 
-func (v *ReleaseWorkerReleaseWorker) __premarshalJSON() (*__premarshalReleaseWorkerReleaseWorker, error) {
-	var retval __premarshalReleaseWorkerReleaseWorker
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) __premarshalJSON() (*__premarshalReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker, error) {
+	var retval __premarshalReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker
 
 	retval.Id = v.WorkerFields.Id
 	retval.Urn = v.WorkerFields.Urn
@@ -13004,11 +13175,11 @@ type ReleaseWorkerResponse struct {
 	// unconditionally sends undefined — present, and read as an assertion nobody
 	// made. That is a live hazard in this codebase, so a safety precondition does
 	// not lean on it.
-	ReleaseWorker *ReleaseWorkerReleaseWorker `json:"releaseWorker"`
+	ReleaseWorker *ReleaseWorkerReleaseWorkerReleaseWorkerPayload `json:"releaseWorker"`
 }
 
 // GetReleaseWorker returns ReleaseWorkerResponse.ReleaseWorker, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerResponse) GetReleaseWorker() *ReleaseWorkerReleaseWorker {
+func (v *ReleaseWorkerResponse) GetReleaseWorker() *ReleaseWorkerReleaseWorkerReleaseWorkerPayload {
 	return v.ReleaseWorker
 }
 
@@ -14813,9 +14984,13 @@ type StartTeamSessionResponse struct {
 	// The binding is held server-side and is independent of the caller's CHAT
 	// SESSION (the human's Desktop window, Claude Code session or IDE chat).
 	// **Ending your chat session does not end a worker session** (#1034): a chat
-	// session that closes leaves this session open and its worker taken until
-	// endSession or the #930 reaper. A client that ties its lifetime to a conversation must call
-	// endSession itself; nothing about closing a window reaches this server.
+	// session that closes leaves this session open until endSession — #1114
+	// removed inactivity as a reason to end one, so nothing else will. The worker
+	// stops reading as LIVE once its idle window passes without a drive, which is
+	// what lets an abandoned name be bound again; the session itself, and any
+	// handoff still unwritten, survive. A client that ties its lifetime to a
+	// conversation must call endSession itself; nothing about closing a window
+	// reaches this server.
 	StartSession *StartTeamSessionStartSession `json:"startSession"`
 }
 
@@ -14840,8 +15015,11 @@ func (v *StartTeamSessionResponse) GetStartSession() *StartTeamSessionStartSessi
 // A **chat session** is NOT one of these and has no row here: it is the
 // conversation a human is in — the Claude Desktop window, the Claude Code
 // session, the IDE chat. The two are independent and **ending one does not end
-// the other**: a chat session that closes leaves its worker session open, and
-// its worker taken, until endSession or the #930 reaper. Do not use "chat
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so an abandoned name frees itself for binding
+// without the session being ended or its unwritten handoff lost. Do not use "chat
 // session" for a Chat (the agent conversation entity) — that is an **agent
 // chat**, a third concept.
 type StartTeamSessionStartSession struct {
@@ -15120,7 +15298,13 @@ type TeamChatMessagesResponse struct {
 	// Read a team App's chat (#939), seq-ordered ascending, as a uniform
 	// { items, total } page. sinceSeq is a watermark cursor: only messages with
 	// seq STRICTLY GREATER than it are returned (pass the last seq you have
-	// seen). mentionsRef filters to messages whose stored envelope mentions the
+	// seen). beforeSeq (#1116) is its BACKWARD mirror for scroll-up paging: only
+	// messages with seq STRICTLY LESS than it are considered, and the NEWEST
+	// limit of those come back -- the page immediately before the cursor, still
+	// ascending. The two compose, so passing both reads a bounded slice.
+	// offset is IGNORED when beforeSeq is given: a cursor exists precisely
+	// because a position is unstable while workers keep posting, and honouring
+	// both would put that race back. mentionsRef filters to messages whose stored envelope mentions the
 	// referenced worker (a Worker id or name of THIS App, retired included) or
 	// user (handle/id) — matching runs against the mention tokens extracted at
 	// write time, never by re-parsing bodies. The ref must name this App's own
@@ -15525,8 +15709,11 @@ func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) __premarshalJSON() (*__pr
 // A **chat session** is NOT one of these and has no row here: it is the
 // conversation a human is in — the Claude Desktop window, the Claude Code
 // session, the IDE chat. The two are independent and **ending one does not end
-// the other**: a chat session that closes leaves its worker session open, and
-// its worker taken, until endSession or the #930 reaper. Do not use "chat
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so an abandoned name frees itself for binding
+// without the session being ended or its unwritten handoff lost. Do not use "chat
 // session" for a Chat (the agent conversation entity) — that is an **agent
 // chat**, a third concept.
 type TeamSessionFields struct {
@@ -15670,8 +15857,11 @@ func (v *TeamSessionsResponse) GetSessions() []*TeamSessionsSessionsSession { re
 // A **chat session** is NOT one of these and has no row here: it is the
 // conversation a human is in — the Claude Desktop window, the Claude Code
 // session, the IDE chat. The two are independent and **ending one does not end
-// the other**: a chat session that closes leaves its worker session open, and
-// its worker taken, until endSession or the #930 reaper. Do not use "chat
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so an abandoned name frees itself for binding
+// without the session being ended or its unwritten handoff lost. Do not use "chat
 // session" for a Chat (the agent conversation entity) — that is an **agent
 // chat**, a third concept.
 type TeamSessionsSessionsSession struct {
@@ -18369,7 +18559,7 @@ type UpdateTeamSessionResponse struct {
 	// #931: update a live session's mutable provenance fields (a PR is usually
 	// opened after startSession already ran). Explicit null clears; omitted
 	// preserves; an empty update is a valid liveness touch (bumps updatedAt,
-	// which the #930 inactivity reaper counts). id-only - sessions have no URN.
+	// which liveness counts — #1114). id-only - sessions have no URN.
 	// Gate: platform admin, the session's App, or the attributed user (not via
 	// impersonation). Updates on an ended session stay allowed (late PR-merge
 	// attribution).
@@ -18397,8 +18587,11 @@ func (v *UpdateTeamSessionResponse) GetUpdateSession() *UpdateTeamSessionUpdateS
 // A **chat session** is NOT one of these and has no row here: it is the
 // conversation a human is in — the Claude Desktop window, the Claude Code
 // session, the IDE chat. The two are independent and **ending one does not end
-// the other**: a chat session that closes leaves its worker session open, and
-// its worker taken, until endSession or the #930 reaper. Do not use "chat
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so an abandoned name frees itself for binding
+// without the session being ended or its unwritten handoff lost. Do not use "chat
 // session" for a Chat (the agent conversation entity) — that is an **agent
 // chat**, a third concept.
 type UpdateTeamSessionUpdateSession struct {
@@ -18978,16 +19171,30 @@ type WorkerFields struct {
 	// (a live worker session) and to `TeamRoleName.taken` (a name allocated in
 	// the register). Three senses of one word across two types.
 	HeldAt *string `json:"heldAt"`
-	// hadron-cli#487 — whether a worker session is OPEN on this name right now.
+	// hadron-cli#487 — whether anyone is DRIVING this name right now.
 	//
 	// Not availability: availability is the HOLD above (`cor:agt:020:09`), and an
-	// ended, idle or reaped session never frees a name. This says only whether
-	// someone is mid-stint, which is the question a coordinator asks about a name
-	// already theirs. Conflating the two is the CLI bug this field exists for.
+	// ended or idle session never frees a name. This says only whether someone is
+	// mid-stint, which is the question a coordinator asks about a name already
+	// theirs. Conflating the two is the CLI bug this field exists for.
 	//
-	// Derived from the session lifecycle with no lease (`cor:agt:020:03`), using
-	// the SAME predicate startSession refuses WORKER_TAKEN on — a reader must not
-	// be told a worker is busy that a binder can take.
+	// #1114 — COMPUTED, never stored. It is "the session has not ended AND it was
+	// driven inside its type's idle window", not "a row is open". Nothing ends a
+	// session for inactivity any more, because silence is not evidence of
+	// abandonment — an agent used once a year is not abandoned in month two — so
+	// an open row proves only that nobody closed it. Deriving the answer at read
+	// time says exactly what the evidence supports; the previous design expressed
+	// the same judgement by ENDING the session, which wrote a guess into the
+	// record as a fact and destroyed the handoff that stint had not written yet.
+	//
+	// A worker that reads false is not gone: its session is untouched, and it
+	// reads true again the moment it is driven.
+	//
+	// Uses the SAME predicate startSession refuses WORKER_TAKEN on
+	// (`cor:agt:020:11`) — a reader must not be told a worker is busy that a
+	// binder can take, and since #1114 that is load-bearing rather than tidy:
+	// with nothing ending abandoned sessions, an `endedAt IS NULL` gate would
+	// refuse a bind forever and leave force as the only route.
 	//
 	// Nullable BECAUSE of the read gate, not because the answer is unknown: this
 	// is a working-state field like heldByUserId, masked to null on deny rather
@@ -19001,8 +19208,9 @@ type WorkerFields struct {
 	//
 	// The instant is the platform's one derivation of session activity — the
 	// greatest of startedAt, updatedAt, and the newest attributed usage event — so
-	// it agrees with the takeover prompt and with the idle window the reaper acts
-	// on. Masked to null on deny, like heldByUserId.
+	// it agrees with the takeover prompt and with the idle window hasLiveSession
+	// is derived from (#1114: that window DESCRIBES a session, it no longer ends
+	// one). Masked to null on deny, like heldByUserId.
 	LastActiveAt *string `json:"lastActiveAt"`
 	// Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
 	RetiredAt *string `json:"retiredAt"`
@@ -19155,16 +19363,30 @@ type WorkerRosterFields struct {
 	// (a live worker session) and to `TeamRoleName.taken` (a name allocated in
 	// the register). Three senses of one word across two types.
 	HeldAt *string `json:"heldAt"`
-	// hadron-cli#487 — whether a worker session is OPEN on this name right now.
+	// hadron-cli#487 — whether anyone is DRIVING this name right now.
 	//
 	// Not availability: availability is the HOLD above (`cor:agt:020:09`), and an
-	// ended, idle or reaped session never frees a name. This says only whether
-	// someone is mid-stint, which is the question a coordinator asks about a name
-	// already theirs. Conflating the two is the CLI bug this field exists for.
+	// ended or idle session never frees a name. This says only whether someone is
+	// mid-stint, which is the question a coordinator asks about a name already
+	// theirs. Conflating the two is the CLI bug this field exists for.
 	//
-	// Derived from the session lifecycle with no lease (`cor:agt:020:03`), using
-	// the SAME predicate startSession refuses WORKER_TAKEN on — a reader must not
-	// be told a worker is busy that a binder can take.
+	// #1114 — COMPUTED, never stored. It is "the session has not ended AND it was
+	// driven inside its type's idle window", not "a row is open". Nothing ends a
+	// session for inactivity any more, because silence is not evidence of
+	// abandonment — an agent used once a year is not abandoned in month two — so
+	// an open row proves only that nobody closed it. Deriving the answer at read
+	// time says exactly what the evidence supports; the previous design expressed
+	// the same judgement by ENDING the session, which wrote a guess into the
+	// record as a fact and destroyed the handoff that stint had not written yet.
+	//
+	// A worker that reads false is not gone: its session is untouched, and it
+	// reads true again the moment it is driven.
+	//
+	// Uses the SAME predicate startSession refuses WORKER_TAKEN on
+	// (`cor:agt:020:11`) — a reader must not be told a worker is busy that a
+	// binder can take, and since #1114 that is load-bearing rather than tidy:
+	// with nothing ending abandoned sessions, an `endedAt IS NULL` gate would
+	// refuse a bind forever and leave force as the only route.
 	//
 	// Nullable BECAUSE of the read gate, not because the answer is unknown: this
 	// is a working-state field like heldByUserId, masked to null on deny rather
@@ -19178,8 +19400,9 @@ type WorkerRosterFields struct {
 	//
 	// The instant is the platform's one derivation of session activity — the
 	// greatest of startedAt, updatedAt, and the newest attributed usage event — so
-	// it agrees with the takeover prompt and with the idle window the reaper acts
-	// on. Masked to null on deny, like heldByUserId.
+	// it agrees with the takeover prompt and with the idle window hasLiveSession
+	// is derived from (#1114: that window DESCRIBES a session, it no longer ends
+	// one). Masked to null on deny, like heldByUserId.
 	LastActiveAt *string `json:"lastActiveAt"`
 	// Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
 	RetiredAt *string `json:"retiredAt"`
@@ -27625,7 +27848,17 @@ func RecordTeamWork(
 const ReleaseWorker_Operation = `
 mutation ReleaseWorker ($workerRef: ID!, $expectedHolderUserId: ID, $expectUnheld: Boolean) {
 	releaseWorker(workerRef: $workerRef, expectedHolderUserId: $expectedHolderUserId, expectUnheld: $expectUnheld) {
-		... WorkerFields
+		worker {
+			... WorkerFields
+		}
+		releasedFrom {
+			id
+			handle
+			urn
+			name
+		}
+		forced
+		notified
 	}
 }
 fragment WorkerFields on Worker {

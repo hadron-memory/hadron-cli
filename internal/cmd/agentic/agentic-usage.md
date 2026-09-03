@@ -904,10 +904,11 @@ Conventions:
   not prompt; releasing SOMEONE ELSE'S is an admin force-release, which
   **posts to the team chat** naming both parties and prompts unless `--yes`.
   That post is BEST-EFFORT server-side (an unreachable chat never blocks the
-  release) and the payload carries no delivery signal, so the receipt says the
-  server posts a notice rather than asserting one appeared — the prompt keeps
-  the strong wording, because warning what an act IS before you consent errs
-  toward caution while reporting what happened errs toward accuracy.
+  release), and since hadron-server#1073 the payload REPORTS whether it
+  happened (`notified`), so the receipt states the outcome instead of hedging
+  about it — including the case where the notice was owed and FAILED, which the
+  caller must be told because they are then the only person who knows the team
+  was not informed.
   The CLI reads the hold only to say which act it is, never to decide who may
   perform it. Idempotent, and it never claims the name was free: `heldByUserId`
   is masked to null on deny, so a nil hold read ON ITS OWN means "unheld OR held
@@ -918,17 +919,43 @@ Conventions:
   (A signal that WOULD tell the two apart exists since #487 — `hasLiveSession`,
   masked by the same gate, below — and this command still does not use it:
   making the ambiguity HARMLESS is a better answer than resolving it, and the
-  two designs PR #504 retracted were both attempts at resolving it.) So a nil
-  hold reports
-  `status: "no-visible-hold"` with `wasHeld` and `forced` both **null** rather
-  than claiming the name is free: a caller acting on `wasHeld: false` meets
-  `WORKER_HELD` at the next `session start`. It does not prompt, since every
-  idempotent no-op would otherwise; `--json` carries `wasHeld`/`releasedFromUserId`/`forced`
-  describing the state BEFORE the call, since the returned worker is
-  post-release by construction. **`forced` is nullable**: null means the
-  caller's own identity could not be read against a held name, so the act could
-  not be classified — `false` would claim a private act and `true` an
-  announcement, and neither is knowable there.
+  two designs PR #504 retracted were both attempts at resolving it.) It does not prompt on a
+  nil hold, since every idempotent no-op would otherwise.
+  **THE RECEIPT IS THE SERVER'S ANSWER, NOT THE CLIENT'S PREDICTION**
+  (hadron-server#1073), and this is a **breaking `--json` change**. The payload
+  now carries `releasedFrom` — the holder the WRITE ended — plus a
+  server-computed `forced` and a `notified`, so the two hedges this command used
+  to publish are RETIRED rather than tolerated:
+  `wasHeld` was TRUE-or-NULL and is now a definite **bool** (`releasedFrom` is
+  non-null exactly when a hold ended), and `forced` was nullable when the
+  caller's own identity could not be read and is now a definite **bool**
+  computed against the authenticated principal inside the write. **A consumer
+  branching on `null` for either will no longer see one** — that branch detected
+  an ambiguity that no longer exists. `status` **keeps its published literal `"no-visible-hold"`** even though its
+  meaning is now stronger (the write ended nothing, rather than nothing being
+  visible): a status is a branch key, and renaming one is the change that fails
+  silently for an agent matching it. The improved evidence is in the new keys.
+  `--json` carries `wasHeld`/`releasedFromUserId`/`forced`/`notified` plus
+  `releasedFrom { id, handle, urn, name }`. `releasedFromUserId` keeps its name
+  and mirrors `releasedFrom.id` — only its provenance moved, from a client
+  pre-read to the server's answer, which is strictly more correct on the retry
+  path. The receipt's "what happens next" clause is gated on **visibility**, not just on
+  a null hold: `heldByUserId` masks to null on deny, so availability is claimed
+  only when `hasLiveSession` is non-null on the returned worker, and a re-hold
+  taken between the write and the re-read is reported rather than papered over.
+  `releasedFrom.name` is **gated** and null for a viewer outside it (an
+  admin releasing a colleague who has LEFT the org is the ordinary case, since
+  `leaveApp` deletes the membership while the hold survives) — fall back to
+  `handle`, and then to `id`, never to a dash. **`handle` and `urn` are
+  nullable too** (a handle-less user), so `id` is the only rung that cannot be
+  absent; the CLI's receipt walks all three. It is a PROJECTION rather than a `User`, so do not
+  expect to select further.
+  **`notified` is three-valued and the third state is the point**: `null` = no
+  notice was owed (a self-release, or nothing released), `true` = owed and
+  posted, `false` = **owed and FAILED**, with the release still done. An
+  unreachable chat must never block an admin recovering a departed colleague's
+  names, so a client that collapses `null` and `false` cannot tell its user the
+  team may not have been informed.
   **THE RELEASE STATES THE HOLD IT CLASSIFIED AGAINST** (#522,
   hadron-server#1084). Exactly one assertion travels with every call —
   `expectedHolderUserId: <the holder>` when one was visible, `expectUnheld:
@@ -948,12 +975,12 @@ Conventions:
   confirmation), prompts if it is somebody else, and refuses **exit 5** when
   there is no TTY and no `--yes`. A second stale answer stops rather than
   retrying — one retry, never a loop. Nothing is changed before you answer, and
-  the receipt then reports what the SERVER saw: on that path `wasHeld` and
-  `releasedFromUserId` are known rather than guessed. **`forced` is NOT** — it
-  keeps the nullable contract above: when the caller's own identity could not be
-  read, the newly-reported holder may BE the caller, so the act still cannot be
-  classified and `forced` stays null. The retry learns WHO holds the name, never
-  who you are. When the
+  the receipt then reports what the SERVER saw — `wasHeld`,
+  `releasedFromUserId`, `releasedFrom` and now `forced` too. **`forced` used to
+  be the exception here**, staying null on this path because the retry learns
+  WHO holds the name and never who you are; since #1073 the server classifies
+  it, so the one path where this client could never answer is the one where the
+  server always can. When the
   refusal says the name is unheld NOW, the command refuses rather than claiming
   a release it did not perform. Retirement is still re-read before the call —
   the precondition covers the hold, not whether the worker is still working,
@@ -1055,7 +1082,10 @@ Conventions:
   reads `null` — WITHHELD, not "no" — and `start` binds rather than refusing,
   leaving the same rule to the server's atomic gate. `tookOver` is `null` in
   that case, distinct from `false`; it is the one `--json` key on this command
-  that is nullable, for the reason `worker release`'s `wasHeld`/`forced` are.
+  that is nullable, for the reason `worker release`'s `notified` is — a state
+  the server declines to assert is not the same as one it asserts negatively.
+  (`worker release`'s `wasHeld`/`forced` used to be the example here and are
+  no longer nullable at all: #1073 gave them definite answers.)
   A `--force` that replaces this
   worktree's own binding first ends the session it named, best-effort.
   **HELD is not TAKEN, and only TAKEN is forceable** (`cor:agt:020:09`, #487).
