@@ -1,8 +1,11 @@
 package team
 
 import (
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
 func ptrBool(b bool) *bool     { return &b }
@@ -236,5 +239,110 @@ func TestWorkerActivityAge(t *testing.T) {
 		if got := workerActivityAge(now.Add(-tc.d), now); got != tc.want {
 			t.Errorf("age(%v): got %q, want %q", tc.d, got, tc.want)
 		}
+	}
+}
+
+// drivenBy has FOUR outcomes because a nil `active` has three different causes
+// (#553), and three of them used to render as one sentence.
+//
+// The table is the ruling: a failed read, a masked driver and a genuinely
+// absent one are different facts, and only the last is "an unknown driver".
+// Reporting either of the first two that way makes a claim about the WORKER out
+// of a fact about the read — review:a-claim-must-not-outrun-its-evidence.
+func TestDrivenByDistinguishesFailedMaskedAndAbsent(t *testing.T) {
+	row := gen.TeamSessionFields{Id: "s-old", UserId: ptrStr("u-holger"), StartedAt: "2026-08-11T09:00:00Z"}
+	answered := func(active *gen.TeamSessionFields) sessionNarration {
+		return sessionNarration{active: active, answered: true}
+	}
+
+	for _, tc := range []struct {
+		name  string
+		narr  sessionNarration
+		live  liveness
+		want  string
+		avoid []string
+	}{
+		{
+			name: "a row present names the driver, whatever liveness says",
+			narr: answered(&row), live: liveYes, want: "u-holger",
+		},
+		{
+			// The read FAILED. Nothing is known about the driver, including
+			// whether there is one.
+			name: "a failed read says the read failed",
+			narr: sessionNarration{}, live: liveYes, want: "could not be read",
+			avoid: []string{"an unknown driver", "not permitted to see"},
+		},
+		{
+			// Answered, NOTHING AT ALL, and the server says the name IS being
+			// driven: the row exists and this caller was scope-filtered out of
+			// the entire list.
+			name: "answered + wholly empty + live is masked",
+			narr: answered(nil), live: liveYes, want: "not permitted to see",
+			avoid: []string{"an unknown driver", "could not be read"},
+		},
+		{
+			// THE RACE, and the reason masking needs a third condition.
+			//
+			// The worker read and the sessions read are separate, so the open
+			// session can end between them. This caller sees the worker's ENDED
+			// rows and no open one — and is FULLY PERMITTED. Telling them they
+			// may not see the driver is a false statement about the reader,
+			// manufactured out of a timing accident, and it is the exact shape
+			// of the claim PR #504 shipped about a nil holder.
+			//
+			// Seeing any row at all is the probe: a masked caller is filtered
+			// out of the whole list, so `last != nil` is evidence the gate is
+			// OPEN. That is cheap and local, and it degrades to "unknown"
+			// rather than to a falsehood.
+			name: "answered + an ended row + live is a race, not a permissions fact",
+			narr: sessionNarration{last: &row, answered: true}, live: liveYes,
+			want:  "an unknown driver",
+			avoid: []string{"not permitted to see", "could not be read"},
+		},
+		{
+			// Answered, empty, and liveness does not assert a driver. This is
+			// the only case the server's own "an unknown driver" wording fits.
+			name: "answered + empty + not live is an unknown driver",
+			narr: answered(nil), live: liveNo, want: "an unknown driver",
+			avoid: []string{"not permitted to see", "could not be read"},
+		},
+		{
+			// Masked LIVENESS is not masked SESSIONS. The caller was refused
+			// the worker's working state, so there is no assertion that anybody
+			// is driving — inferring a hidden row from an empty list here would
+			// invent one.
+			name: "answered + empty + masked liveness is an unknown driver",
+			narr: answered(nil), live: liveUnknown, want: "an unknown driver",
+			avoid: []string{"not permitted to see"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := drivenBy(tc.narr, tc.live)
+			if !strings.Contains(got, tc.want) {
+				t.Errorf("drivenBy = %q, want it to contain %q", got, tc.want)
+			}
+			for _, no := range tc.avoid {
+				if strings.Contains(got, no) {
+					t.Errorf("drivenBy = %q must not claim %q", got, no)
+				}
+			}
+		})
+	}
+}
+
+// The ORDER of the two nil-explaining arms is load-bearing, and nothing about
+// reading them top-to-bottom says so.
+//
+// A failed read carries no liveness evidence of its own, but `live` is read off
+// the WORKER row, which succeeded — so a failed sessions read against a live
+// worker satisfies BOTH conditions. If the liveness arm were tested first it
+// would win, and every dropped connection during a takeover would be reported
+// as a driver the caller is not permitted to see: a confident, specific,
+// entirely invented claim about permissions, from a network failure.
+func TestAFailedReadIsNotReportedAsMasked(t *testing.T) {
+	got := drivenBy(sessionNarration{answered: false}, liveYes)
+	if strings.Contains(got, "not permitted") {
+		t.Errorf("a failed read must not be reported as a permissions fact: %q", got)
 	}
 }

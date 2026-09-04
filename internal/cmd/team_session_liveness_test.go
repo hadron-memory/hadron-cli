@@ -295,6 +295,10 @@ func TestTeamSessionStartMaskedLivenessRendersServerTakenRefusal(t *testing.T) {
 // working state) or by a race (the row ended between them). The decision
 // belongs to liveness; the session row is narration, and missing narration is
 // not a reason to admit a bind.
+//
+// #553 sharpened what the refusal SAYS without changing that it refuses: an
+// empty answer against a live name is the permission case, not the race, so it
+// is named as withheld rather than as unknown.
 func TestTeamSessionStartLiveWithNoReadableSessionStillRefuses(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
@@ -309,10 +313,26 @@ func TestTeamSessionStartLiveWithNoReadableSessionStillRefuses(t *testing.T) {
 	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Fatalf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
 	}
-	// The server's own wording for this, so the two refusals do not describe
-	// one situation in two vocabularies.
-	if !strings.Contains(err.Error(), "an unknown driver") {
-		t.Errorf("an unnameable driver must still be named: %v", err)
+	// NAMED AS MASKED, not as unknown — #553's coordinator ruling, and this
+	// assertion INVERTED to carry it.
+	//
+	// It used to require the server's own "an unknown driver", so that the
+	// client and server refusals would not describe one situation in two
+	// vocabularies. That reasoning was right and its premise has moved: these
+	// are TWO situations. The server says "an unknown driver" when IT cannot
+	// name the driver; this fixture is a read that ANSWERED against a name the
+	// server calls live, which means the row exists and this caller was not
+	// shown it. Two vocabularies for two situations is the point, not the
+	// defect — the defect was one word for both.
+	//
+	// The forbidden direction is the load-bearing half: collapsing back to
+	// "an unknown driver" is the regression, and it is the comfortable
+	// direction to drift in, because the shorter sentence reads fine.
+	if !strings.Contains(err.Error(), "not permitted to see") {
+		t.Errorf("a driver withheld from this caller must be named as withheld: %v", err)
+	}
+	if strings.Contains(err.Error(), "an unknown driver") {
+		t.Errorf("a masked driver is not an unknown one — the server would name this driver to someone: %v", err)
 	}
 	if _, called := captured["StartTeamSession"]; called {
 		t.Error("a live worker must not reach the server without --force")
