@@ -725,32 +725,62 @@ holds nothing).`,
 				return exitcode.Newf(exitcode.Usage,
 					"worker %s retired %s — a retired worker takes no new sessions (cast a new worker for the role)", w.Name, *w.RetiredAt)
 			}
-			// NARRATION, so it degrades — except under --force, where the
-			// narration IS the decision (#553, coordinator ruling).
+			// LIVENESS FIRST, because it is what decides whether the read below
+			// is narration or the decision — and it costs nothing, being a field
+			// on the worker row already in hand.
+			live := workerLiveness(w)
+			// NARRATION, so it degrades — except where the narration IS the
+			// decision (#553, coordinator ruling).
 			//
-			// #552 demoted this read: the TAKEN gate is `workerLiveness`, off
-			// the worker row already in hand. A read the command no longer
-			// depends on must not be able to fail the command — that refuses a
-			// caller who can see the worker but not its session list, by a
-			// dependency that was removed, which is #550 in a different costume.
+			// #552 demoted this read: the TAKEN gate is `workerLiveness` above.
+			// A read the command no longer depends on must not be able to fail
+			// the command — that refuses a caller who can see the worker but not
+			// its session list, by a dependency that was removed, which is #550
+			// in a different costume.
 			//
-			// --force is the exception because cor:agt:020:03 makes the override
-			// informed or nothing, and after #552 --force is reached ONLY when
-			// somebody genuinely is driving. Naming them stopped being colour
-			// and became the entire content of the decision, so a takeover that
-			// cannot see who it displaces has nothing left to be informed by.
-			// This is the ONE thing here that is allowed to be fatal.
+			// The exception is a bind that MAY DISPLACE SOMEBODY, because
+			// cor:agt:020:03 makes the override informed or nothing: a takeover
+			// that cannot see who it displaces has nothing left to be informed
+			// by. This is the ONE thing here that is allowed to be fatal.
+			//
+			// It is gated on `live != liveNo` and NOT on `force` alone — the
+			// distinction @codex and @copilot both caught, and @codex's reason
+			// is the one that makes it urgent. **--force is not only a takeover
+			// flag**: it is also required to replace an abandoned local worktree
+			// binding, and that path has ALREADY ENDED the previous session by
+			// the time it arrives here. Aborting on a narration blip therefore
+			// leaves the old session ended, the local binding intact, and the
+			// caller unable to retry WITHOUT --force (the already-bound guard
+			// refuses that) — a refusal you cannot satisfy by doing what it
+			// implies, which is precisely the #550 shape this whole issue family
+			// exists to remove. Introduced by the PR that removes it.
+			//
+			// `liveNo` and not `liveYes` is the direction, because degrading
+			// needs POSITIVE evidence that nobody is displaced. `liveUnknown`
+			// means the server declined to say, and "it did not tell me somebody
+			// is there" is not "nobody is there".
+			//
+			// BOTH conditions, and the `force` half is not redundant: a bind
+			// WITHOUT --force against a live name is about to refuse anyway, with
+			// exit 5 and a sentence naming liveness. Turning that into a
+			// transport error would replace an answer about the worker with an
+			// answer about the network — the mirror of the defect above, and the
+			// shape #556 already fixed once by hoisting a guard above the client.
 			narr, aerr := workerActivity(ctx, client, w.Id)
 			if aerr != nil {
-				if force {
+				if force && live != liveNo {
 					// Preserve the mapped code — a gateway 5xx must still exit
 					// 7, not collapse to a generic 1 because we added a
 					// sentence. The bind is refused, not attempted.
 					return exitcode.New(exitcode.FromError(aerr), fmt.Errorf(
-						"could not read who is driving worker %s, so --force has nobody to name: an override must say whom it takes over from (cor:agt:020:03). Retry, or bind without --force if the name is not live: %w",
+						"could not read who is driving worker %s, so --force cannot say whom it takes over from (cor:agt:020:03). Retry: %w",
 						w.Name, aerr))
 				}
-				fmt.Fprintf(f.IOStreams.ErrOut, "note: could not read %s's session detail (%v) — continuing; the bind does not depend on it, and startSession decides\n", w.Name, aerr)
+				// No claim about what happens next: this note is printed on
+				// paths that go on to refuse as well as ones that bind, so
+				// promising that the server decides would be false on the first
+				// (@copilot).
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: could not read %s's session detail (%v) — continuing; the bind does not depend on it\n", w.Name, aerr)
 			}
 			last, active := narr.last, narr.active
 			// TAKEN is DERIVED liveness, never an open session row (#550).
@@ -766,7 +796,6 @@ holds nothing).`,
 			// this command already renders below. So the loosening costs one
 			// round trip on the refusal path and gives up no safety.
 			// (Decision: Holger, 2026-09-03.)
-			live := workerLiveness(w)
 			if live == liveYes && !force {
 				// --force is the remedy for a TAKEN worker, and cor:agt:020:09
 				// says TAKEN is only ever a question about your OWN name: the

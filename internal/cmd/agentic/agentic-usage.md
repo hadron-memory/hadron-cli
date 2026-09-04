@@ -1065,15 +1065,21 @@ Conventions:
   App-bound; a retired worker refuses (`WORKER_RETIRED`). A worker with a
   LIVE session is *taken*: `start` refuses (exit 5) showing who is
   driving it since when, and `--force` takes over — informed and deliberate,
-  never silent (`cor:agt:020:03`). **`--force` therefore fails closed when it
-  cannot name whom it displaces** (#553): the session-detail read is narration
-  everywhere else and degrades to a stderr note, but a takeover that cannot see
-  its driver has nothing left to be informed by, so a failed read there refuses
-  with the read's own exit code (a lost answer is exit 7, not 1) and the bind is
-  not attempted. A read that ANSWERS and returns nothing does not refuse — it is
-  the expected reply for a caller outside the session read scope, and the
-  takeover names it as a driver *you are not permitted to see* rather than as an
-  unknown one. **Live, not merely open** (#550): binding a
+  never silent (`cor:agt:020:03`). **A forced bind that MAY displace somebody
+  fails closed when it cannot name them** (#553): the session-detail read is
+  narration everywhere else and degrades to a stderr note, but a takeover that
+  cannot see its driver has nothing left to be informed by, so a failed read
+  there refuses with the read's own exit code (a lost answer is exit 7, not 1)
+  and the bind is not attempted. It takes BOTH `--force` and a worker row that
+  does not prove the name is free: `--force` over a name whose
+  `hasLiveSession` is **false** displaces nobody and still degrades — it is
+  also the flag that replaces an abandoned worktree binding, so failing there
+  would strand a caller who is taking nothing from anyone. A masked liveness
+  does fail closed, because *"the server did not tell me somebody is there"* is
+  not *"nobody is there"*. A read that ANSWERS and returns nothing does not
+  refuse — it is the expected reply for a caller outside the session read
+  scope, and the takeover names it as a driver *you are not permitted to see*
+  rather than as an unknown one. **Live, not merely open** (#550): binding a
   name whose session is open but no longer live is not a takeover, needs no
   `--force`, and does not end that session — the note on stderr says so, and
   `--json` reports `tookOver: false`. **Live is DERIVED, not stored**

@@ -201,6 +201,49 @@ load-bearing half — collapsing back to "an unknown driver" is the regression, 
 it is the comfortable direction to drift in, because the shorter sentence reads
 fine.
 
+## Review: the carve-out was gated on the wrong thing
+
+@codex (P2) and @copilot found it independently, and @codex's reason is the one
+that makes it urgent rather than untidy.
+
+The first version gated the fatal read on **`force` alone**. But **`--force` is
+not only a takeover flag** — it is also what replaces an abandoned local worktree
+binding (`alreadyBoundError` refuses without it), and *that* path has **already
+ended the previous session** by the time the narration read runs. So a transport
+blip left the caller with: the old session ended, the local binding intact, and
+no way forward — retrying without `--force` hits the already-bound guard, and
+retrying with it hits the abort again until the transport recovers.
+
+**A refusal that cannot be satisfied by doing what it implies is the #550 shape,
+and this is the change that exists to remove it.** Shipped inside it, on a
+population the ruling never had to name, because the ruling reasoned about
+takeovers and `--force` is not only used for those.
+
+The gate is now `force && live != liveNo`, and both halves are load-bearing:
+
+- **`live != liveNo`, not `live == liveYes`.** Degrading needs POSITIVE evidence
+  that nobody is displaced. `liveUnknown` is the server declining to answer, and
+  *"it did not tell me somebody is there"* is not *"nobody is there"* — the rule
+  `workerLiveness` is three-valued to enforce.
+- **`force` is not redundant**, and dropping it while restructuring is exactly
+  what happened for one commit. A bind WITHOUT `--force` against a live name is
+  about to refuse anyway, with exit 5 and a sentence naming liveness; letting the
+  transport error win replaces an answer about the worker with an answer about
+  the network. **No test caught it** — the suite had no non-force + live +
+  failed-read case. It has one now, and each half of the gate is mutation-pinned
+  by exactly one test.
+
+Two smaller ones, both @copilot, both valid:
+
+- The degraded note promised *"and startSession decides"*, which is false on the
+  paths that go on to refuse. It now claims nothing about what happens next.
+- The new test double swallowed its JSON decode error. The repo already records
+  why that matters here and I did not apply it to my own double: the idiom is
+  safe for a POSITIVE assertion and unsafe for an ABSENCE one, and this record
+  feeds `reached("StartTeamSession")` — a decode that stopped working would
+  report the bind as unreached and pass the check meant to catch it slipping
+  through. A guard whose failure mode is passing.
+
 ## Propagation
 
 - **No spec.** This is a client deciding what to say about a read it no longer

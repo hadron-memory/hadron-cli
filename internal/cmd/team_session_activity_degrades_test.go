@@ -21,8 +21,14 @@ import (
 // not its session list — refused by a dependency that had been removed, which
 // is #550 wearing a different hat.
 
-// abortOpGraphQL answers `responses` normally, but HANGS UP on failOp without
-// writing a byte — a real transport failure rather than a GraphQL error body.
+// abortSessionsGraphQL answers `responses` normally, but HANGS UP on the
+// `TeamSessions` read without writing a byte — a real transport failure rather
+// than a GraphQL error body.
+//
+// The failing operation is fixed rather than a parameter: every test here is
+// about that ONE read losing its answer, and a parameter with a single caller
+// invites a reader to assume the helper is general when nothing exercises it
+// that way (and golangci-lint's `unparam` says so).
 //
 // The distinction is the test's subject, not set dressing. Ada's ruling carves
 // out the TRANSPORT case, and @Dara measured that `sessions(workerRef:)` has no
@@ -39,7 +45,7 @@ import (
 // while that goroutine is still writing. `captureGraphQL` gets away with a bare
 // map because completing a response orders the two; an aborted one does not.
 // `go test -race` fails on the map version — measured, not argued.
-func abortOpGraphQL(t *testing.T, failOp string, responses map[string]string) (*httptest.Server, func(string) bool) {
+func abortSessionsGraphQL(t *testing.T, responses map[string]string) (*httptest.Server, func(string) bool) {
 	t.Helper()
 	var mu sync.Mutex
 	reached := map[string]bool{}
@@ -47,11 +53,23 @@ func abortOpGraphQL(t *testing.T, failOp string, responses map[string]string) (*
 		var body struct {
 			OperationName string `json:"operationName"`
 		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		// The decode error is CHECKED, unlike the repo's usual `_ = Decode(…)`
+		// (@copilot). That idiom is safe where the decoded value feeds a
+		// POSITIVE assertion — a zero value fails it — and unsafe here, because
+		// this map feeds an ABSENCE assertion: a decode that stopped working
+		// would record the empty operation name, leave "StartTeamSession"
+		// unreached-looking, and pass the very check that is supposed to catch
+		// a bind slipping through. A guard whose failure mode is passing. The
+		// same rule is already written a file away, on #552's force-absence
+		// check; it did not get applied to this new double.
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decoding the request body: %v — the reached-operation record would be wrong", err)
+			return
+		}
 		mu.Lock()
 		reached[body.OperationName] = true
 		mu.Unlock()
-		if body.OperationName == failOp {
+		if body.OperationName == "TeamSessions" {
 			hj, ok := w.(http.Hijacker)
 			if !ok {
 				t.Errorf("test server cannot hijack, so the transport failure cannot be simulated")
@@ -88,7 +106,7 @@ func abortOpGraphQL(t *testing.T, failOp string, responses map[string]string) (*
 // it needs the session list.
 func TestTeamSessionStartBindsWhenSessionDetailIsUnreadable(t *testing.T) {
 	teamGitDir(t)
-	gql, _ := abortOpGraphQL(t, "TeamSessions", map[string]string{
+	gql, _ := abortSessionsGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "false") + `}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
@@ -127,7 +145,7 @@ func TestTeamSessionStartForceRefusesWhenItCannotNameTheDriver(t *testing.T) {
 	// a reason unrelated to the guard. With the bind stocked, removing the guard
 	// produces a clean successful takeover, which is the real regression and the
 	// thing the assertions below now catch directly.
-	gql, reached := abortOpGraphQL(t, "TeamSessions", map[string]string{
+	gql, reached := abortSessionsGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "true") + `}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
@@ -213,5 +231,115 @@ func TestTeamSessionStartTakeoverNamesMaskingNotAnUnknownDriver(t *testing.T) {
 	}
 	if strings.Contains(note, "an unknown driver") {
 		t.Errorf("a masked driver is not an unknown one — the caller is not permitted to see a driver who IS identified: %s", note)
+	}
+}
+
+// --force over a NOT-LIVE name still degrades, and this is the case the first
+// version of this change got wrong (@codex P2, @copilot, independently).
+//
+// **`--force` is not only a takeover flag.** It is also what replaces an
+// abandoned local worktree binding (`alreadyBoundError` refuses without it), and
+// that path has ALREADY ENDED the previous session by the time the narration
+// read runs. So gating the fatal read on `force` alone stranded a caller who was
+// displacing nobody: old session ended, local binding intact, and no way
+// forward — retrying without `--force` hits the already-bound guard, and
+// retrying with it hits the abort again until the transport recovers.
+//
+// A refusal that cannot be satisfied by doing what it implies is the #550 shape,
+// and this change is the one that exists to remove it. The gate is now derived
+// liveness: the worker row PROVES nobody is being displaced, so there is nothing
+// an override would have to name.
+func TestTeamSessionStartForceOverANotLiveNameStillDegrades(t *testing.T) {
+	teamGitDir(t)
+	gql, reached := abortSessionsGraphQL(t, map[string]string{
+		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "false") + `}}`,
+		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	stderr := captureErrOut(f)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--force", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("--force over a name the worker row proves is not live must still bind: %v", err)
+	}
+	if !reached("StartTeamSession") {
+		t.Error("the bind must reach the server — nothing here is being displaced")
+	}
+	if note := stderr(); !strings.Contains(note, "could not read") {
+		t.Errorf("the degraded read must still be reported: %s", note)
+	}
+}
+
+// MASKED liveness under --force is FATAL, and the direction is the point.
+//
+// Degrading needs POSITIVE evidence that nobody is displaced. `liveUnknown` is
+// the server declining to answer, and "it did not tell me somebody is there" is
+// not "nobody is there" — the same rule `workerLiveness` exists to enforce
+// three-valuedly. So the gate is `live != liveNo`, not `live == liveYes`: a
+// forced bind that MIGHT displace a driver it cannot see is the case
+// cor:agt:020:03 refuses.
+func TestTeamSessionStartForceWithMaskedLivenessFailsClosed(t *testing.T) {
+	teamGitDir(t)
+	gql, reached := abortSessionsGraphQL(t, map[string]string{
+		// hasLiveSession absent entirely — the masked shape.
+		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--force", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("a forced bind that may displace a driver it cannot see must refuse")
+	}
+	if reached("StartTeamSession") {
+		t.Error("the refusal must land before the bind")
+	}
+	if code := exitCodeFor(err); code != exitcode.Unavailable {
+		t.Errorf("exit code = %d, want %d (Unavailable); err: %v", code, exitcode.Unavailable, err)
+	}
+}
+
+// WITHOUT --force, a live name refuses with an answer about the WORKER, not one
+// about the network — even when the narration read failed.
+//
+// The fail-closed gate takes `force` AND `live != liveNo`, and the `force` half
+// is not redundant. This bind was going to be refused anyway, with exit 5 and a
+// sentence naming liveness; letting the transport error win would hand the
+// caller an exit 7 about their connection for a situation that is entirely about
+// the worker. That is the mirror of the defect the gate exists to fix, and it is
+// the shape #556 fixed once already by hoisting a pure guard above the client
+// build — a caller who mistyped a flag should not be told about their session.
+//
+// Nothing caught this when the `force` condition was briefly dropped while
+// restructuring the gate: the suite had no non-force + live + failed-read case.
+// It does now.
+func TestTeamSessionStartLiveWithoutForceRefusesAboutLivenessNotTransport(t *testing.T) {
+	teamGitDir(t)
+	gql, reached := abortSessionsGraphQL(t, map[string]string{
+		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "true") + `}}`,
+		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--server", gql.URL})
+	err := root.Execute()
+
+	if code := exitCodeFor(err); code != exitcode.Conflict {
+		t.Fatalf("exit code = %d, want %d (Conflict) — a live name is a state conflict, not a transport failure; err: %v",
+			code, exitcode.Conflict, err)
+	}
+	if reached("StartTeamSession") {
+		t.Error("a live worker must be refused client-side without --force")
+	}
+	// The refusal is about the worker, and it names the degraded read honestly
+	// rather than inventing a driver for it.
+	for _, want := range []string{"is live", "could not be read"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the refusal must carry %q: %v", want, err)
+		}
+	}
+	if strings.Contains(err.Error(), "an unknown driver") {
+		t.Errorf("a failed read is not an unidentifiable driver: %v", err)
 	}
 }
