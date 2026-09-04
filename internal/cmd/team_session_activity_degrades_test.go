@@ -343,3 +343,79 @@ func TestTeamSessionStartLiveWithoutForceRefusesAboutLivenessNotTransport(t *tes
 		t.Errorf("a failed read is not an unidentifiable driver: %v", err)
 	}
 }
+
+// --force over a name the client PROVED free does not waive the server's atomic
+// gate, and the race it protects is surfaced rather than steamrolled.
+//
+// @codex P1 on #558, and it is round 1's finding one level deeper. `--force` is
+// also how an abandoned worktree binding is replaced, so a caller can be holding
+// the flag for a reason that has nothing to do with taking over. Forwarding it
+// on a `liveNo` read waives `WORKER_TAKEN` for somebody who was told there was
+// nothing to waive — and if a driver binds in the window between the worker read
+// and `startSession`, the waiver takes the name out from under a driver who
+// arrived AFTER our evidence, silently and without naming them.
+//
+// That is the silence cor:agt:020:03 forbids, reached through a flag passed for
+// another purpose. Withholding the override costs one round trip in that race
+// and buys the informed path: the server refuses, this command renders the
+// refusal WITH the driver, and the retry is an override that knows whom it
+// displaces.
+func TestTeamSessionStartForceOverAProvenFreeNameDoesNotWaiveTheServerGate(t *testing.T) {
+	teamGitDir(t)
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "false") + `}}`,
+		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--force", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("binding a name proven free must succeed: %v", err)
+	}
+	// The decode error is checked because this asserts an ABSENCE: a decode
+	// that stopped working leaves Input nil, the key absent, and the test green
+	// on a payload nobody read.
+	var vars struct {
+		Input map[string]any `json:"input"`
+	}
+	if err := json.Unmarshal(captured["StartTeamSession"], &vars); err != nil {
+		t.Fatalf("decoding StartTeamSession variables: %v (raw: %s)", err, captured["StartTeamSession"])
+	}
+	if vars.Input == nil {
+		t.Fatalf("no input captured — the absence check would pass vacuously: %s", captured["StartTeamSession"])
+	}
+	if _, present := vars.Input["force"]; present {
+		t.Errorf("a bind over a name the client proved free must not waive the server's atomic gate: %v", vars.Input)
+	}
+}
+
+// MASKED liveness still forwards the override, and that asymmetry is deliberate.
+//
+// A masked caller has no evidence either way, and refusing them the override is
+// #550's mistake — it makes the flag useless for exactly the population that
+// cannot see enough to know whether they need it. `liveNo` is withheld because
+// the client has POSITIVE proof; `liveUnknown` is not proof of anything.
+func TestTeamSessionStartForceWithMaskedLivenessStillForwardsTheOverride(t *testing.T) {
+	teamGitDir(t)
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "start", "--as", "wkr1", "--force", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a masked forced bind must reach the server: %v", err)
+	}
+	var vars struct {
+		Input map[string]any `json:"input"`
+	}
+	if err := json.Unmarshal(captured["StartTeamSession"], &vars); err != nil {
+		t.Fatalf("decoding StartTeamSession variables: %v", err)
+	}
+	if vars.Input["force"] != true {
+		t.Errorf("a masked caller must keep the override — refusing it is #550's mistake: %v", vars.Input)
+	}
+}

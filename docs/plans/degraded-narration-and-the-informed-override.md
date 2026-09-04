@@ -233,6 +233,33 @@ The gate is now `force && live != liveNo`, and both halves are load-bearing:
   failed-read case. It has one now, and each half of the gate is mutation-pinned
   by exactly one test.
 
+### Round 2: the same finding one level deeper (@codex, P1)
+
+Fixing round 1 routed a new population past the gate and revealed that
+**`--force` was riding to the server unconditionally.** With `--force` + a
+`liveNo` read, the command now continues after a failed narration read — and
+still sent `SessionInput.force`, which **waives the server's atomic
+`WORKER_TAKEN` refusal**. If a driver binds in the window between the worker read
+and `startSession`, that waiver takes the name out from under somebody who
+arrived *after* our evidence: silently, printing only the degraded-read note, and
+never naming them.
+
+**The silence `cor:agt:020:03` forbids, reached through a flag the user passed
+for another purpose** — because, again, `--force` is also how an abandoned
+worktree binding is replaced. Round 1 established that `--force` is not only a
+takeover flag; round 2 is that fact arriving at the *server* call.
+
+The override is now withheld exactly when the client has **positive proof** the
+name is free (`live == liveNo`). It costs a round trip in the race and buys the
+informed path: the server refuses, this command renders the refusal **with** the
+driver from the extensions payload, and the retry is an override that knows whom
+it displaces. `liveUnknown` still forwards — a masked caller has no evidence
+either way, and refusing them the override is #550's mistake.
+
+**This widens #553 by one decision**, and deliberately: leaving it would mean
+knowingly shipping a path where a takeover happens silently, in the change whose
+whole subject is that it must not.
+
 Two smaller ones, both @copilot, both valid:
 
 - The degraded note promised *"and startSession decides"*, which is false on the

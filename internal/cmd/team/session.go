@@ -873,7 +873,25 @@ holds nothing).`,
 			// (WORKER_TAKEN) unless force rides along — the activity check
 			// above is the friendly pre-flight, this is the race-safe gate.
 			// Sent only on --force so the override stays explicit.
-			if force {
+			//
+			// AND only when the client has NOT proved the name free (@codex P1
+			// on #558). --force is not only a takeover flag — it also replaces
+			// an abandoned worktree binding — so forwarding it on a `liveNo`
+			// read waives the server's atomic gate for a caller who was told
+			// there is nothing to waive. If somebody binds in the window
+			// between the worker read and this call, that waiver takes the name
+			// out from under a driver who arrived AFTER our evidence, silently
+			// and without naming them: the exact silence cor:agt:020:03
+			// forbids, reached by a flag the user passed for another purpose.
+			//
+			// Withholding it costs a round trip in that race and buys the
+			// informed path: the server refuses WORKER_TAKEN, this command
+			// renders it WITH the driver from the extensions payload, and the
+			// retry with --force is then an override that knows whom it
+			// displaces. `liveUnknown` still forwards, because a masked caller
+			// has no evidence either way and refusing them the override is
+			// #550's mistake.
+			if force && live != liveNo {
 				input.Force = &force
 			}
 			resp, err := gen.StartTeamSession(ctx, client, input)

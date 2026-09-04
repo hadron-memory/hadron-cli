@@ -1079,7 +1079,14 @@ Conventions:
   not *"nobody is there"*. A read that ANSWERS and returns nothing does not
   refuse — it is the expected reply for a caller outside the session read
   scope, and the takeover names it as a driver *you are not permitted to see*
-  rather than as an unknown one. **Live, not merely open** (#550): binding a
+  rather than as an unknown one. **`--force` also stops riding to the server
+  once the client has PROVEN the name free** (`hasLiveSession: false`): the
+  override waives the server's atomic `WORKER_TAKEN` gate, and waiving it for a
+  caller who was told there is nothing to waive would take the name from a
+  driver who bound in the meantime — silently, and without naming them. The
+  refusal is surfaced instead, with the driver, so the retry is an informed
+  override. A masked liveness still forwards it, because absence of evidence is
+  not evidence the name is free. **Live, not merely open** (#550): binding a
   name whose session is open but no longer live is not a takeover, needs no
   `--force`, and does not end that session — the note on stderr says so, and
   `--json` reports `tookOver: false`. **Live is DERIVED, not stored**
