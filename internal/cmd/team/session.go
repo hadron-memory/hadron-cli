@@ -305,14 +305,24 @@ func tookOver(live liveness) *bool {
 // "an unknown driver" is the server's own wording on the WORKER_TAKEN path,
 // kept for the case it actually describes so the two refusals do not describe
 // one situation two ways.
+//
+// The other two say "someone", not "a driver" (@copilot). Every return here is
+// interpolated into BOTH "being driven by %s" and "taking over worker %s from
+// %s", so a phrase naming its own subject reads as "being driven by a driver
+// this CLI could not read" — the noun twice, and in the failed-read case the
+// verb twice as well. The parenthetical stays parenthetical rather than
+// becoming a dash: the refusal at the holdUnknownWhose site already spends two
+// em-dashes on its own clauses, and a third would collide. The server's wording keeps its article because it is a
+// quotation, not a phrasing choice: changing it would reintroduce the two
+// vocabularies #552 removed.
 func drivenBy(n sessionNarration, live liveness) string {
 	switch {
 	case n.active != nil:
 		return describeSession(n.active)
 	case !n.answered:
-		return "a driver this CLI could not read (the session list could not be read)"
+		return "someone this CLI could not identify (the session list could not be read)"
 	case live == liveYes && n.last == nil:
-		return "a driver you are not permitted to see"
+		return "someone you are not permitted to see"
 	default:
 		return "an unknown driver"
 	}
