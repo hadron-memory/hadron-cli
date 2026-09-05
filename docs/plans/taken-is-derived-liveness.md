@@ -141,7 +141,7 @@ Three cases, because liveness has three answers, plus the two seams:
 | not live + OPEN row | **binds, no `--force`**, `tookOver: false`, note says the open session is not ended |
 | masked | binds; server reached; `tookOver: null`; note asserts nothing |
 | masked + server says TAKEN | the server's refusal renders |
-| live + unreadable session list | still refuses, driver renders as "an unknown driver" |
+| live + unreadable session list | still refuses, driver renders as "an unknown driver" — **superseded by #553**, see below |
 
 **Six mutations, each verified to have applied before its result was read, each
 red on exactly the intended tests**: the gate back to `endedAt` (reds the
@@ -222,3 +222,20 @@ landed-mutation-uncovered-branch case, reported rather than counted as proven.
   `session start --json`, `tookOver` is now nullable with three meanings.
 - **No dependent-repo issue.** Nothing server-side moves; the portal has no
   equivalent pre-flight.
+
+## Superseded by #553 — one row of the table above
+
+**The "live + unreadable session list" row is no longer what ships.** It is left
+in place rather than rewritten, because this document records what #552 shipped
+and that row is an accurate account of it.
+
+Two things moved, both in [degraded-narration-and-the-informed-override.md](degraded-narration-and-the-informed-override.md):
+
+- An unreadable session list no longer fails the command at all, except under
+  `--force`. The demotion this PR performed was left half-done: a read the
+  command had stopped depending on could still abort it.
+- The "live + empty list" case is no longer rendered as *"an unknown driver"*.
+  That wording was chosen here to match the server's, so the two refusals would
+  not describe one situation in two vocabularies — right at the time, and its
+  premise moved: these are **two** situations, and the client's is the more
+  specific one.

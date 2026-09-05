@@ -170,20 +170,49 @@ func scanSessions(ctx context.Context, client graphql.Client, repo, workerRef *s
 // decision here: an OPEN session is permanent for an abandoned worker since
 // hadron-server#1114, so anything gated on one is gated on a condition that
 // never clears.
-func workerActivity(ctx context.Context, client graphql.Client, workerID string) (last, active *gen.TeamSessionFields, err error) {
-	err = scanSessions(ctx, client, nil, &workerID, func(s gen.TeamSessionFields) bool {
-		if last == nil {
+func workerActivity(ctx context.Context, client graphql.Client, workerID string) (sessionNarration, error) {
+	n := sessionNarration{answered: true}
+	err := scanSessions(ctx, client, nil, &workerID, func(s gen.TeamSessionFields) bool {
+		if n.last == nil {
 			cp := s
-			last = &cp
+			n.last = &cp
 		}
 		if s.EndedAt == nil {
 			cp := s
-			active = &cp
+			n.active = &cp
 			return false
 		}
 		return true
 	})
-	return last, active, err
+	if err != nil {
+		return sessionNarration{}, err
+	}
+	return n, nil
+}
+
+// sessionNarration is what the sessions read produced — the rows, AND whether
+// the read ANSWERED at all.
+//
+// The flag exists because a nil `active` has three different meanings and the
+// caller has to tell them apart (#553): the read failed; the read answered and
+// the caller may not see the row; the read answered and there is no row. Only
+// the last is "an unknown driver".
+//
+// Returning bare nils threw that away, so a failed read rendered as a driver
+// who could not be identified — a claim about the worker made from a fact about
+// the transport. This is the same three-state shape `currentUserID` carries a
+// few hundred lines down, for the same reason and against the same rule
+// (review:a-claim-must-not-outrun-its-evidence): a failed read is not evidence
+// of absence. A `(*T, *T, error)` triple is the shape that invites collapsing
+// them, because the error is easy to drop on the floor once it has been logged.
+type sessionNarration struct {
+	last, active *gen.TeamSessionFields
+	// answered records that the sessions query returned, whatever it returned.
+	// False ONLY on a failed read — never on an empty one, which is a perfectly
+	// good answer and the expected one for a caller outside the session read
+	// scope (hadron-server: `sessions(workerRef:)` filters, so an invisible
+	// worker yields `[]` rather than an error; measured by @Dara, 2026-09-03).
+	answered bool
 }
 
 // liveness is what this CLI may honestly say about whether a worker is being
@@ -246,14 +275,57 @@ func tookOver(live liveness) *bool {
 // The session row is NARRATION; the DECISION is workerLiveness above, and the
 // two are separate reads. So a name the server calls live whose session list is
 // unreadable — or whose row ended between the two reads — must still refuse,
-// with the clause it can honestly fill rather than a nil deref. "an unknown
-// driver" is the server's own wording for this on the WORKER_TAKEN path, used
-// here so the two refusals do not describe one situation two ways.
-func drivenBy(active *gen.TeamSessionFields) string {
-	if active == nil {
+// with the clause it can honestly fill rather than a nil deref.
+//
+// FOUR outcomes, because "no row" is not one situation (#553, coordinator
+// ruling on cor:agt:020:03). An informed override is satisfied by telling the
+// caller the truth INCLUDING THE LIMIT OF WHAT THEY CAN BE TOLD; proceeding as
+// though nothing were there is the silence the clause forbids, and so is
+// dressing a masked driver or a failed read up as an unidentifiable one.
+//
+// The masked case is not guessed, and it takes THREE conditions rather than the
+// two that look sufficient. `hasLiveSession` is "not ended AND driven inside the
+// window", so when it is true an unended row EXISTS; a read that answered and
+// returned NOTHING AT ALL has not been shown that row. That inference only holds
+// because the failed read is carved off first — which is why the `answered` case
+// is tested before the liveness one, and why `--force` refuses outright rather
+// than degrading into this branch.
+//
+// `last == nil` is the third condition and the one that is easy to drop, because
+// the argument reads as complete without it. It is not: the two reads are
+// separate, so the open session can END between them. That caller sees the
+// worker's ENDED rows and no open one — `last != nil, active == nil` — and is
+// fully permitted. Claiming a permissions limit there is a false statement about
+// the reader, made from a race, and it is the same defect PR #504 shipped when
+// it argued a nil holder meant unheld (review:a-tidy-argument-is-not-a-checked-one).
+// A masked caller is scope-filtered out of the whole list, so seeing ANY row is
+// evidence the gate is open — a probe rather than an argument about who can see
+// what.
+//
+// "an unknown driver" is the server's own wording on the WORKER_TAKEN path,
+// kept for the case it actually describes so the two refusals do not describe
+// one situation two ways.
+//
+// The other two say "someone", not "a driver" (@copilot). Every return here is
+// interpolated into BOTH "being driven by %s" and "taking over worker %s from
+// %s", so a phrase naming its own subject reads as "being driven by a driver
+// this CLI could not read" — the noun twice, and in the failed-read case the
+// verb twice as well. The parenthetical stays parenthetical rather than
+// becoming a dash: the refusal at the holdUnknownWhose site already spends two
+// em-dashes on its own clauses, and a third would collide. The server's wording keeps its article because it is a
+// quotation, not a phrasing choice: changing it would reintroduce the two
+// vocabularies #552 removed.
+func drivenBy(n sessionNarration, live liveness) string {
+	switch {
+	case n.active != nil:
+		return describeSession(n.active)
+	case !n.answered:
+		return "someone this CLI could not identify (the session list could not be read)"
+	case live == liveYes && n.last == nil:
+		return "someone you are not permitted to see"
+	default:
 		return "an unknown driver"
 	}
-	return describeSession(active)
 }
 
 func describeSession(s *gen.TeamSessionFields) string {
@@ -663,10 +735,64 @@ holds nothing).`,
 				return exitcode.Newf(exitcode.Usage,
 					"worker %s retired %s — a retired worker takes no new sessions (cast a new worker for the role)", w.Name, *w.RetiredAt)
 			}
-			last, active, err := workerActivity(ctx, client, w.Id)
-			if err != nil {
-				return err
+			// LIVENESS FIRST, because it is what decides whether the read below
+			// is narration or the decision — and it costs nothing, being a field
+			// on the worker row already in hand.
+			live := workerLiveness(w)
+			// NARRATION, so it degrades — except where the narration IS the
+			// decision (#553, coordinator ruling).
+			//
+			// #552 demoted this read: the TAKEN gate is `workerLiveness` above.
+			// A read the command no longer depends on must not be able to fail
+			// the command — that refuses a caller who can see the worker but not
+			// its session list, by a dependency that was removed, which is #550
+			// in a different costume.
+			//
+			// The exception is a bind that MAY DISPLACE SOMEBODY, because
+			// cor:agt:020:03 makes the override informed or nothing: a takeover
+			// that cannot see who it displaces has nothing left to be informed
+			// by. This is the ONE thing here that is allowed to be fatal.
+			//
+			// It is gated on `live != liveNo` and NOT on `force` alone — the
+			// distinction @codex and @copilot both caught, and @codex's reason
+			// is the one that makes it urgent. **--force is not only a takeover
+			// flag**: it is also required to replace an abandoned local worktree
+			// binding, and that path has ALREADY ENDED the previous session by
+			// the time it arrives here. Aborting on a narration blip therefore
+			// leaves the old session ended, the local binding intact, and the
+			// caller unable to retry WITHOUT --force (the already-bound guard
+			// refuses that) — a refusal you cannot satisfy by doing what it
+			// implies, which is precisely the #550 shape this whole issue family
+			// exists to remove. Introduced by the PR that removes it.
+			//
+			// `liveNo` and not `liveYes` is the direction, because degrading
+			// needs POSITIVE evidence that nobody is displaced. `liveUnknown`
+			// means the server declined to say, and "it did not tell me somebody
+			// is there" is not "nobody is there".
+			//
+			// BOTH conditions, and the `force` half is not redundant: a bind
+			// WITHOUT --force against a live name is about to refuse anyway, with
+			// exit 5 and a sentence naming liveness. Turning that into a
+			// transport error would replace an answer about the worker with an
+			// answer about the network — the mirror of the defect above, and the
+			// shape #556 already fixed once by hoisting a guard above the client.
+			narr, aerr := workerActivity(ctx, client, w.Id)
+			if aerr != nil {
+				if force && live != liveNo {
+					// Preserve the mapped code — a gateway 5xx must still exit
+					// 7, not collapse to a generic 1 because we added a
+					// sentence. The bind is refused, not attempted.
+					return exitcode.New(exitcode.FromError(aerr), fmt.Errorf(
+						"could not read who is driving worker %s, so --force cannot say whom it takes over from (cor:agt:020:03). Retry: %w",
+						w.Name, aerr))
+				}
+				// No claim about what happens next: this note is printed on
+				// paths that go on to refuse as well as ones that bind, so
+				// promising that the server decides would be false on the first
+				// (@copilot).
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: could not read %s's session detail (%v) — continuing; the bind does not depend on it\n", w.Name, aerr)
 			}
+			last, active := narr.last, narr.active
 			// TAKEN is DERIVED liveness, never an open session row (#550).
 			//
 			// MASKED DEFERS TO THE SERVER, deliberately, and this is the one
@@ -680,7 +806,6 @@ holds nothing).`,
 			// this command already renders below. So the loosening costs one
 			// round trip on the refusal path and gives up no safety.
 			// (Decision: Holger, 2026-09-03.)
-			live := workerLiveness(w)
 			if live == liveYes && !force {
 				// --force is the remedy for a TAKEN worker, and cor:agt:020:09
 				// says TAKEN is only ever a question about your OWN name: the
@@ -708,7 +833,7 @@ holds nothing).`,
 				case holdUnknownWhose:
 					return exitcode.Newf(exitcode.Conflict,
 						"worker %s is live — being driven by %s — and the name is held by %s: this CLI could not read your own identity to tell whether that is you. If it is, --force takes over; if it is not, nothing does: a held name is not forceable, and the remedy is to cast your own worker (cor:agt:020:09)",
-						w.Name, drivenBy(active), holder)
+						w.Name, drivenBy(narr, live), holder)
 				}
 				// "clears on its own", NOT "nothing frees it by waiting"
 				// (@codex, P2). The first draft said the second, which is the
@@ -719,12 +844,12 @@ holds nothing).`,
 				// instead. #550's own defect, in the message announcing the fix.
 				return exitcode.Newf(exitcode.Conflict,
 					"worker %s is live — being driven by %s. Live means DRIVEN RECENTLY (the server derives it; an open session row is not it), so it lapses on its own once nobody is driving; --force takes over now",
-					w.Name, drivenBy(active))
+					w.Name, drivenBy(narr, live))
 			}
 			switch {
 			case live == liveYes:
 				// Reached only under --force: the gate above refuses otherwise.
-				fmt.Fprintf(f.IOStreams.ErrOut, "taking over worker %s from %s\n", w.Name, drivenBy(active))
+				fmt.Fprintf(f.IOStreams.ErrOut, "taking over worker %s from %s\n", w.Name, drivenBy(narr, live))
 			case live == liveNo && active != nil:
 				// The ordinary post-#1114 shape, and worth naming rather than
 				// calling a takeover: the name is free, and the open row is
@@ -758,7 +883,25 @@ holds nothing).`,
 			// (WORKER_TAKEN) unless force rides along — the activity check
 			// above is the friendly pre-flight, this is the race-safe gate.
 			// Sent only on --force so the override stays explicit.
-			if force {
+			//
+			// AND only when the client has NOT proved the name free (@codex P1
+			// on #558). --force is not only a takeover flag — it also replaces
+			// an abandoned worktree binding — so forwarding it on a `liveNo`
+			// read waives the server's atomic gate for a caller who was told
+			// there is nothing to waive. If somebody binds in the window
+			// between the worker read and this call, that waiver takes the name
+			// out from under a driver who arrived AFTER our evidence, silently
+			// and without naming them: the exact silence cor:agt:020:03
+			// forbids, reached by a flag the user passed for another purpose.
+			//
+			// Withholding it costs a round trip in that race and buys the
+			// informed path: the server refuses WORKER_TAKEN, this command
+			// renders it WITH the driver from the extensions payload, and the
+			// retry with --force is then an override that knows whom it
+			// displaces. `liveUnknown` still forwards, because a masked caller
+			// has no evidence either way and refusing them the override is
+			// #550's mistake.
+			if force && live != liveNo {
 				input.Force = &force
 			}
 			resp, err := gen.StartTeamSession(ctx, client, input)
