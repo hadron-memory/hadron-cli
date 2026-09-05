@@ -4,8 +4,10 @@
 package api
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -105,7 +107,81 @@ func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
 	if d.token != "" {
 		req.Header.Set("Authorization", "Bearer "+d.token)
 	}
-	return d.inner.Do(req)
+	resp, err := d.inner.Do(req)
+	if err != nil || resp.StatusCode < 500 {
+		return resp, err
+	}
+	return classifyGatewayResponse(resp)
+}
+
+// classifyGatewayResponse decides, FROM THE RAW BODY, whether a 5xx is the API
+// forming an opinion or the edge losing the request (#544).
+//
+// It has to happen here because this is the last place the raw body exists.
+// genqlient parses the body itself and, when it is not JSON, SYNTHESISES a
+// one-entry error list holding the whole body as a message:
+//
+//	Errors: gqlerror.List{&gqlerror.Error{Message: string(respBody)}}
+//
+// so downstream `len(Response.Errors) > 0` — which is what classifyTransport
+// used to ask — is TRUE for every gateway page ever served. The branch that
+// was supposed to catch `<html>502 Bad Gateway</html>` could only fire for a
+// gateway returning valid JSON with no `errors` array, which no gateway does.
+// Every practical gateway 5xx was reported as a refusal: exit 1, no
+// idempotency caveat, on the failure class #394 exists to separate.
+//
+// Asking the body directly also makes this path agree with `hadron api`'s
+// (`transportStatus`), which has always classified an HTML 502 correctly. That
+// divergence is what hid the bug: the same question was answered two ways, and
+// only the answer nobody tested was wrong.
+func classifyGatewayResponse(resp *http.Response) (*http.Response, error) {
+	// Read in full rather than up to a cap. genqlient's own error path does
+	// io.ReadAll with no limit, so this adds no exposure — while a cap would
+	// add a failure mode, truncating a large but legitimate errors[] into
+	// invalid JSON and reclassifying the API's opinion as a lost request.
+	body, readErr := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if readErr != nil {
+		// The body was cut short mid-read: headers arrived, so the request
+		// certainly reached the server and a mutation may already have
+		// committed. That is a lost answer, not a refusal.
+		return nil, &gatewayError{status: resp.StatusCode, body: nil}
+	}
+	if hasGraphQLErrorsEnvelope(body) {
+		// The API's own opinion, however bad the status. Hand the response
+		// back intact — genqlient parses it and the extension-code mapping in
+		// MapError still applies.
+		resp.Body = io.NopCloser(bytes.NewReader(body))
+		return resp, nil
+	}
+	return nil, &gatewayError{status: resp.StatusCode, body: body}
+}
+
+// gatewayError is a 5xx whose body was not a GraphQL envelope — the edge, not
+// the API. classifyTransport recognises it and renders the user-facing
+// sentence; this Error() is the fallback rendering for anything that prints
+// the error directly.
+//
+// The body is kept but rendered as a BOUNDED, single-line snippet. Dumping it
+// whole is what the old behaviour did, and it put a page of HTML in front of
+// the user inside a JSON envelope; dropping it entirely would lose the only
+// clue about which hop failed.
+type gatewayError struct {
+	status int
+	body   []byte
+}
+
+const gatewaySnippetMax = 120
+
+func (e *gatewayError) Error() string {
+	snippet := strings.Join(strings.Fields(string(e.body)), " ")
+	if len(snippet) > gatewaySnippetMax {
+		snippet = snippet[:gatewaySnippetMax] + "…"
+	}
+	if snippet == "" {
+		return fmt.Sprintf("HTTP %d from a gateway (empty body)", e.status)
+	}
+	return fmt.Sprintf("HTTP %d from a gateway: %s", e.status, snippet)
 }
 
 // Endpoint joins the server base URL with the GraphQL path.

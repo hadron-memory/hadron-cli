@@ -98,14 +98,36 @@ func classifyTransport(err error) (transportFailure, bool) {
 		}, true
 	}
 
+	// A 5xx already classified from its RAW BODY by the doer (#544). This is
+	// the only reliable answer for the genqlient path: by the time an error
+	// reaches here the body is gone, replaced by a synthesised one-entry error
+	// list whenever it was not JSON — so `len(Response.Errors) > 0` said
+	// "the API formed an opinion" about every gateway page ever served, and
+	// this branch was unreachable in production.
+	var gwErr *gatewayError
+	if errors.As(err, &gwErr) {
+		return transportFailure{
+			what:      fmt.Sprintf("HTTP %d from a gateway, not a GraphQL error — the request may not have reached the server, or its answer was lost", gwErr.status),
+			retryHint: "the server may be restarting; retry shortly",
+		}, true
+	}
+
 	var httpErr *graphql.HTTPError
 	if errors.As(err, &httpErr) {
 		if httpErr.StatusCode < 500 {
 			return transportFailure{}, false
 		}
-		// A 5xx carrying real GraphQL errors is the API refusing, not the edge.
-		// (graphql.Response is a struct, not a pointer — an absent body is the
-		// zero value, i.e. no errors.)
+		// A 5xx carrying GraphQL errors is the API refusing, not the edge.
+		//
+		// Through this CLI's own client this is now the ONLY way a 5xx reaches
+		// here: the doer has already taken the gateway ones out by asking the
+		// raw body, so anything left really does carry an envelope. The check
+		// stays because this function is package-level and standalone — but it
+		// is a FALLBACK, and it must not be mistaken for the real
+		// classification. It cannot BE the real one: the body it would need is
+		// gone by this point, replaced by a synthesised list whenever it was
+		// not JSON, which is what made this branch unreachable for every
+		// gateway page ever served (#544).
 		if len(httpErr.Response.Errors) > 0 {
 			return transportFailure{}, false
 		}
