@@ -102,7 +102,7 @@ hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--p
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge list <node-urn> | <loc> -m <memory> | <node-id> [--direction incoming|outgoing] [--name <substr>] [--to <ref>] [--from <ref>] | add | update <edge-id> | rm <edge-id>
 hadron spec list [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> | import spec-kit|code
-hadron coding review list [-m <memory>] [--root <loc>] [--broken] [--json] | review create <check-name> [-m <memory>] --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint [-m <memory>] [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list [-m <memory>] [--root <loc>] [--broken] [--json] | preflight create <loc> [-m <memory>] --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight route <node-ref> [-m <memory>] --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight lint [-m <memory>] [--root <loc>] [--strict] [--json]
+hadron coding review run [-m <memory>] [--base <ref>] [--head <ref>] [--diff <path|->] [--root <loc>] [--all] [--limit N] [--offset N] [--json] | review list [-m <memory>] [--root <loc>] [--broken] [--json] | review create <check-name> [-m <memory>] --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint [-m <memory>] [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list [-m <memory>] [--root <loc>] [--broken] [--json] | preflight create <loc> [-m <memory>] --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight route <node-ref> [-m <memory>] --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight lint [-m <memory>] [--root <loc>] [--strict] [--json]
 hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | list --org <org> | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <id> | use <urn>
 hadron ai-config list [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
@@ -1464,6 +1464,37 @@ Some Hadron deployments scope requests to an App. By default the CLI
 sends no App context, which the server treats as fine. Set a default
 with `hadron app use <urn>` or override per-invocation with
 `--app <urn>`.
+
+## `coding review run` — the checklist against a diff (#551)
+
+Returns the review checks a diff could fire, **with their bodies**, in one
+response. `--diff <path|->` supplies a unified diff (stdin with `-`); otherwise
+the change set comes from git (`--base`/`--head`, defaulting to the merge base
+with the default branch, and untracked files are included when the head is the
+working tree).
+
+Applicability is decided STRUCTURALLY — path patterns the check names, never an
+interpretation of its prose — into three buckets:
+
+- `matched` — a named path was changed; `matchedOn` carries the (pattern, file)
+  pair that fired, so the decision is auditable rather than asserted
+- `undecided` — the check names no paths, so nothing structural speaks to it.
+  **Returned in full**: "cannot tell" is not "does not apply"
+- `excluded` — the check names paths and the diff touches none. The only bucket
+  that removes anything, reported in `excluded` with its patterns, never
+  silently dropped. `--all` returns these too
+
+Most checks in a mature checklist land in `undecided` (measured: 83–100% across
+the four corpora that have one), because checks describe code shapes more often
+than file locations. **The filtering is a convenience; the one-response delivery
+of bodies is the guarantee.**
+
+`--json` is an OBJECT (unlike `review list`'s array): `memory`, `memorySource`,
+`base`/`head`/`diffSource`, `changedFiles`, `total`/`returned`/`nextOffset`,
+`checks[]` (with `content`, `patterns`, `matchedOn`, and `portalUrl` when the
+deployment has a portal), `excluded[]` and `unavailable[]`. `nextOffset` is
+non-null ONLY when `--limit`/`--offset` withheld checks, so a truncated read is
+never silent.
 
 ## Repository-scoped memory for `hadron coding` (#551)
 
