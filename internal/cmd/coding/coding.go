@@ -97,18 +97,37 @@ func NewCmdCoding(f *cmdutil.Factory) *cobra.Command {
 		Long: `Read, extend and lint the coding-workflow graph in a Hadron memory.
 
 The review:* checklist tree and the preflight router are executable
-infrastructure, not prose: ` + "`tasks:review-changes`" + ` triages checks by
-reading each one's "Applies when …" edge label back to the review parent,
-and preflight routes symptom → finding along its outgoing edges. A
-malformed edge label makes the check or route silently stop firing — the
-node still exists and never matches again.
+infrastructure, not prose: each check carries an "Applies when …" edge label
+back to the review parent, which is what a reviewer triages against, and
+preflight routes symptom → finding along its outgoing edges. A malformed edge
+label makes the check or route silently stop firing — the node still exists and
+never matches again.
+
+Triage itself is the reader's, not this command's. Some memories also carry a
+` + "`tasks:review-changes`" + ` node describing how to walk the tree, but it is a
+convenience and not a requirement: nothing here depends on that node existing,
+and ` + "`review list`" + ` shows every check and its trigger without it (#551).
 
 ` + "`list`" + ` shows the tree or the router as its readers see it; ` + "`create`" + ` adds
 a node with every edge that makes it discoverable, in one run; ` + "`preflight route`" + `
 does the same wiring for a node that already exists, including one in another
 memory; ` + "`lint`" + ` detects the silent-skip defects mechanically — lint errors
-exit 5, and --strict promotes warnings to errors. Every subcommand takes
--m/--memory.`,
+exit 5, and --strict promotes warnings to errors.
+
+Every subcommand takes -m/--memory, and none of them requires it: run from a
+checkout and the memory is resolved from the repository, in this order —
+
+  1. -m/--memory
+  2. ` + "`memory`" + ` (or ` + "`coding.memory`" + `) in .hadron/config.json, searched
+     upward from the working directory
+  3. the configured memory (` + "`hadron config set memory …`" + `)
+  4. the git remote's repository name, matched against the memories you can
+     read — exactly, never fuzzily, and an ambiguous match lists the
+     candidates rather than picking one
+
+Whichever branch answers, the resolved memory and its source are printed to
+stderr before the output, because the same bare command in two checkouts
+otherwise does different things and looks identical doing them.`,
 	}
 	cmd.AddCommand(newCmdReview(f))
 	cmd.AddCommand(newCmdPreflight(f))
@@ -148,11 +167,16 @@ type codingMemory struct {
 	raw string // as the user spelled it, for cmdutil.NodeURN
 }
 
-func codingMemoryURN(memory string) (codingMemory, error) {
-	if strings.TrimSpace(memory) == "" {
-		return codingMemory{}, exitcode.Newf(exitcode.Usage, "-m/--memory is required (hrn:mem:<root>:<slug>)")
-	}
-	return codingMemory{Ref: cmdutil.CanonicalMemoryRef(memory), raw: strings.TrimSpace(memory)}, nil
+// newCodingMemory builds the pair from a ref however it was spelled — v2 flat,
+// legacy `<org>::<slug>`, or an id (#239: input stays Postel-liberal).
+//
+// It replaced `codingMemoryURN`, whose whole body was this construction plus a
+// "-m is required" refusal. That refusal moved to resolveCodingMemory, which is
+// the only thing that can now say a memory is missing: emptiness stopped meaning
+// "the caller forgot" the moment three other sources could answer.
+func newCodingMemory(ref string) codingMemory {
+	ref = strings.TrimSpace(ref)
+	return codingMemory{Ref: cmdutil.CanonicalMemoryRef(ref), raw: ref}
 }
 
 // nodeRef composes the fully-qualified node URN for a bare loc in this memory.

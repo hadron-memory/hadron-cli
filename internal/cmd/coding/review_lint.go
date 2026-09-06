@@ -62,7 +62,7 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 			if yes && !fix {
 				return exitcode.Newf(exitcode.Usage, "--yes only applies with --fix")
 			}
-			mem, err := codingMemoryURN(memory)
+			mem, err := codingScope(cmd, f, memory)
 			if err != nil {
 				return err
 			}
@@ -131,17 +131,19 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to lint, hrn:mem:<root>:<slug> (required)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to lint (defaults to this repository's)")
 	cmd.Flags().StringVar(&root, "root", reviewRootLoc, "loc of the review parent node")
 	cmd.Flags().StringVar(&toolchain, "toolchain", "", `the memory's toolchain for the foreign-toolchain check (e.g. "ts"; "-" disables; default: inferred)`)
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
 	cmd.Flags().BoolVar(&suggest, "suggest", false, "quote the body's scope paragraph in full rather than truncated")
 	cmd.Flags().BoolVar(&fix, "fix", false, "promote a check's description into an empty/non-condition edge label where possible")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt for --fix")
-	// -m is required on every command in this group (hadron-cli#533):
-	// codingMemoryURN refuses an empty one and there is no fallback, so marking
-	// it lets cobra report it alongside the other missing flags in one message.
-	_ = cmd.MarkFlagRequired("memory")
+	// -m is OPTIONAL since #551, and the comment #533 left here is why this one
+	// replaces it rather than sitting beside it: it said "there is no fallback",
+	// which was true when written and is the exact sentence the fallback
+	// falsifies. There are now four sources (flag, .hadron/config.json, the
+	// configured memory, the repository name), and codingScope reports which one
+	// answered.
 	return cmd
 }
 

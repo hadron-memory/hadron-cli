@@ -47,7 +47,7 @@ Errors exit 5; --strict promotes warnings to errors too.`,
   hadron coding preflight lint -m hrn:mem:hadronmemory.com:dev --json --strict`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			mem, err := codingMemoryURN(memory)
+			mem, err := codingScope(cmd, f, memory)
 			if err != nil {
 				return err
 			}
@@ -96,13 +96,15 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to lint, hrn:mem:<root>:<slug> (required)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to lint (defaults to this repository's)")
 	cmd.Flags().StringVar(&root, "root", preflightRootLoc, "loc of the preflight router node")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
-	// -m is required on every command in this group (hadron-cli#533):
-	// codingMemoryURN refuses an empty one and there is no fallback, so marking
-	// it lets cobra report it alongside the other missing flags in one message.
-	_ = cmd.MarkFlagRequired("memory")
+	// -m is OPTIONAL since #551, and the comment #533 left here is why this one
+	// replaces it rather than sitting beside it: it said "there is no fallback",
+	// which was true when written and is the exact sentence the fallback
+	// falsifies. There are now four sources (flag, .hadron/config.json, the
+	// configured memory, the repository name), and codingScope reports which one
+	// answered.
 	return cmd
 }
 

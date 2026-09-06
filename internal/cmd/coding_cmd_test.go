@@ -1256,8 +1256,13 @@ func TestCodingWritersReportEveryMissingRequiredFlagAtOnce(t *testing.T) {
 		args []string
 		want []string
 	}{
-		{[]string{"coding", "review", "create", "x"}, []string{"description", "memory", "trigger"}},
-		{[]string{"coding", "preflight", "create", "findings:x"}, []string{"description", "memory", "route"}},
+		// `memory` LEFT THIS LIST in #551 and that is the change, not a
+		// regression: -m is no longer a required flag, because the memory is
+		// resolved from the repository when it is absent. The batching property
+		// #533 asked for is unaffected — it is about reporting every flag that
+		// IS still required in one round trip, and both commands still have two.
+		{[]string{"coding", "review", "create", "x"}, []string{"description", "trigger"}},
+		{[]string{"coding", "preflight", "create", "findings:x"}, []string{"description", "route"}},
 	} {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
@@ -1278,6 +1283,132 @@ func TestCodingWritersReportEveryMissingRequiredFlagAtOnce(t *testing.T) {
 		// measured, and it is worst for an agent re-staging --content-file.
 		if got := exitCodeFor(err); got != exitcode.Usage {
 			t.Errorf("%v: a missing required flag is a usage error (2), got %d", tc.args, got)
+		}
+	}
+}
+
+// #551 — the resolved memory and the branch that produced it go in front of the
+// reader, on stderr, before the payload
+// (review:ambient-scope-must-report-its-source).
+//
+// The defect it prevents is that there is nothing to notice: the same bare
+// `coding review list` in two checkouts reads two different checklists and the
+// output is byte-identical. The line is the only artifact a reader can be
+// suspicious of.
+func TestCodingReportsWhichMemoryItResolvedAndWhy(t *testing.T) {
+	fixture := func() map[string]string {
+		return map[string]string{
+			"GetNode": codingRootJSON("review",
+				inEdge("e1", "Applies when a resolver changes", "review:ok"), ""),
+			"FindNodes": `{"data":{"nodes":[` + codingListNode("review:ok") + `]}}`,
+			"NodeBatch": codingBatch([]string{codingBatchNode("review:ok", `"review"`, "d")}, ""),
+		}
+	}
+
+	t.Run("an ambient source is named, with its branch", func(t *testing.T) {
+		gql := fakeGraphQL(t, fixture())
+		f, _ := testFactory(t)
+		stderr := captureErrOut(f)
+		// Configure the memory, then ask WITHOUT -m: the configured branch is
+		// the one under test, and it must announce itself.
+		cfgRoot := NewRootCmd(f)
+		cfgRoot.SetArgs([]string{"config", "set", "memory", codingMem})
+		if err := cfgRoot.Execute(); err != nil {
+			t.Fatalf("config set: %v", err)
+		}
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"coding", "review", "list", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("-m is no longer required: %v", err)
+		}
+		note := stderr()
+		for _, want := range []string{"using memory", codingMem, "from the configured memory"} {
+			if !strings.Contains(note, want) {
+				t.Errorf("stderr must name the memory and its source (%q): %s", want, note)
+			}
+		}
+	})
+
+	t.Run("an explicit -m is not narrated", func(t *testing.T) {
+		gql := fakeGraphQL(t, fixture())
+		f, _ := testFactory(t)
+		stderr := captureErrOut(f)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"coding", "review", "list", "-m", codingMem, "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("list: %v", err)
+		}
+		// The check exists because two checkouts resolve differently and look
+		// the same. That reasoning does not apply to a value the reader typed on
+		// the line they are looking at, so narrating it is noise.
+		if note := stderr(); strings.Contains(note, "using memory") {
+			t.Errorf("an explicitly passed -m needs no announcement: %s", note)
+		}
+	})
+
+	t.Run("the line survives an empty checklist", func(t *testing.T) {
+		// The node calls this the WORST case, not the mildest: with zero rows
+		// there is not even data to cross-check the scope against, so a line
+		// that only printed when there were rows would go missing exactly when
+		// it is the sole signal.
+		gql := fakeGraphQL(t, map[string]string{
+			"GetNode":   codingRootJSON("review", "", ""),
+			"FindNodes": `{"data":{"nodes":[]}}`,
+		})
+		f, _ := testFactory(t)
+		stderr := captureErrOut(f)
+		cfgRoot := NewRootCmd(f)
+		cfgRoot.SetArgs([]string{"config", "set", "memory", codingMem})
+		if err := cfgRoot.Execute(); err != nil {
+			t.Fatalf("config set: %v", err)
+		}
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"coding", "review", "list", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("an empty checklist is not an error: %v", err)
+		}
+		if note := stderr(); !strings.Contains(note, "using memory") {
+			t.Errorf("an empty result must still say which memory was empty: %s", note)
+		}
+	})
+}
+
+// `-m ""` is a usage refusal, not a fallback
+// (review:an-empty-flag-is-not-an-absent-flag).
+//
+// Cobra records an empty flag as CHANGED, so before #551's fallback existed the
+// emptiness test refused it and that was the end of it. The fallback is what
+// makes the same input dangerous: without a guard it resolves a DIFFERENT
+// memory from the repository and reports it as though the reader had asked for
+// it. The guard therefore ships with the fallback, not after it.
+func TestCodingRefusesAnEmptyMemoryFlagRatherThanResolvingElsewhere(t *testing.T) {
+	for _, args := range [][]string{
+		{"coding", "review", "list", "-m", ""},
+		{"coding", "review", "lint", "-m", ""},
+		{"coding", "preflight", "list", "-m", ""},
+	} {
+		f, _ := testFactory(t)
+		stderr := captureErrOut(f)
+		// A memory IS configured, so the fallback would happily answer — which
+		// is the whole point: the test must fail if the guard is removed, not
+		// merely because nothing else could resolve.
+		cfgRoot := NewRootCmd(f)
+		cfgRoot.SetArgs([]string{"config", "set", "memory", codingMem})
+		if err := cfgRoot.Execute(); err != nil {
+			t.Fatalf("config set: %v", err)
+		}
+		root := NewRootCmd(f)
+		root.SetArgs(append(args, "--server", "http://127.0.0.1:1"))
+		err := root.Execute()
+		if got := exitCodeFor(err); got != exitcode.Usage {
+			t.Errorf("%v: an empty -m must be a usage error, got %d (%v)", args, got, err)
+		}
+		if err != nil && !strings.Contains(err.Error(), "empty value") {
+			t.Errorf("%v: the refusal must say the flag was empty: %v", args, err)
+		}
+		// And it must not have quietly resolved something instead.
+		if note := stderr(); strings.Contains(note, "using memory") {
+			t.Errorf("%v: an empty -m must not resolve a memory at all: %s", args, note)
 		}
 	}
 }
