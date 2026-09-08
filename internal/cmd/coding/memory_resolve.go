@@ -152,6 +152,10 @@ type resolvedMemory struct {
 // pay for that (nor be refused when the network is down).
 type memorySources struct {
 	cfgMemory string
+	// cfgErr is why cfgMemory is empty, when the global config could not be
+	// read at all. Kept rather than swallowed: an unreadable TOML makes this
+	// branch UNANSWERABLE, not empty, and the two must not look the same.
+	cfgErr    error
 	project   func() projectCodingConfig
 	repoName  func(context.Context) string
 	clientFor func() (graphql.Client, error)
@@ -159,9 +163,10 @@ type memorySources struct {
 }
 
 // defaultMemorySources wires the real filesystem, git and server.
-func defaultMemorySources(cfgMemory string, clientFor func() (graphql.Client, error)) memorySources {
+func defaultMemorySources(cfgMemory string, cfgErr error, clientFor func() (graphql.Client, error)) memorySources {
 	return memorySources{
 		cfgMemory: cfgMemory,
+		cfgErr:    cfgErr,
 		project:   loadProjectCodingConfig,
 		repoName:  repoNameFromGit,
 		clientFor: clientFor,
@@ -181,6 +186,19 @@ func resolveCodingMemory(ctx context.Context, src memorySources, flag string) (r
 	}
 	if v := strings.TrimSpace(src.cfgMemory); v != "" {
 		return resolvedMemory{newCodingMemory(v), memoryFromUserConfig}, nil
+	}
+	// The chain has now REACHED the global-config branch and found nothing. If
+	// the reason is that the config could not be read, say so: the reader has a
+	// corrupt file to repair, and telling them to "configure a memory" sends
+	// them to write into the very file that is broken (@codex on #561).
+	//
+	// Checked here rather than at load time on purpose — a malformed config is
+	// irrelevant to a caller who passed -m or has a project config, and
+	// refusing them would be a failure imported from a branch nobody used.
+	if src.cfgErr != nil {
+		return resolvedMemory{}, exitcode.Newf(exitcode.Usage,
+			"could not read your Hadron config, so there is no configured memory to fall back on: %v.\n"+
+				"Repair it, or pass -m hrn:mem:<root>:<slug>", src.cfgErr)
 	}
 
 	repo := src.repoName(ctx)
@@ -228,7 +246,7 @@ func resolveCodingMemory(ctx context.Context, src memorySources, flag string) (r
 // remedy is a choice rather than a guess. repo is the repository name the
 // git-remote branch looked for, empty when there was no remote to read.
 func unresolvedMemoryError(repo string) error {
-	tried := "no -m, no `memory` in .hadron/config.json, no configured memory"
+	tried := "no -m, no `memory` or `coding.memory` in .hadron/config.json, no configured memory"
 	if repo == "" {
 		tried += ", and no git remote to match a memory name against"
 	} else {
@@ -237,12 +255,15 @@ func unresolvedMemoryError(repo string) error {
 	return exitcode.Newf(exitcode.Usage,
 		"could not tell which memory to use: %s.\n"+
 			"Pass -m hrn:mem:<root>:<slug>, or set one for this repository:\n"+
-			"  echo '{\"memory\":\"hrn:mem:<root>:<slug>\"}' > .hadron/config.json\n"+
+			"  mkdir -p .hadron && echo '{\"memory\":\"hrn:mem:<root>:<slug>\"}' > .hadron/config.json\n"+
 			"or globally with `hadron config set memory hrn:mem:<root>:<slug>`", tried)
 }
 
-// codingListedMemory aliases the deeply-nested generated item type.
-type codingListedMemory = gen.MemoriesMemoriesMemoriesPageItemsMemory
+// The two generated item types for the two readable slices.
+type (
+	codingListedMemory = gen.MemoriesMemoriesMemoriesPageItemsMemory
+	codingSharedMemory = gen.MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory
+)
 
 // memoriesNamed returns the URNs of accessible memories whose SLUG equals repo,
 // case-insensitively.
@@ -259,7 +280,7 @@ type codingListedMemory = gen.MemoriesMemoriesMemoriesPageItemsMemory
 // two of somebody's memory list would otherwise report "no such memory", which
 // is issue #23's shape and reads as a settled fact.
 func memoriesNamed(ctx context.Context, client graphql.Client, repo string) ([]string, error) {
-	items, err := api.CollectAll(func(limit, offset int) ([]*codingListedMemory, int, error) {
+	owned, err := api.CollectAll(func(limit, offset int) ([]*codingListedMemory, int, error) {
 		resp, err := gen.Memories(ctx, client, nil, &limit, &offset)
 		if err != nil {
 			return nil, 0, api.MapError(err)
@@ -272,13 +293,46 @@ func memoriesNamed(ctx context.Context, client graphql.Client, repo string) ([]s
 	if err != nil {
 		return nil, err
 	}
-	var out []string
-	for _, m := range items {
-		if m == nil {
-			continue
+	// BOTH readable slices, because `memories()` is not all of them (@codex on
+	// #561). A memory granted directly through `memory share` lives in the
+	// separate `sharedWithMe` set — `memory list` reads the two and unions them,
+	// and reading only the first here would report "no accessible memory is
+	// named X" to a caller who can read X perfectly well, then demand -m for it.
+	//
+	// That is the sharp end of this resolver: the failure is a REFUSAL to a
+	// caller with access, phrased as though the memory did not exist.
+	shared, err := api.CollectAll(func(limit, offset int) ([]*codingSharedMemory, int, error) {
+		resp, err := gen.MemoriesSharedWithMe(ctx, client, &limit, &offset)
+		if err != nil {
+			return nil, 0, api.MapError(err)
 		}
-		if strings.EqualFold(memorySlugOf(m.Urn), repo) {
-			out = append(out, m.Urn)
+		if resp == nil || resp.Memories == nil {
+			return nil, 0, nil
+		}
+		return resp.Memories.Items, resp.Memories.Total, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	seen := map[string]bool{}
+	var out []string
+	add := func(urn string) {
+		if urn == "" || seen[urn] || !strings.EqualFold(memorySlugOf(urn), repo) {
+			return
+		}
+		seen[urn] = true
+		out = append(out, urn)
+	}
+	for _, m := range owned {
+		if m != nil {
+			add(m.Urn)
+		}
+	}
+	// De-duplicated across the slices: a memory can appear in both, and counting
+	// it twice would turn a single clean match into a spurious "ambiguous".
+	for _, m := range shared {
+		if m != nil {
+			add(m.Urn)
 		}
 	}
 	sort.Strings(out)
@@ -325,10 +379,11 @@ func codingScope(cmd *cobra.Command, f *cmdutil.Factory, flag string) (codingMem
 			"-m/--memory was given an empty value — omit it to resolve the memory from this repository, or pass hrn:mem:<root>:<slug>")
 	}
 	var cfgMemory string
-	if cfg, err := f.Config(); err == nil && cfg != nil {
+	cfg, cfgErr := f.Config()
+	if cfgErr == nil && cfg != nil {
 		cfgMemory = cfg.Memory()
 	}
-	rm, err := resolveCodingMemory(cmd.Context(), defaultMemorySources(cfgMemory, f.GraphQLClient), flag)
+	rm, err := resolveCodingMemory(cmd.Context(), defaultMemorySources(cfgMemory, cfgErr, f.GraphQLClient), flag)
 	if err != nil {
 		return codingMemory{}, err
 	}

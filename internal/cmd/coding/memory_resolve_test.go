@@ -296,3 +296,51 @@ func TestProjectConfigIsFoundFromASubdirectory(t *testing.T) {
 		t.Errorf("a malformed config must yield the zero value, got %+v", got)
 	}
 }
+
+// A BROKEN GLOBAL CONFIG is not an absent one (@codex on #561).
+//
+// The chain only cares once it REACHES that branch: a caller with -m or a
+// project config is unaffected, and refusing them would import a failure from a
+// branch nobody used. But when the chain does arrive and the file cannot be
+// read, "no configured memory" sends the reader to write into the very file
+// that is broken.
+func TestABrokenGlobalConfigIsReportedWhenTheChainNeedsIt(t *testing.T) {
+	src := stubSources()
+	src.cfgErr = errors.New("toml: line 3: expected key separator")
+	src.repoName = func(context.Context) string { return "widget" }
+
+	_, err := resolveCodingMemory(context.Background(), src, "")
+	if err == nil {
+		t.Fatal("an unreadable config must be reported once the chain reaches it")
+	}
+	if got := exitcode.FromError(err); got != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (Usage)", got, exitcode.Usage)
+	}
+	for _, want := range []string{"could not read your Hadron config", "expected key separator"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the refusal must carry %q so the reader can repair the file: %v", want, err)
+		}
+	}
+
+	// ...and it is IRRELEVANT to a caller the chain answers earlier. This is the
+	// half that keeps the fix from becoming a new failure mode.
+	for _, tc := range []struct {
+		name string
+		flag string
+		src  func(memorySources) memorySources
+	}{
+		{"a flag answers first", "hrn:mem:acme.com:k", func(s memorySources) memorySources { return s }},
+		{"a project config answers first", "", func(s memorySources) memorySources {
+			s.project = func() projectCodingConfig { return projectCodingConfig{Memory: "hrn:mem:acme.com:k"} }
+			return s
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := tc.src(stubSources())
+			s.cfgErr = errors.New("toml: broken")
+			if _, err := resolveCodingMemory(context.Background(), s, tc.flag); err != nil {
+				t.Errorf("a broken config must not fail a caller the chain answers earlier: %v", err)
+			}
+		})
+	}
+}

@@ -175,7 +175,7 @@ usage error, not a half-finished write.`,
 				// reads its ref as a bare loc whenever a memory is given, which
 				// would compose a cross-memory URN into this memory and resolve
 				// to nothing (same trap as `review create`'s --link).
-				linkMemory := memory
+				linkMemory := mem.raw
 				if cmdutil.IsQualifiedNodeRef(l.Ref) {
 					linkMemory = ""
 				}

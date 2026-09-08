@@ -152,12 +152,19 @@ existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + 
 			for _, l := range parsedLinks {
 				// A --link commonly points at the canonical convention/finding
 				// node, which often lives in ANOTHER memory (a repo's checks
-				// cross-linking ::dev). -m is required here because it names
-				// where the check is created, and ResolveNodeRef reads its ref
-				// as a bare loc whenever a memory is given — so a qualified ref
-				// must be resolved without it, or it gets composed into the
-				// check's memory and resolves to nothing.
-				linkMemory := memory
+				// cross-linking ::dev). The RESOLVED memory is what names where
+				// the check is created, and ResolveNodeRef reads its ref as a
+				// bare loc whenever a memory is given — so a qualified ref must
+				// be resolved without it, or it gets composed into the check's
+				// memory and resolves to nothing.
+				//
+				// `mem.raw`, NOT the `memory` flag (@codex on #561). Once -m
+				// became optional the two stopped being the same value, and
+				// passing the flag meant a bare `--link conventions:x` was
+				// rejected as unqualified in exactly the case the command had
+				// just resolved a memory for. The comment above used to say
+				// "-m is required here"; that sentence was true until it wasn't.
+				linkMemory := mem.raw
 				if cmdutil.IsQualifiedNodeRef(l.Ref) {
 					linkMemory = ""
 				}

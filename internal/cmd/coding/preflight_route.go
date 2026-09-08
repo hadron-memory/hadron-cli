@@ -96,10 +96,15 @@ that already references the target is left alone.`,
 					"no %q node in %s — create the router first, or pass --root", root, mem.raw)
 			}
 
-			// A qualified ref resolves WITHOUT -m: ResolveNodeRef reads its ref
-			// as a bare loc whenever a memory is given, which would compose a
+			// A qualified ref resolves WITHOUT a memory: ResolveNodeRef reads
+			// its ref as a bare loc whenever one is given, which would compose a
 			// cross-memory URN into this memory and resolve to nothing.
-			targetMemory := memory
+			//
+			// The RESOLVED memory, not the flag (@codex on #561): with -m
+			// optional, a bare `preflight route findings:x` would otherwise be
+			// refused as unqualified even though the command had just worked out
+			// which memory it lives in.
+			targetMemory := mem.raw
 			if cmdutil.IsQualifiedNodeRef(args[0]) {
 				targetMemory = ""
 			}

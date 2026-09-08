@@ -125,9 +125,10 @@ checkout and the memory is resolved from the repository, in this order —
      read — exactly, never fuzzily, and an ambiguous match lists the
      candidates rather than picking one
 
-Whichever branch answers, the resolved memory and its source are printed to
-stderr before the output, because the same bare command in two checkouts
-otherwise does different things and looks identical doing them.`,
+When an AMBIENT branch answers — anything but -m — the resolved memory and its
+source are printed to stderr before the output, because the same bare command in
+two checkouts otherwise does different things and looks identical doing them.
+Passing -m prints nothing: you are looking at the answer already.`,
 	}
 	cmd.AddCommand(newCmdReview(f))
 	cmd.AddCommand(newCmdPreflight(f))
