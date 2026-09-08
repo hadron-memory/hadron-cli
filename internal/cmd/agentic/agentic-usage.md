@@ -102,7 +102,7 @@ hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--p
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge list <node-urn> | <loc> -m <memory> | <node-id> [--direction incoming|outgoing] [--name <substr>] [--to <ref>] [--from <ref>] | add | update <edge-id> | rm <edge-id>
 hadron spec list [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> | import spec-kit|code
-hadron coding review list -m <memory> [--root <loc>] [--broken] [--json] | review create <check-name> -m <memory> --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint -m <memory> [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list -m <memory> [--root <loc>] [--broken] [--json] | preflight create <loc> -m <memory> --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight route <node-ref> -m <memory> --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight lint -m <memory> [--root <loc>] [--strict] [--json]
+hadron coding review list [-m <memory>] [--root <loc>] [--broken] [--json] | review create <check-name> [-m <memory>] --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint [-m <memory>] [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list [-m <memory>] [--root <loc>] [--broken] [--json] | preflight create <loc> [-m <memory>] --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight route <node-ref> [-m <memory>] --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight lint [-m <memory>] [--root <loc>] [--strict] [--json]
 hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | list --org <org> | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <id> | use <urn>
 hadron ai-config list [--app <id>] [--agent <id>] | create (--app|--agent|--org <id>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
@@ -1464,6 +1464,32 @@ Some Hadron deployments scope requests to an App. By default the CLI
 sends no App context, which the server treats as fine. Set a default
 with `hadron app use <urn>` or override per-invocation with
 `--app <urn>`.
+
+## Repository-scoped memory for `hadron coding` (#551)
+
+`coding`'s `-m/--memory` is optional. Run from a checkout and the memory is
+resolved in this order, first hit winning:
+
+1. `-m/--memory`
+2. `memory` (or `coding.memory`) in `.hadron/config.json`, searched upward from
+   the working directory — the same file `chat` reads
+3. the configured memory (`hadron config set memory …`)
+4. the git remote's repository NAME, matched against the memories you can read
+
+Step 4 is an EXACT slug match, never fuzzy: `mm-app` resolves
+`hrn:mem:micromentor.org:mm-app`, and `widget` never resolves `widget-app`. Two
+matches refuse with the candidates listed rather than picking one, so an
+ambiguous repo costs one `-m`, not a full `memory list`.
+
+Steps 1–3 are local and never touch the network. Step 4 needs a read, and its
+failure is NOT the answer: if the client cannot be built or the query does not
+come back, you get the ordinary usage refusal naming every source that was
+tried — not `AuthRequired` or exit 7 for a question about your arguments.
+
+**Whichever ambient branch answers, the resolved memory and its source are
+printed to stderr before the payload** (`using memory <ref> (from …)`), including
+when the result is empty. It is on stderr precisely so `--json` does not move:
+`coding review list --json` is a top-level array and stays one.
 
 ## Recipes
 

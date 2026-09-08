@@ -1,0 +1,397 @@
+package coding
+
+import (
+	"context"
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/Khan/genqlient/graphql"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+)
+
+// stubSources builds a chain where every branch is silent unless a test fills
+// it in — so a test that means to exercise the third source cannot accidentally
+// be answered by the first.
+func stubSources() memorySources {
+	return memorySources{
+		project:   func() projectCodingConfig { return projectCodingConfig{} },
+		repoName:  func(context.Context) string { return "" },
+		clientFor: func() (graphql.Client, error) { return nil, errors.New("no client wanted") },
+		lookup: func(context.Context, graphql.Client, string) ([]string, error) {
+			return nil, errors.New("no lookup wanted")
+		},
+	}
+}
+
+// The chain, in priority order — and each case asserts the SOURCE as well as
+// the memory, because "it resolved" is the much less useful half
+// (review:ambient-scope-must-report-its-source).
+func TestResolveCodingMemoryWalksTheChainInOrder(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		flag       string
+		src        func(memorySources) memorySources
+		wantRaw    string
+		wantSource memorySource
+	}{
+		{
+			name: "the flag wins over everything below it",
+			flag: "hrn:mem:acme.com:from-flag",
+			src: func(s memorySources) memorySources {
+				s.project = func() projectCodingConfig { return projectCodingConfig{Memory: "hrn:mem:acme.com:proj"} }
+				s.cfgMemory = "hrn:mem:acme.com:cfg"
+				return s
+			},
+			wantRaw: "hrn:mem:acme.com:from-flag", wantSource: memoryFromFlag,
+		},
+		{
+			// coding.memory before the top-level memory: a repo whose checklist
+			// lives elsewhere says so specifically, and the general key must not
+			// override the specific one.
+			name: "coding.memory beats the top-level memory key",
+			src: func(s memorySources) memorySources {
+				s.project = func() projectCodingConfig {
+					return projectCodingConfig{Memory: "hrn:mem:acme.com:general", CodingMemory: "hrn:mem:acme.com:specific"}
+				}
+				return s
+			},
+			wantRaw: "hrn:mem:acme.com:specific", wantSource: memoryFromProjectConfig,
+		},
+		{
+			name: "the project config beats the configured memory",
+			src: func(s memorySources) memorySources {
+				s.project = func() projectCodingConfig { return projectCodingConfig{Memory: "hrn:mem:acme.com:proj"} }
+				s.cfgMemory = "hrn:mem:acme.com:cfg"
+				return s
+			},
+			wantRaw: "hrn:mem:acme.com:proj", wantSource: memoryFromProjectConfig,
+		},
+		{
+			name: "the configured memory beats the git remote",
+			src: func(s memorySources) memorySources {
+				s.cfgMemory = "hrn:mem:acme.com:cfg"
+				s.repoName = func(context.Context) string { return "widget" }
+				return s
+			},
+			wantRaw: "hrn:mem:acme.com:cfg", wantSource: memoryFromUserConfig,
+		},
+		{
+			name: "a single name match resolves from the repository",
+			src: func(s memorySources) memorySources {
+				s.repoName = func(context.Context) string { return "widget" }
+				s.clientFor = func() (graphql.Client, error) { return nil, nil }
+				s.lookup = func(context.Context, graphql.Client, string) ([]string, error) {
+					return []string{"hrn:mem:acme.com:widget"}, nil
+				}
+				return s
+			},
+			wantRaw: "hrn:mem:acme.com:widget", wantSource: memoryFromRepoName,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := resolveCodingMemory(context.Background(), tc.src(stubSources()), tc.flag)
+			if err != nil {
+				t.Fatalf("resolve: %v", err)
+			}
+			if got.raw != tc.wantRaw {
+				t.Errorf("memory = %q, want %q", got.raw, tc.wantRaw)
+			}
+			if got.source != tc.wantSource {
+				t.Errorf("source = %v, want %v", got.source, tc.wantSource)
+			}
+		})
+	}
+}
+
+// THE NETWORK IS NOT CONSULTED unless every local source is silent.
+//
+// An offline reviewer with a configured memory must not pay a round trip, and —
+// the sharper half — must not be REFUSED because the server is unreachable, for
+// a question the local config already answered.
+func TestResolveCodingMemoryDoesNotReachTheServerWhenALocalSourceAnswers(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		src  func(memorySources) memorySources
+		flag string
+	}{
+		{"flag", func(s memorySources) memorySources { return s }, "hrn:mem:acme.com:k"},
+		{"project config", func(s memorySources) memorySources {
+			s.project = func() projectCodingConfig { return projectCodingConfig{Memory: "hrn:mem:acme.com:k"} }
+			return s
+		}, ""},
+		{"configured memory", func(s memorySources) memorySources {
+			s.cfgMemory = "hrn:mem:acme.com:k"
+			return s
+		}, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			reached := false
+			src := tc.src(stubSources())
+			src.clientFor = func() (graphql.Client, error) { reached = true; return nil, nil }
+			if _, err := resolveCodingMemory(context.Background(), src, tc.flag); err != nil {
+				t.Fatalf("resolve: %v", err)
+			}
+			if reached {
+				t.Error("a local source answered; the server must not be consulted")
+			}
+		})
+	}
+}
+
+// A FAILED LOOKUP IS NOT AN ANSWER ABOUT THE MEMORY.
+//
+// The git-remote branch is opportunistic. A client that will not build (no
+// token) or a query that does not answer (server down) says nothing about which
+// memory the reader meant, so surfacing it would hand a signed-out reviewer
+// AuthRequired — and an offline one exit 7 — for a question entirely about their
+// arguments. That is the defect #556 fixed by hoisting a guard above the client
+// build, and it must not come back through this door.
+func TestAFailedLookupBecomesAUsageRefusalNotATransportOne(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		src  func(memorySources) memorySources
+	}{
+		{"the client will not build", func(s memorySources) memorySources {
+			s.clientFor = func() (graphql.Client, error) { return nil, errors.New("no credentials") }
+			return s
+		}},
+		{"the query does not answer", func(s memorySources) memorySources {
+			s.clientFor = func() (graphql.Client, error) { return nil, nil }
+			s.lookup = func(context.Context, graphql.Client, string) ([]string, error) {
+				return nil, errors.New("connection refused")
+			}
+			return s
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := tc.src(stubSources())
+			src.repoName = func(context.Context) string { return "widget" }
+			_, err := resolveCodingMemory(context.Background(), src, "")
+			if err == nil {
+				t.Fatal("an unresolvable memory must refuse")
+			}
+			if got := exitcode.FromError(err); got != exitcode.Usage {
+				t.Errorf("exit code = %d, want %d (Usage) — a lookup failure must not answer with the network", got, exitcode.Usage)
+			}
+			// The refusal must be actionable, and must not leak the transport
+			// wording that would send the reader at the wrong problem.
+			for _, want := range []string{"-m", ".hadron/config.json", "widget"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("the refusal must carry %q: %v", want, err)
+				}
+			}
+			for _, forbidden := range []string{"credentials", "connection refused"} {
+				if strings.Contains(err.Error(), forbidden) {
+					t.Errorf("the refusal must not report the lookup's failure as the answer (%q): %v", forbidden, err)
+				}
+			}
+		})
+	}
+}
+
+// AMBIGUOUS IS NOT UNRESOLVED — it lists the candidates.
+//
+// Sparing the reader an unfiltered `memory list` is the whole point of this
+// branch (#551), so a refusal that does not name the shortlist sends them
+// straight back to the thing the feature exists to avoid.
+func TestAnAmbiguousRepoNameListsTheCandidates(t *testing.T) {
+	src := stubSources()
+	src.repoName = func(context.Context) string { return "widget" }
+	src.clientFor = func() (graphql.Client, error) { return nil, nil }
+	src.lookup = func(context.Context, graphql.Client, string) ([]string, error) {
+		return []string{"hrn:mem:acme.com:widget", "hrn:mem:other.org:widget"}, nil
+	}
+	_, err := resolveCodingMemory(context.Background(), src, "")
+	if err == nil {
+		t.Fatal("two matches must refuse rather than pick one")
+	}
+	if got := exitcode.FromError(err); got != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (Usage)", got, exitcode.Usage)
+	}
+	for _, want := range []string{"hrn:mem:acme.com:widget", "hrn:mem:other.org:widget", "-m"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the refusal must name %q so the reader can choose: %v", want, err)
+		}
+	}
+}
+
+// Slug equality, never a fuzzy match — the one behaviour that must not be
+// "helpful". A near-match resolving silently would run the review against
+// another team's checklist and look exactly like success.
+func TestRepoNameMatchingIsExactOnTheSlug(t *testing.T) {
+	for _, tc := range []struct {
+		urn, repo string
+		want      bool
+	}{
+		{"hrn:mem:acme.com:widget", "widget", true},
+		{"hrn:mem:acme.com:widget", "WIDGET", true}, // case is not a difference
+		{"acme.com::widget", "widget", true},        // legacy grammar still accepted (#239)
+		{"hrn:mem:acme.com:widget", "widgets", false},
+		{"hrn:mem:acme.com:widget", "wid", false},
+		{"hrn:mem:acme.com:widget-app", "widget", false},
+	} {
+		got := strings.EqualFold(memorySlugOf(tc.urn), tc.repo)
+		if got != tc.want {
+			t.Errorf("%s vs repo %q: matched=%v, want %v (slug=%q)", tc.urn, tc.repo, got, tc.want, memorySlugOf(tc.urn))
+		}
+	}
+}
+
+func TestRepoNameFromRemoteURL(t *testing.T) {
+	for _, tc := range []struct{ remote, want string }{
+		{"git@github.com:micromentor-team/mm-app.git", "mm-app"},
+		{"https://github.com/hadron-memory/hadron-cli.git", "hadron-cli"},
+		{"https://github.com/hadron-memory/hadron-cli", "hadron-cli"},
+		{"ssh://git@github.com/org/repo.git", "repo"},
+		{"git@github.com:org/repo.git\n", "repo"}, // trailing newline from git
+		{"/srv/git/bare-repo.git", "bare-repo"},
+	} {
+		m := reRemoteRepo.FindStringSubmatch(strings.TrimSpace(tc.remote))
+		if m == nil {
+			t.Errorf("%q matched nothing, want %q", tc.remote, tc.want)
+			continue
+		}
+		if m[1] != tc.want {
+			t.Errorf("%q → %q, want %q", tc.remote, m[1], tc.want)
+		}
+	}
+}
+
+// The project config is read from the working directory OR ANY ANCESTOR, so the
+// command works from a subdirectory — and the walk is started from an explicit
+// directory so this test does not depend on where it runs.
+func TestProjectConfigIsFoundFromASubdirectory(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".hadron"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".hadron", "config.json"),
+		[]byte(`{"memory":"hrn:mem:acme.com:widget","coding":{"memory":"hrn:mem:acme.com:checks"}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	deep := filepath.Join(root, "internal", "cmd")
+	if err := os.MkdirAll(deep, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got := projectCodingConfigFrom(deep)
+	if got.Memory != "hrn:mem:acme.com:widget" || got.CodingMemory != "hrn:mem:acme.com:checks" {
+		t.Errorf("read %+v, want both keys from the ancestor's config", got)
+	}
+
+	// A MALFORMED file CARRIES ITS ERROR — and this assertion is inverted from
+	// what I first wrote (@codex on #561).
+	//
+	// The concern behind the original was right and is preserved below: an
+	// unrelated typo in a shared file must not break a caller who passed -m. But
+	// I turned that into "malformed is the same as absent", and it is not.
+	// Absent means this source has nothing to say; malformed means it was trying
+	// to say something and could not — and silently advancing to the configured
+	// memory or the repository name means a `review create` can WRITE to a
+	// memory the repository configuration was trying to prevent.
+	bad := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(bad, ".hadron"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bad, ".hadron", "config.json"), []byte("{not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got = projectCodingConfigFrom(bad)
+	if got.Err == nil {
+		t.Errorf("a malformed config must carry its parse error, got %+v", got)
+	}
+	if got.Path == "" {
+		t.Error("the refusal needs the path, or the reader cannot find the file to repair")
+	}
+
+	// An ABSENT file still falls through silently — the half that must not
+	// change, or every repo without a .hadron/ starts failing.
+	if missing := projectCodingConfigFrom(t.TempDir()); missing.Err != nil || missing.Memory != "" {
+		t.Errorf("an absent config must stay silent, got %+v", missing)
+	}
+}
+
+// A malformed project config refuses — but ONLY once the chain needs it.
+//
+// The pair is the point. Refusing always would let one typo in a shared file
+// break every coding command in the repository, including the ones that passed
+// -m and never wanted that file. Falling through always is what @codex caught:
+// a write can land in a different memory than the repo configuration intended.
+func TestAMalformedProjectConfigRefusesButNotOverAnExplicitFlag(t *testing.T) {
+	broken := func() projectCodingConfig {
+		return projectCodingConfig{Path: "/repo/.hadron/config.json", Err: errors.New("invalid character 'n'")}
+	}
+
+	src := stubSources()
+	src.project = broken
+	_, err := resolveCodingMemory(context.Background(), src, "")
+	if err == nil {
+		t.Fatal("a malformed project config must refuse rather than advance to another memory")
+	}
+	if got := exitcode.FromError(err); got != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (Usage)", got, exitcode.Usage)
+	}
+	for _, want := range []string{"/repo/.hadron/config.json", "does not parse", "-m"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the refusal must carry %q: %v", want, err)
+		}
+	}
+
+	// -m answers above it, so the broken file is irrelevant.
+	src2 := stubSources()
+	src2.project = broken
+	if _, err := resolveCodingMemory(context.Background(), src2, "hrn:mem:acme.com:k"); err != nil {
+		t.Errorf("an explicit -m must not be blocked by an unrelated broken file: %v", err)
+	}
+}
+
+// A BROKEN GLOBAL CONFIG is not an absent one (@codex on #561).
+//
+// The chain only cares once it REACHES that branch: a caller with -m or a
+// project config is unaffected, and refusing them would import a failure from a
+// branch nobody used. But when the chain does arrive and the file cannot be
+// read, "no configured memory" sends the reader to write into the very file
+// that is broken.
+func TestABrokenGlobalConfigIsReportedWhenTheChainNeedsIt(t *testing.T) {
+	src := stubSources()
+	src.cfgErr = errors.New("toml: line 3: expected key separator")
+	src.repoName = func(context.Context) string { return "widget" }
+
+	_, err := resolveCodingMemory(context.Background(), src, "")
+	if err == nil {
+		t.Fatal("an unreadable config must be reported once the chain reaches it")
+	}
+	if got := exitcode.FromError(err); got != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (Usage)", got, exitcode.Usage)
+	}
+	for _, want := range []string{"could not read your Hadron config", "expected key separator"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the refusal must carry %q so the reader can repair the file: %v", want, err)
+		}
+	}
+
+	// ...and it is IRRELEVANT to a caller the chain answers earlier. This is the
+	// half that keeps the fix from becoming a new failure mode.
+	for _, tc := range []struct {
+		name string
+		flag string
+		src  func(memorySources) memorySources
+	}{
+		{"a flag answers first", "hrn:mem:acme.com:k", func(s memorySources) memorySources { return s }},
+		{"a project config answers first", "", func(s memorySources) memorySources {
+			s.project = func() projectCodingConfig { return projectCodingConfig{Memory: "hrn:mem:acme.com:k"} }
+			return s
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := tc.src(stubSources())
+			s.cfgErr = errors.New("toml: broken")
+			if _, err := resolveCodingMemory(context.Background(), s, tc.flag); err != nil {
+				t.Errorf("a broken config must not fail a caller the chain answers earlier: %v", err)
+			}
+		})
+	}
+}

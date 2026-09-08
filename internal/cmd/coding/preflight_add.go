@@ -93,7 +93,7 @@ usage error, not a half-finished write.`,
     --section "GraphQL read and write surfaces" --tag conventions`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			mem, err := codingMemoryURN(memory)
+			mem, err := codingScope(cmd, f, memory)
 			if err != nil {
 				return err
 			}
@@ -175,7 +175,7 @@ usage error, not a half-finished write.`,
 				// reads its ref as a bare loc whenever a memory is given, which
 				// would compose a cross-memory URN into this memory and resolve
 				// to nothing (same trap as `review create`'s --link).
-				linkMemory := memory
+				linkMemory := mem.raw
 				if cmdutil.IsQualifiedNodeRef(l.Ref) {
 					linkMemory = ""
 				}
@@ -306,7 +306,7 @@ usage error, not a half-finished write.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to add the node to, hrn:mem:<root>:<slug> (required)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to add the node to (defaults to this repository's)")
 	cmd.Flags().StringVar(&root, "root", preflightRootLoc, "loc of the preflight router node")
 	cmd.Flags().StringVar(&route, "route", "", `the action the route fires on ("to" is prepended if absent) (required)`)
 	cmd.Flags().StringVar(&description, "description", "", "one-line description; also the routing line's text (required)")
@@ -329,7 +329,6 @@ usage error, not a half-finished write.`,
 	// defaults to the target node's own description — so this is a per-command
 	// fact, not a group-wide one, and marking it there would refuse a call that
 	// works today.
-	_ = cmd.MarkFlagRequired("memory")
 	_ = cmd.MarkFlagRequired("route")
 	_ = cmd.MarkFlagRequired("description")
 	return cmd

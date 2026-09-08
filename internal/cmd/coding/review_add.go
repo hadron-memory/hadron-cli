@@ -97,7 +97,7 @@ existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + 
     --link conventions:output-contract --tag json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			mem, err := codingMemoryURN(memory)
+			mem, err := codingScope(cmd, f, memory)
 			if err != nil {
 				return err
 			}
@@ -152,12 +152,19 @@ existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + 
 			for _, l := range parsedLinks {
 				// A --link commonly points at the canonical convention/finding
 				// node, which often lives in ANOTHER memory (a repo's checks
-				// cross-linking ::dev). -m is required here because it names
-				// where the check is created, and ResolveNodeRef reads its ref
-				// as a bare loc whenever a memory is given — so a qualified ref
-				// must be resolved without it, or it gets composed into the
-				// check's memory and resolves to nothing.
-				linkMemory := memory
+				// cross-linking ::dev). The RESOLVED memory is what names where
+				// the check is created, and ResolveNodeRef reads its ref as a
+				// bare loc whenever a memory is given — so a qualified ref must
+				// be resolved without it, or it gets composed into the check's
+				// memory and resolves to nothing.
+				//
+				// `mem.raw`, NOT the `memory` flag (@codex on #561). Once -m
+				// became optional the two stopped being the same value, and
+				// passing the flag meant a bare `--link conventions:x` was
+				// rejected as unqualified in exactly the case the command had
+				// just resolved a memory for. The comment above used to say
+				// "-m is required here"; that sentence was true until it wasn't.
+				linkMemory := mem.raw
 				if cmdutil.IsQualifiedNodeRef(l.Ref) {
 					linkMemory = ""
 				}
@@ -225,7 +232,7 @@ existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + 
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to add the check to, hrn:mem:<root>:<slug> (required)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to add the check to (defaults to this repository's)")
 	cmd.Flags().StringVar(&root, "root", reviewRootLoc, "loc of the review parent node")
 	cmd.Flags().StringVar(&trigger, "trigger", "", `the condition the check fires on ("Applies when" is prepended if absent) (required)`)
 	cmd.Flags().StringVar(&description, "description", "", "one-line description (what it checks — applies when …) (required)")
@@ -244,18 +251,22 @@ existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + 
 	// a long invocation with --content-file, where each rejection costs a turn
 	// and the body has to be re-staged.
 	//
-	// The "(required)" in each usage string is NOT redundant with these calls.
+	// The "(required)" in a usage string is NOT redundant with these calls.
 	// Cobra's default help template does not annotate required flags at all —
 	// measured on --trigger, which has been marked since this command shipped
 	// and still renders identically to the optional ones. So MarkFlagRequired
 	// buys batching and nothing else; discoverability has to be written by hand,
 	// and the parenthetical is this repo's existing convention for it.
 	//
+	// That is also why -m losing its mark (#551) had to change its usage TEXT in
+	// the same edit: the template says nothing either way, so the parenthetical
+	// was the only thing telling a reader the flag was compulsory, and leaving
+	// it would have gone on saying so after it stopped being true.
+	//
 	// The hand-rolled emptiness checks in the RunE stay, and are not duplicates:
 	// MarkFlagRequired asserts the flag was SET, never that it is non-empty, so
 	// `--description ""` passes the parser and only the check refuses it. They
 	// also carry the REASON, which cobra's generic text cannot.
-	_ = cmd.MarkFlagRequired("memory")
 	_ = cmd.MarkFlagRequired("trigger")
 	_ = cmd.MarkFlagRequired("description")
 	return cmd

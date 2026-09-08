@@ -65,7 +65,7 @@ that already references the target is left alone.`,
     --section "Maintaining the memories themselves" --dry-run`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			mem, err := codingMemoryURN(memory)
+			mem, err := codingScope(cmd, f, memory)
 			if err != nil {
 				return err
 			}
@@ -96,10 +96,15 @@ that already references the target is left alone.`,
 					"no %q node in %s — create the router first, or pass --root", root, mem.raw)
 			}
 
-			// A qualified ref resolves WITHOUT -m: ResolveNodeRef reads its ref
-			// as a bare loc whenever a memory is given, which would compose a
+			// A qualified ref resolves WITHOUT a memory: ResolveNodeRef reads
+			// its ref as a bare loc whenever one is given, which would compose a
 			// cross-memory URN into this memory and resolve to nothing.
-			targetMemory := memory
+			//
+			// The RESOLVED memory, not the flag (@codex on #561): with -m
+			// optional, a bare `preflight route findings:x` would otherwise be
+			// refused as unqualified even though the command had just worked out
+			// which memory it lives in.
+			targetMemory := mem.raw
 			if cmdutil.IsQualifiedNodeRef(args[0]) {
 				targetMemory = ""
 			}
@@ -223,7 +228,7 @@ that already references the target is left alone.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory holding the router, hrn:mem:<root>:<slug> (required)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory holding the router (defaults to this repository's)")
 	cmd.Flags().StringVar(&root, "root", preflightRootLoc, "loc of the preflight router node")
 	cmd.Flags().StringVar(&route, "route", "", `the action the route fires on ("to" is prepended if absent) (required)`)
 	cmd.Flags().StringVar(&description, "description", "", "routing line text (default: the target node's own description)")
@@ -233,10 +238,12 @@ that already references the target is left alone.`,
 	cmd.Flags().BoolVar(&noBodyLine, "no-body-line", false, "wire the edges only; leave the router's body alone")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be written, including where the routing line lands, without writing it")
 	_ = cmd.MarkFlagRequired("route")
-	// -m is required on every command in this group (hadron-cli#533):
-	// codingMemoryURN refuses an empty one and there is no fallback, so marking
-	// it lets cobra report it alongside the other missing flags in one message.
-	_ = cmd.MarkFlagRequired("memory")
+	// -m is OPTIONAL since #551, and the comment #533 left here is why this one
+	// replaces it rather than sitting beside it: it said "there is no fallback",
+	// which was true when written and is the exact sentence the fallback
+	// falsifies. There are now four sources (flag, .hadron/config.json, the
+	// configured memory, the repository name), and codingScope reports which one
+	// answered.
 	return cmd
 }
 
