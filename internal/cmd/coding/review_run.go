@@ -198,13 +198,19 @@ func buildRunResult(in reviewInput, files []string, all bool) runResultDTO {
 			})
 			continue
 		}
+		// Both slices explicitly non-nil: the DTO's arrays are [] in the
+		// contract, and Go marshals a nil slice as null.
+		patterns := m.Patterns
+		if patterns == nil {
+			patterns = []string{}
+		}
 		hits := make([]runHitDTO, 0, len(m.On))
 		for _, h := range m.On {
 			hits = append(hits, runHitDTO(h))
 		}
 		out.Checks = append(out.Checks, runCheckDTO{
 			Loc: loc, Name: n.Name, Description: n.Description, Trigger: trigger,
-			Verdict: string(m.Verdict), Patterns: m.Patterns, MatchedOn: hits,
+			Verdict: string(m.Verdict), Patterns: patterns, MatchedOn: hits,
 			PortalURL: n.PortalURL, Content: n.Content,
 		})
 	}

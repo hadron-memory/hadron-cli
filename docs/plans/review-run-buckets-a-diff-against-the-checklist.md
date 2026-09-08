@@ -105,6 +105,37 @@ the exact-fit case a naive `offset+limit < total` gets wrong.
 already selected it) and **omitted when absent**. Never composed from the URN:
 the repo's rule is that a node read prints its URL and you copy that.
 
+## Review round: four findings, all in one family
+
+@codex, and they are the same defect in four places — **every way the changed-file
+list can be wrong lands on the exclusion side**, and every one of them is silent.
+
+- **No discoverable default branch (P1).** With no `origin/HEAD`, no
+  `origin/main` and no `main` — an ordinary `master`-based repo without a remote
+  — the base came back empty and `changedFiles` fell back to `git diff HEAD`. In
+  a clean worktree that diffs **nothing**, so every path-scoped check is excluded
+  and the review reports success having examined an empty change set. It refuses
+  now; the caller's fix is one flag.
+- **Spaced and quoted paths in a supplied diff (P2).** `diff --git a/file with
+  space.go b/file with space.go` was split at whitespace into `file` and `with`.
+  The two paths on that line are separated by a space and nothing marks which is
+  which, so it cannot be split there at all — the `+++` line carries the name
+  unambiguously and is now the authority, with git's C-quoting decoded.
+- **`git diff --name-only` C-quotes (P2).** `core.quotePath` turns `ü.go` into
+  `"\303\274.go"`, which no longer ends in `.go`. Now `-z`, git's own answer:
+  verbatim bytes, NUL-separated, nothing to unescape and nothing to mis-split.
+- **`patterns: null` (P1).** The pathless case is the COMMON one, so a nil there
+  made almost every row carry the shape agents must special-case.
+
+**Two of the four mutations for these came back green, and both were findings.**
+Dropping `-z` changed nothing any test could see — the fix had only ever been
+verified by a manual run, which is not a guard. And restoring `patterns` to nil
+was invisible because **Go decodes `null` and `[]` into the same nil slice**, so
+a decode-based assertion passes either way; the check had to be made against the
+raw JSON text. That second one then failed against the real code and found a
+genuine miss in my own fix: `classify`'s pathless early return was discarding the
+normalised slice it had just built.
+
 ## Tests
 
 Four mutations on the matcher, each confirmed applied and compiling first: no

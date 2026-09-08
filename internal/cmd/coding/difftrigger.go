@@ -226,7 +226,7 @@ func classify(trigger, content string, files []string) checkMatch {
 		// NO EVIDENCE IS NOT EVIDENCE OF NO. A check that names no paths is
 		// returned, every time — the reviewer decides, which is exactly the
 		// judgement this command declines to make.
-		return checkMatch{Verdict: verdictUndecided}
+		return checkMatch{Verdict: verdictUndecided, Patterns: patterns}
 	}
 	var hits []patternHit
 	for _, p := range patterns {

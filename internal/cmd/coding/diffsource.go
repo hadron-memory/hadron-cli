@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -23,9 +24,43 @@ import (
 // `diff --git a/x b/y` and the `+++ b/x` line — because a diff produced with
 // `--no-prefix`, or by a forge, may carry one and not the other.
 var (
-	reDiffGit  = regexp.MustCompile(`^diff --git (?:a/)?(\S+) (?:b/)?(\S+)`)
-	reDiffPlus = regexp.MustCompile(`^\+\+\+ (?:b/)?(\S+)`)
+	reDiffGit  = regexp.MustCompile(`^diff --git (?:a/)?(\S+) (?:b/)?(\S+)$`)
+	reDiffPlus = regexp.MustCompile(`^\+\+\+ (.*)$`)
 )
+
+// unquoteGitPath turns git's C-quoted pathname back into bytes, and strips the
+// a//b/ prefix. Git quotes any path with a space, a quote or a non-ASCII byte
+// (core.quotePath), emitting `"\303\274.go"` for `ü.go` — and that string does
+// NOT end in `.go`, so `*.go` stops matching and the check is EXCLUDED
+// (@codex on #562).
+//
+// Every failure in this function lands on the same side: a path we cannot read
+// is a file we do not know changed, which is the silent-undercount direction.
+func unquoteGitPath(s string) string {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, `"`) {
+		// Go's octal/hex escapes are git's, so Unquote does the decoding. A
+		// value it refuses is left as-is rather than dropped: a mangled name
+		// that matches nothing beats a file silently missing from the set.
+		if unq, err := strconv.Unquote(s); err == nil {
+			s = unq
+		}
+	}
+	return strings.TrimPrefix(strings.TrimPrefix(s, "a/"), "b/")
+}
+
+// plusPath reads the path off a `+++ ` line, which may contain SPACES.
+//
+// The path runs to the end of the line, except that a plain `diff -u` appends a
+// tab and a timestamp. Splitting on whitespace — which is what a `\S+` capture
+// does — turns `+++ b/file with space.go` into `file`, so a real Go change
+// matches no `*.go` pattern and its checks are excluded.
+func plusPath(rest string) string {
+	if i := strings.IndexByte(rest, '\t'); i >= 0 {
+		rest = rest[:i]
+	}
+	return unquoteGitPath(rest)
+}
 
 // pathsFromDiff reads a unified diff and returns the files it touches.
 //
@@ -50,12 +85,18 @@ func pathsFromDiff(r io.Reader) ([]string, error) {
 	for sc.Scan() {
 		line := sc.Text()
 		if m := reDiffGit.FindStringSubmatch(line); m != nil {
-			add(m[1])
-			add(m[2])
+			// Only trustworthy when neither side has a space: `diff --git`
+			// separates its two paths with one, and nothing marks which. The
+			// `+++` line below carries the same path unambiguously, so a
+			// spaced or quoted name is left to it rather than guessed at here.
+			if !strings.ContainsAny(strings.TrimPrefix(line, "diff --git "), `"`) {
+				add(unquoteGitPath(m[1]))
+				add(unquoteGitPath(m[2]))
+			}
 			continue
 		}
 		if m := reDiffPlus.FindStringSubmatch(line); m != nil {
-			add(m[1])
+			add(plusPath(m[1]))
 		}
 	}
 	if err := sc.Err(); err != nil {
@@ -82,6 +123,27 @@ func gitLines(ctx context.Context, args ...string) ([]string, error) {
 		}
 	}
 	return lines, nil
+}
+
+// gitPaths runs a path-listing git command with -z and splits on NUL.
+//
+// Without -z, git C-quotes any pathname with a space or a non-ASCII byte
+// (core.quotePath): `ü.go` arrives as `"\303\274.go"`, which no longer ends in
+// `.go`, so `*.go` does not match and the check is EXCLUDED (@codex on #562).
+// -z is git's own answer — verbatim bytes, NUL-separated — so nothing has to be
+// un-escaped and nothing can be split at the wrong place.
+func gitPaths(ctx context.Context, args ...string) ([]string, error) {
+	out, err := exec.CommandContext(ctx, "git", append(args, "-z")...).Output()
+	if err != nil {
+		return nil, err
+	}
+	var paths []string
+	for _, p := range strings.Split(string(out), "\x00") {
+		if p != "" {
+			paths = append(paths, p)
+		}
+	}
+	return paths, nil
 }
 
 // defaultBase picks what to diff against when the caller gives no --base: the
@@ -124,10 +186,19 @@ func changedFiles(ctx context.Context, base, head string) (files []string, usedB
 	case head != "":
 		args = append(args, head)
 	default:
-		args = append(args, "HEAD")
-		base = "HEAD"
+		// NO BASE, AND NONE COULD BE DISCOVERED. Falling back to `HEAD` looks
+		// harmless and is the worst option available: in a clean worktree it
+		// diffs nothing, so every path-scoped check is EXCLUDED and the review
+		// reports success having examined an empty change set (@codex P1).
+		//
+		// A repo based on `master`, with no origin/HEAD and no `main`, hits this
+		// on an ordinary day. Refusing costs that caller one flag; guessing
+		// costs them the checks they came for, silently.
+		return nil, "", exitcode.Newf(exitcode.Usage,
+			"could not work out what to diff against — no origin/HEAD, origin/main or main to find a merge base with.\n"+
+				"Pass --base <ref> (e.g. --base master), or --diff to supply a diff directly")
 	}
-	tracked, err := gitLines(ctx, args...)
+	tracked, err := gitPaths(ctx, args...)
 	if err != nil {
 		return nil, base, exitcode.Newf(exitcode.Usage,
 			"could not read the diff from git (base %q, head %q) — pass --diff to supply one instead: %v", base, head, err)
@@ -137,7 +208,7 @@ func changedFiles(ctx context.Context, base, head string) (files []string, usedB
 		seen[f] = true
 	}
 	if head == "" {
-		if untracked, uerr := gitLines(ctx, "ls-files", "--others", "--exclude-standard"); uerr == nil {
+		if untracked, uerr := gitPaths(ctx, "ls-files", "--others", "--exclude-standard"); uerr == nil {
 			for _, f := range untracked {
 				seen[f] = true
 			}

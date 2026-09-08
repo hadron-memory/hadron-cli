@@ -1584,6 +1584,27 @@ func TestCodingReviewRunBucketsChecksAgainstADiff(t *testing.T) {
 		t.Errorf("an unpaged read must return everything and promise no more: total=%d returned=%d next=%v",
 			got.Total, got.Returned, got.NextOffset)
 	}
+	// ARRAYS ARE [], NEVER null — the repo's load-bearing --json convention, and
+	// `patterns` is the field most exposed to it: the pathless check is the
+	// COMMON case, so a nil would make almost every row carry the shape agents
+	// have to special-case.
+	//
+	// Asserted on the raw text rather than through a decode, because Go decodes
+	// null and [] into the same nil slice — the assertion would pass either way,
+	// which is how this went unnoticed until a mutation made `patterns` nil
+	// again and nothing went red.
+	raw := out.String()
+	if strings.Contains(raw, `"patterns": null`) {
+		t.Errorf("patterns must serialise as [], not null: %s", raw)
+	}
+	if !strings.Contains(raw, `"patterns": []`) {
+		t.Errorf("the pathless check must carry an empty patterns array: %s", raw)
+	}
+	for _, key := range []string{`"matchedOn": null`, `"changedFiles": null`, `"excluded": null`, `"unavailable": null`, `"checks": null`} {
+		if strings.Contains(raw, key) {
+			t.Errorf("array field serialised as null (%s): %s", key, raw)
+		}
+	}
 }
 
 // --diff and --base/--head are two answers to one question, and taking both
