@@ -254,6 +254,8 @@ func unresolvedMemoryError(repo string) error {
 	}
 	return exitcode.Newf(exitcode.Usage,
 		"could not tell which memory to use: %s.\n"+
+			"(Repository matching looks only at memories you own or that are shared with you — "+
+			"a PUBLIC memory in another organization is readable but is not assumed to be this repo's; name it with -m.)\n"+
 			"Pass -m hrn:mem:<root>:<slug>, or set one for this repository:\n"+
 			"  mkdir -p .hadron && echo '{\"memory\":\"hrn:mem:<root>:<slug>\"}' > .hadron/config.json\n"+
 			"or globally with `hadron config set memory hrn:mem:<root>:<slug>`", tried)
@@ -301,6 +303,15 @@ func memoriesNamed(ctx context.Context, client graphql.Client, repo string) ([]s
 	//
 	// That is the sharp end of this resolver: the failure is a REFUSAL to a
 	// caller with access, phrased as though the memory did not exist.
+	//
+	// PUBLIC memories are deliberately NOT a third slice here, though they are a
+	// third readable set (@codex raised it; declined with reason). This branch
+	// answers "which memory is THIS REPOSITORY's", and a public memory belonging
+	// to an unrelated organisation is readable without being the answer — a sole
+	// public match on a common slug would resolve silently to a stranger's
+	// checklist, which is the one outcome this resolver must never produce.
+	// Readability is not ownership. The refusal names -m, and passing it reads a
+	// public memory perfectly well.
 	shared, err := api.CollectAll(func(limit, offset int) ([]*codingSharedMemory, int, error) {
 		resp, err := gen.MemoriesSharedWithMe(ctx, client, &limit, &offset)
 		if err != nil {
@@ -387,8 +398,39 @@ func codingScope(cmd *cobra.Command, f *cmdutil.Factory, flag string) (codingMem
 	if err != nil {
 		return codingMemory{}, err
 	}
+	rm = canonicalizeMemory(cmd.Context(), f.GraphQLClient, rm)
 	reportMemorySource(f, rm)
 	return rm.codingMemory, nil
+}
+
+// canonicalizeMemory turns an opaque memory ID into its URN, because half this
+// package addresses nodes by composing one (@codex on #561).
+//
+// `memory set-active` documents that it stores "a memory URN OR ID", and
+// `-m` accepts an id too — but `codingMemory.nodeRef` composes
+// `hrn:node:<root>:<slug>:<loc>`, and `MemoryParts` cannot decompose an id, so
+// every one of those callers fails with "must name a memory as hrn:mem:…". That
+// message is confusing from -m and absurd from the CONFIGURED memory, where the
+// reader passed nothing at all and the advertised fallback simply does not work.
+//
+// One round trip, and ONLY for a ref that cannot be decomposed locally — the
+// ordinary URN spellings never pay for it.
+// It returns NO error by design: every failure path degrades to the ref already
+// in hand, so this can turn one good error into a different good error but can
+// never turn a working command into a broken one.
+func canonicalizeMemory(ctx context.Context, clientFor func() (graphql.Client, error), rm resolvedMemory) resolvedMemory {
+	if _, _, ok := cmdutil.MemoryParts(rm.raw); ok {
+		return rm // already a decomposable spelling
+	}
+	client, err := clientFor()
+	if err != nil {
+		return rm
+	}
+	resp, err := gen.GetMemory(ctx, client, rm.Ref)
+	if err != nil || resp == nil || resp.Memory == nil || resp.Memory.Urn == "" {
+		return rm
+	}
+	return resolvedMemory{newCodingMemory(resp.Memory.Urn), rm.source}
 }
 
 // reportMemorySource puts the resolved memory and the branch that produced it

@@ -1412,3 +1412,56 @@ func TestCodingRefusesAnEmptyMemoryFlagRatherThanResolvingElsewhere(t *testing.T
 		}
 	}
 }
+
+// An ID-valued memory is canonicalised before node URNs are composed
+// (@codex on #561).
+//
+// `memory set-active` documents that it stores "a memory URN OR ID", and every
+// coding subcommand composes `hrn:node:<root>:<slug>:<loc>` to find its root —
+// which cannot be built from an opaque id. Without this the advertised
+// configured-memory fallback fails with "must name a memory as hrn:mem:…", a
+// message about a flag the reader never passed.
+func TestCodingCanonicalisesAnIDValuedConfiguredMemory(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		// The id → URN read, and then the ordinary listing against the URN.
+		"GetMemory": `{"data":{"memory":{"id":"mem1","urn":"` + codingMem + `","name":"KB",
+			"shortDescription":null,"description":null,"class":"shared","visibility":"private",
+			"organizationId":"org1","isEncrypted":false,"maxRevCount":null,"updatedAt":"2026-08-05T00:00:00Z"}}}`,
+		"GetNode":   codingRootJSON("review", inEdge("e1", "Applies when a resolver changes", "review:ok"), ""),
+		"FindNodes": `{"data":{"nodes":[` + codingListNode("review:ok") + `]}}`,
+		"NodeBatch": codingBatch([]string{codingBatchNode("review:ok", `"review"`, "d")}, ""),
+	})
+	f, _ := testFactory(t)
+	cfgRoot := NewRootCmd(f)
+	cfgRoot.SetArgs([]string{"config", "set", "memory", "01a0668efbf67f5d92da61e77d3809c5"})
+	if err := cfgRoot.Execute(); err != nil {
+		t.Fatalf("config set: %v", err)
+	}
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "review", "list", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("an id-valued configured memory must work: %v", err)
+	}
+	if _, called := captured["GetMemory"]; !called {
+		t.Error("an undecomposable ref must be resolved to its URN before node URNs are composed")
+	}
+}
+
+// ...and a URN-spelled memory does NOT pay for that round trip. The lookup is
+// for the shape that needs it, not a step every caller funds.
+func TestCodingDoesNotResolveAMemoryItCanAlreadyDecompose(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetNode":   codingRootJSON("review", inEdge("e1", "Applies when a resolver changes", "review:ok"), ""),
+		"FindNodes": `{"data":{"nodes":[` + codingListNode("review:ok") + `]}}`,
+		"NodeBatch": codingBatch([]string{codingBatchNode("review:ok", `"review"`, "d")}, ""),
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "review", "list", "-m", codingMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if _, called := captured["GetMemory"]; called {
+		t.Error("a decomposable ref needs no server round trip to canonicalise")
+	}
+}
