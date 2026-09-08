@@ -406,8 +406,20 @@ func codingScope(cmd *cobra.Command, f *cmdutil.Factory, flag string) (codingMem
 	// `Changed` is the discriminator: it is the only thing that can tell an
 	// empty value from an absent flag, which is exactly why the emptiness test
 	// alone cannot.
+	rm, err := codingScopeDetailed(cmd, f, flag)
+	if err != nil {
+		return codingMemory{}, err
+	}
+	return rm.codingMemory, nil
+}
+
+// codingScopeDetailed is codingScope for a caller that needs the SOURCE too —
+// `review run` reports it in --json, where the response is an object and there
+// is somewhere to put it. Everything else takes the memory alone and reads the
+// source off stderr.
+func codingScopeDetailed(cmd *cobra.Command, f *cmdutil.Factory, flag string) (resolvedMemory, error) {
 	if cmd.Flags().Changed("memory") && strings.TrimSpace(flag) == "" {
-		return codingMemory{}, exitcode.Newf(exitcode.Usage,
+		return resolvedMemory{}, exitcode.Newf(exitcode.Usage,
 			"-m/--memory was given an empty value — omit it to resolve the memory from this repository, or pass hrn:mem:<root>:<slug>")
 	}
 	var cfgMemory string
@@ -417,11 +429,11 @@ func codingScope(cmd *cobra.Command, f *cmdutil.Factory, flag string) (codingMem
 	}
 	rm, err := resolveCodingMemory(cmd.Context(), defaultMemorySources(cfgMemory, cfgErr, f.GraphQLClient), flag)
 	if err != nil {
-		return codingMemory{}, err
+		return resolvedMemory{}, err
 	}
 	rm = canonicalizeMemory(cmd.Context(), f.GraphQLClient, rm)
 	reportMemorySource(f, rm)
-	return rm.codingMemory, nil
+	return rm, nil
 }
 
 // canonicalizeMemory turns an opaque memory ID into its URN, because half this

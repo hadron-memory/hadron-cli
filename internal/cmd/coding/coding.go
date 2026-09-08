@@ -52,7 +52,11 @@ type checkNode struct {
 	// Content is the node body. The shared NodeBatch operation already selects
 	// it, so carrying it costs no extra round trip — it is what lets a label
 	// finding quote the trigger paragraph the body already states (#331).
-	Content    string
+	Content string
+	// PortalURL is the server's own link for the node, empty when this
+	// deployment has no portal configured. Never synthesised — an absent link
+	// stays absent rather than becoming a guess.
+	PortalURL  string
 	Tags       []string
 	Seq        *int
 	IsRunnable bool
@@ -141,6 +145,7 @@ func newCmdReview(f *cmdutil.Factory) *cobra.Command {
 		Short: "Work with the review:* checklist tree",
 	}
 	cmd.AddCommand(newCmdReviewList(f))
+	cmd.AddCommand(newCmdReviewRun(f))
 	cmd.AddCommand(newCmdReviewAdd(f))
 	cmd.AddCommand(newCmdReviewLint(f))
 	return cmd
@@ -281,6 +286,13 @@ func fetchNodes(ctx context.Context, client graphql.Client, byID map[string]stri
 			continue
 		}
 		cn := checkNode{Loc: n.Loc, Name: n.Name, Tags: n.Tags, Seq: n.Seq}
+		// The portal link is READ, never composed (#551). NodeBatch already
+		// selects it, so carrying it costs nothing — and building one from the
+		// URN would risk pointing at the wrong host, which is why every node
+		// read prints the server's own URL line instead.
+		if n.PortalUrl != nil {
+			cn.PortalURL = *n.PortalUrl
+		}
 		if n.Description != nil {
 			cn.Description = *n.Description
 		}

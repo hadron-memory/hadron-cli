@@ -102,6 +102,16 @@ func codingBatchWithContent(loc, tags, description, content string) string {
 	return codingBatch([]string{n}, "")
 }
 
+// codingBatchNodeWithBody is codingBatchNode with a body, for a batch of more
+// than one (codingBatchWithContent wraps a single node in its own envelope).
+func codingBatchNodeWithBody(loc, tags, description, content string) string {
+	return `{"id":"n_` + loc + `","memoryId":"mem1","loc":"` + loc + `","name":"` + loc + `",
+		"alias":null,"nodeType":"info","objectType":null,"isRunnable":false,"description":` + jsonStr(description) + `,
+		"abstract":null,"abstractOriginHash":null,"tags":[` + tags + `],"seq":null,"data":null,"properties":null,
+		"content":` + jsonStr(content) + `,"createdAt":"2026-07-30T00:00:00Z","updatedAt":"2026-07-30T00:00:00Z",
+		"outgoingEdges":[],"incomingEdges":[]}`
+}
+
 func codingBatch(nodes []string, unavailable string) string {
 	return `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[` + unavailable + `],
 		"nodes":[` + strings.Join(nodes, ",") + `]}}}`
@@ -1463,5 +1473,153 @@ func TestCodingDoesNotResolveAMemoryItCanAlreadyDecompose(t *testing.T) {
 	}
 	if _, called := captured["GetMemory"]; called {
 		t.Error("a decomposable ref needs no server round trip to canonicalise")
+	}
+}
+
+// #551 part 2 — `coding review run` end to end, driven from a diff on stdin so
+// the test does not depend on the checkout's own git state.
+func TestCodingReviewRunBucketsChecksAgainstADiff(t *testing.T) {
+	fixture := func() map[string]string {
+		return map[string]string{
+			"GetNode": codingRootJSON("review",
+				inEdge("e1", "Applies when a file under `internal/api/queries/` changed", "review:graphql")+","+
+					inEdge("e2", "Applies when a refusal is reworded", "review:wording")+","+
+					inEdge("e3", "Applies when `docs/plans/` gains a doc", "review:plans"), ""),
+			"FindNodes": `{"data":{"nodes":[` + codingListNode("review:graphql") + `,` +
+				codingListNode("review:wording") + `,` + codingListNode("review:plans") + `]}}`,
+			// Bodies carry a Scope blockquote, which is where 57 of the 90
+			// real checks state their paths — a fixture with null content
+			// would exercise only the edge-label half of the matcher and
+			// leave the more common source untested.
+			"NodeBatch": codingBatch([]string{
+				codingBatchNodeWithBody("review:graphql", `"review"`, "d",
+					"> **Scope.** ONLY when a file under `internal/api/queries/` changed."),
+				codingBatchNodeWithBody("review:wording", `"review"`, "d",
+					"> **Scope.** Run this when a refusal is reworded."),
+				codingBatchNodeWithBody("review:plans", `"review"`, "d",
+					"> **Scope.** Run this when `docs/plans/` gains a doc."),
+			}, ""),
+		}
+	}
+	diff := "diff --git a/internal/api/queries/team.graphql b/internal/api/queries/team.graphql\n" +
+		"--- a/internal/api/queries/team.graphql\n+++ b/internal/api/queries/team.graphql\n@@ -1 +1 @@\n-a\n+b\n"
+
+	gql := fakeGraphQL(t, fixture())
+	f, out := testFactory(t)
+	f.IOStreams.In = strings.NewReader(diff)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "review", "run", "-m", codingMem, "--diff", "-", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	var got struct {
+		DiffSource   string   `json:"diffSource"`
+		ChangedFiles []string `json:"changedFiles"`
+		Total        int      `json:"total"`
+		Returned     int      `json:"returned"`
+		NextOffset   *int     `json:"nextOffset"`
+		Checks       []struct {
+			Loc       string `json:"loc"`
+			Verdict   string `json:"verdict"`
+			Content   string `json:"content"`
+			MatchedOn []struct {
+				Pattern string `json:"pattern"`
+				File    string `json:"file"`
+			} `json:"matchedOn"`
+		} `json:"checks"`
+		Excluded []struct {
+			Loc      string   `json:"loc"`
+			Patterns []string `json:"patterns"`
+		} `json:"excluded"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
+		t.Fatalf("decoding --json: %v (raw: %s)", err, out.String())
+	}
+	if got.DiffSource != "stdin" {
+		t.Errorf("diffSource = %q, want stdin", got.DiffSource)
+	}
+	byLoc := map[string]string{}
+	for _, c := range got.Checks {
+		byLoc[c.Loc] = c.Verdict
+		// THE BODIES SHIP WITH THE CHECKS. Fetching them one node at a time is
+		// the cost #551 measured; a response without them has not removed it.
+		if c.Content == "" {
+			t.Errorf("%s came back with no content — the one-response guarantee is the feature", c.Loc)
+		}
+	}
+	if byLoc["review:graphql"] != "matched" {
+		t.Errorf("the check naming the changed directory must match, got %q", byLoc["review:graphql"])
+	}
+	// NAMES NO PATHS ⇒ UNDECIDED, AND RETURNED. This is the assertion that
+	// stops the command quietly becoming a filter that drops what it cannot
+	// read: "cannot tell" is not "does not apply".
+	if byLoc["review:wording"] != "undecided" {
+		t.Errorf("a check naming no paths must come back undecided, got %q", byLoc["review:wording"])
+	}
+	// Names a path the diff does not touch ⇒ excluded, but REPORTED with its
+	// patterns, so the reviewer can see what was taken away and why.
+	if _, present := byLoc["review:plans"]; present {
+		t.Errorf("a check whose paths are untouched must not be in the returned set: %v", byLoc)
+	}
+	var sawPlans bool
+	for _, e := range got.Excluded {
+		if e.Loc == "review:plans" {
+			sawPlans = true
+			if len(e.Patterns) == 0 {
+				t.Error("an exclusion must name the patterns that produced it")
+			}
+		}
+	}
+	if !sawPlans {
+		t.Error("an excluded check must be reported, never silently dropped")
+	}
+	// The match is auditable: which pattern, on which file.
+	for _, c := range got.Checks {
+		if c.Loc == "review:graphql" && len(c.MatchedOn) == 0 {
+			t.Error("a matched check must carry the pattern/file pair that fired it")
+		}
+	}
+	if got.Total != got.Returned || got.NextOffset != nil {
+		t.Errorf("an unpaged read must return everything and promise no more: total=%d returned=%d next=%v",
+			got.Total, got.Returned, got.NextOffset)
+	}
+	// ARRAYS ARE [], NEVER null — the repo's load-bearing --json convention, and
+	// `patterns` is the field most exposed to it: the pathless check is the
+	// COMMON case, so a nil would make almost every row carry the shape agents
+	// have to special-case.
+	//
+	// Asserted on the raw text rather than through a decode, because Go decodes
+	// null and [] into the same nil slice — the assertion would pass either way,
+	// which is how this went unnoticed until a mutation made `patterns` nil
+	// again and nothing went red.
+	raw := out.String()
+	if strings.Contains(raw, `"patterns": null`) {
+		t.Errorf("patterns must serialise as [], not null: %s", raw)
+	}
+	if !strings.Contains(raw, `"patterns": []`) {
+		t.Errorf("the pathless check must carry an empty patterns array: %s", raw)
+	}
+	for _, key := range []string{`"matchedOn": null`, `"changedFiles": null`, `"excluded": null`, `"unavailable": null`, `"checks": null`} {
+		if strings.Contains(raw, key) {
+			t.Errorf("array field serialised as null (%s): %s", key, raw)
+		}
+	}
+}
+
+// --diff and --base/--head are two answers to one question, and taking both
+// would silently ignore one. Refused before the client is built, so a
+// signed-out caller hears about their flags.
+func TestCodingReviewRunRefusesADiffAndARefTogether(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "review", "run", "-m", codingMem, "--diff", "-", "--base", "main",
+		"--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if got := exitCodeFor(err); got != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (Usage); err: %v", got, exitcode.Usage, err)
+	}
+	if err != nil && !strings.Contains(err.Error(), "--diff") {
+		t.Errorf("the refusal must name the conflict: %v", err)
 	}
 }
