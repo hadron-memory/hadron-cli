@@ -282,9 +282,16 @@ func TestProjectConfigIsFoundFromASubdirectory(t *testing.T) {
 		t.Errorf("read %+v, want both keys from the ancestor's config", got)
 	}
 
-	// A MALFORMED file is not an error — it falls through to the next source.
-	// Failing here would make an unrelated typo in a shared config file break
-	// every coding command in the repo, including ones passing -m.
+	// A MALFORMED file CARRIES ITS ERROR — and this assertion is inverted from
+	// what I first wrote (@codex on #561).
+	//
+	// The concern behind the original was right and is preserved below: an
+	// unrelated typo in a shared file must not break a caller who passed -m. But
+	// I turned that into "malformed is the same as absent", and it is not.
+	// Absent means this source has nothing to say; malformed means it was trying
+	// to say something and could not — and silently advancing to the configured
+	// memory or the repository name means a `review create` can WRITE to a
+	// memory the repository configuration was trying to prevent.
 	bad := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(bad, ".hadron"), 0o755); err != nil {
 		t.Fatal(err)
@@ -292,8 +299,52 @@ func TestProjectConfigIsFoundFromASubdirectory(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(bad, ".hadron", "config.json"), []byte("{not json"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if got := projectCodingConfigFrom(bad); got != (projectCodingConfig{}) {
-		t.Errorf("a malformed config must yield the zero value, got %+v", got)
+	got = projectCodingConfigFrom(bad)
+	if got.Err == nil {
+		t.Errorf("a malformed config must carry its parse error, got %+v", got)
+	}
+	if got.Path == "" {
+		t.Error("the refusal needs the path, or the reader cannot find the file to repair")
+	}
+
+	// An ABSENT file still falls through silently — the half that must not
+	// change, or every repo without a .hadron/ starts failing.
+	if missing := projectCodingConfigFrom(t.TempDir()); missing.Err != nil || missing.Memory != "" {
+		t.Errorf("an absent config must stay silent, got %+v", missing)
+	}
+}
+
+// A malformed project config refuses — but ONLY once the chain needs it.
+//
+// The pair is the point. Refusing always would let one typo in a shared file
+// break every coding command in the repository, including the ones that passed
+// -m and never wanted that file. Falling through always is what @codex caught:
+// a write can land in a different memory than the repo configuration intended.
+func TestAMalformedProjectConfigRefusesButNotOverAnExplicitFlag(t *testing.T) {
+	broken := func() projectCodingConfig {
+		return projectCodingConfig{Path: "/repo/.hadron/config.json", Err: errors.New("invalid character 'n'")}
+	}
+
+	src := stubSources()
+	src.project = broken
+	_, err := resolveCodingMemory(context.Background(), src, "")
+	if err == nil {
+		t.Fatal("a malformed project config must refuse rather than advance to another memory")
+	}
+	if got := exitcode.FromError(err); got != exitcode.Usage {
+		t.Errorf("exit code = %d, want %d (Usage)", got, exitcode.Usage)
+	}
+	for _, want := range []string{"/repo/.hadron/config.json", "does not parse", "-m"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the refusal must carry %q: %v", want, err)
+		}
+	}
+
+	// -m answers above it, so the broken file is irrelevant.
+	src2 := stubSources()
+	src2.project = broken
+	if _, err := resolveCodingMemory(context.Background(), src2, "hrn:mem:acme.com:k"); err != nil {
+		t.Errorf("an explicit -m must not be blocked by an unrelated broken file: %v", err)
 	}
 }
 

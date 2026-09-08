@@ -74,13 +74,25 @@ func (s memorySource) String() string {
 type projectCodingConfig struct {
 	Memory       string `json:"memory"`
 	CodingMemory string
+	// Path and Err record a file that EXISTS but does not parse. Absent and
+	// malformed are different answers: absent means this source has nothing to
+	// say, malformed means it was trying to say something and could not.
+	Path string
+	Err  error
 }
 
 // loadProjectCodingConfig reads .hadron/config.json from the working directory
 // or any ancestor, mirroring chat's loadProjectChat so one repo layout serves
-// both. A missing or malformed file yields the zero value and NEVER an error:
-// this is a convenience layered under the flag, and a repo without one must
-// still fall through to the next source rather than failing.
+// both. A MISSING file yields the zero value and never an error: this is a
+// convenience layered under the flag, and a repo without one must fall through
+// to the next source rather than failing.
+//
+// A file that exists and does NOT PARSE is a different answer, and is carried
+// as one (@codex on #561). Treating it as absent silently advances to the
+// configured memory or the repository name — so a `review create` could WRITE
+// to a memory the repository configuration was trying to prevent, which is the
+// same defect as the swallowed global config one branch below, and I fixed that
+// one and left this one.
 func loadProjectCodingConfig() projectCodingConfig {
 	dir, err := os.Getwd()
 	if err != nil {
@@ -106,10 +118,10 @@ func projectCodingConfigFrom(dir string) projectCodingConfig {
 					Memory string `json:"memory"`
 				} `json:"coding"`
 			}
-			if json.Unmarshal(raw, &c) == nil {
-				return projectCodingConfig{Memory: c.Memory, CodingMemory: c.Coding.Memory}
+			if err := json.Unmarshal(raw, &c); err != nil {
+				return projectCodingConfig{Path: path, Err: err}
 			}
-			return projectCodingConfig{}
+			return projectCodingConfig{Memory: c.Memory, CodingMemory: c.Coding.Memory}
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
@@ -179,6 +191,15 @@ func resolveCodingMemory(ctx context.Context, src memorySources, flag string) (r
 		return resolvedMemory{newCodingMemory(v), memoryFromFlag}, nil
 	}
 	proj := src.project()
+	// Raised only AFTER the flag, and only because the chain now needs this
+	// branch: a caller who passed -m must not be stopped by an unrelated typo in
+	// a shared file, which is what makes "fall through on absent, refuse on
+	// unparseable" the right pair rather than either alone.
+	if proj.Err != nil {
+		return resolvedMemory{}, exitcode.Newf(exitcode.Usage,
+			"%s exists but does not parse (%v), so this repository's memory cannot be read.\n"+
+				"Repair it, or pass -m hrn:mem:<root>:<slug>", proj.Path, proj.Err)
+	}
 	for _, v := range []string{proj.CodingMemory, proj.Memory} {
 		if v = strings.TrimSpace(v); v != "" {
 			return resolvedMemory{newCodingMemory(v), memoryFromProjectConfig}, nil
