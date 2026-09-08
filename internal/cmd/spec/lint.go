@@ -34,6 +34,26 @@ const (
 // rather than an optimum. See docs/plans/spec-abstract-length.md.
 const abstractSoftMax = 1600
 
+// abstractHardMax is the server's cap (spec 031), past which a write is
+// REJECTED with NodeAbstractTooLongError. The lint knew this number only in
+// prose until #539 — it warned identically at 1601 and at 1990, so the wall
+// arrived at write time with no warning that it was close.
+//
+// It is not this repo's number to choose: it is one constant on the server,
+// documented identically across the SDL and both MCP tool schemas. Mirrored
+// here only so the lint can report DISTANCE to it.
+const abstractHardMax = 2000
+
+// abstractTightHeadroom is how little room left counts as "you cannot edit this
+// abstract any more" — roughly one sentence.
+//
+// Below it the finding escalates, because the remedy changes. Comfortably past
+// the soft bound, "distill it" is right. A sentence from the hard cap, distilling
+// is the WRONG advice: on a spec whose sentences are all on-subject, cutting one
+// drops a contract, and the real problem is that the node carries too much. That
+// is a supersede-level split, which is a decision rather than an edit.
+const abstractTightHeadroom = 150
+
 var (
 	// Matches the "what invalidates" statement whether it's a heading
 	// (## What invalidates …) or inline bold (**What invalidates:** …),
@@ -60,7 +80,13 @@ to errors too.
 Rule abstract-length warns above ~%d characters. That is a ceiling, not
 a target: retrieval holds up across roughly 700-1700 characters, so a long
 abstract is only worth shortening once it has stopped being about one
-subject. Off-topic sentences dilute the embedding far more than length.`, abstractSoftMax),
+subject. Off-topic sentences dilute the embedding far more than length.
+
+The finding always reports the distance to the server's %d-character HARD
+cap, past which a write is rejected — and escalates to an error inside the
+last %d, where the next edit fails and distilling is the wrong remedy: on a
+spec whose sentences are all on-subject, cutting one drops a contract. That
+is a granularity signal, and the fix is a supersede-level split.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
 		Example: `  hadron spec lint msg:010:02 -m hrn:mem:micromentor.org:platform-specs
   hadron spec lint --prefix cor:api:140 -m hrn:mem:hadronmemory.com:specs
   hadron spec lint --module msg -m hrn:mem:micromentor.org:platform-specs
@@ -345,9 +371,29 @@ func lintNode(n specNode) []lintFindingDTO {
 		if c.Level() == 4 {
 			sev = sevInfo
 		}
-		add("abstract-length", sev, fmt.Sprintf(
-			"abstract is %d chars — past ~%d added length stops paying for itself; distill it, and check every sentence is still about this spec (off-topic sentences dilute the vector far more than length does)",
-			l, abstractSoftMax))
+		headroom := abstractHardMax - l
+		msg := fmt.Sprintf(
+			"abstract is %d chars, %d from the %d-char hard cap — past ~%d added length stops paying for itself; distill it, and check every sentence is still about this spec (off-topic sentences dilute the vector far more than length does)",
+			l, headroom, abstractHardMax, abstractSoftMax)
+		if headroom < abstractTightHeadroom {
+			// ESCALATED, because this is a different finding wearing the same
+			// rule name (#539). The next edit fails at write time, and the
+			// advice above is actively wrong here: every sentence is on-subject,
+			// so distilling drops a contract.
+			sev = sevError
+			msg = fmt.Sprintf(
+				"abstract is %d chars — only %d from the %d-char hard cap, so the next edit fails at write time. Do not distill: on a spec whose sentences are all on-subject, cutting one drops a contract. This is a granularity signal — the node carries more than one subject, and the remedy is a supersede-level split",
+				l, headroom, abstractHardMax)
+			if conj := titleConjunction(n.Name); conj != "" {
+				// The mechanical half of the diagnosis (@Ada, #539): three specs
+				// flagged for length all had a conjunction in the title —
+				// "allocation AND permanence", "sessions, liveness AND
+				// provenance". A title that names two subjects is the node
+				// telling you what to split it into.
+				msg += fmt.Sprintf(`, which the %q in this spec's own title already suggests`, conj)
+			}
+		}
+		add("abstract-length", sev, msg)
 	}
 	if n.Content == nil || !reInvalidates.MatchString(*n.Content) {
 		add("invalidates", rubricSev, `body should state what invalidates this spec`)
@@ -884,4 +930,33 @@ func isScaffoldBody(content *string) bool {
 		}
 	}
 	return false
+}
+
+// titleConjunction returns the conjunction a spec's title uses to join two
+// subjects, or "" when the title names one thing.
+//
+// The evidence for this being a real signal is @Ada's on #539: three specs
+// flagged for abstract length, three titles containing "and" — "allocation and
+// permanence", "sessions, liveness and provenance". A title that names two
+// subjects is the node telling you where the split goes, and it is available
+// mechanically, so the near-cap finding can say something more useful than
+// "distill it".
+//
+// It only ever ADDS a clause to a finding that already fired on length, and is
+// never a finding of its own: plenty of single-subject titles legitimately
+// contain "and" ("create and update"), so on its own it would be noise. Paired
+// with an abstract a sentence from the cap, it is a lead worth printing.
+func titleConjunction(title string) string {
+	// The spec title carries its citation as a prefix ("cor:agt:020:03 — …");
+	// only the human half can name subjects, and a citation never contains a
+	// conjunction, so splitting first avoids matching one inside a loc.
+	if _, human, found := strings.Cut(title, "—"); found {
+		title = human
+	}
+	for _, c := range []string{" and ", " & ", "/"} {
+		if strings.Contains(strings.ToLower(title), c) {
+			return strings.TrimSpace(c)
+		}
+	}
+	return ""
 }

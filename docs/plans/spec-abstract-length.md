@@ -215,3 +215,73 @@ Embed with `search_document: ` / `search_query: ` prefixes, L2-normalise, dot.
 The one methodological rule that matters: **compare the same query against the
 same node**, varying only the thing under test. Every misleading number in #880
 came from changing two things at once.
+
+---
+
+## Follow-up: the lint knew the soft bound and not the wall (#539)
+
+Design-as-built for the reporting half. **Nothing above changes** — the 1600
+bound, the plateau it sits on, and the "off-topic dilutes more than length"
+framing are all unaltered. What changed is that the finding stopped being the
+same sentence at 1601 and at 1990.
+
+### What it cost
+
+@Ada, amending `cor:agt:020:03`: the abstract sat at 1922, the lint said what it
+says at 1650, and replacing one 39-character sentence failed the write **twice**
+(2090, then 2048) before fitting at 1990.
+
+> The information that would have let me write it once — "you have 78
+> characters" — exists at lint time and is never printed.
+
+The lint knew `abstractSoftMax` and had the hard cap only in prose: a comment on
+the constant, and another on `abstractLength` saying it counts runes "matching
+how the server measures its own 2000-char cap". **Teaching it the number was
+most of the fix.**
+
+### Three changes
+
+1. **`abstractHardMax = 2000`**, mirrored from the server (spec 031) — not this
+   repo's number to choose, carried only so the finding can report distance.
+2. **Every message reports headroom**: *"1700 chars, 300 from the 2000-char hard
+   cap"*.
+3. **Inside the last `abstractTightHeadroom = 150`, the finding escalates to an
+   error and the advice inverts.** These are different findings wearing one rule
+   name: past the soft bound, "distill it" is right; a sentence from the cap it
+   is *wrong*, because on a spec whose sentences are all on-subject, cutting one
+   drops a contract. The remedy is a supersede-level split.
+
+The escalation does **not** tier down for flows. The severity ladder is about
+how much a long abstract matters for retrieval; the cap is about whether the
+node can be edited at all, and a flow's write fails at 2000 exactly as a rule's
+does.
+
+### The split hint, and why it is only ever a clause
+
+@Ada's observation, and it holds up: three specs flagged for length, three titles
+containing a conjunction — *"allocation **and** permanence"*, *"sessions,
+liveness **and** provenance"*. A title naming two subjects is the node saying
+where the split goes.
+
+It is appended to the near-cap finding and is **never a finding of its own**.
+Plenty of single-subject titles contain "and" ("create and update"), so alone it
+would be noise; paired with an abstract a sentence from the cap it is a lead
+worth printing. The citation half of the title is stripped first, so a loc like
+`cor:and:010` cannot match.
+
+### Measured before shipping
+
+**Both corpora are clean** — zero `abstract-length` findings in
+`hadronmemory.com:specs` and `micromentor.org:platform-specs` — so the new error
+tier fires on nothing today and cannot break CI on landing.
+`cor:agt:020:03` is now 1564 characters; someone distilled it after the issue was
+filed, which is also how the measurement harness got proved before its clean
+result was believed.
+
+### Two green mutations, both real gaps
+
+Blanking the headroom numbers left the suite green: the headroom test used 1922,
+which takes the **escalated** message, so the ordinary warning's numbers — what
+most authors see — had no assertion. And hard-coding the conjunction clause on
+changed nothing, because the only assertion was on the helper in isolation,
+never on the pairing. Both now covered.

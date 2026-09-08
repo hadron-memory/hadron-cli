@@ -215,7 +215,13 @@ func TestLintNodeAbstractLengthOverBound(t *testing.T) {
 func TestLintNodeAbstractLengthFlowIsAdvisory(t *testing.T) {
 	// Flows are pulled on demand rather than retrieved cold, so the same gap is
 	// informational there — matching how the rest of the rubric tiers down.
-	fs := lintNode(abstractOf(t, "msg:010:02:01", abstractSoftMax+400))
+	//
+	// The fixture is in the SOFT range on purpose. It used to be
+	// abstractSoftMax+400, which is exactly 2000 — the hard cap — so it was
+	// asserting "flows tier down" with a value that is simultaneously "one edit
+	// from unwritable". Those are different findings (#539), and the test now
+	// picks a length that can only be the first.
+	fs := lintNode(abstractOf(t, "msg:010:02:01", abstractSoftMax+100))
 	for _, f := range fs {
 		if f.Rule == "abstract-length" {
 			if f.Severity != sevInfo {
@@ -707,5 +713,144 @@ func TestLintScaffoldBodyIgnoresQuotedFiller(t *testing.T) {
 	n.Content = &real
 	if !hasRule(lintNode(n), "scaffold-body") {
 		t.Error("an unreplaced scaffold body must still be reported")
+	}
+}
+
+// The hard cap does NOT tier down: a flow's write fails at 2000 exactly as a
+// rule's does, so the escalation applies at every level. The severity ladder is
+// about how much a LONG abstract matters; the cap is about whether the node can
+// be edited at all.
+func TestLintNodeAbstractLengthEscalatesAtTheHardCapEvenForAFlow(t *testing.T) {
+	fs := lintNode(abstractOf(t, "msg:010:02:01", abstractHardMax-10))
+	for _, f := range fs {
+		if f.Rule == "abstract-length" {
+			if f.Severity != sevError {
+				t.Errorf("a flow %d chars from the cap must still escalate, got %q", 10, f.Severity)
+			}
+			if !strings.Contains(f.Message, "fails at write time") {
+				t.Errorf("the finding must say what happens next: %q", f.Message)
+			}
+			return
+		}
+	}
+	t.Fatalf("expected an abstract-length finding; got %v", fs)
+}
+
+// HEADROOM IS THE NUMBER THE AUTHOR NEEDED, and it was never printed (#539).
+//
+// The old message said the same thing at 1601 as at 1990 — the first is
+// advisory, the second is ten characters from a rejected write. @Ada hit the
+// cap three times in a row amending one node, because the information that
+// would have let her write it once existed at lint time and stayed there.
+func TestLintNodeAbstractLengthReportsHeadroomNotJustOverage(t *testing.T) {
+	fs := lintNode(abstractOf(t, "msg:010:02", 1922))
+	for _, f := range fs {
+		if f.Rule != "abstract-length" {
+			continue
+		}
+		for _, want := range []string{"1922", "78", "2000"} {
+			if !strings.Contains(f.Message, want) {
+				t.Errorf("the finding must carry %q — the distance to the wall is the actionable half: %q", want, f.Message)
+			}
+		}
+		return
+	}
+	t.Fatalf("expected an abstract-length finding; got %v", fs)
+}
+
+// Near the cap, "distill it" is the WRONG advice, and the finding must stop
+// giving it: on a spec whose sentences are all on-subject, cutting one drops a
+// contract. The remedy is a split.
+func TestNearTheCapTheAdviceChangesFromDistillToSplit(t *testing.T) {
+	soft := lintNode(abstractOf(t, "msg:010:02", abstractSoftMax+50))
+	tight := lintNode(abstractOf(t, "msg:010:02", abstractHardMax-20))
+	msgOf := func(fs []lintFindingDTO) string {
+		for _, f := range fs {
+			if f.Rule == "abstract-length" {
+				return f.Message
+			}
+		}
+		return ""
+	}
+	if m := msgOf(soft); !strings.Contains(m, "distill it") {
+		t.Errorf("comfortably past the soft bound, distilling is right: %q", m)
+	}
+	if m := msgOf(tight); strings.Contains(m, "distill it") {
+		t.Errorf("a sentence from the cap, distilling drops a contract — the advice must change: %q", m)
+	}
+	if m := msgOf(tight); !strings.Contains(m, "split") {
+		t.Errorf("the near-cap finding must name the real remedy: %q", m)
+	}
+}
+
+// A conjunction in the title is a LEAD, never a finding on its own: plenty of
+// single-subject titles contain "and" ("create and update"), so alone it would
+// be noise. It only ever adds a clause to a finding that already fired on
+// length — which is why this asserts the pairing, not the predicate.
+func TestTitleConjunction(t *testing.T) {
+	for _, tc := range []struct{ title, want string }{
+		{"cor:agt:020:03 — Sessions, liveness, and provenance", "and"},
+		{"cor:agt:020:02 — Worker allocation and permanence", "and"},
+		{"msg:010:02 — Delivery", ""},
+		// The citation half never counts: a loc has colons, not conjunctions,
+		// and splitting on the em-dash first keeps it out of range entirely.
+		{"cor:and:010 — Delivery", ""},
+	} {
+		if got := titleConjunction(tc.title); got != tc.want {
+			t.Errorf("titleConjunction(%q) = %q, want %q", tc.title, got, tc.want)
+		}
+	}
+}
+
+// The SOFT-range message reports headroom too, and this exists because a
+// mutation said otherwise: blanking the headroom numbers left the suite green.
+//
+// The headroom test above uses 1922, which is inside the tight band and takes
+// the ESCALATED message — so the ordinary warning's numbers, which is what most
+// authors will actually see, had no assertion at all.
+func TestTheSoftRangeMessageAlsoReportsHeadroom(t *testing.T) {
+	const l = abstractSoftMax + 100 // 1700: past the soft bound, far from the cap
+	fs := lintNode(abstractOf(t, "msg:010:02", l))
+	for _, f := range fs {
+		if f.Rule != "abstract-length" {
+			continue
+		}
+		if f.Severity != sevWarning {
+			t.Fatalf("this length must stay advisory, got %q", f.Severity)
+		}
+		for _, want := range []string{"1700", "300", "2000"} {
+			if !strings.Contains(f.Message, want) {
+				t.Errorf("the warning must carry %q: %q", want, f.Message)
+			}
+		}
+		return
+	}
+	t.Fatalf("expected an abstract-length finding; got %v", fs)
+}
+
+// The conjunction clause is CONDITIONAL, and that is the whole reason it is
+// safe to print: a title naming one subject must not be told it names two.
+//
+// Also from a green mutation — hard-coding the clause on changed nothing any
+// test could see, because the only conjunction assertion was on the helper in
+// isolation and never on the pairing.
+func TestTheSplitHintOnlyAppearsWhenTheTitleNamesTwoSubjects(t *testing.T) {
+	msgFor := func(title string) string {
+		sn := cleanSpec(t, "msg:010:02", title)
+		abs := strings.Repeat("a", abstractHardMax-20)
+		sn.Abstract = &abs
+		for _, f := range lintNode(sn) {
+			if f.Rule == "abstract-length" {
+				return f.Message
+			}
+		}
+		t.Fatalf("expected an abstract-length finding for %q", title)
+		return ""
+	}
+	if m := msgFor("Delivery"); strings.Contains(m, "already suggests") {
+		t.Errorf("a single-subject title must not be told it names two: %q", m)
+	}
+	if m := msgFor("Sessions, liveness and provenance"); !strings.Contains(m, "already suggests") {
+		t.Errorf("a title naming two subjects is the lead worth printing: %q", m)
 	}
 }
