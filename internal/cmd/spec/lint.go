@@ -88,11 +88,17 @@ abstract is only worth shortening once it has stopped being about one
 subject. Off-topic sentences dilute the embedding far more than length.
 
 The finding always reports the headroom left before the server's %d-character
-HARD cap, past which a write is rejected. With fewer than %d characters of
-headroom it escalates to an error: any edit that grows the abstract past what
-is left is rejected, and distilling is the wrong remedy there — on a spec whose
-sentences are all on-subject, cutting one drops a contract. That is a
-granularity signal, and the fix is a supersede-level split.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
+HARD cap, and escalates to an error with fewer than %d characters of it. What
+the cap rejects depends on the length: below it, an edit that grows the abstract
+past the remaining headroom; at exactly it, any edit that lengthens the abstract
+(an equal-length rewrite still succeeds); past it — legacy data only — any
+update that REPLACES the abstract without bringing it back within the cap, while
+an update that leaves the abstract alone, such as a body-only edit or the one
+`+"`spec supersede`"+` writes, still succeeds.
+
+Distilling is the wrong remedy in all three: on a spec whose sentences are all
+on-subject, cutting one drops a contract. That is a granularity signal, and the
+fix is a supersede-level split.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
 		Example: `  hadron spec lint msg:010:02 -m hrn:mem:micromentor.org:platform-specs
   hadron spec lint --prefix cor:api:140 -m hrn:mem:hadronmemory.com:specs
   hadron spec lint --module msg -m hrn:mem:micromentor.org:platform-specs

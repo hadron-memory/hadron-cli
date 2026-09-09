@@ -361,3 +361,26 @@ the whole defect this issue is about.
 So the near-cap check moved ABOVE the early return and the soft check stayed
 below it. Only the advisory bound tiers down. A rule-tier node at the wall must
 therefore collect exactly one finding, not two, and there is a test for that.
+
+### The sweep kept finishing one surface short
+
+Three consecutive rounds corrected the same claim and each left one place still
+asserting the old one: the message, then the plan-doc table and the agent
+contract, then `spec lint --help`. Every round I swept from memory, and every
+round the list was one shorter than the truth.
+
+**The fix is to enumerate mechanically rather than recall.** Four surfaces carry
+this rule, and the check is one loop:
+
+```sh
+for f in internal/cmd/spec/lint.go internal/cmd/agentic/agentic-usage.md \
+         docs/plans/spec-abstract-length.md; do
+  flat=$(tr '\n' ' ' < "$f")   # the claim wraps; a line-based grep under-reports
+  …assert all three states appear…
+done
+```
+
+The `tr` matters: the first version of that check reported the agent contract at
+2/3 because "REPLACES the abstract" was split across a line break. **A sweep whose
+own instrument under-reports is worse than no sweep**, because it produces a
+clean result — the same failure shape as everything else this issue turned up.
