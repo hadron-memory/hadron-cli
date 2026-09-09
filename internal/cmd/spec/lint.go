@@ -82,11 +82,12 @@ a target: retrieval holds up across roughly 700-1700 characters, so a long
 abstract is only worth shortening once it has stopped being about one
 subject. Off-topic sentences dilute the embedding far more than length.
 
-The finding always reports the distance to the server's %d-character HARD
-cap, past which a write is rejected — and escalates to an error inside the
-last %d, where the next edit fails and distilling is the wrong remedy: on a
-spec whose sentences are all on-subject, cutting one drops a contract. That
-is a granularity signal, and the fix is a supersede-level split.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
+The finding always reports the headroom left before the server's %d-character
+HARD cap, past which a write is rejected — and escalates to an error inside
+the last %d, where any edit that grows the abstract past what is left is
+rejected and distilling is the wrong remedy: on a spec whose sentences are
+all on-subject, cutting one drops a contract. That is a granularity signal,
+and the fix is a supersede-level split.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
 		Example: `  hadron spec lint msg:010:02 -m hrn:mem:micromentor.org:platform-specs
   hadron spec lint --prefix cor:api:140 -m hrn:mem:hadronmemory.com:specs
   hadron spec lint --module msg -m hrn:mem:micromentor.org:platform-specs
@@ -373,17 +374,33 @@ func lintNode(n specNode) []lintFindingDTO {
 		}
 		headroom := abstractHardMax - l
 		msg := fmt.Sprintf(
-			"abstract is %d chars, %d from the %d-char hard cap — past ~%d added length stops paying for itself; distill it, and check every sentence is still about this spec (off-topic sentences dilute the vector far more than length does)",
+			"abstract is %d chars, %d of headroom before the %d-char hard cap — past ~%d added length stops paying for itself; distill it, and check every sentence is still about this spec (off-topic sentences dilute the vector far more than length does)",
 			l, headroom, abstractHardMax, abstractSoftMax)
 		if headroom < abstractTightHeadroom {
 			// ESCALATED, because this is a different finding wearing the same
-			// rule name (#539). The next edit fails at write time, and the
-			// advice above is actively wrong here: every sentence is on-subject,
-			// so distilling drops a contract.
+			// rule name (#539): the advice above is actively wrong here, since
+			// every sentence is on-subject and distilling drops a contract.
 			sev = sevError
-			msg = fmt.Sprintf(
-				"abstract is %d chars — only %d from the %d-char hard cap, so the next edit fails at write time. Do not distill: on a spec whose sentences are all on-subject, cutting one drops a contract. This is a granularity signal — the node carries more than one subject, and the remedy is a supersede-level split",
-				l, headroom, abstractHardMax)
+			// The failure is CONDITIONAL, and saying otherwise was an overclaim
+			// both bots caught. The server rejects a write whose abstract
+			// exceeds the cap — not "the next edit". At 1922 an equal-length
+			// replacement is fine, and so is adding up to 78 characters; what
+			// fails is GROWING it past what is left. Stating the stronger thing
+			// would have justified a costly split on a node that did not need
+			// one yet.
+			//
+			// At or past the cap, headroom is 0 or negative and the sentence
+			// changes rather than printing a negative number.
+			switch {
+			case headroom > 0:
+				msg = fmt.Sprintf(
+					"abstract is %d chars — only %d characters of headroom before the %d-char hard cap, so any edit that grows it past that is rejected at write time. Do not distill: on a spec whose sentences are all on-subject, cutting one drops a contract. This is a granularity signal — the node carries more than one subject, and the remedy is a supersede-level split",
+					l, headroom, abstractHardMax)
+			default:
+				msg = fmt.Sprintf(
+					"abstract is %d chars — at or past the %d-char hard cap, so any update that does not shorten it is rejected at write time. Do not distill: on a spec whose sentences are all on-subject, cutting one drops a contract. This is a granularity signal — the node carries more than one subject, and the remedy is a supersede-level split",
+					l, abstractHardMax)
+			}
 			if conj := titleConjunction(n.Name); conj != "" {
 				// The mechanical half of the diagnosis (@Ada, #539): three specs
 				// flagged for length all had a conjunction in the title —

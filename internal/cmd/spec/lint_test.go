@@ -727,7 +727,7 @@ func TestLintNodeAbstractLengthEscalatesAtTheHardCapEvenForAFlow(t *testing.T) {
 			if f.Severity != sevError {
 				t.Errorf("a flow %d chars from the cap must still escalate, got %q", 10, f.Severity)
 			}
-			if !strings.Contains(f.Message, "fails at write time") {
+			if !strings.Contains(f.Message, "rejected at write time") {
 				t.Errorf("the finding must say what happens next: %q", f.Message)
 			}
 			return
@@ -852,5 +852,68 @@ func TestTheSplitHintOnlyAppearsWhenTheTitleNamesTwoSubjects(t *testing.T) {
 	}
 	if m := msgFor("Sessions, liveness and provenance"); !strings.Contains(m, "already suggests") {
 		t.Errorf("a title naming two subjects is the lead worth printing: %q", m)
+	}
+}
+
+// The failure is CONDITIONAL, and saying otherwise was an overclaim both bots
+// caught on #565.
+//
+// The server rejects a write whose abstract EXCEEDS the cap — not "the next
+// edit". At 1922 an equal-length replacement is fine, and so is adding up to 78
+// characters. Since the finding goes on to recommend a supersede-level split,
+// the stronger claim would have justified a costly restructure on a node that
+// did not need one yet: a claim outrunning its evidence, in the one sentence
+// meant to make the reader act.
+func TestTheNearCapFindingDoesNotOverclaimWhatFails(t *testing.T) {
+	fs := lintNode(abstractOf(t, "msg:010:02", 1922))
+	for _, f := range fs {
+		if f.Rule != "abstract-length" {
+			continue
+		}
+		if !strings.Contains(f.Message, "grows it past") {
+			t.Errorf("the finding must name the condition, not assert every edit fails: %q", f.Message)
+		}
+		// The retired overclaim, in the spelling it shipped in.
+		if strings.Contains(f.Message, "the next edit fails") {
+			t.Errorf("only an edit that lengthens the abstract is rejected: %q", f.Message)
+		}
+		return
+	}
+	t.Fatalf("expected an abstract-length finding; got %v", fs)
+}
+
+// AT OR PAST the cap, headroom is zero or negative — and a negative must never
+// reach the reader as "only -48 from the hard cap" (@copilot, #565).
+//
+// Over-cap is reachable from data written before the cap existed, so it is a
+// real state rather than a defensive branch, and the sentence changes: nothing
+// about "headroom" is true there, and what the author needs to know is that any
+// update which does not shorten the abstract is refused.
+func TestAtOrPastTheCapTheFindingDoesNotPrintNegativeHeadroom(t *testing.T) {
+	for _, l := range []int{abstractHardMax, abstractHardMax + 48} {
+		fs := lintNode(abstractOf(t, "msg:010:02", l))
+		var msg string
+		for _, f := range fs {
+			if f.Rule == "abstract-length" {
+				msg = f.Message
+				if f.Severity != sevError {
+					t.Errorf("%d chars must escalate, got %q", l, f.Severity)
+				}
+			}
+		}
+		if msg == "" {
+			t.Fatalf("expected an abstract-length finding at %d chars; got %v", l, fs)
+		}
+		if strings.Contains(msg, "-") && strings.Contains(msg, "headroom") {
+			t.Errorf("%d chars: headroom must not be reported negatively: %q", l, msg)
+		}
+		for _, forbidden := range []string{"only -", "of headroom before"} {
+			if strings.Contains(msg, forbidden) {
+				t.Errorf("%d chars: %q is meaningless at or past the cap: %q", l, forbidden, msg)
+			}
+		}
+		if !strings.Contains(msg, "does not shorten it is rejected") {
+			t.Errorf("%d chars: the finding must say what still works: %q", l, msg)
+		}
 	}
 }

@@ -285,3 +285,28 @@ which takes the **escalated** message, so the ordinary warning's numbers — wha
 most authors see — had no assertion. And hard-coding the conjunction clause on
 changed nothing, because the only assertion was on the helper in isolation,
 never on the pairing. Both now covered.
+
+### Review: the escalated finding overclaimed what fails
+
+@codex (P2) and @copilot, independently, and they were right. The message said
+*"the next edit fails at write time"*. **The server rejects a write whose
+abstract EXCEEDS the cap — not the next edit.** At 1922 an equal-length
+replacement is fine, and so is adding up to 78 characters.
+
+That matters more here than a wording nit usually would, because the sentence
+goes on to recommend a **supersede-level split**: the stronger claim would have
+justified a costly restructure on a node that did not need one yet. A claim
+outrunning its evidence, in the one sentence written to make the reader act.
+
+It now names the condition — *"any edit that grows it past that is rejected"*.
+
+@copilot also caught the arithmetic: **at or past the cap, `abstractHardMax - l`
+is zero or negative**, so the message read *"only -48 from the 2000-char hard
+cap"*. Over-cap is reachable from data written before the cap existed, so it is
+a real state rather than a defensive branch, and the sentence changes there:
+nothing about "headroom" is true, and what the author needs is that any update
+which does not shorten the abstract is refused.
+
+Both fixes swept all three surfaces that carry the claim — the finding, the
+`spec lint --help` text, and `agentic-usage.md` — since one wording living in
+three places is how the retired version survives in two of them.
