@@ -795,6 +795,16 @@ func TestTitleConjunction(t *testing.T) {
 		// The citation half never counts: a loc has colons, not conjunctions,
 		// and splitting on the em-dash first keeps it out of range entirely.
 		{"cor:and:010 — Delivery", ""},
+		// EVERY supported separator, because a helper with three branches and
+		// one tested branch is two branches that can be dropped without anything
+		// going red (@copilot, suppressed in the verdict body of #565).
+		{"cor:agt:020:02 — Allocation & permanence", "&"},
+		{"cor:acl:110 — Read/write access", "/"},
+		// Case-insensitive: a title-cased conjunction is the same conjunction.
+		{"cor:agt:020:03 — Sessions AND provenance", "and"},
+		// "and" INSIDE a word is not a conjunction — the separator carries its
+		// spaces for exactly this reason.
+		{"msg:010:02 — Standards", ""},
 	} {
 		if got := titleConjunction(tc.title); got != tc.want {
 			t.Errorf("titleConjunction(%q) = %q, want %q", tc.title, got, tc.want)

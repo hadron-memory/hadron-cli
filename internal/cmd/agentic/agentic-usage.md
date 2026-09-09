@@ -649,11 +649,13 @@ Conventions:
   across ~700-1700 chars, and off-topic sentences dilute the embedding far
   more than length does. That finding always reports the HEADROOM left before
   the server's 2000-character hard cap (#539), and **escalates to an error with
-  fewer than 150 chars of headroom left** — where any edit that grows the abstract past what is
-  left is rejected at write time (an equal-length or shortening edit still
-  succeeds) and distilling is the wrong remedy: on a spec whose sentences are
-  all on-subject, cutting one drops a contract, so the fix is a supersede-level
-  split. `spec lint` also
+  fewer than 150 chars of headroom left**. What is rejected there depends on the
+  length: below the cap, an edit that grows the abstract past the remaining
+  headroom; at exactly the cap, any edit that lengthens it (an equal-length
+  rewrite still succeeds); past it (legacy data only), any update that does not
+  shorten it below the cap. Distilling is the wrong remedy in all three — on a
+  spec whose sentences are all on-subject, cutting one drops a contract, so the
+  fix is a supersede-level split. `spec lint` also
   warns (rule `vector-index`) when the memory has no
   vector index so spec abstracts aren't embedded for semantic `find`
   (`--strict` promotes warnings to errors, exit 5); `spec check-tools` scans the
