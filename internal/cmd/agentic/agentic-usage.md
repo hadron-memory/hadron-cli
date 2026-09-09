@@ -652,8 +652,10 @@ Conventions:
   fewer than 150 chars of headroom left**. What is rejected there depends on the
   length: below the cap, an edit that grows the abstract past the remaining
   headroom; at exactly the cap, any edit that lengthens it (an equal-length
-  rewrite still succeeds); past it (legacy data only), any update that does not
-  shorten it below the cap. Distilling is the wrong remedy in all three — on a
+  rewrite still succeeds); past it (legacy data only), any update that REPLACES
+  the abstract without bringing it to 2000 or fewer — an update that leaves the
+  abstract alone, such as a body-only edit or the one `spec supersede` writes,
+  still succeeds. Distilling is the wrong remedy in all three — on a
   spec whose sentences are all on-subject, cutting one drops a contract, so the
   fix is a supersede-level split. `spec lint` also
   warns (rule `vector-index`) when the memory has no

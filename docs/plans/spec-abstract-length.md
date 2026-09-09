@@ -330,10 +330,10 @@ Three states now, because the boundary is one:
 | --- | --- |
 | `< 2000` | any edit that grows it past the remaining headroom is rejected |
 | `== 2000` | any edit that LENGTHENS it is rejected; an equal-length rewrite still works |
-| `> 2000` (legacy data) | any update that does not shorten it below the cap is rejected |
+| `> 2000` (legacy data) | any update that REPLACES the abstract is rejected unless it brings it to 2000 or fewer; an update leaving the abstract alone still succeeds |
 
-Only the third claim is unconditional, and only because the value already
-exceeds the limit.
+None of the three is unconditional — the round below corrected the last row a
+second time, and this table with it.
 
 ### The overclaim had a third form, and the wall binds every tier
 
