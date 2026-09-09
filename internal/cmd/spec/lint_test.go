@@ -917,3 +917,47 @@ func TestAtOrPastTheCapTheFindingDoesNotPrintNegativeHeadroom(t *testing.T) {
 		}
 	}
 }
+
+// The threshold is STRICTLY less than, and the prose says so (@copilot, #565).
+//
+// At exactly abstractTightHeadroom the finding does NOT escalate. The wording
+// used to be "inside the last 150", which reads as inclusive and disagreed with
+// the code at exactly one length — the kind of gap where the docs and the
+// behaviour are each defensible alone and only wrong together.
+func TestTheEscalationBoundaryIsExclusiveAndSaysSo(t *testing.T) {
+	sevAt := func(l int) string {
+		for _, f := range lintNode(abstractOf(t, "msg:010:02", l)) {
+			if f.Rule == "abstract-length" {
+				return f.Severity
+			}
+		}
+		t.Fatalf("expected an abstract-length finding at %d", l)
+		return ""
+	}
+	if got := sevAt(abstractHardMax - abstractTightHeadroom); got != sevWarning {
+		t.Errorf("exactly %d chars of headroom must NOT escalate, got %q", abstractTightHeadroom, got)
+	}
+	if got := sevAt(abstractHardMax - abstractTightHeadroom + 1); got != sevError {
+		t.Errorf("one char inside the boundary must escalate, got %q", got)
+	}
+}
+
+// "only 1 characters of headroom" is the kind of thing a reader notices and a
+// test does not — unless it asserts the exact string at headroom 1 (@copilot).
+// The message uses "chars" throughout, which also matches its own opening
+// clause ("abstract is 1999 chars"), so there is one vocabulary rather than two.
+func TestTheNearCapMessageReadsCorrectlyAtOneCharOfHeadroom(t *testing.T) {
+	for _, f := range lintNode(abstractOf(t, "msg:010:02", abstractHardMax-1)) {
+		if f.Rule != "abstract-length" {
+			continue
+		}
+		if strings.Contains(f.Message, "1 characters") {
+			t.Errorf("singular headroom must not read as a plural: %q", f.Message)
+		}
+		if !strings.Contains(f.Message, "only 1 chars of headroom") {
+			t.Errorf("expected the chars spelling at headroom 1: %q", f.Message)
+		}
+		return
+	}
+	t.Fatalf("expected an abstract-length finding")
+}

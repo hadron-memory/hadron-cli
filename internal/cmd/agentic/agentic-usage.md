@@ -648,8 +648,8 @@ Conventions:
   runs past ~1600 characters — a ceiling, not a target: retrieval is flat
   across ~700-1700 chars, and off-topic sentences dilute the embedding far
   more than length does. That finding always reports the HEADROOM left before
-  the server's 2000-character hard cap (#539), and **escalates to an error
-  inside the last 150** — where any edit that grows the abstract past what is
+  the server's 2000-character hard cap (#539), and **escalates to an error with
+  fewer than 150 chars of headroom left** — where any edit that grows the abstract past what is
   left is rejected at write time (an equal-length or shortening edit still
   succeeds) and distilling is the wrong remedy: on a spec whose sentences are
   all on-subject, cutting one drops a contract, so the fix is a supersede-level

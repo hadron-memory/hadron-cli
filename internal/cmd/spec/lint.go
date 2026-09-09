@@ -47,6 +47,11 @@ const abstractHardMax = 2000
 // abstractTightHeadroom is how little room left counts as "you cannot edit this
 // abstract any more" — roughly one sentence.
 //
+// The comparison is STRICTLY less than, so an abstract with exactly this much
+// headroom does not escalate. The prose says "fewer than" rather than "inside
+// the last N" for that reason (@copilot on #565): the second reads as inclusive
+// and disagreed with the code at exactly one length.
+//
 // Below it the finding escalates, because the remedy changes. Comfortably past
 // the soft bound, "distill it" is right. A sentence from the hard cap, distilling
 // is the WRONG advice: on a spec whose sentences are all on-subject, cutting one
@@ -83,11 +88,11 @@ abstract is only worth shortening once it has stopped being about one
 subject. Off-topic sentences dilute the embedding far more than length.
 
 The finding always reports the headroom left before the server's %d-character
-HARD cap, past which a write is rejected — and escalates to an error inside
-the last %d, where any edit that grows the abstract past what is left is
-rejected and distilling is the wrong remedy: on a spec whose sentences are
-all on-subject, cutting one drops a contract. That is a granularity signal,
-and the fix is a supersede-level split.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
+HARD cap, past which a write is rejected. With fewer than %d characters of
+headroom it escalates to an error: any edit that grows the abstract past what
+is left is rejected, and distilling is the wrong remedy there — on a spec whose
+sentences are all on-subject, cutting one drops a contract. That is a
+granularity signal, and the fix is a supersede-level split.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
 		Example: `  hadron spec lint msg:010:02 -m hrn:mem:micromentor.org:platform-specs
   hadron spec lint --prefix cor:api:140 -m hrn:mem:hadronmemory.com:specs
   hadron spec lint --module msg -m hrn:mem:micromentor.org:platform-specs
@@ -394,7 +399,7 @@ func lintNode(n specNode) []lintFindingDTO {
 			switch {
 			case headroom > 0:
 				msg = fmt.Sprintf(
-					"abstract is %d chars — only %d characters of headroom before the %d-char hard cap, so any edit that grows it past that is rejected at write time. Do not distill: on a spec whose sentences are all on-subject, cutting one drops a contract. This is a granularity signal — the node carries more than one subject, and the remedy is a supersede-level split",
+					"abstract is %d chars — only %d chars of headroom before the %d-char hard cap, so any edit that grows it past that is rejected at write time. Do not distill: on a spec whose sentences are all on-subject, cutting one drops a contract. This is a granularity signal — the node carries more than one subject, and the remedy is a supersede-level split",
 					l, headroom, abstractHardMax)
 			default:
 				msg = fmt.Sprintf(

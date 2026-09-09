@@ -245,7 +245,7 @@ most of the fix.**
    repo's number to choose, carried only so the finding can report distance.
 2. **Every message reports headroom**: *"1700 chars, 300 from the 2000-char hard
    cap"*.
-3. **Inside the last `abstractTightHeadroom = 150`, the finding escalates to an
+3. **With fewer than `abstractTightHeadroom = 150` characters left, the finding escalates to an
    error and the advice inverts.** These are different findings wearing one rule
    name: past the soft bound, "distill it" is right; a sentence from the cap it
    is *wrong*, because on a spec whose sentences are all on-subject, cutting one
