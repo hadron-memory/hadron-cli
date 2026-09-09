@@ -1334,7 +1334,7 @@ func TestTaskRunExecuteMode(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["RunTask"], &vars)
-	if vars["appRef"] != "acme.com:ops" {
+	if vars["appRef"] != "hrn:app:acme.com:ops" {
 		t.Errorf("--app should map to appRef, got %v", vars["appRef"])
 	}
 	if vars["runAsSelf"] != true {
@@ -1571,7 +1571,7 @@ func TestMemorySetCreateInApp(t *testing.T) {
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateMemoryInApp"], &vars)
 	for key, want := range map[string]any{
-		"appRef": "acme.com::coach", "agentRef": "acme.com::agent",
+		"appRef": "hrn:app:acme.com:coach", "agentRef": "acme.com::agent",
 		"memoryClass": "app", "name": "Runbook", "shortDescription": "Shared ops",
 		"maxRevCount": float64(25),
 	} {
@@ -1608,12 +1608,12 @@ func TestMemorySetCreateInAppValidatesFlags(t *testing.T) {
 		args []string
 		want string
 	}{
-		{"paired refs", []string{"--app", "app1", "--class", "app", "--name", "Runbook"}, "--app and --agent"},
-		{"class required", []string{"--app", "app1", "--agent", "agent1", "--name", "Runbook"}, "requires --class"},
-		{"supported class", []string{"--app", "app1", "--agent", "agent1", "--class", "knowledge", "--name", "KB"}, "requires --class app, personal, or private"},
-		{"org rejected", []string{"--app", "app1", "--agent", "agent1", "--class", "app", "--name", "Runbook", "--org", "acme.com"}, "--org cannot be used"},
-		{"visibility rejected", []string{"--app", "app1", "--agent", "agent1", "--class", "app", "--name", "Runbook", "--visibility", "ORGANIZATION"}, "--visibility cannot be used"},
-		{"slug rejected", []string{"--app", "app1", "--agent", "agent1", "--class", "app", "--name", "Runbook", "--slug", "runbook"}, "--slug cannot be used"},
+		{"paired refs", []string{"--app", "capp100000000000000000000", "--class", "app", "--name", "Runbook"}, "--app and --agent"},
+		{"class required", []string{"--app", "capp100000000000000000000", "--agent", "agent1", "--name", "Runbook"}, "requires --class"},
+		{"supported class", []string{"--app", "capp100000000000000000000", "--agent", "agent1", "--class", "knowledge", "--name", "KB"}, "requires --class app, personal, or private"},
+		{"org rejected", []string{"--app", "capp100000000000000000000", "--agent", "agent1", "--class", "app", "--name", "Runbook", "--org", "acme.com"}, "--org cannot be used"},
+		{"visibility rejected", []string{"--app", "capp100000000000000000000", "--agent", "agent1", "--class", "app", "--name", "Runbook", "--visibility", "ORGANIZATION"}, "--visibility cannot be used"},
+		{"slug rejected", []string{"--app", "capp100000000000000000000", "--agent", "agent1", "--class", "app", "--name", "Runbook", "--slug", "runbook"}, "--slug cannot be used"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1710,7 +1710,7 @@ func TestMemorySetOwnerMeValidatesFlags(t *testing.T) {
 		{"class app points to app mode", []string{"--owner-me", "--name", "Jens", "--class", "app"}, "created with --app/--agent"},
 		{"class system explained", []string{"--owner-me", "--name", "Jens", "--class", "system"}, "auto-provisioned"},
 		{"org rejected", []string{"--owner-me", "--name", "Jens", "--org", "acme.com"}, "drop --org"},
-		{"app rejected", []string{"--owner-me", "--name", "Jens", "--app", "app1", "--agent", "agent1", "--class", "app"}, "cannot be used with --app"},
+		{"app rejected", []string{"--owner-me", "--name", "Jens", "--app", "capp100000000000000000000", "--agent", "agent1", "--class", "app"}, "cannot be used with --app"},
 		{"name required", []string{"--owner-me"}, "requires --name"},
 		{"update rejected", []string{"acme.com::kb", "--owner-me", "--short", "x"}, "only apply when creating"},
 	}
@@ -1784,14 +1784,14 @@ func TestMemoryAttach(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "attach", "acme.com::my-notes", "--app", "app1", "--agent", "agent1", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "attach", "acme.com::my-notes", "--app", "capp100000000000000000000", "--agent", "agent1", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 
 	var vars map[string]any
 	_ = json.Unmarshal(captured["AttachMemoryToApp"], &vars)
-	if vars["memoryRef"] != "hrn:mem:acme.com:my-notes" || vars["appRef"] != "app1" || vars["agentRef"] != "agent1" {
+	if vars["memoryRef"] != "hrn:mem:acme.com:my-notes" || vars["appRef"] != "capp100000000000000000000" || vars["agentRef"] != "agent1" {
 		t.Errorf("unexpected attach refs: %v", vars)
 	}
 	var dto map[string]any
@@ -1806,7 +1806,7 @@ func TestMemoryAttach(t *testing.T) {
 func TestMemoryAttachRequiresAppAndAgent(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "attach", "m1", "--app", "app1", "--server", "http://127.0.0.1:1"})
+	root.SetArgs([]string{"memory", "attach", "m1", "--app", "capp100000000000000000000", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "requires --app and --agent") {
 		t.Fatalf("expected required-ref usage error, got %v", err)
@@ -2236,7 +2236,7 @@ func TestMemoryExtractRejectsRelativeTargetURN(t *testing.T) {
 	}
 }
 
-const appJSON = `{"id":"app1","urn":"urn:agent:acme.com::bot::acme.com:helper","name":"Bot",
+const appJSON = `{"id":"capp100000000000000000000","urn":"urn:agent:acme.com::bot::acme.com:helper","name":"Bot",
 	"appType":"CHATBOT","agentId":"agent1","memberCount":2,"createdAt":"2026-06-11T00:00:00Z"}`
 
 func TestAppLs(t *testing.T) {
@@ -2335,14 +2335,14 @@ func TestAppUninstall(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"app", "uninstall", "app1", "--yes", "--server", gql.URL})
+	root.SetArgs([]string{"app", "uninstall", "capp100000000000000000000", "--yes", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["DeleteApp"], &vars)
 	// #789: `ref`, not `id`.
-	if vars["ref"] != "app1" {
+	if vars["ref"] != "capp100000000000000000000" {
 		t.Errorf("unexpected vars: %v", vars)
 	}
 }
@@ -2350,7 +2350,7 @@ func TestAppUninstall(t *testing.T) {
 // aiConfigsJSON is a masked two-config picker result: one App-owned config
 // with a key preview, one Org-owned config without a key.
 const aiConfigsJSON = `{"data":{"resolveAiServiceConfigs":[
-	{"id":"cfg1","name":"default","ownerType":"APP","ownerId":"app1",
+	{"id":"cfg1","name":"default","ownerType":"APP","ownerId":"capp100000000000000000000",
 	 "provider":"anthropic","model":"claude-opus-4-8","hasApiKey":true,
 	 "apiKeyPreview":"…7f3a","params":{"maxTokens":4096},"enabled":true,
 	 "createdAt":"2026-06-11T00:00:00Z","updatedAt":null},
@@ -2384,7 +2384,7 @@ func TestAiConfigLs(t *testing.T) {
 	// --app and --agent map to the appRef/agentRef variables (ID or URN, verbatim).
 	var vars map[string]any
 	_ = json.Unmarshal(captured["ResolveAiServiceConfigs"], &vars)
-	if vars["appRef"] != "acme.com:juno-app" || vars["agentRef"] != "acme.com:juno" {
+	if vars["appRef"] != "hrn:app:acme.com:juno-app" || vars["agentRef"] != "acme.com:juno" {
 		t.Errorf("unexpected vars: %v", vars)
 	}
 }
@@ -2422,7 +2422,7 @@ func TestAiConfigLsJSONOmitsUnsetAgent(t *testing.T) {
 
 	var vars map[string]any
 	_ = json.Unmarshal(captured["ResolveAiServiceConfigs"], &vars)
-	if vars["appRef"] != "acme.com:juno-app" {
+	if vars["appRef"] != "hrn:app:acme.com:juno-app" {
 		t.Errorf("appRef should map from --app, got %v", vars["appRef"])
 	}
 	if v, present := vars["agentRef"]; present {

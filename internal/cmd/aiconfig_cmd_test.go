@@ -9,7 +9,7 @@ import (
 )
 
 // A masked AiServiceConfig as the create/update mutations return it.
-const aiCfgJSON = `{"id":"cfg1","name":"default","ownerType":"APP","ownerId":"app1",
+const aiCfgJSON = `{"id":"cfg1","name":"default","ownerType":"APP","ownerId":"capp100000000000000000000",
 	"provider":"anthropic","model":"claude-opus-4-8","hasApiKey":true,"apiKeyPreview":"abcd",
 	"params":{"maxTokens":4096},"enabled":true,"createdAt":"2026-06-19T00:00:00Z","updatedAt":null}`
 
@@ -43,7 +43,7 @@ func TestAiConfigCreate(t *testing.T) {
 	if vars["name"] != "default" || vars["provider"] != "anthropic" || vars["model"] != "claude-opus-4-8" {
 		t.Errorf("core fields wrong: %v", vars)
 	}
-	if vars["ownerType"] != "APP" || vars["ownerId"] != "acme.com:juno-app" {
+	if vars["ownerType"] != "APP" || vars["ownerId"] != "hrn:app:acme.com:juno-app" {
 		t.Errorf("--app should map to ownerType APP + ownerId: %v", vars)
 	}
 	if vars["apiKey"] != "sk-secret-123" {
@@ -141,7 +141,7 @@ func TestAiConfigCreateFromFile(t *testing.T) {
 	if vars["name"] != "default" || vars["provider"] != "anthropic" || vars["model"] != "claude-opus-4-8" {
 		t.Errorf("core fields wrong: %v", vars)
 	}
-	if vars["ownerType"] != "APP" || vars["ownerId"] != "acme.com:juno-app" {
+	if vars["ownerType"] != "APP" || vars["ownerId"] != "hrn:app:acme.com:juno-app" {
 		t.Errorf("file app should map to ownerType APP + ownerId: %v", vars)
 	}
 	if vars["apiKey"] != "sk-file-key" {
@@ -224,7 +224,7 @@ func TestAiConfigCreateFileOwnerFlagOverride(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	vars := unmarshalVars(t, captured["CreateAiServiceConfig"])
-	if vars["ownerType"] != "APP" || vars["ownerId"] != "acme.com:juno-app" {
+	if vars["ownerType"] != "APP" || vars["ownerId"] != "hrn:app:acme.com:juno-app" {
 		t.Errorf("--app should replace the file's agent owner, got type=%v id=%v", vars["ownerType"], vars["ownerId"])
 	}
 }

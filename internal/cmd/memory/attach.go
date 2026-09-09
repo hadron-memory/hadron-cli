@@ -24,18 +24,22 @@ The memory must belong to you, the Agent must be installed in the App, and you
 must be an App member. The memory keeps its URN, class, and owner. Memory, App,
 and Agent references accept IDs, bare URNs, or prefixed URNs.`,
 		Example: `  hadron memory attach hrn:mem:acme.com:my-notes --app hrn:app:acme.com:coach --agent hrn:agent:acme.com:agent
-  hadron memory attach hrn:mem:acme.com:private-notes --app app-id --agent agent-id --json`,
+  hadron memory attach hrn:mem:acme.com:private-notes --app acme.com:coach --agent agent-id --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if app == "" || agent == "" {
 				return exitcode.Newf(exitcode.Usage, "memory attach requires --app and --agent")
+			}
+			appRef, err := cmdutil.CanonicalAppRef("--app", app)
+			if err != nil {
+				return err
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
 			memoryRef := cmdutil.CanonicalMemoryRef(args[0])
-			resp, err := gen.AttachMemoryToApp(cmd.Context(), client, memoryRef, app, agent)
+			resp, err := gen.AttachMemoryToApp(cmd.Context(), client, memoryRef, appRef, agent)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -45,7 +49,7 @@ and Agent references accept IDs, bare URNs, or prefixed URNs.`,
 			m := dtoFromMemory(resp.AttachMemoryToApp)
 			return output.Write(f.IOStreams, f.JSON, m, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ attached", m.URN, "to", app, "via", agent)
+				t.Row("✓ attached", m.URN, "to", appRef, "via", agent)
 				return t.Flush()
 			})
 		},

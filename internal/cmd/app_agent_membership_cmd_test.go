@@ -12,7 +12,7 @@ const installResp = `{"data":{"installAgentIntoApp":{"appAgent":{
 	"createdAt":"2026-08-14T00:00:00Z",
 	"agent":{"id":"agt1","urn":"hrn:agent:acme.com:iris","name":"Iris",
 	         "personaRole":"backend-engineer"},
-	"app":{"id":"app1","urn":"hrn:app:acme.com:eng-team","name":"Eng Team"}}}}}`
+	"app":{"id":"capp100000000000000000000","urn":"hrn:app:acme.com:eng-team","name":"Eng Team"}}}}}`
 
 // #389: `app install` creates a NEW App from an Agent; nothing joined an Agent
 // to an App you already have, which is what makes cor:dmo:050:03's re-attach
@@ -59,7 +59,7 @@ func TestAppAgentAddSendsTrainingModeOnlyWhenPassed(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{"InstallAgentIntoApp": installResp})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"app", "agent", "add", "app1", "agt1", "--training-mode", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"app", "agent", "add", "capp100000000000000000000", "agt1", "--training-mode", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -74,11 +74,11 @@ func TestAppAgentAddSendsTrainingModeOnlyWhenPassed(t *testing.T) {
 // removals — and refuses non-interactively without --yes, before any write.
 func TestAppAgentRemoveRequiresYes(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"UninstallAgentFromApp": `{"data":{"uninstallAgentFromApp":{"agentId":"agt1","appId":"app1"}}}`,
+		"UninstallAgentFromApp": `{"data":{"uninstallAgentFromApp":{"agentId":"agt1","appId":"capp100000000000000000000"}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"app", "agent", "remove", "app1", "agt1", "--server", gql.URL})
+	root.SetArgs([]string{"app", "agent", "remove", "capp100000000000000000000", "agt1", "--server", gql.URL})
 	if err := root.Execute(); err == nil {
 		t.Error("removal without --yes must be refused non-interactively")
 	}
@@ -89,7 +89,7 @@ func TestAppAgentRemoveRequiresYes(t *testing.T) {
 
 func TestAppAgentRemove(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"UninstallAgentFromApp": `{"data":{"uninstallAgentFromApp":{"agentId":"agt1","appId":"app1"}}}`,
+		"UninstallAgentFromApp": `{"data":{"uninstallAgentFromApp":{"agentId":"agt1","appId":"capp100000000000000000000"}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -113,11 +113,11 @@ func TestAppAgentRemove(t *testing.T) {
 // assertions — the human path passing says nothing about it (PR #427 review).
 func TestAppAgentRemoveJSON(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"UninstallAgentFromApp": `{"data":{"uninstallAgentFromApp":{"agentId":"agt1","appId":"app1"}}}`,
+		"UninstallAgentFromApp": `{"data":{"uninstallAgentFromApp":{"agentId":"agt1","appId":"capp100000000000000000000"}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"app", "agent", "remove", "app1", "agt1", "--yes", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"app", "agent", "remove", "capp100000000000000000000", "agt1", "--yes", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestAppAgentRemoveJSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
 		t.Fatalf("remove --json: %v (%s)", err, out.String())
 	}
-	if dto.AppID != "app1" || dto.AgentID != "agt1" || dto.Status != "uninstalled" {
+	if dto.AppID != "capp100000000000000000000" || dto.AgentID != "agt1" || dto.Status != "uninstalled" {
 		t.Errorf("all three fields must be carried: %+v (%s)", dto, out.String())
 	}
 }
@@ -143,7 +143,7 @@ func TestAppAgentAddExplainsTheAuthorizationGate(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"app", "agent", "add", "app1", "agt1", "--server", gql.URL})
+	root.SetArgs([]string{"app", "agent", "add", "capp100000000000000000000", "agt1", "--server", gql.URL})
 	err := root.Execute()
 	if err == nil {
 		t.Fatal("expected a refusal")
@@ -161,7 +161,7 @@ func TestAppAgentAddDuplicateIsConflict(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"app", "agent", "add", "app1", "agt1", "--server", gql.URL})
+	root.SetArgs([]string{"app", "agent", "add", "capp100000000000000000000", "agt1", "--server", gql.URL})
 	if code := exitCodeFor(root.Execute()); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want Conflict", code)
 	}

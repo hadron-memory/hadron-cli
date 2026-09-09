@@ -26,6 +26,7 @@ func TestMapError(t *testing.T) {
 		{"not found", gqlErr("NOT_FOUND"), exitcode.NotFound},
 		{"node not found", gqlErr("NODE_NOT_FOUND"), exitcode.NotFound},
 		{"bad input", gqlErr("BAD_USER_INPUT"), exitcode.Usage},
+		{"urn not qualified", gqlErr("URN_NOT_QUALIFIED"), exitcode.Usage}, // spec 022, #540
 		{"validation", gqlErr("GRAPHQL_VALIDATION_FAILED"), exitcode.Usage},
 		{"duplicate", gqlErr("DUPLICATE_APP_AGENT"), exitcode.Conflict},
 		// TEAM_ROLE_EXISTS is spelled without the _ALREADY_ the suffix rule

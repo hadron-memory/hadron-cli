@@ -8,7 +8,7 @@ import (
 
 // appRunJSON is an AppRun as the trigger/get/cancel ops return it — a terminal
 // COMPLETED run so a --wait test needs no polling.
-const appRunJSON = `{"id":"run1","organizationId":"org1","appId":"app1","agentId":"agent1",
+const appRunJSON = `{"id":"run1","organizationId":"org1","appId":"capp100000000000000000000","agentId":"agent1",
 	"status":"COMPLETED","triggerKind":"MANUAL","triggerId":null,
 	"entryNodeUrn":"hrn:node:acme.com::ops::tasks:digest","curNodeUrn":null,
 	"userId":"u1","createdBy":"u1","parentRunId":null,"attempts":1,
@@ -32,7 +32,7 @@ func TestRunTrigger(t *testing.T) {
 		Input map[string]any `json:"input"`
 	}
 	_ = json.Unmarshal(captured["TriggerAppRun"], &vars)
-	if vars.Input["appRef"] != "acme.com:ops" {
+	if vars.Input["appRef"] != "hrn:app:acme.com:ops" {
 		t.Errorf("appRef should map from --app: %v", vars.Input["appRef"])
 	}
 	// A bare <org>::<memory>::<loc> entry must be normalized to the hrn:node: form.
@@ -62,7 +62,7 @@ func TestRunTriggerOmitsUnsetOptionals(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"run", "trigger", "--app", "app1",
+	root.SetArgs([]string{"run", "trigger", "--app", "capp100000000000000000000",
 		"--entry", "hrn:node:acme.com::ops::tasks:digest", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -85,7 +85,7 @@ func TestRunTriggerOmitsUnsetOptionals(t *testing.T) {
 func TestRunTriggerRejectsBareLocEntry(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"run", "trigger", "--app", "app1", "--entry", "tasks:digest", "--server", "http://127.0.0.1:1"})
+	root.SetArgs([]string{"run", "trigger", "--app", "capp100000000000000000000", "--entry", "tasks:digest", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "fully-qualified") {
 		t.Fatalf("expected fully-qualified entry usage error, got %v", err)
@@ -100,7 +100,7 @@ func TestRunTriggerWaitSkipsPollWhenTerminal(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"run", "trigger", "--app", "app1",
+	root.SetArgs([]string{"run", "trigger", "--app", "capp100000000000000000000",
 		"--entry", "hrn:node:acme.com::ops::tasks:digest", "--wait", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -119,7 +119,7 @@ func TestRunTriggerWaitFailedExitsNonZero(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"run", "trigger", "--app", "app1",
+	root.SetArgs([]string{"run", "trigger", "--app", "capp100000000000000000000",
 		"--entry", "hrn:node:acme.com::ops::tasks:digest", "--wait", "--json", "--server", gql.URL})
 	err := root.Execute()
 	if err == nil {
@@ -142,7 +142,7 @@ func TestRunTriggerWaitPollErrorStillPrintsRun(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"run", "trigger", "--app", "app1",
+	root.SetArgs([]string{"run", "trigger", "--app", "capp100000000000000000000",
 		"--entry", "hrn:node:acme.com::ops::tasks:digest", "--wait", "--json", "--server", gql.URL})
 	err := root.Execute()
 	if err == nil {
@@ -157,7 +157,7 @@ func TestRunTriggerWaitPollErrorStillPrintsRun(t *testing.T) {
 func TestRunLsRejectsInvalidStatus(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"run", "ls", "--app", "app1", "--status", "bogus", "--server", "http://127.0.0.1:1"})
+	root.SetArgs([]string{"run", "ls", "--app", "capp100000000000000000000", "--status", "bogus", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "invalid --status") {
 		t.Fatalf("expected invalid-status usage error, got %v", err)

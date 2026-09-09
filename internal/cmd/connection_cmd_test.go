@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-const connGrantJSON = `{"id":"cg_1","connectionId":"conn_123","granteeAppId":"app_1",
+const connGrantJSON = `{"id":"cg_1","connectionId":"conn_123","granteeAppId":"capp100000000000000000000",
 	"granteeAppName":"Inbox Bot","granteeAppUrn":"hrn:app:acme.com::inbox-bot",
 	"scopes":["mail.read","mail.send"],"expiresAt":null,"createdAt":"2026-07-01T00:00:00Z"}`
 
@@ -34,7 +34,7 @@ func TestConnectionGrantCreate(t *testing.T) {
 		ExpiresAt     *string  `json:"expiresAt"`
 	}
 	_ = json.Unmarshal(captured["CreateConnectionGrant"], &vars)
-	if vars.ConnectionRef != "conn_123" || vars.AppRef != "acme.com:inbox-bot" {
+	if vars.ConnectionRef != "conn_123" || vars.AppRef != "hrn:app:acme.com:inbox-bot" {
 		t.Errorf("unexpected create vars: %+v", vars)
 	}
 	if strings.Join(vars.Scopes, ",") != "mail.read,mail.send" {
@@ -52,7 +52,7 @@ func TestConnectionGrantCreateForwardsExpiry(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"connection", "grant", "create",
-		"--connection", "conn_123", "--app", "app_1", "--scopes", "mail.read",
+		"--connection", "conn_123", "--app", "capp100000000000000000000", "--scopes", "mail.read",
 		"--expires-at", "2027-01-01T00:00:00Z", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -73,7 +73,7 @@ func TestConnectionGrantCreateRequiresScopes(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"connection", "grant", "create", "--connection", "conn_123", "--app", "app_1", "--server", gql.URL})
+	root.SetArgs([]string{"connection", "grant", "create", "--connection", "conn_123", "--app", "capp100000000000000000000", "--server", gql.URL})
 	if err := root.Execute(); err == nil {
 		t.Fatal("expected an error when --scopes is omitted")
 	}
@@ -90,7 +90,7 @@ func TestConnectionGrantCreateRejectsUnknownScope(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"connection", "grant", "create",
-		"--connection", "conn_123", "--app", "app_1", "--scopes", "mail.read,mail.reed", "--server", gql.URL})
+		"--connection", "conn_123", "--app", "capp100000000000000000000", "--scopes", "mail.read,mail.reed", "--server", gql.URL})
 	if err := root.Execute(); err == nil {
 		t.Fatal("expected a usage error for an unknown scope")
 	}

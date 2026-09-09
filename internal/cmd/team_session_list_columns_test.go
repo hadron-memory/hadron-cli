@@ -95,7 +95,7 @@ func TestSessionListKeepsTheSessionIDCopyPasteable(t *testing.T) {
 func TestSessionListProvenanceTableAlsoLeadsWithTheWorker(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`,
 		"TeamWorkItems": `{"data":{"teamWorkItems":{"items":[{"nodeId":"w1","sessionId":"s-old",
 			"workerId":"wkr1","workerName":"Iris","tool":"github","kind":"pr",
 			"ref":"hadron-memory/hadron-cli#371","action":"opened",

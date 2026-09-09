@@ -18,7 +18,7 @@ import (
 )
 
 const irisWorkerJSON = `{"id":"wkr1","urn":"hrn:worker:acme.com:eng-team:iris","slug":"iris",
-	"appId":"app1","agentId":"agt1","name":"Iris","role":"backend-engineer",
+	"appId":"capp100000000000000000000","agentId":"agt1","name":"Iris","role":"backend-engineer",
 	"prompt":"You are Iris.","promptOverride":null,"memoryId":"mw1","retiredAt":null,"retiredBy":null,
 	"createdAt":"2026-08-14T00:00:00Z","createdBy":"u-holger"}`
 
@@ -72,15 +72,15 @@ func withLiveness(worker, live string) string {
 // A retired casting on the same staff page: hidden by default, listed with
 // --include-retired (its name stays reserved forever).
 const retiredWorkerJSON = `{"id":"wkr2","urn":"hrn:worker:acme.com:eng-team:uma","slug":"uma",
-	"appId":"app1","agentId":"agt1","name":"Uma","role":"qa",
+	"appId":"capp100000000000000000000","agentId":"agt1","name":"Uma","role":"qa",
 	"prompt":null,"promptOverride":null,"memoryId":null,"retiredAt":"2026-08-13T00:00:00Z","retiredBy":"u-holger",
 	"createdAt":"2026-08-12T00:00:00Z","createdBy":null}`
 
 const staffJSON = `{"data":{"workers":{"total":2,"items":[` + irisWorkerJSON + `,` + retiredWorkerJSON + `]}}}`
 
-// The readable identity of the team App (#458) — what turns the `app1` the
+// The readable identity of the team App (#458) — what turns the `capp100000000000000000000` the
 // ambient resolution hands back into something a reader can act on.
-const teamAppIdentityJSON = `{"data":{"app":{"id":"app1","urn":"hrn:app:acme.com:eng-team","name":"Eng Team"}}}`
+const teamAppIdentityJSON = `{"data":{"app":{"id":"capp100000000000000000000","urn":"hrn:app:acme.com:eng-team","name":"Eng Team"}}}`
 
 func TestTeamWorkerCast(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
@@ -95,7 +95,7 @@ func TestTeamWorkerCast(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CastWorker"], &vars)
-	if vars["appRef"] != "acme.com:eng-team" || vars["role"] != "backend-engineer" || vars["name"] != "Iris" {
+	if vars["appRef"] != "hrn:app:acme.com:eng-team" || vars["role"] != "backend-engineer" || vars["name"] != "Iris" {
 		t.Errorf("cast vars: %v", vars)
 	}
 	// Unset optionals are OMITTED, never null: no agent means the role picks
@@ -223,7 +223,7 @@ func TestTeamWorkerList(t *testing.T) {
 	_ = json.Unmarshal(captured["WorkersRoster"], &vars)
 	// The scan always asks for retired rows (resolution needs them; names
 	// stay bound to history) and filters client-side.
-	if vars["appRef"] != "acme.com:eng-team" || vars["includeRetired"] != true {
+	if vars["appRef"] != "hrn:app:acme.com:eng-team" || vars["includeRetired"] != true {
 		t.Errorf("workers vars: %v", vars)
 	}
 	var got []struct {
@@ -278,7 +278,7 @@ func TestTeamWorkerListNamesTheResolvedAppAndItsSource(t *testing.T) {
 	}
 	var idVars map[string]any
 	_ = json.Unmarshal(captured["TeamAppIdentity"], &idVars)
-	if idVars["appRef"] != "acme.com:eng-team" {
+	if idVars["appRef"] != "hrn:app:acme.com:eng-team" {
 		t.Errorf("the identity read must use the resolved ref: %v", idVars)
 	}
 	// The worker URN replaces AGENT ID: addressable and readable (the App slug
@@ -335,7 +335,7 @@ func TestTeamWorkerListReportsBindingAsTheAppSource(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["WorkersRoster"], &vars)
-	if vars["appRef"] != "app1" {
+	if vars["appRef"] != "capp100000000000000000000" {
 		t.Errorf("the staff scan still uses the binding's AppID: %v", vars)
 	}
 }
@@ -389,7 +389,7 @@ func TestTeamWorkerListSurvivesUnreadableApp(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("an unreadable App record must not fail the staff read: %v", err)
 	}
-	if !strings.Contains(out.String(), "app: acme.com:eng-team (from --app)") {
+	if !strings.Contains(out.String(), "app: hrn:app:acme.com:eng-team (from --app)") {
 		t.Errorf("the scope line must fall back to the raw ref: %s", out.String())
 	}
 	if !strings.Contains(out.String(), "Iris") {
@@ -612,12 +612,12 @@ func TestTeamWorkerGetNamesTheApp(t *testing.T) {
 	if !strings.Contains(out.String(), "\n  app: hrn:app:acme.com:eng-team — Eng Team\n") {
 		t.Errorf("the App must be named, not spelled as its UUID: %s", out.String())
 	}
-	if strings.Contains(out.String(), "(app app1)") {
+	if strings.Contains(out.String(), "(app capp100000000000000000000)") {
 		t.Errorf("the old parenthesised UUID is gone: %s", out.String())
 	}
 	var idVars map[string]any
 	_ = json.Unmarshal(captured["TeamAppIdentity"], &idVars)
-	if idVars["appRef"] != "app1" {
+	if idVars["appRef"] != "capp100000000000000000000" {
 		t.Errorf("the identity read must use the worker's own appId: %v", idVars)
 	}
 }
@@ -821,7 +821,7 @@ func TestTeamRoleList(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["TeamRoles"], &vars)
-	if vars["appRef"] != "acme.com:eng-team" {
+	if vars["appRef"] != "hrn:app:acme.com:eng-team" {
 		t.Errorf("teamRoles vars: %v", vars)
 	}
 	var got []struct {
@@ -1128,7 +1128,7 @@ func TestTeamRoleListSurvivesUnreadableApp(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("an unreadable App record must not fail the role read: %v", err)
 	}
-	if !strings.Contains(out.String(), "app: acme.com:eng-team (from --app)") {
+	if !strings.Contains(out.String(), "app: hrn:app:acme.com:eng-team (from --app)") {
 		t.Errorf("the scope line must fall back to the raw ref: %s", out.String())
 	}
 	if !strings.Contains(out.String(), "backend-engineer") {
@@ -1180,7 +1180,7 @@ func TestTeamWorkerCastDryRun(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CastWorkerPreview"], &vars)
-	if vars["appRef"] != "acme.com:eng-team" || vars["role"] != "backend-engineer" || vars["name"] != "Joe" {
+	if vars["appRef"] != "hrn:app:acme.com:eng-team" || vars["role"] != "backend-engineer" || vars["name"] != "Joe" {
 		t.Errorf("preview vars: %v", vars)
 	}
 	// teamAgentRef is not in the operation at all now (hadron-cli#496).
@@ -1472,7 +1472,7 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 		"Workers":          freeStaffJSON,
 		"WorkersRoster":    freeStaffJSON,
 		"TeamSessions":     `{"data":{"sessions":[` + endedSessionJSON + `]}}`,
-		"TeamMemoryApp":    `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"TeamMemoryApp":    `{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, out := testFactory(t)
@@ -1504,7 +1504,7 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 	}
 	// With -m the resolved App rides along so the server can verify it
 	// matches the worker's App (a mismatched -m fails loudly).
-	if vars.Input["appRef"] != "app1" {
+	if vars.Input["appRef"] != "capp100000000000000000000" {
 		t.Errorf("-m must bind the session to ITS App, got appRef=%v", vars.Input["appRef"])
 	}
 	// Unset optional SessionInput fields are OMITTED, never null (`appRef`
@@ -1532,7 +1532,7 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 		t.Errorf("binding: %s", data)
 	}
 	// #399: the worker's App rides into the binding — the worklog home.
-	if b["appId"] != "app1" {
+	if b["appId"] != "capp100000000000000000000" {
 		t.Errorf("binding must record the worker's App: %s", data)
 	}
 	// The worklog inputs travel through the binding: team memory
@@ -1623,7 +1623,7 @@ func TestTeamSessionStartWithoutMemoryIsQuiet(t *testing.T) {
 		}
 	}
 	data, _ := os.ReadFile(filepath.Join(dir, "hadron-team-session.json"))
-	if !strings.Contains(string(data), `"appId": "app1"`) {
+	if !strings.Contains(string(data), `"appId": "capp100000000000000000000"`) {
 		t.Errorf("the binding must carry the worker's App: %s", data)
 	}
 }
@@ -1776,7 +1776,7 @@ func TestTeamSessionStartRacedTakenSurfacesForce(t *testing.T) {
 }
 
 const bindingFixture = `{"sessionId":"s-new","workerId":"wkr1","workerName":"Iris","workerRole":"backend-engineer",
-	"agentId":"agt1","appId":"app1","startedAt":"2026-08-11T10:00:00Z",
+	"agentId":"agt1","appId":"capp100000000000000000000","startedAt":"2026-08-11T10:00:00Z",
 	"repo":"hadron-memory/hadron-cli","prNumbers":[]}`
 
 // A pre-#399 worker binding: no appId, but a recorded team memory — the
@@ -2035,7 +2035,7 @@ func TestTeamChatReadEmitsAuthorAliasAndKind(t *testing.T) {
 
 // A binding whose session was started with -m (team memory) and --tool.
 const bindingWithTeamFixture = `{"sessionId":"s-new","workerId":"wkr1","workerName":"Iris","workerRole":"backend-engineer",
-	"agentId":"agt1","appId":"app1","startedAt":"2026-08-11T10:00:00Z","appBound":true,
+	"agentId":"agt1","appId":"capp100000000000000000000","startedAt":"2026-08-11T10:00:00Z","appBound":true,
 	"teamMemory":"hrn:mem:acme.com:eng-team","tool":"claude-code",
 	"repo":"hadron-memory/hadron-cli","prNumbers":[]}`
 
@@ -2103,7 +2103,7 @@ func TestTeamSessionWhoamiUnboundIsNotFound(t *testing.T) {
 // binding's history for whoami.
 // A binding that HAS read the team chat, watermark at seq 90.
 const bindingChatSeenFixture = `{"sessionId":"s-new","workerId":"wkr1","workerName":"Iris","workerRole":"backend-engineer",
-	"agentId":"agt1","appId":"app1","startedAt":"2026-08-11T10:00:00Z","appBound":true,
+	"agentId":"agt1","appId":"capp100000000000000000000","startedAt":"2026-08-11T10:00:00Z","appBound":true,
 	"teamMemory":"hrn:mem:acme.com:eng-team","tool":"claude-code","chatSeenSeq":90,
 	"repo":"hadron-memory/hadron-cli","prNumbers":[]}`
 
@@ -2219,22 +2219,22 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 		path := bind(t)
 		read(t, map[string]string{
 			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":1,"items":[` + teamChatMsgJSON + `]}}}`,
-			// Resolves to a DIFFERENT id than the binding's app1 — the whole
+			// Resolves to a DIFFERENT id than the binding's capp100000000000000000000 — the whole
 			// question the guard asks. A fixture that resolved everything to
-			// app1 would pass no matter what the guard did.
-			"TeamAppIdentity": `{"data":{"app":{"id":"app2","urn":"hrn:app:acme.com:other-team","name":"Other Team"}}}`,
-		}, "--app", "app2")
+			// capp100000000000000000000 would pass no matter what the guard did.
+			"TeamAppIdentity": `{"data":{"app":{"id":"capp200000000000000000000","urn":"hrn:app:acme.com:other-team","name":"Other Team"}}}`,
+		}, "--app", "capp200000000000000000000")
 		if got := watermark(t, path); got != -1 {
-			t.Errorf("app2's seq must not land in app1's binding, got %d", got)
+			t.Errorf("capp200000000000000000000's seq must not land in capp100000000000000000000's binding, got %d", got)
 		}
 	})
 	// ...and the guard is "a DIFFERENT App", not "any --app": naming the
 	// binding's own App explicitly is the same read and must still record.
 	t.Run("naming the bound App explicitly still records", func(t *testing.T) {
 		path := bind(t)
-		read(t, oneMessage, "--app", "app1")
+		read(t, oneMessage, "--app", "capp100000000000000000000")
 		if got := watermark(t, path); got != 8 {
-			t.Errorf("--app app1 is the bound App — want watermark 8, got %d", got)
+			t.Errorf("--app capp100000000000000000000 is the bound App — want watermark 8, got %d", got)
 		}
 	})
 	// The same App SPELLED differently is still the same App. `--app <urn>` and
@@ -2247,7 +2247,7 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 		path := bind(t)
 		read(t, oneMessage, "--app", "hrn:app:acme.com:eng-team")
 		if got := watermark(t, path); got != 8 {
-			t.Errorf("that URN resolves to app1, the bound App — want 8, got %d", got)
+			t.Errorf("that URN resolves to capp100000000000000000000, the bound App — want 8, got %d", got)
 		}
 	})
 
@@ -2745,7 +2745,7 @@ func TestTeamSessionLogWritesWorklogAndSession(t *testing.T) {
 		Action     string `json:"action"`
 	}
 	_ = json.Unmarshal(captured["RecordTeamWork"], &workVars)
-	if workVars.AppRef != "app1" || workVars.SessionRef != "s-new" || workVars.Tool != "claude-code" ||
+	if workVars.AppRef != "capp100000000000000000000" || workVars.SessionRef != "s-new" || workVars.Tool != "claude-code" ||
 		workVars.Kind != "pr" || workVars.Ref != "hadron-memory/hadron-cli#371" || workVars.Action != "worked-on" {
 		t.Errorf("recordTeamWork vars: %+v", workVars)
 	}
@@ -2845,7 +2845,7 @@ func TestTeamSessionLogBranch(t *testing.T) {
 func TestTeamSessionListProvenanceByCommit(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`,
 		"TeamWorkItems": `{"data":{"teamWorkItems":{"total":1,"items":[
 			{"nodeId":"w1","sessionId":"s-done","workerId":"wkr1","workerName":"Iris","tool":"github","kind":"commit",
 			 "ref":"hadron-memory/hadron-cli@93200b2","action":"pushed","at":"2026-08-13T10:00:00Z",
@@ -2930,7 +2930,7 @@ func TestTeamSessionLogPre399BindingResolvesTeamMemory(t *testing.T) {
 			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
 			"transcriptPath":null,"llmModel":null}}}`,
-		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`,
 		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
 			"tool":"claude-code","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
 			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
@@ -3272,7 +3272,7 @@ func TestTeamSessionListProvenanceQuery(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch body.OperationName {
 		case "TeamMemoryApp":
-			_, _ = w.Write([]byte(`{"data":{"memory":{"id":"m1","appId":"app1"}}}`))
+			_, _ = w.Write([]byte(`{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`))
 		case "TeamWorkItems":
 			workItemVars = body.Variables
 			var vars struct {
@@ -3326,7 +3326,7 @@ func TestTeamSessionListProvenanceQuery(t *testing.T) {
 	// #396: the dedicated read addresses the App and filters server-side.
 	// kind stays part of the lookup — PRs and issues share GitHub's number
 	// space, so ref alone would mix artifact kinds.
-	if lookup.Ref != "hadron-memory/hadron-cli#371" || lookup.Kind != "pr" || lookup.AppRef != "app1" {
+	if lookup.Ref != "hadron-memory/hadron-cli#371" || lookup.Kind != "pr" || lookup.AppRef != "capp100000000000000000000" {
 		t.Errorf("worklog lookup: %+v", lookup)
 	}
 	var got []struct {
@@ -3366,7 +3366,7 @@ func TestTeamSessionListProvenanceQuery(t *testing.T) {
 // ambient App was the moment that had already passed. The scope line comes
 // BEFORE the converge, and carries where the scope came from.
 func TestTeamInitNamesTheAppBeforeConverging(t *testing.T) {
-	shared := `{"data":{"app":{"id":"app1","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
+	shared := `{"data":{"app":{"id":"capp100000000000000000000","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
 		"class":"app","schema":{"objectTypes":{"worklog":{"fields":{"ref":{"type":"text","required":true}}}}}}}}}`
 	converged := `{"data":{"updateTeamCollections":{"memoryId":"m1","collections":["worklog"],"changed":false}}}`
 
@@ -3421,7 +3421,7 @@ func TestTeamInitNamesTheAppBeforeConverging(t *testing.T) {
 // failure this whole family exists to remove, wearing a new costume.
 func TestTeamInitDoesNotConvergeIfTheScopeLineCannotBeWritten(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetAppSharedMemory": `{"data":{"app":{"id":"app1","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
+		"GetAppSharedMemory": `{"data":{"app":{"id":"capp100000000000000000000","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
 			"class":"app","schema":{"objectTypes":{"worklog":{"fields":{"ref":{"type":"text","required":true}}}}}}}}}`,
 		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m1",
 			"collections":["worklog"],"changed":false}}}`,
@@ -3441,7 +3441,7 @@ func TestTeamInitDoesNotConvergeIfTheScopeLineCannotBeWritten(t *testing.T) {
 
 func TestTeamInitAppPath(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetAppSharedMemory": `{"data":{"app":{"id":"app1","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
+		"GetAppSharedMemory": `{"data":{"app":{"id":"capp100000000000000000000","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
 			"class":"app","schema":{"objectTypes":{"worklog":{"fields":{"ref":{"type":"text","required":true}}}}}}}}}`,
 		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m1",
 			"collections":["worklog"],"changed":false}}}`,
@@ -3456,7 +3456,7 @@ func TestTeamInitAppPath(t *testing.T) {
 		AppRef string `json:"appRef"`
 	}
 	_ = json.Unmarshal(captured["UpdateTeamCollections"], &vars)
-	if vars.AppRef != "acme.com:eng-team" {
+	if vars.AppRef != "hrn:app:acme.com:eng-team" {
 		t.Errorf("the App addresses the convergence directly: %v", vars)
 	}
 	// Worklog already declared + unchanged ⇒ the three-value contract holds
@@ -3473,7 +3473,7 @@ func TestTeamInitAppPath(t *testing.T) {
 	// An App with NO shared memory yet: nothing declared by definition ⇒
 	// status created, and the target is read back from the response.
 	gql2, _ := captureGraphQL(t, map[string]string{
-		"GetAppSharedMemory": `{"data":{"app":{"id":"app1","sharedMemory":null}}}`,
+		"GetAppSharedMemory": `{"data":{"app":{"id":"capp100000000000000000000","sharedMemory":null}}}`,
 		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m9",
 			"collections":["worklog"],"changed":true}}}`,
 		"GetMemory": `{"data":{"memory":{"id":"m9","urn":"hrn:mem:acme.com:eng-team","name":"Eng Team",
@@ -3528,7 +3528,7 @@ func TestTeamSessionListProvenanceAppSources(t *testing.T) {
 		AppRef string `json:"appRef"`
 	}
 	_ = json.Unmarshal(captured["TeamWorkItems"], &vars)
-	if vars.AppRef != "acme.com:eng-team" {
+	if vars.AppRef != "hrn:app:acme.com:eng-team" {
 		t.Errorf("--app must scope the worklog read directly: %v", vars)
 	}
 
@@ -3551,7 +3551,7 @@ func TestTeamSessionListProvenanceAppSources(t *testing.T) {
 		AppRef string `json:"appRef"`
 	}
 	_ = json.Unmarshal(captured2["TeamWorkItems"], &vars2)
-	if vars2.AppRef != "app1" {
+	if vars2.AppRef != "capp100000000000000000000" {
 		t.Errorf("the binding's App is the default worklog scope: %v", vars2)
 	}
 }
@@ -3568,9 +3568,9 @@ func TestTeamInit(t *testing.T) {
 			"vectorIndexEnabled":false,"maxRevCount":10,"data":null,
 			"schema":{"objectTypes":{"competitor":{"fields":{"name":{"type":"text","required":true}}}}},
 			"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
-		"GetAppSharedMemory": `{"data":{"app":{"id":"app1","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
+		"GetAppSharedMemory": `{"data":{"app":{"id":"capp100000000000000000000","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
 			"class":"app","schema":null}}}}`,
-		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`,
 		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m1",
 			"collections":["worklog"],"changed":true}}}`,
 	})
@@ -3585,7 +3585,7 @@ func TestTeamInit(t *testing.T) {
 		AppRef string `json:"appRef"`
 	}
 	_ = json.Unmarshal(captured["UpdateTeamCollections"], &vars)
-	if vars.AppRef != "app1" {
+	if vars.AppRef != "capp100000000000000000000" {
 		t.Errorf("updateTeamCollections must address the App, got %q", vars.AppRef)
 	}
 	// The CLI must no longer write Memory.schema — that is what carried the
@@ -3610,9 +3610,9 @@ func TestTeamInitIdempotent(t *testing.T) {
 			"vectorIndexEnabled":false,"maxRevCount":10,"data":null,
 			"schema":{"objectTypes":{"worklog":{"fields":{"ref":{"type":"text","required":true}}}}},
 			"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
-		"GetAppSharedMemory": `{"data":{"app":{"id":"app1","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
+		"GetAppSharedMemory": `{"data":{"app":{"id":"capp100000000000000000000","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
 			"class":"app","schema":{"objectTypes":{"worklog":{"fields":{"ref":{"type":"text","required":true}}}}}}}}}`,
-		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`,
 		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m1",
 			"collections":["worklog"],"changed":false}}}`,
 	})
@@ -3641,9 +3641,9 @@ func TestTeamInitConvergesADriftedDeclaration(t *testing.T) {
 			"vectorIndexEnabled":false,"maxRevCount":10,"data":null,
 			"schema":{"objectTypes":{"worklog":{"fields":{"kind":{"type":"enum","required":true,"values":["pr","issue","commit","branch"]}}}}},
 			"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`,
-		"GetAppSharedMemory": `{"data":{"app":{"id":"app1","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
+		"GetAppSharedMemory": `{"data":{"app":{"id":"capp100000000000000000000","sharedMemory":{"id":"m1","urn":"hrn:mem:acme.com:eng-team",
 			"class":"app","schema":{"objectTypes":{"worklog":{"fields":{"kind":{"type":"enum","required":true,"values":["pr","issue","commit","branch"]}}}}}}}}}`,
-		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`,
 		"UpdateTeamCollections": `{"data":{"updateTeamCollections":{"memoryId":"m1",
 			"collections":["worklog"],"changed":true}}}`,
 	})
@@ -3719,7 +3719,7 @@ func TestTeamChatPostAsWorker(t *testing.T) {
 	// TeamMemoryApp in the fake, so a resolution round trip fails loudly.
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateTeamChatMessage"], &vars)
-	if vars["appRef"] != "app1" || vars["body"] != "@rufus schema is live" || vars["sessionRef"] != "s-new" {
+	if vars["appRef"] != "capp100000000000000000000" || vars["body"] != "@rufus schema is live" || vars["sessionRef"] != "s-new" {
 		t.Errorf("post vars: %v", vars)
 	}
 	if _, present := vars["replyToSeq"]; present {
@@ -3799,7 +3799,7 @@ func TestTeamChatPostUnbound(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateTeamChatMessage"], &vars)
-	if vars["appRef"] != "acme.com:eng-team" {
+	if vars["appRef"] != "hrn:app:acme.com:eng-team" {
 		t.Errorf("post vars: %v", vars)
 	}
 	if _, present := vars["sessionRef"]; present {
@@ -3861,7 +3861,7 @@ func TestTeamChatOutsideWorktreeWithApp(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateTeamChatMessage"], &vars)
-	if vars["appRef"] != "acme.com:eng-team" {
+	if vars["appRef"] != "hrn:app:acme.com:eng-team" {
 		t.Errorf("post vars: %v", vars)
 	}
 	if _, present := vars["sessionRef"]; present {
@@ -3984,7 +3984,7 @@ func TestTeamChatReadMentionsMe(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["TeamChatMessages"], &vars)
-	if vars["appRef"] != "app1" || vars["mentionsRef"] != "wkr1" {
+	if vars["appRef"] != "capp100000000000000000000" || vars["mentionsRef"] != "wkr1" {
 		t.Errorf("read vars: %v", vars)
 	}
 	var dto struct {
@@ -4159,7 +4159,7 @@ func TestTeamSessionLogMismatchedMemoryExplainsMismatch(t *testing.T) {
 			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
 			"transcriptPath":null,"llmModel":null}}}`,
-		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`,
 		"RecordTeamWork": `{"errors":[{"message":"Session \"s-new\" is not a session of this App",
 			"extensions":{"code":"SESSION_NOT_IN_APP"}}]}`,
 	})
@@ -4189,7 +4189,7 @@ func TestTeamSessionLogLegacyBindingNotInAppSaysRestart(t *testing.T) {
 			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
 			"transcriptPath":null,"llmModel":null}}}`,
-		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"app1"}}}`,
+		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`,
 		"RecordTeamWork": `{"errors":[{"message":"Session is not a session of this App",
 			"extensions":{"code":"SESSION_NOT_IN_APP"}}]}`,
 	})
@@ -4234,10 +4234,10 @@ func TestTeamInitReportsWhereTheDeclarationLanded(t *testing.T) {
 				"vectorIndexEnabled":false,"maxRevCount":10,"data":null,"schema":null,
 				"createdAt":"2026-08-11T00:00:00Z","updatedAt":"2026-08-11T00:00:00Z"}}}`))
 		case "GetAppSharedMemory":
-			_, _ = w.Write([]byte(`{"data":{"app":{"id":"app1","sharedMemory":{"id":"m-team",
+			_, _ = w.Write([]byte(`{"data":{"app":{"id":"capp100000000000000000000","sharedMemory":{"id":"m-team",
 				"urn":"hrn:mem:acme.com:eng-team-shared","class":"app","schema":null}}}}`))
 		case "TeamMemoryApp":
-			_, _ = w.Write([]byte(`{"data":{"memory":{"id":"m-other","appId":"app1"}}}`))
+			_, _ = w.Write([]byte(`{"data":{"memory":{"id":"m-other","appId":"capp100000000000000000000"}}}`))
 		case "UpdateTeamCollections":
 			_, _ = w.Write([]byte(`{"data":{"updateTeamCollections":{"memoryId":"m-team",
 				"collections":["worklog"],"changed":true}}}`))

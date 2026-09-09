@@ -2012,7 +2012,7 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 	case memory != "":
 		appRef, err = appForTeamMemory(ctx, client, cmdutil.CanonicalMemoryRef(memory))
 	case f.AppFlag != "":
-		appRef = f.AppFlag
+		appRef, err = cmdutil.CanonicalAppRef("--app", f.AppFlag)
 	case b != nil && b.AppID != "":
 		appRef = b.AppID
 	case b != nil && b.TeamMemory != "":

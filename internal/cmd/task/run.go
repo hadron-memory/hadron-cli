@@ -59,16 +59,9 @@ memories; authenticated user only).`,
 				return err
 			}
 
-			// Resolve the task reference to a concrete node ID client-side, then
-			// pass that as the single `nodeRef` arg (#542 — runTask unified on the
-			// <object>Ref convention). ResolveNodeRef handles both a full URN and a
-			// bare <loc> with -m <memory>.
-			taskRef := cmdArgs[0]
-			nodeID, err := cmdutil.ResolveNodeRef(cmd, client, memory, taskRef)
-			if err != nil {
-				return err
-			}
-
+			// The local checks come BEFORE the node-ref round trip below, so a
+			// usage error costs no request (#540).
+			//
 			// Parse arguments from --arg flags into a JSON object.
 			var taskArgs *json.RawMessage
 			if len(args) > 0 {
@@ -97,6 +90,16 @@ memories; authenticated user only).`,
 			}
 			if asSelf {
 				asSelfPtr = &asSelf
+			}
+
+			// Resolve the task reference to a concrete node ID client-side, then
+			// pass that as the single `nodeRef` arg (#542 — runTask unified on the
+			// <object>Ref convention). ResolveNodeRef handles both a full URN and a
+			// bare <loc> with -m <memory>.
+			taskRef := cmdArgs[0]
+			nodeID, err := cmdutil.ResolveNodeRef(cmd, client, memory, taskRef)
+			if err != nil {
+				return err
 			}
 
 			// Run the task via the runTask mutation, passing the resolved node ID.

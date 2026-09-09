@@ -69,17 +69,28 @@ func (f *Factory) Server() (string, error) {
 	return cfg.Server(), nil
 }
 
-// App resolves the App URN context: --app flag, then config default.
+// App resolves the App context — the --app flag, then the config default —
+// shape-checked and canonicalized (CanonicalAppRef, #540): what comes back is
+// an App id or hrn:app:<root>:<slug>, never a value the server would refuse
+// as "not fully qualified" in its own words.
 // Empty means no App context, which the server treats as fine.
 func (f *Factory) App() (string, error) {
 	if f.AppFlag != "" {
-		return f.AppFlag, nil
+		return CanonicalAppRef("--app", f.AppFlag)
 	}
 	cfg, err := f.Config()
 	if err != nil {
 		return "", err
 	}
-	return cfg.App(), nil
+	// `hadron app set-active` refuses a malformed value at write time, so
+	// this catches only a hand-edited config — but it catches it with the
+	// remedy, where the server's refusal would name a GraphQL field the user
+	// never saw (#540).
+	app, err := CanonicalAppRef("the configured App context", cfg.App())
+	if err != nil {
+		return "", exitcode.Newf(exitcode.Usage, "%v (`hadron app set-active <ref>` replaces it)", err)
+	}
+	return app, nil
 }
 
 // NoteAppIsContextOnly warns on stderr that an explicitly-passed --app did NOT

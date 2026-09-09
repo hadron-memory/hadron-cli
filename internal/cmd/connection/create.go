@@ -59,6 +59,10 @@ for a perpetual grant (until revoked).`,
 				}
 			}
 
+			appRef, err := cmdutil.CanonicalAppRef("--app", app)
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -67,7 +71,7 @@ for a perpetual grant (until revoked).`,
 			if expires != "" {
 				expiresAt = &expires
 			}
-			resp, err := gen.CreateConnectionGrant(cmd.Context(), client, connection, app, scopeSet, expiresAt)
+			resp, err := gen.CreateConnectionGrant(cmd.Context(), client, connection, appRef, scopeSet, expiresAt)
 			if err != nil {
 				return api.MapError(err)
 			}

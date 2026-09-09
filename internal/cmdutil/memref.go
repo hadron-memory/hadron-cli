@@ -39,9 +39,15 @@ func MemoryParts(ref string) (root, slug string, ok bool) {
 	if !prefixed && urn.HasSchemePrefix(ref) {
 		return "", "", false // a non-memory URN (hrn:node:…): not ours to split
 	}
-	// The body is <root><sep><slug>; the sep is "::" (v1) or ":" (v2). Neither a
-	// root nor a slug atom may contain a colon, so a collapsed body must split
-	// into EXACTLY two atoms — this rejects "foo::bar::baz" and ":::".
+	return pairAtoms(body)
+}
+
+// pairAtoms splits a two-atom URN body — <root><sep><slug>, the shape a memory
+// and an App share — into its atoms. The sep is "::" (v1) or ":" (v2).
+// Neither a root nor a slug atom may contain a colon, so a collapsed body must
+// split into EXACTLY two atoms: this rejects "foo::bar::baz" and ":::". Shared
+// by MemoryParts and AppParts so the two grammars cannot drift apart.
+func pairAtoms(body string) (root, slug string, ok bool) {
 	if strings.Contains(body, ":::") {
 		return "", "", false
 	}

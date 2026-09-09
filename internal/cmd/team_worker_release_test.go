@@ -675,7 +675,7 @@ func TestWorkerReleaseJSONShape(t *testing.T) {
 // branch rather than erroring or being mistaken for the holder.
 func TestWorkerReleaseAppKeyCallerIsNeverTheHolder(t *testing.T) {
 	gql, captured := captureGraphQL(t, releaseStubs(heldBy("u-dara"), map[string]string{
-		"AuthContext": `{"data":{"authContext":{"principalType":"APP","appId":"app1","agentId":null,
+		"AuthContext": `{"data":{"authContext":{"principalType":"APP","appId":"capp100000000000000000000","agentId":null,
 			"user":null,"apiKey":null,"impersonation":null}}}`,
 		// Stubbed because reaching the prompt REQUIRES resolving the holder —
 		// its absence is itself the signal that the force branch was taken.
@@ -1375,7 +1375,7 @@ func TestWorkerGetRendersTheHolder(t *testing.T) {
 // is null, and so are the fields masked alongside it (prompt, promptOverride,
 // memoryId). Indistinguishable from "unheld" on heldByUserId alone.
 const maskedWorkerJSON = `{"id":"wkr1","urn":"hrn:worker:acme.com:eng-team:iris","slug":"iris",
-	"appId":"app1","agentId":"agt1","name":"Iris","role":"backend-engineer",
+	"appId":"capp100000000000000000000","agentId":"agt1","name":"Iris","role":"backend-engineer",
 	"prompt":null,"promptOverride":null,"memoryId":null,"heldByUserId":null,"heldAt":null,
 	"retiredAt":null,"retiredBy":null,"createdAt":"2026-08-14T00:00:00Z","createdBy":"u-holger"}`
 
