@@ -384,3 +384,34 @@ The `tr` matters: the first version of that check reported the agent contract at
 2/3 because "REPLACES the abstract" was split across a line break. **A sweep whose
 own instrument under-reports is worse than no sweep**, because it produces a
 clean result — the same failure shape as everything else this issue turned up.
+
+### The count itself did not match the server
+
+The last finding of the review, and the one that undercut the whole feature:
+`abstractLength` **trimmed before counting**, and its comment said this matched
+"how the server measures its own 2000-char cap".
+
+Verified against hadron-server `origin/main` 6968543 — `normalizeAbstract`,
+`src/mcp/server.ts` — rather than argued:
+
+```js
+if (raw.length > 2000) throw new NodeAbstractTooLongError(raw.length);
+if (raw.trim() === '') return null;
+return raw;
+```
+
+**The cap is checked on the RAW value, before the whitespace-only collapse**, and
+a non-empty abstract "persists untrimmed so intentional surrounding whitespace on
+real paragraphs is lossless". So the final newline `--abstract-file` preserves
+counts — and an abstract reported as having 150 characters of headroom had 149.
+For a feature whose entire purpose is that the number can be trusted, that is the
+defect, not a rounding detail.
+
+Two axes, because the comment was wrong twice: `raw.length` is **UTF-16 code
+units**, not runes. Everything a spec corpus carries is one of each, so it only
+diverges above the BMP — but "claims to match the server and does not" is exactly
+what put the wrong number in front of the reader.
+
+**The sibling checkout was on a colleague's branch**, which `scripts/sibling-source.sh`
+refused, correctly. Read from a throwaway detached worktree of `origin/main`,
+removed afterwards; her checkout is untouched.

@@ -1098,3 +1098,53 @@ func TestANodeAtTheWallGetsExactlyOneAbstractLengthFinding(t *testing.T) {
 		t.Errorf("expected exactly one abstract-length finding, got %d", n)
 	}
 }
+
+// The count must match the SERVER's, and it did not, on two axes
+// (@codex on #565; verified against hadron-server origin/main 6968543).
+//
+// normalizeAbstract checks `raw.length > 2000` on the RAW value, BEFORE the
+// whitespace-only collapse, and a non-empty value persists untrimmed. So
+// trailing whitespace counts — and #539 exists so the reported headroom can be
+// trusted, which makes an off-by-the-newline exactly the defect it set out to
+// remove.
+func TestAbstractLengthCountsWhatTheServerCounts(t *testing.T) {
+	lenOf := func(s string) int { return abstractLength(&s) }
+
+	// 1. Trailing whitespace COUNTS. `--abstract-file` preserves the final
+	//    newline, so this is the ordinary case, not an exotic one.
+	if got := lenOf("abc\n"); got != 4 {
+		t.Errorf("a trailing newline counts toward the cap: got %d, want 4", got)
+	}
+	if got := lenOf("  abc  "); got != 7 {
+		t.Errorf("surrounding whitespace counts: got %d, want 7", got)
+	}
+
+	// 2. UTF-16 CODE UNITS, because JavaScript's `.length` is. Everything a spec
+	//    corpus actually carries is one unit per character, so this only bites
+	//    above the BMP — but claiming to match the server and not doing so is
+	//    what put the wrong number in front of the reader in the first place.
+	if got := lenOf("—→"); got != 2 {
+		t.Errorf("BMP punctuation is one unit each: got %d, want 2", got)
+	}
+	if got := lenOf("😀"); got != 2 {
+		t.Errorf("a non-BMP rune is a surrogate PAIR to the server: got %d, want 2", got)
+	}
+
+	// And the consequence the issue is about: an abstract that looks like it has
+	// headroom, and does not.
+	atCap := strings.Repeat("a", abstractHardMax-1) + "\n"
+	if got := lenOf(atCap); got != abstractHardMax {
+		t.Fatalf("fixture: want exactly the cap, got %d", got)
+	}
+	sn := cleanSpec(t, "msg:010:02", "Delivery")
+	sn.Abstract = &atCap
+	var msg string
+	for _, f := range lintNode(sn) {
+		if f.Rule == "abstract-length" {
+			msg = f.Message
+		}
+	}
+	if !strings.Contains(msg, "exactly the 2000-char hard cap") {
+		t.Errorf("1999 chars plus the newline IS at the cap, and must be reported so: %q", msg)
+	}
+}

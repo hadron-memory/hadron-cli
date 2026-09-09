@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -543,16 +542,40 @@ func abstractPresent(a *string) bool {
 	return s != "" && !strings.Contains(s, abstractPlaceholder)
 }
 
-// abstractLength counts the abstract in characters (runes), matching how the
-// server measures its own 2000-char cap for the text a spec corpus actually
-// carries. Trimmed first so trailing editor whitespace never tips the bound.
-// utf8.RuneCountInString rather than len([]rune(…)): a corpus lint scans every
-// node, and this counts without allocating a rune slice per abstract.
+// abstractLength counts the abstract as the SERVER counts it against its
+// 2000-char cap — which is not what this function used to do, twice over
+// (@codex on #565, verified against hadron-server `origin/main` 6968543,
+// `normalizeAbstract` in src/mcp/server.ts):
+//
+//		if (raw.length > 2000) throw new NodeAbstractTooLongError(raw.length);
+//		if (raw.trim() === '') return null;
+//		return raw;
+//
+//	 1. The cap is checked on the RAW value, BEFORE the whitespace-only collapse,
+//	    and a non-empty value "persists untrimmed so intentional surrounding
+//	    whitespace on real paragraphs is lossless". This used to TrimSpace first,
+//	    so an abstract carrying the final newline `--abstract-file` preserves was
+//	    reported with one character more headroom than it has — and #539 exists
+//	    precisely so that number can be trusted.
+//	 2. JavaScript's `.length` is UTF-16 CODE UNITS, not runes. Every character a
+//	    spec corpus actually carries (Latin, em-dashes, arrows) is one of each, so
+//	    this only diverges above the BMP — but the old comment claimed to match
+//	    the server and did not, which is the part worth not repeating.
+//
+// Counted without allocating: a corpus lint scans every node.
 func abstractLength(a *string) int {
 	if a == nil {
 		return 0
 	}
-	return utf8.RuneCountInString(strings.TrimSpace(*a))
+	n := 0
+	for _, r := range *a {
+		if r > 0xFFFF {
+			n += 2 // a surrogate pair, which is what `.length` counts
+		} else {
+			n++
+		}
+	}
+	return n
 }
 
 // isPlaceholderAbstract reports whether an abstract still carries the scaffold
