@@ -997,13 +997,34 @@ func TestTheNearCapMessageReadsCorrectlyAtOneCharOfHeadroom(t *testing.T) {
 		if f.Rule != "abstract-length" {
 			continue
 		}
-		if strings.Contains(f.Message, "1 characters") {
-			t.Errorf("singular headroom must not read as a plural: %q", f.Message)
+		// BOTH plural spellings are wrong at one, and the first fix only
+		// removed one of them (@copilot, twice): "1 characters" became
+		// "1 chars". The assertion now names the singular it must be.
+		for _, wrong := range []string{"1 characters", "1 chars"} {
+			if strings.Contains(f.Message, wrong) {
+				t.Errorf("singular headroom must not read as a plural (%q): %q", wrong, f.Message)
+			}
 		}
-		if !strings.Contains(f.Message, "only 1 chars of headroom") {
-			t.Errorf("expected the chars spelling at headroom 1: %q", f.Message)
+		if !strings.Contains(f.Message, "only 1 char of headroom") {
+			t.Errorf("expected the singular at headroom 1: %q", f.Message)
 		}
 		return
 	}
 	t.Fatalf("expected an abstract-length finding")
+}
+
+func TestPlural(t *testing.T) {
+	for _, tc := range []struct {
+		n    int
+		want string
+	}{
+		{1, "1 char"},
+		{0, "0 chars"},
+		{78, "78 chars"},
+		{300, "300 chars"},
+	} {
+		if got := plural(tc.n, "char"); got != tc.want {
+			t.Errorf("plural(%d) = %q, want %q", tc.n, got, tc.want)
+		}
+	}
 }

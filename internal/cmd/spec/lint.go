@@ -379,8 +379,8 @@ func lintNode(n specNode) []lintFindingDTO {
 		}
 		headroom := abstractHardMax - l
 		msg := fmt.Sprintf(
-			"abstract is %d chars, %d chars of headroom before the %d-char hard cap — past ~%d added length stops paying for itself; distill it, and check every sentence is still about this spec (off-topic sentences dilute the vector far more than length does)",
-			l, headroom, abstractHardMax, abstractSoftMax)
+			"abstract is %d chars, %s of headroom before the %d-char hard cap — past ~%d added length stops paying for itself; distill it, and check every sentence is still about this spec (off-topic sentences dilute the vector far more than length does)",
+			l, plural(headroom, "char"), abstractHardMax, abstractSoftMax)
 		if headroom < abstractTightHeadroom {
 			// ESCALATED, because this is a different finding wearing the same
 			// rule name (#539): the advice above is actively wrong here, since
@@ -409,8 +409,8 @@ func lintNode(n specNode) []lintFindingDTO {
 			switch {
 			case headroom > 0:
 				msg = fmt.Sprintf(
-					"abstract is %d chars — only %d chars of headroom before the %d-char hard cap, so any edit that grows it past that is rejected at write time.%s",
-					l, headroom, abstractHardMax, remedy)
+					"abstract is %d chars — only %s of headroom before the %d-char hard cap, so any edit that grows it past that is rejected at write time.%s",
+					l, plural(headroom, "char"), abstractHardMax, remedy)
 			case headroom == 0:
 				msg = fmt.Sprintf(
 					"abstract is %d chars — exactly the %d-char hard cap, so any edit that lengthens it is rejected at write time (an equal-length rewrite still works).%s",
@@ -998,4 +998,18 @@ func titleConjunction(title string) string {
 		}
 	}
 	return ""
+}
+
+// plural renders a count with its unit, singularly when there is one of it.
+//
+// It exists for a one-character headroom (@copilot on #565): the message read
+// "only 1 chars of headroom". The first correction went from "characters" to
+// "chars" to dodge the mismatch, which fixed the long spelling and kept the
+// short one — the round trip is the reason this is a function rather than a
+// third choice of word.
+func plural(n int, unit string) string {
+	if n == 1 {
+		return "1 " + unit
+	}
+	return fmt.Sprintf("%d %ss", n, unit)
 }
