@@ -215,3 +215,203 @@ Embed with `search_document: ` / `search_query: ` prefixes, L2-normalise, dot.
 The one methodological rule that matters: **compare the same query against the
 same node**, varying only the thing under test. Every misleading number in #880
 came from changing two things at once.
+
+---
+
+## Follow-up: the lint knew the soft bound and not the wall (#539)
+
+Design-as-built for the reporting half. **Nothing above changes** — the 1600
+bound, the plateau it sits on, and the "off-topic dilutes more than length"
+framing are all unaltered. What changed is that the finding stopped being the
+same sentence at 1601 and at 1990.
+
+### What it cost
+
+@Ada, amending `cor:agt:020:03`: the abstract sat at 1922, the lint said what it
+says at 1650, and replacing one 39-character sentence failed the write **twice**
+(2090, then 2048) before fitting at 1990.
+
+> The information that would have let me write it once — "you have 78
+> characters" — exists at lint time and is never printed.
+
+The lint knew `abstractSoftMax` and had the hard cap only in prose: a comment on
+the constant, and another on `abstractLength` saying it counts runes "matching
+how the server measures its own 2000-char cap". **Teaching it the number was
+most of the fix.**
+
+### Three changes
+
+1. **`abstractHardMax = 2000`**, mirrored from the server (spec 031) — not this
+   repo's number to choose, carried only so the finding can report distance.
+2. **Every message reports headroom**: *"1700 chars, 300 from the 2000-char hard
+   cap"*.
+3. **With fewer than `abstractTightHeadroom = 150` characters left, the finding escalates to an
+   error and the advice inverts.** These are different findings wearing one rule
+   name: past the soft bound, "distill it" is right; a sentence from the cap it
+   is *wrong*, because on a spec whose sentences are all on-subject, cutting one
+   drops a contract. The remedy is a supersede-level split.
+
+The escalation does **not** tier down for flows. The severity ladder is about
+how much a long abstract matters for retrieval; the cap is about whether the
+node can be edited at all, and a flow's write fails at 2000 exactly as a rule's
+does.
+
+### The split hint, and why it is only ever a clause
+
+@Ada's observation, and it holds up: three specs flagged for length, three titles
+containing a conjunction — *"allocation **and** permanence"*, *"sessions,
+liveness **and** provenance"*. A title naming two subjects is the node saying
+where the split goes.
+
+It is appended to the near-cap finding and is **never a finding of its own**.
+Plenty of single-subject titles contain "and" ("create and update"), so alone it
+would be noise; paired with an abstract a sentence from the cap it is a lead
+worth printing. The citation half of the title is stripped first, so a loc like
+`cor:and:010` cannot match.
+
+### Measured before shipping
+
+**Both corpora are clean** — zero `abstract-length` findings in
+`hadronmemory.com:specs` and `micromentor.org:platform-specs` — so the new error
+tier fires on nothing today and cannot break CI on landing.
+`cor:agt:020:03` is now 1564 characters; someone distilled it after the issue was
+filed, which is also how the measurement harness got proved before its clean
+result was believed.
+
+### Two green mutations, both real gaps
+
+Blanking the headroom numbers left the suite green: the headroom test used 1922,
+which takes the **escalated** message, so the ordinary warning's numbers — what
+most authors see — had no assertion. And hard-coding the conjunction clause on
+changed nothing, because the only assertion was on the helper in isolation,
+never on the pairing. Both now covered.
+
+### Review: the escalated finding overclaimed what fails
+
+@codex (P2) and @copilot, independently, and they were right. The message said
+*"the next edit fails at write time"*. **The server rejects a write whose
+abstract EXCEEDS the cap — not the next edit.** At 1922 an equal-length
+replacement is fine, and so is adding up to 78 characters.
+
+That matters more here than a wording nit usually would, because the sentence
+goes on to recommend a **supersede-level split**: the stronger claim would have
+justified a costly restructure on a node that did not need one yet. A claim
+outrunning its evidence, in the one sentence written to make the reader act.
+
+It now names the condition — *"any edit that grows it past that is rejected"*.
+
+@copilot also caught the arithmetic: **at or past the cap, `abstractHardMax - l`
+is zero or negative**, so the message read *"only -48 from the 2000-char hard
+cap"*. Over-cap is reachable from data written before the cap existed, so it is
+a real state rather than a defensive branch, and the sentence changes there:
+nothing about "headroom" is true, and what the author needs is that any update
+which does not shorten the abstract is refused.
+
+Both fixes swept all three surfaces that carry the claim — the finding, the
+`spec lint --help` text, and `agentic-usage.md` — since one wording living in
+three places is how the retired version survives in two of them.
+
+### And the fix reproduced the overclaim at the boundary
+
+Round 2 is worth recording because it is the same mistake as round 1, one branch
+over. Correcting *"the next edit fails"* to name the condition, I added an
+`at or past the cap` branch that said *"any update that does not shorten it is
+rejected"* — **which is false at exactly 2000**, where the server still accepts
+an equal-length rewrite, because the cap rejects values LONGER than it.
+
+So the finding would have pushed a node at the boundary toward a supersede-level
+split it does not need — the identical consequence round 1 removed. **I fixed
+the instance and rebuilt the class one case over**, which is precisely @Dara's
+line: answering the example is how you get shown the next example.
+
+Three states now, because the boundary is one:
+
+| length | what is true |
+| --- | --- |
+| `< 2000` | any edit that grows it past the remaining headroom is rejected |
+| `== 2000` | any edit that LENGTHENS it is rejected; an equal-length rewrite still works |
+| `> 2000` (legacy data) | any update that REPLACES the abstract is rejected unless it brings it to 2000 or fewer; an update leaving the abstract alone still succeeds |
+
+None of the three is unconditional — the round below corrected the last row a
+second time, and this table with it.
+
+### The overclaim had a third form, and the wall binds every tier
+
+Two more from @codex, both after the boundary fix above.
+
+**The over-cap claim was still too broad.** It said *"any update that does not
+shorten it below the cap is rejected"* — but `UpdateNodeInput` preserves omitted
+fields, and `spec supersede` retires a node by sending only tags and content
+(`supersede.go`). So a body-only edit succeeds with an over-cap abstract
+untouched, **and the message was telling the reader that the very remedy it
+recommends would be rejected.** Scoped to abstract *replacements* now, with the
+supersede path named explicitly.
+
+That is three rounds of the same overclaim, each correction re-stating it one
+case over. The message construction is now a single function, `nearCapMessage`,
+rather than an expression at two call sites — the shape that let it drift.
+
+**And the hard cap binds module and feature headers too.** `lintNode` returns at
+`c.Level() < 3` before the rubric, which is right for an advisory length bound —
+a long header abstract costs retrieval little. It is wrong for the WALL: a header
+abstract a sentence from the cap is exactly as unwritable as a rule's, and
+reporting nothing there leaves the author to discover it at write time, which is
+the whole defect this issue is about.
+
+So the near-cap check moved ABOVE the early return and the soft check stayed
+below it. Only the advisory bound tiers down. A rule-tier node at the wall must
+therefore collect exactly one finding, not two, and there is a test for that.
+
+### The sweep kept finishing one surface short
+
+Three consecutive rounds corrected the same claim and each left one place still
+asserting the old one: the message, then the plan-doc table and the agent
+contract, then `spec lint --help`. Every round I swept from memory, and every
+round the list was one shorter than the truth.
+
+**The fix is to enumerate mechanically rather than recall.** Four surfaces carry
+this rule, and the check is one loop:
+
+```sh
+for f in internal/cmd/spec/lint.go internal/cmd/agentic/agentic-usage.md \
+         docs/plans/spec-abstract-length.md; do
+  flat=$(tr '\n' ' ' < "$f")   # the claim wraps; a line-based grep under-reports
+  …assert all three states appear…
+done
+```
+
+The `tr` matters: the first version of that check reported the agent contract at
+2/3 because "REPLACES the abstract" was split across a line break. **A sweep whose
+own instrument under-reports is worse than no sweep**, because it produces a
+clean result — the same failure shape as everything else this issue turned up.
+
+### The count itself did not match the server
+
+The last finding of the review, and the one that undercut the whole feature:
+`abstractLength` **trimmed before counting**, and its comment said this matched
+"how the server measures its own 2000-char cap".
+
+Verified against hadron-server `origin/main` 6968543 — `normalizeAbstract`,
+`src/mcp/server.ts` — rather than argued:
+
+```js
+if (raw.length > 2000) throw new NodeAbstractTooLongError(raw.length);
+if (raw.trim() === '') return null;
+return raw;
+```
+
+**The cap is checked on the RAW value, before the whitespace-only collapse**, and
+a non-empty abstract "persists untrimmed so intentional surrounding whitespace on
+real paragraphs is lossless". So the final newline `--abstract-file` preserves
+counts — and an abstract reported as having 150 characters of headroom had 149.
+For a feature whose entire purpose is that the number can be trusted, that is the
+defect, not a rounding detail.
+
+Two axes, because the comment was wrong twice: `raw.length` is **UTF-16 code
+units**, not runes. Everything a spec corpus carries is one of each, so it only
+diverges above the BMP — but "claims to match the server and does not" is exactly
+what put the wrong number in front of the reader.
+
+**The sibling checkout was on a colleague's branch**, which `scripts/sibling-source.sh`
+refused, correctly. Read from a throwaway detached worktree of `origin/main`,
+removed afterwards; her checkout is untouched.
