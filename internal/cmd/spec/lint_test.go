@@ -955,9 +955,21 @@ func TestTheCapBoundaryIsItsOwnStateNotLumpedWithOverCap(t *testing.T) {
 		t.Errorf("at the cap, shortening is not the only valid edit: %q", at)
 	}
 
+	// PAST the cap the claim is about abstract REPLACEMENTS, not updates — and
+	// my own assertion here encoded the broader version until @codex pointed at
+	// the schema: UpdateNodeInput preserves omitted fields, and `spec supersede`
+	// retires a node by sending only tags and content. So "any update that does
+	// not shorten it" said the very remedy the message recommends would itself
+	// be rejected.
 	over := msgAt(abstractHardMax + 48)
-	if !strings.Contains(over, "shorten it below the cap") {
-		t.Errorf("past the cap the claim IS unconditional and must say what is required: %q", over)
+	if !strings.Contains(over, "REPLACES the abstract is rejected") {
+		t.Errorf("past the cap the claim must be scoped to abstract replacements: %q", over)
+	}
+	if !strings.Contains(over, "spec supersede") {
+		t.Errorf("the message must say the recommended remedy still works: %q", over)
+	}
+	if strings.Contains(over, "any update that does not shorten") {
+		t.Errorf("the retired overclaim must not come back: %q", over)
 	}
 	if strings.Contains(over, "equal-length rewrite still works") {
 		t.Errorf("past the cap an equal-length rewrite is still rejected: %q", over)
@@ -1026,5 +1038,63 @@ func TestPlural(t *testing.T) {
 		if got := plural(tc.n, "char"); got != tc.want {
 			t.Errorf("plural(%d) = %q, want %q", tc.n, got, tc.want)
 		}
+	}
+}
+
+// THE HARD CAP BINDS EVERY TIER, including the module and feature headers the
+// soft rule deliberately skips (@codex on #565).
+//
+// `lintNode` returns at `c.Level() < 3` before the rubric, which is right for an
+// advisory length bound — a header abstract being long costs retrieval little.
+// It is wrong for the WALL: a header abstract a sentence from the cap is exactly
+// as unwritable as a rule's, and reporting nothing there leaves the author to
+// discover it at write time, which is the whole defect #539 is about.
+func TestTheHardCapIsReportedForHeaderTiersToo(t *testing.T) {
+	for _, loc := range []string{"cor", "cor:agt", "cor:agt:020"} {
+		sn := cleanSpec(t, loc, "Headers")
+		abs := strings.Repeat("a", abstractHardMax-10)
+		sn.Abstract = &abs
+		var found bool
+		for _, f := range lintNode(sn) {
+			if f.Rule == "abstract-length" {
+				found = true
+				if f.Severity != sevError {
+					t.Errorf("%s: a header at the wall must escalate, got %q", loc, f.Severity)
+				}
+				if !strings.Contains(f.Message, "10 chars of headroom") {
+					t.Errorf("%s: the header finding must report headroom: %q", loc, f.Message)
+				}
+			}
+		}
+		if !found {
+			t.Errorf("%s: a header abstract 10 chars from the cap must be reported", loc)
+		}
+	}
+
+	// ...and the ADVISORY soft bound still tiers down: a header comfortably past
+	// 1600 but far from the cap reports nothing, which is the behaviour the
+	// early return was written for and must not change.
+	sn := cleanSpec(t, "cor:agt", "Headers")
+	abs := strings.Repeat("a", abstractSoftMax+100)
+	sn.Abstract = &abs
+	for _, f := range lintNode(sn) {
+		if f.Rule == "abstract-length" {
+			t.Errorf("the soft bound must still skip headers: %q", f.Message)
+		}
+	}
+}
+
+// One finding per node, not two: the near-cap check runs above the header
+// return and the soft check below it, so a rule-tier node at the wall must not
+// collect both.
+func TestANodeAtTheWallGetsExactlyOneAbstractLengthFinding(t *testing.T) {
+	n := 0
+	for _, f := range lintNode(abstractOf(t, "msg:010:02", abstractHardMax-10)) {
+		if f.Rule == "abstract-length" {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Errorf("expected exactly one abstract-length finding, got %d", n)
 	}
 }

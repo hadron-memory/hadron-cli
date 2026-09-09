@@ -325,6 +325,17 @@ func lintNode(n specNode) []lintFindingDTO {
 		}
 	}
 
+	// THE HARD CAP BINDS EVERY TIER, so it is evaluated before the header early
+	// return (@codex on #565). A module or feature abstract a sentence from the
+	// cap is as unwritable as a rule's, and returning here reported neither the
+	// headroom nor the fact that a replacement would be rejected. Only the
+	// ADVISORY soft bound tiers down.
+	if abstractPresent(n.Abstract) {
+		if l := abstractLength(n.Abstract); abstractNearCap(l) {
+			add("abstract-length", sevError, nearCapMessage(l, n.Name))
+		}
+	}
+
 	if err != nil || c.Level() < 3 {
 		return fs
 	}
@@ -368,71 +379,23 @@ func lintNode(n specNode) []lintFindingDTO {
 	}
 	if !abstractPresent(n.Abstract) {
 		add("abstract", rubricSev, "missing abstract — the vector-search retrieval surface (or still a placeholder); state the questions this spec answers, in your own words, keeping every sentence on its topic")
-	} else if l := abstractLength(n.Abstract); l > abstractSoftMax {
+	} else if l := abstractLength(n.Abstract); l > abstractSoftMax && !abstractNearCap(l) {
+		// The SOFT range only. The near-cap finding is raised earlier, above the
+		// header early return, because the server's cap binds a module or
+		// feature abstract exactly as it binds a rule's (@codex on #565) — the
+		// advisory soft bound is what tiers down, not the wall.
+		//
 		// Length itself is a weak lever — an on-topic abstract costs almost
-		// nothing up to the server's cap — so this is advisory even at the
-		// rule tier, and info-level for flows. What actually dilutes the
-		// vector is off-topic material, which the message points at.
+		// nothing up to the server's cap — so this is advisory even at the rule
+		// tier, and info-level for flows. What actually dilutes the vector is
+		// off-topic material, which the message points at.
 		sev := sevWarning
 		if c.Level() == 4 {
 			sev = sevInfo
 		}
-		headroom := abstractHardMax - l
-		msg := fmt.Sprintf(
+		add("abstract-length", sev, fmt.Sprintf(
 			"abstract is %d chars, %s of headroom before the %d-char hard cap — past ~%d added length stops paying for itself; distill it, and check every sentence is still about this spec (off-topic sentences dilute the vector far more than length does)",
-			l, plural(headroom, "char"), abstractHardMax, abstractSoftMax)
-		if headroom < abstractTightHeadroom {
-			// ESCALATED, because this is a different finding wearing the same
-			// rule name (#539): the advice above is actively wrong here, since
-			// every sentence is on-subject and distilling drops a contract.
-			sev = sevError
-			// The failure is CONDITIONAL, and saying otherwise was an overclaim
-			// both bots caught. The server rejects a write whose abstract
-			// exceeds the cap — not "the next edit". At 1922 an equal-length
-			// replacement is fine, and so is adding up to 78 characters; what
-			// fails is GROWING it past what is left. Stating the stronger thing
-			// would have justified a costly split on a node that did not need
-			// one yet.
-			//
-			// At or past the cap, headroom is 0 or negative and the sentence
-			// changes rather than printing a negative number.
-			// THREE cases, because the cap rejects values LONGER than it and
-			// the boundary is its own state (@codex on #565, twice).
-			//
-			// Round 1 corrected "the next edit fails" to name the condition —
-			// and the at/or/past branch I added to do it re-stated the overclaim
-			// at exactly `headroom == 0`, where an equal-length replacement is
-			// still perfectly valid. I fixed the instance and rebuilt the class
-			// one branch over, which is the failure @Dara named: answering the
-			// example is how you get shown the next example.
-			const remedy = " Do not distill: on a spec whose sentences are all on-subject, cutting one drops a contract. This is a granularity signal — the node carries more than one subject, and the remedy is a supersede-level split"
-			switch {
-			case headroom > 0:
-				msg = fmt.Sprintf(
-					"abstract is %d chars — only %s of headroom before the %d-char hard cap, so any edit that grows it past that is rejected at write time.%s",
-					l, plural(headroom, "char"), abstractHardMax, remedy)
-			case headroom == 0:
-				msg = fmt.Sprintf(
-					"abstract is %d chars — exactly the %d-char hard cap, so any edit that lengthens it is rejected at write time (an equal-length rewrite still works).%s",
-					l, abstractHardMax, remedy)
-			default:
-				// Over-cap is only reachable from data written before the cap
-				// existed. Here the claim IS unconditional: the value already
-				// exceeds the limit, so a write must bring it back under.
-				msg = fmt.Sprintf(
-					"abstract is %d chars — already past the %d-char hard cap, so any update that does not shorten it below the cap is rejected at write time.%s",
-					l, abstractHardMax, remedy)
-			}
-			if conj := titleConjunction(n.Name); conj != "" {
-				// The mechanical half of the diagnosis (@Ada, #539): three specs
-				// flagged for length all had a conjunction in the title —
-				// "allocation AND permanence", "sessions, liveness AND
-				// provenance". A title that names two subjects is the node
-				// telling you what to split it into.
-				msg += fmt.Sprintf(`, which the %q in this spec's own title already suggests`, conj)
-			}
-		}
-		add("abstract-length", sev, msg)
+			l, plural(abstractHardMax-l, "char"), abstractHardMax, abstractSoftMax))
 	}
 	if n.Content == nil || !reInvalidates.MatchString(*n.Content) {
 		add("invalidates", rubricSev, `body should state what invalidates this spec`)
@@ -992,8 +955,9 @@ func titleConjunction(title string) string {
 	if _, human, found := strings.Cut(title, "—"); found {
 		title = human
 	}
+	lower := strings.ToLower(title)
 	for _, c := range []string{" and ", " & ", "/"} {
-		if strings.Contains(strings.ToLower(title), c) {
+		if strings.Contains(lower, c) {
 			return strings.TrimSpace(c)
 		}
 	}
@@ -1012,4 +976,44 @@ func plural(n int, unit string) string {
 		return "1 " + unit
 	}
 	return fmt.Sprintf("%d %ss", n, unit)
+}
+
+// abstractNearCap reports whether an abstract is close enough to the server's
+// cap that the finding escalates — including at or past it.
+func abstractNearCap(l int) bool { return abstractHardMax-l < abstractTightHeadroom }
+
+// nearCapMessage renders the escalated finding.
+//
+// THREE states, because the cap rejects values LONGER than it and the boundary
+// is its own state (@codex on #565, three rounds — each correction re-stated the
+// overclaim one case over, which is why this is one function rather than an
+// expression repeated at two call sites).
+func nearCapMessage(l int, title string) string {
+	const remedy = " Do not distill: on a spec whose sentences are all on-subject, cutting one drops a contract. This is a granularity signal — the node carries more than one subject, and the remedy is a supersede-level split"
+	var msg string
+	switch headroom := abstractHardMax - l; {
+	case headroom > 0:
+		msg = fmt.Sprintf(
+			"abstract is %d chars — only %s of headroom before the %d-char hard cap, so any edit that grows it past that is rejected at write time.%s",
+			l, plural(headroom, "char"), abstractHardMax, remedy)
+	case headroom == 0:
+		msg = fmt.Sprintf(
+			"abstract is %d chars — exactly the %d-char hard cap, so any edit that lengthens it is rejected at write time (an equal-length rewrite still works).%s",
+			l, abstractHardMax, remedy)
+	default:
+		// The claim is about ABSTRACT REPLACEMENTS, not about updates (@codex).
+		// UpdateNodeInput preserves omitted fields, and `spec supersede` retires
+		// a node by sending only tags and content — so the broader wording said
+		// the very remedy this message recommends would itself be rejected.
+		msg = fmt.Sprintf(
+			"abstract is %d chars — already past the %d-char hard cap, so any update that REPLACES the abstract is rejected unless it brings it to %d or fewer; an update that leaves the abstract alone (a body-only edit, including the one `spec supersede` writes) still succeeds.%s",
+			l, abstractHardMax, abstractHardMax, remedy)
+	}
+	if conj := titleConjunction(title); conj != "" {
+		// The mechanical half of the diagnosis (@Ada, #539): three specs flagged
+		// for length all had a conjunction in the title. A title that names two
+		// subjects is the node telling you what to split it into.
+		msg += fmt.Sprintf(`, which the %q in this spec's own title already suggests`, conj)
+	}
+	return msg
 }

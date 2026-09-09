@@ -334,3 +334,30 @@ Three states now, because the boundary is one:
 
 Only the third claim is unconditional, and only because the value already
 exceeds the limit.
+
+### The overclaim had a third form, and the wall binds every tier
+
+Two more from @codex, both after the boundary fix above.
+
+**The over-cap claim was still too broad.** It said *"any update that does not
+shorten it below the cap is rejected"* — but `UpdateNodeInput` preserves omitted
+fields, and `spec supersede` retires a node by sending only tags and content
+(`supersede.go`). So a body-only edit succeeds with an over-cap abstract
+untouched, **and the message was telling the reader that the very remedy it
+recommends would be rejected.** Scoped to abstract *replacements* now, with the
+supersede path named explicitly.
+
+That is three rounds of the same overclaim, each correction re-stating it one
+case over. The message construction is now a single function, `nearCapMessage`,
+rather than an expression at two call sites — the shape that let it drift.
+
+**And the hard cap binds module and feature headers too.** `lintNode` returns at
+`c.Level() < 3` before the rubric, which is right for an advisory length bound —
+a long header abstract costs retrieval little. It is wrong for the WALL: a header
+abstract a sentence from the cap is exactly as unwritable as a rule's, and
+reporting nothing there leaves the author to discover it at write time, which is
+the whole defect this issue is about.
+
+So the near-cap check moved ABOVE the early return and the soft check stayed
+below it. Only the advisory bound tiers down. A rule-tier node at the wall must
+therefore collect exactly one finding, not two, and there is a test for that.
