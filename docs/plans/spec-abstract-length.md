@@ -310,3 +310,27 @@ which does not shorten the abstract is refused.
 Both fixes swept all three surfaces that carry the claim — the finding, the
 `spec lint --help` text, and `agentic-usage.md` — since one wording living in
 three places is how the retired version survives in two of them.
+
+### And the fix reproduced the overclaim at the boundary
+
+Round 2 is worth recording because it is the same mistake as round 1, one branch
+over. Correcting *"the next edit fails"* to name the condition, I added an
+`at or past the cap` branch that said *"any update that does not shorten it is
+rejected"* — **which is false at exactly 2000**, where the server still accepts
+an equal-length rewrite, because the cap rejects values LONGER than it.
+
+So the finding would have pushed a node at the boundary toward a supersede-level
+split it does not need — the identical consequence round 1 removed. **I fixed
+the instance and rebuilt the class one case over**, which is precisely @Dara's
+line: answering the example is how you get shown the next example.
+
+Three states now, because the boundary is one:
+
+| length | what is true |
+| --- | --- |
+| `< 2000` | any edit that grows it past the remaining headroom is rejected |
+| `== 2000` | any edit that LENGTHENS it is rejected; an equal-length rewrite still works |
+| `> 2000` (legacy data) | any update that does not shorten it below the cap is rejected |
+
+Only the third claim is unconditional, and only because the value already
+exceeds the limit.

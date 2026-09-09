@@ -818,7 +818,10 @@ func TestTheSoftRangeMessageAlsoReportsHeadroom(t *testing.T) {
 		if f.Severity != sevWarning {
 			t.Fatalf("this length must stay advisory, got %q", f.Severity)
 		}
-		for _, want := range []string{"1700", "300", "2000"} {
+		// "300 of headroom" without a unit reads ambiguously (@copilot); the
+		// escalated message already said "chars", so this is one vocabulary
+		// rather than two.
+		for _, want := range []string{"1700 chars", "300 chars of headroom", "2000-char hard cap"} {
 			if !strings.Contains(f.Message, want) {
 				t.Errorf("the warning must carry %q: %q", want, f.Message)
 			}
@@ -912,9 +915,42 @@ func TestAtOrPastTheCapTheFindingDoesNotPrintNegativeHeadroom(t *testing.T) {
 				t.Errorf("%d chars: %q is meaningless at or past the cap: %q", l, forbidden, msg)
 			}
 		}
-		if !strings.Contains(msg, "does not shorten it is rejected") {
-			t.Errorf("%d chars: the finding must say what still works: %q", l, msg)
+	}
+}
+
+// AT the cap and PAST it are different states, and lumping them re-stated the
+// very overclaim round 1 removed (@codex on #565, second time).
+//
+// At exactly 2000 the server still accepts an equal-length rewrite — it rejects
+// values LONGER than the cap. Saying "any update that does not shorten it is
+// rejected" there would push a node toward a supersede-level split it does not
+// need. Past the cap the unconditional claim is true, because the value already
+// exceeds the limit.
+func TestTheCapBoundaryIsItsOwnStateNotLumpedWithOverCap(t *testing.T) {
+	msgAt := func(l int) string {
+		for _, f := range lintNode(abstractOf(t, "msg:010:02", l)) {
+			if f.Rule == "abstract-length" {
+				return f.Message
+			}
 		}
+		t.Fatalf("expected an abstract-length finding at %d", l)
+		return ""
+	}
+
+	at := msgAt(abstractHardMax)
+	if !strings.Contains(at, "equal-length rewrite still works") {
+		t.Errorf("at the cap, an equal-length rewrite is valid and the finding must say so: %q", at)
+	}
+	if strings.Contains(at, "does not shorten") {
+		t.Errorf("at the cap, shortening is not the only valid edit: %q", at)
+	}
+
+	over := msgAt(abstractHardMax + 48)
+	if !strings.Contains(over, "shorten it below the cap") {
+		t.Errorf("past the cap the claim IS unconditional and must say what is required: %q", over)
+	}
+	if strings.Contains(over, "equal-length rewrite still works") {
+		t.Errorf("past the cap an equal-length rewrite is still rejected: %q", over)
 	}
 }
 

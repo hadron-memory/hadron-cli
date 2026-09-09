@@ -379,7 +379,7 @@ func lintNode(n specNode) []lintFindingDTO {
 		}
 		headroom := abstractHardMax - l
 		msg := fmt.Sprintf(
-			"abstract is %d chars, %d of headroom before the %d-char hard cap — past ~%d added length stops paying for itself; distill it, and check every sentence is still about this spec (off-topic sentences dilute the vector far more than length does)",
+			"abstract is %d chars, %d chars of headroom before the %d-char hard cap — past ~%d added length stops paying for itself; distill it, and check every sentence is still about this spec (off-topic sentences dilute the vector far more than length does)",
 			l, headroom, abstractHardMax, abstractSoftMax)
 		if headroom < abstractTightHeadroom {
 			// ESCALATED, because this is a different finding wearing the same
@@ -396,15 +396,32 @@ func lintNode(n specNode) []lintFindingDTO {
 			//
 			// At or past the cap, headroom is 0 or negative and the sentence
 			// changes rather than printing a negative number.
+			// THREE cases, because the cap rejects values LONGER than it and
+			// the boundary is its own state (@codex on #565, twice).
+			//
+			// Round 1 corrected "the next edit fails" to name the condition —
+			// and the at/or/past branch I added to do it re-stated the overclaim
+			// at exactly `headroom == 0`, where an equal-length replacement is
+			// still perfectly valid. I fixed the instance and rebuilt the class
+			// one branch over, which is the failure @Dara named: answering the
+			// example is how you get shown the next example.
+			const remedy = " Do not distill: on a spec whose sentences are all on-subject, cutting one drops a contract. This is a granularity signal — the node carries more than one subject, and the remedy is a supersede-level split"
 			switch {
 			case headroom > 0:
 				msg = fmt.Sprintf(
-					"abstract is %d chars — only %d chars of headroom before the %d-char hard cap, so any edit that grows it past that is rejected at write time. Do not distill: on a spec whose sentences are all on-subject, cutting one drops a contract. This is a granularity signal — the node carries more than one subject, and the remedy is a supersede-level split",
-					l, headroom, abstractHardMax)
-			default:
+					"abstract is %d chars — only %d chars of headroom before the %d-char hard cap, so any edit that grows it past that is rejected at write time.%s",
+					l, headroom, abstractHardMax, remedy)
+			case headroom == 0:
 				msg = fmt.Sprintf(
-					"abstract is %d chars — at or past the %d-char hard cap, so any update that does not shorten it is rejected at write time. Do not distill: on a spec whose sentences are all on-subject, cutting one drops a contract. This is a granularity signal — the node carries more than one subject, and the remedy is a supersede-level split",
-					l, abstractHardMax)
+					"abstract is %d chars — exactly the %d-char hard cap, so any edit that lengthens it is rejected at write time (an equal-length rewrite still works).%s",
+					l, abstractHardMax, remedy)
+			default:
+				// Over-cap is only reachable from data written before the cap
+				// existed. Here the claim IS unconditional: the value already
+				// exceeds the limit, so a write must bring it back under.
+				msg = fmt.Sprintf(
+					"abstract is %d chars — already past the %d-char hard cap, so any update that does not shorten it below the cap is rejected at write time.%s",
+					l, abstractHardMax, remedy)
 			}
 			if conj := titleConjunction(n.Name); conj != "" {
 				// The mechanical half of the diagnosis (@Ada, #539): three specs
