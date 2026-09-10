@@ -114,15 +114,19 @@ func ResolveBody(cmd *cobra.Command, body, bodyFile string, stdin io.Reader) (st
 	var text string
 	switch {
 	case cmd.Flags().Changed("body-file"):
+		// A bad --body-file path is a user-input mistake, so it is Usage (2),
+		// not the generic 1 the raw os.PathError classifies as (#390) —
+		// scripts branch on the documented exit-code contract. Mirrors
+		// resolveHandoff, which already wraps this.
 		data, err := os.ReadFile(bodyFile)
 		if err != nil {
-			return "", err
+			return "", exitcode.Newf(exitcode.Usage, "reading --body-file: %v", err)
 		}
 		text = string(data)
 	case body == "-":
 		data, err := io.ReadAll(stdin)
 		if err != nil {
-			return "", err
+			return "", exitcode.Newf(exitcode.Usage, "reading the message from stdin: %v", err)
 		}
 		text = string(data)
 	default:
