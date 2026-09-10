@@ -67,10 +67,20 @@ func RawGraphQL(ctx context.Context, serverURL, token, query string, variables m
 	// as retryable would contradict the 4xx rule this change exists to
 	// establish (PR #415 review).
 	body, readErr := io.ReadAll(resp.Body)
-	if resp.StatusCode == 401 {
-		return nil, exitcode.Newf(exitcode.AuthRequired, "HTTP 401: %s", bytes.TrimSpace(body))
-	}
+	// A non-200 whose body carries a typed GraphQL envelope is classified by
+	// that extensions.code — parity with MapError's HTTPError branch
+	// (#563/#576), which the curated path takes. The status mapping below is
+	// the fallback for a truncated or code-less body. This REFINES the exit
+	// code; it does not make a 4xx retryable — the #415 rule (a 4xx is the
+	// server refusing, never transport) stands, because a truncated body does
+	// not parse and falls straight through to the status.
 	if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+		if code, ok := codeFromEnvelope(body); ok {
+			return nil, exitcode.Newf(code, "HTTP %d: %s", resp.StatusCode, bytes.TrimSpace(body))
+		}
+		if resp.StatusCode == 401 {
+			return nil, exitcode.Newf(exitcode.AuthRequired, "HTTP 401: %s", bytes.TrimSpace(body))
+		}
 		return nil, exitcode.Newf(exitcode.Error, "HTTP %d: %s", resp.StatusCode, bytes.TrimSpace(body))
 	}
 	if readErr != nil {
@@ -85,6 +95,9 @@ func RawGraphQL(ctx context.Context, serverURL, token, query string, variables m
 		return nil, transportError(f, isMutation)
 	}
 	if resp.StatusCode >= 400 {
+		if code, ok := codeFromEnvelope(body); ok {
+			return nil, exitcode.Newf(code, "HTTP %d: %s", resp.StatusCode, bytes.TrimSpace(body))
+		}
 		return nil, exitcode.Newf(exitcode.Error, "HTTP %d: %s", resp.StatusCode, bytes.TrimSpace(body))
 	}
 
@@ -96,6 +109,26 @@ func RawGraphQL(ctx context.Context, serverURL, token, query string, variables m
 		result.Errors = envelope.Errors
 	}
 	return result, nil
+}
+
+// codeFromEnvelope extracts an exit code from the first GraphQL error in a
+// response body that carries a typed extensions.code. ok is false when the body
+// does not parse or carries no code — a truncated body, or an HTML gateway page
+// — so the caller falls back to the status. This is the raw path's half of the
+// #563/#576 rule: the envelope code wins over the HTTP status, and both the
+// curated (MapError) and raw (`hadron api`) paths now say so.
+func codeFromEnvelope(body []byte) (int, bool) {
+	var env struct {
+		Errors []rawError `json:"errors"`
+	}
+	if json.Unmarshal(body, &env) == nil {
+		for _, e := range env.Errors {
+			if c, ok := e.Extensions["code"].(string); ok && c != "" {
+				return codeForExtension(c), true
+			}
+		}
+	}
+	return 0, false
 }
 
 // Err returns a CodedError summarizing the response's GraphQL errors,
