@@ -192,21 +192,20 @@ names) is what says whether one is already taken.`,
 				// to an agent's personaRole by string equality alone, and
 				// nothing gates the match (cor:agt:020:00 §1) — so a definition
 				// for a role no agent carries, or an installed agent whose
-				// persona role no definition names, both pass unremarked. The
-				// reverse half needs the install roster; read it here, in the
-				// human branch only (--json already carries roleAgentName, whose
-				// null IS the first case, and the reverse is `app agent list`'s
-				// data — don't issue a decorating read under --json). A narrowed
-				// listing (--team-agent) can't judge the reverse — it sees only
-				// one branch's definitions — so that half is skipped then.
+				// persona role no definition names, both pass unremarked. Both
+				// are GROUNDED in the install roster (the count of installed
+				// agents per persona role), read here in the human branch only —
+				// --json is `app agent list`'s data, so no decorating read under
+				// --json (the ambient-scope rule). The forward direction is
+				// listing-independent, but the reverse is unreliable under a
+				// narrowed --team-agent listing (it sees only one branch's
+				// definitions), so it is gated on that.
 				var members []approster.MemberDTO
 				haveRoster := false
-				if teamAgent == "" {
-					if r, rErr := approster.Fetch(cmd.Context(), client, scope.Ref); rErr == nil {
-						members, haveRoster = r.Members, true
-					}
+				if r, rErr := approster.Fetch(cmd.Context(), client, scope.Ref); rErr == nil {
+					members, haveRoster = r.Members, true
 				}
-				emitRoleConsistencyWarnings(w, roles, members, haveRoster)
+				emitRoleConsistencyWarnings(w, roles, members, haveRoster, teamAgent == "")
 				return nil
 			})
 		},
@@ -216,19 +215,36 @@ names) is what says whether one is already taken.`,
 }
 
 // emitRoleConsistencyWarnings writes the #542 divergence warnings for `role
-// list`: a definition whose persona role no installed agent carries (the AGENT
-// column is blank — visible in --json as a null roleAgentName), and, when the
-// listing is not narrowed by --team-agent, an installed agent whose persona
-// role no definition names. Both are WARNINGS, never gates (cor:agt:020:00 §1),
-// and human-only. haveRoster is false when the roster read was skipped or
-// failed, which drops the reverse half rather than failing a working list.
-func emitRoleConsistencyWarnings(w io.Writer, roles []roleDTO, members []approster.MemberDTO, haveRoster bool) {
+// list`, both WARNINGS and never gates (cor:agt:020:00 §1), human-only.
+//
+// Both directions are grounded in the install roster — the COUNT of installed
+// agents whose personaRole matches. roleAgentName==nil is deliberately NOT used
+// for the forward case: TeamRoleFields.roleAgent is null for zero OR several
+// matches AND masks to null on read-deny (#552), so "no agent carries this
+// role" read off it is a false positive for the ambiguous and masked cases
+// (codex/copilot on #569). The roster count tells them apart: exactly zero is
+// the silent divergence; several is AMBIGUOUS, which fails loudly at cast
+// (WORKER_AGENT_AMBIGUOUS) and so needs no warning; one-but-masked is not a
+// divergence at all. Without the roster (read failed) nothing is emitted — the
+// blank AGENT cell stays the unannotated signal. reverseOK is false under a
+// narrowed --team-agent listing, which sees only one branch's definitions and
+// so would false-positive the reverse direction.
+func emitRoleConsistencyWarnings(w io.Writer, roles []roleDTO, members []approster.MemberDTO, haveRoster, reverseOK bool) {
+	if !haveRoster {
+		return
+	}
+	count := map[string]int{}
+	for _, m := range members {
+		if m.PersonaRole != nil && *m.PersonaRole != "" {
+			count[strings.ToLower(*m.PersonaRole)]++
+		}
+	}
 	for _, r := range roles {
-		if r.RoleAgentName == nil {
+		if count[strings.ToLower(r.Role)] == 0 {
 			fmt.Fprintf(w, "! role %s: no installed agent carries this persona role — the definition documents a role nobody holds\n", r.Role)
 		}
 	}
-	if !haveRoster {
+	if !reverseOK {
 		return
 	}
 	defined := map[string]bool{}

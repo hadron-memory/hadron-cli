@@ -861,7 +861,6 @@ func TestTeamRoleList(t *testing.T) {
 
 	// Human table, and the nameless-template warning that survived.
 	f2, out2 := testFactory(t)
-	_ = out2
 	root2 := NewRootCmd(f2)
 	root2.SetArgs([]string{"team", "role", "list", "--app", "acme.com:eng-team", "--server", gql.URL})
 	if err := root2.Execute(); err != nil {
@@ -4353,10 +4352,14 @@ func TestTeamRoleListJSONDoesNotReadTheRoster(t *testing.T) {
 }
 
 // A narrowed listing (--team-agent) sees only one branch's definitions, so it
-// cannot judge the reverse direction and must not read the roster or warn.
-func TestTeamRoleListTeamAgentSkipsReverse(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{
+// cannot judge the REVERSE direction and suppresses it. The FORWARD direction
+// is listing-independent (a listed role with zero installed agents is unheld
+// whatever branch it came from), so it still fires — grounded in the roster
+// count, which is why the roster is read either way.
+func TestTeamRoleListTeamAgentDoesForwardNotReverse(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
 		"TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON,
+		"AppAgentRoster": engTeamRosterJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -4365,12 +4368,14 @@ func TestTeamRoleListTeamAgentSkipsReverse(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if _, read := captured["AppAgentRoster"]; read {
-		t.Error("a --team-agent listing must not read the roster for the reverse check")
-	}
-	// the forward warning still fires — it needs no roster.
+	// forward still fires: qa has zero installed agents in the roster.
 	if !strings.Contains(out.String(), "! role qa: no installed agent carries") {
-		t.Errorf("the forward warning is roster-free and must still fire: %s", out.String())
+		t.Errorf("the forward warning is listing-independent and must fire: %s", out.String())
+	}
+	// reverse is suppressed: ios-app-engineer has no definition, but a narrowed
+	// listing can't judge that, so it must NOT be flagged.
+	if strings.Contains(out.String(), "ios-app-engineer") {
+		t.Errorf("a --team-agent listing must not flag the reverse direction: %s", out.String())
 	}
 }
 
@@ -4436,5 +4441,31 @@ func TestTeamWorkerCastRolesReadErrorIsSilent(t *testing.T) {
 	}
 	if note := f.IOStreams.ErrOut.(*strings.Builder).String(); strings.Contains(note, "no team role definition") {
 		t.Errorf("an unreadable roles branch must not manufacture a note: %q", note)
+	}
+}
+
+// #569 review (codex/copilot): roleAgentName==nil is NOT "no agent carries this
+// role" — roleAgent also masks to null on read-deny (#552) and is null for an
+// AMBIGUOUS match. The forward warning is grounded in the roster COUNT instead,
+// so a definition whose roleAgent is null but whose persona role a roster agent
+// DOES carry must stay silent (the old, flagged code warned here).
+func TestTeamRoleListForwardWarningGroundedInRosterNotNullAgent(t *testing.T) {
+	// backend-engineer's roleAgent is null (as if masked or ambiguous), yet the
+	// roster shows an installed agent carrying it.
+	rolesNullAgent := `{"data":{"teamRoles":{"total":1,"items":[
+		{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be","description":"Backend role",
+		 "roleAgent":null,"hasNamePlaceholder":true}]}}}`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"TeamRoles": rolesNullAgent, "TeamAppIdentity": teamAppIdentityJSON,
+		"AppAgentRoster": engTeamRosterJSON, // has an agent with personaRole backend-engineer
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "role", "list", "--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Contains(out.String(), "role backend-engineer: no installed agent carries") {
+		t.Errorf("a null roleAgent the roster DOES match must not be flagged (masked/ambiguous ≠ absent): %s", out.String())
 	}
 }
