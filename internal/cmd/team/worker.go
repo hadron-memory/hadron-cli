@@ -82,6 +82,25 @@ type castPreviewDTO struct {
 // argues for the wrong code: it sounds like NOT_FOUND (4) and is a usage error
 // (2) — the ref resolves, the install is what is missing, and the caller fixes
 // it by passing an installed ref.
+// roleDefinitionExists reports whether the App has a role DEFINITION matching
+// the cast's --role (case-insensitive, as the server matches names). It is
+// best-effort: an unreadable or ambiguous roles branch returns true, so a read
+// failure after a successful cast stays silent rather than printing a note the
+// operator cannot trust. teamAgentRef is nil — `worker cast` has no
+// --team-agent, and the common team App carries one roles branch.
+func roleDefinitionExists(ctx context.Context, client graphql.Client, appRef, role string) bool {
+	rows, err := scanTeamRoles(ctx, client, appRef, nil)
+	if err != nil {
+		return true
+	}
+	for _, r := range rows {
+		if strings.EqualFold(r.Role, role) {
+			return true
+		}
+	}
+	return false
+}
+
 func newCmdWorkerCast(f *cmdutil.Factory) *cobra.Command {
 	var role, name, agentRef, promptOverride string
 	var dryRun bool
@@ -224,6 +243,18 @@ context).`,
 			}
 			if resp.CastWorker == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no worker")
+			}
+			// #542: a --role cast resolves an AGENT by personaRole; it does not
+			// consult the team's role DEFINITIONS, and nothing couples the two
+			// but string equality — so casting a worker whose role has no
+			// definition succeeds silently, leaving a role nobody documented.
+			// Note it at the moment the divergence is created. Best-effort and
+			// on stderr: the cast already succeeded and must not fail here, and
+			// stderr keeps the --json receipt on stdout untouched (an --agent
+			// cast's --role is just a label, so this only fires for --role).
+			if role != "" && !roleDefinitionExists(cmd.Context(), client, appRef, role) {
+				fmt.Fprintf(f.IOStreams.ErrOut,
+					"note: no team role definition for %q — `hadron team role create %s` documents it (`team role list` shows the gap)\n", role, role)
 			}
 			dto := workerDTOFromFields(resp.CastWorker.WorkerFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

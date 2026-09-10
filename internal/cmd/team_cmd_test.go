@@ -85,6 +85,7 @@ const teamAppIdentityJSON = `{"data":{"app":{"id":"capp100000000000000000000","u
 func TestTeamWorkerCast(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"CastWorker": `{"data":{"castWorker":` + irisWorkerJSON + `}}`,
+		"TeamRoles":  teamRolesJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -801,6 +802,15 @@ func TestTeamWorkerRmInUseIsConflict(t *testing.T) {
 	}
 }
 
+// engTeamRosterJSON is the eng-team App's install roster for the #542
+// consistency warnings: backend-engineer's persona role HAS a definition (in
+// teamRolesJSON), and ios-app-engineer's does NOT — so a `role list` reverse
+// warning fires for it, while `qa` (defined, no installed agent) fires the
+// forward warning.
+const engTeamRosterJSON = `{"data":{"app":{"id":"capp100000000000000000000","urn":"hrn:app:acme.com:eng-team","name":"Eng Team","agents":[
+	{"id":"agt1","urn":"hrn:agent:acme.com:backend","name":"backend-engineer","description":null,"visibility":"ORGANIZATION","organizationId":"o1","personaRole":"backend-engineer","createdAt":"2026-08-11T00:00:00Z"},
+	{"id":"agt7","urn":"hrn:agent:acme.com:ios","name":"iOS App Engineer","description":null,"visibility":"ORGANIZATION","organizationId":"o1","personaRole":"ios-app-engineer","createdAt":"2026-08-11T00:00:00Z"}]}}}`
+
 const teamRolesJSON = `{"data":{"teamRoles":{"total":2,"items":[
 	{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be","description":"Backend role",
 	 "roleAgent":{"id":"agt1","urn":"hrn:agent:acme.com:backend","name":"backend-engineer","personaRole":"backend-engineer"},
@@ -812,7 +822,7 @@ const teamRolesJSON = `{"data":{"teamRoles":{"total":2,"items":[
 // allocation order. The free/taken verdicts are server truths (judged
 // against the App's FULL roster), never recomputed client-side.
 func TestTeamRoleList(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON})
+	gql, captured := captureGraphQL(t, map[string]string{"TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON, "AppAgentRoster": engTeamRosterJSON})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "role", "list", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
@@ -1016,6 +1026,7 @@ func TestTeamRoleScopeLineOnReadsAndReceipts(t *testing.T) {
 	t.Run("list opens with the App and its source", func(t *testing.T) {
 		gql, _ := captureGraphQL(t, map[string]string{
 			"TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON,
+			"AppAgentRoster": engTeamRosterJSON,
 		})
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
@@ -1032,6 +1043,7 @@ func TestTeamRoleScopeLineOnReadsAndReceipts(t *testing.T) {
 		gql, _ := captureGraphQL(t, map[string]string{
 			"TeamRoles":       `{"data":{"teamRoles":{"total":0,"items":[]}}}`,
 			"TeamAppIdentity": teamAppIdentityJSON,
+			"AppAgentRoster":  engTeamRosterJSON,
 		})
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
@@ -1121,6 +1133,7 @@ func TestTeamRoleListSurvivesUnreadableApp(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"TeamRoles":       teamRolesJSON,
 		"TeamAppIdentity": `{"errors":[{"message":"forbidden","extensions":{"code":"FORBIDDEN"}}]}`,
+		"AppAgentRoster":  engTeamRosterJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -4286,4 +4299,173 @@ func (w *flakyWriter) Write(p []byte) (int, error) {
 	}
 	w.ok--
 	return len(p), nil
+}
+
+// #542: `role list` calls out both silent divergences — a definition whose
+// persona role no installed agent carries (qa, roleAgent null), and an
+// installed agent whose persona role no definition names (ios-app-engineer, in
+// the roster but not in teamRolesJSON). Both are warnings, human-only, and
+// --json is untouched.
+func TestTeamRoleListWarnsOnRoleAgentDivergence(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON,
+		"AppAgentRoster": engTeamRosterJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "role", "list", "--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	s := out.String()
+	// forward: qa is defined but no installed agent carries it.
+	if !strings.Contains(s, "! role qa: no installed agent carries this persona role") {
+		t.Errorf("a definition with no agent must be flagged: %s", s)
+	}
+	// reverse: ios-app-engineer is installed but has no role definition.
+	if !strings.Contains(s, "ios-app-engineer") || !strings.Contains(s, "no matching role definition") {
+		t.Errorf("an installed agent with no definition must be flagged: %s", s)
+	}
+	// backend-engineer is on BOTH sides — it must trigger neither warning.
+	if strings.Contains(s, "role backend-engineer: no installed agent") ||
+		strings.Contains(s, "agent backend-engineer") {
+		t.Errorf("a role that matches both sides must be silent: %s", s)
+	}
+}
+
+// The reverse warning needs the install roster; --json must not issue that
+// decorating read (the roleAgentName null already carries the forward case,
+// and the reverse is `app agent list`'s data).
+func TestTeamRoleListJSONDoesNotReadTheRoster(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "role", "list", "--app", "acme.com:eng-team", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, read := captured["AppAgentRoster"]; read {
+		t.Error("--json must not issue the roster read the reverse warning needs")
+	}
+}
+
+// A narrowed listing (--team-agent) sees only one branch's definitions, so it
+// cannot judge the REVERSE direction and suppresses it. The FORWARD direction
+// is listing-independent (a listed role with zero installed agents is unheld
+// whatever branch it came from), so it still fires — grounded in the roster
+// count, which is why the roster is read either way.
+func TestTeamRoleListTeamAgentDoesForwardNotReverse(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON,
+		"AppAgentRoster": engTeamRosterJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "role", "list", "--app", "acme.com:eng-team",
+		"--team-agent", "hrn:agent:acme.com:team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// forward still fires: qa has zero installed agents in the roster.
+	if !strings.Contains(out.String(), "! role qa: no installed agent carries") {
+		t.Errorf("the forward warning is listing-independent and must fire: %s", out.String())
+	}
+	// reverse is suppressed: ios-app-engineer has no definition, but a narrowed
+	// listing can't judge that, so it must NOT be flagged.
+	if strings.Contains(out.String(), "ios-app-engineer") {
+		t.Errorf("a --team-agent listing must not flag the reverse direction: %s", out.String())
+	}
+}
+
+// #542: a --role cast whose role has NO team definition succeeds and notes it
+// on stderr, at the moment the divergence is created. --json stdout is clean.
+func TestTeamWorkerCastNotesMissingRoleDefinition(t *testing.T) {
+	undefined := `{"id":"wkr2","urn":"hrn:worker:acme.com:eng-team:vera","slug":"vera",
+		"appId":"capp100000000000000000000","agentId":"agt7","name":"Vera","role":"specs-engineer",
+		"prompt":"You are Vera.","promptOverride":null,"memoryId":"mw2","retiredAt":null,"retiredBy":null,
+		"createdAt":"2026-08-14T00:00:00Z","createdBy":"u-holger"}`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"CastWorker": `{"data":{"castWorker":` + undefined + `}}`,
+		"TeamRoles":  teamRolesJSON, // defines backend-engineer + qa, NOT specs-engineer
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "cast", "--app", "acme.com:eng-team",
+		"--role", "specs-engineer", "--name", "Vera", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	note := f.IOStreams.ErrOut.(*strings.Builder).String()
+	if !strings.Contains(note, "no team role definition for \"specs-engineer\"") {
+		t.Errorf("a role with no definition must be noted on stderr: %q", note)
+	}
+	// stdout stays the clean --json receipt.
+	if strings.Contains(out.String(), "no team role definition") {
+		t.Errorf("the note must not pollute --json stdout: %s", out.String())
+	}
+}
+
+// The reciprocal: a --role cast whose role IS defined prints no note.
+func TestTeamWorkerCastDefinedRoleIsSilent(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"CastWorker": `{"data":{"castWorker":` + irisWorkerJSON + `}}`,
+		"TeamRoles":  teamRolesJSON, // defines backend-engineer
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "cast", "--app", "acme.com:eng-team",
+		"--role", "backend-engineer", "--name", "Iris", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if note := f.IOStreams.ErrOut.(*strings.Builder).String(); strings.Contains(note, "no team role definition") {
+		t.Errorf("a defined role must produce no note: %q", note)
+	}
+}
+
+// A --role cast where the roles read FAILS must stay silent — the cast
+// succeeded, and a note the operator cannot trust is worse than none.
+func TestTeamWorkerCastRolesReadErrorIsSilent(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"CastWorker": `{"data":{"castWorker":` + irisWorkerJSON + `}}`,
+		"TeamRoles":  `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "cast", "--app", "acme.com:eng-team",
+		"--role", "backend-engineer", "--name", "Iris", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a failed roles read must not fail the cast: %v", err)
+	}
+	if note := f.IOStreams.ErrOut.(*strings.Builder).String(); strings.Contains(note, "no team role definition") {
+		t.Errorf("an unreadable roles branch must not manufacture a note: %q", note)
+	}
+}
+
+// #569 review (codex/copilot): roleAgentName==nil is NOT "no agent carries this
+// role" — roleAgent also masks to null on read-deny (#552) and is null for an
+// AMBIGUOUS match. The forward warning is grounded in the roster COUNT instead,
+// so a definition whose roleAgent is null but whose persona role a roster agent
+// DOES carry must stay silent (the old, flagged code warned here).
+func TestTeamRoleListForwardWarningGroundedInRosterNotNullAgent(t *testing.T) {
+	// backend-engineer's roleAgent is null (as if masked or ambiguous), yet the
+	// roster shows an installed agent carrying it.
+	rolesNullAgent := `{"data":{"teamRoles":{"total":1,"items":[
+		{"role":"backend-engineer","loc":"roles:backend-engineer","nodeId":"n-be","description":"Backend role",
+		 "roleAgent":null,"hasNamePlaceholder":true}]}}}`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"TeamRoles": rolesNullAgent, "TeamAppIdentity": teamAppIdentityJSON,
+		"AppAgentRoster": engTeamRosterJSON, // has an agent with personaRole backend-engineer
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "role", "list", "--app", "acme.com:eng-team", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Contains(out.String(), "role backend-engineer: no installed agent carries") {
+		t.Errorf("a null roleAgent the roster DOES match must not be flagged (masked/ambiguous ≠ absent): %s", out.String())
+	}
 }

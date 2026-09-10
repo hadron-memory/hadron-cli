@@ -238,6 +238,7 @@ func TestCastNormalizesTheNameBeforeTheWire(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{
 				"CastWorker": `{"data":{"castWorker":` + irisWorkerJSON + `}}`,
+				"TeamRoles":  teamRolesJSON,
 				"CastWorkerPreview": `{"data":{"castWorkerPreview":{"name":"Iris","role":"backend-engineer",
 					"agentId":"agt1","agentName":"backend-engineer","prompt":null,"hasNamePlaceholder":true}}}`,
 			})

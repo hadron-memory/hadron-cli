@@ -11,6 +11,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/approster"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -187,12 +188,78 @@ names) is what says whether one is already taken.`,
 						fmt.Fprintf(w, "! role %s: the role-agent's prompt template never binds {{name}} — its workers would be nameless in their own briefing\n", r.Role)
 					}
 				}
+				// The silent-divergence warnings (#542). A role name is coupled
+				// to an agent's personaRole by string equality alone, and
+				// nothing gates the match (cor:agt:020:00 §1) — so a definition
+				// for a role no agent carries, or an installed agent whose
+				// persona role no definition names, both pass unremarked. Both
+				// are GROUNDED in the install roster (the count of installed
+				// agents per persona role), read here in the human branch only —
+				// --json is `app agent list`'s data, so no decorating read under
+				// --json (the ambient-scope rule). The forward direction is
+				// listing-independent, but the reverse is unreliable under a
+				// narrowed --team-agent listing (it sees only one branch's
+				// definitions), so it is gated on that.
+				var members []approster.MemberDTO
+				haveRoster := false
+				if r, rErr := approster.Fetch(cmd.Context(), client, scope.Ref); rErr == nil {
+					members, haveRoster = r.Members, true
+				}
+				emitRoleConsistencyWarnings(w, roles, members, haveRoster, teamAgent == "")
 				return nil
 			})
 		},
 	}
 	cmd.Flags().StringVar(&teamAgent, "team-agent", "", "Team Agent holding the roles branch, when the App installs more than one")
 	return cmd
+}
+
+// emitRoleConsistencyWarnings writes the #542 divergence warnings for `role
+// list`, both WARNINGS and never gates (cor:agt:020:00 §1), human-only.
+//
+// Both directions are grounded in the install roster — the COUNT of installed
+// agents whose personaRole matches. roleAgentName==nil is deliberately NOT used
+// for the forward case: TeamRoleFields.roleAgent is null for zero OR several
+// matches AND masks to null on read-deny (#552), so "no agent carries this
+// role" read off it is a false positive for the ambiguous and masked cases
+// (codex/copilot on #569). The roster count tells them apart: exactly zero is
+// the silent divergence; several is AMBIGUOUS, which fails loudly at cast
+// (WORKER_AGENT_AMBIGUOUS) and so needs no warning; one-but-masked is not a
+// divergence at all. Without the roster (read failed) nothing is emitted — the
+// blank AGENT cell stays the unannotated signal. reverseOK is false under a
+// narrowed --team-agent listing, which sees only one branch's definitions and
+// so would false-positive the reverse direction.
+func emitRoleConsistencyWarnings(w io.Writer, roles []roleDTO, members []approster.MemberDTO, haveRoster, reverseOK bool) {
+	if !haveRoster {
+		return
+	}
+	count := map[string]int{}
+	for _, m := range members {
+		if m.PersonaRole != nil && *m.PersonaRole != "" {
+			count[strings.ToLower(*m.PersonaRole)]++
+		}
+	}
+	for _, r := range roles {
+		if count[strings.ToLower(r.Role)] == 0 {
+			fmt.Fprintf(w, "! role %s: no installed agent carries this persona role — the definition documents a role nobody holds\n", r.Role)
+		}
+	}
+	if !reverseOK {
+		return
+	}
+	defined := map[string]bool{}
+	for _, r := range roles {
+		defined[strings.ToLower(r.Role)] = true
+	}
+	for _, m := range members {
+		if m.PersonaRole == nil || *m.PersonaRole == "" {
+			continue
+		}
+		if !defined[strings.ToLower(*m.PersonaRole)] {
+			fmt.Fprintf(w, "! agent %s (persona role %q): no matching role definition — create one with `hadron team role create %s`\n",
+				m.AgentName, *m.PersonaRole, *m.PersonaRole)
+		}
+	}
 }
 
 func newCmdRoleGet(f *cmdutil.Factory) *cobra.Command {
