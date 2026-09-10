@@ -430,10 +430,14 @@ func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, o contentImportOpt
 	}
 	if o.taskRef != "" {
 		input.TaskRef = &o.taskRef
-		// --app is passed verbatim (ID or URN); omitted, the server runs the
-		// task under the caller's active App.
+		// --app is shape-checked and canonicalized (ID or URN, #540); omitted,
+		// the server runs the task under the caller's active App.
 		if o.app != "" {
-			input.AppRef = &o.app
+			appRef, err := cmdutil.CanonicalAppRef("--app", o.app)
+			if err != nil {
+				return err
+			}
+			input.AppRef = &appRef
 		}
 		if o.taskArgs != "" {
 			ta, err := cmdutil.ParseJSONArg(o.taskArgs, "task-args")

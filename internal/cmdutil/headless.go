@@ -13,10 +13,11 @@ import (
 // --app flag when set, otherwise the configured/global App context (the same
 // source `hadron app use` and the persistent --app write). Empty both ways is a
 // usage error — every run/schedule/webhook command names an App. The ref is
-// passed to the server verbatim, which dispatches an ID or a URN.
+// shape-checked and canonicalized here (CanonicalAppRef, #540); the server
+// then dispatches an ID or a URN.
 func ResolveAppRef(f *Factory, flag string) (string, error) {
 	if flag = strings.TrimSpace(flag); flag != "" {
-		return flag, nil
+		return CanonicalAppRef("--app", flag)
 	}
 	app, err := f.App()
 	if err != nil {

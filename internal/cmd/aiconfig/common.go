@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -30,6 +31,15 @@ func resolveOwner(app, agent, org string) (gen.AiConfigOwnerType, string, error)
 		return "", "", exitcode.Newf(exitcode.Usage, "an owner is required — pass exactly one of --app, --agent, or --org")
 	case set > 1:
 		return "", "", exitcode.Newf(exitcode.Usage, "--app, --agent, and --org are mutually exclusive")
+	}
+	if t == gen.AiConfigOwnerTypeApp {
+		// After the exclusivity check, so a caller who passed two owners is
+		// told that, not that one of them is misspelled.
+		canon, err := cmdutil.CanonicalAppRef("--app", id)
+		if err != nil {
+			return "", "", err
+		}
+		id = canon
 	}
 	return t, id, nil
 }

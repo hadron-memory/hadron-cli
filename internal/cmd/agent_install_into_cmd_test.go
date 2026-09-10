@@ -66,7 +66,7 @@ func TestAgentCreateInstallInto(t *testing.T) {
 	if dto.Install == nil {
 		t.Fatalf("install report missing: %s", out.String())
 	}
-	if dto.Install.Status != "installed" || dto.Install.AppID != "app1" ||
+	if dto.Install.Status != "installed" || dto.Install.AppID != "capp100000000000000000000" ||
 		dto.Install.AppURN != "hrn:app:acme.com:eng-team" {
 		t.Errorf("install report: %+v", dto.Install)
 	}
@@ -92,7 +92,7 @@ func TestAgentCreateInstallIntoFailureOmitsResolvedAppFields(t *testing.T) {
 	root := NewRootCmd(f)
 	// An App ID, deliberately not a URN.
 	root.SetArgs([]string{"agent", "create", "--org", "acme.com", "--name", "Support Bot",
-		"--install-into", "app1", "--json", "--server", gql.URL})
+		"--install-into", "capp100000000000000000000", "--json", "--server", gql.URL})
 	if err := root.Execute(); err == nil {
 		t.Fatalf("expected a non-zero exit")
 	}
@@ -103,12 +103,12 @@ func TestAgentCreateInstallIntoFailureOmitsResolvedAppFields(t *testing.T) {
 		t.Fatalf("unmarshal: %v (%s)", err, out.String())
 	}
 	if _, present := raw.Install["appUrn"]; present {
-		t.Errorf("appUrn must be omitted on failure — it would carry the ID %q: %s", "app1", out.String())
+		t.Errorf("appUrn must be omitted on failure — it would carry the ID %q: %s", "capp100000000000000000000", out.String())
 	}
 	if _, present := raw.Install["appId"]; present {
 		t.Errorf("appId must be omitted on failure (nothing resolved it): %s", out.String())
 	}
-	if raw.Install["appRef"] != "app1" {
+	if raw.Install["appRef"] != "capp100000000000000000000" {
 		t.Errorf("appRef must echo what was passed: %s", out.String())
 	}
 }

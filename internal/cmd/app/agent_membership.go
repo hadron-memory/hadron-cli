@@ -56,9 +56,13 @@ Authorization is CONTRIBUTOR+ on the App's owning org, or ownership of a
 user-owned App — deliberately NOT plain App membership, since attaching an
 Agent grants read access to its design.`,
 		Example: `  hadron app agent add hrn:app:acme.com:eng-team hrn:agent:acme.com:iris
-  hadron app agent add app_123 agt_456 --training-mode`,
+  hadron app agent add acme.com:eng-team hrn:agent:acme.com:iris --training-mode`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			appRef, err := cmdutil.CanonicalAppRef("<app>", args[0])
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -67,7 +71,7 @@ Agent grants read access to its design.`,
 			if cmd.Flags().Changed("training-mode") {
 				training = &trainingMode
 			}
-			resp, err := gen.InstallAgentIntoApp(cmd.Context(), client, args[0], args[1], training)
+			resp, err := gen.InstallAgentIntoApp(cmd.Context(), client, appRef, args[1], training)
 			if err != nil {
 				return cmdutil.InstallForbiddenGuidance(err)
 			}
@@ -114,6 +118,10 @@ user-owned App.`,
 		Example: `  hadron app agent remove hrn:app:acme.com:eng-team hrn:agent:acme.com:iris --yes`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			appRef, err := cmdutil.CanonicalAppRef("<app>", args[0])
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -122,10 +130,10 @@ user-owned App.`,
 			// survive: it changes who is on a roster, and for a team App that is
 			// the thing people read to answer "who is working on this?".
 			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes,
-				fmt.Sprintf("agent %s from app %s (its memories persist and return on reinstall)", args[1], args[0])); err != nil {
+				fmt.Sprintf("agent %s from app %s (its memories persist and return on reinstall)", args[1], appRef)); err != nil {
 				return err
 			}
-			resp, err := gen.UninstallAgentFromApp(cmd.Context(), client, args[0], args[1])
+			resp, err := gen.UninstallAgentFromApp(cmd.Context(), client, appRef, args[1])
 			if err != nil {
 				return cmdutil.InstallForbiddenGuidance(err)
 			}

@@ -58,7 +58,7 @@ func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 
 	root.PersistentFlags().BoolVar(&f.JSON, "json", false, "output JSON instead of text")
 	root.PersistentFlags().StringVar(&f.ServerFlag, "server", "", "Hadron server base URL (overrides config)")
-	root.PersistentFlags().StringVar(&f.AppFlag, "app", "", "App URN context for this invocation (overrides config)")
+	root.PersistentFlags().StringVar(&f.AppFlag, "app", "", "App context for this invocation: hrn:app:<root>:<slug>, <root>:<slug>, or an App id (overrides config)")
 
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
 		return exitcode.New(exitcode.Usage, err)

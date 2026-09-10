@@ -400,7 +400,11 @@ func codeForExtension(code string) int {
 		return exitcode.AuthRequired
 	case code == "NOT_FOUND" || strings.HasSuffix(code, "_NOT_FOUND"):
 		return exitcode.NotFound
-	case code == "BAD_USER_INPUT" || code == "GRAPHQL_VALIDATION_FAILED":
+	// URN_NOT_QUALIFIED (spec 022) is the server refusing a ref that is not
+	// a PK and not a fully-qualified URN — an argument the caller can fix.
+	// The CLI pre-checks App refs (cmdutil.CanonicalAppRef, #540), so this
+	// is the mapping for every ref it still forwards unchecked.
+	case code == "BAD_USER_INPUT" || code == "GRAPHQL_VALIDATION_FAILED" || code == "URN_NOT_QUALIFIED":
 		return exitcode.Usage
 	case code == "CONFLICT" || strings.HasPrefix(code, "DUPLICATE_") ||
 		strings.HasSuffix(code, "_ALREADY_EXISTS") || strings.HasSuffix(code, "_TAKEN") ||

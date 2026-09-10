@@ -55,11 +55,20 @@ func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := cfg.Set(args[0], args[1]); err != nil {
+			key, value := args[0], args[1]
+			if key == "app" && value != "" {
+				// The same gate `hadron app set-active` applies: a value that
+				// cannot name an App must not be stored to fail on every later
+				// command (#540).
+				if value, err = cmdutil.CanonicalAppRef("<value>", value); err != nil {
+					return err
+				}
+			}
+			if err := cfg.Set(key, value); err != nil {
 				return err
 			}
-			return output.Write(f.IOStreams, f.JSON, map[string]string{args[0]: args[1]}, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ %s = %s\n", args[0], args[1])
+			return output.Write(f.IOStreams, f.JSON, map[string]string{key: value}, func(w io.Writer) error {
+				_, err := fmt.Fprintf(w, "✓ %s = %s\n", key, value)
 				return err
 			})
 		},

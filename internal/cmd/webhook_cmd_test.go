@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-const webhookJSON = `{"id":"wh1","organizationId":"org1","appId":"app1","agentId":null,
+const webhookJSON = `{"id":"wh1","organizationId":"org1","appId":"capp100000000000000000000","agentId":null,
 	"name":"deploy-notify","enabled":true,"entryNodeUrn":"hrn:node:acme.com::ops::tasks:on-deploy",
 	"aiConfigName":null,"userId":null,"createdBy":"u1","argsSchema":null,"eventData":null,
 	"policy":null,"lastCalledAt":null,"createdAt":"2026-07-05T00:00:00Z"}`
@@ -30,7 +30,7 @@ func TestWebhookCreatePrintsShownOnceSecret(t *testing.T) {
 		Input map[string]any `json:"input"`
 	}
 	_ = json.Unmarshal(captured["CreateAgentWebhook"], &vars)
-	if vars.Input["appRef"] != "acme.com:ops" || vars.Input["name"] != "deploy-notify" {
+	if vars.Input["appRef"] != "hrn:app:acme.com:ops" || vars.Input["name"] != "deploy-notify" {
 		t.Errorf("core fields wrong: %v", vars.Input)
 	}
 	if vars.Input["entryNodeUrn"] != "hrn:node:acme.com::ops::tasks:on-deploy" {
@@ -51,7 +51,7 @@ func TestWebhookCreateJSONCarriesSecret(t *testing.T) {
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"webhook", "create", "--app", "app1", "--name", "deploy-notify",
+	root.SetArgs([]string{"webhook", "create", "--app", "capp100000000000000000000", "--name", "deploy-notify",
 		"--entry", "hrn:node:acme.com::ops::x", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -113,7 +113,7 @@ func TestWebhookLsHidesSecret(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["AgentWebhooks"], &vars)
-	if vars["appRef"] != "acme.com:ops" {
+	if vars["appRef"] != "hrn:app:acme.com:ops" {
 		t.Errorf("--app should map to appRef, got %v", vars["appRef"])
 	}
 	got := out.String()

@@ -62,7 +62,10 @@ honest answer rather than an empty list.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			appRef := ""
 			if len(args) == 1 {
-				appRef = args[0]
+				var err error
+				if appRef, err = cmdutil.CanonicalAppRef("<app-ref>", args[0]); err != nil {
+					return err
+				}
 			} else {
 				ambient, err := f.App()
 				if err != nil {

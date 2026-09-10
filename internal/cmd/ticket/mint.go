@@ -47,7 +47,11 @@ v1 supports the comm.outbound action only. --app scopes the tickets to one App
 				Count:  count,
 			}
 			if app != "" {
-				input.AppRef = &app
+				appRef, err := cmdutil.CanonicalAppRef("--app", app)
+				if err != nil {
+					return err
+				}
+				input.AppRef = &appRef
 			}
 			if note != "" {
 				input.Note = &note
@@ -68,7 +72,7 @@ v1 supports the comm.outbound action only. --app scopes the tickets to one App
 		},
 	}
 	cmd.Flags().StringVar(&org, "org", "", "organization to mint into (ID or URN; required)")
-	cmd.Flags().StringVar(&app, "app", "", "scope the tickets to one App (ID; omit for org-wide)")
+	cmd.Flags().StringVar(&app, "app", "", "scope the tickets to one App (ID or URN; omit for org-wide)")
 	cmd.Flags().StringVar(&action, "action", "comm.outbound", "the action these tickets grant (v1: comm.outbound)")
 	cmd.Flags().IntVar(&count, "count", 0, "how many tickets to mint (required)")
 	cmd.Flags().StringVar(&note, "note", "", "why these tickets exist (ledger legibility)")

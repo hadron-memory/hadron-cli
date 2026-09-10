@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-const scheduleJSON = `{"id":"sch1","organizationId":"org1","appId":"app1","agentId":null,
+const scheduleJSON = `{"id":"sch1","organizationId":"org1","appId":"capp100000000000000000000","agentId":null,
 	"name":"nightly-digest","cron":"0 6 * * *","timezone":"America/New_York","enabled":true,
 	"entryNodeUrn":"hrn:node:acme.com::ops::tasks:digest","aiConfigName":null,
 	"userId":"u1","createdBy":"u1","eventData":{"topic":"sec"},"policy":null,
@@ -30,7 +30,7 @@ func TestScheduleCreate(t *testing.T) {
 	}
 	_ = json.Unmarshal(captured["CreateAgentSchedule"], &vars)
 	in := vars.Input
-	if in["appRef"] != "acme.com:ops" || in["name"] != "nightly-digest" || in["cron"] != "0 6 * * *" {
+	if in["appRef"] != "hrn:app:acme.com:ops" || in["name"] != "nightly-digest" || in["cron"] != "0 6 * * *" {
 		t.Errorf("core fields wrong: %v", in)
 	}
 	if in["timezone"] != "America/New_York" {
@@ -60,7 +60,7 @@ func TestScheduleCreateDisabledOmitsOptionals(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"schedule", "create", "--app", "app1", "--name", "n", "--cron", "* * * * *",
+	root.SetArgs([]string{"schedule", "create", "--app", "capp100000000000000000000", "--name", "n", "--cron", "* * * * *",
 		"--entry", "hrn:node:acme.com::ops::x", "--disabled", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
@@ -91,7 +91,7 @@ func TestScheduleLs(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["AgentSchedules"], &vars)
-	if vars["appRef"] != "acme.com:ops" {
+	if vars["appRef"] != "hrn:app:acme.com:ops" {
 		t.Errorf("--app should map to appRef, got %v", vars["appRef"])
 	}
 	if !strings.Contains(out.String(), "nightly-digest") {

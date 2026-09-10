@@ -168,7 +168,7 @@ func TestNodeImportWithTask(t *testing.T) {
 	if vars.Input.TaskRef == nil || *vars.Input.TaskRef != "acme.com::kb::tasks:distill" {
 		t.Errorf("taskRef = %v", vars.Input.TaskRef)
 	}
-	if vars.Input.AppRef == nil || *vars.Input.AppRef != "acme.com:ops" {
+	if vars.Input.AppRef == nil || *vars.Input.AppRef != "hrn:app:acme.com:ops" {
 		t.Errorf("appRef = %v", vars.Input.AppRef)
 	}
 	if vars.Input.TaskArgs == nil || string(*vars.Input.TaskArgs) != `{"depth":2}` {

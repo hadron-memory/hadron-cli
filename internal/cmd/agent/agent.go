@@ -330,6 +330,12 @@ it can refuse after the create succeeds.`,
 				return exitcode.Newf(exitcode.Usage,
 					"--install-into needs an App (ID or URN); it was passed empty, which usually means an unset variable — drop the flag to create an agent without installing it")
 			}
+			// Shape-checked for the same reason it is refused when empty: a
+			// target the server cannot resolve must not cost an orphan agent.
+			var err error
+			if installInto, err = cmdutil.CanonicalAppRef("--install-into", installInto); err != nil {
+				return err
+			}
 			at, err := parseAgentType(typ)
 			if err != nil {
 				return err
@@ -515,10 +521,12 @@ func emitAgent(f *cmdutil.Factory, dto agentDTO, verb string) error {
 // back, so whether the install committed is genuinely not known. Error carries
 // the server's sentence so a --json caller can branch without parsing stderr.
 //
-// AppRef echoes what the caller passed, which is an App ID *or* a URN;
-// appId/appUrn are the server's resolved values and are therefore present only
-// on success. Putting the raw ref in appUrn would let that field carry a
-// non-URN, which is worse than omitting it.
+// AppRef is what was sent — the caller's --install-into after
+// cmdutil.CanonicalAppRef, so an App ID verbatim or the canonical
+// hrn:app:<root>:<slug> whatever spelling was typed (#540); appId/appUrn are
+// the server's resolved values and are therefore present only on success.
+// Putting the ref in appUrn would let that field carry a non-URN (an id),
+// which is worse than omitting it.
 type agentInstallDTO struct {
 	AppRef string `json:"appRef"`
 	AppID  string `json:"appId,omitempty"`

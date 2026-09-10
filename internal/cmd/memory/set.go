@@ -159,7 +159,11 @@ applied in a follow-up update.)`,
 					if class != "app" && class != "personal" && class != "private" {
 						return exitcode.Newf(exitcode.Usage, "App-scoped creation requires --class app, personal, or private")
 					}
-					resp, err := gen.CreateMemoryInApp(cmd.Context(), client, app, agent, gen.MemoryClass(class), name, optional(short), optional(description), tagsArg, maxRevArg)
+					appRef, err := cmdutil.CanonicalAppRef("--app", app)
+					if err != nil {
+						return err
+					}
+					resp, err := gen.CreateMemoryInApp(cmd.Context(), client, appRef, agent, gen.MemoryClass(class), name, optional(short), optional(description), tagsArg, maxRevArg)
 					if err != nil {
 						return api.MapError(err)
 					}

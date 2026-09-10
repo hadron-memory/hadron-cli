@@ -20,7 +20,7 @@ const DefaultServer = "https://srv.hadronmemory.com"
 // Keys lists the settings hadron config get/set accepts.
 var Keys = map[string]string{
 	"server":      "Hadron server base URL",
-	"app":         "default App URN sent with requests (set via hadron app use)",
+	"app":         "default App sent with requests — an App id or hrn:app:<root>:<slug> (set via hadron app set-active)",
 	"memory":      "default memory URN or ID (set via hadron memory set-active)",
 	"spec_memory": "default memory for spec commands (set via hadron spec use); overrides the global memory for `hadron spec`",
 }
