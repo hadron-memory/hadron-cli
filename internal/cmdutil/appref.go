@@ -75,10 +75,23 @@ const appRefForms = "hrn:app:<root>:<slug> (canonical, e.g. hrn:app:acme.com:dev
 // returns "" with no error, since whether an App is REQUIRED is the caller's
 // question, not this function's.
 func CanonicalAppRef(what, ref string) (string, error) {
-	ref = strings.TrimSpace(ref)
-	if ref == "" {
+	trimmed := strings.TrimSpace(ref)
+	if trimmed == "" {
+		// Genuinely absent (a caller passing an unset flag or an empty config
+		// value) is the caller's question, not ours — return the empty,
+		// no-error result. But a value that was SUPPLIED and is blank
+		// (`--app "  "`, an unset shell variable) is a mistake: the gated
+		// call sites (ticket mint, node import, connection, memory attach)
+		// test `!= ""` before calling, so a whitespace value passes their
+		// guard and, without this, trims to "" here and rides to the server
+		// as the blank ref this whole change exists to stop (#540 codex P2).
+		if ref != "" {
+			return "", exitcode.Newf(exitcode.Usage,
+				"%s was given a blank value — name the App as %s", what, appRefForms)
+		}
 		return "", nil
 	}
+	ref = trimmed
 	if IsAppID(ref) {
 		return ref, nil
 	}

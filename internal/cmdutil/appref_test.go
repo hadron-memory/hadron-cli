@@ -88,6 +88,28 @@ func TestCanonicalAppRefRefusesWhatTheServerWould(t *testing.T) {
 
 // `what` is whatever the caller's surface is called — the message must read
 // as being about the argument the user typed, not about a GraphQL field.
+// A value that was SUPPLIED but is blank (an unset shell variable arriving as
+// whitespace) is a mistake, not an absent context — refuse it, so the gated
+// call sites that test `!= ""` before calling cannot pass a blank ref to the
+// server (#540 codex P2). A genuinely-absent raw-empty ref stays the
+// no-error empty result the caller decides on.
+func TestCanonicalAppRefRefusesSuppliedBlankButNotAbsent(t *testing.T) {
+	for _, blank := range []string{" ", "   ", "\t", "\n"} {
+		got, err := CanonicalAppRef("--app", blank)
+		if err == nil {
+			t.Errorf("CanonicalAppRef(%q) = %q, want a refusal for a supplied-blank value", blank, got)
+			continue
+		}
+		if code := exitcode.FromError(err); code != exitcode.Usage {
+			t.Errorf("CanonicalAppRef(%q) exit = %d, want Usage", blank, code)
+		}
+	}
+	// Raw empty — the caller supplied nothing — is NOT an error.
+	if got, err := CanonicalAppRef("--app", ""); err != nil || got != "" {
+		t.Errorf("CanonicalAppRef(\"\") = %q, %v; want \"\", nil (absent)", got, err)
+	}
+}
+
 func TestCanonicalAppRefNamesTheSource(t *testing.T) {
 	for _, what := range []string{"--install-into", "<app-ref>", "the configured App context"} {
 		_, err := CanonicalAppRef(what, "dev-team")

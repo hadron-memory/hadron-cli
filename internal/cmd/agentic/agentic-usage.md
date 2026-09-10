@@ -1459,7 +1459,7 @@ Conventions:
     takes effect at the next gate check.
   - Every entry node is a fully-qualified node URN (`hrn:node:<root>:<slug>:<loc>`,
     or the legacy `<org>::<memory>::<loc>`) — a bare loc is rejected (exit 2). `--app`
-    defaults to the App context (`hadron app use` / `--app`) when omitted.
+    defaults to the App context (`hadron app set-active` / `--app`) when omitted.
 
 ## The escape hatch: hadron api
 
@@ -1481,7 +1481,8 @@ is printed to stdout; GraphQL errors are reflected in the exit code.
 Some Hadron deployments scope requests to an App. By default the CLI
 sends no App context, which the server treats as fine. Set a default
 with `hadron app set-active <ref>` or override per-invocation with
-`--app <urn>`.
+`--app <ref>` (an App id, `hrn:app:<root>:<slug>`, or the `<root>:<slug>`
+short form).
 
 ## `coding review run` — the checklist against a diff (#551)
 
