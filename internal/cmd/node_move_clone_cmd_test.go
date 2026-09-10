@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"encoding/json"
-	"github.com/spf13/cobra"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
