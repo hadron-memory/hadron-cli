@@ -1336,7 +1336,11 @@ Conventions:
   display convenience only); every logged milestone — issue and commit
   included — is a heartbeat feeding the server's liveness derivation; without a
   team memory they degrade to that denormalization alone (`"recorded":
-  "session"` instead of `"worklog"`), while `--issue`/`--commit` refuse.
+  "session"` instead of `"worklog"`), while `--issue`/`--commit` refuse. The
+  receipt names the bound WORKER (`✓ logged … as Vera`), and `--json` carries
+  `workerName`/`workerId` (#559) — the worklog is append-only, so a record filed
+  under the wrong worker (a shell that wandered into a differently-bound
+  worktree) is permanent, and the name is what makes that catchable on sight.
   `session list (--pr | --issue | --commit | --branch) <ref>` is THE
   provenance query: worklog lookup by canonical (ref, kind) → the sessions
   that produced the artifact (several rows expected; a recorded session you
