@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/hadron-memory/hadron-cli/internal/build"
 	accesscmd "github.com/hadron-memory/hadron-cli/internal/cmd/access"
 	agentcmd "github.com/hadron-memory/hadron-cli/internal/cmd/agent"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/agentic"
@@ -54,7 +55,18 @@ func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 		Long:          "Work with Hadron memories, nodes, and Apps from the command line.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		// #393: `--version` and `-v` are what a human reaches for first —
+		// setting Version registers both (cobra takes the free `v` shorthand),
+		// and the template reproduces `hadron version`'s human line so the two
+		// spellings agree. `hadron version` stays the fuller surface (--json,
+		// Go/OS/arch); this is the quick spelling. Output routes through the
+		// factory streams (SetOut/SetErr below) so it is not written straight
+		// to os.Stdout.
+		Version: build.Version,
 	}
+	root.SetVersionTemplate("hadron {{.Version}} (" + build.Commit + ", " + build.Date + ")\n")
+	root.SetOut(f.IOStreams.Out)
+	root.SetErr(f.IOStreams.ErrOut)
 
 	root.PersistentFlags().BoolVar(&f.JSON, "json", false, "output JSON instead of text")
 	root.PersistentFlags().StringVar(&f.ServerFlag, "server", "", "Hadron server base URL (overrides config)")
