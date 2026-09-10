@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -37,11 +38,38 @@ import (
 // the identifier is matched only in code — never inside a comment or a string
 // literal, which is the #564 fix: the old line-based regex could not tell a
 // real call from a test explaining in prose why it uses `exitCodeFor` instead.
+const exitcodePkgPath = "github.com/hadron-memory/hadron-cli/internal/exitcode"
+
 func rawExitCodeAssertionLines(filename string, src []byte) ([]int, error) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, filename, src, 0)
 	if err != nil {
 		return nil, err
+	}
+	// Resolve the LOCAL name the exitcode package is bound to in THIS file,
+	// rather than assuming "exitcode": a test could import it aliased
+	// (`ec "…/internal/exitcode"`) and `ec.FromError(...)` would slip past a
+	// name-literal match — a fail-open in the one guard whose job is not to
+	// fail open (#564 review, @copilot). A blank (`_`) import can't be called,
+	// so it needs no match; a dot import is out of scope (the call has no
+	// selector) and would need a different shape entirely.
+	local := ""
+	for _, imp := range file.Imports {
+		if strings.Trim(imp.Path.Value, `"`) != exitcodePkgPath {
+			continue
+		}
+		switch {
+		case imp.Name == nil:
+			local = "exitcode" // the package's own name
+		case imp.Name.Name == "_" || imp.Name.Name == ".":
+			local = "" // unreferenceable by selector; nothing to match
+		default:
+			local = imp.Name.Name
+		}
+		break
+	}
+	if local == "" {
+		return nil, nil
 	}
 	var lines []int
 	ast.Inspect(file, func(n ast.Node) bool {
@@ -49,7 +77,7 @@ func rawExitCodeAssertionLines(filename string, src []byte) ([]int, error) {
 		if !ok {
 			return true
 		}
-		if x, ok := sel.X.(*ast.Ident); ok && x.Name == "exitcode" && sel.Sel.Name == "FromError" {
+		if x, ok := sel.X.(*ast.Ident); ok && x.Name == local && sel.Sel.Name == "FromError" {
 			lines = append(lines, fset.Position(sel.Pos()).Line)
 		}
 		return true
@@ -90,29 +118,46 @@ func TestTestsAssertTheUserVisibleExitCode(t *testing.T) {
 }
 
 // The detector matches a real call but NOT the same text in a comment or a
-// string — the #564 fix, verified directly rather than through the package glob.
+// string (the #564 fix), and it follows the exitcode import's LOCAL name —
+// including an alias — rather than assuming "exitcode" (#575, @copilot).
 func TestRawExitCodeAssertionDetectorIgnoresCommentsAndStrings(t *testing.T) {
-	src := []byte(`package x
+	// Default import name: the call in code is flagged; the same text in a
+	// comment and a string is not.
+	def := []byte(`package x
 
-import "fmt"
-
-func code() int { return 0 }
+import "` + exitcodePkgPath + `"
 
 // This comment mentions exitcode.FromError( and must NOT be flagged.
 func f() {
-	// nor this one: exitcode.FromError(err)
+	// nor this: exitcode.FromError(err)
 	s := "exitcode.FromError( in a string is not a call"
 	_ = s
-	_ = code()
-	_ = exitcode.FromError(nil) // line 13: the ONLY real call
-	fmt.Println("done")
+	_ = exitcode.FromError(nil) // line 10: the ONLY real call
 }
 `)
-	lines, err := rawExitCodeAssertionLines("fixture_test.go", src)
-	if err != nil {
-		t.Fatalf("parse: %v", err)
+	if lines, err := rawExitCodeAssertionLines("d_test.go", def); err != nil || len(lines) != 1 || lines[0] != 10 {
+		t.Fatalf("default import: want the code call at line 10, got %v (err %v)", lines, err)
 	}
-	if len(lines) != 1 || lines[0] != 13 {
-		t.Fatalf("want exactly the code call at line 13, got %v", lines)
+
+	// Aliased import: `ec.FromError(...)` must still be caught — the fail-open
+	// the name-literal match had.
+	aliased := []byte(`package x
+
+import ec "` + exitcodePkgPath + `"
+
+func g() { _ = ec.FromError(nil) } // line 5
+`)
+	if lines, err := rawExitCodeAssertionLines("a_test.go", aliased); err != nil || len(lines) != 1 || lines[0] != 5 {
+		t.Fatalf("aliased import: want the aliased call at line 5, got %v (err %v)", lines, err)
+	}
+
+	// A file that does not import exitcode at all: a bare `exitcode.FromError`
+	// (some OTHER local `exitcode`) is not this package's call — no match.
+	unrelated := []byte(`package x
+
+func h() { var exitcode struct{ FromError func(error) int }; _ = exitcode.FromError(nil) }
+`)
+	if lines, err := rawExitCodeAssertionLines("u_test.go", unrelated); err != nil || len(lines) != 0 {
+		t.Fatalf("unrelated local: want no match, got %v (err %v)", lines, err)
 	}
 }
