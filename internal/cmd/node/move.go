@@ -20,8 +20,9 @@ func newCmdMove(f *cmdutil.Factory) *cobra.Command {
 		toMemory string
 	)
 	cmd := &cobra.Command{
-		Use:   "move <node-urn> | <loc> -m <memory> (--to-urn <urn> | --to-memory <memory>)",
-		Short: "Move a node to a new loc and/or memory",
+		Use:     "move <node-urn> | <loc> -m <memory> (--to-urn <urn> | --to-memory <memory>)",
+		Aliases: []string{"mv"}, // its siblings are list/ls and delete/rm (#450)
+		Short:   "Move a node to a new loc and/or memory",
 		Long: `Relocate a node — together with its whole subtree, so every descendant moves
 with it — keeping each node's id, so every incoming and outgoing edge reference
 stays valid. Name the source by its fully-qualified URN
