@@ -279,6 +279,26 @@ func refuseMultiStdin(vals ...string) error {
 	return nil
 }
 
+// refuseBlankPromptFile rejects a --<flag>-file passed with an empty path — an
+// unset shell variable is the usual cause. ResolveTextInput reads an empty
+// path as an empty VALUE, so without this an `agent update --persona-prompt-file
+// "$UNSET"` is Changed-but-empty and silently CLEARS the prompt instead of
+// reporting that no file was supplied (#541 codex P1; the
+// an-empty-flag-is-not-an-absent-flag class). The inline --<flag> "" is left
+// alone on purpose: an explicit empty there is a deliberate clear. flag is the
+// base name; the file flag is derived as <flag>-file, and its value is read
+// from the registry so the vars need not be threaded here.
+func refuseBlankPromptFile(cmd *cobra.Command, flags ...string) error {
+	for _, flag := range flags {
+		name := flag + "-file"
+		if cmd.Flags().Changed(name) && strings.TrimSpace(cmd.Flags().Lookup(name).Value.String()) == "" {
+			return exitcode.Newf(exitcode.Usage,
+				"--%s was given an empty path — pass a file, or drop the flag (an unset variable is the usual cause)", name)
+		}
+	}
+	return nil
+}
+
 // resolvePromptFlag resolves an UPDATE-side long-text field to the pointer
 // UpdateAgent wants: nil (preserve) when neither --<flag> nor --<flag>-file was
 // passed, otherwise a pointer to the resolved value — so an explicit empty
@@ -375,6 +395,9 @@ it can refuse after the create succeeds.`,
 				return err
 			}
 			if err := refuseMultiStdin(systemPrompt, personaPrompt); err != nil {
+				return err
+			}
+			if err := refuseBlankPromptFile(cmd, "system-prompt", "persona-prompt"); err != nil {
 				return err
 			}
 			systemPrompt, err = cmdutil.ResolveTextInput("system-prompt", systemPrompt, systemPromptFile, f.IOStreams.In)
@@ -494,6 +517,9 @@ their prompt from it too.`,
 				surfacesArg = surfaces
 			}
 			if err := refuseMultiStdin(systemPrompt, personaPrompt); err != nil {
+				return err
+			}
+			if err := refuseBlankPromptFile(cmd, "system-prompt", "persona-prompt"); err != nil {
 				return err
 			}
 			systemPromptArg, err := resolvePromptFlag(cmd, "system-prompt", systemPrompt, systemPromptFile, f.IOStreams.In)

@@ -506,3 +506,35 @@ func TestAgentUpdateWithoutPromptFlagsOmitsThem(t *testing.T) {
 		}
 	}
 }
+
+// #541 codex P1: --persona-prompt-file "" (an unset shell variable) is
+// Changed-but-empty. Without a guard, ResolveTextInput reads the empty path as
+// an empty value and `update` silently CLEARS the prompt. It must be a usage
+// error, before any request, on both update and create.
+func TestAgentPersonaPromptFileEmptyPathRefused(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"update", []string{"agent", "update", "agt1", "--persona-prompt-file", ""}},
+		{"create", []string{"agent", "create", "--org", "acme.com", "--name", "X", "--persona-prompt-file", ""}},
+		{"update system", []string{"agent", "update", "agt1", "--system-prompt-file", "   "}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(tc.args, "--server", gql.URL))
+			err := root.Execute()
+			if code := exitCodeFor(err); code != exitcode.Usage {
+				t.Fatalf("exit = %d, want Usage; err %v", code, err)
+			}
+			if len(captured) != 0 {
+				t.Errorf("must refuse before any request; sent %v", captured)
+			}
+			if err == nil || !strings.Contains(err.Error(), "empty path") {
+				t.Errorf("message should name the empty path: %v", err)
+			}
+		})
+	}
+}
