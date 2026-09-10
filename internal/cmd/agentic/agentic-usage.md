@@ -106,7 +106,7 @@ hadron coding review run [-m <memory>] [--base <ref>] [--head <ref>] [--diff <pa
 hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | list --org <org> | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <ref> | set-active <ref>
 hadron ai-config list [--app <ref>] [--agent <id>] | create (--app|--agent|--org <ref>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
-hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] [--persona-prompt <p>] | update <id> [<field flags>] | rm <id> --yes
+hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>|--system-prompt-file <path>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] [--persona-prompt <p>|--persona-prompt-file <path>] | update <id> [<field flags>] | rm <id> --yes
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
 hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
@@ -737,7 +737,12 @@ Conventions:
   `status` (`installed`/`failed`/`unknown`), `error` on the latter two, and the
   server-resolved `appId`/`appUrn` on success only. Optional
   `--type`/`--visibility`/`--description`/`--system-prompt`/
-  `--system-memory`/`--surface` (repeatable); `agent update <ref> [<field flags>]`
+  `--system-memory`/`--surface` (repeatable). The two long-text prompts also
+  take a file or stdin: `--persona-prompt-file <path>` / `--system-prompt-file <path>`,
+  or `--persona-prompt -` / `--system-prompt -` to read stdin (each prompt inline
+  and its `-file` are mutually exclusive, and only one prompt may read stdin). Prefer
+  these for a persona template — it is the longest text the CLI takes and is dense with
+  backticks and `{{name}}` braces that inline shell quoting mangles. `agent update <ref> [<field flags>]`
   changes only the fields you pass (`--surface` replaces the set); `agent rm <ref>`
   requires `--yes`. `<ref>` is an agent ID **or** a fully-qualified URN
   (`hrn:agent:acme.com:support-bot`) — no need to resolve an ID first. Memory-attach, AI-config wiring, and app-wiring land next.
@@ -764,7 +769,8 @@ Conventions:
   human. The agent carries the reusable persona DRESSING — `personaRole` plus
   a `personaPrompt` TEMPLATE with `{{name}}`/`{{role}}` placeholders, set at
   `agent create` or edited via `agent update`
-  (`--persona-role`/`--persona-prompt`); the name lives on the
+  (`--persona-role`/`--persona-prompt`, or `--persona-prompt-file <path>` /
+  `--persona-prompt -` for the multi-line template); the name lives on the
   Worker, never the agent. Commands take the worker's name (resolved within
   the App from `--app`, the App context, or the binding), its URN, or its
   id. A NAME with no App scope at all — outside a worktree, no `--app`, no

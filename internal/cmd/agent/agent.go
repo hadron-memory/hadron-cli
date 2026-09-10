@@ -260,9 +260,65 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 	}
 }
 
+// refuseMultiStdin rejects a command that asks stdin to fill more than one
+// field. Stdin is one stream: two "-" values would give one field the pipe and
+// the other nothing, with no error — so this is the loud version of that,
+// raised before either read. Only the sentinel "-" values are counted; the
+// caller passes each field's inline value.
+func refuseMultiStdin(vals ...string) error {
+	n := 0
+	for _, v := range vals {
+		if v == "-" {
+			n++
+		}
+	}
+	if n > 1 {
+		return exitcode.Newf(exitcode.Usage,
+			"only one flag can read stdin (-) — pass the others as --<flag>-file or inline")
+	}
+	return nil
+}
+
+// refuseBlankPromptFile rejects a --<flag>-file passed with an empty path — an
+// unset shell variable is the usual cause. ResolveTextInput reads an empty
+// path as an empty VALUE, so without this an `agent update --persona-prompt-file
+// "$UNSET"` is Changed-but-empty and silently CLEARS the prompt instead of
+// reporting that no file was supplied (#541 codex P1; the
+// an-empty-flag-is-not-an-absent-flag class). The inline --<flag> "" is left
+// alone on purpose: an explicit empty there is a deliberate clear. flag is the
+// base name; the file flag is derived as <flag>-file, and its value is read
+// from the registry so the vars need not be threaded here.
+func refuseBlankPromptFile(cmd *cobra.Command, flags ...string) error {
+	for _, flag := range flags {
+		name := flag + "-file"
+		if cmd.Flags().Changed(name) && strings.TrimSpace(cmd.Flags().Lookup(name).Value.String()) == "" {
+			return exitcode.Newf(exitcode.Usage,
+				"--%s was given an empty path — pass a file, or drop the flag (an unset variable is the usual cause)", name)
+		}
+	}
+	return nil
+}
+
+// resolvePromptFlag resolves an UPDATE-side long-text field to the pointer
+// UpdateAgent wants: nil (preserve) when neither --<flag> nor --<flag>-file was
+// passed, otherwise a pointer to the resolved value — so an explicit empty
+// clears, matching changedStr. The value may come inline, from --<flag>-file,
+// or from stdin ("-"), via the shared cmdutil resolver.
+func resolvePromptFlag(cmd *cobra.Command, flag, value, file string, stdin io.Reader) (*string, error) {
+	if !cmd.Flags().Changed(flag) && !cmd.Flags().Changed(flag+"-file") {
+		return nil, nil
+	}
+	resolved, err := cmdutil.ResolveTextInput(flag, value, file, stdin)
+	if err != nil {
+		return nil, err
+	}
+	return &resolved, nil
+}
+
 func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	var org, name, description, typ, vis, systemPrompt, systemMemory string
 	var personaRole, personaPrompt, installInto string
+	var systemPromptFile, personaPromptFile string
 	var surfaces []string
 	var ownerMe bool
 	cmd := &cobra.Command{
@@ -344,6 +400,20 @@ it can refuse after the create succeeds.`,
 			if err != nil {
 				return err
 			}
+			if err := refuseMultiStdin(systemPrompt, personaPrompt); err != nil {
+				return err
+			}
+			if err := refuseBlankPromptFile(cmd, "system-prompt", "persona-prompt"); err != nil {
+				return err
+			}
+			systemPrompt, err = cmdutil.ResolveTextInput("system-prompt", systemPrompt, systemPromptFile, f.IOStreams.In)
+			if err != nil {
+				return err
+			}
+			personaPrompt, err = cmdutil.ResolveTextInput("persona-prompt", personaPrompt, personaPromptFile, f.IOStreams.In)
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -387,12 +457,16 @@ it can refuse after the create succeeds.`,
 	cmd.Flags().StringVar(&description, "description", "", "agent description")
 	cmd.Flags().StringVar(&typ, "type", "", "type: ASSISTANT or CHATBOT (server default when unset)")
 	cmd.Flags().StringVar(&vis, "visibility", "", "visibility: ORGANIZATION, PERSONAL, or PUBLIC (server default when unset)")
-	cmd.Flags().StringVar(&systemPrompt, "system-prompt", "", "system prompt")
+	cmd.Flags().StringVar(&systemPrompt, "system-prompt", "", "system prompt (a lone - reads stdin)")
 	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "system memory ID")
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable)")
 	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
-	cmd.Flags().StringVar(&personaPrompt, "persona-prompt", "", "persona dressing: identity prompt TEMPLATE with {{name}}/{{role}} placeholders")
+	cmd.Flags().StringVar(&personaPrompt, "persona-prompt", "", "persona dressing: identity prompt TEMPLATE with {{name}}/{{role}} placeholders (a lone - reads stdin)")
+	cmd.Flags().StringVar(&personaPromptFile, "persona-prompt-file", "", "read the persona prompt from a file (multi-line safe); mutually exclusive with --persona-prompt")
+	cmd.Flags().StringVar(&systemPromptFile, "system-prompt-file", "", "read the system prompt from a file (multi-line safe); mutually exclusive with --system-prompt")
 	cmd.Flags().StringVar(&installInto, "install-into", "", "App (ID or URN) to install the new agent into, so it is castable in one run")
+	cmd.MarkFlagsMutuallyExclusive("persona-prompt", "persona-prompt-file")
+	cmd.MarkFlagsMutuallyExclusive("system-prompt", "system-prompt-file")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
@@ -400,6 +474,7 @@ it can refuse after the create succeeds.`,
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var name, description, typ, vis, systemPrompt, systemMemory, urn string
 	var personaRole, personaPrompt string
+	var systemPromptFile, personaPromptFile string
 	var surfaces []string
 	cmd := &cobra.Command{
 		Use:   "update <ref>",
@@ -418,8 +493,9 @@ their prompt from it too.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
 			if !changed("name") && !changed("description") && !changed("type") && !changed("visibility") &&
-				!changed("system-prompt") && !changed("system-memory") && !changed("surface") && !changed("urn") &&
-				!changed("persona-role") && !changed("persona-prompt") {
+				!changed("system-prompt") && !changed("system-prompt-file") &&
+				!changed("system-memory") && !changed("surface") && !changed("urn") &&
+				!changed("persona-role") && !changed("persona-prompt") && !changed("persona-prompt-file") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
 			// The server prepends the owner namespace, so --urn is the agent
@@ -446,11 +522,25 @@ their prompt from it too.`,
 			if changed("surface") {
 				surfacesArg = surfaces
 			}
+			if err := refuseMultiStdin(systemPrompt, personaPrompt); err != nil {
+				return err
+			}
+			if err := refuseBlankPromptFile(cmd, "system-prompt", "persona-prompt"); err != nil {
+				return err
+			}
+			systemPromptArg, err := resolvePromptFlag(cmd, "system-prompt", systemPrompt, systemPromptFile, f.IOStreams.In)
+			if err != nil {
+				return err
+			}
+			personaPromptArg, err := resolvePromptFlag(cmd, "persona-prompt", personaPrompt, personaPromptFile, f.IOStreams.In)
+			if err != nil {
+				return err
+			}
 			resp, err := gen.UpdateAgent(cmd.Context(), client, args[0],
 				changedStr(cmd, "name", name), changedStr(cmd, "description", description),
-				at, av, changedStr(cmd, "system-prompt", systemPrompt),
+				at, av, systemPromptArg,
 				changedStr(cmd, "system-memory", systemMemory), surfacesArg, changedStr(cmd, "urn", urn),
-				changedStr(cmd, "persona-role", personaRole), changedStr(cmd, "persona-prompt", personaPrompt))
+				changedStr(cmd, "persona-role", personaRole), personaPromptArg)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -464,12 +554,16 @@ their prompt from it too.`,
 	cmd.Flags().StringVar(&description, "description", "", "agent description")
 	cmd.Flags().StringVar(&typ, "type", "", "type: ASSISTANT or CHATBOT")
 	cmd.Flags().StringVar(&vis, "visibility", "", "visibility: ORGANIZATION, PERSONAL, or PUBLIC")
-	cmd.Flags().StringVar(&systemPrompt, "system-prompt", "", "system prompt")
+	cmd.Flags().StringVar(&systemPrompt, "system-prompt", "", "system prompt (a lone - reads stdin)")
 	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "system memory ID")
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable; replaces the set)")
 	cmd.Flags().StringVar(&urn, "urn", "", "agent URN path")
 	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
-	cmd.Flags().StringVar(&personaPrompt, "persona-prompt", "", "persona dressing: identity prompt TEMPLATE with {{name}}/{{role}} placeholders")
+	cmd.Flags().StringVar(&personaPrompt, "persona-prompt", "", "persona dressing: identity prompt TEMPLATE with {{name}}/{{role}} placeholders (a lone - reads stdin)")
+	cmd.Flags().StringVar(&personaPromptFile, "persona-prompt-file", "", "read the persona prompt from a file (multi-line safe); mutually exclusive with --persona-prompt")
+	cmd.Flags().StringVar(&systemPromptFile, "system-prompt-file", "", "read the system prompt from a file (multi-line safe); mutually exclusive with --system-prompt")
+	cmd.MarkFlagsMutuallyExclusive("persona-prompt", "persona-prompt-file")
+	cmd.MarkFlagsMutuallyExclusive("system-prompt", "system-prompt-file")
 	return cmd
 }
 

@@ -2,8 +2,12 @@ package cmd
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 const agentJSON = `{"id":"agt1","urn":"acme.com::support-bot","name":"Support Bot","description":null,
@@ -339,5 +343,198 @@ func TestAgentRmWithYes(t *testing.T) {
 	// #789: `ref`, not `id`.
 	if vars["ref"] != "agt1" {
 		t.Errorf("rm vars: %v", vars)
+	}
+}
+
+// #541: the persona prompt is the longest text this CLI takes and it is dense
+// with backticks, {{braces}} and newlines — the characters a shell argument
+// mangles. --persona-prompt-file carries it verbatim, which is the whole point:
+// a prompt documenting CLI usage is full of backticks BY NATURE, and inline
+// they are command substitution the shell runs before hadron sees them.
+func TestAgentCreatePersonaPromptFileCarriesHostileCharsVerbatim(t *testing.T) {
+	// A template that would be mauled inline: backtick command spans, {{name}}
+	// placeholders, a $VAR, quotes, an em-dash, and blank-line paragraph breaks.
+	prompt := "You are {{name}}, the {{role}}.\n\n" +
+		"Use `spec new` to allocate a citation and `hadron team worker cast` to staff.\n" +
+		"Never run $(rm -rf /) — obviously. Prices are in \"USD\".\n"
+	dir := t.TempDir()
+	path := filepath.Join(dir, "persona.md")
+	if err := os.WriteFile(path, []byte(prompt), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateAgent": `{"data":{"createAgent":` + agentJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "create", "--org", "acme.com", "--name", "Specs Engineer",
+		"--persona-role", "specs-engineer", "--persona-prompt-file", path, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateAgent"], &vars)
+	if vars["personaPrompt"] != prompt {
+		t.Errorf("the file must reach the server byte-for-byte:\n got %q\nwant %q", vars["personaPrompt"], prompt)
+	}
+}
+
+// --persona-prompt - reads the template from stdin, so it can be piped or
+// heredoc'd rather than quoted.
+func TestAgentCreatePersonaPromptFromStdin(t *testing.T) {
+	prompt := "You are {{name}}. Use `spec new`.\n"
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateAgent": `{"data":{"createAgent":` + agentJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader(prompt)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "create", "--org", "acme.com", "--name", "Specs Engineer",
+		"--persona-prompt", "-", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateAgent"], &vars)
+	if vars["personaPrompt"] != prompt {
+		t.Errorf("stdin must reach the server verbatim: got %q", vars["personaPrompt"])
+	}
+}
+
+// --system-prompt-file has the identical shape (issue #541 asked for both).
+func TestAgentUpdateSystemPromptFile(t *testing.T) {
+	prompt := "System rules.\n\nBe terse.\n"
+	dir := t.TempDir()
+	path := filepath.Join(dir, "sys.md")
+	if err := os.WriteFile(path, []byte(prompt), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateAgent": `{"data":{"updateAgent":` + agentJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "update", "agt1", "--system-prompt-file", path, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateAgent"], &vars)
+	if vars["systemPrompt"] != prompt {
+		t.Errorf("systemPrompt = %q, want the file contents verbatim", vars["systemPrompt"])
+	}
+}
+
+// Inline and file for the same field are mutually exclusive, refused by cobra
+// before any request.
+func TestAgentPersonaPromptInlineAndFileConflict(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "create", "--org", "acme.com", "--name", "X",
+		"--persona-prompt", "inline", "--persona-prompt-file", "/tmp/whatever", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Usage {
+		t.Fatalf("exit = %d, want Usage; err %v", code, err)
+	}
+	if len(captured) != 0 {
+		t.Errorf("a usage error must cost no round trip; sent %v", captured)
+	}
+	if err == nil || !strings.Contains(err.Error(), "persona-prompt") {
+		t.Errorf("message should name the conflicting flag: %v", err)
+	}
+}
+
+// Stdin is one stream: two fields both asking for it is refused before either
+// read, rather than silently leaving the second empty.
+func TestAgentTwoPromptsFromStdinRefused(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{})
+	f, _ := testFactory(t)
+	f.IOStreams.In = strings.NewReader("only one stream here\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "create", "--org", "acme.com", "--name", "X",
+		"--persona-prompt", "-", "--system-prompt", "-", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Usage {
+		t.Fatalf("exit = %d, want Usage; err %v", code, err)
+	}
+	if len(captured) != 0 {
+		t.Errorf("must refuse before any request; sent %v", captured)
+	}
+	if err == nil || !strings.Contains(err.Error(), "stdin") {
+		t.Errorf("message should name the stdin clash: %v", err)
+	}
+}
+
+// An unreadable --persona-prompt-file is a usage error naming the flag, before
+// any request — not a raw os error, and not a round trip.
+func TestAgentPersonaPromptFileMissing(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "create", "--org", "acme.com", "--name", "X",
+		"--persona-prompt-file", filepath.Join(t.TempDir(), "nope.md"), "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Usage {
+		t.Fatalf("exit = %d, want Usage; err %v", code, err)
+	}
+	if len(captured) != 0 {
+		t.Errorf("must refuse before any request; sent %v", captured)
+	}
+	if err == nil || !strings.Contains(err.Error(), "persona-prompt-file") {
+		t.Errorf("message should name the flag: %v", err)
+	}
+}
+
+// The -file flags are optional: not passing them changes nothing, and the
+// prompt fields stay omitted (preserve) exactly as before #541.
+func TestAgentUpdateWithoutPromptFlagsOmitsThem(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateAgent": `{"data":{"updateAgent":` + agentJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "update", "agt1", "--name", "Renamed", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["UpdateAgent"], &vars)
+	for _, k := range []string{"systemPrompt", "personaPrompt"} {
+		if _, present := vars[k]; present {
+			t.Errorf("unpassed %q must be omitted, got %v", k, vars[k])
+		}
+	}
+}
+
+// #541 codex P1: --persona-prompt-file "" (an unset shell variable) is
+// Changed-but-empty. Without a guard, ResolveTextInput reads the empty path as
+// an empty value and `update` silently CLEARS the prompt. It must be a usage
+// error, before any request, on both update and create.
+func TestAgentPersonaPromptFileEmptyPathRefused(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"update", []string{"agent", "update", "agt1", "--persona-prompt-file", ""}},
+		{"create", []string{"agent", "create", "--org", "acme.com", "--name", "X", "--persona-prompt-file", ""}},
+		{"update system", []string{"agent", "update", "agt1", "--system-prompt-file", "   "}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(tc.args, "--server", gql.URL))
+			err := root.Execute()
+			if code := exitCodeFor(err); code != exitcode.Usage {
+				t.Fatalf("exit = %d, want Usage; err %v", code, err)
+			}
+			if len(captured) != 0 {
+				t.Errorf("must refuse before any request; sent %v", captured)
+			}
+			if err == nil || !strings.Contains(err.Error(), "empty path") {
+				t.Errorf("message should name the empty path: %v", err)
+			}
+		})
 	}
 }
