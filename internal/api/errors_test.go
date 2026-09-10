@@ -327,3 +327,41 @@ func TestEndRefusedBeforeCommit(t *testing.T) {
 		t.Error("an unrecognized error beside the known one must not be read as a clean refusal")
 	}
 }
+
+// httpErrWithCode builds a non-200 HTTPError whose body still carries a typed
+// GraphQL envelope (extensions.code) — the #563 case.
+func httpErrWithCode(status int, code string) error {
+	he := &graphql.HTTPError{StatusCode: status}
+	if code != "" {
+		he.Response = graphql.Response{Errors: gqlerror.List{{Message: "boom", Extensions: map[string]any{"code": code}}}}
+	}
+	return he
+}
+
+// #563: a non-200 that carries a typed envelope is classified by the code, not
+// the status — matching `hadron api`'s raw path. Without an envelope the status
+// still decides.
+func TestMapErrorPrefersEnvelopeCodeOverHTTPStatus(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want int
+	}{
+		// code-based answer DIFFERS from the status-based one — the whole point.
+		{"403 + WORKER_TAKEN → Conflict, not the 403 generic Error", httpErrWithCode(403, "WORKER_TAKEN"), exitcode.Conflict},
+		{"404 + BAD_USER_INPUT → Usage, not the 404 NotFound", httpErrWithCode(404, "BAD_USER_INPUT"), exitcode.Usage},
+		{"400 + BAD_USER_INPUT (not skew) → Usage, not the generic Error", httpErrWithCode(400, "BAD_USER_INPUT"), exitcode.Usage},
+		{"403 + a _NOT_FOUND code → NotFound", httpErrWithCode(403, "WORKER_NOT_FOUND"), exitcode.NotFound},
+		// no envelope: the status still decides (unchanged behaviour).
+		{"403 plain → Error", httpErrWithCode(403, ""), exitcode.Error},
+		{"401 plain → AuthRequired", httpErrWithCode(401, ""), exitcode.AuthRequired},
+		{"404 plain → NotFound", httpErrWithCode(404, ""), exitcode.NotFound},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := exitcode.FromError(MapError(tc.err)); got != tc.want {
+				t.Errorf("MapError → exit %d, want %d", got, tc.want)
+			}
+		})
+	}
+}

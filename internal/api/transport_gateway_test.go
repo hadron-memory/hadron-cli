@@ -89,17 +89,19 @@ func TestGatewayResponsesAreUnavailableThroughTheRealClient(t *testing.T) {
 			// parsed. A destroyed body yields "read on closed response body"
 			// instead.
 			//
-			// The exit code stays 1, and that is not an oversight in this
-			// fixture: MapError's HTTPError branch keys on the STATUS and
-			// returns before codeForExtension, so a 5xx carrying a typed
-			// extension code still exits 1. Noted rather than changed — it is
-			// not #544, and it is a different decision with its own blast
-			// radius.
-			name:        "a 5xx envelope's message survives the doer",
+			// #563 landed the decision #544 deferred here: MapError's HTTPError
+			// branch now checks the envelope's extensions.code BEFORE the
+			// status, so a 5xx carrying a typed code is classified by the code.
+			// A 503 whose body says NOT_FOUND is a definite answer, not a
+			// retryable outage — exit 4, not the generic 1. (A 5xx with NO
+			// envelope is still transport/Unavailable via classifyTransport,
+			// which runs first; only a 5xx that carries a real answer reaches
+			// here.)
+			name:        "a 5xx envelope's typed code is honored (#563)",
 			status:      http.StatusServiceUnavailable,
 			contentType: "application/json",
 			body:        `{"errors":[{"message":"no such node","extensions":{"code":"NOT_FOUND"}}]}`,
-			want:        exitcode.Error,
+			want:        exitcode.NotFound,
 			mustContain: "no such node",
 		},
 	} {
