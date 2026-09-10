@@ -11,6 +11,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/approster"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -187,12 +188,62 @@ names) is what says whether one is already taken.`,
 						fmt.Fprintf(w, "! role %s: the role-agent's prompt template never binds {{name}} — its workers would be nameless in their own briefing\n", r.Role)
 					}
 				}
+				// The silent-divergence warnings (#542). A role name is coupled
+				// to an agent's personaRole by string equality alone, and
+				// nothing gates the match (cor:agt:020:00 §1) — so a definition
+				// for a role no agent carries, or an installed agent whose
+				// persona role no definition names, both pass unremarked. The
+				// reverse half needs the install roster; read it here, in the
+				// human branch only (--json already carries roleAgentName, whose
+				// null IS the first case, and the reverse is `app agent list`'s
+				// data — don't issue a decorating read under --json). A narrowed
+				// listing (--team-agent) can't judge the reverse — it sees only
+				// one branch's definitions — so that half is skipped then.
+				var members []approster.MemberDTO
+				haveRoster := false
+				if teamAgent == "" {
+					if r, rErr := approster.Fetch(cmd.Context(), client, scope.Ref); rErr == nil {
+						members, haveRoster = r.Members, true
+					}
+				}
+				emitRoleConsistencyWarnings(w, roles, members, haveRoster)
 				return nil
 			})
 		},
 	}
 	cmd.Flags().StringVar(&teamAgent, "team-agent", "", "Team Agent holding the roles branch, when the App installs more than one")
 	return cmd
+}
+
+// emitRoleConsistencyWarnings writes the #542 divergence warnings for `role
+// list`: a definition whose persona role no installed agent carries (the AGENT
+// column is blank — visible in --json as a null roleAgentName), and, when the
+// listing is not narrowed by --team-agent, an installed agent whose persona
+// role no definition names. Both are WARNINGS, never gates (cor:agt:020:00 §1),
+// and human-only. haveRoster is false when the roster read was skipped or
+// failed, which drops the reverse half rather than failing a working list.
+func emitRoleConsistencyWarnings(w io.Writer, roles []roleDTO, members []approster.MemberDTO, haveRoster bool) {
+	for _, r := range roles {
+		if r.RoleAgentName == nil {
+			fmt.Fprintf(w, "! role %s: no installed agent carries this persona role — the definition documents a role nobody holds\n", r.Role)
+		}
+	}
+	if !haveRoster {
+		return
+	}
+	defined := map[string]bool{}
+	for _, r := range roles {
+		defined[strings.ToLower(r.Role)] = true
+	}
+	for _, m := range members {
+		if m.PersonaRole == nil || *m.PersonaRole == "" {
+			continue
+		}
+		if !defined[strings.ToLower(*m.PersonaRole)] {
+			fmt.Fprintf(w, "! agent %s (persona role %q): no matching role definition — create one with `hadron team role create %s`\n",
+				m.AgentName, *m.PersonaRole, *m.PersonaRole)
+		}
+	}
 }
 
 func newCmdRoleGet(f *cmdutil.Factory) *cobra.Command {

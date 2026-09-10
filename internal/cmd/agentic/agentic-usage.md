@@ -852,6 +852,11 @@ Conventions:
   unrecognized role resolves no agent (`WORKER_AGENT_NOT_FOUND`); with an
   explicit `--agent` it is simply the casting's label.
   `--prompt-override` layers per-worker individuality over the template.
+  Because `--role` resolves an AGENT and consults no role DEFINITION, a
+  successful `--role` cast whose role has no `team role` definition prints a
+  note on **stderr** (#542) — the divergence is created here, and stderr keeps
+  the `--json` receipt on stdout clean. Best-effort: an unreadable roles
+  branch stays silent rather than risk a note the operator cannot trust.
   **`worker cast --dry-run`** (#404, `castWorkerPreview`) runs the cast's
   EXACT resolution — same arguments, same typed refusals — up to but not
   including the writes, and shows what would be created: the
@@ -879,6 +884,16 @@ Conventions:
   carry it in the receipt, `role rm` puts it in the confirmation.
   Render-only: `--json` shapes are unaffected by the scope line and the
   decorating read is not issued under `--json`.
+  **`role list` also warns on role↔agent divergence (#542), both human-only.**
+  A role name and an agent's `personaRole` are coupled by string equality
+  alone and nothing gates the match (`cor:agt:020:00` §1), so a definition
+  no installed agent carries (its AGENT cell is blank — `roleAgentName` null
+  in `--json`), and an installed agent whose persona role no definition names,
+  both pass unremarked. The reverse half reads the install roster, so it is
+  skipped under `--json` (the null `roleAgentName` already carries the forward
+  case, and the reverse is `app agent list`'s data) and under `--team-agent`
+  (a narrowed listing sees only one branch's definitions). Warnings, never
+  gates.
   **`team role create/update`** are thin over `createTeamRole`/`updateTeamRole`.
   A role definition now carries a role and a description, and nothing else a
   client can set, so `create <role> [--description]` and `update <role>
