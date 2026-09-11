@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -223,5 +225,27 @@ func TestNodeMoveBareLocWithMemory(t *testing.T) {
 	_ = json.Unmarshal(captured["ResolveUrn"], &resolveVars)
 	if resolveVars["urn"] != "hrn:node:acme.com:kb:findings:flaky-ci" {
 		t.Errorf("ResolveUrn urn = %v", resolveVars["urn"])
+	}
+}
+
+// #450: `node move` gains the `mv` alias, so a shell-fluent user who has typed
+// `node ls` and `node rm` in the same session doesn't hit "unknown command"
+// reaching for `node mv`.
+func TestNodeMoveHasMvAlias(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	var nodeCmd *cobra.Command
+	for _, c := range root.Commands() {
+		if c.Name() == "node" {
+			nodeCmd = c
+			break
+		}
+	}
+	if nodeCmd == nil {
+		t.Fatal("node command group not found")
+	}
+	move, _, err := nodeCmd.Find([]string{"mv"})
+	if err != nil || move == nil || move.Name() != "move" {
+		t.Fatalf("`node mv` must resolve to `node move`, got %v (err %v)", move, err)
 	}
 }
