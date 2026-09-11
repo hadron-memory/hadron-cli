@@ -51,6 +51,19 @@ func MapError(err error) error {
 
 	var httpErr *graphql.HTTPError
 	if errors.As(err, &httpErr) {
+		// #563: a non-200 that STILL carries a typed GraphQL envelope is
+		// classified by its extensions.code, not by the HTTP status — otherwise
+		// a 403/404 (or a 400 that is not schema skew) with a typed code
+		// silently downgrades to the generic status mapping on the curated
+		// path, while `hadron api`'s raw path already asks the envelope first
+		// regardless of status. The status switch is the fallback for a body
+		// with no code (a proxy's HTML 404, an unparsed envelope). Schema-skew
+		// and transport (5xx) are handled above, so they never reach here.
+		for _, e := range graphQLErrors(err) {
+			if code := extensionCode(e); code != "" {
+				return exitcode.New(codeForExtension(code), err)
+			}
+		}
 		switch httpErr.StatusCode {
 		case 401:
 			return exitcode.New(exitcode.AuthRequired, err)
