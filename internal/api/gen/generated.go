@@ -7007,6 +7007,21 @@ type EndTeamSessionResponse struct {
 	// goes (the worker's working memory, under the `handoffs` parent, at a
 	// lexically-ordered loc), so no client re-derives the convention.
 	//
+	// `summary` is NOT a smaller `handoff` (#1100). It sets `Session.summary`,
+	// a label on the session row — readable back through `session` / `sessions`,
+	// but read by no worker-continuity path, so the next driver never sees it. The
+	// two sit side by side and only one of them reaches that driver, so a caller
+	// writing a closing note picks by name: it is `handoff`.
+	//
+	// The two mistakes are not symmetric, and that is the whole hazard. Putting
+	// continuity prose in `summary` succeeds, returns a normal receipt, and
+	// produces NO handoff — discovered only once the context that could have
+	// written one is gone, and not correctable in place, since the sequence is
+	// append-only and the stint has ended (re-ending is refused). The remedy is to
+	// bind again and end THAT session with the prose. Putting a label in
+	// `handoff` is merely untidy: the row lacks its label and the text reaches
+	// the next driver anyway.
+	//
 	// Written BEFORE the session ends, and a failed write REFUSES the end
 	// (HANDOFF_WRITE_FAILED) rather than ending anyway: a still-bound worker is
 	// recoverable — retry, or end without a handoff deliberately — while an ended
@@ -7791,7 +7806,7 @@ type GetNodeNode struct {
 	Description *string `json:"description"`
 	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
 	Abstract *string `json:"abstract"`
-	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness; when the two values differ AND abstractOriginHash is non-null, the abstract may not reflect current content. System-managed; never settable via NodeInput.
+	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness: the abstract may not reflect current content when the two differ, OR when this is NULL on a node that has both an abstract and content (#1128 — an abstract written before the body existed was never fingerprinted, so it has never been checked against it; that reads as unverified, not as verified). NULL is only a clean state when the node has no abstract, or no content for the abstract to describe. Note restoreNodeRevision restores this field verbatim, so restoring a snapshot taken while it was NULL reinstates the unverified state — correctly, since that abstract has never been checked against the restored content. System-managed; never settable via NodeInput.
 	AbstractOriginHash *string `json:"abstractOriginHash"`
 	NodeType           string  `json:"nodeType"`
 	// #725 — collection discriminator (which domain object this node is, e.g. "competitor"). NULL for an ordinary node.
@@ -10816,7 +10831,7 @@ type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
 	Description *string `json:"description"`
 	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
 	Abstract *string `json:"abstract"`
-	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness; when the two values differ AND abstractOriginHash is non-null, the abstract may not reflect current content. System-managed; never settable via NodeInput.
+	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness: the abstract may not reflect current content when the two differ, OR when this is NULL on a node that has both an abstract and content (#1128 — an abstract written before the body existed was never fingerprinted, so it has never been checked against it; that reads as unverified, not as verified). NULL is only a clean state when the node has no abstract, or no content for the abstract to describe. Note restoreNodeRevision restores this field verbatim, so restoring a snapshot taken while it was NULL reinstates the unverified state — correctly, since that abstract has never been checked against the restored content. System-managed; never settable via NodeInput.
 	AbstractOriginHash *string                                                        `json:"abstractOriginHash"`
 	Tags               []string                                                       `json:"tags"`
 	Seq                *int                                                           `json:"seq"`

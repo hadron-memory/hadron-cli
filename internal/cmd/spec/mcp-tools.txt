@@ -5,17 +5,7 @@
 # mcp-tools-ignore.txt. CI's tools-manifest-check fails if this drifts from
 # hadron-server (the drift that let h-* shorthand rot silently — issue #240).
 #
-hadron_chatbot_add_training_entry
-hadron_chatbot_define_persona
-hadron_chatbot_get_route_history
-hadron_chatbot_get_routing_map
-hadron_chatbot_list_personas
-hadron_chatbot_pop_goal
-hadron_chatbot_process
-hadron_chatbot_push_goal
-hadron_chatbot_run_persona
-hadron_chatbot_send
-hadron_chatbot_start
+hadron_cast_worker
 hadron_child_runs
 hadron_create_edge
 hadron_create_node
@@ -32,14 +22,17 @@ hadron_get_next_node
 hadron_get_node
 hadron_get_nodes
 hadron_get_object
+hadron_get_worker
 hadron_list_apps
 hadron_list_memories
 hadron_list_nodes
+hadron_list_workers
 hadron_lock_memory
 hadron_log
 hadron_move_node
 hadron_read_node
 hadron_read_secret
+hadron_record_work
 hadron_replace_text
 hadron_run_action
 hadron_run_task
@@ -53,9 +46,14 @@ hadron_spawn
 hadron_start_session
 hadron_store_file
 hadron_sync_graph
+hadron_team_chat_post
+hadron_team_chat_read
+hadron_team_work_items
 hadron_unlock_memory
 hadron_update_edge
 hadron_update_node
 hadron_update_node_data
 hadron_update_object
+hadron_update_worker
 hadron_validate
+hadron_whoami
