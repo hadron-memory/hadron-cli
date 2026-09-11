@@ -1188,6 +1188,13 @@ type logResultDTO struct {
 	// onto Session.prNumber.
 	PRNumber int    `json:"prNumber"`
 	Recorded string `json:"recorded"`
+	// #559: who the record was attributed to — the binding's worker. Names the
+	// author on the one write surface that cannot be corrected (the worklog is
+	// append-only, cor:agt:020:05), so a shell that wandered into a
+	// differently-bound worktree is caught on sight. Omitted for a pre-Worker
+	// binding, which carries no worker name.
+	WorkerName string `json:"workerName,omitempty"`
+	WorkerID   string `json:"workerId,omitempty"`
 }
 
 // noteUnreadTeamChat tells a heads-down worker what landed in the team chat
@@ -1531,8 +1538,18 @@ what you have read. A cross-surface watermark is a server-side question.`,
 			// AFTER the milestone is recorded — this is a courtesy, and it must
 			// never sit between the caller and their write.
 			noteUnreadTeamChat(ctx, f, b)
-			result := logResultDTO{SessionID: b.SessionID, Kind: kind, Ref: canonical, PRNumber: number, Recorded: recorded}
+			result := logResultDTO{SessionID: b.SessionID, Kind: kind, Ref: canonical, PRNumber: number, Recorded: recorded, WorkerName: b.WorkerName, WorkerID: b.WorkerID}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
+				// Name the WORKER, not just the session UUID (#559): the worklog
+				// is append-only, so a record filed under the wrong worker — a
+				// shell that `cd`'d into a differently-bound worktree — is
+				// permanent, and a UUID is the one thing the operator cannot
+				// recognise on sight. A pre-Worker binding has no name, so it
+				// keeps the session-only line.
+				if b.WorkerName != "" {
+					_, err := fmt.Fprintf(w, "✓ logged %s %s as %s (session %s, %s)\n", kind, canonical, b.WorkerName, b.SessionID, recorded)
+					return err
+				}
 				_, err := fmt.Fprintf(w, "✓ logged %s %s for session %s (%s)\n", kind, canonical, b.SessionID, recorded)
 				return err
 			})

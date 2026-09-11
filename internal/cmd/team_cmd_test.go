@@ -2766,13 +2766,18 @@ func TestTeamSessionLogWritesWorklogAndSession(t *testing.T) {
 		t.Errorf("the worklog must not be hand-written through the generic object surface")
 	}
 	var dto struct {
-		Recorded string `json:"recorded"`
-		Ref      string `json:"ref"`
-		PRNumber int    `json:"prNumber"`
+		Recorded   string `json:"recorded"`
+		Ref        string `json:"ref"`
+		PRNumber   int    `json:"prNumber"`
+		WorkerName string `json:"workerName"`
 	}
 	_ = json.Unmarshal([]byte(out.String()), &dto)
 	if dto.Recorded != "worklog" || dto.Ref != "hadron-memory/hadron-cli#371" || dto.PRNumber != 371 {
 		t.Errorf("log output: %s", out.String())
+	}
+	// #559: --json carries the attributed worker too.
+	if dto.WorkerName != "Iris" {
+		t.Errorf("the record's worker must be in --json: %s", out.String())
 	}
 	data, _ := os.ReadFile(path)
 	var b struct {
@@ -2781,6 +2786,68 @@ func TestTeamSessionLogWritesWorklogAndSession(t *testing.T) {
 	_ = json.Unmarshal(data, &b)
 	if len(b.PRNumbers) != 1 || b.PRNumbers[0] != 371 {
 		t.Errorf("binding prNumbers: %s", data)
+	}
+}
+
+// #559: the success line names the WORKER, not just the session UUID. The
+// worklog is append-only (cor:agt:020:05), so a record filed under the wrong
+// worker — a shell that `cd`'d into a differently-bound worktree — is
+// permanent, and the UUID is the one thing the operator cannot recognise on
+// sight. The name is what makes the mistake catchable in the second it takes
+// to read the receipt.
+func TestTeamSessionLogNamesTheWorker(t *testing.T) {
+	dir := teamGitDir(t)
+	path := filepath.Join(dir, "hadron-team-session.json")
+	if err := os.WriteFile(path, []byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, _ := captureGraphQL(t, map[string]string{
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
+			"tool":"claude-code","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
+			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "as Iris") {
+		t.Errorf("the receipt must name the worker: %q", out.String())
+	}
+}
+
+// A pre-Worker binding carries no worker name; the line falls back to naming
+// the session rather than printing "as ".
+func TestTeamSessionLogFallsBackWhenNoWorkerName(t *testing.T) {
+	dir := teamGitDir(t)
+	nameless := `{"sessionId":"s-new","workerId":"","agentId":"agt1","appId":"capp100000000000000000000",
+		"startedAt":"2026-08-11T10:00:00Z","appBound":true,"tool":"claude-code",
+		"repo":"hadron-memory/hadron-cli","prNumbers":[]}`
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(nameless), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, _ := captureGraphQL(t, map[string]string{
+		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u1",
+			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
+			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
+			"transcriptPath":null,"llmModel":null}}}`,
+		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
+			"tool":"claude-code","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
+			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "log", "--pr", "371", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Contains(out.String(), "as ") || !strings.Contains(out.String(), "for session s-new") {
+		t.Errorf("a nameless binding must fall back to the session line: %q", out.String())
 	}
 }
 
