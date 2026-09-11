@@ -34,8 +34,15 @@ func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 		schemaFile  string
 	)
 	cmd := &cobra.Command{
-		Use:   "set [<memoryRef>]",
-		Short: "Create or update a memory",
+		Use: "set [<memoryRef>]",
+		// `memory set` is a deliberate upsert (a ref updates, none creates),
+		// but every other noun spells the create verb `create` — so a user who
+		// learned `node/org/agent create` first dead-ends on `memory create`,
+		// too far from `set` for cobra's edit-distance suggester (#308). The
+		// aliases make the guess land; SuggestFor catches a near-miss too.
+		Aliases:    []string{"create", "new", "add"},
+		SuggestFor: []string{"create", "new", "add"},
+		Short:      "Create or update a memory",
 		Long: `Create or update a memory.
 
 With a positional memory ID or URN, updates that memory (only the
