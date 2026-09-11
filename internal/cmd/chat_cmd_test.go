@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // chatMsg builds one findNodes hit for a ChatMessages response (the legacy
@@ -387,6 +389,27 @@ func TestChatPostBodyFile(t *testing.T) {
 	_ = json.Unmarshal(vars.Input.Data, &data)
 	if len(data.Mentions) != 1 || data.Mentions[0] != "rufus" {
 		t.Errorf("mentions parsed from a file body too, got %v", data.Mentions)
+	}
+}
+
+// #390: a missing/unreadable --body-file is a user-input mistake — exit Usage
+// (2), the documented contract scripts branch on, not the generic 1 the raw
+// os.PathError classifies as, and before any request.
+func TestChatPostBodyFileMissingIsUsageError(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"chat", "post", "--node", "acme.com::tc::chats:api:messages", "--handle", "iris",
+		"--body-file", filepath.Join(t.TempDir(), "nope.md"), "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Usage {
+		t.Fatalf("exit = %d, want Usage; err %v", code, err)
+	}
+	if len(captured) != 0 {
+		t.Errorf("must refuse before any request; sent %v", captured)
+	}
+	if err == nil || !strings.Contains(err.Error(), "--body-file") {
+		t.Errorf("message should name the flag: %v", err)
 	}
 }
 
