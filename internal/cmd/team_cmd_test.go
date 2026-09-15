@@ -3593,10 +3593,10 @@ func TestTeamSessionListProvenanceAppSources(t *testing.T) {
 
 	// Unbound checkout + explicit --app: no memory resolution at all.
 	teamGitDir(t)
-	gql, captured := captureGraphQL(t, map[string]string{
+	gql, captured := captureGraphQL(t, sessionRenderStubs(map[string]string{
 		"TeamWorkItems":  worklogResp,
 		"GetTeamSession": `{"data":{"session":` + endedSessionJSON + `}}`,
-	})
+	}))
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "list", "--pr", "hadron-memory/hadron-cli#371",
@@ -3617,10 +3617,10 @@ func TestTeamSessionListProvenanceAppSources(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bindingFixture), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	gql2, captured2 := captureGraphQL(t, map[string]string{
+	gql2, captured2 := captureGraphQL(t, sessionRenderStubs(map[string]string{
 		"TeamWorkItems":  worklogResp,
 		"GetTeamSession": `{"data":{"session":` + endedSessionJSON + `}}`,
-	})
+	}))
 	f2, _ := testFactory(t)
 	root2 := NewRootCmd(f2)
 	root2.SetArgs([]string{"team", "session", "list", "--pr", "371", "--server", gql2.URL})

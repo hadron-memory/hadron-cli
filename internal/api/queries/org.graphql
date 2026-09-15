@@ -18,6 +18,12 @@ fragment OrgFields on Organization {
 # (cor:api:010:02).
 fragment UserFields on User {
   id
+  # The addressable handle for a person (hadron-cli#455). The id is a PK
+  # nobody can act on or recognise; the URN reads as `hrn:user:<handle>` and
+  # is what a reader copies into another command or a message. Nullable —
+  # a user with no handle has nothing to compose one from — so every consumer
+  # falls back rather than assuming it.
+  urn
   name
   email
   handle

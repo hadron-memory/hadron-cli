@@ -1964,6 +1964,10 @@ dropped.`,
 				// truncated id breaks copy-paste into that flag — shortening is
 				// only safe once --session learns prefix resolution, which is a
 				// deliberate change rather than an assumption.
+				// Resolved inside the render callback, never in RunE: --json does
+				// not run this branch, so an agent path must not pay for a round
+				// trip it never renders (the PR #504 rule).
+				userLabel := sessionUserLabeller(ctx, client)
 				t := output.NewTable(w, "WORKER", "ROLE", "USER", "REPO", "PR", "STARTED", "ENDED", "TOOL", "SESSION")
 				for _, s := range sessions {
 					pr := "—"
@@ -1979,7 +1983,7 @@ dropped.`,
 					if worker == nil {
 						worker = s.AgentID
 					}
-					t.Row(dash(worker), dash(s.WorkerRole), dash(s.UserID), dash(s.Repo), pr, s.StartedAt, dash(s.EndedAt), dash(s.Tool), s.ID)
+					t.Row(dash(worker), dash(s.WorkerRole), userLabel(s.UserID), dash(s.Repo), pr, s.StartedAt, dash(s.EndedAt), dash(s.Tool), s.ID)
 				}
 				return t.Flush()
 			})
@@ -2024,21 +2028,36 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 	// memory the caller named, the Codex P1 on PR #409), then the explicit
 	// --app flag, then the binding (appId, or a pre-#399 binding's team
 	// memory), then the ambient App context.
+	//
+	// Each branch also names ITSELF (#481). Knowing the scope resolved is the
+	// much less useful half — the reader needs to know WHICH branch answered,
+	// because "-m you typed" and "a binding you forgot about" are the same
+	// output otherwise. This chain deliberately differs from
+	// resolveTeamAppScope's (see above), so the phrases are set here rather
+	// than by reusing that helper, which would reintroduce the precedence bug
+	// the comment above records.
 	appRef := ""
+	scope := appScope{}
 	switch {
 	case memory != "":
 		appRef, err = appForTeamMemory(ctx, client, cmdutil.CanonicalMemoryRef(memory))
+		scope.Source = "from -m"
 	case f.AppFlag != "":
 		appRef, err = cmdutil.CanonicalAppRef("--app", f.AppFlag)
+		scope.Source = "from --app"
 	case b != nil && b.AppID != "":
 		appRef = b.AppID
+		scope.Source, scope.Ambient = "from the worktree binding", true
 	case b != nil && b.TeamMemory != "":
 		appRef, err = appForTeamMemory(ctx, client, b.TeamMemory)
+		scope.Source, scope.Ambient = "from the worktree binding's team memory", true
 	default:
 		if ambient, aerr := f.App(); aerr == nil && ambient != "" {
 			appRef = ambient
+			scope.Source, scope.Ambient = "from the App context", true
 		}
 	}
+	scope.Ref = appRef
 	if err != nil {
 		return err
 	}
@@ -2110,10 +2129,45 @@ func runProvenanceQuery(cmd *cobra.Command, f *cmdutil.Factory, client graphql.C
 		sessions = append(sessions, sessionDTOFromFields(resp.Session.TeamSessionFields, workerBySession[id].name))
 	}
 	return output.Write(f.IOStreams, f.JSON, sessions, func(w io.Writer) error {
+		// #481: this command answers "who produced this artifact", and an empty
+		// table used to answer THREE different questions identically — nobody
+		// logged it, you are asking the wrong App, or the ref matched nothing.
+		// Those want opposite reactions, and the inference a reader actually
+		// draws from a bare header row is the one that is wrong: that the
+		// worklog is broken.
+		//
+		// Both lines print BEFORE the payload and on an empty result, which is
+		// precisely the case review:ambient-scope-must-report-its-source calls
+		// the worst one: with zero rows there is not even data to cross-check
+		// the scope against.
+		if _, err := fmt.Fprintf(w, "app: %s (%s)\n", describeApp(ctx, f, scope.Ref), scope.Source); err != nil {
+			return err
+		}
+		// Echo what the input NORMALIZED to, not what was typed. A reader who
+		// pasted a URL can then see the repo and number the lookup actually
+		// used — which is how a wrong-repo or wrong-number mistake becomes
+		// self-diagnosable — and it confirms normalization ran at all.
+		if _, err := fmt.Fprintf(w, "%s: %s\n", kind, canonical); err != nil {
+			return err
+		}
+		if len(sessions) == 0 {
+			// Say the true thing, which is NOT "no results". Work done outside
+			// a worker session is invisible to the worklog by construction —
+			// that is correct behaviour and worth knowing, rather than a
+			// failure. Naming the App in the same breath covers the second
+			// reading (wrong team) without claiming which of the two it is.
+			_, err := fmt.Fprintf(w,
+				"\nno worklog records — no worker session logged %s in this App.\n"+
+					"That is not an error: work done outside a worker session is not recorded here.\n"+
+					"If you expected a record, check the App above and the ref above.\n",
+				canonical)
+			return err
+		}
+		userLabel := sessionUserLabeller(ctx, client)
 		// Same treatment as the listing table above (#486).
 		t := output.NewTable(w, "WORKER", "ROLE", "USER", "TOOL", "HOST", "MODEL", "STARTED", "TRANSCRIPT", "SESSION")
 		for _, s := range sessions {
-			t.Row(dash(s.WorkerName), dash(s.WorkerRole), dash(s.UserID), dash(s.Tool), dash(s.Host), dash(s.LLMModel), s.StartedAt, dash(s.TranscriptPath), s.ID)
+			t.Row(dash(s.WorkerName), dash(s.WorkerRole), userLabel(s.UserID), dash(s.Tool), dash(s.Host), dash(s.LLMModel), s.StartedAt, dash(s.TranscriptPath), s.ID)
 		}
 		return t.Flush()
 	})
@@ -2507,4 +2561,61 @@ func resolveHandoff(cmd *cobra.Command, handoff, handoffFile string, stdin io.Re
 			"the handoff is empty — write what the next driver needs, or omit --handoff to end without a continuity record")
 	}
 	return text, src, nil
+}
+
+// describeSessionUser renders a session's USER cell as the person's URN
+// (hadron-cli#455).
+//
+// The raw `userId` the column used to print — `019d28f166d979d09438cd92e832194c`
+// — is a PK: unrecognisable, unpronounceable, and not accepted by anything a
+// reader would type next. `hrn:user:holger` is both readable and addressable,
+// which is the same argument `worker list` already made for showing the worker
+// URN instead of AGENT ID.
+//
+// BEST-EFFORT, like describeApp: this decorates a render and never gates one.
+// An unreadable user, a failed lookup, or a user with no URN (the server
+// composes it from the handle, so a handle-less account has none) all degrade
+// to the id already in hand — which is strictly what the column showed before,
+// so the worst case is today's behaviour rather than a blank cell.
+//
+// Deliberately NOT a friendly label like describeHolder's `Name (@handle)`.
+// That is the right shape for HELD BY, where the question is "who do I ask";
+// here the question is "who produced this", the answer travels into a PR
+// comment or another command, and review:entity-fields-not-display-labels is
+// explicit that a display label drops the actionable ref. The URN is both.
+func describeSessionUser(ctx context.Context, client graphql.Client, userID string) string {
+	if userID == "" {
+		return ""
+	}
+	resp, err := gen.GetUser(ctx, client, userID)
+	if err != nil || resp.User == nil {
+		return userID
+	}
+	if resp.User.Urn == nil || *resp.User.Urn == "" {
+		return userID
+	}
+	return *resp.User.Urn
+}
+
+// sessionUserLabeller memoizes describeSessionUser across a table.
+//
+// Memoization is what makes the per-row read affordable rather than a clever
+// extra: `Session` has no nested `user` (unlike `worker`, which #980 nested for
+// exactly this reason), and `UserFilter` takes only a `query` string, so there
+// is no batch-by-ids call to make. What saves it is the shape of the data —
+// a team's sessions are driven by a handful of people, so a hundred rows
+// resolve to two or three distinct lookups.
+//
+// It reuses holderLabeller rather than growing a second cache with the same
+// body; that helper is already the memoizing wrapper `worker list` drives.
+func sessionUserLabeller(ctx context.Context, client graphql.Client) func(*string) string {
+	label := holderLabeller(func(id string) string {
+		return describeSessionUser(ctx, client, id)
+	})
+	return func(id *string) string {
+		if id == nil || *id == "" {
+			return "—"
+		}
+		return label(*id)
+	}
 }
