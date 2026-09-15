@@ -53,16 +53,39 @@ type nodeDTO struct {
 // nodeDetailDTO extends the list shape for single-node output.
 type nodeDetailDTO struct {
 	nodeDTO
-	ObjectType    *string          `json:"objectType"`
-	Description   *string          `json:"description"`
-	Abstract      *string          `json:"abstract"`
-	Content       *string          `json:"content"`
-	Data          *json.RawMessage `json:"data,omitempty"`
-	Properties    *json.RawMessage `json:"properties,omitempty"`
-	Seq           *int             `json:"seq"`
-	CreatedAt     string           `json:"createdAt"`
-	OutgoingEdges []edgeRefDTO     `json:"outgoingEdges"`
-	IncomingEdges []edgeRefDTO     `json:"incomingEdges"`
+	ObjectType  *string `json:"objectType"`
+	Description *string `json:"description"`
+	Abstract    *string `json:"abstract"`
+	// AbstractOriginHash is spec 032's staleness fingerprint — the content hash
+	// as of when the abstract was written (#306). `GetNode` has always selected
+	// it; this DTO dropped it, so it never reached anyone.
+	//
+	// That absence is why #306 was filed, and the shape is worth keeping in
+	// mind: the issue's reproduction was `node get --json | jq
+	// .abstractOriginHash`, which printed `null` — because **jq returns null
+	// for a key that is not there**, indistinguishable from a key whose value
+	// is null. The field read as permanently null on every node, which looked
+	// exactly like a detector that had been disarmed. It had not been; the
+	// server had been stamping it correctly the whole time.
+	//
+	// A pointer WITHOUT omitempty, deliberately: null is a meaningful value
+	// here (no abstract, or an abstract never fingerprinted — #1128's
+	// unverified state), so the key must always be present. Making it vanish
+	// would reintroduce the exact ambiguity above.
+	//
+	// The raw fingerprint only, and no derived "is it stale" boolean: deciding
+	// that needs the content hash the server computes, and recomputing it
+	// client-side would be a second implementation free to disagree with the
+	// first. `hadron memory validate` already reports `stale-abstract` from the
+	// server's own comparison, and that stays the one answer.
+	AbstractOriginHash *string          `json:"abstractOriginHash"`
+	Content            *string          `json:"content"`
+	Data               *json.RawMessage `json:"data,omitempty"`
+	Properties         *json.RawMessage `json:"properties,omitempty"`
+	Seq                *int             `json:"seq"`
+	CreatedAt          string           `json:"createdAt"`
+	OutgoingEdges      []edgeRefDTO     `json:"outgoingEdges"`
+	IncomingEdges      []edgeRefDTO     `json:"incomingEdges"`
 }
 
 func NewCmdNode(f *cmdutil.Factory) *cobra.Command {

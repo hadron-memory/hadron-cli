@@ -403,6 +403,15 @@ Conventions:
   means it sits behind a proxy without its public base URL configured, so every
   absolute URL it emits points somewhere wrong. `hadron version` reports the CLI
   build instead and needs no network.
+- **`node get --json` carries `abstractOriginHash`** (#306, spec 032) — the
+  content fingerprint recorded when the abstract was written, on the batched
+  read as well as the single-ref one. The key is **always present**: `null` is
+  a real answer (no abstract, or one never fingerprinted — server #1128's
+  *unverified* state), so do not treat a missing key and a null value as the
+  same thing. Reading it does NOT tell you the abstract is stale — that needs
+  comparing it against the current content hash, which the server does. Ask
+  `hadron memory validate <memory>`, whose `stale-abstract` findings are the
+  one authoritative verdict; do not recompute the hash yourself.
 - **`node get` prints the node's `urn:` and, under it, a `URL:` line — the
   SERVER-BUILT portal link that opens it** (#515, `cor:api:230:01`), on the
   BATCHED read as well as the single-ref one; #520 pins both queries to the
