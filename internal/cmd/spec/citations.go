@@ -386,6 +386,9 @@ const (
 	abstractVerifiedOrNA abstractVerificationState = iota
 	// abstractStale — a fingerprint exists and disagrees with the body.
 	abstractStale
+	// abstractUncheckable — the body in hand is COMPILED, so no comparison is
+	// meaningful. Distinct from clean: it means "not asked", not "fine".
+	abstractUncheckable
 	// abstractUnverified — the node has BOTH an abstract and content, and NO
 	// fingerprint. Distinct from stale and NOT clean (#1128): the abstract was
 	// written before the body existed, so it has never been checked against it.
@@ -399,8 +402,21 @@ const (
 // afford. `staleAbstract` below is the citation surface's narrower question and
 // is expressed in terms of this one.
 func abstractVerification(n specNode) abstractVerificationState {
+	// A COMPILED body cannot be compared (PR #587 review, @copilot). The
+	// single-ref read renders Mustache templates while the fingerprint is over
+	// the source, so a template-backed spec would report stale with nothing
+	// changed. Silence beats a false positive on a warning nobody can act on.
+	if !n.ContentIsRaw {
+		return abstractUncheckable
+	}
 	hasAbstract := n.Abstract != nil && strings.TrimSpace(*n.Abstract) != ""
-	hasContent := n.Content != nil && strings.TrimSpace(*n.Content) != ""
+	// EXACT emptiness for content, not trimmed (PR #587 review, @copilot). The
+	// server hashes the stored bytes, so a whitespace-only body IS fingerprinted
+	// and an abstract over it can genuinely be stale or unverified; trimming
+	// here would classify that as "nothing to check" and report neither. The
+	// abstract is trimmed because the server normalizes an empty or
+	// whitespace-only abstract to null, so no such value reaches us.
+	hasContent := n.Content != nil && *n.Content != ""
 	if !hasAbstract || !hasContent {
 		return abstractVerifiedOrNA
 	}

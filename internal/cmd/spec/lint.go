@@ -130,7 +130,19 @@ fix is a supersede-level split.`, abstractSoftMax, abstractHardMax, abstractTigh
 				if err != nil {
 					return err
 				}
-				nodes = []specNode{nodeFromGQL(n)}
+				sn := nodeFromGQL(n)
+				// The single-ref read COMPILES Mustache templates while
+				// abstractOriginHash is over the source, so the abstract checks
+				// cannot run on this body (PR #587 review, @copilot). Rather
+				// than lose them for the single-citation form — the interactive
+				// one, and the one the issue was filed from — re-read the SAME
+				// node through the batch, which returns the body raw. One extra
+				// call for one node, and only when a comparison is possible.
+				if raw, rerr := rawSpecBody(cmd, client, n.Id); rerr == nil && raw != nil {
+					sn.Content = raw
+					sn.ContentIsRaw = true
+				}
+				nodes = []specNode{sn}
 			case prefixFlag != "":
 				// A citation prefix — that node plus its descendants (one feature
 				// and its rules, a module, etc.). Mirrors `spec get --prefix`;
@@ -765,7 +777,13 @@ func fetchDetailsWithUnavailable(cmd *cobra.Command, client graphql.Client, list
 		if bn == nil {
 			continue
 		}
-		out = append(out, nodeFromGQL(nodeByIDFromBatch(bn)))
+		// Built from a BATCH read, so the body is raw even though it goes
+		// through the single-read projection to get there. Set explicitly:
+		// rawness is a property of the QUERY, and this is the one place the
+		// two are crossed.
+		sn := nodeFromGQL(nodeByIDFromBatch(bn))
+		sn.ContentIsRaw = true
+		out = append(out, sn)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Loc < out[j].Loc })
 	sort.Strings(unavailable)
@@ -1084,4 +1102,28 @@ func nearCapMessage(l int, title string) string {
 		msg += fmt.Sprintf(`, which the %q in this spec's own title already suggests`, conj)
 	}
 	return msg
+}
+
+// rawSpecBody re-reads one node through the BATCH query, which returns content
+// uncompiled.
+//
+// It exists for the abstract checks only (#335): the single-ref read renders
+// Mustache templates, and comparing a rendered body against a fingerprint taken
+// over the source reports a template-backed spec as stale with nothing changed.
+//
+// BEST-EFFORT — a failure returns nil and the caller leaves ContentIsRaw false,
+// which makes the comparison silent rather than wrong. Every OTHER rule keeps
+// using the compiled body, which is what they want: they read structure and
+// headings, and a reader of `spec lint` is asking about the spec as it renders.
+func rawSpecBody(cmd *cobra.Command, client graphql.Client, id string) (*string, error) {
+	resp, err := gen.NodeBatch(cmd.Context(), client, []string{id}, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	for _, n := range resp.NodeBatch.Nodes {
+		if n != nil && n.Id == id {
+			return n.Content, nil
+		}
+	}
+	return nil, nil
 }

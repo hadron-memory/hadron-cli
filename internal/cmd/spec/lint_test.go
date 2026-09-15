@@ -39,6 +39,10 @@ func cleanSpec(t *testing.T, loc, title string) specNode {
 	// fixture body cannot turn every clean-spec test stale at a distance.
 	hash := contentHash(content)
 	sn := specNode{
+		// RAW, as a batch read returns it — the abstract checks are gated on
+		// this, because a compiled body cannot be compared against a
+		// fingerprint taken over the source.
+		ContentIsRaw:       true,
 		Loc:                loc,
 		Name:               specName(c, title),
 		NodeType:           "info",
@@ -1247,5 +1251,43 @@ func TestStaleAbstractIsTheNarrowerQuestion(t *testing.T) {
 	// `spec lint` concern, which is exactly the rule above.
 	if staleAbstract(n) {
 		t.Error("unverified must not be reported as a stale citation")
+	}
+}
+
+// PR #587 review, @copilot. A COMPILED body cannot be compared against a
+// fingerprint taken over the source, so a template-backed spec would be
+// reported stale with nothing changed — and templates are exactly what the
+// single-ref read renders. Silence beats a false positive on a warning nobody
+// can act on.
+func TestAbstractChecksAreSilentOnACompiledBody(t *testing.T) {
+	n := cleanSpec(t, "msg:010:02", "W2")
+	moved := *n.Content + "\n\nAdded later.\n"
+	n.Content = &moved // genuinely stale…
+	n.ContentIsRaw = false
+	if got := abstractVerification(n); got != abstractUncheckable {
+		t.Fatalf("a compiled body is UNCHECKABLE, got %v", got)
+	}
+	if fs := lintNode(n); hasRule(fs, "abstract-stale") || hasRule(fs, "abstract-unverified") {
+		t.Errorf("must not report staleness from a body it cannot compare: %v", fs)
+	}
+	// …and the same node with a raw body does report it, so the gate is not
+	// silently swallowing the whole feature.
+	n.ContentIsRaw = true
+	if fs := lintNode(n); !hasRule(fs, "abstract-stale") {
+		t.Errorf("a RAW body must still be compared: %v", fs)
+	}
+}
+
+// PR #587 review, @copilot. The server hashes the STORED bytes, so a
+// whitespace-only body is fingerprinted and an abstract over it can genuinely
+// be unverified. Trimming before the emptiness test classified that as "nothing
+// to check" and reported neither warning.
+func TestWhitespaceOnlyBodyIsStillContent(t *testing.T) {
+	n := cleanSpec(t, "msg:010:02", "W2")
+	ws := " \n"
+	n.Content = &ws
+	n.AbstractOriginHash = nil
+	if got := abstractVerification(n); got != abstractUnverified {
+		t.Errorf("a whitespace-only body is still content to verify against, got %v", got)
 	}
 }
