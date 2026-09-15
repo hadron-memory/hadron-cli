@@ -357,6 +357,15 @@ func resolveWorker(ctx context.Context, client graphql.Client, appRef, arg strin
 		// written for; keying on presence made that message unreachable and
 		// leaked `input:3: worker Worker not found.` instead.
 		//
+		// #566 has since removed that prefix, so the same regression today
+		// would leak a tidy `Worker not found.` — which is WORSE for this
+		// guard, not better. The old leak announced itself as machinery and
+		// invited a fix; the clean one reads like a deliberate message and
+		// would survive review. The branch below is what produces the sentence
+		// that actually helps (it names the ref AND tells the caller about
+		// --app), and it is load-bearing independently of how the server's
+		// refusal is packaged.
+		//
 		// WORKER_NOT_FOUND is what the server returns for every "cannot resolve
 		// this ref" shape — verified live against a bare name, a malformed ref,
 		// and a well-formed URN that does not exist. Anything else (auth,

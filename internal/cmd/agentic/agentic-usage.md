@@ -41,6 +41,20 @@ self-hosted backend.
   errors go to stderr. Without `--json`, output is plain aligned text.
 - With `--json`, errors are emitted on stderr as
   `{"error":{"code":<exit-code>,"message":"..."}}`.
+- `message` NEVER carries the GraphQL document location and field path the
+  client used to render around it (#566) — a leading `input:<line>: <field> `
+  naming a position in a query you never wrote and a field you never typed.
+  That is gone for every error. If you match on message text, do not strip
+  such a prefix and do not expect one.
+  - **Whose sentence it is depends on the error.** For an otherwise-unhandled
+    GraphQL refusal it is the server's wording verbatim. But many messages are
+    written by the CLI and always were: flag and usage errors (exit 2), the
+    schema-skew hint, the transport/`Unavailable` classification (exit 7), and
+    command-specific guidance such as the asset scan refusals or `worker get`'s
+    not-found. `hadron api` is separate again — it is the raw path and formats
+    its own HTTP errors.
+  - So **branch on the exit code first**, and on `extensions.code` where you
+    have it, rather than pattern-matching wording you assume the server chose.
 - JSON field names are stable. New fields may be added; existing
   fields are never renamed or removed without a major version bump.
 

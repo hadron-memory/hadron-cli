@@ -366,8 +366,14 @@ func TestAssetUploadMalwareBlockedIsExplained(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
 		"GetMemory":        assetMemoryResp,
 		"BeginAssetUpload": begin,
-		"CompleteAssetUpload": `{"errors":[{"message":` +
-			`"input:3: completeAssetUpload upload rejected: file failed the malware scan"}]}`,
+		// The wire shape, faithfully (#566): the server sends a CLEAN message
+		// plus `locations`/`path` as structured fields. `input:3:
+		// completeAssetUpload ` is genqlient's rendering OF those fields, not
+		// something the server said — baking it into `message` produced a
+		// fixture that rendered `input: input:3: …`, doubled, and could not
+		// fail for the reason this test exists.
+		"CompleteAssetUpload": `{"errors":[{"message":"upload rejected: file failed the malware scan",` +
+			`"locations":[{"line":3,"column":3}],"path":["completeAssetUpload"]}]}`,
 	})
 	src := writeTempFile(t, "eicar-test.txt", "harmless test bytes")
 
@@ -398,8 +404,8 @@ func TestAssetUploadMalwareBlockedIsExplained(t *testing.T) {
 // download refusal has to say "not yet", not "no".
 func TestAssetGetPendingScanSaysRetryShortly(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
-		"AssetDownloadUrl": `{"errors":[{"message":` +
-			`"input:2: assetDownloadUrl asset has not been scanned yet"}]}`,
+		"AssetDownloadUrl": `{"errors":[{"message":"asset has not been scanned yet",` +
+			`"locations":[{"line":2,"column":3}],"path":["assetDownloadUrl"]}]}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -419,7 +425,8 @@ func TestAssetGetPendingScanSaysRetryShortly(t *testing.T) {
 
 func TestAssetGetBlockedScanExplainsTheTombstone(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
-		"AssetDownloadUrl": `{"errors":[{"message":"input:2: assetDownloadUrl asset blocked by scan"}]}`,
+		"AssetDownloadUrl": `{"errors":[{"message":"asset blocked by scan",` +
+			`"locations":[{"line":2,"column":3}],"path":["assetDownloadUrl"]}]}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)

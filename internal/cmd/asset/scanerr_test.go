@@ -5,16 +5,30 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // wireErr is what genqlient hands back for a GraphQL error response: the
-// message with its document-path prefix, and — today — no extensions.code,
-// which is the whole reason these mappers match on text as well.
+// server's message, its document location and the field path as SEPARATE
+// fields, and — today — no extensions.code, which is the whole reason these
+// mappers match on text as well.
+//
+// The location and path are supplied because they are what a real response
+// carries (#566). They used to be absent, with `input:3: completeAssetUpload `
+// baked into `msg` instead — which is genqlient's RENDERING of those fields,
+// not anything the server sends. That fixture rendered a doubled `input:
+// input:3: …` and, worse, could not fail for the reason these tests exist:
+// the prefix was in the haystack either way, so a matcher reading the clean
+// message and a matcher reading the raw rendering were indistinguishable.
 func wireErr(msg string) error {
-	return gqlerror.List{&gqlerror.Error{Message: msg}}
+	return gqlerror.List{&gqlerror.Error{
+		Message:   msg,
+		Locations: []gqlerror.Location{{Line: 3, Column: 3}},
+		Path:      ast.Path{ast.PathName("completeAssetUpload")},
+	}}
 }
 
 // codedErr is the same refusal once hadron-server types it (hadron-server#918). The mappers
@@ -26,8 +40,16 @@ func codedErr(code, msg string) error {
 	}}
 }
 
-// The exact string prd returns, captured from an EICAR upload on 2026-08-08.
-const liveMalwareMsg = "input:3: completeAssetUpload upload rejected: file failed the malware scan\n"
+// The server's own message for the refusal prd returned on an EICAR upload,
+// 2026-08-08.
+//
+// The captured line in scanerr.go's header — `hadron: input:3:
+// completeAssetUpload upload rejected: …` — is what the CLI PRINTED, and the
+// distinction cost this fixture its value: the printed form was pasted in here
+// as though it were the wire `message`, so the location and path arrived twice
+// and the test stopped being able to tell a clean read from a raw one. The
+// server sends the sentence below; `wireErr` supplies the rest as fields.
+const liveMalwareMsg = "upload rejected: file failed the malware scan"
 
 func TestUploadScanErrorRewritesMalwareRefusal(t *testing.T) {
 	for _, tc := range []struct {
@@ -75,7 +97,7 @@ func TestDownloadScanErrorRewritesBothGates(t *testing.T) {
 	}{
 		{
 			name:        "pending, as the wire carries it",
-			err:         wireErr("input:2: assetDownloadUrl asset has not been scanned yet"),
+			err:         wireErr("asset has not been scanned yet"),
 			wantSubstr:  []string{"has not finished its malware scan", "try again"},
 			wantNotable: "deleted",
 		},
@@ -86,7 +108,7 @@ func TestDownloadScanErrorRewritesBothGates(t *testing.T) {
 		},
 		{
 			name:       "blocked, as the wire carries it",
-			err:        wireErr("input:2: assetDownloadUrl asset blocked by scan"),
+			err:        wireErr("asset blocked by scan"),
 			wantSubstr: []string{"failed the malware scan", "audit"},
 		},
 		{
@@ -136,5 +158,20 @@ func TestScanErrorsPassOtherErrorsThrough(t *testing.T) {
 	// A plain transport error carries no GraphQL envelope at all.
 	if msg := uploadScanError(errors.New("connection reset"), "x.txt").Error(); strings.Contains(msg, "malware") {
 		t.Errorf("a transport error is not a scan refusal: %q", msg)
+	}
+}
+
+// PR #581 review, @copilot: the rendering this replaced was err.Error(), which
+// joins the WHOLE list — so matching only the first server message narrows the
+// match. A scan refusal behind another resolver's error must still be
+// recognised, or the caller silently loses the actionable guidance.
+func TestScanRefusalMatchesBehindAnotherError(t *testing.T) {
+	err := gqlerror.List{
+		{Message: "some unrelated resolver failed", Locations: []gqlerror.Location{{Line: 2}}},
+		{Message: "upload rejected: file failed the malware scan", Locations: []gqlerror.Location{{Line: 3}}},
+	}
+	msg := uploadScanError(err, "eicar-test.txt").Error()
+	if !strings.Contains(msg, "malware scan") || !strings.Contains(msg, "audit") {
+		t.Errorf("a refusal that is not the FIRST error must still be recognised: %q", msg)
 	}
 }

@@ -11,9 +11,143 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
+// serverError renders a GraphQL failure as the server's own message and
+// nothing else, while keeping the original error reachable through Unwrap.
+//
+// It exists because `gqlerror.Error.Error()` is not a message, it is a
+// DEVELOPER rendering of one (#566):
+//
+//	<file>:<line>: <path> <message>
+//
+// and every part of that prefix is meaningless to the person reading it.
+// `input` is gqlparser's FALLBACK filename — what it prints when the error
+// carries no `file` extension, which ours never do — the line number is a
+// position in a document the user never wrote, and the path is the GraphQL
+// field an argument landed in, a name they never typed, which reads as though
+// some unrelated argument is at fault:
+//
+//	hadron: input:3: workers workers URN "hadron-dev-team" is not fully qualified.
+//
+// Two things about that are worse than they look, both measured rather than
+// reasoned. The field name appears TWICE when the server's own message opens
+// with it — as the `workers` and `memory` refusals in #566 do; how common that
+// is across every resolver was not measured and is not claimed here. And the
+// prefix is NOT conditional on the server sending locations: `Error()` writes
+// the filename and `": "` unconditionally, so an error with no locations and no
+// path still renders as `input: <message>`. There is no shape of gqlerror that
+// escapes it.
+//
+// One path leaks differently and is worth knowing about, because a fix aimed at
+// the prefix alone would miss it: a non-200 arrives as `graphql.HTTPError`,
+// whose own rendering is `returned error <status>: <the entire raw JSON body>`.
+// Cleaning keys on the ENVELOPE rather than on the prefix, so it reaches both.
+//
+// Unwrap is the load-bearing half. HasErrorCode, WorkerTakenDetail,
+// DescendantCount and every other extensions reader runs `errors.As` over this
+// chain, and several of them are documented as "call it BEFORE MapError wraps"
+// — which stays true only because wrapping preserves the chain. Replacing the
+// error instead of wrapping it would turn each of those into a silent
+// always-false.
+type serverError struct {
+	msg string
+	err error
+}
+
+func (e *serverError) Error() string { return e.msg }
+func (e *serverError) Unwrap() error { return e.err }
+
+// ServerMessages returns the server's own message for each GraphQL error in
+// err, with genqlient's location/path rendering left off. Empty when err
+// carries no GraphQL errors at all — a transport failure or a raw HTTP body —
+// which is the caller's signal to fall back to err.Error().
+func ServerMessages(err error) []string {
+	var msgs []string
+	for _, e := range graphQLErrors(err) {
+		if e != nil && e.Message != "" {
+			msgs = append(msgs, strings.TrimSpace(e.Message))
+		}
+	}
+	return msgs
+}
+
+// ServerMessage returns the FIRST server message in err, or "" when there is
+// none. For a caller rendering one line about one failure; MapError joins the
+// whole list instead, because dropping the others would hide them.
+func ServerMessage(err error) string {
+	if msgs := ServerMessages(err); len(msgs) > 0 {
+		return msgs[0]
+	}
+	return ""
+}
+
+// hasStructuredEnvelope reports whether a GraphQL error list looks like one the
+// SERVER composed, rather than one genqlient synthesised from a body it could
+// not parse.
+//
+// The distinction is load-bearing on the HTTPError path (PR #581 review, Codex
+// P2). genqlient parses the body itself and, when it is not JSON, builds a
+// one-entry list holding the WHOLE BODY as the message — `internal/api/client.go`
+// documents this, because classifyTransport was caught by the same thing:
+//
+//	Errors: gqlerror.List{&gqlerror.Error{Message: string(respBody)}}
+//
+// `bearerDoer` only intercepts responses at or above 500, so a proxy's HTML
+// 401/403/404 reaches here intact. Cleaning that entry would emit the raw HTML
+// and DROP the status — measured before fixing:
+//
+//	raw:     returned error 404: {"data":null,"errors":[{"message":"<html>…"}]}
+//	cleaned: <html><head><title>404 Not Found</title></head><body>nginx</body></html>
+//
+// which is worse than the leak #566 exists to fix: the reader loses the one
+// fact that would have told them a proxy answered rather than the API.
+//
+// The test is structural, and deliberately asks whether ANY entry carries
+// extensions, a location or a path — the three things a real GraphQL response
+// supplies and a synthesised one cannot have. A genuine envelope with none of
+// them keeps the HTTP rendering, which is the safe direction to be wrong in:
+// it costs a tidier message, where the other way costs the status.
+func hasStructuredEnvelope(list gqlerror.List) bool {
+	for _, e := range list {
+		if e == nil {
+			continue
+		}
+		if len(e.Extensions) > 0 || len(e.Locations) > 0 || len(e.Path) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// cleaned wraps err so it renders as the server's message(s) and nothing else.
+// An error with no GraphQL messages is returned unchanged rather than
+// flattened: a transport failure's own text is the only text there is.
+func cleaned(err error) error {
+	// A non-200 is the one shape whose "envelope" may be genqlient's own
+	// invention; see hasStructuredEnvelope. A bare gqlerror.List got there by
+	// genqlient parsing real JSON, so it needs no such guard.
+	var httpErr *graphql.HTTPError
+	if errors.As(err, &httpErr) && !hasStructuredEnvelope(graphQLErrors(err)) {
+		return err
+	}
+	msgs := ServerMessages(err)
+	if len(msgs) == 0 {
+		return err
+	}
+	// Joined, not first-wins. A multi-error response means several things were
+	// refused, and showing one silently discards the rest — the caller then
+	// fixes what they were told about and fails again on what they were not.
+	return &serverError{msg: strings.Join(msgs, "; "), err: err}
+}
+
 // MapError converts transport and GraphQL errors into CodedErrors so
 // the root command can derive the documented exit code. Codes come
 // from hadron-server's Apollo resolvers (extensions.code).
+//
+// It is also the ONE place the server's refusal is rendered for a human
+// (#566). Every `exitcode.New` below wraps through `cleaned`, so the message
+// that reaches `hadron: %s` — and the `--json` error envelope, which renders
+// the same string — is what the server said, with none of genqlient's
+// document-location scaffolding around it.
 func MapError(err error) error {
 	if err == nil {
 		return nil
@@ -61,30 +195,30 @@ func MapError(err error) error {
 		// and transport (5xx) are handled above, so they never reach here.
 		for _, e := range graphQLErrors(err) {
 			if code := extensionCode(e); code != "" {
-				return exitcode.New(codeForExtension(code), err)
+				return exitcode.New(codeForExtension(code), cleaned(err))
 			}
 		}
 		switch httpErr.StatusCode {
 		case 401:
-			return exitcode.New(exitcode.AuthRequired, err)
+			return exitcode.New(exitcode.AuthRequired, cleaned(err))
 		case 403:
-			return exitcode.New(exitcode.Error, err)
+			return exitcode.New(exitcode.Error, cleaned(err))
 		case 404:
-			return exitcode.New(exitcode.NotFound, err)
+			return exitcode.New(exitcode.NotFound, cleaned(err))
 		}
-		return exitcode.New(exitcode.Error, err)
+		return exitcode.New(exitcode.Error, cleaned(err))
 	}
 
 	var list gqlerror.List
 	if errors.As(err, &list) && len(list) > 0 {
-		return exitcode.New(codeForExtension(extensionCode(list[0])), err)
+		return exitcode.New(codeForExtension(extensionCode(list[0])), cleaned(err))
 	}
 	var gqlErr *gqlerror.Error
 	if errors.As(err, &gqlErr) {
-		return exitcode.New(codeForExtension(extensionCode(gqlErr)), err)
+		return exitcode.New(codeForExtension(extensionCode(gqlErr)), cleaned(err))
 	}
 
-	return exitcode.New(exitcode.Error, err)
+	return exitcode.New(exitcode.Error, cleaned(err))
 }
 
 // HasErrorCode reports whether err carries a GraphQL error whose

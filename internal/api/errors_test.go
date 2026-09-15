@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Khan/genqlient/graphql"
+	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -361,6 +362,210 @@ func TestMapErrorPrefersEnvelopeCodeOverHTTPStatus(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := exitcode.FromError(MapError(tc.err)); got != tc.want {
 				t.Errorf("MapError → exit %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// #566 — the rendered message carries the SERVER's words and nothing else.
+// ---------------------------------------------------------------------------
+
+// wireErr builds a GraphQL error the way a response actually carries one: a
+// clean message, with the document location and field path as separate fields.
+// genqlient renders those three into `input:<line>: <path> <message>`, which is
+// the leak under test — so every case below has a raw rendering that differs
+// from the message, and an assertion that the difference is gone.
+func wireErr(msg, path string, line int) error {
+	e := &gqlerror.Error{Message: msg}
+	if line > 0 {
+		e.Locations = []gqlerror.Location{{Line: line, Column: 5}}
+	}
+	if path != "" {
+		e.Path = ast.Path{ast.PathName(path)}
+	}
+	return gqlerror.List{e}
+}
+
+func TestMapErrorRendersTheServerMessageOnly(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			// The issue's own example, and the reason it was filed.
+			name: "location and path",
+			err:  wireErr(`workers URN "hadron-dev-team" is not fully qualified.`, "workers", 3),
+			want: `workers URN "hadron-dev-team" is not fully qualified.`,
+		},
+		{
+			// NO locations and NO path still leaked, because Error() writes the
+			// filename and ": " unconditionally — it rendered `input: <msg>`.
+			// This is the case the issue missed: the leak is universal, not
+			// conditional on the server sending a location.
+			name: "no location, no path",
+			err:  wireErr("memory not found", "", 0),
+			want: "memory not found",
+		},
+		{
+			// A message that itself starts with "input:" — indistinguishable
+			// from the prefix to anything parsing the rendered string, and
+			// trivial for a structured read.
+			name: "message that begins with the prefix token",
+			err:  wireErr("input: must be an object", "createNode", 2),
+			want: "input: must be an object",
+		},
+		{
+			// Several refusals in one response: joined, because showing one
+			// hides the rest and the caller fixes half the problem.
+			name: "two errors are both shown",
+			err: gqlerror.List{
+				{Message: "first is wrong", Locations: []gqlerror.Location{{Line: 3}}},
+				{Message: "second is wrong", Locations: []gqlerror.Location{{Line: 4}}},
+			},
+			want: "first is wrong; second is wrong",
+		},
+		{
+			// Carried inside a non-200. This one leaks DIFFERENTLY and worse:
+			// `graphql.HTTPError.Error()` renders `returned error 404: <the
+			// entire raw JSON body>`, so the user is shown the wire response.
+			// Found by the premise guard below rejecting the fixture — the
+			// issue assumed every path leaked the same `input:N:` prefix, and
+			// this one never did. Same remedy reaches it, because the cleaning
+			// keys on the envelope rather than on the prefix.
+			name: "envelope inside an HTTPError",
+			err: &graphql.HTTPError{
+				StatusCode: 404,
+				Response: graphql.Response{Errors: gqlerror.List{
+					{Message: "no such node", Locations: []gqlerror.Location{{Line: 7}}, Path: ast.Path{ast.PathName("nodeById")}},
+				}},
+			},
+			want: "no such node",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// The premise: the RAW error really does render something other
+			// than the server's sentence. Without this the test could pass
+			// against a fixture that never leaked, which would make it a check
+			// that cannot fail — and it earned its keep, rejecting the
+			// HTTPError fixture above and exposing that that path leaks the
+			// whole JSON body rather than the prefix.
+			if raw := tc.err.Error(); raw == tc.want {
+				t.Fatalf("fixture does not reproduce any leak — raw rendering is already %q", raw)
+			}
+			got := MapError(tc.err).Error()
+			if got != tc.want {
+				t.Errorf("MapError message = %q, want %q", got, tc.want)
+			}
+			if strings.Contains(got, "input:") && !strings.HasPrefix(tc.want, "input:") {
+				t.Errorf("genqlient's location prefix survived: %q", got)
+			}
+		})
+	}
+}
+
+// Wrapping, not replacing. Every extensions reader documented as "call it
+// BEFORE MapError wraps" depends on the chain surviving — if cleaning replaced
+// the error, each of them would become a silent always-false rather than a
+// visible failure.
+func TestMapErrorKeepsTheErrorChainReachable(t *testing.T) {
+	orig := gqlerror.List{{
+		Message:    "worker is held",
+		Locations:  []gqlerror.Location{{Line: 3}},
+		Path:       ast.Path{ast.PathName("startSession")},
+		Extensions: map[string]any{"code": "WORKER_HELD", "heldBy": "u1", "heldByName": "holger"},
+	}}
+	mapped := MapError(orig)
+
+	if !strings.Contains(mapped.Error(), "worker is held") || strings.Contains(mapped.Error(), "input:") {
+		t.Errorf("message not cleaned: %q", mapped.Error())
+	}
+	var list gqlerror.List
+	if !errors.As(mapped, &list) {
+		t.Fatal("the gqlerror.List must still be reachable through the wrapped chain")
+	}
+	if !HasErrorCode(mapped, "WORKER_HELD") {
+		t.Error("HasErrorCode must still see the code after wrapping")
+	}
+	if d, ok := WorkerHeldDetail(mapped); !ok || d.Holder() != "holger" {
+		t.Errorf("WorkerHeldDetail through the chain = %+v, ok=%v", d, ok)
+	}
+}
+
+// An error with no GraphQL message keeps its own text — there is no server
+// sentence to prefer, and blanking it would lose the only diagnosis there is.
+func TestMapErrorLeavesNonGraphQLErrorsAlone(t *testing.T) {
+	if got := MapError(errors.New("connection reset by peer")).Error(); got != "connection reset by peer" {
+		t.Errorf("plain error rewritten: %q", got)
+	}
+	// A non-200 whose body carried no parsable envelope: the HTTPError's own
+	// rendering is all there is.
+	httpErr := &graphql.HTTPError{StatusCode: 502}
+	if got := MapError(httpErr).Error(); !strings.Contains(got, "502") {
+		t.Errorf("HTTPError text should survive when there is no envelope: %q", got)
+	}
+}
+
+func TestServerMessageHelpers(t *testing.T) {
+	err := gqlerror.List{
+		{Message: "one", Locations: []gqlerror.Location{{Line: 1}}},
+		{Message: "two"},
+	}
+	if got := ServerMessage(err); got != "one" {
+		t.Errorf("ServerMessage = %q, want %q", got, "one")
+	}
+	if got := ServerMessages(err); len(got) != 2 || got[0] != "one" || got[1] != "two" {
+		t.Errorf("ServerMessages = %#v", got)
+	}
+	// No envelope: empty, which is the caller's signal to fall back.
+	if got := ServerMessage(errors.New("nope")); got != "" {
+		t.Errorf("ServerMessage on a plain error = %q, want empty", got)
+	}
+}
+
+// PR #581 review, Codex P2: genqlient SYNTHESISES a one-entry error list
+// holding the whole body when it cannot parse one (internal/api/client.go), and
+// bearerDoer only intercepts 5xx — so a proxy's HTML 401/403/404 arrives here
+// looking like a GraphQL envelope. Cleaning it would emit raw HTML and lose the
+// status, which is worse than the prefix #566 removes: the reader loses the one
+// fact saying a proxy answered rather than the API.
+func TestMapErrorKeepsTheStatusForASynthesisedEnvelope(t *testing.T) {
+	html := "<html><head><title>404 Not Found</title></head><body>nginx</body></html>"
+	synth := &graphql.HTTPError{
+		StatusCode: 404,
+		Response:   graphql.Response{Errors: gqlerror.List{{Message: html}}},
+	}
+	got := MapError(synth).Error()
+	if !strings.Contains(got, "404") {
+		t.Errorf("the HTTP status must survive a non-JSON body: %q", got)
+	}
+	if got == html {
+		t.Errorf("a synthesised entry must not be rendered as a server sentence: %q", got)
+	}
+	// The exit code is unchanged by the guard — it is about the MESSAGE.
+	if code := exitcode.FromError(MapError(synth)); code != exitcode.NotFound {
+		t.Errorf("a 404 still maps to exit 4, got %d", code)
+	}
+}
+
+// The guard must not catch a REAL envelope inside a non-200 — that is the case
+// #566 is about, and the one most refusals actually take. Pinned in both
+// directions so the fix for Codex's finding cannot quietly undo the feature.
+func TestMapErrorStillCleansAGenuineEnvelopeInsideANon200(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		errs gqlerror.List
+	}{
+		{"carries extensions", gqlerror.List{{Message: "no such node", Extensions: map[string]any{"code": "NODE_NOT_FOUND"}}}},
+		{"carries a location", gqlerror.List{{Message: "no such node", Locations: []gqlerror.Location{{Line: 3}}}}},
+		{"carries a path", gqlerror.List{{Message: "no such node", Path: ast.Path{ast.PathName("nodeById")}}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := &graphql.HTTPError{StatusCode: 404, Response: graphql.Response{Errors: tc.errs}}
+			if got := MapError(err).Error(); got != "no such node" {
+				t.Errorf("a real envelope must still be cleaned, got %q", got)
 			}
 		})
 	}

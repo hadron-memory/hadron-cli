@@ -23,6 +23,14 @@ import (
 //	hadron: input:3: completeAssetUpload upload rejected: file failed the malware scan
 //	exit=1                       # …and --json carried no extensions.code
 //
+// That captured line is the PRE-#566 rendering and is kept as the dated record
+// it is. The same refusal prints without the `input:3: completeAssetUpload `
+// prefix now — which matters here beyond tidiness, because the prefix was
+// pasted into this package's test fixtures as though the server had sent it,
+// and a fixture carrying the client's own rendering could not tell a clean
+// message read from a raw one. The absence of `extensions.code` is the part of
+// this capture that is still live, and it is the part the code below turns on.
+//
 // So each refusal is matched on the typed code FIRST and on the server's
 // message second. The typed branch is not speculative padding: it costs one
 // line, and the day hadron-server#918 lands it takes over silently, leaving the
@@ -43,8 +51,14 @@ const (
 )
 
 // Message fragments the server sends today. Lowercase; matched as a
-// case-insensitive substring, because the wire message carries a GraphQL path
-// prefix ("input:3: completeAssetUpload …") around them.
+// case-insensitive substring of the SERVER's own message (api.ServerMessage,
+// #566) rather than of genqlient's rendering of it.
+//
+// The substring match is still a substring match, and deliberately: these are
+// fragments of a sentence the server composes around a filename, not whole
+// messages. What changed is that the haystack no longer carries `input:3:
+// completeAssetUpload ` in front of it, so a fragment can no longer match
+// inside the scaffolding instead of inside the message.
 const (
 	msgMalwareBlocked = "failed the malware scan"
 	msgScanPending    = "has not been scanned yet"
@@ -88,6 +102,17 @@ func downloadScanError(err error, ref string) error {
 
 // isScanRefusal reports whether err is the named server refusal, by typed code
 // or by message.
+//
+// The message pass reads EVERY server message, and falls back to err.Error()
+// only when there are none — a transport failure has no GraphQL message, and
+// matching its raw text is no worse than before.
+//
+// All of them, not the first (PR #581 review, @copilot). The rendering this
+// replaced was `err.Error()`, which joins the whole list, so matching only
+// ServerMessage would have NARROWED the match: a scan refusal arriving behind
+// another resolver's error would stop being recognised, and the caller would
+// get the generic mapping instead of the actionable guidance — a regression
+// introduced by a change whose entire purpose was to leave behaviour alone.
 func isScanRefusal(err error, code, msgFragment string) bool {
 	if err == nil {
 		return false
@@ -95,5 +120,14 @@ func isScanRefusal(err error, code, msgFragment string) bool {
 	if api.HasErrorCode(err, code) {
 		return true
 	}
-	return strings.Contains(strings.ToLower(err.Error()), msgFragment)
+	msgs := api.ServerMessages(err)
+	if len(msgs) == 0 {
+		msgs = []string{err.Error()}
+	}
+	for _, m := range msgs {
+		if strings.Contains(strings.ToLower(m), msgFragment) {
+			return true
+		}
+	}
+	return false
 }
