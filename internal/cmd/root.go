@@ -224,16 +224,26 @@ func renderError(f *cmdutil.Factory, err error) int {
 	code := exitCodeFor(err)
 
 	if !errors.Is(err, exitcode.ErrSilent) {
+		envelope := map[string]any{
+			"error": map[string]any{"code": code, "message": err.Error()},
+		}
 		switch {
 		case f.JSON && !f.IOStreams.Wrote():
-			_ = output.WriteJSON(f.IOStreams.Out, map[string]any{
-				"error": map[string]any{"code": code, "message": err.Error()},
-			})
+			// If STDOUT ITSELF is broken — a full filesystem behind a
+			// redirect, a closed pipe, a failing writer from an embedded
+			// caller — the envelope has nowhere to land, and discarding that
+			// second error would make the failure completely silent: a bare
+			// exit code and not one word on either stream (PR #585 review,
+			// @codex P2). Before this change the envelope went to stderr and
+			// would have survived, so the fallback is what stops a routing
+			// improvement from becoming a regression at the one moment the
+			// caller most needs to be told something.
+			if werr := output.WriteJSON(f.IOStreams.Out, envelope); werr != nil {
+				_ = output.WriteJSON(f.IOStreams.ErrOut, envelope)
+			}
 		case f.JSON:
 			// Payload already in flight; keep stdout a single valid document.
-			_ = output.WriteJSON(f.IOStreams.ErrOut, map[string]any{
-				"error": map[string]any{"code": code, "message": err.Error()},
-			})
+			_ = output.WriteJSON(f.IOStreams.ErrOut, envelope)
 		default:
 			fmt.Fprintf(f.IOStreams.ErrOut, "hadron: %s\n", err.Error())
 		}

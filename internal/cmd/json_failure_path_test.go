@@ -213,3 +213,29 @@ func TestPlainTextErrorStillGoesToStderr(t *testing.T) {
 }
 
 var _ = output.Tracked
+
+// PR #585 review, @codex P2. A failed stdout write leaves Wrote() false —
+// correctly, since nothing landed — so the envelope is aimed at that same
+// broken stream. Discarding the second error would make the failure TOTALLY
+// silent: an exit code and not one word on either stream. The old routing would
+// have survived this, so the fallback is what stops the improvement being a
+// regression exactly when the caller most needs telling.
+func TestJSONEnvelopeFallsBackToStderrWhenStdoutIsBroken(t *testing.T) {
+	f, _ := testFactory(t)
+	errOut := captureErrOut(f)
+	// The package's existing failingWriter — a stdout that rejects every write:
+	// a full filesystem behind a redirect, a closed pipe, a broken writer from
+	// an embedded caller.
+	f.IOStreams.Out = output.Tracked(failingWriter{})
+	f.JSON = true
+
+	renderError(f, exitcode.Newf(exitcode.NotFound, "nope"))
+
+	if f.IOStreams.Wrote() {
+		t.Fatal("precondition: a failed write must not mark the stream as written")
+	}
+	code, msg := decodeEnvelope(t, errOut())
+	if code != exitcode.NotFound || !strings.Contains(msg, "nope") {
+		t.Errorf("the envelope must reach stderr when stdout fails: code=%d msg=%q", code, msg)
+	}
+}
