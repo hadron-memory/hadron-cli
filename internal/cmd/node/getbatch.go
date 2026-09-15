@@ -126,16 +126,22 @@ func batchDetailDTO(n *batchNode) nodeDetailDTO {
 			IsRunnable: boolVal(n.IsRunnable),
 			UpdatedAt:  n.UpdatedAt,
 		},
-		ObjectType:    n.ObjectType,
-		Description:   n.Description,
-		Abstract:      n.Abstract,
-		Content:       n.Content,
-		Data:          n.Data,
-		Properties:    n.Properties,
-		Seq:           n.Seq,
-		CreatedAt:     n.CreatedAt,
-		OutgoingEdges: []edgeRefDTO{},
-		IncomingEdges: []edgeRefDTO{},
+		ObjectType:  n.ObjectType,
+		Description: n.Description,
+		Abstract:    n.Abstract,
+		// Both read paths or neither (#306). `NodeBatch` selects this field
+		// exactly as `GetNode` does, and a batch read that emitted a
+		// permanently-null key would rebuild the ambiguity the single read just
+		// lost — worse here, because `--prefix` is how someone surveys a whole
+		// branch for stale abstracts.
+		AbstractOriginHash: n.AbstractOriginHash,
+		Content:            n.Content,
+		Data:               n.Data,
+		Properties:         n.Properties,
+		Seq:                n.Seq,
+		CreatedAt:          n.CreatedAt,
+		OutgoingEdges:      []edgeRefDTO{},
+		IncomingEdges:      []edgeRefDTO{},
 	}
 	for _, e := range n.OutgoingEdges {
 		// #781: the far endpoint is null when its memory is unreadable.

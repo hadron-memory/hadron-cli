@@ -403,6 +403,31 @@ Conventions:
   means it sits behind a proxy without its public base URL configured, so every
   absolute URL it emits points somewhere wrong. `hadron version` reports the CLI
   build instead and needs no network.
+- **`node get --json` carries `abstractOriginHash`** (#306, spec 032) — the
+  content fingerprint recorded when the abstract was written, on the batched
+  read as well as the single-ref one. The key is **always present**: `null` is
+  a real answer (no abstract, or one never fingerprinted — server #1128's
+  *unverified* state), so do not treat a missing key and a null value as the
+  same thing. Reading the hash alone does NOT tell you the abstract is stale:
+  staleness is the hash DISAGREEING with the current content's hash, which is
+  `sha256(content)` truncated to 8 hex chars — the server's own definition, so
+  the comparison is exact wherever you make it.
+  - **For one node you already hold**, compare the two yourself — that is what
+    `spec citations --stale-abstracts` does, and exposing the field is what
+    makes it possible from `node get` at all. **Compare against RAW content**:
+    read it with the batched form (several refs, or `--prefix`), which returns
+    content uncompiled. A single-ref `node get` COMPILES Mustache templates,
+    and the hash is defined over the raw plaintext — so on a template node the
+    two disagree for that reason alone and the node reads as stale when it is
+    not. Identical for a node with no templates.
+  - **For a whole memory**, `hadron memory validate <memory> --check
+    stale-abstract` reports it server-side. Note it **caps its findings**
+    (default 200, max 1000), so on a large memory the stale set can come back
+    incomplete and a node reads as fresh when it is not — which is exactly why
+    the citation check computes its own rather than delegating (#355).
+  - Either way, a comparison says the body CHANGED since the abstract was
+    written, not that the abstract is wrong. Do not report it as "the abstract
+    is incorrect".
 - **`node get` prints the node's `urn:` and, under it, a `URL:` line — the
   SERVER-BUILT portal link that opens it** (#515, `cor:api:230:01`), on the
   BATCHED read as well as the single-ref one; #520 pins both queries to the

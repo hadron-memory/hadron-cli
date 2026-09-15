@@ -53,16 +53,53 @@ type nodeDTO struct {
 // nodeDetailDTO extends the list shape for single-node output.
 type nodeDetailDTO struct {
 	nodeDTO
-	ObjectType    *string          `json:"objectType"`
-	Description   *string          `json:"description"`
-	Abstract      *string          `json:"abstract"`
-	Content       *string          `json:"content"`
-	Data          *json.RawMessage `json:"data,omitempty"`
-	Properties    *json.RawMessage `json:"properties,omitempty"`
-	Seq           *int             `json:"seq"`
-	CreatedAt     string           `json:"createdAt"`
-	OutgoingEdges []edgeRefDTO     `json:"outgoingEdges"`
-	IncomingEdges []edgeRefDTO     `json:"incomingEdges"`
+	ObjectType  *string `json:"objectType"`
+	Description *string `json:"description"`
+	Abstract    *string `json:"abstract"`
+	// AbstractOriginHash is spec 032's staleness fingerprint — the content hash
+	// as of when the abstract was written (#306). `GetNode` has always selected
+	// it; this DTO dropped it, so it never reached anyone.
+	//
+	// That absence is why #306 was filed, and the shape is worth keeping in
+	// mind: the issue's reproduction was `node get --json | jq
+	// .abstractOriginHash`, which printed `null` — because **jq returns null
+	// for a key that is not there**, indistinguishable from a key whose value
+	// is null. The field read as permanently null on every node, which looked
+	// exactly like a detector that had been disarmed. It had not been; the
+	// server had been stamping it correctly the whole time.
+	//
+	// A pointer WITHOUT omitempty, deliberately: null is a meaningful value
+	// here (no abstract, or an abstract never fingerprinted — #1128's
+	// unverified state), so the key must always be present. Making it vanish
+	// would reintroduce the exact ambiguity above.
+	//
+	// The raw fingerprint only, and no derived "is it stale" boolean — but NOT
+	// because computing one here would be illegitimate. This repo already does
+	// compute it client-side, deliberately: `staleAbstract` in
+	// internal/cmd/spec/citations.go compares this value against
+	// `sha256(content)[:8]`, which is the server's own definition, and its
+	// comment records why it does not delegate to the server audit instead —
+	// `validateMemory` CAPS its findings, so a large memory returns an
+	// incomplete stale set and a cited spec reads as fresh (#355).
+	//
+	// The reason to stay out of it here is narrower: `node get` reports what a
+	// node IS, and a verdict belongs to the command asking the question.
+	// Exposing this field is what lets any caller reach the same exact
+	// comparison — which is the point, since before #306 none could.
+	// (An earlier draft of this comment said recomputing client-side would be a
+	// second implementation free to disagree with the first, and named `memory
+	// validate` the one authoritative answer. Both halves were wrong, and
+	// @copilot caught it on PR #582: the computation is defined by the schema
+	// rather than owned by the server, and the capped audit is the LESS
+	// complete source of the two.)
+	AbstractOriginHash *string          `json:"abstractOriginHash"`
+	Content            *string          `json:"content"`
+	Data               *json.RawMessage `json:"data,omitempty"`
+	Properties         *json.RawMessage `json:"properties,omitempty"`
+	Seq                *int             `json:"seq"`
+	CreatedAt          string           `json:"createdAt"`
+	OutgoingEdges      []edgeRefDTO     `json:"outgoingEdges"`
+	IncomingEdges      []edgeRefDTO     `json:"incomingEdges"`
 }
 
 func NewCmdNode(f *cmdutil.Factory) *cobra.Command {
