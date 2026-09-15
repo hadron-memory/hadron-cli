@@ -341,6 +341,45 @@ func lintNode(n specNode) []lintFindingDTO {
 		}
 	}
 
+	// ABSTRACT VERIFICATION (#335), above the tier early-return: a module or
+	// feature abstract drifts from its body exactly as a rule's does, and the
+	// abstract is the RAG RETRIEVAL SURFACE — an agent asking the corpus a
+	// question gets the abstract, so a stale one answers authoritatively and
+	// wrongly. The instance that prompted the issue had `cor:urn:010:01`'s body
+	// saying v2 is emitted while its abstract said the platform "still EMITS
+	// v1"; `spec lint` reported OK, and the MCP node read had been printing
+	// `Source: abstract-stale` on the same node all along.
+	//
+	// The signal was already on the wire and thrown away: both GetNode and
+	// NodeBatch select abstractOriginHash, so every lint run already paid for
+	// it. (#306 has since put it in `node get --json` too, so a reader can
+	// check one node without dropping to `hadron api`.)
+	//
+	// WARNING, not error, and the ratio is the argument: 176 of 264 spec nodes
+	// were stale when this was measured. Stale means the body MOVED since the
+	// abstract was fingerprinted — not that the abstract is wrong — so at 67%
+	// an error would make `--all` permanently red and `--strict` unusable, the
+	// same reasoning that made preflight's route-label-phrasing a warning
+	// (#328).
+	switch abstractVerification(n) {
+	case abstractStale:
+		add("abstract-stale", sevWarning, fmt.Sprintf(
+			"the body has changed since the abstract was written (abstractOriginHash %s, content hash %s) — "+
+				"a hash comparison, NOT proof the abstract is wrong; re-read it, and re-save it to clear this",
+			*n.AbstractOriginHash, contentHash(*n.Content)))
+	case abstractUnverified:
+		// #1128, and it is the half the issue got wrong. Its proposal says a
+		// null hash is "pre-spec-032, not a finding" — but the contract was
+		// refreshed since: NULL on a node that has BOTH an abstract and content
+		// means the abstract was written before the body existed and has never
+		// been checked against it, which "reads as unverified, not as
+		// verified". Null is only clean with no abstract, or no content for it
+		// to describe. Reporting it as healthy is the reading that let this sit.
+		add("abstract-unverified", sevWarning,
+			"the abstract has never been checked against this body — it was written before the content existed and "+
+				"carries no fingerprint (server #1128), so it is unverified rather than verified; re-save the abstract to fingerprint it")
+	}
+
 	if err != nil || c.Level() < 3 {
 		return fs
 	}

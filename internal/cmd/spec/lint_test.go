@@ -32,14 +32,21 @@ func cleanSpec(t *testing.T, loc, title string) specNode {
 		"## Definition\n\nWhat " + loc + " governs, stated in one line.\n\n" +
 		"## Rule\n\nThe rule, with an example and its edge cases.\n\n" +
 		"## What invalidates this spec\n\nA change to the behaviour above.\n"
+	// FINGERPRINTED against this body (#335). "Clean" includes a verified
+	// abstract: one with a body and no fingerprint has never been checked
+	// against it, which reads as unverified rather than verified (server
+	// #1128). Derived from `content` rather than hardcoded, so editing the
+	// fixture body cannot turn every clean-spec test stale at a distance.
+	hash := contentHash(content)
 	sn := specNode{
-		Loc:         loc,
-		Name:        specName(c, title),
-		NodeType:    "info",
-		Tags:        []string{"spec", "topic"},
-		Abstract:    &abs,
-		Content:     &content,
-		DataVersion: "0.0.1",
+		Loc:                loc,
+		Name:               specName(c, title),
+		NodeType:           "info",
+		Tags:               []string{"spec", "topic"},
+		Abstract:           &abs,
+		AbstractOriginHash: &hash,
+		Content:            &content,
+		DataVersion:        "0.0.1",
 	}
 	if p, ok := c.Parent(); ok {
 		sn.OutEdges = append(sn.OutEdges, specEdge{Name: "toc", Loc: p.Format()})
@@ -1146,5 +1153,99 @@ func TestAbstractLengthCountsWhatTheServerCounts(t *testing.T) {
 	}
 	if !strings.Contains(msg, "exactly the 2000-char hard cap") {
 		t.Errorf("1999 chars plus the newline IS at the cap, and must be reported so: %q", msg)
+	}
+}
+
+// #335 — the abstract is the corpus's RAG retrieval surface, so a stale one
+// answers an agent's question authoritatively and wrongly. The signal was on
+// the wire all along and thrown away.
+func TestLintAbstractVerification(t *testing.T) {
+	t.Run("matching hash is clean", func(t *testing.T) {
+		n := cleanSpec(t, "msg:010:02", "W2")
+		if fs := lintNode(n); hasRule(fs, "abstract-stale") || hasRule(fs, "abstract-unverified") {
+			t.Errorf("a fingerprinted, matching abstract is clean: %v", fs)
+		}
+	})
+
+	t.Run("body moved since the abstract was written", func(t *testing.T) {
+		n := cleanSpec(t, "msg:010:02", "W2")
+		moved := *n.Content + "\n\nA paragraph added after the abstract was written.\n"
+		n.Content = &moved
+		fs := lintNode(n)
+		if !hasRule(fs, "abstract-stale") {
+			t.Fatalf("expected abstract-stale: %v", fs)
+		}
+		// Both hashes in the message, so the reader can check it by hand
+		// rather than taking the tool's word.
+		var msg string
+		for _, f := range fs {
+			if f.Rule == "abstract-stale" {
+				msg = f.Message
+				if f.Severity != sevWarning {
+					t.Errorf("stale is a WARNING — 176 of 264 nodes were stale when measured, "+
+						"so an error makes --all permanently red; got %q", f.Severity)
+				}
+			}
+		}
+		if !strings.Contains(msg, *n.AbstractOriginHash) || !strings.Contains(msg, contentHash(moved)) {
+			t.Errorf("both hashes must be named: %q", msg)
+		}
+		// And it must not overclaim: a hash says the body MOVED, not that the
+		// abstract is wrong.
+		if !strings.Contains(msg, "NOT proof") {
+			t.Errorf("must not assert the abstract is wrong: %q", msg)
+		}
+	})
+
+	// The half the ISSUE got wrong. It proposed that a null hash is
+	// "pre-spec-032, not a finding" — but the contract was refreshed since:
+	// null on a node with BOTH an abstract and content means the abstract was
+	// written before the body existed and has never been checked against it,
+	// which reads as unverified rather than verified (server #1128).
+	t.Run("never fingerprinted is unverified, not clean", func(t *testing.T) {
+		n := cleanSpec(t, "msg:010:02", "W2")
+		n.AbstractOriginHash = nil
+		fs := lintNode(n)
+		if !hasRule(fs, "abstract-unverified") {
+			t.Fatalf("a null hash with both an abstract and a body is UNVERIFIED: %v", fs)
+		}
+		if hasRule(fs, "abstract-stale") {
+			t.Errorf("unverified is not stale — they are different states: %v", fs)
+		}
+	})
+
+	// Null is clean only when there is nothing to verify.
+	t.Run("null is clean with no abstract or no content", func(t *testing.T) {
+		for _, tc := range []struct {
+			name   string
+			mutate func(*specNode)
+		}{
+			{"no abstract", func(n *specNode) { n.Abstract = nil }},
+			{"no content", func(n *specNode) { empty := ""; n.Content = &empty }},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				n := cleanSpec(t, "msg:010:02", "W2")
+				n.AbstractOriginHash = nil
+				tc.mutate(&n)
+				if fs := lintNode(n); hasRule(fs, "abstract-unverified") || hasRule(fs, "abstract-stale") {
+					t.Errorf("nothing to verify here: %v", fs)
+				}
+			})
+		}
+	})
+}
+
+// The predicate is SHARED with the citation surface, which asks the narrower
+// question. Pinned so the two cannot drift on what "current" means.
+func TestStaleAbstractIsTheNarrowerQuestion(t *testing.T) {
+	n := cleanSpec(t, "msg:010:02", "W2")
+	n.AbstractOriginHash = nil
+	if abstractVerification(n) != abstractUnverified {
+		t.Fatal("precondition: this node is unverified")
+	}
+	// A citation defect it is not: an abstract that predates the hash is a
+	// `spec lint` concern, which is exactly the rule above.
+	if staleAbstract(n) {
+		t.Error("unverified must not be reported as a stale citation")
 	}
 }

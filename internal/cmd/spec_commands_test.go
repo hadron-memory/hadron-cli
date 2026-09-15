@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -45,15 +47,35 @@ func specBatchNode(loc string) string {
 	return specBatchNodeWithTags(loc, `["spec","p1"]`)
 }
 
+// specBatchContent is the body these fixtures carry. A Go constant rather than
+// a JSON literal so specOriginHash can fingerprint the SAME bytes the server
+// would — the hash is over decoded content, not over its JSON escaping.
+const specBatchContent = "# spec\n\n## Definition\nx\n\n## Rule\nx\n\n## Durable vs tunable\nx\n\n## What invalidates this spec\nChanges.\n"
+
+// specOriginHash is spec 032's fingerprint: sha256 of plaintext content,
+// truncated to 8 hex chars.
+//
+// COMPUTED, not hardcoded (#335). These fixtures stand for a CLEAN spec node,
+// and a node with an abstract, a body and no fingerprint is not clean — it is
+// `abstract-unverified`, since an abstract that was never checked against its
+// body reads as unverified rather than verified (server #1128). Deriving it
+// means editing specBatchContent cannot silently turn every clean fixture
+// stale.
+func specOriginHash(content string) string {
+	sum := sha256.Sum256([]byte(content))
+	return hex.EncodeToString(sum[:])[:8]
+}
+
 func specBatchNodeWithTags(loc, tags string) string {
+	body, _ := json.Marshal(specBatchContent)
 	return fmt.Sprintf(`{"id":"id-%s","memoryId":"mem1","loc":%q,"name":%q,"alias":null,"nodeType":"info",`+
-		`"description":null,"abstract":"Win back users who never engaged after signup.","abstractOriginHash":null,`+
+		`"description":null,"abstract":"Win back users who never engaged after signup.","abstractOriginHash":%q,`+
 		`"tags":%s,"seq":null,"data":{"version":"0.0.1"},"properties":null,`+
-		`"content":"# spec\n\n## Definition\nx\n\n## Rule\nx\n\n## Durable vs tunable\nx\n\n## What invalidates this spec\nChanges.\n",`+
+		`"content":%s,`+
 		`"updatedAt":"2026-06-14T00:00:00Z",`+
 		`"outgoingEdges":[{"label":"p1: W2","priority":0,"condition":null,"target":{"id":"f1","loc":"msg:010","memoryId":"mem1"}}],`+
 		`"incomingEdges":[]}`,
-		loc, loc, loc+" — W2", tags)
+		loc, loc, loc+" — W2", specOriginHash(specBatchContent), tags, string(body))
 }
 
 func specBatchHeaderNode(loc, title, tags string) string {
@@ -74,14 +96,24 @@ func specBatchResp(locs ...string) string {
 		strings.Join(nodes, ",") + `]}}}`
 }
 
+// cleanSpecDetailContent is the body, as a Go string, so the fixture can
+// fingerprint the same bytes the server would (#335).
+const cleanSpecDetailContent = "# msg:010:02 — W2\n\n## Definition\nThe nudge.\n\n## Rule & examples\nDetails.\n\n## Durable vs tunable\nx\n\n## What invalidates this spec\nChanges.\n"
+
 // A rubric-clean spec detail (msg:010:02) — passes lintNode with no findings.
-const cleanSpecDetail = `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
-	`"description":null,"abstract":"Win back users who never engaged after signup.","abstractOriginHash":null,` +
-	`"nodeType":"info","tags":["spec","p1","messaging"],` +
-	`"content":"# msg:010:02 — W2\n\n## Definition\nThe nudge.\n\n## Rule & examples\nDetails.\n\n## Durable vs tunable\nx\n\n## What invalidates this spec\nChanges.\n",` +
-	`"data":{"version":"0.0.1"},"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
-	`"outgoingEdges":[{"id":"e1","label":"p1: W2","priority":0,"target":{"id":"f1","loc":"msg:010","memoryId":"mem1"}}],` +
-	`"incomingEdges":[]}`
+// "Clean" now includes a fingerprint that MATCHES the body: an abstract that
+// has never been checked against its content is unverified, not verified.
+var cleanSpecDetail = func() string {
+	body, _ := json.Marshal(cleanSpecDetailContent)
+	return `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+		`"description":null,"abstract":"Win back users who never engaged after signup.",` +
+		`"abstractOriginHash":"` + specOriginHash(cleanSpecDetailContent) + `",` +
+		`"nodeType":"info","tags":["spec","p1","messaging"],` +
+		`"content":` + string(body) + `,` +
+		`"data":{"version":"0.0.1"},"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+		`"outgoingEdges":[{"id":"e1","label":"p1: W2","priority":0,"target":{"id":"f1","loc":"msg:010","memoryId":"mem1"}}],` +
+		`"incomingEdges":[]}`
+}()
 
 // A spec detail missing abstract and the "what invalidates" section.
 const badSpecDetail = `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
