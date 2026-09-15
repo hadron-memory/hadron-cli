@@ -73,11 +73,25 @@ type nodeDetailDTO struct {
 	// unverified state), so the key must always be present. Making it vanish
 	// would reintroduce the exact ambiguity above.
 	//
-	// The raw fingerprint only, and no derived "is it stale" boolean: deciding
-	// that needs the content hash the server computes, and recomputing it
-	// client-side would be a second implementation free to disagree with the
-	// first. `hadron memory validate` already reports `stale-abstract` from the
-	// server's own comparison, and that stays the one answer.
+	// The raw fingerprint only, and no derived "is it stale" boolean — but NOT
+	// because computing one here would be illegitimate. This repo already does
+	// compute it client-side, deliberately: `staleAbstract` in
+	// internal/cmd/spec/citations.go compares this value against
+	// `sha256(content)[:8]`, which is the server's own definition, and its
+	// comment records why it does not delegate to the server audit instead —
+	// `validateMemory` CAPS its findings, so a large memory returns an
+	// incomplete stale set and a cited spec reads as fresh (#355).
+	//
+	// The reason to stay out of it here is narrower: `node get` reports what a
+	// node IS, and a verdict belongs to the command asking the question.
+	// Exposing this field is what lets any caller reach the same exact
+	// comparison — which is the point, since before #306 none could.
+	// (An earlier draft of this comment said recomputing client-side would be a
+	// second implementation free to disagree with the first, and named `memory
+	// validate` the one authoritative answer. Both halves were wrong, and
+	// @copilot caught it on PR #582: the computation is defined by the schema
+	// rather than owned by the server, and the capped audit is the LESS
+	// complete source of the two.)
 	AbstractOriginHash *string          `json:"abstractOriginHash"`
 	Content            *string          `json:"content"`
 	Data               *json.RawMessage `json:"data,omitempty"`

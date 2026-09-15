@@ -408,10 +408,21 @@ Conventions:
   read as well as the single-ref one. The key is **always present**: `null` is
   a real answer (no abstract, or one never fingerprinted — server #1128's
   *unverified* state), so do not treat a missing key and a null value as the
-  same thing. Reading it does NOT tell you the abstract is stale — that needs
-  comparing it against the current content hash, which the server does. Ask
-  `hadron memory validate <memory>`, whose `stale-abstract` findings are the
-  one authoritative verdict; do not recompute the hash yourself.
+  same thing. Reading the hash alone does NOT tell you the abstract is stale:
+  staleness is the hash DISAGREEING with the current content's hash, which is
+  `sha256(content)` truncated to 8 hex chars — the server's own definition, so
+  the comparison is exact wherever you make it.
+  - **For one node you already hold**, compare the two yourself. That is what
+    `spec citations --stale-abstracts` does, and exposing the field is what
+    makes it possible from `node get` at all.
+  - **For a whole memory**, `hadron memory validate <memory> --check
+    stale-abstract` reports it server-side. Note it **caps its findings**
+    (default 200, max 1000), so on a large memory the stale set can come back
+    incomplete and a node reads as fresh when it is not — which is exactly why
+    the citation check computes its own rather than delegating (#355).
+  - Either way, a comparison says the body CHANGED since the abstract was
+    written, not that the abstract is wrong. Do not report it as "the abstract
+    is incorrect".
 - **`node get` prints the node's `urn:` and, under it, a `URL:` line — the
   SERVER-BUILT portal link that opens it** (#515, `cor:api:230:01`), on the
   BATCHED read as well as the single-ref one; #520 pins both queries to the
