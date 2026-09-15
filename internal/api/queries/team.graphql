@@ -820,3 +820,27 @@ mutation DeleteTeamRole(
     nodesDeleted
   }
 }
+
+# Amend a casting's promptOverride after the fact (#452, server #1010/#1019).
+#
+# promptOverride could only be set at CASTING time, which fixed a casting's
+# individuality at the one moment nobody yet knows what makes it individual.
+# Neither escape hatch covered it: the role agent's personaPrompt is SHARED by
+# every casting of that role, and re-casting is barred by WORKER_IN_USE for any
+# worker that has done work — precisely the ones with an identity to record.
+#
+# NO omitempty on $promptOverride, deliberately, and unlike most optional
+# variables in this file. The clear path MUST put an explicit `null` on the
+# wire: omitting the field preserves the current override, so an omitempty here
+# would make `--clear-prompt-override` a silent no-op — the failure the
+# convention-field annotations on UpdateTeamRoleMeta exist to avoid, arriving on
+# a field whose whole point is that it can be removed.
+#
+# WorkerFields already selects both `prompt` and `promptOverride`, so the
+# receipt can show the RE-RENDERED briefing — what a session driver actually
+# adopts — without a second read.
+mutation UpdateWorker($workerRef: ID!, $promptOverride: String) {
+  updateWorker(workerRef: $workerRef, promptOverride: $promptOverride) {
+    ...WorkerFields
+  }
+}

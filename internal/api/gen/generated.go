@@ -18924,6 +18924,208 @@ func (v *UpdateUserRolesUpdateUserRolesUser) __premarshalJSON() (*__premarshalUp
 	return &retval, nil
 }
 
+// UpdateWorkerResponse is returned by UpdateWorker on success.
+type UpdateWorkerResponse struct {
+	// #1010 — amend a casting's individuality after the fact.
+	//
+	// `promptOverride` is the per-worker escape hatch (cor:agt:020:01), but it
+	// could only be set at CASTING time — fixing a casting's individuality at the
+	// one moment nobody yet knows what makes it individual. The role agent's
+	// `personaPrompt` cannot stand in (it is SHARED by every casting of that
+	// role), and re-casting is barred by `WORKER_IN_USE` for any worker that has
+	// done work — precisely the ones with an identity to record.
+	//
+	// Scope is one field on purpose: `name` is permanent by law (cor:agt:020:02)
+	// and `role`/`agent` define the casting itself. OMITTING promptOverride
+	// preserves it; explicit `null` or a blank string CLEARS it, matching the
+	// nullable column and castWorker's blank-is-absent normalization.
+	//
+	// Refuses WORKER_RETIRED for a retired worker: an override is briefing text
+	// delivered at bind time, and a retired worker takes no new bindings, so the
+	// edit could never reach anyone.
+	//
+	// Same authorization as castWorker. workerRef is the worker's id or URN (#991).
+	UpdateWorker *UpdateWorkerUpdateWorker `json:"updateWorker"`
+}
+
+// GetUpdateWorker returns UpdateWorkerResponse.UpdateWorker, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerResponse) GetUpdateWorker() *UpdateWorkerUpdateWorker { return v.UpdateWorker }
+
+// UpdateWorkerUpdateWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type UpdateWorkerUpdateWorker struct {
+	WorkerFields `json:"-"`
+}
+
+// GetId returns UpdateWorkerUpdateWorker.Id, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetUrn returns UpdateWorkerUpdateWorker.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetUrn() *string { return v.WorkerFields.Urn }
+
+// GetPortalUrl returns UpdateWorkerUpdateWorker.PortalUrl, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetPortalUrl() *string { return v.WorkerFields.PortalUrl }
+
+// GetSlug returns UpdateWorkerUpdateWorker.Slug, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetSlug() string { return v.WorkerFields.Slug }
+
+// GetAppId returns UpdateWorkerUpdateWorker.AppId, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetAppId() string { return v.WorkerFields.AppId }
+
+// GetAgentId returns UpdateWorkerUpdateWorker.AgentId, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetAgentId() string { return v.WorkerFields.AgentId }
+
+// GetName returns UpdateWorkerUpdateWorker.Name, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetName() string { return v.WorkerFields.Name }
+
+// GetRole returns UpdateWorkerUpdateWorker.Role, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetRole() *string { return v.WorkerFields.Role }
+
+// GetPrompt returns UpdateWorkerUpdateWorker.Prompt, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
+
+// GetPromptOverride returns UpdateWorkerUpdateWorker.PromptOverride, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
+
+// GetRepos returns UpdateWorkerUpdateWorker.Repos, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetRepos() []string { return v.WorkerFields.Repos }
+
+// GetMemoryId returns UpdateWorkerUpdateWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
+
+// GetHeldByUserId returns UpdateWorkerUpdateWorker.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetHeldByUserId() *string { return v.WorkerFields.HeldByUserId }
+
+// GetHeldAt returns UpdateWorkerUpdateWorker.HeldAt, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
+
+// GetHasLiveSession returns UpdateWorkerUpdateWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetHasLiveSession() *bool { return v.WorkerFields.HasLiveSession }
+
+// GetLastActiveAt returns UpdateWorkerUpdateWorker.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetLastActiveAt() *string { return v.WorkerFields.LastActiveAt }
+
+// GetRetiredAt returns UpdateWorkerUpdateWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
+
+// GetRetiredBy returns UpdateWorkerUpdateWorker.RetiredBy, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetRetiredBy() *string { return v.WorkerFields.RetiredBy }
+
+// GetCreatedAt returns UpdateWorkerUpdateWorker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetCreatedAt() string { return v.WorkerFields.CreatedAt }
+
+// GetCreatedBy returns UpdateWorkerUpdateWorker.CreatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerUpdateWorker) GetCreatedBy() *string { return v.WorkerFields.CreatedBy }
+
+func (v *UpdateWorkerUpdateWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateWorkerUpdateWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateWorkerUpdateWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateWorkerUpdateWorker struct {
+	Id string `json:"id"`
+
+	Urn *string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	Slug string `json:"slug"`
+
+	AppId string `json:"appId"`
+
+	AgentId string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	Role *string `json:"role"`
+
+	Prompt *string `json:"prompt"`
+
+	PromptOverride *string `json:"promptOverride"`
+
+	Repos []string `json:"repos"`
+
+	MemoryId *string `json:"memoryId"`
+
+	HeldByUserId *string `json:"heldByUserId"`
+
+	HeldAt *string `json:"heldAt"`
+
+	HasLiveSession *bool `json:"hasLiveSession"`
+
+	LastActiveAt *string `json:"lastActiveAt"`
+
+	RetiredAt *string `json:"retiredAt"`
+
+	RetiredBy *string `json:"retiredBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *UpdateWorkerUpdateWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateWorkerUpdateWorker) __premarshalJSON() (*__premarshalUpdateWorkerUpdateWorker, error) {
+	var retval __premarshalUpdateWorkerUpdateWorker
+
+	retval.Id = v.WorkerFields.Id
+	retval.Urn = v.WorkerFields.Urn
+	retval.PortalUrl = v.WorkerFields.PortalUrl
+	retval.Slug = v.WorkerFields.Slug
+	retval.AppId = v.WorkerFields.AppId
+	retval.AgentId = v.WorkerFields.AgentId
+	retval.Name = v.WorkerFields.Name
+	retval.Role = v.WorkerFields.Role
+	retval.Prompt = v.WorkerFields.Prompt
+	retval.PromptOverride = v.WorkerFields.PromptOverride
+	retval.Repos = v.WorkerFields.Repos
+	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.HeldByUserId = v.WorkerFields.HeldByUserId
+	retval.HeldAt = v.WorkerFields.HeldAt
+	retval.HasLiveSession = v.WorkerFields.HasLiveSession
+	retval.LastActiveAt = v.WorkerFields.LastActiveAt
+	retval.RetiredAt = v.WorkerFields.RetiredAt
+	retval.RetiredBy = v.WorkerFields.RetiredBy
+	retval.CreatedAt = v.WorkerFields.CreatedAt
+	retval.CreatedBy = v.WorkerFields.CreatedBy
+	return &retval, nil
+}
+
 type UploadIntent string
 
 const (
@@ -22364,6 +22566,18 @@ func (v *__UpdateUserRolesInput) GetUserId() string { return v.UserId }
 
 // GetRoles returns __UpdateUserRolesInput.Roles, and is useful for accessing the field via an interface.
 func (v *__UpdateUserRolesInput) GetRoles() []Role { return v.Roles }
+
+// __UpdateWorkerInput is used internally by genqlient
+type __UpdateWorkerInput struct {
+	WorkerRef      string  `json:"workerRef"`
+	PromptOverride *string `json:"promptOverride"`
+}
+
+// GetWorkerRef returns __UpdateWorkerInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__UpdateWorkerInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetPromptOverride returns __UpdateWorkerInput.PromptOverride, and is useful for accessing the field via an interface.
+func (v *__UpdateWorkerInput) GetPromptOverride() *string { return v.PromptOverride }
 
 // __ValidateMemoryInput is used internally by genqlient
 type __ValidateMemoryInput struct {
@@ -30529,6 +30743,82 @@ func UpdateUserRoles(
 	}
 
 	data_ = &UpdateUserRolesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateWorker.
+const UpdateWorker_Operation = `
+mutation UpdateWorker ($workerRef: ID!, $promptOverride: String) {
+	updateWorker(workerRef: $workerRef, promptOverride: $promptOverride) {
+		... WorkerFields
+	}
+}
+fragment WorkerFields on Worker {
+	id
+	urn
+	portalUrl
+	slug
+	appId
+	agentId
+	name
+	role
+	prompt
+	promptOverride
+	repos
+	memoryId
+	heldByUserId
+	heldAt
+	hasLiveSession
+	lastActiveAt
+	retiredAt
+	retiredBy
+	createdAt
+	createdBy
+}
+`
+
+// Amend a casting's promptOverride after the fact (#452, server #1010/#1019).
+//
+// promptOverride could only be set at CASTING time, which fixed a casting's
+// individuality at the one moment nobody yet knows what makes it individual.
+// Neither escape hatch covered it: the role agent's personaPrompt is SHARED by
+// every casting of that role, and re-casting is barred by WORKER_IN_USE for any
+// worker that has done work — precisely the ones with an identity to record.
+//
+// NO omitempty on $promptOverride, deliberately, and unlike most optional
+// variables in this file. The clear path MUST put an explicit `null` on the
+// wire: omitting the field preserves the current override, so an omitempty here
+// would make `--clear-prompt-override` a silent no-op — the failure the
+// convention-field annotations on UpdateTeamRoleMeta exist to avoid, arriving on
+// a field whose whole point is that it can be removed.
+//
+// WorkerFields already selects both `prompt` and `promptOverride`, so the
+// receipt can show the RE-RENDERED briefing — what a session driver actually
+// adopts — without a second read.
+func UpdateWorker(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+	promptOverride *string,
+) (data_ *UpdateWorkerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateWorker",
+		Query:  UpdateWorker_Operation,
+		Variables: &__UpdateWorkerInput{
+			WorkerRef:      workerRef,
+			PromptOverride: promptOverride,
+		},
+	}
+
+	data_ = &UpdateWorkerResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
