@@ -484,3 +484,24 @@ func TestUnresolvedEndpointsAreOrdered(t *testing.T) {
 		t.Errorf("findings must be ordered by node: %v", fs)
 	}
 }
+
+// PR #586 review, @codex and @copilot independently: `candidates` is fed from
+// the parent's inbound edges AND from scanPrefix's listing, and the listing
+// deliberately includes a check with NO inbound edge. If such a node is also
+// unreadable there is no trigger edge, so the actionable rule would send the
+// reader after an edge that does not exist.
+func TestUnresolvedWithoutAnEdgeStaysIndeterminate(t *testing.T) {
+	in := reviewInput{
+		Members:     map[string]checkNode{},
+		Edges:       map[string]graphEdge{},
+		Unavailable: []unresolvedEndpoint{{Name: "review:listed-only", Redacted: true}},
+		Toolchain:   "-",
+	}
+	fs := lintReview(in)
+	if len(fs) != 1 || fs[0].Rule != "check-node-resolves" {
+		t.Fatalf("a candidate with no edge must stay indeterminate, got %v", fs)
+	}
+	if strings.Contains(fs[0].Message, "edge rm") || strings.Contains(fs[0].Message, "dangling") {
+		t.Errorf("must not promise an edge that does not exist: %q", fs[0].Message)
+	}
+}

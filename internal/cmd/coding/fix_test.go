@@ -158,3 +158,36 @@ func TestTriggerFromDescriptionRefusesADanglingClause(t *testing.T) {
 		t.Error("a complete clause must survive the dangling-word guard")
 	}
 }
+
+// PR #586 review, @codex: a period followed by whitespace is not necessarily a
+// sentence boundary. An abbreviation is the case, and it silently truncated
+// again — `Applies when e.g` even passes the dangling-word guard.
+//
+// Handled without a word list: a sentence end needs an UPPERCASE letter after
+// the gap, which an abbreviation's continuation does not have.
+func TestTriggerFromDescriptionKeepsAbbreviations(t *testing.T) {
+	cases := []struct{ name, desc, want string }{
+		{"e.g.", "Applies when e.g. generated clients change.", "Applies when e.g. generated clients change"},
+		{"i.e.", "Applies when i.e. the schema snapshot moves.", "Applies when i.e. the schema snapshot moves"},
+		{"etc.", "Applies when a diff touches schema, queries, etc. in one go.", "Applies when a diff touches schema, queries, etc. in one go"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := triggerFromDescription(c.desc); got != c.want {
+				t.Errorf("got  %q\nwant %q", got, c.want)
+			}
+		})
+	}
+}
+
+// PR #586 review, @copilot: whitespace is decoded as RUNES. A period followed
+// by NBSP or an em space would otherwise not end anything, and the prose after
+// it would be written into the label.
+func TestTriggerFromDescriptionHandlesUnicodeWhitespace(t *testing.T) {
+	for _, space := range []string{" ", " ", " "} {
+		desc := "Applies when a resolver changes." + space + "Prose that must not be captured."
+		if got := triggerFromDescription(desc); got != "Applies when a resolver changes" {
+			t.Errorf("space %q: got %q", space, got)
+		}
+	}
+}

@@ -1635,3 +1635,45 @@ func TestCodingReviewRunRefusesADiffAndARefTogether(t *testing.T) {
 		t.Errorf("the refusal must name the conflict: %v", err)
 	}
 }
+
+// PR #586 review, @codex + @copilot independently. Candidates come from TWO
+// sources, and the LISTING deliberately includes a check with no inbound edge
+// — that missing edge is this linter's highest-severity finding. If such a node
+// is ALSO unreadable, there is no trigger edge, so the actionable rule would
+// send the reader after an edge that does not exist.
+//
+// Driven through the real collect path rather than by constructing a
+// reviewInput: the classification happens in collectReview, so a unit test that
+// hands lintReview a pre-built endpoint passes with the bug in place — which is
+// how this gap survived my first mutation check.
+func TestCodingReviewLintListedButUnreadableHasNoEdgeToRemove(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		// The parent has NO inbound edges…
+		"GetNode": codingRootJSON("review", "", ""),
+		// …but the listing finds a checklist child…
+		"FindNodes": `{"data":{"nodes":[{"id":"n_review:orphan","memoryId":"mem1","loc":"review:orphan",
+			"name":"orphan","nodeType":"info","tags":["review-criteria"],"seq":null,"isRunnable":false,
+			"updatedAt":"2026-07-30T00:00:00Z"}]}}`,
+		// …which the batch read then cannot return.
+		"NodeBatch": codingBatch(nil, `"n_review:orphan"`),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "review", "lint", "-m", codingMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("an unreadable listed node should warn, not error: %v", err)
+	}
+	s := out.String()
+	if !strings.Contains(s, "review:orphan") {
+		t.Fatalf("the listed-but-unreadable node must still be surfaced: %q", s)
+	}
+	if strings.Contains(s, "trigger-edge-unresolved") {
+		t.Errorf("there is no trigger edge here — must not use the actionable rule: %q", s)
+	}
+	if strings.Contains(s, "edge rm") {
+		t.Errorf("must not name an edge to remove when none exists: %q", s)
+	}
+	if !strings.Contains(s, "check-node-resolves") {
+		t.Errorf("expected the indeterminate classification: %q", s)
+	}
+}

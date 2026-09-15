@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/Khan/genqlient/graphql"
 
@@ -87,36 +89,54 @@ func triggerFromDescription(desc string) string {
 // "first sentence end" — and the two are not the same thing (#381). A period is
 // a sentence end only SOMETIMES, and the exceptions are exactly the vocabulary
 // review checks are written in: dotted identifiers (`AppLocale.current`), glob
-// patterns (`lib/l10n/*.arb`), dotfile names (`.specify`). Three live labels
-// were written truncated at one of those, and two of them came out as
-// grammatically complete sentences — so nothing in the output said it had been
-// cut, and the next lint run reported OK.
+// patterns (`lib/l10n/*.arb`), dotfile names (`.specify`), and ABBREVIATIONS
+// (`e.g. `, `i.e. `). Three live labels were written truncated at one of those,
+// two of them as grammatically complete sentences — so nothing said they had
+// been cut, and the next lint run reported OK.
 //
-// A period counts ONLY when it is followed by whitespace or the end of the
-// string. A newline always ends it.
+// A period ends the sentence when it is followed by:
 //
-// That one rule covers every case, including the dotfile one: `.specify` is
-// excluded because its period is followed by a LETTER, not because the period
-// has a space in front of it. An earlier version also required the period not
-// be preceded by whitespace, reasoning about `.specify` from the wrong end —
-// redundant, and it broke the degenerate `"Applies when ."`, where a lone
-// trailing period really is the end and the existing test says so. Kept as a
-// note because the simpler rule looks incomplete until you check it.
+//   - nothing (end of string), or
+//   - whitespace and then an UPPERCASE letter.
+//
+// The uppercase test is what handles abbreviations without a word list
+// (PR #586 review, @codex): `e.g. generated clients` continues because `g` is
+// lower, while `changes. The rest` stops because `T` is upper. A dotted token
+// never reaches either test, since its period is followed immediately by a
+// non-space.
+//
+// It ERRS TOWARD OVER-CAPTURE, deliberately. A sentence followed by a
+// lowercase word runs on into the trigger, which yields a label that is too
+// long — visibly odd, and it still CONTAINS the real condition. The failure in
+// the other direction is the one this issue is about: a truncation reads as a
+// complete sentence, silently widens the check's match, and is invisible from
+// the next lint run onward.
+//
+// Whitespace is decoded as RUNES and tested with unicode.IsSpace, not as a
+// byte against four ASCII characters (PR #586 review, @copilot): a period
+// followed by NBSP or an em space would otherwise not end anything, and the
+// prose after it would be written into the label.
 func sentenceEnd(s string) int {
 	for i, r := range s {
 		switch r {
 		case '\n':
 			return i
 		case '.':
-			if i+1 >= len(s) || isSpace(rune(s[i+1])) {
+			rest := s[i+1:]
+			trimmed := strings.TrimLeftFunc(rest, unicode.IsSpace)
+			if trimmed == "" {
+				return i // trailing period, with at most whitespace after it
+			}
+			if len(trimmed) == len(rest) {
+				continue // no gap — a dotted token like .arb or AppLocale.current
+			}
+			if next, _ := utf8.DecodeRuneInString(trimmed); unicode.IsUpper(next) {
 				return i
 			}
 		}
 	}
 	return -1
 }
-
-func isSpace(r rune) bool { return r == ' ' || r == '\t' || r == '\n' || r == '\r' }
 
 // danglingWords are function words a real trigger clause never ends on. A label
 // ending in one is the tell that the clause was cut mid-thought — the shape

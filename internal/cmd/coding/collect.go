@@ -75,7 +75,23 @@ func collectReview(ctx context.Context, client graphql.Client, mem codingMemory,
 		}
 	}
 	for _, loc := range unreadable {
-		unavailable = append(unavailable, unresolvedEndpoint{Name: loc, EdgeID: edgeByID[loc].ID})
+		// ONLY an edge-backed endpoint gets the actionable rule (PR #586
+		// review, @codex + @copilot independently). `candidates` is fed from
+		// TWO sources — the parent's inbound edges AND scanPrefix's listing —
+		// and the listing deliberately includes a check with no inbound edge
+		// at all, which is the highest-severity finding this linter has. If
+		// such a node is also unreadable, there is no trigger edge, so
+		// promising "the edge is left dangling: hadron edge rm" would send the
+		// reader after something that does not exist.
+		//
+		// No edge id, no remedy — so it stays the indeterminate classification,
+		// which is what it honestly is.
+		e, ok := edgeByID[loc]
+		if !ok || e.ID == "" {
+			unavailable = append(unavailable, unresolvedEndpoint{Name: loc, Redacted: true})
+			continue
+		}
+		unavailable = append(unavailable, unresolvedEndpoint{Name: loc, EdgeID: e.ID})
 	}
 	for _, e := range redacted {
 		unavailable = append(unavailable, unresolvedEndpoint{Name: e.endpointName(), EdgeID: e.ID, Redacted: true})
