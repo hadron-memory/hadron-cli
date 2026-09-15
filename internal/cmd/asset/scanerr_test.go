@@ -160,3 +160,18 @@ func TestScanErrorsPassOtherErrorsThrough(t *testing.T) {
 		t.Errorf("a transport error is not a scan refusal: %q", msg)
 	}
 }
+
+// PR #581 review, @copilot: the rendering this replaced was err.Error(), which
+// joins the WHOLE list — so matching only the first server message narrows the
+// match. A scan refusal behind another resolver's error must still be
+// recognised, or the caller silently loses the actionable guidance.
+func TestScanRefusalMatchesBehindAnotherError(t *testing.T) {
+	err := gqlerror.List{
+		{Message: "some unrelated resolver failed", Locations: []gqlerror.Location{{Line: 2}}},
+		{Message: "upload rejected: file failed the malware scan", Locations: []gqlerror.Location{{Line: 3}}},
+	}
+	msg := uploadScanError(err, "eicar-test.txt").Error()
+	if !strings.Contains(msg, "malware scan") || !strings.Contains(msg, "audit") {
+		t.Errorf("a refusal that is not the FIRST error must still be recognised: %q", msg)
+	}
+}

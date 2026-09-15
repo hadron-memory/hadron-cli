@@ -80,10 +80,55 @@ func ServerMessage(err error) string {
 	return ""
 }
 
+// hasStructuredEnvelope reports whether a GraphQL error list looks like one the
+// SERVER composed, rather than one genqlient synthesised from a body it could
+// not parse.
+//
+// The distinction is load-bearing on the HTTPError path (PR #581 review, Codex
+// P2). genqlient parses the body itself and, when it is not JSON, builds a
+// one-entry list holding the WHOLE BODY as the message — `internal/api/client.go`
+// documents this, because classifyTransport was caught by the same thing:
+//
+//	Errors: gqlerror.List{&gqlerror.Error{Message: string(respBody)}}
+//
+// `bearerDoer` only intercepts responses at or above 500, so a proxy's HTML
+// 401/403/404 reaches here intact. Cleaning that entry would emit the raw HTML
+// and DROP the status — measured before fixing:
+//
+//	raw:     returned error 404: {"data":null,"errors":[{"message":"<html>…"}]}
+//	cleaned: <html><head><title>404 Not Found</title></head><body>nginx</body></html>
+//
+// which is worse than the leak #566 exists to fix: the reader loses the one
+// fact that would have told them a proxy answered rather than the API.
+//
+// The test is structural, and deliberately asks whether ANY entry carries
+// extensions, a location or a path — the three things a real GraphQL response
+// supplies and a synthesised one cannot have. A genuine envelope with none of
+// them keeps the HTTP rendering, which is the safe direction to be wrong in:
+// it costs a tidier message, where the other way costs the status.
+func hasStructuredEnvelope(list gqlerror.List) bool {
+	for _, e := range list {
+		if e == nil {
+			continue
+		}
+		if len(e.Extensions) > 0 || len(e.Locations) > 0 || len(e.Path) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // cleaned wraps err so it renders as the server's message(s) and nothing else.
 // An error with no GraphQL messages is returned unchanged rather than
 // flattened: a transport failure's own text is the only text there is.
 func cleaned(err error) error {
+	// A non-200 is the one shape whose "envelope" may be genqlient's own
+	// invention; see hasStructuredEnvelope. A bare gqlerror.List got there by
+	// genqlient parsing real JSON, so it needs no such guard.
+	var httpErr *graphql.HTTPError
+	if errors.As(err, &httpErr) && !hasStructuredEnvelope(graphQLErrors(err)) {
+		return err
+	}
 	msgs := ServerMessages(err)
 	if len(msgs) == 0 {
 		return err

@@ -524,3 +524,49 @@ func TestServerMessageHelpers(t *testing.T) {
 		t.Errorf("ServerMessage on a plain error = %q, want empty", got)
 	}
 }
+
+// PR #581 review, Codex P2: genqlient SYNTHESISES a one-entry error list
+// holding the whole body when it cannot parse one (internal/api/client.go), and
+// bearerDoer only intercepts 5xx — so a proxy's HTML 401/403/404 arrives here
+// looking like a GraphQL envelope. Cleaning it would emit raw HTML and lose the
+// status, which is worse than the prefix #566 removes: the reader loses the one
+// fact saying a proxy answered rather than the API.
+func TestMapErrorKeepsTheStatusForASynthesisedEnvelope(t *testing.T) {
+	html := "<html><head><title>404 Not Found</title></head><body>nginx</body></html>"
+	synth := &graphql.HTTPError{
+		StatusCode: 404,
+		Response:   graphql.Response{Errors: gqlerror.List{{Message: html}}},
+	}
+	got := MapError(synth).Error()
+	if !strings.Contains(got, "404") {
+		t.Errorf("the HTTP status must survive a non-JSON body: %q", got)
+	}
+	if got == html {
+		t.Errorf("a synthesised entry must not be rendered as a server sentence: %q", got)
+	}
+	// The exit code is unchanged by the guard — it is about the MESSAGE.
+	if code := exitcode.FromError(MapError(synth)); code != exitcode.NotFound {
+		t.Errorf("a 404 still maps to exit 4, got %d", code)
+	}
+}
+
+// The guard must not catch a REAL envelope inside a non-200 — that is the case
+// #566 is about, and the one most refusals actually take. Pinned in both
+// directions so the fix for Codex's finding cannot quietly undo the feature.
+func TestMapErrorStillCleansAGenuineEnvelopeInsideANon200(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		errs gqlerror.List
+	}{
+		{"carries extensions", gqlerror.List{{Message: "no such node", Extensions: map[string]any{"code": "NODE_NOT_FOUND"}}}},
+		{"carries a location", gqlerror.List{{Message: "no such node", Locations: []gqlerror.Location{{Line: 3}}}}},
+		{"carries a path", gqlerror.List{{Message: "no such node", Path: ast.Path{ast.PathName("nodeById")}}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := &graphql.HTTPError{StatusCode: 404, Response: graphql.Response{Errors: tc.errs}}
+			if got := MapError(err).Error(); got != "no such node" {
+				t.Errorf("a real envelope must still be cleaned, got %q", got)
+			}
+		})
+	}
+}

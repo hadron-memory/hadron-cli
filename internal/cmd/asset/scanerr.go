@@ -103,9 +103,16 @@ func downloadScanError(err error, ref string) error {
 // isScanRefusal reports whether err is the named server refusal, by typed code
 // or by message.
 //
-// The message pass reads the server's own text when there is one, and falls
-// back to err.Error() when there is not — a transport failure has no GraphQL
-// message, and matching its raw text is no worse than before.
+// The message pass reads EVERY server message, and falls back to err.Error()
+// only when there are none — a transport failure has no GraphQL message, and
+// matching its raw text is no worse than before.
+//
+// All of them, not the first (PR #581 review, @copilot). The rendering this
+// replaced was `err.Error()`, which joins the whole list, so matching only
+// ServerMessage would have NARROWED the match: a scan refusal arriving behind
+// another resolver's error would stop being recognised, and the caller would
+// get the generic mapping instead of the actionable guidance — a regression
+// introduced by a change whose entire purpose was to leave behaviour alone.
 func isScanRefusal(err error, code, msgFragment string) bool {
 	if err == nil {
 		return false
@@ -113,9 +120,14 @@ func isScanRefusal(err error, code, msgFragment string) bool {
 	if api.HasErrorCode(err, code) {
 		return true
 	}
-	haystack := api.ServerMessage(err)
-	if haystack == "" {
-		haystack = err.Error()
+	msgs := api.ServerMessages(err)
+	if len(msgs) == 0 {
+		msgs = []string{err.Error()}
 	}
-	return strings.Contains(strings.ToLower(haystack), msgFragment)
+	for _, m := range msgs {
+		if strings.Contains(strings.ToLower(m), msgFragment) {
+			return true
+		}
+	}
+	return false
 }
