@@ -62,6 +62,30 @@ func (t *trackedWriter) Write(p []byte) (int, error) {
 	return n, err
 }
 
+// ReadFrom forwards to the underlying writer's own fast path when it has one
+// (PR #585 review, @copilot).
+//
+// Wrapping os.Stdout in a plain io.Writer HIDES the io.ReaderFrom it
+// implements, and io.Copy checks for exactly that before falling back to a
+// buffered loop. `asset get -o -` copies a download straight into this stream,
+// so without this method a large asset would quietly lose the file/pipe
+// fast path — a tracking wrapper is not worth a throughput regression on the
+// one command that streams.
+//
+// The fallback still routes through Write, so `wrote` is maintained either way.
+func (t *trackedWriter) ReadFrom(r io.Reader) (int64, error) {
+	if rf, ok := t.w.(io.ReaderFrom); ok {
+		n, err := rf.ReadFrom(r)
+		if n > 0 {
+			t.wrote = true
+		}
+		return n, err
+	}
+	// writerOnly hides ReadFrom so io.Copy cannot recurse back into this method.
+	type writerOnly struct{ io.Writer }
+	return io.Copy(writerOnly{t}, r)
+}
+
 // Tracked wraps w so an IOStreams built around it can answer Wrote().
 // Exported so a test factory can give commands the same stdout they get in
 // production — an untracked stream always reports "clean", which would let a

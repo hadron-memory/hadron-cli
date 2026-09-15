@@ -50,12 +50,17 @@ self-hosted backend.
     tells you THAT it failed; the envelope tells you what. Do not detect
     failure by testing for an `error` key alone — a successful payload could
     in principle contain one.
-  - **One exception, and it is deliberate**: a command that has already
-    written a payload to stdout keeps its error on stderr, because appending
-    an envelope would concatenate two JSON values and make stdout
-    unparseable — the very failure this rule removes. The commands that can
-    do this are the ones where the bytes ARE the output and `--json` is
-    ignored anyway (`asset get -o -`, `node export` to stdout).
+  - **Two exceptions, both deliberate.** First, some commands do not emit
+    JSON on SUCCESS at all, because the bytes are the output and `--json` is
+    ignored: `asset get -o -` (the asset), `node export` to stdout (the
+    document), and `agentic-usage` (this page, as Markdown). Do not parse
+    their stdout.
+    Second, a command that has already written such a payload keeps its
+    error on stderr, because appending an envelope would concatenate two
+    values and make stdout unparseable — the very failure this rule removes.
+  - So read the guarantee precisely: **for a command that emits JSON on
+    success, stdout is valid JSON on failure too.** It is not a promise that
+    every command emits JSON.
   - Exit codes are unchanged by all of this.
 - `message` NEVER carries the GraphQL document location and field path the
   client used to render around it (#566) — a leading `input:<line>: <field> `

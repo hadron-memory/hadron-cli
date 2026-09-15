@@ -5,11 +5,12 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/hadron-memory/hadron-cli/internal/build"
 	accesscmd "github.com/hadron-memory/hadron-cli/internal/cmd/access"
@@ -160,8 +161,8 @@ func renderFailure(f *cmdutil.Factory, args []string, err error) int {
 	return renderError(f, err)
 }
 
-// jsonRequested reports whether --json appears among args, by a TOLERANT parse
-// against the TARGET COMMAND'S OWN FLAGS.
+// jsonRequested reports whether --json appears among args, by an ARITY-AWARE
+// WALK of the TARGET COMMAND'S OWN FLAGS.
 //
 // A scan for the literal string is what this looks like it should be, and it is
 // wrong: `--json` can be the VALUE of another flag (`-m --json`, `--name
@@ -169,16 +170,17 @@ func renderFailure(f *cmdutil.Factory, args []string, err error) int {
 // never asked for it.
 //
 // But parsing against a bare flagset holding only `json` is wrong for the SAME
-// reason, which is the part worth writing down — my first version did exactly
-// that and this function's own test caught it. pflag can only tell a flag from
-// a value when it knows the flag takes one, so with `-m` undefined, `-m --json`
-// parses `--json` as a flag and the false positive comes straight back. The
-// knowledge lives on the target command, so this resolves it first, the way
+// reason, which is worth writing down — my first version did exactly that and
+// this function's own test caught it. pflag can only tell a flag from a value
+// when it knows the flag takes one, so with `-m` undefined, `-m --json` parses
+// `--json` as a flag and the false positive comes straight back. The knowledge
+// lives on the target command, so this resolves it first, the way
 // checkUnknownSubcommand does.
 //
-// Errors are ignored on purpose: this runs only because a parse ALREADY failed,
-// so a second failure means the flag could not be determined, and false — plain
-// text — is the safe answer.
+// And PARSING against those flags is wrong too, which took a reviewer to see:
+// pflag stops at the first error, so `--limit nope --json` dies converting the
+// int and reports no --json — on exactly the malformed-value failure this probe
+// exists to render. Hence a walk that reads only arity.
 func jsonRequested(args []string) bool {
 	root := NewRootCmd(cmdutil.NewFactory())
 	target, rest, err := root.Find(args)
@@ -187,13 +189,43 @@ func jsonRequested(args []string) bool {
 	}
 	target.InitDefaultHelpFlag()
 	flags := target.Flags()
-	flags.ParseErrorsAllowlist.UnknownFlags = true
-	flags.SetOutput(io.Discard)
-	if perr := flags.Parse(rest); perr != nil {
-		return false
+
+	// A WALK, not a parse. pflag stops at the first error, so parsing cannot
+	// answer this: `--limit nope --json` dies converting "nope" to an int and
+	// reports no --json at all (PR #585 review, @copilot) — and a malformed
+	// flag VALUE is precisely when this probe runs, since that is one of the
+	// failures it exists to render. The walk needs only arity, which the
+	// command's flag definitions supply even when parsing them fails.
+	takesValue := func(f *pflag.Flag) bool { return f != nil && f.Value.Type() != "bool" }
+	for i := 0; i < len(rest); i++ {
+		a := rest[i]
+		switch {
+		case a == "--":
+			// Everything after this is positional, including a literal --json.
+			return false
+		case a == "--json":
+			return true
+		case strings.HasPrefix(a, "--json="):
+			v, perr := strconv.ParseBool(strings.TrimPrefix(a, "--json="))
+			return perr == nil && v
+		case strings.HasPrefix(a, "--"):
+			name := strings.TrimPrefix(a, "--")
+			if strings.Contains(name, "=") {
+				continue // --flag=value carries its own value
+			}
+			if takesValue(flags.Lookup(name)) {
+				i++ // the next token is this flag's VALUE, not a flag
+			}
+		case len(a) > 1 && a[0] == '-':
+			// Only a lone shorthand can consume the next token; a cluster
+			// (-abc) ends in a value-taking flag at most, and mis-skipping one
+			// token here costs nothing this probe cares about.
+			if sh := strings.TrimPrefix(a, "-"); len(sh) == 1 && takesValue(flags.ShorthandLookup(sh)) {
+				i++
+			}
+		}
 	}
-	v, _ := flags.GetBool("json")
-	return v
+	return false
 }
 
 // renderError maps err to an exit code and writes it in the format the --json

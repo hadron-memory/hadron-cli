@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
@@ -139,7 +140,13 @@ func TestJSONProbeDoesNotMatchAFlagValue(t *testing.T) {
 		{"absent", []string{"node", "get", "x"}, false},
 		// The reason a substring scan is wrong: here --json is a VALUE.
 		{"as another flag's value", []string{"node", "get", "-m", "--json"}, false},
+		{"as a long flag's value", []string{"node", "get", "x", "--memory", "--json"}, false},
 		{"after --", []string{"node", "get", "--", "--json"}, false},
+		// PR #585 review, @copilot: a MALFORMED value for a known flag is one
+		// of the failures this probe exists to render, and a parse-based probe
+		// dies on it before ever reaching --json.
+		{"after a malformed known-flag value", []string{"node", "revision", "list", "n1", "--limit", "nope", "--json"}, true},
+		{"self-contained --flag=value then --json", []string{"node", "get", "x", "--memory=kb", "--json"}, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := jsonRequested(tc.args); got != tc.want {
@@ -237,5 +244,38 @@ func TestJSONEnvelopeFallsBackToStderrWhenStdoutIsBroken(t *testing.T) {
 	code, msg := decodeEnvelope(t, errOut())
 	if code != exitcode.NotFound || !strings.Contains(msg, "nope") {
 		t.Errorf("the envelope must reach stderr when stdout fails: code=%d msg=%q", code, msg)
+	}
+}
+
+// Both test factories must give commands the stream the BINARY gives them
+// (PR #585 review, @copilot). testFactory was fixed first and testFactoryTTY
+// was missed — so TTY-based command tests would have reported Wrote()==false
+// after a payload, routing a subsequent JSON error to stdout in the test and to
+// stderr in the binary.
+//
+// Asserted on both, as a family: one forgotten wrapper is the same mistake as
+// the next, and the second one is what actually happened.
+func TestBothTestFactoriesTrackStdout(t *testing.T) {
+	t.Run("testFactory", func(t *testing.T) {
+		f, _ := testFactory(t)
+		assertTracksWrites(t, f)
+	})
+	t.Run("testFactoryTTY", func(t *testing.T) {
+		f, _, _ := testFactoryTTY(t, "y\n")
+		assertTracksWrites(t, f)
+	})
+}
+
+func assertTracksWrites(t *testing.T, f *cmdutil.Factory) {
+	t.Helper()
+	if f.IOStreams.Wrote() {
+		t.Fatal("a fresh stream must report clean")
+	}
+	if _, err := f.IOStreams.Out.Write([]byte("payload")); err != nil {
+		t.Fatal(err)
+	}
+	if !f.IOStreams.Wrote() {
+		t.Error("stdout must be tracked, as it is in production — otherwise every " +
+			"command test measures a stream the binary does not have")
 	}
 }

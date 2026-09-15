@@ -146,7 +146,13 @@ func testFactoryTTY(t *testing.T, answers string) (*cmdutil.Factory, *strings.Bu
 	f, out := testFactory(t)
 	errOut := &strings.Builder{}
 	tty, _, _ := output.TestTTY(answers)
-	tty.Out, tty.ErrOut = out, errOut
+	// Tracked here too (PR #585 review, @copilot). Setting the raw builder
+	// would undo what testFactory just arranged, leaving every TTY-based
+	// command test reporting Wrote()==false after a payload — so a JSON error
+	// following a write would route to stdout in the test and to stderr in the
+	// binary. The same defect as the one testFactory had, in the helper that
+	// wraps it.
+	tty.Out, tty.ErrOut = output.Tracked(out), errOut
 	f.IOStreams = tty
 	return f, out, errOut
 }
