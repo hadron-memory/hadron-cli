@@ -227,8 +227,20 @@ func TestCodingReviewLintSurfacesUnavailable(t *testing.T) {
 		t.Fatalf("an unreadable endpoint should warn, not error: %v", err)
 	}
 	s := out.String()
-	if !strings.Contains(s, "check-node-resolves") || !strings.Contains(s, "tasks:ghost") {
-		t.Errorf("expected the unreadable node surfaced by bare loc, got %q", s)
+	// #380: an endpoint the server would not return is the ACTIONABLE case —
+	// it carries an edge id, so the finding names the remedy instead of
+	// reading like a transient hiccup. check-node-resolves is now reserved for
+	// a redacted projection, which has nothing to act on.
+	if !strings.Contains(s, "trigger-edge-unresolved") || !strings.Contains(s, "tasks:ghost") {
+		t.Errorf("expected the unresolved endpoint surfaced by bare loc, got %q", s)
+	}
+	if !strings.Contains(s, "hadron edge rm e1") {
+		t.Errorf("the finding must name the edge to remove, got %q", s)
+	}
+	// It must NOT assert the node was deleted: nodeBatch merges denied and
+	// not-found deliberately, so the CLI cannot know which happened.
+	if strings.Contains(s, "no longer exists") {
+		t.Errorf("must not claim the node is gone — the server does not disclose that: %q", s)
 	}
 }
 

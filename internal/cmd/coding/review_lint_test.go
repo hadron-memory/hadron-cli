@@ -265,9 +265,12 @@ func TestForeignToolchainSilentWhenAmbiguous(t *testing.T) {
 // warning, since it may well not be a checklist item at all.
 func TestUnavailableSurfaced(t *testing.T) {
 	in := reviewInput{
-		Members:     map[string]checkNode{},
-		Edges:       map[string]graphEdge{},
-		Unavailable: []string{"tasks:build-review-coverage"},
+		Members: map[string]checkNode{},
+		Edges:   map[string]graphEdge{},
+		// REDACTED: the server withheld the endpoint projection, which is the
+		// case check-node-resolves is now reserved for (#380) — genuinely
+		// indeterminate, with nothing for the caller to act on.
+		Unavailable: []unresolvedEndpoint{{Name: "tasks:build-review-coverage", EdgeID: "e1", Redacted: true}},
 		Toolchain:   "-",
 	}
 	fs := lintReview(in)
@@ -403,5 +406,81 @@ func TestTriggerQuoteDoesNotAffectRulesOrFix(t *testing.T) {
 	}
 	if strings.Contains(pb[0].NewLabel, "Adding an arg") {
 		t.Error("--fix must not promote the body scope paragraph")
+	}
+}
+
+// #380 — the two causes behind an unreadable endpoint want different findings,
+// because only one of them has anything a caller can do.
+func TestUnresolvedEndpointSplitsByCause(t *testing.T) {
+	t.Run("unreadable ref names the remedy and the edge", func(t *testing.T) {
+		in := reviewInput{
+			Members:     map[string]checkNode{},
+			Edges:       map[string]graphEdge{},
+			Unavailable: []unresolvedEndpoint{{Name: "review:format-sources", EdgeID: "019dbed7"}},
+			Toolchain:   "-",
+		}
+		fs := lintReview(in)
+		if len(fs) != 1 || fs[0].Rule != "trigger-edge-unresolved" {
+			t.Fatalf("expected trigger-edge-unresolved, got %v", fs)
+		}
+		// The edge id is what made the original cleanup a manual detour: the
+		// message named no id, so the operator had to list the parent's
+		// inbound edges and pick the right one out by hand.
+		if !strings.Contains(fs[0].Message, "019dbed7") {
+			t.Errorf("the finding must carry the edge id: %q", fs[0].Message)
+		}
+		if !strings.Contains(fs[0].Message, "hadron edge rm") {
+			t.Errorf("the finding must name the remedy: %q", fs[0].Message)
+		}
+		// And it must NOT assert the node is gone. nodeBatch merges denied and
+		// not-found deliberately (cor:api:040), so claiming deletion would
+		// state something the server refuses to disclose — and would be wrong
+		// whenever the real cause is a permission.
+		for _, forbidden := range []string{"no longer exists", "has been deleted", "was deleted;"} {
+			if strings.Contains(fs[0].Message, forbidden) {
+				t.Errorf("must not assert deletion (%q): %q", forbidden, fs[0].Message)
+			}
+		}
+		if !strings.Contains(fs[0].Message, "not readable by you") {
+			t.Errorf("both causes must be offered, got %q", fs[0].Message)
+		}
+	})
+
+	t.Run("redacted projection stays indeterminate", func(t *testing.T) {
+		in := reviewInput{
+			Members:     map[string]checkNode{},
+			Edges:       map[string]graphEdge{},
+			Unavailable: []unresolvedEndpoint{{Name: "(unreadable target of edge e7)", EdgeID: "e7", Redacted: true}},
+			Toolchain:   "-",
+		}
+		fs := lintReview(in)
+		if len(fs) != 1 || fs[0].Rule != "check-node-resolves" {
+			t.Fatalf("a redacted endpoint keeps check-node-resolves, got %v", fs)
+		}
+		// Nothing to act on here, so the finding must NOT send the reader to
+		// `edge rm`: the projection was withheld, not the node.
+		if strings.Contains(fs[0].Message, "edge rm") {
+			t.Errorf("a redacted endpoint has no remedy to offer: %q", fs[0].Message)
+		}
+	})
+}
+
+// Both causes at once, ordered deterministically — lint output is diffed in CI.
+func TestUnresolvedEndpointsAreOrdered(t *testing.T) {
+	in := reviewInput{
+		Members: map[string]checkNode{},
+		Edges:   map[string]graphEdge{},
+		Unavailable: []unresolvedEndpoint{
+			{Name: "review:zzz", EdgeID: "e2"},
+			{Name: "review:aaa", EdgeID: "e1", Redacted: true},
+		},
+		Toolchain: "-",
+	}
+	fs := lintReview(in)
+	if len(fs) != 2 {
+		t.Fatalf("expected both, got %v", fs)
+	}
+	if fs[0].Node != "review:aaa" || fs[1].Node != "review:zzz" {
+		t.Errorf("findings must be ordered by node: %v", fs)
 	}
 }

@@ -202,7 +202,8 @@ hadron coding preflight lint -m hrn:mem:acme.com:kb
 | `parent-edge-exists` | error | check invisible to `tasks:review-changes` |
 | `label-present` | error | an empty edge label |
 | `label-is-condition` | error | `child-of`, `applies-when`, `related`, a bare `Applies when` |
-| `check-node-resolves` | warning | an endpoint that listed but could not be read |
+| `trigger-edge-unresolved` | warning | a trigger edge whose check did not come back — usually a check deleted without its edge; carries the `hadron edge rm <id>` to clear it |
+| `check-node-resolves` | warning | an endpoint the server REDACTED — genuinely indeterminate, with nothing to act on |
 | `description-present` | warning | a second blind spot, in list/search output |
 | `duplicate-trigger` | warning | a cloned check that was never re-pointed |
 | `seq-unique` | warning | non-deterministic sibling ordering |

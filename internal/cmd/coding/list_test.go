@@ -22,7 +22,7 @@ func TestReviewRowsOrderAndStatus(t *testing.T) {
 			"review:tenth": {ID: "e4", Label: "Applies when t changes"},
 			"review:bad":   {ID: "e5", Label: "child-of"},
 		},
-		Unavailable: []string{"review:ghost"},
+		Unavailable: []unresolvedEndpoint{{Name: "review:ghost", EdgeID: "e9"}},
 	}
 	rows := reviewRows(in, lintReview(in))
 

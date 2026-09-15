@@ -130,8 +130,8 @@ func reviewRows(in reviewInput, findings []findingDTO) []reviewItemDTO {
 	// An endpoint that could not be read is listed, not dropped: the caller
 	// asked what the checklist contains, and "there is something here I cannot
 	// see" is part of the answer (CLAUDE.md's list-vs-read visibility rule).
-	for _, u := range sortedCopy(in.Unavailable) {
-		rows = append(rows, reviewItemDTO{Loc: u, Tags: []string{}, Status: statusUnavailable})
+	for _, u := range sortedUnresolved(in.Unavailable) {
+		rows = append(rows, reviewItemDTO{Loc: u.Name, Tags: []string{}, Status: statusUnavailable})
 	}
 
 	sort.SliceStable(rows, func(i, j int) bool {

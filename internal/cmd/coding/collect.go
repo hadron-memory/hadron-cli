@@ -58,12 +58,27 @@ func collectReview(ctx context.Context, client graphql.Client, mem codingMemory,
 		candidates[e.OtherID] = e.Other
 	}
 
-	nodes, unavailable, err := fetchNodes(ctx, client, candidates, true)
+	nodes, unreadable, err := fetchNodes(ctx, client, candidates, true)
 	if err != nil {
 		return reviewInput{}, err
 	}
+	// Two causes, kept apart (#380). A ref fetchNodes could not return carries
+	// an edge id, so the reader has a remedy; a REDACTED projection carries
+	// nothing to act on. Neither says the node was deleted — nodeBatch merges
+	// denied and not-found on purpose — but only one of them is worth a
+	// pointer to `edge rm`.
+	unavailable := make([]unresolvedEndpoint, 0, len(unreadable)+len(redacted))
+	edgeByID := map[string]graphEdge{}
+	for _, e := range edges {
+		if e.Other != "" {
+			edgeByID[e.Other] = e
+		}
+	}
+	for _, loc := range unreadable {
+		unavailable = append(unavailable, unresolvedEndpoint{Name: loc, EdgeID: edgeByID[loc].ID})
+	}
 	for _, e := range redacted {
-		unavailable = append(unavailable, e.endpointName())
+		unavailable = append(unavailable, unresolvedEndpoint{Name: e.endpointName(), EdgeID: e.ID, Redacted: true})
 	}
 
 	members := map[string]checkNode{}
