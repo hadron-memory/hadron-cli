@@ -22,9 +22,9 @@ const workerlessSessionJSON = `{"id":"s-bare","agentId":"agt1","workerId":null,
 
 func TestSessionListLeadsWithTheWorkerAndItsRole(t *testing.T) {
 	teamGitDir(t)
-	gql, _ := captureGraphQL(t, map[string]string{
+	gql, _ := captureGraphQL(t, sessionRenderStubs(map[string]string{
 		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
-	})
+	}))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "list", "--server", gql.URL})
@@ -72,9 +72,9 @@ func TestSessionListLeadsWithTheWorkerAndItsRole(t *testing.T) {
 // which is the defect this repo has spent the week removing.
 func TestSessionListKeepsTheSessionIDCopyPasteable(t *testing.T) {
 	teamGitDir(t)
-	gql, _ := captureGraphQL(t, map[string]string{
+	gql, _ := captureGraphQL(t, sessionRenderStubs(map[string]string{
 		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
-	})
+	}))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "list", "--server", gql.URL})
@@ -94,14 +94,14 @@ func TestSessionListKeepsTheSessionIDCopyPasteable(t *testing.T) {
 // resolves an App and reads the worklog before it renders.
 func TestSessionListProvenanceTableAlsoLeadsWithTheWorker(t *testing.T) {
 	teamGitDir(t)
-	gql, _ := captureGraphQL(t, map[string]string{
+	gql, _ := captureGraphQL(t, sessionRenderStubs(map[string]string{
 		"TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`,
 		"TeamWorkItems": `{"data":{"teamWorkItems":{"items":[{"nodeId":"w1","sessionId":"s-old",
 			"workerId":"wkr1","workerName":"Iris","tool":"github","kind":"pr",
 			"ref":"hadron-memory/hadron-cli#371","action":"opened",
 			"at":"2026-08-13T10:00:00Z","detail":null}],"total":1}}}`,
 		"GetTeamSession": `{"data":{"session":` + activeSessionJSON + `}}`,
-	})
+	}))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "list", "--pr", "hadron-memory/hadron-cli#371",
@@ -109,7 +109,7 @@ func TestSessionListProvenanceTableAlsoLeadsWithTheWorker(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	cols := strings.Fields(strings.SplitN(out.String(), "\n", 2)[0])
+	cols := headerLine(t, out.String())
 	if len(cols) < 3 {
 		t.Fatalf("unexpected header: %v", cols)
 	}
@@ -129,9 +129,9 @@ func TestSessionListProvenanceTableAlsoLeadsWithTheWorker(t *testing.T) {
 // nothing else on the wire carries it.
 func TestSessionListDashesAnAbsentRole(t *testing.T) {
 	teamGitDir(t)
-	gql, _ := captureGraphQL(t, map[string]string{
+	gql, _ := captureGraphQL(t, sessionRenderStubs(map[string]string{
 		"TeamSessions": `{"data":{"sessions":[` + workerlessSessionJSON + `]}}`,
-	})
+	}))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "list", "--server", gql.URL})
@@ -205,4 +205,44 @@ func TestSessionListJSONGainsWorkerRole(t *testing.T) {
 			t.Errorf("existing --json key %q disappeared: %s", key, out.String())
 		}
 	}
+}
+
+// #455/#481 decorate the session tables with two best-effort reads: the USER
+// cell resolves to the person's URN, and the provenance render names the
+// resolved App. Both degrade to the value already in hand when a read fails,
+// so a test CAN omit these stubs — but captureGraphQL reports an unstubbed
+// operation, which turns a graceful degrade into test noise. Stubbing them
+// keeps each test measuring the thing it is about.
+//
+// Only added when absent, so a test that wants to exercise the DEGRADED path
+// still can by supplying its own.
+func sessionRenderStubs(m map[string]string) map[string]string {
+	if _, ok := m["GetUser"]; !ok {
+		m["GetUser"] = `{"data":{"user":{"id":"u-holger","urn":"hrn:user:holger",
+			"name":"Holger","email":null,"handle":"holger","githubUsername":null,"roles":[],
+			"identityProvider":null,"githubId":null,"externalId":null,"externalAppId":null,
+			"linkedAt":null}}}`
+	}
+	if _, ok := m["TeamAppIdentity"]; !ok {
+		m["TeamAppIdentity"] = `{"data":{"app":{"id":"capp100000000000000000000",
+			"urn":"hrn:app:acme.com:eng-team","name":"Eng Team"}}}`
+	}
+	return m
+}
+
+// headerLine finds the table header in output that may be preceded by the
+// scope/ref lines #481 adds.
+//
+// Located by CONTENT rather than by index: a fixed line number would need
+// updating by anyone who adds another preamble line, and — worse — would
+// silently measure the wrong line if they did not.
+func headerLine(t *testing.T, out string) []string {
+	t.Helper()
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "WORKER") {
+			return strings.Fields(line)
+		}
+	}
+	t.Fatalf("no table header in output:\n%s", out)
+	return nil
 }

@@ -426,6 +426,9 @@ type AddOrgMemberAddOrgMemberUser struct {
 // GetId returns AddOrgMemberAddOrgMemberUser.Id, and is useful for accessing the field via an interface.
 func (v *AddOrgMemberAddOrgMemberUser) GetId() string { return v.UserFields.Id }
 
+// GetUrn returns AddOrgMemberAddOrgMemberUser.Urn, and is useful for accessing the field via an interface.
+func (v *AddOrgMemberAddOrgMemberUser) GetUrn() *string { return v.UserFields.Urn }
+
 // GetName returns AddOrgMemberAddOrgMemberUser.Name, and is useful for accessing the field via an interface.
 func (v *AddOrgMemberAddOrgMemberUser) GetName() *string { return v.UserFields.Name }
 
@@ -488,6 +491,8 @@ func (v *AddOrgMemberAddOrgMemberUser) UnmarshalJSON(b []byte) error {
 type __premarshalAddOrgMemberAddOrgMemberUser struct {
 	Id string `json:"id"`
 
+	Urn *string `json:"urn"`
+
 	Name *string `json:"name"`
 
 	Email *string `json:"email"`
@@ -521,6 +526,7 @@ func (v *AddOrgMemberAddOrgMemberUser) __premarshalJSON() (*__premarshalAddOrgMe
 	var retval __premarshalAddOrgMemberAddOrgMemberUser
 
 	retval.Id = v.UserFields.Id
+	retval.Urn = v.UserFields.Urn
 	retval.Name = v.UserFields.Name
 	retval.Email = v.UserFields.Email
 	retval.Handle = v.UserFields.Handle
@@ -8306,6 +8312,9 @@ type GetUserUser struct {
 // GetId returns GetUserUser.Id, and is useful for accessing the field via an interface.
 func (v *GetUserUser) GetId() string { return v.UserFields.Id }
 
+// GetUrn returns GetUserUser.Urn, and is useful for accessing the field via an interface.
+func (v *GetUserUser) GetUrn() *string { return v.UserFields.Urn }
+
 // GetName returns GetUserUser.Name, and is useful for accessing the field via an interface.
 func (v *GetUserUser) GetName() *string { return v.UserFields.Name }
 
@@ -8364,6 +8373,8 @@ func (v *GetUserUser) UnmarshalJSON(b []byte) error {
 type __premarshalGetUserUser struct {
 	Id string `json:"id"`
 
+	Urn *string `json:"urn"`
+
 	Name *string `json:"name"`
 
 	Email *string `json:"email"`
@@ -8397,6 +8408,7 @@ func (v *GetUserUser) __premarshalJSON() (*__premarshalGetUserUser, error) {
 	var retval __premarshalGetUserUser
 
 	retval.Id = v.UserFields.Id
+	retval.Urn = v.UserFields.Urn
 	retval.Name = v.UserFields.Name
 	retval.Email = v.UserFields.Email
 	retval.Handle = v.UserFields.Handle
@@ -10456,6 +10468,9 @@ type MergeUsersMergeUsersUser struct {
 // GetId returns MergeUsersMergeUsersUser.Id, and is useful for accessing the field via an interface.
 func (v *MergeUsersMergeUsersUser) GetId() string { return v.UserFields.Id }
 
+// GetUrn returns MergeUsersMergeUsersUser.Urn, and is useful for accessing the field via an interface.
+func (v *MergeUsersMergeUsersUser) GetUrn() *string { return v.UserFields.Urn }
+
 // GetName returns MergeUsersMergeUsersUser.Name, and is useful for accessing the field via an interface.
 func (v *MergeUsersMergeUsersUser) GetName() *string { return v.UserFields.Name }
 
@@ -10516,6 +10531,8 @@ func (v *MergeUsersMergeUsersUser) UnmarshalJSON(b []byte) error {
 type __premarshalMergeUsersMergeUsersUser struct {
 	Id string `json:"id"`
 
+	Urn *string `json:"urn"`
+
 	Name *string `json:"name"`
 
 	Email *string `json:"email"`
@@ -10549,6 +10566,7 @@ func (v *MergeUsersMergeUsersUser) __premarshalJSON() (*__premarshalMergeUsersMe
 	var retval __premarshalMergeUsersMergeUsersUser
 
 	retval.Id = v.UserFields.Id
+	retval.Urn = v.UserFields.Urn
 	retval.Name = v.UserFields.Name
 	retval.Email = v.UserFields.Email
 	retval.Handle = v.UserFields.Handle
@@ -11711,6 +11729,9 @@ type OrgMembersOrganizationMembersOrgMemberUser struct {
 // GetId returns OrgMembersOrganizationMembersOrgMemberUser.Id, and is useful for accessing the field via an interface.
 func (v *OrgMembersOrganizationMembersOrgMemberUser) GetId() string { return v.UserFields.Id }
 
+// GetUrn returns OrgMembersOrganizationMembersOrgMemberUser.Urn, and is useful for accessing the field via an interface.
+func (v *OrgMembersOrganizationMembersOrgMemberUser) GetUrn() *string { return v.UserFields.Urn }
+
 // GetName returns OrgMembersOrganizationMembersOrgMemberUser.Name, and is useful for accessing the field via an interface.
 func (v *OrgMembersOrganizationMembersOrgMemberUser) GetName() *string { return v.UserFields.Name }
 
@@ -11779,6 +11800,8 @@ func (v *OrgMembersOrganizationMembersOrgMemberUser) UnmarshalJSON(b []byte) err
 type __premarshalOrgMembersOrganizationMembersOrgMemberUser struct {
 	Id string `json:"id"`
 
+	Urn *string `json:"urn"`
+
 	Name *string `json:"name"`
 
 	Email *string `json:"email"`
@@ -11812,6 +11835,7 @@ func (v *OrgMembersOrganizationMembersOrgMemberUser) __premarshalJSON() (*__prem
 	var retval __premarshalOrgMembersOrganizationMembersOrgMemberUser
 
 	retval.Id = v.UserFields.Id
+	retval.Urn = v.UserFields.Urn
 	retval.Name = v.UserFields.Name
 	retval.Email = v.UserFields.Email
 	retval.Handle = v.UserFields.Handle
@@ -14368,6 +14392,9 @@ type SearchUsersUsersUsersPageItemsUser struct {
 // GetId returns SearchUsersUsersUsersPageItemsUser.Id, and is useful for accessing the field via an interface.
 func (v *SearchUsersUsersUsersPageItemsUser) GetId() string { return v.UserFields.Id }
 
+// GetUrn returns SearchUsersUsersUsersPageItemsUser.Urn, and is useful for accessing the field via an interface.
+func (v *SearchUsersUsersUsersPageItemsUser) GetUrn() *string { return v.UserFields.Urn }
+
 // GetName returns SearchUsersUsersUsersPageItemsUser.Name, and is useful for accessing the field via an interface.
 func (v *SearchUsersUsersUsersPageItemsUser) GetName() *string { return v.UserFields.Name }
 
@@ -14432,6 +14459,8 @@ func (v *SearchUsersUsersUsersPageItemsUser) UnmarshalJSON(b []byte) error {
 type __premarshalSearchUsersUsersUsersPageItemsUser struct {
 	Id string `json:"id"`
 
+	Urn *string `json:"urn"`
+
 	Name *string `json:"name"`
 
 	Email *string `json:"email"`
@@ -14465,6 +14494,7 @@ func (v *SearchUsersUsersUsersPageItemsUser) __premarshalJSON() (*__premarshalSe
 	var retval __premarshalSearchUsersUsersUsersPageItemsUser
 
 	retval.Id = v.UserFields.Id
+	retval.Urn = v.UserFields.Urn
 	retval.Name = v.UserFields.Name
 	retval.Email = v.UserFields.Email
 	retval.Handle = v.UserFields.Handle
@@ -17675,6 +17705,9 @@ type UpdateMyProfileUpdateMyProfileUser struct {
 // GetId returns UpdateMyProfileUpdateMyProfileUser.Id, and is useful for accessing the field via an interface.
 func (v *UpdateMyProfileUpdateMyProfileUser) GetId() string { return v.UserFields.Id }
 
+// GetUrn returns UpdateMyProfileUpdateMyProfileUser.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateMyProfileUpdateMyProfileUser) GetUrn() *string { return v.UserFields.Urn }
+
 // GetName returns UpdateMyProfileUpdateMyProfileUser.Name, and is useful for accessing the field via an interface.
 func (v *UpdateMyProfileUpdateMyProfileUser) GetName() *string { return v.UserFields.Name }
 
@@ -17739,6 +17772,8 @@ func (v *UpdateMyProfileUpdateMyProfileUser) UnmarshalJSON(b []byte) error {
 type __premarshalUpdateMyProfileUpdateMyProfileUser struct {
 	Id string `json:"id"`
 
+	Urn *string `json:"urn"`
+
 	Name *string `json:"name"`
 
 	Email *string `json:"email"`
@@ -17772,6 +17807,7 @@ func (v *UpdateMyProfileUpdateMyProfileUser) __premarshalJSON() (*__premarshalUp
 	var retval __premarshalUpdateMyProfileUpdateMyProfileUser
 
 	retval.Id = v.UserFields.Id
+	retval.Urn = v.UserFields.Urn
 	retval.Name = v.UserFields.Name
 	retval.Email = v.UserFields.Email
 	retval.Handle = v.UserFields.Handle
@@ -18170,6 +18206,9 @@ type UpdateOrgMemberUpdateOrgMemberUser struct {
 // GetId returns UpdateOrgMemberUpdateOrgMemberUser.Id, and is useful for accessing the field via an interface.
 func (v *UpdateOrgMemberUpdateOrgMemberUser) GetId() string { return v.UserFields.Id }
 
+// GetUrn returns UpdateOrgMemberUpdateOrgMemberUser.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateOrgMemberUpdateOrgMemberUser) GetUrn() *string { return v.UserFields.Urn }
+
 // GetName returns UpdateOrgMemberUpdateOrgMemberUser.Name, and is useful for accessing the field via an interface.
 func (v *UpdateOrgMemberUpdateOrgMemberUser) GetName() *string { return v.UserFields.Name }
 
@@ -18234,6 +18273,8 @@ func (v *UpdateOrgMemberUpdateOrgMemberUser) UnmarshalJSON(b []byte) error {
 type __premarshalUpdateOrgMemberUpdateOrgMemberUser struct {
 	Id string `json:"id"`
 
+	Urn *string `json:"urn"`
+
 	Name *string `json:"name"`
 
 	Email *string `json:"email"`
@@ -18267,6 +18308,7 @@ func (v *UpdateOrgMemberUpdateOrgMemberUser) __premarshalJSON() (*__premarshalUp
 	var retval __premarshalUpdateOrgMemberUpdateOrgMemberUser
 
 	retval.Id = v.UserFields.Id
+	retval.Urn = v.UserFields.Urn
 	retval.Name = v.UserFields.Name
 	retval.Email = v.UserFields.Email
 	retval.Handle = v.UserFields.Handle
@@ -18766,6 +18808,9 @@ type UpdateUserRolesUpdateUserRolesUser struct {
 // GetId returns UpdateUserRolesUpdateUserRolesUser.Id, and is useful for accessing the field via an interface.
 func (v *UpdateUserRolesUpdateUserRolesUser) GetId() string { return v.UserFields.Id }
 
+// GetUrn returns UpdateUserRolesUpdateUserRolesUser.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateUserRolesUpdateUserRolesUser) GetUrn() *string { return v.UserFields.Urn }
+
 // GetName returns UpdateUserRolesUpdateUserRolesUser.Name, and is useful for accessing the field via an interface.
 func (v *UpdateUserRolesUpdateUserRolesUser) GetName() *string { return v.UserFields.Name }
 
@@ -18830,6 +18875,8 @@ func (v *UpdateUserRolesUpdateUserRolesUser) UnmarshalJSON(b []byte) error {
 type __premarshalUpdateUserRolesUpdateUserRolesUser struct {
 	Id string `json:"id"`
 
+	Urn *string `json:"urn"`
+
 	Name *string `json:"name"`
 
 	Email *string `json:"email"`
@@ -18863,6 +18910,7 @@ func (v *UpdateUserRolesUpdateUserRolesUser) __premarshalJSON() (*__premarshalUp
 	var retval __premarshalUpdateUserRolesUpdateUserRolesUser
 
 	retval.Id = v.UserFields.Id
+	retval.Urn = v.UserFields.Urn
 	retval.Name = v.UserFields.Name
 	retval.Email = v.UserFields.Email
 	retval.Handle = v.UserFields.Handle
@@ -18928,6 +18976,7 @@ func (v *UserApiKeyFields) GetRevokedAt() *string { return v.RevokedAt }
 // (cor:api:010:02).
 type UserFields struct {
 	Id               string  `json:"id"`
+	Urn              *string `json:"urn"`
 	Name             *string `json:"name"`
 	Email            *string `json:"email"`
 	Handle           *string `json:"handle"`
@@ -18942,6 +18991,9 @@ type UserFields struct {
 
 // GetId returns UserFields.Id, and is useful for accessing the field via an interface.
 func (v *UserFields) GetId() string { return v.Id }
+
+// GetUrn returns UserFields.Urn, and is useful for accessing the field via an interface.
+func (v *UserFields) GetUrn() *string { return v.Urn }
 
 // GetName returns UserFields.Name, and is useful for accessing the field via an interface.
 func (v *UserFields) GetName() *string { return v.Name }
@@ -22516,6 +22568,7 @@ mutation AddOrgMember ($orgId: ID!, $userId: ID!, $role: Role!) {
 }
 fragment UserFields on User {
 	id
+	urn
 	name
 	email
 	handle
@@ -26222,6 +26275,7 @@ query GetUser ($ref: ID!) {
 }
 fragment UserFields on User {
 	id
+	urn
 	name
 	email
 	handle
@@ -27053,6 +27107,7 @@ mutation MergeUsers ($source: String!, $target: String!) {
 }
 fragment UserFields on User {
 	id
+	urn
 	name
 	email
 	handle
@@ -27540,6 +27595,7 @@ query OrgMembers ($ref: ID!) {
 }
 fragment UserFields on User {
 	id
+	urn
 	name
 	email
 	handle
@@ -28618,6 +28674,7 @@ query SearchUsers ($query: String, $limit: Int, $offset: Int) {
 }
 fragment UserFields on User {
 	id
+	urn
 	name
 	email
 	handle
@@ -29922,6 +29979,7 @@ mutation UpdateMyProfile ($name: String, $email: String, $handle: String) {
 }
 fragment UserFields on User {
 	id
+	urn
 	name
 	email
 	handle
@@ -30170,6 +30228,7 @@ mutation UpdateOrgMember ($orgId: ID!, $userId: ID!, $role: Role!) {
 }
 fragment UserFields on User {
 	id
+	urn
 	name
 	email
 	handle
@@ -30429,6 +30488,7 @@ mutation UpdateUserRoles ($userId: ID!, $roles: [Role!]!) {
 }
 fragment UserFields on User {
 	id
+	urn
 	name
 	email
 	handle
