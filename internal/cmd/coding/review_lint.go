@@ -28,7 +28,7 @@ var reRelLoc = regexp.MustCompile(`(?i):rel:`)
 type reviewInput struct {
 	Members     map[string]checkNode // checklist items, by loc
 	Edges       map[string]graphEdge // loc → its edge to the review parent
-	Unavailable []string             // edge sources that could not be read
+	Unavailable []unresolvedEndpoint // edge sources that could not be read
 	Toolchain   string               // "" = infer; "-" = disabled
 	Suggest     bool                 // quote the body's scope paragraph in full
 }
@@ -198,9 +198,35 @@ func lintReview(in reviewInput) []findingDTO {
 	out = append(out, lintSeq(in, locs)...)
 	out = append(out, lintToolchain(in, locs, valid)...)
 
-	for _, u := range sortedCopy(in.Unavailable) {
-		out = append(out, findingDTO{u, "check-node-resolves", sevWarning,
-			"edge source could not be read — membership is indeterminate, so it was neither linted nor dismissed"})
+	for _, u := range sortedUnresolved(in.Unavailable) {
+		// TWO causes, and only one of them has anything a caller can do
+		// (#380). They are separated here because the CODE can tell them
+		// apart — not because the server can: `nodeBatch`'s envelope lists
+		// denied and not-found refs together and says so, "indistinguishable,
+		// so the result never discloses whether an unreadable node exists".
+		// That is an anti-enumeration guarantee, so neither branch below
+		// claims the check was deleted.
+		if u.Redacted {
+			// The server hid the endpoint projection itself: there is no ref
+			// to read and no edge operation that would help. Genuinely
+			// indeterminate, and the original wording is right for it.
+			out = append(out, findingDTO{u.Name, "check-node-resolves", sevWarning,
+				"edge source could not be read — membership is indeterminate, so it was neither linted nor dismissed"})
+			continue
+		}
+		// Here the edge names an endpoint that did not come back. The cause is
+		// still ambiguous, but unlike the redacted case there IS a remedy and
+		// an id to apply it to — and the common cause by far is a check that
+		// was deleted, leaving its trigger edge behind. Naming the remedy is
+		// what the old message lacked: it read like a transient hiccup, landed
+		// immediately after a successful `node rm`, and made the delete look
+		// half-failed.
+		msg := "trigger edge did not resolve — the check was deleted, or it is not readable by you. " +
+			"If you deleted it, the edge is left dangling and nothing else will clear it"
+		if u.EdgeID != "" {
+			msg += ": hadron edge rm " + u.EdgeID + " --yes"
+		}
+		out = append(out, findingDTO{u.Name, "trigger-edge-unresolved", sevWarning, msg})
 	}
 
 	sort.SliceStable(out, func(i, j int) bool {
@@ -354,11 +380,5 @@ func without(all []string, drop string) []string {
 			out = append(out, s)
 		}
 	}
-	return out
-}
-
-func sortedCopy(in []string) []string {
-	out := append([]string(nil), in...)
-	sort.Strings(out)
 	return out
 }

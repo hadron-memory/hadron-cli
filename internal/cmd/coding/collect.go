@@ -58,12 +58,43 @@ func collectReview(ctx context.Context, client graphql.Client, mem codingMemory,
 		candidates[e.OtherID] = e.Other
 	}
 
-	nodes, unavailable, err := fetchNodes(ctx, client, candidates, true)
+	nodes, unreadable, err := fetchNodes(ctx, client, candidates, true)
 	if err != nil {
 		return reviewInput{}, err
 	}
+	// Two causes, kept apart (#380). A ref fetchNodes could not return carries
+	// an edge id, so the reader has a remedy; a REDACTED projection carries
+	// nothing to act on. Neither says the node was deleted — nodeBatch merges
+	// denied and not-found on purpose — but only one of them is worth a
+	// pointer to `edge rm`.
+	unavailable := make([]unresolvedEndpoint, 0, len(unreadable)+len(redacted))
+	edgeByID := map[string]graphEdge{}
+	for _, e := range edges {
+		if e.Other != "" {
+			edgeByID[e.Other] = e
+		}
+	}
+	for _, loc := range unreadable {
+		// ONLY an edge-backed endpoint gets the actionable rule (PR #586
+		// review, @codex + @copilot independently). `candidates` is fed from
+		// TWO sources — the parent's inbound edges AND scanPrefix's listing —
+		// and the listing deliberately includes a check with no inbound edge
+		// at all, which is the highest-severity finding this linter has. If
+		// such a node is also unreadable, there is no trigger edge, so
+		// promising "the edge is left dangling: hadron edge rm" would send the
+		// reader after something that does not exist.
+		//
+		// No edge id, no remedy — so it stays the indeterminate classification,
+		// which is what it honestly is.
+		e, ok := edgeByID[loc]
+		if !ok || e.ID == "" {
+			unavailable = append(unavailable, unresolvedEndpoint{Name: loc, Redacted: true})
+			continue
+		}
+		unavailable = append(unavailable, unresolvedEndpoint{Name: loc, EdgeID: e.ID})
+	}
 	for _, e := range redacted {
-		unavailable = append(unavailable, e.endpointName())
+		unavailable = append(unavailable, unresolvedEndpoint{Name: e.endpointName(), EdgeID: e.ID, Redacted: true})
 	}
 
 	members := map[string]checkNode{}

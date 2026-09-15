@@ -350,3 +350,39 @@ func hasTag(tags []string, want string) bool {
 	}
 	return false
 }
+
+// unresolvedEndpoint is an inbound trigger edge whose far end the lint could
+// not read, plus WHY — which decides whether the reader has anything to do.
+//
+// Redacted means the server withheld the endpoint projection: no ref, no node,
+// no operation that helps. Otherwise the edge names an endpoint that simply did
+// not come back, which carries an edge id and therefore a remedy.
+//
+// The distinction is about what the CLIENT knows, never about what the server
+// disclosed: `nodeBatch` merges denied and not-found refs deliberately
+// (cor:api:040 — "indistinguishable, so the result never discloses whether an
+// unreadable node exists"), so nothing here may claim a node was deleted.
+type unresolvedEndpoint struct {
+	Name     string // how the finding names it — the loc when there is one
+	EdgeID   string
+	Redacted bool
+}
+
+// sortedUnresolved orders endpoints by the name their finding is keyed on, so
+// lint output stays deterministic.
+func sortedUnresolved(in []unresolvedEndpoint) []unresolvedEndpoint {
+	out := append([]unresolvedEndpoint(nil), in...)
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
+}
+
+// unresolvedNames projects endpoints down to the names a --json consumer
+// already receives. The `run` and `list` surfaces report WHICH endpoints could
+// not be read; only `lint` reports why, so their shapes do not move (#380).
+func unresolvedNames(in []unresolvedEndpoint) []string {
+	out := make([]string, 0, len(in))
+	for _, u := range sortedUnresolved(in) {
+		out = append(out, u.Name)
+	}
+	return out
+}

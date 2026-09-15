@@ -179,7 +179,7 @@ func buildRunResult(in reviewInput, files []string, all bool) runResultDTO {
 		ChangedFiles: files,
 		Checks:       []runCheckDTO{},
 		Excluded:     []runExcludedDTO{},
-		Unavailable:  append([]string{}, in.Unavailable...),
+		Unavailable:  unresolvedNames(in.Unavailable),
 	}
 	locs := make([]string, 0, len(in.Members))
 	for loc := range in.Members {
