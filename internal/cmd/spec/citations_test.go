@@ -42,7 +42,7 @@ func TestJudgeCitationStaleAbstract(t *testing.T) {
 	content := "# The rule\n\nBody text.\n"
 	fresh := specNode{
 		Loc: "cor:api:060:01", Tags: []string{"spec"},
-		Abstract: strp("An abstract."), Content: &content,
+		Abstract: strp("An abstract."), Content: &content, ContentIsRaw: true,
 		AbstractOriginHash: strp(contentHash(content)),
 	}
 	if _, bad := judgeCitation(fresh, true); bad {
@@ -90,7 +90,7 @@ func TestJudgeCitationHealthy(t *testing.T) {
 	content := "body"
 	n := specNode{
 		Loc: "cor:api:060:01", Tags: []string{"spec"},
-		Abstract: strp("An abstract."), Content: &content,
+		Abstract: strp("An abstract."), Content: &content, ContentIsRaw: true,
 		AbstractOriginHash: strp(contentHash(content)),
 		OutEdges:           []specEdge{{Name: "toc", Loc: "cor:api:060"}},
 	}

@@ -727,7 +727,17 @@ Conventions:
   fix is a supersede-level split. `spec lint` also
   warns (rule `vector-index`) when the memory has no
   vector index so spec abstracts aren't embedded for semantic `find`
-  (`--strict` promotes warnings to errors, exit 5); `spec check-tools` scans the
+  (`--strict` promotes warnings to errors, exit 5). Two more warnings check
+  the abstract against its body (#335, spec 032), which matters because the
+  abstract is the RAG retrieval surface — a drifted one answers a semantic
+  query authoritatively and wrongly: `abstract-stale` when the stored
+  fingerprint disagrees with `sha256(content)[:8]`, meaning the body MOVED
+  since the abstract was written (not that the abstract is wrong), and
+  `abstract-unverified` when a node has an abstract AND a body but NO
+  fingerprint — that abstract has never been checked against that body, so it
+  reads as unverified rather than verified (server #1128). Both clear by
+  re-saving the abstract. A null fingerprint is clean only when there is no
+  abstract, or no content for one to describe; `spec check-tools` scans the
   corpus for `hadron_*` tool references and flags any that aren't a real
   registered tool (checked against a manifest baked into the binary — the union
   of the MCP + runner tool registries — with a small ignore-list for known

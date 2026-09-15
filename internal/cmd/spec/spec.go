@@ -1009,8 +1009,17 @@ type specNode struct {
 	Abstract           *string
 	AbstractOriginHash *string
 	Content            *string
-	DataVersion        string // data.version, "" if absent/unparseable
-	OutEdges           []specEdge
+	// ContentIsRaw says whether Content is the STORED body or a rendered one.
+	//
+	// The single-ref `node`/GetNode read COMPILES Mustache templates; the batch
+	// read returns the source. abstractOriginHash is defined over the raw
+	// plaintext, so comparing it against compiled content reports a
+	// template-backed spec as stale when nothing about it changed — a false
+	// positive on exactly the nodes most likely to carry templates (PR #587
+	// review, @copilot). Every staleness comparison is gated on this.
+	ContentIsRaw bool
+	DataVersion  string // data.version, "" if absent/unparseable
+	OutEdges     []specEdge
 }
 
 func nodeFromGQL(n *gen.GetNodeNode) specNode {
@@ -1051,6 +1060,7 @@ func nodeFromBatch(n *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) specNode {
 		Abstract:           n.Abstract,
 		AbstractOriginHash: n.AbstractOriginHash,
 		Content:            n.Content,
+		ContentIsRaw:       true, // the batch read does not compile templates
 	}
 	if n.Data != nil {
 		var d struct {

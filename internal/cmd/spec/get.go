@@ -79,7 +79,13 @@ one object for a single citation, an array for --prefix.`,
 						return nil
 					})
 				}
-				dto := specDetailFromNode(n, !abstractOnly)
+				// Single-ref read: the body is COMPILED, so re-read it raw for
+				// the abstract checks — the same move `spec lint <citation>`
+				// makes, for the same reason. Best-effort: on failure rawBody
+				// is nil and the comparison stays silent rather than reporting
+				// a template expansion as a changed body.
+				rawBody, _ := rawSpecBody(cmd, client, n.Id)
+				dto := specDetailFromNode(n, !abstractOnly, rawBody)
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					renderSpecDetail(w, memURN, dto)
 					return nil
@@ -144,7 +150,11 @@ one object for a single citation, an array for --prefix.`,
 				if bn == nil {
 					continue
 				}
-				details = append(details, specDetailFromNode(nodeByIDFromBatch(bn), !abstractOnly))
+				// Raw: these came from NodeBatch, which does not compile
+				// templates. nodeByIDFromBatch reshapes them into the
+				// single-read type and drops that provenance, so it is
+				// restated here — rawness belongs to the QUERY, not the shape.
+				details = append(details, specDetailFromNode(nodeByIDFromBatch(bn), !abstractOnly, bn.Content))
 			}
 			// Bulk reads don't preserve order across chunks — sort for a
 			// deterministic dump.
@@ -183,8 +193,28 @@ func edgeNameStr(s *string) string {
 // specDetailFromNode projects a fetched node into the stable detail DTO and
 // computes its per-node lint findings. includeContent gates the body (false
 // for --abstract-only).
-func specDetailFromNode(n *gen.GetNodeNode, includeContent bool) specDetailDTO {
-	findings := lintNode(nodeFromGQL(n))
+// rawBody is the STORED body when the caller has it, or nil when it does not.
+//
+// The abstract checks (#335) are defined over raw content, and `spec get`
+// reaches here by two paths with different answers: the batch read returns the
+// source, the single-ref read COMPILES Mustache templates. Passing it
+// explicitly is what stops the two disagreeing — the previous version inferred
+// nothing and defaulted to "not raw", which made `spec get` print "Lint: ✓ ok"
+// on a spec `spec lint` calls stale (PR #587 review, @codex). One command
+// contradicting another about the same node is worse than either answer alone.
+//
+// nil means the comparison stays SILENT rather than running against a rendered
+// body, which would report a template expansion as a changed one.
+//
+// Only the LINT projection sees the raw body. The rendered detail keeps the
+// compiled one, because that is what a reader of `spec get` asked for.
+func specDetailFromNode(n *gen.GetNodeNode, includeContent bool, rawBody *string) specDetailDTO {
+	sn := nodeFromGQL(n)
+	if rawBody != nil {
+		sn.Content = rawBody
+		sn.ContentIsRaw = true
+	}
+	findings := lintNode(sn)
 	if findings == nil {
 		findings = []lintFindingDTO{}
 	}

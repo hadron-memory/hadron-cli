@@ -361,13 +361,70 @@ func supersededByLoc(n specNode) (string, bool) {
 // Silent unless BOTH values are present: a spec with no abstract, or one whose
 // abstract predates the hash, is a `spec lint` concern, not a citation defect.
 func staleAbstract(n specNode) bool {
-	if n.AbstractOriginHash == nil || *n.AbstractOriginHash == "" || n.Content == nil {
-		return false
-	}
-	return contentHash(*n.Content) != *n.AbstractOriginHash
+	// Expressed in terms of the shared predicate so the two surfaces cannot
+	// drift on what "current" means — but deliberately answering only the
+	// NARROWER question. abstractUnverified is not a citation defect; it is
+	// the `spec lint` concern the comment above names, and #335 built the
+	// abstract-unverified rule that receives it. @codex flagged the gap on
+	// #570; it closes by that rule existing, not by widening this one.
+	return abstractVerification(n) == abstractStale
 }
 
 func contentHash(content string) string {
 	sum := sha256.Sum256([]byte(content))
 	return hex.EncodeToString(sum[:])[:8]
+}
+
+// abstractVerificationState is what spec 032's fingerprint says about an
+// abstract, and it has THREE answers rather than two.
+type abstractVerificationState int
+
+const (
+	// abstractVerifiedOrNA — the hash matches the body, or there is nothing to
+	// check (no abstract, or no content for one to describe). The only clean
+	// states the contract allows.
+	abstractVerifiedOrNA abstractVerificationState = iota
+	// abstractStale — a fingerprint exists and disagrees with the body.
+	abstractStale
+	// abstractUncheckable — the body in hand is COMPILED, so no comparison is
+	// meaningful. Distinct from clean: it means "not asked", not "fine".
+	abstractUncheckable
+	// abstractUnverified — the node has BOTH an abstract and content, and NO
+	// fingerprint. Distinct from stale and NOT clean (#1128): the abstract was
+	// written before the body existed, so it has never been checked against it.
+	abstractUnverified
+)
+
+// abstractVerification classifies a node against spec 032's contract.
+//
+// It is the single predicate, because two surfaces asking "is this abstract
+// current" and answering differently is the drift this corpus is least able to
+// afford. `staleAbstract` below is the citation surface's narrower question and
+// is expressed in terms of this one.
+func abstractVerification(n specNode) abstractVerificationState {
+	// A COMPILED body cannot be compared (PR #587 review, @copilot). The
+	// single-ref read renders Mustache templates while the fingerprint is over
+	// the source, so a template-backed spec would report stale with nothing
+	// changed. Silence beats a false positive on a warning nobody can act on.
+	if !n.ContentIsRaw {
+		return abstractUncheckable
+	}
+	hasAbstract := n.Abstract != nil && strings.TrimSpace(*n.Abstract) != ""
+	// EXACT emptiness for content, not trimmed (PR #587 review, @copilot). The
+	// server hashes the stored bytes, so a whitespace-only body IS fingerprinted
+	// and an abstract over it can genuinely be stale or unverified; trimming
+	// here would classify that as "nothing to check" and report neither. The
+	// abstract is trimmed because the server normalizes an empty or
+	// whitespace-only abstract to null, so no such value reaches us.
+	hasContent := n.Content != nil && *n.Content != ""
+	if !hasAbstract || !hasContent {
+		return abstractVerifiedOrNA
+	}
+	if n.AbstractOriginHash == nil || *n.AbstractOriginHash == "" {
+		return abstractUnverified
+	}
+	if contentHash(*n.Content) != *n.AbstractOriginHash {
+		return abstractStale
+	}
+	return abstractVerifiedOrNA
 }

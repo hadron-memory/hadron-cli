@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -45,15 +47,35 @@ func specBatchNode(loc string) string {
 	return specBatchNodeWithTags(loc, `["spec","p1"]`)
 }
 
+// specBatchContent is the body these fixtures carry. A Go constant rather than
+// a JSON literal so specOriginHash can fingerprint the SAME bytes the server
+// would — the hash is over decoded content, not over its JSON escaping.
+const specBatchContent = "# spec\n\n## Definition\nx\n\n## Rule\nx\n\n## Durable vs tunable\nx\n\n## What invalidates this spec\nChanges.\n"
+
+// specOriginHash is spec 032's fingerprint: sha256 of plaintext content,
+// truncated to 8 hex chars.
+//
+// COMPUTED, not hardcoded (#335). These fixtures stand for a CLEAN spec node,
+// and a node with an abstract, a body and no fingerprint is not clean — it is
+// `abstract-unverified`, since an abstract that was never checked against its
+// body reads as unverified rather than verified (server #1128). Deriving it
+// means editing specBatchContent cannot silently turn every clean fixture
+// stale.
+func specOriginHash(content string) string {
+	sum := sha256.Sum256([]byte(content))
+	return hex.EncodeToString(sum[:])[:8]
+}
+
 func specBatchNodeWithTags(loc, tags string) string {
+	body, _ := json.Marshal(specBatchContent)
 	return fmt.Sprintf(`{"id":"id-%s","memoryId":"mem1","loc":%q,"name":%q,"alias":null,"nodeType":"info",`+
-		`"description":null,"abstract":"Win back users who never engaged after signup.","abstractOriginHash":null,`+
+		`"description":null,"abstract":"Win back users who never engaged after signup.","abstractOriginHash":%q,`+
 		`"tags":%s,"seq":null,"data":{"version":"0.0.1"},"properties":null,`+
-		`"content":"# spec\n\n## Definition\nx\n\n## Rule\nx\n\n## Durable vs tunable\nx\n\n## What invalidates this spec\nChanges.\n",`+
+		`"content":%s,`+
 		`"updatedAt":"2026-06-14T00:00:00Z",`+
 		`"outgoingEdges":[{"label":"p1: W2","priority":0,"condition":null,"target":{"id":"f1","loc":"msg:010","memoryId":"mem1"}}],`+
 		`"incomingEdges":[]}`,
-		loc, loc, loc+" — W2", tags)
+		loc, loc, loc+" — W2", specOriginHash(specBatchContent), tags, string(body))
 }
 
 func specBatchHeaderNode(loc, title, tags string) string {
@@ -74,14 +96,35 @@ func specBatchResp(locs ...string) string {
 		strings.Join(nodes, ",") + `]}}}`
 }
 
+// cleanSpecDetailContent is the body, as a Go string, so the fixture can
+// fingerprint the same bytes the server would (#335).
+const cleanSpecDetailContent = "# msg:010:02 — W2\n\n## Definition\nThe nudge.\n\n## Rule & examples\nDetails.\n\n## Durable vs tunable\nx\n\n## What invalidates this spec\nChanges.\n"
+
+// specLintRawBodyStub is the batch re-read `spec lint <citation>` now performs to
+// get an UNCOMPILED body for the abstract checks (#335 / PR #587 review). The
+// single-ref read compiles Mustache templates, and comparing a rendered body
+// against a fingerprint taken over the source reports a template-backed spec as
+// stale with nothing changed — so the raw body is fetched separately. Tests that
+// drive the single-citation form need this stub or the fake server reports an
+// unexpected operation.
+func specLintRawBodyStub(detail string) string {
+	return `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` + detail + `]}}}`
+}
+
 // A rubric-clean spec detail (msg:010:02) — passes lintNode with no findings.
-const cleanSpecDetail = `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
-	`"description":null,"abstract":"Win back users who never engaged after signup.","abstractOriginHash":null,` +
-	`"nodeType":"info","tags":["spec","p1","messaging"],` +
-	`"content":"# msg:010:02 — W2\n\n## Definition\nThe nudge.\n\n## Rule & examples\nDetails.\n\n## Durable vs tunable\nx\n\n## What invalidates this spec\nChanges.\n",` +
-	`"data":{"version":"0.0.1"},"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
-	`"outgoingEdges":[{"id":"e1","label":"p1: W2","priority":0,"target":{"id":"f1","loc":"msg:010","memoryId":"mem1"}}],` +
-	`"incomingEdges":[]}`
+// "Clean" now includes a fingerprint that MATCHES the body: an abstract that
+// has never been checked against its content is unverified, not verified.
+var cleanSpecDetail = func() string {
+	body, _ := json.Marshal(cleanSpecDetailContent)
+	return `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+		`"description":null,"abstract":"Win back users who never engaged after signup.",` +
+		`"abstractOriginHash":"` + specOriginHash(cleanSpecDetailContent) + `",` +
+		`"nodeType":"info","tags":["spec","p1","messaging"],` +
+		`"content":` + string(body) + `,` +
+		`"data":{"version":"0.0.1"},"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+		`"outgoingEdges":[{"id":"e1","label":"p1: W2","priority":0,"target":{"id":"f1","loc":"msg:010","memoryId":"mem1"}}],` +
+		`"incomingEdges":[]}`
+}()
 
 // A spec detail missing abstract and the "what invalidates" section.
 const badSpecDetail = `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
@@ -125,6 +168,7 @@ func TestSpecGet(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -198,6 +242,7 @@ func TestSpecGetSurfacesData(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1332,6 +1377,7 @@ func TestSpecLintErrorsExitConflict(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + badSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(badSpecDetail),
 		// lint also probes the vector index (#42); an indexed memory keeps the
 		// failing findings here about the rubric, not the index.
 		"Memories":  memListMicromentorJSON,
@@ -1412,6 +1458,7 @@ func TestSpecLintCleanJSONEmptyArray(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 		"Memories":   memListMicromentorJSON,
 		"GetMemory":  memGetVectorEnabledJSON,
 	})
@@ -1432,6 +1479,7 @@ func TestSpecLintWarnsNoVectorIndex(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 		"Memories":   memListJSON,
 		"GetMemory":  memGetNoVectorJSON,
 	})
@@ -1451,6 +1499,7 @@ func TestSpecLintNoVectorIndexStrictFails(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 		"Memories":   memListJSON,
 		"GetMemory":  memGetNoVectorJSON,
 	})
@@ -1468,6 +1517,7 @@ func TestSpecLintVectorIndexEnabledNoWarning(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 		"Memories":   memListJSON,
 		"GetMemory":  memGetVectorEnabledJSON,
 	})
@@ -1491,6 +1541,7 @@ func TestSpecGetBodyOnly(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1513,6 +1564,7 @@ func TestSpecGetJSONEmptyEdgesAndLint(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cliChaModuleDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cliChaModuleDetail),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1558,6 +1610,7 @@ func TestSpecGetBodyOnlyJSON(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1595,6 +1648,7 @@ func TestSpecSupersedeRequiresYes(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 		"FindNodes":  `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
 	})
 	f, _ := testFactory(t)
@@ -1623,6 +1677,7 @@ func TestSpecSupersede(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 		"FindNodes":  `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
 		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"UpdateNode": `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
@@ -1689,6 +1744,7 @@ func TestSpecSupersedeOrphanedEdgeFailsLoud(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
 	responses := map[string]string{
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 		"FindNodes":  scan,
 		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"UpdateNode": `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
@@ -1766,6 +1822,7 @@ func TestSpecSupersedeRetirementEdgeFailureEmitsResult(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 		"FindNodes":  scan,
 		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"CreateEdge": `{"errors":[{"message":"edge boom"}]}`,
@@ -1806,6 +1863,7 @@ func TestSpecSupersedeRetireUpdateFailureEmitsRecoverableResult(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 		"FindNodes":  scan,
 		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
@@ -1869,6 +1927,7 @@ func TestSpecSupersedeDoesNotReuseUnlinkedSameTitleSibling(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 		"FindNodes":  scan,
 		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:04","name":"msg:010:04 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:04"}}}}`,
@@ -1905,6 +1964,7 @@ func TestSpecSupersedeTitleCollidesWithSpecialLabel(t *testing.T) {
 	responses := map[string]string{
 		"ResolveUrn": resolveSpecJSON, // every target resolves
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 		"FindNodes":  scan,
 		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — superseded-by","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"UpdateNode": `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
@@ -2451,6 +2511,7 @@ func editMocks() map[string]string {
 	return map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 		"UpdateNode": `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","messaging"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 	}
 }
@@ -2513,6 +2574,7 @@ func TestSpecEditNoOp(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -2539,6 +2601,7 @@ func TestSpecEditCRLFNoOp(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -2576,6 +2639,7 @@ func TestSpecEditDryRun(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 	})
 	f, out := testFactory(t)
 	f.IOStreams.In = strings.NewReader("# replaced body\n")
@@ -2661,6 +2725,7 @@ func TestSpecEditAbstractNoOp(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -3014,5 +3079,79 @@ func TestSpecCheckToolsUnavailableFails(t *testing.T) {
 	}
 	if len(findings) != 1 || findings[0].Kind != "unavailable" || findings[0].Citation != "cor:api:010:01" {
 		t.Errorf("findings = %+v", findings)
+	}
+}
+
+// PR #587 review, @codex: `spec get` prints a per-node lint summary and was
+// reaching lint with a COMPILED body, so a stale spec printed clean while
+// `spec lint` on the same node reported it.
+//
+// Driven end to end, because the fix is the re-read WIRING rather than the
+// predicate: the single-ref read returns a rendered body, and the raw one has
+// to be fetched separately for the comparison to mean anything.
+func TestSpecGetReportsStalenessFromTheRawBody(t *testing.T) {
+	const rawBody = "# msg:010:02 — W2\n\n## Definition\nSOURCE with {{a_template}}.\n\n## Rule\nx\n\n## Durable vs tunable\nx\n\n## What invalidates this spec\nChanges.\n"
+	// What the single-ref read returns: the SAME node with the template
+	// expanded. Its hash is not the stored one, which is the whole trap.
+	compiled := strings.Replace(rawBody, "{{a_template}}", "an expansion", 1)
+	// A fingerprint that matches NEITHER body, so the node is genuinely stale
+	// and the finding cannot come from the compiled/raw difference alone.
+	detail := func(body string) string {
+		b, _ := json.Marshal(body)
+		return `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+			`"description":null,"abstract":"Win back users who never engaged after signup.",` +
+			`"abstractOriginHash":"deadbeef","nodeType":"info","tags":["spec","p1","messaging"],` +
+			`"content":` + string(b) + `,"data":{"version":"0.0.1"},"seq":null,` +
+			`"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+			`"outgoingEdges":[{"id":"e1","label":"p1: W2","priority":0,"target":{"id":"f1","loc":"msg:010","memoryId":"mem1"}}],` +
+			`"incomingEdges":[]}`
+	}
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + detail(compiled) + `}}`,
+		"NodeBatch":  specLintRawBodyStub(detail(rawBody)),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "get", "msg:010:02", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "abstract-stale") {
+		t.Errorf("spec get's lint summary must report staleness, not print clean:\n%s", out.String())
+	}
+	// And the RENDERED body stays the compiled one — the raw read serves the
+	// comparison, not the output a reader asked for.
+	if !strings.Contains(out.String(), "an expansion") {
+		t.Errorf("the rendered body must stay compiled:\n%s", out.String())
+	}
+}
+
+// The --prefix path reads through NodeBatch, so its bodies are already RAW —
+// but nodeByIDFromBatch reshapes them into the single-read type and drops that
+// provenance (PR #587 review, @codex). Without carrying it, the abstract checks
+// go silent on the one path that never needed a re-read.
+func TestSpecGetPrefixReportsStalenessFromItsRawBodies(t *testing.T) {
+	const body = "# msg:010:01 — W2\n\n## Definition\nx\n\n## Rule\nx\n\n## Durable vs tunable\nx\n\n## What invalidates this spec\nChanges.\n"
+	b, _ := json.Marshal(body)
+	staleNode := `{"id":"id-msg:010:01","memoryId":"mem1","loc":"msg:010:01","name":"msg:010:01 — W2",` +
+		`"alias":null,"nodeType":"info","description":null,` +
+		`"abstract":"Win back users who never engaged after signup.","abstractOriginHash":"deadbeef",` +
+		`"tags":["spec","p1"],"seq":null,"data":{"version":"0.0.1"},"properties":null,` +
+		`"content":` + string(b) + `,"updatedAt":"2026-06-14T00:00:00Z",` +
+		`"outgoingEdges":[{"label":"p1: W2","priority":0,"condition":null,"target":{"id":"f1","loc":"msg:010","memoryId":"mem1"}}],` +
+		`"incomingEdges":[]}`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:01", `["spec","p1"]`) + `]}}`,
+		"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` + staleNode + `]}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "get", "--prefix", "msg:010", "-m", specMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "abstract-stale") {
+		t.Errorf("the prefix dump's lint summary must report staleness:\n%s", out.String())
 	}
 }
