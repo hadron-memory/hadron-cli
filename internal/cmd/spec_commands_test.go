@@ -1564,6 +1564,7 @@ func TestSpecGetJSONEmptyEdgesAndLint(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveSpecJSON,
 		"GetNode":    `{"data":{"node":` + cliChaModuleDetail + `}}`,
+		"NodeBatch":  specLintRawBodyStub(cliChaModuleDetail),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -3078,5 +3079,79 @@ func TestSpecCheckToolsUnavailableFails(t *testing.T) {
 	}
 	if len(findings) != 1 || findings[0].Kind != "unavailable" || findings[0].Citation != "cor:api:010:01" {
 		t.Errorf("findings = %+v", findings)
+	}
+}
+
+// PR #587 review, @codex: `spec get` prints a per-node lint summary and was
+// reaching lint with a COMPILED body, so a stale spec printed clean while
+// `spec lint` on the same node reported it.
+//
+// Driven end to end, because the fix is the re-read WIRING rather than the
+// predicate: the single-ref read returns a rendered body, and the raw one has
+// to be fetched separately for the comparison to mean anything.
+func TestSpecGetReportsStalenessFromTheRawBody(t *testing.T) {
+	const rawBody = "# msg:010:02 — W2\n\n## Definition\nSOURCE with {{a_template}}.\n\n## Rule\nx\n\n## Durable vs tunable\nx\n\n## What invalidates this spec\nChanges.\n"
+	// What the single-ref read returns: the SAME node with the template
+	// expanded. Its hash is not the stored one, which is the whole trap.
+	compiled := strings.Replace(rawBody, "{{a_template}}", "an expansion", 1)
+	// A fingerprint that matches NEITHER body, so the node is genuinely stale
+	// and the finding cannot come from the compiled/raw difference alone.
+	detail := func(body string) string {
+		b, _ := json.Marshal(body)
+		return `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
+			`"description":null,"abstract":"Win back users who never engaged after signup.",` +
+			`"abstractOriginHash":"deadbeef","nodeType":"info","tags":["spec","p1","messaging"],` +
+			`"content":` + string(b) + `,"data":{"version":"0.0.1"},"seq":null,` +
+			`"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
+			`"outgoingEdges":[{"id":"e1","label":"p1: W2","priority":0,"target":{"id":"f1","loc":"msg:010","memoryId":"mem1"}}],` +
+			`"incomingEdges":[]}`
+	}
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveSpecJSON,
+		"GetNode":    `{"data":{"node":` + detail(compiled) + `}}`,
+		"NodeBatch":  specLintRawBodyStub(detail(rawBody)),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "get", "msg:010:02", "-m", specMem, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "abstract-stale") {
+		t.Errorf("spec get's lint summary must report staleness, not print clean:\n%s", out.String())
+	}
+	// And the RENDERED body stays the compiled one — the raw read serves the
+	// comparison, not the output a reader asked for.
+	if !strings.Contains(out.String(), "an expansion") {
+		t.Errorf("the rendered body must stay compiled:\n%s", out.String())
+	}
+}
+
+// The --prefix path reads through NodeBatch, so its bodies are already RAW —
+// but nodeByIDFromBatch reshapes them into the single-read type and drops that
+// provenance (PR #587 review, @codex). Without carrying it, the abstract checks
+// go silent on the one path that never needed a re-read.
+func TestSpecGetPrefixReportsStalenessFromItsRawBodies(t *testing.T) {
+	const body = "# msg:010:01 — W2\n\n## Definition\nx\n\n## Rule\nx\n\n## Durable vs tunable\nx\n\n## What invalidates this spec\nChanges.\n"
+	b, _ := json.Marshal(body)
+	staleNode := `{"id":"id-msg:010:01","memoryId":"mem1","loc":"msg:010:01","name":"msg:010:01 — W2",` +
+		`"alias":null,"nodeType":"info","description":null,` +
+		`"abstract":"Win back users who never engaged after signup.","abstractOriginHash":"deadbeef",` +
+		`"tags":["spec","p1"],"seq":null,"data":{"version":"0.0.1"},"properties":null,` +
+		`"content":` + string(b) + `,"updatedAt":"2026-06-14T00:00:00Z",` +
+		`"outgoingEdges":[{"label":"p1: W2","priority":0,"condition":null,"target":{"id":"f1","loc":"msg:010","memoryId":"mem1"}}],` +
+		`"incomingEdges":[]}`
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:01", `["spec","p1"]`) + `]}}`,
+		"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` + staleNode + `]}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "get", "--prefix", "msg:010", "-m", specMem, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "abstract-stale") {
+		t.Errorf("the prefix dump's lint summary must report staleness:\n%s", out.String())
 	}
 }
