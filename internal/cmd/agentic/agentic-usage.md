@@ -412,9 +412,14 @@ Conventions:
   staleness is the hash DISAGREEING with the current content's hash, which is
   `sha256(content)` truncated to 8 hex chars — the server's own definition, so
   the comparison is exact wherever you make it.
-  - **For one node you already hold**, compare the two yourself. That is what
+  - **For one node you already hold**, compare the two yourself — that is what
     `spec citations --stale-abstracts` does, and exposing the field is what
-    makes it possible from `node get` at all.
+    makes it possible from `node get` at all. **Compare against RAW content**:
+    read it with the batched form (several refs, or `--prefix`), which returns
+    content uncompiled. A single-ref `node get` COMPILES Mustache templates,
+    and the hash is defined over the raw plaintext — so on a template node the
+    two disagree for that reason alone and the node reads as stale when it is
+    not. Identical for a node with no templates.
   - **For a whole memory**, `hadron memory validate <memory> --check
     stale-abstract` reports it server-side. Note it **caps its findings**
     (default 200, max 1000), so on a large memory the stale set can come back
