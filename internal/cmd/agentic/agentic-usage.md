@@ -143,7 +143,7 @@ hadron ai-config list [--app <ref>] [--agent <id>] | create (--app|--agent|--org
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug>
 hadron agent list [--org <id>] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>|--system-prompt-file <path>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] [--persona-prompt <p>|--persona-prompt-file <path>] | update <id> [<field flags>] | rm <id> --yes
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
-hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
+hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> (--prompt-override <text> | --clear-prompt-override) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
 hadron team session start --as <worker> [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--force] | whoami | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>]
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] (uses --app or the binding) | read [--since <seq>] [--before <seq>] [--limit <n>] [--mentions-me | --mentions <ref>] (uses --app or the binding)
@@ -993,6 +993,24 @@ Conventions:
   touched: `app agent remove <app> <agent> --yes`, then `agent rm <agent>
   --yes`.
   Names bind **forever** per App (`cor:agt:020:02`, case-insensitive):
+  **`worker update <name-or-id>`** amends the casting's `promptOverride` —
+  the individuality layered over the SHARED role template (#452,
+  `updateWorker`). Until it existed the override could only be set at cast
+  time, and neither escape hatch covered a change of mind: the role agent's
+  `personaPrompt` is shared by every casting of that role, and re-casting is
+  barred by `WORKER_IN_USE` once a worker has done work. Scope is that ONE
+  field — a name is permanent per App (`cor:agt:020:02`) and role/agent define
+  the casting.
+  It REPLACES rather than appends: to extend an override, read the current one
+  (`worker get` prints it under "Prompt override") and pass the whole amended
+  text. Do NOT paste the composed boot briefing back in — that folds the shared
+  template into the override and prepends it again on every render.
+  An empty `--prompt-override` is REFUSED; use `--clear-prompt-override` to
+  remove one deliberately (the server treats a blank string as a clear, so an
+  unset shell variable would otherwise wipe it silently). A retired worker
+  refuses with `WORKER_RETIRED`, exit 5 — an override is briefing text
+  delivered at bind time, so the edit could never reach anyone. The receipt
+  prints the RE-RENDERED briefing, which is what a bind actually delivers.
   `worker retire` (requires `--yes`, idempotent) stops the worker and keeps
   its name reserved — PR trailers and chat history reference it — and there
   is no rename; `worker rm` is the ONE removal escape, hard-deleting a

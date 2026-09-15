@@ -43,6 +43,7 @@ worker in scripts.`,
 	cmd.AddCommand(newCmdWorkerCast(f))
 	cmd.AddCommand(newCmdWorkerList(f))
 	cmd.AddCommand(newCmdWorkerGet(f))
+	cmd.AddCommand(newCmdWorkerUpdate(f))
 	cmd.AddCommand(newCmdWorkerRelease(f))
 	cmd.AddCommand(newCmdWorkerRetire(f))
 	cmd.AddCommand(newCmdWorkerRm(f))
@@ -531,6 +532,24 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 					fmt.Fprintf(out, "  retired: %s\n", *dto.RetiredAt)
 				}
 				fmt.Fprintf(out, "  created: %s\n", dto.CreatedAt)
+				// The RAW override, before the composed briefing and labelled
+				// separately (PR #588 review, @copilot).
+				//
+				// `worker update` REPLACES rather than appends, so amending an
+				// existing override means reading it and passing the whole
+				// amended text — and this output printed only the COMPOSED
+				// briefing, from which the override cannot be separated by eye.
+				// The only way to read it was --json, so the documented
+				// read-modify-write left a human copying the shared template
+				// back into the override, which is the exact mistake the
+				// command's own help warns against.
+				//
+				// Printed only when set: an absent line reads as "no override",
+				// which is the truth, where "Prompt override: —" invites
+				// reading a dash as the value.
+				if dto.PromptOverride != nil && *dto.PromptOverride != "" {
+					fmt.Fprintf(out, "\nPrompt override (this worker's own, amend and pass back whole):\n%s\n", *dto.PromptOverride)
+				}
 				if dto.Prompt != nil && *dto.Prompt != "" {
 					fmt.Fprintf(out, "\n%s\n", *dto.Prompt)
 				}
@@ -1515,4 +1534,112 @@ func releasePromptTransferClause(retiredAt *string) string {
 			"so nobody can bind it."
 	}
 	return "and hands that worker's working memory and handoff history to whoever takes the name next."
+}
+
+func newCmdWorkerUpdate(f *cmdutil.Factory) *cobra.Command {
+	var promptOverride string
+	var clearOverride bool
+	cmd := &cobra.Command{
+		Use:   "update <name-or-id> (--prompt-override <text> | --clear-prompt-override)",
+		Short: "Amend a casting's prompt override",
+		Long: `Amend a worker's promptOverride — the individuality layered over the
+shared role template (updateWorker, hadron-server#1010).
+
+Until this verb the override could only be set at CASTING time, which fixed
+a casting's individuality at the one moment nobody yet knows what makes it
+individual. Neither escape hatch covered it: the role agent's personaPrompt
+is SHARED by every casting of that role, so editing it reaches everyone;
+and re-casting is barred by WORKER_IN_USE once a worker has done work —
+precisely the workers with an identity worth recording.
+
+Scope is ONE field on purpose. A worker's name is permanent per App
+(cor:agt:020:02), and role/agent define the casting itself, so neither is
+amendable here or anywhere.
+
+The override REPLACES, it does not append. To extend an existing one, read
+it first (` + "`worker get <name>`" + ` prints it under "Prompt override") and pass
+the whole amended text. Do NOT paste the composed boot briefing back in:
+that would fold the shared template into the override and prepend it again
+on every render.
+
+The receipt prints the RE-RENDERED briefing, not just the override — the
+template with {{name}}/{{role}} bound and the override appended is what a
+session driver actually adopts, and it is what materially changed.
+
+A RETIRED worker refuses (WORKER_RETIRED, exit 5): an override is briefing
+text delivered at bind time, so the edit could never reach anyone.`,
+		Example: `  hadron team worker update Iris --prompt-override "You favour small, reviewable PRs."
+  hadron team worker update Iris --clear-prompt-override`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			setOverride := cmd.Flags().Changed("prompt-override")
+			switch {
+			case setOverride && clearOverride:
+				return exitcode.Newf(exitcode.Usage,
+					"--prompt-override and --clear-prompt-override are mutually exclusive")
+			case !setOverride && !clearOverride:
+				// Omitting the field PRESERVES it server-side, so a bare
+				// `worker update Iris` would report success having written
+				// nothing. Refused, like `role update`'s empty case.
+				return exitcode.Newf(exitcode.Usage,
+					"nothing to update — pass --prompt-override <text> or --clear-prompt-override")
+			case setOverride && strings.TrimSpace(promptOverride) == "":
+				// The SERVER treats a blank string as a clear, matching
+				// castWorker's blank-is-absent normalization. The CLI refuses
+				// it anyway (the `role update` convention): an unset shell
+				// variable expands to "", and silently wiping a worker's
+				// individuality because `$PROMPT` was empty is not a mistake
+				// the server can tell from an intended clear. Saying it
+				// explicitly costs one flag.
+				return exitcode.Newf(exitcode.Usage,
+					"--prompt-override is empty — pass --clear-prompt-override to remove the override deliberately")
+			}
+
+			w, err := workerForArg(cmd, f, args[0])
+			if err != nil {
+				return err
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			// nil on the CLEAR path is an explicit `null` on the wire, because
+			// the operation deliberately carries no omitempty: omitting the
+			// field means "preserve", so an omitted null would make the clear
+			// a silent no-op.
+			var override *string
+			if setOverride {
+				override = &promptOverride
+			}
+			resp, err := gen.UpdateWorker(cmd.Context(), client, w.Id, override)
+			if err != nil {
+				return api.MapError(err)
+			}
+			if resp.UpdateWorker == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no worker")
+			}
+			dto := workerDTOFromFields(resp.UpdateWorker.WorkerFields)
+			return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
+				verb := "updated"
+				if clearOverride {
+					verb = "cleared the prompt override for"
+				}
+				if _, werr := fmt.Fprintf(out, "✓ %s worker %s (%s)\n", verb, dto.Name, dto.ID); werr != nil {
+					return werr
+				}
+				// The BRIEFING, not the override: it is what a bind delivers,
+				// and printing only the override would show the smaller half
+				// of what changed.
+				if dto.Prompt != nil && *dto.Prompt != "" {
+					if _, werr := fmt.Fprintf(out, "\nBoot briefing now reads:\n\n%s\n", *dto.Prompt); werr != nil {
+						return werr
+					}
+				}
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&promptOverride, "prompt-override", "", "replace the worker's prompt override with this text")
+	cmd.Flags().BoolVar(&clearOverride, "clear-prompt-override", false, "remove the worker's prompt override, leaving the shared role template")
+	return cmd
 }
