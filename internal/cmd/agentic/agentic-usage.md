@@ -41,6 +41,12 @@ self-hosted backend.
   errors go to stderr. Without `--json`, output is plain aligned text.
 - With `--json`, errors are emitted on stderr as
   `{"error":{"code":<exit-code>,"message":"..."}}`.
+- `message` is the server's own sentence, and nothing else (#566). It no
+  longer carries the GraphQL document location and field path the client
+  used to render around it — a leading `input:<line>: <field> ` that named
+  a position in a query you never wrote and a field you never typed. If you
+  match on message text, match the server's wording; do not strip a prefix,
+  and do not expect one.
 - JSON field names are stable. New fields may be added; existing
   fields are never renamed or removed without a major version bump.
 

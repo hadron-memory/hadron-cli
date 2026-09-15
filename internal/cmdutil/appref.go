@@ -64,12 +64,21 @@ const appRefForms = "hrn:app:<root>:<slug> (canonical, e.g. hrn:app:acme.com:dev
 // CanonicalMemoryRef, with one difference: an unrecognized shape is REFUSED as
 // a usage error rather than passed through for the server to reject.
 //
-// The server's refusal is the wrong one to relay (#540): it names the GraphQL
-// field the ref landed in rather than the flag the caller typed, carries a
-// genqlient `input:3:` location prefix, and its hint teaches the retired `::`
-// grammar. Checking the shape here costs no round trip and lets the message
-// say what the caller can act on. `what` names the source for that message —
-// "--app", "--install-into", "<app-ref>".
+// The server's refusal is the wrong one to relay (#540): it describes the ref
+// in the server's terms rather than naming the flag the caller typed, and its
+// hint teaches the retired `::` grammar. Checking the shape here costs no round
+// trip and lets the message say what the caller can act on. `what` names the
+// source for that message — "--app", "--install-into", "<app-ref>".
+//
+// One of #540's three reasons has since been fixed elsewhere and is deliberately
+// NOT listed above: the refusal used to arrive wrapped in genqlient's
+// `input:3: <field> ` location prefix, and #566 removed that for every server
+// error. The remaining two are the load-bearing ones and neither depends on it —
+// a message that names `--app` beats one that names a GraphQL argument however
+// cleanly the latter is rendered, and the `::` hint is the server's wording, not
+// its packaging. Said explicitly because a reader who checks the old rationale
+// against today's output would find a third of it untrue and reasonably wonder
+// whether this whole function still earns its place. It does.
 //
 // An id passes through verbatim (the server dispatches PKs); an empty ref
 // returns "" with no error, since whether an App is REQUIRED is the caller's

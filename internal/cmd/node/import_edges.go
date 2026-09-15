@@ -139,17 +139,32 @@ func edgeLabel(e nodedoc.Edge) string {
 
 func edgeKey(targetID, label string) string { return targetID + "\x00" + label }
 
-// edgeRejectReason renders a createEdge failure as a short, single-line reason:
-// the first line, with genqlient's "input:<line>[:<col>]: " location prefix
-// trimmed. It strips only the leading digit/colon location token, so colons
-// inside the server's own message (e.g. "field 'x': required") are preserved.
+// edgeRejectReason renders a createEdge failure as a short, single-line reason.
+//
+// It asks the error for the server's own message (#566) rather than parsing one
+// back out of genqlient's rendering. The structured read is exact where the
+// strip was a guess: the prefix is BUILT from the error's Locations and Path,
+// so reading those fields cannot mistake a colon in the server's own text
+// ("field 'x': required") for a location separator.
+//
+// The text fallback below stays, and is not dead code — it is what a non-GraphQL
+// failure hits, and it is still the only thing that can help there.
 func edgeRejectReason(err error) string {
-	msg := err.Error()
-	if nl := strings.IndexByte(msg, '\n'); nl >= 0 {
-		msg = msg[:nl]
+	if msg := api.ServerMessage(err); msg != "" {
+		// First message, not the joined list: this renders one line in a
+		// per-edge report where every row is one edge's own refusal.
+		return firstLine(msg)
 	}
+	msg := firstLine(err.Error())
 	if rest, ok := strings.CutPrefix(msg, "input:"); ok {
 		msg = strings.TrimSpace(strings.TrimLeft(rest, "0123456789:"))
 	}
 	return msg
+}
+
+func firstLine(s string) string {
+	if nl := strings.IndexByte(s, '\n'); nl >= 0 {
+		s = s[:nl]
+	}
+	return strings.TrimSpace(s)
 }
