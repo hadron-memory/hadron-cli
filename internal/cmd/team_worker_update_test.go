@@ -140,3 +140,54 @@ func TestWorkerUpdateRetiredIsConflict(t *testing.T) {
 		t.Errorf("exit = %d, want %d (Conflict)", got, exitcode.Conflict)
 	}
 }
+
+// PR #588 review, @copilot. `worker update` REPLACES rather than appends, so
+// the help tells a reader to read the current override and pass the whole
+// amended text — and `worker get` printed only the COMPOSED briefing, from
+// which the override cannot be separated by eye. The only way to read it was
+// --json, so the documented workflow left a human copying the shared template
+// back into the override: the exact mistake the same paragraph warns against.
+func TestWorkerGetPrintsTheRawPromptOverride(t *testing.T) {
+	withOverride := strings.Replace(irisWorkerJSON,
+		`"prompt":"You are Iris.","promptOverride":null`,
+		`"prompt":"You are Iris.\n\nShips small PRs.","promptOverride":"Ships small PRs."`, 1)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetWorker":       `{"data":{"worker":` + withOverride + `}}`,
+		"TeamAppIdentity": `{"data":{"app":{"id":"capp100000000000000000000","urn":"hrn:app:acme.com:eng-team","name":"Eng Team"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "get", "hrn:worker:acme.com:eng-team:iris", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "Prompt override") {
+		t.Errorf("the raw override must be labelled and readable:\n%s", got)
+	}
+	// Separately readable from the briefing — that is the whole point. The
+	// override appears BEFORE the composed prompt, so a reader copying "the
+	// text under Prompt override" gets the override and not the template.
+	oi, pi := strings.Index(got, "Prompt override"), strings.Index(got, "You are Iris.")
+	if oi < 0 || pi < 0 || oi > pi {
+		t.Errorf("the raw override must precede the composed briefing:\n%s", got)
+	}
+}
+
+// No override, no line: an absent line reads as "none", where a dash invites
+// reading the placeholder as the value.
+func TestWorkerGetOmitsAnAbsentPromptOverride(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetWorker":       `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"TeamAppIdentity": `{"data":{"app":{"id":"capp100000000000000000000","urn":"hrn:app:acme.com:eng-team","name":"Eng Team"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "get", "hrn:worker:acme.com:eng-team:iris", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Contains(out.String(), "Prompt override") {
+		t.Errorf("no override means no line:\n%s", out.String())
+	}
+}

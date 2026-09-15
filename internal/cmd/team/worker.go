@@ -532,6 +532,24 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 					fmt.Fprintf(out, "  retired: %s\n", *dto.RetiredAt)
 				}
 				fmt.Fprintf(out, "  created: %s\n", dto.CreatedAt)
+				// The RAW override, before the composed briefing and labelled
+				// separately (PR #588 review, @copilot).
+				//
+				// `worker update` REPLACES rather than appends, so amending an
+				// existing override means reading it and passing the whole
+				// amended text — and this output printed only the COMPOSED
+				// briefing, from which the override cannot be separated by eye.
+				// The only way to read it was --json, so the documented
+				// read-modify-write left a human copying the shared template
+				// back into the override, which is the exact mistake the
+				// command's own help warns against.
+				//
+				// Printed only when set: an absent line reads as "no override",
+				// which is the truth, where "Prompt override: —" invites
+				// reading a dash as the value.
+				if dto.PromptOverride != nil && *dto.PromptOverride != "" {
+					fmt.Fprintf(out, "\nPrompt override (this worker's own, amend and pass back whole):\n%s\n", *dto.PromptOverride)
+				}
 				if dto.Prompt != nil && *dto.Prompt != "" {
 					fmt.Fprintf(out, "\n%s\n", *dto.Prompt)
 				}
