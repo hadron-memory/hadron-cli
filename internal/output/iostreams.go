@@ -24,11 +24,84 @@ type IOStreams struct {
 func System() *IOStreams {
 	return &IOStreams{
 		In:            os.Stdin,
-		Out:           os.Stdout,
+		Out:           Tracked(os.Stdout),
 		ErrOut:        os.Stderr,
 		outIsTerminal: isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()),
 		inIsTerminal:  isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd()),
 	}
+}
+
+// trackedWriter records whether anything has reached the stream.
+//
+// It exists for ONE question renderError has to answer (#334): under --json the
+// error envelope goes to STDOUT, so that `--json` means "stdout is always JSON"
+// — but only if the command has not already written a payload there. Appending
+// an envelope to a document already in flight yields two JSON values
+// concatenated, which is exactly the unparseable stdout the issue is about,
+// reintroduced from the other end.
+//
+// It is TRACKED rather than assumed, and that distinction was measured. The
+// repo's convention is that a command which has printed returns
+// exitcode.Silent, and 14 call sites follow it — but two paths legitimately do
+// not, because for them the bytes ARE the output: `asset get -o -` streams a
+// download straight to stdout and can fail mid-stream, and `node export` to
+// stdout writes the document and returns the write's own error. Both ignore
+// --json deliberately, and both can return a non-silent error with bytes
+// already gone. A convention with two documented exceptions is not a
+// guarantee, so this asks the stream instead of trusting the caller.
+type trackedWriter struct {
+	w     io.Writer
+	wrote bool
+}
+
+func (t *trackedWriter) Write(p []byte) (int, error) {
+	n, err := t.w.Write(p)
+	if n > 0 {
+		t.wrote = true
+	}
+	return n, err
+}
+
+// ReadFrom forwards to the underlying writer's own fast path when it has one
+// (PR #585 review, @copilot).
+//
+// Wrapping os.Stdout in a plain io.Writer HIDES the io.ReaderFrom it
+// implements, and io.Copy checks for exactly that before falling back to a
+// buffered loop. `asset get -o -` copies a download straight into this stream,
+// so without this method a large asset would quietly lose the file/pipe
+// fast path — a tracking wrapper is not worth a throughput regression on the
+// one command that streams.
+//
+// The fallback still routes through Write, so `wrote` is maintained either way.
+func (t *trackedWriter) ReadFrom(r io.Reader) (int64, error) {
+	if rf, ok := t.w.(io.ReaderFrom); ok {
+		n, err := rf.ReadFrom(r)
+		if n > 0 {
+			t.wrote = true
+		}
+		return n, err
+	}
+	// writerOnly hides ReadFrom so io.Copy cannot recurse back into this method.
+	type writerOnly struct{ io.Writer }
+	return io.Copy(writerOnly{t}, r)
+}
+
+// Tracked wraps w so an IOStreams built around it can answer Wrote().
+// Exported so a test factory can give commands the same stdout they get in
+// production — an untracked stream always reports "clean", which would let a
+// test pass on a path the binary handles differently
+// (review:a-test-double-must-satisfy-the-real-access-pattern).
+func Tracked(w io.Writer) io.Writer { return &trackedWriter{w: w} }
+
+// Wrote reports whether anything has been written to stdout yet.
+//
+// FALSE for an untracked stream, deliberately: "nothing has been written" is
+// the state in which the envelope goes to stdout, which is the behaviour this
+// change is for. A stream nobody wrapped therefore degrades to the new
+// behaviour rather than silently keeping the old one.
+func (s *IOStreams) Wrote() bool {
+	tw, ok := s.Out.(*trackedWriter)
+	return ok && tw.wrote
 }
 
 // Test returns IOStreams backed by buffers, plus the stdout and
@@ -36,7 +109,7 @@ func System() *IOStreams {
 func Test() (*IOStreams, *bytes.Buffer, *bytes.Buffer) {
 	out := &bytes.Buffer{}
 	errOut := &bytes.Buffer{}
-	return &IOStreams{In: &bytes.Buffer{}, Out: out, ErrOut: errOut}, out, errOut
+	return &IOStreams{In: &bytes.Buffer{}, Out: Tracked(out), ErrOut: errOut}, out, errOut
 }
 
 // TestTTY returns IOStreams whose stdin is an answerable terminal (#525), with

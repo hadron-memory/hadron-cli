@@ -115,7 +115,12 @@ func testFactory(t *testing.T) (*cmdutil.Factory, *strings.Builder) {
 	io, _, _ := output.Test()
 	out := &strings.Builder{}
 	errOut := &strings.Builder{}
-	io.Out = out
+	// Tracked, like the real streams (#334): renderError asks stdout whether a
+	// payload has already been written before choosing where the error envelope
+	// goes. An untracked stream always answers "clean", so a bare builder here
+	// would make every command test measure a stream the binary does not have —
+	// review:a-test-double-must-satisfy-the-real-access-pattern.
+	io.Out = output.Tracked(out)
 	io.ErrOut = errOut
 	f := &cmdutil.Factory{
 		IOStreams:    io,
@@ -141,7 +146,13 @@ func testFactoryTTY(t *testing.T, answers string) (*cmdutil.Factory, *strings.Bu
 	f, out := testFactory(t)
 	errOut := &strings.Builder{}
 	tty, _, _ := output.TestTTY(answers)
-	tty.Out, tty.ErrOut = out, errOut
+	// Tracked here too (PR #585 review, @copilot). Setting the raw builder
+	// would undo what testFactory just arranged, leaving every TTY-based
+	// command test reporting Wrote()==false after a payload — so a JSON error
+	// following a write would route to stdout in the test and to stderr in the
+	// binary. The same defect as the one testFactory had, in the helper that
+	// wraps it.
+	tty.Out, tty.ErrOut = output.Tracked(out), errOut
 	f.IOStreams = tty
 	return f, out, errOut
 }

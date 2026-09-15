@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/hadron-memory/hadron-cli/internal/build"
 	accesscmd "github.com/hadron-memory/hadron-cli/internal/cmd/access"
@@ -131,20 +133,150 @@ func Execute() int {
 		return exitcode.OK
 	}
 
+	return renderFailure(f, os.Args[1:], err)
+}
+
+// renderFailure is the post-Execute half of the failure path, extracted so a
+// test can measure the WIRING rather than only the helpers it calls.
+//
+// That extraction is the point, not tidiness: a test that calls jsonRequested
+// itself and then hands the result to renderError passes whether or not
+// anything actually connects the two — which is what mine did until removing
+// the binding below failed to turn it red. Same reasoning as exitCodeFor's
+// extraction for #533, one function over.
+//
+// A FLAG-parse failure never binds --json (#334): cobra aborts the parse at the
+// bad flag, so f.JSON is still false and the envelope would degrade to plain
+// text — leaving `--json` a promise with a hole in it, since a script that has
+// switched to parsing JSON meets raw prose the first time someone typos a flag.
+// Unknown SUBCOMMANDS were already covered by the probe in Execute taking
+// --json for itself; this is the same remedy one layer down.
+//
+// Consulted ONLY when f.JSON is already false, so a successful bind always wins
+// and this can never turn --json off.
+func renderFailure(f *cmdutil.Factory, args []string, err error) int {
+	if !f.JSON {
+		f.JSON = jsonRequested(args)
+	}
 	return renderError(f, err)
 }
 
-// renderError maps err to an exit code and writes it to stderr in the
-// format the --json contract requires.
+// jsonRequested reports whether --json appears among args, by an ARITY-AWARE
+// WALK of the TARGET COMMAND'S OWN FLAGS.
+//
+// A scan for the literal string is what this looks like it should be, and it is
+// wrong: `--json` can be the VALUE of another flag (`-m --json`, `--name
+// --json`), and a substring match would switch a caller into JSON output who
+// never asked for it.
+//
+// But parsing against a bare flagset holding only `json` is wrong for the SAME
+// reason, which is worth writing down — my first version did exactly that and
+// this function's own test caught it. pflag can only tell a flag from a value
+// when it knows the flag takes one, so with `-m` undefined, `-m --json` parses
+// `--json` as a flag and the false positive comes straight back. The knowledge
+// lives on the target command, so this resolves it first, the way
+// checkUnknownSubcommand does.
+//
+// And PARSING against those flags is wrong too, which took a reviewer to see:
+// pflag stops at the first error, so `--limit nope --json` dies converting the
+// int and reports no --json — on exactly the malformed-value failure this probe
+// exists to render. Hence a walk that reads only arity.
+func jsonRequested(args []string) bool {
+	root := NewRootCmd(cmdutil.NewFactory())
+	target, rest, err := root.Find(args)
+	if err != nil || target == nil {
+		target, rest = root, args
+	}
+	target.InitDefaultHelpFlag()
+	flags := target.Flags()
+
+	// A WALK, not a parse. pflag stops at the first error, so parsing cannot
+	// answer this: `--limit nope --json` dies converting "nope" to an int and
+	// reports no --json at all (PR #585 review, @copilot) — and a malformed
+	// flag VALUE is precisely when this probe runs, since that is one of the
+	// failures it exists to render. The walk needs only arity, which the
+	// command's flag definitions supply even when parsing them fails.
+	takesValue := func(f *pflag.Flag) bool { return f != nil && f.Value.Type() != "bool" }
+	for i := 0; i < len(rest); i++ {
+		a := rest[i]
+		switch {
+		case a == "--":
+			// Everything after this is positional, including a literal --json.
+			return false
+		case a == "--json":
+			return true
+		case strings.HasPrefix(a, "--json="):
+			v, perr := strconv.ParseBool(strings.TrimPrefix(a, "--json="))
+			return perr == nil && v
+		case strings.HasPrefix(a, "--"):
+			name := strings.TrimPrefix(a, "--")
+			if strings.Contains(name, "=") {
+				continue // --flag=value carries its own value
+			}
+			if takesValue(flags.Lookup(name)) {
+				i++ // the next token is this flag's VALUE, not a flag
+			}
+		case len(a) > 1 && a[0] == '-':
+			// Only a lone shorthand can consume the next token; a cluster
+			// (-abc) ends in a value-taking flag at most, and mis-skipping one
+			// token here costs nothing this probe cares about.
+			if sh := strings.TrimPrefix(a, "-"); len(sh) == 1 && takesValue(flags.ShorthandLookup(sh)) {
+				i++
+			}
+		}
+	}
+	return false
+}
+
+// renderError maps err to an exit code and writes it in the format the --json
+// contract requires.
+//
+// UNDER --json THE ENVELOPE GOES TO STDOUT (#334), so `--json` means "stdout is
+// always valid JSON" whatever the outcome. Before this, a single-entity failure
+// left stdout EMPTY and put the envelope on stderr, so the obvious consumer —
+//
+//	json.loads(subprocess.run([...,'--json'], capture_output=True).stdout)
+//
+// died with "Expecting value: line 1 column 1", which reads like corrupt data
+// or a parser bug rather than a server error. The diagnostic existed, in
+// structured form, somewhere the caller was not looking. It also made the two
+// `node get` forms disagree: the BATCHED one already keeps stdout valid JSON
+// and reports failure through the exit code plus an `unavailable` array.
+//
+// Exit codes are untouched. They were already load-bearing and correct, and a
+// caller should still branch on them first — the envelope tells you WHAT went
+// wrong, the code tells you it went wrong at all.
+//
+// The one case that still goes to stderr is a command that has ALREADY written
+// to stdout. Appending an envelope there would concatenate two JSON values and
+// produce the unparseable stdout this change exists to remove, arrived at from
+// the other end. Asked of the stream rather than assumed of the caller: see
+// output.Wrote for the two paths that legitimately print and then fail.
 func renderError(f *cmdutil.Factory, err error) int {
 	code := exitCodeFor(err)
 
 	if !errors.Is(err, exitcode.ErrSilent) {
-		if f.JSON {
-			_ = output.WriteJSON(f.IOStreams.ErrOut, map[string]any{
-				"error": map[string]any{"code": code, "message": err.Error()},
-			})
-		} else {
+		envelope := map[string]any{
+			"error": map[string]any{"code": code, "message": err.Error()},
+		}
+		switch {
+		case f.JSON && !f.IOStreams.Wrote():
+			// If STDOUT ITSELF is broken — a full filesystem behind a
+			// redirect, a closed pipe, a failing writer from an embedded
+			// caller — the envelope has nowhere to land, and discarding that
+			// second error would make the failure completely silent: a bare
+			// exit code and not one word on either stream (PR #585 review,
+			// @codex P2). Before this change the envelope went to stderr and
+			// would have survived, so the fallback is what stops a routing
+			// improvement from becoming a regression at the one moment the
+			// caller most needs to be told something.
+			if werr := output.WriteJSON(f.IOStreams.Out, envelope); werr != nil {
+				_ = output.WriteJSON(f.IOStreams.ErrOut, envelope)
+			}
+		case f.JSON:
+			// Payload already in flight; keep stdout a single valid document.
+			_ = output.WriteJSON(f.IOStreams.ErrOut, envelope)
+		default:
 			fmt.Fprintf(f.IOStreams.ErrOut, "hadron: %s\n", err.Error())
 		}
 	}
