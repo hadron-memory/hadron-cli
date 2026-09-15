@@ -734,10 +734,16 @@ func TestSessionEndPartialSuccessIsNotReportedAsALostHandoff(t *testing.T) {
 // UNDER --json THE RESCUE GOES INSIDE THE ERROR, NOT BESIDE IT (PR #528
 // review, @codex P1).
 //
-// In JSON mode the error envelope `{"error":{…}}` is written to STDERR, so a
-// plain-text notice on the same stream leaves stderr unparseable — on precisely
-// the recovery path an agent most needs to read. This is the feature's own
-// audience, so corrupting it there is worse than not having the feature.
+// The rescue details must travel INSIDE the error, which is what renderError
+// serializes into the `{"error":{…}}` envelope — never printed beside it.
+//
+// The original reason was that the envelope shared stderr with any such notice
+// and a plain-text line left the stream unparseable. #334 moved the envelope to
+// STDOUT, so that specific collision is gone — and the rule is unchanged, for a
+// reason that outlived it: a notice printed beside the error reaches a stream
+// the caller may not be reading at all, on precisely the recovery path an agent
+// most needs. Putting it in the error is what guarantees it is rendered
+// wherever the envelope goes.
 //
 // Two assertions, and the second is the one that would have caught it: the
 // rescue details must reach the caller, AND stderr must carry nothing that

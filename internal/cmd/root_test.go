@@ -115,7 +115,12 @@ func testFactory(t *testing.T) (*cmdutil.Factory, *strings.Builder) {
 	io, _, _ := output.Test()
 	out := &strings.Builder{}
 	errOut := &strings.Builder{}
-	io.Out = out
+	// Tracked, like the real streams (#334): renderError asks stdout whether a
+	// payload has already been written before choosing where the error envelope
+	// goes. An untracked stream always answers "clean", so a bare builder here
+	// would make every command test measure a stream the binary does not have —
+	// review:a-test-double-must-satisfy-the-real-access-pattern.
+	io.Out = output.Tracked(out)
 	io.ErrOut = errOut
 	f := &cmdutil.Factory{
 		IOStreams:    io,

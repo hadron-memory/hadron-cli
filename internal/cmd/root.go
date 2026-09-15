@@ -5,6 +5,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -131,20 +132,109 @@ func Execute() int {
 		return exitcode.OK
 	}
 
+	return renderFailure(f, os.Args[1:], err)
+}
+
+// renderFailure is the post-Execute half of the failure path, extracted so a
+// test can measure the WIRING rather than only the helpers it calls.
+//
+// That extraction is the point, not tidiness: a test that calls jsonRequested
+// itself and then hands the result to renderError passes whether or not
+// anything actually connects the two — which is what mine did until removing
+// the binding below failed to turn it red. Same reasoning as exitCodeFor's
+// extraction for #533, one function over.
+//
+// A FLAG-parse failure never binds --json (#334): cobra aborts the parse at the
+// bad flag, so f.JSON is still false and the envelope would degrade to plain
+// text — leaving `--json` a promise with a hole in it, since a script that has
+// switched to parsing JSON meets raw prose the first time someone typos a flag.
+// Unknown SUBCOMMANDS were already covered by the probe in Execute taking
+// --json for itself; this is the same remedy one layer down.
+//
+// Consulted ONLY when f.JSON is already false, so a successful bind always wins
+// and this can never turn --json off.
+func renderFailure(f *cmdutil.Factory, args []string, err error) int {
+	if !f.JSON {
+		f.JSON = jsonRequested(args)
+	}
 	return renderError(f, err)
 }
 
-// renderError maps err to an exit code and writes it to stderr in the
-// format the --json contract requires.
+// jsonRequested reports whether --json appears among args, by a TOLERANT parse
+// against the TARGET COMMAND'S OWN FLAGS.
+//
+// A scan for the literal string is what this looks like it should be, and it is
+// wrong: `--json` can be the VALUE of another flag (`-m --json`, `--name
+// --json`), and a substring match would switch a caller into JSON output who
+// never asked for it.
+//
+// But parsing against a bare flagset holding only `json` is wrong for the SAME
+// reason, which is the part worth writing down — my first version did exactly
+// that and this function's own test caught it. pflag can only tell a flag from
+// a value when it knows the flag takes one, so with `-m` undefined, `-m --json`
+// parses `--json` as a flag and the false positive comes straight back. The
+// knowledge lives on the target command, so this resolves it first, the way
+// checkUnknownSubcommand does.
+//
+// Errors are ignored on purpose: this runs only because a parse ALREADY failed,
+// so a second failure means the flag could not be determined, and false — plain
+// text — is the safe answer.
+func jsonRequested(args []string) bool {
+	root := NewRootCmd(cmdutil.NewFactory())
+	target, rest, err := root.Find(args)
+	if err != nil || target == nil {
+		target, rest = root, args
+	}
+	target.InitDefaultHelpFlag()
+	flags := target.Flags()
+	flags.ParseErrorsAllowlist.UnknownFlags = true
+	flags.SetOutput(io.Discard)
+	if perr := flags.Parse(rest); perr != nil {
+		return false
+	}
+	v, _ := flags.GetBool("json")
+	return v
+}
+
+// renderError maps err to an exit code and writes it in the format the --json
+// contract requires.
+//
+// UNDER --json THE ENVELOPE GOES TO STDOUT (#334), so `--json` means "stdout is
+// always valid JSON" whatever the outcome. Before this, a single-entity failure
+// left stdout EMPTY and put the envelope on stderr, so the obvious consumer —
+//
+//	json.loads(subprocess.run([...,'--json'], capture_output=True).stdout)
+//
+// died with "Expecting value: line 1 column 1", which reads like corrupt data
+// or a parser bug rather than a server error. The diagnostic existed, in
+// structured form, somewhere the caller was not looking. It also made the two
+// `node get` forms disagree: the BATCHED one already keeps stdout valid JSON
+// and reports failure through the exit code plus an `unavailable` array.
+//
+// Exit codes are untouched. They were already load-bearing and correct, and a
+// caller should still branch on them first — the envelope tells you WHAT went
+// wrong, the code tells you it went wrong at all.
+//
+// The one case that still goes to stderr is a command that has ALREADY written
+// to stdout. Appending an envelope there would concatenate two JSON values and
+// produce the unparseable stdout this change exists to remove, arrived at from
+// the other end. Asked of the stream rather than assumed of the caller: see
+// output.Wrote for the two paths that legitimately print and then fail.
 func renderError(f *cmdutil.Factory, err error) int {
 	code := exitCodeFor(err)
 
 	if !errors.Is(err, exitcode.ErrSilent) {
-		if f.JSON {
+		switch {
+		case f.JSON && !f.IOStreams.Wrote():
+			_ = output.WriteJSON(f.IOStreams.Out, map[string]any{
+				"error": map[string]any{"code": code, "message": err.Error()},
+			})
+		case f.JSON:
+			// Payload already in flight; keep stdout a single valid document.
 			_ = output.WriteJSON(f.IOStreams.ErrOut, map[string]any{
 				"error": map[string]any{"code": code, "message": err.Error()},
 			})
-		} else {
+		default:
 			fmt.Fprintf(f.IOStreams.ErrOut, "hadron: %s\n", err.Error())
 		}
 	}

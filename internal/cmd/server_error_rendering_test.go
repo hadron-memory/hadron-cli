@@ -55,9 +55,11 @@ func TestServerRefusalPrintsTheServerSentenceOnly(t *testing.T) {
 func TestServerRefusalJSONEnvelopeCarriesTheSameCleanMessage(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{"WorkersRoster": wireRefusal})
 
-	f, _ := testFactory(t)
-	errOut := &strings.Builder{}
-	f.IOStreams.ErrOut = errOut
+	// #334 moved the envelope to STDOUT, so this reads `out` — the same stream
+	// a `--json` consumer parses. The point of the test is unchanged: whatever
+	// stream carries the envelope must carry the server's sentence and not
+	// genqlient's scaffolding.
+	f, out := testFactory(t)
 	f.JSON = true
 
 	root := NewRootCmd(f)
@@ -68,6 +70,7 @@ func TestServerRefusalJSONEnvelopeCarriesTheSameCleanMessage(t *testing.T) {
 	}
 	f.JSON = true
 	renderError(f, err)
+	errOut := out
 
 	var env struct {
 		Error struct {

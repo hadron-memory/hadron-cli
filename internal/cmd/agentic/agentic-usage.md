@@ -37,10 +37,26 @@ self-hosted backend.
 
 ## Output contract
 
-- Every command supports `--json`. JSON goes to stdout; progress and
-  errors go to stderr. Without `--json`, output is plain aligned text.
-- With `--json`, errors are emitted on stderr as
-  `{"error":{"code":<exit-code>,"message":"..."}}`.
+- Every command supports `--json`. JSON goes to stdout; progress goes to
+  stderr. Without `--json`, output is plain aligned text.
+- **With `--json`, stdout is ALWAYS valid JSON — success or failure** (#334).
+  A failure writes the envelope
+  `{"error":{"code":<exit-code>,"message":"..."}}` to **stdout**, so
+  `json.loads(stdout)` never throws and you read the diagnosis on the stream
+  you were already parsing. Before this it went to stderr and stdout was left
+  empty, so the obvious consumer died with *"Expecting value: line 1 column
+  1"* — which reads like corrupt data rather than a server error.
+  - **Branch on the exit code first, then look at the document.** The code
+    tells you THAT it failed; the envelope tells you what. Do not detect
+    failure by testing for an `error` key alone — a successful payload could
+    in principle contain one.
+  - **One exception, and it is deliberate**: a command that has already
+    written a payload to stdout keeps its error on stderr, because appending
+    an envelope would concatenate two JSON values and make stdout
+    unparseable — the very failure this rule removes. The commands that can
+    do this are the ones where the bytes ARE the output and `--json` is
+    ignored anyway (`asset get -o -`, `node export` to stdout).
+  - Exit codes are unchanged by all of this.
 - `message` NEVER carries the GraphQL document location and field path the
   client used to render around it (#566) — a leading `input:<line>: <field> `
   naming a position in a query you never wrote and a field you never typed.
