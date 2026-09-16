@@ -3,12 +3,23 @@ package scope
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
+
+// defaultScopeDTO is the stable --json shape of `hadron scope use` — ONE shape
+// for every successful invocation, clear included (the lesson from `org use`,
+// @codex #596).
+type defaultScopeDTO struct {
+	Scope string `json:"scope"`
+}
 
 func newCmdSetActive(f *cmdutil.Factory) *cobra.Command {
 	var skipVerify bool
@@ -40,37 +51,54 @@ Pass an empty string ("") to clear it.`,
 				if err := cfg.Unset("scope"); err != nil {
 					return err
 				}
-				return output.Write(f.IOStreams, f.JSON, map[string]string{"scope": ""}, func(w io.Writer) error {
+				return output.Write(f.IOStreams, f.JSON, defaultScopeDTO{}, func(w io.Writer) error {
 					_, err := fmt.Fprintln(w, "✓ Cleared the default search scope")
 					return err
 				})
 			}
 
+			// Trim before verifying AND before storing. resolveScopeID trims
+			// internally, so an untrimmed value verified successfully and was
+			// then persisted with its whitespace — a setting reported as
+			// verified that no later search could resolve (@codex, #597).
+			ref := strings.TrimSpace(args[0])
+
 			// `app` and `global` are keywords resolved per-invocation against
 			// the App / organization context, so there is nothing to verify
 			// here and pinning them now would be wrong — the whole point is
 			// that they follow whatever context the later search runs in.
-			if !skipVerify && args[0] != scopeKeywordApp && args[0] != scopeKeywordGlobal {
+			if !skipVerify && ref != scopeKeywordApp && ref != scopeKeywordGlobal {
 				client, err := f.GraphQLClient()
 				if err != nil {
 					return err
 				}
-				// Resolves a name through the server's own ladder, exactly as
-				// a search would — so a value that will not resolve later is
-				// refused now rather than silently narrowing every search.
-				if _, err := resolveScopeID(cmd, f, client, args[0], false); err != nil {
+				// A NAME resolves through the server's own ladder. An ID does
+				// NOT — resolveScopeID short-circuits on shape without a round
+				// trip, so `scope use <typo-id>` used to store an unreadable
+				// default that failed every later flagless search (@codex,
+				// #597). Read it explicitly instead.
+				id, err := resolveScopeID(cmd, f, client, ref, false)
+				if err != nil {
 					return err
+				}
+				resp, err := gen.GetScope(cmd.Context(), client, id)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp == nil || resp.Scope == nil {
+					return exitcode.Newf(exitcode.NotFound,
+						"no scope %q is readable here — it would fail every search that used it (--no-verify stores it anyway)", ref)
 				}
 			}
 
-			// Stored as TYPED. A name is resolved per-invocation because the
-			// App context can differ between directories; freezing it to an id
-			// here would defeat that.
-			if err := cfg.Set("scope", args[0]); err != nil {
+			// Stored as TYPED (trimmed). A name is resolved per-invocation
+			// because the App context can differ between directories; freezing
+			// it to an id here would defeat that.
+			if err := cfg.Set("scope", ref); err != nil {
 				return err
 			}
-			return output.Write(f.IOStreams, f.JSON, map[string]string{"scope": args[0]}, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ Default search scope set to %s\n", args[0])
+			return output.Write(f.IOStreams, f.JSON, defaultScopeDTO{Scope: ref}, func(w io.Writer) error {
+				_, err := fmt.Fprintf(w, "✓ Default search scope set to %s\n", ref)
 				return err
 			})
 		},

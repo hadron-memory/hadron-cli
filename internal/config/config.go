@@ -18,13 +18,25 @@ import (
 const DefaultServer = "https://srv.hadronmemory.com"
 
 // Keys lists the settings hadron config get/set accepts.
+//
+// It is also the ALLOW-LIST for `hadron config set`, which is a generic
+// key-value writer and performs no per-key validation. Several keys have a
+// dedicated setter that does — `org use` checks membership, `scope use` checks
+// the value resolves, `app set-active` shape-checks the ref — so `config set`
+// is deliberately the UNVERIFIED path for all of them (@copilot, #597).
+//
+// That is a choice, not an oversight: routing the generic setter through each
+// key's resolver would give one command a dozen different failure modes and a
+// network dependency, and would remove the only way to fix a config offline.
+// The per-key descriptions say which setter verifies what, so the trade is
+// visible where a reader meets it.
 var Keys = map[string]string{
 	"server":      "Hadron server base URL",
 	"app":         "default App sent with requests — an App id or hrn:app:<root>:<slug> (set via hadron app set-active)",
 	"memory":      "default memory URN or ID (set via hadron memory set-active)",
 	"spec_memory": "default memory for spec commands (set via hadron spec use); overrides the global memory for `hadron spec`",
-	"org":         "active organization — an organization root, URN or id (set via hadron org use); what `--scope global` resolves against",
-	"scope":       "default search scope — a scope name, id, `app` or `global` (set via hadron scope use); applied when `hadron search` is run without --scope",
+	"org":         "active organization — an organization root, URN or id (set via hadron org use, which verifies membership; `config set` does not); what `--scope global` resolves against",
+	"scope":       "default search scope — a scope name, id, `app` or `global` (set via hadron scope use, which verifies it resolves; `config set` does not); applied when `hadron search` is run without --scope",
 }
 
 type Config struct {
