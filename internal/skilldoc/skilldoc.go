@@ -481,9 +481,15 @@ func Render(name, source, description, content string) (string, error) {
 type File struct {
 	Name        string
 	Description string
-	Source      string // parser-canonical source URN (canonicalSource), or "" when the file is not Hadron-generated
+	Source      string // the flat v2 source node URN as written, or "" when the file is not Hadron-generated
 	Hash        string // "" for a legacy (pre-#580) header
 	Body        string
+	// Extra holds every frontmatter key other than name/description. Render
+	// writes none, so on a generated file a non-empty Extra IS a local edit
+	// — one the header hash cannot see, since the hash covers the three
+	// rendered inputs — and status/export must treat it as `locally-edited`
+	// rather than overwrite it (Codex on #589, round 11).
+	Extra map[string]any
 }
 
 // ParseFile reads a skill file with the same YAML parser a host uses, so a
@@ -503,14 +509,25 @@ func ParseFile(data []byte) (*File, error) {
 		return nil, fmt.Errorf("parsing frontmatter: %w", err)
 	}
 	f := &File{Name: fm.Name, Description: NormalizeDescription(fm.Description)}
+	var all map[string]any
+	if err := yaml.Unmarshal(m[1], &all); err == nil {
+		for k, v := range all {
+			if k != "name" && k != "description" {
+				if f.Extra == nil {
+					f.Extra = map[string]any{}
+				}
+				f.Extra[k] = v
+			}
+		}
+	}
 	preamble, body := splitPreamble(string(m[2]))
 	for _, line := range strings.Split(preamble, "\n") { // raw, like splitPreamble
 		if src, hash, ok := machineHeader(line); ok {
-			f.Source, f.Hash = canonicalSource(src), hash
+			f.Source, f.Hash = src, hash
 			break
 		}
 		if src, ok := legacyHeader(line); ok {
-			f.Source = canonicalSource(src)
+			f.Source = src
 			break
 		}
 	}
@@ -548,44 +565,14 @@ func splitPreamble(rest string) (preamble, body string) {
 	return strings.Join(lines[:i], "\n"), ""
 }
 
-// canonicalSource is the ONE normalization of a header's source token: the
-// parser-canonical URN, so a legacy `urn:` or scheme-less header pairs with
-// the same corpus node as a v2 one and is never reported as orphaned for its
-// spelling (Copilot on #589, round 4). A token the library cannot
-// canonicalize is returned as written — it already passed isNodeURN.
-func canonicalSource(tok string) string {
-	// Strip a scheme (hrn:node: / urn:node:) so the v1 `::` grammar is
-	// handled the same whether or not the header carried one (Codex on
-	// #589, round 10): a simple memory slug composes the flat v2 form the
-	// CLI emits; a COMPOUND app-mem slug carries its own colons and stays in
-	// the legacy form under the scheme (still accepted forever, #239) — the
-	// rule cmdutil.NodeURN applies.
-	bare := tok
-	for _, scheme := range []string{"hrn:node:", "urn:node:"} {
-		bare = strings.TrimPrefix(bare, scheme)
-	}
-	if strings.Contains(bare, "::") {
-		if parts := strings.SplitN(bare, "::", 3); len(parts) == 3 && !strings.Contains(parts[1], ":") {
-			return "hrn:node:" + parts[0] + ":" + parts[1] + ":" + parts[2]
-		}
-		return "hrn:node:" + bare
-	}
-	if c, err := urnlib.ToParserCanonical(tok); err == nil && c != "" {
-		return c
-	}
-	return tok
-}
-
-// isNodeURN reports whether tok is a fully-qualified NODE URN in either
-// grammar — the v2 `hrn:node:<root>:<slug>:<loc>`, the legacy `urn:` scheme,
-// or the scheme-less `<org>::<memory>::<loc>` — and not some other entity
-// kind. Provenance may only ever name a node: a header naming `hrn:mem:…`
-// is not ours, whatever else it looks like (Codex on #589, round 8).
+// isNodeURN reports whether tok is a flat v2 NODE URN — `hrn:node:<root>:<slug>:<loc>`,
+// the one form node reads emit and every export has written. Provenance may
+// only ever name a node in that form: a header naming another entity kind, a
+// legacy `::` or `urn:` spelling, or a bare id is not ours (Holger,
+// 2026-09-16: no v1 support in this surface).
 func isNodeURN(tok string) bool {
-	if urnlib.HasSchemePrefix(tok) {
-		return urnlib.AssertFullyQualifiedUrn(tok, "node") == nil
-	}
-	return strings.Count(tok, "::") >= 2 && urnlib.AssertFullyQualifiedUrn(tok, "node") == nil
+	return strings.HasPrefix(tok, "hrn:node:") && !strings.Contains(tok, "::") &&
+		urnlib.AssertFullyQualifiedUrn(tok, "node") == nil
 }
 
 // machineHeader parses the generated machine line and returns its source
@@ -614,7 +601,8 @@ func machineHeader(t string) (source, hash string, ok bool) {
 }
 
 // legacyHeader parses the pre-#580 `<!-- Generated from <urn> -->` line;
-// ok=false unless the token is a node URN.
+// ok=false unless the token is a flat v2 node URN (which every hand-run
+// export wrote).
 func legacyHeader(t string) (source string, ok bool) {
 	h := legacyHeaderRE.FindStringSubmatch(t)
 	if h == nil || !isNodeURN(h[1]) {

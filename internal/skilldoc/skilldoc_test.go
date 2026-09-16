@@ -551,11 +551,9 @@ func TestProvenanceNeedsANodeURNAndAHexHash(t *testing.T) {
 			t.Errorf("%q not kept in the body: %q", pre, f.Body)
 		}
 	}
-	// And the real thing, in both grammars, still parses.
+	// And the real thing still parses.
 	for _, pre := range []string{
 		"<!-- Generated from hrn:node:hadronmemory.com:core:tasks:mint-spec -->",
-		"<!-- Generated from hadronmemory.com::core::tasks:mint-spec -->",
-		"<!-- Generated from urn:node:hadronmemory.com:core:tasks:mint-spec -->",
 	} {
 		f, _ := ParseFile([]byte("---\nname: x\ndescription: Use when x\n---\n\n" + pre + "\n\n# Body\n"))
 		if f.Source == "" {
@@ -588,29 +586,55 @@ func TestIndentedProvenanceLookalikeIsBody(t *testing.T) {
 	}
 }
 
-func TestSourceIsParserCanonical(t *testing.T) {
-	// Every accepted header spelling pairs to ONE canonical key.
-	want := ""
+func TestSourceIsFlatV2Only(t *testing.T) {
+	// Provenance names a node in the one form exports write; a v1 or urn:
+	// spelling is not recognised (no v1 support in this surface — Holger,
+	// 2026-09-16), so such a file stays foreign and the line stays in its body.
+	ok := "<!-- Generated from hrn:node:hadronmemory.com:core:tasks:mint-spec -->"
+	f, err := ParseFile([]byte("---\nname: x\ndescription: Use when x\n---\n\n" + ok + "\n\n# Body\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Source != "hrn:node:hadronmemory.com:core:tasks:mint-spec" {
+		t.Errorf("flat v2 source not recognised: %+v", f)
+	}
 	for _, pre := range []string{
-		"<!-- Generated from hrn:node:hadronmemory.com:core:tasks:mint-spec -->",
 		"<!-- Generated from hadronmemory.com::core::tasks:mint-spec -->",
-		"<!-- Generated from urn:node:hadronmemory.com:core:tasks:mint-spec -->",
 		"<!-- Generated from hrn:node:hadronmemory.com::core::tasks:mint-spec -->",
-		"<!-- Generated from urn:node:hadronmemory.com::core::tasks:mint-spec -->",
+		"<!-- Generated from urn:node:hadronmemory.com:core:tasks:mint-spec -->",
 		"<!-- hadron-skill source=hrn:node:hadronmemory.com::core::tasks:mint-spec hash=0123456789abcdef -->",
 	} {
-		f, err := ParseFile([]byte("---\nname: x\ndescription: Use when x\n---\n\n" + pre + "\n\n# Body\n"))
+		g, err := ParseFile([]byte("---\nname: x\ndescription: Use when x\n---\n\n" + pre + "\n\n# Body\n"))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if f.Source == "" {
-			t.Fatalf("%q: no source", pre)
+		if g.Source != "" || !strings.HasPrefix(g.Body, pre) {
+			t.Errorf("%q: v1 spelling recognised as provenance: %+v", pre, g)
 		}
-		if want == "" {
-			want = f.Source
-		} else if f.Source != want {
-			t.Errorf("%q: source %q, want the same canonical key as the first spelling %q", pre, f.Source, want)
-		}
+	}
+}
+
+func TestExtraFrontmatterKeysAreKeptAsALocalEdit(t *testing.T) {
+	// Codex on #589, round 11: a key a user adds must not vanish from the
+	// parse, or a stale export could overwrite it without --force.
+	file, err := Render("hadron-x", "hrn:node:a:b:tasks:x", "Use when x", "# Body")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := ParseFile([]byte(file))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.Extra) != 0 {
+		t.Errorf("fresh export reports extra keys: %v", f.Extra)
+	}
+	edited := strings.Replace(file, "description:", "compatibility: Claude Code 2.x\ndescription:", 1)
+	g, err := ParseFile([]byte(edited))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g.Extra["compatibility"] != "Claude Code 2.x" {
+		t.Errorf("added frontmatter key not retained: %v", g.Extra)
 	}
 }
 
