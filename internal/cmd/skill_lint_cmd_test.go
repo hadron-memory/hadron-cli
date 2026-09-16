@@ -191,6 +191,11 @@ func TestSkillLintAllIncludesEveryMemoryClass(t *testing.T) {
 			}
 		}
 	}
+	// The last Memories call is the PUBLIC pass — other orgs' public memories
+	// are readable and are their own listing slice (Codex on #589, round 4).
+	if vars := string(captured["Memories"]); !strings.Contains(vars, `"PUBLIC"`) {
+		t.Errorf("no PUBLIC-visibility listing pass in --all: %s", vars)
+	}
 }
 
 func TestSkillLintRefusesAmbiguousSelector(t *testing.T) {

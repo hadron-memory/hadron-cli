@@ -304,6 +304,33 @@ func TestBodyKeepsItsOwnLeadingComment(t *testing.T) {
 	}
 }
 
+func TestLookalikeProvenanceCommentsStayInTheBody(t *testing.T) {
+	// Codex on #589, round 4: matching by substring ate a body's own
+	// `<!-- Generated from a template -->`. Only the exact generated lines
+	// are preamble.
+	for _, first := range []string{
+		"<!-- Generated from a template -->",
+		"<!-- Edit the source node before running this -->",
+		"<!-- hadron-skill is the command that made this -->",
+	} {
+		body := first + "\n\n# Body\n"
+		file, err := Render("hadron-x", "hrn:node:a:b:tasks:x", "Use when x", body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f, err := ParseFile([]byte(file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasPrefix(f.Body, first) {
+			t.Errorf("%q swallowed as preamble: body=%q", first, f.Body)
+		}
+		if f.Hash != Hash(f.Name, f.Description, f.Body) {
+			t.Errorf("%q: fresh export does not hash equal to its header", first)
+		}
+	}
+}
+
 func TestFrontmatterRuleNeedsAClosingDelimiter(t *testing.T) {
 	// A horizontal rule at the top of a body is markdown, not frontmatter.
 	rule := declaring("tasks:a", "Use when x", nil)

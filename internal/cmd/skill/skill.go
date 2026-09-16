@@ -224,21 +224,29 @@ func allMemories(cmd *cobra.Command, client graphql.Client) ([]*memoryInfo, erro
 	// be missed while `--all` reports a clean corpus — the same
 	// all-clear-wider-than-the-read shape as the isRunnable scan (§4.1).
 	all := &gen.MemoryFilter{MemoryClasses: gen.AllMemoryClass}
-	own := func(limit, offset int) (memoryPage, error) {
-		resp, err := gen.Memories(cmd.Context(), client, all, &limit, &offset)
-		if err != nil || resp.Memories == nil {
-			return memoryPage{}, api.MapError(err)
-		}
-		pg := memoryPage{full: len(resp.Memories.Items) == limit}
-		for _, m := range resp.Memories.Items {
-			var prefix *string
-			if m.Organization != nil {
-				prefix = m.Organization.SkillPrefix
+	pub := gen.MemoryVisibilityPublic
+	// "Every memory you can read" is three listings, not two: own-org, shared
+	// with you, and PUBLIC memories of other orgs — a separate slice of the
+	// MemoryFilter contract (Codex on #589, round 4). De-duplicated by id.
+	public := &gen.MemoryFilter{MemoryClasses: gen.AllMemoryClass, Visibility: &pub}
+	page := func(filter *gen.MemoryFilter) func(int, int) (memoryPage, error) {
+		return func(limit, offset int) (memoryPage, error) {
+			resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset)
+			if err != nil || resp.Memories == nil {
+				return memoryPage{}, api.MapError(err)
 			}
-			pg.items = append(pg.items, &memoryInfo{ID: m.Id, URN: m.Urn, OrganizationID: m.OrganizationId, SkillPrefix: prefix})
+			pg := memoryPage{full: len(resp.Memories.Items) == limit}
+			for _, m := range resp.Memories.Items {
+				var prefix *string
+				if m.Organization != nil {
+					prefix = m.Organization.SkillPrefix
+				}
+				pg.items = append(pg.items, &memoryInfo{ID: m.Id, URN: m.Urn, OrganizationID: m.OrganizationId, SkillPrefix: prefix})
+			}
+			return pg, nil
 		}
-		return pg, nil
 	}
+	own := page(all)
 	shared := func(limit, offset int) (memoryPage, error) {
 		resp, err := gen.MemoriesSharedWithMe(cmd.Context(), client, &limit, &offset, gen.AllMemoryClass)
 		if err != nil || resp.Memories == nil {
@@ -257,7 +265,7 @@ func allMemories(cmd *cobra.Command, client graphql.Client) ([]*memoryInfo, erro
 
 	seen := map[string]bool{}
 	var out []*memoryInfo
-	for _, fetch := range []func(int, int) (memoryPage, error){own, shared} {
+	for _, fetch := range []func(int, int) (memoryPage, error){own, shared, page(public)} {
 		for offset := 0; ; offset += memoriesPageSize {
 			pg, err := fetch(memoriesPageSize, offset)
 			if err != nil {
