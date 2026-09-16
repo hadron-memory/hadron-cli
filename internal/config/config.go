@@ -23,6 +23,7 @@ var Keys = map[string]string{
 	"app":         "default App sent with requests — an App id or hrn:app:<root>:<slug> (set via hadron app set-active)",
 	"memory":      "default memory URN or ID (set via hadron memory set-active)",
 	"spec_memory": "default memory for spec commands (set via hadron spec use); overrides the global memory for `hadron spec`",
+	"org":         "active organization — an organization root, URN or id (set via hadron org use); what `--scope global` resolves against",
 }
 
 type Config struct {
@@ -66,6 +67,14 @@ func (c *Config) App() string { return c.v.GetString("app") }
 
 // Memory returns the default memory URN or ID, or "" for no memory context.
 func (c *Config) Memory() string { return c.v.GetString("memory") }
+
+// Org returns the active organization ref, or "" for none.
+//
+// Not shape-checked on read. An organization is addressed by its root
+// (acme.com), its URN or its id, and the server resolves all three — there is
+// no client-side grammar here to enforce, and inventing one would reject refs
+// the server accepts.
+func (c *Config) Org() string { return c.v.GetString("org") }
 
 // SpecMemory returns the default memory for `hadron spec` commands, with the
 // HADRON_SPEC_MEMORY environment variable taking precedence over the

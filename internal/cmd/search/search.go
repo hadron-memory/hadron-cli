@@ -169,7 +169,7 @@ and/or/not). --object-type filters the objectType collection facet.
 				offsetArg = &offset
 			}
 
-			var scopeArg, appArg *string
+			var scopeArg, orgArg, appArg *string
 			if scope != "" {
 				appCtx, err := requireAppContextForScope(f, scope)
 				if err != nil {
@@ -179,9 +179,23 @@ and/or/not). --object-type filters the objectType collection facet.
 					appArg = &appCtx
 				}
 				scopeArg = &scope
+				// The active organization is sent ONLY for `global`, which is
+				// the one scope defined in terms of it. Sending it on every
+				// search would silently narrow an unscoped one to that org —
+				// a change to what a flagless `hadron search` returns, which
+				// is not this slice's to make.
+				if scope == scopeGlobal {
+					cfg, err := f.Config()
+					if err != nil {
+						return err
+					}
+					if org := cfg.Org(); org != "" {
+						orgArg = &org
+					}
+				}
 			}
 
-			page, err := api.SearchNodes(cmd.Context(), client, query, modeArg, filterArg, sortPropArg, limitArg, offsetArg, scopeArg, appArg)
+			page, err := api.SearchNodes(cmd.Context(), client, query, modeArg, filterArg, sortPropArg, limitArg, offsetArg, scopeArg, orgArg, appArg)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -247,7 +261,7 @@ and/or/not). --object-type filters the objectType collection facet.
 	// --scope names a stored lens and is resolved server-side. Two different
 	// ideas, so the -m help no longer says "scope" (#578).
 	cmd.Flags().StringArrayVarP(&memories, "memory", "m", nil, "restrict to a memory (ID or URN; repeatable; narrows within --scope)")
-	cmd.Flags().StringVar(&scope, "scope", "", "search under a named scope: a scope name (needs an App context), a scope id, `app` (the App's attached memories), or `global` (your active organization's view)")
+	cmd.Flags().StringVar(&scope, "scope", "", "search under a named scope: a scope name (needs an App context), a scope id, `app` (the App's attached memories), or `global` (your active organization's view — set it with `hadron org use`)")
 	cmd.Flags().StringVar(&mode, "mode", "hybrid", "ranking mode: hybrid|keyword|vector|regex")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "filter by node loc prefix")
 	cmd.Flags().StringVar(&nodeType, "type", "", "filter by node type")

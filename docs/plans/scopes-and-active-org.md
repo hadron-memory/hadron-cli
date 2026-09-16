@@ -1,6 +1,6 @@
 # Named search scopes + active organization (#578)
 
-Status: **in progress** — slices 1-2 landed/in review, 3-4 to come.
+Status: **in progress** — slices 1-3 in review, slice 4 to come.
 Server: spec 049 Phases 1–2, on `hadron-server` `main` (#1158 active org, #1160 scopes).
 Issue: [#578](https://github.com/hadron-memory/hadron-cli/issues/578).
 
@@ -99,6 +99,21 @@ active organization to select, so the refusal stops firing.
 The general version — *a server message naming another surface's remedy* — is
 reported to the coordinator rather than patched here, since the portal reads the
 same strings.
+
+**Slice 3 closed it**, and turned up a second server-side issue on the way:
+
+```
+organization(ref:"nosuch.example")
+  message:    "ORGANIZATION_NOT_FOUND: nosuch.example"
+  extensions: { "code": "INTERNAL_SERVER_ERROR" }
+```
+
+The not-found is in the MESSAGE only; the CODE says the server broke. `MapError`
+routes `*_NOT_FOUND` **extension codes** to `exitcode.NotFound`, so this exits 1
+(internal) instead of 4, and no client can tell a missing organization from a
+real fault. Not worked around here — string-matching the message to override the
+code is exactly the client-side compensation this plan exists to avoid.
+Reported, not filed (cross-repo).
 
 ## 5. Slices
 

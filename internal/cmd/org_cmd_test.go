@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -527,5 +528,141 @@ func TestOrgInviteAcceptFalseExitsNonZero(t *testing.T) {
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "not accepted") {
 		t.Fatalf("a false accept must exit non-zero, got %v", err)
+	}
+}
+
+// TestOrgUseVerifiesAndStoresWhatWasTyped — #578 slice 3.
+//
+// The ref is verified at set time so a typo is caught here rather than on some
+// later `--scope global` search, and it is stored VERBATIM: an organization is
+// addressable by root, URN or id and the server resolves all three, so
+// rewriting it here would impose a grammar this repo does not own.
+func TestOrgUseVerifiesAndStoresWhatWasTyped(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetOrganization": `{"data":{"organization":{"id":"o1","urn":"hrn:org:acme.com","name":"Acme",
+			"listedOnMarketplace":false,"createdAt":"2026-01-01T00:00:00Z","updatedAt":null}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "use", "acme.com", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, ok := captured["GetOrganization"]; !ok {
+		t.Error("the ref should be verified at set time")
+	}
+	cfg, err := f.Config()
+	if err != nil {
+		t.Fatalf("config: %v", err)
+	}
+	if got := cfg.Org(); got != "acme.com" {
+		t.Errorf("stored %q, want the ref exactly as typed", got)
+	}
+}
+
+// TestOrgUseRefusesAnUnreadableRef — and does not store it, or the next
+// `--scope global` fails with a confusing server error instead.
+func TestOrgUseRefusesAnUnreadableRef(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetOrganization": `{"data":{"organization":null}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "use", "typo.example", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("expected a refusal for an unreadable organization")
+	}
+	cfg, err := f.Config()
+	if err != nil {
+		t.Fatalf("config: %v", err)
+	}
+	if got := cfg.Org(); got != "" {
+		t.Errorf("a refused ref must not be stored, got %q", got)
+	}
+}
+
+// TestOrgUseClearsAndSkipsVerification — the two escape hatches.
+func TestOrgUseClearsAndSkipsVerification(t *testing.T) {
+	t.Run("no-verify skips the round trip", func(t *testing.T) {
+		gql, captured := captureGraphQL(t, map[string]string{})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"org", "use", "acme.com", "--no-verify", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if _, ok := captured["GetOrganization"]; ok {
+			t.Error("--no-verify must not call the server")
+		}
+	})
+
+	t.Run("empty string clears", func(t *testing.T) {
+		gql, _ := captureGraphQL(t, map[string]string{})
+		f, _ := testFactory(t)
+		cfg, err := f.Config()
+		if err != nil {
+			t.Fatalf("config: %v", err)
+		}
+		if err := cfg.Set("org", "acme.com"); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"org", "use", "", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		cfg2, _ := f.Config()
+		if got := cfg2.Org(); got != "" {
+			t.Errorf("clear left %q", got)
+		}
+	})
+}
+
+// TestOrgUseJSONShapeIsTheSameOnEveryPath — @codex on #596.
+//
+// A command's public --json shape must not depend on which branch ran. The
+// clear path emitted {"org":""} while the others emitted org+name, so a
+// consumer parsing the result had to know in advance which it would get.
+func TestOrgUseJSONShapeIsTheSameOnEveryPath(t *testing.T) {
+	keysOf := func(t *testing.T, s string) []string {
+		t.Helper()
+		var raw map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(s), &raw); err != nil {
+			t.Fatalf("decode %q: %v", s, err)
+		}
+		out := make([]string, 0, len(raw))
+		for k := range raw {
+			out = append(out, k)
+		}
+		sort.Strings(out)
+		return out
+	}
+
+	run := func(t *testing.T, args []string, responses map[string]string) []string {
+		t.Helper()
+		gql, _ := captureGraphQL(t, responses)
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(append([]string{}, args...), "--json", "--server", gql.URL))
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute %v: %v", args, err)
+		}
+		return keysOf(t, out.String())
+	}
+
+	verified := run(t, []string{"org", "use", "acme.com"}, map[string]string{
+		"GetOrganization": `{"data":{"organization":{"id":"o1","urn":"hrn:org:acme.com","name":"Acme",
+			"listedOnMarketplace":false,"createdAt":"2026-01-01T00:00:00Z","updatedAt":null}}}`,
+	})
+	unverified := run(t, []string{"org", "use", "acme.com", "--no-verify"}, map[string]string{})
+	cleared := run(t, []string{"org", "use", ""}, map[string]string{})
+
+	for _, tc := range []struct {
+		name string
+		got  []string
+	}{{"no-verify", unverified}, {"clear", cleared}} {
+		if strings.Join(tc.got, ",") != strings.Join(verified, ",") {
+			t.Errorf("%s emits keys %v, verified emits %v — one shape per command", tc.name, tc.got, verified)
+		}
 	}
 }

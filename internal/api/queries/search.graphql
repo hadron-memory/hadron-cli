@@ -48,6 +48,12 @@ query SearchNodes(
   # unrelated ambient state (@codex, #595).
   # @genqlient(omitempty: true)
   $appRef: ID
+  # cor:api:100:01 — for a member this selects the "active organization" view,
+  # which is what `scope: "global"` resolves against. Omitted means the server
+  # falls back to a single membership and otherwise refuses, so it carries
+  # omitempty: sending null is not the same as not naming an organization.
+  # @genqlient(omitempty: true)
+  $orgId: ID
 ) {
   findNodes(
     query: $query
@@ -58,6 +64,7 @@ query SearchNodes(
     offset: $offset
     scope: $scope
     appRef: $appRef
+    orgId: $orgId
   ) {
     total
     degraded
