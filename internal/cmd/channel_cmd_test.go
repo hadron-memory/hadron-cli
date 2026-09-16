@@ -441,3 +441,28 @@ func TestChannelReadStateAbsentIsNotAnError(t *testing.T) {
 		t.Errorf("say so plainly, got:\n%s", out.String())
 	}
 }
+
+// TestChannelRmPromptSaysItIsRecoverable — @copilot on #598.
+//
+// deleteChannel is a SOFT delete: the address stays reserved and a restore
+// brings the Channel back. ConfirmDeletion's prompt says "This cannot be
+// undone", which is false here — and telling an operator a recoverable action
+// is permanent makes them refuse a safe change.
+func TestChannelRmPromptSaysItIsRecoverable(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"DeleteChannel": `{"data":{"deleteChannel":true}}`,
+	})
+	f, _, errOut := testFactoryTTY(t, "y\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"channel", "rm", "some-ref", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	prompt := errOut.String()
+	if strings.Contains(prompt, "cannot be undone") {
+		t.Errorf("a soft delete must not be described as permanent: %s", prompt)
+	}
+	if !strings.Contains(prompt, "restored") {
+		t.Errorf("the prompt should say it is recoverable: %s", prompt)
+	}
+}

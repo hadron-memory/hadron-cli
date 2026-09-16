@@ -21,7 +21,11 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Delete a Channel",
 		Long: `Delete a Channel by its id or its address.
 
-This removes the chat room. Requires write access to its host memory.`,
+This is a SOFT delete: the Channel and its chat root go together, the address
+stays reserved while either exists, and a restore brings both back. An App's
+default Channel is unlinked from the App.
+
+Requires write access to the host memory.`,
 		Example: `  hadron channel rm hrn:node:acme.com:team-shared:chats:standup --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -29,7 +33,14 @@ This removes the chat room. Requires write access to its host memory.`,
 			if err != nil {
 				return err
 			}
-			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "channel "+args[0]); err != nil {
+			// NOT ConfirmDeletion: its prompt says "This cannot be undone",
+			// which is false here. deleteChannel is a SOFT delete of the
+			// Channel and its chat root together — the address stays reserved
+			// while either exists, and a restore brings both back. Telling an
+			// operator a recoverable action is permanent makes them refuse a
+			// safe change, which is its own harm (@copilot, #598).
+			if err := cmdutil.Confirm(f.IOStreams, yes,
+				fmt.Sprintf("Delete channel %s? This is a soft delete — its address stays reserved and it can be restored.", args[0])); err != nil {
 				return err
 			}
 			// The mutation returns a BOOLEAN, and false means nothing was
