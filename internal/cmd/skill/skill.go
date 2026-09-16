@@ -240,7 +240,7 @@ func allMemories(cmd *cobra.Command, client graphql.Client) ([]*memoryInfo, erro
 		return pg, nil
 	}
 	shared := func(limit, offset int) (memoryPage, error) {
-		resp, err := gen.MemoriesSharedWithMe(cmd.Context(), client, &limit, &offset)
+		resp, err := gen.MemoriesSharedWithMe(cmd.Context(), client, &limit, &offset, gen.AllMemoryClass)
 		if err != nil || resp.Memories == nil {
 			return memoryPage{}, api.MapError(err)
 		}

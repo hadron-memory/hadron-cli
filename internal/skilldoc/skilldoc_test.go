@@ -303,6 +303,19 @@ func TestParseFileLegacyHeaderAndForeignFiles(t *testing.T) {
 	if _, err := ParseFile([]byte("no frontmatter here")); err == nil {
 		t.Error("frontmatter-less file parsed")
 	}
+	// Provenance is recognised in the preamble only: a foreign skill that
+	// QUOTES our header in its body stays foreign (Codex on #589).
+	quoting := "---\nname: theirs\ndescription: Use when x\n---\n\n# Their skill\n\nHadron writes a line like this:\n\n<!-- hadron-skill source=hrn:node:a:b:tasks:x hash=deadbeefdeadbeef -->\n<!-- Generated from hrn:node:a:b:tasks:x -->\n"
+	q, err := ParseFile([]byte(quoting))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if q.Source != "" || q.Hash != "" {
+		t.Errorf("foreign file claimed via a quoted header in its body: %+v", q)
+	}
+	if !strings.Contains(q.Body, "<!-- hadron-skill") {
+		t.Errorf("a quoted header in the BODY must stay in the body: %q", q.Body)
+	}
 }
 
 func TestRenderSurvivesTheRealParserOnAwkwardDescriptions(t *testing.T) {

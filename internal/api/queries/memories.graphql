@@ -49,8 +49,12 @@ query MemoriesSharedWithMe(
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
+  # Omitted ⇒ the server's default class set, which EXCLUDES agent-system
+  # memories; a whole-corpus caller passes every class (skill lint --all).
+  # @genqlient(omitempty: true)
+  $memoryClasses: [MemoryClass!]
 ) {
-  memories(filter: { sharedWithMe: true }, limit: $limit, offset: $offset) {
+  memories(filter: { sharedWithMe: true, memoryClasses: $memoryClasses }, limit: $limit, offset: $offset) {
     total
     items {
       id

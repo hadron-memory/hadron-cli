@@ -115,7 +115,7 @@ func listOwnUnion(cmd *cobra.Command, client graphql.Client, includeAgentSystem 
 // paging as the default listing.
 func listSharedWithMe(cmd *cobra.Command, client graphql.Client) ([]memoryDTO, error) {
 	items, err := api.CollectAll(func(limit, offset int) ([]*sharedMemory, int, error) {
-		resp, err := gen.MemoriesSharedWithMe(cmd.Context(), client, &limit, &offset)
+		resp, err := gen.MemoriesSharedWithMe(cmd.Context(, nil), client, &limit, &offset)
 		if err != nil {
 			return nil, 0, api.MapError(err)
 		}

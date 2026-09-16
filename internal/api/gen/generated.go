@@ -21589,8 +21589,9 @@ func (v *__MemoriesInput) GetOffset() *int { return v.Offset }
 
 // __MemoriesSharedWithMeInput is used internally by genqlient
 type __MemoriesSharedWithMeInput struct {
-	Limit  *int `json:"limit,omitempty"`
-	Offset *int `json:"offset,omitempty"`
+	Limit         *int          `json:"limit,omitempty"`
+	Offset        *int          `json:"offset,omitempty"`
+	MemoryClasses []MemoryClass `json:"memoryClasses,omitempty"`
 }
 
 // GetLimit returns __MemoriesSharedWithMeInput.Limit, and is useful for accessing the field via an interface.
@@ -21598,6 +21599,9 @@ func (v *__MemoriesSharedWithMeInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __MemoriesSharedWithMeInput.Offset, and is useful for accessing the field via an interface.
 func (v *__MemoriesSharedWithMeInput) GetOffset() *int { return v.Offset }
+
+// GetMemoryClasses returns __MemoriesSharedWithMeInput.MemoryClasses, and is useful for accessing the field via an interface.
+func (v *__MemoriesSharedWithMeInput) GetMemoryClasses() []MemoryClass { return v.MemoryClasses }
 
 // __MemoryAssetsInput is used internally by genqlient
 type __MemoryAssetsInput struct {
@@ -27081,8 +27085,8 @@ func Memories(
 
 // The query executed by MemoriesSharedWithMe.
 const MemoriesSharedWithMe_Operation = `
-query MemoriesSharedWithMe ($limit: Int, $offset: Int) {
-	memories(filter: {sharedWithMe:true}, limit: $limit, offset: $offset) {
+query MemoriesSharedWithMe ($limit: Int, $offset: Int, $memoryClasses: [MemoryClass!]) {
+	memories(filter: {sharedWithMe:true,memoryClasses:$memoryClasses}, limit: $limit, offset: $offset) {
 		total
 		items {
 			id
@@ -27129,13 +27133,15 @@ func MemoriesSharedWithMe(
 	client_ graphql.Client,
 	limit *int,
 	offset *int,
+	memoryClasses []MemoryClass,
 ) (data_ *MemoriesSharedWithMeResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "MemoriesSharedWithMe",
 		Query:  MemoriesSharedWithMe_Operation,
 		Variables: &__MemoriesSharedWithMeInput{
-			Limit:  limit,
-			Offset: offset,
+			Limit:         limit,
+			Offset:        offset,
+			MemoryClasses: memoryClasses,
 		},
 	}
 

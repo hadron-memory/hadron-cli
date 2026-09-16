@@ -183,10 +183,12 @@ func TestSkillLintAllIncludesEveryMemoryClass(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("--all: %v", err)
 	}
-	vars := string(captured["Memories"])
-	for _, class := range []string{"system", "knowledge", "app"} {
-		if !strings.Contains(vars, `"`+class+`"`) {
-			t.Errorf("Memories filter does not name memory class %q: %s", class, vars)
+	for _, op := range []string{"Memories", "MemoriesSharedWithMe"} {
+		vars := string(captured[op])
+		for _, class := range []string{"system", "knowledge", "app"} {
+			if !strings.Contains(vars, `"`+class+`"`) {
+				t.Errorf("%s filter does not name memory class %q: %s", op, class, vars)
+			}
 		}
 	}
 }
