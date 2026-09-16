@@ -193,11 +193,15 @@ Two corrections to the thread, measured on this machine:
 ```
 hadron skill export  (-m <memory>... | --all | --node <ref>...) [--host claude|codex] [--to user|project|plugin|<dir>] [--prefix <p>] [--prune] [--dry-run] [--json]
 hadron skill status  (-m <memory>... | --all)                   [--host claude|codex] [--to user|project|plugin|<dir>] [--prefix <p>] [--strict] [--json]
-hadron skill lint    (-m <memory>... | --all | --node <ref>...) [--host claude|codex]                                   [--prefix <p>] [--strict] [--json]
+hadron skill lint    (-m <memory>... | --all | --node <ref>...)                       [--prefix <p>] [--strict] [--json]
 ```
 
 - `--host` selects the renderer and the host's root/limits (D10); `claude` is
-  the default and the only one specified in this plan.
+  the default and the only one specified in this plan. It lands with `export`
+  and `status` (the verbs that render or read a host's files); `lint` as
+  shipped in #589 has no host-specific behavior and takes no `--host` — the
+  64/1024 caps it enforces are documented as Claude Code's, and a second
+  host's limits arrive with its renderer.
 
 - `-m/--memory` is repeatable; `--all` is every memory the caller can read —
   three listings, each drained with `api.CollectAll` and every memory class
