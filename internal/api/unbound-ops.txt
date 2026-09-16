@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 68 unbound
+[Query] 66 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -22,8 +22,6 @@ calendarEvent
 calendarEvents
 calendarSchedule
 calendars
-channelMessages  # spec-049 (scopes / Channels / register) — the hadron-cli parity split dispatched to Jonas at team-chat seq #611; hadron-cli#578 covers scopes
-channelReadState  # spec-049 (scopes / Channels / register) — the hadron-cli parity split dispatched to Jonas at team-chat seq #611; hadron-cli#578 covers scopes
 chatHistory
 connectionGrant
 creditBalance
@@ -75,11 +73,10 @@ slackConnections
 usageActivity
 usageEvents  # cli#439: no usage command group yet — when one lands, filter a loc with loc:, NEVER nodeId: (shape-classified, swallows any >=3-segment loc as a node URN)
 
-[Mutation] 93 unbound
+[Mutation] 91 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
-advanceChannelReadState  # spec-049 (scopes / Channels / register) — the hadron-cli parity split dispatched to Jonas at team-chat seq #611; hadron-cli#578 covers scopes
 beginAssetUpload
 calendarCreateEvent
 calendarDeleteEvent
@@ -89,7 +86,6 @@ clearAgentAIConfig
 createAgentOrgGrant
 createAppKey
 createAppUser
-createChannelMessage  # spec-049 (scopes / Channels / register) — the hadron-cli parity split dispatched to Jonas at team-chat seq #611; hadron-cli#578 covers scopes
 createDashboardWidgetPreset
 createHomeAssistantInstance
 createRegisterEntry  # spec-049 (scopes / Channels / register) — the hadron-cli parity split dispatched to Jonas at team-chat seq #611; hadron-cli#578 covers scopes

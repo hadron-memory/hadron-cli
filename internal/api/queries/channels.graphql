@@ -121,3 +121,118 @@ mutation UpdateChannel(
 mutation DeleteChannel($ref: ID!) {
   deleteChannel(ref: $ref)
 }
+
+# ---------------------------------------------------------------------------
+# Messaging (spec 049 Phase 8)
+# ---------------------------------------------------------------------------
+
+fragment ChannelMessageFields on TeamChatMessage {
+  seq
+  at
+  body
+  # Display convenience: the worker name or the user handle. Nullable, so
+  # every consumer falls back rather than assuming a name is present.
+  authorName
+  authorWorkerId
+  authorUserId
+  # Phase 8 item J — the Worker's App when the post crossed Apps. A
+  # cross-App post is MARKED, and a transcript that hides the mark
+  # misrepresents who was speaking where.
+  authorAppId
+  sessionId
+  replyToSeq
+  mentions
+  nodeId
+}
+
+# Read a Channel's messages. channelRef is the id or the address.
+#
+# sinceSeq is a watermark (strictly greater). beforeSeq pages BACKWARD and is
+# the stable way to walk history: offset is a position in a list other people
+# are appending to, so it skips or repeats under concurrent posting. offset is
+# IGNORED when beforeSeq is given.
+query ChannelMessages(
+  $channelRef: ID!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+) {
+  channelMessages(
+    channelRef: $channelRef
+    sinceSeq: $sinceSeq
+    beforeSeq: $beforeSeq
+    limit: $limit
+    offset: $offset
+    mentionsRef: $mentionsRef
+  ) {
+    total
+    items {
+      ...ChannelMessageFields
+    }
+  }
+}
+
+# Post into a Channel.
+#
+# sessionRef is what makes the message the WORKER's rather than the human's.
+# It is optional on the wire, and that is the quiet failure the team-chat tools
+# are known for: omitting it posts as the caller, with no error and the wrong
+# authorship recorded. The command surfaces that rather than defaulting it
+# silently.
+mutation CreateChannelMessage(
+  $channelRef: ID!
+  $body: String!
+  # @genqlient(omitempty: true)
+  $replyToSeq: Int
+  # @genqlient(omitempty: true)
+  $sessionRef: ID
+) {
+  createChannelMessage(
+    channelRef: $channelRef
+    body: $body
+    replyToSeq: $replyToSeq
+    sessionRef: $sessionRef
+  ) {
+    ...ChannelMessageFields
+  }
+}
+
+# Where an attendee is up to on a Channel.
+query ChannelReadState(
+  $channelRef: ID!
+  $attendeeRef: ID!
+  # @genqlient(omitempty: true)
+  $appRef: ID
+) {
+  channelReadState(channelRef: $channelRef, attendeeRef: $attendeeRef, appRef: $appRef) {
+    channelId
+    attendeeUrn
+    lastSeenSeq
+    updatedAt
+  }
+}
+
+# Advance an attendee's cursor. MONOTONIC: a lower seq is a no-op that returns
+# the cursor unchanged, so this is safe to call with a stale watermark and the
+# command must not present a no-op as a rewind.
+mutation AdvanceChannelReadState(
+  $channelRef: ID!
+  $attendeeRef: ID!
+  $seq: Int!
+  # @genqlient(omitempty: true)
+  $appRef: ID
+) {
+  advanceChannelReadState(channelRef: $channelRef, attendeeRef: $attendeeRef, seq: $seq, appRef: $appRef) {
+    channelId
+    attendeeUrn
+    lastSeenSeq
+    updatedAt
+  }
+}

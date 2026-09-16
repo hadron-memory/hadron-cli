@@ -549,6 +549,48 @@ type AddOrgMemberResponse struct {
 // GetAddOrgMember returns AddOrgMemberResponse.AddOrgMember, and is useful for accessing the field via an interface.
 func (v *AddOrgMemberResponse) GetAddOrgMember() *AddOrgMemberAddOrgMember { return v.AddOrgMember }
 
+// AdvanceChannelReadStateAdvanceChannelReadState includes the requested fields of the GraphQL type ChannelReadState.
+// The GraphQL type's documentation follows.
+//
+// Spec 049 Phase 7 — where an attendee is up to on a Channel (D-2026-09-13-009).
+// Outside the register; keyed on the ATTENDEE (a Worker, or an Agent in an
+// App); advances are monotonic. Mute is session state, never here.
+type AdvanceChannelReadStateAdvanceChannelReadState struct {
+	ChannelId   string  `json:"channelId"`
+	AttendeeUrn *string `json:"attendeeUrn"`
+	LastSeenSeq int     `json:"lastSeenSeq"`
+	UpdatedAt   string  `json:"updatedAt"`
+}
+
+// GetChannelId returns AdvanceChannelReadStateAdvanceChannelReadState.ChannelId, and is useful for accessing the field via an interface.
+func (v *AdvanceChannelReadStateAdvanceChannelReadState) GetChannelId() string { return v.ChannelId }
+
+// GetAttendeeUrn returns AdvanceChannelReadStateAdvanceChannelReadState.AttendeeUrn, and is useful for accessing the field via an interface.
+func (v *AdvanceChannelReadStateAdvanceChannelReadState) GetAttendeeUrn() *string {
+	return v.AttendeeUrn
+}
+
+// GetLastSeenSeq returns AdvanceChannelReadStateAdvanceChannelReadState.LastSeenSeq, and is useful for accessing the field via an interface.
+func (v *AdvanceChannelReadStateAdvanceChannelReadState) GetLastSeenSeq() int { return v.LastSeenSeq }
+
+// GetUpdatedAt returns AdvanceChannelReadStateAdvanceChannelReadState.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AdvanceChannelReadStateAdvanceChannelReadState) GetUpdatedAt() string { return v.UpdatedAt }
+
+// AdvanceChannelReadStateResponse is returned by AdvanceChannelReadState on success.
+type AdvanceChannelReadStateResponse struct {
+	// Spec 049 Phase 7 — advance an attendee's cursor on a Channel (the relay's
+	// write; §8.7 gate: the caller must be the attendee's DRIVER — a user whose
+	// live session is bound to that Worker, or the App-key principal of the
+	// attendee's App). Monotonic: a lower seq is a no-op that returns the cursor.
+	// channelRef: the Channel's id or its address (`Channel.chatRootUrn`, #1171).
+	AdvanceChannelReadState *AdvanceChannelReadStateAdvanceChannelReadState `json:"advanceChannelReadState"`
+}
+
+// GetAdvanceChannelReadState returns AdvanceChannelReadStateResponse.AdvanceChannelReadState, and is useful for accessing the field via an interface.
+func (v *AdvanceChannelReadStateResponse) GetAdvanceChannelReadState() *AdvanceChannelReadStateAdvanceChannelReadState {
+	return v.AdvanceChannelReadState
+}
+
 // AgentFields includes the GraphQL fields of Agent requested by the fragment AgentFields.
 type AgentFields struct {
 	Id             string          `json:"id"`
@@ -3448,6 +3490,279 @@ func (v *ChannelMemoryMemory) GetUrn() string { return v.Urn }
 // GetName returns ChannelMemoryMemory.Name, and is useful for accessing the field via an interface.
 func (v *ChannelMemoryMemory) GetName() string { return v.Name }
 
+// ChannelMessageFields includes the GraphQL fields of TeamChatMessage requested by the fragment ChannelMessageFields.
+// The GraphQL type's documentation follows.
+//
+// One message in a team App's chat (#939, Worker envelope since #974). Exactly
+// one of authorUserId / authorWorkerId is set: a human post carries the user, a
+// worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
+// driving sessionId. mentions holds the lowercased tokens extracted
+// server-side at write time (the '@worker-name / @handle' format, stored
+// without the '@').
+type ChannelMessageFields struct {
+	// Ordering key, unique per chat, allocated atomically (ascending from 1).
+	Seq  int    `json:"seq"`
+	At   string `json:"at"`
+	Body string `json:"body"`
+	// Display convenience: the worker name or the user handle.
+	AuthorName     *string `json:"authorName"`
+	AuthorWorkerId *string `json:"authorWorkerId"`
+	AuthorUserId   *string `json:"authorUserId"`
+	// Spec 049 Phase 8 (item J): the Worker's App when the post crossed Apps — visible as one in the transcript.
+	AuthorAppId *string `json:"authorAppId"`
+	// The session driving the worker author, when posted via sessionRef.
+	SessionId *string `json:"sessionId"`
+	// The seq this message replies to, when it is a reply.
+	ReplyToSeq *int     `json:"replyToSeq"`
+	Mentions   []string `json:"mentions"`
+	// The message node's id.
+	NodeId string `json:"nodeId"`
+}
+
+// GetSeq returns ChannelMessageFields.Seq, and is useful for accessing the field via an interface.
+func (v *ChannelMessageFields) GetSeq() int { return v.Seq }
+
+// GetAt returns ChannelMessageFields.At, and is useful for accessing the field via an interface.
+func (v *ChannelMessageFields) GetAt() string { return v.At }
+
+// GetBody returns ChannelMessageFields.Body, and is useful for accessing the field via an interface.
+func (v *ChannelMessageFields) GetBody() string { return v.Body }
+
+// GetAuthorName returns ChannelMessageFields.AuthorName, and is useful for accessing the field via an interface.
+func (v *ChannelMessageFields) GetAuthorName() *string { return v.AuthorName }
+
+// GetAuthorWorkerId returns ChannelMessageFields.AuthorWorkerId, and is useful for accessing the field via an interface.
+func (v *ChannelMessageFields) GetAuthorWorkerId() *string { return v.AuthorWorkerId }
+
+// GetAuthorUserId returns ChannelMessageFields.AuthorUserId, and is useful for accessing the field via an interface.
+func (v *ChannelMessageFields) GetAuthorUserId() *string { return v.AuthorUserId }
+
+// GetAuthorAppId returns ChannelMessageFields.AuthorAppId, and is useful for accessing the field via an interface.
+func (v *ChannelMessageFields) GetAuthorAppId() *string { return v.AuthorAppId }
+
+// GetSessionId returns ChannelMessageFields.SessionId, and is useful for accessing the field via an interface.
+func (v *ChannelMessageFields) GetSessionId() *string { return v.SessionId }
+
+// GetReplyToSeq returns ChannelMessageFields.ReplyToSeq, and is useful for accessing the field via an interface.
+func (v *ChannelMessageFields) GetReplyToSeq() *int { return v.ReplyToSeq }
+
+// GetMentions returns ChannelMessageFields.Mentions, and is useful for accessing the field via an interface.
+func (v *ChannelMessageFields) GetMentions() []string { return v.Mentions }
+
+// GetNodeId returns ChannelMessageFields.NodeId, and is useful for accessing the field via an interface.
+func (v *ChannelMessageFields) GetNodeId() string { return v.NodeId }
+
+// ChannelMessagesChannelMessagesTeamChatMessagesPage includes the requested fields of the GraphQL type TeamChatMessagesPage.
+type ChannelMessagesChannelMessagesTeamChatMessagesPage struct {
+	Total int                                                                       `json:"total"`
+	Items []*ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage `json:"items"`
+}
+
+// GetTotal returns ChannelMessagesChannelMessagesTeamChatMessagesPage.Total, and is useful for accessing the field via an interface.
+func (v *ChannelMessagesChannelMessagesTeamChatMessagesPage) GetTotal() int { return v.Total }
+
+// GetItems returns ChannelMessagesChannelMessagesTeamChatMessagesPage.Items, and is useful for accessing the field via an interface.
+func (v *ChannelMessagesChannelMessagesTeamChatMessagesPage) GetItems() []*ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage {
+	return v.Items
+}
+
+// ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage includes the requested fields of the GraphQL type TeamChatMessage.
+// The GraphQL type's documentation follows.
+//
+// One message in a team App's chat (#939, Worker envelope since #974). Exactly
+// one of authorUserId / authorWorkerId is set: a human post carries the user, a
+// worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
+// driving sessionId. mentions holds the lowercased tokens extracted
+// server-side at write time (the '@worker-name / @handle' format, stored
+// without the '@').
+type ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	ChannelMessageFields `json:"-"`
+}
+
+// GetSeq returns ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.Seq, and is useful for accessing the field via an interface.
+func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSeq() int {
+	return v.ChannelMessageFields.Seq
+}
+
+// GetAt returns ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.At, and is useful for accessing the field via an interface.
+func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAt() string {
+	return v.ChannelMessageFields.At
+}
+
+// GetBody returns ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.Body, and is useful for accessing the field via an interface.
+func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetBody() string {
+	return v.ChannelMessageFields.Body
+}
+
+// GetAuthorName returns ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorName, and is useful for accessing the field via an interface.
+func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorName() *string {
+	return v.ChannelMessageFields.AuthorName
+}
+
+// GetAuthorWorkerId returns ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorWorkerId, and is useful for accessing the field via an interface.
+func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorWorkerId() *string {
+	return v.ChannelMessageFields.AuthorWorkerId
+}
+
+// GetAuthorUserId returns ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorUserId, and is useful for accessing the field via an interface.
+func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorUserId() *string {
+	return v.ChannelMessageFields.AuthorUserId
+}
+
+// GetAuthorAppId returns ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorAppId, and is useful for accessing the field via an interface.
+func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorAppId() *string {
+	return v.ChannelMessageFields.AuthorAppId
+}
+
+// GetSessionId returns ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.SessionId, and is useful for accessing the field via an interface.
+func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSessionId() *string {
+	return v.ChannelMessageFields.SessionId
+}
+
+// GetReplyToSeq returns ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.ReplyToSeq, and is useful for accessing the field via an interface.
+func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetReplyToSeq() *int {
+	return v.ChannelMessageFields.ReplyToSeq
+}
+
+// GetMentions returns ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.Mentions, and is useful for accessing the field via an interface.
+func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetMentions() []string {
+	return v.ChannelMessageFields.Mentions
+}
+
+// GetNodeId returns ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.NodeId, and is useful for accessing the field via an interface.
+func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetNodeId() string {
+	return v.ChannelMessageFields.NodeId
+}
+
+func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ChannelMessageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	Seq int `json:"seq"`
+
+	At string `json:"at"`
+
+	Body string `json:"body"`
+
+	AuthorName *string `json:"authorName"`
+
+	AuthorWorkerId *string `json:"authorWorkerId"`
+
+	AuthorUserId *string `json:"authorUserId"`
+
+	AuthorAppId *string `json:"authorAppId"`
+
+	SessionId *string `json:"sessionId"`
+
+	ReplyToSeq *int `json:"replyToSeq"`
+
+	Mentions []string `json:"mentions"`
+
+	NodeId string `json:"nodeId"`
+}
+
+func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) __premarshalJSON() (*__premarshalChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage, error) {
+	var retval __premarshalChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage
+
+	retval.Seq = v.ChannelMessageFields.Seq
+	retval.At = v.ChannelMessageFields.At
+	retval.Body = v.ChannelMessageFields.Body
+	retval.AuthorName = v.ChannelMessageFields.AuthorName
+	retval.AuthorWorkerId = v.ChannelMessageFields.AuthorWorkerId
+	retval.AuthorUserId = v.ChannelMessageFields.AuthorUserId
+	retval.AuthorAppId = v.ChannelMessageFields.AuthorAppId
+	retval.SessionId = v.ChannelMessageFields.SessionId
+	retval.ReplyToSeq = v.ChannelMessageFields.ReplyToSeq
+	retval.Mentions = v.ChannelMessageFields.Mentions
+	retval.NodeId = v.ChannelMessageFields.NodeId
+	return &retval, nil
+}
+
+// ChannelMessagesResponse is returned by ChannelMessages on success.
+type ChannelMessagesResponse struct {
+	// Spec 049 Phase 8 — read ANY Channel by ref (its id, or its address —
+	// `Channel.chatRootUrn`, #1171), with teamChatMessages'
+	// cursors, mentions filter and paging; teamChatMessages is the
+	// appRef → App.defaultChannel convenience over this. Authorization is the
+	// host App's team-chat read gate; a Channel you may not read — or one that
+	// does not exist — is CHANNEL_NOT_FOUND, identically.
+	ChannelMessages *ChannelMessagesChannelMessagesTeamChatMessagesPage `json:"channelMessages"`
+}
+
+// GetChannelMessages returns ChannelMessagesResponse.ChannelMessages, and is useful for accessing the field via an interface.
+func (v *ChannelMessagesResponse) GetChannelMessages() *ChannelMessagesChannelMessagesTeamChatMessagesPage {
+	return v.ChannelMessages
+}
+
+// ChannelReadStateChannelReadState includes the requested fields of the GraphQL type ChannelReadState.
+// The GraphQL type's documentation follows.
+//
+// Spec 049 Phase 7 — where an attendee is up to on a Channel (D-2026-09-13-009).
+// Outside the register; keyed on the ATTENDEE (a Worker, or an Agent in an
+// App); advances are monotonic. Mute is session state, never here.
+type ChannelReadStateChannelReadState struct {
+	ChannelId   string  `json:"channelId"`
+	AttendeeUrn *string `json:"attendeeUrn"`
+	LastSeenSeq int     `json:"lastSeenSeq"`
+	UpdatedAt   string  `json:"updatedAt"`
+}
+
+// GetChannelId returns ChannelReadStateChannelReadState.ChannelId, and is useful for accessing the field via an interface.
+func (v *ChannelReadStateChannelReadState) GetChannelId() string { return v.ChannelId }
+
+// GetAttendeeUrn returns ChannelReadStateChannelReadState.AttendeeUrn, and is useful for accessing the field via an interface.
+func (v *ChannelReadStateChannelReadState) GetAttendeeUrn() *string { return v.AttendeeUrn }
+
+// GetLastSeenSeq returns ChannelReadStateChannelReadState.LastSeenSeq, and is useful for accessing the field via an interface.
+func (v *ChannelReadStateChannelReadState) GetLastSeenSeq() int { return v.LastSeenSeq }
+
+// GetUpdatedAt returns ChannelReadStateChannelReadState.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ChannelReadStateChannelReadState) GetUpdatedAt() string { return v.UpdatedAt }
+
+// ChannelReadStateResponse is returned by ChannelReadState on success.
+type ChannelReadStateResponse struct {
+	// Spec 049 Phase 7 — an attendee's cursor on a Channel (attendeeRef: a Worker,
+	// or an Agent with appRef). Same gate as attendeeRegister; lastSeenSeq 0 when
+	// the attendee has never checkpointed there; null when unreadable or unknown.
+	// channelRef: the Channel's id or its address (`Channel.chatRootUrn`, #1171).
+	ChannelReadState *ChannelReadStateChannelReadState `json:"channelReadState"`
+}
+
+// GetChannelReadState returns ChannelReadStateResponse.ChannelReadState, and is useful for accessing the field via an interface.
+func (v *ChannelReadStateResponse) GetChannelReadState() *ChannelReadStateChannelReadState {
+	return v.ChannelReadState
+}
+
 // ChannelsChannelsChannelsPage includes the requested fields of the GraphQL type ChannelsPage.
 type ChannelsChannelsChannelsPage struct {
 	Total int                                         `json:"total"`
@@ -5107,6 +5422,165 @@ func (v *CreateChannelInput) GetMemoryRef() string { return v.MemoryRef }
 
 // GetName returns CreateChannelInput.Name, and is useful for accessing the field via an interface.
 func (v *CreateChannelInput) GetName() string { return v.Name }
+
+// CreateChannelMessageCreateChannelMessageTeamChatMessage includes the requested fields of the GraphQL type TeamChatMessage.
+// The GraphQL type's documentation follows.
+//
+// One message in a team App's chat (#939, Worker envelope since #974). Exactly
+// one of authorUserId / authorWorkerId is set: a human post carries the user, a
+// worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
+// driving sessionId. mentions holds the lowercased tokens extracted
+// server-side at write time (the '@worker-name / @handle' format, stored
+// without the '@').
+type CreateChannelMessageCreateChannelMessageTeamChatMessage struct {
+	ChannelMessageFields `json:"-"`
+}
+
+// GetSeq returns CreateChannelMessageCreateChannelMessageTeamChatMessage.Seq, and is useful for accessing the field via an interface.
+func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) GetSeq() int {
+	return v.ChannelMessageFields.Seq
+}
+
+// GetAt returns CreateChannelMessageCreateChannelMessageTeamChatMessage.At, and is useful for accessing the field via an interface.
+func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) GetAt() string {
+	return v.ChannelMessageFields.At
+}
+
+// GetBody returns CreateChannelMessageCreateChannelMessageTeamChatMessage.Body, and is useful for accessing the field via an interface.
+func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) GetBody() string {
+	return v.ChannelMessageFields.Body
+}
+
+// GetAuthorName returns CreateChannelMessageCreateChannelMessageTeamChatMessage.AuthorName, and is useful for accessing the field via an interface.
+func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) GetAuthorName() *string {
+	return v.ChannelMessageFields.AuthorName
+}
+
+// GetAuthorWorkerId returns CreateChannelMessageCreateChannelMessageTeamChatMessage.AuthorWorkerId, and is useful for accessing the field via an interface.
+func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) GetAuthorWorkerId() *string {
+	return v.ChannelMessageFields.AuthorWorkerId
+}
+
+// GetAuthorUserId returns CreateChannelMessageCreateChannelMessageTeamChatMessage.AuthorUserId, and is useful for accessing the field via an interface.
+func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) GetAuthorUserId() *string {
+	return v.ChannelMessageFields.AuthorUserId
+}
+
+// GetAuthorAppId returns CreateChannelMessageCreateChannelMessageTeamChatMessage.AuthorAppId, and is useful for accessing the field via an interface.
+func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) GetAuthorAppId() *string {
+	return v.ChannelMessageFields.AuthorAppId
+}
+
+// GetSessionId returns CreateChannelMessageCreateChannelMessageTeamChatMessage.SessionId, and is useful for accessing the field via an interface.
+func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) GetSessionId() *string {
+	return v.ChannelMessageFields.SessionId
+}
+
+// GetReplyToSeq returns CreateChannelMessageCreateChannelMessageTeamChatMessage.ReplyToSeq, and is useful for accessing the field via an interface.
+func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) GetReplyToSeq() *int {
+	return v.ChannelMessageFields.ReplyToSeq
+}
+
+// GetMentions returns CreateChannelMessageCreateChannelMessageTeamChatMessage.Mentions, and is useful for accessing the field via an interface.
+func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) GetMentions() []string {
+	return v.ChannelMessageFields.Mentions
+}
+
+// GetNodeId returns CreateChannelMessageCreateChannelMessageTeamChatMessage.NodeId, and is useful for accessing the field via an interface.
+func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) GetNodeId() string {
+	return v.ChannelMessageFields.NodeId
+}
+
+func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateChannelMessageCreateChannelMessageTeamChatMessage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateChannelMessageCreateChannelMessageTeamChatMessage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ChannelMessageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateChannelMessageCreateChannelMessageTeamChatMessage struct {
+	Seq int `json:"seq"`
+
+	At string `json:"at"`
+
+	Body string `json:"body"`
+
+	AuthorName *string `json:"authorName"`
+
+	AuthorWorkerId *string `json:"authorWorkerId"`
+
+	AuthorUserId *string `json:"authorUserId"`
+
+	AuthorAppId *string `json:"authorAppId"`
+
+	SessionId *string `json:"sessionId"`
+
+	ReplyToSeq *int `json:"replyToSeq"`
+
+	Mentions []string `json:"mentions"`
+
+	NodeId string `json:"nodeId"`
+}
+
+func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) __premarshalJSON() (*__premarshalCreateChannelMessageCreateChannelMessageTeamChatMessage, error) {
+	var retval __premarshalCreateChannelMessageCreateChannelMessageTeamChatMessage
+
+	retval.Seq = v.ChannelMessageFields.Seq
+	retval.At = v.ChannelMessageFields.At
+	retval.Body = v.ChannelMessageFields.Body
+	retval.AuthorName = v.ChannelMessageFields.AuthorName
+	retval.AuthorWorkerId = v.ChannelMessageFields.AuthorWorkerId
+	retval.AuthorUserId = v.ChannelMessageFields.AuthorUserId
+	retval.AuthorAppId = v.ChannelMessageFields.AuthorAppId
+	retval.SessionId = v.ChannelMessageFields.SessionId
+	retval.ReplyToSeq = v.ChannelMessageFields.ReplyToSeq
+	retval.Mentions = v.ChannelMessageFields.Mentions
+	retval.NodeId = v.ChannelMessageFields.NodeId
+	return &retval, nil
+}
+
+// CreateChannelMessageResponse is returned by CreateChannelMessage on success.
+type CreateChannelMessageResponse struct {
+	// Spec 049 Phase 8 — post into ANY Channel by ref (its id, or its address —
+	// `Channel.chatRootUrn`, #1171): the
+	// createTeamChatMessage contract (author derivation, mentions, replyToSeq,
+	// the body cap, item J) addressed by Channel. createTeamChatMessage is the
+	// appRef → App.defaultChannel convenience over this — one gate, two entry
+	// points. A Channel you may not read is CHANNEL_NOT_FOUND; one you may read
+	// but not post into is FORBIDDEN.
+	CreateChannelMessage *CreateChannelMessageCreateChannelMessageTeamChatMessage `json:"createChannelMessage"`
+}
+
+// GetCreateChannelMessage returns CreateChannelMessageResponse.CreateChannelMessage, and is useful for accessing the field via an interface.
+func (v *CreateChannelMessageResponse) GetCreateChannelMessage() *CreateChannelMessageCreateChannelMessageTeamChatMessage {
+	return v.CreateChannelMessage
+}
 
 // CreateChannelResponse is returned by CreateChannel on success.
 type CreateChannelResponse struct {
@@ -22353,6 +22827,26 @@ func (v *__AddOrgMemberInput) GetUserId() string { return v.UserId }
 // GetRole returns __AddOrgMemberInput.Role, and is useful for accessing the field via an interface.
 func (v *__AddOrgMemberInput) GetRole() Role { return v.Role }
 
+// __AdvanceChannelReadStateInput is used internally by genqlient
+type __AdvanceChannelReadStateInput struct {
+	ChannelRef  string  `json:"channelRef"`
+	AttendeeRef string  `json:"attendeeRef"`
+	Seq         int     `json:"seq"`
+	AppRef      *string `json:"appRef,omitempty"`
+}
+
+// GetChannelRef returns __AdvanceChannelReadStateInput.ChannelRef, and is useful for accessing the field via an interface.
+func (v *__AdvanceChannelReadStateInput) GetChannelRef() string { return v.ChannelRef }
+
+// GetAttendeeRef returns __AdvanceChannelReadStateInput.AttendeeRef, and is useful for accessing the field via an interface.
+func (v *__AdvanceChannelReadStateInput) GetAttendeeRef() string { return v.AttendeeRef }
+
+// GetSeq returns __AdvanceChannelReadStateInput.Seq, and is useful for accessing the field via an interface.
+func (v *__AdvanceChannelReadStateInput) GetSeq() int { return v.Seq }
+
+// GetAppRef returns __AdvanceChannelReadStateInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AdvanceChannelReadStateInput) GetAppRef() *string { return v.AppRef }
+
 // __AgentSchedulesInput is used internally by genqlient
 type __AgentSchedulesInput struct {
 	AppRef string `json:"appRef"`
@@ -22572,6 +23066,50 @@ func (v *__CastWorkerPreviewInput) GetName() *string { return v.Name }
 
 // GetPromptOverride returns __CastWorkerPreviewInput.PromptOverride, and is useful for accessing the field via an interface.
 func (v *__CastWorkerPreviewInput) GetPromptOverride() *string { return v.PromptOverride }
+
+// __ChannelMessagesInput is used internally by genqlient
+type __ChannelMessagesInput struct {
+	ChannelRef  string  `json:"channelRef"`
+	SinceSeq    *int    `json:"sinceSeq,omitempty"`
+	BeforeSeq   *int    `json:"beforeSeq,omitempty"`
+	Limit       *int    `json:"limit,omitempty"`
+	Offset      *int    `json:"offset,omitempty"`
+	MentionsRef *string `json:"mentionsRef,omitempty"`
+}
+
+// GetChannelRef returns __ChannelMessagesInput.ChannelRef, and is useful for accessing the field via an interface.
+func (v *__ChannelMessagesInput) GetChannelRef() string { return v.ChannelRef }
+
+// GetSinceSeq returns __ChannelMessagesInput.SinceSeq, and is useful for accessing the field via an interface.
+func (v *__ChannelMessagesInput) GetSinceSeq() *int { return v.SinceSeq }
+
+// GetBeforeSeq returns __ChannelMessagesInput.BeforeSeq, and is useful for accessing the field via an interface.
+func (v *__ChannelMessagesInput) GetBeforeSeq() *int { return v.BeforeSeq }
+
+// GetLimit returns __ChannelMessagesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ChannelMessagesInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __ChannelMessagesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ChannelMessagesInput) GetOffset() *int { return v.Offset }
+
+// GetMentionsRef returns __ChannelMessagesInput.MentionsRef, and is useful for accessing the field via an interface.
+func (v *__ChannelMessagesInput) GetMentionsRef() *string { return v.MentionsRef }
+
+// __ChannelReadStateInput is used internally by genqlient
+type __ChannelReadStateInput struct {
+	ChannelRef  string  `json:"channelRef"`
+	AttendeeRef string  `json:"attendeeRef"`
+	AppRef      *string `json:"appRef,omitempty"`
+}
+
+// GetChannelRef returns __ChannelReadStateInput.ChannelRef, and is useful for accessing the field via an interface.
+func (v *__ChannelReadStateInput) GetChannelRef() string { return v.ChannelRef }
+
+// GetAttendeeRef returns __ChannelReadStateInput.AttendeeRef, and is useful for accessing the field via an interface.
+func (v *__ChannelReadStateInput) GetAttendeeRef() string { return v.AttendeeRef }
+
+// GetAppRef returns __ChannelReadStateInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__ChannelReadStateInput) GetAppRef() *string { return v.AppRef }
 
 // __ChannelsInput is used internally by genqlient
 type __ChannelsInput struct {
@@ -22820,6 +23358,26 @@ type __CreateChannelInput struct {
 
 // GetInput returns __CreateChannelInput.Input, and is useful for accessing the field via an interface.
 func (v *__CreateChannelInput) GetInput() *CreateChannelInput { return v.Input }
+
+// __CreateChannelMessageInput is used internally by genqlient
+type __CreateChannelMessageInput struct {
+	ChannelRef string  `json:"channelRef"`
+	Body       string  `json:"body"`
+	ReplyToSeq *int    `json:"replyToSeq,omitempty"`
+	SessionRef *string `json:"sessionRef,omitempty"`
+}
+
+// GetChannelRef returns __CreateChannelMessageInput.ChannelRef, and is useful for accessing the field via an interface.
+func (v *__CreateChannelMessageInput) GetChannelRef() string { return v.ChannelRef }
+
+// GetBody returns __CreateChannelMessageInput.Body, and is useful for accessing the field via an interface.
+func (v *__CreateChannelMessageInput) GetBody() string { return v.Body }
+
+// GetReplyToSeq returns __CreateChannelMessageInput.ReplyToSeq, and is useful for accessing the field via an interface.
+func (v *__CreateChannelMessageInput) GetReplyToSeq() *int { return v.ReplyToSeq }
+
+// GetSessionRef returns __CreateChannelMessageInput.SessionRef, and is useful for accessing the field via an interface.
+func (v *__CreateChannelMessageInput) GetSessionRef() *string { return v.SessionRef }
 
 // __CreateConnectionGrantInput is used internally by genqlient
 type __CreateConnectionGrantInput struct {
@@ -25083,6 +25641,52 @@ func AddOrgMember(
 	return data_, err_
 }
 
+// The mutation executed by AdvanceChannelReadState.
+const AdvanceChannelReadState_Operation = `
+mutation AdvanceChannelReadState ($channelRef: ID!, $attendeeRef: ID!, $seq: Int!, $appRef: ID) {
+	advanceChannelReadState(channelRef: $channelRef, attendeeRef: $attendeeRef, seq: $seq, appRef: $appRef) {
+		channelId
+		attendeeUrn
+		lastSeenSeq
+		updatedAt
+	}
+}
+`
+
+// Advance an attendee's cursor. MONOTONIC: a lower seq is a no-op that returns
+// the cursor unchanged, so this is safe to call with a stale watermark and the
+// command must not present a no-op as a rewind.
+func AdvanceChannelReadState(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	channelRef string,
+	attendeeRef string,
+	seq int,
+	appRef *string,
+) (data_ *AdvanceChannelReadStateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AdvanceChannelReadState",
+		Query:  AdvanceChannelReadState_Operation,
+		Variables: &__AdvanceChannelReadStateInput{
+			ChannelRef:  channelRef,
+			AttendeeRef: attendeeRef,
+			Seq:         seq,
+			AppRef:      appRef,
+		},
+	}
+
+	data_ = &AdvanceChannelReadStateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by AgentSchedules.
 const AgentSchedules_Operation = `
 query AgentSchedules ($appRef: String!, $limit: Int, $offset: Int) {
@@ -25905,6 +26509,114 @@ func CastWorkerPreview(
 	return data_, err_
 }
 
+// The query executed by ChannelMessages.
+const ChannelMessages_Operation = `
+query ChannelMessages ($channelRef: ID!, $sinceSeq: Int, $beforeSeq: Int, $limit: Int, $offset: Int, $mentionsRef: ID) {
+	channelMessages(channelRef: $channelRef, sinceSeq: $sinceSeq, beforeSeq: $beforeSeq, limit: $limit, offset: $offset, mentionsRef: $mentionsRef) {
+		total
+		items {
+			... ChannelMessageFields
+		}
+	}
+}
+fragment ChannelMessageFields on TeamChatMessage {
+	seq
+	at
+	body
+	authorName
+	authorWorkerId
+	authorUserId
+	authorAppId
+	sessionId
+	replyToSeq
+	mentions
+	nodeId
+}
+`
+
+// Read a Channel's messages. channelRef is the id or the address.
+//
+// sinceSeq is a watermark (strictly greater). beforeSeq pages BACKWARD and is
+// the stable way to walk history: offset is a position in a list other people
+// are appending to, so it skips or repeats under concurrent posting. offset is
+// IGNORED when beforeSeq is given.
+func ChannelMessages(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	channelRef string,
+	sinceSeq *int,
+	beforeSeq *int,
+	limit *int,
+	offset *int,
+	mentionsRef *string,
+) (data_ *ChannelMessagesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ChannelMessages",
+		Query:  ChannelMessages_Operation,
+		Variables: &__ChannelMessagesInput{
+			ChannelRef:  channelRef,
+			SinceSeq:    sinceSeq,
+			BeforeSeq:   beforeSeq,
+			Limit:       limit,
+			Offset:      offset,
+			MentionsRef: mentionsRef,
+		},
+	}
+
+	data_ = &ChannelMessagesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ChannelReadState.
+const ChannelReadState_Operation = `
+query ChannelReadState ($channelRef: ID!, $attendeeRef: ID!, $appRef: ID) {
+	channelReadState(channelRef: $channelRef, attendeeRef: $attendeeRef, appRef: $appRef) {
+		channelId
+		attendeeUrn
+		lastSeenSeq
+		updatedAt
+	}
+}
+`
+
+// Where an attendee is up to on a Channel.
+func ChannelReadState(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	channelRef string,
+	attendeeRef string,
+	appRef *string,
+) (data_ *ChannelReadStateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ChannelReadState",
+		Query:  ChannelReadState_Operation,
+		Variables: &__ChannelReadStateInput{
+			ChannelRef:  channelRef,
+			AttendeeRef: attendeeRef,
+			AppRef:      appRef,
+		},
+	}
+
+	data_ = &ChannelReadStateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by Channels.
 const Channels_Operation = `
 query Channels ($filter: ChannelFilter, $limit: Int, $offset: Int, $orgId: ID) {
@@ -26652,6 +27364,66 @@ func CreateChannel(
 	}
 
 	data_ = &CreateChannelResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateChannelMessage.
+const CreateChannelMessage_Operation = `
+mutation CreateChannelMessage ($channelRef: ID!, $body: String!, $replyToSeq: Int, $sessionRef: ID) {
+	createChannelMessage(channelRef: $channelRef, body: $body, replyToSeq: $replyToSeq, sessionRef: $sessionRef) {
+		... ChannelMessageFields
+	}
+}
+fragment ChannelMessageFields on TeamChatMessage {
+	seq
+	at
+	body
+	authorName
+	authorWorkerId
+	authorUserId
+	authorAppId
+	sessionId
+	replyToSeq
+	mentions
+	nodeId
+}
+`
+
+// Post into a Channel.
+//
+// sessionRef is what makes the message the WORKER's rather than the human's.
+// It is optional on the wire, and that is the quiet failure the team-chat tools
+// are known for: omitting it posts as the caller, with no error and the wrong
+// authorship recorded. The command surfaces that rather than defaulting it
+// silently.
+func CreateChannelMessage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	channelRef string,
+	body string,
+	replyToSeq *int,
+	sessionRef *string,
+) (data_ *CreateChannelMessageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateChannelMessage",
+		Query:  CreateChannelMessage_Operation,
+		Variables: &__CreateChannelMessageInput{
+			ChannelRef: channelRef,
+			Body:       body,
+			ReplyToSeq: replyToSeq,
+			SessionRef: sessionRef,
+		},
+	}
+
+	data_ = &CreateChannelMessageResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

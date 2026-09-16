@@ -9,6 +9,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -31,8 +32,18 @@ This removes the chat room. Requires write access to its host memory.`,
 			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "channel "+args[0]); err != nil {
 				return err
 			}
-			if _, err := gen.DeleteChannel(cmd.Context(), client, args[0]); err != nil {
+			// The mutation returns a BOOLEAN, and false means nothing was
+			// deleted — an unknown ref, or one already gone. Discarding it
+			// reports success with exit 0, so automation treats a failed
+			// delete as a done one (@codex, #598). `schedule rm` and
+			// `webhook rm` check theirs; `org rm` does not, and that is the
+			// one I copied.
+			resp, err := gen.DeleteChannel(cmd.Context(), client, args[0])
+			if err != nil {
 				return api.MapError(err)
+			}
+			if resp == nil || !resp.DeleteChannel {
+				return exitcode.Newf(exitcode.NotFound, "no Channel %q was deleted — it is unreadable or already gone", args[0])
 			}
 			dto := map[string]string{"ref": args[0], "status": "deleted"}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
