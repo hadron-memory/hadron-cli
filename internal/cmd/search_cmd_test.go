@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -545,5 +546,118 @@ func TestSearchSendsTheActiveOrgOnlyForGlobal(t *testing.T) {
 				t.Errorf("an active org must not narrow this search: %s", captured["SearchNodes"])
 			}
 		})
+	}
+}
+
+// TestSearchAppliesTheDefaultScopeAndSaysSo — #578 slice 4.
+//
+// This is the only slice that changes what a FLAGLESS `hadron search` returns,
+// so the disclosure is the feature, not decoration: a narrowing the reader did
+// not ask for and cannot see is indistinguishable from missing data. Asserted
+// in --json (selectedBy) and in the human header, which are separate paths.
+func TestSearchAppliesTheDefaultScopeAndSaysSo(t *testing.T) {
+	seed := func(t *testing.T) (*cmdutil.Factory, *strings.Builder) {
+		t.Helper()
+		f, out := testFactory(t)
+		cfg, err := f.Config()
+		if err != nil {
+			t.Fatalf("config: %v", err)
+		}
+		if err := cfg.Set("scope", "research"); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+		return f, out
+	}
+
+	t.Run("reaches the wire", func(t *testing.T) {
+		gql, captured := captureGraphQL(t, map[string]string{"SearchNodes": searchScopedJSON})
+		f, _ := seed(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"search", "q", "--app", "hrn:app:acme.com:dev", "--json", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		var vars map[string]any
+		_ = json.Unmarshal(captured["SearchNodes"], &vars)
+		if vars["scope"] != "research" {
+			t.Errorf("scope = %v, want the configured default", vars["scope"])
+		}
+	})
+
+	t.Run("json says it came from config", func(t *testing.T) {
+		gql, _ := captureGraphQL(t, map[string]string{"SearchNodes": searchScopedJSON})
+		f, out := seed(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"search", "q", "--app", "hrn:app:acme.com:dev", "--json", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		var dto struct {
+			Scope *struct {
+				SelectedBy string `json:"selectedBy"`
+			} `json:"scope"`
+		}
+		if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if dto.Scope == nil || dto.Scope.SelectedBy != "config" {
+			t.Errorf("selectedBy = %v, want \"config\" — an agent must be able to tell", dto.Scope)
+		}
+	})
+
+	t.Run("human output says it and names the remedy", func(t *testing.T) {
+		gql, _ := captureGraphQL(t, map[string]string{"SearchNodes": searchScopedJSON})
+		f, out := seed(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"search", "q", "--app", "hrn:app:acme.com:dev", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		got := out.String()
+		if !strings.Contains(got, "your default scope") {
+			t.Errorf("the header must say the scope was not asked for, got:\n%s", got)
+		}
+		if !strings.Contains(got, "--scope") {
+			t.Errorf("the header must name the override, got:\n%s", got)
+		}
+	})
+
+	t.Run("an explicit --scope wins and is marked as a flag", func(t *testing.T) {
+		gql, captured := captureGraphQL(t, map[string]string{"SearchNodes": searchScopedJSON})
+		f, out := seed(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"search", "q", "--scope", "global", "--json", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		var vars map[string]any
+		_ = json.Unmarshal(captured["SearchNodes"], &vars)
+		if vars["scope"] != "global" {
+			t.Errorf("the flag must win over the default, got %v", vars["scope"])
+		}
+		var dto struct {
+			Scope *struct {
+				SelectedBy string `json:"selectedBy"`
+			} `json:"scope"`
+		}
+		_ = json.Unmarshal([]byte(out.String()), &dto)
+		if dto.Scope == nil || dto.Scope.SelectedBy != "flag" {
+			t.Errorf("selectedBy = %v, want \"flag\"", dto.Scope)
+		}
+	})
+}
+
+// TestSearchWithNoDefaultScopeIsUnchanged — with nothing configured, a flagless
+// search must behave exactly as it did before this slice.
+func TestSearchWithNoDefaultScopeIsUnchanged(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{"SearchNodes": searchScopedJSON})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"search", "q", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Contains(string(captured["SearchNodes"]), `"scope"`) {
+		t.Errorf("no configured default must mean no scope on the wire: %s", captured["SearchNodes"])
 	}
 }

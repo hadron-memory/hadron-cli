@@ -48,6 +48,13 @@ type resultDTO struct {
 // the server's, and a client that inferred `source` would be a second
 // implementation of it.
 type scopeDTO struct {
+	// SelectedBy is CLIENT-side provenance: "flag" when the caller passed
+	// --scope, "config" when it came from the stored default. Distinct from
+	// Source below, which is the SERVER reporting which rung of its own ladder
+	// resolved the string. Both are needed: the server cannot know a value
+	// came from local config, and the client cannot know how the server
+	// resolved it.
+	SelectedBy   string   `json:"selectedBy"`
 	Kind         string   `json:"kind"`
 	Label        string   `json:"label"`
 	Source       string   `json:"source"`
@@ -169,6 +176,22 @@ and/or/not). --object-type filters the objectType collection facet.
 				offsetArg = &offset
 			}
 
+			// The default scope applies only when --scope was not given. It
+			// changes what a FLAGLESS search returns, which is why every
+			// result says where the scope came from (selectedBy / the header
+			// line): a narrowing the reader did not ask for and cannot see is
+			// indistinguishable from missing data.
+			selectedBy := "flag"
+			if scope == "" {
+				cfg, err := f.Config()
+				if err != nil {
+					return err
+				}
+				if def := cfg.Scope(); def != "" {
+					scope, selectedBy = def, "config"
+				}
+			}
+
 			var scopeArg, orgArg, appArg *string
 			if scope != "" {
 				appCtx, err := requireAppContextForScope(f, scope)
@@ -214,6 +237,7 @@ and/or/not). --object-type filters the objectType collection facet.
 					urns = []string{}
 				}
 				result.Scope = &scopeDTO{
+					SelectedBy:   selectedBy,
 					Kind:         sc.Kind,
 					Label:        sc.Label,
 					Source:       sc.Source,
@@ -367,6 +391,11 @@ func scopeLine(s *scopeDTO) string {
 		label = s.Kind
 	}
 	line := fmt.Sprintf("scope: %s (%s, via %s)", label, s.Kind, s.Source)
+	if s.SelectedBy == "config" {
+		// Said plainly and with the remedy: this search was narrowed by a
+		// setting, not by anything on this command line.
+		line += " [your default scope — override with --scope, clear with `hadron scope use \"\"`]"
+	}
 	if s.DroppedCount > 0 {
 		// Count only, never names: the server withholds them deliberately so a
 		// lens cannot be used to enumerate memories the caller may not read.

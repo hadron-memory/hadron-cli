@@ -584,3 +584,70 @@ func TestScopeExplainOmitsAnUnrequestedMemoryList(t *testing.T) {
 		t.Error("the top-level resolved list should be populated")
 	}
 }
+
+// TestScopeUseVerifiesAnIDAndStoresTrimmed — @codex on #597, two findings.
+//
+// (1) resolveScopeID short-circuits on id SHAPE without a round trip, so
+// verification silently did nothing for an id: `scope use <typo-id>` stored an
+// unreadable default that then failed every later flagless search.
+//
+// (2) resolveScopeID trims internally, so an untrimmed argument verified fine
+// and was then persisted WITH its whitespace — reported as verified, unusable
+// afterwards.
+func TestScopeUseVerifiesAnIDAndStoresTrimmed(t *testing.T) {
+	t.Run("an unreadable id is refused, not stored", func(t *testing.T) {
+		gql, captured := captureGraphQL(t, map[string]string{
+			"GetScope": `{"data":{"scope":null}}`,
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"scope", "use", "0123456789abcdef0123456789abcdef", "--server", gql.URL})
+		if err := root.Execute(); err == nil {
+			t.Fatal("an id-form default must be verified, or a typo poisons every later search")
+		}
+		if _, ok := captured["GetScope"]; !ok {
+			t.Error("verification must actually read the scope for an id")
+		}
+		cfg, err := f.Config()
+		if err != nil {
+			t.Fatalf("config: %v", err)
+		}
+		if got := cfg.Scope(); got != "" {
+			t.Errorf("a refused value must not be stored, got %q", got)
+		}
+	})
+
+	t.Run("the stored value is trimmed", func(t *testing.T) {
+		gql, _ := captureGraphQL(t, map[string]string{
+			"GetScope": `{"data":{"scope":` + scopeJSON + `}}`,
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"scope", "use", "  0123456789abcdef0123456789abcdef  ", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		cfg, err := f.Config()
+		if err != nil {
+			t.Fatalf("config: %v", err)
+		}
+		if got := cfg.Scope(); got != "0123456789abcdef0123456789abcdef" {
+			t.Errorf("stored %q — a value verified after trimming must be stored trimmed", got)
+		}
+	})
+
+	t.Run("keywords need no round trip", func(t *testing.T) {
+		for _, kw := range []string{"app", "global"} {
+			gql, captured := captureGraphQL(t, map[string]string{})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"scope", "use", kw, "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("%s: %v", kw, err)
+			}
+			if len(captured) != 0 {
+				t.Errorf("%s resolves per-invocation and must not be pinned now: %v", kw, captured)
+			}
+		}
+	})
+}
