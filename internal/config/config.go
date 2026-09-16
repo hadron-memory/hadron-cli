@@ -24,6 +24,7 @@ var Keys = map[string]string{
 	"memory":      "default memory URN or ID (set via hadron memory set-active)",
 	"spec_memory": "default memory for spec commands (set via hadron spec use); overrides the global memory for `hadron spec`",
 	"org":         "active organization — an organization root, URN or id (set via hadron org use); what `--scope global` resolves against",
+	"scope":       "default search scope — a scope name, id, `app` or `global` (set via hadron scope use); applied when `hadron search` is run without --scope",
 }
 
 type Config struct {
@@ -67,6 +68,13 @@ func (c *Config) App() string { return c.v.GetString("app") }
 
 // Memory returns the default memory URN or ID, or "" for no memory context.
 func (c *Config) Memory() string { return c.v.GetString("memory") }
+
+// Scope returns the default search scope, or "" for none.
+//
+// A search that applies this instead of the caller's flag MUST say so: it
+// changes what a flagless `hadron search` returns, and a narrowing the reader
+// did not ask for and cannot see is indistinguishable from missing data.
+func (c *Config) Scope() string { return c.v.GetString("scope") }
 
 // Org returns the active organization ref, or "" for none.
 //

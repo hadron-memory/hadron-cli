@@ -1,6 +1,6 @@
 # Named search scopes + active organization (#578)
 
-Status: **in progress** — slices 1-3 in review, slice 4 to come.
+Status: **as built** — all four slices in review (#594 → #595 → #596 → #597).
 Server: spec 049 Phases 1–2, on `hadron-server` `main` (#1158 active org, #1160 scopes).
 Issue: [#578](https://github.com/hadron-memory/hadron-cli/issues/578).
 
@@ -122,7 +122,23 @@ Reported, not filed (cross-repo).
 | **1** | `hadron scope list/get/create/update/rm` + `explain` | The noun itself. Self-contained; no other command changes. |
 | **2** | `hadron search --scope` + disclosure in table and `--json` | Touches `search`, which every agent parses — kept apart from slice 1 so a `--json` regression has one suspect. |
 | **3** | `hadron org use` + `org` config key + `--scope global` | The pair from §4. |
-| **4** | `scope` config key (session/default scope), ladder disclosure in `--json` | Last because it is the only part that changes what a *flagless* search does. |
+| **4** | `scope` config key (session/default scope) + provenance disclosure | Last because it is the only part that changes what a *flagless* search does. |
+
+**Slice 4's disclosure is the feature, not decoration.** Two provenance facts
+are reported and they are NOT the same thing:
+
+- `scope.source` — the SERVER's: which rung of its ladder resolved the string.
+- `scope.selectedBy` — the CLIENT's: `"flag"` or `"config"`.
+
+Neither side can supply the other. The server cannot know a value came from
+local config; the client cannot know how the server resolved it. A search
+narrowed by a stored setting, with no way for the reader to see it, is
+indistinguishable from missing data — so the human header names the override
+and the clear command, and `--json` carries `selectedBy` for an agent.
+
+`app` and `global` are stored as typed and never pinned to an id: they resolve
+per-invocation against whatever App / organization context the later search runs
+in, which is the point of them.
 
 Each slice is one PR.
 

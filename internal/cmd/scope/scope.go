@@ -44,6 +44,7 @@ A scope is addressed by its name (resolved in an App's context) or by its id.`,
 	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdRm(f))
 	cmd.AddCommand(newCmdExplain(f))
+	cmd.AddCommand(newCmdSetActive(f))
 	return cmd
 }
 
@@ -54,6 +55,13 @@ type scopeFields = gen.ScopeFields
 // classifier is wrong. Scope names allow [a-z0-9_-], so a 32-character all-hex
 // NAME is also id-shaped and would otherwise be sent as a primary key, leaving
 // the scope unreachable by every verb that takes <name|id>.
+// The two scope keywords the server reserves. They resolve per-invocation
+// against the App / organization context, so they are never pinned to an id.
+const (
+	scopeKeywordApp    = "app"
+	scopeKeywordGlobal = "global"
+)
+
 const byNameUsage = "treat the argument as a NAME even if it is id-shaped (a 32-character all-hex name is a legal scope name)"
 
 // scopeDTO is the stable --json shape of one scope.
