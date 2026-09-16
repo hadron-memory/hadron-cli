@@ -17,6 +17,21 @@ import (
 // hex characters.
 var reNodeID = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
+// IsBareID reports whether ref has the shape of an opaque platform id — 32
+// lowercase hex characters — rather than a name, loc, or URN.
+//
+// The server mints ids in this one shape for every entity, so entities with no
+// URN yet (a Scope, a Channel — spec 049 says "no URN yet" for both) need the
+// same discriminator that IsNodeID applies to nodes. This is that rule, named
+// for what it actually tests, with IsNodeID as the node-specific spelling of
+// it; the point is that the shape lives in ONE place and cannot drift between
+// two copies of the regex.
+//
+// See IsNodeID for why the rule is deliberately NOT widened to CUIDs.
+func IsBareID(ref string) bool {
+	return reNodeID.MatchString(strings.TrimSpace(ref))
+}
+
 // IsNodeID reports whether ref is a bare node id rather than a URN or loc.
 //
 // Every --json surface prints these (`id`, and `otherNodeId` on each edge) and
@@ -38,7 +53,7 @@ var reNodeID = regexp.MustCompile(`^[0-9a-f]{32}$`)
 // node is still addressable by its URN — whereas widening breaks refs that work
 // today.
 func IsNodeID(ref string) bool {
-	return reNodeID.MatchString(strings.TrimSpace(ref))
+	return IsBareID(ref)
 }
 
 // IsQualifiedNodeRef reports whether ref already names its own memory — a
