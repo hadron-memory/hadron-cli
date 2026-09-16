@@ -63,10 +63,15 @@ func TestDeclared(t *testing.T) {
 	if !ok || d.Key != "claudeSkill" || d.Name != "old-name" {
 		t.Fatalf("legacy key: ok=%v d=%+v", ok, d)
 	}
-	// The new key wins over a legacy key left behind by a migration.
-	d, ok = Declared(map[string]any{"skill": map[string]any{"description": "new"}, "claudeSkill": map[string]any{"description": "old"}})
-	if !ok || d.Key != "skill" || d.Description != "new" {
+	// The new key wins over a legacy key left behind by a migration — and the
+	// leftover is still a warning (Copilot on #589).
+	both := map[string]any{"skill": map[string]any{"description": "Use when new"}, "claudeSkill": map[string]any{"description": "old"}}
+	d, ok = Declared(both)
+	if !ok || d.Key != "skill" || d.Description != "Use when new" {
 		t.Fatalf("both keys: ok=%v d=%+v", ok, d)
+	}
+	if got := rules(Lint(Node{URN: "u", Loc: "tasks:x", IsRunnable: true, Content: "b", Properties: both}, Prefix{Value: "hadron-", Known: true})); got["skill-legacy-key"] != SevWarning {
+		t.Errorf("leftover claudeSkill beside skill not warned: %v", got)
 	}
 	// Not an object ⇒ not declared: a stray string under the key is not an opt-in.
 	if _, ok := Declared(map[string]any{"skill": "yes"}); ok {
@@ -481,6 +486,20 @@ func TestLimitsCountCharactersNotBytes(t *testing.T) {
 	}
 	if got := rules(Lint(declaring("tasks:a", desc, nil), Prefix{Value: "hadron-", Known: true})); got["skill-description-too-long"] != "" {
 		t.Errorf("at-limit description flagged as too long: %v", got)
+	}
+}
+
+func TestLintNonStringNameOrDescriptionIsMalformed(t *testing.T) {
+	// Copilot on #589: a numeric hand-set name was silently ignored, escaping
+	// the rule that a stored name must equal the derived one.
+	for _, props := range []map[string]any{
+		{"skill": map[string]any{"description": "Use when x", "name": 123}},
+		{"skill": map[string]any{"description": 42}},
+	} {
+		n := Node{URN: "u", Loc: "tasks:x", IsRunnable: true, Content: "b", Properties: props}
+		if got := rules(Lint(n, Prefix{Value: "hadron-", Known: true})); got["skill-declaration-malformed"] != SevError {
+			t.Errorf("props %v: want malformed error, got %v", props, got)
+		}
 	}
 }
 

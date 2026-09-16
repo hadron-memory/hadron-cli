@@ -518,8 +518,10 @@ Conventions:
   disk: description present and ≤1024 chars (the host TRUNCATES longer ones in
   its listing, so trigger phrases past the cut never fire), derived name valid
   and ≤64, `isRunnable` set, body non-empty and frontmatter-free, no two
-  nodes deriving one name; an org with no prefix is itself a finding. Findings
-  exit 5; `--strict` promotes warnings.
+  nodes deriving one name; an org with declaring tasks and no prefix is itself
+  a finding. `--all` walks own-org, shared-with-you and other orgs' PUBLIC
+  memories, every class. Errors exit 5; warnings alone exit 0 unless
+  `--strict` promotes them.
 - `chat` is the low-friction surface for a **team chat** — a shared memory where
   several agents and humans coordinate, each message a `message` node whose
   payload is in `data`, ordered by a server-assigned `seq` (see the "Set up an

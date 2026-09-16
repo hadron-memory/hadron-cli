@@ -35,9 +35,6 @@ type (
 // because the server caps an unbounded listing at one default page (#23).
 const listPageSize = 500
 
-// memoriesPageSize bounds one page of the memory listing used by --all.
-const memoriesPageSize = 200
-
 // NewCmdSkill returns the `hadron skill` command group.
 func NewCmdSkill(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
@@ -162,6 +159,7 @@ func selectNodes(cmd *cobra.Command, client graphql.Client, sel *selectorFlags) 
 		}
 		refs = append(refs, canon)
 	}
+	refs = dedupe(refs) // a ref named twice must not lint twice, nor collide with itself
 	if len(refs) == 0 {
 		return out, nil
 	}
@@ -208,79 +206,76 @@ func lookupMemory(cmd *cobra.Command, client graphql.Client, ref string) (*memor
 	return info, nil
 }
 
-// memoryPage is the slice of one memory-listing item the skill commands read,
-// shared by the own-org and shared-with-me listings so both feed one loop.
-type memoryPage struct {
-	items []*memoryInfo
-	full  bool // the page was as long as requested: there may be more
-}
-
-// allMemories lists every memory the caller can read: own-org memories plus
-// those shared with them, both paged to exhaustion through one loop and
-// de-duplicated by id.
+// allMemories lists every memory the caller can read — own-org, shared with
+// them, and other orgs' PUBLIC memories — each drained through the shared
+// api.CollectAll pager (which pages on the envelope's total, not on a
+// page-length heuristic), every class in each, de-duplicated by id.
 func allMemories(cmd *cobra.Command, client graphql.Client) ([]*memoryInfo, error) {
 	// Every class, explicitly: a nil filter excludes agent-system memories by
 	// default (memories.graphql), and a task declared in one would otherwise
 	// be missed while `--all` reports a clean corpus — the same
-	// all-clear-wider-than-the-read shape as the isRunnable scan (§4.1).
+	// all-clear-wider-than-the-read shape as an isRunnable scan (§4.1).
 	all := &gen.MemoryFilter{MemoryClasses: gen.AllMemoryClass}
 	pub := gen.MemoryVisibilityPublic
-	// "Every memory you can read" is three listings, not two: own-org, shared
-	// with you, and PUBLIC memories of other orgs — a separate slice of the
-	// MemoryFilter contract (Codex on #589, round 4). De-duplicated by id.
 	public := &gen.MemoryFilter{MemoryClasses: gen.AllMemoryClass, Visibility: &pub}
-	page := func(filter *gen.MemoryFilter) func(int, int) (memoryPage, error) {
-		return func(limit, offset int) (memoryPage, error) {
+	type item = gen.MemoriesMemoriesMemoriesPageItemsMemory
+	listing := func(filter *gen.MemoryFilter) func(int, int) ([]*item, int, error) {
+		return func(limit, offset int) ([]*item, int, error) {
 			resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset)
-			if err != nil || resp.Memories == nil {
-				return memoryPage{}, api.MapError(err)
+			if err != nil {
+				return nil, 0, api.MapError(err)
 			}
-			pg := memoryPage{full: len(resp.Memories.Items) == limit}
-			for _, m := range resp.Memories.Items {
-				var prefix *string
-				if m.Organization != nil {
-					prefix = m.Organization.SkillPrefix
-				}
-				pg.items = append(pg.items, &memoryInfo{ID: m.Id, URN: m.Urn, OrganizationID: m.OrganizationId, SkillPrefix: prefix})
+			if resp.Memories == nil {
+				return nil, 0, nil
 			}
-			return pg, nil
+			return resp.Memories.Items, resp.Memories.Total, nil
 		}
 	}
-	own := page(all)
-	shared := func(limit, offset int) (memoryPage, error) {
-		resp, err := gen.MemoriesSharedWithMe(cmd.Context(), client, &limit, &offset, gen.AllMemoryClass)
-		if err != nil || resp.Memories == nil {
-			return memoryPage{}, api.MapError(err)
-		}
-		pg := memoryPage{full: len(resp.Memories.Items) == limit}
-		for _, m := range resp.Memories.Items {
-			var prefix *string
-			if m.Organization != nil {
-				prefix = m.Organization.SkillPrefix
-			}
-			pg.items = append(pg.items, &memoryInfo{ID: m.Id, URN: m.Urn, OrganizationID: m.OrganizationId, SkillPrefix: prefix})
-		}
-		return pg, nil
-	}
-
 	seen := map[string]bool{}
 	var out []*memoryInfo
-	for _, fetch := range []func(int, int) (memoryPage, error){own, shared, page(public)} {
-		for offset := 0; ; offset += memoriesPageSize {
-			pg, err := fetch(memoriesPageSize, offset)
-			if err != nil {
-				return nil, err
-			}
-			for _, m := range pg.items {
-				if !seen[m.ID] {
-					seen[m.ID] = true
-					out = append(out, m)
-				}
-			}
-			if !pg.full {
-				break
-			}
+	add := func(id, urn string, orgID *string, org interface{ GetSkillPrefix() *string }) {
+		if seen[id] {
+			return
 		}
+		seen[id] = true
+		m := &memoryInfo{ID: id, URN: urn, OrganizationID: orgID}
+		if org != nil {
+			m.SkillPrefix = org.GetSkillPrefix()
+		}
+		out = append(out, m)
+	}
+	for _, filter := range []*gen.MemoryFilter{all, public} {
+		items, err := api.CollectAll(listing(filter))
+		if err != nil {
+			return nil, err
+		}
+		for _, m := range items {
+			var org interface{ GetSkillPrefix() *string }
+			if m.Organization != nil {
+				org = m.Organization
+			}
+			add(m.Id, m.Urn, m.OrganizationId, org)
+		}
+	}
+	shared, err := api.CollectAll(func(limit, offset int) ([]*gen.MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory, int, error) {
+		resp, err := gen.MemoriesSharedWithMe(cmd.Context(), client, &limit, &offset, gen.AllMemoryClass)
+		if err != nil {
+			return nil, 0, api.MapError(err)
+		}
+		if resp.Memories == nil {
+			return nil, 0, nil
+		}
+		return resp.Memories.Items, resp.Memories.Total, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, m := range shared {
+		var org interface{ GetSkillPrefix() *string }
+		if m.Organization != nil {
+			org = m.Organization
+		}
+		add(m.Id, m.Urn, m.OrganizationId, org)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].URN < out[j].URN })
 	return out, nil
@@ -329,6 +324,19 @@ func fetchNodes(cmd *cobra.Command, client graphql.Client, refs []string) ([]*ba
 		}
 		return resp.NodeBatch, nil
 	})
+}
+
+// dedupe keeps the first occurrence of each ref, in order.
+func dedupe(refs []string) []string {
+	seen := map[string]bool{}
+	out := refs[:0]
+	for _, r := range refs {
+		if !seen[r] {
+			seen[r] = true
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // canonicalNodeArg canonicalizes a --node value for nodeBatch, which takes an

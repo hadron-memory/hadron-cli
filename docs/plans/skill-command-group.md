@@ -81,17 +81,18 @@ Four facts fall out of that table and shape the design:
    which is Bo's point 1 arriving as data: `hadron-mm-briefing` for a node owned
    by the `holger` root would name the wrong owner.
 
-**The corpus, measured live with `hadron skill lint --all` (2026-09-16, first
-run of the command against production, read-only):** 53 readable memories,
-of which 13 hold skill-declaring nodes; 6 descriptions over the limit (the
-same six as the disk table); 16 hand-set names that disagree with the derived
-one; 23 declarations still under the legacy `claudeSkill` key; 2 declaring
-nodes not marked runnable (`hadron-mcp:add-node`,
-`micromentor.org:specs:working-with-product-specs`); and every org except
-`hadronmemory.com` still without a prefix. The first `--all` run also
-produced two false classes the fakes could not have shown — a prefix-missing
-finding on 46 memories with nothing to export, and a "collision" between two
-prefix-less orgs — both fixed before the verb shipped (§5.3).
+**The corpus, measured live with `hadron skill lint --all` as built (2026-09-16,
+read-only against production, after the review rounds):** 14 memories hold
+skill-declaring nodes; **63 findings** — 6 descriptions over the limit (the
+same six as the disk table), 15 hand-set names that disagree with the derived
+one, 27 declarations still under the legacy `claudeSkill` key, 3 declaring
+nodes not marked runnable, 1 with an empty body, and 6 memories whose org has
+no prefix (every org except `hadronmemory.com`). The first run reported fewer
+(54 across 12) because `--all` then read only own-org and shared memories; the
+PUBLIC listing was added in review. That first run also produced two false
+classes the fakes could not have shown — a prefix-missing finding on 46
+memories with nothing to export, and a "collision" between two prefix-less
+orgs — both fixed before the verb shipped (§5.3).
 
 Two corrections to the thread, measured on this machine:
 
@@ -198,8 +199,12 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...) [--host claude|c
 - `--host` selects the renderer and the host's root/limits (D10); `claude` is
   the default and the only one specified in this plan.
 
-- `-m/--memory` is repeatable; `--all` is every memory the caller can read
-  (`Memories` + `MemoriesSharedWithMe`, paged). One of the three selectors is
+- `-m/--memory` is repeatable; `--all` is every memory the caller can read —
+  three listings, each drained with `api.CollectAll` and every memory class
+  named explicitly (a nil filter hides agent-system memories): own-org
+  (`Memories`), shared with you (`MemoriesSharedWithMe`), and other orgs'
+  PUBLIC memories (`Memories` with `visibility: PUBLIC`), de-duplicated by
+  id. One of the three selectors is
   required (`exit 2` otherwise) — no active-memory fallback, because an export
   that silently targets "whatever memory was active" is how a customer's tasks
   end up on the wrong disk.
@@ -210,10 +215,10 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...) [--host claude|c
 - `lint` runs on the corpus and touches no disk; `status` reads both and writes
   nothing; `export` is the only writer. Bo's line: *lint on the corpus, status on
   the disk, export bridges them.*
-- Exit codes follow `spec lint`: findings ⇒ `Conflict` (5) via
-  `exitcode.Silent`; `--strict` promotes warnings to findings. `status` exits 0
-  with drift reported unless `--strict`, so a CI drift gate is
-  `hadron skill status … --strict`.
+- Exit codes follow `spec lint`: an ERROR finding ⇒ `Conflict` (5) via
+  `exitcode.Silent`; warnings alone exit 0; `--strict` promotes warnings to
+  errors. `status` exits 0 with drift reported unless `--strict`, so a CI
+  drift gate is `hadron skill status … --strict`.
 
 ## 4. The model
 
@@ -225,12 +230,17 @@ is the existing opt-in and stays the only one — "declared, not merely runnable
 is what stops a stray runnable node being published. `isRunnable` is a lint
 precondition (§5.3), not the selector.
 
-Discovery: per memory, `findNodes(filter: {memoryIds, isRunnable: true})` paged
-to exhaustion (the `nodes` cap, #23), then the client checks `properties`. The
-runnable set is small (50+ platform-wide), so scanning it is cheaper than a
-`where` predicate that only works on schema'd memories. Bodies are then fetched
-in one `NodeBatch` per memory (`api.CollectNodeBatch`; `unavailable` surfaced,
-never dropped).
+Discovery is server-side and deliberately NOT an `isRunnable` scan (which
+would hide exactly the nodes the not-runnable rule exists to catch): ONE
+`findNodes` over every selected memory id with a `where` predicate —
+`properties.skill` exists OR `properties.claudeSkill` exists (#719; verified
+to hold on the server) — paged to exhaustion at 500 rows, under the server's
+2000-row clamp so a short page really is the end. Bodies then come through
+one `api.CollectNodeBatch` fan-out over the listed ids (200-node / 1 MB
+chunks, spillover re-queued), `unavailable` surfaced as a warning and never
+dropped. `--node` refs are canonicalized and de-duplicated locally; a bare
+loc or a scheme-prefixed ref of another kind is a usage error before any
+request.
 
 ### 4.2 Name derivation
 
@@ -272,10 +282,23 @@ description: <properties.claudeSkill.description, verbatim>
   must read as stale, because the description is the trigger. Since every input
   is present in the file itself, the hash is **recomputable from the file
   without the server**, which is what makes "locally edited" detectable (§4.5).
-- Frontmatter is emitted by hand (two known keys), not via
-  `nodedoc.RenderMarkdown` — that codec's frontmatter is the node round-trip
-  shape (loc, memory, tags, edges…), and a skill host reading unknown keys is a
-  risk this feature does not need.
+- Frontmatter carries exactly two keys and goes through the real YAML encoder
+  (`nodedoc.MarshalYAML`, the `go.yaml.in/yaml/v3` dependency nodedoc already
+  has) and is read back with the same library — never hand-quoted: a
+  description ending in a colon is a plain scalar a hand check passes and a
+  real parser rejects, and the skill host IS a real parser (review round 1).
+  Not `nodedoc.RenderMarkdown`, whose header is the node round-trip shape.
+- **One normalization, shared by lint, render, hash and parse:**
+  `NormalizeDescription` (surrounding whitespace trimmed) and `NormalizeBody`
+  (CRLF folded to LF, surrounding newlines trimmed). The length lint
+  certifies is the length on disk; a body wrapped in blank lines, or
+  authored on Windows, hashes equal to its own header.
+- **Provenance is recognized only in the preamble** immediately after the
+  frontmatter, and only as the exact lines the renderer writes (the machine
+  line by its full `key=value` grammar, the human lines verbatim, the legacy
+  line only with a URN-shaped token). A foreign skill that quotes our header
+  in its body stays foreign; a body that opens with its own HTML comment
+  keeps it. The parser's preamble strip is the exact inverse of `Render`.
 
 ### 4.4 Pairing disk to corpus: by URN, never by name
 
@@ -338,19 +361,25 @@ skill**, so the corpus's unexported surface is visible without being exported.
 
 ### 5.3 `skill lint`
 
-Corpus-only rules, each naming the node and the fix:
+Corpus-only rules, each naming the node and the fix. A node is selected by the
+discovery predicate; `properties.skill` is the declaration (the legacy
+`properties.claudeSkill` is read as an alias during transition):
 
 | rule | level |
 |---|---|
-| `claudeSkill.description` present and non-empty | error |
-| description ≤ 1024 chars (measured length, with the count) | error |
-| derived name valid and ≤ 64 (§4.2) | error |
-| `claudeSkill.name`, if present, equals the derived name (D8) | error |
-| `isRunnable == true` | error |
-| no two nodes in the selection derive the same name under one prefix (§1.3) | error |
-| content non-empty and contains no leading `---` frontmatter (the body is the body) | error |
-| description ends with trigger phrasing (`Use when …`) | warning |
-| content contains `{{…}}` (Mustache) — export is verbatim, so a template placeholder ships as text; flags it for a deliberate decision | warning |
+| `skill-declaration-malformed` — a declaration key that is not an object, or a `description`/`name` inside one that is not a string (reported even beside a valid key: the node is mid-migration) | error |
+| `skill-description-missing` | error |
+| `skill-description-too-long` — > 1024 **characters** (code points, as the host's validator counts), measured on the normalized text, with the overrun stated | error |
+| `skill-name-invalid` — derived name (§4.2) not kebab-case or > 64 | error |
+| `skill-name-hand-set` — a stored `name` that differs from the derived one (D8); judged only when the prefix is known | error |
+| `skill-not-runnable` | error |
+| `skill-content-empty` / `skill-content-has-frontmatter` (a COMPLETE `---…---` block; a leading horizontal rule is a body) | error |
+| `skill-prefix-missing` — per memory, only where a declaring node exists (a memory with nothing to export is silent) | error |
+| `skill-name-collision` — two selected nodes derive one name; nodes with no known prefix are excluded (their names cannot be derived, and two prefix-less orgs are not a collision) | error |
+| `skill-legacy-key` — declared under `claudeSkill`, or `claudeSkill` left beside `skill` | warning |
+| `skill-description-no-trigger` — no "use when" phrasing | warning |
+| `skill-content-has-template` — a `{{…}}` placeholder; export is verbatim | warning |
+| `skill-node-unavailable` — listed but unreadable (not found, or not readable by you — the server's merged envelope, cor:api:040) | warning |
 
 ## 6. The plugin target (Bo's point 4)
 
@@ -377,28 +406,31 @@ set changes (existing rule).
 - Any write to a node. The corpus stays the source; this is one-way publishing.
 - Other skill hosts (Cursor rules, etc.) — the header format carries no
   host-specific key so a second target can be added without breaking `status`.
-- The server-side prefix field (D7.1) — a hadron-server issue if chosen.
 - Deduplicating the forks — Eli's corpus work (§9). The command refuses the
   collision; it does not resolve it.
 - The `h-*` slash commands — local files, not this repo's.
 
 ## 8. Implementation slices (Jonas)
 
-1. **`internal/skill` (pure, no cobra):** `DeriveName`, `Hash`, `RenderFile`,
-   `ParseHeader` (both header generations), `Lint(node) []Finding`,
-   `Classify(pairing) Class`. Table-driven unit tests: derivation cases incl.
-   root-level locs and nested `tasks:a:b`; hash stability; header parse of the
-   old `Generated from` form; every drift class from a fixture pair.
-2. **Discovery + the prefix read:** `findNodes` paged (`isRunnable: true`,
-   `memoryIds`), `--all` over `Memories` + `MemoriesSharedWithMe`,
-   `CollectNodeBatch` per memory, `unavailable` surfaced. `FindNodes` is the
-   id scan only (it projects `id`/`isRunnable`); `NodeBatch` already projects
-   `properties`, `isRunnable`, `content`, `updatedAt` and `urn` — the whole
-   node read, unchanged. **The one schema touch is the prefix (D7):**
-   `make schema` from `../hadron-server` at `origin/main` ≥ `1491106`, add
-   `organization { skillPrefix }` to the `GetMemory`/`Memories` projections in
-   `memories.graphql`, `make generate`; `make schema-check` then guards it.
-3. **`skill lint`** — first shippable verb; exercises 1+2 with no disk.
+1. **`internal/skilldoc` (pure, no cobra) — SHIPPED in #589:** `DeriveName`,
+   `Hash`, `Render`, `ParseFile` (both header generations), `Lint`,
+   `LintPrefixes`, `LintCollisions`, `Prefix{Value, Known}`. `Classify` (the
+   drift classes, §4.5) lands with `status`. Table-driven unit tests:
+   derivation cases incl. root-level locs and nested `tasks:a:b`; hash
+   stability; round trips through the real YAML parser on awkward
+   descriptions, CRLF, leading comments and lookalike provenance lines;
+   header parse of the old `Generated from` form.
+2. **Discovery + the prefix read — SHIPPED in #589:** one `findNodes` over
+   every selected memory id with the declaration predicate, `--all` over the
+   three listings via `api.CollectAll`, one `CollectNodeBatch` fan-out,
+   `unavailable` surfaced. The schema snapshot was refreshed from
+   hadron-server `b3d79d7` and `organization { skillPrefix }` added to the
+   `GetMemory` / `Memories` / `MemoriesSharedWithMe` projections
+   (`MemoriesSharedWithMe` gained `$memoryClasses`). That refresh also
+   regenerated `scopeRef` on the schedule/webhook inputs WITHOUT `omitempty`
+   — fixed in the same PR and captured as
+   `findings:a-schema-refresh-can-regress-an-unrelated-write`.
+3. **`skill lint`** — SHIPPED in #589 (seven Codex rounds + one Copilot round; twelve findings fixed on-thread).
 4. **`skill status`** — the walk, the pairing, the report, `--strict`.
 5. **`skill export`** — the writer, `--dry-run`, atomic writes, rename pass,
    `--prune`, `--force` for `locally-edited`.

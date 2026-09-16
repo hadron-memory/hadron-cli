@@ -47,7 +47,8 @@ placeholder, which export ships verbatim.
 
 An org-owned memory whose org has chosen no Organization.skillPrefix is
 itself a finding — set it (org admin) or pass --prefix; a user-owned memory
-takes "hadron-". Findings exit 5; --strict promotes warnings to errors.`,
+takes "hadron-". Errors exit 5; warnings alone exit 0 unless --strict promotes
+them to errors.`,
 		Example: `  hadron skill lint -m hrn:mem:hadronmemory.com:core
   hadron skill lint --all --json
   hadron skill lint --node hrn:node:hadronmemory.com:core:tasks:create-release-tag --strict`,

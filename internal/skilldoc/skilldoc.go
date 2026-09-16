@@ -114,10 +114,13 @@ type Declaration struct {
 
 // classify is the ONE scan of a node's declaration keys. It returns the
 // declaration under the highest-precedence key that holds an object, and
-// every key that is present but does NOT hold an object — a malformed
-// declaration is reported even when a valid one sits beside it, because the
-// node is mid-migration and the broken key is the one that will survive the
-// legacy key's retirement.
+// every key PATH that is present but of the wrong shape — a declaration
+// key that is not an object, or a `description`/`name` inside one that is
+// not a string. A malformed key is reported even when a valid declaration
+// sits beside it, because the node is mid-migration and the broken key is
+// the one that will survive the legacy key's retirement; a non-string
+// `name` is reported rather than ignored, or a stored name the contract
+// says must equal the derived one would escape the rule by being a number.
 func classify(props map[string]any) (decl *Declaration, malformed []string) {
 	for _, key := range declarationKeys {
 		raw, ok := props[key]
@@ -128,6 +131,13 @@ func classify(props map[string]any) (decl *Declaration, malformed []string) {
 		if !ok {
 			malformed = append(malformed, key)
 			continue
+		}
+		for _, field := range []string{"description", "name"} {
+			if v, present := obj[field]; present {
+				if _, isStr := v.(string); !isStr {
+					malformed = append(malformed, key+"."+field)
+				}
+			}
 		}
 		if decl != nil {
 			continue
@@ -264,15 +274,21 @@ func Lint(n Node, prefix Prefix) []Finding {
 	decl, malformed := classify(n.Properties)
 	for _, key := range malformed {
 		add("skill-declaration-malformed", SevError,
-			fmt.Sprintf("properties.%s is present but is not an object — a declaration is {\"description\": …}; fix it or remove the key", key))
+			fmt.Sprintf("properties.%s is present but has the wrong shape — a declaration is {\"description\": \"…\"} with string fields; fix it or remove the key", key))
 	}
 	if decl == nil {
 		return out
 	}
 
-	if decl.Key == "claudeSkill" {
+	switch _, legacy := n.Properties["claudeSkill"].(map[string]any); {
+	case decl.Key == "claudeSkill":
 		add("skill-legacy-key", SevWarning,
 			"declared under properties.claudeSkill — move it to properties.skill (the provider-neutral key); claudeSkill is read as an alias during transition only")
+	case legacy:
+		// Migrated, but the alias was left behind: the export reads the new
+		// key, so the old one is dead weight that the retirement will strand.
+		add("skill-legacy-key", SevWarning,
+			"properties.claudeSkill is still present beside properties.skill — remove the legacy key; the export reads only the new one")
 	}
 
 	desc := NormalizeDescription(decl.Description)

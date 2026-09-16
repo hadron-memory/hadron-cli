@@ -240,6 +240,26 @@ func TestSkillLintNodeRefShapes(t *testing.T) {
 	}
 }
 
+func TestSkillLintRepeatedNodeRefLintsOnce(t *testing.T) {
+	// Copilot on #589: a --node named twice must not be read twice, or
+	// LintCollisions reports a node colliding with itself.
+	good := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
+		`{"skill":{"description":"Use when a."}}`, `"# A"`)
+	gql, captured := captureGraphQL(t, map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good)})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"skill", "lint", "--node", "n1", "--node", "n1", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("repeated ref: %v\n%s", err, out.String())
+	}
+	if strings.Count(string(captured["NodeBatch"]), `"n1"`) != 1 {
+		t.Errorf("repeated ref sent more than once: %s", captured["NodeBatch"])
+	}
+	if strings.TrimSpace(out.String()) != "[]" {
+		t.Errorf("self-collision reported: %s", out.String())
+	}
+}
+
 func TestSkillLintCleanCorpusJSONIsAnEmptyArray(t *testing.T) {
 	// Asserted on the raw text: a decode cannot tell `[]` from `null`
 	// (review:stable-json-dto).
