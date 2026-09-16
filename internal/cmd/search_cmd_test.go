@@ -485,3 +485,65 @@ func TestSearchOmitsTheAppContextWhenTheScopeDoesNotNeedIt(t *testing.T) {
 		})
 	}
 }
+
+// TestSearchGlobalSendsTheActiveOrg — #578 slice 3.
+//
+// `global` is defined by the server as the member's active-organization view,
+// so it is the one scope that needs an orgId. Asserted on the wire because the
+// output is identical either way: without it, the server falls back to a single
+// membership and refuses for anyone in more than one organization.
+func TestSearchGlobalSendsTheActiveOrg(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{"SearchNodes": searchScopedJSON})
+	f, _ := testFactory(t)
+	cfg, err := f.Config()
+	if err != nil {
+		t.Fatalf("config: %v", err)
+	}
+	if err := cfg.Set("org", "acme.com"); err != nil {
+		t.Fatalf("set org: %v", err)
+	}
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"search", "q", "--scope", "global", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["SearchNodes"], &vars)
+	if vars["orgId"] != "acme.com" {
+		t.Errorf("orgId = %v, want the active organization", vars["orgId"])
+	}
+}
+
+// TestSearchSendsTheActiveOrgOnlyForGlobal.
+//
+// An active organization must not narrow an UNSCOPED search: that would change
+// what a flagless `hadron search` returns the moment someone runs `org use`,
+// silently and for every later invocation. `global` is the one scope defined in
+// terms of the active org, so it is the only one that sends it.
+func TestSearchSendsTheActiveOrgOnlyForGlobal(t *testing.T) {
+	for _, args := range [][]string{
+		{"search", "q"},
+		{"search", "q", "--scope", "research", "--app", "hrn:app:acme.com:dev"},
+		{"search", "q", "--scope", "0123456789abcdef0123456789abcdef"},
+	} {
+		t.Run(strings.Join(args[1:], " "), func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{"SearchNodes": searchScopedJSON})
+			f, _ := testFactory(t)
+			cfg, err := f.Config()
+			if err != nil {
+				t.Fatalf("config: %v", err)
+			}
+			if err := cfg.Set("org", "acme.com"); err != nil {
+				t.Fatalf("set org: %v", err)
+			}
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{}, args...), "--json", "--server", gql.URL))
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if strings.Contains(string(captured["SearchNodes"]), `"orgId"`) {
+				t.Errorf("an active org must not narrow this search: %s", captured["SearchNodes"])
+			}
+		})
+	}
+}

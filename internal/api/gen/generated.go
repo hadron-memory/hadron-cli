@@ -23270,6 +23270,7 @@ type __SearchNodesInput struct {
 	Offset       *int                       `json:"offset,omitempty"`
 	Scope        *string                    `json:"scope,omitempty"`
 	AppRef       *string                    `json:"appRef,omitempty"`
+	OrgId        *string                    `json:"orgId,omitempty"`
 }
 
 // GetQuery returns __SearchNodesInput.Query, and is useful for accessing the field via an interface.
@@ -23295,6 +23296,9 @@ func (v *__SearchNodesInput) GetScope() *string { return v.Scope }
 
 // GetAppRef returns __SearchNodesInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__SearchNodesInput) GetAppRef() *string { return v.AppRef }
+
+// GetOrgId returns __SearchNodesInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__SearchNodesInput) GetOrgId() *string { return v.OrgId }
 
 // __SearchReplaceInNodesInput is used internally by genqlient
 type __SearchReplaceInNodesInput struct {
@@ -30437,8 +30441,8 @@ func Scopes(
 
 // The query executed by SearchNodes.
 const SearchNodes_Operation = `
-query SearchNodes ($query: String!, $mode: FindNodesMode, $filter: NodeFilter, $sortProperty: NodePropertySort, $limit: Int, $offset: Int, $scope: String, $appRef: ID) {
-	findNodes(query: $query, mode: $mode, filter: $filter, sortProperty: $sortProperty, limit: $limit, offset: $offset, scope: $scope, appRef: $appRef) {
+query SearchNodes ($query: String!, $mode: FindNodesMode, $filter: NodeFilter, $sortProperty: NodePropertySort, $limit: Int, $offset: Int, $scope: String, $appRef: ID, $orgId: ID) {
+	findNodes(query: $query, mode: $mode, filter: $filter, sortProperty: $sortProperty, limit: $limit, offset: $offset, scope: $scope, appRef: $appRef, orgId: $orgId) {
 		total
 		degraded
 		reason
@@ -30495,6 +30499,7 @@ func SearchNodes(
 	offset *int,
 	scope *string,
 	appRef *string,
+	orgId *string,
 ) (data_ *SearchNodesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "SearchNodes",
@@ -30508,6 +30513,7 @@ func SearchNodes(
 			Offset:       offset,
 			Scope:        scope,
 			AppRef:       appRef,
+			OrgId:        orgId,
 		},
 	}
 

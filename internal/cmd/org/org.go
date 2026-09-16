@@ -21,5 +21,6 @@ func NewCmdOrg(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdRm(f))
 	cmd.AddCommand(newCmdMember(f))
 	cmd.AddCommand(newCmdInvite(f))
+	cmd.AddCommand(newCmdSetActive(f))
 	return cmd
 }
