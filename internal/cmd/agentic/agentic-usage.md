@@ -137,6 +137,7 @@ hadron search <query> [-m <memory>]... [--mode hybrid|keyword|vector|regex] [--p
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge list <node-urn> | <loc> -m <memory> | <node-id> [--direction incoming|outgoing] [--name <substr>] [--to <ref>] [--from <ref>] | add | update <edge-id> | rm <edge-id>
 hadron spec list [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> | import spec-kit|code
+hadron skill lint (-m <memory>... | --all | --node <ref>...) [--prefix <p>] [--strict] [--json]
 hadron coding review run [-m <memory>] [--base <ref>] [--head <ref>] [--diff <path|->] [--root <loc>] [--all] [--limit N] [--offset N] [--json] | review list [-m <memory>] [--root <loc>] [--broken] [--json] | review create <check-name> [-m <memory>] --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint [-m <memory>] [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list [-m <memory>] [--root <loc>] [--broken] [--json] | preflight create <loc> [-m <memory>] --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight route <node-ref> [-m <memory>] --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight lint [-m <memory>] [--root <loc>] [--strict] [--json]
 hadron app agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | list --org <org> | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <ref> | set-active <ref>
 hadron ai-config list [--app <ref>] [--agent <id>] | create (--app|--agent|--org <ref>) --name <n> --provider <p> --model <m> [--api-key -] [--file <path>] | update <id> ... | rm <id>
@@ -506,6 +507,22 @@ Conventions:
   filters server-side to runnable nodes (`--runnable=false` to the explicitly
   non-runnable; omit for all) — the listing counterpart to `hadron task run`'s
   gate.
+- `skill` maintains the **skill surface** exported from runnable task nodes
+  (#580). A node opts in by declaring `properties.skill` (an object with a
+  trigger-shaped `description`; the legacy `properties.claudeSkill` key is
+  read as an alias). The skill NAME is never stored: it is derived at export
+  as `<prefix>` + the loc below `tasks:` with `:` → `-` (`tasks:create-release-tag`
+  → `hadron-create-release-tag`), where the prefix is the owning org's
+  `Organization.skillPrefix` for an org-owned memory, `hadron-` for a
+  user-owned one, or `--prefix`. `skill lint` checks the corpus and touches no
+  disk: description present and ≤1024 chars (the host TRUNCATES longer ones in
+  its listing, so trigger phrases past the cut never fire), derived name valid
+  and ≤64, `isRunnable` set, body non-empty and frontmatter-free, no two
+  nodes deriving one name; an org with declaring tasks and no prefix is itself
+  a finding. `--all` walks what the server lists for you — own-org,
+  shared-with-you and other orgs' PUBLIC memories, every class; a per-user
+  agent memory is never listed, so name it with `-m`. Errors exit 5;
+  warnings alone exit 0 unless `--strict` promotes them.
 - `chat` is the low-friction surface for a **team chat** — a shared memory where
   several agents and humans coordinate, each message a `message` node whose
   payload is in `data`, ordered by a server-assigned `seq` (see the "Set up an

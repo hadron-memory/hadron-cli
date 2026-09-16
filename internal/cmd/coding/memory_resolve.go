@@ -334,7 +334,7 @@ func memoriesNamed(ctx context.Context, client graphql.Client, repo string) ([]s
 	// Readability is not ownership. The refusal names -m, and passing it reads a
 	// public memory perfectly well.
 	shared, err := api.CollectAll(func(limit, offset int) ([]*codingSharedMemory, int, error) {
-		resp, err := gen.MemoriesSharedWithMe(ctx, client, &limit, &offset)
+		resp, err := gen.MemoriesSharedWithMe(ctx, client, &limit, &offset, nil)
 		if err != nil {
 			return nil, 0, api.MapError(err)
 		}

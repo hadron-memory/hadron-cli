@@ -23,6 +23,11 @@ query Memories(
       class
       visibility
       organizationId
+      # The org's skill-export prefix (hadron-server#1164), read here so
+      # `hadron skill --all` resolves a prefix per memory in the listing pass.
+      organization {
+        skillPrefix
+      }
       isEncrypted
       maxRevCount
       updatedAt
@@ -44,8 +49,12 @@ query MemoriesSharedWithMe(
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
+  # Omitted ⇒ the server's default class set, which EXCLUDES agent-system
+  # memories; a whole-corpus caller passes every class (skill lint --all).
+  # @genqlient(omitempty: true)
+  $memoryClasses: [MemoryClass!]
 ) {
-  memories(filter: { sharedWithMe: true }, limit: $limit, offset: $offset) {
+  memories(filter: { sharedWithMe: true, memoryClasses: $memoryClasses }, limit: $limit, offset: $offset) {
     total
     items {
       id
@@ -55,6 +64,11 @@ query MemoriesSharedWithMe(
       class
       visibility
       organizationId
+      # The org's skill-export prefix (hadron-server#1164), read here so
+      # `hadron skill --all` resolves a prefix per memory in the listing pass.
+      organization {
+        skillPrefix
+      }
       isEncrypted
       maxRevCount
       updatedAt
@@ -249,6 +263,12 @@ query GetMemory($ref: ID!) {
     class
     visibility
     organizationId
+    # The org's skill-export prefix (hadron-server#1164) — what `hadron skill`
+    # derives an exported skill's name from. Null when the org has not chosen
+    # one; absent (organization null) for a user-owned memory.
+    organization {
+      skillPrefix
+    }
     isEncrypted
     tags
     source

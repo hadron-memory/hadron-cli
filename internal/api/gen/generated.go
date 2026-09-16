@@ -4169,7 +4169,9 @@ type CreateAgentScheduleInput struct {
 	// true: the run acts on behalf of YOU (required to reach your personal memories). v1 never delegates a third party (cor:agt:010:01).
 	RunAsSelf *bool `json:"runAsSelf,omitempty"`
 	// One-shot: run once at this ISO-8601 instant (#510). Provide exactly one of cron / runAt.
-	RunAt    *string `json:"runAt,omitempty"`
+	RunAt *string `json:"runAt,omitempty"`
+	// Spec 049 (D-2026-09-13-004): the scope this trigger's runs carry — a scope id, or a name resolved in the App's context (App › Agent › organization). Must be readable by you and resolvable in that App. Snapshotted onto each run at mint; omitted ⇒ the App's attached memories ('app').
+	ScopeRef *string `json:"scopeRef,omitempty"`
 	Timezone *string `json:"timezone,omitempty"`
 }
 
@@ -4205,6 +4207,9 @@ func (v *CreateAgentScheduleInput) GetRunAsSelf() *bool { return v.RunAsSelf }
 
 // GetRunAt returns CreateAgentScheduleInput.RunAt, and is useful for accessing the field via an interface.
 func (v *CreateAgentScheduleInput) GetRunAt() *string { return v.RunAt }
+
+// GetScopeRef returns CreateAgentScheduleInput.ScopeRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetScopeRef() *string { return v.ScopeRef }
 
 // GetTimezone returns CreateAgentScheduleInput.Timezone, and is useful for accessing the field via an interface.
 func (v *CreateAgentScheduleInput) GetTimezone() *string { return v.Timezone }
@@ -4307,6 +4312,8 @@ type CreateAgentWebhookInput struct {
 	Name      string           `json:"name"`
 	Policy    *json.RawMessage `json:"policy,omitempty"`
 	RunAsSelf *bool            `json:"runAsSelf,omitempty"`
+	// Spec 049 (D-2026-09-13-004): the scope this webhook's runs carry — a scope id, or a name resolved in the App's context. Snapshotted onto each run at mint; omitted ⇒ 'app'.
+	ScopeRef *string `json:"scopeRef,omitempty"`
 }
 
 // GetAgentRef returns CreateAgentWebhookInput.AgentRef, and is useful for accessing the field via an interface.
@@ -4338,6 +4345,9 @@ func (v *CreateAgentWebhookInput) GetPolicy() *json.RawMessage { return v.Policy
 
 // GetRunAsSelf returns CreateAgentWebhookInput.RunAsSelf, and is useful for accessing the field via an interface.
 func (v *CreateAgentWebhookInput) GetRunAsSelf() *bool { return v.RunAsSelf }
+
+// GetScopeRef returns CreateAgentWebhookInput.ScopeRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetScopeRef() *string { return v.ScopeRef }
 
 // CreateAgentWebhookResponse is returned by CreateAgentWebhook on success.
 type CreateAgentWebhookResponse struct {
@@ -5970,11 +5980,17 @@ type CreateTeamChatMessageResponse struct {
 	// CONTRIBUTOR+ on the App's org, or the owner of a user-owned App. Pure
 	// App-key principals cannot post.
 	//
+	// Spec 049 Phase 8 (item J): the worker-App pin became the host-memory
+	// write check. A session's Worker authors here when its App is this one,
+	// OR when the session's on-behalf-of user may write the Channel's host
+	// memory — a cross-App post records authorAppId. A pure App-key session is
+	// admitted only on the same-App branch. SESSION_NOT_IN_APP and
+	// SESSION_WORKER_NOT_IN_APP are retired; CHANNEL_HOST_NOT_WRITABLE is the
+	// successor code.
+	//
 	// Error codes (extensions.code): TEAM_CHAT_BODY_TOO_LARGE,
-	// TEAM_CHAT_REPLY_NOT_FOUND, SESSION_NOT_FOUND, SESSION_NOT_IN_APP (the
-	// session belongs to a different App — a worker never authors across
-	// Apps), SESSION_ENDED, SESSION_NOT_WORKER_BOUND,
-	// SESSION_WORKER_NOT_IN_APP (the worker-App pin), WORKER_RETIRED,
+	// TEAM_CHAT_REPLY_NOT_FOUND, SESSION_NOT_FOUND, SESSION_ENDED,
+	// SESSION_NOT_WORKER_BOUND, CHANNEL_HOST_NOT_WRITABLE, WORKER_RETIRED,
 	// SESSION_EXPIRED (encrypted team memory without an active session key),
 	// TEAM_AGENT_NOT_FOUND / TEAM_AGENT_AMBIGUOUS (first-post bootstrap could
 	// not locate the Team Agent), APP_UNINSTALLED, FORBIDDEN.
@@ -7166,7 +7182,9 @@ type FindNodesFindNodesFindNodesResult struct {
 	// parse the set, never compare the whole string. Codes: no_vector_index,
 	// embedding_unavailable, literal_fallback, and_relaxed_to_or (a bare
 	// multi-term keyword query matched nothing under AND, so it was retried as
-	// OR and these hits match ANY term).
+	// OR and these hits match ANY term), scope_narrowed (spec 049: the scope
+	// this search ran under lists memories you cannot read; they were dropped
+	// and `scope.droppedCount` says how many).
 	Degraded *string                                         `json:"degraded"`
 	Reason   *string                                         `json:"reason"`
 	Hits     []*FindNodesFindNodesFindNodesResultHitsNodeHit `json:"hits"`
@@ -7704,18 +7722,19 @@ type GetMemoryMemory struct {
 	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
 	// field is the rendered view of it. When emission throws, the stored value is
 	// served raw and logged, so a bare, unprefixed value is a possible read.
-	Urn                string            `json:"urn"`
-	Name               string            `json:"name"`
-	ShortDescription   *string           `json:"shortDescription"`
-	Description        *string           `json:"description"`
-	Class              MemoryClass       `json:"class"`
-	Visibility         *MemoryVisibility `json:"visibility"`
-	OrganizationId     *string           `json:"organizationId"`
-	IsEncrypted        bool              `json:"isEncrypted"`
-	Tags               []string          `json:"tags"`
-	Source             *string           `json:"source"`
-	SyncStatus         SyncStatus        `json:"syncStatus"`
-	VectorIndexEnabled bool              `json:"vectorIndexEnabled"`
+	Urn                string                       `json:"urn"`
+	Name               string                       `json:"name"`
+	ShortDescription   *string                      `json:"shortDescription"`
+	Description        *string                      `json:"description"`
+	Class              MemoryClass                  `json:"class"`
+	Visibility         *MemoryVisibility            `json:"visibility"`
+	OrganizationId     *string                      `json:"organizationId"`
+	Organization       *GetMemoryMemoryOrganization `json:"organization"`
+	IsEncrypted        bool                         `json:"isEncrypted"`
+	Tags               []string                     `json:"tags"`
+	Source             *string                      `json:"source"`
+	SyncStatus         SyncStatus                   `json:"syncStatus"`
+	VectorIndexEnabled bool                         `json:"vectorIndexEnabled"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int `json:"maxRevCount"`
@@ -7752,6 +7771,9 @@ func (v *GetMemoryMemory) GetVisibility() *MemoryVisibility { return v.Visibilit
 // GetOrganizationId returns GetMemoryMemory.OrganizationId, and is useful for accessing the field via an interface.
 func (v *GetMemoryMemory) GetOrganizationId() *string { return v.OrganizationId }
 
+// GetOrganization returns GetMemoryMemory.Organization, and is useful for accessing the field via an interface.
+func (v *GetMemoryMemory) GetOrganization() *GetMemoryMemoryOrganization { return v.Organization }
+
 // GetIsEncrypted returns GetMemoryMemory.IsEncrypted, and is useful for accessing the field via an interface.
 func (v *GetMemoryMemory) GetIsEncrypted() bool { return v.IsEncrypted }
 
@@ -7781,6 +7803,19 @@ func (v *GetMemoryMemory) GetCreatedAt() string { return v.CreatedAt }
 
 // GetUpdatedAt returns GetMemoryMemory.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *GetMemoryMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// GetMemoryMemoryOrganization includes the requested fields of the GraphQL type Organization.
+type GetMemoryMemoryOrganization struct {
+	// The literal prefix a task node in this org's memories is exported to disk
+	// with as a Claude skill (e.g. 'hadron-', 'mm-'): stored per org, never
+	// derived. Lowercase, trailing hyphen included, unique across orgs. Null =
+	// not chosen; a client refuses to export from the org rather than guess. A
+	// task in a user-owned memory has no org and takes the platform's 'hadron-'.
+	SkillPrefix *string `json:"skillPrefix"`
+}
+
+// GetSkillPrefix returns GetMemoryMemoryOrganization.SkillPrefix, and is useful for accessing the field via an interface.
+func (v *GetMemoryMemoryOrganization) GetSkillPrefix() *string { return v.SkillPrefix }
 
 // GetMemoryResponse is returned by GetMemory on success.
 type GetMemoryResponse struct {
@@ -9470,13 +9505,14 @@ type MemoriesMemoriesMemoriesPageItemsMemory struct {
 	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
 	// field is the rendered view of it. When emission throws, the stored value is
 	// served raw and logged, so a bare, unprefixed value is a possible read.
-	Urn              string            `json:"urn"`
-	Name             string            `json:"name"`
-	ShortDescription *string           `json:"shortDescription"`
-	Class            MemoryClass       `json:"class"`
-	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   *string           `json:"organizationId"`
-	IsEncrypted      bool              `json:"isEncrypted"`
+	Urn              string                                               `json:"urn"`
+	Name             string                                               `json:"name"`
+	ShortDescription *string                                              `json:"shortDescription"`
+	Class            MemoryClass                                          `json:"class"`
+	Visibility       *MemoryVisibility                                    `json:"visibility"`
+	OrganizationId   *string                                              `json:"organizationId"`
+	Organization     *MemoriesMemoriesMemoriesPageItemsMemoryOrganization `json:"organization"`
+	IsEncrypted      bool                                                 `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int    `json:"maxRevCount"`
@@ -9510,6 +9546,11 @@ func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetOrganizationId() *string {
 	return v.OrganizationId
 }
 
+// GetOrganization returns MemoriesMemoriesMemoriesPageItemsMemory.Organization, and is useful for accessing the field via an interface.
+func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetOrganization() *MemoriesMemoriesMemoriesPageItemsMemoryOrganization {
+	return v.Organization
+}
+
 // GetIsEncrypted returns MemoriesMemoriesMemoriesPageItemsMemory.IsEncrypted, and is useful for accessing the field via an interface.
 func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetIsEncrypted() bool { return v.IsEncrypted }
 
@@ -9518,6 +9559,21 @@ func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetMaxRevCount() int { return 
 
 // GetUpdatedAt returns MemoriesMemoriesMemoriesPageItemsMemory.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *MemoriesMemoriesMemoriesPageItemsMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// MemoriesMemoriesMemoriesPageItemsMemoryOrganization includes the requested fields of the GraphQL type Organization.
+type MemoriesMemoriesMemoriesPageItemsMemoryOrganization struct {
+	// The literal prefix a task node in this org's memories is exported to disk
+	// with as a Claude skill (e.g. 'hadron-', 'mm-'): stored per org, never
+	// derived. Lowercase, trailing hyphen included, unique across orgs. Null =
+	// not chosen; a client refuses to export from the org rather than guess. A
+	// task in a user-owned memory has no org and takes the platform's 'hadron-'.
+	SkillPrefix *string `json:"skillPrefix"`
+}
+
+// GetSkillPrefix returns MemoriesMemoriesMemoriesPageItemsMemoryOrganization.SkillPrefix, and is useful for accessing the field via an interface.
+func (v *MemoriesMemoriesMemoriesPageItemsMemoryOrganization) GetSkillPrefix() *string {
+	return v.SkillPrefix
+}
 
 // MemoriesResponse is returned by Memories on success.
 type MemoriesResponse struct {
@@ -9576,13 +9632,14 @@ type MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory struct {
 	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
 	// field is the rendered view of it. When emission throws, the stored value is
 	// served raw and logged, so a bare, unprefixed value is a possible read.
-	Urn              string            `json:"urn"`
-	Name             string            `json:"name"`
-	ShortDescription *string           `json:"shortDescription"`
-	Class            MemoryClass       `json:"class"`
-	Visibility       *MemoryVisibility `json:"visibility"`
-	OrganizationId   *string           `json:"organizationId"`
-	IsEncrypted      bool              `json:"isEncrypted"`
+	Urn              string                                                           `json:"urn"`
+	Name             string                                                           `json:"name"`
+	ShortDescription *string                                                          `json:"shortDescription"`
+	Class            MemoryClass                                                      `json:"class"`
+	Visibility       *MemoryVisibility                                                `json:"visibility"`
+	OrganizationId   *string                                                          `json:"organizationId"`
+	Organization     *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryOrganization `json:"organization"`
+	IsEncrypted      bool                                                             `json:"isEncrypted"`
 	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
 	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
 	MaxRevCount int    `json:"maxRevCount"`
@@ -9621,6 +9678,11 @@ func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory) GetVisibility() *M
 // GetOrganizationId returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory.OrganizationId, and is useful for accessing the field via an interface.
 func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory) GetOrganizationId() *string {
 	return v.OrganizationId
+}
+
+// GetOrganization returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory.Organization, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory) GetOrganization() *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryOrganization {
+	return v.Organization
 }
 
 // GetIsEncrypted returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemory.IsEncrypted, and is useful for accessing the field via an interface.
@@ -9746,6 +9808,21 @@ func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryMyShareMemoryShareGr
 	retval.Email = v.MemUserFields.Email
 	retval.Handle = v.MemUserFields.Handle
 	return &retval, nil
+}
+
+// MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryOrganization includes the requested fields of the GraphQL type Organization.
+type MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryOrganization struct {
+	// The literal prefix a task node in this org's memories is exported to disk
+	// with as a Claude skill (e.g. 'hadron-', 'mm-'): stored per org, never
+	// derived. Lowercase, trailing hyphen included, unique across orgs. Null =
+	// not chosen; a client refuses to export from the org rather than guess. A
+	// task in a user-owned memory has no org and takes the platform's 'hadron-'.
+	SkillPrefix *string `json:"skillPrefix"`
+}
+
+// GetSkillPrefix returns MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryOrganization.SkillPrefix, and is useful for accessing the field via an interface.
+func (v *MemoriesSharedWithMeMemoriesMemoriesPageItemsMemoryOrganization) GetSkillPrefix() *string {
+	return v.SkillPrefix
 }
 
 // MemoriesSharedWithMeResponse is returned by MemoriesSharedWithMe on success.
@@ -14059,7 +14136,9 @@ type SearchNodesFindNodesFindNodesResult struct {
 	// parse the set, never compare the whole string. Codes: no_vector_index,
 	// embedding_unavailable, literal_fallback, and_relaxed_to_or (a bare
 	// multi-term keyword query matched nothing under AND, so it was retried as
-	// OR and these hits match ANY term).
+	// OR and these hits match ANY term), scope_narrowed (spec 049: the scope
+	// this search ran under lists memories you cannot read; they were dropped
+	// and `scope.droppedCount` says how many).
 	Degraded *string                                           `json:"degraded"`
 	Reason   *string                                           `json:"reason"`
 	Hits     []*SearchNodesFindNodesFindNodesResultHitsNodeHit `json:"hits"`
@@ -16569,7 +16648,9 @@ type UpdateAgentScheduleInput struct {
 	Policy       *json.RawMessage `json:"policy,omitempty"`
 	RunAsSelf    *bool            `json:"runAsSelf,omitempty"`
 	// Providing runAt switches the schedule to one-shot (clears cron). At most one of cron / runAt per call.
-	RunAt    *string `json:"runAt,omitempty"`
+	RunAt *string `json:"runAt,omitempty"`
+	// Spec 049: set the trigger's scope (id or name in the App's context); an empty string clears it back to 'app'.
+	ScopeRef *string `json:"scopeRef,omitempty"`
 	Timezone *string `json:"timezone,omitempty"`
 }
 
@@ -16602,6 +16683,9 @@ func (v *UpdateAgentScheduleInput) GetRunAsSelf() *bool { return v.RunAsSelf }
 
 // GetRunAt returns UpdateAgentScheduleInput.RunAt, and is useful for accessing the field via an interface.
 func (v *UpdateAgentScheduleInput) GetRunAt() *string { return v.RunAt }
+
+// GetScopeRef returns UpdateAgentScheduleInput.ScopeRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleInput) GetScopeRef() *string { return v.ScopeRef }
 
 // GetTimezone returns UpdateAgentScheduleInput.Timezone, and is useful for accessing the field via an interface.
 func (v *UpdateAgentScheduleInput) GetTimezone() *string { return v.Timezone }
@@ -21505,8 +21589,9 @@ func (v *__MemoriesInput) GetOffset() *int { return v.Offset }
 
 // __MemoriesSharedWithMeInput is used internally by genqlient
 type __MemoriesSharedWithMeInput struct {
-	Limit  *int `json:"limit,omitempty"`
-	Offset *int `json:"offset,omitempty"`
+	Limit         *int          `json:"limit,omitempty"`
+	Offset        *int          `json:"offset,omitempty"`
+	MemoryClasses []MemoryClass `json:"memoryClasses,omitempty"`
 }
 
 // GetLimit returns __MemoriesSharedWithMeInput.Limit, and is useful for accessing the field via an interface.
@@ -21514,6 +21599,9 @@ func (v *__MemoriesSharedWithMeInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __MemoriesSharedWithMeInput.Offset, and is useful for accessing the field via an interface.
 func (v *__MemoriesSharedWithMeInput) GetOffset() *int { return v.Offset }
+
+// GetMemoryClasses returns __MemoriesSharedWithMeInput.MemoryClasses, and is useful for accessing the field via an interface.
+func (v *__MemoriesSharedWithMeInput) GetMemoryClasses() []MemoryClass { return v.MemoryClasses }
 
 // __MemoryAssetsInput is used internally by genqlient
 type __MemoryAssetsInput struct {
@@ -26226,6 +26314,9 @@ query GetMemory ($ref: ID!) {
 		class
 		visibility
 		organizationId
+		organization {
+			skillPrefix
+		}
 		isEncrypted
 		tags
 		source
@@ -26948,6 +27039,9 @@ query Memories ($filter: MemoryFilter, $limit: Int, $offset: Int) {
 			class
 			visibility
 			organizationId
+			organization {
+				skillPrefix
+			}
 			isEncrypted
 			maxRevCount
 			updatedAt
@@ -26991,8 +27085,8 @@ func Memories(
 
 // The query executed by MemoriesSharedWithMe.
 const MemoriesSharedWithMe_Operation = `
-query MemoriesSharedWithMe ($limit: Int, $offset: Int) {
-	memories(filter: {sharedWithMe:true}, limit: $limit, offset: $offset) {
+query MemoriesSharedWithMe ($limit: Int, $offset: Int, $memoryClasses: [MemoryClass!]) {
+	memories(filter: {sharedWithMe:true,memoryClasses:$memoryClasses}, limit: $limit, offset: $offset) {
 		total
 		items {
 			id
@@ -27002,6 +27096,9 @@ query MemoriesSharedWithMe ($limit: Int, $offset: Int) {
 			class
 			visibility
 			organizationId
+			organization {
+				skillPrefix
+			}
 			isEncrypted
 			maxRevCount
 			updatedAt
@@ -27036,13 +27133,15 @@ func MemoriesSharedWithMe(
 	client_ graphql.Client,
 	limit *int,
 	offset *int,
+	memoryClasses []MemoryClass,
 ) (data_ *MemoriesSharedWithMeResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "MemoriesSharedWithMe",
 		Query:  MemoriesSharedWithMe_Operation,
 		Variables: &__MemoriesSharedWithMeInput{
-			Limit:  limit,
-			Offset: offset,
+			Limit:         limit,
+			Offset:        offset,
+			MemoryClasses: memoryClasses,
 		},
 	}
 
@@ -29766,6 +29865,8 @@ fragment AgentScheduleFields on AgentSchedule {
 
 // Every field optional. An omitted field preserves; an explicit null clears —
 // so unset flags MUST be omitted (nil pointers dropped by these directives).
+// scopeRef arrived with spec-049 Phase 3b (hadron-server#1163); without this an
+// unrelated `schedule update --name …` sends scopeRef:null and CLEARS the scope.
 func UpdateAgentSchedule(
 	ctx_ context.Context,
 	client_ graphql.Client,

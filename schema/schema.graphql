@@ -138,6 +138,11 @@ type Agent {
   """Persona role - free string with conventions ('backend-engineer')."""
   personaRole: String
   properties: JSON
+
+  """
+  Spec 049 Phase 5 — the defaults this Agent's install-created register row is made with.
+  """
+  registerDefaults: RegisterDefaults!
   surfaces: [String!]!
   systemMemoryId: String
   systemPrompt: String
@@ -219,6 +224,9 @@ type AgentSchedule {
 
   """One-shot instant (#510); null for recurring schedules. XOR with cron."""
   runAt: DateTime
+
+  """Spec 049: the scope this trigger's runs carry (null ⇒ 'app')."""
+  scopeId: ID
   timezone: String!
 
   """On-behalf-of user captured at creation; v1 only the creator themself."""
@@ -276,6 +284,9 @@ type AgentWebhook {
   name: String!
   organizationId: ID!
   policy: JSON
+
+  """Spec 049: the scope this trigger's runs carry (null ⇒ 'app')."""
+  scopeId: ID
   userId: ID
 }
 
@@ -409,6 +420,11 @@ type App {
   appType: AppType!
   createUserPermission: CreateUserPermission!
   createdAt: DateTime!
+
+  """
+  Spec 049 Phase 4: the App's default Channel — the row its team chat became (null until provisioned).
+  """
+  defaultChannel: Channel
   description: String
   expiresAt: DateTime
   hasAiApiKey: Boolean!
@@ -623,6 +639,23 @@ type AppRun {
   organizationId: ID!
   parentRunId: ID
   policy: JSON
+
+  """
+  Spec 049 Phase 6 (D-2026-09-13-007): the register this run's attendee
+  (its Agent in its App) carried at mint, as YOU may act on it — rows from
+  the snapshot, watermarks live, gates evaluated now. Empty when the run has
+  no Agent (no attendee) or no rows.
+  """
+  register: [RegisterViewRow!]!
+
+  """
+  Spec 049 (D-2026-09-13-004): the scope this run carries, as YOU may read it —
+  the snapshot taken at mint (the trigger's scope, or a spawned parent's)
+  re-intersected with your access; memoryUrns lists what you may read of it
+  and droppedCount the rest. Null ⇒ the run carries no named scope and its
+  view is the App's attached memories ('app').
+  """
+  scope: SearchScopeInfo
 
   """
   Fan-out state (plan-spawn, #548): set on runs that called hadron_spawn — {processItem, itemKey, callback?, itemCallback?, total, callbackFiredAt?, callbackError?}. callbackError records a callback mint that was denied (quota/policy) — the digest that never came.
@@ -1011,6 +1044,70 @@ type CastWorkerPreview {
   role: String
 }
 
+"""
+A CHANNEL (spec 049, D-2026-09-13-006): a durable, ordered message stream
+hosted in ONE memory at ONE reserved address, server-ordered and
+server-attributed — a platform entity, created one-to-one with its chat root.
+Creating it RESERVES and PROTECTS the address: generic node writes under it
+are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
+hadron_team_chat_post) are the only writers. The audience is the host
+memory's (cor:acl:030:01) — a Channel has no access layer of its own.
+`lastSeq` / `lastMessageAt` are the platform-maintained watermark.
+"""
+type Channel {
+  """The chat root node this Channel IS the entity for (one-to-one)."""
+  chatRootNodeId: ID!
+  createdAt: DateTime!
+  description: String
+  id: ID!
+  kind: ChannelKind!
+  lastMessageAt: DateTime
+
+  """Highest seq the allocator has issued — a watermark, not a count."""
+  lastSeq: Int!
+
+  """The reserved address of the chat root (e.g. chats:team)."""
+  loc: String!
+  memory: Memory!
+
+  """Host memory."""
+  memoryId: ID!
+  name: String!
+  updatedAt: DateTime
+}
+
+"""
+Filter for channels(): by App (its host memories' Channels) or by one host memory. Refs: ID or URN.
+"""
+input ChannelFilter {
+  appRef: ID
+  memoryRef: ID
+}
+
+"""
+What kind of feed a Channel is. CHAT today; BLOCKERS / TASKS when built.
+"""
+enum ChannelKind {
+  CHAT
+}
+
+"""
+Spec 049 Phase 7 — where an attendee is up to on a Channel (D-2026-09-13-009).
+Outside the register; keyed on the ATTENDEE (a Worker, or an Agent in an
+App); advances are monotonic. Mute is session state, never here.
+"""
+type ChannelReadState {
+  attendeeUrn: String
+  channelId: ID!
+  lastSeenSeq: Int!
+  updatedAt: DateTime!
+}
+
+type ChannelsPage {
+  items: [Channel!]!
+  total: Int!
+}
+
 type Chat {
   conversationName: String
   createdAt: DateTime!
@@ -1137,6 +1234,11 @@ input CreateAgentScheduleInput {
   One-shot: run once at this ISO-8601 instant (#510). Provide exactly one of cron / runAt.
   """
   runAt: String
+
+  """
+  Spec 049 (D-2026-09-13-004): the scope this trigger's runs carry — a scope id, or a name resolved in the App's context (App › Agent › organization). Must be readable by you and resolvable in that App. Snapshotted onto each run at mint; omitted ⇒ the App's attached memories ('app').
+  """
+  scopeRef: ID
   timezone: String
 }
 
@@ -1158,6 +1260,11 @@ input CreateAgentWebhookInput {
   name: String!
   policy: JSON
   runAsSelf: Boolean
+
+  """
+  Spec 049 (D-2026-09-13-004): the scope this webhook's runs carry — a scope id, or a name resolved in the App's context. Snapshotted onto each run at mint; omitted ⇒ 'app'.
+  """
+  scopeRef: ID
 }
 
 """
@@ -1193,6 +1300,19 @@ input CreateAssetReferenceNodeInput {
 
   """Fully-qualified node URN for the reference node."""
   nodeUrn: String!
+}
+
+"""
+Create a named Channel WITH its chat root, in one transaction. The host must
+be an app-class memory you may write (the chat-host rule). `loc` is the
+reserved address (e.g. chats:release) and must not overlap an existing
+Channel's; `chats:team` is every App's default and is created with the App.
+"""
+input CreateChannelInput {
+  description: String
+  loc: String!
+  memoryRef: ID!
+  name: String!
 }
 
 type CreateMemorySharePayload {
@@ -1258,6 +1378,36 @@ input CreateNodeInput {
   reason: String
   seq: Int
   tags: [String!]
+}
+
+input CreateRegisterEntryInput {
+  """
+  A Worker or an Agent in the owner's context; omitted = every attendee there.
+  """
+  attendeeRef: ID
+  channelRef: ID!
+  description: String
+  mentionOnly: Boolean
+
+  """An App or an organization (URN or id)."""
+  ownerRef: ID!
+
+  """Default BOTH."""
+  role: RegisterRole
+}
+
+"""
+Exactly one of organizationRef / agentRef / appRef. `memoryRefs` is the
+ORDERED list (IDs or URNs); each must be readable by you — an unreadable
+memory reads as "no match", the same as a nonexistent one.
+"""
+input CreateScopeInput {
+  agentRef: ID
+  appRef: ID
+  description: String
+  memoryRefs: [ID!]!
+  name: String!
+  organizationRef: ID
 }
 
 enum CreateUserPermission {
@@ -1648,12 +1798,19 @@ type FindNodesResult {
   parse the set, never compare the whole string. Codes: no_vector_index,
   embedding_unavailable, literal_fallback, and_relaxed_to_or (a bare
   multi-term keyword query matched nothing under AND, so it was retried as
-  OR and these hits match ANY term).
+  OR and these hits match ANY term), scope_narrowed (spec 049: the scope
+  this search ran under lists memories you cannot read; they were dropped
+  and `scope.droppedCount` says how many).
   """
   degraded: String
   hits: [NodeHit!]!
   passages: [Passage!]!
   reason: String
+
+  """
+  Spec 049 (D-2026-09-13-002): what this search was produced under. Null when no scope applied (the pre-049 accessible set, optionally org-narrowed).
+  """
+  scope: SearchScopeInfo
   total: Int
 }
 
@@ -1683,6 +1840,11 @@ type GlobalSearchResult {
   """
   degraded: [String!]!
   hits: [GlobalSearchHit!]!
+
+  """
+  Spec 049: the scope the Memory + Node slices ran under (see FindNodesResult.scope). Null when no scope applied.
+  """
+  scope: SearchScopeInfo
 
   """
   Total ranked matches for building a pager. BOUNDED CONTRACT: this is the
@@ -2533,6 +2695,14 @@ type Mutation {
   ): OrgMember!
 
   """
+  Spec 049 Phase 7 — advance an attendee's cursor on a Channel (the relay's
+  write; §8.7 gate: the caller must be the attendee's DRIVER — a user whose
+  live session is bound to that Worker, or the App-key principal of the
+  attendee's App). Monotonic: a lower seq is a no-op that returns the cursor.
+  """
+  advanceChannelReadState(appRef: ID, attendeeRef: ID!, channelRef: ID!, seq: Int!): ChannelReadState!
+
+  """
   Attach an EXISTING free-standing memory to an App.
   
   Applies only to 'personal'/'private' memories owned by the caller (an
@@ -2792,6 +2962,21 @@ type Mutation {
   createAssetReferenceNode(input: CreateAssetReferenceNodeInput!): Node!
 
   """
+  Spec 049 Phase 4 — create a named Channel with its chat root (host: an app-class memory you may write). LOC_OVERLAPS_CHANNEL when the address overlaps an existing Channel's.
+  """
+  createChannel(input: CreateChannelInput!): Channel!
+
+  """
+  Spec 049 Phase 8 — post into ANY Channel by ref (its id): the
+  createTeamChatMessage contract (author derivation, mentions, replyToSeq,
+  the body cap, item J) addressed by Channel. createTeamChatMessage is the
+  appRef → App.defaultChannel convenience over this — one gate, two entry
+  points. A Channel you may not read is CHANNEL_NOT_FOUND; one you may read
+  but not post into is FORBIDDEN.
+  """
+  createChannelMessage(body: String!, channelRef: ID!, replyToSeq: Int, sessionRef: ID): TeamChatMessage!
+
+  """
   Grant an App install scoped access to a connection you OWN. scopes must be a
   subset of {mail.read, mail.send, calendar.freebusy, calendar.read, drive.read};
   expiresAt (ISO-8601) is optional and must be in the future. appRef is a PK or
@@ -3000,6 +3185,15 @@ type Mutation {
   createPrincipalGrant(actions: [String!]!, expiresAt: String, orgRef: String!, userRef: String!): PrincipalGrant!
 
   """
+  Spec 049 Phase 5 — declare that an attendee takes part in a Channel. Owner:
+  an App (org ADMIN / owner of a user-owned App) or an organization
+  (CONTRIBUTOR+). attendeeRef: a Worker or an Agent in the owner's context;
+  omitted = every attendee there. REGISTER_ENTRY_EXISTS when a live row
+  already holds that (owner, Channel, attendee). Intent, never permission.
+  """
+  createRegisterEntry(input: CreateRegisterEntryInput!): RegisterEntry!
+
+  """
   Register one BYO Resend sender for an org. The API key is encrypted and never returned.
   """
   createResendSender(apiKey: String!, enabled: Boolean, from: String!, orgRef: ID!): ResendSender!
@@ -3010,6 +3204,14 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   createRevision(agentId: ID!, description: String): RevisionResult!
+
+  """
+  Spec 049 Phase 2 — create a named scope on exactly one owner. Auth by
+  owner: organization CONTRIBUTOR+; App or Agent ADMIN of the owning org, or
+  the owner of a user-owned one. Name 1–64 [a-z0-9_-], unique per owner
+  among live scopes (SCOPE_NAME_TAKEN), never `global` / `app`.
+  """
+  createScope(input: CreateScopeInput!): Scope!
 
   """
   Create a named, owner-scoped secret (#677). Gate per owner scope:
@@ -3054,11 +3256,17 @@ type Mutation {
   CONTRIBUTOR+ on the App's org, or the owner of a user-owned App. Pure
   App-key principals cannot post.
   
+  Spec 049 Phase 8 (item J): the worker-App pin became the host-memory
+  write check. A session's Worker authors here when its App is this one,
+  OR when the session's on-behalf-of user may write the Channel's host
+  memory — a cross-App post records authorAppId. A pure App-key session is
+  admitted only on the same-App branch. SESSION_NOT_IN_APP and
+  SESSION_WORKER_NOT_IN_APP are retired; CHANNEL_HOST_NOT_WRITABLE is the
+  successor code.
+  
   Error codes (extensions.code): TEAM_CHAT_BODY_TOO_LARGE,
-  TEAM_CHAT_REPLY_NOT_FOUND, SESSION_NOT_FOUND, SESSION_NOT_IN_APP (the
-  session belongs to a different App — a worker never authors across
-  Apps), SESSION_ENDED, SESSION_NOT_WORKER_BOUND,
-  SESSION_WORKER_NOT_IN_APP (the worker-App pin), WORKER_RETIRED,
+  TEAM_CHAT_REPLY_NOT_FOUND, SESSION_NOT_FOUND, SESSION_ENDED,
+  SESSION_NOT_WORKER_BOUND, CHANNEL_HOST_NOT_WRITABLE, WORKER_RETIRED,
   SESSION_EXPIRED (encrypted team memory without an active session key),
   TEAM_AGENT_NOT_FOUND / TEAM_AGENT_AMBIGUOUS (first-post bootstrap could
   not locate the Team Agent), APP_UNINSTALLED, FORBIDDEN.
@@ -3131,6 +3339,14 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   deleteApp(ref: ID!): Boolean!
+
+  """
+  Spec 049 Phase 4 — soft-delete a Channel AND its chat root together (the
+  protection holds while either exists, so the address stays reserved and a
+  restore brings both back). Host memory write access required. An App's
+  default Channel is unlinked from the App.
+  """
+  deleteChannel(ref: ID!): Boolean!
   deleteChat(chatId: String!): Boolean!
 
   """
@@ -3231,8 +3447,18 @@ type Mutation {
   """
   deleteOrganization(id: ID!): Boolean!
 
+  """
+  Spec 049 Phase 5 — soft-delete a row. Each owner removes its own rows; an App may remove its install-created default.
+  """
+  deleteRegisterEntry(ref: ID!): Boolean!
+
   """Hard-delete an org's BYO Resend sender."""
   deleteResendSender(ref: ID!): Boolean!
+
+  """
+  Spec 049 Phase 2 — soft-delete a scope you may write; its name is free again at once.
+  """
+  deleteScope(ref: ID!): Boolean!
 
   """
   Hard-delete a secret; referencing runs fail their resolution loud (or fall through the cascade) afterwards.
@@ -4033,7 +4259,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  updateAgent(description: String, listedOnMarketplace: Boolean, name: String, personaPrompt: String, personaRole: String, ref: ID!, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, urn: String, visibility: AgentVisibility): Agent!
+  updateAgent(description: String, listedOnMarketplace: Boolean, name: String, personaPrompt: String, personaRole: String, ref: ID!, registerDefaults: RegisterDefaultsInput, surfaces: [String!], systemMemoryId: String, systemPrompt: String, type: AgentType, urn: String, visibility: AgentVisibility): Agent!
 
   """
   Update an Agent's AI provider config. Key is encrypted at rest.
@@ -4070,6 +4296,11 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   updateApp(agentTools: [String!], aiApiKey: String, aiModel: String, aiProvider: String, anonymousTtlDays: Int, appType: AppType, createUserPermission: CreateUserPermission, description: String, expiresAt: String, identifyUserMethod: IdentifyUserMethod, name: String, ref: ID!, role: AppMembershipRole, sessionTimeoutSeconds: Int, surfaces: [String!], systemPrompt: String, trainingMode: Boolean, urn: String): App!
+
+  """
+  Spec 049 Phase 4 — rename / re-describe a Channel whose host memory you may write.
+  """
+  updateChannel(input: UpdateChannelInput!, ref: ID!): Channel!
   updateChatTitle(chatId: String!, title: String!): Boolean!
 
   """
@@ -4232,12 +4463,33 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  updateOrganization(id: ID!, listedOnMarketplace: Boolean, name: String, policy: JSON, urn: String): Organization!
+  updateOrganization(
+    id: ID!
+    listedOnMarketplace: Boolean
+    name: String
+    policy: JSON
+
+    """
+    The skill-export prefix: lowercase [a-z][a-z0-9]* plus a trailing hyphen (e.g. 'mm-'); unique across orgs (SKILL_PREFIX_TAKEN). Explicit null clears it; omitted preserves.
+    """
+    skillPrefix: String
+    urn: String
+  ): Organization!
+
+  """
+  Spec 049 Phase 5 — change a row's role / mentionOnly / description (the owner's gate).
+  """
+  updateRegisterEntry(input: UpdateRegisterEntryInput!, ref: ID!): RegisterEntry!
 
   """
   Update the fixed sender, replace its write-only API key, or enable/disable it.
   """
   updateResendSender(apiKey: String, enabled: Boolean, from: String, ref: ID!): ResendSender!
+
+  """
+  Spec 049 Phase 2 — update a scope you may write (auth as createScope). memoryRefs replaces the ordered list.
+  """
+  updateScope(input: UpdateScopeInput!, ref: ID!): Scope!
 
   """
   Overwrite a secret's value and/or metadata (v1 rotation — no
@@ -4925,6 +5177,15 @@ type Organization {
   Org-layer action-policy link (cor:acl:040:02, #510). Null = no restriction. Org-admin-authored via updateOrganization.
   """
   policy: JSON
+
+  """
+  The literal prefix a task node in this org's memories is exported to disk
+  with as a Claude skill (e.g. 'hadron-', 'mm-'): stored per org, never
+  derived. Lowercase, trailing hyphen included, unique across orgs. Null =
+  not chosen; a client refuses to export from the org rather than guess. A
+  task in a user-owned memory has no org and takes the platform's 'hadron-'.
+  """
+  skillPrefix: String
   subscriptions: [MemorySubscription!]!
   updatedAt: DateTime!
   urn: String!
@@ -5227,6 +5488,15 @@ type Query {
   assets(filter: AssetFilter, limit: Int = 50, offset: Int = 0, orgId: ID): AssetsPage!
 
   """
+  Spec 049 Phase 6 — an attendee's RESOLVED register: the rows that apply to
+  a Worker (workerRef) or to an Agent in an App (agentRef + appRef), one per
+  Channel, with YOUR standing on each host memory. The relay reads this
+  instead of a configured appRef. Gated on App participation (the same gate
+  as the Worker's briefing); a foreign or nonexistent attendee is an empty list.
+  """
+  attendeeRegister(agentRef: ID, appRef: ID, workerRef: ID): [RegisterViewRow!]!
+
+  """
   The resolved principal for the credential on THIS request (issue #562).
   Credential-type-agnostic: works for personal API keys, JWT sessions, and
   App keys alike — unlike me, which is null for a valid App credential.
@@ -5280,6 +5550,35 @@ type Query {
   remains the only allocation primitive.
   """
   castWorkerPreview(agentRef: ID, appRef: ID!, name: String, promptOverride: String, role: String): CastWorkerPreview!
+
+  """
+  Spec 049 Phase 4 — the uniform single-Channel read. 'ref' is the Channel's
+  id (no URN yet). Null when missing OR when you may not read its host memory.
+  """
+  channel(ref: ID!): Channel
+
+  """
+  Spec 049 Phase 8 — read ANY Channel by ref (its id), with teamChatMessages'
+  cursors, mentions filter and paging; teamChatMessages is the
+  appRef → App.defaultChannel convenience over this. Authorization is the
+  host App's team-chat read gate; a Channel you may not read — or one that
+  does not exist — is CHANNEL_NOT_FOUND, identically.
+  """
+  channelMessages(beforeSeq: Int, channelRef: ID!, limit: Int, mentionsRef: ID, offset: Int, sinceSeq: Int): TeamChatMessagesPage!
+
+  """
+  Spec 049 Phase 7 — an attendee's cursor on a Channel (attendeeRef: a Worker,
+  or an Agent with appRef). Same gate as attendeeRegister; lastSeenSeq 0 when
+  the attendee has never checkpointed there; null when unreadable or unknown.
+  """
+  channelReadState(appRef: ID, attendeeRef: ID!, channelRef: ID!): ChannelReadState
+
+  """
+  Spec 049 Phase 4 — Channels whose host memory you may read, narrowed by an
+  App (its host memories' Channels) or by one memory, and by the cor:api:100:01
+  orgId. Loc-ascending (id tiebreak); limit default 50 / cap 200.
+  """
+  channels(filter: ChannelFilter, limit: Int, offset: Int, orgId: ID): ChannelsPage!
   chatHistory(beforeSeq: Int, chatId: String!, limit: Int): [ChatMessage!]!
 
   """
@@ -5446,6 +5745,10 @@ type Query {
   (there is no separate myTasks surface — a task is simply an isRunnable node).
   """
   findNodes(
+    """
+    Spec 049: the App context for a bare scope name or for scope: 'app' (ID or URN).
+    """
+    appRef: ID
     expand: Int
     fields: [NodeField!]
     filter: NodeFilter
@@ -5460,6 +5763,11 @@ type Query {
     offset: Int
     orgId: ID
     query: String
+
+    """
+    Spec 049 (D-2026-09-13-002): search under a named scope — a scope id, a bare scope name (needs appRef), 'app' (the App's attached memories; needs appRef), or 'global' (the active organization's view — orgId, or your single membership). The scope's memories are intersected with your access (a lens never grants; the rest is disclosed as scope.droppedCount) and filter.memoryIds narrows WITHIN it. Omitted: the pre-049 behaviour — your accessible set, optionally narrowed by orgId.
+    """
+    scope: String
     sort: NodeSort
 
     """
@@ -5527,7 +5835,23 @@ type Query {
   not an unbounded COUNT — deep paging past that bound is not surfaced. See
   GlobalSearchResult.total.
   """
-  globalSearch(entityTypes: [SearchEntityType!], fields: [SearchField!], limit: Int, offset: Int, orgId: ID, query: String!): GlobalSearchResult!
+  globalSearch(
+    """
+    Spec 049: the App context for a bare scope name or scope: 'app' (ID or URN).
+    """
+    appRef: ID
+    entityTypes: [SearchEntityType!]
+    fields: [SearchField!]
+    limit: Int
+    offset: Int
+    orgId: ID
+    query: String!
+
+    """
+    Spec 049 (D-2026-09-13-002): run the memory + node slices under a named scope — a scope id, a bare name (needs appRef), 'app' (needs appRef), or 'global' (orgId, or your single membership). See findNodes.scope; the result's scope field discloses what applied.
+    """
+    scope: String
+  ): GlobalSearchResult!
 
   """
   Fetch one registered Home Assistant instance (org member). Null when
@@ -5909,6 +6233,20 @@ type Query {
   quotaCounters(appRef: String, orgRef: String!): [QuotaCounter!]!
 
   """
+  Spec 049 Phase 5 — register entries you may read (§8.6), narrowed by owner
+  (an App or an organization), Channel, or attendee (a Worker or an Agent),
+  and by the cor:api:100:01 orgId. A filter naming something foreign returns
+  the same empty page as one naming nothing. Oldest first; limit default 50 / cap 200.
+  """
+  registerEntries(filter: RegisterEntryFilter, limit: Int, offset: Int, orgId: ID): RegisterEntriesPage!
+
+  """
+  Spec 049 Phase 5 — one register entry. Null when missing OR when you may
+  neither read its Channel's host memory nor stand on the row's owner side.
+  """
+  registerEntry(ref: ID!): RegisterEntry
+
+  """
   Render a run/action node WITHOUT executing it (#818) — the GraphQL twin of
   hadron_run_action, which despite its name executes nothing: it loads the
   node, resolves its dependency edges, and renders with args.
@@ -6011,6 +6349,34 @@ type Query {
   (`root:slug` could be a memory or an agent) and resolve to null.
   """
   resolveUrn(urn: String!): UrnResolution
+
+  """
+  Spec 049 Phase 2 — the uniform single-scope read (cor:api:120). 'ref' is
+  the scope's ID (a Scope has no URN yet). Null when missing OR when you may
+  not read it — no existence disclosure. Read gate: an org scope to that
+  org's members, an App scope to the App's participants, an Agent scope to
+  whoever may read the Agent.
+  """
+  scope(ref: ID!): Scope
+
+  """
+  Spec 049 Phase 2 — explain a scope for YOU. Pass scopeRef, or a bare name
+  plus appRef (a name is unique only per owner, so it resolves in an App's
+  context: App › Agent › organization, never unioned — two installed Agents
+  each owning the name is SCOPE_NAME_AMBIGUOUS and you choose by scopeRef).
+  Returns the readable memories in order, the dropped COUNT, the shadowed
+  scopes, and with `loc` which memory would win for that address.
+  """
+  scopeExplain(appRef: ID, loc: String, name: String, scopeRef: ID): ScopeExplanation
+
+  """
+  Spec 049 Phase 2 — paginated list of the scopes you may read, optionally
+  narrowed by owner, by an App's resolution context, by name, and by the
+  cor:api:100:01 orgId (member-gated, no admin bypass; non-member ⇒ empty
+  page). Name-ascending (id tiebreak); limit default 50 / cap 200; limit: 0
+  ⇒ count only.
+  """
+  scopes(filter: ScopeFilter, limit: Int, offset: Int, orgId: ID): ScopesPage!
 
   """
   Fetch one secret's inspectable half (never the value). Null when the
@@ -6294,6 +6660,153 @@ type QuotaCounter {
 }
 
 """
+Spec 049 Phase 5 — what an Agent's install-created register row is made with (plan §3.5).
+"""
+type RegisterDefaults {
+  mentionOnly: Boolean!
+}
+
+input RegisterDefaultsInput {
+  mentionOnly: Boolean
+}
+
+"""
+S5 — why an attendee cannot act on a register row. Rendered identically by every consumer.
+"""
+enum RegisterDisclosure {
+  CHANNEL_DELETED
+  DRIVER_NOT_PARTICIPANT
+  HOST_MEMORY_NOT_READABLE
+  HOST_MEMORY_NOT_WRITABLE
+  IMPERSONATION
+  UNKNOWN_ACTOR
+}
+
+type RegisterEntriesPage {
+  items: [RegisterEntry!]!
+  total: Int!
+}
+
+"""
+A REGISTER ENTRY (spec 049, D-2026-09-13-007): "this attendee takes part in
+this Channel". The attendee is a Worker when cast, otherwise an Agent in an
+App; both null = every attendee in the owner's context (org-wide for an
+organization row, App-wide for an App row). Not a trigger list — a row never
+starts a run. The register never grants: what the attendee may read or post
+is the Channel's host memory's decision. Not exportable.
+"""
+type RegisterEntry {
+  appId: ID
+  attendeeAgentId: ID
+
+  """
+  The attendee's URN (hrn:worker:… or the Agent's); null for 'every attendee'.
+  """
+  attendeeUrn: String
+  attendeeWorkerId: ID
+
+  """
+  The Channel — null when you may not read its host memory (you stand on the owner side only).
+  """
+  channel: Channel
+  channelId: ID!
+  createdAt: DateTime!
+
+  """The human's intent, free text."""
+  description: String
+  id: ID!
+
+  """The row install materialised for the App's default Channel (D2)."""
+  installDefault: Boolean!
+
+  """Only messages mentioning the attendee count as new for it."""
+  mentionOnly: Boolean!
+  organizationId: ID
+
+  """ID of the owning organization / App."""
+  ownerId: ID!
+  ownerType: RegisterOwnerType!
+  role: RegisterRole!
+  updatedAt: DateTime
+}
+
+"""Filter for registerEntries(). Refs: ID or URN."""
+input RegisterEntryFilter {
+  """A Worker or an Agent."""
+  attendeeRef: ID
+  channelRef: ID
+
+  """An App or an organization."""
+  ownerRef: ID
+}
+
+"""Which attendee column the winning register row named."""
+enum RegisterNamedBy {
+  AGENT
+  EVERYONE
+  WORKER
+}
+
+"""
+A register row is owned by exactly one of the two; Agent-owned rows do not exist (plan §14).
+"""
+enum RegisterOwnerType {
+  APP
+  ORGANIZATION
+}
+
+"""
+What a register row declares: INTENT, never permission (D-2026-09-13-008).
+"""
+enum RegisterRole {
+  BOTH
+  POST
+  WATCH
+}
+
+"""
+The Channel half of a register view row; the host memory's URN only when YOU may read it.
+"""
+type RegisterViewChannel {
+  deleted: Boolean!
+
+  """The host memory's id — like the URN, only when YOU may read it."""
+  hostMemoryId: ID
+  hostMemoryUrn: String
+  id: ID!
+  kind: ChannelKind!
+  lastMessageAt: DateTime
+
+  """The Channel's watermark — the highest seq issued, not a count."""
+  lastSeq: Int!
+  loc: String!
+  name: String!
+}
+
+"""
+One row of an attendee's RESOLVED register (spec 049 §4.3): the winning
+register entry for a Channel (App › organization, Worker › Agent › everyone,
+never unioned), the Channel's watermark, and the CALLER's real standing on
+the host memory — canRead / canPost are the existing gates, the register
+grants nothing. A row the caller cannot act on is returned with its reason,
+never dropped.
+"""
+type RegisterViewRow {
+  attendeeUrn: String
+
+  """Null when no actor could be evaluated (UNKNOWN_ACTOR in disclosure)."""
+  canPost: Boolean
+  canRead: Boolean!
+  channel: RegisterViewChannel!
+  disclosure: RegisterDisclosure
+  entry: RegisterEntry!
+
+  """Phase 7 — the attendee's cursor; null until read-state lands."""
+  lastSeenSeq: Int
+  namedBy: RegisterNamedBy!
+}
+
+"""
 #1073 — what a releaseWorker call actually DID, rather than what the caller
 predicted it would do.
 
@@ -6480,6 +6993,95 @@ type ScheduleFreeBusy {
 }
 
 """
+A named search SCOPE: an ORDERED list of memories with exactly one owner
+(organization | Agent | App). Selects memories only — no saved filter, no
+retrieval parameters — and NEVER grants: `memories` is the stored list ∩
+what YOU may read (D-2026-09-13-004), and `hiddenMemoryCount` says how many
+you cannot see, as a count only. Names are unique per owner; `global` and
+`app` are reserved (the ladder's own views). Collisions across owners in
+an App's context resolve App › Agent › organization, never unioned.
+"""
+type Scope {
+  createdAt: DateTime!
+  description: String
+
+  """How many of them you may NOT read (count only — never their names)."""
+  hiddenMemoryCount: Int!
+  id: ID!
+
+  """The scope's memories YOU may read, in scope order."""
+  memories: [ScopeMemoryEntry!]!
+
+  """How many memories the scope lists in total."""
+  memoryCount: Int!
+  name: String!
+
+  """ID of the owning organization / Agent / App."""
+  ownerId: ID!
+  ownerType: ScopeOwnerType!
+
+  """Bare stored URN of the owner, when it has one."""
+  ownerUrn: String
+  updatedAt: DateTime
+}
+
+"""
+What a scope resolves to FOR YOU: which owner tier won when resolved by
+name, the scopes it shadowed, the readable memories in order, how many were
+dropped for access, and — when `loc` was asked — which memory would win
+for that address (the input the task-customization operation consumes).
+"""
+type ScopeExplanation {
+  droppedCount: Int!
+  memories: [Memory!]!
+  resolvedVia: ScopeOwnerType!
+  scope: Scope!
+
+  """
+  Lower-precedence scopes of the same name in that App's context (that you may read).
+  """
+  shadowed: [Scope!]!
+  winner: Memory
+}
+
+"""
+Filter for the uniform scopes() list. Clauses AND-combine and only narrow the
+caller's readable set. `ownerType` + `ownerRef` name one owner; `appRef`
+selects the App's whole CONTEXT (its own scopes, its installed Agents', its
+organization's) — what a bare name would resolve against there.
+"""
+input ScopeFilter {
+  """ID or URN of an App — the resolution context."""
+  appRef: ID
+  name: String
+
+  """ID or URN of the owner (with ownerType)."""
+  ownerRef: ID
+  ownerType: ScopeOwnerType
+}
+
+type ScopeMemoryEntry {
+  memory: Memory!
+
+  """0-based order within the scope."""
+  position: Int!
+}
+
+"""
+Which entity owns a Scope. Exactly one per scope (DB-enforced, the AiServiceConfig pattern).
+"""
+enum ScopeOwnerType {
+  AGENT
+  APP
+  ORGANIZATION
+}
+
+type ScopesPage {
+  items: [Scope!]!
+  total: Int!
+}
+
+"""
 Entity types the cross-entity global search (globalSearch) can return.
 Mirrors the SearchEntityType union in src/lib/global-search.
 """
@@ -6608,6 +7210,22 @@ type SearchReplaceResult {
   """Per-node breakdown; only nodes with at least one match are listed."""
   results: [SearchReplaceNodeResult!]!
   totalReplacements: Int!
+}
+
+"""
+Spec 049 — the scope a search ran under (every result discloses it,
+D-2026-09-13-002). `kind`: scope | app | global | user-owned. `source`:
+call | session | active-app | active-org. `memoryUrns` lists only the
+memories YOU may read; `droppedCount` is how many the scope lists that you
+may not — a count, never their names.
+"""
+type SearchScopeInfo {
+  droppedCount: Int!
+  kind: String!
+  label: String!
+  memoryUrns: [String!]!
+  ownerUrn: String
+  source: String!
 }
 
 type Secret {
@@ -6929,6 +7547,11 @@ without the '@').
 type TeamChatMessage {
   at: DateTime!
 
+  """
+  Spec 049 Phase 8 (item J): the Worker's App when the post crossed Apps — visible as one in the transcript.
+  """
+  authorAppId: ID
+
   """Display convenience: the worker name or the user handle."""
   authorName: String
   authorUserId: ID
@@ -7120,7 +7743,17 @@ input UpdateAgentScheduleInput {
   Providing runAt switches the schedule to one-shot (clears cron). At most one of cron / runAt per call.
   """
   runAt: String
+
+  """
+  Spec 049: set the trigger's scope (id or name in the App's context); an empty string clears it back to 'app'.
+  """
+  scopeRef: ID
   timezone: String
+}
+
+input UpdateChannelInput {
+  description: String
+  name: String
 }
 
 type UpdateMemoryMemberRolePayload {
@@ -7199,6 +7832,21 @@ input UpdateNodeInput {
   Omit to preserve existing tags (issue #235); supply to replace the set.
   """
   tags: [String!]
+}
+
+input UpdateRegisterEntryInput {
+  description: String
+  mentionOnly: Boolean
+  role: RegisterRole
+}
+
+"""
+All optional. `memoryRefs`, when passed, REPLACES the list (it is the new order).
+"""
+input UpdateScopeInput {
+  description: String
+  memoryRefs: [ID!]
+  name: String
 }
 
 enum UploadIntent {
