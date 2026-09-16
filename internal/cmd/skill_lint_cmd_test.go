@@ -16,6 +16,10 @@ const (
 	skillMemUser     = `{"data":{"memory":{"id":"mem3","urn":"hrn:mem:holger:assistant","name":"Assistant","class":"personal","visibility":null,"organizationId":null,"organization":null,"isEncrypted":false,"tags":[],"maxRevCount":null,"createdAt":"2026-06-11T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z"}}}`
 )
 
+// nodeID is an ID-shaped node id: `--node` accepts a node ID or a URN, and a
+// short fixture token like "n1" is (correctly) refused as a bare loc.
+const nodeID = "01a0a5ba59a377d2a01a8ea32ae98194"
+
 func skillNode(id, memID, urn, loc string, runnable bool, props, content string) string {
 	r := "false"
 	if runnable {
@@ -222,37 +226,56 @@ func TestSkillLintRefusesAmbiguousSelector(t *testing.T) {
 }
 
 func TestSkillLintNodeRefShapes(t *testing.T) {
-	good := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
+	good := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
 		`{"skill":{"description":"Use when a."}}`, `"# A"`)
 	responses := map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good)}
 	// A fully-qualified URN and a raw id both reach the batch read.
-	for _, ref := range []string{"hrn:node:hadronmemory.com:core:tasks:a", "urn:node:hadronmemory.com:core:tasks:a", "hadronmemory.com::core::tasks:a", "n1"} {
+	for _, ref := range []string{"hrn:node:hadronmemory.com:core:tasks:a", "urn:node:hadronmemory.com:core:tasks:a", "hadronmemory.com::core::tasks:a", nodeID} {
 		if _, err := runSkillLint(t, responses, "--node", ref); exitCodeFor(err) != exitcode.OK {
 			t.Errorf("--node %q: exit %d, want 0 (%v)", ref, exitCodeFor(err), err)
 		}
 	}
-	// A bare loc, or a scheme-prefixed ref of another KIND, is refused
-	// client-side as a usage error, before any request.
-	for _, ref := range []string{"tasks:a", "core::tasks:a", "hrn:mem:hadronmemory.com:core", "hrn:app:hadronmemory.com:hadron-dev-team"} {
+	// A bare loc (with or without colons), an empty token, or a
+	// scheme-prefixed ref of another KIND, is refused client-side as a usage
+	// error, before any request.
+	for _, ref := range []string{"tasks:a", "core::tasks:a", "start-here", "", "hrn:mem:hadronmemory.com:core", "hrn:app:hadronmemory.com:hadron-dev-team"} {
 		if _, err := runSkillLint(t, map[string]string{}, "--node", ref); exitCodeFor(err) != exitcode.Usage {
 			t.Errorf("--node %q: exit %d, want 2 (Usage)", ref, exitCodeFor(err))
 		}
 	}
 }
 
+func TestSkillLintOneNodeInTwoSpellingsLintsOnce(t *testing.T) {
+	// Copilot on #589, round 4: id + URN name one node; the batch returns it
+	// twice and the result must be de-duplicated by node id, or it collides
+	// with itself.
+	good := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
+		`{"skill":{"description":"Use when a."}}`, `"# A"`)
+	gql, _ := captureGraphQL(t, map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good, good)})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"skill", "lint", "--node", nodeID, "--node", "hrn:node:hadronmemory.com:core:tasks:a", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("two spellings: %v\n%s", err, out.String())
+	}
+	if strings.TrimSpace(out.String()) != "[]" {
+		t.Errorf("self-collision reported for one node in two spellings: %s", out.String())
+	}
+}
+
 func TestSkillLintRepeatedNodeRefLintsOnce(t *testing.T) {
 	// Copilot on #589: a --node named twice must not be read twice, or
 	// LintCollisions reports a node colliding with itself.
-	good := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
+	good := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
 		`{"skill":{"description":"Use when a."}}`, `"# A"`)
 	gql, captured := captureGraphQL(t, map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good)})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"skill", "lint", "--node", "n1", "--node", "n1", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"skill", "lint", "--node", nodeID, "--node", nodeID, "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("repeated ref: %v\n%s", err, out.String())
 	}
-	if strings.Count(string(captured["NodeBatch"]), `"n1"`) != 1 {
+	if strings.Count(string(captured["NodeBatch"]), `"`+nodeID+`"`) != 1 {
 		t.Errorf("repeated ref sent more than once: %s", captured["NodeBatch"])
 	}
 	if strings.TrimSpace(out.String()) != "[]" {

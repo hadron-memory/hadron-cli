@@ -564,6 +564,53 @@ func TestProvenanceNeedsANodeURNAndAHexHash(t *testing.T) {
 	}
 }
 
+func TestForeignBodyStartingWithHumanLineKeepsIt(t *testing.T) {
+	// Copilot on #589, round 4: without a provenance line before it, the
+	// human line is body.
+	f, err := ParseFile([]byte("---\nname: theirs\ndescription: Use when x\n---\n\n" + humanLine + "\n\n# Body\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Source != "" || !strings.HasPrefix(f.Body, humanLine) {
+		t.Errorf("foreign human-line body mishandled: %+v", f)
+	}
+}
+
+func TestIndentedProvenanceLookalikeIsBody(t *testing.T) {
+	// Render never indents; an indented provenance-shaped line is content.
+	pre := "  <!-- hadron-skill source=hrn:node:a:b:tasks:x hash=0123456789abcdef -->"
+	f, err := ParseFile([]byte("---\nname: theirs\ndescription: Use when x\n---\n\n" + pre + "\n\n# Body\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Source != "" || !strings.HasPrefix(f.Body, pre) {
+		t.Errorf("indented lookalike claimed: %+v", f)
+	}
+}
+
+func TestSourceIsParserCanonical(t *testing.T) {
+	// Every accepted header spelling pairs to ONE canonical key.
+	want := ""
+	for _, pre := range []string{
+		"<!-- Generated from hrn:node:hadronmemory.com:core:tasks:mint-spec -->",
+		"<!-- Generated from hadronmemory.com::core::tasks:mint-spec -->",
+		"<!-- Generated from urn:node:hadronmemory.com:core:tasks:mint-spec -->",
+	} {
+		f, err := ParseFile([]byte("---\nname: x\ndescription: Use when x\n---\n\n" + pre + "\n\n# Body\n"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if f.Source == "" {
+			t.Fatalf("%q: no source", pre)
+		}
+		if want == "" {
+			want = f.Source
+		} else if f.Source != want {
+			t.Errorf("%q: source %q, want the same canonical key as the first spelling %q", pre, f.Source, want)
+		}
+	}
+}
+
 func TestParsedDescriptionIsNormalized(t *testing.T) {
 	f, err := ParseFile([]byte("---\nname: x\ndescription: \" Use when x \"\n---\n\n# Body\n"))
 	if err != nil {

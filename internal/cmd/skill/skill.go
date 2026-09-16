@@ -10,7 +10,6 @@ package skill
 import (
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/Khan/genqlient/graphql"
 	urnlib "github.com/hadron-memory/urn-lib-go"
@@ -168,8 +167,17 @@ func selectNodes(cmd *cobra.Command, client graphql.Client, sel *selectorFlags) 
 	if err != nil {
 		return nil, err
 	}
-	out.nodes = nodes
-	out.unavailable = unavailable
+	// De-duplicate by node ID: `--node` may name one node in two accepted
+	// spellings (id and URN, hrn: and urn:), which ref-level de-duplication
+	// cannot see, and a node read twice would collide with itself.
+	seenID := map[string]bool{}
+	for _, n := range nodes {
+		if !seenID[n.Id] {
+			seenID[n.Id] = true
+			out.nodes = append(out.nodes, n)
+		}
+	}
+	out.unavailable = dedupe(unavailable)
 
 	// --node refs name their memory only through the node; resolve any memory
 	// the listing pass did not already load (memory(ref:) takes a PK).
@@ -346,17 +354,19 @@ func dedupe(refs []string) []string {
 // the flag (review:canonical-ref-handling). A colon-free token is a raw id and
 // passes through untouched.
 func canonicalNodeArg(ref string) (string, error) {
-	canon := cmdutil.CanonicalNodeRef(ref)
-	switch {
-	case !strings.Contains(canon, ":"):
-		return canon, nil // a raw id
-	case !urnlib.HasSchemePrefix(canon):
+	// BatchNodeRef is the repo's shape-sensitive ref for nodeBatch: a node id
+	// passes through, a fully-qualified URN is canonicalized, and a bare loc
+	// or an empty token is refused as a usage error before any request
+	// (Codex/Copilot on #589: `--node start-here` must not become a lookup).
+	canon, err := cmdutil.BatchNodeRef("", ref)
+	if err != nil {
 		return "", exitcode.Newf(exitcode.Usage,
-			"--node %q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc> or a node id; a bare loc has no memory to resolve in (lint reads whole memories with -m)", ref)
-	case urnlib.AssertFullyQualifiedUrn(canon, "node") != nil:
+			"--node %q is not a node id or a fully-qualified node URN (hrn:node:<root>:<slug>:<loc>); a bare loc has no memory to resolve in — lint reads whole memories with -m", ref)
+	}
+	if urnlib.HasSchemePrefix(canon) && urnlib.AssertFullyQualifiedUrn(canon, "node") != nil {
 		// A scheme-prefixed ref of another KIND (hrn:mem:…, hrn:app:…) would
 		// fail the whole batch server-side with an error naming the GraphQL
-		// field; refuse it here, naming the flag (Codex on #589, round 6).
+		// field; refuse it here, naming the flag.
 		return "", exitcode.Newf(exitcode.Usage,
 			"--node %q is not a node URN — expected hrn:node:<root>:<slug>:<loc> or a node id", ref)
 	}

@@ -481,7 +481,7 @@ func Render(name, source, description, content string) (string, error) {
 type File struct {
 	Name        string
 	Description string
-	Source      string // canonical source URN, or "" when the file is not Hadron-generated
+	Source      string // parser-canonical source URN (canonicalSource), or "" when the file is not Hadron-generated
 	Hash        string // "" for a legacy (pre-#580) header
 	Body        string
 }
@@ -504,14 +504,13 @@ func ParseFile(data []byte) (*File, error) {
 	}
 	f := &File{Name: fm.Name, Description: NormalizeDescription(fm.Description)}
 	preamble, body := splitPreamble(string(m[2]))
-	for _, line := range strings.Split(preamble, "\n") {
-		t := strings.TrimSpace(line)
-		if src, hash, ok := machineHeader(t); ok {
-			f.Source, f.Hash = src, hash
+	for _, line := range strings.Split(preamble, "\n") { // raw, like splitPreamble
+		if src, hash, ok := machineHeader(line); ok {
+			f.Source, f.Hash = canonicalSource(src), hash
 			break
 		}
-		if src, ok := legacyHeader(t); ok {
-			f.Source = src
+		if src, ok := legacyHeader(line); ok {
+			f.Source = canonicalSource(src)
 			break
 		}
 	}
@@ -532,16 +531,14 @@ func splitPreamble(rest string) (preamble, body string) {
 	i := 0
 	var sawMachine, sawHuman bool
 	for i < len(lines) {
-		line := lines[i]
-		if line == "" {
-			i++
-			continue
-		}
-		t := strings.TrimSpace(line)
+		line := lines[i] // RAW: Render never indents, so an indented lookalike is body
 		switch {
-		case !sawMachine && (isMachineHeader(t) || isLegacyHeader(t)):
+		case line == "":
+		case !sawMachine && (isMachineHeader(line) || isLegacyHeader(line)):
 			sawMachine = true
-		case !sawHuman && (t == humanLine || t == legacyHumanLine):
+		case sawMachine && !sawHuman && (line == humanLine || line == legacyHumanLine):
+			// The human line is renderer preamble only AFTER a provenance
+			// line; a foreign body that happens to start with it keeps it.
 			sawHuman = true
 		default:
 			return strings.Join(lines[:i], "\n"), NormalizeBody(strings.Join(lines[i:], "\n"))
@@ -549,6 +546,29 @@ func splitPreamble(rest string) (preamble, body string) {
 		i++
 	}
 	return strings.Join(lines[:i], "\n"), ""
+}
+
+// canonicalSource is the ONE normalization of a header's source token: the
+// parser-canonical URN, so a legacy `urn:` or scheme-less header pairs with
+// the same corpus node as a v2 one and is never reported as orphaned for its
+// spelling (Copilot on #589, round 4). A token the library cannot
+// canonicalize is returned as written — it already passed isNodeURN.
+func canonicalSource(tok string) string {
+	if !urnlib.HasSchemePrefix(tok) {
+		// The scheme-less legacy grammar <org>::<memory>::<loc>. A simple
+		// memory slug composes the flat v2 form the CLI emits; a COMPOUND
+		// app-mem slug carries its own colons and stays in the legacy form
+		// under the scheme (still accepted forever, #239) — the same rule
+		// cmdutil.NodeURN applies.
+		if parts := strings.SplitN(tok, "::", 3); len(parts) == 3 && !strings.Contains(parts[1], ":") {
+			return "hrn:node:" + parts[0] + ":" + parts[1] + ":" + parts[2]
+		}
+		return "hrn:node:" + tok
+	}
+	if c, err := urnlib.ToParserCanonical(tok); err == nil && c != "" {
+		return c
+	}
+	return tok
 }
 
 // isNodeURN reports whether tok is a fully-qualified NODE URN in either
