@@ -10,6 +10,7 @@ package skill
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/Khan/genqlient/graphql"
 	urnlib "github.com/hadron-memory/urn-lib-go"
@@ -82,6 +83,19 @@ func (s *selectorFlags) register(cmd *cobra.Command) {
 }
 
 func (s *selectorFlags) validate() error {
+	// A blank value (`-m ""`, `--node ""`, an unset shell variable) is not a
+	// selector: it would count here and then reach the server as an empty
+	// ref, failing network-dependently instead of locally (Copilot on #589).
+	for _, m := range s.memories {
+		if strings.TrimSpace(m) == "" {
+			return exitcode.Newf(exitcode.Usage, "-m/--memory is empty — pass a memory URN or id")
+		}
+	}
+	for _, r := range s.nodes {
+		if strings.TrimSpace(r) == "" {
+			return exitcode.Newf(exitcode.Usage, "--node is empty — pass a node URN or id")
+		}
+	}
 	n := 0
 	if len(s.memories) > 0 {
 		n++

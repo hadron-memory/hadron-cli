@@ -276,8 +276,12 @@ description: <properties.skill.description — or the legacy claudeSkill alias �
   Existing files carry the older `<!-- Generated from <urn> -->` form; `status`
   reads that too (URN only, no hash ⇒ reported as `unhashed`, which `export`
   upgrades).
-- **`hash`** = first 16 hex of SHA-256 over `name + "\x00" + description + "\x00"
-  + content` — the three inputs the file is made of. It is deliberately NOT
+- **`hash`** = first 16 hex of SHA-256 over `source + "\x00" + name + "\x00" +
+  description + "\x00" + content` — the source node URN plus the three
+  rendered inputs (description and body in their normalized form). The source
+  is included so a hand-edited provenance line naming another node reads as a
+  local edit rather than pairing the file with a node it was never rendered
+  from. It is deliberately NOT
   `nodedoc.ContentHash` alone (8 hex over content only): a description edit
   must read as stale, because the description is the trigger. Since every input
   is present in the file itself, the hash is **recomputable from the file
@@ -303,9 +307,11 @@ description: <properties.skill.description — or the legacy claudeSkill alias �
 ### 4.4 Pairing disk to corpus: by URN, never by name
 
 `status` and `export` walk `<root>/*/SKILL.md`, keep only files whose header
-carries a `hrn:node:` source, and index them by **canonical source URN** (input
-accepts every grammar — the older exports wrote v1 `::` forms; `cmdutil`
-canonicalizes). The corpus side is indexed by the same URN. A name is then a
+carries a **flat v2 node URN** (`hrn:node:<root>:<slug>:<loc>`), and index them
+by that source. That is the ONLY spelling recognized: measured on every
+generated skill on disk, all 20 headers already carry the flat form, and this
+surface supports no v1 (Holger, 2026-09-16) — a `::` or `urn:` header is not
+ours and stays in the file's body. The corpus side is indexed by the same URN. A name is then a
 *property* of a pairing, so a rename is the observation "same URN, different
 directory" rather than a guess.
 

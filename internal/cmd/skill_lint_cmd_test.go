@@ -213,6 +213,12 @@ func TestSkillLintRefusesAmbiguousSelector(t *testing.T) {
 			t.Errorf("args %v: exit %d, want %d (Usage)", args, exitCodeFor(err), exitcode.Usage)
 		}
 	}
+	// A blank selector value is a usage error before any request.
+	for _, args := range [][]string{{"-m", ""}, {"-m", "  "}, {"--node", ""}} {
+		if _, err := runSkillLint(t, map[string]string{}, args...); exitCodeFor(err) != exitcode.Usage {
+			t.Errorf("args %v: exit %d, want %d (Usage)", args, exitCodeFor(err), exitcode.Usage)
+		}
+	}
 	_, err := runSkillLint(t, map[string]string{}, "-m", "hrn:mem:a:b", "--prefix", "Bad_")
 	if exitCodeFor(err) != exitcode.Usage {
 		t.Errorf("invalid --prefix: exit %d, want Usage", exitCodeFor(err))
