@@ -5703,6 +5703,177 @@ func (v *CreatePrincipalGrantResponse) GetCreatePrincipalGrant() *CreatePrincipa
 	return v.CreatePrincipalGrant
 }
 
+// CreateScopeCreateScope includes the requested fields of the GraphQL type Scope.
+// The GraphQL type's documentation follows.
+//
+// A named search SCOPE: an ORDERED list of memories with exactly one owner
+// (organization | Agent | App). Selects memories only — no saved filter, no
+// retrieval parameters — and NEVER grants: `memories` is the stored list ∩
+// what YOU may read (D-2026-09-13-004), and `hiddenMemoryCount` says how many
+// you cannot see, as a count only. Names are unique per owner; `global` and
+// `app` are reserved (the ladder's own views). Collisions across owners in
+// an App's context resolve App › Agent › organization, never unioned.
+type CreateScopeCreateScope struct {
+	ScopeFields   `json:"-"`
+	ScopeMemories `json:"-"`
+}
+
+// GetId returns CreateScopeCreateScope.Id, and is useful for accessing the field via an interface.
+func (v *CreateScopeCreateScope) GetId() string { return v.ScopeFields.Id }
+
+// GetName returns CreateScopeCreateScope.Name, and is useful for accessing the field via an interface.
+func (v *CreateScopeCreateScope) GetName() string { return v.ScopeFields.Name }
+
+// GetDescription returns CreateScopeCreateScope.Description, and is useful for accessing the field via an interface.
+func (v *CreateScopeCreateScope) GetDescription() *string { return v.ScopeFields.Description }
+
+// GetOwnerType returns CreateScopeCreateScope.OwnerType, and is useful for accessing the field via an interface.
+func (v *CreateScopeCreateScope) GetOwnerType() ScopeOwnerType { return v.ScopeFields.OwnerType }
+
+// GetOwnerId returns CreateScopeCreateScope.OwnerId, and is useful for accessing the field via an interface.
+func (v *CreateScopeCreateScope) GetOwnerId() string { return v.ScopeFields.OwnerId }
+
+// GetOwnerUrn returns CreateScopeCreateScope.OwnerUrn, and is useful for accessing the field via an interface.
+func (v *CreateScopeCreateScope) GetOwnerUrn() *string { return v.ScopeFields.OwnerUrn }
+
+// GetMemoryCount returns CreateScopeCreateScope.MemoryCount, and is useful for accessing the field via an interface.
+func (v *CreateScopeCreateScope) GetMemoryCount() int { return v.ScopeFields.MemoryCount }
+
+// GetHiddenMemoryCount returns CreateScopeCreateScope.HiddenMemoryCount, and is useful for accessing the field via an interface.
+func (v *CreateScopeCreateScope) GetHiddenMemoryCount() int { return v.ScopeFields.HiddenMemoryCount }
+
+// GetCreatedAt returns CreateScopeCreateScope.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateScopeCreateScope) GetCreatedAt() string { return v.ScopeFields.CreatedAt }
+
+// GetUpdatedAt returns CreateScopeCreateScope.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateScopeCreateScope) GetUpdatedAt() *string { return v.ScopeFields.UpdatedAt }
+
+// GetMemories returns CreateScopeCreateScope.Memories, and is useful for accessing the field via an interface.
+func (v *CreateScopeCreateScope) GetMemories() []*ScopeMemoriesMemoriesScopeMemoryEntry {
+	return v.ScopeMemories.Memories
+}
+
+func (v *CreateScopeCreateScope) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateScopeCreateScope
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateScopeCreateScope = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ScopeFields)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(
+		b, &v.ScopeMemories)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateScopeCreateScope struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	OwnerType ScopeOwnerType `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	OwnerUrn *string `json:"ownerUrn"`
+
+	MemoryCount int `json:"memoryCount"`
+
+	HiddenMemoryCount int `json:"hiddenMemoryCount"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Memories []*ScopeMemoriesMemoriesScopeMemoryEntry `json:"memories"`
+}
+
+func (v *CreateScopeCreateScope) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateScopeCreateScope) __premarshalJSON() (*__premarshalCreateScopeCreateScope, error) {
+	var retval __premarshalCreateScopeCreateScope
+
+	retval.Id = v.ScopeFields.Id
+	retval.Name = v.ScopeFields.Name
+	retval.Description = v.ScopeFields.Description
+	retval.OwnerType = v.ScopeFields.OwnerType
+	retval.OwnerId = v.ScopeFields.OwnerId
+	retval.OwnerUrn = v.ScopeFields.OwnerUrn
+	retval.MemoryCount = v.ScopeFields.MemoryCount
+	retval.HiddenMemoryCount = v.ScopeFields.HiddenMemoryCount
+	retval.CreatedAt = v.ScopeFields.CreatedAt
+	retval.UpdatedAt = v.ScopeFields.UpdatedAt
+	retval.Memories = v.ScopeMemories.Memories
+	return &retval, nil
+}
+
+// Exactly one of organizationRef / agentRef / appRef. `memoryRefs` is the
+// ORDERED list (IDs or URNs); each must be readable by you — an unreadable
+// memory reads as "no match", the same as a nonexistent one.
+type CreateScopeInput struct {
+	AgentRef        *string  `json:"agentRef,omitempty"`
+	AppRef          *string  `json:"appRef,omitempty"`
+	Description     *string  `json:"description,omitempty"`
+	MemoryRefs      []string `json:"memoryRefs"`
+	Name            string   `json:"name"`
+	OrganizationRef *string  `json:"organizationRef,omitempty"`
+}
+
+// GetAgentRef returns CreateScopeInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *CreateScopeInput) GetAgentRef() *string { return v.AgentRef }
+
+// GetAppRef returns CreateScopeInput.AppRef, and is useful for accessing the field via an interface.
+func (v *CreateScopeInput) GetAppRef() *string { return v.AppRef }
+
+// GetDescription returns CreateScopeInput.Description, and is useful for accessing the field via an interface.
+func (v *CreateScopeInput) GetDescription() *string { return v.Description }
+
+// GetMemoryRefs returns CreateScopeInput.MemoryRefs, and is useful for accessing the field via an interface.
+func (v *CreateScopeInput) GetMemoryRefs() []string { return v.MemoryRefs }
+
+// GetName returns CreateScopeInput.Name, and is useful for accessing the field via an interface.
+func (v *CreateScopeInput) GetName() string { return v.Name }
+
+// GetOrganizationRef returns CreateScopeInput.OrganizationRef, and is useful for accessing the field via an interface.
+func (v *CreateScopeInput) GetOrganizationRef() *string { return v.OrganizationRef }
+
+// CreateScopeResponse is returned by CreateScope on success.
+type CreateScopeResponse struct {
+	// Spec 049 Phase 2 — create a named scope on exactly one owner. Auth by
+	// owner: organization CONTRIBUTOR+; App or Agent ADMIN of the owning org, or
+	// the owner of a user-owned one. Name 1–64 [a-z0-9_-], unique per owner
+	// among live scopes (SCOPE_NAME_TAKEN), never `global` / `app`.
+	CreateScope *CreateScopeCreateScope `json:"createScope"`
+}
+
+// GetCreateScope returns CreateScopeResponse.CreateScope, and is useful for accessing the field via an interface.
+func (v *CreateScopeResponse) GetCreateScope() *CreateScopeCreateScope { return v.CreateScope }
+
 // CreateSecretCreateSecret includes the requested fields of the GraphQL type Secret.
 type CreateSecretCreateSecret struct {
 	SecretFields `json:"-"`
@@ -6597,6 +6768,15 @@ type DeleteOrganizationResponse struct {
 
 // GetDeleteOrganization returns DeleteOrganizationResponse.DeleteOrganization, and is useful for accessing the field via an interface.
 func (v *DeleteOrganizationResponse) GetDeleteOrganization() bool { return v.DeleteOrganization }
+
+// DeleteScopeResponse is returned by DeleteScope on success.
+type DeleteScopeResponse struct {
+	// Spec 049 Phase 2 — soft-delete a scope you may write; its name is free again at once.
+	DeleteScope bool `json:"deleteScope"`
+}
+
+// GetDeleteScope returns DeleteScopeResponse.DeleteScope, and is useful for accessing the field via an interface.
+func (v *DeleteScopeResponse) GetDeleteScope() bool { return v.DeleteScope }
 
 // DeleteSecretResponse is returned by DeleteSecret on success.
 type DeleteSecretResponse struct {
@@ -8153,6 +8333,148 @@ type GetOrganizationResponse struct {
 // GetOrganization returns GetOrganizationResponse.Organization, and is useful for accessing the field via an interface.
 func (v *GetOrganizationResponse) GetOrganization() *GetOrganizationOrganization {
 	return v.Organization
+}
+
+// GetScopeResponse is returned by GetScope on success.
+type GetScopeResponse struct {
+	// Spec 049 Phase 2 — the uniform single-scope read (cor:api:120). 'ref' is
+	// the scope's ID (a Scope has no URN yet). Null when missing OR when you may
+	// not read it — no existence disclosure. Read gate: an org scope to that
+	// org's members, an App scope to the App's participants, an Agent scope to
+	// whoever may read the Agent.
+	Scope *GetScopeScope `json:"scope"`
+}
+
+// GetScope returns GetScopeResponse.Scope, and is useful for accessing the field via an interface.
+func (v *GetScopeResponse) GetScope() *GetScopeScope { return v.Scope }
+
+// GetScopeScope includes the requested fields of the GraphQL type Scope.
+// The GraphQL type's documentation follows.
+//
+// A named search SCOPE: an ORDERED list of memories with exactly one owner
+// (organization | Agent | App). Selects memories only — no saved filter, no
+// retrieval parameters — and NEVER grants: `memories` is the stored list ∩
+// what YOU may read (D-2026-09-13-004), and `hiddenMemoryCount` says how many
+// you cannot see, as a count only. Names are unique per owner; `global` and
+// `app` are reserved (the ladder's own views). Collisions across owners in
+// an App's context resolve App › Agent › organization, never unioned.
+type GetScopeScope struct {
+	ScopeFields   `json:"-"`
+	ScopeMemories `json:"-"`
+}
+
+// GetId returns GetScopeScope.Id, and is useful for accessing the field via an interface.
+func (v *GetScopeScope) GetId() string { return v.ScopeFields.Id }
+
+// GetName returns GetScopeScope.Name, and is useful for accessing the field via an interface.
+func (v *GetScopeScope) GetName() string { return v.ScopeFields.Name }
+
+// GetDescription returns GetScopeScope.Description, and is useful for accessing the field via an interface.
+func (v *GetScopeScope) GetDescription() *string { return v.ScopeFields.Description }
+
+// GetOwnerType returns GetScopeScope.OwnerType, and is useful for accessing the field via an interface.
+func (v *GetScopeScope) GetOwnerType() ScopeOwnerType { return v.ScopeFields.OwnerType }
+
+// GetOwnerId returns GetScopeScope.OwnerId, and is useful for accessing the field via an interface.
+func (v *GetScopeScope) GetOwnerId() string { return v.ScopeFields.OwnerId }
+
+// GetOwnerUrn returns GetScopeScope.OwnerUrn, and is useful for accessing the field via an interface.
+func (v *GetScopeScope) GetOwnerUrn() *string { return v.ScopeFields.OwnerUrn }
+
+// GetMemoryCount returns GetScopeScope.MemoryCount, and is useful for accessing the field via an interface.
+func (v *GetScopeScope) GetMemoryCount() int { return v.ScopeFields.MemoryCount }
+
+// GetHiddenMemoryCount returns GetScopeScope.HiddenMemoryCount, and is useful for accessing the field via an interface.
+func (v *GetScopeScope) GetHiddenMemoryCount() int { return v.ScopeFields.HiddenMemoryCount }
+
+// GetCreatedAt returns GetScopeScope.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetScopeScope) GetCreatedAt() string { return v.ScopeFields.CreatedAt }
+
+// GetUpdatedAt returns GetScopeScope.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *GetScopeScope) GetUpdatedAt() *string { return v.ScopeFields.UpdatedAt }
+
+// GetMemories returns GetScopeScope.Memories, and is useful for accessing the field via an interface.
+func (v *GetScopeScope) GetMemories() []*ScopeMemoriesMemoriesScopeMemoryEntry {
+	return v.ScopeMemories.Memories
+}
+
+func (v *GetScopeScope) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetScopeScope
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetScopeScope = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ScopeFields)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(
+		b, &v.ScopeMemories)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetScopeScope struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	OwnerType ScopeOwnerType `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	OwnerUrn *string `json:"ownerUrn"`
+
+	MemoryCount int `json:"memoryCount"`
+
+	HiddenMemoryCount int `json:"hiddenMemoryCount"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Memories []*ScopeMemoriesMemoriesScopeMemoryEntry `json:"memories"`
+}
+
+func (v *GetScopeScope) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetScopeScope) __premarshalJSON() (*__premarshalGetScopeScope, error) {
+	var retval __premarshalGetScopeScope
+
+	retval.Id = v.ScopeFields.Id
+	retval.Name = v.ScopeFields.Name
+	retval.Description = v.ScopeFields.Description
+	retval.OwnerType = v.ScopeFields.OwnerType
+	retval.OwnerId = v.ScopeFields.OwnerId
+	retval.OwnerUrn = v.ScopeFields.OwnerUrn
+	retval.MemoryCount = v.ScopeFields.MemoryCount
+	retval.HiddenMemoryCount = v.ScopeFields.HiddenMemoryCount
+	retval.CreatedAt = v.ScopeFields.CreatedAt
+	retval.UpdatedAt = v.ScopeFields.UpdatedAt
+	retval.Memories = v.ScopeMemories.Memories
+	return &retval, nil
 }
 
 // GetTeamSessionResponse is returned by GetTeamSession on success.
@@ -14122,6 +14444,683 @@ type RunTaskResponse struct {
 // GetRunTask returns RunTaskResponse.RunTask, and is useful for accessing the field via an interface.
 func (v *RunTaskResponse) GetRunTask() string { return v.RunTask }
 
+// ScopeExplainResponse is returned by ScopeExplain on success.
+type ScopeExplainResponse struct {
+	// Spec 049 Phase 2 — explain a scope for YOU. Pass scopeRef, or a bare name
+	// plus appRef (a name is unique only per owner, so it resolves in an App's
+	// context: App › Agent › organization, never unioned — two installed Agents
+	// each owning the name is SCOPE_NAME_AMBIGUOUS and you choose by scopeRef).
+	// Returns the readable memories in order, the dropped COUNT, the shadowed
+	// scopes, and with `loc` which memory would win for that address.
+	ScopeExplain *ScopeExplainScopeExplainScopeExplanation `json:"scopeExplain"`
+}
+
+// GetScopeExplain returns ScopeExplainResponse.ScopeExplain, and is useful for accessing the field via an interface.
+func (v *ScopeExplainResponse) GetScopeExplain() *ScopeExplainScopeExplainScopeExplanation {
+	return v.ScopeExplain
+}
+
+// ScopeExplainScopeExplainScopeExplanation includes the requested fields of the GraphQL type ScopeExplanation.
+// The GraphQL type's documentation follows.
+//
+// What a scope resolves to FOR YOU: which owner tier won when resolved by
+// name, the scopes it shadowed, the readable memories in order, how many were
+// dropped for access, and — when `loc` was asked — which memory would win
+// for that address (the input the task-customization operation consumes).
+type ScopeExplainScopeExplainScopeExplanation struct {
+	ResolvedVia  ScopeOwnerType                                            `json:"resolvedVia"`
+	DroppedCount int                                                       `json:"droppedCount"`
+	Scope        *ScopeExplainScopeExplainScopeExplanationScope            `json:"scope"`
+	Memories     []*ScopeExplainScopeExplainScopeExplanationMemoriesMemory `json:"memories"`
+	Winner       *ScopeExplainScopeExplainScopeExplanationWinnerMemory     `json:"winner"`
+	// Lower-precedence scopes of the same name in that App's context (that you may read).
+	Shadowed []*ScopeExplainScopeExplainScopeExplanationShadowedScope `json:"shadowed"`
+}
+
+// GetResolvedVia returns ScopeExplainScopeExplainScopeExplanation.ResolvedVia, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanation) GetResolvedVia() ScopeOwnerType {
+	return v.ResolvedVia
+}
+
+// GetDroppedCount returns ScopeExplainScopeExplainScopeExplanation.DroppedCount, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanation) GetDroppedCount() int { return v.DroppedCount }
+
+// GetScope returns ScopeExplainScopeExplainScopeExplanation.Scope, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanation) GetScope() *ScopeExplainScopeExplainScopeExplanationScope {
+	return v.Scope
+}
+
+// GetMemories returns ScopeExplainScopeExplainScopeExplanation.Memories, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanation) GetMemories() []*ScopeExplainScopeExplainScopeExplanationMemoriesMemory {
+	return v.Memories
+}
+
+// GetWinner returns ScopeExplainScopeExplainScopeExplanation.Winner, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanation) GetWinner() *ScopeExplainScopeExplainScopeExplanationWinnerMemory {
+	return v.Winner
+}
+
+// GetShadowed returns ScopeExplainScopeExplainScopeExplanation.Shadowed, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanation) GetShadowed() []*ScopeExplainScopeExplainScopeExplanationShadowedScope {
+	return v.Shadowed
+}
+
+// ScopeExplainScopeExplainScopeExplanationMemoriesMemory includes the requested fields of the GraphQL type Memory.
+type ScopeExplainScopeExplainScopeExplanationMemoriesMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+}
+
+// GetId returns ScopeExplainScopeExplainScopeExplanationMemoriesMemory.Id, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationMemoriesMemory) GetId() string { return v.Id }
+
+// GetUrn returns ScopeExplainScopeExplainScopeExplanationMemoriesMemory.Urn, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationMemoriesMemory) GetUrn() string { return v.Urn }
+
+// GetName returns ScopeExplainScopeExplainScopeExplanationMemoriesMemory.Name, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationMemoriesMemory) GetName() string { return v.Name }
+
+// ScopeExplainScopeExplainScopeExplanationScope includes the requested fields of the GraphQL type Scope.
+// The GraphQL type's documentation follows.
+//
+// A named search SCOPE: an ORDERED list of memories with exactly one owner
+// (organization | Agent | App). Selects memories only — no saved filter, no
+// retrieval parameters — and NEVER grants: `memories` is the stored list ∩
+// what YOU may read (D-2026-09-13-004), and `hiddenMemoryCount` says how many
+// you cannot see, as a count only. Names are unique per owner; `global` and
+// `app` are reserved (the ladder's own views). Collisions across owners in
+// an App's context resolve App › Agent › organization, never unioned.
+type ScopeExplainScopeExplainScopeExplanationScope struct {
+	ScopeFields `json:"-"`
+}
+
+// GetId returns ScopeExplainScopeExplainScopeExplanationScope.Id, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationScope) GetId() string { return v.ScopeFields.Id }
+
+// GetName returns ScopeExplainScopeExplainScopeExplanationScope.Name, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationScope) GetName() string { return v.ScopeFields.Name }
+
+// GetDescription returns ScopeExplainScopeExplainScopeExplanationScope.Description, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationScope) GetDescription() *string {
+	return v.ScopeFields.Description
+}
+
+// GetOwnerType returns ScopeExplainScopeExplainScopeExplanationScope.OwnerType, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationScope) GetOwnerType() ScopeOwnerType {
+	return v.ScopeFields.OwnerType
+}
+
+// GetOwnerId returns ScopeExplainScopeExplainScopeExplanationScope.OwnerId, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationScope) GetOwnerId() string {
+	return v.ScopeFields.OwnerId
+}
+
+// GetOwnerUrn returns ScopeExplainScopeExplainScopeExplanationScope.OwnerUrn, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationScope) GetOwnerUrn() *string {
+	return v.ScopeFields.OwnerUrn
+}
+
+// GetMemoryCount returns ScopeExplainScopeExplainScopeExplanationScope.MemoryCount, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationScope) GetMemoryCount() int {
+	return v.ScopeFields.MemoryCount
+}
+
+// GetHiddenMemoryCount returns ScopeExplainScopeExplainScopeExplanationScope.HiddenMemoryCount, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationScope) GetHiddenMemoryCount() int {
+	return v.ScopeFields.HiddenMemoryCount
+}
+
+// GetCreatedAt returns ScopeExplainScopeExplainScopeExplanationScope.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationScope) GetCreatedAt() string {
+	return v.ScopeFields.CreatedAt
+}
+
+// GetUpdatedAt returns ScopeExplainScopeExplainScopeExplanationScope.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationScope) GetUpdatedAt() *string {
+	return v.ScopeFields.UpdatedAt
+}
+
+func (v *ScopeExplainScopeExplainScopeExplanationScope) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ScopeExplainScopeExplainScopeExplanationScope
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ScopeExplainScopeExplainScopeExplanationScope = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ScopeFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalScopeExplainScopeExplainScopeExplanationScope struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	OwnerType ScopeOwnerType `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	OwnerUrn *string `json:"ownerUrn"`
+
+	MemoryCount int `json:"memoryCount"`
+
+	HiddenMemoryCount int `json:"hiddenMemoryCount"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *ScopeExplainScopeExplainScopeExplanationScope) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ScopeExplainScopeExplainScopeExplanationScope) __premarshalJSON() (*__premarshalScopeExplainScopeExplainScopeExplanationScope, error) {
+	var retval __premarshalScopeExplainScopeExplainScopeExplanationScope
+
+	retval.Id = v.ScopeFields.Id
+	retval.Name = v.ScopeFields.Name
+	retval.Description = v.ScopeFields.Description
+	retval.OwnerType = v.ScopeFields.OwnerType
+	retval.OwnerId = v.ScopeFields.OwnerId
+	retval.OwnerUrn = v.ScopeFields.OwnerUrn
+	retval.MemoryCount = v.ScopeFields.MemoryCount
+	retval.HiddenMemoryCount = v.ScopeFields.HiddenMemoryCount
+	retval.CreatedAt = v.ScopeFields.CreatedAt
+	retval.UpdatedAt = v.ScopeFields.UpdatedAt
+	return &retval, nil
+}
+
+// ScopeExplainScopeExplainScopeExplanationShadowedScope includes the requested fields of the GraphQL type Scope.
+// The GraphQL type's documentation follows.
+//
+// A named search SCOPE: an ORDERED list of memories with exactly one owner
+// (organization | Agent | App). Selects memories only — no saved filter, no
+// retrieval parameters — and NEVER grants: `memories` is the stored list ∩
+// what YOU may read (D-2026-09-13-004), and `hiddenMemoryCount` says how many
+// you cannot see, as a count only. Names are unique per owner; `global` and
+// `app` are reserved (the ladder's own views). Collisions across owners in
+// an App's context resolve App › Agent › organization, never unioned.
+type ScopeExplainScopeExplainScopeExplanationShadowedScope struct {
+	ScopeFields `json:"-"`
+}
+
+// GetId returns ScopeExplainScopeExplainScopeExplanationShadowedScope.Id, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationShadowedScope) GetId() string {
+	return v.ScopeFields.Id
+}
+
+// GetName returns ScopeExplainScopeExplainScopeExplanationShadowedScope.Name, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationShadowedScope) GetName() string {
+	return v.ScopeFields.Name
+}
+
+// GetDescription returns ScopeExplainScopeExplainScopeExplanationShadowedScope.Description, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationShadowedScope) GetDescription() *string {
+	return v.ScopeFields.Description
+}
+
+// GetOwnerType returns ScopeExplainScopeExplainScopeExplanationShadowedScope.OwnerType, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationShadowedScope) GetOwnerType() ScopeOwnerType {
+	return v.ScopeFields.OwnerType
+}
+
+// GetOwnerId returns ScopeExplainScopeExplainScopeExplanationShadowedScope.OwnerId, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationShadowedScope) GetOwnerId() string {
+	return v.ScopeFields.OwnerId
+}
+
+// GetOwnerUrn returns ScopeExplainScopeExplainScopeExplanationShadowedScope.OwnerUrn, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationShadowedScope) GetOwnerUrn() *string {
+	return v.ScopeFields.OwnerUrn
+}
+
+// GetMemoryCount returns ScopeExplainScopeExplainScopeExplanationShadowedScope.MemoryCount, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationShadowedScope) GetMemoryCount() int {
+	return v.ScopeFields.MemoryCount
+}
+
+// GetHiddenMemoryCount returns ScopeExplainScopeExplainScopeExplanationShadowedScope.HiddenMemoryCount, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationShadowedScope) GetHiddenMemoryCount() int {
+	return v.ScopeFields.HiddenMemoryCount
+}
+
+// GetCreatedAt returns ScopeExplainScopeExplainScopeExplanationShadowedScope.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationShadowedScope) GetCreatedAt() string {
+	return v.ScopeFields.CreatedAt
+}
+
+// GetUpdatedAt returns ScopeExplainScopeExplainScopeExplanationShadowedScope.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationShadowedScope) GetUpdatedAt() *string {
+	return v.ScopeFields.UpdatedAt
+}
+
+func (v *ScopeExplainScopeExplainScopeExplanationShadowedScope) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ScopeExplainScopeExplainScopeExplanationShadowedScope
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ScopeExplainScopeExplainScopeExplanationShadowedScope = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ScopeFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalScopeExplainScopeExplainScopeExplanationShadowedScope struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	OwnerType ScopeOwnerType `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	OwnerUrn *string `json:"ownerUrn"`
+
+	MemoryCount int `json:"memoryCount"`
+
+	HiddenMemoryCount int `json:"hiddenMemoryCount"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *ScopeExplainScopeExplainScopeExplanationShadowedScope) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ScopeExplainScopeExplainScopeExplanationShadowedScope) __premarshalJSON() (*__premarshalScopeExplainScopeExplainScopeExplanationShadowedScope, error) {
+	var retval __premarshalScopeExplainScopeExplainScopeExplanationShadowedScope
+
+	retval.Id = v.ScopeFields.Id
+	retval.Name = v.ScopeFields.Name
+	retval.Description = v.ScopeFields.Description
+	retval.OwnerType = v.ScopeFields.OwnerType
+	retval.OwnerId = v.ScopeFields.OwnerId
+	retval.OwnerUrn = v.ScopeFields.OwnerUrn
+	retval.MemoryCount = v.ScopeFields.MemoryCount
+	retval.HiddenMemoryCount = v.ScopeFields.HiddenMemoryCount
+	retval.CreatedAt = v.ScopeFields.CreatedAt
+	retval.UpdatedAt = v.ScopeFields.UpdatedAt
+	return &retval, nil
+}
+
+// ScopeExplainScopeExplainScopeExplanationWinnerMemory includes the requested fields of the GraphQL type Memory.
+type ScopeExplainScopeExplainScopeExplanationWinnerMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+}
+
+// GetId returns ScopeExplainScopeExplainScopeExplanationWinnerMemory.Id, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationWinnerMemory) GetId() string { return v.Id }
+
+// GetUrn returns ScopeExplainScopeExplainScopeExplanationWinnerMemory.Urn, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationWinnerMemory) GetUrn() string { return v.Urn }
+
+// GetName returns ScopeExplainScopeExplainScopeExplanationWinnerMemory.Name, and is useful for accessing the field via an interface.
+func (v *ScopeExplainScopeExplainScopeExplanationWinnerMemory) GetName() string { return v.Name }
+
+// ScopeFields includes the GraphQL fields of Scope requested by the fragment ScopeFields.
+// The GraphQL type's documentation follows.
+//
+// A named search SCOPE: an ORDERED list of memories with exactly one owner
+// (organization | Agent | App). Selects memories only — no saved filter, no
+// retrieval parameters — and NEVER grants: `memories` is the stored list ∩
+// what YOU may read (D-2026-09-13-004), and `hiddenMemoryCount` says how many
+// you cannot see, as a count only. Names are unique per owner; `global` and
+// `app` are reserved (the ladder's own views). Collisions across owners in
+// an App's context resolve App › Agent › organization, never unioned.
+type ScopeFields struct {
+	Id          string         `json:"id"`
+	Name        string         `json:"name"`
+	Description *string        `json:"description"`
+	OwnerType   ScopeOwnerType `json:"ownerType"`
+	// ID of the owning organization / Agent / App.
+	OwnerId string `json:"ownerId"`
+	// Bare stored URN of the owner, when it has one.
+	OwnerUrn *string `json:"ownerUrn"`
+	// How many memories the scope lists in total.
+	MemoryCount int `json:"memoryCount"`
+	// How many of them you may NOT read (count only — never their names).
+	HiddenMemoryCount int     `json:"hiddenMemoryCount"`
+	CreatedAt         string  `json:"createdAt"`
+	UpdatedAt         *string `json:"updatedAt"`
+}
+
+// GetId returns ScopeFields.Id, and is useful for accessing the field via an interface.
+func (v *ScopeFields) GetId() string { return v.Id }
+
+// GetName returns ScopeFields.Name, and is useful for accessing the field via an interface.
+func (v *ScopeFields) GetName() string { return v.Name }
+
+// GetDescription returns ScopeFields.Description, and is useful for accessing the field via an interface.
+func (v *ScopeFields) GetDescription() *string { return v.Description }
+
+// GetOwnerType returns ScopeFields.OwnerType, and is useful for accessing the field via an interface.
+func (v *ScopeFields) GetOwnerType() ScopeOwnerType { return v.OwnerType }
+
+// GetOwnerId returns ScopeFields.OwnerId, and is useful for accessing the field via an interface.
+func (v *ScopeFields) GetOwnerId() string { return v.OwnerId }
+
+// GetOwnerUrn returns ScopeFields.OwnerUrn, and is useful for accessing the field via an interface.
+func (v *ScopeFields) GetOwnerUrn() *string { return v.OwnerUrn }
+
+// GetMemoryCount returns ScopeFields.MemoryCount, and is useful for accessing the field via an interface.
+func (v *ScopeFields) GetMemoryCount() int { return v.MemoryCount }
+
+// GetHiddenMemoryCount returns ScopeFields.HiddenMemoryCount, and is useful for accessing the field via an interface.
+func (v *ScopeFields) GetHiddenMemoryCount() int { return v.HiddenMemoryCount }
+
+// GetCreatedAt returns ScopeFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ScopeFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns ScopeFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ScopeFields) GetUpdatedAt() *string { return v.UpdatedAt }
+
+// Filter for the uniform scopes() list. Clauses AND-combine and only narrow the
+// caller's readable set. `ownerType` + `ownerRef` name one owner; `appRef`
+// selects the App's whole CONTEXT (its own scopes, its installed Agents', its
+// organization's) — what a bare name would resolve against there.
+type ScopeFilter struct {
+	// ID or URN of an App — the resolution context.
+	AppRef *string `json:"appRef"`
+	Name   *string `json:"name"`
+	// ID or URN of the owner (with ownerType).
+	OwnerRef  *string         `json:"ownerRef"`
+	OwnerType *ScopeOwnerType `json:"ownerType"`
+}
+
+// GetAppRef returns ScopeFilter.AppRef, and is useful for accessing the field via an interface.
+func (v *ScopeFilter) GetAppRef() *string { return v.AppRef }
+
+// GetName returns ScopeFilter.Name, and is useful for accessing the field via an interface.
+func (v *ScopeFilter) GetName() *string { return v.Name }
+
+// GetOwnerRef returns ScopeFilter.OwnerRef, and is useful for accessing the field via an interface.
+func (v *ScopeFilter) GetOwnerRef() *string { return v.OwnerRef }
+
+// GetOwnerType returns ScopeFilter.OwnerType, and is useful for accessing the field via an interface.
+func (v *ScopeFilter) GetOwnerType() *ScopeOwnerType { return v.OwnerType }
+
+// The readable memories, in scope order. `position` is 0-based and is the
+// scope's order, not the server's default sort — preserve it when rendering.
+type ScopeMemories struct {
+	// The scope's memories YOU may read, in scope order.
+	Memories []*ScopeMemoriesMemoriesScopeMemoryEntry `json:"memories"`
+}
+
+// GetMemories returns ScopeMemories.Memories, and is useful for accessing the field via an interface.
+func (v *ScopeMemories) GetMemories() []*ScopeMemoriesMemoriesScopeMemoryEntry { return v.Memories }
+
+// ScopeMemoriesMemoriesScopeMemoryEntry includes the requested fields of the GraphQL type ScopeMemoryEntry.
+type ScopeMemoriesMemoriesScopeMemoryEntry struct {
+	// 0-based order within the scope.
+	Position int                                          `json:"position"`
+	Memory   *ScopeMemoriesMemoriesScopeMemoryEntryMemory `json:"memory"`
+}
+
+// GetPosition returns ScopeMemoriesMemoriesScopeMemoryEntry.Position, and is useful for accessing the field via an interface.
+func (v *ScopeMemoriesMemoriesScopeMemoryEntry) GetPosition() int { return v.Position }
+
+// GetMemory returns ScopeMemoriesMemoriesScopeMemoryEntry.Memory, and is useful for accessing the field via an interface.
+func (v *ScopeMemoriesMemoriesScopeMemoryEntry) GetMemory() *ScopeMemoriesMemoriesScopeMemoryEntryMemory {
+	return v.Memory
+}
+
+// ScopeMemoriesMemoriesScopeMemoryEntryMemory includes the requested fields of the GraphQL type Memory.
+type ScopeMemoriesMemoriesScopeMemoryEntryMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+}
+
+// GetId returns ScopeMemoriesMemoriesScopeMemoryEntryMemory.Id, and is useful for accessing the field via an interface.
+func (v *ScopeMemoriesMemoriesScopeMemoryEntryMemory) GetId() string { return v.Id }
+
+// GetUrn returns ScopeMemoriesMemoriesScopeMemoryEntryMemory.Urn, and is useful for accessing the field via an interface.
+func (v *ScopeMemoriesMemoriesScopeMemoryEntryMemory) GetUrn() string { return v.Urn }
+
+// GetName returns ScopeMemoriesMemoriesScopeMemoryEntryMemory.Name, and is useful for accessing the field via an interface.
+func (v *ScopeMemoriesMemoriesScopeMemoryEntryMemory) GetName() string { return v.Name }
+
+// GetShortDescription returns ScopeMemoriesMemoriesScopeMemoryEntryMemory.ShortDescription, and is useful for accessing the field via an interface.
+func (v *ScopeMemoriesMemoriesScopeMemoryEntryMemory) GetShortDescription() *string {
+	return v.ShortDescription
+}
+
+// Which entity owns a Scope. Exactly one per scope (DB-enforced, the AiServiceConfig pattern).
+type ScopeOwnerType string
+
+const (
+	ScopeOwnerTypeAgent        ScopeOwnerType = "AGENT"
+	ScopeOwnerTypeApp          ScopeOwnerType = "APP"
+	ScopeOwnerTypeOrganization ScopeOwnerType = "ORGANIZATION"
+)
+
+var AllScopeOwnerType = []ScopeOwnerType{
+	ScopeOwnerTypeAgent,
+	ScopeOwnerTypeApp,
+	ScopeOwnerTypeOrganization,
+}
+
+// ScopesResponse is returned by Scopes on success.
+type ScopesResponse struct {
+	// Spec 049 Phase 2 — paginated list of the scopes you may read, optionally
+	// narrowed by owner, by an App's resolution context, by name, and by the
+	// cor:api:100:01 orgId (member-gated, no admin bypass; non-member ⇒ empty
+	// page). Name-ascending (id tiebreak); limit default 50 / cap 200; limit: 0
+	// ⇒ count only.
+	Scopes *ScopesScopesScopesPage `json:"scopes"`
+}
+
+// GetScopes returns ScopesResponse.Scopes, and is useful for accessing the field via an interface.
+func (v *ScopesResponse) GetScopes() *ScopesScopesScopesPage { return v.Scopes }
+
+// ScopesScopesScopesPage includes the requested fields of the GraphQL type ScopesPage.
+type ScopesScopesScopesPage struct {
+	Total int                                 `json:"total"`
+	Items []*ScopesScopesScopesPageItemsScope `json:"items"`
+}
+
+// GetTotal returns ScopesScopesScopesPage.Total, and is useful for accessing the field via an interface.
+func (v *ScopesScopesScopesPage) GetTotal() int { return v.Total }
+
+// GetItems returns ScopesScopesScopesPage.Items, and is useful for accessing the field via an interface.
+func (v *ScopesScopesScopesPage) GetItems() []*ScopesScopesScopesPageItemsScope { return v.Items }
+
+// ScopesScopesScopesPageItemsScope includes the requested fields of the GraphQL type Scope.
+// The GraphQL type's documentation follows.
+//
+// A named search SCOPE: an ORDERED list of memories with exactly one owner
+// (organization | Agent | App). Selects memories only — no saved filter, no
+// retrieval parameters — and NEVER grants: `memories` is the stored list ∩
+// what YOU may read (D-2026-09-13-004), and `hiddenMemoryCount` says how many
+// you cannot see, as a count only. Names are unique per owner; `global` and
+// `app` are reserved (the ladder's own views). Collisions across owners in
+// an App's context resolve App › Agent › organization, never unioned.
+type ScopesScopesScopesPageItemsScope struct {
+	ScopeFields `json:"-"`
+}
+
+// GetId returns ScopesScopesScopesPageItemsScope.Id, and is useful for accessing the field via an interface.
+func (v *ScopesScopesScopesPageItemsScope) GetId() string { return v.ScopeFields.Id }
+
+// GetName returns ScopesScopesScopesPageItemsScope.Name, and is useful for accessing the field via an interface.
+func (v *ScopesScopesScopesPageItemsScope) GetName() string { return v.ScopeFields.Name }
+
+// GetDescription returns ScopesScopesScopesPageItemsScope.Description, and is useful for accessing the field via an interface.
+func (v *ScopesScopesScopesPageItemsScope) GetDescription() *string { return v.ScopeFields.Description }
+
+// GetOwnerType returns ScopesScopesScopesPageItemsScope.OwnerType, and is useful for accessing the field via an interface.
+func (v *ScopesScopesScopesPageItemsScope) GetOwnerType() ScopeOwnerType {
+	return v.ScopeFields.OwnerType
+}
+
+// GetOwnerId returns ScopesScopesScopesPageItemsScope.OwnerId, and is useful for accessing the field via an interface.
+func (v *ScopesScopesScopesPageItemsScope) GetOwnerId() string { return v.ScopeFields.OwnerId }
+
+// GetOwnerUrn returns ScopesScopesScopesPageItemsScope.OwnerUrn, and is useful for accessing the field via an interface.
+func (v *ScopesScopesScopesPageItemsScope) GetOwnerUrn() *string { return v.ScopeFields.OwnerUrn }
+
+// GetMemoryCount returns ScopesScopesScopesPageItemsScope.MemoryCount, and is useful for accessing the field via an interface.
+func (v *ScopesScopesScopesPageItemsScope) GetMemoryCount() int { return v.ScopeFields.MemoryCount }
+
+// GetHiddenMemoryCount returns ScopesScopesScopesPageItemsScope.HiddenMemoryCount, and is useful for accessing the field via an interface.
+func (v *ScopesScopesScopesPageItemsScope) GetHiddenMemoryCount() int {
+	return v.ScopeFields.HiddenMemoryCount
+}
+
+// GetCreatedAt returns ScopesScopesScopesPageItemsScope.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ScopesScopesScopesPageItemsScope) GetCreatedAt() string { return v.ScopeFields.CreatedAt }
+
+// GetUpdatedAt returns ScopesScopesScopesPageItemsScope.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ScopesScopesScopesPageItemsScope) GetUpdatedAt() *string { return v.ScopeFields.UpdatedAt }
+
+func (v *ScopesScopesScopesPageItemsScope) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ScopesScopesScopesPageItemsScope
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ScopesScopesScopesPageItemsScope = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ScopeFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalScopesScopesScopesPageItemsScope struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	OwnerType ScopeOwnerType `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	OwnerUrn *string `json:"ownerUrn"`
+
+	MemoryCount int `json:"memoryCount"`
+
+	HiddenMemoryCount int `json:"hiddenMemoryCount"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *ScopesScopesScopesPageItemsScope) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ScopesScopesScopesPageItemsScope) __premarshalJSON() (*__premarshalScopesScopesScopesPageItemsScope, error) {
+	var retval __premarshalScopesScopesScopesPageItemsScope
+
+	retval.Id = v.ScopeFields.Id
+	retval.Name = v.ScopeFields.Name
+	retval.Description = v.ScopeFields.Description
+	retval.OwnerType = v.ScopeFields.OwnerType
+	retval.OwnerId = v.ScopeFields.OwnerId
+	retval.OwnerUrn = v.ScopeFields.OwnerUrn
+	retval.MemoryCount = v.ScopeFields.MemoryCount
+	retval.HiddenMemoryCount = v.ScopeFields.HiddenMemoryCount
+	retval.CreatedAt = v.ScopeFields.CreatedAt
+	retval.UpdatedAt = v.ScopeFields.UpdatedAt
+	return &retval, nil
+}
+
 // SearchNodesFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
 // The GraphQL type's documentation follows.
 //
@@ -18503,6 +19502,160 @@ func (v *UpdateOrganizationUpdateOrganization) __premarshalJSON() (*__premarshal
 	return &retval, nil
 }
 
+// All optional. `memoryRefs`, when passed, REPLACES the list (it is the new order).
+type UpdateScopeInput struct {
+	Description *string  `json:"description,omitempty"`
+	MemoryRefs  []string `json:"memoryRefs,omitempty"`
+	Name        *string  `json:"name,omitempty"`
+}
+
+// GetDescription returns UpdateScopeInput.Description, and is useful for accessing the field via an interface.
+func (v *UpdateScopeInput) GetDescription() *string { return v.Description }
+
+// GetMemoryRefs returns UpdateScopeInput.MemoryRefs, and is useful for accessing the field via an interface.
+func (v *UpdateScopeInput) GetMemoryRefs() []string { return v.MemoryRefs }
+
+// GetName returns UpdateScopeInput.Name, and is useful for accessing the field via an interface.
+func (v *UpdateScopeInput) GetName() *string { return v.Name }
+
+// UpdateScopeResponse is returned by UpdateScope on success.
+type UpdateScopeResponse struct {
+	// Spec 049 Phase 2 — update a scope you may write (auth as createScope). memoryRefs replaces the ordered list.
+	UpdateScope *UpdateScopeUpdateScope `json:"updateScope"`
+}
+
+// GetUpdateScope returns UpdateScopeResponse.UpdateScope, and is useful for accessing the field via an interface.
+func (v *UpdateScopeResponse) GetUpdateScope() *UpdateScopeUpdateScope { return v.UpdateScope }
+
+// UpdateScopeUpdateScope includes the requested fields of the GraphQL type Scope.
+// The GraphQL type's documentation follows.
+//
+// A named search SCOPE: an ORDERED list of memories with exactly one owner
+// (organization | Agent | App). Selects memories only — no saved filter, no
+// retrieval parameters — and NEVER grants: `memories` is the stored list ∩
+// what YOU may read (D-2026-09-13-004), and `hiddenMemoryCount` says how many
+// you cannot see, as a count only. Names are unique per owner; `global` and
+// `app` are reserved (the ladder's own views). Collisions across owners in
+// an App's context resolve App › Agent › organization, never unioned.
+type UpdateScopeUpdateScope struct {
+	ScopeFields   `json:"-"`
+	ScopeMemories `json:"-"`
+}
+
+// GetId returns UpdateScopeUpdateScope.Id, and is useful for accessing the field via an interface.
+func (v *UpdateScopeUpdateScope) GetId() string { return v.ScopeFields.Id }
+
+// GetName returns UpdateScopeUpdateScope.Name, and is useful for accessing the field via an interface.
+func (v *UpdateScopeUpdateScope) GetName() string { return v.ScopeFields.Name }
+
+// GetDescription returns UpdateScopeUpdateScope.Description, and is useful for accessing the field via an interface.
+func (v *UpdateScopeUpdateScope) GetDescription() *string { return v.ScopeFields.Description }
+
+// GetOwnerType returns UpdateScopeUpdateScope.OwnerType, and is useful for accessing the field via an interface.
+func (v *UpdateScopeUpdateScope) GetOwnerType() ScopeOwnerType { return v.ScopeFields.OwnerType }
+
+// GetOwnerId returns UpdateScopeUpdateScope.OwnerId, and is useful for accessing the field via an interface.
+func (v *UpdateScopeUpdateScope) GetOwnerId() string { return v.ScopeFields.OwnerId }
+
+// GetOwnerUrn returns UpdateScopeUpdateScope.OwnerUrn, and is useful for accessing the field via an interface.
+func (v *UpdateScopeUpdateScope) GetOwnerUrn() *string { return v.ScopeFields.OwnerUrn }
+
+// GetMemoryCount returns UpdateScopeUpdateScope.MemoryCount, and is useful for accessing the field via an interface.
+func (v *UpdateScopeUpdateScope) GetMemoryCount() int { return v.ScopeFields.MemoryCount }
+
+// GetHiddenMemoryCount returns UpdateScopeUpdateScope.HiddenMemoryCount, and is useful for accessing the field via an interface.
+func (v *UpdateScopeUpdateScope) GetHiddenMemoryCount() int { return v.ScopeFields.HiddenMemoryCount }
+
+// GetCreatedAt returns UpdateScopeUpdateScope.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateScopeUpdateScope) GetCreatedAt() string { return v.ScopeFields.CreatedAt }
+
+// GetUpdatedAt returns UpdateScopeUpdateScope.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateScopeUpdateScope) GetUpdatedAt() *string { return v.ScopeFields.UpdatedAt }
+
+// GetMemories returns UpdateScopeUpdateScope.Memories, and is useful for accessing the field via an interface.
+func (v *UpdateScopeUpdateScope) GetMemories() []*ScopeMemoriesMemoriesScopeMemoryEntry {
+	return v.ScopeMemories.Memories
+}
+
+func (v *UpdateScopeUpdateScope) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateScopeUpdateScope
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateScopeUpdateScope = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ScopeFields)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(
+		b, &v.ScopeMemories)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateScopeUpdateScope struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	OwnerType ScopeOwnerType `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	OwnerUrn *string `json:"ownerUrn"`
+
+	MemoryCount int `json:"memoryCount"`
+
+	HiddenMemoryCount int `json:"hiddenMemoryCount"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Memories []*ScopeMemoriesMemoriesScopeMemoryEntry `json:"memories"`
+}
+
+func (v *UpdateScopeUpdateScope) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateScopeUpdateScope) __premarshalJSON() (*__premarshalUpdateScopeUpdateScope, error) {
+	var retval __premarshalUpdateScopeUpdateScope
+
+	retval.Id = v.ScopeFields.Id
+	retval.Name = v.ScopeFields.Name
+	retval.Description = v.ScopeFields.Description
+	retval.OwnerType = v.ScopeFields.OwnerType
+	retval.OwnerId = v.ScopeFields.OwnerId
+	retval.OwnerUrn = v.ScopeFields.OwnerUrn
+	retval.MemoryCount = v.ScopeFields.MemoryCount
+	retval.HiddenMemoryCount = v.ScopeFields.HiddenMemoryCount
+	retval.CreatedAt = v.ScopeFields.CreatedAt
+	retval.UpdatedAt = v.ScopeFields.UpdatedAt
+	retval.Memories = v.ScopeMemories.Memories
+	return &retval, nil
+}
+
 // UpdateTeamCollectionsResponse is returned by UpdateTeamCollections on success.
 type UpdateTeamCollectionsResponse struct {
 	// (Re)declare the server-owned team collections on the team App's shared
@@ -21027,6 +22180,14 @@ func (v *__CreatePrincipalGrantInput) GetActions() []string { return v.Actions }
 // GetExpiresAt returns __CreatePrincipalGrantInput.ExpiresAt, and is useful for accessing the field via an interface.
 func (v *__CreatePrincipalGrantInput) GetExpiresAt() *string { return v.ExpiresAt }
 
+// __CreateScopeInput is used internally by genqlient
+type __CreateScopeInput struct {
+	Input *CreateScopeInput `json:"input,omitempty"`
+}
+
+// GetInput returns __CreateScopeInput.Input, and is useful for accessing the field via an interface.
+func (v *__CreateScopeInput) GetInput() *CreateScopeInput { return v.Input }
+
 // __CreateSecretInput is used internally by genqlient
 type __CreateSecretInput struct {
 	OwnerType string           `json:"ownerType"`
@@ -21267,6 +22428,14 @@ type __DeleteOrganizationInput struct {
 // GetId returns __DeleteOrganizationInput.Id, and is useful for accessing the field via an interface.
 func (v *__DeleteOrganizationInput) GetId() string { return v.Id }
 
+// __DeleteScopeInput is used internally by genqlient
+type __DeleteScopeInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __DeleteScopeInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteScopeInput) GetRef() string { return v.Ref }
+
 // __DeleteSecretInput is used internally by genqlient
 type __DeleteSecretInput struct {
 	Ref string `json:"ref"`
@@ -21474,6 +22643,14 @@ type __GetOrganizationInput struct {
 
 // GetRef returns __GetOrganizationInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetOrganizationInput) GetRef() string { return v.Ref }
+
+// __GetScopeInput is used internally by genqlient
+type __GetScopeInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetScopeInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetScopeInput) GetRef() string { return v.Ref }
 
 // __GetTeamSessionInput is used internally by genqlient
 type __GetTeamSessionInput struct {
@@ -21994,6 +23171,46 @@ func (v *__RunTaskInput) GetAppRef() *string { return v.AppRef }
 
 // GetRunAsSelf returns __RunTaskInput.RunAsSelf, and is useful for accessing the field via an interface.
 func (v *__RunTaskInput) GetRunAsSelf() *bool { return v.RunAsSelf }
+
+// __ScopeExplainInput is used internally by genqlient
+type __ScopeExplainInput struct {
+	ScopeRef *string `json:"scopeRef,omitempty"`
+	Name     *string `json:"name,omitempty"`
+	AppRef   *string `json:"appRef,omitempty"`
+	Loc      *string `json:"loc,omitempty"`
+}
+
+// GetScopeRef returns __ScopeExplainInput.ScopeRef, and is useful for accessing the field via an interface.
+func (v *__ScopeExplainInput) GetScopeRef() *string { return v.ScopeRef }
+
+// GetName returns __ScopeExplainInput.Name, and is useful for accessing the field via an interface.
+func (v *__ScopeExplainInput) GetName() *string { return v.Name }
+
+// GetAppRef returns __ScopeExplainInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__ScopeExplainInput) GetAppRef() *string { return v.AppRef }
+
+// GetLoc returns __ScopeExplainInput.Loc, and is useful for accessing the field via an interface.
+func (v *__ScopeExplainInput) GetLoc() *string { return v.Loc }
+
+// __ScopesInput is used internally by genqlient
+type __ScopesInput struct {
+	Filter *ScopeFilter `json:"filter,omitempty"`
+	Limit  *int         `json:"limit,omitempty"`
+	Offset *int         `json:"offset,omitempty"`
+	OrgId  *string      `json:"orgId,omitempty"`
+}
+
+// GetFilter returns __ScopesInput.Filter, and is useful for accessing the field via an interface.
+func (v *__ScopesInput) GetFilter() *ScopeFilter { return v.Filter }
+
+// GetLimit returns __ScopesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ScopesInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __ScopesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ScopesInput) GetOffset() *int { return v.Offset }
+
+// GetOrgId returns __ScopesInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__ScopesInput) GetOrgId() *string { return v.OrgId }
 
 // __SearchNodesInput is used internally by genqlient
 type __SearchNodesInput struct {
@@ -22598,6 +23815,18 @@ func (v *__UpdateOrganizationInput) GetUrn() *string { return v.Urn }
 
 // GetListedOnMarketplace returns __UpdateOrganizationInput.ListedOnMarketplace, and is useful for accessing the field via an interface.
 func (v *__UpdateOrganizationInput) GetListedOnMarketplace() *bool { return v.ListedOnMarketplace }
+
+// __UpdateScopeInput is used internally by genqlient
+type __UpdateScopeInput struct {
+	Ref   string            `json:"ref"`
+	Input *UpdateScopeInput `json:"input,omitempty"`
+}
+
+// GetRef returns __UpdateScopeInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateScopeInput) GetRef() string { return v.Ref }
+
+// GetInput returns __UpdateScopeInput.Input, and is useful for accessing the field via an interface.
+func (v *__UpdateScopeInput) GetInput() *UpdateScopeInput { return v.Input }
 
 // __UpdateTeamCollectionsInput is used internally by genqlient
 type __UpdateTeamCollectionsInput struct {
@@ -24943,6 +26172,74 @@ func CreatePrincipalGrant(
 	return data_, err_
 }
 
+// The mutation executed by CreateScope.
+const CreateScope_Operation = `
+mutation CreateScope ($input: CreateScopeInput!) {
+	createScope(input: $input) {
+		... ScopeFields
+		... ScopeMemories
+	}
+}
+fragment ScopeFields on Scope {
+	id
+	name
+	description
+	ownerType
+	ownerId
+	ownerUrn
+	memoryCount
+	hiddenMemoryCount
+	createdAt
+	updatedAt
+}
+fragment ScopeMemories on Scope {
+	memories {
+		position
+		memory {
+			id
+			urn
+			name
+			shortDescription
+		}
+	}
+}
+`
+
+// Create a scope on EXACTLY ONE owner. The server enforces the name rules
+// (1-64 [a-z0-9_-], unique per owner via SCOPE_NAME_TAKEN, never `global` or
+// `app`) — deliberately not duplicated client-side, since a copy drifts.
+//
+// memoryRefs is ORDERED and required; its order is the scope's order.
+//
+// The three owner refs carry omitempty so the two the caller did NOT pick are
+// absent from the wire rather than sent as explicit nulls — the server's rule
+// is "exactly one owner", and a null is a value being offered. (Signature kept
+// expanded so the `for:` directives bind; see UpdateScope below.)
+func CreateScope(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *CreateScopeInput,
+) (data_ *CreateScopeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateScope",
+		Query:  CreateScope_Operation,
+		Variables: &__CreateScopeInput{
+			Input: input,
+		},
+	}
+
+	data_ = &CreateScopeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateSecret.
 const CreateSecret_Operation = `
 mutation CreateSecret ($ownerType: String!, $ownerRef: ID, $name: String!, $kind: String!, $metadata: JSON, $value: JSON!) {
@@ -25688,6 +26985,39 @@ func DeleteOrganization(
 	}
 
 	data_ = &DeleteOrganizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteScope.
+const DeleteScope_Operation = `
+mutation DeleteScope ($ref: ID!) {
+	deleteScope(ref: $ref)
+}
+`
+
+// Soft-delete a scope; its name is free again at once.
+func DeleteScope(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *DeleteScopeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteScope",
+		Query:  DeleteScope_Operation,
+		Variables: &__DeleteScopeInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &DeleteScopeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -26502,6 +27832,70 @@ func GetOrganization(
 	}
 
 	data_ = &GetOrganizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetScope.
+const GetScope_Operation = `
+query GetScope ($ref: ID!) {
+	scope(ref: $ref) {
+		... ScopeFields
+		... ScopeMemories
+	}
+}
+fragment ScopeFields on Scope {
+	id
+	name
+	description
+	ownerType
+	ownerId
+	ownerUrn
+	memoryCount
+	hiddenMemoryCount
+	createdAt
+	updatedAt
+}
+fragment ScopeMemories on Scope {
+	memories {
+		position
+		memory {
+			id
+			urn
+			name
+			shortDescription
+		}
+	}
+}
+`
+
+// Single-scope read BY ID — a Scope has no URN yet.
+//
+// Returns null when the scope does not exist AND when the caller may not read
+// it, identically and on purpose ("no existence disclosure"). Callers must
+// render ONE message covering both and must not infer not-found from the null;
+// see findings:a-deliberate-server-ambiguity-is-not-a-gap-to-close.
+func GetScope(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetScopeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetScope",
+		Query:  GetScope_Operation,
+		Variables: &__GetScopeInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetScopeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -28848,6 +30242,143 @@ func RunTask(
 	return data_, err_
 }
 
+// The query executed by ScopeExplain.
+const ScopeExplain_Operation = `
+query ScopeExplain ($scopeRef: ID, $name: String, $appRef: ID, $loc: String) {
+	scopeExplain(scopeRef: $scopeRef, name: $name, appRef: $appRef, loc: $loc) {
+		resolvedVia
+		droppedCount
+		scope {
+			... ScopeFields
+		}
+		memories {
+			id
+			urn
+			name
+		}
+		winner {
+			id
+			urn
+			name
+		}
+		shadowed {
+			... ScopeFields
+		}
+	}
+}
+fragment ScopeFields on Scope {
+	id
+	name
+	description
+	ownerType
+	ownerId
+	ownerUrn
+	memoryCount
+	hiddenMemoryCount
+	createdAt
+	updatedAt
+}
+`
+
+// Explain a scope FOR THE CALLER, and the CLI's only name->id resolver.
+//
+// Pass scopeRef, or a bare `name` plus `appRef` — a name is unique only per
+// owner, so it resolves in an App's context (App > Agent > organization, never
+// unioned). Two installed Agents owning the name is SCOPE_NAME_AMBIGUOUS, which
+// the caller answers by passing scopeRef instead.
+//
+// `loc` asks which memory would WIN for that address under this scope.
+// `shadowed` is the lower-precedence scopes of the same name the caller may
+// read — disclosure, so a user can see that their name matched more than one
+// thing. `droppedCount` is the in-scope-but-unreadable count.
+func ScopeExplain(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	scopeRef *string,
+	name *string,
+	appRef *string,
+	loc *string,
+) (data_ *ScopeExplainResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ScopeExplain",
+		Query:  ScopeExplain_Operation,
+		Variables: &__ScopeExplainInput{
+			ScopeRef: scopeRef,
+			Name:     name,
+			AppRef:   appRef,
+			Loc:      loc,
+		},
+	}
+
+	data_ = &ScopeExplainResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by Scopes.
+const Scopes_Operation = `
+query Scopes ($filter: ScopeFilter, $limit: Int, $offset: Int, $orgId: ID) {
+	scopes(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+		total
+		items {
+			... ScopeFields
+		}
+	}
+}
+fragment ScopeFields on Scope {
+	id
+	name
+	description
+	ownerType
+	ownerId
+	ownerUrn
+	memoryCount
+	hiddenMemoryCount
+	createdAt
+	updatedAt
+}
+`
+
+// Scopes visible to the caller. ScopeFilter narrows by owner (ownerRef +
+// ownerType), by name, or by appRef — the App resolution context.
+func Scopes(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	filter *ScopeFilter,
+	limit *int,
+	offset *int,
+	orgId *string,
+) (data_ *ScopesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "Scopes",
+		Query:  Scopes_Operation,
+		Variables: &__ScopesInput{
+			Filter: filter,
+			Limit:  limit,
+			Offset: offset,
+			OrgId:  orgId,
+		},
+	}
+
+	data_ = &ScopesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by SearchNodes.
 const SearchNodes_Operation = `
 query SearchNodes ($query: String!, $mode: FindNodesMode, $filter: NodeFilter, $sortProperty: NodePropertySort, $limit: Int, $offset: Int) {
@@ -30623,6 +32154,79 @@ func UpdateOrganization(
 	}
 
 	data_ = &UpdateOrganizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateScope.
+const UpdateScope_Operation = `
+mutation UpdateScope ($ref: ID!, $input: UpdateScopeInput!) {
+	updateScope(ref: $ref, input: $input) {
+		... ScopeFields
+		... ScopeMemories
+	}
+}
+fragment ScopeFields on Scope {
+	id
+	name
+	description
+	ownerType
+	ownerId
+	ownerUrn
+	memoryCount
+	hiddenMemoryCount
+	createdAt
+	updatedAt
+}
+fragment ScopeMemories on Scope {
+	memories {
+		position
+		memory {
+			id
+			urn
+			name
+			shortDescription
+		}
+	}
+}
+`
+
+// Update a scope. WIRE SEMANTICS: an OMITTED input field means preserve, an
+// explicit null means clear — so every optional field carries omitempty and a
+// nil pointer is omitted rather than sent as null. Dropping an omitempty here
+// makes an unset flag silently clear the field (CLAUDE.md; and the schedule
+// `scopeRef` regression a refresh introduced, findings:a-schema-refresh-can-
+// regress-an-unrelated-write).
+//
+// memoryRefs REPLACES the ordered list rather than appending to it.
+//
+// The `for:` directives below only bind when the operation's variable list is
+// on its own lines — with a single-line signature genqlient reports "for is
+// only applicable to operations and arguments" (findings:genqlient-for-
+// directive-needs-multiline-signature). Keep this signature expanded.
+func UpdateScope(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	input *UpdateScopeInput,
+) (data_ *UpdateScopeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateScope",
+		Query:  UpdateScope_Operation,
+		Variables: &__UpdateScopeInput{
+			Ref:   ref,
+			Input: input,
+		},
+	}
+
+	data_ = &UpdateScopeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

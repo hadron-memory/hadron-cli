@@ -17,6 +17,23 @@ import (
 // hex characters.
 var reNodeID = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
+// IsBareID reports whether ref has the shape of an opaque platform id — 32
+// lowercase hex characters — rather than a name, loc, or URN.
+//
+// This is the rule IsNodeID applies to nodes, named for what it actually tests
+// so that entities with NO URN yet — a Scope, a Channel (spec 049 says "no URN
+// yet" for both) — can share it instead of copying the regex. The point is that
+// the shape lives in ONE place and cannot drift between two copies.
+//
+// It is NOT a claim about every Hadron id: an App id may also be a 25-character
+// CUID, which IsAppID accepts explicitly (see appref.go). Use this only where
+// the accepted id form really is the 32-hex one.
+//
+// See IsNodeID for why the rule is deliberately NOT widened to CUIDs.
+func IsBareID(ref string) bool {
+	return reNodeID.MatchString(strings.TrimSpace(ref))
+}
+
 // IsNodeID reports whether ref is a bare node id rather than a URN or loc.
 //
 // Every --json surface prints these (`id`, and `otherNodeId` on each edge) and
@@ -38,7 +55,7 @@ var reNodeID = regexp.MustCompile(`^[0-9a-f]{32}$`)
 // node is still addressable by its URN — whereas widening breaks refs that work
 // today.
 func IsNodeID(ref string) bool {
-	return reNodeID.MatchString(strings.TrimSpace(ref))
+	return IsBareID(ref)
 }
 
 // IsQualifiedNodeRef reports whether ref already names its own memory — a

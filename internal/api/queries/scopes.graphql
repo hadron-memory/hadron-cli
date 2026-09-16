@@ -1,0 +1,178 @@
+# Named search scopes — "lenses" (spec 049 Phase 2, hadron-server#1160;
+# hadron-cli#578).
+#
+# A Scope is an ORDERED list of memories owned by exactly one of an
+# organization, an App, or an installed Agent. It is a lens, never a grant:
+# the server intersects the scope's memories with what the caller may read and
+# reports the remainder as a COUNT only (hiddenMemoryCount / droppedCount) —
+# never the names. Any listing built on these operations must surface that
+# count rather than quietly rendering a shorter list.
+#
+# Addressing: a Scope has NO URN yet, so `scope`/`updateScope`/`deleteScope`
+# take the PK id. A bare NAME resolves through ScopeExplain, which applies the
+# server's own precedence ladder (App > Agent > organization, never unioned).
+# The CLI never matches a name itself.
+
+fragment ScopeFields on Scope {
+  id
+  name
+  description
+  ownerType
+  ownerId
+  # Bare stored URN of the owner, when it has one — null for an owner with
+  # no URN, so every consumer falls back to ownerId rather than assuming it.
+  ownerUrn
+  # How many memories the scope lists in total, vs. how many of those the
+  # caller may NOT read. The pair is the visibility disclosure: memories[]
+  # below carries only the readable ones, so rendering it without
+  # hiddenMemoryCount understates the scope (CLAUDE.md, the nodes-list vs
+  # nodeBatch visibility gap).
+  memoryCount
+  hiddenMemoryCount
+  createdAt
+  updatedAt
+}
+
+# The readable memories, in scope order. `position` is 0-based and is the
+# scope's order, not the server's default sort — preserve it when rendering.
+fragment ScopeMemories on Scope {
+  memories {
+    position
+    memory {
+      id
+      urn
+      name
+      shortDescription
+    }
+  }
+}
+
+# Scopes visible to the caller. ScopeFilter narrows by owner (ownerRef +
+# ownerType), by name, or by appRef — the App resolution context.
+query Scopes(
+  # @genqlient(omitempty: true)
+  $filter: ScopeFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $orgId: ID
+) {
+  scopes(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+    total
+    items {
+      ...ScopeFields
+    }
+  }
+}
+
+# Single-scope read BY ID — a Scope has no URN yet.
+#
+# Returns null when the scope does not exist AND when the caller may not read
+# it, identically and on purpose ("no existence disclosure"). Callers must
+# render ONE message covering both and must not infer not-found from the null;
+# see findings:a-deliberate-server-ambiguity-is-not-a-gap-to-close.
+query GetScope($ref: ID!) {
+  scope(ref: $ref) {
+    ...ScopeFields
+    ...ScopeMemories
+  }
+}
+
+# Explain a scope FOR THE CALLER, and the CLI's only name->id resolver.
+#
+# Pass scopeRef, or a bare `name` plus `appRef` — a name is unique only per
+# owner, so it resolves in an App's context (App > Agent > organization, never
+# unioned). Two installed Agents owning the name is SCOPE_NAME_AMBIGUOUS, which
+# the caller answers by passing scopeRef instead.
+#
+# `loc` asks which memory would WIN for that address under this scope.
+# `shadowed` is the lower-precedence scopes of the same name the caller may
+# read — disclosure, so a user can see that their name matched more than one
+# thing. `droppedCount` is the in-scope-but-unreadable count.
+query ScopeExplain(
+  # @genqlient(omitempty: true)
+  $scopeRef: ID
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $appRef: ID
+  # @genqlient(omitempty: true)
+  $loc: String
+) {
+  scopeExplain(scopeRef: $scopeRef, name: $name, appRef: $appRef, loc: $loc) {
+    resolvedVia
+    droppedCount
+    scope {
+      ...ScopeFields
+    }
+    memories {
+      id
+      urn
+      name
+    }
+    winner {
+      id
+      urn
+      name
+    }
+    shadowed {
+      ...ScopeFields
+    }
+  }
+}
+
+# Create a scope on EXACTLY ONE owner. The server enforces the name rules
+# (1-64 [a-z0-9_-], unique per owner via SCOPE_NAME_TAKEN, never `global` or
+# `app`) — deliberately not duplicated client-side, since a copy drifts.
+#
+# memoryRefs is ORDERED and required; its order is the scope's order.
+#
+# The three owner refs carry omitempty so the two the caller did NOT pick are
+# absent from the wire rather than sent as explicit nulls — the server's rule
+# is "exactly one owner", and a null is a value being offered. (Signature kept
+# expanded so the `for:` directives bind; see UpdateScope below.)
+# @genqlient(for: "CreateScopeInput.organizationRef", omitempty: true)
+# @genqlient(for: "CreateScopeInput.appRef", omitempty: true)
+# @genqlient(for: "CreateScopeInput.agentRef", omitempty: true)
+# @genqlient(for: "CreateScopeInput.description", omitempty: true)
+mutation CreateScope(
+  $input: CreateScopeInput!
+) {
+  createScope(input: $input) {
+    ...ScopeFields
+    ...ScopeMemories
+  }
+}
+
+# Update a scope. WIRE SEMANTICS: an OMITTED input field means preserve, an
+# explicit null means clear — so every optional field carries omitempty and a
+# nil pointer is omitted rather than sent as null. Dropping an omitempty here
+# makes an unset flag silently clear the field (CLAUDE.md; and the schedule
+# `scopeRef` regression a refresh introduced, findings:a-schema-refresh-can-
+# regress-an-unrelated-write).
+#
+# memoryRefs REPLACES the ordered list rather than appending to it.
+#
+# The `for:` directives below only bind when the operation's variable list is
+# on its own lines — with a single-line signature genqlient reports "for is
+# only applicable to operations and arguments" (findings:genqlient-for-
+# directive-needs-multiline-signature). Keep this signature expanded.
+# @genqlient(for: "UpdateScopeInput.name", omitempty: true)
+# @genqlient(for: "UpdateScopeInput.description", omitempty: true)
+# @genqlient(for: "UpdateScopeInput.memoryRefs", omitempty: true)
+mutation UpdateScope(
+  $ref: ID!
+  $input: UpdateScopeInput!
+) {
+  updateScope(ref: $ref, input: $input) {
+    ...ScopeFields
+    ...ScopeMemories
+  }
+}
+
+# Soft-delete a scope; its name is free again at once.
+mutation DeleteScope($ref: ID!) {
+  deleteScope(ref: $ref)
+}
