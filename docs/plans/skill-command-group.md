@@ -204,7 +204,10 @@ hadron skill lint    (-m <memory>... | --all | --node <ref>...) [--host claude|c
   named explicitly (a nil filter hides agent-system memories): own-org
   (`Memories`), shared with you (`MemoriesSharedWithMe`), and other orgs'
   PUBLIC memories (`Memories` with `visibility: PUBLIC`), de-duplicated by
-  id. One of the three selectors is
+  id. That is what the server LISTS; a per-user agent memory
+  (`userMemoryOfAgentId`) is excluded from `memories()` by contract and no
+  filter surfaces it, so `--all` does not promise it — lint one with `-m`.
+  One of the three selectors is
   required (`exit 2` otherwise) — no active-memory fallback, because an export
   that silently targets "whatever memory was active" is how a customer's tasks
   end up on the wrong disk.
