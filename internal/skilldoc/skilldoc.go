@@ -195,11 +195,15 @@ func ValidName(name string) bool {
 // trailing space is not 1025 characters on disk.
 func NormalizeDescription(s string) string { return strings.TrimSpace(s) }
 
-// NormalizeBody is the node content as exported: leading and trailing
-// newlines trimmed. Render writes this, Hash fingerprints this, and
-// ParseFile's header-stripping is its exact inverse, so a body that begins
-// with a blank line does not make a fresh export read as locally edited.
-func NormalizeBody(s string) string { return strings.Trim(s, "\n") }
+// NormalizeBody is the node content as exported: CRLF folded to LF (a body
+// authored on Windows is the same body), then leading and trailing newlines
+// trimmed. Render writes this, Hash fingerprints this, every body rule reads
+// this, and ParseFile's header-stripping is its exact inverse — so a body
+// that begins with a blank line, or carries \r\n, does not make a fresh
+// export read as locally edited or slip past a rule written for LF.
+func NormalizeBody(s string) string {
+	return strings.Trim(strings.ReplaceAll(s, "\r\n", "\n"), "\n")
+}
 
 // Hash is the provenance fingerprint a generated file records: the first 16
 // hex characters of SHA-256 over the three inputs the file is made from —
@@ -301,7 +305,7 @@ func Lint(n Node, prefix Prefix) []Finding {
 			"node declares a skill but isRunnable is not true — a skill is a runnable task; set it (`hadron node update <urn> --runnable`) or drop the declaration")
 	}
 
-	body := strings.TrimSpace(n.Content)
+	body := strings.TrimSpace(NormalizeBody(n.Content))
 	switch {
 	case body == "":
 		add("skill-content-empty", SevError,
@@ -460,6 +464,7 @@ type File struct {
 // leaves it alone. The legacy `Generated from` header yields a Source and no
 // Hash.
 func ParseFile(data []byte) (*File, error) {
+	data = []byte(strings.ReplaceAll(string(data), "\r\n", "\n"))
 	m := frontmatterRE.FindSubmatch(data)
 	if m == nil {
 		return nil, fmt.Errorf("no frontmatter")

@@ -343,6 +343,30 @@ func TestFrontmatterRuleNeedsAClosingDelimiter(t *testing.T) {
 	if got := rules(Lint(fm, Prefix{Value: "hadron-", Known: true})); got["skill-content-has-frontmatter"] != SevError {
 		t.Errorf("real frontmatter not flagged: %v", got)
 	}
+	// Windows line endings are the same frontmatter (Codex on #589, round 6).
+	crlf := declaring("tasks:a", "Use when x", nil)
+	crlf.Content = "---\r\nname: x\r\n---\r\n\r\n# Real frontmatter\r\n"
+	if got := rules(Lint(crlf, Prefix{Value: "hadron-", Known: true})); got["skill-content-has-frontmatter"] != SevError {
+		t.Errorf("CRLF frontmatter not flagged: %v", got)
+	}
+}
+
+func TestCRLFBodiesRoundTrip(t *testing.T) {
+	body := "# Body\r\n\r\nline one\r\nline two\r\n"
+	file, err := Render("hadron-x", "hrn:node:a:b:tasks:x", "Use when x", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(file, "\r") {
+		t.Error("export wrote CRLF")
+	}
+	f, err := ParseFile([]byte(strings.ReplaceAll(file, "\n", "\r\n"))) // and a file re-saved with CRLF still reads
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Hash != Hash(f.Name, f.Description, f.Body) || f.Hash != Hash("hadron-x", "Use when x", body) {
+		t.Error("CRLF input does not hash equal to its LF export")
+	}
 }
 
 func TestParseFileLegacyHeaderAndForeignFiles(t *testing.T) {

@@ -339,9 +339,18 @@ func fetchNodes(cmd *cobra.Command, client graphql.Client, refs []string) ([]*ba
 // passes through untouched.
 func canonicalNodeArg(ref string) (string, error) {
 	canon := cmdutil.CanonicalNodeRef(ref)
-	if strings.Contains(canon, ":") && !urnlib.HasSchemePrefix(canon) {
+	switch {
+	case !strings.Contains(canon, ":"):
+		return canon, nil // a raw id
+	case !urnlib.HasSchemePrefix(canon):
 		return "", exitcode.Newf(exitcode.Usage,
 			"--node %q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc> or a node id; a bare loc has no memory to resolve in (lint reads whole memories with -m)", ref)
+	case urnlib.AssertFullyQualifiedUrn(canon, "node") != nil:
+		// A scheme-prefixed ref of another KIND (hrn:mem:…, hrn:app:…) would
+		// fail the whole batch server-side with an error naming the GraphQL
+		// field; refuse it here, naming the flag (Codex on #589, round 6).
+		return "", exitcode.Newf(exitcode.Usage,
+			"--node %q is not a node URN — expected hrn:node:<root>:<slug>:<loc> or a node id", ref)
 	}
 	return canon, nil
 }

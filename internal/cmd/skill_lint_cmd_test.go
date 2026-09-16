@@ -231,8 +231,9 @@ func TestSkillLintNodeRefShapes(t *testing.T) {
 			t.Errorf("--node %q: exit %d, want 0 (%v)", ref, exitCodeFor(err), err)
 		}
 	}
-	// A bare loc is refused client-side as a usage error, before any request.
-	for _, ref := range []string{"tasks:a", "core::tasks:a"} {
+	// A bare loc, or a scheme-prefixed ref of another KIND, is refused
+	// client-side as a usage error, before any request.
+	for _, ref := range []string{"tasks:a", "core::tasks:a", "hrn:mem:hadronmemory.com:core", "hrn:app:hadronmemory.com:hadron-dev-team"} {
 		if _, err := runSkillLint(t, map[string]string{}, "--node", ref); exitCodeFor(err) != exitcode.Usage {
 			t.Errorf("--node %q: exit %d, want 2 (Usage)", ref, exitCodeFor(err))
 		}
