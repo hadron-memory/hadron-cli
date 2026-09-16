@@ -426,3 +426,62 @@ func TestSearchScopeIDAndGlobalNeedNoAppContext(t *testing.T) {
 		})
 	}
 }
+
+// TestSearchSendsTheAppContextWithTheScope — @codex P1 on #595.
+//
+// `findNodes` REQUIRES appRef for `scope: "app"` and for a bare scope NAME (a
+// name is unique only per owner). An earlier version validated that an App
+// context existed and then discarded it, so those two forms reached the server
+// without the thing needed to resolve them.
+//
+// My existing tests could not see it: they assert the scope string reaches the
+// wire, and the guard asserts a refusal when no App is set. Neither looks at
+// whether the validated App went WITH the scope — which is why this asserts the
+// pair, not either half.
+func TestSearchSendsTheAppContextWithTheScope(t *testing.T) {
+	for _, scope := range []string{"research", "app"} {
+		t.Run(scope, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{"SearchNodes": searchScopedJSON})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{
+				"search", "q", "--scope", scope,
+				"--app", "hrn:app:acme.com:dev", "--json", "--server", gql.URL,
+			})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var vars map[string]any
+			_ = json.Unmarshal(captured["SearchNodes"], &vars)
+			if vars["scope"] != scope {
+				t.Fatalf("scope = %v, want %q", vars["scope"], scope)
+			}
+			if vars["appRef"] != "hrn:app:acme.com:dev" {
+				t.Errorf("appRef = %v — the App context must travel WITH the scope, not merely be validated", vars["appRef"])
+			}
+		})
+	}
+}
+
+// TestSearchOmitsTheAppContextWhenTheScopeDoesNotNeedIt — a scope id is
+// self-contained and `global` keys off the organization, so neither should
+// carry an App context it does not use.
+func TestSearchOmitsTheAppContextWhenTheScopeDoesNotNeedIt(t *testing.T) {
+	for _, scope := range []string{"global", "0123456789abcdef0123456789abcdef"} {
+		t.Run(scope, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{"SearchNodes": searchScopedJSON})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{
+				"search", "q", "--scope", scope,
+				"--app", "hrn:app:acme.com:dev", "--json", "--server", gql.URL,
+			})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if strings.Contains(string(captured["SearchNodes"]), `"appRef"`) {
+				t.Errorf("scope %q needs no App context: %s", scope, captured["SearchNodes"])
+			}
+		})
+	}
+}

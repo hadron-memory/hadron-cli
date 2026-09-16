@@ -45,7 +45,9 @@ type SearchPage struct {
 // orders by a properties/data JSON path and overrides the mode ranking window
 // when set (#719); nil pointers are omitted from the wire. scope names the
 // search lens — a scope id, a bare name, `app` or `global` — and is resolved
-// server-side; the resolution it reports comes back on SearchPage.Scope.
+// server-side; the resolution it reports comes back on SearchPage.Scope. appRef
+// is REQUIRED by the server for `scope: "app"` and for a bare scope NAME, which
+// resolves in an App's context.
 func SearchNodes(
 	ctx context.Context,
 	client graphql.Client,
@@ -55,8 +57,9 @@ func SearchNodes(
 	sortProperty *gqltypes.NodePropertySort,
 	limit, offset *int,
 	scope *string,
+	appRef *string,
 ) (*SearchPage, error) {
-	resp, err := gen.SearchNodes(ctx, client, query, mode, filter, sortProperty, limit, offset, scope)
+	resp, err := gen.SearchNodes(ctx, client, query, mode, filter, sortProperty, limit, offset, scope, appRef)
 	if err != nil {
 		return nil, err
 	}

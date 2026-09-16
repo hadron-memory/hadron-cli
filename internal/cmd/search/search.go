@@ -169,15 +169,19 @@ and/or/not). --object-type filters the objectType collection facet.
 				offsetArg = &offset
 			}
 
-			var scopeArg *string
+			var scopeArg, appArg *string
 			if scope != "" {
-				if err := requireAppContextForScope(f, scope); err != nil {
+				appCtx, err := requireAppContextForScope(f, scope)
+				if err != nil {
 					return err
+				}
+				if appCtx != "" {
+					appArg = &appCtx
 				}
 				scopeArg = &scope
 			}
 
-			page, err := api.SearchNodes(cmd.Context(), client, query, modeArg, filterArg, sortPropArg, limitArg, offsetArg, scopeArg)
+			page, err := api.SearchNodes(cmd.Context(), client, query, modeArg, filterArg, sortPropArg, limitArg, offsetArg, scopeArg, appArg)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -370,21 +374,25 @@ func scopeLine(s *scopeDTO) string {
 // exists, stay entirely server-side. Only `app` and a bare NAME need the
 // context; a scope id is self-contained, and `global` keys off the active
 // organization instead (see the note in requireAppContextForScope's caller).
-func requireAppContextForScope(f *cmdutil.Factory, scope string) error {
+// It RETURNS the resolved context rather than only validating it: an earlier
+// version checked the App was present and then dropped it, so the server got a
+// scope it could not resolve — validated-then-discarded is the shape of that
+// bug, and returning the value is what makes it impossible (@codex, #595).
+func requireAppContextForScope(f *cmdutil.Factory, scope string) (string, error) {
 	if scope == scopeGlobal || cmdutil.IsBareID(scope) {
-		return nil
+		return "", nil
 	}
 	app, err := f.App()
 	if err != nil {
-		return err
+		return "", err
 	}
 	if app != "" {
-		return nil
+		return app, nil
 	}
 	if scope == scopeApp {
-		return exitcode.Newf(exitcode.Usage,
+		return "", exitcode.Newf(exitcode.Usage,
 			"--scope app means the active App's attached memories, and no App is selected — pass --app <ref> or run `hadron app set-active <ref>`")
 	}
-	return exitcode.Newf(exitcode.Usage,
+	return "", exitcode.Newf(exitcode.Usage,
 		"--scope %q is a scope name, which resolves in an App's context — pass --app <ref>, run `hadron app set-active <ref>`, or give the scope's id instead", scope)
 }

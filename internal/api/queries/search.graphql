@@ -42,6 +42,12 @@ query SearchNodes(
   # an explicit null here is not the same as not asking for a scope.
   # @genqlient(omitempty: true)
   $scope: String
+  # REQUIRED by the server for `scope: "app"` and for a bare scope NAME — a
+  # name is unique only per owner, so it resolves in an App's context. Sending
+  # the scope without it makes those two forms fail or resolve against
+  # unrelated ambient state (@codex, #595).
+  # @genqlient(omitempty: true)
+  $appRef: ID
 ) {
   findNodes(
     query: $query
@@ -51,6 +57,7 @@ query SearchNodes(
     limit: $limit
     offset: $offset
     scope: $scope
+    appRef: $appRef
   ) {
     total
     degraded
