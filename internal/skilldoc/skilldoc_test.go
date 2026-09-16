@@ -327,12 +327,48 @@ func TestRenderSurvivesTheRealParserOnAwkwardDescriptions(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%q: parse: %v\n%s", desc, err, file)
 		}
-		if f.Description != desc {
-			t.Errorf("description round trip: got %q, want %q\n%s", f.Description, desc, file)
+		// Surrounding whitespace is normalized away on export by design
+		// (NormalizeDescription); everything else must come back verbatim.
+		if want := NormalizeDescription(desc); f.Description != want {
+			t.Errorf("description round trip: got %q, want %q\n%s", f.Description, want, file)
 		}
 		if f.Hash != Hash(f.Name, f.Description, f.Body) {
 			t.Errorf("%q: header hash does not match recomputation", desc)
 		}
+	}
+}
+
+func TestRenderNormalizesWhatLintMeasured(t *testing.T) {
+	// Codex on #589: a description with a trailing space and a body wrapped
+	// in blank lines. Lint measures the trimmed description; Render must
+	// write exactly that, and a fresh export must hash equal to its header.
+	desc := "  Use when the user says 'go'.  "
+	body := "\n\n# Body\n\nline\n\n"
+	file, err := Render("hadron-x", "hrn:node:a:b:tasks:x", desc, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := ParseFile([]byte(file))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Description != "Use when the user says 'go'." {
+		t.Errorf("description not normalized on export: %q", f.Description)
+	}
+	if f.Body != "# Body\n\nline" {
+		t.Errorf("body not normalized on export: %q", f.Body)
+	}
+	if f.Hash != Hash(f.Name, f.Description, f.Body) || f.Hash != Hash("hadron-x", desc, body) {
+		t.Error("a fresh export does not hash equal to its own header from either the raw or the parsed inputs")
+	}
+	// The length lint certifies is the exported length: at-limit plus a
+	// trailing space is still at limit.
+	atLimit := "Use when " + strings.Repeat("x", MaxDescriptionLen-9) + " "
+	if got := rules(Lint(declaring("tasks:a", atLimit, nil), Prefix{Value: "hadron-", Known: true})); got["skill-description-too-long"] != "" {
+		t.Errorf("trailing space counted against the limit: %v", got)
+	}
+	if utf8.RuneCountInString(NormalizeDescription(atLimit)) != MaxDescriptionLen {
+		t.Fatal("fixture is not at the limit after normalization")
 	}
 }
 

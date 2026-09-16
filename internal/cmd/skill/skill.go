@@ -219,8 +219,13 @@ type memoryPage struct {
 // those shared with them, both paged to exhaustion through one loop and
 // de-duplicated by id.
 func allMemories(cmd *cobra.Command, client graphql.Client) ([]*memoryInfo, error) {
+	// Every class, explicitly: a nil filter excludes agent-system memories by
+	// default (memories.graphql), and a task declared in one would otherwise
+	// be missed while `--all` reports a clean corpus — the same
+	// all-clear-wider-than-the-read shape as the isRunnable scan (§4.1).
+	all := &gen.MemoryFilter{MemoryClasses: gen.AllMemoryClass}
 	own := func(limit, offset int) (memoryPage, error) {
-		resp, err := gen.Memories(cmd.Context(), client, nil, &limit, &offset)
+		resp, err := gen.Memories(cmd.Context(), client, all, &limit, &offset)
 		if err != nil || resp.Memories == nil {
 			return memoryPage{}, api.MapError(err)
 		}

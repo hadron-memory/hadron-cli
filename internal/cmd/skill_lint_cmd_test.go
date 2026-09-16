@@ -168,6 +168,29 @@ func TestSkillLintUserOwnedMemoryTakesPlatformPrefix(t *testing.T) {
 	}
 }
 
+func TestSkillLintAllIncludesEveryMemoryClass(t *testing.T) {
+	// Codex on #589: a nil memories filter excludes agent-system memories by
+	// default, so a task declared in one was never scanned while --all
+	// reported a clean corpus. Assert the filter on the wire.
+	memories := `{"data":{"memories":{"total":1,"items":[{"id":"mem1","urn":"hrn:mem:hadronmemory.com:core","name":"Core","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org1","organization":{"skillPrefix":"hadron-"},"isEncrypted":false,"maxRevCount":null,"updatedAt":"2026-06-11T00:00:00Z"}]}}}`
+	shared := `{"data":{"memories":{"total":0,"items":[]}}}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"Memories": memories, "MemoriesSharedWithMe": shared, "FindNodes": listOf(), "NodeBatch": batchOf(),
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"skill", "lint", "--all", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("--all: %v", err)
+	}
+	vars := string(captured["Memories"])
+	for _, class := range []string{"system", "knowledge", "app"} {
+		if !strings.Contains(vars, `"`+class+`"`) {
+			t.Errorf("Memories filter does not name memory class %q: %s", class, vars)
+		}
+	}
+}
+
 func TestSkillLintRefusesAmbiguousSelector(t *testing.T) {
 	for _, args := range [][]string{
 		{}, // nothing
