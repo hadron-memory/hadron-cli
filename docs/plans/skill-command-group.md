@@ -63,15 +63,35 @@ Four facts fall out of that table and shape the design:
    The rename pass Holger asked for is therefore the normal case of the first
    export, and the design pairs disk to corpus **by source URN**, never by name,
    so a rename is observed rather than inferred.
-3. **The corpus has forks that collide at export.** `start-worker-session-desktop`
-   exists as a node in BOTH `hadronmemory.com:core:tasks:` and
-   `hadronmemory.com:hadron-cli:tasks:` — same org, same terminal segment, so the
-   same derived skill name. Export must refuse that collision loudly rather
-   than let the second write win. Which copy is canonical is Eli's corpus work
-   (§9), not the command's.
+3. **A file on disk can point at a node that no longer exists.** My own
+   `start-worker-session-desktop` skill carries
+   `Generated from hrn:node:hadronmemory.com:hadron-cli:tasks:start-worker-session-desktop`,
+   and that URN resolves to nothing (exit 4): the node was moved to `core`
+   after the export, and the header kept the old address. (The first draft of
+   this plan called that a fork in two memories; it is not — verified by
+   reading both URNs, not by reading the header.) That is the `orphaned`
+   drift class (§4.5) arriving on the author's own machine, and it is why
+   `status` pairs by URN and `export` never deletes an orphan without
+   `--prune` — an orphan is usually a node that moved. Real name collisions
+   do exist in the corpus: `create-release-tag` is declared in both
+   `marketrailz:market-railz-server` and `micromentor.org:mmdata`, and only
+   the per-org prefix (D7) keeps them apart — which is why the collision rule
+   runs on the prefixed name and skips nodes whose org has none.
 4. **Sources span three roots** (`hadronmemory.com`, `micromentor.org`, `holger`),
    which is Bo's point 1 arriving as data: `hadron-mm-briefing` for a node owned
    by the `holger` root would name the wrong owner.
+
+**The corpus, measured live with `hadron skill lint --all` (2026-09-16, first
+run of the command against production, read-only):** 53 readable memories,
+of which 13 hold skill-declaring nodes; 6 descriptions over the limit (the
+same six as the disk table); 16 hand-set names that disagree with the derived
+one; 23 declarations still under the legacy `claudeSkill` key; 2 declaring
+nodes not marked runnable (`hadron-mcp:add-node`,
+`micromentor.org:specs:working-with-product-specs`); and every org except
+`hadronmemory.com` still without a prefix. The first `--all` run also
+produced two false classes the fakes could not have shown — a prefix-missing
+finding on 46 memories with nothing to export, and a "collision" between two
+prefix-less orgs — both fixed before the verb shipped (§5.3).
 
 Two corrections to the thread, measured on this machine:
 
