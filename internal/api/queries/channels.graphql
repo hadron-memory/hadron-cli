@@ -1,0 +1,123 @@
+# Channels — the chat rooms spec 049 Phase 4 introduced (hadron-server#1165;
+# hadron-cli#593).
+#
+# ADDRESSING (hadron-server#1171/#1172): a channelRef takes TWO forms — the
+# Channel's id, or its ADDRESS, which is the chat root's node URN and what
+# `createChannel(memoryRef, loc)` composes to. The server resolves both at every
+# site, so THIS CLIENT NEVER CLASSIFIES A REF: it passes the string through and
+# lets the server decide. That is the whole reason #1172 exists — a client-side
+# matcher here would be a third copy of one addressing rule, beside the portal's
+# and MCP's.
+#
+# `chatRootUrn` is the address to COPY rather than compose, and it is NULLABLE:
+# where the host memory's stored URN is a pre-v2 compound form, no flat-v2
+# address can be safely advertised, so the server emits none rather than hand
+# out a string it would itself reject. The id always works. Every rendering must
+# therefore tolerate a missing address and must never REQUIRE one.
+
+fragment ChannelFields on Channel {
+  id
+  name
+  description
+  kind
+  # The reserved address of the chat root (e.g. chats:team), and the host
+  # memory it lives in. Together these are the (memory, loc) pair
+  # createChannel takes — which is why two Channels can share a name AND a loc
+  # and be told apart only by their host memory.
+  loc
+  memoryId
+  # The Channel's address — copy it, never compose one. NULL when the server
+  # has no flat-v2 form it can safely advertise (#1171); the id always works,
+  # so no caller may depend on this being present.
+  chatRootUrn
+  chatRootNodeId
+  # A watermark, not a count: the highest seq the allocator has issued.
+  lastSeq
+  lastMessageAt
+  createdAt
+  updatedAt
+}
+
+# The host memory, projected separately so a listing can name where a Channel
+# lives without a second read — two Channels named `team` at loc `chats:team`
+# are distinguishable only by this.
+fragment ChannelMemory on Channel {
+  memory {
+    id
+    urn
+    name
+  }
+}
+
+# Channels visible to the caller. ChannelFilter narrows by App or host memory.
+query Channels(
+  # @genqlient(omitempty: true)
+  $filter: ChannelFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $orgId: ID
+) {
+  channels(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+    total
+    items {
+      ...ChannelFields
+      ...ChannelMemory
+    }
+  }
+}
+
+# Single-Channel read. `ref` is the id OR the address; the server resolves both.
+#
+# Returns null when the Channel does not exist, when the ref names nothing, AND
+# when the caller may not read its host memory — identically and on purpose, so
+# it is "never an existence oracle" in the server's own words. Callers render
+# ONE message covering all three and must not infer not-found from the null.
+query GetChannel($ref: ID!) {
+  channel(ref: $ref) {
+    ...ChannelFields
+    ...ChannelMemory
+  }
+}
+
+# Create a Channel on a host memory at a reserved loc. The (memoryRef, loc) pair
+# IS the address the other operations accept back, which is why `chatRootUrn`
+# exists to emit it rather than asking a caller to rebuild it.
+#
+# @genqlient(for: "CreateChannelInput.description", omitempty: true)
+mutation CreateChannel(
+  $input: CreateChannelInput!
+) {
+  createChannel(input: $input) {
+    ...ChannelFields
+    ...ChannelMemory
+  }
+}
+
+# Rename / re-describe a Channel whose host memory the caller may write.
+#
+# WIRE SEMANTICS: an OMITTED input field preserves, an explicit null clears — so
+# both optional fields carry omitempty and a nil pointer is omitted rather than
+# sent as null. Dropping either makes an unset flag silently clear a field
+# (CLAUDE.md; findings:a-schema-refresh-can-regress-an-unrelated-write).
+#
+# The `for:` directives only bind when the variable list is on its own lines
+# (findings:genqlient-for-directive-needs-multiline-signature) — keep this
+# signature expanded.
+# @genqlient(for: "UpdateChannelInput.name", omitempty: true)
+# @genqlient(for: "UpdateChannelInput.description", omitempty: true)
+mutation UpdateChannel(
+  $ref: ID!
+  $input: UpdateChannelInput!
+) {
+  updateChannel(ref: $ref, input: $input) {
+    ...ChannelFields
+    ...ChannelMemory
+  }
+}
+
+mutation DeleteChannel($ref: ID!) {
+  deleteChannel(ref: $ref)
+}

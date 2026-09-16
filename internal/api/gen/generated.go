@@ -3310,6 +3310,325 @@ type CastWorkerResponse struct {
 // GetCastWorker returns CastWorkerResponse.CastWorker, and is useful for accessing the field via an interface.
 func (v *CastWorkerResponse) GetCastWorker() *CastWorkerCastWorker { return v.CastWorker }
 
+// ChannelFields includes the GraphQL fields of Channel requested by the fragment ChannelFields.
+// The GraphQL type's documentation follows.
+//
+// A CHANNEL (spec 049, D-2026-09-13-006): a durable, ordered message stream
+// hosted in ONE memory at ONE reserved address, server-ordered and
+// server-attributed — a platform entity, created one-to-one with its chat root.
+// Creating it RESERVES and PROTECTS the address: generic node writes under it
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
+// hadron_team_chat_post) are the only writers. The audience is the host
+// memory's (cor:acl:030:01) — a Channel has no access layer of its own.
+// `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
+type ChannelFields struct {
+	Id          string      `json:"id"`
+	Name        string      `json:"name"`
+	Description *string     `json:"description"`
+	Kind        ChannelKind `json:"kind"`
+	// The reserved address of the chat root (e.g. chats:team).
+	Loc string `json:"loc"`
+	// Host memory.
+	MemoryId string `json:"memoryId"`
+	// #1171 — the Channel's ADDRESS: its chat root's node URN
+	// (hrn:node:<org>:<memory>:<loc>). A channelRef takes TWO FORMS — an id, or a
+	// chat-root node ref — and the node ref is accepted in every spelling the
+	// node resolver takes (`urn:node:`, bare fully-qualified, canonical `::`);
+	// this field emits the one to copy. COPY it rather than composing one: a
+	// Channel a ref fails to name is indistinguishable from one you may not read.
+	//
+	// NULL when the server has no flat-v2 address it can safely advertise —
+	// commonly a pre-v2 compound host memory URN, which flattens into a node URN
+	// that cannot be split back. It does NOT mean the Channel is unaddressable in
+	// principle (a canonical `::` spelling can still resolve one); it means the
+	// server will not hand you a string it would itself reject. Use `id` there;
+	// it always works.
+	ChatRootUrn *string `json:"chatRootUrn"`
+	// The chat root node this Channel IS the entity for (one-to-one).
+	ChatRootNodeId string `json:"chatRootNodeId"`
+	// Highest seq the allocator has issued — a watermark, not a count.
+	LastSeq       int     `json:"lastSeq"`
+	LastMessageAt *string `json:"lastMessageAt"`
+	CreatedAt     string  `json:"createdAt"`
+	UpdatedAt     *string `json:"updatedAt"`
+}
+
+// GetId returns ChannelFields.Id, and is useful for accessing the field via an interface.
+func (v *ChannelFields) GetId() string { return v.Id }
+
+// GetName returns ChannelFields.Name, and is useful for accessing the field via an interface.
+func (v *ChannelFields) GetName() string { return v.Name }
+
+// GetDescription returns ChannelFields.Description, and is useful for accessing the field via an interface.
+func (v *ChannelFields) GetDescription() *string { return v.Description }
+
+// GetKind returns ChannelFields.Kind, and is useful for accessing the field via an interface.
+func (v *ChannelFields) GetKind() ChannelKind { return v.Kind }
+
+// GetLoc returns ChannelFields.Loc, and is useful for accessing the field via an interface.
+func (v *ChannelFields) GetLoc() string { return v.Loc }
+
+// GetMemoryId returns ChannelFields.MemoryId, and is useful for accessing the field via an interface.
+func (v *ChannelFields) GetMemoryId() string { return v.MemoryId }
+
+// GetChatRootUrn returns ChannelFields.ChatRootUrn, and is useful for accessing the field via an interface.
+func (v *ChannelFields) GetChatRootUrn() *string { return v.ChatRootUrn }
+
+// GetChatRootNodeId returns ChannelFields.ChatRootNodeId, and is useful for accessing the field via an interface.
+func (v *ChannelFields) GetChatRootNodeId() string { return v.ChatRootNodeId }
+
+// GetLastSeq returns ChannelFields.LastSeq, and is useful for accessing the field via an interface.
+func (v *ChannelFields) GetLastSeq() int { return v.LastSeq }
+
+// GetLastMessageAt returns ChannelFields.LastMessageAt, and is useful for accessing the field via an interface.
+func (v *ChannelFields) GetLastMessageAt() *string { return v.LastMessageAt }
+
+// GetCreatedAt returns ChannelFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ChannelFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns ChannelFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ChannelFields) GetUpdatedAt() *string { return v.UpdatedAt }
+
+// Filter for channels(): by App (its host memories' Channels) or by one host memory. Refs: ID or URN.
+type ChannelFilter struct {
+	AppRef    *string `json:"appRef"`
+	MemoryRef *string `json:"memoryRef"`
+}
+
+// GetAppRef returns ChannelFilter.AppRef, and is useful for accessing the field via an interface.
+func (v *ChannelFilter) GetAppRef() *string { return v.AppRef }
+
+// GetMemoryRef returns ChannelFilter.MemoryRef, and is useful for accessing the field via an interface.
+func (v *ChannelFilter) GetMemoryRef() *string { return v.MemoryRef }
+
+// What kind of feed a Channel is. CHAT today; BLOCKERS / TASKS when built.
+type ChannelKind string
+
+const (
+	ChannelKindChat ChannelKind = "CHAT"
+)
+
+var AllChannelKind = []ChannelKind{
+	ChannelKindChat,
+}
+
+// The host memory, projected separately so a listing can name where a Channel
+// lives without a second read — two Channels named `team` at loc `chats:team`
+// are distinguishable only by this.
+type ChannelMemory struct {
+	Memory *ChannelMemoryMemory `json:"memory"`
+}
+
+// GetMemory returns ChannelMemory.Memory, and is useful for accessing the field via an interface.
+func (v *ChannelMemory) GetMemory() *ChannelMemoryMemory { return v.Memory }
+
+// ChannelMemoryMemory includes the requested fields of the GraphQL type Memory.
+type ChannelMemoryMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+}
+
+// GetId returns ChannelMemoryMemory.Id, and is useful for accessing the field via an interface.
+func (v *ChannelMemoryMemory) GetId() string { return v.Id }
+
+// GetUrn returns ChannelMemoryMemory.Urn, and is useful for accessing the field via an interface.
+func (v *ChannelMemoryMemory) GetUrn() string { return v.Urn }
+
+// GetName returns ChannelMemoryMemory.Name, and is useful for accessing the field via an interface.
+func (v *ChannelMemoryMemory) GetName() string { return v.Name }
+
+// ChannelsChannelsChannelsPage includes the requested fields of the GraphQL type ChannelsPage.
+type ChannelsChannelsChannelsPage struct {
+	Total int                                         `json:"total"`
+	Items []*ChannelsChannelsChannelsPageItemsChannel `json:"items"`
+}
+
+// GetTotal returns ChannelsChannelsChannelsPage.Total, and is useful for accessing the field via an interface.
+func (v *ChannelsChannelsChannelsPage) GetTotal() int { return v.Total }
+
+// GetItems returns ChannelsChannelsChannelsPage.Items, and is useful for accessing the field via an interface.
+func (v *ChannelsChannelsChannelsPage) GetItems() []*ChannelsChannelsChannelsPageItemsChannel {
+	return v.Items
+}
+
+// ChannelsChannelsChannelsPageItemsChannel includes the requested fields of the GraphQL type Channel.
+// The GraphQL type's documentation follows.
+//
+// A CHANNEL (spec 049, D-2026-09-13-006): a durable, ordered message stream
+// hosted in ONE memory at ONE reserved address, server-ordered and
+// server-attributed — a platform entity, created one-to-one with its chat root.
+// Creating it RESERVES and PROTECTS the address: generic node writes under it
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
+// hadron_team_chat_post) are the only writers. The audience is the host
+// memory's (cor:acl:030:01) — a Channel has no access layer of its own.
+// `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
+type ChannelsChannelsChannelsPageItemsChannel struct {
+	ChannelFields `json:"-"`
+	ChannelMemory `json:"-"`
+}
+
+// GetId returns ChannelsChannelsChannelsPageItemsChannel.Id, and is useful for accessing the field via an interface.
+func (v *ChannelsChannelsChannelsPageItemsChannel) GetId() string { return v.ChannelFields.Id }
+
+// GetName returns ChannelsChannelsChannelsPageItemsChannel.Name, and is useful for accessing the field via an interface.
+func (v *ChannelsChannelsChannelsPageItemsChannel) GetName() string { return v.ChannelFields.Name }
+
+// GetDescription returns ChannelsChannelsChannelsPageItemsChannel.Description, and is useful for accessing the field via an interface.
+func (v *ChannelsChannelsChannelsPageItemsChannel) GetDescription() *string {
+	return v.ChannelFields.Description
+}
+
+// GetKind returns ChannelsChannelsChannelsPageItemsChannel.Kind, and is useful for accessing the field via an interface.
+func (v *ChannelsChannelsChannelsPageItemsChannel) GetKind() ChannelKind { return v.ChannelFields.Kind }
+
+// GetLoc returns ChannelsChannelsChannelsPageItemsChannel.Loc, and is useful for accessing the field via an interface.
+func (v *ChannelsChannelsChannelsPageItemsChannel) GetLoc() string { return v.ChannelFields.Loc }
+
+// GetMemoryId returns ChannelsChannelsChannelsPageItemsChannel.MemoryId, and is useful for accessing the field via an interface.
+func (v *ChannelsChannelsChannelsPageItemsChannel) GetMemoryId() string {
+	return v.ChannelFields.MemoryId
+}
+
+// GetChatRootUrn returns ChannelsChannelsChannelsPageItemsChannel.ChatRootUrn, and is useful for accessing the field via an interface.
+func (v *ChannelsChannelsChannelsPageItemsChannel) GetChatRootUrn() *string {
+	return v.ChannelFields.ChatRootUrn
+}
+
+// GetChatRootNodeId returns ChannelsChannelsChannelsPageItemsChannel.ChatRootNodeId, and is useful for accessing the field via an interface.
+func (v *ChannelsChannelsChannelsPageItemsChannel) GetChatRootNodeId() string {
+	return v.ChannelFields.ChatRootNodeId
+}
+
+// GetLastSeq returns ChannelsChannelsChannelsPageItemsChannel.LastSeq, and is useful for accessing the field via an interface.
+func (v *ChannelsChannelsChannelsPageItemsChannel) GetLastSeq() int { return v.ChannelFields.LastSeq }
+
+// GetLastMessageAt returns ChannelsChannelsChannelsPageItemsChannel.LastMessageAt, and is useful for accessing the field via an interface.
+func (v *ChannelsChannelsChannelsPageItemsChannel) GetLastMessageAt() *string {
+	return v.ChannelFields.LastMessageAt
+}
+
+// GetCreatedAt returns ChannelsChannelsChannelsPageItemsChannel.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ChannelsChannelsChannelsPageItemsChannel) GetCreatedAt() string {
+	return v.ChannelFields.CreatedAt
+}
+
+// GetUpdatedAt returns ChannelsChannelsChannelsPageItemsChannel.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ChannelsChannelsChannelsPageItemsChannel) GetUpdatedAt() *string {
+	return v.ChannelFields.UpdatedAt
+}
+
+// GetMemory returns ChannelsChannelsChannelsPageItemsChannel.Memory, and is useful for accessing the field via an interface.
+func (v *ChannelsChannelsChannelsPageItemsChannel) GetMemory() *ChannelMemoryMemory {
+	return v.ChannelMemory.Memory
+}
+
+func (v *ChannelsChannelsChannelsPageItemsChannel) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ChannelsChannelsChannelsPageItemsChannel
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ChannelsChannelsChannelsPageItemsChannel = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ChannelFields)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(
+		b, &v.ChannelMemory)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalChannelsChannelsChannelsPageItemsChannel struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Kind ChannelKind `json:"kind"`
+
+	Loc string `json:"loc"`
+
+	MemoryId string `json:"memoryId"`
+
+	ChatRootUrn *string `json:"chatRootUrn"`
+
+	ChatRootNodeId string `json:"chatRootNodeId"`
+
+	LastSeq int `json:"lastSeq"`
+
+	LastMessageAt *string `json:"lastMessageAt"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Memory *ChannelMemoryMemory `json:"memory"`
+}
+
+func (v *ChannelsChannelsChannelsPageItemsChannel) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ChannelsChannelsChannelsPageItemsChannel) __premarshalJSON() (*__premarshalChannelsChannelsChannelsPageItemsChannel, error) {
+	var retval __premarshalChannelsChannelsChannelsPageItemsChannel
+
+	retval.Id = v.ChannelFields.Id
+	retval.Name = v.ChannelFields.Name
+	retval.Description = v.ChannelFields.Description
+	retval.Kind = v.ChannelFields.Kind
+	retval.Loc = v.ChannelFields.Loc
+	retval.MemoryId = v.ChannelFields.MemoryId
+	retval.ChatRootUrn = v.ChannelFields.ChatRootUrn
+	retval.ChatRootNodeId = v.ChannelFields.ChatRootNodeId
+	retval.LastSeq = v.ChannelFields.LastSeq
+	retval.LastMessageAt = v.ChannelFields.LastMessageAt
+	retval.CreatedAt = v.ChannelFields.CreatedAt
+	retval.UpdatedAt = v.ChannelFields.UpdatedAt
+	retval.Memory = v.ChannelMemory.Memory
+	return &retval, nil
+}
+
+// ChannelsResponse is returned by Channels on success.
+type ChannelsResponse struct {
+	// Spec 049 Phase 4 — Channels whose host memory you may read, narrowed by an
+	// App (its host memories' Channels) or by one memory, and by the cor:api:100:01
+	// orgId. Loc-ascending (id tiebreak); limit default 50 / cap 200.
+	Channels *ChannelsChannelsChannelsPage `json:"channels"`
+}
+
+// GetChannels returns ChannelsResponse.Channels, and is useful for accessing the field via an interface.
+func (v *ChannelsResponse) GetChannels() *ChannelsChannelsChannelsPage { return v.Channels }
+
 // ChatMessagesFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
 // The GraphQL type's documentation follows.
 //
@@ -4622,6 +4941,182 @@ type CreateAssetReferenceNodeResponse struct {
 // GetCreateAssetReferenceNode returns CreateAssetReferenceNodeResponse.CreateAssetReferenceNode, and is useful for accessing the field via an interface.
 func (v *CreateAssetReferenceNodeResponse) GetCreateAssetReferenceNode() *CreateAssetReferenceNodeCreateAssetReferenceNode {
 	return v.CreateAssetReferenceNode
+}
+
+// CreateChannelCreateChannel includes the requested fields of the GraphQL type Channel.
+// The GraphQL type's documentation follows.
+//
+// A CHANNEL (spec 049, D-2026-09-13-006): a durable, ordered message stream
+// hosted in ONE memory at ONE reserved address, server-ordered and
+// server-attributed — a platform entity, created one-to-one with its chat root.
+// Creating it RESERVES and PROTECTS the address: generic node writes under it
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
+// hadron_team_chat_post) are the only writers. The audience is the host
+// memory's (cor:acl:030:01) — a Channel has no access layer of its own.
+// `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
+type CreateChannelCreateChannel struct {
+	ChannelFields `json:"-"`
+	ChannelMemory `json:"-"`
+}
+
+// GetId returns CreateChannelCreateChannel.Id, and is useful for accessing the field via an interface.
+func (v *CreateChannelCreateChannel) GetId() string { return v.ChannelFields.Id }
+
+// GetName returns CreateChannelCreateChannel.Name, and is useful for accessing the field via an interface.
+func (v *CreateChannelCreateChannel) GetName() string { return v.ChannelFields.Name }
+
+// GetDescription returns CreateChannelCreateChannel.Description, and is useful for accessing the field via an interface.
+func (v *CreateChannelCreateChannel) GetDescription() *string { return v.ChannelFields.Description }
+
+// GetKind returns CreateChannelCreateChannel.Kind, and is useful for accessing the field via an interface.
+func (v *CreateChannelCreateChannel) GetKind() ChannelKind { return v.ChannelFields.Kind }
+
+// GetLoc returns CreateChannelCreateChannel.Loc, and is useful for accessing the field via an interface.
+func (v *CreateChannelCreateChannel) GetLoc() string { return v.ChannelFields.Loc }
+
+// GetMemoryId returns CreateChannelCreateChannel.MemoryId, and is useful for accessing the field via an interface.
+func (v *CreateChannelCreateChannel) GetMemoryId() string { return v.ChannelFields.MemoryId }
+
+// GetChatRootUrn returns CreateChannelCreateChannel.ChatRootUrn, and is useful for accessing the field via an interface.
+func (v *CreateChannelCreateChannel) GetChatRootUrn() *string { return v.ChannelFields.ChatRootUrn }
+
+// GetChatRootNodeId returns CreateChannelCreateChannel.ChatRootNodeId, and is useful for accessing the field via an interface.
+func (v *CreateChannelCreateChannel) GetChatRootNodeId() string {
+	return v.ChannelFields.ChatRootNodeId
+}
+
+// GetLastSeq returns CreateChannelCreateChannel.LastSeq, and is useful for accessing the field via an interface.
+func (v *CreateChannelCreateChannel) GetLastSeq() int { return v.ChannelFields.LastSeq }
+
+// GetLastMessageAt returns CreateChannelCreateChannel.LastMessageAt, and is useful for accessing the field via an interface.
+func (v *CreateChannelCreateChannel) GetLastMessageAt() *string { return v.ChannelFields.LastMessageAt }
+
+// GetCreatedAt returns CreateChannelCreateChannel.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateChannelCreateChannel) GetCreatedAt() string { return v.ChannelFields.CreatedAt }
+
+// GetUpdatedAt returns CreateChannelCreateChannel.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateChannelCreateChannel) GetUpdatedAt() *string { return v.ChannelFields.UpdatedAt }
+
+// GetMemory returns CreateChannelCreateChannel.Memory, and is useful for accessing the field via an interface.
+func (v *CreateChannelCreateChannel) GetMemory() *ChannelMemoryMemory { return v.ChannelMemory.Memory }
+
+func (v *CreateChannelCreateChannel) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateChannelCreateChannel
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateChannelCreateChannel = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ChannelFields)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(
+		b, &v.ChannelMemory)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateChannelCreateChannel struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Kind ChannelKind `json:"kind"`
+
+	Loc string `json:"loc"`
+
+	MemoryId string `json:"memoryId"`
+
+	ChatRootUrn *string `json:"chatRootUrn"`
+
+	ChatRootNodeId string `json:"chatRootNodeId"`
+
+	LastSeq int `json:"lastSeq"`
+
+	LastMessageAt *string `json:"lastMessageAt"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Memory *ChannelMemoryMemory `json:"memory"`
+}
+
+func (v *CreateChannelCreateChannel) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateChannelCreateChannel) __premarshalJSON() (*__premarshalCreateChannelCreateChannel, error) {
+	var retval __premarshalCreateChannelCreateChannel
+
+	retval.Id = v.ChannelFields.Id
+	retval.Name = v.ChannelFields.Name
+	retval.Description = v.ChannelFields.Description
+	retval.Kind = v.ChannelFields.Kind
+	retval.Loc = v.ChannelFields.Loc
+	retval.MemoryId = v.ChannelFields.MemoryId
+	retval.ChatRootUrn = v.ChannelFields.ChatRootUrn
+	retval.ChatRootNodeId = v.ChannelFields.ChatRootNodeId
+	retval.LastSeq = v.ChannelFields.LastSeq
+	retval.LastMessageAt = v.ChannelFields.LastMessageAt
+	retval.CreatedAt = v.ChannelFields.CreatedAt
+	retval.UpdatedAt = v.ChannelFields.UpdatedAt
+	retval.Memory = v.ChannelMemory.Memory
+	return &retval, nil
+}
+
+// Create a named Channel WITH its chat root, in one transaction. The host must
+// be an app-class memory you may write (the chat-host rule). `loc` is the
+// reserved address (e.g. chats:release) and must not overlap an existing
+// Channel's; `chats:team` is every App's default and is created with the App.
+type CreateChannelInput struct {
+	Description *string `json:"description,omitempty"`
+	Loc         string  `json:"loc"`
+	MemoryRef   string  `json:"memoryRef"`
+	Name        string  `json:"name"`
+}
+
+// GetDescription returns CreateChannelInput.Description, and is useful for accessing the field via an interface.
+func (v *CreateChannelInput) GetDescription() *string { return v.Description }
+
+// GetLoc returns CreateChannelInput.Loc, and is useful for accessing the field via an interface.
+func (v *CreateChannelInput) GetLoc() string { return v.Loc }
+
+// GetMemoryRef returns CreateChannelInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *CreateChannelInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetName returns CreateChannelInput.Name, and is useful for accessing the field via an interface.
+func (v *CreateChannelInput) GetName() string { return v.Name }
+
+// CreateChannelResponse is returned by CreateChannel on success.
+type CreateChannelResponse struct {
+	// Spec 049 Phase 4 — create a named Channel with its chat root (host: an app-class memory you may write). LOC_OVERLAPS_CHANNEL when the address overlaps an existing Channel's.
+	CreateChannel *CreateChannelCreateChannel `json:"createChannel"`
+}
+
+// GetCreateChannel returns CreateChannelResponse.CreateChannel, and is useful for accessing the field via an interface.
+func (v *CreateChannelResponse) GetCreateChannel() *CreateChannelCreateChannel {
+	return v.CreateChannel
 }
 
 // CreateConnectionGrantCreateConnectionGrant includes the requested fields of the GraphQL type ConnectionGrant.
@@ -6632,6 +7127,19 @@ type DeleteAppResponse struct {
 // GetDeleteApp returns DeleteAppResponse.DeleteApp, and is useful for accessing the field via an interface.
 func (v *DeleteAppResponse) GetDeleteApp() bool { return v.DeleteApp }
 
+// DeleteChannelResponse is returned by DeleteChannel on success.
+type DeleteChannelResponse struct {
+	// Spec 049 Phase 4 — soft-delete a Channel AND its chat root together (the
+	// protection holds while either exists, so the address stays reserved and a
+	// restore brings both back). Host memory write access required. An App's
+	// default Channel is unlinked from the App. ref: its id or its address
+	// (`Channel.chatRootUrn`, #1171).
+	DeleteChannel bool `json:"deleteChannel"`
+}
+
+// GetDeleteChannel returns DeleteChannelResponse.DeleteChannel, and is useful for accessing the field via an interface.
+func (v *DeleteChannelResponse) GetDeleteChannel() bool { return v.DeleteChannel }
+
 // DeleteEdgeResponse is returned by DeleteEdge on success.
 type DeleteEdgeResponse struct {
 	DeleteEdge bool `json:"deleteEdge"`
@@ -7744,6 +8252,159 @@ type GetAppSharedMemoryResponse struct {
 
 // GetApp returns GetAppSharedMemoryResponse.App, and is useful for accessing the field via an interface.
 func (v *GetAppSharedMemoryResponse) GetApp() *GetAppSharedMemoryApp { return v.App }
+
+// GetChannelChannel includes the requested fields of the GraphQL type Channel.
+// The GraphQL type's documentation follows.
+//
+// A CHANNEL (spec 049, D-2026-09-13-006): a durable, ordered message stream
+// hosted in ONE memory at ONE reserved address, server-ordered and
+// server-attributed — a platform entity, created one-to-one with its chat root.
+// Creating it RESERVES and PROTECTS the address: generic node writes under it
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
+// hadron_team_chat_post) are the only writers. The audience is the host
+// memory's (cor:acl:030:01) — a Channel has no access layer of its own.
+// `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
+type GetChannelChannel struct {
+	ChannelFields `json:"-"`
+	ChannelMemory `json:"-"`
+}
+
+// GetId returns GetChannelChannel.Id, and is useful for accessing the field via an interface.
+func (v *GetChannelChannel) GetId() string { return v.ChannelFields.Id }
+
+// GetName returns GetChannelChannel.Name, and is useful for accessing the field via an interface.
+func (v *GetChannelChannel) GetName() string { return v.ChannelFields.Name }
+
+// GetDescription returns GetChannelChannel.Description, and is useful for accessing the field via an interface.
+func (v *GetChannelChannel) GetDescription() *string { return v.ChannelFields.Description }
+
+// GetKind returns GetChannelChannel.Kind, and is useful for accessing the field via an interface.
+func (v *GetChannelChannel) GetKind() ChannelKind { return v.ChannelFields.Kind }
+
+// GetLoc returns GetChannelChannel.Loc, and is useful for accessing the field via an interface.
+func (v *GetChannelChannel) GetLoc() string { return v.ChannelFields.Loc }
+
+// GetMemoryId returns GetChannelChannel.MemoryId, and is useful for accessing the field via an interface.
+func (v *GetChannelChannel) GetMemoryId() string { return v.ChannelFields.MemoryId }
+
+// GetChatRootUrn returns GetChannelChannel.ChatRootUrn, and is useful for accessing the field via an interface.
+func (v *GetChannelChannel) GetChatRootUrn() *string { return v.ChannelFields.ChatRootUrn }
+
+// GetChatRootNodeId returns GetChannelChannel.ChatRootNodeId, and is useful for accessing the field via an interface.
+func (v *GetChannelChannel) GetChatRootNodeId() string { return v.ChannelFields.ChatRootNodeId }
+
+// GetLastSeq returns GetChannelChannel.LastSeq, and is useful for accessing the field via an interface.
+func (v *GetChannelChannel) GetLastSeq() int { return v.ChannelFields.LastSeq }
+
+// GetLastMessageAt returns GetChannelChannel.LastMessageAt, and is useful for accessing the field via an interface.
+func (v *GetChannelChannel) GetLastMessageAt() *string { return v.ChannelFields.LastMessageAt }
+
+// GetCreatedAt returns GetChannelChannel.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetChannelChannel) GetCreatedAt() string { return v.ChannelFields.CreatedAt }
+
+// GetUpdatedAt returns GetChannelChannel.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *GetChannelChannel) GetUpdatedAt() *string { return v.ChannelFields.UpdatedAt }
+
+// GetMemory returns GetChannelChannel.Memory, and is useful for accessing the field via an interface.
+func (v *GetChannelChannel) GetMemory() *ChannelMemoryMemory { return v.ChannelMemory.Memory }
+
+func (v *GetChannelChannel) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetChannelChannel
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetChannelChannel = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ChannelFields)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(
+		b, &v.ChannelMemory)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetChannelChannel struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Kind ChannelKind `json:"kind"`
+
+	Loc string `json:"loc"`
+
+	MemoryId string `json:"memoryId"`
+
+	ChatRootUrn *string `json:"chatRootUrn"`
+
+	ChatRootNodeId string `json:"chatRootNodeId"`
+
+	LastSeq int `json:"lastSeq"`
+
+	LastMessageAt *string `json:"lastMessageAt"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Memory *ChannelMemoryMemory `json:"memory"`
+}
+
+func (v *GetChannelChannel) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetChannelChannel) __premarshalJSON() (*__premarshalGetChannelChannel, error) {
+	var retval __premarshalGetChannelChannel
+
+	retval.Id = v.ChannelFields.Id
+	retval.Name = v.ChannelFields.Name
+	retval.Description = v.ChannelFields.Description
+	retval.Kind = v.ChannelFields.Kind
+	retval.Loc = v.ChannelFields.Loc
+	retval.MemoryId = v.ChannelFields.MemoryId
+	retval.ChatRootUrn = v.ChannelFields.ChatRootUrn
+	retval.ChatRootNodeId = v.ChannelFields.ChatRootNodeId
+	retval.LastSeq = v.ChannelFields.LastSeq
+	retval.LastMessageAt = v.ChannelFields.LastMessageAt
+	retval.CreatedAt = v.ChannelFields.CreatedAt
+	retval.UpdatedAt = v.ChannelFields.UpdatedAt
+	retval.Memory = v.ChannelMemory.Memory
+	return &retval, nil
+}
+
+// GetChannelResponse is returned by GetChannel on success.
+type GetChannelResponse struct {
+	// Spec 049 Phase 4 — the uniform single-Channel read. 'ref' is the Channel's
+	// id or its ADDRESS — the chat root's node URN, which is `Channel.chatRootUrn`
+	// and what `createChannel(memoryRef, loc)` composes to (#1171). Null when
+	// missing, when the ref names nothing, OR when you may not read its host
+	// memory — identically, so this is never an existence oracle.
+	Channel *GetChannelChannel `json:"channel"`
+}
+
+// GetChannel returns GetChannelResponse.Channel, and is useful for accessing the field via an interface.
+func (v *GetChannelResponse) GetChannel() *GetChannelChannel { return v.Channel }
 
 // GetInvitationInvitationUserInvitation includes the requested fields of the GraphQL type UserInvitation.
 type GetInvitationInvitationUserInvitation struct {
@@ -18235,6 +18896,170 @@ func (v *UpdateAiServiceConfigUpdateAiServiceConfig) __premarshalJSON() (*__prem
 	return &retval, nil
 }
 
+type UpdateChannelInput struct {
+	Description *string `json:"description,omitempty"`
+	Name        *string `json:"name,omitempty"`
+}
+
+// GetDescription returns UpdateChannelInput.Description, and is useful for accessing the field via an interface.
+func (v *UpdateChannelInput) GetDescription() *string { return v.Description }
+
+// GetName returns UpdateChannelInput.Name, and is useful for accessing the field via an interface.
+func (v *UpdateChannelInput) GetName() *string { return v.Name }
+
+// UpdateChannelResponse is returned by UpdateChannel on success.
+type UpdateChannelResponse struct {
+	// Spec 049 Phase 4 — rename / re-describe a Channel whose host memory you may write. ref: its id or its address (Channel.chatRootUrn, #1171).
+	UpdateChannel *UpdateChannelUpdateChannel `json:"updateChannel"`
+}
+
+// GetUpdateChannel returns UpdateChannelResponse.UpdateChannel, and is useful for accessing the field via an interface.
+func (v *UpdateChannelResponse) GetUpdateChannel() *UpdateChannelUpdateChannel {
+	return v.UpdateChannel
+}
+
+// UpdateChannelUpdateChannel includes the requested fields of the GraphQL type Channel.
+// The GraphQL type's documentation follows.
+//
+// A CHANNEL (spec 049, D-2026-09-13-006): a durable, ordered message stream
+// hosted in ONE memory at ONE reserved address, server-ordered and
+// server-attributed — a platform entity, created one-to-one with its chat root.
+// Creating it RESERVES and PROTECTS the address: generic node writes under it
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
+// hadron_team_chat_post) are the only writers. The audience is the host
+// memory's (cor:acl:030:01) — a Channel has no access layer of its own.
+// `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
+type UpdateChannelUpdateChannel struct {
+	ChannelFields `json:"-"`
+	ChannelMemory `json:"-"`
+}
+
+// GetId returns UpdateChannelUpdateChannel.Id, and is useful for accessing the field via an interface.
+func (v *UpdateChannelUpdateChannel) GetId() string { return v.ChannelFields.Id }
+
+// GetName returns UpdateChannelUpdateChannel.Name, and is useful for accessing the field via an interface.
+func (v *UpdateChannelUpdateChannel) GetName() string { return v.ChannelFields.Name }
+
+// GetDescription returns UpdateChannelUpdateChannel.Description, and is useful for accessing the field via an interface.
+func (v *UpdateChannelUpdateChannel) GetDescription() *string { return v.ChannelFields.Description }
+
+// GetKind returns UpdateChannelUpdateChannel.Kind, and is useful for accessing the field via an interface.
+func (v *UpdateChannelUpdateChannel) GetKind() ChannelKind { return v.ChannelFields.Kind }
+
+// GetLoc returns UpdateChannelUpdateChannel.Loc, and is useful for accessing the field via an interface.
+func (v *UpdateChannelUpdateChannel) GetLoc() string { return v.ChannelFields.Loc }
+
+// GetMemoryId returns UpdateChannelUpdateChannel.MemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateChannelUpdateChannel) GetMemoryId() string { return v.ChannelFields.MemoryId }
+
+// GetChatRootUrn returns UpdateChannelUpdateChannel.ChatRootUrn, and is useful for accessing the field via an interface.
+func (v *UpdateChannelUpdateChannel) GetChatRootUrn() *string { return v.ChannelFields.ChatRootUrn }
+
+// GetChatRootNodeId returns UpdateChannelUpdateChannel.ChatRootNodeId, and is useful for accessing the field via an interface.
+func (v *UpdateChannelUpdateChannel) GetChatRootNodeId() string {
+	return v.ChannelFields.ChatRootNodeId
+}
+
+// GetLastSeq returns UpdateChannelUpdateChannel.LastSeq, and is useful for accessing the field via an interface.
+func (v *UpdateChannelUpdateChannel) GetLastSeq() int { return v.ChannelFields.LastSeq }
+
+// GetLastMessageAt returns UpdateChannelUpdateChannel.LastMessageAt, and is useful for accessing the field via an interface.
+func (v *UpdateChannelUpdateChannel) GetLastMessageAt() *string { return v.ChannelFields.LastMessageAt }
+
+// GetCreatedAt returns UpdateChannelUpdateChannel.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateChannelUpdateChannel) GetCreatedAt() string { return v.ChannelFields.CreatedAt }
+
+// GetUpdatedAt returns UpdateChannelUpdateChannel.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateChannelUpdateChannel) GetUpdatedAt() *string { return v.ChannelFields.UpdatedAt }
+
+// GetMemory returns UpdateChannelUpdateChannel.Memory, and is useful for accessing the field via an interface.
+func (v *UpdateChannelUpdateChannel) GetMemory() *ChannelMemoryMemory { return v.ChannelMemory.Memory }
+
+func (v *UpdateChannelUpdateChannel) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateChannelUpdateChannel
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateChannelUpdateChannel = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ChannelFields)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(
+		b, &v.ChannelMemory)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateChannelUpdateChannel struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Kind ChannelKind `json:"kind"`
+
+	Loc string `json:"loc"`
+
+	MemoryId string `json:"memoryId"`
+
+	ChatRootUrn *string `json:"chatRootUrn"`
+
+	ChatRootNodeId string `json:"chatRootNodeId"`
+
+	LastSeq int `json:"lastSeq"`
+
+	LastMessageAt *string `json:"lastMessageAt"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Memory *ChannelMemoryMemory `json:"memory"`
+}
+
+func (v *UpdateChannelUpdateChannel) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateChannelUpdateChannel) __premarshalJSON() (*__premarshalUpdateChannelUpdateChannel, error) {
+	var retval __premarshalUpdateChannelUpdateChannel
+
+	retval.Id = v.ChannelFields.Id
+	retval.Name = v.ChannelFields.Name
+	retval.Description = v.ChannelFields.Description
+	retval.Kind = v.ChannelFields.Kind
+	retval.Loc = v.ChannelFields.Loc
+	retval.MemoryId = v.ChannelFields.MemoryId
+	retval.ChatRootUrn = v.ChannelFields.ChatRootUrn
+	retval.ChatRootNodeId = v.ChannelFields.ChatRootNodeId
+	retval.LastSeq = v.ChannelFields.LastSeq
+	retval.LastMessageAt = v.ChannelFields.LastMessageAt
+	retval.CreatedAt = v.ChannelFields.CreatedAt
+	retval.UpdatedAt = v.ChannelFields.UpdatedAt
+	retval.Memory = v.ChannelMemory.Memory
+	return &retval, nil
+}
+
 // UpdateEdgeResponse is returned by UpdateEdge on success.
 type UpdateEdgeResponse struct {
 	UpdateEdge *UpdateEdgeUpdateEdge `json:"updateEdge"`
@@ -21748,6 +22573,26 @@ func (v *__CastWorkerPreviewInput) GetName() *string { return v.Name }
 // GetPromptOverride returns __CastWorkerPreviewInput.PromptOverride, and is useful for accessing the field via an interface.
 func (v *__CastWorkerPreviewInput) GetPromptOverride() *string { return v.PromptOverride }
 
+// __ChannelsInput is used internally by genqlient
+type __ChannelsInput struct {
+	Filter *ChannelFilter `json:"filter,omitempty"`
+	Limit  *int           `json:"limit,omitempty"`
+	Offset *int           `json:"offset,omitempty"`
+	OrgId  *string        `json:"orgId,omitempty"`
+}
+
+// GetFilter returns __ChannelsInput.Filter, and is useful for accessing the field via an interface.
+func (v *__ChannelsInput) GetFilter() *ChannelFilter { return v.Filter }
+
+// GetLimit returns __ChannelsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ChannelsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __ChannelsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ChannelsInput) GetOffset() *int { return v.Offset }
+
+// GetOrgId returns __ChannelsInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__ChannelsInput) GetOrgId() *string { return v.OrgId }
+
 // __ChatMessagesInput is used internally by genqlient
 type __ChatMessagesInput struct {
 	Filter *NodeFilter `json:"filter,omitempty"`
@@ -21967,6 +22812,14 @@ func (v *__CreateAssetReferenceNodeInput) GetName() *string { return v.Name }
 
 // GetDescription returns __CreateAssetReferenceNodeInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateAssetReferenceNodeInput) GetDescription() *string { return v.Description }
+
+// __CreateChannelInput is used internally by genqlient
+type __CreateChannelInput struct {
+	Input *CreateChannelInput `json:"input,omitempty"`
+}
+
+// GetInput returns __CreateChannelInput.Input, and is useful for accessing the field via an interface.
+func (v *__CreateChannelInput) GetInput() *CreateChannelInput { return v.Input }
 
 // __CreateConnectionGrantInput is used internally by genqlient
 type __CreateConnectionGrantInput struct {
@@ -22384,6 +23237,14 @@ type __DeleteAppInput struct {
 // GetRef returns __DeleteAppInput.Ref, and is useful for accessing the field via an interface.
 func (v *__DeleteAppInput) GetRef() string { return v.Ref }
 
+// __DeleteChannelInput is used internally by genqlient
+type __DeleteChannelInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __DeleteChannelInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteChannelInput) GetRef() string { return v.Ref }
+
 // __DeleteEdgeInput is used internally by genqlient
 type __DeleteEdgeInput struct {
 	EdgeId string `json:"edgeId"`
@@ -22651,6 +23512,14 @@ type __GetAppSharedMemoryInput struct {
 
 // GetAppRef returns __GetAppSharedMemoryInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__GetAppSharedMemoryInput) GetAppRef() string { return v.AppRef }
+
+// __GetChannelInput is used internally by genqlient
+type __GetChannelInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetChannelInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetChannelInput) GetRef() string { return v.Ref }
 
 // __GetInvitationInput is used internally by genqlient
 type __GetInvitationInput struct {
@@ -23611,6 +24480,18 @@ func (v *__UpdateAiServiceConfigInput) GetEnabled() *bool { return v.Enabled }
 
 // GetParams returns __UpdateAiServiceConfigInput.Params, and is useful for accessing the field via an interface.
 func (v *__UpdateAiServiceConfigInput) GetParams() *json.RawMessage { return v.Params }
+
+// __UpdateChannelInput is used internally by genqlient
+type __UpdateChannelInput struct {
+	Ref   string              `json:"ref"`
+	Input *UpdateChannelInput `json:"input,omitempty"`
+}
+
+// GetRef returns __UpdateChannelInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateChannelInput) GetRef() string { return v.Ref }
+
+// GetInput returns __UpdateChannelInput.Input, and is useful for accessing the field via an interface.
+func (v *__UpdateChannelInput) GetInput() *UpdateChannelInput { return v.Input }
 
 // __UpdateEdgeInput is used internally by genqlient
 type __UpdateEdgeInput struct {
@@ -25024,6 +25905,72 @@ func CastWorkerPreview(
 	return data_, err_
 }
 
+// The query executed by Channels.
+const Channels_Operation = `
+query Channels ($filter: ChannelFilter, $limit: Int, $offset: Int, $orgId: ID) {
+	channels(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+		total
+		items {
+			... ChannelFields
+			... ChannelMemory
+		}
+	}
+}
+fragment ChannelFields on Channel {
+	id
+	name
+	description
+	kind
+	loc
+	memoryId
+	chatRootUrn
+	chatRootNodeId
+	lastSeq
+	lastMessageAt
+	createdAt
+	updatedAt
+}
+fragment ChannelMemory on Channel {
+	memory {
+		id
+		urn
+		name
+	}
+}
+`
+
+// Channels visible to the caller. ChannelFilter narrows by App or host memory.
+func Channels(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	filter *ChannelFilter,
+	limit *int,
+	offset *int,
+	orgId *string,
+) (data_ *ChannelsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "Channels",
+		Query:  Channels_Operation,
+		Variables: &__ChannelsInput{
+			Filter: filter,
+			Limit:  limit,
+			Offset: offset,
+			OrgId:  orgId,
+		},
+	}
+
+	data_ = &ChannelsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by ChatMessages.
 const ChatMessages_Operation = `
 query ChatMessages ($filter: NodeFilter, $limit: Int, $offset: Int) {
@@ -25646,6 +26593,65 @@ func CreateAssetReferenceNode(
 	}
 
 	data_ = &CreateAssetReferenceNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateChannel.
+const CreateChannel_Operation = `
+mutation CreateChannel ($input: CreateChannelInput!) {
+	createChannel(input: $input) {
+		... ChannelFields
+		... ChannelMemory
+	}
+}
+fragment ChannelFields on Channel {
+	id
+	name
+	description
+	kind
+	loc
+	memoryId
+	chatRootUrn
+	chatRootNodeId
+	lastSeq
+	lastMessageAt
+	createdAt
+	updatedAt
+}
+fragment ChannelMemory on Channel {
+	memory {
+		id
+		urn
+		name
+	}
+}
+`
+
+// Create a Channel on a host memory at a reserved loc. The (memoryRef, loc) pair
+// IS the address the other operations accept back, which is why `chatRootUrn`
+// exists to emit it rather than asking a caller to rebuild it.
+func CreateChannel(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *CreateChannelInput,
+) (data_ *CreateChannelResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateChannel",
+		Query:  CreateChannel_Operation,
+		Variables: &__CreateChannelInput{
+			Input: input,
+		},
+	}
+
+	data_ = &CreateChannelResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -26735,6 +27741,38 @@ func DeleteApp(
 	return data_, err_
 }
 
+// The mutation executed by DeleteChannel.
+const DeleteChannel_Operation = `
+mutation DeleteChannel ($ref: ID!) {
+	deleteChannel(ref: $ref)
+}
+`
+
+func DeleteChannel(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *DeleteChannelResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteChannel",
+		Query:  DeleteChannel_Operation,
+		Variables: &__DeleteChannelInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &DeleteChannelResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by DeleteEdge.
 const DeleteEdge_Operation = `
 mutation DeleteEdge ($edgeId: ID!) {
@@ -27633,6 +28671,68 @@ func GetAppSharedMemory(
 	}
 
 	data_ = &GetAppSharedMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetChannel.
+const GetChannel_Operation = `
+query GetChannel ($ref: ID!) {
+	channel(ref: $ref) {
+		... ChannelFields
+		... ChannelMemory
+	}
+}
+fragment ChannelFields on Channel {
+	id
+	name
+	description
+	kind
+	loc
+	memoryId
+	chatRootUrn
+	chatRootNodeId
+	lastSeq
+	lastMessageAt
+	createdAt
+	updatedAt
+}
+fragment ChannelMemory on Channel {
+	memory {
+		id
+		urn
+		name
+	}
+}
+`
+
+// Single-Channel read. `ref` is the id OR the address; the server resolves both.
+//
+// Returns null when the Channel does not exist, when the ref names nothing, AND
+// when the caller may not read its host memory — identically and on purpose, so
+// it is "never an existence oracle" in the server's own words. Callers render
+// ONE message covering all three and must not infer not-found from the null.
+func GetChannel(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetChannelResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetChannel",
+		Query:  GetChannel_Operation,
+		Variables: &__GetChannelInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetChannelResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -31552,6 +32652,74 @@ func UpdateAiServiceConfig(
 	}
 
 	data_ = &UpdateAiServiceConfigResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateChannel.
+const UpdateChannel_Operation = `
+mutation UpdateChannel ($ref: ID!, $input: UpdateChannelInput!) {
+	updateChannel(ref: $ref, input: $input) {
+		... ChannelFields
+		... ChannelMemory
+	}
+}
+fragment ChannelFields on Channel {
+	id
+	name
+	description
+	kind
+	loc
+	memoryId
+	chatRootUrn
+	chatRootNodeId
+	lastSeq
+	lastMessageAt
+	createdAt
+	updatedAt
+}
+fragment ChannelMemory on Channel {
+	memory {
+		id
+		urn
+		name
+	}
+}
+`
+
+// Rename / re-describe a Channel whose host memory the caller may write.
+//
+// WIRE SEMANTICS: an OMITTED input field preserves, an explicit null clears — so
+// both optional fields carry omitempty and a nil pointer is omitted rather than
+// sent as null. Dropping either makes an unset flag silently clear a field
+// (CLAUDE.md; findings:a-schema-refresh-can-regress-an-unrelated-write).
+//
+// The `for:` directives only bind when the variable list is on its own lines
+// (findings:genqlient-for-directive-needs-multiline-signature) — keep this
+// signature expanded.
+func UpdateChannel(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	input *UpdateChannelInput,
+) (data_ *UpdateChannelResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateChannel",
+		Query:  UpdateChannel_Operation,
+		Variables: &__UpdateChannelInput{
+			Ref:   ref,
+			Input: input,
+		},
+	}
+
+	data_ = &UpdateChannelResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
