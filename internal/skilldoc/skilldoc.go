@@ -18,14 +18,21 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
+	"unicode/utf8"
+
+	yaml "go.yaml.in/yaml/v3"
+
+	"github.com/hadron-memory/hadron-cli/internal/nodedoc"
 )
 
 // Host limits for a Claude Code skill, per the skill spec (verified against the
-// official skill-creator validator, quick_validate.py). The host does not
-// REFUSE an over-long description — it truncates it in the skill listing, so
-// the trigger phrases past the cut silently stop firing. That is why the
-// description rule is an error rather than a warning.
+// official skill-creator validator, quick_validate.py), counted in CHARACTERS
+// — the validator is Python and counts code points, so an em dash is one, not
+// three. The host does not REFUSE an over-long description — it truncates it
+// in the skill listing, so the trigger phrases past the cut silently stop
+// firing. That is why the description rule is an error rather than a warning.
 const (
 	MaxNameLen        = 64
 	MaxDescriptionLen = 1024
@@ -44,6 +51,12 @@ const (
 	SevWarning = "warning"
 )
 
+// declarationKeys are the property keys a node may declare a skill under, in
+// precedence order: the provider-neutral key (D10) wins over the legacy one.
+// ONE list, read by one scan (classify), so a key added later cannot be
+// recognised by the declaration reader and missed by the malformed check.
+var declarationKeys = []string{"skill", "claudeSkill"}
+
 var (
 	// nameRE is the skill-name grammar: kebab-case, lowercase letters and
 	// digits, single hyphens between segments.
@@ -61,7 +74,8 @@ var (
 	// hand-run export procedure: `<!-- Generated from <urn> -->`. It carries a
 	// source but no hash, so a file with only this line classifies as unhashed.
 	legacyHeaderRE = regexp.MustCompile(`(?m)^<!--\s*Generated from\s+(\S+)\s*-->`)
-	// frontmatterRE splits a skill file into its YAML header and body.
+	// frontmatterRE splits a skill file into its YAML header and body — the
+	// same framing nodedoc reads for node files (`---\n…\n---\n`).
 	frontmatterRE = regexp.MustCompile(`(?s)\A---\n(.*?)\n---\n?(.*)\z`)
 	// triggerRE is the trigger-shaped phrasing a description is expected to
 	// carry — the host matches descriptions against what the user says, so
@@ -72,6 +86,17 @@ var (
 	// template) or a leak, which is why it is a warning and not an error.
 	templateRE = regexp.MustCompile(`\{\{[^}]*\}\}`)
 )
+
+// Prefix is a memory's resolved export prefix. Known is false when the memory
+// is org-owned and the org has chosen no `Organization.skillPrefix`: Value is
+// then empty, and the rules that need a prefix say so rather than deriving a
+// name from nothing. Carrying the pair keeps "unknown" distinct from "empty"
+// — a server that ever coerced a null prefix to "" would otherwise read as
+// resolved (this repo's recurring nil-guard class).
+type Prefix struct {
+	Value string
+	Known bool
+}
 
 // Declaration is a node's opt-in to export: `properties.skill` (D10, the
 // provider-neutral key) or the legacy `properties.claudeSkill`, whichever is
@@ -85,51 +110,55 @@ type Declaration struct {
 	Name        string
 }
 
-// Declared reads a node's skill declaration out of its decoded properties.
-// A declaration is an object under one of the two keys; anything else — the
-// key absent, or holding a non-object — is "not declared". The new key wins
-// when both are present, so a migrated node whose legacy key was left behind
-// behaves as migrated.
-func Declared(props map[string]any) (*Declaration, bool) {
-	for _, key := range []string{"skill", "claudeSkill"} {
+// classify is the ONE scan of a node's declaration keys. It returns the
+// declaration under the highest-precedence key that holds an object, and
+// every key that is present but does NOT hold an object — a malformed
+// declaration is reported even when a valid one sits beside it, because the
+// node is mid-migration and the broken key is the one that will survive the
+// legacy key's retirement.
+func classify(props map[string]any) (decl *Declaration, malformed []string) {
+	for _, key := range declarationKeys {
 		raw, ok := props[key]
 		if !ok {
 			continue
 		}
 		obj, ok := raw.(map[string]any)
 		if !ok {
+			malformed = append(malformed, key)
 			continue
 		}
-		d := &Declaration{Key: key}
+		if decl != nil {
+			continue
+		}
+		decl = &Declaration{Key: key}
 		if s, ok := obj["description"].(string); ok {
-			d.Description = s
+			decl.Description = s
 		}
 		if s, ok := obj["name"].(string); ok {
-			d.Name = s
+			decl.Name = s
 		}
-		return d, true
 	}
-	return nil, false
+	return decl, malformed
 }
 
-// Malformed reports whether a node carries a declaration key whose value is
-// not an object — `"skill": "yes"`, `"claudeSkill": true`. Such a node is
-// selected by the server-side discovery predicate (the key EXISTS) yet reads
-// as "not declared" to Declared, so without this it would be silently skipped
-// and counted in nobody's total — an all-clear wider than the read that
-// produced it (review:a-claim-must-not-outrun-its-evidence). It returns the
-// offending key so the finding can name it.
-func Malformed(props map[string]any) (string, bool) {
-	for _, key := range []string{"skill", "claudeSkill"} {
-		raw, ok := props[key]
-		if !ok {
-			continue
-		}
-		if _, isObj := raw.(map[string]any); !isObj {
-			return key, true
-		}
-	}
-	return "", false
+// Declared reads a node's skill declaration out of its decoded properties.
+// A declaration is an object under one of the declaration keys; anything
+// else — the key absent, or holding a non-object — is "not declared". The
+// new key wins when both are present, so a migrated node whose legacy key
+// was left behind behaves as migrated.
+func Declared(props map[string]any) (*Declaration, bool) {
+	decl, _ := classify(props)
+	return decl, decl != nil
+}
+
+// Malformed reports the declaration keys a node carries whose value is not an
+// object — `"skill": "yes"`, `"claudeSkill": true`. Such a node is selected by
+// the server-side discovery predicate (the key EXISTS), so without a finding
+// it would be silently skipped and counted in nobody's total — an all-clear
+// wider than the read that produced it.
+func Malformed(props map[string]any) []string {
+	_, bad := classify(props)
+	return bad
 }
 
 // ValidPrefix reports whether p is a legal export prefix — the server's own
@@ -155,7 +184,7 @@ func DeriveName(prefix, loc string) string {
 
 // ValidName reports whether name satisfies the host's grammar and length.
 func ValidName(name string) bool {
-	return len(name) <= MaxNameLen && nameRE.MatchString(name)
+	return utf8.RuneCountInString(name) <= MaxNameLen && nameRE.MatchString(name)
 }
 
 // Hash is the provenance fingerprint a generated file records: the first 16
@@ -189,30 +218,35 @@ type Node struct {
 	Properties map[string]any
 }
 
-// Finding is one lint result against one node.
+// Finding is one lint result. URN names the node; for a memory-level finding
+// (a prefix the org has not chosen) URN is the memory URN and Memory equals
+// it. Memory is carried on every finding so a renderer never has to look it
+// back up from the node it came from.
 type Finding struct {
 	URN      string
+	Memory   string
 	Rule     string
 	Severity string
 	Message  string
 }
 
-// Lint applies the per-node corpus rules to a declaring node under the export
-// prefix its memory resolves to (empty when the org has none — the command
-// reports that separately, and the name rules then run on the bare slug so
-// the rest of the report is still useful). A node with no declaration yields
-// no findings: not declared is not a defect, it is the opt-in working.
-func Lint(n Node, prefix string) []Finding {
+// Lint applies the per-node corpus rules to a node under the export prefix
+// its memory resolves to. When the prefix is not Known the name rules run on
+// the bare slug — a loc that derives to an invalid name is invalid under any
+// prefix, and the missing prefix is LintPrefixes' finding, not this one's. A
+// node with no declaration and no malformed key yields nothing: not declared
+// is not a defect, it is the opt-in working.
+func Lint(n Node, prefix Prefix) []Finding {
 	var out []Finding
 	add := func(rule, sev, msg string) {
-		out = append(out, Finding{URN: n.URN, Rule: rule, Severity: sev, Message: msg})
+		out = append(out, Finding{URN: n.URN, Memory: n.MemoryURN, Rule: rule, Severity: sev, Message: msg})
 	}
-	decl, ok := Declared(n.Properties)
-	if !ok {
-		if key, bad := Malformed(n.Properties); bad {
-			add("skill-declaration-malformed", SevError,
-				fmt.Sprintf("properties.%s is present but is not an object — a declaration is {\"description\": …}; fix it or remove the key", key))
-		}
+	decl, malformed := classify(n.Properties)
+	for _, key := range malformed {
+		add("skill-declaration-malformed", SevError,
+			fmt.Sprintf("properties.%s is present but is not an object — a declaration is {\"description\": …}; fix it or remove the key", key))
+	}
+	if decl == nil {
 		return out
 	}
 
@@ -222,26 +256,26 @@ func Lint(n Node, prefix string) []Finding {
 	}
 
 	desc := strings.TrimSpace(decl.Description)
-	switch {
+	switch n := utf8.RuneCountInString(desc); {
 	case desc == "":
 		add("skill-description-missing", SevError,
 			fmt.Sprintf("properties.%s.description is missing or empty — it is the trigger text the host matches against; the node cannot be exported without it", decl.Key))
-	case len(desc) > MaxDescriptionLen:
+	case n > MaxDescriptionLen:
 		add("skill-description-too-long", SevError,
 			fmt.Sprintf("description is %d characters; the host caps it at %d and TRUNCATES the rest in the skill listing, so trigger phrases past the cut never fire — shorten by %d",
-				len(desc), MaxDescriptionLen, len(desc)-MaxDescriptionLen))
+				n, MaxDescriptionLen, n-MaxDescriptionLen))
 	}
 	if desc != "" && !triggerRE.MatchString(desc) {
 		add("skill-description-no-trigger", SevWarning,
 			"description never says when to use the skill (\"Use when …\") — the host matches descriptions against what the user says, and one with no trigger phrasing rarely fires")
 	}
 
-	name := DeriveName(prefix, n.Loc)
+	name := DeriveName(prefix.Value, n.Loc)
 	if !ValidName(name) {
 		add("skill-name-invalid", SevError,
 			fmt.Sprintf("derived skill name %q is not a valid skill name (kebab-case, ≤%d chars) — it is derived from the loc, so the loc is what to change", name, MaxNameLen))
 	}
-	if decl.Name != "" && decl.Name != name {
+	if decl.Name != "" && prefix.Known && decl.Name != name {
 		add("skill-name-hand-set", SevError,
 			fmt.Sprintf("properties.%s.name is %q but the name is derived from the loc as %q — remove the hand-set name (it is retired) or make the loc say what the name should", decl.Key, decl.Name, name))
 	}
@@ -267,36 +301,69 @@ func Lint(n Node, prefix string) []Finding {
 	return out
 }
 
-// LintCollisions applies the one corpus-level rule: two declaring nodes may
-// not derive the same skill name, because the second export would silently
-// win. prefixes maps a node's MemoryURN to its resolved prefix. Both members
-// of a collision are reported, each naming the other, so whichever the reader
-// opens explains itself.
+// LintPrefixes applies the memory-level rule: a memory that holds at least
+// one declaring node must have a Known prefix, or no name can be derived for
+// its tasks. A memory with nothing to export is silent — reporting it anyway
+// made `--all` red on 46 memories in the first live run, the report nobody
+// reads. One finding per memory, keyed on the memory URN, in URN order.
+func LintPrefixes(nodes []Node, prefixes map[string]Prefix) []Finding {
+	declaring := map[string]bool{}
+	for _, n := range nodes {
+		if _, ok := Declared(n.Properties); ok {
+			declaring[n.MemoryURN] = true
+		}
+	}
+	mems := make([]string, 0, len(declaring))
+	for m := range declaring {
+		if !prefixes[m].Known {
+			mems = append(mems, m)
+		}
+	}
+	sort.Strings(mems)
+	out := make([]Finding, 0, len(mems))
+	for _, m := range mems {
+		out = append(out, Finding{
+			URN: m, Memory: m, Rule: "skill-prefix-missing", Severity: SevError,
+			Message: "the owning org has chosen no Organization.skillPrefix, so no skill name can be derived for this memory's tasks — set it as an org admin or pass --prefix; the name rules ran on the bare slug",
+		})
+	}
+	return out
+}
+
+// LintCollisions applies the corpus-level rule: two declaring nodes may not
+// derive the same skill name, because the second export would silently win.
+// Both members of a collision are reported, each naming the other, so
+// whichever the reader opens explains itself.
 //
-// A node whose memory has NO resolved prefix (empty) is skipped: its name
-// cannot be derived, so it cannot collide — and comparing bare slugs would
-// report two prefix-less ORGS as colliding on `create-release-tag` when the
-// prefixes they have yet to choose are exactly what keeps them apart
-// (measured on the first live `--all` run: marketrailz vs micromentor.org).
-// Those nodes already carry the prefix-missing finding.
-func LintCollisions(nodes []Node, prefixes map[string]string) []Finding {
+// A node whose memory has no Known prefix is skipped: its name cannot be
+// derived, so it cannot collide — and comparing bare slugs would report two
+// prefix-less ORGS as colliding on `create-release-tag` when the prefixes they
+// have yet to choose are exactly what keeps them apart (measured on the first
+// live `--all` run: marketrailz vs micromentor.org). Those nodes already
+// carry LintPrefixes' finding.
+func LintCollisions(nodes []Node, prefixes map[string]Prefix) []Finding {
 	byName := map[string][]Node{}
 	for _, n := range nodes {
 		if _, ok := Declared(n.Properties); !ok {
 			continue
 		}
-		prefix := prefixes[n.MemoryURN]
-		if prefix == "" {
+		p := prefixes[n.MemoryURN]
+		if !p.Known {
 			continue
 		}
-		name := DeriveName(prefix, n.Loc)
+		name := DeriveName(p.Value, n.Loc)
 		byName[name] = append(byName[name], n)
 	}
-	var out []Finding
+	names := make([]string, 0, len(byName))
 	for name, group := range byName {
-		if len(group) < 2 {
-			continue
+		if len(group) > 1 {
+			names = append(names, name)
 		}
+	}
+	sort.Strings(names)
+	var out []Finding
+	for _, name := range names {
+		group := byName[name]
 		for _, n := range group {
 			others := make([]string, 0, len(group)-1)
 			for _, o := range group {
@@ -305,7 +372,7 @@ func LintCollisions(nodes []Node, prefixes map[string]string) []Finding {
 				}
 			}
 			out = append(out, Finding{
-				URN: n.URN, Rule: "skill-name-collision", Severity: SevError,
+				URN: n.URN, Memory: n.MemoryURN, Rule: "skill-name-collision", Severity: SevError,
 				Message: fmt.Sprintf("derives skill name %q, and so does %s — one name, one task; supersede the fork or rename a loc", name, strings.Join(others, ", ")),
 			})
 		}
@@ -313,40 +380,35 @@ func LintCollisions(nodes []Node, prefixes map[string]string) []Finding {
 	return out
 }
 
+// frontmatter is the header a skill host reads — exactly the two keys, in
+// this order, so the file looks like every hand-written skill on disk.
+type frontmatter struct {
+	Name        string `yaml:"name"`
+	Description string `yaml:"description"`
+}
+
 // Render composes the skill file (§4.3): YAML frontmatter with the two keys a
 // host reads, the machine-parseable provenance line, the human note, and the
-// node body verbatim. The frontmatter is emitted by hand rather than through
-// nodedoc's codec because that codec's header is the node round-trip shape
-// (loc, memory, tags, edges…), and a host reading unknown keys is a risk this
-// artifact does not need.
-func Render(name, source, description, content string) string {
+// node body verbatim. The frontmatter goes through the real YAML encoder
+// (nodedoc.MarshalYAML, the library nodedoc already depends on) rather than
+// hand-quoting: a description ending in a colon, or in a space, is a plain
+// scalar a hand check would pass and a real parser would reject or trim, and
+// the host reading this file IS a real parser.
+func Render(name, source, description, content string) (string, error) {
+	fm, err := nodedoc.MarshalYAML(frontmatter{Name: name, Description: description})
+	if err != nil {
+		return "", fmt.Errorf("rendering frontmatter: %w", err)
+	}
 	hash := Hash(name, description, content)
 	var b strings.Builder
 	b.WriteString("---\n")
-	b.WriteString("name: " + name + "\n")
-	b.WriteString("description: " + yamlScalar(description) + "\n")
-	b.WriteString("---\n\n")
+	b.WriteString(fm)
+	b.WriteString("\n---\n\n")
 	fmt.Fprintf(&b, "<!-- hadron-skill source=%s hash=%s -->\n", source, hash)
 	b.WriteString("<!-- Generated by `hadron skill export`. Edit the source node and re-export; do not edit this file. -->\n\n")
 	b.WriteString(strings.TrimRight(content, "\n"))
 	b.WriteString("\n")
-	return b.String()
-}
-
-// yamlScalar renders a description as a YAML plain scalar when it is safe as
-// one, and as a double-quoted scalar otherwise. Descriptions are one line of
-// prose; the characters that would make a plain scalar mis-parse (a leading
-// indicator, a `: ` or ` #` inside, a newline) are the ones quoted.
-func yamlScalar(s string) string {
-	safe := s != "" &&
-		!strings.ContainsAny(s[:1], "-?:,[]{}#&*!|>'\"%@` ") &&
-		!strings.Contains(s, ": ") && !strings.Contains(s, " #") &&
-		!strings.ContainsAny(s, "\n\r\t")
-	if safe {
-		return s
-	}
-	q := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`, "\r", `\r`, "\t", `\t`).Replace(s)
-	return `"` + q + `"`
+	return b.String(), nil
 }
 
 // File is what ParseFile reads back from a skill file on disk: the frontmatter
@@ -361,29 +423,22 @@ type File struct {
 	Body        string
 }
 
-// ParseFile reads a skill file. A file with no frontmatter is an error; a file
-// with no provenance header parses with Source == "" — it is somebody else's
-// skill, and every `hadron skill` command leaves it alone. The legacy
-// `Generated from` header yields a Source and no Hash.
+// ParseFile reads a skill file with the same YAML parser a host uses, so a
+// header this reader accepts is one the host accepts. A file with no
+// frontmatter is an error; a file with no provenance header parses with
+// Source == "" — it is somebody else's skill, and every `hadron skill` command
+// leaves it alone. The legacy `Generated from` header yields a Source and no
+// Hash.
 func ParseFile(data []byte) (*File, error) {
 	m := frontmatterRE.FindSubmatch(data)
 	if m == nil {
 		return nil, fmt.Errorf("no frontmatter")
 	}
-	f := &File{}
-	for _, line := range strings.Split(string(m[1]), "\n") {
-		k, v, ok := strings.Cut(line, ":")
-		if !ok {
-			continue
-		}
-		v = strings.TrimSpace(v)
-		switch strings.TrimSpace(k) {
-		case "name":
-			f.Name = v
-		case "description":
-			f.Description = unquoteYAML(v)
-		}
+	var fm frontmatter
+	if err := yaml.Unmarshal(m[1], &fm); err != nil {
+		return nil, fmt.Errorf("parsing frontmatter: %w", err)
 	}
+	f := &File{Name: fm.Name, Description: fm.Description}
 	rest := string(m[2])
 	if h := headerRE.FindStringSubmatch(rest); h != nil {
 		for _, kv := range headerKV.FindAllStringSubmatch(h[1], -1) {
@@ -417,14 +472,4 @@ func bodyAfterHeader(rest string) string {
 		break
 	}
 	return strings.TrimRight(strings.Join(lines[i:], "\n"), "\n")
-}
-
-// unquoteYAML undoes yamlScalar's double-quoting; a plain scalar is returned
-// as-is. Only the escapes yamlScalar emits are interpreted.
-func unquoteYAML(v string) string {
-	if len(v) >= 2 && v[0] == '"' && v[len(v)-1] == '"' {
-		inner := v[1 : len(v)-1]
-		return strings.NewReplacer(`\n`, "\n", `\r`, "\r", `\t`, "\t", `\"`, `"`, `\\`, `\`).Replace(inner)
-	}
-	return v
 }

@@ -196,7 +196,7 @@ func TestSkillLintNodeRefShapes(t *testing.T) {
 		`{"skill":{"description":"Use when a."}}`, `"# A"`)
 	responses := map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good)}
 	// A fully-qualified URN and a raw id both reach the batch read.
-	for _, ref := range []string{"hrn:node:hadronmemory.com:core:tasks:a", "hadronmemory.com::core::tasks:a", "n1"} {
+	for _, ref := range []string{"hrn:node:hadronmemory.com:core:tasks:a", "urn:node:hadronmemory.com:core:tasks:a", "hadronmemory.com::core::tasks:a", "n1"} {
 		if _, err := runSkillLint(t, responses, "--node", ref); exitCodeFor(err) != exitcode.OK {
 			t.Errorf("--node %q: exit %d, want 0 (%v)", ref, exitCodeFor(err), err)
 		}

@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
+	urnlib "github.com/hadron-memory/urn-lib-go"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -138,13 +139,21 @@ func selectNodes(cmd *cobra.Command, client graphql.Client, sel *selectorFlags) 
 	}
 
 	var refs []string
-	for _, m := range mems {
-		out.memories[m.ID] = m
-		ids, err := listDeclaredIDs(cmd, client, m.ID)
+	if len(mems) > 0 {
+		ids := make([]string, 0, len(mems))
+		for _, m := range mems {
+			out.memories[m.ID] = m
+			ids = append(ids, m.ID)
+		}
+		// One filtered listing across every selected memory, not one per
+		// memory: NodeFilter.memoryIds takes the whole set and paging is
+		// independent of it, so `--all` over 50+ memories costs a page or two
+		// instead of 50+ round trips (most of which returned nothing).
+		listed, err := listDeclaredIDs(cmd, client, ids)
 		if err != nil {
 			return nil, err
 		}
-		refs = append(refs, ids...)
+		refs = append(refs, listed...)
 	}
 	for _, ref := range sel.nodes {
 		canon, err := canonicalNodeArg(ref)
@@ -199,72 +208,84 @@ func lookupMemory(cmd *cobra.Command, client graphql.Client, ref string) (*memor
 	return info, nil
 }
 
+// memoryPage is the slice of one memory-listing item the skill commands read,
+// shared by the own-org and shared-with-me listings so both feed one loop.
+type memoryPage struct {
+	items []*memoryInfo
+	full  bool // the page was as long as requested: there may be more
+}
+
 // allMemories lists every memory the caller can read: own-org memories plus
-// those shared with them, both paged to exhaustion and de-duplicated by id.
+// those shared with them, both paged to exhaustion through one loop and
+// de-duplicated by id.
 func allMemories(cmd *cobra.Command, client graphql.Client) ([]*memoryInfo, error) {
+	own := func(limit, offset int) (memoryPage, error) {
+		resp, err := gen.Memories(cmd.Context(), client, nil, &limit, &offset)
+		if err != nil || resp.Memories == nil {
+			return memoryPage{}, api.MapError(err)
+		}
+		pg := memoryPage{full: len(resp.Memories.Items) == limit}
+		for _, m := range resp.Memories.Items {
+			var prefix *string
+			if m.Organization != nil {
+				prefix = m.Organization.SkillPrefix
+			}
+			pg.items = append(pg.items, &memoryInfo{ID: m.Id, URN: m.Urn, OrganizationID: m.OrganizationId, SkillPrefix: prefix})
+		}
+		return pg, nil
+	}
+	shared := func(limit, offset int) (memoryPage, error) {
+		resp, err := gen.MemoriesSharedWithMe(cmd.Context(), client, &limit, &offset)
+		if err != nil || resp.Memories == nil {
+			return memoryPage{}, api.MapError(err)
+		}
+		pg := memoryPage{full: len(resp.Memories.Items) == limit}
+		for _, m := range resp.Memories.Items {
+			var prefix *string
+			if m.Organization != nil {
+				prefix = m.Organization.SkillPrefix
+			}
+			pg.items = append(pg.items, &memoryInfo{ID: m.Id, URN: m.Urn, OrganizationID: m.OrganizationId, SkillPrefix: prefix})
+		}
+		return pg, nil
+	}
+
 	seen := map[string]bool{}
 	var out []*memoryInfo
-	add := func(id, urn string, orgID, prefix *string) {
-		if seen[id] {
-			return
-		}
-		seen[id] = true
-		out = append(out, &memoryInfo{ID: id, URN: urn, OrganizationID: orgID, SkillPrefix: prefix})
-	}
-	for offset := 0; ; offset += memoriesPageSize {
-		limit, off := memoriesPageSize, offset
-		resp, err := gen.Memories(cmd.Context(), client, nil, &limit, &off)
-		if err != nil {
-			return nil, api.MapError(err)
-		}
-		if resp.Memories == nil {
-			break
-		}
-		for _, m := range resp.Memories.Items {
-			var prefix *string
-			if m.Organization != nil {
-				prefix = m.Organization.SkillPrefix
+	for _, fetch := range []func(int, int) (memoryPage, error){own, shared} {
+		for offset := 0; ; offset += memoriesPageSize {
+			pg, err := fetch(memoriesPageSize, offset)
+			if err != nil {
+				return nil, err
 			}
-			add(m.Id, m.Urn, m.OrganizationId, prefix)
-		}
-		if len(resp.Memories.Items) < memoriesPageSize {
-			break
-		}
-	}
-	for offset := 0; ; offset += memoriesPageSize {
-		limit, off := memoriesPageSize, offset
-		resp, err := gen.MemoriesSharedWithMe(cmd.Context(), client, &limit, &off)
-		if err != nil {
-			return nil, api.MapError(err)
-		}
-		if resp.Memories == nil {
-			break
-		}
-		for _, m := range resp.Memories.Items {
-			var prefix *string
-			if m.Organization != nil {
-				prefix = m.Organization.SkillPrefix
+			for _, m := range pg.items {
+				if !seen[m.ID] {
+					seen[m.ID] = true
+					out = append(out, m)
+				}
 			}
-			add(m.Id, m.Urn, m.OrganizationId, prefix)
-		}
-		if len(resp.Memories.Items) < memoriesPageSize {
-			break
+			if !pg.full {
+				break
+			}
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].URN < out[j].URN })
 	return out, nil
 }
 
-// listDeclaredIDs pages the shallow listing of one memory's declaring nodes —
-// properties.skill or properties.claudeSkill present — to exhaustion.
-func listDeclaredIDs(cmd *cobra.Command, client graphql.Client, memID string) ([]string, error) {
+// listDeclaredIDs pages the shallow listing of the declaring nodes —
+// properties.skill or properties.claudeSkill present — across the given
+// memories, to exhaustion. The page size (500) is under the server's
+// findNodes clamp (GRAPH_PAGE_MAX 2000), so a short page really is the end;
+// a request above the clamp would be silently cut and read as one.
+func listDeclaredIDs(cmd *cobra.Command, client graphql.Client, memIDs []string) ([]string, error) {
 	col := gqltypes.NodeWhereColumnProperties
 	exists := true
 	where := &gqltypes.NodeWhereInput{Or: []*gqltypes.NodeWhereInput{
 		{Field: &col, Path: []string{"skill"}, Exists: &exists},
 		{Field: &col, Path: []string{"claudeSkill"}, Exists: &exists},
 	}}
-	filter := &gen.NodeFilter{MemoryIds: []string{memID}, Where: where}
+	filter := &gen.NodeFilter{MemoryIds: memIDs, Where: where}
 	sortBy := gen.NodeSortLoc
 	var ids []string
 	for offset := 0; ; offset += listPageSize {
@@ -305,7 +326,7 @@ func fetchNodes(cmd *cobra.Command, client graphql.Client, refs []string) ([]*ba
 // passes through untouched.
 func canonicalNodeArg(ref string) (string, error) {
 	canon := cmdutil.CanonicalNodeRef(ref)
-	if strings.Contains(canon, ":") && !strings.HasPrefix(canon, "hrn:") {
+	if strings.Contains(canon, ":") && !urnlib.HasSchemePrefix(canon) {
 		return "", exitcode.Newf(exitcode.Usage,
 			"--node %q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc> or a node id; a bare loc has no memory to resolve in (lint reads whole memories with -m)", ref)
 	}
@@ -314,19 +335,19 @@ func canonicalNodeArg(ref string) (string, error) {
 
 // resolvePrefix decides a memory's export prefix (D7): an explicit override
 // wins; a user-owned memory (no org) takes the platform's; an org-owned
-// memory takes its org's chosen prefix. ok is false when the org has chosen
-// none — the caller decides whether that is a finding (lint) or a refusal
-// (export); there is deliberately no client-side table to fall back on.
-func resolvePrefix(m *memoryInfo, override string) (prefix string, ok bool) {
+// memory takes its org's chosen prefix. Known is false when the org has
+// chosen none — lint reports that per memory (skilldoc.LintPrefixes) and
+// export refuses; there is deliberately no client-side table to fall back on.
+func resolvePrefix(m *memoryInfo, override string) skilldoc.Prefix {
 	switch {
 	case override != "":
-		return override, true
+		return skilldoc.Prefix{Value: override, Known: true}
 	case m.OrganizationID == nil:
-		return skilldoc.DefaultPrefix, true
+		return skilldoc.Prefix{Value: skilldoc.DefaultPrefix, Known: true}
 	case m.SkillPrefix != nil && *m.SkillPrefix != "":
-		return *m.SkillPrefix, true
+		return skilldoc.Prefix{Value: *m.SkillPrefix, Known: true}
 	}
-	return "", false
+	return skilldoc.Prefix{}
 }
 
 // validatePrefixFlag applies the server's own prefix rule to an override, so

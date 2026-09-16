@@ -3,6 +3,7 @@ package skilldoc
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestDeriveName(t *testing.T) {
@@ -120,7 +121,7 @@ func rules(fs []Finding) map[string]string {
 
 func TestLintCleanNodeHasNoFindings(t *testing.T) {
 	n := declaring("tasks:create-release-tag", "Use when the user says 'cut a release'.", nil)
-	if fs := Lint(n, "hadron-"); len(fs) != 0 {
+	if fs := Lint(n, Prefix{Value: "hadron-", Known: true}); len(fs) != 0 {
 		t.Fatalf("clean node produced findings: %+v", fs)
 	}
 }
@@ -130,7 +131,7 @@ func TestLintMalformedDeclarationIsAnError(t *testing.T) {
 		{"skill": "yes"}, {"claudeSkill": true}, {"skill": []any{"x"}},
 	} {
 		n := Node{URN: "u", Loc: "tasks:x", IsRunnable: true, Content: "b", Properties: props}
-		got := rules(Lint(n, "hadron-"))
+		got := rules(Lint(n, Prefix{Value: "hadron-", Known: true}))
 		if got["skill-declaration-malformed"] != SevError {
 			t.Errorf("props %v: want malformed error, got %v", props, got)
 		}
@@ -139,7 +140,7 @@ func TestLintMalformedDeclarationIsAnError(t *testing.T) {
 
 func TestLintUndeclaredNodeIsSilent(t *testing.T) {
 	n := Node{URN: "u", Loc: "tasks:x", IsRunnable: false, Properties: map[string]any{}}
-	if fs := Lint(n, "hadron-"); len(fs) != 0 {
+	if fs := Lint(n, Prefix{Value: "hadron-", Known: true}); len(fs) != 0 {
 		t.Fatalf("undeclared node produced findings: %+v", fs)
 	}
 }
@@ -186,7 +187,7 @@ func TestLintRules(t *testing.T) {
 		}(), "hadron-", map[string]string{"skill-legacy-key": SevWarning}, nil},
 	}
 	for _, c := range cases {
-		got := rules(Lint(c.node, c.prefix))
+		got := rules(Lint(c.node, Prefix{Value: c.prefix, Known: true}))
 		for rule, sev := range c.want {
 			if got[rule] != sev {
 				t.Errorf("%s: want %s=%s, got %v", c.name, rule, sev, got)
@@ -203,7 +204,7 @@ func TestLintRules(t *testing.T) {
 func TestLintTooLongMessageCarriesTheOverrun(t *testing.T) {
 	n := declaring("tasks:a", "Use when "+strings.Repeat("x", 1100), nil)
 	var msg string
-	for _, f := range Lint(n, "hadron-") {
+	for _, f := range Lint(n, Prefix{Value: "hadron-", Known: true}) {
 		if f.Rule == "skill-description-too-long" {
 			msg = f.Message
 		}
@@ -220,7 +221,8 @@ func TestLintCollisions(t *testing.T) {
 	b.MemoryURN = "hrn:mem:hadronmemory.com:hadron-cli"
 	c := declaring("tasks:other", "Use when x", nil)
 	undeclared := Node{URN: "u", Loc: "tasks:start-worker-session-desktop", MemoryURN: a.MemoryURN, Properties: map[string]any{}}
-	prefixes := map[string]string{a.MemoryURN: "hadron-", b.MemoryURN: "hadron-"}
+	known := func(v string) Prefix { return Prefix{Value: v, Known: true} }
+	prefixes := map[string]Prefix{a.MemoryURN: known("hadron-"), b.MemoryURN: known("hadron-")}
 	fs := LintCollisions([]Node{a, b, c, undeclared}, prefixes)
 	if len(fs) != 2 {
 		t.Fatalf("want 2 collision findings (one per member), got %d: %+v", len(fs), fs)
@@ -234,13 +236,13 @@ func TestLintCollisions(t *testing.T) {
 		}
 	}
 	// Different prefixes ⇒ different names ⇒ no collision.
-	prefixes[b.MemoryURN] = "cli-"
+	prefixes[b.MemoryURN] = known("cli-")
 	if fs := LintCollisions([]Node{a, b}, prefixes); len(fs) != 0 {
 		t.Errorf("distinct prefixes still collide: %+v", fs)
 	}
 	// Two orgs with NO prefix yet share a bare slug — not a collision: the
 	// prefixes they have yet to choose are what keeps them apart.
-	prefixes[a.MemoryURN], prefixes[b.MemoryURN] = "", ""
+	prefixes[a.MemoryURN], prefixes[b.MemoryURN] = Prefix{}, Prefix{}
 	if fs := LintCollisions([]Node{a, b}, prefixes); len(fs) != 0 {
 		t.Errorf("prefix-less nodes reported as colliding: %+v", fs)
 	}
@@ -250,7 +252,10 @@ func TestRenderParseRoundTrip(t *testing.T) {
 	desc := "Use when the user says: 'cut a release' — handles #tags and \"quotes\"."
 	body := "# Cut a release\n\nStep one.\n\n```sh\ngit tag\n```\n"
 	src := "hrn:node:hadronmemory.com:core:tasks:create-release-tag"
-	file := Render("hadron-create-release-tag", src, desc, body)
+	file, err := Render("hadron-create-release-tag", src, desc, body)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if !strings.HasPrefix(file, "---\nname: hadron-create-release-tag\n") {
 		t.Fatalf("frontmatter wrong:\n%s", file)
@@ -300,19 +305,77 @@ func TestParseFileLegacyHeaderAndForeignFiles(t *testing.T) {
 	}
 }
 
-func TestYAMLScalarQuotesWhatWouldMisparse(t *testing.T) {
-	for _, s := range []string{"plain words here", "Use when the user says 'x'"} {
-		if got := yamlScalar(s); got != s {
-			t.Errorf("%q needlessly quoted: %s", s, got)
+func TestRenderSurvivesTheRealParserOnAwkwardDescriptions(t *testing.T) {
+	// Each of these is a plain scalar a hand check would pass and a real
+	// YAML parser rejects or alters: a trailing colon (a mapping indicator),
+	// trailing whitespace (trimmed), a leading quote, a `#` comment, a
+	// colon-space inside. ParseFile uses the same library a host does, so a
+	// round trip proves the host reads back exactly what the node said.
+	for _, desc := range []string{
+		"Use when the user wants these steps:",
+		"Use when exporting a task. ",
+		"\"Use when\" someone quotes",
+		"Use when #tags appear",
+		"Use when key: value looks like a mapping",
+		"Use when — em dashes, curly ‘quotes’ and ümlauts",
+	} {
+		file, err := Render("hadron-x", "hrn:node:a:b:tasks:x", desc, "# body")
+		if err != nil {
+			t.Fatalf("%q: render: %v", desc, err)
+		}
+		f, err := ParseFile([]byte(file))
+		if err != nil {
+			t.Fatalf("%q: parse: %v\n%s", desc, err, file)
+		}
+		if f.Description != desc {
+			t.Errorf("description round trip: got %q, want %q\n%s", f.Description, desc, file)
+		}
+		if f.Hash != Hash(f.Name, f.Description, f.Body) {
+			t.Errorf("%q: header hash does not match recomputation", desc)
 		}
 	}
-	for _, s := range []string{"key: value", "has #comment", "- leading dash", "line\nbreak", "\"quoted\"", ""} {
-		got := yamlScalar(s)
-		if !strings.HasPrefix(got, `"`) {
-			t.Errorf("%q not quoted: %s", s, got)
-		}
-		if back := unquoteYAML(got); back != s {
-			t.Errorf("round trip %q → %q → %q", s, got, back)
-		}
+}
+
+func TestLimitsCountCharactersNotBytes(t *testing.T) {
+	// The host's validator counts code points; an em dash is one character
+	// and three bytes. 1024 characters with ten em dashes is at the limit,
+	// not 20 bytes over it.
+	desc := "Use when " + strings.Repeat("—", 10) + strings.Repeat("x", MaxDescriptionLen-9-10)
+	if utf8.RuneCountInString(desc) != MaxDescriptionLen {
+		t.Fatalf("fixture is %d chars, want %d", utf8.RuneCountInString(desc), MaxDescriptionLen)
+	}
+	if got := rules(Lint(declaring("tasks:a", desc, nil), Prefix{Value: "hadron-", Known: true})); got["skill-description-too-long"] != "" {
+		t.Errorf("at-limit description flagged as too long: %v", got)
+	}
+}
+
+func TestLintMalformedKeyIsReportedEvenBesideAValidOne(t *testing.T) {
+	// Mid-migration: the new key was typo'd while the legacy one still works.
+	// The node is declared (via claudeSkill) AND carries a malformed key.
+	n := Node{URN: "u", Loc: "tasks:x", IsRunnable: true, Content: "b",
+		Properties: map[string]any{"skill": "oops", "claudeSkill": map[string]any{"description": "Use when x"}}}
+	got := rules(Lint(n, Prefix{Value: "hadron-", Known: true}))
+	if got["skill-declaration-malformed"] != SevError || got["skill-legacy-key"] != SevWarning {
+		t.Errorf("want malformed error AND legacy warning, got %v", got)
+	}
+}
+
+func TestLintPrefixes(t *testing.T) {
+	a := declaring("tasks:a", "Use when a", nil)
+	a.MemoryURN = "hrn:mem:acme.com:ops"
+	empty := Node{URN: "e", Loc: "tasks:e", MemoryURN: "hrn:mem:acme.com:empty", Properties: map[string]any{}}
+	prefixes := map[string]Prefix{} // neither memory has a prefix
+	fs := LintPrefixes([]Node{a, empty}, prefixes)
+	if len(fs) != 1 || fs[0].URN != a.MemoryURN || fs[0].Rule != "skill-prefix-missing" {
+		t.Fatalf("want one finding for the declaring memory only, got %+v", fs)
+	}
+	prefixes[a.MemoryURN] = Prefix{Value: "acme-", Known: true}
+	if fs := LintPrefixes([]Node{a, empty}, prefixes); len(fs) != 0 {
+		t.Errorf("known prefix still reported: %+v", fs)
+	}
+	// A hand-set name is not judged against a prefix that is unknown.
+	h := declaring("tasks:mint-spec", "Use when x", map[string]any{"name": "add-spec"})
+	if got := rules(Lint(h, Prefix{})); got["skill-name-hand-set"] != "" {
+		t.Errorf("hand-set name judged with no prefix: %v", got)
 	}
 }

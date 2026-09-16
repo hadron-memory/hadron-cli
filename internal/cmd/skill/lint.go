@@ -69,15 +69,16 @@ takes "hadron-". Findings exit 5; --strict promotes warnings to errors.`,
 			}
 
 			findings := []lintFindingDTO{}
-			prefixes := map[string]string{} // memory URN → prefix ("" when none)
+			toDTO := func(f skilldoc.Finding) lintFindingDTO {
+				return lintFindingDTO{Node: f.URN, Memory: f.Memory, Rule: f.Rule, Severity: f.Severity, Message: f.Message}
+			}
+			prefixes := map[string]skilldoc.Prefix{} // memory URN → resolved prefix
 			for _, m := range s.memories {
-				p, _ := resolvePrefix(m, prefix)
-				prefixes[m.URN] = p
+				prefixes[m.URN] = resolvePrefix(m, prefix)
 			}
 
 			nodes := make([]skilldoc.Node, 0, len(s.nodes))
 			declared := 0
-			declaringMems := map[string]bool{} // memory URN → has ≥1 declaring node
 			for _, n := range s.nodes {
 				memURN := ""
 				if m := s.memories[n.MemoryId]; m != nil {
@@ -87,27 +88,16 @@ takes "hadron-". Findings exit 5; --strict promotes warnings to errors.`,
 				nodes = append(nodes, sn)
 				if _, ok := skilldoc.Declared(sn.Properties); ok {
 					declared++
-					declaringMems[memURN] = true
 				}
 				for _, fnd := range skilldoc.Lint(sn, prefixes[memURN]) {
-					findings = append(findings, lintFindingDTO{Node: fnd.URN, Memory: memURN, Rule: fnd.Rule, Severity: fnd.Severity, Message: fnd.Message})
+					findings = append(findings, toDTO(fnd))
 				}
 			}
-			// A missing org prefix is a finding only where it BLOCKS something: a
-			// memory with no declaring node has nothing to derive a name for, and
-			// reporting it anyway made `--all` red on 46 memories in the first live
-			// run — the report nobody reads. Measured, not guessed.
-			for _, m := range s.memories {
-				if _, ok := resolvePrefix(m, prefix); ok || !declaringMems[m.URN] {
-					continue
-				}
-				findings = append(findings, lintFindingDTO{
-					Node: m.URN, Memory: m.URN, Rule: "skill-prefix-missing", Severity: skilldoc.SevError,
-					Message: "the owning org has chosen no Organization.skillPrefix, so no skill name can be derived for this memory's tasks — set it as an org admin or pass --prefix; the name rules ran on the bare slug",
-				})
+			for _, fnd := range skilldoc.LintPrefixes(nodes, prefixes) {
+				findings = append(findings, toDTO(fnd))
 			}
 			for _, fnd := range skilldoc.LintCollisions(nodes, prefixes) {
-				findings = append(findings, lintFindingDTO{Node: fnd.URN, Memory: memoryOf(nodes, fnd.URN), Rule: fnd.Rule, Severity: fnd.Severity, Message: fnd.Message})
+				findings = append(findings, toDTO(fnd))
 			}
 			for _, ref := range s.unavailable {
 				findings = append(findings, lintFindingDTO{Node: ref, Memory: "-", Rule: "skill-node-unavailable", Severity: skilldoc.SevWarning, Message: describeUnavailable(ref)})
@@ -154,16 +144,6 @@ takes "hadron-". Findings exit 5; --strict promotes warnings to errors.`,
 	cmd.Flags().StringVar(&prefix, "prefix", "", "export prefix to derive names with, overriding the org's (lowercase, trailing hyphen: hadron-, mm-)")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
 	return cmd
-}
-
-// memoryOf finds the memory URN a collision finding's node belongs to.
-func memoryOf(nodes []skilldoc.Node, urn string) string {
-	for _, n := range nodes {
-		if n.URN == urn {
-			return n.MemoryURN
-		}
-	}
-	return "-"
 }
 
 func plural(n int) string {
