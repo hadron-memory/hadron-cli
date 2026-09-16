@@ -24,6 +24,8 @@ import (
 
 	yaml "go.yaml.in/yaml/v3"
 
+	urnlib "github.com/hadron-memory/urn-lib-go"
+
 	"github.com/hadron-memory/hadron-cli/internal/nodedoc"
 )
 
@@ -75,7 +77,9 @@ var (
 	// source but no hash, so a file with only this line classifies as unhashed.
 	// The token must LOOK like a node URN (a scheme, or the `::` grammar): a
 	// body opening with `<!-- Generated from a template -->` is a body.
-	legacyHeaderRE = regexp.MustCompile(`(?m)^<!--\s*Generated from\s+((?:hrn|urn):\S+|\S+::\S+::\S+)\s*-->$`)
+	legacyHeaderRE = regexp.MustCompile(`(?m)^<!--\s*Generated from\s+(\S+)\s*-->$`)
+	// hashRE is the provenance hash's exact shape: 16 lowercase hex characters.
+	hashRE = regexp.MustCompile(`^[0-9a-f]{16}$`)
 	// frontmatterRE splits a skill file into its YAML header and body — the
 	// same framing nodedoc reads for node files (`---\n…\n---\n`).
 	frontmatterRE = regexp.MustCompile(`(?s)\A---\n(.*?)\n---\n?(.*)\z`)
@@ -326,12 +330,14 @@ func Lint(n Node, prefix Prefix) []Finding {
 			"node declares a skill but isRunnable is not true — a skill is a runnable task; set it (`hadron node update <urn> --runnable`) or drop the declaration")
 	}
 
-	body := strings.TrimSpace(NormalizeBody(n.Content))
+	body := NormalizeBody(n.Content)
 	switch {
-	case body == "":
+	case strings.TrimSpace(body) == "":
 		add("skill-content-empty", SevError,
 			"node has no content — the body IS the skill; nothing to export")
 	case frontmatterRE.MatchString(body + "\n"):
+		// Inspected as it will be EXPORTED (not further trimmed): an indented
+		// `  ---` is content on disk, so it is content here.
 		// A closing `---` is what makes it frontmatter; a body that merely
 		// opens with a horizontal rule is a body.
 		add("skill-content-has-frontmatter", SevError,
@@ -442,7 +448,9 @@ type frontmatter struct {
 
 // Render composes the skill file (§4.3): YAML frontmatter with the two keys a
 // host reads, the machine-parseable provenance line, the human note, and the
-// node body verbatim. The frontmatter goes through the real YAML encoder
+// node body NORMALIZED (NormalizeBody: CRLF folded, surrounding newlines
+// trimmed — the same form Hash fingerprints and ParseFile reads back; inner
+// content is untouched). The frontmatter goes through the real YAML encoder
 // (nodedoc.MarshalYAML, the library nodedoc already depends on) rather than
 // hand-quoting: a description ending in a colon, or in a space, is a plain
 // scalar a hand check would pass and a real parser would reject or trim, and
@@ -494,68 +502,101 @@ func ParseFile(data []byte) (*File, error) {
 	if err := yaml.Unmarshal(m[1], &fm); err != nil {
 		return nil, fmt.Errorf("parsing frontmatter: %w", err)
 	}
-	f := &File{Name: fm.Name, Description: fm.Description}
+	f := &File{Name: fm.Name, Description: NormalizeDescription(fm.Description)}
 	preamble, body := splitPreamble(string(m[2]))
-	if h := headerRE.FindStringSubmatch(preamble); h != nil && isMachineHeader(h[0]) {
-		for _, kv := range headerKV.FindAllStringSubmatch(h[1], -1) {
-			switch kv[1] {
-			case "source":
-				f.Source = kv[2]
-			case "hash":
-				f.Hash = kv[2]
-			}
+	for _, line := range strings.Split(preamble, "\n") {
+		t := strings.TrimSpace(line)
+		if src, hash, ok := machineHeader(t); ok {
+			f.Source, f.Hash = src, hash
+			break
 		}
-	} else if h := legacyHeaderRE.FindStringSubmatch(preamble); h != nil {
-		f.Source = h[1]
+		if src, ok := legacyHeader(t); ok {
+			f.Source = src
+			break
+		}
 	}
 	f.Body = body
 	return f, nil
 }
 
-// splitPreamble divides what follows the frontmatter into the PREAMBLE — the
-// leading run of blank lines and single-line HTML comments, which is where
-// Render puts the provenance — and the body, normalized. Provenance is
-// recognised in the preamble ONLY: a hand-written skill that quotes an
-// example `<!-- hadron-skill … -->` line in its body must not read as
-// Hadron-generated, or `export` could one day overwrite it as an owned
-// artifact (Codex on #589). The preamble's comment lines are what Render
-// wrote, so dropping them from the body is the exact inverse of Render.
+// splitPreamble divides what follows the frontmatter into the PREAMBLE —
+// what Render writes before the body: a blank line, at most ONE machine (or
+// legacy) provenance line, at most ONE human line, a blank line — and the
+// body, normalized. Provenance is recognised in the preamble ONLY, and each
+// kind of line at most once, so a body that legitimately begins with the
+// exact human line (or with a whitespace-only line, which NormalizeBody
+// keeps) is body and round-trips hash-equal to its header (Copilot on #589,
+// round 3). Only truly EMPTY lines are skipped as framing.
 func splitPreamble(rest string) (preamble, body string) {
 	lines := strings.Split(rest, "\n")
 	i := 0
+	var sawMachine, sawHuman bool
 	for i < len(lines) {
-		t := strings.TrimSpace(lines[i])
-		if t == "" || isProvenanceComment(t) {
+		line := lines[i]
+		if line == "" {
 			i++
 			continue
 		}
-		break
+		t := strings.TrimSpace(line)
+		switch {
+		case !sawMachine && (isMachineHeader(t) || isLegacyHeader(t)):
+			sawMachine = true
+		case !sawHuman && (t == humanLine || t == legacyHumanLine):
+			sawHuman = true
+		default:
+			return strings.Join(lines[:i], "\n"), NormalizeBody(strings.Join(lines[i:], "\n"))
+		}
+		i++
 	}
-	return strings.Join(lines[:i], "\n"), NormalizeBody(strings.Join(lines[i:], "\n"))
+	return strings.Join(lines[:i], "\n"), ""
 }
 
-// isProvenanceComment recognises exactly the comment lines Render writes (and
-// the pre-#580 procedure wrote) — the machine line by its full grammar, the
-// human lines verbatim. Only those are preamble: a body that begins with an
-// HTML comment of its own, however similar, keeps it, or a fresh export would
-// parse to a different body than it hashed (Codex on #589, rounds 3 and 4).
-func isProvenanceComment(t string) bool {
-	return t == humanLine || t == legacyHumanLine ||
-		isMachineHeader(t) || legacyHeaderRE.MatchString(t)
+// isNodeURN reports whether tok is a fully-qualified NODE URN in either
+// grammar — the v2 `hrn:node:<root>:<slug>:<loc>`, the legacy `urn:` scheme,
+// or the scheme-less `<org>::<memory>::<loc>` — and not some other entity
+// kind. Provenance may only ever name a node: a header naming `hrn:mem:…`
+// is not ours, whatever else it looks like (Codex on #589, round 8).
+func isNodeURN(tok string) bool {
+	if urnlib.HasSchemePrefix(tok) {
+		return urnlib.AssertFullyQualifiedUrn(tok, "node") == nil
+	}
+	return strings.Count(tok, "::") >= 2 && urnlib.AssertFullyQualifiedUrn(tok, "node") == nil
 }
 
-// isMachineHeader recognises the generated machine line: the `hadron-skill`
-// grammar AND both required keys, `source` and `hash` (extra keys allowed).
-// A comment that merely looks like one — `<!-- hadron-skill example=yes -->`
-// — is body, not provenance (Copilot on #589, round 2).
-func isMachineHeader(t string) bool {
+// machineHeader parses the generated machine line and returns its source
+// and hash — or ok=false unless the line has the `hadron-skill` grammar, a
+// `source` that is a node URN AND a `hash` of exactly 16 hex characters
+// (extra keys allowed). A comment that merely looks like one —
+// `<!-- hadron-skill example=yes -->`, `source=not-a-node`, a truncated
+// hash — is body, not provenance (Copilot on #589, rounds 2 and 3).
+func machineHeader(t string) (source, hash string, ok bool) {
 	h := headerRE.FindStringSubmatch(t)
 	if h == nil {
-		return false
+		return "", "", false
 	}
-	keys := map[string]bool{}
 	for _, kv := range headerKV.FindAllStringSubmatch(h[1], -1) {
-		keys[kv[1]] = true
+		switch kv[1] {
+		case "source":
+			source = kv[2]
+		case "hash":
+			hash = kv[2]
+		}
 	}
-	return keys["source"] && keys["hash"]
+	if !isNodeURN(source) || !hashRE.MatchString(hash) {
+		return "", "", false
+	}
+	return source, hash, true
 }
+
+// legacyHeader parses the pre-#580 `<!-- Generated from <urn> -->` line;
+// ok=false unless the token is a node URN.
+func legacyHeader(t string) (source string, ok bool) {
+	h := legacyHeaderRE.FindStringSubmatch(t)
+	if h == nil || !isNodeURN(h[1]) {
+		return "", false
+	}
+	return h[1], true
+}
+
+func isMachineHeader(t string) bool { _, _, ok := machineHeader(t); return ok }
+func isLegacyHeader(t string) bool  { _, ok := legacyHeader(t); return ok }

@@ -497,6 +497,83 @@ func TestLintEmptyStoredNameIsJudged(t *testing.T) {
 	}
 }
 
+func TestPreambleIsOneOfEachAndKeepsWhitespaceLines(t *testing.T) {
+	// Copilot on #589, round 3: a body that starts with the exact human line,
+	// or with a whitespace-only line, is body — Render keeps both, so the
+	// parser must too, or a fresh export fails its own hash check.
+	for _, body := range []string{
+		humanLine + "\n\n# Body\n",
+		"<!-- hadron-skill source=hrn:node:a:b:tasks:x hash=0123456789abcdef -->\n# Body\n",
+		"  \n# Body after a whitespace-only line\n",
+		"  ---\nname: x\n---\nindented rule, not frontmatter\n",
+	} {
+		file, err := Render("hadron-x", "hrn:node:a:b:tasks:x", "Use when x", body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f, err := ParseFile([]byte(file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if f.Body != NormalizeBody(body) {
+			t.Errorf("body round trip:\n got %q\nwant %q", f.Body, NormalizeBody(body))
+		}
+		if f.Hash != Hash(f.Name, f.Description, f.Body) {
+			t.Errorf("%q: fresh export does not hash equal to its header", body)
+		}
+	}
+	// An indented --- block is content on disk, so lint treats it as content.
+	n := declaring("tasks:a", "Use when x", nil)
+	n.Content = "  ---\nname: x\n---\nbody\n"
+	if got := rules(Lint(n, Prefix{Value: "hadron-", Known: true})); got["skill-content-has-frontmatter"] != "" {
+		t.Errorf("indented rule flagged as frontmatter: %v", got)
+	}
+}
+
+func TestProvenanceNeedsANodeURNAndAHexHash(t *testing.T) {
+	// Codex round 8 / Copilot round 3: a header naming another entity kind, or
+	// a malformed hash, is not ours — the file stays foreign.
+	for _, pre := range []string{
+		"<!-- Generated from hrn:mem:acme.com:kb -->",
+		"<!-- hadron-skill source=not-a-node hash=0123456789abcdef -->",
+		"<!-- hadron-skill source=hrn:node:a:b:tasks:x hash=xyz -->",
+		"<!-- hadron-skill source=hrn:app:a:b hash=0123456789abcdef -->",
+	} {
+		file := "---\nname: theirs\ndescription: Use when x\n---\n\n" + pre + "\n\n# Body\n"
+		f, err := ParseFile([]byte(file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if f.Source != "" || f.Hash != "" {
+			t.Errorf("%q classified as generated: %+v", pre, f)
+		}
+		if !strings.HasPrefix(f.Body, pre) {
+			t.Errorf("%q not kept in the body: %q", pre, f.Body)
+		}
+	}
+	// And the real thing, in both grammars, still parses.
+	for _, pre := range []string{
+		"<!-- Generated from hrn:node:hadronmemory.com:core:tasks:mint-spec -->",
+		"<!-- Generated from hadronmemory.com::core::tasks:mint-spec -->",
+		"<!-- Generated from urn:node:hadronmemory.com:core:tasks:mint-spec -->",
+	} {
+		f, _ := ParseFile([]byte("---\nname: x\ndescription: Use when x\n---\n\n" + pre + "\n\n# Body\n"))
+		if f.Source == "" {
+			t.Errorf("%q not recognised as legacy provenance", pre)
+		}
+	}
+}
+
+func TestParsedDescriptionIsNormalized(t *testing.T) {
+	f, err := ParseFile([]byte("---\nname: x\ndescription: \" Use when x \"\n---\n\n# Body\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Description != "Use when x" {
+		t.Errorf("parsed description not normalized: %q", f.Description)
+	}
+}
+
 func TestIncompleteMachineHeaderIsBody(t *testing.T) {
 	// A hadron-skill comment without BOTH source= and hash= is not provenance.
 	for _, first := range []string{"<!-- hadron-skill example=yes -->", "<!-- hadron-skill source=hrn:node:a:b:c -->"} {
