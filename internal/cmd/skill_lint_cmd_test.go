@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -199,6 +201,63 @@ func TestSkillLintAllIncludesEveryMemoryClass(t *testing.T) {
 	// are readable and are their own listing slice (Codex on #589, round 4).
 	if vars := string(captured["Memories"]); !strings.Contains(vars, `"PUBLIC"`) {
 		t.Errorf("no PUBLIC-visibility listing pass in --all: %s", vars)
+	}
+}
+
+func TestSkillLintAllLintsAPublicOnlyMemory(t *testing.T) {
+	// Copilot on #589: the PUBLIC pass must be exercised as a DISTINCT
+	// result — a memory returned only by the visibility:PUBLIC call, with a
+	// declaring node, whose finding names that memory and its org's prefix.
+	pubMem := `{"id":"mempub","urn":"hrn:mem:acme.com:playbooks","name":"Playbooks","shortDescription":null,"class":"knowledge","visibility":"PUBLIC","organizationId":"org9","organization":{"skillPrefix":"acme-"},"isEncrypted":false,"maxRevCount":null,"updatedAt":"2026-06-11T00:00:00Z"}`
+	node := skillNode("01a0a5ba59a377d2a01a8ea32ae98195", "mempub", "hrn:node:acme.com:playbooks:tasks:rotate", "tasks:rotate", true,
+		`{"skill":{"description":"Use when rotating.","name":"wrong-name"}}`, `"# Rotate"`)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string          `json:"operationName"`
+			Variables     json.RawMessage `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		var resp string
+		switch body.OperationName {
+		case "Memories":
+			if strings.Contains(string(body.Variables), `"PUBLIC"`) {
+				resp = `{"data":{"memories":{"total":1,"items":[` + pubMem + `]}}}`
+			} else {
+				resp = `{"data":{"memories":{"total":0,"items":[]}}}`
+			}
+		case "MemoriesSharedWithMe":
+			resp = `{"data":{"memories":{"total":0,"items":[]}}}`
+		case "FindNodes":
+			resp = translateFindNodes("FindNodes", `{"data":{"nodes":[{"id":"01a0a5ba59a377d2a01a8ea32ae98195","memoryId":"mempub","loc":"tasks:rotate","name":"rotate","nodeType":"task","tags":[],"isRunnable":true,"updatedAt":"2026-06-11T00:00:00Z"}]}}`)
+		case "NodeBatch":
+			resp = batchOf(node)
+		default:
+			t.Errorf("unexpected operation %q", body.OperationName)
+			resp = `{"errors":[{"message":"unexpected"}]}`
+		}
+		_, _ = w.Write([]byte(resp))
+	}))
+	t.Cleanup(srv.Close)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"skill", "lint", "--all", "--json", "--server", srv.URL})
+	err := root.Execute()
+	if exitCodeFor(err) != exitcode.Conflict {
+		t.Fatalf("public-only memory not linted: exit %d\n%s", exitCodeFor(err), out.String())
+	}
+	var rows []struct{ Node, Memory, Rule, Message string }
+	if err := json.Unmarshal([]byte(out.String()), &rows); err != nil {
+		t.Fatal(err)
+	}
+	var sawHandSet bool
+	for _, r := range rows {
+		if r.Rule == "skill-name-hand-set" && r.Memory == "hrn:mem:acme.com:playbooks" && strings.Contains(r.Message, `"acme-rotate"`) {
+			sawHandSet = true
+		}
+	}
+	if !sawHandSet {
+		t.Errorf("the public memory's node was not linted under its org's prefix: %s", out.String())
 	}
 }
 

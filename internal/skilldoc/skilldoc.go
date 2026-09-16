@@ -82,7 +82,9 @@ var (
 	hashRE = regexp.MustCompile(`^[0-9a-f]{16}$`)
 	// frontmatterRE splits a skill file into its YAML header and body — the
 	// same framing nodedoc reads for node files (`---\n…\n---\n`).
-	frontmatterRE = regexp.MustCompile(`(?s)\A---\n(.*?)\n---\n?(.*)\z`)
+	// The header group is optional so an EMPTY block (`---\n---\n…`) is still
+	// frontmatter — to the host, and therefore to the frontmatter rule.
+	frontmatterRE = regexp.MustCompile(`(?s)\A---\n(?:(.*?)\n)?---\n?(.*)\z`)
 	// triggerRE is the trigger-shaped phrasing a description is expected to
 	// carry — the host matches descriptions against what the user says, so
 	// a description that never says when to use the skill rarely fires.

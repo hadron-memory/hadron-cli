@@ -354,6 +354,12 @@ func TestFrontmatterRuleNeedsAClosingDelimiter(t *testing.T) {
 	if got := rules(Lint(fm, Prefix{Value: "hadron-", Known: true})); got["skill-content-has-frontmatter"] != SevError {
 		t.Errorf("real frontmatter not flagged: %v", got)
 	}
+	// An EMPTY frontmatter block is still frontmatter (Copilot on #589).
+	empty := declaring("tasks:a", "Use when x", nil)
+	empty.Content = "---\n---\n# Body\n"
+	if got := rules(Lint(empty, Prefix{Value: "hadron-", Known: true})); got["skill-content-has-frontmatter"] != SevError {
+		t.Errorf("empty frontmatter block not flagged: %v", got)
+	}
 	// Windows line endings are the same frontmatter (Codex on #589, round 6).
 	crlf := declaring("tasks:a", "Use when x", nil)
 	crlf.Content = "---\r\nname: x\r\n---\r\n\r\n# Real frontmatter\r\n"
