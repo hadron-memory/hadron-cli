@@ -32,10 +32,9 @@ rejected name is reported in the server's own words.`,
   hadron scope create team-lens --owner-app hrn:app:acme.com:dev-team -m hrn:mem:acme.com:dev --description "what the dev team reads"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := f.GraphQLClient()
-			if err != nil {
-				return err
-			}
+			// Local flag validation runs BEFORE the client, which needs
+			// credentials: otherwise a bad flag combination reports
+			// AuthRequired instead of the usage error written here.
 			ownerRef, ownerType, err := exactlyOneOwner(org, app, agent)
 			if err != nil {
 				return err
@@ -43,6 +42,10 @@ rejected name is reported in the server's own words.`,
 			if len(memories) == 0 {
 				return exitcode.Newf(exitcode.Usage,
 					"a scope lists at least one memory — pass -m/--memory (repeatable; the order is the scope's order)")
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
 			}
 			input := gen.CreateScopeInput{
 				Name: args[0],

@@ -105,6 +105,23 @@ func dtoFromFields(s scopeFields) scopeDTO {
 	return d
 }
 
+// summaryFromFields projects a scope for a context that did not request its
+// memory list, so the DTO has no field that could misreport one as empty.
+func summaryFromFields(s scopeFields) scopeSummaryDTO {
+	return scopeSummaryDTO{
+		ID:                s.Id,
+		Name:              s.Name,
+		Description:       s.Description,
+		OwnerType:         string(s.OwnerType),
+		OwnerID:           s.OwnerId,
+		OwnerURN:          s.OwnerUrn,
+		MemoryCount:       s.MemoryCount,
+		HiddenMemoryCount: s.HiddenMemoryCount,
+		CreatedAt:         s.CreatedAt,
+		UpdatedAt:         s.UpdatedAt,
+	}
+}
+
 // memoriesFromEntries projects the scope's ordered entries, preserving the
 // server's order and its 0-based position. Returns an empty slice rather than
 // nil so `--json` renders [].
@@ -132,13 +149,20 @@ func memoriesFromEntries(s gen.ScopeMemories) []scopeMemoryDTO {
 // it reports a count precisely so a scope cannot be used to enumerate memories
 // the caller may not read.
 func hiddenNote(hidden int) string {
+	return hiddenNoteIn(hidden, "this scope")
+}
+
+// hiddenNoteIn is hiddenNote with the containing phrase supplied, so the
+// aggregate branch does not read "across these scopes, 1 memory in this
+// scope…" — which misstates what the number covers.
+func hiddenNoteIn(hidden int, where string) string {
 	switch {
 	case hidden <= 0:
 		return ""
 	case hidden == 1:
-		return "1 memory in this scope is not readable by you and is not listed"
+		return "1 memory in " + where + " is not readable by you and is not listed"
 	default:
-		return itoa(hidden) + " memories in this scope are not readable by you and are not listed"
+		return itoa(hidden) + " memories in " + where + " are not readable by you and are not listed"
 	}
 }
 
@@ -244,6 +268,11 @@ func ownerFilter(org, app, agent, name string) (*gen.ScopeFilter, error) {
 // unambiguous, so an unrelated ambient setting — a hand-edited config whose
 // App ref no longer parses — must not be able to break `scope get <id>`.
 func resolveScopeID(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, ref string, byName bool) (string, error) {
+	// Trim FIRST, and pass the trimmed value on. IsBareID trims before
+	// matching, so ` 0123…  ` classifies as an id — returning the untrimmed
+	// original then sends whitespace to the server, which resolves nothing.
+	// ResolveNodeRef trims for the same reason (internal/cmdutil/noderef.go).
+	ref = strings.TrimSpace(ref)
 	// cmdutil.IsBareID is the ONE place the id-shape rule lives (IsNodeID is
 	// the same rule for nodes) — a second copy here is what drifts.
 	if !byName && cmdutil.IsBareID(ref) {
@@ -283,7 +312,7 @@ func writeScope(f *cmdutil.Factory, d scopeDTO) error {
 		t := output.NewTable(w, "FIELD", "VALUE")
 		t.Row("id", d.ID)
 		t.Row("name", d.Name)
-		t.Row("owner", d.OwnerType+" "+ownerLabel(d))
+		t.Row("owner", d.OwnerType+" "+ownerLabel(d.OwnerURN, d.OwnerID))
 		if d.Description != nil && *d.Description != "" {
 			t.Row("description", *d.Description)
 		}
@@ -310,10 +339,11 @@ func writeScope(f *cmdutil.Factory, d scopeDTO) error {
 }
 
 // ownerLabel prefers the owner's URN and falls back to its id, which is all
-// there is for an owner with no URN.
-func ownerLabel(d scopeDTO) string {
-	if d.OwnerURN != nil && *d.OwnerURN != "" {
-		return *d.OwnerURN
+// there is for an owner with no URN. Takes the two fields rather than a DTO so
+// the full and summary shapes share one renderer.
+func ownerLabel(ownerURN *string, ownerID string) string {
+	if ownerURN != nil && *ownerURN != "" {
+		return *ownerURN
 	}
-	return d.OwnerID
+	return ownerID
 }

@@ -20,12 +20,14 @@ var reNodeID = regexp.MustCompile(`^[0-9a-f]{32}$`)
 // IsBareID reports whether ref has the shape of an opaque platform id — 32
 // lowercase hex characters — rather than a name, loc, or URN.
 //
-// The server mints ids in this one shape for every entity, so entities with no
-// URN yet (a Scope, a Channel — spec 049 says "no URN yet" for both) need the
-// same discriminator that IsNodeID applies to nodes. This is that rule, named
-// for what it actually tests, with IsNodeID as the node-specific spelling of
-// it; the point is that the shape lives in ONE place and cannot drift between
-// two copies of the regex.
+// This is the rule IsNodeID applies to nodes, named for what it actually tests
+// so that entities with NO URN yet — a Scope, a Channel (spec 049 says "no URN
+// yet" for both) — can share it instead of copying the regex. The point is that
+// the shape lives in ONE place and cannot drift between two copies.
+//
+// It is NOT a claim about every Hadron id: an App id may also be a 25-character
+// CUID, which IsAppID accepts explicitly (see appref.go). Use this only where
+// the accepted id form really is the 32-hex one.
 //
 // See IsNodeID for why the rule is deliberately NOT widened to CUIDs.
 func IsBareID(ref string) bool {

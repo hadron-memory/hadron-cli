@@ -455,3 +455,132 @@ func TestScopeIDOperationsIgnoreABrokenActiveApp(t *testing.T) {
 		t.Fatalf("an id-based read must not consult the active App: %v", err)
 	}
 }
+
+// TestScopeUpdateSendsMemoryOrderToTheWire — @copilot on #594.
+//
+// The create path pinned ordering; the update path did not, even though
+// --memory REPLACES the list there and the order decides which memory wins. A
+// regression that reordered or dropped this branch would have passed.
+func TestScopeUpdateSendsMemoryOrderToTheWire(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateScope": `{"data":{"updateScope":` + scopeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{
+		"scope", "update", "0123456789abcdef0123456789abcdef",
+		"-m", "hrn:mem:acme.com:papers",
+		"-m", "hrn:mem:acme.com:notes",
+		"--json", "--server", gql.URL,
+	})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input struct {
+			MemoryRefs []string `json:"memoryRefs"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(captured["UpdateScope"], &vars); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	want := []string{"hrn:mem:acme.com:papers", "hrn:mem:acme.com:notes"}
+	if len(vars.Input.MemoryRefs) != len(want) {
+		t.Fatalf("memoryRefs = %v, want %v", vars.Input.MemoryRefs, want)
+	}
+	for i := range want {
+		if vars.Input.MemoryRefs[i] != want[i] {
+			t.Errorf("memoryRefs[%d] = %q, want %q (order is load-bearing on update too)", i, vars.Input.MemoryRefs[i], want[i])
+		}
+	}
+}
+
+// TestScopeRefIsTrimmedBeforeTheWire — @copilot on #594.
+//
+// IsBareID trims before matching, so " <id> " classifies as an id. Returning
+// the untrimmed original then sent whitespace to the server, which resolves
+// nothing. ResolveNodeRef trims for the same reason.
+func TestScopeRefIsTrimmedBeforeTheWire(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetScope": `{"data":{"scope":` + scopeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"scope", "get", "  0123456789abcdef0123456789abcdef  ", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["GetScope"], &vars)
+	if vars["ref"] != "0123456789abcdef0123456789abcdef" {
+		t.Errorf("ref reached the wire as %q — whitespace must be trimmed", vars["ref"])
+	}
+}
+
+// TestScopeLocalValidationPrecedesCredentials — @copilot on #594.
+//
+// Resolving the GraphQL client requires credentials. Validating flags after it
+// meant an unauthenticated run with bad flags reported AuthRequired instead of
+// the usage error the check exists to produce — and needlessly touched the
+// credential store.
+func TestScopeLocalValidationPrecedesCredentials(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"create/two-owners", []string{"scope", "create", "x", "--owner-org", "a", "--owner-app", "b", "-m", "m"}, "exactly one"},
+		{"create/no-memories", []string{"scope", "create", "x", "--owner-org", "a"}, "at least one memory"},
+		{"list/two-owners", []string{"scope", "list", "--owner-org", "a", "--owner-app", "b"}, "exactly one"},
+		{"update/nothing-to-do", []string{"scope", "update", "0123456789abcdef0123456789abcdef"}, "nothing to update"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("HADRON_TOKEN", "")
+			f, _ := testFactory(t)
+			t.Setenv("HADRON_TOKEN", "")
+			root := NewRootCmd(f)
+			root.SetArgs(tc.args)
+			err := root.Execute()
+			if err == nil {
+				t.Fatal("expected a usage refusal")
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("want the local usage error %q, got: %v", tc.want, err)
+			}
+		})
+	}
+}
+
+// TestScopeExplainOmitsAnUnrequestedMemoryList — @copilot on #594.
+//
+// scopeExplain does not request scope.memories; the resolved list is the
+// top-level one. Reusing the full DTO emitted `"memories": []` beside a
+// populated top-level list, which reads as "this scope is empty" rather than
+// "not requested".
+func TestScopeExplainOmitsAnUnrequestedMemoryList(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ScopeExplain": `{"data":{"scopeExplain":{"resolvedVia":"APP","droppedCount":0,
+			"scope":` + scopeJSON + `,
+			"memories":[{"id":"m1","urn":"hrn:mem:acme.com:papers","name":"Papers"}],
+			"winner":null,"shadowed":[]}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"scope", "explain", "research", "--app", "hrn:app:acme.com:dev", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out.String()), &raw); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	var nested map[string]json.RawMessage
+	_ = json.Unmarshal(raw["scope"], &nested)
+	if _, present := nested["memories"]; present {
+		t.Errorf("the nested scope must not carry a memories key it never requested: %s", raw["scope"])
+	}
+	if string(raw["memories"]) == "[]" {
+		t.Error("the top-level resolved list should be populated")
+	}
+}

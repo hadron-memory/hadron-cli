@@ -25,26 +25,25 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 memory the scope should end up with, in the order you want them. Omitting the
 flag leaves the existing list untouched.
 
-An omitted flag preserves the current value — nothing is cleared by accident.`,
+An omitted flag preserves the current value — nothing is cleared by accident.
+
+There is currently no way to CLEAR a description: the server clears on an
+explicit null, which this operation cannot send, so --description "" stores an
+empty string rather than removing the value.`,
 		Example: `  hadron scope update research --description "papers we actually cite"
   hadron scope update research -m hrn:mem:acme.com:papers -m hrn:mem:acme.com:notes
   hadron scope update research --name citations`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := f.GraphQLClient()
-			if err != nil {
-				return err
-			}
-			id, err := resolveScopeID(cmd, f, client, args[0], byName)
-			if err != nil {
-				return err
-			}
-
+			// The input is built and validated BEFORE the client and before
+			// ref resolution: resolveScopeID can issue a ScopeExplain round
+			// trip, so a no-op update would otherwise report auth, not-found
+			// or network errors instead of the local usage error below —
+			// after a lookup that cannot change the outcome.
+			//
 			// Wire semantics: an OMITTED field preserves, an explicit null
 			// clears. Every field is therefore set only when its flag was
-			// actually CHANGED — not merely non-empty, which would make
-			// `--description ""` indistinguishable from not passing it and
-			// silently refuse a deliberate clear.
+			// actually CHANGED, not merely non-empty.
 			input := gen.UpdateScopeInput{}
 			touched := false
 			if cmd.Flags().Changed("name") {
@@ -68,6 +67,15 @@ An omitted flag preserves the current value — nothing is cleared by accident.`
 					"nothing to update — pass --name, --description or -m/--memory")
 			}
 
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			id, err := resolveScopeID(cmd, f, client, args[0], byName)
+			if err != nil {
+				return err
+			}
+
 			resp, err := gen.UpdateScope(cmd.Context(), client, id, &input)
 			if err != nil {
 				return api.MapError(err)
@@ -82,7 +90,12 @@ An omitted flag preserves the current value — nothing is cleared by accident.`
 	}
 	cmd.Flags().StringVar(&newName, "name", "", "rename the scope")
 	cmd.Flags().StringArrayVarP(&memories, "memory", "m", nil, "memory in the scope (ID or URN; repeatable; REPLACES the list, order preserved)")
-	cmd.Flags().StringVar(&description, "description", "", `what this scope is for ("" clears it)`)
+	// NOT documented as clearing. The server clears on an explicit null; with
+	// the omitempty this operation needs to preserve unset fields, a nil
+	// pointer is OMITTED rather than sent as null, so `--description ""`
+	// sends "" and stores a blank string. Promising a clear here would be a
+	// claim the wire cannot honour (@copilot, #594).
+	cmd.Flags().StringVar(&description, "description", "", "what this scope is for (cannot be cleared; see --help)")
 	cmd.Flags().BoolVar(&byName, "by-name", false, byNameUsage)
 	return cmd
 }

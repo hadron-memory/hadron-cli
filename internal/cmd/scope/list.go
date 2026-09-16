@@ -40,11 +40,15 @@ table — by count only, never by name.`,
   hadron scope list --owner-app hrn:app:acme.com:dev-team`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := f.GraphQLClient()
+			// Local flag validation runs BEFORE the client: resolving it
+			// requires credentials, so an unauthenticated run with bad flags
+			// would report AuthRequired instead of the usage error these
+			// checks exist to give.
+			filter, err := ownerFilter(org, app, agent, name)
 			if err != nil {
 				return err
 			}
-			filter, err := ownerFilter(org, app, agent, name)
+			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
@@ -76,7 +80,7 @@ table — by count only, never by name.`,
 			return output.Write(f.IOStreams, f.JSON, scopes, func(w io.Writer) error {
 				t := output.NewTable(w, "NAME", "OWNER", "MEMORIES", "ID")
 				for _, s := range scopes {
-					t.Row(s.Name, s.OwnerType+" "+ownerLabel(s), itoa(s.MemoryCount), s.ID)
+					t.Row(s.Name, s.OwnerType+" "+ownerLabel(s.OwnerURN, s.OwnerID), itoa(s.MemoryCount), s.ID)
 				}
 				if err := t.Flush(); err != nil {
 					return err
@@ -84,8 +88,8 @@ table — by count only, never by name.`,
 				// Aggregate disclosure: without it a reader compares MEMORIES
 				// against a shorter `scope get` listing and concludes the CLI
 				// lost rows.
-				if note := hiddenNote(totalHidden); note != "" {
-					if _, err := io.WriteString(w, "across these scopes, "+note+"\n"); err != nil {
+				if note := hiddenNoteIn(totalHidden, "these scopes"); note != "" {
+					if _, err := io.WriteString(w, note+"\n"); err != nil {
 						return err
 					}
 				}

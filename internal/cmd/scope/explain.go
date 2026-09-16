@@ -18,12 +18,32 @@ import (
 // worth having: the first says how much of the scope you cannot see, the
 // second says your NAME matched more than one scope and which one lost.
 type explanationDTO struct {
-	Scope        scopeDTO       `json:"scope"`
-	ResolvedVia  string         `json:"resolvedVia"`
-	DroppedCount int            `json:"droppedCount"`
-	Memories     []memoryRefDTO `json:"memories"`
-	Winner       *memoryRefDTO  `json:"winner"`
-	Shadowed     []scopeDTO     `json:"shadowed"`
+	Scope        scopeSummaryDTO   `json:"scope"`
+	ResolvedVia  string            `json:"resolvedVia"`
+	DroppedCount int               `json:"droppedCount"`
+	Memories     []memoryRefDTO    `json:"memories"`
+	Winner       *memoryRefDTO     `json:"winner"`
+	Shadowed     []scopeSummaryDTO `json:"shadowed"`
+}
+
+// scopeSummaryDTO is a scope WITHOUT its memory list.
+//
+// `scopeExplain` does not request `scope.memories` — the resolved list is the
+// top-level `memories` below, which is the whole point of the command. Reusing
+// scopeDTO here emitted `"memories": []` beside a populated top-level list,
+// which reads as "this scope contains nothing" rather than "not requested"
+// (@copilot, #594). A shape that cannot carry the field cannot misreport it.
+type scopeSummaryDTO struct {
+	ID                string  `json:"id"`
+	Name              string  `json:"name"`
+	Description       *string `json:"description"`
+	OwnerType         string  `json:"ownerType"`
+	OwnerID           string  `json:"ownerId"`
+	OwnerURN          *string `json:"ownerUrn"`
+	MemoryCount       int     `json:"memoryCount"`
+	HiddenMemoryCount int     `json:"hiddenMemoryCount"`
+	CreatedAt         string  `json:"createdAt"`
+	UpdatedAt         *string `json:"updatedAt"`
 }
 
 type memoryRefDTO struct {
@@ -96,11 +116,11 @@ server; answer it by passing the scope's id instead.`,
 			ex := resp.ScopeExplain
 
 			d := explanationDTO{
-				Scope:        dtoFromFields(ex.Scope.ScopeFields),
+				Scope:        summaryFromFields(ex.Scope.ScopeFields),
 				ResolvedVia:  string(ex.ResolvedVia),
 				DroppedCount: ex.DroppedCount,
 				Memories:     []memoryRefDTO{},
-				Shadowed:     []scopeDTO{},
+				Shadowed:     []scopeSummaryDTO{},
 			}
 			for _, m := range ex.Memories {
 				if m == nil {
@@ -115,7 +135,7 @@ server; answer it by passing the scope's id instead.`,
 				if s == nil {
 					continue
 				}
-				d.Shadowed = append(d.Shadowed, dtoFromFields(s.ScopeFields))
+				d.Shadowed = append(d.Shadowed, summaryFromFields(s.ScopeFields))
 			}
 
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
@@ -152,7 +172,7 @@ server; answer it by passing the scope's id instead.`,
 					}
 					st := output.NewTable(w, "NAME", "OWNER", "ID")
 					for _, s := range d.Shadowed {
-						st.Row(s.Name, s.OwnerType+" "+ownerLabel(s), s.ID)
+						st.Row(s.Name, s.OwnerType+" "+ownerLabel(s.OwnerURN, s.OwnerID), s.ID)
 					}
 					if err := st.Flush(); err != nil {
 						return err
