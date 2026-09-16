@@ -438,9 +438,11 @@ func toSkillNode(n *batchNode, memURN string) skilldoc.Node {
 	return sn
 }
 
-// describeUnavailable is the shared wording for a ref the listing returned but
-// the batch refused — "not found, or not readable by you", by the server's own
-// merged envelope (cor:api:040); the split is deliberate and not ours to undo.
+// describeUnavailable is the shared wording for a ref the batch refused —
+// whether it came from a listing or straight from --node — "not found, or
+// not readable by you", by the server's own merged envelope (cor:api:040);
+// the split is deliberate and not ours to undo, and the wording asserts
+// nothing about how the ref was selected.
 func describeUnavailable(ref string) string {
-	return fmt.Sprintf("%s listed but could not be read (not found, or not readable by you) — skipped", ref)
+	return fmt.Sprintf("%s could not be read (not found, or not readable by you) — skipped", ref)
 }
