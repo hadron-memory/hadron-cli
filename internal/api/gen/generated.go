@@ -15138,9 +15138,11 @@ type SearchNodesFindNodesFindNodesResult struct {
 	// OR and these hits match ANY term), scope_narrowed (spec 049: the scope
 	// this search ran under lists memories you cannot read; they were dropped
 	// and `scope.droppedCount` says how many).
-	Degraded *string                                           `json:"degraded"`
-	Reason   *string                                           `json:"reason"`
-	Hits     []*SearchNodesFindNodesFindNodesResultHitsNodeHit `json:"hits"`
+	Degraded *string `json:"degraded"`
+	Reason   *string `json:"reason"`
+	// Spec 049 (D-2026-09-13-002): what this search was produced under. Null when no scope applied (the pre-049 accessible set, optionally org-narrowed).
+	Scope *SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo `json:"scope"`
+	Hits  []*SearchNodesFindNodesFindNodesResultHitsNodeHit        `json:"hits"`
 }
 
 // GetTotal returns SearchNodesFindNodesFindNodesResult.Total, and is useful for accessing the field via an interface.
@@ -15151,6 +15153,11 @@ func (v *SearchNodesFindNodesFindNodesResult) GetDegraded() *string { return v.D
 
 // GetReason returns SearchNodesFindNodesFindNodesResult.Reason, and is useful for accessing the field via an interface.
 func (v *SearchNodesFindNodesFindNodesResult) GetReason() *string { return v.Reason }
+
+// GetScope returns SearchNodesFindNodesFindNodesResult.Scope, and is useful for accessing the field via an interface.
+func (v *SearchNodesFindNodesFindNodesResult) GetScope() *SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo {
+	return v.Scope
+}
 
 // GetHits returns SearchNodesFindNodesFindNodesResult.Hits, and is useful for accessing the field via an interface.
 func (v *SearchNodesFindNodesFindNodesResult) GetHits() []*SearchNodesFindNodesFindNodesResultHitsNodeHit {
@@ -15236,6 +15243,47 @@ type SearchNodesFindNodesFindNodesResultHitsNodeHitVectorNodeVectorMeta struct {
 // GetAbstractStale returns SearchNodesFindNodesFindNodesResultHitsNodeHitVectorNodeVectorMeta.AbstractStale, and is useful for accessing the field via an interface.
 func (v *SearchNodesFindNodesFindNodesResultHitsNodeHitVectorNodeVectorMeta) GetAbstractStale() *bool {
 	return v.AbstractStale
+}
+
+// SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo includes the requested fields of the GraphQL type SearchScopeInfo.
+// The GraphQL type's documentation follows.
+//
+// Spec 049 — the scope a search ran under (every result discloses it,
+// D-2026-09-13-002). `kind`: scope | app | global | user-owned. `source`:
+// call | session | active-app | active-org. `memoryUrns` lists only the
+// memories YOU may read; `droppedCount` is how many the scope lists that you
+// may not — a count, never their names.
+type SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo struct {
+	Kind         string   `json:"kind"`
+	Label        string   `json:"label"`
+	Source       string   `json:"source"`
+	OwnerUrn     *string  `json:"ownerUrn"`
+	MemoryUrns   []string `json:"memoryUrns"`
+	DroppedCount int      `json:"droppedCount"`
+}
+
+// GetKind returns SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo.Kind, and is useful for accessing the field via an interface.
+func (v *SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo) GetKind() string { return v.Kind }
+
+// GetLabel returns SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo.Label, and is useful for accessing the field via an interface.
+func (v *SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo) GetLabel() string { return v.Label }
+
+// GetSource returns SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo.Source, and is useful for accessing the field via an interface.
+func (v *SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo) GetSource() string { return v.Source }
+
+// GetOwnerUrn returns SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo.OwnerUrn, and is useful for accessing the field via an interface.
+func (v *SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo) GetOwnerUrn() *string {
+	return v.OwnerUrn
+}
+
+// GetMemoryUrns returns SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo.MemoryUrns, and is useful for accessing the field via an interface.
+func (v *SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo) GetMemoryUrns() []string {
+	return v.MemoryUrns
+}
+
+// GetDroppedCount returns SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo.DroppedCount, and is useful for accessing the field via an interface.
+func (v *SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo) GetDroppedCount() int {
+	return v.DroppedCount
 }
 
 // SearchNodesResponse is returned by SearchNodes on success.
@@ -23220,6 +23268,8 @@ type __SearchNodesInput struct {
 	SortProperty *gqltypes.NodePropertySort `json:"sortProperty,omitempty"`
 	Limit        *int                       `json:"limit,omitempty"`
 	Offset       *int                       `json:"offset,omitempty"`
+	Scope        *string                    `json:"scope,omitempty"`
+	AppRef       *string                    `json:"appRef,omitempty"`
 }
 
 // GetQuery returns __SearchNodesInput.Query, and is useful for accessing the field via an interface.
@@ -23239,6 +23289,12 @@ func (v *__SearchNodesInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __SearchNodesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__SearchNodesInput) GetOffset() *int { return v.Offset }
+
+// GetScope returns __SearchNodesInput.Scope, and is useful for accessing the field via an interface.
+func (v *__SearchNodesInput) GetScope() *string { return v.Scope }
+
+// GetAppRef returns __SearchNodesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__SearchNodesInput) GetAppRef() *string { return v.AppRef }
 
 // __SearchReplaceInNodesInput is used internally by genqlient
 type __SearchReplaceInNodesInput struct {
@@ -30381,11 +30437,19 @@ func Scopes(
 
 // The query executed by SearchNodes.
 const SearchNodes_Operation = `
-query SearchNodes ($query: String!, $mode: FindNodesMode, $filter: NodeFilter, $sortProperty: NodePropertySort, $limit: Int, $offset: Int) {
-	findNodes(query: $query, mode: $mode, filter: $filter, sortProperty: $sortProperty, limit: $limit, offset: $offset) {
+query SearchNodes ($query: String!, $mode: FindNodesMode, $filter: NodeFilter, $sortProperty: NodePropertySort, $limit: Int, $offset: Int, $scope: String, $appRef: ID) {
+	findNodes(query: $query, mode: $mode, filter: $filter, sortProperty: $sortProperty, limit: $limit, offset: $offset, scope: $scope, appRef: $appRef) {
 		total
 		degraded
 		reason
+		scope {
+			kind
+			label
+			source
+			ownerUrn
+			memoryUrns
+			droppedCount
+		}
 		hits {
 			score
 			vector {
@@ -30429,6 +30493,8 @@ func SearchNodes(
 	sortProperty *gqltypes.NodePropertySort,
 	limit *int,
 	offset *int,
+	scope *string,
+	appRef *string,
 ) (data_ *SearchNodesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "SearchNodes",
@@ -30440,6 +30506,8 @@ func SearchNodes(
 			SortProperty: sortProperty,
 			Limit:        limit,
 			Offset:       offset,
+			Scope:        scope,
+			AppRef:       appRef,
 		},
 	}
 

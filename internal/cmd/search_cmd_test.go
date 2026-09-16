@@ -236,3 +236,252 @@ func TestSearchNegativeLimitOffsetAreUsageErrors(t *testing.T) {
 		}
 	}
 }
+
+// searchScopedJSON is a findNodes result that RAN UNDER a scope and could not
+// read part of it — the shape every disclosure assertion below turns on.
+const searchScopedJSON = `{"data":{"findNodes":{
+	"total":1,"degraded":null,"reason":null,
+	"scope":{"kind":"SCOPE","label":"research","source":"APP",
+		"ownerUrn":"hrn:app:acme.com:dev","memoryUrns":["hrn:mem:acme.com:papers"],
+		"droppedCount":2},
+	"hits":[{"score":0.9,"vector":{"abstractStale":false},"node":{
+		"id":"n1","memoryId":"m1","loc":"findings:x","name":"X","nodeType":"info",
+		"tags":[],"description":null,"abstract":null,"updatedAt":"2026-09-16T00:00:00Z"}}]}}}`
+
+// TestSearchScopePassesTheStringThrough — the CLI must not interpret --scope.
+//
+// The server accepts a scope id, a bare name, `app` or `global` and resolves
+// all four itself. Anything the CLI did to the string first would be a second
+// implementation of the resolution ladder, so the assertion is that the value
+// arrives verbatim.
+func TestSearchScopePassesTheStringThrough(t *testing.T) {
+	for _, want := range []string{"research", "global", "app", "0123456789abcdef0123456789abcdef"} {
+		t.Run(want, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{"SearchNodes": searchScopedJSON})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"search", "q", "--scope", want, "--app", "hrn:app:acme.com:dev", "--json", "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var vars map[string]any
+			_ = json.Unmarshal(captured["SearchNodes"], &vars)
+			if vars["scope"] != want {
+				t.Errorf("scope reached the wire as %v, want %q verbatim", vars["scope"], want)
+			}
+		})
+	}
+}
+
+// TestSearchOmitsScopeWhenUnset — an omitted scope is the pre-049 behaviour
+// (your whole accessible set). Sending an explicit null is a different request,
+// so the key must be ABSENT, which a decode cannot distinguish from null.
+func TestSearchOmitsScopeWhenUnset(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{"SearchNodes": searchScopedJSON})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"search", "q", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Contains(string(captured["SearchNodes"]), `"scope"`) {
+		t.Errorf("an unset --scope must be omitted, not sent: %s", captured["SearchNodes"])
+	}
+}
+
+// TestSearchDisclosesTheScopeItRanUnder.
+//
+// Under a lens, "1 hit" means something different than it does over everything
+// the caller can read, and droppedCount says how much of the lens was
+// invisible. All three output branches are asserted separately: --json, the
+// table, and --long, because they are three code paths and the header must
+// precede the hits in each.
+func TestSearchDisclosesTheScopeItRanUnder(t *testing.T) {
+	t.Run("json", func(t *testing.T) {
+		gql, _ := captureGraphQL(t, map[string]string{"SearchNodes": searchScopedJSON})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"search", "q", "--scope", "research", "--app", "hrn:app:acme.com:dev", "--json", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		var dto struct {
+			Scope *struct {
+				Kind         string   `json:"kind"`
+				Label        string   `json:"label"`
+				Source       string   `json:"source"`
+				MemoryURNs   []string `json:"memoryUrns"`
+				DroppedCount int      `json:"droppedCount"`
+			} `json:"scope"`
+		}
+		if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+			t.Fatalf("decode: %v — %s", err, out.String())
+		}
+		if dto.Scope == nil {
+			t.Fatal("--json must carry the scope the search ran under")
+		}
+		if dto.Scope.Source != "APP" {
+			t.Errorf("source = %q, want APP — the server reports which rung it used", dto.Scope.Source)
+		}
+		if dto.Scope.DroppedCount != 2 {
+			t.Errorf("droppedCount = %d, want 2", dto.Scope.DroppedCount)
+		}
+	})
+
+	for _, mode := range []string{"table", "long"} {
+		t.Run(mode, func(t *testing.T) {
+			gql, _ := captureGraphQL(t, map[string]string{"SearchNodes": searchScopedJSON})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			args := []string{"search", "q", "--scope", "research", "--app", "hrn:app:acme.com:dev", "--server", gql.URL}
+			if mode == "long" {
+				args = append(args, "--long")
+			}
+			root.SetArgs(args)
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			got := out.String()
+			if !strings.Contains(got, "scope: research") {
+				t.Errorf("%s branch must name the scope, got:\n%s", mode, got)
+			}
+			if !strings.Contains(got, "via APP") {
+				t.Errorf("%s branch must name the rung that chose it, got:\n%s", mode, got)
+			}
+			if !strings.Contains(got, "not readable by you") {
+				t.Errorf("%s branch must disclose the dropped memories, got:\n%s", mode, got)
+			}
+		})
+	}
+}
+
+// TestSearchUnscopedPrintsNoScopeLine — an unscoped search must look exactly as
+// it did before #578, or every existing agent parsing this output breaks.
+func TestSearchUnscopedPrintsNoScopeLine(t *testing.T) {
+	unscoped := strings.Replace(searchScopedJSON, `"scope":{"kind":"SCOPE","label":"research","source":"APP",
+		"ownerUrn":"hrn:app:acme.com:dev","memoryUrns":["hrn:mem:acme.com:papers"],
+		"droppedCount":2},`, `"scope":null,`, 1)
+	gql, _ := captureGraphQL(t, map[string]string{"SearchNodes": unscoped})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"search", "q", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Contains(out.String(), "scope:") {
+		t.Errorf("an unscoped search must print no scope line, got:\n%s", out.String())
+	}
+}
+
+// TestSearchScopeNeedingAppContextNamesAFlag.
+//
+// The server refuses these itself — in the vocabulary of other surfaces:
+// "pass appRef (GraphQL) or select an App (MCP)". A CLI reader can type
+// neither. Found by running the command, not reading it; same class as the
+// `appRef` leak fixed on `hadron scope get` in #594.
+//
+// `global` is deliberately NOT guarded: it keys off the active organization,
+// which the CLI cannot select until #578 slice 3.
+func TestSearchScopeNeedingAppContextNamesAFlag(t *testing.T) {
+	for _, scope := range []string{"research", "app"} {
+		t.Run(scope, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"search", "q", "--scope", scope, "--server", gql.URL})
+			err := root.Execute()
+			if err == nil {
+				t.Fatal("expected a refusal with no App context")
+			}
+			if !strings.Contains(err.Error(), "--app") {
+				t.Errorf("the message must name a flag the reader can type, got: %v", err)
+			}
+			for _, leaked := range []string{"appRef", "MCP", "GraphQL"} {
+				if strings.Contains(err.Error(), leaked) {
+					t.Errorf("the message must not name %s on this surface, got: %v", leaked, err)
+				}
+			}
+			if _, ok := captured["SearchNodes"]; ok {
+				t.Error("the refusal should precede the round trip")
+			}
+		})
+	}
+}
+
+// TestSearchScopeIDAndGlobalNeedNoAppContext — an id is self-contained and
+// `global` keys off the organization, so neither may be blocked by the guard.
+func TestSearchScopeIDAndGlobalNeedNoAppContext(t *testing.T) {
+	for _, scope := range []string{"global", "0123456789abcdef0123456789abcdef"} {
+		t.Run(scope, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{"SearchNodes": searchScopedJSON})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"search", "q", "--scope", scope, "--json", "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("must reach the server without an App context: %v", err)
+			}
+			if _, ok := captured["SearchNodes"]; !ok {
+				t.Error("the search should have been issued")
+			}
+		})
+	}
+}
+
+// TestSearchSendsTheAppContextWithTheScope — @codex P1 on #595.
+//
+// `findNodes` REQUIRES appRef for `scope: "app"` and for a bare scope NAME (a
+// name is unique only per owner). An earlier version validated that an App
+// context existed and then discarded it, so those two forms reached the server
+// without the thing needed to resolve them.
+//
+// My existing tests could not see it: they assert the scope string reaches the
+// wire, and the guard asserts a refusal when no App is set. Neither looks at
+// whether the validated App went WITH the scope — which is why this asserts the
+// pair, not either half.
+func TestSearchSendsTheAppContextWithTheScope(t *testing.T) {
+	for _, scope := range []string{"research", "app"} {
+		t.Run(scope, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{"SearchNodes": searchScopedJSON})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{
+				"search", "q", "--scope", scope,
+				"--app", "hrn:app:acme.com:dev", "--json", "--server", gql.URL,
+			})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var vars map[string]any
+			_ = json.Unmarshal(captured["SearchNodes"], &vars)
+			if vars["scope"] != scope {
+				t.Fatalf("scope = %v, want %q", vars["scope"], scope)
+			}
+			if vars["appRef"] != "hrn:app:acme.com:dev" {
+				t.Errorf("appRef = %v — the App context must travel WITH the scope, not merely be validated", vars["appRef"])
+			}
+		})
+	}
+}
+
+// TestSearchOmitsTheAppContextWhenTheScopeDoesNotNeedIt — a scope id is
+// self-contained and `global` keys off the organization, so neither should
+// carry an App context it does not use.
+func TestSearchOmitsTheAppContextWhenTheScopeDoesNotNeedIt(t *testing.T) {
+	for _, scope := range []string{"global", "0123456789abcdef0123456789abcdef"} {
+		t.Run(scope, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{"SearchNodes": searchScopedJSON})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{
+				"search", "q", "--scope", scope,
+				"--app", "hrn:app:acme.com:dev", "--json", "--server", gql.URL,
+			})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if strings.Contains(string(captured["SearchNodes"]), `"appRef"`) {
+				t.Errorf("scope %q needs no App context: %s", scope, captured["SearchNodes"])
+			}
+		})
+	}
+}
