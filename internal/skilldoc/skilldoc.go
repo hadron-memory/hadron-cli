@@ -554,16 +554,21 @@ func splitPreamble(rest string) (preamble, body string) {
 // spelling (Copilot on #589, round 4). A token the library cannot
 // canonicalize is returned as written — it already passed isNodeURN.
 func canonicalSource(tok string) string {
-	if !urnlib.HasSchemePrefix(tok) {
-		// The scheme-less legacy grammar <org>::<memory>::<loc>. A simple
-		// memory slug composes the flat v2 form the CLI emits; a COMPOUND
-		// app-mem slug carries its own colons and stays in the legacy form
-		// under the scheme (still accepted forever, #239) — the same rule
-		// cmdutil.NodeURN applies.
-		if parts := strings.SplitN(tok, "::", 3); len(parts) == 3 && !strings.Contains(parts[1], ":") {
+	// Strip a scheme (hrn:node: / urn:node:) so the v1 `::` grammar is
+	// handled the same whether or not the header carried one (Codex on
+	// #589, round 10): a simple memory slug composes the flat v2 form the
+	// CLI emits; a COMPOUND app-mem slug carries its own colons and stays in
+	// the legacy form under the scheme (still accepted forever, #239) — the
+	// rule cmdutil.NodeURN applies.
+	bare := tok
+	for _, scheme := range []string{"hrn:node:", "urn:node:"} {
+		bare = strings.TrimPrefix(bare, scheme)
+	}
+	if strings.Contains(bare, "::") {
+		if parts := strings.SplitN(bare, "::", 3); len(parts) == 3 && !strings.Contains(parts[1], ":") {
 			return "hrn:node:" + parts[0] + ":" + parts[1] + ":" + parts[2]
 		}
-		return "hrn:node:" + tok
+		return "hrn:node:" + bare
 	}
 	if c, err := urnlib.ToParserCanonical(tok); err == nil && c != "" {
 		return c

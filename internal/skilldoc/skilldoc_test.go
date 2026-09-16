@@ -595,6 +595,9 @@ func TestSourceIsParserCanonical(t *testing.T) {
 		"<!-- Generated from hrn:node:hadronmemory.com:core:tasks:mint-spec -->",
 		"<!-- Generated from hadronmemory.com::core::tasks:mint-spec -->",
 		"<!-- Generated from urn:node:hadronmemory.com:core:tasks:mint-spec -->",
+		"<!-- Generated from hrn:node:hadronmemory.com::core::tasks:mint-spec -->",
+		"<!-- Generated from urn:node:hadronmemory.com::core::tasks:mint-spec -->",
+		"<!-- hadron-skill source=hrn:node:hadronmemory.com::core::tasks:mint-spec hash=0123456789abcdef -->",
 	} {
 		f, err := ParseFile([]byte("---\nname: x\ndescription: Use when x\n---\n\n" + pre + "\n\n# Body\n"))
 		if err != nil {
