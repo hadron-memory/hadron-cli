@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -22,6 +23,38 @@ import (
 type activeOrgDTO struct {
 	Org  string `json:"org"`
 	Name string `json:"name"`
+}
+
+// callerIsMember reports whether the caller belongs to the given organization.
+//
+// Uses OrganizationFilter.memberOnly, which restricts the listing to the
+// caller's own memberships "even for platform ADMIN/OWNER, whose unscoped reach
+// otherwise spans every live org" — so this asks the question the active
+// organization actually turns on, and its cost scales with the caller's
+// memberships rather than the org count.
+func callerIsMember(cmd *cobra.Command, client graphql.Client, orgID string) (bool, error) {
+	memberOnly := true
+	filter := &gen.OrganizationFilter{MemberOnly: &memberOnly}
+	mine, err := api.CollectAll(func(limit, offset int) ([]*orgListItem, int, error) {
+		off := offset
+		resp, err := gen.Organizations(cmd.Context(), client, filter, &limit, &off)
+		if err != nil {
+			return nil, 0, api.MapError(err)
+		}
+		if resp == nil || resp.Organizations == nil {
+			return nil, 0, nil
+		}
+		return resp.Organizations.Items, resp.Organizations.Total, nil
+	})
+	if err != nil {
+		return false, err
+	}
+	for _, o := range mine {
+		if o != nil && o.Id == orgID {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func newCmdSetActive(f *cmdutil.Factory) *cobra.Command {
@@ -81,6 +114,28 @@ Pass an empty string ("") to clear it.`,
 						"no organization %q is readable by you (--no-verify stores it anyway)", args[0])
 				}
 				name = resp.Organization.Name
+
+				// READABLE IS NOT THE SAME AS MEMBER, and the difference is
+				// silent. organization(ref:) answers for "org member OR
+				// platform ADMIN", while orgId follows cor:api:100:01 —
+				// "member -> scope, non-member -> EMPTY PAGE, no disclosure,
+				// no admin bypass". So a platform admin could store a foreign
+				// org, pass verification, and then get empty `--scope global`
+				// results forever with nothing saying why (@copilot, #596).
+				//
+				// Checked against the caller's OWN memberships, which is what
+				// the active organization means. Bounded by how many orgs the
+				// caller belongs to, not by how many exist — memberOnly
+				// narrows even for a platform admin, whose unscoped reach
+				// otherwise spans every live org.
+				member, err := callerIsMember(cmd, client, resp.Organization.Id)
+				if err != nil {
+					return err
+				}
+				if !member {
+					return exitcode.Newf(exitcode.Usage,
+						"you can read %q but you are not a member of it — `--scope global` would silently return nothing, because a non-member gets an empty page rather than a refusal (--no-verify stores it anyway)", args[0])
+				}
 			}
 
 			if err := cfg.Set("org", args[0]); err != nil {

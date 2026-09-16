@@ -541,6 +541,7 @@ func TestOrgUseVerifiesAndStoresWhatWasTyped(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetOrganization": `{"data":{"organization":{"id":"o1","urn":"hrn:org:acme.com","name":"Acme",
 			"listedOnMarketplace":false,"createdAt":"2026-01-01T00:00:00Z","updatedAt":null}}}`,
+		"Organizations": orgMembershipsJSON,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -653,6 +654,7 @@ func TestOrgUseJSONShapeIsTheSameOnEveryPath(t *testing.T) {
 	verified := run(t, []string{"org", "use", "acme.com"}, map[string]string{
 		"GetOrganization": `{"data":{"organization":{"id":"o1","urn":"hrn:org:acme.com","name":"Acme",
 			"listedOnMarketplace":false,"createdAt":"2026-01-01T00:00:00Z","updatedAt":null}}}`,
+		"Organizations": orgMembershipsJSON,
 	})
 	unverified := run(t, []string{"org", "use", "acme.com", "--no-verify"}, map[string]string{})
 	cleared := run(t, []string{"org", "use", ""}, map[string]string{})
@@ -664,5 +666,60 @@ func TestOrgUseJSONShapeIsTheSameOnEveryPath(t *testing.T) {
 		if strings.Join(tc.got, ",") != strings.Join(verified, ",") {
 			t.Errorf("%s emits keys %v, verified emits %v — one shape per command", tc.name, tc.got, verified)
 		}
+	}
+}
+
+// orgMembershipsJSON is the caller's OWN memberships (memberOnly), which is the
+// question `org use` must ask — not merely whether the org is readable.
+const orgMembershipsJSON = `{"data":{"organizations":{"total":1,"items":[
+	{"id":"o1","urn":"hrn:org:acme.com","name":"Acme","listedOnMarketplace":false,
+	 "createdAt":"2026-01-01T00:00:00Z","updatedAt":null}]}}}`
+
+// TestOrgUseRefusesAReadableNonMemberOrg — @copilot on #596.
+//
+// READABLE is not MEMBER, and the difference is silent. organization(ref:)
+// answers for "org member OR platform ADMIN", while orgId follows
+// cor:api:100:01 — a non-member gets an EMPTY PAGE, not a refusal. So a
+// platform admin could store a foreign org, pass verification, and get empty
+// `--scope global` results forever with nothing saying why.
+func TestOrgUseRefusesAReadableNonMemberOrg(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		// Readable...
+		"GetOrganization": `{"data":{"organization":{"id":"o-foreign","urn":"hrn:org:other.example","name":"Other",
+			"listedOnMarketplace":false,"createdAt":"2026-01-01T00:00:00Z","updatedAt":null}}}`,
+		// ...but not among the caller's memberships.
+		"Organizations": orgMembershipsJSON,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "use", "other.example", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("a readable non-member org must be refused — storing it yields silently empty searches")
+	}
+	if !strings.Contains(err.Error(), "not a member") {
+		t.Errorf("the message must name the actual problem, got: %v", err)
+	}
+	cfg, cerr := f.Config()
+	if cerr != nil {
+		t.Fatalf("config: %v", cerr)
+	}
+	if got := cfg.Org(); got != "" {
+		t.Errorf("a refused org must not be stored, got %q", got)
+	}
+}
+
+// TestOrgUseNoVerifySkipsBothChecks — the escape hatch must skip the membership
+// listing too, or --no-verify is not offline.
+func TestOrgUseNoVerifySkipsBothChecks(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "use", "other.example", "--no-verify", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(captured) != 0 {
+		t.Errorf("--no-verify must make no calls at all, got %v", captured)
 	}
 }
