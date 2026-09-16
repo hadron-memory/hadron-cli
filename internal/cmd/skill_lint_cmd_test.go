@@ -183,6 +183,61 @@ func TestSkillLintRefusesAmbiguousSelector(t *testing.T) {
 	if exitCodeFor(err) != exitcode.Usage {
 		t.Errorf("invalid --prefix: exit %d, want Usage", exitCodeFor(err))
 	}
+	// An EMPTY --prefix (an unset shell variable) is a usage error, not "no
+	// override" — and it is refused before any request is made.
+	_, err = runSkillLint(t, map[string]string{}, "-m", "hrn:mem:a:b", "--prefix", "")
+	if exitCodeFor(err) != exitcode.Usage {
+		t.Errorf("empty --prefix: exit %d, want Usage", exitCodeFor(err))
+	}
+}
+
+func TestSkillLintNodeRefShapes(t *testing.T) {
+	good := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
+		`{"skill":{"description":"Use when a."}}`, `"# A"`)
+	responses := map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good)}
+	// A fully-qualified URN and a raw id both reach the batch read.
+	for _, ref := range []string{"hrn:node:hadronmemory.com:core:tasks:a", "hadronmemory.com::core::tasks:a", "n1"} {
+		if _, err := runSkillLint(t, responses, "--node", ref); exitCodeFor(err) != exitcode.OK {
+			t.Errorf("--node %q: exit %d, want 0 (%v)", ref, exitCodeFor(err), err)
+		}
+	}
+	// A bare loc is refused client-side as a usage error, before any request.
+	for _, ref := range []string{"tasks:a", "core::tasks:a"} {
+		if _, err := runSkillLint(t, map[string]string{}, "--node", ref); exitCodeFor(err) != exitcode.Usage {
+			t.Errorf("--node %q: exit %d, want 2 (Usage)", ref, exitCodeFor(err))
+		}
+	}
+}
+
+func TestSkillLintCleanCorpusJSONIsAnEmptyArray(t *testing.T) {
+	// Asserted on the raw text: a decode cannot tell `[]` from `null`
+	// (review:stable-json-dto).
+	good := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
+		`{"skill":{"description":"Use when a."}}`, `"# A"`)
+	out, err := runSkillLint(t, map[string]string{
+		"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(good),
+	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(out) != "[]" {
+		t.Errorf("clean --json output = %q, want []", out)
+	}
+}
+
+func TestSkillLintMalformedDeclarationIsReported(t *testing.T) {
+	// The discovery predicate lists the node (the key exists); Declared reads
+	// it as undeclared. It must be a finding, not a silent skip.
+	bad := skillNode("n1", "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true, `{"skill":"yes"}`, `"# A"`)
+	out, err := runSkillLint(t, map[string]string{
+		"GetMemory": skillMemOrg, "FindNodes": listOf("n1"), "NodeBatch": batchOf(bad),
+	}, "-m", "hrn:mem:hadronmemory.com:core", "--json")
+	if exitCodeFor(err) != exitcode.Conflict {
+		t.Fatalf("malformed declaration should exit 5, got %v\n%s", err, out)
+	}
+	if findingRules(t, out)["skill-declaration-malformed"] != "error" {
+		t.Errorf("no malformed finding: %s", out)
+	}
 }
 
 func TestSkillLintUnavailableNodeIsReportedNotDropped(t *testing.T) {

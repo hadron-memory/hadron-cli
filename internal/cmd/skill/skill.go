@@ -10,6 +10,7 @@ package skill
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -146,7 +147,11 @@ func selectNodes(cmd *cobra.Command, client graphql.Client, sel *selectorFlags) 
 		refs = append(refs, ids...)
 	}
 	for _, ref := range sel.nodes {
-		refs = append(refs, cmdutil.CanonicalNodeRef(ref))
+		canon, err := canonicalNodeArg(ref)
+		if err != nil {
+			return nil, err
+		}
+		refs = append(refs, canon)
 	}
 	if len(refs) == 0 {
 		return out, nil
@@ -292,6 +297,21 @@ func fetchNodes(cmd *cobra.Command, client graphql.Client, refs []string) ([]*ba
 	})
 }
 
+// canonicalNodeArg canonicalizes a --node value for nodeBatch, which takes an
+// id or a fully-qualified URN. A bare loc (`tasks:foo`) or a half-qualified
+// ref is refused HERE with the accepted forms named: sent through, the server
+// fails the whole batch with a shape error that names the GraphQL field, not
+// the flag (review:canonical-ref-handling). A colon-free token is a raw id and
+// passes through untouched.
+func canonicalNodeArg(ref string) (string, error) {
+	canon := cmdutil.CanonicalNodeRef(ref)
+	if strings.Contains(canon, ":") && !strings.HasPrefix(canon, "hrn:") {
+		return "", exitcode.Newf(exitcode.Usage,
+			"--node %q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc> or a node id; a bare loc has no memory to resolve in (lint reads whole memories with -m)", ref)
+	}
+	return canon, nil
+}
+
 // resolvePrefix decides a memory's export prefix (D7): an explicit override
 // wins; a user-owned memory (no org) takes the platform's; an org-owned
 // memory takes its org's chosen prefix. ok is false when the org has chosen
@@ -310,9 +330,18 @@ func resolvePrefix(m *memoryInfo, override string) (prefix string, ok bool) {
 }
 
 // validatePrefixFlag applies the server's own prefix rule to an override, so
-// --prefix cannot mint a name the org field could never hold.
-func validatePrefixFlag(p string) error {
-	if p != "" && !skilldoc.ValidPrefix(p) {
+// --prefix cannot mint a name the org field could never hold. A --prefix that
+// was GIVEN but is empty is refused rather than read as absent: an unset shell
+// variable expands to "", and the server cannot tell that from an intent —
+// the same reason `worker update` refuses an empty --prompt-override.
+func validatePrefixFlag(cmd *cobra.Command, p string) error {
+	if !cmd.Flags().Changed("prefix") {
+		return nil
+	}
+	if p == "" {
+		return exitcode.Newf(exitcode.Usage, "--prefix is empty — pass a prefix (e.g. hadron-, mm-) or omit the flag to use the org's")
+	}
+	if !skilldoc.ValidPrefix(p) {
 		return exitcode.Newf(exitcode.Usage, "--prefix %q must be lowercase letters/digits ending in a hyphen (e.g. hadron-, mm-)", p)
 	}
 	return nil

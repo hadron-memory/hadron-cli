@@ -112,6 +112,26 @@ func Declared(props map[string]any) (*Declaration, bool) {
 	return nil, false
 }
 
+// Malformed reports whether a node carries a declaration key whose value is
+// not an object — `"skill": "yes"`, `"claudeSkill": true`. Such a node is
+// selected by the server-side discovery predicate (the key EXISTS) yet reads
+// as "not declared" to Declared, so without this it would be silently skipped
+// and counted in nobody's total — an all-clear wider than the read that
+// produced it (review:a-claim-must-not-outrun-its-evidence). It returns the
+// offending key so the finding can name it.
+func Malformed(props map[string]any) (string, bool) {
+	for _, key := range []string{"skill", "claudeSkill"} {
+		raw, ok := props[key]
+		if !ok {
+			continue
+		}
+		if _, isObj := raw.(map[string]any); !isObj {
+			return key, true
+		}
+	}
+	return "", false
+}
+
 // ValidPrefix reports whether p is a legal export prefix — the server's own
 // rule for Organization.skillPrefix, applied to a `--prefix` override so an
 // override cannot mint a name the org field could never hold.
@@ -183,13 +203,17 @@ type Finding struct {
 // the rest of the report is still useful). A node with no declaration yields
 // no findings: not declared is not a defect, it is the opt-in working.
 func Lint(n Node, prefix string) []Finding {
-	decl, ok := Declared(n.Properties)
-	if !ok {
-		return nil
-	}
 	var out []Finding
 	add := func(rule, sev, msg string) {
 		out = append(out, Finding{URN: n.URN, Rule: rule, Severity: sev, Message: msg})
+	}
+	decl, ok := Declared(n.Properties)
+	if !ok {
+		if key, bad := Malformed(n.Properties); bad {
+			add("skill-declaration-malformed", SevError,
+				fmt.Sprintf("properties.%s is present but is not an object — a declaration is {\"description\": …}; fix it or remove the key", key))
+		}
+		return out
 	}
 
 	if decl.Key == "claudeSkill" {

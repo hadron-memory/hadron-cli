@@ -56,7 +56,7 @@ takes "hadron-". Findings exit 5; --strict promotes warnings to errors.`,
 			if err := sel.validate(); err != nil {
 				return err
 			}
-			if err := validatePrefixFlag(prefix); err != nil {
+			if err := validatePrefixFlag(cmd, prefix); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()

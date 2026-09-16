@@ -125,6 +125,18 @@ func TestLintCleanNodeHasNoFindings(t *testing.T) {
 	}
 }
 
+func TestLintMalformedDeclarationIsAnError(t *testing.T) {
+	for _, props := range []map[string]any{
+		{"skill": "yes"}, {"claudeSkill": true}, {"skill": []any{"x"}},
+	} {
+		n := Node{URN: "u", Loc: "tasks:x", IsRunnable: true, Content: "b", Properties: props}
+		got := rules(Lint(n, "hadron-"))
+		if got["skill-declaration-malformed"] != SevError {
+			t.Errorf("props %v: want malformed error, got %v", props, got)
+		}
+	}
+}
+
 func TestLintUndeclaredNodeIsSilent(t *testing.T) {
 	n := Node{URN: "u", Loc: "tasks:x", IsRunnable: false, Properties: map[string]any{}}
 	if fs := Lint(n, "hadron-"); len(fs) != 0 {
