@@ -489,6 +489,37 @@ func TestLimitsCountCharactersNotBytes(t *testing.T) {
 	}
 }
 
+func TestLintEmptyStoredNameIsJudged(t *testing.T) {
+	// {"name": ""} is a stored name, and it does not equal the derived one.
+	n := declaring("tasks:a", "Use when x", map[string]any{"name": ""})
+	if got := rules(Lint(n, Prefix{Value: "hadron-", Known: true})); got["skill-name-hand-set"] != SevError {
+		t.Errorf("empty stored name read as absent: %v", got)
+	}
+}
+
+func TestIncompleteMachineHeaderIsBody(t *testing.T) {
+	// A hadron-skill comment without BOTH source= and hash= is not provenance.
+	for _, first := range []string{"<!-- hadron-skill example=yes -->", "<!-- hadron-skill source=hrn:node:a:b:c -->"} {
+		file, err := Render("hadron-x", "hrn:node:a:b:tasks:x", "Use when x", first+"\n\n# Body\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		f, err := ParseFile([]byte(file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasPrefix(f.Body, first) || f.Hash != Hash(f.Name, f.Description, f.Body) {
+			t.Errorf("%q: swallowed or mis-hashed: body=%q", first, f.Body)
+		}
+		// And standing alone in the preamble it does not make the file generated.
+		lone := "---\nname: theirs\ndescription: Use when x\n---\n\n" + first + "\n\n# Body\n"
+		g, _ := ParseFile([]byte(lone))
+		if g.Source != "" || g.Hash != "" {
+			t.Errorf("%q alone classified as generated: %+v", first, g)
+		}
+	}
+}
+
 func TestLintNonStringNameOrDescriptionIsMalformed(t *testing.T) {
 	// Copilot on #589: a numeric hand-set name was silently ignored, escaping
 	// the rule that a stored name must equal the derived one.

@@ -78,7 +78,7 @@ type selectorFlags struct {
 
 func (s *selectorFlags) register(cmd *cobra.Command) {
 	cmd.Flags().StringArrayVarP(&s.memories, "memory", "m", nil, "memory to scan (repeatable): hrn:mem:<root>:<slug>, <root>::<slug>, or an id")
-	cmd.Flags().BoolVar(&s.all, "all", false, "every memory you can read (own orgs + shared with you)")
+	cmd.Flags().BoolVar(&s.all, "all", false, "every memory you can read: your orgs' memories, memories shared with you, and other orgs' PUBLIC memories (every class)")
 	cmd.Flags().StringArrayVar(&s.nodes, "node", nil, "a specific node (repeatable): hrn:node:<root>:<slug>:<loc> or an id")
 }
 

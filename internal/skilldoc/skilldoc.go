@@ -110,6 +110,10 @@ type Declaration struct {
 	Key         string
 	Description string
 	Name        string
+	// NameSet records that a `name` key was present, so an explicitly EMPTY
+	// stored name is judged against the derived one rather than read as
+	// absent (Copilot on #589, round 2).
+	NameSet bool
 }
 
 // classify is the ONE scan of a node's declaration keys. It returns the
@@ -148,6 +152,7 @@ func classify(props map[string]any) (decl *Declaration, malformed []string) {
 		}
 		if s, ok := obj["name"].(string); ok {
 			decl.Name = s
+			decl.NameSet = true
 		}
 	}
 	return decl, malformed
@@ -311,7 +316,7 @@ func Lint(n Node, prefix Prefix) []Finding {
 		add("skill-name-invalid", SevError,
 			fmt.Sprintf("derived skill name %q is not a valid skill name (kebab-case, ≤%d chars) — it is derived from the loc, so the loc is what to change", name, MaxNameLen))
 	}
-	if decl.Name != "" && prefix.Known && decl.Name != name {
+	if decl.NameSet && prefix.Known && decl.Name != name {
 		add("skill-name-hand-set", SevError,
 			fmt.Sprintf("properties.%s.name is %q but the name is derived from the loc as %q — remove the hand-set name (it is retired) or make the loc say what the name should", decl.Key, decl.Name, name))
 	}
@@ -491,7 +496,7 @@ func ParseFile(data []byte) (*File, error) {
 	}
 	f := &File{Name: fm.Name, Description: fm.Description}
 	preamble, body := splitPreamble(string(m[2]))
-	if h := headerRE.FindStringSubmatch(preamble); h != nil {
+	if h := headerRE.FindStringSubmatch(preamble); h != nil && isMachineHeader(h[0]) {
 		for _, kv := range headerKV.FindAllStringSubmatch(h[1], -1) {
 			switch kv[1] {
 			case "source":
@@ -536,5 +541,21 @@ func splitPreamble(rest string) (preamble, body string) {
 // parse to a different body than it hashed (Codex on #589, rounds 3 and 4).
 func isProvenanceComment(t string) bool {
 	return t == humanLine || t == legacyHumanLine ||
-		headerRE.MatchString(t) || legacyHeaderRE.MatchString(t)
+		isMachineHeader(t) || legacyHeaderRE.MatchString(t)
+}
+
+// isMachineHeader recognises the generated machine line: the `hadron-skill`
+// grammar AND both required keys, `source` and `hash` (extra keys allowed).
+// A comment that merely looks like one — `<!-- hadron-skill example=yes -->`
+// — is body, not provenance (Copilot on #589, round 2).
+func isMachineHeader(t string) bool {
+	h := headerRE.FindStringSubmatch(t)
+	if h == nil {
+		return false
+	}
+	keys := map[string]bool{}
+	for _, kv := range headerKV.FindAllStringSubmatch(h[1], -1) {
+		keys[kv[1]] = true
+	}
+	return keys["source"] && keys["hash"]
 }
