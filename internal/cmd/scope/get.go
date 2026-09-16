@@ -10,6 +10,7 @@ import (
 )
 
 func newCmdGet(f *cmdutil.Factory) *cobra.Command {
+	var byName bool
 	cmd := &cobra.Command{
 		Use:   "get <name|id>",
 		Short: "Show a scope and the memories it lists",
@@ -27,15 +28,7 @@ Only the memories you may read are listed; the rest are reported as a count.`,
 			if err != nil {
 				return err
 			}
-			// The App context is the PERSISTENT --app flag (or the configured
-			// active App). A local --app here would shadow it silently, and
-			// this group would be the one place where --app stopped meaning
-			// what it means everywhere else.
-			appRef, err := f.App()
-			if err != nil {
-				return err
-			}
-			id, err := resolveScopeID(cmd, client, args[0], appRef)
+			id, err := resolveScopeID(cmd, f, client, args[0], byName)
 			if err != nil {
 				return err
 			}
@@ -54,5 +47,6 @@ Only the memories you may read are listed; the rest are reported as a count.`,
 			return writeScope(f, d)
 		},
 	}
+	cmd.Flags().BoolVar(&byName, "by-name", false, byNameUsage)
 	return cmd
 }

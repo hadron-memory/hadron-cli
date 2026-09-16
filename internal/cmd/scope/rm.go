@@ -13,7 +13,10 @@ import (
 )
 
 func newCmdRm(f *cmdutil.Factory) *cobra.Command {
-	var yes bool
+	var (
+		yes    bool
+		byName bool
+	)
 	cmd := &cobra.Command{
 		Use:     "rm <name|id>",
 		Aliases: []string{"delete"},
@@ -28,14 +31,10 @@ Deleting a scope removes the lens, never the memories it listed.`,
 			if err != nil {
 				return err
 			}
-			appRef, err := f.App()
-			if err != nil {
-				return err
-			}
 			// Resolve BEFORE prompting, so the confirmation names a scope that
 			// actually exists rather than asking the user to approve deleting
 			// something we then fail to find.
-			id, err := resolveScopeID(cmd, client, args[0], appRef)
+			id, err := resolveScopeID(cmd, f, client, args[0], byName)
 			if err != nil {
 				return err
 			}
@@ -53,5 +52,6 @@ Deleting a scope removes the lens, never the memories it listed.`,
 		},
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
+	cmd.Flags().BoolVar(&byName, "by-name", false, byNameUsage)
 	return cmd
 }

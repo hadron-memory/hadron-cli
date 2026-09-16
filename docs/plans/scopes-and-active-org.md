@@ -121,6 +121,17 @@ Notes that are contract, not taste:
   mutual-exclusion check that refuses loudly (`exitcode.Usage`) rather than
   letting the server reject a combination we could have named better — this is
   flag arity, not business logic.
+- **The two input domains OVERLAP, and nodes' reasoning does not carry over.**
+  `IsNodeID` is safe for nodes because a loc cannot be 32 hex characters. A
+  scope NAME allows `[a-z0-9_-]`, so `deadbeefdeadbeefdeadbeefdeadbeef` is a
+  legal name that is also id-shaped (@codex, #594). Shape still decides — it
+  costs no round trip and the collision needs a pathological name — with
+  `--by-name` as the explicit escape hatch. The rejected alternative was a
+  speculative id lookup falling back on null, which charges EVERY id-based
+  command an extra round trip to serve that one name.
+- **The App context is resolved lazily, and only for a name.** An id is
+  unambiguous, so a hand-edited config whose App ref no longer parses must not
+  break `scope get <id>` (@codex, #594).
 - **A name is 1–64 `[a-z0-9_-]`, unique per owner, never `global` or `app`.**
   Do NOT validate this client-side. `SCOPE_NAME_TAKEN` and the reserved-word
   refusal are the server's, and `api.MapError` already renders them. A

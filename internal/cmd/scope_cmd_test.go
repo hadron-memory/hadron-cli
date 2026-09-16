@@ -377,3 +377,81 @@ func TestScopeNameWithoutAppContextNamesAFlag(t *testing.T) {
 		})
 	}
 }
+
+// TestScopeByNameReachesAnIDShapedName — @codex on #594.
+//
+// Scope names allow [a-z0-9_-], so a 32-character all-hex NAME is legal AND
+// id-shaped. Shape still decides by default (it costs no round trip, and the
+// collision needs a pathological name), but --by-name must make such a scope
+// reachable rather than sending the name as a primary key.
+//
+// This is where scopes differ from nodes: IsNodeID is safe for locs because a
+// loc cannot be 32 hex characters, and that reasoning does not carry over.
+func TestScopeByNameReachesAnIDShapedName(t *testing.T) {
+	const hexName = "deadbeefdeadbeefdeadbeefdeadbeef"
+
+	t.Run("without --by-name it is treated as an id", func(t *testing.T) {
+		gql, captured := captureGraphQL(t, map[string]string{
+			"GetScope": `{"data":{"scope":` + scopeJSON + `}}`,
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"scope", "get", hexName, "--json", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		if _, ok := captured["ScopeExplain"]; ok {
+			t.Error("shape decides by default — an id-shaped argument must not cost a resolution")
+		}
+	})
+
+	t.Run("with --by-name it is resolved as a name", func(t *testing.T) {
+		gql, captured := captureGraphQL(t, map[string]string{
+			"ScopeExplain": `{"data":{"scopeExplain":{"resolvedVia":"ORGANIZATION","droppedCount":0,
+				"scope":` + scopeJSON + `,"memories":[],"winner":null,"shadowed":[]}}}`,
+			"GetScope": `{"data":{"scope":` + scopeJSON + `}}`,
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"scope", "get", hexName, "--by-name", "--app", "hrn:app:acme.com:dev", "--json", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("execute: %v", err)
+		}
+		raw, ok := captured["ScopeExplain"]
+		if !ok {
+			t.Fatal("--by-name must force name resolution, or an id-shaped name is unreachable")
+		}
+		var vars map[string]any
+		_ = json.Unmarshal(raw, &vars)
+		if vars["name"] != hexName {
+			t.Errorf("ScopeExplain should carry the NAME, got %v", vars)
+		}
+	})
+}
+
+// TestScopeIDOperationsIgnoreABrokenActiveApp — @codex on #594.
+//
+// An id needs no App context, so an unrelated ambient setting must not be able
+// to break an otherwise unambiguous command. A hand-edited config whose App ref
+// no longer parses makes f.App() a usage error; resolving it eagerly turned
+// every id-based verb into a failure. Driven through the real command with a
+// poisoned config, since a direct call to the resolver would not exercise the
+// ordering under test.
+func TestScopeIDOperationsIgnoreABrokenActiveApp(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetScope": `{"data":{"scope":` + scopeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	cfg, err := f.Config()
+	if err != nil {
+		t.Fatalf("config: %v", err)
+	}
+	if err := cfg.Set("app", "not a valid app ref"); err != nil {
+		t.Fatalf("poison config: %v", err)
+	}
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"scope", "get", "0123456789abcdef0123456789abcdef", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("an id-based read must not consult the active App: %v", err)
+	}
+}

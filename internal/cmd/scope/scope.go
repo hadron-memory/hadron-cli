@@ -50,6 +50,12 @@ A scope is addressed by its name (resolved in an App's context) or by its id.`,
 // scopeFields is the shared projection every scope read returns.
 type scopeFields = gen.ScopeFields
 
+// byNameUsage documents the escape hatch for the one case where the shape
+// classifier is wrong. Scope names allow [a-z0-9_-], so a 32-character all-hex
+// NAME is also id-shaped and would otherwise be sent as a primary key, leaving
+// the scope unreachable by every verb that takes <name|id>.
+const byNameUsage = "treat the argument as a NAME even if it is id-shaped (a 32-character all-hex name is a legal scope name)"
+
 // scopeDTO is the stable --json shape of one scope.
 //
 // memoryCount and hiddenMemoryCount are BOTH present and neither is omitted:
@@ -225,16 +231,27 @@ func ownerFilter(org, app, agent, name string) (*gen.ScopeFilter, error) {
 // round trip rather than a client-side scan of `scopes`. Matching a name here
 // would put the precedence rule in three surfaces and let them drift.
 //
-// appRef is required for a name and comes from --app or the active App; the
-// server refuses a bare name without one and says so, which is a better
-// message than anything we would compose.
-func resolveScopeID(cmd *cobra.Command, client graphql.Client, ref, appRef string) (string, error) {
-	// Shape, never a fallback: an id is 32 lowercase hex characters and a name
-	// is not, so the two are told apart without a speculative lookup.
-	// cmdutil.IsBareID is the ONE place that rule lives (IsNodeID is the same
-	// rule for nodes) — a second copy here is what drifts.
-	if cmdutil.IsBareID(ref) {
+// The two input domains OVERLAP, unlike nodes. A node loc is distinguishable
+// from a node id by shape, but a scope NAME is 1-64 of [a-z0-9_-] — so
+// `deadbeefdeadbeefdeadbeefdeadbeef` is a legal name that is also id-shaped.
+// Shape still decides, because it is the only classifier that costs no round
+// trip and the collision needs a 32-character all-hex name; byName is the
+// explicit escape hatch for the case where it is wrong, rather than a
+// speculative id lookup that falls back on null (which would charge every
+// id-based command an extra round trip to serve a pathological name).
+//
+// The App context is resolved LAZILY, and only for a name: an id is
+// unambiguous, so an unrelated ambient setting — a hand-edited config whose
+// App ref no longer parses — must not be able to break `scope get <id>`.
+func resolveScopeID(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, ref string, byName bool) (string, error) {
+	// cmdutil.IsBareID is the ONE place the id-shape rule lives (IsNodeID is
+	// the same rule for nodes) — a second copy here is what drifts.
+	if !byName && cmdutil.IsBareID(ref) {
 		return ref, nil
+	}
+	appRef, err := f.App()
+	if err != nil {
+		return "", err
 	}
 	// Refuse BEFORE the round trip when a name has no App context. The server
 	// does refuse — but in its own words: "Resolving a scope by name needs an

@@ -11,6 +11,7 @@ import (
 
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var (
+		byName      bool
 		newName     string
 		memories    []string
 		description string
@@ -34,11 +35,7 @@ An omitted flag preserves the current value — nothing is cleared by accident.`
 			if err != nil {
 				return err
 			}
-			appRef, err := f.App()
-			if err != nil {
-				return err
-			}
-			id, err := resolveScopeID(cmd, client, args[0], appRef)
+			id, err := resolveScopeID(cmd, f, client, args[0], byName)
 			if err != nil {
 				return err
 			}
@@ -86,5 +83,6 @@ An omitted flag preserves the current value — nothing is cleared by accident.`
 	cmd.Flags().StringVar(&newName, "name", "", "rename the scope")
 	cmd.Flags().StringArrayVarP(&memories, "memory", "m", nil, "memory in the scope (ID or URN; repeatable; REPLACES the list, order preserved)")
 	cmd.Flags().StringVar(&description, "description", "", `what this scope is for ("" clears it)`)
+	cmd.Flags().BoolVar(&byName, "by-name", false, byNameUsage)
 	return cmd
 }

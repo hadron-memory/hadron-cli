@@ -33,7 +33,10 @@ type memoryRefDTO struct {
 }
 
 func newCmdExplain(f *cmdutil.Factory) *cobra.Command {
-	var loc string
+	var (
+		loc    string
+		byName bool
+	)
 	cmd := &cobra.Command{
 		Use:   "explain <name|id>",
 		Short: "Show how a scope resolves for you, and what it hides",
@@ -56,19 +59,20 @@ server; answer it by passing the scope's id instead.`,
 			if err != nil {
 				return err
 			}
-			appRef, err := f.App()
-			if err != nil {
-				return err
-			}
-
 			// Unlike the other verbs this does NOT pre-resolve: scopeExplain
 			// is itself the resolver, so passing the name straight through
 			// keeps it to one round trip and lets the server raise
 			// SCOPE_NAME_AMBIGUOUS in its own words.
 			var scopeRef, name, appPtr, locPtr *string
-			if cmdutil.IsBareID(args[0]) {
+			if !byName && cmdutil.IsBareID(args[0]) {
 				scopeRef = &args[0]
 			} else {
+				// Resolved lazily and only for a name: an id is unambiguous,
+				// so a hand-edited active App must not break `explain <id>`.
+				appRef, err := f.App()
+				if err != nil {
+					return err
+				}
 				// Same guard as resolveScopeID: without an App context the
 				// server refuses by naming `appRef`, a GraphQL field with no
 				// flag behind it, leaving the reader nothing to type.
@@ -159,5 +163,6 @@ server; answer it by passing the scope's id instead.`,
 		},
 	}
 	cmd.Flags().StringVar(&loc, "loc", "", "also report which memory would win for this address")
+	cmd.Flags().BoolVar(&byName, "by-name", false, byNameUsage)
 	return cmd
 }
