@@ -35,6 +35,13 @@ query SearchNodes(
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
+  # Spec 049 (D-2026-09-13-002): a scope id, a bare scope NAME (needs an App
+  # context), `app`, or `global`. The server resolves it — the CLI passes the
+  # string through and renders what comes back. Omitted is the pre-049
+  # behaviour (your whole accessible set), which is why it carries omitempty:
+  # an explicit null here is not the same as not asking for a scope.
+  # @genqlient(omitempty: true)
+  $scope: String
 ) {
   findNodes(
     query: $query
@@ -43,10 +50,24 @@ query SearchNodes(
     sortProperty: $sortProperty
     limit: $limit
     offset: $offset
+    scope: $scope
   ) {
     total
     degraded
     reason
+    # The scope the search ACTUALLY ran under, as the server resolved it.
+    # `source` is which rung of the ladder won and `droppedCount` is what the
+    # scope lists but the caller may not read — the disclosure that stops a
+    # short result list reading as "there is nothing there". Null when no
+    # scope applied.
+    scope {
+      kind
+      label
+      source
+      ownerUrn
+      memoryUrns
+      droppedCount
+    }
     hits {
       score
       vector {

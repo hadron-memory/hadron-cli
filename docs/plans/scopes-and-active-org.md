@@ -1,6 +1,6 @@
 # Named search scopes + active organization (#578)
 
-Status: **in progress** — slice 1 of 4.
+Status: **in progress** — slices 1-2 landed/in review, 3-4 to come.
 Server: spec 049 Phases 1–2, on `hadron-server` `main` (#1158 active org, #1160 scopes).
 Issue: [#578](https://github.com/hadron-memory/hadron-cli/issues/578).
 
@@ -80,6 +80,26 @@ the active org and its meaning is undefined for anyone in more than one org.
 
 They land together, in slice 3.
 
+**And slice 3 has a message to fix, not just a feature to add.** Driven live,
+`hadron search --scope global` with no active organization prints:
+
+> You belong to 5 organizations and none is active: name one (orgId), select one
+> (**hadron_set_active_org**), or select an App.
+
+That names an **MCP tool** to a CLI reader. `orgId` is a GraphQL argument and
+`hadron_set_active_org` is not a command anyone can run here — the same
+surface-vocabulary leak that `hadron scope get` had with `appRef` (#594), and
+that `--scope app` / a bare name had until this slice guarded them.
+
+It is NOT guarded here, deliberately: the honest remedy is `hadron org use`,
+which does not exist until slice 3, and string-matching a server message to
+rewrite it would be worse than the leak. Slice 3 closes it by giving the CLI an
+active organization to select, so the refusal stops firing.
+
+The general version — *a server message naming another surface's remedy* — is
+reported to the coordinator rather than patched here, since the portal reads the
+same strings.
+
 ## 5. Slices
 
 | # | contents | why this cut |
@@ -97,17 +117,23 @@ Naming follows the repo convention — `list` primary, `ls` a cobra alias
 (`cli-list-primary-ls-alias`), and `rm` for deletion with `cmdutil.ConfirmDeletion`.
 
 ```
-hadron scope list   [--org <ref> | --app <ref> | --agent <ref>]
-hadron scope get    <name|id> [--app <ref>]
+hadron scope list   [--owner-org <ref> | --owner-app <ref> | --owner-agent <ref>] [--name <n>]
+hadron scope get    <name|id> [--by-name]
 hadron scope create <name> --memory <ref> [--memory <ref> …]
-                           (--org <ref> | --app <ref> | --agent <ref>)
+                           (--owner-org <ref> | --owner-app <ref> | --owner-agent <ref>)
                            [--description <text>]
-hadron scope update <name|id> [--name <new>] [--memory <ref> …] [--description <text>]
-hadron scope rm     <name|id> [--yes]
-hadron scope explain <name|id> [--loc <address>] [--app <ref>]
+hadron scope update <name|id> [--by-name] [--name <new>] [--memory <ref> …] [--description <text>]
+hadron scope rm     <name|id> [--by-name] [--yes]
+hadron scope explain <name|id> [--by-name] [--loc <address>]
 ```
 
 Notes that are contract, not taste:
+
+- **The owner flags are `--owner-*`, NOT `--app`/`--org`/`--agent`.** `--app` is
+  a PERSISTENT root flag meaning the App *context*; a local flag of that name
+  would shadow it for this group only, so the group would be the one place
+  `--app` stopped meaning what it means everywhere else. The App context is
+  never a local flag here — it comes from the persistent one or the active App.
 
 - **`--memory` is ORDERED and replaces.** `CreateScopeInput.memoryRefs: [ID!]!`
   is an ordered list and `updateScope`'s *"memoryRefs replaces the ordered

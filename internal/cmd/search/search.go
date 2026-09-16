@@ -30,17 +30,37 @@ type hitDTO struct {
 
 // resultDTO is the stable --json envelope: hits plus the retrieval-quality
 // signals (total, degraded, reason) an agent needs to interpret them.
+//
+// Scope is the fourth such signal (spec 049): under a lens, "5 hits" means
+// something different than it does over everything the caller can read, and
+// droppedCount says how much of the lens was invisible. An agent that cannot
+// see which scope ran cannot interpret the count.
 type resultDTO struct {
-	Hits     []hitDTO `json:"hits"`
-	Total    *int     `json:"total"`
-	Degraded *string  `json:"degraded,omitempty"`
-	Reason   *string  `json:"reason,omitempty"`
+	Hits     []hitDTO  `json:"hits"`
+	Total    *int      `json:"total"`
+	Degraded *string   `json:"degraded,omitempty"`
+	Reason   *string   `json:"reason,omitempty"`
+	Scope    *scopeDTO `json:"scope,omitempty"`
+}
+
+// scopeDTO reports the scope a search RAN UNDER, exactly as the server
+// resolved it. Every field is copied, never derived — the resolution ladder is
+// the server's, and a client that inferred `source` would be a second
+// implementation of it.
+type scopeDTO struct {
+	Kind         string   `json:"kind"`
+	Label        string   `json:"label"`
+	Source       string   `json:"source"`
+	OwnerURN     *string  `json:"ownerUrn"`
+	MemoryURNs   []string `json:"memoryUrns"`
+	DroppedCount int      `json:"droppedCount"`
 }
 
 // NewCmdSearch wires `hadron search` — the ranked node-retrieval front door.
 func NewCmdSearch(f *cmdutil.Factory) *cobra.Command {
 	var (
 		memories   []string
+		scope      string
 		mode       string
 		prefix     string
 		nodeType   string
@@ -149,7 +169,15 @@ and/or/not). --object-type filters the objectType collection facet.
 				offsetArg = &offset
 			}
 
-			page, err := api.SearchNodes(cmd.Context(), client, query, modeArg, filterArg, sortPropArg, limitArg, offsetArg)
+			var scopeArg *string
+			if scope != "" {
+				if err := requireAppContextForScope(f, scope); err != nil {
+					return err
+				}
+				scopeArg = &scope
+			}
+
+			page, err := api.SearchNodes(cmd.Context(), client, query, modeArg, filterArg, sortPropArg, limitArg, offsetArg, scopeArg)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -162,6 +190,20 @@ and/or/not). --object-type filters the objectType collection facet.
 			}
 
 			result := resultDTO{Hits: []hitDTO{}, Total: page.Total, Degraded: page.Degraded, Reason: page.Reason}
+			if sc := page.Scope; sc != nil {
+				urns := sc.MemoryUrns
+				if urns == nil {
+					urns = []string{}
+				}
+				result.Scope = &scopeDTO{
+					Kind:         sc.Kind,
+					Label:        sc.Label,
+					Source:       sc.Source,
+					OwnerURN:     sc.OwnerUrn,
+					MemoryURNs:   urns,
+					DroppedCount: sc.DroppedCount,
+				}
+			}
 			for _, h := range page.Hits {
 				result.Hits = append(result.Hits, hitDTO{
 					Score:         h.Score,
@@ -178,6 +220,14 @@ and/or/not). --object-type filters the objectType collection facet.
 			}
 
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
+				// The scope header precedes the hits in BOTH layouts: it
+				// changes what the result list means, so it cannot be a
+				// footnote only the table branch prints.
+				if line := scopeLine(result.Scope); line != "" {
+					if _, err := io.WriteString(w, line+"\n"); err != nil {
+						return err
+					}
+				}
 				if long {
 					return writeLong(w, result.Hits)
 				}
@@ -189,7 +239,11 @@ and/or/not). --object-type filters the objectType collection facet.
 			})
 		},
 	}
-	cmd.Flags().StringArrayVarP(&memories, "memory", "m", nil, "scope to a memory (ID or URN; repeatable)")
+	// -m/--memory is an unordered SET of memories and narrows WITHIN a scope;
+	// --scope names a stored lens and is resolved server-side. Two different
+	// ideas, so the -m help no longer says "scope" (#578).
+	cmd.Flags().StringArrayVarP(&memories, "memory", "m", nil, "restrict to a memory (ID or URN; repeatable; narrows within --scope)")
+	cmd.Flags().StringVar(&scope, "scope", "", "search under a named scope: a scope name (needs an App context), a scope id, `app` (the App's attached memories), or `global` (your active organization's view)")
 	cmd.Flags().StringVar(&mode, "mode", "hybrid", "ranking mode: hybrid|keyword|vector|regex")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "filter by node loc prefix")
 	cmd.Flags().StringVar(&nodeType, "type", "", "filter by node type")
@@ -268,4 +322,69 @@ func degradedNote(degraded, reason *string) string {
 		parts = append(parts, strings.TrimSpace(*reason))
 	}
 	return strings.Join(parts, "; ")
+}
+
+// The two scope keywords the server reserves. `app` resolves against the App
+// context; `global` against the active organization, which is why only the
+// first is guarded here — the CLI gains a way to select an organization in
+// #578's slice 3, and until then `global` is the server's to refuse.
+const (
+	scopeApp    = "app"
+	scopeGlobal = "global"
+)
+
+// scopeLine renders the scope disclosure for the human branches.
+//
+// Returns "" when no scope applied, so an unscoped search looks exactly as it
+// did before #578. When one did apply, the line always names the scope and the
+// rung that chose it — `source` matters because a scope the user did not type
+// (an active App, a configured default) is precisely the one they need told
+// about — and appends the dropped count when the server reports one.
+func scopeLine(s *scopeDTO) string {
+	if s == nil {
+		return ""
+	}
+	label := s.Label
+	if label == "" {
+		label = s.Kind
+	}
+	line := fmt.Sprintf("scope: %s (%s, via %s)", label, s.Kind, s.Source)
+	if s.DroppedCount > 0 {
+		// Count only, never names: the server withholds them deliberately so a
+		// lens cannot be used to enumerate memories the caller may not read.
+		line += fmt.Sprintf(" — %d memory/memories in this scope are not readable by you and were not searched", s.DroppedCount)
+	}
+	return line
+}
+
+// requireAppContextForScope refuses, before the round trip, a --scope value the
+// server can only resolve with an App context.
+//
+// The server does refuse these itself — but in the vocabulary of other
+// surfaces: `pass appRef (GraphQL) or select an App (MCP)`. A CLI reader can
+// type neither, so the remedy they are handed does not exist for them. Same
+// defect as the `appRef` message `hadron scope get` used to leak (#594), and
+// the same reason CanonicalAppRef exists (#540).
+//
+// This is CONTEXT ARITY, not resolution: which scope wins, and whether it
+// exists, stay entirely server-side. Only `app` and a bare NAME need the
+// context; a scope id is self-contained, and `global` keys off the active
+// organization instead (see the note in requireAppContextForScope's caller).
+func requireAppContextForScope(f *cmdutil.Factory, scope string) error {
+	if scope == scopeGlobal || cmdutil.IsBareID(scope) {
+		return nil
+	}
+	app, err := f.App()
+	if err != nil {
+		return err
+	}
+	if app != "" {
+		return nil
+	}
+	if scope == scopeApp {
+		return exitcode.Newf(exitcode.Usage,
+			"--scope app means the active App's attached memories, and no App is selected — pass --app <ref> or run `hadron app set-active <ref>`")
+	}
+	return exitcode.Newf(exitcode.Usage,
+		"--scope %q is a scope name, which resolves in an App's context — pass --app <ref>, run `hadron app set-active <ref>`, or give the scope's id instead", scope)
 }
