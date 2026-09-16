@@ -86,20 +86,20 @@ func TestDeclared(t *testing.T) {
 }
 
 func TestHashIsInputSensitiveAndStable(t *testing.T) {
-	h := Hash("n", "d", "c")
+	h := Hash("s", "n", "d", "c")
 	if len(h) != 16 {
 		t.Fatalf("hash length %d, want 16", len(h))
 	}
-	if h != Hash("n", "d", "c") {
+	if h != Hash("s", "n", "d", "c") {
 		t.Error("hash not stable")
 	}
-	for _, alt := range [][3]string{{"n2", "d", "c"}, {"n", "d2", "c"}, {"n", "d", "c2"}} {
-		if Hash(alt[0], alt[1], alt[2]) == h {
+	for _, alt := range [][4]string{{"s2", "n", "d", "c"}, {"s", "n2", "d", "c"}, {"s", "n", "d2", "c"}, {"s", "n", "d", "c2"}} {
+		if Hash(alt[0], alt[1], alt[2], alt[3]) == h {
 			t.Errorf("hash insensitive to %v", alt)
 		}
 	}
 	// NUL separation: shifting a boundary must not collide.
-	if Hash("ab", "c", "") == Hash("a", "bc", "") {
+	if Hash("s", "ab", "c", "") == Hash("s", "a", "bc", "") {
 		t.Error("boundary shift collides")
 	}
 }
@@ -277,14 +277,20 @@ func TestRenderParseRoundTrip(t *testing.T) {
 	}
 	// The contract that makes local-edit detection server-free: the hash in
 	// the header equals the hash recomputed from the file's own three inputs.
-	if want := Hash(f.Name, f.Description, f.Body); f.Hash != want {
+	if want := Hash(f.Source, f.Name, f.Description, f.Body); f.Hash != want {
 		t.Errorf("header hash %q != recomputed %q", f.Hash, want)
 	}
 	// And a hand edit to the body is visible.
 	edited := strings.Replace(file, "Step one.", "Step one, edited.", 1)
 	g, _ := ParseFile([]byte(edited))
-	if Hash(g.Name, g.Description, g.Body) == g.Hash {
+	if Hash(g.Source, g.Name, g.Description, g.Body) == g.Hash {
 		t.Error("hand edit not detected by recomputation")
+	}
+	// So is a hand edit to the provenance line naming another node.
+	resourced := strings.Replace(file, "source="+src, "source=hrn:node:hadronmemory.com:core:tasks:other", 1)
+	r, _ := ParseFile([]byte(resourced))
+	if r.Source != "hrn:node:hadronmemory.com:core:tasks:other" || Hash(r.Source, r.Name, r.Description, r.Body) == r.Hash {
+		t.Error("re-sourced header not detected as a local edit")
 	}
 }
 
@@ -304,7 +310,7 @@ func TestBodyKeepsItsOwnLeadingComment(t *testing.T) {
 	if !strings.HasPrefix(f.Body, "<!-- reviewers:") {
 		t.Errorf("the body's own leading comment was swallowed: %q", f.Body)
 	}
-	if f.Hash != Hash(f.Name, f.Description, f.Body) {
+	if f.Hash != Hash(f.Source, f.Name, f.Description, f.Body) {
 		t.Error("fresh export with a leading body comment does not hash equal to its header")
 	}
 }
@@ -330,7 +336,7 @@ func TestLookalikeProvenanceCommentsStayInTheBody(t *testing.T) {
 		if !strings.HasPrefix(f.Body, first) {
 			t.Errorf("%q swallowed as preamble: body=%q", first, f.Body)
 		}
-		if f.Hash != Hash(f.Name, f.Description, f.Body) {
+		if f.Hash != Hash(f.Source, f.Name, f.Description, f.Body) {
 			t.Errorf("%q: fresh export does not hash equal to its header", first)
 		}
 	}
@@ -369,7 +375,7 @@ func TestCRLFBodiesRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Hash != Hash(f.Name, f.Description, f.Body) || f.Hash != Hash("hadron-x", "Use when x", body) {
+	if f.Hash != Hash(f.Source, f.Name, f.Description, f.Body) || f.Hash != Hash("hrn:node:a:b:tasks:x", "hadron-x", "Use when x", body) {
 		t.Error("CRLF input does not hash equal to its LF export")
 	}
 }
@@ -436,7 +442,7 @@ func TestRenderSurvivesTheRealParserOnAwkwardDescriptions(t *testing.T) {
 		if want := NormalizeDescription(desc); f.Description != want {
 			t.Errorf("description round trip: got %q, want %q\n%s", f.Description, want, file)
 		}
-		if f.Hash != Hash(f.Name, f.Description, f.Body) {
+		if f.Hash != Hash(f.Source, f.Name, f.Description, f.Body) {
 			t.Errorf("%q: header hash does not match recomputation", desc)
 		}
 	}
@@ -462,7 +468,7 @@ func TestRenderNormalizesWhatLintMeasured(t *testing.T) {
 	if f.Body != "# Body\n\nline" {
 		t.Errorf("body not normalized on export: %q", f.Body)
 	}
-	if f.Hash != Hash(f.Name, f.Description, f.Body) || f.Hash != Hash("hadron-x", desc, body) {
+	if f.Hash != Hash(f.Source, f.Name, f.Description, f.Body) || f.Hash != Hash("hrn:node:a:b:tasks:x", "hadron-x", desc, body) {
 		t.Error("a fresh export does not hash equal to its own header from either the raw or the parsed inputs")
 	}
 	// The length lint certifies is the exported length: at-limit plus a
@@ -518,7 +524,7 @@ func TestPreambleIsOneOfEachAndKeepsWhitespaceLines(t *testing.T) {
 		if f.Body != NormalizeBody(body) {
 			t.Errorf("body round trip:\n got %q\nwant %q", f.Body, NormalizeBody(body))
 		}
-		if f.Hash != Hash(f.Name, f.Description, f.Body) {
+		if f.Hash != Hash(f.Source, f.Name, f.Description, f.Body) {
 			t.Errorf("%q: fresh export does not hash equal to its header", body)
 		}
 	}
@@ -638,6 +644,14 @@ func TestExtraFrontmatterKeysAreKeptAsALocalEdit(t *testing.T) {
 	}
 }
 
+func TestNonStringFrontmatterIsRefused(t *testing.T) {
+	for _, fm := range []string{"name: 123\ndescription: Use when x", "name: x\ndescription: [a, b]", "name: x\ndescription: true"} {
+		if _, err := ParseFile([]byte("---\n" + fm + "\n---\n\n# Body\n")); err == nil {
+			t.Errorf("%q: non-string frontmatter value coerced instead of refused", fm)
+		}
+	}
+}
+
 func TestParsedDescriptionIsNormalized(t *testing.T) {
 	f, err := ParseFile([]byte("---\nname: x\ndescription: \" Use when x \"\n---\n\n# Body\n"))
 	if err != nil {
@@ -659,7 +673,7 @@ func TestIncompleteMachineHeaderIsBody(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.HasPrefix(f.Body, first) || f.Hash != Hash(f.Name, f.Description, f.Body) {
+		if !strings.HasPrefix(f.Body, first) || f.Hash != Hash(f.Source, f.Name, f.Description, f.Body) {
 			t.Errorf("%q: swallowed or mis-hashed: body=%q", first, f.Body)
 		}
 		// And standing alone in the preamble it does not make the file generated.
