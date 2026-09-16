@@ -155,6 +155,7 @@ mutation CancelAppRun($id: ID!) {
 # @genqlient(for: "CreateAgentScheduleInput.runAsSelf", omitempty: true)
 # @genqlient(for: "CreateAgentScheduleInput.runAt", omitempty: true)
 # @genqlient(for: "CreateAgentScheduleInput.timezone", omitempty: true)
+# @genqlient(for: "CreateAgentScheduleInput.scopeRef", omitempty: true)
 mutation CreateAgentSchedule(
   $input: CreateAgentScheduleInput!
 ) {
@@ -191,6 +192,9 @@ query AgentSchedules(
 # @genqlient(for: "UpdateAgentScheduleInput.runAsSelf", omitempty: true)
 # @genqlient(for: "UpdateAgentScheduleInput.agentRef", omitempty: true)
 # @genqlient(for: "UpdateAgentScheduleInput.runAt", omitempty: true)
+# scopeRef arrived with spec-049 Phase 3b (hadron-server#1163); without this an
+# unrelated `schedule update --name …` sends scopeRef:null and CLEARS the scope.
+# @genqlient(for: "UpdateAgentScheduleInput.scopeRef", omitempty: true)
 mutation UpdateAgentSchedule(
   $id: ID!
   $input: UpdateAgentScheduleInput!
@@ -214,6 +218,7 @@ mutation DeleteAgentSchedule($id: ID!) {
 # @genqlient(for: "CreateAgentWebhookInput.eventData", omitempty: true)
 # @genqlient(for: "CreateAgentWebhookInput.policy", omitempty: true)
 # @genqlient(for: "CreateAgentWebhookInput.runAsSelf", omitempty: true)
+# @genqlient(for: "CreateAgentWebhookInput.scopeRef", omitempty: true)
 mutation CreateAgentWebhook(
   $input: CreateAgentWebhookInput!
 ) {

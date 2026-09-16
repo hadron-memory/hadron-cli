@@ -4171,7 +4171,7 @@ type CreateAgentScheduleInput struct {
 	// One-shot: run once at this ISO-8601 instant (#510). Provide exactly one of cron / runAt.
 	RunAt *string `json:"runAt,omitempty"`
 	// Spec 049 (D-2026-09-13-004): the scope this trigger's runs carry — a scope id, or a name resolved in the App's context (App › Agent › organization). Must be readable by you and resolvable in that App. Snapshotted onto each run at mint; omitted ⇒ the App's attached memories ('app').
-	ScopeRef *string `json:"scopeRef"`
+	ScopeRef *string `json:"scopeRef,omitempty"`
 	Timezone *string `json:"timezone,omitempty"`
 }
 
@@ -4313,7 +4313,7 @@ type CreateAgentWebhookInput struct {
 	Policy    *json.RawMessage `json:"policy,omitempty"`
 	RunAsSelf *bool            `json:"runAsSelf,omitempty"`
 	// Spec 049 (D-2026-09-13-004): the scope this webhook's runs carry — a scope id, or a name resolved in the App's context. Snapshotted onto each run at mint; omitted ⇒ 'app'.
-	ScopeRef *string `json:"scopeRef"`
+	ScopeRef *string `json:"scopeRef,omitempty"`
 }
 
 // GetAgentRef returns CreateAgentWebhookInput.AgentRef, and is useful for accessing the field via an interface.
@@ -16650,7 +16650,7 @@ type UpdateAgentScheduleInput struct {
 	// Providing runAt switches the schedule to one-shot (clears cron). At most one of cron / runAt per call.
 	RunAt *string `json:"runAt,omitempty"`
 	// Spec 049: set the trigger's scope (id or name in the App's context); an empty string clears it back to 'app'.
-	ScopeRef *string `json:"scopeRef"`
+	ScopeRef *string `json:"scopeRef,omitempty"`
 	Timezone *string `json:"timezone,omitempty"`
 }
 
@@ -29865,6 +29865,8 @@ fragment AgentScheduleFields on AgentSchedule {
 
 // Every field optional. An omitted field preserves; an explicit null clears —
 // so unset flags MUST be omitted (nil pointers dropped by these directives).
+// scopeRef arrived with spec-049 Phase 3b (hadron-server#1163); without this an
+// unrelated `schedule update --name …` sends scopeRef:null and CLEARS the scope.
 func UpdateAgentSchedule(
 	ctx_ context.Context,
 	client_ graphql.Client,

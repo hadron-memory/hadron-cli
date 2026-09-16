@@ -128,7 +128,10 @@ func TestScheduleUpdatePreservesUnsetFields(t *testing.T) {
 	// and runAt were added by the server's one-shot schedules (#510); without
 	// omitempty they'd serialize as an explicit null and CLEAR those fields on
 	// every update (#169 review).
-	for _, k := range []string{"name", "timezone", "entryNodeUrn", "aiConfigName", "eventData", "policy", "runAsSelf", "agentRef", "runAt"} {
+	// scopeRef arrived with spec-049 Phase 3b via a schema refresh (cli#589):
+	// this list is the guard, and a field the refresh adds is not on it until
+	// someone puts it there — which is how Codex found scopeRef clearing.
+	for _, k := range []string{"name", "timezone", "entryNodeUrn", "aiConfigName", "eventData", "policy", "runAsSelf", "agentRef", "runAt", "scopeRef"} {
 		if v, present := vars.Input[k]; present {
 			t.Errorf("unset %q must be omitted from update, got %v", k, v)
 		}
