@@ -47,6 +47,15 @@ func TestAccessCheckEmitsCanonicalResourceURN(t *testing.T) {
 		// Asserted anyway because verbatim is the right ANSWER here: a current
 		// server emits organization already canonical.
 		{"org/verbatim", "organization", "hrn:org:hadronmemory.com", "hrn:org:hadronmemory.com"},
+		// And the limit stated out loud: a BARE organization from a pre-#966
+		// server is NOT repaired — the shim does nothing at all for this kind
+		// (@copilot, #601).
+		//
+		// This row DOCUMENTS that; it does not guard it. Adding organization to
+		// urnTypeWordForKind is a no-op for a realistic value — an org body is a
+		// single atom, so it fails the len(atoms) < 2 guard and returns raw by
+		// the other route. Measured, not assumed: that mutation fails nothing.
+		{"org/bare-not-repaired", "organization", "hadronmemory.com", "hadronmemory.com"},
 		// The node branch always emitted prefixed — it must not be touched.
 		{"node", "node", "hrn:node:hadronmemory.com:dev:preflight", "hrn:node:hadronmemory.com:dev:preflight"},
 		// An AiServiceConfig has no URN: the field carries its id, verbatim.

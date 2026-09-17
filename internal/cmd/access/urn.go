@@ -90,10 +90,28 @@ func canonicalResourceURN(kind, raw string) string {
 //
 // That is the correct outcome rather than a lucky one: a current server emits
 // hrn:org:<slug> and hrn:user:<handle> already canonical, so there is nothing
-// to render and verbatim IS the right answer. The consequence to know is that
-// these kinds get no scheme normalization — a hypothetical urn:org:… would
-// pass through unchanged where urn:mem:… would not. No server emits that, so
-// the gap stays open deliberately rather than being closed for symmetry.
+// to render and verbatim IS the right answer.
+//
+// So state the limit plainly, because "verbatim" understates it: for these two
+// kinds the shim does NOTHING AT ALL (@copilot, #601). Not only is there no
+// scheme normalization — a hypothetical urn:org:… passes through where
+// urn:mem:… would not — but a BARE value from a pre-#966 server is not
+// repaired either. The compat guarantee this function provides covers memory,
+// node, app and agent; organization and user rely entirely on the server
+// emitting them canonically, which it has since #966.
+//
+// The gap stays open deliberately (#426 ruled it "no longer worth closing"),
+// and there is a second reason it is harmless that is worth writing down
+// because it is not obvious: ADDING organization here would change nothing for
+// a realistic value. An org URN body is a SINGLE atom, so a bare
+// "hadronmemory.com" fails the len(atoms) < 2 guard below and returns raw by
+// that route instead. Closing the gap would be inert, not merely unnecessary.
+//
+// A consequence for anyone maintaining the tests: no assertion can pin this
+// gap by adding organization to the map, because that mutation is a no-op.
+// org/verbatim and org/bare-not-repaired DOCUMENT the behaviour; they do not
+// guard it, and reading them as coverage is the mistake this paragraph exists
+// to prevent. (Measured: adding the case fails nothing.)
 func urnTypeWordForKind(kind string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(kind)) {
 	case "memory":
