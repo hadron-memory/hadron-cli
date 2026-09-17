@@ -805,6 +805,24 @@ Conventions:
   tool-name drift; `spec supersede` retires a
   spec (never renumbers) and REQUIRES `--yes`; `spec import` is not yet
   implemented (exit 2).
+- **`spec` and `coding` write through the protected-loc DOOR, not the generic
+  node surface** (#606, hadron-server#1180). Once a memory declares
+  `Memory.protectedLocs` — `['*']` on a specs corpus, `['review','tasks']` on a
+  repo memory — a generic `createNode`/`hadron_create_node` at those locs is
+  REFUSED and told which tool to use. That is the point: the authoring rules
+  live in the command that owns the corpus, so an agent minting a spec or a
+  review check by hand is stopped and redirected. **Use `hadron spec new` /
+  `hadron coding review create` / `hadron coding preflight add`; do not
+  hand-roll the node.**
+  It is a **guardrail, not a security boundary** — what it stops is the
+  accidental generic write, and a determined caller can still author a
+  malformed node through the door. Do not read it as making a spec corpus
+  tamper-evident.
+  **These commands do not upsert.** A create against a loc that already holds a
+  live node is REFUSED, not overwritten, and that is deliberate: a citation is
+  permanent. Re-running is not a repair — edit with `spec edit` / `node update`,
+  or supersede.
+  Nothing is declared yet, so nothing is refused today.
 - `ai-config list` lists the masked AI configs *resolvable* in an App's chat
   context (App→Agent→Org→HadronServer, innermost wins, enabled-only) — never
   key material, only a preview. `ai-config create|update|rm` manage the

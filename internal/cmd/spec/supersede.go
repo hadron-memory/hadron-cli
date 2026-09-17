@@ -194,11 +194,11 @@ afterward (the tool prints a reminder; it never edits the register).`,
 				Abstract: &abs, Content: &body, Data: specDataRaw(),
 				Seq: specSeq(newTarget),
 			}
-			up, err := gen.CreateNode(cmd.Context(), client, &in)
+			up, err := api.AuthorProtectedNode(cmd.Context(), client, &in, false)
 			if err != nil {
 				return api.MapError(err)
 			}
-			newID = up.CreateNode.Id
+			newID = up.Id
 
 			// 2. New node's ToC + inheritance edges. Best-effort, but each outcome
 			// is tracked and surfaced: a target that doesn't resolve was previously

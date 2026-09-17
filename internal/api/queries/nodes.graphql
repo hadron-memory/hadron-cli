@@ -281,6 +281,62 @@ mutation CreateNode(
   }
 }
 
+# The protected-loc door (hadron-server #1180, cli #606). Identical in effect to
+# createNode; the ONLY difference is that it carries the bypass, so an authoring
+# tool can write where the generic node surface is refused once a memory
+# declares `protectedLocs`. Pure routing — it validates nothing createNode does
+# not, and knows nothing about specs, reviews or tasks. The authoring rules stay
+# in `hadron spec` / `hadron coding`, which are on the closed exception list
+# (cor:api:240:02) on the audience ground.
+#
+# It is a GUARDRAIL, not a security boundary: what it refuses is the ACCIDENTAL
+# generic write, told which tool to use. The Channel source of the same gate IS
+# a boundary (#1047). Same mechanism, same error code, different strengths — do
+# not read this as making the specs corpus tamper-evident.
+#
+# `upsert` overwrites a live node instead of rejecting with
+# NodeLocConflictError. Every CLI call site passes FALSE — see the api wrapper
+# for why that is a deliberate choice and not an oversight.
+#
+# The omitempty set is repeated verbatim from CreateNode above: both operations
+# bind the same generated CreateNodeInput, so the two lists must agree or the
+# omit-vs-null wire contract differs by which operation you happened to call.
+# @genqlient(for: "CreateNodeInput.abstract", omitempty: true)
+# @genqlient(for: "CreateNodeInput.aiAgent", omitempty: true)
+# @genqlient(for: "CreateNodeInput.alias", omitempty: true)
+# @genqlient(for: "CreateNodeInput.content", omitempty: true)
+# @genqlient(for: "CreateNodeInput.contentType", omitempty: true)
+# @genqlient(for: "CreateNodeInput.data", omitempty: true)
+# @genqlient(for: "CreateNodeInput.description", omitempty: true)
+# @genqlient(for: "CreateNodeInput.edges", omitempty: true)
+# @genqlient(for: "CreateNodeInput.id", omitempty: true)
+# @genqlient(for: "CreateNodeInput.isRunnable", omitempty: true)
+# @genqlient(for: "CreateNodeInput.llmModel", omitempty: true)
+# @genqlient(for: "CreateNodeInput.nodeType", omitempty: true)
+# @genqlient(for: "CreateNodeInput.objectType", omitempty: true)
+# @genqlient(for: "CreateNodeInput.ownerRepo", omitempty: true)
+# @genqlient(for: "CreateNodeInput.reason", omitempty: true)
+# @genqlient(for: "CreateNodeInput.properties", omitempty: true)
+# @genqlient(for: "CreateNodeInput.seq", omitempty: true)
+# @genqlient(for: "CreateNodeInput.tags", omitempty: true)
+mutation AuthorProtectedNode(
+  $input: CreateNodeInput!
+  # @genqlient(omitempty: true)
+  $upsert: Boolean
+) {
+  authorProtectedNode(input: $input, upsert: $upsert) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    tags
+    seq
+    isRunnable
+    updatedAt
+  }
+}
+
 # Update-only node write (spec 039 Phase 0). Target by `id` (PK or
 # fully-qualified node URN) XOR (`memoryId` + `loc`) — both or neither is
 # BAD_USER_INPUT; a miss is extensions.code NODE_NOT_FOUND (updateNode never

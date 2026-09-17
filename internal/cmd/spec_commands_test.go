@@ -547,10 +547,10 @@ func TestSpecRegisterCheckDrift(t *testing.T) {
 func TestSpecNew(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `]}}`
 	gql, captured := captureGraphQL(t, map[string]string{
-		"FindNodes":  scan,
-		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"msg:010:01 — Test","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
-		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:010:01"},"target":{"id":"t1","loc":"msg:010"}}}}`,
+		"FindNodes":           scan,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"msg:010:01 — Test","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn":          `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+		"CreateEdge":          `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:010:01"},"target":{"id":"t1","loc":"msg:010"}}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -570,7 +570,7 @@ func TestSpecNew(t *testing.T) {
 			Seq      *int            `json:"seq"`
 		} `json:"input"`
 	}
-	if err := json.Unmarshal(captured["CreateNode"], &up); err != nil {
+	if err := json.Unmarshal(captured["AuthorProtectedNode"], &up); err != nil {
 		t.Fatalf("CreateNode vars: %v", err)
 	}
 	if up.Input.Loc != "msg:010:01" {
@@ -626,11 +626,11 @@ func TestSpecNew(t *testing.T) {
 func TestSpecNewResolvesPKForEdgeTargets(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:010", `["spec"]`) + `,` + specNodeList("msg:010:00", `["spec"]`) + `]}}`
 	gql, captured := captureGraphQL(t, map[string]string{
-		"Memories":   memListMicromentorJSON,
-		"FindNodes":  scan,
-		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
-		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:010:01"},"target":{"id":"t1","loc":"msg:010"}}}}`,
+		"Memories":            memListMicromentorJSON,
+		"FindNodes":           scan,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn":          `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+		"CreateEdge":          `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:010:01"},"target":{"id":"t1","loc":"msg:010"}}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -659,9 +659,9 @@ func TestSpecNewResolvesPKForEdgeTargets(t *testing.T) {
 func TestSpecNewFailsLoudOnSkippedEdge(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:010", `["spec"]`) + `,` + specNodeList("msg:010:00", `["spec"]`) + `]}}`
 	gql, _ := captureGraphQL(t, map[string]string{
-		"FindNodes":  scan,
-		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"ResolveUrn": `{"data":{"resolveUrn":null}}`, // edge target won't resolve
+		"FindNodes":           scan,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn":          `{"data":{"resolveUrn":null}}`, // edge target won't resolve
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -770,7 +770,7 @@ func TestSpecNewDryRun(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if _, ok := captured["CreateNode"]; ok {
+	if _, ok := captured["AuthorProtectedNode"]; ok {
 		t.Error("dry-run must not call CreateNode")
 	}
 	if !strings.Contains(out.String(), "would create") {
@@ -934,9 +934,9 @@ func TestSpecDescribeDeclare(t *testing.T) {
 // ResolveUrn is mocked — every fresh node's edges must wire by id.
 func TestSpecNewPath(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"FindNodes":  `{"data":{"nodes":[]}}`,
-		"CreateNode": `{"data":{"createNode":{"id":"n1","memoryId":"mem1","loc":"x","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"n1","loc":"x"},"target":{"id":"n1","loc":"y"}}}}`,
+		"FindNodes":           `{"data":{"nodes":[]}}`,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"n1","memoryId":"mem1","loc":"x","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge":          `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"n1","loc":"x"},"target":{"id":"n1","loc":"y"}}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -969,9 +969,9 @@ func TestSpecNewPath(t *testing.T) {
 
 func TestSpecNewPathNoContract(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"FindNodes":  `{"data":{"nodes":[]}}`,
-		"CreateNode": `{"data":{"createNode":{"id":"n1","memoryId":"mem1","loc":"x","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"n1","loc":"x"},"target":{"id":"n1","loc":"y"}}}}`,
+		"FindNodes":           `{"data":{"nodes":[]}}`,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"n1","memoryId":"mem1","loc":"x","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge":          `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"n1","loc":"x"},"target":{"id":"n1","loc":"y"}}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1060,8 +1060,8 @@ func TestSpecNewPathTargetExists(t *testing.T) {
 
 func TestSpecNewProduct(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"FindNodes":  `{"data":{"nodes":[]}}`,
-		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"cli","name":"cli — Hadron CLI","nodeType":"info","tags":["spec","p0"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"FindNodes":           `{"data":{"nodes":[]}}`,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"new1","memoryId":"mem1","loc":"cli","name":"cli — Hadron CLI","nodeType":"info","tags":["spec","p0"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1074,7 +1074,7 @@ func TestSpecNewProduct(t *testing.T) {
 			Loc string `json:"loc"`
 		} `json:"input"`
 	}
-	_ = json.Unmarshal(captured["CreateNode"], &up)
+	_ = json.Unmarshal(captured["AuthorProtectedNode"], &up)
 	if up.Input.Loc != "cli" {
 		t.Errorf("product root loc = %q, want cli", up.Input.Loc)
 	}
@@ -1094,10 +1094,10 @@ func TestSpecNewProduct(t *testing.T) {
 func TestSpecNewProductModule(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("cli", `["spec","p0"]`) + `,` + specNodeList("cli:gen", `["spec","p0"]`) + `]}}`
 	gql, captured := captureGraphQL(t, map[string]string{
-		"FindNodes":  scan,
-		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"cli:cha","name":"cli:cha — chat","nodeType":"info","tags":["spec","p0"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
-		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"cli:cha"},"target":{"id":"t1","loc":"cli"}}}}`,
+		"FindNodes":           scan,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"new1","memoryId":"mem1","loc":"cli:cha","name":"cli:cha — chat","nodeType":"info","tags":["spec","p0"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn":          `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+		"CreateEdge":          `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"cli:cha"},"target":{"id":"t1","loc":"cli"}}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1110,7 +1110,7 @@ func TestSpecNewProductModule(t *testing.T) {
 			Loc string `json:"loc"`
 		} `json:"input"`
 	}
-	_ = json.Unmarshal(captured["CreateNode"], &up)
+	_ = json.Unmarshal(captured["AuthorProtectedNode"], &up)
 	if up.Input.Loc != "cli:cha" {
 		t.Errorf("module loc = %q, want cli:cha", up.Input.Loc)
 	}
@@ -1142,9 +1142,9 @@ func TestSpecNewProductModule(t *testing.T) {
 // features can inherit it) and wires its ToC edge to the new root.
 func TestSpecNewModuleAutoContract(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"FindNodes":  `{"data":{"nodes":[]}}`,
-		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"brd","name":"brd — Brand","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"c1","loc":"brd:000"},"target":{"id":"new1","loc":"brd"}}}}`,
+		"FindNodes":           `{"data":{"nodes":[]}}`,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"new1","memoryId":"mem1","loc":"brd","name":"brd — Brand","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge":          `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"c1","loc":"brd:000"},"target":{"id":"new1","loc":"brd"}}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1182,7 +1182,7 @@ func TestSpecNewModuleAutoContract(t *testing.T) {
 			Loc string `json:"loc"`
 		} `json:"input"`
 	}
-	_ = json.Unmarshal(captured["CreateNode"], &up)
+	_ = json.Unmarshal(captured["AuthorProtectedNode"], &up)
 	if up.Input.Loc != "brd:000" {
 		t.Errorf("the last create should be the contract brd:000, got %q", up.Input.Loc)
 	}
@@ -1190,8 +1190,8 @@ func TestSpecNewModuleAutoContract(t *testing.T) {
 
 func TestSpecNewNoContract(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"FindNodes":  `{"data":{"nodes":[]}}`,
-		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"brd","name":"brd — Brand","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"FindNodes":           `{"data":{"nodes":[]}}`,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"new1","memoryId":"mem1","loc":"brd","name":"brd — Brand","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1213,10 +1213,10 @@ func TestSpecNewNoContract(t *testing.T) {
 func TestSpecNewFeatureAutoContract(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:000", `["spec"]`) + `]}}`
 	gql, _ := captureGraphQL(t, map[string]string{
-		"FindNodes":  scan,
-		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010","name":"msg:010 — Palette","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
-		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:010"},"target":{"id":"t1","loc":"msg"}}}}`,
+		"FindNodes":           scan,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"new1","memoryId":"mem1","loc":"msg:010","name":"msg:010 — Palette","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn":          `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+		"CreateEdge":          `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:010"},"target":{"id":"t1","loc":"msg"}}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1242,10 +1242,10 @@ func TestSpecNewFeatureAutoContract(t *testing.T) {
 func TestSpecNewProductContract(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("cli", `["spec","p0"]`) + `]}}`
 	gql, captured := captureGraphQL(t, map[string]string{
-		"FindNodes":  scan,
-		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"cli:gen","name":"cli:gen — provisions","nodeType":"info","tags":["spec","p0"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
-		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"cli:gen"},"target":{"id":"t1","loc":"cli"}}}}`,
+		"FindNodes":           scan,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"new1","memoryId":"mem1","loc":"cli:gen","name":"cli:gen — provisions","nodeType":"info","tags":["spec","p0"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn":          `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+		"CreateEdge":          `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"cli:gen"},"target":{"id":"t1","loc":"cli"}}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -1258,7 +1258,7 @@ func TestSpecNewProductContract(t *testing.T) {
 			Loc string `json:"loc"`
 		} `json:"input"`
 	}
-	_ = json.Unmarshal(captured["CreateNode"], &up)
+	_ = json.Unmarshal(captured["AuthorProtectedNode"], &up)
 	if up.Input.Loc != "cli:gen" {
 		t.Errorf("product contract loc = %q, want cli:gen", up.Input.Loc)
 	}
@@ -1278,10 +1278,10 @@ func TestSpecNewReservedGenModule(t *testing.T) {
 func TestSpecNewModuleContract(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p0"]`) + `]}}`
 	gql, captured := captureGraphQL(t, map[string]string{
-		"FindNodes":  scan,
-		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:000","name":"msg:000 — provisions","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
-		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:000"},"target":{"id":"t1","loc":"msg"}}}}`,
+		"FindNodes":           scan,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"new1","memoryId":"mem1","loc":"msg:000","name":"msg:000 — provisions","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn":          `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+		"CreateEdge":          `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:000"},"target":{"id":"t1","loc":"msg"}}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -1294,7 +1294,7 @@ func TestSpecNewModuleContract(t *testing.T) {
 			Loc string `json:"loc"`
 		} `json:"input"`
 	}
-	_ = json.Unmarshal(captured["CreateNode"], &up)
+	_ = json.Unmarshal(captured["AuthorProtectedNode"], &up)
 	if up.Input.Loc != "msg:000" {
 		t.Errorf("module contract loc = %q, want msg:000", up.Input.Loc)
 	}
@@ -1675,13 +1675,13 @@ func TestSpecSupersedeRejectsNonSpecSource(t *testing.T) {
 
 func TestSpecSupersede(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveSpecJSON,
-		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
-		"FindNodes":  `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
-		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"UpdateNode": `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
+		"ResolveUrn":          resolveSpecJSON,
+		"GetNode":             `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":           specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":           `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"UpdateNode":          `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge":          `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1743,12 +1743,12 @@ func TestSpecSupersede(t *testing.T) {
 func TestSpecSupersedeOrphanedEdgeFailsLoud(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
 	responses := map[string]string{
-		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
-		"FindNodes":  scan,
-		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"UpdateNode": `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
+		"GetNode":             `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":           specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":           scan,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"UpdateNode":          `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge":          `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -1820,12 +1820,12 @@ func TestSpecSupersedeOrphanedEdgeFailsLoud(t *testing.T) {
 func TestSpecSupersedeRetirementEdgeFailureEmitsResult(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveSpecJSON,
-		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
-		"FindNodes":  scan,
-		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"CreateEdge": `{"errors":[{"message":"edge boom"}]}`,
+		"ResolveUrn":          resolveSpecJSON,
+		"GetNode":             `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":           specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":           scan,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge":          `{"errors":[{"message":"edge boom"}]}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1861,13 +1861,13 @@ func TestSpecSupersedeRetirementEdgeFailureEmitsResult(t *testing.T) {
 func TestSpecSupersedeRetireUpdateFailureEmitsRecoverableResult(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveSpecJSON,
-		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
-		"FindNodes":  scan,
-		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
-		"UpdateNode": `{"errors":[{"message":"update boom"}]}`,
+		"ResolveUrn":          resolveSpecJSON,
+		"GetNode":             `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":           specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":           scan,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge":          `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
+		"UpdateNode":          `{"errors":[{"message":"update boom"}]}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1903,7 +1903,7 @@ func TestSpecSupersedeRetryExistingRetirementEdgeFinishesUpdate(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("retry should finish old-node retirement: %v\n%s", err, out.String())
 	}
-	if _, ok := captured["CreateNode"]; ok {
+	if _, ok := captured["AuthorProtectedNode"]; ok {
 		t.Fatal("retry with existing superseded-by edge must not create another replacement")
 	}
 	if _, ok := captured["CreateEdge"]; ok {
@@ -1925,13 +1925,13 @@ func TestSpecSupersedeDoesNotReuseUnlinkedSameTitleSibling(t *testing.T) {
 		`{"id":"id-msg:010:03","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}` +
 		`]}}`
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveSpecJSON,
-		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
-		"FindNodes":  scan,
-		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:04","name":"msg:010:04 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:04"}}}}`,
-		"UpdateNode": `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn":          resolveSpecJSON,
+		"GetNode":             `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":           specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":           scan,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:04","name":"msg:010:04 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge":          `{"data":{"createEdge":{"id":"e1","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:04"}}}}`,
+		"UpdateNode":          `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1944,7 +1944,7 @@ func TestSpecSupersedeDoesNotReuseUnlinkedSameTitleSibling(t *testing.T) {
 			Loc string `json:"loc"`
 		} `json:"input"`
 	}
-	_ = json.Unmarshal(captured["CreateNode"], &created)
+	_ = json.Unmarshal(captured["AuthorProtectedNode"], &created)
 	if created.Input.Loc != "msg:010:04" {
 		t.Fatalf("same-title sibling should not be reused; created loc = %q, want msg:010:04", created.Input.Loc)
 	}
@@ -1962,13 +1962,13 @@ func TestSpecSupersedeTitleCollidesWithSpecialLabel(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
 	var createdEdgeLabels []string
 	responses := map[string]string{
-		"ResolveUrn": resolveSpecJSON, // every target resolves
-		"GetNode":    `{"data":{"node":` + cleanSpecDetail + `}}`,
-		"NodeBatch":  specLintRawBodyStub(cleanSpecDetail),
-		"FindNodes":  scan,
-		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — superseded-by","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"UpdateNode": `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"a","loc":"x"},"target":{"id":"b","loc":"y"}}}}`,
+		"ResolveUrn":          resolveSpecJSON, // every target resolves
+		"GetNode":             `{"data":{"node":` + cleanSpecDetail + `}}`,
+		"NodeBatch":           specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":           scan,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — superseded-by","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"UpdateNode":          `{"data":{"updateNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge":          `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"a","loc":"x"},"target":{"id":"b","loc":"y"}}}}`,
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -2076,12 +2076,12 @@ func extractScan() string {
 
 func extractMocks() map[string]string {
 	return map[string]string{
-		"FindNodes":  extractScan(),
-		"GetNode":    extractSrcDetail,
-		"ResolveUrn": `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
-		"CreateNode": `{"data":{"createNode":{"id":"new1","memoryId":"mem1","loc":"cor:dmo:020:04","name":"cor:dmo:020:04 — Node type","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"UpdateNode": `{"data":{"updateNode":{"id":"src1","memoryId":"mem1","loc":"cor:dmo:060:02","name":"cor:dmo:060:02 — Node","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"CreateEdge": `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"cor:dmo:020:04"},"target":{"id":"t1","loc":"cor:dmo:020"}}}}`,
+		"FindNodes":           extractScan(),
+		"GetNode":             extractSrcDetail,
+		"ResolveUrn":          `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+		"AuthorProtectedNode": `{"data":{"authorProtectedNode":{"id":"new1","memoryId":"mem1","loc":"cor:dmo:020:04","name":"cor:dmo:020:04 — Node type","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"UpdateNode":          `{"data":{"updateNode":{"id":"src1","memoryId":"mem1","loc":"cor:dmo:060:02","name":"cor:dmo:060:02 — Node","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateEdge":          `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"cor:dmo:020:04"},"target":{"id":"t1","loc":"cor:dmo:020"}}}}`,
 	}
 }
 
@@ -2130,7 +2130,7 @@ func TestSpecExtract(t *testing.T) {
 
 	// Only the create (no --strip-source) — no source update.
 	var up extractInput
-	if err := json.Unmarshal(captured["CreateNode"], &up); err != nil {
+	if err := json.Unmarshal(captured["AuthorProtectedNode"], &up); err != nil {
 		t.Fatalf("CreateNode vars: %v", err)
 	}
 	if up.Input.Loc != "cor:dmo:020:04" {
@@ -2254,7 +2254,7 @@ func TestSpecExtractStripSourceMiss(t *testing.T) {
 
 	// A miss leaves the source untouched: the create happens, no UpdateNode.
 	var up extractInput
-	if err := json.Unmarshal(captured["CreateNode"], &up); err != nil {
+	if err := json.Unmarshal(captured["AuthorProtectedNode"], &up); err != nil {
 		t.Fatalf("CreateNode vars: %v", err)
 	}
 	if up.Input.Loc != "cor:dmo:020:04" {
@@ -2286,7 +2286,7 @@ func TestSpecExtractDryRun(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if _, ok := captured["CreateNode"]; ok {
+	if _, ok := captured["AuthorProtectedNode"]; ok {
 		t.Error("dry-run must not call CreateNode")
 	}
 	if _, ok := captured["UpdateNode"]; ok {
@@ -2648,7 +2648,7 @@ func TestSpecEditDryRun(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if _, ok := captured["CreateNode"]; ok {
+	if _, ok := captured["AuthorProtectedNode"]; ok {
 		t.Error("dry-run must not call CreateNode")
 	}
 	if !strings.Contains(out.String(), "would update") {

@@ -210,11 +210,11 @@ chunk leaves the source alone with a warning.`,
 				Data:     specDataRaw(),
 				Seq:      specSeq(target),
 			}
-			up, err := gen.CreateNode(cmd.Context(), client, &input)
+			up, err := api.AuthorProtectedNode(cmd.Context(), client, &input, false)
 			if err != nil {
 				return api.MapError(err)
 			}
-			newID := up.CreateNode.Id
+			newID := up.Id
 
 			var edgeFailures []string
 			if !noEdges {

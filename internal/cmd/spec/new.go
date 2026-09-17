@@ -286,11 +286,11 @@ is one call instead of four.`, abstractSoftMax),
 				Data:     specDataRaw(),
 				Seq:      specSeq(target),
 			}
-			up, err := gen.CreateNode(cmd.Context(), client, &input)
+			up, err := api.AuthorProtectedNode(cmd.Context(), client, &input, false)
 			if err != nil {
 				return api.MapError(err)
 			}
-			newID := up.CreateNode.Id
+			newID := up.Id
 
 			var edgeFailures []string
 			if !noEdges {
@@ -323,12 +323,12 @@ is one call instead of four.`, abstractSoftMax),
 					Data:     specDataRaw(),
 					Seq:      specSeq(coContract.cit),
 				}
-				cUp, cErr := gen.CreateNode(cmd.Context(), client, &cInput)
+				cUp, cErr := api.AuthorProtectedNode(cmd.Context(), client, &cInput, false)
 				if cErr != nil {
 					return fmt.Errorf("created %s but its contract %s failed: %w", target.Format(), coContract.cit.Format(), api.MapError(cErr))
 				}
 				if !noEdges {
-					if _, eErr := gen.CreateEdge(cmd.Context(), client, cUp.CreateNode.Id, newID, coContract.title, nil, nil, nil, nil, nil, nil); eErr != nil {
+					if _, eErr := gen.CreateEdge(cmd.Context(), client, cUp.Id, newID, coContract.title, nil, nil, nil, nil, nil, nil); eErr != nil {
 						fmt.Fprintf(f.IOStreams.ErrOut, "warning: edge %q → %s failed: %v\n", coContract.title, target.Format(), api.MapError(eErr))
 						edgeFailures = append(edgeFailures, target.Format())
 					}
@@ -778,11 +778,11 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 			Abstract: &ab, Content: &bd, Data: specDataRaw(),
 			Seq: specSeq(pn.cit),
 		}
-		up, uerr := gen.CreateNode(cmd.Context(), client, &input)
+		up, uerr := api.AuthorProtectedNode(cmd.Context(), client, &input, false)
 		if uerr != nil {
 			return fmt.Errorf("scaffolding %s: %w", pn.cit.Format(), api.MapError(uerr))
 		}
-		srcID := up.CreateNode.Id
+		srcID := up.Id
 		created[pn.cit.Format()] = srcID
 		if noEdges {
 			continue

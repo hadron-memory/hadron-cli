@@ -190,25 +190,22 @@ existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + 
 				input.Seq = &seq
 			}
 
-			resp, err := gen.CreateNode(ctx, client, &input)
+			resp, err := api.AuthorProtectedNode(ctx, client, &input, false)
 			if err != nil {
 				return api.MapError(err)
-			}
-			if resp.CreateNode == nil {
-				return exitcode.Newf(exitcode.Error, "createNode returned no node")
 			}
 
 			// Step 6 of tasks:add-review-node — verify discoverability. The
 			// create response carries no edges, and an unwired check looks
 			// exactly like a wired one until a reviewer silently skips it.
-			edgeID, wired, err := confirmParentEdge(ctx, client, resp.CreateNode.Id, parent.Node.Id)
+			edgeID, wired, err := confirmParentEdge(ctx, client, resp.Id, parent.Node.Id)
 			if err != nil {
 				return err
 			}
 
 			dto := newCheckDTO{
-				Loc: resp.CreateNode.Loc, ID: resp.CreateNode.Id, Name: resp.CreateNode.Name,
-				Trigger: label, Tags: resp.CreateNode.Tags, Seq: resp.CreateNode.Seq,
+				Loc: resp.Loc, ID: resp.Id, Name: resp.Name,
+				Trigger: label, Tags: resp.Tags, Seq: resp.Seq,
 				Parent: root, EdgeID: edgeID, Links: outLinks,
 			}
 			if dto.Tags == nil {
