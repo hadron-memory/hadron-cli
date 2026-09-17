@@ -16342,8 +16342,10 @@ type SearchNodesFindNodesFindNodesResultHitsNodeHitNode struct {
 	Tags        []string `json:"tags"`
 	Description *string  `json:"description"`
 	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
-	Abstract  *string `json:"abstract"`
-	UpdatedAt string  `json:"updatedAt"`
+	Abstract   *string          `json:"abstract"`
+	UpdatedAt  string           `json:"updatedAt"`
+	Properties *json.RawMessage `json:"properties"`
+	Data       *json.RawMessage `json:"data"`
 }
 
 // GetId returns SearchNodesFindNodesFindNodesResultHitsNodeHitNode.Id, and is useful for accessing the field via an interface.
@@ -16375,6 +16377,16 @@ func (v *SearchNodesFindNodesFindNodesResultHitsNodeHitNode) GetAbstract() *stri
 // GetUpdatedAt returns SearchNodesFindNodesFindNodesResultHitsNodeHitNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *SearchNodesFindNodesFindNodesResultHitsNodeHitNode) GetUpdatedAt() string {
 	return v.UpdatedAt
+}
+
+// GetProperties returns SearchNodesFindNodesFindNodesResultHitsNodeHitNode.Properties, and is useful for accessing the field via an interface.
+func (v *SearchNodesFindNodesFindNodesResultHitsNodeHitNode) GetProperties() *json.RawMessage {
+	return v.Properties
+}
+
+// GetData returns SearchNodesFindNodesFindNodesResultHitsNodeHitNode.Data, and is useful for accessing the field via an interface.
+func (v *SearchNodesFindNodesFindNodesResultHitsNodeHitNode) GetData() *json.RawMessage {
+	return v.Data
 }
 
 // SearchNodesFindNodesFindNodesResultHitsNodeHitVectorNodeVectorMeta includes the requested fields of the GraphQL type NodeVectorMeta.
@@ -24707,15 +24719,17 @@ func (v *__ScopesInput) GetOrgId() *string { return v.OrgId }
 
 // __SearchNodesInput is used internally by genqlient
 type __SearchNodesInput struct {
-	Query        string                     `json:"query"`
-	Mode         *FindNodesMode             `json:"mode,omitempty"`
-	Filter       *NodeFilter                `json:"filter,omitempty"`
-	SortProperty *gqltypes.NodePropertySort `json:"sortProperty,omitempty"`
-	Limit        *int                       `json:"limit,omitempty"`
-	Offset       *int                       `json:"offset,omitempty"`
-	Scope        *string                    `json:"scope,omitempty"`
-	AppRef       *string                    `json:"appRef,omitempty"`
-	OrgId        *string                    `json:"orgId,omitempty"`
+	Query          string                     `json:"query"`
+	Mode           *FindNodesMode             `json:"mode,omitempty"`
+	Filter         *NodeFilter                `json:"filter,omitempty"`
+	SortProperty   *gqltypes.NodePropertySort `json:"sortProperty,omitempty"`
+	Limit          *int                       `json:"limit,omitempty"`
+	Offset         *int                       `json:"offset,omitempty"`
+	Scope          *string                    `json:"scope,omitempty"`
+	AppRef         *string                    `json:"appRef,omitempty"`
+	OrgId          *string                    `json:"orgId,omitempty"`
+	WithProperties bool                       `json:"withProperties"`
+	WithData       bool                       `json:"withData"`
 }
 
 // GetQuery returns __SearchNodesInput.Query, and is useful for accessing the field via an interface.
@@ -24744,6 +24758,12 @@ func (v *__SearchNodesInput) GetAppRef() *string { return v.AppRef }
 
 // GetOrgId returns __SearchNodesInput.OrgId, and is useful for accessing the field via an interface.
 func (v *__SearchNodesInput) GetOrgId() *string { return v.OrgId }
+
+// GetWithProperties returns __SearchNodesInput.WithProperties, and is useful for accessing the field via an interface.
+func (v *__SearchNodesInput) GetWithProperties() bool { return v.WithProperties }
+
+// GetWithData returns __SearchNodesInput.WithData, and is useful for accessing the field via an interface.
+func (v *__SearchNodesInput) GetWithData() bool { return v.WithData }
 
 // __SearchReplaceInNodesInput is used internally by genqlient
 type __SearchReplaceInNodesInput struct {
@@ -32337,7 +32357,7 @@ func Scopes(
 
 // The query executed by SearchNodes.
 const SearchNodes_Operation = `
-query SearchNodes ($query: String!, $mode: FindNodesMode, $filter: NodeFilter, $sortProperty: NodePropertySort, $limit: Int, $offset: Int, $scope: String, $appRef: ID, $orgId: ID) {
+query SearchNodes ($query: String!, $mode: FindNodesMode, $filter: NodeFilter, $sortProperty: NodePropertySort, $limit: Int, $offset: Int, $scope: String, $appRef: ID, $orgId: ID, $withProperties: Boolean!, $withData: Boolean!) {
 	findNodes(query: $query, mode: $mode, filter: $filter, sortProperty: $sortProperty, limit: $limit, offset: $offset, scope: $scope, appRef: $appRef, orgId: $orgId) {
 		total
 		degraded
@@ -32365,6 +32385,8 @@ query SearchNodes ($query: String!, $mode: FindNodesMode, $filter: NodeFilter, $
 				description
 				abstract
 				updatedAt
+				properties @include(if: $withProperties)
+				data @include(if: $withData)
 			}
 		}
 	}
@@ -32396,20 +32418,24 @@ func SearchNodes(
 	scope *string,
 	appRef *string,
 	orgId *string,
+	withProperties bool,
+	withData bool,
 ) (data_ *SearchNodesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "SearchNodes",
 		Query:  SearchNodes_Operation,
 		Variables: &__SearchNodesInput{
-			Query:        query,
-			Mode:         mode,
-			Filter:       filter,
-			SortProperty: sortProperty,
-			Limit:        limit,
-			Offset:       offset,
-			Scope:        scope,
-			AppRef:       appRef,
-			OrgId:        orgId,
+			Query:          query,
+			Mode:           mode,
+			Filter:         filter,
+			SortProperty:   sortProperty,
+			Limit:          limit,
+			Offset:         offset,
+			Scope:          scope,
+			AppRef:         appRef,
+			OrgId:          orgId,
+			WithProperties: withProperties,
+			WithData:       withData,
 		},
 	}
 

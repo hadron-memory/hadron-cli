@@ -134,7 +134,7 @@ hadron asset list -m <memory> [--mine] [--mime <type>] [--include-deleted] [--li
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
 hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--reply-to <loc>] [--handle <h>] [--identity <i>] [--role <r>]
 hadron channel list [--owner-app <ref>] [-m <memory>] | get <id|address> | create <name> -m <memory> --loc <loc> [--description <d>] | update <id|address> [--name <n>] [--description <d>] | rm <id|address> [--yes] | read <id|address> [--since <seq>] [--before <seq>] [--limit N] [--offset N] [--mentions <ref>] | post <id|address> <body|-> (--session <id> | --as-me) [--reply-to <seq>] | mark-read <id|address> --attendee <ref> --seq N [--owner-app <ref>] | read-state <id|address> --attendee <ref> [--owner-app <ref>]   # post REQUIRES --session or --as-me (the server records the human silently otherwise); read --since is strictly-greater and the output reports nextSince; a ref is the Channel id OR its address (chatRootUrn, printed by list); chatRootUrn is NULL for some Channels — the id always works.
-hadron search <query> [-m <memory>]... [--scope <name|id|app|global>] [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--limit N] [--offset N] [-l|--long] [--json]
+hadron search <query> [-m <memory>]... [--scope <name|id|app|global>] [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
 hadron edge list <node-urn> | <loc> -m <memory> | <node-id> [--direction incoming|outgoing] [--name <substr>] [--to <ref>] [--from <ref>] | add | update <edge-id> | rm <edge-id>
 hadron spec list [-m <memory>] | get <citation>|--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new ... | edit <citation> | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> | import spec-kit|code
@@ -523,16 +523,18 @@ Conventions:
   **Run a positive control** before concluding a zero is real: re-ask for a key
   you have already seen on a node with `node get`. A zero that survives a
   positive control is a finding; a zero that does not is an instrument fault.
-- **`node list --with-properties` / `--with-data` project those columns**
-  (#602), so a listing can show the field it just filtered on. Opt-in, because a
-  listing is a thin index and a large result with full envelopes is a much bigger
-  payload. Without them the row shape is exactly what it has always been — the
-  keys are ABSENT, not null. With them the key is always PRESENT, carrying
-  `null` when the node's column is empty: an absent key means "you did not ask",
-  a null means "asked, and there is none", and those are different answers. In
-  text output either flag replaces the table with a per-node block, since a
-  column would have to truncate the JSON. `node get` already returns both
-  columns and is unchanged.
+- **`--with-properties` / `--with-data` project those columns** (#602), on
+  BOTH `node list` and `search`, so the command that filtered on a field can
+  show it. Opt-in, because a listing is a thin index and a large result with
+  full envelopes is a much bigger payload; independent, so `--with-data` does
+  not drag `properties` along. Without them the row shape is exactly what it has
+  always been — the keys are ABSENT, not null. With them the key is always
+  PRESENT, carrying `null` when the node's column is empty: **an absent key
+  means "you did not ask", a null means "asked, and there is none"**, and those
+  are different answers. In text output either flag replaces the table with a
+  per-node block, since a column would have to truncate the JSON; on `search`
+  that block omits abstracts unless you also pass `--long`. `node get` already
+  returns both columns and is unchanged.
 - `isRunnable` gates whether `hadron task run` will execute a node. Both
   `node add` and `node update` take `--runnable` to set it; on `update` it's
   tri-state — `--runnable` sets true, `--runnable=false` clears it, omitting it

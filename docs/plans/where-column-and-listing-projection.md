@@ -104,9 +104,13 @@ untouched while the caveat still arrives.
 
 ## #602 — project the column you just filtered on
 
-`--with-properties` / `--with-data` on `node list`. Named after the two columns
-`--where`'s `field` key names, because the symmetry *is* the fix: a command that
-lets you ask about a field should let you see it.
+`--with-properties` / `--with-data` on **`node list` and `search`**. Named after
+the two columns `--where`'s `field` key names, because the symmetry *is* the
+fix: a command that lets you ask about a field should let you see it — and both
+commands offer `--where`, so both owed the answer.
+
+(This shipped on `node list` first, with `search` raised for the coordinator
+rather than widened unilaterally. @Holger dispatched it directly.)
 
 **Opt-in**, per the issue's own preference. A listing is a thin index, and a
 500-row chat listing with full envelopes is a much larger payload. Not projected
@@ -165,10 +169,17 @@ prints `null` rather than being skipped, for the reason above.
   store's flat projection of a node") and which already returns those fields
   flat. Defaulting to `properties` is correct there, so the note would be a
   false warning and the projection is already present.
-- **`search` gets #603 but not #602.** The note and help apply — the reported
-  reproduction was a `search --where`. Projection on a *relevance* surface is
-  neither issue's ask, and widening scope unilaterally is not mine to do; raised
-  for the coordinator instead.
+- **`search` carries both halves**, on @Holger's dispatch. One extra design
+  question there: `--long` and the projection flags reach the same block
+  renderer but ask for different things, so each half is gated separately.
+  `--with-data` alone prints the columns and NOT abstracts — a flag that quietly
+  turns on a neighbour's output is the "output shape changed because of an
+  unrelated flag" surprise this change declined to introduce elsewhere.
+- **`rawOrNull` became `cmdutil.ProjectedColumn`** once a second command needed
+  it. The three-state rule is subtle enough that two copies would drift, and the
+  helper deliberately does NOT take the flag — so every call site has to decide
+  for itself that the column was requested, which is the decision that must not
+  be made from the wire value.
 
 ## Verification
 

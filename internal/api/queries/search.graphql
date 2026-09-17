@@ -54,6 +54,13 @@ query SearchNodes(
   # omitempty: sending null is not the same as not naming an organization.
   # @genqlient(omitempty: true)
   $orgId: ID
+  # The two JSONB columns, opt-in and independent (#602) — the read half of
+  # --where's `field` key, which names exactly these two. Separate variables so
+  # --with-data fetches data ALONE; `Boolean!` because @include(if:) takes a
+  # non-null argument. genqlient renders the selected fields as
+  # *json.RawMessage, nil when not selected.
+  $withProperties: Boolean!
+  $withData: Boolean!
 ) {
   findNodes(
     query: $query
@@ -97,6 +104,8 @@ query SearchNodes(
         description
         abstract
         updatedAt
+        properties @include(if: $withProperties)
+        data @include(if: $withData)
       }
     }
   }

@@ -1,6 +1,8 @@
 package search
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -15,17 +17,34 @@ import (
 )
 
 // hitDTO is the stable --json shape of one search hit.
+//
+// Properties and Data arrive only when --with-properties / --with-data asked
+// for them (#602). NON-POINTER json.RawMessage, deliberately, and for the same
+// reason as node list's row: the key must distinguish three states, and a
+// pointer collapses two of them —
+//
+//	not requested      -> key ABSENT   (nil, len 0 — omitempty drops it)
+//	requested, a value -> key = value
+//	requested, null    -> key = null   (the 4-byte literal, len 4 — survives)
+//
+// encoding/json sets a *RawMessage to nil for a JSON `null`, so a pointer would
+// make a requested-but-null column vanish exactly as an unrequested one does,
+// and a caller could not tell "this node has none" from "you did not ask".
+// The FLAG therefore decides what is present here, never the returned value:
+// on the wire an unselected column and a selected-null one are identical.
 type hitDTO struct {
-	Score         *float64 `json:"score"`
-	MemoryID      string   `json:"memoryId"`
-	Loc           string   `json:"loc"`
-	Name          string   `json:"name"`
-	NodeType      string   `json:"nodeType"`
-	Tags          []string `json:"tags"`
-	Description   *string  `json:"description"`
-	Abstract      *string  `json:"abstract"`
-	AbstractStale bool     `json:"abstractStale,omitempty"`
-	UpdatedAt     string   `json:"updatedAt"`
+	Score         *float64        `json:"score"`
+	MemoryID      string          `json:"memoryId"`
+	Loc           string          `json:"loc"`
+	Name          string          `json:"name"`
+	NodeType      string          `json:"nodeType"`
+	Tags          []string        `json:"tags"`
+	Description   *string         `json:"description"`
+	Abstract      *string         `json:"abstract"`
+	AbstractStale bool            `json:"abstractStale,omitempty"`
+	UpdatedAt     string          `json:"updatedAt"`
+	Properties    json.RawMessage `json:"properties,omitempty"`
+	Data          json.RawMessage `json:"data,omitempty"`
 }
 
 // resultDTO is the stable --json envelope: hits plus the retrieval-quality
@@ -78,6 +97,9 @@ func NewCmdSearch(f *cmdutil.Factory) *cobra.Command {
 		limit      int
 		offset     int
 		long       bool
+
+		withProperties bool
+		withData       bool
 	)
 	cmd := &cobra.Command{
 		Use:   "search <query>",
@@ -97,6 +119,11 @@ Each hit carries a score plus the node's description and abstract (--json),
 so results are assessable without a follow-up 'node get' per hit. --long
 prints abstracts in the text output too.
 
+--with-properties / --with-data add those columns to each hit, so a search can
+show the field it just filtered on. They are opt-in because a large result with
+full envelopes is a much bigger payload. In text output either flag switches
+the table for a per-hit block; combine with --long to get abstracts as well.
+
 --where takes a JSON predicate over one of the node's two JSONB columns (a leaf
 is a path plus one of eq|ne|in|lt|lte|gt|gte|between|exists|contains; branch
 with and/or/not). A leaf reads "properties" UNLESS it sets "field":"data" — so
@@ -109,7 +136,7 @@ same "field" key and the same default, and overrides relevance.
   hadron search "(auth OR login) AND token" --mode keyword --prefix findings:
   hadron search 'reportUser|contentConcern' --mode regex --limit 30
   hadron search "pricing" --object-type insight --where '{"path":["source"],"eq":"substack"}'
-  hadron search "standup" --where '{"field":"data","path":["authorName"],"exists":true}'
+  hadron search "standup" --where '{"field":"data","path":["authorName"],"exists":true}' --with-data
   hadron search "roadmap" --sort-property '{"path":["rank"],"as":"number","direction":"desc"}'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -222,7 +249,7 @@ same "field" key and the same default, and overrides relevance.
 				}
 			}
 
-			page, err := api.SearchNodes(cmd.Context(), client, query, modeArg, filterArg, sortPropArg, limitArg, offsetArg, scopeArg, orgArg, appArg)
+			page, err := api.SearchNodesProjected(cmd.Context(), client, query, modeArg, filterArg, sortPropArg, limitArg, offsetArg, scopeArg, orgArg, appArg, withProperties, withData)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -270,7 +297,7 @@ same "field" key and the same default, and overrides relevance.
 				}
 			}
 			for _, h := range page.Hits {
-				result.Hits = append(result.Hits, hitDTO{
+				hit := hitDTO{
 					Score:         h.Score,
 					MemoryID:      h.Node.MemoryId,
 					Loc:           h.Node.Loc,
@@ -281,7 +308,17 @@ same "field" key and the same default, and overrides relevance.
 					Abstract:      h.Node.Abstract,
 					AbstractStale: h.AbstractStale,
 					UpdatedAt:     h.Node.UpdatedAt,
-				})
+				}
+				// Keyed off the FLAG, not off whether the server sent a value:
+				// an unselected column and a selected-but-null one both arrive
+				// as a nil pointer, so only the flag knows which was asked for.
+				if withProperties {
+					hit.Properties = cmdutil.ProjectedColumn(h.Node.Properties)
+				}
+				if withData {
+					hit.Data = cmdutil.ProjectedColumn(h.Node.Data)
+				}
+				result.Hits = append(result.Hits, hit)
 			}
 
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
@@ -293,8 +330,12 @@ same "field" key and the same default, and overrides relevance.
 						return err
 					}
 				}
-				if long {
-					return writeLong(w, result.Hits)
+				// Either projection flag forces the block layout, for the
+				// same reason as node list: a table column would have to
+				// truncate an arbitrarily long JSON value, which is the same
+				// defect as not showing it, wearing the look of an answer.
+				if long || withProperties || withData {
+					return writeBlocks(w, result.Hits, long)
 				}
 				t := output.NewTable(w, "SCORE", "LOC", "NAME")
 				for _, h := range result.Hits {
@@ -319,6 +360,8 @@ same "field" key and the same default, and overrides relevance.
 	cmd.Flags().IntVar(&limit, "limit", 15, "maximum number of hits (0 = server default)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset")
 	cmd.Flags().BoolVarP(&long, "long", "l", false, "per-hit block output including description/abstract")
+	cmd.Flags().BoolVar(&withProperties, "with-properties", false, "include each hit's properties JSONB in the output")
+	cmd.Flags().BoolVar(&withData, "with-data", false, "include each hit's data JSONB in the output")
 	return cmd
 }
 
@@ -348,7 +391,14 @@ func formatScore(score *float64) string {
 	return fmt.Sprintf("%.3f", *score)
 }
 
-func writeLong(w io.Writer, hits []hitDTO) error {
+// writeBlocks renders the per-hit block layout. Two different flags reach it
+// and they ask for different things, so each half is gated separately:
+// --long wants the abstract/description, --with-properties/--with-data want the
+// JSONB columns. Passing --with-data alone must NOT start printing abstracts —
+// that is --long's job, and a flag that quietly turns on a neighbour's output
+// is the "output shape changed because of an unrelated flag" surprise this PR
+// declined to introduce elsewhere.
+func writeBlocks(w io.Writer, hits []hitDTO, showAbout bool) error {
 	for i, h := range hits {
 		if i > 0 {
 			if _, err := fmt.Fprintln(w); err != nil {
@@ -358,24 +408,53 @@ func writeLong(w io.Writer, hits []hitDTO) error {
 		if _, err := fmt.Fprintf(w, "%s  %s  %s\n", formatScore(h.Score), h.Loc, h.Name); err != nil {
 			return err
 		}
-		about := ""
-		if h.Abstract != nil && strings.TrimSpace(*h.Abstract) != "" {
-			about = strings.TrimSpace(*h.Abstract)
-			if h.AbstractStale {
-				about += "\n  (abstract may be stale)"
-			}
-		} else if h.Description != nil && strings.TrimSpace(*h.Description) != "" {
-			about = strings.TrimSpace(*h.Description)
-		}
-		if about != "" {
-			for _, line := range strings.Split(about, "\n") {
-				if _, err := fmt.Fprintf(w, "  %s\n", line); err != nil {
-					return err
+		if showAbout {
+			about := ""
+			if h.Abstract != nil && strings.TrimSpace(*h.Abstract) != "" {
+				about = strings.TrimSpace(*h.Abstract)
+				if h.AbstractStale {
+					about += "\n  (abstract may be stale)"
 				}
+			} else if h.Description != nil && strings.TrimSpace(*h.Description) != "" {
+				about = strings.TrimSpace(*h.Description)
+			}
+			if about != "" {
+				for _, line := range strings.Split(about, "\n") {
+					if _, err := fmt.Fprintf(w, "  %s\n", line); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		// A column that was requested but is null prints `null` rather than
+		// being skipped: an absent line reads as "not requested", which is the
+		// ambiguity the projection exists to remove. The DTO already encodes
+		// that distinction, so length is the test and the flags are not needed.
+		for _, col := range []struct {
+			label string
+			raw   json.RawMessage
+		}{{"properties", h.Properties}, {"data", h.Data}} {
+			if len(col.raw) == 0 {
+				continue
+			}
+			if _, err := fmt.Fprintf(w, "  %s: %s\n", col.label, compactJSON(col.raw)); err != nil {
+				return err
 			}
 		}
 	}
 	return nil
+}
+
+// compactJSON strips insignificant whitespace so one column is one line. A
+// value json.Compact cannot parse is returned VERBATIM rather than dropped or
+// error-rendered: it came off the wire as the node's stored column, and showing
+// it as-is is strictly more informative than showing nothing.
+func compactJSON(raw json.RawMessage) string {
+	var buf bytes.Buffer
+	if err := json.Compact(&buf, raw); err != nil {
+		return string(raw)
+	}
+	return buf.String()
 }
 
 func degradedNote(degraded, reason *string) string {

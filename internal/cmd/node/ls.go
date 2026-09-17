@@ -51,16 +51,6 @@ type nodeListDTO struct {
 	Data       json.RawMessage `json:"data,omitempty"`
 }
 
-// rawOrNull renders a requested-but-absent JSONB column as the explicit JSON
-// null literal, so the key stays present. Only ever called when the flag asked
-// for the column.
-func rawOrNull(raw *json.RawMessage) json.RawMessage {
-	if raw == nil || len(*raw) == 0 {
-		return json.RawMessage("null")
-	}
-	return *raw
-}
-
 // lsPageSize bounds one page of the exhaustive browse scan. The server caps an
 // unspecified limit at its default page and drops the rest (#23), so any
 // "whole-collection" listing — here, --seq-gt / --sort-seq, which filter and
@@ -288,10 +278,10 @@ output either flag switches the table for a per-node block.`,
 				// as a nil pointer, so the response cannot tell them apart and
 				// only the flag knows which was asked for (#602).
 				if withProperties {
-					row.Properties = rawOrNull(n.Properties)
+					row.Properties = cmdutil.ProjectedColumn(n.Properties)
 				}
 				if withData {
-					row.Data = rawOrNull(n.Data)
+					row.Data = cmdutil.ProjectedColumn(n.Data)
 				}
 				nodes = append(nodes, row)
 			}
