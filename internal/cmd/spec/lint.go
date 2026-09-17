@@ -102,7 +102,14 @@ supersede-level split. On a product, module or feature the abstract is an INDEX
 of its children, so carrying many subjects is its job and a split is not even
 available — it cannot move the children, because a citation is never renumbered.
 There, length means the abstract is restating its children instead of routing to
-them, and the fix is to rewrite it as one clause per child.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
+them, and the fix is to rewrite it as one clause per child.
+
+A corpus scope (--all/--prefix/--product/--module) additionally checks that an
+index-tier spec CITES each of its children in its BODY (rule index-incomplete,
+warning). The two surfaces divide the work: the abstract routes by DESCRIBING
+subjects, for retrieval; the body indexes by CITING children. The full citation,
+the last two atoms, or the colon-leaf form all count, and a struck entry for a
+superseded child counts as cited.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
 		Example: `  hadron spec lint msg:010:02 -m hrn:mem:micromentor.org:platform-specs
   hadron spec lint --prefix cor:api:140 -m hrn:mem:hadronmemory.com:specs
   hadron spec lint --module msg -m hrn:mem:micromentor.org:platform-specs
@@ -536,6 +543,11 @@ func lintCorpus(nodes []specNode, scopeRoot, memURN string) []lintFindingDTO {
 			}
 		}
 	}
+
+	// #605's second half: an index-tier spec must cite its children in its body.
+	// Cross-node by nature — it is a statement about a node's children — so it
+	// lives here rather than in lintNode. See lintindex.go.
+	fs = append(fs, indexIncompleteFindings(nodes)...)
 
 	// Hygiene: a memory should be all-flat or all-product, never both.
 	if len(productCodes) > 0 && len(flatCodes) > 0 {

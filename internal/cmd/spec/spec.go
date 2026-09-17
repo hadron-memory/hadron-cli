@@ -1019,7 +1019,13 @@ type specNode struct {
 	// review, @copilot). Every staleness comparison is gated on this.
 	ContentIsRaw bool
 	DataVersion  string // data.version, "" if absent/unparseable
-	OutEdges     []specEdge
+	// UpdatedAt is the server's RFC3339 timestamp, carried only so
+	// `index-incomplete` can tell the two drift classes apart: a child edited
+	// AFTER its index means the list fell behind, while one that already existed
+	// means the list was rewritten and still left it out. Both node queries
+	// already select it, so this costs nothing on the wire.
+	UpdatedAt string
+	OutEdges  []specEdge
 }
 
 func nodeFromGQL(n *gen.GetNodeNode) specNode {
@@ -1031,6 +1037,7 @@ func nodeFromGQL(n *gen.GetNodeNode) specNode {
 		Abstract:           n.Abstract,
 		AbstractOriginHash: n.AbstractOriginHash,
 		Content:            n.Content,
+		UpdatedAt:          n.UpdatedAt,
 	}
 	if n.Data != nil {
 		var d struct {
@@ -1061,6 +1068,7 @@ func nodeFromBatch(n *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) specNode {
 		AbstractOriginHash: n.AbstractOriginHash,
 		Content:            n.Content,
 		ContentIsRaw:       true, // the batch read does not compile templates
+		UpdatedAt:          n.UpdatedAt,
 	}
 	if n.Data != nil {
 		var d struct {

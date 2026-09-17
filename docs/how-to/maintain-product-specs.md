@@ -186,6 +186,42 @@ nothing).
 Flows (`:NN:NN`) inherit their rule's scenarios and stay terse — they scaffold
 only the mandatory rubric.
 
+## The index rubric (module and feature tier)
+
+A module or feature node is not a rule — it is an **index of its children**, and
+the two fields it carries divide that work between them. Both halves are
+enforced, by different rules, and they are not interchangeable:
+
+| field | job | enforced by |
+| --- | --- | --- |
+| **abstract** | ROUTE by *describing* subjects — one clause per child, naming what that child is | `abstract-length` (an index that RESTATES its children instead of routing to them runs long) |
+| **body** | INDEX by *citing* children — one entry per child, carrying its loc | `index-incomplete` |
+
+Keep citations out of the abstract. It is the embedded retrieval surface, a loc
+string means nothing to an embedding, and the characters it spends count against
+the 2000-char cap `abstract-length` already errors on — so the two signals would
+fight. Cite in the body.
+
+Any of three spellings satisfies the body index, and all three are in live use:
+
+```markdown
+- [`cor:acl:010`](hrn:node:hadronmemory.com:specs:cor:acl:010) — full citation
+- **[010 Memory access](hrn:node:hadronmemory.com:specs:cor:acl:010)** — full citation in the link target
+- **`:01` Who may impersonate** — colon-leaf, once the node's own citation sets the prefix
+```
+
+A **struck** entry for a superseded child still counts — a withdrawal correctly
+recorded is not a gap, and dropping the child from the list is:
+
+```markdown
+- ~~[`cor:agt:020:06`](hrn:node:hadronmemory.com:specs:cor:agt:020:06)~~ — **superseded** (rescinded 2026-08-14, no successor)
+```
+
+The check runs only in a corpus scope (`--all`, `--prefix`, `--product`,
+`--module`), since it is a statement about a node's children. The product root
+and the rule tier are out of scope, and so is a general-provisions contract —
+it is inherited by its siblings rather than indexing anything.
+
 ## Navigating and validating
 
 ```sh
@@ -208,7 +244,11 @@ content|abstract`, `--prefix` to scope.
 
 `lint` enforces the rubric (abstract + "what invalidates"), the citation shape,
 parent existence, inheritance edges to the tier contract, and the
-**one-arity-per-memory** rule.
+**one-arity-per-memory** rule. A corpus scope adds `index-incomplete` — an
+index-tier spec whose body omits a child's citation (see *The index rubric*
+above); the warning names the uncited locs, and says whether each one was edited
+after the index (the list fell behind) or already existed when the index was
+last written (the list was touched and the child left out).
 
 Use `hadron spec use $M` when you are repeatedly maintaining the same corpus.
 It writes `spec_memory` to your user config (for example,
