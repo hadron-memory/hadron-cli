@@ -177,3 +177,32 @@ func TestWhereDefaultColumnNoteSilentWhenTotalUnknown(t *testing.T) {
 		t.Error("a known zero must still warn — otherwise this test proves nothing")
 	}
 }
+
+// Both shared usage strings must NAME the default column and SHOW `field` in
+// their example (@copilot, PR #604). The sort-property one shipped without it
+// while the PR description claimed otherwise — a claim about my own help text,
+// written without reading it, which is the same shape as the defect the flags
+// are being changed to fix. Pinned here so the claim and the string cannot
+// drift apart again.
+func TestSharedFlagUsageShowsTheColumnKey(t *testing.T) {
+	for name, usage := range map[string]string{
+		"WhereFlagUsage":        WhereFlagUsage,
+		"SortPropertyFlagUsage": SortPropertyFlagUsage,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if !strings.Contains(usage, `"properties"`) {
+				t.Errorf("%s must name the default column: %s", name, usage)
+			}
+			// In the EXAMPLE, not merely in the prose: a reader copies the
+			// example, and the old one steered them straight at the default
+			// without ever showing the key existed.
+			open := strings.Index(usage, "'{")
+			if open < 0 {
+				t.Fatalf("%s has no JSON example: %s", name, usage)
+			}
+			if example := usage[open:]; !strings.Contains(example, `"field"`) {
+				t.Errorf("%s's example must show the field key, got %s", name, example)
+			}
+		})
+	}
+}

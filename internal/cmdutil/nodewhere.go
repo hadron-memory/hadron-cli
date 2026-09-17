@@ -26,7 +26,7 @@ const (
 	WhereFlagUsage = `structured predicate over one JSONB column — "properties" unless a leaf sets "field":"data"` +
 		` (e.g. '{"field":"data","path":["authorName"],"exists":true}')`
 	SortPropertyFlagUsage = `order by a JSON path in one JSONB column — same "field" key and "properties" default as --where` +
-		` (e.g. '{"path":["rank"],"as":"number","direction":"desc"}')`
+		` (e.g. '{"field":"data","path":["rank"],"as":"number","direction":"desc"}')`
 )
 
 // rejectTrailing fails if anything other than whitespace follows the value the
