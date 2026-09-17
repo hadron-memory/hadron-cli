@@ -99,3 +99,109 @@ func TestWhereColumnNoteSilentWithoutWhere(t *testing.T) {
 		t.Errorf("no --where must produce no note, got %q", note)
 	}
 }
+
+// @codex, PR #604: the note must key off what the PREDICATE matched, never off
+// the rows that survived to the screen. Anything that narrows the result AFTER
+// the predicate — `--offset` past the last row, `node list`'s client-side
+// `--seq-gt` — empties the output while the predicate matched plenty. A note
+// there tells a caller whose paging was wrong to go and query a different
+// column: a confident wrong answer about their data, which is the exact failure
+// this note exists to prevent, aimed the other way.
+func TestWhereColumnNoteDoesNotFireOnAnEmptyPage(t *testing.T) {
+	// An empty page is what the server returns for an --offset past the end.
+	// `total` is null here ON PURPOSE: that is what the real server sends even
+	// when rows match, so a fixture carrying a helpful total would test a
+	// server we do not have.
+	const matchedButPagedPast = `{"data":{"findNodes":{"total":null,"degraded":null,"reason":null,"hits":[]}}}`
+
+	cases := []struct {
+		name string
+		args []string
+		op   string
+		resp string
+	}{
+		{"node ls --offset past the end",
+			[]string{"node", "ls", "-m", "acme.com::kb", "--offset", "500", "--json"},
+			"FindNodes", matchedButPagedPast},
+		{"search --offset past the end",
+			[]string{"search", "identity", "--offset", "500", "--json"},
+			"SearchNodes", matchedButPagedPast},
+		// The client-side filter: the server DID return the matching rows, and
+		// --seq-gt then discarded every one of them. Exercises the seq path,
+		// where the total has to be captured inside the pagination loop.
+		{"node ls --seq-gt filters every matched row",
+			[]string{"node", "ls", "-m", "acme.com::kb", "--seq-gt", "9999", "--json"},
+			"FindNodes", `{"data":{"nodes":[` + projNodeJSON + `]}}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, _ := captureGraphQL(t, map[string]string{tc.op: tc.resp})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			args := append([]string{}, tc.args...)
+			args = append(args, "--where", `{"path":["identity"],"exists":true}`, "--server", gql.URL)
+			root.SetArgs(args)
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			// The premise: the displayed result really is empty, so a note keyed
+			// off the row count WOULD have fired here. Without this the test
+			// could pass because nothing was empty at all.
+			if strings.Contains(out.String(), `"loc"`) {
+				t.Fatalf("this case must display no rows, or it does not test what it claims:\n%s", out.String())
+			}
+			if note := stderrOf(t, f); strings.Contains(note, `"field":"data"`) {
+				t.Errorf("the predicate matched rows; paging emptied the page. Must not warn, got %q", note)
+			}
+		})
+	}
+}
+
+// The seq path needs its own POSITIVE case, and the mutation that proved it is
+// worth recording: deleting the total-capture inside the pagination loop left
+// every seq-mode test green. It had to — with no total captured the note can
+// never fire, and the case above asserts it does not fire. The two agree for
+// opposite reasons, so that case alone pins nothing about the capture.
+//
+// Here the predicate genuinely matched nothing (total 0) while --seq-gt is
+// active, so the note MUST arrive — which it can only do if the seq path
+// captured the total.
+func TestWhereColumnNoteFiresInSeqModeToo(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[]}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "ls", "-m", "acme.com::kb", "--seq-gt", "1", "--json",
+		"--where", `{"path":["identity"],"exists":true}`, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if note := stderrOf(t, f); !strings.Contains(note, `"field":"data"`) {
+		t.Errorf("a genuine zero must still be qualified on the --seq-gt path, got %q", note)
+	}
+}
+
+// Pins the seqMode arm specifically, and it took a mutation to notice it was
+// unpinned: the case above uses --seq-gt at offset 0, so it passes whether the
+// arm reads `seqMode || offset == 0` or just `offset == 0`.
+//
+// Here --offset is set AND the seq path is active. On that path the offset is
+// applied client-side, after we have paged to exhaustion, so the fetched set is
+// the complete match set and a zero in it really is a zero — the note must
+// still fire. Only the seqMode arm makes that true.
+func TestWhereColumnNoteFiresInSeqModeEvenWithAnOffset(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[]}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "ls", "-m", "acme.com::kb", "--seq-gt", "1", "--offset", "500", "--json",
+		"--where", `{"path":["identity"],"exists":true}`, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if note := stderrOf(t, f); !strings.Contains(note, `"field":"data"`) {
+		t.Errorf("the seq path pages to exhaustion, so its zero is a real zero and must be qualified; got %q", note)
+	}
+}

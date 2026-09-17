@@ -44,13 +44,50 @@ silent zero itself is annotated. `cmdutil.WhereDefaultColumnNote` fires on
 exactly one shape:
 
 - a `--where` was given, **and**
-- the result was empty, **and**
+- the predicate **matched** nothing — see below; this is not the same as the
+  result being empty, **and**
 - **no leaf anywhere in the tree** named a column.
 
 The third clause is "any leaf", not "every leaf", on purpose: a predicate mixing
 an explicit `"field":"data"` leaf with a bare one was written by someone who has
 met the key, and warning them is noise. Noise is how a useful warning gets
 ignored.
+
+### It counts what the predicate MATCHED, not what you were shown
+
+Caught by @codex in review, and it is the same defect class as the one being
+fixed. The note was keyed off the length of the result slice — which is the
+count *after* `--offset`, `--limit` and `node list`'s client-side `--seq-gt`
+have narrowed it. So `--where <field-less> --offset 500` over a 7-row match
+displays nothing, and the note fired: *"the properties predicate matched
+nothing, try data"*, to someone whose predicate was fine and whose paging was
+not. A confident wrong answer about their data — this note's own failure mode,
+aimed the other way.
+
+The obvious source is `findNodes.total`, and it is **not usable**. The field is
+nullable and this server leaves it null even when rows match — measured live on
+both the browse and the ranked path, *after* a first version of this fix was
+built on it. Every test passed, because the fakes supply a total; the note was
+simply dead on `node list` against the real server. That is this repo's standing
+lesson arriving on schedule: **run the thing.**
+
+So the row count is all there is, and each caller decides whether it answers the
+question — it does exactly when nothing narrowed the result after the predicate:
+
+| path | trustworthy when |
+|---|---|
+| `node list`, seq mode (`--seq-gt` / `--sort-seq`) | **always** — it pages to exhaustion under its own offsets, so the fetched set is the whole match set and `--seq-gt` / `--limit` / `--offset` are applied client-side afterwards |
+| `node list`, otherwise | `--offset` is 0 — the server did the paging, so an empty page past the last row says nothing |
+| `search` | `--offset` is 0, same reason |
+
+`--limit` disturbs neither arm: it cannot empty a non-empty match, so zero rows
+under a limit really is zero matches.
+
+Where the count cannot answer, `matched` is nil and the note stays **silent** —
+deliberately rather than defensively. The failure modes are not symmetric:
+silence leaves the caller with the bare zero they already had, while a guess
+leaves them with a note that may be false, and a warning that fires wrongly is
+how a reader learns to ignore the one that is right.
 
 ### The note goes to stderr in `--json` mode too
 
@@ -141,10 +178,31 @@ repo is that neither of the first two catches a guard that never fires.
 
 Every test was mutation-checked, and each mutation was confirmed to **build**
 first — a non-compiling mutant reports zero failures, which reads exactly like
-"the test did not catch it". Twelve mutations, twelve caught, each by the test
-that claims to cover it. The one worth naming: keying the DTO off the wire value
-instead of the flag — the design above, before it was corrected — is caught by
-the test written for that exact case.
+"the test did not catch it". Two of those mutations are worth naming.
+
+Keying the DTO off the wire value instead of the flag — the design above, before
+it was corrected — is caught by the test written for that exact case.
+
+Two mutations were **not** caught, and both were more useful than the ones that
+were. Each exposed a test that agreed with the code for the wrong reason:
+
+- Deleting the seq path's match count left every seq test green. It had to —
+  with no count the note can never fire, and the test there asserted it does
+  *not* fire. Fixed by a **positive** seq case: a genuine zero must still be
+  qualified.
+- Narrowing `seqMode || offset == 0` to `offset == 0` also left everything
+  green, because that positive seq case runs at offset 0 and passes either way.
+  Pinning the arm needs seq mode **with** an offset — where the offset is
+  client-side, so the zero is real and the note must still fire.
+
+Neither was reachable by re-reading the tests; the mutation is the only thing
+that said so.
+
+The live run is what caught the larger one. Seven `node list` cases and two
+`search` cases, each asserting WARN or QUIET, against the real server — and the
+first attempt at that harness measured nothing at all, because an unquoted
+`$P=(--prefix …)` does not word-split in zsh, so every case reported the same
+row count. A verification that cannot vary is not a verification.
 
 Live, against `hrn:mem:hadronmemory.com:hadron-dev-team-shared`:
 

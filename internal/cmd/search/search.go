@@ -238,7 +238,18 @@ same "field" key and the same default, and overrides relevance.
 			// caller would otherwise be handed a bare empty hit list — which is
 			// precisely the unqualified zero two of us published a conclusion
 			// off. stderr, so the stdout --json contract is untouched.
-			if note := cmdutil.WhereDefaultColumnNote(whereArg, len(page.Hits)); note != "" {
+			// Only at offset 0 does the hit count answer "did the predicate
+			// match anything": --offset past the last hit empties the page
+			// while the predicate matched plenty, and a note fired on that
+			// would send a correct caller after the wrong column (@codex, PR
+			// #604). `page.Total` looks like the better source and is not — the
+			// server leaves it null even on a 50-hit response.
+			var matched *int
+			if offset == 0 {
+				n := len(page.Hits)
+				matched = &n
+			}
+			if note := cmdutil.WhereDefaultColumnNote(whereArg, matched); note != "" {
 				fmt.Fprintf(f.IOStreams.ErrOut, "note: %s\n", note)
 			}
 

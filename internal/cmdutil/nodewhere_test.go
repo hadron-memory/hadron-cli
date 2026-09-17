@@ -101,15 +101,15 @@ func TestParseNodeWhereWireShape(t *testing.T) {
 // including which branch keys the parser populates.
 func TestWhereDefaultColumnNote(t *testing.T) {
 	cases := []struct {
-		name string
-		raw  string
-		hits int
-		want bool
+		name    string
+		raw     string
+		matched int
+		want    bool
 	}{
 		// The reported case: the example from the old help text, verbatim.
 		{"bare leaf, no hits", `{"path":["identity"],"exists":true}`, 0, true},
 		// Hits mean the predicate worked; there is nothing to warn about.
-		{"bare leaf, some hits", `{"path":["identity"],"exists":true}`, 3, false},
+		{"bare leaf, predicate matched", `{"path":["identity"],"exists":true}`, 3, false},
 		// The author has met "field" — warning them is noise, even though the
 		// column they named is the default one.
 		{"explicit properties", `{"field":"properties","path":["rank"],"eq":"1"}`, 0, false},
@@ -130,7 +130,7 @@ func TestWhereDefaultColumnNote(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			note := WhereDefaultColumnNote(w, tc.hits)
+			note := WhereDefaultColumnNote(w, &tc.matched)
 			if got := note != ""; got != tc.want {
 				t.Errorf("note=%v, want %v (note=%q)", got, tc.want, note)
 			}
@@ -152,7 +152,28 @@ func TestWhereDefaultColumnNote(t *testing.T) {
 // predicate is just an empty listing, and a column hint there would be noise on
 // every bare `node ls` that happens to match nothing.
 func TestWhereDefaultColumnNoteSilentWithoutPredicate(t *testing.T) {
-	if note := WhereDefaultColumnNote(nil, 0); note != "" {
+	zero := 0
+	if note := WhereDefaultColumnNote(nil, &zero); note != "" {
 		t.Errorf("no predicate must produce no note, got %q", note)
+	}
+}
+
+// An UNKNOWN match count must stay silent (@codex, PR #604). The server's
+// `total` is nullable, and a note is only worth printing when we know the
+// predicate matched nothing — guessing produces a confident wrong answer about
+// someone's data, which is the failure this note exists to prevent.
+func TestWhereDefaultColumnNoteSilentWhenTotalUnknown(t *testing.T) {
+	w, err := ParseNodeWhere(`{"path":["identity"],"exists":true}`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if note := WhereDefaultColumnNote(w, nil); note != "" {
+		t.Errorf("an unknown total must produce no note, got %q", note)
+	}
+	// Two-directional: the same predicate with a KNOWN zero does warn, so the
+	// silence above is the nil and not a detector that never fires.
+	zero := 0
+	if note := WhereDefaultColumnNote(w, &zero); note == "" {
+		t.Error("a known zero must still warn — otherwise this test proves nothing")
 	}
 }

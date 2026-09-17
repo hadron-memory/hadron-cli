@@ -126,11 +126,32 @@ func whereNamesColumn(w *gqltypes.NodeWhereInput) bool {
 // one within an hour of each other.
 //
 // The note fires on exactly that shape: a predicate was given, NO leaf named a
-// column, and the result was empty. It costs nothing when there are hits, and
-// nothing for an author who already passes "field" — so it targets the silent
-// zero without nagging a correct caller.
-func WhereDefaultColumnNote(where *gqltypes.NodeWhereInput, hits int) string {
-	if where == nil || hits > 0 || whereNamesColumn(where) {
+// column, and the PREDICATE matched nothing. It costs nothing when there are
+// matches, and nothing for an author who already passes "field" — so it targets
+// the silent zero without nagging a correct caller.
+//
+// `matched` is how many rows the PREDICATE matched, and it must NOT be the
+// number of rows the caller ended up displaying. Those differ whenever
+// something narrows the result after the predicate has run — `--offset` past
+// the last row, or `node list`'s client-side `--seq-gt` — and there a count of
+// zero says nothing about the column. Firing on it would tell a caller whose
+// offset was too high to go and query `data`: a confident wrong answer about
+// their data, which is the exact failure this note exists to prevent, pointed
+// the other way. (@codex caught it on PR #604.)
+//
+// It is a POINTER because "how many matched" is genuinely unanswerable on some
+// paths, and a nil says so. `findNodes.total` would be the obvious source and
+// is not usable — the server leaves it null even when rows match — so each
+// caller decides from what it knows: the row count is the answer exactly when
+// nothing narrowed the result after the predicate.
+//
+// A NIL `matched` keeps the note SILENT, deliberately rather than defensively.
+// The two failure modes are not symmetric: staying quiet leaves the caller with
+// the bare zero they have today, while guessing leaves them with a note that
+// may be false — and a warning that fires wrongly is how a reader learns to
+// ignore the one that is right.
+func WhereDefaultColumnNote(where *gqltypes.NodeWhereInput, matched *int) string {
+	if where == nil || matched == nil || *matched > 0 || whereNamesColumn(where) {
 		return ""
 	}
 	return `--where searched the "properties" column (the default) and matched nothing; ` +

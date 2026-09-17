@@ -509,11 +509,17 @@ Conventions:
   empty-with-caveat, so it reads as "the corpus has none" and gets published as
   a finding. Two people on this team did exactly that within an hour.
   `--sort-property` takes the same `field` key and the same default.
-  When a predicate names no column AND returns nothing, both `node list` and
+  When a predicate names no column AND **matched** nothing, both `node list` and
   `search` now print a note naming the default and the remedy — on **stderr**,
   in `--json` mode too, so the note never enters the payload you parse and never
   goes missing because you asked for JSON. Treat that note as "your instrument
   may be pointed at the wrong column", not as "no results".
+  It keys off what the predicate MATCHED, not off the rows you were shown, so an
+  empty page from `--offset` or `--seq-gt` does NOT trigger it — an empty screen
+  and an empty match are different facts. Where the two cannot be told apart
+  (`search --offset N`, or `node list --offset N` without `--seq-gt`/`--sort-seq`)
+  the note stays silent rather than guessing, so **absence of the note is not
+  evidence your predicate was right** — re-run it at offset 0 to be told.
   **Run a positive control** before concluding a zero is real: re-ask for a key
   you have already seen on a node with `node get`. A zero that survives a
   positive control is a finding; a zero that does not is an instrument fault.

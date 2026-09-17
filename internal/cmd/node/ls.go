@@ -244,6 +244,32 @@ output either flag switches the table for a per-node block.`,
 				return api.MapError(err)
 			}
 
+			// How many rows the PREDICATE matched — what #603's note actually
+			// asks, and not the same as how many rows get displayed.
+			//
+			// The server will not answer it: `findNodes.total` is nullable and
+			// this one leaves it NULL even when rows match — measured live, on
+			// both the browse and the ranked path, after a first attempt built
+			// the note on it and went silently dead. So the row count is all
+			// there is, and it answers the question only when nothing narrowed
+			// the result AFTER the predicate ran:
+			//
+			//	seq mode  — we page to exhaustion under our own offsets, so
+			//	            rawNodes is the whole match set; --seq-gt and
+			//	            --limit/--offset are applied below, client-side.
+			//	            Trustworthy always.
+			//	otherwise — the server applied --offset, so an empty page past
+			//	            the last row says nothing about the predicate
+			//	            (@codex, PR #604). Trustworthy only at offset 0.
+			//
+			// --limit never empties a non-empty match, so it does not disturb
+			// either arm: zero rows under a limit really is zero matches.
+			var matched *int
+			if seqMode || offset == 0 {
+				n := len(rawNodes)
+				matched = &n
+			}
+
 			nodes := make([]nodeListDTO, 0, len(rawNodes))
 			for _, n := range rawNodes {
 				row := nodeListDTO{nodeDTO: nodeDTO{
@@ -338,7 +364,7 @@ output either flag switches the table for a per-node block.`,
 			// under --json would leave an agent holding exactly the unqualified
 			// `0` the note exists to qualify. It goes to stderr, so the --json
 			// contract on stdout is untouched.
-			if note := cmdutil.WhereDefaultColumnNote(whereArg, len(nodes)); note != "" {
+			if note := cmdutil.WhereDefaultColumnNote(whereArg, matched); note != "" {
 				fmt.Fprintf(f.IOStreams.ErrOut, "note: %s\n", note)
 			}
 
