@@ -2,6 +2,7 @@ package cmdutil
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -90,5 +91,68 @@ func TestParseNodeWhereWireShape(t *testing.T) {
 	b, _ := json.Marshal(w)
 	if got := string(b); got != `{"and":[{"path":["a"],"eq":"x"},{"path":["b"],"exists":false}]}` {
 		t.Errorf("wire shape drifted: %s", got)
+	}
+}
+
+// WhereDefaultColumnNote fires on exactly one shape (#603): a predicate was
+// given, the result was EMPTY, and no leaf anywhere in the tree named a column.
+// Each case below is driven through ParseNodeWhere rather than a hand-built
+// struct, so the test exercises the same tree a real `--where` produces —
+// including which branch keys the parser populates.
+func TestWhereDefaultColumnNote(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		hits int
+		want bool
+	}{
+		// The reported case: the example from the old help text, verbatim.
+		{"bare leaf, no hits", `{"path":["identity"],"exists":true}`, 0, true},
+		// Hits mean the predicate worked; there is nothing to warn about.
+		{"bare leaf, some hits", `{"path":["identity"],"exists":true}`, 3, false},
+		// The author has met "field" — warning them is noise, even though the
+		// column they named is the default one.
+		{"explicit properties", `{"field":"properties","path":["rank"],"eq":"1"}`, 0, false},
+		{"explicit data", `{"field":"data","path":["identity"],"exists":true}`, 0, false},
+		// The walk must reach every branch key. `not` is the one a hand-rolled
+		// recursion forgets, because it holds a single node rather than a slice.
+		{"field under and", `{"and":[{"path":["a"],"eq":"x"},{"field":"data","path":["b"],"exists":true}]}`, 0, false},
+		{"field under or", `{"or":[{"path":["a"],"eq":"x"},{"field":"data","path":["b"],"exists":true}]}`, 0, false},
+		{"field under not", `{"not":{"field":"data","path":["b"],"exists":true}}`, 0, false},
+		{"field nested two deep", `{"and":[{"or":[{"field":"data","path":["b"],"exists":true}]}]}`, 0, false},
+		// A whole tree of bare leaves is still a caller who has not met "field".
+		{"all bare under and", `{"and":[{"path":["a"],"eq":"x"},{"path":["b"],"exists":true}]}`, 0, true},
+		{"all bare under not", `{"not":{"path":["b"],"exists":true}}`, 0, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			w, err := ParseNodeWhere(tc.raw)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			note := WhereDefaultColumnNote(w, tc.hits)
+			if got := note != ""; got != tc.want {
+				t.Errorf("note=%v, want %v (note=%q)", got, tc.want, note)
+			}
+			// The note must name both the column it searched and the remedy —
+			// a note saying only "no results" would be the silent zero with
+			// extra words.
+			if tc.want {
+				for _, must := range []string{"properties", `"field":"data"`} {
+					if !strings.Contains(note, must) {
+						t.Errorf("note omits %q: %s", must, note)
+					}
+				}
+			}
+		})
+	}
+}
+
+// No --where at all must never produce the note: an empty listing with no
+// predicate is just an empty listing, and a column hint there would be noise on
+// every bare `node ls` that happens to match nothing.
+func TestWhereDefaultColumnNoteSilentWithoutPredicate(t *testing.T) {
+	if note := WhereDefaultColumnNote(nil, 0); note != "" {
+		t.Errorf("no predicate must produce no note, got %q", note)
 	}
 }

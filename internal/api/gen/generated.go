@@ -8385,15 +8385,17 @@ func (v *FindNodesFindNodesFindNodesResultHitsNodeHit) GetNode() *FindNodesFindN
 
 // FindNodesFindNodesFindNodesResultHitsNodeHitNode includes the requested fields of the GraphQL type Node.
 type FindNodesFindNodesFindNodesResultHitsNodeHitNode struct {
-	Id         string   `json:"id"`
-	MemoryId   string   `json:"memoryId"`
-	Loc        string   `json:"loc"`
-	Name       string   `json:"name"`
-	NodeType   string   `json:"nodeType"`
-	Tags       []string `json:"tags"`
-	Seq        *int     `json:"seq"`
-	IsRunnable *bool    `json:"isRunnable"`
-	UpdatedAt  string   `json:"updatedAt"`
+	Id         string           `json:"id"`
+	MemoryId   string           `json:"memoryId"`
+	Loc        string           `json:"loc"`
+	Name       string           `json:"name"`
+	NodeType   string           `json:"nodeType"`
+	Tags       []string         `json:"tags"`
+	Seq        *int             `json:"seq"`
+	IsRunnable *bool            `json:"isRunnable"`
+	UpdatedAt  string           `json:"updatedAt"`
+	Properties *json.RawMessage `json:"properties"`
+	Data       *json.RawMessage `json:"data"`
 }
 
 // GetId returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.Id, and is useful for accessing the field via an interface.
@@ -8422,6 +8424,14 @@ func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetIsRunnable() *bool
 
 // GetUpdatedAt returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// GetProperties returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.Properties, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetProperties() *json.RawMessage {
+	return v.Properties
+}
+
+// GetData returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.Data, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetData() *json.RawMessage { return v.Data }
 
 // Retrieval modes for findNodes (cor:api:090:01). keyword is stemmed FTS; vector/hybrid need the memory's vector index; regex is a POSIX pattern match.
 type FindNodesMode string
@@ -23993,13 +24003,15 @@ func (v *__ExtractParentNodeToMemoryInput) GetMove() *bool { return v.Move }
 
 // __FindNodesInput is used internally by genqlient
 type __FindNodesInput struct {
-	Query        *string                    `json:"query,omitempty"`
-	Mode         *FindNodesMode             `json:"mode,omitempty"`
-	Filter       *NodeFilter                `json:"filter,omitempty"`
-	Sort         *NodeSort                  `json:"sort,omitempty"`
-	SortProperty *gqltypes.NodePropertySort `json:"sortProperty,omitempty"`
-	Limit        *int                       `json:"limit,omitempty"`
-	Offset       *int                       `json:"offset,omitempty"`
+	Query          *string                    `json:"query,omitempty"`
+	Mode           *FindNodesMode             `json:"mode,omitempty"`
+	Filter         *NodeFilter                `json:"filter,omitempty"`
+	Sort           *NodeSort                  `json:"sort,omitempty"`
+	SortProperty   *gqltypes.NodePropertySort `json:"sortProperty,omitempty"`
+	Limit          *int                       `json:"limit,omitempty"`
+	Offset         *int                       `json:"offset,omitempty"`
+	WithProperties bool                       `json:"withProperties"`
+	WithData       bool                       `json:"withData"`
 }
 
 // GetQuery returns __FindNodesInput.Query, and is useful for accessing the field via an interface.
@@ -24022,6 +24034,12 @@ func (v *__FindNodesInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __FindNodesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__FindNodesInput) GetOffset() *int { return v.Offset }
+
+// GetWithProperties returns __FindNodesInput.WithProperties, and is useful for accessing the field via an interface.
+func (v *__FindNodesInput) GetWithProperties() bool { return v.WithProperties }
+
+// GetWithData returns __FindNodesInput.WithData, and is useful for accessing the field via an interface.
+func (v *__FindNodesInput) GetWithData() bool { return v.WithData }
 
 // __FindObjectsInput is used internally by genqlient
 type __FindObjectsInput struct {
@@ -29232,7 +29250,7 @@ func ExtractParentNodeToMemory(
 
 // The query executed by FindNodes.
 const FindNodes_Operation = `
-query FindNodes ($query: String, $mode: FindNodesMode, $filter: NodeFilter, $sort: NodeSort, $sortProperty: NodePropertySort, $limit: Int, $offset: Int) {
+query FindNodes ($query: String, $mode: FindNodesMode, $filter: NodeFilter, $sort: NodeSort, $sortProperty: NodePropertySort, $limit: Int, $offset: Int, $withProperties: Boolean!, $withData: Boolean!) {
 	findNodes(query: $query, mode: $mode, filter: $filter, sort: $sort, sortProperty: $sortProperty, limit: $limit, offset: $offset) {
 		total
 		degraded
@@ -29249,6 +29267,8 @@ query FindNodes ($query: String, $mode: FindNodesMode, $filter: NodeFilter, $sor
 				seq
 				isRunnable
 				updatedAt
+				properties @include(if: $withProperties)
+				data @include(if: $withData)
 			}
 		}
 	}
@@ -29281,18 +29301,22 @@ func FindNodes(
 	sortProperty *gqltypes.NodePropertySort,
 	limit *int,
 	offset *int,
+	withProperties bool,
+	withData bool,
 ) (data_ *FindNodesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "FindNodes",
 		Query:  FindNodes_Operation,
 		Variables: &__FindNodesInput{
-			Query:        query,
-			Mode:         mode,
-			Filter:       filter,
-			Sort:         sort,
-			SortProperty: sortProperty,
-			Limit:        limit,
-			Offset:       offset,
+			Query:          query,
+			Mode:           mode,
+			Filter:         filter,
+			Sort:           sort,
+			SortProperty:   sortProperty,
+			Limit:          limit,
+			Offset:         offset,
+			WithProperties: withProperties,
+			WithData:       withData,
 		},
 	}
 

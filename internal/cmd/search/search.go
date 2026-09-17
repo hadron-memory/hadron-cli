@@ -97,15 +97,19 @@ Each hit carries a score plus the node's description and abstract (--json),
 so results are assessable without a follow-up 'node get' per hit. --long
 prints abstracts in the text output too.
 
---where takes a JSON predicate over the node's properties/data JSONB (a leaf is
-a path plus one of eq|ne|in|lt|lte|gt|gte|between|exists|contains; branch with
-and/or/not). --object-type filters the objectType collection facet.
---sort-property orders by a properties/data JSON path (overrides relevance).`,
+--where takes a JSON predicate over one of the node's two JSONB columns (a leaf
+is a path plus one of eq|ne|in|lt|lte|gt|gte|between|exists|contains; branch
+with and/or/not). A leaf reads "properties" UNLESS it sets "field":"data" — so
+a predicate aimed at a node's free-form data envelope must say so, or it
+searches the wrong column and returns a silent zero. --sort-property takes the
+same "field" key and the same default, and overrides relevance.
+--object-type filters the objectType collection facet.`,
 		Example: `  hadron search "how do users report a bad actor" -m hrn:mem:micromentor.org:mmdata
   hadron search "rate limiting" -m hrn:mem:acme.com:kb -m hrn:mem:acme.com:ops --mode keyword --json
   hadron search "(auth OR login) AND token" --mode keyword --prefix findings:
   hadron search 'reportUser|contentConcern' --mode regex --limit 30
   hadron search "pricing" --object-type insight --where '{"path":["source"],"eq":"substack"}'
+  hadron search "standup" --where '{"field":"data","path":["authorName"],"exists":true}'
   hadron search "roadmap" --sort-property '{"path":["rank"],"as":"number","direction":"desc"}'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -229,6 +233,14 @@ and/or/not). --object-type filters the objectType collection facet.
 					fmt.Fprintf(f.IOStreams.ErrOut, "note: %s\n", note)
 				}
 			}
+			// The silent-zero note (#603) is NOT text-only, unlike the one
+			// above: no field of this envelope carries it, so under --json the
+			// caller would otherwise be handed a bare empty hit list — which is
+			// precisely the unqualified zero two of us published a conclusion
+			// off. stderr, so the stdout --json contract is untouched.
+			if note := cmdutil.WhereDefaultColumnNote(whereArg, len(page.Hits)); note != "" {
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: %s\n", note)
+			}
 
 			result := resultDTO{Hits: []hitDTO{}, Total: page.Total, Degraded: page.Degraded, Reason: page.Reason}
 			if sc := page.Scope; sc != nil {
@@ -291,8 +303,8 @@ and/or/not). --object-type filters the objectType collection facet.
 	cmd.Flags().StringVar(&nodeType, "type", "", "filter by node type")
 	cmd.Flags().StringVar(&objectType, "object-type", "", "filter by objectType collection facet (e.g. competitor)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "filter by tag (repeatable)")
-	cmd.Flags().StringVar(&where, "where", "", "structured predicate over properties/data as JSON (e.g. '{\"path\":[\"source\"],\"eq\":\"substack\"}')")
-	cmd.Flags().StringVar(&sortProp, "sort-property", "", "order by a properties/data JSON path as JSON (e.g. '{\"path\":[\"rank\"],\"as\":\"number\",\"direction\":\"desc\"}')")
+	cmd.Flags().StringVar(&where, "where", "", cmdutil.WhereFlagUsage)
+	cmd.Flags().StringVar(&sortProp, "sort-property", "", cmdutil.SortPropertyFlagUsage)
 	cmd.Flags().IntVar(&limit, "limit", 15, "maximum number of hits (0 = server default)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset")
 	cmd.Flags().BoolVarP(&long, "long", "l", false, "per-hit block output including description/abstract")

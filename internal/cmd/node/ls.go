@@ -1,6 +1,8 @@
 package node
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -12,6 +14,52 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
+
+// nodeListDTO is the `node list` row: the shared nodeDTO plus the two JSONB
+// columns, which arrive only when --with-properties / --with-data asked for
+// them (#602).
+//
+// A SEPARATE type rather than two more fields on nodeDTO, for two reasons.
+// nodeDetailDTO already declares `data` and `properties` at depth 0, so adding
+// them to the embedded nodeDTO would shadow rather than extend — two same-named
+// fields at different depths, where a reader cannot see which one is live
+// (`Seq` is already shadowed that way, and once is enough). And an unset column
+// keeps the listing's payload BYTE-IDENTICAL for every existing caller that
+// does not pass a projection flag, which is what makes this additive against
+// the --json contract.
+//
+// NON-POINTER json.RawMessage, and that is the load-bearing choice. The key
+// must distinguish three states, and a *json.RawMessage collapses two of them:
+//
+//	not requested      -> key ABSENT   (nil, len 0 — omitempty drops it)
+//	requested, a value -> key = value
+//	requested, null    -> key = null   (the 4-byte literal, len 4 — survives)
+//
+// A pointer cannot express the third, because encoding/json sets a *RawMessage
+// to nil for a JSON `null` — MEASURED, not assumed. The column would then vanish
+// from the payload exactly as an unrequested one does, so a caller who asked for
+// `data` and got no `data` key could not tell "this node has none" from "you did
+// not ask" — which is #602's own defect, reintroduced inside its fix. It is also
+// the #306 lesson already written down on nodeDetailDTO.AbstractOriginHash:
+// `jq` returns null for a key that is not there.
+//
+// Because the two are indistinguishable on the wire, the FLAG decides what is
+// present here, never the returned value. See fill below.
+type nodeListDTO struct {
+	nodeDTO
+	Properties json.RawMessage `json:"properties,omitempty"`
+	Data       json.RawMessage `json:"data,omitempty"`
+}
+
+// rawOrNull renders a requested-but-absent JSONB column as the explicit JSON
+// null literal, so the key stays present. Only ever called when the flag asked
+// for the column.
+func rawOrNull(raw *json.RawMessage) json.RawMessage {
+	if raw == nil || len(*raw) == 0 {
+		return json.RawMessage("null")
+	}
+	return *raw
+}
 
 // lsPageSize bounds one page of the exhaustive browse scan. The server caps an
 // unspecified limit at its default page and drops the rest (#23), so any
@@ -37,19 +85,21 @@ func paginateAllNodes(fetch func(limit, offset int) ([]*api.ListNode, error)) ([
 
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var (
-		memory     string
-		prefix     string
-		nodeType   string
-		objectType string
-		runnable   bool
-		tags       []string
-		search     string
-		where      string
-		sortProp   string
-		limit      int
-		offset     int
-		sortSeq    string
-		seqGt      int
+		memory         string
+		prefix         string
+		nodeType       string
+		objectType     string
+		runnable       bool
+		tags           []string
+		search         string
+		where          string
+		sortProp       string
+		limit          int
+		offset         int
+		sortSeq        string
+		seqGt          int
+		withProperties bool
+		withData       bool
 	)
 	cmd := &cobra.Command{
 		Use:     "list",
@@ -67,14 +117,23 @@ after a known seq number). Both scan the WHOLE collection in scope — not just
 the server's default first page — so the newest nodes are never hidden past a
 page boundary; with --sort-seq, --limit then means "the top N by seq".
 
---where takes a JSON predicate over the node's properties/data JSONB (a leaf is
-a path plus one of eq|ne|in|lt|lte|gt|gte|between|exists|contains; branch with
-and/or/not). --object-type filters the objectType collection facet.
---sort-property orders by a properties/data JSON path.`,
+--where takes a JSON predicate over one of the node's two JSONB columns (a leaf
+is a path plus one of eq|ne|in|lt|lte|gt|gte|between|exists|contains; branch
+with and/or/not). A leaf reads "properties" UNLESS it sets "field":"data" — so
+a predicate aimed at a node's free-form data envelope must say so, or it
+searches the wrong column and returns a silent zero. --sort-property takes the
+same "field" key and the same default. --object-type filters the objectType
+collection facet.
+
+--with-properties / --with-data add those columns to the output, so a listing
+can show the field it just filtered on. They are opt-in because a listing is an
+index: a large result with full envelopes is a much bigger payload. In text
+output either flag switches the table for a per-node block.`,
 		Example: `  hadron node list --memory hrn:mem:hadronmemory.com:dev
   hadron node list -m hrn:mem:hadronmemory.com:dev --prefix findings: --json
   hadron node list -m hrn:mem:hadronmemory.com:dev --seq-gt 42 --sort-seq asc
   hadron node list -m hrn:mem:acme.com:kb --object-type insight --where '{"path":["source"],"eq":"substack"}'
+  hadron node list -m hrn:mem:acme.com:team --where '{"field":"data","path":["authorName"],"exists":true}' --with-data
   hadron node list -m hrn:mem:acme.com:kb --sort-property '{"path":["rank"],"as":"number","direction":"desc"}'`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -168,7 +227,7 @@ and/or/not). --object-type filters the objectType collection facet.
 			if seqMode {
 				rawNodes, err = paginateAllNodes(func(lim, off int) ([]*api.ListNode, error) {
 					l, o := lim, off
-					page, err := api.FindNodes(cmd.Context(), client, searchArg, mode, filterArg, sortArg, sortPropArg, &l, &o)
+					page, err := api.FindNodesProjected(cmd.Context(), client, searchArg, mode, filterArg, sortArg, sortPropArg, &l, &o, withProperties, withData)
 					if err != nil {
 						return nil, err
 					}
@@ -176,7 +235,7 @@ and/or/not). --object-type filters the objectType collection facet.
 				})
 			} else {
 				var page *api.FindNodesPage
-				page, err = api.FindNodes(cmd.Context(), client, searchArg, mode, filterArg, sortArg, sortPropArg, limitArg, offsetArg)
+				page, err = api.FindNodesProjected(cmd.Context(), client, searchArg, mode, filterArg, sortArg, sortPropArg, limitArg, offsetArg, withProperties, withData)
 				if err == nil {
 					rawNodes = page.Nodes
 				}
@@ -185,9 +244,9 @@ and/or/not). --object-type filters the objectType collection facet.
 				return api.MapError(err)
 			}
 
-			nodes := make([]nodeDTO, 0, len(rawNodes))
+			nodes := make([]nodeListDTO, 0, len(rawNodes))
 			for _, n := range rawNodes {
-				nodes = append(nodes, nodeDTO{
+				row := nodeListDTO{nodeDTO: nodeDTO{
 					ID:         n.Id,
 					MemoryID:   n.MemoryId,
 					Loc:        n.Loc,
@@ -197,12 +256,23 @@ and/or/not). --object-type filters the objectType collection facet.
 					Seq:        n.Seq,
 					IsRunnable: boolVal(n.IsRunnable),
 					UpdatedAt:  n.UpdatedAt,
-				})
+				}}
+				// Keyed off the FLAG, not off whether the server sent a value:
+				// an unselected column and a selected-but-null one both arrive
+				// as a nil pointer, so the response cannot tell them apart and
+				// only the flag knows which was asked for (#602).
+				if withProperties {
+					row.Properties = rawOrNull(n.Properties)
+				}
+				if withData {
+					row.Data = rawOrNull(n.Data)
+				}
+				nodes = append(nodes, row)
 			}
 
 			// Filter by seq > N
 			if seqGt > 0 {
-				filtered := make([]nodeDTO, 0, len(nodes))
+				filtered := make([]nodeListDTO, 0, len(nodes))
 				for i := range nodes {
 					if nodes[i].Seq != nil && *nodes[i].Seq > seqGt {
 						filtered = append(filtered, nodes[i])
@@ -261,7 +331,25 @@ and/or/not). --object-type filters the objectType collection facet.
 				}
 			}
 
+			// The silent-zero note (#603). Printed in BOTH output modes, unlike
+			// search's degraded note, which is text-only because --json already
+			// carries degraded/reason in its envelope. This listing marshals a
+			// bare array with nowhere to put a caveat, so suppressing the note
+			// under --json would leave an agent holding exactly the unqualified
+			// `0` the note exists to qualify. It goes to stderr, so the --json
+			// contract on stdout is untouched.
+			if note := cmdutil.WhereDefaultColumnNote(whereArg, len(nodes)); note != "" {
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: %s\n", note)
+			}
+
 			return output.Write(f.IOStreams, f.JSON, nodes, func(w io.Writer) error {
+				// A projected listing cannot use the table: the JSON values are
+				// arbitrarily long, and a column would have to truncate them —
+				// which is the same defect as not showing them, in a costume
+				// that looks like an answer.
+				if withProperties || withData {
+					return writeProjected(w, nodes)
+				}
 				t := output.NewTable(w, "LOC", "NAME", "TYPE", "SEQ", "RUN")
 				for _, n := range nodes {
 					seqStr := ""
@@ -286,11 +374,64 @@ and/or/not). --object-type filters the objectType collection facet.
 	cmd.Flags().Lookup("runnable").NoOptDefVal = "true"
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "filter by tag (repeatable)")
 	cmd.Flags().StringVar(&search, "search", "", "keyword filter on name/description")
-	cmd.Flags().StringVar(&where, "where", "", "structured predicate over properties/data as JSON (e.g. '{\"path\":[\"source\"],\"eq\":\"substack\"}')")
-	cmd.Flags().StringVar(&sortProp, "sort-property", "", "order by a properties/data JSON path as JSON (e.g. '{\"path\":[\"rank\"],\"as\":\"number\",\"direction\":\"desc\"}')")
+	cmd.Flags().StringVar(&where, "where", "", cmdutil.WhereFlagUsage)
+	cmd.Flags().StringVar(&sortProp, "sort-property", "", cmdutil.SortPropertyFlagUsage)
 	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of nodes")
 	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset")
 	cmd.Flags().StringVar(&sortSeq, "sort-seq", "", "sort by seq: 'asc' or 'desc'")
 	cmd.Flags().IntVar(&seqGt, "seq-gt", 0, "filter to nodes with seq > N")
+	cmd.Flags().BoolVar(&withProperties, "with-properties", false, "include each node's properties JSONB in the output")
+	cmd.Flags().BoolVar(&withData, "with-data", false, "include each node's data JSONB in the output")
 	return cmd
+}
+
+// writeProjected renders the per-node block used when --with-properties or
+// --with-data is set: the loc/name/type header, then each requested JSON column
+// indented beneath it, whole and untruncated.
+//
+// A column that was requested but is null on the node prints `null` rather than
+// being skipped, for the same reason the JSON key stays present: an absent line
+// reads as "not requested", and the reader has no way to tell that from "this
+// node has none". The DTO has already encoded that distinction — a requested
+// column is non-empty here even when its value is null — so this loop tests the
+// field's length and never needs the flags.
+func writeProjected(w io.Writer, nodes []nodeListDTO) error {
+	for i, n := range nodes {
+		if i > 0 {
+			if _, err := fmt.Fprintln(w); err != nil {
+				return err
+			}
+		}
+		seqStr := ""
+		if n.Seq != nil {
+			seqStr = fmt.Sprintf("  seq %d", *n.Seq)
+		}
+		if _, err := fmt.Fprintf(w, "%s  %s  (%s)%s\n", n.Loc, n.Name, n.NodeType, seqStr); err != nil {
+			return err
+		}
+		for _, col := range []struct {
+			label string
+			raw   json.RawMessage
+		}{{"properties", n.Properties}, {"data", n.Data}} {
+			if len(col.raw) == 0 {
+				continue
+			}
+			if _, err := fmt.Fprintf(w, "  %s: %s\n", col.label, compactJSON(col.raw)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// compactJSON strips insignificant whitespace so one column is one line. A value
+// json.Compact cannot parse is returned VERBATIM rather than dropped or
+// error-rendered: it came off the wire as the node's stored column, and showing
+// it as-is is strictly more informative than showing nothing.
+func compactJSON(raw json.RawMessage) string {
+	var buf bytes.Buffer
+	if err := json.Compact(&buf, raw); err != nil {
+		return string(raw)
+	}
+	return buf.String()
 }
