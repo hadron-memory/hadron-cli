@@ -2791,6 +2791,75 @@ type AuthContextResponse struct {
 // GetAuthContext returns AuthContextResponse.AuthContext, and is useful for accessing the field via an interface.
 func (v *AuthContextResponse) GetAuthContext() *AuthContextAuthContext { return v.AuthContext }
 
+// AuthorProtectedNodeAuthorProtectedNode includes the requested fields of the GraphQL type Node.
+type AuthorProtectedNodeAuthorProtectedNode struct {
+	Id         string   `json:"id"`
+	MemoryId   string   `json:"memoryId"`
+	Loc        string   `json:"loc"`
+	Name       string   `json:"name"`
+	NodeType   string   `json:"nodeType"`
+	Tags       []string `json:"tags"`
+	Seq        *int     `json:"seq"`
+	IsRunnable *bool    `json:"isRunnable"`
+	UpdatedAt  string   `json:"updatedAt"`
+}
+
+// GetId returns AuthorProtectedNodeAuthorProtectedNode.Id, and is useful for accessing the field via an interface.
+func (v *AuthorProtectedNodeAuthorProtectedNode) GetId() string { return v.Id }
+
+// GetMemoryId returns AuthorProtectedNodeAuthorProtectedNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *AuthorProtectedNodeAuthorProtectedNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns AuthorProtectedNodeAuthorProtectedNode.Loc, and is useful for accessing the field via an interface.
+func (v *AuthorProtectedNodeAuthorProtectedNode) GetLoc() string { return v.Loc }
+
+// GetName returns AuthorProtectedNodeAuthorProtectedNode.Name, and is useful for accessing the field via an interface.
+func (v *AuthorProtectedNodeAuthorProtectedNode) GetName() string { return v.Name }
+
+// GetNodeType returns AuthorProtectedNodeAuthorProtectedNode.NodeType, and is useful for accessing the field via an interface.
+func (v *AuthorProtectedNodeAuthorProtectedNode) GetNodeType() string { return v.NodeType }
+
+// GetTags returns AuthorProtectedNodeAuthorProtectedNode.Tags, and is useful for accessing the field via an interface.
+func (v *AuthorProtectedNodeAuthorProtectedNode) GetTags() []string { return v.Tags }
+
+// GetSeq returns AuthorProtectedNodeAuthorProtectedNode.Seq, and is useful for accessing the field via an interface.
+func (v *AuthorProtectedNodeAuthorProtectedNode) GetSeq() *int { return v.Seq }
+
+// GetIsRunnable returns AuthorProtectedNodeAuthorProtectedNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *AuthorProtectedNodeAuthorProtectedNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetUpdatedAt returns AuthorProtectedNodeAuthorProtectedNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AuthorProtectedNodeAuthorProtectedNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// AuthorProtectedNodeResponse is returned by AuthorProtectedNode on success.
+type AuthorProtectedNodeResponse struct {
+	// Create or update a node at a PROTECTED loc — the door a memory-specific
+	// authoring tool uses (#1180). Identical in effect to createNode/updateNode;
+	// the ONLY difference is that it carries the protected-loc bypass, so it can
+	// write where the generic node surface is refused.
+	//
+	// PURE ROUTING: it validates nothing beyond what createNode validates. It
+	// does not know what a spec, review or task node is, and it does not check
+	// one. The authoring RULES stay in the tool that owns them ('hadron spec',
+	// 'hadron coding'), which is a closed-list exception on the audience ground —
+	// both target a technical audience that can be required to install the CLI.
+	//
+	// This is therefore a GUARDRAIL, not a security boundary: the protection it
+	// provides is that the ACCIDENTAL generic write is refused and told which
+	// tool to use. It is deliberately NOT exposed as an MCP tool, which is what
+	// keeps an agent's normal surface away from it.
+	//
+	// 'upsert' (default false) writes over an existing live node instead of
+	// rejecting with NodeLocConflictError — an authoring tool re-running over its
+	// own corpus is the normal case, unlike a generic create.
+	AuthorProtectedNode *AuthorProtectedNodeAuthorProtectedNode `json:"authorProtectedNode"`
+}
+
+// GetAuthorProtectedNode returns AuthorProtectedNodeResponse.AuthorProtectedNode, and is useful for accessing the field via an interface.
+func (v *AuthorProtectedNodeResponse) GetAuthorProtectedNode() *AuthorProtectedNodeAuthorProtectedNode {
+	return v.AuthorProtectedNode
+}
+
 // BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult includes the requested fields of the GraphQL type BeginAssetUploadResult.
 type BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult struct {
 	UploadId        string                                                                              `json:"uploadId"`
@@ -23005,6 +23074,18 @@ func (v *__AttachMemoryToAppInput) GetAppRef() string { return v.AppRef }
 // GetAgentRef returns __AttachMemoryToAppInput.AgentRef, and is useful for accessing the field via an interface.
 func (v *__AttachMemoryToAppInput) GetAgentRef() string { return v.AgentRef }
 
+// __AuthorProtectedNodeInput is used internally by genqlient
+type __AuthorProtectedNodeInput struct {
+	Input  *CreateNodeInput `json:"input,omitempty"`
+	Upsert *bool            `json:"upsert,omitempty"`
+}
+
+// GetInput returns __AuthorProtectedNodeInput.Input, and is useful for accessing the field via an interface.
+func (v *__AuthorProtectedNodeInput) GetInput() *CreateNodeInput { return v.Input }
+
+// GetUpsert returns __AuthorProtectedNodeInput.Upsert, and is useful for accessing the field via an interface.
+func (v *__AuthorProtectedNodeInput) GetUpsert() *bool { return v.Upsert }
+
 // __BeginAssetUploadInput is used internally by genqlient
 type __BeginAssetUploadInput struct {
 	MemoryId    string       `json:"memoryId"`
@@ -26285,6 +26366,70 @@ func AuthContext(
 	}
 
 	data_ = &AuthContextResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AuthorProtectedNode.
+const AuthorProtectedNode_Operation = `
+mutation AuthorProtectedNode ($input: CreateNodeInput!, $upsert: Boolean) {
+	authorProtectedNode(input: $input, upsert: $upsert) {
+		id
+		memoryId
+		loc
+		name
+		nodeType
+		tags
+		seq
+		isRunnable
+		updatedAt
+	}
+}
+`
+
+// The protected-loc door (hadron-server #1180, cli #606). Identical in effect to
+// createNode; the ONLY difference is that it carries the bypass, so an authoring
+// tool can write where the generic node surface is refused once a memory
+// declares `protectedLocs`. Pure routing — it validates nothing createNode does
+// not, and knows nothing about specs, reviews or tasks. The authoring rules stay
+// in `hadron spec` / `hadron coding`, which are on the closed exception list
+// (cor:api:240:02) on the audience ground.
+//
+// It is a GUARDRAIL, not a security boundary: what it refuses is the ACCIDENTAL
+// generic write, told which tool to use. The Channel source of the same gate IS
+// a boundary (#1047). Same mechanism, same error code, different strengths — do
+// not read this as making the specs corpus tamper-evident.
+//
+// `upsert` overwrites a live node instead of rejecting with
+// NodeLocConflictError. Every CLI call site passes FALSE — see the api wrapper
+// for why that is a deliberate choice and not an oversight.
+//
+// The omitempty set is repeated verbatim from CreateNode above: both operations
+// bind the same generated CreateNodeInput, so the two lists must agree or the
+// omit-vs-null wire contract differs by which operation you happened to call.
+func AuthorProtectedNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *CreateNodeInput,
+	upsert *bool,
+) (data_ *AuthorProtectedNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AuthorProtectedNode",
+		Query:  AuthorProtectedNode_Operation,
+		Variables: &__AuthorProtectedNodeInput{
+			Input:  input,
+			Upsert: upsert,
+		},
+	}
+
+	data_ = &AuthorProtectedNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

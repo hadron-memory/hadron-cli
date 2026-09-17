@@ -216,29 +216,26 @@ usage error, not a half-finished write.`,
 				input.Seq = &seq
 			}
 
-			resp, err := gen.CreateNode(ctx, client, &input)
+			resp, err := api.AuthorProtectedNode(ctx, client, &input, false)
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.CreateNode == nil {
-				return exitcode.Newf(exitcode.Error, "createNode returned no node")
-			}
 
 			dto := newRouteDTO{
-				Loc: resp.CreateNode.Loc, ID: resp.CreateNode.Id, Name: resp.CreateNode.Name,
-				Route: label, Tags: resp.CreateNode.Tags, Seq: resp.CreateNode.Seq,
+				Loc: resp.Loc, ID: resp.Id, Name: resp.Name,
+				Route: label, Tags: resp.Tags, Seq: resp.Seq,
 				Router: root, BackEdge: !noBackEdge, Links: outLinks,
 			}
 			if dto.Tags == nil {
 				dto.Tags = []string{}
 			}
 
-			// createNode's response carries no edges, so the embedded ones —
+			// the door's response carries no edges, so the embedded ones —
 			// the back-edge and every --link — are unverified. `review create`
 			// re-reads for exactly this reason; without it the DTO would report
 			// `backEdge: true` and a full `links` list for edges that silently
 			// never materialised. The DTO is corrected to what actually landed.
-			landed, err := confirmEmbeddedEdges(ctx, client, resp.CreateNode.Id)
+			landed, err := confirmEmbeddedEdges(ctx, client, resp.Id)
 			if err != nil {
 				return partialRoute(f, dto, true, err,
 					"created %s but could not read it back to confirm its edges — check it with `hadron node get %s -m %s`",
@@ -263,7 +260,7 @@ usage error, not a half-finished write.`,
 			}
 			dto.Links = kept
 
-			edgeResp, err := gen.CreateEdge(ctx, client, router.Node.Id, resp.CreateNode.Id, label,
+			edgeResp, err := gen.CreateEdge(ctx, client, router.Node.Id, resp.Id, label,
 				nil, nil, nil, nil, nil, nil)
 			if err != nil {
 				// The node exists but nothing routes to it — a partial write,
