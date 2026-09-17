@@ -45,12 +45,19 @@ type AuthoredNode = gen.AuthorProtectedNodeAuthorProtectedNode
 // Every call site in this repo passes FALSE, and that is a decision rather than
 // an oversight — cli#606 suggested `upsert: true` for "the re-run case".
 //
-// No authoring command upserts TODAY: all seven creates go through
-// `createNode`, which refuses a live `(memoryId, loc)`, and two of them promise
-// it in user-visible text — `spec new` exits Conflict with "<citation> already
+// No authoring command upserts. BEFORE this move they wrote through
+// `createNode`, which refuses a live `(memoryId, loc)`; passing `upsert: true`
+// here would have quietly changed that behaviour while moving them, which is
+// not what a routing change is for. Two of them promise the refusal in
+// user-visible text — `spec new` exits Conflict with "<citation> already
 // exists", and `coding review create`'s help says a check that already exists
-// "fails rather than overwriting it". Passing true would silently turn those
-// refusals into overwrites.
+// "fails rather than overwriting it" — so true would have turned a documented
+// refusal into a silent overwrite.
+//
+// The door preserves it: `authorProtectedNode` with upsert false rejects a live
+// loc with the same NodeLocConflictError `createNode` does. Verified on the
+// real server, not inferred: re-running `coding review create` against a loc it
+// had just minted refuses, and the original node is unchanged.
 //
 // It would also undo work this team had just finished: hadron-server #1182 and
 // #1184 closed exactly this hole on the generic surfaces, after a racing

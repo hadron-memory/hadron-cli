@@ -36,16 +36,18 @@ specs corpus is as tamper-evident as a chat message.
 #606 suggested `upsert: true` for "the re-run case". **Every call site passes
 false**, and that is a decision rather than an oversight.
 
-No authoring command upserts today. All seven creates go through `createNode`,
-which refuses a live `(memoryId, loc)` — and two of them **promise** it in
-user-visible text:
+No authoring command upserts. **Before** this move all seven creates went
+through `createNode`, which refuses a live `(memoryId, loc)`; `upsert: true`
+would have quietly changed that while moving them, which is not what a routing
+change is for. Two of them **promise** the refusal in user-visible text:
 
 - `spec new` exits Conflict with `"<citation> already exists"` (`new.go:635`)
 - `coding review create`'s help: *"Creating a check that already exists fails
   rather than overwriting it — edit an existing one with `hadron node update`"*
 
-Passing `true` would silently convert those refusals into overwrites. It would
-also undo work this team had just finished: hadron-server #1182 and #1184 closed
+The door preserves the refusal: `authorProtectedNode` with `upsert` false
+rejects a live loc with the same `NodeLocConflictError`. Passing `true` would
+silently convert those documented refusals into overwrites, and would undo work this team had just finished: hadron-server #1182 and #1184 closed
 exactly this hole on the generic surfaces, after a racing `createNode` was
 measured silently replacing a live node **40 times out of 40**. A permanent
 citation whose node a re-run can overwrite is the hazard
@@ -70,12 +72,19 @@ Nothing in it asserts which door the authoring commands use.
 
 So the contract is pinned directly, three ways:
 
-1. **A structural guard** — no `gen.CreateNode` call in `internal/cmd/spec` or
-   `internal/cmd/coding`. It covers all seven sites uniformly *and any site
-   added later*, which is the case a per-command test cannot cover, because
-   nobody writes the test for the call site they forgot. It parses rather than
-   greps, so a comment naming `gen.CreateNode` to explain why a file avoids it
-   does not trip it — the #564 lesson from the exit-code guard next door.
+1. **A structural guard** over both packages, asserting BOTH halves at every
+   site: no generic `createNode` call, and every door call passing the literal
+   `false`. It covers all seven uniformly *and any site added later*, which is
+   the case a per-command test structurally cannot — nobody writes the test for
+   the call site they forgot. That gap was real, and @copilot named it on
+   review: the wire test below exercises `coding review create` alone, so
+   flipping any `spec` site to `upsert: true` left it green.
+   Packages are resolved by **import path**, not identifier spelling — also
+   @copilot's: matching the literal `gen` would let a file importing the same
+   package as `g` call `g.CreateNode` while the guard stayed green, protecting
+   today's spelling rather than the rule. And it parses rather than greps, so a
+   comment naming `createNode` to explain why a file avoids it does not trip it
+   — the #564 lesson from the exit-code guard next door.
 2. **A two-directional check on the guard itself** — it must actually find a
    `gen.CreateNode` in `internal/cmd/node`, which legitimately still uses the
    generic create. Without that, the guard's silence could mean "matcher broken"

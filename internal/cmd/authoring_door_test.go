@@ -19,37 +19,46 @@ import (
 // carries the bypass.
 var authoringPkgs = []string{"spec", "coding"}
 
+const (
+	genPkgPath = "github.com/hadron-memory/hadron-cli/internal/api/gen"
+	apiPkgPath = "github.com/hadron-memory/hadron-cli/internal/api"
+)
+
 // A structural guard, because the fixture-keyed command tests cannot provide
 // one on their own: the fake GraphQL server is keyed by OPERATION NAME, so
 // reverting a call site to gen.CreateNode and renaming the fixture back leaves
 // the suite green. Nothing in it asserts which door the authoring commands use.
 //
-// This asserts it directly, and covers all seven sites uniformly rather than
+// It asserts both halves of the contract across ALL seven sites, rather than
 // one per hand-written test — including any site added later, which is the case
-// a per-command test cannot cover because nobody writes the test for the call
-// site they forgot.
-func TestAuthoringCommandsDoNotUseTheGenericCreate(t *testing.T) {
+// a per-command test structurally cannot cover, because nobody writes the test
+// for the call site they forgot. That gap was real: the wire test below
+// exercises `coding review create` alone, so flipping any `spec` site to
+// upsert:true left it green (@copilot on PR #607).
+func TestAuthoringCommandsUseTheDoorWithoutUpsert(t *testing.T) {
 	for _, pkg := range authoringPkgs {
-		for _, hit := range genCreateNodeCalls(t, filepath.Join("..", "cmd", pkg)) {
-			t.Errorf("%s: writes through the generic gen.CreateNode; an authoring "+
-				"command must use api.AuthorProtectedNode (#606), or `protectedLocs` "+
-				"will refuse the tool that owns the corpus", hit)
+		for _, hit := range scanAuthoringWrites(t, filepath.Join("..", "cmd", pkg)) {
+			t.Error(hit)
 		}
 	}
 }
 
-// genCreateNodeCalls returns the source positions of every `gen.CreateNode(...)`
-// call in the package's non-test files.
+// scanAuthoringWrites reports every violation of #606's contract in a package's
+// non-test files: a generic `createNode` write, or a door write that upserts.
 //
-// It parses rather than greps, so the identifier is matched only in CODE — a
-// comment or doc string naming `gen.CreateNode` to explain why a file avoids it
-// does not trip the guard. That is the #564 lesson from the exit-code guard
-// next door, which had the same defect as a line-based regex.
+// Packages are resolved by IMPORT PATH, not by the identifier spelling
+// (@copilot on PR #607). Matching the literal `gen` would let a file importing
+// the same package as `g` call `g.CreateNode` while the guard stayed green —
+// protecting today's spelling rather than the rule.
 //
-// updateNode is deliberately NOT matched: the door is create/upsert only, and
+// It parses rather than greps, so an identifier is matched only in CODE: a
+// comment naming `gen.CreateNode` to explain why a file avoids it does not trip
+// the guard. That is the #564 lesson from the exit-code guard next door.
+//
+// `UpdateNode` is deliberately NOT matched: the door is create/upsert only, and
 // the update-side one is hadron-server#1192. When that lands, the four update
-// sites listed on cli#606 move too, and `UpdateNode` belongs in here.
-func genCreateNodeCalls(t *testing.T, dir string) []string {
+// sites listed on cli#606 move too, and it belongs in here.
+func scanAuthoringWrites(t *testing.T, dir string) []string {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -71,6 +80,7 @@ func genCreateNodeCalls(t *testing.T, dir string) []string {
 		if perr != nil {
 			t.Fatalf("parse %s: %v", path, perr)
 		}
+		pkgOf := importedPackages(file)
 		ast.Inspect(file, func(n ast.Node) bool {
 			call, ok := n.(*ast.CallExpr)
 			if !ok {
@@ -80,8 +90,25 @@ func genCreateNodeCalls(t *testing.T, dir string) []string {
 			if !ok {
 				return true
 			}
-			if x, ok := sel.X.(*ast.Ident); ok && x.Name == "gen" && sel.Sel.Name == "CreateNode" {
-				hits = append(hits, fset.Position(call.Pos()).String())
+			x, ok := sel.X.(*ast.Ident)
+			if !ok {
+				return true
+			}
+			pos := fset.Position(call.Pos()).String()
+			switch {
+			case pkgOf[x.Name] == genPkgPath && sel.Sel.Name == "CreateNode":
+				hits = append(hits, pos+": writes through the generic createNode; an authoring "+
+					"command must use api.AuthorProtectedNode (#606), or `protectedLocs` "+
+					"will refuse the tool that owns the corpus")
+			case pkgOf[x.Name] == apiPkgPath && sel.Sel.Name == "AuthorProtectedNode":
+				// The upsert argument is last. `true` turns a documented
+				// refusal into a silent overwrite of a permanent citation —
+				// see the wrapper's doc comment for why no site wants it.
+				if len(call.Args) == 0 || !isFalseLiteral(call.Args[len(call.Args)-1]) {
+					hits = append(hits, pos+": must pass the literal false for upsert — "+
+						"true would turn a documented refusal into a silent overwrite "+
+						"of a permanent citation (#606)")
+				}
 			}
 			return true
 		})
@@ -89,14 +116,41 @@ func genCreateNodeCalls(t *testing.T, dir string) []string {
 	return hits
 }
 
-// Two-directional: the guard above must actually be able to SEE a gen.CreateNode
-// call, or it passes on an empty search and proves nothing. `node` is a package
-// that legitimately still uses the generic create, so finding one there shows
-// the detector fires.
+// importedPackages maps each import's LOCAL name — its alias when it has one,
+// otherwise the last path segment — to its import path.
+//
+// The last-segment fallback is right for this repo's imports and is what makes
+// the unaliased `gen`/`api` spellings resolve; an import whose package name
+// differs from its directory would need go/types, and none here does.
+func importedPackages(file *ast.File) map[string]string {
+	out := map[string]string{}
+	for _, imp := range file.Imports {
+		path := strings.Trim(imp.Path.Value, `"`)
+		local := path
+		if i := strings.LastIndex(path, "/"); i >= 0 {
+			local = path[i+1:]
+		}
+		if imp.Name != nil {
+			local = imp.Name.Name
+		}
+		out[local] = path
+	}
+	return out
+}
+
+func isFalseLiteral(e ast.Expr) bool {
+	id, ok := e.(*ast.Ident)
+	return ok && id.Name == "false"
+}
+
+// Two-directional: the scanner must actually be able to SEE a generic create,
+// or it passes on an empty search and proves nothing. `node` legitimately still
+// uses it, so finding one there shows the matcher fires — including through the
+// import-path resolution, since that package imports `gen` unaliased.
 func TestAuthoringGuardCanSeeAGenericCreate(t *testing.T) {
-	if len(genCreateNodeCalls(t, filepath.Join("..", "cmd", "node"))) == 0 {
-		t.Fatal("the guard's matcher found no gen.CreateNode anywhere, so its silence on the " +
-			"authoring packages means nothing — `hadron node add` still uses the generic create")
+	if len(scanAuthoringWrites(t, filepath.Join("..", "cmd", "node"))) == 0 {
+		t.Fatal("the guard's matcher found no generic createNode anywhere, so its silence on the " +
+			"authoring packages means nothing — `hadron node add` still uses it")
 	}
 }
 
