@@ -22,12 +22,41 @@ func searchUserJSON(id, name, email, handle string) string {
 // a memory/agent/app, prefixed for a node, within one command's own output.
 // Every kind must come out canonical v2, in --json and in the human line.
 func TestAccessCheckEmitsCanonicalResourceURN(t *testing.T) {
+	// The property under test is "the URN `access check` prints is accepted as
+	// its own input", and it must hold against BOTH server generations (#426).
+	//
+	// The bare fixtures represent a PRE-#966 server — since hadron-server#966 a
+	// current one emits the prefixed form itself, so those rows now exercise
+	// the compat shim rather than today's behaviour. The prefixed rows are the
+	// current-server case and assert PASS-THROUGH: the shim must not re-render
+	// what the server already rendered.
 	cases := []struct {
 		name, kind, serverUrn, want string
 	}{
-		{"memory", "memory", "hadronmemory.com:dev", "hrn:mem:hadronmemory.com:dev"},
-		{"agent", "agent", "hadronmemory.com:ada", "hrn:agent:hadronmemory.com:ada"},
-		// The node branch already emitted prefixed — it must not be touched.
+		// --- pre-#966 server: the shim restores the round trip ---
+		{"memory/legacy-bare", "memory", "hadronmemory.com:dev", "hrn:mem:hadronmemory.com:dev"},
+		{"agent/legacy-bare", "agent", "hadronmemory.com:ada", "hrn:agent:hadronmemory.com:ada"},
+		// --- current server: emitted prefixed, must pass through UNMODIFIED ---
+		{"memory/current", "memory", "hrn:mem:hadronmemory.com:dev", "hrn:mem:hadronmemory.com:dev"},
+		{"agent/current", "agent", "hrn:agent:hadronmemory.com:ada", "hrn:agent:hadronmemory.com:ada"},
+		{"app/current", "app", "hrn:app:hadronmemory.com:hadron-dev-team", "hrn:app:hadronmemory.com:hadron-dev-team"},
+		// --- unknown-kind verbatim pass-through (NOT the prefixed branch) ---
+		// organization is absent from urnTypeWordForKind, so this exits at the
+		// !ok check and is returned verbatim — it does NOT exercise scheme
+		// normalization, and must not be read as covering it (@codex, #601).
+		// Asserted anyway because verbatim is the right ANSWER here: a current
+		// server emits organization already canonical.
+		{"org/verbatim", "organization", "hrn:org:hadronmemory.com", "hrn:org:hadronmemory.com"},
+		// And the limit stated out loud: a BARE organization from a pre-#966
+		// server is NOT repaired — the shim does nothing at all for this kind
+		// (@copilot, #601).
+		//
+		// This row DOCUMENTS that; it does not guard it. Adding organization to
+		// urnTypeWordForKind is a no-op for a realistic value — an org body is a
+		// single atom, so it fails the len(atoms) < 2 guard and returns raw by
+		// the other route. Measured, not assumed: that mutation fails nothing.
+		{"org/bare-not-repaired", "organization", "hadronmemory.com", "hadronmemory.com"},
+		// The node branch always emitted prefixed — it must not be touched.
 		{"node", "node", "hrn:node:hadronmemory.com:dev:preflight", "hrn:node:hadronmemory.com:dev:preflight"},
 		// An AiServiceConfig has no URN: the field carries its id, verbatim.
 		{"config", "aiServiceConfig", "cfg_123", "cfg_123"},
