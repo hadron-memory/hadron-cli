@@ -41,6 +41,14 @@ query FindNodes(
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
+  # The two JSONB columns are opt-in and INDEPENDENT (#602): a listing is a thin
+  # index, and a 500-row chat listing with full envelopes is a large payload to
+  # send by default. They are separate variables rather than one flag so
+  # --with-data fetches data ALONE. Both are `Boolean!` because @include(if:)
+  # takes a non-null argument; genqlient renders the selected fields as
+  # *json.RawMessage, nil when not selected.
+  $withProperties: Boolean!
+  $withData: Boolean!
 ) {
   findNodes(
     query: $query
@@ -66,6 +74,8 @@ query FindNodes(
         seq
         isRunnable
         updatedAt
+        properties @include(if: $withProperties)
+        data @include(if: $withData)
       }
     }
   }

@@ -64,11 +64,36 @@ func SearchNodes(
 	orgID *string,
 	appRef *string,
 ) (*SearchPage, error) {
+	return SearchNodesProjected(ctx, client, query, mode, filter, sortProperty, limit, offset, scope, orgID, appRef, false, false)
+}
+
+// SearchNodesProjected is SearchNodes with the two JSONB columns opt-in (#602),
+// so a ranked result can show the field a --where predicate selected on. Each
+// column is independent; callers that want neither should use SearchNodes,
+// whose projection is deliberately thin.
+//
+// withProperties and withData are ADJACENT BOOLEANS, which is the same hazard
+// the scope/appRef pair carries below: transposing them compiles and silently
+// asks for the other column. The command tests assert each flag selects its own
+// column and NOT its neighbour, which is what catches it.
+func SearchNodesProjected(
+	ctx context.Context,
+	client graphql.Client,
+	query string,
+	mode *gen.FindNodesMode,
+	filter *gen.NodeFilter,
+	sortProperty *gqltypes.NodePropertySort,
+	limit, offset *int,
+	scope *string,
+	orgID *string,
+	appRef *string,
+	withProperties, withData bool,
+) (*SearchPage, error) {
 	// NOTE the argument ORDER: the generated signature follows the operation's
 	// variable order (scope, appRef, orgId), and both context arguments are
 	// *string — so transposing them COMPILES and silently sends each as the
 	// other. Caught by a test asserting the pair on the wire, not by the build.
-	resp, err := gen.SearchNodes(ctx, client, query, mode, filter, sortProperty, limit, offset, scope, appRef, orgID)
+	resp, err := gen.SearchNodes(ctx, client, query, mode, filter, sortProperty, limit, offset, scope, appRef, orgID, withProperties, withData)
 	if err != nil {
 		return nil, err
 	}
