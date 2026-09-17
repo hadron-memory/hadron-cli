@@ -557,7 +557,24 @@ func codeForExtension(code string) int {
 		strings.HasSuffix(code, "_ALREADY_EXISTS") || strings.HasSuffix(code, "_TAKEN") ||
 		// A drained resource (PERSONA_REGISTER_EXHAUSTED, #935) is a state
 		// conflict: retrying won't help until the state changes.
-		strings.HasSuffix(code, "_EXHAUSTED"):
+		strings.HasSuffix(code, "_EXHAUSTED") ||
+		// A duplicate node loc (#608). A LITERAL case, because this code is
+		// PascalCase where every pattern above is SCREAMING_SNAKE: the server
+		// stamps some extensions.code values from an Error CLASS NAME
+		// (`NodeLocConflictError` is its own source of truth for the string),
+		// so it matches none of them — not the literal, not a prefix, not a
+		// suffix — and a duplicate loc fell through to the generic 1.
+		//
+		// Deliberately not a `*ConflictError` suffix family. The server has 93
+		// PascalCase `*Error` class names, of which five are conflict-shaped
+		// (IdempotencyConflictError, PositionConflictError, RootNameTakenError,
+		// DuplicateAiServiceConfigNameError, and this one) — but a class name
+		// only becomes a wire code where a resolver stamps it, and this is the
+		// ONE I have observed on the wire. Mapping the other four would
+		// document exit codes no caller may ever observe, which is the trap the
+		// TEAM_ROLE comment below names. They are candidates, not omissions;
+		// each needs its own measurement, and #608 records that.
+		code == "NodeLocConflictError":
 		return exitcode.Conflict
 	// An ambiguous or unusable reference the caller can fix by passing a more
 	// specific argument (TEAM_AGENT_AMBIGUOUS → --team-agent;

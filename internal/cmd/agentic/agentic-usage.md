@@ -88,9 +88,20 @@ self-hosted backend.
 | 2    | usage error (bad flags/arguments, missing --yes) |
 | 3    | authentication required or rejected |
 | 4    | not found (or not visible to this principal) |
-| 5    | conflict (e.g. duplicate install) |
+| 5    | conflict (e.g. duplicate install, a loc already taken) |
 | 6    | cancelled / timed out waiting for the user |
 | 7    | unavailable — the request never got an answer (gateway 5xx, reset, timeout) |
+
+**Writing a node at a loc that is already taken exits 5, not 1 (#608).** This
+CHANGED: it used to exit 1, because the server stamps that `extensions.code`
+from an Error class name (`NodeLocConflictError`) rather than from the
+SCREAMING_SNAKE vocabulary the mapper recognised, so it fell through to the
+generic failure. It applies to every create that refuses a live loc — `node
+add`, `spec new`, `spec supersede`, `spec extract`, `coding review create`,
+`coding preflight add` — and it is what makes "this citation already exists"
+branchable without reading the message, which is the whole point of an exit
+code. **If you branch on exit 1 for a duplicate loc, move to 5.** A `move` onto
+an occupied destination already exited 5, so the two now agree.
 
 **7 is the only retryable code, and the only one that certifies no usable
 answer arrived** — the request may never have reached the server, *or* it
