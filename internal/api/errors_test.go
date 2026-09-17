@@ -37,6 +37,20 @@ func TestMapError(t *testing.T) {
 		// (hadron-server#1050) — pinning an exit code for a refusal the server
 		// cannot produce documents a contract nobody can exercise.
 		{"role exists", gqlErr("TEAM_ROLE_EXISTS"), exitcode.Conflict},
+		// #608: a duplicate node loc. PascalCase, because the server stamps this
+		// extensions.code from an Error CLASS NAME rather than from the
+		// SCREAMING_SNAKE vocabulary — so it matches no prefix, suffix or literal
+		// above and fell through to the generic 1. Observed on the wire from both
+		// `createNode` and `authorProtectedNode`, which return it identically.
+		{"duplicate node loc", gqlErr("NodeLocConflictError"), exitcode.Conflict},
+		// The negative half, and it is the point of the literal case: the other
+		// four conflict-shaped PascalCase class names on the server are NOT
+		// mapped, because a class name only becomes a wire code where a resolver
+		// stamps it and none of these has been observed doing so. Pinning them
+		// would document exit codes no caller may ever observe. If one is later
+		// measured on the wire, move it up — do not invent a *ConflictError suffix
+		// family, which would map all 93 of that shape sight unseen.
+		{"unobserved conflict-shaped code stays generic", gqlErr("PositionConflictError"), exitcode.Error},
 		// hadron-server#1050: a nameless cast. `worker cast` refuses this
 		// locally with the remedy, so the mapping covers the paths that do not
 		// — exit 1 for a plainly-fixable input would read as a server fault.
