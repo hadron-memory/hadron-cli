@@ -7,20 +7,40 @@ import (
 )
 
 // canonicalResourceURN renders the URN the server resolved a resource to in the
-// canonical grammar-v2 prefixed form (#423).
+// canonical grammar-v2 prefixed form.
 //
-// effectiveAccess documents resourceUrn as "Canonical URN of the resolved
-// resource", but for a memory, agent or app it returns the raw stored column —
-// which is UNPREFIXED by construction (the server's chk_*_urn_not_prefixed
-// guardrails forbid storing a rendered one). Only the node branch runs through
-// an emitter. So `access check` printed a URN its own argument parser then
-// refused, and scripting the command over a list meant re-prefixing by reading
-// `kind` and mapping it. The fix belongs server-side as well — every
-// effectiveAccess consumer sees the bare form — but the CLI is where CLAUDE.md
-// puts the emission rule ("emit v2, accept everything"), and rendering here is
-// IDEMPOTENT: an already-prefixed value (today's node, tomorrow's everything)
-// passes through unchanged, so this does not become dead code when the server
-// catches up.
+// THIS IS A BACKWARD-COMPATIBILITY SHIM, and since hadron-server#966 that is
+// ALL it is (#426). Read the two halves separately, because the original
+// rationale no longer holds and the remaining one is easy to delete by mistake.
+//
+// What it was for (#423): effectiveAccess documents resourceUrn as "Canonical
+// URN of the resolved resource", but for a memory, agent or app it returned the
+// raw stored column — UNPREFIXED by construction, since the server's
+// chk_*_urn_not_prefixed guardrails forbid storing a rendered one. Only the
+// node branch ran through an emitter. So `access check` printed a URN its own
+// argument parser then refused.
+//
+// What it is for NOW: hadron-server#966 (PR #969, 955afd9, 2026-08-14) made the
+// server emit the canonical form for memory / agent / app / organization, so
+// against a CURRENT server this function receives an already-prefixed value and
+// returns it unchanged. It survives only because the CLI talks to self-hosted
+// and older deployments, where a pre-#966 server still returns the bare column
+// and deleting this would silently reintroduce #423 for those users.
+//
+// WHEN TO DELETE IT: when this repo declares a minimum supported server version
+// at or past #966. It has none today — nothing in the CLI gates on
+// serverInfo.version, and there is no documented floor — which is the whole
+// reason the shim stays rather than a judgement that it is still doing work.
+// Re-checking that one fact is the entire decision.
+//
+// It is NOT a thin-client violation: it renders a value, and rendering is the
+// client's half of conventions:logic-lives-in-the-server-unless-it-must-run-
+// without-one. The judgement — what a resource resolves to — is the server's
+// and always was.
+//
+// Rendering is IDEMPOTENT, which is what makes the compat posture cheap: an
+// already-prefixed value passes through untouched, so a current server pays
+// nothing for an older one's benefit.
 //
 // An unrecognized kind, an aiServiceConfig (which genuinely has no URN — the
 // field carries its id), or a shape that will not compose is returned verbatim:
@@ -61,6 +81,11 @@ func canonicalResourceURN(kind, raw string) string {
 // urnTypeWordForKind maps an effectiveAccess resourceKind to its grammar-v2 URN
 // type word. aiServiceConfig is deliberately absent: it has no URN, and the
 // field carries a bare id that must not be dressed up as one.
+//
+// organization and user are absent too, and that gap is no longer worth closing
+// (#426): a current server emits hrn:org:<slug> and hrn:user:<handle> itself,
+// so both reach the prefixed early return above. Adding them here would only
+// duplicate an emission the server already does correctly.
 func urnTypeWordForKind(kind string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(kind)) {
 	case "memory":
