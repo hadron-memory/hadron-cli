@@ -195,3 +195,61 @@ func mustRead(t *testing.T, path string) string {
 	}
 	return string(b)
 }
+
+// TestMemoryExportRefusesAnImplicitScatter drives the REAL command (#583).
+//
+// The package-level test calls the gate directly and would pass with the
+// wiring deleted — this is the one that fails if the refusal is never invoked.
+// It also pins the ordering: the refusal must land BEFORE any GraphQL call, so
+// an unauthenticated or offline caller still gets the usage error rather than
+// an auth failure, and nothing is fetched for an export that will not happen.
+func TestMemoryExportRefusesAnImplicitScatter(t *testing.T) {
+	newRepoDir := func(t *testing.T) string {
+		t.Helper()
+		dir := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0o644); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+		return dir
+	}
+
+	t.Run("implicit --out inside a non-empty repo is refused before any call", func(t *testing.T) {
+		t.Chdir(newRepoDir(t))
+		gql, captured := captureGraphQL(t, map[string]string{})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"memory", "export", "acme.com:kb", "--server", gql.URL})
+		err := root.Execute()
+		if err == nil {
+			t.Fatal("expected a refusal — this would scatter a memory across the checkout")
+		}
+		if !strings.Contains(err.Error(), "--out") {
+			t.Errorf("the refusal must name the flag, got: %v", err)
+		}
+		if len(captured) != 0 {
+			t.Errorf("the refusal must precede every server call, got %v", captured)
+		}
+	})
+
+	t.Run("an EXPLICIT --out . is honoured", func(t *testing.T) {
+		t.Chdir(newRepoDir(t))
+		// Stubbed so the fake does not flag the call as unexpected: reaching
+		// the server IS the assertion here. The command fails afterwards on
+		// the unresolvable ref, which is fine — the gate is what is under test.
+		gql, captured := captureGraphQL(t, map[string]string{
+			"GetMemory": `{"data":{"memory":null}}`,
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"memory", "export", "acme.com:kb", "--out", ".", "--server", gql.URL})
+		// It will fail later (the ref does not resolve against this fake), but
+		// it must get PAST the gate — a caller who named the directory said so.
+		_ = root.Execute()
+		if len(captured) == 0 {
+			t.Error("--out . is an explicit choice and must not be refused")
+		}
+	})
+}

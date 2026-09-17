@@ -65,10 +65,15 @@ export is a faithful, reviewable mirror of the memory.
 Nodes are pulled in bulk (up to 200 per request). data-type nodes are
 skipped (they carry no markdown body), matching the server's git export.
 Existing files are overwritten; files for nodes that no longer exist are
-left in place — export never deletes.`,
-		Example: `  hadron memory export acme.com:project-kb            # to the current directory
-  hadron memory export acme.com:project-kb --out ./kb
-  hadron memory export acme.com:project-kb -o ./kb --json`,
+left in place — export never deletes.
+
+With no --out this writes to the current directory, EXCEPT when that directory
+is inside a git repository and is not empty: exporting a whole memory there
+scatters hundreds of files among your own, and the overwrite is silent. Pass
+--out <dir>, or --out . to say you meant the current directory.`,
+		Example: `  hadron memory export acme.com:project-kb --out ./kb
+  hadron memory export acme.com:project-kb -o ./kb --json
+  hadron memory export acme.com:project-kb --out .      # explicit: the current directory`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if format != "markdown" && format != "md" {
@@ -76,8 +81,27 @@ left in place — export never deletes.`,
 			}
 			// --out is optional and defaults to "." (current directory); an
 			// explicit empty value falls back to "." rather than a bare path.
+			//
+			// An IMPLICIT "." is refused when it would scatter a memory across
+			// a working repository (#583). The convenient default and the safe
+			// default differ here: a developer running this is almost always
+			// standing in a checkout, the layout is designed to look like repo
+			// content, and export overwrites — so a same-named file is
+			// replaced with nothing said. Passing `--out .` still works and is
+			// the documented way to say you meant it.
 			if strings.TrimSpace(outDir) == "" {
 				outDir = "."
+			}
+			// Gate on whether the flag was GIVEN, not on its value. Its default
+			// is "." — so comparing against "" or against "." both answer the
+			// wrong question: the first never fires, and the second would also
+			// refuse an explicit `--out .`, which is precisely how a caller
+			// says they meant the current directory
+			// (review:an-empty-flag-is-not-an-absent-flag).
+			if !cmd.Flags().Changed("out") {
+				if err := refuseImplicitExportInto(outDir); err != nil {
+					return err
+				}
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -290,4 +314,84 @@ func maybeWriteManifest(ctx context.Context, client graphql.Client, root, memID 
 		return false, err
 	}
 	return true, nil
+}
+
+// refuseImplicitExportInto refuses an export that would write a whole memory
+// into a non-empty directory the caller did not name (#583).
+//
+// It refuses ONLY the implicit default: an explicit `--out .` is a caller who
+// said where, and is honoured. The gate is "inside a git work tree AND not
+// empty", because those two together are what turn a convenience into damage —
+// the files look like repo content, `git add -A` stages them, and export
+// overwrites a same-named file without a word.
+//
+// Local refusal with the remedy named, rather than a round trip or a prompt:
+// the same shape #540 used for App refs, and it keeps the command scriptable
+// (a script that passes --out is unaffected).
+func refuseImplicitExportInto(dir string) error {
+	inRepo, err := insideGitWorkTree(dir)
+	if err != nil || !inRepo {
+		// Not a repo, or we could not tell — do not invent a refusal from a
+		// failed check. The hazard this guards is specific to a checkout.
+		return nil //nolint:nilerr // an unreadable directory is the writer's problem to report, not this gate's
+	}
+	empty, err := dirIsEmpty(dir)
+	if err != nil || empty {
+		return nil //nolint:nilerr // same: only a NON-empty repo directory is refused
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		abs = dir
+	}
+	return exitcode.Newf(exitcode.Usage,
+		"refusing to export a whole memory into %s — it is inside a git repository and is not empty, "+
+			"and export overwrites same-named files without asking. Pass --out <dir> (e.g. --out ./kb), "+
+			"or --out . if you really mean the current directory", abs)
+}
+
+// insideGitWorkTree reports whether dir is within a git working tree, by
+// walking up for a .git entry. Deliberately not `git rev-parse`: this must not
+// depend on a git binary being installed, and a wrong answer here only decides
+// whether to refuse, never what gets written.
+//
+// SYMLINKS ARE RESOLVED FIRST, and that is load-bearing rather than tidy
+// (@copilot, #599). A shell exports PWD, so `os.Getwd` — and therefore
+// filepath.Abs(".") — can return the SYMLINKED path; the walk then goes up the
+// link's parents and never reaches the real checkout's .git. Measured: with
+// PWD set to a symlink into a repo, Abs(".") keeps the link path and this
+// returned false for a directory plainly inside a work tree.
+//
+// A failure to resolve falls back to the unresolved path rather than erroring:
+// this gate decides whether to REFUSE, so failing to answer must not invent one.
+func insideGitWorkTree(dir string) (bool, error) {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return false, err
+	}
+	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+		abs = resolved
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(abs, ".git")); err == nil {
+			return true, nil
+		}
+		parent := filepath.Dir(abs)
+		if parent == abs {
+			return false, nil
+		}
+		abs = parent
+	}
+}
+
+// dirIsEmpty reports whether dir contains no entries. A missing directory
+// counts as empty — export creates it, and creating one is not the hazard.
+func dirIsEmpty(dir string) (bool, error) {
+	entries, err := os.ReadDir(dir)
+	if os.IsNotExist(err) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return len(entries) == 0, nil
 }
