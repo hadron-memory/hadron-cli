@@ -7,97 +7,123 @@ import (
 
 func ptr(s string) *string { return &s }
 
-// longAbstract builds an abstract inside the tight-headroom band so the
-// abstract-length ERROR fires, optionally containing the given citations so the
-// index-completeness check can be exercised on the same node.
-func longAbstract(mentions ...string) *string {
-	const target = abstractHardMax - 10 // inside the tight-headroom band
+// longAbstract builds an abstract inside the tight-headroom band, so the
+// abstract-length ERROR fires and its tier-specific remedy can be read.
+func longAbstract() *string {
+	const target = abstractHardMax - 10
 	var body string
-	for _, m := range mentions {
-		body += m + " does a thing. "
-	}
 	for len(body) < target {
 		body += "More on-subject prose about this very spec. "
 	}
 	return ptr(body[:target])
 }
 
-func findingFor(fs []lintFindingDTO, rule string) (lintFindingDTO, bool) {
+// mustFinding fails the test if the rule did not fire. Every case here depends
+// on abstract-length having fired, so a missing finding must stop the test
+// rather than silently compare against a zero value.
+func mustFinding(t *testing.T, fs []lintFindingDTO, rule string) lintFindingDTO {
+	t.Helper()
 	for _, f := range fs {
 		if f.Rule == rule {
-			return f, true
+			return f
 		}
 	}
-	return lintFindingDTO{}, false
+	t.Fatalf("%s did not fire; got %+v", rule, fs)
+	return lintFindingDTO{}
 }
 
-// #605: the abstract-length threshold is shared across tiers; the REMEDY is
-// not. At rule tier, "supersede-level split" is correct advice. At feature
-// tier, following it literally means superseding every child into a tombstone,
-// because a split cannot move children — a citation is never renumbered. @Vera
-// hit this on cor:agt:020, which has twelve live rules.
+func lintLoc(loc, title string) []lintFindingDTO {
+	return lintNode(specNode{
+		Loc: loc, Name: title, NodeType: "info",
+		Tags: []string{"spec"}, Abstract: longAbstract(),
+	})
+}
+
+// #605: the abstract-length threshold is shared across tiers — the server's cap
+// binds them all — and only the REMEDY differs. There are three, not two.
+//
+// At rule/flow tier a split is right. At index tier it is the most expensive
+// operation the corpus supports, recommended automatically: a split cannot move
+// children, because a citation is never renumbered, so @Vera's `cor:agt:020`
+// would have cost twelve live citations. And a CONTRACT is neither — it indexes
+// nothing, and its loc is a reserved atom with one per tier, so a split has
+// nowhere to put a second one (@codex + @copilot on PR #609, independently).
 func TestAbstractLengthRemedyIsTierAware(t *testing.T) {
 	cases := []struct {
-		name          string
-		loc           string
-		wantSplit     bool
-		wantRouteWord string
+		name    string
+		loc     string
+		want    []string // fragments the remedy MUST contain
+		wantNot []string // fragments it must NOT contain
 	}{
-		{"rule keeps the split remedy", "cor:agt:020:03", true, ""},
-		{"flow keeps the split remedy", "cor:agt:020:03:01", true, ""},
-		{"feature must NOT be told to split", "cor:agt:020", false, "feature"},
-		{"module must NOT be told to split", "cor:agt", false, "module"},
+		{"rule keeps the split remedy", "cor:agt:020:03",
+			[]string{"supersede-level split", "granularity signal"},
+			[]string{"INDEX", "CONTRACT"}},
+		{"flow keeps the split remedy", "cor:agt:020:03:01",
+			[]string{"supersede-level split"},
+			[]string{"INDEX", "CONTRACT"}},
+
+		{"feature routes, and its children are rules", "cor:agt:020",
+			[]string{"INDEX", "ROUTING", "feature abstract", "cannot move rules"},
+			[]string{"supersede-level split", "CONTRACT"}},
+
+		// The level-1 ambiguity. ParseCitation reads a lone atom as a flat
+		// module, so a bare PRODUCT root arrives indistinguishable from a
+		// module — and their children differ (modules vs features). The message
+		// must not name either, rather than name the wrong one.
+		{"module does not claim to know its children", "cor:agt",
+			[]string{"INDEX", "ROUTING", "product or module", "cannot move its children"},
+			[]string{"supersede-level split", "cannot move features", "cannot move rules"}},
+		{"bare product root gets the same honest wording", "cor",
+			[]string{"product or module", "cannot move its children"},
+			[]string{"cannot move features", "supersede-level split"}},
+
+		// Contracts parse to an INDEX level but index nothing.
+		{"product contract", "cor:gen",
+			[]string{"CONTRACT", "reserved atom", "inherited by its siblings"},
+			[]string{"supersede-level split", "INDEX of its children"}},
+		{"module contract", "cor:api:000",
+			[]string{"CONTRACT", "reserved atom"},
+			[]string{"supersede-level split", "INDEX of its children"}},
+		{"feature contract falls in the RULE band and still must not split", "cor:api:240:00",
+			[]string{"CONTRACT", "reserved atom"},
+			[]string{"supersede-level split"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			fs := lintNode(specNode{
-				Loc: tc.loc, Name: tc.loc + " — a spec", NodeType: "info",
-				Tags: []string{"spec"}, Abstract: longAbstract(),
-			})
-			f, ok := findingFor(fs, "abstract-length")
-			if !ok {
-				t.Fatalf("abstract-length must fire at every tier — the hard cap binds all of them; got %+v", fs)
-			}
+			f := mustFinding(t, lintLoc(tc.loc, tc.loc+" — a spec"), "abstract-length")
 			if f.Severity != sevError {
 				t.Errorf("near the hard cap this is an error, got %q", f.Severity)
 			}
-			mentionsSplit := strings.Contains(f.Message, "supersede-level split")
-			if mentionsSplit != tc.wantSplit {
-				t.Errorf("split remedy present=%v, want %v\nmessage: %s", mentionsSplit, tc.wantSplit, f.Message)
+			for _, want := range tc.want {
+				if !strings.Contains(f.Message, want) {
+					t.Errorf("remedy omits %q\nmessage: %s", want, f.Message)
+				}
 			}
-			if tc.wantRouteWord != "" {
-				// The index-tier remedy has to say what to do INSTEAD, not just
-				// withhold the split — otherwise the reader is left with a
-				// reported error and no available action.
-				for _, must := range []string{"INDEX", "ROUTING", tc.wantRouteWord} {
-					if !strings.Contains(f.Message, must) {
-						t.Errorf("index-tier remedy omits %q\nmessage: %s", must, f.Message)
-					}
+			for _, not := range tc.wantNot {
+				if strings.Contains(f.Message, not) {
+					t.Errorf("remedy must not contain %q\nmessage: %s", not, f.Message)
 				}
 			}
 		})
 	}
 }
 
-// The conjunction hint is split-shaped, so it must not survive at index tier
-// either — a feature titled "workers and their names" is not telling you to
-// split it, and appending the hint would reinstate the advice the tier-specific
-// remedy exists to withhold.
+// The conjunction hint is split-shaped, so it belongs only where a split is the
+// remedy. A feature titled "workers and their names" is not telling you to
+// split it — naming several subjects is what an index title does — and a
+// contract's title names the provisions it carries.
 func TestConjunctionHintIsRuleTierOnly(t *testing.T) {
-	const title = "cor:agt:020 — workers and their names"
-	rule := lintNode(specNode{Loc: "cor:agt:020:03", Name: title, NodeType: "info",
-		Tags: []string{"spec"}, Abstract: longAbstract()})
-	feature := lintNode(specNode{Loc: "cor:agt:020", Name: title, NodeType: "info",
-		Tags: []string{"spec"}, Abstract: longAbstract()})
-
-	rf, _ := findingFor(rule, "abstract-length")
-	ff, _ := findingFor(feature, "abstract-length")
-	// Two-directional: the hint must actually appear at rule tier, or its
-	// absence at feature tier proves nothing about the gate.
-	if !strings.Contains(rf.Message, "already suggests") {
-		t.Fatalf("the conjunction hint must still fire at rule tier, or this test measures nothing: %s", rf.Message)
+	const title = "x — workers and their names"
+	rule := mustFinding(t, lintLoc("cor:agt:020:03", title), "abstract-length")
+	// Two-directional: the hint must actually fire at rule tier, or its absence
+	// elsewhere proves nothing about the gate.
+	if !strings.Contains(rule.Message, "already suggests") {
+		t.Fatalf("the conjunction hint must still fire at rule tier, or this test measures nothing: %s", rule.Message)
 	}
-	if strings.Contains(ff.Message, "already suggests") {
-		t.Errorf("the conjunction hint is split-shaped and must not appear at index tier: %s", ff.Message)
+	for _, loc := range []string{"cor:agt:020", "cor:agt", "cor:gen", "cor:api:240:00"} {
+		f := mustFinding(t, lintLoc(loc, title), "abstract-length")
+		if strings.Contains(f.Message, "already suggests") {
+			t.Errorf("%s: the conjunction hint is split-shaped and must not appear here: %s", loc, f.Message)
+		}
 	}
 }

@@ -1080,38 +1080,79 @@ func abstractNearCap(l int) bool { return abstractHardMax-l < abstractTightHeadr
 // overclaim one case over, which is why this is one function rather than an
 // expression repeated at two call sites).
 // indexTier reports whether this citation's abstract is an INDEX of children
-// (product, module, feature) rather than a statement of one rule.
+// (product root, module, feature) rather than a statement of one rule.
 //
-// It is the discriminator the abstract-length remedy turns on, and the two
-// tiers want opposite advice — see nearCapMessage.
-func indexTier(c Citation) bool { return c.Level() <= 2 }
+// CONTRACTS ARE EXCLUDED, and that exclusion is load-bearing (@codex + @copilot
+// on PR #609, independently). A general-provisions contract parses to an index
+// LEVEL — `cor:gen` is 1, `cor:api:000` is 2 — but it is inherited by its
+// siblings rather than indexing any children, so both the diagnosis and the
+// rewrite remedy are inapplicable to it. See contractRemedy.
+func indexTier(c Citation) bool { return c.Level() <= 2 && !c.IsContract() }
+
+// The three remedies. The abstract-length THRESHOLD is shared across every tier
+// (the server's cap binds them all); only the advice differs (#605).
+const (
+	// A rule or flow states one rule, so many subjects really is a granularity
+	// signal and a supersede-level split really is the remedy.
+	splitRemedy = " Do not distill: on a spec whose sentences are all on-subject, cutting one drops a contract. This is a granularity signal — the node carries more than one subject, and the remedy is a supersede-level split"
+
+	// A contract is NEITHER. It indexes nothing, so it cannot be told to route;
+	// and a split is not available to it either, because its loc is a RESERVED
+	// atom — `gen`, `000`, `00` — of which there is exactly one per tier, so
+	// there is nowhere for a second contract to go.
+	//
+	// What is left is the honest diagnosis: a contract that has grown this
+	// large has usually absorbed provisions that are not shared, and the remedy
+	// is to move them to the node that actually needs them.
+	contractRemedy = " Do NOT split and do NOT distill: this is a general-provisions CONTRACT, inherited by its siblings rather than indexing any children, and its loc is a reserved atom with exactly one per tier — so there is nowhere a split could put a second one. At this tier length usually means the contract has absorbed provisions that are not actually shared. Move those down into the individual rules that need them, or up to the tier that does, and keep here only what every sibling inherits"
+)
+
+// indexRemedy is the advice for a product root, module or feature — a node
+// whose abstract is an INDEX of its children.
+//
+// Following the rule-shaped advice here would be the single most expensive
+// operation the corpus supports: a "split" cannot move children, because a
+// citation is never renumbered, so it means superseding every one of them into
+// a tombstone. @Vera hit this on `cor:agt:020` — 12 live rules, several cited
+// the same day from other specs and from hadron-server#553.
+//
+// And it was the wrong diagnosis anyway. Measured across all 81 features,
+// length did not track rule count: `cor:dmo:060` has MORE rules (14) and a
+// SHORTER abstract (1388 vs 1940). The difference is that `cor:dmo:060` ROUTES
+// — one clause per rule, naming what it is — while `cor:agt:020` RESTATED,
+// reproducing each child's own abstract. That is a duplication defect, and it
+// had already begun to drift: `020:09` was edited without its parent. Rewriting
+// to route took it to 1427 with zero citations touched.
+func indexRemedy(c Citation) string {
+	// At level 1 the children CANNOT be named, and saying so is the honest
+	// option (@codex on #609). `ParseCitation` reads a lone atom as a flat
+	// module, so a bare PRODUCT root — whose children are modules — arrives
+	// here indistinguishable from a module, whose children are features.
+	// Telling a product author its split "cannot move features" would send them
+	// after the wrong inventory, and the distinction needs corpus context this
+	// function does not have. Level 2 is unambiguous: a feature's children are
+	// rules either way, flat corpus or product-rooted.
+	tier, children := "product or module", "its children"
+	if c.Level() == 2 {
+		tier, children = "feature", "rules"
+	}
+	return fmt.Sprintf(" Do NOT split and do NOT distill: a %s abstract is an INDEX of its children, so carrying many subjects is its job, and a split cannot move %s — a citation is never renumbered, so it would mean superseding every one of them. At this tier length is a DUPLICATION signal: the abstract is probably restating what its children already say instead of ROUTING to them. Rewrite it as one clause per child naming what that child is, and check none is missing",
+		tier, children)
+}
 
 func nearCapMessage(l int, title string, c Citation) string {
-	// The remedy differs by TIER, and the threshold does not (#605).
-	//
-	// At RULE/FLOW tier the node states one rule, so many subjects really is a
-	// granularity signal and a supersede-level split really is the remedy.
-	//
-	// At INDEX tier it is the opposite, and following the rule-shaped advice
-	// literally would be the single most expensive operation the corpus
-	// supports. A feature "split" cannot move its rules — a citation is never
-	// renumbered — so it means superseding every child into a tombstone.
-	// @Vera hit this on `cor:agt:020`: 12 live rules, several cited the same
-	// day from other specs and from hadron-server#553.
-	//
-	// And it was the wrong diagnosis anyway. Measured across all 81 features,
-	// length did not track rule count: `cor:dmo:060` has MORE rules (14) and a
-	// SHORTER abstract (1388 vs 1940). The difference is that `cor:dmo:060`
-	// ROUTES — one clause per rule, naming what it is — while `cor:agt:020`
-	// RESTATED, reproducing each child's own abstract. That is a duplication
-	// defect, and it had already begun to drift: `020:09` was edited without
-	// its parent. Rewriting to route took it to 1427 with zero citations
-	// touched, and revealed the old abstract had OMITTED two children entirely
-	// — bloated and incomplete at once, which is what restating produces.
-	remedy := " Do not distill: on a spec whose sentences are all on-subject, cutting one drops a contract. This is a granularity signal — the node carries more than one subject, and the remedy is a supersede-level split"
-	if indexTier(c) {
-		remedy = fmt.Sprintf(" Do NOT split and do NOT distill: a %s abstract is an INDEX of its children, so carrying many subjects is its job, and a split cannot move %ss — a citation is never renumbered, so it would mean superseding every one of them. At this tier length is a DUPLICATION signal: the abstract is probably restating what its children already say instead of ROUTING to them. Rewrite it as one clause per child naming what that child is, and check none is missing",
-			tierWord(c), indexChildWord(c))
+	// One decision, two consequences. The conjunction hint below is SPLIT-SHAPED,
+	// so it must be tied to the remedy actually chosen rather than re-derived
+	// from the tier — deriving it separately is how a contract ended up being
+	// told that the "and" in its title suggested a split it had just been told
+	// it could not perform (caught by TestConjunctionHintIsRuleTierOnly when
+	// contracts were excluded from indexTier).
+	remedy, splitShaped := splitRemedy, true
+	switch {
+	case c.IsContract():
+		remedy, splitShaped = contractRemedy, false
+	case indexTier(c):
+		remedy, splitShaped = indexRemedy(c), false
 	}
 	var msg string
 	switch headroom := abstractHardMax - l; {
@@ -1132,12 +1173,11 @@ func nearCapMessage(l int, title string, c Citation) string {
 			"abstract is %d chars — already past the %d-char hard cap, so any update that REPLACES the abstract is rejected unless it brings it to %d or fewer; an update that leaves the abstract alone (a body-only edit, including the one `spec supersede` writes) still succeeds.%s",
 			l, abstractHardMax, abstractHardMax, remedy)
 	}
-	// The conjunction hint is SPLIT-shaped, so it only belongs where a split is
-	// the remedy (#605). A feature titled "workers and their names" is not
-	// telling you to split it — naming several subjects is what an index title
-	// does — and appending this at index tier would reinstate the advice the
-	// tier-specific remedy above exists to withhold.
-	if !indexTier(c) {
+	// A feature titled "workers and their names" is not telling you to split it
+	// — naming several subjects is what an index title does — and appending
+	// this anywhere the remedy is not a split would reinstate exactly the
+	// advice that remedy exists to withhold (#605).
+	if splitShaped {
 		if conj := titleConjunction(title); conj != "" {
 			// The mechanical half of the diagnosis (@Ada, #539): three specs
 			// flagged for length all had a conjunction in the title. A title
@@ -1147,42 +1187,6 @@ func nearCapMessage(l int, title string, c Citation) string {
 		}
 	}
 	return msg
-}
-
-// indexChildWord names what a TIER ROOT's children are: a product indexes
-// modules, a module indexes features, a feature indexes rules.
-//
-// Deliberately NOT tierChildWord, which looks adjacent and is indexed
-// differently — it is called with a CONTRACT's citation (`ppp:gen` parses to
-// level 1, `mmm:000` to level 2), so passing it a plain feature returns
-// "feature" and the message told a feature that a split could not move
-// features. Caught by reading the rendered output, not by the compiler: both
-// are func(Citation) string.
-func indexChildWord(c Citation) string {
-	switch c.Level() {
-	case 0:
-		return "module"
-	case 1:
-		return "feature"
-	default:
-		return "rule"
-	}
-}
-
-// tierWord names the tier a citation sits at, for prose.
-func tierWord(c Citation) string {
-	switch c.Level() {
-	case 0:
-		return "product"
-	case 1:
-		return "module"
-	case 2:
-		return "feature"
-	case 4:
-		return "flow"
-	default:
-		return "rule"
-	}
 }
 
 // rawSpecBody re-reads one node through the BATCH query, which returns content
