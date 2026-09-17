@@ -627,10 +627,16 @@ Conventions:
   references among the moved nodes break (slug + locs change); unresolved
   pending edges in the subtree are dropped.
 - `memory export <id-or-urn> [--out <dir>]` writes every node to a local
-  directory (`--out` defaults to `.`, the current directory) as frontmatter
+  directory as frontmatter
   markdown (`<out>/<loc>.md`, one self-contained file per node, colons in the
   loc become path segments) — the same layout the server's git sync produces,
-  but on disk and without a remote. Nodes
+  but on disk and without a remote.
+  **`--out` defaults to `.`, BUT an omitted `--out` is REFUSED (exit 2, usage)
+  when the current directory is inside a git work tree and is not empty** — a
+  whole memory scattered among your files, overwriting same-named ones
+  silently, is the hazard (#583). Pass `--out <dir>`, or `--out .` to state
+  that you meant the current directory; an explicit `--out` is never refused,
+  so a script that passes one is unaffected. Nodes
   are pulled in bulk; `data`-type nodes are skipped; nodes the read API
   cannot return come back under `unavailable` in the `--json` summary
   (a client-side export is bounded by per-node read access, unlike the

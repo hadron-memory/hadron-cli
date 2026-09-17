@@ -353,10 +353,23 @@ func refuseImplicitExportInto(dir string) error {
 // walking up for a .git entry. Deliberately not `git rev-parse`: this must not
 // depend on a git binary being installed, and a wrong answer here only decides
 // whether to refuse, never what gets written.
+//
+// SYMLINKS ARE RESOLVED FIRST, and that is load-bearing rather than tidy
+// (@copilot, #599). A shell exports PWD, so `os.Getwd` — and therefore
+// filepath.Abs(".") — can return the SYMLINKED path; the walk then goes up the
+// link's parents and never reaches the real checkout's .git. Measured: with
+// PWD set to a symlink into a repo, Abs(".") keeps the link path and this
+// returned false for a directory plainly inside a work tree.
+//
+// A failure to resolve falls back to the unresolved path rather than erroring:
+// this gate decides whether to REFUSE, so failing to answer must not invent one.
 func insideGitWorkTree(dir string) (bool, error) {
 	abs, err := filepath.Abs(dir)
 	if err != nil {
 		return false, err
+	}
+	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+		abs = resolved
 	}
 	for {
 		if _, err := os.Stat(filepath.Join(abs, ".git")); err == nil {

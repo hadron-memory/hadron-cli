@@ -109,3 +109,53 @@ func mustWrite(t *testing.T, p, body string) {
 		t.Fatalf("write %s: %v", p, err)
 	}
 }
+
+// TestRefuseImplicitExportIntoResolvesSymlinks — @copilot on #599.
+//
+// A shell exports PWD, so os.Getwd (and therefore filepath.Abs(".")) can return
+// a SYMLINKED path. A lexical parent walk then climbs the link's parents and
+// never reaches the real checkout's .git, so the guard would wave through
+// exactly the case it exists to refuse.
+//
+// Measured before fixing: with PWD set to a symlink into a repo, Abs(".") kept
+// the link path and the walk returned false for a directory plainly inside a
+// work tree.
+func TestRefuseImplicitExportIntoResolvesSymlinks(t *testing.T) {
+	root := t.TempDir()
+
+	repo := filepath.Join(root, "realrepo")
+	mustMkdir(t, filepath.Join(repo, ".git"))
+	// The link points at a SUBDIRECTORY of the repo, not its root. That is what
+	// makes the walk matter: os.Stat follows symlinks, so a link to the repo
+	// root would find .git on the first probe and the test would pass with the
+	// resolution deleted — it would measure nothing.
+	sub := filepath.Join(repo, "internal", "cmd")
+	mustMkdir(t, sub)
+	mustWrite(t, filepath.Join(sub, "x.go"), "package cmd")
+
+	// The link lives OUTSIDE the repo, so walking up its own parents lexically
+	// leaves the checkout and finds no .git at all.
+	outside := filepath.Join(root, "outside")
+	mustMkdir(t, outside)
+	link := filepath.Join(outside, "link")
+	if err := os.Symlink(sub, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+
+	if err := refuseImplicitExportInto(link); err == nil {
+		t.Fatal("a repository reached through a symlink must still be refused — the files land in the real checkout either way")
+	}
+
+	// And the converse still holds: a symlink to a directory that is NOT a
+	// repo must not start being refused.
+	plain := filepath.Join(root, "plain")
+	mustMkdir(t, plain)
+	mustWrite(t, filepath.Join(plain, "notes.txt"), "hi")
+	plainLink := filepath.Join(outside, "plainlink")
+	if err := os.Symlink(plain, plainLink); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := refuseImplicitExportInto(plainLink); err != nil {
+		t.Errorf("resolving symlinks must not widen the refusal: %v", err)
+	}
+}
