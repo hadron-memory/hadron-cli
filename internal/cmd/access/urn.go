@@ -83,9 +83,17 @@ func canonicalResourceURN(kind, raw string) string {
 // field carries a bare id that must not be dressed up as one.
 //
 // organization and user are absent too, and that gap is no longer worth closing
-// (#426): a current server emits hrn:org:<slug> and hrn:user:<handle> itself,
-// so both reach the prefixed early return above. Adding them here would only
-// duplicate an emission the server already does correctly.
+// (#426). Be precise about WHY, because the tempting description is wrong:
+// they do NOT reach the prefixed-value branch. Returning false here exits
+// canonicalResourceURN at its !ok check, so the value comes back VERBATIM,
+// never normalized (@codex, #601).
+//
+// That is the correct outcome rather than a lucky one: a current server emits
+// hrn:org:<slug> and hrn:user:<handle> already canonical, so there is nothing
+// to render and verbatim IS the right answer. The consequence to know is that
+// these kinds get no scheme normalization — a hypothetical urn:org:… would
+// pass through unchanged where urn:mem:… would not. No server emits that, so
+// the gap stays open deliberately rather than being closed for symmetry.
 func urnTypeWordForKind(kind string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(kind)) {
 	case "memory":

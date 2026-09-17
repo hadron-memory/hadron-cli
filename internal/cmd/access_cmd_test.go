@@ -40,9 +40,13 @@ func TestAccessCheckEmitsCanonicalResourceURN(t *testing.T) {
 		{"memory/current", "memory", "hrn:mem:hadronmemory.com:dev", "hrn:mem:hadronmemory.com:dev"},
 		{"agent/current", "agent", "hrn:agent:hadronmemory.com:ada", "hrn:agent:hadronmemory.com:ada"},
 		{"app/current", "app", "hrn:app:hadronmemory.com:hadron-dev-team", "hrn:app:hadronmemory.com:hadron-dev-team"},
-		// organization was never in urnTypeWordForKind and no longer needs to
-		// be: a current server emits it, so it takes the prefixed early return.
-		{"org/current", "organization", "hrn:org:hadronmemory.com", "hrn:org:hadronmemory.com"},
+		// --- unknown-kind verbatim pass-through (NOT the prefixed branch) ---
+		// organization is absent from urnTypeWordForKind, so this exits at the
+		// !ok check and is returned verbatim — it does NOT exercise scheme
+		// normalization, and must not be read as covering it (@codex, #601).
+		// Asserted anyway because verbatim is the right ANSWER here: a current
+		// server emits organization already canonical.
+		{"org/verbatim", "organization", "hrn:org:hadronmemory.com", "hrn:org:hadronmemory.com"},
 		// The node branch always emitted prefixed — it must not be touched.
 		{"node", "node", "hrn:node:hadronmemory.com:dev:preflight", "hrn:node:hadronmemory.com:dev:preflight"},
 		// An AiServiceConfig has no URN: the field carries its id, verbatim.
