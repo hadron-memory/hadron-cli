@@ -2955,3 +2955,53 @@ func TestNodeUpdateClearRemedyNamesTheCurrentKindsDoor(t *testing.T) {
 		})
 	}
 }
+
+// @copilot on #615: `node add` without --role must not send `role: null` on the
+// wire. The doors carried the omitempty directive and the GENERIC create did
+// not, so a plain `node add` asserted a null the caller never expressed. Benign
+// for a create today — but the whole point of this repo's omitempty annotations
+// is that a nil pointer is never serialized as null, because the server reads
+// omitted and null differently elsewhere.
+func TestNodeAddOmittedRoleIsNotSent(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "add", "-m", "acme.com::kb", "--loc", "x:y",
+		"--name", "X", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input map[string]any `json:"input"`
+	}
+	_ = json.Unmarshal(captured["CreateNode"], &vars)
+	if _, present := vars.Input["role"]; present {
+		t.Errorf("omitted --role must not reach the wire: %v", vars.Input["role"])
+	}
+}
+
+// An EMPTY role is an invalid state — it matches no kind — and `--role` refuses
+// to create one. But the generic surface and MCP still can, so the human view
+// must SHOW it rather than hiding it alongside null (@copilot on #615): the one
+// node a reader most needs to notice would otherwise look ordinary.
+func TestNodeGetShowsAnEmptyRoleAsOdd(t *testing.T) {
+	empty := `{"id":"n1","memoryId":"mem1","loc":"findings:x","name":"X","description":null,
+		"abstract":null,"nodeType":"info","tags":[],"role":"","isRunnable":false,
+		"content":"b","seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
+		"outgoingEdges":[],"incomingEdges":[]}`
+	gql := fakeGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + empty + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", nodeURN, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "matches no kind") {
+		t.Errorf("an empty role must be visible and flagged as odd:\n%s", out.String())
+	}
+}

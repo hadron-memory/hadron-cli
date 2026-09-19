@@ -268,6 +268,7 @@ query GetNode($ref: ID!) {
 # @genqlient(for: "CreateNodeInput.properties", omitempty: true)
 # @genqlient(for: "CreateNodeInput.seq", omitempty: true)
 # @genqlient(for: "CreateNodeInput.tags", omitempty: true)
+# @genqlient(for: "CreateNodeInput.role", omitempty: true)
 mutation CreateNode(
   $input: CreateNodeInput!
 ) {

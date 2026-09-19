@@ -6432,7 +6432,7 @@ type CreateNodeInput struct {
 	// platform-kind axis) and NOT 'objectType' (the collection discriminator).
 	// A GOVERNED value ('review', 'spec') requires that kind's own door; the
 	// generic createNode refuses it.
-	Role *string  `json:"role"`
+	Role *string  `json:"role,omitempty"`
 	Seq  *int     `json:"seq,omitempty"`
 	Tags []string `json:"tags,omitempty"`
 }
