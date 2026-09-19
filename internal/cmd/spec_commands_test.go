@@ -3182,7 +3182,7 @@ func TestSpecEditAbstractStillAccurateResendsStoredAbstract(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var up editUpdateInput
-	if err := json.Unmarshal(captured["UpdateNode"], &up); err != nil {
+	if err := json.Unmarshal(captured["UpdateSpecNode"], &up); err != nil {
 		t.Fatalf("UpdateNode vars: %v", err)
 	}
 	if up.Input.Content == nil || *up.Input.Content != "# rewritten body\n" {
@@ -3212,7 +3212,7 @@ func TestSpecEditAbstractStillAccurateAloneStillWrites(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	raw, ok := captured["UpdateNode"]
+	raw, ok := captured["UpdateSpecNode"]
 	if !ok {
 		t.Fatal("the assertion alone must still write — otherwise the marker cannot be cleared")
 	}
@@ -3261,10 +3261,10 @@ func TestSpecEditAbstractStillAccurateRejectsAbstractEdit(t *testing.T) {
 // assertion would CLEAR the field it claims to be vouching for.
 func TestSpecEditAbstractStillAccurateRefusesWhenThereIsNoAbstract(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveSpecJSON,
-		"GetNode":    `{"data":{"node":` + badSpecDetail + `}}`,
-		"NodeBatch":  specLintRawBodyStub(badSpecDetail),
-		"UpdateNode": editMocks()["UpdateNode"],
+		"ResolveUrn":     resolveSpecJSON,
+		"GetNode":        `{"data":{"node":` + badSpecDetail + `}}`,
+		"NodeBatch":      specLintRawBodyStub(badSpecDetail),
+		"UpdateSpecNode": editMocks()["UpdateSpecNode"],
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -3273,7 +3273,7 @@ func TestSpecEditAbstractStillAccurateRefusesWhenThereIsNoAbstract(t *testing.T)
 	if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
 		t.Fatalf("no abstract to re-affirm should be Usage, got %d", got)
 	}
-	if _, wrote := captured["UpdateNode"]; wrote {
+	if _, wrote := captured["UpdateSpecNode"]; wrote {
 		t.Error("must refuse BEFORE writing — the write would clear the abstract")
 	}
 }
