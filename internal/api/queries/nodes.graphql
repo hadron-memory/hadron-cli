@@ -73,6 +73,7 @@ query FindNodes(
         tags
         seq
         isRunnable
+        role
         updatedAt
         properties @include(if: $withProperties)
         data @include(if: $withData)
@@ -131,6 +132,7 @@ query NodeBatch(
       name
       alias
       nodeType
+      role
       objectType
       isRunnable
       description
@@ -266,6 +268,7 @@ query GetNode($ref: ID!) {
 # @genqlient(for: "CreateNodeInput.properties", omitempty: true)
 # @genqlient(for: "CreateNodeInput.seq", omitempty: true)
 # @genqlient(for: "CreateNodeInput.tags", omitempty: true)
+# @genqlient(for: "CreateNodeInput.role", omitempty: true)
 mutation CreateNode(
   $input: CreateNodeInput!
 ) {
@@ -278,6 +281,7 @@ mutation CreateNode(
     tags
     seq
     isRunnable
+    role
     updatedAt
   }
 }
@@ -542,6 +546,7 @@ mutation UpdateNode(
     tags
     seq
     isRunnable
+    role
     updatedAt
   }
 }
@@ -669,6 +674,7 @@ mutation MoveNode(
     loc
     name
     nodeType
+    role
     tags
     seq
     isRunnable
@@ -695,6 +701,7 @@ mutation CloneNode(
     loc
     name
     nodeType
+    role
     tags
     seq
     isRunnable
@@ -719,6 +726,7 @@ mutation MergeNodes(
     loc
     name
     nodeType
+    role
     tags
     isRunnable
     updatedAt
@@ -744,6 +752,7 @@ mutation UpdateNodeData(
     nodeType
     tags
     isRunnable
+    role
     updatedAt
   }
 }

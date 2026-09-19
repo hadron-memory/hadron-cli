@@ -124,6 +124,7 @@ func batchDetailDTO(n *batchNode) nodeDetailDTO {
 			NodeType:   n.NodeType,
 			Tags:       n.Tags,
 			IsRunnable: boolVal(n.IsRunnable),
+			Role:       n.Role,
 			UpdatedAt:  n.UpdatedAt,
 		},
 		ObjectType:  n.ObjectType,

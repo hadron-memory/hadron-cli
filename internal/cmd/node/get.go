@@ -145,6 +145,21 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 		fmt.Fprintf(w, "  object-type: %s\n", *dto.ObjectType)
 	}
 	fmt.Fprintf(w, "  runnable: %t\n", dto.IsRunnable)
+	// Printed whenever the field is NON-NULL. Ungoverned (null) is the
+	// overwhelming majority and a `role: -` line on every node would be noise;
+	// anything else changes which door may write the node, so it earns a line.
+	//
+	// An EMPTY role is shown too, and shown as odd (@copilot on #615). It is a
+	// state `--role` refuses to create, but one the generic surface and MCP can
+	// still produce, and it matches no kind — so hiding it alongside null would
+	// make the one node a reader most needs to notice look ordinary.
+	if dto.Role != nil {
+		if *dto.Role == "" {
+			fmt.Fprintf(w, "  role: \"\" (empty — matches no kind; clear it to null or set a value)\n")
+		} else {
+			fmt.Fprintf(w, "  role: %s\n", *dto.Role)
+		}
+	}
 	if dto.Description != nil && *dto.Description != "" {
 		fmt.Fprintf(w, "  about: %s\n", *dto.Description)
 	}
@@ -230,6 +245,7 @@ func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 			NodeType:   n.NodeType,
 			Tags:       n.Tags,
 			IsRunnable: boolVal(n.IsRunnable),
+			Role:       n.Role,
 			UpdatedAt:  n.UpdatedAt,
 		},
 		ObjectType:         n.ObjectType,

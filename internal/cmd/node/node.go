@@ -48,7 +48,24 @@ type nodeDTO struct {
 	Tags       []string `json:"tags"`
 	Seq        *int     `json:"seq"`
 	IsRunnable bool     `json:"isRunnable"`
-	UpdatedAt  string   `json:"updatedAt"`
+	// Role is `Node.role` (#1201) — what the node is FOR, an open string whose
+	// GOVERNED values ("spec", "review") decide which door may write it.
+	//
+	// A POINTER with NO omitempty: null means the node is UNGOVERNED, which is a
+	// real answer and must render rather than vanish.
+	//
+	// That only reads cleanly because EVERY surface feeding this DTO selects
+	// `role` — otherwise "not selected" and "ungoverned" would both print null
+	// and a reader could not tell them apart, which is the absent-vs-null
+	// collapse #602 was filed for. `updateNodeData` was the one that did not,
+	// and now does.
+	//
+	// Projected at all because `--role` can set it, and a field you can set and
+	// cannot read back is #602 again (@Ada on #615).
+	//
+	// NOT `nodeType` (the platform kind, above) and NOT a membership role.
+	Role      *string `json:"role"`
+	UpdatedAt string  `json:"updatedAt"`
 }
 
 // nodeDetailDTO extends the list shape for single-node output.
@@ -137,6 +154,7 @@ func createDTO(n *api.AuthoredNode) nodeDTO {
 		Tags:       n.Tags,
 		Seq:        nil,
 		IsRunnable: boolVal(n.IsRunnable),
+		Role:       n.Role,
 		UpdatedAt:  n.UpdatedAt,
 	}
 }
@@ -151,6 +169,7 @@ func updateDTO(n *api.AuthoredNode) nodeDTO {
 		Tags:       n.Tags,
 		Seq:        nil,
 		IsRunnable: boolVal(n.IsRunnable),
+		Role:       n.Role,
 		UpdatedAt:  n.UpdatedAt,
 	}
 }
@@ -165,6 +184,7 @@ func mergeDTO(n *gen.UpdateNodeDataUpdateNodeDataNode) nodeDTO {
 		Tags:       n.Tags,
 		Seq:        nil,
 		IsRunnable: boolVal(n.IsRunnable),
+		Role:       n.Role,
 		UpdatedAt:  n.UpdatedAt,
 	}
 }

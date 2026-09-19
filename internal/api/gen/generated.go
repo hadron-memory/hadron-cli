@@ -4133,9 +4133,22 @@ type CloneNodeCloneNode struct {
 	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
 	// accepted price of keeping retrieval stable while roles stay open, so each
 	// one says what it is not — mixing them up is the predictable failure.
-	NodeType string   `json:"nodeType"`
-	Tags     []string `json:"tags"`
-	Seq      *int     `json:"seq"`
+	NodeType string `json:"nodeType"`
+	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
+	// platform reads a small CLOSED subset and ignores every other value.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// has NO retrieval impact.
+	//
+	// A GOVERNED value routes the write to that kind's own authoring door, and the
+	// generic node surface is refused: 'review' and 'spec' today, alongside the
+	// task kind, which is gated on 'isRunnable' rather than on any label because a
+	// label can be omitted and a capability cannot. 'role: "weather-widget"'
+	// does nothing at all.
+	Role *string  `json:"role"`
+	Tags []string `json:"tags"`
+	Seq  *int     `json:"seq"`
 	// Whether this node can be run as a task (nullable; #513) — it drives the tree
 	// action indicator, and since #1201 it is also the CAPABILITY gate for the
 	// task kind: a write that would PRODUCE a runnable node must come through
@@ -4162,6 +4175,9 @@ func (v *CloneNodeCloneNode) GetName() string { return v.Name }
 
 // GetNodeType returns CloneNodeCloneNode.NodeType, and is useful for accessing the field via an interface.
 func (v *CloneNodeCloneNode) GetNodeType() string { return v.NodeType }
+
+// GetRole returns CloneNodeCloneNode.Role, and is useful for accessing the field via an interface.
+func (v *CloneNodeCloneNode) GetRole() *string { return v.Role }
 
 // GetTags returns CloneNodeCloneNode.Tags, and is useful for accessing the field via an interface.
 func (v *CloneNodeCloneNode) GetTags() []string { return v.Tags }
@@ -6331,8 +6347,21 @@ type CreateNodeCreateNode struct {
 	// task kind: a write that would PRODUCE a runnable node must come through
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
-	IsRunnable *bool  `json:"isRunnable"`
-	UpdatedAt  string `json:"updatedAt"`
+	IsRunnable *bool `json:"isRunnable"`
+	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
+	// platform reads a small CLOSED subset and ignores every other value.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// has NO retrieval impact.
+	//
+	// A GOVERNED value routes the write to that kind's own authoring door, and the
+	// generic node surface is refused: 'review' and 'spec' today, alongside the
+	// task kind, which is gated on 'isRunnable' rather than on any label because a
+	// label can be omitted and a capability cannot. 'role: "weather-widget"'
+	// does nothing at all.
+	Role      *string `json:"role"`
+	UpdatedAt string  `json:"updatedAt"`
 }
 
 // GetId returns CreateNodeCreateNode.Id, and is useful for accessing the field via an interface.
@@ -6358,6 +6387,9 @@ func (v *CreateNodeCreateNode) GetSeq() *int { return v.Seq }
 
 // GetIsRunnable returns CreateNodeCreateNode.IsRunnable, and is useful for accessing the field via an interface.
 func (v *CreateNodeCreateNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetRole returns CreateNodeCreateNode.Role, and is useful for accessing the field via an interface.
+func (v *CreateNodeCreateNode) GetRole() *string { return v.Role }
 
 // GetUpdatedAt returns CreateNodeCreateNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *CreateNodeCreateNode) GetUpdatedAt() string { return v.UpdatedAt }
@@ -6400,7 +6432,7 @@ type CreateNodeInput struct {
 	// platform-kind axis) and NOT 'objectType' (the collection discriminator).
 	// A GOVERNED value ('review', 'spec') requires that kind's own door; the
 	// generic createNode refuses it.
-	Role *string  `json:"role"`
+	Role *string  `json:"role,omitempty"`
 	Seq  *int     `json:"seq,omitempty"`
 	Tags []string `json:"tags,omitempty"`
 }
@@ -8726,7 +8758,20 @@ type FindNodesFindNodesFindNodesResultHitsNodeHitNode struct {
 	// task kind: a write that would PRODUCE a runnable node must come through
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
-	IsRunnable *bool            `json:"isRunnable"`
+	IsRunnable *bool `json:"isRunnable"`
+	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
+	// platform reads a small CLOSED subset and ignores every other value.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// has NO retrieval impact.
+	//
+	// A GOVERNED value routes the write to that kind's own authoring door, and the
+	// generic node surface is refused: 'review' and 'spec' today, alongside the
+	// task kind, which is gated on 'isRunnable' rather than on any label because a
+	// label can be omitted and a capability cannot. 'role: "weather-widget"'
+	// does nothing at all.
+	Role       *string          `json:"role"`
 	UpdatedAt  string           `json:"updatedAt"`
 	Properties *json.RawMessage `json:"properties"`
 	Data       *json.RawMessage `json:"data"`
@@ -8755,6 +8800,9 @@ func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetSeq() *int { retur
 
 // GetIsRunnable returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.IsRunnable, and is useful for accessing the field via an interface.
 func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetRole returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.Role, and is useful for accessing the field via an interface.
+func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetRole() *string { return v.Role }
 
 // GetUpdatedAt returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetUpdatedAt() string { return v.UpdatedAt }
@@ -12347,8 +12395,21 @@ type MergeNodesMergeNodesNode struct {
 	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
 	// accepted price of keeping retrieval stable while roles stay open, so each
 	// one says what it is not — mixing them up is the predictable failure.
-	NodeType string   `json:"nodeType"`
-	Tags     []string `json:"tags"`
+	NodeType string `json:"nodeType"`
+	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
+	// platform reads a small CLOSED subset and ignores every other value.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// has NO retrieval impact.
+	//
+	// A GOVERNED value routes the write to that kind's own authoring door, and the
+	// generic node surface is refused: 'review' and 'spec' today, alongside the
+	// task kind, which is gated on 'isRunnable' rather than on any label because a
+	// label can be omitted and a capability cannot. 'role: "weather-widget"'
+	// does nothing at all.
+	Role *string  `json:"role"`
+	Tags []string `json:"tags"`
 	// Whether this node can be run as a task (nullable; #513) — it drives the tree
 	// action indicator, and since #1201 it is also the CAPABILITY gate for the
 	// task kind: a write that would PRODUCE a runnable node must come through
@@ -12372,6 +12433,9 @@ func (v *MergeNodesMergeNodesNode) GetName() string { return v.Name }
 
 // GetNodeType returns MergeNodesMergeNodesNode.NodeType, and is useful for accessing the field via an interface.
 func (v *MergeNodesMergeNodesNode) GetNodeType() string { return v.NodeType }
+
+// GetRole returns MergeNodesMergeNodesNode.Role, and is useful for accessing the field via an interface.
+func (v *MergeNodesMergeNodesNode) GetRole() *string { return v.Role }
 
 // GetTags returns MergeNodesMergeNodesNode.Tags, and is useful for accessing the field via an interface.
 func (v *MergeNodesMergeNodesNode) GetTags() []string { return v.Tags }
@@ -12573,9 +12637,22 @@ type MoveNodeMoveNode struct {
 	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
 	// accepted price of keeping retrieval stable while roles stay open, so each
 	// one says what it is not — mixing them up is the predictable failure.
-	NodeType string   `json:"nodeType"`
-	Tags     []string `json:"tags"`
-	Seq      *int     `json:"seq"`
+	NodeType string `json:"nodeType"`
+	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
+	// platform reads a small CLOSED subset and ignores every other value.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// has NO retrieval impact.
+	//
+	// A GOVERNED value routes the write to that kind's own authoring door, and the
+	// generic node surface is refused: 'review' and 'spec' today, alongside the
+	// task kind, which is gated on 'isRunnable' rather than on any label because a
+	// label can be omitted and a capability cannot. 'role: "weather-widget"'
+	// does nothing at all.
+	Role *string  `json:"role"`
+	Tags []string `json:"tags"`
+	Seq  *int     `json:"seq"`
 	// Whether this node can be run as a task (nullable; #513) — it drives the tree
 	// action indicator, and since #1201 it is also the CAPABILITY gate for the
 	// task kind: a write that would PRODUCE a runnable node must come through
@@ -12602,6 +12679,9 @@ func (v *MoveNodeMoveNode) GetName() string { return v.Name }
 
 // GetNodeType returns MoveNodeMoveNode.NodeType, and is useful for accessing the field via an interface.
 func (v *MoveNodeMoveNode) GetNodeType() string { return v.NodeType }
+
+// GetRole returns MoveNodeMoveNode.Role, and is useful for accessing the field via an interface.
+func (v *MoveNodeMoveNode) GetRole() *string { return v.Role }
 
 // GetTags returns MoveNodeMoveNode.Tags, and is useful for accessing the field via an interface.
 func (v *MoveNodeMoveNode) GetTags() []string { return v.Tags }
@@ -12796,6 +12876,19 @@ type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
 	// accepted price of keeping retrieval stable while roles stay open, so each
 	// one says what it is not — mixing them up is the predictable failure.
 	NodeType string `json:"nodeType"`
+	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
+	// platform reads a small CLOSED subset and ignores every other value.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// has NO retrieval impact.
+	//
+	// A GOVERNED value routes the write to that kind's own authoring door, and the
+	// generic node surface is refused: 'review' and 'spec' today, alongside the
+	// task kind, which is gated on 'isRunnable' rather than on any label because a
+	// label can be omitted and a capability cannot. 'role: "weather-widget"'
+	// does nothing at all.
+	Role *string `json:"role"`
 	// #725 — the COLLECTION discriminator: which domain object this node is an
 	// instance of, e.g. "competitor" / "insight". Validated against the memory's
 	// property schema when it has one. NULL for an ordinary node.
@@ -12848,6 +12941,9 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetAlias() *string { return
 
 // GetNodeType returns NodeBatchNodeBatchNodeBatchResultNodesNode.NodeType, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetNodeType() string { return v.NodeType }
+
+// GetRole returns NodeBatchNodeBatchNodeBatchResultNodesNode.Role, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetRole() *string { return v.Role }
 
 // GetObjectType returns NodeBatchNodeBatchNodeBatchResultNodesNode.ObjectType, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetObjectType() *string { return v.ObjectType }
@@ -20736,8 +20832,21 @@ type UpdateNodeDataUpdateNodeDataNode struct {
 	// task kind: a write that would PRODUCE a runnable node must come through
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
-	IsRunnable *bool  `json:"isRunnable"`
-	UpdatedAt  string `json:"updatedAt"`
+	IsRunnable *bool `json:"isRunnable"`
+	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
+	// platform reads a small CLOSED subset and ignores every other value.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// has NO retrieval impact.
+	//
+	// A GOVERNED value routes the write to that kind's own authoring door, and the
+	// generic node surface is refused: 'review' and 'spec' today, alongside the
+	// task kind, which is gated on 'isRunnable' rather than on any label because a
+	// label can be omitted and a capability cannot. 'role: "weather-widget"'
+	// does nothing at all.
+	Role      *string `json:"role"`
+	UpdatedAt string  `json:"updatedAt"`
 }
 
 // GetId returns UpdateNodeDataUpdateNodeDataNode.Id, and is useful for accessing the field via an interface.
@@ -20760,6 +20869,9 @@ func (v *UpdateNodeDataUpdateNodeDataNode) GetTags() []string { return v.Tags }
 
 // GetIsRunnable returns UpdateNodeDataUpdateNodeDataNode.IsRunnable, and is useful for accessing the field via an interface.
 func (v *UpdateNodeDataUpdateNodeDataNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetRole returns UpdateNodeDataUpdateNodeDataNode.Role, and is useful for accessing the field via an interface.
+func (v *UpdateNodeDataUpdateNodeDataNode) GetRole() *string { return v.Role }
 
 // GetUpdatedAt returns UpdateNodeDataUpdateNodeDataNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateNodeDataUpdateNodeDataNode) GetUpdatedAt() string { return v.UpdatedAt }
@@ -21052,8 +21164,21 @@ type UpdateNodeUpdateNode struct {
 	// task kind: a write that would PRODUCE a runnable node must come through
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
-	IsRunnable *bool  `json:"isRunnable"`
-	UpdatedAt  string `json:"updatedAt"`
+	IsRunnable *bool `json:"isRunnable"`
+	// #1201 — what this node is FOR, as an OPEN string. Set it to anything; the
+	// platform reads a small CLOSED subset and ignores every other value.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// has NO retrieval impact.
+	//
+	// A GOVERNED value routes the write to that kind's own authoring door, and the
+	// generic node surface is refused: 'review' and 'spec' today, alongside the
+	// task kind, which is gated on 'isRunnable' rather than on any label because a
+	// label can be omitted and a capability cannot. 'role: "weather-widget"'
+	// does nothing at all.
+	Role      *string `json:"role"`
+	UpdatedAt string  `json:"updatedAt"`
 }
 
 // GetId returns UpdateNodeUpdateNode.Id, and is useful for accessing the field via an interface.
@@ -21079,6 +21204,9 @@ func (v *UpdateNodeUpdateNode) GetSeq() *int { return v.Seq }
 
 // GetIsRunnable returns UpdateNodeUpdateNode.IsRunnable, and is useful for accessing the field via an interface.
 func (v *UpdateNodeUpdateNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetRole returns UpdateNodeUpdateNode.Role, and is useful for accessing the field via an interface.
+func (v *UpdateNodeUpdateNode) GetRole() *string { return v.Role }
 
 // GetUpdatedAt returns UpdateNodeUpdateNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateNodeUpdateNode) GetUpdatedAt() string { return v.UpdatedAt }
@@ -27654,6 +27782,7 @@ mutation CloneNode ($sourceRef: ID!, $targetUrn: String, $targetMemoryRef: ID) {
 		loc
 		name
 		nodeType
+		role
 		tags
 		seq
 		isRunnable
@@ -28661,6 +28790,7 @@ mutation CreateNode ($input: CreateNodeInput!) {
 		tags
 		seq
 		isRunnable
+		role
 		updatedAt
 	}
 }
@@ -30234,6 +30364,7 @@ query FindNodes ($query: String, $mode: FindNodesMode, $filter: NodeFilter, $sor
 				tags
 				seq
 				isRunnable
+				role
 				updatedAt
 				properties @include(if: $withProperties)
 				data @include(if: $withData)
@@ -31692,6 +31823,7 @@ mutation MergeNodes ($input: MergeNodesInput!) {
 		loc
 		name
 		nodeType
+		role
 		tags
 		isRunnable
 		updatedAt
@@ -31830,6 +31962,7 @@ mutation MoveNode ($sourceRef: ID!, $targetUrn: String, $targetMemoryRef: ID) {
 		loc
 		name
 		nodeType
+		role
 		tags
 		seq
 		isRunnable
@@ -31928,6 +32061,7 @@ query NodeBatch ($refs: [ID!], $memory: ID, $locPrefix: String) {
 			name
 			alias
 			nodeType
+			role
 			objectType
 			isRunnable
 			description
@@ -34896,6 +35030,7 @@ mutation UpdateNode ($input: UpdateNodeInput!) {
 		tags
 		seq
 		isRunnable
+		role
 		updatedAt
 	}
 }
@@ -34944,6 +35079,7 @@ mutation UpdateNodeData ($nodeRef: ID!, $data: JSON!, $reason: String) {
 		nodeType
 		tags
 		isRunnable
+		role
 		updatedAt
 	}
 }

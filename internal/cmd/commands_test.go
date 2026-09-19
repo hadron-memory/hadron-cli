@@ -2686,3 +2686,322 @@ func TestMemoryExtractAcceptsEverySpellingOfTargetURN(t *testing.T) {
 		})
 	}
 }
+
+// ---- node add/update --role (#1201) ----
+//
+// The flag exists so a governed node can be minted or backfilled from the CLI
+// at all: #614 shipped the dispatcher that READS `role` without a surface that
+// WRITES it, so the only route was a raw `hadron api` mutation.
+
+// Setting a governed role must route the create through that kind's DOOR —
+// the generic createNode refuses it, so getting this wrong is not a style
+// question, it is a command that cannot write.
+func TestNodeAddRoleRoutesToItsDoor(t *testing.T) {
+	for _, tc := range []struct{ role, door string }{
+		{"spec", "CreateSpecNode"},
+		{"review", "CreateReviewNode"},
+		{"weather-widget", "CreateNode"}, // open string, ungoverned: generic surface
+	} {
+		t.Run(tc.role, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"CreateNode":       `{"data":{"createNode":` + nodeJSON + `}}`,
+				"CreateSpecNode":   `{"data":{"createSpecNode":` + nodeJSON + `}}`,
+				"CreateReviewNode": `{"data":{"createReviewNode":` + nodeJSON + `}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"node", "add", "-m", "acme.com::kb", "--loc", "x:y",
+				"--name", "X", "--role", tc.role, "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			raw, ok := captured[tc.door]
+			if !ok {
+				t.Fatalf("role %q must route through %s", tc.role, tc.door)
+			}
+			var vars struct {
+				Input map[string]any `json:"input"`
+			}
+			_ = json.Unmarshal(raw, &vars)
+			if vars.Input["role"] != tc.role {
+				t.Errorf("role not forwarded: %v", vars.Input["role"])
+			}
+		})
+	}
+}
+
+// An update that SETS a governed role routes on the resulting state, even
+// though the stored node is ungoverned — the input wins over what is there.
+func TestNodeUpdateRoleRoutesOnTheResultingState(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":     resolveNodeJSON,
+		"GetNode":        `{"data":{"node":` + nodeDetailJSON + `}}`, // role: null
+		"UpdateNode":     `{"data":{"updateNode":` + nodeJSON + `}}`,
+		"UpdateSpecNode": `{"data":{"updateSpecNode":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "update", nodeURN, "--role", "spec", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, ok := captured["UpdateSpecNode"]; !ok {
+		t.Fatal("setting role=spec must route through the spec door — the generic surface refuses the resulting node")
+	}
+	if _, ok := captured["UpdateNode"]; ok {
+		t.Error("must not also hit the generic surface")
+	}
+}
+
+// THE EMPTY-VALUE REFUSAL, and it is measured behaviour rather than caution.
+//
+// `--object-type ""` really does clear, because the server normalizes an empty
+// object-type to null. It does NOT do that for role: `role: ""` is stored
+// verbatim, leaving a node carrying an empty role — neither governed nor
+// cleanly ungoverned, and matching no entry in the register. Since `*string` +
+// omitempty cannot express an explicit null, the honest move is to refuse.
+func TestNodeRoleEmptyValueIsRefusedNotWritten(t *testing.T) {
+	for _, args := range [][]string{
+		{"node", "update", nodeURN, "--role", ""},
+		{"node", "add", "-m", "acme.com::kb", "--loc", "x:y", "--name", "X", "--role", ""},
+	} {
+		gql, captured := captureGraphQL(t, map[string]string{
+			"ResolveUrn": resolveNodeJSON,
+			"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+			"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
+			"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(args, "--server", gql.URL))
+		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
+			t.Errorf("%v: empty --role should be Usage, got %d", args[1], got)
+		}
+		for _, op := range []string{"UpdateNode", "CreateNode"} {
+			if _, wrote := captured[op]; wrote {
+				t.Errorf("%v: must refuse BEFORE writing an empty role via %s", args[1], op)
+			}
+		}
+	}
+}
+
+// Omitting the flag must PRESERVE the stored role — the nil pointer is omitted
+// from the wire, not sent as null, which would clear it.
+func TestNodeUpdateOmittedRoleIsNotSent(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "update", nodeURN, "--name", "X", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input map[string]any `json:"input"`
+	}
+	_ = json.Unmarshal(captured["UpdateNode"], &vars)
+	if _, present := vars.Input["role"]; present {
+		t.Errorf("omitted --role must not reach the wire (null would CLEAR it): %v", vars.Input["role"])
+	}
+}
+
+// A field you can SET and cannot READ BACK is #602 again (@Ada on #615), so the
+// projection is pinned on both surfaces — and `role` is deliberately NOT
+// omitempty: null means ungoverned, which is an answer, not an absence.
+func TestNodeGetProjectsRole(t *testing.T) {
+	governed := `{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
+		"description":null,"abstract":null,"nodeType":"finding","tags":["ci"],"role":"spec",
+		"content":"body","seq":null,
+		"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
+		"outgoingEdges":[],"incomingEdges":[]}`
+	gql := fakeGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + governed + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", nodeURN, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if _, present := dto["role"]; !present {
+		t.Fatal("node get --json must project role — it is settable via --role")
+	}
+	if dto["role"] != "spec" {
+		t.Errorf("role = %v, want spec", dto["role"])
+	}
+}
+
+// An UNGOVERNED node renders role as null rather than dropping the key: the
+// reader must be able to tell "ungoverned" from "this surface did not ask".
+func TestNodeGetRendersUngovernedRoleAsNull(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", nodeURN, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto map[string]any
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	v, present := dto["role"]
+	if !present {
+		t.Fatal("the key must be present even when ungoverned — omitempty would collapse it with 'not selected'")
+	}
+	if v != nil {
+		t.Errorf("ungoverned role should be null, got %v", v)
+	}
+}
+
+// @codex on #615: a node cannot be two governed kinds at once. No door can
+// write it — each is exempt from its OWN kind only — and the server's refusal
+// names one that would also refuse, which is worse than no advice.
+func TestNodeTwoGovernedKindsIsRefused(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"add: runnable + spec", []string{"node", "add", "-m", "acme.com::kb", "--loc", "x:y",
+			"--name", "X", "--runnable", "--role", "spec"}},
+		{"add: runnable + review", []string{"node", "add", "-m", "acme.com::kb", "--loc", "x:y",
+			"--name", "X", "--runnable", "--role", "review"}},
+		{"update: runnable + spec", []string{"node", "update", nodeURN, "--runnable", "--role", "spec"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"ResolveUrn":     resolveNodeJSON,
+				"GetNode":        `{"data":{"node":` + nodeDetailJSON + `}}`,
+				"CreateNode":     `{"data":{"createNode":` + nodeJSON + `}}`,
+				"CreateTaskNode": `{"data":{"createTaskNode":` + nodeJSON + `}}`,
+				"CreateSpecNode": `{"data":{"createSpecNode":` + nodeJSON + `}}`,
+				"UpdateNode":     `{"data":{"updateNode":` + nodeJSON + `}}`,
+				"UpdateTaskNode": `{"data":{"updateTaskNode":` + nodeJSON + `}}`,
+				"UpdateSpecNode": `{"data":{"updateSpecNode":` + nodeJSON + `}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(tc.args, "--server", gql.URL))
+			if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
+				t.Fatalf("two governed kinds should be Usage, got %d", got)
+			}
+			for _, op := range []string{"CreateNode", "CreateTaskNode", "CreateSpecNode",
+				"UpdateNode", "UpdateTaskNode", "UpdateSpecNode"} {
+				if _, wrote := captured[op]; wrote {
+					t.Errorf("must refuse BEFORE writing; hit %s", op)
+				}
+			}
+		})
+	}
+}
+
+// But ONE governed kind beside an OPEN role is legitimate and must still work —
+// measured against the live server before this guard was written. A blanket
+// "--runnable excludes --role" would have been wrong.
+func TestNodeRunnableWithUngovernedRoleIsAllowed(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateTaskNode": `{"data":{"createTaskNode":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "add", "-m", "acme.com::kb", "--loc", "x:y", "--name", "X",
+		"--runnable", "--role", "weather-widget", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("one governed kind plus an open role is legitimate: %v", err)
+	}
+	if _, ok := captured["CreateTaskNode"]; !ok {
+		t.Error("should route through the task door")
+	}
+}
+
+// @copilot on #615: the clear remedy must name the door for what the node IS
+// NOW. Prescribing updateSpecNode for a review or runnable node is refused.
+func TestNodeUpdateClearRemedyNamesTheCurrentKindsDoor(t *testing.T) {
+	detail := func(role, runnable string) string {
+		return `{"id":"n1","memoryId":"mem1","loc":"findings:x","name":"X","description":null,
+			"abstract":null,"nodeType":"info","tags":[],"role":` + role + `,"isRunnable":` + runnable + `,
+			"content":"b","seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
+			"outgoingEdges":[],"incomingEdges":[]}`
+	}
+	for _, tc := range []struct{ name, node, want string }{
+		{"spec node", detail(`"spec"`, "false"), "updateSpecNode"},
+		{"review node", detail(`"review"`, "false"), "updateReviewNode"},
+		{"runnable node", detail("null", "true"), "updateTaskNode"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql := fakeGraphQL(t, map[string]string{
+				"ResolveUrn": resolveNodeJSON,
+				"GetNode":    `{"data":{"node":` + tc.node + `}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"node", "update", nodeURN, "--role", "", "--server", gql.URL})
+			err := root.Execute()
+			if exitCodeFor(err) != exitcode.Usage {
+				t.Fatalf("expected Usage, got %v", err)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("remedy must name %s for a %s:\n%v", tc.want, tc.name, err)
+			}
+		})
+	}
+}
+
+// @copilot on #615: `node add` without --role must not send `role: null` on the
+// wire. The doors carried the omitempty directive and the GENERIC create did
+// not, so a plain `node add` asserted a null the caller never expressed. Benign
+// for a create today — but the whole point of this repo's omitempty annotations
+// is that a nil pointer is never serialized as null, because the server reads
+// omitted and null differently elsewhere.
+func TestNodeAddOmittedRoleIsNotSent(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "add", "-m", "acme.com::kb", "--loc", "x:y",
+		"--name", "X", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input map[string]any `json:"input"`
+	}
+	_ = json.Unmarshal(captured["CreateNode"], &vars)
+	if _, present := vars.Input["role"]; present {
+		t.Errorf("omitted --role must not reach the wire: %v", vars.Input["role"])
+	}
+}
+
+// An EMPTY role is an invalid state — it matches no kind — and `--role` refuses
+// to create one. But the generic surface and MCP still can, so the human view
+// must SHOW it rather than hiding it alongside null (@copilot on #615): the one
+// node a reader most needs to notice would otherwise look ordinary.
+func TestNodeGetShowsAnEmptyRoleAsOdd(t *testing.T) {
+	empty := `{"id":"n1","memoryId":"mem1","loc":"findings:x","name":"X","description":null,
+		"abstract":null,"nodeType":"info","tags":[],"role":"","isRunnable":false,
+		"content":"b","seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
+		"outgoingEdges":[],"incomingEdges":[]}`
+	gql := fakeGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + empty + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", nodeURN, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), "matches no kind") {
+		t.Errorf("an empty role must be visible and flagged as odd:\n%s", out.String())
+	}
+}

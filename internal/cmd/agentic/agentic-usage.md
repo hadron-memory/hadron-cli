@@ -882,6 +882,19 @@ Conventions:
   cannot be dodged by omission, because it keys on `isRunnable` rather than on a
   label — drop the capability and the node does not run.
 
+  **`node add --role` / `node update --role` set `Node.role`** and the command
+  routes the write through that kind's door for you — so `hadron node update
+  <ref> --role spec` is how an existing node becomes governed. Omit the flag to
+  PRESERVE the stored role; `--role ""` is REFUSED rather than sent, because the
+  server keeps an empty role verbatim (unlike `--object-type ""`, which it
+  normalizes to null) and would leave the node carrying a role no kind
+  recognizes. Clearing needs an explicit null via `hadron api`. The flag is NOT
+  `--type` (the platform kind) and NOT the `--role` on `memory member` /
+  `memory share`, which is a MEMBERSHIP role on a person. `node get` and
+  `node list` PROJECT it, and `--json` renders `"role": null` for an ungoverned
+  node rather than dropping the key — null is the answer "ungoverned", not the
+  absence of one.
+
   **`coding preflight create` writes through the GENERIC surface**, and that is
   correct rather than an exemption: its route targets are non-runnable
   orientation nodes carrying no role, so they are of no governed kind. Nothing
