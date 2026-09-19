@@ -70,7 +70,7 @@ slackConnections
 usageActivity
 usageEvents  # cli#439: no usage command group yet — when one lands, filter a loc with loc:, NEVER nodeId: (shape-classified, swallows any >=3-segment loc as a node URN)
 
-[Mutation] 91 unbound
+[Mutation] 88 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
@@ -89,7 +89,6 @@ createRegisterEntry  # spec-049 (scopes / Channels / register) — the hadron-cl
 createResendSender
 createRevision
 createSlackConnection
-createTaskNode  # #1201 task door — no CLI command mints a RUNNABLE node today. `coding preflight create` writes non-runnable route targets (its own constant: "a runnable node is a task, which the router links to rather than owns"), so it uses the generic surface. Wire this the day a command can set isRunnable.
 deleteChat
 deleteDashboardWidgetPreset
 deleteExchangeConnection
@@ -159,6 +158,4 @@ updateNodeProperties
 updateOrgGithubApp
 updateRegisterEntry  # spec-049 (scopes / Channels / register) — the hadron-cli parity split dispatched to Jonas at team-chat seq #611; hadron-cli#578 covers scopes
 updateResendSender
-updateReviewNode  # #1201 review update door — `coding review create` only creates; nothing edits a check through the CLI yet. Wire it when an edit command exists, not before: an unused generated operation is maintenance with no caller.
 updateSecret
-updateTaskNode  # #1201 task update door — unwired for the same reason as createTaskNode.

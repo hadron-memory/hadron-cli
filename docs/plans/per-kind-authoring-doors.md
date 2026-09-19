@@ -163,14 +163,50 @@ not let `node import` mint a governed node — the server refuses that on the
 generic surface — it keeps the import honest about what the file says, and makes
 the refusal visible instead of silently obeyed.
 
+## The review found the rule was wider than "the authoring commands"
+
+Both P1s on #614 were correct, and together they say the same thing: the gate is
+a property of the NODE, so any command that can set `role` or `isRunnable` is an
+authoring command whether or not it lives in `spec`/`coding`.
+
+**`hadron node add --runnable` was already broken** — it sends a runnable node to
+the generic `createNode`, which the task gate refuses, and so is every
+`node update` of an already-runnable node. Pre-existing on `main`, wider than the
+five commands this PR set out to fix, and **my `unbound-ops.txt` annotation
+asserted it did not exist** (*"no CLI command mints a RUNNABLE node today"*).
+That annotation was written to explain why a door needed no caller; it was a
+coverage claim made from memory, in the file whose purpose is to make such claims
+deliberate.
+
+**Stamping `role: "review"` would have made every new check uneditable**, because
+`coding review create --help` directs the reader to `hadron node update` — a path
+the resulting-state gate refuses once the role is set. That regression was this
+PR's to introduce and so was this PR's to fix.
+
+One fix answers both: `node add` and `node update` dispatch by kind
+(`api.CreateNodeByKind` / `api.UpdateNodeByKind`). The update side must read the
+node first, because the gate reads the RESULTING state and an omitted field
+preserves the stored one — so a plain `--description` edit of a task still
+produces a task. Deciding from the input alone routes exactly those edits wrong.
+One extra read on a command that is not a hot loop; the alternative, writing
+optimistically and retrying on the typed refusal, doubles latency on the governed
+path and turns routing into error handling.
+
+Verified live after the fix: `node add --runnable` creates (`isRunnable: true`),
+`node update` edits both a runnable node and a `role: "review"` node. All three
+were refused before.
+
+`AuthoredNode` became a CONCRETE struct in the process. Eight doors and generic
+surfaces return structurally identical but distinct genqlient types that Go will
+not convert between, so aliasing one of them forced every dispatcher to pick a
+winner and cast. Mapping once keeps the call sites off genqlient shapes, which is
+the same reason the command packages marshal their own DTOs.
+
 ## Deliberately not done
 
 - **No backfill.** Existing spec and review nodes carry `role: null`, so they
   stay ungoverned until something rewrites them. Backfilling is a write over
   nodes in memories this repo does not own; it is the coordinator's to scope.
-- **No `createTaskNode` / `updateReviewNode` / `updateTaskNode` operations.** No
-  call site needs them, and an unused operation is generated code that has to be
-  maintained. They exist server-side when a caller appears.
 - **`--upsert` is not reintroduced.** The doors do not offer it, so "every call
   site passes false" stopped being a contract this repo has to keep. The refusal
   it protected survives as `NodeLocConflictError` → exit 5 (#610).

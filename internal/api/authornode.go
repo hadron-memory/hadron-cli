@@ -70,14 +70,48 @@ import (
 // protection is a property of the door being off the agent surface, not of the
 // caller's identity.
 
-// AuthoredNode is the node an authoring write returns. Aliased so call sites do
-// not spell the deeply-nested genqlient name, matching the ListNode/batchNode
-// pattern.
+// AuthoredNode is the node an authoring write returns.
 //
-// The per-kind doors return the same selection set, so one alias still serves
-// every caller; it is spelled against the spec door because that is the kind
-// with the most call sites.
-type AuthoredNode = gen.CreateSpecNodeCreateSpecNode
+// A CONCRETE struct rather than an alias onto one door's generated type, which
+// is what it used to be. Six doors plus the two generic surfaces return eight
+// structurally similar but DISTINCT genqlient types, and Go will not convert
+// between them — so aliasing one of them forced every dispatcher to pick a
+// winner and cast, which does not compile and should not. Mapping once here
+// keeps the call sites off genqlient shapes, the same reason the command
+// packages marshal their own DTOs.
+type AuthoredNode struct {
+	Id         string
+	MemoryId   string
+	Loc        string
+	Name       string
+	NodeType   string
+	Tags       []string
+	Seq        *int
+	IsRunnable *bool
+	Role       *string
+	UpdatedAt  string
+}
+
+// authoredNodeFrom maps any door's (or generic surface's) result into the shared
+// shape. Generic over the eight structurally-identical generated types via an
+// interface every one of them satisfies — genqlient emits the getters.
+func authoredNodeFrom(n interface {
+	GetId() string
+	GetMemoryId() string
+	GetLoc() string
+	GetName() string
+	GetNodeType() string
+	GetTags() []string
+	GetSeq() *int
+	GetIsRunnable() *bool
+	GetUpdatedAt() string
+}) *AuthoredNode {
+	return &AuthoredNode{
+		Id: n.GetId(), MemoryId: n.GetMemoryId(), Loc: n.GetLoc(), Name: n.GetName(),
+		NodeType: n.GetNodeType(), Tags: n.GetTags(), Seq: n.GetSeq(),
+		IsRunnable: n.GetIsRunnable(), UpdatedAt: n.GetUpdatedAt(),
+	}
+}
 
 // SpecNodeRole is the governed `Node.role` value that routes a write to the
 // spec door. Setting it is what makes the node governed — the door is how the
@@ -109,12 +143,12 @@ func CreateSpecNode(ctx context.Context, client graphql.Client, input *gen.Creat
 	if resp == nil || resp.CreateSpecNode == nil {
 		return nil, errors.New("createSpecNode returned no node")
 	}
-	return resp.CreateSpecNode, nil
+	return authoredNodeFrom(resp.CreateSpecNode), nil
 }
 
 // CreateReviewNode writes a review check through the review door. As with
 // CreateSpecNode, the caller sets `input.Role`.
-func CreateReviewNode(ctx context.Context, client graphql.Client, input *gen.CreateNodeInput) (*gen.CreateReviewNodeCreateReviewNode, error) {
+func CreateReviewNode(ctx context.Context, client graphql.Client, input *gen.CreateNodeInput) (*AuthoredNode, error) {
 	resp, err := gen.CreateReviewNode(ctx, client, input)
 	if err != nil {
 		return nil, err
@@ -122,7 +156,7 @@ func CreateReviewNode(ctx context.Context, client graphql.Client, input *gen.Cre
 	if resp == nil || resp.CreateReviewNode == nil {
 		return nil, errors.New("createReviewNode returned no node")
 	}
-	return resp.CreateReviewNode, nil
+	return authoredNodeFrom(resp.CreateReviewNode), nil
 }
 
 // UpdateSpecNode edits a spec node through the spec door — the counterpart the
@@ -137,7 +171,7 @@ func CreateReviewNode(ctx context.Context, client graphql.Client, input *gen.Cre
 // semantics — which is why routing edits through the create door with
 // `upsert: true` was never the workaround it looked like: `CreateNodeInput` has
 // no omit-to-preserve, and `spec edit` depends on it.
-func UpdateSpecNode(ctx context.Context, client graphql.Client, input *gen.UpdateNodeInput) (*gen.UpdateSpecNodeUpdateSpecNode, error) {
+func UpdateSpecNode(ctx context.Context, client graphql.Client, input *gen.UpdateNodeInput) (*AuthoredNode, error) {
 	resp, err := gen.UpdateSpecNode(ctx, client, input)
 	if err != nil {
 		return nil, err
@@ -145,5 +179,108 @@ func UpdateSpecNode(ctx context.Context, client graphql.Client, input *gen.Updat
 	if resp == nil || resp.UpdateSpecNode == nil {
 		return nil, errors.New("updateSpecNode returned no node")
 	}
-	return resp.UpdateSpecNode, nil
+	return authoredNodeFrom(resp.UpdateSpecNode), nil
+}
+
+// TaskNodeCapability is not a `role` at all, and that asymmetry is the point.
+// The task gate keys on `isRunnable` — a CAPABILITY, which a caller cannot drop
+// to evade the gate without the node ceasing to run — while spec and review key
+// on a label that is free to omit. There is no constant to compare against here;
+// the predicate is the boolean itself.
+
+// CreateNodeByKind writes a node through the door its KIND requires, or through
+// the generic `createNode` when it is of no governed kind.
+//
+// It exists because the gate is a property of the NODE, not of the command: any
+// caller that can set `role` or `isRunnable` can produce a governed node, and
+// `hadron node add --runnable` does exactly that. Before this, that command sent
+// a runnable node to the generic surface and was refused — a live break wider
+// than the authoring commands, found by @codex on #614 and reproduced against
+// the server before being believed.
+func CreateNodeByKind(ctx context.Context, client graphql.Client, input *gen.CreateNodeInput) (*AuthoredNode, error) {
+	switch {
+	case input.IsRunnable != nil && *input.IsRunnable:
+		resp, err := gen.CreateTaskNode(ctx, client, input)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil || resp.CreateTaskNode == nil {
+			return nil, errors.New("createTaskNode returned no node")
+		}
+		return authoredNodeFrom(resp.CreateTaskNode), nil
+	case input.Role != nil && *input.Role == SpecNodeRole:
+		return CreateSpecNode(ctx, client, input)
+	case input.Role != nil && *input.Role == ReviewNodeRole:
+		return CreateReviewNode(ctx, client, input)
+	}
+	resp, err := gen.CreateNode(ctx, client, input)
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil || resp.CreateNode == nil {
+		return nil, errors.New("createNode returned no node")
+	}
+	return authoredNodeFrom(resp.CreateNode), nil
+}
+
+// NodeKindState is what a node ALREADY is, which an update needs because the
+// gate reads the RESULTING state and an omitted field preserves the stored one.
+type NodeKindState struct {
+	Role       *string
+	IsRunnable bool
+}
+
+// UpdateNodeByKind edits a node through the door its RESULTING kind requires.
+//
+// THE RESULTING STATE IS THE WHOLE DIFFICULTY, and it is why this takes the
+// node's current kind rather than reading only the input. An update that touches
+// neither `role` nor `isRunnable` still produces a governed node when the stored
+// one was governed — so a plain `hadron node update --description` on a review
+// check or a task is refused by the generic surface. Deciding from the input
+// alone would route exactly those edits wrong.
+//
+// Omitted means preserve; an explicit value wins. `role: null` clears, which
+// UN-governs the node — permitted here because the write still goes through the
+// door of the kind it currently IS, which is what the server requires. The
+// identity question of WHO may clear a governed role is hadron-server#1202, not
+// this client's to answer.
+func UpdateNodeByKind(ctx context.Context, client graphql.Client, input *gen.UpdateNodeInput, cur NodeKindState) (*AuthoredNode, error) {
+	runnable := cur.IsRunnable
+	if input.IsRunnable != nil {
+		runnable = *input.IsRunnable
+	}
+	role := cur.Role
+	if input.Role != nil {
+		role = input.Role
+	}
+	switch {
+	case runnable:
+		resp, err := gen.UpdateTaskNode(ctx, client, input)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil || resp.UpdateTaskNode == nil {
+			return nil, errors.New("updateTaskNode returned no node")
+		}
+		return authoredNodeFrom(resp.UpdateTaskNode), nil
+	case role != nil && *role == SpecNodeRole:
+		return UpdateSpecNode(ctx, client, input)
+	case role != nil && *role == ReviewNodeRole:
+		resp, err := gen.UpdateReviewNode(ctx, client, input)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil || resp.UpdateReviewNode == nil {
+			return nil, errors.New("updateReviewNode returned no node")
+		}
+		return authoredNodeFrom(resp.UpdateReviewNode), nil
+	}
+	resp, err := gen.UpdateNode(ctx, client, input)
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil || resp.UpdateNode == nil {
+		return nil, errors.New("updateNode returned no node")
+	}
+	return authoredNodeFrom(resp.UpdateNode), nil
 }

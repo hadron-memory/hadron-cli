@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 )
@@ -122,7 +123,11 @@ func NewCmdNode(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
-func createDTO(n *gen.CreateNodeCreateNode) nodeDTO {
+// createDTO and updateDTO now take the shared api.AuthoredNode, because the
+// write they render may have gone through any of six kind doors or the generic
+// surface (#1201) — eight distinct genqlient types that Go will not convert
+// between. The --json shape is unchanged.
+func createDTO(n *api.AuthoredNode) nodeDTO {
 	return nodeDTO{
 		ID:         n.Id,
 		MemoryID:   n.MemoryId,
@@ -136,7 +141,7 @@ func createDTO(n *gen.CreateNodeCreateNode) nodeDTO {
 	}
 }
 
-func updateDTO(n *gen.UpdateNodeUpdateNode) nodeDTO {
+func updateDTO(n *api.AuthoredNode) nodeDTO {
 	return nodeDTO{
 		ID:         n.Id,
 		MemoryID:   n.MemoryId,

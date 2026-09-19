@@ -207,6 +207,7 @@ query GetNode($ref: ID!) {
     abstract
     abstractOriginHash
     nodeType
+    role
     objectType
     tags
     content
@@ -370,6 +371,120 @@ mutation CreateSpecNode(
 # @genqlient(for: "CreateNodeInput.role", omitempty: true)
 # @genqlient(for: "CreateNodeInput.seq", omitempty: true)
 # @genqlient(for: "CreateNodeInput.tags", omitempty: true)
+# @genqlient(for: "CreateNodeInput.abstract", omitempty: true)
+# @genqlient(for: "CreateNodeInput.aiAgent", omitempty: true)
+# @genqlient(for: "CreateNodeInput.alias", omitempty: true)
+# @genqlient(for: "CreateNodeInput.content", omitempty: true)
+# @genqlient(for: "CreateNodeInput.contentType", omitempty: true)
+# @genqlient(for: "CreateNodeInput.data", omitempty: true)
+# @genqlient(for: "CreateNodeInput.description", omitempty: true)
+# @genqlient(for: "CreateNodeInput.edges", omitempty: true)
+# @genqlient(for: "CreateNodeInput.id", omitempty: true)
+# @genqlient(for: "CreateNodeInput.isRunnable", omitempty: true)
+# @genqlient(for: "CreateNodeInput.llmModel", omitempty: true)
+# @genqlient(for: "CreateNodeInput.nodeType", omitempty: true)
+# @genqlient(for: "CreateNodeInput.objectType", omitempty: true)
+# @genqlient(for: "CreateNodeInput.ownerRepo", omitempty: true)
+# @genqlient(for: "CreateNodeInput.reason", omitempty: true)
+# @genqlient(for: "CreateNodeInput.properties", omitempty: true)
+# @genqlient(for: "CreateNodeInput.role", omitempty: true)
+# @genqlient(for: "CreateNodeInput.seq", omitempty: true)
+# @genqlient(for: "CreateNodeInput.tags", omitempty: true)
+mutation CreateTaskNode(
+  $input: CreateNodeInput!
+) {
+  createTaskNode(input: $input) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    tags
+    seq
+    isRunnable
+    role
+    updatedAt
+  }
+}
+
+# @genqlient(for: "UpdateNodeInput.id", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.memoryId", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.loc", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.name", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.abstract", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.aiAgent", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.alias", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.content", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.contentType", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.data", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.description", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.edges", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.isRunnable", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.llmModel", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.nodeType", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.objectType", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.ownerRepo", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.reason", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.properties", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.role", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.seq", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.tags", omitempty: true)
+mutation UpdateReviewNode(
+  $input: UpdateNodeInput!
+) {
+  updateReviewNode(input: $input) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    tags
+    seq
+    isRunnable
+    role
+    updatedAt
+  }
+}
+
+# @genqlient(for: "UpdateNodeInput.id", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.memoryId", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.loc", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.name", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.abstract", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.aiAgent", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.alias", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.content", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.contentType", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.data", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.description", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.edges", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.isRunnable", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.llmModel", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.nodeType", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.objectType", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.ownerRepo", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.reason", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.properties", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.role", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.seq", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.tags", omitempty: true)
+mutation UpdateTaskNode(
+  $input: UpdateNodeInput!
+) {
+  updateTaskNode(input: $input) {
+    id
+    memoryId
+    loc
+    name
+    nodeType
+    tags
+    seq
+    isRunnable
+    role
+    updatedAt
+  }
+}
+
 mutation CreateReviewNode(
   $input: CreateNodeInput!
 ) {
@@ -425,6 +540,7 @@ mutation UpdateNode(
     name
     nodeType
     tags
+    seq
     isRunnable
     updatedAt
   }
@@ -473,6 +589,7 @@ mutation UpdateSpecNode(
     name
     nodeType
     tags
+    seq
     isRunnable
     role
     updatedAt
@@ -553,6 +670,7 @@ mutation MoveNode(
     name
     nodeType
     tags
+    seq
     isRunnable
     updatedAt
   }
@@ -578,6 +696,7 @@ mutation CloneNode(
     name
     nodeType
     tags
+    seq
     isRunnable
     updatedAt
   }

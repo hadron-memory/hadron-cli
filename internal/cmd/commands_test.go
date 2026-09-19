@@ -339,7 +339,7 @@ func TestNodeAddRejectsInvalidLoc(t *testing.T) {
 	if err := root.Execute(); err == nil {
 		t.Fatal("expected an error for a loc with a space")
 	}
-	if _, ok := captured["CreateNode"]; ok {
+	if _, ok := captured["CreateTaskNode"]; ok {
 		t.Error("CreateNode should not be called when --loc is invalid")
 	}
 }
@@ -347,6 +347,7 @@ func TestNodeAddRejectsInvalidLoc(t *testing.T) {
 func TestNodeUpdatePreservesUnsetFields(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
 		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
@@ -388,6 +389,7 @@ func TestNodeUpdatePreservesUnsetFields(t *testing.T) {
 func TestNodeUpdateContentOnlyOmitsTags(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
 		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
@@ -414,6 +416,7 @@ func TestNodeUpdateContentOnlyOmitsTags(t *testing.T) {
 func TestNodeUpdateClearsFieldWithEmptyString(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
 		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
@@ -445,6 +448,7 @@ func TestNodeUpdateAbstractFile(t *testing.T) {
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
 		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
@@ -521,6 +525,7 @@ func TestNodeUpdateDataFile(t *testing.T) {
 	}
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
 		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
@@ -834,11 +839,20 @@ func TestNodeUpdateRunnable(t *testing.T) {
 		{"set true", []string{"--runnable"}, true},
 		{"set false", []string{"--runnable=false"}, false},
 	}
+	// Which door each case takes, because the gate reads the RESULTING state
+	// (#1201): only the case that ends up runnable needs the task door.
+	doorFor := map[string]string{
+		"omitted preserves": "UpdateNode",
+		"set true":          "UpdateTaskNode",
+		"set false":         "UpdateNode",
+	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{
-				"ResolveUrn": resolveNodeJSON,
-				"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
+				"ResolveUrn":     resolveNodeJSON,
+				"GetNode":        `{"data":{"node":` + nodeDetailJSON + `}}`,
+				"UpdateNode":     `{"data":{"updateNode":` + nodeJSON + `}}`,
+				"UpdateTaskNode": `{"data":{"updateTaskNode":` + nodeJSON + `}}`,
 			})
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
@@ -849,7 +863,11 @@ func TestNodeUpdateRunnable(t *testing.T) {
 			var vars struct {
 				Input map[string]any `json:"input"`
 			}
-			_ = json.Unmarshal(captured["UpdateNode"], &vars)
+			door := doorFor[tc.name]
+			if _, ok := captured[door]; !ok {
+				t.Fatalf("expected the write to go through %s", door)
+			}
+			_ = json.Unmarshal(captured[door], &vars)
 			got, present := vars.Input["isRunnable"]
 			if tc.want == nil {
 				if present {
@@ -867,7 +885,7 @@ func TestNodeUpdateRunnable(t *testing.T) {
 // #89: node create --runnable forwards isRunnable on the create input.
 func TestNodeAddRunnable(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`,
+		"CreateTaskNode": `{"data":{"createTaskNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -879,7 +897,7 @@ func TestNodeAddRunnable(t *testing.T) {
 	var vars struct {
 		Input map[string]any `json:"input"`
 	}
-	_ = json.Unmarshal(captured["CreateNode"], &vars)
+	_ = json.Unmarshal(captured["CreateTaskNode"], &vars)
 	if vars.Input["isRunnable"] != true {
 		t.Errorf("--runnable must forward isRunnable:true, got %v", vars.Input["isRunnable"])
 	}
@@ -889,6 +907,7 @@ func TestNodeAddRunnable(t *testing.T) {
 func TestNodeUpdateForwardsReason(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
 		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 	})
 	f, _ := testFactory(t)
@@ -944,6 +963,7 @@ func TestNodeUpdateOmitsReasonWhenUnset(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{
 				"ResolveUrn": resolveNodeJSON,
+				"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
 				"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
 			})
 			f, _ := testFactory(t)
