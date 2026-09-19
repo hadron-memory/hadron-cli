@@ -152,7 +152,7 @@ hadron node list [-m <memory>] [--prefix <loc>] [--type <t>] [--object-type <t>]
 hadron object create -m <memory> --type <t> --fields <json>|--fields-file <path> [--key <k>] [--name <n>] | get <ref> | update <ref> --fields <json>|--fields-file <path> [--reason <r>] | delete <ref> [--hard] --yes | find -m <memory> --type <t> [--match <json>] [--where <json>] [--sort <json>] [--limit N] [--offset N]
 hadron asset list -m <memory> [--mine] [--mime <type>] [--include-deleted] [--limit N] [--offset N] | get <asset-ref> [-o <path>|-] [--force] | url <asset-ref> [-m <memory>] | upload <file> -m <memory> [--mime <t>] [--name <n>] [--description <d>] | rm <asset-ref> [--yes] | restore <asset-ref> | link <asset-ref> --node <new-node-urn> [--name <n>] [--description <d>]
 hadron task run <task-urn>|<loc> -m <memory> [--arg k=v]... [--app <ref> [--as-self]]
-hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--reply-to <loc>] [--handle <h>] [--identity <i>] [--role <r>]
+hadron chat read [--since <seq>] [--node <urn> | -m <memory> --messages-loc <prefix>] | post (--body <text|-> | --body-file <path>) [--node <urn>] [--session <id>] [--reply-to <seq|loc>]
 hadron channel list [--owner-app <ref>] [-m <memory>] | get <id|address> | create <name> -m <memory> --loc <loc> [--description <d>] | update <id|address> [--name <n>] [--description <d>] | rm <id|address> [--yes] | read <id|address> [--since <seq>] [--before <seq>] [--limit N] [--offset N] [--mentions <ref>] | post <id|address> <body|-> (--session <id> | --as-me) [--reply-to <seq>] | mark-read <id|address> --attendee <ref> --seq N [--owner-app <ref>] | read-state <id|address> --attendee <ref> [--owner-app <ref>]   # post REQUIRES --session or --as-me (the server records the human silently otherwise); read --since is strictly-greater and the output reports nextSince; a ref is the Channel id OR its address (chatRootUrn, printed by list); chatRootUrn is NULL for some Channels — the id always works.
 hadron search <query> [-m <memory>]... [--scope <name|id|app|global>] [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]
@@ -591,15 +591,25 @@ Conventions:
   (`--json`: `{messages:[{seq,loc,author,identity,role,timestamp,body}],
   nextSince}`) — pass `nextSince` back as `--since` next turn. `chat post`
   (`--body <text|->` inline or over stdin, or `--body-file <path>` for a composed
-  multi-line message) builds the colon-safe timestamped loc, assembles the `data`
-  (author/body/timestamp, parsed `@mentions`, and identity/role when set), writes
-  the `message` node (materializing the parent so the chat is a copyable node),
-  and with `--reply-to <loc>` adds the reply edge — all in one call. The chat
-  coordinates and this agent's `handle`/`identity`/`role` resolve from a flag,
-  then `HADRON_CHAT_*`, then the project-local `.hadron/config.json` (the same
-  file the push channel reads — top-level `handle`, `chat.node` or
-  `chat.memory`+`chat.messagesLoc`, `chat.identity`/`chat.role`), so a configured
-  agent's whole turn is `chat read --since <seq>` / `chat post --body "…"`.
+  multi-line message) writes through the **Channel** that chat is
+  (`createChannelMessage`), creating it on first post: the server mints the loc,
+  assigns the `seq` atomically, extracts `@mentions` and records the author, so
+  the CLI builds none of them (#367). `--reply-to` takes the target's `seq`, or
+  its loc/URN at the cost of one read. `--json` is
+  `{loc,nodeId,seq,replyTo,author}` — **`loc` is always `null`** now that the
+  server owns it, kept as an explicit null so it is distinguishable from a
+  missing key; `nodeId` is the address that replaces it, and `author` is the
+  name the server RECORDED, which is how an agent verifies it posted as whom it
+  meant to.
+  **Authorship comes from `--session <id>`** (the worker session to post as);
+  without it the server records the human. `--handle`/`--identity`/`--role` are
+  still accepted from flags, `HADRON_CHAT_*` and `.hadron/config.json` but no
+  longer affect the post — they warn once on stderr (never on `--json`) and name
+  `--session`. Reads still parse the stored envelope, so messages written before
+  this keep their author. The chat coordinates still resolve from a flag, then
+  `HADRON_CHAT_*`, then `.hadron/config.json` (`chat.node`, or
+  `chat.memory`+`chat.messagesLoc`), so a configured agent's whole turn is
+  `chat read --since <seq>` / `chat post --session <id> --body "…"`.
 - `--reason "<text>"` on `node update` and `replace text` records *why* a change
   was made in the node's version history (the same field MCP `hadron_update_node`'s
   `reason` populates). Optional; omit it and history falls back to the caller

@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -226,175 +224,204 @@ func TestChatReadTranscript(t *testing.T) {
 	}
 }
 
-func TestChatPost(t *testing.T) {
+const channelMsgJSON = `{"seq":7,"at":"2026-09-17T00:00:00Z","body":"@rufus schema looks good",
+	"authorName":"Iris","authorWorkerId":"w1","authorUserId":null,"authorAppId":null,
+	"sessionId":"s1","replyToSeq":null,"mentions":["rufus"],"nodeId":"n1"}`
+
+// TestChatPostWritesThroughTheChannelAPI is the contract of #367.
+//
+// `chat post` must stop hand-rolling a node and call createChannelMessage. The
+// old tests asserted the loc format, the nodeType and the data envelope — the
+// CLI's own invention, which is precisely what #367 says the CLI should not
+// own. Asserting them now would pin the defect.
+//
+// What replaces them: the ref sent is the CHAT ROOT (the parent of the
+// messages container), derived not looked up.
+func TestChatPostWritesThroughTheChannelAPI(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"CreateNode": `{"data":{"createNode":{"id":"n1","memoryId":"mem1","loc":"chats:api:messages:STAMP-iris","name":"Message from iris","nodeType":"message","tags":[],"seq":7,"isRunnable":false,"updatedAt":"2026-06-21T00:00:00Z"}}}`,
+		"CreateChannelMessage": `{"data":{"createChannelMessage":` + channelMsgJSON + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"chat", "post", "--node", "acme.com::tc::chats:api:messages", "--handle", "iris",
-		"--role", "Backend", "--body", "@rufus schema looks good", "--json", "--server", gql.URL})
+	root.SetArgs([]string{"chat", "post", "--node", "acme.com::tc::chats:api:messages",
+		"--body", "@rufus schema looks good", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var vars struct {
-		Input struct {
-			Loc      string          `json:"loc"`
-			NodeType string          `json:"nodeType"`
-			Content  string          `json:"content"`
-			Data     json.RawMessage `json:"data"`
-			Edges    json.RawMessage `json:"edges"`
-		} `json:"input"`
+	if _, ok := captured["CreateNode"]; ok {
+		t.Error("the CLI must no longer hand-roll the message node")
 	}
-	_ = json.Unmarshal(captured["CreateNode"], &vars)
-	// Canonical shape (D-2026-08-07-001/-004): chat-message type, body in
-	// content, envelope (WITHOUT body) in data.
-	if vars.Input.NodeType != "chat-message" {
-		t.Errorf("nodeType should be chat-message, got %q", vars.Input.NodeType)
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateChannelMessage"], &vars)
+	// The chat ROOT, not the messages container: a channelRef names the chat
+	// root's node (hadron-server#1172), which is the container's parent.
+	if got := vars["channelRef"]; got != "hrn:node:acme.com:tc:chats:api" {
+		t.Errorf("channelRef = %v, want the chat ROOT ref", got)
 	}
-	if vars.Input.Content != "@rufus schema looks good" {
-		t.Errorf("body belongs in content, got %q", vars.Input.Content)
+	if vars["body"] != "@rufus schema looks good" {
+		t.Errorf("body = %v", vars["body"])
 	}
-	// loc = <prefix>:<colon/dot-free stamp>-<handle>; the id segment carries no colon.
-	if !strings.HasPrefix(vars.Input.Loc, "chats:api:messages:") || !strings.HasSuffix(vars.Input.Loc, "-iris") {
-		t.Errorf("loc shape wrong: %q", vars.Input.Loc)
+	// The author the SERVER recorded reaches --json, so an agent can verify
+	// who it posted as rather than trusting its own request.
+	var dto struct {
+		Author *string `json:"author"`
+		Seq    *int    `json:"seq"`
 	}
-	idSeg := vars.Input.Loc[strings.LastIndex(vars.Input.Loc, ":")+1:]
-	if strings.ContainsAny(idSeg, ".") {
-		t.Errorf("stamp must strip dots, got id segment %q", idSeg)
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("decode: %v — %s", err, out.String())
 	}
-	var data map[string]any
-	_ = json.Unmarshal(vars.Input.Data, &data)
-	if data["author"] != "iris" || data["role"] != "Backend" {
-		t.Errorf("data payload wrong: %+v", data)
-	}
-	if _, present := data["body"]; present {
-		t.Errorf("the retired data.body dialect must not be emitted, got %v", data["body"])
-	}
-	if ms, _ := data["mentions"].([]any); len(ms) != 1 || ms[0] != "rufus" {
-		t.Errorf("mentions should be parsed from body, got %v", data["mentions"])
-	}
-	// No --reply-to: edges omitted entirely.
-	if len(vars.Input.Edges) > 0 && string(vars.Input.Edges) != "null" {
-		t.Errorf("no reply must omit edges, got %s", vars.Input.Edges)
-	}
-	if !strings.Contains(out.String(), "\"seq\": 7") && !strings.Contains(out.String(), "\"seq\":7") {
-		t.Errorf("post should surface the new seq, got %s", out.String())
+	if dto.Author == nil || *dto.Author != "Iris" {
+		t.Errorf("author = %v, want the server's value", dto.Author)
 	}
 }
 
-// --reply-to adds an inline reply edge from the new message to the target loc.
-func TestChatPostReplyEdge(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{
-		"CreateNode": `{"data":{"createNode":{"id":"n1","memoryId":"mem1","loc":"chats:api:messages:STAMP-iris","name":"m","nodeType":"message","tags":[],"seq":8,"isRunnable":false,"updatedAt":"2026-06-21T00:00:00Z"}}}`,
+// TestChatPostJSONKeepsLocAsAnExplicitNull pins the one --json shape change
+// #367 forces, in the only way that distinguishes the two ways it can go wrong.
+//
+// The client used to mint the message's loc and report it. The server mints it
+// now and answers with nodeId instead, so `loc` cannot be filled. It is kept
+// and answered NULL rather than dropped: an agent selecting `.loc` must be able
+// to tell "this post had no address I can give you" from "this projection
+// forgot the field" — the same call internal/cmd/channel makes for chatRootUrn.
+//
+// Decoding into a struct cannot see the difference (both yield a nil pointer),
+// so this asserts over the raw key set. Drop the field and the presence check
+// fails; fill it with "" and the null check fails.
+func TestChatPostJSONKeepsLocAsAnExplicitNull(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"CreateChannelMessage": `{"data":{"createChannelMessage":` + channelMsgJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"chat", "post", "--node", "acme.com::tc::chats:api:messages",
+		"--body", "hi", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out.String()), &raw); err != nil {
+		t.Fatalf("decode: %v — %s", err, out.String())
+	}
+	loc, present := raw["loc"]
+	if !present {
+		t.Fatal("`loc` must stay in the payload — an agent selecting it needs a null, not a missing key")
+	}
+	if string(loc) != "null" {
+		t.Errorf("`loc` = %s, want null: the server owns the loc now", loc)
+	}
+	// nodeId is the address that replaces it, so it must actually carry the
+	// server's value rather than being an empty placeholder.
+	if got := string(raw["nodeId"]); got != `"n1"` {
+		t.Errorf("nodeId = %s, want the server's node id", got)
+	}
+}
+
+// TestChatPostCreatesTheChannelIfMissing — create-if-missing, and NOT
+// best-effort. The node materialization this replaces swallowed every error;
+// here a failure to create is the post's failure, because without a Channel
+// there is nothing to post to.
+func TestChatPostCreatesTheChannelIfMissing(t *testing.T) {
+	calls := 0
+	gql, captured := captureGraphQLFunc(t, func(op string) string {
+		switch op {
+		case "CreateChannelMessage":
+			calls++
+			if calls == 1 {
+				return `{"errors":[{"message":"no channel","extensions":{"code":"CHANNEL_NOT_FOUND"}}]}`
+			}
+			return `{"data":{"createChannelMessage":` + channelMsgJSON + `}}`
+		case "CreateChannel":
+			return `{"data":{"createChannel":{"id":"c1","name":"api","description":null,"kind":"CHAT",
+				"loc":"chats:api","chatRootUrn":"hrn:node:acme.com:tc:chats:api","chatRootNodeId":"n0",
+				"memoryId":"mem1","lastSeq":0,"lastMessageAt":null,"createdAt":"2026-09-17T00:00:00Z",
+				"updatedAt":null,"memory":{"id":"mem1","urn":"hrn:mem:acme.com:tc","name":"tc"}}}}`
+		}
+		return ""
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"chat", "post", "--node", "acme.com::tc::chats:api:messages", "--handle", "iris",
-		"--body", "done", "--reply-to", "chats:api:messages:t1-rufus", "--server", gql.URL})
+	root.SetArgs([]string{"chat", "post", "--node", "acme.com::tc::chats:api:messages",
+		"--body", "hi", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var vars struct {
-		Input struct {
-			Edges []struct {
-				TargetId string `json:"targetId"`
-				Name     string `json:"name"`
-			} `json:"edges"`
-		} `json:"input"`
+	if _, ok := captured["CreateChannel"]; !ok {
+		t.Error("a missing Channel must be created, not reported")
 	}
-	_ = json.Unmarshal(captured["CreateNode"], &vars)
-	if len(vars.Input.Edges) != 1 || vars.Input.Edges[0].Name != "reply" || vars.Input.Edges[0].TargetId != "chats:api:messages:t1-rufus" {
-		t.Errorf("reply edge wrong: %+v", vars.Input.Edges)
+	if calls != 2 {
+		t.Errorf("the post must be retried after creating the Channel, calls=%d", calls)
 	}
 }
 
-// Identity and coordinates fall back to the project-local .hadron/config.json,
-// so a configured agent posts with just --body.
-func TestChatPostUsesProjectConfig(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, ".hadron"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	cfg := `{"handle":"iris","chat":{"memory":"acme.com::tc","messagesLoc":"chats:api:messages","role":"Backend"}}`
-	if err := os.WriteFile(filepath.Join(dir, ".hadron", "config.json"), []byte(cfg), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	t.Chdir(dir)
-
+// TestChatPostResolvesAReplyLocToASeq — --reply-to has always taken a LOC and
+// createChannelMessage takes a SEQ. Both are accepted; a loc costs one read.
+// Refusing locs would break configs and scripts for a server-side spelling.
+func TestChatPostResolvesAReplyLocToASeq(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"CreateNode": `{"data":{"createNode":{"id":"n1","memoryId":"mem1","loc":"chats:api:messages:STAMP-iris","name":"m","nodeType":"message","tags":[],"seq":1,"isRunnable":false,"updatedAt":"2026-06-21T00:00:00Z"}}}`,
+		"GetNode": `{"data":{"node":{"id":"n9","memoryId":"mem1","loc":"chats:api:messages:t1-rufus",
+			"name":"m","nodeType":"chat-message","tags":[],"seq":4,"isRunnable":false,
+			"updatedAt":"2026-06-21T00:00:00Z"}}}`,
+		"CreateChannelMessage": `{"data":{"createChannelMessage":` + channelMsgJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"chat", "post", "--body", "hi from config", "--server", gql.URL})
+	root.SetArgs([]string{"chat", "post", "--node", "acme.com::tc::chats:api:messages",
+		"--body", "ack", "--reply-to", "chats:api:messages:t1-rufus", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var vars struct {
-		Input struct {
-			MemoryId string          `json:"memoryId"`
-			Loc      string          `json:"loc"`
-			Data     json.RawMessage `json:"data"`
-		} `json:"input"`
-	}
-	_ = json.Unmarshal(captured["CreateNode"], &vars)
-	if vars.Input.MemoryId != "acme.com::tc" {
-		t.Errorf("memory should come from config, got %q", vars.Input.MemoryId)
-	}
-	if !strings.HasPrefix(vars.Input.Loc, "chats:api:messages:") || !strings.HasSuffix(vars.Input.Loc, "-iris") {
-		t.Errorf("handle/prefix should come from config, got loc %q", vars.Input.Loc)
-	}
-	var data struct {
-		Author string `json:"author"`
-		Role   string `json:"role"`
-	}
-	_ = json.Unmarshal(vars.Input.Data, &data)
-	if data.Author != "iris" || data.Role != "Backend" {
-		t.Errorf("author/role should come from config, got %+v", data)
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateChannelMessage"], &vars)
+	if vars["replyToSeq"] != float64(4) {
+		t.Errorf("replyToSeq = %v, want the target's seq (4)", vars["replyToSeq"])
 	}
 }
 
-// --body-file reads the message from a file (composed multi-line body).
-func TestChatPostBodyFile(t *testing.T) {
-	dir := t.TempDir()
-	msg := "line one\nline two @rufus\n"
-	file := filepath.Join(dir, "msg.md")
-	if err := os.WriteFile(file, []byte(msg), 0o600); err != nil {
-		t.Fatal(err)
-	}
+// TestChatPostAcceptsABareReplySeq — the native form must not cost a read.
+func TestChatPostAcceptsABareReplySeq(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"CreateNode": `{"data":{"createNode":{"id":"n1","memoryId":"mem1","loc":"chats:api:messages:STAMP-iris","name":"m","nodeType":"message","tags":[],"seq":3,"isRunnable":false,"updatedAt":"2026-06-21T00:00:00Z"}}}`,
+		"CreateChannelMessage": `{"data":{"createChannelMessage":` + channelMsgJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"chat", "post", "--node", "acme.com::tc::chats:api:messages", "--handle", "iris",
-		"--body-file", file, "--server", gql.URL})
+	root.SetArgs([]string{"chat", "post", "--node", "acme.com::tc::chats:api:messages",
+		"--body", "ack", "--reply-to", "4", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var vars struct {
-		Input struct {
-			Content string          `json:"content"`
-			Data    json.RawMessage `json:"data"`
-		} `json:"input"`
+	if _, ok := captured["GetNode"]; ok {
+		t.Error("a bare seq is already a seq — it must not cost a resolution")
 	}
-	_ = json.Unmarshal(captured["CreateNode"], &vars)
-	if vars.Input.Content != msg {
-		t.Errorf("body should be the file's contents verbatim in content, got %q", vars.Input.Content)
-	}
-	var data struct {
-		Mentions []string `json:"mentions"`
-	}
-	_ = json.Unmarshal(vars.Input.Data, &data)
-	if len(data.Mentions) != 1 || data.Mentions[0] != "rufus" {
-		t.Errorf("mentions parsed from a file body too, got %v", data.Mentions)
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateChannelMessage"], &vars)
+	if vars["replyToSeq"] != float64(4) {
+		t.Errorf("replyToSeq = %v", vars["replyToSeq"])
 	}
 }
 
-// #390: a missing/unreadable --body-file is a user-input mistake — exit Usage
-// (2), the documented contract scripts branch on, not the generic 1 the raw
-// os.PathError classifies as, and before any request.
+// TestChatPostDeprecatedFlagsAreAcceptedAndWarn — a live .hadron/config.json
+// carrying handle/identity/role must not start failing, and "your flag did
+// nothing" is only half an answer without naming what replaces it.
+func TestChatPostDeprecatedFlagsAreAcceptedAndWarn(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"CreateChannelMessage": `{"data":{"createChannelMessage":` + channelMsgJSON + `}}`,
+	})
+	f, _, errOut := testFactoryTTY(t, "")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"chat", "post", "--node", "acme.com::tc::chats:api:messages",
+		"--handle", "iris", "--role", "Backend", "--body", "hi", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("deprecated flags must still be accepted: %v", err)
+	}
+	warn := errOut.String()
+	if !strings.Contains(warn, "no longer affects the post") {
+		t.Errorf("the deprecation must be announced, got: %q", warn)
+	}
+	if !strings.Contains(warn, "--session") {
+		t.Errorf("the warning must name the replacement, got: %q", warn)
+	}
+}
+
 func TestChatPostBodyFileMissingIsUsageError(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{})
 	f, _ := testFactory(t)
@@ -443,26 +470,20 @@ func TestChatPostUsesNodeConfig(t *testing.T) {
 	t.Chdir(dir)
 
 	gql, captured := captureGraphQL(t, map[string]string{
-		"CreateNode": `{"data":{"createNode":{"id":"n1","memoryId":"mem1","loc":"team-chat:api:messages:STAMP-iris","name":"m","nodeType":"message","tags":[],"seq":2,"isRunnable":false,"updatedAt":"2026-06-21T00:00:00Z"}}}`,
+		"CreateChannelMessage": `{"data":{"createChannelMessage":` + channelMsgJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"chat", "post", "--body", "hi", "--server", gql.URL})
+	root.SetArgs([]string{"chat", "post", "--body", "hi", "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var vars struct {
-		Input struct {
-			MemoryId string `json:"memoryId"`
-			Loc      string `json:"loc"`
-		} `json:"input"`
-	}
-	_ = json.Unmarshal(captured["CreateNode"], &vars)
-	if vars.Input.MemoryId != "hrn:mem:acme.com:tc" {
-		t.Errorf("chat.node should supply the memory, got %q", vars.Input.MemoryId)
-	}
-	if !strings.HasPrefix(vars.Input.Loc, "team-chat:api:messages:") {
-		t.Errorf("chat.node's loc should be the message prefix, got %q", vars.Input.Loc)
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateChannelMessage"], &vars)
+	// chat.node in config supplies both memory and message location; the ref
+	// sent is still the chat ROOT derived from them.
+	if got := vars["channelRef"]; got != "hrn:node:acme.com:tc:team-chat:api" {
+		t.Errorf("channelRef = %v, want the chat ROOT from chat.node", got)
 	}
 }
 
@@ -486,50 +507,12 @@ func TestChatNodeRejectsAmbiguousSingleColonURN(t *testing.T) {
 	}
 }
 
-// post best-effort materializes the message-parent node (nodeType chat) so the
-// chat is a real, copyable node — alongside the message itself.
-func TestChatPostMaterializesParent(t *testing.T) {
-	var locs []string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			Variables struct {
-				Input struct {
-					Loc string `json:"loc"`
-				} `json:"input"`
-			} `json:"variables"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
-		if body.Variables.Input.Loc != "" {
-			locs = append(locs, body.Variables.Input.Loc)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":{"createNode":{"id":"n1","memoryId":"mem1","loc":"team-chat:api:messages:x-iris","name":"m","nodeType":"message","tags":[],"seq":1,"isRunnable":false,"updatedAt":"2026-06-21T00:00:00Z"}}}`))
-	}))
-	t.Cleanup(srv.Close)
-
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"chat", "post", "--node", "acme.com::tc::team-chat:api:messages",
-		"--handle", "iris", "--body", "hi", "--server", srv.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var sawParent, sawMessage bool
-	for _, l := range locs {
-		if l == "team-chat:api:messages" {
-			sawParent = true
-		}
-		if strings.HasPrefix(l, "team-chat:api:messages:") {
-			sawMessage = true
-		}
-	}
-	if !sawParent {
-		t.Errorf("post should materialize the parent loc team-chat:api:messages, saw %v", locs)
-	}
-	if !sawMessage {
-		t.Errorf("post should create the message under the parent, saw %v", locs)
-	}
-}
+// A test asserting that post best-effort materializes the message-parent node
+// (nodeType chat) stood here. The CLI no longer materializes the chat's node
+// structure by hand — the server owns it. What replaces that guarantee is
+// create-if-missing, covered by TestChatPostCreatesTheChannelIfMissing. The old
+// test would now pin the defect #367 exists to remove, so it is gone rather
+// than adapted.
 
 func TestChatReadRequiresCoords(t *testing.T) {
 	f, _ := testFactory(t)

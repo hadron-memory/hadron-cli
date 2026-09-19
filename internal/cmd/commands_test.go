@@ -37,6 +37,32 @@ func captureGraphQL(t *testing.T, responses map[string]string) (*httptest.Server
 	return server, captured
 }
 
+// captureGraphQLFunc is captureGraphQL with a per-call responder, for a flow
+// whose SECOND call to an operation must answer differently from its first —
+// a create-if-missing retry, say. The static map cannot express that, and a
+// test that cannot express the retry silently asserts only the happy path.
+func captureGraphQLFunc(t *testing.T, respond func(op string) string) (*httptest.Server, map[string]json.RawMessage) {
+	t.Helper()
+	captured := map[string]json.RawMessage{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string          `json:"operationName"`
+			Variables     json.RawMessage `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		captured[body.OperationName] = body.Variables
+		resp := respond(body.OperationName)
+		if resp == "" {
+			t.Errorf("unexpected operation %q", body.OperationName)
+			resp = `{"errors":[{"message":"unexpected operation"}]}`
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(resp))
+	}))
+	t.Cleanup(server.Close)
+	return server, captured
+}
+
 const nodeJSON = `{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
 	"nodeType":"finding","tags":["ci"],"updatedAt":"2026-06-11T00:00:00Z"}`
 
