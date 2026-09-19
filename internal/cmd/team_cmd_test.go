@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -2297,6 +2299,135 @@ func TestTeamSessionWhoamiAnswersOutsideAnyWorktree(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "rebinds this worktree") {
 		t.Error("must not offer a rebind where there is nowhere to bind")
+	}
+}
+
+// whoamiCheckSession builds the single-session read --check performs.
+func whoamiCheckSession(ended, autoExpired string) string {
+	q := func(s string) string {
+		if s == "" {
+			return "null"
+		}
+		return `"` + s + `"`
+	}
+	return `{"data":{"session":{"id":"s-new","agentId":"agt1","workerId":"wkr1",
+		"worker":{"id":"wkr1","name":"Iris","role":"backend-engineer"},"userId":"u-me",
+		"type":"developer","repo":"r","branch":null,"prNumber":null,
+		"startedAt":"2026-08-11T10:00:00Z","endedAt":` + q(ended) + `,
+		"autoExpiredAt":` + q(autoExpired) + `,"host":"h","tool":"claude-code",
+		"transcriptPath":null,"llmModel":null}}}`
+}
+
+// bindWhoami writes the standard binding and returns a root command.
+func bindWhoami(t *testing.T, responses map[string]string, args ...string) (*cobra.Command, *strings.Builder) {
+	t.Helper()
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"),
+		[]byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, _ := captureGraphQL(t, responses)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(append(args, "--server", gql.URL))
+	return root, out
+}
+
+// #484: --check asks the server whether the BOUND session is still open.
+//
+// The issue's original defect — a reaper killing a session under you — cannot
+// happen since hadron-server#1114. What survives is that `session end
+// --session <id>` ends a session from anywhere and clears only the binding of
+// the worktree it ran in, so every OTHER worktree keeps describing a session
+// that is gone. These are the three answers that distinguishes.
+func TestTeamSessionWhoamiCheck(t *testing.T) {
+	cases := []struct {
+		name        string
+		session     string
+		wantLive    bool
+		wantInLine  string
+		wantMissing string
+	}{
+		{
+			name: "still open", session: whoamiCheckSession("", ""),
+			wantLive: true, wantInLine: "still open", wantMissing: "ENDED",
+		},
+		{
+			// A person ended it — from another worktree, or another machine.
+			name: "ended by someone", session: whoamiCheckSession("2026-09-19T11:00:00Z", ""),
+			wantLive: false, wantInLine: "ENDED", wantMissing: "auto-expired",
+		},
+		{
+			// The SERVER reaped it. Same endedAt, different cause, and the
+			// reader is asking at the one moment the difference matters — so
+			// collapsing both to "ended" would hide which happened.
+			name:     "auto-expired by the server",
+			session:  whoamiCheckSession("2026-09-19T11:00:00Z", "2026-09-19T11:00:00Z"),
+			wantLive: false, wantInLine: "auto-expired", wantMissing: "",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			root, out := bindWhoami(t, map[string]string{"GetTeamSession": c.session},
+				"team", "session", "whoami", "--check")
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			got := out.String()
+			if !strings.Contains(got, c.wantInLine) {
+				t.Errorf("output lacks %q:\n%s", c.wantInLine, got)
+			}
+			if c.wantMissing != "" && strings.Contains(got, c.wantMissing) {
+				t.Errorf("output must not contain %q:\n%s", c.wantMissing, got)
+			}
+		})
+	}
+}
+
+// The default read must NOT talk to the server. It is the compaction-recovery
+// path and most callers want the name, not a round trip — and `checked: false`
+// with `live: null` is what keeps "not asked" distinguishable from "dead".
+func TestTeamSessionWhoamiDefaultDoesNotCheck(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"),
+		[]byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{"GetTeamSession": whoamiCheckSession("", "")})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "whoami", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, ok := captured["GetTeamSession"]; ok {
+		t.Error("the default read must stay local — no round trip")
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out.String()), &raw); err != nil {
+		t.Fatalf("decode: %v — %s", err, out.String())
+	}
+	if string(raw["checked"]) != "false" {
+		t.Errorf("checked = %s, want false", raw["checked"])
+	}
+	// The distinction the two fields exist for: unknown is not false.
+	if string(raw["live"]) != "null" {
+		t.Errorf("live = %s, want null — nothing asked, so nothing is known", raw["live"])
+	}
+}
+
+// A session the server does not report must NOT be rendered as "ended".
+// Reporting a death this read cannot see is #484's own failure mode inverted,
+// and session(id:) answers null for missing and unreadable alike.
+func TestTeamSessionWhoamiCheckUnknownSessionIsNotCalledEnded(t *testing.T) {
+	root, _ := bindWhoami(t, map[string]string{"GetTeamSession": `{"data":{"session":null}}`},
+		"team", "session", "whoami", "--check")
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.NotFound {
+		t.Errorf("exit = %d, want %d (NotFound); err: %v", code, exitcode.NotFound, err)
+	}
+	if err == nil || strings.Contains(err.Error(), "ended") {
+		t.Errorf("must not assert an ending it cannot see: %v", err)
 	}
 }
 

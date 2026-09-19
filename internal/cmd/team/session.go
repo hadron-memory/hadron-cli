@@ -82,14 +82,19 @@ type sessionDTO struct {
 	// which can be populated from fallbackName (a provenance stub's worklog
 	// name) on exactly those rows, so the two are not nil together (PR #521
 	// review, @copilot). Rendered as a dash rather than guessed at.
-	WorkerRole     *string `json:"workerRole"`
-	UserID         *string `json:"userId"`
-	Type           string  `json:"type"`
-	Repo           *string `json:"repo"`
-	Branch         *string `json:"branch"`
-	PRNumber       *int    `json:"prNumber"`
-	StartedAt      string  `json:"startedAt"`
-	EndedAt        *string `json:"endedAt"`
+	WorkerRole *string `json:"workerRole"`
+	UserID     *string `json:"userId"`
+	Type       string  `json:"type"`
+	Repo       *string `json:"repo"`
+	Branch     *string `json:"branch"`
+	PRNumber   *int    `json:"prNumber"`
+	StartedAt  string  `json:"startedAt"`
+	EndedAt    *string `json:"endedAt"`
+	// AutoExpiredAt says HOW it ended, where EndedAt says whether (#484). The
+	// reaper stamps both to the same instant so "active" can stay the single
+	// predicate `endedAt IS NULL` — which is exactly why a session someone
+	// ENDED and one the server reaped read identically without this field.
+	AutoExpiredAt  *string `json:"autoExpiredAt"`
 	Host           *string `json:"host"`
 	Tool           *string `json:"tool"`
 	TranscriptPath *string `json:"transcriptPath"`
@@ -123,7 +128,8 @@ func sessionDTOFromFields(s gen.TeamSessionFields, fallbackName *string) session
 		ID: s.Id, AgentID: s.AgentId, WorkerID: s.WorkerId, WorkerName: name, WorkerRole: role,
 		UserID: s.UserId,
 		Type:   s.Type, Repo: s.Repo, Branch: s.Branch, PRNumber: s.PrNumber,
-		StartedAt: s.StartedAt, EndedAt: s.EndedAt, Host: s.Host, Tool: s.Tool,
+		StartedAt: s.StartedAt, EndedAt: s.EndedAt, AutoExpiredAt: s.AutoExpiredAt,
+		Host: s.Host, Tool: s.Tool,
 		TranscriptPath: s.TranscriptPath, LLMModel: s.LlmModel, Active: s.EndedAt == nil,
 	}
 }
@@ -1146,6 +1152,88 @@ type whoamiDTO struct {
 	BindingPath string       `json:"bindingPath"`
 	Source      string       `json:"source"`
 	Candidates  []sessionDTO `json:"candidates"`
+	// Checked says whether --check ran, and Live is the answer. They are
+	// SEPARATE because false and unknown are different facts and a single
+	// boolean cannot carry both: without Checked, `"live": false` on a default
+	// (local) read would assert the session is dead when nothing asked.
+	// Live is therefore a pointer and is null unless Checked is true.
+	Checked bool  `json:"checked"`
+	Live    *bool `json:"live"`
+	// EndedAt answers WHETHER the session ended; AutoExpiredAt answers HOW —
+	// non-null only when the SERVER reaped it rather than a person ending it
+	// (#484). Both null on a live session and on an unchecked read.
+	EndedAt       *string `json:"endedAt"`
+	AutoExpiredAt *string `json:"autoExpiredAt"`
+}
+
+// livenessLine renders --check's answer, and distinguishes the two ways a
+// session can be gone because the remedies differ: a session a PERSON ended is
+// one you (or a colleague) chose to close, while one the SERVER reaped expired
+// under a hard deadline promised at start. Collapsing them to "ended" would
+// hide which of those happened at the one moment a reader is asking.
+func livenessLine(d whoamiDTO) string {
+	if d.Live != nil && *d.Live {
+		return "still open"
+	}
+	ended := "(instant unknown)"
+	if d.EndedAt != nil {
+		ended = *d.EndedAt
+	}
+	if d.AutoExpiredAt != nil {
+		return fmt.Sprintf("ENDED %s — auto-expired by the server, not closed by anyone; rebind with `hadron team session start --as %s`", ended, d.WorkerName)
+	}
+	return fmt.Sprintf("ENDED %s — this binding is stale; rebind with `hadron team session start --as %s`", ended, d.WorkerName)
+}
+
+// livenessResult is what --check learned about the bound session.
+type livenessResult struct {
+	live          bool
+	endedAt       *string
+	autoExpiredAt *string
+}
+
+// checkSessionLiveness asks the server whether the BOUND session is still open.
+//
+// This is the #484 half that survives hadron-server#1114. The original defect —
+// a reaper killing a session under you, with a failed write as the first
+// symptom — cannot happen any more: a developer session gets no inactivity
+// deadline, so nothing ends it but an explicit end. What remains is narrower
+// and real: `session end --session <id>` ends a session from ANYWHERE, and
+// clears only the binding of the worktree it ran in. Every other worktree's
+// file keeps describing a session that is gone.
+//
+// It deliberately reports nothing about IDLENESS. An open session not driven
+// for months is correctly open under #1114, and the platform's derived
+// last-driven instant is not on a session read — so claiming staleness here
+// would be the CLI inventing a signal it cannot see, which is what the
+// withdrawn `reapsAt` ask on #484 was about.
+func checkSessionLiveness(cmd *cobra.Command, f *cmdutil.Factory, b *binding) (livenessResult, error) {
+	// A binding from another deployment describes a session this server has
+	// never heard of, and "not found" would read as "ended". Refuse with the
+	// mismatch instead, which is the honest answer and already this file's
+	// idiom.
+	if err := checkBindingServer(f, b); err != nil {
+		return livenessResult{}, err
+	}
+	client, err := f.GraphQLClient()
+	if err != nil {
+		return livenessResult{}, err
+	}
+	resp, err := gen.GetTeamSession(cmd.Context(), client, b.SessionID)
+	if err != nil {
+		return livenessResult{}, api.MapError(err)
+	}
+	if resp == nil || resp.Session == nil {
+		// session(id:) answers null for a session that does not exist AND for
+		// one this caller may not read — indistinguishable, as elsewhere on
+		// this API. One message covering both, and NOT "it ended": reporting a
+		// death this read cannot see is the failure mode #484 is about,
+		// inverted.
+		return livenessResult{}, exitcode.Newf(exitcode.NotFound,
+			"the server does not report session %s — it may not exist, or may not be readable with this credential; the binding is unchanged", b.SessionID)
+	}
+	s := resp.Session.TeamSessionFields
+	return livenessResult{live: s.EndedAt == nil, endedAt: s.EndedAt, autoExpiredAt: s.AutoExpiredAt}, nil
 }
 
 // openWorkerSessionsForCaller returns the caller's own OPEN, WORKER-BOUND
@@ -1290,8 +1378,9 @@ func noBindingReason(inWorktree bool) string {
 }
 
 func newCmdSessionWhoami(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{
-		Use:   "whoami",
+	var check bool
+	cmd := &cobra.Command{
+		Use:   "whoami [--check]",
 		Short: "Show which worker you are driving (worker session)",
 		Long: `Answer "what am I driving?" — the compaction-recovery read.
 
@@ -1303,6 +1392,20 @@ left a session open with its only local handle gone.
 
 --json carries "source": "worktree" when the binding answered, "server" when
 the fallback did.
+
+--check ASKS THE SERVER whether the bound session is still open (#484). The
+default stays local and fast, because this is the compaction-recovery read and
+most callers want the name, not a round trip. Use --check when the binding may
+have outlived what it describes — a session can be ended from ANOTHER worktree
+or machine with ` + "`session end --session <id>`" + `, which does not clear this
+worktree's file. It reports "ended" and, when the server reaped it rather than
+a person ending it, says so: endedAt answers WHETHER, autoExpiredAt answers HOW.
+
+--check is not a health check for idleness. Since hadron-server#1114 a
+developer session has no inactivity deadline, so an open session that has not
+been driven in months is CORRECTLY open, and nothing here calls it stale. The
+platform computes a last-driven instant but does not expose it on a session
+read, so this command cannot honestly report one.
 
 The fallback lists only sessions that are attributed to YOU, worker-bound, and
 still open. The server's session list is deliberately wider than that — it
@@ -1335,6 +1438,16 @@ binds a worker holds its name until ` + "`worker release`" + ` (cor:agt:020:09).
 				return whoamiFromServer(cmd, f, true)
 			}
 			result := whoamiDTO{binding: b, BindingPath: path, Source: "worktree", Candidates: []sessionDTO{}}
+			if check {
+				live, cerr := checkSessionLiveness(cmd, f, b)
+				if cerr != nil {
+					return cerr
+				}
+				result.Checked = true
+				result.Live = &live.live
+				result.EndedAt = live.endedAt
+				result.AutoExpiredAt = live.autoExpiredAt
+			}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				if b.WorkerID == "" {
 					// A binding written by a pre-Worker CLI: the session id is
@@ -1353,10 +1466,15 @@ binds a worker holds its name until ` + "`worker release`" + ` (cor:agt:020:09).
 					}
 					fmt.Fprintf(w, "  prs: %s\n", strings.Join(prs, " "))
 				}
+				if result.Checked {
+					fmt.Fprintf(w, "  server: %s\n", livenessLine(result))
+				}
 				return nil
 			})
 		},
 	}
+	cmd.Flags().BoolVar(&check, "check", false, "ask the server whether the bound session is still open")
+	return cmd
 }
 
 // logResultDTO is the stable --json shape of `session log`. Recorded says

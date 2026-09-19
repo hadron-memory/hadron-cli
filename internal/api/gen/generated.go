@@ -8419,6 +8419,11 @@ func (v *EndTeamSessionEndSession) GetStartedAt() string { return v.TeamSessionF
 // GetEndedAt returns EndTeamSessionEndSession.EndedAt, and is useful for accessing the field via an interface.
 func (v *EndTeamSessionEndSession) GetEndedAt() *string { return v.TeamSessionFields.EndedAt }
 
+// GetAutoExpiredAt returns EndTeamSessionEndSession.AutoExpiredAt, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionEndSession) GetAutoExpiredAt() *string {
+	return v.TeamSessionFields.AutoExpiredAt
+}
+
 // GetHost returns EndTeamSessionEndSession.Host, and is useful for accessing the field via an interface.
 func (v *EndTeamSessionEndSession) GetHost() *string { return v.TeamSessionFields.Host }
 
@@ -8481,6 +8486,8 @@ type __premarshalEndTeamSessionEndSession struct {
 
 	EndedAt *string `json:"endedAt"`
 
+	AutoExpiredAt *string `json:"autoExpiredAt"`
+
 	Host *string `json:"host"`
 
 	Tool *string `json:"tool"`
@@ -8512,6 +8519,7 @@ func (v *EndTeamSessionEndSession) __premarshalJSON() (*__premarshalEndTeamSessi
 	retval.PrNumber = v.TeamSessionFields.PrNumber
 	retval.StartedAt = v.TeamSessionFields.StartedAt
 	retval.EndedAt = v.TeamSessionFields.EndedAt
+	retval.AutoExpiredAt = v.TeamSessionFields.AutoExpiredAt
 	retval.Host = v.TeamSessionFields.Host
 	retval.Tool = v.TeamSessionFields.Tool
 	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
@@ -10107,6 +10115,9 @@ func (v *GetTeamSessionSession) GetStartedAt() string { return v.TeamSessionFiel
 // GetEndedAt returns GetTeamSessionSession.EndedAt, and is useful for accessing the field via an interface.
 func (v *GetTeamSessionSession) GetEndedAt() *string { return v.TeamSessionFields.EndedAt }
 
+// GetAutoExpiredAt returns GetTeamSessionSession.AutoExpiredAt, and is useful for accessing the field via an interface.
+func (v *GetTeamSessionSession) GetAutoExpiredAt() *string { return v.TeamSessionFields.AutoExpiredAt }
+
 // GetHost returns GetTeamSessionSession.Host, and is useful for accessing the field via an interface.
 func (v *GetTeamSessionSession) GetHost() *string { return v.TeamSessionFields.Host }
 
@@ -10169,6 +10180,8 @@ type __premarshalGetTeamSessionSession struct {
 
 	EndedAt *string `json:"endedAt"`
 
+	AutoExpiredAt *string `json:"autoExpiredAt"`
+
 	Host *string `json:"host"`
 
 	Tool *string `json:"tool"`
@@ -10200,6 +10213,7 @@ func (v *GetTeamSessionSession) __premarshalJSON() (*__premarshalGetTeamSessionS
 	retval.PrNumber = v.TeamSessionFields.PrNumber
 	retval.StartedAt = v.TeamSessionFields.StartedAt
 	retval.EndedAt = v.TeamSessionFields.EndedAt
+	retval.AutoExpiredAt = v.TeamSessionFields.AutoExpiredAt
 	retval.Host = v.TeamSessionFields.Host
 	retval.Tool = v.TeamSessionFields.Tool
 	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
@@ -17918,6 +17932,11 @@ func (v *StartTeamSessionStartSession) GetStartedAt() string { return v.TeamSess
 // GetEndedAt returns StartTeamSessionStartSession.EndedAt, and is useful for accessing the field via an interface.
 func (v *StartTeamSessionStartSession) GetEndedAt() *string { return v.TeamSessionFields.EndedAt }
 
+// GetAutoExpiredAt returns StartTeamSessionStartSession.AutoExpiredAt, and is useful for accessing the field via an interface.
+func (v *StartTeamSessionStartSession) GetAutoExpiredAt() *string {
+	return v.TeamSessionFields.AutoExpiredAt
+}
+
 // GetHost returns StartTeamSessionStartSession.Host, and is useful for accessing the field via an interface.
 func (v *StartTeamSessionStartSession) GetHost() *string { return v.TeamSessionFields.Host }
 
@@ -17980,6 +17999,8 @@ type __premarshalStartTeamSessionStartSession struct {
 
 	EndedAt *string `json:"endedAt"`
 
+	AutoExpiredAt *string `json:"autoExpiredAt"`
+
 	Host *string `json:"host"`
 
 	Tool *string `json:"tool"`
@@ -18011,6 +18032,7 @@ func (v *StartTeamSessionStartSession) __premarshalJSON() (*__premarshalStartTea
 	retval.PrNumber = v.TeamSessionFields.PrNumber
 	retval.StartedAt = v.TeamSessionFields.StartedAt
 	retval.EndedAt = v.TeamSessionFields.EndedAt
+	retval.AutoExpiredAt = v.TeamSessionFields.AutoExpiredAt
 	retval.Host = v.TeamSessionFields.Host
 	retval.Tool = v.TeamSessionFields.Tool
 	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
@@ -18589,12 +18611,13 @@ type TeamSessionFields struct {
 	Worker *TeamSessionFieldsWorker `json:"worker"`
 	UserId *string                  `json:"userId"`
 	// Which kind of session this is: DEVELOPER, CHATBOT, AUTOMATION or EDGE.
-	Type      string  `json:"type"`
-	Repo      *string `json:"repo"`
-	Branch    *string `json:"branch"`
-	PrNumber  *int    `json:"prNumber"`
-	StartedAt string  `json:"startedAt"`
-	EndedAt   *string `json:"endedAt"`
+	Type          string  `json:"type"`
+	Repo          *string `json:"repo"`
+	Branch        *string `json:"branch"`
+	PrNumber      *int    `json:"prNumber"`
+	StartedAt     string  `json:"startedAt"`
+	EndedAt       *string `json:"endedAt"`
+	AutoExpiredAt *string `json:"autoExpiredAt"`
 	// #928: machine identifier the session ran on.
 	Host *string `json:"host"`
 	// #928: the tool driving the session ('claude-code', 'codex', ...).
@@ -18636,6 +18659,9 @@ func (v *TeamSessionFields) GetStartedAt() string { return v.StartedAt }
 
 // GetEndedAt returns TeamSessionFields.EndedAt, and is useful for accessing the field via an interface.
 func (v *TeamSessionFields) GetEndedAt() *string { return v.EndedAt }
+
+// GetAutoExpiredAt returns TeamSessionFields.AutoExpiredAt, and is useful for accessing the field via an interface.
+func (v *TeamSessionFields) GetAutoExpiredAt() *string { return v.AutoExpiredAt }
 
 // GetHost returns TeamSessionFields.Host, and is useful for accessing the field via an interface.
 func (v *TeamSessionFields) GetHost() *string { return v.Host }
@@ -18760,6 +18786,11 @@ func (v *TeamSessionsSessionsSession) GetStartedAt() string { return v.TeamSessi
 // GetEndedAt returns TeamSessionsSessionsSession.EndedAt, and is useful for accessing the field via an interface.
 func (v *TeamSessionsSessionsSession) GetEndedAt() *string { return v.TeamSessionFields.EndedAt }
 
+// GetAutoExpiredAt returns TeamSessionsSessionsSession.AutoExpiredAt, and is useful for accessing the field via an interface.
+func (v *TeamSessionsSessionsSession) GetAutoExpiredAt() *string {
+	return v.TeamSessionFields.AutoExpiredAt
+}
+
 // GetHost returns TeamSessionsSessionsSession.Host, and is useful for accessing the field via an interface.
 func (v *TeamSessionsSessionsSession) GetHost() *string { return v.TeamSessionFields.Host }
 
@@ -18822,6 +18853,8 @@ type __premarshalTeamSessionsSessionsSession struct {
 
 	EndedAt *string `json:"endedAt"`
 
+	AutoExpiredAt *string `json:"autoExpiredAt"`
+
 	Host *string `json:"host"`
 
 	Tool *string `json:"tool"`
@@ -18853,6 +18886,7 @@ func (v *TeamSessionsSessionsSession) __premarshalJSON() (*__premarshalTeamSessi
 	retval.PrNumber = v.TeamSessionFields.PrNumber
 	retval.StartedAt = v.TeamSessionFields.StartedAt
 	retval.EndedAt = v.TeamSessionFields.EndedAt
+	retval.AutoExpiredAt = v.TeamSessionFields.AutoExpiredAt
 	retval.Host = v.TeamSessionFields.Host
 	retval.Tool = v.TeamSessionFields.Tool
 	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
@@ -22160,6 +22194,11 @@ func (v *UpdateTeamSessionUpdateSession) GetStartedAt() string { return v.TeamSe
 // GetEndedAt returns UpdateTeamSessionUpdateSession.EndedAt, and is useful for accessing the field via an interface.
 func (v *UpdateTeamSessionUpdateSession) GetEndedAt() *string { return v.TeamSessionFields.EndedAt }
 
+// GetAutoExpiredAt returns UpdateTeamSessionUpdateSession.AutoExpiredAt, and is useful for accessing the field via an interface.
+func (v *UpdateTeamSessionUpdateSession) GetAutoExpiredAt() *string {
+	return v.TeamSessionFields.AutoExpiredAt
+}
+
 // GetHost returns UpdateTeamSessionUpdateSession.Host, and is useful for accessing the field via an interface.
 func (v *UpdateTeamSessionUpdateSession) GetHost() *string { return v.TeamSessionFields.Host }
 
@@ -22222,6 +22261,8 @@ type __premarshalUpdateTeamSessionUpdateSession struct {
 
 	EndedAt *string `json:"endedAt"`
 
+	AutoExpiredAt *string `json:"autoExpiredAt"`
+
 	Host *string `json:"host"`
 
 	Tool *string `json:"tool"`
@@ -22253,6 +22294,7 @@ func (v *UpdateTeamSessionUpdateSession) __premarshalJSON() (*__premarshalUpdate
 	retval.PrNumber = v.TeamSessionFields.PrNumber
 	retval.StartedAt = v.TeamSessionFields.StartedAt
 	retval.EndedAt = v.TeamSessionFields.EndedAt
+	retval.AutoExpiredAt = v.TeamSessionFields.AutoExpiredAt
 	retval.Host = v.TeamSessionFields.Host
 	retval.Tool = v.TeamSessionFields.Tool
 	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
@@ -30244,6 +30286,7 @@ fragment TeamSessionFields on Session {
 	prNumber
 	startedAt
 	endedAt
+	autoExpiredAt
 	host
 	tool
 	transcriptPath
@@ -30986,6 +31029,7 @@ fragment TeamSessionFields on Session {
 	prNumber
 	startedAt
 	endedAt
+	autoExpiredAt
 	host
 	tool
 	transcriptPath
@@ -33865,6 +33909,7 @@ fragment TeamSessionFields on Session {
 	prNumber
 	startedAt
 	endedAt
+	autoExpiredAt
 	host
 	tool
 	transcriptPath
@@ -34163,6 +34208,7 @@ fragment TeamSessionFields on Session {
 	prNumber
 	startedAt
 	endedAt
+	autoExpiredAt
 	host
 	tool
 	transcriptPath
@@ -35648,6 +35694,7 @@ fragment TeamSessionFields on Session {
 	prNumber
 	startedAt
 	endedAt
+	autoExpiredAt
 	host
 	tool
 	transcriptPath
