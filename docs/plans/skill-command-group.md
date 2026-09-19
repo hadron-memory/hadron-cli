@@ -215,9 +215,20 @@ Two corrections to the thread, measured on this machine:
   (open, filed at Holger's request 2026-08-18) wants the onboarding tasks out of
   a memory named after a tool the reader may never use. `start-worker-session-cli`
   and `end-worker-session` are still in `hadron-cli:`. Both that move and this
-  rename are loc changes blocked on the same mechanism, and #490 also leaves the
-  *destination memory's name* open (Holger floated `core` and was second-guessing
-  it) — a later memory rename is a third loc change wanting the same pairing.
+  rename are loc changes blocked on the same mechanism.
+
+  **The destination memory keeps the name `core`** (Holger, 2026-09-19) — #490's
+  last open item. So there is no third wave of loc changes and the migration is
+  fully sequenced: **`id=` → re-home + merge + rename, one pass.**
+
+  He added that *"the memory content needs a cleanup, but that's another task"*,
+  and the measurement shows why the name felt wrong in the first place:
+  **`core` contains a `server:` branch.** Of its 29 nodes, `server:` (7) and
+  `shared:` (12) have gone untouched since 2026-08-02 while `tasks:` (8) is the
+  live stratum. The name reads like server internals because the memory
+  literally holds server-architecture docs — so the fix was content, not naming.
+  Tracked on [#438](https://github.com/hadron-memory/hadron-cli/issues/438) and
+  **explicitly out of scope here**: it does not block D11.
 
 ### Proposed — for Holger
 
