@@ -662,11 +662,27 @@ survive the other kind of rename:
 | derived name (prefix, host) | stable | stable | `renamed` ✅ | `renamed` |
 | **the node's `loc`** | **changes** | **stable** | `orphaned` + `never-exported` ❌ | `renamed` |
 
-`moveNode` is explicit: *"the node keeps its stable ID so all edge references
-remain valid."* The id is immutable across a move; the URN is not. So a loc
-rename silently splits one skill into a dead file plus a fresh export — and
-because an orphan is never removed without `--prune` (deliberately), the user
+**Measured, not quoted.** `hadron node move --help` states it — *"keeping each
+node's id, so every incoming and outgoing edge reference stays valid"* — but the
+committed schema snapshot carries no description on `moveNode` at all, so the
+guarantee is documented on the client surface rather than in the contract. So it
+was driven instead:
+
+```
+node add  experiments:eli-move-probe-a   → id 01a0bb967bf77dd7967feec7c8cd61af
+node mv   …probe-a --to-urn …probe-b     → ✓ moved
+node get  …probe-a                       → ABSENT        (control: the move ran)
+node get  …probe-b                       → id 01a0bb967bf77dd7967feec7c8cd61af
+```
+
+Scratch node deleted. **The id is immutable across a loc move; the URN is not.**
+So a loc rename silently splits one skill into a dead file plus a fresh export —
+and because an orphan is never removed without `--prune` (deliberately), the user
 ends up with two directories carrying near-identical trigger text, both firing.
+
+*(That the guarantee lives only in CLI help and not in the SDL is itself worth a
+server-side note — a client-documented invariant is one a second client may not
+know it can rely on. Reported, not filed.)*
 
 **The fix is one more header key:**
 
