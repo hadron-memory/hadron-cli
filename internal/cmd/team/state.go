@@ -117,10 +117,21 @@ func gitDir(ctx context.Context) (string, error) {
 		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
 			detail = strings.TrimSpace(string(exitErr.Stderr))
 		}
-		return "", exitcode.Newf(exitcode.Usage, "not inside a git worktree — a team session binds to one (%s)", detail)
+		return "", exitcode.Newf(exitcode.Usage, "%w — a team session binds to one (%s)", errNoWorktree, detail)
 	}
 	return filepath.Abs(strings.TrimSpace(string(out)))
 }
+
+// errNoWorktree marks "there is no git worktree here" as a DISTINCT condition
+// rather than one more failure string.
+//
+// For the commands that write a binding it is fatal — there is nowhere to put
+// one. For `session whoami` it is not: since #623 the server answers, and the
+// callers who most need that answer are exactly the ones with no worktree —
+// a non-coding role, or Cowork. Treating this as a hard error is what made a
+// worktree a precondition for asking "what am I driving?", which is the
+// coupling #623 exists to remove.
+var errNoWorktree = errors.New("not inside a git worktree")
 
 func bindingPath(ctx context.Context) (string, error) {
 	dir, err := gitDir(ctx)

@@ -1125,32 +1125,201 @@ holds nothing).`,
 	return cmd
 }
 
+// whoamiDTO is the stable --json shape of `session whoami`.
+//
+// The embedded *binding keeps every key the worktree branch already emitted —
+// this command's contract predates the server fallback and agents read
+// `sessionId` off it. The two additions are additive by construction:
+//
+//   - Source says WHICH mechanism answered ("worktree" | "server"), because
+//     after #623 the same payload can come from two places and a caller that
+//     cares whether its answer survived a lost directory must be able to ask.
+//   - Candidates is the server branch's full list. It is []sessionDTO{} and
+//     never null on the worktree branch, so a consumer can iterate it blind.
+//
+// On the server branch the embedded binding is SYNTHESIZED from the session,
+// and only when exactly one matched: with several open sessions there is no
+// single answer, so the session fields stay empty rather than naming an
+// arbitrary one, and Candidates carries them all.
+type whoamiDTO struct {
+	*binding
+	BindingPath string       `json:"bindingPath"`
+	Source      string       `json:"source"`
+	Candidates  []sessionDTO `json:"candidates"`
+}
+
+// openWorkerSessionsForCaller returns the caller's own OPEN, WORKER-BOUND
+// sessions — the three predicates that turn the server's session list into an
+// answer to "what am I driving?".
+//
+// All three are load-bearing and none is server-side. `sessions()` is
+// documented as "Sessions VISIBLE to the caller … NOT only the caller's own",
+// and unfiltered it is also every session `type`, worker-bound or not
+// (hadron-server#1034) — so presenting it raw would offer a COLLEAGUE'S session
+// as yours, on a surface whose printed remedy is `session end`. Too wide a
+// filter here proposes a destructive action against someone else's work, which
+// is why each predicate has its own test.
+//
+// The scan runs to exhaustion (scanSessions, issue #23): since #1114 removed
+// the idle reaper, worker sessions are long-lived, so an open one is NOT
+// necessarily among the newest rows and absence can only be proven by reading
+// the whole list.
+func openWorkerSessionsForCaller(ctx context.Context, client graphql.Client) ([]sessionDTO, error) {
+	me, err := gen.Me(ctx, client)
+	if err != nil {
+		return nil, api.MapError(err)
+	}
+	if me == nil || me.Me == nil || me.Me.Id == "" {
+		// No USER identity on this credential. Deliberately NOT AuthRequired:
+		// `me` is null for a valid App key too (that is why authContext exists),
+		// and an App key is authenticated — telling it to log in would be a
+		// false remedy. A genuine auth failure never reaches here, because the
+		// query itself errors and api.MapError classifies it.
+		//
+		// Without an identity the self-filter cannot run, and the unfiltered
+		// list is OTHER PEOPLE'S sessions — so refuse rather than over-report.
+		return nil, exitcode.Newf(exitcode.NotFound,
+			"no worker session can be attributed to this credential — it carries no user identity (an App key has none), so there is nothing to recover here")
+	}
+	mine := []sessionDTO{}
+	err = scanSessions(ctx, client, nil, nil, func(s gen.TeamSessionFields) bool {
+		if s.EndedAt != nil || strOrEmpty(s.WorkerId) == "" || strOrEmpty(s.UserId) != me.Me.Id {
+			return true
+		}
+		mine = append(mine, sessionDTOFromFields(s, nil))
+		return true
+	})
+	if err != nil {
+		return nil, err
+	}
+	return mine, nil
+}
+
+// whoamiFromServer answers whoami when this worktree has no binding — the
+// #623 fallback that makes a lost binding a cache miss instead of an orphaned
+// session.
+func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree bool) error {
+	client, err := f.GraphQLClient()
+	if err != nil {
+		return err
+	}
+	mine, err := openWorkerSessionsForCaller(cmd.Context(), client)
+	if err != nil {
+		return err
+	}
+	if len(mine) == 0 {
+		// Now a MEASURED negative rather than an unanswered question: there is
+		// no binding AND the server has none attributed to you.
+		return exitcode.Newf(exitcode.NotFound,
+			"%s, and you have no open worker session on the server — `hadron team session start --as <name>` opens one",
+			noBindingReason(inWorktree))
+	}
+	dto := whoamiDTO{binding: &binding{}, Source: "server", Candidates: mine}
+	if len(mine) == 1 {
+		// Unambiguous, so the session fields answer as the worktree branch
+		// would. This REPORTS; it does not re-create the binding — whoami is a
+		// read, and rebinding is `session start`'s to do.
+		s := mine[0]
+		dto.binding = &binding{
+			SessionID: s.ID, WorkerID: strOrEmpty(s.WorkerID), WorkerName: strOrEmpty(s.WorkerName),
+			WorkerRole: strOrEmpty(s.WorkerRole), StartedAt: s.StartedAt,
+			Tool: strOrEmpty(s.Tool), Repo: strOrEmpty(s.Repo), Model: strOrEmpty(s.LLMModel),
+		}
+	}
+	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+		fmt.Fprintf(w, "%s — answering from the server\n\n", noBindingReason(inWorktree))
+		if len(mine) == 1 {
+			// Unambiguous: read like the binding branch, which is what the
+			// caller recovering a lost binding is expecting to see.
+			s := mine[0]
+			fmt.Fprintf(w, "%s%s\n  worker session: %s (started %s)\n  worker: %s\n",
+				strOrEmpty(s.WorkerName), roleSuffix(s.WorkerRole), s.ID, s.StartedAt, strOrEmpty(s.WorkerID))
+			if r := strOrEmpty(s.Repo); r != "" {
+				fmt.Fprintf(w, "  repo: %s\n", r)
+			}
+		} else {
+			// A TABLE, because several is the ordinary case rather than the
+			// exception — one driver with a worker per worktree had 17 open at
+			// once, measured. Seventeen detail blocks is not a list anyone can
+			// pick from, and picking is the whole purpose here.
+			fmt.Fprintf(w, "%d open worker sessions are yours; none is bound here, so pick one by SESSION.\n\n", len(mine))
+			t := output.NewTable(w, "WORKER", "ROLE", "REPO", "STARTED", "SESSION")
+			for _, s := range mine {
+				t.Row(dash(s.WorkerName), dash(s.WorkerRole), dash(s.Repo), s.StartedAt, s.ID)
+			}
+			if err := t.Flush(); err != nil {
+				return err
+			}
+		}
+		// The recovery the binding used to be the only route to. Ending is NOT
+		// the expected action — sessions are long-lived (hadron-server#1114) —
+		// it is simply the one that needed the id the lost file was holding.
+		fmt.Fprintln(w)
+		if inWorktree {
+			fmt.Fprintf(w, "To keep working here: `hadron team session start --as <name>` rebinds this worktree.\n")
+		}
+		fmt.Fprintf(w, "To end one without a binding: `hadron team session end --session <id> --handoff <text>`.\n")
+		return nil
+	})
+}
+
+// noBindingReason distinguishes the two ways whoami reaches the server, because
+// "no binding in this worktree" is simply false where there is no worktree —
+// and that caller (a non-coding worker, Cowork) is the one the fallback is most
+// for, so telling them about a worktree they do not have is the wrong answer.
+func noBindingReason(inWorktree bool) string {
+	if inWorktree {
+		return "no binding in this worktree"
+	}
+	return "not in a git worktree, so there is no binding to read"
+}
+
 func newCmdSessionWhoami(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "whoami",
-		Short: "Show which worker this worktree is bound to (worker session)",
-		Long: `Read the worktree's WORKER SESSION binding back — the compaction-recovery
-read. Local only: it reports what ` + "`session start`" + ` recorded, without asking
-the server whether the worker session is still open.
+		Short: "Show which worker you are driving (worker session)",
+		Long: `Answer "what am I driving?" — the compaction-recovery read.
+
+It prefers this worktree's binding and FALLS BACK TO THE SERVER when there is
+none (#623), so losing the binding is a cache miss rather than data loss. The
+binding lives under the worktree's git dir, and ` + "`git worktree remove`" + ` takes it
+with the directory — which does NOT end the session. Before the fallback, that
+left a session open with its only local handle gone.
+
+--json carries "source": "worktree" when the binding answered, "server" when
+the fallback did.
+
+The fallback lists only sessions that are attributed to YOU, worker-bound, and
+still open. The server's session list is deliberately wider than that — it
+shows everything you may SEE, including other people's — so it is filtered here
+rather than presented as yours.
+
+Neither branch asks whether a reported session is healthy; see ` + "`session list`" + `.
 
 If you are here because a chat session ended and you are not sure what you
-are still driving: the worker session survived it. This tells you which
-worker, and ` + "`session end`" + ` is what ends it. Ending the session does NOT
-release the NAME: a person who binds a worker holds its name until
-` + "`worker release`" + ` (cor:agt:020:09).`,
+are still driving: the worker session survived it. YOU PROBABLY DO NOT NEED TO
+END IT. Worker sessions are meant to be long-lived (hadron-server#1114 removed
+the idle reaper on the principle that silence is not abandonment), so ending is
+for when the WORK ends — not when a chat session, a branch or a worktree does.
+` + "`session end`" + ` is what ends it, and it does NOT release the NAME: a person who
+binds a worker holds its name until ` + "`worker release`" + ` (cor:agt:020:09).`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			b, path, err := readBinding(cmd.Context())
+			// No worktree is not a failure for THIS command — it is the case
+			// the fallback exists for. A non-coding worker and a Cowork session
+			// have no worktree at all, so requiring one to ask "what am I
+			// driving?" excluded them by construction (#623).
+			if errors.Is(err, errNoWorktree) {
+				return whoamiFromServer(cmd, f, false)
+			}
 			if err != nil {
 				return err
 			}
 			if b == nil {
-				return exitcode.Newf(exitcode.NotFound, "no worker is bound to this worktree — `hadron team session start --as <name>` opens a worker session")
+				return whoamiFromServer(cmd, f, true)
 			}
-			result := struct {
-				*binding
-				BindingPath string `json:"bindingPath"`
-			}{b, path}
+			result := whoamiDTO{binding: b, BindingPath: path, Source: "worktree", Candidates: []sessionDTO{}}
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				if b.WorkerID == "" {
 					// A binding written by a pre-Worker CLI: the session id is
@@ -1659,6 +1828,21 @@ Closing your CHAT SESSION does not do this. Archive the Desktop window or
 quit the Claude Code session and the worker session stays open, holding the
 worker until you end it here — since hadron-server#1114 nothing else does.
 So end it deliberately when you stop working, not when you close the window.
+
+MOST OF THE TIME, DO NOT END IT (#623). Worker sessions are meant to be
+long-lived: #1114 removed the idle reaper on the principle that silence is
+not evidence of abandonment. Ending is for when the WORK ends — not when a
+chat session, a branch, a PR or a worktree does. Re-binding is not free: it
+re-renders the boot briefing, takes several manual steps that are not
+Hadron's, and a mistyped worker name has a known failure mode
+(hadron-server#1157). If you are ending a healthy session to tidy something
+up, the tidying is the thing to reconsider.
+
+A WORKTREE IS REMOVABLE WITHOUT TOUCHING THE SESSION. The binding lives
+under the worktree's git dir, so ` + "`git worktree remove`" + ` deletes it — and that
+does NOT end the session. It used to leave the session open with its only
+local handle gone; since #623 ` + "`session whoami`" + ` falls back to the server, so
+the id is recoverable and --session below ends it without a binding.
 
 --handoff IS WHAT THE NEXT DRIVER READS (hadron-server#1029). Prose about
 what landed, what is open, what is blocked, and what they should not
