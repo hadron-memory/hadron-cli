@@ -765,8 +765,8 @@ know it can rely on. Reported, not filed.)*
 - Existing files carry no `id`. `unhashed` already means *"an older header
   generation, rewrite it"* — **widen that class** rather than invent. A1 is
   unaffected: a header-generation upgrade is not a local edit.
-- **The hash INCLUDES `id`**, over
-  `id + source + name + description + content`.
+- **The hash INCLUDES `id`.** The formula is stated once, in §4.3 — not restated
+  here, because two spellings of one formula is how the separators go missing.
 
   **Corrected 2026-09-19 on @codex's P2, and the reason I first gave was
   self-inconsistent.** I wrote *"the hash must NOT include `id`, so it stays
