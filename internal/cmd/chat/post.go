@@ -131,7 +131,7 @@ one read).`,
 	cmd.Flags().StringVar(&body, "body", "", "message body, or - to read from stdin")
 	cmd.Flags().StringVar(&bodyFile, "body-file", "", "read the message body from a file (multi-line safe)")
 	cmd.Flags().StringVar(&session, "session", "", "post as the Worker bound to this session id (replaces --handle/--identity/--role)")
-	cmd.Flags().StringVar(&replyTo, "reply-to", "", "loc (or URN) of the message this replies to; adds a reply edge")
+	cmd.Flags().StringVar(&replyTo, "reply-to", "", "seq of the message this replies to (its loc or URN also accepted, at one extra read)")
 	cmd.MarkFlagsMutuallyExclusive("body", "body-file")
 	cmd.MarkFlagsOneRequired("body", "body-file")
 	return cmd
@@ -215,20 +215,18 @@ func PostMessage(ctx context.Context, client graphql.Client, in PostInput) (Post
 	// The Channel this chat IS. A Channel is addressed by its id or by its
 	// CHAT ROOT's node ref (hadron-server#1172), and the chat root is the
 	// parent of the messages container — the same derivation EnsureChatParent
-	// used to make by hand. cmdutil.NodeURN composes the flat-v2 node ref the
-	// server accepts, so nothing here looks a Channel up by matching on loc:
+	// used to make by hand. Nothing here looks a Channel up by matching on loc:
 	// that rule is why internal/cmd/channel classifies no refs either.
-	channelRef := chatRootRef(in.Coords)
-	if channelRef == "" {
-		return PostResult{}, exitcode.Newf(exitcode.Usage,
-			"cannot derive the chat root from %q — a chat's messages live under a parent node (e.g. <chat>:messages)", in.Coords.MessagesLoc)
+	channelRef, err := chatRootRef(ctx, client, in.Coords)
+	if err != nil {
+		return PostResult{}, err
 	}
 
 	var replyToSeq *int
 	if in.ReplyTo != "" {
-		seq, err := resolveReplyToSeq(ctx, client, in.Coords, in.ReplyTo)
-		if err != nil {
-			return PostResult{}, err
+		seq, rerr := resolveReplyToSeq(ctx, client, in.Coords, in.ReplyTo)
+		if rerr != nil {
+			return PostResult{}, rerr
 		}
 		replyToSeq = seq
 	}
@@ -277,33 +275,90 @@ func PostMessage(ctx context.Context, client graphql.Client, in PostInput) (Post
 // change.) The retyping advice they implemented is likewise gone from the help
 // text: nothing needs converging when the server owns the structure.
 
-// chatRootRef composes the node ref of the chat ROOT — the parent of the
-// messages container — which is what a channelRef accepts (hadron-server#1172).
+// chatLocOf returns the chat ROOT's loc — the parent of the messages container.
 //
-// Returns "" when the messages loc has no parent: a chat root is required, and
-// guessing one would create a Channel at the wrong address.
-func chatRootRef(c Coords) string {
-	i := strings.LastIndex(c.MessagesLoc, ":")
+// A chat root is required and guessing one would create a Channel at the wrong
+// address, so a messages loc with no parent is refused rather than defaulted.
+func chatLocOf(messagesLoc string) (string, error) {
+	i := strings.LastIndex(messagesLoc, ":")
 	if i < 0 {
-		return ""
+		return "", exitcode.Newf(exitcode.Usage,
+			"cannot derive the chat root from %q — a chat's messages live under a parent node (e.g. <chat>:messages)", messagesLoc)
 	}
-	return cmdutil.NodeURN(c.Memory, c.MessagesLoc[:i])
+	return messagesLoc[:i], nil
+}
+
+// chatRootRef composes the node ref of the chat ROOT, which is what a
+// channelRef accepts (hadron-server#1172).
+//
+// It delegates to cmdutil.BatchNodeRef — the shared composer for a server op
+// that resolves a PK-or-URN itself — rather than calling cmdutil.NodeURN
+// directly. NodeURN composes ONLY a flat-v2 <root>:<slug> memory and returns ""
+// for anything else, which silently narrowed what `chat post` accepts: a
+// COMPOUND app-mem memory (<org>::<agent>:app-mem:<slug>) cannot be expressed
+// as a fixed-arity flat node URN at all, and both it and an opaque memory id
+// used to reach the server untouched through CreateNodeInput.MemoryId. Refusing
+// them locally was a regression, and one this repo has made before — it is the
+// caveat CLAUDE.md records about the spec group. BatchNodeRef already handles
+// the compound case by joining the legacy <memory>::<loc> form.
+//
+// An opaque memory ID has no node-ref spelling to compose at all, so it costs
+// ONE read to turn into a canonical URN. Only that case pays it.
+func chatRootRef(ctx context.Context, client graphql.Client, c Coords) (string, error) {
+	chatLoc, err := chatLocOf(c.MessagesLoc)
+	if err != nil {
+		return "", err
+	}
+	memory, err := composableMemoryRef(ctx, client, c.Memory)
+	if err != nil {
+		return "", err
+	}
+	return cmdutil.BatchNodeRef(memory, chatLoc)
+}
+
+// composableMemoryRef returns a memory ref a node ref can be composed from,
+// resolving an opaque id via the server. Every other spelling passes through
+// untouched — the client classifies as little as it can get away with.
+func composableMemoryRef(ctx context.Context, client graphql.Client, memory string) (string, error) {
+	if !cmdutil.IsBareID(memory) {
+		return memory, nil
+	}
+	resp, err := gen.GetMemory(ctx, client, memory)
+	if err != nil {
+		return "", api.MapError(err)
+	}
+	if resp == nil || resp.Memory == nil || resp.Memory.Urn == "" {
+		return "", exitcode.Newf(exitcode.NotFound, "no memory %q is readable here", memory)
+	}
+	return resp.Memory.Urn, nil
 }
 
 // ensureChannel creates the Channel for this chat's root. Called only after a
 // CHANNEL_NOT_FOUND, so it is the create half of create-if-missing.
+//
+// A LOC_OVERLAPS_CHANNEL refusal is CONVERGENCE, not failure. Two clients
+// making the first post both see CHANNEL_NOT_FOUND and both try to create; one
+// wins and the other is told the address is taken. Returning that as the post's
+// error would lose a valid message *because someone else succeeded* — and the
+// Channel the caller needs now exists, so the retry that follows is exactly
+// right. Caught by @codex and Copilot independently on PR #618.
+//
+// Note this deliberately does NOT swallow other create failures: an access
+// refusal or a bad host must still fail the post.
 func ensureChannel(ctx context.Context, client graphql.Client, c Coords) error {
-	i := strings.LastIndex(c.MessagesLoc, ":")
-	if i < 0 {
-		return exitcode.Newf(exitcode.Usage, "cannot derive the chat root from %q", c.MessagesLoc)
+	chatLoc, err := chatLocOf(c.MessagesLoc)
+	if err != nil {
+		return err
 	}
-	chatLoc := c.MessagesLoc[:i]
 	name := chatLoc
 	if j := strings.LastIndex(chatLoc, ":"); j >= 0 {
 		name = chatLoc[j+1:]
 	}
 	input := gen.CreateChannelInput{MemoryRef: c.Memory, Loc: chatLoc, Name: name}
 	if _, err := gen.CreateChannel(ctx, client, &input); err != nil {
+		if api.HasErrorCode(err, "LOC_OVERLAPS_CHANNEL") {
+			return nil
+		}
 		return api.MapError(err)
 	}
 	return nil

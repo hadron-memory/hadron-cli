@@ -275,6 +275,118 @@ func TestChatPostWritesThroughTheChannelAPI(t *testing.T) {
 	}
 }
 
+// TestChatPostResolvesAnOpaqueMemoryID — the second half of @codex's P2.
+//
+// An opaque memory id has NO node-ref spelling to compose, so it cannot be
+// handled by string work at all. It used to reach the server untouched through
+// CreateNodeInput.MemoryId, so refusing it locally was a regression; it now
+// costs exactly ONE read to become a canonical URN, and only this case pays it.
+func TestChatPostResolvesAnOpaqueMemoryID(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"GetMemory":            `{"data":{"memory":{"id":"01a0ba2e49647287a8d6981492bf7188","urn":"hrn:mem:acme.com:tc","name":"tc"}}}`,
+		"CreateChannelMessage": `{"data":{"createChannelMessage":` + channelMsgJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"chat", "post",
+		"-m", "01a0ba2e49647287a8d6981492bf7188", "--messages-loc", "chats:api:messages",
+		"--body", "hi", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("an opaque memory id must still post: %v", err)
+	}
+	if _, ok := captured["GetMemory"]; !ok {
+		t.Fatal("an opaque memory id must be resolved to its URN, not refused locally")
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateChannelMessage"], &vars)
+	// Composed from the RESOLVED urn, not from the id.
+	if got := vars["channelRef"]; got != "hrn:node:acme.com:tc:chats:api" {
+		t.Errorf("channelRef = %v, want it composed from the resolved memory URN", got)
+	}
+}
+
+// ...and a named memory must NOT pay that read.
+func TestChatPostDoesNotResolveANamedMemory(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateChannelMessage": `{"data":{"createChannelMessage":` + channelMsgJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"chat", "post", "--node", "acme.com::tc::chats:api:messages",
+		"--body", "hi", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, ok := captured["GetMemory"]; ok {
+		t.Error("a composable memory ref must not cost a resolve round trip")
+	}
+}
+
+// TestChatPostConvergesOnAConcurrentChannelCreate — the create RACE.
+//
+// Two clients making the first post both see CHANNEL_NOT_FOUND and both try to
+// create. One wins; the other is told LOC_OVERLAPS_CHANNEL. Returning that as
+// the post's error loses a valid message *because someone else succeeded*,
+// while the Channel the caller needs now exists. So the overlap is convergence
+// and the post is retried.
+//
+// Found independently by @codex and Copilot on PR #618; neither the plan nor I
+// anticipated it, because the single-client path this was tested on cannot
+// reach it.
+func TestChatPostConvergesOnAConcurrentChannelCreate(t *testing.T) {
+	posts := 0
+	gql, _ := captureGraphQLFunc(t, func(op string) string {
+		switch op {
+		case "CreateChannelMessage":
+			posts++
+			if posts == 1 {
+				return `{"errors":[{"message":"no channel","extensions":{"code":"CHANNEL_NOT_FOUND"}}]}`
+			}
+			return `{"data":{"createChannelMessage":` + channelMsgJSON + `}}`
+		case "CreateChannel":
+			// The other client got there first.
+			return `{"errors":[{"message":"address taken","extensions":{"code":"LOC_OVERLAPS_CHANNEL"}}]}`
+		}
+		return ""
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"chat", "post", "--node", "acme.com::tc::chats:api:messages",
+		"--body", "hi", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a lost race must not fail the post: %v", err)
+	}
+	if posts != 2 {
+		t.Errorf("the post must be retried after the winner created the Channel, posts=%d", posts)
+	}
+	if !strings.Contains(out.String(), `"seq": 7`) {
+		t.Errorf("the message must actually be posted, got %s", out.String())
+	}
+}
+
+// TestChatPostCreateFailureIsStillThePostsFailure — the other half of the
+// convergence rule above, which is what stops it becoming "swallow create
+// errors". An access refusal must still fail the post rather than falling
+// through to a second CHANNEL_NOT_FOUND.
+func TestChatPostCreateFailureIsStillThePostsFailure(t *testing.T) {
+	gql, _ := captureGraphQLFunc(t, func(op string) string {
+		switch op {
+		case "CreateChannelMessage":
+			return `{"errors":[{"message":"no channel","extensions":{"code":"CHANNEL_NOT_FOUND"}}]}`
+		case "CreateChannel":
+			return `{"errors":[{"message":"nope","extensions":{"code":"FORBIDDEN"}}]}`
+		}
+		return ""
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"chat", "post", "--node", "acme.com::tc::chats:api:messages",
+		"--body", "hi", "--json", "--server", gql.URL})
+	if err := root.Execute(); err == nil {
+		t.Fatal("a genuine create failure must fail the post")
+	}
+}
+
 // TestChatPostJSONKeepsLocAsAnExplicitNull pins the one --json shape change
 // #367 forces, in the only way that distinguishes the two ways it can go wrong.
 //

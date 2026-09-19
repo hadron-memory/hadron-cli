@@ -1,6 +1,62 @@
 package chat
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
+
+// TestChatRootRefPreservesEveryComposableMemorySpelling — one case per memory
+// spelling `chat post` accepts, because a hand-rolled composer that handles
+// only the common one narrows the command SILENTLY.
+//
+// The regression @codex caught on PR #618: chatRootRef called cmdutil.NodeURN,
+// which composes only a flat-v2 <root>:<slug> memory and returns "" otherwise.
+// A COMPOUND app-mem memory cannot be a fixed-arity flat node URN at all, so
+// `chat post` began refusing one locally — with no request made — that had
+// previously passed straight through to the server in CreateNodeInput.MemoryId.
+// cmdutil.BatchNodeRef is the shared composer that already knew this.
+//
+// An opaque memory id is NOT here: it has no spelling to compose and costs a
+// server read, which is covered at the command level instead.
+func TestChatRootRefPreservesEveryComposableMemorySpelling(t *testing.T) {
+	cases := []struct {
+		name   string
+		memory string
+		want   string
+	}{
+		{"flat v2 URN", "hrn:mem:acme.com:tc", "hrn:node:acme.com:tc:chats:api"},
+		{"legacy double-colon pair", "acme.com::tc", "hrn:node:acme.com:tc:chats:api"},
+		{"single-colon pair", "acme.com:tc", "hrn:node:acme.com:tc:chats:api"},
+		{
+			// The one NodeURN cannot express; BatchNodeRef joins the legacy
+			// <memory>::<loc> form, which the server accepts forever (#239).
+			"compound app-mem",
+			"acme.com::myagent:app-mem:slug",
+			"hrn:node:acme.com::myagent:app-mem:slug::chats:api",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := chatRootRef(context.Background(), nil,
+				Coords{Memory: c.memory, MessagesLoc: "chats:api:messages"})
+			if err != nil {
+				t.Fatalf("%s must still compose, got %v", c.memory, err)
+			}
+			if got != c.want {
+				t.Errorf("chatRootRef(%q) = %q, want %q", c.memory, got, c.want)
+			}
+		})
+	}
+}
+
+// A messages loc with no parent has no chat root, and guessing one would create
+// a Channel at the wrong address — so it is refused rather than defaulted.
+func TestChatRootRefRefusesAMessagesLocWithNoParent(t *testing.T) {
+	if _, err := chatRootRef(context.Background(), nil,
+		Coords{Memory: "hrn:mem:acme.com:tc", MessagesLoc: "messages"}); err == nil {
+		t.Error("a messages loc with no parent must be refused")
+	}
+}
 
 // TestAuthorFromLocReadsAllThreeLocDialects pins the fallback author parser
 // against every loc shape `chat read` can meet, and exists because #367 made

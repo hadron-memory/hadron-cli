@@ -95,10 +95,29 @@ chatLoc   := MessagesLoc[:strings.LastIndex(MessagesLoc, ":")]
 channelRef := cmdutil.NodeURN(Coords.Memory, chatLoc)
 ```
 
-`Coords.Memory` is a memory REF (URN or `org:slug`), so `cmdutil.NodeURN`
-composes exactly the flat-v2 node ref `channelRef` accepts. **No client-side
-Channel lookup, no matching on loc** — the rule the `channel` package exists to
-keep (`internal/cmd/channel/channel.go`) applies here too.
+**Corrected in review — `cmdutil.NodeURN` was the wrong composer.** It composes
+only a flat-v2 `<root>:<slug>` memory and returns `""` for anything else, which
+silently narrowed what `chat post` accepts:
+
+| memory spelling | NodeURN | reached the server before? |
+|---|---|---|
+| `hrn:mem:acme.com:tc`, `acme.com::tc`, `acme.com:tc` | ✅ | yes |
+| compound app-mem `acme.com::myagent:app-mem:slug` | ❌ `""` | **yes** — untouched via `CreateNodeInput.MemoryId` |
+| opaque memory id | ❌ `""` | **yes** — same |
+
+So two forms that used to work began failing locally, with no request made. The
+compound case is the caveat `CLAUDE.md` already records about the `spec` group —
+a fixed-arity flat node URN cannot round-trip it — which makes this a mistake
+this repo has made before.
+
+The fix is `cmdutil.BatchNodeRef`, the **shared** composer for a server op that
+resolves a PK-or-URN itself. It already joins the legacy `<memory>::<loc>` form
+for compound memories. An opaque memory **id** has no node-ref spelling at all,
+so it costs exactly one `GetMemory` read to become a canonical URN — and only
+that case pays it.
+
+**No client-side Channel lookup, no matching on loc** — the rule the `channel`
+package exists to keep (`internal/cmd/channel/channel.go`) applies here too.
 
 Create-if-missing is `createChannel(memoryRef, loc, name)`, which replaced
 `EnsureChatParent`'s two best-effort `createNode` calls (§5b). Unlike those, it
@@ -140,6 +159,23 @@ Accept both, Postel-liberal like every other ref in this repo: a bare integer
 is a seq; anything else is resolved to its seq with one read. Refuse loudly if
 it resolves to a node with no seq — a reply pointing at nothing is worse than a
 refusal.
+
+## 4a. Create-if-missing is a RACE, and losing it is convergence
+
+Caught by @codex and Copilot independently, and by neither the plan nor me —
+because the single-client path this was built and tested on cannot reach it.
+
+Two clients making the first post both see `CHANNEL_NOT_FOUND` and both call
+`createChannel`. One wins; the other is refused `LOC_OVERLAPS_CHANNEL`.
+Returning that as the post's error **loses a valid message because somebody else
+succeeded** — and the Channel the caller needs now exists, so the retry that
+already follows is exactly right.
+
+So `LOC_OVERLAPS_CHANNEL` from the create is treated as convergence. The
+boundary matters and is tested: this must not become "swallow create errors" —
+an access refusal or a bad host still fails the post, otherwise the caller falls
+through to a second `CHANNEL_NOT_FOUND` and gets a worse message than the true
+one.
 
 ## 5a. The one `--json` shape change
 
