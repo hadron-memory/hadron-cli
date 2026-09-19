@@ -104,12 +104,13 @@ func authoredNodeFrom(n interface {
 	GetTags() []string
 	GetSeq() *int
 	GetIsRunnable() *bool
+	GetRole() *string
 	GetUpdatedAt() string
 }) *AuthoredNode {
 	return &AuthoredNode{
 		Id: n.GetId(), MemoryId: n.GetMemoryId(), Loc: n.GetLoc(), Name: n.GetName(),
 		NodeType: n.GetNodeType(), Tags: n.GetTags(), Seq: n.GetSeq(),
-		IsRunnable: n.GetIsRunnable(), UpdatedAt: n.GetUpdatedAt(),
+		IsRunnable: n.GetIsRunnable(), Role: n.GetRole(), UpdatedAt: n.GetUpdatedAt(),
 	}
 }
 

@@ -73,6 +73,7 @@ query FindNodes(
         tags
         seq
         isRunnable
+        role
         updatedAt
         properties @include(if: $withProperties)
         data @include(if: $withData)
@@ -278,6 +279,7 @@ mutation CreateNode(
     tags
     seq
     isRunnable
+    role
     updatedAt
   }
 }
@@ -542,6 +544,7 @@ mutation UpdateNode(
     tags
     seq
     isRunnable
+    role
     updatedAt
   }
 }
@@ -744,6 +747,7 @@ mutation UpdateNodeData(
     nodeType
     tags
     isRunnable
+    role
     updatedAt
   }
 }

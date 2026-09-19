@@ -145,6 +145,12 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 		fmt.Fprintf(w, "  object-type: %s\n", *dto.ObjectType)
 	}
 	fmt.Fprintf(w, "  runnable: %t\n", dto.IsRunnable)
+	// Printed only when SET. Ungoverned is the overwhelming majority, and a
+	// `role: -` line on every node would be noise that teaches nothing; a role
+	// that IS set changes which door may write the node, so it earns a line.
+	if dto.Role != nil && *dto.Role != "" {
+		fmt.Fprintf(w, "  role: %s\n", *dto.Role)
+	}
 	if dto.Description != nil && *dto.Description != "" {
 		fmt.Fprintf(w, "  about: %s\n", *dto.Description)
 	}
@@ -230,6 +236,7 @@ func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 			NodeType:   n.NodeType,
 			Tags:       n.Tags,
 			IsRunnable: boolVal(n.IsRunnable),
+			Role:       n.Role,
 			UpdatedAt:  n.UpdatedAt,
 		},
 		ObjectType:         n.ObjectType,

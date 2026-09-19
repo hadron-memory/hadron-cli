@@ -2807,3 +2807,58 @@ func TestNodeUpdateOmittedRoleIsNotSent(t *testing.T) {
 		t.Errorf("omitted --role must not reach the wire (null would CLEAR it): %v", vars.Input["role"])
 	}
 }
+
+// A field you can SET and cannot READ BACK is #602 again (@Ada on #615), so the
+// projection is pinned on both surfaces — and `role` is deliberately NOT
+// omitempty: null means ungoverned, which is an answer, not an absence.
+func TestNodeGetProjectsRole(t *testing.T) {
+	governed := `{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI",
+		"description":null,"abstract":null,"nodeType":"finding","tags":["ci"],"role":"spec",
+		"content":"body","seq":null,
+		"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
+		"outgoingEdges":[],"incomingEdges":[]}`
+	gql := fakeGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + governed + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", nodeURN, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if _, present := dto["role"]; !present {
+		t.Fatal("node get --json must project role — it is settable via --role")
+	}
+	if dto["role"] != "spec" {
+		t.Errorf("role = %v, want spec", dto["role"])
+	}
+}
+
+// An UNGOVERNED node renders role as null rather than dropping the key: the
+// reader must be able to tell "ungoverned" from "this surface did not ask".
+func TestNodeGetRendersUngovernedRoleAsNull(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", nodeURN, "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto map[string]any
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	v, present := dto["role"]
+	if !present {
+		t.Fatal("the key must be present even when ungoverned — omitempty would collapse it with 'not selected'")
+	}
+	if v != nil {
+		t.Errorf("ungoverned role should be null, got %v", v)
+	}
+}

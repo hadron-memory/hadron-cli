@@ -271,6 +271,7 @@ output either flag switches the table for a per-node block.`,
 					Tags:       n.Tags,
 					Seq:        n.Seq,
 					IsRunnable: boolVal(n.IsRunnable),
+					Role:       n.Role,
 					UpdatedAt:  n.UpdatedAt,
 				}}
 				// Keyed off the FLAG, not off whether the server sent a value:
