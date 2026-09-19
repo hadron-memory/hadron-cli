@@ -154,27 +154,39 @@ Two corrections to the thread, measured on this machine:
   change, nothing to sequence. §11a's `id=` pairing still earns its place, but
   now only for **loc and memory moves** (the #490 re-home), never for renames.
 
-  **`enable: false` needs a class §4.5 lacks.** Proposed: `disabled`, and
-  `export` **removes** the file without `--prune`. The distinction that keeps
-  that consistent with never-delete-without-`--prune` is intent — an orphan is a
-  file whose node vanished for unknown reasons, so deleting is a guess, whereas
-  `enable: false` is a deliberate switch and honouring it is obedience. Awaiting
-  Holger's confirm.
+  **`enable: false` is the `disabled` class (§4.5) — RULED** (Holger,
+  2026-09-19). `export` **removes** the file, without `--prune`. The distinction
+  that keeps that consistent with never-delete-without-`--prune` is intent: an
+  orphan is a file whose node vanished for unknown reasons, so deleting it is a
+  guess, whereas `enable: false` is a deliberate switch and honouring it is
+  obedience.
 
   `enable` lives in the **shared corpus**, so it disables for every reader of
   that memory. The per-machine *"not on my laptop"* case is still unaddressed.
 
-  **ORDERING — the nodes migrate BEFORE the column is dropped.**
-  `Organization.skillPrefix` is currently the only record that the platform's
-  prefix is `hadron-`; drop it first and the source of truth for names not yet
-  written is gone. Same shape as §11a's rollout: the precondition is the DATA
-  being migrated, not the code shipping.
+  **There is NO data migration, and an earlier draft of this entry was wrong to
+  claim an ordering constraint** (Holger, 2026-09-19: *"We don't need to migrate
+  any task file. We just add the properties when all is set and done. There is no
+  data that needs migrated."*). Verified, and he is right for a sharper reason
+  than stated:
 
-  ```
-  1. specs updated (this entry + hadron-server#1177 REVISION 2)
-  2. 27 declaring nodes → exports.<host>, names composed with the CURRENT prefix
-  3. THEN drop the column, derive.ts, --prefix
-  ```
+  **`skill lint` is the ONLY built consumer of a declaration.** `export` and
+  `status` do not exist — the 20 skills on disk were written by the manual
+  `export-task-as-claude-skill` procedure. So the 27 `claudeSkill` declarations
+  are **27 diagnostic findings, not 27 pieces of load-bearing data**, and there is
+  no pipeline that breaks by changing the key. My "migrate the nodes before
+  dropping the column" was a constraint on a migration that is not happening; the
+  column can be dropped whenever.
+
+  So the order is just: **specs → code → add `exports` to nodes as they are
+  touched.** Nothing is staged behind anything.
+
+  **One thing to carry rather than migrate.** The 6 over-limit descriptions are
+  @Holger's acceptance specimens for the truncation behaviour (§9.2). Their text
+  also survives in the on-disk SKILL.md frontmatter, but `lint` reads the NODE —
+  so when `exports.claudeSkill` is added to those six, **copy the description
+  verbatim, overrun included.** Rewriting it to fit is how the test data quietly
+  disappears.
 
 
 - **D1. Prefix uses a hyphen** (Holger, 2026-09-15, on #580). `hadron_` stays
