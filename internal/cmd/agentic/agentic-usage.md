@@ -891,7 +891,7 @@ Conventions:
   recognizes. Clearing needs an explicit null via `hadron api`. The flag is NOT
   `--type` (the platform kind) and NOT the `--role` on `memory member` /
   `memory share`, which is a MEMBERSHIP role on a person. `node get` and
-  `node ls` PROJECT it, and `--json` renders `"role": null` for an ungoverned
+  `node list` PROJECT it, and `--json` renders `"role": null` for an ungoverned
   node rather than dropping the key — null is the answer "ungoverned", not the
   absence of one.
 
