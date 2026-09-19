@@ -174,6 +174,51 @@ Two corrections to the thread, measured on this machine:
   renderer is built, not assumed from memory. `status`/`lint` are host-aware
   only where a limit is host-specific (the 64/1024 caps are Claude Code's).
 
+- **D11. The worker-skill family is renamed for symmetry, and the renames are
+  HELD behind `id=` pairing** (Holger, 2026-09-19 — both halves ruled).
+
+  ```
+  hadron-cast-worker     ← tasks:cast-worker    (NEW, landed 2026-09-19)
+  hadron-start-worker    ← tasks:start-worker   (the two start tasks MERGED)
+  hadron-end-worker      ← tasks:end-worker     (from end-worker-session)
+  ```
+
+  Holger proposed `hadron-start-worker`; the symmetry follows from it, because
+  `hadron-start-worker` beside `hadron-end-worker-session` is exactly the
+  guessability the whole epic is for. **The desktop/CLI split is merged into
+  one task**: `end-worker-session` already covers both tracks in one node, so
+  the asymmetry was unjustified; track selection is something the skill can
+  determine at runtime; and 129 characters of the CLI task's own description are
+  spent saying *"NOT for Claude Desktop … use the desktop track instead"* — a
+  trigger surface partly devoted to not triggering.
+
+  **Measured, and correcting an argument made for this in chat:** the
+  mutual-disambiguation prose is only ~104 and ~184 characters, so **merging
+  does NOT fix the 1024 overrun.** One merged description must still cover two
+  surfaces. The overrun's real cause is that these descriptions enumerate
+  gotchas — body and abstract content — rather than triggering.
+
+  **The HOLD is the load-bearing half.** A rename here is a **loc** change, so
+  under §4.4's pair-by-URN it reads as `orphaned` + `never-exported` rather
+  than `renamed` (§11a). Orphans are never removed without `--prune`, so
+  renaming before `id=` pairing exists leaves two directories on disk with
+  near-identical trigger text, both firing. **Sequence: `id=` lands, then the
+  renames.**
+
+  This is not hypothetical — it already happened once. The single orphan in the
+  2026-09-19 sweep is `start-worker-session-desktop`, whose node was moved from
+  `hadron-cli:` to `core:` as the partial fix for
+  [#490](https://github.com/hadron-memory/hadron-cli/issues/490) and whose disk
+  header kept the old address.
+
+  **Do the re-homing in the same pass** — [#490](https://github.com/hadron-memory/hadron-cli/issues/490)
+  (open, filed at Holger's request 2026-08-18) wants the onboarding tasks out of
+  a memory named after a tool the reader may never use. `start-worker-session-cli`
+  and `end-worker-session` are still in `hadron-cli:`. Both that move and this
+  rename are loc changes blocked on the same mechanism, and #490 also leaves the
+  *destination memory's name* open (Holger floated `core` and was second-guessing
+  it) — a later memory rename is a third loc change wanting the same pairing.
+
 ### Proposed — for Holger
 
 - **D9. Selection is every exportable task the caller can read; the committed
@@ -584,6 +629,56 @@ ruling schedules for TypeScript.
   That keeps §4.4's *pair by URN, never by name* on the side that owns the
   definition, and leaves the client unable to invent a class.
 
-**Open, and for Holger** (see §10): the split above still needs `locally-edited`
-ruled (§10.4), because it decides whether the server returns a class the client
-must refuse to act on, or a class the client overwrites and reports.
+~~**Open, and for Holger** (see §10)~~ — **`locally-edited` RULED = refuse**
+(Holger, 2026-09-19). It is assumption A1 of the #1177 spec. It mattered before
+the seam rather than alongside it, because once `Classify` is server-side
+`locally-edited` is *a class the server returns*, and **stop** versus **proceed
+and mention it** is a property of the contract rather than of a verb.
+
+## 11a. Pair on the node ID, not only the URN
+
+**Found 2026-09-19 by Holger asking whether the worker-session skills could be
+renamed — a question about naming that turned out to be a question about
+pairing.** Amended into the [#1177 spec](https://github.com/hadron-memory/hadron-server/issues/1177#issuecomment-5744955718)
+as its §4a before anything was built against it.
+
+§4.4 says *pair by URN, never by name*, and the reason given — a rename of the
+derived NAME becomes an observation rather than a guess — is sound. It does not
+survive the other kind of rename:
+
+| what changes | URN | node id | class under URN-pairing | should be |
+|---|---|---|---|---|
+| derived name (prefix, host) | stable | stable | `renamed` ✅ | `renamed` |
+| **the node's `loc`** | **changes** | **stable** | `orphaned` + `never-exported` ❌ | `renamed` |
+
+`moveNode` is explicit: *"the node keeps its stable ID so all edge references
+remain valid."* The id is immutable across a move; the URN is not. So a loc
+rename silently splits one skill into a dead file plus a fresh export — and
+because an orphan is never removed without `--prune` (deliberately), the user
+ends up with two directories carrying near-identical trigger text, both firing.
+
+**The fix is one more header key:**
+
+```
+<!-- hadron-skill id=01a0099f949d76a9baf3a16527485475 source=hrn:node:… hash=… -->
+```
+
+- **Pair on `id`**; keep `source` as human-readable provenance *and* as a hash
+  input.
+- A loc move then pairs, and the URN mismatch makes the hash differ, so it
+  classifies **`stale`** → rewrite, which updates the header's `source`. Correct
+  by construction, no tenth class.
+- Existing files carry no `id`. `unhashed` already means *"an older header
+  generation, rewrite it"* — **widen that class** rather than invent. A1 is
+  unaffected: a header-generation upgrade is not a local edit.
+- **The hash must NOT include `id`**, so it stays recomputable from a file whose
+  header a human has retyped (§4.3's whole property).
+
+**Already happened once:** the single orphan in the 2026-09-19 sweep (19 of 20
+provenance URNs resolve) is `start-worker-session-desktop`, moved from
+`hadron-cli:` to `core:` as the partial fix for
+[#490](https://github.com/hadron-memory/hadron-cli/issues/490), disk header left
+pointing at the old address.
+
+**Consequence for D11 and #490:** every remaining rename or re-home is a loc
+change, so all of them are held behind this. Cheap now, a migration later.
