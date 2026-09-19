@@ -418,7 +418,7 @@ a lint error naming the loc, never silently munged.
 ```markdown
 ---
 name: hadron-create-release-tag
-description: <properties.skill.description — or the legacy claudeSkill alias — after NormalizeDescription>
+description: <properties.exports.<host>.description (D12) — after NormalizeDescription>
 ---
 
 <!-- hadron-skill id=019d4811ff23757da5ba8f8cff6f281f source=hrn:node:hadronmemory.com:core:tasks:create-release-tag hash=3f9a1c02b7e4d5a6 -->
@@ -546,8 +546,9 @@ skill**, so the corpus's unexported surface is visible without being exported.
 ### 5.3 `skill lint`
 
 Corpus-only rules, each naming the node and the fix. A node is selected by the
-discovery predicate; `properties.skill` is the declaration (the legacy
-`properties.claudeSkill` is read as an alias during transition):
+discovery predicate; **`properties.exports.<host>` is the declaration (D12)**, with
+`properties.skill` and `properties.claudeSkill` read as legacy aliases during the
+migration:
 
 | rule | level |
 |---|---|
