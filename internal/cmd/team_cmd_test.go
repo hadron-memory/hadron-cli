@@ -2100,14 +2100,336 @@ func TestTeamSessionWhoamiLegacyBindingDegrades(t *testing.T) {
 	}
 }
 
+// whoamiSession builds one row of the sessions() list.
+func whoamiSession(id, workerID, userID, name string, ended bool) string {
+	end := "null"
+	if ended {
+		end = `"2026-09-19T11:00:00Z"`
+	}
+	worker := "null"
+	if workerID != "" {
+		worker = `{"id":"` + workerID + `","name":"` + name + `","role":"cli-engineer"}`
+	}
+	return `{"id":"` + id + `","agentId":"agt1","workerId":` + jsonStrOrNull(workerID) + `,
+		"worker":` + worker + `,"userId":` + jsonStrOrNull(userID) + `,"type":"developer",
+		"repo":"hadron-memory/hadron-cli","branch":null,"prNumber":null,
+		"startedAt":"2026-09-19T10:00:00Z","endedAt":` + end + `,"host":"mbp","tool":"claude-code",
+		"transcriptPath":null,"llmModel":null}`
+}
+
+func jsonStrOrNull(s string) string {
+	if s == "" {
+		return "null"
+	}
+	return `"` + s + `"`
+}
+
+// A VALID user credential. whoami classifies on authContext rather than `me`,
+// because `me` answers null for a rejected token and for a valid App key
+// alike — see TestTeamSessionWhoamiRejectedCredentialSaysSo.
+const whoamiAuthJSON = `{"data":{"authContext":{"principalType":"USER","appId":null,"agentId":null,
+	"user":{"id":"u-me","name":"Me","email":"me@x.com","handle":"me","githubUsername":null,"roles":[]},
+	"apiKey":null}}}`
+
+// A valid APP KEY: authenticated, but carrying no user identity.
+const whoamiAppKeyJSON = `{"data":{"authContext":{"principalType":"APP","appId":"app1","agentId":null,
+	"user":null,"apiKey":null}}}`
+
+// A credential the server does not resolve — revoked, unknown or malformed
+// alike (no oracle).
+const whoamiRejectedJSON = `{"data":{"authContext":null}}`
+
+// #623: with no binding, whoami FALLS BACK to the server — losing the binding
+// file is a cache miss, not an orphaned session.
+//
+// The three filters are the whole correctness of this path and each is a case
+// below, because `sessions()` is documented as everything the caller may SEE,
+// not what they own: over-reporting here offers a COLLEAGUE'S session on a
+// surface whose printed remedy is `session end`.
+func TestTeamSessionWhoamiFallsBackToTheServer(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"AuthContext": whoamiAuthJSON,
+		"TeamSessions": `{"data":{"sessions":[` +
+			whoamiSession("s-mine", "wkr1", "u-me", "Jonas", false) + `]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "whoami", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("the fallback must answer: %v", err)
+	}
+	var dto struct {
+		SessionID  string `json:"sessionId"`
+		Source     string `json:"source"`
+		Candidates []struct {
+			ID string `json:"id"`
+		} `json:"candidates"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("decode: %v — %s", err, out.String())
+	}
+	if dto.Source != "server" {
+		t.Errorf("source = %q, want \"server\"", dto.Source)
+	}
+	// Exactly one match is unambiguous, so it answers as the binding would.
+	if dto.SessionID != "s-mine" {
+		t.Errorf("sessionId = %q, want the recovered session", dto.SessionID)
+	}
+	if len(dto.Candidates) != 1 {
+		t.Errorf("candidates = %d, want 1", len(dto.Candidates))
+	}
+}
+
+// Each filter, proven separately: a row failing ANY of the three must not be
+// offered. They are one table because they fail as a family — a predicate
+// dropped here is a predicate nothing else re-checks.
+func TestTeamSessionWhoamiFallbackExcludesWhatIsNotYours(t *testing.T) {
+	cases := []struct {
+		name string
+		row  string
+	}{
+		{"another user's open worker session", whoamiSession("s-theirs", "wkr2", "u-other", "Dara", false)},
+		{"my session that already ended", whoamiSession("s-ended", "wkr1", "u-me", "Jonas", true)},
+		{"my open session that is not worker-bound", whoamiSession("s-general", "", "u-me", "", false)},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			teamGitDir(t)
+			gql, _ := captureGraphQL(t, map[string]string{
+				"AuthContext":  whoamiAuthJSON,
+				"TeamSessions": `{"data":{"sessions":[` + c.row + `]}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "session", "whoami", "--json", "--server", gql.URL})
+			err := root.Execute()
+			if code := exitCodeFor(err); code != exitcode.NotFound {
+				t.Errorf("exit = %d, want %d (NotFound) — this row is not the caller's to recover; err: %v",
+					code, exitcode.NotFound, err)
+			}
+		})
+	}
+}
+
+// Several open sessions is a real state (two worktrees, two workers), and
+// there is no single answer — so the session fields stay EMPTY rather than
+// naming an arbitrary one, and all of them are offered for the caller to pick.
+func TestTeamSessionWhoamiFallbackDoesNotGuessBetweenSeveral(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"AuthContext": whoamiAuthJSON,
+		"TeamSessions": `{"data":{"sessions":[` +
+			whoamiSession("s-a", "wkr1", "u-me", "Jonas", false) + `,` +
+			whoamiSession("s-b", "wkr2", "u-me", "Vera", false) + `]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "whoami", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var dto struct {
+		SessionID  string `json:"sessionId"`
+		Candidates []struct {
+			ID string `json:"id"`
+		} `json:"candidates"`
+	}
+	_ = json.Unmarshal([]byte(out.String()), &dto)
+	if dto.SessionID != "" {
+		t.Errorf("sessionId = %q, want empty — two open sessions have no single answer", dto.SessionID)
+	}
+	if len(dto.Candidates) != 2 {
+		t.Fatalf("candidates = %d, want both offered", len(dto.Candidates))
+	}
+}
+
+// Unbound AND nothing on the server is still NotFound — but it is now a
+// MEASURED negative rather than an unanswered question, so the test drives the
+// real access pattern (Me + sessions) instead of an unstubbed server.
 func TestTeamSessionWhoamiUnboundIsNotFound(t *testing.T) {
 	teamGitDir(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"AuthContext":  whoamiAuthJSON,
+		"TeamSessions": `{"data":{"sessions":[]}}`,
+	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "session", "whoami"})
+	root.SetArgs([]string{"team", "session", "whoami", "--server", gql.URL})
 	err := root.Execute()
 	if code := exitCodeFor(err); code != exitcode.NotFound {
 		t.Errorf("exit code = %d, want %d (NotFound); err: %v", code, exitcode.NotFound, err)
+	}
+}
+
+// The case the fallback is MOST for: no git worktree at all — a non-coding
+// worker, or Cowork. Requiring a worktree to ask "what am I driving?" excluded
+// those callers by construction, which is half of what #623 is about.
+//
+// It must also not tell them about a worktree they do not have.
+func TestTeamSessionWhoamiAnswersOutsideAnyWorktree(t *testing.T) {
+	// The sandbox sets HADRON_TEAM_GIT_DIR for every test, which is exactly the
+	// override that makes a worktree appear. Clearing it is what lets this test
+	// reach the real `git rev-parse` — without it the test passes while
+	// measuring the sandbox, not the code (an empty value is skipped, so this
+	// is the documented way to opt out rather than a second spelling).
+	t.Setenv(team.GitDirEnv, "")
+	// A directory that is not a git repo, and whose parents are not either.
+	dir := t.TempDir()
+	t.Chdir(dir)
+	t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(dir))
+	gql, _ := captureGraphQL(t, map[string]string{
+		"AuthContext": whoamiAuthJSON,
+		"TeamSessions": `{"data":{"sessions":[` +
+			whoamiSession("s-mine", "wkr1", "u-me", "Jonas", false) + `]}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "whoami", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("no worktree must not be fatal for whoami: %v", err)
+	}
+	if !strings.Contains(out.String(), "s-mine") {
+		t.Errorf("the session must still be recovered, got %s", out.String())
+	}
+	if strings.Contains(out.String(), "no binding in this worktree") {
+		t.Error("must not report a worktree the caller does not have")
+	}
+	if strings.Contains(out.String(), "rebinds this worktree") {
+		t.Error("must not offer a rebind where there is nowhere to bind")
+	}
+}
+
+// A REJECTED credential must say so, not "nothing to recover" (@copilot, #625).
+//
+// This is the input the App-key test below cannot stand in for, and getting it
+// wrong produced a materially misleading message: classifying on `me` answered
+// null for a rejected token and a valid App key ALIKE, so a caller whose token
+// was simply not accepted was told they had no sessions. Measured live against
+// the real server with a bogus HADRON_TOKEN before the fix.
+//
+// The remedy is not a better message on the same branch — it is asking
+// authContext, which distinguishes them, exactly as `auth whoami` does.
+func TestTeamSessionWhoamiRejectedCredentialSaysSo(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"AuthContext": whoamiRejectedJSON,
+		// Deliberately answerable: if the code reached the list despite an
+		// unresolved credential it would report ANOTHER USER'S session.
+		"TeamSessions": `{"data":{"sessions":[` + whoamiSession("s-theirs", "wkr2", "u-other", "Dara", false) + `]}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "whoami", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.AuthRequired {
+		t.Errorf("exit = %d, want %d (AuthRequired); err: %v", code, exitcode.AuthRequired, err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "auth login") {
+		t.Errorf("a rejected token must name the remedy: %v", err)
+	}
+}
+
+// #625 (@codex P2 + @copilot): every ARRAY field must render [] and never null,
+// on EVERY branch. The worktree branch gets that from readBinding's
+// normalisation; both synthesized server bindings had to be given it.
+//
+// Asserted over the raw JSON because a decode cannot tell [] from null — the
+// same blindness review:stable-json-dto records for slices — and swept as a
+// FAMILY, over every array key at once, because that is how they fail: I
+// checked `candidates` and missed `prNumbers`, which is the exact mistake that
+// rule exists to prevent.
+func TestTeamSessionWhoamiArrayFieldsAreNeverNull(t *testing.T) {
+	arrayKeys := []string{"prNumbers", "candidates"}
+	cases := []struct {
+		name string
+		rows string
+	}{
+		{"one candidate", whoamiSession("s-a", "wkr1", "u-me", "Jonas", false)},
+		{"several candidates", whoamiSession("s-a", "wkr1", "u-me", "Jonas", false) + `,` +
+			whoamiSession("s-b", "wkr2", "u-me", "Vera", false)},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			teamGitDir(t)
+			gql, _ := captureGraphQL(t, map[string]string{
+				"AuthContext":  whoamiAuthJSON,
+				"TeamSessions": `{"data":{"sessions":[` + c.rows + `]}}`,
+			})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "session", "whoami", "--json", "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var raw map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(out.String()), &raw); err != nil {
+				t.Fatalf("decode: %v — %s", err, out.String())
+			}
+			for _, k := range arrayKeys {
+				v, ok := raw[k]
+				if !ok {
+					t.Errorf("%q must be present", k)
+					continue
+				}
+				if string(v) == "null" {
+					t.Errorf("%q = null, want [] — an agent iterating it blind breaks on null", k)
+				}
+			}
+		})
+	}
+}
+
+// A credential with no USER identity — an App key — cannot have the self
+// filter applied, and the unfiltered list is other people's. It must refuse
+// rather than over-report, and it must NOT say "log in": an App key is
+// authenticated, so AuthRequired would be a false remedy.
+func TestTeamSessionWhoamiNoUserIdentityRefusesWithoutSayingLogIn(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"AuthContext":  whoamiAppKeyJSON,
+		"TeamSessions": `{"data":{"sessions":[` + whoamiSession("s-theirs", "wkr2", "u-other", "Dara", false) + `]}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "whoami", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.NotFound {
+		t.Errorf("exit = %d, want %d (NotFound); err: %v", code, exitcode.NotFound, err)
+	}
+	if err != nil && strings.Contains(err.Error(), "auth login") {
+		t.Errorf("must not tell an authenticated App key to log in: %v", err)
+	}
+}
+
+// The worktree branch keeps its existing shape and gains only `source`.
+// Pinned because an agent reading `sessionId` predates the fallback.
+func TestTeamSessionWhoamiBoundReportsTheWorktreeSource(t *testing.T) {
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"),
+		[]byte(bindingWithTeamFixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "whoami", "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out.String()), &raw); err != nil {
+		t.Fatalf("decode: %v — %s", err, out.String())
+	}
+	if got := string(raw["source"]); got != `"worktree"` {
+		t.Errorf("source = %s, want \"worktree\"", got)
+	}
+	// candidates is [] and never null, so a consumer can iterate it blind on
+	// either branch (the stable-json-dto rule, on the branch where it is empty).
+	if got := string(raw["candidates"]); got != "[]" {
+		t.Errorf("candidates = %s, want []", got)
+	}
+	if _, ok := raw["sessionId"]; !ok {
+		t.Error("the pre-#623 keys must survive — an agent reads sessionId")
 	}
 }
 

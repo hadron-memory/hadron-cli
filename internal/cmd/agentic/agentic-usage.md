@@ -1357,7 +1357,20 @@ Conventions:
   (repo/branch/host/tool/transcript path/model) server-side, prints the
   worker's boot briefing, and writes a local binding under the worktree's
   git dir (`git rev-parse --git-dir`), which `session whoami` reads back
-  after a context compaction — local only, no network. The session binds the
+  after a context compaction. **`whoami` falls back to the SERVER when there is
+  no binding — and when there is no worktree at all (#623)**, so a lost binding
+  is a cache miss rather than an orphaned session, and a caller with no worktree
+  (a non-coding worker, Cowork) can still answer "what am I driving?". `--json`
+  carries `"source"`: `worktree` or `server`, plus `candidates[]` (always an
+  array). The fallback lists only sessions that are **yours, worker-bound and
+  still open** — the server's list is deliberately wider, including sessions you
+  may merely SEE — and with several open it reports them all and leaves
+  `sessionId` empty rather than guessing. **`git worktree remove` deletes the
+  binding and does NOT end the session**; recover the id with `whoami` and end it
+  with `session end --session <id>`. **Most of the time, do not end a session at
+  all**: they are meant to be long-lived (hadron-server#1114 removed the idle
+  reaper), so ending is for when the WORK ends, not when a chat session, branch
+  or worktree does. The session binds the
   WORKER (`SessionInput.workerRef`, the worker's id); the server stamps the
   role-agent AND the worker's App itself, so every worker session is
   App-bound; a retired worker refuses (`WORKER_RETIRED`). A worker with a
