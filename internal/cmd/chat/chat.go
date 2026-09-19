@@ -160,13 +160,38 @@ func parseMessage(loc string, seq *int, content *string, data *json.RawMessage) 
 	return m
 }
 
-// authorFromLoc recovers the handle from a "<prefix>:<timestamp>-<handle>" loc.
-// The "Z-" terminator splits stamp from handle so dashed handles survive; a
-// legacy no-Z stamp falls back to the last dash.
+// serverMintedLocRE matches the loc the SERVER mints for a channel message —
+// "<ordinal>-<8 hex>-<handle>" (e.g. 002-279bba33-mary-jane). The capture is
+// the handle, which is everything after the random component and may itself
+// contain dashes.
+var serverMintedLocRE = regexp.MustCompile(`^[0-9]+-[0-9a-f]{8}-(.+)$`)
+
+// authorFromLoc recovers the handle from a message loc. It is the FALLBACK for
+// a message whose data envelope carries no author — which, since #367 moved the
+// write path onto Channels, is every newly posted message: the server records
+// the author on the message projection and writes no `data.author`.
+//
+// THREE loc dialects, and the order matters because each later branch is
+// strictly more permissive than the one before:
+//
+//  1. Server-minted "<ordinal>-<8hex>-<handle>" (#367 onward). Must be tried
+//     before the last-dash fallback: that fallback reads 002-279bba33-mary-jane
+//     as "jane", silently attributing a message to someone who does not exist.
+//     The client-minted format never had this problem — its "Z-" terminator
+//     bounded the handle — so moving the write path onto the server made a
+//     latent misparse reachable. Worker names with spaces slug to dashed
+//     handles ("Mary Jane" → mary-jane), so this is ordinary data, not a
+//     contrived case.
+//  2. Client-minted "<timestamp>Z-<handle>" (the retired academy dialect, still
+//     read): the "Z-" terminator splits stamp from handle, dashes and all.
+//  3. A legacy no-Z stamp: last dash, the best that shape allows.
 func authorFromLoc(loc string) string {
 	last := loc
 	if i := strings.LastIndex(loc, ":"); i >= 0 {
 		last = loc[i+1:]
+	}
+	if m := serverMintedLocRE.FindStringSubmatch(last); m != nil {
+		return m[1]
 	}
 	if i := strings.Index(last, "Z-"); i >= 0 {
 		return last[i+2:]

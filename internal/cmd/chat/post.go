@@ -2,12 +2,11 @@ package chat
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
-	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -20,38 +19,62 @@ import (
 )
 
 // postDTO is the stable --json shape for a posted message.
+//
+// `loc` SURVIVES AS AN EXPLICIT NULL, and carries no omitempty.
+//
+// The client used to mint the message's loc and could therefore report it. The
+// server mints it now, and `TeamChatMessage` has no `loc` field — only
+// `nodeId` — so there is nothing to fill it with short of a second read per
+// post. Checked against the SDL rather than assumed.
+//
+// Dropping the key is the tempting move and the wrong one:
+// findings:jq-reads-an-absent-key-as-null — an absent key and a null value are
+// the SAME answer to `jq .loc` (and to encoding/json), so a vanished key
+// rebuilds that ambiguity for every consumer, and its corollary is that a field
+// whose null is meaningful must not be omitempty. Keeping it means
+// `jq 'has("loc")'` still answers truthfully; `jq .loc` cannot tell the
+// difference either way, which is exactly why the key has to stay.
+//
+// Same call internal/cmd/channel makes for `chatRootUrn`. `nodeId` is the
+// address that replaces it.
 type postDTO struct {
-	Loc     string `json:"loc"`
-	Seq     *int   `json:"seq"`
-	ReplyTo string `json:"replyTo,omitempty"`
+	Loc     *string `json:"loc"`
+	NodeID  string  `json:"nodeId"`
+	Seq     *int    `json:"seq"`
+	ReplyTo string  `json:"replyTo,omitempty"`
+	// Author is what the SERVER recorded, so an agent can verify it posted as
+	// whom it intended rather than trusting the request.
+	Author *string `json:"author"`
 }
 
 func newCmdPost(f *cmdutil.Factory) *cobra.Command {
-	var node, memory, messagesLoc, handle, identity, role, body, bodyFile, replyTo string
+	var node, memory, messagesLoc, handle, identity, role, body, bodyFile, replyTo, session string
 	cmd := &cobra.Command{
 		Use:   "post (--body <text|-> | --body-file <path>)",
 		Short: "Post a message to a team chat",
-		Long: `Post one message to a team chat, in the canonical chat shape: the body in the
-node's content, the envelope (author/timestamp/mentions, plus identity/role
-when set) in its data, nodeType chat-message. This builds the timestamped,
-colon-safe loc, creates the message node, and — with --reply-to — adds the
-reply edge, all in one call. It also materializes the chat's structure
-best-effort: the chat entity (typed chat) and the messages container (typed
-record), so the chat shows up as a real, copyable node in the portal. A chat
-created by an older CLI keeps its container typed chat until retyped —
-` + "`hadron team init`" + ` converges team chats; for others:
-hadron node update <container-urn> --type record
+		Long: `Post one message to a team chat, through the Channel that chat IS.
+
+The server mints the message's loc and assigns its seq, extracts @mentions, and
+records the author — so this command no longer builds any of them. The Channel
+is addressed by the chat root (the parent of the message location) and created
+on first post if it does not exist yet.
 
 The body comes from --body <text> (inline), --body - (stdin), or --body-file
 <path> (a file — handy for a composed, multi-line message that would be painful
 to quote inline). Exactly one is required.
 
-Identity resolves from flags, then HADRON_CHAT_HANDLE, then .hadron/config.json
-(top-level "handle"; chat.identity / chat.role), so a configured agent posts
-with just --body.`,
+AUTHORSHIP COMES FROM THE SESSION. --session <id> posts as the Worker bound to
+that session; with no --session the server records you, the human. --handle,
+--identity and --role are still accepted from flags, HADRON_CHAT_HANDLE and
+.hadron/config.json, but they no longer affect the post: hand-typed attribution
+is what the Worker model replaced. Reads still show the stored envelope on
+messages written before this, so old transcripts keep their author.
+
+--reply-to takes the replied-to message's seq, or its loc/URN (resolved with
+one read).`,
 		Example: `  hadron chat post --body "@rufus schema looks good, shipping it"
-  hadron chat post --node hrn:node:acme.com:team-chats:team-chat:api:messages --handle iris \
-    --role "Backend Engineer" --body "done" --reply-to team-chat:api:messages:...-rufus`,
+  hadron chat post --node hrn:node:acme.com:team-chats:team-chat:api:messages \
+    --session 258ceeda-… --body "done" --reply-to 41`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pc := loadProjectChat()
@@ -59,10 +82,11 @@ with just --body.`,
 			if err != nil {
 				return err
 			}
+			// --handle is no longer required, and no longer used: the server
+			// records the author from the session (or the caller). Kept as an
+			// accepted no-op so a configured agent does not start failing.
 			h := firstNonEmpty(handle, os.Getenv("HADRON_CHAT_HANDLE"), pc.Handle)
-			if h == "" {
-				return exitcode.Newf(exitcode.Usage, "no handle — pass --handle, set HADRON_CHAT_HANDLE, or add \"handle\" to .hadron/config.json")
-			}
+			warnDeprecatedIdentityFlags(f, cmd, h, firstNonEmpty(identity, pc.Identity), firstNonEmpty(role, pc.Role))
 			text, err := ResolveBody(cmd, body, bodyFile, f.IOStreams.In)
 			if err != nil {
 				return err
@@ -74,19 +98,24 @@ with just --body.`,
 			}
 
 			res, err := PostMessage(cmd.Context(), client, PostInput{
-				Coords:   c,
-				Handle:   h,
-				Identity: firstNonEmpty(identity, pc.Identity),
-				Role:     firstNonEmpty(role, pc.Role),
-				Body:     text,
-				ReplyTo:  replyTo,
+				Coords:  c,
+				Body:    text,
+				ReplyTo: replyTo,
+				Session: session,
 			})
 			if err != nil {
 				return err
 			}
-			dto := postDTO{Loc: res.Loc, Seq: res.Seq, ReplyTo: replyTo}
+			dto := postDTO{NodeID: res.NodeID, Seq: res.Seq, ReplyTo: replyTo, Author: res.Author}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				fmt.Fprintf(w, "✓ posted %s (seq %s)\n", dto.Loc, seqStr(dto.Seq))
+				// Echo the author the SERVER recorded, not the one that was
+				// asked for: posting under the wrong identity is the one
+				// mistake this surface can make without saying so.
+				who := "you"
+				if dto.Author != nil && *dto.Author != "" {
+					who = *dto.Author
+				}
+				fmt.Fprintf(w, "✓ posted seq %s as %s\n", seqStr(dto.Seq), who)
 				return nil
 			})
 		},
@@ -101,7 +130,8 @@ with just --body.`,
 	cmd.Flags().StringVar(&role, "role", "", "this agent's role, e.g. \"Backend Engineer\"; optional")
 	cmd.Flags().StringVar(&body, "body", "", "message body, or - to read from stdin")
 	cmd.Flags().StringVar(&bodyFile, "body-file", "", "read the message body from a file (multi-line safe)")
-	cmd.Flags().StringVar(&replyTo, "reply-to", "", "loc (or URN) of the message this replies to; adds a reply edge")
+	cmd.Flags().StringVar(&session, "session", "", "post as the Worker bound to this session id (replaces --handle/--identity/--role)")
+	cmd.Flags().StringVar(&replyTo, "reply-to", "", "seq of the message this replies to (its loc or URN also accepted, at one extra read)")
 	cmd.MarkFlagsMutuallyExclusive("body", "body-file")
 	cmd.MarkFlagsOneRequired("body", "body-file")
 	return cmd
@@ -138,165 +168,264 @@ func ResolveBody(cmd *cobra.Command, body, bodyFile string, stdin io.Reader) (st
 	return text, nil
 }
 
-func strPtr(s string) *string { return &s }
-
-// PostInput is one message for PostMessage — the single implementation of
-// the message-node dialect's write side, shared by `hadron chat post` and
-// `hadron team chat post` so the shape can't drift between them (or from the
-// hadron-client push channel it mirrors).
+// PostInput is one message for PostMessage.
+//
+// The pre-Channel identity envelope (Handle/Identity/Role) and the additive
+// Extra bag are GONE from this type rather than kept as ignored fields: a
+// struct field that is assigned and never read is indistinguishable from one
+// that works. The flags themselves survive at the command layer, where
+// warnDeprecatedIdentityFlags answers for them.
 type PostInput struct {
-	Coords   Coords
-	Handle   string
-	Identity string
-	Role     string
-	Body     string
-	// ReplyTo is the loc (or URN) of the message this answers; adds the
-	// reply edge inline with the create.
+	Coords Coords
+	Body   string
+	// ReplyTo is the seq, or the loc/URN, of the message this answers.
 	ReplyTo string
-	// Extra adds additive data fields (e.g. sessionId, #369 D16). Dialect
-	// keys (author/body/timestamp/identity/role/mentions) always win — an
-	// Extra entry never overrides them.
-	Extra map[string]any
+	// Session binds the post to a worker session, which is what makes it the
+	// WORKER speaking rather than the human. It is what replaced the identity
+	// envelope: the server derives authorship from it.
+	Session string
 }
 
-// PostResult is the created message's address.
+// PostResult is the created message's address, as the SERVER minted it.
 type PostResult struct {
-	Loc string
-	Seq *int
+	// NodeID is the message node. The client no longer knows the loc — the
+	// server mints it — so this is the address a caller gets back.
+	NodeID string
+	Seq    *int
+	// Author is the name the SERVER recorded. Echoed back rather than assumed,
+	// because posting under the wrong identity is the one mistake this surface
+	// can make silently.
+	Author *string
 }
 
-// PostMessage builds the timestamped colon-safe loc, assembles the message in
-// the CANONICAL chat shape (D-2026-08-07-001/-004: body in `content`, the
-// envelope in `data`, nodeType `chat-message` — the academy data.body dialect
-// is retired on the write side, still accepted on reads), best-effort
-// materializes the chat entity + messages container, and creates the message
-// node (with the optional reply edge) in one round-trip.
+// PostMessage posts one message through the Channel this chat IS
+// (createChannelMessage), creating that Channel on first post.
+//
+// It writes NO node structure of its own. That is the point of #367: the client
+// used to mint the loc, assemble the `data` envelope, parse @mentions and
+// best-effort materialize two container nodes, which made it a second,
+// structurally incompatible chat model beside the server's. The server now owns
+// all of it — including the loc's random component and the atomic seq, which is
+// why this change fixes #367's two live bugs without either being patched here.
+//
+// The read path is deliberately NOT moved (docs/plans/chat-as-channel-wrapper.md
+// §6): it already reads these same nodes, and a read regression must not be able
+// to hide inside a write change.
 func PostMessage(ctx context.Context, client graphql.Client, in PostInput) (PostResult, error) {
-	// Loc convention: <messagesLoc>:<compact-ISO>-<handle>. The stamp is
-	// the RFC3339 instant with ':' and '.' stripped (they're loc
-	// separators / illegal), matching the hadron-client channel so
-	// CLI- and channel-posted messages interleave cleanly.
-	ts := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
-	stamp := strings.NewReplacer(":", "", ".", "").Replace(ts)
-	loc := fmt.Sprintf("%s:%s-%s", in.Coords.MessagesLoc, stamp, in.Handle)
-
-	data := map[string]any{}
-	for k, v := range in.Extra {
-		// Reserved dialect keys never come from Extra — not even when the
-		// typed input is empty (an empty Identity means "no identity", not
-		// "take Extra's"). "body" stays reserved even though the canonical
-		// shape carries the body in content: an Extra body would shadow it
-		// for legacy readers.
-		switch k {
-		case "author", "body", "timestamp", "identity", "role", "mentions":
-			continue
-		}
-		data[k] = v
-	}
-	data["author"] = in.Handle
-	data["timestamp"] = ts
-	if in.Identity != "" {
-		data["identity"] = in.Identity
-	}
-	if in.Role != "" {
-		data["role"] = in.Role
-	}
-	if ms := Mentions(in.Body); len(ms) > 0 {
-		data["mentions"] = ms
-	}
-	raw, err := json.Marshal(data)
+	// The Channel this chat IS. A Channel is addressed by its id or by its
+	// CHAT ROOT's node ref (hadron-server#1172), and the chat root is the
+	// parent of the messages container — the same derivation EnsureChatParent
+	// used to make by hand. Nothing here looks a Channel up by matching on loc:
+	// that rule is why internal/cmd/channel classifies no refs either.
+	channelRef, err := chatRootRef(ctx, client, in.Coords)
 	if err != nil {
 		return PostResult{}, err
 	}
-	dataMsg := json.RawMessage(raw)
 
-	// Best-effort: materialize the message-parent as a real "chat" node so
-	// the chat is a copyable node in the portal. Locs don't require the
-	// parent to exist (messages post fine without it), so this is purely
-	// cosmetic — ignore every outcome, including the expected conflict once
-	// it already exists, and never let it block the post.
-	EnsureChatParent(ctx, client, in.Coords)
-
-	input := gen.CreateNodeInput{
-		MemoryId: in.Coords.Memory,
-		Loc:      loc,
-		Name:     "Message from " + in.Handle,
-		// chat-message (D-2026-08-07-001): the dedicated type default search
-		// will exclude; the body lives in content (D-2026-08-07-004).
-		NodeType: strPtr("chat-message"),
-		Content:  &in.Body,
-		Data:     &dataMsg,
-	}
-	// The reply edge goes FROM the new message TO the one it answers; a
-	// short loc resolves within this memory. Minted inline with the node
-	// so a post is a single round-trip.
+	var replyToSeq *int
 	if in.ReplyTo != "" {
-		input.Edges = []*gen.NodeEdgeInput{{TargetId: in.ReplyTo, Name: strPtr("reply")}}
+		seq, rerr := resolveReplyToSeq(ctx, client, in.Coords, in.ReplyTo)
+		if rerr != nil {
+			return PostResult{}, rerr
+		}
+		replyToSeq = seq
 	}
 
-	resp, err := gen.CreateNode(ctx, client, &input)
+	var sessionRef *string
+	if in.Session != "" {
+		sessionRef = &in.Session
+	}
+
+	post := func() (*gen.CreateChannelMessageResponse, error) {
+		return gen.CreateChannelMessage(ctx, client, channelRef, in.Body, replyToSeq, sessionRef)
+	}
+	resp, err := post()
+	if err != nil && api.HasErrorCode(err, "CHANNEL_NOT_FOUND") {
+		// Create-if-missing. Unlike the best-effort node materialization this
+		// replaces, this one is NOT swallowed: without a Channel there is
+		// nothing to post to, so a failure here is the post's failure.
+		//
+		// CHANNEL_NOT_FOUND also covers "you may not read its host memory",
+		// deliberately and identically — so the create may refuse on access,
+		// which is the correct outcome and the server's words for it.
+		if cerr := ensureChannel(ctx, client, in.Coords); cerr != nil {
+			return PostResult{}, cerr
+		}
+		resp, err = post()
+	}
 	if err != nil {
 		return PostResult{}, api.MapError(err)
 	}
-	res := PostResult{Loc: loc}
-	if resp.CreateNode != nil {
-		res.Loc = resp.CreateNode.Loc
-		res.Seq = resp.CreateNode.Seq
+	if resp == nil || resp.CreateChannelMessage == nil {
+		// The mutation is non-nullable in the SDL, so an absent message is a
+		// broken response rather than an empty one — say so instead of
+		// reporting a post with no seq and no author as success.
+		return PostResult{}, exitcode.Newf(exitcode.Unavailable, "the server returned no message")
 	}
-	return res, nil
+	m := resp.CreateChannelMessage
+	return PostResult{NodeID: m.NodeId, Seq: &m.Seq, Author: m.AuthorName}, nil
 }
 
-// EnsureChatParent best-effort creates the chat's structural nodes so the
-// chat is real and copyable in the portal: the CHAT ENTITY (the parent of the
-// messages container) typed `chat`, and the messages container itself as a
-// plain `record` (D-2026-08-07-004 — the chat type belongs to the entity, not
-// the container; a messagesLoc with no parent gets only the container).
-// Create-only, so a re-post conflicts harmlessly; all outcomes are ignored —
-// this must never affect the post.
-func EnsureChatParent(ctx context.Context, client graphql.Client, c Coords) {
-	name := c.MessagesLoc
-	if i := strings.LastIndex(c.MessagesLoc, ":"); i >= 0 {
-		chatLoc := c.MessagesLoc[:i]
-		name = c.MessagesLoc[i+1:]
-		chatName := chatLoc
-		if j := strings.LastIndex(chatLoc, ":"); j >= 0 {
-			chatName = chatLoc[j+1:]
+// EnsureChatParent and ConvergeChatParent lived here: two best-effort
+// createNode/updateNode pairs that hand-built the chat entity and the messages
+// container so a chat would look like a real node in the portal. createChannel
+// does that now, as the server's own operation, so both are gone rather than
+// kept as a fallback — a fallback would be the two-writer split #367 exists to
+// end. (ConvergeChatParent had already lost its last caller before this
+// change.) The retyping advice they implemented is likewise gone from the help
+// text: nothing needs converging when the server owns the structure.
+
+// chatLocOf returns the chat ROOT's loc — the parent of the messages container.
+//
+// A chat root is required and guessing one would create a Channel at the wrong
+// address, so a messages loc with no parent is refused rather than defaulted.
+func chatLocOf(messagesLoc string) (string, error) {
+	i := strings.LastIndex(messagesLoc, ":")
+	if i < 0 {
+		return "", exitcode.Newf(exitcode.Usage,
+			"cannot derive the chat root from %q — a chat's messages live under a parent node (e.g. <chat>:messages)", messagesLoc)
+	}
+	return messagesLoc[:i], nil
+}
+
+// chatRootRef composes the node ref of the chat ROOT, which is what a
+// channelRef accepts (hadron-server#1172).
+//
+// It delegates to cmdutil.BatchNodeRef — the shared composer for a server op
+// that resolves a PK-or-URN itself — rather than calling cmdutil.NodeURN
+// directly. NodeURN composes ONLY a flat-v2 <root>:<slug> memory and returns ""
+// for anything else, which silently narrowed what `chat post` accepts: a
+// COMPOUND app-mem memory (<org>::<agent>:app-mem:<slug>) cannot be expressed
+// as a fixed-arity flat node URN at all, and both it and an opaque memory id
+// used to reach the server untouched through CreateNodeInput.MemoryId. Refusing
+// them locally was a regression, and one this repo has made before — it is the
+// caveat CLAUDE.md records about the spec group. BatchNodeRef already handles
+// the compound case by joining the legacy <memory>::<loc> form.
+//
+// An opaque memory ID has no node-ref spelling to compose at all, so it costs
+// ONE read to turn into a canonical URN. Only that case pays it.
+func chatRootRef(ctx context.Context, client graphql.Client, c Coords) (string, error) {
+	chatLoc, err := chatLocOf(c.MessagesLoc)
+	if err != nil {
+		return "", err
+	}
+	memory, err := composableMemoryRef(ctx, client, c.Memory)
+	if err != nil {
+		return "", err
+	}
+	return cmdutil.BatchNodeRef(memory, chatLoc)
+}
+
+// composableMemoryRef returns a memory ref a node ref can be composed from,
+// resolving an opaque id via the server. Every other spelling passes through
+// untouched — the client classifies as little as it can get away with.
+func composableMemoryRef(ctx context.Context, client graphql.Client, memory string) (string, error) {
+	if !cmdutil.IsBareID(memory) {
+		return memory, nil
+	}
+	resp, err := gen.GetMemory(ctx, client, memory)
+	if err != nil {
+		return "", api.MapError(err)
+	}
+	if resp == nil || resp.Memory == nil || resp.Memory.Urn == "" {
+		return "", exitcode.Newf(exitcode.NotFound, "no memory %q is readable here", memory)
+	}
+	return resp.Memory.Urn, nil
+}
+
+// ensureChannel creates the Channel for this chat's root. Called only after a
+// CHANNEL_NOT_FOUND, so it is the create half of create-if-missing.
+//
+// A LOC_OVERLAPS_CHANNEL refusal is CONVERGENCE, not failure. Two clients
+// making the first post both see CHANNEL_NOT_FOUND and both try to create; one
+// wins and the other is told the address is taken. Returning that as the post's
+// error would lose a valid message *because someone else succeeded* — and the
+// Channel the caller needs now exists, so the retry that follows is exactly
+// right. Caught by @codex and Copilot independently on PR #618.
+//
+// Note this deliberately does NOT swallow other create failures: an access
+// refusal or a bad host must still fail the post.
+func ensureChannel(ctx context.Context, client graphql.Client, c Coords) error {
+	chatLoc, err := chatLocOf(c.MessagesLoc)
+	if err != nil {
+		return err
+	}
+	name := chatLoc
+	if j := strings.LastIndex(chatLoc, ":"); j >= 0 {
+		name = chatLoc[j+1:]
+	}
+	input := gen.CreateChannelInput{MemoryRef: c.Memory, Loc: chatLoc, Name: name}
+	if _, err := gen.CreateChannel(ctx, client, &input); err != nil {
+		if api.HasErrorCode(err, "LOC_OVERLAPS_CHANNEL") {
+			return nil
 		}
-		_, _ = gen.CreateNode(ctx, client, &gen.CreateNodeInput{
-			MemoryId: c.Memory,
-			Loc:      chatLoc,
-			Name:     chatName,
-			NodeType: strPtr("chat"),
-		})
+		return api.MapError(err)
 	}
-	_, _ = gen.CreateNode(ctx, client, &gen.CreateNodeInput{
-		MemoryId: c.Memory,
-		Loc:      c.MessagesLoc,
-		Name:     name,
-		NodeType: strPtr("record"),
-	})
+	return nil
 }
 
-// ConvergeChatParent retypes an EXISTING chat structure onto the canonical
-// D-2026-08-07-004 types — the migration path for chats materialized before
-// the shape change, whose messages container was created typed `chat`.
-// Deliberately separate from EnsureChatParent: per-post convergence would
-// tax every message with extra write calls forever, so retyping runs from an
-// explicit, idempotent setup step (`hadron team init`; other chats use
-// `hadron node update <container> --type record`). Best-effort like Ensure —
-// a missing node (nothing posted yet) or a permission refusal is ignored.
-func ConvergeChatParent(ctx context.Context, client graphql.Client, c Coords) {
-	if i := strings.LastIndex(c.MessagesLoc, ":"); i >= 0 {
-		chatLoc := c.MessagesLoc[:i]
-		_, _ = gen.UpdateNode(ctx, client, &gen.UpdateNodeInput{
-			MemoryId: &c.Memory,
-			Loc:      &chatLoc,
-			NodeType: strPtr("chat"),
-		})
+// resolveReplyToSeq turns --reply-to into the seq createChannelMessage wants.
+//
+// Accepts BOTH forms, Postel-liberal like every other ref here: a bare integer
+// is already a seq; anything else is a node loc or URN and costs one read. The
+// CLI's reply has always been a loc and a config or a script may hold one, so
+// refusing them would break callers for a server-side spelling change.
+//
+// A target with no seq is refused loudly rather than silently posted without a
+// reply: a reply pointing at nothing is worse than a refusal, and nil-seq rows
+// are exactly what this migration exists to stop creating.
+func resolveReplyToSeq(ctx context.Context, client graphql.Client, c Coords, replyTo string) (*int, error) {
+	if n, err := strconv.Atoi(strings.TrimSpace(replyTo)); err == nil {
+		return &n, nil
 	}
-	_, _ = gen.UpdateNode(ctx, client, &gen.UpdateNodeInput{
-		MemoryId: &c.Memory,
-		Loc:      &c.MessagesLoc,
-		NodeType: strPtr("record"),
-	})
+	ref := replyTo
+	if !cmdutil.IsQualifiedNodeRef(ref) && !cmdutil.IsBareID(ref) {
+		ref = cmdutil.NodeURN(c.Memory, ref)
+	}
+	resp, err := gen.GetNode(ctx, client, ref)
+	if err != nil {
+		return nil, api.MapError(err)
+	}
+	if resp == nil || resp.Node == nil {
+		return nil, exitcode.Newf(exitcode.NotFound, "no message %q is readable here to reply to", replyTo)
+	}
+	if resp.Node.Seq == nil {
+		return nil, exitcode.Newf(exitcode.Usage,
+			"message %q has no seq, so it cannot be replied to — pass the seq directly if you know it", replyTo)
+	}
+	return resp.Node.Seq, nil
+}
+
+// warnDeprecatedIdentityFlags warns once when a caller still supplies the
+// pre-Channel identity envelope.
+//
+// --handle / --identity / --role were how a post said who it was before the
+// server recorded authorship. A Channel derives it from the bound worker
+// session, so these are accepted and IGNORED rather than removed: a
+// .hadron/config.json carrying them (and there are live ones) must not start
+// failing. The warning names --session, because "your flag did nothing" is
+// only half an answer without the thing that replaces it.
+//
+// Silent on the --json path: a warning on stderr is for a human, and an agent
+// gets the truth from the `author` field in the payload instead.
+func warnDeprecatedIdentityFlags(f *cmdutil.Factory, cmd *cobra.Command, handle, identity, role string) {
+	if f.JSON {
+		return
+	}
+	var set []string
+	if handle != "" {
+		set = append(set, "handle")
+	}
+	if identity != "" {
+		set = append(set, "identity")
+	}
+	if role != "" {
+		set = append(set, "role")
+	}
+	if len(set) == 0 {
+		return
+	}
+	fmt.Fprintf(cmd.ErrOrStderr(),
+		"note: %s no longer affects the post — the server records the author from the session. Use --session <id> to post as a worker; existing messages keep their stored envelope.\n",
+		strings.Join(set, "/"))
 }
