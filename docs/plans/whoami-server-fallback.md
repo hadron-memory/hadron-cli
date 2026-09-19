@@ -98,19 +98,53 @@ That near-miss is itself captured:
 ```
 
 `source` because the same payload can now come from two places and a caller that
-cares whether its answer survived a lost directory must be able to ask.
-`candidates` is `[]` and never null on either branch, so a consumer can iterate
-it blind. Every existing key survives — an agent reading `sessionId` predates
-this and is pinned by a test.
+cares whether its answer survived a lost directory must be able to ask. Every
+existing key survives — an agent reading `sessionId` predates this and is pinned
+by a test.
 
-## 7. A credential with no user identity
+**Every array field is `[]` and never null, on every branch** — and the first
+version got this half right, which is the instructive part. The worktree branch
+inherits `readBinding`'s normalisation; the two SYNTHESIZED server bindings did
+not, so `prNumbers` rendered `null` there while `candidates` rendered `[]`.
+I had checked one array field and missed the other, which is precisely the
+mistake `review:stable-json-dto` names — *"sweep every array field in the DTO at
+once — they fail as a family"* — so the test now sweeps the family rather than a
+field. Flagged independently by @codex and @copilot.
 
-`me` is null for a valid **App key** (that is why `authContext` exists). Without
-an identity the self-filter cannot run, and the unfiltered list is other
-people's — so it refuses. Deliberately **NotFound, not AuthRequired**: an App
-key is authenticated, and telling it to log in would be a false remedy. A
-genuine auth failure never reaches that branch, because the query itself errors
-and `api.MapError` classifies it.
+Note the second synthesized binding **replaces** the first rather than mutating
+it, so initialising only the empty one leaves the single-candidate path null.
+Both sub-branches are mutation-tested separately for that reason.
+
+## 7. Classifying the credential — and the claim that was wrong
+
+Without a user identity the self-filter cannot run, and the unfiltered list is
+other people's — so the fallback refuses. There are **two** ways to have no
+identity and they need different answers:
+
+| credential | answer |
+|---|---|
+| valid **App key** (authenticated, no user) | **NotFound** — "log in" would be a false remedy |
+| **rejected** token (revoked / unknown / malformed) | **AuthRequired** — name the remedy |
+
+The first version classified on `me`, and asserted in a comment that *"a genuine
+auth failure never reaches here, because the query itself errors"*. **That was
+false and @copilot caught it.** Measured against the real server with a bogus
+`HADRON_TOKEN`: `me` answers null for a rejected credential too, so whoami told
+a caller whose token was simply not accepted that they had *"no worker
+session … nothing to recover here"*, while `auth whoami` — one command away —
+correctly said the token was not accepted.
+
+The remedy is not better prose on the same branch: it is asking **`authContext`**,
+which is credential-type-agnostic and null *only* when the credential does not
+resolve. That is what `auth whoami` already reads, so this converges on the
+existing idiom rather than inventing one — and it replaces the `me` call
+outright rather than adding to it, since it carries the user id too.
+
+**The old test could not have caught this**, and that is the lesson worth more
+than the fix: it stubbed `me: null` and asserted NotFound, which is correct for
+an App key and wrong as a general rule. One input, two meanings, and the test
+pinned the wrong one — `review:a-guard-proven-on-one-input-is-not-proven-on-the-input-that-matters`.
+The two cases are now separate fixtures and separate tests.
 
 ## 8. Item 4 — the help now says when NOT to end a session
 

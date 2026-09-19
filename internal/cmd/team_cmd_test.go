@@ -2124,7 +2124,20 @@ func jsonStrOrNull(s string) string {
 	return `"` + s + `"`
 }
 
-const whoamiMeJSON = `{"data":{"me":{"id":"u-me","name":"Me","email":"me@x.com","handle":"me","githubUsername":null,"roles":[]}}}`
+// A VALID user credential. whoami classifies on authContext rather than `me`,
+// because `me` answers null for a rejected token and for a valid App key
+// alike — see TestTeamSessionWhoamiRejectedCredentialSaysSo.
+const whoamiAuthJSON = `{"data":{"authContext":{"principalType":"USER","appId":null,"agentId":null,
+	"user":{"id":"u-me","name":"Me","email":"me@x.com","handle":"me","githubUsername":null,"roles":[]},
+	"apiKey":null}}}`
+
+// A valid APP KEY: authenticated, but carrying no user identity.
+const whoamiAppKeyJSON = `{"data":{"authContext":{"principalType":"APP","appId":"app1","agentId":null,
+	"user":null,"apiKey":null}}}`
+
+// A credential the server does not resolve — revoked, unknown or malformed
+// alike (no oracle).
+const whoamiRejectedJSON = `{"data":{"authContext":null}}`
 
 // #623: with no binding, whoami FALLS BACK to the server — losing the binding
 // file is a cache miss, not an orphaned session.
@@ -2136,7 +2149,7 @@ const whoamiMeJSON = `{"data":{"me":{"id":"u-me","name":"Me","email":"me@x.com",
 func TestTeamSessionWhoamiFallsBackToTheServer(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"Me": whoamiMeJSON,
+		"AuthContext": whoamiAuthJSON,
 		"TeamSessions": `{"data":{"sessions":[` +
 			whoamiSession("s-mine", "wkr1", "u-me", "Jonas", false) + `]}}`,
 	})
@@ -2184,7 +2197,7 @@ func TestTeamSessionWhoamiFallbackExcludesWhatIsNotYours(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			teamGitDir(t)
 			gql, _ := captureGraphQL(t, map[string]string{
-				"Me":           whoamiMeJSON,
+				"AuthContext":  whoamiAuthJSON,
 				"TeamSessions": `{"data":{"sessions":[` + c.row + `]}}`,
 			})
 			f, _ := testFactory(t)
@@ -2205,7 +2218,7 @@ func TestTeamSessionWhoamiFallbackExcludesWhatIsNotYours(t *testing.T) {
 func TestTeamSessionWhoamiFallbackDoesNotGuessBetweenSeveral(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"Me": whoamiMeJSON,
+		"AuthContext": whoamiAuthJSON,
 		"TeamSessions": `{"data":{"sessions":[` +
 			whoamiSession("s-a", "wkr1", "u-me", "Jonas", false) + `,` +
 			whoamiSession("s-b", "wkr2", "u-me", "Vera", false) + `]}}`,
@@ -2237,7 +2250,7 @@ func TestTeamSessionWhoamiFallbackDoesNotGuessBetweenSeveral(t *testing.T) {
 func TestTeamSessionWhoamiUnboundIsNotFound(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"Me":           whoamiMeJSON,
+		"AuthContext":  whoamiAuthJSON,
 		"TeamSessions": `{"data":{"sessions":[]}}`,
 	})
 	f, _ := testFactory(t)
@@ -2266,7 +2279,7 @@ func TestTeamSessionWhoamiAnswersOutsideAnyWorktree(t *testing.T) {
 	t.Chdir(dir)
 	t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(dir))
 	gql, _ := captureGraphQL(t, map[string]string{
-		"Me": whoamiMeJSON,
+		"AuthContext": whoamiAuthJSON,
 		"TeamSessions": `{"data":{"sessions":[` +
 			whoamiSession("s-mine", "wkr1", "u-me", "Jonas", false) + `]}}`,
 	})
@@ -2287,6 +2300,86 @@ func TestTeamSessionWhoamiAnswersOutsideAnyWorktree(t *testing.T) {
 	}
 }
 
+// A REJECTED credential must say so, not "nothing to recover" (@copilot, #625).
+//
+// This is the input the App-key test below cannot stand in for, and getting it
+// wrong produced a materially misleading message: classifying on `me` answered
+// null for a rejected token and a valid App key ALIKE, so a caller whose token
+// was simply not accepted was told they had no sessions. Measured live against
+// the real server with a bogus HADRON_TOKEN before the fix.
+//
+// The remedy is not a better message on the same branch — it is asking
+// authContext, which distinguishes them, exactly as `auth whoami` does.
+func TestTeamSessionWhoamiRejectedCredentialSaysSo(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"AuthContext": whoamiRejectedJSON,
+		// Deliberately answerable: if the code reached the list despite an
+		// unresolved credential it would report ANOTHER USER'S session.
+		"TeamSessions": `{"data":{"sessions":[` + whoamiSession("s-theirs", "wkr2", "u-other", "Dara", false) + `]}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "whoami", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.AuthRequired {
+		t.Errorf("exit = %d, want %d (AuthRequired); err: %v", code, exitcode.AuthRequired, err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "auth login") {
+		t.Errorf("a rejected token must name the remedy: %v", err)
+	}
+}
+
+// #625 (@codex P2 + @copilot): every ARRAY field must render [] and never null,
+// on EVERY branch. The worktree branch gets that from readBinding's
+// normalisation; both synthesized server bindings had to be given it.
+//
+// Asserted over the raw JSON because a decode cannot tell [] from null — the
+// same blindness review:stable-json-dto records for slices — and swept as a
+// FAMILY, over every array key at once, because that is how they fail: I
+// checked `candidates` and missed `prNumbers`, which is the exact mistake that
+// rule exists to prevent.
+func TestTeamSessionWhoamiArrayFieldsAreNeverNull(t *testing.T) {
+	arrayKeys := []string{"prNumbers", "candidates"}
+	cases := []struct {
+		name string
+		rows string
+	}{
+		{"one candidate", whoamiSession("s-a", "wkr1", "u-me", "Jonas", false)},
+		{"several candidates", whoamiSession("s-a", "wkr1", "u-me", "Jonas", false) + `,` +
+			whoamiSession("s-b", "wkr2", "u-me", "Vera", false)},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			teamGitDir(t)
+			gql, _ := captureGraphQL(t, map[string]string{
+				"AuthContext":  whoamiAuthJSON,
+				"TeamSessions": `{"data":{"sessions":[` + c.rows + `]}}`,
+			})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "session", "whoami", "--json", "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var raw map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(out.String()), &raw); err != nil {
+				t.Fatalf("decode: %v — %s", err, out.String())
+			}
+			for _, k := range arrayKeys {
+				v, ok := raw[k]
+				if !ok {
+					t.Errorf("%q must be present", k)
+					continue
+				}
+				if string(v) == "null" {
+					t.Errorf("%q = null, want [] — an agent iterating it blind breaks on null", k)
+				}
+			}
+		})
+	}
+}
+
 // A credential with no USER identity — an App key — cannot have the self
 // filter applied, and the unfiltered list is other people's. It must refuse
 // rather than over-report, and it must NOT say "log in": an App key is
@@ -2294,7 +2387,7 @@ func TestTeamSessionWhoamiAnswersOutsideAnyWorktree(t *testing.T) {
 func TestTeamSessionWhoamiNoUserIdentityRefusesWithoutSayingLogIn(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"Me":           `{"data":{"me":null}}`,
+		"AuthContext":  whoamiAppKeyJSON,
 		"TeamSessions": `{"data":{"sessions":[` + whoamiSession("s-theirs", "wkr2", "u-other", "Dara", false) + `]}}`,
 	})
 	f, _ := testFactory(t)

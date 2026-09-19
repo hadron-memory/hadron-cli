@@ -1165,25 +1165,35 @@ type whoamiDTO struct {
 // necessarily among the newest rows and absence can only be proven by reading
 // the whole list.
 func openWorkerSessionsForCaller(ctx context.Context, client graphql.Client) ([]sessionDTO, error) {
-	me, err := gen.Me(ctx, client)
+	// AuthContext, not `me` — and the difference is a WRONG MESSAGE, not a
+	// style preference. `me` answers null for a valid App key AND for a
+	// rejected credential alike, so classifying on it reports "nothing to
+	// recover" to someone whose token was simply not accepted. Measured on PR
+	// #625: a bogus HADRON_TOKEN produced exactly that, while `auth whoami` —
+	// which reads authContext — correctly said the token was not accepted.
+	// authContext is the credential-type-agnostic read that separates them
+	// (it is populated for an App key, and null only when the credential does
+	// not resolve). Caught by @copilot.
+	ac, err := gen.AuthContext(ctx, client)
 	if err != nil {
 		return nil, api.MapError(err)
 	}
-	if me == nil || me.Me == nil || me.Me.Id == "" {
-		// No USER identity on this credential. Deliberately NOT AuthRequired:
-		// `me` is null for a valid App key too (that is why authContext exists),
-		// and an App key is authenticated — telling it to log in would be a
-		// false remedy. A genuine auth failure never reaches here, because the
-		// query itself errors and api.MapError classifies it.
-		//
-		// Without an identity the self-filter cannot run, and the unfiltered
-		// list is OTHER PEOPLE'S sessions — so refuse rather than over-report.
+	if ac == nil || ac.AuthContext == nil {
+		return nil, exitcode.Newf(exitcode.AuthRequired, "token was not accepted — run `hadron auth login`")
+	}
+	if ac.AuthContext.User == nil || ac.AuthContext.User.Id == "" {
+		// A VALID credential carrying no user identity — an App key. NOT
+		// AuthRequired: it is authenticated, so "log in" would be a false
+		// remedy. Without an identity the self-filter cannot run, and the
+		// unfiltered list is OTHER PEOPLE'S sessions, so refuse rather than
+		// over-report.
 		return nil, exitcode.Newf(exitcode.NotFound,
 			"no worker session can be attributed to this credential — it carries no user identity (an App key has none), so there is nothing to recover here")
 	}
+	meID := ac.AuthContext.User.Id
 	mine := []sessionDTO{}
 	err = scanSessions(ctx, client, nil, nil, func(s gen.TeamSessionFields) bool {
-		if s.EndedAt != nil || strOrEmpty(s.WorkerId) == "" || strOrEmpty(s.UserId) != me.Me.Id {
+		if s.EndedAt != nil || strOrEmpty(s.WorkerId) == "" || strOrEmpty(s.UserId) != meID {
 			return true
 		}
 		mine = append(mine, sessionDTOFromFields(s, nil))
@@ -1214,7 +1224,7 @@ func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree bool) e
 			"%s, and you have no open worker session on the server — `hadron team session start --as <name>` opens one",
 			noBindingReason(inWorktree))
 	}
-	dto := whoamiDTO{binding: &binding{}, Source: "server", Candidates: mine}
+	dto := whoamiDTO{binding: &binding{PRNumbers: []int{}}, Source: "server", Candidates: mine}
 	if len(mine) == 1 {
 		// Unambiguous, so the session fields answer as the worktree branch
 		// would. This REPORTS; it does not re-create the binding — whoami is a
@@ -1224,6 +1234,11 @@ func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree bool) e
 			SessionID: s.ID, WorkerID: strOrEmpty(s.WorkerID), WorkerName: strOrEmpty(s.WorkerName),
 			WorkerRole: strOrEmpty(s.WorkerRole), StartedAt: s.StartedAt,
 			Tool: strOrEmpty(s.Tool), Repo: strOrEmpty(s.Repo), Model: strOrEmpty(s.LLMModel),
+			// [] and never null, matching what readBinding normalizes the
+			// worktree branch to. Both synthesized bindings need it, and this
+			// one REPLACES the empty binding above rather than mutating it —
+			// which is how the initialisation there stops covering this path.
+			PRNumbers: []int{},
 		}
 	}
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
