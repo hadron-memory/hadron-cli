@@ -31,6 +31,7 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 		properties     string
 		propertiesFile string
 		runnable       bool
+		role           string
 		tags           []string
 	)
 	cmd := &cobra.Command{
@@ -115,6 +116,18 @@ schema and rejects a violation.`,
 			if cmd.Flags().Changed("runnable") {
 				input.IsRunnable = &runnable
 			}
+			// #1201 — setting a governed role routes this create through that
+			// kind's door (see api.CreateNodeByKind). Omitted leaves the node
+			// ungoverned, which the generic surface accepts.
+			if cmd.Flags().Changed("role") {
+				// Same refusal as `node update --role ""`: an empty role is a
+				// value the server keeps verbatim, not a clear.
+				if role == "" {
+					return exitcode.Newf(exitcode.Usage,
+						`--role "" would write an EMPTY role rather than leave the node ungoverned — omit the flag instead`)
+				}
+				input.Role = &role
+			}
 
 			// Dispatch by KIND, not by command (#1201). `--runnable` produces a
 			// task-kind node, which the generic `createNode` REFUSES — so this
@@ -146,6 +159,9 @@ schema and rejects a violation.`,
 	cmd.Flags().StringVar(&dataFile, "data-file", "", "read the JSON data object from a file")
 	cmd.Flags().StringVar(&properties, "properties", "", "structured-storage JSON properties (#725; schema-governed on a schema'd memory)")
 	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "read the JSON properties object from a file")
+	// See node update's --role: NOT --type, and NOT a membership role.
+	cmd.Flags().StringVar(&role, "role", "",
+		`what this node is FOR (#1201) — governed values "spec"/"review" route the write through that kind's door. NOT --type (the platform kind) and NOT a membership role`)
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "mark the node runnable by 'hadron task run'")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "tag (repeatable)")
 	_ = cmd.MarkFlagRequired("memory")

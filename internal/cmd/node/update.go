@@ -23,6 +23,7 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		contentFile    string
 		nodeType       string
 		objectType     string
+		role           string
 		description    string
 		abstract       string
 		abstractFile   string
@@ -76,7 +77,8 @@ schema-governed memory the server validates the result and rejects a violation.)
 			anyField := changed("name") || changed("content") || changed("content-file") ||
 				changed("type") || changed("object-type") || changed("description") ||
 				changed("abstract") || changed("abstract-file") ||
-				replaceData || replaceProps || changed("runnable") || changed("tag")
+				replaceData || replaceProps || changed("runnable") || changed("tag") ||
+				changed("role")
 			if !anyField && !mergeData {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
@@ -164,6 +166,27 @@ schema-governed memory the server validates the result and rejects a violation.)
 				if changed("object-type") {
 					input.ObjectType = &objectType
 				}
+				// #1201. Sending this is what makes the node GOVERNED — and the
+				// gate reads the resulting state, so an explicit role here wins
+				// over the stored one when the door is chosen below.
+				if changed("role") {
+					// REFUSED rather than sent. The schema says null clears and
+					// omission preserves, and `*string` + omitempty can express
+					// neither an explicit null nor a distinct "clear" — a nil
+					// pointer is omitted. So `--role ""` would write the EMPTY
+					// STRING, which the server does NOT normalize to null.
+					//
+					// Measured, because the neighbouring flag sets the opposite
+					// expectation: `--object-type ""` really does clear (the
+					// server normalizes that one). Role does not, so a node would
+					// be left carrying role "" — neither governed nor cleanly
+					// ungoverned, and matching no entry in the register.
+					if role == "" {
+						return exitcode.Newf(exitcode.Usage,
+							`--role "" would write an EMPTY role, not clear it — the server normalizes an empty object-type but not an empty role, leaving the node in a state no kind recognizes. Pass a value, or clear it with: hadron api 'mutation($i: UpdateNodeInput!){ updateSpecNode(input:$i){ id role } }' -F i='{"id":"<id>","role":null}'`)
+					}
+					input.Role = &role
+				}
 				if changed("description") {
 					input.Description = &description
 				}
@@ -246,6 +269,12 @@ schema-governed memory the server validates the result and rejects a violation.)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", "read new content from a file")
 	cmd.Flags().StringVar(&nodeType, "type", "", "new node type")
 	cmd.Flags().StringVar(&objectType, "object-type", "", `new structured-storage collection (#725; "" clears → ordinary node; omit to preserve)`)
+	// NOT the same word as `memory member --role` / `memory share --role`, which
+	// are MEMBERSHIP roles on a person. This is Node.role — what the node is FOR
+	// — and the usage says what it is not, the condition @Holger attached to
+	// there being three kind-ish fields at all (nodeType / objectType / role).
+	cmd.Flags().StringVar(&role, "role", "",
+		`what this node is FOR (#1201) — governed values "spec"/"review" route the write through that kind's door; omit to preserve (clearing needs an explicit null; "" is refused). NOT --type (the platform kind) and NOT a membership role`)
 	cmd.Flags().StringVar(&description, "description", "", "new one-line description")
 	cmd.Flags().StringVar(&abstract, "abstract", "", `new paragraph-length summary ("-" reads stdin)`)
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "read the new abstract from a file")
