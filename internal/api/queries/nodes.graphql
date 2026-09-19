@@ -132,6 +132,7 @@ query NodeBatch(
       name
       alias
       nodeType
+      role
       objectType
       isRunnable
       description
@@ -672,6 +673,7 @@ mutation MoveNode(
     loc
     name
     nodeType
+    role
     tags
     seq
     isRunnable
@@ -698,6 +700,7 @@ mutation CloneNode(
     loc
     name
     nodeType
+    role
     tags
     seq
     isRunnable
@@ -722,6 +725,7 @@ mutation MergeNodes(
     loc
     name
     nodeType
+    role
     tags
     isRunnable
     updatedAt

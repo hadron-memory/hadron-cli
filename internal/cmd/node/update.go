@@ -147,6 +147,25 @@ schema-governed memory the server validates the result and rejects a violation.)
 
 			var dto nodeDTO
 			if anyField {
+				// The node's CURRENT kind, read once and used twice: to choose
+				// the door for the write (the gate reads the RESULTING state,
+				// and an omitted field preserves the stored one), and to name
+				// the right door in the `--role ""` refusal.
+				//
+				// INSIDE the field branch, not above it: a `--data-merge`-only
+				// update writes through `updateNodeData` and needs no door, so
+				// reading here would spend a round trip on every merge for an
+				// answer nothing consults.
+				//
+				// Best-effort — a failed read leaves the zero value, which
+				// routes to the generic surface and lets the server give the
+				// authoritative refusal.
+				cur := api.NodeKindState{}
+				if existing, gerr := gen.GetNode(cmd.Context(), client, nodeID); gerr == nil && existing.Node != nil {
+					cur.Role = existing.Node.Role
+					cur.IsRunnable = existing.Node.IsRunnable != nil && *existing.Node.IsRunnable
+				}
+
 				input := gen.UpdateNodeInput{
 					Id: &nodeID,
 				}
@@ -170,6 +189,19 @@ schema-governed memory the server validates the result and rejects a violation.)
 				// gate reads the resulting state, so an explicit role here wins
 				// over the stored one when the door is chosen below.
 				if changed("role") {
+					// Two governed kinds cannot coexist, and an UPDATE can
+					// produce that pair from a node that is already runnable —
+					// the resulting state is what the gate reads (@codex on
+					// #615).
+					resultRunnable := cur.IsRunnable
+					if changed("runnable") {
+						resultRunnable = runnable
+					}
+					if kinds := api.GovernedKindConflict(&role, resultRunnable); kinds != nil {
+						return exitcode.Newf(exitcode.Usage,
+							"this would leave the node as two governed kinds at once — %s — and each door is exempt from its OWN kind only, so every one of them refuses it. Clear the other first, or write it with `hadron api`",
+							strings.Join(kinds, " AND "))
+					}
 					// REFUSED rather than sent. The schema says null clears and
 					// omission preserves, and `*string` + omitempty can express
 					// neither an explicit null nor a distinct "clear" — a nil
@@ -181,9 +213,16 @@ schema-governed memory the server validates the result and rejects a violation.)
 					// server normalizes that one). Role does not, so a node would
 					// be left carrying role "" — neither governed nor cleanly
 					// ungoverned, and matching no entry in the register.
+					//
+					// The remedy names the door for the node's CURRENT kind, not a
+					// fixed one: clearing is an UPDATE of what the node is now, so
+					// a review node needs updateReviewNode and a runnable one
+					// updateTaskNode. Prescribing updateSpecNode for all of them
+					// would be refused for most governed nodes (@copilot on #615).
 					if role == "" {
 						return exitcode.Newf(exitcode.Usage,
-							`--role "" would write an EMPTY role, not clear it — the server normalizes an empty object-type but not an empty role, leaving the node in a state no kind recognizes. Pass a value, or clear it with: hadron api 'mutation($i: UpdateNodeInput!){ updateSpecNode(input:$i){ id role } }' -F i='{"id":"<id>","role":null}'`)
+							`--role "" would write an EMPTY role, not clear it — the server normalizes an empty object-type but not an empty role, leaving the node in a state no kind recognizes. Pass a value, or clear it with an explicit null through the door for what this node is NOW: hadron api 'mutation($i: UpdateNodeInput!){ %s(input:$i){ id role } }' -F i='{"id":"%s","role":null}'`,
+							clearDoorFor(cur), nodeID)
 					}
 					input.Role = &role
 				}
@@ -229,12 +268,8 @@ schema-governed memory the server validates the result and rejects a violation.)
 				// One extra read per update, on a command that is not a hot
 				// loop. The alternative — write optimistically and retry on the
 				// typed refusal — doubles latency on the governed path and turns
-				// a routing decision into error handling.
-				cur := api.NodeKindState{}
-				if existing, gerr := gen.GetNode(cmd.Context(), client, nodeID); gerr == nil && existing.Node != nil {
-					cur.Role = existing.Node.Role
-					cur.IsRunnable = existing.Node.IsRunnable != nil && *existing.Node.IsRunnable
-				}
+				// a routing decision into error handling. (Read above, so the
+				// `--role ""` refusal can name the same door.)
 				resp, err := api.UpdateNodeByKind(cmd.Context(), client, &input, cur)
 				if err != nil {
 					return api.MapError(err)
@@ -320,4 +355,27 @@ func resolveMergeData(dataMerge, dataMergeFile string, stdin io.Reader) (json.Ra
 		return nil, exitcode.Newf(exitcode.Usage, "%s must contain valid JSON", flag)
 	}
 	return json.RawMessage(raw), nil
+}
+
+// clearDoorFor names the mutation that may clear a node's role — the door for
+// what the node is NOW, not a fixed one.
+//
+// Clearing is an UPDATE, and the gate reads BOTH the prior and resulting state,
+// so the write must go through the door of the kind the node currently carries:
+// a review node needs `updateReviewNode`, a runnable one `updateTaskNode`.
+// Naming `updateSpecNode` for all of them — as the first version did — is
+// refused for most governed nodes (@copilot on #615).
+//
+// An ungoverned node needs no door and gets the generic surface; it also cannot
+// reach this message, since there is nothing to clear.
+func clearDoorFor(cur api.NodeKindState) string {
+	switch {
+	case cur.IsRunnable:
+		return "updateTaskNode"
+	case cur.Role != nil && *cur.Role == api.SpecNodeRole:
+		return "updateSpecNode"
+	case cur.Role != nil && *cur.Role == api.ReviewNodeRole:
+		return "updateReviewNode"
+	}
+	return "updateNode"
 }

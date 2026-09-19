@@ -81,6 +81,7 @@ func cloneDTO(n *gen.CloneNodeCloneNode) nodeDTO {
 		Tags:       n.Tags,
 		Seq:        nil,
 		IsRunnable: boolVal(n.IsRunnable),
+		Role:       n.Role,
 		UpdatedAt:  n.UpdatedAt,
 	}
 }

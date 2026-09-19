@@ -2862,3 +2862,96 @@ func TestNodeGetRendersUngovernedRoleAsNull(t *testing.T) {
 		t.Errorf("ungoverned role should be null, got %v", v)
 	}
 }
+
+// @codex on #615: a node cannot be two governed kinds at once. No door can
+// write it — each is exempt from its OWN kind only — and the server's refusal
+// names one that would also refuse, which is worse than no advice.
+func TestNodeTwoGovernedKindsIsRefused(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"add: runnable + spec", []string{"node", "add", "-m", "acme.com::kb", "--loc", "x:y",
+			"--name", "X", "--runnable", "--role", "spec"}},
+		{"add: runnable + review", []string{"node", "add", "-m", "acme.com::kb", "--loc", "x:y",
+			"--name", "X", "--runnable", "--role", "review"}},
+		{"update: runnable + spec", []string{"node", "update", nodeURN, "--runnable", "--role", "spec"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"ResolveUrn":     resolveNodeJSON,
+				"GetNode":        `{"data":{"node":` + nodeDetailJSON + `}}`,
+				"CreateNode":     `{"data":{"createNode":` + nodeJSON + `}}`,
+				"CreateTaskNode": `{"data":{"createTaskNode":` + nodeJSON + `}}`,
+				"CreateSpecNode": `{"data":{"createSpecNode":` + nodeJSON + `}}`,
+				"UpdateNode":     `{"data":{"updateNode":` + nodeJSON + `}}`,
+				"UpdateTaskNode": `{"data":{"updateTaskNode":` + nodeJSON + `}}`,
+				"UpdateSpecNode": `{"data":{"updateSpecNode":` + nodeJSON + `}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(tc.args, "--server", gql.URL))
+			if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
+				t.Fatalf("two governed kinds should be Usage, got %d", got)
+			}
+			for _, op := range []string{"CreateNode", "CreateTaskNode", "CreateSpecNode",
+				"UpdateNode", "UpdateTaskNode", "UpdateSpecNode"} {
+				if _, wrote := captured[op]; wrote {
+					t.Errorf("must refuse BEFORE writing; hit %s", op)
+				}
+			}
+		})
+	}
+}
+
+// But ONE governed kind beside an OPEN role is legitimate and must still work —
+// measured against the live server before this guard was written. A blanket
+// "--runnable excludes --role" would have been wrong.
+func TestNodeRunnableWithUngovernedRoleIsAllowed(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateTaskNode": `{"data":{"createTaskNode":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "add", "-m", "acme.com::kb", "--loc", "x:y", "--name", "X",
+		"--runnable", "--role", "weather-widget", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("one governed kind plus an open role is legitimate: %v", err)
+	}
+	if _, ok := captured["CreateTaskNode"]; !ok {
+		t.Error("should route through the task door")
+	}
+}
+
+// @copilot on #615: the clear remedy must name the door for what the node IS
+// NOW. Prescribing updateSpecNode for a review or runnable node is refused.
+func TestNodeUpdateClearRemedyNamesTheCurrentKindsDoor(t *testing.T) {
+	detail := func(role, runnable string) string {
+		return `{"id":"n1","memoryId":"mem1","loc":"findings:x","name":"X","description":null,
+			"abstract":null,"nodeType":"info","tags":[],"role":` + role + `,"isRunnable":` + runnable + `,
+			"content":"b","seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-11T00:00:00Z",
+			"outgoingEdges":[],"incomingEdges":[]}`
+	}
+	for _, tc := range []struct{ name, node, want string }{
+		{"spec node", detail(`"spec"`, "false"), "updateSpecNode"},
+		{"review node", detail(`"review"`, "false"), "updateReviewNode"},
+		{"runnable node", detail("null", "true"), "updateTaskNode"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql := fakeGraphQL(t, map[string]string{
+				"ResolveUrn": resolveNodeJSON,
+				"GetNode":    `{"data":{"node":` + tc.node + `}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"node", "update", nodeURN, "--role", "", "--server", gql.URL})
+			err := root.Execute()
+			if exitCodeFor(err) != exitcode.Usage {
+				t.Fatalf("expected Usage, got %v", err)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("remedy must name %s for a %s:\n%v", tc.want, tc.name, err)
+			}
+		})
+	}
+}

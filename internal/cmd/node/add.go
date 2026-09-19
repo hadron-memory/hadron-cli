@@ -120,6 +120,15 @@ schema and rejects a violation.`,
 			// kind's door (see api.CreateNodeByKind). Omitted leaves the node
 			// ungoverned, which the generic surface accepts.
 			if cmd.Flags().Changed("role") {
+				// A node cannot be two governed kinds at once — no door can
+				// write it, and the server's refusal names one that would also
+				// refuse (@codex on #615). Caught here so the message says the
+				// true thing.
+				if kinds := api.GovernedKindConflict(&role, runnable && cmd.Flags().Changed("runnable")); kinds != nil {
+					return exitcode.Newf(exitcode.Usage,
+						"a node cannot be two governed kinds at once — this would be %s, and each door is exempt from its OWN kind only, so every one of them refuses it. Drop one, or write it with `hadron api` if the server's register has changed",
+						strings.Join(kinds, " AND "))
+				}
 				// Same refusal as `node update --role ""`: an empty role is a
 				// value the server keeps verbatim, not a clear.
 				if role == "" {

@@ -189,6 +189,39 @@ func UpdateSpecNode(ctx context.Context, client graphql.Client, input *gen.Updat
 // on a label that is free to omit. There is no constant to compare against here;
 // the predicate is the boolean itself.
 
+// GovernedKindConflict reports the governed kinds a write would produce when
+// there is MORE THAN ONE, and nil otherwise.
+//
+// No door can write such a node. Each is exempt from its OWN kind only and
+// stays fully subject to the others, so `isRunnable: true` + `role: "spec"` is
+// refused by `createTaskNode` (for the role) and by `createSpecNode` (for the
+// capability) alike. The server's refusal names one of them, which makes it
+// actively misleading: it sends the caller to a door that will also refuse.
+//
+// THIS IS ROUTING, NOT VALIDATION, and the distinction is the one @Ada drew on
+// #615 — the CLI must not refuse a role VALUE, because the register is a
+// server-side closed list that changes without this client knowing. It says
+// nothing here about whether a value is governed in general; it reports that
+// the mapping this client holds, which it needs anyway to pick a mutation,
+// yields two doors and therefore none.
+//
+// The degradation is safe and loud: if the server later un-governs a kind, this
+// refuses a write that would now succeed — a visible Usage error naming
+// `hadron api` as the way through, rather than a silent wrong result.
+func GovernedKindConflict(role *string, isRunnable bool) []string {
+	var kinds []string
+	if isRunnable {
+		kinds = append(kinds, "task (isRunnable)")
+	}
+	if role != nil && (*role == SpecNodeRole || *role == ReviewNodeRole) {
+		kinds = append(kinds, "role "+*role)
+	}
+	if len(kinds) < 2 {
+		return nil
+	}
+	return kinds
+}
+
 // CreateNodeByKind writes a node through the door its KIND requires, or through
 // the generic `createNode` when it is of no governed kind.
 //
